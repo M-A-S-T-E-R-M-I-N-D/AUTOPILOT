@@ -8,7 +8,7 @@ export const GATE_KINDS = ['typecheck', 'test', 'build', 'lint'] as const;
 export type GateKind = (typeof GATE_KINDS)[number];
 
 /** Built-in ecosystem ids; the registry is open so any string is a valid id. */
-export const KNOWN_ECOSYSTEMS = ['js', 'python', 'go', 'rust'] as const;
+export const KNOWN_ECOSYSTEMS = ['js', 'python', 'go', 'rust', 'static-site'] as const;
 export type EcosystemId = string;
 
 /** The no-match sentinel. */
