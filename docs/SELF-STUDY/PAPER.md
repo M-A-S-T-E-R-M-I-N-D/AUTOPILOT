@@ -214,27 +214,27 @@ harness does not (yet) independently verify it by re-running the named test agai
 ## 4. Results
 
 <!-- DATA:SUMMARY:START -->
-_Generated 2026-09-03T22:44:06.711Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 18 recorded firing(s))._
+_Generated 2026-09-03T21:04:41.597Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 20 recorded firing(s))._
 
 | Metric | Value |
 |---|---|
-| Firings recorded | 18 |
-| Firings shipped (gate-verified commit landed) | 2 (11.1%) |
-| Gate result | unverifiable 11 (61.1%) · passed 6 (33.3%) · reverted 1 (5.6%) |
-| Completion (self-reported) | complete 10 (55.6%) · untagged 5 (27.8%) · slice 3 (16.7%) |
-| Commit kind | untagged 7 (38.9%) · fix 5 (27.8%) · feat 3 (16.7%) · docs 3 (16.7%) |
-| Firing-Prompt-Version (shipped commits, from git trailers) | pre-trailer 1 (50.0%) · firing-v12 1 (50.0%) |
-| Total cost (USD, self-reported) | $32.94 |
-| Total tokens, in / out | 1,586 / 542,624 |
-| Cache read / write tokens | 93,324,496 / 2,244,699 |
-| Total turns | 947 |
+| Firings recorded | 20 |
+| Firings shipped (gate-verified commit landed) | 8 (40.0%) |
+| Gate result | passed 8 (40.0%) · checkpointed 7 (35.0%) · no-commit 3 (15.0%) · reverted 2 (10.0%) |
+| Completion (self-reported) | slice 8 (40.0%) · untagged 8 (40.0%) · complete 4 (20.0%) |
+| Commit kind | untagged 8 (40.0%) · fix 6 (30.0%) · docs 3 (15.0%) · feat 2 (10.0%) · refactor 1 (5.0%) |
+| Firing-Prompt-Version (shipped commits, from git trailers) | pre-trailer 8 (100.0%) |
+| Total cost (USD, self-reported) | $20.36 |
+| Total tokens, in / out | 980 / 243,122 |
+| Cache read / write tokens | 53,760,799 / 1,793,966 |
+| Total turns | 1,373 |
 | Firing date range | 2026-09-03 — 2026-09-03 |
 
 **Eval regression by prompt version (SOTA-MAP H3).** One row per `Firing-Prompt-Version` value recorded in the engine's own telemetry at firing time (`events.payload.promptVersion`), so every firing counts — not only the shipped commits the row above resolves via git trailers. Pass rate = shipped ÷ firings; cost variance is the population variance of `costUsd` across every firing in that version (a consistency signal, not the same thing as the median); cost/solved = total cost across every firing in that version ÷ number shipped. A prompt-version bump should be gated on these four numbers moving together, not on pass rate alone (H3: "optimizing pass rate alone selects for expensive, high-variance configurations").
 
 | Prompt version | Firings | Pass rate | Median turns | Cost variance | Cost / solved task |
 |---|---|---|---|---|---|
-| firing-v12 | 18 | 11.1% | 45 | 1.05 | $16.47 |
+| firing-v12 | 20 | 40.0% | 50 | 0.55 | $2.55 |
 
 **Eval regression over the pinned suite (pre-registered, SOTA-MAP: "20-50 real tasks from your own repository with known-good outcomes").** 50 firing(s) pinned 2026-08-10 (`docs/SELF-STUDY/eval-suite.json`) — each independently verified shipped by the harness (gate passed, SHA confirmed, HEAD advanced), not self-reported. Unlike the ad hoc table above, this population is fixed: re-running this script next month against the same pinned ids reproduces the same numbers below, because the pinned set cannot grow.
 
@@ -246,336 +246,396 @@ _Generated 2026-09-03T22:44:06.711Z by `pnpm self-study:update` from the local t
 
 | Pick source | Firings | Pass rate | Median turns | Cost variance | Cost / solved task |
 |---|---|---|---|---|---|
-| operator-assigned | 12 | 0.0% | 50.5 | 1.14 | n/a |
-| self-proposed | 3 | 0.0% | 34 | 0.06 | n/a |
-| untracked-item | 3 | 66.7% | 27 | 0.19 | $0.92 |
+| operator-assigned | 10 | 70.0% | 39 | 0.47 | $2.12 |
+| free-pick | 8 | 0.0% | 103.5 | 0.90 | n/a |
+| self-proposed | 1 | 100.0% | 19 | 0.00 | $0.67 |
+| untracked-item | 1 | 0.0% | 28 | 0.00 | n/a |
+
+**Evaluation labels: operator verdicts on self-proposed tasks (human-vs-agent, backlog web-msniol15-foo6oi).** The other half of the slice above: `mutate.ts`'s `setTaskStatus`/`deleteTask` record an `'approved'`/`'rejected'` event whenever the operator approves a `source: 'self'` proposal into `queued`, or deletes one outright. This is a real fitness signal on the agent's OWN proposals — not yet on edits or corrections to operator-assigned or already-approved tasks, which still record no verdict (see §6).
+
+| Verdicts recorded | Approved | Rejected | Approval rate |
+|---|---|---|---|
+| 2 | 2 | 0 | 100.0% |
 
 **TDD-first compliance on fix tasks (backlog web-msnsxuep-ytwucr).** The firing prompt requires a FAILING test reproducing the bug BEFORE the fix on every `kind:"fix"` firing; the agent self-reports whether it followed that order (`METRICS.testFirst` → `metrics.test_first`). Self-reported, not (yet) independently verified by re-running the named test against the pre-fix commit — see the limitations this shares with `completion` in `docs/MODEL-CARD.md` §5.
 
 | Fix firings | Self-reported | Compliant | Compliance rate |
 |---|---|---|---|
-| 5 | 3 | 2 | 66.7% |
+| 6 | 6 | 6 | 100.0% |
 
 **PICK DISCIPLINE — Goodhart audit on triage order (backlog web-msu755l7-mhyvuy).** The firing prompt requires each firing to either work the triage-TOP board task or record an explicit `deviation_reason` for working a lower-ranked one; the agent self-reports which rank it picked (`METRICS.picked_rank` → `metrics.picked_rank`) and, on a deviation, why. An unjustified deviation — a lower-ranked pick with no recorded reason — is the comfort-grinding failure mode this audit exists to surface: silently evading triage order in favor of an easier task. Self-reported, not (yet) independently verified against the board's actual rendered order at pick time — the same limitation `testFirst` compliance above shares (`docs/MODEL-CARD.md` §5).
 
 | Ranked firings | Top picked | Justified deviations | Unjustified deviations | Violation rate |
 |---|---|---|---|---|
-| 9 | 4 | 5 | 0 | 0.0% |
+| 10 | 3 | 7 | 0 | 0.0% |
 
 **BOARD DIVERSITY audit (backlog web-mtb8i2s3-wd3rod).** `pickDisciplineAudit` above only checks that a deviation from the triage-TOP task carried SOME `deviation_reason` — a firing can honestly supply a fresh-reading reason on every one of many consecutive firings and still be comfort-picking the same easy item over and over, invisible to a justified/unjustified split. This measures that instead: among firings that deviated and named the item they worked, how many distinct items those deviations actually cover, and the longest run of consecutive deviations that named the identical item.
 
 | Deviated firings | Distinct items | Longest same-item streak | Most-repeated item |
 |---|---|---|---|
-| 5 | 4 | 1 | web-mtluaot4-g7kjuu |
+| 7 | 3 | 2 | web-mtd1wmqc-v7h6cq |
 
 **Gate parallelization savings (backlog web-msnt26tn-jvyihy, "PARALLEL GATE + test-impact").** `fly.ts` runs the gate's typecheck/lint/format steps concurrently instead of one after another (each still timed independently by `GateRunner`). Sequential = the sum of those durations per firing (the counterfactual cost if they had run one after another); observed = the max per firing (the real wall-clock a concurrent batch takes, bounded by its slowest member) — both derived from already-collected telemetry, not a live re-run.
 
 | Sampled firings | Sequential (sum) | Observed (max) | Saved | Saved % |
 |---|---|---|---|---|
-| 7 | 1690.7s | 1061.0s | 629.7s | 37.2% |
+| 17 | 3568.2s | 1921.7s | 1646.5s | 46.1% |
 
-**Finish-line extension savings (epic `docs/epics/0009-warm-sessions.md`, board web-msnt26so-0c6tje).** The measured resumed-vs-cold verdict above was negative, so resume narrowed to a bounded FINISH-LINE EXTENSION self-resume of the same firing's session (`firing.ts`), queryable since migration v17 (`metrics.extended`). No extended firing recorded yet (baseline: 18 ordinary firing(s)) — the extension-vs-checkpoint verdict stays pending until this group is non-empty.
+**Warm-session savings (epic `docs/epics/0009-warm-sessions.md`, board web-msnt26so-0c6tje).** A firing within a flight can resume the prior firing's CLI session (`--resume <session_id>`) instead of cold-spawning a fresh one — grouped here by `metrics.resumed` disposition: a real resume, a resume attempt that fell back to cold at the CLI level, and an ordinary cold spawn (including all pre-warm-sessions history). Deltas compare `resumed` against `cold` only, and stay `n/a` until both groups have at least one firing. Avg cost/turn is the mean of each firing's OWN cost-divided-by-turns ratio, not group-total cost over group-total turns — the confound-controlled view: resumed and cold firings run very different average turn counts, so the raw per-firing cost delta can disagree with the per-turn one.
+
+| Group | Firings | Avg fresh input tokens | Avg cache-read tokens | Avg cost | Avg turns | Avg cost/turn |
+|---|---|---|---|---|---|---|
+| Resumed | 1 | 14 | 1115280 | $0.92 | 8.0 | $0.115 |
+| Cold fallback (resume attempted, failed) | 0 | n/a | n/a | $n/a | n/a | $n/a |
+| Cold (no resume requested) | 19 | 51 | 2770817 | $1.02 | 71.8 | $0.024 |
+
+Fresh-input tokens saved per resumed firing vs. cold: 37. Cost saved per resumed firing vs. cold: $0.10. Cost saved per turn, resumed vs. cold: $-0.092.
+
+**Finish-line extension savings (epic `docs/epics/0009-warm-sessions.md`, board web-msnt26so-0c6tje).** A firing that hits its turn cap mid-unit gets one bounded resume of its OWN session (`firing.ts`) before any checkpoint hand-off — grouped here by `metrics.extended` (migration v17). Positive deltas mean an extended firing costs less than an ordinary one; avg cost/turn is the mean of each firing's OWN cost-divided-by-turns ratio, the same confound control as the warm-session table above (an extension adds turns to an already-long firing, so the raw per-firing delta can mislead).
+
+| Group | Firings | Avg fresh input tokens | Avg cache-read tokens | Avg cost | Avg turns | Avg cost/turn |
+|---|---|---|---|---|---|---|
+| Extended (finish-line self-resume) | 1 | 100 | 6593630 | $2.85 | 58.0 | $0.049 |
+| Ordinary | 19 | 46 | 2482483 | $0.92 | 69.2 | $0.027 |
+
+Cost saved per extended firing vs. ordinary: $-1.92. Cost saved per turn, extended vs. ordinary: $-0.022.
 <!-- DATA:SUMMARY:END -->
 
 <!-- DATA:CHART:START -->
-_Generated 2026-09-03T22:44:06.770Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
+_Generated 2026-09-03T21:04:41.612Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
 
 **Firings per day**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per day, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 2 shipped of 18 firing(s). Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">18</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="207.7" width="48.0" height="18.3" rx="3" fill="#009E73"><title>2026-09-03: 2 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="153.7" rx="3" fill="#64748B"><title>2026-09-03: 16 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per day, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 8 shipped of 20 firing(s). Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">20</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="157.4" width="48.0" height="68.6" rx="3" fill="#009E73"><title>2026-09-03: 8 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="103.4" rx="3" fill="#64748B"><title>2026-09-03: 12 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
 
 **Cost per day**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Cost per day (USD)</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: $32.94. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#0072B2" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Cost (USD)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">$32.94</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">$0</text><path d="M334.0,52.0" fill="none" stroke="#0072B2" stroke-width="2"/><circle cx="334.0" cy="52.0" r="3.5" fill="#0072B2"><title>2026-09-03: $32.94</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Cost per day (USD)</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: $20.36. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#0072B2" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Cost (USD)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">$20.36</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">$0</text><path d="M334.0,52.0" fill="none" stroke="#0072B2" stroke-width="2"/><circle cx="334.0" cy="52.0" r="3.5" fill="#0072B2"><title>2026-09-03: $20.36</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
 
 **Ship rate (3-day rolling)**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Ship rate (%), 3-day rolling</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 11.1%. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#009E73" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Ship rate (3d rolling)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">100%</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0%</text><path d="M334.0,206.7" fill="none" stroke="#009E73" stroke-width="2"/><circle cx="334.0" cy="206.7" r="3.5" fill="#009E73"><title>2026-09-03: 11.1%</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Ship rate (%), 3-day rolling</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 40.0%. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#009E73" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Ship rate (3d rolling)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">100%</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0%</text><path d="M334.0,156.4" fill="none" stroke="#009E73" stroke-width="2"/><circle cx="334.0" cy="156.4" r="3.5" fill="#009E73"><title>2026-09-03: 40.0%</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
 
 **Firings per prompt version**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per prompt version, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 prompt version(s), chronologically from firing-v12 to firing-v12. firing-v12: 2 shipped of 18 firing(s). Exact values are also in the DATA:SERIES JSON block below (`perEra`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">18</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="207.7" width="48.0" height="18.3" rx="3" fill="#009E73"><title>firing-v12: 2 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="153.7" rx="3" fill="#64748B"><title>firing-v12: 16 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">v12</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per prompt version, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 prompt version(s), chronologically from firing-v12 to firing-v12. firing-v12: 8 shipped of 20 firing(s). Exact values are also in the DATA:SERIES JSON block below (`perEra`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">20</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="157.4" width="48.0" height="68.6" rx="3" fill="#009E73"><title>firing-v12: 8 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="103.4" rx="3" fill="#64748B"><title>firing-v12: 12 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">v12</text></svg>
 
 **Firings by turn count**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings by turn count, split into shipped vs. not shipped</title><desc>Stacked bar chart, 10 bucket(s) of 10 turns each, from 20-29 to 110-119. 20-29 turns: 2 shipped of 3 firing(s); 30-39 turns: 0 shipped of 3 firing(s); 40-49 turns: 0 shipped of 4 firing(s); 50-59 turns: 0 shipped of 4 firing(s); 60-69 turns: 0 shipped of 0 firing(s); 70-79 turns: 0 shipped of 1 firing(s); 80-89 turns: 0 shipped of 1 firing(s); 90-99 turns: 0 shipped of 0 firing(s); 100-109 turns: 0 shipped of 0 firing(s); 110-119 turns: 0 shipped of 2 firing(s). Exact values are also in the DATA:SERIES JSON block below (`turnsHistogram`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">4</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="57.0" y="140.0" width="31.9" height="86.0" rx="3" fill="#009E73"><title>20-29 turns: 2 shipped</title></rect><rect x="57.0" y="95.5" width="31.9" height="42.5" rx="3" fill="#64748B"><title>20-29 turns: 1 not shipped</title></rect><text x="73.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">20-29</text><rect x="115.0" y="93.5" width="31.9" height="130.5" rx="3" fill="#64748B"><title>30-39 turns: 3 not shipped</title></rect><text x="131.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">30-39</text><rect x="173.1" y="50.0" width="31.9" height="174.0" rx="3" fill="#64748B"><title>40-49 turns: 4 not shipped</title></rect><text x="189.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">40-49</text><rect x="231.1" y="50.0" width="31.9" height="174.0" rx="3" fill="#64748B"><title>50-59 turns: 4 not shipped</title></rect><text x="247.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">50-59</text><text x="305.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">60-69</text><rect x="347.1" y="180.5" width="31.9" height="43.5" rx="3" fill="#64748B"><title>70-79 turns: 1 not shipped</title></rect><text x="363.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">70-79</text><rect x="405.1" y="180.5" width="31.9" height="43.5" rx="3" fill="#64748B"><title>80-89 turns: 1 not shipped</title></rect><text x="421.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">80-89</text><text x="479.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">90-99</text><text x="537.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">100-109</text><rect x="579.0" y="137.0" width="31.9" height="87.0" rx="3" fill="#64748B"><title>110-119 turns: 2 not shipped</title></rect><text x="595.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">110-119</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings by turn count, split into shipped vs. not shipped</title><desc>Stacked bar chart, 20 bucket(s) of 10 turns each, from 0-9 to 190-199. 0-9 turns: 0 shipped of 1 firing(s); 10-19 turns: 2 shipped of 2 firing(s); 20-29 turns: 0 shipped of 1 firing(s); 30-39 turns: 2 shipped of 4 firing(s); 40-49 turns: 2 shipped of 2 firing(s); 50-59 turns: 0 shipped of 1 firing(s); 60-69 turns: 1 shipped of 2 firing(s); 70-79 turns: 0 shipped of 1 firing(s); 80-89 turns: 1 shipped of 2 firing(s); 90-99 turns: 0 shipped of 0 firing(s); 100-109 turns: 0 shipped of 0 firing(s); 110-119 turns: 0 shipped of 1 firing(s); 120-129 turns: 0 shipped of 0 firing(s); 130-139 turns: 0 shipped of 0 firing(s); 140-149 turns: 0 shipped of 1 firing(s); 150-159 turns: 0 shipped of 0 firing(s); 160-169 turns: 0 shipped of 0 firing(s); 170-179 turns: 0 shipped of 1 firing(s); 180-189 turns: 0 shipped of 0 firing(s); 190-199 turns: 0 shipped of 1 firing(s). Exact values are also in the DATA:SERIES JSON block below (`turnsHistogram`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">4</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="50.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>0-9 turns: 1 not shipped</title></rect><text x="58.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">0-9</text><rect x="79.5" y="139.0" width="16.0" height="87.0" rx="3" fill="#009E73"><title>10-19 turns: 2 shipped</title></rect><text x="87.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">10-19</text><rect x="108.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>20-29 turns: 1 not shipped</title></rect><text x="116.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">20-29</text><rect x="137.5" y="140.0" width="16.0" height="86.0" rx="3" fill="#009E73"><title>30-39 turns: 2 shipped</title></rect><rect x="137.5" y="52.0" width="16.0" height="86.0" rx="3" fill="#64748B"><title>30-39 turns: 2 not shipped</title></rect><text x="145.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">30-39</text><rect x="166.5" y="139.0" width="16.0" height="87.0" rx="3" fill="#009E73"><title>40-49 turns: 2 shipped</title></rect><text x="174.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">40-49</text><rect x="195.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>50-59 turns: 1 not shipped</title></rect><text x="203.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">50-59</text><rect x="224.5" y="183.5" width="16.0" height="42.5" rx="3" fill="#009E73"><title>60-69 turns: 1 shipped</title></rect><rect x="224.5" y="139.0" width="16.0" height="42.5" rx="3" fill="#64748B"><title>60-69 turns: 1 not shipped</title></rect><text x="232.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">60-69</text><rect x="253.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>70-79 turns: 1 not shipped</title></rect><text x="261.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">70-79</text><rect x="282.5" y="183.5" width="16.0" height="42.5" rx="3" fill="#009E73"><title>80-89 turns: 1 shipped</title></rect><rect x="282.5" y="139.0" width="16.0" height="42.5" rx="3" fill="#64748B"><title>80-89 turns: 1 not shipped</title></rect><text x="290.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">80-89</text><text x="319.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">90-99</text><text x="348.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">100-109</text><rect x="369.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>110-119 turns: 1 not shipped</title></rect><text x="377.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">110-119</text><text x="406.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">120-129</text><text x="435.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">130-139</text><rect x="456.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>140-149 turns: 1 not shipped</title></rect><text x="464.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">140-149</text><text x="493.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">150-159</text><text x="522.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">160-169</text><rect x="543.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>170-179 turns: 1 not shipped</title></rect><text x="551.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">170-179</text><text x="580.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">180-189</text><rect x="601.5" y="180.5" width="16.0" height="43.5" rx="3" fill="#64748B"><title>190-199 turns: 1 not shipped</title></rect><text x="609.5" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">190-199</text></svg>
 <!-- DATA:CHART:END -->
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-03T22:44:06.769Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-03T21:04:41.611Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-03T22:44:06.769Z",
+  "generatedAt": "2026-09-03T21:04:41.611Z",
   "project": "autopilot",
   "perFiring": [
     {
-      "firingId": "fly-autopilot--fleet-6:firing-6",
+      "firingId": "fly-autopilot--fleet-4:firing-4",
       "day": "2026-09-03",
-      "sha": "2c59a3bf",
+      "sha": "c15f6c37",
       "kind": "docs",
-      "shipped": false,
+      "shipped": true,
       "completion": "complete",
       "outcome": "shipped",
       "promptVersion": "firing-v12",
-      "costUsd": 1.8442632000000003,
-      "turns": 57
-    },
-    {
-      "firingId": "fly-autopilot--fleet-5:firing-5",
-      "day": "2026-09-03",
-      "sha": "3769986",
-      "kind": "docs",
-      "shipped": false,
-      "completion": "complete",
-      "outcome": "shipped",
-      "promptVersion": "firing-v12",
-      "costUsd": 1.8524426000000005,
-      "turns": 53
+      "costUsd": 0.6726144000000001,
+      "turns": 19
     },
     {
       "firingId": "fly-autopilot:firing-1",
-      "day": "2026-09-03",
-      "sha": "8128058e",
-      "kind": "fix",
-      "shipped": false,
-      "completion": "slice",
-      "outcome": "shipped",
-      "promptVersion": "firing-v12",
-      "costUsd": 2.7098305,
-      "turns": 31
-    },
-    {
-      "firingId": "fly-autopilot--fleet-4:firing-4",
-      "day": "2026-09-03",
-      "sha": "d249c769",
-      "kind": "feat",
-      "shipped": false,
-      "completion": "slice",
-      "outcome": "shipped",
-      "promptVersion": "firing-v12",
-      "costUsd": 2.5995666,
-      "turns": 70
-    },
-    {
-      "firingId": "fly-autopilot--fleet-3:firing-2",
-      "day": "2026-09-03",
-      "sha": "a5aafe7a",
-      "kind": "feat",
-      "shipped": false,
-      "completion": "complete",
-      "outcome": "shipped",
-      "promptVersion": "firing-v12",
-      "costUsd": 3.2938346000000007,
-      "turns": 81
-    },
-    {
-      "firingId": "fly-autopilot--fleet-5:firing-8",
       "day": "2026-09-03",
       "sha": null,
       "kind": null,
       "shipped": false,
       "completion": null,
-      "outcome": "noop",
+      "outcome": null,
       "promptVersion": "firing-v12",
-      "costUsd": 1.7053774,
-      "turns": 34
+      "costUsd": 2.8460060000000005,
+      "turns": 58
     },
     {
-      "firingId": "fly-autopilot--fleet-6:firing-7",
+      "firingId": "fly-autopilot:firing-7",
       "day": "2026-09-03",
-      "sha": "559f939e",
-      "kind": "docs",
+      "sha": null,
+      "kind": null,
       "shipped": false,
-      "completion": "complete",
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v12",
+      "costUsd": 0.92391,
+      "turns": 8
+    },
+    {
+      "firingId": "fly-autopilot--fleet-2:firing-2",
+      "day": "2026-09-03",
+      "sha": "7e175f6a",
+      "kind": "fix",
+      "shipped": true,
+      "completion": "slice",
       "outcome": "shipped",
       "promptVersion": "firing-v12",
-      "costUsd": 1.1352576000000005,
-      "turns": 28
+      "costUsd": 3.350283000000002,
+      "turns": 86
     },
     {
-      "firingId": "fly-autopilot--fleet-2:firing-3",
+      "firingId": "fly-autopilot--fleet-5:firing-5",
       "day": "2026-09-03",
-      "sha": "d144b9af",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v12",
+      "costUsd": 0,
+      "turns": 196
+    },
+    {
+      "firingId": "fly-autopilot--fleet-3:firing-3",
+      "day": "2026-09-03",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v12",
+      "costUsd": 0,
+      "turns": 148
+    },
+    {
+      "firingId": "fly-autopilot--fleet-4:firing-6",
+      "day": "2026-09-03",
+      "sha": "5974068b",
       "kind": "fix",
       "shipped": false,
       "completion": "complete",
       "outcome": "reverted",
       "promptVersion": "firing-v12",
-      "costUsd": 5.2239922,
-      "turns": 116
+      "costUsd": 1.4708092000000001,
+      "turns": 62
+    },
+    {
+      "firingId": "fly-autopilot:firing-8",
+      "day": "2026-09-03",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v12",
+      "costUsd": 0,
+      "turns": 79
+    },
+    {
+      "firingId": "fly-autopilot--fleet-2:firing-9",
+      "day": "2026-09-03",
+      "sha": "67544216",
+      "kind": "fix",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 1.3426494000000004,
+      "turns": 42
+    },
+    {
+      "firingId": "fly-autopilot--fleet-5:firing-10",
+      "day": "2026-09-03",
+      "sha": "5ee11c13",
+      "kind": "docs",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 1.0901056000000002,
+      "turns": 37
     },
     {
       "firingId": "fly-autopilot--fleet-3:firing-11",
       "day": "2026-09-03",
-      "sha": "79a70945",
-      "kind": null,
-      "shipped": true,
-      "completion": "complete",
-      "outcome": "shipped",
-      "promptVersion": "firing-v12",
-      "costUsd": 0.8258734000000002,
-      "turns": 25
-    },
-    {
-      "firingId": "fly-autopilot:firing-9",
-      "day": "2026-09-03",
       "sha": null,
       "kind": null,
       "shipped": false,
       "completion": null,
-      "outcome": "noop",
+      "outcome": null,
       "promptVersion": "firing-v12",
-      "costUsd": 1.9554745999999992,
-      "turns": 45
+      "costUsd": 0,
+      "turns": 89
     },
     {
-      "firingId": "fly-autopilot--fleet-4:firing-10",
+      "firingId": "fly-autopilot:firing-13",
       "day": "2026-09-03",
       "sha": null,
-      "kind": "fix",
+      "kind": "docs",
       "shipped": false,
-      "completion": null,
+      "completion": "slice",
       "outcome": "noop",
       "promptVersion": "firing-v12",
-      "costUsd": 1.6980878000000001,
-      "turns": 45
+      "costUsd": 1.4076048000000005,
+      "turns": 33
     },
     {
-      "firingId": "fly-autopilot--fleet-5:firing-12",
+      "firingId": "fly-autopilot--fleet-4:firing-12",
       "day": "2026-09-03",
-      "sha": null,
-      "kind": null,
-      "shipped": false,
-      "completion": "complete",
-      "outcome": "noop",
-      "promptVersion": "firing-v12",
-      "costUsd": 1.4739886,
-      "turns": 50
-    },
-    {
-      "firingId": "fly-autopilot--fleet-6:firing-13",
-      "day": "2026-09-03",
-      "sha": null,
-      "kind": "fix",
-      "shipped": false,
-      "completion": null,
-      "outcome": "noop",
-      "promptVersion": "firing-v12",
-      "costUsd": 1.3352718000000003,
-      "turns": 44
-    },
-    {
-      "firingId": "fly-autopilot--fleet-3:firing-15",
-      "day": "2026-09-03",
-      "sha": "90bc1bbe",
+      "sha": "f59eb134",
       "kind": "fix",
       "shipped": true,
       "completion": "complete",
       "outcome": "shipped",
       "promptVersion": "firing-v12",
-      "costUsd": 1.017718,
-      "turns": 27
+      "costUsd": 0.7578590000000001,
+      "turns": 19
+    },
+    {
+      "firingId": "fly-autopilot--fleet-5:firing-15",
+      "day": "2026-09-03",
+      "sha": "a630f651",
+      "kind": "feat",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 0.9473417999999999,
+      "turns": 36
     },
     {
       "firingId": "fly-autopilot--fleet-2:firing-14",
       "day": "2026-09-03",
-      "sha": "90bc1bbe",
-      "kind": null,
-      "shipped": false,
-      "completion": "complete",
+      "sha": "ec2ba2c8",
+      "kind": "fix",
+      "shipped": true,
+      "completion": "slice",
       "outcome": "shipped",
       "promptVersion": "firing-v12",
-      "costUsd": 0,
-      "turns": 115
+      "costUsd": 1.3426447999999997,
+      "turns": 41
     },
     {
-      "firingId": "fly-autopilot:firing-16",
+      "firingId": "fly-autopilot--fleet-5:firing-18",
+      "day": "2026-09-03",
+      "sha": "e85a6ec1",
+      "kind": "feat",
+      "shipped": false,
+      "completion": "slice",
+      "outcome": "reverted",
+      "promptVersion": "firing-v12",
+      "costUsd": 1.2565465999999998,
+      "turns": 36
+    },
+    {
+      "firingId": "fly-autopilot--fleet-3:firing-16",
       "day": "2026-09-03",
       "sha": null,
       "kind": null,
       "shipped": false,
       "completion": null,
-      "outcome": "noop",
+      "outcome": null,
       "promptVersion": "firing-v12",
-      "costUsd": 1.4075964000000003,
-      "turns": 35
+      "costUsd": 0,
+      "turns": 118
     },
     {
-      "firingId": "fly-autopilot--fleet-5:firing-18",
+      "firingId": "fly-autopilot--fleet-2:firing-19",
       "day": "2026-09-03",
-      "sha": null,
-      "kind": null,
-      "shipped": false,
-      "completion": "complete",
-      "outcome": "noop",
+      "sha": "e93b6a41",
+      "kind": "fix",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
       "promptVersion": "firing-v12",
-      "costUsd": 1.3239785999999996,
-      "turns": 40
+      "costUsd": 1.8746306000000004,
+      "turns": 66
     },
     {
       "firingId": "fly-autopilot--fleet-4:firing-17",
       "day": "2026-09-03",
-      "sha": "8aa620bb",
-      "kind": "feat",
+      "sha": null,
+      "kind": null,
       "shipped": false,
-      "completion": "slice",
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v12",
+      "costUsd": 0,
+      "turns": 172
+    },
+    {
+      "firingId": "fly-autopilot--fleet-3:firing-20",
+      "day": "2026-09-03",
+      "sha": "2e6dcabe",
+      "kind": "refactor",
+      "shipped": false,
+      "completion": "complete",
       "outcome": "shipped",
       "promptVersion": "firing-v12",
-      "costUsd": 1.5358318000000004,
-      "turns": 51
+      "costUsd": 1.0779146000000002,
+      "turns": 28
     }
   ],
   "perDay": [
     {
       "day": "2026-09-03",
-      "firings": 18,
-      "shipped": 2,
-      "costUsd": 32.9384,
-      "turns": 947,
-      "rollingShipRate": 0.1111
+      "firings": 20,
+      "shipped": 8,
+      "costUsd": 20.3609,
+      "turns": 1373,
+      "rollingShipRate": 0.4
     }
   ],
   "perEra": [
     {
       "promptVersion": "firing-v12",
-      "firings": 18,
-      "shipped": 2,
-      "passRate": 0.1111,
-      "medianTurns": 45,
-      "costVariance": 1.0543718770617225,
-      "costPerSolved": 16.46919285
+      "firings": 20,
+      "shipped": 8,
+      "passRate": 0.4,
+      "medianTurns": 50,
+      "costVariance": 0.5488180848914376,
+      "costPerSolved": 2.5451149750000006
     }
   ],
   "turnsHistogram": [
     {
-      "bucketStart": 20,
-      "firings": 3,
+      "bucketStart": 0,
+      "firings": 1,
+      "shipped": 0,
+      "bucketLabel": "0-9"
+    },
+    {
+      "bucketStart": 10,
+      "firings": 2,
       "shipped": 2,
+      "bucketLabel": "10-19"
+    },
+    {
+      "bucketStart": 20,
+      "firings": 1,
+      "shipped": 0,
       "bucketLabel": "20-29"
     },
     {
       "bucketStart": 30,
-      "firings": 3,
-      "shipped": 0,
+      "firings": 4,
+      "shipped": 2,
       "bucketLabel": "30-39"
     },
     {
       "bucketStart": 40,
-      "firings": 4,
-      "shipped": 0,
+      "firings": 2,
+      "shipped": 2,
       "bucketLabel": "40-49"
     },
     {
       "bucketStart": 50,
-      "firings": 4,
+      "firings": 1,
       "shipped": 0,
       "bucketLabel": "50-59"
     },
     {
       "bucketStart": 60,
-      "firings": 0,
-      "shipped": 0,
+      "firings": 2,
+      "shipped": 1,
       "bucketLabel": "60-69"
     },
     {
@@ -586,8 +646,8 @@ _Generated 2026-09-03T22:44:06.769Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 80,
-      "firings": 1,
-      "shipped": 0,
+      "firings": 2,
+      "shipped": 1,
       "bucketLabel": "80-89"
     },
     {
@@ -604,9 +664,57 @@ _Generated 2026-09-03T22:44:06.769Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 110,
-      "firings": 2,
+      "firings": 1,
       "shipped": 0,
       "bucketLabel": "110-119"
+    },
+    {
+      "bucketStart": 120,
+      "firings": 0,
+      "shipped": 0,
+      "bucketLabel": "120-129"
+    },
+    {
+      "bucketStart": 130,
+      "firings": 0,
+      "shipped": 0,
+      "bucketLabel": "130-139"
+    },
+    {
+      "bucketStart": 140,
+      "firings": 1,
+      "shipped": 0,
+      "bucketLabel": "140-149"
+    },
+    {
+      "bucketStart": 150,
+      "firings": 0,
+      "shipped": 0,
+      "bucketLabel": "150-159"
+    },
+    {
+      "bucketStart": 160,
+      "firings": 0,
+      "shipped": 0,
+      "bucketLabel": "160-169"
+    },
+    {
+      "bucketStart": 170,
+      "firings": 1,
+      "shipped": 0,
+      "bucketLabel": "170-179"
+    },
+    {
+      "bucketStart": 180,
+      "firings": 0,
+      "shipped": 0,
+      "bucketLabel": "180-189"
+    },
+    {
+      "bucketStart": 190,
+      "firings": 1,
+      "shipped": 0,
+      "bucketLabel": "190-199"
     }
   ]
 }
@@ -2860,7 +2968,3 @@ update"), appended by `scripts/self-study/generate-data.mjs` at the end of any f
   - Since the previous update: firings 20 → 20 (no change), shipped 8 → 8 (no change), total cost $20.36 → $20.36 (no change).
   - View what changed: `git diff d881b750 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
   - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/d881b750/docs/SELF-STUDY/PAPER.md)
-- **2026-09-03** — Automated flight update: 17 firing(s) this flight (2 shipped), 18 total recorded.
-  - Since the previous update: firings 20 → 18 (-2 ↓), shipped 8 → 2 (-6 ↓), total cost $20.36 → $32.94 (+$12.58 ↑).
-  - View what changed: `git diff 9520a8ea -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
-  - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/9520a8ea/docs/SELF-STUDY/PAPER.md)
