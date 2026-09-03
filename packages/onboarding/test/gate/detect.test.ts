@@ -343,6 +343,37 @@ describe('detectGate — Rust', () => {
   });
 });
 
+describe('detectGate — static-site', () => {
+  it('maps html-validate lint + linkinator test for a bare HTML page', () => {
+    const d = detectGate(snap(['index.html', 'style.css']));
+    expect(d.spec.ecosystem).toBe('static-site');
+    expect(d.spec.lint).toMatchObject({ bin: 'npx', args: ['--yes', 'html-validate', '.'] });
+    expect(d.spec.test).toMatchObject({
+      bin: 'npx',
+      args: ['--yes', 'linkinator', '.', '--recurse'],
+    });
+    expect(d.candidates[0]?.evidence).toEqual(['*.html', 'html-validate', 'linkinator']);
+  });
+
+  it("outranks the JS detector's bare-.js-file zero-score match when the repo also ships HTML", () => {
+    // No package.json → jsDetector still matches via the .js suffix but with
+    // an empty gate (score 0). static-site's 2 real gate commands must win.
+    const d = detectGate(snap(['index.html', 'app.js', 'style.css']));
+    expect(d.ambiguity).toBe('multi');
+    expect(d.candidates.map((c) => c.spec.ecosystem)).toContain('js');
+    expect(d.spec.ecosystem).toBe('static-site');
+  });
+
+  it('yields to the JS detector for an HTML-shipping JS project (package.json present)', () => {
+    const s = snap(['index.html', 'package.json'], {
+      'package.json': JSON.stringify({ scripts: { test: 'vitest run' } }),
+    });
+    const d = detectGate(s);
+    expect(d.spec.ecosystem).toBe('js');
+    expect(d.candidates.map((c) => c.spec.ecosystem)).not.toContain('static-site');
+  });
+});
+
 describe('detectGate — resolution', () => {
   it('returns "unknown" with no candidates for an unrecognised repo', () => {
     const d = detectGate(snap(['README.md', 'LICENSE']));

@@ -19,19 +19,32 @@ not this monorepo's.
 | [`node-cli/`](node-cli/) | Node.js + TypeScript CLI | `js` (`packages/onboarding/src/gate/detectors/js.ts`) — full match via `package.json` `scripts.*` | typecheck + test + build + lint, all real | **Verified** — `npm install && npm run typecheck && npm test && npm run build && npm run lint` all pass standalone |
 | [`python-lib/`](python-lib/) | Python library | `python` (`.../detectors/python.ts`) — manifest + `pytest`/`mypy`/`ruff` markers | typecheck + test + lint (detector emits no `build` key for Python) | **Verified** — `python -m venv .venv && pip install -e ".[dev]" && mypy . && pytest && ruff check .` all pass standalone |
 | [`calculator/`](calculator/) | Static HTML + vanilla JS, npm-tested | `js` — `package.json` `scripts.test` | `node --test` acceptance suite | **Flown to 12/12 green** — implemented autonomously by an AUTOPILOT flight (commit 09d13e5d); see [`docs/CASE-STUDIES/calculator.md`](../docs/CASE-STUDIES/calculator.md) for the full honest arc |
-| `static-site/` | Static HTML/CSS/JS, no build tooling | **none today** — `.html`/`.css` count as "code" for folder-triage's dominant-extension check, but no `EcosystemDetector` recognizes those suffixes, so onboarding lands on `ecosystem: 'unknown'` with every gate line rendering `—` | none detected (gap) | Planned — needs a static-site detector first (see below) |
+| `static-site/` | Static HTML/CSS/JS, no build tooling | `static-site` (`.../detectors/static-site.ts`) — `.html`/`.htm` present, no other ecosystem's manifest | `lint` via `npx html-validate .`, `test` via `npx linkinator . --recurse` (no `build` — a static site has nothing to compile) | Detector **built and unit-tested**; the `static-site/` fixture itself is not created yet (see below) |
 
-## Known gap: static-site has no detector yet
+## Known gap: static-site has no fixture yet
 
-`python-lib` and `node-cli` exercise detectors that already exist and are
-tested (`packages/onboarding/test/gate/detectors/{js,python}.test.ts`).
-`static-site` does not: there is no `EcosystemDetector` for a plain
-HTML/CSS/JS repo with no package manager, so today AUTOPILOT would onboard
-it with an empty gate rather than something meaningful (e.g. an HTML
-linter/validator as `lint`, a link-checker as `test`). Building the
-`static-site` sample is blocked on writing that detector — tracked as
-follow-up work rather than folded into this scaffold, since a new detector
-is its own reviewable unit, not a fixture-authoring task.
+`node-cli`, `python-lib`, and `calculator` each have a real fixture repo
+under `samples/` exercising a detector that already existed. `static-site`
+did not even have a detector: there was no `EcosystemDetector` for a plain
+HTML/CSS/JS repo with no package manager, so AUTOPILOT would have onboarded
+one with an empty gate (`ecosystem: 'unknown'`, every gate line `—`).
+
+That detector now exists
+(`packages/onboarding/src/gate/detectors/static-site.ts`,
+covered by `packages/onboarding/test/gate/detectors/static-site.test.ts`
+and the `detectGate — static-site` block in `detect.test.ts`): it proposes
+`html-validate` for `lint` and `linkinator --recurse` for `test`, both run
+via `npx` since a bare static site has no `package.json` to hang a
+`scripts.*` entry off. Both commands were hand-verified against
+`samples/calculator/` during development (`npx --yes html-validate .` and
+`npx --yes linkinator . --recurse` both ran to completion there).
+
+What is still missing is the `samples/static-site/` fixture itself — a
+small HTML/CSS/JS site, written clean enough to pass `html-validate`'s
+`recommended` preset (e.g. uppercase `DOCTYPE`, non-self-closing void
+elements, explicit `<button type>`) and with no broken links for
+`linkinator` to catch. That is fixture-authoring work distinct from the
+detector, tracked as follow-up rather than folded into this firing.
 
 ## Adding a sample
 
