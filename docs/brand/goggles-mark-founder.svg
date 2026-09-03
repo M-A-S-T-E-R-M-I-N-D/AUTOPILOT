@@ -1,0 +1,14 @@
+<!-- SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="AUTOPILOT — aviator goggles mark, founder signature edition">
+  <defs><radialGradient id="founder-lens-gradient-dark" cx="35%" cy="35%" r="75%">
+    <stop offset="0%" stop-color="#ffffff" />
+    <stop offset="100%" stop-color="#25baf2" />
+  </radialGradient></defs>
+  <rect width="32" height="32" rx="7.04" fill="#0a0d12" />
+  <circle cx="10" cy="17" r="5.5" fill="#f0f2f5" /><circle cx="22" cy="17" r="5.5" fill="#f0f2f5" />
+  <circle cx="10" cy="17" r="3.4" fill="url(#founder-lens-gradient-dark)" /><circle cx="22" cy="17" r="3.4" fill="url(#founder-lens-gradient-dark)" />
+  <line x1="7.48" y1="15.91" x2="10.34" y2="15.91" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" /><line x1="8.20" y1="14.68" x2="9.63" y2="17.15" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" /><line x1="9.63" y1="14.68" x2="8.20" y2="17.15" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" /><line x1="19.48" y1="15.91" x2="22.34" y2="15.91" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" /><line x1="20.20" y1="14.68" x2="21.63" y2="17.15" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" /><line x1="21.63" y1="14.68" x2="20.20" y2="17.15" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" />
+  <line x1="15" y1="17" x2="17" y2="17" stroke="#f0f2f5" stroke-width="1.6" stroke-linecap="round" />
+  <line x1="5.2" y1="14.3" x2="2" y2="10.5" stroke="#f0f2f5" stroke-width="3.2" stroke-linecap="round" /><line x1="26.8" y1="14.3" x2="30" y2="10.5" stroke="#f0f2f5" stroke-width="3.2" stroke-linecap="round" />
+</svg>

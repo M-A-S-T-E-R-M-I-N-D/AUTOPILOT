@@ -1,0 +1,35 @@
+# Normalize line endings to LF for all text — prevents CRLF drift on Windows
+# from breaking the cross-platform gate (tests, prettier, lint).
+* text=auto eol=lf
+
+# Explicit binaries (none yet, but future-proofed)
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.db binary
+
+# Lockfile: text but not diffed inline (large, machine-generated)
+pnpm-lock.yaml -diff linguist-generated=true
+
+# Fleet-collision absorber: every lane's flight-end regenerates this doc's
+# DATA:SUMMARY block and appends a dated §8 evidence entry, so N concurrent
+# lanes = N divergent edits to the same file — the single most recurrent
+# sync-back conflict in flight history. `merge=union` keeps BOTH sides'
+# lines: appends (the §8 log) merge losslessly, and the regenerated summary
+# block is self-healing — the next flight-end `generate-data.mjs` run
+# rewrites it wholesale from store data, so brief line duplication there
+# never survives a flight.
+docs/SELF-STUDY/PAPER.md merge=union
+
+# Same absorber for the epic docs (EVALUATION 2026-09-03 sync-conflict
+# taxonomy): the dominant remaining strand class is two same-round lanes each
+# APPENDING an evolution/freshness paragraph to the same epic doc — parallel
+# insertions at the same anchor, which three-way merge cannot order. Union
+# keeps both paragraphs; prose dedup (two tellings of one change) is exactly
+# the KEEPER page-upkeep duty and self-heals next round, same trade PAPER.md
+# already made. Code files stay OUT of union on purpose: interleaved code is
+# not self-healing — that class escalates to rerere or the resolution agent.
+docs/epics/*.md merge=union

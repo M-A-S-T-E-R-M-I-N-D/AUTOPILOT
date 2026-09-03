@@ -1,0 +1,9 @@
+<!-- SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="AUTOPILOT — aviator goggles mark">
+  <circle cx="10" cy="17" r="5.5" fill="#171b20" /><circle cx="22" cy="17" r="5.5" fill="#171b20" />
+  <circle cx="10" cy="17" r="3.4" fill="#0063d7" /><circle cx="22" cy="17" r="3.4" fill="#0063d7" />
+  <line x1="15" y1="17" x2="17" y2="17" stroke="#171b20" stroke-width="1.6" stroke-linecap="round" />
+  <line x1="5.2" y1="14.3" x2="2" y2="10.5" stroke="#171b20" stroke-width="3.2" stroke-linecap="round" /><line x1="26.8" y1="14.3" x2="30" y2="10.5" stroke="#171b20" stroke-width="3.2" stroke-linecap="round" />
+  <circle cx="10" cy="17" r="4.45" fill="none" stroke="#fbfcfd" stroke-width="0.6" /><circle cx="22" cy="17" r="4.45" fill="none" stroke="#fbfcfd" stroke-width="0.6" />
+</svg>

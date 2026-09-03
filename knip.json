@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    "apps/dashboard": {
+      "entry": ["src/server/main.ts", "src/demo.ts", "src/reset-cli.ts", "src/restore-cli.ts"]
+    }
+  }
+}

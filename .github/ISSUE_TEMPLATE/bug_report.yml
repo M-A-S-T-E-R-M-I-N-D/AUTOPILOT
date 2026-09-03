@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+name: Bug report
+description: Report a defect in AUTOPILOT
+labels: ['bug', 'triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Do not** include secrets, tokens, or
+        personal file paths. For security vulnerabilities, use SECURITY.md
+        instead of a public issue.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including the impact.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the behavior.
+      placeholder: |
+        1. Run `...`
+        2. Observe `...`
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AUTOPILOT version / commit
+    validations:
+      required: false
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: 'e.g. 22.12.0'
+    validations:
+      required: false
+  - type: dropdown
+    id: pool
+    attributes:
+      label: Pool (if known)
+      description: Which board pool does this fall under? See `.github/labels.json`.
+      options:
+        - Unsure
+        - accessibility
+        - cybersecurity
+        - ux
+        - human_interaction
+        - learnings
+        - information
+        - data
+        - priorities
+    validations:
+      required: false

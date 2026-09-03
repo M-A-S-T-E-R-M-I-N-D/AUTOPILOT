@@ -1,0 +1,22 @@
+{
+  "name": "@autopilot/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUTOPILOT design tokens — the single source of truth for palette/type/space, with dark/light/terminal themes.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

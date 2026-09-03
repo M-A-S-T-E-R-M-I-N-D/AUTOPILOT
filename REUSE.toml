@@ -1,0 +1,60 @@
+# REUSE 3.3 configuration (https://reuse.software) — declares copyright/licensing
+# for files that cannot carry an inline SPDX header (JSON, Markdown, YAML, lockfiles).
+# Source files (.ts/.js/.mjs) carry inline SPDX headers instead.
+version = 1
+
+SPDX-PackageName = "AUTOPILOT"
+SPDX-PackageSupplier = "1337 · REL AZEUS · MΔSTERMIND"
+SPDX-PackageDownloadLocation = "https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT"
+
+[[annotations]]
+path = [
+  "**/*.json",
+  "**/*.jsonc",
+  "**/*.md",
+  "**/*.yml",
+  "**/*.yaml",
+  "**/*.toml",
+  "**/*.cmd",
+  "**/*.cff",
+  ".gitignore",
+  ".gitattributes",
+  ".npmrc",
+  ".editorconfig",
+  ".prettierignore",
+  ".nvmrc",
+  "AUTHORS",
+  "NOTICE",
+  "**/.gitkeep",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["pnpm-lock.yaml"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Third-party font license texts bundled verbatim under apps/dashboard/src/assets —
+# each carries its own upstream copyright, distinct from AUTOPILOT's Apache-2.0.
+[[annotations]]
+path = "apps/dashboard/src/assets/OFL-inter.txt"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2020 The Inter Project Authors (https://github.com/rsms/inter)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = "apps/dashboard/src/assets/OFL-roboto.txt"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2011 The Roboto Project Authors (https://github.com/googlefonts/roboto-classic)"
+SPDX-License-Identifier = "OFL-1.1"
+
+# Playwright visual-regression snapshots — generated binary test artifacts,
+# no expressible authorship beyond the project's own.
+[[annotations]]
+path = "apps/dashboard/e2e/**/*.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
+SPDX-License-Identifier = "Apache-2.0"

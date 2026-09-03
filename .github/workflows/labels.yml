@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+name: Sync labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/labels.json
+      - .github/workflows/labels.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: labels-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: sync labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Actions are SHA-pinned per OpenSSF Scorecard "Pinned-Dependencies";
+      # Dependabot's github-actions ecosystem keeps these current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # .github/labels.json is the source of truth (validated against
+      # tasks.dimension in scripts/ci/validate-configs.mjs); this job is the
+      # only thing that makes those pool labels exist on the live repo for
+      # the KEEPER triage ritual (web-mss50i9u-ldv513) to file issues against.
+      - name: Create or update labels from .github/labels.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          jq -c '.[]' .github/labels.json | while read -r label; do
+            name=$(jq -r '.name' <<<"$label")
+            color=$(jq -r '.color' <<<"$label")
+            description=$(jq -r '.description' <<<"$label")
+            gh label create "$name" --color "$color" --description "$description" --force --repo "$GITHUB_REPOSITORY"
+          done

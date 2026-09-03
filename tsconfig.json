@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": [
+    { "path": "packages/tokens" },
+    { "path": "packages/store" },
+    { "path": "packages/engine" },
+    { "path": "packages/onboarding" },
+    { "path": "packages/mcp" },
+    { "path": "apps/dashboard" }
+  ]
+}

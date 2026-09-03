@@ -1,0 +1,29 @@
+[project]
+name = "sample-python-lib"
+version = "0.1.0"
+description = "Tiny text-statistics library — AUTOPILOT samples fixture"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "mypy>=1.10", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["textstats*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+exclude = ["^\\.venv/"]
+
+[tool.ruff]
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

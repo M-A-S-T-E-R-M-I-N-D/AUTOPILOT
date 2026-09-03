@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+#
+# Supply-chain hygiene (PATTERNS-AND-STANDARDS §2, SLSA-aligned): keep
+# dependencies and GitHub Actions pinned and current with automated PRs.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    # Delays adopting a freshly published release — protects against a
+    # supply-chain attack landing in a version that's hours old and hasn't
+    # had time for the ecosystem to flag/yank it (SOTA-MAP §"Automated
+    # dependency PRs plus a cooldown window before adopting a fresh release").
+    # Patch bumps clear fastest since they carry the least behavioral risk.
+    # better-sqlite3 v13.0.3 segfaults on native load here (field-verified:
+    # `new Database()` crashes the process). RE-TESTED 2026-08-23 against
+    # upstream WiseLibs/better-sqlite3#1514 (still OPEN): the root cause
+    # is NOT a prebuilt-binary mismatch as first assumed — it's a Node.js
+    # runtime regression that segfaults on native module registration,
+    # fixed by a commit shipped in Node v22.14.0. `.nvmrc` moved to
+    # 22.23.2 on 2026-08-24 (past the fix line), so the documented unblock
+    # condition is met — but this ignore stays until a run on the actual
+    # 22.23.2 runtime confirms `new Database()` no longer segfaults with
+    # v13.0.3 (no environment running the new pin has re-tested it yet).
+    # Full evidence trail: docs/RESEARCH-LIBRARY.md "better-sqlite3 v13
+    # re-test".
+    ignore:
+      - dependency-name: better-sqlite3
+        update-types: ['version-update:semver-major']
+      # TypeScript majors are toolchain GENERATIONS (7.x = the native
+      # compiler) — adopted on OUR schedule via a TS7 MIGRATION EVAL branch
+      # with a full local verify, never via an auto-PR (PR #6 arrived CI-red
+      # on all three OSes).
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: 'ci(actions)'

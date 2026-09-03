@@ -1,0 +1,27 @@
+{
+  "name": "@autopilot/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUTOPILOT retrieval-as-MCP — read-only index tools reusable by the dashboard and any harness.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@autopilot/store": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  }
+}
