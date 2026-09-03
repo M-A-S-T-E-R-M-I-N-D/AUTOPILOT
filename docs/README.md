@@ -39,8 +39,6 @@ The doc set, grouped. These are narrative docs (prose with intentional tables/wr
 - [RUNBOOK.md](RUNBOOK.md) — every known failure mode + its recovery path: the stale-4317-server
   ritual, kill procedures, SQLite/WAL corruption + snapshot restore, the flight instance lock, and
   containment-breach response. Previously lived only in operator memory.
-- [SANDBOX.md](SANDBOX.md) — the two-minute, $0 try-it kit: seed a real dashboard fleet and fly a real
-  (scripted, zero-cost) demo flight from a fresh clone, no Claude account needed.
 
 ## Brand
 
