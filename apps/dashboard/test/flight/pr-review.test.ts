@@ -5299,13 +5299,6 @@ describe('planPrReview @-mention neutralization (posted verdicts never ping from
     expect(decision.reasoning).not.toContain('@acme');
   });
 
-  it('neutralizes an @-leading non-canonical base branch named in the wrong-base queue-for-human reasoning', () => {
-    const decision = planPrReview(candidate({ baseRefName: '@octocat-patch-1' }));
-    expect(decision.decision).toBe('queue-for-human');
-    expect(decision.reasoning).toContain(`@${ZWSP}octocat-patch-1`);
-    expect(decision.reasoning).not.toContain("'@octocat-patch-1'");
-  });
-
   it('leaves a bare @ (not followed by an alphanumeric) and mention-free titles byte-identical', () => {
     const decision = planPrReview(candidate({ title: 'Sparkline fix @ last' }));
     expect(decision.reasoning).toContain('"Sparkline fix @ last"');

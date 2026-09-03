@@ -1521,9 +1521,6 @@ export function planPrReview(
       ...(pr.renamedFromPaths !== undefined
         ? { renamedFromPaths: pr.renamedFromPaths.map(neutralizeAtMentions) }
         : {}),
-      ...(pr.baseRefName !== undefined
-        ? { baseRefName: neutralizeAtMentions(pr.baseRefName) }
-        : {}),
     },
     policy,
   );
@@ -1533,24 +1530,22 @@ export function planPrReview(
  * GitHub linkifies `@name` anywhere in a posted comment or review body, and
  * every reasoning string below is posted verbatim under the founder's own gh
  * login — so contributor-controlled text embedded in it (the PR title, a
- * conflict path, a renamed-from path, the non-canonical base branch it
- * targets: an attacker names files and branches too) would let a hostile PR
- * titled "fix typo @acme/everyone" make this ritual ping arbitrary users or
- * teams AS MASTERMIND the moment any verdict posts. A zero-width space after
- * the `@` stops the linkification while leaving the text visually identical
- * — the established auto-responder convention. Only an `@` that could start
- * a mention (followed by an alphanumeric) is touched, so a bare `@` stays
- * byte-identical and the lookahead makes the rewrite idempotent (an
- * already-neutralized `@` is followed by the zero-width space, not an
- * alphanumeric). Text-only and decision-blind: {@link planPrReview}
- * neutralizes the INPUT COPY {@link decidePrReview} judges, and inserting
- * after `@` can never split (or mint) a {@link SECURITY_SENSITIVE_PATH_MARKERS}
- * match since no marker contains `@`, nor can it turn a non-canonical base
- * into {@link CANONICAL_BASE_BRANCH} since that name contains no `@` either
- * — so no verdict can change, only what gets posted. Re-run dedup stays
- * intact because both sides of every comparison are neutralized: fresh
- * reasoning here, and `ownComments`/`ownRequestChangesBody` because the
- * ritual only ever POSTED neutralized text.
+ * conflict path, a renamed-from path: an attacker names files too) would let
+ * a hostile PR titled "fix typo @acme/everyone" make this ritual ping
+ * arbitrary users or teams AS MASTERMIND the moment any verdict posts. A
+ * zero-width space after the `@` stops the linkification while leaving the
+ * text visually identical — the established auto-responder convention. Only
+ * an `@` that could start a mention (followed by an alphanumeric) is
+ * touched, so a bare `@` stays byte-identical and the lookahead makes the
+ * rewrite idempotent (an already-neutralized `@` is followed by the
+ * zero-width space, not an alphanumeric). Text-only and decision-blind:
+ * {@link planPrReview} neutralizes the INPUT COPY {@link decidePrReview}
+ * judges, and inserting after `@` can never split (or mint) a {@link
+ * SECURITY_SENSITIVE_PATH_MARKERS} match since no marker contains `@` — so
+ * no verdict can change, only what gets posted. Re-run dedup stays intact
+ * because both sides of every comparison are neutralized: fresh reasoning
+ * here, and `ownComments`/`ownRequestChangesBody` because the ritual only
+ * ever POSTED neutralized text.
  */
 function neutralizeAtMentions(text: string): string {
   return text.replace(/@(?=[a-z0-9])/gi, '@​');
