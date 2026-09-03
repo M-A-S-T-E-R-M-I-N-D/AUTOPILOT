@@ -148,33 +148,6 @@ export function parseWorktreeList(porcelainOutput: string): WorktreeListEntry[] 
   return entries;
 }
 
-/**
- * The path of `path` relative to its enclosing git repo's top level, exactly
- * as git itself reports it (`rev-parse --show-prefix`, forward-slash and
- * trailing-slash terminated, e.g. `'samples/calculator/'`) — `''` when
- * `path` IS the repo root, and `''` (never throws) when `path` has no
- * enclosing git repo at all.
- *
- * HARNESS GAP (board web-mtm0shsf-hmv8ud, docs/CASE-STUDIES/calculator.md):
- * flying a project that is a SUBFOLDER of a larger repo (no `.git` of its
- * own) derives a worktree of the WHOLE parent repo — git has no smaller
- * unit than a repo to check out — but `fly.ts` used to point `flightRoot`
- * at that worktree's OWN root, not the nested subfolder actually
- * registered. Every downstream consumer of `flightRoot` (the gate's cwd,
- * the CLI's own repo, the containment guard's confined root) then ran
- * against the PARENT repo instead of the flown project — the gate reverted
- * a correct implementation twice on launch night, running the monorepo's
- * suite instead of the sample's own `npm test`. `fly.ts` joins this prefix
- * onto the worktree path once the worktree is created, so `flightRoot`
- * lands on the same nested folder inside the worktree that `target` names
- * outside it.
- */
-export async function repoPrefixOf(path: string): Promise<string> {
-  const result = await git(path, ['rev-parse', '--show-prefix']);
-  if (result.exitCode !== 0) return '';
-  return result.stdout.trim();
-}
-
 export interface EnsureWorktreeResult {
   readonly ok: boolean;
   readonly path: string;
