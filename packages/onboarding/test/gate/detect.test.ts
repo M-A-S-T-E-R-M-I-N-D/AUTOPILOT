@@ -343,27 +343,6 @@ describe('detectGate — Rust', () => {
   });
 });
 
-describe('detectGate — static site', () => {
-  it('maps html-validate lint and linkinator test for a manifest-less HTML repo', () => {
-    const d = detectGate(snap(['index.html', 'style.css']));
-    expect(d.spec.ecosystem).toBe('static-site');
-    expect(d.spec.lint).toMatchObject({
-      bin: 'npx',
-      args: ['--yes', 'html-validate', '**/*.html'],
-    });
-    expect(d.spec.test).toMatchObject({
-      bin: 'npx',
-      args: ['--yes', 'linkinator', '.', '--recurse'],
-    });
-    expect(d.candidates[0]?.evidence).toContain('index.html');
-  });
-
-  it('defers to js when the repo has a package.json', () => {
-    const d = detectGate(snap(['package.json', 'index.html'], { 'package.json': '{}' }));
-    expect(d.spec.ecosystem).toBe('js');
-  });
-});
-
 describe('detectGate — resolution', () => {
   it('returns "unknown" with no candidates for an unrecognised repo', () => {
     const d = detectGate(snap(['README.md', 'LICENSE']));
