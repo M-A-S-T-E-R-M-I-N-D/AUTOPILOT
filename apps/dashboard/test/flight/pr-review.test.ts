@@ -937,6 +937,16 @@ const BENIGN_SCRIPTS = new Set([
   'i18n/find-rtl-hazards.mjs',
   'i18n/find-untagged-strings.d.mts',
   'i18n/find-untagged-strings.mjs',
+  // Renders docs/THIRD-PARTY-LICENSES.md from `pnpm licenses list --json` —
+  // the same generate-a-committed-doc-from-pure-data class as
+  // data-model/generate-doc.mjs and threat-model/generate-table.mjs above.
+  // Its only write is that one doc (--check compares instead); it decides
+  // nothing security-sensitive (the allowlist gate is a license-compliance
+  // check, not an auth/access decision) and reads no credentials — the `pnpm
+  // licenses list` subprocess call is local dependency-tree introspection,
+  // not a network call. Plus its .d.mts declaration stub for the test import.
+  'licenses/generate-doc.d.mts',
+  'licenses/generate-doc.mjs',
   'self-study/check-prompt-gate.mjs',
   'self-study/export-dataset.mjs',
   'self-study/generate-data.mjs',
