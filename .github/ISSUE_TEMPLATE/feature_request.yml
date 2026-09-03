@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+name: Feature request
+description: Suggest a capability or improvement
+labels: ['enhancement', 'triage']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What problem does this solve? Who benefits?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Related milestone (if known)
+      options:
+        - Unsure
+        - M1 — Engine
+        - M2 — Onboarding
+        - M3 — Dashboard
+        - M4 — Reactivity
+        - M5 — Control & approvals
+        - M6 — Efficiency
+        - M7 — Multi-project
+        - M8 — Harness & security
+        - M9 — Packaging & launch
+    validations:
+      required: false
+  - type: dropdown
+    id: pool
+    attributes:
+      label: Pool (if known)
+      description: Which board pool does this fall under? See `.github/labels.json`.
+      options:
+        - Unsure
+        - accessibility
+        - cybersecurity
+        - ux
+        - human_interaction
+        - learnings
+        - information
+        - data
+        - priorities
+    validations:
+      required: false

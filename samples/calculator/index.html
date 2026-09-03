@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Calculator — an AUTOPILOT sample</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="calc" aria-label="Calculator">
+      <output id="display" class="calc-display" aria-live="polite">0</output>
+      <div class="calc-keys" role="group" aria-label="Calculator keys">
+        <button data-key="Escape" class="key key-util">AC</button>
+        <button data-key="Backspace" class="key key-util">⌫</button>
+        <button data-key="/" class="key key-op">÷</button>
+        <button data-key="*" class="key key-op">×</button>
+        <button data-key="7" class="key">7</button>
+        <button data-key="8" class="key">8</button>
+        <button data-key="9" class="key">9</button>
+        <button data-key="-" class="key key-op">−</button>
+        <button data-key="4" class="key">4</button>
+        <button data-key="5" class="key">5</button>
+        <button data-key="6" class="key">6</button>
+        <button data-key="+" class="key key-op">+</button>
+        <button data-key="1" class="key">1</button>
+        <button data-key="2" class="key">2</button>
+        <button data-key="3" class="key">3</button>
+        <button data-key="=" class="key key-eq calc-tall">=</button>
+        <button data-key="0" class="key calc-wide">0</button>
+        <button data-key="." class="key">.</button>
+      </div>
+      <p class="calc-note">
+        Seeded by a human · flown to green by
+        <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT">AUTOPILOT</a>
+      </p>
+    </main>
+    <script src="calc.js"></script>
+    <script>
+      // Wiring only — all behavior lives in calc.js (MISSION.md's separation).
+      let state = initialState();
+      const display = document.getElementById('display');
+      function apply(key) {
+        state = press(state, key);
+        display.textContent = state.display;
+      }
+      document.querySelectorAll('[data-key]').forEach((b) => {
+        b.addEventListener('click', () => apply(b.dataset.key));
+      });
+      document.addEventListener('keydown', (e) => {
+        const k = e.key === 'Enter' ? '=' : e.key;
+        if ('0123456789.+-*/'.includes(k) || ['=', 'Escape', 'Backspace'].includes(k)) {
+          e.preventDefault();
+          apply(k);
+        }
+      });
+    </script>
+  </body>
+</html>

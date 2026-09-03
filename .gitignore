@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+*.lcov
+.vitest/
+reports/mutation/
+.stryker-tmp*/
+
+# Codemod pre-split scratch output — `pnpm run codemod:split-regions <input>`
+# defaults its output dir to `<input>.regions` next to the source file, never
+# committed source.
+*.regions/
+
+# Playwright E2E artifacts — Playwright resolves `outputDir`/`playwright-report`
+# against the nearest package.json (apps/dashboard/), not the config file's own
+# directory (apps/dashboard/e2e/), so the real output lands one level up.
+apps/dashboard/test-results/
+apps/dashboard/playwright-report/
+blob-report/
+
+# Runtime data stores (AUTOPILOT telemetry/versions live outside the repo)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Local env / secrets — never committed
+.env
+.env.*
+!.env.example
+*.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Local agent/session data (never committed — may contain machine-local paths)
+.claude/
+
+# Dashboard run state (pid/port/log — local process control, never committed)
+.autopilot-run/
+
+# Local AUTOPILOT workspace — the store DB + demo sample repos (never committed)
+.autopilot/
+
+# self-study:export output — anonymized, but freshly regenerated per machine;
+# an operator reviews it and commits/publishes deliberately, same as any other
+# derived-from-.autopilot/ artifact (see docs/SELF-STUDY/DATASHEET.md)
+docs/SELF-STUDY/dataset/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Keep VS Code shared settings, ignore personal
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+
+# Operator inbox — mid-flight notes, consumed+archived at runtime, never source
+INBOX/
+
+# Fleet coordination scratch — a firing's DECLARED primary-file intent, read by
+# sibling instances' fleet digests (fleet-digest.ts); per-worktree runtime state,
+# never source. Ignored so it can't dirty the gate or block a landing.
+.autopilot-intent
+*.stackdump
+
+# AUTOPILOT firing scratch — gate-command output captured mid-firing and ad-hoc
+# report output (e.g. `pnpm run report:deadcode` redirected to a file); bakes in
+# the worktree's absolute local path, never source.
+.tmp-autopilot/

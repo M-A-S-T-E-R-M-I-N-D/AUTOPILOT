@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "references": [
+    { "path": "../../packages/tokens" },
+    { "path": "../../packages/store" },
+    { "path": "../../packages/onboarding" },
+    { "path": "../../packages/engine" },
+    { "path": "../../packages/mcp" }
+  ],
+  "include": ["src/**/*.ts"]
+}

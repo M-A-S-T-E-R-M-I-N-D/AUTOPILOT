@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+pnpm-lock.yaml
+LICENSES/
+LICENSE
+CHANGELOG.md
+.husky/
+
+# Narrative / planning docs — prose with intentional formatting (tables, hard
+# wraps). Prettier is enforced on code and config, not on the founder's docs.
+# (MASTER-PLAN + KICKOFF-PROMPT now live under docs/, already covered.)
+docs/
+README.md
+
+# Generated verbatim by scripts/citation/generate-citation.mjs (ci:citation checks it matches
+# package.json/CHANGELOG.md) — Prettier's YAML printer would fight the generator's own quoting.
+CITATION.cff
+
+# Standalone target-repo fixtures — each owns its own formatting, not this
+# monorepo's.
+samples/

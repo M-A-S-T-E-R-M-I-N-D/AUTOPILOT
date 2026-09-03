@@ -1,0 +1,104 @@
+/* Seed design — small, tokenized, intentional. The MISSION asks the flight
+   to keep its character, not flatten it to browser defaults. */
+:root {
+  --bg: oklch(18% 0.015 260);
+  --panel: oklch(24% 0.02 260);
+  --key: oklch(30% 0.02 260);
+  --key-raised: oklch(36% 0.025 260);
+  --ink: oklch(95% 0.01 260);
+  --ink-dim: oklch(70% 0.015 260);
+  --accent: oklch(75% 0.15 145);
+  --op: oklch(72% 0.12 250);
+  --radius: 14px;
+  --gap: 10px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(120% 120% at 20% 0%, oklch(22% 0.03 270), var(--bg) 60%);
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  color: var(--ink);
+}
+.calc {
+  width: min(320px, 92vw);
+  padding: var(--gap);
+  background: var(--panel);
+  border-radius: calc(var(--radius) + 6px);
+  box-shadow:
+    0 24px 60px oklch(0% 0 0 / 0.45),
+    inset 0 1px 0 oklch(100% 0 0 / 0.06);
+}
+.calc-display {
+  display: block;
+  padding: 18px 16px;
+  margin-bottom: var(--gap);
+  text-align: right;
+  font-size: clamp(1.8rem, 8vw, 2.6rem);
+  font-variant-numeric: tabular-nums;
+  background: oklch(14% 0.015 260);
+  border-radius: var(--radius);
+  min-height: 1.4em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calc-keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+}
+.key {
+  font: inherit;
+  font-size: 1.25rem;
+  padding: 14px 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--key);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 80ms ease,
+    background 120ms ease;
+}
+.key:hover {
+  background: var(--key-raised);
+}
+.key:active {
+  transform: translateY(1px) scale(0.98);
+}
+.key:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.key-op {
+  color: var(--op);
+  font-weight: 700;
+}
+.key-util {
+  color: var(--ink-dim);
+}
+.key-eq {
+  background: var(--accent);
+  color: oklch(16% 0.03 145);
+  font-weight: 800;
+}
+.calc-tall {
+  grid-row: span 2;
+}
+.calc-wide {
+  grid-column: span 2;
+}
+.calc-note {
+  margin: var(--gap) 2px 2px;
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+  text-align: center;
+}
+.calc-note a {
+  color: var(--accent);
+  text-decoration: none;
+}

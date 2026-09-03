@@ -1,0 +1,14 @@
+# This file is generated — see scripts/citation/generate-citation.mjs.
+# Refresh with `pnpm citation:update`; `pnpm run ci:citation` checks it matches.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "AUTOPILOT"
+abstract: "AUTOPILOT — a standalone, open-source, cross-platform autonomous engineering agent. By MΔSTERMIND."
+type: software
+version: "0.21.0"
+date-released: "2026-09-03"
+license: Apache-2.0
+repository-code: "https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT"
+url: "https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT"
+authors:
+  - name: "1337 · REL AZEUS · MΔSTERMIND"

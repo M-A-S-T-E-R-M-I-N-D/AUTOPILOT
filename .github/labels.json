@@ -1,0 +1,42 @@
+[
+  {
+    "name": "pool: accessibility",
+    "color": "f143ab",
+    "description": "Barrier affecting people with disabilities"
+  },
+  {
+    "name": "pool: cybersecurity",
+    "color": "d93f0b",
+    "description": "Security vulnerability, hardening, or threat-model gap"
+  },
+  {
+    "name": "pool: ux",
+    "color": "fbca04",
+    "description": "User experience, workflow, or UI/Docs expression"
+  },
+  {
+    "name": "pool: human_interaction",
+    "color": "c5def5",
+    "description": "How AUTOPILOT and the operator communicate or collaborate"
+  },
+  {
+    "name": "pool: learnings",
+    "color": "0e8a16",
+    "description": "Post-flight insight, retro, or SOUL-evolution candidate"
+  },
+  {
+    "name": "pool: information",
+    "color": "1d76db",
+    "description": "Documentation, convention, or discoverability gap"
+  },
+  {
+    "name": "pool: data",
+    "color": "5319e7",
+    "description": "Data model, store schema, or persistence concern"
+  },
+  {
+    "name": "pool: priorities",
+    "color": "e99695",
+    "description": "Board ordering, ranking, or triage-priority concern"
+  }
+]

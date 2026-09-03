@@ -1,0 +1,23 @@
+{
+  "branch": "main",
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [
+      "verify (ubuntu-latest)",
+      "verify (windows-latest)",
+      "verify (macos-latest)",
+      "e2e (dashboard, real browser)"
+    ]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1,
+    "require_code_owner_reviews": true,
+    "dismiss_stale_reviews": true
+  },
+  "restrictions": null,
+  "required_linear_history": true,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_conversation_resolution": true
+}

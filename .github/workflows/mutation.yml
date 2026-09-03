@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+name: Mutation
+
+# Nightly, not per-PR: the full `pnpm run mutation` sweep runs Stryker
+# against every module in config/mutation/ (one isolated project per file,
+# concurrency 1 each) — too slow to gate a PR on, but cheap to run while
+# nobody's waiting so a mutation-score regression doesn't sit undetected
+# until someone remembers to run it by hand.
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    name: mutation testing (all modules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      # Actions are SHA-pinned per OpenSSF Scorecard "Pinned-Dependencies";
+      # Dependabot's github-actions ecosystem keeps these current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack + pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Mutation testing (all modules, 100% break threshold per config)
+        # None of the 102 per-module vitest configs Stryker drives (config/mutation/
+        # vitest.*.config.ts) set an explicit `reporters` list, so vitest's own default
+        # resolution auto-adds a 'github-actions' reporter whenever GITHUB_ACTIONS=true —
+        # and that reporter writes a job-summary chunk to $GITHUB_STEP_SUMMARY on EVERY
+        # vitest invocation. Across a full sweep that's 100+ separate writes to the same
+        # file, blowing past GitHub's 1024k step-summary cap and aborting the upload on
+        # every nightly run (runs 32122624614, 32238617186). Reproduced directly: running
+        # one mutation vitest config wrote a summary chunk with GITHUB_ACTIONS=true and
+        # wrote nothing with it unset — this override is the fix, not a guess.
+        run: pnpm run mutation
+        env:
+          GITHUB_ACTIONS: false

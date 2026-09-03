@@ -1,0 +1,25 @@
+{
+  "name": "@autopilot/onboarding",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUTOPILOT onboarding — lock a folder, back it up (MYTH/LEGACY), detect the gate, index it.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@autopilot/store": "workspace:*"
+  }
+}

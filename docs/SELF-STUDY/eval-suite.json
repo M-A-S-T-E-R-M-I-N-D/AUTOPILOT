@@ -1,0 +1,457 @@
+{
+  "pinnedAt": "2026-08-10T23:39:29.863Z",
+  "projectSlug": "autopilot",
+  "criteria": "gate_result = 'passed' AND sha_verified = 1 AND head_advanced = 1, newest-first",
+  "tasks": [
+    {
+      "firingId": "fly-autopilot:firing-255",
+      "item": "web-msnqeegt-ki7dm0",
+      "kind": "feat",
+      "sha": "fa258ee",
+      "costUsd": 4.829162700000001,
+      "turns": 96,
+      "createdAt": 1786404726980
+    },
+    {
+      "firingId": "fly-autopilot:firing-254",
+      "item": "web-msnsnde8-gv5ndj",
+      "kind": "feat",
+      "sha": "5cd16a3",
+      "costUsd": 2.4793197000000005,
+      "turns": 55,
+      "createdAt": 1786404043036
+    },
+    {
+      "firingId": "fly-autopilot:firing-253",
+      "item": "web-msnqeegt-ki7dm0",
+      "kind": "feat",
+      "sha": "d73eeae",
+      "costUsd": 3.1908918,
+      "turns": 66,
+      "createdAt": 1786403603446
+    },
+    {
+      "firingId": "fly-autopilot:firing-252",
+      "item": "web-msnt5cdl-pox921",
+      "kind": "feat",
+      "sha": "17e7180",
+      "costUsd": 4.24679535,
+      "turns": 61,
+      "createdAt": 1786402991142
+    },
+    {
+      "firingId": "fly-autopilot:firing-251",
+      "item": "web-msnsnmyb-v15hy3",
+      "kind": "feat",
+      "sha": "bf10514",
+      "costUsd": 4.523044499999999,
+      "turns": 76,
+      "createdAt": 1786402269574
+    },
+    {
+      "firingId": "fly-autopilot:firing-250",
+      "item": "web-msnsnde8-gv5ndj",
+      "kind": "feat",
+      "sha": "62f5ba3",
+      "costUsd": 4.804193400000001,
+      "turns": 70,
+      "createdAt": 1786401543041
+    },
+    {
+      "firingId": "fly-autopilot:firing-249",
+      "item": "gate-label-bug",
+      "kind": "fix",
+      "sha": "233f919",
+      "costUsd": 2.4890945999999996,
+      "turns": 49,
+      "createdAt": 1786400652018
+    },
+    {
+      "firingId": "fly-autopilot:firing-248",
+      "item": "web-msns1788-06a9kg",
+      "kind": "feat",
+      "sha": "0e712fe",
+      "costUsd": 1.5695333999999994,
+      "turns": 35,
+      "createdAt": 1786400149483
+    },
+    {
+      "firingId": "fly-autopilot:firing-247",
+      "item": "web-msnqqjl9-6v8zio",
+      "kind": "feat",
+      "sha": "5da3a22",
+      "costUsd": 2.7525665999999998,
+      "turns": 54,
+      "createdAt": 1786399823011
+    },
+    {
+      "firingId": "fly-autopilot:firing-246",
+      "item": "web-msnqqjmd-9bx0wd",
+      "kind": "feat",
+      "sha": "0f57b3c",
+      "costUsd": 3.273540899999999,
+      "turns": 55,
+      "createdAt": 1786399264409
+    },
+    {
+      "firingId": "fly-autopilot:firing-245",
+      "item": "web-msniol02-ho2w5x",
+      "kind": "feat",
+      "sha": "93806a2",
+      "costUsd": 4.631481899999997,
+      "turns": 71,
+      "createdAt": 1786398645843
+    },
+    {
+      "firingId": "fly-autopilot:firing-244",
+      "item": "web-msnqqjl9-6v8zio",
+      "kind": "feat",
+      "sha": "b951460",
+      "costUsd": 2.1017681999999995,
+      "turns": 41,
+      "createdAt": 1786397726308
+    },
+    {
+      "firingId": "fly-autopilot:firing-243",
+      "item": "web-msnqeei0-71zb5a",
+      "kind": "feat",
+      "sha": "7d34b00",
+      "costUsd": 4.2305402999999995,
+      "turns": 81,
+      "createdAt": 1786397346647
+    },
+    {
+      "firingId": "fly-autopilot:firing-242",
+      "item": "web-msniol2g-76332r",
+      "kind": "docs",
+      "sha": "f0e2145",
+      "costUsd": 1.2471905999999997,
+      "turns": 20,
+      "createdAt": 1786396619444
+    },
+    {
+      "firingId": "fly-autopilot:firing-241",
+      "item": "web-msnip78d-g54ja2",
+      "kind": "docs",
+      "sha": "0607ce1",
+      "costUsd": 3.1778913000000006,
+      "turns": 63,
+      "createdAt": 1786396307620
+    },
+    {
+      "firingId": "fly-autopilot:firing-240",
+      "item": "web-msnip78d-g54ja2",
+      "kind": "docs",
+      "sha": "f4fe9fe",
+      "costUsd": 3.938944900000001,
+      "turns": 81,
+      "createdAt": 1786395664588
+    },
+    {
+      "firingId": "fly-autopilot:firing-239",
+      "item": "web-msnnrzq2-k60u67",
+      "kind": "chore",
+      "sha": "cb2e605",
+      "costUsd": 1.5661314,
+      "turns": 52,
+      "createdAt": 1786394884808
+    },
+    {
+      "firingId": "fly-autopilot:firing-238",
+      "item": "web-msnnrzr2-ujvtdg",
+      "kind": "docs",
+      "sha": "2ba4b04",
+      "costUsd": 0.7553858999999998,
+      "turns": 16,
+      "createdAt": 1786394543720
+    },
+    {
+      "firingId": "fly-autopilot:firing-237",
+      "item": "web-msnnrzp4-djlrfv",
+      "kind": "feat",
+      "sha": "647eee3",
+      "costUsd": 1.9589838000000002,
+      "turns": 40,
+      "createdAt": 1786394375675
+    },
+    {
+      "firingId": "fly-autopilot:firing-236",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "464c510",
+      "costUsd": 3.3412584,
+      "turns": 63,
+      "createdAt": 1786392470521
+    },
+    {
+      "firingId": "fly-autopilot:firing-235",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "00336ab",
+      "costUsd": 2.459697,
+      "turns": 48,
+      "createdAt": 1786391850454
+    },
+    {
+      "firingId": "fly-autopilot:firing-234",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "94874e6",
+      "costUsd": 1.3495889999999997,
+      "turns": 29,
+      "createdAt": 1786391440796
+    },
+    {
+      "firingId": "fly-autopilot:firing-233",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "c266e02",
+      "costUsd": 2.4881710499999996,
+      "turns": 21,
+      "createdAt": 1786391195954
+    },
+    {
+      "firingId": "fly-autopilot:firing-232",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "9ff537f",
+      "costUsd": 1.828629,
+      "turns": 37,
+      "createdAt": 1786390707479
+    },
+    {
+      "firingId": "fly-autopilot:firing-231",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "f6be03c",
+      "costUsd": 2.4798333000000006,
+      "turns": 39,
+      "createdAt": 1786390365135
+    },
+    {
+      "firingId": "fly-autopilot:firing-230",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "05e48f5",
+      "costUsd": 3.7783710000000004,
+      "turns": 51,
+      "createdAt": 1786389880093
+    },
+    {
+      "firingId": "fly-autopilot:firing-229",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "35da939",
+      "costUsd": 3.140358,
+      "turns": 56,
+      "createdAt": 1786389163348
+    },
+    {
+      "firingId": "fly-autopilot:firing-228",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "bf8b143",
+      "costUsd": 2.88610785,
+      "turns": 33,
+      "createdAt": 1786388720189
+    },
+    {
+      "firingId": "fly-autopilot:firing-227",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "9d17bdd",
+      "costUsd": 2.3538740999999996,
+      "turns": 47,
+      "createdAt": 1786388205090
+    },
+    {
+      "firingId": "fly-autopilot:firing-226",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "dbca0f6",
+      "costUsd": 1.7081427000000002,
+      "turns": 35,
+      "createdAt": 1786387828589
+    },
+    {
+      "firingId": "fly-autopilot:firing-225",
+      "item": "web-msnf1rve-xt8lud",
+      "kind": "feat",
+      "sha": "b57614c",
+      "costUsd": 2.4572315999999996,
+      "turns": 39,
+      "createdAt": 1786387499378
+    },
+    {
+      "firingId": "fly-autopilot:firing-224",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "241307b",
+      "costUsd": 2.347905,
+      "turns": 48,
+      "createdAt": 1786386942685
+    },
+    {
+      "firingId": "fly-autopilot:firing-223",
+      "item": "web-msnib8dg-h1upd2",
+      "kind": "feat",
+      "sha": "f5e6ef5",
+      "costUsd": 2.065092,
+      "turns": 37,
+      "createdAt": 1786386526563
+    },
+    {
+      "firingId": "fly-autopilot:firing-222",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "812f450",
+      "costUsd": 1.7928609,
+      "turns": 37,
+      "createdAt": 1786386157387
+    },
+    {
+      "firingId": "fly-autopilot:firing-221",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "07a0f94",
+      "costUsd": 4.694593199999999,
+      "turns": 50,
+      "createdAt": 1786385800351
+    },
+    {
+      "firingId": "fly-autopilot:firing-220",
+      "item": "web-msnf1rve-xt8lud",
+      "kind": "feat",
+      "sha": "e8930ed",
+      "costUsd": 4.8686433,
+      "turns": 94,
+      "createdAt": 1786385125760
+    },
+    {
+      "firingId": "fly-autopilot:firing-219",
+      "item": "web-msnf2heh-2znbbu",
+      "kind": "feat",
+      "sha": "e25e07c",
+      "costUsd": 3.066627299999999,
+      "turns": 74,
+      "createdAt": 1786384389024
+    },
+    {
+      "firingId": "fly-autopilot:firing-218",
+      "item": "ap-msm1zk7p-2",
+      "kind": "docs",
+      "sha": "c923089",
+      "costUsd": 2.1830682,
+      "turns": 38,
+      "createdAt": 1786383753588
+    },
+    {
+      "firingId": "fly-autopilot:firing-216",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "f59a847",
+      "costUsd": 2.1944394,
+      "turns": 44,
+      "createdAt": 1786377928546
+    },
+    {
+      "firingId": "fly-autopilot:firing-215",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "b7bad77",
+      "costUsd": 2.45386905,
+      "turns": 17,
+      "createdAt": 1786377509835
+    },
+    {
+      "firingId": "fly-autopilot:firing-214",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "6ccf065",
+      "costUsd": 2.2452455999999996,
+      "turns": 43,
+      "createdAt": 1786376943229
+    },
+    {
+      "firingId": "fly-autopilot:firing-213",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "db98f92",
+      "costUsd": 1.2894858,
+      "turns": 30,
+      "createdAt": 1786376560948
+    },
+    {
+      "firingId": "fly-autopilot:firing-212",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "d332c2e",
+      "costUsd": 1.9533485999999998,
+      "turns": 41,
+      "createdAt": 1786376260177
+    },
+    {
+      "firingId": "fly-autopilot:firing-211",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "90d1dfb",
+      "costUsd": 1.7942232000000002,
+      "turns": 42,
+      "createdAt": 1786375863057
+    },
+    {
+      "firingId": "fly-autopilot:firing-210",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "22327a9",
+      "costUsd": 2.548316099999999,
+      "turns": 46,
+      "createdAt": 1786375566353
+    },
+    {
+      "firingId": "fly-autopilot:firing-209",
+      "item": "web-msmpjsp4-0vr15q",
+      "kind": "feat",
+      "sha": "a09d01c",
+      "costUsd": 2.8681812000000004,
+      "turns": 49,
+      "createdAt": 1786375105310
+    },
+    {
+      "firingId": "fly-autopilot:firing-208",
+      "item": "web-msmpjsp4-0vr15q",
+      "kind": "feat",
+      "sha": "dd06633",
+      "costUsd": 1.7052401999999998,
+      "turns": 33,
+      "createdAt": 1786374576744
+    },
+    {
+      "firingId": "fly-autopilot:firing-206",
+      "item": "web-msm66jkf-1v7wk6",
+      "kind": "feat",
+      "sha": "1c99e60",
+      "costUsd": 3.0725806500000012,
+      "turns": 64,
+      "createdAt": 1786373492438
+    },
+    {
+      "firingId": "fly-autopilot:firing-205",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "14b915e",
+      "costUsd": 2.6275858500000004,
+      "turns": 50,
+      "createdAt": 1786340552935
+    },
+    {
+      "firingId": "fly-autopilot:firing-204",
+      "item": "web-msm66jlc-gm4oom",
+      "kind": "feat",
+      "sha": "da20676",
+      "costUsd": 1.9361707499999998,
+      "turns": 22,
+      "createdAt": 1786340057108
+    }
+  ]
+}

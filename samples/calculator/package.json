@@ -1,0 +1,9 @@
+{
+  "name": "sample-calculator",
+  "version": "0.0.1",
+  "private": true,
+  "description": "AUTOPILOT sample: a seeded mission with a tests-defined endpoint — flown to green autonomously.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

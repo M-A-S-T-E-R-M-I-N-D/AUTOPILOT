@@ -1,0 +1,28 @@
+{
+  "name": "sample-node-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUTOPILOT SAMPLES — tiny Node.js + TypeScript CLI target repo (see ../README.md). A wc-style line/word/char counter.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "sample-node-cli": "dist/cli.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "pretest": "npm run build",
+    "test": "node --test dist/*.test.js",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0"
+  }
+}

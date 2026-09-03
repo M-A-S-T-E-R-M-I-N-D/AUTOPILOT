@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": false,
+    "noEmit": true,
+    "lib": ["ES2022", "DOM"],
+    "rootDir": "../..",
+    "paths": {
+      "@autopilot/store": ["../../packages/store/src/index.ts"],
+      "@autopilot/engine": ["../../packages/engine/src/index.ts"],
+      "@autopilot/tokens": ["../../packages/tokens/src/index.ts"],
+      "@autopilot/onboarding": ["../../packages/onboarding/src/index.ts"],
+      "@autopilot/mcp": ["../../packages/mcp/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
