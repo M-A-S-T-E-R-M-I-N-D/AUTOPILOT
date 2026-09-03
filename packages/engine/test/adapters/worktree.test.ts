@@ -13,6 +13,7 @@ import {
   fastForwardWorktree,
   parseWorktreeList,
   removeWorktree,
+  repoPrefixOf,
   syncWorktreeBranch,
   worktreeIsRegistered,
 } from '../../src/adapters/worktree.js';
@@ -116,6 +117,30 @@ describe('parseWorktreeList', () => {
     const entries = parseWorktreeList(out);
     expect(entries).toHaveLength(1);
     expect(entries[0]?.branch).toMatch(/refs\/heads\//);
+  });
+});
+
+describe('repoPrefixOf', () => {
+  it("resolves to '' when path IS the repo root", async () => {
+    const repo = scratchRepoDir('autopilot-prefix-root-');
+    initRepo(repo);
+    await expect(repoPrefixOf(repo)).resolves.toBe('');
+  });
+
+  it("resolves to the repo-relative subpath for a nested project folder (HARNESS GAP, board web-mtm0shsf-hmv8ud: flying a subfolder of a larger repo used the worktree root as flightRoot instead of the nested folder actually registered, so the gate ran the parent repo's suite instead of the flown project's own)", async () => {
+    const repo = scratchRepoDir('autopilot-prefix-nested-');
+    initRepo(repo);
+    const nested = join(repo, 'samples', 'calculator');
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, 'calc.js'), '// stub');
+    gitSync(repo, ['add', '-A']);
+    gitSync(repo, ['commit', '-q', '-m', 'feat: add nested sample']);
+    await expect(repoPrefixOf(nested)).resolves.toBe('samples/calculator/');
+  });
+
+  it("resolves to '' (never throws) for a path with no enclosing git repo", async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'autopilot-prefix-none-'));
+    await expect(repoPrefixOf(scratch)).resolves.toBe('');
   });
 });
 
