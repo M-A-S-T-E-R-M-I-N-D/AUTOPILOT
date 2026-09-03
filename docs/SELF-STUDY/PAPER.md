@@ -214,27 +214,27 @@ harness does not (yet) independently verify it by re-running the named test agai
 ## 4. Results
 
 <!-- DATA:SUMMARY:START -->
-_Generated 2026-09-03T22:57:32.097Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 20 recorded firing(s))._
+_Generated 2026-09-03T22:58:45.390Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 22 recorded firing(s))._
 
 | Metric | Value |
 |---|---|
-| Firings recorded | 20 |
-| Firings shipped (gate-verified commit landed) | 3 (15.0%) |
-| Gate result | unverifiable 11 (55.0%) · passed 7 (35.0%) · reverted 2 (10.0%) |
-| Completion (self-reported) | complete 11 (55.0%) · untagged 6 (30.0%) · slice 3 (15.0%) |
-| Commit kind | untagged 8 (40.0%) · fix 6 (30.0%) · feat 3 (15.0%) · docs 3 (15.0%) |
+| Firings recorded | 22 |
+| Firings shipped (gate-verified commit landed) | 3 (13.6%) |
+| Gate result | unverifiable 11 (50.0%) · passed 9 (40.9%) · reverted 2 (9.1%) |
+| Completion (self-reported) | complete 12 (54.5%) · untagged 7 (31.8%) · slice 3 (13.6%) |
+| Commit kind | untagged 9 (40.9%) · fix 6 (27.3%) · feat 4 (18.2%) · docs 3 (13.6%) |
 | Firing-Prompt-Version (shipped commits, from git trailers) | firing-v12 2 (66.7%) · pre-trailer 1 (33.3%) |
-| Total cost (USD, self-reported) | $35.36 |
-| Total tokens, in / out | 1,684 / 609,331 |
-| Cache read / write tokens | 98,129,568 / 2,444,061 |
-| Total turns | 1,016 |
+| Total cost (USD, self-reported) | $38.52 |
+| Total tokens, in / out | 1,822 / 678,085 |
+| Cache read / write tokens | 105,578,039 / 2,688,474 |
+| Total turns | 1,088 |
 | Firing date range | 2026-09-03 — 2026-09-03 |
 
 **Eval regression by prompt version (SOTA-MAP H3).** One row per `Firing-Prompt-Version` value recorded in the engine's own telemetry at firing time (`events.payload.promptVersion`), so every firing counts — not only the shipped commits the row above resolves via git trailers. Pass rate = shipped ÷ firings; cost variance is the population variance of `costUsd` across every firing in that version (a consistency signal, not the same thing as the median); cost/solved = total cost across every firing in that version ÷ number shipped. A prompt-version bump should be gated on these four numbers moving together, not on pass rate alone (H3: "optimizing pass rate alone selects for expensive, high-variance configurations").
 
 | Prompt version | Firings | Pass rate | Median turns | Cost variance | Cost / solved task |
 |---|---|---|---|---|---|
-| firing-v12 | 20 | 15.0% | 44.5 | 1.00 | $11.79 |
+| firing-v12 | 22 | 13.6% | 43 | 0.91 | $12.84 |
 
 **Eval regression over the pinned suite (pre-registered, SOTA-MAP: "20-50 real tasks from your own repository with known-good outcomes").** 50 firing(s) pinned 2026-08-10 (`docs/SELF-STUDY/eval-suite.json`) — each independently verified shipped by the harness (gate passed, SHA confirmed, HEAD advanced), not self-reported. Unlike the ad hoc table above, this population is fixed: re-running this script next month against the same pinned ids reproduces the same numbers below, because the pinned set cannot grow.
 
@@ -246,8 +246,8 @@ _Generated 2026-09-03T22:57:32.097Z by `pnpm self-study:update` from the local t
 
 | Pick source | Firings | Pass rate | Median turns | Cost variance | Cost / solved task |
 |---|---|---|---|---|---|
-| operator-assigned | 14 | 7.1% | 47.5 | 1.11 | $29.36 |
-| self-proposed | 3 | 0.0% | 34 | 0.06 | n/a |
+| operator-assigned | 15 | 6.7% | 45 | 1.05 | $31.01 |
+| self-proposed | 4 | 0.0% | 36 | 0.04 | n/a |
 | untracked-item | 3 | 66.7% | 27 | 0.19 | $0.92 |
 
 **TDD-first compliance on fix tasks (backlog web-msnsxuep-ytwucr).** The firing prompt requires a FAILING test reproducing the bug BEFORE the fix on every `kind:"fix"` firing; the agent self-reports whether it followed that order (`METRICS.testFirst` → `metrics.test_first`). Self-reported, not (yet) independently verified by re-running the named test against the pre-fix commit — see the limitations this shares with `completion` in `docs/MODEL-CARD.md` §5.
@@ -260,53 +260,53 @@ _Generated 2026-09-03T22:57:32.097Z by `pnpm self-study:update` from the local t
 
 | Ranked firings | Top picked | Justified deviations | Unjustified deviations | Violation rate |
 |---|---|---|---|---|
-| 10 | 5 | 5 | 0 | 0.0% |
+| 11 | 5 | 6 | 0 | 0.0% |
 
 **BOARD DIVERSITY audit (backlog web-mtb8i2s3-wd3rod).** `pickDisciplineAudit` above only checks that a deviation from the triage-TOP task carried SOME `deviation_reason` — a firing can honestly supply a fresh-reading reason on every one of many consecutive firings and still be comfort-picking the same easy item over and over, invisible to a justified/unjustified split. This measures that instead: among firings that deviated and named the item they worked, how many distinct items those deviations actually cover, and the longest run of consecutive deviations that named the identical item.
 
 | Deviated firings | Distinct items | Longest same-item streak | Most-repeated item |
 |---|---|---|---|
-| 5 | 4 | 1 | web-mtluaot4-g7kjuu |
+| 6 | 5 | 1 | web-mtluaot4-g7kjuu |
 
 **Gate parallelization savings (backlog web-msnt26tn-jvyihy, "PARALLEL GATE + test-impact").** `fly.ts` runs the gate's typecheck/lint/format steps concurrently instead of one after another (each still timed independently by `GateRunner`). Sequential = the sum of those durations per firing (the counterfactual cost if they had run one after another); observed = the max per firing (the real wall-clock a concurrent batch takes, bounded by its slowest member) — both derived from already-collected telemetry, not a live re-run.
 
 | Sampled firings | Sequential (sum) | Observed (max) | Saved | Saved % |
 |---|---|---|---|---|
-| 9 | 1914.4s | 1177.3s | 737.2s | 38.5% |
+| 11 | 2310.9s | 1391.5s | 919.4s | 39.8% |
 
-**Finish-line extension savings (epic `docs/epics/0009-warm-sessions.md`, board web-msnt26so-0c6tje).** The measured resumed-vs-cold verdict above was negative, so resume narrowed to a bounded FINISH-LINE EXTENSION self-resume of the same firing's session (`firing.ts`), queryable since migration v17 (`metrics.extended`). No extended firing recorded yet (baseline: 20 ordinary firing(s)) — the extension-vs-checkpoint verdict stays pending until this group is non-empty.
+**Finish-line extension savings (epic `docs/epics/0009-warm-sessions.md`, board web-msnt26so-0c6tje).** The measured resumed-vs-cold verdict above was negative, so resume narrowed to a bounded FINISH-LINE EXTENSION self-resume of the same firing's session (`firing.ts`), queryable since migration v17 (`metrics.extended`). No extended firing recorded yet (baseline: 22 ordinary firing(s)) — the extension-vs-checkpoint verdict stays pending until this group is non-empty.
 <!-- DATA:SUMMARY:END -->
 
 <!-- DATA:CHART:START -->
-_Generated 2026-09-03T22:57:32.122Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
+_Generated 2026-09-03T22:58:45.405Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
 
 **Firings per day**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per day, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 3 shipped of 20 firing(s). Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">20</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="200.9" width="48.0" height="25.1" rx="3" fill="#009E73"><title>2026-09-03: 3 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="146.9" rx="3" fill="#64748B"><title>2026-09-03: 17 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per day, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 3 shipped of 22 firing(s). Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">22</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="203.3" width="48.0" height="22.7" rx="3" fill="#009E73"><title>2026-09-03: 3 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="149.3" rx="3" fill="#64748B"><title>2026-09-03: 19 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
 
 **Cost per day**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Cost per day (USD)</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: $35.36. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#0072B2" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Cost (USD)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">$35.36</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">$0</text><path d="M334.0,52.0" fill="none" stroke="#0072B2" stroke-width="2"/><circle cx="334.0" cy="52.0" r="3.5" fill="#0072B2"><title>2026-09-03: $35.36</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Cost per day (USD)</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: $38.52. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#0072B2" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Cost (USD)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">$38.52</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">$0</text><path d="M334.0,52.0" fill="none" stroke="#0072B2" stroke-width="2"/><circle cx="334.0" cy="52.0" r="3.5" fill="#0072B2"><title>2026-09-03: $38.52</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
 
 **Ship rate (3-day rolling)**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Ship rate (%), 3-day rolling</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 15.0%. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#009E73" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Ship rate (3d rolling)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">100%</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0%</text><path d="M334.0,199.9" fill="none" stroke="#009E73" stroke-width="2"/><circle cx="334.0" cy="199.9" r="3.5" fill="#009E73"><title>2026-09-03: 15.0%</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Ship rate (%), 3-day rolling</title><desc>Line chart, 1 day(s) from 2026-09-03 to 2026-09-03. 2026-09-03: 13.6%. Exact values are also in the DATA:SERIES JSON block below.</desc><rect x="0" y="0" width="640" height="260" fill="none"/><line x1="44" y1="18" x2="54" y2="18" stroke="#009E73" stroke-width="2"/><text x="60" y="22" font-size="12" fill="#1F2937">Ship rate (3d rolling)</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">100%</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0%</text><path d="M334.0,202.3" fill="none" stroke="#009E73" stroke-width="2"/><circle cx="334.0" cy="202.3" r="3.5" fill="#009E73"><title>2026-09-03: 13.6%</title></circle><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">09-03</text></svg>
 
 **Firings per prompt version**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per prompt version, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 prompt version(s), chronologically from firing-v12 to firing-v12. firing-v12: 3 shipped of 20 firing(s). Exact values are also in the DATA:SERIES JSON block below (`perEra`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">20</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="200.9" width="48.0" height="25.1" rx="3" fill="#009E73"><title>firing-v12: 3 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="146.9" rx="3" fill="#64748B"><title>firing-v12: 17 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">v12</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings per prompt version, split into shipped vs. not shipped</title><desc>Stacked bar chart, 1 prompt version(s), chronologically from firing-v12 to firing-v12. firing-v12: 3 shipped of 22 firing(s). Exact values are also in the DATA:SERIES JSON block below (`perEra`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">22</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="310.0" y="203.3" width="48.0" height="22.7" rx="3" fill="#009E73"><title>firing-v12: 3 shipped</title></rect><rect x="310.0" y="52.0" width="48.0" height="149.3" rx="3" fill="#64748B"><title>firing-v12: 19 not shipped</title></rect><text x="334.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">v12</text></svg>
 
 **Firings by turn count**
 
-<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings by turn count, split into shipped vs. not shipped</title><desc>Stacked bar chart, 10 bucket(s) of 10 turns each, from 20-29 to 110-119. 20-29 turns: 2 shipped of 4 firing(s); 30-39 turns: 0 shipped of 3 firing(s); 40-49 turns: 1 shipped of 5 firing(s); 50-59 turns: 0 shipped of 4 firing(s); 60-69 turns: 0 shipped of 0 firing(s); 70-79 turns: 0 shipped of 1 firing(s); 80-89 turns: 0 shipped of 1 firing(s); 90-99 turns: 0 shipped of 0 firing(s); 100-109 turns: 0 shipped of 0 firing(s); 110-119 turns: 0 shipped of 2 firing(s). Exact values are also in the DATA:SERIES JSON block below (`turnsHistogram`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">5</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="57.0" y="157.4" width="31.9" height="68.6" rx="3" fill="#009E73"><title>20-29 turns: 2 shipped</title></rect><rect x="57.0" y="86.8" width="31.9" height="68.6" rx="3" fill="#64748B"><title>20-29 turns: 2 not shipped</title></rect><text x="73.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">20-29</text><rect x="115.0" y="119.6" width="31.9" height="104.4" rx="3" fill="#64748B"><title>30-39 turns: 3 not shipped</title></rect><text x="131.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">30-39</text><rect x="173.1" y="192.2" width="31.9" height="33.8" rx="3" fill="#009E73"><title>40-49 turns: 1 shipped</title></rect><rect x="173.1" y="52.0" width="31.9" height="138.2" rx="3" fill="#64748B"><title>40-49 turns: 4 not shipped</title></rect><text x="189.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">40-49</text><rect x="231.1" y="84.8" width="31.9" height="139.2" rx="3" fill="#64748B"><title>50-59 turns: 4 not shipped</title></rect><text x="247.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">50-59</text><text x="305.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">60-69</text><rect x="347.1" y="189.2" width="31.9" height="34.8" rx="3" fill="#64748B"><title>70-79 turns: 1 not shipped</title></rect><text x="363.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">70-79</text><rect x="405.1" y="189.2" width="31.9" height="34.8" rx="3" fill="#64748B"><title>80-89 turns: 1 not shipped</title></rect><text x="421.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">80-89</text><text x="479.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">90-99</text><text x="537.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">100-109</text><rect x="579.0" y="154.4" width="31.9" height="69.6" rx="3" fill="#64748B"><title>110-119 turns: 2 not shipped</title></rect><text x="595.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">110-119</text></svg>
+<svg viewBox="0 0 640 260" width="640" height="260" role="img" xmlns="http://www.w3.org/2000/svg"><title>Firings by turn count, split into shipped vs. not shipped</title><desc>Stacked bar chart, 10 bucket(s) of 10 turns each, from 20-29 to 110-119. 20-29 turns: 2 shipped of 4 firing(s); 30-39 turns: 0 shipped of 5 firing(s); 40-49 turns: 1 shipped of 5 firing(s); 50-59 turns: 0 shipped of 4 firing(s); 60-69 turns: 0 shipped of 0 firing(s); 70-79 turns: 0 shipped of 1 firing(s); 80-89 turns: 0 shipped of 1 firing(s); 90-99 turns: 0 shipped of 0 firing(s); 100-109 turns: 0 shipped of 0 firing(s); 110-119 turns: 0 shipped of 2 firing(s). Exact values are also in the DATA:SERIES JSON block below (`turnsHistogram`).</desc><rect x="0" y="0" width="640" height="260" fill="none"/><rect x="44" y="13" width="10" height="10" rx="2" fill="#009E73"/><text x="60" y="22" font-size="12" fill="#1F2937">Shipped</text><rect x="128" y="13" width="10" height="10" rx="2" fill="#64748B"/><text x="144" y="22" font-size="12" fill="#1F2937">Not shipped</text><line x1="44" y1="226" x2="624" y2="226" stroke="#CBD5E1" stroke-width="1"/><text x="36" y="56" text-anchor="end" font-size="11" fill="#1F2937">5</text><text x="36" y="230" text-anchor="end" font-size="11" fill="#1F2937">0</text><rect x="57.0" y="157.4" width="31.9" height="68.6" rx="3" fill="#009E73"><title>20-29 turns: 2 shipped</title></rect><rect x="57.0" y="86.8" width="31.9" height="68.6" rx="3" fill="#64748B"><title>20-29 turns: 2 not shipped</title></rect><text x="73.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">20-29</text><rect x="115.0" y="50.0" width="31.9" height="174.0" rx="3" fill="#64748B"><title>30-39 turns: 5 not shipped</title></rect><text x="131.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">30-39</text><rect x="173.1" y="192.2" width="31.9" height="33.8" rx="3" fill="#009E73"><title>40-49 turns: 1 shipped</title></rect><rect x="173.1" y="52.0" width="31.9" height="138.2" rx="3" fill="#64748B"><title>40-49 turns: 4 not shipped</title></rect><text x="189.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">40-49</text><rect x="231.1" y="84.8" width="31.9" height="139.2" rx="3" fill="#64748B"><title>50-59 turns: 4 not shipped</title></rect><text x="247.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">50-59</text><text x="305.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">60-69</text><rect x="347.1" y="189.2" width="31.9" height="34.8" rx="3" fill="#64748B"><title>70-79 turns: 1 not shipped</title></rect><text x="363.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">70-79</text><rect x="405.1" y="189.2" width="31.9" height="34.8" rx="3" fill="#64748B"><title>80-89 turns: 1 not shipped</title></rect><text x="421.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">80-89</text><text x="479.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">90-99</text><text x="537.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">100-109</text><rect x="579.0" y="154.4" width="31.9" height="69.6" rx="3" fill="#64748B"><title>110-119 turns: 2 not shipped</title></rect><text x="595.0" y="242.0" text-anchor="middle" font-size="11" fill="#1F2937">110-119</text></svg>
 <!-- DATA:CHART:END -->
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-03T22:57:32.121Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-03T22:58:45.404Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-03T22:57:32.121Z",
+  "generatedAt": "2026-09-03T22:58:45.404Z",
   "project": "autopilot",
   "perFiring": [
     {
@@ -548,27 +548,51 @@ _Generated 2026-09-03T22:57:32.121Z by `pnpm self-study:update` — the chart da
       "promptVersion": "firing-v12",
       "costUsd": 1.4540806,
       "turns": 42
+    },
+    {
+      "firingId": "fly-autopilot:firing-22",
+      "day": "2026-09-03",
+      "sha": null,
+      "kind": "feat",
+      "shipped": false,
+      "completion": null,
+      "outcome": "noop",
+      "promptVersion": "firing-v12",
+      "costUsd": 1.6539424,
+      "turns": 34
+    },
+    {
+      "firingId": "fly-autopilot--fleet-4:firing-23",
+      "day": "2026-09-03",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": "complete",
+      "outcome": "noop",
+      "promptVersion": "firing-v12",
+      "costUsd": 1.5012198,
+      "turns": 38
     }
   ],
   "perDay": [
     {
       "day": "2026-09-03",
-      "firings": 20,
+      "firings": 22,
       "shipped": 3,
-      "costUsd": 35.3641,
-      "turns": 1016,
-      "rollingShipRate": 0.15
+      "costUsd": 38.5193,
+      "turns": 1088,
+      "rollingShipRate": 0.1364
     }
   ],
   "perEra": [
     {
       "promptVersion": "firing-v12",
-      "firings": 20,
+      "firings": 22,
       "shipped": 3,
-      "passRate": 0.15,
-      "medianTurns": 44.5,
-      "costVariance": 0.9989723723951653,
-      "costPerSolved": 11.788038033333331
+      "passRate": 0.1364,
+      "medianTurns": 43,
+      "costVariance": 0.9113221756467766,
+      "costPerSolved": 12.839758766666664
     }
   ],
   "turnsHistogram": [
@@ -580,7 +604,7 @@ _Generated 2026-09-03T22:57:32.121Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 30,
-      "firings": 3,
+      "firings": 5,
       "shipped": 0,
       "bucketLabel": "30-39"
     },
@@ -2892,3 +2916,7 @@ update"), appended by `scripts/self-study/generate-data.mjs` at the end of any f
   - Since the previous update: firings 19 → 20 (+1 ↑), shipped 2 → 3 (+1 ↑), total cost $33.91 → $35.36 (+$1.45 ↑).
   - View what changed: `git diff eb91c313 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
   - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/eb91c313/docs/SELF-STUDY/PAPER.md)
+- **2026-09-03** — Automated flight update: 22 firing(s) this flight (3 shipped), 22 total recorded.
+  - Since the previous update: firings 20 → 22 (+2 ↑), shipped 3 → 3 (no change), total cost $35.36 → $38.52 (+$3.16 ↑).
+  - View what changed: `git diff 0d540e50 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
+  - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/0d540e50/docs/SELF-STUDY/PAPER.md)
