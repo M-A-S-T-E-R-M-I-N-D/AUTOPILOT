@@ -14,17 +14,21 @@ not 14 — no operator precedence; state it, don't surprise anyone).
 
 ## The defined endpoint — 100% means all of these
 
-- [ ] `npm test` — **every acceptance test in `calc.test.js` passes** (they
-      are all red at seed time, on purpose).
-- [ ] `index.html` works by mouse AND keyboard (digits, `+ - * /`, `Enter`
-      `=`, `Escape` clears, `Backspace` deletes).
-- [ ] Divide by zero shows `Error` and recovers on the next input — never a
-      crash, never `Infinity`.
-- [ ] Zero dependencies, zero build step: one `calc.js` (the pure state
-      machine, ≤150 lines), one `index.html`, one `style.css`.
-- [ ] The pure logic (`calc.js`) never touches the DOM — `index.html` wires
+- [x] `npm test` — **every acceptance test in `calc.test.js` passes** (they
+      are all red at seed time, on purpose). Verified: 12/12 pass.
+- [x] `index.html` works by mouse AND keyboard (digits, `+ - * /`, `Enter`
+      `=`, `Escape` clears, `Backspace` deletes). Verified against the real
+      `index.html` + `calc.js` wiring (mouse click sequence and keyboard
+      event sequence both drive the display correctly).
+- [x] Divide by zero shows `Error` and recovers on the next input — never a
+      crash, never `Infinity`. Verified: `5 / 0 =` shows `Error`, and the
+      next digit press starts a fresh entry.
+- [x] Zero dependencies, zero build step: one `calc.js` (the pure state
+      machine, ≤150 lines), one `index.html`, one `style.css`. `calc.js` is
+      116 lines.
+- [x] The pure logic (`calc.js`) never touches the DOM — `index.html` wires
       it; that separation is what makes the tests honest.
-- [ ] It looks intentional: the seed `style.css` carries the design tokens —
+- [x] It looks intentional: the seed `style.css` carries the design tokens —
       keep its character, don't flatten it to defaults.
 
 ## Prior art (inspiration, not source)
