@@ -214,7 +214,7 @@ harness does not (yet) independently verify it by re-running the named test agai
 ## 4. Results
 
 <!-- DATA:SUMMARY:START -->
-_Generated 2026-09-03T19:43:04.672Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 20 recorded firing(s))._
+_Generated 2026-09-03T21:04:41.597Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 20 recorded firing(s))._
 
 | Metric | Value |
 |---|---|
@@ -223,7 +223,7 @@ _Generated 2026-09-03T19:43:04.672Z by `pnpm self-study:update` from the local t
 | Gate result | passed 8 (40.0%) · checkpointed 7 (35.0%) · no-commit 3 (15.0%) · reverted 2 (10.0%) |
 | Completion (self-reported) | slice 8 (40.0%) · untagged 8 (40.0%) · complete 4 (20.0%) |
 | Commit kind | untagged 8 (40.0%) · fix 6 (30.0%) · docs 3 (15.0%) · feat 2 (10.0%) · refactor 1 (5.0%) |
-| Firing-Prompt-Version (shipped commits, from git trailers) | firing-v12 8 (100.0%) |
+| Firing-Prompt-Version (shipped commits, from git trailers) | pre-trailer 8 (100.0%) |
 | Total cost (USD, self-reported) | $20.36 |
 | Total tokens, in / out | 980 / 243,122 |
 | Cache read / write tokens | 53,760,799 / 1,793,966 |
@@ -302,7 +302,7 @@ Cost saved per extended firing vs. ordinary: $-1.92. Cost saved per turn, extend
 <!-- DATA:SUMMARY:END -->
 
 <!-- DATA:CHART:START -->
-_Generated 2026-09-03T19:43:04.693Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
+_Generated 2026-09-03T21:04:41.612Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
 
 **Firings per day**
 
@@ -326,11 +326,11 @@ _Generated 2026-09-03T19:43:04.693Z by `pnpm self-study:update` — the `DATA:SE
 <!-- DATA:CHART:END -->
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-03T19:43:04.693Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-03T21:04:41.611Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-03T19:43:04.693Z",
+  "generatedAt": "2026-09-03T21:04:41.611Z",
   "project": "autopilot",
   "perFiring": [
     {
@@ -2964,3 +2964,7 @@ update"), appended by `scripts/self-study/generate-data.mjs` at the end of any f
   - Since the previous update: firings 19 → 20 (+1 ↑), shipped 8 → 8 (no change), total cost $19.28 → $20.36 (+$1.08 ↑).
   - View what changed: `git diff c12f41bf -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
   - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/c12f41bf/docs/SELF-STUDY/PAPER.md)
+- **2026-09-03** — Automated flight update: 2 firing(s) this flight (0 shipped), 20 total recorded.
+  - Since the previous update: firings 20 → 20 (no change), shipped 8 → 8 (no change), total cost $20.36 → $20.36 (no change).
+  - View what changed: `git diff d881b750 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
+  - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/d881b750/docs/SELF-STUDY/PAPER.md)
