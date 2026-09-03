@@ -539,19 +539,26 @@ ${sessionFlightDataFor.toString()}
     setTip(statusSpan, statusTipKey);
     row.appendChild(statusSpan);
     var actions = el('div', 'fly-flight-actions');
+    // D1 ATTRIBUTE PAYLOAD (epic 0015, board web-mtd1wmqc-v7h6cq): each
+    // button's aria-label below states the action + folder concisely instead
+    // of duplicating the full tip sentence verbatim — same pattern as
+    // 189137e0's task chips and b92dc664's replay/diff toggles, applied here
+    // to a per-row control whose folder name is the one piece of context
+    // worth keeping (a bare "Pause" would be ambiguous with several flights
+    // running at once).
     if (f.running) {
       var pauseBtn = el('button', 'fly-flight-pause', tr('pause'));
       pauseBtn.type = 'button';
       var pauseTip = tr('pauseFlightOn', f.folder);
       pauseBtn.setAttribute('data-tip', pauseTip);
-      pauseBtn.setAttribute('aria-label', pauseTip);
+      pauseBtn.setAttribute('aria-label', tr('pause') + ': ' + f.folder);
       pauseBtn.addEventListener('click', function () { targetedAction('pause', f.folder, pauseBtn); });
       actions.appendChild(pauseBtn);
       var stopBtn = el('button', 'fly-flight-stop', tr('stop'));
       stopBtn.type = 'button';
       var stopTip = tr('stopFlightOn', f.folder);
       stopBtn.setAttribute('data-tip', stopTip);
-      stopBtn.setAttribute('aria-label', stopTip);
+      stopBtn.setAttribute('aria-label', tr('stop') + ': ' + f.folder);
       stopBtn.addEventListener('click', function () { targetedAction('stop', f.folder, stopBtn); });
       actions.appendChild(stopBtn);
     } else if (f.queued) {
@@ -562,7 +569,7 @@ ${sessionFlightDataFor.toString()}
       cancelBtn.type = 'button';
       var cancelTip = tr('cancelQueuedFlightOn', f.folder);
       cancelBtn.setAttribute('data-tip', cancelTip);
-      cancelBtn.setAttribute('aria-label', cancelTip);
+      cancelBtn.setAttribute('aria-label', tr('cancel') + ': ' + f.folder);
       cancelBtn.addEventListener('click', function () { targetedAction('stop', f.folder, cancelBtn); });
       actions.appendChild(cancelBtn);
     } else {
@@ -570,7 +577,7 @@ ${sessionFlightDataFor.toString()}
       resumeBtn.type = 'button';
       var resumeTip = tr('resumeFlightOn', f.folder);
       resumeBtn.setAttribute('data-tip', resumeTip);
-      resumeBtn.setAttribute('aria-label', resumeTip);
+      resumeBtn.setAttribute('aria-label', tr('resume') + ': ' + f.folder);
       resumeBtn.addEventListener('click', function () {
         if (folderEl) folderEl.value = f.folder;
         restoreFlySettingsFor(f.folder);
