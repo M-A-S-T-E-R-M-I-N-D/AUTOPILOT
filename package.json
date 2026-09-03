@@ -211,15 +211,15 @@
     "@types/node": "^26.2.0",
     "@vitest/coverage-v8": "^4.1.11",
     "axe-core": "^4.13.0",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.11.0",
     "husky": "^9.1.7",
     "jsdom": "^30.0.1",
-    "knip": "^6.32.2",
+    "knip": "^6.32.3",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.67.0",
+    "typescript-eslint": "^8.68.0",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
   }
