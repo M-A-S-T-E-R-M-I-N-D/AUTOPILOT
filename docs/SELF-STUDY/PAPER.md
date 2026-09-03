@@ -214,7 +214,7 @@ harness does not (yet) independently verify it by re-running the named test agai
 ## 4. Results
 
 <!-- DATA:SUMMARY:START -->
-_Generated 2026-09-03T22:58:45.390Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 22 recorded firing(s))._
+_Generated 2026-09-03T22:59:00.637Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 22 recorded firing(s))._
 
 | Metric | Value |
 |---|---|
@@ -278,7 +278,7 @@ _Generated 2026-09-03T22:58:45.390Z by `pnpm self-study:update` from the local t
 <!-- DATA:SUMMARY:END -->
 
 <!-- DATA:CHART:START -->
-_Generated 2026-09-03T22:58:45.405Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
+_Generated 2026-09-03T22:59:00.652Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in the JSON block below.
 
 **Firings per day**
 
@@ -302,11 +302,11 @@ _Generated 2026-09-03T22:58:45.405Z by `pnpm self-study:update` — the `DATA:SE
 <!-- DATA:CHART:END -->
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-03T22:58:45.404Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-03T22:59:00.651Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-03T22:58:45.404Z",
+  "generatedAt": "2026-09-03T22:59:00.651Z",
   "project": "autopilot",
   "perFiring": [
     {
@@ -2920,3 +2920,7 @@ update"), appended by `scripts/self-study/generate-data.mjs` at the end of any f
   - Since the previous update: firings 20 → 22 (+2 ↑), shipped 3 → 3 (no change), total cost $35.36 → $38.52 (+$3.16 ↑).
   - View what changed: `git diff 0d540e50 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
   - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/0d540e50/docs/SELF-STUDY/PAPER.md)
+- **2026-09-03** — Automated flight update: 21 firing(s) this flight (3 shipped), 22 total recorded.
+  - Since the previous update: firings 22 → 22 (no change), shipped 3 → 3 (no change), total cost $38.52 → $38.52 (+$0.00 ↑).
+  - View what changed: `git diff 06a341a2 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
+  - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/06a341a2/docs/SELF-STUDY/PAPER.md)
