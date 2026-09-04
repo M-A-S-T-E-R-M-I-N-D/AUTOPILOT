@@ -5,9 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # Engineering Doctrine — patterns, when to use them, and where the truth lives
 
-> The engineering pattern REFERENCE CATALOG — RAG-indexed and retrievable
-> like every doc here, though the firing prompt does not name it directly
-> (its "Research first" rule points at official docs). Covers the FULL
+> The permanent, RAG-indexed knowledge base every firing consults (the
+> firing prompt's "Research first" rule points here). Covers the FULL
 > canonical pattern landscape and HOW TO CHOOSE. Sources are the most
 > authoritative catalogs in the field — never re-research what this file
 > already answers; DO verify version-specific details against the live

@@ -10,8 +10,8 @@
 **For what purpose was the dataset created?**
 To let outside researchers evaluate the three research questions in [PAPER.md §2](PAPER.md#research-questions)
 (ship-rate sustainability, guidance-cost effects, cost/turns efficiency over prompt-version eras) without depending
-on AUTOPILOT's own generated tables, and without needing access to the local, git-ignored telemetry store
-the tables are computed from (the repository itself has been public since 2026-09-03). It exists because §2's "Available" artifact-badge claim (data + generation script
+on AUTOPILOT's own generated tables, and without needing access to the private repository or local telemetry store
+the tables are computed from. It exists because §2's "Available" artifact-badge claim (data + generation script
 open, in-repo, regenerable) was true only of the *rendered summary tables* — the underlying per-firing rows were
 never independently exportable until this script.
 
@@ -55,11 +55,9 @@ redacted per-row, so every instance is missing them uniformly (not a per-row gap
 
 **Anonymization — what was removed and why.**
 The export drops: `project_id` and `firing_id` (replaced by sequential `row_id`), `item` (board task id, may name
-internal features), `sha`/`head_before`/`head_after` (commit hashes — most predate the 2026-09-03 public genesis squash and resolve
-nowhere a reader can reach, so they would be noise pretending to be citations), `commit_subject`
-(free-text commit titles — the highest-risk field for incidental free-text leakage of half-finished internal
-names and reasoning), and `deviation_reason` (free-text, same risk). Since going public the rationale is
-LEAKAGE CONTROL and referential honesty, not repository secrecy: no free-text field survives the export. Everything kept is a number, a bounded enum, or a timestamp — no
+internal features), `sha`/`head_before`/`head_after` (git commit hashes into a private repository), `commit_subject`
+(free-text commit titles, the single highest-risk field for incidentally naming proprietary code or business logic),
+and `deviation_reason` (free-text, same risk). Everything kept is a number, a bounded enum, or a timestamp — no
 free-text field survives the export.
 
 **Does the dataset contain data that might be considered confidential, or offensive/threatening/anxiety-inducing?**
@@ -93,7 +91,7 @@ is exported as `null`/empty, never coerced to a default, matching the store's ow
 (`packages/store/src/schema.ts`'s migration comments document this per-column).
 
 **Is the software used to preprocess/clean/label the instances available?**
-Yes — `scripts/self-study/export-dataset.mjs`, in this repository, Apache-2.0-licensed with the rest of the
+Yes — `scripts/self-study/export-dataset.mjs`, in this repository, MIT/Apache-2.0-licensed with the rest of the
 codebase (see `LICENSE`).
 
 ## Uses
@@ -116,10 +114,9 @@ both grow over time, so an export taken early in the project's history is a very
 later; always record the export date alongside any published analysis.
 
 **Are there tasks for which the dataset should not be used?**
-Treating the dropped fields as recoverable facts. The repository is public, so "re-identification" is not the
-threat it was pre-genesis — but the export deliberately excludes free text and pre-genesis hashes, and analyses
-that try to reconstruct them from other artifacts will inherit exactly the drift and dangling references the
-exclusion exists to prevent. Cite the export date; do not backfill excluded columns.
+Re-identifying the private repository or any individual commit — the anonymization above is designed to make that
+infeasible from this export alone, and combining it with other AUTOPILOT-published artifacts to attempt
+re-identification would defeat the purpose of anonymizing it.
 
 ## Distribution
 

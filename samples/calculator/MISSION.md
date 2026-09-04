@@ -1,9 +1,5 @@
 # MISSION — a simple, beautiful calculator
 
-> **Seed artifact:** this brief is preserved exactly as the flight received it — checkboxes
-> reflect SEED time, on purpose. The flown result (12/12 green) and the full story live in
-> [`docs/CASE-STUDIES/calculator.md`](../../docs/CASE-STUDIES/calculator.md).
-
 This file is the whole brief. An operator drops a mission like this, points
 AUTOPILOT at the folder, and the flight is DONE when — and only when — every
 box below is checked. No hidden goals, no moving target: **the failing tests
