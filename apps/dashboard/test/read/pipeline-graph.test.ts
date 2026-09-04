@@ -235,6 +235,20 @@ describe('spansToGraph', () => {
         expect(node.status).toBe(OTLP_STATUS_OK);
       }
     });
+
+    it('carries firingOrdinal/firingSubject from the real wire attributes (board web-mtmpf1zc-6yzprb)', () => {
+      const a = firingSpan(52, 'sha-a');
+      const graph = spansToGraph([a], { lens: 'fleet', mode: 'flat' });
+      expect(graph.nodes[0]!.firingOrdinal).toBe(52);
+      expect(graph.nodes[0]!.firingSubject).toBe('feat(engine): OTLP export for firing records');
+    });
+
+    it('leaves firingOrdinal/firingSubject ABSENT (not undefined-valued) when no span carries them', () => {
+      const bare = span({ traceId: 't1', spanId: 's1' });
+      const graph = spansToGraph([bare], { lens: 'fleet', mode: 'flat' });
+      expect('firingOrdinal' in graph.nodes[0]!).toBe(false);
+      expect('firingSubject' in graph.nodes[0]!).toBe(false);
+    });
   });
 
   describe("lens: 'fleet', mode: 'grouped' — real single-span-per-trace exporter output", () => {
@@ -253,6 +267,12 @@ describe('spansToGraph', () => {
         expect(node.spanCount).toBe(1);
         expect(node.label).toBe('autopilot.firing');
       }
+    });
+
+    it('carries firingOrdinal from the trace’s spans in grouped mode too', () => {
+      const a = firingSpan(7, 'sha-a');
+      const graph = spansToGraph([a], { lens: 'fleet', mode: 'grouped' });
+      expect(graph.nodes[0]!.firingOrdinal).toBe(7);
     });
   });
 

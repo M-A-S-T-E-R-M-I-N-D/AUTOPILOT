@@ -23,14 +23,37 @@
  * relay reads left-to-right instead of stair-stepping down one lane per trace.
  * Edges within a single trace already share a lane, so compact and layered agree
  * on every graph without cross-trace edges.
+ *
+ * `mode: 'compact'` further wraps fully DISCONNECTED single-node lanes — a trace
+ * with exactly one span and no continuation edge to any other trace, the common
+ * case once a fleet runs many unrelated board items — into a grid instead of
+ * stacking each in its own row (board web-mtmpf1zc-6yzprb: 43 such lanes rendered
+ * as one 2140px-tall single-column canvas). Only lanes with more than one node
+ * are guaranteed edge-free zero-column-width connections to route around, so
+ * grid-packed nodes never need edge-routing accommodation (see
+ * `pipeline-canvas.ts`'s `edgePoints`: an isolated node is by construction never
+ * an edge endpoint, since `compactLaneKeys` unions a lane group above size 1
+ * precisely BECAUSE an edge touched it). Grid-eligible lanes are packed in
+ * first-appearance order after every real (multi-node or edge-linked) lane's row,
+ * `gridColumns` wide (default {@link DEFAULT_GRID_COLUMNS}), wrapping to
+ * additional rows as needed. `mode: 'layered'` never grid-packs — the tree
+ * sidebar's one-lane-per-traceId ARIA contract (`pipeline-tree.ts`) depends on
+ * layered mode staying literal, which is why the panel composer always builds the
+ * sidebar from a `mode: 'layered'` layout regardless of the canvas's own mode
+ * (`pipeline-panel.ts`).
  */
 
 import type { SpanGraph } from './pipeline-graph.js';
 
 export type GraphLayoutMode = 'layered' | 'compact';
 
+/** Default max nodes per row when `mode: 'compact'` wraps disconnected single-node lanes into a grid. */
+export const DEFAULT_GRID_COLUMNS = 8;
+
 export interface GraphLayoutOptions {
   readonly mode: GraphLayoutMode;
+  /** `mode: 'compact'` only — max nodes per row in the disconnected-lane grid (default {@link DEFAULT_GRID_COLUMNS}). */
+  readonly gridColumns?: number;
 }
 
 export interface GraphNodePosition {
@@ -75,22 +98,63 @@ function compactLaneKeys(graph: SpanGraph): Map<string, string> {
 /**
  * Assigns each node a swimlane position: one lane per `traceId` (`mode: 'layered'`, the
  * default) or per continuation-connected trace group (`mode: 'compact'`), columns in node
- * order within the lane.
+ * order within the lane. `mode: 'compact'` additionally grid-packs lane groups of exactly
+ * one node (see the module header) instead of giving each its own row.
  */
 export function layoutGraph(
   graph: SpanGraph,
   options: GraphLayoutOptions = { mode: 'layered' },
 ): GraphLayout {
   const laneKeyByTrace = options.mode === 'compact' ? compactLaneKeys(graph) : null;
-  const laneByKey = new Map<string, number>();
+  const keyOf = (traceId: string): string => laneKeyByTrace?.get(traceId) ?? traceId;
+
+  // First pass: first-appearance order and node count per lane key — the count decides
+  // which keys are grid-eligible (compact mode, exactly one node, so provably edge-free).
+  const keyOrder: string[] = [];
+  const countByKey = new Map<string, number>();
+  for (const node of graph.nodes) {
+    const key = keyOf(node.traceId);
+    const count = countByKey.get(key);
+    if (count === undefined) {
+      countByKey.set(key, 1);
+      keyOrder.push(key);
+    } else {
+      countByKey.set(key, count + 1);
+    }
+  }
+
+  const gridEligible = (key: string): boolean =>
+    options.mode === 'compact' && countByKey.get(key) === 1;
+
+  // Real lanes (multi-node, or single-node under 'layered') get dense sequential rows first,
+  // in first-appearance order — unchanged from the pre-grid behaviour.
+  const rowByKey = new Map<string, number>();
+  for (const key of keyOrder) {
+    if (gridEligible(key)) continue;
+    rowByKey.set(key, rowByKey.size);
+  }
+
+  // Grid-eligible lanes are packed after every real row, left-to-right, wrapping at
+  // gridColumns — still in first-appearance order, so the layout stays deterministic.
+  const gridColumns = Math.max(1, options.gridColumns ?? DEFAULT_GRID_COLUMNS);
+  const gridRowStart = rowByKey.size;
+  const gridPositionByKey = new Map<string, { readonly x: number; readonly y: number }>();
+  let gridIndex = 0;
+  for (const key of keyOrder) {
+    if (!gridEligible(key)) continue;
+    gridPositionByKey.set(key, {
+      x: gridIndex % gridColumns,
+      y: gridRowStart + Math.floor(gridIndex / gridColumns),
+    });
+    gridIndex++;
+  }
+
   const nextColumnByKey = new Map<string, number>();
   const positions: GraphNodePosition[] = graph.nodes.map((node) => {
-    const key = laneKeyByTrace?.get(node.traceId) ?? node.traceId;
-    let lane = laneByKey.get(key);
-    if (lane === undefined) {
-      lane = laneByKey.size;
-      laneByKey.set(key, lane);
-    }
+    const key = keyOf(node.traceId);
+    const gridPosition = gridPositionByKey.get(key);
+    if (gridPosition) return { id: node.id, x: gridPosition.x, y: gridPosition.y };
+    const lane = rowByKey.get(key)!;
     const column = nextColumnByKey.get(key) ?? 0;
     nextColumnByKey.set(key, column + 1);
     return { id: node.id, x: column, y: lane };

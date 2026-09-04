@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
-import { layoutGraph } from '../../src/read/pipeline-layout.js';
+import { layoutGraph, DEFAULT_GRID_COLUMNS } from '../../src/read/pipeline-layout.js';
 import type { SpanGraph } from '../../src/read/pipeline-graph.js';
 
 function graph(nodes: SpanGraph['nodes'], edges: SpanGraph['edges'] = []): SpanGraph {
@@ -88,12 +88,81 @@ describe('layoutGraph', () => {
       });
     });
 
-    it("mode: 'compact' keeps unlinked traces on their own dense, first-appearance-ordered lanes", () => {
+    it("mode: 'compact' grid-packs fully disconnected single-node traces instead of stacking them one per row (board web-mtmpf1zc-6yzprb)", () => {
       const unlinked = graph([
         { id: 't1', traceId: 't1', label: 'plan', spanCount: 1, status: 0 },
         { id: 't2', traceId: 't2', label: 'other', spanCount: 1, status: 0 },
       ]);
-      expect(layoutGraph(unlinked, { mode: 'compact' })).toEqual(layoutGraph(unlinked));
+      // Under 'layered' these stack into two rows; 'compact' packs them side by side on
+      // row 0 instead, since neither has an edge to route around.
+      expect(layoutGraph(unlinked)).toEqual({
+        positions: [
+          { id: 't1', x: 0, y: 0 },
+          { id: 't2', x: 0, y: 1 },
+        ],
+      });
+      expect(layoutGraph(unlinked, { mode: 'compact' })).toEqual({
+        positions: [
+          { id: 't1', x: 0, y: 0 },
+          { id: 't2', x: 1, y: 0 },
+        ],
+      });
+    });
+
+    it("mode: 'compact' wraps the disconnected-node grid at gridColumns, in first-appearance order", () => {
+      const manyIsolated = graph(
+        Array.from({ length: DEFAULT_GRID_COLUMNS + 3 }, (_, i) => ({
+          id: `t${i}`,
+          traceId: `t${i}`,
+          label: 'solo',
+          spanCount: 1,
+          status: 0,
+        })),
+      );
+      const result = layoutGraph(manyIsolated, { mode: 'compact' });
+      expect(result.positions.slice(0, DEFAULT_GRID_COLUMNS)).toEqual(
+        Array.from({ length: DEFAULT_GRID_COLUMNS }, (_, i) => ({ id: `t${i}`, x: i, y: 0 })),
+      );
+      expect(result.positions.slice(DEFAULT_GRID_COLUMNS)).toEqual([
+        { id: `t${DEFAULT_GRID_COLUMNS}`, x: 0, y: 1 },
+        { id: `t${DEFAULT_GRID_COLUMNS + 1}`, x: 1, y: 1 },
+        { id: `t${DEFAULT_GRID_COLUMNS + 2}`, x: 2, y: 1 },
+      ]);
+    });
+
+    it("mode: 'compact' packs the disconnected-node grid below every real (multi-node or edge-linked) lane's row", () => {
+      const mixed = graph(
+        [
+          { id: 'solo1', traceId: 'solo1', label: 'solo', spanCount: 1, status: 0 },
+          { id: 'tA', traceId: 'tA', label: 'a', spanCount: 1, status: 0 },
+          { id: 'tB', traceId: 'tB', label: 'b', spanCount: 1, status: 0 },
+          { id: 'solo2', traceId: 'solo2', label: 'solo', spanCount: 1, status: 0 },
+        ],
+        [{ from: 'tA', to: 'tB' }],
+      );
+      expect(layoutGraph(mixed, { mode: 'compact' })).toEqual({
+        positions: [
+          { id: 'solo1', x: 0, y: 1 },
+          { id: 'tA', x: 0, y: 0 },
+          { id: 'tB', x: 1, y: 0 },
+          { id: 'solo2', x: 1, y: 1 },
+        ],
+      });
+    });
+
+    it("mode: 'compact' respects a caller-supplied gridColumns", () => {
+      const isolated = graph([
+        { id: 't1', traceId: 't1', label: 'a', spanCount: 1, status: 0 },
+        { id: 't2', traceId: 't2', label: 'b', spanCount: 1, status: 0 },
+        { id: 't3', traceId: 't3', label: 'c', spanCount: 1, status: 0 },
+      ]);
+      expect(layoutGraph(isolated, { mode: 'compact', gridColumns: 2 })).toEqual({
+        positions: [
+          { id: 't1', x: 0, y: 0 },
+          { id: 't2', x: 1, y: 0 },
+          { id: 't3', x: 0, y: 1 },
+        ],
+      });
     });
 
     it("mode: 'compact' treats intra-trace edges (flat mode chains) as already same-lane — identical to layered", () => {

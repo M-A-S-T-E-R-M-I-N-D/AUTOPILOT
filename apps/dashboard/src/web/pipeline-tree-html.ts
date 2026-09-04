@@ -28,6 +28,14 @@
  * an empty string so the caller gates to its own empty-state copy, and `lanes`/`selection`
  * must come from the same `spansToGraph` chain (a dense, layered-mode tree) — the trust
  * boundary every module in this cluster draws.
+ *
+ * The visible lane label (board web-mtmpf1zc-6yzprb) prefers `Firing #<ordinal>` — optionally
+ * followed by a truncated `autopilot.commit_subject` — over the raw 32-hex trace id, reading
+ * off the lane's first item (every item in a lane shares one trace, so one firing) via
+ * `TreeItem.firingOrdinal`/`firingSubject`. Falls back to an 8-char trace-id prefix when
+ * neither attribute is on the wire (pre-telemetry spans) — still short, never the raw 32 hex
+ * chars. `data-trace-id` keeps carrying the FULL trace id regardless, since that hook is a
+ * programmatic lookup key, not the human-facing label.
  */
 
 import type { TreeLane } from '../read/pipeline-tree.js';
@@ -54,6 +62,16 @@ export function renderPipelineTreeHtml(
   const flag = (name: string, on: boolean): string => (on ? ` data-${name}="true"` : '');
   const plural = (count: number, noun: string): string =>
     `${count} ${noun}${count === 1 ? '' : 's'}`;
+  const truncate = (value: string, max: number): string =>
+    value.length > max ? `${value.slice(0, max - 1)}…` : value;
+  const SHORT_TRACE_ID_LENGTH = 8;
+  const SHORT_SUBJECT_LENGTH = 48;
+  const laneShortLabel = (lane: TreeLane): string => {
+    const ordinal = lane.items[0]?.firingOrdinal;
+    if (ordinal === undefined) return lane.traceId.slice(0, SHORT_TRACE_ID_LENGTH);
+    const subject = lane.items[0]?.firingSubject;
+    return subject ? `#${ordinal} — ${truncate(subject, SHORT_SUBJECT_LENGTH)}` : `#${ordinal}`;
+  };
 
   const focusId = selection.selectedId ?? lanes[0]!.items[0]!.id;
 
@@ -71,11 +89,12 @@ export function renderPipelineTreeHtml(
           );
         })
         .join('');
-      const laneName = `Lane ${lane.traceId} — ${plural(lane.items.length, 'node')}`;
+      const shortLabel = laneShortLabel(lane);
+      const laneName = `Lane ${shortLabel} — ${plural(lane.items.length, 'node')}`;
       return (
         `<div class="pipeline-lane" role="group" aria-label="${esc(laneName)}"` +
         ` data-trace-id="${esc(lane.traceId)}">` +
-        `<span class="pipeline-lane-label" aria-hidden="true">${esc(lane.traceId)}</span>` +
+        `<span class="pipeline-lane-label" aria-hidden="true">${esc(shortLabel)}</span>` +
         `${itemMarkup}</div>`
       );
     })

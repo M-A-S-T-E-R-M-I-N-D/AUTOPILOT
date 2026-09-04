@@ -26,6 +26,10 @@ export interface TreeItem {
   readonly label: string;
   readonly status: number;
   readonly spanCount: number;
+  /** Mirrors `SpanGraphNode.firingOrdinal` — ABSENT under the same rule (see there). */
+  readonly firingOrdinal?: number;
+  /** Mirrors `SpanGraphNode.firingSubject` — ABSENT under the same rule (see there). */
+  readonly firingSubject?: string;
 }
 
 export interface TreeLane {
@@ -54,6 +58,8 @@ export function buildPipelineTree(graph: SpanGraph, layout: GraphLayout): readon
       label: node.label,
       status: node.status,
       spanCount: node.spanCount,
+      ...(node.firingOrdinal !== undefined ? { firingOrdinal: node.firingOrdinal } : {}),
+      ...(node.firingSubject !== undefined ? { firingSubject: node.firingSubject } : {}),
     };
   }
   return lanes.map((items, laneIndex) => ({

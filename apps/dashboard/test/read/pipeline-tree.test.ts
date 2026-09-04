@@ -47,4 +47,33 @@ describe('buildPipelineTree', () => {
       { traceId: 't2', items: [{ id: 't2', label: 'other', spanCount: 1, status: 0 }] },
     ]);
   });
+
+  it('carries a node’s firingOrdinal/firingSubject through onto its TreeItem (board web-mtmpf1zc-6yzprb)', () => {
+    const g = graph([
+      {
+        id: 't1',
+        traceId: 't1',
+        label: 'plan',
+        spanCount: 1,
+        status: 0,
+        firingOrdinal: 52,
+        firingSubject: 'fix(dashboard): something',
+      },
+    ]);
+    expect(buildPipelineTree(g, layoutGraph(g))).toEqual([
+      {
+        traceId: 't1',
+        items: [
+          {
+            id: 't1',
+            label: 'plan',
+            spanCount: 1,
+            status: 0,
+            firingOrdinal: 52,
+            firingSubject: 'fix(dashboard): something',
+          },
+        ],
+      },
+    ]);
+  });
 });
