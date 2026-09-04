@@ -165,7 +165,20 @@ ${flyHintText.toString()}
   if (firingsEl) firingsEl.addEventListener('input', updateFlyHint);
   if (budgetEl) budgetEl.addEventListener('input', updateFlyHint);
   if (totalEl) totalEl.addEventListener('input', updateFlyHint);
-  applyMode();
+  // Deferred, not called synchronously here: 'fly' precedes 'locale' in
+  // chunks.ts's FEATURE_JS_BY_NAME core order, so calling applyMode() (which
+  // calls updateFlyHint(), which calls tr(), referencing locale.ts's "let
+  // STRINGS") this early hits STRINGS' temporal dead zone and throws
+  // "Cannot access 'STRINGS' before initialization" — crashing the whole
+  // bundle eval, the same hazard shell.ts's clientJs() comment documents for
+  // locale-data.ts's ordering. A queued microtask runs after the WHOLE
+  // script (including locale.ts's "let STRINGS = ..." later in this same
+  // core chunk) finishes executing, by which point tr() is safe to call;
+  // every later call (mode/firings/budget/total input listeners) only fires
+  // from user interaction, which cannot happen until the full script has
+  // already run.
+  if (typeof queueMicrotask === 'function') queueMicrotask(applyMode);
+  else setTimeout(applyMode, 0);
   // FLY-BAR STATE PERSISTENCE: switching to a folder the operator has flown
   // before restores its last-used mode/firings/total/budget — the settings
   // fields, unlike the folder history datalist, carry no meaning of their
