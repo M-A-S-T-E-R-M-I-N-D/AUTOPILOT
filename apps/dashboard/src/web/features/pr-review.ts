@@ -157,7 +157,14 @@ function renderPrReviewPanel(plans, fetchFailed) {
     applyBtn.setAttribute('aria-label', applyTip);
     actions.appendChild(applyBtn);
     item.appendChild(actions);
-    item.appendChild(el('div', 'pr-review-result'));
+    // The execute outcome lands here AFTER the confirm dialog, once focus has
+    // long moved on — a polite live region is what lets a screen reader hear
+    // that a real gh merge/review landed or failed, the same role=status shape
+    // landing-result / gh-issue-result / report-menu's result already carry.
+    var resultEl = el('div', 'pr-review-result');
+    resultEl.setAttribute('role', 'status');
+    resultEl.setAttribute('aria-live', 'polite');
+    item.appendChild(resultEl);
     section.appendChild(item);
   }
   // This panel rebuilds on its own 30s poll (PR_REVIEW_POLL_MS below), not
