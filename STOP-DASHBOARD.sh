@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# (c) 2026 1337 REL AZEUS MASTERMIND -- Apache-2.0
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
 # Stop the running dashboard (signals only the recorded pid).
 set -u
 cd "$(dirname "$0")"

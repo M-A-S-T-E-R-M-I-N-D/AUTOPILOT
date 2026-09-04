@@ -26,6 +26,7 @@ path = [
   "AUTHORS",
   "NOTICE",
   "**/.gitkeep",
+  "**/.gitignore",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
@@ -55,6 +56,29 @@ SPDX-License-Identifier = "OFL-1.1"
 # no expressible authorship beyond the project's own.
 [[annotations]]
 path = "apps/dashboard/e2e/**/*.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Brand and doc screenshots — binary images, no expressible authorship
+# beyond the project's own.
+[[annotations]]
+path = ["docs/brand/**/*.png", "docs/screens/**/*.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
+SPDX-License-Identifier = "Apache-2.0"
+
+# samples/ is self-contained tooling-wise (see samples/README.md) — its
+# HTML/CSS/Python files carry no inline headers of their own, so license
+# them here instead of altering each sample's own file contents.
+[[annotations]]
+path = ["samples/calculator/**/*.html", "samples/calculator/**/*.css"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "samples/python-lib/**/*.py"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
 SPDX-License-Identifier = "Apache-2.0"
