@@ -696,6 +696,12 @@ main.project-mode { grid-template-columns: 1fr; }
 .publicity-link-live:hover, .publicity-link-live:focus-visible { border-color: var(--color-accent); color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .publicity-link-live:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .publicity-link-dormant { color: var(--color-text-muted); cursor: default; opacity: 0.7; }
+/* The affordance's live GitHub count (stars/watchers/forks), served by
+   /api/publicity so the number lives IN the page instead of only behind the
+   link — tabular-nums like .phase-count so a rolling count never jitters
+   the chip's width, and inherit-colored so the -live hover's accent voice
+   recolors the badge together with its label. */
+.publicity-count { margin-inline-start: var(--space-2); padding: 0 var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); font-size: var(--text-xs); font-variant-numeric: tabular-nums; color: inherit; background: var(--color-surface); }
 .heatmap-wrap { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .heatmap-grid { display: block; margin-top: var(--space-2); }
 .heat-cell { cursor: default; }

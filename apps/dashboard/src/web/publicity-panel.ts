@@ -25,13 +25,15 @@ export interface PublicityAffordanceLike {
   readonly url: string;
   readonly dormant: boolean;
   readonly reasoning: string;
+  readonly count?: number | undefined;
 }
 
 /** The publicity affordance link's `data-tip` (also read to screen readers
  *  via an `aria-describedby` sr-only sibling, D1 ATTRIBUTE PAYLOAD epic
- *  0015) — names the affordance so hover/focus previews match the reasoning
- *  behind its live or dormant state, same "name the thing, then say why"
- *  shape `poolClaimExecuteTip` uses. */
+ *  0015) — names the affordance, its live GitHub count when the server
+ *  resolved one, then the reasoning behind its live or dormant state, same
+ *  "name the thing, then say why" shape `poolClaimExecuteTip` uses. */
 export function publicityAffordanceTip(affordance: PublicityAffordanceLike): string {
-  return affordance.label + ' — ' + affordance.reasoning;
+  const countPart = typeof affordance.count === 'number' ? ' · ' + affordance.count : '';
+  return affordance.label + countPart + ' — ' + affordance.reasoning;
 }
