@@ -195,9 +195,7 @@ export function createReleaseExecuteApi(
         infoRaw = undefined;
       }
 
-      const hasCitationScript = existsSync(
-        join(project.root_path, CITATION_SCRIPT_RELATIVE_PATH),
-      );
+      const hasCitationScript = existsSync(join(project.root_path, CITATION_SCRIPT_RELATIVE_PATH));
 
       const writer: ReleaseWriter = {
         writeVersion: (version) => {
