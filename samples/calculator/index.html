@@ -28,7 +28,6 @@
         <button data-key="=" class="key key-eq calc-tall">=</button>
         <button data-key="0" class="key calc-wide">0</button>
         <button data-key="." class="key">.</button>
-        <button data-key="%" class="key key-op calc-full">%</button>
       </div>
       <p class="calc-note">
         Seeded by a human · flown to green by
@@ -49,7 +48,7 @@
       });
       document.addEventListener('keydown', (e) => {
         const k = e.key === 'Enter' ? '=' : e.key;
-        if ('0123456789.+-*/%'.includes(k) || ['=', 'Escape', 'Backspace'].includes(k)) {
+        if ('0123456789.+-*/'.includes(k) || ['=', 'Escape', 'Backspace'].includes(k)) {
           e.preventDefault();
           apply(k);
         }
