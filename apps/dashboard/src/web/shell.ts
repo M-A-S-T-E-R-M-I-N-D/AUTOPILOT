@@ -3217,6 +3217,13 @@ function renderFleet(state) {
   if (u) {
     var updatedText = 'updated ' + fmtAgo(state.generatedAt);
     if (u.textContent !== updatedText) u.textContent = updatedText;
+    // i18n (board web-msnsndki-dz3vn1): the SSR placeholder ("connecting…")
+    // carries data-i18n="updatedConnecting" so a Hebrew reader sees it
+    // translated before the first tick lands — but once real "ago" data
+    // replaces it, that marker must go, or a LATER translateDom() sweep
+    // (this same renderFleet() calls one below on every rebuilt tick) would
+    // revert this line straight back to the placeholder text forever.
+    if (u.hasAttribute('data-i18n')) u.removeAttribute('data-i18n');
     if (u.getAttribute('tabindex') !== '0') u.setAttribute('tabindex', '0');
     var updatedTip = 'When the live fleet stream last pushed fresh data';
     if (u.getAttribute('data-tip') !== updatedTip) u.setAttribute('data-tip', updatedTip);
@@ -3559,12 +3566,12 @@ export function renderShell(project?: string): string {
   <header class="masthead">
     <div class="brand"><span class="brand-mark" aria-hidden="true">${gogglesMarkInlineSvg()}</span>AUTOPILOT</div>
     <div class="masthead-right">
-      <span class="updated" id="updated" role="status" aria-live="polite">connecting…</span>
+      <span class="updated" id="updated" role="status" aria-live="polite" data-i18n="updatedConnecting">connecting…</span>
       <span class="chip otlp-chip" id="otlp-chip" tabindex="0" data-tip="An OTEL_EXPORTER_OTLP_* endpoint is configured — every flight exports its spans there" aria-label="OTLP export: configured" data-i18n-aria="otlpExportConfigured" hidden>OTLP</span>
       <details class="connect" id="connect">
         <summary id="connect-summary"><span class="conn-dot" id="conn-dot" aria-hidden="true"></span><span id="connect-label" data-i18n="connect">Connect</span></summary>
         <div class="connect-body">
-          <p class="connect-status" id="connect-status" role="status" aria-live="polite">checking connection…</p>
+          <p class="connect-status" id="connect-status" role="status" aria-live="polite" data-i18n="connectCheckingConnection">checking connection…</p>
           <div class="connect-actions">
             <button type="button" class="connect-login" id="connect-login" data-i18n="loginClaude">Log in with Claude</button>
             <button type="button" class="connect-test" id="connect-test" data-i18n="testConnection">Test connection</button>
@@ -3584,9 +3591,9 @@ export function renderShell(project?: string): string {
           </form>
           <hr class="connect-sep" />
           <div class="connect-gh">
-            <p class="connect-status" id="gh-status" role="status" aria-live="polite">checking GitHub…</p>
+            <p class="connect-status" id="gh-status" role="status" aria-live="polite" data-i18n="ghChecking">checking GitHub…</p>
             <p class="connect-hint" id="gh-hint"></p>
-            <p class="connect-status" id="gh-lts" role="status" aria-live="polite">checking for updates…</p>
+            <p class="connect-status" id="gh-lts" role="status" aria-live="polite" data-i18n="ltsChecking">checking for updates…</p>
             <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
             <form class="gh-issue-form" id="gh-issue-form">
               <label for="gh-issue-title" data-i18n="reportBugLabel">Report a bug or request a feature upstream</label>
