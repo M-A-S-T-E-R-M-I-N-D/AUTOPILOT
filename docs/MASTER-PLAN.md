@@ -3,8 +3,10 @@
 > **Working name:** `AUTOPILOT` (founder's pick; naming shortlist in §12).
 > **Author / brand:** **1337 aka REL AZEUS (MΔSTERMIND)** — the only identity carried in the codebase.
 > **License:** fully open-source (MIT or Apache-2.0), zero private/personal data.
-> **Status:** EXECUTING — v0.11.0 released; M4 in progress (live flights, RAG, task board, office
-> visualization all shipped). This document is the FOUNDING plan, kept for orientation and intent;
+> **Status:** FOUNDING DOCUMENT — kept for orientation and intent, deliberately not re-edited as the build
+> advances. For the current version and the live record of what exists, read `CHANGELOG.md` (always current)
+> and `FEATURE-COVERAGE.md`; M4 (live flights, RAG, task board, fleets) shipped long past this snapshot.
+> This document is the FOUNDING plan;
 > the LIVE record of what exists is `CHANGELOG.md` + `FEATURE-COVERAGE.md`, and current knowledge
 > lives in `ENGINEERING-DOCTRINE.md` + `RESEARCH-LIBRARY.md`.
 >

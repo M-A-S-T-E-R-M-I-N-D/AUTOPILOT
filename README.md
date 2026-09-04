@@ -58,35 +58,54 @@ shoulders of 487 open-source projects — see [`THANKS.md`](THANKS.md) and
 > **1.0.0 ships at the public-launch milestone (M9 doctrine — [`docs/RELEASING.md`](docs/RELEASING.md)); until then,
 > every release is an alpha of a system that flies itself — treat it with a pilot's respect.**
 
-## Start here (30 seconds)
+## Start here (2 minutes, from nothing to a live dashboard)
 
-New here? You need a computer and half a minute — no prior setup required.
+```bash
+git clone https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT.git
+cd AUTOPILOT
+```
 
-1. **Windows:** double-click `SETUP.cmd` in this folder.
-   **macOS / Linux:** run `./SETUP.sh` in a terminal.
-   **Already have Node ≥ 22.13:**
+1. **Set up** — Windows: double-click `SETUP.cmd` · macOS / Linux: `./SETUP.sh` · already have Node ≥ 22.13:
+   `npm install -g pnpm && pnpm run setup`. It prints a doctor report; anything not `[OK]` prints its own fix.
+2. **Log in once** with `claude` (your Claude subscription — no API key, no per-token bill; see
+   [Connecting your Claude account](#connecting-your-claude-account-for-live-flights)).
+3. **Open the control panel:**
    ```bash
-   npm install -g pnpm && pnpm run setup
+   pnpm dashboard:start    # → http://127.0.0.1:4317 (localhost-only, hardened)
    ```
-2. **What you'll see** — a doctor report confirming everything is ready:
-   ```
-   AUTOPILOT setup — doctor report
-     [OK] node — v22.23.2
-     [OK] pnpm — available
-     [OK] dependencies — installed
-     [OK] claude-cli — available
-   ```
-   Anything other than `[OK]` prints its own fix — follow it, then re-run `SETUP.cmd` /
-   `./SETUP.sh`.
-3. Log in once with `claude` (if you haven't already), then open the control panel:
-   ```bash
-   pnpm dashboard:start
-   ```
-   or double-click `START-DASHBOARD.cmd` (Windows) / run `./START-DASHBOARD.sh` (macOS / Linux). It opens at
-   **http://127.0.0.1:4317** — your local, read-only dashboard onto whatever project you point AUTOPILOT at.
+4. **Fly your first mission** — the built-in calculator sample ships with 12 deliberately-red acceptance tests and
+   a written mission ([`samples/calculator/MISSION.md`](samples/calculator/MISSION.md)). In the dashboard's Fly
+   bar, point the folder at `samples/calculator`, click **Fly it**, and watch the agent take it 0 → 12/12 green —
+   the same arc documented honestly (including what went wrong) in
+   [`docs/CASE-STUDIES/calculator.md`](docs/CASE-STUDIES/calculator.md). Prefer not to spend anything yet?
+   `scripts/launchers/FLY-DASHBOARD.cmd` runs a scripted **$0 demo flight** — real engine loop, gate, telemetry, no
+   model calls.
 
 **Where the docs live:** the rest of this README explains what AUTOPILOT does and why;
 [`docs/README.md`](docs/README.md) is the full documentation index for everything past the basics.
+
+## How it works (60 seconds)
+
+AUTOPILOT's unit of work is a **firing** — one gated attempt at one task:
+
+```
+   board (tasks)          the firing               the gate                 the record
+  ┌─────────────┐   ┌──────────────────┐   ┌─────────────────────┐   ┌──────────────────┐
+  │ human-added │ → │ orient · pick ONE │ → │ typecheck·lint·test │ → │ commit (gate ✓)  │
+  │ self-mined  │   │ task · implement  │   │ ·build — all green? │   │ or REVERT (gate ✗)│
+  └─────────────┘   └──────────────────┘   └─────────────────────┘   └──────────────────┘
+                                                                              ↓
+                                              every firing → SQLite telemetry (cost, tokens,
+                                              gate verdict, SHA-on-HEAD — mechanically verified)
+```
+
+- **Nothing lands unverified.** A firing that fails the gate reverts — bad work never reaches your history.
+- **Fleets parallelize it.** N lanes fly in isolated git worktrees; a self-healing merge ladder (union merge +
+  rerere + audit) collects them with zero overwrites.
+- **The telemetry can't flatter itself.** Load-bearing numbers (gate result, commit-on-HEAD) are mechanically
+  verified, not self-reported — and published in [the living self-study](docs/SELF-STUDY/PAPER.md).
+- **Humans keep the human calls.** Dependency changes, publicity, spending — anything out-of-scope queues for
+  your approval in the dashboard's KEEPER panel.
 
 ## Status
 
@@ -137,45 +156,24 @@ overclaiming. Start here:
   measurement battery: DOM growth, axe-by-impact, tab stops, duplicate renders (14 → 0), contrast matrices, INP.
 - The full dated series lives in [`docs/`](docs/) (`EVALUATION-*.md`) — including the failures.
 
-## Quickstart
+## For developers
 
-**Zero prior setup:** double-click `SETUP.cmd` (Windows) or run `./SETUP.sh` (macOS / Linux). It checks for
-Node.js (prints an install link if missing), installs pnpm (no admin rights needed), installs dependencies, and
-installs the Claude Code CLI, then prints a doctor report.
-
-**Everyone else / already have Node ≥ 22.13:**
+Setup and the dashboard are covered in [Start here](#start-here-2-minutes-from-nothing-to-a-live-dashboard) above.
+The rest of the toolbox:
 
 ```bash
-npm install -g pnpm
-pnpm run setup    # or: pnpm install
-pnpm run verify   # typecheck · lint · format · test (≥80% coverage) · build · secret/PII/config/SPDX gates
-pnpm run mutation # optional, slow: 102 Stryker mutation-testing runs (not part of verify; runs nightly via .github/workflows/mutation.yml)
-```
-
-**Run the dashboard** — read-only, localhost-only, hardened (CSP · DNS-rebind guard · loopback bind):
-
-```bash
-pnpm dashboard:start    # → http://127.0.0.1:4317
-pnpm dashboard:status   # running | stopped | stale (+ doctor checks)
-pnpm dashboard:stop
+pnpm run verify         # the full gate: typecheck · lint · format · test (≥80% cov) · build · secret/PII/SPDX scans
+pnpm run mutation       # optional, slow: Stryker mutation-testing sweep (also runs nightly in CI)
+pnpm dashboard:status   # running | stopped | stale (+ doctor checks)   · dashboard:stop to stop
 pnpm dashboard:watch    # RING-0 supervisor: owns start/revive/replace — observe, don't babysit
-pnpm dashboard:watch -- <folder> [firings] [budgetUsd] [totalBudgetUsd]  # + keeps that project flying AND landed when idle
 ```
 
-On Windows, double-click `START-DASHBOARD.cmd` / `STOP-DASHBOARD.cmd` / `RESTART-DASHBOARD.cmd` /
-`STATUS-DASHBOARD.cmd` / `WATCH-DASHBOARD.cmd` (operator launchers, repo root). On macOS / Linux, run
-`./START-DASHBOARD.sh` / `./STOP-DASHBOARD.sh` / `./RESTART-DASHBOARD.sh` / `./STATUS-DASHBOARD.sh` from a
-terminal (same directory; `WATCH-DASHBOARD` stays CLI-only via `pnpm dashboard:watch` for now). Developer demos
-live in `scripts/launchers/`:
-`DEMO-DASHBOARD.cmd` (seed sample projects) and `FLY-DASHBOARD.cmd` (scripted $0 demo flight — real engine
-loop + gate + telemetry, no model runs). Toggle the
-**dark / light / terminal** themes from the top bar.
+Every command has a double-click twin for Windows (`START-DASHBOARD.cmd`, `STOP-DASHBOARD.cmd`, …, repo root) and
+a `./*.sh` twin for macOS/Linux. Demo seeds live in `scripts/launchers/` (`DEMO-DASHBOARD.cmd` seeds sample
+projects; `FLY-DASHBOARD.cmd` runs the $0 scripted flight).
 
-**Dashboard language — English / עברית (Hebrew):** the top bar's Language switcher (next to Theme) changes the
-dashboard's language, and each button is labeled in its own language so you can always find yours. Picking עברית
-translates the chrome — masthead, fly/search bars, fleet cards, detail panels — and flips the entire layout
-right-to-left (a real `<html dir="rtl">` + `lang="he"`, so screen readers switch too, not just the styling).
-Your choice persists across visits; English is the default.
+The dashboard ships **dark / light / terminal** themes and full **English / עברית** localization — Hebrew flips
+the entire layout to a real `<html dir="rtl">`, screen readers included; your choice persists.
 
 ## Connecting your Claude account (for live flights)
 
