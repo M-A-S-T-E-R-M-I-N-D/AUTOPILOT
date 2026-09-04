@@ -89,6 +89,28 @@ running holds whatever code it loaded. The worktree-confinement mechanism
 itself is unchanged; this is lane-freshness hygiene at the same launch-time seam
 slice 3 already wires.
 
+Post-completion evolution, continued (2026-09-04): `flightRoot` gained subfolder-repo
+scoping. When `target` is a subfolder of a larger repo with no `.git` of its own
+(e.g. `samples/calculator` inside this monorepo), `ensureWorktree` necessarily checks
+out the WHOLE parent repo — git has no smaller unit to check out — but `flightRoot`
+pointed at that worktree's own root instead of the nested subfolder actually
+registered, so every downstream consumer (the gate's cwd, the CLI's own repo, the
+containment guard's confined root) ran against the parent repo instead of the flown
+project: the gate reverted a correct `calc.js` implementation twice on launch night,
+running the monorepo's suite instead of the sample's own `npm test`
+(`docs/CASE-STUDIES/calculator.md`, board `web-mtm0shsf-hmv8ud`). `repoPrefixOf()`
+(`git rev-parse --show-prefix`, `packages/engine/src/adapters/worktree.ts`) resolves
+`target`'s path relative to its enclosing repo root; `flightRoot` now joins that
+prefix onto the worktree path, while a new `worktreeRoot` variable preserves the old
+root-only semantics for the FLEET INTENT CLAIMS matching against `git worktree list`'s
+entries. The fix (`d144b9af`) briefly landed, then was swept up by an 8-commit
+mass-revert storm minutes later — the very bug it had just fixed was still live in
+the gate that graded it, so a subfolder-flight gate run against the wrong
+parent-repo directory falsely failed and reverted the fix along with ~20 minutes of
+otherwise-good work; `90bc1bbe` restored it. The worktree-confinement mechanism
+itself is unchanged — this narrows WHICH directory inside the worktree counts as
+`flightRoot` for a nested target, nothing about the isolation boundary.
+
 `docs/FLIGHT-CONTAINMENT.md` and `docs/EVALUATION-2026-08.md` §3.5 name the one honest
 hole left in the containment ladder (SOTA-MAP A4): Bash is not jailed. The PreToolUse
 path guard is a textual filter, not a hard boundary, and the OS-level Bash sandbox is
