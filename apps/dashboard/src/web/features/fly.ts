@@ -151,7 +151,7 @@ ${flyHintText.toString()}
     var isTotalMode = !!(modeEl && modeEl.value === 'total');
     var totalUsd = totalEl ? (Number(totalEl.value) || 0) : 0;
     var count = firingsEl ? (Number(firingsEl.value) || 1) : 1;
-    flyHintEl.textContent = flyHintText(isTotalMode, perFiring, totalUsd, count, flyMaxTurns);
+    flyHintEl.textContent = flyHintText(isTotalMode, perFiring, totalUsd, count, flyMaxTurns, tr);
   }
   function applyMode() {
     var total = modeEl && modeEl.value === 'total';
