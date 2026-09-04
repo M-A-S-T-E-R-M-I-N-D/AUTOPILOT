@@ -880,6 +880,26 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    is hand-maintained any more; a release that forgets `pnpm citation:update`
    now fails `pnpm verify` instead of silently aging one of them.
 
+VERDICT processed (2026-09-04, ap-mtlvusoi-0): a prior firing's proposal to
+deprioritize board task web-mss50iak-g176g8 (PLATFORM 7/7, publicity
+affordances) reasoned a 2026-09-03 page-upkeep sweep found nothing
+actionable left to build for it. Re-verified against the current code
+rather than trusting the prior claim at face value:
+`apps/dashboard/src/flight/publicity.ts` ships `fetchRepoIdentity`,
+`planPublicityAffordances`, and `createPublicityPreviewApi` with no
+TODO/FIXME/placeholder marker beyond the already-documented dormant
+`href="#"` design choice; the UI half is fully wired
+(`web/publicity-panel.ts`'s `publicityAffordanceTip`,
+`web/features/publicity.ts`'s `renderPublicityPanel`/`loadPublicityPanel`,
+embedded in `shell.ts`'s `#publicity-panel` nav) and covered by three
+dedicated test files (`test/flight/publicity.test.ts`,
+`test/web/publicity-panel.test.ts`, `test/web/features/publicity.test.ts`,
+all present on disk). This epic doc's own entry above already states slice
+7 "shipped end to end" as of 2026-08-28. Verdict: CONFIRMED — nothing
+actionable remains under this task; the live page-upkeep duty it once
+tracked continues under DOC-FRESHNESS/KEEPER (documented above), not as a
+standalone board item. ap-mtlvusoi-0 closes on this evidence.
+
 ## Related
 
 - Epic 0006 (the plumbing this platform stands on), `docs/LIVING-REPO-SPEC.md` (CI
