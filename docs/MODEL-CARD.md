@@ -102,7 +102,7 @@ hand-maintained._
 
 | Pointer | Value |
 |---|---|
-| Engine/package version | `0.21.0` (`package.json`) |
+| Engine/package version | `0.22.0` (`package.json`) |
 | Firing-Prompt-Version (current) | `firing-v12` |
 | Evaluation data | `docs/SELF-STUDY/PAPER.md` §4 `DATA:SUMMARY` — regenerate with `pnpm self-study:update` |
 | Prompt-version regression gate | `pnpm self-study:gate` (§2) — pass/fail against the pinned suite before bumping `Firing-Prompt-Version` |

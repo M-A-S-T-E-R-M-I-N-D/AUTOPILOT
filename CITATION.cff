@@ -5,8 +5,8 @@ message: "If you use this software, please cite it as below."
 title: "AUTOPILOT"
 abstract: "AUTOPILOT — a standalone, open-source, cross-platform autonomous engineering agent. By MΔSTERMIND."
 type: software
-version: "0.21.0"
-date-released: "2026-09-03"
+version: "0.22.0"
+date-released: "2026-09-04"
 license: Apache-2.0
 repository-code: "https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT"
 url: "https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT"
