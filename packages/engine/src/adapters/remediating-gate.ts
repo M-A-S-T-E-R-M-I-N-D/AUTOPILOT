@@ -62,12 +62,23 @@ export class RemediatingGate implements GatePort {
     // (up to the timeout) on an environment remediation can't repair.
     if (first.crashed) return first;
 
-    // Mechanical remediation attempt — deterministic, model-free.
+    // Mechanical remediation attempt — deterministic, model-free. Snapshot
+    // the dirty set BEFORE the fixer runs so its own edits can be told apart
+    // from any unrelated WIP already sitting in this working tree (RITUAL
+    // SWEEP fix, board ap-mtm4qzty-1): a whole-tree `commitAll` here would
+    // sweep up — and mislabel under the autoformat message — a concurrent
+    // process's in-flight edit, or even judge "fixer changed nothing" as
+    // "fixer succeeded" purely because unrelated WIP kept the tree dirty.
+    const dirtyBeforeFix = new Set(await this.opts.vcs.dirtyPaths());
     const fixerRan = await this.opts.runFixer();
     if (!fixerRan) return first;
-    if (!(await this.opts.vcs.isDirty())) return first; // fixer changed nothing → real failure
+    const fixedPaths = (await this.opts.vcs.dirtyPaths()).filter(
+      (path) => !dirtyBeforeFix.has(path),
+    );
+    if (fixedPaths.length === 0) return first; // fixer changed nothing NEW → real failure
 
-    await this.opts.vcs.commitAll(AUTOFORMAT_COMMIT_MESSAGE);
+    const committed = await this.opts.vcs.commitPaths(fixedPaths, AUTOFORMAT_COMMIT_MESSAGE);
+    if (!committed) return first;
     const second = await this.opts.inner.run();
     // Both attempts' per-command results ride along so the drill-down shows the
     // full story — including the checks that only failed before remediation.
