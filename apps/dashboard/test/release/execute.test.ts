@@ -465,12 +465,7 @@ describe('createReleaseExecuteApi', () => {
         // citation write — never a separate follow-up commit.
         const log = gitSync(repo, ['log', '--format=%s', '-n', '2']);
         expect(log.split('\n')[0]).toBe('chore(release): v1.1.0');
-        const committedFiles = gitSync(repo, [
-          'show',
-          '--stat',
-          '--format=',
-          'HEAD',
-        ]);
+        const committedFiles = gitSync(repo, ['show', '--stat', '--format=', 'HEAD']);
         expect(committedFiles).toContain('CITATION.cff');
         expect(committedFiles).toContain('package.json');
       } finally {
