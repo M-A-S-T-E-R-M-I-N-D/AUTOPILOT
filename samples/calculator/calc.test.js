@@ -67,3 +67,7 @@ test('an operator right after equals chains from the result', () => {
 test('floating point stays presentable: 0.1 + 0.2 displays 0.3', () => {
   assert.equal(type(['0', '.', '1', '+', '0', '.', '2', '=']).display, '0.3');
 });
+
+test('percent divides the current entry by 100: 50 % → 0.5', () => {
+  assert.equal(type(['5', '0', '%']).display, '0.5');
+});
