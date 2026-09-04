@@ -2,7 +2,7 @@
 
 Chronological record of the project's founding documents, decisions, and build milestones.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [SemVer](https://semver.org)
-(bumps computed from Conventional Commits since the last tag — feat ⇒ MINOR, fix ⇒ PATCH; 1.0.0 only at the M9 launch milestone — see [`RELEASING.md`](docs/RELEASING.md)). Newest first.
+(each milestone M0–M9 is a MINOR bump; 1.0.0 at the M9 launch — see [`RELEASING.md`](docs/RELEASING.md)). Newest first.
 
 ## [Unreleased]
 
@@ -205,7 +205,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   versus a raw literal). Measured 45–51% token coverage across the
   row/task/lane fixtures at both sizes, with the top raw-value properties
   tabulated to seed the phase-1 drift ledger. Snapshot:
-  `docs/archive/EVALUATION-2026-09-02-cockpit-baseline.md`. Only i18n coverage
+  `docs/EVALUATION-2026-09-02-cockpit-baseline.md`. Only i18n coverage
   remains open from the brief's §5 table.
 
 ## [0.19.0] — 2026-09-02

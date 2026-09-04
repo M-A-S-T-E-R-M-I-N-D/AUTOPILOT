@@ -21,7 +21,7 @@ card** content lives in §6, pointing at the same telemetry store the self-study
 - **Subject:** the AUTOPILOT engine (`packages/engine/`) driving firings against a target repository, as shipped in
   this repo's `package.json` (`autopilot-monorepo`).
 - **Versioned by two independent axes**, both tracked in §6 rather than restated here:
-  - **Engine/package version** (`package.json` `version`, SemVer — bumps computed from Conventional Commits; see `docs/RELEASING.md`).
+  - **Engine/package version** (`package.json` `version`, SemVer, one MINOR per milestone — `CHANGELOG.md`).
   - **Firing-Prompt-Version** (the `Firing-Prompt-Version` git trailer written at commit time — the operating
     instructions handed to the agent each firing, independent of the code version; see `docs/SELF-STUDY/PAPER.md` §3).
 - These two versions drift independently: a prompt revision can land without a package bump, and vice versa. A claim
@@ -30,7 +30,7 @@ card** content lives in §6, pointing at the same telemetry store the self-study
   revision: it evaluates the new version's pinned-suite pass rate, cost per solved task, and median turns
   (`evaluatePromptVersionGate`, `packages/store/src/read.ts`) against the prior version with the most pinned-suite
   data and exits non-zero on a regression past tolerance. It is a LOCAL check against the git-ignored telemetry
-  store (operational details: `docs/RUNBOOK.md`), not a CI check, and passes provisionally — never blocks — until the new version
+  store (`FLIGHT-CONTAINMENT.md`), not a CI check, and passes provisionally — never blocks — until the new version
   has accumulated enough pinned-suite firings to judge.
 
 ## 3. Intended use

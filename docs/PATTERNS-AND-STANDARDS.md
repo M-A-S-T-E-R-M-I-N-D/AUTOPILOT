@@ -14,7 +14,7 @@
 | **Plugin / Adapter Registry** | one source-of-truth catalog (agents/skills/commands as markdown+frontmatter) compiled to each harness target via an install-target registry (MdViewer §5's crown jewel) — **generated, never checked-in per-harness**. |
 | **Supervisor / Actor** | the multi-project Supervisor owns per-project Engine "actors"; each is single-instance-guarded, restart-safe, isolated (worktree per parallel worker). |
 | **Monorepo (workspaces)** | `packages/engine`, `packages/onboarding`, `packages/store`, `apps/dashboard`, `packages/mcp` — one repo, clear boundaries, shared types. |
-| **Strangler-fig migration** *(completed at M1)* | ported the founding PowerShell v2.4 loop to TS incrementally — never a big-bang rewrite; the TS engine has been the sole loop since `v0.7.0`. |
+| **Strangler-fig migration** | port the proven PowerShell v2.4 loop to TS incrementally, behaviorally-identical, verified against the working script — never a big-bang rewrite. |
 
 ## 2. Security & supply chain (regulatory-grade)
 | Standard | How we apply it |
@@ -23,7 +23,7 @@
 | **OWASP LLM Top 10** (incl. prompt injection) | the `<<< PROJECT_CONTENT >>>` untrusted-data framing (MdViewer §3); tool authority mode-gated; agent output never trusted as instructions. |
 | **CWE / SAST** | dependency audit + static analysis in the gate; findings → Anomalies with propose-fix (never silent). |
 | **SLSA** (supply-chain levels for software artifacts) | pinned deps, lockfile integrity, provenance on release artifacts, reproducible builds where feasible. |
-| **OpenSSF Scorecard** *(aspirational — no workflow yet)* | branch protection and pinned actions are live; the Scorecard workflow itself is not wired — tracked, not claimed. |
+| **OpenSSF Scorecard** | run against our own repo; branch protection, signed releases, no unpinned actions. |
 | **Secret management** | no secrets in code (CI secret-scan gate, MdViewer's `validate-no-personal-paths` pattern); credentials via the user's own keychain (the CLI's auth), never stored by us. |
 | **Web hardening** (dashboard is localhost) | **CSP** (nonce-based), **DNS-rebind guard**, per-route **rate limits**, path-traversal guards (`validate*File` family), `X-Content-Type-Options`/`Referrer-Policy` — all present in the reference, all adopted. |
 | **Confidentiality** | local-first; embeddings/offload local-only; project content leaves the machine ONLY via the user's own Claude account. |
@@ -32,7 +32,7 @@
 - **Structured, leveled logging** (JSON lines) — never `console.log` in committed code (MdViewer `CLAUDE.md` rule adopted).
 - **OpenTelemetry-shaped** metrics for engine firings: the firing record already captures the OTel-style attributes
   (span = firing; attributes = cost/tokens/turns/gate) and persists them to SQLite; exporting them over the OTel
-  wire-format (for standard-portable dashboards) **shipped** — `packages/engine/src/otlp.ts` + the dashboard flight exporter; see README §Telemetry.
+  wire-format (for standard-portable dashboards) lands with the dashboard at **M3** (tracked in FEATURE-COVERAGE).
 - **The dual-stream** (agent-semantics SSE + filesystem WS) is the live layer (`REACTIVITY.md` §3); the append-only
   event log is the durable layer; SQLite projections drive the graphs.
 - **Health/anomaly detection** as a continuous signal (cost spikes, regressions, gate-fail rate) — not only the retro.

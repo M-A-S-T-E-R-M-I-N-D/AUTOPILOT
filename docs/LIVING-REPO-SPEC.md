@@ -5,11 +5,6 @@ SPDX-License-Identifier: Apache-2.0
 
 # LIVING REPO — the operator's full spec (SDD artifact)
 
-> **Build status (2026-09-04): largely UNBUILT.** This is a preserved operator
-> SPEC, not a description of the repo — §2's file tree, §3/§6/§7's client
-> surface, and the workflow set mostly do not exist yet at v0.22.0; treat every
-> claim as intent until a shipped artifact says otherwise.
->
 > **Provenance:** authored by the operator (2026-08-08), preserved as the
 > spec-driven-development source of truth for the "living repo" epic. Tasks
 > derive from THIS document; when requirements change, edit here first.
