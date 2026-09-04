@@ -26,10 +26,10 @@ Use the CLI, not raw `node`/`kill` — it owns the state file and does the stale
 
 | Command | Does |
 |---|---|
-| `pnpm dashboard:start` / `START-DASHBOARD.cmd` | Build, then spawn the server detached, wait for `/api/health`, open the browser. |
-| `pnpm dashboard:status` / `STATUS-DASHBOARD.cmd` | Report `running (pid …) → url` / `stopped` / `stale`, then run `doctor`. |
-| `pnpm dashboard:stop` / `STOP-DASHBOARD.cmd` | `SIGTERM` the recorded pid, clear the state file. |
-| `pnpm dashboard:restart` / `RESTART-DASHBOARD.cmd` | Rebuild, then stop + start. |
+| `pnpm dashboard:start` / `START-DASHBOARD.cmd` / `./START-DASHBOARD.sh` | Build, then spawn the server detached, wait for `/api/health`, open the browser. |
+| `pnpm dashboard:status` / `STATUS-DASHBOARD.cmd` / `./STATUS-DASHBOARD.sh` | Report `running (pid …) → url` / `stopped` / `stale`, then run `doctor`. |
+| `pnpm dashboard:stop` / `STOP-DASHBOARD.cmd` / `./STOP-DASHBOARD.sh` | `SIGTERM` the recorded pid, clear the state file. |
+| `pnpm dashboard:restart` / `RESTART-DASHBOARD.cmd` / `./RESTART-DASHBOARD.sh` | Rebuild, then stop + start. |
 | `pnpm dashboard:doctor` | Node version, server-built, state-dir-writable checks. |
 | `pnpm dashboard:ci-status` | Latest `gh run list` result per `.github/workflows/*.yml` file — read-only CI-run babysitting, never retries/cancels. |
 | `pnpm dashboard:maintenance-sweep` | One read of the founder's routine sweep: dependabot's open PR backlog, doc-freshness drift, the next release's plan verdict, and the CI-run report together — read-only throughout. |
@@ -406,9 +406,11 @@ or one that IS the PR (you ran `gh pr checkout`), leaves necessity unassessed in
 telling the contributor their PR was "already fixed elsewhere" on the strength of your
 own checkout.
 
-**Still deferred** (the task stays open until these land): the epic's "does it genuinely
-improve" judgment and conflict resolution — both fall through to
-request-changes/queue-for-human, conservatively.
+**Partially landed (2026-09-04):** the first "does it genuinely improve" verdict shipped —
+a PR that only DELETES tests now draws a reasoned request-changes instead of a shrug
+(the test-deletion verdict; see `pr-review.ts`). The broader genuinely-improves judgment
+and conflict resolution still fall through to request-changes/queue-for-human,
+conservatively.
 
 ## 9. gh run babysitting (maintenance ritual slice 2)
 

@@ -11,10 +11,18 @@ is the durable record so the discipline is repeatable (and enforced by CI).
 ## Versioning — Semantic Versioning 2.0
 
 - The **product/repo version** is the single line the `CHANGELOG.md` and git
-  version tags share. Pre-1.0, **each milestone (M0…M9) is a MINOR bump**; bug
-  fixes between milestones are PATCH bumps; **1.0.0 ships at the M9 launch**.
-- Current version line: planning `0.1`–`0.5` (pre-code docs), **M0 = `0.6.0`**,
-  **M1 = `0.7.0`**, … The root `package.json` `version` tracks this.
+  version tags share. The root `package.json` `version` tracks it.
+- **The live law (since the fleet took over releasing):** the bump is computed
+  from Conventional Commits since the last release tag — `feat` ⇒ MINOR,
+  `fix`/`perf` ⇒ PATCH, a breaking marker ⇒ MAJOR (`planRelease`,
+  `packages/engine/src/release.ts`). Milestones no longer map 1:1 to MINOR
+  bumps — the founding "each milestone is one MINOR" scheme (M0 = `0.6.0`,
+  M1 = `0.7.0`, …) held through `v0.10.0` and was outpaced by release cadence;
+  `0.22.0` landed mid-M4. **1.0.0 still ships only at the M9 launch
+  milestone** — maturity is a human call, not an arithmetic one.
+- Every `0.x` release is an **alpha** and publishes as a GitHub **Pre-release**
+  (SemVer §4, mechanized by `release/maturity.ts` — auto-detected, operator
+  can override).
 - Workspace packages (`@autopilot/*`) are pre-1.0 internal libraries; they stay
   at `0.1.0` until first external publish, then adopt independent SemVer. The
   number that means "the product" is the repo version above.
@@ -28,25 +36,30 @@ is the durable record so the discipline is repeatable (and enforced by CI).
   was **Verified**, and what **Remains** (with a backlog cross-reference) — no
   overclaiming.
 
-## Git tags
+## Git tags — the post-genesis reality
 
-Three tag families, all local until a public remote exists:
+The repo went public on **2026-09-03** as a single squashed genesis commit
+(`chore: genesis — autopilot v0.21.0, public alpha`): the entire pre-public
+history was deliberately compressed to one clean commit, so **a public clone
+contains only `v0.21.0` and later tags**. Three tag families:
 
-| Tag             | Meaning                                                                               |
-| --------------- | ------------------------------------------------------------------------------------- |
-| `v<semver>`     | the SemVer release (e.g. `v0.6.0` = M0, `v0.7.0` = M1) — the machine-readable version |
-| `m<N>`          | the human-friendly milestone marker (`m0`, `m1`, …) at the same commit as its `v` tag |
-| `myth-baseline` | the pristine **pre-code** snapshot (the MYTH floor, before any M0 code)               |
+| Tag         | Where it lives | Meaning                                                                    |
+| ----------- | -------------- | -------------------------------------------------------------------------- |
+| `v<semver>` | public, pushed | the SemVer release — the machine-readable version; `v0.21.0` = genesis     |
+| `m<N>`      | **local only** | the human milestone marker at the same commit as its `v` tag — kept off the public remote by policy |
+| pre-genesis (`v0.6.0`–`v0.20.0`, `myth-baseline`) | **founder's archive only** | the pre-public build history; squashed at genesis, summarized in `CHANGELOG.md`'s dated sections — those entries are the durable public record of that era |
 
-Planning versions `0.1`–`0.5` predate the git repo; they are captured inside the
-`myth-baseline` commit and documented in the changelog (not separately tagged).
+If a doc references a pre-genesis tag or SHA, that is a citation into archived
+history a public clone cannot resolve — the changelog section for that era is
+the readable substitute.
 
 ## Git notes
 
-Each milestone / release commit carries a **`git notes add`** attestation: the
-DoD-met record, gate + coverage numbers, review verdict, and any deferrals. This
-is the machine-readable "flight-log" annotation alongside the human changelog —
-the third leg of the tags / commits / **notes** version-management triad.
+Each release commit carries a **`git notes add`** attestation — the version,
+bump, and the commit subjects that earned it (`buildReleaseAttestation`,
+attached automatically by the release ritual). Pre-genesis notes did not
+survive the squash; the triad (tags / commits / **notes**) restarted cleanly
+at `v0.22.0`, the first post-genesis ritual release.
 
 ## Commits
 

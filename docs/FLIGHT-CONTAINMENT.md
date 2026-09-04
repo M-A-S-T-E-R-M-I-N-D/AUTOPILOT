@@ -62,17 +62,18 @@ for flying untrusted targets, or on a shared machine, or unattended.
    **macOS, Linux, and WSL2 only — "Native Windows is not supported"** (official
    sandboxing docs). On those platforms it is the end-state; enable it when flights run
    there. On native Windows, layers (1) + (2) are the operative controls.
-4. **Worktree isolation — IN PROGRESS (`docs/epics/0004-bash-containment-worktree.md`).**
-   The SOTA-MAP A4 fix ladder's next rung: fly from a linked git worktree instead of the
-   live checkout, so an escape has physically separate scratch space to land in instead
-   of the real tree. Slice 1 (the worktree lifecycle adapter,
-   `packages/engine/src/adapters/worktree.ts`) is done and proven in isolation; it is
-   not wired into `fly.ts` yet — see the epic for the remaining slices.
+4. **Worktree isolation — SHIPPED (2026-08-13, `docs/epics/0004-bash-containment-worktree.md`,
+   all slices landed).** Every flight now flies from a linked git worktree instead of the
+   live checkout (`fly.ts` derives the plan via `deriveWorktreePlan` → `ensureWorktree`
+   and points `flightRoot` into it), so an escape has physically separate scratch space
+   to land in instead of the real tree. Hardened again 2026-09-04: a flown SUBFOLDER of
+   a larger repo now scopes `flightRoot` to the nested project's own path
+   (`repoPrefixOf`), closing the gate-ran-the-wrong-project harness gap the calculator
+   case study exposed.
 
-With (1) detection + (2) prevention both live, unattended flights on trusted targets
-become reasonable; untrusted targets still deserve the OS sandbox (3) on a platform
-that has it, or worktree isolation (4) once wired. Keep flagging the posture in release
-notes.
+With (1) detection + (2) prevention + (4) worktree isolation all live, unattended
+flights on trusted targets are reasonable; untrusted targets still deserve the OS
+sandbox (3) on a platform that has it. Keep flagging the posture in release notes.
 
 ## Test-methodology note
 

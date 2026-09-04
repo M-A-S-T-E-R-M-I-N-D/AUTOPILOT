@@ -25,23 +25,57 @@ engineering agent. This guide gets you from clone to a green pull request.
 - **Node.js ≥ 22.12** (see [`.nvmrc`](../.nvmrc))
 - **pnpm ≥ 10** — enable via Corepack: `corepack enable pnpm`
 
-## Setup
+## One thing to know before anything else
+
+**This repo is flown autonomously.** Most commits here are shipped by AUTOPILOT's
+own agent fleets, every PR is first triaged by an automated review ritual (the
+**KEEPER** — see below), and `main` accepts writes from exactly one human
+maintainer ([`GOVERNANCE.md`](GOVERNANCE.md)). None of that changes how YOU
+contribute — fork, branch, PR, like anywhere — but it explains what you'll see:
+bot-cadence commits, ritual commit messages, and automated review verdicts.
+
+## Setup (fork-first — outside contributors cannot push here)
 
 ```bash
-git clone https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT.git
-cd autopilot
+# 1. Fork on GitHub (the Fork button), then:
+git clone https://github.com/<your-username>/AUTOPILOT.git
+cd AUTOPILOT
+git remote add upstream https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT.git
 pnpm install
 pnpm run verify   # typecheck + lint + format + test+coverage + build + CI validators
 ```
 
 ## Development workflow
 
-1. **Branch** off `main`: `git switch -c feat/<short-topic>`.
+1. **Branch** in your fork: `git switch -c feat/<short-topic>` (branched from an
+   up-to-date `upstream/main`).
 2. **Write tests first** where logic is testable (TDD: RED → GREEN → refactor).
 3. **Implement**, keeping files small and focused (< 800 lines; functions < 50).
 4. **Run the gate**: `pnpm run verify`.
-5. **Commit** using [Conventional Commits](#commit-messages).
-6. **Open a PR** and fill in the template.
+5. **Commit** using [Conventional Commits](#commit-messages) **with `-s`**
+   ([DCO](#developer-certificate-of-origin-dco)).
+6. **Open a PR** against `M-A-S-T-E-R-M-I-N-D/AUTOPILOT:main` and fill in the
+   template. PRs land **squash-merged** — your branch's commits become one
+   commit on `main`, so a messy WIP history in the PR is fine; the TITLE of the
+   PR must itself be a valid Conventional Commit (it becomes the squash
+   subject).
+
+## What happens after you open a PR
+
+1. **CI runs** (the same `verify` you ran, on three OSes, plus commitlint on
+   the PR title and a REUSE license check).
+2. **The KEEPER triages it** — an automated review ritual that reads
+   gh-reported facts (CI state, diff scope, mergeability) and posts one of:
+   **merge** (small, green, in-scope), **request-changes** (with the specific
+   reason), or **queue-for-human** (anything security-sensitive,
+   dependency-touching, or judgment-shaped — a human decides those, always).
+   The full decision policy lives in [`docs/RUNBOOK.md`](../docs/RUNBOOK.md) §8
+   and its source of truth is `apps/dashboard/src/flight/pr-review.ts`.
+3. **The human maintainer** approves anything the KEEPER queued, and is the
+   only one who can land to `main` (CODEOWNERS + branch protection).
+
+An automated request-changes is not a rejection — fix the named reason and
+push; the ritual re-triages on every update.
 
 ## Flaky tests
 
@@ -93,10 +127,11 @@ Add an SPDX header to every new source file:
 
 ## Code review
 
-Every change is reviewed for quality, security, and maintainability. Security-
-sensitive changes (auth, input handling, file/DB/network access) receive a
-dedicated security review. See [`docs/ACTION-PLAN.md`](../docs/ACTION-PLAN.md) for
-the milestone-gated build order.
+Every change is reviewed for quality, security, and maintainability — first by
+the automated KEEPER ritual (above), then by the human maintainer for anything
+queued. Security-sensitive changes (auth, input handling, file/DB/network
+access) always queue for the human. For what exists and what's in motion, read
+[`CHANGELOG.md`](../CHANGELOG.md) — the live record.
 
 ## Reporting bugs / requesting features
 
