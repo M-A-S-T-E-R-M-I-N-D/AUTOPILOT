@@ -316,6 +316,21 @@ export interface PrReviewCandidate {
    *  confirms the sweep: an empty list means "assessed, renames nothing",
    *  the only state a merge may treat as clean. */
   readonly renamedFromPaths?: readonly string[];
+  /** The test files this PR DELETES outright — parsed off the fetched diff's
+   *  `deleted file mode` headers by {@link parseDiffDeletedPaths} and kept
+   *  only where {@link isTestPath} holds. The first deterministic slice of
+   *  epic 0007's "does it genuinely improve": a PR that removes a test makes
+   *  the gate EASIER, so its green result vouches for less than it does on a
+   *  PR that leaves coverage intact — the global coverage floor only catches
+   *  a large deletion, and CI runs whatever tests the PR's own checkout
+   *  still contains. Deleting an obsolete test is legitimate, which is why
+   *  this queues for a human rather than requesting changes. Optional and
+   *  present only when non-empty (the same spread-when-it-can-narrow shape
+   *  {@link conflictingPaths} takes): absent means "deletes no test, or no
+   *  diff was fetched", and the latter is already caught by the merge tier's
+   *  demand for a confirmed {@link renamedFromPaths} sweep off that same
+   *  fetch. Narrowing-only: it can queue, never force a merge. */
+  readonly deletedTestPaths?: readonly string[];
   /** How many of the PR's review threads (a reviewer's line-level comment
    *  and its replies) are still UNRESOLVED, as GitHub's GraphQL
    *  `reviewThreads` reports them — `gh pr list --json` exposes no such
@@ -1521,6 +1536,9 @@ export function planPrReview(
       ...(pr.renamedFromPaths !== undefined
         ? { renamedFromPaths: pr.renamedFromPaths.map(neutralizeAtMentions) }
         : {}),
+      ...(pr.deletedTestPaths !== undefined
+        ? { deletedTestPaths: pr.deletedTestPaths.map(neutralizeAtMentions) }
+        : {}),
       ...(pr.baseRefName !== undefined
         ? { baseRefName: neutralizeAtMentions(pr.baseRefName) }
         : {}),
@@ -1874,6 +1892,28 @@ function decidePrReview(pr: PrReviewCandidate, policy: PrReviewAutoMergePolicy):
         "'rename from' headers expose a move OUT of a guarded path). A merge asserts a complete " +
         "security sweep, so an unassessed rename sweep fails closed toward MASTERMIND's " +
         'human eyes; the next pass re-fetches the diff and re-judges it fresh.',
+    };
+  }
+
+  // The first deterministic "does it genuinely improve" verdict: a PR that
+  // deletes a test file makes the gate it then passes EASIER — CI runs only
+  // the tests the PR's own checkout still contains, and the global coverage
+  // floor catches only a large removal — so a green gate vouches for less
+  // here than on a PR that leaves coverage intact. Deleting an obsolete
+  // test is legitimate, so this is a human's call, not a request-changes.
+  // Merge-tier on purpose (after the rename-sweep guard, which already
+  // demands the diff these paths came from was fetched): a red-gate or
+  // conflicting PR still gets its actionable feedback first.
+  if (pr.deletedTestPaths !== undefined && pr.deletedTestPaths.length > 0) {
+    return {
+      decision: 'queue-for-human',
+      reasoning:
+        `#${pr.number} "${pr.title}" deletes test file(s): ` +
+        `${pr.deletedTestPaths.join(', ')} — removing a test makes the gate easier, so ` +
+        'its green result cannot vouch for this change the way it does for a PR that ' +
+        'leaves coverage intact. Deleting an obsolete test is legitimate, but that is a ' +
+        "human's call: it is otherwise policy-green, so it queues for MASTERMIND's human " +
+        'eyes rather than auto-merging.',
     };
   }
 
@@ -2800,6 +2840,59 @@ export interface PrDiffAssessment {
   readonly hasBinaryDiff?: boolean;
   readonly conflictingPaths?: readonly string[];
   readonly renamedFromPaths?: readonly string[];
+  readonly deletedTestPaths?: readonly string[];
+}
+
+/** Does `path` name a test artifact — a file under a `test/`, `tests/`,
+ *  `__tests__/`, `__snapshots__/`, or `e2e/` directory, a `*.test.*` /
+ *  `*.spec.*` module, or a Playwright `*-snapshots/` baseline? Case-
+ *  insensitive and directory-anchored, so a SOURCE file whose name merely
+ *  contains "test" (`contest.ts`, `latest/index.ts`, `test-ids.ts`) never
+ *  counts. Pure; feeds {@link PrReviewCandidate.deletedTestPaths}. */
+export function isTestPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return (
+    /(^|\/)(test|tests|__tests__|__snapshots__|e2e)\//.test(lower) ||
+    /\.(test|spec)\.[cm]?[jt]sx?$/.test(lower) ||
+    lower.includes('-snapshots/')
+  );
+}
+
+/** Extracts the path of every file the unified diff DELETES outright — a
+ *  `deleted file mode` header line followed, within the same file block, by
+ *  the `--- a/<path>` line that names the removed file (its `+++` side is
+ *  `/dev/null`, so `---` is the only place the path appears in that block).
+ *  Column-0 anchored like {@link parseDiffRenameSources}: a body line
+ *  quoting either shape starts with `+`/`-`/space — and `--- a/x` inside a
+ *  BODY can only follow a hunk's `@@` line, which no deleted-file block
+ *  reaches before its own header `---`. The next `diff --git` line resets
+ *  the pending state, so a block whose `---` line is missing never claims
+ *  its neighbor's path. Git core-quotes paths with special characters and
+ *  appends a tab after a path containing spaces; both are stripped so the
+ *  {@link isTestPath} sweep sees the plain path. Deduplicated and sorted for
+ *  deterministic reasoning text. Pure: never spawns anything itself. */
+export function parseDiffDeletedPaths(diff: string): string[] {
+  const deleted = new Set<string>();
+  let pendingDeletion = false;
+  for (const rawLine of diff.split('\n')) {
+    const line = rawLine.replace(/\r$/, '');
+    if (line.startsWith('diff --git ')) {
+      pendingDeletion = false;
+      continue;
+    }
+    if (/^deleted file mode \d+$/.test(line)) {
+      pendingDeletion = true;
+      continue;
+    }
+    if (!pendingDeletion) continue;
+    const match = line.match(/^--- (.+?)\t?$/);
+    if (!match?.[1]) continue;
+    pendingDeletion = false;
+    const raw = match[1];
+    const unquoted = raw.startsWith('"') && raw.endsWith('"') ? raw.slice(1, -1) : raw;
+    if (unquoted.startsWith('a/')) deleted.add(unquoted.slice(2));
+  }
+  return [...deleted].sort();
 }
 
 /** Extracts the OLD path of every rename the unified diff declares — its
@@ -2897,7 +2990,14 @@ export async function assessPrDiff(
   // Always present on a successful fetch — an empty list is a CONFIRMED
   // "renames nothing", which planPrReview's merge tier demands before a
   // merge may assert the rename half of the security sweep actually ran.
-  const renamed = { renamedFromPaths: renameSources };
+  // The deleted-test sweep rides the same headers, spread only when it can
+  // narrow (a non-empty list) — that rename demand already proves the fetch
+  // ran, so an absent key needs no second "was it assessed" guard.
+  const deletedTests = parseDiffDeletedPaths(diff.stdout).filter(isTestPath);
+  const renamed = {
+    renamedFromPaths: renameSources,
+    ...(deletedTests.length > 0 ? { deletedTestPaths: deletedTests } : {}),
+  };
   if (diffContainsBinaryContent(diff.stdout)) return { hasBinaryDiff: true, ...renamed };
 
   const dir = await mkdtemp(join(tmpdir(), 'autopilot-pr-review-'));
