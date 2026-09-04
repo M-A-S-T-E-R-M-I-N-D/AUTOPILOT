@@ -417,6 +417,135 @@ describe('createReleaseExecuteApi', () => {
     }
   });
 
+  describe('citation refresh (board web-mtmrh0mv-161chu)', () => {
+    /** A minimal stand-in for `scripts/citation/generate-citation.mjs` — the
+     *  real script's exact behavior is covered by
+     *  `apps/dashboard/test/tooling/generate-citation.test.ts`; this only
+     *  needs SOME file present at that path so `createReleaseExecuteApi` can
+     *  detect it and invoke it through the injected `runCommand`. */
+    function withCitationScript(repo: string): void {
+      mkdirSync(join(repo, 'scripts', 'citation'), { recursive: true });
+      writeFileSync(join(repo, 'scripts', 'citation', 'generate-citation.mjs'), '// stub\n');
+    }
+
+    it('runs the citation script and folds its writes into the SAME release commit', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-citation-ok-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
+      try {
+        setupTaggedRepo(repo);
+        withCitationScript(repo);
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'chore: add citation stub']);
+        gitSync(repo, ['tag', '-a', 'v1.0.0', '-f', '-m', 'v1.0.0']);
+        writeFileSync(join(repo, 'a.txt'), 'x');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'feat: a new capability']);
+
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+        s.close();
+
+        const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+        const result = await createReleaseExecuteApi(dbPath, async (command, args, cwd) => {
+          calls.push({ command, args, cwd });
+          // Simulate the real script writing a citation artifact — proves the
+          // write happens BEFORE `commitAll`, so it lands in the same commit.
+          writeFileSync(join(repo, 'CITATION.cff'), 'version: 1.1.0\n');
+          return { exitCode: 0, stdout: '', stderr: '' };
+        })('p1');
+
+        expect(result?.ok).toBe(true);
+        expect(calls).toEqual([
+          { command: 'node', args: ['scripts/citation/generate-citation.mjs'], cwd: repo },
+        ]);
+
+        // One release commit, and it carries BOTH the version bump AND the
+        // citation write — never a separate follow-up commit.
+        const log = gitSync(repo, ['log', '--format=%s', '-n', '2']);
+        expect(log.split('\n')[0]).toBe('chore(release): v1.1.0');
+        const committedFiles = gitSync(repo, [
+          'show',
+          '--stat',
+          '--format=',
+          'HEAD',
+        ]);
+        expect(committedFiles).toContain('CITATION.cff');
+        expect(committedFiles).toContain('package.json');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('never invokes the citation script for a project that has none', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-citation-absent-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
+      try {
+        setupTaggedRepo(repo);
+        writeFileSync(join(repo, 'a.txt'), 'x');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'feat: a new capability']);
+
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+        s.close();
+
+        const calls: Array<{ command: string; args: readonly string[] }> = [];
+        const result = await createReleaseExecuteApi(dbPath, async (command, args) => {
+          calls.push({ command, args });
+          throw new Error('runCommand must not be called when there is no citation script');
+        })('p1');
+
+        expect(result?.ok).toBe(true);
+        expect(calls).toEqual([]);
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('fails the release before any commit when the citation script exits non-zero', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-citation-fail-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
+      try {
+        setupTaggedRepo(repo);
+        withCitationScript(repo);
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'chore: add citation stub']);
+        gitSync(repo, ['tag', '-a', 'v1.0.0', '-f', '-m', 'v1.0.0']);
+        writeFileSync(join(repo, 'a.txt'), 'x');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'feat: a new capability']);
+
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+        s.close();
+
+        const beforeLog = gitSync(repo, ['log', '--format=%H']);
+
+        await expect(
+          createReleaseExecuteApi(dbPath, async () => ({
+            exitCode: 1,
+            stdout: '',
+            stderr: 'generate-citation: no CHANGELOG.md release heading found',
+          }))('p1'),
+        ).rejects.toThrow(/citation:update failed/);
+
+        const afterLog = gitSync(repo, ['log', '--format=%H']);
+        expect(afterLog).toBe(beforeLog);
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+  });
+
   describe('ghRelease (epic 0006 slice 3, board web-mss4lpwl-z0w495)', () => {
     it('refuses the GitHub Release leg with a non-fatal note when the project has no remote', async () => {
       const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-ghr-noremote-'));

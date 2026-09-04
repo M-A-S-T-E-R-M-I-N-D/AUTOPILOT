@@ -39,6 +39,10 @@ import {
 
 const DB_ENV_VAR = 'AUTOPILOT_DB';
 const PAPER_PATH = join(process.cwd(), 'docs', 'SELF-STUDY', 'PAPER.md');
+// The append-only chronology moved OUT of the paper on 2026-09-04 (operator
+// ask: conclusions up front, raw log one click away) — dated flight entries
+// now append here, while the DATA blocks stay in PAPER_PATH.
+const EVIDENCE_PATH = join(process.cwd(), 'docs', 'SELF-STUDY', 'EVIDENCE-LOG.md');
 const SUITE_PATH = join(process.cwd(), 'docs', 'SELF-STUDY', 'eval-suite.json');
 const MARKER_START = '<!-- DATA:SUMMARY:START -->';
 const MARKER_END = '<!-- DATA:SUMMARY:END -->';
@@ -46,7 +50,7 @@ const SERIES_MARKER_START = '<!-- DATA:SERIES:START -->';
 const SERIES_MARKER_END = '<!-- DATA:SERIES:END -->';
 const CHART_MARKER_START = '<!-- DATA:CHART:START -->';
 const CHART_MARKER_END = '<!-- DATA:CHART:END -->';
-const EVIDENCE_HEADING = '## 8. Evidence Log';
+const EVIDENCE_HEADING = '## Evidence Log';
 
 /** The pinned eval suite (`scripts/self-study/pin-eval-suite.mjs`), or `null`
  *  when nothing has been pinned yet — degrades silently, not an error: most
@@ -1405,19 +1409,33 @@ function main() {
     let next = replaceBlock(source, block);
     next = replaceBlock(next, chartBlock, CHART_MARKER_START, CHART_MARKER_END);
     next = replaceBlock(next, seriesBlock, SERIES_MARKER_START, SERIES_MARKER_END);
-    const trigger = flightTrigger();
-    if (trigger) {
-      next = appendEvidenceEntry(next, isoDate(Date.now()), stats.firings, trigger, {
-        prevTotals: prevSnapshot ? summarizeSnapshot(prevSnapshot) : null,
-        prevSha,
-        prevBlobUrl,
-        stats,
-      });
-    }
     writeFileSync(PAPER_PATH, next);
+    // Evidence entries append to EVIDENCE-LOG.md (the 2026-09-04 split) —
+    // read fresh here, not from `source`, since the two files are siblings.
+    const trigger = flightTrigger();
+    let evidenceAppended = false;
+    if (trigger && existsSync(EVIDENCE_PATH)) {
+      const evidenceSource = readFileSync(EVIDENCE_PATH, 'utf8');
+      const evidenceNext = appendEvidenceEntry(
+        evidenceSource,
+        isoDate(Date.now()),
+        stats.firings,
+        trigger,
+        {
+          prevTotals: prevSnapshot ? summarizeSnapshot(prevSnapshot) : null,
+          prevSha,
+          prevBlobUrl,
+          stats,
+        },
+      );
+      if (evidenceNext !== evidenceSource) {
+        writeFileSync(EVIDENCE_PATH, evidenceNext);
+        evidenceAppended = true;
+      }
+    }
     console.log(
       `generate-data: DATA:SUMMARY + DATA:CHART + DATA:SERIES refreshed in ${PAPER_PATH} (${stats.firings} firings).` +
-        (trigger ? ' Evidence log entry appended.' : ''),
+        (evidenceAppended ? ` Evidence log entry appended to ${EVIDENCE_PATH}.` : ''),
     );
   } finally {
     store.close();

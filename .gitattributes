@@ -23,6 +23,11 @@ pnpm-lock.yaml -diff linguist-generated=true
 # rewrites it wholesale from store data, so brief line duplication there
 # never survives a flight.
 docs/SELF-STUDY/PAPER.md merge=union
+# The evidence log split out of PAPER.md (2026-09-04) inherits the same
+# absorber for the same reason: flight-end appends from N lanes are parallel
+# insertions at the same tail anchor — union keeps them all, order is
+# cosmetic in a dated append-only log.
+docs/SELF-STUDY/EVIDENCE-LOG.md merge=union
 
 # Same absorber for the epic docs (EVALUATION 2026-09-03 sync-conflict
 # taxonomy): the dominant remaining strand class is two same-round lanes each

@@ -21,6 +21,22 @@
  * reaches here, so a malformed one reaching this function would be an
  * integration bug, not a normal refusal.
  *
+ * When the project being released carries its own
+ * `scripts/citation/generate-citation.mjs` (this repo's own citation
+ * generator — CITATION.cff, README's "How to cite" + Status version line,
+ * PAPER.md, MODEL-CARD.md, all derived from `package.json`/`CHANGELOG.md`),
+ * it is run as part of `writeChangelog`, AFTER the new version/changelog are
+ * already on disk but BEFORE `commitAll` stages and commits — so the
+ * refreshed citation artifacts land in the SAME release commit rather than
+ * needing a follow-up fix. The 2026-09-04 v0.22.0 lesson: the release commit
+ * shipped with five stale 0.21.0 citation pointers, and `ci:citation` stayed
+ * red until a manual `pnpm citation:update` follow-up commit. A project
+ * without that script is untouched — same optional-file-presence stance as
+ * `withBumpedProductVersion`'s `info.ts` check below. A non-zero exit throws
+ * (surfacing as the HTTP handler's existing 500), before any commit exists —
+ * fail loud on a broken citation refresh rather than land a release commit
+ * that still drifts.
+ *
  * `ghRelease` (epic 0006 "GitHub connected mode", slice 3 "maintainer flow":
  * board web-mss4lpwl-z0w495) is the optional publish-upstream leg: once
  * `executeRelease` lands a real `v<version>` tag, an operator opting in gets
@@ -37,7 +53,7 @@
  * `ghRelease` sub-result.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openStore, listProjects } from '@autopilot/store';
 import {
@@ -116,6 +132,11 @@ function withBumpedProductVersion(raw: string, newVersion: string): string {
   return raw.replace(PRODUCT_VERSION_PATTERN, `$1${newVersion}$2`);
 }
 
+/** Relative to a project root — present only on projects that generate their
+ *  own citation artifacts (currently just this repo). See the module doc
+ *  comment for why this runs inside `writeChangelog`, before `commitAll`. */
+const CITATION_SCRIPT_RELATIVE_PATH = 'scripts/citation/generate-citation.mjs';
+
 /** Build the RELEASE execute API against the real store + real git/fs — the
  *  production wiring `main.ts` injects into the server. `runCommand` defaults
  *  to the real `execFile`-backed runner (`github/execute.ts`'s `realRunner`);
@@ -174,6 +195,10 @@ export function createReleaseExecuteApi(
         infoRaw = undefined;
       }
 
+      const hasCitationScript = existsSync(
+        join(project.root_path, CITATION_SCRIPT_RELATIVE_PATH),
+      );
+
       const writer: ReleaseWriter = {
         writeVersion: (version) => {
           writeFileSync(pkgPath, withBumpedVersion(pkgRaw, currentVersion, version));
@@ -181,7 +206,21 @@ export function createReleaseExecuteApi(
             writeFileSync(infoPath, withBumpedProductVersion(infoRaw, version));
           }
         },
-        writeChangelog: (cl) => writeFileSync(changelogPath, cl),
+        writeChangelog: async (cl) => {
+          writeFileSync(changelogPath, cl);
+          if (!hasCitationScript) return;
+          const citation = await runCommand(
+            'node',
+            [CITATION_SCRIPT_RELATIVE_PATH],
+            project.root_path,
+          );
+          if (citation.exitCode !== 0) {
+            throw new Error(
+              `citation:update failed (exit ${citation.exitCode}): ` +
+                (citation.stderr.trim() || citation.stdout.trim() || 'no output'),
+            );
+          }
+        },
       };
 
       const result = await executeRelease(
