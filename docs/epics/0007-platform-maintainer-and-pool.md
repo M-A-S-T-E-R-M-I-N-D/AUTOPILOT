@@ -50,6 +50,8 @@ A new flight discipline ("KEEPER" rituals) run under the founder's gh identity:
    is operator-configurable (which classes may auto-merge; defaults conservative).
 3. **Docs & page upkeep:** README/docs freshness (DOC-FRESHNESS task's machinery),
    Releases notes, the repo's public face — autonomously.
+4. **Discussions triage + reply:** read GitHub Discussions, classify, draft replies,
+   post clearly-autonomous responses. Scoped, not yet sliced — see Slices §8.
 
 ## In-app contextual feedback (every surface, one click)
 
@@ -899,6 +901,32 @@ all present on disk). This epic doc's own entry above already states slice
 actionable remains under this task; the live page-upkeep duty it once
 tracked continues under DOC-FRESHNESS/KEEPER (documented above), not as a
 standalone board item. ap-mtlvusoi-0 closes on this evidence.
+
+8. Discussions triage + reply ritual (board web-mtlsiac0-v8rksh): extend the KEEPER
+   pattern from issue triage (slice 3) to GitHub Discussions.
+   SCOPED, not yet built — a firing-sized feasibility pass (2026-09-04) found the
+   board title's "extend issue-triage to Discussions" undersells the work: issue
+   triage's four layers (pure decision core `flight/issue-triage.ts` → `gh` argv
+   planner → injectable-`CliExec` read/write wiring → CSRF-guarded rate-limited
+   preview/execute HTTP pair → operator panel) are entirely issue-specific — built
+   on `gh issue list/edit/comment` — with no generic ritual framework a Discussions
+   config could plug into; every layer needs a parallel discussion-specific version.
+   Worse, `gh` ships no `discussion` subcommand at all (unlike `issue`/`pr`): both
+   the read query and the reply mutation (`addDiscussionComment`) must be
+   hand-written GraphQL against opaque node IDs, not simple issue numbers —
+   `flight/pr-review.ts`'s `REVIEW_THREADS_QUERY` is this repo's only precedent for
+   hand-rolled `gh api graphql`, and even that only reads, never mutates. Full scope
+   (GraphQL read + reply mutation + types + a reply-drafting decision core + new
+   CSRF/rate-limited preview+execute endpoints + a UI panel + an
+   autonomous-reply-signature convention + ~1,000+ lines of tests mirroring
+   issue-triage's coverage) is comparably sized to slice 3, which shipped as its own
+   dedicated board item — not a same-firing add-on to whatever precedes it. VERDICT:
+   split. Narrowed first slice: a pure decision core only —
+   `flight/discussions-triage.ts` mirroring `issue-triage.ts`'s shape (types +
+   `fetchOpenDiscussions` via a hand-built read-only GraphQL query +
+   `planDiscussionTriage`/classify), zero write/mutation capability, no HTTP/UI
+   wiring — deferring reply-posting, the preview/execute endpoints, and the panel to
+   follow-on slices, the same staged-rollout shape slice 3 itself used.
 
 ## Related
 
