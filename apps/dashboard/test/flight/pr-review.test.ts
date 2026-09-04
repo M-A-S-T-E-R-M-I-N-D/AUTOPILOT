@@ -23,6 +23,8 @@ import {
   fetchUnresolvedReviewThreadCounts,
   parseGitApplyConflictPaths,
   parseDiffRenameSources,
+  parseDiffDeletedPaths,
+  isTestPath,
   executePrReviewCommands,
   remediateDanglingApproval,
   isRitualPolicyGreenApprovalBody,
@@ -3413,6 +3415,198 @@ describe('planPrReview rename-source guard (security-hard rule vs renames)', () 
 
     expect(decision.decision).toBe('request-changes');
     expect(decision.reasoning).toContain('failed');
+  });
+});
+
+describe('parseDiffDeletedPaths', () => {
+  it('extracts the path of a deleted file from its "deleted file mode" + "--- a/<path>" header pair', () => {
+    const diff =
+      'diff --git a/apps/dashboard/test/web/foo.test.ts b/apps/dashboard/test/web/foo.test.ts\n' +
+      'deleted file mode 100644\n' +
+      'index 1111111..0000000\n' +
+      '--- a/apps/dashboard/test/web/foo.test.ts\n' +
+      '+++ /dev/null\n' +
+      '@@ -1,2 +0,0 @@\n' +
+      "-import { it } from 'vitest';\n" +
+      '-it.todo("x");\n';
+
+    expect(parseDiffDeletedPaths(diff)).toEqual(['apps/dashboard/test/web/foo.test.ts']);
+  });
+
+  it('strips git core-quoting and the trailing tab git appends after a path with spaces', () => {
+    const quoted = 'deleted file mode 100644\n--- "a/docs/we\\303\\244ird.md"\n+++ /dev/null\n';
+    const spaced = 'deleted file mode 100644\n--- a/docs/we ird.md\t\n+++ /dev/null\n';
+
+    expect(parseDiffDeletedPaths(quoted)).toEqual(['docs/we\\303\\244ird.md']);
+    expect(parseDiffDeletedPaths(spaced)).toEqual(['docs/we ird.md']);
+  });
+
+  it('ignores a modified file whose body happens to contain a "--- a/" line and a later "deleted file mode" string in its body', () => {
+    const diff =
+      'diff --git a/x.md b/x.md\n' +
+      '--- a/x.md\n' +
+      '+++ b/x.md\n' +
+      '@@ -1,2 +1,2 @@\n' +
+      '-deleted file mode 100644\n' +
+      '+--- a/never-a-header.ts\n';
+
+    expect(parseDiffDeletedPaths(diff)).toEqual([]);
+  });
+
+  it('does not let a deletion header bleed into the NEXT file block when its own --- line is missing', () => {
+    const diff =
+      'diff --git a/gone.ts b/gone.ts\n' +
+      'deleted file mode 100644\n' +
+      'diff --git a/kept.ts b/kept.ts\n' +
+      '--- a/kept.ts\n' +
+      '+++ b/kept.ts\n';
+
+    expect(parseDiffDeletedPaths(diff)).toEqual([]);
+  });
+
+  it('dedupes, sorts, and tolerates CRLF', () => {
+    const diff =
+      'deleted file mode 100644\r\n--- a/b.ts\r\n+++ /dev/null\r\n' +
+      'diff --git a/a.ts b/a.ts\r\ndeleted file mode 100644\r\n--- a/a.ts\r\n+++ /dev/null\r\n';
+
+    expect(parseDiffDeletedPaths(diff)).toEqual(['a.ts', 'b.ts']);
+  });
+});
+
+describe('isTestPath', () => {
+  it.each([
+    'apps/dashboard/test/flight/pr-review.test.ts',
+    'packages/engine/test/firing.test.ts',
+    'apps/dashboard/e2e/visual.spec.ts',
+    'apps/dashboard/e2e/visual.spec.ts-snapshots/x.png',
+    'src/__tests__/thing.js',
+    'src/__snapshots__/thing.snap',
+    'lib/util.spec.tsx',
+    'lib/util.test.mjs',
+    'TEST/Fixture.json',
+  ])('recognizes %s as a test path', (path) => {
+    expect(isTestPath(path)).toBe(true);
+  });
+
+  it.each([
+    'apps/dashboard/src/flight/pr-review.ts',
+    'docs/testing-guide.md',
+    'src/contest.ts',
+    'src/latest/index.ts',
+    'packages/tokens/src/test-ids.ts',
+  ])('leaves %s unflagged — a source file whose name merely contains "test"', (path) => {
+    expect(isTestPath(path)).toBe(false);
+  });
+});
+
+describe('assessPrDiff deleted-test-file capture', () => {
+  const DELETED_TEST =
+    'diff --git a/apps/dashboard/test/web/foo.test.ts b/apps/dashboard/test/web/foo.test.ts\n' +
+    'deleted file mode 100644\n' +
+    '--- a/apps/dashboard/test/web/foo.test.ts\n' +
+    '+++ /dev/null\n' +
+    '@@ -1 +0,0 @@\n' +
+    '-x\n';
+
+  it('captures deleted test paths off the same fetched diff — no extra gh spend', async () => {
+    const exec: CliExec = vi.fn(async (bin) => ({
+      code: bin === 'gh' ? 0 : 1,
+      stdout: bin === 'gh' ? DELETED_TEST : '',
+    }));
+
+    expect(await assessPrDiff(12, exec)).toEqual({
+      alreadyApplied: false,
+      hasBinaryDiff: false,
+      renamedFromPaths: [],
+      deletedTestPaths: ['apps/dashboard/test/web/foo.test.ts'],
+    });
+    expect(exec).toHaveBeenCalledTimes(2);
+  });
+
+  it('rides the binary verdict too — the deletion headers are present even when the payload is not', async () => {
+    const exec: CliExec = vi.fn(async () => ({
+      code: 0,
+      stdout: DELETED_TEST + 'diff --git a/x.bin b/x.bin\nGIT binary patch\nliteral 8\n',
+    }));
+
+    expect(await assessPrDiff(12, exec)).toEqual({
+      hasBinaryDiff: true,
+      renamedFromPaths: [],
+      deletedTestPaths: ['apps/dashboard/test/web/foo.test.ts'],
+    });
+  });
+
+  it('leaves the key absent when the diff deletes only non-test files — the field is present only when it can narrow', async () => {
+    const diff =
+      'diff --git a/docs/old.md b/docs/old.md\ndeleted file mode 100644\n--- a/docs/old.md\n+++ /dev/null\n';
+    const exec: CliExec = vi.fn(async (bin) => ({
+      code: bin === 'gh' ? 0 : 1,
+      stdout: bin === 'gh' ? diff : '',
+    }));
+
+    expect(await assessPrDiff(12, exec)).toEqual({
+      alreadyApplied: false,
+      hasBinaryDiff: false,
+      renamedFromPaths: [],
+    });
+  });
+});
+
+describe('planPrReview deleted-test-file guard (the first deterministic "genuinely improves" slice)', () => {
+  it('queues an otherwise policy-green PR that deletes a test file — removing a test makes the gate easier, so its green result cannot vouch for the change', () => {
+    const decision = planPrReview(
+      candidate({
+        touchedPaths: ['apps/dashboard/src/web/foo-panel.ts'],
+        deletedTestPaths: ['apps/dashboard/test/web/foo-panel.test.ts'],
+      }),
+    );
+
+    expect(decision.decision).toBe('queue-for-human');
+    expect(decision.reasoning).toContain('deletes test file(s)');
+    expect(decision.reasoning).toContain('apps/dashboard/test/web/foo-panel.test.ts');
+  });
+
+  it('sits in the merge tier: a red-gate PR that deletes a test still gets the honest "gate failed" feedback', () => {
+    const decision = planPrReview(
+      candidate({ gateStatus: 'fail', deletedTestPaths: ['apps/dashboard/test/web/x.test.ts'] }),
+    );
+
+    expect(decision.decision).toBe('request-changes');
+    expect(decision.reasoning).toContain('failed');
+  });
+
+  it('a confirmed-empty deletion list, or the key absent, still merges — the guard only narrows', () => {
+    expect(planPrReview(candidate({ deletedTestPaths: [] })).decision).toBe('merge');
+    expect(planPrReview(candidate()).decision).toBe('merge');
+  });
+
+  it('flows through annotateAlreadyApplied into a queue-for-human plan, and the queue comment dedups like every other', async () => {
+    const diff =
+      'diff --git a/packages/engine/test/x.test.ts b/packages/engine/test/x.test.ts\n' +
+      'deleted file mode 100644\n' +
+      '--- a/packages/engine/test/x.test.ts\n' +
+      '+++ /dev/null\n';
+    const exec: CliExec = vi.fn(async (bin) => ({
+      code: bin === 'gh' ? 0 : 1,
+      stdout: bin === 'gh' ? diff : '',
+    }));
+
+    const [annotated] = await annotateAlreadyApplied([candidate()], exec);
+    const decision = planPrReview(annotated!);
+    expect(decision.decision).toBe('queue-for-human');
+    expect(decision.reasoning).toContain('packages/engine/test/x.test.ts');
+    expect(
+      planPrReviewCommands({ ...annotated!, ownComments: [decision.reasoning] }, decision),
+    ).toEqual([]);
+  });
+
+  it('neutralizes an @-leading deleted test path in the posted reasoning without weakening the guard', () => {
+    const ZWSP = '​';
+    const decision = planPrReview(candidate({ deletedTestPaths: ['@acme/test/x.test.ts'] }));
+
+    expect(decision.decision).toBe('queue-for-human');
+    expect(decision.reasoning).toContain(`@${ZWSP}acme/test/x.test.ts`);
+    expect(decision.reasoning).not.toContain('@acme');
   });
 });
 

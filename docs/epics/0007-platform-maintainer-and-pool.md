@@ -719,10 +719,25 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `test/web/pr-review-result-live-region.test.ts` asserts both the attributes
    and that the outcome text lands in that same element — the UX-expression
    half of the ritual, brought level with its decision core),
+   the deleted-test-file guard (`PrReviewCandidate.deletedTestPaths`, off
+   `parseDiffDeletedPaths` reading the already-fetched diff's `deleted file
+   mode` + `--- a/<path>` header pairs, filtered through `isTestPath` — the
+   first DETERMINISTIC slice of "does it genuinely improve": a PR that
+   deletes a test makes the gate it then passes EASIER, since CI runs only
+   the tests the PR's own checkout still contains and the global coverage
+   floor catches only a large removal, so a green gate vouches for less
+   there than on a PR that leaves coverage intact; it queues for a human
+   naming every deleted test path — deleting an obsolete test is legitimate,
+   so it is MASTERMIND's call, not a request-changes — merge-tier after the
+   rename-sweep guard, which already proves the diff those paths came from
+   was fetched, so the key is spread only when non-empty like
+   `conflictingPaths`; paths run through the same `neutralizeAtMentions`
+   choke point, and the queue comment dedups like every other),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
-   improve" (judging what readable changes actually do), and actually
-   resolving a conflict — today's ritual only names the files involved for a
-   human; it never attempts a merge itself.
+   improve" (judging what readable changes actually do — the deleted-test
+   guard above is a header-level fact, not a reading of the change), and
+   actually resolving a conflict — today's ritual only names the files
+   involved for a human; it never attempts a merge itself.
 5. In-app "report from here": region context bundle → issue / quick-fix PR / local
    task / pool offer (one click each, preview always).
    In progress (board web-mss50ia8-nthtf3) — shipped so far: the pure decision
