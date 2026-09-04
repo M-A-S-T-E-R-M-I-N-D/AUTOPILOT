@@ -174,6 +174,27 @@ describe('renderShell masthead i18n wiring', () => {
     );
   });
 
+  it('tags the initial connection-status placeholders (masthead + CONNECT popover) with data-i18n', () => {
+    // These are the FIRST-PAINT strings shown before connect.ts's fetches
+    // resolve and overwrite them via tr() (connect-i18n.test.ts covers that
+    // later, event-time text) — until now they were plain English literals,
+    // so a Hebrew reader saw untranslated text for the gap between page load
+    // and the first status response.
+    const html = renderShell();
+    expect(html).toContain(
+      'id="updated" role="status" aria-live="polite" data-i18n="updatedConnecting">connecting…</span>',
+    );
+    expect(html).toContain(
+      'id="connect-status" role="status" aria-live="polite" data-i18n="connectCheckingConnection">checking connection…</p>',
+    );
+    expect(html).toContain(
+      'id="gh-status" role="status" aria-live="polite" data-i18n="ghChecking">checking GitHub…</p>',
+    );
+    expect(html).toContain(
+      'id="gh-lts" role="status" aria-live="polite" data-i18n="ltsChecking">checking for updates…</p>',
+    );
+  });
+
   it('every data-i18n key in the rendered shell has a STRINGS entry in every locale', () => {
     const keys = i18nKeysIn(renderShell());
     expect(keys.length).toBeGreaterThan(0);
