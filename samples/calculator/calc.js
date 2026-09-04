@@ -93,12 +93,6 @@ function pressEquals(state) {
   };
 }
 
-function pressPercent(state) {
-  if (state.error) return state;
-  const value = Number(state.display) / 100;
-  return { ...state, display: formatNumber(value), overwrite: true };
-}
-
 function pressBackspace(state) {
   if (state.error) return initialState();
   if (state.overwrite) return state;
@@ -113,7 +107,6 @@ function press(state, key) {
   if (/^[0-9]$/.test(key)) return pressDigit(state, key);
   if (key === '.') return pressDot(state);
   if (OPERATORS.has(key)) return pressOperator(state, key);
-  if (key === '%') return pressPercent(state);
   if (key === '=') return pressEquals(state);
   if (key === 'Escape') return initialState();
   if (key === 'Backspace') return pressBackspace(state);
