@@ -431,6 +431,29 @@ export class GitVcs implements VcsPort {
     return exitCode === 0 && stdout.trim().length > 0;
   }
 
+  async dirtyPaths(): Promise<readonly string[]> {
+    // `--untracked-files=all` — without it, an entirely-untracked directory
+    // collapses to one `?? dir/` entry instead of the individual files inside,
+    // which would make an add-only change inside a NEW directory invisible to
+    // the before/after diff RemediatingGate relies on.
+    const { stdout, exitCode } = await git(this.repo, [
+      'status',
+      '--porcelain',
+      '--untracked-files=all',
+    ]);
+    if (exitCode !== 0) return [];
+    return stdout
+      .split('\n')
+      .map((line) => line.slice(3))
+      .filter((path) => path !== '')
+      .map((path) => {
+        // A rename/copy entry reads "orig -> new" — the new path is the one
+        // that actually needs (re-)staging.
+        const arrow = path.indexOf(' -> ');
+        return arrow === -1 ? path : path.slice(arrow + 4);
+      });
+  }
+
   /**
    * Stage and commit ONLY the given paths — the scoped-ritual primitive
    * (RITUAL SWEEP fix): a post-flight ritual must never sweep unrelated

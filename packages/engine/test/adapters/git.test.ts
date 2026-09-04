@@ -390,6 +390,20 @@ describe('GitVcs', () => {
     expect(status).toContain('unrelated-wip.txt');
   });
 
+  it('dirtyPaths lists every uncommitted path, letting a caller diff before/after a specific operation', async () => {
+    expect(await vcs.dirtyPaths()).toEqual([]);
+    writeFileSync(join(dir, 'unrelated-wip.txt'), 'operator work in progress');
+    gitSync(dir, ['add', 'unrelated-wip.txt']); // staged, not just working-tree
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'paper.md'), 'ritual output'); // unstaged
+
+    const paths = await vcs.dirtyPaths();
+
+    expect(paths).toContain('unrelated-wip.txt');
+    expect(paths).toContain('docs/paper.md');
+    expect(paths).toHaveLength(2);
+  });
+
   it('detects a dirty tree and packs it up with commitAll (the checkpoint move)', async () => {
     expect(await vcs.isDirty()).toBe(false);
     writeFileSync(join(dir, 'wip.txt'), 'half-finished work');
