@@ -3048,6 +3048,26 @@ changed this pass — `chunks.ts`, `generate-splice-manifest.mjs`, and
 `web/features/index.ts` remain exactly as they were; ap-mtlf58gi-1 closes on
 this evidence, ap-mtm2kspj-1 stays open scoped to that narrowed shape.
 
+ap-mtm2kspj-1 shipped (2026-09-04): the narrowed slice above landed exactly as
+scoped. `generateFeatureModulesIndexSource` now also emits
+`FEATURE_MODULE_FUNCTIONS_BY_BASENAME` — a basename → assembler-function
+record — into the generated `web/features/index.ts` barrel;
+`chunks.ts`'s `FEATURE_JS_BY_NAME` is now that one import assigned directly,
+replacing its 29 hand-written imports plus hand-built object literal.
+`PROJECT_PAGE_FEATURES`/`DEFERRED_OPERATOR_FEATURES` are untouched, as
+scoped. Verified: `chunks.test.ts`'s completeness check (comparing
+`FEATURE_JS_BY_NAME` against a live `discoverFeatureModules()` scan,
+independent of how the map is built) and the full `test:registry-guards`
+suite (588 tests) both green; typecheck/lint/format:check/build all pass.
+This landed across two commits on this same primary checkout —
+`ca30803d` (mislabeled "style(autopilot): autoformat — mechanical gate
+remediation"; a concurrent process's sweep of this firing's in-progress
+working-tree edit landed it before this firing's own `git commit` ran — the
+shared-primary-checkout hazard board `ap-mtm4qzty-1` already tracks) and
+`d370c8d0` (a small follow-up wording fix to the generated doc comment,
+same hazard). Recorded here since neither commit message documents the
+actual change or its rationale.
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
