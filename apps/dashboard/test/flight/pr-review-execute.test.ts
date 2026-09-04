@@ -658,6 +658,34 @@ describe('createPrReviewExecuteApi', () => {
     ]);
   });
 
+  it('still posts the queue-for-human comment when the approval sweep returns valid JSON that is not an array', async () => {
+    // A distinct shape from the unparseable case above: the JSON.parse
+    // succeeds (e.g. gh's own `{"message": "..."}` error envelope), but the
+    // result is not a reviews array — the sweep must reject that shape the
+    // same way it swallows a parse failure, never treating it as "no reviews".
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: openPrListStdout({ files: [{ path: 'apps/dashboard/src/server/security.ts' }] }),
+      })
+      .mockResolvedValueOnce({ code: 0, stdout: '{}' }) // approval sweep: valid JSON, not an array
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // comment probe finds no standing duplicate
+      .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12);
+
+    expect(result?.results).toHaveLength(1);
+    expect(exec).toHaveBeenNthCalledWith(4, 'gh', [
+      'pr',
+      'comment',
+      '12',
+      '--body',
+      result?.decision.reasoning,
+    ]);
+  });
+
   it('posts a fresh queue-for-human comment when the standing-duplicate probe itself returns unparseable JSON — a probe outage must never be mistaken for a match', async () => {
     // findStandingDuplicate's own JSON.parse can throw independently of the
     // stale-approval sweep above; a parse failure here must fail toward
@@ -670,6 +698,34 @@ describe('createPrReviewExecuteApi', () => {
       })
       .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // approval sweep finds nothing to dismiss
       .mockResolvedValueOnce({ code: 0, stdout: 'not json' }) // comment probe: unparseable
+      .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12);
+
+    expect(result?.results).toHaveLength(1);
+    expect(exec).toHaveBeenNthCalledWith(4, 'gh', [
+      'pr',
+      'comment',
+      '12',
+      '--body',
+      result?.decision.reasoning,
+    ]);
+  });
+
+  it('posts a fresh queue-for-human comment when the standing-duplicate probe returns valid JSON that is not an array', async () => {
+    // Distinct from the unparseable-JSON case above: the parse succeeds but
+    // the value is not a comments array (e.g. a single object instead of a
+    // list) — findStandingDuplicate must reject that shape rather than
+    // calling .some() on it or otherwise treating it as a match.
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: openPrListStdout({ files: [{ path: 'apps/dashboard/src/server/security.ts' }] }),
+      })
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // approval sweep finds nothing to dismiss
+      .mockResolvedValueOnce({ code: 0, stdout: '{}' }) // comment probe: valid JSON, not an array
       .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
     const api = createPrReviewExecuteApi(exec);
 
