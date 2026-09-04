@@ -7,6 +7,8 @@ import {
   computeBump,
   bumpVersion,
   cutChangelogRelease,
+  groupedReleaseNotes,
+  buildReleaseTagMessage,
   planRelease,
   executeRelease,
   InvalidMilestoneTagError,
@@ -130,7 +132,58 @@ describe('bumpVersion', () => {
   });
 });
 
+describe('groupedReleaseNotes', () => {
+  it('groups feat/fix/perf into Added/Fixed/Performance and drops everything else', () => {
+    const notes = groupedReleaseNotes([
+      'feat(a): one',
+      'fix: two',
+      'perf(b): three',
+      'docs(self-study): flight-end automated data refresh',
+      'chore: noise',
+    ]);
+    expect(notes).toBe(
+      '### Added\n\n- feat(a): one\n\n### Fixed\n\n- fix: two\n\n### Performance\n\n- perf(b): three',
+    );
+  });
+
+  it('returns an empty string when nothing qualifies, so callers can gate', () => {
+    expect(groupedReleaseNotes(['docs: only', 'chore: noise'])).toBe('');
+  });
+});
+
+describe('buildReleaseTagMessage', () => {
+  it('writes the headline plus the grouped body — the "Release v0.22.0" placeholder-notes lesson', () => {
+    expect(buildReleaseTagMessage('0.22.0', 'minor', '2026-09-04', ['feat: shine'])).toBe(
+      'Release v0.22.0 (minor) — 2026-09-04\n\n### Added\n\n- feat: shine',
+    );
+  });
+
+  it('falls back to the bare headline when no subject qualifies for the body', () => {
+    expect(buildReleaseTagMessage('0.22.1', 'patch', '2026-09-04', [])).toBe(
+      'Release v0.22.1 (patch) — 2026-09-04',
+    );
+  });
+});
+
 describe('cutChangelogRelease', () => {
+  it('seeds an EMPTY Unreleased section from the grouped subjects instead of cutting a bare heading (the empty-[0.22.0]-section lesson)', () => {
+    const empty = '# Changelog\n\n## [Unreleased]\n\n## [0.1.0] — 2026-08-01\n\n- old\n';
+    const cut = cutChangelogRelease(empty, '0.2.0', '2026-09-04', ['feat: shine', 'fix: patch']);
+    expect(cut).toContain(
+      '## [0.2.0] — 2026-09-04\n\n### Added\n\n- feat: shine\n\n### Fixed\n\n- fix: patch',
+    );
+    expect(cut).toContain('## [Unreleased]');
+    expect(cut).toContain('## [0.1.0] — 2026-08-01');
+  });
+
+  it('never seeds over hand-written Unreleased content — the human words win untouched', () => {
+    const written =
+      '# Changelog\n\n## [Unreleased]\n\n- hand-written note\n\n## [0.1.0] — 2026-08-01\n';
+    const cut = cutChangelogRelease(written, '0.2.0', '2026-09-04', ['feat: shine']);
+    expect(cut).toContain('## [0.2.0] — 2026-09-04\n\n- hand-written note');
+    expect(cut).not.toContain('### Added');
+  });
+
   const changelog = [
     '# Changelog',
     '',
@@ -364,9 +417,13 @@ describe('executeRelease', () => {
       attestation: { ok: true, details: 'attached a note' },
     });
     expect(versions).toEqual(['0.13.0']);
-    expect(changelogs).toEqual([cutChangelogRelease(changelog, '0.13.0', '2026-08-12')]);
+    expect(changelogs).toEqual([
+      cutChangelogRelease(changelog, '0.13.0', '2026-08-12', ['feat: a thing']),
+    ]);
     expect(commitCalls).toEqual(['chore(release): v0.13.0']);
-    expect(tagCalls).toEqual([['v0.13.0', 'Release v0.13.0']]);
+    expect(tagCalls).toEqual([
+      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+    ]);
     expect(notesCalls).toEqual([
       ['HEAD', 'Release v0.13.0 (minor) — 2026-08-12\n1 commit included:\n- feat: a thing'],
     ]);
@@ -478,7 +535,9 @@ describe('executeRelease', () => {
     // The KEY must be absent, not merely `undefined` — `{ milestoneTag:
     // undefined }` would serialize differently and lie to `'milestoneTag' in`.
     expect(result).not.toHaveProperty('milestoneTag');
-    expect(tagCalls).toEqual([['v0.13.0', 'Release v0.13.0']]);
+    expect(tagCalls).toEqual([
+      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+    ]);
   });
 
   it('tags the milestone at the same HEAD as the version tag when one is given', async () => {
@@ -498,7 +557,7 @@ describe('executeRelease', () => {
     expect(result.ok).toBe(true);
     expect(result.milestoneTag).toEqual({ ok: true, details: 'created' });
     expect(tagCalls).toEqual([
-      ['v0.13.0', 'Release v0.13.0'],
+      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
       ['m4', 'Milestone m4 — v0.13.0'],
     ]);
   });
@@ -542,7 +601,9 @@ describe('executeRelease', () => {
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('tag-failed');
-    expect(tagCalls).toEqual([['v0.13.0', 'Release v0.13.0']]);
+    expect(tagCalls).toEqual([
+      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+    ]);
   });
 
   it('throws InvalidMilestoneTagError up front on a malformed milestone tag, touching nothing', async () => {
@@ -591,7 +652,7 @@ describe('executeRelease', () => {
 
     expect(result.ok).toBe(true);
     expect(tagCalls).toEqual([
-      ['v0.13.0', 'Release v0.13.0'],
+      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
       ['m10', 'Milestone m10 — v0.13.0'],
     ]);
   });
