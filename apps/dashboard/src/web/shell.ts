@@ -3341,9 +3341,10 @@ function refresh() {
     .catch(function () {
       var u = document.getElementById('updated');
       if (u) {
-        if (u.textContent !== 'offline — retrying…') u.textContent = 'offline — retrying…';
+        var offlineText = tr('offlineRetrying');
+        if (u.textContent !== offlineText) u.textContent = offlineText;
         u.setAttribute('tabindex', '0');
-        u.setAttribute('data-tip', 'Lost the connection to the server — it will keep retrying automatically');
+        u.setAttribute('data-tip', tr('offlineRetryingTip'));
       }
       brbFailStreak++;
       setBrbVisible(brbOverlayVisible(brbFailStreak));
