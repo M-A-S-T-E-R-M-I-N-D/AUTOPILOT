@@ -8,6 +8,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [0.22.0] — 2026-09-04
 
+### Added
+
+- feat(dashboard): release-maturity intelligence — the ritual knows an alpha when it cuts one
+- feat(i18n): translate the fly-bar HINT sentence to Hebrew via injected tr
+- feat(i18n): translate the DETECTED BACKLOG panel's remaining states to Hebrew
+- feat(onboarding): add static-site gate detector (html-validate + linkinator)
+- feat: add ci:license-check gate — allowlist validator + doc drift check
+- feat(onboarding): add static-site EcosystemDetector (html-validate + linkinator)
+- feat: implement pocket-calculator state machine for calc.js
+
+### Fixed
+
+- fix(dashboard): render the pipeline canvas at natural size — no more screen-sized nodes
+- fix(dashboard): announce the KEEPER PR review Apply result through a polite live region
+- fix(dashboard): deep-link each publicity affordance to its own page, with live counts
+- fix(engine): gate remediation commits only the fixer's own paths, not the whole tree
+- fix(dashboard): neutralize @-mentions in KEEPER's base-branch reasoning too
+- fix(dashboard): landing refuses when ANY process holds a live flight lock
+- fix(licensing): make REUSE compliance actually pass
+- fix(dashboard): stop duplicating the tip into fly-row action button aria-labels
+- fix(flight): scope worktree flightRoot to a flown subfolder's own repo path
+- fix: neutralize @-mentions in the KEEPER ritual's base-branch reasoning
+
 ## [0.21.0] — 2026-09-03
 
 ## [0.20.0] — 2026-09-03

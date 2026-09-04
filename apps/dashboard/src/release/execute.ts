@@ -201,6 +201,7 @@ export function createReleaseExecuteApi(
         project.root_path,
         result.version!,
         maturity,
+        project.name,
       );
       return { ...result, ghRelease: ghResult };
     } finally {
@@ -223,6 +224,7 @@ async function publishGithubRelease(
   cwd: string,
   version: string,
   maturityChoice?: MaturityChoice,
+  displayName?: string,
 ): Promise<GhReleaseSubResult> {
   const tagName = `v${version}`;
   // Maturity intelligence (release/maturity.ts): a 0.x or `-alpha`-suffixed
@@ -249,6 +251,16 @@ async function publishGithubRelease(
     };
   }
 
+  // Title: "<project name> v<version> — <phase>" for a pre-release, so the
+  // releases page reads like a maintainer wrote it (the 2026-09-04 v0.22.0
+  // lesson: a bare "v0.22.0" title next to the hand-crafted genesis release
+  // read like a placeholder). Stable releases drop the phase suffix; a
+  // project with no display name falls back to the tag alone.
+  const releaseTitle =
+    (displayName ? `${displayName} ${tagName}` : tagName) +
+    (maturity.prerelease
+      ? ` — ${maturity.phase === 'rc' ? 'release candidate' : maturity.phase}`
+      : '');
   const release = await runCommand(
     'gh',
     [
@@ -258,7 +270,7 @@ async function publishGithubRelease(
       '--verify-tag',
       '--notes-from-tag',
       '--title',
-      tagName,
+      releaseTitle,
       ...(maturity.prerelease ? ['--prerelease'] : []),
     ],
     cwd,

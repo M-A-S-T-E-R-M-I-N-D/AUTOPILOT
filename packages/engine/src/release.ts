@@ -114,6 +114,51 @@ export function bumpVersion(current: string, bump: SemverBump): string {
 const UNRELEASED_HEADING = /^## \[Unreleased\]$/m;
 
 /**
+ * The release-worthy commit subjects grouped into Keep-a-Changelog `###`
+ * sections — feat → Added, fix → Fixed, perf → Performance; everything else
+ * (docs/chore/test/refactor and the flight's own `docs(self-study)` refresh
+ * noise) stays out, because a release note is for readers, not a raw log
+ * (the raw log already rides the `git notes` attestation in full). Returns
+ * `''` when nothing qualifies so callers can gate rather than emit empty
+ * headings. Shared by the changelog cut AND the annotated tag body, so the
+ * CHANGELOG section and the GitHub Release notes (`--notes-from-tag`) can
+ * never tell two different stories.
+ */
+export function groupedReleaseNotes(subjects: readonly string[]): string {
+  const sections: Array<[string, RegExp]> = [
+    ['Added', /^feat[(!:]/],
+    ['Fixed', /^fix[(!:]/],
+    ['Performance', /^perf[(!:]/],
+  ];
+  const parts: string[] = [];
+  for (const [title, pattern] of sections) {
+    const matched = subjects.filter((subject) => pattern.test(subject));
+    if (matched.length === 0) continue;
+    parts.push(`### ${title}\n\n` + matched.map((subject) => `- ${subject}`).join('\n'));
+  }
+  return parts.join('\n\n');
+}
+
+/**
+ * The annotated `v<semver>` tag's message: headline + {@link
+ * groupedReleaseNotes} body. This is what `gh release create
+ * --notes-from-tag` renders as the GitHub Release notes — the 2026-09-04
+ * v0.22.0 release shipped with the bare "Release v0.22.0" headline and read
+ * like a placeholder next to the hand-written genesis release; the body now
+ * writes itself from the commits that earned the bump.
+ */
+export function buildReleaseTagMessage(
+  version: string,
+  bump: Exclude<SemverBump, 'none'>,
+  date: string,
+  subjects: readonly string[],
+): string {
+  const head = `Release v${version} (${bump}) — ${date}`;
+  const body = groupedReleaseNotes(subjects);
+  return body ? `${head}\n\n${body}` : head;
+}
+
+/**
  * `docs/RELEASING.md`'s release checklist step 3, mechanized: "promote
  * `[Unreleased]` → dated `[x.y.z]`". A pure string transform — inserts a new
  * `## [version] — date` heading directly under `## [Unreleased]`, which
@@ -123,14 +168,34 @@ const UNRELEASED_HEADING = /^## \[Unreleased\]$/m;
  * untouched. Throws when no `## [Unreleased]` heading is found rather than
  * silently no-op'ing — same "fail loud on malformed input" stance as
  * `bumpVersion`.
+ *
+ * `subjects` (optional, for compatibility with pre-existing callers): when
+ * the Unreleased section has NO accrued hand-written content, the new dated
+ * section is seeded from {@link groupedReleaseNotes} instead of being cut
+ * empty — the v0.22.0 lesson, where an empty Unreleased produced a dated
+ * heading with nothing under it. Hand-written Unreleased content always
+ * wins untouched; the seed only ever fills silence.
  */
-export function cutChangelogRelease(changelog: string, version: string, date: string): string {
+export function cutChangelogRelease(
+  changelog: string,
+  version: string,
+  date: string,
+  subjects?: readonly string[],
+): string {
   const match = UNRELEASED_HEADING.exec(changelog);
   if (!match) {
     throw new Error('cutChangelogRelease: no "## [Unreleased]" heading found in the changelog');
   }
   const insertAt = match.index + match[0].length;
-  return changelog.slice(0, insertAt) + `\n\n## [${version}] — ${date}` + changelog.slice(insertAt);
+  const rest = changelog.slice(insertAt);
+  const nextHeading = rest.search(/^## /m);
+  const unreleasedBody = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+  const seed =
+    subjects !== undefined && unreleasedBody.trim() === '' ? groupedReleaseNotes(subjects) : '';
+  const section = seed
+    ? `\n\n## [${version}] — ${date}\n\n${seed}`
+    : `\n\n## [${version}] — ${date}`;
+  return changelog.slice(0, insertAt) + section + rest;
 }
 
 /** A planned release: the bump that triggered it, the version it lands on, and the changelog already cut to match. */
@@ -176,7 +241,12 @@ export function planRelease(
     };
   }
   const version = bumpVersion(currentVersion, bump);
-  return { ok: true, bump, version, changelog: cutChangelogRelease(changelog, version, date) };
+  return {
+    ok: true,
+    bump,
+    version,
+    changelog: cutChangelogRelease(changelog, version, date, subjects),
+  };
 }
 
 /** Outcome of {@link GitVcs.tag} — duplicated here (not imported) to keep this
@@ -302,7 +372,10 @@ export async function executeRelease(
   await writer.writeChangelog(plan.changelog);
   await vcs.commitAll(`chore(release): v${plan.version}`);
 
-  const tag = await vcs.tag(`v${plan.version}`, `Release v${plan.version}`);
+  const tag = await vcs.tag(
+    `v${plan.version}`,
+    buildReleaseTagMessage(plan.version, plan.bump, date, subjects),
+  );
   if (!tag.ok) {
     return {
       ok: false,

@@ -496,7 +496,9 @@ describe('createReleaseExecuteApi', () => {
               '--verify-tag',
               '--notes-from-tag',
               '--title',
-              'v1.1.0',
+              // The project's display name leads the title; stable drops the
+              // phase suffix (the bare-"v0.22.0" placeholder-title lesson).
+              'p1 v1.1.0',
             ],
             cwd: repo,
           },
