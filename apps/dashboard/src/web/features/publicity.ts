@@ -74,6 +74,13 @@ function renderPublicityPanel(affordances) {
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
     }
+    // The live GitHub count rides in-page as a badge (stars/watchers/forks
+    // fetched server-side) — the operator asked for the CONTENT here, not
+    // only a link out. Appending after textContent keeps the label as the
+    // first text node, so the accessible name stays "Star 3", label first.
+    if (typeof affordance.count === 'number') {
+      link.appendChild(el('span', 'publicity-count', String(affordance.count)));
+    }
     // D1 TAB-STOP ROVING (epic 0015, board web-mtd1wyte-ssntzi): the row
     // used to give every affordance its own unconditional Tab stop — the
     // same anti-pattern already fixed for the fleet-card meta chips and

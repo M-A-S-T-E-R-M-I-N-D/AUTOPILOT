@@ -13,6 +13,7 @@ import {
   type E2eLandGuard,
   createRealE2eLandGuard,
 } from '../../src/landing/execute.js';
+import { engineLockFileName, deriveFlyProjectId } from '../../src/flight/lock.js';
 
 function gitSync(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
@@ -353,6 +354,94 @@ describe('createLandingExecuteApi', () => {
         )('p1');
         expect(result?.ok).toBe(true);
         expect(outOfBandGateCheck).not.toHaveBeenCalled();
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+  });
+
+  describe('cross-process flight lock (ap-mtm4qzty-1 — a flight this dashboard process never spawned or adopted must still refuse a concurrent land)', () => {
+    it('refuses with reason "flight-running" when a live engine lock exists for the project, even though the in-memory isFlightRunning reports false', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-crosslock-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        // Simulates a `fly.ts` flight started from a DIFFERENT process (e.g. a
+        // stray terminal `pnpm dashboard:fly`) — this dashboard's own
+        // FlightRunnerRegistry never spawned or adopted it, so isFlightRunning
+        // (omitted here, same as production when no flight went through THIS
+        // process) has no way to know. Only the lockfile fly.ts itself writes
+        // proves a live owner.
+        writeFileSync(
+          join(dbDir, engineLockFileName(deriveFlyProjectId(repo))),
+          JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+        );
+
+        const result = await createLandingExecuteApi(dbPath)('p1');
+        expect(result?.ok).toBe(false);
+        expect(result?.reason).toBe('flight-running');
+        expect(result?.restarting).toBe(false);
+
+        // main never gained the flight branch's commit — git was never touched.
+        const mainLog = gitSync(repo, ['log', 'main', '--oneline']);
+        expect(mainLog).not.toContain('feat: second');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('refuses when the live lock belongs to an N-way instanced flight (fleet sibling), not just the bare project lock', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-crosslock-inst-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        writeFileSync(
+          join(dbDir, engineLockFileName(deriveFlyProjectId(repo), 'fleet-2')),
+          JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+        );
+
+        const result = await createLandingExecuteApi(dbPath)('p1');
+        expect(result?.ok).toBe(false);
+        expect(result?.reason).toBe('flight-running');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('lands normally when a lock file exists but its recorded pid is dead (stale, reclaimable)', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-crosslock-stale-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        writeFileSync(
+          join(dbDir, engineLockFileName(deriveFlyProjectId(repo))),
+          JSON.stringify({ pid: 999_999_999, startedAt: Date.now() }),
+        );
+
+        const result = await createLandingExecuteApi(dbPath)('p1');
+        expect(result?.ok).toBe(true);
+        expect(result?.reason).toBe('landed');
       } finally {
         cleanupDir(repo);
         cleanupDir(dbDir);

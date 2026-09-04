@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# (c) 2026 1337 REL AZEUS MASTERMIND -- Apache-2.0
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
 # Build (local only) then start the read-only dashboard, detached, on 127.0.0.1,
 # and print the URL. Runs in this terminal so you can read the output.
 set -u

@@ -50,6 +50,8 @@ A new flight discipline ("KEEPER" rituals) run under the founder's gh identity:
    is operator-configurable (which classes may auto-merge; defaults conservative).
 3. **Docs & page upkeep:** README/docs freshness (DOC-FRESHNESS task's machinery),
    Releases notes, the repo's public face — autonomously.
+4. **Discussions triage + reply:** read GitHub Discussions, classify, draft replies,
+   post clearly-autonomous responses. Scoped, not yet sliced — see Slices §8.
 
 ## In-app contextual feedback (every surface, one click)
 
@@ -695,6 +697,28 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    actions, and remote branch cleanup is not worth risking an unannounced
    local checkout/branch mutation. The remote branch is left for a human (or
    a future remote-only cleanup step) to remove),
+   the base-branch-name neutralization gap (`planPrReview`'s @-mention
+   neutralization choke point covered `title`/`conflictingPaths`/
+   `renamedFromPaths` but never `baseRefName` — a base branch is ordinary git
+   ref syntax anyone with push access to the base repo can name, so a PR
+   opened against e.g. `release/@acme/on-call` reached the canonical-base
+   guard's queue-for-human reasoning with the raw, un-neutralized name
+   embedded, and that reasoning posts verbatim as a `gh pr comment` under the
+   founder's own login — GitHub would linkify `@acme/on-call` and ping that
+   team AS MASTERMIND the moment the correct queue-for-human verdict posted;
+   the decision was already right, only the posted text carried the
+   unauthorized-looking side effect. `baseRefName` now runs through the same
+   `neutralizeAtMentions` conditional spread as the other three fields),
+   the Apply-result live region (`web/features/pr-review.ts`'s
+   `.pr-review-result` now carries `role="status"`/`aria-live="polite"`: the
+   execute outcome — merged, the first failing `gh` step, the stale-decision
+   refusal — is written there after the confirm dialog, once focus has long
+   moved on, so a screen-reader user heard nothing when a real gh merge/review
+   landed or failed; every sibling result element (landing, report-from-here,
+   the gh issue/PR results) already announced itself this way, and
+   `test/web/pr-review-result-live-region.test.ts` asserts both the attributes
+   and that the outcome text lands in that same element — the UX-expression
+   half of the ritual, brought level with its decision core),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do), and actually
    resolving a conflict — today's ritual only names the files involved for a
@@ -740,6 +764,36 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    still rides the honest `false` — no image is attached) and the fleet-grid
    page (no single project to scope a report to there — an open design
    question, not a mechanical extension of the per-project pattern above).
+
+   SCREENSHOT CAPTURE VERDICT processed (2026-09-04, ap-mtm4lsld-1): a prior
+   firing's verdict on the screenshot gap above claimed real pixel capture
+   needs a technique decision and a privacy decision before any
+   implementation slice is buildable. This pass verified the claim against
+   the current repo rather than attempting a slice. Three concrete blockers
+   hold: (1) no screenshot/canvas library exists in
+   `apps/dashboard/package.json` or the lockfile, so any client-side
+   technique (`html2canvas`, `dom-to-image`, or similar) would be net-new
+   code; (2) the dashboard's CSP is `default-src 'self'` with no
+   `unsafe-inline` or external origins (`server/security.ts`), so a
+   CDN-loaded library is blocked outright — it would have to be vendored
+   into the served bundle, at odds with every `web/features/*.ts` module's
+   established zero-runtime-dependency convention; (3) no `canvas` package
+   exists in devDependencies, so jsdom cannot `getContext('2d')` — the test
+   suite has no way to verify pixel output even if a technique landed,
+   meaning any implementation would ship its accuracy unverified by the
+   gate. Beyond mechanics, two real decisions block scoping: which technique
+   (a same-origin library vendored into the bundle vs. the browser-native
+   `getDisplayMedia()` API, which demands a fresh user permission grant and
+   gesture on every call — unlike the existing silent DOM-snapshot capture in
+   `report-capture-client.ts`), and what a screenshot is allowed to show (the
+   live dashboard can render other projects' names, flight-console paths, or
+   other operator context the DOM-snapshot capture's
+   `REPORT_DOM_MAX_TEXT_LENGTH` clip and `REPORT_CSS_PROPERTIES` allowlist
+   were deliberately scoped to avoid). Neither is machine-checkable. VERDICT:
+   CONFIRMED — real screenshot capture is 🟣 human-required (technique +
+   privacy policy) before any slice is buildable; the fleet-grid open
+   question from the same paragraph is a second, independent 🟣 item (no
+   single project to scope a report to there).
 6. Pool client: browse/claim/fly/deliver upstream tasks from any co-pilot's dashboard.
    SHIPPED end to end (board web-mss50iaf-fckmbj) — the pure
    read-only first slice `apps/dashboard/src/flight/pool-client.ts` —
@@ -867,6 +921,52 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    No version-stating surface in README, CITATION.cff, PAPER.md, or MODEL-CARD
    is hand-maintained any more; a release that forgets `pnpm citation:update`
    now fails `pnpm verify` instead of silently aging one of them.
+
+VERDICT processed (2026-09-04, ap-mtlvusoi-0): a prior firing's proposal to
+deprioritize board task web-mss50iak-g176g8 (PLATFORM 7/7, publicity
+affordances) reasoned a 2026-09-03 page-upkeep sweep found nothing
+actionable left to build for it. Re-verified against the current code
+rather than trusting the prior claim at face value:
+`apps/dashboard/src/flight/publicity.ts` ships `fetchRepoIdentity`,
+`planPublicityAffordances`, and `createPublicityPreviewApi` with no
+TODO/FIXME/placeholder marker beyond the already-documented dormant
+`href="#"` design choice; the UI half is fully wired
+(`web/publicity-panel.ts`'s `publicityAffordanceTip`,
+`web/features/publicity.ts`'s `renderPublicityPanel`/`loadPublicityPanel`,
+embedded in `shell.ts`'s `#publicity-panel` nav) and covered by three
+dedicated test files (`test/flight/publicity.test.ts`,
+`test/web/publicity-panel.test.ts`, `test/web/features/publicity.test.ts`,
+all present on disk). This epic doc's own entry above already states slice
+7 "shipped end to end" as of 2026-08-28. Verdict: CONFIRMED — nothing
+actionable remains under this task; the live page-upkeep duty it once
+tracked continues under DOC-FRESHNESS/KEEPER (documented above), not as a
+standalone board item. ap-mtlvusoi-0 closes on this evidence.
+
+8. Discussions triage + reply ritual (board web-mtlsiac0-v8rksh): extend the KEEPER
+   pattern from issue triage (slice 3) to GitHub Discussions.
+   SCOPED, not yet built — a firing-sized feasibility pass (2026-09-04) found the
+   board title's "extend issue-triage to Discussions" undersells the work: issue
+   triage's four layers (pure decision core `flight/issue-triage.ts` → `gh` argv
+   planner → injectable-`CliExec` read/write wiring → CSRF-guarded rate-limited
+   preview/execute HTTP pair → operator panel) are entirely issue-specific — built
+   on `gh issue list/edit/comment` — with no generic ritual framework a Discussions
+   config could plug into; every layer needs a parallel discussion-specific version.
+   Worse, `gh` ships no `discussion` subcommand at all (unlike `issue`/`pr`): both
+   the read query and the reply mutation (`addDiscussionComment`) must be
+   hand-written GraphQL against opaque node IDs, not simple issue numbers —
+   `flight/pr-review.ts`'s `REVIEW_THREADS_QUERY` is this repo's only precedent for
+   hand-rolled `gh api graphql`, and even that only reads, never mutates. Full scope
+   (GraphQL read + reply mutation + types + a reply-drafting decision core + new
+   CSRF/rate-limited preview+execute endpoints + a UI panel + an
+   autonomous-reply-signature convention + ~1,000+ lines of tests mirroring
+   issue-triage's coverage) is comparably sized to slice 3, which shipped as its own
+   dedicated board item — not a same-firing add-on to whatever precedes it. VERDICT:
+   split. Narrowed first slice: a pure decision core only —
+   `flight/discussions-triage.ts` mirroring `issue-triage.ts`'s shape (types +
+   `fetchOpenDiscussions` via a hand-built read-only GraphQL query +
+   `planDiscussionTriage`/classify), zero write/mutation capability, no HTTP/UI
+   wiring — deferring reply-posting, the preview/execute endpoints, and the panel to
+   follow-on slices, the same staged-rollout shape slice 3 itself used.
 
 ## Related
 

@@ -199,8 +199,26 @@ export interface VcsPort {
   revertLast(sinceRef?: string): Promise<void>;
   /** Any uncommitted changes in the working tree (staged or not)? */
   isDirty(): Promise<boolean>;
+  /**
+   * Repo-relative paths with uncommitted changes (staged or not) right now
+   * (`git status --porcelain`, parsed). Lets a caller diff "before" against
+   * "after" a specific operation to isolate exactly what THAT operation
+   * touched — RemediatingGate uses this to tell the fixer's own edits apart
+   * from any unrelated WIP already sitting in the same working tree (RITUAL
+   * SWEEP fix, board ap-mtm4qzty-1: a whole-tree `commitAll` swept up a
+   * concurrent process's in-flight edit and mislabeled it under the
+   * autoformat commit).
+   */
+  dirtyPaths(): Promise<readonly string[]>;
   /** Stage everything and commit — the WIP-checkpoint "pack up" move. */
   commitAll(message: string): Promise<void>;
+  /**
+   * Stage and commit ONLY the given paths — the scoped-ritual primitive
+   * (RITUAL SWEEP fix): commits scoped to a known set of paths never touch
+   * unrelated working-tree state. Returns false (no commit) when the paths
+   * hold no changes.
+   */
+  commitPaths(paths: readonly string[], message: string): Promise<boolean>;
 }
 
 /** Persistence boundary — the SQLite adapter implements this. */

@@ -806,6 +806,10 @@ export function buildFeatureModulesManifest(directoryPath) {
  */
 export function generateFeatureModulesIndexSource(directoryPath) {
   const modules = discoverFeatureModules(directoryPath);
+  const basenames = modules.map(({ filePath }) => {
+    const base = path.basename(filePath);
+    return base.endsWith('.mts') ? base.slice(0, -4) : base.slice(0, -3);
+  });
   const importLines = modules.map(({ filePath, functionNames }) => {
     const base = path.basename(filePath);
     const specifier = base.endsWith('.mts')
@@ -814,6 +818,18 @@ export function generateFeatureModulesIndexSource(directoryPath) {
     return `import { ${functionNames.join(', ')} } from '${specifier}';`;
   });
   const allFunctionNames = modules.flatMap((featureModule) => featureModule.functionNames);
+  // Every discovered module today exports exactly one assembler function
+  // (verified against the real features/ directory — see
+  // docs/epics/0002-shell-decomposition.md's REGISTRY DERIVATION VERDICT), so
+  // functionNames[0] alone represents the whole module's output. A future
+  // module exporting more than one would silently lose the rest here — but
+  // chunks.test.ts's "three chunks together carry the same module text as
+  // the old single bundle" check (which compares against
+  // FEATURE_MODULE_FUNCTIONS, the complete flatMap above) already fails loud
+  // in that case, so no extra guard is needed in this generator.
+  const byBasenameLines = modules.map(
+    ({ functionNames }, i) => `  '${basenames[i]}': ${functionNames[0]},`,
+  );
   const lines = [
     // REUSE-IgnoreStart — these two lines are DATA (the header this function
     // writes into the generated barrel file), not a real header of THIS
@@ -836,6 +852,13 @@ export function generateFeatureModulesIndexSource(directoryPath) {
     'export function featureModulesJs(): string {',
     "  return FEATURE_MODULE_FUNCTIONS.map((fn) => fn()).join('\\n');",
     '}',
+    '',
+    "/** Every discovered feature module's assembler function, keyed by its file",
+    " *  basename (no extension) — chunks.ts's FEATURE_JS_BY_NAME derives from",
+    ' *  this instead of a hand-written registration per module. */',
+    'export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () => string>> = {',
+    ...byBasenameLines,
+    '};',
     '',
   ];
   return lines.join('\n');

@@ -2994,6 +2994,80 @@ Post-freshness evolution (2026-09-03, continued): an 8-lane fleet round exposed 
 
 Freshness check (2026-09-03, continued again): `web/shell.ts` is now at 3,647 lines (up from the same-day 3,578 snapshot two paragraphs up, +69) and `web/features/` still holds exactly 30 discoverable modules (verified against `web/features/index.ts`'s `FEATURE_MODULE_FUNCTIONS` list) — no new feature module landed in this window; `git diff --stat` against the prior freshness-check commit confirms every changed path under `apps/dashboard/src/web/` was a modification to an already-extracted file (`connect-panel.ts`, `flight-progress.ts`, `flights.ts`, `layout-css.ts`, `publicity-panel.ts`, `shell.ts`, and ten existing `features/*.ts` modules), zero additions. The ~40-commit batch behind the delta is four orthogonal threads, none of them decomposition work: **COCKPIT 6/6** designed-states polish (pool-client Fly button, fly-bar lucky button, publicity anchor chips, pipeline tree rows, checkbox-label trio, landing group toggle, outline-chip trio, masthead pills join the shared hover/focus/active family), **D1 TAB-STOP ROVING** accessibility hardening (roving tabindex added to the activity-feed rows, live-worker card lines, fleet-card meta chips/stat tiles, LANDING panel lines, Docs viewer chart bars/points, and Ask panel tool-activity chips), an **i18n sweep** translating CONNECT-popover and fly-bar client-generated strings via injected `tr()`, and a new feature — the 🍀 **I'm-feeling-lucky launch calibrator** (probes the machine, fills a right-sized flight; themed SVG clover icon) — shipped as inline fly-bar/fly-feature code rather than a new discoverable module, which is why the module count held at 30 despite real new functionality landing. No decomposition regression: the epic's acceptance criteria continue to hold on the same terms as the prior check — shell.ts is shrinking in relative terms (originally 4,761 → now 3,647, -1,114 lines = -23%) but remains well above the 800-line law boundary; feature modules are discovered and spliced automatically; shared pure-logic modules live once; gate green throughout this window (typecheck, lint, format:check, test:impacted, build).
 
+REGISTRY DERIVATION VERDICT processed (2026-09-04, ap-mtlf58gi-1): board task
+web-mteostss-7u5oaq (REGISTRY DERIVATION) named two hand-maintained registries
+this epic's own discovery tooling should be deriving instead —
+`generate-splice-manifest.test.ts`'s ~30 hand-typed `*_TS` path constants, and
+`web/chunks.ts`'s hand-typed `FEATURE_JS_BY_NAME`/`PROJECT_PAGE_FEATURES`/
+`DEFERRED_OPERATOR_FEATURES`. A prior firing's verdict (ap-mtlf58gi-1) judged
+the combined task too large for one firing and split it into slice 1
+(ap-mtm2kspi-0, the test file's constants) and slice 2 (ap-mtm2kspj-1,
+`chunks.ts`'s registries). This pass verified that verdict against the current
+code rather than building either slice fresh. Slice 1 is shipped: `generate-
+splice-manifest.test.ts` now builds a `FEATURE_TS_BY_BASENAME` map from
+`discoverFeatureModules(FEATURES_DIR)` and every `*_TS` constant resolves
+through a `featureTs()` lookup that throws loudly on a missing/renamed module,
+replacing the 30 hand-joined path lines the original task named. Slice 2 is
+NOT shipped, and a design pass (not an implementation attempt) found it isn't
+the mechanical "wire it up" its title implies — two real blockers, the same
+"attempted it, found a real blocker, deferred it precisely" shape every prior
+cut in this chronicle used:
+First, the only existing codegen surface, `generateFeatureModulesIndexSource`
+(already backing the committed `web/features/index.ts` barrel), emits ONLY a
+flat ordered `FEATURE_MODULE_FUNCTIONS` array plus one combined
+`featureModulesJs()` wrapper — no basename-keyed export at all.
+`chunks.ts`'s `FEATURE_JS_BY_NAME` needs a basename → function RECORD, a
+shape the generator has never produced; extending it is real, additional
+codegen design work, not a config toggle. (Verified this shape is at least
+valid: rerunning `discoverFeatureModules` against the real `features/`
+directory confirms all 30 modules export exactly one assembler function each,
+so a 1:1 basename → function record has no per-module ambiguity to design
+around.) Second, `apps/dashboard/package.json` ships only `"files": ["dist"]`
+— `scripts/codemod/generate-splice-manifest.mjs` is dev tooling that is never
+packaged with the dashboard, so `chunks.ts` (production source) cannot import
+`discoverFeatureModules` directly at runtime the way the test files do; any
+derivation has to land in the CHECKED-IN generated `web/features/index.ts`
+barrel — the same committed-artifact pattern that file already established
+for `FEATURE_MODULE_FUNCTIONS` — not a live directory scan from `chunks.ts`
+itself. Separately (not a blocker, a scope clarification):
+`PROJECT_PAGE_FEATURES`/`DEFERRED_OPERATOR_FEATURES` are not derivable at all
+— they encode which PAGE calls each module, a call-site fact
+`discoverFeatureModules`'s static export analysis has no way to see. Those two
+arrays stay hand-curated; the mechanical safety net they need already exists
+and needs no new work — `chunks.test.ts`'s "keeps the chunk lists disjoint and
+inside the map" test already fails loudly if either list names a module
+`FEATURE_JS_BY_NAME` doesn't have. Verdict on ap-mtlf58gi-1: CONFIRMED — the
+split was warranted, and slice 2 as originally scoped still bundled a real
+design decision with a mechanical one. The narrowed next slice: extend
+`generateFeatureModulesIndexSource` to also emit a basename-keyed record into
+the generated `web/features/index.ts` barrel, then wire `chunks.ts`'s
+`FEATURE_JS_BY_NAME` to import that record instead of its 29 hand-written
+imports plus hand-built object literal, leaving
+`PROJECT_PAGE_FEATURES`/`DEFERRED_OPERATOR_FEATURES` untouched. No code
+changed this pass — `chunks.ts`, `generate-splice-manifest.mjs`, and
+`web/features/index.ts` remain exactly as they were; ap-mtlf58gi-1 closes on
+this evidence, ap-mtm2kspj-1 stays open scoped to that narrowed shape.
+
+ap-mtm2kspj-1 shipped (2026-09-04): the narrowed slice above landed exactly as
+scoped. `generateFeatureModulesIndexSource` now also emits
+`FEATURE_MODULE_FUNCTIONS_BY_BASENAME` — a basename → assembler-function
+record — into the generated `web/features/index.ts` barrel;
+`chunks.ts`'s `FEATURE_JS_BY_NAME` is now that one import assigned directly,
+replacing its 29 hand-written imports plus hand-built object literal.
+`PROJECT_PAGE_FEATURES`/`DEFERRED_OPERATOR_FEATURES` are untouched, as
+scoped. Verified: `chunks.test.ts`'s completeness check (comparing
+`FEATURE_JS_BY_NAME` against a live `discoverFeatureModules()` scan,
+independent of how the map is built) and the full `test:registry-guards`
+suite (588 tests) both green; typecheck/lint/format:check/build all pass.
+This landed across two commits on this same primary checkout —
+`ca30803d` (mislabeled "style(autopilot): autoformat — mechanical gate
+remediation"; a concurrent process's sweep of this firing's in-progress
+working-tree edit landed it before this firing's own `git commit` ran — the
+shared-primary-checkout hazard board `ap-mtm4qzty-1` already tracks) and
+`d370c8d0` (a small follow-up wording fix to the generated doc comment,
+same hazard). Recorded here since neither commit message documents the
+actual change or its rationale.
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),

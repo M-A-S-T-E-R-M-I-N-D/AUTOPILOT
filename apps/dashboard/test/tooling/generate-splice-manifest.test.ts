@@ -72,36 +72,63 @@ import { gogglesMarkInlineSvg } from '../../src/assets/goggles-mark.js';
 const SHELL_TS = fileURLToPath(new URL('../../src/web/shell.ts', import.meta.url));
 const SHELL_DIR = path.dirname(SHELL_TS);
 const FEATURES_DIR = path.join(SHELL_DIR, 'features');
-const ACTIVITY_HEATMAP_TS = path.join(FEATURES_DIR, 'activity-heatmap.ts');
-const ACTIVITY_TS = path.join(FEATURES_DIR, 'activity.ts');
-const BACKLOG_TS = path.join(FEATURES_DIR, 'backlog.ts');
-const SWITCHER_TS = path.join(FEATURES_DIR, 'switcher.ts');
-const CONNECT_TS = path.join(FEATURES_DIR, 'connect.ts');
-const COORDINATION_TS = path.join(FEATURES_DIR, 'coordination.ts');
-const DOCS_VIEWER_TS = path.join(FEATURES_DIR, 'docs-viewer.ts');
-const EVOLUTION_TS = path.join(FEATURES_DIR, 'evolution.ts');
-const FIRING_TIMELINE_TS = path.join(FEATURES_DIR, 'firing-timeline.ts');
-const FLIGHT_CONSOLE_TS = path.join(FEATURES_DIR, 'flight-console.ts');
-const FLIGHT_SUMMARY_TS = path.join(FEATURES_DIR, 'flight-summary.ts');
-const FLY_TS = path.join(FEATURES_DIR, 'fly.ts');
-const ISSUE_TRIAGE_TS = path.join(FEATURES_DIR, 'issue-triage.ts');
-const LANDING_TS = path.join(FEATURES_DIR, 'landing.ts');
-const LOCALE_DATA_TS = path.join(FEATURES_DIR, 'locale-data.ts');
-const LOCALE_TS = path.join(FEATURES_DIR, 'locale.ts');
-const METRICS_TS = path.join(FEATURES_DIR, 'metrics.ts');
-const NOTIFICATIONS_TS = path.join(FEATURES_DIR, 'notifications.ts');
-const OFFICE_MAP_TS = path.join(FEATURES_DIR, 'office-map.ts');
-const PIPELINE_TS = path.join(FEATURES_DIR, 'pipeline.ts');
-const POOL_CLIENT_TS = path.join(FEATURES_DIR, 'pool-client.ts');
-const PR_REVIEW_TS = path.join(FEATURES_DIR, 'pr-review.ts');
-const PROCESS_HEALTH_TS = path.join(FEATURES_DIR, 'process-health.ts');
-const PUBLICITY_TS = path.join(FEATURES_DIR, 'publicity.ts');
-const RELEASE_TS = path.join(FEATURES_DIR, 'release.ts');
-const REPORT_CAPTURE_CLIENT_TS = path.join(FEATURES_DIR, 'report-capture-client.ts');
-const REPORT_MENU_TS = path.join(FEATURES_DIR, 'report-menu.ts');
-const ROUND_PANEL_TS = path.join(FEATURES_DIR, 'round-panel.ts');
-const SEARCH_TS = path.join(FEATURES_DIR, 'search.ts');
-const TOUR_TS = path.join(FEATURES_DIR, 'tour.ts');
+
+// REGISTRY DERIVATION (web-mteostss-7u5oaq, slice 1, ap-mtm2kspi-0): each
+// *_TS constant below used to hand-join FEATURES_DIR with its own literal
+// filename — 30 lines re-deriving what discoverFeatureModules(FEATURES_DIR)
+// (exercised directly a few suites below) already resolves as `filePath` for
+// every real feature module. Routing every constant through the SAME
+// discovery call means a renamed file, or one that stops exporting an
+// assembler-shaped function, fails loudly here instead of silently pointing
+// a *_TS constant at a path discoverFeatureModules itself would no longer
+// report.
+const FEATURE_TS_BY_BASENAME = new Map<string, string>(
+  discoverFeatureModules(FEATURES_DIR).map((featureModule) => [
+    path.basename(featureModule.filePath, path.extname(featureModule.filePath)),
+    featureModule.filePath,
+  ]),
+);
+
+function featureTs(basename: string): string {
+  const filePath = FEATURE_TS_BY_BASENAME.get(basename);
+  if (!filePath) {
+    throw new Error(
+      `discoverFeatureModules(FEATURES_DIR) found no feature module named '${basename}' — check the file exists under web/features/ and exports an assembler-shaped function`,
+    );
+  }
+  return filePath;
+}
+
+const ACTIVITY_HEATMAP_TS = featureTs('activity-heatmap');
+const ACTIVITY_TS = featureTs('activity');
+const BACKLOG_TS = featureTs('backlog');
+const SWITCHER_TS = featureTs('switcher');
+const CONNECT_TS = featureTs('connect');
+const COORDINATION_TS = featureTs('coordination');
+const DOCS_VIEWER_TS = featureTs('docs-viewer');
+const EVOLUTION_TS = featureTs('evolution');
+const FIRING_TIMELINE_TS = featureTs('firing-timeline');
+const FLIGHT_CONSOLE_TS = featureTs('flight-console');
+const FLIGHT_SUMMARY_TS = featureTs('flight-summary');
+const FLY_TS = featureTs('fly');
+const ISSUE_TRIAGE_TS = featureTs('issue-triage');
+const LANDING_TS = featureTs('landing');
+const LOCALE_DATA_TS = featureTs('locale-data');
+const LOCALE_TS = featureTs('locale');
+const METRICS_TS = featureTs('metrics');
+const NOTIFICATIONS_TS = featureTs('notifications');
+const OFFICE_MAP_TS = featureTs('office-map');
+const PIPELINE_TS = featureTs('pipeline');
+const POOL_CLIENT_TS = featureTs('pool-client');
+const PR_REVIEW_TS = featureTs('pr-review');
+const PROCESS_HEALTH_TS = featureTs('process-health');
+const PUBLICITY_TS = featureTs('publicity');
+const RELEASE_TS = featureTs('release');
+const REPORT_CAPTURE_CLIENT_TS = featureTs('report-capture-client');
+const REPORT_MENU_TS = featureTs('report-menu');
+const ROUND_PANEL_TS = featureTs('round-panel');
+const SEARCH_TS = featureTs('search');
+const TOUR_TS = featureTs('tour');
 
 const FIXTURE = `import { helperA as sharedHelperA } from './helper-a.js';
 import { CONST_B } from './const-b.js';

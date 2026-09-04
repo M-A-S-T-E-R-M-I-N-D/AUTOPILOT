@@ -21,7 +21,7 @@
 
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { openStore, listProjects } from '@autopilot/store';
 import {
   GateRunner,
@@ -37,6 +37,7 @@ import type { SelfRestartTrigger } from './self-restart.js';
 import { samePath } from '../paths.js';
 import { gateCommands } from '../gate-commands.js';
 import { ciWorkflowStatus, createGhRun, type GhRun } from '../control/ci-status.js';
+import { isAnyFlightLockLive } from '../flight/lock.js';
 
 /** The dashboard's own root, paired with the trigger to fire when the
  *  landed project's root_path resolves to this same folder. Path comparison
@@ -182,8 +183,18 @@ export const E2E_VERDICT_FRESHNESS_MS = 48 * 60 * 60 * 1000;
  *  the base branch out from under it — a real git race, not a theoretical
  *  one. Refused BEFORE the gate even runs, same as a red gate: neither git
  *  nor the self-restart trigger is ever touched on this path. Omit it (e.g.
- *  in tests, or a caller with no registry to consult) and every project
- *  lands as if no flight were ever running. */
+ *  in tests, or a caller with no registry to consult) and this check alone
+ *  no longer refuses anything.
+ *
+ *  Unconditionally ALSO consults {@link isAnyFlightLockLive} against the
+ *  same cross-process lockfile `fly.ts` itself writes (board ap-mtm4qzty-1):
+ *  `isFlightRunning` only knows about flights THIS dashboard process spawned
+ *  or adopted, so a flight started by a different process — a stray
+ *  terminal `fly.ts`, another dashboard server, an N-way fleet sibling — was
+ *  previously invisible here and a concurrent land would race its commits
+ *  in the SAME primary directory. This check has no injection seam: it
+ *  reads real lock files unconditionally, in production and in tests alike,
+ *  so a test wanting a "no flight running" land must simply not create one. */
 export function createLandingExecuteApi(
   dbPath: string,
   selfRestart?: SelfRestart,
@@ -198,7 +209,10 @@ export function createLandingExecuteApi(
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
 
-      if (isFlightRunning?.(project.root_path)) {
+      if (
+        isFlightRunning?.(project.root_path) ||
+        isAnyFlightLockLive(dirname(dbPath), project.root_path)
+      ) {
         outOfBandGateCheck?.(projectId, project.root_path, project.gate_config);
         return {
           ok: false,

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# (c) 2026 1337 REL AZEUS MASTERMIND -- Apache-2.0
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
 # Rebuild (local only) and restart the dashboard, then reopen it in the browser.
 set -u
 cd "$(dirname "$0")"

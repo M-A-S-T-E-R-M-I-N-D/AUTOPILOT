@@ -35,13 +35,23 @@ describe('backlogJs', () => {
   });
 
   it('degrades to an honest unavailable message on fetch failure', () => {
-    expect(backlogJs()).toContain(
-      "body.replaceChildren(el('p', 'muted', 'Detected backlog unavailable.'));",
-    );
+    expect(backlogJs()).toContain('body.replaceChildren(unavailable);');
   });
 
   it('is trimmed — no leading/trailing whitespace', () => {
     const out = backlogJs();
     expect(out).toBe(out.trim());
+  });
+
+  it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
+    const out = backlogJs();
+    expect(out).toContain("title.setAttribute('data-i18n', 'backlogTitle');");
+    expect(out).toContain("loading.setAttribute('data-i18n', 'backlogChecking');");
+    expect(out).toContain("empty.setAttribute('data-i18n', 'backlogEmpty');");
+    expect(out).toContain("confirmBtn.setAttribute('data-i18n', 'backlogConfirmDone');");
+    expect(out).toContain("unavailable.setAttribute('data-i18n', 'backlogUnavailable');");
+    expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
+      4,
+    );
   });
 });
