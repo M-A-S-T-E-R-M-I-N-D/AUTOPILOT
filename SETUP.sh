@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# (c) 2026 1337 REL AZEUS MASTERMIND -- Apache-2.0
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
 # First-run bootstrap: detects and installs missing prerequisites --
 # pnpm, project dependencies, and the Claude Code CLI -- then prints a
 # doctor report. Safe to re-run any time; every step is idempotent.
