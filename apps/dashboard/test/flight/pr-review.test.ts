@@ -4461,6 +4461,32 @@ describe('fetchOpenPrCandidates viewer-authored detection', () => {
     expect(exec).toHaveBeenCalledTimes(1);
   });
 
+  it('spends the gh api user lookup off an authored comment alone — no PR author and no changes-requested review, just a comment with a readable author login', async () => {
+    const exec: CliExec = vi.fn(async (_cmd: string, args: readonly string[]) => {
+      if (args[0] === 'pr') {
+        return {
+          code: 0,
+          stdout: JSON.stringify([
+            {
+              number: 26,
+              title: 'No author, no reviews, one comment',
+              mergeable: 'MERGEABLE',
+              files: [],
+              comments: [{ author: { login: 'someone' }, body: 'a comment' }],
+            },
+          ]),
+        };
+      }
+      return { code: 0, stdout: JSON.stringify({ login: 'mastermind' }) };
+    });
+
+    const prs = await fetchOpenPrCandidates(exec);
+
+    expect(prs[0]).not.toHaveProperty('viewerIsAuthor');
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(exec).toHaveBeenCalledWith('gh', ['api', 'user']);
+  });
+
   it('leaves viewerIsAuthor absent when gh api user fails — ownership stays not-assessed and can only narrow', async () => {
     const exec: CliExec = vi.fn(async (_cmd: string, args: readonly string[]) => {
       if (args[0] === 'pr') {
