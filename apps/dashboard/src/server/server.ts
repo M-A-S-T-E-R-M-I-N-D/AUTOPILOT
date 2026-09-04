@@ -100,6 +100,7 @@ import type { ReconciliationCandidate } from '../read/reconcile.js';
 import type { LandingExecuteApiResult } from '../landing/execute.js';
 import type { LandingJobState } from '../landing/job.js';
 import type { ReleaseExecuteResult } from '../release/execute.js';
+import { isMaturityChoice, type MaturityChoice } from '../release/maturity.js';
 import type { InboxAddResult } from '../inbox/add.js';
 import type { PrReviewPlan } from '../flight/pr-review.js';
 import {
@@ -334,11 +335,15 @@ export type ReleaseApi = (projectId: string) => Promise<ReleaseInfo | null>;
  *  id. `milestoneTag` is optional (`docs/RELEASING.md`'s `m<N>`) — this
  *  handler validates its shape before it ever reaches the injected API.
  *  `ghRelease: true` opts into the push-tag + `gh release create`
- *  publish-upstream leg (epic 0006 slice 3, board web-mss4lpwl-z0w495). */
+ *  publish-upstream leg (epic 0006 slice 3, board web-mss4lpwl-z0w495).
+ *  `maturity` is the operator's phase choice (`'auto'` default) — the
+ *  publish leg turns it into GitHub's `--prerelease` flag via
+ *  `release/maturity.ts`'s SemVer-grounded detection. */
 export type ReleaseExecuteApi = (
   projectId: string,
   milestoneTag?: string,
   ghRelease?: boolean,
+  maturity?: MaturityChoice,
 ) => Promise<ReleaseExecuteResult | null>;
 
 /** The LANDING card's EXECUTE action (injected; runs a real gate, then a real
@@ -1551,11 +1556,13 @@ async function handleReleaseExecute(
   let project: string;
   let milestoneTag: string | undefined;
   let ghRelease: boolean | undefined;
+  let maturity: MaturityChoice | undefined;
   try {
     const parsed = JSON.parse(raw) as {
       project?: unknown;
       milestoneTag?: unknown;
       ghRelease?: unknown;
+      maturity?: unknown;
     };
     project = String(parsed.project ?? '');
     if (typeof parsed.milestoneTag === 'string' && parsed.milestoneTag.length > 0) {
@@ -1563,6 +1570,13 @@ async function handleReleaseExecute(
     }
     if (typeof parsed.ghRelease === 'boolean') {
       ghRelease = parsed.ghRelease;
+    }
+    if (parsed.maturity !== undefined) {
+      if (!isMaturityChoice(parsed.maturity)) {
+        send(400, { error: 'maturity must be one of "auto", "alpha", "beta", "rc", "stable"' });
+        return;
+      }
+      maturity = parsed.maturity;
     }
   } catch {
     send(400, { error: 'invalid JSON' });
@@ -1577,7 +1591,7 @@ async function handleReleaseExecute(
     return;
   }
   try {
-    const result = await api(project, milestoneTag, ghRelease);
+    const result = await api(project, milestoneTag, ghRelease, maturity);
     if (!result) {
       send(404, { error: 'unknown project' });
       return;

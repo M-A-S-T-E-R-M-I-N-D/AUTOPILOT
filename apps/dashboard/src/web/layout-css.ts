@@ -532,6 +532,14 @@ main.project-mode { grid-template-columns: 1fr; }
 .release-milestone-input { width: 6em; font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .release-ghrelease { display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); cursor: pointer; }
 .release-ghrelease input { accent-color: var(--color-accent); cursor: pointer; }
+/* RELEASE PHASE row (release/maturity.ts): structural twin of
+   .release-milestone — same uppercase micro-label, same field chrome — with
+   a one-line hint underneath spelling out the auto-detection's reasoning so
+   the --prerelease decision is never a silent guess. */
+.release-maturity { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.release-maturity label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.release-maturity-select { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+.release-maturity-hint { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .release-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
 .release-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .release-execute:disabled { opacity: 0.6; cursor: default; }
