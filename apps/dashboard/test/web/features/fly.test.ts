@@ -63,20 +63,26 @@ describe('flyJs', () => {
     );
   });
 
-  it('gives every Pause/Stop/Cancel/Resume button a data-tip twin of its aria-label, not just the aria-label', () => {
+  it('gives every Pause/Stop/Cancel/Resume button a data-tip, and a CONCISE aria-label — not a duplicate of the full tip sentence (D1 ATTRIBUTE PAYLOAD, board web-mtd1wmqc-v7h6cq)', () => {
     const out = flyJs();
     expect(out).toContain(
-      "var pauseTip = tr('pauseFlightOn', f.folder);\n      pauseBtn.setAttribute('data-tip', pauseTip);\n      pauseBtn.setAttribute('aria-label', pauseTip);",
+      "var pauseTip = tr('pauseFlightOn', f.folder);\n      pauseBtn.setAttribute('data-tip', pauseTip);\n      pauseBtn.setAttribute('aria-label', tr('pause') + ': ' + f.folder);",
     );
     expect(out).toContain(
-      "var stopTip = tr('stopFlightOn', f.folder);\n      stopBtn.setAttribute('data-tip', stopTip);\n      stopBtn.setAttribute('aria-label', stopTip);",
+      "var stopTip = tr('stopFlightOn', f.folder);\n      stopBtn.setAttribute('data-tip', stopTip);\n      stopBtn.setAttribute('aria-label', tr('stop') + ': ' + f.folder);",
     );
     expect(out).toContain(
-      "var cancelTip = tr('cancelQueuedFlightOn', f.folder);\n      cancelBtn.setAttribute('data-tip', cancelTip);\n      cancelBtn.setAttribute('aria-label', cancelTip);",
+      "var cancelTip = tr('cancelQueuedFlightOn', f.folder);\n      cancelBtn.setAttribute('data-tip', cancelTip);\n      cancelBtn.setAttribute('aria-label', tr('cancel') + ': ' + f.folder);",
     );
     expect(out).toContain(
-      "var resumeTip = tr('resumeFlightOn', f.folder);\n      resumeBtn.setAttribute('data-tip', resumeTip);\n      resumeBtn.setAttribute('aria-label', resumeTip);",
+      "var resumeTip = tr('resumeFlightOn', f.folder);\n      resumeBtn.setAttribute('data-tip', resumeTip);\n      resumeBtn.setAttribute('aria-label', tr('resume') + ': ' + f.folder);",
     );
+    // The full explanatory sentence must never also land in aria-label — that
+    // is the exact attribute-payload duplication this fix removes.
+    expect(out).not.toContain("pauseBtn.setAttribute('aria-label', pauseTip)");
+    expect(out).not.toContain("stopBtn.setAttribute('aria-label', stopTip)");
+    expect(out).not.toContain("cancelBtn.setAttribute('aria-label', cancelTip)");
+    expect(out).not.toContain("resumeBtn.setAttribute('aria-label', resumeTip)");
   });
 
   it('restores a folder’s remembered lanes setting alongside mode/firings/total/budget', () => {

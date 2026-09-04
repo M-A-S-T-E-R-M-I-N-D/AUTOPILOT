@@ -66,6 +66,7 @@ import {
   classifyNoop,
   ensureWorktree,
   fastForwardWorktree,
+  repoPrefixOf,
   syncWorktreeBranch,
   firingIdOf,
   scanUsagePoolListPriceUsd,
@@ -307,12 +308,36 @@ async function main(): Promise<void> {
     // run before the worktree exists.
     const worktreePlan = deriveWorktreePlan(target, projectId, instanceId);
     let flightRoot = target;
+    // The linked worktree's OWN root — always what `git worktree list
+    // --porcelain` (in target) reports back, regardless of `target` being a
+    // repo root or a subfolder within one. Kept distinct from `flightRoot`
+    // (below) for the FLEET INTENT CLAIMS calls, which discover a sibling's
+    // claim by matching worktree-list entries — those must keep comparing
+    // this exact root, never the nested `flightRoot` a subfolder target now
+    // resolves to, or a subfolder-flown instance's own claim would fail to
+    // match its own worktree entry and misread as a sibling's.
+    let worktreeRoot = target;
     let targetBranch = '';
     try {
       mkdirSync(dirname(worktreePlan.path), { recursive: true });
       targetBranch = await new GitVcs(target).currentBranch();
       const worktree = await ensureWorktree(target, worktreePlan.path, worktreePlan.branch);
-      flightRoot = worktree.ok ? worktreePlan.path : target;
+      worktreeRoot = worktree.ok ? worktreePlan.path : target;
+      // HARNESS GAP (board web-mtm0shsf-hmv8ud, docs/CASE-STUDIES/calculator.md):
+      // when `target` is a SUBFOLDER of a larger repo (no `.git` of its own —
+      // e.g. samples/calculator inside this monorepo), `ensureWorktree` above
+      // necessarily checks out the WHOLE parent repo (git has no smaller unit
+      // to check out), but every downstream consumer of `flightRoot` — the
+      // gate's cwd, the CLI's own repo, the containment guard's confined root —
+      // used to point at that worktree's own root, not the nested subfolder
+      // actually registered. The gate then ran the parent repo's suite instead
+      // of the flown project's own `npm test`, reverting a correct
+      // implementation twice on launch night. Joining `target`'s repo-relative
+      // prefix back on lands `flightRoot` on the identical nested folder inside
+      // the worktree that `target` names outside it; a no-op join (prefix '')
+      // for the ordinary case where `target` already IS its own repo root.
+      const repoPrefix = worktree.ok ? await repoPrefixOf(target) : '';
+      flightRoot = worktree.ok ? join(worktreePlan.path, repoPrefix) : target;
       out(
         worktree.ok
           ? `Flight isolation: Bash confined to a linked worktree at ${flightRoot} (${worktree.details}).`
@@ -348,6 +373,7 @@ async function main(): Promise<void> {
       // single point of flight failure, so any thrown error here falls all
       // the way back to flying `target` directly, exactly like an ok:false result.
       flightRoot = target;
+      worktreeRoot = target;
       out(
         `Flight isolation: worktree setup threw (${err instanceof Error ? err.message : String(err)}) — flying ${target} directly.`,
       );
@@ -788,7 +814,7 @@ async function main(): Promise<void> {
         if (claimedTaskId !== null && topAvailable) {
           const primaryPath = likelyPrimaryPathFromTitle(topAvailable.title);
           if (primaryPath !== null)
-            writeDeclaredIntent(flightRoot, primaryPath, topAvailable.title);
+            writeDeclaredIntent(worktreeRoot, primaryPath, topAvailable.title);
         }
         // Re-read (rather than reuse `openBefore`) so a task a SIBLING instance
         // just claimed out from under this snapshot — or the one THIS instance
@@ -1055,7 +1081,7 @@ async function main(): Promise<void> {
           const shippedCommit = recent.find((c) => c.shortSha === outcome.record.sha) ?? recent[0];
           const collisions = detectIntentCollisions(
             shippedCommit?.files ?? [],
-            readSiblingIntentClaims(target, flightRoot),
+            readSiblingIntentClaims(target, worktreeRoot),
           );
           flightIntentCollisions += collisions.length;
           for (const { file, claim } of collisions) {
@@ -1090,12 +1116,12 @@ async function main(): Promise<void> {
                 .map((c) => `- ${c.file} is claimed by ${c.claim.branch}: "${c.claim.intent}"`)
                 .join('\n');
           }
-          clearDeclaredIntent(flightRoot);
+          clearDeclaredIntent(worktreeRoot);
         } else if (!claimSurvivesFiring(outcome.record.gateResult)) {
           // A no-ship ending that is NOT a checkpointed death (noop, reverted
           // unit, gate crash, died on a clean tree) ABANDONED its declared
           // unit — retire the claim so it can't shadow ghost work.
-          clearDeclaredIntent(flightRoot);
+          clearDeclaredIntent(worktreeRoot);
         }
         proposedCount = harvestProposals(store, projectId, outcome, existingTitles, proposedCount);
         // NOOP→VERDICT (EVALUATION-2026-08-20-sota.md §3.2/§4 lever 6): make a

@@ -91,4 +91,15 @@ describe('"🔍 Detected backlog" panel i18n (board web-msnsndki-dz3vn1)', () =>
     const heading = document.querySelector('.backlog-panel h3.backlog-title');
     expect(heading?.textContent).toBe(STRINGS.he.backlogTitle);
   });
+
+  it('switching to Hebrew translates the fetch-built empty-state message', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    const empty = document.querySelector('.backlog-body p.muted');
+    expect(empty?.getAttribute('data-i18n')).toBe('backlogEmpty');
+    expect(empty?.textContent).toBe(STRINGS.he.backlogEmpty);
+  });
 });

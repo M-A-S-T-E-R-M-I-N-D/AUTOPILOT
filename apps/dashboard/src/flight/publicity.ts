@@ -26,11 +26,25 @@
 
 import { realCliExec, type CliExec } from '../connection/cli-probe.js';
 
-/** The subset of `gh repo view`'s JSON output a publicity decision needs. */
+/** The subset of `gh repo view`'s JSON output a publicity decision needs.
+ *  The three counts are OPTIONAL by contract: a `gh` old enough to not know
+ *  a field, or a payload missing one, still resolves a usable identity —
+ *  the affordance links must never go dormant because a nice-to-have number
+ *  didn't parse. */
 export interface RepoIdentity {
   readonly nameWithOwner: string;
   readonly url: string;
   readonly isPrivate: boolean;
+  readonly stars?: number | undefined;
+  readonly watchers?: number | undefined;
+  readonly forks?: number | undefined;
+}
+
+/** A count is display-worthy only when it's a real non-negative finite
+ *  number — anything else degrades to `undefined` (render no badge), never
+ *  to an error. */
+function countOf(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 /**
@@ -46,7 +60,7 @@ export async function fetchRepoIdentity(exec: CliExec): Promise<RepoIdentity | u
     'repo',
     'view',
     '--json',
-    'nameWithOwner,url,isPrivate',
+    'nameWithOwner,url,isPrivate,stargazerCount,watchers,forkCount',
   ]);
   if (code !== 0) return undefined;
 
@@ -58,7 +72,14 @@ export async function fetchRepoIdentity(exec: CliExec): Promise<RepoIdentity | u
   }
   if (typeof parsed !== 'object' || parsed === null) return undefined;
 
-  const raw = parsed as { nameWithOwner?: unknown; url?: unknown; isPrivate?: unknown };
+  const raw = parsed as {
+    nameWithOwner?: unknown;
+    url?: unknown;
+    isPrivate?: unknown;
+    stargazerCount?: unknown;
+    watchers?: unknown;
+    forkCount?: unknown;
+  };
   if (
     typeof raw.nameWithOwner !== 'string' ||
     raw.nameWithOwner === '' ||
@@ -68,23 +89,39 @@ export async function fetchRepoIdentity(exec: CliExec): Promise<RepoIdentity | u
   ) {
     return undefined;
   }
-  return { nameWithOwner: raw.nameWithOwner, url: raw.url, isPrivate: raw.isPrivate };
+  // gh nests the watcher count (`watchers: { totalCount: N }`) but flattens
+  // stars/forks — mirror its shapes exactly, degrading each to undefined
+  // independently so one malformed count never hides the other two.
+  const watchersRaw =
+    typeof raw.watchers === 'object' && raw.watchers !== null
+      ? (raw.watchers as { totalCount?: unknown }).totalCount
+      : undefined;
+  return {
+    nameWithOwner: raw.nameWithOwner,
+    url: raw.url,
+    isPrivate: raw.isPrivate,
+    stars: countOf(raw.stargazerCount),
+    watchers: countOf(watchersRaw),
+    forks: countOf(raw.forkCount),
+  };
 }
 
-/** One publicity affordance's identity, display label, and target URL —
- *  every affordance points at the repo's own page except `discussions`,
- *  which GitHub hosts at its own path; `watch` and `star` are both actions
- *  taken ON the repo page itself (GitHub has no separate deep-link page for
- *  either), so both point straight at it. */
+/** One publicity affordance's identity, display label, target URL, and
+ *  which {@link RepoIdentity} count it wears as its in-page badge. Every
+ *  affordance deep-links to its OWN page — the operator caught all four
+ *  landing on the repo root: GitHub really does host `/subscription` (the
+ *  watch-level chooser) and `/stargazers` (the star roll, star button in
+ *  its header), so `watch`/`star` go there, not to a duplicate of `repo`. */
 const AFFORDANCE_DEFS: readonly {
   readonly id: 'repo' | 'watch' | 'star' | 'discussions';
   readonly label: string;
   readonly path: string;
+  readonly countOfRepo: (repo: RepoIdentity) => number | undefined;
 }[] = [
-  { id: 'repo', label: 'View repo', path: '' },
-  { id: 'watch', label: 'Watch', path: '' },
-  { id: 'star', label: 'Star', path: '' },
-  { id: 'discussions', label: 'Discussions', path: '/discussions' },
+  { id: 'repo', label: 'View repo', path: '', countOfRepo: (repo) => repo.forks },
+  { id: 'watch', label: 'Watch', path: '/subscription', countOfRepo: (repo) => repo.watchers },
+  { id: 'star', label: 'Star', path: '/stargazers', countOfRepo: (repo) => repo.stars },
+  { id: 'discussions', label: 'Discussions', path: '/discussions', countOfRepo: () => undefined },
 ];
 
 /** One publicity affordance's computed display state — always present
@@ -96,6 +133,11 @@ export interface PublicityAffordance {
   readonly url: string;
   readonly dormant: boolean;
   readonly reasoning: string;
+  /** The affordance's live GitHub count (stars for `star`, watchers for
+   *  `watch`, forks for `repo`) rendered as an in-page badge — the first
+   *  slice of "bring the content here instead of only linking out".
+   *  Absent when the identity fetch couldn't produce it. */
+  readonly count?: number | undefined;
 }
 
 /**
@@ -124,12 +166,13 @@ export function planPublicityAffordances(
   const reasoning = dormant
     ? `${repo.nameWithOwner} is private — publicity affordances stay dormant until it goes public`
     : `${repo.nameWithOwner} is public — publicity affordances are live`;
-  return AFFORDANCE_DEFS.map(({ id, label, path }) => ({
+  return AFFORDANCE_DEFS.map(({ id, label, path, countOfRepo }) => ({
     id,
     label,
     url: repo.url + path,
     dormant,
     reasoning,
+    count: countOfRepo(repo),
   }));
 }
 

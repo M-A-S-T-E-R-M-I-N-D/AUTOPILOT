@@ -21,12 +21,14 @@ function gateOf(results: GateResult[]): GatePort & { runs: number } {
   return g;
 }
 
+const FIXER_PATH = 'formatted.ts';
+
 function vcsFake(dirtyAfterFix: boolean): VcsPort & {
   commits: string[];
   reverts: number;
   markFixerRan: () => void;
 } {
-  let dirty = false;
+  let dirty: string[] = [];
   const v = {
     commits: [] as string[],
     reverts: 0,
@@ -38,14 +40,17 @@ function vcsFake(dirtyAfterFix: boolean): VcsPort & {
       v.reverts += 1;
       return Promise.resolve();
     },
-    isDirty: () => Promise.resolve(dirty),
-    commitAll: (message: string) => {
+    isDirty: () => Promise.resolve(dirty.length > 0),
+    dirtyPaths: () => Promise.resolve([...dirty]),
+    commitAll: () =>
+      Promise.reject(new Error('RemediatingGate must use commitPaths, not commitAll')),
+    commitPaths: (paths: readonly string[], message: string) => {
       v.commits.push(message);
-      dirty = false;
-      return Promise.resolve();
+      dirty = dirty.filter((p) => !paths.includes(p));
+      return Promise.resolve(paths.length > 0);
     },
     markFixerRan: () => {
-      dirty = dirtyAfterFix;
+      if (dirtyAfterFix) dirty = [...dirty, FIXER_PATH];
     },
   };
   return v;
@@ -121,9 +126,11 @@ describe('RemediatingGate', () => {
         return Promise.resolve();
       },
       isDirty: () => Promise.resolve(true), // already dirty, unrelated to the fixer
-      commitAll: (message: string) => {
+      dirtyPaths: () => Promise.resolve(['unrelated-wip.txt']), // pre-existing, not the fixer's
+      commitAll: () => Promise.reject(new Error('must not be called')),
+      commitPaths: (paths: readonly string[], message: string) => {
         vcs.commits.push(message);
-        return Promise.resolve();
+        return Promise.resolve(paths.length > 0);
       },
     };
     const gate = new RemediatingGate({ inner, vcs, runFixer: () => Promise.resolve(false) });
@@ -133,6 +140,70 @@ describe('RemediatingGate', () => {
     expect(result).toEqual(red);
     expect(vcs.commits).toHaveLength(0);
     expect(vcs.reverts).toBe(0);
+    expect(inner.runs).toBe(1);
+  });
+
+  it('commits ONLY the paths the fixer itself touched, leaving a pre-existing unrelated dirty path unswept (RITUAL SWEEP fix, board ap-mtm4qzty-1)', async () => {
+    const inner = gateOf([red, ok]);
+    const committedPaths: (readonly string[])[] = [];
+    let dirty = ['concurrent-process-wip.ts']; // another process's in-flight edit, already dirty
+    const vcs: VcsPort = {
+      head: () => Promise.resolve('h'),
+      lastCommit: () => Promise.resolve(null),
+      commitInFiringRange: () => Promise.resolve(false),
+      changedFiles: () => Promise.resolve([]),
+      revertLast: () => Promise.resolve(),
+      isDirty: () => Promise.resolve(dirty.length > 0),
+      dirtyPaths: () => Promise.resolve([...dirty]),
+      commitAll: () => Promise.reject(new Error('RemediatingGate must use commitPaths')),
+      commitPaths: (paths: readonly string[], message: string) => {
+        committedPaths.push(paths);
+        expect(message).toBe(AUTOFORMAT_COMMIT_MESSAGE);
+        dirty = dirty.filter((p) => !paths.includes(p));
+        return Promise.resolve(paths.length > 0);
+      },
+    };
+    const gate = new RemediatingGate({
+      inner,
+      vcs,
+      runFixer: () => {
+        dirty = [...dirty, 'reformatted-by-fixer.ts'];
+        return Promise.resolve(true);
+      },
+    });
+
+    const result = await gate.run();
+
+    expect(result.ok).toBe(true);
+    expect(committedPaths).toEqual([['reformatted-by-fixer.ts']]);
+    // the concurrent process's WIP was never staged into the autoformat commit
+    expect(dirty).toEqual(['concurrent-process-wip.ts']);
+  });
+
+  it('treats pre-existing unrelated dirt as "fixer changed nothing" — never commits someone else\'s WIP under the autoformat message', async () => {
+    const inner = gateOf([red]); // a rescue would need a second run — must never happen
+    const committedPaths: (readonly string[])[] = [];
+    const dirty = ['concurrent-process-wip.ts']; // fixer touches nothing new
+    const vcs: VcsPort = {
+      head: () => Promise.resolve('h'),
+      lastCommit: () => Promise.resolve(null),
+      commitInFiringRange: () => Promise.resolve(false),
+      changedFiles: () => Promise.resolve([]),
+      revertLast: () => Promise.resolve(),
+      isDirty: () => Promise.resolve(true),
+      dirtyPaths: () => Promise.resolve([...dirty]),
+      commitAll: () => Promise.reject(new Error('RemediatingGate must use commitPaths')),
+      commitPaths: (paths: readonly string[]) => {
+        committedPaths.push(paths);
+        return Promise.resolve(paths.length > 0);
+      },
+    };
+    const gate = new RemediatingGate({ inner, vcs, runFixer: () => Promise.resolve(true) });
+
+    const result = await gate.run();
+
+    expect(result).toEqual(red);
+    expect(committedPaths).toHaveLength(0);
     expect(inner.runs).toBe(1);
   });
 

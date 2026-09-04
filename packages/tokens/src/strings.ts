@@ -417,8 +417,11 @@
  * are the trailing ETA clause — each carrying its own leading " · "
  * separator, the `flightRowWatchdogSuffix` shape. `fmtElapsed`/`fmtDuration`'s
  * unit letters ("2m 40s") stay Latin in Hebrew like the digits beside them.
- * The spliced `flyHintText()` sentence (`web/fly-hint.ts`) is the same shape
- * of holdout and stays English until its own slice.
+ * The spliced `flyHintText()` sentence (`web/fly-hint.ts`) was the same shape
+ * of holdout — `flyHintFixedMode`/`flyHintTotalMode`/`flyHintCapsWithTurns`/
+ * `flyHintCapsNoTurns` closed it the same route (`tr` injected as a sixth
+ * parameter, `{caps}` a pre-rendered clause like `flightProgressLabel`'s
+ * `{progress}`/`{eta}`).
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -603,6 +606,11 @@ const EN_STRINGS = {
   poolStarting: 'Starting…',
   poolRequestFailed: '✗ Request failed — try again shortly.',
   backlogTitle: '🔍 Detected backlog',
+  backlogChecking: 'Checking recent commits against the open board…',
+  backlogEmpty:
+    'No unconfirmed matches — every open task is either done or not yet echoed by a commit.',
+  backlogConfirmDone: '✓ confirm done',
+  backlogUnavailable: 'Detected backlog unavailable.',
   releaseTitle: '🚀 Next release',
   tourFiringTitle: 'Firing',
   tourFiringBody:
@@ -696,6 +704,17 @@ const EN_STRINGS = {
   flightProgressFiringsSoFar: '{done} / {count} firing(s) · {spent} so far',
   flightProgressEta: ' · ETA ~{eta}',
   flightProgressFinishingUp: ' · finishing up',
+  // web/fly-hint.ts's spliced flyHintText() (board web-msnsndki-dz3vn1) — the
+  // last holdout strings.ts named alongside flightProgressLabel's family.
+  // flyHintFixedMode/flyHintTotalMode are the two sentence shapes depending
+  // on which budget mode is active; flyHintCapsWithTurns/flyHintCapsNoTurns
+  // are the trailing per-firing-cap clause, injected as {caps} the same way
+  // flightProgressLabel's {progress}/{eta} carry pre-rendered clauses.
+  flyHintFixedMode: '{count} firing(s) × ${perFiring} each — spends up to ${ceiling} total{caps}.',
+  flyHintTotalMode:
+    'Keeps firing while the remaining ${remaining} can fund another ${perFiring} firing — ≈ up to {estimate} firing(s){caps}.',
+  flyHintCapsWithTurns: ' · each firing: up to ${perFiring} and {maxTurns} turns',
+  flyHintCapsNoTurns: ' · each firing: up to ${perFiring}',
   // The CONNECT popover's action-button tips and client-written status lines
   // (web/features/connect.ts), then the sentences the spliced
   // web/connect-panel.ts helpers compose through their injected tr —
@@ -962,6 +981,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     poolStarting: 'מתחיל…',
     poolRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     backlogTitle: '🔍 פיגור שזוהה',
+    backlogChecking: 'בודק קומיטים אחרונים מול הלוח הפתוח…',
+    backlogEmpty: 'אין התאמות לא מאושרות — כל משימה פתוחה כבר בוצעה או שטרם הודהדה בקומיט.',
+    backlogConfirmDone: '✓ אשר בוצע',
+    backlogUnavailable: 'הפיגור שזוהה אינו זמין.',
     releaseTitle: '🚀 המהדורה הבאה',
     tourFiringTitle: 'הפעלה',
     tourFiringBody:
@@ -1054,6 +1077,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightProgressFiringsSoFar: '{done} / {count} הפעלות · {spent} עד כה',
     flightProgressEta: ' · הערכת סיום ~{eta}',
     flightProgressFinishingUp: ' · לקראת סיום',
+    flyHintFixedMode: '{count} הפעלות × ${perFiring} כל אחת — מוציא עד ${ceiling} בסך הכול{caps}.',
+    flyHintTotalMode:
+      'ממשיך לירות כל עוד הנותר ${remaining} יכול לממן הפעלה נוספת של ${perFiring} — עד כ-{estimate} הפעלות{caps}.',
+    flyHintCapsWithTurns: ' · כל הפעלה: עד ${perFiring} ו-{maxTurns} תורות',
+    flyHintCapsNoTurns: ' · כל הפעלה: עד ${perFiring}',
     connectLoginTip:
       'פותח טרמינל שמריץ התחברות ל-Claude — הדביקו למטה את האסימון שהוא מדפיס, ואז "שמור ואמת".',
     connectTestTip: 'מאמת את פרטי הגישה השמורים בקריאת claude אמיתית אחת.',

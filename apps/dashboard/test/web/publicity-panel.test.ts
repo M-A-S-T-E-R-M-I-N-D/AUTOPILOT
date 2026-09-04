@@ -23,6 +23,30 @@ describe('publicityAffordanceTip', () => {
     ).toBe('View repo — octocat/hello-world is public — publicity affordances are live');
   });
 
+  it('weaves a resolved GitHub count between the label and the reasoning', () => {
+    expect(
+      publicityAffordanceTip({
+        label: 'Star',
+        url: 'https://github.com/octocat/hello-world/stargazers',
+        dormant: false,
+        reasoning: 'octocat/hello-world is public — publicity affordances are live',
+        count: 7,
+      }),
+    ).toBe('Star · 7 — octocat/hello-world is public — publicity affordances are live');
+  });
+
+  it('renders a zero count honestly instead of hiding it', () => {
+    expect(
+      publicityAffordanceTip({
+        label: 'Star',
+        url: 'https://github.com/octocat/hello-world/stargazers',
+        dormant: false,
+        reasoning: 'octocat/hello-world is public — publicity affordances are live',
+        count: 0,
+      }),
+    ).toBe('Star · 0 — octocat/hello-world is public — publicity affordances are live');
+  });
+
   it('names the affordance and its dormant reasoning', () => {
     expect(
       publicityAffordanceTip({

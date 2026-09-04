@@ -147,6 +147,12 @@ class FakeVcs implements VcsPort {
     this.dirty = false;
     return Promise.resolve();
   }
+  dirtyPaths(): Promise<readonly string[]> {
+    return Promise.resolve([]);
+  }
+  commitPaths(): Promise<boolean> {
+    return Promise.reject(new Error('FakeVcs.commitPaths is not exercised by firing.test.ts'));
+  }
 }
 
 class FakeGate implements GatePort {

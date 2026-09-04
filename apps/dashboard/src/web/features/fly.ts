@@ -151,7 +151,7 @@ ${flyHintText.toString()}
     var isTotalMode = !!(modeEl && modeEl.value === 'total');
     var totalUsd = totalEl ? (Number(totalEl.value) || 0) : 0;
     var count = firingsEl ? (Number(firingsEl.value) || 1) : 1;
-    flyHintEl.textContent = flyHintText(isTotalMode, perFiring, totalUsd, count, flyMaxTurns);
+    flyHintEl.textContent = flyHintText(isTotalMode, perFiring, totalUsd, count, flyMaxTurns, tr);
   }
   function applyMode() {
     var total = modeEl && modeEl.value === 'total';
@@ -165,7 +165,20 @@ ${flyHintText.toString()}
   if (firingsEl) firingsEl.addEventListener('input', updateFlyHint);
   if (budgetEl) budgetEl.addEventListener('input', updateFlyHint);
   if (totalEl) totalEl.addEventListener('input', updateFlyHint);
-  applyMode();
+  // Deferred, not called synchronously here: 'fly' precedes 'locale' in
+  // chunks.ts's FEATURE_JS_BY_NAME core order, so calling applyMode() (which
+  // calls updateFlyHint(), which calls tr(), referencing locale.ts's "let
+  // STRINGS") this early hits STRINGS' temporal dead zone and throws
+  // "Cannot access 'STRINGS' before initialization" — crashing the whole
+  // bundle eval, the same hazard shell.ts's clientJs() comment documents for
+  // locale-data.ts's ordering. A queued microtask runs after the WHOLE
+  // script (including locale.ts's "let STRINGS = ..." later in this same
+  // core chunk) finishes executing, by which point tr() is safe to call;
+  // every later call (mode/firings/budget/total input listeners) only fires
+  // from user interaction, which cannot happen until the full script has
+  // already run.
+  if (typeof queueMicrotask === 'function') queueMicrotask(applyMode);
+  else setTimeout(applyMode, 0);
   // FLY-BAR STATE PERSISTENCE: switching to a folder the operator has flown
   // before restores its last-used mode/firings/total/budget — the settings
   // fields, unlike the folder history datalist, carry no meaning of their
@@ -539,19 +552,26 @@ ${sessionFlightDataFor.toString()}
     setTip(statusSpan, statusTipKey);
     row.appendChild(statusSpan);
     var actions = el('div', 'fly-flight-actions');
+    // D1 ATTRIBUTE PAYLOAD (epic 0015, board web-mtd1wmqc-v7h6cq): each
+    // button's aria-label below states the action + folder concisely instead
+    // of duplicating the full tip sentence verbatim — same pattern as
+    // 189137e0's task chips and b92dc664's replay/diff toggles, applied here
+    // to a per-row control whose folder name is the one piece of context
+    // worth keeping (a bare "Pause" would be ambiguous with several flights
+    // running at once).
     if (f.running) {
       var pauseBtn = el('button', 'fly-flight-pause', tr('pause'));
       pauseBtn.type = 'button';
       var pauseTip = tr('pauseFlightOn', f.folder);
       pauseBtn.setAttribute('data-tip', pauseTip);
-      pauseBtn.setAttribute('aria-label', pauseTip);
+      pauseBtn.setAttribute('aria-label', tr('pause') + ': ' + f.folder);
       pauseBtn.addEventListener('click', function () { targetedAction('pause', f.folder, pauseBtn); });
       actions.appendChild(pauseBtn);
       var stopBtn = el('button', 'fly-flight-stop', tr('stop'));
       stopBtn.type = 'button';
       var stopTip = tr('stopFlightOn', f.folder);
       stopBtn.setAttribute('data-tip', stopTip);
-      stopBtn.setAttribute('aria-label', stopTip);
+      stopBtn.setAttribute('aria-label', tr('stop') + ': ' + f.folder);
       stopBtn.addEventListener('click', function () { targetedAction('stop', f.folder, stopBtn); });
       actions.appendChild(stopBtn);
     } else if (f.queued) {
@@ -562,7 +582,7 @@ ${sessionFlightDataFor.toString()}
       cancelBtn.type = 'button';
       var cancelTip = tr('cancelQueuedFlightOn', f.folder);
       cancelBtn.setAttribute('data-tip', cancelTip);
-      cancelBtn.setAttribute('aria-label', cancelTip);
+      cancelBtn.setAttribute('aria-label', tr('cancel') + ': ' + f.folder);
       cancelBtn.addEventListener('click', function () { targetedAction('stop', f.folder, cancelBtn); });
       actions.appendChild(cancelBtn);
     } else {
@@ -570,7 +590,7 @@ ${sessionFlightDataFor.toString()}
       resumeBtn.type = 'button';
       var resumeTip = tr('resumeFlightOn', f.folder);
       resumeBtn.setAttribute('data-tip', resumeTip);
-      resumeBtn.setAttribute('aria-label', resumeTip);
+      resumeBtn.setAttribute('aria-label', tr('resume') + ': ' + f.folder);
       resumeBtn.addEventListener('click', function () {
         if (folderEl) folderEl.value = f.folder;
         restoreFlySettingsFor(f.folder);

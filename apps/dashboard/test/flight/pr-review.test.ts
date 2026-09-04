@@ -2950,6 +2950,19 @@ describe('annotateAlreadyApplied', () => {
     expect('alreadyApplied' in pr).toBe(false);
   });
 
+  it('assesses a candidate with no headRefOid without passing one through — the tree stand-in confirmation is left not-assessed', async () => {
+    const { headRefOid: _headRefOid, ...pr } = candidate();
+    const exec: CliExec = vi.fn(async (bin) => ({
+      code: bin === 'gh' ? 0 : 1, // reverse-apply fails: not already applied
+      stdout: bin === 'gh' ? 'diff --git a/x b/x\n' : '',
+    }));
+
+    const [annotated] = await annotateAlreadyApplied([pr], exec);
+
+    expect(annotated?.alreadyApplied).toBe(false);
+    expect(exec).toHaveBeenCalledTimes(2); // diff + reverse check only, no tree stand-in spend
+  });
+
   it('passes security-sensitive candidates through without spending a gh call', async () => {
     const pr = candidate({ touchedPaths: ['apps/dashboard/src/server/security.ts'] });
     const exec: CliExec = vi.fn();
@@ -3473,6 +3486,25 @@ describe('assessPrDiff conflicting-path detection', () => {
       if (args.includes('--reverse')) return { code: 1, stdout: '' };
       if (args[0] === 'merge-base') return { code: 1, stdout: '' }; // history excludes the PR head
       return { code: 0, stdout: '' }; // clean status, and a forward check that unexpectedly succeeds
+    });
+
+    const result = await assessPrDiff(12, exec, { checkConflictPaths: true, headRefOid: HEAD_SHA });
+
+    expect(result).toEqual({ alreadyApplied: false, hasBinaryDiff: false, renamedFromPaths: [] });
+    expect(exec).toHaveBeenCalledTimes(5);
+  });
+
+  it('omits conflictingPaths when the forward check fails without reporting any stderr', async () => {
+    // Distinct from the case above: here the forward check fails (a real
+    // conflict, from the earlier gh-confirmed-conflicting stance) but its
+    // result carries no stderr field at all — falling back to an empty
+    // string rather than crashing parseGitApplyConflictPaths on undefined.
+    const exec: CliExec = vi.fn(async (bin, args) => {
+      if (bin === 'gh') return { code: 0, stdout: 'diff --git a/x b/x\n' };
+      if (args.includes('--reverse')) return { code: 1, stdout: '' };
+      if (args[0] === 'status') return { code: 0, stdout: '' }; // clean tree
+      if (args[0] === 'merge-base') return { code: 1, stdout: '' }; // history excludes the PR head
+      return { code: 1, stdout: '' }; // forward check fails, no stderr reported
     });
 
     const result = await assessPrDiff(12, exec, { checkConflictPaths: true, headRefOid: HEAD_SHA });
@@ -4461,6 +4493,32 @@ describe('fetchOpenPrCandidates viewer-authored detection', () => {
     expect(exec).toHaveBeenCalledTimes(1);
   });
 
+  it('spends the gh api user lookup off an authored comment alone — no PR author and no changes-requested review, just a comment with a readable author login', async () => {
+    const exec: CliExec = vi.fn(async (_cmd: string, args: readonly string[]) => {
+      if (args[0] === 'pr') {
+        return {
+          code: 0,
+          stdout: JSON.stringify([
+            {
+              number: 26,
+              title: 'No author, no reviews, one comment',
+              mergeable: 'MERGEABLE',
+              files: [],
+              comments: [{ author: { login: 'someone' }, body: 'a comment' }],
+            },
+          ]),
+        };
+      }
+      return { code: 0, stdout: JSON.stringify({ login: 'mastermind' }) };
+    });
+
+    const prs = await fetchOpenPrCandidates(exec);
+
+    expect(prs[0]).not.toHaveProperty('viewerIsAuthor');
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(exec).toHaveBeenCalledWith('gh', ['api', 'user']);
+  });
+
   it('leaves viewerIsAuthor absent when gh api user fails — ownership stays not-assessed and can only narrow', async () => {
     const exec: CliExec = vi.fn(async (_cmd: string, args: readonly string[]) => {
       if (args[0] === 'pr') {
@@ -5303,6 +5361,16 @@ describe('planPrReview @-mention neutralization (posted verdicts never ping from
     const decision = planPrReview(candidate({ title: 'Sparkline fix @ last' }));
     expect(decision.reasoning).toContain('"Sparkline fix @ last"');
     expect(decision.reasoning).not.toContain(ZWSP);
+  });
+
+  it('neutralizes @-leading base branch names in the canonical-base queue-for-human reasoning', () => {
+    // gh reports baseRefName from the PR's own metadata — a base branch
+    // named with an npm-scoped-package-style '@' segment is valid git ref
+    // syntax anyone with push access to the base repo can create.
+    const decision = planPrReview(candidate({ baseRefName: 'release/@octocat' }));
+    expect(decision.decision).toBe('queue-for-human');
+    expect(decision.reasoning).toContain(`@${ZWSP}octocat`);
+    expect(decision.reasoning).not.toContain('@octocat');
   });
 
   it('is idempotent — an already-neutralized mention is not double-escaped', () => {

@@ -27,8 +27,51 @@ describe('fetchRepoIdentity', () => {
       'repo',
       'view',
       '--json',
-      'nameWithOwner,url,isPrivate',
+      'nameWithOwner,url,isPrivate,stargazerCount,watchers,forkCount',
     ]);
+  });
+
+  it('parses the star/watcher/fork counts, unwrapping gh’s nested watchers.totalCount', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify({
+        nameWithOwner: 'octocat/hello-world',
+        url: 'https://github.com/octocat/hello-world',
+        isPrivate: false,
+        stargazerCount: 7,
+        watchers: { totalCount: 3 },
+        forkCount: 2,
+      }),
+    });
+
+    expect(await fetchRepoIdentity(exec)).toEqual({
+      nameWithOwner: 'octocat/hello-world',
+      url: 'https://github.com/octocat/hello-world',
+      isPrivate: false,
+      stars: 7,
+      watchers: 3,
+      forks: 2,
+    });
+  });
+
+  it('degrades each malformed count to undefined independently, never failing the identity', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify({
+        nameWithOwner: 'octocat/hello-world',
+        url: 'https://github.com/octocat/hello-world',
+        isPrivate: false,
+        stargazerCount: 'seven',
+        watchers: { totalCount: -1 },
+        forkCount: 2,
+      }),
+    });
+
+    const identity = await fetchRepoIdentity(exec);
+    expect(identity?.stars).toBeUndefined();
+    expect(identity?.watchers).toBeUndefined();
+    expect(identity?.forks).toBe(2);
+    expect(identity?.nameWithOwner).toBe('octocat/hello-world');
   });
 
   it('resolves the parsed identity on success', async () => {
@@ -114,9 +157,55 @@ describe('planPublicityAffordances', () => {
     }
     const byId = Object.fromEntries(affordances.map((a) => [a.id, a]));
     expect(byId['repo']?.url).toBe('https://github.com/octocat/hello-world');
-    expect(byId['watch']?.url).toBe('https://github.com/octocat/hello-world');
-    expect(byId['star']?.url).toBe('https://github.com/octocat/hello-world');
+    expect(byId['watch']?.url).toBe('https://github.com/octocat/hello-world/subscription');
+    expect(byId['star']?.url).toBe('https://github.com/octocat/hello-world/stargazers');
     expect(byId['discussions']?.url).toBe('https://github.com/octocat/hello-world/discussions');
+  });
+
+  it('deep-links every affordance to its OWN GitHub page — the operator caught all four landing on the repo root', () => {
+    const repo: RepoIdentity = {
+      nameWithOwner: 'octocat/hello-world',
+      url: 'https://github.com/octocat/hello-world',
+      isPrivate: false,
+    };
+
+    const urls = planPublicityAffordances(repo).map((a) => a.url);
+
+    expect(urls).toEqual([
+      'https://github.com/octocat/hello-world',
+      'https://github.com/octocat/hello-world/subscription',
+      'https://github.com/octocat/hello-world/stargazers',
+      'https://github.com/octocat/hello-world/discussions',
+    ]);
+    // Four affordances, four distinct destinations — no duplicates.
+    expect(new Set(urls).size).toBe(urls.length);
+  });
+
+  it('wears each identity count as the matching affordance badge: stars on Star, watchers on Watch, forks on View repo', () => {
+    const repo: RepoIdentity = {
+      nameWithOwner: 'octocat/hello-world',
+      url: 'https://github.com/octocat/hello-world',
+      isPrivate: false,
+      stars: 7,
+      watchers: 3,
+      forks: 2,
+    };
+
+    const byId = Object.fromEntries(planPublicityAffordances(repo).map((a) => [a.id, a.count]));
+
+    expect(byId).toEqual({ repo: 2, watch: 3, star: 7, discussions: undefined });
+  });
+
+  it('renders no count badges when the identity carries no counts', () => {
+    const repo: RepoIdentity = {
+      nameWithOwner: 'octocat/hello-world',
+      url: 'https://github.com/octocat/hello-world',
+      isPrivate: false,
+    };
+
+    for (const affordance of planPublicityAffordances(repo)) {
+      expect(affordance.count).toBeUndefined();
+    }
   });
 
   it('makes every affordance live once the repo is public', () => {
