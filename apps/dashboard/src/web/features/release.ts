@@ -45,6 +45,7 @@ import {
   releaseConfirmMessage,
   releaseExecuteTip,
 } from '../release-panel.js';
+import { releaseMaturityOf } from '../../release/maturity.js';
 
 /** The RELEASE panel cluster client — vanilla, external (keeps CSP script-src 'self'). */
 export function releaseJs(): string {
@@ -69,6 +70,11 @@ ${releaseVersionItems.toString()}
 // interactivity audit v2, web-msm66jlc-gm4oom) — its real compiled source
 // via .toString(), not a hand-retyped copy. It can no longer drift apart.
 ${releaseExecuteTip.toString()}
+// releaseMaturityOf is generated FROM release/maturity.ts below (operator
+// ask, 2026-09-04: the ritual should KNOW an 0.x is an alpha) — its real
+// compiled source via .toString(), not a hand-retyped copy. It can no
+// longer drift apart from the server's own --prerelease decision.
+${releaseMaturityOf.toString()}
 function renderReleaseBody(body, release, pid) {
   body.replaceChildren();
   if (!release || !release.currentVersion) {
@@ -125,6 +131,41 @@ function renderReleaseBody(body, release, pid) {
   ghReleaseLabel.appendChild(ghReleaseCheckbox);
   ghReleaseLabel.appendChild(document.createTextNode(' Also publish as a GitHub Release'));
   body.appendChild(ghReleaseLabel);
+
+  // RELEASE PHASE (release/maturity.ts, spliced above): the ritual detects
+  // the phase from the version itself — 0.x is an alpha per SemVer §4, a
+  // -beta/-rc suffix names its own phase — and publishes pre-releases with
+  // GitHub's --prerelease badge so an alpha is never crowned "Latest". The
+  // select lets the operator override; Auto stays the default and the hint
+  // spells out the detection so it is never a silent guess.
+  var detected = releaseMaturityOf(release.plan.version);
+  var maturityRow = el('div', 'release-maturity');
+  var maturityId = 'release-maturity-' + pid;
+  var maturityLabel = el('label', null, 'Release phase');
+  maturityLabel.setAttribute('for', maturityId);
+  var maturitySelect = document.createElement('select');
+  maturitySelect.id = maturityId;
+  maturitySelect.className = 'release-maturity-select';
+  var maturityChoices = [
+    ['auto', 'Auto — detected: ' + detected.phase],
+    ['alpha', 'Alpha'],
+    ['beta', 'Beta'],
+    ['rc', 'Release candidate'],
+    ['stable', 'Stable'],
+  ];
+  for (var mc = 0; mc < maturityChoices.length; mc++) {
+    var maturityOpt = document.createElement('option');
+    maturityOpt.value = maturityChoices[mc][0];
+    maturityOpt.textContent = maturityChoices[mc][1];
+    maturitySelect.appendChild(maturityOpt);
+  }
+  var maturityTip = 'A pre-release phase publishes with GitHub’s Pre-release badge and is never marked Latest. Auto: ' + detected.reasoning;
+  maturitySelect.setAttribute('data-tip', maturityTip);
+  maturitySelect.setAttribute('aria-label', 'Release phase — ' + maturityTip);
+  maturityRow.appendChild(maturityLabel);
+  maturityRow.appendChild(maturitySelect);
+  body.appendChild(maturityRow);
+  body.appendChild(el('p', 'release-maturity-hint', detected.phase + ' — ' + detected.reasoning));
 
   var actions = el('div', 'release-actions');
   var execBtn = document.createElement('button');
@@ -183,6 +224,8 @@ document.addEventListener('click', function (e) {
   var milestoneTag = milestoneInput ? milestoneInput.value.trim() : '';
   var ghReleaseInput = panel && panel.querySelector('.release-ghrelease-checkbox');
   var ghRelease = !!(ghReleaseInput && ghReleaseInput.checked);
+  var maturitySelectEl = panel && panel.querySelector('.release-maturity-select');
+  var maturity = maturitySelectEl ? maturitySelectEl.value : 'auto';
   var resultEl = b.parentElement && b.parentElement.nextElementSibling;
   if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease))) return;
   b.disabled = true;
@@ -191,6 +234,7 @@ document.addEventListener('click', function (e) {
   var payload = { project: pid };
   if (milestoneTag) payload.milestoneTag = milestoneTag;
   if (ghRelease) payload.ghRelease = true;
+  if (maturity && maturity !== 'auto') payload.maturity = maturity;
   fetch('/api/release/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

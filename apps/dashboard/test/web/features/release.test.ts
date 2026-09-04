@@ -20,6 +20,7 @@ import {
   releaseExecuteTip,
 } from '../../../src/web/release-panel.js';
 import { releaseJs } from '../../../src/web/features/release.js';
+import { releaseMaturityOf } from '../../../src/release/maturity.js';
 
 describe('releaseJs', () => {
   it('embeds every release-panel splice real compiled source via .toString()', () => {
@@ -28,6 +29,19 @@ describe('releaseJs', () => {
     expect(out).toContain(releaseExecuteTip.toString());
     expect(out).toContain(releaseExecuteResult.toString());
     expect(out).toContain(releaseConfirmMessage.toString());
+  });
+
+  it('embeds the maturity detector and wires the RELEASE PHASE select: auto-detect shown, override posted, auto omitted', () => {
+    const out = releaseJs();
+    expect(out).toContain(releaseMaturityOf.toString());
+    expect(out).toContain('var detected = releaseMaturityOf(release.plan.version);');
+    expect(out).toContain("['auto', 'Auto — detected: ' + detected.phase]");
+    // The hint spells out the reasoning — never a silent guess.
+    expect(out).toContain(
+      "el('p', 'release-maturity-hint', detected.phase + ' — ' + detected.reasoning)",
+    );
+    // Auto stays implicit; only a real override rides the POST body.
+    expect(out).toContain("if (maturity && maturity !== 'auto') payload.maturity = maturity;");
   });
 
   it('declares renderReleaseBody and releaseSection', () => {

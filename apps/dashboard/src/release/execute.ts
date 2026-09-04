@@ -47,12 +47,15 @@ import {
   type ReleaseWriter,
 } from '@autopilot/engine';
 import { realRunner, type CommandRunner } from '../github/execute.js';
+import { releaseMaturityOf, type MaturityChoice, type ReleaseMaturity } from './maturity.js';
 
 /** Outcome of the optional `gh release create` step — same shape as
- *  `attestation`/`milestoneTag`'s sub-results. */
+ *  `attestation`/`milestoneTag`'s sub-results, plus the maturity verdict
+ *  that decided the `--prerelease` flag (auditable, never a silent guess). */
 export interface GhReleaseSubResult {
   readonly ok: boolean;
   readonly details: string;
+  readonly maturity?: ReleaseMaturity;
 }
 
 /** {@link EngineReleaseExecuteResult} plus the dashboard-only `ghRelease` leg
@@ -75,6 +78,7 @@ export type ReleaseExecuteApi = (
   projectId: string,
   milestoneTag?: string,
   ghRelease?: boolean,
+  maturity?: MaturityChoice,
 ) => Promise<ReleaseExecuteResult | null>;
 
 function escapeRegExp(s: string): string {
@@ -120,7 +124,7 @@ export function createReleaseExecuteApi(
   dbPath: string,
   runCommand: CommandRunner = realRunner,
 ): ReleaseExecuteApi {
-  return async (projectId, milestoneTag, ghRelease) => {
+  return async (projectId, milestoneTag, ghRelease, maturity) => {
     const store = openStore(dbPath);
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
@@ -196,6 +200,7 @@ export function createReleaseExecuteApi(
         runCommand,
         project.root_path,
         result.version!,
+        maturity,
       );
       return { ...result, ghRelease: ghResult };
     } finally {
@@ -217,32 +222,54 @@ async function publishGithubRelease(
   runCommand: CommandRunner,
   cwd: string,
   version: string,
+  maturityChoice?: MaturityChoice,
 ): Promise<GhReleaseSubResult> {
   const tagName = `v${version}`;
+  // Maturity intelligence (release/maturity.ts): a 0.x or `-alpha`-suffixed
+  // version publishes with --prerelease, so GitHub badges it "Pre-release"
+  // and never crowns it "Latest" — the honest public signal an alpha owes
+  // its visitors. The operator's explicit choice overrides detection.
+  const maturity = releaseMaturityOf(version, maturityChoice ?? 'auto');
 
   const hasRemote = await vcs.hasRemote();
   if (!hasRemote) {
     return {
       ok: false,
       details: 'no GitHub remote configured — sync this project to GitHub first',
+      maturity,
     };
   }
 
   const push = await runCommand('git', ['push', 'origin', tagName], cwd);
   if (push.exitCode !== 0) {
-    return { ok: false, details: push.stderr.trim() || `git push exited ${push.exitCode}` };
+    return {
+      ok: false,
+      details: push.stderr.trim() || `git push exited ${push.exitCode}`,
+      maturity,
+    };
   }
 
   const release = await runCommand(
     'gh',
-    ['release', 'create', tagName, '--verify-tag', '--notes-from-tag', '--title', tagName],
+    [
+      'release',
+      'create',
+      tagName,
+      '--verify-tag',
+      '--notes-from-tag',
+      '--title',
+      tagName,
+      ...(maturity.prerelease ? ['--prerelease'] : []),
+    ],
     cwd,
   );
   return {
     ok: release.exitCode === 0,
     details:
       release.exitCode === 0
-        ? release.stdout.trim() || `published GitHub Release ${tagName}`
+        ? (release.stdout.trim() || `published GitHub Release ${tagName}`) +
+          ` (${maturity.phase}: ${maturity.reasoning})`
         : release.stderr.trim() || `gh release create exited ${release.exitCode}`,
+    maturity,
   };
 }
