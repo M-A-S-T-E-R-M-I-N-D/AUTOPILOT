@@ -9,7 +9,7 @@ export const DASHBOARD_VERSION = '0.1.0';
  * at 0.1.0 until first external publish; this is the number that means "the
  * product". Bumped as part of each release commit.
  */
-export const PRODUCT_VERSION = '0.21.0';
+export const PRODUCT_VERSION = '0.22.0';
 
 /** The canonical upstream repo (epic 0006 "GitHub connected mode", slice 4
  *  "LTS chip") a co-pilot's LTS check compares {@link PRODUCT_VERSION}
