@@ -1,6 +1,6 @@
 {
   "name": "autopilot-monorepo",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "private": true,
   "description": "AUTOPILOT — a standalone, open-source, cross-platform autonomous engineering agent. By MΔSTERMIND.",
   "license": "Apache-2.0",
