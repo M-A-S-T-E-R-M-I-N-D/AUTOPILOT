@@ -507,7 +507,12 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-item:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .pipeline-item[aria-selected='true'] { border-color: var(--color-accent); background: var(--color-surface); }
 .pipeline-item[data-connected='true'] { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
-.pipeline-canvas { flex: 1 1 auto; min-width: 0; max-width: 100%; height: auto; }
+/* flex-grow 0, NOT 1: the svg carries its natural width/height attributes
+   (1 viewBox unit = 1px) and must render at that size — growing it to fill
+   the panel row re-inflates the preserved aspect ratio until one node fills
+   a whole screen (the 43-lane single-column flight the operator caught).
+   max-width + height:auto still SHRINK a canvas wider than the panel. */
+.pipeline-canvas { flex: 0 1 auto; min-width: 0; max-width: 100%; height: auto; }
 .pipeline-empty { color: var(--color-text-muted); font-size: var(--text-sm); margin: 0; }
 /* Canvas status colors mirror .spark-shipped/-errored/-no's OTLP status→token mapping exactly —
    one status vocabulary, not a second one invented for the node-graph lens. */
