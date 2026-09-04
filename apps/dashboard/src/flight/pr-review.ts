@@ -1521,6 +1521,9 @@ export function planPrReview(
       ...(pr.renamedFromPaths !== undefined
         ? { renamedFromPaths: pr.renamedFromPaths.map(neutralizeAtMentions) }
         : {}),
+      ...(pr.baseRefName !== undefined
+        ? { baseRefName: neutralizeAtMentions(pr.baseRefName) }
+        : {}),
     },
     policy,
   );
@@ -1530,9 +1533,11 @@ export function planPrReview(
  * GitHub linkifies `@name` anywhere in a posted comment or review body, and
  * every reasoning string below is posted verbatim under the founder's own gh
  * login — so contributor-controlled text embedded in it (the PR title, a
- * conflict path, a renamed-from path: an attacker names files too) would let
- * a hostile PR titled "fix typo @acme/everyone" make this ritual ping
- * arbitrary users or teams AS MASTERMIND the moment any verdict posts. A
+ * conflict path, a renamed-from path, the base branch name: an attacker
+ * names branches too) would let a hostile PR titled "fix typo
+ * @acme/everyone" — or opened against a base branch like
+ * `release/@acme/on-call` — make this ritual ping arbitrary users or teams
+ * AS MASTERMIND the moment any verdict posts. A
  * zero-width space after the `@` stops the linkification while leaving the
  * text visually identical — the established auto-responder convention. Only
  * an `@` that could start a mention (followed by an alphanumeric) is
