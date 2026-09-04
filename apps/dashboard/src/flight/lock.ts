@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { slugify } from '@autopilot/onboarding';
 import { parseLockInfo, isProcessAlive } from '@autopilot/engine';
@@ -138,4 +138,53 @@ export function isFlightOwnerAlive(
   instanceId?: string,
 ): boolean {
   return readFlightOwnerPid(dbDir, targetPath, instanceId) !== null;
+}
+
+/**
+ * Whether ANY process — this dashboard server's own in-memory
+ * `FlightRunnerRegistry`, a stray terminal `fly.ts` invocation, a different
+ * dashboard server, or an N-way fleet sibling — currently holds a live engine
+ * lock for `targetPath`, across every instanceId (bare project id AND every
+ * `--<instance>` variant), not just one caller-specified id.
+ *
+ * ROOT CAUSE (board ap-mtm4qzty-1, "multiple concurrent claude/node
+ * processes are committing to the PRIMARY (non-worktree) AUTOPILOT
+ * directory simultaneously, silently discarding uncommitted edits and
+ * duplicating landed work"): `landing/execute.ts`'s flight-running guard
+ * only consulted the dashboard's own in-memory `FlightRunnerRegistry`
+ * (`isFlightRunning`), which only knows about flights THIS process spawned
+ * or adopted. A flight from ANY other process was invisible to it, so
+ * `land()` would checkout/merge the base branch in the SAME primary
+ * directory a live flight was still committing to — the exact git race
+ * `fly.ts`'s own lockfile (`FileInstanceLock`) exists to prevent for
+ * flight-vs-flight, but was never consulted here for flight-vs-land. This
+ * is the missing cross-process check: scan every lock file this project
+ * could hold, exactly the way `fly.ts` writes them (`engineLockFileName`),
+ * and treat any live one as "a flight owns the checkout" — the same
+ * refusal path `isFlightRunning` already produces.
+ */
+export function isAnyFlightLockLive(dbDir: string, targetPath: string): boolean {
+  const projectId = deriveFlyProjectId(targetPath);
+  let entries: string[];
+  try {
+    entries = readdirSync(dbDir);
+  } catch {
+    return false;
+  }
+  const bareName = engineLockFileName(projectId);
+  const instancePrefix = `engine-${projectId}--`;
+  for (const entry of entries) {
+    const isThisProject =
+      entry === bareName || (entry.startsWith(instancePrefix) && entry.endsWith('.lock'));
+    if (!isThisProject) continue;
+    let raw: string;
+    try {
+      raw = readFileSync(join(dbDir, entry), 'utf8');
+    } catch {
+      continue;
+    }
+    const info = parseLockInfo(raw);
+    if (info !== null && isProcessAlive(info.pid)) return true;
+  }
+  return false;
 }
