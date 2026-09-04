@@ -53,73 +53,19 @@
  * three composers cover the discovered module set exactly.
  */
 
-import { activityHeatmapJs } from './features/activity-heatmap.js';
-import { activityJs } from './features/activity.js';
-import { backlogJs } from './features/backlog.js';
-import { connectJs } from './features/connect.js';
-import { coordinationJs } from './features/coordination.js';
-import { docsViewerJs } from './features/docs-viewer.js';
-import { evolutionJs } from './features/evolution.js';
-import { firingTimelineJs } from './features/firing-timeline.js';
-import { flightConsoleJs } from './features/flight-console.js';
-import { flightSummaryJs } from './features/flight-summary.js';
-import { flyJs } from './features/fly.js';
-import { issueTriageJs } from './features/issue-triage.js';
-import { landingJs } from './features/landing.js';
-import { localeDataJs } from './features/locale-data.js';
-import { localeJs } from './features/locale.js';
-import { metricsJs } from './features/metrics.js';
-import { notificationsJs } from './features/notifications.js';
-import { officeMapJs } from './features/office-map.js';
-import { pipelineJs } from './features/pipeline.js';
-import { poolClientJs } from './features/pool-client.js';
-import { prReviewJs } from './features/pr-review.js';
-import { processHealthJs } from './features/process-health.js';
-import { publicityJs } from './features/publicity.js';
-import { releaseJs } from './features/release.js';
-import { reportCaptureClientJs } from './features/report-capture-client.js';
-import { reportMenuJs } from './features/report-menu.js';
-import { roundPanelJs } from './features/round-panel.js';
-import { searchJs } from './features/search.js';
-import { switcherJs } from './features/switcher.js';
-import { tourJs } from './features/tour.js';
+import { FEATURE_MODULE_FUNCTIONS_BY_BASENAME } from './features/index.js';
 
-/** Every feature module by its kebab-case name — the chunk test compares this
- *  against `discoverFeatureModules()` so a new module cannot be forgotten
- *  here silently (it must be added to this map; the LISTS may stay untouched,
- *  in which case it defaults to core). */
-export const FEATURE_JS_BY_NAME: Readonly<Record<string, () => string>> = {
-  'activity-heatmap': activityHeatmapJs,
-  activity: activityJs,
-  backlog: backlogJs,
-  connect: connectJs,
-  coordination: coordinationJs,
-  'docs-viewer': docsViewerJs,
-  evolution: evolutionJs,
-  'firing-timeline': firingTimelineJs,
-  'flight-console': flightConsoleJs,
-  'flight-summary': flightSummaryJs,
-  fly: flyJs,
-  'issue-triage': issueTriageJs,
-  landing: landingJs,
-  locale: localeJs,
-  'locale-data': localeDataJs,
-  metrics: metricsJs,
-  notifications: notificationsJs,
-  'office-map': officeMapJs,
-  pipeline: pipelineJs,
-  'pool-client': poolClientJs,
-  'pr-review': prReviewJs,
-  'process-health': processHealthJs,
-  publicity: publicityJs,
-  release: releaseJs,
-  'report-capture-client': reportCaptureClientJs,
-  'report-menu': reportMenuJs,
-  'round-panel': roundPanelJs,
-  search: searchJs,
-  switcher: switcherJs,
-  tour: tourJs,
-};
+/** Every feature module by its kebab-case name — generated from
+ *  `discoverFeatureModules()` (see `web/features/index.ts`'s own
+ *  `FEATURE_MODULE_FUNCTIONS_BY_BASENAME`, regenerated via
+ *  `node scripts/codemod/generate-splice-manifest.mjs --emit-index`) instead
+ *  of a hand-written import plus object-literal entry per module. The chunk
+ *  test still compares this against `discoverFeatureModules()` directly, so a
+ *  module missing from the generated barrel (a stale regen) fails loudly too;
+ *  the LISTS below may stay untouched, in which case a new module defaults to
+ *  core. */
+export const FEATURE_JS_BY_NAME: Readonly<Record<string, () => string>> =
+  FEATURE_MODULE_FUNCTIONS_BY_BASENAME;
 
 /** Called only from `renderProjectPage()` — served as /project.js on
  *  `/p/<id>` pages only. */
