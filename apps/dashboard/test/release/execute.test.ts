@@ -36,6 +36,15 @@ function cleanupDir(dir: string): void {
 
 const CHANGELOG = ['# Changelog', '', '## [Unreleased]', '', ''].join('\n');
 
+/** The maturity verdict every v1.1.0 release in these tests detects —
+ *  >= 1.0.0, no pre-release suffix (release/maturity.ts). */
+const STABLE_MATURITY = {
+  phase: 'stable',
+  prerelease: false,
+  source: 'stable-version',
+  reasoning: '>= 1.0.0 with no pre-release suffix — a stable release',
+} as const;
+
 /** A tagged repo (v1.0.0) with `package.json`/`CHANGELOG.md` committed. */
 function setupTaggedRepo(repo: string): void {
   initRepo(repo);
@@ -47,6 +56,20 @@ function setupTaggedRepo(repo: string): void {
   gitSync(repo, ['add', '-A']);
   gitSync(repo, ['commit', '-q', '-m', 'chore: init']);
   gitSync(repo, ['tag', '-a', 'v1.0.0', '-m', 'v1.0.0']);
+}
+
+/** A tagged ZERO-MAJOR repo (v0.21.0) — SemVer §4 initial-development
+ *  territory, where the maturity intelligence must publish `--prerelease`. */
+function setupZeroMajorRepo(repo: string): void {
+  initRepo(repo);
+  writeFileSync(
+    join(repo, 'package.json'),
+    JSON.stringify({ name: 'x', version: '0.21.0' }, null, 2) + '\n',
+  );
+  writeFileSync(join(repo, 'CHANGELOG.md'), CHANGELOG);
+  gitSync(repo, ['add', '-A']);
+  gitSync(repo, ['commit', '-q', '-m', 'chore: init']);
+  gitSync(repo, ['tag', '-a', 'v0.21.0', '-m', 'v0.21.0']);
 }
 
 describe('createReleaseExecuteApi', () => {
@@ -420,6 +443,7 @@ describe('createReleaseExecuteApi', () => {
         expect(result?.ghRelease).toEqual({
           ok: false,
           details: 'no GitHub remote configured — sync this project to GitHub first',
+          maturity: STABLE_MATURITY,
         });
         expect(calls).toEqual([]);
       } finally {
@@ -457,7 +481,9 @@ describe('createReleaseExecuteApi', () => {
         expect(result?.ok).toBe(true);
         expect(result?.ghRelease).toEqual({
           ok: true,
-          details: 'https://github.com/x/x/releases/tag/v1.1.0',
+          details:
+            'https://github.com/x/x/releases/tag/v1.1.0 (stable: >= 1.0.0 with no pre-release suffix — a stable release)',
+          maturity: STABLE_MATURITY,
         });
         expect(calls).toEqual([
           { command: 'git', args: ['push', 'origin', 'v1.1.0'], cwd: repo },
@@ -505,7 +531,11 @@ describe('createReleaseExecuteApi', () => {
         })('p1', undefined, true);
 
         expect(result?.ok).toBe(true);
-        expect(result?.ghRelease).toEqual({ ok: false, details: 'auth failed' });
+        expect(result?.ghRelease).toEqual({
+          ok: false,
+          details: 'auth failed',
+          maturity: STABLE_MATURITY,
+        });
         expect(calls).toEqual(['git']);
       } finally {
         cleanupDir(repo);
@@ -539,7 +569,87 @@ describe('createReleaseExecuteApi', () => {
 
         expect(result?.ok).toBe(true);
         expect(result?.reason).toBe('released');
-        expect(result?.ghRelease).toEqual({ ok: false, details: 'release already exists' });
+        expect(result?.ghRelease).toEqual({
+          ok: false,
+          details: 'release already exists',
+          maturity: STABLE_MATURITY,
+        });
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('publishes a 0.x release with --prerelease so GitHub never crowns an alpha "Latest"', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-ghr-alpha-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
+      try {
+        setupZeroMajorRepo(repo);
+        gitSync(repo, ['remote', 'add', 'origin', 'https://example.invalid/x.git']);
+        writeFileSync(join(repo, 'a.txt'), 'x');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'feat: a new capability']);
+
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+        s.close();
+
+        const calls: Array<{ command: string; args: readonly string[] }> = [];
+        const result = await createReleaseExecuteApi(dbPath, async (command, args) => {
+          calls.push({ command, args });
+          const ok: CommandResult = { exitCode: 0, stdout: '', stderr: '' };
+          return ok;
+        })('p1', undefined, true);
+
+        expect(result?.ok).toBe(true);
+        expect(result?.ghRelease?.maturity).toEqual({
+          phase: 'alpha',
+          prerelease: true,
+          source: 'zero-major',
+          reasoning:
+            'major version zero — SemVer 2.0.0 §4: initial development, anything may change; published as a pre-release, never "Latest"',
+        });
+        const ghCall = calls.find((c) => c.command === 'gh');
+        expect(ghCall?.args).toContain('--prerelease');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('honors an operator maturity override — "stable" on a 0.x drops --prerelease', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-ghr-override-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
+      try {
+        setupZeroMajorRepo(repo);
+        gitSync(repo, ['remote', 'add', 'origin', 'https://example.invalid/x.git']);
+        writeFileSync(join(repo, 'a.txt'), 'x');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'feat: a new capability']);
+
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+        s.close();
+
+        const calls: Array<{ command: string; args: readonly string[] }> = [];
+        const result = await createReleaseExecuteApi(dbPath, async (command, args) => {
+          calls.push({ command, args });
+          const ok: CommandResult = { exitCode: 0, stdout: '', stderr: '' };
+          return ok;
+        })('p1', undefined, true, 'stable');
+
+        expect(result?.ghRelease?.maturity).toEqual({
+          phase: 'stable',
+          prerelease: false,
+          source: 'override',
+          reasoning: 'operator override: stable',
+        });
+        const ghCall = calls.find((c) => c.command === 'gh');
+        expect(ghCall?.args).not.toContain('--prerelease');
       } finally {
         cleanupDir(repo);
         cleanupDir(dbDir);
