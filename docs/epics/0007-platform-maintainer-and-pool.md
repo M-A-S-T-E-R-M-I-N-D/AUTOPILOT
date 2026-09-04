@@ -695,6 +695,18 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    actions, and remote branch cleanup is not worth risking an unannounced
    local checkout/branch mutation. The remote branch is left for a human (or
    a future remote-only cleanup step) to remove),
+   the base-branch-name neutralization gap (`planPrReview`'s @-mention
+   neutralization choke point covered `title`/`conflictingPaths`/
+   `renamedFromPaths` but never `baseRefName` — a base branch is ordinary git
+   ref syntax anyone with push access to the base repo can name, so a PR
+   opened against e.g. `release/@acme/on-call` reached the canonical-base
+   guard's queue-for-human reasoning with the raw, un-neutralized name
+   embedded, and that reasoning posts verbatim as a `gh pr comment` under the
+   founder's own login — GitHub would linkify `@acme/on-call` and ping that
+   team AS MASTERMIND the moment the correct queue-for-human verdict posted;
+   the decision was already right, only the posted text carried the
+   unauthorized-looking side effect. `baseRefName` now runs through the same
+   `neutralizeAtMentions` conditional spread as the other three fields),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do), and actually
    resolving a conflict — today's ritual only names the files involved for a

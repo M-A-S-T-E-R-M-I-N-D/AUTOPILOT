@@ -5305,6 +5305,16 @@ describe('planPrReview @-mention neutralization (posted verdicts never ping from
     expect(decision.reasoning).not.toContain(ZWSP);
   });
 
+  it('neutralizes @-leading base branch names in the canonical-base queue-for-human reasoning', () => {
+    // gh reports baseRefName from the PR's own metadata — a base branch
+    // named with an npm-scoped-package-style '@' segment is valid git ref
+    // syntax anyone with push access to the base repo can create.
+    const decision = planPrReview(candidate({ baseRefName: 'release/@octocat' }));
+    expect(decision.decision).toBe('queue-for-human');
+    expect(decision.reasoning).toContain(`@${ZWSP}octocat`);
+    expect(decision.reasoning).not.toContain('@octocat');
+  });
+
   it('is idempotent — an already-neutralized mention is not double-escaped', () => {
     const decision = planPrReview(candidate({ title: `ping @${ZWSP}octocat` }));
     expect(decision.reasoning).toContain(`@${ZWSP}octocat`);
