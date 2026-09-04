@@ -754,6 +754,36 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    still rides the honest `false` — no image is attached) and the fleet-grid
    page (no single project to scope a report to there — an open design
    question, not a mechanical extension of the per-project pattern above).
+
+   SCREENSHOT CAPTURE VERDICT processed (2026-09-04, ap-mtm4lsld-1): a prior
+   firing's verdict on the screenshot gap above claimed real pixel capture
+   needs a technique decision and a privacy decision before any
+   implementation slice is buildable. This pass verified the claim against
+   the current repo rather than attempting a slice. Three concrete blockers
+   hold: (1) no screenshot/canvas library exists in
+   `apps/dashboard/package.json` or the lockfile, so any client-side
+   technique (`html2canvas`, `dom-to-image`, or similar) would be net-new
+   code; (2) the dashboard's CSP is `default-src 'self'` with no
+   `unsafe-inline` or external origins (`server/security.ts`), so a
+   CDN-loaded library is blocked outright — it would have to be vendored
+   into the served bundle, at odds with every `web/features/*.ts` module's
+   established zero-runtime-dependency convention; (3) no `canvas` package
+   exists in devDependencies, so jsdom cannot `getContext('2d')` — the test
+   suite has no way to verify pixel output even if a technique landed,
+   meaning any implementation would ship its accuracy unverified by the
+   gate. Beyond mechanics, two real decisions block scoping: which technique
+   (a same-origin library vendored into the bundle vs. the browser-native
+   `getDisplayMedia()` API, which demands a fresh user permission grant and
+   gesture on every call — unlike the existing silent DOM-snapshot capture in
+   `report-capture-client.ts`), and what a screenshot is allowed to show (the
+   live dashboard can render other projects' names, flight-console paths, or
+   other operator context the DOM-snapshot capture's
+   `REPORT_DOM_MAX_TEXT_LENGTH` clip and `REPORT_CSS_PROPERTIES` allowlist
+   were deliberately scoped to avoid). Neither is machine-checkable. VERDICT:
+   CONFIRMED — real screenshot capture is 🟣 human-required (technique +
+   privacy policy) before any slice is buildable; the fleet-grid open
+   question from the same paragraph is a second, independent 🟣 item (no
+   single project to scope a report to there).
 6. Pool client: browse/claim/fly/deliver upstream tasks from any co-pilot's dashboard.
    SHIPPED end to end (board web-mss50iaf-fckmbj) — the pure
    read-only first slice `apps/dashboard/src/flight/pool-client.ts` —
