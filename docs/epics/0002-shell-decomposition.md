@@ -3068,6 +3068,20 @@ shared-primary-checkout hazard board `ap-mtm4qzty-1` already tracks) and
 same hazard). Recorded here since neither commit message documents the
 actual change or its rationale.
 
+Freshness check (2026-09-04): `web/shell.ts` is at 3,696 lines, not the
+3,647 the prior entry states — that entry's count was accurate against its
+own pre-genesis history, but the `chore: genesis` squash-merge (`d881b750`)
+that folded this project's private history into one public-alpha commit
+landed shell.ts 49 lines heavier than the snapshot the doc recorded,
+without a matching doc update. `web/features/` still holds exactly 30
+discoverable modules (`web/features/index.ts`'s barrel has exactly 30
+imports, unchanged) — no decomposition regression, this is a bookkeeping
+correction only. `git log -- apps/dashboard/src/web/shell.ts` shows a
+single post-genesis commit touching the file (`29c4edfa`, a 1-line call-site
+change), confirming the 49-line gap predates this firing and sits entirely
+inside the squash boundary rather than in any tracked history this doc's
+chronicle could have described commit-by-commit. No code changed this pass.
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
