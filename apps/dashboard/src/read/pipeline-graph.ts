@@ -71,6 +71,17 @@ export interface SpanGraphNode {
   readonly spanCount: number;
   /** The worst (highest) OTLP status code among the folded spans. */
   readonly status: number;
+  /**
+   * The `autopilot.firing.number` attribute among the folded spans — ABSENT (not
+   * present-but-undefined, matching `GateCommands`'s optional-key convention in
+   * `packages/onboarding`) when no span carries it, e.g. pre-telemetry spans. A
+   * human-meaningful lane identifier the pipeline tree sidebar uses in place of
+   * the raw 32-hex trace id (board web-mtmpf1zc-6yzprb).
+   */
+  readonly firingOrdinal?: number;
+  /** The `autopilot.commit_subject` attribute among the folded spans, paired with
+   *  {@link firingOrdinal} as a lane's short label — ABSENT under the same rule. */
+  readonly firingSubject?: string;
 }
 
 export interface SpanGraphEdge {
@@ -123,13 +134,12 @@ function flatFleetGraph(spans: readonly OtlpSpan[]): SpanGraph {
   const edges: SpanGraphEdge[] = [];
   for (const [traceId, traceSpans] of traceGroups) {
     for (const span of traceSpans) {
-      nodes.push({
-        id: span.spanId,
-        traceId,
-        label: span.name,
-        spanCount: 1,
-        status: span.status.code,
-      });
+      nodes.push(
+        withFiringMeta(
+          { id: span.spanId, traceId, label: span.name, spanCount: 1, status: span.status.code },
+          [span],
+        ),
+      );
     }
     for (let i = 0; i < traceSpans.length - 1; i++) {
       edges.push({ from: traceSpans[i]!.spanId, to: traceSpans[i + 1]!.spanId });
@@ -148,18 +158,62 @@ function traceItem(spans: readonly OtlpSpan[]): string | null {
   return null;
 }
 
+/** The `autopilot.firing.number` attribute among a group of spans, or null when absent. */
+function traceFiringOrdinal(spans: readonly OtlpSpan[]): number | null {
+  for (const span of spans) {
+    for (const kv of span.attributes) {
+      if (kv.key === 'autopilot.firing.number' && 'intValue' in kv.value) {
+        return Number(kv.value.intValue);
+      }
+    }
+  }
+  return null;
+}
+
+/** The `autopilot.commit_subject` attribute among a group of spans, or null when absent — the
+ *  human-readable one-line summary {@link traceFiringOrdinal} pairs with as a lane's short label. */
+function traceCommitSubject(spans: readonly OtlpSpan[]): string | null {
+  for (const span of spans) {
+    for (const kv of span.attributes) {
+      if (kv.key === 'autopilot.commit_subject' && 'stringValue' in kv.value) {
+        return kv.value.stringValue;
+      }
+    }
+  }
+  return null;
+}
+
+/** Folds `firingOrdinal`/`firingSubject` into `base`, ABSENT (never present-but-undefined) when
+ *  `spans` carries neither attribute — every `SpanGraphNode` builder below shares this so an
+ *  old exact-shape fixture (no attributes) round-trips unchanged. */
+function withFiringMeta<T extends object>(
+  base: T,
+  spans: readonly OtlpSpan[],
+): T & Pick<SpanGraphNode, 'firingOrdinal' | 'firingSubject'> {
+  const ordinal = traceFiringOrdinal(spans);
+  const subject = traceCommitSubject(spans);
+  return {
+    ...base,
+    ...(ordinal !== null ? { firingOrdinal: ordinal } : {}),
+    ...(subject !== null ? { firingSubject: subject } : {}),
+  };
+}
+
 function groupedFleetGraph(spans: readonly OtlpSpan[]): SpanGraph {
   const traceGroups = [...groupByTrace(spans).entries()].sort(compareTraceGroups);
   const nodes: SpanGraphNode[] = traceGroups.map(([traceId, traceSpans]) => {
     const names = new Set(traceSpans.map((s) => s.name));
     const label = names.size === 1 ? traceSpans[0]!.name : `${traceSpans.length} spans`;
-    return {
-      id: traceId,
-      traceId,
-      label,
-      spanCount: traceSpans.length,
-      status: worstStatus(traceSpans),
-    };
+    return withFiringMeta(
+      {
+        id: traceId,
+        traceId,
+        label,
+        spanCount: traceSpans.length,
+        status: worstStatus(traceSpans),
+      },
+      traceSpans,
+    );
   });
   // The one cross-trace signal already on the wire is `autopilot.item` (the board-task id
   // the exporter emits per firing): consecutive traces that worked the same item chain with
@@ -223,13 +277,18 @@ function groupedFileGraph(spans: readonly OtlpSpan[]): SpanGraph {
     return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0;
   });
   const rank = new Map(ordered.map(([path], index) => [path, index]));
-  const nodes: SpanGraphNode[] = ordered.map(([path, touching]) => ({
-    id: path,
-    traceId: touching[0]!.traceId,
-    label: path,
-    spanCount: touching.length,
-    status: worstStatus(touching),
-  }));
+  const nodes: SpanGraphNode[] = ordered.map(([path, touching]) =>
+    withFiringMeta(
+      {
+        id: path,
+        traceId: touching[0]!.traceId,
+        label: path,
+        spanCount: touching.length,
+        status: worstStatus(touching),
+      },
+      touching,
+    ),
+  );
   const edges: SpanGraphEdge[] = [];
   const seen = new Set<string>();
   for (const { files } of entries) {
@@ -257,13 +316,18 @@ function groupedFileGraph(spans: readonly OtlpSpan[]): SpanGraph {
  */
 function flatFileGraph(spans: readonly OtlpSpan[]): SpanGraph {
   const entries = fileCarryingSpans(spans);
-  const nodes: SpanGraphNode[] = entries.map(({ span }) => ({
-    id: span.spanId,
-    traceId: span.traceId,
-    label: span.name,
-    spanCount: 1,
-    status: span.status.code,
-  }));
+  const nodes: SpanGraphNode[] = entries.map(({ span }) =>
+    withFiringMeta(
+      {
+        id: span.spanId,
+        traceId: span.traceId,
+        label: span.name,
+        spanCount: 1,
+        status: span.status.code,
+      },
+      [span],
+    ),
+  );
   const edges: SpanGraphEdge[] = [];
   const seen = new Set<string>();
   const lastSpanByFile = new Map<string, string>();

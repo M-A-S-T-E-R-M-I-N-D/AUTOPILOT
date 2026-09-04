@@ -91,6 +91,54 @@ describe('renderPipelineTreeHtml', () => {
     expect(html).not.toContain('data-connected');
   });
 
+  it('prefers "Firing #<ordinal>" over the raw trace id when the lane carries one (board web-mtmpf1zc-6yzprb)', () => {
+    const g = graph([
+      {
+        id: 's1',
+        traceId: 't1',
+        label: 'plan',
+        spanCount: 1,
+        status: 0,
+        firingOrdinal: 52,
+        firingSubject: 'fix(dashboard): persist an INBOX note',
+      },
+    ]);
+    const html = render(g);
+    expect(html).toContain(
+      'aria-label="Lane #52 — fix(dashboard): persist an INBOX note — 1 node"',
+    );
+    expect(html).toContain(
+      '<span class="pipeline-lane-label" aria-hidden="true">#52 — fix(dashboard): persist an INBOX note</span>',
+    );
+    expect(html).not.toContain('t1<');
+  });
+
+  it('shows the ordinal alone when the lane has no firingSubject', () => {
+    const g = graph([
+      { id: 's1', traceId: 't1', label: 'plan', spanCount: 1, status: 0, firingOrdinal: 3 },
+    ]);
+    const html = render(g);
+    expect(html).toContain('<span class="pipeline-lane-label" aria-hidden="true">#3</span>');
+  });
+
+  it('truncates a long firingSubject in the lane label', () => {
+    const longSubject = 'x'.repeat(80);
+    const g = graph([
+      {
+        id: 's1',
+        traceId: 't1',
+        label: 'plan',
+        spanCount: 1,
+        status: 0,
+        firingOrdinal: 1,
+        firingSubject: longSubject,
+      },
+    ]);
+    const html = render(g);
+    expect(html).toContain(`#1 — ${'x'.repeat(47)}…`);
+    expect(html).not.toContain(longSubject);
+  });
+
   it('escapes markup-significant characters in labels, names, and ids', () => {
     const g = graph([
       { id: 'a"<b>', traceId: 't<1>', label: '<join> & "quote"', spanCount: 2, status: 1 },
