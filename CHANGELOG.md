@@ -33,6 +33,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [0.21.0] — 2026-09-03
 
+### Added
+
+- **Public alpha genesis.** The repository went public: full pre-public history
+  squashed into a single clean commit (personal data scrubbed by design), branch
+  protection + CODEOWNERS + DCO in force, REUSE licensing inventory, THANKS.md
+  crediting all 487 dependencies, samples/ (calculator, python-lib) with
+  case studies, and the peace discussion opened as Discussions #1.
+
 ## [0.20.0] — 2026-09-03
 
 - **KEEPER review: the verify-necessity check no longer tells a contributor
