@@ -71,7 +71,10 @@ function renderBacklogBody(body, candidates) {
   body.replaceChildren();
   candidates = candidates || [];
   if (!candidates.length) {
-    body.appendChild(el('p', 'muted', 'No unconfirmed matches — every open task is either done or not yet echoed by a commit.'));
+    var empty = el('p', 'muted', 'No unconfirmed matches — every open task is either done or not yet echoed by a commit.');
+    empty.setAttribute('data-i18n', 'backlogEmpty');
+    body.appendChild(empty);
+    translateDom(document.documentElement.lang || 'en');
     return;
   }
   var ul = el('ul', 'backlog-list');
@@ -100,6 +103,7 @@ function renderBacklogBody(body, candidates) {
     li.appendChild(tipChip(meta.matchText, meta.tip, meta.ariaLabel, 'backlog-match'));
     if (meta.confirmTip) {
       var confirmBtn = el('button', 'task-done-btn', '✓ confirm done');
+      confirmBtn.setAttribute('data-i18n', 'backlogConfirmDone');
       confirmBtn.setAttribute('type', 'button');
       confirmBtn.setAttribute('data-task-done', cand.taskId);
       confirmBtn.setAttribute('data-tip', meta.confirmTip);
@@ -130,6 +134,7 @@ function renderBacklogBody(body, candidates) {
     ul.appendChild(li);
   }
   body.appendChild(ul);
+  translateDom(document.documentElement.lang || 'en');
 }
 wireRoving('.backlog-item [tabindex]', '.backlog-item');
 function backlogSection(pid) {
@@ -138,7 +143,9 @@ function backlogSection(pid) {
   title.setAttribute('data-i18n', 'backlogTitle');
   wrap.appendChild(title);
   var body = el('div', 'backlog-body');
-  body.appendChild(el('p', 'muted', 'Checking recent commits against the open board…'));
+  var loading = el('p', 'muted', 'Checking recent commits against the open board…');
+  loading.setAttribute('data-i18n', 'backlogChecking');
+  body.appendChild(loading);
   wrap.appendChild(body);
   fetch('/api/backlog?project=' + encodeURIComponent(pid))
     .then(function (r) { return r.ok ? r.json() : { candidates: [] }; })
@@ -148,8 +155,12 @@ function backlogSection(pid) {
     })
     .catch(function () {
       if (!body.isConnected) return;
-      body.replaceChildren(el('p', 'muted', 'Detected backlog unavailable.'));
+      var unavailable = el('p', 'muted', 'Detected backlog unavailable.');
+      unavailable.setAttribute('data-i18n', 'backlogUnavailable');
+      body.replaceChildren(unavailable);
+      translateDom(document.documentElement.lang || 'en');
     });
+  translateDom(document.documentElement.lang || 'en');
   return wrap;
 }
 `.trim();
