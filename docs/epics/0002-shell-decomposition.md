@@ -3082,47 +3082,6 @@ change), confirming the 49-line gap predates this firing and sits entirely
 inside the squash boundary rather than in any tracked history this doc's
 chronicle could have described commit-by-commit. No code changed this pass.
 
-Verdict on ap-mtm46pc3-3 ("blocked concurrency-hazard: HEAD moved twice with
-commits I never made mid-firing") and status check on ap-mtm4qzty-1 (2026-09-04,
-~22:53): CONFIRMED, and still live right now, not stale. While orienting this
-firing, `.autopilot-intent` at the repo root held an active claim —
-`apps/dashboard/src/read/pipeline-layout.ts` for board task
-`web-mtmpf1zc-6yzprb`, an id absent from this firing's own board — while 4
-`claude` processes and ~12 `node` processes were running, all started within
-the prior ~15 minutes. That is a second AUTOPILOT instance, with a different
-board assignment, live-editing this exact primary (non-worktree) checkout
-concurrently with this one; the working tree carried its uncommitted diff
-(`pipeline-graph.ts`, `pipeline-layout.ts`, `pipeline-tree.ts`,
-`pipeline-tree-html.ts` + tests) the whole time. Left untouched — FLEET rules
-treat a live `.autopilot-intent` claim as binding.
-
-`0465c35b` (landed earlier this same day by a sibling flight) added
-`isAnyFlightLockLive()` (`apps/dashboard/src/flight/lock.ts:166-190`) and
-wired it into `landing/execute.ts` — closing the *land-vs-flight* race (a
-`land()` checkout/reset racing a live flight's commits on the same primary
-tree). It does **not** close the *flight-vs-flight* case ap-mtm4qzty-1 and
-ap-mtm46pc3-3 both describe: `fly.ts`'s own worktree-setup-failure fallback
-(`fly.ts:325`, `worktreeRoot = worktree.ok ? worktreePlan.path : target`, and
-the catch-all at `fly.ts:375-376`) flies `target` directly with no check that
-another live flight already holds this project's lock there, and even a
-*successful* worktree flight still runs `syncWorktreeBranch`/
-`fastForwardWorktree` (`fly.ts:351,362`) directly against `target` — the
-exact commit-vs-sweep collision `ca30803d` above already produced once.
-
-Not fixed this pass — deliberately. `fly.ts`/`lock.ts` are load-bearing for
-every flight, including the ~4 siblings flying this same primary checkout as
-this sentence is written; a correct fix needs (a) an `excludePid` parameter on
-`isAnyFlightLockLive` (today it would self-match the caller's own
-just-acquired lock and refuse every solo flight that ever hits the fallback
-path), (b) a guard consulted at `fly.ts:325`/`375-376` before flying primary
-directly, (c) the same guard around the sync-back calls at `fly.ts:351,362`,
-and (d) a concurrency-simulating test (two lock files, one live one dead) —
-more surface than one low-risk firing should take on solo, mid-fleet, in the
-single file every concurrent sibling's git safety depends on. Recommend
-ap-mtm4qzty-1 be split along exactly those three slices ((a)+(b), (c), and a
-separate audit of whatever step produced `ca30803d`'s autoformat commit) and
-picked up by a dedicated, preferably solo, flight.
-
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
