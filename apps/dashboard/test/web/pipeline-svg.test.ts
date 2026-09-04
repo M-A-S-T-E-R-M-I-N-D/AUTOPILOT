@@ -48,6 +48,11 @@ describe('renderPipelineSvg', () => {
     expect(svg).toContain('aria-label="Pipeline graph: 2 nodes, 1 link"');
   });
 
+  it('pins the natural render size with width/height attributes so CSS can only shrink, never inflate (the 43-lane full-screen-node regression)', () => {
+    const svg = render(CHAIN);
+    expect(svg).toContain('viewBox="0 0 260 40" width="260" height="40"');
+  });
+
   it('renders each node as a rect at its canvas position with a centered label', () => {
     const svg = render(CHAIN);
     expect(svg).toContain('<rect x="0" y="0" width="120" height="40"/>');

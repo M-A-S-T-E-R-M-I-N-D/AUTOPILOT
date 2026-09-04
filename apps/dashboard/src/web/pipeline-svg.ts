@@ -84,8 +84,15 @@ export function renderPipelineSvg(
     .join('');
 
   const label = `Pipeline graph: ${plural(canvas.nodes.length, 'node')}, ${plural(canvas.edges.length, 'link')}`;
+  // width/height attributes pin the NATURAL size (1 viewBox unit = 1px):
+  // without them the CSS slice's flex sizing stretches the svg to the
+  // panel's full width and the preserved aspect ratio inflates the height
+  // with it — a 43-lane single-column flight (viewBox 120×2140) rendered
+  // every node the size of a whole screen. The CSS may still SHRINK a
+  // too-wide canvas (max-width: 100%; height: auto), never inflate one.
   return (
-    `<svg class="pipeline-canvas" role="img" viewBox="0 0 ${canvas.width} ${canvas.height}" aria-label="${esc(label)}">` +
+    `<svg class="pipeline-canvas" role="img" viewBox="0 0 ${canvas.width} ${canvas.height}" ` +
+    `width="${canvas.width}" height="${canvas.height}" aria-label="${esc(label)}">` +
     `<g class="pipeline-edges">${edgeMarkup}</g><g class="pipeline-nodes">${nodeMarkup}</g></svg>`
   );
 }
