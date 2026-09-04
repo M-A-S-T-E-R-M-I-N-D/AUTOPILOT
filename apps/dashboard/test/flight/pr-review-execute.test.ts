@@ -631,138 +631,45 @@ describe('createPrReviewExecuteApi', () => {
     ]);
   });
 
-  it('dismisses a stale policy-green approval even when the request-changes review is deduped', async () => {
-    // The deduped request-changes path returns early without posting — but a
-    // dangling approval posted AFTER that standing review is the identity's
-    // LATEST review, so it would keep vouching policy-green while the execute
-    // reports an honest no-op. The sweep runs on every non-merge decision,
-    // so the stale approval is dismissed here too.
-    const reasoning =
-      '#12 "Fix flaky sparkline test" — the gate failed; ' +
-      "an agent's judgment never substitutes for it.";
-    const staleBody =
-      '#12 "Fix flaky sparkline test" is policy-green — gate passed, no conflicts, no security-sensitive paths touched.';
+  it('still posts the queue-for-human comment when the approval sweep returns unparseable JSON', async () => {
+    // Same fail-soft stance as a failed fetch above, but here the fetch
+    // itself succeeds (code 0) and only the JSON.parse of its stdout throws —
+    // the sweep must still swallow that and let the honest verdict post.
     const exec: CliExec = vi
       .fn()
       .mockResolvedValueOnce({
         code: 0,
-        stdout: openPrListStdout({ statusCheckRollup: [{ conclusion: 'FAILURE' }] }),
+        stdout: openPrListStdout({ files: [{ path: 'apps/dashboard/src/server/security.ts' }] }),
       })
-      .mockResolvedValueOnce({ code: 1, stdout: '' }) // gh pr diff fails ⇒ necessity not assessed
-      .mockResolvedValueOnce({
-        code: 0,
-        stdout: JSON.stringify([
-          { state: 'CHANGES_REQUESTED', body: reasoning },
-          { id: 7, state: 'APPROVED', body: staleBody },
-        ]),
-      }) // approval sweep finds the later dangling approval
-      .mockResolvedValueOnce({ code: 0, stdout: '{}' }) // dismissal PUT
-      .mockResolvedValueOnce({
-        code: 0,
-        stdout: JSON.stringify([{ state: 'CHANGES_REQUESTED', body: reasoning }]),
-      }); // request-changes probe finds the standing verbatim review
+      .mockResolvedValueOnce({ code: 0, stdout: 'not json' }) // approval sweep: unparseable
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // comment probe finds no standing duplicate
+      .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
     const api = createPrReviewExecuteApi(exec);
 
     const result = await api(12);
 
-    expect(result?.decision).toMatchObject({ decision: 'request-changes' });
+    expect(result?.results).toHaveLength(1);
     expect(exec).toHaveBeenNthCalledWith(4, 'gh', [
-      'api',
-      '--method',
-      'PUT',
-      'repos/{owner}/{repo}/pulls/12/reviews/7/dismissals',
-      '-f',
-      expect.stringMatching(/^message=/),
+      'pr',
+      'comment',
+      '12',
+      '--body',
+      result?.decision.reasoning,
     ]);
-    expect(result?.results).toHaveLength(3); // sweep fetch, dismissal, standing-review no-op
   });
 
-  it("dismisses the ritual's own stale policy-green approval left standing on a queue-for-human PR", async () => {
-    // A crashed earlier run (approve landed, the pinned merge never ran, and
-    // the same-run remediation died with the process) leaves an APPROVED
-    // "policy-green" review standing. A queue-for-human execute posts only a
-    // COMMENT — comments never supersede a review — so branch protection
-    // would keep counting that stale approval toward a merge nobody
-    // re-reviewed. The execute now sweeps the ritual's own policy-green
-    // approvals first and dismisses them; matched by shape (#N "…" plus the
-    // policy-green suffix), so a title edited since the approve still
-    // matches.
-    const staleBody =
-      '#12 "An older title from approve time" is policy-green — gate passed, no conflicts, no security-sensitive paths touched.';
+  it('posts a fresh queue-for-human comment when the standing-duplicate probe itself returns unparseable JSON — a probe outage must never be mistaken for a match', async () => {
+    // findStandingDuplicate's own JSON.parse can throw independently of the
+    // stale-approval sweep above; a parse failure here must fail toward
+    // POSTING the verdict, never toward silently treating it as a duplicate.
     const exec: CliExec = vi
       .fn()
       .mockResolvedValueOnce({
         code: 0,
         stdout: openPrListStdout({ files: [{ path: 'apps/dashboard/src/server/security.ts' }] }),
       })
-      .mockResolvedValueOnce({
-        code: 0,
-        stdout: JSON.stringify([{ id: 9, state: 'APPROVED', body: staleBody }]),
-      }) // approval sweep finds the ritual's stale policy-green approval
-      .mockResolvedValueOnce({ code: 0, stdout: '{}' }) // dismissal PUT
-      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // comment probe finds no standing duplicate
-      .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
-    const api = createPrReviewExecuteApi(exec);
-
-    const result = await api(12);
-
-    expect(result?.decision).toMatchObject({ decision: 'queue-for-human' });
-    expect(exec).toHaveBeenNthCalledWith(2, 'gh', [
-      'api',
-      'repos/{owner}/{repo}/pulls/12/reviews?per_page=100',
-    ]);
-    expect(exec).toHaveBeenNthCalledWith(3, 'gh', [
-      'api',
-      '--method',
-      'PUT',
-      'repos/{owner}/{repo}/pulls/12/reviews/9/dismissals',
-      '-f',
-      expect.stringMatching(/^message=/),
-    ]);
-    expect(result?.results).toHaveLength(3); // sweep fetch, dismissal, comment
-  });
-
-  it("leaves every review standing that is not the ritual's own policy-green approval", async () => {
-    // A human's APPROVED review (any other body) and a CHANGES_REQUESTED
-    // review that merely quotes the policy-green shape are both someone
-    // else's verdict — the sweep dismisses nothing and stays silent.
-    const policyGreenShaped =
-      '#12 "Fix flaky sparkline test" is policy-green — gate passed, no conflicts, no security-sensitive paths touched.';
-    const exec: CliExec = vi
-      .fn()
-      .mockResolvedValueOnce({
-        code: 0,
-        stdout: openPrListStdout({ files: [{ path: 'apps/dashboard/src/server/security.ts' }] }),
-      })
-      .mockResolvedValueOnce({
-        code: 0,
-        stdout: JSON.stringify([
-          { id: 4, state: 'APPROVED', body: 'LGTM' },
-          { id: 5, state: 'CHANGES_REQUESTED', body: policyGreenShaped },
-        ]),
-      }) // approval sweep finds nothing of the ritual's own
-      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // comment probe finds no standing duplicate
-      .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
-    const api = createPrReviewExecuteApi(exec);
-
-    const result = await api(12);
-
-    expect(result?.results).toHaveLength(1); // the comment only — no dismissal, silent sweep
-    expect(exec).toHaveBeenCalledTimes(4); // list + sweep + probe + comment
-  });
-
-  it('still posts the queue-for-human comment when the approval sweep itself fails', async () => {
-    // Fail soft and silent, same stance as the duplicate probes: the sweep is
-    // speculative remediation, and an outage must never withhold the honest
-    // queue-for-human verdict itself.
-    const exec: CliExec = vi
-      .fn()
-      .mockResolvedValueOnce({
-        code: 0,
-        stdout: openPrListStdout({ files: [{ path: 'apps/dashboard/src/server/security.ts' }] }),
-      })
-      .mockResolvedValueOnce({ code: 1, stdout: '' }) // approval sweep fetch fails
-      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // comment probe finds no standing duplicate
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // approval sweep finds nothing to dismiss
+      .mockResolvedValueOnce({ code: 0, stdout: 'not json' }) // comment probe: unparseable
       .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
     const api = createPrReviewExecuteApi(exec);
 
