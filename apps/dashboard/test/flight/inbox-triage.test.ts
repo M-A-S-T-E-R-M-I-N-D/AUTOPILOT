@@ -26,6 +26,14 @@ function tasks(
     .all(projectId) as { id: string; title: string; status: string; source: string }[];
 }
 
+function taskBody(s: Store, projectId: string, id: string): string | null {
+  return (
+    s.db.prepare('SELECT body FROM tasks WHERE project_id = ? AND id = ?').get(projectId, id) as {
+      body: string | null;
+    }
+  ).body;
+}
+
 function cleanupDir(dir: string): void {
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }
@@ -91,6 +99,31 @@ describe('triageInboxEntries', () => {
 
       expect(existsSync(join(inboxDir, 'note.md'))).toBe(false);
       expect(readdirSync(join(inboxDir, '.triaged'))).toEqual(['note.md']);
+      s.close();
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
+  it("persists the note's full content on the task record, not just its title line", () => {
+    // The archived file lives only in the gitignored INBOX/.triaged/ of the
+    // worktree that triaged it — invisible to the rest of the fleet. Once a
+    // note's first line becomes the (200-char-capped) title, the body is the
+    // ONLY place the rest of the note survives anywhere fleet-wide.
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-triage-body-repo-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-triage-body-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo);
+      mkdirSync(join(repo, 'INBOX'), { recursive: true });
+
+      const content = 'ship faster please\n\nmore detail on why this matters below.';
+      triageInboxEntries(s, 'p1', repo, [{ name: 'note.md', content }], () => 100);
+
+      expect(taskBody(s, 'p1', inboxTaskId('note.md'))).toBe(content);
       s.close();
     } finally {
       cleanupDir(repo);

@@ -93,6 +93,7 @@ const PROJECTS: readonly ProjectAggregate[] = [
       {
         id: 'task-1',
         title: 'Support stacked discount codes at checkout',
+        body: null,
         status: 'in_progress',
         severity: 'medium',
         dimension: 'feature',
@@ -170,6 +171,7 @@ const PROJECTS: readonly ProjectAggregate[] = [
       {
         id: 'task-2',
         title: 'Rounding error on prorated invoices',
+        body: null,
         status: 'in_progress',
         severity: 'critical',
         dimension: 'cybersecurity',

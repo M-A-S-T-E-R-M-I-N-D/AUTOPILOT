@@ -419,6 +419,26 @@ describe('taskTitleTip', () => {
       tip: 'Added 0s ago · operator priority 0',
     });
   });
+
+  it('appends a body preview when the task carries one beyond its title', () => {
+    expect(taskTitleTip(1_700_000_000_000, null, fmtAgo, 'the full note text')).toEqual({
+      tip: 'Added 0s ago — the full note text',
+    });
+  });
+
+  it('trims a body preview and truncates it at 240 chars', () => {
+    const long = '  ' + 'x'.repeat(500) + '  ';
+    const result = taskTitleTip(1_700_000_000_000, null, fmtAgo, long);
+    expect(result.tip).toBe('Added 0s ago — ' + 'x'.repeat(240));
+  });
+
+  it('omits the body preview when body is null, undefined, or blank', () => {
+    expect(taskTitleTip(1_700_000_000_000, null, fmtAgo, null)).toEqual({ tip: 'Added 0s ago' });
+    expect(taskTitleTip(1_700_000_000_000, null, fmtAgo, undefined)).toEqual({
+      tip: 'Added 0s ago',
+    });
+    expect(taskTitleTip(1_700_000_000_000, null, fmtAgo, '   ')).toEqual({ tip: 'Added 0s ago' });
+  });
 });
 
 describe('taskMoveTip', () => {

@@ -2008,7 +2008,7 @@ function tasksSection(c) {
       // audit v2 follow-up: every panel drills down).
       var titleEl = el('span', 'task-title', t.title);
       titleEl.setAttribute('tabindex', '0');
-      var titleTipMeta = taskTitleTip(t.at, t.priority, fmtAgo);
+      var titleTipMeta = taskTitleTip(t.at, t.priority, fmtAgo, t.body);
       titleEl.setAttribute('data-tip', titleTipMeta.tip);
       // D1 ATTRIBUTE PAYLOAD (epic 0015): the title's own text already gives
       // it an accessible name, so the tip's facts ride aria-describedby into

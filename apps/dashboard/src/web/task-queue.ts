@@ -313,7 +313,10 @@ export interface TaskTitleTip {
 /** The task title span's own explain-itself tip — when the task was added,
  *  plus the operator's manual priority when one was set (app-wide
  *  interactivity audit v2 follow-up: the title was the last silent element
- *  on the row). `fmtAgo` is caller-injected rather than imported from
+ *  on the row), plus a preview of the task's `body` when it carries one
+ *  beyond the title (e.g. an INBOX note's full content — otherwise
+ *  unrecoverable once the source file archives to the gitignored
+ *  `INBOX/.triaged/`). `fmtAgo` is caller-injected rather than imported from
  *  `./format.ts`, the same {@link taskBurnLabel}/{@link taskRunawayTip}
  *  pattern. Takes no `title`: the span's own text content already gives it
  *  an accessible name, so the caller wires this tip in via aria-describedby
@@ -324,9 +327,17 @@ export function taskTitleTip(
   at: number,
   priority: number | null | undefined,
   fmtAgo: (ts: number) => string,
+  body?: string | null,
 ): TaskTitleTip {
   const hasPriority = priority !== null && priority !== undefined;
-  const tip = 'Added ' + fmtAgo(at) + (hasPriority ? ' · operator priority ' + priority : '');
+  const trimmedBody = body?.trim();
+  // 240 is inlined rather than a named constant: this function's compiled
+  // source is embedded into the client bundle verbatim via .toString()
+  // (see web/shell.ts), so an outside identifier would be a ReferenceError
+  // in the browser instead of a build-time error.
+  const bodyPreview = trimmedBody ? ' — ' + trimmedBody.slice(0, 240) : '';
+  const tip =
+    'Added ' + fmtAgo(at) + (hasPriority ? ' · operator priority ' + priority : '') + bodyPreview;
   return { tip };
 }
 

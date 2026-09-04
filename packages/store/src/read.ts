@@ -342,6 +342,9 @@ export function firingSeries(db: Db, projectId: string): FiringSeriesPoint[] {
 export interface TaskSummaryRow {
   readonly id: string;
   readonly title: string;
+  /** Free-form body beyond the title (e.g. an INBOX note's full content) —
+   *  null for a task with nothing beyond its title. */
+  readonly body: string | null;
   readonly status: string;
   readonly severity: string | null;
   readonly dimension: string | null;
@@ -392,7 +395,7 @@ function clampTasksLimit(limit: number, fallback: number): number {
 export function recentTasks(db: Db, projectId: string, limit = 30): TaskSummaryRow[] {
   return db
     .prepare(
-      `SELECT id, title, status, severity, dimension, focus, priority, priority_pinned, source, created_at, assignee FROM tasks
+      `SELECT id, title, body, status, severity, dimension, focus, priority, priority_pinned, source, created_at, assignee FROM tasks
         WHERE project_id = ?
         ORDER BY CASE WHEN status IN ('queued','in_progress','needs_approval') THEN 0 ELSE 1 END,
                  focus DESC,
@@ -418,7 +421,7 @@ export function recentTasks(db: Db, projectId: string, limit = 30): TaskSummaryR
 export function doneTasks(db: Db, projectId: string, limit = 50): TaskSummaryRow[] {
   return db
     .prepare(
-      `SELECT id, title, status, severity, dimension, focus, priority, priority_pinned, source, created_at, assignee FROM tasks
+      `SELECT id, title, body, status, severity, dimension, focus, priority, priority_pinned, source, created_at, assignee FROM tasks
         WHERE project_id = ? AND status = 'done'
         ORDER BY updated_at DESC
         LIMIT ?`,

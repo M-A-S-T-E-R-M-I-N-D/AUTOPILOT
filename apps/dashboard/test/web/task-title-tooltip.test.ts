@@ -62,6 +62,18 @@ const PROJECT = {
       priority: null,
       at: NOW - 60 * 1000,
     },
+    {
+      id: 't3',
+      title: 'ship faster please',
+      body: 'ship faster please\n\nmore detail on why this matters below.',
+      status: 'queued',
+      source: 'inbox',
+      severity: null,
+      dimension: null,
+      focus: false,
+      priority: null,
+      at: NOW - 30 * 1000,
+    },
   ],
 };
 
@@ -105,7 +117,7 @@ describe('task title explains itself on hover/focus', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const titles = Array.from(document.querySelectorAll('.task-title'));
-    expect(titles).toHaveLength(2);
+    expect(titles).toHaveLength(3);
 
     const ordered = titles[0];
     // D1 TAB-STOP ROVING (board web-mtd1wyte-ssntzi): the title shares one
@@ -137,5 +149,19 @@ describe('task title explains itself on hover/focus', () => {
     const descId = unordered?.getAttribute('aria-describedby');
     const desc = document.getElementById(descId!);
     expect(desc?.textContent).toBe('Added 1m ago');
+  });
+
+  it("previews an INBOX-triaged task's full note body — the only place it survives once the source file archives to the gitignored INBOX/.triaged/", async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const titles = Array.from(document.querySelectorAll('.task-title'));
+    const withBody = titles[2];
+    const expectedTip =
+      'Added 30s ago — ship faster please\n\nmore detail on why this matters below.';
+    expect(withBody?.getAttribute('data-tip')).toBe(expectedTip);
+    const descId = withBody?.getAttribute('aria-describedby');
+    const desc = document.getElementById(descId!);
+    expect(desc?.textContent).toBe(expectedTip);
   });
 });
