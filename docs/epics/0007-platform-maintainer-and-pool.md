@@ -709,6 +709,16 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    the decision was already right, only the posted text carried the
    unauthorized-looking side effect. `baseRefName` now runs through the same
    `neutralizeAtMentions` conditional spread as the other three fields),
+   the Apply-result live region (`web/features/pr-review.ts`'s
+   `.pr-review-result` now carries `role="status"`/`aria-live="polite"`: the
+   execute outcome — merged, the first failing `gh` step, the stale-decision
+   refusal — is written there after the confirm dialog, once focus has long
+   moved on, so a screen-reader user heard nothing when a real gh merge/review
+   landed or failed; every sibling result element (landing, report-from-here,
+   the gh issue/PR results) already announced itself this way, and
+   `test/web/pr-review-result-live-region.test.ts` asserts both the attributes
+   and that the outcome text lands in that same element — the UX-expression
+   half of the ritual, brought level with its decision core),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do), and actually
    resolving a conflict — today's ritual only names the files involved for a
