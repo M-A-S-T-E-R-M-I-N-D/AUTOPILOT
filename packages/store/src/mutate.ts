@@ -299,6 +299,11 @@ export interface CreateTaskInput {
   readonly id: string;
   readonly projectId: string;
   readonly title: string;
+  /** Free-form body text beyond the title — e.g. an INBOX note's full content
+   *  (`flight/inbox-triage.ts`), otherwise lost once the note archives to the
+   *  gitignored `INBOX/.triaged/` and only the title's first line survives
+   *  on the board. Null/omitted for sources with nothing beyond a title. */
+  readonly body?: string | null;
   readonly severity?: string | null;
   readonly dimension?: string | null;
   /** 'dashboard' (human, the default), 'self' (autopilot-mined proposal),
@@ -337,13 +342,14 @@ export function createTask(
   try {
     const info = store.db
       .prepare(
-        `INSERT INTO tasks (id, project_id, title, status, severity, dimension, source, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tasks (id, project_id, title, body, status, severity, dimension, source, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         input.id,
         input.projectId,
         title,
+        input.body ?? null,
         input.status ?? 'queued',
         input.severity ?? null,
         input.dimension ?? null,

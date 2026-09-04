@@ -119,6 +119,10 @@ export interface ActivityEntry {
 export interface TaskEntry {
   readonly id: string;
   readonly title: string;
+  /** Free-form body beyond the title — e.g. an INBOX note's full content,
+   *  otherwise unrecoverable once the source file archives to the gitignored
+   *  `INBOX/.triaged/`. Null for a task with nothing beyond its title. */
+  readonly body: string | null;
   readonly status: string;
   readonly severity: string | null;
   readonly dimension: string | null;

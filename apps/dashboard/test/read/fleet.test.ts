@@ -418,6 +418,7 @@ describe('finishedFlightSummaries', () => {
   const task = (over: Partial<TaskEntry> = {}): TaskEntry => ({
     id: 't1',
     title: 'Fix the login',
+    body: null,
     status: 'done',
     severity: 'high',
     dimension: 'ux',
@@ -604,6 +605,7 @@ describe('liveFiring', () => {
   const task = (over: Partial<TaskEntry> = {}): TaskEntry => ({
     id: 't1',
     title: 'Fix the login',
+    body: null,
     status: 'in_progress',
     severity: 'high',
     dimension: 'ux',

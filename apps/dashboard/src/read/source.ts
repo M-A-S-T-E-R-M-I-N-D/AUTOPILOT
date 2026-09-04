@@ -363,6 +363,7 @@ export function mapTaskEntries(db: Store['db'], projectId: string): TaskEntry[] 
     return {
       id: t.id,
       title: t.title,
+      body: t.body,
       status: t.status,
       severity: t.severity,
       dimension: t.dimension,

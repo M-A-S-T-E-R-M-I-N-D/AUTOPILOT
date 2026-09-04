@@ -67,6 +67,7 @@ export function triageInboxEntries(
       id: inboxTaskId(entry.name),
       projectId,
       title: inboxTaskTitle(entry),
+      body: entry.content,
       source: 'inbox',
       createdAt: now(),
     });

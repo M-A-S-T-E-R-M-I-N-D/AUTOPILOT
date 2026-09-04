@@ -778,6 +778,25 @@ describe('createTask + setTaskStatus', () => {
     expect(after).toEqual({ status: 'done', updated_at: 9 });
   });
 
+  it('persists an optional body, defaulting to null when omitted', () => {
+    createTask(store, {
+      id: 'web-body-1',
+      projectId: 'p1',
+      title: 'note title',
+      body: 'the full note text, beyond the title',
+      createdAt: 1,
+    });
+    createTask(store, { id: 'web-body-2', projectId: 'p1', title: 'no body here', createdAt: 1 });
+
+    const rows = store.db
+      .prepare('SELECT id, body FROM tasks WHERE id IN (?, ?) ORDER BY id')
+      .all('web-body-1', 'web-body-2') as { id: string; body: string | null }[];
+    expect(rows).toEqual([
+      { id: 'web-body-1', body: 'the full note text, beyond the title' },
+      { id: 'web-body-2', body: null },
+    ]);
+  });
+
   it('accepts optional severity/dimension and rejects CHECK-invalid values', () => {
     expect(
       createTask(store, {

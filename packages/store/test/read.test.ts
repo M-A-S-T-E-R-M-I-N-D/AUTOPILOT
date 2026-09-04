@@ -754,6 +754,19 @@ describe('recentTasks', () => {
     expect(rows.find((r) => r.id === 't-pinned')?.priority_pinned).toBe(1);
   });
 
+  it('surfaces body — null by default, the full text once a source sets it', () => {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, body, status, source, created_at, updated_at)
+         VALUES ('t-no-body', 'pt', 'title only', NULL, 'queued', 'dashboard', 1, 1),
+                ('t-with-body', 'pt', 'note title', 'the full note text', 'queued', 'inbox', 2, 2)`,
+      )
+      .run();
+    const rows = recentTasks(store.db, 'pt');
+    expect(rows.find((r) => r.id === 't-no-body')?.body).toBeNull();
+    expect(rows.find((r) => r.id === 't-with-body')?.body).toBe('the full note text');
+  });
+
   it('clamps a negative limit instead of returning every row unbounded', () => {
     insertTask('pt', 'queued', null);
     insertTask('pt', 'queued', null);
@@ -814,6 +827,17 @@ describe('doneTasks', () => {
     const rows = doneTasks(store.db, 'dt');
     expect(rows.find((r) => r.id === 'd-claimed')).toHaveProperty('assignee', 'fleet-2');
     expect(rows.find((r) => r.id === 'd-unclaimed')).toHaveProperty('assignee', null);
+  });
+
+  it('carries the body field, honoring the TaskSummaryRow contract it returns', () => {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, body, status, source, created_at, updated_at)
+         VALUES ('d-with-body', 'dt', 'note title', 'the full note text', 'done', 'inbox', 1, 1)`,
+      )
+      .run();
+    const rows = doneTasks(store.db, 'dt');
+    expect(rows.find((r) => r.id === 'd-with-body')).toHaveProperty('body', 'the full note text');
   });
 
   it('clamps a negative limit instead of returning every row unbounded', () => {
