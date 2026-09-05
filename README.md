@@ -202,8 +202,9 @@ overclaiming. Start here:
 - [`docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md`](docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md) —
   why parallel agent lanes conflict, the research base (DeepMerge → Merge-Bench), and the self-healing merge ladder
   that reduced stranded work from 21 commits to zero.
-- [`docs/EVALUATION-2026-09-03-cockpit-baseline.md`](docs/EVALUATION-2026-09-03-cockpit-baseline.md) — the cockpit
-  measurement battery: DOM growth, axe-by-impact, tab stops, duplicate renders (14 → 0), contrast matrices, INP.
+- [`docs/COCKPIT-BASELINE.md`](docs/COCKPIT-BASELINE.md) — the cockpit measurement battery,
+  as one living doc with a delta-only trend table: DOM growth, axe-by-impact, tab stops,
+  duplicate renders (14 → 0), contrast matrices, INP.
 - The full dated series lives in [`docs/`](docs/) (`EVALUATION-*.md`) — including the failures.
 
 ## For developers
