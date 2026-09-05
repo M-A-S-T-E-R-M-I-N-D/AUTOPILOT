@@ -73,9 +73,12 @@
  * three client-written status lines — reads `STRINGS` through the core
  * chunk's global `tr()` at build time, since both are painted fresh on
  * every open and there is no persistent node for `translateDom()` to
- * revisit (the browse-folder modal's route). The spliced `report-panel.ts`
- * helpers below still compose English — they cannot import a translator and
- * are the injected-`tr` follow-up, the same split the CONNECT popover took.
+ * revisit (the browse-folder modal's route). `reportConfirmMessage` (the
+ * EXECUTE button's `window.confirm()`) now takes that same `tr` as its
+ * second argument, the injected-`tr` route `release-panel.ts`'s
+ * `releaseConfirmMessage` established; `reportActionLabel`/
+ * `reportExecuteResult`/`reportExecuteTip` below still compose English and
+ * are the remaining follow-up, same split the CONNECT popover took.
  */
 import {
   reportActionLabel as sharedReportActionLabel,
@@ -384,7 +387,7 @@ function paintReportDialog(pid, capture) {
     execBtn.setAttribute('aria-label', execTip);
     execBtn.addEventListener('click', function () {
       if (!previewedPlan) return;
-      if (!window.confirm(reportConfirmMessage(previewedPlan))) return;
+      if (!window.confirm(reportConfirmMessage(previewedPlan, tr))) return;
       execBtn.disabled = true;
       execBtn.textContent = tr('reportExecuting');
       fetch('/api/report-from-here/execute', {

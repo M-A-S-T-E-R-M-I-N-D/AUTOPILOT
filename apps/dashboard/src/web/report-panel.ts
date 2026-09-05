@@ -51,26 +51,46 @@ export function reportActionLabel(action: string): string {
   return action;
 }
 
+/** The four `STRINGS` keys {@link reportConfirmMessage} reads — the
+ *  base/effect/suffix shape `release-panel.ts`'s `ReleasePanelKey` already
+ *  established. */
+export type ReportPanelKey =
+  | 'reportConfirmExecute'
+  | 'reportConfirmEffectTask'
+  | 'reportConfirmEffectIssue'
+  | 'reportConfirmSuffix';
+
+/** The bundle's `tr(key)` (`web/features/locale.ts`), injected rather than
+ *  imported — a `.toString()`-spliced helper carries no free variables with
+ *  it, so a translator it closed over would resolve to nothing in the
+ *  generated client bundle. Same injection route `release-panel.ts`'s
+ *  `ReleasePanelTranslator`/`pr-review-panel.ts`'s `PrReviewPanelTranslator`
+ *  take. */
+export type ReportPanelTranslator = (key: ReportPanelKey) => string;
+
 /** The REPORT EXECUTE button's `window.confirm()` message for one resolved
  *  plan — states exactly what applying it does before the operator triggers
  *  a real `gh issue create` or board write, same "state what happens before
  *  confirming" shape `releaseConfirmMessage`/`prReviewConfirmMessage` use.
  *  An upstream plan (issue/pool offer) notes the issue is real and lives on
  *  GitHub afterward; a task-shaped plan notes the content-addressed id
- *  makes a retry harmless. */
-export function reportConfirmMessage(plan: ReportResolvedLike): string {
+ *  makes a retry harmless. i18n foundation (board web-msnsndki-dz3vn1): the
+ *  four static clauses now read from `@autopilot/tokens`' `STRINGS` via the
+ *  injected `tr`, the `reportActionLabel`/`reportExecuteResult`/
+ *  `reportExecuteTip` follow-up `report-menu-i18n.test.ts` named — `plan.summary`
+ *  itself is server-composed and stays untranslated, the same server-message
+ *  stance every prior slice took. */
+export function reportConfirmMessage(plan: ReportResolvedLike, tr: ReportPanelTranslator): string {
   const isTask = plan.action === 'local-task' || plan.action === 'quick-fix-pr';
-  const effectNote = isTask
-    ? 'This creates a queued board task — its id is content-addressed, so retrying the same capture never mints a second one.'
-    : 'This files a REAL GitHub issue via gh — this dashboard cannot recall it; close it on GitHub if it was a mistake.';
+  const effectNote = isTask ? tr('reportConfirmEffectTask') : tr('reportConfirmEffectIssue');
   return (
-    'Execute this report?\n\n' +
+    tr('reportConfirmExecute') +
+    '\n\n' +
     plan.summary +
     '\n\n' +
     effectNote +
     '\n\n' +
-    'The plan is re-derived fresh from the capture at execute time — this ' +
-    'will not blindly trust what is shown here.'
+    tr('reportConfirmSuffix')
   );
 }
 

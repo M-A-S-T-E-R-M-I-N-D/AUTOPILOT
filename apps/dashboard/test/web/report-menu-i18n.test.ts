@@ -19,11 +19,14 @@
  * server-message stance every prior slice took.
  *
  * Out of scope here, by the same split the CONNECT popover took: the
- * spliced `reportActionLabel`/`reportConfirmMessage`/`reportExecuteResult`/
- * `reportExecuteTip` helpers (`web/report-panel.ts`, reached via
- * `.toString()`) still compose English — they need the injected-`tr` route
- * and are the named follow-up. `client-tr-keys.test.ts` resolves every key
- * asserted here against STRINGS.
+ * spliced `reportActionLabel`/`reportExecuteResult`/`reportExecuteTip`
+ * helpers (`web/report-panel.ts`, reached via `.toString()`) still compose
+ * English — they need the injected-`tr` route and are the remaining
+ * follow-up. `reportConfirmMessage` took that route in this same slice (own
+ * coverage in `report-panel.test.ts`); the assertion below just pins that
+ * the call site here passes the bundle's `tr` through. `client-tr-keys.test.ts`
+ * resolves every key asserted here (and `reportConfirmMessage`'s own) against
+ * STRINGS.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -68,6 +71,10 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
     expect(out).toContain("execBtn.textContent = tr('reportExecuting');");
     expect(out).not.toContain("'Execute'");
     expect(out).not.toContain("'Executing…'");
+  });
+
+  it('passes the bundle tr through to the spliced reportConfirmMessage', () => {
+    expect(out).toContain('window.confirm(reportConfirmMessage(previewedPlan, tr))');
   });
 
   it('translates the three client-written status lines, templating the server reasoning', () => {
