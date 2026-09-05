@@ -106,14 +106,16 @@ one selection model), process (baseline doc closed out, §14 empty).
 
 ## Phase order
 
-0. **MEASURE** — `scripts/cockpit-metrics.mjs` + `docs/EVALUATION-<date>-cockpit-baseline.md`
+0. **MEASURE** — `scripts/cockpit-metrics.mjs` + `docs/COCKPIT-BASELINE.md`, the one
+   living doc with a delta-only trend table (superseded dated snapshots archived under
+   `docs/archive/`)
    (brief §5 table: tab stops, DOM growth per lane/task/row, attribute
    payload, axe by impact, INP p75, longest task, alarm rate, severity shape,
    i18n coverage, duplicate renders, token coverage via computed-style census,
    unique values, specificity, contrast matrix). Board task carries the
    EPIC-SPEC marker for this file.
    Shipped so far: **thirteen of the table's rows** land via `pnpm run cockpit-metrics`
-   (latest snapshot `docs/EVALUATION-2026-09-03-cockpit-baseline.md`): (1–3) DOM growth
+   (current baseline `docs/COCKPIT-BASELINE.md`): (1–3) DOM growth
    per row/task/lane, (4) axe violations by impact, (5) tab stops, (6) attribute
    payload, (7) duplicate renders, (8) unique declaration values, (9) selector
    specificity, (10) WCAG contrast matrix over theme token maps, (11–12) alarm rate
