@@ -866,7 +866,7 @@ M15 comment). The reseed landed a defense per gap, all four now shipped:
   checkpointed death keeps it standing (the resuming firing still owns the
   packed-up unit); every other no-ship ending retires it as abandoned
   (`claimSurvivesFiring`) so a stale claim can't wall siblings out of ghost
-  work. Operator guide: `docs/FLEET-ORCHESTRATION.md`.
+  work. Operator guide: `docs/DOCTRINE-COORDINATION.md`.
 
 ## Silent model downgrade + fleet machine budget — the 5-agent evidence (2026-08-17, verify-by 2027-02)
 
