@@ -107,6 +107,16 @@ export const POOL_LABEL_PREFIX = 'pool: ';
  *  same reasoning comment again. */
 const DUPLICATE_LABEL = 'duplicate';
 
+/** GitHub's community-onboarding label (its own default repo template
+ *  ships it; some repos use the hyphenated spelling instead) marks an issue
+ *  as reserved for a human contributor to pick up. Accepting it onto the
+ *  board would have the fleet implement it in hours, eating the very
+ *  opportunity the label exists to protect — so this plans a `'skip'`
+ *  instead of an `'accept'`, same as an already-triaged issue. */
+function isGoodFirstIssueLabel(label: string): boolean {
+  return label.toLowerCase().replace(/-/g, ' ') === 'good first issue';
+}
+
 /** Keyword signals for each pool dimension (`.github/labels.json`'s "pool: *"
  *  labels map 1:1 onto `DIMENSIONS`) — deliberately simple substring matching,
  *  not a model call: this is a cheap, deterministic first pass an operator
@@ -178,6 +188,15 @@ export function planIssueTriage(
   threshold: number = DUPLICATE_THRESHOLD,
 ): IssueTriageDecision {
   const labels = issue.labels ?? [];
+  if (labels.some(isGoodFirstIssueLabel)) {
+    return {
+      decision: 'skip',
+      reasoning:
+        `#${issue.number} "${issue.title}" carries "good first issue" — reserved for a human ` +
+        'contributor to pick up; accepting it would board it for the fleet instead, which ' +
+        'implements it in hours and eats the community opportunity the label exists to protect.',
+    };
+  }
   const poolLabel = labels.find((label) => label.startsWith(POOL_LABEL_PREFIX));
   if (poolLabel) {
     return {

@@ -167,6 +167,33 @@ describe('planIssueTriage', () => {
     expect(decision.decision).toBe('skip');
     expect(decision.reasoning).toContain('github-9');
   });
+
+  it('skips a "good first issue" instead of accepting it, so the fleet does not eat the community opportunity', () => {
+    const decision = planIssueTriage(
+      {
+        number: 21,
+        title: 'Add a --dry-run flag to the CLI',
+        body: 'Small, well-scoped, great for a first PR',
+        labels: ['good first issue'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('good first issue');
+    expect(decision.reasoning).toContain('#21');
+  });
+
+  it('recognizes the hyphenated "good-first-issue" label spelling too', () => {
+    const decision = planIssueTriage(
+      { number: 22, title: 'Fix a typo in the README', body: '', labels: ['good-first-issue'] },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('skip');
+  });
 });
 
 describe('planIssueTriageCommands', () => {
