@@ -435,6 +435,16 @@
  * them: the form is built with DOM calls (`el()`/`createElement`), not an
  * HTML template the tag scanner reads. `INBOX/` and `ORIENT` stay Latin in
  * Hebrew, like `KEEPER`/`OTLP` — a directory name and a phase name.
+ * The same runtime-`textContent` hole in three more delegated handlers
+ * closes next: the SOUL editor's submit paints `soulProposed`/
+ * `soulProposeFailed` into its `aria-live` status, the github-sync click
+ * swaps the button label to `githubSyncing` for the request's duration, the
+ * github-pr submit paints `githubPrOpening` into its result span, and both
+ * GitHub handlers' network-error branch paints `githubRequestFailed` — one
+ * key for both, they are the same surface and the same sentence (the
+ * pool/report panels keep their own copies because they are separate
+ * surfaces). All five route through `tr()` at paint time, the
+ * `inboxNoteDropped` way.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -514,6 +524,8 @@ const EN_STRINGS = {
   soulEditorSummary: '✎ view/edit SOUL',
   soulEditorLabel: "This project's live SOUL text — edit and propose a change",
   soulEditorSubmit: 'Propose edit',
+  soulProposed: 'Proposed — review it above to ratify or dismiss.',
+  soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: '◇ SOUL proposal pending — review',
   soulRatify: '✓ ratify',
   soulDismiss: '✗ dismiss',
@@ -607,6 +619,9 @@ const EN_STRINGS = {
   fleetWisdomProposal: 'Fleet wisdom proposal',
   githubPrSummary: '🔀 Contribute upstream',
   githubPrLabel: "Contribute {name}'s current branch upstream as a pull request",
+  githubSyncing: 'Syncing…',
+  githubPrOpening: 'opening…',
+  githubRequestFailed: '✗ Request failed — try again shortly.',
   poolClientPanel: 'Contributor pool',
   publicityPanel: 'Publicity',
   pipelineView: 'Pipeline view',
@@ -978,6 +993,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulEditorSummary: '✎ צפייה/עריכת SOUL',
     soulEditorLabel: 'טקסט ה-SOUL החי של הפרויקט — ערכו והציעו שינוי',
     soulEditorSubmit: 'הצע עריכה',
+    soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
+    soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: '◇ הצעת SOUL ממתינה — יש לסקור',
     soulRatify: '✓ אשרר',
     soulDismiss: '✗ בטל',
@@ -1055,6 +1072,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     fleetWisdomProposal: 'הצעת חוכמת הצי',
     githubPrSummary: '🔀 תרום למאגר המקור',
     githubPrLabel: 'תרום את הענף הנוכחי של {name} למאגר המקור כ-pull request',
+    githubSyncing: 'מסנכרן…',
+    githubPrOpening: 'פותח…',
+    githubRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     poolClientPanel: 'מאגר תורמים',
     publicityPanel: 'פרסום',
     pipelineView: 'תצוגת צנרת',
