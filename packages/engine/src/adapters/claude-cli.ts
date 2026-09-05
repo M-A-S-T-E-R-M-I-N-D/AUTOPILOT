@@ -204,7 +204,10 @@ export function reapCliDescendants(
 ): void {
   if (pid === undefined) return;
   if (platform === 'win32') {
-    spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' }).on('error', () => {
+    spawn('taskkill', ['/pid', String(pid), '/t', '/f'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    }).on('error', () => {
       // Already gone, or never spawned any children — nothing left to reap.
     });
     return;
