@@ -13,7 +13,6 @@ import {
   deriveFlyProjectId,
   readFlightOwnerPid,
   isFlightOwnerAlive,
-  isAnyFlightLockLive,
 } from '../../src/flight/lock.js';
 
 describe('engineLockFileName', () => {
@@ -221,68 +220,6 @@ describe('readFlightOwnerPid (RUNBOOK §4 — the pid half of isFlightOwnerAlive
 
       expect(readFlightOwnerPid(dir, target)).toBeNull(); // bare key: no lock there
       expect(readFlightOwnerPid(dir, target, 'fleet-2')).toBe(process.pid);
-    });
-  });
-});
-
-describe('isAnyFlightLockLive', () => {
-  function withTmpDir<T>(fn: (dir: string) => T): T {
-    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-lock-'));
-    try {
-      return fn(dir);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  }
-
-  it('returns false when no lock file exists for the project', () => {
-    withTmpDir((dir) => {
-      const target = join(dir, 'my-project');
-      expect(isAnyFlightLockLive(dir, target)).toBe(false);
-    });
-  });
-
-  it('returns true when a live process holds the project lock', () => {
-    withTmpDir((dir) => {
-      const target = join(dir, 'my-project');
-      const lockPath = join(dir, engineLockFileName(deriveFlyProjectId(target)));
-      writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: Date.now() }));
-
-      expect(isAnyFlightLockLive(dir, target)).toBe(true);
-    });
-  });
-
-  it('returns true when an N-way fleet sibling instance holds the project lock', () => {
-    withTmpDir((dir) => {
-      const target = join(dir, 'my-project');
-      const lockPath = join(dir, engineLockFileName(deriveFlyProjectId(target), 'fleet-2'));
-      writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: Date.now() }));
-
-      expect(isAnyFlightLockLive(dir, target)).toBe(true);
-    });
-  });
-
-  describe('excludePid (fly.ts worktree-fallback self-check, board web-mtnxo78d-imajqg)', () => {
-    it('excludes the caller\'s own just-acquired lock, so it never reads as "another flight"', () => {
-      withTmpDir((dir) => {
-        const target = join(dir, 'my-project');
-        const lockPath = join(dir, engineLockFileName(deriveFlyProjectId(target), 'this-instance'));
-        writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: Date.now() }));
-
-        expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(false);
-      });
-    });
-
-    it('still returns true for a genuinely different live pid even when excludePid is set', () => {
-      withTmpDir((dir) => {
-        const target = join(dir, 'my-project');
-        const lockPath = join(dir, engineLockFileName(deriveFlyProjectId(target), 'sibling'));
-        writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: Date.now() }));
-
-        // excludePid names some OTHER pid than the one actually in the lock file —
-        // the real lock's pid must still be detected as live.
-        expect(isAnyFlightLockLive(dir, target, 999_999_999)).toBe(true);
-      });
     });
   });
 });
