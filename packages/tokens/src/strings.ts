@@ -491,6 +491,7 @@ const EN_STRINGS = {
   soulRatify: '✓ ratify',
   soulDismiss: '✗ dismiss',
   soulUnratify: '↺ un-ratify',
+  startOver: '↺ Start over',
   prReviewTitle: '🗝️ KEEPER PR review',
   prReviewApply: 'Apply',
   prReviewFetchFailed:
@@ -693,6 +694,8 @@ const EN_STRINGS = {
   pausingName: 'Pausing {name}…',
   stopFailedName: 'Stop failed for {name}.',
   pauseFailedName: 'Pause failed for {name}.',
+  removing: 'Removing…',
+  resetting: 'Resetting…',
   flyingUpToTotal: 'Flying {name} — up to ${total} total…',
   flyingFirings: 'Flying {name} — {count} firing(s)…',
   pausedUntilResumed: 'Paused {name} — will not fly until resumed.',
@@ -925,6 +928,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulRatify: '✓ אשרר',
     soulDismiss: '✗ בטל',
     soulUnratify: '↺ בטל אשרור',
+    startOver: '↺ התחל מחדש',
     prReviewTitle: '🗝️ סקירת PR של KEEPER',
     prReviewApply: 'החל',
     prReviewFetchFailed:
@@ -1095,6 +1099,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     pausingName: 'משהה את {name}…',
     stopFailedName: 'העצירה של {name} נכשלה.',
     pauseFailedName: 'ההשהיה של {name} נכשלה.',
+    removing: 'מסיר…',
+    resetting: 'מאפס…',
     flyingUpToTotal: 'בטיסה על {name} — עד ${total} בסך הכול…',
     flyingFirings: 'בטיסה על {name} — {count} הפעלות…',
     pausedUntilResumed: 'הטיסה על {name} הושהתה — לא תמשיך עד לחידוש.',

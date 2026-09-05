@@ -82,6 +82,57 @@ describe('start-over button explains itself on hover/focus', () => {
     expect(so?.getAttribute('data-tip')).toBe(so?.getAttribute('aria-label'));
   });
 
+  it('renders the localized label from first paint, tagged for a later locale switch', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    const so = document.querySelector('[data-start-over="p1"]');
+    expect(so?.textContent).toBe(STRINGS.en.startOver);
+    expect(so?.getAttribute('data-i18n')).toBe('startOver');
+  });
+
+  it('renders the Hebrew label from first paint when the locale is Hebrew', async () => {
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    document.documentElement.lang = 'he';
+    globalThis.fetch = vi.fn(
+      async () => ({ ok: true, json: async () => STATE }) as unknown as Response,
+    );
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const so = document.querySelector('[data-start-over="p1"]');
+    expect(so?.textContent).toBe(STRINGS.he.startOver);
+  });
+
+  it('reverts to the localized label, not a hardcoded English literal, when the reset request fails', async () => {
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    document.documentElement.lang = 'he';
+    globalThis.fetch = vi.fn(async (url: unknown) => {
+      if (typeof url === 'string' && url.includes('/api/project/reset')) {
+        return { ok: false, json: async () => STATE } as unknown as Response;
+      }
+      return { ok: true, json: async () => STATE } as unknown as Response;
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const so = document.querySelector('[data-start-over="p1"]') as HTMLButtonElement;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    so.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(so.disabled).toBe(false);
+    expect(so.textContent).toBe(STRINGS.he.startOver);
+  });
+
+  it("uses tr('resetting') for the in-flight label, not a hardcoded literal", () => {
+    expect(clientJs()).toContain("b.textContent = tr('resetting');");
+  });
+
   it('confirms with the translated, project-named message before resetting', async () => {
     boot('p1');
     await vi.advanceTimersByTimeAsync(1);

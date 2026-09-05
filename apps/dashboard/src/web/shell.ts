@@ -2932,7 +2932,8 @@ function renderProjectPage(state, pid) {
   var so = el('section', 'start-over');
   var soBtn = document.createElement('button');
   soBtn.type = 'button';
-  soBtn.textContent = '↺ Start over';
+  soBtn.textContent = tr('startOver');
+  soBtn.setAttribute('data-i18n', 'startOver');
   soBtn.setAttribute('data-start-over', c.id);
   soBtn.setAttribute('data-name', c.name);
   var soTip = startOverTip(c.name);
@@ -3373,7 +3374,7 @@ document.addEventListener('click', function (e) {
   var name = b.getAttribute('data-name') || 'this project';
   if (!window.confirm(tr('removeProjectConfirm', name))) return;
   b.disabled = true;
-  b.textContent = 'Removing…';
+  b.textContent = tr('removing');
   fetch('/api/project/delete', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -3383,7 +3384,7 @@ document.addEventListener('click', function (e) {
       if (!res.ok) throw new Error('delete failed');
       refresh();
     })
-    .catch(function () { b.disabled = false; b.textContent = 'Remove'; });
+    .catch(function () { b.disabled = false; b.textContent = tr('removeCard'); });
 });
 // Flight-log chips (event-delegated): expand one row / toggle full history.
 // The re-render is DEFERRED past the click dispatch (rebuilding the DOM while
@@ -3470,7 +3471,7 @@ document.addEventListener('click', function (e) {
   var name = b.getAttribute('data-name') || 'this project';
   if (!window.confirm(tr('startOverConfirm', name))) return;
   b.disabled = true;
-  b.textContent = 'Resetting…';
+  b.textContent = tr('resetting');
   fetch('/api/project/reset', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -3480,9 +3481,9 @@ document.addEventListener('click', function (e) {
       if (!res.ok) throw new Error('reset failed');
       refresh();
       b.disabled = false;
-      b.textContent = '↺ Start over';
+      b.textContent = tr('startOver');
     })
-    .catch(function () { b.disabled = false; b.textContent = '↺ Start over'; });
+    .catch(function () { b.disabled = false; b.textContent = tr('startOver'); });
 });
 startFleetStream();
 `.trim();
