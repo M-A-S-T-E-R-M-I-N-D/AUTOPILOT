@@ -1,5 +1,10 @@
 # AUTOPILOT — Kickoff Prompt
 
+> **HISTORICAL — the founding artifact.** This prompt launched the build on 2026-07-06 and is preserved
+> verbatim as the origin story, not as a runnable instruction: the build it starts (M0) shipped long ago,
+> the model names are of their time, and two referenced private artifacts (the v2.4 loop script, the
+> MdViewer reference) never shipped publicly. Read it as history.
+
 *Paste the block below as your FIRST message in a fresh Claude Code session opened on the AUTOPILOT project root
 (model: Opus 4.8 or Fable). It orients the agent to the full plan and starts the build at M0.*
 
