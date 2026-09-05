@@ -38,6 +38,10 @@ body {
    default; the update feature module reveals it only when /api/update-check
    reports a genuinely newer released version. */
 .update-banner { position: sticky; top: 0; z-index: 60; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface-raised)); border-bottom: 1px solid var(--color-success); color: var(--color-text); font-size: var(--text-sm); }
+/* display:flex on the base class OVERRIDES the UA's [hidden]{display:none}
+   — without this guard the EMPTY banner strip rendered sticky on every page
+   (caught by the fleet-populated visual baselines, all three themes). */
+.update-banner[hidden] { display: none; }
 .update-banner-text { flex: 1 1 auto; min-width: 0; }
 .update-banner-go { font: inherit; font-weight: 600; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-success); background: var(--color-success); color: var(--color-surface); cursor: pointer; }
 .update-banner-go:hover, .update-banner-go:focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
