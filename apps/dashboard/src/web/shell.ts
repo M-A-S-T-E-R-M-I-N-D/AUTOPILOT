@@ -1129,14 +1129,22 @@ function cardGauge(c) {
   var findingsText = labels.findingsText;
   var findingsEl = el('span', null, findingsText);
   findingsEl.setAttribute('tabindex', '0');
+  // i18n (board web-msnsndki-dz3vn1): both tips are swept by translateDom()'s
+  // [data-i18n-tip] pass, so a locale switch flips them in place. The
+  // activity span's aria prefix carries the live timestamp in its {name}
+  // slot, so it is painted via tr() when this section is built (the
+  // handler-status-line route) and catches up when the section next
+  // rebuilds — there is no aria-template sweep yet.
   findingsEl.setAttribute('data-tip', 'Unresolved review findings for this project — see the breakdown below');
+  findingsEl.setAttribute('data-i18n-tip', 'cardFindingsTip');
   findingsEl.setAttribute('aria-label', findingsText);
   glabel.appendChild(findingsEl);
   var activityText = labels.activityText;
   var activityEl = el('span', 'muted', activityText);
   activityEl.setAttribute('tabindex', '0');
   activityEl.setAttribute('data-tip', 'When this project last had any activity');
-  activityEl.setAttribute('aria-label', 'last activity: ' + activityText);
+  activityEl.setAttribute('data-i18n-tip', 'cardActivityTip');
+  activityEl.setAttribute('aria-label', tr('cardActivityAria', activityText));
   glabel.appendChild(activityEl);
   // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): the
   // findings count and last-activity timestamp used to each be their own Tab
