@@ -3123,6 +3123,35 @@ ap-mtm4qzty-1 be split along exactly those three slices ((a)+(b), (c), and a
 separate audit of whatever step produced `ca30803d`'s autoformat commit) and
 picked up by a dedicated, preferably solo, flight.
 
+Re-verification of `ap-mtm4lwrk-2` ("VERDICT blocked
+inbox-extract-first-feature-now-md: reverified — INBOX/.triaged/ is
+gitignored, note content unrecoverable here; still needs founder
+clarification"), 2026-09-05: CONFIRMED, unchanged. This worktree's `INBOX/`
+holds only `README.md` — no `.triaged/` subdirectory exists here, so the
+original note's text remains unrecoverable from this checkout, exactly as
+both this verdict and its predecessor `ap-mtl23fuq-1` already found. The
+store confirms no task row ever captured the note's body either: `tasks`
+has no record titled `inbox-extract-first-feature-now-md` itself, only
+these two VERDICT rows about it, both still `body: null`.
+
+The systemic bug behind it, however, IS fixed and stays fixed:
+`ap-mtm4lwrk-3` ("INBOX auto-triage titles a task from the note's first
+line only... persist note text on the task record") shipped in `29c4edfa`
+(2026-09-04 22:28) — `packages/store/src/mutate.ts`'s `createTask` now
+writes `body`, and `inbox-triage.ts:70` passes the note's full content
+through. Confirmed still present in this checkout. Every INBOX note
+triaged from here forward survives its own file's archival; only this one
+pre-fix historical drop is permanently lost. One bookkeeping oddity worth
+flagging, not fixing here: `29c4edfa`'s own footer names `Board:
+ap-mtm4lwrk-3`, but the store still has that task `status: 'queued'`, not
+`'done'` — a board-sync gap between a landed commit and its board record,
+separate from this verdict's own subject.
+
+Nothing further is actionable on `ap-mtm4lwrk-2` without the founder
+re-dropping the original note's content — recommend **close** for both
+`ap-mtm4lwrk-2` and `ap-mtl23fuq-1`: the historical block is permanent, and
+the class of bug that caused it cannot recur.
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
