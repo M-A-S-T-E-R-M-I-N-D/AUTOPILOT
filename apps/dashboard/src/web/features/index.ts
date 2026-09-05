@@ -33,7 +33,6 @@ import { roundPanelJs } from './round-panel.js';
 import { searchJs } from './search.js';
 import { switcherJs } from './switcher.js';
 import { tourJs } from './tour.js';
-import { updateJs } from './update.js';
 
 /** Every discovered feature module's assembler function, in directory order. */
 export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
@@ -67,7 +66,6 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   searchJs,
   switcherJs,
   tourJs,
-  updateJs,
 ];
 
 /** Every discovered feature module's assembled output, joined in directory order. */
@@ -109,5 +107,4 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   search: searchJs,
   switcher: switcherJs,
   tour: tourJs,
-  update: updateJs,
 };

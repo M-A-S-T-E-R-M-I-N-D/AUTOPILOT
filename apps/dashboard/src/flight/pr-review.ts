@@ -759,6 +759,14 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'control/',
   'flight/pr-review',
   'flight/issue-triage',
+  // The OTA update leg (operator ask 2026-09-05): runs git pull + pnpm
+  // install + a detached server restart on the operator's checkout, and its
+  // banner client POSTs that execute. A PR that loosened the never-clobber
+  // guards (dirty-tree refusal, ff-only, stash restore) or widened what the
+  // execute may run is exactly a supply-chain-shaped change — both halves
+  // flagged.
+  'flight/update-check',
+  'web/features/update',
   // The report-from-here ritual: plans the exact `gh issue create` argv a
   // bug report / pool offer runs against the operator's GitHub AND ships the
   // apply layer that executes it (`executeReportCommands`) and writes board
