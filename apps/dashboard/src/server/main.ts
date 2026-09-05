@@ -580,7 +580,7 @@ const server = createServer({
       spawn(
         process.execPath,
         [join(process.cwd(), 'apps', 'dashboard', 'dist', 'control', 'cli.js'), 'restart'],
-        { cwd: process.cwd(), detached: true, stdio: 'ignore' },
+        { cwd: process.cwd(), detached: true, stdio: 'ignore', windowsHide: true },
       ).unref();
     },
   }),
