@@ -49,7 +49,7 @@ accepted, because the resuming firing genuinely still owns that unit.
 
 ## Related
 
-- `docs/DOCTRINE-COORDINATION.md` — operator guide (lifecycle + signals).
+- `docs/FLEET-ORCHESTRATION.md` — operator guide (lifecycle + signals).
 - `docs/RESEARCH-LIBRARY.md` — fleet anti-duplication defense stack and the
   reseed debrief (duplicate modules, v13 migration collision).
 - ADR-0005 — the prior art: soft prompt rules need hard enforcement layers.

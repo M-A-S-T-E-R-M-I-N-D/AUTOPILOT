@@ -12,7 +12,7 @@ generalize (gate patterns, gotchas, conventions) graduate from per-project SOUL 
 shared fleet layer with confidentiality boundaries…").
 
 **Why this spec exists now:** the shipped fleet-wisdom lifecycle
-(`docs/DOCTRINE-COORDINATION.md` §"Fleet wisdom") recognizes exactly ONE learning — the
+(`docs/FLEET-ORCHESTRATION.md` §"Fleet wisdom") recognizes exactly ONE learning — the
 checkpoint-streak note — and its docs close with "broadening to more learning kinds
 (gate patterns, gotchas, conventions) is open design work." A firing then issued
 VERDICT `ap-mt2pfd8k-1`: the broadening needs a design firing before another
@@ -84,7 +84,7 @@ so no redaction pass exists to get wrong.
   `fleet-wisdom-mining.test.ts` invariant tests extended per-kind).
 - The pending-wisdom banner names WHICH learning kind the proposal carries (derived
   by marker match), keyboard-operable and axe-clean per the UX-EXPRESSION doctrine.
-- `docs/DOCTRINE-COORDINATION.md` §"Fleet wisdom" drops its "open design work" clause
+- `docs/FLEET-ORCHESTRATION.md` §"Fleet wisdom" drops its "open design work" clause
   and links here instead (done in this design firing).
 
 ## Slice plan (each sized for one firing)
@@ -125,7 +125,7 @@ so no redaction pass exists to get wrong.
 
 ## Related
 
-- `docs/DOCTRINE-COORDINATION.md` §"Fleet wisdom — learnings graduate from SOUL into a
+- `docs/FLEET-ORCHESTRATION.md` §"Fleet wisdom — learnings graduate from SOUL into a
   shared layer" — the shipped lifecycle this epic extends.
 - Board `web-msnt26xe-pc4pzp` (the epic's task), verdict `ap-mt2pfd8k-1` (the design
   firing this file discharges).
