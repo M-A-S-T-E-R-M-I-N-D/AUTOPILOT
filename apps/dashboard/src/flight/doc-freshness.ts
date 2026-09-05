@@ -149,6 +149,24 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     doc: 'docs/epics/0015-cockpit-supervisory-control.md',
     subjects: ['scripts/cockpit-metrics.mjs'],
   },
+  {
+    // Non-epic doc, first of its kind here — its own "Defense in depth" list
+    // names layer (1) as `containment.ts` and layer (2) as `guard.ts` +
+    // `guard-hook.ts` by exact filename, giving it the same well-defined,
+    // live-code subject area an epic has. Worktree isolation (layer 4) is
+    // deliberately left off: that mechanism is already tracked under epic
+    // 0004's own entry above, and duplicating it here would just double-fire
+    // one drift as two proposals. ACTION-PLAN/FEATURE-COVERAGE/BACKLOG-999/
+    // MODEL-CARD/RUNBOOK were considered and excluded — each spans the whole
+    // roadmap or the whole system the way CHANGELOG/MASTER-PLAN already are,
+    // with no comparably narrow subject to pin without guessing.
+    doc: 'docs/FLIGHT-CONTAINMENT.md',
+    subjects: [
+      'packages/engine/src/containment.ts',
+      'packages/engine/src/guard.ts',
+      'packages/engine/src/guard-hook.ts',
+    ],
+  },
 ];
 
 export interface DocFreshnessFinding {
@@ -245,6 +263,7 @@ export function gitLastTouchedAt(repo: string, path: string): number | null {
   try {
     out = execFileSync('git', ['-C', repo, 'log', '-1', '--format=%ct', '--', path], {
       encoding: 'utf8',
+      windowsHide: true,
     });
   } catch {
     return null;

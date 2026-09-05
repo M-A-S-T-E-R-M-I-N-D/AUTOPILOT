@@ -10,6 +10,92 @@ SPDX-License-Identifier: Apache-2.0
 > Ask answers. Re-research a topic ONLY when its "verify by" note says so or
 > the decision it feeds changes. (Operator's rule: the knowledge stays OURS.)
 
+## Table of contents
+
+Flat map of all 37 dated entries below, oldest → newest — each heading
+already carries its own research date and, where set, a verify-by re-check
+date; this list just makes them scannable without paging through 1,200+
+lines. The Open section (queued research) comes right after this, promoted
+from the bottom so it's the first actionable thing on open — followed by a
+thematic index calling out one recurring arc (fleet coordination) that spans
+six entries otherwise scattered across two weeks of research.
+
+- Agent reliability / ~100% shipping (2026-08-07)
+- Agent observability & visualization (2026-08-07)
+- Graph/viz libraries (2026-08-07)
+- Copilot / side-chat UX (2026-08-08)
+- Canonical pattern sources (2026-08-08)
+- In-house reference: MdViewer (a local operator project, 2026-08-08)
+- Anthropic models & routing (2026-09-02, verify by 2026-12-01)
+- Local RAG efficiency (2026-08-08)
+- Sandboxing + incremental computation (2026-08-08)
+- SE methodology for agent loops (2026-08-08)
+- LLM/agent security (2026-08-08)
+- Agent memory & evals & cost (2026-08-08)
+- WCAG 2.2 AAA audit (2026-08-08, verify by 2026-11-01 or on any theme/token change)
+- Deploy playbook (2026-08-08, verify by 2026-11-01 or when packaging starts)
+- SOTA MAP — the consolidated context pack (2026-08-08, verify per its Appendix 4 half-lives)
+- SOTA-MAP gap analysis — AUTOPILOT vs domains A–D, H, K (2026-08-08)
+- SOTA-MAP completeness sweep — domains E–K, appendices, open threads (2026-08-08)
+- Firing cost anatomy — measured on our own telemetry (2026-08-08, re-measure after any prompt/model change)
+- Mutation testing at scale + runaway-task economics (2026-08-14, verify-by 2027-02)
+- LLM cognitive-failure modes vs OUR defenses — the audit (2026-08-14, verify-by 2027-02)
+- Parallel agents vs shared-file hotspots — the 2026 stack (2026-08-14, verify-by 2027-02)
+- Goodhart in the firing loop — false-close taxonomy + pick discipline (2026-08-15, verify-by 2027-02)
+- Client assembly SOTA — feature discovery without a runtime compiler (2026-08-16, verify-by 2027-02)
+- Model economics — the sonnet monoculture and when Fable pays (2026-08-16, verify-by 2026-12)
+- Fleet anti-duplication — coordination before parallelism (2026-08-16, verify-by 2027-02)
+- Silent model downgrade + fleet machine budget — the 5-agent evidence (2026-08-17, verify-by 2027-02)
+- The 7→10 ramp — scale evaluation + the slice-relay duplication class (2026-08-20, verify-by 2027-02)
+- INCIDENT: self-mined artifact leaks — 40 duplicate proposals + ghost claims (2026-08-20, verify-by 2027-02)
+- Warm-sessions verdict + the finish-line doctrine (2026-08-20, verify-by 2027-02)
+- Finish-line validation round — 87% ship, first wild extensions (2026-08-20, verify-by 2027-02)
+- Where SOTA actually is — external calibration for the road to 100% (2026-08-20, verify-by 2027-02)
+- Deep dive: the partitioning algorithm itself + merge-debt at scale (2026-08-20, verify-by 2027-02)
+- The scoped 10-way — partitioning measured, end-to-end 66%→85% (2026-08-20 night, verify-by 2027-02)
+- Research-on-research — the weak-point discovery + evidence + meta-learning pass (2026-08-20 night, verify-by 2027-02)
+- better-sqlite3 v13 re-test (2026-08-23, verify when .nvmrc moves to >=22.14.0 or on any push to WiseLibs/better-sqlite3#1514)
+- Node 22.13.0 → 22.23.2 (2026-08-24, verify-by 2027-02)
+- Stale-lane self-sync vs the sibling-scan guard (2026-09-02, verify-by 2027-02)
+
+## Open (queued research — do with WebSearch, then RECORD HERE)
+
+- **Ecosystem sweep**: any critical OSS we missed (embedders, schedulers,
+  queue libs) — run through §7 vetting before adoption.
+
+## Thematic index — the fleet-coordination arc
+
+Six entries, scattered across four dates, form one continuous story: a
+duplication collision → the defense that followed → what scaling past it
+broke → hygiene leaks the same scaling exposed → the fix, measured → the
+guard that fix built colliding with a DIFFERENT failure mode. Read in this
+order for the throughline; each still stands as its own dated entry below.
+
+1. **Fleet anti-duplication — coordination before parallelism** (2026-08-16)
+   — the first 3-way flight's duplicate-fix collision; ships the
+   claim-before-execute defense stack (FLEET digest, intent claims, landing
+   overlap detection).
+2. **Silent model downgrade + fleet machine budget — the 5-agent evidence**
+   (2026-08-17) — the first 5-agent rounds expose two failures invisible to
+   every gate: a silently-substituted model, and a machine-starving mutation
+   run with no budget guard. Both fixed.
+3. **The 7→10 ramp — scale evaluation + the slice-relay duplication class**
+   (2026-08-20) — scaling past 5 agents surfaces a NEW duplication class
+   (slice-relay) that claim-before-execute doesn't cover, because a
+   multi-slice task's claim releases between firings by design.
+4. **INCIDENT: self-mined artifact leaks — 40 duplicate proposals + ghost
+   claims** (2026-08-20) — a hygiene audit, same week, finds two more
+   self-mined leak mechanisms (duplicate proposals, stale claim leases) that
+   gates never check because gates check code, not board hygiene.
+5. **The scoped 10-way — partitioning measured, end-to-end 66%→85%**
+   (2026-08-20 night) — the SCOPE PARTITIONER + auto-declare intent ship and
+   get measured head-to-head against the unpartitioned 10-way: identical-
+   feature twins go from 3 to zero.
+6. **Stale-lane self-sync vs the sibling-scan guard** (2026-09-02) — the
+   guard built to protect live claims (item 1) collides with a stale lane's
+   own self-repair attempt; later closed by exempting in-progress merge
+   commits from the file-overlap check.
+
 ## Agent reliability / ~100% shipping (2026-08-07)
 
 - The industry pattern for mechanical failures is **fix → revalidate →
@@ -170,7 +256,7 @@ SPDX-License-Identifier: Apache-2.0
   **light `--color-sev-medium` was 3.92:1 against surface, under even
   AA's 4.5:1** — used as TEXT color on `.fnode-gate`/`.live-phase-gate`/
   `.act-search` (gate-phase labels in the live activity rail). **Fixed
-  same day** (commit `67d34d5`, ~2h after this audit): nudged OKLCH L
+  same day** (~2h after this audit): nudged OKLCH L
   0.6 → 0.54 (same C/H, amber hue preserved), now 5.02:1 vs surface /
   4.73:1 vs surfaceRaised — `themes.test.ts` pins both floors at ≥4.5:1
   across every theme so this can't silently regress.
@@ -582,7 +668,7 @@ adversarial), agents gaming their own scoring in
 
 ## Client assembly SOTA — feature discovery without a runtime compiler (2026-08-16, verify-by 2027-02)
 
-Decision context: UNLOCK B's honest blocker (commit 729a177) — wiring the
+Decision context: UNLOCK B's honest blocker — wiring the
 splice-manifest assembler live would demand the TypeScript compiler as a
 runtime dependency, and would STILL require hand-edits to shell.ts per
 feature. Founder mandated deep research → decision → fix.
@@ -653,7 +739,7 @@ seeded; `AUTOPILOT_MODEL=fable` is the operator lever available TODAY.
 
 Live specimen from our FIRST 3-way flight: two instances independently fixed
 the SAME guard-settings bug in parallel (duplicated-feature, exactly as
-AgenticFlict predicted) — resolved at merge (f21c003) by dropping the
+AgenticFlict predicted) — resolved at merge by dropping the
 unwired twin. Founder mandate: never again, SOTA and no less.
 
 **Research verdict — the consensus is "solve coordination BEFORE adding
@@ -717,8 +803,8 @@ the automatic ritual merge now REFUSES instead of blind-merging:
 `landWatchdogTick` (`apps/dashboard/src/control/land-watchdog.ts`) checks
 `gatherLandingOverlaps` before every land and on overlap defers the attempt
 entirely, reporting the siblings as "flagged for lead consolidation" in the
-watch daemon's output — exactly the specimen-f21c003 duplicate-work
-collision, caught before the merge instead of resolved after it. Mergiraf as
+watch daemon's output — exactly the same duplicate-work
+collision from the first 3-way flight, caught before the merge instead of resolved after it. Mergiraf as
 a resolution aid remains open — detection defers; it never auto-resolves.
 
 **(4) landed (web-msw5zolk-vdrj05):** the sibling-scope doctrine now has a
@@ -780,7 +866,7 @@ M15 comment). The reseed landed a defense per gap, all four now shipped:
   checkpointed death keeps it standing (the resuming firing still owns the
   packed-up unit); every other no-ship ending retires it as abandoned
   (`claimSurvivesFiring`) so a stale claim can't wall siblings out of ghost
-  work. Operator guide: `docs/FLEET-ORCHESTRATION.md`.
+  work. Operator guide: `docs/DOCTRINE-COORDINATION.md`.
 
 ## Silent model downgrade + fleet machine budget — the 5-agent evidence (2026-08-17, verify-by 2027-02)
 
@@ -852,7 +938,7 @@ fleet). At 10-way this opened a relay race: THREE instances (fleet-9, -4, -7)
 each picked the same open ARCHITECT-chat task in sequence and built the SAME
 next increment (`tasks_reorder` in `packages/mcp/src/control.ts`), ~$9.2 of
 duplicate work dropped at merge (kept the first-landed, wired one — same
-doctrine as f21c003). Intent-claims telemetry recorded ZERO collisions while
+doctrine as the first 3-way flight's collision). Intent-claims telemetry recorded ZERO collisions while
 this happened, because board-pick units never auto-declare intents —
 declaration is agent-initiated and the prompt only demands it for
 self-initiated units. Twin docs-cleanup convergence also appeared (two
@@ -895,7 +981,7 @@ The watched docs (0001/0002/0004) name the repo's HOTTEST files (`fly.ts`,
 `web/`) — at fleet cadence that meant a fresh id nearly every flight-end:
 14× epic-0002, 12× 0001, 11× 0004. Why undetected: `needs_approval` rows are
 invisible to flights, no counter alarmed, and no test asserted "a second sweep
-with an open proposal mints nothing." Fix (`7185b2f`): mint-time dedup by doc
+with an open proposal mints nothing." Fix: mint-time dedup by doc
 prefix — validated same day, 17 flight-ends → 0 duplicates, 2 legit new-doc
 proposals. **Doctrine: any recurring self-mined artifact needs a mint-time
 dedup guard keyed on the artifact's IDENTITY (the doc), never on a timestamp
@@ -960,7 +1046,7 @@ $62.83, ZERO blanket resumes, ZERO crashes.**
   triage re-ranked the board and silently demoted an operator reorder
   (p0-p4 chain pushed to the bottom — both write `task.priority` through the
   same `reorderTasks` with no way to tell who wrote it). Seeded as a HIGH
-  finding at T+1h; the fleet shipped the fix at T+3h (`c51bc22`): migration
+  finding at T+1h; the fleet shipped the fix at T+3h: migration
   v16 `tasks.priority_pinned`, set only by the operator's reorder path;
   `runBoardTriage` excludes pinned tasks from the model ranking AND the
   runaway-demotion guard, merging them back at the FRONT. Operator order now
@@ -1267,7 +1353,7 @@ the three candidate directions above: `checkPreCommitSiblingOverlap` could
 not distinguish "originating new work in a claimed file" from "finalizing an
 already-resolved merge that happens to touch one among hundreds," so it
 exempts a `git commit` made while `MERGE_HEAD` is set (`isMergeCommit`,
-`packages/engine/src/adapters/sibling-commit-scan.ts`, commit `faf95ac2`).
+`packages/engine/src/adapters/sibling-commit-scan.ts`).
 The dry-run-then-`merge --no-commit`-then-`git commit` sequence this incident
 used now finalizes cleanly: git's own merge machinery already reconciled the
 content by the time `MERGE_HEAD` is set, so the guard's file-overlap
@@ -1276,8 +1362,3 @@ primitive in `docs/DOCTRINE-COORDINATION.md`. Candidates (a)-(c) remain
 valid for the *upstream* problem (drift reaching 900+ commits before a sync
 is attempted at all) — this only removes the guard as the blocker on the
 self-repair path once drift has already happened.
-
-## Open (queued research — do with WebSearch, then RECORD HERE)
-
-- **Ecosystem sweep**: any critical OSS we missed (embedders, schedulers,
-  queue libs) — run through §7 vetting before adoption.

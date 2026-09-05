@@ -202,4 +202,27 @@ jobs:
           pnpm commitlint
           --from ${{ github.event.pull_request.base.sha }}
           --to ${{ github.event.pull_request.head.sha }}
+
+  doc-commit-refs:
+    name: doc commit-SHA citations are reachable from HEAD
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Needs full history: git merge-base --is-ancestor can only confirm a
+      # real ancestor of HEAD if it was actually fetched — the default
+      # shallow checkout would false-fail every legitimately old citation,
+      # which is why this is its own job rather than chained into "verify"
+      # (same reasoning as the commitlint job above).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check doc commit-SHA citations resolve to real HEAD ancestors
+        run: pnpm run ci:doc-commit-refs
           --verbose

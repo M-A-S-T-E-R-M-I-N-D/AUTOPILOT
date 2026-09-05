@@ -57,11 +57,14 @@ function out(line: string): void {
 }
 
 function git(repo: string, args: readonly string[]): void {
-  execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
+  execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore', windowsHide: true });
 }
 
 function gitOut(repo: string, args: readonly string[]): string {
-  return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
+  return execFileSync('git', ['-C', repo, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+  }).trim();
 }
 
 const SEED_FILES: Readonly<Record<string, string>> = {

@@ -3123,6 +3123,69 @@ ap-mtm4qzty-1 be split along exactly those three slices ((a)+(b), (c), and a
 separate audit of whatever step produced `ca30803d`'s autoformat commit) and
 picked up by a dedicated, preferably solo, flight.
 
+Re-verification of `ap-mtm4lwrk-2` ("VERDICT blocked
+inbox-extract-first-feature-now-md: reverified — INBOX/.triaged/ is
+gitignored, note content unrecoverable here; still needs founder
+clarification"), 2026-09-05: CONFIRMED, unchanged. This worktree's `INBOX/`
+holds only `README.md` — no `.triaged/` subdirectory exists here, so the
+original note's text remains unrecoverable from this checkout, exactly as
+both this verdict and its predecessor `ap-mtl23fuq-1` already found. The
+store confirms no task row ever captured the note's body either: `tasks`
+has no record titled `inbox-extract-first-feature-now-md` itself, only
+these two VERDICT rows about it, both still `body: null`.
+
+The systemic bug behind it, however, IS fixed and stays fixed:
+`ap-mtm4lwrk-3` ("INBOX auto-triage titles a task from the note's first
+line only... persist note text on the task record") shipped in `29c4edfa`
+(2026-09-04 22:28) — `packages/store/src/mutate.ts`'s `createTask` now
+writes `body`, and `inbox-triage.ts:70` passes the note's full content
+through. Confirmed still present in this checkout. Every INBOX note
+triaged from here forward survives its own file's archival; only this one
+pre-fix historical drop is permanently lost. One bookkeeping oddity worth
+flagging, not fixing here: `29c4edfa`'s own footer names `Board:
+ap-mtm4lwrk-3`, but the store still has that task `status: 'queued'`, not
+`'done'` — a board-sync gap between a landed commit and its board record,
+separate from this verdict's own subject.
+
+Nothing further is actionable on `ap-mtm4lwrk-2` without the founder
+re-dropping the original note's content — recommend **close** for both
+`ap-mtm4lwrk-2` and `ap-mtl23fuq-1`: the historical block is permanent, and
+the class of bug that caused it cannot recur.
+
+Audit verdict on the third `ap-mtm4qzty-1` slice above ("a separate audit of
+whatever step produced `ca30803d`'s autoformat commit"), 2026-09-05: **CLOSED,
+already fixed**. `ca30803d` landed because `RemediatingGate.run()`
+(`packages/engine/src/adapters/remediating-gate.ts`) committed with
+`vcs.commitAll()` — a whole-tree commit that swept up whatever else happened
+to be dirty in the same primary checkout at the moment the fixer ran,
+mislabeling it under the `style(autopilot): autoformat` message. `ceef5c28`
+("fix(engine): gate remediation commits only the fixer's own paths, not the
+whole tree") already closed this: `RemediatingGate` now snapshots
+`vcs.dirtyPaths()` *before* running the fixer and commits only the paths that
+became dirty *after* it (`commitPaths`, not `commitAll`), so a concurrent
+sibling's in-flight WIP can no longer ride along under the autoformat label.
+`packages/engine/test/adapters/remediating-gate.test.ts` covers exactly this
+regression (a `dirtyPaths` fixture pre-seeded with `'unrelated-wip.txt'`
+asserts it stays out of the commit, and `commitAll` is wired to reject if
+ever called). Confirmed both the fix and its test are present in this
+checkout, unchanged since `ceef5c28`.
+
+This closes 1 of the 3 slices the prior entry recommended for
+`ap-mtm4qzty-1`; the other two — (a)+(b) the `fly.ts:325`/`375-376`
+worktree-fallback guard and (c) the `fly.ts:351,362` sync-back guard — are
+still open. Verified against the live checkout while writing this entry:
+neither `isAnyFlightLockLive` nor `fly.ts` has gained an `excludePid`
+parameter yet, and the fallback/sync-back call sites are unchanged from the
+prior entry's line numbers. A fleet sibling has an active board claim on
+this territory (`web-mtnxo78d-imajqg`, "flight-vs-flight primary-checkout
+race") — left untouched here per FLEET rules rather than duplicated. Live
+evidence the hazard is still real, captured while orienting this same
+firing: two more commits (`ca687c56`, then `7c74189b` + `ba747eb9`) landed on
+this exact primary checkout from other concurrent flights within the same
+few minutes, each completing cleanly in sequence rather than colliding —
+this run got lucky on timing, not protected by a fix. `ap-mtm4qzty-1` stays
+**open**, scoped now to just the remaining fly.ts slice.
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
