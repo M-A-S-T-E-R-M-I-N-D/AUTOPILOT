@@ -809,6 +809,43 @@ describe('createPrReviewExecuteApi', () => {
     expect(exec).toHaveBeenCalledTimes(4); // list + diff + reverse check + threads read only — no gh write ran
   });
 
+  it('refuses to run anything when the fresh head differs from the operator-previewed one (superseded head guard)', async () => {
+    // The motivating incident: the preview was computed against an OLD head
+    // (say, a red gate at that SHA), the author pushed a fix in between, and
+    // clicking Apply must not post a verdict derived from — or even
+    // re-assessed starting from — a PR that has since moved. Unlike the
+    // decision-kind guard below, this bails BEFORE the diff fetch/reviewThreads
+    // read the fuller assessment needs: a superseded head means every fact
+    // this ritual could gather is suspect, so there is nothing worth spending
+    // extra `gh` calls to re-derive.
+    const exec: CliExec = vi.fn().mockResolvedValueOnce({ code: 0, stdout: openPrListStdout() });
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12, undefined, 'fedcba9876543210fedcba9876543210fedcba98');
+
+    expect(result?.staleDecision).toBe(true);
+    expect(result?.results).toEqual([]);
+    expect(exec).toHaveBeenCalledTimes(1); // list only — no further assessment spent on a stale head
+  });
+
+  it('runs normally when the operator-previewed head matches the fresh one', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: openPrListStdout() })
+      .mockResolvedValueOnce({ code: 0, stdout: 'diff --git a/x b/x\n' }) // gh pr diff succeeds ⇒ rename sweep confirmed empty
+      .mockResolvedValueOnce({ code: 1, stdout: '' }) // git apply --reverse --check fails ⇒ not already applied
+      .mockResolvedValueOnce({ code: 0, stdout: reviewThreadsStdout() }) // reviewThreads read ⇒ conversations confirmed resolved
+      .mockResolvedValueOnce({ code: 0, stdout: 'approved' })
+      .mockResolvedValueOnce({ code: 0, stdout: 'merged' });
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12, 'merge', '0123456789abcdef0123456789abcdef01234567');
+
+    expect(result?.decision).toMatchObject({ decision: 'merge' });
+    expect(result?.staleDecision).toBeUndefined();
+    expect(result?.results).toHaveLength(2);
+  });
+
   it('runs normally when the operator-confirmed kind matches the fresh derive', async () => {
     const exec: CliExec = vi
       .fn()

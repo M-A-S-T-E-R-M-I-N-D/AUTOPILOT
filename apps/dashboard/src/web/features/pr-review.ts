@@ -196,11 +196,18 @@ document.addEventListener('click', function (e) {
   // dialog above actually showed — the server re-derives fresh and REFUSES
   // to run anything if the PR changed to a different verdict in the
   // meantime (staleDecision: true), instead of e.g. merging on a confirm
-  // that promised only a comment. See flight/pr-review-execute.ts.
+  // that promised only a comment. expectedHeadRefOid pins it to the
+  // previewed PR's head SHA too — the re-triage-before-Apply guard: a moved
+  // head is caught even when the fresh kind coincidentally matches the stale
+  // one. See flight/pr-review-execute.ts.
   fetch('/api/pr-review/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ number: number, expectedDecision: plan.decision.decision }),
+    body: JSON.stringify({
+      number: number,
+      expectedDecision: plan.decision.decision,
+      expectedHeadRefOid: plan.pr.headRefOid,
+    }),
   })
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {

@@ -409,10 +409,14 @@ export type PrReviewApi = () => Promise<PrReviewPreviewReport>;
  *  `flight/pr-review-execute.ts`). `null` means the PR is no longer open.
  *  `expectedDecision` is the decision kind the operator confirmed — the
  *  stale-decision guard refuses to run anything when the fresh re-derive
- *  disagrees with it (narrowing-only; absent executes the fresh decision). */
+ *  disagrees with it (narrowing-only; absent executes the fresh decision).
+ *  `expectedHeadRefOid` is the previewed PR's head SHA — the
+ *  re-triage-before-Apply guard refuses to run anything when the fresh head
+ *  has moved (narrowing-only; absent skips the check). */
 export type PrReviewExecuteApi = (
   number: number,
   expectedDecision?: PrReviewDecisionKind,
+  expectedHeadRefOid?: string,
 ) => Promise<PrReviewExecuteResult | null>;
 
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
@@ -1722,19 +1726,20 @@ async function handlePrReview(
 
 /**
  * The KEEPER REVIEW EXECUTE endpoint (`POST /api/pr-review/execute`, body
- * `{number, expectedDecision?}`). State-changing — posts a review/comment via
- * `gh` and, for a policy-green PR, merges it — so it is a CSRF-guarded JSON
- * POST like every other write, and separately rate-limited (same
- * heavier-than-a-quota-spend reasoning as `handleReleaseExecute`). The
- * decision is re-derived fresh from `gh` at execute time rather than trusting
- * anything the client sent — see `flight/pr-review-execute.ts`;
- * `expectedDecision` (the kind the operator's confirm dialog showed) is the
- * one client value honored, and only to NARROW: a fresh derive reaching a
- * different kind executes nothing and returns `staleDecision: true` for a
- * re-preview. 404 only for a PR no longer open or an
- * unwired API; every other completed run (merge, request-changes, or
- * queue-for-human) is a 200 — the caller inspects `results[].code` for
- * whether the underlying `gh` calls actually succeeded.
+ * `{number, expectedDecision?, expectedHeadRefOid?}`). State-changing — posts
+ * a review/comment via `gh` and, for a policy-green PR, merges it — so it is
+ * a CSRF-guarded JSON POST like every other write, and separately
+ * rate-limited (same heavier-than-a-quota-spend reasoning as
+ * `handleReleaseExecute`). The decision is re-derived fresh from `gh` at
+ * execute time rather than trusting anything the client sent — see
+ * `flight/pr-review-execute.ts`; `expectedDecision` (the kind the operator's
+ * confirm dialog showed) and `expectedHeadRefOid` (the previewed PR's head
+ * SHA) are the two client values honored, and only to NARROW: a fresh derive
+ * reaching a different kind, or finding the head has moved, executes nothing
+ * and returns `staleDecision: true` for a re-preview. 404 only for a PR no
+ * longer open or an unwired API; every other completed run (merge,
+ * request-changes, or queue-for-human) is a 200 — the caller inspects
+ * `results[].code` for whether the underlying `gh` calls actually succeeded.
  */
 async function handlePrReviewExecute(
   req: IncomingMessage,
@@ -1769,8 +1774,13 @@ async function handlePrReviewExecute(
   }
   let number: number;
   let expectedDecision: PrReviewDecisionKind | undefined;
+  let expectedHeadRefOid: string | undefined;
   try {
-    const parsed = JSON.parse(raw) as { number?: unknown; expectedDecision?: unknown };
+    const parsed = JSON.parse(raw) as {
+      number?: unknown;
+      expectedDecision?: unknown;
+      expectedHeadRefOid?: unknown;
+    };
     number = typeof parsed.number === 'number' ? parsed.number : NaN;
     // Optional: the decision kind the operator's confirm dialog showed — the
     // stale-decision guard input. Absent means not-asserted (executes the
@@ -1786,6 +1796,17 @@ async function handlePrReviewExecute(
       }
       expectedDecision = parsed.expectedDecision;
     }
+    // Optional: the previewed PR's head SHA — the re-triage-before-Apply
+    // guard input (a moved head means the previewed facts no longer describe
+    // the PR). Same not-asserted-when-absent, 400-on-garbage convention as
+    // expectedDecision above.
+    if (parsed.expectedHeadRefOid !== undefined) {
+      if (typeof parsed.expectedHeadRefOid !== 'string' || parsed.expectedHeadRefOid === '') {
+        send(400, { error: 'expectedHeadRefOid must be a non-empty string' });
+        return;
+      }
+      expectedHeadRefOid = parsed.expectedHeadRefOid;
+    }
   } catch {
     send(400, { error: 'invalid JSON' });
     return;
@@ -1795,7 +1816,7 @@ async function handlePrReviewExecute(
     return;
   }
   try {
-    const result = await api(number, expectedDecision);
+    const result = await api(number, expectedDecision, expectedHeadRefOid);
     if (!result) {
       send(404, { error: 'PR is no longer open' });
       return;

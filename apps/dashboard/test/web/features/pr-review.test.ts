@@ -38,6 +38,10 @@ describe('prReviewJs', () => {
     expect(prReviewJs()).toContain('expectedDecision: plan.decision.decision');
   });
 
+  it('pins the execute POST to the previewed head SHA too (re-triage-before-Apply guard)', () => {
+    expect(prReviewJs()).toContain('expectedHeadRefOid: plan.pr.headRefOid');
+  });
+
   it('declares renderPrReviewPanel and loadPrReviewPanel', () => {
     const out = prReviewJs();
     expect(out).toContain('function renderPrReviewPanel(plans, fetchFailed) {');

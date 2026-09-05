@@ -67,15 +67,32 @@ export interface PrReviewExecuteResult {
  *  `expectedDecision` is the decision kind the operator actually confirmed
  *  (the previewed plan's) — see the stale-decision guard below; absent means
  *  "not asserted", which executes whatever the fresh re-derive says, the
- *  pre-guard behavior. */
+ *  pre-guard behavior. `expectedHeadRefOid` is the previewed PR's head SHA —
+ *  see the re-triage-before-Apply guard below; same not-asserted convention. */
 export type PrReviewExecuteApi = (
   number: number,
   expectedDecision?: PrReviewDecisionKind,
+  expectedHeadRefOid?: string,
 ) => Promise<PrReviewExecuteResult | null>;
 
 /**
  * Build the KEEPER REVIEW execute API against the real `gh` CLI — the
  * production wiring `main.ts` injects into the server.
+ *
+ * The re-triage-before-Apply guard (the incident this closed: 2026-09-05,
+ * gabibi555 #12/#13 — a verdict computed against a superseded head posted a
+ * formal request-changes that blocked two PRs that had already gone green):
+ * a head that moved between preview and Apply means every fact the preview
+ * showed — gate status, mergeability, the diff-derived verdicts — was judged
+ * against a PR that no longer exists in that shape, and the decision-kind
+ * guard below is blind to it whenever the fresh kind happens to coincide with
+ * the stale one (e.g. still "request-changes", now for a different reason).
+ * So this checks the head FIRST, before spending the diff fetch and
+ * reviewThreads read the fuller assessment needs — a superseded head makes
+ * that assessment worthless, not just its conclusion. Narrowing-only, same
+ * doctrine as the decision-kind guard: an absent expectation, or a fetch that
+ * cannot confirm the fresh head, behaves as not-asserted and runs the fuller
+ * assessment as before.
  *
  * The stale-decision guard: re-deriving fresh at execute time protects
  * against a FORGED client decision, but it opened a confirm-guard TOCTOU of
@@ -96,10 +113,22 @@ export type PrReviewExecuteApi = (
  * `resolvePrReviewAutoMergePolicy` takes on an unset env var.
  */
 export function createPrReviewExecuteApi(exec: CliExec = realCliExec): PrReviewExecuteApi {
-  return async (number, expectedDecision) => {
+  return async (number, expectedDecision, expectedHeadRefOid) => {
     const candidates = await fetchOpenPrCandidates(exec);
     const pr = candidates.find((candidate) => candidate.number === number);
     if (!pr) return confirmPrNotOpen(number, exec);
+
+    if (
+      expectedHeadRefOid !== undefined &&
+      pr.headRefOid !== undefined &&
+      pr.headRefOid !== expectedHeadRefOid
+    ) {
+      return {
+        decision: planPrReview(pr, resolvePrReviewAutoMergePolicy()),
+        results: [],
+        staleDecision: true,
+      };
+    }
 
     // Both on-demand reads re-run fresh here, in the preview's order: the
     // diff verdicts first, then the review-thread sweep a merge must assert
