@@ -137,21 +137,30 @@ function renderReleaseBody(body, release, pid) {
   // -beta/-rc suffix names its own phase — and publishes pre-releases with
   // GitHub's --prerelease badge so an alpha is never crowned "Latest". The
   // select lets the operator override; Auto stays the default and the hint
-  // spells out the detection so it is never a silent guess.
+  // spells out the detection so it is never a silent guess. The label and
+  // the five option texts are tr()'d (board github-4) — the raw phase id
+  // ('alpha'/'beta'/…) never leaks into a translated sentence, so Auto's
+  // "detected: {phase}" substitutes the translated label, not the id.
   var detected = releaseMaturityOf(release.plan.version);
   var maturityRow = el('div', 'release-maturity');
   var maturityId = 'release-maturity-' + pid;
-  var maturityLabel = el('label', null, 'Release phase');
+  var maturityLabel = el('label', null, tr('releaseMaturityLabel'));
   maturityLabel.setAttribute('for', maturityId);
   var maturitySelect = document.createElement('select');
   maturitySelect.id = maturityId;
   maturitySelect.className = 'release-maturity-select';
+  var maturityPhaseLabels = {
+    alpha: tr('releaseMaturityAlpha'),
+    beta: tr('releaseMaturityBeta'),
+    rc: tr('releaseMaturityRc'),
+    stable: tr('releaseMaturityStable'),
+  };
   var maturityChoices = [
-    ['auto', 'Auto — detected: ' + detected.phase],
-    ['alpha', 'Alpha'],
-    ['beta', 'Beta'],
-    ['rc', 'Release candidate'],
-    ['stable', 'Stable'],
+    ['auto', tr('releaseMaturityAutoTemplate', { phase: maturityPhaseLabels[detected.phase] })],
+    ['alpha', maturityPhaseLabels.alpha],
+    ['beta', maturityPhaseLabels.beta],
+    ['rc', maturityPhaseLabels.rc],
+    ['stable', maturityPhaseLabels.stable],
   ];
   for (var mc = 0; mc < maturityChoices.length; mc++) {
     var maturityOpt = document.createElement('option');
@@ -161,11 +170,11 @@ function renderReleaseBody(body, release, pid) {
   }
   var maturityTip = 'A pre-release phase publishes with GitHub’s Pre-release badge and is never marked Latest. Auto: ' + detected.reasoning;
   maturitySelect.setAttribute('data-tip', maturityTip);
-  maturitySelect.setAttribute('aria-label', 'Release phase — ' + maturityTip);
+  maturitySelect.setAttribute('aria-label', tr('releaseMaturityLabel') + ' — ' + maturityTip);
   maturityRow.appendChild(maturityLabel);
   maturityRow.appendChild(maturitySelect);
   body.appendChild(maturityRow);
-  body.appendChild(el('p', 'release-maturity-hint', detected.phase + ' — ' + detected.reasoning));
+  body.appendChild(el('p', 'release-maturity-hint', maturityPhaseLabels[detected.phase] + ' — ' + detected.reasoning));
 
   var actions = el('div', 'release-actions');
   var execBtn = document.createElement('button');
@@ -227,7 +236,7 @@ document.addEventListener('click', function (e) {
   var maturitySelectEl = panel && panel.querySelector('.release-maturity-select');
   var maturity = maturitySelectEl ? maturitySelectEl.value : 'auto';
   var resultEl = b.parentElement && b.parentElement.nextElementSibling;
-  if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease))) return;
+  if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease, tr))) return;
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = 'Releasing…';
