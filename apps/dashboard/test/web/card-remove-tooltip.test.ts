@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 const PROJECT = {
@@ -85,5 +86,32 @@ describe('fleet card remove button explains itself on hover/focus', () => {
     // the task-row chips).
     expect(rm?.getAttribute('aria-label')).toBe('Remove Alpha');
     expect(rm?.getAttribute('aria-label')).not.toBe(rm?.getAttribute('data-tip'));
+  });
+
+  it('reverts to the localized label, not a hardcoded English literal, when the delete request fails', async () => {
+    document.open();
+    document.write(renderShell(''));
+    document.close();
+    document.documentElement.lang = 'he';
+    globalThis.fetch = vi.fn(async (url: unknown) => {
+      if (typeof url === 'string' && url.includes('/api/project/delete')) {
+        return { ok: false, json: async () => STATE } as unknown as Response;
+      }
+      return { ok: true, json: async () => STATE } as unknown as Response;
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const rm = document.querySelector('[data-remove="p1"]') as HTMLButtonElement;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    rm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(rm.disabled).toBe(false);
+    expect(rm.textContent).toBe(STRINGS.he.removeCard);
+  });
+
+  it("uses tr('removing') for the in-flight label, not a hardcoded literal", () => {
+    expect(clientJs()).toContain("b.textContent = tr('removing');");
   });
 });
