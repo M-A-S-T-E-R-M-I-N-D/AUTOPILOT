@@ -92,6 +92,9 @@ body {
 .calc-wide {
   grid-column: span 2;
 }
+.calc-full {
+  grid-column: 1 / -1;
+}
 .calc-note {
   margin: var(--gap) 2px 2px;
   font-size: 0.7rem;
