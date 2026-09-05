@@ -162,8 +162,20 @@ export function isFlightOwnerAlive(
  * could hold, exactly the way `fly.ts` writes them (`engineLockFileName`),
  * and treat any live one as "a flight owns the checkout" — the same
  * refusal path `isFlightRunning` already produces.
+ *
+ * `excludePid`, when given, skips a lock file recording exactly that pid —
+ * for a caller that has ALREADY acquired its own lock on `targetPath` before
+ * asking "is anyone ELSE flying this" (board web-mtnxo78d-imajqg: `fly.ts`'s
+ * own worktree-setup-failure fallback, which must fall back to flying
+ * `targetPath` directly only when no OTHER live flight already holds it —
+ * without this exclusion the caller's own just-acquired lock always matches
+ * and the check could never return false for the ordinary single-flight case).
  */
-export function isAnyFlightLockLive(dbDir: string, targetPath: string): boolean {
+export function isAnyFlightLockLive(
+  dbDir: string,
+  targetPath: string,
+  excludePid?: number,
+): boolean {
   const projectId = deriveFlyProjectId(targetPath);
   let entries: string[];
   try {
@@ -184,7 +196,7 @@ export function isAnyFlightLockLive(dbDir: string, targetPath: string): boolean 
       continue;
     }
     const info = parseLockInfo(raw);
-    if (info !== null && isProcessAlive(info.pid)) return true;
+    if (info !== null && info.pid !== excludePid && isProcessAlive(info.pid)) return true;
   }
   return false;
 }
