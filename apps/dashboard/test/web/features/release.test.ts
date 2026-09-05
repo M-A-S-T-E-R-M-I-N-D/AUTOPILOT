@@ -35,10 +35,15 @@ describe('releaseJs', () => {
     const out = releaseJs();
     expect(out).toContain(releaseMaturityOf.toString());
     expect(out).toContain('var detected = releaseMaturityOf(release.plan.version);');
-    expect(out).toContain("['auto', 'Auto — detected: ' + detected.phase]");
+    // The label and the five option texts are translated (board github-4);
+    // Auto substitutes the translated phase label, never the raw phase id.
+    expect(out).toContain("el('label', null, tr('releaseMaturityLabel'))");
+    expect(out).toContain(
+      "['auto', tr('releaseMaturityAutoTemplate', { phase: maturityPhaseLabels[detected.phase] })]",
+    );
     // The hint spells out the reasoning — never a silent guess.
     expect(out).toContain(
-      "el('p', 'release-maturity-hint', detected.phase + ' — ' + detected.reasoning)",
+      "el('p', 'release-maturity-hint', maturityPhaseLabels[detected.phase] + ' — ' + detected.reasoning)",
     );
     // Auto stays implicit; only a real override rides the POST body.
     expect(out).toContain("if (maturity && maturity !== 'auto') payload.maturity = maturity;");
