@@ -605,6 +605,18 @@ const EN_STRINGS = {
   githubPrConfirm:
     'Open a pull request titled "{title}" against the upstream AUTOPILOT repo from {name}\'s current branch?\n\nThis forks the upstream repo, pushes your branch to that fork, and runs a real `gh pr create` using your own authenticated gh/git. This cannot be undone by this dashboard.',
   githubPrConfirmIssueClause: '\n\nThis will close issue #{issueNumber} on merge.',
+
+  // web/release-panel.ts's releaseConfirmMessage — the RELEASE EXECUTE button's
+  // window.confirm() text, the last untranslated confirm dialog in the dashboard.
+  // Split into a base sentence, two independently-optional clauses (milestone tag,
+  // GitHub Release publish) and a fixed suffix, the same shape
+  // githubPrConfirm/githubPrConfirmIssueClause established for a conditionally
+  // appended clause.
+  releaseConfirmBase:
+    'Cut this release?\n\nThis bumps package.json, cuts the CHANGELOG, creates a real git commit + tag, and attaches a git-notes attestation.',
+  releaseConfirmMilestoneClause: ' Also tags "{milestoneTag}" at the same commit.',
+  releaseConfirmGhReleaseClause: ' Also pushes the new tag and publishes it as a GitHub Release.',
+  releaseConfirmSuffix: ' This cannot be undone by this dashboard.',
   browseDrives: 'Drives',
   browseUpParent: 'Up to the parent folder',
   flightSummaryTitle: 'Recently shipped',
@@ -628,6 +640,18 @@ const EN_STRINGS = {
   backlogConfirmDone: '✓ confirm done',
   backlogUnavailable: 'Detected backlog unavailable.',
   releaseTitle: '🚀 Next release',
+  // web/features/release.ts's RELEASE PHASE select (board github-4): built
+  // fresh on every panel render, so tr() at build time is the sweep, the
+  // same reasoning report-menu.ts's keys followed. releaseMaturityAutoTemplate's
+  // {phase} substitutes one of the other four labels below, never the raw
+  // 'alpha'/'beta'/'rc'/'stable' phase id — a translated select must never
+  // mix an untranslated fragment into an otherwise-localized sentence.
+  releaseMaturityLabel: 'Release phase',
+  releaseMaturityAutoTemplate: 'Auto — detected: {phase}',
+  releaseMaturityAlpha: 'Alpha',
+  releaseMaturityBeta: 'Beta',
+  releaseMaturityRc: 'Release candidate',
+  releaseMaturityStable: 'Stable',
   tourFiringTitle: 'Firing',
   tourFiringBody:
     'One autonomous work session: the agent orients, does the work, runs the gate, then commits — and stops. A flight is made of many firings.',
@@ -1000,6 +1024,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubPrConfirm:
       'לפתוח pull request בשם "{title}" מול מאגר ה-AUTOPILOT במקור, מהענף הנוכחי של {name}?\n\nפעולה זו מבצעת fork למאגר המקור, דוחפת את הענף שלכם אל ה-fork, ומריצה `gh pr create` אמיתי באמצעות ה-gh/git המאומתים שלכם. לא ניתן לבטל פעולה זו מלוח הבקרה.',
     githubPrConfirmIssueClause: '\n\nפעולה זו תסגור את issue מספר #{issueNumber} עם המיזוג.',
+    releaseConfirmBase:
+      'להוציא את המהדורה הזו?\n\nפעולה זו מעדכנת את הגרסה ב-package.json, מעדכנת את ה-CHANGELOG, יוצרת קומיט ותג git אמיתיים, ומצרפת אישור git-notes.',
+    releaseConfirmMilestoneClause: ' כמו כן מתייגת את "{milestoneTag}" על אותו קומיט.',
+    releaseConfirmGhReleaseClause: ' כמו כן דוחפת את התג החדש ומפרסמת אותו כ-GitHub Release.',
+    releaseConfirmSuffix: ' לא ניתן לבטל פעולה זו מלוח הבקרה.',
     browseDrives: 'כוננים',
     browseUpParent: 'עלייה לתיקיית האב',
     flightSummaryTitle: 'שוחררו לאחרונה',
@@ -1019,6 +1048,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     backlogConfirmDone: '✓ אשר בוצע',
     backlogUnavailable: 'הפיגור שזוהה אינו זמין.',
     releaseTitle: '🚀 המהדורה הבאה',
+    releaseMaturityLabel: 'שלב המהדורה',
+    releaseMaturityAutoTemplate: 'אוטומטי — זוהה: {phase}',
+    releaseMaturityAlpha: 'אלפא',
+    releaseMaturityBeta: 'בטא',
+    releaseMaturityRc: 'מועמדת לשחרור',
+    releaseMaturityStable: 'יציבה',
     tourFiringTitle: 'הפעלה',
     tourFiringBody:
       'מפגש עבודה אוטונומי אחד: הסוכן מתמצא, מבצע את העבודה, מריץ את השער, ואז מבצע קומיט — ועוצר. טיסה מורכבת מהפעלות רבות.',

@@ -14,6 +14,7 @@ import {
   extractWebFetchUrl,
   buildFlightSettings,
   guardHookScriptPath,
+  commitSignoffDenial,
   isGitCommitCommand,
 } from '../src/guard.js';
 
@@ -719,6 +720,20 @@ describe('evaluateHookInput', () => {
     );
   });
 
+  it('denies a contained commit that hand-writes its own DCO trailer, under its own prefix', () => {
+    // Contained — cwd never leaves ROOT — so this can only be caught by the
+    // trailer check, not by containment, and must not borrow CONTAINMENT's
+    // wording (the agent's next move is `-s`, not "work inside the repo").
+    const out = deny('git commit -m "fix: x\n\nSigned-off-by: A <a@example.com>"');
+    expect(out).not.toBeNull();
+    const reason = (
+      JSON.parse(out ?? '{}') as { hookSpecificOutput: { permissionDecisionReason: string } }
+    ).hookSpecificOutput.permissionDecisionReason;
+    expect(reason).toContain('DCO TRAILER:');
+    expect(reason).toContain('git commit -s');
+    expect(reason).not.toContain('CONTAINMENT');
+  });
+
   it('a WebFetch with no `url` field is no-decision (the WebFetch branch itself only inspects `url`)', () => {
     // NOT a test of the tool_name fallthrough below — WebFetch IS in the
     // guarded set. `file_path` is simply not a field that branch inspects.
@@ -1057,6 +1072,51 @@ describe('isGitCommitCommand', () => {
 
   it('exempts --dry-run — no real commit is ever created', () => {
     expect(isGitCommitCommand('git commit --dry-run -m "feat: x"')).toBe(false);
+  });
+});
+
+describe('commitSignoffDenial', () => {
+  it('refuses a commit whose message hand-writes the trailer', () => {
+    const reason = commitSignoffDenial(
+      'git commit -m "fix: x\n\nSigned-off-by: Someone <someone@example.com>"',
+    );
+    expect(reason).toContain('hand-writes a `Signed-off-by:` trailer');
+    expect(reason).toContain('git commit -s');
+  });
+
+  it('refuses the heredoc shape the real leak used — the trailer sits on its own line', () => {
+    // Regression: every observed leak composed the message through a heredoc,
+    // so the trailer is separated from the `git commit` token by newlines.
+    // A per-segment scan splits on those and would see two innocent halves.
+    const reason = commitSignoffDenial(
+      [
+        "git commit -m \"$(cat <<'EOF'",
+        'fix: x',
+        '',
+        'Signed-off-by: A <a@example.com>',
+        'EOF',
+        ')"',
+      ].join('\n'),
+    );
+    expect(reason).not.toBeNull();
+  });
+
+  it('allows a commit that lets git write the trailer', () => {
+    expect(commitSignoffDenial('git commit -s -m "fix: x"')).toBeNull();
+    expect(commitSignoffDenial('git add -A && git commit -s -m "fix: x"')).toBeNull();
+  });
+
+  it('is silent on commands that are not commits, however they mention the trailer', () => {
+    expect(commitSignoffDenial("git log -1 --format='%B' | grep 'Signed-off-by:'")).toBeNull();
+    expect(
+      commitSignoffDenial('git commit --dry-run -m "Signed-off-by: A <a@example.com>"'),
+    ).toBeNull();
+  });
+
+  it('matches the trailer case-insensitively and across loose spacing', () => {
+    expect(
+      commitSignoffDenial('git commit -m "x\n\nsigned-off-by : A <a@example.com>"'),
+    ).not.toBeNull();
   });
 });
 
