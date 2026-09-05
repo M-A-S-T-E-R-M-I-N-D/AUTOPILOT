@@ -843,8 +843,12 @@ const EN_STRINGS = {
   // reportFromHere). reportNothingToFile's {reasoning} is the server's own
   // plan reasoning, slotted in as sent; reportRequestFailed keeps its ✗ mark
   // literal like ghIssueRequestFailed's. The spliced report-panel.ts helpers
-  // (action labels, confirm text, execute tip/result) stay English until
-  // they take an injected tr.
+  // (action labels, execute tip/result) stay English until they take an
+  // injected tr; reportConfirmMessage is the first of those four to move —
+  // reportConfirmExecute/reportConfirmEffectTask/reportConfirmEffectIssue/
+  // reportConfirmSuffix are its four clauses, same base/effect/suffix shape
+  // releaseConfirmMessage's keys use. plan.summary itself (server-composed)
+  // stays untranslated, the same server-message stance every prior slice took.
   reportFromHere: 'Report from here',
   reportFromHereTitle: '🚩 Report from here',
   reportDialogCloseTip: 'Closes this dialog without filing anything.',
@@ -859,6 +863,13 @@ const EN_STRINGS = {
   reportExecute: 'Execute',
   reportExecuting: 'Executing…',
   reportRequestFailed: '✗ Request failed — try again shortly.',
+  reportConfirmExecute: 'Execute this report?',
+  reportConfirmEffectTask:
+    'This creates a queued board task — its id is content-addressed, so retrying the same capture never mints a second one.',
+  reportConfirmEffectIssue:
+    'This files a REAL GitHub issue via gh — this dashboard cannot recall it; close it on GitHub if it was a mistake.',
+  reportConfirmSuffix:
+    'The plan is re-derived fresh from the capture at execute time — this will not blindly trust what is shown here.',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1232,6 +1243,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     reportExecute: 'בצע',
     reportExecuting: 'מבצע…',
     reportRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
+    reportConfirmExecute: 'לבצע את הדיווח הזה?',
+    reportConfirmEffectTask:
+      'פעולה זו יוצרת משימת לוח בתור — המזהה שלה מבוסס-תוכן, כך שניסיון חוזר על אותה לכידה לעולם לא ייצור עותק שני.',
+    reportConfirmEffectIssue:
+      'פעולה זו מגישה issue אמיתי ב-GitHub דרך gh — לוח הבקרה אינו יכול לבטל זאת; סִגרו אותו ב-GitHub אם זו הייתה טעות.',
+    reportConfirmSuffix:
+      'התוכנית נגזרת מחדש מהלכידה בזמן הביצוע — היא לא תסמוך באופן עיוור על מה שמוצג כאן.',
   },
 };
 

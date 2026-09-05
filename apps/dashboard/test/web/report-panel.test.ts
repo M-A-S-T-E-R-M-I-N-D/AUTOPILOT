@@ -7,15 +7,34 @@
  * `POST /api/report-from-here` + `POST /api/report-from-here/execute`
  * (BOARD web-mss50ia8-nthtf3, "PLATFORM 5/7"), the slice
  * `flight/report-from-here.ts`'s header comment deferred.
+ *
+ * i18n (board web-msnsndki-dz3vn1): `reportConfirmMessage` stays spliced
+ * into the bundle via `.toString()` (see `web/features/report-menu.ts`), so
+ * — the same route `releaseConfirmMessage`/`prReviewConfirmMessage` took —
+ * it now takes the bundle's `tr()` as its second parameter instead of
+ * composing English literals directly. Every English assertion below passes
+ * a STRINGS.en-backed translator and is byte-for-byte what the old literals
+ * produced; the Hebrew case proves the server-sent summary lands untouched
+ * inside the translated wrapper.
  */
 
 import { describe, it, expect } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import {
   reportActionLabel,
   reportConfirmMessage,
   reportExecuteResult,
   reportExecuteTip,
+  type ReportPanelTranslator,
 } from '../../src/web/report-panel.js';
+
+/** A translator over one real STRINGS table — the same shape the bundle's
+ *  `tr()` (`web/features/locale.ts`) resolves a bare key to. */
+function translatorFor(locale: 'en' | 'he'): ReportPanelTranslator {
+  return (key) => STRINGS[locale][key];
+}
+const trEn = translatorFor('en');
+const trHe = translatorFor('he');
 
 describe('reportActionLabel', () => {
   it('labels each of the four report actions', () => {
@@ -32,11 +51,14 @@ describe('reportActionLabel', () => {
 
 describe('reportConfirmMessage', () => {
   it('warns an issue plan files a real GitHub issue this dashboard cannot recall', () => {
-    const msg = reportConfirmMessage({
-      ok: true,
-      action: 'issue',
-      summary: 'gh issue create — bug issue "fly bar overlaps" (label "bug")',
-    });
+    const msg = reportConfirmMessage(
+      {
+        ok: true,
+        action: 'issue',
+        summary: 'gh issue create — bug issue "fly bar overlaps" (label "bug")',
+      },
+      trEn,
+    );
     expect(msg).toContain('Execute this report?');
     expect(msg).toContain('gh issue create — bug issue "fly bar overlaps" (label "bug")');
     expect(msg).toContain('REAL GitHub issue');
@@ -44,33 +66,57 @@ describe('reportConfirmMessage', () => {
   });
 
   it('gives a pool offer the same real-issue clause — it also files upstream', () => {
-    const msg = reportConfirmMessage({
-      ok: true,
-      action: 'pool-offer',
-      summary: 'gh issue create — pool offer "[pool] fly bar overlaps" (label "pool: ux")',
-    });
+    const msg = reportConfirmMessage(
+      {
+        ok: true,
+        action: 'pool-offer',
+        summary: 'gh issue create — pool offer "[pool] fly bar overlaps" (label "pool: ux")',
+      },
+      trEn,
+    );
     expect(msg).toContain('REAL GitHub issue');
     expect(msg).not.toContain('board task');
   });
 
   it('notes a local task plan is retry-safe via its content-addressed id', () => {
-    const msg = reportConfirmMessage({
-      ok: true,
-      action: 'local-task',
-      summary: 'board task "Report: fly bar overlaps [from Fly bar]" (queued)',
-    });
+    const msg = reportConfirmMessage(
+      {
+        ok: true,
+        action: 'local-task',
+        summary: 'board task "Report: fly bar overlaps [from Fly bar]" (queued)',
+      },
+      trEn,
+    );
     expect(msg).toContain('queued board task');
     expect(msg).toContain('content-addressed');
     expect(msg).not.toContain('REAL GitHub issue');
   });
 
   it('treats a quick-fix-pr plan as task-shaped too', () => {
-    const msg = reportConfirmMessage({
-      ok: true,
-      action: 'quick-fix-pr',
-      summary: 'board task "QUICK-FIX (deliver as PR): fly bar overlaps [from Fly bar]" (queued)',
-    });
+    const msg = reportConfirmMessage(
+      {
+        ok: true,
+        action: 'quick-fix-pr',
+        summary: 'board task "QUICK-FIX (deliver as PR): fly bar overlaps [from Fly bar]" (queued)',
+      },
+      trEn,
+    );
     expect(msg).toContain('queued board task');
+  });
+
+  it('reads its clauses from the injected locale table, keeping the server summary as sent', () => {
+    const msg = reportConfirmMessage(
+      {
+        ok: true,
+        action: 'issue',
+        summary: 'gh issue create — bug issue "fly bar overlaps" (label "bug")',
+      },
+      trHe,
+    );
+    expect(msg).toContain(STRINGS.he.reportConfirmExecute);
+    expect(msg).toContain(STRINGS.he.reportConfirmEffectIssue);
+    expect(msg).toContain(STRINGS.he.reportConfirmSuffix);
+    expect(msg).toContain('gh issue create — bug issue "fly bar overlaps" (label "bug")');
   });
 });
 
