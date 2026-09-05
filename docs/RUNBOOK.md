@@ -515,7 +515,7 @@ pnpm dashboard fleet <folder> <lanes> [firings] [budgetUsd]
 Before launching, it partitions the open board across the lane count with
 `buildFleetLaunchPlan` (`flight/fleet-launch.ts`) — the same cohesion-aware,
 hub-rule partitioner `scope-partition.ts` was written for (§ Fleet scope
-partitioner in `docs/FLEET-ORCHESTRATION.md`): same-area tasks stay on one lane,
+partitioner in `docs/DOCTRINE-COORDINATION.md`): same-area tasks stay on one lane,
 so two lanes are never mid-flight on files the partition can see are related.
 Each lane's slice rides as `taskScope` on its own `POST /api/fly`.
 

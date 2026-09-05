@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Flight-end summary line (FLEET-ORCHESTRATION.md's "fractional firing"
+ * Flight-end summary line (DOCTRINE-COORDINATION.md's "fractional firing"
  * debrief, board web-msw5gwfs-rqylda): a fleet launch that omits the
  * `[firings]` CLI arg silently defaults to ONE firing (`DEFAULT_FIRINGS` in
  * fly.ts) and exits `stoppedBy: 'max-iterations'` — a clean, by-design exit
