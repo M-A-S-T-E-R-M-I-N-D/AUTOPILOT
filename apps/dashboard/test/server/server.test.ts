@@ -1828,6 +1828,42 @@ describe('createServer (live loopback)', () => {
     }
   });
 
+  it('POST /api/pr-review/execute passes the confirmed expectedHeadRefOid through to the re-triage guard', async () => {
+    const seen: unknown[] = [];
+    const base = await start({
+      prReviewExecute: async (number, expectedDecision, expectedHeadRefOid) => {
+        seen.push([number, expectedDecision, expectedHeadRefOid]);
+        return {
+          decision: { decision: 'merge', reasoning: 'fresh verdict' },
+          results: [],
+          staleDecision: true,
+        };
+      },
+    });
+    const res = await fetch(`${base}/api/pr-review/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ number: 12, expectedHeadRefOid: 'abc123' }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { staleDecision?: boolean }).toMatchObject({
+      staleDecision: true,
+    });
+    expect(seen).toEqual([[12, undefined, 'abc123']]);
+  });
+
+  it('POST /api/pr-review/execute 400s a garbage expectedHeadRefOid instead of dropping the pin', async () => {
+    const base = await start({ prReviewExecute: async () => null });
+    for (const expectedHeadRefOid of [42, '', null, {}]) {
+      const res = await fetch(`${base}/api/pr-review/execute`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ number: 12, expectedHeadRefOid }),
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
   it('POST /api/pr-review/execute 404s for a PR no longer open', async () => {
     const base = await start({ prReviewExecute: async () => null });
     const res = await fetch(`${base}/api/pr-review/execute`, {

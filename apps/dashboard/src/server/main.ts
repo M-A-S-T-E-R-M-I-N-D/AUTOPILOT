@@ -86,6 +86,9 @@ import {
   createReportFromHereExecuteApi,
 } from '../flight/report-from-here-execute.js';
 import { createPublicityPreviewApi } from '../flight/publicity.js';
+import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
+import { isAnyFlightLockLive } from '../flight/lock.js';
+import { spawn } from 'node:child_process';
 import { createControlExecuteApi } from '../flight/control-execute.js';
 import { ensureSelfOnboarded } from './self-onboard.js';
 import { listBrowsableFolder } from './browse-folder.js';
@@ -568,6 +571,19 @@ const server = createServer({
   // discussions links, dormant while the repo stays private; read-only, no
   // execute pair (each affordance is an outbound link, never a `gh` write).
   publicity: createPublicityPreviewApi(),
+  updateCheck: createUpdateCheckApi(process.cwd(), PRODUCT_VERSION),
+  updateExecute: createUpdateExecuteApi(process.cwd(), {
+    isFlightLive: () => isAnyFlightLockLive(dirname(dbPath), process.cwd()),
+    // Detached control-CLI restart: rebuilds, stops this process, starts the
+    // new build — fired only after pull+install already succeeded.
+    restart: () => {
+      spawn(
+        process.execPath,
+        [join(process.cwd(), 'apps', 'dashboard', 'dist', 'control', 'cli.js'), 'restart'],
+        { cwd: process.cwd(), detached: true, stdio: 'ignore', windowsHide: true },
+      ).unref();
+    },
+  }),
   // ARCHITECT chat v2 slice 1 (docs/epics/0011-architect-chat-v2.md) — the
   // in-process control-tool dispatcher; no UI consumer yet (slices 2-3).
   controlExecute: createControlExecuteApi(dbPath),

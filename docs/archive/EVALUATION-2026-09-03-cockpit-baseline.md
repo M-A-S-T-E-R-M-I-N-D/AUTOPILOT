@@ -3,6 +3,11 @@ SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 SPDX-License-Identifier: Apache-2.0
 -->
 
+> **ARCHIVED (2026-09-05):** the most recent run of this series, consolidated with
+> its predecessors into [`../COCKPIT-BASELINE.md`](../COCKPIT-BASELINE.md), the one
+> living doc with a delta-only trend table — read that file for the current state.
+> Kept for the series' completeness.
+
 # EVALUATION — cockpit baseline, DOM growth + axe by impact + tab stops + attribute payload + duplicate renders + longest task + unique values + specificity + contrast matrix + alarm rate + severity shape + token coverage + i18n tagging coverage + interaction latency (2026-09-03)
 
 COCKPIT PHASE 0 MEASURE (`docs/epics/0015-cockpit-supervisory-control.md`, board

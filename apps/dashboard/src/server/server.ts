@@ -101,6 +101,7 @@ import type { LandingExecuteApiResult } from '../landing/execute.js';
 import type { LandingJobState } from '../landing/job.js';
 import type { ReleaseExecuteResult } from '../release/execute.js';
 import { isMaturityChoice, type MaturityChoice } from '../release/maturity.js';
+import type { UpdateCheckApi, UpdateExecuteApi } from '../flight/update-check.js';
 import type { InboxAddResult } from '../inbox/add.js';
 import type { PrReviewPlan } from '../flight/pr-review.js';
 import {
@@ -408,10 +409,14 @@ export type PrReviewApi = () => Promise<PrReviewPreviewReport>;
  *  `flight/pr-review-execute.ts`). `null` means the PR is no longer open.
  *  `expectedDecision` is the decision kind the operator confirmed — the
  *  stale-decision guard refuses to run anything when the fresh re-derive
- *  disagrees with it (narrowing-only; absent executes the fresh decision). */
+ *  disagrees with it (narrowing-only; absent executes the fresh decision).
+ *  `expectedHeadRefOid` is the previewed PR's head SHA — the
+ *  re-triage-before-Apply guard refuses to run anything when the fresh head
+ *  has moved (narrowing-only; absent skips the check). */
 export type PrReviewExecuteApi = (
   number: number,
   expectedDecision?: PrReviewDecisionKind,
+  expectedHeadRefOid?: string,
 ) => Promise<PrReviewExecuteResult | null>;
 
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
@@ -558,6 +563,11 @@ export interface ServerDeps extends RouteDeps {
   /** Publicity affordances (epic 0007, "PLATFORM 7/7"): repo/watch/star/
    *  discussions links, dormant while the repo stays private. */
   readonly publicity?: PublicityApi;
+  /** Over-the-air update (operator ask 2026-09-05): version check against
+   *  origin's tags + the progress-preserving one-click update — see
+   *  `flight/update-check.ts` for the never-clobber guarantees. */
+  readonly updateCheck?: UpdateCheckApi;
+  readonly updateExecute?: UpdateExecuteApi;
 }
 
 const SEARCH_LIMIT = 12;
@@ -1522,6 +1532,82 @@ async function handleLandingExecute(
  * create` publish-upstream leg (epic 0006 slice 3) — passed straight through
  * since it is a plain boolean, nothing to validate.
  */
+/** GET /api/update-check — cached origin-tags version probe; `?force=1`
+ *  bypasses the cache (the banner's manual re-check affordance). */
+async function handleUpdateCheck(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: UpdateCheckApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  if (!api) {
+    sendJson(res, headers, 404, { error: 'update check unavailable' });
+    return;
+  }
+  const force = new URL(req.url ?? '/', 'http://localhost').searchParams.get('force') === '1';
+  try {
+    sendJson(res, headers, 200, await api(force));
+  } catch (error) {
+    sendJson(res, headers, 500, {
+      error: error instanceof Error ? error.message : 'update check failed',
+    });
+  }
+}
+
+/** POST /api/update/execute — the progress-preserving OTA update. Body:
+ *  `{ strategy?: 'stash' }`. Refusals come back 409 with the reason the
+ *  client renders (dirty / diverged / flight-live), success 200 with
+ *  `restarting: true` when the server is about to bounce onto the new
+ *  build. Shares the release limiter — both are heavyweight, operator-rate
+ *  actions. */
+async function handleUpdateExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: UpdateExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'update execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many update requests — slow down and try again shortly.' });
+    return;
+  }
+  let strategy: 'stash' | undefined;
+  try {
+    const raw = await readBody(req, MAX_BODY_BYTES);
+    if (raw.trim() !== '') {
+      const parsed = JSON.parse(raw) as { strategy?: unknown };
+      if (parsed.strategy !== undefined) {
+        if (parsed.strategy !== 'stash') {
+          send(400, { error: 'strategy must be "stash" when present' });
+          return;
+        }
+        strategy = parsed.strategy;
+      }
+    }
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  try {
+    const result = await api(strategy);
+    send(result.ok ? 200 : 409, result);
+  } catch (error) {
+    send(500, {
+      ok: false,
+      error: error instanceof Error ? error.message : 'update execute failed',
+    });
+  }
+}
+
 async function handleReleaseExecute(
   req: IncomingMessage,
   res: ServerResponse,
@@ -1640,19 +1726,20 @@ async function handlePrReview(
 
 /**
  * The KEEPER REVIEW EXECUTE endpoint (`POST /api/pr-review/execute`, body
- * `{number, expectedDecision?}`). State-changing — posts a review/comment via
- * `gh` and, for a policy-green PR, merges it — so it is a CSRF-guarded JSON
- * POST like every other write, and separately rate-limited (same
- * heavier-than-a-quota-spend reasoning as `handleReleaseExecute`). The
- * decision is re-derived fresh from `gh` at execute time rather than trusting
- * anything the client sent — see `flight/pr-review-execute.ts`;
- * `expectedDecision` (the kind the operator's confirm dialog showed) is the
- * one client value honored, and only to NARROW: a fresh derive reaching a
- * different kind executes nothing and returns `staleDecision: true` for a
- * re-preview. 404 only for a PR no longer open or an
- * unwired API; every other completed run (merge, request-changes, or
- * queue-for-human) is a 200 — the caller inspects `results[].code` for
- * whether the underlying `gh` calls actually succeeded.
+ * `{number, expectedDecision?, expectedHeadRefOid?}`). State-changing — posts
+ * a review/comment via `gh` and, for a policy-green PR, merges it — so it is
+ * a CSRF-guarded JSON POST like every other write, and separately
+ * rate-limited (same heavier-than-a-quota-spend reasoning as
+ * `handleReleaseExecute`). The decision is re-derived fresh from `gh` at
+ * execute time rather than trusting anything the client sent — see
+ * `flight/pr-review-execute.ts`; `expectedDecision` (the kind the operator's
+ * confirm dialog showed) and `expectedHeadRefOid` (the previewed PR's head
+ * SHA) are the two client values honored, and only to NARROW: a fresh derive
+ * reaching a different kind, or finding the head has moved, executes nothing
+ * and returns `staleDecision: true` for a re-preview. 404 only for a PR no
+ * longer open or an unwired API; every other completed run (merge,
+ * request-changes, or queue-for-human) is a 200 — the caller inspects
+ * `results[].code` for whether the underlying `gh` calls actually succeeded.
  */
 async function handlePrReviewExecute(
   req: IncomingMessage,
@@ -1687,8 +1774,13 @@ async function handlePrReviewExecute(
   }
   let number: number;
   let expectedDecision: PrReviewDecisionKind | undefined;
+  let expectedHeadRefOid: string | undefined;
   try {
-    const parsed = JSON.parse(raw) as { number?: unknown; expectedDecision?: unknown };
+    const parsed = JSON.parse(raw) as {
+      number?: unknown;
+      expectedDecision?: unknown;
+      expectedHeadRefOid?: unknown;
+    };
     number = typeof parsed.number === 'number' ? parsed.number : NaN;
     // Optional: the decision kind the operator's confirm dialog showed — the
     // stale-decision guard input. Absent means not-asserted (executes the
@@ -1704,6 +1796,17 @@ async function handlePrReviewExecute(
       }
       expectedDecision = parsed.expectedDecision;
     }
+    // Optional: the previewed PR's head SHA — the re-triage-before-Apply
+    // guard input (a moved head means the previewed facts no longer describe
+    // the PR). Same not-asserted-when-absent, 400-on-garbage convention as
+    // expectedDecision above.
+    if (parsed.expectedHeadRefOid !== undefined) {
+      if (typeof parsed.expectedHeadRefOid !== 'string' || parsed.expectedHeadRefOid === '') {
+        send(400, { error: 'expectedHeadRefOid must be a non-empty string' });
+        return;
+      }
+      expectedHeadRefOid = parsed.expectedHeadRefOid;
+    }
   } catch {
     send(400, { error: 'invalid JSON' });
     return;
@@ -1713,7 +1816,7 @@ async function handlePrReviewExecute(
     return;
   }
   try {
-    const result = await api(number, expectedDecision);
+    const result = await api(number, expectedDecision, expectedHeadRefOid);
     if (!result) {
       send(404, { error: 'PR is no longer open' });
       return;
@@ -2502,6 +2605,14 @@ export function createServer(deps: ServerDeps = {}): Server {
       return;
     }
 
+    if (path === '/api/update-check') {
+      void handleUpdateCheck(req, res, deps.updateCheck, headers);
+      return;
+    }
+    if (path === '/api/update/execute') {
+      void handleUpdateExecute(req, res, deps.updateExecute, headers, releaseLimiter);
+      return;
+    }
     if (path === '/api/release/execute') {
       void handleReleaseExecute(req, res, deps.releaseExecute, headers, releaseLimiter);
       return;

@@ -76,7 +76,7 @@ function out(line: string): void {
 }
 
 function git(repo: string, args: readonly string[]): void {
-  execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
+  execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore', windowsHide: true });
 }
 
 /** Create a real git repo for a sample the first time; no-op if it exists. */
