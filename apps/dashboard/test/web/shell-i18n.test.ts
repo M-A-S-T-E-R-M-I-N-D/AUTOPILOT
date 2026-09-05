@@ -101,6 +101,12 @@ describe('renderShell masthead i18n wiring', () => {
     expect(html).toContain('data-i18n-tip="tourTip" data-i18n="tour"');
   });
 
+  it('tags the fly-bar browse button with data-i18n-tip', () => {
+    const html = renderShell();
+    expect(html).toContain('data-tip="Browse the filesystem to pick a folder"');
+    expect(html).toContain('data-i18n-tip="flyBrowseTip" data-i18n="browse"');
+  });
+
   it('tags the searchbar ("Search a project" / "Ask" form) with data-i18n', () => {
     const html = renderShell();
     for (const key of ['search', 'deep', 'ask']) {
