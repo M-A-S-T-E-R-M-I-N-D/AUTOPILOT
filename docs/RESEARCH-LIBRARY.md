@@ -170,7 +170,7 @@ SPDX-License-Identifier: Apache-2.0
   **light `--color-sev-medium` was 3.92:1 against surface, under even
   AA's 4.5:1** — used as TEXT color on `.fnode-gate`/`.live-phase-gate`/
   `.act-search` (gate-phase labels in the live activity rail). **Fixed
-  same day** (commit `67d34d5`, ~2h after this audit): nudged OKLCH L
+  same day** (~2h after this audit): nudged OKLCH L
   0.6 → 0.54 (same C/H, amber hue preserved), now 5.02:1 vs surface /
   4.73:1 vs surfaceRaised — `themes.test.ts` pins both floors at ≥4.5:1
   across every theme so this can't silently regress.
@@ -582,7 +582,7 @@ adversarial), agents gaming their own scoring in
 
 ## Client assembly SOTA — feature discovery without a runtime compiler (2026-08-16, verify-by 2027-02)
 
-Decision context: UNLOCK B's honest blocker (commit 729a177) — wiring the
+Decision context: UNLOCK B's honest blocker — wiring the
 splice-manifest assembler live would demand the TypeScript compiler as a
 runtime dependency, and would STILL require hand-edits to shell.ts per
 feature. Founder mandated deep research → decision → fix.
@@ -653,7 +653,7 @@ seeded; `AUTOPILOT_MODEL=fable` is the operator lever available TODAY.
 
 Live specimen from our FIRST 3-way flight: two instances independently fixed
 the SAME guard-settings bug in parallel (duplicated-feature, exactly as
-AgenticFlict predicted) — resolved at merge (f21c003) by dropping the
+AgenticFlict predicted) — resolved at merge by dropping the
 unwired twin. Founder mandate: never again, SOTA and no less.
 
 **Research verdict — the consensus is "solve coordination BEFORE adding
@@ -717,8 +717,8 @@ the automatic ritual merge now REFUSES instead of blind-merging:
 `landWatchdogTick` (`apps/dashboard/src/control/land-watchdog.ts`) checks
 `gatherLandingOverlaps` before every land and on overlap defers the attempt
 entirely, reporting the siblings as "flagged for lead consolidation" in the
-watch daemon's output — exactly the specimen-f21c003 duplicate-work
-collision, caught before the merge instead of resolved after it. Mergiraf as
+watch daemon's output — exactly the same duplicate-work
+collision from the first 3-way flight, caught before the merge instead of resolved after it. Mergiraf as
 a resolution aid remains open — detection defers; it never auto-resolves.
 
 **(4) landed (web-msw5zolk-vdrj05):** the sibling-scope doctrine now has a
@@ -852,7 +852,7 @@ fleet). At 10-way this opened a relay race: THREE instances (fleet-9, -4, -7)
 each picked the same open ARCHITECT-chat task in sequence and built the SAME
 next increment (`tasks_reorder` in `packages/mcp/src/control.ts`), ~$9.2 of
 duplicate work dropped at merge (kept the first-landed, wired one — same
-doctrine as f21c003). Intent-claims telemetry recorded ZERO collisions while
+doctrine as the first 3-way flight's collision). Intent-claims telemetry recorded ZERO collisions while
 this happened, because board-pick units never auto-declare intents —
 declaration is agent-initiated and the prompt only demands it for
 self-initiated units. Twin docs-cleanup convergence also appeared (two
@@ -895,7 +895,7 @@ The watched docs (0001/0002/0004) name the repo's HOTTEST files (`fly.ts`,
 `web/`) — at fleet cadence that meant a fresh id nearly every flight-end:
 14× epic-0002, 12× 0001, 11× 0004. Why undetected: `needs_approval` rows are
 invisible to flights, no counter alarmed, and no test asserted "a second sweep
-with an open proposal mints nothing." Fix (`7185b2f`): mint-time dedup by doc
+with an open proposal mints nothing." Fix: mint-time dedup by doc
 prefix — validated same day, 17 flight-ends → 0 duplicates, 2 legit new-doc
 proposals. **Doctrine: any recurring self-mined artifact needs a mint-time
 dedup guard keyed on the artifact's IDENTITY (the doc), never on a timestamp
@@ -960,7 +960,7 @@ $62.83, ZERO blanket resumes, ZERO crashes.**
   triage re-ranked the board and silently demoted an operator reorder
   (p0-p4 chain pushed to the bottom — both write `task.priority` through the
   same `reorderTasks` with no way to tell who wrote it). Seeded as a HIGH
-  finding at T+1h; the fleet shipped the fix at T+3h (`c51bc22`): migration
+  finding at T+1h; the fleet shipped the fix at T+3h: migration
   v16 `tasks.priority_pinned`, set only by the operator's reorder path;
   `runBoardTriage` excludes pinned tasks from the model ranking AND the
   runaway-demotion guard, merging them back at the FRONT. Operator order now
@@ -1267,7 +1267,7 @@ the three candidate directions above: `checkPreCommitSiblingOverlap` could
 not distinguish "originating new work in a claimed file" from "finalizing an
 already-resolved merge that happens to touch one among hundreds," so it
 exempts a `git commit` made while `MERGE_HEAD` is set (`isMergeCommit`,
-`packages/engine/src/adapters/sibling-commit-scan.ts`, commit `faf95ac2`).
+`packages/engine/src/adapters/sibling-commit-scan.ts`).
 The dry-run-then-`merge --no-commit`-then-`git commit` sequence this incident
 used now finalizes cleanly: git's own merge machinery already reconciled the
 content by the time `MERGE_HEAD` is set, so the guard's file-overlap

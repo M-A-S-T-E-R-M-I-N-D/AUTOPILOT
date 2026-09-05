@@ -71,6 +71,7 @@
     "ci:contrast-matrix": "node scripts/tokens/generate-contrast-matrix.mjs --check",
     "ci:threat-model": "node scripts/threat-model/generate-table.mjs --check",
     "ci:quarantine-report": "node scripts/ci/quarantine-report.mjs",
+    "ci:doc-commit-refs": "node scripts/ci/check-doc-commit-refs.mjs",
     "detect-flaky": "node scripts/ci/detect-flaky.mjs",
     "gh:sync-labels": "node scripts/github/sync-labels.mjs",
     "gh:setup-branch-protection": "node scripts/github/setup-branch-protection.mjs",
