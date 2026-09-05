@@ -13,9 +13,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - feat(dashboard): release-maturity intelligence — the ritual knows an alpha when it cuts one
 - feat(i18n): translate the fly-bar HINT sentence to Hebrew via injected tr
 - feat(i18n): translate the DETECTED BACKLOG panel's remaining states to Hebrew
-- feat(onboarding): add static-site gate detector (html-validate + linkinator)
-- feat: add ci:license-check gate — allowlist validator + doc drift check
-- feat(onboarding): add static-site EcosystemDetector (html-validate + linkinator)
 - feat: implement pocket-calculator state machine for calc.js
 
 ### Fixed
@@ -29,7 +26,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - fix(licensing): make REUSE compliance actually pass
 - fix(dashboard): stop duplicating the tip into fly-row action button aria-labels
 - fix(flight): scope worktree flightRoot to a flown subfolder's own repo path
-- fix: neutralize @-mentions in the KEEPER ritual's base-branch reasoning
 
 ## [0.21.0] — 2026-09-03
 
