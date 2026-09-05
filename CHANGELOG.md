@@ -6,6 +6,46 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-09-05
+
+### Added
+
+- feat(i18n): translate the searchbar's five data-tips via tr()
+- feat(i18n): translate the fly-bar Browse button's data-tip via tr()
+- feat(i18n): translate the REPORT EXECUTE confirm dialog via tr()
+- feat(i18n): translate the Remove/Start-over card buttons via tr()
+- feat(i18n): translate the RELEASE EXECUTE confirm dialog (#18)
+- feat(i18n): translate the masthead tour button's data-tip via tr()
+- feat(i18n): translate the masthead OTLP chip's data-tip via tr()
+- feat(i18n): translate the masthead notify popover's data-tip via tr()
+- feat(i18n): add Hebrew translations for the Release-phase select (#15)
+- feat(dashboard): doc-freshness tracks FLIGHT-CONTAINMENT.md's own guard files
+- feat(dashboard): over-the-air update banner — one click to latest, zero clobbered progress
+- feat(calculator): add a percent key — divide-by-100, wired end to end
+- feat(dashboard): grid-wrap disconnected pipeline lanes, firing-ordinal labels
+- feat(dashboard): queue for a human any PR that deletes a test — KEEPER's first improves verdict
+- feat(dashboard): queue a PR that deletes a test file — KEEPER's first genuinely-improves verdict
+- feat(release): the ritual writes its own release notes — no more placeholder tags
+
+### Fixed
+
+- fix(ci): give the doc-commit-refs job its pnpm setup step
+- fix(engine): deny a git commit that hand-writes its own Signed-off-by trailer (#17)
+- fix(ci): the doc-commit-refs job invokes the pnpm alias its own gate census pins
+- fix(dashboard): hide the Windows console on every spawned child (#19)
+- fix(dashboard): restore fly.ts's live-lock flight-vs-flight race guard
+- fix(dashboard): fly.ts worktree-fallback refuses a live flight-vs-flight race
+- fix(ci): retry dependency-audit with backoff instead of failing on a registry outage
+- fix(dashboard): issue triage reserves good-first-issue labels for humans
+- fix(dashboard): restart() confirms the old server died, kills whoever squats the port
+- fix(dashboard): re-triage before Apply — pin KEEPER PR review execute to the previewed head SHA too
+- fix(dashboard): the hidden update banner actually hides — [hidden] guard beats display:flex
+- fix(dashboard): appease all seven census guards the OTA banner tripped
+- fix(dashboard): translate the masthead's offline-retrying status text (#13)
+- fix(deps): pin transitive qs override to >=6.16.0, close 2 moderate CVEs (#14)
+- fix(dashboard): translate the CONNECT popover's first-paint status text
+- fix(dashboard): persist an INBOX note's full body on its task record
+
 ## [0.22.0] — 2026-09-04
 
 ### Added
