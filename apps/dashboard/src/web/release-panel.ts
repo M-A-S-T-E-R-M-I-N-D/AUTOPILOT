@@ -133,12 +133,35 @@ export function releaseVersionItems(
  *  `.release-ghrelease-checkbox` — defaults to `false` so every existing
  *  caller/test that only ever passed a `milestoneTag` keeps behaving exactly
  *  as before. */
-export function releaseConfirmMessage(milestoneTag: string, ghRelease = false): string {
+export type ReleasePanelKey =
+  | 'releaseConfirmBase'
+  | 'releaseConfirmMilestoneClause'
+  | 'releaseConfirmGhReleaseClause'
+  | 'releaseConfirmSuffix';
+
+/** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected rather
+ *  than imported — a `.toString()`-spliced helper carries no free variables
+ *  with it, so a translator it closed over would resolve to nothing in the
+ *  generated client bundle. Same injection route `pr-review-panel.ts`'s
+ *  `PrReviewPanelTranslator` takes, and required rather than optional for the
+ *  same reason: an optional `tr` needs a fallback to fall back TO, and a
+ *  module-level fallback is exactly the dangling reference
+ *  `test/server/client-bundle-syntax-guard.test.ts` exists to catch. */
+export type ReleasePanelTranslator = (
+  key: ReleasePanelKey,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
+export function releaseConfirmMessage(
+  milestoneTag: string,
+  ghRelease: boolean,
+  tr: ReleasePanelTranslator,
+): string {
   return (
-    'Cut this release?\n\nThis bumps package.json, cuts the CHANGELOG, creates a real git commit + tag, and attaches a git-notes attestation.' +
-    (milestoneTag ? ' Also tags "' + milestoneTag + '" at the same commit.' : '') +
-    (ghRelease ? ' Also pushes the new tag and publishes it as a GitHub Release.' : '') +
-    ' This cannot be undone by this dashboard.'
+    tr('releaseConfirmBase') +
+    (milestoneTag ? tr('releaseConfirmMilestoneClause', { milestoneTag }) : '') +
+    (ghRelease ? tr('releaseConfirmGhReleaseClause') : '') +
+    tr('releaseConfirmSuffix')
   );
 }
 

@@ -227,7 +227,7 @@ document.addEventListener('click', function (e) {
   var maturitySelectEl = panel && panel.querySelector('.release-maturity-select');
   var maturity = maturitySelectEl ? maturitySelectEl.value : 'auto';
   var resultEl = b.parentElement && b.parentElement.nextElementSibling;
-  if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease))) return;
+  if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease, tr))) return;
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = 'Releasing…';
