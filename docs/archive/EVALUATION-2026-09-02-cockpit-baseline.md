@@ -4,10 +4,11 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 > **ARCHIVED (2026-09-04):** superseded one day later by
-> [`../EVALUATION-2026-09-03-cockpit-baseline.md`](../EVALUATION-2026-09-03-cockpit-baseline.md),
+> [`EVALUATION-2026-09-03-cockpit-baseline.md`](EVALUATION-2026-09-03-cockpit-baseline.md),
 > a 94.6%-identical rerun — every delta was measurement jitter, no new findings. Kept for the
 > series' completeness. Known measurement bug in this run: the `task | 1 → 20` interaction
-> latency baseline of `0.0ms` is almost certainly a bad sample.
+> latency baseline of `0.0ms` is almost certainly a bad sample. Both dated snapshots are now
+> superseded by the living [`../COCKPIT-BASELINE.md`](../COCKPIT-BASELINE.md).
 
 
 # EVALUATION — cockpit baseline, DOM growth + axe by impact + tab stops + attribute payload + duplicate renders + longest task + unique values + specificity + contrast matrix + alarm rate + severity shape + token coverage + i18n tagging coverage + interaction latency (2026-09-02)
