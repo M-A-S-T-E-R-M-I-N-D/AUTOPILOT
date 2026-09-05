@@ -445,6 +445,18 @@
  * pool/report panels keep their own copies because they are separate
  * surfaces). All five route through `tr()` at paint time, the
  * `inboxNoteDropped` way.
+ * This slice tags the Inbox form's older sibling directly above it: the
+ * Tasks panel's "Add a task" form (`tasksSection()`'s `.task-add`, the human
+ * side of the board), whose label (`taskNewLabel`), placeholder
+ * (`taskNewPlaceholder`), "Add" button (`taskAdd`), and the button's
+ * `data-tip`/`aria-label` (`taskAddTip`, ONE key for both because
+ * `task-add-button-tooltip.test.ts` pins them equal, the `inboxDropNoteTip`
+ * shape) were still plain English — built with the same DOM calls the tag
+ * scanner cannot see. Its submit handler paints no status text (it clears
+ * the input and refreshes), so unlike the Inbox form there is no `tr()`
+ * companion; the four tags plus `renderFleet()`'s existing `translateDom()`
+ * sweep cover the whole surface. "AUTOPILOT" stays Latin in Hebrew, a
+ * product name like the `ghIssueConfirm`/`githubPrConfirm` dialogs above.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -610,6 +622,15 @@ const EN_STRINGS = {
     'Per-firing trace: every firing for this project, grouped and collapsible, unlike the Activity feed above which only shows the last flight',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
+  // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
+  // the human side of the board) — the Inbox form's older sibling, built the
+  // same DOM-call way the tag scanner cannot see. taskAddTip is ONE key for
+  // both data-tip and aria-label (task-add-button-tooltip.test.ts pins them
+  // equal), the inboxDropNoteTip shape.
+  taskNewLabel: 'New task',
+  taskNewPlaceholder: 'what should this autopilot do?',
+  taskAdd: 'Add',
+  taskAddTip: 'Queue a new operator task for the autopilot to pick up',
   reportBugLabel: 'Report a bug or request a feature upstream',
   titlePlaceholder: 'Title',
   detailsOptionalPlaceholder: 'Details (optional)',
@@ -1063,6 +1084,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'עקבה לפי הפעלה: כל הפעלה עבור פרויקט זה, מקובצת וניתנת לכיווץ, בניגוד לפיד הפעילות למעלה שמציג רק את הטיסה האחרונה',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
+    taskNewLabel: 'משימה חדשה',
+    taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
+    taskAdd: 'הוסף',
+    taskAddTip: 'מוסיף לתור משימת מפעיל חדשה שה-AUTOPILOT ייקח',
     reportBugLabel: 'דיווח על באג או בקשת תכונה במאגר המקור',
     titlePlaceholder: 'כותרת',
     detailsOptionalPlaceholder: 'פרטים (אופציונלי)',

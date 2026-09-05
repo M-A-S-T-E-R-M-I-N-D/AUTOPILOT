@@ -2201,17 +2201,26 @@ function tasksSection(c) {
   form.setAttribute('data-task-add', c.id);
   var label = el('label', null, 'New task');
   label.setAttribute('for', 'task-new-title');
+  label.setAttribute('data-i18n', 'taskNewLabel');
   var input = document.createElement('input');
   input.type = 'text';
   input.id = 'task-new-title';
   input.name = 'title';
   input.placeholder = 'what should this autopilot do?';
+  input.setAttribute('data-i18n-placeholder', 'taskNewPlaceholder');
   input.autocomplete = 'off';
   var btn = el('button', null, 'Add');
   btn.setAttribute('type', 'submit');
+  btn.setAttribute('data-i18n', 'taskAdd');
+  // One key for both: the button's tip IS its accessible name
+  // (task-add-button-tooltip.test.ts pins tip === aria-label), so
+  // translateDom()'s [data-i18n-tip] and [data-i18n-aria] sweeps must land
+  // the same text — the inboxDropNoteTip shape below.
   var addTip = 'Queue a new operator task for the autopilot to pick up';
   btn.setAttribute('data-tip', addTip);
   btn.setAttribute('aria-label', addTip);
+  btn.setAttribute('data-i18n-tip', 'taskAddTip');
+  btn.setAttribute('data-i18n-aria', 'taskAddTip');
   form.appendChild(label);
   form.appendChild(input);
   form.appendChild(btn);
