@@ -65,7 +65,7 @@ describe('releaseJs', () => {
       "var b = e.target && e.target.closest && e.target.closest('[data-release-execute]');",
     );
     expect(out).toContain(
-      'if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease))) return;',
+      'if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease, tr))) return;',
     );
     expect(out).toContain("fetch('/api/release/execute', {");
   });
