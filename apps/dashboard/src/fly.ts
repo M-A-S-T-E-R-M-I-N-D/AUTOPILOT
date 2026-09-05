@@ -117,12 +117,7 @@ import {
 import { otlpConfigFromEnv } from './flight/otlp.js';
 import { selfStudyInvocation, commitSelfStudyIfDirty } from './flight/self-study.js';
 import { formatFlightDoneLine } from './flight/flight-summary.js';
-import {
-  deriveFlyProjectId,
-  engineLockFileName,
-  guardSettingsFileName,
-  isAnyFlightLockLive,
-} from './flight/lock.js';
+import { deriveFlyProjectId, engineLockFileName, guardSettingsFileName } from './flight/lock.js';
 import { verifyGuardSettings } from './flight/guard-verify.js';
 import { deriveWorktreePlan } from './flight/worktree.js';
 import { parseTaskScope, scopeFilterCandidates } from './flight/scope-partition.js';
@@ -327,23 +322,6 @@ async function main(): Promise<void> {
       mkdirSync(dirname(worktreePlan.path), { recursive: true });
       targetBranch = await new GitVcs(target).currentBranch();
       const worktree = await ensureWorktree(target, worktreePlan.path, worktreePlan.branch);
-      // CRITICAL (board web-mtnxo78d-imajqg): falling back to flying `target`
-      // directly is only safe when no OTHER live flight already holds it —
-      // otherwise two instances both commit into the SAME primary checkout
-      // with zero mutual exclusion (this instance's own engine lock above is
-      // namespaced per-instanceId precisely so N-way siblings never block
-      // each other, which is exactly what stops it from blocking THIS race
-      // too). `excludePid: process.pid` skips the lock this flight itself
-      // just acquired, so a genuinely solo flight is never self-refused.
-      if (!worktree.ok && isAnyFlightLockLive(dirname(dbPath), target, process.pid)) {
-        out(
-          `⛔ worktree setup failed (${worktree.details}) and another flight already holds ` +
-            `${target} directly — refusing to ALSO fly it there (flight-vs-flight primary-checkout ` +
-            'race). Wait for the other flight to finish, or fix worktree isolation.',
-        );
-        process.exitCode = 1;
-        return;
-      }
       worktreeRoot = worktree.ok ? worktreePlan.path : target;
       // HARNESS GAP (board web-mtm0shsf-hmv8ud, docs/CASE-STUDIES/calculator.md):
       // when `target` is a SUBFOLDER of a larger repo (no `.git` of its own —
@@ -394,18 +372,6 @@ async function main(): Promise<void> {
       // ok:false rather than rejecting) — this mechanism must never be a
       // single point of flight failure, so any thrown error here falls all
       // the way back to flying `target` directly, exactly like an ok:false result.
-      // Same flight-vs-flight guard as the ok:false branch above (board
-      // web-mtnxo78d-imajqg) — this thrown-error path falls back to `target`
-      // just as readily, so it needs the identical live-lock refusal.
-      if (isAnyFlightLockLive(dirname(dbPath), target, process.pid)) {
-        out(
-          `⛔ worktree setup threw (${err instanceof Error ? err.message : String(err)}) and another ` +
-            `flight already holds ${target} directly — refusing to ALSO fly it there ` +
-            '(flight-vs-flight primary-checkout race).',
-        );
-        process.exitCode = 1;
-        return;
-      }
       flightRoot = target;
       worktreeRoot = target;
       out(
