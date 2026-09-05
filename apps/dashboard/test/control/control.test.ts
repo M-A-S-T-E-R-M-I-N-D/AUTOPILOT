@@ -146,9 +146,23 @@ describe('DashboardControl (real spawn lifecycle)', () => {
 
     it('never spawns the replacement while the OLD pid keeps reporting alive, even well past a single poll interval', async () => {
       killSpy = vi.spyOn(process, 'kill').mockImplementation((() => true) as typeof process.kill); // always alive: signal-0 probes never throw
-      mockStart();
+      // A forceKill that also can't actually kill it (fully wedged) — the
+      // superseding fix (BUG web-mto5bxd1-x00maq, describe block below) means
+      // restart() no longer trusts a bare timeout as proof of death and
+      // guesses by spawning anyway; it now REFUSES instead. A dedicated
+      // instance + injected forceKill keeps this off the real OS `taskkill`
+      // the shared `control`'s default would otherwise spawn.
+      const forceKill = vi.fn();
+      const stubborn = new DashboardControl(config, () => 1000, forceKill);
+      startSpy = vi.spyOn(DashboardControl.prototype, 'start').mockReturnValue({
+        state: 'running',
+        pid: 555,
+        port: config.port,
+        url: `http://127.0.0.1:${config.port}`,
+      });
 
-      const restarting = control.restart();
+      const restarting = stubborn.restart();
+      const assertion = expect(restarting).rejects.toThrow(/pid 987654/);
       await vi.advanceTimersByTimeAsync(0);
       expect(startSpy).not.toHaveBeenCalled();
 
@@ -159,12 +173,14 @@ describe('DashboardControl (real spawn lifecycle)', () => {
       await vi.advanceTimersByTimeAsync(200);
       expect(startSpy).not.toHaveBeenCalled();
 
-      // Bounded by STOP_GRACE_MS even for a pid that never reports dead
-      // (wedged/signal lost) — restart() must not hang forever.
-      await vi.advanceTimersByTimeAsync(STOP_GRACE_MS);
-      const result = await restarting;
-      expect(startSpy).toHaveBeenCalledTimes(1);
-      expect(result.pid).toBe(555);
+      // Bounded total wait (SIGTERM window + forceKill confirm window) even
+      // for a pid that never reports dead (wedged/signal lost) — restart()
+      // must not hang forever, but it must also never guess: refuse rather
+      // than spawn a replacement next to a server it can't confirm is gone.
+      await vi.advanceTimersByTimeAsync(STOP_GRACE_MS * 2);
+      await assertion;
+      expect(forceKill).toHaveBeenCalledWith(987654);
+      expect(startSpy).not.toHaveBeenCalled();
     });
 
     it('spawns the replacement promptly once the OLD pid is confirmed exited, without waiting the full grace period', async () => {
@@ -193,6 +209,124 @@ describe('DashboardControl (real spawn lifecycle)', () => {
 
       expect(startSpy).toHaveBeenCalledTimes(1);
       expect(result.pid).toBe(555);
+    });
+  });
+
+  describe('restart() confirmed-kill escalation + port-squatter fallback (BUG web-mto5bxd1-x00maq)', () => {
+    let killSpy: ReturnType<typeof vi.spyOn>;
+    let startSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      mkdirSync(config.stateDir, { recursive: true });
+      writeFileSync(
+        join(config.stateDir, 'dashboard.json'),
+        JSON.stringify({ pid: 987654, port: config.port, startedAt: 1 }),
+      );
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      killSpy.mockRestore();
+      startSpy?.mockRestore();
+    });
+
+    function mockStart(): void {
+      startSpy = vi.spyOn(DashboardControl.prototype, 'start').mockReturnValue({
+        state: 'running',
+        pid: 555,
+        port: config.port,
+        url: `http://127.0.0.1:${config.port}`,
+      });
+    }
+
+    it('refuses to start a replacement when the old pid survives BOTH SIGTERM and a forceKill — never the "two main.js processes" guess', async () => {
+      // A truly wedged process: signal-0 probes never throw (always alive),
+      // and the injected forceKill is a no-op (simulates one that also fails
+      // to actually kill it) — the field failure this recurred as.
+      killSpy = vi.spyOn(process, 'kill').mockImplementation((() => true) as typeof process.kill);
+      const forceKill = vi.fn();
+      const stubborn = new DashboardControl(config, () => 1000, forceKill);
+      mockStart();
+
+      const restarting = stubborn.restart();
+      const assertion = expect(restarting).rejects.toThrow(/pid 987654/);
+      // Clears the SIGTERM-only wait, then restart()'s OWN forceKill escalation,
+      // then its post-forceKill confirm window — comfortably past every bound.
+      await vi.advanceTimersByTimeAsync(STOP_GRACE_MS * 3);
+      await assertion;
+
+      expect(forceKill).toHaveBeenCalledWith(987654);
+      expect(startSpy).not.toHaveBeenCalled(); // never spawns a guess-and-hope replacement
+    });
+
+    it('escalates via its OWN forceKill call once SIGTERM alone times out, then proceeds as soon as death is confirmed', async () => {
+      let killed = false;
+      const forceKill = vi.fn(() => {
+        killed = true;
+      });
+      killSpy = vi.spyOn(process, 'kill').mockImplementation(((
+        _pid: number,
+        signal?: string | number,
+      ) => {
+        if (signal === 0) {
+          if (killed) throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
+          return true;
+        }
+        return true; // SIGTERM "succeeds" but the process ignores it
+      }) as typeof process.kill);
+      const escalating = new DashboardControl(config, () => 1000, forceKill);
+      mockStart();
+
+      const restarting = escalating.restart();
+      await vi.advanceTimersByTimeAsync(STOP_GRACE_MS); // exhausts the SIGTERM-only wait
+      await vi.advanceTimersByTimeAsync(100); // a couple poll ticks to observe the now-dead pid
+      const result = await restarting;
+
+      expect(forceKill).toHaveBeenCalledWith(987654);
+      expect(startSpy).toHaveBeenCalledTimes(1);
+      expect(result.pid).toBe(555);
+    });
+
+    it('kills whoever is squatting the port when the recorded pid is already gone (RUNBOOK "stale server" gap — an untracked process)', async () => {
+      killSpy = vi.spyOn(process, 'kill').mockImplementation(((
+        _pid: number,
+        signal?: string | number,
+      ) => {
+        if (signal === 0) throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' }); // recorded pid already gone
+        return true;
+      }) as typeof process.kill);
+      const forceKill = vi.fn();
+      const findPortOwner = vi.fn().mockReturnValue(424242);
+      const squatterAware = new DashboardControl(config, () => 1000, forceKill, findPortOwner);
+      mockStart();
+
+      const result = await squatterAware.restart();
+
+      expect(findPortOwner).toHaveBeenCalledWith(config.port);
+      expect(forceKill).toHaveBeenCalledWith(424242);
+      expect(startSpy).toHaveBeenCalledTimes(1);
+      expect(result.pid).toBe(555);
+    });
+
+    it('never kills a squatter pid when none is found (port genuinely free)', async () => {
+      killSpy = vi.spyOn(process, 'kill').mockImplementation(((
+        _pid: number,
+        signal?: string | number,
+      ) => {
+        if (signal === 0) throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
+        return true;
+      }) as typeof process.kill);
+      const forceKill = vi.fn();
+      const findPortOwner = vi.fn().mockReturnValue(null);
+      const clean = new DashboardControl(config, () => 1000, forceKill, findPortOwner);
+      mockStart();
+
+      await clean.restart();
+
+      expect(findPortOwner).toHaveBeenCalledWith(config.port);
+      expect(forceKill).not.toHaveBeenCalled();
+      expect(startSpy).toHaveBeenCalledTimes(1);
     });
   });
 

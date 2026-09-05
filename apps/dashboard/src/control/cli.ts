@@ -44,9 +44,11 @@ function out(line: string): void {
   process.stdout.write(`${line}\n`);
 }
 
-/** DashboardControl.stop()/restart() throw when AUTOPILOT_FLIGHT=1 (control.ts's
- *  suicide guard) — surfaced here as a message + non-zero exit instead of a
- *  raw stack trace, since a flight reading this output is the actual audience. */
+/** DashboardControl.stop()/restart() throw on refusal — AUTOPILOT_FLIGHT=1
+ *  (control.ts's suicide guard), or restart() unable to confirm the old
+ *  server actually died (BUG web-mto5bxd1-x00maq) — surfaced here as a
+ *  message + non-zero exit instead of a raw stack trace, since a flight or
+ *  an operator reading this output is the actual audience. */
 function reportRefusal(err: unknown): void {
   out(err instanceof Error ? err.message : String(err));
   process.exitCode = 1;

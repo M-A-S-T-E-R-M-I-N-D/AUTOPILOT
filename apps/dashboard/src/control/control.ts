@@ -16,6 +16,7 @@ import { serializeState, parseState, classifyStatus, isSafePid } from './state.j
 import type { ControlConfig, StatusResult, DashboardState, DoctorCheck } from './types.js';
 import { otlpConfigFromEnv } from '../flight/otlp.js';
 import { forceKillProcess, STOP_GRACE_MS } from '../flight/spawn-flight.js';
+import { findPortOwnerPid } from './port-owner.js';
 
 const STOPPED: StatusResult = { state: 'stopped', pid: null, port: null, url: null };
 
@@ -58,6 +59,9 @@ export class DashboardControl {
      *  even produce (`process.kill(pid, 'SIGTERM')` unconditionally
      *  terminates there, same as SIGKILL). */
     private readonly forceKill: (pid: number) => void = forceKillProcess,
+    /** PORT-SQUATTER FALLBACK seam (BUG web-mto5bxd1-x00maq) — tests inject a
+     *  stub instead of depending on a real `netstat`/`lsof` probe. */
+    private readonly findPortOwner: (port: number) => number | null = findPortOwnerPid,
   ) {
     this.statePath = join(config.stateDir, 'dashboard.json');
     this.logPath = join(config.stateDir, 'dashboard.log');
@@ -200,22 +204,70 @@ export class DashboardControl {
     });
   }
 
+  /** Bounded wait after `forceKill` before giving up on a pid — `forceKill`
+   *  is itself asynchronous (Windows spawns a detached `taskkill`, POSIX
+   *  sends SIGKILL to a process group), so even a WORKING kill needs a short
+   *  buffer, not an instant confirmation. */
+  private static readonly FORCE_KILL_CONFIRM_MS = 2_000;
+
+  /**
+   * Confirms `pid` is actually dead, escalating through `forceKill` ITSELF
+   * if SIGTERM alone hasn't worked by `sigtermWaitMs` — never a background
+   * fire-and-forget timer. Returns whether death is now confirmed; never
+   * throws.
+   */
+  private async confirmDead(pid: number, sigtermWaitMs: number): Promise<boolean> {
+    await this.waitForExit(pid, sigtermWaitMs);
+    if (!this.pidAlive(pid)) return true;
+    this.forceKill(pid);
+    await this.waitForExit(pid, DashboardControl.FORCE_KILL_CONFIRM_MS);
+    return !this.pidAlive(pid);
+  }
+
   /**
    * restart() = stop() then start(), but chaining them naively raced: stop()
    * returns the instant SIGTERM is sent — before the OS has actually
    * reclaimed the OLD process's listening socket — so the immediate start()
    * that followed could bind onto a port the old pid was still holding and
-   * fail with EADDRINUSE (BUG ap-mt2sz1zv-2). Confirms the OLD pid has
-   * actually exited (bounded by STOP_GRACE_MS, the same window stop()'s own
-   * forceKill escalation already allows a wedged process) before spawning
-   * the replacement.
+   * fail with EADDRINUSE (BUG ap-mt2sz1zv-2).
+   *
+   * A first fix bounded the wait by STOP_GRACE_MS and trusted the bare
+   * timeout as proof of death — but that timeout fires whether or not the
+   * pid actually died, racing `stop()`'s OWN unref'd forceKill-escalation
+   * timer (same delay, no ordering guarantee) and sometimes losing: `start()`
+   * would fire while the old server was still very much alive and still
+   * holding the port — "two main.js processes, stale one holding the port"
+   * (BUG web-mto5bxd1-x00maq, recurred twice in the field). `confirmDead`
+   * now escalates through `forceKill` itself, in-line, instead of racing a
+   * side timer — `restart()` refuses to guess by spawning a replacement it
+   * cannot confirm won't collide.
+   *
+   * Even a confirmed-dead recorded pid doesn't guarantee the port is free:
+   * the RUNBOOK "stale server" gap (docs/RUNBOOK.md #2) — a process this
+   * control never tracked (a plain `pnpm dashboard`, a crashed IDE task) can
+   * squat the same port invisibly. `findPortOwner` catches that case too,
+   * killing whoever is actually LISTENING there before `start()` binds.
    */
   async restart(): Promise<StatusResult> {
     assertNotInFlight();
     const record = this.read();
     const oldPid = record && this.pidAlive(record.pid) ? record.pid : null;
+    const port = record?.port ?? this.config.port;
     this.stop();
-    if (oldPid !== null) await this.waitForExit(oldPid, STOP_GRACE_MS);
+    if (oldPid !== null) {
+      const dead = await this.confirmDead(oldPid, STOP_GRACE_MS);
+      if (!dead) {
+        throw new Error(
+          `restart refused: the previous dashboard server (pid ${oldPid}) is still running ` +
+            'after SIGTERM and a forceful kill — see docs/RUNBOOK.md before restarting.',
+        );
+      }
+    }
+    const squatter = this.findPortOwner(port);
+    if (squatter !== null && squatter !== oldPid) {
+      this.forceKill(squatter);
+      await this.waitForExit(squatter, DashboardControl.FORCE_KILL_CONFIRM_MS);
+    }
     return this.start();
   }
 
