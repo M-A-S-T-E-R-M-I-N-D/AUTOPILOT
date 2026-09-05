@@ -119,6 +119,20 @@ describe('renderShell masthead i18n wiring', () => {
     expect(html).toContain('aria-label="Ask persona" data-i18n-aria="askPersona"');
   });
 
+  it('tags the searchbar Search/Deep/Ask/persona data-tips with data-i18n-tip', () => {
+    // The five static data-tips the searchbar renders were the last
+    // renderShell() hover texts left as English literals after the fly-bar,
+    // masthead, and tour-button tip slices.
+    const html = renderShell();
+    expect(html).toContain('data-i18n="search" data-i18n-tip="searchTip" data-tip="');
+    expect(html).toContain('class="ask-deep-label" data-i18n-tip="askDeepTip" data-tip="');
+    expect(html).toContain('data-i18n="ask" data-i18n-tip="askTip" data-tip="');
+    expect(html).toContain('data-i18n="personaGenius" data-i18n-tip="personaGeniusTip" data-tip="');
+    expect(html).toContain(
+      'data-i18n="personaArchitect" data-i18n-tip="personaArchitectTip" data-tip="',
+    );
+  });
+
   it('tags the search input placeholder with data-i18n-placeholder', () => {
     const html = renderShell();
     expect(html).toContain(
@@ -181,10 +195,10 @@ describe('renderShell masthead i18n wiring', () => {
   it('tags the ask-persona GENIUS/ARCHITECT buttons with data-i18n', () => {
     const html = renderShell();
     expect(html).toContain(
-      '<button type="button" data-persona-btn="genius" aria-pressed="true" data-i18n="personaGenius" data-tip="Read-only persona (default): answers questions but never touches the dashboard.">GENIUS</button>',
+      '<button type="button" data-persona-btn="genius" aria-pressed="true" data-i18n="personaGenius" data-i18n-tip="personaGeniusTip" data-tip="Read-only persona (default): answers questions but never touches the dashboard.">GENIUS</button>',
     );
     expect(html).toContain(
-      '<button type="button" data-persona-btn="architect" aria-pressed="false" data-i18n="personaArchitect" data-tip="Can propose dashboard actions for you to approve — opt-in per session, resets to GENIUS on reload.">ARCHITECT</button>',
+      '<button type="button" data-persona-btn="architect" aria-pressed="false" data-i18n="personaArchitect" data-i18n-tip="personaArchitectTip" data-tip="Can propose dashboard actions for you to approve — opt-in per session, resets to GENIUS on reload.">ARCHITECT</button>',
     );
   });
 
