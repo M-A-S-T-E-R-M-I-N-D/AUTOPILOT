@@ -636,6 +636,18 @@ const EN_STRINGS = {
   backlogConfirmDone: '✓ confirm done',
   backlogUnavailable: 'Detected backlog unavailable.',
   releaseTitle: '🚀 Next release',
+  // web/features/release.ts's RELEASE PHASE select (board github-4): built
+  // fresh on every panel render, so tr() at build time is the sweep, the
+  // same reasoning report-menu.ts's keys followed. releaseMaturityAutoTemplate's
+  // {phase} substitutes one of the other four labels below, never the raw
+  // 'alpha'/'beta'/'rc'/'stable' phase id — a translated select must never
+  // mix an untranslated fragment into an otherwise-localized sentence.
+  releaseMaturityLabel: 'Release phase',
+  releaseMaturityAutoTemplate: 'Auto — detected: {phase}',
+  releaseMaturityAlpha: 'Alpha',
+  releaseMaturityBeta: 'Beta',
+  releaseMaturityRc: 'Release candidate',
+  releaseMaturityStable: 'Stable',
   tourFiringTitle: 'Firing',
   tourFiringBody:
     'One autonomous work session: the agent orients, does the work, runs the gate, then commits — and stops. A flight is made of many firings.',
@@ -1029,6 +1041,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     backlogConfirmDone: '✓ אשר בוצע',
     backlogUnavailable: 'הפיגור שזוהה אינו זמין.',
     releaseTitle: '🚀 המהדורה הבאה',
+    releaseMaturityLabel: 'שלב המהדורה',
+    releaseMaturityAutoTemplate: 'אוטומטי — זוהה: {phase}',
+    releaseMaturityAlpha: 'אלפא',
+    releaseMaturityBeta: 'בטא',
+    releaseMaturityRc: 'מועמדת לשחרור',
+    releaseMaturityStable: 'יציבה',
     tourFiringTitle: 'הפעלה',
     tourFiringBody:
       'מפגש עבודה אוטונומי אחד: הסוכן מתמצא, מבצע את העבודה, מריץ את השער, ואז מבצע קומיט — ועוצר. טיסה מורכבת מהפעלות רבות.',
