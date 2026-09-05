@@ -224,5 +224,5 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Check doc commit-SHA citations resolve to real HEAD ancestors
-        run: node scripts/ci/check-doc-commit-refs.mjs
+        run: pnpm run ci:doc-commit-refs
           --verbose
