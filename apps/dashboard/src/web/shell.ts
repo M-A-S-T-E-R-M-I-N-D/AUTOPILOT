@@ -3569,7 +3569,7 @@ export function renderShell(project?: string): string {
     <div class="brand"><span class="brand-mark" aria-hidden="true">${gogglesMarkInlineSvg()}</span>AUTOPILOT</div>
     <div class="masthead-right">
       <span class="updated" id="updated" role="status" aria-live="polite" data-i18n="updatedConnecting">connecting…</span>
-      <span class="chip otlp-chip" id="otlp-chip" tabindex="0" data-tip="An OTEL_EXPORTER_OTLP_* endpoint is configured — every flight exports its spans there" aria-label="OTLP export: configured" data-i18n-aria="otlpExportConfigured" hidden>OTLP</span>
+      <span class="chip otlp-chip" id="otlp-chip" tabindex="0" data-tip="An OTEL_EXPORTER_OTLP_* endpoint is configured — every flight exports its spans there" data-i18n-tip="otlpExportTip" aria-label="OTLP export: configured" data-i18n-aria="otlpExportConfigured" hidden>OTLP</span>
       <details class="connect" id="connect">
         <summary id="connect-summary"><span class="conn-dot" id="conn-dot" aria-hidden="true"></span><span id="connect-label" data-i18n="connect">Connect</span></summary>
         <div class="connect-body">

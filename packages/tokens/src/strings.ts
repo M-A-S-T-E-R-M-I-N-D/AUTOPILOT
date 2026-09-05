@@ -532,6 +532,8 @@ const EN_STRINGS = {
   budgetModeLabel: 'Budget mode',
   activeFlights: 'Active flights',
   otlpExportConfigured: 'OTLP export: configured',
+  otlpExportTip:
+    'An OTEL_EXPORTER_OTLP_* endpoint is configured — every flight exports its spans there',
   searchPlaceholder: 'find code — or ask a question…',
   flyFolderPlaceholder: 'absolute path to a git repo',
   notifySettings: 'Notification settings',
@@ -925,6 +927,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     budgetModeLabel: 'מצב תקציב',
     activeFlights: 'טיסות פעילות',
     otlpExportConfigured: 'ייצוא OTLP: מוגדר',
+    otlpExportTip: 'הוגדרה נקודת קצה של OTEL_EXPORTER_OTLP_* — כל טיסה מייצאת אליה את ה-spans שלה',
     searchPlaceholder: 'חפשו קוד — או שאלו שאלה…',
     flyFolderPlaceholder: 'נתיב מוחלט למאגר Git',
     notifySettings: 'הגדרות התראות',
