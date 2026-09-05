@@ -79,6 +79,12 @@ const HOME_REF =
 // script as one string), so it must count as a boundary alongside && / || / ;.
 const BARE_CD = /(?:^|&&|\|\||;|[\r\n])\s*cd\s*(?:$|&&|\|\||;|[\r\n])/;
 
+// A `Signed-off-by:` trailer typed into a commit message. `git commit -s`
+// writes this line itself from the configured identity, so its presence in
+// the command text means the message is asserting an authorship address of
+// its own choosing — see commitSignoffDenial for why that is refused.
+const HAND_TYPED_SIGNOFF = /Signed-off-by\s*:/i;
+
 // Boundary characters that can precede a path token in shell text, and the
 // characters that end one. Built as plain strings (backtick included) to stay
 // readable; doubled backslashes survive the string → RegExp round-trip.
@@ -417,6 +423,50 @@ export function isGitCommitCommand(command: string): boolean {
     if (sub === 'commit' && !/\s--dry-run(?=\s|$)/.test(rest)) return true;
   }
   return false;
+}
+
+/**
+ * The reason a `git commit` must be refused for hand-writing its own
+ * `Signed-off-by:` trailer, or null when there is nothing to refuse.
+ *
+ * `git commit -s` derives the trailer from the repo's configured identity. A
+ * trailer typed into the message body instead carries whatever address the
+ * message happened to name — and an agent composing that line from context
+ * has no reliable way to know which of the identities it can see is the one
+ * git would have used. Observed in the wild across a single flight: of five
+ * `git commit` invocations, four hand-wrote the trailer, three of those named
+ * the right address and one named a maintainer's personal email, which then
+ * had to be scrubbed out of the branch before anything could be pushed. The
+ * failure is silent (the commit-msg hook checks Conventional Commits, not
+ * trailer provenance) and non-deterministic, so it survives spot-checking.
+ *
+ * Denying the tool call is the fix rather than a prompt instruction: the
+ * agent receives this reason as the tool result and can simply re-run with
+ * `-s`, and no prompt revision — hence no gated `FIRING_PROMPT_VERSION`
+ * bump (`docs/MODEL-CARD.md` §2) — is needed to make it hold.
+ *
+ * Scans the WHOLE command rather than only the `git commit` segment on
+ * purpose: the observed failures all used a heredoc message
+ * (`git commit -m "$(cat <<'EOF' … EOF)"`), whose trailer line is separated
+ * from the `git commit` token by the very newlines
+ * {@link isGitCommitCommand} splits on — a per-segment scan would miss
+ * exactly the shape that leaks. The cost is a false deny on a compound that
+ * both commits and greps for the literal in one call; the reason text says
+ * to split those, which is cheap next to letting a wrong address through.
+ *
+ * Returns the reason string rather than a {@link ContainmentVerdict} so the
+ * caller has no unreachable `?? 'blocked'` fallback to suppress.
+ */
+export function commitSignoffDenial(command: string): string | null {
+  if (!isGitCommitCommand(command)) return null;
+  if (!HAND_TYPED_SIGNOFF.test(command)) return null;
+  return (
+    'the commit message hand-writes a `Signed-off-by:` trailer. Git derives that trailer from ' +
+    'the repository identity when you pass `-s`; a hand-typed one carries whatever address the ' +
+    'message names, which has published a personal email into DCO trailers before. Remove the ' +
+    'line from the message and run `git commit -s` instead. If you were only reading a trailer ' +
+    'rather than writing one, run that in a separate call.'
+  );
 }
 
 // PRE-COMMIT SIBLING SCAN (SLICE-RELAY DUP 2/3, docs/EVALUATION-2026-08-20-sota.md
@@ -894,6 +944,12 @@ export function evaluateHookInput(raw: string, targetRoot: string): string | nul
   if (input.tool_name !== 'Bash') return null;
   const command = input.tool_input?.command;
   if (typeof command !== 'string') return null;
+
+  // Trailer provenance before containment: a hand-typed `Signed-off-by:` is
+  // not a containment breach, so it needs its own prefix and its own reason
+  // rather than being folded into the CONTAINMENT message below.
+  const signoffReason = commitSignoffDenial(command);
+  if (signoffReason !== null) return deny(`DCO TRAILER: ${signoffReason}`);
 
   const verdict = checkCommandContainment(command, targetRoot);
   if (verdict.allowed) return null;
