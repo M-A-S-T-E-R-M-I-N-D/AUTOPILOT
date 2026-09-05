@@ -3610,7 +3610,7 @@ export function renderShell(project?: string): string {
       <nav class="switch" aria-label="Theme" data-i18n-aria="themeNav">${themeButtons()}</nav>
       <nav class="switch" aria-label="Language" data-i18n-aria="languageNav">${langButtons()}</nav>
       <details class="connect notify" id="notify">
-        <summary id="notify-summary" data-tip="Browser notifications when a flight needs you or is dying" aria-label="Notification settings" data-i18n-aria="notifySettings">🔔</summary>
+        <summary id="notify-summary" data-tip="Browser notifications when a flight needs you or is dying" data-i18n-tip="notifySettingsTip" aria-label="Notification settings" data-i18n-aria="notifySettings">🔔</summary>
         <div class="connect-body">
           <label class="notify-enable" for="notify-enable">
             <input type="checkbox" id="notify-enable" />
