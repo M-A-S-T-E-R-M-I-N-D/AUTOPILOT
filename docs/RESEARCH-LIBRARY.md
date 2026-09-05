@@ -10,6 +10,92 @@ SPDX-License-Identifier: Apache-2.0
 > Ask answers. Re-research a topic ONLY when its "verify by" note says so or
 > the decision it feeds changes. (Operator's rule: the knowledge stays OURS.)
 
+## Table of contents
+
+Flat map of all 37 dated entries below, oldest → newest — each heading
+already carries its own research date and, where set, a verify-by re-check
+date; this list just makes them scannable without paging through 1,200+
+lines. The Open section (queued research) comes right after this, promoted
+from the bottom so it's the first actionable thing on open — followed by a
+thematic index calling out one recurring arc (fleet coordination) that spans
+six entries otherwise scattered across two weeks of research.
+
+- Agent reliability / ~100% shipping (2026-08-07)
+- Agent observability & visualization (2026-08-07)
+- Graph/viz libraries (2026-08-07)
+- Copilot / side-chat UX (2026-08-08)
+- Canonical pattern sources (2026-08-08)
+- In-house reference: MdViewer (a local operator project, 2026-08-08)
+- Anthropic models & routing (2026-09-02, verify by 2026-12-01)
+- Local RAG efficiency (2026-08-08)
+- Sandboxing + incremental computation (2026-08-08)
+- SE methodology for agent loops (2026-08-08)
+- LLM/agent security (2026-08-08)
+- Agent memory & evals & cost (2026-08-08)
+- WCAG 2.2 AAA audit (2026-08-08, verify by 2026-11-01 or on any theme/token change)
+- Deploy playbook (2026-08-08, verify by 2026-11-01 or when packaging starts)
+- SOTA MAP — the consolidated context pack (2026-08-08, verify per its Appendix 4 half-lives)
+- SOTA-MAP gap analysis — AUTOPILOT vs domains A–D, H, K (2026-08-08)
+- SOTA-MAP completeness sweep — domains E–K, appendices, open threads (2026-08-08)
+- Firing cost anatomy — measured on our own telemetry (2026-08-08, re-measure after any prompt/model change)
+- Mutation testing at scale + runaway-task economics (2026-08-14, verify-by 2027-02)
+- LLM cognitive-failure modes vs OUR defenses — the audit (2026-08-14, verify-by 2027-02)
+- Parallel agents vs shared-file hotspots — the 2026 stack (2026-08-14, verify-by 2027-02)
+- Goodhart in the firing loop — false-close taxonomy + pick discipline (2026-08-15, verify-by 2027-02)
+- Client assembly SOTA — feature discovery without a runtime compiler (2026-08-16, verify-by 2027-02)
+- Model economics — the sonnet monoculture and when Fable pays (2026-08-16, verify-by 2026-12)
+- Fleet anti-duplication — coordination before parallelism (2026-08-16, verify-by 2027-02)
+- Silent model downgrade + fleet machine budget — the 5-agent evidence (2026-08-17, verify-by 2027-02)
+- The 7→10 ramp — scale evaluation + the slice-relay duplication class (2026-08-20, verify-by 2027-02)
+- INCIDENT: self-mined artifact leaks — 40 duplicate proposals + ghost claims (2026-08-20, verify-by 2027-02)
+- Warm-sessions verdict + the finish-line doctrine (2026-08-20, verify-by 2027-02)
+- Finish-line validation round — 87% ship, first wild extensions (2026-08-20, verify-by 2027-02)
+- Where SOTA actually is — external calibration for the road to 100% (2026-08-20, verify-by 2027-02)
+- Deep dive: the partitioning algorithm itself + merge-debt at scale (2026-08-20, verify-by 2027-02)
+- The scoped 10-way — partitioning measured, end-to-end 66%→85% (2026-08-20 night, verify-by 2027-02)
+- Research-on-research — the weak-point discovery + evidence + meta-learning pass (2026-08-20 night, verify-by 2027-02)
+- better-sqlite3 v13 re-test (2026-08-23, verify when .nvmrc moves to >=22.14.0 or on any push to WiseLibs/better-sqlite3#1514)
+- Node 22.13.0 → 22.23.2 (2026-08-24, verify-by 2027-02)
+- Stale-lane self-sync vs the sibling-scan guard (2026-09-02, verify-by 2027-02)
+
+## Open (queued research — do with WebSearch, then RECORD HERE)
+
+- **Ecosystem sweep**: any critical OSS we missed (embedders, schedulers,
+  queue libs) — run through §7 vetting before adoption.
+
+## Thematic index — the fleet-coordination arc
+
+Six entries, scattered across four dates, form one continuous story: a
+duplication collision → the defense that followed → what scaling past it
+broke → hygiene leaks the same scaling exposed → the fix, measured → the
+guard that fix built colliding with a DIFFERENT failure mode. Read in this
+order for the throughline; each still stands as its own dated entry below.
+
+1. **Fleet anti-duplication — coordination before parallelism** (2026-08-16)
+   — the first 3-way flight's duplicate-fix collision; ships the
+   claim-before-execute defense stack (FLEET digest, intent claims, landing
+   overlap detection).
+2. **Silent model downgrade + fleet machine budget — the 5-agent evidence**
+   (2026-08-17) — the first 5-agent rounds expose two failures invisible to
+   every gate: a silently-substituted model, and a machine-starving mutation
+   run with no budget guard. Both fixed.
+3. **The 7→10 ramp — scale evaluation + the slice-relay duplication class**
+   (2026-08-20) — scaling past 5 agents surfaces a NEW duplication class
+   (slice-relay) that claim-before-execute doesn't cover, because a
+   multi-slice task's claim releases between firings by design.
+4. **INCIDENT: self-mined artifact leaks — 40 duplicate proposals + ghost
+   claims** (2026-08-20) — a hygiene audit, same week, finds two more
+   self-mined leak mechanisms (duplicate proposals, stale claim leases) that
+   gates never check because gates check code, not board hygiene.
+5. **The scoped 10-way — partitioning measured, end-to-end 66%→85%**
+   (2026-08-20 night) — the SCOPE PARTITIONER + auto-declare intent ship and
+   get measured head-to-head against the unpartitioned 10-way: identical-
+   feature twins go from 3 to zero.
+6. **Stale-lane self-sync vs the sibling-scan guard** (2026-09-02) — the
+   guard built to protect live claims (item 1) collides with a stale lane's
+   own self-repair attempt; later closed by exempting in-progress merge
+   commits from the file-overlap check.
+
 ## Agent reliability / ~100% shipping (2026-08-07)
 
 - The industry pattern for mechanical failures is **fix → revalidate →
@@ -1276,8 +1362,3 @@ primitive in `docs/DOCTRINE-COORDINATION.md`. Candidates (a)-(c) remain
 valid for the *upstream* problem (drift reaching 900+ commits before a sync
 is attempted at all) — this only removes the guard as the blocker on the
 self-repair path once drift has already happened.
-
-## Open (queued research — do with WebSearch, then RECORD HERE)
-
-- **Ecosystem sweep**: any critical OSS we missed (embedders, schedulers,
-  queue libs) — run through §7 vetting before adoption.
