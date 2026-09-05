@@ -6,11 +6,11 @@
 > document; analysis reads better with the raw values one click away.
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-05T14:55:49.534Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-05T16:25:17.922Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-05T14:55:49.534Z",
+  "generatedAt": "2026-09-05T16:25:17.922Z",
   "project": "autopilot",
   "perFiring": [
     {
@@ -972,6 +972,54 @@ _Generated 2026-09-05T14:55:49.534Z by `pnpm self-study:update` — the chart da
       "promptVersion": "firing-v12",
       "costUsd": 1.0767547999999998,
       "turns": 34
+    },
+    {
+      "firingId": "fly-autopilot:firing-81",
+      "day": "2026-09-05",
+      "sha": "e2e80c78",
+      "kind": "feat",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 3.4569662999999986,
+      "turns": 81
+    },
+    {
+      "firingId": "fly-autopilot:firing-82",
+      "day": "2026-09-05",
+      "sha": "29c47f5e",
+      "kind": "feat",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 4.223153,
+      "turns": 105
+    },
+    {
+      "firingId": "fly-autopilot:firing-83",
+      "day": "2026-09-05",
+      "sha": "da539f3e",
+      "kind": "feat",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 2.5528698999999992,
+      "turns": 32
+    },
+    {
+      "firingId": "fly-autopilot:firing-84",
+      "day": "2026-09-05",
+      "sha": "09ab34f2",
+      "kind": "feat",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 3.505861500000001,
+      "turns": 36
     }
   ],
   "perDay": [
@@ -993,22 +1041,22 @@ _Generated 2026-09-05T14:55:49.534Z by `pnpm self-study:update` — the chart da
     },
     {
       "day": "2026-09-05",
-      "firings": 24,
-      "shipped": 7,
-      "costUsd": 48.4861,
-      "turns": 1172,
-      "rollingShipRate": 0.25
+      "firings": 28,
+      "shipped": 11,
+      "costUsd": 62.225,
+      "turns": 1426,
+      "rollingShipRate": 0.2857
     }
   ],
   "perEra": [
     {
       "promptVersion": "firing-v12",
-      "firings": 80,
-      "shipped": 20,
-      "passRate": 0.25,
+      "firings": 84,
+      "shipped": 24,
+      "passRate": 0.2857,
       "medianTurns": 50,
-      "costVariance": 1.851848810557018,
-      "costPerSolved": 8.878066839999999
+      "costVariance": 1.8441696025810888,
+      "costPerSolved": 7.970841145833332
     }
   ],
   "turnsHistogram": [
@@ -1032,8 +1080,8 @@ _Generated 2026-09-05T14:55:49.534Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 30,
-      "firings": 17,
-      "shipped": 6,
+      "firings": 19,
+      "shipped": 8,
       "bucketLabel": "30-39"
     },
     {
@@ -1062,8 +1110,8 @@ _Generated 2026-09-05T14:55:49.534Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 80,
-      "firings": 6,
-      "shipped": 1,
+      "firings": 7,
+      "shipped": 2,
       "bucketLabel": "80-89"
     },
     {
@@ -1074,8 +1122,8 @@ _Generated 2026-09-05T14:55:49.534Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 100,
-      "firings": 1,
-      "shipped": 1,
+      "firings": 2,
+      "shipped": 2,
       "bucketLabel": "100-109"
     },
     {
