@@ -2399,14 +2399,14 @@ document.addEventListener('submit', function (e) {
     })
     .then(function (res) {
       if (res.ok) {
-        if (status) status.textContent = 'Proposed — review it above to ratify or dismiss.';
+        if (status) status.textContent = tr('soulProposed');
         refresh();
       } else if (status) {
-        status.textContent = (res.body && res.body.error) || 'Could not propose the edit — try again.';
+        status.textContent = (res.body && res.body.error) || tr('soulProposeFailed');
       }
     })
     .catch(function () {
-      if (status) status.textContent = 'Could not propose the edit — try again.';
+      if (status) status.textContent = tr('soulProposeFailed');
     })
     .then(function () { if (btn) btn.disabled = false; });
 });
@@ -2609,7 +2609,7 @@ document.addEventListener('click', function (e) {
   if (!window.confirm(tr(syncConfirmKey, name))) return;
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = 'Syncing…';
+  b.textContent = tr('githubSyncing');
   fetch('/api/github-sync/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -2629,7 +2629,7 @@ document.addEventListener('click', function (e) {
       b.textContent = originalText;
       if (resultEl) {
         resultEl.className = 'github-sync-result github-sync-result-fail';
-        resultEl.textContent = '✗ Request failed — try again shortly.';
+        resultEl.textContent = tr('githubRequestFailed');
       }
     });
 });
@@ -2668,7 +2668,7 @@ document.addEventListener('submit', function (e) {
   var body = bodyEl ? bodyEl.value : '';
   var submitBtn = f.querySelector('button[type="submit"]');
   if (submitBtn) submitBtn.disabled = true;
-  if (resultEl) { resultEl.className = 'github-pr-result'; resultEl.textContent = 'opening…'; }
+  if (resultEl) { resultEl.className = 'github-pr-result'; resultEl.textContent = tr('githubPrOpening'); }
   var prReqBody = { project: pid, title: title, body: body };
   if (prIssueNumber !== undefined) prReqBody.issueNumber = prIssueNumber;
   fetch('/api/github-pr/execute', {
@@ -2690,7 +2690,7 @@ document.addEventListener('submit', function (e) {
       if (submitBtn) submitBtn.disabled = false;
       if (resultEl) {
         resultEl.className = 'github-pr-result github-pr-result-fail';
-        resultEl.textContent = '✗ Request failed — try again shortly.';
+        resultEl.textContent = tr('githubRequestFailed');
       }
     });
 });
