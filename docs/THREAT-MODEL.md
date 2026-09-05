@@ -165,7 +165,7 @@ alongside it:
 | Tool-grant source of truth | `packages/engine/src/config.ts` — regenerate §3's table with `pnpm threat-model:update` |
 | Containment guard source | `packages/engine/src/guard.ts` + `guard-hook.ts` |
 | Secret-scan rule count | 13 format-based patterns (`scripts/ci/secret-scan.mjs`), CI-enforced via `pnpm ci:secret-scan` |
-| This document last reviewed against the above | 2026-08-11 |
+| This document last reviewed against the above | 2026-09-04 (T9 re-reviewed 2026-08-24; T11 incident 2026-08-27) |
 
 ## 8. AI-Use Disclosure
 

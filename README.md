@@ -18,14 +18,15 @@
   <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions"><img src="https://img.shields.io/badge/discussions-welcome-blueviolet" alt="Discussions welcome"></a>
 </p>
 
-**Point your Claude account at any repo — AUTOPILOT locks onto it, backs it up, understands it, and flies it on
-autopilot**: shipping gated, verified work; measuring itself; surviving quota limits; and surfacing the human-only calls
-for your approval.
+**AUTOPILOT is an autonomous AI coding agent for [Claude Code](https://docs.anthropic.com/en/docs/claude-code): point
+your Claude account at any repo — it locks on, backs it up, understands it, and flies it**: shipping gated, verified
+work; measuring itself; surviving quota limits; and surfacing the human-only calls for your approval.
 
-A standalone, open-source, cross-platform autonomous engineering agent. It locks onto a project folder, researches and
+A standalone, open-source, cross-platform TypeScript agent. It locks onto a project folder, researches and
 understands it, stands up its own control panel, then flies the repo — improving it, finding bugs, closing security
 holes, documenting, charting, detecting anomalies, and managing versions. A local web dashboard drives it all.
-Multi-project. Optional local (Ollama) models. One-command install from zero.
+Multi-project. Optional local (Ollama) models. One-command install from zero — and it **builds itself**: most of
+this repo's commits were shipped by AUTOPILOT's own agent fleets, with the telemetry to prove it.
 
 Author / brand: **1337 · REL AZEUS · MΔSTERMIND** · License: **Apache-2.0** · No private data — ever. Built on the
 shoulders of 487 open-source projects — see [`THANKS.md`](THANKS.md) and
@@ -106,6 +107,55 @@ AUTOPILOT's unit of work is a **firing** — one gated attempt at one task:
   verified, not self-reported — and published in [the living self-study](docs/SELF-STUDY/PAPER.md).
 - **Humans keep the human calls.** Dependency changes, publicity, spending — anything out-of-scope queues for
   your approval in the dashboard's KEEPER panel.
+
+## Can it hurt my repo? — the safety story, honestly
+
+The first question anyone should ask an agent that edits code. The answers, in order of importance:
+
+1. **Backup before first touch.** Locking onto a repo snapshots it (the MYTH/LEGACY backup ritual) before any
+   flight — see [ADR-0003](docs/adr/0003-myth-legacy-flight-branch-backup-ritual.md).
+2. **Everything is a git commit.** No force-pushes, no history rewrites, no touching remotes on its own. Undoing
+   any change is `git revert <sha>` — always.
+3. **Nothing lands unverified.** The gate (typecheck · lint · test · build) runs before every commit; a red gate
+   means the work reverts. Gate durations are recorded too — we learned the hard way that "green" alone can lie
+   ([the silent-gate evaluation](docs/EVALUATION-2026-08-27-silent-gate.md)).
+4. **Landing is your click.** Flights work on a flight branch; merging to `main` is an explicit operator action,
+   never automatic.
+5. **Containment is seatbelts, not a cage — we say so plainly.** Flights run in isolated git worktrees with a
+   containment guard that blocks and logs escape attempts (`guard-denial` telemetry), but a shell step is not a
+   kernel sandbox. That's exactly why the backup, the gate, and the operator-click landing exist. Full analysis:
+   [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) · [`docs/FLIGHT-CONTAINMENT.md`](docs/FLIGHT-CONTAINMENT.md).
+6. **Kill switch.** The dashboard's Stop button, or `pnpm dashboard:stop` — recovery paths for every known failure
+   mode live in [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+7. **Nothing phones home.** All telemetry is a local SQLite file on your machine, and the self-study numbers are
+   computed from it locally. The one outbound path is the OTLP exporter
+   ([`packages/engine/src/otlp.ts`](packages/engine/src/otlp.ts)) — dormant unless *you* set
+   `OTEL_EXPORTER_OTLP_ENDPOINT`, and pointed only at the collector you name. No analytics, no tracking, no
+   data collection; the code is short enough to audit over coffee.
+
+## It builds itself — audit the claim
+
+This is not a marketing line; it is checkable in two commands against this very repo:
+
+```bash
+git log --format=%B | grep -c "Firing-Prompt-Version"   # commits carrying the fleet's firing trailer
+pnpm self-study:update                                   # regenerate the paper's data from local telemetry
+```
+
+Every firing, gate verdict, ship, revert, and dollar is recorded and published in
+[the living self-study paper](docs/SELF-STUDY/PAPER.md) — including the failures
+([case studies](docs/CASE-STUDIES/) · [dated evaluations](docs/)). No claims without a paper trail.
+
+## What it's bad at today — honest limitations
+
+- **It's a 0.x alpha**: APIs, schema, and rituals change between releases without migration paths.
+- **Quota-bound**: flights pace themselves against your Claude subscription's limits; a starved quota means slow
+  or paused flights, not magic.
+- **Single-subject evidence**: the self-study measures AUTOPILOT flying *its own* repo; nothing here proves it
+  performs the same on yours ([threats to validity](docs/SELF-STUDY/PAPER.md#6-threats-to-validity)).
+- **Not a kernel sandbox** (see the safety story above) — run it on code you have backups of.
+- **Freshest lessons live in the open**: the gate once reported green while running zero tests; a subfolder flight
+  once gated the wrong project. Both are documented, fixed, and regression-guarded — that loop is the product.
 
 ## Status
 
@@ -277,3 +327,10 @@ _Generated by `pnpm citation:update` from `package.json` + `CHANGELOG.md` — th
 
 1337 · REL AZEUS · MΔSTERMIND, "AUTOPILOT," Version 0.22.0, 2026. [Online]. Available: https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT
 <!-- HOW-TO-CITE:END -->
+
+## If it flew for you
+
+Star the repo — at zero marketing, stars are literally how GitHub decides who else gets to discover this.
+Found a bug or watched a flight do something interesting? [Open an issue](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/issues) or
+[tell the story in Discussions](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions) — failure reports are
+first-class citizens here; we publish our own.

@@ -50,8 +50,10 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement via the security
-contact listed in [`SECURITY.md`](SECURITY.md). All complaints will be reviewed
+reported to the maintainer (@M-A-S-T-E-R-M-I-N-D) — for sensitive reports use
+GitHub's [private vulnerability reporting form](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/security/advisories/new)
+(see [`SECURITY.md`](SECURITY.md)); for anything else open a private discussion
+or issue addressed to the maintainer. All complaints will be reviewed
 and investigated promptly and fairly.
 
 ## Attribution

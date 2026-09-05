@@ -43,7 +43,7 @@
 - **Depends on:** M1.
 
 ### M3 — Read-only Dashboard — **"watch it fly"** (MVP complete)
-- **Deliverables:** localhost web app (React+Vite) over a Supervisor API (REST+WS); **Fleet** (single↔all), **Project
+- **Deliverables:** localhost web app (as-built: no-framework TS + vanilla client — ADR-0001; the React+Vite line below is the founding plan) over a Supervisor API (REST+WS); **Fleet** (single↔all), **Project
   detail** (board by status, flight log, graphs: cost/shipped·tokens·turns·self-report·ship-rate over time, raw
   exportable data), and the **abstract activity map** (ORIENT→PICK→DO→GATE→COMMIT rail + file-touch nodes, event-derived,
   minimal, reduced-motion-safe); the **progression gauge** (severity×dimension → RED…🔵🟢). Strict a11y baseline.
@@ -123,9 +123,10 @@
 | Scope creep (the 999 topics) | `FEATURE-COVERAGE.md` tracks every feature to a milestone; nothing is forgotten, nothing is smuggled in unplanned. |
 | Quota exhaustion during the build | the v2.4 quota-safety (hibernation + weekly pacing) already handles it. |
 
-## No open questions
-Name (AUTOPILOT · by MΔSTERMIND), engine (TypeScript), license (Apache-2.0), MVP (read-only-first), first repo
-(sandbox), colors (§16.1), verification boundary (§17) — all locked. Every feature is traced in `FEATURE-COVERAGE.md`.
-**Ready to start M0 on the founder's word.**
+## Status (2026-09-04)
+M0–M3 **shipped** (`v0.6.0`–`v0.10.0` era, pre-genesis); **M4 in progress** at v0.22.0 (live flights, fleets,
+RAG, task board all live); M5–M9 planned. This document is the FOUNDING build order, kept verbatim below its
+header — the live record of what exists is `CHANGELOG.md`. All founding decisions locked: name, TypeScript,
+Apache-2.0, read-only-first MVP, colors (§16.1), verification boundary (§17).
 
 *Living doc; the definitive plan. Cross-refs: `MASTER-PLAN.md`, `ENGINE-RESEARCH.md`, `REACTIVITY.md`, `PATTERNS-AND-STANDARDS.md`, `MDVIEWER-STUDY.md`, `BACKLOG-999.md`.*
