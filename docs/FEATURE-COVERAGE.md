@@ -8,15 +8,15 @@
 | Feature | Spec | Milestone |
 |---|---|---|
 | [x] External loop over `claude -p` (subscription auth, no API key) — `ClaudeCliModel` adapter + loop; e2e-proven pipeline; **auth modes** (subscription default / API key / headless OAuth token) with stray-key stripping per the official credential precedence | ENGINE-RESEARCH G1; MDVIEWER §1 | M1 |
-| [~] Orient → pick → gate → commit → self-report → pace — firing/loop mechanics done; **firing prompt built** (`buildFiringPrompt`) + **live flight wired** (`dashboard:fly`: real ClaudeCliModel · detected gate via GateRunner · budget-capped); needs a real run + graphs on the resulting telemetry | MASTER §3; ENGINE-RESEARCH | M1 |
+| [x] Orient → pick → gate → commit → self-report → pace — firing prompt built (`buildFiringPrompt`) + live flight wired (`dashboard:fly`: real ClaudeCliModel · detected gate via GateRunner · budget-capped); e2e-proven live (160+ real firings — BACKLOG-999 §A) | MASTER §3; ENGINE-RESEARCH | M1 |
 | [x] Un-fakeable telemetry (envelope + self-report, cross-checked by sha/HEAD) | ENGINE-RESEARCH G2 | M1 |
 | [x] Graceful telemetry degradation (infer from commit) | ENGINE-RESEARCH G3 | M1 |
 | [x] Atomic firing (one unit, METRICS at commit) | ENGINE-RESEARCH G4 | M1 |
-| [~] Gate: typecheck+test+build, revert-clean on red — engine runs the gate (GatePort) + additive revert (M1); **`GateRunner` adapter** now executes a detected command list (argv-only), bridging M2 detection → M1 execution; auto-wiring the detected `GateSpec` into live flights lands with the live harness | ENGINE-RESEARCH G5 | M1 |
+| [x] Gate: typecheck+test+build, revert-clean on red — engine runs the gate (GatePort) + additive revert (M1); `GateRunner` adapter executes the detected command list (argv-only), wired live into `fly.ts`'s per-firing and flight-end sync-back gates | ENGINE-RESEARCH G5 | M1 |
 | [x] Model resilience: fallback + promote-on-exhaustion + time-based reprobe — state machine + firing/loop integration, e2e-proven | ENGINE-RESEARCH G6 | M1 |
-| [~] Quota safety: budget cap (CLI arg), global hibernation + STOP-aware sleep done; adaptive cadence + weekly pacing advisor pending | ENGINE-RESEARCH G7 | M1 |
+| [x] Quota safety: budget cap (CLI arg), global hibernation + STOP-aware sleep, adaptive cadence + weekly pacing advisor (`packages/engine/src/pace.ts` + `SqlitePacer` — BACKLOG-999 §A) | ENGINE-RESEARCH G7 | M1 |
 | [~] Learnings + retro — loop retro cadence done (M1); retro prompt content + learnings curation with the SOUL (M2) | ENGINE-RESEARCH G8 | M1→M2 |
-| [~] Lock/mutex + graceful STOP + persisted state — STOP + restart-safe state done; per-project single-instance lock pending | ENGINE-RESEARCH G10 | M1 |
+| [x] Lock/mutex + graceful STOP + persisted state — STOP + restart-safe state, per-project single-instance lock (`FileInstanceLock`, `packages/engine/src/adapters/instance-lock.ts` — BACKLOG-999 §A) | ENGINE-RESEARCH G10 | M1 |
 | [ ] Decision lifecycle (DECISIONS↔APPLIED, reconcile, disjointness) | ENGINE-RESEARCH G11 | M5 |
 
 ## B. Onboarding / learn any project
@@ -34,7 +34,7 @@
 | [~] Fleet home: live cards (status · stack · files · ship-rate · severity gauge · last activity) + 3s poll + dark/light/terminal themes done (M3 MVP, axe-clean); single↔all toggle + improvement sparkline pending | MASTER §5.1 | M3 |
 | [~] Project detail: **dedicated inside page `/p/<id>`** (card click-through; live-streamed, everything open, search/ask pinned, honest not-found, escaped anchor) + **task board** (`recentTasks`: open-first, status/severity/dimension chips) + live flight log + activity timeline + index breakdown done; board-by-status columns + raw export + animated RAIL pending | MASTER §5.2 | M3→M4 |
 | [x] Graphs: cost/shipped, tokens, ship-rate — done (fleet cost total + per-project Metrics + cost-per-firing sparkline, on real flight data); turns/self-report/improvement-over-time trends are a follow-up | MASTER §2.5 | M3 |
-| [ ] Approvals queue (🟣): approve/edit/reject, explain impact before save | MASTER §5.3 | M5 |
+| [~] Approvals queue (🟣): approve/reject/delete UI live (`needs_approval` status, `TaskActionKind` — BACKLOG-999 §C); edit action + explain-impact-before-save not yet built | MASTER §5.3 | M5 |
 | [ ] SOUL/identity editor (locked-by-default, proposable) | MASTER §5.4 | M5 |
 | [ ] Versions screen (MYTH/LEGACY/flight timeline, diff, additive restore) | MASTER §5.5, §7 | M5 |
 | [~] Settings — **connect screen delivered early** (dashboard: choose subscription / API key / headless token · verify the `claude` CLI · secret stored 0600, CSRF-guarded, never echoed); models/quota/language/a11y/security settings remain | MASTER §5.6 | M5 |
@@ -160,4 +160,10 @@
 ---
 *If a feature the founder named is missing from this matrix, that is a bug in the matrix — add it. This is the "nothing
 forgotten" contract for a project this size. Cross-refs the full doc set (see `README.md`).
-Reconciled against the M0/M1 build state by the 2026-07-07 completeness audit.*
+Reconciled against the M0/M1 build state by the 2026-07-07 completeness audit; sections A (core engine/autonomy) and
+C's Approvals-queue row were re-verified against `BACKLOG-999.md` and the live tree on 2026-09-05 — 5 rows corrected
+(three claimed "pending" work — gate auto-wiring, quota pacing, the single-instance lock — that had already shipped;
+one claimed the orient→pace loop "needs a real run" despite 160+ real firings; Approvals-queue overclaimed an "edit"
+action `TaskActionKind` doesn't have). Sections B, D–O were **not** re-audited this pass — `BACKLOG-999.md` is the
+more actively-maintained backlog when the two disagree; don't trust this matrix's other `[x]`/`[~]` marks as current
+without checking there or the live tree first.*
