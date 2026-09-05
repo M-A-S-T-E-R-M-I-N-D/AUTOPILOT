@@ -70,4 +70,26 @@ describe('masthead "updated" status', () => {
       'Lost the connection to the server — it will keep retrying automatically',
     );
   });
+
+  it('translates the offline status and its tooltip when the locale is Hebrew', async () => {
+    // Regression for the i18n miss ce651fb left behind: that fix translated
+    // the masthead's first-paint "connecting…" placeholder but not this
+    // later, more-likely-to-fire offline branch, which stayed hardcoded
+    // English no matter the reader's locale.
+    document.open();
+    document.write(renderShell());
+    document.close();
+    document.documentElement.lang = 'he';
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error('network down');
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const updated = document.getElementById('updated');
+    expect(updated?.textContent).toBe('לא מקוון — מנסה שוב…');
+    expect(updated?.getAttribute('data-tip')).toBe(
+      'החיבור לשרת אבד — הניסיון החוזר יתבצע אוטומטית',
+    );
+  });
 });
