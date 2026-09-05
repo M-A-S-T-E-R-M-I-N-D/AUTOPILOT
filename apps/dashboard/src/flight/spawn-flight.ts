@@ -72,7 +72,10 @@ export function forceKillProcess(pid: number, platform: NodeJS.Platform = proces
     // `/t` recurses the WHOLE process tree — the SIGTERM `kill()` already
     // sent only ever reached the immediate child, never grandchildren the
     // CLI spawns itself.
-    spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' }).on('error', () => {
+    spawn('taskkill', ['/pid', String(pid), '/t', '/f'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    }).on('error', () => {
       // A missing/already-exited pid lost the escalation race to a
       // legitimate exit — never crash the dashboard server over that.
     });
@@ -164,6 +167,7 @@ export function createSpawnFlight(
       env,
       stdio: ['ignore', logFd, logFd],
       detached: true,
+      windowsHide: true,
     });
     child.unref(); // the listening socket keeps the server alive, not the child
     return {

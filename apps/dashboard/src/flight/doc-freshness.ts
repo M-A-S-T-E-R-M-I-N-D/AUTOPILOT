@@ -245,6 +245,7 @@ export function gitLastTouchedAt(repo: string, path: string): number | null {
   try {
     out = execFileSync('git', ['-C', repo, 'log', '-1', '--format=%ct', '--', path], {
       encoding: 'utf8',
+      windowsHide: true,
     });
   } catch {
     return null;
