@@ -700,6 +700,7 @@ const EN_STRINGS = {
   flyingFirings: 'Flying {name} — {count} firing(s)…',
   pausedUntilResumed: 'Paused {name} — will not fly until resumed.',
   aFolder: 'a folder',
+  flyBrowseTip: 'Browse the filesystem to pick a folder',
   flyGoTip:
     'Launches an autonomous flight over this folder with the firings and budget set here — it starts spending real budget immediately.',
   flyPauseTip: 'Pauses the running flight — no new firings until you resume it.',
@@ -1116,6 +1117,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flyingFirings: 'בטיסה על {name} — {count} הפעלות…',
     pausedUntilResumed: 'הטיסה על {name} הושהתה — לא תמשיך עד לחידוש.',
     aFolder: 'תיקייה',
+    flyBrowseTip: 'עיון בקבצי המערכת לבחירת תיקייה',
     flyGoTip:
       'משגר טיסה אוטונומית על התיקייה הזו עם ההפעלות והתקציב שהוגדרו כאן — היא מתחילה להוציא תקציב אמיתי מיד.',
     flyPauseTip: 'משהה את הטיסה הפעילה — אין הפעלות חדשות עד לחידושה.',
