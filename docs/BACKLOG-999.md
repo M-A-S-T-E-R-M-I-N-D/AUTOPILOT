@@ -6,7 +6,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 
 ## A. Engine & autonomy
 - [x] (M1, e2e-proven; 160+ real firings) Cross-platform TypeScript port of the v2.4 loop (orient/pick/gate/commit/report/pace/hibernate)
-- [x] (b22d390, instance-lock.ts) Per-project single-instance guard (mutex/lockfile) + graceful STOP (STOP-aware sleep)
+- [x] (instance-lock.ts) Per-project single-instance guard (mutex/lockfile) + graceful STOP (STOP-aware sleep)
 - [x] (M1 resilience.ts, proven live) Model resilience: fallback chain, promote-on-exhaustion, time-based re-probe
 - [x] (M1 + pacer.ts adaptive cadence) Quota safety: per-firing budget cap, adaptive cadence, weekly pacing, global-exhaustion hibernation
 - [ ] Local-model offload as a first-class step (the biggest quota lever) — default-on for mechanical sub-work
@@ -71,7 +71,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] Autonomous set: typecheck/test(impact+full)/build, secret+dep+SAST, invariants, byte-identity, machine-checkable a11y (contrast/ARIA/keyboard/focus/reduced-motion), perf/size budgets — `MASTER-PLAN.md` §17.1, this is what `metrics.gate_result` measures
 - [x] Human-required set: visual/brand/pixels, real UX & human-interaction quality, ethics/dignity/harm (serves living beings), intent-ambiguity, irreversible forks — `MASTER-PLAN.md` §17.2, the 🟣 PURPLE gate
 - [~] Capture every human approve/reject/edit + note as an EVALUATION LABEL (the fitness signal) — approve/reject wired (`packages/store/src/mutate.ts`'s `recordEvaluationLabel`, on task approve/reject AND SOUL ratify/unratify/dismiss); edit/note NOT captured — the store has no `updateTask` at all yet, so there is no edit event to record
-- [x] Evolution view: is the agent improving? approval-rate ↑, rejection-rate ↓, proposals landing, rework ↓ — over time, numeric+visual+data — `evaluationLabelDayCounts` (`packages/store/src/read.ts`) buckets approve/reject by UTC day, the dashboard read seam serves it on every project payload (`ProjectAggregate.evaluationLabelDayCounts`, `apps/dashboard/src/read/source.ts`); the panel's pure trend math (`apps/dashboard/src/web/evaluation-trend.ts`: Sun-start weekly approval-rate buckets, half-vs-half direction with a ±5-point dead band, per-week tip + aria-label text) is now wired into `web/shell.ts` (`evaluationTrendPanel` on the project page, `evaluationTrendTileItems` on the fleet-home tile — commit `1b7b3b45`), visible to the operator with passing DOM specs (`test/web/evaluation-trend-panel.test.ts`)
+- [x] Evolution view: is the agent improving? approval-rate ↑, rejection-rate ↓, proposals landing, rework ↓ — over time, numeric+visual+data — `evaluationLabelDayCounts` (`packages/store/src/read.ts`) buckets approve/reject by UTC day, the dashboard read seam serves it on every project payload (`ProjectAggregate.evaluationLabelDayCounts`, `apps/dashboard/src/read/source.ts`); the panel's pure trend math (`apps/dashboard/src/web/evaluation-trend.ts`: Sun-start weekly approval-rate buckets, half-vs-half direction with a ±5-point dead band, per-week tip + aria-label text) is now wired into `web/shell.ts` (`evaluationTrendPanel` on the project page, `evaluationTrendTileItems` on the fleet-home tile), visible to the operator with passing DOM specs (`test/web/evaluation-trend-panel.test.ts`)
 - [x] Goodhart guard: never let the agent optimize only the gate; the human signal tunes lived-quality judgment + the soul — a SOUL amendment the agent proposes only takes effect on operator ratify (`ratifySoulAmendment`), which is the human signal tuning the soul in practice, not just in spec
 - [x] Operating principle wired in: proceed on reasonable interpretation, reserve forks/🟣 for approval, never stall — `MASTER-PLAN.md` §17.4; the firing prompt's NOOP→VERDICT and empty-board PROPOSALS sections encode it
 
@@ -106,7 +106,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal (candidate inventory → operator
   compresses); "unreviewed SOUL" flag on the dashboard until the operator ratifies (M5 editor completes this).
   Done — `soul_reviewed`/`soul_proposed` + `markSoulReviewed`/`ratifySoulAmendment`/`dismissSoulProposal`
-  (6447b45..4b6a867) ship the unreviewed flag and the operator review/ratify loop; `STARTER_SOUL_LINE_BUDGET`
+  ship the unreviewed flag and the operator review/ratify loop; `STARTER_SOUL_LINE_BUDGET`
   (`packages/onboarding/src/onboard/soul.ts`, regression-tested) mechanizes "keep minimal" as an interim guard —
   a new doctrine section can't be baked into the generator without consciously bumping the budget. The full fix
   (M5's human-ratified editor) remains open and unblocked by this.
@@ -123,9 +123,9 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] **C3** Destructive-git deny in the guard hook: "additive git only" is prompt-only today — add deterministic
   deny patterns (force-push, `reset --hard`, rebase, `branch -D`, checkout/switch main, `clean -f`, filter-branch)
   to the same PreToolUse guard that already denies path escapes (anti-pattern #14 caught live). Done —
-  `packages/engine/src/guard.ts` denies every listed pattern (see `449b78b fix(engine): close a git global-flag
-  bypass of the destructive-git guard` for the follow-up hardening).
-- [x] (952493c + e2f3b0f dedupe) **C2** Wire BACKLOG-999 into the loop: empty-board firings + the Triage sub-agent consult `docs/BACKLOG-999.md`
+  `packages/engine/src/guard.ts` denies every listed pattern (a follow-up hardening closed a git
+  global-flag bypass of the destructive-git guard).
+- [x] (dedupe done) **C2** Wire BACKLOG-999 into the loop: empty-board firings + the Triage sub-agent consult `docs/BACKLOG-999.md`
   (the reserved `source: 'backlog'` in TASK_SOURCES finally earns its seat); proposals dedupe against board AND backlog
 - [ ] **G4** Retrieval eval metrics for Ask/GENIUS RAG (M4+): faithfulness, context precision/recall, hallucination
   rate, answer-to-chunk traceability; calibrate any LLM-judge against accumulated operator verdicts
@@ -144,14 +144,14 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   dashboard. Proposal-only by design (never auto-applied) and best-effort (a reconciliation hiccup never fails
   the flight). `ap-msksw1mf-4` and `ap-msksw1me-0` themselves are still manually left open on the live board as
   a real-world fixture for this exact matcher to prove out on the next flight — but only `ap-msksw1mf-4` actually
-  will: its shipping commit (`d3ced1b`) has a descriptive subject that scores 0.615 against the task title, well
-  past the 0.5 threshold. `ap-msksw1me-0` shipped inside a WIP-checkpoint commit (`ce1aacf`) whose subject is
+  will: its shipping commit has a descriptive subject that scores 0.615 against the task title, well
+  past the 0.5 threshold. `ap-msksw1me-0` shipped inside a WIP-checkpoint commit whose subject is
   generic firing-cadence boilerplate with no mention of OTLP — that pairing scores ~0.05, so the matcher
   originally could not surface it. This was a real blind spot, not a matcher bug: a checkpoint commit's subject
   never carries the descriptive content title-matching needs, since the firing that packs up mid-unit has no room
   left to compose one. Proven as a regression fixture in `apps/dashboard/test/read/reconcile.test.ts` (`"of the two
   real board fixtures, only the descriptively-committed one is proposed"`).
-  **Resolved** — `6188047` closed exactly this gap: `GitVcs.recentCommits`
+  **Resolved** — closed exactly this gap: `GitVcs.recentCommits`
   (`packages/engine/src/adapters/git.ts`) now also returns each commit's changed file paths, and
   `findReconciliationCandidates` (`apps/dashboard/src/read/reconcile.ts`) falls back to a boolean
   `filePathMatchesTitle` check — a shared, non-generic token (length >= 4, filtered against a structural-noise
@@ -163,7 +163,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   to live flights, not just the test fixture.
 - [x] **WCAG-AA (real bug, from the a11y round)** Light theme `--color-sev-medium` 3.92:1 against surface — under
   AA's 4.5:1, used as gate-phase TEXT color (`.fnode-gate`/`.live-phase-gate`/`.act-search`); nudge OKLCH L down.
-  Done — `67d34d5 fix(tokens): light-theme sevMedium fails WCAG AA as gate-phase text` (`packages/tokens/src/themes.ts`);
+  Done — a light-theme `sevMedium` WCAG AA fix as gate-phase text (`packages/tokens/src/themes.ts`);
   contrast is now 5.02:1, and `packages/tokens/test/themes.test.ts` gates every theme's `sevMedium` at ≥ 4.5:1
   against both `surface` and `surfaceRaised`.
 - [ ] **firing-v9 (bundle)** PLAN phase (incl. the delegation decision) + REFLECT + the B2 prompt-prefix reorder +
@@ -182,7 +182,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
   Done — renamed to `tsconfig.typecheck.json`; `package.json`'s `typecheck` script updated to match.
 - [x] `apps/dashboard` browser tsconfig — `lib`/jsdom half (M3 prep): give the app its own `compilerOptions.lib`
-  (incl. `DOM`) and a jsdom Vitest environment instead of the Node base. Done — `105babe` added the jsdom
+  (incl. `DOM`) and a jsdom Vitest environment instead of the Node base. Done — this added the jsdom
   `environmentMatchGlobs` env; this item's `lib` half needed splitting the single flat `tsconfig.typecheck.json`
   into per-package configs first (`lib` is program-wide, not per-directory), landed by splitting it into
   `packages/*/tsconfig.typecheck.json` + `apps/dashboard/tsconfig.typecheck.json` (each `extends` that package's
@@ -209,14 +209,14 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   `better-sqlite3` once a less-trusted caller (the dashboard/config) can supply it, to avoid path-confusion.
   Done — `resolveStorePath` in `packages/store/src/db.ts` rejects NUL-byte paths and resolves relative paths to
   absolute ones; it runs unconditionally inside the `Store` constructor (the sole path every caller — dashboard,
-  CLI, onboarding — goes through), so no caller can bypass it (commit `446dd9f`).
+  CLI, onboarding — goes through), so no caller can bypass it.
 - [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling): fold an over-long system prompt into the child's
   stdin instead of an argv entry (MDVIEWER-STUDY §1). Done — `CLI_STDIN_PROMPT_THRESHOLD` in
   `packages/engine/src/adapters/claude-cli.ts`.
 - [x] Single-instance guard for the engine loop (per-project): cross-platform `O_EXCL` lockfile + PID-liveness check
   (v2.4 used a Windows named mutex). Done — `FileInstanceLock` in `packages/engine/src/adapters/instance-lock.ts`,
   wired into `apps/dashboard/src/fly.ts` keyed per PROJECT id (`engine-<projectId>.lock`), so flights against
-  different projects in the same store never contend (PARALLEL FLIGHTS 1/6, commit `b22d390` + follow-up).
+  different projects in the same store never contend (PARALLEL FLIGHTS 1/6, plus a follow-up).
 - [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`): port the observed-spend usage advisor (v2.4
   `usage_advisor.py`) behind the pacer port. Done — pure `nextAdaptivePaceMin` in `packages/engine/src/pace.ts`
   (base cadence under half of either soft cap, ramps to a bounded 6x as real spend nears the hourly/weekly cap),
@@ -228,7 +228,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] OpenTelemetry wire-format export for firings (the OTel-shaped attributes are already captured in the firing
   record + SQLite): export over OTLP for standard-portable dashboards — lands with the dashboard at M3.
   Mapping + injectable HTTP transport done — `toOtlpResourceSpans`/`exportOtlpResourceSpans` in
-  `packages/engine/src/otlp.ts` (commits `b46449b`, `d92e4ac`). Endpoint wiring (`ap-msksw1me-0`) done —
+  `packages/engine/src/otlp.ts`. Endpoint wiring (`ap-msksw1me-0`) done —
   `apps/dashboard/src/flight/otlp.ts`'s `otlpConfigFromEnv` reads the standard `OTEL_EXPORTER_OTLP_*` env vars
   (off when unset); `fly.ts`'s `onFiringComplete` exports each firing's span best-effort (a collector outage logs
   a warning, never fails the flight). Documented in the root README's "Telemetry & OTLP export" section.

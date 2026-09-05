@@ -13,10 +13,10 @@ Status: Accepted, amended 2026-09-02 (see "Amendment" below)
 `vitest`: the dashboard's client bundle ships feature modules as function
 bodies via `.toString()` (server-rendered into the shell, then executed in
 the browser), so a cross-lane name mismatch type-checks fine in isolation
-and passes jsdom tests, but throws in a real browser. Two commits
-(`1f3d9e74` "wire the dashboard e2e suite into the CI gate", `4f064b9d`
-"make the e2e job a required check, not just a CI run") made e2e a required
-GitHub branch-protection check, closing that gap — for pull requests.
+and passes jsdom tests, but throws in a real browser. Two commits — wiring
+the dashboard e2e suite into the CI gate, then making the e2e job a required
+check, not just a CI run — made e2e a required GitHub branch-protection
+check, closing that gap — for pull requests.
 
 This fleet's own landings never go through a pull request. `executeLanding`
 (`packages/engine/src/landing.ts`, called from
@@ -29,10 +29,10 @@ branch protection — including the now-required e2e job — has nothing to
 attach to and never runs before the merge. `.github/workflows/ci.yml`'s
 `e2e` job does still fire on `push: branches: [main]`, but by then the
 commit has already landed; a red run is discovered after the fact, not
-prevented. This produced a real, repeated cost: `b44ac969` had to repair
-visual-baseline drift that had shipped landed for four rounds running
-before anyone noticed, because nothing was watching the post-land e2e
-result.
+prevented. This produced a real, repeated cost: a follow-up fix had to
+repair visual-baseline drift that had shipped landed for four rounds
+running before anyone noticed, because nothing was watching the post-land
+e2e result.
 
 `apps/dashboard/src/control/ci-status.ts` (epic 0010 slice 2, "gh run
 babysitting") already exists and read-only reports the latest run
@@ -74,8 +74,8 @@ Tradeoff, accepted: a landed commit can still break an e2e-only-catchable
 regression (cross-lane `.toString()` bugs, visual baselines) and stay
 broken until a human or a KEEPER-style firing runs `dashboard ci-status` /
 `maintenance-sweep`, or until the next unrelated firing's e2e run happens
-to surface it — the four-round drift `b44ac969` cleaned up is the concrete
-cost of this gap, and it can recur. Closing it for real needs one of: an
+to surface it — the four-round visual-baseline drift cleaned up by that fix
+is the concrete cost of this gap, and it can recur. Closing it for real needs one of: an
 explicit design for a bounded, budget-safe post-land e2e trigger (epic 0010
 slice 4), or a policy change to route landings through a real PR merge so
 branch protection actually applies — both are operator-level tradeoff
@@ -124,4 +124,3 @@ per-attempt.
   `apps/dashboard/src/control/maintenance-sweep.ts`
 - `docs/epics/0010-maintenance-ritual.md` (slice 4, shipped 2026-09-02)
 - `.github/workflows/ci.yml`, `.github/branch-protection.json`
-- Commits `1f3d9e74`, `4f064b9d`, `b44ac969`

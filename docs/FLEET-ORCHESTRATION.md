@@ -74,7 +74,7 @@ The org grows on top of these — one milestone at a time, each gated and honest
 
 **What happened:** 3 instances (base worktree + `--fleet-2` + `--fleet-3`) flew this
 repo in parallel. 3/3 shipped, intent claiming held, zero cross-instance conflicts,
-and one guard fix (ffcd9c6) was self-shipped mid-test. **The gap:** each instance
+and one guard fix was self-shipped mid-test. **The gap:** each instance
 flew ~1 of the expected 3 firings, then exited.
 
 **Diagnosis (code-verified, board task web-msw5gwfs-rqylda):**
@@ -104,7 +104,7 @@ flew ~1 of the expected 3 firings, then exited.
   path already does — `FlightRunner.start()` forwards an explicit count under
   `MAX_DASHBOARD_FIRINGS`) — not yet done; the recipe layer lives outside this repo.
 - the flight-end line should say the requested count loudly enough that a
-  defaulted count is visible as by-request, not a crash — **DONE** (8feffbb):
+  defaulted count is visible as by-request, not a crash — **DONE**:
   `formatFlightDoneLine` (`apps/dashboard/src/flight/flight-summary.ts`) appends
   `(requested N)` to the `Done —` line whenever `stoppedBy === 'max-iterations'`.
 - whether `DEFAULT_FIRINGS = 1` is the right cautious default for CLI launches is
