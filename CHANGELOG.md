@@ -13,9 +13,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - feat(dashboard): release-maturity intelligence — the ritual knows an alpha when it cuts one
 - feat(i18n): translate the fly-bar HINT sentence to Hebrew via injected tr
 - feat(i18n): translate the DETECTED BACKLOG panel's remaining states to Hebrew
-- feat(onboarding): add static-site gate detector (html-validate + linkinator)
-- feat: add ci:license-check gate — allowlist validator + doc drift check
-- feat(onboarding): add static-site EcosystemDetector (html-validate + linkinator)
 - feat: implement pocket-calculator state machine for calc.js
 
 ### Fixed
@@ -29,7 +26,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - fix(licensing): make REUSE compliance actually pass
 - fix(dashboard): stop duplicating the tip into fly-row action button aria-labels
 - fix(flight): scope worktree flightRoot to a flown subfolder's own repo path
-- fix: neutralize @-mentions in the KEEPER ritual's base-branch reasoning
 
 ## [0.21.0] — 2026-09-03
 
@@ -143,7 +139,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   quarantine-report gates. Covered by `test/tooling/generate-citation.test.ts`.
 
 - **🍀 "I'm feeling lucky" launch calibrator: the Fly bar sizes a fleet to what the
-  machine can carry right now (`13ef5c9d`; RUNBOOK §12).** The 2026-09-03 incident —
+  machine can carry right now (RUNBOOK §12).** The 2026-09-03 incident —
   a blind 8-lane launch pegged the 12-core box at 99% CPU, froze the operator's
   foreground work, and starved the dashboard into its own BE-RIGHT-BACK overlay —
   became a product feature. `flight/lucky-plan.ts` is pure probe→plan arithmetic:
@@ -164,7 +160,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   benign in the flight/ security census.
 
 - **KEEPER PR review neutralizes contributor-controlled @-mentions before they land
-  in posted review bodies (`70c99bf3` + `3f24d5c9`, epic 0007 slice 4).** Every
+  in posted review bodies (epic 0007 slice 4).** Every
   reasoning string the ritual posts embeds the PR title and any conflicting or
   renamed-from paths verbatim under the founder's own gh login, and GitHub
   linkifies `@name` anywhere in a comment or review body — so a hostile PR titled
@@ -306,7 +302,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   (`packages/engine/src/adapters/git.ts`) dropped any `,0` old-side hunk, so a
   file where two siblings each edited *different* lines but inserted at the
   *same* base point — the classic both-append collision, exactly what a fleet
-  sync merge like specimen `f21c003` trips over — measured as non-overlapping
+  sync merge trips over — measured as non-overlapping
   and cleared `narrowToHunkOverlap` into a blind merge conflict. A pure
   insertion is now recorded as the old-side boundary span it touches
   (`{start: N, end: N + 1}` for "inserted after line N", `N = 0` at
@@ -359,7 +355,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - **Cross-OS operator launchers reach real parity across all three operating
   systems (`web-msnsqj7t-pwdyra`).** `SETUP`/`START`/`STOP`/`RESTART`/
   `STATUS-DASHBOARD.cmd` were Windows-only, leaving macOS/Linux operators with
-  no double-click-adjacent onramp. Matching `.sh` scripts (`f8bad7ae`) now
+  no double-click-adjacent onramp. Matching `.sh` scripts now
   mirror each `.cmd`'s behavior exactly, with the executable bit committed
   (`git update-index --chmod=+x`, since `core.filemode` is false on this
   checkout) and the README documenting both tiers side-by-side — the named
@@ -437,8 +433,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   (`apps/dashboard/src/flight/doc-freshness.ts`) tracks every other shipped
   or active epic doc against a well-defined subject-path area, but epic
   0011 was missing entirely even though all three of its slices landed
-  (`a887ed3` control-execute wiring, `a3f84dc` persona toggle, `468129b`
-  action-card rendering) — meaning the post-flight sweep could never flag
+  (control-execute wiring, persona toggle, action-card rendering — all
+  three slices) — meaning the post-flight sweep could never flag
   this doc as stale no matter how far its code drifted. Added with the
   confirm-gated execute endpoint (`flight/control-execute.ts`) and the
   ARCHITECT proposal parser (`ask/architect-proposal.ts`) as its subject
@@ -1070,7 +1066,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
   YAML/JSON/MD convention.
 
 - **`pnpm run test:impacted` — first slice of test-impact sampling (M6/I4, board item
-  `web-msnt26tn-jvyihy`).** The prior slice (`2407ea0`) parallelized the gate's independent
+  `web-msnt26tn-jvyihy`).** The prior slice parallelized the gate's independent
   typecheck/lint/format steps but left "test-impact scheduling" untouched. This adds a
   dev-facing `vitest run --changed` script: filtered to only the tests covering uncommitted
   (staged + unstaged) changes, using Vitest's own git-diff-driven module graph rather than a

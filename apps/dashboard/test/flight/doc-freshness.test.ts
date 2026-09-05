@@ -256,6 +256,14 @@ describe('computeDocDrift', () => {
         doc: 'docs/epics/0015-cockpit-supervisory-control.md',
         subjects: ['scripts/cockpit-metrics.mjs'],
       },
+      {
+        doc: 'docs/FLIGHT-CONTAINMENT.md',
+        subjects: [
+          'packages/engine/src/containment.ts',
+          'packages/engine/src/guard.ts',
+          'packages/engine/src/guard-hook.ts',
+        ],
+      },
     ]);
   });
 

@@ -67,7 +67,7 @@ describe('themes', () => {
   // D1 CONTRAST MATRIX (epic 0015 §6.6): the tests above pin a handful of known-used
   // pairs; `scripts/cockpit-metrics.mjs` computes the FULL cross-product (every
   // foreground token against every surface, plus accentText against every fill) and
-  // commits it to `docs/EVALUATION-*-cockpit-baseline.md` — that script's own header
+  // commits it to `docs/COCKPIT-BASELINE.md` — that script's own header
   // says the matrix's floor is "asserted separately by the token package's contrast
   // tests", i.e. here. This test is that gate: it recomputes the same full matrix
   // directly from THEMES/contrastRatio (no dependency on the build the script needs)
@@ -114,8 +114,9 @@ describe('themes', () => {
     return failing.sort();
   }
 
-  // Baseline measured 2026-08-28 (docs/EVALUATION-2026-08-28-cockpit-baseline.md's
-  // contrast matrix): `border`/`borderStrong` are decorative dividers — never carrying
+  // Baseline measured 2026-08-28 (docs/archive/EVALUATION-2026-08-28-cockpit-baseline.md's
+  // contrast matrix, now folded into docs/COCKPIT-BASELINE.md): `border`/`borderStrong`
+  // are decorative dividers — never carrying
   // text, never a UI component boundary WCAG 1.4.11 requires distinguishing on their
   // own — so a sub-3:1 border is accepted as-is rather than blocking every other pair's
   // gate. Fixing a listed pair means removing it here, a conscious ratchet tightening;
