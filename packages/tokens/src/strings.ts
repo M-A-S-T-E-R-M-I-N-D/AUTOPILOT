@@ -631,6 +631,14 @@ const EN_STRINGS = {
   taskNewPlaceholder: 'what should this autopilot do?',
   taskAdd: 'Add',
   taskAddTip: 'Queue a new operator task for the autopilot to pick up',
+  // The fleet card's gauge label (shell.ts's cardGauge(): the "N open
+  // findings" count and last-activity timestamp above every card's severity
+  // gauge). The two tips are swept as [data-i18n-tip]; cardActivityAria is
+  // the timestamp span's screen-reader prefix, painted via tr() when the
+  // section is built because its {name} slot carries the live "ago" text.
+  cardFindingsTip: 'Unresolved review findings for this project — see the breakdown below',
+  cardActivityTip: 'When this project last had any activity',
+  cardActivityAria: 'last activity: {name}',
   reportBugLabel: 'Report a bug or request a feature upstream',
   titlePlaceholder: 'Title',
   detailsOptionalPlaceholder: 'Details (optional)',
@@ -1088,6 +1096,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
     taskAdd: 'הוסף',
     taskAddTip: 'מוסיף לתור משימת מפעיל חדשה שה-AUTOPILOT ייקח',
+    cardFindingsTip: 'ממצאי סקירה פתוחים לפרויקט הזה — ראו את הפירוט למטה',
+    cardActivityTip: 'מתי הייתה בפרויקט הזה פעילות כלשהי בפעם האחרונה',
+    cardActivityAria: 'פעילות אחרונה: {name}',
     reportBugLabel: 'דיווח על באג או בקשת תכונה במאגר המקור',
     titlePlaceholder: 'כותרת',
     detailsOptionalPlaceholder: 'פרטים (אופציונלי)',
