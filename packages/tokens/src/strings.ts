@@ -422,6 +422,19 @@
  * `flyHintCapsNoTurns` closed it the same route (`tr` injected as a sixth
  * parameter, `{caps}` a pre-rendered clause like `flightProgressLabel`'s
  * `{progress}`/`{eta}`).
+ * This slice finishes the Inbox "Drop a note" form behind the `<details>`
+ * above (`tasksSection()`'s `.inbox-add`): its heading (`inbox`) and trigger
+ * (`inboxSummary`) were translated earlier, but the form itself stayed
+ * English — the textarea's `<label>` (`inboxNoteLabel`) and `placeholder`
+ * (`inboxNotePlaceholder`), the submit button (`inboxDropNote`), and its
+ * `data-tip`/`aria-label` (`inboxDropNoteTip`, ONE key for both because the
+ * button's tip IS its accessible name and `inbox-add.test.ts` pins them
+ * equal) — as did the two `aria-live` status lines its submit handler paints
+ * (`inboxNoteDropped`/`inboxNoteDropFailed`, `tr()` at paint time, the
+ * `removing`/`resetting` route). `pnpm i18n:untagged` never listed any of
+ * them: the form is built with DOM calls (`el()`/`createElement`), not an
+ * HTML template the tag scanner reads. `INBOX/` and `ORIENT` stay Latin in
+ * Hebrew, like `KEEPER`/`OTLP` — a directory name and a phase name.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -568,6 +581,13 @@ const EN_STRINGS = {
   inbox: 'Inbox',
   firingActivity: 'Firing activity',
   inboxSummary: '📝 Drop a note',
+  inboxNoteLabel: 'Drop a note for the next firing',
+  inboxNotePlaceholder:
+    'context, a plan, a correction — read fresh at the start of the next firing',
+  inboxDropNote: 'Drop note',
+  inboxDropNoteTip: 'Write a note into INBOX/ — every firing reads it fresh, ahead of ORIENT',
+  inboxNoteDropped: 'Note dropped — the next firing will read it.',
+  inboxNoteDropFailed: 'Could not drop the note — try again.',
   hotFiles: 'Hot files',
   hotFilesAria: 'Hot files: the largest tracked files by byte size, not frequently changed',
   flightLog: 'Flight log',
@@ -1010,6 +1030,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     inbox: 'תיבת הודעות',
     firingActivity: 'פעילות טיסות',
     inboxSummary: '📝 הוסף הערה',
+    inboxNoteLabel: 'הוסף הערה להפעלה הבאה',
+    inboxNotePlaceholder: 'הקשר, תוכנית, תיקון — נקרא מחדש בתחילת ההפעלה הבאה',
+    inboxDropNote: 'הוסף הערה',
+    inboxDropNoteTip: 'כותב הערה לתוך INBOX/ — כל הפעלה קוראת אותה מחדש, לפני ORIENT',
+    inboxNoteDropped: 'ההערה נוספה — ההפעלה הבאה תקרא אותה.',
+    inboxNoteDropFailed: 'לא ניתן היה להוסיף את ההערה — נסו שוב.',
     hotFiles: 'קבצים חמים',
     hotFilesAria: 'קבצים חמים: הקבצים הגדולים ביותר במעקב לפי גודל בבתים, לא לפי תדירות שינוי',
     flightLog: 'יומן טיסות',

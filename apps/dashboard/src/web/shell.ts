@@ -2238,16 +2238,24 @@ function tasksSection(c) {
   var inboxLabelId = 'inbox-new-message-' + c.id;
   var inboxLabel = el('label', null, 'Drop a note for the next firing');
   inboxLabel.setAttribute('for', inboxLabelId);
+  inboxLabel.setAttribute('data-i18n', 'inboxNoteLabel');
   var inboxTextarea = document.createElement('textarea');
   inboxTextarea.id = inboxLabelId;
   inboxTextarea.name = 'message';
   inboxTextarea.rows = 3;
   inboxTextarea.placeholder = 'context, a plan, a correction — read fresh at the start of the next firing';
+  inboxTextarea.setAttribute('data-i18n-placeholder', 'inboxNotePlaceholder');
   var inboxBtn = el('button', null, 'Drop note');
   inboxBtn.setAttribute('type', 'submit');
+  inboxBtn.setAttribute('data-i18n', 'inboxDropNote');
+  // One key for both: the button's tip IS its accessible name
+  // (inbox-add.test.ts pins tip === aria-label), so translateDom()'s
+  // [data-i18n-tip] and [data-i18n-aria] sweeps must land the same text.
   var inboxTip = 'Write a note into INBOX/ — every firing reads it fresh, ahead of ORIENT';
   inboxBtn.setAttribute('data-tip', inboxTip);
   inboxBtn.setAttribute('aria-label', inboxTip);
+  inboxBtn.setAttribute('data-i18n-tip', 'inboxDropNoteTip');
+  inboxBtn.setAttribute('data-i18n-aria', 'inboxDropNoteTip');
   inboxForm.appendChild(inboxLabel);
   inboxForm.appendChild(inboxTextarea);
   inboxForm.appendChild(inboxBtn);
@@ -2571,13 +2579,13 @@ document.addEventListener('submit', function (e) {
     .then(function (res) {
       if (res.ok) {
         if (textarea) textarea.value = '';
-        if (status) status.textContent = 'Note dropped — the next firing will read it.';
+        if (status) status.textContent = tr('inboxNoteDropped');
       } else if (status) {
-        status.textContent = (res.body && res.body.error) || 'Could not drop the note — try again.';
+        status.textContent = (res.body && res.body.error) || tr('inboxNoteDropFailed');
       }
     })
     .catch(function () {
-      if (status) status.textContent = 'Could not drop the note — try again.';
+      if (status) status.textContent = tr('inboxNoteDropFailed');
     })
     .then(function () { if (btn) btn.disabled = false; });
 });
