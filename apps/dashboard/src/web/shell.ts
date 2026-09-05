@@ -3564,6 +3564,7 @@ export function renderShell(project?: string): string {
 </head>
 <body${anchor}>
   <a class="skip-link" href="#fleet" data-i18n="skipToFleet">Skip to fleet</a>
+  <div id="update-banner" class="update-banner" role="status" aria-live="polite" data-i18n-aria="updateBannerAria" aria-label="Software update available" hidden></div>
   <header class="masthead">
     <div class="brand"><span class="brand-mark" aria-hidden="true">${gogglesMarkInlineSvg()}</span>AUTOPILOT</div>
     <div class="masthead-right">

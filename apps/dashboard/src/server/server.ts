@@ -101,6 +101,7 @@ import type { LandingExecuteApiResult } from '../landing/execute.js';
 import type { LandingJobState } from '../landing/job.js';
 import type { ReleaseExecuteResult } from '../release/execute.js';
 import { isMaturityChoice, type MaturityChoice } from '../release/maturity.js';
+import type { UpdateCheckApi, UpdateExecuteApi } from '../flight/update-check.js';
 import type { InboxAddResult } from '../inbox/add.js';
 import type { PrReviewPlan } from '../flight/pr-review.js';
 import {
@@ -558,6 +559,11 @@ export interface ServerDeps extends RouteDeps {
   /** Publicity affordances (epic 0007, "PLATFORM 7/7"): repo/watch/star/
    *  discussions links, dormant while the repo stays private. */
   readonly publicity?: PublicityApi;
+  /** Over-the-air update (operator ask 2026-09-05): version check against
+   *  origin's tags + the progress-preserving one-click update — see
+   *  `flight/update-check.ts` for the never-clobber guarantees. */
+  readonly updateCheck?: UpdateCheckApi;
+  readonly updateExecute?: UpdateExecuteApi;
 }
 
 const SEARCH_LIMIT = 12;
@@ -1522,6 +1528,82 @@ async function handleLandingExecute(
  * create` publish-upstream leg (epic 0006 slice 3) — passed straight through
  * since it is a plain boolean, nothing to validate.
  */
+/** GET /api/update-check — cached origin-tags version probe; `?force=1`
+ *  bypasses the cache (the banner's manual re-check affordance). */
+async function handleUpdateCheck(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: UpdateCheckApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  if (!api) {
+    sendJson(res, headers, 404, { error: 'update check unavailable' });
+    return;
+  }
+  const force = new URL(req.url ?? '/', 'http://localhost').searchParams.get('force') === '1';
+  try {
+    sendJson(res, headers, 200, await api(force));
+  } catch (error) {
+    sendJson(res, headers, 500, {
+      error: error instanceof Error ? error.message : 'update check failed',
+    });
+  }
+}
+
+/** POST /api/update/execute — the progress-preserving OTA update. Body:
+ *  `{ strategy?: 'stash' }`. Refusals come back 409 with the reason the
+ *  client renders (dirty / diverged / flight-live), success 200 with
+ *  `restarting: true` when the server is about to bounce onto the new
+ *  build. Shares the release limiter — both are heavyweight, operator-rate
+ *  actions. */
+async function handleUpdateExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: UpdateExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'update execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many update requests — slow down and try again shortly.' });
+    return;
+  }
+  let strategy: 'stash' | undefined;
+  try {
+    const raw = await readBody(req, MAX_BODY_BYTES);
+    if (raw.trim() !== '') {
+      const parsed = JSON.parse(raw) as { strategy?: unknown };
+      if (parsed.strategy !== undefined) {
+        if (parsed.strategy !== 'stash') {
+          send(400, { error: 'strategy must be "stash" when present' });
+          return;
+        }
+        strategy = parsed.strategy;
+      }
+    }
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  try {
+    const result = await api(strategy);
+    send(result.ok ? 200 : 409, result);
+  } catch (error) {
+    send(500, {
+      ok: false,
+      error: error instanceof Error ? error.message : 'update execute failed',
+    });
+  }
+}
+
 async function handleReleaseExecute(
   req: IncomingMessage,
   res: ServerResponse,
@@ -2502,6 +2584,14 @@ export function createServer(deps: ServerDeps = {}): Server {
       return;
     }
 
+    if (path === '/api/update-check') {
+      void handleUpdateCheck(req, res, deps.updateCheck, headers);
+      return;
+    }
+    if (path === '/api/update/execute') {
+      void handleUpdateExecute(req, res, deps.updateExecute, headers, releaseLimiter);
+      return;
+    }
     if (path === '/api/release/execute') {
       void handleReleaseExecute(req, res, deps.releaseExecute, headers, releaseLimiter);
       return;

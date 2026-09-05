@@ -32,6 +32,17 @@ body {
 }
 /* Long unbroken tokens (shas, ids, paths in headlines) must wrap, not stretch. */
 .firing-headline, .flight-item, .flight-detail-title, .task-title { overflow-wrap: anywhere; }
+/* OTA UPDATE BANNER (operator ask 2026-09-05): a sticky strip ABOVE the
+   masthead, success-voiced (an update is good news, not an alarm), visible
+   from every scroll position — that is the "sticky" in the ask. Hidden by
+   default; the update feature module reveals it only when /api/update-check
+   reports a genuinely newer released version. */
+.update-banner { position: sticky; top: 0; z-index: 60; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface-raised)); border-bottom: 1px solid var(--color-success); color: var(--color-text); font-size: var(--text-sm); }
+.update-banner-text { flex: 1 1 auto; min-width: 0; }
+.update-banner-go { font: inherit; font-weight: 600; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-success); background: var(--color-success); color: var(--color-surface); cursor: pointer; }
+.update-banner-go:hover, .update-banner-go:focus-visible { filter: brightness(1.08); }
+.update-banner-later { font: inherit; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.update-banner-later:hover, .update-banner-later:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); }
 .masthead {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
