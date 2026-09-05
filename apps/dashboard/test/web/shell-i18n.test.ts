@@ -95,6 +95,12 @@ describe('renderShell masthead i18n wiring', () => {
     );
   });
 
+  it('tags the masthead tour button with data-i18n-tip', () => {
+    const html = renderShell();
+    expect(html).toContain('data-tip="A short guided tour: firing, slice, gate, flight"');
+    expect(html).toContain('data-i18n-tip="tourTip" data-i18n="tour"');
+  });
+
   it('tags the searchbar ("Search a project" / "Ask" form) with data-i18n', () => {
     const html = renderShell();
     for (const key of ['search', 'deep', 'ask']) {
