@@ -3,7 +3,9 @@
 
 /**
  * self-study/generate-data — regenerates the DATA:SUMMARY, DATA:CHART, and
- * DATA:SERIES blocks in docs/SELF-STUDY/PAPER.md from the local telemetry store.
+ * blocks in docs/SELF-STUDY/PAPER.md — and the DATA:SERIES rollup in
+ * docs/SELF-STUDY/DATA-SERIES.md (split out 2026-09-05: 798 JSON lines were 62%
+ * of the paper) — from the local telemetry store.
  *
  * `.autopilot/autopilot.db` is git-ignored local runtime state
  * (FLIGHT-CONTAINMENT.md) — it never leaves the machine that flew it. So the
@@ -46,6 +48,7 @@ const EVIDENCE_PATH = join(process.cwd(), 'docs', 'SELF-STUDY', 'EVIDENCE-LOG.md
 const SUITE_PATH = join(process.cwd(), 'docs', 'SELF-STUDY', 'eval-suite.json');
 const MARKER_START = '<!-- DATA:SUMMARY:START -->';
 const MARKER_END = '<!-- DATA:SUMMARY:END -->';
+const SERIES_PATH = join(process.cwd(), 'docs', 'SELF-STUDY', 'DATA-SERIES.md');
 const SERIES_MARKER_START = '<!-- DATA:SERIES:START -->';
 const SERIES_MARKER_END = '<!-- DATA:SERIES:END -->';
 const CHART_MARKER_START = '<!-- DATA:CHART:START -->';
@@ -712,7 +715,7 @@ function renderPerDayChartSvg(perDay) {
   const desc =
     `Stacked bar chart, ${perDay.length} day(s) from ${first} to ${last}. ` +
     perDay.map((d) => `${d.day}: ${d.shipped} shipped of ${d.firings} firing(s)`).join('; ') +
-    '. Exact values are also in the DATA:SERIES JSON block below.';
+    '. Exact values are in DATA-SERIES.md (the machine appendix).';
 
   return (
     `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" xmlns="http://www.w3.org/2000/svg">` +
@@ -804,7 +807,7 @@ function renderPerEraChartSvg(perEra) {
     perEra
       .map((d) => `${d.promptVersion}: ${d.shipped} shipped of ${d.firings} firing(s)`)
       .join('; ') +
-    '. Exact values are also in the DATA:SERIES JSON block below (`perEra`).';
+    '. Exact values are in DATA-SERIES.md (`perEra`).';
 
   return (
     `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" xmlns="http://www.w3.org/2000/svg">` +
@@ -885,7 +888,7 @@ function renderCostTimelineChartSvg(perDay) {
   const desc =
     `Line chart, ${perDay.length} day(s) from ${first} to ${last}. ` +
     perDay.map((d) => `${d.day}: ${money(d.costUsd)}`).join('; ') +
-    '. Exact values are also in the DATA:SERIES JSON block below.';
+    '. Exact values are in DATA-SERIES.md (the machine appendix).';
 
   return (
     `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" xmlns="http://www.w3.org/2000/svg">` +
@@ -973,7 +976,7 @@ function renderRollingShipRateChartSvg(
   const desc =
     `Line chart, ${perDay.length} day(s) from ${first} to ${last}. ` +
     points.map((p) => `${p.day}: ${(p.rate * 100).toFixed(1)}%`).join('; ') +
-    '. Exact values are also in the DATA:SERIES JSON block below.';
+    '. Exact values are in DATA-SERIES.md (the machine appendix).';
 
   return (
     `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" xmlns="http://www.w3.org/2000/svg">` +
@@ -1074,7 +1077,7 @@ function renderTurnsHistogramChartSvg(histogram, bucketSize = TURNS_HISTOGRAM_BU
           `${bucketLabel(d.bucketStart, bucketSize)} turns: ${d.shipped} shipped of ${d.firings} firing(s)`,
       )
       .join('; ') +
-    '. Exact values are also in the DATA:SERIES JSON block below (`turnsHistogram`).';
+    '. Exact values are in DATA-SERIES.md (`turnsHistogram`).';
 
   return (
     `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" xmlns="http://www.w3.org/2000/svg">` +
@@ -1104,7 +1107,7 @@ function renderChart(perDay, perEra, histogram) {
     CHART_MARKER_START,
     `_Generated ${generatedAt} by \`pnpm self-study:update\` — the \`DATA:SERIES\` block's \`perDay\`/\`perEra\`/` +
       '`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito);' +
-      ' exact values are in the JSON block below.',
+      ' exact values are in DATA-SERIES.md (the machine appendix).',
   ];
   if (perDay.length > 0) {
     lines.push('', '**Firings per day**', '', renderPerDayChartSvg(perDay));
@@ -1403,12 +1406,20 @@ function main() {
       turnsHistogram(series),
     );
     const source = readFileSync(PAPER_PATH, 'utf8');
-    const prevSnapshot = previousSeriesSnapshot(source);
+    // The series rollup lives in its own appendix since 2026-09-05; fall back
+    // to the paper source once, for a tree captured mid-transition.
+    const seriesSource = existsSync(SERIES_PATH) ? readFileSync(SERIES_PATH, 'utf8') : '';
+    const prevSnapshot = previousSeriesSnapshot(seriesSource || source);
     const prevSha = previousPaperSha();
     const prevBlobUrl = prevSha ? previousPaperBlobUrl(prevSha) : null;
     let next = replaceBlock(source, block);
     next = replaceBlock(next, chartBlock, CHART_MARKER_START, CHART_MARKER_END);
-    next = replaceBlock(next, seriesBlock, SERIES_MARKER_START, SERIES_MARKER_END);
+    if (seriesSource) {
+      writeFileSync(
+        SERIES_PATH,
+        replaceBlock(seriesSource, seriesBlock, SERIES_MARKER_START, SERIES_MARKER_END),
+      );
+    }
     writeFileSync(PAPER_PATH, next);
     // Evidence entries append to EVIDENCE-LOG.md (the 2026-09-04 split) —
     // read fresh here, not from `source`, since the two files are siblings.
