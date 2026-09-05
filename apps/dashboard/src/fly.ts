@@ -1302,6 +1302,7 @@ async function main(): Promise<void> {
             cwd: process.cwd(),
             env: invocation.env,
             stdio: 'ignore',
+            windowsHide: true,
           });
           // PAPER commit ritual (RING-0 SUPERVISOR, web-msq9hfhd-ebmy8k): the doc
           // lives in THIS engine repo's cwd, not necessarily `target` (a flown
