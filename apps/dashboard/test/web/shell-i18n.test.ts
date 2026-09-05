@@ -123,7 +123,9 @@ describe('renderShell masthead i18n wiring', () => {
 
   it('tags the masthead notify (quiet hours) panel with data-i18n', () => {
     const html = renderShell();
-    expect(html).toContain('aria-label="Notification settings" data-i18n-aria="notifySettings"');
+    expect(html).toContain(
+      'data-i18n-tip="notifySettingsTip" aria-label="Notification settings" data-i18n-aria="notifySettings"',
+    );
     expect(html).toContain('data-i18n="notifyEnable"');
     expect(html).toContain(
       '<label for="notify-quiet-start" data-i18n="quietHours">Quiet hours</label>',
@@ -221,6 +223,17 @@ describe('renderShell masthead i18n wiring', () => {
     const keys = [...html.matchAll(/data-i18n-placeholder="([^"]+)"/g)].map(
       (m) => m[1] as StringKey,
     );
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      for (const locale of Object.keys(STRINGS) as (keyof typeof STRINGS)[]) {
+        expect(STRINGS[locale][key]).toBeTruthy();
+      }
+    }
+  });
+
+  it('every data-i18n-tip key in the rendered shell has a STRINGS entry in every locale', () => {
+    const html = renderShell();
+    const keys = [...html.matchAll(/data-i18n-tip="([^"]+)"/g)].map((m) => m[1] as StringKey);
     expect(keys.length).toBeGreaterThan(0);
     for (const key of keys) {
       for (const locale of Object.keys(STRINGS) as (keyof typeof STRINGS)[]) {
