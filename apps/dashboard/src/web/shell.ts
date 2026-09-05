@@ -3674,15 +3674,15 @@ export function renderShell(project?: string): string {
       <select id="search-project" name="project"></select>
       <input type="search" id="search-q" name="q" list="search-history" placeholder="find code — or ask a question…" data-i18n-placeholder="searchPlaceholder" aria-label="Search query or question" data-i18n-aria="searchQueryAria" autocomplete="off" spellcheck="false" />
       <datalist id="search-history"></datalist>
-      <button type="submit" id="search-go" data-i18n="search" data-tip="Find matching code in the selected project — hits list the file, line, and surrounding excerpt.">Search</button>
-      <label for="ask-deep" class="ask-deep-label" data-tip="Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts">
+      <button type="submit" id="search-go" data-i18n="search" data-i18n-tip="searchTip" data-tip="Find matching code in the selected project — hits list the file, line, and surrounding excerpt.">Search</button>
+      <label for="ask-deep" class="ask-deep-label" data-i18n-tip="askDeepTip" data-tip="Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts">
         <input type="checkbox" id="ask-deep" />
         <span data-i18n="deep">Deep</span>
       </label>
-      <button type="button" id="ask-go" data-i18n="ask" data-tip="Ask the question instead of searching — an AI answer built from the indexed code streams in below.">Ask</button>
+      <button type="button" id="ask-go" data-i18n="ask" data-i18n-tip="askTip" data-tip="Ask the question instead of searching — an AI answer built from the indexed code streams in below.">Ask</button>
       <span class="switch ask-persona" id="ask-persona" role="group" aria-label="Ask persona" data-i18n-aria="askPersona">
-        <button type="button" data-persona-btn="genius" aria-pressed="true" data-i18n="personaGenius" data-tip="Read-only persona (default): answers questions but never touches the dashboard.">GENIUS</button>
-        <button type="button" data-persona-btn="architect" aria-pressed="false" data-i18n="personaArchitect" data-tip="Can propose dashboard actions for you to approve — opt-in per session, resets to GENIUS on reload.">ARCHITECT</button>
+        <button type="button" data-persona-btn="genius" aria-pressed="true" data-i18n="personaGenius" data-i18n-tip="personaGeniusTip" data-tip="Read-only persona (default): answers questions but never touches the dashboard.">GENIUS</button>
+        <button type="button" data-persona-btn="architect" aria-pressed="false" data-i18n="personaArchitect" data-i18n-tip="personaArchitectTip" data-tip="Can propose dashboard actions for you to approve — opt-in per session, resets to GENIUS on reload.">ARCHITECT</button>
       </span>
     </form>
     <div class="ask-activity" id="ask-activity" aria-live="polite"></div>

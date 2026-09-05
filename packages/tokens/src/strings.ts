@@ -465,6 +465,20 @@ const EN_STRINGS = {
   askPersona: 'Ask persona',
   personaGenius: 'GENIUS',
   personaArchitect: 'ARCHITECT',
+  // The searchbar's five data-tip hover texts (board web-msnsndki-dz3vn1) —
+  // the last static data-tips in renderShell() left English after the
+  // fly-bar/masthead tip slices; tagged data-i18n-tip so translateDom()'s
+  // existing [data-i18n-tip] sweep rewrites them on a locale switch.
+  searchTip:
+    'Find matching code in the selected project — hits list the file, line, and surrounding excerpt.',
+  askDeepTip:
+    'Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts',
+  askTip:
+    'Ask the question instead of searching — an AI answer built from the indexed code streams in below.',
+  personaGeniusTip:
+    'Read-only persona (default): answers questions but never touches the dashboard.',
+  personaArchitectTip:
+    'Can propose dashboard actions for you to approve — opt-in per session, resets to GENIUS on reload.',
   fleetSummary: 'Fleet summary',
   liveWorkers: "Who's flying now",
   fleetPerformance: 'Fleet performance',
@@ -914,6 +928,14 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     askPersona: 'פרסונת שאלה',
     personaGenius: 'GENIUS',
     personaArchitect: 'ARCHITECT',
+    searchTip: 'מציאת קוד תואם בפרויקט שנבחר — התוצאות מציגות את הקובץ, השורה והקטע שסביבה.',
+    askDeepTip:
+      'הסלמה לסשן סוכני לקריאה בלבד (Read/Grep/Glob, עד 10 תורות) שיוצא לחפש את התשובה במקום להסתמך על הקטעים המאונדקסים',
+    askTip: 'שאלו את השאלה במקום לחפש — תשובת AI שנבנית מהקוד המאונדקס מוזרמת למטה.',
+    personaGeniusTip:
+      'פרסונה לקריאה בלבד (ברירת מחדל): עונה על שאלות אך לעולם לא נוגעת בלוח הבקרה.',
+    personaArchitectTip:
+      'יכולה להציע פעולות בלוח הבקרה לאישורכם — הצטרפות לפי סשן, חוזרת ל-GENIUS בטעינה מחדש.',
     fleetSummary: 'סיכום הצי',
     liveWorkers: 'מי טס כרגע',
     fleetPerformance: 'ביצועי הצי',
