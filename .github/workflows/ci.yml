@@ -218,11 +218,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
 
+      # No `pnpm install` on purpose: the scan is a single dependency-free
+      # script, and `pnpm run` only needs the manifest to resolve the alias
+      # the gate census pins (ci-workflow-gate.test.ts).
       - name: Check doc commit-SHA citations resolve to real HEAD ancestors
         run: pnpm run ci:doc-commit-refs
           --verbose
