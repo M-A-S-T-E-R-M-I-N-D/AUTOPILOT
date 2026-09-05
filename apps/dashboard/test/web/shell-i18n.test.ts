@@ -88,10 +88,10 @@ describe('renderShell masthead i18n wiring', () => {
     );
   });
 
-  it('tags the OTLP masthead chip with data-i18n-aria', () => {
+  it('tags the OTLP masthead chip with data-i18n-tip and data-i18n-aria', () => {
     const html = renderShell();
     expect(html).toContain(
-      'aria-label="OTLP export: configured" data-i18n-aria="otlpExportConfigured"',
+      'data-i18n-tip="otlpExportTip" aria-label="OTLP export: configured" data-i18n-aria="otlpExportConfigured"',
     );
   });
 
