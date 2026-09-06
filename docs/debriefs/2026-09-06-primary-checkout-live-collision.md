@@ -239,3 +239,47 @@ concurrently-mutated files and made no destructive git call. `ap-mtq0bpgj-2`
 closes again as **verified, duplicate of `ap-mtm4qzty-1`**, with one new
 piece of evidence added to the open gap: concurrent primary-checkout
 mutation can fabricate transient test failures, not just race commits.
+
+## Verdict reconfirmed a fifth time, caught mid-write: firing-154 (2026-09-06)
+
+This firing's very first `git status` already showed `HEAD` at `b75ff525`
+(this file's own "fourth reconfirmation" commit, above) — another full
+commit had landed on this checkout between the firing prompt's snapshot and
+this session's first read, the same shape as every prior entry.
+
+The new evidence is sharper than any previous entry: this firing polled
+`git status --porcelain` three times, three seconds apart, with no git
+operation of its own in between, purely to observe. `apps/dashboard/src/
+release/execute.ts` read as `M ` (staged, index differs from `HEAD`,
+working tree matches index) on the first two polls, then `MM` (staged
+*and* further modified in the working tree) on the third. That transition
+is only possible if a live process wrote to that file's working-tree copy,
+on disk, in the ~3-second gap — not a fast sequence of separate commits
+(the prior entries' shape), but a single file caught mid-edit by repeated
+reads of the same command. This is the most direct evidence yet that these
+are concurrent, uncoordinated *writes*, not just closely-timed *commits*.
+
+The six flapping paths identify the process's own work, not corruption:
+`apps/dashboard/src/release/execute.ts`, `apps/dashboard/test/release/
+execute.test.ts`, `packages/engine/src/release.ts`, and `packages/engine/
+test/release.test.ts` are exactly the `ReleaseWriter.paths()` /
+`Releasable.commitPaths` scoped-release-commit fix — the same fix
+firing-150 saw mid-flight and blamed for its fabricated `writer.paths is
+not a function` failure batch. Reading the diff in place (without staging
+or touching it) showed that fix fully formed: `commitAll` replaced with
+`commitPaths` on `Releasable`, a `paths()` method added to `ReleaseWriter`,
+and a new regression test asserting a release commit "never sweeps an
+unrelated uncommitted file" into itself — i.e. the still-unidentified
+process from firing-150 is, three firings later, visibly a sibling
+finishing legitimate, on-topic work, not noise. Two further paths,
+`packages/engine/src/prompt.ts` and `packages/engine/test/prompt.test.ts`,
+were also modified (working-tree only, never staged) — unrelated to the
+release fix, so either the same process is carrying two units at once or a
+second concurrent process is also live.
+
+Action taken: none. This firing staged nothing, edited nothing, and ran no
+`git add`/`commit`/`stash`/gate command against any of the six flapping
+paths — only this documentation file, which no other process touched, was
+edited and committed. No data was lost (criteria (1) and (2) hold a fifth
+time). `ap-mtq0bpgj-2`/`ap-mtm4qzty-1` remain **open, operator-owned**; the
+(a)/(b)/(c) decision from the original finding is unchanged by this entry.
