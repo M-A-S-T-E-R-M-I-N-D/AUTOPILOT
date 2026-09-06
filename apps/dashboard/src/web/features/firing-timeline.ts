@@ -213,7 +213,16 @@ function firingTimelineSection(c) {
     }
     if (f && f.guardDenials) {
       var guardMeta = guardDenialChipMeta(f.guardDenials);
-      row.appendChild(tipChip(guardMeta.label, guardMeta.tip, guardMeta.ariaLabel, 'flight-guard-chip'));
+      var guardChip = tipChip(guardMeta.label, guardMeta.tip, guardMeta.ariaLabel, 'flight-guard-chip');
+      // i18n (board web-msnsndki-dz3vn1): text, tip and aria-label each wrap
+      // the live denial count, so all three ride the template sweeps with {n}
+      // from the args map — the flight log's copy of this chip (shell.ts)
+      // carries the same three keys, so a bounced firing reads the same in both.
+      guardChip.setAttribute('data-i18n-template', 'flightGuardChip');
+      guardChip.setAttribute('data-i18n-tip-template', 'flightGuardChipTip');
+      guardChip.setAttribute('data-i18n-aria-template', 'flightGuardChipAria');
+      guardChip.setAttribute('data-i18n-args', JSON.stringify({ n: f.guardDenials }));
+      row.appendChild(guardChip);
     }
     var countEl = el('span', 'firing-count', meta.countLabel);
     countEl.setAttribute('tabindex', '0');
