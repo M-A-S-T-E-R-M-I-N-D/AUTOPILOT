@@ -677,6 +677,13 @@ const EN_STRINGS = {
   quietHours: 'Quiet hours',
   quietHoursStart: 'Quiet hours start',
   quietHoursEnd: 'Quiet hours end',
+  notifyEnableTip:
+    'Asks the browser for permission, then notifies when a project needs you, hits an anomaly, or lands.',
+  notifyQuietStartTip:
+    'Start of the daily quiet window — popups are suppressed, the dashboard chip still updates.',
+  notifyQuietEndTip: 'End of the daily quiet window — popups resume after this time.',
+  notifyBlockedHint: 'Blocked by your browser — check this site’s notification permission.',
+  notifyUnsupportedHint: 'Notifications are not supported in this browser.',
   detailsSummary: 'Details',
   gate: 'Gate',
   backup: 'Backup',
@@ -1361,6 +1368,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     quietHours: 'שעות שקט',
     quietHoursStart: 'תחילת שעות שקט',
     quietHoursEnd: 'סיום שעות שקט',
+    notifyEnableTip:
+      'מבקש הרשאה מהדפדפן, ולאחר מכן מתריע כאשר פרויקט זקוק לך, נתקל בחריגה, או נוחת.',
+    notifyQuietStartTip:
+      'תחילת חלון השקט היומי — חלונות קופצים מוסתרים, אך התג בדשבורד ממשיך להתעדכן.',
+    notifyQuietEndTip: 'סיום חלון השקט היומי — חלונות קופצים מתחדשים לאחר שעה זו.',
+    notifyBlockedHint: 'נחסם על ידי הדפדפן שלך — בדקו את הרשאת ההתראות של האתר.',
+    notifyUnsupportedHint: 'התראות אינן נתמכות בדפדפן זה.',
     detailsSummary: 'פרטים',
     gate: 'שער',
     backup: 'גיבוי',
