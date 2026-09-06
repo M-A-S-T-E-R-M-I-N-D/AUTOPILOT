@@ -9,9 +9,9 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] (instance-lock.ts) Per-project single-instance guard (mutex/lockfile) + graceful STOP (STOP-aware sleep)
 - [x] (M1 resilience.ts, proven live) Model resilience: fallback chain, promote-on-exhaustion, time-based re-probe
 - [x] (M1 + pacer.ts adaptive cadence) Quota safety: per-firing budget cap, adaptive cadence, weekly pacing, global-exhaustion hibernation
-- [ ] Local-model offload as a first-class step (the biggest quota lever) — default-on for mechanical sub-work
+- [~] (adapters/ollama.ts + flight/triage.ts route board TRIAGE to Ollama when configured; FEATURE-COVERAGE §G) Local-model offload as a first-class step (the biggest quota lever) — default-on for mechanical sub-work
 - [~] (RETRO firings live; learnings→RESEARCH-LIBRARY; curation ongoing) Retro self-improvement loop + append-only learnings, curated
-- [ ] Effort/model routing per task complexity (cheap tier / local for mechanical; top tier for hard reasoning)
+- [~] (routing.ts tierForSubstepKind/modelForTier + model-routing.ts per-firing escalation; FEATURE-COVERAGE §G "MODEL ROUTING v1") Effort/model routing per task complexity (cheap tier / local for mechanical; top tier for hard reasoning)
 
 ## B. Onboarding / "learn any project"
 - [x] (M2 complete, e2e DoD) Folder lock → backup (MYTH) + baseline (LEGACY) + safety branch BEFORE any git action

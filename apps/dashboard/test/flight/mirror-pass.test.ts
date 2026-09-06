@@ -9,7 +9,13 @@ import {
   planMirrorPassBatch,
   fetchIssueState,
   fetchMirrorPassIssueStates,
+  planMirrorPassLandingNote,
+  planMirrorPassLandingNoteCommand,
+  planMirrorPassLandingNoteBatch,
+  fetchIssueComments,
+  fetchMirrorPassIssueComments,
   type MirrorPassTaskCandidate,
+  type MirrorPassIssueState,
 } from '../../src/flight/mirror-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -230,5 +236,184 @@ describe('fetchMirrorPassIssueStates', () => {
     const states = await fetchMirrorPassIssueStates(exec, tasks);
 
     expect(states.has(9)).toBe(false);
+  });
+});
+
+describe('planMirrorPassLandingNote', () => {
+  const closed: MirrorPassIssueState = { number: 42, state: 'closed' };
+
+  it('plans a note when the issue is closed, the task landed, and no comment mentions the sha', () => {
+    const finding = planMirrorPassLandingNote(
+      task({ status: 'done', landedSha: 'abc1234' }),
+      closed,
+      ['unrelated comment', 'another one'],
+    );
+
+    expect(finding).toMatchObject({
+      action: 'note-landing-sha',
+      taskId: 'github-42',
+      issueNumber: 42,
+      sha: 'abc1234',
+    });
+    expect(finding?.comment).toContain('abc1234');
+  });
+
+  it('returns null when a comment already mentions the landing sha', () => {
+    const finding = planMirrorPassLandingNote(
+      task({ status: 'done', landedSha: 'abc1234' }),
+      closed,
+      ['Landed in abc1234 — closing.'],
+    );
+
+    expect(finding).toBeNull();
+  });
+
+  it('returns null when the issue is still open (bundled into the close note instead)', () => {
+    const finding = planMirrorPassLandingNote(
+      task({ status: 'done', landedSha: 'abc1234' }),
+      { number: 42, state: 'open' },
+      [],
+    );
+
+    expect(finding).toBeNull();
+  });
+
+  it('returns null when the task has no landing sha', () => {
+    expect(
+      planMirrorPassLandingNote(task({ status: 'done', landedSha: null }), closed, []),
+    ).toBeNull();
+  });
+
+  it('returns null when the task is not done', () => {
+    expect(
+      planMirrorPassLandingNote(task({ status: 'in_progress', landedSha: 'abc1234' }), closed, []),
+    ).toBeNull();
+  });
+
+  it('returns null for a task not sourced from a github issue', () => {
+    expect(
+      planMirrorPassLandingNote(
+        task({ id: 'web-abc123', status: 'done', landedSha: 'abc1234' }),
+        closed,
+        [],
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null rather than guessing when the issue fetch failed', () => {
+    expect(
+      planMirrorPassLandingNote(task({ status: 'done', landedSha: 'abc1234' }), undefined, []),
+    ).toBeNull();
+  });
+});
+
+describe('planMirrorPassLandingNoteCommand', () => {
+  it('plans a single comment call with no state change', () => {
+    const command = planMirrorPassLandingNoteCommand({
+      action: 'note-landing-sha',
+      taskId: 'github-42',
+      issueNumber: 42,
+      sha: 'abc1234',
+      comment: 'Landed in abc1234 — noting for the record.',
+    });
+
+    expect(command).toMatchObject({
+      command: 'gh',
+      args: ['issue', 'comment', '42', '--body', 'Landed in abc1234 — noting for the record.'],
+    });
+  });
+});
+
+describe('planMirrorPassLandingNoteBatch', () => {
+  it('produces a plan with a command only for tasks that need a note', () => {
+    const tasks: MirrorPassTaskCandidate[] = [
+      { id: 'github-1', status: 'done', landedSha: 'sha1' },
+      { id: 'github-2', status: 'done', landedSha: 'sha2' },
+      { id: 'github-3', status: 'done', landedSha: null },
+    ];
+    const issuesByNumber = new Map<number, MirrorPassIssueState>([
+      [1, { number: 1, state: 'closed' }],
+      [2, { number: 2, state: 'closed' }],
+      [3, { number: 3, state: 'closed' }],
+    ]);
+    const commentsByIssueNumber = new Map<number, readonly string[]>([
+      [1, []],
+      [2, ['Landed in sha2 — closing.']],
+    ]);
+
+    const plans = planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
+
+    expect(plans).toHaveLength(3);
+    expect(plans[0]!.finding).toMatchObject({ action: 'note-landing-sha', sha: 'sha1' });
+    expect(plans[0]!.command).not.toBeNull();
+    expect(plans[1]!.finding).toBeNull();
+    expect(plans[1]!.command).toBeNull();
+    expect(plans[2]!.finding).toBeNull();
+  });
+});
+
+describe('fetchIssueComments', () => {
+  it('parses comment bodies from gh issue view --json comments', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({ comments: [{ body: 'first' }, { body: 'second' }] }),
+    }));
+
+    expect(await fetchIssueComments(exec, 42)).toEqual(['first', 'second']);
+    expect(exec).toHaveBeenCalledWith('gh', ['issue', 'view', '42', '--json', 'comments']);
+  });
+
+  it('returns an empty array on a non-zero exit', async () => {
+    const exec = makeExec(() => ({ code: 1, stdout: '' }));
+
+    expect(await fetchIssueComments(exec, 42)).toEqual([]);
+  });
+
+  it('returns an empty array on unparseable stdout', async () => {
+    const exec = makeExec(() => ({ code: 0, stdout: 'not json' }));
+
+    expect(await fetchIssueComments(exec, 42)).toEqual([]);
+  });
+
+  it('returns an empty array when comments is missing or malformed', async () => {
+    const exec = makeExec(() => ({ code: 0, stdout: JSON.stringify({ comments: 'nope' }) }));
+
+    expect(await fetchIssueComments(exec, 42)).toEqual([]);
+  });
+
+  it('skips entries with a non-string or missing body', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({ comments: [{ body: 'kept' }, { body: 7 }, {}] }),
+    }));
+
+    expect(await fetchIssueComments(exec, 42)).toEqual(['kept']);
+  });
+});
+
+describe('fetchMirrorPassIssueComments', () => {
+  it('fetches comments only for closed issues whose task landed', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({ comments: [{ body: 'noted' }] }),
+    }));
+    const tasks: MirrorPassTaskCandidate[] = [
+      { id: 'github-1', status: 'done', landedSha: 'sha1' },
+      { id: 'github-2', status: 'done', landedSha: null },
+      { id: 'github-3', status: 'in_progress', landedSha: 'sha3' },
+      { id: 'web-abc', status: 'done', landedSha: 'sha4' },
+    ];
+    const issuesByNumber = new Map<number, MirrorPassIssueState>([
+      [1, { number: 1, state: 'closed' }],
+      [2, { number: 2, state: 'closed' }],
+      [3, { number: 3, state: 'closed' }],
+    ]);
+
+    const comments = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(comments.get(1)).toEqual(['noted']);
+    expect(comments.has(2)).toBe(false);
+    expect(comments.has(3)).toBe(false);
   });
 });
