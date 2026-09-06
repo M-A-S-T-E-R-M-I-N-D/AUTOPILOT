@@ -12,6 +12,7 @@ import {
   isAuthMode,
 } from '../../src/connection/config.js';
 
+import { execFileSync } from 'node:child_process';
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof NodeFs>();
   return {
@@ -106,15 +107,28 @@ describe('writeConnectionConfig', () => {
     expect(JSON.parse(NodeFs.readFileSync(configPath, 'utf8'))).toEqual({ mode: 'subscription' });
   });
 
-  it('tightens permissions with chmodSync after a successful write', () => {
+  it('tightens permissions per platform: chmodSync 0600 on POSIX, an owner-only icacls ACL on win32 (security review row 5 — chmod is a documented no-op on Windows)', () => {
     writeConnectionConfig(configPath, { mode: 'subscription' });
-    expect(chmodSync).toHaveBeenCalledWith(configPath, 0o600);
+    if (process.platform === 'win32') {
+      // The REAL ACL applied by icacls: inheritance stripped, exactly one
+      // grant — the current user, full control. Verified against the live
+      // file rather than a spied call, so the test proves the OUTCOME.
+      const acl = execFileSync('icacls', [configPath], { encoding: 'utf8' });
+      const grantLines = acl.split('\n').filter((l) => l.includes(':('));
+      expect(grantLines).toHaveLength(1);
+      expect(grantLines[0]).toContain(`\\${process.env['USERNAME']}:(F)`);
+      expect(chmodSync).not.toHaveBeenCalled();
+    } else {
+      expect(chmodSync).toHaveBeenCalledWith(configPath, 0o600);
+    }
   });
 
-  it('swallows a chmodSync failure (platform without POSIX perms) without throwing', () => {
-    vi.mocked(chmodSync).mockImplementationOnce(() => {
-      throw Object.assign(new Error('ENOTSUP: operation not supported'), { code: 'ENOTSUP' });
-    });
+  it('swallows a perms-tightening failure (locked-down platform) without throwing', () => {
+    if (process.platform !== 'win32') {
+      vi.mocked(chmodSync).mockImplementationOnce(() => {
+        throw Object.assign(new Error('ENOTSUP: operation not supported'), { code: 'ENOTSUP' });
+      });
+    }
     expect(() => writeConnectionConfig(configPath, { mode: 'subscription' })).not.toThrow();
     expect(JSON.parse(NodeFs.readFileSync(configPath, 'utf8'))).toEqual({ mode: 'subscription' });
   });
