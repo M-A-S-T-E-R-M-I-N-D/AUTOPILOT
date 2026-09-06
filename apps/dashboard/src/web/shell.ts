@@ -265,6 +265,10 @@ function flightGroupRow(c, entry, taskById) {
   var agoEl = el('span', 'flight-ago muted', fmtAgo(newest.at));
   agoEl.setAttribute('tabindex', '0');
   agoEl.setAttribute('data-tip', headMeta.agoTip);
+  // i18n (board web-msnsndki-dz3vn1): only the tip is tagged — the text and
+  // aria-label are composed from live values. The head's cost tip above is
+  // composed too ("Total spend across all N slices") and stays untagged.
+  agoEl.setAttribute('data-i18n-tip', 'flightGroupAgoTip');
   agoEl.setAttribute('aria-label', headMeta.agoAriaLabel);
   head.appendChild(agoEl);
   // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): a
@@ -321,18 +325,23 @@ function flightGroupRow(c, entry, taskById) {
       var mCost = el('span', 'flight-cost muted', fmtCost(mf.cost));
       mCost.setAttribute('tabindex', '0');
       mCost.setAttribute('data-tip', mCostAgo.costTip);
+      // i18n: the slice-worded tip keys — the flat rows in flightLogNode
+      // carry the firing-worded pair; the real-cost tip is shared.
+      mCost.setAttribute('data-i18n-tip', 'flightSliceCostTip');
       mCost.setAttribute('aria-label', mCostAgo.costAriaLabel);
       member.appendChild(mCost);
       if (mCostAgo.realCostText) {
         var mRealCost = el('span', 'flight-real-cost muted', mCostAgo.realCostText);
         mRealCost.setAttribute('tabindex', '0');
         mRealCost.setAttribute('data-tip', mCostAgo.realCostTip);
+        mRealCost.setAttribute('data-i18n-tip', 'flightRealCostTip');
         mRealCost.setAttribute('aria-label', mCostAgo.realCostAriaLabel);
         member.appendChild(mRealCost);
       }
       var mAgo = el('span', 'flight-ago muted', fmtAgo(mf.at));
       mAgo.setAttribute('tabindex', '0');
       mAgo.setAttribute('data-tip', mCostAgo.agoTip);
+      mAgo.setAttribute('data-i18n-tip', 'flightSliceAgoTip');
       mAgo.setAttribute('aria-label', mCostAgo.agoAriaLabel);
       member.appendChild(mAgo);
       // Same roving fix as the row header above, per member — an expanded
@@ -1770,18 +1779,24 @@ function flightLogNode(c) {
     var logCostEl = el('span', 'flight-cost muted', fmtCost(f.cost));
     logCostEl.setAttribute('tabindex', '0');
     logCostEl.setAttribute('data-tip', logCostAgo.costTip);
+    // i18n (board web-msnsndki-dz3vn1): only the tips are tagged — the chips'
+    // text and aria-labels are composed from live cost/time values, the same
+    // only-the-tip shape the trace row's count/started-ago fields use.
+    logCostEl.setAttribute('data-i18n-tip', 'flightCostTip');
     logCostEl.setAttribute('aria-label', logCostAgo.costAriaLabel);
     head.appendChild(logCostEl);
     if (logCostAgo.realCostText) {
       var logRealCostEl = el('span', 'flight-real-cost muted', logCostAgo.realCostText);
       logRealCostEl.setAttribute('tabindex', '0');
       logRealCostEl.setAttribute('data-tip', logCostAgo.realCostTip);
+      logRealCostEl.setAttribute('data-i18n-tip', 'flightRealCostTip');
       logRealCostEl.setAttribute('aria-label', logCostAgo.realCostAriaLabel);
       head.appendChild(logRealCostEl);
     }
     var logAgoEl = el('span', 'flight-ago muted', fmtAgo(f.at));
     logAgoEl.setAttribute('tabindex', '0');
     logAgoEl.setAttribute('data-tip', logCostAgo.agoTip);
+    logAgoEl.setAttribute('data-i18n-tip', 'flightAgoTip');
     logAgoEl.setAttribute('aria-label', logCostAgo.agoAriaLabel);
     head.appendChild(logAgoEl);
     // Same roving fix as flightGroupRow's header (D1 TAB-STOP ROVING, board
