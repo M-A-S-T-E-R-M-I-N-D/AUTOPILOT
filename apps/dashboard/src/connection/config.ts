@@ -53,10 +53,24 @@ export function readConnectionConfig(path: string): AuthConfig {
 function restrictToOwnerWindows(path: string): void {
   const user = process.env['USERNAME'];
   if (!user) return;
-  execFileSync('icacls', [path, '/inheritance:r', '/grant:r', `${user}:F`], {
-    stdio: 'ignore',
-    windowsHide: true,
-  });
+  // /inheritance:r strips only INHERITED entries — a file born in a dir with
+  // EXPLICIT broad ACEs (GitHub runners do this) keeps them. So the broad
+  // principals are also removed by well-known SID (locale-proof: S-1-1-0
+  // Everyone, S-1-5-32-545 BUILTIN\Users, S-1-5-11 Authenticated Users).
+  // Privileged principals (SYSTEM/Administrators) may remain — they can
+  // read anything regardless; the invariant is "no ordinary other user".
+  execFileSync(
+    'icacls',
+    [
+      path,
+      '/inheritance:r',
+      '/grant:r', `${user}:F`,
+      '/remove:g', '*S-1-1-0',
+      '/remove:g', '*S-1-5-32-545',
+      '/remove:g', '*S-1-5-11',
+    ],
+    { stdio: 'ignore', windowsHide: true },
+  );
 }
 
 /** Persist the connection config to a git-ignored file, owner-only perms
