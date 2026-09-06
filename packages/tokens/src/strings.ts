@@ -514,6 +514,11 @@
  * and the slice-run group head's composed cost tip (`flightGroupCostTip`, an
  * `{n}` template reading `data-i18n-args`) via `translateDom()`'s new
  * `[data-i18n-tip-template]` sweep, the `data-tip` twin of the aria one.
+ * The slice after that tags the flight log's "slice of <task>" chip
+ * (`flightSliceChip` / `flightSliceChipTip` / `flightSliceChipAria`): its
+ * text truncates the title (`{short}`, a `data-i18n-args` slot) while its
+ * tip and aria-label carry the full one (`{name}`) — the first element to
+ * ride the text, tip and aria template sweeps at once.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -755,6 +760,14 @@ const EN_STRINGS = {
   flightShaTip: 'Commit: {name}',
   flightShaAria: 'commit {name}',
   flightGroupCostTip: 'Total spend across all {n} slices',
+  // The flight log's "slice of <task>" chip (sliceChipMeta in
+  // web/flight-log-rows.ts) on an isolated slice firing: its text wraps the
+  // title truncated at 40 chars ({short}, from data-i18n-args) while its tip
+  // and aria-label wrap the full title ({name}, from data-i18n-name) — one
+  // chip riding translateDom()'s text, tip and aria template sweeps at once.
+  flightSliceChip: 'slice of {short}',
+  flightSliceChipTip: 'Part of a multi-firing task, still open: {name}',
+  flightSliceChipAria: 'slice of {name}',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
@@ -1321,6 +1334,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightShaTip: 'קומיט: {name}',
     flightShaAria: 'קומיט {name}',
     flightGroupCostTip: 'ההוצאה הכוללת על כל {n} הפרוסות',
+    flightSliceChip: 'פרוסה של {short}',
+    flightSliceChipTip: 'חלק ממשימה מרובת הפעלות, עדיין פתוחה: {name}',
+    flightSliceChipAria: 'פרוסה של {name}',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
     taskNewLabel: 'משימה חדשה',

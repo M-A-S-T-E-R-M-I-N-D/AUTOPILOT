@@ -1745,9 +1745,22 @@ function flightLogNode(c) {
       var sliceTaskTitle = sliceTask && sliceTask.title;
       if (sliceTaskTitle) {
         var sliceMeta = sliceChipMeta(sliceTaskTitle);
-        head.appendChild(
-          tipChip(sliceMeta.text, sliceMeta.tip, sliceMeta.ariaLabel, 'flight-slice-chip'),
+        var sliceChip = tipChip(
+          sliceMeta.text,
+          sliceMeta.tip,
+          sliceMeta.ariaLabel,
+          'flight-slice-chip',
         );
+        // i18n (board web-msnsndki-dz3vn1): two live values on one chip — the
+        // text wraps the 40-char-truncated title, the tip and aria-label the
+        // full one — so it rides all three template sweeps: {short} from the
+        // args map, {name} from data-i18n-name.
+        sliceChip.setAttribute('data-i18n-template', 'flightSliceChip');
+        sliceChip.setAttribute('data-i18n-tip-template', 'flightSliceChipTip');
+        sliceChip.setAttribute('data-i18n-aria-template', 'flightSliceChipAria');
+        sliceChip.setAttribute('data-i18n-name', sliceTaskTitle);
+        sliceChip.setAttribute('data-i18n-args', JSON.stringify({ short: sliceMeta.short }));
+        head.appendChild(sliceChip);
       }
     }
     if (f.autoformatRescued) {

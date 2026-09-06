@@ -116,11 +116,17 @@ export interface FlightDetailEntry {
   readonly model?: string | null;
 }
 
-/** The "slice of &lt;task&gt;" chip's text/tip/aria-label triple. */
+/** The "slice of &lt;task&gt;" chip's text/tip/aria-label triple, plus the
+ *  truncated title its text wraps (`short`) — i18n (board web-msnsndki-dz3vn1)
+ *  hands that to the chip's `data-i18n-args` map so `translateDom()`'s text
+ *  template (`flightSliceChip`, "slice of {short}") fills the same 40-char
+ *  cutoff, while the tip/aria templates read the full title from
+ *  `data-i18n-name`. */
 export interface SliceChipMeta {
   readonly text: string;
   readonly tip: string;
   readonly ariaLabel: string;
+  readonly short: string;
 }
 
 /** The "slice of &lt;task&gt;" chip an isolated slice firing (no run partner
@@ -138,6 +144,7 @@ export function sliceChipMeta(taskTitle: string): SliceChipMeta {
     text: 'slice of ' + truncated,
     tip: 'Part of a multi-firing task, still open: ' + taskTitle,
     ariaLabel: 'slice of ' + taskTitle,
+    short: truncated,
   };
 }
 
