@@ -67,7 +67,10 @@ export type ConnectPanelKey =
   | 'ltsTipUnknown'
   | 'ghIssueConfirm'
   | 'ghIssueOpened'
-  | 'ghIssueOpenFailed';
+  | 'ghIssueOpenFailed'
+  | 'reportComposeReady'
+  | 'reportComposeUnavailable'
+  | 'reportComposeRequestFailed';
 
 /** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected into
  *  each sentence-composing helper below — see the module note. */
@@ -360,5 +363,61 @@ export function githubIssueExecuteResult(
   return {
     className: 'gh-issue-result ' + (ok ? 'gh-issue-result-ok' : 'gh-issue-result-fail'),
     text: (ok ? '✓ ' : '✗ ') + message + (ok && data && data.url ? ' ' + data.url : ''),
+  };
+}
+
+/** Shape of the `POST /api/report/compose` JSON response
+ *  {@link reportComposeStatusMeta} reads — see `flight/report-compose.ts`'s
+ *  `ReportComposeResult` (LLM ISSUE COMPOSER 1/3, board web-mtpzdrt1-lirsgh).
+ *  `title`/`body` are the composed English fields; `labels` are advisory
+ *  only — `planGithubIssue` has no `--label` flag, so they are surfaced in
+ *  the status line for the operator to add by hand, never silently dropped. */
+export interface ReportComposeResponse {
+  readonly ok?: boolean;
+  readonly title?: string;
+  readonly body?: string;
+  readonly labels?: readonly string[];
+  readonly reasoning?: string;
+  readonly error?: string;
+}
+
+/**
+ * The CONNECT popover's `.gh-issue-compose-status` element's class + message
+ * text for one `POST /api/report/compose` response (LLM ISSUE COMPOSER 2/3,
+ * board web-mtpzdruu-vf25ry) — same `className`/`text` shape
+ * {@link githubIssueExecuteResult} uses. Only a response carrying a usable
+ * non-empty `title` AND `body` is treated as composed; anything else (a
+ * rejected `{ok:false, reasoning}`, a malformed payload, a network failure)
+ * reports why and hands back empty strings, so the caller never copies a
+ * half-formed composition into the visible title/body fields.
+ */
+export function reportComposeStatusMeta(
+  data: ReportComposeResponse | null | undefined,
+  tr: ConnectPanelTranslator,
+): {
+  readonly className: string;
+  readonly text: string;
+  readonly title: string;
+  readonly body: string;
+} {
+  const title = typeof data?.title === 'string' ? data.title : '';
+  const body = typeof data?.body === 'string' ? data.body : '';
+  if (data && data.ok && title !== '' && body !== '') {
+    const labels = Array.isArray(data.labels)
+      ? data.labels.filter((label): label is string => typeof label === 'string')
+      : [];
+    return {
+      className: 'gh-issue-compose-status gh-issue-compose-ok',
+      text: tr('reportComposeReady', { labels: labels.join(', ') }),
+      title,
+      body,
+    };
+  }
+  const reasoning = (data && (data.reasoning || data.error)) || tr('reportComposeUnavailable');
+  return {
+    className: 'gh-issue-compose-status gh-issue-compose-fail',
+    text: '✗ ' + reasoning,
+    title: '',
+    body: '',
   };
 }

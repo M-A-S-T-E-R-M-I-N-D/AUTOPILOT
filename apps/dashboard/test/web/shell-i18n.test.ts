@@ -172,6 +172,19 @@ describe('renderShell masthead i18n wiring', () => {
     expect(html).toContain('data-i18n="openGithubIssue">Open GitHub issue</button>');
   });
 
+  it('tags the gh-issue-form free-text Compose path (LLM ISSUE COMPOSER 2/3, board web-mtpzdruu-vf25ry) with data-i18n', () => {
+    const html = renderShell();
+    expect(html).toContain(
+      '<label for="gh-issue-note" data-i18n="reportComposeNoteLabel">Or describe it in your own words — Compose writes the title and body for you</label>',
+    );
+    expect(html).toContain(
+      'placeholder="What happened, or what you wish existed…" data-i18n-placeholder="reportComposeNotePlaceholder"',
+    );
+    expect(html).toContain(
+      '<button type="button" id="gh-issue-compose" data-i18n="reportComposeButton">Compose</button>',
+    );
+  });
+
   it('tags the Fleet section landmarks (totals/live-workers/stat-tiles/pr-review-panel/main) with data-i18n', () => {
     const html = renderShell();
     expect(html).toContain('aria-label="Fleet summary" data-i18n-aria="fleetSummary"');

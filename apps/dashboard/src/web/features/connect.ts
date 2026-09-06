@@ -27,6 +27,7 @@ import {
   ghLtsMeta,
   githubIssueConfirmMessage,
   githubIssueExecuteResult,
+  reportComposeStatusMeta,
 } from '../connect-panel.js';
 
 /** The CONNECT popover client — vanilla, external (keeps CSP script-src 'self'). */
@@ -53,6 +54,9 @@ function connectInit() {
   var ghIssueTitle = document.getElementById('gh-issue-title');
   var ghIssueBody = document.getElementById('gh-issue-body');
   var ghIssueResult = document.getElementById('gh-issue-result');
+  var ghIssueNote = document.getElementById('gh-issue-note');
+  var ghIssueComposeBtn = document.getElementById('gh-issue-compose');
+  var ghIssueComposeStatus = document.getElementById('gh-issue-compose-status');
 
   // App-wide interactivity audit v2 (web-msm66jlc-gm4oom): each button's
   // click has real consequences (opens a terminal, spends a billed claude
@@ -80,6 +84,7 @@ function connectInit() {
   setTip(ghLtsCheckBtn, 'ghLtsCheckTip');
   var ghIssueBtn = ghIssueForm ? ghIssueForm.querySelector('button[type="submit"]') : null;
   setTip(ghIssueBtn, 'ghIssueTip');
+  setTip(ghIssueComposeBtn, 'reportComposeTip');
 
   // connectModeMeta/connectStatusMeta/connectTestResultMeta/ghStatusMeta/
   // ghLtsMeta/githubIssueConfirmMessage/githubIssueExecuteResult are
@@ -99,6 +104,7 @@ function connectInit() {
   ${ghLtsMeta.toString()}
   ${githubIssueConfirmMessage.toString()}
   ${githubIssueExecuteResult.toString()}
+  ${reportComposeStatusMeta.toString()}
   function applyMode(mode) {
     var m = connectModeMeta(mode, tr);
     if (secretEl) { secretEl.hidden = !m.show; secretEl.placeholder = m.ph; if (!m.show) secretEl.value = ''; }
@@ -159,6 +165,37 @@ function connectInit() {
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (s) { paintLts(ghLtsMeta(s, tr)); })
       .catch(function () { if (ghLtsEl) ghLtsEl.textContent = tr('ltsUnavailable'); });
+  });
+  // LLM ISSUE COMPOSER 2/3 (board web-mtpzdruu-vf25ry): the note never rides
+  // anywhere but this one POST — /api/report/compose runs a local, tool-less
+  // model call (flight/report-compose.ts) and hands back a polished English
+  // title/body, which this fills straight into the form's own #gh-issue-
+  // title/#gh-issue-body fields (the rendered PREVIEW — visible and still
+  // editable) so the existing submit handler below stays a one-click,
+  // unmodified path to the real GithubIssueExecuteApi. The raw note itself
+  // is never part of that submit's request body.
+  if (ghIssueComposeBtn) ghIssueComposeBtn.addEventListener('click', function () {
+    var note = ghIssueNote ? ghIssueNote.value.trim() : '';
+    if (!note) return;
+    ghIssueComposeBtn.disabled = true;
+    if (ghIssueComposeStatus) { ghIssueComposeStatus.className = 'gh-issue-compose-status'; ghIssueComposeStatus.textContent = tr('reportComposing'); }
+    fetch('/api/report/compose', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ description: note }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        ghIssueComposeBtn.disabled = false;
+        var m = reportComposeStatusMeta(j, tr);
+        if (ghIssueComposeStatus) { ghIssueComposeStatus.className = m.className; ghIssueComposeStatus.textContent = m.text; }
+        if (m.title && ghIssueTitle) ghIssueTitle.value = m.title;
+        if (m.body && ghIssueBody) ghIssueBody.value = m.body;
+      })
+      .catch(function () {
+        ghIssueComposeBtn.disabled = false;
+        if (ghIssueComposeStatus) { ghIssueComposeStatus.className = 'gh-issue-compose-status gh-issue-compose-fail'; ghIssueComposeStatus.textContent = tr('reportComposeRequestFailed'); }
+      });
   });
   if (ghIssueForm) ghIssueForm.addEventListener('submit', function (e) {
     e.preventDefault();

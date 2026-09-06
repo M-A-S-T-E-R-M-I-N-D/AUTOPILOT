@@ -17,6 +17,7 @@ import {
   ghLtsMeta,
   githubIssueConfirmMessage,
   githubIssueExecuteResult,
+  reportComposeStatusMeta,
 } from '../../../src/web/connect-panel.js';
 import { connectJs } from '../../../src/web/features/connect.js';
 
@@ -45,6 +46,57 @@ describe('connectJs', () => {
     // (i18n, board web-msnsndki-dz3vn1) — connect-i18n.test.ts pins the key.
     expect(out).toContain('if (!window.confirm(githubIssueConfirmMessage(title, tr))) return;');
     expect(out).toContain("fetch('/api/github-issue/execute'");
+  });
+
+  describe('LLM ISSUE COMPOSER 2/3 (board web-mtpzdruu-vf25ry)', () => {
+    it('embeds reportComposeStatusMeta real compiled source via .toString()', () => {
+      expect(connectJs()).toContain(reportComposeStatusMeta.toString());
+    });
+
+    it('POSTs only the free-text note to /api/report/compose — one field, description', () => {
+      const out = connectJs();
+      expect(out).toContain("fetch('/api/report/compose'");
+      expect(out).toContain('body: JSON.stringify({ description: note })');
+    });
+
+    it('never sends the raw note to the GitHub issue execute endpoint', () => {
+      const out = connectJs();
+      // The submit handler's request body is built from the title/body
+      // fields only — the note variable never appears inside it.
+      const submitBodyLine = 'body: JSON.stringify({ title: title, body: body })';
+      expect(out).toContain(submitBodyLine);
+      expect(out).not.toContain('note: note');
+    });
+
+    it('fills the visible title/body fields from the composed result — the rendered preview', () => {
+      const out = connectJs();
+      expect(out).toContain('var m = reportComposeStatusMeta(j, tr);');
+      expect(out).toContain('if (m.title && ghIssueTitle) ghIssueTitle.value = m.title;');
+      expect(out).toContain('if (m.body && ghIssueBody) ghIssueBody.value = m.body;');
+    });
+
+    it('shows a composing status and disables the button while the request is in flight', () => {
+      const out = connectJs();
+      expect(out).toContain('ghIssueComposeBtn.disabled = true;');
+      expect(out).toContain("ghIssueComposeStatus.textContent = tr('reportComposing');");
+      expect(out).toContain('ghIssueComposeBtn.disabled = false;');
+    });
+
+    it('does nothing when the note is blank — no request, no state change', () => {
+      const out = connectJs();
+      expect(out).toContain(
+        "var note = ghIssueNote ? ghIssueNote.value.trim() : '';\n    if (!note) return;",
+      );
+    });
+
+    it('reports a generic failure line when the compose request itself fails', () => {
+      const out = connectJs();
+      expect(out).toContain("ghIssueComposeStatus.textContent = tr('reportComposeRequestFailed');");
+    });
+
+    it('tips the Compose button explaining the raw-note-stays-local guarantee', () => {
+      expect(connectJs()).toContain("setTip(ghIssueComposeBtn, 'reportComposeTip');");
+    });
   });
 
   it('fetches /api/connection/gh on init — read-only, no login/logout POST route for gh', () => {
