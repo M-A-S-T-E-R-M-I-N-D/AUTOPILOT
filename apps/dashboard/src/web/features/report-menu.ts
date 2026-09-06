@@ -350,6 +350,68 @@ function paintReportDialog(pid, capture) {
     actionSel.appendChild(opt);
   }
   dialog.appendChild(actionSel);
+  // LLM ISSUE COMPOSER 1/3 follow-up (board web-mtpzdrt1-lirsgh): the
+  // backend (flight/report-compose.ts's composeReport, POST /api/report/
+  // compose) already accepts the reportMenuContextOf capture bundle +
+  // module sources, but until now no live caller ever sent them — the
+  // CONNECT popover's own Compose button (LLM ISSUE COMPOSER 2/3) posts a
+  // bare note with no context, since that form has no captured element
+  // behind it. This dialog DOES have one (reportMenuTargetEl + capture), so
+  // wiring it here is what actually exercises the context-aware half of the
+  // composer. Composing rewrites the note in place (same "visible, still
+  // editable preview" stance the CONNECT popover's Compose took) and, when
+  // the model suggests one of the four known actions, pre-selects it —
+  // Preview/Execute below always re-derive from whatever text/action are on
+  // screen at that moment, so a rejected or malformed compose leaves the
+  // operator's own typing untouched.
+  var composeBtn = document.createElement('button');
+  composeBtn.type = 'button';
+  composeBtn.className = 'report-compose';
+  composeBtn.textContent = tr('reportComposeAi');
+  composeBtn.setAttribute('data-tip', tr('reportComposeAiTip'));
+  dialog.appendChild(composeBtn);
+  var composeStatusEl = document.createElement('p');
+  composeStatusEl.className = 'report-compose-status';
+  composeStatusEl.setAttribute('role', 'status');
+  composeStatusEl.setAttribute('aria-live', 'polite');
+  dialog.appendChild(composeStatusEl);
+  composeBtn.addEventListener('click', function () {
+    var note = desc.value.trim();
+    if (!note) return;
+    composeBtn.disabled = true;
+    composeStatusEl.className = 'report-compose-status';
+    composeStatusEl.textContent = tr('reportComposing');
+    var owning = capture && capture.owningModule;
+    fetch('/api/report/compose', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        description: note,
+        contextJson: reportMenuContextOf(reportMenuTargetEl, capture),
+        moduleSources: owning ? owning.moduleSources : [],
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        composeBtn.disabled = false;
+        var title = j && typeof j.title === 'string' ? j.title : '';
+        var body = j && typeof j.body === 'string' ? j.body : '';
+        if (j && j.ok && title && body) {
+          desc.value = title + '\\n\\n' + body;
+          if (j.action && actionValues.indexOf(j.action) !== -1) actionSel.value = j.action;
+          composeStatusEl.className = 'report-compose-status report-compose-ok';
+          composeStatusEl.textContent = tr('reportComposeAiReady', { action: reportActionLabel(actionSel.value) });
+        } else {
+          composeStatusEl.className = 'report-compose-status report-compose-fail';
+          composeStatusEl.textContent = '\\u2717 ' + ((j && (j.reasoning || j.error)) || tr('reportComposeUnavailable'));
+        }
+      })
+      .catch(function () {
+        composeBtn.disabled = false;
+        composeStatusEl.className = 'report-compose-status report-compose-fail';
+        composeStatusEl.textContent = tr('reportComposeRequestFailed');
+      });
+  });
   var previewBtn = document.createElement('button');
   previewBtn.type = 'button';
   previewBtn.className = 'report-preview';

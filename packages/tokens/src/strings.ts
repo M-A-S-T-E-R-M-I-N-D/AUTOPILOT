@@ -1174,6 +1174,17 @@ const EN_STRINGS = {
   reportDescLabel: 'What is wrong or missing here?',
   reportDescTip: 'Your words become the title; the captured context above always travels with it.',
   reportActionPrompt: 'One click files a…',
+  // LLM ISSUE COMPOSER 1/3 follow-up (board web-mtpzdrt1-lirsgh): the
+  // dialog's own AI compose button — unlike the CONNECT popover's
+  // reportCompose* keys above (which end in "review the fields, then
+  // submit"), this one feeds the SAME /api/report/compose endpoint the
+  // reportMenuContextOf capture + module sources, and its "ready" line
+  // points at Preview/Execute rather than a submit button, so it earns its
+  // own key instead of reusing reportComposeReady's wording.
+  reportComposeAi: 'Compose with AI',
+  reportComposeAiTip:
+    'Turns your note into a polished description and a suggested action with a local model call, grounded in the capture above — your words never leave this machine.',
+  reportComposeAiReady: 'Composed — suggested action: {action}. Review below, then Preview.',
   reportPreview: 'Preview',
   reportPreviewTip:
     'Resolve this capture into the exact plan — what gets filed where — without applying anything.',
@@ -1675,6 +1686,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     reportDescLabel: 'מה שגוי או חסר כאן?',
     reportDescTip: 'המילים שלכם הופכות לכותרת; ההקשר שנלכד למעלה תמיד נשלח יחד איתן.',
     reportActionPrompt: 'לחיצה אחת מגישה…',
+    reportComposeAi: 'חבר עם AI',
+    reportComposeAiTip:
+      'הופך את ההערה שלכם לתיאור מלוטש ולפעולה מוצעת באמצעות קריאה למודל מקומי, מבוסס על הלכידה שלמעלה — המילים שלכם אף פעם לא עוזבות את המחשב הזה.',
+    reportComposeAiReady: 'חובר — פעולה מוצעת: {action}. בדקו למטה, ואז לחצו על תצוגה מקדימה.',
     reportPreview: 'תצוגה מקדימה',
     reportPreviewTip: 'פותר את הלכידה הזו לתוכנית המדויקת — מה מוגש ולאן — בלי להחיל דבר.',
     reportPreviewUnavailable: 'התצוגה המקדימה אינה זמינה — נסו שוב בעוד רגע.',
