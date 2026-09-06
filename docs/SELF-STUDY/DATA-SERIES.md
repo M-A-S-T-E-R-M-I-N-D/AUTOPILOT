@@ -6,11 +6,11 @@
 > document; analysis reads better with the raw values one click away.
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-06T16:35:36.960Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-06T16:47:17.207Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-06T16:35:36.960Z",
+  "generatedAt": "2026-09-06T16:47:17.207Z",
   "project": "autopilot",
   "perFiring": [
     {
@@ -1344,6 +1344,30 @@ _Generated 2026-09-06T16:35:36.960Z by `pnpm self-study:update` — the chart da
       "promptVersion": "firing-v12",
       "costUsd": 6.431077499999999,
       "turns": 53
+    },
+    {
+      "firingId": "fly-autopilot--fleet-2:firing-108",
+      "day": "2026-09-06",
+      "sha": "6409eee0",
+      "kind": "feat",
+      "shipped": false,
+      "completion": "complete",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 5.879915999999998,
+      "turns": 122
+    },
+    {
+      "firingId": "fly-autopilot--fleet-4:firing-114",
+      "day": "2026-09-06",
+      "sha": "c92a6c28",
+      "kind": "docs",
+      "shipped": true,
+      "completion": "slice",
+      "outcome": "shipped",
+      "promptVersion": "firing-v12",
+      "costUsd": 1.5599851999999998,
+      "turns": 35
     }
   ],
   "perDay": [
@@ -1373,22 +1397,22 @@ _Generated 2026-09-06T16:35:36.960Z by `pnpm self-study:update` — the chart da
     },
     {
       "day": "2026-09-06",
-      "firings": 23,
-      "shipped": 10,
-      "costUsd": 86.3648,
-      "turns": 1129,
-      "rollingShipRate": 0.4023
+      "firings": 25,
+      "shipped": 11,
+      "costUsd": 93.8047,
+      "turns": 1286,
+      "rollingShipRate": 0.4045
     }
   ],
   "perEra": [
     {
       "promptVersion": "firing-v12",
-      "firings": 111,
-      "shipped": 38,
-      "passRate": 0.3423,
+      "firings": 113,
+      "shipped": 39,
+      "passRate": 0.3451,
       "medianTurns": 50,
-      "costVariance": 2.973033070337202,
-      "costPerSolved": 7.789862280263155
+      "costVariance": 3.0218216981115247,
+      "costPerSolved": 7.780888919230765
     }
   ],
   "turnsHistogram": [
@@ -1412,8 +1436,8 @@ _Generated 2026-09-06T16:35:36.960Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 30,
-      "firings": 22,
-      "shipped": 11,
+      "firings": 23,
+      "shipped": 12,
       "bucketLabel": "30-39"
     },
     {
@@ -1466,7 +1490,7 @@ _Generated 2026-09-06T16:35:36.960Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 120,
-      "firings": 0,
+      "firings": 1,
       "shipped": 0,
       "bucketLabel": "120-129"
     },
