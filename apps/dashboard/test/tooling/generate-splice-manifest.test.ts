@@ -1550,11 +1550,13 @@ describe('discoverFeatureModules against the real src/web/features directory —
     expect(findSpliceManifest(localeSource, LOCALE_TS)).toEqual([]);
   });
 
-  it('connect.ts carries seven relative-import splices, resolved against its own directory (connect-panel.js one level up)', () => {
+  it('connect.ts carries eight relative-import splices, resolved against its own directory (connect-panel.js one level up)', () => {
     // four since the extraction; +2 (githubIssueConfirmMessage/
     // githubIssueExecuteResult) with contribute-upstream's report-a-bug flow
     // (epic 0006 slice 5, 2026-08-23 round); +1 (ghLtsMeta) with the LTS
-    // chip's UX-EXPRESSION (epic 0006 slice 4, board web-mss4lpwr-gptuk4).
+    // chip's UX-EXPRESSION (epic 0006 slice 4, board web-mss4lpwr-gptuk4);
+    // +1 (reportComposeStatusMeta) with the LLM issue composer's free-text
+    // Compose path (board web-mtpzdruu-vf25ry).
     const connectSource = readFileSync(CONNECT_TS, 'utf8');
     const entries = findSpliceManifest(connectSource, CONNECT_TS);
     expect(entries.map((e) => e.exportedName).sort()).toEqual([
@@ -1565,6 +1567,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       'ghStatusMeta',
       'githubIssueConfirmMessage',
       'githubIssueExecuteResult',
+      'reportComposeStatusMeta',
     ]);
     for (const entry of entries) {
       expect(entry.modulePath).toBe('../connect-panel.js');
