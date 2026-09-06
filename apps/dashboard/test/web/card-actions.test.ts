@@ -22,7 +22,18 @@ import {
   githubPrConfirmMessage,
   githubPrExecuteResult,
   poolDeliveryIssueNumber,
+  type CardActionsTranslator,
 } from '../../src/web/card-actions.js';
+
+const RESULT_TEXT: Record<string, string> = {
+  githubSyncResultOk: 'synced.',
+  githubSyncResultFail: 'sync failed.',
+  githubPrResultOk: 'pull request opened.',
+  githubPrResultFail: 'failed to open pull request.',
+};
+
+/** A `tr()` stand-in — pins the key routing, not any one locale's text. */
+const tr: CardActionsTranslator = (key) => RESULT_TEXT[key] ?? `<missing ${key}>`;
 
 describe('cardRemoveTip', () => {
   it('names the project being removed', () => {
@@ -68,28 +79,28 @@ describe('githubSyncConfirmMessage', () => {
 
 describe('githubSyncExecuteResult', () => {
   it('formats a successful sync using the server-provided details', () => {
-    expect(githubSyncExecuteResult({ ok: true, details: 'pushed to origin.' })).toEqual({
+    expect(githubSyncExecuteResult({ ok: true, details: 'pushed to origin.' }, tr)).toEqual({
       className: 'github-sync-result github-sync-result-ok',
       text: '✓ pushed to origin.',
     });
   });
 
-  it('falls back to a generic success message when details are missing', () => {
-    expect(githubSyncExecuteResult({ ok: true })).toEqual({
+  it('falls back to a translated generic success message when details are missing', () => {
+    expect(githubSyncExecuteResult({ ok: true }, tr)).toEqual({
       className: 'github-sync-result github-sync-result-ok',
       text: '✓ synced.',
     });
   });
 
   it('formats a failure using the server-provided error', () => {
-    expect(githubSyncExecuteResult({ ok: false, error: 'gh not authenticated' })).toEqual({
+    expect(githubSyncExecuteResult({ ok: false, error: 'gh not authenticated' }, tr)).toEqual({
       className: 'github-sync-result github-sync-result-fail',
       text: '✗ gh not authenticated',
     });
   });
 
-  it('falls back to a generic failure message when no details/error are given', () => {
-    expect(githubSyncExecuteResult(null)).toEqual({
+  it('falls back to a translated generic failure message when no details/error are given', () => {
+    expect(githubSyncExecuteResult(null, tr)).toEqual({
       className: 'github-sync-result github-sync-result-fail',
       text: '✗ sync failed.',
     });
@@ -164,33 +175,36 @@ describe('poolDeliveryIssueNumber', () => {
 describe('githubPrExecuteResult', () => {
   it('formats a successful PR open using the server-provided details and URL', () => {
     expect(
-      githubPrExecuteResult({
-        ok: true,
-        details: 'forking mastermind/autopilot, pushing "fix-branch"',
-        url: 'https://github.com/mastermind/autopilot/pull/1',
-      }),
+      githubPrExecuteResult(
+        {
+          ok: true,
+          details: 'forking mastermind/autopilot, pushing "fix-branch"',
+          url: 'https://github.com/mastermind/autopilot/pull/1',
+        },
+        tr,
+      ),
     ).toEqual({
       className: 'github-pr-result github-pr-result-ok',
       text: '✓ forking mastermind/autopilot, pushing "fix-branch" https://github.com/mastermind/autopilot/pull/1',
     });
   });
 
-  it('falls back to a generic success message when details are missing', () => {
-    expect(githubPrExecuteResult({ ok: true })).toEqual({
+  it('falls back to a translated generic success message when details are missing', () => {
+    expect(githubPrExecuteResult({ ok: true }, tr)).toEqual({
       className: 'github-pr-result github-pr-result-ok',
       text: '✓ pull request opened.',
     });
   });
 
   it('formats a failure using the server-provided error', () => {
-    expect(githubPrExecuteResult({ ok: false, error: 'gh not authenticated' })).toEqual({
+    expect(githubPrExecuteResult({ ok: false, error: 'gh not authenticated' }, tr)).toEqual({
       className: 'github-pr-result github-pr-result-fail',
       text: '✗ gh not authenticated',
     });
   });
 
-  it('falls back to a generic failure message when no details/error are given', () => {
-    expect(githubPrExecuteResult(null)).toEqual({
+  it('falls back to a translated generic failure message when no details/error are given', () => {
+    expect(githubPrExecuteResult(null, tr)).toEqual({
       className: 'github-pr-result github-pr-result-fail',
       text: '✗ failed to open pull request.',
     });
