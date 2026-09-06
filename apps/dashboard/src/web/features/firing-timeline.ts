@@ -69,8 +69,12 @@
  * `translateDom()` (called by `renderFleet()` after every rebuild, and by a
  * mid-session locale switch) repaints them in place. The "Step N of M"
  * position label is an aria-live region whose text `replayNav()` composes,
- * so only its tip is tagged; the diff toggle and the loading/empty
- * placeholders in the same row stay English for a later slice.
+ * so only its tip is tagged. The same row's "View diff" / "Hide diff"
+ * toggle carries one state-aware key for its text AND aria-label
+ * (`diffView` / `diffHide` — the two are identical) plus a matching tip key,
+ * and the "Loading full trace…" / "Loading diff…" / "No diff available"
+ * placeholders each carry their own `data-i18n`; the position label itself
+ * stays English until `replayNav()` takes a template.
  */
 import { groupByFiring, firingLogEntry } from '../activity-log.js';
 import { trajectorySignalOf, firingTimelineRowMeta } from '../flight-metrics.js';
@@ -325,7 +329,12 @@ function firingTimelineSection(c) {
         seedRoving(ul, '[tabindex]');
         wrap.appendChild(ul);
         if (!fullTrace && firingActivityLoading[cacheKey]) {
-          wrap.appendChild(el('div', 'muted firing-trace-loading', 'Loading full trace…'));
+          // i18n (board web-msnsndki-dz3vn1): the placeholders in this row
+          // carry their STRINGS key next to the English default, like the
+          // replay controls — translateDom() repaints them in place.
+          var traceLoadingEl = el('div', 'muted firing-trace-loading', 'Loading full trace…');
+          traceLoadingEl.setAttribute('data-i18n', 'traceLoading');
+          wrap.appendChild(traceLoadingEl);
         }
         if (traceEntries.length > 1) {
           var replayToggle = document.createElement('button');
@@ -363,11 +372,19 @@ function firingTimelineSection(c) {
         diffToggle.setAttribute('aria-expanded', String(diffOpen));
         var diffTip = diffToggleTip(diffOpen);
         diffToggle.setAttribute('data-tip', diffTip);
+        // i18n (board web-msnsndki-dz3vn1): the tip key follows the toggle's
+        // state like diffToggleTip() itself; STRINGS.en's entries are pinned
+        // equal to that helper's literals, which stay the spliced default.
+        diffToggle.setAttribute('data-i18n-tip', diffOpen ? 'diffHideTip' : 'diffViewTip');
         // D1 ATTRIBUTE PAYLOAD (epic 0015): aria-label states the action
         // concisely (matching the button's own visible text) instead of
-        // duplicating the full data-tip sentence verbatim.
+        // duplicating the full data-tip sentence verbatim — so ONE key
+        // serves both text and aria-label, the Exit-replay shape.
+        var diffKey = diffOpen ? 'diffHide' : 'diffView';
         diffToggle.setAttribute('aria-label', diffOpen ? 'Hide diff' : 'View diff');
+        diffToggle.setAttribute('data-i18n-aria', diffKey);
         diffToggle.textContent = diffOpen ? 'Hide diff' : 'View diff';
+        diffToggle.setAttribute('data-i18n', diffKey);
         wrap.appendChild(diffToggle);
         if (diffOpen) {
           var diffPage = firingDiffExtra[cacheKey];
@@ -386,9 +403,13 @@ function firingTimelineSection(c) {
             }
             wrap.appendChild(pre);
           } else if (diffPage) {
-            wrap.appendChild(el('div', 'muted firing-diff-empty', 'No diff available for this firing.'));
+            var diffEmptyEl = el('div', 'muted firing-diff-empty', 'No diff available for this firing.');
+            diffEmptyEl.setAttribute('data-i18n', 'diffEmpty');
+            wrap.appendChild(diffEmptyEl);
           } else if (firingDiffLoading[cacheKey]) {
-            wrap.appendChild(el('div', 'muted firing-trace-loading', 'Loading diff…'));
+            var diffLoadingEl = el('div', 'muted firing-trace-loading', 'Loading diff…');
+            diffLoadingEl.setAttribute('data-i18n', 'diffLoading');
+            wrap.appendChild(diffLoadingEl);
           }
         }
       }
