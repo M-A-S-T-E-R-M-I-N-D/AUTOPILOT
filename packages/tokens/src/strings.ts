@@ -519,6 +519,11 @@
  * text truncates the title (`{short}`, a `data-i18n-args` slot) while its
  * tip and aria-label carry the full one (`{name}`) — the first element to
  * ride the text, tip and aria template sweeps at once.
+ * The slice after that tags the guard-denial chip (`flightGuardChip` /
+ * `flightGuardChipTip` / `flightGuardChipAria`, `{n}` templates reading the
+ * chip's `data-i18n-args`) on both surfaces that build it from
+ * `web/anomaly.ts`'s `guardDenialChipMeta` — the flight log row and the
+ * per-firing trace row — so a bounced firing reads the same in both.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -768,6 +773,16 @@ const EN_STRINGS = {
   flightSliceChip: 'slice of {short}',
   flightSliceChipTip: 'Part of a multi-firing task, still open: {name}',
   flightSliceChipAria: 'slice of {name}',
+  // The guard-denial chip (guardDenialChipMeta in web/anomaly.ts) a firing
+  // carries when the containment/read-hygiene guard denied one of its tool
+  // calls — on the flight log row (shell.ts) AND the per-firing trace row
+  // (features/firing-timeline.ts). Its text, tip and aria-label each wrap the
+  // live denial count ({n}, from data-i18n-args), so all three ride the
+  // template sweeps; the English is byte-identical to what the meta paints.
+  flightGuardChip: '🛡️ {n} blocked',
+  flightGuardChipTip:
+    'The containment/read-hygiene guard denied {n} tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
+  flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
@@ -1355,6 +1370,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveNarratorTip: 'הסיכום של AUTOPILOT עצמו, במשפט אחד, לפעולה האחרונה שלו בהפעלה הזו',
     liveFocusTask: '🎯 עובדת על: {name}',
     liveFocusTaskTip: 'משימת הלוח שההפעלה הזו עובדת עליה במפורש',
+    flightGuardChip: '🛡️ {n} נחסמו',
+    flightGuardChipTip:
+      'שומר ההכלה/היגיינת הקריאה דחה {n} קריאות כלים במהלך ההפעלה הזו — היא ניסתה לחרוג מהגבול שלה ונעצרה.',
+    flightGuardChipAria: 'השומר חסם {n} קריאות כלים בהפעלה הזו (הכלה / היגיינת קריאה)',
     liveProbableTask: 'כנראה עובדת על: {name}',
     liveProbableTaskTip:
       'ההערכה הטובה ביותר של AUTOPILOT למשימה שההפעלה הזו עובדת עליה, על סמך תור הלוח — לא קישור מאומת',

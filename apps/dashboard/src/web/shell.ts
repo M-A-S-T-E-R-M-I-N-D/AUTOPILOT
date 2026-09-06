@@ -1779,9 +1779,21 @@ function flightLogNode(c) {
     }
     if (f.guardDenials) {
       var logGuardMeta = guardDenialChipMeta(f.guardDenials);
-      head.appendChild(
-        tipChip(logGuardMeta.label, logGuardMeta.tip, logGuardMeta.ariaLabel, 'flight-guard-chip'),
+      var logGuardChip = tipChip(
+        logGuardMeta.label,
+        logGuardMeta.tip,
+        logGuardMeta.ariaLabel,
+        'flight-guard-chip',
       );
+      // i18n (board web-msnsndki-dz3vn1): text, tip and aria-label each wrap
+      // the live denial count, so all three ride the template sweeps with {n}
+      // from the args map — the same three keys the per-firing trace row's
+      // copy of this chip carries (features/firing-timeline.ts).
+      logGuardChip.setAttribute('data-i18n-template', 'flightGuardChip');
+      logGuardChip.setAttribute('data-i18n-tip-template', 'flightGuardChipTip');
+      logGuardChip.setAttribute('data-i18n-aria-template', 'flightGuardChipAria');
+      logGuardChip.setAttribute('data-i18n-args', JSON.stringify({ n: f.guardDenials }));
+      head.appendChild(logGuardChip);
     }
     if (f.sha) {
       var logShaEl = el('span', 'flight-sha', logMeta.shaText);
