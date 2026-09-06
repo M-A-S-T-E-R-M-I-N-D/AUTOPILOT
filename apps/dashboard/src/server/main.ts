@@ -70,6 +70,7 @@ import {
   fetchOpenPrCandidateReport,
   annotateAlreadyApplied,
   annotateReviewThreads,
+  annotateAwaitingApproval,
   planPrReviewBatch,
 } from '../flight/pr-review.js';
 import { createPrReviewExecuteApi } from '../flight/pr-review-execute.js';
@@ -537,10 +538,15 @@ const server = createServer({
     // masquerading as a confirmed-empty queue (see PrReviewCandidateReport).
     const report = await fetchOpenPrCandidateReport(realCliExec);
     // Diff verdicts first, then the review-thread sweep (one `gh api graphql`
-    // read, spent only when some candidate would otherwise merge) — the same
-    // order the execute re-derive runs them in.
-    const assessed = await annotateReviewThreads(
-      await annotateAlreadyApplied(report.candidates, realCliExec),
+    // read, spent only when some candidate would otherwise merge), then the
+    // Actions run-list sweep (one `gh api` read, spent only when some
+    // candidate is unreported) — the same order the execute re-derive runs
+    // them in.
+    const assessed = await annotateAwaitingApproval(
+      await annotateReviewThreads(
+        await annotateAlreadyApplied(report.candidates, realCliExec),
+        realCliExec,
+      ),
       realCliExec,
     );
     return {

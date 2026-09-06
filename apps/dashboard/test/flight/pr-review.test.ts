@@ -21,6 +21,8 @@ import {
   annotateAlreadyApplied,
   annotateReviewThreads,
   fetchUnresolvedReviewThreadCounts,
+  fetchAwaitingApprovalRunIds,
+  annotateAwaitingApproval,
   parseGitApplyConflictPaths,
   parseDiffRenameSources,
   parseDiffDeletedPaths,
@@ -1100,6 +1102,10 @@ describe('touchesSecuritySensitivePath', () => {
     );
   });
 
+  it('flags the mirror-pass ritual — it decides board-done↔issue-closed reconcile and plans gh close/reopen/comment argv, yet ends in neither "-execute.ts" nor any security keyword', () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/mirror-pass.ts'])).toBe(true);
+  });
+
   it('flags the engine package modules that perform the real git merge/tag writes behind the landing and release EXECUTE endpoints, even without a security-keyword path', () => {
     expect(touchesSecuritySensitivePath(['packages/engine/src/landing.ts'])).toBe(true);
     expect(touchesSecuritySensitivePath(['packages/engine/src/release.ts'])).toBe(true);
@@ -2007,6 +2013,49 @@ describe('planPrReview', () => {
     expect(planPrReviewCommands({ ...pr, ownComments: [decision.reasoning] }, decision)).toEqual(
       [],
     );
+  });
+
+  it('confirms a specific awaiting-approval reasoning when a matching action_required run was found — not the generic "nothing may be running" guess', () => {
+    const decision = planPrReview(
+      candidate({ gateStatus: 'unreported', awaitingApprovalRunIds: [4242] }),
+    );
+
+    expect(decision).toMatchObject({ decision: 'queue-for-human' });
+    expect(decision.reasoning).toContain('#12');
+    expect(decision.reasoning).toContain('4242');
+    expect(decision.reasoning).toContain('action_required');
+    expect(decision.reasoning).toContain('approve');
+    expect(decision.reasoning).not.toContain('no gating check');
+  });
+
+  it('names every confirmed run id when more than one is awaiting approval on the same head', () => {
+    const decision = planPrReview(
+      candidate({ gateStatus: 'unreported', awaitingApprovalRunIds: [1, 2] }),
+    );
+
+    expect(decision.reasoning).toContain('1');
+    expect(decision.reasoning).toContain('2');
+  });
+
+  it('an empty confirmed run-id list falls back to the generic unreported reasoning, same as absent', () => {
+    const decision = planPrReview(
+      candidate({ gateStatus: 'unreported', awaitingApprovalRunIds: [] }),
+    );
+
+    expect(decision.reasoning).toContain('no gating check');
+  });
+
+  it('an unreported gate with a confirmed run still outranks the security-hard rule the same way the generic reasoning does', () => {
+    const decision = planPrReview(
+      candidate({
+        gateStatus: 'unreported',
+        awaitingApprovalRunIds: [4242],
+        touchedPaths: ['.github/workflows/ci.yml'],
+      }),
+    );
+
+    expect(decision.reasoning).toContain('security-hard rule');
+    expect(decision.reasoning).not.toContain('action_required');
   });
 
   it('requests changes when there are merge conflicts', () => {
@@ -6090,5 +6139,110 @@ describe('annotateReviewThreads', () => {
     expect(annotated).toBe(green);
     expect(planPrReview(annotated!)).toMatchObject({ decision: 'queue-for-human' });
     expect(planPrReview(annotated!).reasoning).toContain('could not be read');
+  });
+});
+
+function workflowRunsJson(runs: unknown): string {
+  return JSON.stringify({ workflow_runs: runs });
+}
+
+describe('fetchAwaitingApprovalRunIds', () => {
+  it('spends one gh api read of the Actions run list, filtered server-side to pull_request/action_required, and groups confirmed run ids by head sha', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: workflowRunsJson([
+        { id: 111, head_sha: 'aaa', status: 'action_required' },
+        { id: 222, head_sha: 'aaa', status: 'action_required' },
+        { id: 333, head_sha: 'bbb', status: 'action_required' },
+      ]),
+    });
+
+    const byHeadSha = await fetchAwaitingApprovalRunIds(exec);
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'api',
+      `repos/{owner}/{repo}/actions/runs?event=pull_request&status=action_required&per_page=${MAX_PR_LIST_CANDIDATES}`,
+    ]);
+    expect([...byHeadSha]).toEqual([
+      ['aaa', [111, 222]],
+      ['bbb', [333]],
+    ]);
+  });
+
+  it('confirms nothing when the read fails or the output is unreadable', async () => {
+    for (const reply of [
+      { code: 1, stdout: '' },
+      { code: 0, stdout: 'not json' },
+      { code: 0, stdout: '{"workflow_runs": null}' },
+      { code: 0, stdout: workflowRunsJson('oops') },
+    ]) {
+      const exec: CliExec = vi.fn().mockResolvedValue(reply);
+
+      expect((await fetchAwaitingApprovalRunIds(exec)).size).toBe(0);
+    }
+  });
+
+  it('drops an unreadable entry instead of guessing at it — a non-integer id, an empty/non-string head sha, a status other than the literal action_required, or a garbage node', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: workflowRunsJson([
+        { id: 'x', head_sha: 'aaa', status: 'action_required' },
+        { id: 1, head_sha: '', status: 'action_required' },
+        { id: 2, head_sha: 'bbb', status: 'completed' },
+        null,
+        { id: 3, head_sha: 'ccc', status: 'action_required' },
+      ]),
+    });
+
+    const byHeadSha = await fetchAwaitingApprovalRunIds(exec);
+
+    expect([...byHeadSha]).toEqual([['ccc', [3]]]);
+  });
+});
+
+describe('annotateAwaitingApproval', () => {
+  it('spends the read only when some candidate is unreported — every other gate status skips it entirely, no gh call', async () => {
+    const green = candidate();
+    const failed = candidate({ number: 13, gateStatus: 'fail' });
+    const exec: CliExec = vi.fn();
+
+    const annotated = await annotateAwaitingApproval([green, failed], exec);
+
+    expect(exec).not.toHaveBeenCalled();
+    expect(annotated[0]).toBe(green);
+    expect(annotated[1]).toBe(failed);
+  });
+
+  it('annotates an unreported candidate whose head sha matches a confirmed action_required run, immutably, and leaves a non-matching one unchanged', async () => {
+    const unreported = candidate({ gateStatus: 'unreported', headRefOid: HEAD_SHA });
+    const noMatch = candidate({ number: 13, gateStatus: 'unreported', headRefOid: 'ffff' });
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: workflowRunsJson([{ id: 555, head_sha: HEAD_SHA, status: 'action_required' }]),
+    });
+
+    const annotated = await annotateAwaitingApproval([unreported, noMatch], exec);
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(annotated[0]).toEqual({ ...unreported, awaitingApprovalRunIds: [555] });
+    expect('awaitingApprovalRunIds' in unreported).toBe(false);
+    expect(annotated[1]).toBe(noMatch);
+    expect(planPrReview(annotated[0]!).reasoning).toContain('555');
+  });
+
+  it('an unreported candidate with no confirmed head-sha match, or an absent headRefOid, passes through unchanged', async () => {
+    const noHead = candidate({ gateStatus: 'unreported' });
+    const { headRefOid: _omitted, ...rest } = noHead;
+    const unpinned = rest as PrReviewCandidate;
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: workflowRunsJson([{ id: 1, head_sha: 'unrelated', status: 'action_required' }]),
+    });
+
+    const annotated = await annotateAwaitingApproval([noHead, unpinned], exec);
+
+    expect(annotated[0]).toBe(noHead);
+    expect(annotated[1]).toBe(unpinned);
   });
 });
