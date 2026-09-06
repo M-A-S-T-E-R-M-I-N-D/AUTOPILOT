@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -26,6 +26,10 @@ import {
   planMirrorPassCountsDrift,
   planMirrorPassCountsDriftCommand,
   readMirrorPassCountsDrift,
+  extractInternalDocLinks,
+  planMirrorPassLinkDrift,
+  planMirrorPassLinkDriftCommand,
+  readMirrorPassLinkDrift,
   type MirrorPassTaskCandidate,
   type MirrorPassIssueState,
 } from '../../src/flight/mirror-pass.js';
@@ -692,5 +696,121 @@ describe('readMirrorPassCountsDrift', () => {
     writeFileSync(readmePath, 'shoulders of 487 open-source projects — see THANKS.md');
 
     expect(readMirrorPassCountsDrift(readmePath, join(dir, 'missing.md'))).toBeNull();
+  });
+});
+
+describe('extractInternalDocLinks', () => {
+  it('extracts relative markdown link targets', () => {
+    const content =
+      '[`docs/README.md`](docs/README.md) is the index. ' +
+      'See [ADR-0003](docs/adr/0003-thing.md) too.';
+    expect(extractInternalDocLinks(content)).toEqual(['docs/README.md', 'docs/adr/0003-thing.md']);
+  });
+
+  it('extracts image link targets the same way', () => {
+    const content = '![fleet dashboard, dark theme](docs/screens/fleet-dark.png)';
+    expect(extractInternalDocLinks(content)).toEqual(['docs/screens/fleet-dark.png']);
+  });
+
+  it('strips a trailing #fragment before checking existence', () => {
+    const content = '[threats to validity](docs/SELF-STUDY/PAPER.md#6-threats-to-validity)';
+    expect(extractInternalDocLinks(content)).toEqual(['docs/SELF-STUDY/PAPER.md']);
+  });
+
+  it('ignores pure in-page anchors', () => {
+    expect(extractInternalDocLinks('[jump](#section)')).toEqual([]);
+  });
+
+  it('ignores links with a URL scheme (http, https, mailto)', () => {
+    const content = '[site](https://example.com) [mail](mailto:a@b.com) [ftp](ftp://example.com/x)';
+    expect(extractInternalDocLinks(content)).toEqual([]);
+  });
+
+  it('deduplicates and sorts repeated targets', () => {
+    const content = '[a](docs/b.md) [again](docs/b.md) [c](docs/a.md)';
+    expect(extractInternalDocLinks(content)).toEqual(['docs/a.md', 'docs/b.md']);
+  });
+
+  it('returns an empty array when the doc has no internal links', () => {
+    expect(extractInternalDocLinks('# Project\n\nNo links here.')).toEqual([]);
+  });
+});
+
+describe('planMirrorPassLinkDrift', () => {
+  it('returns null when every link resolves', () => {
+    const finding = planMirrorPassLinkDrift(['docs/a.md', 'docs/b.md'], () => true);
+    expect(finding).toBeNull();
+  });
+
+  it('returns null for an empty link list', () => {
+    expect(planMirrorPassLinkDrift([], () => false)).toBeNull();
+  });
+
+  it('plans a finding naming every link that fails to resolve', () => {
+    const exists = (path: string) => path !== 'docs/gone.md';
+    const finding = planMirrorPassLinkDrift(['docs/a.md', 'docs/gone.md'], exists);
+    expect(finding).toEqual({
+      action: 'file-broken-link-issue',
+      source: 'README.md',
+      brokenLinks: ['docs/gone.md'],
+    });
+  });
+
+  it('records the given source label instead of the default', () => {
+    const finding = planMirrorPassLinkDrift(['docs/gone.md'], () => false, 'docs/README.md');
+    expect(finding?.source).toBe('docs/README.md');
+  });
+});
+
+describe('planMirrorPassLinkDriftCommand', () => {
+  it('plans a gh issue create call naming every broken link', () => {
+    const command = planMirrorPassLinkDriftCommand({
+      action: 'file-broken-link-issue',
+      source: 'README.md',
+      brokenLinks: ['docs/gone.md', 'docs/also-gone.md'],
+    });
+    expect(command.command).toBe('gh');
+    expect(command.args[0]).toBe('issue');
+    expect(command.args[1]).toBe('create');
+    expect(command.args.join(' ')).toContain('docs/gone.md');
+    expect(command.args.join(' ')).toContain('docs/also-gone.md');
+    expect(command.details).toContain('README.md');
+  });
+});
+
+describe('readMirrorPassLinkDrift', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-mirror-pass-links-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  });
+
+  it('reports every link that does not resolve against the repo root', () => {
+    const readmePath = join(dir, 'README.md');
+    mkdirSync(join(dir, 'docs'));
+    writeFileSync(join(dir, 'docs', 'real.md'), '# real');
+    writeFileSync(readmePath, '[real doc](docs/real.md) and [ghost doc](docs/ghost.md)');
+
+    expect(readMirrorPassLinkDrift(readmePath, dir)).toEqual({
+      action: 'file-broken-link-issue',
+      source: 'README.md',
+      brokenLinks: ['docs/ghost.md'],
+    });
+  });
+
+  it('returns null when every link resolves', () => {
+    const readmePath = join(dir, 'README.md');
+    mkdirSync(join(dir, 'docs'));
+    writeFileSync(join(dir, 'docs', 'real.md'), '# real');
+    writeFileSync(readmePath, '[real doc](docs/real.md)');
+
+    expect(readMirrorPassLinkDrift(readmePath, dir)).toBeNull();
+  });
+
+  it('returns null rather than throwing when the doc is missing', () => {
+    expect(readMirrorPassLinkDrift(join(dir, 'missing.md'), dir)).toBeNull();
   });
 });
