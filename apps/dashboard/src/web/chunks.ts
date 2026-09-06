@@ -97,6 +97,7 @@ export const DEFERRED_OPERATOR_FEATURES: readonly string[] = [
   'tour',
   'report-capture-client',
   'report-menu',
+  'update',
   'locale-data',
 ];
 
