@@ -64,10 +64,14 @@ function restrictToOwnerWindows(path: string): void {
     [
       path,
       '/inheritance:r',
-      '/grant:r', `${user}:F`,
-      '/remove:g', '*S-1-1-0',
-      '/remove:g', '*S-1-5-32-545',
-      '/remove:g', '*S-1-5-11',
+      '/grant:r',
+      `${user}:F`,
+      '/remove:g',
+      '*S-1-1-0',
+      '/remove:g',
+      '*S-1-5-32-545',
+      '/remove:g',
+      '*S-1-5-11',
     ],
     { stdio: 'ignore', windowsHide: true },
   );
