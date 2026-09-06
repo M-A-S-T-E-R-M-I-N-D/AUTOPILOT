@@ -62,6 +62,15 @@
  * `firingTimelineNode(c)` — a call site that stays a bare, unimported
  * identifier reference in `fleetJs()`'s own served text, the same reason
  * every whole-region move's own call site already relies on.
+ * i18n (board web-msnsndki-dz3vn1): the Firing Replay playback controls —
+ * the "▶ Step through" toggle and the Prev / Next / Exit bar — carry
+ * `data-i18n` / `data-i18n-aria` / `data-i18n-tip` keys (`replay*` in
+ * `@autopilot/tokens`' `STRINGS`) next to their English literals, so
+ * `translateDom()` (called by `renderFleet()` after every rebuild, and by a
+ * mid-session locale switch) repaints them in place. The "Step N of M"
+ * position label is an aria-live region whose text `replayNav()` composes,
+ * so only its tip is tagged; the diff toggle and the loading/empty
+ * placeholders in the same row stay English for a later slice.
  */
 import { groupByFiring, firingLogEntry } from '../activity-log.js';
 import { trajectorySignalOf, firingTimelineRowMeta } from '../flight-metrics.js';
@@ -256,16 +265,26 @@ function firingTimelineSection(c) {
         prevBtn.disabled = !nav.canPrev;
         // D1 ATTRIBUTE PAYLOAD (epic 0015): aria-label states the action
         // concisely — the full sentence lives in data-tip alone.
+        // i18n (board web-msnsndki-dz3vn1): text, aria-label and tip each
+        // carry their STRINGS key so translateDom() — renderFleet()'s own
+        // post-render sweep AND a mid-session locale switch — repaints them
+        // in place; the English literals stay as the byte-identical default.
         prevBtn.setAttribute('aria-label', 'Previous action');
+        prevBtn.setAttribute('data-i18n-aria', 'replayPrevAria');
         prevBtn.setAttribute('data-tip', 'Step back to the previous action in this replay');
+        prevBtn.setAttribute('data-i18n-tip', 'replayPrevTip');
         prevBtn.textContent = '‹ Prev';
+        prevBtn.setAttribute('data-i18n', 'replayPrev');
         navBar.appendChild(prevBtn);
         var navLabel = el('span', 'replay-nav-label', nav.label);
         navLabel.setAttribute('role', 'status');
         navLabel.setAttribute('aria-live', 'polite');
         // data-tip + tabindex only — an aria-label here would replace the
-        // live region's announced "Step N of M" text with the tip.
+        // live region's announced "Step N of M" text with the tip. Only the
+        // tip is tagged for i18n: a [data-i18n] sweep would overwrite the
+        // live "Step N of M" text replayNav() composes.
         navLabel.setAttribute('data-tip', 'Your position in this replay — Left and Right arrow keys also step');
+        navLabel.setAttribute('data-i18n-tip', 'replayPositionTip');
         navLabel.setAttribute('tabindex', '0');
         navBar.appendChild(navLabel);
         var nextBtn = document.createElement('button');
@@ -275,17 +294,24 @@ function firingTimelineSection(c) {
         nextBtn.setAttribute('data-replay-pid', c.id);
         nextBtn.disabled = !nav.canNext;
         nextBtn.setAttribute('aria-label', 'Next action');
+        nextBtn.setAttribute('data-i18n-aria', 'replayNextAria');
         nextBtn.setAttribute('data-tip', 'Advance to the next action in this replay');
+        nextBtn.setAttribute('data-i18n-tip', 'replayNextTip');
         nextBtn.textContent = 'Next ›';
+        nextBtn.setAttribute('data-i18n', 'replayNext');
         navBar.appendChild(nextBtn);
         var exitBtn = document.createElement('button');
         exitBtn.type = 'button';
         exitBtn.className = 'replay-nav-exit';
         exitBtn.setAttribute('data-replay-exit', g.firingId);
         exitBtn.setAttribute('data-replay-pid', c.id);
+        // Text and aria-label are the same sentence, so ONE key serves both.
         exitBtn.setAttribute('aria-label', 'Exit replay');
+        exitBtn.setAttribute('data-i18n-aria', 'replayExit');
         exitBtn.setAttribute('data-tip', 'Leave playback and show the full trace list');
+        exitBtn.setAttribute('data-i18n-tip', 'replayExitTip');
         exitBtn.textContent = 'Exit replay';
+        exitBtn.setAttribute('data-i18n', 'replayExit');
         navBar.appendChild(exitBtn);
         wrap.appendChild(navBar);
       } else {
@@ -309,12 +335,17 @@ function firingTimelineSection(c) {
           replayToggle.setAttribute('data-replay-pid', c.id);
           // D1 ATTRIBUTE PAYLOAD (epic 0015): aria-label states the action
           // concisely — the full sentence lives in data-tip alone.
+          // i18n (board web-msnsndki-dz3vn1): tagged like the Prev/Next/Exit
+          // bar above — same three keys per control, same sweep.
           replayToggle.setAttribute('aria-label', 'Step through');
+          replayToggle.setAttribute('data-i18n-aria', 'replayStartAria');
           replayToggle.setAttribute(
             'data-tip',
             'Replay this firing one action at a time with Prev and Next controls',
           );
+          replayToggle.setAttribute('data-i18n-tip', 'replayStartTip');
           replayToggle.textContent = '▶ Step through';
+          replayToggle.setAttribute('data-i18n', 'replayStart');
           wrap.appendChild(replayToggle);
         }
       }
