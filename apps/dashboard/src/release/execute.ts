@@ -245,9 +245,7 @@ export function createReleaseExecuteApi(
             );
           }
           touchedPaths.push(
-            ...CITATION_OUTPUT_RELATIVE_PATHS.filter((p) =>
-              existsSync(join(project.root_path, p)),
-            ),
+            ...CITATION_OUTPUT_RELATIVE_PATHS.filter((p) => existsSync(join(project.root_path, p))),
           );
         },
         paths: () => touchedPaths,
