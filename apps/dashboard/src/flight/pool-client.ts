@@ -57,7 +57,12 @@
 
 import { createTask, DIMENSIONS, type CreateTaskInput, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
-import { POOL_LABEL_PREFIX, parseIssueLabels, issueTaskId } from './issue-triage.js';
+import {
+  POOL_LABEL_PREFIX,
+  parseIssueLabels,
+  parseAssignees,
+  issueTaskId,
+} from './issue-triage.js';
 import { fetchViewerLogin } from './pr-review.js';
 
 /** One open, pool-labeled GitHub issue — the subset `gh issue list` reports
@@ -104,20 +109,6 @@ interface RawPoolIssue {
   readonly url?: unknown;
   readonly labels?: unknown;
   readonly assignees?: unknown;
-}
-
-/** `gh`'s `assignees` field is an array of `{ login, ... }` objects — the
- *  same shaped-object-array convention `parseIssueLabels` reduces `labels`
- *  from, reduced here to just the login strings. */
-function parseAssignees(raw: unknown): readonly string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((assignee: unknown) =>
-      typeof assignee === 'object' && assignee !== null
-        ? (assignee as { login?: unknown }).login
-        : undefined,
-    )
-    .filter((login): login is string => typeof login === 'string');
 }
 
 /**
