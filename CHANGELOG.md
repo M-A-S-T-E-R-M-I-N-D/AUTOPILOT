@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-09-06
+
+### Added
+
+- feat(i18n): translate the fleet card gauge-label tips and last-activity aria prefix
+- feat(i18n): translate the Tasks "Add a task" form via data-i18n keys
+- feat(i18n): translate the SOUL propose, github-sync, and github-pr handler status lines via tr()
+- feat(i18n): translate the Inbox "Drop a note" form and its status lines
+
 ## [0.23.0] — 2026-09-05
 
 ### Added
