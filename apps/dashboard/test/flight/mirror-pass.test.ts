@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   issueNumberFromTaskId,
   planMirrorPassReconcile,
@@ -14,6 +17,10 @@ import {
   planMirrorPassLandingNoteBatch,
   fetchIssueComments,
   fetchMirrorPassIssueComments,
+  extractReadmeVersionClaim,
+  planMirrorPassVersionDrift,
+  planMirrorPassVersionDriftCommand,
+  readMirrorPassVersionDrift,
   type MirrorPassTaskCandidate,
   type MirrorPassIssueState,
 } from '../../src/flight/mirror-pass.js';
@@ -415,5 +422,126 @@ describe('fetchMirrorPassIssueComments', () => {
     expect(comments.get(1)).toEqual(['noted']);
     expect(comments.has(2)).toBe(false);
     expect(comments.has(3)).toBe(false);
+  });
+});
+
+describe('extractReadmeVersionClaim', () => {
+  it('parses the "Current version **X.Y.Z**" convention', () => {
+    expect(extractReadmeVersionClaim('Current version **0.25.0** — see below.')).toBe('0.25.0');
+  });
+
+  it('is case-insensitive on "current version"', () => {
+    expect(extractReadmeVersionClaim('CURRENT VERSION **1.2.3**')).toBe('1.2.3');
+  });
+
+  it('returns null when the text carries no version claim', () => {
+    expect(extractReadmeVersionClaim('# Project\n\nNo version prose here.')).toBeNull();
+  });
+});
+
+describe('planMirrorPassVersionDrift', () => {
+  it('returns null when the readme has no version claim', () => {
+    expect(planMirrorPassVersionDrift('# Project', '0.25.0')).toBeNull();
+  });
+
+  it('returns null when the claim matches the tree', () => {
+    expect(
+      planMirrorPassVersionDrift('Current version **0.25.0** — see below.', '0.25.0'),
+    ).toBeNull();
+  });
+
+  it('plans a finding when the claim disagrees with the tree', () => {
+    const finding = planMirrorPassVersionDrift('Current version **0.24.0** — see below.', '0.25.0');
+    expect(finding).toEqual({
+      action: 'file-version-drift-issue',
+      source: 'README.md',
+      claimedVersion: '0.24.0',
+      actualVersion: '0.25.0',
+    });
+  });
+
+  it('records the given source label instead of the default', () => {
+    const finding = planMirrorPassVersionDrift(
+      'Current version **0.24.0**.',
+      '0.25.0',
+      'docs/GUIDE.md',
+    );
+    expect(finding?.source).toBe('docs/GUIDE.md');
+  });
+});
+
+describe('planMirrorPassVersionDriftCommand', () => {
+  it('plans a gh issue create call naming both versions', () => {
+    const command = planMirrorPassVersionDriftCommand({
+      action: 'file-version-drift-issue',
+      source: 'README.md',
+      claimedVersion: '0.24.0',
+      actualVersion: '0.25.0',
+    });
+    expect(command.command).toBe('gh');
+    expect(command.args[0]).toBe('issue');
+    expect(command.args[1]).toBe('create');
+    expect(command.args.join(' ')).toContain('0.24.0');
+    expect(command.args.join(' ')).toContain('0.25.0');
+    expect(command.details).toContain('README.md');
+  });
+});
+
+describe('readMirrorPassVersionDrift', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-mirror-pass-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  });
+
+  it('reports a drift when the readme and package.json disagree', () => {
+    const readmePath = join(dir, 'README.md');
+    const packageJsonPath = join(dir, 'package.json');
+    writeFileSync(readmePath, 'Current version **0.24.0** — see below.');
+    writeFileSync(packageJsonPath, JSON.stringify({ version: '0.25.0' }));
+
+    expect(readMirrorPassVersionDrift(readmePath, packageJsonPath)).toEqual({
+      action: 'file-version-drift-issue',
+      source: 'README.md',
+      claimedVersion: '0.24.0',
+      actualVersion: '0.25.0',
+    });
+  });
+
+  it('returns null when the readme and package.json agree', () => {
+    const readmePath = join(dir, 'README.md');
+    const packageJsonPath = join(dir, 'package.json');
+    writeFileSync(readmePath, 'Current version **0.25.0** — see below.');
+    writeFileSync(packageJsonPath, JSON.stringify({ version: '0.25.0' }));
+
+    expect(readMirrorPassVersionDrift(readmePath, packageJsonPath)).toBeNull();
+  });
+
+  it('returns null rather than throwing when the readme is missing', () => {
+    const packageJsonPath = join(dir, 'package.json');
+    writeFileSync(packageJsonPath, JSON.stringify({ version: '0.25.0' }));
+
+    expect(readMirrorPassVersionDrift(join(dir, 'missing.md'), packageJsonPath)).toBeNull();
+  });
+
+  it('returns null rather than throwing on unparseable package.json', () => {
+    const readmePath = join(dir, 'README.md');
+    const packageJsonPath = join(dir, 'package.json');
+    writeFileSync(readmePath, 'Current version **0.25.0** — see below.');
+    writeFileSync(packageJsonPath, '{ not json');
+
+    expect(readMirrorPassVersionDrift(readmePath, packageJsonPath)).toBeNull();
+  });
+
+  it('returns null when package.json has no string version', () => {
+    const readmePath = join(dir, 'README.md');
+    const packageJsonPath = join(dir, 'package.json');
+    writeFileSync(readmePath, 'Current version **0.25.0** — see below.');
+    writeFileSync(packageJsonPath, JSON.stringify({ version: 42 }));
+
+    expect(readMirrorPassVersionDrift(readmePath, packageJsonPath)).toBeNull();
   });
 });
