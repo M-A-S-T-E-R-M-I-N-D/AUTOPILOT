@@ -69,7 +69,10 @@
  * `translateDom()` (called by `renderFleet()` after every rebuild, and by a
  * mid-session locale switch) repaints them in place. The "Step N of M"
  * position label is an aria-live region whose text `replayNav()` composes,
- * so only its tip is tagged. The same row's "View diff" / "Hide diff"
+ * so the bundle's `tr` is injected into that spliced helper (the
+ * `flightProgressOf` route) and the label carries a `data-i18n-template`
+ * plus a `data-i18n-args` `{step}`/`{total}` map for the sweep, never a
+ * fixed-text `data-i18n` tag. The same row's "View diff" / "Hide diff"
  * toggle carries one state-aware key for its text AND aria-label
  * (`diffView` / `diffHide` — the two are identical) plus a matching tip key,
  * and the "Loading full trace…" / "Loading diff…" / "No diff available"
@@ -264,7 +267,10 @@ function firingTimelineSection(c) {
       var replayIndex = replaySteps[cacheKey];
       var inReplay = typeof replayIndex === 'number';
       if (inReplay) {
-        var nav = replayNav(replayIndex, traceEntries.length);
+        // i18n (board web-msnsndki-dz3vn1): the bundle's tr rides into the
+        // spliced helper so the "Step N of M" label is painted in the active
+        // locale at build, the same injection route flightProgressOf takes.
+        var nav = replayNav(replayIndex, traceEntries.length, tr);
         var replayUl = el('ul', 'activity firing-detail firing-replay-single');
         if (traceEntries.length) replayUl.appendChild(actRow(traceEntries[nav.index], true));
         // D1 TAB-STOP ROVING: the single replayed row is still an .activity
@@ -297,9 +303,13 @@ function firingTimelineSection(c) {
         navLabel.setAttribute('role', 'status');
         navLabel.setAttribute('aria-live', 'polite');
         // data-tip + tabindex only — an aria-label here would replace the
-        // live region's announced "Step N of M" text with the tip. Only the
-        // tip is tagged for i18n: a [data-i18n] sweep would overwrite the
-        // live "Step N of M" text replayNav() composes.
+        // live region's announced "Step N of M" text with the tip. The text
+        // is a two-slot template: data-i18n-template plus a data-i18n-args
+        // map let translateDom() flip it in place on a locale switch — never
+        // a plain [data-i18n] tag, which would paint a fixed string over the
+        // composed position replayNav() painted.
+        navLabel.setAttribute('data-i18n-template', nav.total > 0 ? 'replayPosition' : 'replayNoSteps');
+        navLabel.setAttribute('data-i18n-args', JSON.stringify({ step: nav.index + 1, total: nav.total }));
         navLabel.setAttribute('data-tip', 'Your position in this replay — Left and Right arrow keys also step');
         navLabel.setAttribute('data-i18n-tip', 'replayPositionTip');
         navLabel.setAttribute('tabindex', '0');

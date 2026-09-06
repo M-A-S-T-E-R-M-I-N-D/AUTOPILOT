@@ -75,3 +75,35 @@ describe('replayNav', () => {
     expect(nav.label).toBe('No steps');
   });
 });
+
+// i18n (board web-msnsndki-dz3vn1): the label is a two-slot template, so the
+// bundle's tr() rides in as an optional third param — the flightProgressOf
+// route — and the English above stays the byte-identical no-translator default.
+describe('replayNav with an injected translator', () => {
+  it('asks the translator for the {step}/{total} template with the 1-based step', () => {
+    const calls: unknown[] = [];
+    const tr = (key: string, subs?: Readonly<Record<string, string | number>>): string => {
+      calls.push([key, subs]);
+      return `<${key}>`;
+    };
+
+    const nav = replayNav(1, 4, tr);
+
+    expect(nav.label).toBe('<replayPosition>');
+    expect(calls).toEqual([['replayPosition', { step: 2, total: 4 }]]);
+  });
+
+  it('clamps the index before filling the {step} slot', () => {
+    const tr = (_key: string, subs?: Readonly<Record<string, string | number>>): string =>
+      `${subs?.['step']}/${subs?.['total']}`;
+
+    expect(replayNav(99, 4, tr).label).toBe('4/4');
+    expect(replayNav(-3, 4, tr).label).toBe('1/4');
+  });
+
+  it('asks the translator for the "No steps" key on an empty trace', () => {
+    const tr = (key: string): string => `<${key}>`;
+
+    expect(replayNav(0, 0, tr).label).toBe('<replayNoSteps>');
+  });
+});

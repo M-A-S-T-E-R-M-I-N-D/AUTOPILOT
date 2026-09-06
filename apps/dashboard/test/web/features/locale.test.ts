@@ -59,8 +59,36 @@ describe('localeJs', () => {
       "document.querySelectorAll('[data-i18n-template]').forEach((el) => {",
     );
     expect(localeJs()).toContain('const tpl = table[el.dataset.i18nTemplate];');
-    expect(localeJs()).toContain('if (tpl) el.textContent = fillTemplate(tpl, el, table);');
     expect(localeJs()).toContain("let text = substituteName(tpl, el.dataset.i18nName || '');");
+  });
+
+  it('the [data-i18n-template] sweep only writes textContent on a real change — an aria-live region must not re-announce an identical repaint', () => {
+    expect(localeJs()).toContain('const text = fillTemplate(tpl, el, table);');
+    expect(localeJs()).toContain('if (el.textContent !== text) el.textContent = text;');
+  });
+
+  it('fillTemplate fills any other {slot} from the element’s data-i18n-args JSON map — the DOM twin of tr()’s substitution map', () => {
+    const { fillTemplate } = new Function(`${localeJs()}\nreturn { fillTemplate };`)();
+    const el = { dataset: { i18nArgs: JSON.stringify({ step: 2, total: 5 }) } };
+    expect(fillTemplate('Step {step} of {total}', el, {})).toBe('Step 2 of 5');
+    // Every occurrence, and {name}/{label}/{tip} still fill from their own sources.
+    const both = {
+      dataset: { i18nName: 'Ada', i18n: 'flyIt', i18nArgs: JSON.stringify({ n: 3 }) },
+    };
+    expect(fillTemplate('{name}: {label} ×{n} ({n})', both, { flyIt: 'Go' })).toBe(
+      'Ada: Go ×3 (3)',
+    );
+  });
+
+  it('fillTemplate leaves the slots alone on a missing or malformed data-i18n-args, rather than taking the whole sweep down', () => {
+    const { fillTemplate } = new Function(`${localeJs()}\nreturn { fillTemplate };`)();
+    expect(fillTemplate('Step {step} of {total}', { dataset: {} }, {})).toBe(
+      'Step {step} of {total}',
+    );
+    expect(fillTemplate('Step {step}', { dataset: { i18nArgs: '{not json' } }, {})).toBe(
+      'Step {step}',
+    );
+    expect(fillTemplate('Step {step}', { dataset: { i18nArgs: 'null' } }, {})).toBe('Step {step}');
   });
 
   it('fillTemplate fills {label}/{tip} from the table entries for the element’s OWN data-i18n / data-i18n-tip keys, after {name}', () => {
@@ -123,9 +151,9 @@ describe('localeJs', () => {
   });
 
   it('tr substitutes every placeholder in a substitution map, for templates needing more than one value', () => {
-    expect(localeJs()).toContain(
-      "return Object.keys(subs).reduce((t, k) => t.split('{' + k + '}').join(String(subs[k])), text);",
-    );
+    expect(localeJs()).toContain('return substituteMap(text, subs);');
+    const { substituteMap } = new Function(`${localeJs()}\nreturn { substituteMap };`)();
+    expect(substituteMap('{a} and {b}, {a} again', { a: 1, b: 'two' })).toBe('1 and two, 1 again');
   });
 
   it('is trimmed — no leading/trailing whitespace', () => {

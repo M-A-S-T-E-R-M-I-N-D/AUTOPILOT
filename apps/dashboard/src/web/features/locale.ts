@@ -36,6 +36,14 @@
  * (`statusAria`, on a pill already tagged with its label and tip keys) was
  * the first; without it every status would need a third hand-synced aria
  * string that could drift from its own label and tip.
+ * A template with two or more live values — the Firing Replay's "Step
+ * {step} of {total}" position label (`replayPosition`) was the first —
+ * carries them as a `data-i18n-args` JSON map, the DOM twin of `tr()`'s
+ * substitution map below: every `{key}` in the template fills from its
+ * matching entry (`parseArgs()` treats a malformed map as empty rather than
+ * letting one bad attribute take the whole sweep down). That text sweep
+ * also writes only on a real change, since that label is an aria-live
+ * region and an identical repaint would re-announce it.
  *
  * `tr(key, subs?)` is the client-side mirror of `@autopilot/tokens`' own
  * server-side `translate()`, for the handful of translatable strings that
@@ -117,16 +125,28 @@ let STRINGS = { en: ${stringsEn} };
 function substituteName(tpl, name) {
   return tpl.split('{name}').join(name);
 }
+function substituteMap(text, subs) {
+  return Object.keys(subs).reduce((t, k) => t.split('{' + k + '}').join(String(subs[k])), text);
+}
+function parseArgs(json) {
+  // A missing map is the common case; a malformed one (never written by this
+  // bundle) leaves its slots alone rather than taking the whole sweep — and
+  // renderFleet() — down with it.
+  if (!json) return {};
+  try { return JSON.parse(json) || {}; } catch { return {}; }
+}
 function fillTemplate(tpl, el, table) {
   // {name} is the element's live value (data-i18n-name); {label}/{tip} are the
   // table's entries for the element's OWN data-i18n / data-i18n-tip keys, so
   // an attribute composed of its translated text + tip recomposes in place.
+  // Any other {slot} fills from data-i18n-args, a JSON map — the DOM twin of
+  // tr()'s substitution map — for a template with two or more live values.
   const label = table[el.dataset.i18n];
   const tip = table[el.dataset.i18nTip];
   let text = substituteName(tpl, el.dataset.i18nName || '');
   if (label) text = text.split('{label}').join(label);
   if (tip) text = text.split('{tip}').join(tip);
-  return text;
+  return substituteMap(text, parseArgs(el.dataset.i18nArgs));
 }
 function translateDom(l) {
   const table = STRINGS[l] || STRINGS.en;
@@ -148,7 +168,12 @@ function translateDom(l) {
   });
   document.querySelectorAll('[data-i18n-template]').forEach((el) => {
     const tpl = table[el.dataset.i18nTemplate];
-    if (tpl) el.textContent = fillTemplate(tpl, el, table);
+    if (!tpl) return;
+    // Write only on a real change: the replay's "Step N of M" label is an
+    // aria-live region, and an identical repaint (every renderFleet() tick
+    // sweeps) would otherwise re-announce the unchanged position.
+    const text = fillTemplate(tpl, el, table);
+    if (el.textContent !== text) el.textContent = text;
   });
   document.querySelectorAll('[data-i18n-aria-template]').forEach((el) => {
     const tpl = table[el.dataset.i18nAriaTemplate];
@@ -161,7 +186,7 @@ function tr(key, subs) {
   const text = table[key] || STRINGS.en[key];
   if (subs == null) return text;
   if (typeof subs === 'string') return substituteName(text, subs);
-  return Object.keys(subs).reduce((t, k) => t.split('{' + k + '}').join(String(subs[k])), text);
+  return substituteMap(text, subs);
 }
 function applyLocale(l) {
   document.documentElement.lang = l;

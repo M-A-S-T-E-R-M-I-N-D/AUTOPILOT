@@ -486,9 +486,9 @@
  * toggle and the Prev / Next / Exit bar it opens — visible text via
  * `data-i18n`, concise aria-label via `data-i18n-aria`, full tip via
  * `data-i18n-tip` (`replay*`). The "Step N of M" position label is an
- * aria-live region whose text `replayNav()` composes, so only its tip is
- * tagged — the label itself stays English until that helper takes a
- * template. The next slice tags the same row's "View diff" / "Hide diff"
+ * aria-live region whose text `replayNav()` composes, so only its tip was
+ * tagged there — a later slice (below) makes it a two-slot template.
+ * The next slice tags the same row's "View diff" / "Hide diff"
  * toggle (`diffView` / `diffHide`, one state-aware key for text and
  * aria-label; `diffViewTip` / `diffHideTip` for the tip) and its three
  * muted placeholders (`traceLoading`, `diffLoading`, `diffEmpty`).
@@ -502,6 +502,13 @@
  * on a flat row, `flightSliceCostTip` / `flightSliceAgoTip` on a slice-run
  * group's member rows, `flightGroupAgoTip` on its collapsed head) — the
  * chips' text and aria-labels are composed from live values and stay as-is.
+ * The slice after that finishes the replay's "Step N of M" position label
+ * (`replayPosition`, a `{step}`/`{total}` template; `replayNoSteps` for an
+ * empty trace): the bundle's `tr` is injected into the spliced `replayNav()`
+ * the way `flightProgressOf()` takes it, and the label carries its slots as
+ * a `data-i18n-args` JSON map — new to `translateDom()`'s template sweep,
+ * the DOM twin of `tr()`'s substitution map — so a mid-session switch flips
+ * the live region in place.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -672,11 +679,13 @@ const EN_STRINGS = {
   // [data-i18n-aria], its full data-tip [data-i18n-tip] — Exit's text and
   // aria-label share replayExit, the D1 attribute-payload audit having
   // already made them identical. The "Step N of M" position label between
-  // Prev and Next is an aria-live region whose announced text is
-  // replayNav()'s own composed string (web/replay-nav.ts), so only its tip
-  // (replayPositionTip) is tagged; the label stays English until that
-  // helper takes a template. The ‹ › glyphs are bidi-mirrored characters,
-  // so Hebrew keeps them: the browser flips them with the layout.
+  // Prev and Next is an aria-live region whose announced text replayNav()
+  // (web/replay-nav.ts) composes, so it is a two-slot {step}/{total}
+  // template (replayPosition; replayNoSteps for an empty trace) the bundle's
+  // tr() fills inside the spliced helper, and the element carries the slots
+  // as a data-i18n-args map for the sweep — never a fixed-text data-i18n
+  // tag. The ‹ › glyphs are bidi-mirrored characters, so Hebrew keeps them:
+  // the browser flips them with the layout.
   replayStart: '▶ Step through',
   replayStartAria: 'Step through',
   replayStartTip: 'Replay this firing one action at a time with Prev and Next controls',
@@ -684,6 +693,8 @@ const EN_STRINGS = {
   replayPrevAria: 'Previous action',
   replayPrevTip: 'Step back to the previous action in this replay',
   replayPositionTip: 'Your position in this replay — Left and Right arrow keys also step',
+  replayPosition: 'Step {step} of {total}',
+  replayNoSteps: 'No steps',
   replayNext: 'Next ›',
   replayNextAria: 'Next action',
   replayNextTip: 'Advance to the next action in this replay',
@@ -1267,6 +1278,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     replayPrevAria: 'הפעולה הקודמת',
     replayPrevTip: 'חזרה לפעולה הקודמת בשחזור הזה',
     replayPositionTip: 'המיקום שלכם בשחזור הזה — גם מקשי החצים שמאלה וימינה מדפדפים בין הצעדים',
+    replayPosition: 'צעד {step} מתוך {total}',
+    replayNoSteps: 'אין צעדים',
     replayNext: 'הבא ›',
     replayNextAria: 'הפעולה הבאה',
     replayNextTip: 'מעבר לפעולה הבאה בשחזור הזה',

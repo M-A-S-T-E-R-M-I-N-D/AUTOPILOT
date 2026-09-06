@@ -34,15 +34,33 @@ export function clampReplayStep(index: number, total: number): number {
   return index;
 }
 
+/** The STRINGS keys {@link replayNav} asks its injected translator for — the
+ *  `{step}`/`{total}` position template and the empty-trace fallback. */
+export type ReplayNavKey = 'replayPosition' | 'replayNoSteps';
+
+/** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected into
+ *  {@link replayNav} the way `flightProgressOf` takes it (i18n, board
+ *  web-msnsndki-dz3vn1) — this function stays spliced into `/app.js` via
+ *  `.toString()`, so it cannot import a translator. Without one the label is
+ *  the byte-identical English default. */
+export type ReplayNavTranslator = (
+  key: ReplayNavKey,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
 /** The playback controls' position — "Step N of M" plus which direction can
  *  still move — derived from a raw (possibly out-of-range) index. */
-export function replayNav(index: number, total: number): ReplayNav {
+export function replayNav(index: number, total: number, tr?: ReplayNavTranslator): ReplayNav {
   const clamped = clampReplayStep(index, total);
+  const step = clamped + 1;
+  let label: string;
+  if (total > 0) label = tr ? tr('replayPosition', { step, total }) : `Step ${step} of ${total}`;
+  else label = tr ? tr('replayNoSteps') : 'No steps';
   return {
     index: clamped,
     total,
     canPrev: total > 0 && clamped > 0,
     canNext: total > 0 && clamped < total - 1,
-    label: total > 0 ? `Step ${clamped + 1} of ${total}` : 'No steps',
+    label,
   };
 }
