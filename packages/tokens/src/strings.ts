@@ -639,15 +639,30 @@ const EN_STRINGS = {
   prReviewApplying: 'Applying…',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
-  // the "no release tags yet" fallback. roundSinceLabel/roundStatItems'
-  // chip labels (packages/tokens's sibling web/stat-tiles.ts) stay
-  // English-only for now, the same incremental-slice reasoning every other
-  // still-untranslated surface follows.
+  // the "no release tags yet" fallback.
   roundTitle: '🔄 This round',
   roundLoading: 'Loading round totals…',
   roundUnavailable: 'Round totals unavailable.',
   roundNoTags: 'No release tags yet — every firing counts toward the round so far.',
   roundSinceTagTip: 'This project’s most recently created git tag',
+  // web/stat-tiles.ts's roundSinceLabel/roundStatItems (board
+  // web-msnsndki-dz3vn1): the "since <tag>" chip and the firings/shipped/
+  // spend/ship-rate chips' tip word and composed aria-label, the last
+  // surface round-panel.ts's own note had left "English-only for now".
+  // `tr` rides injection the same route flightProgressOf's clauses take
+  // (a pure math module spliced via .toString() cannot import a
+  // translator), so each locale's grammar decides where {tag}/{ago}/{n}/
+  // {cost}/{pct} land.
+  roundSinceChip: 'since {tag} · {ago}',
+  roundSinceChipAria: 'round boundary: since {tag}, {ago}',
+  roundFiringsTip: 'Firings this round',
+  roundFiringsAria: '{n} firings this round',
+  roundShippedTip: 'Shipped this round',
+  roundShippedAria: '{n} shipped this round',
+  roundSpendTip: 'Spend this round',
+  roundSpendAria: 'cost this round: {cost}',
+  roundShipRateTip: 'Ship rate this round',
+  roundShipRateAria: 'ship rate this round: {pct}',
   budgetMode: 'Budget mode: fixed firing count or total spend target',
   budgetModeLabel: 'Budget mode',
   activeFlights: 'Active flights',
@@ -1304,6 +1319,16 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
     roundNoTags: 'עדיין אין תגיות שחרור — כל הפעלה נספרת לסבב עד כה.',
     roundSinceTagTip: 'תגית ה-git האחרונה שנוצרה עבור הפרויקט הזה',
+    roundSinceChip: 'מאז {tag} · {ago}',
+    roundSinceChipAria: 'גבול הסבב: מאז {tag}, {ago}',
+    roundFiringsTip: 'הפעלות בסבב הזה',
+    roundFiringsAria: '{n} הפעלות בסבב הזה',
+    roundShippedTip: 'שוחרר בסבב הזה',
+    roundShippedAria: '{n} שוחררו בסבב הזה',
+    roundSpendTip: 'הוצאה בסבב הזה',
+    roundSpendAria: 'עלות בסבב הזה: {cost}',
+    roundShipRateTip: 'שיעור שילוח בסבב הזה',
+    roundShipRateAria: 'שיעור שילוח בסבב הזה: {pct}',
     budgetMode: 'מצב תקציב: מספר הפעלות קבוע או יעד הוצאה כולל',
     budgetModeLabel: 'מצב תקציב',
     activeFlights: 'טיסות פעילות',
