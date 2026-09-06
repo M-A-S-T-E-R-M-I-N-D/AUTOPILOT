@@ -916,6 +916,13 @@ const EN_STRINGS = {
   githubSyncing: 'Syncing…',
   githubPrOpening: 'opening…',
   githubRequestFailed: '✗ Request failed — try again shortly.',
+  // web/card-actions.ts's githubSyncExecuteResult/githubPrExecuteResult
+  // fallback text — used only when the server response carries no
+  // details/error of its own.
+  githubSyncResultOk: 'synced.',
+  githubSyncResultFail: 'sync failed.',
+  githubPrResultOk: 'pull request opened.',
+  githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
   publicityPanel: 'Publicity',
   pipelineView: 'Pipeline view',
@@ -1519,6 +1526,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubSyncing: 'מסנכרן…',
     githubPrOpening: 'פותח…',
     githubRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
+    githubSyncResultOk: 'סונכרן.',
+    githubSyncResultFail: 'הסנכרון נכשל.',
+    githubPrResultOk: 'ה-pull request נפתח.',
+    githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',
     publicityPanel: 'פרסום',
     pipelineView: 'תצוגת צנרת',
