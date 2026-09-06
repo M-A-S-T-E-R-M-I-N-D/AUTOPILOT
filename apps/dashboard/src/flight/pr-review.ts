@@ -346,6 +346,26 @@ export interface PrReviewCandidate {
    *  merge may treat as clean. Narrowing-only: never moves a decision toward
    *  merge. */
   readonly unresolvedReviewThreads?: number;
+  /** The ids of this PR head's workflow run(s) CONFIRMED stuck in GitHub's
+   *  `action_required` status — the documented state a run sits in while
+   *  "Approving workflow runs from public forks" awaits a maintainer's click
+   *  (GitHub REST docs, the Actions `actions/runs` `status` enum), most
+   *  commonly a first-time contributor's fork PR. `gh pr list`'s
+   *  `statusCheckRollup` cannot see this state at all: an unapproved run has
+   *  not started any jobs yet, so it mints no check-run entry for the
+   *  rollup to report — indistinguishable there from a workflow that never
+   *  triggered at all (wrong base branch) or a page of only "(optional)"
+   *  checks, all of which already collapse to `gateStatus: 'unreported'`.
+   *  {@link annotateAwaitingApproval} reads the Actions run list separately
+   *  (`gh api .../actions/runs`, filtered server-side to
+   *  `event=pull_request&status=action_required`) to tell those apart.
+   *  Optional and present only when non-empty: absent means "not confirmed"
+   *  (no matching run found, or the read failed/never ran), which behaves
+   *  exactly like today's generic unreported reasoning — this field can only
+   *  make that reasoning MORE SPECIFIC, never change the decision kind
+   *  (`gateStatus !== 'pass'` already fails every merge path before this is
+   *  ever consulted). */
+  readonly awaitingApprovalRunIds?: readonly number[];
 }
 
 /**
@@ -776,6 +796,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // any security keyword; directory-prefixed like every `flight/*` entry so
   // a future `web/report-from-here-panel.ts` display panel stays unflagged.
   'flight/report-from-here',
+  // The mirror-pass ritual (epic 0016 slice 2): decides whether a GitHub
+  // issue backing a `github-<n>` board task should be closed (with a
+  // landing-commit note) or reopened, and plans the `gh issue
+  // close`/`reopen`/`comment` argv to do it — the same decide-and-eventually-
+  // execute class `flight/issue-triage` above is flagged for, ending in
+  // neither `-execute.ts` nor any security keyword.
+  'flight/mirror-pass',
   // Dispatches the ARCHITECT chat control tools' write/DESTRUCTIVE store
   // operations (tasks_create/set-status/reorder/delete, project_reset) and
   // owns their argument validation itself — server.ts leaves it only the
@@ -1708,6 +1735,19 @@ function decidePrReview(pr: PrReviewCandidate, policy: PrReviewAutoMergePolicy):
   // conflict verdict, exactly where a pending gate sits) so the ordering
   // stays one shape; narrowing-only, since neither kind merges.
   if (pr.gateStatus === 'unreported') {
+    if (pr.awaitingApprovalRunIds && pr.awaitingApprovalRunIds.length > 0) {
+      const runIds = pr.awaitingApprovalRunIds.join(', ');
+      return {
+        decision: 'queue-for-human',
+        reasoning:
+          `#${pr.number} "${pr.title}" — its workflow run(s) (id ${runIds}) are CONFIRMED ` +
+          'stuck in GitHub\'s "action_required" status: waiting on a maintainer to approve ' +
+          "them before they run at all (most commonly a first-time contributor's fork PR) " +
+          '— not a missing or failed gate. Approve directly, for each id above: `gh api ' +
+          '--method POST repos/{owner}/{repo}/actions/runs/<id>/approve`; the next pass ' +
+          're-judges it once the approved run reports a real conclusion.',
+      };
+    }
     return {
       decision: 'queue-for-human',
       reasoning:
@@ -3229,6 +3269,88 @@ export async function annotateReviewThreads(
   return candidates.map((pr) => {
     const unresolved = counts.get(pr.number);
     return unresolved === undefined ? pr : { ...pr, unresolvedReviewThreads: unresolved };
+  });
+}
+
+/** One workflow run entry as `gh api .../actions/runs` reports it —
+ *  untrusted process output; only the three fields the approval-confirmation
+ *  match needs. */
+interface RawWorkflowRun {
+  readonly id?: unknown;
+  readonly head_sha?: unknown;
+  readonly status?: unknown;
+}
+
+/**
+ * Reads which open PR head commits carry a workflow run CONFIRMED stuck in
+ * GitHub's `action_required` status (see {@link
+ * PrReviewCandidate.awaitingApprovalRunIds}). One `gh api` spend of the
+ * Actions run list, filtered server-side to `event=pull_request&
+ * status=action_required` so the response holds only runs this read could
+ * possibly confirm — `per_page` capped at {@link MAX_PR_LIST_CANDIDATES},
+ * the same one-page convention every other batch read here uses; a residual
+ * run beyond that page stays unconfirmed, the safe direction. Returns a map
+ * of head SHA → the confirmed run id(s) awaiting approval on it, built only
+ * from entries whose id is a plain integer, whose head_sha is a non-empty
+ * string, and whose status round-trips as the literal `'action_required'` —
+ * a garbage or ambiguous entry is dropped rather than guessed at. Never
+ * throws: a failed exit, unparseable JSON, or a non-array `workflow_runs`
+ * simply returns an empty map, and a head absent from the map is left
+ * exactly as unconfirmed as one this read never ran for at all.
+ */
+export async function fetchAwaitingApprovalRunIds(
+  exec: CliExec,
+): Promise<ReadonlyMap<string, readonly number[]>> {
+  const byHeadSha = new Map<string, number[]>();
+  const { code, stdout } = await exec('gh', [
+    'api',
+    `repos/{owner}/{repo}/actions/runs?event=pull_request&status=action_required&per_page=${MAX_PR_LIST_CANDIDATES}`,
+  ]);
+  if (code !== 0) return byHeadSha;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return byHeadSha;
+  }
+  const runs = (parsed as { workflow_runs?: unknown } | null)?.workflow_runs;
+  if (!Array.isArray(runs)) return byHeadSha;
+  for (const run of runs as readonly RawWorkflowRun[]) {
+    if (
+      typeof run?.id !== 'number' ||
+      !Number.isInteger(run.id) ||
+      typeof run.head_sha !== 'string' ||
+      run.head_sha === '' ||
+      run.status !== 'action_required'
+    ) {
+      continue;
+    }
+    const existing = byHeadSha.get(run.head_sha);
+    if (existing) existing.push(run.id);
+    else byHeadSha.set(run.head_sha, [run.id]);
+  }
+  return byHeadSha;
+}
+
+/**
+ * Folds {@link fetchAwaitingApprovalRunIds}'s one read into a batch of
+ * candidates — spent only when at least one candidate's gate status is
+ * `unreported` (every other status already reached a confirmed verdict this
+ * read could not change: a pass/fail/pending gate already has a real check
+ * run, so it cannot also be the zero-check-runs `action_required` state).
+ * Immutable, same fresh-objects convention as every other annotate step
+ * here; a candidate with no confirmed match (absent headRefOid, no run
+ * found for it, or the read failed) passes through unchanged.
+ */
+export async function annotateAwaitingApproval(
+  candidates: readonly PrReviewCandidate[],
+  exec: CliExec,
+): Promise<readonly PrReviewCandidate[]> {
+  if (!candidates.some((pr) => pr.gateStatus === 'unreported')) return candidates;
+  const byHeadSha = await fetchAwaitingApprovalRunIds(exec);
+  return candidates.map((pr) => {
+    const runIds = pr.headRefOid !== undefined ? byHeadSha.get(pr.headRefOid) : undefined;
+    return runIds && runIds.length > 0 ? { ...pr, awaitingApprovalRunIds: runIds } : pr;
   });
 }
 

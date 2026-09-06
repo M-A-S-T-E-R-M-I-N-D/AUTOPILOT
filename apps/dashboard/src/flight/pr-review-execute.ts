@@ -22,6 +22,7 @@ import {
   fetchOpenPrCandidates,
   annotateAlreadyApplied,
   annotateReviewThreads,
+  annotateAwaitingApproval,
   planPrReview,
   planPrReviewCommands,
   executePrReviewCommands,
@@ -130,12 +131,13 @@ export function createPrReviewExecuteApi(exec: CliExec = realCliExec): PrReviewE
       };
     }
 
-    // Both on-demand reads re-run fresh here, in the preview's order: the
+    // All on-demand reads re-run fresh here, in the preview's order: the
     // diff verdicts first, then the review-thread sweep a merge must assert
     // (branch protection requires conversation resolution) — spent only when
-    // the candidate would otherwise merge.
-    const [assessed = pr] = await annotateReviewThreads(
-      await annotateAlreadyApplied([pr], exec),
+    // the candidate would otherwise merge — then the Actions run-list sweep,
+    // spent only when the candidate is unreported.
+    const [assessed = pr] = await annotateAwaitingApproval(
+      await annotateReviewThreads(await annotateAlreadyApplied([pr], exec), exec),
       exec,
     );
     const decision = planPrReview(assessed, resolvePrReviewAutoMergePolicy());
