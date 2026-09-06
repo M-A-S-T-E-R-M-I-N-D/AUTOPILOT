@@ -74,7 +74,12 @@
  * (`diffView` / `diffHide` — the two are identical) plus a matching tip key,
  * and the "Loading full trace…" / "Loading diff…" / "No diff available"
  * placeholders each carry their own `data-i18n`; the position label itself
- * stays English until `replayNav()` takes a template.
+ * stays English until `replayNav()` takes a template. The row's own count /
+ * started-ago tips carry `firingCountTip` / `firingStartedTip` (their labels
+ * are `firingTimelineRowMeta()`'s composed strings and stay as-is), and the
+ * "🔧 auto-fixed" chip carries `autoFixed` / `autoFixedTip` /
+ * `autoFixedAria` — the same three keys the flight log's copy of that chip
+ * (`shell.ts`'s `flightLogSection()`) carries, so one set serves both.
  */
 import { groupByFiring, firingLogEntry } from '../activity-log.js';
 import { trajectorySignalOf, firingTimelineRowMeta } from '../flight-metrics.js';
@@ -189,14 +194,19 @@ function firingTimelineSection(c) {
     // sweep, board web-msnqqjmd-9bx0wd) — the trace row already joins its
     // flight-log entry, so a bounced or rescued firing reads the same here.
     if (f && f.autoformatRescued) {
-      row.appendChild(
-        tipChip(
-          '🔧 auto-fixed',
-          'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
-          'auto-fixed: formatting was mechanically remediated before this firing shipped',
-          'flight-autoformat-chip',
-        ),
+      // i18n (board web-msnsndki-dz3vn1): the chip's text, tip and aria-label
+      // each carry a key — the flight log's copy of this chip (shell.ts)
+      // carries the same three, so a rescued firing reads the same in both.
+      var autoFixedChip = tipChip(
+        '🔧 auto-fixed',
+        'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
+        'auto-fixed: formatting was mechanically remediated before this firing shipped',
+        'flight-autoformat-chip',
       );
+      autoFixedChip.setAttribute('data-i18n', 'autoFixed');
+      autoFixedChip.setAttribute('data-i18n-tip', 'autoFixedTip');
+      autoFixedChip.setAttribute('data-i18n-aria', 'autoFixedAria');
+      row.appendChild(autoFixedChip);
     }
     if (f && f.guardDenials) {
       var guardMeta = guardDenialChipMeta(f.guardDenials);
@@ -204,7 +214,9 @@ function firingTimelineSection(c) {
     }
     var countEl = el('span', 'firing-count', meta.countLabel);
     countEl.setAttribute('tabindex', '0');
+    // i18n: only the tip is tagged — the label is meta's composed count.
     countEl.setAttribute('data-tip', 'Tool calls and activity recorded for this firing');
+    countEl.setAttribute('data-i18n-tip', 'firingCountTip');
     countEl.setAttribute('aria-label', meta.countLabel);
     row.appendChild(countEl);
     if (meta.redundancyLabel) {
@@ -215,6 +227,7 @@ function firingTimelineSection(c) {
     var agoEl = el('span', 'muted firing-ago', meta.startedAgo);
     agoEl.setAttribute('tabindex', '0');
     agoEl.setAttribute('data-tip', 'When this firing started');
+    agoEl.setAttribute('data-i18n-tip', 'firingStartedTip');
     agoEl.setAttribute('aria-label', meta.startedAgoAriaLabel);
     row.appendChild(agoEl);
     // D1 TAB-STOP ROVING (board web-mtd1wyte-ssntzi): the fields above each
