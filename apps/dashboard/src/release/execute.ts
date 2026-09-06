@@ -26,7 +26,7 @@
  * generator — CITATION.cff, README's "How to cite" + Status version line,
  * PAPER.md, MODEL-CARD.md, all derived from `package.json`/`CHANGELOG.md`),
  * it is run as part of `writeChangelog`, AFTER the new version/changelog are
- * already on disk but BEFORE `commitAll` stages and commits — so the
+ * already on disk but BEFORE the scoped release commit stages and commits — so the
  * refreshed citation artifacts land in the SAME release commit rather than
  * needing a follow-up fix. The 2026-09-04 v0.22.0 lesson: the release commit
  * shipped with five stale 0.21.0 citation pointers, and `ci:citation` stayed
@@ -132,10 +132,27 @@ function withBumpedProductVersion(raw: string, newVersion: string): string {
   return raw.replace(PRODUCT_VERSION_PATTERN, `$1${newVersion}$2`);
 }
 
+/** Relative to a project root — mirrors `infoPath`'s own construction below.
+ *  Named so `writer.paths()` can report it without re-deriving the literal. */
+const INFO_TS_RELATIVE_PATH = 'apps/dashboard/src/info.ts';
+
 /** Relative to a project root — present only on projects that generate their
  *  own citation artifacts (currently just this repo). See the module doc
- *  comment for why this runs inside `writeChangelog`, before `commitAll`. */
+ *  comment for why this runs inside `writeChangelog`, before the scoped
+ *  release commit. */
 const CITATION_SCRIPT_RELATIVE_PATH = 'scripts/citation/generate-citation.mjs';
+
+/** Relative to a project root — the files `scripts/citation/generate-citation.mjs`
+ *  itself writes (`CFF_PATH`/`README_PATH`/`PAPER_PATH`/`MODEL_CARD_PATH` in
+ *  that script). Kept here, not derived from the script, so this module's own
+ *  `writer.paths()` can report them without executing or parsing the script —
+ *  the two lists must be kept in sync by hand if either changes. */
+const CITATION_OUTPUT_RELATIVE_PATHS = [
+  'CITATION.cff',
+  'README.md',
+  'docs/SELF-STUDY/PAPER.md',
+  'docs/MODEL-CARD.md',
+] as const;
 
 /** Build the RELEASE execute API against the real store + real git/fs — the
  *  production wiring `main.ts` injects into the server. `runCommand` defaults
@@ -187,7 +204,7 @@ export function createReleaseExecuteApi(
       const commits = await vcs.commitsAhead(tag.name);
       const date = new Date().toISOString().slice(0, 10);
 
-      const infoPath = join(project.root_path, 'apps/dashboard/src/info.ts');
+      const infoPath = join(project.root_path, INFO_TS_RELATIVE_PATH);
       let infoRaw: string | undefined;
       try {
         infoRaw = readFileSync(infoPath, 'utf8');
@@ -197,15 +214,24 @@ export function createReleaseExecuteApi(
 
       const hasCitationScript = existsSync(join(project.root_path, CITATION_SCRIPT_RELATIVE_PATH));
 
+      // Relative to project.root_path, matching the convention `GitVcs#commitPaths`
+      // already expects (self-study.ts's `SELF_STUDY_PATHS`, remediating-gate.ts's
+      // `dirtyPaths()`) — an absolute path here silently fails to match anything
+      // under `git add`/`git diff --cached`, leaving the release "successful" with
+      // no commit at all.
+      const touchedPaths: string[] = [];
       const writer: ReleaseWriter = {
         writeVersion: (version) => {
           writeFileSync(pkgPath, withBumpedVersion(pkgRaw, currentVersion, version));
+          touchedPaths.push('package.json');
           if (infoRaw !== undefined && PRODUCT_VERSION_PATTERN.test(infoRaw)) {
             writeFileSync(infoPath, withBumpedProductVersion(infoRaw, version));
+            touchedPaths.push(INFO_TS_RELATIVE_PATH);
           }
         },
         writeChangelog: async (cl) => {
           writeFileSync(changelogPath, cl);
+          touchedPaths.push('CHANGELOG.md');
           if (!hasCitationScript) return;
           const citation = await runCommand(
             'node',
@@ -218,7 +244,11 @@ export function createReleaseExecuteApi(
                 (citation.stderr.trim() || citation.stdout.trim() || 'no output'),
             );
           }
+          touchedPaths.push(
+            ...CITATION_OUTPUT_RELATIVE_PATHS.filter((p) => existsSync(join(project.root_path, p))),
+          );
         },
+        paths: () => touchedPaths,
       };
 
       const result = await executeRelease(

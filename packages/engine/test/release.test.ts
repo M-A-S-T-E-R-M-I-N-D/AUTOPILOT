@@ -309,6 +309,8 @@ describe('planRelease', () => {
   });
 });
 
+const FAKE_WRITER_PATHS = ['package.json', 'CHANGELOG.md'];
+
 function fakeWriter(): { writer: ReleaseWriter; versions: string[]; changelogs: string[] } {
   const versions: string[] = [];
   const changelogs: string[] = [];
@@ -320,6 +322,7 @@ function fakeWriter(): { writer: ReleaseWriter; versions: string[]; changelogs: 
       writeChangelog: (cl) => {
         changelogs.push(cl);
       },
+      paths: () => FAKE_WRITER_PATHS,
     },
     versions,
     changelogs,
@@ -333,17 +336,20 @@ function fakeVcs(
 ): {
   vcs: Releasable;
   commitCalls: string[];
+  commitPathsCalls: Array<readonly string[]>;
   tagCalls: Array<[string, string]>;
   notesCalls: Array<[string, string]>;
 } {
   const commitCalls: string[] = [];
+  const commitPathsCalls: Array<readonly string[]> = [];
   const tagCalls: Array<[string, string]> = [];
   const notesCalls: Array<[string, string]> = [];
   return {
     vcs: {
-      commitAll: (message) => {
+      commitPaths: (paths, message) => {
+        commitPathsCalls.push(paths);
         commitCalls.push(message);
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
       tag: (name, message) => {
         tagCalls.push([name, message]);
@@ -359,6 +365,7 @@ function fakeVcs(
       },
     },
     commitCalls,
+    commitPathsCalls,
     tagCalls,
     notesCalls,
   };
@@ -394,7 +401,7 @@ describe('executeRelease', () => {
 
   it('writes the version + changelog, commits, tags, and attests on a release-worthy commit set', async () => {
     const { writer, versions, changelogs } = fakeWriter();
-    const { vcs, commitCalls, tagCalls, notesCalls } = fakeVcs({
+    const { vcs, commitCalls, commitPathsCalls, tagCalls, notesCalls } = fakeVcs({
       ok: true,
       details: "created annotated tag 'v0.13.0' at HEAD",
     });
@@ -421,6 +428,9 @@ describe('executeRelease', () => {
       cutChangelogRelease(changelog, '0.13.0', '2026-08-12', ['feat: a thing']),
     ]);
     expect(commitCalls).toEqual(['chore(release): v0.13.0']);
+    // the release commit must stay scoped to exactly what the writer touched,
+    // never a whole-tree sweep — see release.ts's Releasable doc comment.
+    expect(commitPathsCalls).toEqual([FAKE_WRITER_PATHS]);
     expect(tagCalls).toEqual([
       ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
     ]);

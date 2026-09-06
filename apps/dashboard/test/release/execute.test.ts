@@ -193,6 +193,52 @@ describe('createReleaseExecuteApi', () => {
     }
   });
 
+  it('never sweeps an unrelated uncommitted file into the release commit', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-scoped-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
+    try {
+      setupTaggedRepo(repo);
+      writeFileSync(join(repo, 'a.txt'), 'x');
+      gitSync(repo, ['add', '-A']);
+      gitSync(repo, ['commit', '-q', '-m', 'feat: a new capability']);
+
+      // Simulate another concurrent firing's own, unrelated, unfinished work
+      // sitting uncommitted in this same working tree when the release fires
+      // (2026-09-06 incident: a "chore(release)" commit absorbed a separate
+      // firing's fully-verified, uncommitted i18n slice this exact way).
+      writeFileSync(join(repo, 'unrelated-feature.ts'), 'export const x = 1;\n');
+
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo);
+      s.close();
+
+      const result = await createReleaseExecuteApi(dbPath)('p1');
+      expect(result).toEqual({
+        ok: true,
+        reason: 'released',
+        details: 'released v1.1.0 (minor)',
+        version: '1.1.0',
+        bump: 'minor',
+        attestation: { ok: true, details: "attached a note to 'HEAD'" },
+      });
+
+      const lastSubject = gitSync(repo, ['log', '-1', '--format=%s']);
+      expect(lastSubject).toBe('chore(release): v1.1.0');
+      const stat = gitSync(repo, ['show', '--stat', '--format=', 'HEAD']);
+      expect(stat).not.toContain('unrelated-feature.ts');
+
+      // Still sitting exactly where it was left: untracked, uncommitted,
+      // never staged by the release.
+      const status = gitSync(repo, ['status', '--porcelain', '--', 'unrelated-feature.ts']);
+      expect(status).toBe('?? unrelated-feature.ts');
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
   it('bumps the top-level version even when a "scripts.version" key appears earlier in the file', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-scripts-version-'));
     const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));

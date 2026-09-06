@@ -272,9 +272,13 @@ export class InvalidMilestoneTagError extends Error {
 }
 
 /** Minimal VCS capability `executeRelease` needs — implemented by `GitVcs`'s
- *  `commitAll` + `tag` + `notes` methods (adapters/git.ts). */
+ *  `commitPaths` + `tag` + `notes` methods (adapters/git.ts). `commitPaths`,
+ *  not `commitAll`: the release commit must stay scoped to the paths
+ *  `ReleaseWriter.paths()` reports, the same "RITUAL SWEEP fix" scoped-commit
+ *  primitive `flight/self-study.ts` and `adapters/remediating-gate.ts`
+ *  already rely on for the identical reason. */
 export interface Releasable {
-  commitAll(message: string): Promise<void>;
+  commitPaths(paths: readonly string[], message: string): Promise<boolean>;
   tag(name: string, message: string): Promise<TagOutcome>;
   notes(commitish: string, message: string): Promise<TagOutcome>;
 }
@@ -307,10 +311,22 @@ export function buildReleaseAttestation(
 /** Writes the two files a release touches — the real `package.json`/
  *  `CHANGELOG.md` on disk in production, an in-memory fake in tests. Kept
  *  separate from `Releasable` since one is a git operation and the other is a
- *  plain file write; a caller can fake either independently. */
+ *  plain file write; a caller can fake either independently.
+ *
+ *  `paths()` returns every path actually written by `writeVersion`/
+ *  `writeChangelog` once both have run — `executeRelease` passes it straight
+ *  to `Releasable.commitPaths` so the release commit stays scoped to exactly
+ *  what this release step touched. Without it, a `commitAll`-style whole-tree
+ *  commit silently absorbs any OTHER unrelated, uncommitted work sitting in
+ *  the same checkout at the moment the release fires — the 2026-09-06
+ *  incident: a `chore(release)` commit swept up a separate, fully-verified,
+ *  unrelated i18n slice this exact way (same failure shape as
+ *  `docs/debriefs/2026-09-06-disjoint-staged-content-swept-into-unrelated-commit.md`,
+ *  board `ap-mtm4qzty-1`). */
 export interface ReleaseWriter {
   writeVersion(version: string): Promise<void> | void;
   writeChangelog(changelog: string): Promise<void> | void;
+  paths(): readonly string[];
 }
 
 /** Why one release-execute attempt succeeded or was refused. */
@@ -330,7 +346,7 @@ export interface ReleaseExecuteResult {
 }
 
 /**
- * Composes `planRelease` → write files → `commitAll` → `tag` → `notes` into
+ * Composes `planRelease` → write files → `commitPaths` → `tag` → `notes` into
  * the one release-execute step, the same way `executeLanding` (landing.ts)
  * composes `gate.run()` → `vcs.land()`. Refuses up front (`reason: 'no-op'`,
  * touches nothing) on a `planRelease` refusal — same fail-loud-on-nothing-to-do
@@ -370,7 +386,7 @@ export async function executeRelease(
 
   await writer.writeVersion(plan.version);
   await writer.writeChangelog(plan.changelog);
-  await vcs.commitAll(`chore(release): v${plan.version}`);
+  await vcs.commitPaths(writer.paths(), `chore(release): v${plan.version}`);
 
   const tag = await vcs.tag(
     `v${plan.version}`,
