@@ -816,14 +816,25 @@ function liveWorkerCard(c) {
   var actionLine = el('p', 'live-worker-line');
   var toolSpan = el('span', 'act-tool act-' + (live.kind || 'other'), live.tool);
   toolSpan.setAttribute('tabindex', '0');
+  // i18n (board web-msnsndki-dz3vn1): both tips are swept by translateDom()'s
+  // [data-i18n-tip] pass. The "tool: "/"target: " aria prefixes wrap a live
+  // value in their {name} slot, so each is painted via tr() when the card is
+  // built AND tagged [data-i18n-aria-template]/[data-i18n-name] so the sweep
+  // flips it in place on a mid-session locale switch.
   toolSpan.setAttribute('data-tip', 'the most recent tool call this firing made');
-  toolSpan.setAttribute('aria-label', 'tool: ' + live.tool);
+  toolSpan.setAttribute('data-i18n-tip', 'liveToolTip');
+  toolSpan.setAttribute('aria-label', tr('liveToolAria', live.tool));
+  toolSpan.setAttribute('data-i18n-aria-template', 'liveToolAria');
+  toolSpan.setAttribute('data-i18n-name', live.tool);
   actionLine.appendChild(toolSpan);
   if (live.target) {
     var targetSpan = el('span', 'act-target', live.target);
     targetSpan.setAttribute('tabindex', '0');
     targetSpan.setAttribute('data-tip', 'the file, command, or target that tool call touched');
-    targetSpan.setAttribute('aria-label', 'target: ' + live.target);
+    targetSpan.setAttribute('data-i18n-tip', 'liveTargetTip');
+    targetSpan.setAttribute('aria-label', tr('liveTargetAria', live.target));
+    targetSpan.setAttribute('data-i18n-aria-template', 'liveTargetAria');
+    targetSpan.setAttribute('data-i18n-name', live.target);
     actionLine.appendChild(targetSpan);
   }
   wrap.appendChild(actionLine);
@@ -1132,9 +1143,9 @@ function cardGauge(c) {
   // i18n (board web-msnsndki-dz3vn1): both tips are swept by translateDom()'s
   // [data-i18n-tip] pass, so a locale switch flips them in place. The
   // activity span's aria prefix carries the live timestamp in its {name}
-  // slot, so it is painted via tr() when this section is built (the
-  // handler-status-line route) and catches up when the section next
-  // rebuilds — there is no aria-template sweep yet.
+  // slot, so it is painted via tr() when this section is built AND tagged
+  // [data-i18n-aria-template]/[data-i18n-name] so the sweep flips it in
+  // place on a mid-session switch too (it used to wait for the next rebuild).
   findingsEl.setAttribute('data-tip', 'Unresolved review findings for this project — see the breakdown below');
   findingsEl.setAttribute('data-i18n-tip', 'cardFindingsTip');
   findingsEl.setAttribute('aria-label', findingsText);
@@ -1145,6 +1156,8 @@ function cardGauge(c) {
   activityEl.setAttribute('data-tip', 'When this project last had any activity');
   activityEl.setAttribute('data-i18n-tip', 'cardActivityTip');
   activityEl.setAttribute('aria-label', tr('cardActivityAria', activityText));
+  activityEl.setAttribute('data-i18n-aria-template', 'cardActivityAria');
+  activityEl.setAttribute('data-i18n-name', activityText);
   glabel.appendChild(activityEl);
   // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): the
   // findings count and last-activity timestamp used to each be their own Tab

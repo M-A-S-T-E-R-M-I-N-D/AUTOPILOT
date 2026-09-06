@@ -429,7 +429,8 @@ function hasOwnText(el) {
  *  candidate pools, matching `translateDom()`'s three independent `querySelectorAll`
  *  passes: direct-text elements (tagged by `[data-i18n]` OR `[data-i18n-template]`,
  *  `translateDom()`'s two text-replacing sweeps), `aria-label`-bearing elements (tagged by
- *  `[data-i18n-aria]`), and `placeholder`-bearing elements (tagged by
+ *  `[data-i18n-aria]` OR `[data-i18n-aria-template]`, its two aria-label-replacing sweeps),
+ *  and `placeholder`-bearing elements (tagged by
  *  `[data-i18n-placeholder]`). An element that lands in more than one pool (e.g. its own
  *  text AND an aria-label) counts once per pool, mirroring the three independent sweeps.
  *  `data-tip` hover text (`strings.ts`: "stays English-only for now") is correctly absent
@@ -447,7 +448,8 @@ function i18nCoverage(doc) {
       pools.text[key ? 'tagged' : 'untagged'] += 1;
     }
     if (el.hasAttribute('aria-label')) {
-      pools.aria[el.hasAttribute('data-i18n-aria') ? 'tagged' : 'untagged'] += 1;
+      const key = el.hasAttribute('data-i18n-aria') || el.hasAttribute('data-i18n-aria-template');
+      pools.aria[key ? 'tagged' : 'untagged'] += 1;
     }
     if (el.hasAttribute('placeholder')) {
       pools.placeholder[el.hasAttribute('data-i18n-placeholder') ? 'tagged' : 'untagged'] += 1;
@@ -1507,8 +1509,8 @@ large size against \`web/features/locale.ts\`'s OWN \`translateDom()\` sweep tar
 than a hand-picked selector list, so a new sweep attribute added there is picked up here for
 free. Three independent candidate pools, one per sweep: elements carrying their OWN
 non-whitespace text (tagged by \`[data-i18n]\` or \`[data-i18n-template]\`), elements with an
-\`aria-label\` (tagged by \`[data-i18n-aria]\`), and elements with a \`placeholder\` (tagged by
-\`[data-i18n-placeholder]\`). \`data-tip\` hover text is out of scope by design (\`strings.ts\`:
+\`aria-label\` (tagged by \`[data-i18n-aria]\` or \`[data-i18n-aria-template]\`), and elements
+with a \`placeholder\` (tagged by \`[data-i18n-placeholder]\`). \`data-tip\` hover text is out of scope by design (\`strings.ts\`:
 "stays English-only for now") and never enters any pool here.
 
 | axis | fixture size | text tagged/total | aria-label tagged/total | placeholder tagged/total |

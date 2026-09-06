@@ -16,6 +16,15 @@
  * "Contribute upstream" PR form label) — the element's own `data-i18n-name`
  * attribute supplies the value substituted in, since a locale's grammar may
  * place the name somewhere other than where English's word order does.
+ * `[data-i18n-aria-template]` is that sweep's `aria-label` twin (board
+ * web-msnsndki-dz3vn1): a screen-reader prefix that wraps a live value —
+ * the fleet card's "last activity: <when>" (`cardActivityAria`), the live
+ * worker card's "tool: <name>" / "target: <name>" (`liveToolAria` /
+ * `liveTargetAria`) — has no fixed text a `[data-i18n-aria]` sweep could
+ * paint, so it reads the same `data-i18n-name` value into the template's
+ * `{name}` slot. Before this sweep those prefixes were painted once via
+ * `tr()` when their section was built and only caught up on a mid-session
+ * switch when the section next rebuilt; now the switch flips them in place.
  *
  * `tr(key, subs?)` is the client-side mirror of `@autopilot/tokens`' own
  * server-side `translate()`, for the handful of translatable strings that
@@ -44,9 +53,10 @@
  *
  * It also swaps the text of every `[data-i18n]` element, the `aria-label` of
  * every `[data-i18n-aria]` element, the `placeholder` of every
- * `[data-i18n-placeholder]` element, and the `data-tip` hover text of every
+ * `[data-i18n-placeholder]` element, the `data-tip` hover text of every
  * `[data-i18n-tip]` element (the fly bar's persistent controls, tagged by
- * `web/features/fly.ts`'s `setTip()`), to that locale's entry in
+ * `web/features/fly.ts`'s `setTip()`), and the templated `aria-label` of
+ * every `[data-i18n-aria-template]` element, to that locale's entry in
  * `@autopilot/tokens`' `STRINGS` table — the per-string translation slice
  * this foundation unblocks, starting with the masthead (`shell.ts`'s
  * `renderShell()` tags its always-visible chrome text `data-i18n="<key>"`,
@@ -117,6 +127,10 @@ function translateDom(l) {
   document.querySelectorAll('[data-i18n-template]').forEach((el) => {
     const tpl = table[el.dataset.i18nTemplate];
     if (tpl) el.textContent = substituteName(tpl, el.dataset.i18nName || '');
+  });
+  document.querySelectorAll('[data-i18n-aria-template]').forEach((el) => {
+    const tpl = table[el.dataset.i18nAriaTemplate];
+    if (tpl) el.setAttribute('aria-label', substituteName(tpl, el.dataset.i18nName || ''));
   });
 }
 function tr(key, subs) {

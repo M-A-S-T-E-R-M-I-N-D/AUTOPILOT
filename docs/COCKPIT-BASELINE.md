@@ -294,7 +294,8 @@ is set yet.
 Same three fixtures as the axes above, checked against `web/features/locale.ts`'s OWN
 `translateDom()` sweep targets. Three independent candidate pools: elements carrying their
 OWN non-whitespace text (`[data-i18n]`/`[data-i18n-template]`), elements with an `aria-label`
-(`[data-i18n-aria]`), and elements with a `placeholder` (`[data-i18n-placeholder]`). `data-tip`
+(`[data-i18n-aria]`/`[data-i18n-aria-template]`), and elements with a `placeholder`
+(`[data-i18n-placeholder]`). `data-tip`
 hover text is out of scope by design. Not measured in 08-29 (present in 08-28, then again in
 09-03).
 

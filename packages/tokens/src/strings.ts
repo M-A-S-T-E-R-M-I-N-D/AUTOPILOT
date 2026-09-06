@@ -457,6 +457,17 @@
  * companion; the four tags plus `renderFleet()`'s existing `translateDom()`
  * sweep cover the whole surface. "AUTOPILOT" stays Latin in Hebrew, a
  * product name like the `ghIssueConfirm`/`githubPrConfirm` dialogs above.
+ * This slice tags the live worker card's action line (`liveWorkerCard()`'s
+ * tool/target spans): its two tips (`liveToolTip`, `liveTargetTip`) the
+ * `data-i18n-tip` way, and its "tool: "/"target: " screen-reader prefixes
+ * (`liveToolAria`, `liveTargetAria`) as `{name}` templates — which needed a
+ * new `translateDom()` sweep, `[data-i18n-aria-template]` (the `aria-label`
+ * twin of `[data-i18n-template]`, reading the same `data-i18n-name`), since
+ * an aria-label wrapping a live value has no fixed text `[data-i18n-aria]`
+ * can paint. The gauge label's `cardActivityAria` prefix rides the same
+ * sweep, closing the mid-session-switch gap the previous slice left open.
+ * Tool names (`Bash`, `Grep`) and targets (paths, commands) stay Latin in
+ * Hebrew — they are the live value in the `{name}` slot, never translated.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -639,6 +650,15 @@ const EN_STRINGS = {
   cardFindingsTip: 'Unresolved review findings for this project — see the breakdown below',
   cardActivityTip: 'When this project last had any activity',
   cardActivityAria: 'last activity: {name}',
+  // The live worker card's action line (shell.ts's liveWorkerCard(): the
+  // most recent tool call and the target it touched). The two tips are swept
+  // as [data-i18n-tip]; the two aria prefixes wrap the live tool/target name
+  // in their {name} slot, so they are painted via tr() when the card is
+  // built AND swept as [data-i18n-aria-template] on a locale switch.
+  liveToolTip: 'the most recent tool call this firing made',
+  liveToolAria: 'tool: {name}',
+  liveTargetTip: 'the file, command, or target that tool call touched',
+  liveTargetAria: 'target: {name}',
   reportBugLabel: 'Report a bug or request a feature upstream',
   titlePlaceholder: 'Title',
   detailsOptionalPlaceholder: 'Details (optional)',
@@ -1099,6 +1119,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     cardFindingsTip: 'ממצאי סקירה פתוחים לפרויקט הזה — ראו את הפירוט למטה',
     cardActivityTip: 'מתי הייתה בפרויקט הזה פעילות כלשהי בפעם האחרונה',
     cardActivityAria: 'פעילות אחרונה: {name}',
+    liveToolTip: 'קריאת הכלי האחרונה שההפעלה הזו ביצעה',
+    liveToolAria: 'כלי: {name}',
+    liveTargetTip: 'הקובץ, הפקודה או היעד שקריאת הכלי הזו נגעה בהם',
+    liveTargetAria: 'יעד: {name}',
     reportBugLabel: 'דיווח על באג או בקשת תכונה במאגר המקור',
     titlePlaceholder: 'כותרת',
     detailsOptionalPlaceholder: 'פרטים (אופציונלי)',
