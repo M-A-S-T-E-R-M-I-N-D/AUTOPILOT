@@ -22,7 +22,8 @@
  * no `aria-label` coverage at all.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import {
   doraTileItems,
   gateParallelTileItems,
@@ -40,8 +41,22 @@ import {
   liveWorkerChipMeta,
   roundSinceLabel,
   roundStatItems,
+  type RoundTranslator,
 } from '../../src/web/stat-tiles.js';
 import { fmtDuration, fmtCost, fmtTokens, fmtBytes } from '../../src/web/format.js';
+
+/** The bundle's `tr()` map-form substitution (web/features/locale.ts) over
+ *  one locale's table, mirrored so the direct calls below read the same
+ *  STRINGS wording the served bundle does (board web-msnsndki-dz3vn1),
+ *  the same helper `flight-progress.test.ts` uses for `flightProgressOf`. */
+function translatorFor(locale: 'en' | 'he'): RoundTranslator {
+  return (key, subs) =>
+    Object.keys(subs ?? {}).reduce(
+      (t, k) => t.split('{' + k + '}').join(String(subs?.[k])),
+      STRINGS[locale][key],
+    );
+}
+const enTr = translatorFor('en');
 
 describe('doraTileItems', () => {
   const SNAPSHOT = {
@@ -606,20 +621,49 @@ describe('roundSinceLabel', () => {
   const fmtAgo = (ts: number) => 'AGO(' + ts + ')';
 
   it('builds the "since <tag>" text/aria-label pair from the injected fmtAgo', () => {
-    expect(roundSinceLabel({ roundStartAt: 42, tagName: 'v1.2.0' } as never, fmtAgo)).toEqual({
-      text: 'since v1.2.0 · AGO(42)',
-      ariaLabel: 'round boundary: since v1.2.0, AGO(42)',
-    });
+    expect(roundSinceLabel({ roundStartAt: 42, tagName: 'v1.2.0' } as never, fmtAgo, enTr)).toEqual(
+      {
+        text: 'since v1.2.0 · AGO(42)',
+        ariaLabel: 'round boundary: since v1.2.0, AGO(42)',
+      },
+    );
   });
 
   it('returns null when the project has no release tags yet', () => {
-    expect(roundSinceLabel({ roundStartAt: null, tagName: null } as never, fmtAgo)).toBeNull();
+    expect(
+      roundSinceLabel({ roundStartAt: null, tagName: null } as never, fmtAgo, enTr),
+    ).toBeNull();
+  });
+
+  it('composes both fields through the injected translator, never in English of its own', () => {
+    const tr = vi.fn<RoundTranslator>((key) => '<' + key + '>');
+    expect(roundSinceLabel({ roundStartAt: 42, tagName: 'v1.2.0' } as never, fmtAgo, tr)).toEqual({
+      text: '<roundSinceChip>',
+      ariaLabel: '<roundSinceChipAria>',
+    });
+    expect(tr).toHaveBeenCalledWith('roundSinceChip', { tag: 'v1.2.0', ago: 'AGO(42)' });
+    expect(tr).toHaveBeenCalledWith('roundSinceChipAria', { tag: 'v1.2.0', ago: 'AGO(42)' });
+  });
+
+  it('lands the numbers where the Hebrew table puts them', () => {
+    expect(
+      roundSinceLabel(
+        { roundStartAt: 42, tagName: 'v1.2.0' } as never,
+        fmtAgo,
+        translatorFor('he'),
+      ),
+    ).toEqual({
+      text: 'מאז v1.2.0 · AGO(42)',
+      ariaLabel: 'גבול הסבב: מאז v1.2.0, AGO(42)',
+    });
   });
 });
 
 describe('roundStatItems', () => {
   it('formats the three always-present chips in fixed render order', () => {
-    expect(roundStatItems({ firings: 4, shipped: 3, cost: 1.5, shipRate: null }, fmtCost)).toEqual([
+    expect(
+      roundStatItems({ firings: 4, shipped: 3, cost: 1.5, shipRate: null }, fmtCost, enTr),
+    ).toEqual([
       ['4', 'Firings this round', '4 firings this round'],
       ['3', 'Shipped this round', '3 shipped this round'],
       ['$1.50', 'Spend this round', 'cost this round: $1.50'],
@@ -627,14 +671,32 @@ describe('roundStatItems', () => {
   });
 
   it('adds a fourth "ship rate" chip once the round has a defined rate', () => {
-    const items = roundStatItems({ firings: 4, shipped: 3, cost: 1.5, shipRate: 0.75 }, fmtCost);
+    const items = roundStatItems(
+      { firings: 4, shipped: 3, cost: 1.5, shipRate: 0.75 },
+      fmtCost,
+      enTr,
+    );
     expect(items).toHaveLength(4);
     expect(items[3]).toEqual(['75%', 'Ship rate this round', 'ship rate this round: 75%']);
   });
 
   it('omits the "ship rate" chip when the round has no firings yet', () => {
     expect(
-      roundStatItems({ firings: 0, shipped: 0, cost: 0, shipRate: null }, fmtCost),
+      roundStatItems({ firings: 0, shipped: 0, cost: 0, shipRate: null }, fmtCost, enTr),
     ).toHaveLength(3);
+  });
+
+  it('lands the numbers where the Hebrew table puts them', () => {
+    const items = roundStatItems(
+      { firings: 4, shipped: 3, cost: 1.5, shipRate: 0.75 },
+      fmtCost,
+      translatorFor('he'),
+    );
+    expect(items).toEqual([
+      ['4', 'הפעלות בסבב הזה', '4 הפעלות בסבב הזה'],
+      ['3', 'שוחרר בסבב הזה', '3 שוחררו בסבב הזה'],
+      ['$1.50', 'הוצאה בסבב הזה', 'עלות בסבב הזה: $1.50'],
+      ['75%', 'שיעור שילוח בסבב הזה', 'שיעור שילוח בסבב הזה: 75%'],
+    ]);
   });
 });

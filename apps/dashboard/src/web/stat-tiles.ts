@@ -388,21 +388,51 @@ export interface RoundStatsLike {
   readonly shipRate: number | null;
 }
 
+/** The STRINGS keys {@link roundSinceLabel}/{@link roundStatItems} compose
+ *  their chip text/tip/aria-label from (board web-msnsndki-dz3vn1). Named
+ *  here, not imported from `@autopilot/tokens`, the same
+ *  `FlightProgressKey` reasoning (`web/flight-progress.ts`) — this module
+ *  stays import-free like every other spliced `web/` helper. */
+export type RoundKey =
+  | 'roundSinceChip'
+  | 'roundSinceChipAria'
+  | 'roundFiringsTip'
+  | 'roundFiringsAria'
+  | 'roundShippedTip'
+  | 'roundShippedAria'
+  | 'roundSpendTip'
+  | 'roundSpendAria'
+  | 'roundShipRateTip'
+  | 'roundShipRateAria';
+
+/** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected into
+ *  {@link roundSinceLabel}/{@link roundStatItems} the same way `fmtAgo`/
+ *  `fmtCost` are — both functions stay spliced into `/app.js` via
+ *  `.toString()`, so neither can import a translator any more than it can
+ *  import a formatter. */
+export type RoundTranslator = (
+  key: RoundKey,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
 /** The CURRENT ROUND panel's "since &lt;tag&gt;" chip label/aria-label pair,
  *  or `null` when the project has no release tags yet (the panel falls back
  *  to a fixed "every firing counts toward the round so far" sentence in that
  *  case — a static string with nothing to compute, so it stays inline).
  *  Takes `fmtAgo` via injection rather than importing it from `./format.ts`,
- *  the same `doraTileItems`/`gateParallelTileItems` pattern. */
+ *  the same `doraTileItems`/`gateParallelTileItems` pattern; `tr` rides the
+ *  same route (board web-msnsndki-dz3vn1) so each locale's grammar decides
+ *  where `{tag}`/`{ago}` land. */
 export function roundSinceLabel(
   round: RoundSinceLike,
   fmtAgo: (at: number) => string,
+  tr: RoundTranslator,
 ): { readonly text: string; readonly ariaLabel: string } | null {
   if (!round.tagName || round.roundStartAt === null) return null;
   const ago = fmtAgo(round.roundStartAt);
   return {
-    text: 'since ' + round.tagName + ' · ' + ago,
-    ariaLabel: 'round boundary: since ' + round.tagName + ', ' + ago,
+    text: tr('roundSinceChip', { tag: round.tagName, ago }),
+    ariaLabel: tr('roundSinceChipAria', { tag: round.tagName, ago }),
   };
 }
 
@@ -418,19 +448,22 @@ export type RoundStatItem = readonly [text: string, tip: string, ariaLabel: stri
  *  means no honest rate to show), the same conditional-tile shape
  *  {@link cardStatItems}'s "recent form" tile uses. Takes `fmtCost` via
  *  injection rather than importing it from `./format.ts`, the same
- *  `doraTileItems`/`gateParallelTileItems` pattern. */
+ *  `doraTileItems`/`gateParallelTileItems` pattern; `tr` rides the same
+ *  route (board web-msnsndki-dz3vn1) so each locale's grammar decides where
+ *  `{n}`/`{cost}`/`{pct}` land. */
 export function roundStatItems(
   round: RoundStatsLike,
   fmtCost: (n: number) => string,
+  tr: RoundTranslator,
 ): readonly RoundStatItem[] {
   const items: RoundStatItem[] = [
-    [String(round.firings), 'Firings this round', round.firings + ' firings this round'],
-    [String(round.shipped), 'Shipped this round', round.shipped + ' shipped this round'],
-    [fmtCost(round.cost), 'Spend this round', 'cost this round: ' + fmtCost(round.cost)],
+    [String(round.firings), tr('roundFiringsTip'), tr('roundFiringsAria', { n: round.firings })],
+    [String(round.shipped), tr('roundShippedTip'), tr('roundShippedAria', { n: round.shipped })],
+    [fmtCost(round.cost), tr('roundSpendTip'), tr('roundSpendAria', { cost: fmtCost(round.cost) })],
   ];
   if (round.shipRate !== null) {
     const pct = Math.round(round.shipRate * 100) + '%';
-    items.push([pct, 'Ship rate this round', 'ship rate this round: ' + pct]);
+    items.push([pct, tr('roundShipRateTip'), tr('roundShipRateAria', { pct })]);
   }
   return items;
 }

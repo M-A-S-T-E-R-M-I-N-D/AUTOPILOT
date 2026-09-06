@@ -123,10 +123,22 @@ test.describe('visual regression — populated fleet', () => {
       // theme-biased only by luck (dark's response happened to land inside
       // the pumped window). Pumping 1s of fake time per retry drains that
       // queue deterministically on any runner speed.
-      await expect(async () => {
-        await page.clock.runFor(1000);
-        await expect(page.locator('.firing-ago').first()).toBeVisible({ timeout: 250 });
-      }).toPass({ timeout: 20_000 });
+      // Explicit bounded loop, NOT toPass: the pump advances FAKE time, and
+      // an unbounded retry loop on a fast box could pump minutes of it —
+      // sliding every ago-label into the next minute and diffing the
+      // baselines. 25 pumps x 2s = a hard 50s fake-time ceiling (fixture
+      // NOW+2m -> worst case 2m53s, same minute for every label), while a
+      // loaded runner gets ~25 generous chances instead of the previous
+      // 20 (observed: a dev box paints on pump 1; a churning windows
+      // runner exhausted 20).
+      let firingAgoVisible = false;
+      for (let pump = 0; pump < 25 && !firingAgoVisible; pump++) {
+        await page.clock.runFor(2000);
+        firingAgoVisible = (await page.locator('.firing-ago').count()) > 0;
+      }
+      expect(firingAgoVisible, 'flight log never painted within 50s of pumped fake time').toBe(
+        true,
+      );
 
       // Same browser-clock masking rationale as the fleet baseline above; the
       // project page adds the flight log's ticking started-ago label
