@@ -157,15 +157,36 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     // deliberately left off: that mechanism is already tracked under epic
     // 0004's own entry above, and duplicating it here would just double-fire
     // one drift as two proposals. ACTION-PLAN/FEATURE-COVERAGE/BACKLOG-999/
-    // MODEL-CARD/RUNBOOK were considered and excluded — each spans the whole
-    // roadmap or the whole system the way CHANGELOG/MASTER-PLAN already are,
-    // with no comparably narrow subject to pin without guessing.
+    // RUNBOOK remain excluded (see MODEL-CARD's entry below for why one of
+    // the original five was narrow enough after all) — each of these four
+    // spans the whole roadmap or the whole system the way CHANGELOG/
+    // MASTER-PLAN already are, with no comparably narrow subject to pin
+    // without guessing (RUNBOOK alone names 30+ files across every layer of
+    // the engine as of this writing — genuinely whole-system, not narrow).
     doc: 'docs/FLIGHT-CONTAINMENT.md',
     subjects: [
       'packages/engine/src/containment.ts',
       'packages/engine/src/guard.ts',
       'packages/engine/src/guard-hook.ts',
     ],
+  },
+  {
+    // Non-epic doc, re-examined after the FLIGHT-CONTAINMENT precedent above:
+    // unlike the four still-excluded broad docs, MODEL-CARD's own §2 and §5
+    // name two exact, non-overlapping implementation files as the load-bearing
+    // subject behind its narrative claims — `prompt.ts` backs the
+    // Firing-Prompt-Version claims in §2/§6 and IS "the operating instructions
+    // handed to the agent each firing" §1 describes; `eval-gate.ts` backs the
+    // PICK DISCIPLINE / BOARD DIVERSITY audit claims §5 names by exact
+    // filename. `containment.ts` (also cited in §4/§6) is deliberately left
+    // off: already tracked under FLIGHT-CONTAINMENT.md above, and duplicating
+    // it here would double-fire one drift as two proposals, same as epic
+    // 0004's worktree.ts reasoning. `package.json`'s version field is excluded
+    // too — already drift-checked by the separate, more precise `pnpm run
+    // ci:citation` gate (MODEL-CARD.md §6), so doc-freshness would just add a
+    // noisier, redundant second signal for the same fact.
+    doc: 'docs/MODEL-CARD.md',
+    subjects: ['packages/engine/src/prompt.ts', 'packages/store/src/eval-gate.ts'],
   },
 ];
 

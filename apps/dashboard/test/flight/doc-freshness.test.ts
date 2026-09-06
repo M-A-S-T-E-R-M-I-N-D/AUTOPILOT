@@ -264,6 +264,10 @@ describe('computeDocDrift', () => {
           'packages/engine/src/guard-hook.ts',
         ],
       },
+      {
+        doc: 'docs/MODEL-CARD.md',
+        subjects: ['packages/engine/src/prompt.ts', 'packages/store/src/eval-gate.ts'],
+      },
     ]);
   });
 
