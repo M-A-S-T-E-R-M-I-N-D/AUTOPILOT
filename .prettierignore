@@ -21,3 +21,4 @@ CITATION.cff
 # Standalone target-repo fixtures — each owns its own formatting, not this
 # monorepo's.
 samples/
+test-results/
