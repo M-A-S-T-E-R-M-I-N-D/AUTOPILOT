@@ -51,7 +51,11 @@ for flying untrusted targets, or on a shared machine, or unattended.
    security control). The same hook also denies destructive git — force-push,
    `reset --hard`, `rebase`, `branch -D`, checking out/switching to `main`, `clean -f`,
    `filter-branch` — the SOUL's "additive git only" rule, previously prompt-only and
-   now enforced here too. CLI-arg scoped — the user's own settings files are never
+   now enforced here too. It also denies a `git commit` that hand-writes its own
+   `Signed-off-by:` trailer (`commitSignoffDenial`, shipped 2026-09-05) — `git commit -s`
+   derives that trailer from the repository identity, and a hand-typed one can name
+   whichever address the agent sees in context, which has published a personal email
+   into a DCO trailer before. CLI-arg scoped — the user's own settings files are never
    touched. Verified against the compiled hook over a real subprocess, including the
    exact observed escape shape.
    _Honest scope:_ a textual guard — it blocks the observed escape class (absolute-path
