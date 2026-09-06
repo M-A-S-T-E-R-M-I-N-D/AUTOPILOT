@@ -34,6 +34,11 @@ test.describe('dashboard boot smoke', () => {
       // publicity self-init poll — the panel extracted to web/features/ (epic
       // 0007 slice 7); the e2e server wires no publicity API by design.
       '404 /api/publicity',
+      // update-banner self-init poll — the banner finally ships in panels.js
+      // (the substitution-free-template discovery fix); update-check reads
+      // release state from the outside world, out of scope here like the
+      // rest. The client treats the 404 as "no update" and stays hidden.
+      '404 /api/update-check',
     ]);
   });
 
