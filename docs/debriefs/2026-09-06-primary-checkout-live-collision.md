@@ -14,7 +14,7 @@ open after the existing partial fix.
 
 ## What this firing observed, in order
 
-1. On start, `git status` in `Z:\Claude\AUTOPILOT` (this session's own working
+1. On start, `git status` in `<repo-root>` (this session's own working
    directory — the live checkout, branch `autopilot/flight`, **not** a linked
    worktree; confirmed via `git worktree list` returning only the primary)
    showed a full feature staged: 8 files implementing "LLM ISSUE COMPOSER
@@ -70,7 +70,7 @@ checkout has no lock check anywhere in its path. `fly.ts`'s
 other, and `isAnyFlightLockLive` prevents `land()` from racing a live flight,
 but nothing prevents a *third kind* of actor — any process, human or agent,
 running plain `git`/file operations straight against
-`Z:\Claude\AUTOPILOT` — from doing so while a lock-holding flight is also
+`<repo-root>` — from doing so while a lock-holding flight is also
 mid-commit there. That third kind is exactly this session.
 
 ## Open gap and recommendation (operator decision — 🟣)
