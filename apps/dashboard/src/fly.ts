@@ -435,6 +435,76 @@ async function main(): Promise<void> {
         // Telemetry is best-effort — never let it take the flight down.
       }
     };
+    // GATE HONESTY (board web-mtq6zxl0-178q9e): the rolling-median history a
+    // green convergence run is judged against — see convergence-gate.ts's
+    // ConvergenceGateDeps doc. Persisted/read as its own event type so the
+    // population survives across firings and flights, same durability model
+    // as every other events-table row in this file.
+    const recordConvergenceGreen = (signature: string, ms: number): void => {
+      try {
+        store.db
+          .prepare(
+            'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .run(
+            projectId,
+            null,
+            'convergence-green',
+            JSON.stringify({ branch: targetBranch, signature, ms }),
+            now(),
+          );
+      } catch {
+        // Telemetry is best-effort — never let it take the flight down.
+      }
+    };
+    const pastConvergenceGreenDurationsMs = (signature: string): number[] => {
+      try {
+        const rows = store.db
+          .prepare(
+            `SELECT payload FROM events
+               WHERE project_id = ? AND type = 'convergence-green'
+                 AND json_extract(payload, '$.signature') = ?
+               ORDER BY created_at DESC LIMIT 30`,
+          )
+          .all(projectId, signature) as { payload: string | null }[];
+        const durations: number[] = [];
+        for (const row of rows) {
+          if (!row.payload) continue;
+          try {
+            const parsed = JSON.parse(row.payload) as { ms?: unknown };
+            if (typeof parsed.ms === 'number' && Number.isFinite(parsed.ms)) {
+              durations.push(parsed.ms);
+            }
+          } catch {
+            // Skip a malformed row rather than fail the whole read.
+          }
+        }
+        return durations;
+      } catch {
+        return [];
+      }
+    };
+    const recordConvergenceUnverifiable = (
+      signature: string,
+      ms: number,
+      floorMs: number,
+    ): void => {
+      try {
+        store.db
+          .prepare(
+            'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .run(
+            projectId,
+            null,
+            'convergence-unverifiable',
+            JSON.stringify({ branch: targetBranch, signature, ms, floorMs }),
+            now(),
+          );
+      } catch {
+        // Telemetry is best-effort — never let it take the flight down.
+      }
+    };
     // Per-firing sync-back: typecheck only — see convergence-gate.ts's doc
     // comment for why this stays lightweight (cadence) while the flight-end
     // sync-back below runs the FULL detected gate.
@@ -965,6 +1035,9 @@ async function main(): Promise<void> {
               gate: typecheckConvergedGate,
               out,
               recordRed: recordConvergenceRed,
+              pastGreenDurationsMs: pastConvergenceGreenDurationsMs,
+              recordGreen: recordConvergenceGreen,
+              recordUnverifiable: recordConvergenceUnverifiable,
             });
           } else {
             out(`  ⚠ worktree sync-back skipped: ${sync.details}`);
@@ -1361,6 +1434,9 @@ async function main(): Promise<void> {
           gate: fullConvergedGate,
           out,
           recordRed: recordConvergenceRed,
+          pastGreenDurationsMs: pastConvergenceGreenDurationsMs,
+          recordGreen: recordConvergenceGreen,
+          recordUnverifiable: recordConvergenceUnverifiable,
         });
       } else {
         out(`  ⚠ flight-end sync-back still refused: ${finalSync.details}`);

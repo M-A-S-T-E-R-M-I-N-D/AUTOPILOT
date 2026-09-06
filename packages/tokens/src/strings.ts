@@ -1215,6 +1215,25 @@ const EN_STRINGS = {
     'This files a REAL GitHub issue via gh — this dashboard cannot recall it; close it on GitHub if it was a mistake.',
   reportConfirmSuffix:
     'The plan is re-derived fresh from the capture at execute time — this will not blindly trust what is shown here.',
+  // web/features/landing.ts — the project page's post-flight LANDING panel
+  // (`landingSection()`). Fetched once per open and never re-rendered on a
+  // poll tick, so `tr()` at build time is the sweep, the same shape
+  // `report-menu.ts`'s fresh-each-open dialog already uses. Per the stance
+  // every prior slice took (see reportConfirmSuffix above), only the
+  // panel's persistent ON-SCREEN text moves this slice — the per-commit
+  // `data-tip`/`aria-label` hover text (sha, subject, files-changed, branch
+  // arrow, best/worst firing) stays English, same as the per-project fleet
+  // card hover text this table already leaves untranslated.
+  landingTitle: '🛬 Landing',
+  landingChecking: 'Checking for unmerged work…',
+  landingUnavailable: 'Landing preview unavailable.',
+  landingNothingToLand: 'Nothing to land — the branch is level with its base.',
+  landingExecuteButton: '🛬 Execute landing → {base}',
+  landingRestarting:
+    '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
+  landingDebriefTitle: '📋 Flight debrief',
+  landingDebriefBestLabel: '🏆 Best: ',
+  landingDebriefWorstLabel: '💀 Worst: ',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1729,6 +1748,15 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'פעולה זו מגישה issue אמיתי ב-GitHub דרך gh — לוח הבקרה אינו יכול לבטל זאת; סִגרו אותו ב-GitHub אם זו הייתה טעות.',
     reportConfirmSuffix:
       'התוכנית נגזרת מחדש מהלכידה בזמן הביצוע — היא לא תסמוך באופן עיוור על מה שמוצג כאן.',
+    landingTitle: '🛬 נחיתה',
+    landingChecking: 'בודק אם יש עבודה שלא מוזגה…',
+    landingUnavailable: 'תצוגה מקדימה של הנחיתה אינה זמינה.',
+    landingNothingToLand: 'אין מה לנחות — הענף מעודכן עם הבסיס שלו.',
+    landingExecuteButton: '🛬 בצע נחיתה אל {base}',
+    landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
+    landingDebriefTitle: '📋 תחקיר טיסה',
+    landingDebriefBestLabel: '🏆 הטובה ביותר: ',
+    landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
   },
 };
 

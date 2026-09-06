@@ -56,6 +56,14 @@ export interface IncomingIssue {
   readonly title: string;
   readonly body: string;
   readonly labels?: readonly string[];
+  /** GitHub logins already assigned to this issue — a non-empty list means a
+   *  human has claimed it (the same "claims (assign/comment)" convention
+   *  `pool-client.ts`'s `isClaimedPoolIssue` reads), so {@link
+   *  planIssueTriage} must not pick it for the board no matter how it would
+   *  otherwise classify. Optional, defaulting to `[]`, so pure-planning
+   *  callers need not fabricate it; {@link fetchOpenIssues} always
+   *  populates it. */
+  readonly assignees?: readonly string[];
 }
 
 /** One existing title to dedup an incoming issue against — a board task's
@@ -173,13 +181,17 @@ export function classifyIssueDimension(text: string): Dimension {
  * re-reporting work already tracked gets a "not opening a second task"
  * answer instead of a new one. A non-duplicate is classified into a pool
  * dimension via {@link classifyIssueDimension} over its title and body.
- * Before any scoring, an issue a previous pass already handled — one
- * carrying a `pool: *` or `duplicate` label, or whose own {@link
- * issueTaskId} task is already on the board (the labeling half may have
- * failed) — plans a `'skip'`: without that, an accepted issue's own board
- * task (same title) would score as a duplicate OF ITSELF on the next pass
- * and every re-run would post another bogus comment. Pure: never fetches,
- * labels, or comments — a caller wires those once this decision is made.
+ * Before any scoring, an issue already assigned to a human ({@link
+ * IncomingIssue.assignees} non-empty) plans a `'skip'` — COLLAB PROTOCOL:
+ * an issue a human has claimed must never be picked onto the board by a
+ * firing, no matter how it would otherwise classify. An issue a previous
+ * pass already handled — one carrying a `pool: *` or `duplicate` label, or
+ * whose own {@link issueTaskId} task is already on the board (the labeling
+ * half may have failed) — also plans a `'skip'`: without that, an accepted
+ * issue's own board task (same title) would score as a duplicate OF ITSELF
+ * on the next pass and every re-run would post another bogus comment. Pure:
+ * never fetches, labels, or comments — a caller wires those once this
+ * decision is made.
  */
 export function planIssueTriage(
   issue: IncomingIssue,
@@ -187,6 +199,16 @@ export function planIssueTriage(
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
 ): IssueTriageDecision {
+  const assignees = issue.assignees ?? [];
+  if (assignees.length > 0) {
+    return {
+      decision: 'skip',
+      reasoning:
+        `#${issue.number} "${issue.title}" is already assigned to ${assignees.join(', ')} — ` +
+        'a human has claimed it, so the fleet must not pick it onto the board.',
+    };
+  }
+
   const labels = issue.labels ?? [];
   if (labels.some(isGoodFirstIssueLabel)) {
     return {
@@ -415,14 +437,15 @@ export function applyIssueTriageTasks(
   return created;
 }
 
-/** One issue entry as `gh issue list --json number,title,body` emits it —
- *  untrusted process output, parsed defensively rather than trusted as
- *  already shaped like {@link IncomingIssue}. */
+/** One issue entry as `gh issue list --json number,title,body,labels,
+ *  assignees` emits it — untrusted process output, parsed defensively
+ *  rather than trusted as already shaped like {@link IncomingIssue}. */
 interface RawGithubIssue {
   readonly number?: unknown;
   readonly title?: unknown;
   readonly body?: unknown;
   readonly labels?: unknown;
+  readonly assignees?: unknown;
 }
 
 /** `gh`'s `labels` field is an array of `{ name, ... }` objects — reduced
@@ -438,10 +461,26 @@ export function parseIssueLabels(raw: unknown): readonly string[] {
     .filter((name): name is string => typeof name === 'string');
 }
 
+/** `gh`'s `assignees` field is an array of `{ login, ... }` objects — the
+ *  same shaped-object-array convention {@link parseIssueLabels} reduces
+ *  `labels` from, reduced here to just the login strings. Exported so
+ *  `pool-client.ts` can parse the same `gh issue list --json assignees`
+ *  shape without duplicating this defensive reduction. */
+export function parseAssignees(raw: unknown): readonly string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((assignee: unknown) =>
+      typeof assignee === 'object' && assignee !== null
+        ? (assignee as { login?: unknown }).login
+        : undefined,
+    )
+    .filter((login): login is string => typeof login === 'string');
+}
+
 /**
  * Lists every open issue via `gh issue list --state open --json
- * number,title,body`, run through the injectable `exec` — the same
- * `CliExec` shape `connection/cli-probe.ts` uses, so this stays
+ * number,title,body,labels,assignees`, run through the injectable `exec` —
+ * the same `CliExec` shape `connection/cli-probe.ts` uses, so this stays
  * deterministically testable without a real `gh` on PATH. Read-only: never
  * labels, comments, or closes anything, only lists. Returns `[]` on a
  * non-zero exit or unparseable/non-array stdout rather than throwing — a
@@ -456,7 +495,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     '--state',
     'open',
     '--json',
-    'number,title,body,labels',
+    'number,title,body,labels,assignees',
   ]);
   if (code !== 0) return [];
 
@@ -475,6 +514,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
       title: raw.title as string,
       body: typeof raw.body === 'string' ? raw.body : '',
       labels: parseIssueLabels(raw.labels),
+      assignees: parseAssignees(raw.assignees),
     }));
 }
 

@@ -55,6 +55,8 @@ test.describe('project page (/p/:id)', () => {
       // publicity self-init poll — the panel extracted to web/features/ (epic
       // 0007 slice 7); the e2e server wires no publicity API by design.
       '404 /api/publicity',
+      // update-banner self-init poll — same class (see dashboard.spec.ts).
+      '404 /api/update-check',
     ]);
   });
 

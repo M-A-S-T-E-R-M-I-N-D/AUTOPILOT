@@ -194,6 +194,33 @@ describe('planIssueTriage', () => {
 
     expect(decision.decision).toBe('skip');
   });
+
+  it('skips an issue already assigned to a human instead of picking it for the fleet', () => {
+    const decision = planIssueTriage(
+      {
+        number: 30,
+        title: 'Keyboard nav is broken in the fleet table',
+        body: 'aria issue',
+        assignees: ['octocat'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('#30');
+    expect(decision.reasoning).toContain('octocat');
+  });
+
+  it('does not skip an unassigned issue on the assignee check', () => {
+    const decision = planIssueTriage(
+      { number: 31, title: 'Add a --dry-run flag to the CLI', body: '', assignees: [] },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('accept');
+  });
 });
 
 describe('planIssueTriageCommands', () => {
@@ -431,7 +458,7 @@ describe('fetchOpenIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,body,labels',
+      'number,title,body,labels,assignees',
     ]);
   });
 
@@ -448,6 +475,20 @@ describe('fetchOpenIssues', () => {
     const issues = await fetchOpenIssues(exec);
 
     expect(issues.map((i) => i.labels)).toEqual([['pool: ux', 'duplicate'], [], []]);
+  });
+
+  it('parses assignee logins off each issue, dropping malformed assignee entries', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        { number: 9, title: 'Assigned', assignees: [{ login: 'octocat' }, { id: 3 }, 'nope'] },
+        { number: 10, title: 'Unassigned' },
+      ]),
+    });
+
+    const issues = await fetchOpenIssues(exec);
+
+    expect(issues.map((i) => i.assignees)).toEqual([['octocat'], []]);
   });
 
   it('parses well-formed issue JSON into IncomingIssue entries', async () => {
@@ -467,8 +508,9 @@ describe('fetchOpenIssues', () => {
         title: 'Keyboard nav is broken',
         body: 'Screen reader users are stuck',
         labels: [],
+        assignees: [],
       },
-      { number: 10, title: 'Docs typo', body: '', labels: [] },
+      { number: 10, title: 'Docs typo', body: '', labels: [], assignees: [] },
     ]);
   });
 
@@ -480,7 +522,9 @@ describe('fetchOpenIssues', () => {
 
     const issues = await fetchOpenIssues(exec);
 
-    expect(issues).toEqual([{ number: 1, title: 'No body field', body: '', labels: [] }]);
+    expect(issues).toEqual([
+      { number: 1, title: 'No body field', body: '', labels: [], assignees: [] },
+    ]);
   });
 
   it('drops entries missing a numeric number or string title', async () => {
@@ -496,7 +540,7 @@ describe('fetchOpenIssues', () => {
 
     const issues = await fetchOpenIssues(exec);
 
-    expect(issues).toEqual([{ number: 1, title: 'Valid', body: '', labels: [] }]);
+    expect(issues).toEqual([{ number: 1, title: 'Valid', body: '', labels: [], assignees: [] }]);
   });
 
   it('returns an empty array on a non-zero exit', async () => {

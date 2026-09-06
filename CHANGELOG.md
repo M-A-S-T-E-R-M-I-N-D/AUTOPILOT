@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-09-06
+
+### Added
+
+- feat(flight): skip issues already assigned to a human in KEEPER triage
+
+### Fixed
+
+- fix(flight): gate honesty — demote implausibly-fast convergence green to UNVERIFIABLE
+- fix(engine): deny a flight's own `git revert` of anything but HEAD
+- fix(web): ship the update banner to actual users — discovery now admits substitution-free assemblers
+
 ## [0.26.0] — 2026-09-06
 
 ### Added

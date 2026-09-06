@@ -285,6 +285,43 @@ const PUSH_FORCE_REFSPEC_RE = /\s\+\S/;
 const PUSH_DELETE_RE = /\s(?:--delete|-[A-Za-z]*d[A-Za-z]*)(?=\s|$)/;
 const PUSH_REFSPEC_DELETE_RE = /\s:\S/;
 const HARD_RESET_RE = /\s--hard(?=\s|$)/;
+// `git revert` of anything but the flight's own most recent commit is a
+// history-hunting operation, not a self-correction — a specific SHA,
+// `HEAD~N`/`HEAD^`, a branch/tag name, or a range (`A..B`, which reverts the
+// WHOLE range in one invocation) all walk back through commits OTHER than
+// the one the flight just made. This is the exact shape of the CRITICAL
+// flight-safety failure in docs/debriefs/2026-09-06-red-main-revert-cascade.md:
+// a live flight saw a stale red-main verdict and ran a nine-deep revert
+// cascade on the primary checkout, destroying already-landed fixes (including
+// a sibling's own feature and a doc slice already on origin/main) because it
+// never checked whether the tip already superseded the red it was reacting
+// to. Only a bare `HEAD` target (optionally with the no-argument flags below)
+// is allowed — the one shape a flight's own mid-firing self-correction
+// ("gate every change... or revert cleanly") ever legitimately needs, since
+// the commit it might need to undo is always the one it just made. Anything
+// broader is an operator verb: propose it as a board task with evidence
+// instead of executing it.
+const REVERT_NO_ARG_FLAG_RE = /^\s*(?:--no-edit|--edit|-n|--no-commit|-S|--signoff|-s)(?=\s|$)/;
+
+/** Strip git-revert's no-argument flags, in any order, leaving the target ref text. */
+function stripRevertFlags(rest: string): string {
+  let s = rest;
+  for (;;) {
+    const m = REVERT_NO_ARG_FLAG_RE.exec(s);
+    if (!m) return s;
+    s = s.slice(m[0].length);
+  }
+}
+
+/** True when a `git revert` invocation's argument text targets ONLY `HEAD` itself. */
+function isSelfRevertOfHead(rest: string): boolean {
+  return /^\s*HEAD\s*$/.test(stripRevertFlags(rest));
+}
+
+const REVERT_NOT_HEAD =
+  'revert of anything but your own most recent commit (`HEAD`) is an operator verb — ' +
+  'propose it as a board task with evidence (see docs/debriefs/2026-09-06-red-main-revert-cascade.md) ' +
+  'instead of executing it; a bare `git revert HEAD` to undo the commit you just made stays allowed';
 // The `D[A-Za-z]*` branch alone matches `-D`/`-Da`/`-aD`; the other two
 // alternatives close a real bypass: `git branch -fd`/`-df` is git's own
 // bundled short-flag form of `--force --delete`, equivalent to `-D`, but
@@ -381,6 +418,15 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
     }
     if (sub === 'reset' && HARD_RESET_RE.test(rest)) {
       return { allowed: false, reason: `\`git reset --hard\` is ${ADDITIVE_GIT_ONLY}` };
+    }
+    // `--help`/`-h` is exempted here (not a real revert target) so a `git
+    // revert --help` invocation still falls through to checkGitHelpEscape
+    // below, which reports the more specific browser-escape reason —
+    // GIT_HELP_FLAG_RE is declared further down this module but this
+    // function only ever RUNS after the whole module has finished loading,
+    // so the forward reference is safe.
+    if (sub === 'revert' && !GIT_HELP_FLAG_RE.test(rest) && !isSelfRevertOfHead(rest)) {
+      return { allowed: false, reason: `\`git revert\` ${REVERT_NOT_HEAD}` };
     }
     if (sub === 'rebase') {
       return { allowed: false, reason: `\`git rebase\` is ${ADDITIVE_GIT_ONLY}` };
