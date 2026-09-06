@@ -30,6 +30,15 @@
  * along with it — the same "whole region, not just its own top-level" move
  * `tour.ts`'s masthead `#tour-btn` click delegate already proved — since it
  * reads/writes `openDoc` and calls `loadDoc`, both declared here.
+ *
+ * `docsSection(pid)` is called on every `renderProjectPage()` tick (epic
+ * 0018 "calm cockpit" slice 1, docs/epics/0018-calm-cockpit.md) — that
+ * function rebuilds the whole project page whenever the live-state signature
+ * changes, so without `docsPanelCache` this panel's wrap/list/viewer nodes
+ * would be discarded and recreated from scratch on every tick, resetting the
+ * viewer's scroll position and re-fetching the open doc mid-read. Caching
+ * the mounted nodes per project id lets `renderProjectPage()`'s own
+ * `replaceChildren()` + `appendChild()` cycle just reattach the same nodes.
  */
 import { docFileTip } from '../docs-panel.js';
 
@@ -41,11 +50,25 @@ export function docsViewerJs(): string {
 // the same DOM-only Markdown engine the ask answer uses. Content comes from the
 // search INDEX (never the filesystem) — root-jailed by construction.
 var openDoc = {}; // project id -> currently open doc path (survives SSE re-renders)
+// docsPanelCache holds the mounted wrap/list/viewer nodes per project (epic
+// 0018 "calm cockpit", STABILITY LAW "the reader is sacred"). shell.ts's
+// renderProjectPage() tears down and rebuilds the whole project page on
+// every live-state tick; without this cache docsSection(pid) would hand back
+// brand-new, empty nodes each time, wiping the viewer's scroll position and
+// re-triggering a "Loading…" flash + refetch of a doc the reader never asked
+// to reload. Reusing the same nodes means shell.ts's replaceChildren()+
+// appendChild() cycle just reattaches them, scroll and content intact.
+var docsPanelCache = {}; // project id -> { wrap, list, viewer }
 // docFileTip is generated FROM web/docs-panel.ts below (epic 0002 "shell
 // decomposition", slice 2) — its real compiled source via .toString(), not a
 // hand-retyped copy. It can no longer drift apart.
 ${docFileTip.toString()}
 function docsSection(pid) {
+  var cached = docsPanelCache[pid];
+  if (cached) {
+    refreshDocsList(pid, cached.list, cached.viewer);
+    return cached.wrap;
+  }
   var wrap = el('section', 'docs-panel');
   var head = el('h3', 'docs-title', '📚 Docs');
   wrap.appendChild(head);
@@ -55,6 +78,11 @@ function docsSection(pid) {
   var viewer = el('div', 'docs-viewer');
   viewer.setAttribute('data-docs-viewer', pid);
   wrap.appendChild(viewer);
+  docsPanelCache[pid] = { wrap: wrap, list: list, viewer: viewer };
+  refreshDocsList(pid, list, viewer);
+  return wrap;
+}
+function refreshDocsList(pid, list, viewer) {
   fetch('/api/docs?project=' + encodeURIComponent(pid))
     .then(function (r) { return r.ok ? r.json() : { files: [] }; })
     .then(function (data) {
@@ -62,6 +90,7 @@ function docsSection(pid) {
       // request was in flight — appending into a detached node is a stale
       // paint at best and a DOM error at worst. Bail if we're orphaned.
       if (!list.isConnected) return;
+      list.replaceChildren(); // re-mounted panel already has the last tick's entries
       var files = data.files || [];
       if (!files.length) {
         list.appendChild(el('li', 'muted', 'No indexed documents yet.'));
@@ -93,13 +122,21 @@ function docsSection(pid) {
         li.appendChild(docDesc);
         list.appendChild(li);
       }
-      if (openDoc[pid]) loadDoc(pid, openDoc[pid], viewer);
+      // The reader is sacred (epic 0018): only (re)load the open doc when
+      // it isn't already the one sitting in the viewer — reloading an
+      // unchanged doc on every tick is exactly the flash-and-scroll-reset
+      // this cache exists to stop.
+      if (openDoc[pid] && viewer.dataset.loadedPath !== openDoc[pid]) loadDoc(pid, openDoc[pid], viewer);
     })
-    .catch(function () { list.appendChild(el('li', 'muted', 'Docs unavailable.')); });
-  return wrap;
+    .catch(function () {
+      if (!list.isConnected) return;
+      list.replaceChildren();
+      list.appendChild(el('li', 'muted', 'Docs unavailable.'));
+    });
 }
 function loadDoc(pid, path, viewer) {
   viewer.replaceChildren(el('p', 'muted', 'Loading ' + path + '…'));
+  viewer.dataset.loadedPath = '';
   fetch('/api/file?project=' + encodeURIComponent(pid) + '&path=' + encodeURIComponent(path))
     .then(function (r) { if (!r.ok) throw new Error('nope'); return r.json(); })
     .then(function (data) {
@@ -110,8 +147,12 @@ function loadDoc(pid, path, viewer) {
       if (/\\.md$/i.test(data.path)) renderMarkdown(body, data.content);
       else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
       viewer.appendChild(body);
+      viewer.dataset.loadedPath = path;
     })
-    .catch(function () { viewer.replaceChildren(el('p', 'muted', 'Could not load ' + path + '.')); });
+    .catch(function () {
+      viewer.replaceChildren(el('p', 'muted', 'Could not load ' + path + '.'));
+      viewer.dataset.loadedPath = '';
+    });
 }
 // Docs reader (event-delegated): open an indexed document in the viewer.
 document.addEventListener('click', function (e) {
