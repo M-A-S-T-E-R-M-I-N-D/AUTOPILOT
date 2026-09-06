@@ -107,3 +107,28 @@ state is silently discarded by another instance's git operations. Today,
 (1) held by luck of timing in this session; (2) was never actually tested
 end-to-end because this session deliberately avoided any operation that
 could have discarded another process's uncommitted state.
+
+## Verdict processed: ap-mtq0bpgj-2 (2026-09-06, firing-119)
+
+Board item `ap-mtq0bpgj-2` is firing-105's own self-issued VERDICT
+("primary worktree `autopilot/flight` was actively mutated by ≥1 concurrent
+unmanaged process mid-session — unsafe to select/commit"), promoted to a
+tracked task. Verified against firing-105's dataset row
+(`fly-autopilot--fleet-5:firing-105`, 2026-09-06, `outcome: noop`,
+`completion: slice`, `sha: null` — it committed nothing) and against this
+file's own reproduction one day earlier: the claim is **CONFIRMED**, not a
+false block. It is the same hazard as `ap-mtm4qzty-1` above, and this
+firing (firing-119, same day as this debrief) independently reconfirmed it
+a further time: `git status` returned a transient staged `M` on an
+unrelated file moments into the session, then a fully clean tree on the
+very next `git status` call — a sibling instance's own commit landing
+cleanly through this primary checkout while this session only read it.
+Nothing was lost; the pattern matches items 1-2 above exactly, and is one
+more data point toward criterion (2) — no uncommitted state was discarded,
+this time by luck of neither session writing during the other's window.
+
+The open gap and its three-way operator decision (a/b/c, above) are
+unchanged by this reconfirmation — no new architecture fact emerged, so
+this firing takes no new position. `ap-mtq0bpgj-2` closes as **verified,
+duplicate of the still-open `ap-mtm4qzty-1` gap**; the durable fix remains
+an operator call, not a firing-sized patch.
