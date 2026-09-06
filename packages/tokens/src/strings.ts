@@ -577,6 +577,15 @@ const EN_STRINGS = {
     'Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts',
   askTip:
     'Ask the question instead of searching — an AI answer built from the indexed code streams in below.',
+  // Ask button click-handler status text (search.ts's searchInit()) — built
+  // via el()/textContent at click time, not an HTML template
+  // pnpm i18n:untagged's tag scanner can see; found by grepping runtime
+  // textContent literals instead, same as the Inbox note form before it.
+  askPickProjectFirst: 'Pick a project and type a question first.',
+  asking: 'Asking…',
+  askReadingDeep: 'Reading the project to find the answer (Deep)…',
+  askAskingModel: 'Asking the model (grounded in the indexed code)…',
+  askFailed: 'Ask failed — is the dashboard still running?',
   personaGeniusTip:
     'Read-only persona (default): answers questions but never touches the dashboard.',
   personaArchitectTip:
@@ -1330,6 +1339,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     askDeepTip:
       'הסלמה לסשן סוכני לקריאה בלבד (Read/Grep/Glob, עד 10 תורות) שיוצא לחפש את התשובה במקום להסתמך על הקטעים המאונדקסים',
     askTip: 'שאלו את השאלה במקום לחפש — תשובת AI שנבנית מהקוד המאונדקס מוזרמת למטה.',
+    askPickProjectFirst: 'יש לבחור פרויקט ולהקליד שאלה תחילה.',
+    asking: 'בשאלה…',
+    askReadingDeep: 'קורא את הפרויקט כדי למצוא את התשובה (מעמיק)…',
+    askAskingModel: 'שואל את המודל (מבוסס על הקוד המאונדקס)…',
+    askFailed: 'השאלה נכשלה — האם לוח הבקרה עדיין פועל?',
     personaGeniusTip:
       'פרסונה לקריאה בלבד (ברירת מחדל): עונה על שאלות אך לעולם לא נוגעת בלוח הבקרה.',
     personaArchitectTip:
