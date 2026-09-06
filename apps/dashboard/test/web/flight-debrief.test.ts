@@ -15,7 +15,45 @@ import {
   flightDebriefChipItems,
   flightDebriefNotableItems,
   type FlightDebriefEntry,
+  type FlightDebriefTranslator,
 } from '../../src/web/flight-debrief.js';
+
+const DEBRIEF_TEXT: Record<string, string> = {
+  flightDebriefShippedTip: 'Firings that passed the gate and landed a real commit',
+  flightDebriefDeathTip:
+    'Firings that reverted, hit the turn cap, timed out, or errored with nothing committed',
+  flightDebriefTotalSpendTip: 'Total spend across this flight',
+  flightDebriefTotalDurationTip: 'Total wall-clock time across this flight',
+  flightDebriefGuardDenialTip: 'PreToolUse containment/read-hygiene hits this flight',
+  flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
+};
+
+/** A `tr()` stand-in — pins the key routing, not any one locale's text, the
+ *  same convention `card-actions.test.ts`'s `tr` stand-in uses. */
+const tr: FlightDebriefTranslator = (key, subs) => {
+  const count = subs && typeof subs['count'] !== 'undefined' ? subs['count'] : undefined;
+  const amount = subs && typeof subs['amount'] !== 'undefined' ? subs['amount'] : undefined;
+  switch (key) {
+    case 'flightDebriefShippedCount':
+      return `${count} shipped`;
+    case 'flightDebriefDeathCount':
+      return `${count} died`;
+    case 'flightDebriefTotalSpendAria':
+      return `total spend: ${amount}`;
+    case 'flightDebriefTotalDurationAria':
+      return `total duration: ${amount}`;
+    case 'flightDebriefGuardDenialSingular':
+      return `${count} guard denial`;
+    case 'flightDebriefGuardDenialPlural':
+      return `${count} guard denials`;
+    case 'flightDebriefRemediationSingular':
+      return `${count} auto-remediation`;
+    case 'flightDebriefRemediationPlural':
+      return `${count} auto-remediations`;
+    default:
+      return DEBRIEF_TEXT[key] ?? `<missing ${key}>`;
+  }
+};
 
 function verdictOf(f: {
   shipped: boolean;
@@ -104,7 +142,7 @@ describe('flightDebriefChipItems', () => {
       ],
       verdictOf,
     )!;
-    const items = flightDebriefChipItems(d, fmtCost, fmtDuration);
+    const items = flightDebriefChipItems(d, fmtCost, fmtDuration, tr);
     expect(items.map((i) => i[0])).toEqual(['1 shipped', '1 died', '$3.00', '300ms']);
     for (const item of items) {
       expect(item[1]).toBeTruthy(); // every chip explains itself on hover/focus
@@ -116,7 +154,7 @@ describe('flightDebriefChipItems', () => {
 describe('flightDebriefNotableItems', () => {
   it('omits guard-denial/remediation entries entirely when zero', () => {
     const d = flightDebriefOf([{ shipped: true, cost: 1 }], verdictOf)!;
-    expect(flightDebriefNotableItems(d)).toEqual([]);
+    expect(flightDebriefNotableItems(d, tr)).toEqual([]);
   });
 
   it('pluralizes correctly and includes only the notable events that happened', () => {
@@ -124,7 +162,7 @@ describe('flightDebriefNotableItems', () => {
       [{ shipped: true, cost: 1, guardDenials: 1, autoformatRescued: true }],
       verdictOf,
     )!;
-    const items = flightDebriefNotableItems(d);
+    const items = flightDebriefNotableItems(d, tr);
     expect(items.map((i) => i[0])).toEqual(['1 guard denial', '1 auto-remediation']);
     for (const item of items) {
       expect(item[1]).toBeTruthy(); // every chip explains itself on hover/focus
@@ -139,7 +177,7 @@ describe('flightDebriefNotableItems', () => {
       ],
       verdictOf,
     )!;
-    expect(flightDebriefNotableItems(d2).map((i) => i[0])).toEqual([
+    expect(flightDebriefNotableItems(d2, tr).map((i) => i[0])).toEqual([
       '3 guard denials',
       '2 auto-remediations',
     ]);

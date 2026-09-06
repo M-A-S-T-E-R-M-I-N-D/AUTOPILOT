@@ -1251,6 +1251,23 @@ const EN_STRINGS = {
   landingDebriefTitle: '📋 Flight debrief',
   landingDebriefBestLabel: '🏆 Best: ',
   landingDebriefWorstLabel: '💀 Worst: ',
+  // web/flight-debrief.ts's flightDebriefChipItems/flightDebriefNotableItems
+  // — the FLIGHT DEBRIEF panel's stat-chip and notable-event text.
+  flightDebriefShippedCount: '{count} shipped',
+  flightDebriefShippedTip: 'Firings that passed the gate and landed a real commit',
+  flightDebriefDeathCount: '{count} died',
+  flightDebriefDeathTip:
+    'Firings that reverted, hit the turn cap, timed out, or errored with nothing committed',
+  flightDebriefTotalSpendTip: 'Total spend across this flight',
+  flightDebriefTotalSpendAria: 'total spend: {amount}',
+  flightDebriefTotalDurationTip: 'Total wall-clock time across this flight',
+  flightDebriefTotalDurationAria: 'total duration: {amount}',
+  flightDebriefGuardDenialSingular: '{count} guard denial',
+  flightDebriefGuardDenialPlural: '{count} guard denials',
+  flightDebriefGuardDenialTip: 'PreToolUse containment/read-hygiene hits this flight',
+  flightDebriefRemediationSingular: '{count} auto-remediation',
+  flightDebriefRemediationPlural: '{count} auto-remediations',
+  flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1788,6 +1805,21 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingDebriefTitle: '📋 תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',
     landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
+    flightDebriefShippedCount: '{count} שוגרו',
+    flightDebriefShippedTip: 'הפעלות שעברו את השער ונחתו כקומיט אמיתי',
+    flightDebriefDeathCount: '{count} נכשלו',
+    flightDebriefDeathTip:
+      'הפעלות שבוטלו, חרגו ממכסת התורות, נתקלו בפסק זמן, או נכשלו בשגיאה בלי לבצע קומיט',
+    flightDebriefTotalSpendTip: 'סך ההוצאה לאורך הטיסה הזו',
+    flightDebriefTotalSpendAria: 'סך הוצאה: {amount}',
+    flightDebriefTotalDurationTip: 'סך זמן הריצה לאורך הטיסה הזו',
+    flightDebriefTotalDurationAria: 'סך משך זמן: {amount}',
+    flightDebriefGuardDenialSingular: '{count} חסימת שמירה',
+    flightDebriefGuardDenialPlural: '{count} חסימות שמירה',
+    flightDebriefGuardDenialTip: 'פגיעות הכלה/היגיינת קריאה מסוג PreToolUse בטיסה הזו',
+    flightDebriefRemediationSingular: '{count} תיקון אוטומטי',
+    flightDebriefRemediationPlural: '{count} תיקונים אוטומטיים',
+    flightDebriefRemediationTip: 'תיקוני RemediatingGate מכניים בטיסה הזו',
   },
 };
 
