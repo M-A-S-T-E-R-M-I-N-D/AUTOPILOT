@@ -47,13 +47,20 @@
  * changes, so a stale headline count is exactly the kind of drift this
  * doc's own docstring promises to catch mechanically.
  *
- * The "links" half of this derivation, plus derivation 4/4 (the
- * stale-claim reaper, epic-shared with the collab protocol slices), are
- * follow-up slices of the same board task.
+ * The "links" half of derivation 3/4 ({@link planMirrorPassLinkDrift}) covers
+ * the last of "README/docs public claims ↔ tree reality": every relative
+ * markdown link a doc makes (`[text](path)` or `![alt](path)`, excluding
+ * pure in-page anchors and anything with a URL scheme) against whether that
+ * path still exists in the tree — the same "doc references a file that moved
+ * or was deleted" drift a broken-link checker would catch, done the same
+ * pure-planner way as the version/counts halves above.
+ *
+ * Derivation 4/4 (the stale-claim reaper, epic-shared with the collab
+ * protocol slices) is a follow-up slice of the same board task.
  */
 
-import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import type { CliExec } from '../connection/cli-probe.js';
 
 /** Parses `issue-triage.ts`'s `issueTaskId` convention (`github-<n>`) back
@@ -622,4 +629,107 @@ export function readMirrorPassCountsDrift(
   }
   const actualCount = countThirdPartyLicenseRows(licensesContent);
   return planMirrorPassCountsDrift(docContent, actualCount, basename(docPath));
+}
+
+/**
+ * Extracts every relative internal link target from markdown `content` —
+ * both `[text](path)` links and `![alt](path)` images share the same
+ * `](...)` shape, so both are caught. Excludes a pure in-page anchor
+ * (`#section`, nothing to check on disk) and any target carrying a URL
+ * scheme (`https://`, `mailto:`, etc. — not this repo's tree to verify). A
+ * trailing `#fragment` on an otherwise-relative link (e.g.
+ * `docs/PAPER.md#6-threats-to-validity`) is stripped before returning, since
+ * only the file's existence is checked — not the fragment's own validity.
+ * Deduplicated and sorted for a deterministic result.
+ */
+export function extractInternalDocLinks(content: string): readonly string[] {
+  const linkPattern = /\]\(([^)]+)\)/g;
+  const targets = new Set<string>();
+  for (const match of content.matchAll(linkPattern)) {
+    const raw = match[1]?.trim();
+    if (!raw || raw.startsWith('#')) continue;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) continue;
+    const withoutFragment = raw.split('#')[0]!.trim();
+    if (withoutFragment) targets.add(withoutFragment);
+  }
+  return [...targets].sort();
+}
+
+/** Derivation 3/4's link-drift finding: one or more internal links in a doc
+ *  point at a path that no longer exists in the tree. Bundled into a single
+ *  finding (rather than one per link) so a pass with several dead links
+ *  files one issue, not a spray of them — the Social Protocol's "budgeted
+ *  voice" law (epic 0016 slice 1). */
+export interface MirrorPassBrokenLinkFinding {
+  readonly action: 'file-broken-link-issue';
+  readonly source: string;
+  readonly brokenLinks: readonly string[];
+}
+
+/**
+ * Decides whether any of `links` fails to resolve via the injectable
+ * `exists` check — the "links" half of derivation 3/4, "README/docs public
+ * claims ↔ tree reality". `null` when every link resolves (or `links` is
+ * empty); otherwise a single {@link MirrorPassBrokenLinkFinding} naming every
+ * link that failed, never one finding per link.
+ */
+export function planMirrorPassLinkDrift(
+  links: readonly string[],
+  exists: (path: string) => boolean,
+  source = 'README.md',
+): MirrorPassBrokenLinkFinding | null {
+  const brokenLinks = links.filter((link) => !exists(link));
+  if (brokenLinks.length === 0) return null;
+  return { action: 'file-broken-link-issue', source, brokenLinks };
+}
+
+/**
+ * Turns a {@link MirrorPassBrokenLinkFinding} into the `gh issue create` call
+ * needed to file it — deferred execution, same as
+ * {@link planMirrorPassCountsDriftCommand}: this plans the argv, a caller
+ * invokes it. De-duplicating against an already-open drift issue is the
+ * Social Protocol's "search before you speak" law, not this pure planner's
+ * concern, same layering the version/counts-drift commands already assume.
+ */
+export function planMirrorPassLinkDriftCommand(
+  finding: MirrorPassBrokenLinkFinding,
+): MirrorPassCommand {
+  const count = finding.brokenLinks.length;
+  const title = `${finding.source} has ${count} broken internal link${count === 1 ? '' : 's'}`;
+  const body =
+    `Mirror pass found ${count} internal link${count === 1 ? '' : 's'} in **${finding.source}** ` +
+    `pointing to a path that no longer exists in the tree:\n\n` +
+    finding.brokenLinks.map((link) => `- \`${link}\``).join('\n');
+  return {
+    command: 'gh',
+    args: ['issue', 'create', '--title', title, '--body', body],
+    details: `filing a broken-link finding: ${count} dead link(s) in ${finding.source}`,
+  };
+}
+
+/**
+ * Reads `docPath` and runs {@link planMirrorPassLinkDrift} against its
+ * internal links, resolving each one relative to `repoRoot` (the same root a
+ * rendered markdown link on GitHub resolves against, since these docs live
+ * at or under the repo root) — the read wiring a caller composes with
+ * {@link planMirrorPassLinkDriftCommand}, same division of labor
+ * {@link readMirrorPassCountsDrift} has with {@link planMirrorPassCountsDrift}.
+ * A missing/unreadable doc means nothing to check — `null`, never a guess.
+ */
+export function readMirrorPassLinkDrift(
+  docPath: string,
+  repoRoot: string,
+): MirrorPassBrokenLinkFinding | null {
+  let content: string;
+  try {
+    content = readFileSync(docPath, 'utf8');
+  } catch {
+    return null;
+  }
+  const links = extractInternalDocLinks(content);
+  return planMirrorPassLinkDrift(
+    links,
+    (link) => existsSync(join(repoRoot, link)),
+    basename(docPath),
+  );
 }
