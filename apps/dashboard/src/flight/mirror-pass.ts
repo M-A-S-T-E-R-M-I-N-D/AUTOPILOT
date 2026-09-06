@@ -28,11 +28,22 @@
  * landing SHA anywhere. "landed commits get landed-in comments" checks the
  * issue's own comment history ({@link fetchIssueComments}) rather than
  * guessing from state alone, so a task that already got its note doesn't
- * get a duplicate one every reconcile pass. The remaining two mirror-pass
- * derivations (README-claims↔tree, stale-claim reaper) are follow-up
- * slices of the same board task.
+ * get a duplicate one every reconcile pass.
+ *
+ * Derivation 3/4 ({@link planMirrorPassVersionDrift}) covers the first of
+ * "README/docs public claims ↔ tree reality (versions, counts, links)" —
+ * the version claim specifically: README.md's own "Current version **X**"
+ * prose against `package.json`'s real `version` field, the same two sources
+ * `readReleaseInfo` (apps/dashboard/src/read/project-detail.ts) already
+ * reads for the release preview. A mismatch files a finding as a `gh issue
+ * create` command, same deferred-execution stance as the rest of this file
+ * — nothing here calls `gh`. The "counts" and "links" halves of this
+ * derivation, plus derivation 4/4 (the stale-claim reaper, epic-shared with
+ * the collab protocol slices), are follow-up slices of the same board task.
  */
 
+import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import type { CliExec } from '../connection/cli-probe.js';
 
 /** Parses `issue-triage.ts`'s `issueTaskId` convention (`github-<n>`) back
@@ -416,4 +427,91 @@ export async function fetchMirrorPassIssueComments(
     comments.set(number, await fetchIssueComments(exec, number));
   }
   return comments;
+}
+
+/** Extracts a `"Current version **X.Y.Z**"` claim from README-style prose
+ *  (the exact phrasing this repo's own README.md uses) — `null` when the
+ *  text carries no such claim, which {@link planMirrorPassVersionDrift}
+ *  treats as nothing to check rather than a drift. */
+export function extractReadmeVersionClaim(readmeContent: string): string | null {
+  const match = /current version\s+\*\*(\d+\.\d+\.\d+)\*\*/i.exec(readmeContent);
+  return match ? (match[1] ?? null) : null;
+}
+
+/** Derivation 3/4's version-drift finding: a doc claims a version that
+ *  disagrees with the tree's real `package.json`. */
+export interface MirrorPassVersionDriftFinding {
+  readonly action: 'file-version-drift-issue';
+  readonly source: string;
+  readonly claimedVersion: string;
+  readonly actualVersion: string;
+}
+
+/**
+ * Decides whether `readmeContent`'s version claim disagrees with
+ * `actualVersion` — derivation 3/4, the "versions" half of "README/docs
+ * public claims ↔ tree reality". `null` when the doc makes no version claim
+ * to check ({@link extractReadmeVersionClaim} found nothing) or when the
+ * claim already matches the tree; a mismatch is always a
+ * {@link MirrorPassVersionDriftFinding}, never guessed at from partial data.
+ */
+export function planMirrorPassVersionDrift(
+  readmeContent: string,
+  actualVersion: string,
+  source = 'README.md',
+): MirrorPassVersionDriftFinding | null {
+  const claimedVersion = extractReadmeVersionClaim(readmeContent);
+  if (claimedVersion === null || claimedVersion === actualVersion) return null;
+  return { action: 'file-version-drift-issue', source, claimedVersion, actualVersion };
+}
+
+/**
+ * Turns a {@link MirrorPassVersionDriftFinding} into the `gh issue create`
+ * call needed to file it — deferred execution, same as
+ * {@link planMirrorPassCommands}: this plans the argv, a caller invokes it.
+ * De-duplicating against an already-open drift issue is the Social
+ * Protocol's "search before you speak" law (epic 0016 slice 1), not this
+ * pure planner's concern — a caller wires that check before invoking this
+ * command, the same layering {@link planMirrorPassCommands} already assumes
+ * for its own comment/close/reopen calls.
+ */
+export function planMirrorPassVersionDriftCommand(
+  finding: MirrorPassVersionDriftFinding,
+): MirrorPassCommand {
+  const title = `${finding.source} claims version ${finding.claimedVersion}, tree is at ${finding.actualVersion}`;
+  const body =
+    `Mirror pass found a version drift: **${finding.source}** states the current version is ` +
+    `\`${finding.claimedVersion}\`, but \`package.json\` in the tree is at \`${finding.actualVersion}\`. ` +
+    'Either the doc is stale or the version bump was missed.';
+  return {
+    command: 'gh',
+    args: ['issue', 'create', '--title', title, '--body', body],
+    details: `filing a version-drift finding: ${finding.source} says ${finding.claimedVersion}, tree is ${finding.actualVersion}`,
+  };
+}
+
+/**
+ * Reads `readmePath` and `packageJsonPath` from disk and runs
+ * {@link planMirrorPassVersionDrift} against their contents — the read
+ * wiring a caller composes with {@link planMirrorPassVersionDriftCommand},
+ * same division of labor {@link fetchIssueState} has with
+ * {@link planMirrorPassReconcile}. A missing/unreadable file, unparseable
+ * `package.json`, or a non-string `version` field all mean the actual
+ * version is unknowable — `null`, never a guess.
+ */
+export function readMirrorPassVersionDrift(
+  readmePath: string,
+  packageJsonPath: string,
+): MirrorPassVersionDriftFinding | null {
+  let readmeContent: string;
+  let actualVersion: string;
+  try {
+    readmeContent = readFileSync(readmePath, 'utf8');
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { version?: unknown };
+    if (typeof pkg.version !== 'string' || !pkg.version) return null;
+    actualVersion = pkg.version;
+  } catch {
+    return null;
+  }
+  return planMirrorPassVersionDrift(readmeContent, actualVersion, basename(readmePath));
 }
