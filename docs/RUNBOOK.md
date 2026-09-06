@@ -30,6 +30,7 @@ Use the CLI, not raw `node`/`kill` — it owns the state file and does the stale
 | `pnpm dashboard:status` / `STATUS-DASHBOARD.cmd` / `./STATUS-DASHBOARD.sh` | Report `running (pid …) → url` / `stopped` / `stale`, then run `doctor`. |
 | `pnpm dashboard:stop` / `STOP-DASHBOARD.cmd` / `./STOP-DASHBOARD.sh` | `SIGTERM` the recorded pid, clear the state file. |
 | `pnpm dashboard:restart` / `RESTART-DASHBOARD.cmd` / `./RESTART-DASHBOARD.sh` | Rebuild, then stop + start. |
+| `pnpm dashboard:watch` / `WATCH-DASHBOARD.cmd` / `./WATCH-DASHBOARD.sh` | Build, then run the RING-0 supervisor in the foreground; optional project, firing, and budget arguments pass through. |
 | `pnpm dashboard:doctor` | Node version, server-built, state-dir-writable checks. |
 | `pnpm dashboard:ci-status` | Latest `gh run list` result per `.github/workflows/*.yml` file — read-only CI-run babysitting, never retries/cancels. |
 | `pnpm dashboard:maintenance-sweep` | One read of the founder's routine sweep: dependabot's open PR backlog, doc-freshness drift, the next release's plan verdict, and the CI-run report together — read-only throughout. |
