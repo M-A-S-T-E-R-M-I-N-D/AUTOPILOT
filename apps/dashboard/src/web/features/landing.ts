@@ -173,7 +173,7 @@ function flightDebriefSection(flightLog, tasks) {
   if (!digest) return null;
   var taskById = taskMap(tasks);
   var wrap = el('div', 'flight-debrief');
-  wrap.appendChild(el('h4', 'flight-debrief-title', '📋 Flight debrief'));
+  wrap.appendChild(el('h4', 'flight-debrief-title', tr('landingDebriefTitle')));
   var chips = el('p', 'flight-debrief-chips');
   var chipItems = flightDebriefChipItems(digest, fmtCost, fmtDuration);
   chips.appendChild(tipChip(chipItems[0][0], chipItems[0][1], chipItems[0][2], 'flight-debrief-ship'));
@@ -187,7 +187,7 @@ function flightDebriefSection(flightLog, tasks) {
   if (digest.best) {
     var bestText = flightHeadlineOf(digest.best, taskById) + ' — ' + fmtCost(digest.best.cost);
     var bestLine = el('p', 'flight-debrief-best');
-    bestLine.appendChild(el('span', 'flight-debrief-label', '🏆 Best: '));
+    bestLine.appendChild(el('span', 'flight-debrief-label', tr('landingDebriefBestLabel')));
     var bestVal = el('span', null, bestText);
     bestVal.setAttribute('tabindex', '0');
     bestVal.setAttribute('data-tip', 'The most cost-efficient shipped firing this flight');
@@ -198,7 +198,7 @@ function flightDebriefSection(flightLog, tasks) {
   if (digest.worst) {
     var worstText = flightHeadlineOf(digest.worst, taskById) + ' — ' + fmtCost(digest.worst.cost);
     var worstLine = el('p', 'flight-debrief-worst');
-    worstLine.appendChild(el('span', 'flight-debrief-label', '💀 Worst: '));
+    worstLine.appendChild(el('span', 'flight-debrief-label', tr('landingDebriefWorstLabel')));
     var worstVal = el('span', null, worstText);
     worstVal.setAttribute('tabindex', '0');
     worstVal.setAttribute('data-tip', 'The priciest firing that did not ship this flight');
@@ -234,7 +234,7 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
     body.appendChild(worktreeEl);
   }
   if (!landing || !landing.commits || !landing.commits.length) {
-    body.appendChild(el('p', 'muted', 'Nothing to land — the branch is level with its base.'));
+    body.appendChild(el('p', 'muted', tr('landingNothingToLand')));
     return;
   }
   // D1 TAB-STOP ROVING: the branch line is one roving group — the branch
@@ -303,7 +303,7 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
   var execBtn = document.createElement('button');
   execBtn.type = 'button';
   execBtn.className = 'landing-execute';
-  execBtn.textContent = '🛬 Execute landing → ' + landing.base;
+  execBtn.textContent = tr('landingExecuteButton', { base: landing.base });
   execBtn.setAttribute('data-land-execute', pid);
   var execTip = landingExecuteTip(landing.base);
   execBtn.setAttribute('data-tip', execTip);
@@ -401,17 +401,17 @@ var landingRestarting = {}; // project id -> true while presumed rebuilding
 var LANDING_RESTART_GRACE_MS = 20000;
 function landingSection(pid, flightLog, tasks) {
   var wrap = el('section', 'landing-panel');
-  wrap.appendChild(el('h3', 'landing-title', '🛬 Landing'));
+  wrap.appendChild(el('h3', 'landing-title', tr('landingTitle')));
   var body = el('div', 'landing-body');
   if (landingRestarting[pid]) {
-    var restartingEl = el('p', 'muted landing-restarting', '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.');
+    var restartingEl = el('p', 'muted landing-restarting', tr('landingRestarting'));
     restartingEl.setAttribute('role', 'status');
     restartingEl.setAttribute('aria-live', 'polite');
     body.appendChild(restartingEl);
     wrap.appendChild(body);
     return wrap;
   }
-  body.appendChild(el('p', 'muted', 'Checking for unmerged work…'));
+  body.appendChild(el('p', 'muted', tr('landingChecking')));
   wrap.appendChild(body);
   fetch('/api/landing?project=' + encodeURIComponent(pid))
     .then(function (r) { return r.ok ? r.json() : { landing: null }; })
@@ -424,7 +424,7 @@ function landingSection(pid, flightLog, tasks) {
     })
     .catch(function () {
       if (!body.isConnected) return;
-      body.replaceChildren(el('p', 'muted', 'Landing preview unavailable.'));
+      body.replaceChildren(el('p', 'muted', tr('landingUnavailable')));
     });
   return wrap;
 }
