@@ -19,5 +19,5 @@ if [ $? -ne 0 ]; then
 fi
 
 echo
-pnpm dashboard:watch -- "$@"
+pnpm dashboard:watch "$@"
 echo
