@@ -260,14 +260,19 @@ function flightGroupRow(c, entry, taskById) {
   var costEl = el('span', 'flight-cost muted', fmtCost(totalCost));
   costEl.setAttribute('tabindex', '0');
   costEl.setAttribute('data-tip', headMeta.costTip);
+  // i18n (board web-msnsndki-dz3vn1): the cost tip wraps the live slice count
+  // ("Total spend across all N slices"), so it rides the tip-template sweep
+  // with its count as a data-i18n-args map; the text and aria-label are
+  // composed from the live sum and stay as-is.
+  costEl.setAttribute('data-i18n-tip-template', 'flightGroupCostTip');
+  costEl.setAttribute('data-i18n-args', JSON.stringify({ n: rows.length }));
   costEl.setAttribute('aria-label', headMeta.costAriaLabel);
   head.appendChild(costEl);
   var agoEl = el('span', 'flight-ago muted', fmtAgo(newest.at));
   agoEl.setAttribute('tabindex', '0');
   agoEl.setAttribute('data-tip', headMeta.agoTip);
-  // i18n (board web-msnsndki-dz3vn1): only the tip is tagged — the text and
-  // aria-label are composed from live values. The head's cost tip above is
-  // composed too ("Total spend across all N slices") and stays untagged.
+  // i18n: only the tip is tagged — the text and aria-label are composed from
+  // live values.
   agoEl.setAttribute('data-i18n-tip', 'flightGroupAgoTip');
   agoEl.setAttribute('aria-label', headMeta.agoAriaLabel);
   head.appendChild(agoEl);
@@ -310,6 +315,11 @@ function flightGroupRow(c, entry, taskById) {
         var mSha = el('span', 'flight-sha', mMeta.shaText);
         mSha.setAttribute('tabindex', '0');
         mSha.setAttribute('data-tip', mMeta.shaTip);
+        // i18n: the tip and aria-label wrap the live sha — the same template
+        // pair the flat row's sha chip carries in flightLogNode below.
+        mSha.setAttribute('data-i18n-tip-template', 'flightShaTip');
+        mSha.setAttribute('data-i18n-aria-template', 'flightShaAria');
+        mSha.setAttribute('data-i18n-name', mf.sha);
         mSha.setAttribute('aria-label', mMeta.shaAriaLabel);
         member.appendChild(mSha);
       }
@@ -1764,6 +1774,13 @@ function flightLogNode(c) {
       var logShaEl = el('span', 'flight-sha', logMeta.shaText);
       logShaEl.setAttribute('tabindex', '0');
       logShaEl.setAttribute('data-tip', logMeta.shaTip);
+      // i18n (board web-msnsndki-dz3vn1): the tip ("Commit: <sha>") and
+      // aria-label ("commit <sha>") wrap the live sha, so they ride the
+      // tip/aria template sweeps with the sha as data-i18n-name; the short
+      // sha text stays composed. Same pair on flightGroupRow's member rows.
+      logShaEl.setAttribute('data-i18n-tip-template', 'flightShaTip');
+      logShaEl.setAttribute('data-i18n-aria-template', 'flightShaAria');
+      logShaEl.setAttribute('data-i18n-name', f.sha);
       logShaEl.setAttribute('aria-label', logMeta.shaAriaLabel);
       head.appendChild(logShaEl);
     }

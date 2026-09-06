@@ -67,6 +67,16 @@ describe('localeJs', () => {
     expect(localeJs()).toContain('if (el.textContent !== text) el.textContent = text;');
   });
 
+  it('translateDom fills the data-tip of every [data-i18n-tip-template] element through the same fillTemplate as the aria twin — a hover tip wrapping a live value', () => {
+    expect(localeJs()).toContain(
+      "document.querySelectorAll('[data-i18n-tip-template]').forEach((el) => {",
+    );
+    expect(localeJs()).toContain('const tpl = table[el.dataset.i18nTipTemplate];');
+    expect(localeJs()).toContain(
+      "if (tpl) el.setAttribute('data-tip', fillTemplate(tpl, el, table));",
+    );
+  });
+
   it('fillTemplate fills any other {slot} from the element’s data-i18n-args JSON map — the DOM twin of tr()’s substitution map', () => {
     const { fillTemplate } = new Function(`${localeJs()}\nreturn { fillTemplate };`)();
     const el = { dataset: { i18nArgs: JSON.stringify({ step: 2, total: 5 }) } };
