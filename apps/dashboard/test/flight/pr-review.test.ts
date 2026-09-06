@@ -207,6 +207,14 @@ const BENIGN_FLIGHT = new Set([
   // the same "proposal-only, writes go through already-flagged wiring"
   // class fleet-wisdom-mining.ts/soul-mining.ts are benign for.
   'report-compose.ts',
+  // COMPOSER TARGET=TASKS slice 1 (board web-mtq2m6la-ckpxm7): composeReportTasks
+  // is the tasks[]-shaped sibling of composeReport just above — same class,
+  // same reasoning: it only asks a tool-less model to SUGGEST a
+  // title/body/severity/dimension split from a free-text note plus captured
+  // page context, and never touches the store or `gh` itself. Applying any
+  // composed task (creating it on the board) is a later slice's execute
+  // wiring, which will need its own marker once it ships.
+  'report-compose-tasks.ts',
   // SOCIAL FLIGHT core 1/6 (board web-mtpzzx23-n1kqv0): resolveSocialIdentity
   // composes the two existing read-only resolves (fetchViewerLogin's `gh api
   // user`, fetchRepoIdentity's `gh repo view`), fetchOwnSubmissions only
