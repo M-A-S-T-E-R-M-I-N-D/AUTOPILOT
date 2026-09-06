@@ -481,6 +481,14 @@
  * `OFFICE_TIPS` map, also read by the office map and the activity phase
  * rail) and the callsign/model/fixation chips' text from `live-progress.ts`
  * helpers stay English — a later slice.
+ * This slice tags the Firing Replay playback controls inside a drilled-open
+ * trace row (`web/features/firing-timeline.ts`): the "▶ Step through"
+ * toggle and the Prev / Next / Exit bar it opens — visible text via
+ * `data-i18n`, concise aria-label via `data-i18n-aria`, full tip via
+ * `data-i18n-tip` (`replay*`). The "Step N of M" position label is an
+ * aria-live region whose text `replayNav()` composes, so only its tip is
+ * tagged — the label itself, the diff toggle and the loading/empty
+ * placeholders in the same row stay English for a later slice.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -644,6 +652,30 @@ const EN_STRINGS = {
   firingTrace: 'Per-firing trace',
   firingTraceAria:
     'Per-firing trace: every firing for this project, grouped and collapsible, unlike the Activity feed above which only shows the last flight',
+  // The Firing Replay playback controls inside a drilled-open trace row
+  // (web/features/firing-timeline.ts's firingTimelineSection(): the
+  // "▶ Step through" toggle and the Prev / Next / Exit bar it opens). Each
+  // button's visible text rides [data-i18n], its concise aria-label
+  // [data-i18n-aria], its full data-tip [data-i18n-tip] — Exit's text and
+  // aria-label share replayExit, the D1 attribute-payload audit having
+  // already made them identical. The "Step N of M" position label between
+  // Prev and Next is an aria-live region whose announced text is
+  // replayNav()'s own composed string (web/replay-nav.ts), so only its tip
+  // (replayPositionTip) is tagged; the label stays English until that
+  // helper takes a template. The ‹ › glyphs are bidi-mirrored characters,
+  // so Hebrew keeps them: the browser flips them with the layout.
+  replayStart: '▶ Step through',
+  replayStartAria: 'Step through',
+  replayStartTip: 'Replay this firing one action at a time with Prev and Next controls',
+  replayPrev: '‹ Prev',
+  replayPrevAria: 'Previous action',
+  replayPrevTip: 'Step back to the previous action in this replay',
+  replayPositionTip: 'Your position in this replay — Left and Right arrow keys also step',
+  replayNext: 'Next ›',
+  replayNextAria: 'Next action',
+  replayNextTip: 'Advance to the next action in this replay',
+  replayExit: 'Exit replay',
+  replayExitTip: 'Leave playback and show the full trace list',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
@@ -1173,6 +1205,18 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     firingTrace: 'עקבה לפי הפעלה',
     firingTraceAria:
       'עקבה לפי הפעלה: כל הפעלה עבור פרויקט זה, מקובצת וניתנת לכיווץ, בניגוד לפיד הפעילות למעלה שמציג רק את הטיסה האחרונה',
+    replayStart: '▶ צעד אחר צעד',
+    replayStartAria: 'צעד אחר צעד',
+    replayStartTip: 'שחזור ההפעלה הזו פעולה אחת בכל פעם, עם כפתורי הקודם והבא',
+    replayPrev: '‹ הקודם',
+    replayPrevAria: 'הפעולה הקודמת',
+    replayPrevTip: 'חזרה לפעולה הקודמת בשחזור הזה',
+    replayPositionTip: 'המיקום שלכם בשחזור הזה — גם מקשי החצים שמאלה וימינה מדפדפים בין הצעדים',
+    replayNext: 'הבא ›',
+    replayNextAria: 'הפעולה הבאה',
+    replayNextTip: 'מעבר לפעולה הבאה בשחזור הזה',
+    replayExit: 'יציאה מהשחזור',
+    replayExitTip: 'עזיבת מצב השחזור והצגת רשימת העקבה המלאה',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
     taskNewLabel: 'משימה חדשה',
