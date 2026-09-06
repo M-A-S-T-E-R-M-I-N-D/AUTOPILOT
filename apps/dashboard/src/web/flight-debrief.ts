@@ -103,6 +103,38 @@ export function flightDebriefOf<F extends FlightDebriefEntry>(
  *  argument order — the same shape `stat-tiles.ts`'s `RoundStatItem` uses. */
 export type FlightDebriefChipItem = readonly [text: string, tip: string, ariaLabel: string];
 
+/** The `STRINGS` keys {@link flightDebriefChipItems}/{@link
+ *  flightDebriefNotableItems} route through — i18n foundation (board
+ *  web-msnsndki-dz3vn1): this module's stat-chip/notable-event text was the
+ *  FLIGHT DEBRIEF panel's last hardcoded-English surface; every static label
+ *  around it (`landingDebriefTitle`, `landingDebriefBestLabel`, …) already
+ *  routes through `tr()`. */
+export type FlightDebriefStringKey =
+  | 'flightDebriefShippedCount'
+  | 'flightDebriefShippedTip'
+  | 'flightDebriefDeathCount'
+  | 'flightDebriefDeathTip'
+  | 'flightDebriefTotalSpendTip'
+  | 'flightDebriefTotalSpendAria'
+  | 'flightDebriefTotalDurationTip'
+  | 'flightDebriefTotalDurationAria'
+  | 'flightDebriefGuardDenialSingular'
+  | 'flightDebriefGuardDenialPlural'
+  | 'flightDebriefGuardDenialTip'
+  | 'flightDebriefRemediationSingular'
+  | 'flightDebriefRemediationPlural'
+  | 'flightDebriefRemediationTip';
+
+/** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected rather
+ *  than imported — a `.toString()`-spliced helper carries no free variables
+ *  with it, so a translator it closed over would resolve to nothing in the
+ *  generated client bundle. Same injection route `card-actions.ts`'s
+ *  `CardActionsTranslator` takes. */
+export type FlightDebriefTranslator = (
+  key: FlightDebriefStringKey,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
 /** The FLIGHT DEBRIEF panel's stat-chip triples (shipped, died, total spend,
  *  total duration), in the panel's fixed render order. Takes
  *  `fmtCost`/`fmtDuration` via injection rather than importing them from
@@ -111,27 +143,24 @@ export function flightDebriefChipItems<F>(
   d: FlightDebrief<F>,
   fmtCost: (n: number) => string,
   fmtDuration: (ms: number) => string,
+  tr: FlightDebriefTranslator,
 ): readonly FlightDebriefChipItem[] {
+  const shippedText = tr('flightDebriefShippedCount', { count: d.shipped });
+  const deathText = tr('flightDebriefDeathCount', { count: d.deaths });
+  const spendText = fmtCost(d.totalCost);
+  const durationText = fmtDuration(d.totalDurationMs);
   return [
+    [shippedText, tr('flightDebriefShippedTip'), shippedText],
+    [deathText, tr('flightDebriefDeathTip'), deathText],
     [
-      d.shipped + ' shipped',
-      'Firings that passed the gate and landed a real commit',
-      d.shipped + ' shipped',
+      spendText,
+      tr('flightDebriefTotalSpendTip'),
+      tr('flightDebriefTotalSpendAria', { amount: spendText }),
     ],
     [
-      d.deaths + ' died',
-      'Firings that reverted, hit the turn cap, timed out, or errored with nothing committed',
-      d.deaths + ' died',
-    ],
-    [
-      fmtCost(d.totalCost),
-      'Total spend across this flight',
-      'total spend: ' + fmtCost(d.totalCost),
-    ],
-    [
-      fmtDuration(d.totalDurationMs),
-      'Total wall-clock time across this flight',
-      'total duration: ' + fmtDuration(d.totalDurationMs),
+      durationText,
+      tr('flightDebriefTotalDurationTip'),
+      tr('flightDebriefTotalDurationAria', { amount: durationText }),
     ],
   ];
 }
@@ -146,16 +175,22 @@ export function flightDebriefChipItems<F>(
  *  every other digest value already carries. */
 export function flightDebriefNotableItems<F>(
   d: FlightDebrief<F>,
+  tr: FlightDebriefTranslator,
 ): readonly FlightDebriefChipItem[] {
   const items: FlightDebriefChipItem[] = [];
   if (d.guardDenials > 0) {
-    const text = d.guardDenials + (d.guardDenials === 1 ? ' guard denial' : ' guard denials');
-    items.push([text, 'PreToolUse containment/read-hygiene hits this flight', text]);
+    const text = tr(
+      d.guardDenials === 1 ? 'flightDebriefGuardDenialSingular' : 'flightDebriefGuardDenialPlural',
+      { count: d.guardDenials },
+    );
+    items.push([text, tr('flightDebriefGuardDenialTip'), text]);
   }
   if (d.remediations > 0) {
-    const text =
-      d.remediations + (d.remediations === 1 ? ' auto-remediation' : ' auto-remediations');
-    items.push([text, 'Mechanical RemediatingGate auto-fixes this flight', text]);
+    const text = tr(
+      d.remediations === 1 ? 'flightDebriefRemediationSingular' : 'flightDebriefRemediationPlural',
+      { count: d.remediations },
+    );
+    items.push([text, tr('flightDebriefRemediationTip'), text]);
   }
   return items;
 }
