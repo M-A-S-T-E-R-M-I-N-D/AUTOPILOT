@@ -108,6 +108,7 @@ import { luckyPlan, type LuckyProbe } from '../flight/lucky-plan.js';
 import { adoptFlight, realAdoptFlightDeps } from '../flight/adopt.js';
 import { otlpConfigFromEnv } from '../flight/otlp.js';
 import { askProject, askProjectStream, type AskEscalationDeps } from '../ask/service.js';
+import { composeReport } from '../flight/report-compose.js';
 import { readConnectionConfig } from '../connection/config.js';
 import {
   resolveClaudeEnv,
@@ -663,6 +664,29 @@ const server = createServer({
       deep,
       onActivity,
       persona,
+    ),
+  // LLM ISSUE COMPOSER 1/3 (board web-mtpzdrt1-lirsgh): reuses the exact same
+  // ask/service wiring as `ask` above (same `askEngineConfig`/`askModel`/
+  // `askAuth`, same tool-less `ClaudeCliModel` call shape) rather than a
+  // second model-calling convention — this is project-agnostic (the note plus
+  // captured page context is everything it reasons over), so unlike `ask` it
+  // takes no projectId.
+  reportCompose: (description, contextJson, moduleSources) =>
+    composeReport(
+      {
+        invoke: async (prompt) => {
+          const model = new ClaudeCliModel({
+            repo: process.cwd(),
+            config: askEngineConfig,
+            auth: askAuth(),
+          });
+          const res = await model.invoke(askModel, prompt);
+          return res.envelope?.isError === false ? res.envelope.result : null;
+        },
+      },
+      description,
+      contextJson,
+      moduleSources,
     ),
   connection: {
     getStatus: () => getConnectionStatus(connectionDeps),

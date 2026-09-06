@@ -44,6 +44,13 @@ import {
 // importers of the ask contract keep working unchanged.
 export type { AskApiResult, AskApi, AskStreamApi, AskPersona } from './ask.js';
 import {
+  handleReportCompose,
+  REPORT_COMPOSE_RATE_LIMIT,
+  REPORT_COMPOSE_RATE_WINDOW_MS,
+  type ReportComposeApi,
+} from './report-compose.js';
+export type { ReportComposeApi } from './report-compose.js';
+import {
   handleGithubSyncExecute,
   handleGithubIssueExecute,
   handleGithubPrExecute,
@@ -560,6 +567,12 @@ export interface ServerDeps extends RouteDeps {
   readonly poolClientExecute?: PoolClientExecuteApi;
   readonly reportFromHere?: ReportFromHerePreviewApi;
   readonly reportFromHereExecute?: ReportFromHereExecuteApi;
+  /** LLM ISSUE COMPOSER 1/3 (board web-mtpzdrt1-lirsgh): the LLM-backed
+   *  counterpart to `reportFromHere`'s deterministic headline extraction —
+   *  behind `POST /api/report/compose`. No UI consumer yet (deferred to a
+   *  later slice), same "building block ahead of its UI" stance the report-
+   *  from-here execute layer shipped with. */
+  readonly reportCompose?: ReportComposeApi;
   /** Publicity affordances (epic 0007, "PLATFORM 7/7"): repo/watch/star/
    *  discussions links, dormant while the repo stays private. */
   readonly publicity?: PublicityApi;
@@ -2496,6 +2509,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     REPORT_FROM_HERE_RATE_LIMIT,
     REPORT_FROM_HERE_RATE_WINDOW_MS,
   );
+  const reportComposeLimiter = createRateLimiter(
+    REPORT_COMPOSE_RATE_LIMIT,
+    REPORT_COMPOSE_RATE_WINDOW_MS,
+  );
   const githubSyncLimiter = createRateLimiter(GITHUB_SYNC_RATE_LIMIT, GITHUB_SYNC_RATE_WINDOW_MS);
   const githubIssueLimiter = createRateLimiter(
     GITHUB_ISSUE_RATE_LIMIT,
@@ -2681,6 +2698,11 @@ export function createServer(deps: ServerDeps = {}): Server {
         headers,
         reportFromHereLimiter,
       );
+      return;
+    }
+
+    if (path === '/api/report/compose') {
+      void handleReportCompose(req, res, deps.reportCompose, headers, reportComposeLimiter);
       return;
     }
 
