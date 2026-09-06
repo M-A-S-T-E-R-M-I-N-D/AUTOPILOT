@@ -374,6 +374,30 @@ describe('checkCommandContainment', () => {
     expect(check('git rebase -i HEAD~3').allowed).toBe(false);
   });
 
+  it('allows `git revert HEAD` (a flight undoing the commit it just made) but denies any other target', () => {
+    expect(check('git revert HEAD').allowed).toBe(true);
+    expect(check('git revert --no-edit HEAD').allowed).toBe(true);
+    expect(check('git revert -n HEAD').allowed).toBe(true);
+    // a specific SHA, HEAD~N, a branch/tag, or a range all walk back through
+    // history OTHER than the commit the flight just made
+    expect(check('git revert abc1234').allowed).toBe(false);
+    expect(check('git revert HEAD~1').allowed).toBe(false);
+    expect(check('git revert HEAD~3..HEAD').allowed).toBe(false);
+    expect(check('git revert main').allowed).toBe(false);
+    expect(check('git revert --no-edit HEAD~2').allowed).toBe(false);
+  });
+
+  it('the git-revert denial reason cites the debrief and names the escape hatch', () => {
+    const reason = check('git revert HEAD~1').reason;
+    expect(reason).toContain('operator verb');
+    expect(reason).toContain('2026-09-06-red-main-revert-cascade.md');
+    expect(reason).toContain('git revert HEAD');
+  });
+
+  it('a `git revert --help` still gets the browser-escape reason, not the revert-target reason', () => {
+    expect(check('git revert --help').reason).toContain('browser');
+  });
+
   it('denies force-deleting a branch (`-D`) but allows a safe merged delete (`-d`)', () => {
     expect(check('git branch -D old-feature').allowed).toBe(false);
     expect(check('git branch -d old-feature').allowed).toBe(true);
