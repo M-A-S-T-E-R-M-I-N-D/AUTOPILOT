@@ -6,6 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Added
+
+- feat(i18n): translate the FLIGHT DEBRIEF panel's stat-chip and notable-event text
+- feat(i18n): translate the GitHub sync/PR result panels' generic fallback text
+- feat(i18n): translate the contribution heatmap's aria-label and color-key legend
+- feat(i18n): translate the Notifications channel's control tips and hints
+- feat(flight): compose-to-tasks[] core — free-text notes split into right-sized board tasks
+
+### Fixed
+
+- fix(dashboard): bound the activity feed and per-firing trace to scroll containers
+- fix(dashboard): `dashboard watch` no longer flies a real directory named `--`
+- fix(flight): hard-rule — an orphaned uncommitted diff may be a live sibling's, not just yours
+- fix(release): scope the release commit to touched paths, never a whole-tree sweep
+- fix(flight): hard-rule against reacting to a red-main signal with a revert walk
+- fix(dashboard): raise core bundle budget 172/51KB -> 176/52KB for LANDING i18n
+
 ## [0.27.0] — 2026-09-06
 
 ### Added
