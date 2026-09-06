@@ -70,9 +70,19 @@ import {
  * slice costs ~700 raw / ~180 gzip; this bump buys ~4-5 more. The
  * structural fix (VERDICT split web-mtbodv7m-uzhovs) remains the tracked
  * follow-up.
+ *
+ * Raised 172→176KB / 51→52KB (2026-09-06): the previous bump's 3-byte gzip
+ * headroom was exactly as thin as it looked — the LANDING panel's i18n
+ * slice (board web-msnsndki-dz3vn1, nine STRINGS.en keys for its persistent
+ * on-screen text: title, status lines, debrief labels, the Execute button)
+ * measured 175567 raw / 52362 gzip against the old 176128 / 52224 budget,
+ * 138 bytes over on gzip alone. This bump leaves ~4.5KB raw / ~0.9KB gzip
+ * headroom this time, matching the size of the last few slices rather than
+ * cutting it to single digits again. The structural fix (VERDICT split
+ * web-mtbodv7m-uzhovs) remains the tracked follow-up.
  */
-const CORE_RAW_BUDGET = 172 * 1024;
-const CORE_GZIP_BUDGET = 51 * 1024;
+const CORE_RAW_BUDGET = 176 * 1024;
+const CORE_GZIP_BUDGET = 52 * 1024;
 const CHUNK_RAW_BUDGET = 100 * 1024;
 const CHUNK_GZIP_BUDGET = 30 * 1024;
 
