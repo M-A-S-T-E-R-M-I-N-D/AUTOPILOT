@@ -693,6 +693,9 @@ const EN_STRINGS = {
   metrics: 'Metrics',
   inbox: 'Inbox',
   firingActivity: 'Firing activity',
+  activityHeatmapAria:
+    'Firing activity over the last {weeks} weeks — green days shipped, red days had a death',
+  activityHeatmapLegend: 'green = shipped · red = died · gray = other activity',
   inboxSummary: '📝 Drop a note',
   inboxNoteLabel: 'Drop a note for the next firing',
   inboxNotePlaceholder:
@@ -1384,6 +1387,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     metrics: 'מדדים',
     inbox: 'תיבת הודעות',
     firingActivity: 'פעילות טיסות',
+    activityHeatmapAria:
+      'פעילות טיסות ב-{weeks} השבועות האחרונים — בימים ירוקים שוגר קוד, בימים אדומים אירע כשל',
+    activityHeatmapLegend: 'ירוק = שוגר · אדום = נכשל · אפור = פעילות אחרת',
     inboxSummary: '📝 הוסף הערה',
     inboxNoteLabel: 'הוסף הערה להפעלה הבאה',
     inboxNotePlaceholder: 'הקשר, תוכנית, תיקון — נקרא מחדש בתחילת ההפעלה הבאה',
