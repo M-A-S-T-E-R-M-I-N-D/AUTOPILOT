@@ -139,6 +139,40 @@ describe('GateRunner', () => {
     expect(result.ok).toBe(false);
     expect(result.crashed).toBeUndefined();
   });
+
+  it('folds a crash reason into details (verdict-quality: distinguishable from a real failure)', async () => {
+    const exec: GateExec = () => Promise.resolve({ code: 1, crashed: true, crashReason: 'ENOENT' });
+    const result = await new GateRunner({ cwd: '/repo', commands: [CMDS[0]!], exec }).run();
+    expect(result.ok).toBe(false);
+    expect(result.crashed).toBe(true);
+    expect(result.details).toContain('typecheck failed');
+    expect(result.details).toContain('ENOENT');
+  });
+
+  it('still reports "failed" for a crash with no identified reason (test double omitting crashReason)', async () => {
+    const exec: GateExec = () => Promise.resolve({ code: 1, crashed: true });
+    const result = await new GateRunner({ cwd: '/repo', commands: [CMDS[0]!], exec }).run();
+    expect(result.ok).toBe(false);
+    expect(result.details).toContain('typecheck failed');
+  });
+
+  it('a real execFile timeout is classified as crashReason "timeout", not ENOENT/unknown', async () => {
+    // execFile's own `timeout` option kills the child and reports `killed: true`
+    // with no numeric exit code — realExec must read that as a TIMEOUT, not a
+    // generic crash, so telemetry can tell "the tool never finished in time"
+    // apart from "the binary doesn't exist" (verdict-quality, board web-mtq6zn6x-3khfkb).
+    const result = await new GateRunner({
+      cwd: process.cwd(),
+      // A short-lived process that outlives a near-zero timeout.
+      commands: [
+        { bin: process.execPath, args: ['-e', 'setTimeout(()=>{}, 5000)'], label: 'slow' },
+      ],
+      timeoutMs: 50,
+    }).run();
+    expect(result.ok).toBe(false);
+    expect(result.crashed).toBe(true);
+    expect(result.details).toContain('timeout');
+  });
 });
 
 describe('GateRunner (parallel-safe batches)', () => {

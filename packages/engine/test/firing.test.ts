@@ -289,6 +289,10 @@ describe('runFiring', () => {
     expect(vcs.revertCalls).toBe(0);
     expect(out.gateResult).toBe('unverifiable');
     expect(out.record.shipped).toBe(false);
+    // verdict-quality (board web-mtq6zn6x-3khfkb): a crashed gate used to leave
+    // gateError unset — the ONLY one of the three 'unverifiable' code paths that
+    // recorded no reason at all, making this cause unclassifiable in telemetry.
+    expect(out.record.gateError).toBeDefined();
   });
 
   it("survives a gate PORT that throws instead of resolving (e.g. RemediatingGate's git commit/revert failing) — never propagates the rejection", async () => {

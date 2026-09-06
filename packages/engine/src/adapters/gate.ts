@@ -41,6 +41,15 @@ export interface CommandRun {
    * the AGENT's work is bad; it means the gate couldn't verify it.
    */
   readonly crashed?: boolean;
+  /**
+   * Why a crashed command never produced a real exit code — 'timeout' when
+   * execFile's own `timeout` option killed it, the raw spawn error code
+   * (e.g. 'ENOENT') for a missing binary, or 'unknown' for anything else.
+   * Absent when {@link crashed} is falsy. Threaded into `GateResult.details`
+   * (verdict-quality, board web-mtq6zn6x-3khfkb) so a crash's telemetry
+   * reason is actually distinguishable instead of a uniform "(exit 1)".
+   */
+  readonly crashReason?: string;
 }
 
 export type GateExec = (
@@ -110,7 +119,16 @@ const realExec: GateExec = (cmd, cwd, timeoutMs) =>
       // completion, so this is a CRASH, not the tool's own verdict.
       const raw = (error as { code?: unknown }).code;
       const isRealExitCode = typeof raw === 'number';
-      resolve({ code: isRealExitCode ? raw : 1, crashed: !isRealExitCode });
+      if (isRealExitCode) {
+        resolve({ code: raw });
+        return;
+      }
+      // `killed` is set whenever execFile's own `timeout` option fired (it
+      // kills the child on expiry) — the one crash cause this command itself
+      // chose, as opposed to the environment (ENOENT) or an unidentified one.
+      const killed = (error as { killed?: unknown }).killed === true;
+      const crashReason = killed ? 'timeout' : typeof raw === 'string' ? raw : 'unknown';
+      resolve({ code: 1, crashed: true, crashReason });
     });
   });
 
@@ -171,7 +189,7 @@ export class GateRunner implements GatePort {
           const position = i + offset + 1;
           notify({ kind: 'start', label, index: position, total: commands.length });
           const startedAt = Date.now();
-          const { code, crashed } = await exec(cmd, cwd, timeoutMs);
+          const { code, crashed, crashReason } = await exec(cmd, cwd, timeoutMs);
           const durationMs = Date.now() - startedAt;
           notify({
             kind: 'end',
@@ -181,7 +199,7 @@ export class GateRunner implements GatePort {
             pass: code === 0,
             durationMs,
           });
-          return { cmd, code, crashed, durationMs };
+          return { cmd, code, crashed, crashReason, durationMs };
         }),
       );
       for (const r of runs) {
@@ -196,9 +214,17 @@ export class GateRunner implements GatePort {
       const failed = runs.find((r) => r.code !== 0);
       if (failed) {
         const label = failed.cmd.label ?? failed.cmd.bin;
+        // verdict-quality (board web-mtq6zn6x-3khfkb): a crash's `details` used
+        // to read identically to a real failure ("label failed (exit 1)"),
+        // making a spawn error, a timeout, and a genuine tool crash all look
+        // the same downstream. Keep "failed" in the text (existing callers
+        // match on it) but fold in WHY when it's known.
+        const details = failed.crashed
+          ? `${label} failed (crashed${failed.crashReason ? `: ${failed.crashReason}` : ''}) — gate could not verify the commit`
+          : `${label} failed (exit ${failed.code})`;
         return {
           ok: false,
-          details: `${label} failed (exit ${failed.code})`,
+          details,
           checks,
           ...(failed.crashed ? { crashed: true } : {}),
         };

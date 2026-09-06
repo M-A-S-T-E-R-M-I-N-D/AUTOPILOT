@@ -37,6 +37,7 @@ import {
   gateParallelSavings,
   warmSessionSavings,
   extendedFiringSavings,
+  unverifiableCauseBreakdown,
 } from '../../packages/store/dist/index.js';
 
 const DB_ENV_VAR = 'AUTOPILOT_DB';
@@ -329,6 +330,41 @@ function renderBoardDiversityAudit(d) {
   ];
 }
 
+/** Ordered so a spot-check of the table sums back to `total` at a glance. */
+const UNVERIFIABLE_CAUSE_LABELS = [
+  ['no-checks', 'no checks ran (dirty tree after commit)'],
+  ['timeout', 'gate command timed out'],
+  ['crash', 'gate command crashed'],
+  ['revert-failed', 'gate failed AND the revert failed'],
+  ['unparsable', 'unclassified / pre-dates this classifier'],
+];
+
+function renderUnverifiableCauseBreakdown(b, totalFirings) {
+  if (b.total === 0) return [];
+  const rows = UNVERIFIABLE_CAUSE_LABELS.map(
+    ([key, label]) => `| ${label} | ${b.byCause[key]} | ${pct(b.byCause[key], b.total)} |`,
+  );
+  return [
+    '',
+    '**Unverifiable rate by cause (verdict-quality, backlog web-mtq6zn6x-3khfkb).** `gateResult:' +
+      " 'unverifiable'` is a real third verdict (`docs/MODEL-CARD.md`) — the gate could not certify OR undo" +
+      ' the work — but until now nothing classified WHY across a whole population, only the per-firing' +
+      " reason buried in that firing's own `events` row. `no-checks` (`firing.ts`'s GATE HOLE 2: a dirty" +
+      ' working tree after the commit, so the gate never even ran) is the dominant real-world cause by a' +
+      ' wide margin — see the primary-checkout concurrent-write hazard tracked at `ap-mtm4qzty-1`, an' +
+      ' operator-owned architecture decision this table does not resolve. `crash` previously recorded NO' +
+      ' reason at all (`firing.ts` fixed alongside this table) and `timeout` previously could not be told' +
+      " apart from any other crash (`adapters/gate.ts`'s `crashReason` fixed alongside it) — both gaps are" +
+      ' closed going forward; historical rows before the fix still read `unparsable`. Target: <20% overall.',
+    '',
+    `| Cause | Firings | Share of unverifiable |`,
+    '|---|---|---|',
+    ...rows,
+    '',
+    `Total unverifiable: ${b.total} of ${totalFirings} recorded firings (${pct(b.total, totalFirings)}).`,
+  ];
+}
+
 function renderGateParallelSavings(s) {
   if (s.sampledFirings === 0) return [];
   const pct = s.savedPct === null ? 'n/a' : `${(s.savedPct * 100).toFixed(1)}%`;
@@ -448,6 +484,7 @@ function renderSummary(
   parallelSavings,
   warmSessions,
   extendedFirings,
+  unverifiableCauses,
 ) {
   const generatedAt = new Date().toISOString();
   const lines = [
@@ -472,6 +509,7 @@ function renderSummary(
     ...renderPinnedEvalRegression(pinnedSuite, pinnedEvalRows),
     ...renderPickSourceEval(pickSourceRows),
     ...renderEvaluationLabelSummary(evaluationLabels),
+    ...renderUnverifiableCauseBreakdown(unverifiableCauses, stats.firings),
     ...renderTestFirstCompliance(testFirst),
     ...renderPickDisciplineAudit(pickDiscipline),
     ...renderBoardDiversityAudit(boardDiversity),
@@ -1370,6 +1408,7 @@ function main() {
       : [];
     const pickSourceRows = evalRegressionByPickSource(store.db, project.id);
     const evaluationLabels = evaluationLabelSummary(store.db, project.id);
+    const unverifiableCauses = unverifiableCauseBreakdown(store.db, project.id);
     const testFirst = testFirstCompliance(store.db, project.id);
     const pickDiscipline = pickDisciplineAudit(store.db, project.id);
     const boardDiversity = boardDiversityAudit(store.db, project.id);
@@ -1398,6 +1437,7 @@ function main() {
       parallelSavings,
       warmSessions,
       extendedFirings,
+      unverifiableCauses,
     );
     const seriesBlock = renderSeries(project, series, evalRows);
     const chartBlock = renderChart(

@@ -279,6 +279,17 @@ export async function runFiring(
       // error) — that is NOT the same as the work failing. Leave the commit in
       // place; the operator/next firing can re-run the gate on a healthy env.
       gateResult = 'unverifiable';
+      // verdict-quality (board web-mtq6zn6x-3khfkb): this was the one
+      // 'unverifiable' code path that recorded NO reason at all — the other
+      // two (dirty tree, revert-failed) both set gateError, leaving a crash
+      // silently unclassifiable in telemetry. `gate.details` carries the
+      // crashed command's own message (GateRunner); fall back to a generic
+      // label only for a port that omits it entirely (e.g. a bare test
+      // double). Never overwrite a reason the catch block above already set
+      // from a THROWN gate port's own error message — that is more specific
+      // than the generic fallback.
+      if (gateError === null)
+        gateError = gate.details ?? 'gate crashed before it could judge the work';
     } else {
       // GATE HOLE 3 (board web-mtb8hghd-72z52z): pass headBefore so a firing
       // that made MORE THAN ONE commit gets all of them reverted, not just
