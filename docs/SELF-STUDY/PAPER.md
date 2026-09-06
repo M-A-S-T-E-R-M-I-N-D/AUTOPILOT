@@ -238,7 +238,7 @@ harness does not (yet) independently verify it by re-running the named test agai
 ## 4. Results
 
 <!-- DATA:SUMMARY:START -->
-_Generated 2026-09-06T18:13:12.486Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 134 recorded firing(s))._
+_Generated 2026-09-06T18:13:48.000Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 134 recorded firing(s))._
 
 | Metric | Value |
 |---|---|
@@ -316,7 +316,7 @@ Cost saved per extended firing vs. ordinary: $0.17. Cost saved per turn, extende
 <!-- DATA:SUMMARY:END -->
 
 <!-- DATA:CHART:START -->
-_Generated 2026-09-06T18:13:12.509Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in DATA-SERIES.md (the machine appendix).
+_Generated 2026-09-06T18:13:48.017Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in DATA-SERIES.md (the machine appendix).
 
 **Firings per day**
 
