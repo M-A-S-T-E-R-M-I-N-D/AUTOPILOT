@@ -207,6 +207,15 @@ const BENIGN_FLIGHT = new Set([
   // the same "proposal-only, writes go through already-flagged wiring"
   // class fleet-wisdom-mining.ts/soul-mining.ts are benign for.
   'report-compose.ts',
+  // SOCIAL FLIGHT core 1/6 (board web-mtpzzx23-n1kqv0): resolveSocialIdentity
+  // composes the two existing read-only resolves (fetchViewerLogin's `gh api
+  // user`, fetchRepoIdentity's `gh repo view`), fetchOwnSubmissions only
+  // LISTS via `gh issue/pr list --author`, and planSocialProtocol is a pure
+  // cap-admission function over candidates and caps both INJECTED by the
+  // caller — no comment/label/issue write exists yet. Same class as
+  // pool-client.ts: the executor that acts on an admitted plan is a
+  // follow-up slice that will need its own marker once it ships one.
+  'social-pass.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
