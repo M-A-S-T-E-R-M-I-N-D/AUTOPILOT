@@ -136,7 +136,9 @@ test.describe('visual regression — populated fleet', () => {
         await page.clock.runFor(2000);
         firingAgoVisible = (await page.locator('.firing-ago').count()) > 0;
       }
-      expect(firingAgoVisible, 'flight log never painted within 50s of pumped fake time').toBe(true);
+      expect(firingAgoVisible, 'flight log never painted within 50s of pumped fake time').toBe(
+        true,
+      );
 
       // Same browser-clock masking rationale as the fleet baseline above; the
       // project page adds the flight log's ticking started-ago label

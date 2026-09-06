@@ -37,4 +37,31 @@ describe('docsViewerJs', () => {
     const out = docsViewerJs();
     expect(out).toBe(out.trim());
   });
+
+  // Epic 0018 "calm cockpit", STABILITY LAW "the reader is sacred": the docs
+  // viewer must survive a full renderProjectPage() rebuild (fired on every
+  // live-state tick) with scroll position and rendered content intact,
+  // instead of the wrap/list/viewer nodes — and the open doc's fetch — being
+  // thrown away and recreated from scratch each tick.
+  describe('survives a project-page rebuild tick (epic 0018 slice 1)', () => {
+    it('caches the mounted panel per project instead of building fresh nodes every call', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('var docsPanelCache = {};');
+    });
+
+    it('docsSection returns the cached wrap on a repeat call for the same project', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(/if \(cached\) \{[\s\S]*?return cached\.wrap;\s*\}/);
+    });
+
+    it('tracks which doc is actually loaded in the viewer', () => {
+      const out = docsViewerJs();
+      expect(out).toContain("viewer.dataset.loadedPath = path;");
+    });
+
+    it('skips reloading the viewer when the open doc is already the one loaded', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('viewer.dataset.loadedPath !== openDoc[pid]');
+    });
+  });
 });
