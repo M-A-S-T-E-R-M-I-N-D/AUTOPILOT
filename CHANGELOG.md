@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-09-06
+
+### Added
+
+- feat(i18n): translate the Firing Replay playback controls' text, aria-label, and tip
+- feat(i18n): translate the project and task status pills' label, tip, and composed aria-label
+- feat(i18n): translate the live worker card's label, phase prefix, task lines, and line tips
+- feat(i18n): sweep [data-i18n-aria-template] and translate the live worker card's tool/target line
+
+### Fixed
+
+- fix(e2e): pump the frozen clock until the flight log paints — the theme-biased gate race
+
 ## [0.24.0] — 2026-09-06
 
 ### Added
