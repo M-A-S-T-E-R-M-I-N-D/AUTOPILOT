@@ -32,6 +32,16 @@ describe('buildReportComposePrompt', () => {
     expect(prompt).toContain('Module sources rendering this region: (none captured)');
   });
 
+  it('forbids verbatim reproduction and forbids paths/emails/credentials in the output', () => {
+    const prompt = buildReportComposePrompt({
+      description: 'note',
+      contextJson: undefined,
+      moduleSources: [],
+    });
+    expect(prompt).toContain('Never reproduce');
+    expect(prompt).toContain('Never include file paths, email addresses, API keys, tokens');
+  });
+
   it('defangs a forged fence marker inside the captured context', () => {
     const prompt = buildReportComposePrompt({
       description: 'note',
@@ -155,6 +165,39 @@ describe('composeReport', () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reasoning).toContain('unusable');
+  });
+
+  it('rejects a composition whose title leaks a credential-shaped secret', async () => {
+    // Built via concatenation (not a literal match in source) — same
+    // convention apps/dashboard/test/tooling/secret-scan.test.ts uses so this
+    // fixture never trips the repo's own secret-scan CI gate on itself.
+    const fakeKey = 'AKIA' + 'ABCDEFGHIJKLMNOP';
+    const result = await composeReport(
+      deps(
+        async () =>
+          `REPORT_COMPOSE:{"title":"Leaked key ${fakeKey}","body":"b","labels":["bug"],"action":"issue","language":"en"}`,
+      ),
+      'note',
+      undefined,
+      [],
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reasoning).toContain('secret');
+  });
+
+  it('rejects a composition whose body leaks a personal email address', async () => {
+    const fakeEmail = 'someone' + '@gmail.com';
+    const result = await composeReport(
+      deps(
+        async () =>
+          `REPORT_COMPOSE:{"title":"t","body":"Contact ${fakeEmail} for details","labels":["bug"],"action":"issue","language":"en"}`,
+      ),
+      'note',
+      undefined,
+      [],
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reasoning).toContain('personal');
   });
 
   it('returns the composed fields on a well-formed reply', async () => {
