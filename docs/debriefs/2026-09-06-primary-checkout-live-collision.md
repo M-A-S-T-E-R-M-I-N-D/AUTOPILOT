@@ -283,3 +283,48 @@ paths — only this documentation file, which no other process touched, was
 edited and committed. No data was lost (criteria (1) and (2) hold a fifth
 time). `ap-mtq0bpgj-2`/`ap-mtm4qzty-1` remain **open, operator-owned**; the
 (a)/(b)/(c) decision from the original finding is unchanged by this entry.
+
+## Verdict reconfirmed a sixth time, HEAD caught moving mid-poll: firing-173 (2026-09-07)
+
+This firing's first `git status` showed a full feature staged —
+`apps/dashboard/src/flight/mirror-pass.ts` +
+`apps/dashboard/test/flight/mirror-pass.test.ts`, 236 lines — plus eleven
+more files modified-but-unstaged across `packages/engine`, `packages/store`,
+`packages/tokens`, `apps/dashboard/src/web/shell.ts`, and the self-study
+docs/scripts (529 lines). Rather than touch any of it, this firing polled
+`git status --porcelain` twice, five seconds apart, with no git operation
+of its own in between: the hash of the porcelain output was identical both
+times, but `git log` afterward showed `HEAD` had moved from `08be7a2b` to
+`74f43d9a` — a clean new commit, `feat(github): mirror-pass catches internal
+doc links that no longer resolve` (EPIC 0016 slice 2, board
+`web-mtpzzx50-obq42b`). Its diff matched the staged content exactly; the
+sibling authoring it committed cleanly while this firing was merely
+reading. Same shape as firing-147/150's "repeat shape" — no data lost,
+duplicated-observation cost only (this firing did no verification work to
+duplicate, since it never staged or gated the content).
+
+The eleven other files remain unstaged and untouched as of this writing —
+a second, still-uncommitted sibling unit (the `shell.ts` change lines up
+with this same firing's own FLEET board showing a `CLAIMED by solo`
+"calm cockpit ... scroll containers" entry; the engine/store/tokens/
+self-study cluster looks like one coherent self-study-pipeline feature,
+unclaimed on the visible board). Neither was staged, gated, or committed by
+this firing.
+
+New artifact shape, not seen in entries one through five: an untracked,
+fully-formed nested git worktree at `.worktree-verify-groupA/` inside the
+primary checkout root, confirmed via `git worktree list` (detached HEAD at
+`274fd68c`, a full working copy including `node_modules`-adjacent tooling
+files). This firing did not enter, read from, or write to it — flagging it
+only as a candidate data point for whoever owns the flight-containment
+guidance (`docs/FLIGHT-CONTAINMENT.md`) against nesting a sandbox/verify
+worktree under a live primary checkout's own root.
+
+Action taken: none against any of the above. Only this documentation file
+was read, edited, and committed (pathspec-scoped commit, to guarantee no
+accidental sweep of the eleven still-unstaged foreign paths).
+`ap-mtq0bpgj-2`/`ap-mtm4qzty-1` remain **open, operator-owned**; the
+(a)/(b)/(c) decision is unchanged. One new, sharper data point: `HEAD`
+movement is now confirmed reproducible via nothing more than two
+read-only `git status` polls a few seconds apart — this is not a rare
+timing accident, it is the checkout's steady state under fleet load.
