@@ -10,6 +10,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { DEFAULT_AUTH, type AuthConfig, type AuthMode } from '@autopilot/engine';
 
 const MODES: readonly AuthMode[] = ['subscription', 'api-key', 'oauth-token'];
@@ -40,13 +41,34 @@ export function readConnectionConfig(path: string): AuthConfig {
   }
 }
 
-/** Persist the connection config to a git-ignored file, best-effort 0600. */
+/**
+ * Owner-only ACL on Windows — the real counterpart of POSIX 0600, where
+ * `chmod` is a documented no-op (security review row 5, 2026-09-06): a
+ * config dir on a secondary drive can inherit ACLs far broader than the
+ * user profile's, leaving an API key readable by other local accounts.
+ * `icacls /inheritance:r` strips inherited grants, then the current user
+ * gets full control — nothing else. Best-effort like the chmod path: a
+ * hardened box that blocks icacls must not brick saving the config.
+ */
+function restrictToOwnerWindows(path: string): void {
+  const user = process.env['USERNAME'];
+  if (!user) return;
+  execFileSync('icacls', [path, '/inheritance:r', '/grant:r', `${user}:F`], {
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+}
+
+/** Persist the connection config to a git-ignored file, owner-only perms
+ *  best-effort on BOTH families: 0600 on POSIX, an icacls owner-only ACL on
+ *  Windows (where chmod is a no-op). */
 export function writeConnectionConfig(path: string, config: AuthConfig): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   try {
-    chmodSync(path, 0o600); // no-op on Windows; tightens perms on POSIX
+    if (process.platform === 'win32') restrictToOwnerWindows(path);
+    else chmodSync(path, 0o600);
   } catch {
-    /* platform without POSIX perms */
+    /* best-effort on locked-down platforms */
   }
 }
