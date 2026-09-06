@@ -497,6 +497,11 @@
  * as-is) and the "🔧 auto-fixed" chip's text, tip and aria-label
  * (`autoFixed` / `autoFixedTip` / `autoFixedAria`), the same three keys also
  * tagging the flight log's copy of that chip in `shell.ts`.
+ * The slice after that tags the flight log rows' own cost / real-cost /
+ * happened-ago tips (`flightCostTip` / `flightAgoTip` / `flightRealCostTip`
+ * on a flat row, `flightSliceCostTip` / `flightSliceAgoTip` on a slice-run
+ * group's member rows, `flightGroupAgoTip` on its collapsed head) — the
+ * chips' text and aria-labels are composed from live values and stay as-is.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -712,6 +717,20 @@ const EN_STRINGS = {
   autoFixedTip:
     'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
   autoFixedAria: 'auto-fixed: formatting was mechanically remediated before this firing shipped',
+  // The flight log rows' cost / real-cost / happened-ago chips (shell.ts's
+  // flightLogNode() flat rows, flightGroupRow()'s member rows and its
+  // collapsed head) — their text ("$0.20", "real $0.05", "2m ago") and
+  // aria-labels are composed from live values and stay as-is; only the tips
+  // carry a key, the firingCountTip / firingStartedTip shape. The group
+  // head's cost tip ("Total spend across all N slices") is composed too and
+  // stays untagged until a template slice.
+  flightCostTip: 'Total spend for this firing',
+  flightAgoTip: 'When this firing happened',
+  flightRealCostTip:
+    'Real cost: this spend apportioned by your subscription share, not API list-price',
+  flightSliceCostTip: 'Spend for this slice',
+  flightSliceAgoTip: 'When this slice happened',
+  flightGroupAgoTip: 'When the most recent slice happened',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
@@ -1266,6 +1285,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     autoFixedTip:
       'השער נכשל בבדיקת עיצוב הקוד; תיקון מכני פתר זאת אוטומטית וההפעלה הזו שוגרה נקייה במקום להתבטל.',
     autoFixedAria: 'תוקן אוטומטית: עיצוב הקוד תוקן באופן מכני לפני שההפעלה הזו שוגרה',
+    flightCostTip: 'ההוצאה הכוללת על ההפעלה הזו',
+    flightAgoTip: 'מתי ההפעלה הזו התרחשה',
+    flightRealCostTip:
+      'עלות אמיתית: ההוצאה הזו מחולקת לפי חלקכם במנוי, לא לפי מחיר המחירון של ה-API',
+    flightSliceCostTip: 'ההוצאה על הפרוסה הזו',
+    flightSliceAgoTip: 'מתי הפרוסה הזו התרחשה',
+    flightGroupAgoTip: 'מתי הפרוסה האחרונה התרחשה',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
     taskNewLabel: 'משימה חדשה',

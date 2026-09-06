@@ -58,9 +58,21 @@ import {
  * module is still the unguarded synchronous set described above, so the
  * structural fix — deferring one behind a `typeof` guard — stays the tracked
  * follow-up; this bump buys ~4KB for the next few fleet-card i18n slices.
+ *
+ * Raised 168→172KB / 50→51KB (2026-09-06): those "next few" slices spent it
+ * — the i18n flight-log cost/ago-tips slice (board web-msnsndki-dz3vn1, six
+ * STRINGS.en keys plus seven `data-i18n-tip` tags in `shell.ts`) measured
+ * 171226 raw / 51197 gzip against 172032 / 51200, i.e. 3 bytes of gzip
+ * headroom: still green, but the next core-chunk change of ANY kind (a
+ * sibling's one-line fix included) would have gone red on a budget line
+ * unrelated to its own work. Every English STRINGS entry lands in core via
+ * `localeJs()` regardless of which chunk its surface rides, so each i18n
+ * slice costs ~700 raw / ~180 gzip; this bump buys ~4-5 more. The
+ * structural fix (VERDICT split web-mtbodv7m-uzhovs) remains the tracked
+ * follow-up.
  */
-const CORE_RAW_BUDGET = 168 * 1024;
-const CORE_GZIP_BUDGET = 50 * 1024;
+const CORE_RAW_BUDGET = 172 * 1024;
+const CORE_GZIP_BUDGET = 51 * 1024;
 const CHUNK_RAW_BUDGET = 100 * 1024;
 const CHUNK_GZIP_BUDGET = 30 * 1024;
 
