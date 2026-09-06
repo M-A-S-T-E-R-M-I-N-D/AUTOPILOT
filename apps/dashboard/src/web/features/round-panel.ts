@@ -45,10 +45,11 @@
  * load, well after the page's own one-time `applyLocale()` sweep, so freshly
  * created text needs its own sweep call the same way
  * `web/features/pr-review.ts`'s `renderPrReviewPanel` needs one for its own
- * poll-built DOM. `roundSinceLabel`/`roundStatItems`'s own chip labels
- * (`web/stat-tiles.ts`) stay English-only for now — a follow-up slice, the
- * same incremental-surface-at-a-time approach `web/pr-review-panel.ts`'s own
- * module note already documents.
+ * poll-built DOM. `roundSinceLabel`/`roundStatItems`'s own chip text/tip/
+ * aria-label (`web/stat-tiles.ts`) now compose through an injected `tr`
+ * (bare hoisted identifier, same as `translateDom`) rather than hardcoded
+ * English, the same `flightProgressOf` route (`web/flight-progress.ts`) for
+ * a pure math module that cannot import a translator.
  */
 import { roundSinceLabel, roundStatItems } from '../stat-tiles.js';
 
@@ -76,7 +77,7 @@ function renderRoundBody(body, round) {
     return;
   }
   var line = el('p', 'round-line');
-  var since = roundSinceLabel(round, fmtAgo);
+  var since = roundSinceLabel(round, fmtAgo, tr);
   if (since) {
     var sinceChip = tipChip(since.text, tr('roundSinceTagTip'), since.ariaLabel, 'round-since');
     sinceChip.setAttribute('data-i18n-tip', 'roundSinceTagTip');
@@ -88,7 +89,7 @@ function renderRoundBody(body, round) {
   }
   body.appendChild(line);
   var stats = el('p', 'round-stats');
-  var items = roundStatItems(round, fmtCost);
+  var items = roundStatItems(round, fmtCost, tr);
   for (var i = 0; i < items.length; i++) stats.appendChild(tipChip(items[i][0], items[i][1], items[i][2]));
   body.appendChild(stats);
   translateDom(document.documentElement.lang || 'en');
