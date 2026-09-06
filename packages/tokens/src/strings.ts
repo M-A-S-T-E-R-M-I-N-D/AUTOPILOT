@@ -487,8 +487,11 @@
  * `data-i18n`, concise aria-label via `data-i18n-aria`, full tip via
  * `data-i18n-tip` (`replay*`). The "Step N of M" position label is an
  * aria-live region whose text `replayNav()` composes, so only its tip is
- * tagged — the label itself, the diff toggle and the loading/empty
- * placeholders in the same row stay English for a later slice.
+ * tagged — the label itself stays English until that helper takes a
+ * template. The next slice tags the same row's "View diff" / "Hide diff"
+ * toggle (`diffView` / `diffHide`, one state-aware key for text and
+ * aria-label; `diffViewTip` / `diffHideTip` for the tip) and its three
+ * muted placeholders (`traceLoading`, `diffLoading`, `diffEmpty`).
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -676,6 +679,21 @@ const EN_STRINGS = {
   replayNextTip: 'Advance to the next action in this replay',
   replayExit: 'Exit replay',
   replayExitTip: 'Leave playback and show the full trace list',
+  // The same trace row's "View diff" / "Hide diff" toggle and its muted
+  // placeholders. The toggle's text and aria-label are identical (the D1
+  // attribute-payload audit), so ONE state-aware key serves both — the
+  // replayExit shape; its tip's English entries are pinned equal to
+  // web/diff-view.ts's diffToggleTip() literals (the spliced default) by
+  // firing-diff-i18n.test.ts so the two cannot drift. The placeholders show
+  // while the trace / diff fetch is in flight, or once the diff endpoint
+  // answered with nothing.
+  diffView: 'View diff',
+  diffHide: 'Hide diff',
+  diffViewTip: "Show this firing's code diff — the git commit patch it shipped",
+  diffHideTip: 'Hide this diff',
+  traceLoading: 'Loading full trace…',
+  diffLoading: 'Loading diff…',
+  diffEmpty: 'No diff available for this firing.',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
@@ -1217,6 +1235,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     replayNextTip: 'מעבר לפעולה הבאה בשחזור הזה',
     replayExit: 'יציאה מהשחזור',
     replayExitTip: 'עזיבת מצב השחזור והצגת רשימת העקבה המלאה',
+    diffView: 'הצגת ההבדלים',
+    diffHide: 'הסתרת ההבדלים',
+    diffViewTip: 'הצגת הבדלי הקוד של ההפעלה הזו — טלאי הקומיט ב-git שהיא שיגרה',
+    diffHideTip: 'הסתרת ההבדלים האלה',
+    traceLoading: 'טוען את העקבה המלאה…',
+    diffLoading: 'טוען את ההבדלים…',
+    diffEmpty: 'אין הבדלים זמינים להפעלה הזו.',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
     taskNewLabel: 'משימה חדשה',
