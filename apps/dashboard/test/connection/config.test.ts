@@ -113,10 +113,18 @@ describe('writeConnectionConfig', () => {
       // The REAL ACL applied by icacls: inheritance stripped, exactly one
       // grant — the current user, full control. Verified against the live
       // file rather than a spied call, so the test proves the OUTCOME.
+      // The invariant is "no ORDINARY other user can read": the current
+      // user holds (F), and every broad principal is gone. Privileged
+      // principals (SYSTEM/Administrators) may legitimately remain on a
+      // hardened runner — they read anything regardless (which is why the
+      // old exactly-one-grant-line assertion failed there: /inheritance:r
+      // strips only INHERITED entries, and runner temp dirs stamp explicit
+      // ones; the product now also /remove:g's the broad SIDs).
       const acl = execFileSync('icacls', [configPath], { encoding: 'utf8' });
-      const grantLines = acl.split('\n').filter((l) => l.includes(':('));
-      expect(grantLines).toHaveLength(1);
-      expect(grantLines[0]).toContain(`\\${process.env['USERNAME']}:(F)`);
+      expect(acl).toContain(`\\${process.env['USERNAME']}:(F)`);
+      expect(acl).not.toContain('Everyone');
+      expect(acl).not.toContain('BUILTIN\\Users');
+      expect(acl).not.toContain('Authenticated Users');
       expect(chmodSync).not.toHaveBeenCalled();
     } else {
       expect(chmodSync).toHaveBeenCalledWith(configPath, 0o600);
