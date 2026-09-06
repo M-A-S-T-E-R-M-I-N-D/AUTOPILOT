@@ -26,12 +26,12 @@ knowing it.
 
 ## Standing tiers (what they unlock, how they're earned)
 
-| Tier | Who | Unlocks | Earned by |
-|---|---|---|---|
-| **Newcomer** | anyone | `/claim` on `good first issue` + `help wanted` | showing up |
-| **Contributor** | a human with merged work here | claiming larger scoped issues; their voice weighs in triage | ≥1 merged PR through the full ritual |
-| **Active partner** | a proven contributor who applies | batch claims; their AUTOPILOT may work `agent-ok`-labeled upstream tasks (under caps, disclosed); early roadmap input | application + maintainer approval (below) |
-| **Maintainer-delegate** | invitation only | scoped review powers | sustained partnership |
+| Tier                    | Who                              | Unlocks                                                                                                               | Earned by                                 |
+| ----------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **Newcomer**            | anyone                           | `/claim` on `good first issue` + `help wanted`                                                                        | showing up                                |
+| **Contributor**         | a human with merged work here    | claiming larger scoped issues; their voice weighs in triage                                                           | ≥1 merged PR through the full ritual      |
+| **Active partner**      | a proven contributor who applies | batch claims; their AUTOPILOT may work `agent-ok`-labeled upstream tasks (under caps, disclosed); early roadmap input | application + maintainer approval (below) |
+| **Maintainer-delegate** | invitation only                  | scoped review powers                                                                                                  | sustained partnership                     |
 
 **What never relaxes, at any tier:** the security-hard KEEPER rules (deps,
 guard/containment, auth, CI paths always queue for the human maintainer), DCO

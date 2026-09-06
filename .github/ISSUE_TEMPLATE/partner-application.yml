@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 name: 🤝 Active-partner application
 description: Apply for Active-partner standing (see .github/CONTRIBUTOR-STANDING.md) — the KEEPER assembles your evidence dossier, the maintainer decides, the reasoning is public either way.
-title: "partner application: @your-handle"
-labels: ["partner-application"]
+title: 'partner application: @your-handle'
+labels: ['partner-application']
 body:
   - type: markdown
     attributes:
