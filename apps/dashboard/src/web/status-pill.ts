@@ -11,29 +11,59 @@
  * `web/shell.ts` embeds this module's real compiled source into the generated
  * `/app.js` text via `.toString()` — see `fleetJs()` — instead of hand-retyping
  * it, so the two copies can no longer drift apart.
+ *
+ * i18n (board web-msnsndki-dz3vn1): the caller's map names, per status, the
+ * `STRINGS` key of its label; the tip's key is that key + `Tip`, the pairing
+ * convention every tip in `STRINGS` already follows (`taskAdd`/`taskAddTip`,
+ * `liveTool…`/`liveToolTip`). The bundle's `tr()` is injected the same way
+ * `flightProgressOf` takes its translator (a spliced function can no more
+ * import one than it can a formatter). The aria-label is the shared
+ * `statusAria` template filled from those two translated atoms, and both keys
+ * ride back out (`labelKey`/`tipKey`) so `statusPill()` can tag the element
+ * `[data-i18n]` / `[data-i18n-tip]` / `[data-i18n-aria-template]` for
+ * `translateDom()`'s sweeps — whose template pass fills `{label}`/`{tip}`
+ * from those same two own keys — so a mid-session locale switch flips all
+ * three in place.
  */
 
-/** {@link statusPillMeta}'s result: the pill's visible label, and its hover/focus
- *  tip + aria-label — both `null` when `status` carries no entry in the caller's
- *  tip map (the pill renders unexplained, same as `statusPill`'s original inline
- *  `if (tip)` guard). */
+/** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected into
+ *  {@link statusPillMeta}. */
+export type StatusPillTranslator = (
+  key: string,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
+/** {@link statusPillMeta}'s result: the pill's visible label, its hover/focus
+ *  tip + aria-label, and the `STRINGS` keys behind the label and tip — the
+ *  tip, aria-label and keys are all `null` when `status` carries no entry in
+ *  the caller's key map (the pill renders unexplained, same as `statusPill`'s
+ *  original inline `if (tip)` guard). */
 export interface StatusPillMeta {
   readonly label: string;
   readonly tip: string | null;
   readonly ariaLabel: string | null;
+  readonly labelKey: string | null;
+  readonly tipKey: string | null;
 }
 
-/** Turns a raw status string ("needs_approval") into its pill label ("needs
- *  approval" — only the first underscore is replaced, mirroring the original
- *  inline `.replace('_', ' ')`) plus, when the caller's tip map carries an
- *  entry for it, the "Status: <label> — <tip>" aria-label shown alongside the
- *  hover/focus tip itself. */
+/** Resolves a status's translated label, tip, and "Status: <label> — <tip>"
+ *  aria-label through the caller's `status → label key` map. A status with no
+ *  entry keeps the original fallback label — the raw status with only its
+ *  FIRST underscore replaced by a space ("needs_approval" → "needs approval"),
+ *  mirroring the original inline `.replace('_', ' ')` — and no tip or
+ *  aria-label. */
 export function statusPillMeta(
   status: string,
-  tips: Readonly<Record<string, string>>,
+  keys: Readonly<Record<string, string>>,
+  tr: StatusPillTranslator,
 ): StatusPillMeta {
-  const label = String(status).replace('_', ' ');
-  const tip = tips[status] ?? null;
-  const ariaLabel = tip ? `Status: ${label} — ${tip}` : null;
-  return { label, tip, ariaLabel };
+  const labelKey = keys[status] ?? null;
+  if (!labelKey) {
+    const fallback = String(status).replace('_', ' ');
+    return { label: fallback, tip: null, ariaLabel: null, labelKey: null, tipKey: null };
+  }
+  const tipKey = labelKey + 'Tip';
+  const label = tr(labelKey);
+  const tip = tr(tipKey);
+  return { label, tip, ariaLabel: tr('statusAria', { label, tip }), labelKey, tipKey };
 }

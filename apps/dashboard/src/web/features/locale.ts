@@ -29,6 +29,13 @@
  * whose replacement argument interprets `$&`/`$$`-style patterns — the live
  * worker card's task-line slice (`liveFocusTask`/`liveProbableTask`) was the
  * first to route a user-typed task title through it as visible text.
+ * Both template sweeps also fill `{label}` and `{tip}` from the table's
+ * entries for the element's OWN `data-i18n` / `data-i18n-tip` keys — for an
+ * attribute composed of the element's translated text and tip rather than
+ * one live value. The status pills' "Status: <label> — <tip>" aria-label
+ * (`statusAria`, on a pill already tagged with its label and tip keys) was
+ * the first; without it every status would need a third hand-synced aria
+ * string that could drift from its own label and tip.
  *
  * `tr(key, subs?)` is the client-side mirror of `@autopilot/tokens`' own
  * server-side `translate()`, for the handful of translatable strings that
@@ -110,6 +117,17 @@ let STRINGS = { en: ${stringsEn} };
 function substituteName(tpl, name) {
   return tpl.split('{name}').join(name);
 }
+function fillTemplate(tpl, el, table) {
+  // {name} is the element's live value (data-i18n-name); {label}/{tip} are the
+  // table's entries for the element's OWN data-i18n / data-i18n-tip keys, so
+  // an attribute composed of its translated text + tip recomposes in place.
+  const label = table[el.dataset.i18n];
+  const tip = table[el.dataset.i18nTip];
+  let text = substituteName(tpl, el.dataset.i18nName || '');
+  if (label) text = text.split('{label}').join(label);
+  if (tip) text = text.split('{tip}').join(tip);
+  return text;
+}
 function translateDom(l) {
   const table = STRINGS[l] || STRINGS.en;
   document.querySelectorAll('[data-i18n]').forEach((el) => {
@@ -130,11 +148,11 @@ function translateDom(l) {
   });
   document.querySelectorAll('[data-i18n-template]').forEach((el) => {
     const tpl = table[el.dataset.i18nTemplate];
-    if (tpl) el.textContent = substituteName(tpl, el.dataset.i18nName || '');
+    if (tpl) el.textContent = fillTemplate(tpl, el, table);
   });
   document.querySelectorAll('[data-i18n-aria-template]').forEach((el) => {
     const tpl = table[el.dataset.i18nAriaTemplate];
-    if (tpl) el.setAttribute('aria-label', substituteName(tpl, el.dataset.i18nName || ''));
+    if (tpl) el.setAttribute('aria-label', fillTemplate(tpl, el, table));
   });
 }
 function tr(key, subs) {

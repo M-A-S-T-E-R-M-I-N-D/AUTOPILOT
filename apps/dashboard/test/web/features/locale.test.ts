@@ -59,9 +59,17 @@ describe('localeJs', () => {
       "document.querySelectorAll('[data-i18n-template]').forEach((el) => {",
     );
     expect(localeJs()).toContain('const tpl = table[el.dataset.i18nTemplate];');
-    expect(localeJs()).toContain(
-      "if (tpl) el.textContent = substituteName(tpl, el.dataset.i18nName || '');",
-    );
+    expect(localeJs()).toContain('if (tpl) el.textContent = fillTemplate(tpl, el, table);');
+    expect(localeJs()).toContain("let text = substituteName(tpl, el.dataset.i18nName || '');");
+  });
+
+  it('fillTemplate fills {label}/{tip} from the table entries for the element’s OWN data-i18n / data-i18n-tip keys, after {name}', () => {
+    const { fillTemplate } = new Function(`${localeJs()}\nreturn { fillTemplate };`)();
+    const el = { dataset: { i18nName: 'Ada', i18n: 'flyIt', i18nTip: 'flyGoTip' } };
+    const table = { flyIt: 'Go', flyGoTip: 'Launches a flight' };
+    expect(fillTemplate('{name}: {label} — {tip}', el, table)).toBe('Ada: Go — Launches a flight');
+    // An element with no own keys leaves the slots alone rather than blanking them.
+    expect(fillTemplate('{label}/{tip}', { dataset: {} }, table)).toBe('{label}/{tip}');
   });
 
   it('substituteName replaces every occurrence of {name}, not just the first — a grammar that repeats the name must not silently under-translate', () => {

@@ -961,32 +961,44 @@ ${sharedFmtDuration.toString()}
 // Status pills (project card header, task board rows) used to be plain,
 // unexplained text — unlike every other chip/stat on the fleet card, which
 // already carries the shared [data-tip] primitive. These maps back the same
-// tabindex/data-tip/aria-label wiring stat() uses below.
-var PROJECT_STATUS_TIPS = {
-  registered: 'Registered but has not flown yet',
-  flying: 'A firing is in progress right now',
-  paused: 'Paused — will not fly until resumed',
-  hibernating: 'No recent activity — skipped by the scheduler until it wakes',
-  needs_you: 'Blocked on a decision only you can make',
+// tabindex/data-tip/aria-label wiring stat() uses below. i18n (board
+// web-msnsndki-dz3vn1): each entry names the STRINGS key of the status's
+// label; its tip is that key + 'Tip' (statusPillMeta). The English text
+// itself lives only in STRINGS.en now.
+var PROJECT_STATUS_KEYS = {
+  registered: 'projectStatusRegistered',
+  flying: 'projectStatusFlying',
+  paused: 'projectStatusPaused',
+  hibernating: 'projectStatusHibernating',
+  needs_you: 'projectStatusNeedsYou',
 };
-var TASK_STATUS_TIPS = {
-  queued: 'Queued — waiting its turn in the flight queue',
-  in_progress: 'Currently being worked by the autopilot',
-  done: 'Completed and verified by the gate',
-  needs_approval: 'Self-proposed — waiting on your approve/reject decision',
-  deferred: 'Deferred — set aside for later',
+var TASK_STATUS_KEYS = {
+  queued: 'taskStatusQueued',
+  in_progress: 'taskStatusInProgress',
+  done: 'taskStatusDone',
+  needs_approval: 'taskStatusNeedsApproval',
+  deferred: 'taskStatusDeferred',
 };
 // statusPillMeta is generated FROM web/status-pill.ts below (epic 0002 "shell
 // decomposition", slice 2, seventy-fourth cut) — its real compiled source via
 // .toString(), not a hand-retyped copy. It can no longer drift apart.
 ${sharedStatusPillMeta.toString()}
-function statusPill(classPrefix, status, tips) {
-  var meta = statusPillMeta(status, tips);
+function statusPill(classPrefix, status, keys) {
+  var meta = statusPillMeta(status, keys, tr);
   var pill = el('span', classPrefix + status, meta.label);
   if (meta.tip) {
     pill.setAttribute('tabindex', '0');
+    // i18n: painted via tr() at build so a saved locale renders right first
+    // time, and tagged for translateDom()'s sweeps so a mid-session switch
+    // flips the label, the tip, AND the aria-label in place — the aria is the
+    // shared statusAria template, whose {label}/{tip} slots the sweep fills
+    // from this element's OWN data-i18n / data-i18n-tip keys rather than a
+    // third hand-synced string per status.
+    pill.setAttribute('data-i18n', meta.labelKey);
     pill.setAttribute('data-tip', meta.tip);
+    pill.setAttribute('data-i18n-tip', meta.tipKey);
     pill.setAttribute('aria-label', meta.ariaLabel);
+    pill.setAttribute('data-i18n-aria-template', 'statusAria');
   }
   return pill;
 }
@@ -1100,7 +1112,7 @@ function cardHead(c) {
   title.appendChild(titleLink);
   head.appendChild(title);
   var badges = el('div', 'card-head-badges');
-  badges.appendChild(statusPill('pill pill-', c.status, PROJECT_STATUS_TIPS));
+  badges.appendChild(statusPill('pill pill-', c.status, PROJECT_STATUS_KEYS));
   if (c.anomalies) {
     for (var ai = 0; ai < c.anomalies.length; ai++) badges.appendChild(anomalyChip(c.anomalies[ai]));
   }
@@ -2057,7 +2069,7 @@ function tasksSection(c) {
         focusBtn.setAttribute('aria-label', focusTip);
         li.appendChild(focusBtn);
       }
-      li.appendChild(statusPill('pill task-', t.status, TASK_STATUS_TIPS));
+      li.appendChild(statusPill('pill task-', t.status, TASK_STATUS_KEYS));
       // Title itself was the last silent element on the row — TaskEntry carries
       // at/priority but nothing ever displayed them (app-wide interactivity
       // audit v2 follow-up: every panel drills down).

@@ -23,11 +23,12 @@ import { gzipSync } from 'node:zlib';
 // pasted into a template).
 //
 // Raised 150→160KB / 45→48KB (2026-08-29), then 160→164KB / 48→49KB for the
-// i18n foundation's fly-bar slice (board web-msnsndki-dz3vn1) — see the
-// matching comment in apps/dashboard/test/server/client-bundle-size-budget.test.ts
+// i18n foundation's fly-bar slice, then 164→168KB / 49→50KB for its
+// status-pill slice (both board web-msnsndki-dz3vn1) — see the matching
+// comment in apps/dashboard/test/server/client-bundle-size-budget.test.ts
 // for the measured sizes behind each bump.
-const CORE_RAW_BUDGET = 164 * 1024;
-const CORE_GZIP_BUDGET = 49 * 1024;
+const CORE_RAW_BUDGET = 168 * 1024;
+const CORE_GZIP_BUDGET = 50 * 1024;
 // Deferred chunks never block first paint — the budget exists so they cannot
 // silently become a second monolith. Measured at introduction (2026-08-28):
 // project ~44KB, panels ~19KB raw.
