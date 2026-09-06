@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * MIRROR PASS ritual, derivation 1/4 (epic 0016 slice 2, board web-mtpzzx50-obq42b):
+ * MIRROR PASS ritual, derivations 1-2/4 (epic 0016 slice 2, board web-mtpzzx50-obq42b):
  * "Board tasks marked done ↔ referenced issues actually closed? Close with a
  * landing note (commit SHA) or reopen honestly." — docs/epics/0016-github-social-flight.md.
  *
@@ -19,9 +19,18 @@
  * injectable-`CliExec` read ({@link fetchIssueState}). Write execution is
  * deferred the same way `issue-triage.ts`'s `executeIssueTriageCommands` was
  * before its own confirm-guarded endpoint landed — nothing in this file
- * calls `gh` to change anything. The remaining three mirror-pass
- * derivations (landed-commit↔issue-comment, README-claims↔tree, stale-claim
- * reaper) are follow-up slices of the same board task.
+ * calls `gh` to change anything.
+ *
+ * Derivation 2/4 ({@link planMirrorPassLandingNote}) covers the gap
+ * derivation 1/4 leaves: a task that landed and whose issue is ALREADY
+ * closed — in sync, so {@link planMirrorPassReconcile} returns `null` — but
+ * closed some other way (a manual close, a PR merge) that never posted the
+ * landing SHA anywhere. "landed commits get landed-in comments" checks the
+ * issue's own comment history ({@link fetchIssueComments}) rather than
+ * guessing from state alone, so a task that already got its note doesn't
+ * get a duplicate one every reconcile pass. The remaining two mirror-pass
+ * derivations (README-claims↔tree, stale-claim reaper) are follow-up
+ * slices of the same board task.
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
@@ -251,4 +260,160 @@ export async function fetchMirrorPassIssueStates(
     if (state) states.set(number, state);
   }
   return states;
+}
+
+/** Derivation 2/4's finding: the issue already agrees with the board (it's
+ *  closed, and the task is done), but no comment on it ever recorded the
+ *  landing SHA — so one is posted now, without touching the issue's state. */
+export interface MirrorPassLandingNoteFinding {
+  readonly action: 'note-landing-sha';
+  readonly taskId: string;
+  readonly issueNumber: number;
+  readonly sha: string;
+  readonly comment: string;
+}
+
+/**
+ * Decides whether a landed task's issue needs its landing SHA noted after
+ * the fact — derivation 2/4, "landed commits get landed-in comments". Only
+ * fires once the issue is ALREADY closed: a still-open issue is handled by
+ * {@link planMirrorPassReconcile}'s close-with-landing-note, which bundles
+ * the same note into its own close comment, so noting it again here would
+ * duplicate that one. Requires a recorded `landedSha` (nothing to note
+ * otherwise) and skips a task whose issue can't be resolved
+ * ({@link issueNumberFromTaskId} returning `null`, or a missing `issue`).
+ * `existingComments` is every comment already on the issue — a body already
+ * containing the SHA means the note was posted before, so `null` is
+ * returned rather than posting a duplicate.
+ */
+export function planMirrorPassLandingNote(
+  task: MirrorPassTaskCandidate,
+  issue: MirrorPassIssueState | undefined,
+  existingComments: readonly string[],
+): MirrorPassLandingNoteFinding | null {
+  const issueNumber = issueNumberFromTaskId(task.id);
+  if (issueNumber === null || !issue || issue.state !== 'closed') return null;
+  if (task.status !== 'done' || !task.landedSha) return null;
+  const sha = task.landedSha;
+  if (existingComments.some((body) => body.includes(sha))) return null;
+
+  return {
+    action: 'note-landing-sha',
+    taskId: task.id,
+    issueNumber,
+    sha,
+    comment: `Landed in ${sha} — noting for the record.`,
+  };
+}
+
+/** Turns a {@link MirrorPassLandingNoteFinding} into the single `gh` call
+ *  needed to apply it — no state change, unlike {@link
+ *  planMirrorPassCommands}, since the issue is already closed. */
+export function planMirrorPassLandingNoteCommand(
+  finding: MirrorPassLandingNoteFinding,
+): MirrorPassCommand {
+  return {
+    command: 'gh',
+    args: ['issue', 'comment', String(finding.issueNumber), '--body', finding.comment],
+    details: `posting the landing note on #${finding.issueNumber} (${finding.taskId})`,
+  };
+}
+
+/** One task's derivation-2/4 outcome — the finding (or `null` when already
+ *  noted or not applicable) paired with the single `gh` command it needs. */
+export interface MirrorPassLandingNotePlan {
+  readonly task: MirrorPassTaskCandidate;
+  readonly finding: MirrorPassLandingNoteFinding | null;
+  readonly command: MirrorPassCommand | null;
+}
+
+/**
+ * Runs {@link planMirrorPassLandingNote} for every candidate in `tasks`,
+ * looking each up in `issuesByNumber` and `commentsByIssueNumber` the same
+ * lookup-or-treat-as-missing way {@link planMirrorPassBatch} does. Pure:
+ * composes already-pure functions, no I/O of its own.
+ */
+export function planMirrorPassLandingNoteBatch(
+  tasks: readonly MirrorPassTaskCandidate[],
+  issuesByNumber: ReadonlyMap<number, MirrorPassIssueState>,
+  commentsByIssueNumber: ReadonlyMap<number, readonly string[]>,
+): readonly MirrorPassLandingNotePlan[] {
+  return tasks.map((task) => {
+    const issueNumber = issueNumberFromTaskId(task.id);
+    const issue = issueNumber === null ? undefined : issuesByNumber.get(issueNumber);
+    const comments = issueNumber === null ? [] : (commentsByIssueNumber.get(issueNumber) ?? []);
+    const finding = planMirrorPassLandingNote(task, issue, comments);
+    const command = finding ? planMirrorPassLandingNoteCommand(finding) : null;
+    return { task, finding, command };
+  });
+}
+
+/** One github-issue-comments entry as `gh issue view --json comments` emits
+ *  it — untrusted process output, parsed defensively same as {@link
+ *  RawGithubIssueState}. */
+interface RawGithubIssueComment {
+  readonly body?: unknown;
+}
+
+/**
+ * Fetches every comment body already posted on an issue via `gh issue view
+ * <n> --json comments`, run through the injectable `exec` — same
+ * defensive-parse, never-throw stance {@link fetchIssueState} takes. Returns
+ * an empty array on a non-zero exit, unparseable JSON, or a missing/malformed
+ * `comments` field, which {@link planMirrorPassLandingNote} treats as "no
+ * note posted yet" rather than a reason to skip the check.
+ */
+export async function fetchIssueComments(
+  exec: CliExec,
+  issueNumber: number,
+): Promise<readonly string[]> {
+  const { code, stdout } = await exec('gh', [
+    'issue',
+    'view',
+    String(issueNumber),
+    '--json',
+    'comments',
+  ]);
+  if (code !== 0) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+  if (typeof parsed !== 'object' || parsed === null) return [];
+  const raw = parsed as { comments?: unknown };
+  if (!Array.isArray(raw.comments)) return [];
+  return raw.comments
+    .filter((entry): entry is RawGithubIssueComment => typeof entry === 'object' && entry !== null)
+    .map((entry) => (typeof entry.body === 'string' ? entry.body : ''))
+    .filter((body) => body.length > 0);
+}
+
+/**
+ * Fetches comments only for issues that actually need the derivation-2/4
+ * check — closed, with a task that's done and carries a `landedSha` — so a
+ * still-open issue (handled by the close-with-landing-note path instead)
+ * never costs an extra `gh` call. The read wiring a caller composes with
+ * {@link planMirrorPassLandingNoteBatch}, same division of labor {@link
+ * fetchMirrorPassIssueStates} has with {@link planMirrorPassBatch}.
+ */
+export async function fetchMirrorPassIssueComments(
+  exec: CliExec,
+  tasks: readonly MirrorPassTaskCandidate[],
+  issuesByNumber: ReadonlyMap<number, MirrorPassIssueState>,
+): Promise<ReadonlyMap<number, readonly string[]>> {
+  const numbers = new Set<number>();
+  for (const task of tasks) {
+    if (task.status !== 'done' || !task.landedSha) continue;
+    const issueNumber = issueNumberFromTaskId(task.id);
+    if (issueNumber === null) continue;
+    if (issuesByNumber.get(issueNumber)?.state === 'closed') numbers.add(issueNumber);
+  }
+  const comments = new Map<number, readonly string[]>();
+  for (const number of numbers) {
+    comments.set(number, await fetchIssueComments(exec, number));
+  }
+  return comments;
 }
