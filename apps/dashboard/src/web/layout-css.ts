@@ -107,6 +107,10 @@ body {
 .gh-issue-result:empty { display: none; }
 .gh-issue-result-ok { color: var(--color-success); }
 .gh-issue-result-fail { color: var(--color-sev-critical); }
+.gh-issue-compose-status { margin: 0; font-size: var(--text-sm); }
+.gh-issue-compose-status:empty { display: none; }
+.gh-issue-compose-ok { color: var(--color-success); }
+.gh-issue-compose-fail { color: var(--color-sev-critical); }
 .conn-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-muted); margin-inline-end: 6px; vertical-align: middle; }
 .conn-dot.on { background: var(--color-success); }
 .conn-dot.off { background: var(--color-sev-high); }

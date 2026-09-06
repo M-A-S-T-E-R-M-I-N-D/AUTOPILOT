@@ -3745,6 +3745,10 @@ export function renderShell(project?: string): string {
             <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
             <form class="gh-issue-form" id="gh-issue-form">
               <label for="gh-issue-title" data-i18n="reportBugLabel">Report a bug or request a feature upstream</label>
+              <label for="gh-issue-note" data-i18n="reportComposeNoteLabel">Or describe it in your own words — Compose writes the title and body for you</label>
+              <textarea id="gh-issue-note" name="note" placeholder="What happened, or what you wish existed…" data-i18n-placeholder="reportComposeNotePlaceholder" rows="2"></textarea>
+              <button type="button" id="gh-issue-compose" data-i18n="reportComposeButton">Compose</button>
+              <p class="gh-issue-compose-status" id="gh-issue-compose-status" role="status" aria-live="polite"></p>
               <input type="text" id="gh-issue-title" name="title" placeholder="Title" data-i18n-placeholder="titlePlaceholder" autocomplete="off" required />
               <textarea id="gh-issue-body" name="body" placeholder="Details (optional)" data-i18n-placeholder="detailsOptionalPlaceholder" rows="3"></textarea>
               <button type="submit" data-i18n="openGithubIssue">Open GitHub issue</button>

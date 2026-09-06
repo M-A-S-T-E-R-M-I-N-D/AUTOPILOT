@@ -38,6 +38,7 @@ import {
   ghLtsMeta,
   githubIssueConfirmMessage,
   githubIssueExecuteResult,
+  reportComposeStatusMeta,
   type ConnectPanelTranslator,
 } from '../../src/web/connect-panel.js';
 
@@ -551,5 +552,73 @@ describe('githubIssueExecuteResult', () => {
     expect(githubIssueExecuteResult({ ok: false, error: 'gh: not authenticated' }, trHe).text).toBe(
       '✗ gh: not authenticated',
     );
+  });
+});
+
+describe('reportComposeStatusMeta', () => {
+  it('hands back the composed title/body and an ok status when both are present', () => {
+    const meta = reportComposeStatusMeta(
+      {
+        ok: true,
+        title: 'Dark mode toggle crashes',
+        body: 'Steps to reproduce…',
+        labels: ['bug', 'ui'],
+      },
+      trEn,
+    );
+    expect(meta.className).toBe('gh-issue-compose-status gh-issue-compose-ok');
+    expect(meta.title).toBe('Dark mode toggle crashes');
+    expect(meta.body).toBe('Steps to reproduce…');
+    expect(meta.text).toBe(
+      'Composed — suggested labels: bug, ui. Review the fields below, then submit.',
+    );
+  });
+
+  it('reports the rejection reasoning and empty title/body for a refused composition', () => {
+    const meta = reportComposeStatusMeta(
+      { ok: false, reasoning: 'a report needs a non-empty description to compose from.' },
+      trEn,
+    );
+    expect(meta.className).toBe('gh-issue-compose-status gh-issue-compose-fail');
+    expect(meta.text).toBe('✗ a report needs a non-empty description to compose from.');
+    expect(meta.title).toBe('');
+    expect(meta.body).toBe('');
+  });
+
+  it('falls back to the generic unavailable message for a missing/malformed payload', () => {
+    expect(reportComposeStatusMeta(null, trEn).text).toBe(
+      '✗ Compose is unavailable right now — try again shortly.',
+    );
+    expect(reportComposeStatusMeta(undefined, trEn).text).toBe(
+      '✗ Compose is unavailable right now — try again shortly.',
+    );
+    expect(reportComposeStatusMeta({ ok: true }, trEn).text).toBe(
+      '✗ Compose is unavailable right now — try again shortly.',
+    );
+  });
+
+  it('never treats a rejected/malformed response as usable, even if it carries a stray title', () => {
+    // ok:false must win even when the payload also carries title/body —
+    // the caller must never copy a rejected plan's fields into the form.
+    const meta = reportComposeStatusMeta(
+      { ok: false, title: 'should be ignored', body: 'should be ignored', reasoning: 'nope' },
+      trEn,
+    );
+    expect(meta.title).toBe('');
+    expect(meta.body).toBe('');
+    expect(meta.text).toBe('✗ nope');
+  });
+
+  it('reads the ready/unavailable copy from the injected locale table, keeping server-sent reasoning as sent', () => {
+    const ready = reportComposeStatusMeta(
+      { ok: true, title: 't', body: 'b', labels: ['bug'] },
+      trHe,
+    );
+    expect(ready.text).toBe(STRINGS.he.reportComposeReady.split('{labels}').join('bug'));
+
+    expect(reportComposeStatusMeta(null, trHe).text).toBe(
+      `✗ ${STRINGS.he.reportComposeUnavailable}`,
+    );
+    expect(reportComposeStatusMeta({ ok: false, reasoning: 'שגיאה' }, trHe).text).toBe('✗ שגיאה');
   });
 });
