@@ -586,6 +586,19 @@ const EN_STRINGS = {
   askReadingDeep: 'Reading the project to find the answer (Deep)…',
   askAskingModel: 'Asking the model (grounded in the indexed code)…',
   askFailed: 'Ask failed — is the dashboard still running?',
+  // ARCHITECT proposal action card (search.ts's renderProposal()) — same
+  // el()/textContent-at-render/click-time blind spot as the Ask status lines
+  // above; controlFailed's {name} carries the server's own error text.
+  architectProposes: 'ARCHITECT proposes: {name}',
+  controlRunning: 'Running…',
+  controlDone: 'Done.',
+  controlFailed: 'Failed: {name}',
+  controlFailedRequestError: 'Failed: request error.',
+  controlUnknownError: 'unknown error',
+  controlConfirm: 'Confirm',
+  controlConfirmDestructive: 'Confirm (destructive)',
+  controlConfirmTip: 'Run this proposed action',
+  controlConfirmDestructiveTip: 'This action cannot be undone — confirm to run it',
   personaGeniusTip:
     'Read-only persona (default): answers questions but never touches the dashboard.',
   personaArchitectTip:
@@ -1344,6 +1357,16 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     askReadingDeep: 'קורא את הפרויקט כדי למצוא את התשובה (מעמיק)…',
     askAskingModel: 'שואל את המודל (מבוסס על הקוד המאונדקס)…',
     askFailed: 'השאלה נכשלה — האם לוח הבקרה עדיין פועל?',
+    architectProposes: 'ARCHITECT מציע/ה: {name}',
+    controlRunning: 'רץ…',
+    controlDone: 'בוצע.',
+    controlFailed: 'נכשל: {name}',
+    controlFailedRequestError: 'נכשל: שגיאת בקשה.',
+    controlUnknownError: 'שגיאה לא ידועה',
+    controlConfirm: 'אישור',
+    controlConfirmDestructive: 'אישור (הרסני)',
+    controlConfirmTip: 'הרצת הפעולה המוצעת',
+    controlConfirmDestructiveTip: 'לא ניתן לבטל פעולה זו — יש לאשר כדי להריץ',
     personaGeniusTip:
       'פרסונה לקריאה בלבד (ברירת מחדל): עונה על שאלות אך לעולם לא נוגעת בלוח הבקרה.',
     personaArchitectTip:
