@@ -492,6 +492,11 @@
  * toggle (`diffView` / `diffHide`, one state-aware key for text and
  * aria-label; `diffViewTip` / `diffHideTip` for the tip) and its three
  * muted placeholders (`traceLoading`, `diffLoading`, `diffEmpty`).
+ * The slice after that tags the row's own count / started-ago tips
+ * (`firingCountTip` / `firingStartedTip` — the labels are composed and stay
+ * as-is) and the "🔧 auto-fixed" chip's text, tip and aria-label
+ * (`autoFixed` / `autoFixedTip` / `autoFixedAria`), the same three keys also
+ * tagging the flight log's copy of that chip in `shell.ts`.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -694,6 +699,19 @@ const EN_STRINGS = {
   traceLoading: 'Loading full trace…',
   diffLoading: 'Loading diff…',
   diffEmpty: 'No diff available for this firing.',
+  // The same trace row's own hover tips on its composed count ("3 actions")
+  // and started-ago ("2m ago") fields — the labels are
+  // firingTimelineRowMeta()'s composed strings and stay as-is, only their
+  // tips carry a key — plus the "🔧 auto-fixed" chip a formatting-rescued
+  // firing carries: text, full tip, and screen-reader aria-label. The flight
+  // log's rows (shell.ts's flightLogSection()) build the SAME chip from the
+  // same three literals, so one set of keys tags both surfaces.
+  firingCountTip: 'Tool calls and activity recorded for this firing',
+  firingStartedTip: 'When this firing started',
+  autoFixed: '🔧 auto-fixed',
+  autoFixedTip:
+    'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
+  autoFixedAria: 'auto-fixed: formatting was mechanically remediated before this firing shipped',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
@@ -1242,6 +1260,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     traceLoading: 'טוען את העקבה המלאה…',
     diffLoading: 'טוען את ההבדלים…',
     diffEmpty: 'אין הבדלים זמינים להפעלה הזו.',
+    firingCountTip: 'קריאות כלים ופעילות שנרשמו להפעלה הזו',
+    firingStartedTip: 'מתי ההפעלה הזו התחילה',
+    autoFixed: '🔧 תוקן אוטומטית',
+    autoFixedTip:
+      'השער נכשל בבדיקת עיצוב הקוד; תיקון מכני פתר זאת אוטומטית וההפעלה הזו שוגרה נקייה במקום להתבטל.',
+    autoFixedAria: 'תוקן אוטומטית: עיצוב הקוד תוקן באופן מכני לפני שההפעלה הזו שוגרה',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
     taskNewLabel: 'משימה חדשה',

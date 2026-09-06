@@ -1732,14 +1732,18 @@ function flightLogNode(c) {
       }
     }
     if (f.autoformatRescued) {
-      head.appendChild(
-        tipChip(
-          '🔧 auto-fixed',
-          'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
-          'auto-fixed: formatting was mechanically remediated before this firing shipped',
-          'flight-autoformat-chip',
-        ),
+      // i18n (board web-msnsndki-dz3vn1): the same three keys the per-firing
+      // trace row's copy of this chip carries (features/firing-timeline.ts).
+      var logAutoFixedChip = tipChip(
+        '🔧 auto-fixed',
+        'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
+        'auto-fixed: formatting was mechanically remediated before this firing shipped',
+        'flight-autoformat-chip',
       );
+      logAutoFixedChip.setAttribute('data-i18n', 'autoFixed');
+      logAutoFixedChip.setAttribute('data-i18n-tip', 'autoFixedTip');
+      logAutoFixedChip.setAttribute('data-i18n-aria', 'autoFixedAria');
+      head.appendChild(logAutoFixedChip);
     }
     if (f.guardDenials) {
       var logGuardMeta = guardDenialChipMeta(f.guardDenials);
