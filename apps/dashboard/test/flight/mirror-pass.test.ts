@@ -21,6 +21,11 @@ import {
   planMirrorPassVersionDrift,
   planMirrorPassVersionDriftCommand,
   readMirrorPassVersionDrift,
+  extractPackageCountClaim,
+  countThirdPartyLicenseRows,
+  planMirrorPassCountsDrift,
+  planMirrorPassCountsDriftCommand,
+  readMirrorPassCountsDrift,
   type MirrorPassTaskCandidate,
   type MirrorPassIssueState,
 } from '../../src/flight/mirror-pass.js';
@@ -543,5 +548,149 @@ describe('readMirrorPassVersionDrift', () => {
     writeFileSync(packageJsonPath, JSON.stringify({ version: 42 }));
 
     expect(readMirrorPassVersionDrift(readmePath, packageJsonPath)).toBeNull();
+  });
+});
+
+describe('extractPackageCountClaim', () => {
+  it('parses the "<N> open-source projects" phrasing', () => {
+    expect(extractPackageCountClaim('shoulders of 487 open-source projects — see THANKS.md')).toBe(
+      487,
+    );
+  });
+
+  it('parses the "<N> packages" phrasing', () => {
+    expect(extractPackageCountClaim('(487 packages at last count; zero copyleft-strong)')).toBe(
+      487,
+    );
+  });
+
+  it('is case-insensitive', () => {
+    expect(extractPackageCountClaim('487 OPEN-SOURCE PROJECTS')).toBe(487);
+  });
+
+  it('strips thousands separators', () => {
+    expect(extractPackageCountClaim('1,234 packages deep')).toBe(1234);
+  });
+
+  it('returns null when the text carries no count claim', () => {
+    expect(extractPackageCountClaim('# Project\n\nNo count prose here.')).toBeNull();
+  });
+});
+
+describe('countThirdPartyLicenseRows', () => {
+  it('counts data rows, excluding the header and separator', () => {
+    const table = [
+      '# Third-party licenses',
+      '',
+      '| package | version(s) | license |',
+      '| --- | --- | --- |',
+      '| left-pad | 1.0.0 | MIT |',
+      '| right-pad | 2.0.0 | MIT |',
+      '| up-pad | 3.0.0 | ISC |',
+    ].join('\n');
+
+    expect(countThirdPartyLicenseRows(table)).toBe(3);
+  });
+
+  it('returns 0 for a table with no data rows', () => {
+    const table = ['| package | version(s) | license |', '| --- | --- | --- |'].join('\n');
+
+    expect(countThirdPartyLicenseRows(table)).toBe(0);
+  });
+});
+
+describe('planMirrorPassCountsDrift', () => {
+  it('returns null when the doc has no count claim', () => {
+    expect(planMirrorPassCountsDrift('# Project', 487)).toBeNull();
+  });
+
+  it('returns null when the claim matches the tree', () => {
+    expect(planMirrorPassCountsDrift('shoulders of 487 open-source projects', 487)).toBeNull();
+  });
+
+  it('plans a finding when the claim disagrees with the tree', () => {
+    const finding = planMirrorPassCountsDrift('shoulders of 480 open-source projects', 487);
+    expect(finding).toEqual({
+      action: 'file-counts-drift-issue',
+      source: 'README.md',
+      claimedCount: 480,
+      actualCount: 487,
+    });
+  });
+
+  it('records the given source label instead of the default', () => {
+    const finding = planMirrorPassCountsDrift('487 packages at last count', 490, 'THANKS.md');
+    expect(finding?.source).toBe('THANKS.md');
+  });
+});
+
+describe('planMirrorPassCountsDriftCommand', () => {
+  it('plans a gh issue create call naming both counts', () => {
+    const command = planMirrorPassCountsDriftCommand({
+      action: 'file-counts-drift-issue',
+      source: 'README.md',
+      claimedCount: 480,
+      actualCount: 487,
+    });
+    expect(command.command).toBe('gh');
+    expect(command.args[0]).toBe('issue');
+    expect(command.args[1]).toBe('create');
+    expect(command.args.join(' ')).toContain('480');
+    expect(command.args.join(' ')).toContain('487');
+    expect(command.details).toContain('README.md');
+  });
+});
+
+describe('readMirrorPassCountsDrift', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-mirror-pass-counts-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  });
+
+  function licensesTable(rowCount: number): string {
+    const header = ['| package | version(s) | license |', '| --- | --- | --- |'];
+    const rows = Array.from({ length: rowCount }, (_, i) => `| pkg-${i} | 1.0.0 | MIT |`);
+    return [...header, ...rows].join('\n');
+  }
+
+  it('reports a drift when the doc and license inventory disagree', () => {
+    const readmePath = join(dir, 'README.md');
+    const licensesPath = join(dir, 'THIRD-PARTY-LICENSES.md');
+    writeFileSync(readmePath, 'shoulders of 480 open-source projects — see THANKS.md');
+    writeFileSync(licensesPath, licensesTable(487));
+
+    expect(readMirrorPassCountsDrift(readmePath, licensesPath)).toEqual({
+      action: 'file-counts-drift-issue',
+      source: 'README.md',
+      claimedCount: 480,
+      actualCount: 487,
+    });
+  });
+
+  it('returns null when the doc and license inventory agree', () => {
+    const readmePath = join(dir, 'README.md');
+    const licensesPath = join(dir, 'THIRD-PARTY-LICENSES.md');
+    writeFileSync(readmePath, 'shoulders of 487 open-source projects — see THANKS.md');
+    writeFileSync(licensesPath, licensesTable(487));
+
+    expect(readMirrorPassCountsDrift(readmePath, licensesPath)).toBeNull();
+  });
+
+  it('returns null rather than throwing when the doc is missing', () => {
+    const licensesPath = join(dir, 'THIRD-PARTY-LICENSES.md');
+    writeFileSync(licensesPath, licensesTable(487));
+
+    expect(readMirrorPassCountsDrift(join(dir, 'missing.md'), licensesPath)).toBeNull();
+  });
+
+  it('returns null rather than throwing when the license inventory is missing', () => {
+    const readmePath = join(dir, 'README.md');
+    writeFileSync(readmePath, 'shoulders of 487 open-source projects — see THANKS.md');
+
+    expect(readMirrorPassCountsDrift(readmePath, join(dir, 'missing.md'))).toBeNull();
   });
 });

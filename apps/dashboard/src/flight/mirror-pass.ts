@@ -37,9 +37,19 @@
  * `readReleaseInfo` (apps/dashboard/src/read/project-detail.ts) already
  * reads for the release preview. A mismatch files a finding as a `gh issue
  * create` command, same deferred-execution stance as the rest of this file
- * — nothing here calls `gh`. The "counts" and "links" halves of this
- * derivation, plus derivation 4/4 (the stale-claim reaper, epic-shared with
- * the collab protocol slices), are follow-up slices of the same board task.
+ * — nothing here calls `gh`.
+ *
+ * The "counts" half of derivation 3/4 ({@link planMirrorPassCountsDrift})
+ * covers the same doc-vs-tree shape for a different claim: README.md's and
+ * THANKS.md's "487 open-source projects" / "487 packages" prose against the
+ * real row count in `docs/THIRD-PARTY-LICENSES.md` — the same file
+ * `pnpm licenses list --json` regenerates whenever the dependency set
+ * changes, so a stale headline count is exactly the kind of drift this
+ * doc's own docstring promises to catch mechanically.
+ *
+ * The "links" half of this derivation, plus derivation 4/4 (the
+ * stale-claim reaper, epic-shared with the collab protocol slices), are
+ * follow-up slices of the same board task.
  */
 
 import { readFileSync } from 'node:fs';
@@ -514,4 +524,102 @@ export function readMirrorPassVersionDrift(
     return null;
   }
   return planMirrorPassVersionDrift(readmeContent, actualVersion, basename(readmePath));
+}
+
+/** Extracts a `"<N> open-source projects"` or `"<N> packages"` count claim
+ *  from prose — the two phrasings this repo's own README.md and THANKS.md
+ *  use for the same third-party-dependency count — `null` when the text
+ *  carries no such claim, which {@link planMirrorPassCountsDrift} treats as
+ *  nothing to check rather than a drift. Thousands separators (`1,234`) are
+ *  stripped before parsing. */
+export function extractPackageCountClaim(content: string): number | null {
+  const match = /(\d[\d,]*)\s+(?:open-source projects|packages)\b/i.exec(content);
+  if (!match) return null;
+  return Number(match[1]!.replace(/,/g, ''));
+}
+
+/** Counts the data rows in `docs/THIRD-PARTY-LICENSES.md`'s package table —
+ *  every `| package | version(s) | license |` line except the header row and
+ *  its `| --- | --- | --- |` separator, the same table `pnpm licenses list
+ *  --json` regenerates whenever the dependency set changes. */
+export function countThirdPartyLicenseRows(content: string): number {
+  const pipeLines = content.split('\n').filter((line) => line.trim().startsWith('|'));
+  const isSeparator = (line: string) => /^\|[\s:-]+\|[\s:|-]*$/.test(line.trim());
+  return pipeLines.filter((line, index) => index > 0 && !isSeparator(line)).length;
+}
+
+/** Derivation 3/4's counts-drift finding: a doc claims a third-party-package
+ *  count that disagrees with the tree's real license inventory. */
+export interface MirrorPassCountsDriftFinding {
+  readonly action: 'file-counts-drift-issue';
+  readonly source: string;
+  readonly claimedCount: number;
+  readonly actualCount: number;
+}
+
+/**
+ * Decides whether `docContent`'s package-count claim disagrees with
+ * `actualCount` — the "counts" half of derivation 3/4, "README/docs public
+ * claims ↔ tree reality". `null` when the doc makes no count claim to check
+ * ({@link extractPackageCountClaim} found nothing) or when the claim already
+ * matches the tree; a mismatch is always a {@link MirrorPassCountsDriftFinding},
+ * never guessed at from partial data. Same shape as
+ * {@link planMirrorPassVersionDrift}.
+ */
+export function planMirrorPassCountsDrift(
+  docContent: string,
+  actualCount: number,
+  source = 'README.md',
+): MirrorPassCountsDriftFinding | null {
+  const claimedCount = extractPackageCountClaim(docContent);
+  if (claimedCount === null || claimedCount === actualCount) return null;
+  return { action: 'file-counts-drift-issue', source, claimedCount, actualCount };
+}
+
+/**
+ * Turns a {@link MirrorPassCountsDriftFinding} into the `gh issue create`
+ * call needed to file it — deferred execution, same as
+ * {@link planMirrorPassVersionDriftCommand}: this plans the argv, a caller
+ * invokes it. De-duplicating against an already-open drift issue is the
+ * Social Protocol's "search before you speak" law (epic 0016 slice 1), not
+ * this pure planner's concern, same layering the version-drift command
+ * already assumes.
+ */
+export function planMirrorPassCountsDriftCommand(
+  finding: MirrorPassCountsDriftFinding,
+): MirrorPassCommand {
+  const title = `${finding.source} claims ${finding.claimedCount} packages, tree has ${finding.actualCount}`;
+  const body =
+    `Mirror pass found a package-count drift: **${finding.source}** states \`${finding.claimedCount}\` ` +
+    `third-party packages, but \`docs/THIRD-PARTY-LICENSES.md\` lists \`${finding.actualCount}\`. ` +
+    'Either the doc is stale or the license inventory needs regenerating (`pnpm licenses list --json`).';
+  return {
+    command: 'gh',
+    args: ['issue', 'create', '--title', title, '--body', body],
+    details: `filing a package-count drift finding: ${finding.source} says ${finding.claimedCount}, tree has ${finding.actualCount}`,
+  };
+}
+
+/**
+ * Reads `docPath` and `thirdPartyLicensesPath` from disk and runs
+ * {@link planMirrorPassCountsDrift} against their contents — the read wiring
+ * a caller composes with {@link planMirrorPassCountsDriftCommand}, same
+ * division of labor {@link readMirrorPassVersionDrift} has with
+ * {@link planMirrorPassVersionDrift}. A missing/unreadable file means the
+ * actual count is unknowable — `null`, never a guess.
+ */
+export function readMirrorPassCountsDrift(
+  docPath: string,
+  thirdPartyLicensesPath: string,
+): MirrorPassCountsDriftFinding | null {
+  let docContent: string;
+  let licensesContent: string;
+  try {
+    docContent = readFileSync(docPath, 'utf8');
+    licensesContent = readFileSync(thirdPartyLicensesPath, 'utf8');
+  } catch {
+    return null;
+  }
+  const actualCount = countThirdPartyLicenseRows(licensesContent);
+  return planMirrorPassCountsDrift(docContent, actualCount, basename(docPath));
 }
