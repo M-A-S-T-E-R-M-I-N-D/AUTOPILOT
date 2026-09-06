@@ -175,7 +175,7 @@ function flightDebriefSection(flightLog, tasks) {
   var wrap = el('div', 'flight-debrief');
   wrap.appendChild(el('h4', 'flight-debrief-title', tr('landingDebriefTitle')));
   var chips = el('p', 'flight-debrief-chips');
-  var chipItems = flightDebriefChipItems(digest, fmtCost, fmtDuration);
+  var chipItems = flightDebriefChipItems(digest, fmtCost, fmtDuration, tr);
   chips.appendChild(tipChip(chipItems[0][0], chipItems[0][1], chipItems[0][2], 'flight-debrief-ship'));
   chips.appendChild(tipChip(chipItems[1][0], chipItems[1][1], chipItems[1][2], 'flight-debrief-death'));
   chips.appendChild(tipChip(chipItems[2][0], chipItems[2][1], chipItems[2][2]));
@@ -206,7 +206,7 @@ function flightDebriefSection(flightLog, tasks) {
     worstLine.appendChild(worstVal);
     wrap.appendChild(worstLine);
   }
-  var notable = flightDebriefNotableItems(digest);
+  var notable = flightDebriefNotableItems(digest, tr);
   if (notable.length) {
     var notableP = el('p', 'flight-debrief-notable muted');
     for (var ni = 0; ni < notable.length; ni++) {
