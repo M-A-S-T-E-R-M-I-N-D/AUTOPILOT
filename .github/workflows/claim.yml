@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+#
+# The shared-work claim protocol (docs/ROADMAP.md "How work gets shared"):
+# commenting `/claim` on an open issue assigns YOU — one assignee ever, so
+# two people can never silently pick the same task; `/unclaim` hands it
+# back. Deliberately zero third-party actions: the runner's preinstalled
+# `gh` + the workflow GITHUB_TOKEN are the whole implementation.
+name: claim
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  issues: write
+jobs:
+  claim:
+    if: ${{ !github.event.issue.pull_request && (startsWith(github.event.comment.body, '/claim') || startsWith(github.event.comment.body, '/unclaim')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      NUM: ${{ github.event.issue.number }}
+      WHO: ${{ github.event.comment.user.login }}
+      BODY: ${{ github.event.comment.body }}
+    steps:
+      - name: Apply claim protocol
+        run: |
+          set -e
+          ASSIGNEES=$(gh api "repos/$REPO/issues/$NUM" -q '[.assignees[].login] | join(",")')
+          case "$BODY" in
+            /unclaim*)
+              if echo ",$ASSIGNEES," | grep -q ",$WHO,"; then
+                gh api -X DELETE "repos/$REPO/issues/$NUM/assignees" -f "assignees[]=$WHO" > /dev/null
+                gh api "repos/$REPO/issues/$NUM/labels" -X DELETE --silent 2>/dev/null || true
+                gh issue comment "$NUM" --repo "$REPO" --body "@$WHO released this task — it's open for the next claimer. Thank you for the honest hand-back. 🤝"
+              fi
+              ;;
+            /claim*)
+              if [ -n "$ASSIGNEES" ]; then
+                gh issue comment "$NUM" --repo "$REPO" --body "@$WHO this task is already claimed by @${ASSIGNEES%%,*} — that's the one-assignee rule doing its job (no duplicate work). Watch for it to free up, or pick another [help-wanted issue](https://github.com/$REPO/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+no%3Aassignee)."
+              else
+                gh api -X POST "repos/$REPO/issues/$NUM/assignees" -f "assignees[]=$WHO" > /dev/null
+                gh issue edit "$NUM" --repo "$REPO" --add-label "claimed" 2>/dev/null || true
+                gh issue comment "$NUM" --repo "$REPO" --body "@$WHO it's yours — you are now the visible, single assignee (the fleet and other contributors will steer around it). Fork-first, keep to the issue's scoped paths, \`pnpm run verify\` green, squash-PR referencing this issue. If life happens, \`/unclaim\` hands it back with zero hard feelings; 14 quiet days auto-release it. Good flying! ✈️"
+              fi
+              ;;
+          esac

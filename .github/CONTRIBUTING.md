@@ -77,6 +77,26 @@ pnpm run verify   # typecheck + lint + format + test+coverage + build + CI valid
 An automated request-changes is not a rejection — fix the named reason and
 push; the ritual re-triages on every update.
 
+## Claiming work — the shared-task protocol
+
+Direction lives in [`docs/ROADMAP.md`](../docs/ROADMAP.md); the live menu is the
+[`help wanted` label](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
+The rules that keep two people (or a person and the fleet) from ever silently
+doing the same work:
+
+1. **Claim before you build**: comment `/claim` on the issue. A bot assigns
+   you — the assignee IS the public claim, visible to everyone including the
+   autonomous fleet, which steers around human-assigned issues.
+2. **One assignee, ever.** A second `/claim` gets a polite "already claimed by
+   X" — pick another, or watch for release.
+3. **Hand back honestly**: `/unclaim` releases it instantly, no hard feelings;
+   14 quiet days auto-release a stale claim so tasks never rot in a pocket.
+4. **Stay in scope**: each help-wanted issue names its scoped paths and its
+   Definition of Done — touching only those is what keeps your PR
+   squash-mergeable and version-compatible (the gate + KEEPER verify the rest).
+5. **Declined ≠ silent**: an issue labeled `declined` always carries a
+   reasoned comment. Disagree? Reply — reasons are for discussing.
+
 ## Flaky tests
 
 If a test fails intermittently (passes on retry with no code change), don't just
