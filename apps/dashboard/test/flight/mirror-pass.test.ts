@@ -30,10 +30,15 @@ import {
   planMirrorPassLinkDrift,
   planMirrorPassLinkDriftCommand,
   readMirrorPassLinkDrift,
+  planMirrorPassStaleClaimReaper,
+  planMirrorPassStaleClaimCommands,
+  fetchClaimedIssueActivity,
   type MirrorPassTaskCandidate,
   type MirrorPassIssueState,
+  type MirrorPassClaimedIssue,
 } from '../../src/flight/mirror-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
+import { STALE_TASK_DAYS } from '../../src/web/task-queue.js';
 
 describe('issueNumberFromTaskId', () => {
   it('parses the github-<n> task id convention', () => {
@@ -812,5 +817,175 @@ describe('readMirrorPassLinkDrift', () => {
 
   it('returns null rather than throwing when the doc is missing', () => {
     expect(readMirrorPassLinkDrift(join(dir, 'missing.md'), dir)).toBeNull();
+  });
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const NOW = Date.UTC(2026, 8, 7, 12, 0, 0);
+
+function claimedIssue(overrides: Partial<MirrorPassClaimedIssue> = {}): MirrorPassClaimedIssue {
+  return {
+    number: 42,
+    state: 'open',
+    assignee: 'someone',
+    lastActivityAt: NOW - STALE_TASK_DAYS * DAY_MS,
+    ...overrides,
+  };
+}
+
+describe('planMirrorPassStaleClaimReaper', () => {
+  it('reaps a claim quiet for exactly the shared STALE_TASK_DAYS threshold', () => {
+    const finding = planMirrorPassStaleClaimReaper(claimedIssue(), NOW);
+
+    expect(finding).toMatchObject({
+      action: 'reap-stale-claim',
+      issueNumber: 42,
+      assignee: 'someone',
+      quietDays: STALE_TASK_DAYS,
+    });
+    expect(finding?.comment).toContain('@someone');
+    expect(finding?.comment).toContain(String(STALE_TASK_DAYS));
+  });
+
+  it('returns null when quiet for fewer days than the threshold', () => {
+    const finding = planMirrorPassStaleClaimReaper(
+      claimedIssue({ lastActivityAt: NOW - (STALE_TASK_DAYS - 1) * DAY_MS }),
+      NOW,
+    );
+
+    expect(finding).toBeNull();
+  });
+
+  it('returns null for an issue with no assignee', () => {
+    expect(planMirrorPassStaleClaimReaper(claimedIssue({ assignee: null }), NOW)).toBeNull();
+  });
+
+  it('returns null for an already-closed issue', () => {
+    expect(planMirrorPassStaleClaimReaper(claimedIssue({ state: 'closed' }), NOW)).toBeNull();
+  });
+
+  it('honors a custom threshold override', () => {
+    const finding = planMirrorPassStaleClaimReaper(
+      claimedIssue({ lastActivityAt: NOW - 3 * DAY_MS }),
+      NOW,
+      3,
+    );
+
+    expect(finding).toMatchObject({ action: 'reap-stale-claim', quietDays: 3 });
+  });
+});
+
+describe('planMirrorPassStaleClaimCommands', () => {
+  it('plans the comment before the unassign', () => {
+    const commands = planMirrorPassStaleClaimCommands({
+      action: 'reap-stale-claim',
+      issueNumber: 42,
+      assignee: 'someone',
+      quietDays: 14,
+      comment: 'Unassigning @someone — quiet for 14 days.',
+    });
+
+    expect(commands).toHaveLength(2);
+    expect(commands[0]).toMatchObject({
+      command: 'gh',
+      args: ['issue', 'comment', '42', '--body', 'Unassigning @someone — quiet for 14 days.'],
+    });
+    expect(commands[1]).toMatchObject({
+      command: 'gh',
+      args: ['issue', 'edit', '42', '--remove-assignee', 'someone'],
+    });
+  });
+});
+
+describe('fetchClaimedIssueActivity', () => {
+  it("uses the assignee's own last comment as the activity timestamp", async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 42,
+        state: 'OPEN',
+        assignees: [{ login: 'someone' }],
+        comments: [
+          { author: { login: 'other' }, createdAt: '2026-09-05T00:00:00Z' },
+          { author: { login: 'someone' }, createdAt: '2026-09-01T00:00:00Z' },
+        ],
+        updatedAt: '2026-09-06T00:00:00Z',
+      }),
+    }));
+
+    const issue = await fetchClaimedIssueActivity(exec, 42);
+
+    expect(issue).toEqual({
+      number: 42,
+      state: 'open',
+      assignee: 'someone',
+      lastActivityAt: Date.parse('2026-09-01T00:00:00Z'),
+    });
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'issue',
+      'view',
+      '42',
+      '--json',
+      'number,state,assignees,comments,updatedAt',
+    ]);
+  });
+
+  it('falls back to updatedAt when the assignee never commented', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 42,
+        state: 'OPEN',
+        assignees: [{ login: 'someone' }],
+        comments: [{ author: { login: 'other' }, createdAt: '2026-09-05T00:00:00Z' }],
+        updatedAt: '2026-09-06T00:00:00Z',
+      }),
+    }));
+
+    const issue = await fetchClaimedIssueActivity(exec, 42);
+
+    expect(issue?.lastActivityAt).toBe(Date.parse('2026-09-06T00:00:00Z'));
+  });
+
+  it('returns a null assignee for an unassigned issue', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 42,
+        state: 'OPEN',
+        assignees: [],
+        comments: [],
+        updatedAt: '2026-09-06T00:00:00Z',
+      }),
+    }));
+
+    expect((await fetchClaimedIssueActivity(exec, 42))?.assignee).toBeNull();
+  });
+
+  it('returns null on a non-zero exit', async () => {
+    const exec = makeExec(() => ({ code: 1, stdout: '' }));
+
+    expect(await fetchClaimedIssueActivity(exec, 42)).toBeNull();
+  });
+
+  it('returns null on unparseable stdout', async () => {
+    const exec = makeExec(() => ({ code: 0, stdout: 'not json' }));
+
+    expect(await fetchClaimedIssueActivity(exec, 42)).toBeNull();
+  });
+
+  it('returns null when updatedAt is missing or unparseable', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 42,
+        state: 'OPEN',
+        assignees: [],
+        comments: [],
+        updatedAt: 'not a date',
+      }),
+    }));
+
+    expect(await fetchClaimedIssueActivity(exec, 42)).toBeNull();
   });
 });
