@@ -83,6 +83,8 @@ The doc set, grouped. These are narrative docs (prose with intentional tables/wr
 - [MODEL-CARD.md](MODEL-CARD.md) — the engine's model card + evaluation card: capabilities, limitations, intended
   use, versioned per engine version + `Firing-Prompt-Version`. Localized-maintenance convention — update §6's
   evidence pointers, not the narrative sections.
+- [CASE-STUDIES/README.md](CASE-STUDIES/README.md) — full narrative flights, cited against real flight logs and
+  gate output — never reconstructed after the fact.
 
 ## Milestone plans (as-built)
 
