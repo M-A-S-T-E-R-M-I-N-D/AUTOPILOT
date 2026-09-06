@@ -6,6 +6,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-09-06
+
+### Added
+
+- feat(flight): social-pass core — gh identity/role resolve, own-submissions inventory, protocol caps
+- feat(i18n): translate the CURRENT ROUND panel's chip text via injected tr()
+- feat(docs): doc-freshness detector now tracks MODEL-CARD.md drift (ap-mtndm54g-p62ibx)
+- feat(flight): mirror-pass reconcile planner — README version claim vs tree (3/4)
+- feat(dashboard): wire the right-click report dialog's AI compose into its own captured context
+- feat(flight): mirror-pass reconcile planner — board-done vs issue-state (1/4)
+- feat(github): add free-text compose to the report-to-upstream issue form
+- feat(i18n): translate the guard-denial chip on both surfaces via its three template sweeps
+- feat(i18n): translate the flight log's "slice of <task>" chip via all three template sweeps at once
+- feat(community): contributor standing — identity law, earned trust tiers, the easy partner path
+- feat(i18n): translate the flight log's sha chip and group head cost tip via a tip-template sweep
+- feat(community): the shared-work protocol — visible direction, public claims, no duplicate work
+- feat(i18n): translate the Firing Replay's "Step N of M" position label
+- feat(i18n): translate the flight log rows' cost, real-cost, and happened-ago tips
+- feat(i18n): translate the trace row's count/started-ago tips and the auto-fixed chip
+- feat(i18n): translate the trace row's diff toggle and its loading/empty placeholders
+
+### Fixed
+
+- fix(e2e): the flight-log gate pumps with a HARD fake-time ceiling — 25x2s, minute-safe
+- fix(security): the owner-only ACL also strips EXPLICIT broad grants — runners exposed the gap
+- fix(docs): seed the trusted-contributors registry + repair archive-relative links
+- fix(flight): harden the LLM issue composer against secret/PII leakage
+- fix(security): connection.json gets a REAL owner-only ACL on Windows — chmod 0600 was a no-op there
+
 ## [0.25.0] — 2026-09-06
 
 ### Added
