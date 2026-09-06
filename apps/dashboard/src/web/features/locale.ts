@@ -25,6 +25,10 @@
  * `{name}` slot. Before this sweep those prefixes were painted once via
  * `tr()` when their section was built and only caught up on a mid-session
  * switch when the section next rebuilt; now the switch flips them in place.
+ * `substituteName()` splits/joins rather than `replaceAll(string, string)`,
+ * whose replacement argument interprets `$&`/`$$`-style patterns — the live
+ * worker card's task-line slice (`liveFocusTask`/`liveProbableTask`) was the
+ * first to route a user-typed task title through it as visible text.
  *
  * `tr(key, subs?)` is the client-side mirror of `@autopilot/tokens`' own
  * server-side `translate()`, for the handful of translatable strings that
@@ -104,7 +108,7 @@ const LOCALES = ${names};
 const RTL_LOCALES = ${rtlNames};
 let STRINGS = { en: ${stringsEn} };
 function substituteName(tpl, name) {
-  return tpl.replaceAll('{name}', name);
+  return tpl.split('{name}').join(name);
 }
 function translateDom(l) {
   const table = STRINGS[l] || STRINGS.en;
