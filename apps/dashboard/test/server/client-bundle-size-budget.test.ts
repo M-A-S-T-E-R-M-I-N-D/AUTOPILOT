@@ -47,9 +47,20 @@ import {
  * slice (an earlier, reverted attempt at the same slice needed 155/47,
  * smaller in scope than this one). Small headroom only; see this file's own
  * measured sizes below before adding more core-chunk strings.
+ *
+ * Raised 164→168KB / 49→50KB: the i18n status-pill slice (board
+ * web-msnsndki-dz3vn1) — the fleet card header's project-status badge and
+ * the task board's per-task pill, 21 more STRINGS.en keys plus their key
+ * maps in `statusPill()` — measured 164.1KB/49.3KB raw/gzip after trimming
+ * (the tip key is derived from the label key by the `xxxTip` convention, and
+ * the composed aria template reads the pill's own keys rather than carrying
+ * them again), 74 bytes over the previous raw line. Every remaining core
+ * module is still the unguarded synchronous set described above, so the
+ * structural fix — deferring one behind a `typeof` guard — stays the tracked
+ * follow-up; this bump buys ~4KB for the next few fleet-card i18n slices.
  */
-const CORE_RAW_BUDGET = 164 * 1024;
-const CORE_GZIP_BUDGET = 49 * 1024;
+const CORE_RAW_BUDGET = 168 * 1024;
+const CORE_GZIP_BUDGET = 50 * 1024;
 const CHUNK_RAW_BUDGET = 100 * 1024;
 const CHUNK_GZIP_BUDGET = 30 * 1024;
 
