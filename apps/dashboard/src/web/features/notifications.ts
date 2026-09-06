@@ -51,7 +51,7 @@ function saveNotifySettings(settings) {
   try { localStorage.setItem(NOTIFY_SETTINGS_KEY, JSON.stringify(settings)); } catch {}
 }
 function notifyPermissionHint() {
-  return 'Blocked by your browser — check this site’s notification permission.';
+  return tr('notifyBlockedHint');
 }
 function setNotifyHint(text) {
   var hint = document.getElementById('notify-hint');
@@ -68,14 +68,17 @@ function notifyInit() {
   // keeps updating — real, non-obvious consequences worth stating on
   // hover/focus BEFORE the click, like the CONNECT popover buttons do.
   enableEl.setAttribute('data-tip', 'Asks the browser for permission, then notifies when a project needs you, hits an anomaly, or lands.');
+  enableEl.setAttribute('data-i18n-tip', 'notifyEnableTip');
   startEl.setAttribute('data-tip', 'Start of the daily quiet window — popups are suppressed, the dashboard chip still updates.');
+  startEl.setAttribute('data-i18n-tip', 'notifyQuietStartTip');
   endEl.setAttribute('data-tip', 'End of the daily quiet window — popups resume after this time.');
+  endEl.setAttribute('data-i18n-tip', 'notifyQuietEndTip');
   var settings = loadNotifySettings();
   startEl.value = settings.quietStart;
   endEl.value = settings.quietEnd;
   if (typeof Notification === 'undefined') {
     enableEl.disabled = true;
-    setNotifyHint('Notifications are not supported in this browser.');
+    setNotifyHint(tr('notifyUnsupportedHint'));
     return;
   }
   enableEl.checked = settings.enabled && Notification.permission === 'granted';

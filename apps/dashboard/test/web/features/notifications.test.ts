@@ -36,7 +36,7 @@ describe('notificationsJs', () => {
     const out = notificationsJs();
     expect(out).toContain("if (typeof Notification === 'undefined') {");
     expect(out).toContain('enableEl.disabled = true;');
-    expect(out).toContain("setNotifyHint('Notifications are not supported in this browser.');");
+    expect(out).toContain("setNotifyHint(tr('notifyUnsupportedHint'));");
   });
 
   it('requests permission only when the checkbox is turned ON, never on load', () => {
