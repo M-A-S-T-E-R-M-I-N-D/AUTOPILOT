@@ -751,7 +751,17 @@ function liveWorkerCard(c) {
   var dot = el('span', 'live-dot');
   dot.setAttribute('aria-hidden', 'true');
   head.appendChild(dot);
-  head.appendChild(el('span', 'live-worker-label', 'live — firing in progress'));
+  // i18n (board web-msnsndki-dz3vn1): the card's own lines are tagged for
+  // translateDom()'s sweeps — [data-i18n] text, [data-i18n-tip] tips, and
+  // {name} templates ([data-i18n-template]/[data-i18n-aria-template] with the
+  // live value in data-i18n-name) for every line wrapping a phase name, task
+  // title, or count label, each painted via tr() at build so a saved locale
+  // renders right first time and a mid-session switch flips it in place.
+  // The phase pill's data-tip (shared OFFICE_TIPS) and the chips built by
+  // the live-progress.ts helpers stay English for now.
+  var liveLabel = el('span', 'live-worker-label', 'live — firing in progress');
+  liveLabel.setAttribute('data-i18n', 'liveLabel');
+  head.appendChild(liveLabel);
   var headMeta = liveWorkerHeadMeta(live.callsign, live.model);
   head.appendChild(tipChip(
     live.callsign,
@@ -768,7 +778,9 @@ function liveWorkerCard(c) {
   // one" fact — it must not also duplicate data-tip's full descriptive
   // sentence verbatim, the same class of duplication 189137e0/f8779d15/
   // c3c57f5d fixed for the task-chip/search-hit/task-title aria-labels.
-  phasePill.setAttribute('aria-label', 'current phase: ' + live.phase);
+  phasePill.setAttribute('aria-label', tr('livePhaseAria', live.phase));
+  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
+  phasePill.setAttribute('data-i18n-name', live.phase);
   head.appendChild(phasePill);
   if (headMeta.model) {
     head.appendChild(tipChip(
@@ -794,22 +806,35 @@ function liveWorkerCard(c) {
     'data-tip',
     "AUTOPILOT's own one-sentence summary of its most recent action this firing",
   );
+  narratorEl.setAttribute('data-i18n-tip', 'liveNarratorTip');
   narratorEl.setAttribute('aria-label', live.narrator);
   wrap.appendChild(narratorEl);
   if (live.focusTask) {
-    var focusTaskEl = el('p', 'live-worker-line', '🎯 working: ' + live.focusTask);
+    var focusTaskEl = el('p', 'live-worker-line', tr('liveFocusTask', live.focusTask));
     focusTaskEl.setAttribute('tabindex', '0');
+    focusTaskEl.setAttribute('data-i18n-template', 'liveFocusTask');
+    focusTaskEl.setAttribute('data-i18n-aria-template', 'liveFocusTask');
+    focusTaskEl.setAttribute('data-i18n-name', live.focusTask);
     focusTaskEl.setAttribute('data-tip', 'The board task this firing is explicitly working on');
+    focusTaskEl.setAttribute('data-i18n-tip', 'liveFocusTaskTip');
     focusTaskEl.setAttribute('aria-label', focusTaskEl.textContent);
     wrap.appendChild(focusTaskEl);
   } else if (live.probableTask) {
-    var probableTaskEl = el('p', 'live-worker-line live-worker-guess', 'probably working: ' + live.probableTask);
+    var probableTaskEl = el(
+      'p',
+      'live-worker-line live-worker-guess',
+      tr('liveProbableTask', live.probableTask),
+    );
     probableTaskEl.setAttribute('tabindex', '0');
+    probableTaskEl.setAttribute('data-i18n-template', 'liveProbableTask');
+    probableTaskEl.setAttribute('data-i18n-aria-template', 'liveProbableTask');
+    probableTaskEl.setAttribute('data-i18n-name', live.probableTask);
     probableTaskEl.setAttribute(
       'data-tip',
       "AUTOPILOT's best guess at the task this firing is working on, inferred from the " +
         'board queue — not a confirmed link',
     );
+    probableTaskEl.setAttribute('data-i18n-tip', 'liveProbableTaskTip');
     probableTaskEl.setAttribute('aria-label', probableTaskEl.textContent);
     wrap.appendChild(probableTaskEl);
   }
@@ -847,7 +872,13 @@ function liveWorkerCard(c) {
       ? 'The shared recent-activity window is entirely this firing — it may have taken more actions than are visible here'
       : 'Every action this live firing has taken, within the shared recent-activity window',
   );
-  countEl.setAttribute('aria-label', 'recent actions: ' + countLabel);
+  countEl.setAttribute(
+    'data-i18n-tip',
+    live.recentActionsCapped ? 'liveCountTipCapped' : 'liveCountTip',
+  );
+  countEl.setAttribute('aria-label', tr('liveCountAria', countLabel));
+  countEl.setAttribute('data-i18n-aria-template', 'liveCountAria');
+  countEl.setAttribute('data-i18n-name', countLabel);
   wrap.appendChild(countEl);
   var turnLabel = liveWorkerTurnLabel(live.startedAt, live.turnsSeen, fmtElapsed);
   var turnsEl = el('p', 'muted live-worker-turns', turnLabel);
@@ -858,6 +889,7 @@ function liveWorkerCard(c) {
       'share the same model, token usage, and reasoning; the real cost is unknown until ' +
       'this firing lands',
   );
+  turnsEl.setAttribute('data-i18n-tip', 'liveTurnsTip');
   turnsEl.setAttribute('aria-label', turnLabel);
   wrap.appendChild(turnsEl);
   // Per-firing PROGRESS (slice of web-msnt5ccp-9bx2ix): elapsed vs. this
@@ -875,6 +907,7 @@ function liveWorkerCard(c) {
       'data-tip',
       'Elapsed time for this firing against the average duration of past firings on this project',
     );
+    progressLabel.setAttribute('data-i18n-tip', 'liveProgressTip');
     progressLabel.setAttribute('aria-label', progress.label);
     wrap.appendChild(progressLabel);
     var progressBar = el('div', 'live-progress' + (progress.isOver ? ' live-progress-over' : ''));
@@ -888,6 +921,7 @@ function liveWorkerCard(c) {
       'data-tip',
       'Elapsed time for this firing against the average duration of past firings on this project',
     );
+    progressBar.setAttribute('data-i18n-tip', 'liveProgressTip');
     var progressFill = el('div', 'live-progress-fill');
     progressFill.style.transform = 'scaleX(' + progress.pctCapped / 100 + ')';
     progressBar.appendChild(progressFill);

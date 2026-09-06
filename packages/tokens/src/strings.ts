@@ -468,6 +468,19 @@
  * sweep, closing the mid-session-switch gap the previous slice left open.
  * Tool names (`Bash`, `Grep`) and targets (paths, commands) stay Latin in
  * Hebrew — they are the live value in the `{name}` slot, never translated.
+ * This slice tags the rest of `liveWorkerCard()`'s own lines: the "live —
+ * firing in progress" label (`liveLabel`, `data-i18n`), the narrator/task/
+ * count/turns/progress tips (`live*Tip`, `data-i18n-tip`), and every line
+ * wrapping a live value — the phase pill's "current phase: " prefix
+ * (`livePhaseAria`), the "🎯 working: "/"probably working: " task lines
+ * (`liveFocusTask`/`liveProbableTask`, text AND aria from one key), the
+ * "recent actions: " prefix (`liveCountAria`) — as `{name}` templates
+ * painted via `tr()` at build and swept as `[data-i18n-template]`/
+ * `[data-i18n-aria-template]`. Phase names, task titles and the count label
+ * itself stay as-is in the slot. The phase pill's own `data-tip` (the shared
+ * `OFFICE_TIPS` map, also read by the office map and the activity phase
+ * rail) and the callsign/model/fixation chips' text from `live-progress.ts`
+ * helpers stay English — a later slice.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -659,6 +672,29 @@ const EN_STRINGS = {
   liveToolAria: 'tool: {name}',
   liveTargetTip: 'the file, command, or target that tool call touched',
   liveTargetAria: 'target: {name}',
+  // The rest of liveWorkerCard()'s own lines (the tool/target line above was
+  // the first): the "live" label rides [data-i18n], the static tips ride
+  // [data-i18n-tip], and the lines that wrap a live value — the phase pill's
+  // aria prefix, the focus/probable task line's text AND aria, the
+  // action-count aria prefix — are {name} templates painted via tr() at
+  // build and swept as [data-i18n-template]/[data-i18n-aria-template]. Phase
+  // names, task titles and the count label stay as-is in the {name} slot.
+  liveLabel: 'live — firing in progress',
+  livePhaseAria: 'current phase: {name}',
+  liveNarratorTip: "AUTOPILOT's own one-sentence summary of its most recent action this firing",
+  liveFocusTask: '🎯 working: {name}',
+  liveFocusTaskTip: 'The board task this firing is explicitly working on',
+  liveProbableTask: 'probably working: {name}',
+  liveProbableTaskTip:
+    "AUTOPILOT's best guess at the task this firing is working on, inferred from the board queue — not a confirmed link",
+  liveCountTip: 'Every action this live firing has taken, within the shared recent-activity window',
+  liveCountTipCapped:
+    'The shared recent-activity window is entirely this firing — it may have taken more actions than are visible here',
+  liveCountAria: 'recent actions: {name}',
+  liveTurnsTip:
+    'An approximate turn count — adjacent tool calls collapse into one turn when they share the same model, token usage, and reasoning; the real cost is unknown until this firing lands',
+  liveProgressTip:
+    'Elapsed time for this firing against the average duration of past firings on this project',
   reportBugLabel: 'Report a bug or request a feature upstream',
   titlePlaceholder: 'Title',
   detailsOptionalPlaceholder: 'Details (optional)',
@@ -1123,6 +1159,21 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveToolAria: 'כלי: {name}',
     liveTargetTip: 'הקובץ, הפקודה או היעד שקריאת הכלי הזו נגעה בהם',
     liveTargetAria: 'יעד: {name}',
+    liveLabel: 'חי — הפעלה בעיצומה',
+    livePhaseAria: 'שלב נוכחי: {name}',
+    liveNarratorTip: 'הסיכום של AUTOPILOT עצמו, במשפט אחד, לפעולה האחרונה שלו בהפעלה הזו',
+    liveFocusTask: '🎯 עובדת על: {name}',
+    liveFocusTaskTip: 'משימת הלוח שההפעלה הזו עובדת עליה במפורש',
+    liveProbableTask: 'כנראה עובדת על: {name}',
+    liveProbableTaskTip:
+      'ההערכה הטובה ביותר של AUTOPILOT למשימה שההפעלה הזו עובדת עליה, על סמך תור הלוח — לא קישור מאומת',
+    liveCountTip: 'כל פעולה שההפעלה החיה הזו ביצעה, בתוך חלון הפעילות האחרונה המשותף',
+    liveCountTipCapped:
+      'חלון הפעילות האחרונה המשותף כולו שייך להפעלה הזו — ייתכן שהיא ביצעה יותר פעולות מהנראות כאן',
+    liveCountAria: 'פעולות אחרונות: {name}',
+    liveTurnsTip:
+      'ספירת תורות משוערת — קריאות כלים סמוכות מתמזגות לתור אחד כשהן חולקות את אותם מודל, שימוש באסימונים והיגיון; העלות האמיתית אינה ידועה עד שההפעלה הזו תנחת',
+    liveProgressTip: 'הזמן שחלף בהפעלה הזו לעומת משך ההפעלה הממוצע של ההפעלות הקודמות בפרויקט הזה',
     reportBugLabel: 'דיווח על באג או בקשת תכונה במאגר המקור',
     titlePlaceholder: 'כותרת',
     detailsOptionalPlaceholder: 'פרטים (אופציונלי)',
