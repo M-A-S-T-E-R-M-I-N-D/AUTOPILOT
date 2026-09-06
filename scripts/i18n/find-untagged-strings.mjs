@@ -22,7 +22,12 @@
  *     `data-i18n-aria=` / `data-i18n-placeholder=` marker;
  *   - inner text of a small allowlist of tags that only ever hold
  *     short, static UI labels in this codebase (button/summary/heading/
- *     label/dt/dd/option/caption/legend) whose tag lacks `data-i18n=`.
+ *     label/dt/dd/option/caption/legend) whose tag lacks `data-i18n=`;
+ *   - `el('tag', cls, 'text')` calls (shell.ts's `createElement` +
+ *     `textContent` DOM-builder, generated into every feature bundle) whose
+ *     result variable has no `.setAttribute('data-i18n', …)` call within the
+ *     next few lines — this pattern never appears as literal `<tag>` markup
+ *     in source, so it was a total blind spot until this scan learned it too.
  * It is deliberately conservative — text spanning multiple lines, starting
  * with a backtick, or containing `${…}` is skipped, since those patterns
  * match doc-comment prose (` * the \`<h4>\` class…`) and dynamic markup far
@@ -63,6 +68,21 @@ const TAG_RE = /<([a-zA-Z][a-zA-Z0-9-]*)\b((?:[^<>]|\n)*?)(\/?)>([^<]*)/g;
 const ARIA_LABEL_RE = /\baria-label="([^"$]*)"/;
 const PLACEHOLDER_RE = /\bplaceholder="([^"$]*)"/;
 
+/**
+ * `shell.ts`'s `el(tag, cls, text)` DOM-builder (createElement + textContent,
+ * generated into every feature bundle) never appears as literal `<tag>text</tag>`
+ * markup in source, so TAG_RE can't see it — a real scanner blind spot (issue
+ * #16). This matches an `el('tag', <cls>, 'text')` call, capturing the
+ * variable it's assigned to (if any) so the caller can check whether that
+ * variable is tagged with `data-i18n` a few lines later, the way every
+ * existing el()-built node in this codebase already is.
+ */
+const EL_CALL_RE =
+  /(?:(?:(?:var|let|const)\s+)?([A-Za-z_$][\w$]*)\s*=\s*)?\bel\(\s*'([a-zA-Z][\w-]*)'\s*,\s*(?:'[^'$\n]*'|null|undefined|[A-Za-z_$][\w$]*)\s*,\s*'([^'$\n]*)'\s*\)/g;
+
+/** How many lines after an `el()` assignment to look for its `.setAttribute('data-i18n', …)` call. */
+const TAG_LOOKAHEAD_LINES = 4;
+
 const LETTER_RE = new RegExp('[A-Za-z\\u0590-\\u05FF]');
 
 /** @param {string} text @returns {boolean} */
@@ -82,6 +102,25 @@ function lineOf(source, index) {
     if (source.charCodeAt(i) === 10) line++;
   }
   return line;
+}
+
+/**
+ * Whether `varName.setAttribute('data-i18n', …)` appears within the next
+ * few lines after an `el()` assignment — the tagging convention every
+ * existing el()-built node in this codebase already follows. Scoped to a
+ * nearby window (not the whole file) so an unrelated variable of the same
+ * name elsewhere can't falsely suppress a real finding.
+ * @param {string} source @param {string} varName @param {number} matchEndIndex @returns {boolean}
+ */
+function isTaggedNearby(source, varName, matchEndIndex) {
+  const windowLines = source
+    .slice(matchEndIndex)
+    .split('\n')
+    .slice(0, TAG_LOOKAHEAD_LINES + 1)
+    .join('\n');
+  const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const taggedRe = new RegExp(`\\b${escaped}\\.setAttribute\\(\\s*['"]data-i18n['"]`);
+  return taggedRe.test(windowLines);
 }
 
 /**
@@ -124,7 +163,19 @@ export function scanSource(source, file) {
       findings.push({ file, line, kind: 'text', tag, text: trailingText.trim() });
     }
   }
-  return findings;
+
+  for (const match of source.matchAll(EL_CALL_RE)) {
+    const varName = match[1];
+    const tag = match[2].toLowerCase();
+    const text = match[3];
+    if (!looksTranslatable(text)) continue;
+    if (varName && isTaggedNearby(source, varName, match.index + match[0].length)) continue;
+
+    const line = lineOf(source, match.index);
+    findings.push({ file, line, kind: 'text', tag, text: text.trim() });
+  }
+
+  return findings.sort((a, b) => a.line - b.line);
 }
 
 /** @param {string} dir @returns {string[]} */
