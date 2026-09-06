@@ -55,13 +55,22 @@
  * or was deleted" drift a broken-link checker would catch, done the same
  * pure-planner way as the version/counts halves above.
  *
- * Derivation 4/4 (the stale-claim reaper, epic-shared with the collab
- * protocol slices) is a follow-up slice of the same board task.
+ * Derivation 4/4 ({@link planMirrorPassStaleClaimReaper}) is the stale-claim
+ * reaper, "epic-shared with the collab protocol slices": it reuses
+ * `web/task-queue.ts`'s {@link STALE_TASK_DAYS} — the exact 14-day threshold
+ * already driving the dashboard's own board-task STALE chip
+ * (`web-mssnofje-bboigi`) — rather than a second, independently-tunable
+ * magic number for the same "quiet too long" concept applied to a GitHub
+ * issue's assignee instead of a board task. An issue assigned to someone who
+ * has gone quiet for that many days gets unassigned (never closed — the work
+ * may still be valid) with an honest comment, freeing it for anyone to pick
+ * back up, same anti-stale-claim spirit as the board chip itself.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { CliExec } from '../connection/cli-probe.js';
+import { STALE_TASK_DAYS } from '../web/task-queue.js';
 
 /** Parses `issue-triage.ts`'s `issueTaskId` convention (`github-<n>`) back
  *  into the issue number it names — `null` for a task id from any other
@@ -732,4 +741,162 @@ export function readMirrorPassLinkDrift(
     (link) => existsSync(join(repoRoot, link)),
     basename(docPath),
   );
+}
+
+/** The subset of a GitHub issue's live state derivation 4/4 needs: its
+ *  assignee (`null` when unassigned — nothing to reap) and the best
+ *  available "last activity" timestamp for that assignee specifically, not
+ *  the issue in general — see {@link fetchClaimedIssueActivity}'s docstring
+ *  for why a non-assignee's comment never counts as activity here. */
+export interface MirrorPassClaimedIssue {
+  readonly number: number;
+  readonly state: 'open' | 'closed';
+  readonly assignee: string | null;
+  readonly lastActivityAt: number;
+}
+
+/** Derivation 4/4's finding: an open issue's assignee has been quiet long
+ *  enough to reap the claim. */
+export interface MirrorPassStaleClaimFinding {
+  readonly action: 'reap-stale-claim';
+  readonly issueNumber: number;
+  readonly assignee: string;
+  readonly quietDays: number;
+  readonly comment: string;
+}
+
+/**
+ * Decides whether `issue`'s claim should be reaped — derivation 4/4, "stale
+ * claims (assignee quiet 14d) → the reaper path". `null` for a closed issue
+ * (nothing to reap), an unassigned one (nothing to reclaim), or one whose
+ * assignee has been active within `thresholdDays` (defaults to the shared
+ * {@link STALE_TASK_DAYS}, the same 14-day convention the board's own STALE
+ * chip uses). Never guesses at partial data, same stance as
+ * {@link planMirrorPassReconcile}.
+ */
+export function planMirrorPassStaleClaimReaper(
+  issue: MirrorPassClaimedIssue,
+  nowMs: number,
+  thresholdDays: number = STALE_TASK_DAYS,
+): MirrorPassStaleClaimFinding | null {
+  if (issue.state !== 'open' || !issue.assignee) return null;
+  const quietDays = Math.max(0, Math.floor((nowMs - issue.lastActivityAt) / (24 * 60 * 60 * 1000)));
+  if (quietDays < thresholdDays) return null;
+
+  return {
+    action: 'reap-stale-claim',
+    issueNumber: issue.number,
+    assignee: issue.assignee,
+    quietDays,
+    comment:
+      `Unassigning @${issue.assignee} — quiet for ${quietDays} days on this claim. ` +
+      "Freeing it up so anyone can pick it back up. Comment here if you're still working on " +
+      'it and this was a mistake.',
+  };
+}
+
+/**
+ * Turns a {@link MirrorPassStaleClaimFinding} into the `gh` command(s) needed
+ * to apply it: the reopen-explaining comment first (so the note lands even
+ * if the unassign call itself fails), then the unassign — same
+ * comment-before-state-change ordering {@link planMirrorPassCommands} uses.
+ * Pure: plans argv, never invokes `gh`.
+ */
+export function planMirrorPassStaleClaimCommands(
+  finding: MirrorPassStaleClaimFinding,
+): readonly MirrorPassCommand[] {
+  const issueRef = String(finding.issueNumber);
+  return [
+    {
+      command: 'gh',
+      args: ['issue', 'comment', issueRef, '--body', finding.comment],
+      details: `posting the stale-claim reaper note on #${finding.issueNumber}`,
+    },
+    {
+      command: 'gh',
+      args: ['issue', 'edit', issueRef, '--remove-assignee', finding.assignee],
+      details: `unassigning @${finding.assignee} from #${finding.issueNumber} — quiet ${finding.quietDays}d`,
+    },
+  ];
+}
+
+/** One github-issue-activity entry as `gh issue view --json
+ *  number,state,assignees,comments,updatedAt` emits it — untrusted process
+ *  output, parsed defensively same as {@link RawGithubIssueState}. */
+interface RawGithubIssueActivity {
+  readonly number?: unknown;
+  readonly state?: unknown;
+  readonly assignees?: unknown;
+  readonly comments?: unknown;
+  readonly updatedAt?: unknown;
+}
+
+/**
+ * Fetches `issueNumber`'s live claim-activity via `gh issue view <n> --json
+ * number,state,assignees,comments,updatedAt`, run through the injectable
+ * `exec` — same `CliExec` shape and never-throw-on-bad-data stance as
+ * {@link fetchIssueState}. The assignee is the first entry in `assignees`
+ * (`null` when empty). `lastActivityAt` is the assignee's own most recent
+ * comment timestamp when they have commented at all; a comment from anyone
+ * ELSE never counts, since derivation 4/4 is about the ASSIGNEE going quiet,
+ * not the issue itself — an active thread with a silent assignee is exactly
+ * the case this is meant to catch. When the assignee has never commented,
+ * this falls back to the issue's own `updatedAt`, which is a conservative
+ * (never-too-eager) proxy: any activity on the issue at all — including
+ * someone else's comment — delays the reap clock rather than accelerating
+ * it. Returns `null` on a non-zero exit, unparseable JSON, or a missing/
+ * malformed `number`/`state`/`updatedAt` field.
+ */
+export async function fetchClaimedIssueActivity(
+  exec: CliExec,
+  issueNumber: number,
+): Promise<MirrorPassClaimedIssue | null> {
+  const { code, stdout } = await exec('gh', [
+    'issue',
+    'view',
+    String(issueNumber),
+    '--json',
+    'number,state,assignees,comments,updatedAt',
+  ]);
+  if (code !== 0) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const raw = parsed as RawGithubIssueActivity;
+  if (typeof raw.number !== 'number' || typeof raw.state !== 'string') return null;
+  const state = raw.state.toUpperCase();
+  if (state !== 'OPEN' && state !== 'CLOSED') return null;
+
+  const updatedAtMs = typeof raw.updatedAt === 'string' ? Date.parse(raw.updatedAt) : NaN;
+  if (Number.isNaN(updatedAtMs)) return null;
+
+  const assignees = Array.isArray(raw.assignees) ? raw.assignees : [];
+  const firstAssignee = assignees[0] as { login?: unknown } | undefined;
+  const assignee =
+    firstAssignee && typeof firstAssignee.login === 'string' ? firstAssignee.login : null;
+
+  const comments = Array.isArray(raw.comments) ? raw.comments : [];
+  let lastActivityAt = updatedAtMs;
+  if (assignee) {
+    for (const entry of comments as ReadonlyArray<{
+      author?: { login?: unknown };
+      createdAt?: unknown;
+    }>) {
+      if (entry?.author?.login !== assignee || typeof entry.createdAt !== 'string') continue;
+      const commentMs = Date.parse(entry.createdAt);
+      if (!Number.isNaN(commentMs)) lastActivityAt = commentMs;
+    }
+  }
+
+  return {
+    number: raw.number,
+    state: state === 'OPEN' ? 'open' : 'closed',
+    assignee,
+    lastActivityAt,
+  };
 }
