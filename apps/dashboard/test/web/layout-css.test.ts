@@ -99,3 +99,29 @@ describe('layoutCss — pipeline canvas/tree status and selection styling', () =
     expect(css).toMatch(/\.pipeline-edge\[data-connected='true'\]\s*\{[^}]*var\(--color-accent\)/);
   });
 });
+
+/**
+ * EPIC 0018 "calm cockpit" slice 1 (docs/epics/0018-calm-cockpit.md), LAYOUT
+ * STABILITY LAW: "a panel never resizes the page — every live-updating
+ * region owns a fixed-height (or max-height) scroll container; growth
+ * scrolls INSIDE it." The docs-viewer body and phase-acts drill-down already
+ * carry a max-height/overflow-y pair; this is the scroll-container-audit
+ * follow-up on the two remaining unbounded live regions the operator's pain
+ * report names — the tool-call activity feed and the per-firing trace list —
+ * both of which render one entry per item with no cap, so a long-running
+ * flight (or a firing with many tool calls) grows the region without bound
+ * and reflows the whole page under it.
+ */
+describe('layoutCss — EPIC 0018 slice 1: scroll-container audit for unbounded live regions', () => {
+  const css = layoutCss();
+
+  it('bounds the live tool-call activity feed to a scrolling container', () => {
+    expect(css).toMatch(/\.activity\s*\{[^}]*max-height:/);
+    expect(css).toMatch(/\.activity\s*\{[^}]*overflow-y:\s*auto/);
+  });
+
+  it('bounds the per-firing trace list to a scrolling container', () => {
+    expect(css).toMatch(/\.firing-timeline\s*\{[^}]*max-height:/);
+    expect(css).toMatch(/\.firing-timeline\s*\{[^}]*overflow-y:\s*auto/);
+  });
+});

@@ -969,7 +969,11 @@ main.project-mode { grid-template-columns: 1fr; }
 .spark-tip { position: fixed; z-index: 60; max-width: 240px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-text); font-size: var(--text-xs); line-height: 1.4; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); pointer-events: none; }
 .spark-tip-title { display: block; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spark-tip-meta { font-family: var(--font-mono); color: var(--color-text-muted); }
-.activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--text-xs); }
+/* LAYOUT STABILITY LAW (epic 0018 "calm cockpit" slice 1): a live firing's
+   tool-call feed grows one entry per act with no cap — left unbounded it
+   pushes every sibling section down the page on every tick. Scroll inside
+   the region instead of reflowing the page under it. */
+.activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--text-xs); max-height: 24rem; overflow-y: auto; }
 .act { display: flex; gap: var(--space-2); align-items: center; min-width: 0; }
 .act-tool { font-weight: 600; padding: 0 5px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); white-space: nowrap; }
 .act-command { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
@@ -1010,7 +1014,10 @@ main.project-mode { grid-template-columns: 1fr; }
 .fnode-do { color: var(--color-sev-low); border-color: var(--color-sev-low); }
 .fnode-gate { color: var(--color-sev-medium); border-color: var(--color-sev-medium); }
 .fnode-commit { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
-.firing-timeline { display: flex; flex-direction: column; gap: 4px; }
+/* LAYOUT STABILITY LAW (epic 0018 "calm cockpit" slice 1): the per-firing
+   trace grows one row per firing across the whole flight with no cap —
+   scroll inside the list instead of reflowing the page under it. */
+.firing-timeline { display: flex; flex-direction: column; gap: 4px; max-height: 32rem; overflow-y: auto; }
 .firing-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; text-align: start; padding: 3px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); cursor: pointer; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .firing-toggle:hover, .firing-toggle:focus-visible { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .firing-toggle:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
