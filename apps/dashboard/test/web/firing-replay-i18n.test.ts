@@ -13,9 +13,11 @@
  * `[data-i18n]`, its concise aria-label `[data-i18n-aria]`, and its full
  * data-tip `[data-i18n-tip]` — the Exit button's text and aria-label share
  * ONE key since the D1 attribute-payload audit already made them identical.
- * The "Step N of M" position label keeps only a tip tag: it is an aria-live
+ * The "Step N of M" position label got only a tip tag here: it is an aria-live
  * status region whose announced text is `replayNav()`'s own composed string
- * (`web/replay-nav.ts`), so no text sweep may touch it. The English text is
+ * (`web/replay-nav.ts`), so no fixed-text sweep may touch it — the later
+ * `firing-replay-position-i18n.test.ts` slice made it a `{step}`/`{total}`
+ * template instead, which is why it now flips too. The English text is
  * byte-identical to what the controls said before this slice. Drives the
  * REAL client bundle in jsdom against a mocked /api/state, same harness as
  * firing-replay-nav.test.ts.
@@ -119,6 +121,15 @@ function he(key: string): string {
   return STRINGS.he[key as StringKey];
 }
 
+/** The Hebrew "Step N of M" label — the table's template with both slots filled. */
+function hePosition(step: number, total: number): string {
+  return he('replayPosition')
+    .split('{step}')
+    .join(String(step))
+    .split('{total}')
+    .join(String(total));
+}
+
 describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -180,7 +191,7 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
     expect(exit.getAttribute('data-i18n-tip')).toBe('replayExitTip');
   });
 
-  it('the "Step N of M" live region gets only a tip tag — its announced text is never swept', async () => {
+  it('the "Step N of M" live region gets a tip tag and a two-slot template tag — never a fixed-text or aria sweep tag', async () => {
     await enterReplay();
 
     const label = q('.replay-nav-label');
@@ -189,6 +200,10 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
       'Your position in this replay — Left and Right arrow keys also step',
     );
     expect(label.getAttribute('data-i18n-tip')).toBe('replayPositionTip');
+    // The position itself is a {step}/{total} template (the later
+    // firing-replay-position-i18n slice) — a plain [data-i18n] sweep would
+    // paint a fixed string over the composed text.
+    expect(label.getAttribute('data-i18n-template')).toBe('replayPosition');
     expect(label.hasAttribute('data-i18n')).toBe(false);
     expect(label.hasAttribute('data-i18n-aria')).toBe(false);
     expect(label.getAttribute('aria-label')).toBeNull();
@@ -218,7 +233,7 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
 
     const label = q('.replay-nav-label');
     expect(label.getAttribute('data-tip')).toBe(he('replayPositionTip'));
-    expect(label.textContent).toBe('Step 1 of 3');
+    expect(label.textContent).toBe(hePosition(1, 3));
   });
 
   it('the controls keep working in Hebrew — Next still steps and the Exit button still leaves replay', async () => {
@@ -227,7 +242,7 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
 
     click('[data-replay-next="f1"]');
     await vi.advanceTimersByTimeAsync(1);
-    expect(q('.replay-nav-label').textContent).toBe('Step 2 of 3');
+    expect(q('.replay-nav-label').textContent).toBe(hePosition(2, 3));
     // The rebuilt bar lands in Hebrew — renderFleet()'s own sweep, not the switch.
     expect(q('[data-replay-next="f1"]').textContent).toBe(he('replayNext'));
 
