@@ -176,3 +176,66 @@ or a checkpoint marker) before spending a full gate run re-verifying it.
 This firing takes no position beyond noting the gap; still the same
 underlying architecture question as `ap-mtm4qzty-1`, still an operator
 call.
+
+## Verdict reconfirmed a fourth time, new flavor: firing-150 (2026-09-06)
+
+`ap-mtq0bpgj-2` was still the topmost board item this firing too — same
+board-lag gap noted above. This firing's own reproduction has two parts,
+one a repeat shape and one genuinely new.
+
+**Repeat shape (same as firing-147):** on start, `git status` showed an
+untracked, fully-written `apps/dashboard/test/web/masthead-census.test.ts`
+(118 lines, EPIC 0017 nav remake slice 1/5, board `web-mtq019pd-rj8dsn`) —
+leftover work from before this session's context compaction. This firing
+independently verified it end-to-end (`vitest run` on the file: 11/11
+green, `prettier --check`, `tsc -b`, `eslint .`, `format:check`), staged it
+with `git add <path>`, then found `git diff --cached --name-only` came back
+**empty**. `git reflog` explained why: `HEAD` had advanced to `9f9d287d`
+(`test(dashboard): masthead census — pin every control before EPIC 0017 nav
+remake`) — a concurrent process had authored and committed
+byte-identical content under a different commit message while this firing
+was mid-verification. Confirmed via `git show 9f9d287d` — the diff matches
+what this firing had staged exactly. No data lost; duplicated verification
+work only, same cost as firing-147's finding.
+
+**New flavor — concurrent mutation corrupting an in-flight gate run:**
+immediately after, this same firing ran `pnpm run test:impacted`
+(`vitest run --changed HEAD~1`) and got **26 failing tests** across two
+files, all `TypeError: writer.paths is not a function` inside
+`packages/engine/src/release.ts:388` — a real-looking, widespread breakage
+in the release engine. Running the same failing file in isolation moments
+later showed only **one** failure (an unrelated, genuinely pre-existing
+citation-commit-ordering bug, `web-mtmrh0mv-161chu`, unrelated to any work
+in this session). Re-running the exact same `--changed HEAD~1` selection a
+second time reproduced only that same single pre-existing failure — the
+other 25 had vanished. `ls --time-style=full-iso` on the implicated files
+pinned the cause: `apps/dashboard/test/release/execute.test.ts` (23:12:55),
+`packages/engine/src/release.ts` (23:13:52), and
+`apps/dashboard/src/flight/report-compose.ts` (23:14:02) were all written
+by a **third**, still-unidentified concurrent process within the same
+one-second window `test:impacted`'s first run started (`Start at
+23:14:04`) — a live write racing vitest's module import for those exact
+files. That process kept writing throughout this firing's session
+(`report-compose-tasks.ts` at 23:19:29, `execute.ts` (src) at 23:21:14,
+`release.test.ts` at 23:19:30 — new files, `apps/dashboard/test/flight/
+pr-review.test.ts` too, none related to this firing's own task).
+
+This is a previously undocumented consequence of the `ap-mtm4qzty-1` hazard
+class: it is not only lost commits or duplicated verification at risk, but
+**spurious mass test failures indistinguishable from a real regression**,
+produced purely by another live process's file writes landing mid-import.
+A firing (or a human) trusting a single red `test:impacted` run against
+this primary checkout could easily misdiagnose a phantom regression, revert
+innocent work, or burn a full debugging cycle chasing a bug that was never
+in the code — directly relevant to this repo's own "gate honesty" thread
+(`f1428f9a`). Practical mitigation until the operator resolves (a)/(b)/(c)
+above: a `test:impacted`/`test` failure against the primary checkout is not
+trustworthy on its own — rerun once before treating a red result as real,
+especially when the failure trace touches a file this firing never edited.
+
+No data was lost this time either (criteria (1) and (2) from the original
+finding both held again) — this firing touched none of the
+concurrently-mutated files and made no destructive git call. `ap-mtq0bpgj-2`
+closes again as **verified, duplicate of `ap-mtm4qzty-1`**, with one new
+piece of evidence added to the open gap: concurrent primary-checkout
+mutation can fabricate transient test failures, not just race commits.
