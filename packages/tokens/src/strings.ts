@@ -509,6 +509,11 @@
  * a `data-i18n-args` JSON map — new to `translateDom()`'s template sweep,
  * the DOM twin of `tr()`'s substitution map — so a mid-session switch flips
  * the live region in place.
+ * The slice after that tags the flight log's commit-sha chip (`flightShaTip`
+ * / `flightShaAria`, `{name}` templates reading the chip's `data-i18n-name`)
+ * and the slice-run group head's composed cost tip (`flightGroupCostTip`, an
+ * `{n}` template reading `data-i18n-args`) via `translateDom()`'s new
+ * `[data-i18n-tip-template]` sweep, the `data-tip` twin of the aria one.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -742,6 +747,14 @@ const EN_STRINGS = {
   flightSliceCostTip: 'Spend for this slice',
   flightSliceAgoTip: 'When this slice happened',
   flightGroupAgoTip: 'When the most recent slice happened',
+  // The flight log's commit-sha chip (flightLogRowMeta's shaTip/shaAriaLabel
+  // in web/flight-log-rows.ts) and the slice-run group head's cost tip
+  // (flightGroupHeadMeta's costTip): each wraps a live value, so they ride
+  // translateDom()'s [data-i18n-tip-template] / [data-i18n-aria-template]
+  // sweeps — {name} from the chip's data-i18n-name, {n} from data-i18n-args.
+  flightShaTip: 'Commit: {name}',
+  flightShaAria: 'commit {name}',
+  flightGroupCostTip: 'Total spend across all {n} slices',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
@@ -1305,6 +1318,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightSliceCostTip: 'ההוצאה על הפרוסה הזו',
     flightSliceAgoTip: 'מתי הפרוסה הזו התרחשה',
     flightGroupAgoTip: 'מתי הפרוסה האחרונה התרחשה',
+    flightShaTip: 'קומיט: {name}',
+    flightShaAria: 'קומיט {name}',
+    flightGroupCostTip: 'ההוצאה הכוללת על כל {n} הפרוסות',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
     taskNewLabel: 'משימה חדשה',

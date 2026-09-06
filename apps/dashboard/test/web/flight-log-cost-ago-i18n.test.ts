@@ -192,13 +192,16 @@ describe('flight log cost/real-cost/ago tips i18n (board web-msnsndki-dz3vn1)', 
     expectTip(`${FLAT_ROW} .flight-ago`, FLAT_AGO_TIP, 'flightAgoTip');
   });
 
-  it("tags the collapsed group head's ago tip; its composed cost tip stays untagged", async () => {
+  it("tags the collapsed group head's ago tip; its composed cost tip rides the template sweep instead", async () => {
     await render();
 
     expectTip(`${GROUP_HEAD} .flight-ago`, GROUP_AGO_TIP, 'flightGroupAgoTip');
+    // The composed cost tip carries no fixed-text key — it is a {n} template
+    // (flight-log-sha-group-cost-i18n.test.ts covers its flip).
     const groupCost = q(`${GROUP_HEAD} .flight-cost`);
     expect(groupCost.getAttribute('data-tip')).toBe('Total spend across all 2 slices');
     expect(groupCost.hasAttribute('data-i18n-tip')).toBe(false);
+    expect(groupCost.getAttribute('data-i18n-tip-template')).toBe('flightGroupCostTip');
   });
 
   it("tags an opened group's member rows with the slice-worded keys", async () => {

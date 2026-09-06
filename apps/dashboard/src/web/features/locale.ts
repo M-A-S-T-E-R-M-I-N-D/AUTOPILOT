@@ -44,6 +44,13 @@
  * letting one bad attribute take the whole sweep down). That text sweep
  * also writes only on a real change, since that label is an aria-live
  * region and an identical repaint would re-announce it.
+ * `[data-i18n-tip-template]` is the `data-tip` twin of the aria sweep, for a
+ * hover tip that wraps a live value the same way — the flight log's sha chip
+ * ("Commit: <sha>", `flightShaTip`, beside its `flightShaAria` aria twin,
+ * both reading the chip's `data-i18n-name`) and the slice-run group head's
+ * cost tip ("Total spend across all <n> slices", `flightGroupCostTip`, its
+ * count riding `data-i18n-args`) were the first; each had kept rendering
+ * English in Hebrew after every fixed `[data-i18n-tip]` around it flipped.
  *
  * `tr(key, subs?)` is the client-side mirror of `@autopilot/tokens`' own
  * server-side `translate()`, for the handful of translatable strings that
@@ -178,6 +185,10 @@ function translateDom(l) {
   document.querySelectorAll('[data-i18n-aria-template]').forEach((el) => {
     const tpl = table[el.dataset.i18nAriaTemplate];
     if (tpl) el.setAttribute('aria-label', fillTemplate(tpl, el, table));
+  });
+  document.querySelectorAll('[data-i18n-tip-template]').forEach((el) => {
+    const tpl = table[el.dataset.i18nTipTemplate];
+    if (tpl) el.setAttribute('data-tip', fillTemplate(tpl, el, table));
   });
 }
 function tr(key, subs) {
