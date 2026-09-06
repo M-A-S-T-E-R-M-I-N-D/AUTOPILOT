@@ -113,7 +113,20 @@ test.describe('visual regression — populated fleet', () => {
       // "failing" against the truncated baseline). `.firing-ago` lives in
       // the flight log near the bottom, so its visibility pins the full
       // height deterministically — no timeout sleep.
-      await expect(page.locator('.firing-ago').first()).toBeVisible();
+      //
+      // PUMPED, not a bare toBeVisible: with the clock frozen, a paint that
+      // was scheduled by a timer AFTER a network response resolves can never
+      // fire on its own — real-time waiting does not advance fake timers.
+      // Observed on the windows runner (2026-09-06): the flight log's fetch
+      // landed just after runFor(3000) returned, its render callback sat in
+      // the frozen queue forever, and the gate timed out at 5s real time —
+      // theme-biased only by luck (dark's response happened to land inside
+      // the pumped window). Pumping 1s of fake time per retry drains that
+      // queue deterministically on any runner speed.
+      await expect(async () => {
+        await page.clock.runFor(1000);
+        await expect(page.locator('.firing-ago').first()).toBeVisible({ timeout: 250 });
+      }).toPass({ timeout: 20_000 });
 
       // Same browser-clock masking rationale as the fleet baseline above; the
       // project page adds the flight log's ticking started-ago label
