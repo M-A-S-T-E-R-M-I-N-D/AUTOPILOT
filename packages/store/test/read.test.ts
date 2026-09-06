@@ -38,6 +38,8 @@ import {
   evaluationLabelEvents,
   evaluationLabelSummary,
   evaluationLabelDayCounts,
+  classifyUnverifiableCause,
+  unverifiableCauseBreakdown,
 } from '../src/read-events.js';
 
 let store: Store;
@@ -1713,5 +1715,166 @@ describe('firingDayCounts', () => {
     expect(firingDayCounts(store.db, 'fdc')).toEqual([
       { day: '2026-01-01', ships: 1, deaths: 0, other: 0 },
     ]);
+  });
+});
+
+describe('classifyUnverifiableCause', () => {
+  it('classifies an empty gateChecks as no-checks — the gate never ran (GATE HOLE 2)', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [],
+        gateError: 'refused: uncommitted changes remain after the commit',
+      }),
+    ).toBe('no-checks');
+  });
+
+  it('classifies a missing/non-array gateChecks the same as empty', () => {
+    expect(classifyUnverifiableCause({ gateError: 'refused: uncommitted changes remain' })).toBe(
+      'no-checks',
+    );
+  });
+
+  it('classifies a timeout-worded gateError as timeout', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError: 'test failed (crashed: timeout) — gate could not verify the commit',
+      }),
+    ).toBe('timeout');
+  });
+
+  it('classifies a revert-failure gateError as revert-failed', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError: 'gate failed AND the revert failed — the commit is still in history: exit 128',
+      }),
+    ).toBe('revert-failed');
+  });
+
+  it('classifies a generic crash gateError as crash', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError: 'test failed (crashed: ENOENT) — gate could not verify the commit',
+      }),
+    ).toBe('crash');
+  });
+
+  it('classifies a non-empty gateChecks with no recognizable gateError as unparsable', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError: 'something entirely unforeseen',
+      }),
+    ).toBe('unparsable');
+  });
+
+  it('classifies a non-empty gateChecks with no gateError at all as unparsable', () => {
+    expect(
+      classifyUnverifiableCause({ gateChecks: [{ label: 'test', pass: false, durationMs: 1 }] }),
+    ).toBe('unparsable');
+  });
+});
+
+describe('unverifiableCauseBreakdown', () => {
+  const insertFiringEvent = (projectId: string, payload: string | null): void => {
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES (?, NULL, 'firing', ?, 1)`,
+      )
+      .run(projectId, payload);
+  };
+  const unverifiable = (extra: Record<string, unknown>): string =>
+    JSON.stringify({ gateResult: 'unverifiable', ...extra });
+
+  beforeEach(() => {
+    insertProject('ucb', 'ucb', 'flying', 1);
+  });
+
+  it('tallies the dominant real-world cause: a dirty tree after commit (no gate checks ran)', () => {
+    insertFiringEvent(
+      'ucb',
+      unverifiable({
+        gateChecks: [],
+        gateError: 'refused: uncommitted changes remain after the commit',
+      }),
+    );
+    insertFiringEvent(
+      'ucb',
+      unverifiable({
+        gateChecks: [],
+        gateError: 'refused: uncommitted changes remain after the commit',
+      }),
+    );
+
+    expect(unverifiableCauseBreakdown(store.db, 'ucb')).toEqual({
+      total: 2,
+      byCause: { 'no-checks': 2, timeout: 0, crash: 0, 'revert-failed': 0, unparsable: 0 },
+    });
+  });
+
+  it('buckets a mix of causes independently', () => {
+    insertFiringEvent('ucb', unverifiable({ gateChecks: [], gateError: 'refused: uncommitted' }));
+    insertFiringEvent(
+      'ucb',
+      unverifiable({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError: 'test failed (crashed: timeout) — gate could not verify the commit',
+      }),
+    );
+    insertFiringEvent(
+      'ucb',
+      unverifiable({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError: 'test failed (crashed: ENOENT) — gate could not verify the commit',
+      }),
+    );
+    insertFiringEvent(
+      'ucb',
+      unverifiable({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError: 'gate failed AND the revert failed — the commit is still in history: exit 128',
+      }),
+    );
+
+    expect(unverifiableCauseBreakdown(store.db, 'ucb')).toEqual({
+      total: 4,
+      byCause: { 'no-checks': 1, timeout: 1, crash: 1, 'revert-failed': 1, unparsable: 0 },
+    });
+  });
+
+  it('ignores firings whose gateResult is not unverifiable', () => {
+    insertFiringEvent('ucb', JSON.stringify({ gateResult: 'passed', gateChecks: [] }));
+    insertFiringEvent('ucb', JSON.stringify({ gateResult: 'reverted', gateChecks: [] }));
+
+    expect(unverifiableCauseBreakdown(store.db, 'ucb')).toEqual({
+      total: 0,
+      byCause: { 'no-checks': 0, timeout: 0, crash: 0, 'revert-failed': 0, unparsable: 0 },
+    });
+  });
+
+  it('skips a malformed or null payload without throwing', () => {
+    insertFiringEvent('ucb', 'not json');
+    insertFiringEvent('ucb', null);
+    insertFiringEvent('ucb', unverifiable({ gateChecks: [] }));
+
+    expect(unverifiableCauseBreakdown(store.db, 'ucb').total).toBe(1);
+  });
+
+  it('does not cross project boundaries', () => {
+    insertProject('ucb-other', 'ucb-other', 'flying', 1);
+    insertFiringEvent('ucb', unverifiable({ gateChecks: [] }));
+    insertFiringEvent('ucb-other', unverifiable({ gateChecks: [] }));
+
+    expect(unverifiableCauseBreakdown(store.db, 'ucb').total).toBe(1);
+  });
+
+  it('returns zeroed-out counts for a project with no unverifiable firings', () => {
+    expect(unverifiableCauseBreakdown(store.db, 'ucb')).toEqual({
+      total: 0,
+      byCause: { 'no-checks': 0, timeout: 0, crash: 0, 'revert-failed': 0, unparsable: 0 },
+    });
   });
 });

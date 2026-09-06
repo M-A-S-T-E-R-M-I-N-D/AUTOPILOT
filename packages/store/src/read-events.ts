@@ -454,3 +454,95 @@ export function evaluationLabelDayCounts(db: Db, projectId: string): EvaluationL
     )
     .all(projectId) as EvaluationLabelDayCount[];
 }
+
+/**
+ * The four `gateResult: 'unverifiable'` cause buckets (verdict-quality, board
+ * web-mtq6zn6x-3khfkb: "~47.9% of the 96-attempt public sample gate results
+ * were UNVERIFIABLE — classify each by cause"):
+ *
+ * - `no-checks`: the gate never ran at all — `firing.ts`'s GATE HOLE 2, a
+ *   dirty working tree after the firing's own commit (an uncommitted stray
+ *   edit riding along, most often another live process writing into a
+ *   shared checkout — docs/debriefs/2026-09-06-primary-checkout-*.md).
+ * - `timeout`: a gate command was killed by its own wall-clock budget before
+ *   finishing (`adapters/gate.ts`'s `crashReason: 'timeout'`).
+ * - `crash`: a gate command crashed for a reason OTHER than a timeout (spawn
+ *   failure, OOM, tool error).
+ * - `revert-failed`: the gate ran and failed, but the additive revert of the
+ *   agent's commit itself failed too — the commit is neither certified nor
+ *   undone.
+ * - `unparsable`: `gateResult` is `'unverifiable'` but none of the above
+ *   patterns match the recorded `gateError` (or none was recorded at all) —
+ *   a legacy row predating this classifier, or a genuinely new cause.
+ */
+export type UnverifiableCause = 'no-checks' | 'timeout' | 'crash' | 'revert-failed' | 'unparsable';
+
+export const UNVERIFIABLE_CAUSES: readonly UnverifiableCause[] = [
+  'no-checks',
+  'timeout',
+  'crash',
+  'revert-failed',
+  'unparsable',
+];
+
+export interface UnverifiableCauseBreakdown {
+  readonly total: number;
+  readonly byCause: Readonly<Record<UnverifiableCause, number>>;
+}
+
+/**
+ * Classify one `'firing'` event's parsed payload into an {@link
+ * UnverifiableCause} — exported standalone so a caller with the record
+ * already in hand (no second DB round-trip) can classify it too. `gateChecks`
+ * empty means the gate itself never ran (the dirty-tree-after-commit refusal
+ * in `firing.ts` short-circuits before `deps.gate.run()`), which is checked
+ * BEFORE the error-text patterns below since that branch's own `gateError`
+ * message also happens to be static (never mentions timeout/crash/revert).
+ */
+export function classifyUnverifiableCause(record: {
+  readonly gateChecks?: unknown;
+  readonly gateError?: unknown;
+}): UnverifiableCause {
+  const checks = Array.isArray(record.gateChecks) ? record.gateChecks : [];
+  if (checks.length === 0) return 'no-checks';
+  const error = typeof record.gateError === 'string' ? record.gateError : null;
+  if (error === null) return 'unparsable';
+  if (/timeout|timed out/i.test(error)) return 'timeout';
+  if (/revert failed/i.test(error)) return 'revert-failed';
+  if (/crash/i.test(error)) return 'crash';
+  return 'unparsable';
+}
+
+/**
+ * Aggregate {@link UnverifiableCauseBreakdown} over every `'firing'` event
+ * recorded for a project whose `gateResult` is `'unverifiable'`. Reads the
+ * `events` table (not the `metrics` columns) because `gateError`/`gateChecks`
+ * are only ever persisted in the full JSON record — same
+ * defensive-parse-and-skip convention as {@link evaluationLabelSummary}.
+ */
+export function unverifiableCauseBreakdown(db: Db, projectId: string): UnverifiableCauseBreakdown {
+  const rows = db
+    .prepare(`SELECT payload FROM events WHERE project_id = ? AND type = 'firing'`)
+    .all(projectId) as { payload: string | null }[];
+  const byCause: Record<UnverifiableCause, number> = {
+    'no-checks': 0,
+    timeout: 0,
+    crash: 0,
+    'revert-failed': 0,
+    unparsable: 0,
+  };
+  let total = 0;
+  for (const row of rows) {
+    if (row.payload === null) continue;
+    let parsed: { gateResult?: unknown; gateChecks?: unknown; gateError?: unknown };
+    try {
+      parsed = JSON.parse(row.payload);
+    } catch {
+      continue; // skip a malformed firing payload, same convention as evaluationLabelSummary
+    }
+    if (parsed.gateResult !== 'unverifiable') continue;
+    total += 1;
+    byCause[classifyUnverifiableCause(parsed)] += 1;
+  }
+  return { total, byCause };
+}
