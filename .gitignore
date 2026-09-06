@@ -81,3 +81,4 @@ INBOX/
 # report output (e.g. `pnpm run report:deadcode` redirected to a file); bakes in
 # the worktree's absolute local path, never source.
 .tmp-autopilot/
+test-results/

@@ -56,7 +56,7 @@ describe('docsViewerJs', () => {
 
     it('tracks which doc is actually loaded in the viewer', () => {
       const out = docsViewerJs();
-      expect(out).toContain("viewer.dataset.loadedPath = path;");
+      expect(out).toContain('viewer.dataset.loadedPath = path;');
     });
 
     it('skips reloading the viewer when the open doc is already the one loaded', () => {
