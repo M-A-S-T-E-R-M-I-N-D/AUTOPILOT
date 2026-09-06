@@ -901,7 +901,7 @@ very repo each shipped a genuine fix (the autopilot improved itself, twice).
   its file tools to the working dir but **does not jail Bash**. Mitigation: the firing prompt (`firing-v2`) now
   names the target path and forbids leaving it as a CRITICAL rule. Real _isolation_ (OS sandbox / a `PreToolUse`
   path allow-list) is still the end goal; the audit above is the detection backstop until then. See
-  [`docs/FLIGHT-CONTAINMENT.md`](docs/FLIGHT-CONTAINMENT.md).
+  [`docs/FLIGHT-CONTAINMENT.md`](../FLIGHT-CONTAINMENT.md).
 - **Onboarding no longer indexes AUTOPILOT's own working dir.** `.autopilot` / `.autopilot-run` are now in the
   ignore set, so flying the tool on itself can't index the live SQLite DB or `connection.json` (which holds auth
   secrets in key/token mode) into the searchable index. Also added `.hg` / `.svn` / `.idea` / `.vscode`.
@@ -999,7 +999,7 @@ in gated TDD slices; validated on a sandbox (6 firings, 5 shipped, ~$0.6/shipped
 - **Efficiency levers** (M6): context is heavy (~20k input/firing, carried by 2.26M cache-read) — local offload +
   cheaper models for mechanical work will lower cost/shipped.
 - Multi-project parallel supervisor (M7), review sub-fleets + domain checkboxes (M8), and the approvals/Decider
-  boundary (M5) — tracked in [FLEET-ORCHESTRATION.md](docs/FLEET-ORCHESTRATION.md).
+  boundary (M5) — tracked in [FLEET-ORCHESTRATION.md](../FLEET-ORCHESTRATION.md).
 
 ## [0.9.0] — 2026-07-09 — M3: read-only dashboard (MVP + live-flight core)
 
