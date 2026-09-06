@@ -20,6 +20,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,14 @@ import { discoverFeatureModules } from '../../../../scripts/codemod/generate-spl
 const FEATURES_DIR = path.resolve(__dirname, '../../src/web/features');
 
 describe('chunk map completeness', () => {
+  it('discovery itself sees every file on disk — the census must not trust the discoverer blind: update.ts shipped a full feature (server route, client, markup, CSS, i18n) that reached ZERO users because its substitution-free template was invisible to discovery, and this suite stayed green the whole time', () => {
+    const discovered = discoverFeatureModules(FEATURES_DIR).map((m: { filePath: string }) =>
+      m.filePath.replace(/\\/g, '/').replace(/.*\//, ''),
+    );
+    const onDisk = readdirSync(FEATURES_DIR).filter((f) => f.endsWith('.ts') && f !== 'index.ts');
+    expect([...discovered].sort()).toEqual([...onDisk].sort());
+  });
+
   it('names exactly the modules discovery finds — a new module cannot be forgotten silently', () => {
     const discovered = discoverFeatureModules(FEATURES_DIR).map((m: { filePath: string }) =>
       m.filePath.replace(/\\/g, '/').replace(/.*\//, '').replace(/\.ts$/, ''),

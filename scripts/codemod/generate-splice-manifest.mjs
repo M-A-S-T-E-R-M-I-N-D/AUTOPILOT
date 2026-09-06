@@ -526,10 +526,10 @@ export function verifySpliceManifestAgainstOutput(assembledOutput, entries, reso
  * definitions.
  * @param {ts.Block} functionBody
  * @param {string} functionName
- * @returns {ts.TemplateExpression | null}
+ * @returns {ts.TemplateExpression | ts.NoSubstitutionTemplateLiteral | null}
  */
 function topLevelReturnTemplate(functionBody, functionName) {
-  /** @type {ts.TemplateExpression | null} */
+  /** @type {ts.TemplateExpression | ts.NoSubstitutionTemplateLiteral | null} */
   let templateExpr = null;
 
   /** @param {ts.Node} node */
@@ -560,7 +560,12 @@ function topLevelReturnTemplate(functionBody, functionName) {
       ) {
         expr = expr.expression.expression;
       }
-      if (ts.isTemplateExpression(expr)) {
+      // Both template kinds count: with substitutions (TemplateExpression)
+      // and without (NoSubstitutionTemplateLiteral — a DIFFERENT AST node
+      // kind). update.ts's assembler returns a substitution-free template
+      // and was silently invisible to discovery — and therefore to the
+      // barrel, every chunk, and every user — until this branch existed.
+      if (ts.isTemplateExpression(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
         if (templateExpr) {
           throw new Error(`${functionName} has more than one top-level template-literal return`);
         }
@@ -887,7 +892,7 @@ export function generateFeatureModulesIndexSource(directoryPath) {
 export function captureAssemblySegments(sourceText, functionName, fileName = 'source.ts') {
   const sourceFile = parseSource(sourceText, fileName);
 
-  /** @type {ts.TemplateExpression | null} */
+  /** @type {ts.TemplateExpression | ts.NoSubstitutionTemplateLiteral | null} */
   let templateExpr = null;
   for (const statement of sourceFile.statements) {
     if (
@@ -901,6 +906,15 @@ export function captureAssemblySegments(sourceText, functionName, fileName = 'so
 
   if (!templateExpr) {
     throw new Error(`${functionName}: no top-level template-literal return found`);
+  }
+
+  // A substitution-free template (NoSubstitutionTemplateLiteral) has no
+  // head/spans structure — it IS the single segment, with zero slots.
+  // reassembleSegments round-trips it as-is (`resolved.length === 0 ===
+  // segments.length - 1`). Without this branch, discovery admitting the
+  // kind (see topLevelReturnTemplate) would crash capture on `.head`.
+  if (ts.isNoSubstitutionTemplateLiteral(templateExpr)) {
+    return { segments: [templateExpr.text], slots: [] };
   }
 
   const segments = [templateExpr.head.text];

@@ -65,6 +65,7 @@ import { reportMenuJs } from '../../src/web/features/report-menu.js';
 import { roundPanelJs } from '../../src/web/features/round-panel.js';
 import { searchJs } from '../../src/web/features/search.js';
 import { tourJs } from '../../src/web/features/tour.js';
+import { updateJs } from '../../src/web/features/update.js';
 import { PRELOAD_FONT_PATHS } from '../../src/assets/fonts.js';
 import { themeButtons, langButtons, escapeAttr } from '../../src/web/shell-html.js';
 import { gogglesMarkInlineSvg } from '../../src/assets/goggles-mark.js';
@@ -129,6 +130,7 @@ const REPORT_MENU_TS = featureTs('report-menu');
 const ROUND_PANEL_TS = featureTs('round-panel');
 const SEARCH_TS = featureTs('search');
 const TOUR_TS = featureTs('tour');
+const UPDATE_TS = featureTs('update');
 
 const FIXTURE = `import { helperA as sharedHelperA } from './helper-a.js';
 import { CONST_B } from './const-b.js';
@@ -786,8 +788,14 @@ function outer(): string {
     );
   });
 
-  it('excludes a function whose template literal has no `${...}` substitutions (a NoSubstitutionTemplateLiteral, not a TemplateExpression)', () => {
-    expect(discoverAssemblyFunctionNames(DISCOVERY_FIXTURE, 'fixture.ts')).not.toContain(
+  it('discovers a function whose template literal has no `${...}` substitutions (a NoSubstitutionTemplateLiteral — a DIFFERENT AST node kind from TemplateExpression)', () => {
+    // The old exclusion was a bug promoted to doctrine: web/features/update.ts
+    // is a real, complete feature whose assembler happens to interpolate
+    // nothing, and excluding the kind made it invisible to the barrel, every
+    // chunk, and every user while all census tests stayed green. Capture
+    // handles the kind as one segment + zero slots, so discovery and capture
+    // still agree.
+    expect(discoverAssemblyFunctionNames(DISCOVERY_FIXTURE, 'fixture.ts')).toContain(
       'noSubstitutions',
     );
   });
@@ -801,8 +809,8 @@ function outer(): string {
     // topLevelReturnTemplate throws when a function has two top-level
     // template-literal returns (see captureAssemblySegments's own coverage of
     // that error below) — a function shaped like this is simply not
-    // assembler-shaped and should be excluded, the same as `plainReturn`/
-    // `noSubstitutions` above. Before this test, discoverAssemblyFunctionNames
+    // assembler-shaped and should be excluded, the same as `plainReturn`
+    // above. Before this test, discoverAssemblyFunctionNames
     // let that throw propagate uncaught: one unrelated multi-branch function
     // anywhere in a scanned file would abort discovery of every function
     // after it, not just skip the offending one.
@@ -1211,18 +1219,24 @@ describe('discoverFeatureModules + buildFeatureModulesManifest against the real 
   const original = readFileSync(SHELL_TS, 'utf8');
   const KNOWN_FUNCTIONS = ['fleetJs', 'clientJs', 'coreClientJs', 'renderShell'];
 
-  it('discovers exactly shell.ts as the sole feature module in src/web/, with its full known function list', () => {
+  it('discovers shell.ts in src/web/ with its full known function list — alongside the two substitution-free assemblers (layout-css.ts, tabs.ts) that became visible once discovery admitted NoSubstitutionTemplateLiteral returns', () => {
     const modules = discoverFeatureModules(SHELL_DIR);
-    expect(modules).toHaveLength(1);
-    expect(modules[0]!.filePath).toBe(SHELL_TS);
-    expect(modules[0]!.functionNames).toEqual(KNOWN_FUNCTIONS);
+    const byFile = new Map(modules.map((m) => [m.filePath, m.functionNames]));
+    expect(byFile.get(SHELL_TS)).toEqual(KNOWN_FUNCTIONS);
+    expect([...byFile.keys()].map((p) => path.basename(p)).sort()).toEqual([
+      'layout-css.ts',
+      'shell.ts',
+      'tabs.ts',
+    ]);
   });
 
-  it('builds a FeatureModulesManifest for src/web/ that matches buildAssemblyManifest called directly on shell.ts', () => {
+  it('builds a FeatureModulesManifest for src/web/ whose shell.ts entry matches buildAssemblyManifest called directly on shell.ts', () => {
     const manifest = buildFeatureModulesManifest(SHELL_DIR);
     const directManifest = buildAssemblyManifest(original, SHELL_TS, KNOWN_FUNCTIONS);
     expect(manifest.directoryPath).toBe(SHELL_DIR);
-    expect(manifest.modules).toEqual([directManifest]);
+    const shellEntry = manifest.modules.find((m) => path.basename(m.sourceFile) === 'shell.ts');
+    expect(shellEntry).toEqual(directManifest);
+    expect(manifest.modules).toHaveLength(3);
   });
 });
 
@@ -1369,6 +1383,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'search.ts': ['searchJs'],
     'switcher.ts': ['switcherJs'],
     'tour.ts': ['tourJs'],
+    'update.ts': ['updateJs'],
   };
 
   it('discovers every web/features module by name, with no shell.ts edit and no index renumbering needed when a new module is inserted', () => {
@@ -1505,6 +1520,8 @@ describe('discoverFeatureModules against the real src/web/features directory —
       'switcherJs',
     ]);
     const directTourManifest = buildAssemblyManifest(tourSource, TOUR_TS, ['tourJs']);
+    const updateSource = readFileSync(UPDATE_TS, 'utf8');
+    const directUpdateManifest = buildAssemblyManifest(updateSource, UPDATE_TS, ['updateJs']);
     expect(manifest.directoryPath).toBe(FEATURES_DIR);
     expect(manifest.modules).toEqual([
       directActivityHeatmapManifest,
@@ -1537,6 +1554,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directSearchManifest,
       directSwitcherManifest,
       directTourManifest,
+      directUpdateManifest,
     ]);
   });
 
@@ -1801,7 +1819,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, and tour.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
@@ -1834,6 +1852,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { searchJs } from './search.js';");
     expect(source).toContain("import { switcherJs } from './switcher.js';");
     expect(source).toContain("import { tourJs } from './tour.js';");
+    expect(source).toContain("import { updateJs } from './update.js';");
     expect(source.indexOf("'./activity-heatmap.js'")).toBeLessThan(
       source.indexOf("'./activity.js'"),
     );
@@ -1883,8 +1902,9 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./round-panel.js'")).toBeLessThan(source.indexOf("'./search.js'"));
     expect(source.indexOf("'./search.js'")).toBeLessThan(source.indexOf("'./switcher.js'"));
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
+    expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2781,6 +2801,28 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     expect(await reconstructTourJs()).toBe(tourJs());
   });
 
+  // update.ts is the degenerate assembler case: a substitution-free template
+  // (NoSubstitutionTemplateLiteral) — zero splices, zero slots, one segment.
+  // Reconstructing it proves capture's single-segment branch round-trips.
+  async function reconstructUpdateJs(): Promise<string> {
+    const updateSource = readFileSync(UPDATE_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(updateSource, UPDATE_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        updateSource,
+        'updateJs',
+        resolvedBindings,
+        undefined,
+        UPDATE_TS,
+      )
+    ).trim();
+  }
+
+  it('updateJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/update.ts (the zero-slot shape)', async () => {
+    expect(await reconstructUpdateJs()).toBe(updateJs());
+  });
+
   it('tourJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off tour.ts', async () => {
     const tourSource = readFileSync(TOUR_TS, 'utf8');
     const manifest = buildAssemblyManifest(tourSource, TOUR_TS, ['tourJs']);
@@ -3655,6 +3697,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('roundPanelJs', await reconstructRoundPanelJs());
     nestedOutputs.set('searchJs', await reconstructSearchJs());
     nestedOutputs.set('tourJs', await reconstructTourJs());
+    nestedOutputs.set('updateJs', await reconstructUpdateJs());
     // featureModulesJs() (web/features/index.ts, generated) is
     // `FEATURE_MODULE_FUNCTIONS.map((fn) => fn()).join('\n')` — the same join,
     // over the same already-reconstructed outputs, in the same directory

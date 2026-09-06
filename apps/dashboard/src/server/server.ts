@@ -569,9 +569,10 @@ export interface ServerDeps extends RouteDeps {
   readonly reportFromHereExecute?: ReportFromHereExecuteApi;
   /** LLM ISSUE COMPOSER 1/3 (board web-mtpzdrt1-lirsgh): the LLM-backed
    *  counterpart to `reportFromHere`'s deterministic headline extraction —
-   *  behind `POST /api/report/compose`. No UI consumer yet (deferred to a
-   *  later slice), same "building block ahead of its UI" stance the report-
-   *  from-here execute layer shipped with. */
+   *  behind `POST /api/report/compose`. Two UI consumers: the CONNECT
+   *  popover's Compose button (COMPOSER 2/3, bare note) and the right-click
+   *  report dialog's AI compose (context-aware — sends the captured element
+   *  bundle + module sources). */
   readonly reportCompose?: ReportComposeApi;
   /** Publicity affordances (epic 0007, "PLATFORM 7/7"): repo/watch/star/
    *  discussions links, dormant while the repo stays private. */
