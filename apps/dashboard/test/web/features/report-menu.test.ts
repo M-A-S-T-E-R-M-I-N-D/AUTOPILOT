@@ -376,6 +376,145 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     expect(document.querySelector('.report-result')?.className).toContain('report-result-ok');
   });
 
+  // ── LLM ISSUE COMPOSER 1/3 follow-up (board web-mtpzdrt1-lirsgh): the
+  // dialog's own "Compose with AI" button — the one live caller that sends
+  // POST /api/report/compose the reportMenuContextOf capture bundle + module
+  // sources, exercising the context-aware half of the composer the CONNECT
+  // popover's bare-note Compose button (LLM ISSUE COMPOSER 2/3) never does.
+  it('Compose with AI does nothing on a blank note — no fetch, no status change', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    const fetchSpy = vi.fn(fetchStub());
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(document.querySelector('.report-compose-status')?.textContent).toBe('');
+  });
+
+  it("Compose with AI posts the note plus the reportMenuContextOf bundle and this region's module sources", async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const container = document.createElement('section');
+    container.setAttribute(REPORT_REGION_ATTR, 'flight-console');
+    const child = document.createElement('button');
+    container.appendChild(child);
+    document.body.appendChild(container);
+    window.REPORT_REGIONS = { 'flight-console': FLIGHT_CONSOLE_REGION };
+    rightClick(child);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    (document.getElementById('report-dialog-desc') as HTMLTextAreaElement).value =
+      'the button is misaligned';
+    let captured: { description: string; contextJson: string; moduleSources: unknown } | null =
+      null;
+    globalThis.fetch = vi.fn(async (url: unknown, init?: RequestInit) => {
+      expect(url).toBe('/api/report/compose');
+      captured = init?.body ? JSON.parse(String(init.body)) : null;
+      return {
+        ok: true,
+        json: async () => ({ ok: false, reasoning: 'nope' }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(captured).not.toBeNull();
+    expect(captured!.description).toBe('the button is misaligned');
+    expect(captured!.moduleSources).toEqual(FLIGHT_CONSOLE_REGION.moduleSources);
+    const context = JSON.parse(captured!.contextJson) as {
+      tag: string;
+      region: { regionId: string };
+    };
+    expect(context.tag).toBe('button');
+    expect(context.region.regionId).toBe('flight-console');
+  });
+
+  it('a successful compose rewrites the description and pre-selects the suggested action', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    (document.getElementById('report-dialog-desc') as HTMLTextAreaElement).value = 'raw note';
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        title: 'The button is misaligned',
+        body: 'Detailed body text.',
+        labels: ['bug'],
+        action: 'quick-fix-pr',
+        language: 'en',
+      }),
+    })) as unknown as typeof fetch;
+
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const desc = document.getElementById('report-dialog-desc') as HTMLTextAreaElement;
+    expect(desc.value).toBe('The button is misaligned\n\nDetailed body text.');
+    expect((document.getElementById('report-dialog-action') as HTMLSelectElement).value).toBe(
+      'quick-fix-pr',
+    );
+    const status = document.querySelector('.report-compose-status')!;
+    expect(status.className).toContain('report-compose-ok');
+    expect(status.textContent).toBe(
+      'Composed — suggested action: 🔧 quick-fix PR. Review below, then Preview.',
+    );
+  });
+
+  it('a rejected compose shows the reasoning and leaves the description untouched', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    const desc = document.getElementById('report-dialog-desc') as HTMLTextAreaElement;
+    desc.value = 'raw note';
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: false, reasoning: 'a secret was detected' }),
+    })) as unknown as typeof fetch;
+
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(desc.value).toBe('raw note');
+    const status = document.querySelector('.report-compose-status')!;
+    expect(status.className).toContain('report-compose-fail');
+    expect(status.textContent).toBe('✗ a secret was detected');
+  });
+
+  it('a network failure shows the generic compose-request-failed status', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    (document.getElementById('report-dialog-desc') as HTMLTextAreaElement).value = 'raw note';
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error('offline');
+    }) as unknown as typeof fetch;
+
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const status = document.querySelector('.report-compose-status')!;
+    expect(status.className).toContain('report-compose-fail');
+    expect(status.textContent).toBe('✗ Compose request failed — try again shortly.');
+    expect((document.querySelector('.report-compose') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   // ── COPY TOOLKIT (operator course correction 2026-09-03): the right-click
   // menu is no longer report-only — it is the dashboard's copy multi-tool.
   function mockClipboard(): ReturnType<typeof vi.fn> {

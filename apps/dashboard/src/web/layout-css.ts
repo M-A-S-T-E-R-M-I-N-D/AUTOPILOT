@@ -619,15 +619,19 @@ main.project-mode { grid-template-columns: 1fr; }
 .report-body { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .report-body label { font-size: var(--text-xs); color: var(--color-text-muted); }
 .report-desc, .report-action { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); resize: vertical; }
-.report-preview {
+.report-preview, .report-compose {
   font: inherit; font-size: var(--text-sm); cursor: pointer; align-self: flex-start;
   padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small);
   border: 1px solid var(--color-border); background: transparent; color: var(--color-text);
   transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard);
 }
-.report-preview:not(:disabled):hover, .report-preview:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
-.report-preview:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
-.report-preview:disabled { opacity: 0.6; cursor: default; }
+.report-preview:not(:disabled):hover, .report-preview:not(:disabled):focus-visible, .report-compose:not(:disabled):hover, .report-compose:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.report-preview:not(:disabled):active, .report-compose:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.report-preview:disabled, .report-compose:disabled { opacity: 0.6; cursor: default; }
+.report-compose-status { margin: 0; font-size: var(--text-sm); }
+.report-compose-status:empty { display: none; }
+.report-compose-ok { color: var(--color-success); }
+.report-compose-fail { color: var(--color-sev-critical); }
 .report-plan:empty, .report-result:empty { display: none; }
 .report-summary { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
 .report-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); align-self: flex-start; }

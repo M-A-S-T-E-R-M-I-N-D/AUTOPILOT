@@ -59,6 +59,24 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
     expect(out).not.toContain("'One click files a…'");
   });
 
+  it('translates the Compose-with-AI button, its tip, and the composed-ready status', () => {
+    expect(out).toContain("composeBtn.textContent = tr('reportComposeAi');");
+    expect(out).toContain("composeBtn.setAttribute('data-tip', tr('reportComposeAiTip'));");
+    expect(out).toContain("composeStatusEl.textContent = tr('reportComposing');");
+    expect(out).toContain(
+      "composeStatusEl.textContent = tr('reportComposeAiReady', { action: reportActionLabel(actionSel.value) });",
+    );
+    expect(out).not.toContain("'Compose with AI'");
+    expect(out).not.toContain("'Composing…'");
+  });
+
+  it('translates the Compose failure/unavailable/request-failed status lines', () => {
+    expect(out).toContain("tr('reportComposeUnavailable')");
+    expect(out).toContain("composeStatusEl.textContent = tr('reportComposeRequestFailed');");
+    expect(out).not.toContain("'Compose is unavailable right now — try again shortly.'");
+    expect(out).not.toContain("'✗ Compose request failed — try again shortly.'");
+  });
+
   it('translates the Preview button and its tip', () => {
     expect(out).toContain("previewBtn.textContent = tr('reportPreview');");
     expect(out).toContain("previewBtn.setAttribute('data-tip', tr('reportPreviewTip'));");
@@ -95,6 +113,7 @@ describe('STRINGS carries the report dialog keys', () => {
     expect(STRINGS.en.reportFromHereTitle).toBe('🚩 Report from here');
     expect(STRINGS.en.reportDescLabel).toBe('What is wrong or missing here?');
     expect(STRINGS.en.reportActionPrompt).toBe('One click files a…');
+    expect(STRINGS.en.reportComposeAi).toBe('Compose with AI');
     expect(STRINGS.en.reportPreview).toBe('Preview');
     expect(STRINGS.en.reportExecute).toBe('Execute');
     expect(STRINGS.en.reportExecuting).toBe('Executing…');
@@ -174,6 +193,7 @@ describe('the Report-from-here dialog paints in the active locale (live, full bu
       STRINGS.he.reportActionPrompt,
     );
     expect(document.querySelector('.report-preview')?.textContent).toBe(STRINGS.he.reportPreview);
+    expect(document.querySelector('.report-compose')?.textContent).toBe(STRINGS.he.reportComposeAi);
     expect(document.querySelector('.report-dialog-close')?.getAttribute('aria-label')).toBe(
       STRINGS.he.close,
     );
