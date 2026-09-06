@@ -132,3 +132,47 @@ unchanged by this reconfirmation — no new architecture fact emerged, so
 this firing takes no new position. `ap-mtq0bpgj-2` closes as **verified,
 duplicate of the still-open `ap-mtm4qzty-1` gap**; the durable fix remains
 an operator call, not a firing-sized patch.
+
+## Verdict reconfirmed a third time, new flavor: firing-147 (2026-09-06)
+
+`ap-mtq0bpgj-2` still shows as an open, topmost board item in firing-147's
+prompt despite the closure above — the board evidently lags behind
+debriefs rather than being updated by them, which is itself a minor data
+point (closure lives in this file, not in whatever regenerates the board).
+
+This firing hit a **new shape** of the same hazard: not an unrelated
+process's commit landing mid-session, but two instances **independently
+converging on and redundantly re-verifying the identical abandoned unit of
+work**. On start, `git diff` showed uncommitted edits to
+`apps/dashboard/test/server/client-bundle-size-budget.test.ts` and
+`scripts/ci/check-bundle-size.mjs` (a core-bundle-budget bump,
+172/51KB → 176/52KB) left behind by a prior firing that hit the turn cap
+before committing. This firing ran the full gate against that diff
+end-to-end — `format:check`, `typecheck`, `lint`, a targeted `vitest run`,
+`build`, and `test:impacted` — all green — then went to `git add` the two
+files. At that point `git status --porcelain` showed them **already clean
+against HEAD**: `git log` revealed a new commit, `42b81380`
+(`fix(dashboard): raise core bundle budget 172/51KB -> 176/52KB for
+LANDING i18n`, timestamped 2026-09-06 23:03:25), with a message, diff, and
+provenance trailers (`Model: claude-sonnet-5`, `Firing-Prompt-Version:
+firing-v12`, `Harness: claude-cli`) indistinguishable from what this firing
+would itself have written. A sibling instance had picked up, verified, and
+committed the exact same leftover diff while this firing was mid-gate.
+
+No data was lost — criteria (1) and (2) from above both held again, this
+time trivially, since there was nothing left in this firing's working tree
+to discard by the time it looked. The new cost is **duplicated
+verification work**: two full gate runs (machine time, tokens, wall clock)
+spent independently confirming the same three-line budget bump, because
+nothing in either session's view of the world showed the other was already
+on it — the FLEET claim mechanism covers *board* tasks and declared
+in-progress intent, but an *abandoned uncommitted diff from a dead firing*
+is neither, so two resuming instances have no signal to deduplicate on.
+That gap — no claim/intent visibility over orphaned uncommitted state from
+a turn-capped firing — is a candidate fourth item for the operator's list,
+narrower than (a)/(b)/(c) above: e.g. a resuming firing could check
+whether its target commit sha already exists in `git log` (by diff content
+or a checkpoint marker) before spending a full gate run re-verifying it.
+This firing takes no position beyond noting the gap; still the same
+underlying architecture question as `ap-mtm4qzty-1`, still an operator
+call.
