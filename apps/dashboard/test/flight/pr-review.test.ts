@@ -196,6 +196,15 @@ const BENIGN_FLIGHT = new Set([
   // Parses dated verify-by headings and PROPOSES which are due — never
   // rewrites the doc.
   'verify-by.ts',
+  // LLM ISSUE COMPOSER 1/3 (board web-mtpzdrt1-lirsgh): composeReport only
+  // asks a tool-less model to SUGGEST a title/body/labels/action from a
+  // free-text note plus captured page context — it never touches the store
+  // or `gh` itself. Any operator-facing use still funnels through the
+  // ALREADY-flagged 'flight/report-from-here' plan/apply pipeline above,
+  // which re-validates the action server-side before anything executes —
+  // the same "proposal-only, writes go through already-flagged wiring"
+  // class fleet-wisdom-mining.ts/soul-mining.ts are benign for.
+  'report-compose.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage

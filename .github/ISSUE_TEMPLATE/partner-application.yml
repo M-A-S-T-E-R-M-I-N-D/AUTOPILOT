@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+name: 🤝 Active-partner application
+description: Apply for Active-partner standing (see .github/CONTRIBUTOR-STANDING.md) — the KEEPER assembles your evidence dossier, the maintainer decides, the reasoning is public either way.
+title: "partner application: @your-handle"
+labels: ["partner-application"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for wanting to fly closer with us. Everything here should be
+        verifiable — the ritual checks facts, not promises. Approvals AND
+        declines get documented reasoning on this issue.
+  - type: textarea
+    id: work-here
+    attributes:
+      label: Your work in this repo
+      description: Merged PRs / issues you filed here (links). If your AUTOPILOT flew any of it, say so — disclosed agent work counts in your favor, undisclosed counts hard against.
+    validations:
+      required: true
+  - type: textarea
+    id: work-elsewhere
+    attributes:
+      label: Projects and contributions elsewhere
+      description: Repos you maintain or contribute to that show sustained, real engineering.
+    validations:
+      required: true
+  - type: textarea
+    id: direction
+    attributes:
+      label: Where you want to help
+      description: Which roadmap areas (docs/ROADMAP.md) you'd take, and how you'd keep changes scoped and version-compatible.
+    validations:
+      required: true
+  - type: checkboxes
+    id: protocol
+    attributes:
+      label: Protocol commitments
+      options:
+        - label: My AUTOPILOT instance always discloses itself and never claims human-reserved work (the identity law).
+          required: true
+        - label: Security-hard paths always queue for the human maintainer — trust widens scope, never bypasses safety.
+          required: true
+        - label: DCO sign-off on every commit; claims honored; scope kept; declines discussed in the open.
+          required: true
