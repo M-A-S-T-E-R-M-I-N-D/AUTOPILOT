@@ -677,6 +677,13 @@ const EN_STRINGS = {
   quietHours: 'Quiet hours',
   quietHoursStart: 'Quiet hours start',
   quietHoursEnd: 'Quiet hours end',
+  notifyEnableTip:
+    'Asks the browser for permission, then notifies when a project needs you, hits an anomaly, or lands.',
+  notifyQuietStartTip:
+    'Start of the daily quiet window — popups are suppressed, the dashboard chip still updates.',
+  notifyQuietEndTip: 'End of the daily quiet window — popups resume after this time.',
+  notifyBlockedHint: 'Blocked by your browser — check this site’s notification permission.',
+  notifyUnsupportedHint: 'Notifications are not supported in this browser.',
   detailsSummary: 'Details',
   gate: 'Gate',
   backup: 'Backup',
@@ -686,6 +693,9 @@ const EN_STRINGS = {
   metrics: 'Metrics',
   inbox: 'Inbox',
   firingActivity: 'Firing activity',
+  activityHeatmapAria:
+    'Firing activity over the last {weeks} weeks — green days shipped, red days had a death',
+  activityHeatmapLegend: 'green = shipped · red = died · gray = other activity',
   inboxSummary: '📝 Drop a note',
   inboxNoteLabel: 'Drop a note for the next firing',
   inboxNotePlaceholder:
@@ -906,6 +916,13 @@ const EN_STRINGS = {
   githubSyncing: 'Syncing…',
   githubPrOpening: 'opening…',
   githubRequestFailed: '✗ Request failed — try again shortly.',
+  // web/card-actions.ts's githubSyncExecuteResult/githubPrExecuteResult
+  // fallback text — used only when the server response carries no
+  // details/error of its own.
+  githubSyncResultOk: 'synced.',
+  githubSyncResultFail: 'sync failed.',
+  githubPrResultOk: 'pull request opened.',
+  githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
   publicityPanel: 'Publicity',
   pipelineView: 'Pipeline view',
@@ -1234,6 +1251,23 @@ const EN_STRINGS = {
   landingDebriefTitle: '📋 Flight debrief',
   landingDebriefBestLabel: '🏆 Best: ',
   landingDebriefWorstLabel: '💀 Worst: ',
+  // web/flight-debrief.ts's flightDebriefChipItems/flightDebriefNotableItems
+  // — the FLIGHT DEBRIEF panel's stat-chip and notable-event text.
+  flightDebriefShippedCount: '{count} shipped',
+  flightDebriefShippedTip: 'Firings that passed the gate and landed a real commit',
+  flightDebriefDeathCount: '{count} died',
+  flightDebriefDeathTip:
+    'Firings that reverted, hit the turn cap, timed out, or errored with nothing committed',
+  flightDebriefTotalSpendTip: 'Total spend across this flight',
+  flightDebriefTotalSpendAria: 'total spend: {amount}',
+  flightDebriefTotalDurationTip: 'Total wall-clock time across this flight',
+  flightDebriefTotalDurationAria: 'total duration: {amount}',
+  flightDebriefGuardDenialSingular: '{count} guard denial',
+  flightDebriefGuardDenialPlural: '{count} guard denials',
+  flightDebriefGuardDenialTip: 'PreToolUse containment/read-hygiene hits this flight',
+  flightDebriefRemediationSingular: '{count} auto-remediation',
+  flightDebriefRemediationPlural: '{count} auto-remediations',
+  flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1361,6 +1395,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     quietHours: 'שעות שקט',
     quietHoursStart: 'תחילת שעות שקט',
     quietHoursEnd: 'סיום שעות שקט',
+    notifyEnableTip:
+      'מבקש הרשאה מהדפדפן, ולאחר מכן מתריע כאשר פרויקט זקוק לך, נתקל בחריגה, או נוחת.',
+    notifyQuietStartTip:
+      'תחילת חלון השקט היומי — חלונות קופצים מוסתרים, אך התג בדשבורד ממשיך להתעדכן.',
+    notifyQuietEndTip: 'סיום חלון השקט היומי — חלונות קופצים מתחדשים לאחר שעה זו.',
+    notifyBlockedHint: 'נחסם על ידי הדפדפן שלך — בדקו את הרשאת ההתראות של האתר.',
+    notifyUnsupportedHint: 'התראות אינן נתמכות בדפדפן זה.',
     detailsSummary: 'פרטים',
     gate: 'שער',
     backup: 'גיבוי',
@@ -1370,6 +1411,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     metrics: 'מדדים',
     inbox: 'תיבת הודעות',
     firingActivity: 'פעילות טיסות',
+    activityHeatmapAria:
+      'פעילות טיסות ב-{weeks} השבועות האחרונים — בימים ירוקים שוגר קוד, בימים אדומים אירע כשל',
+    activityHeatmapLegend: 'ירוק = שוגר · אדום = נכשל · אפור = פעילות אחרת',
     inboxSummary: '📝 הוסף הערה',
     inboxNoteLabel: 'הוסף הערה להפעלה הבאה',
     inboxNotePlaceholder: 'הקשר, תוכנית, תיקון — נקרא מחדש בתחילת ההפעלה הבאה',
@@ -1499,6 +1543,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubSyncing: 'מסנכרן…',
     githubPrOpening: 'פותח…',
     githubRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
+    githubSyncResultOk: 'סונכרן.',
+    githubSyncResultFail: 'הסנכרון נכשל.',
+    githubPrResultOk: 'ה-pull request נפתח.',
+    githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',
     publicityPanel: 'פרסום',
     pipelineView: 'תצוגת צנרת',
@@ -1757,6 +1805,21 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingDebriefTitle: '📋 תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',
     landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
+    flightDebriefShippedCount: '{count} שוגרו',
+    flightDebriefShippedTip: 'הפעלות שעברו את השער ונחתו כקומיט אמיתי',
+    flightDebriefDeathCount: '{count} נכשלו',
+    flightDebriefDeathTip:
+      'הפעלות שבוטלו, חרגו ממכסת התורות, נתקלו בפסק זמן, או נכשלו בשגיאה בלי לבצע קומיט',
+    flightDebriefTotalSpendTip: 'סך ההוצאה לאורך הטיסה הזו',
+    flightDebriefTotalSpendAria: 'סך הוצאה: {amount}',
+    flightDebriefTotalDurationTip: 'סך זמן הריצה לאורך הטיסה הזו',
+    flightDebriefTotalDurationAria: 'סך משך זמן: {amount}',
+    flightDebriefGuardDenialSingular: '{count} חסימת שמירה',
+    flightDebriefGuardDenialPlural: '{count} חסימות שמירה',
+    flightDebriefGuardDenialTip: 'פגיעות הכלה/היגיינת קריאה מסוג PreToolUse בטיסה הזו',
+    flightDebriefRemediationSingular: '{count} תיקון אוטומטי',
+    flightDebriefRemediationPlural: '{count} תיקונים אוטומטיים',
+    flightDebriefRemediationTip: 'תיקוני RemediatingGate מכניים בטיסה הזו',
   },
 };
 

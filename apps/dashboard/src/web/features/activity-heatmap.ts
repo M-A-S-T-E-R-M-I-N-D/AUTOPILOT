@@ -92,7 +92,9 @@ function contributionHeatmap(c) {
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   svg.setAttribute('class', 'heatmap-grid');
   svg.setAttribute('role', 'group');
-  svg.setAttribute('aria-label', 'Firing activity over the last ' + cols + ' weeks — green days shipped, red days had a death');
+  svg.setAttribute('aria-label', tr('activityHeatmapAria', { weeks: cols }));
+  svg.setAttribute('data-i18n-aria-template', 'activityHeatmapAria');
+  svg.setAttribute('data-i18n-args', JSON.stringify({ weeks: cols }));
   for (var i = 0; i < days.length; i++) {
     var day = days[i];
     var pos = heatCellPos(i, cell, gap, rows);
@@ -116,7 +118,9 @@ function contributionHeatmap(c) {
   heatmapH.setAttribute('data-i18n', 'firingActivity');
   wrap.appendChild(heatmapH);
   wrap.appendChild(svg);
-  wrap.appendChild(el('p', 'heatmap-legend muted', 'green = shipped · red = died · gray = other activity'));
+  var legendP = el('p', 'heatmap-legend muted', tr('activityHeatmapLegend'));
+  legendP.setAttribute('data-i18n', 'activityHeatmapLegend');
+  wrap.appendChild(legendP);
   return wrap;
 }
 // Roving-tabindex keyboard support for the heatmap grid above. Cells run in

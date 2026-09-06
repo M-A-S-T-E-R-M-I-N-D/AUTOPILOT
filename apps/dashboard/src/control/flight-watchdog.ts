@@ -7,6 +7,50 @@ import { samePath } from '../paths.js';
 import { isFlightOwnerAlive } from '../flight/lock.js';
 import type { FlightRunnerDeps } from '../flight/runner.js';
 
+/** `watch <folder>`'s default firing count per spawned flight — cautious,
+ *  matches `dashboard:fly`'s own DEFAULT_FIRINGS single-firing default. */
+export const DEFAULT_WATCH_FLY_FIRINGS = 1;
+
+export interface WatchCliArgs {
+  /** Absolute or relative path to keep flying, or `undefined` for the
+   *  original server-lifecycle-only `watch` (no folder named at all). */
+  readonly flyFolder: string | undefined;
+  readonly firings: number;
+  readonly budgetUsd: number;
+  readonly totalBudgetUsd: number | undefined;
+}
+
+/**
+ * Parse `dashboard watch [folder] [firings] [budgetUsd] [totalBudgetUsd]`.
+ * Pulled out of the CLI switch (same move as `parseFleetCliArgs` for
+ * `dashboard fleet`) so the one real bug this shape had is unit-testable
+ * without executing `cli.ts`'s `main()`: the folder slot used to become a
+ * real `resolve()`d path with zero validation.
+ *
+ * PR #20's own verification forwarded a bare `--` — the POSIX "end of
+ * options" marker, never a folder name anyone means literally — as a
+ * stand-in argument, and it rode unchecked into `resolve()`, spawning a
+ * flight against a real directory named `--` (board web-mtqanfe4-pil22i:
+ * launcher scripts run mechanically but nothing had ever actually EXECUTED
+ * one against a live watch session before this shipped). Treated the same as
+ * an omitted folder — falls back to the original server-lifecycle-only
+ * `watch` instead of flying whatever `--` resolves to.
+ */
+export function parseWatchArgs(
+  argv: readonly (string | undefined)[],
+  defaultBudgetUsd: number,
+): WatchCliArgs {
+  const [flyFolderRaw, firingsRaw, budgetUsdRaw, totalBudgetRaw] = argv;
+  const flyFolder = flyFolderRaw === '--' ? undefined : flyFolderRaw;
+  const firings = Math.max(1, Number(firingsRaw ?? DEFAULT_WATCH_FLY_FIRINGS) || 1);
+  const budgetUsd = Math.max(0.5, Number(budgetUsdRaw ?? defaultBudgetUsd) || defaultBudgetUsd);
+  const totalBudgetUsd =
+    totalBudgetRaw !== undefined
+      ? Math.max(budgetUsd, Number(totalBudgetRaw) || budgetUsd)
+      : undefined;
+  return { flyFolder, firings, budgetUsd, totalBudgetUsd };
+}
+
 /** The slice of watchdog capability that decides whether to spawn a flight —
  *  the flight-spawning half of RING-0 SUPERVISOR (web-msq9hfhd-ebmy8k),
  *  alongside the already-shipped server-lifecycle half (watchdog.ts). */

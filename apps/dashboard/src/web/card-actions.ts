@@ -86,15 +86,36 @@ export interface GithubSyncExecuteResult {
   readonly text: string;
 }
 
+/** The `STRINGS` keys {@link githubSyncExecuteResult}/{@link githubPrExecuteResult}
+ *  fall back to when the server response carries no `details`/`error` of its
+ *  own — i18n foundation (board web-msnsndki-dz3vn1): these two generic
+ *  "synced."/"sync failed."/"pull request opened."/"failed to open pull
+ *  request." sentences were the last hardcoded-English strings left in this
+ *  module; every other confirm/label/tip here already routes through `tr()`. */
+export type CardActionsResultKey =
+  'githubSyncResultOk' | 'githubSyncResultFail' | 'githubPrResultOk' | 'githubPrResultFail';
+
+/** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected rather
+ *  than imported — a `.toString()`-spliced helper carries no free variables
+ *  with it, so a translator it closed over would resolve to nothing in the
+ *  generated client bundle. Same injection route `release-panel.ts`'s
+ *  `ReleasePanelTranslator` takes. */
+export type CardActionsTranslator = (
+  key: CardActionsResultKey,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
 export function githubSyncExecuteResult(
   data: GithubSyncExecuteResponse | null | undefined,
+  tr: CardActionsTranslator,
 ): GithubSyncExecuteResult {
   const ok = !!(data && data.ok);
   return {
     className: 'github-sync-result ' + (ok ? 'github-sync-result-ok' : 'github-sync-result-fail'),
     text:
       (ok ? '✓ ' : '✗ ') +
-      ((data && (data.details || data.error)) || (ok ? 'synced.' : 'sync failed.')),
+      ((data && (data.details || data.error)) ||
+        tr(ok ? 'githubSyncResultOk' : 'githubSyncResultFail')),
   };
 }
 
@@ -202,11 +223,11 @@ export interface GithubPrExecuteResponse {
  *  the created PR's URL when the response carries one. */
 export function githubPrExecuteResult(
   data: GithubPrExecuteResponse | null | undefined,
+  tr: CardActionsTranslator,
 ): GithubSyncExecuteResult {
   const ok = !!(data && data.ok);
   const message =
-    (data && (data.details || data.error)) ||
-    (ok ? 'pull request opened.' : 'failed to open pull request.');
+    (data && (data.details || data.error)) || tr(ok ? 'githubPrResultOk' : 'githubPrResultFail');
   return {
     className: 'github-pr-result ' + (ok ? 'github-pr-result-ok' : 'github-pr-result-fail'),
     text: (ok ? '✓ ' : '✗ ') + message + (ok && data && data.url ? ' ' + data.url : ''),

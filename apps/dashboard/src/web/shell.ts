@@ -2757,7 +2757,7 @@ document.addEventListener('click', function (e) {
       b.disabled = false;
       b.textContent = originalText;
       if (!resultEl) return;
-      var result = githubSyncExecuteResult(r.data);
+      var result = githubSyncExecuteResult(r.data, tr);
       resultEl.className = result.className;
       resultEl.textContent = result.text;
     })
@@ -2817,7 +2817,7 @@ document.addEventListener('submit', function (e) {
     .then(function (r) {
       if (submitBtn) submitBtn.disabled = false;
       if (!resultEl) return;
-      var result = githubPrExecuteResult(r.data);
+      var result = githubPrExecuteResult(r.data, tr);
       resultEl.className = result.className;
       resultEl.textContent = result.text;
       if (r.data && r.data.ok && titleEl) titleEl.value = '';
