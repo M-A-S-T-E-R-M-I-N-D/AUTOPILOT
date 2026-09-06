@@ -16,6 +16,8 @@ import {
   flightWatchdogTick,
   createFlightWatchdogControl,
   canSpawnFlight,
+  parseWatchArgs,
+  DEFAULT_WATCH_FLY_FIRINGS,
 } from './flight-watchdog.js';
 import { fleetFlightWatchdogTick, type FleetFlightWatchdogControl } from './fleet-watchdog.js';
 import { landWatchdogTick, createLandWatchdogControl } from './land-watchdog.js';
@@ -36,9 +38,6 @@ import type { LandingExecuteApiResult } from '../landing/execute.js';
 
 /** `watch`'s default check cadence — how often the daemon probes the server. */
 const DEFAULT_WATCHDOG_INTERVAL_MS = 15_000;
-/** `watch <folder>`'s default firing count per spawned flight — cautious,
- *  matches `dashboard:fly`'s own DEFAULT_FIRINGS single-firing default. */
-const DEFAULT_WATCH_FLY_FIRINGS = 1;
 
 function out(line: string): void {
   process.stdout.write(`${line}\n`);
@@ -223,9 +222,11 @@ async function main(): Promise<void> {
       // Flight spawning (RING-0 SUPERVISOR, web-msq9hfhd-ebmy8k): naming a
       // folder opts THIS watch session into also keeping that one project
       // flying — every tick, spawn a flight whenever it's idle (never
-      // onboarded or sitting `registered`). Omitting the folder keeps the
-      // exact server-lifecycle-only behavior this command always had.
-      const flyFolder = process.argv[3];
+      // onboarded or sitting `registered`). Omitting the folder (or passing
+      // a bare `--`, parseWatchArgs's guard against board web-mtqanfe4-pil22i)
+      // keeps the exact server-lifecycle-only behavior this command always had.
+      const watchArgs = parseWatchArgs(process.argv.slice(3, 7), DEFAULT_BUDGET_USD);
+      const flyFolder = watchArgs.flyFolder;
       // Guards the race between "spawned a flight" and "the flight finished
       // onboarding and wrote status='flying' to the store" (fly.ts) — without
       // it, a tick landing inside that window would see the project still
@@ -242,21 +243,14 @@ async function main(): Promise<void> {
         (folder) =>
           join(process.cwd(), '.autopilot', flightLogFileName(deriveFlyProjectId(folder))),
       );
-      const watchFirings = Math.max(1, Number(process.argv[4] ?? DEFAULT_WATCH_FLY_FIRINGS) || 1);
-      const watchBudgetUsd = Math.max(
-        0.5,
-        Number(process.argv[5] ?? DEFAULT_BUDGET_USD) || DEFAULT_BUDGET_USD,
-      );
-      // TOTAL-SPEND mode (mirrors fly.ts's own argv[5]): argv[6] present means
-      // "keep firing until the remaining budget can't fund another firing"
-      // instead of stopping at the fixed `firings` count — otherwise the
-      // watchdog's flight spawning had no way to reach the mode the dashboard
-      // UI and `pnpm dashboard:fly` already expose.
-      const watchTotalBudgetArg = process.argv[6];
-      const watchTotalBudgetUsd =
-        watchTotalBudgetArg !== undefined
-          ? Math.max(watchBudgetUsd, Number(watchTotalBudgetArg) || watchBudgetUsd)
-          : undefined;
+      const watchFirings = watchArgs.firings;
+      const watchBudgetUsd = watchArgs.budgetUsd;
+      // TOTAL-SPEND mode (mirrors fly.ts's own argv[5]): a fourth arg present
+      // means "keep firing until the remaining budget can't fund another
+      // firing" instead of stopping at the fixed `firings` count — otherwise
+      // the watchdog's flight spawning had no way to reach the mode the
+      // dashboard UI and `pnpm dashboard:fly` already expose.
+      const watchTotalBudgetUsd = watchArgs.totalBudgetUsd;
       const flightControl = flyFolder
         ? createFlightWatchdogControl({
             dbPath: resolveDbPath(),

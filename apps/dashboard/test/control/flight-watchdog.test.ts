@@ -11,6 +11,7 @@ import {
   flightWatchdogTick,
   createFlightWatchdogControl,
   canSpawnFlight,
+  parseWatchArgs,
   type FlightWatchdogControl,
 } from '../../src/control/flight-watchdog.js';
 import { engineLockFileName, deriveFlyProjectId } from '../../src/flight/lock.js';
@@ -287,6 +288,60 @@ describe('createFlightWatchdogControl (real store)', () => {
     } finally {
       cleanupDir(dir);
     }
+  });
+});
+
+describe('parseWatchArgs (pure)', () => {
+  // `dashboard watch <folder> <firings> <budgetUsd> <totalBudgetUsd>` used to
+  // read `process.argv[3]` as a real path with zero validation — PR #20's own
+  // verification forwarded a bare `--` (the POSIX end-of-options marker) as a
+  // stand-in argument, and it rode unchecked into `resolve()`, spawning a
+  // flight against a real directory literally named `--` (board
+  // web-mtqanfe4-pil22i). `--` in the folder slot must fall back to
+  // server-lifecycle-only `watch`, exactly like an omitted folder.
+  it('treats a bare `--` folder argument as no folder at all', () => {
+    expect(parseWatchArgs(['--', undefined, undefined, undefined], 10)).toEqual({
+      flyFolder: undefined,
+      firings: 1,
+      budgetUsd: 10,
+      totalBudgetUsd: undefined,
+    });
+  });
+
+  it('keeps a real folder path untouched', () => {
+    expect(parseWatchArgs(['./repo', undefined, undefined, undefined], 10)).toEqual({
+      flyFolder: './repo',
+      firings: 1,
+      budgetUsd: 10,
+      totalBudgetUsd: undefined,
+    });
+  });
+
+  it('parses a fully-specified command line', () => {
+    expect(parseWatchArgs(['./repo', '5', '2.5', '20'], 10)).toEqual({
+      flyFolder: './repo',
+      firings: 5,
+      budgetUsd: 2.5,
+      totalBudgetUsd: 20,
+    });
+  });
+
+  it('floors firings at 1 and budget at 0.5 the same way the old inline parsing did', () => {
+    expect(parseWatchArgs(['./repo', '0', '0.01', undefined], 10)).toEqual({
+      flyFolder: './repo',
+      firings: 1,
+      budgetUsd: 0.5,
+      totalBudgetUsd: undefined,
+    });
+  });
+
+  it('floors totalBudgetUsd at the resolved budgetUsd, never below it', () => {
+    expect(parseWatchArgs(['./repo', undefined, '5', '2'], 10)).toEqual({
+      flyFolder: './repo',
+      firings: 1,
+      budgetUsd: 5,
+      totalBudgetUsd: 5,
+    });
   });
 });
 
