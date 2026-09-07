@@ -5,4 +5,3 @@ export { jsDetector } from './js.js';
 export { pythonDetector } from './python.js';
 export { goDetector } from './go.js';
 export { rustDetector } from './rust.js';
-export { staticSiteDetector } from './static-site.js';
