@@ -23,6 +23,11 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
+  historyRegressionReason,
+  allowHistoryLoss,
+  ALLOW_HISTORY_LOSS_ENV,
+} from './history-guard.mjs';
+import {
   openStore,
   listProjects,
   firingStats,
@@ -1452,6 +1457,21 @@ function main() {
     const prevSnapshot = previousSeriesSnapshot(seriesSource || source);
     const prevSha = previousPaperSha();
     const prevBlobUrl = prevSha ? previousPaperBlobUrl(prevSha) : null;
+    // The DATA blocks are a COMMITTED cumulative record; this store is
+    // git-ignored per-machine state. Regenerating on a machine that does not
+    // hold the full history would republish LESS of it — see history-guard.mjs
+    // for the 136-firings-to-1 loss that put this check here.
+    const regression = historyRegressionReason(
+      prevSnapshot ? summarizeSnapshot(prevSnapshot) : null,
+      stats,
+    );
+    if (regression && !allowHistoryLoss()) {
+      console.warn(`generate-data: REFUSING to refresh the committed snapshot — ${regression}`);
+      console.warn(
+        `generate-data: nothing was written. Set ${ALLOW_HISTORY_LOSS_ENV}=1 to overwrite anyway.`,
+      );
+      return;
+    }
     let next = replaceBlock(source, block);
     next = replaceBlock(next, chartBlock, CHART_MARKER_START, CHART_MARKER_END);
     if (seriesSource) {
