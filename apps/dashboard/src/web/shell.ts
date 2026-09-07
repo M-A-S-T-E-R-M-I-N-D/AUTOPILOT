@@ -1175,6 +1175,8 @@ var ANOMALY_LABELS = {
   'land-gate-alarm': '🚨 land gate alarm',
   'convergence-red': '⛔ convergence red',
   'e2e-land-block': '🚫 e2e land block',
+  'convergence-unverifiable': '❓ convergence unverifiable',
+  'guard-verify-failed': '🛑 guard verify failed',
 };
 /** A needs-you chip for one detected anomaly (see read/anomalies.ts) — label
  *  names the rule, the hover/focus tip carries the evidence that fired it. */
