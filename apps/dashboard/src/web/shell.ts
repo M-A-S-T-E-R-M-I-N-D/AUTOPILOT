@@ -2174,11 +2174,19 @@ function tasksSection(c) {
   var head = el('h3', 'detail-h', anyFocus ? 'Tasks — 🎯 FOCUS MODE' : 'Tasks');
   head.setAttribute('data-i18n', anyFocus ? 'tasksFocusMode' : 'tasks');
   wrap.appendChild(head);
+  // i18n (board web-msnsndki-dz3vn1): the two notes and the per-task decision
+  // buttons below carry their English default AND a data-i18n tag; the card
+  // rides the same translateDom() sweep its heading already does (the fleet
+  // page's per-tick sweep and the project page's), so no local sweep here.
   if (anyFocus) {
-    wrap.appendChild(el('p', 'focus-note', 'Focus locked: flights work ONLY the focused task(s) until done.'));
+    var focusNote = el('p', 'focus-note', 'Focus locked: flights work ONLY the focused task(s) until done.');
+    focusNote.setAttribute('data-i18n', 'tasksFocusNote');
+    wrap.appendChild(focusNote);
   }
   if (!tasks.length) {
-    wrap.appendChild(el('p', 'muted', 'No tasks yet — add one below, or let the autopilot seed its own board as it flies.'));
+    var emptyNote = el('p', 'muted', 'No tasks yet — add one below, or let the autopilot seed its own board as it flies.');
+    emptyNote.setAttribute('data-i18n', 'tasksEmpty');
+    wrap.appendChild(emptyNote);
   } else {
     var ul = el('ul', 'tasks');
     // Announcements for keyboard reorder (research: live region, GitHub pattern).
@@ -2391,6 +2399,7 @@ function tasksSection(c) {
         // reject → gone. Until then flights skip it entirely.
         var approveBtn = el('button', 'task-done-btn task-approve-btn', '✓ approve');
         approveBtn.setAttribute('type', 'button');
+        approveBtn.setAttribute('data-i18n', 'taskApprove');
         approveBtn.setAttribute('data-task-approve', t.id);
         var approveTip = taskActionTip('approve', t.title);
         approveBtn.setAttribute('data-tip', approveTip);
@@ -2398,6 +2407,7 @@ function tasksSection(c) {
         li.appendChild(approveBtn);
         var rejectBtn = el('button', 'task-delete-btn', '✗ reject');
         rejectBtn.setAttribute('type', 'button');
+        rejectBtn.setAttribute('data-i18n', 'taskReject');
         rejectBtn.setAttribute('data-task-delete', t.id);
         rejectBtn.setAttribute('data-confirm', 'no');
         var rejectTip = taskActionTip('reject', t.title);
@@ -2407,6 +2417,7 @@ function tasksSection(c) {
       } else if (isOpen) {
         var doneBtn = el('button', 'task-done-btn', '✓ done');
         doneBtn.setAttribute('type', 'button');
+        doneBtn.setAttribute('data-i18n', 'taskDone');
         doneBtn.setAttribute('data-task-done', t.id);
         var doneTip = taskActionTip('done', t.title);
         doneBtn.setAttribute('data-tip', doneTip);

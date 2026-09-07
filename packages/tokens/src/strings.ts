@@ -825,6 +825,17 @@ const EN_STRINGS = {
   flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
+  // The task board's notes and per-task decision buttons (shell.ts's
+  // tasksSection(), board web-msnsndki-dz3vn1): the FOCUS-MODE lock note, the
+  // empty-board note, and ✓ approve / ✗ reject on a self-proposed task,
+  // ✓ done on an open one. Only the buttons' visible label rides the
+  // [data-i18n] sweep — their data-tip/aria-label stay the per-task
+  // taskActionTip() sentence.
+  tasksFocusNote: 'Focus locked: flights work ONLY the focused task(s) until done.',
+  tasksEmpty: 'No tasks yet — add one below, or let the autopilot seed its own board as it flies.',
+  taskApprove: '✓ approve',
+  taskReject: '✗ reject',
+  taskDone: '✓ done',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
   // the human side of the board) — the Inbox form's older sibling, built the
   // same DOM-call way the tag scanner cannot see. taskAddTip is ONE key for
@@ -1545,6 +1556,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightSliceChipAria: 'פרוסה של {name}',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
+    tasksFocusNote: 'המיקוד נעול: הטיסות עובדות רק על המשימות הממוקדות עד לסיומן.',
+    tasksEmpty:
+      'אין משימות עדיין — הוסיפו אחת למטה, או תנו ל-AUTOPILOT לזרוע את הלוח שלו בעצמו תוך כדי טיסה.',
+    taskApprove: '✓ אשר',
+    taskReject: '✗ דחה',
+    taskDone: '✓ בוצע',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
     taskAdd: 'הוסף',
