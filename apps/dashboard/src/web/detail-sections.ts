@@ -72,6 +72,7 @@ export function detailSectionSigs(
   flightLogLoading: unknown,
   openPhases: unknown,
   openFirings: unknown,
+  timelineOverlays: unknown,
 ): DetailSectionSigs {
   const liveSig = JSON.stringify([c.status, c.activity, c.flightLog, c.tasks]);
   return {
@@ -94,7 +95,15 @@ export function detailSectionSigs(
       flightLogLoading,
     ]),
     activity: JSON.stringify([c.activity, liveSig, openPhases]),
-    timeline: JSON.stringify([c.activity, c.tasks, c.flightLog, openFirings]),
+    // timelineOverlays bundles the firing-timeline cluster's OWN module maps
+    // (trace/diff/replay: firingActivityExtra, firingActivityLoading,
+    // openDiffs, firingDiffExtra, firingDiffLoading, replaySteps) — the same
+    // "mirrors the section's real inputs" law the flightlog sig documents
+    // above. Before per-project card-state reuse (projectCardStates) their
+    // omission was invisible: prev was always null, every tick rebuilt the
+    // section anyway. Once reuse landed, a diff-toggle click re-rendered into
+    // an UNCHANGED timeline sig and the open/loading flip never painted.
+    timeline: JSON.stringify([c.activity, c.tasks, c.flightLog, openFirings, timelineOverlays]),
     metrics: JSON.stringify([
       c.firings,
       c.cost,

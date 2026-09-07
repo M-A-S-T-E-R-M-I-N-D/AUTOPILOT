@@ -1974,6 +1974,18 @@ function detailSectionSigsFor(c) {
     flightLogLoading[c.id],
     openPhases[c.id],
     openFirings[c.id],
+    // The firing-timeline cluster's own trace/diff/replay maps (declared in
+    // features/firing-timeline.ts, same core scope) — whole maps, keyed by
+    // cacheKey: over-invalidation across projects is rare and harmless,
+    // a missed invalidation froze the diff toggle (see detail-sections.ts).
+    [
+      firingActivityExtra,
+      firingActivityLoading,
+      openDiffs,
+      firingDiffExtra,
+      firingDiffLoading,
+      replaySteps,
+    ],
   );
 }
 // The card's "Details" panel keeps ONE <details> DOM node per project for its
