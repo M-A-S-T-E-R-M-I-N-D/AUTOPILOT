@@ -67,6 +67,13 @@ describe('findPersonalPaths', () => {
     expect(findPersonalPaths(line)).toEqual([]);
   });
 
+  it('flags BOTH dead attribution identities so neither can ever be accidentally restored into a tracked file (operator directive 2026-09-07)', () => {
+    const oldProject = findPersonalPaths('Signed-off-by: X <mastermind@' + 'autopilot.dev>');
+    expect(oldProject.some((f) => f.rule === 'dead-identity')).toBe(true);
+    const harness = findPersonalPaths('author: <azu' + 'zster@' + 'gmail.com>');
+    expect(harness.some((f) => f.rule === 'dead-identity')).toBe(true);
+  });
+
   it("exempts the operator's declared public identity, and ONLY it, from the personal-email rule", () => {
     expect(findPersonalPaths('maintainer: INTJ Mastermind <intjmstrmnd@' + 'gmail.com>')).toEqual(
       [],

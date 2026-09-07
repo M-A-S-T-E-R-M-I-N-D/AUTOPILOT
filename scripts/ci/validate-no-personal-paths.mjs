@@ -77,6 +77,12 @@ const RULES = [
   // public repo (operator directive 2026-08-28; scrubbed the same day —
   // 24 mentions across 10 docs replaced with "the internal predecessor").
   { id: 'unreleased-product-name', re: /SOLSAY/i },
+  // DEAD ATTRIBUTION IDENTITIES (operator directive 2026-09-07): neither
+  // address is owned by the operator — one was an invented project-domain
+  // identity, the other a harness-context artifact — and neither may EVER
+  // be restored into any tracked file by accident. The sanctioned identity
+  // is the single personal-email exemption above; these are tripwires.
+  { id: 'dead-identity', re: /intjmstrmnd@gmail.com|azu[z]ster@/i },
 ];
 
 // Exclude only the hand-audited scanner files by exact path (they contain these
