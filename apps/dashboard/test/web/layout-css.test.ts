@@ -124,4 +124,15 @@ describe('layoutCss — EPIC 0018 slice 1: scroll-container audit for unbounded 
     expect(css).toMatch(/\.firing-timeline\s*\{[^}]*max-height:/);
     expect(css).toMatch(/\.firing-timeline\s*\{[^}]*overflow-y:\s*auto/);
   });
+
+  // shell.ts's flightLog() caps `.flightlog` at FLIGHTLOG_COMPACT_ROWS (8) by
+  // default, but its own "Show all" toggle (openFlightLogAll[c.id]) renders
+  // every row a project has ever flown with no cap — a long-lived project's
+  // expanded flight log grows the region without bound and reflows the whole
+  // page under it, the exact same unbounded-live-region shape the two tests
+  // above already fixed for the activity feed and trace list.
+  it('bounds the flight log to a scrolling container so "Show all" cannot grow the page', () => {
+    expect(css).toMatch(/\.flightlog\s*\{[^}]*max-height:/);
+    expect(css).toMatch(/\.flightlog\s*\{[^}]*overflow-y:\s*auto/);
+  });
 });
