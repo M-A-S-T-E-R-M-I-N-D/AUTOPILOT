@@ -1458,7 +1458,9 @@ function renderCard(c, prev) {
 // "chips repaint identical facts" blink epic 0018 slice 1 names.
 var projectCardStates = {};
 function card(c) {
-  return renderCard(c, null).art;
+  var cardState = renderCard(c, projectCardStates[c.id]);
+  projectCardStates[c.id] = cardState;
+  return cardState.art;
 }
 // langBarSegments is generated FROM web/lang-bar.ts below (epic 0002 "shell
 // decomposition", slice 2) — its real compiled source via .toString(), not a
