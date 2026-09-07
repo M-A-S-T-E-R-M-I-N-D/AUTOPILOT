@@ -645,6 +645,11 @@ const EN_STRINGS = {
   coordinationLoading: 'Checking for sibling claims and in-flight intents…',
   coordinationEmpty: 'No sibling claims or in-flight intents detected right now.',
   coordinationUnavailable: 'Fleet coordination unavailable.',
+  // web/features/docs-viewer.ts (board web-msnsndki-dz3vn1): the project
+  // page's Docs reader panel — title, and the empty/fetch-failure states.
+  docsTitle: '📚 Docs',
+  docsEmpty: 'No indexed documents yet.',
+  docsUnavailable: 'Docs unavailable.',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
@@ -1381,6 +1386,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     coordinationLoading: 'בודק תביעות של מופעים אחים וכוונות בטיסה…',
     coordinationEmpty: 'לא זוהו כרגע תביעות של מופעים אחים או כוונות בטיסה.',
     coordinationUnavailable: 'תיאום הצי אינו זמין.',
+    docsTitle: '📚 מסמכים',
+    docsEmpty: 'עדיין אין מסמכים באינדקס.',
+    docsUnavailable: 'המסמכים אינם זמינים.',
     roundTitle: '🔄 הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
