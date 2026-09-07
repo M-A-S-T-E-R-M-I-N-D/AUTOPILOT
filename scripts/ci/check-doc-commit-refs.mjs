@@ -31,6 +31,8 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const NUL = String.fromCharCode(0);
 
@@ -48,9 +50,32 @@ const LEGACY_ALLOWLIST = new Set([
 ]);
 
 // Backtick-quoted hex starting a code span: `` `abc1234` `` or
-// `` `abc1234 fix(x): message` ``. Word-boundaried so it never matches a
-// SHA embedded mid-token.
+// `` `abc1234 fix(x): message` ``. The leading literal backtick anchors every
+// match to the true start of a code span, so a longer hex run (a SHA-256
+// content hash, a 64-char lockfile digest quoted in prose) can never match
+// via an inner 40-char substring — backtracking has nowhere else to anchor
+// from, since only the run's first character sits right after a backtick.
 const SHA_CITATION_RE = /`([0-9a-f]{7,40})(?:`|\s)/g;
+
+/**
+ * Extract backtick-quoted commit-SHA-shaped citations from doc text. Pure —
+ * no fs/git access — so it can be unit-tested directly against fixture
+ * strings.
+ * @param {string} text
+ * @returns {{ line: number, sha: string }[]}
+ */
+export function findShaCitations(text) {
+  /** @type {{ line: number, sha: string }[]} */
+  const citations = [];
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    for (const m of line.matchAll(SHA_CITATION_RE)) {
+      citations.push({ line: i + 1, sha: m[1] });
+    }
+  }
+  return citations;
+}
 
 /** @returns {string[]} */
 function listTrackedMarkdown() {
@@ -80,20 +105,17 @@ function main() {
   const cache = new Map();
 
   for (const file of files) {
-    const lines = readFileSync(file, 'utf8').split('\n');
-    lines.forEach((line, i) => {
-      for (const m of line.matchAll(SHA_CITATION_RE)) {
-        const sha = m[1];
-        let reachable = cache.get(sha);
-        if (reachable === undefined) {
-          reachable = isReachableFromHead(sha);
-          cache.set(sha, reachable);
-        }
-        if (!reachable) {
-          errors.push(`${file}:${i + 1}: commit \`${sha}\` is not reachable from HEAD`);
-        }
+    const text = readFileSync(file, 'utf8');
+    for (const { line, sha } of findShaCitations(text)) {
+      let reachable = cache.get(sha);
+      if (reachable === undefined) {
+        reachable = isReachableFromHead(sha);
+        cache.set(sha, reachable);
       }
-    });
+      if (!reachable) {
+        errors.push(`${file}:${line}: commit \`${sha}\` is not reachable from HEAD`);
+      }
+    }
   }
 
   if (errors.length > 0) {
@@ -107,4 +129,5 @@ function main() {
   );
 }
 
-main();
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
