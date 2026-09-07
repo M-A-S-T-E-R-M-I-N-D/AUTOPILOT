@@ -637,6 +637,14 @@ const EN_STRINGS = {
   prReviewExecuteFailedGeneric: 'PR review execute failed.',
   prReviewCommandFailedSuffix: ' failed (exit {code}).',
   prReviewApplying: 'Applying…',
+  // web/features/coordination.ts (board web-msnsndki-dz3vn1): the FLEET
+  // COORDINATION panel's own literal text — title, loading placeholder, and
+  // the empty/unavailable states. The coordination lines themselves stay as
+  // served (they quote the firing prompt's FLEET digest verbatim).
+  coordinationTitle: '🤝 Fleet coordination',
+  coordinationLoading: 'Checking for sibling claims and in-flight intents…',
+  coordinationEmpty: 'No sibling claims or in-flight intents detected right now.',
+  coordinationUnavailable: 'Fleet coordination unavailable.',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
@@ -1369,6 +1377,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prReviewExecuteFailedGeneric: 'ביצוע סקירת ה-PR נכשל.',
     prReviewCommandFailedSuffix: ' נכשל (קוד יציאה {code}).',
     prReviewApplying: 'מחיל…',
+    coordinationTitle: '🤝 תיאום הצי',
+    coordinationLoading: 'בודק תביעות של מופעים אחים וכוונות בטיסה…',
+    coordinationEmpty: 'לא זוהו כרגע תביעות של מופעים אחים או כוונות בטיסה.',
+    coordinationUnavailable: 'תיאום הצי אינו זמין.',
     roundTitle: '🔄 הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
