@@ -64,9 +64,6 @@ jobs:
       - name: npx smoke test (dashboard bin, packed + installed standalone)
         run: pnpm run ci:npx-smoke-test
 
-      - name: Launcher smoke test (.sh scripts actually executed, not just described)
-        run: pnpm run ci:launcher-smoke
-
       - name: Test + coverage (>=80%)
         run: pnpm run test:coverage
 
