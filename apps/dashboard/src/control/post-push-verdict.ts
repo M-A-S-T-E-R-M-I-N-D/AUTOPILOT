@@ -15,10 +15,20 @@
  * deliberately deferred to a follow-up slice — that needs a live timing
  * design (poll cadence, timeout, which workflow(s) to watch), not just a
  * decision function, and doing both in one firing risks neither being safe.
+ *
+ * Escalation-mode follow-up (board web-mtpbmazh-3en467): filing the evidence
+ * task above is the `'board'` mode — a human still has to pick it up. `'fly'`
+ * mode (below) additionally spawns a single-lane fix firing scoped to that
+ * SAME task via `AUTOPILOT_FLEET_TASK_SCOPE`, reusing `flight-watchdog.ts`'s
+ * own idle-folder gate so it can never overlap a flight already running
+ * against the target. The decision stays pure here for the same reason
+ * slice 1's does; `post-push-watch.ts`'s trigger is what actually reads the
+ * project's live status and calls the real `spawnFlight`.
  */
 
 import type { WorkflowRunStatus } from './ci-status.js';
-import { createTask, type CreateTaskInput, type Store } from '@autopilot/store';
+import { createTask, type CreateTaskInput, type ProjectRow, type Store } from '@autopilot/store';
+import { FLYABLE_STATUSES } from './flight-watchdog.js';
 
 export interface PostPushVerdictContext {
   readonly projectId: string;
@@ -107,4 +117,35 @@ export function filePostPushVerdictTask(store: Store, verdict: PostPushVerdictRe
   } catch {
     return false;
   }
+}
+
+/**
+ * `AUTOPILOT_CI_REMEDIATION` escalation mode (slice 2 follow-up, board
+ * web-mtpbmazh-3en467): `'board'` (default) only files the evidence task
+ * above; `'fly'` additionally launches a single-lane fix firing scoped to
+ * that task. Any other or unset value falls back to `'board'` — fail
+ * closed, so a typo'd env var can never surprise-launch a flight.
+ */
+export type CiRemediationMode = 'board' | 'fly';
+
+export function ciRemediationMode(env: NodeJS.ProcessEnv = process.env): CiRemediationMode {
+  return env['AUTOPILOT_CI_REMEDIATION'] === 'fly' ? 'fly' : 'board';
+}
+
+/**
+ * Whether a filed remediation task should ALSO spawn a single-lane fix
+ * flight: only in `'fly'` mode, only when a NEW task was actually just filed
+ * (`taskFiled` — a dedup no-op means there is nothing new to fix, see
+ * `filePostPushVerdictTask`'s own dedup above), and only when the target
+ * folder is idle — the SAME `FLYABLE_STATUSES` gate `flight-watchdog.ts`
+ * uses to decide "safe to (re)launch", so an auto-remediation flight can
+ * never overlap one already running against that folder (a project mid-
+ * flight reports `'flying'`, never a flyable status).
+ */
+export function shouldSpawnRemediationFlight(
+  mode: CiRemediationMode,
+  taskFiled: boolean,
+  projectStatus: ProjectRow['status'] | null,
+): boolean {
+  return mode === 'fly' && taskFiled && FLYABLE_STATUSES.has(projectStatus);
 }

@@ -187,6 +187,11 @@ const flyEntry = fileURLToPath(new URL('../fly.js', import.meta.url));
 // get their own log file too.
 const flightLogPathFor = (folder: string, instanceId?: string): string =>
   join(dirname(dbPath), flightLogFileName(deriveFlyProjectId(folder), instanceId));
+// Shared with the POST-PUSH VERDICT RITUAL's 'fly' escalation mode below
+// (board web-mtpbmazh-3en467) — the same real spawn the fly bar itself uses,
+// so an auto-remediation firing is indistinguishable from an operator-
+// launched one once it's running.
+const spawnFlightReal = createSpawnFlight(flyEntry, flightLogPathFor);
 const flightRegistry = new FlightRunnerRegistry(
   {
     // Detached + unref'd (flight/spawn-flight.ts, FLIGHT PROCESS DECOUPLING,
@@ -194,7 +199,7 @@ const flightRegistry = new FlightRunnerRegistry(
     // must outlive this server — a crash, an operator stop, or
     // landing/self-restart.ts's own process.exit() after a self-landed rebuild
     // must never take it down too.
-    spawnFlight: createSpawnFlight(flyEntry, flightLogPathFor),
+    spawnFlight: spawnFlightReal,
     folderExists: existsSync,
     // A relative name (e.g. "AUTOPILOT") resolves against the dashboard's folder,
     // and an absolute path passes through — so the "folder not found" message is
@@ -409,8 +414,10 @@ const landingExecuteApi = createLandingExecuteApi(
   // POST-PUSH VERDICT RITUAL slice 3 (board web-mtpbmay4-94ii65): watches
   // ci.yml on the branch just landed and files a CI-red evidence task on a
   // red conclusion — wired here so every land path (manual EXECUTE and the
-  // watchdog alike) gets it, same as every other hook above.
-  createPostPushWatchTrigger(dbPath),
+  // watchdog alike) gets it, same as every other hook above. `spawnFlightReal`
+  // enables the 'fly' escalation mode (board web-mtpbmazh-3en467) — a no-op
+  // unless the operator sets AUTOPILOT_CI_REMEDIATION=fly.
+  createPostPushWatchTrigger(dbPath, undefined, spawnFlightReal),
 );
 const landingJobs = createLandingJobRegistry({
   execute: landingExecuteApi,

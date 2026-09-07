@@ -14,8 +14,10 @@ import { join } from 'node:path';
 import { openStore, migrate, recentTasks, type Store } from '@autopilot/store';
 import type { WorkflowRunStatus } from '../../src/control/ci-status.js';
 import {
+  ciRemediationMode,
   decidePostPushVerdict,
   filePostPushVerdictTask,
+  shouldSpawnRemediationFlight,
   type PostPushVerdictContext,
 } from '../../src/control/post-push-verdict.js';
 
@@ -152,5 +154,47 @@ describe('filePostPushVerdictTask', () => {
     expect(filePostPushVerdictTask(store, onMain)).toBe(true);
     expect(filePostPushVerdictTask(store, onOther)).toBe(true);
     expect(recentTasks(store.db, 'proj-1', 10)).toHaveLength(2);
+  });
+});
+
+describe('ciRemediationMode', () => {
+  it('defaults to board when unset', () => {
+    expect(ciRemediationMode({})).toBe('board');
+  });
+
+  it('reads fly only from an exact match', () => {
+    expect(ciRemediationMode({ AUTOPILOT_CI_REMEDIATION: 'fly' })).toBe('fly');
+  });
+
+  it('falls back to board on any other value — fail closed against a typo', () => {
+    expect(ciRemediationMode({ AUTOPILOT_CI_REMEDIATION: 'Fly' })).toBe('board');
+    expect(ciRemediationMode({ AUTOPILOT_CI_REMEDIATION: 'FLY' })).toBe('board');
+    expect(ciRemediationMode({ AUTOPILOT_CI_REMEDIATION: 'yes' })).toBe('board');
+    expect(ciRemediationMode({ AUTOPILOT_CI_REMEDIATION: '' })).toBe('board');
+  });
+});
+
+describe('shouldSpawnRemediationFlight', () => {
+  it('never spawns in board mode, even with a fresh task and an idle folder', () => {
+    expect(shouldSpawnRemediationFlight('board', true, 'registered')).toBe(false);
+    expect(shouldSpawnRemediationFlight('board', true, null)).toBe(false);
+  });
+
+  it('never spawns when nothing new was filed (dedup no-op — nothing to fix)', () => {
+    expect(shouldSpawnRemediationFlight('fly', false, 'registered')).toBe(false);
+    expect(shouldSpawnRemediationFlight('fly', false, null)).toBe(false);
+  });
+
+  it('never spawns while the folder is already flying — a live flight owns it', () => {
+    expect(shouldSpawnRemediationFlight('fly', true, 'flying')).toBe(false);
+  });
+
+  it('never spawns over an explicit operator pause', () => {
+    expect(shouldSpawnRemediationFlight('fly', true, 'paused')).toBe(false);
+  });
+
+  it('spawns in fly mode when a new task was filed and the folder is idle', () => {
+    expect(shouldSpawnRemediationFlight('fly', true, 'registered')).toBe(true);
+    expect(shouldSpawnRemediationFlight('fly', true, null)).toBe(true);
   });
 });

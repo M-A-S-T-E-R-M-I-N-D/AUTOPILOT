@@ -8,7 +8,7 @@
  * no fake-timer flakiness.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -233,6 +233,163 @@ describe('createPostPushWatchTrigger (slice 3 — starting a watch from a real g
       const trigger = createPostPushWatchTrigger(badDbPath, ghRunReporting('failure'));
       expect(() => trigger('p1', '/repo', 'main', 'abc1234')).not.toThrow();
       await new Promise((resolve) => setTimeout(resolve, 100));
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createPostPushWatchTrigger — fly escalation mode (board web-mtpbmazh-3en467)', () => {
+  function ghRunReporting(conclusion: 'success' | 'failure') {
+    return () => (args: readonly string[]) => {
+      expect(args).toContain('run');
+      return JSON.stringify([
+        { status: 'completed', conclusion, createdAt: new Date().toISOString() },
+      ]);
+    };
+  }
+
+  const ORIGINAL_ENV = process.env['AUTOPILOT_CI_REMEDIATION'];
+  afterEach(() => {
+    if (ORIGINAL_ENV === undefined) delete process.env['AUTOPILOT_CI_REMEDIATION'];
+    else process.env['AUTOPILOT_CI_REMEDIATION'] = ORIGINAL_ENV;
+  });
+
+  it('spawns a single-lane firing scoped to the filed task when AUTOPILOT_CI_REMEDIATION=fly and the folder is idle', async () => {
+    process.env['AUTOPILOT_CI_REMEDIATION'] = 'fly';
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-fly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      s.close();
+
+      const spawnFlight = vi.fn();
+      const trigger = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'), spawnFlight, 5);
+      trigger('p1', '/repo', 'main', 'abc1234');
+
+      await vi.waitFor(() => {
+        expect(spawnFlight).toHaveBeenCalledTimes(1);
+      });
+      const [folder, firings, budgetUsd, totalBudgetUsd, instanceId, taskScope] = spawnFlight.mock
+        .calls[0] as [string, number, number, unknown, unknown, string[]];
+      expect(folder).toBe('/repo');
+      expect(firings).toBe(1);
+      expect(budgetUsd).toBe(5);
+      expect(totalBudgetUsd).toBeUndefined();
+      expect(instanceId).toBeUndefined();
+      expect(taskScope).toHaveLength(1);
+      expect(taskScope[0]).toMatch(/^ap-.*-ci-red$/);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('does not spawn in the default board mode even with spawnFlight supplied', async () => {
+    delete process.env['AUTOPILOT_CI_REMEDIATION'];
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-board-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      s.close();
+
+      const spawnFlight = vi.fn();
+      const trigger = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'), spawnFlight);
+      trigger('p1', '/repo', 'main', 'abc1234');
+
+      await vi.waitFor(() => {
+        const s2 = openStore(dbPath);
+        const tasks = recentTasks(s2.db, 'p1', 10);
+        s2.close();
+        expect(tasks).toHaveLength(1);
+      });
+      expect(spawnFlight).not.toHaveBeenCalled();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('does not spawn a second flight when the project is already flying', async () => {
+    process.env['AUTOPILOT_CI_REMEDIATION'] = 'fly';
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-flying-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'flying', NULL, ?, ?)`,
+        )
+        .run('p1', 'p1', 'p1', '/repo', 100, 100);
+      s.close();
+
+      const spawnFlight = vi.fn();
+      const trigger = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'), spawnFlight);
+      trigger('p1', '/repo', 'main', 'abc1234');
+
+      await vi.waitFor(() => {
+        const s2 = openStore(dbPath);
+        const tasks = recentTasks(s2.db, 'p1', 10);
+        s2.close();
+        expect(tasks).toHaveLength(1);
+      });
+      expect(spawnFlight).not.toHaveBeenCalled();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('does not spawn on a dedup no-op (an evidence task for this branch is already open)', async () => {
+    process.env['AUTOPILOT_CI_REMEDIATION'] = 'fly';
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-dedup-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      s.close();
+
+      const spawnFlight = vi.fn();
+      const trigger = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'), spawnFlight);
+      trigger('p1', '/repo', 'main', 'abc1234');
+      await vi.waitFor(() => {
+        expect(spawnFlight).toHaveBeenCalledTimes(1);
+      });
+
+      spawnFlight.mockClear();
+      const trigger2 = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'), spawnFlight);
+      trigger2('p1', '/repo', 'main', 'def5678');
+      // Give the fire-and-forget watch's microtasks a beat — there is no
+      // positive signal to wait on for an intentional non-spawn.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(spawnFlight).not.toHaveBeenCalled();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('does not spawn when no spawnFlight dependency is supplied at all', async () => {
+    process.env['AUTOPILOT_CI_REMEDIATION'] = 'fly';
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-nospawn-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      s.close();
+
+      const trigger = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'));
+      expect(() => trigger('p1', '/repo', 'main', 'abc1234')).not.toThrow();
+      await vi.waitFor(() => {
+        const s2 = openStore(dbPath);
+        const tasks = recentTasks(s2.db, 'p1', 10);
+        s2.close();
+        expect(tasks).toHaveLength(1);
+      });
     } finally {
       cleanupDir(dir);
     }

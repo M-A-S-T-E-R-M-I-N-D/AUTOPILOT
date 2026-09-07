@@ -81,8 +81,14 @@ export interface FlightWatchdogTickResult {
  *  other status is left alone deliberately — `flying` is already going,
  *  `paused` is an explicit operator hold that only Resume (not the watchdog)
  *  should clear, and the reserved `hibernating`/`needs_you` states exist
- *  precisely to keep an unattended loop from barreling through them. */
-const FLYABLE_STATUSES: ReadonlySet<ProjectRow['status'] | null> = new Set(['registered', null]);
+ *  precisely to keep an unattended loop from barreling through them.
+ *  Exported: `post-push-verdict.ts`'s `shouldSpawnRemediationFlight` reuses
+ *  this exact gate so an auto-remediation flight can never overlap one
+ *  already running against the same folder either. */
+export const FLYABLE_STATUSES: ReadonlySet<ProjectRow['status'] | null> = new Set([
+  'registered',
+  null,
+]);
 
 /**
  * One flight-spawning tick: the "not flying → spawn" counterpart to

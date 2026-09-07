@@ -13,21 +13,33 @@
  *
  * Slice 3 ({@link createPostPushWatchTrigger}, below) is the piece this
  * slice's own docstring used to defer: actually STARTING a watch from
- * `landing/execute.ts` after a green land. Still open, and belongs to
- * whoever eventually tackles it: surviving a dashboard restart mid-watch —
- * this trigger's poll loop lives only in the process's own memory, same
- * fire-and-forget posture `landing/execute.ts` already accepts for its
- * self-restart trigger and out-of-band gate check.
+ * `landing/execute.ts` after a green land. Wired (`server/main.ts`):
+ * surviving a dashboard restart mid-watch remains open — this trigger's poll
+ * loop lives only in the process's own memory, same fire-and-forget posture
+ * `landing/execute.ts` already accepts for its self-restart trigger and
+ * out-of-band gate check.
+ *
+ * Escalation-mode follow-up (board web-mtpbmazh-3en467): when `spawnFlight`
+ * is supplied, a `'remediate'` verdict that actually filed a NEW task (not a
+ * dedup no-op) AND finds the target folder idle also spawns a single-lane
+ * fix firing scoped to that task — `post-push-verdict.ts`'s
+ * `ciRemediationMode`/`shouldSpawnRemediationFlight` decide whether to, this
+ * function only supplies the live project status and the real spawn.
  */
 
-import { openStore } from '@autopilot/store';
+import { openStore, listProjects } from '@autopilot/store';
 import { ciWorkflowStatus, createGhRun, type GhRun, type WorkflowRunStatus } from './ci-status.js';
 import {
+  ciRemediationMode,
   decidePostPushVerdict,
   filePostPushVerdictTask,
+  shouldSpawnRemediationFlight,
   type PostPushVerdictContext,
   type PostPushVerdictResult,
 } from './post-push-verdict.js';
+import { DEFAULT_WATCH_FLY_FIRINGS } from './flight-watchdog.js';
+import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
+import type { FlightRunnerDeps } from '../flight/runner.js';
 
 export type PostPushWatchOutcome =
   | { readonly kind: 'concluded'; readonly verdict: PostPushVerdictResult }
@@ -96,10 +108,22 @@ export type PostPushWatchTrigger = (
  * through `filePostPushVerdictTask`. Every failure mode (`checkStatus`
  * throwing, the store failing to open) is swallowed: a post-push watch must
  * never be the thing that crashes the land it's merely watching.
+ *
+ * `spawnFlight` is optional (production wiring passes the real
+ * `FlightRunnerDeps['spawnFlight']`; omitted entirely, this trigger behaves
+ * exactly as slice 1/2 always did — `'board'` mode only, no spawn path even
+ * reachable). When supplied, a `'remediate'` verdict that actually filed a
+ * new task re-reads the project's live status from the SAME store already
+ * open for the filing (no second connection) and, per
+ * `shouldSpawnRemediationFlight`, may spawn ONE single-lane firing
+ * (`DEFAULT_WATCH_FLY_FIRINGS`, matching `dashboard watch`'s own default)
+ * scoped to the just-filed task via `AUTOPILOT_FLEET_TASK_SCOPE`.
  */
 export function createPostPushWatchTrigger(
   dbPath: string,
   run?: (rootPath: string) => GhRun,
+  spawnFlight?: FlightRunnerDeps['spawnFlight'],
+  budgetUsd: number = DEFAULT_BUDGET_USD,
 ): PostPushWatchTrigger {
   return (projectId, rootPath, branch, sha) => {
     void (async () => {
@@ -110,7 +134,16 @@ export function createPostPushWatchTrigger(
         if (outcome.kind !== 'concluded') return;
         const store = openStore(dbPath);
         try {
-          filePostPushVerdictTask(store, outcome.verdict);
+          const taskFiled = filePostPushVerdictTask(store, outcome.verdict);
+          if (spawnFlight && outcome.verdict.kind === 'remediate') {
+            const projectStatus =
+              listProjects(store.db).find((p) => p.id === projectId)?.status ?? null;
+            if (shouldSpawnRemediationFlight(ciRemediationMode(), taskFiled, projectStatus)) {
+              spawnFlight(rootPath, DEFAULT_WATCH_FLY_FIRINGS, budgetUsd, undefined, undefined, [
+                outcome.verdict.task.id,
+              ]);
+            }
+          }
         } finally {
           store.close();
         }
