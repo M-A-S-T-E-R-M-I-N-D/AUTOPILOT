@@ -39,6 +39,10 @@ test.describe('dashboard boot smoke', () => {
       // release state from the outside world, out of scope here like the
       // rest. The client treats the 404 as "no update" and stays hidden.
       '404 /api/update-check',
+      // foundation donation-panel self-init poll (FOUNDATION 1/3) — the
+      // hermetic fixture wires no donations backend; the panel treats the
+      // 404 as "not configured" and stays hidden, same class as the rest.
+      '404 /api/donations',
     ]);
   });
 

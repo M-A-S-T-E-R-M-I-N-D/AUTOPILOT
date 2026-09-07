@@ -57,6 +57,8 @@ test.describe('project page (/p/:id)', () => {
       '404 /api/publicity',
       // update-banner self-init poll — same class (see dashboard.spec.ts).
       '404 /api/update-check',
+      // foundation donation-panel poll — same class (see dashboard.spec.ts).
+      '404 /api/donations',
     ]);
   });
 

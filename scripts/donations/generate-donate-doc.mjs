@@ -122,10 +122,15 @@ export function renderEntry(entry) {
 /** @param {readonly import('../../apps/dashboard/dist/flight/donations.js').DonationEntry[]} entries */
 export function renderDoc(entries) {
   const sections = [
+    // REUSE-IgnoreStart — these strings are the SPDX header EMITTED into the
+    // generated DONATE.md, not this file's own declaration (line 1-2 is);
+    // without the ignore markers the REUSE parser reads the trailing quote
+    // as part of the expression and fails the whole repo on "Apache-2.0',".
     '<!--',
     'SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND',
     'SPDX-License-Identifier: Apache-2.0',
     '-->',
+    // REUSE-IgnoreEnd
     '',
     '# Donate to the AUTOPILOT Foundation',
     '',
