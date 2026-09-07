@@ -14,6 +14,7 @@ import { firingTimelineJs } from './firing-timeline.js';
 import { flightConsoleJs } from './flight-console.js';
 import { flightSummaryJs } from './flight-summary.js';
 import { flyJs } from './fly.js';
+import { foundationJs } from './foundation.js';
 import { issueTriageJs } from './issue-triage.js';
 import { landingJs } from './landing.js';
 import { localeDataJs } from './locale-data.js';
@@ -48,6 +49,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   flightConsoleJs,
   flightSummaryJs,
   flyJs,
+  foundationJs,
   issueTriageJs,
   landingJs,
   localeDataJs,
@@ -90,6 +92,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'flight-console': flightConsoleJs,
   'flight-summary': flightSummaryJs,
   fly: flyJs,
+  foundation: foundationJs,
   'issue-triage': issueTriageJs,
   landing: landingJs,
   'locale-data': localeDataJs,

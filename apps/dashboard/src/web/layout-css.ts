@@ -144,6 +144,15 @@ body {
 .notify-quiet { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
 .notify-quiet label { color: var(--color-text-muted); }
 .notify-quiet input[type='time'] { font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.foundation > summary { color: var(--color-sev-high); }
+.foundation-body { gap: var(--space-2); }
+.foundation-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border); }
+.foundation-row:last-child { border-bottom: none; }
+.foundation-chain { font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; padding: var(--space-1) var(--space-2); border-radius: var(--shape-extra-small); background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+.foundation-label { font-size: var(--text-xs); color: var(--color-text-muted); }
+.foundation-address { font-size: var(--text-xs); word-break: break-all; flex: 1 1 auto; min-width: 0; }
+.foundation-copy { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface-raised); color: var(--color-text); }
+.foundation-copy:hover, .foundation-copy:focus-visible { border-color: var(--color-accent); color: var(--color-accent); }
 
 /* M3 filled-button interaction: state-layer overlay (hover/focus/press) + elevation lift. */
 .connect-form button::after, .connect-login::after, .task-add button::after, .inbox-add button::after, .soul-editor-form button::after {

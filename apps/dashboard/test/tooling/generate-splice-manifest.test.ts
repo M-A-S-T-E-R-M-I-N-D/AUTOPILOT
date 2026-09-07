@@ -48,6 +48,7 @@ import { firingTimelineJs } from '../../src/web/features/firing-timeline.js';
 import { flightConsoleJs } from '../../src/web/features/flight-console.js';
 import { flightSummaryJs } from '../../src/web/features/flight-summary.js';
 import { flyJs } from '../../src/web/features/fly.js';
+import { foundationJs } from '../../src/web/features/foundation.js';
 import { issueTriageJs } from '../../src/web/features/issue-triage.js';
 import { landingJs } from '../../src/web/features/landing.js';
 import { localeDataJs } from '../../src/web/features/locale-data.js';
@@ -112,6 +113,7 @@ const FIRING_TIMELINE_TS = featureTs('firing-timeline');
 const FLIGHT_CONSOLE_TS = featureTs('flight-console');
 const FLIGHT_SUMMARY_TS = featureTs('flight-summary');
 const FLY_TS = featureTs('fly');
+const FOUNDATION_TS = featureTs('foundation');
 const ISSUE_TRIAGE_TS = featureTs('issue-triage');
 const LANDING_TS = featureTs('landing');
 const LOCALE_DATA_TS = featureTs('locale-data');
@@ -1364,6 +1366,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'flight-console.ts': ['flightConsoleJs'],
     'flight-summary.ts': ['flightSummaryJs'],
     'fly.ts': ['flyJs'],
+    'foundation.ts': ['foundationJs'],
     'issue-triage.ts': ['issueTriageJs'],
     'landing.ts': ['landingJs'],
     'locale-data.ts': ['localeDataJs'],
@@ -1413,6 +1416,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const flightConsoleSource = readFileSync(FLIGHT_CONSOLE_TS, 'utf8');
     const flightSummarySource = readFileSync(FLIGHT_SUMMARY_TS, 'utf8');
     const flySource = readFileSync(FLY_TS, 'utf8');
+    const foundationSource = readFileSync(FOUNDATION_TS, 'utf8');
     const issueTriageSource = readFileSync(ISSUE_TRIAGE_TS, 'utf8');
     const landingSource = readFileSync(LANDING_TS, 'utf8');
     const localeDataSource = readFileSync(LOCALE_DATA_TS, 'utf8');
@@ -1469,6 +1473,9 @@ describe('discoverFeatureModules against the real src/web/features directory —
       ['flightSummaryJs'],
     );
     const directFlyManifest = buildAssemblyManifest(flySource, FLY_TS, ['flyJs']);
+    const directFoundationManifest = buildAssemblyManifest(foundationSource, FOUNDATION_TS, [
+      'foundationJs',
+    ]);
     const directIssueTriageManifest = buildAssemblyManifest(issueTriageSource, ISSUE_TRIAGE_TS, [
       'issueTriageJs',
     ]);
@@ -1535,6 +1542,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directFlightConsoleManifest,
       directFlightSummaryManifest,
       directFlyManifest,
+      directFoundationManifest,
       directIssueTriageManifest,
       directLandingManifest,
       directLocaleDataManifest,
@@ -1819,7 +1827,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
@@ -1833,6 +1841,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { flightConsoleJs } from './flight-console.js';");
     expect(source).toContain("import { flightSummaryJs } from './flight-summary.js';");
     expect(source).toContain("import { flyJs } from './fly.js';");
+    expect(source).toContain("import { foundationJs } from './foundation.js';");
     expect(source).toContain("import { issueTriageJs } from './issue-triage.js';");
     expect(source).toContain("import { landingJs } from './landing.js';");
     expect(source).toContain("import { localeDataJs } from './locale-data.js';");
@@ -1873,7 +1882,8 @@ describe('generateFeatureModulesIndexSource', () => {
       source.indexOf("'./flight-summary.js'"),
     );
     expect(source.indexOf("'./flight-summary.js'")).toBeLessThan(source.indexOf("'./fly.js'"));
-    expect(source.indexOf("'./fly.js'")).toBeLessThan(source.indexOf("'./issue-triage.js'"));
+    expect(source.indexOf("'./fly.js'")).toBeLessThan(source.indexOf("'./foundation.js'"));
+    expect(source.indexOf("'./foundation.js'")).toBeLessThan(source.indexOf("'./issue-triage.js'"));
     expect(source.indexOf("'./issue-triage.js'")).toBeLessThan(source.indexOf("'./landing.js'"));
     expect(source.indexOf("'./landing.js'")).toBeLessThan(source.indexOf("'./locale-data.js'"));
     expect(source.indexOf("'./locale-data.js'")).toBeLessThan(source.indexOf("'./locale.js'"));
@@ -1904,7 +1914,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2823,6 +2833,25 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     expect(await reconstructUpdateJs()).toBe(updateJs());
   });
 
+  async function reconstructFoundationJs(): Promise<string> {
+    const foundationSource = readFileSync(FOUNDATION_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(foundationSource, FOUNDATION_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        foundationSource,
+        'foundationJs',
+        resolvedBindings,
+        undefined,
+        FOUNDATION_TS,
+      )
+    ).trim();
+  }
+
+  it('foundationJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/foundation.ts (the zero-slot shape)', async () => {
+    expect(await reconstructFoundationJs()).toBe(foundationJs());
+  });
+
   it('tourJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off tour.ts', async () => {
     const tourSource = readFileSync(TOUR_TS, 'utf8');
     const manifest = buildAssemblyManifest(tourSource, TOUR_TS, ['tourJs']);
@@ -3679,6 +3708,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('flightConsoleJs', await reconstructFlightConsoleJs());
     nestedOutputs.set('flightSummaryJs', await reconstructFlightSummaryJs());
     nestedOutputs.set('flyJs', await reconstructFlyJs());
+    nestedOutputs.set('foundationJs', await reconstructFoundationJs());
     nestedOutputs.set('issueTriageJs', await reconstructIssueTriageJs());
     nestedOutputs.set('landingJs', await reconstructLandingJs());
     nestedOutputs.set('localeDataJs', await reconstructLocaleDataJs());

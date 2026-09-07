@@ -127,6 +127,12 @@ const BENIGN_FLIGHT = new Set([
   // GitHub, so widening it changes what the operator sees, not what the
   // repo does — the pool client's own claim wiring is the flagged half.
   'publicity.ts',
+  // Read-only donations.json parse (FOUNDATION 1/3): reads a file path this
+  // module hardcodes itself (never operator/request input), validates every
+  // entry's shape, and degrades to an empty list on any missing/malformed
+  // input. It never writes; `server/donations.ts`'s `GET /api/donations`
+  // wraps it read-only, same as `publicity.ts`'s `/api/publicity` above.
+  'donations.ts',
   // Pure probe→plan arithmetic (the Fly bar's 🍀 calibrator): no I/O at
   // all — the server assembles the probe, this only sizes lanes/firings.
   // Its plan FILLS the Fly bar; the launch (and its spend) stays behind
@@ -863,6 +869,10 @@ const BENIGN_WEB_FEATURES = new Set([
   'firing-timeline.ts',
   'flight-console.ts',
   'flight-summary.ts',
+  // foundation.ts: GET /api/donations only — read-only, no execute pair (a
+  // copy-to-clipboard button is a client-local no-op, never a write). Same
+  // shape as publicity.ts below.
+  'foundation.ts',
   // locale-data.ts: no fetch, no I/O — the non-English half of the
   // build-time STRINGS table (board ap-mtk2tgvh-0's BUNDLE DIET),
   // Object.assign'd into core's already-benign locale.ts data.

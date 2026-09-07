@@ -110,6 +110,15 @@ describe('masthead census (EPIC 0017 slice 1/5) — pins every existing control 
     expect(masthead).toContain('id="notify-hint"');
   });
 
+  it('renders the Foundation funding heart, hidden until donations are verified', () => {
+    expect(masthead).toContain('id="foundation"');
+    expect(masthead).toContain('hidden');
+    expect(masthead).toContain('id="foundation-summary"');
+    expect(masthead).toContain('data-i18n-tip="foundationTip"');
+    expect(masthead).toContain('data-i18n-aria="foundation"');
+    expect(masthead).toContain('id="foundation-body"');
+  });
+
   it('renders the guided-tour launcher', () => {
     expect(masthead).toContain('id="tour-btn"');
     expect(masthead).toContain('aria-haspopup="dialog"');

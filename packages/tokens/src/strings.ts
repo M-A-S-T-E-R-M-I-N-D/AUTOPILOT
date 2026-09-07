@@ -1283,6 +1283,14 @@ const EN_STRINGS = {
   flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
   projectNotFound: 'Project not found',
   projectNotFoundBody: 'It may have been removed from the dashboard. Head back to the fleet.',
+  // web/features/foundation.ts's masthead heart + Foundation panel (FOUNDATION
+  // 1/3, board web-mtq0rsit-ywz1m7) — hidden until GET /api/donations reports
+  // a real, verified entry (see docs/FOUNDATION.md's "never before" custody
+  // promise), so these strings sit dormant in most installs today.
+  foundation: 'Foundation',
+  foundationTip: 'Support AUTOPILOT — verified donation addresses',
+  foundationCopyAddress: 'Copy address',
+  foundationCopied: 'Copied!',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1844,6 +1852,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightDebriefRemediationTip: 'תיקוני RemediatingGate מכניים בטיסה הזו',
     projectNotFound: 'הפרויקט לא נמצא',
     projectNotFoundBody: 'ייתכן שהוא הוסר מלוח הבקרה. חזרו לצי.',
+    foundation: 'קרן',
+    foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
+    foundationCopyAddress: 'העתק כתובת',
+    foundationCopied: 'הועתק!',
   },
 };
 

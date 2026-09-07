@@ -95,6 +95,8 @@ import {
 // so existing importers of the pool client/publicity contracts keep working
 // unchanged.
 export type { PoolClientApi, PublicityApi, PoolClientExecuteApi };
+import { handleDonations } from './donations.js';
+import type { DonationsPreviewApi } from '../flight/donations.js';
 import type {
   LandingInfo,
   FiringsPage,
@@ -577,6 +579,11 @@ export interface ServerDeps extends RouteDeps {
   /** Publicity affordances (epic 0007, "PLATFORM 7/7"): repo/watch/star/
    *  discussions links, dormant while the repo stays private. */
   readonly publicity?: PublicityApi;
+  /** Foundation donation addresses (FOUNDATION 1/3, board
+   *  web-mtq0rsit-ywz1m7): chain-tagged BTC/EVM/SOL addresses, hidden until
+   *  `docs/donations.json` carries a verified entry — see
+   *  `flight/donations.ts`. */
+  readonly donations?: DonationsPreviewApi;
   /** Over-the-air update (operator ask 2026-09-05): version check against
    *  origin's tags + the progress-preserving one-click update — see
    *  `flight/update-check.ts` for the never-clobber guarantees. */
@@ -2683,6 +2690,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/publicity') {
       void handlePublicity(req, res, deps.publicity, headers);
+      return;
+    }
+
+    if (path === '/api/donations') {
+      void handleDonations(req, res, deps.donations, headers);
       return;
     }
 

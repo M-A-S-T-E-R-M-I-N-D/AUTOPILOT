@@ -3802,6 +3802,10 @@ export function renderShell(project?: string): string {
           <p class="connect-hint" id="notify-hint" role="status" aria-live="polite"></p>
         </div>
       </details>
+      <details class="connect foundation" id="foundation" hidden>
+        <summary id="foundation-summary" data-tip="Support AUTOPILOT — verified donation addresses" data-i18n-tip="foundationTip" aria-label="Foundation" data-i18n-aria="foundation">♥</summary>
+        <div class="connect-body foundation-body" id="foundation-body"></div>
+      </details>
       <button type="button" class="tour-btn" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip" data-i18n="tour">Tour</button>
     </div>
   </header>
