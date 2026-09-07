@@ -1250,6 +1250,7 @@ function soulReviewBtn(projectId) {
   var tip = "This project's starter SOUL prompt was auto-generated and has not been reviewed by you yet — click to mark it reviewed";
   var btn = el('button', 'soul-review-btn', '◐ SOUL unreviewed');
   btn.setAttribute('type', 'button');
+  btn.setAttribute('data-i18n', 'soulUnreviewed');
   btn.setAttribute('data-soul-review', projectId);
   btn.setAttribute('data-tip', tip);
   // D1 ATTRIBUTE PAYLOAD (epic 0015, board web-mtd1wmqc-v7h6cq): the button's
@@ -1428,6 +1429,7 @@ function fleetWisdomPanel(proposedText, wisdomKind) {
   var ratifyTip = "Apply this amendment as the live fleet-wide wisdom — every project's next firing carries it";
   var ratifyBtn = el('button', 'soul-ratify-btn', '✓ ratify');
   ratifyBtn.setAttribute('type', 'button');
+  ratifyBtn.setAttribute('data-i18n', 'soulRatify');
   ratifyBtn.setAttribute('data-fleet-wisdom-ratify', '');
   ratifyBtn.setAttribute('data-tip', ratifyTip);
   ratifyBtn.setAttribute('aria-label', ratifyTip);
@@ -1435,6 +1437,7 @@ function fleetWisdomPanel(proposedText, wisdomKind) {
   var dismissTip = 'Discard this proposed fleet wisdom — the live shared wisdom is unchanged';
   var dismissBtn = el('button', 'soul-dismiss-btn', '✗ dismiss');
   dismissBtn.setAttribute('type', 'button');
+  dismissBtn.setAttribute('data-i18n', 'soulDismiss');
   dismissBtn.setAttribute('data-fleet-wisdom-dismiss', '');
   dismissBtn.setAttribute('data-tip', dismissTip);
   dismissBtn.setAttribute('aria-label', dismissTip);

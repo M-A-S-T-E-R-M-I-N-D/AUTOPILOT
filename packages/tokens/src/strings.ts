@@ -611,6 +611,12 @@ const EN_STRINGS = {
   soulRatify: '✓ ratify',
   soulDismiss: '✗ dismiss',
   soulUnratify: '↺ un-ratify',
+  // The card head's "◐ SOUL unreviewed" badge-button (shell.ts's
+  // soulReviewBtn(), board web-msnsndki-dz3vn1). Its aria-describedby tip
+  // stays the English sentence for now — only the visible label rides the
+  // [data-i18n] sweep. The fleet-wisdom banner's ✓ ratify / ✗ dismiss pair
+  // reuses soulRatify / soulDismiss above rather than minting twins.
+  soulUnreviewed: '◐ SOUL unreviewed',
   startOver: '↺ Start over',
   prReviewTitle: '🗝️ KEEPER PR review',
   prReviewApply: 'Apply',
@@ -1425,6 +1431,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulRatify: '✓ אשרר',
     soulDismiss: '✗ בטל',
     soulUnratify: '↺ בטל אשרור',
+    soulUnreviewed: '◐ SOUL לא נסקר',
     startOver: '↺ התחל מחדש',
     prReviewTitle: '🗝️ סקירת PR של KEEPER',
     prReviewApply: 'החל',
