@@ -67,6 +67,10 @@ jobs:
       - name: Launcher smoke test (.sh scripts actually executed, not just described)
         run: pnpm run ci:launcher-smoke
 
+      - name: Launcher smoke test (.cmd scripts, windows-latest only)
+        if: matrix.os == 'windows-latest'
+        run: pnpm run ci:launcher-smoke-cmd
+
       - name: Test + coverage (>=80%)
         run: pnpm run test:coverage
 
