@@ -1268,6 +1268,8 @@ const EN_STRINGS = {
   flightDebriefRemediationSingular: '{count} auto-remediation',
   flightDebriefRemediationPlural: '{count} auto-remediations',
   flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
+  projectNotFound: 'Project not found',
+  projectNotFoundBody: 'It may have been removed from the dashboard. Head back to the fleet.',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1820,6 +1822,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightDebriefRemediationSingular: '{count} תיקון אוטומטי',
     flightDebriefRemediationPlural: '{count} תיקונים אוטומטיים',
     flightDebriefRemediationTip: 'תיקוני RemediatingGate מכניים בטיסה הזו',
+    projectNotFound: 'הפרויקט לא נמצא',
+    projectNotFoundBody: 'ייתכן שהוא הוסר מלוח הבקרה. חזרו לצי.',
   },
 };
 

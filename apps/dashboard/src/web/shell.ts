@@ -2993,8 +2993,12 @@ function renderProjectPage(state, pid) {
   for (var i = 0; i < list.length; i++) if (list[i].id === pid) c = list[i];
   if (!c) {
     var e = el('div', 'empty');
-    e.appendChild(el('h2', null, 'Project not found'));
-    e.appendChild(el('p', 'muted', 'It may have been removed from the dashboard. Head back to the fleet.'));
+    var notFoundH = el('h2', null, 'Project not found');
+    notFoundH.setAttribute('data-i18n', 'projectNotFound');
+    e.appendChild(notFoundH);
+    var notFoundP = el('p', 'muted', 'It may have been removed from the dashboard. Head back to the fleet.');
+    notFoundP.setAttribute('data-i18n', 'projectNotFoundBody');
+    e.appendChild(notFoundP);
     fleet.appendChild(e);
     return;
   }
