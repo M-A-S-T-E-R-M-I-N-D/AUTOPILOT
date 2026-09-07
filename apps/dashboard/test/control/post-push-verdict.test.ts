@@ -16,7 +16,6 @@ import type { WorkflowRunStatus } from '../../src/control/ci-status.js';
 import {
   decidePostPushVerdict,
   filePostPushVerdictTask,
-  postPushRemediationMode,
   type PostPushVerdictContext,
 } from '../../src/control/post-push-verdict.js';
 
@@ -153,21 +152,5 @@ describe('filePostPushVerdictTask', () => {
     expect(filePostPushVerdictTask(store, onMain)).toBe(true);
     expect(filePostPushVerdictTask(store, onOther)).toBe(true);
     expect(recentTasks(store.db, 'proj-1', 10)).toHaveLength(2);
-  });
-});
-
-describe('postPushRemediationMode', () => {
-  it('defaults to "board" when AUTOPILOT_CI_REMEDIATION is unset', () => {
-    expect(postPushRemediationMode({})).toBe('board');
-  });
-
-  it('reads "fly" when explicitly set', () => {
-    expect(postPushRemediationMode({ AUTOPILOT_CI_REMEDIATION: 'fly' })).toBe('fly');
-  });
-
-  it('fails closed to "board" on an unrecognized value, never uncapping to "fly"', () => {
-    expect(postPushRemediationMode({ AUTOPILOT_CI_REMEDIATION: 'FLY' })).toBe('board');
-    expect(postPushRemediationMode({ AUTOPILOT_CI_REMEDIATION: 'yes' })).toBe('board');
-    expect(postPushRemediationMode({ AUTOPILOT_CI_REMEDIATION: '' })).toBe('board');
   });
 });
