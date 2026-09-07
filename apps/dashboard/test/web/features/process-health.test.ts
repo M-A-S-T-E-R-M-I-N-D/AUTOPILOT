@@ -60,6 +60,17 @@ describe('processHealthJs', () => {
     expect(out).not.toContain('function statTile(');
   });
 
+  it('tags each panel title data-i18n and leaves the sweep to renderProjectPage (board web-msnsndki-dz3vn1)', () => {
+    const out = processHealthJs();
+    expect(out).toContain("doraTitle.setAttribute('data-i18n', 'doraTitle');");
+    expect(out).toContain("gateParallelTitle.setAttribute('data-i18n', 'gateParallelTitle');");
+    expect(out).toContain("warmSessionsTitle.setAttribute('data-i18n', 'warmSessionsTitle');");
+    // All three titles are built synchronously inside renderProjectPage() and
+    // ride its page-level sweep — no async re-render of their own, so no
+    // panel-local translateDom() call (unlike issue-triage.ts's fetch states).
+    expect(out).not.toContain('translateDom(');
+  });
+
   it('is trimmed — no leading/trailing whitespace', () => {
     const out = processHealthJs();
     expect(out).toBe(out.trim());

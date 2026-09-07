@@ -41,6 +41,13 @@
  * (which stays inline in `fleetJs()`, shared with `renderStatTiles`) and
  * `fmtDuration`, called by name inside these sections, hoist the same way from
  * `fleetJs()`'s own top-level declarations.
+ *
+ * i18n (board web-msnsndki-dz3vn1): each panel's `h3` title carries its
+ * English default AND a `data-i18n` tag, then rides the page-level
+ * `translateDom()` sweep that follows every `renderProjectPage()` tick — all
+ * three are built synchronously at mount, with no async re-render path of
+ * their own, so unlike `issue-triage.ts`'s fetch states none needs a
+ * panel-local sweep.
  */
 import { doraTileItems, gateParallelTileItems, warmSessionTileItems } from '../stat-tiles.js';
 
@@ -64,7 +71,9 @@ function doraSection(c) {
   var d = c.dora;
   if (!d) return null;
   var wrap = el('section', 'dora-panel');
-  wrap.appendChild(el('h3', 'dora-title', '📈 Process health (DORA)'));
+  var doraTitle = el('h3', 'dora-title', '📈 Process health (DORA)');
+  doraTitle.setAttribute('data-i18n', 'doraTitle');
+  wrap.appendChild(doraTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'dora-tiles';
   var items = doraTileItems(d, fmtDuration);
@@ -86,7 +95,9 @@ function gateParallelSection(c) {
   var g = c.gateParallel;
   if (!g || g.sampledFirings === 0) return null;
   var wrap = el('section', 'gate-parallel-panel');
-  wrap.appendChild(el('h3', 'gate-parallel-title', '⚡ Parallel gate savings'));
+  var gateParallelTitle = el('h3', 'gate-parallel-title', '⚡ Parallel gate savings');
+  gateParallelTitle.setAttribute('data-i18n', 'gateParallelTitle');
+  wrap.appendChild(gateParallelTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'gate-parallel-tiles';
   var items = gateParallelTileItems(g, fmtDuration);
@@ -109,7 +120,9 @@ function warmSessionsSection(c) {
   var w = c.warmSessions;
   if (!w || w.resumed.firings === 0) return null;
   var wrap = el('section', 'warm-sessions-panel');
-  wrap.appendChild(el('h3', 'warm-sessions-title', '🔥 Warm sessions'));
+  var warmSessionsTitle = el('h3', 'warm-sessions-title', '🔥 Warm sessions');
+  warmSessionsTitle.setAttribute('data-i18n', 'warmSessionsTitle');
+  wrap.appendChild(warmSessionsTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'warm-sessions-tiles';
   var items = warmSessionTileItems(w);

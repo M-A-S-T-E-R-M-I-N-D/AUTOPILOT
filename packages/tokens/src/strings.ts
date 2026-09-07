@@ -1304,6 +1304,12 @@ const EN_STRINGS = {
   issueTriageLoading: 'Checking open issues against the board…',
   issueTriageEmpty: 'No open issues to triage.',
   issueTriageUnavailable: 'Issue triage unavailable.',
+  // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
+  // page's three process-health stat-tile panel titles. "DORA" is an acronym
+  // (DevOps Research and Assessment) and stays Latin in every locale.
+  doraTitle: '📈 Process health (DORA)',
+  gateParallelTitle: '⚡ Parallel gate savings',
+  warmSessionsTitle: '🔥 Warm sessions',
   // web/features/foundation.ts's masthead heart + Foundation panel (FOUNDATION
   // 1/3, board web-mtq0rsit-ywz1m7) — hidden until GET /api/donations reports
   // a real, verified entry (see docs/FOUNDATION.md's "never before" custody
@@ -1884,6 +1890,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     issueTriageLoading: 'בודק issues פתוחים מול הלוח…',
     issueTriageEmpty: 'אין issues פתוחים לטריאז׳.',
     issueTriageUnavailable: 'טריאז׳ ה-issues אינו זמין.',
+    doraTitle: '📈 בריאות התהליך (DORA)',
+    gateParallelTitle: '⚡ חיסכון משער מקבילי',
+    warmSessionsTitle: '🔥 מפגשים חמים',
     foundation: 'קרן',
     foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
     foundationCopyAddress: 'העתק כתובת',
