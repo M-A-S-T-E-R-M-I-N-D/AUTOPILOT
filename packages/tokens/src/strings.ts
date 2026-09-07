@@ -1291,6 +1291,7 @@ const EN_STRINGS = {
   foundationTip: 'Support AUTOPILOT — verified donation addresses',
   foundationCopyAddress: 'Copy address',
   foundationCopied: 'Copied!',
+  foundationQrAlt: 'QR code for the {name} address',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1856,6 +1857,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
     foundationCopyAddress: 'העתק כתובת',
     foundationCopied: 'הועתק!',
+    foundationQrAlt: 'קוד QR לכתובת {name}',
   },
 };
 

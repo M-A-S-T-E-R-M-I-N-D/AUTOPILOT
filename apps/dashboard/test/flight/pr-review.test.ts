@@ -805,6 +805,14 @@ const BENIGN_WEB = new Set([
   'layout-css.ts',
   'shell-html.ts',
   'shell.ts',
+  // A trimmed vendor copy of `qrcode-generator` (MIT) — pure matrix math
+  // (Reed-Solomon over GF(256), mask-pattern scoring, module placement), no
+  // HTML building, no I/O, no gh, no fetch. Spliced verbatim into
+  // `foundation.ts`'s output as `${QRCODE_LIB_JS}` (the same bare-identifier
+  // shape `office-map.ts`'s OFFICE_W/OFFICE_H already use); the trim's
+  // behavioral equivalence to the real upstream package is a devDependency
+  // cross-check in `test/web/qrcode-lib.test.ts`, not a hand-audit here.
+  'qrcode-lib.ts',
 ]);
 
 /** `web/features/` files (epic 0002 "shell decomposition") — each is a

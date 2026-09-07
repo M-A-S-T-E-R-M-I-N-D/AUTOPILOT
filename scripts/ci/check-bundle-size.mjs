@@ -34,8 +34,20 @@ const CORE_GZIP_BUDGET = 52 * 1024;
 // Deferred chunks never block first paint — the budget exists so they cannot
 // silently become a second monolith. Measured at introduction (2026-08-28):
 // project ~44KB, panels ~19KB raw.
-const CHUNK_RAW_BUDGET = 100 * 1024;
-const CHUNK_GZIP_BUDGET = 30 * 1024;
+//
+// Raised 100→112KB / 30→34KB (2026-09-07): FOUNDATION 1/3's QR slice
+// (board web-mtq0rsit-ywz1m7) embeds a trimmed vendor copy of
+// `qrcode-generator` (MIT, `web/qrcode-lib.ts`) into `foundation.ts` so the
+// masthead's donation-address rows render a local QR — no third-party QR
+// service, matching docs/FOUNDATION.md's custody stance. Trimming to
+// byte-mode-only + inline-SVG output (no GIF/raster exporters, no
+// Numeric/Alphanumeric/Kanji modes) still measured 103.4KB/31.8KB, over the
+// old 100/30 budget on both axes — see the matching comment in
+// apps/dashboard/test/server/client-bundle-size-budget.test.ts for the exact
+// numbers and `apps/dashboard/test/web/qrcode-lib.test.ts` for the
+// upstream-equivalence proof the trim didn't change behavior.
+const CHUNK_RAW_BUDGET = 112 * 1024;
+const CHUNK_GZIP_BUDGET = 34 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

@@ -153,6 +153,7 @@ body {
 .foundation-address { font-size: var(--text-xs); word-break: break-all; flex: 1 1 auto; min-width: 0; }
 .foundation-copy { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface-raised); color: var(--color-text); }
 .foundation-copy:hover, .foundation-copy:focus-visible { border-color: var(--color-accent); color: var(--color-accent); }
+.foundation-qr { flex: 0 0 auto; width: 88px; height: 88px; background: #fff; padding: var(--space-1); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); shape-rendering: crispEdges; }
 
 /* M3 filled-button interaction: state-layer overlay (hover/focus/press) + elevation lift. */
 .connect-form button::after, .connect-login::after, .task-add button::after, .inbox-add button::after, .soul-editor-form button::after {

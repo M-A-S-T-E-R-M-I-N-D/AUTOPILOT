@@ -41,6 +41,20 @@ describe('foundationJs', () => {
     expect(out).toContain("tr('foundationCopied')");
   });
 
+  it('embeds the vendored QR library and renders each entry as an inline, local SVG', () => {
+    const out = foundationJs();
+    expect(out).toContain('var qrcode = function() {');
+    expect(out).toContain('function buildQrSvg(text, ariaLabel)');
+    expect(out).toContain("qr.addData(text, 'Byte')");
+    expect(out).toContain("document.createElementNS('http://www.w3.org/2000/svg', 'svg')");
+    expect(out).toContain('row.appendChild(buildQrSvg(entry.address');
+    expect(out).not.toContain(".createElement('img'");
+  });
+
+  it("localizes the QR's accessible name via tr('foundationQrAlt', ...)", () => {
+    expect(foundationJs()).toContain("tr('foundationQrAlt', chainLabel)");
+  });
+
   it('is trimmed — no leading/trailing whitespace', () => {
     const out = foundationJs();
     expect(out).toBe(out.trim());

@@ -80,11 +80,24 @@ import {
  * headroom this time, matching the size of the last few slices rather than
  * cutting it to single digits again. The structural fix (VERDICT split
  * web-mtbodv7m-uzhovs) remains the tracked follow-up.
+ *
+ * CORE unchanged by the entry below (178307 raw / 53215 gzip, ~1.9KB/33B
+ * headroom left — the single new `foundationQrAlt` STRINGS key still lands
+ * in core via `localeJs()`, board web-mtq0rsit-ywz1m7's QR slice). The
+ * CHUNK budget is the one that moved:
+ *
+ * Raised CHUNK 100→112KB / 30→34KB (2026-09-07): FOUNDATION 1/3's QR slice
+ * embeds a trimmed vendor copy of `qrcode-generator` (MIT,
+ * `web/qrcode-lib.ts`) into `foundation.ts`'s panels-chunk module so
+ * donation-address rows render a local QR (no third-party service).
+ * Trimmed to byte-mode-only + inline-SVG output, panels measured 103403 raw
+ * / 31798 gzip against the old 102400 / 30720 budget. Mirror any further
+ * change here in scripts/ci/check-bundle-size.mjs.
  */
 const CORE_RAW_BUDGET = 176 * 1024;
 const CORE_GZIP_BUDGET = 52 * 1024;
-const CHUNK_RAW_BUDGET = 100 * 1024;
-const CHUNK_GZIP_BUDGET = 30 * 1024;
+const CHUNK_RAW_BUDGET = 112 * 1024;
+const CHUNK_GZIP_BUDGET = 34 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([
