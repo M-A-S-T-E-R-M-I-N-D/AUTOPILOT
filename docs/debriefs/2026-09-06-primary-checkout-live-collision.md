@@ -328,3 +328,58 @@ accidental sweep of the eleven still-unstaged foreign paths).
 movement is now confirmed reproducible via nothing more than two
 read-only `git status` polls a few seconds apart — this is not a rare
 timing accident, it is the checkout's steady state under fleet load.
+
+## Verdict reconfirmed a seventh time, a placeholder artifact resolved into a
+## staged diff mid-read: firing-178 (2026-09-07)
+
+This firing's first `git status` showed two untracked files —
+`.tmp-stashed-rct.ts` and `scripts/ci/launcher-smoke.mjs` — plus unstaged
+edits to `.github/workflows/ci.yml` and `package.json` wiring a new
+`ci:launcher-smoke` step. `scripts/ci/launcher-smoke.mjs` self-identified as
+a complete, working CI smoke test for board `web-mtqanfe4-pil22i` slice
+1/2. `.tmp-stashed-rct.ts` was a different shape from anything in entries
+one through six: not a normal source file, but a full copy of
+`apps/dashboard/src/flight/report-compose-tasks.ts`'s slice-1+2 content
+(COMPOSER TARGET=TASKS, board `web-mtq2m6la-ckpxm7`) sitting at a
+non-source, temp-looking path. This firing read it (a plain file read, no
+git operation) and moved on to a `git status` a few tool-calls later —
+which came back **completely different**: `.tmp-stashed-rct.ts` was gone
+entirely, and in its place `apps/dashboard/src/flight/report-compose-tasks.ts`
++ its test now showed as **staged** modifications, content matching what
+the temp file had held. No `git stash`/`add`/`commit` of this firing's own
+ran in between. `git stash list` explained the source: `stash@{0}` is
+titled `"On autopilot/flight: wip: report-compose-tasks slice2
+(applyComposedTasks) + shell.ts i18n sweep tranche1 - from turn-capped
+firing 175, not yet gated/committed"` — a checkpoint stash from a prior
+turn-capped firing, still present in the stash list (not popped — `stash
+pop` removes the entry; this one didn't), while its `report-compose-tasks.ts`
+portion had independently reappeared staged in the working tree. Two
+`git status --porcelain` polls three seconds apart, after that point, came
+back byte-identical — the state had settled, not still flapping.
+
+New data point beyond entries one through six: a stash entry can go
+**partially stale** while still sitting in the stash list. Diffing
+`stash@{0}`'s other two touched paths (`apps/dashboard/src/web/shell.ts`,
+`packages/tokens/src/strings.ts`, the "i18n sweep tranche1" half of the
+same checkpoint) against `HEAD` came back empty — that half had already
+landed under some other commit, leaving the stash holding a mix of
+already-superseded and still-relevant hunks under one entry, with nothing
+in the stash list itself to tell which is which. Combined with
+`2026-09-06-primary-checkout-collision-recurs-live-blindspot.md`'s existing
+"stash contents are invisible to `touchingFiles`" finding, this sharpens the
+same gap: even a sibling that *does* eventually read a stash has no signal
+for whether any given hunk inside it is still live or a leftover no-op.
+
+Action taken: none against `.tmp-stashed-rct.ts` (already gone by the time
+this was written), the now-staged `report-compose-tasks.ts`/test, or the
+untracked `launcher-smoke.mjs`/`ci.yml`/`package.json` cluster — all left
+exactly as found. This firing's own board (EPIC 0018/0017/0016 slices, all
+high-priority) sit entirely inside the same dashboard hot zone
+(`shell.ts`, `pr-review.ts`, masthead/lanes wiring) already shown live and
+volatile above, so this firing deviates from PICK DISCIPLINE this once to
+avoid adding a fourth concurrent writer to that same zone, contributing
+only this documentation update instead (same choice entries one through
+six made). Only this file was read, edited, and committed
+(pathspec-scoped), same discipline as every prior entry.
+`ap-mtq0bpgj-2`/`ap-mtm4qzty-1` remain **open, operator-owned**; the
+(a)/(b)/(c) decision is unchanged.
