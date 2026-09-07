@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-09-07
+
 ### Added
 
 - feat(i18n): translate the FLIGHT DEBRIEF panel's stat-chip and notable-event text
