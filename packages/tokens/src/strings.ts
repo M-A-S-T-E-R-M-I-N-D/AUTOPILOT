@@ -564,6 +564,12 @@ const EN_STRINGS = {
   searchProject: 'Search a project',
   search: 'Search',
   searchQueryAria: 'Search query or question',
+  // web/features/search.ts's four result-state notes (board
+  // web-msnsndki-dz3vn1): each paints via tr() at birth and carries its key.
+  searchPickProject: 'Pick a project and type a query.',
+  searchSearching: 'Searching…',
+  searchNoMatches: 'No matches.',
+  searchFailed: 'Search failed.',
   deep: 'Deep',
   ask: 'Ask',
   askPersona: 'Ask persona',
@@ -964,6 +970,10 @@ const EN_STRINGS = {
   // details/error of its own.
   githubSyncResultOk: 'synced.',
   githubSyncResultFail: 'sync failed.',
+  // The project page's settings-row hints beside "↺ Start over" and
+  // "⇪ Sync to GitHub" (shell.ts renderProjectPage, board web-msnsndki-dz3vn1).
+  startOverHint: 'Resets firings + ship-rate counters to 0/0. Tasks, index, and backups are kept.',
+  githubSyncHint: 'Private by default. Creates a repo on first sync, pushes on every one after.',
   githubPrResultOk: 'pull request opened.',
   githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
@@ -1396,6 +1406,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     searchProject: 'חיפוש בפרויקט',
     search: 'חיפוש',
     searchQueryAria: 'שאילתת חיפוש או שאלה',
+    searchPickProject: 'בחרו פרויקט והקלידו שאילתה.',
+    searchSearching: 'מחפש…',
+    searchNoMatches: 'לא נמצאו תוצאות.',
+    searchFailed: 'החיפוש נכשל.',
     deep: 'מעמיק',
     ask: 'שאל',
     askPersona: 'פרסונת שאלה',
@@ -1657,6 +1671,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     githubSyncResultOk: 'סונכרן.',
     githubSyncResultFail: 'הסנכרון נכשל.',
+    startOverHint:
+      'מאפס את ספירת ההפעלות ואת שיעור השילוח ל-0/0. המשימות, האינדקס והגיבויים נשמרים.',
+    githubSyncHint: 'פרטי כברירת מחדל. הסנכרון הראשון יוצר מאגר, וכל סנכרון לאחריו דוחף אליו.',
     githubPrResultOk: 'ה-pull request נפתח.',
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',

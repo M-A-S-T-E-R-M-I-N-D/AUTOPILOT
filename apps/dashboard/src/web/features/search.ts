@@ -330,10 +330,20 @@ function searchInit() {
   var out = document.getElementById('search-results');
   renderSearchHistory(loadSearchHistory());
   if (!form || !out) return;
-  function render(hits, note) {
+  // i18n (board web-msnsndki-dz3vn1): every result-state note is rebuilt
+  // inside the submit handler or its fetch continuations — long after any
+  // page-level translateDom() sweep — so each paints via tr() in the locale
+  // active at birth AND carries its data-i18n key, so the language toggle's
+  // document-wide sweep keeps a note still on screen current.
+  function searchNote(key) {
+    var p = el('p', 'search-empty', tr(key));
+    p.setAttribute('data-i18n', key);
+    return p;
+  }
+  function render(hits, noteKey) {
     while (out.firstChild) out.removeChild(out.firstChild);
-    if (note) { out.appendChild(el('p', 'search-empty', note)); return; }
-    if (!hits || !hits.length) { out.appendChild(el('p', 'search-empty', 'No matches.')); return; }
+    if (noteKey) { out.appendChild(searchNote(noteKey)); return; }
+    if (!hits || !hits.length) { out.appendChild(searchNote('searchNoMatches')); return; }
     var ul = el('ul', 'search-hits');
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i];
@@ -391,13 +401,13 @@ function searchInit() {
     e.preventDefault();
     var project = sel ? sel.value : '';
     var q = qEl ? qEl.value.trim() : '';
-    if (!project || !q) { render(null, 'Pick a project and type a query.'); return; }
+    if (!project || !q) { render(null, 'searchPickProject'); return; }
     rememberSearchQuery(q);
-    render(null, 'Searching…');
+    render(null, 'searchSearching');
     fetch('/api/search?project=' + encodeURIComponent(project) + '&q=' + encodeURIComponent(q), { headers: { accept: 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : { hits: [] }; })
       .then(function (res) { render(res.hits || []); })
-      .catch(function () { render(null, 'Search failed.'); });
+      .catch(function () { render(null, 'searchFailed'); });
   });
 
   // Persona toggle (ARCHITECT chat v2 slice 2, docs/epics/0011-architect-
