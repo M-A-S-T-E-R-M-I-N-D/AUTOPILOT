@@ -43,7 +43,7 @@ engineering, failed. Boarded HIGH the same night: scope the gate + worktree
 to the flown folder or its nearest project root.
 
 The maintainer then landed the pilot's own commit — a cherry-pick, so the
-flight keeps its authorship (`09d13e5d`) — after re-verifying the 12/12 and
+flight keeps its authorship (`762269e4`) — after re-verifying the 12/12 and
 the browser behavior independently.
 
 ## The scorecard, against MISSION.md's own checklist

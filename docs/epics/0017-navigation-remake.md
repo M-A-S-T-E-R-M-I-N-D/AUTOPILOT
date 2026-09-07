@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Epic 0017 — Navigation remake: minimal, visual, memorable
 
 **Status:** ACTIVE (operator directive 2026-09-06). Slice 1/5 shipped —
-`9f9d287d` (census) + `217207f7` (icon cluster). Slices 2-5 wait for
+`ae2c2419` (census) + `a0bdbc0f` (icon cluster). Slices 2-5 wait for
 `shell.ts` commit velocity to drop (the i18n sweep, and since 2026-09-07 epic
 0018 too — same-file collision discipline), then land in slices. See the
 dependency audit's refresh below for the measured state.
@@ -71,7 +71,7 @@ concrete backlog to track them.
 
 ### Status
 
-- **Slice 1 shipped** — `9f9d287d` (`test(dashboard): masthead census — pin
+- **Slice 1 shipped** — `ae2c2419` (`test(dashboard): masthead census — pin
   every control before EPIC 0017 nav remake`). `masthead-census.test.ts` pins
   every existing masthead control at markup level (brand, updated status,
   OTLP chip, Connect popover + credential form + gh cluster + issue form,
@@ -140,7 +140,7 @@ concrete backlog to track them.
 ### Refresh (firing 228, 2026-09-07 13:30) — what moved since firing 208
 
 The board still carried this report at rank 1 when firing 228 read it, even
-though firing 208 tagged it `"completion":"complete"` on `024bc46e`. The close
+though firing 208 tagged it `"completion":"complete"` on `5800a96f`. The close
 hook (`markTaskDoneIfShipped`, `apps/dashboard/src/flight/firing-hooks.ts`)
 only runs when the firing record's `shipped` flag is true, and `telemetry.ts`
 sets that flag only when the gate result was `passed`; firing 208's record
@@ -151,7 +151,7 @@ re-issues them on its own PROPOSALS line. If the report is still open after
 this firing, close it by hand: the audit is delivered, the close path is what
 failed.
 
-- **Slice 1 is now fully shipped**, not just its safety net: `217207f7`
+- **Slice 1 is now fully shipped**, not just its safety net: `a0bdbc0f`
   (`feat(dashboard): epic 0017 nav remake 1/5 — theme/language become
   icon+popover menus`, 12:12) folded the theme and language button rows into
   `<details class="connect theme-menu">` 🎨 and `<details class="connect
@@ -160,13 +160,13 @@ failed.
   shells; `masthead-census.test.ts` still pins every underlying control. Both
   pass at HEAD (15 tests).
 - **Slice 1's "known follow-up" is absorbed.** Its commit deferred the
-  visual-baseline refresh; `d4277068` (12:43) regenerated all eight
-  CI-canonical baselines after `217207f7` landed, so the committed screenshots
+  visual-baseline refresh; `7755b0d7` (12:43) regenerated all eight
+  CI-canonical baselines after `a0bdbc0f` landed, so the committed screenshots
   already carry the icon cluster. No separate refresh is pending.
 - **The blocking condition still does not hold, and it has a second driver.**
   Re-measured at HEAD: 49 i18n commits in the trailing 48h (firing 208 counted
   43), 14 commits to `shell.ts` since 2026-09-06, the last at 12:43 — and that
-  one was epic 0018's many-lanes grid (`6da5b946`), not i18n. Epic 0018 ("0017
+  one was epic 0018's many-lanes grid (`c1287698`), not i18n. Epic 0018 ("0017
   owns the chrome, 0018 owns the CENTER") is now a second high-frequency writer
   to the same file, so the header's "waits for the i18n sweep to cool off" is
   really a `shell.ts`-velocity condition. Whoever claims slice 2 should

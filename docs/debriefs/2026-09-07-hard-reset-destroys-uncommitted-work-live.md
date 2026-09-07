@@ -55,17 +55,17 @@ firing never touched: `apps/dashboard/src/control/post-push-verdict.ts`,
 `git reflog -10` explained why:
 
 ```
-978c35d1 HEAD@{0}: reset: moving to HEAD
-978c35d1 HEAD@{1}: reset: moving to HEAD
-978c35d1 HEAD@{2}: reset: moving to HEAD
-978c35d1 HEAD@{3}: commit (amend): feat(ci): launcher smoke test actually executes .sh scripts, not just describes them
+07d0265e HEAD@{0}: reset: moving to HEAD
+07d0265e HEAD@{1}: reset: moving to HEAD
+07d0265e HEAD@{2}: reset: moving to HEAD
+07d0265e HEAD@{3}: commit (amend): feat(ci): launcher smoke test actually executes .sh scripts, not just describes them
 31e6f88a HEAD@{4}: cherry-pick: feat(ci): launcher smoke test actually executes .sh scripts, not just describes them
-a1cae51f HEAD@{5}: checkout: moving from autopilot/flight to autopilot/flight
+af0ea11f HEAD@{5}: checkout: moving from autopilot/flight to autopilot/flight
 ```
 
-`HEAD` moved from this firing's start point (`a1cae51f`) to `978c35d1` — a
+`HEAD` moved from this firing's start point (`af0ea11f`) to `07d0265e` — a
 commit re-landing a feature (`feat(ci): launcher smoke test...`) that a
-**prior firing had already reverted** (`25a1ca4a Revert "feat(ci): launcher
+**prior firing had already reverted** (`23074781 Revert "feat(ci): launcher
 smoke test actually executes .sh scripts, not just describes them"`, visible
 in this firing's own starting `git log`). A concurrent sibling process
 cherry-picked it, amended it, and then hard-reset the shared working tree to
@@ -95,7 +95,7 @@ reset destroying another's uncommitted work outright.
 
 Every prior reconfirmation of `ap-mtm4qzty-1` documented **commit-time**
 hazards: a scoped `git add` still landing a sibling's staged file in the same
-commit (`750bcee8`), an identical-content commit race, a swept test file, a
+commit (`4407238d`), an identical-content commit race, a swept test file, a
 fabricated 26-test failure batch from concurrent writes. All of those are
 about the wrong content ending up in a real, landed commit — lossy but
 recoverable (the content still exists somewhere, just misattributed). This
@@ -104,7 +104,7 @@ firing's uncommitted work with zero trace and zero recoverability** — had
 this firing not verified its own edits immediately after applying them (not
 a standard step, and not one every firing takes), the lost work would have
 gone completely unnoticed, not even reaching the noop/checkpoint path that
-would let a future firing resume it. The `6cbdacc4` detection rule (re-check
+would let a future firing resume it. The `3f4bd6c6` detection rule (re-check
 `git status`/`git log` before the final commit, treat unexplained dirty state
 as a sibling's) protects against picking up a false start; it does nothing
 for edits that were made, then destroyed, before that final check ever runs.

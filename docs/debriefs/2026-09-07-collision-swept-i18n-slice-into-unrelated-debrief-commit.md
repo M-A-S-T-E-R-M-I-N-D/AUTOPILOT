@@ -27,7 +27,7 @@ checkout did it first, and did it for real, not by losing the work.
    with a second, unrelated hunk (a `projectCardStates` per-project card-diff
    cache, a live sibling's own in-progress "chips repaint identical facts"
    fix, epic 0018 slice 1). `git log`/`git reflog` explained the clean-tree
-   readings: `HEAD` was moving underneath this firing — `978c35d1` (a launcher
+   readings: `HEAD` was moving underneath this firing — `07d0265e` (a launcher
    smoke-test commit, unrelated) landed while this firing was mid-edit,
    preceded by reflog entries showing `reset: moving to HEAD` around a
    cherry-pick+amend, the same shape `docs/debriefs/2026-09-07-hard-reset-
@@ -46,10 +46,10 @@ checkout did it first, and did it for real, not by losing the work.
    that the INDEX itself, not just the working tree, is shared and mutated
    concurrently on this primary checkout, a sharper variant than either prior
    debrief's "working tree only" framing.
-5. Before this firing's own commit ran, `HEAD` advanced to `abc3250f` — the
+5. Before this firing's own commit ran, `HEAD` advanced to `4a8977df` — the
    sibling's own commit, titled `docs(debriefs): hard reset destroys
    uncommitted work live — new ap-mtm4qzty-1 failure shape`. Checking `git show
-   abc3250f --stat` afterward showed **four** files, not the one the sibling's
+   4a8977df --stat` afterward showed **four** files, not the one the sibling's
    own commit message describes: `apps/dashboard/src/web/shell.ts` (+8/-2),
    `apps/dashboard/test/web/project-page-i18n.test.ts` (+50), and
    `packages/tokens/src/strings.ts` (+4) — exactly this firing's three-file
@@ -87,7 +87,7 @@ file. Two consequences distinct from the already-documented shapes:
 
 ## Verification performed this firing
 
-Re-ran the full targeted suite against current `HEAD` (`abc3250f`, still
+Re-ran the full targeted suite against current `HEAD` (`4a8977df`, still
 `HEAD` at the time of this check) after the collision settled:
 `apps/dashboard/test/web/project-page-i18n.test.ts` (5/5),
 `apps/dashboard/test/tooling/find-untagged-strings.test.ts` (17/17),
@@ -99,7 +99,7 @@ landed; no follow-up fix is needed for the code itself.
 
 None beyond this documentation. This firing's own three-file diff has nothing
 left to commit (it is already byte-identical to `HEAD`). No attempt was made
-to amend, revert, or re-author `abc3250f` — that would rewrite a commit this
+to amend, revert, or re-author `4a8977df` — that would rewrite a commit this
 firing does not own, on a shared branch, for a purely cosmetic attribution
 fix with zero functional benefit. `git add`/`git commit` for this file alone,
 pathspec-scoped, to avoid repeating the exact failure this file describes.
@@ -107,7 +107,7 @@ pathspec-scoped, to avoid repeating the exact failure this file describes.
 ## Verdict
 
 `web-msnsndki-dz3vn1`'s "Project not found" i18n slice is **done** — verified
-shipped on `HEAD` via `abc3250f`, even though this firing did not author that
+shipped on `HEAD` via `4a8977df`, even though this firing did not author that
 commit. The broader `ap-mtm4qzty-1` primary-checkout-collision hazard remains
 **open, operator-owned** (unchanged three-way decision: lock-check every raw-git
 session, mandatory worktree isolation, or accept bounded risk) — this entry adds

@@ -27,7 +27,7 @@ commit and mislabeled under its subject line.
    ("landed-commit ↔ issue-comment", epic 0016 slice 2, board
    `web-mtpzzx50-obq42b`). Content reviewed in full: a pure planner
    (`planMirrorPassLandingNote` + batch + command shaping) and 34 new tests,
-   consistent with derivation 1/4's already-landed shape (`1ffbb7cc`).
+   consistent with derivation 1/4's already-landed shape (`b31ff9be`).
 2. Verified clean: `pnpm run typecheck`, `pnpm run lint`, `pnpm run
    format:check`, targeted `vitest run` (34/34), `pnpm run test:impacted`
    (628/628 across the impacted + registry-guard suites), `pnpm run build` —
@@ -40,9 +40,9 @@ commit and mislabeled under its subject line.
    unsafe to assume static) returned **empty** — the two staged files were
    gone from the status output entirely, with no commit made by this firing.
 5. `git log --oneline -5` showed two new commits neither authored by this
-   firing: `750bcee8` ("docs: reconcile 2 stale BACKLOG-999.md rows against
-   shipped code") and, above it, `1510e428` (a different concurrent firing's
-   own debrief about a same-day commit race). `git show --stat 750bcee8`
+   firing: `4407238d` ("docs: reconcile 2 stale BACKLOG-999.md rows against
+   shipped code") and, above it, `a26316ee` (a different concurrent firing's
+   own debrief about a same-day commit race). `git show --stat 4407238d`
    listed all three files: `apps/dashboard/src/flight/mirror-pass.ts`,
    `apps/dashboard/test/flight/mirror-pass.test.ts`, **and**
    `docs/BACKLOG-999.md` — the last one is what that commit's subject
@@ -51,7 +51,7 @@ commit and mislabeled under its subject line.
 6. Confirmed no content was lost or corrupted: `git diff HEAD -- <both
    paths>` is empty (the committed tree matches this firing's verified
    working copy exactly), and `git log --oneline -- mirror-pass.ts` shows
-   only `1ffbb7cc` and `750bcee8` ever touching the file — derivation 2/4 is
+   only `b31ff9be` and `4407238d` ever touching the file — derivation 2/4 is
    fully, correctly present in history. It is simply attributed to a commit
    whose message never mentions it.
 
@@ -63,7 +63,7 @@ around the same moment, and (b) two processes committing *identical* staged
 content, where git's index locking makes the loser's `git commit` a silent
 no-op with nothing to show for it. This case has neither overlap nor
 duplication — the swept-in content was never staged, edited, or known to the
-process that ran `750bcee8`'s `git commit`. The only explanation consistent
+process that ran `4407238d`'s `git commit`. The only explanation consistent
 with a shared `.git/index`: that process staged its own `docs/BACKLOG-999.md`
 edit with something broader than a scoped `git add` (e.g. `-A` or `.`),
 picking up this firing's already-staged mirror-pass files from the same
@@ -79,7 +79,7 @@ derivation 2/4.
 Mirror-pass derivation 2/4 is **done and landed** — do not re-implement
 `planMirrorPassLandingNote`/`planMirrorPassLandingNoteBatch`/
 `fetchIssueComments`/`fetchMirrorPassIssueComments`, they exist in
-`apps/dashboard/src/flight/mirror-pass.ts` as of `750bcee8`, fully tested.
+`apps/dashboard/src/flight/mirror-pass.ts` as of `4407238d`, fully tested.
 Derivations 3/4 (README-claims ↔ tree) and 4/4 (stale-claim reaper) remain
 open per the file's own docstring.
 
@@ -87,7 +87,7 @@ open per the file's own docstring.
 
 This firing made zero commits: its own attempted `git add`/`git commit`
 sequence for the mirror-pass files never got the chance to run before the
-content was absorbed by `750bcee8`. It does not claim that commit as shipped
+content was absorbed by `4407238d`. It does not claim that commit as shipped
 work — the code is correct and independently verified above, but a different
 process's `git commit` invocation authored it. This debrief file is this
 firing's actual, attributable unit, added with a scoped `git add <path>`.

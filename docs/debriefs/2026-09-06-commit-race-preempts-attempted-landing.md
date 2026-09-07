@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Board: `ap-mtq0i8jd-3` ("Investigate concurrent-flight writes to one shared checkout").
 That task was already closed this session by
 `docs/debriefs/2026-09-06-primary-checkout-collision-recurs-live-blindspot.md`
-(landed as `b68755e3`). This is a narrower follow-up: while attempting to land that
+(landed as `c1f4d80f`). This is a narrower follow-up: while attempting to land that
 exact debrief, this firing's own `git commit` was itself preempted by a second,
 concurrent process committing the identical staged content first — a distinct failure
 shape from the stash-collision and commit-bundling cases already on record, worth
@@ -20,8 +20,8 @@ itself, not just on working-tree edits.
 1. This firing found `docs/debriefs/2026-09-06-primary-checkout-collision-recurs-live-blindspot.md`
    already staged (`git status` → `new file:`), left over from an interrupted prior
    firing in this same primary checkout. Its factual claims were independently
-   re-verified against live git state (`627b687b`'s stat, `git worktree list`,
-   the stash entry, `touchingFiles()`'s line number, `bb9bceb6`'s content) before
+   re-verified against live git state (`38492f7c`'s stat, `git worktree list`,
+   the stash entry, `touchingFiles()`'s line number, `b7472337`'s content) before
    proceeding — all confirmed accurate.
 2. First landing attempt: `git commit -m "..."` with a hand-written `Signed-off-by:`
    trailer in the message body. This was rejected before touching git history, by a
@@ -34,13 +34,13 @@ itself, not just on working-tree edits.
    both pre-existing live edits from a different, still-running process working the
    mirror-pass epic — confirmed untouched by this firing) and nothing about the
    debrief file at all.
-4. `git log -1` immediately after showed `b68755e3`, subject
+4. `git log -1` immediately after showed `c1f4d80f`, subject
    `"docs(debriefs): catch a live commit-bundling collision + fleet-digest blind spot
-   (ap-mtq0i8jd-3)"` — a message this firing never wrote. `git show --stat b68755e3`
+   (ap-mtq0i8jd-3)"` — a message this firing never wrote. `git show --stat c1f4d80f`
    confirmed its tree is exactly the same 177-line debrief file this firing had
-   staged and verified; `git show b68755e3:<path>` matched byte-for-byte.
-5. `git reflog` shows exactly **one** new entry between `627b687b` and `HEAD`:
-   `b68755e3 HEAD@{0}: commit: ...`. `git show -s --format="%H %ai"` puts its
+   staged and verified; `git show c1f4d80f:<path>` matched byte-for-byte.
+5. `git reflog` shows exactly **one** new entry between `38492f7c` and `HEAD`:
+   `c1f4d80f HEAD@{0}: commit: ...`. `git show -s --format="%H %ai"` puts its
    timestamp at `2026-09-06 20:38:47 +0300`.
 6. Ruled out a message-rewriting hook as the explanation: `.husky/commit-msg` only
    runs `pnpm commitlint --edit "$1"` (validation, not rewriting); no
@@ -70,7 +70,7 @@ for how wide that gap is, not a new decision point.
 
 ## Verification note for this firing's own METRICS
 
-Because `b68755e3` was not authored by this firing's own `git commit` invocation
+Because `c1f4d80f` was not authored by this firing's own `git commit` invocation
 (confirmed via reflog and the unfamiliar commit message), this firing does not
 claim it as shipped work. The content is correct and already verified independently
 above and in the commit this debrief documents. This file itself — added with a

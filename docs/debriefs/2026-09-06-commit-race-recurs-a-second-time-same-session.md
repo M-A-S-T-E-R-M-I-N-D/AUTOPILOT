@@ -9,7 +9,7 @@ Board: `ap-mtq191kz-1` ("EVIDENCE ap-mtm4qzty-1") / `ap-mtm4qzty-1` (the still-o
 primary-checkout sharing architecture decision). This firing does not add a new
 failure *shape* — it is the identical-content commit-vs-commit race already
 named in `docs/debriefs/2026-09-06-commit-race-preempts-attempted-landing.md`
-(landed `1510e428`) — but it recurring a second time, within roughly ten
+(landed `a26316ee`) — but it recurring a second time, within roughly ten
 minutes, on THIS SAME DAY'S session is itself the evidence: this is not a rare
 edge case, it is the default behavior of this shared checkout under today's
 concurrency load.
@@ -21,18 +21,18 @@ concurrency load.
    tree — was independently gate-verified clean (typecheck, lint, format,
    targeted vitest 34/34, full build) and about to be committed when a
    `git status` re-check showed it had already vanished: absorbed into
-   `750bcee8` ("docs: reconcile 2 stale BACKLOG-999.md rows against shipped
+   `4407238d` ("docs: reconcile 2 stale BACKLOG-999.md rows against shipped
    code"), a concurrent process's unrelated commit that apparently staged with
    something broader than a scoped `git add`. This firing did not author that
    commit and does not claim it.
 2. Investigating further, this firing found
    `docs/debriefs/2026-09-06-disjoint-staged-content-swept-into-unrelated-commit.md`
    sitting **untracked** in the working tree — a different concurrent firing's
-   own fully-verified debrief documenting exactly the `750bcee8` sweep above,
-   left orphaned mid-commit (the same shape `1510e428` itself documents: a
+   own fully-verified debrief documenting exactly the `4407238d` sweep above,
+   left orphaned mid-commit (the same shape `a26316ee` itself documents: a
    commit attempt that never got the chance to run).
 3. This firing re-verified that file's claims independently (re-derived
-   `750bcee8`'s `--stat` listing, confirmed the empty `git diff HEAD` for the
+   `4407238d`'s `--stat` listing, confirmed the empty `git diff HEAD` for the
    swept files, confirmed the timestamps) and, finding them accurate, staged
    it with a scoped `git add <path>` and ran
    `git commit -s -m "..." -- <path>`.

@@ -22,7 +22,7 @@ open after the existing partial fix.
    CONNECT panel's GitHub-issue form). That task was listed in this same
    firing's FLEET board as `CLAIMED by fleet-2`, not by this instance.
 2. `git reflog` showed `HEAD` had already advanced past the snapshot the
-   firing prompt was generated from — from `db9a2634` to `76115173`, a
+   firing prompt was generated from — from `3f9875d6` to `593ebb56`, a
    **second** commit titled `docs(self-study): flight-end automated data
    refresh` (same subject line as an earlier commit two revisions back) —
    i.e. another process had committed to this exact checkout after the
@@ -39,9 +39,9 @@ open after the existing partial fix.
    not "modified, unstaged" as `restore --staged` alone should leave a
    normal file, but byte-identical to `HEAD`. Re-running `git log` explained
    why: `HEAD` had moved *again*, twice, in the few seconds between steps
-   1–3: `76115173` → `6409eee0` (`feat(github): add free-text compose to the
+   1–3: `593ebb56` → `85355c31` (`feat(github): add free-text compose to the
    report-to-upstream issue form` — fleet-2's own clean commit of the exact
-   feature that had been sitting staged) → `0980c47e` (`fix(security):
+   feature that had been sitting staged) → `4c44b879` (`fix(security):
    connection.json gets a REAL owner-only ACL on Windows` — a **third**,
    unrelated process's commit, nothing to do with fleet-2's task).
 
@@ -151,7 +151,7 @@ before committing. This firing ran the full gate against that diff
 end-to-end — `format:check`, `typecheck`, `lint`, a targeted `vitest run`,
 `build`, and `test:impacted` — all green — then went to `git add` the two
 files. At that point `git status --porcelain` showed them **already clean
-against HEAD**: `git log` revealed a new commit, `42b81380`
+against HEAD**: `git log` revealed a new commit, `efc70cad`
 (`fix(dashboard): raise core bundle budget 172/51KB -> 176/52KB for
 LANDING i18n`, timestamped 2026-09-06 23:03:25), with a message, diff, and
 provenance trailers (`Model: claude-sonnet-5`, `Firing-Prompt-Version:
@@ -190,11 +190,11 @@ leftover work from before this session's context compaction. This firing
 independently verified it end-to-end (`vitest run` on the file: 11/11
 green, `prettier --check`, `tsc -b`, `eslint .`, `format:check`), staged it
 with `git add <path>`, then found `git diff --cached --name-only` came back
-**empty**. `git reflog` explained why: `HEAD` had advanced to `9f9d287d`
+**empty**. `git reflog` explained why: `HEAD` had advanced to `ae2c2419`
 (`test(dashboard): masthead census — pin every control before EPIC 0017 nav
 remake`) — a concurrent process had authored and committed
 byte-identical content under a different commit message while this firing
-was mid-verification. Confirmed via `git show 9f9d287d` — the diff matches
+was mid-verification. Confirmed via `git show ae2c2419` — the diff matches
 what this firing had staged exactly. No data lost; duplicated verification
 work only, same cost as firing-147's finding.
 
@@ -228,7 +228,7 @@ A firing (or a human) trusting a single red `test:impacted` run against
 this primary checkout could easily misdiagnose a phantom regression, revert
 innocent work, or burn a full debugging cycle chasing a bug that was never
 in the code — directly relevant to this repo's own "gate honesty" thread
-(`f1428f9a`). Practical mitigation until the operator resolves (a)/(b)/(c)
+(`d08a9be1`). Practical mitigation until the operator resolves (a)/(b)/(c)
 above: a `test:impacted`/`test` failure against the primary checkout is not
 trustworthy on its own — rerun once before treating a red result as real,
 especially when the failure trace touches a file this firing never edited.
@@ -242,7 +242,7 @@ mutation can fabricate transient test failures, not just race commits.
 
 ## Verdict reconfirmed a fifth time, caught mid-write: firing-154 (2026-09-06)
 
-This firing's very first `git status` already showed `HEAD` at `b75ff525`
+This firing's very first `git status` already showed `HEAD` at `b85128d4`
 (this file's own "fourth reconfirmation" commit, above) — another full
 commit had landed on this checkout between the firing prompt's snapshot and
 this session's first read, the same shape as every prior entry.
@@ -294,8 +294,8 @@ more files modified-but-unstaged across `packages/engine`, `packages/store`,
 docs/scripts (529 lines). Rather than touch any of it, this firing polled
 `git status --porcelain` twice, five seconds apart, with no git operation
 of its own in between: the hash of the porcelain output was identical both
-times, but `git log` afterward showed `HEAD` had moved from `08be7a2b` to
-`74f43d9a` — a clean new commit, `feat(github): mirror-pass catches internal
+times, but `git log` afterward showed `HEAD` had moved from `f0c709e9` to
+`ab095cfb` — a clean new commit, `feat(github): mirror-pass catches internal
 doc links that no longer resolve` (EPIC 0016 slice 2, board
 `web-mtpzzx50-obq42b`). Its diff matched the staged content exactly; the
 sibling authoring it committed cleanly while this firing was merely
@@ -314,7 +314,7 @@ this firing.
 New artifact shape, not seen in entries one through five: an untracked,
 fully-formed nested git worktree at `.worktree-verify-groupA/` inside the
 primary checkout root, confirmed via `git worktree list` (detached HEAD at
-`274fd68c`, a full working copy including `node_modules`-adjacent tooling
+`ddb3bb15`, a full working copy including `node_modules`-adjacent tooling
 files). This firing did not enter, read from, or write to it — flagging it
 only as a candidate data point for whoever owns the flight-containment
 guidance (`docs/FLIGHT-CONTAINMENT.md`) against nesting a sandbox/verify
@@ -342,9 +342,9 @@ PUSH VERDICT RITUAL" slice 3, board `web-mtpbmay4-94ii65`) — neither
 touched by this firing.
 
 Three read-only `git status`/`git log` polls, spanning a few minutes: unit
-(1) landed cleanly as `9ece71aa` (`feat(ci): launcher smoke test now
+(1) landed cleanly as `b1625e19` (`feat(ci): launcher smoke test now
 executes .cmd scripts too, not just .sh`) between the first and second
-poll; unit (2) landed cleanly as `22e4821b` (`feat(control): post-push
+poll; unit (2) landed cleanly as `6536616b` (`feat(control): post-push
 verdict ritual slice 3 — start the watch from a green land`) between the
 second and third poll — each commit's message, diff, and provenance
 trailers matched what this firing had only just finished reading,
@@ -414,7 +414,7 @@ never opened — `apps/dashboard/test/github/pr-execute.test.ts`,
 github-pr-contribute.test.ts` — proving a *second*, independent concurrent
 process had run its own `git add` against this checkout while this firing
 was merely reading. A follow-up poll, seconds later, found those three
-paths gone from `git status` entirely and `HEAD` advanced to `e0431744`
+paths gone from `git status` entirely and `HEAD` advanced to `5cfe1cf2`
 (`feat(engine): reland the identity-law disclosure on contribute-upstream
 PRs`) — that second process's own clean commit, landing mid-observation,
 the same "caught it staged, then it committed cleanly" shape as
@@ -454,10 +454,10 @@ went from failing to clean exit 0), and ran the full project gate
 (`typecheck`, `lint`, `format:check`, `test` — 616 files / 9434 tests green,
 `build`) — all green — before proceeding to stage and commit.
 
-At that point `git status` came back clean and `git log` showed `69ba162a`
+At that point `git status` came back clean and `git log` showed `48d42188`
 (`docs(tooling): shield validate-spdx-headers test fixtures from reuse
 lint`) already at `HEAD`. Diffing it against the pre-session blob
-(`git show 69ba162a -- <path>`) showed a byte-for-byte match with the exact
+(`git show 48d42188 -- <path>`) showed a byte-for-byte match with the exact
 edit this firing had just written and gated — same moved comment placement,
 same removed duplicate block, same prose in the comment itself, right down
 to the em dash and the `generate-donate-doc.mjs` cross-reference — under a

@@ -11,7 +11,7 @@ decision), same failure mechanism as
 (a concurrent process's broad `git add` pulling this firing's already-staged,
 unrelated content into its own commit). The new data point: it hit the exact
 same file, `apps/dashboard/src/flight/mirror-pass.ts`, for the second time
-today — first `750bcee8` swept derivation 2/4, now a second commit swept the
+today — first `4407238d` swept derivation 2/4, now a second commit swept the
 derivation-3/4 "counts" half — and this time the race window was created by
 this firing's *own* repeatedly-rejected `git commit` attempts, not a delay
 between staging and committing.
@@ -50,9 +50,9 @@ between staging and committing.
    (`convergence-gate.ts`, `issue-triage.ts`, `pool-client.ts`, `fly.ts`,
    their tests, `packages/store/src/index.ts`) — the two mirror-pass files
    were no longer in the index at all, staged or otherwise.
-7. `git log --oneline -3` showed a new commit, `bb6c823a` ("test(e2e): pin
+7. `git log --oneline -3` showed a new commit, `b9e0846d` ("test(e2e): pin
    the update-banner's own 404 poll in the hermetic-fixture allowlists"),
-   authored by a concurrent process. `git show --stat bb6c823a` listed four
+   authored by a concurrent process. `git show --stat b9e0846d` listed four
    files: two genuinely its own (`dashboard.spec.ts`, `project-page.spec.ts`)
    and, in addition, `apps/dashboard/src/flight/mirror-pass.ts` (+114) and
    `apps/dashboard/test/flight/mirror-pass.test.ts` (+149) — this firing's
@@ -91,7 +91,7 @@ checkout is shared — the retry loop itself is what created this window.
 ## Verification note for this firing's own METRICS
 
 This firing's actual code (`mirror-pass.ts` counts-drift + 16 tests) is
-correctly landed and independently re-verified above, but under `bb6c823a`,
+correctly landed and independently re-verified above, but under `b9e0846d`,
 a commit this firing did not author and does not claim. This debrief file —
 added with a scoped `git add <path>` — is this firing's own attributable
 unit.
