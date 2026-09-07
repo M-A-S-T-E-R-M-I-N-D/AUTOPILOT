@@ -9,10 +9,24 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const NUL = String.fromCharCode(0);
 const SOURCE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
-const HEADER_SCAN_LINES = 20;
+export const HEADER_SCAN_LINES = 20;
+
+/**
+ * True when an SPDX license tag appears within the first {@link HEADER_SCAN_LINES}
+ * lines of `text`. Pure — no fs/git access — so it can be unit-tested directly
+ * against fixture strings, same shape as secret-scan.mjs's findSecrets().
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function hasSpdxHeader(text) {
+  const head = text.split('\n').slice(0, HEADER_SCAN_LINES).join('\n');
+  return head.includes('SPDX-License-Identifier');
+}
 
 /** @returns {string[]} */
 function listFiles() {
@@ -39,8 +53,7 @@ function main() {
     } catch {
       continue;
     }
-    const head = text.split('\n').slice(0, HEADER_SCAN_LINES).join('\n');
-    if (!head.includes('SPDX-License-Identifier')) missing.push(file);
+    if (!hasSpdxHeader(text)) missing.push(file);
   }
 
   if (missing.length > 0) {
@@ -58,4 +71,5 @@ function main() {
   console.log(`spdx-headers OK: ${files.length} source file(s) carry SPDX headers`);
 }
 
-main();
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
