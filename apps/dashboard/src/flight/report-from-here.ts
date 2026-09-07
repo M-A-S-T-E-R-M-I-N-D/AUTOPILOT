@@ -29,7 +29,7 @@
  * caller-supplied data, so the core stays judgeable in isolation.
  */
 
-import { createTask, type CreateTaskInput, type Store } from '@autopilot/store';
+import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { classifyIssueDimension } from './issue-triage.js';
 
@@ -283,7 +283,15 @@ export async function executeReportCommands(
  *  returns `false` on the duplicate primary key instead of minting a second
  *  task. */
 export function applyReportTask(store: Store, plan: ReportTaskPlan): boolean {
-  return createTask(store, plan.taskInput);
+  const created = createTask(store, plan.taskInput);
+  // A report-born task is an OPERATOR act — they clicked, typed, submitted.
+  // It therefore lands FOCUSED: visible at the top of the board (the state
+  // API caps the task list, and an unranked fresh task fell below the fold
+  // twice in one day — operator reports 2026-09-07) and first in the
+  // fleet's focus-first claim order. The operator can unfocus with one
+  // click; invisible-after-submitting cost far more than over-priority.
+  if (created) setTaskFocus(store, plan.taskInput.id, true, Date.now());
+  return created;
 }
 
 /** One {@link runReportFromHereRitual} pass's full outcome — the plan that

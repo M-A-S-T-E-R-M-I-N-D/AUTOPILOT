@@ -43,10 +43,16 @@ function project(s: Store, id: string): void {
 function tasks(
   s: Store,
   projectId: string,
-): { id: string; title: string; status: string; source: string }[] {
+): { id: string; title: string; status: string; source: string; focus: number }[] {
   return s.db
-    .prepare('SELECT id, title, status, source FROM tasks WHERE project_id = ? ORDER BY id')
-    .all(projectId) as { id: string; title: string; status: string; source: string }[];
+    .prepare('SELECT id, title, status, source, focus FROM tasks WHERE project_id = ? ORDER BY id')
+    .all(projectId) as {
+    id: string;
+    title: string;
+    status: string;
+    source: string;
+    focus: number;
+  }[];
 }
 
 function cleanupDir(dir: string): void {
@@ -226,7 +232,11 @@ describe('applyReportTask', () => {
 
       const rows = tasks(s, 'p1');
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ status: 'queued', source: 'dashboard' });
+      // FOCUSED at birth: a report-born task is an operator act, and an
+      // unranked fresh task fell below the capped task list's fold twice in
+      // one day (operator reports, 2026-09-07) — visible-and-prioritized
+      // beats invisible-after-submitting; unfocus is one click.
+      expect(rows[0]).toMatchObject({ status: 'queued', source: 'dashboard', focus: 1 });
       s.close();
     } finally {
       cleanupDir(dbDir);
