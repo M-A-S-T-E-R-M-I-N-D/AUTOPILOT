@@ -110,6 +110,9 @@ jobs:
       - name: THREAT-MODEL.md tool-grant table matches the real config
         run: pnpm run ci:threat-model
 
+      - name: DONATE.md matches docs/donations.json
+        run: pnpm run ci:donate
+
       - name: Quarantine list validation
         run: pnpm run ci:quarantine-report
 

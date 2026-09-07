@@ -43,6 +43,10 @@ never before. Until a formal entity exists: donations are recorded in a
 public inflow ledger, nothing is promised in return, and no tax-deductibility
 is claimed.
 
+See [`docs/DONATE.md`](DONATE.md) for the public donate page — generated
+from `docs/donations.json`, empty and honest about it until a verified
+address file lands.
+
 ## Transparency commitments
 
 1. A public donations ledger (date · asset · amount · txid) from the first

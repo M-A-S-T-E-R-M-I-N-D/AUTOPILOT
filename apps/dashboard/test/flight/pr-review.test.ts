@@ -981,6 +981,15 @@ const BENIGN_SCRIPTS = new Set([
   // the same class as every other codemod/i18n .d.mts already listed here.
   'docs/check-links.d.mts',
   'docs/check-links.mjs',
+  // Renders docs/DONATE.md from docs/donations.json via the SAME parser
+  // flight/donations.ts gives GET /api/donations — same generate-a-committed
+  // -doc-from-data class as data-model/generate-doc.mjs and
+  // threat-model/generate-table.mjs above. Its only write is that one doc
+  // (--check compares instead); it reads no credentials, calls no GitHub API,
+  // and decides nothing — donations.json doesn't exist yet, so today it only
+  // ever renders the fail-closed "not published" placeholder.
+  'donations/generate-donate-doc.d.mts',
+  'donations/generate-donate-doc.mjs',
   'i18n/find-rtl-hazards.d.mts',
   'i18n/find-rtl-hazards.mjs',
   'i18n/find-untagged-strings.d.mts',
