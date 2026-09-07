@@ -23,17 +23,6 @@
  *  `--remote-name` and `steps[1]`'s push target always agree. */
 export const FORK_REMOTE = 'autopilot-fork';
 
-/** Builds the identity-law disclosure footer (`.github/CONTRIBUTOR-
- *  STANDING.md`'s "the identity law") every PR {@link planGithubPr} opens
- *  carries: the human-visible "Flown by" line naming the operator —
- *  `operatorHandle` is always `forkOwner`, the same `gh auth status` login
- *  the PR's own `--head` points the fork at — plus a machine-readable
- *  `Autopilot-Agent:` marker. Appended unconditionally so no PR this plans
- *  can ever leave `planGithubPr` undisclosed. */
-function identityDisclosure(operatorHandle: string): string {
-  return `🛩️ Flown by AUTOPILOT on behalf of @${operatorHandle}\n\nAutopilot-Agent: true`;
-}
-
 /** Thrown by {@link planGithubPr} when `title`, `branch`, or `forkOwner` is
  *  empty (after trimming), or when a provided `issueNumber` is not a
  *  positive integer — refused up front, before any command is planned. Same
@@ -75,23 +64,20 @@ export interface GithubPrPlan {
  * the fork's branch against upstream. `title`, `branch`, and `forkOwner` are
  * all trimmed before use — including in the emitted argv — and must be
  * non-empty after trimming (throws {@link InvalidPrInputError} otherwise,
- * touching nothing); `body` is the operator-typed text, always followed by
- * {@link identityDisclosure} on its own paragraph — the identity law applies
- * to every PR this plans, so there is no path through this function that
- * produces an undisclosed body (an empty `body` yields the disclosure
- * footer alone, never a truly empty `--body`).
+ * touching nothing); `body` is passed through as-is (an empty body is a
+ * valid `gh pr create` body).
  *
  * `issueNumber` is the epic 0007 "PLATFORM 6/7" pool-client round trip's
  * delivery leg: when a co-pilot flew a claimed pool issue locally and is now
  * contributing the fix upstream, an optional issue number here appends a
  * `Closes #<n>` trailer to `body` (on its own line when `body` is
- * non-empty, ahead of the disclosure footer), so the delivered PR actually
- * references — and auto-closes on merge — the issue it was flown for,
- * rather than relying on the operator to type the exact GitHub closing
- * syntax by hand into a free-text box. When provided it must be a positive
- * integer (throws {@link InvalidPrInputError} otherwise, touching nothing)
- * — a zero, negative, or fractional issue number can never be a valid
- * GitHub issue reference.
+ * non-empty), so the delivered PR actually references — and auto-closes on
+ * merge — the issue it was flown for, rather than relying on the operator to
+ * type the exact GitHub closing syntax by hand into a free-text box. Omitted
+ * entirely, `body` passes through unchanged (the pre-existing behavior).
+ * When provided it must be a positive integer (throws {@link
+ * InvalidPrInputError} otherwise, touching nothing) — a zero, negative, or
+ * fractional issue number can never be a valid GitHub issue reference.
  */
 export function planGithubPr(
   upstreamRepo: string,
@@ -116,16 +102,12 @@ export function planGithubPr(
   if (issueNumber !== undefined && (!Number.isInteger(issueNumber) || issueNumber <= 0)) {
     throw new InvalidPrInputError('issueNumber');
   }
-  const withIssue =
+  const finalBody =
     issueNumber === undefined
       ? body
       : body.length === 0
         ? `Closes #${issueNumber}`
         : `${body}\n\nCloses #${issueNumber}`;
-  const finalBody =
-    withIssue.length === 0
-      ? identityDisclosure(trimmedForkOwner)
-      : `${withIssue}\n\n${identityDisclosure(trimmedForkOwner)}`;
   return {
     steps: [
       {
