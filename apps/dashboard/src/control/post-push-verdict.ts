@@ -108,3 +108,24 @@ export function filePostPushVerdictTask(store: Store, verdict: PostPushVerdictRe
     return false;
   }
 }
+
+export type PostPushRemediationMode = 'board' | 'fly';
+
+/**
+ * POST-PUSH VERDICT RITUAL, escalation-mode slice (board web-mtpbmazh-3en467):
+ * `filePostPushVerdictTask` above always just files the evidence task —
+ * "board" mode, and today's only behavior. This reads the operator's
+ * `AUTOPILOT_CI_REMEDIATION` lever so a follow-up slice can additionally
+ * launch a single-lane fix firing scoped to the filed task when set to
+ * "fly". Fail-closed to "board" on anything unset or unrecognized (a typo
+ * must never silently upgrade a filed-task-only response into one that
+ * spawns a real child process) — same posture as `spawn-flight.ts`'s
+ * `fleetGateWorkers` falling back to its default on a non-integer value.
+ * `env` defaults to `process.env` but is overridable, matching this file's
+ * own DI style for `nowMs` above.
+ */
+export function postPushRemediationMode(
+  env: NodeJS.ProcessEnv = process.env,
+): PostPushRemediationMode {
+  return env['AUTOPILOT_CI_REMEDIATION'] === 'fly' ? 'fly' : 'board';
+}
