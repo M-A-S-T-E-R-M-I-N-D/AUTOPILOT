@@ -439,3 +439,56 @@ belongs to the resuming session itself — verify by re-polling `git status`
 at least once before spending any verification effort on it, since a live
 sibling's in-progress unit will keep growing across polls while a truly
 orphaned one will not.
+
+## Verdict reconfirmed a ninth time, this session's OWN edit landed under a commit it never issued: firing-223 (2026-09-07)
+
+This firing found a genuine, real bug left uncommitted from a prior session:
+`apps/dashboard/test/tooling/validate-spdx-headers.test.ts` had
+`REUSE-IgnoreStart`/`REUSE-IgnoreEnd` markers wrapping only its last two
+`it()` blocks (lines 41-56), but two earlier blocks (lines 15-38) contained
+the identical SPDX-fixture shape, unguarded — `reuse lint-file` on the file
+still failed with `invalid SPDX License Expression 'Apache-2.0','` even with
+the partial markers in place. This firing extended the ignore region to
+cover all four fixture blocks, verified the fix directly (`reuse lint-file`
+went from failing to clean exit 0), and ran the full project gate
+(`typecheck`, `lint`, `format:check`, `test` — 616 files / 9434 tests green,
+`build`) — all green — before proceeding to stage and commit.
+
+At that point `git status` came back clean and `git log` showed `69ba162a`
+(`docs(tooling): shield validate-spdx-headers test fixtures from reuse
+lint`) already at `HEAD`. Diffing it against the pre-session blob
+(`git show 69ba162a -- <path>`) showed a byte-for-byte match with the exact
+edit this firing had just written and gated — same moved comment placement,
+same removed duplicate block, same prose in the comment itself, right down
+to the em dash and the `generate-donate-doc.mjs` cross-reference — under a
+commit message, trailers (`Model: claude-sonnet-5`, `Firing-Prompt-Version:
+firing-v12`, `Harness: claude-cli`), and author identity this firing never
+produced. No local hook explains it: this session's own
+`.claude/settings.json` carries no PostToolUse/git hooks, and `.husky/`
+only wires `commit-msg` (commitlint), which fires on a commit already in
+progress, not one it originates.
+
+This is a sharper flavor than any of the eight entries above. Every prior
+entry documented a *sibling's own, independently-produced* work landing
+mid-observation — content this firing had at most read, never written. Here
+the committed content was this firing's own freshly-written edit, sitting
+in the shared working tree, picked up and committed by a different process
+before this firing ran its own `git add`/`commit`. The practical
+consequence is new: a firing cannot treat "I haven't run `git commit` yet"
+as proof its work is still pending — on this shared checkout, another
+process can commit a session's own in-progress edit out from under it
+first. Had this firing's diff differed even slightly from what actually got
+committed (e.g. if two sessions were mid-edit on the same lines with
+different intents), this would be a live corruption/lost-edit risk, not
+just duplicated verification cost.
+
+Action taken: none beyond this documentation entry — nothing left to stage,
+nothing to recommit, no data lost (criteria (1) and (2) both hold a ninth
+time; the landed commit exactly matches the intended fix and the gate
+already verified it). `ap-mtq0bpgj-2`/`ap-mtm4qzty-1` remain **open,
+operator-owned**; the (a)/(b)/(c) decision is unchanged, but option (b)
+(mandatory worktree isolation per session) now looks materially stronger
+than option (c) (accept as bounded) — (c)'s premise that only "uncommitted,
+in-memory-only edits" are at risk undersells the case where a session's own
+on-disk edit is committed by a foreign process under foreign attribution
+before the authoring session can verify-then-commit it as its own unit.
