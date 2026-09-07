@@ -50,8 +50,24 @@ describe('issueTriageJs', () => {
   });
 
   it('degrades to an honest unavailable message on fetch failure', () => {
-    expect(issueTriageJs()).toContain(
-      "body.replaceChildren(el('p', 'muted', 'Issue triage unavailable.'));",
+    const out = issueTriageJs();
+    expect(out).toContain("var unavailableMsg = el('p', 'muted', 'Issue triage unavailable.');");
+    expect(out).toContain('body.replaceChildren(unavailableMsg);');
+  });
+
+  it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
+    const out = issueTriageJs();
+    expect(out).toContain("title.setAttribute('data-i18n', 'issueTriageTitle');");
+    expect(out).toContain("loadingMsg.setAttribute('data-i18n', 'issueTriageLoading');");
+    expect(out).toContain("emptyMsg.setAttribute('data-i18n', 'issueTriageEmpty');");
+    expect(out).toContain("unavailableMsg.setAttribute('data-i18n', 'issueTriageUnavailable');");
+    // One sweep per ASYNC tagged-DOM creation site — the empty state and the
+    // fetch-failure state, both built inside /api/issue-triage handlers that
+    // can resolve after the page-level sweep. The title and the loading
+    // placeholder are built synchronously at mount and ride
+    // renderProjectPage()'s own sweep, the same split flight-console.ts uses.
+    expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
+      2,
     );
   });
 

@@ -1291,6 +1291,14 @@ const EN_STRINGS = {
   consoleEmpty: 'No console output yet.',
   consoleCollapsed: 'Collapsed — expand to load.',
   consoleUnavailable: 'Flight console unavailable.',
+  // web/features/issue-triage.ts (board web-msnsndki-dz3vn1): the project
+  // page's KEEPER issue-triage panel — title, loading placeholder, and the
+  // empty/fetch-failure states. "KEEPER" is the persona's proper name and
+  // stays Latin in every locale, the way "AUTOPILOT" and "GitHub" do above.
+  issueTriageTitle: '🗝️ KEEPER issue triage',
+  issueTriageLoading: 'Checking open issues against the board…',
+  issueTriageEmpty: 'No open issues to triage.',
+  issueTriageUnavailable: 'Issue triage unavailable.',
   // web/features/foundation.ts's masthead heart + Foundation panel (FOUNDATION
   // 1/3, board web-mtq0rsit-ywz1m7) — hidden until GET /api/donations reports
   // a real, verified entry (see docs/FOUNDATION.md's "never before" custody
@@ -1866,6 +1874,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     consoleEmpty: 'עדיין אין פלט מסוף.',
     consoleCollapsed: 'מכווץ — הרחיבו כדי לטעון.',
     consoleUnavailable: 'מסוף הטיסה אינו זמין.',
+    issueTriageTitle: '🗝️ טריאז׳ issues של KEEPER',
+    issueTriageLoading: 'בודק issues פתוחים מול הלוח…',
+    issueTriageEmpty: 'אין issues פתוחים לטריאז׳.',
+    issueTriageUnavailable: 'טריאז׳ ה-issues אינו זמין.',
     foundation: 'קרן',
     foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
     foundationCopyAddress: 'העתק כתובת',

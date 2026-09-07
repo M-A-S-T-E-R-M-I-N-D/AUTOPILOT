@@ -35,6 +35,18 @@
  * shared with the KEEPER PR review panel, which stays inline in `fleetJs()`
  * — hoists the same way from `shell.ts`'s own splice of
  * `web/decision-item.ts`, rather than being re-spliced here.
+ *
+ * i18n (board web-msnsndki-dz3vn1): the title and the loading placeholder
+ * (built once, synchronously, when a project's panel first mounts) and the
+ * empty/fetch-failure states (rebuilt inside the async `/api/issue-triage`
+ * handlers) carry their English default AND a `data-i18n` tag, then are
+ * swept by `translateDom()` (a bare hoisted identifier from
+ * `web/features/locale.ts`'s splice, same as `fleetJs()`'s call sites) — the
+ * title and the loading placeholder ride the page-level sweep that follows
+ * every `renderProjectPage()` tick, while the two async states call
+ * `translateDom()` themselves since they can land well after that tick's
+ * sweep already ran, the exact split `web/features/flight-console.ts` and
+ * `coordination.ts` already follow.
  */
 import {
   issueTriageDecisionLabel,
@@ -73,7 +85,10 @@ function renderIssueTriageBody(body, plans, pid) {
   body.replaceChildren();
   plans = plans || [];
   if (!plans.length) {
-    body.appendChild(el('p', 'muted', 'No open issues to triage.'));
+    var emptyMsg = el('p', 'muted', 'No open issues to triage.');
+    emptyMsg.setAttribute('data-i18n', 'issueTriageEmpty');
+    body.appendChild(emptyMsg);
+    translateDom(document.documentElement.lang || 'en');
     return;
   }
   var list = el('div', 'issue-triage-list');
@@ -135,14 +150,21 @@ function loadIssueTriageBody(body, pid) {
     })
     .catch(function () {
       if (!body.isConnected) return;
-      body.replaceChildren(el('p', 'muted', 'Issue triage unavailable.'));
+      var unavailableMsg = el('p', 'muted', 'Issue triage unavailable.');
+      unavailableMsg.setAttribute('data-i18n', 'issueTriageUnavailable');
+      body.replaceChildren(unavailableMsg);
+      translateDom(document.documentElement.lang || 'en');
     });
 }
 function issueTriageSection(pid) {
   var wrap = el('section', 'issue-triage-panel');
-  wrap.appendChild(el('h3', 'issue-triage-title', '🗝️ KEEPER issue triage'));
+  var title = el('h3', 'issue-triage-title', '🗝️ KEEPER issue triage');
+  title.setAttribute('data-i18n', 'issueTriageTitle');
+  wrap.appendChild(title);
   var body = el('div', 'issue-triage-body');
-  body.appendChild(el('p', 'muted', 'Checking open issues against the board…'));
+  var loadingMsg = el('p', 'muted', 'Checking open issues against the board…');
+  loadingMsg.setAttribute('data-i18n', 'issueTriageLoading');
+  body.appendChild(loadingMsg);
   wrap.appendChild(body);
   loadIssueTriageBody(body, pid);
   return wrap;
