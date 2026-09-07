@@ -980,7 +980,7 @@ main.project-mode { grid-template-columns: 1fr; }
 /* Shared tooltip primitive: any [data-tip] element gets a focus ring + the
    same hover/focus tooltip as the spark bars (see showTip/hideTip below). */
 [data-tip]:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
-.spark-tip { position: fixed; z-index: 60; max-width: 240px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-text); font-size: var(--text-xs); line-height: 1.4; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); pointer-events: none; }
+.spark-tip { position: fixed; z-index: 60; max-width: 240px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-text); font-size: var(--text-xs); line-height: 1.4; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); pointer-events: none; overflow-wrap: anywhere; }
 .spark-tip-title { display: block; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spark-tip-meta { font-family: var(--font-mono); color: var(--color-text-muted); }
 /* LAYOUT STABILITY LAW (epic 0018 "calm cockpit" slice 1): a live firing's
