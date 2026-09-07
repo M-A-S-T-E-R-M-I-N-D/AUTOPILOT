@@ -489,11 +489,11 @@ function searchInit() {
     var safety = typeof proposal.safety === 'string' ? proposal.safety : 'write';
     var args = proposal.args && typeof proposal.args === 'object' ? proposal.args : {};
     var card = el('div', 'control-proposal');
-    card.appendChild(el('p', 'control-proposal-summary', 'ARCHITECT proposes: ' + tool));
+    card.appendChild(el('p', 'control-proposal-summary', tr('architectProposes', tool)));
     card.appendChild(el('pre', 'control-proposal-text', JSON.stringify(args, null, 2)));
     var statusEl = el('p', 'control-proposal-status', '');
     function run() {
-      statusEl.textContent = 'Running…';
+      statusEl.textContent = tr('controlRunning');
       fetch('/api/control/execute', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -501,10 +501,12 @@ function searchInit() {
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
-          statusEl.textContent = res && res.ok ? 'Done.' : 'Failed: ' + ((res && res.error) || 'unknown error');
+          statusEl.textContent = res && res.ok
+            ? tr('controlDone')
+            : tr('controlFailed', (res && res.error) || tr('controlUnknownError'));
           operatorActionLog = recordOperatorAction(operatorActionLog, 'ARCHITECT ran ' + tool, OPERATOR_ACTION_LOG_CAP);
         })
-        .catch(function () { statusEl.textContent = 'Failed: request error.'; });
+        .catch(function () { statusEl.textContent = tr('controlFailedRequestError'); });
     }
     if (safety === 'read') {
       card.appendChild(statusEl);
@@ -512,9 +514,9 @@ function searchInit() {
     } else {
       var row = el('div', 'control-proposal-row');
       var tip = safety === 'destructive'
-        ? 'This action cannot be undone — confirm to run it'
-        : 'Run this proposed action';
-      var confirmBtn = el('button', 'control-proposal-confirm', safety === 'destructive' ? 'Confirm (destructive)' : 'Confirm');
+        ? tr('controlConfirmDestructiveTip')
+        : tr('controlConfirmTip');
+      var confirmBtn = el('button', 'control-proposal-confirm', safety === 'destructive' ? tr('controlConfirmDestructive') : tr('controlConfirm'));
       confirmBtn.setAttribute('type', 'button');
       confirmBtn.setAttribute('data-tip', tip);
       confirmBtn.setAttribute('aria-label', tip);
@@ -564,14 +566,14 @@ ${applyAskStreamFrame.toString()}
   if (askBtn) askBtn.addEventListener('click', function () {
     var project = sel ? sel.value : '';
     var q = qEl ? qEl.value.trim() : '';
-    if (!project || !q) { renderAnswer('Pick a project and type a question first.', null); return; }
+    if (!project || !q) { renderAnswer(tr('askPickProjectFirst'), null); return; }
     rememberSearchQuery(q);
     askBtn.disabled = true;
-    askBtn.textContent = 'Asking…';
+    askBtn.textContent = tr('asking');
     if (activityEl) { while (activityEl.firstChild) activityEl.removeChild(activityEl.firstChild); }
     if (proposalEl) { while (proposalEl.firstChild) proposalEl.removeChild(proposalEl.firstChild); }
     var deep = !!(askDeepEl && askDeepEl.checked);
-    renderAnswer(deep ? 'Reading the project to find the answer (Deep)…' : 'Asking the model (grounded in the indexed code)…', null);
+    renderAnswer(deep ? tr('askReadingDeep') : tr('askAskingModel'), null);
     // Omniscient chat context (web-msnrw1ok-0gsdff), first slice: tell the model
     // which dashboard page the operator is currently on — the fleet overview or
     // this specific project's page (body's data-project, same idiom the live
@@ -597,8 +599,8 @@ ${applyAskStreamFrame.toString()}
         if (!r.ok || !r.body || !r.body.getReader) throw new Error('stream unavailable');
         return pumpAskStream(r.body.getReader(), new TextDecoder());
       })
-      .catch(function () { renderAnswer('Ask failed — is the dashboard still running?', null); })
-      .then(function () { askBtn.disabled = false; askBtn.textContent = 'Ask'; });
+      .catch(function () { renderAnswer(tr('askFailed'), null); })
+      .then(function () { askBtn.disabled = false; askBtn.textContent = tr('ask'); });
   });
 }
 searchInit();
