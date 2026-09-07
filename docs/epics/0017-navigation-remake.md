@@ -5,9 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Epic 0017 — Navigation remake: minimal, visual, memorable
 
-**Status:** SPEC (operator directive 2026-09-06). Implementation waits for the
-i18n sweep to cool off `shell.ts` (same-file collision discipline), then lands
-in slices.
+**Status:** ACTIVE (operator directive 2026-09-06). Slice 1/5 shipped —
+`9f9d287d` (census) + `217207f7` (icon cluster). Slices 2-5 wait for
+`shell.ts` commit velocity to drop (the i18n sweep, and since 2026-09-07 epic
+0018 too — same-file collision discipline), then land in slices. See the
+dependency audit's refresh below for the measured state.
 
 ## The complaint (accurate)
 
@@ -134,3 +136,46 @@ concrete backlog to track them.
 5. Gate check — before claiming slice 2, re-verify `shell.ts` commit
    velocity from the i18n sweep has actually dropped; this audit's 43-
    commits/48h reading is a snapshot, not a standing fact.
+
+### Refresh (firing 228, 2026-09-07 13:30) — what moved since firing 208
+
+The board still carried this report at rank 1 when firing 228 read it, even
+though firing 208 tagged it `"completion":"complete"` on `024bc46e`. The close
+hook (`markTaskDoneIfShipped`, `apps/dashboard/src/flight/firing-hooks.ts`)
+only runs when the firing record's `shipped` flag is true, and `telemetry.ts`
+sets that flag only when the gate result was `passed`; firing 208's record
+(`docs/SELF-STUDY/DATA-SERIES.md`) carries `shipped: false`, so the close never
+fired. Its PROPOSALS — the slice 2-5 backlog above — never reached the board
+either: no slice task is on the board as of this refresh. This refresh
+re-issues them on its own PROPOSALS line. If the report is still open after
+this firing, close it by hand: the audit is delivered, the close path is what
+failed.
+
+- **Slice 1 is now fully shipped**, not just its safety net: `217207f7`
+  (`feat(dashboard): epic 0017 nav remake 1/5 — theme/language become
+  icon+popover menus`, 12:12) folded the theme and language button rows into
+  `<details class="connect theme-menu">` 🎨 and `<details class="connect
+  lang-menu">` 🌐 — the same disclosure idiom `#connect`/`#notify`/
+  `#foundation` use. `masthead-icon-cluster.test.ts` pins the disclosure
+  shells; `masthead-census.test.ts` still pins every underlying control. Both
+  pass at HEAD (15 tests).
+- **Slice 1's "known follow-up" is absorbed.** Its commit deferred the
+  visual-baseline refresh; `d4277068` (12:43) regenerated all eight
+  CI-canonical baselines after `217207f7` landed, so the committed screenshots
+  already carry the icon cluster. No separate refresh is pending.
+- **The blocking condition still does not hold, and it has a second driver.**
+  Re-measured at HEAD: 49 i18n commits in the trailing 48h (firing 208 counted
+  43), 14 commits to `shell.ts` since 2026-09-06, the last at 12:43 — and that
+  one was epic 0018's many-lanes grid (`6da5b946`), not i18n. Epic 0018 ("0017
+  owns the chrome, 0018 owns the CENTER") is now a second high-frequency writer
+  to the same file, so the header's "waits for the i18n sweep to cool off" is
+  really a `shell.ts`-velocity condition. Whoever claims slice 2 should
+  re-measure `git log --since=<48h> -- apps/dashboard/src/web/shell.ts`, not
+  the i18n count alone.
+- **Trap: `web/status-pill.ts` is not slice 2.** It is epic 0002's pure
+  label/tip/aria math for the fleet card's project-status badge and the task
+  board's per-task pill. Slice 2's masthead traffic-light (Claude ∙ gh ∙ OTLP)
+  needs its own module beside `shell-html.ts`; growing it into
+  `status-pill.ts` would couple two unrelated surfaces.
+- Slices 2-5 remain unclaimed on every branch: no commit, no fleet intent
+  names them.

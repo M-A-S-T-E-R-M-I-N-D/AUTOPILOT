@@ -82,3 +82,6 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0013](0013-cost-semantics-v3.md) | Cost semantics v3 — real subscription cost, not API list-price | Draft |
 | [0014](0014-fleet-wisdom-generalization.md) | Fleet wisdom generalization — a marker registry, not a similarity engine | Done |
 | [0015](0015-cockpit-supervisory-control.md) | Cockpit supervisory control — the COCKPIT MASTER BRIEF, reconciled to this repo | Active |
+| [0016](0016-github-social-flight.md) | The GitHub social flight — on/off, only when gh is connected and authenticated | Active |
+| [0017](0017-navigation-remake.md) | Navigation remake — minimal, visual, memorable | Active |
+| [0018](0018-calm-cockpit.md) | Calm Cockpit — layout stability, tabs, and the many-lanes view | Active |
