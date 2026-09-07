@@ -117,8 +117,22 @@ import {
  * entries above describe, so this bump is gzip-only rather than the usual
  * paired raise. The structural fix (VERDICT split web-mtbodv7m-uzhovs)
  * remains the tracked follow-up.
+ *
+ * Raised RAW ONLY 180→184KB (2026-09-07): the search palette's four
+ * result-state notes + the project page's two settings-row hints (board
+ * web-msnsndki-dz3vn1 — six STRINGS.en keys, `searchPickProject` /
+ * `searchSearching` / `searchNoMatches` / `searchFailed` / `startOverHint` /
+ * `githubSyncHint`, plus the tr()-at-birth `searchNote()` helper in
+ * `web/features/search.ts`, a core module) measured 184050 raw / 54621 gzip
+ * against the old 184320 / 55296 budget: still green on both axes, but
+ * with 270 bytes of raw headroom — the same single-digit-percent-of-a-slice
+ * margin the 172→176KB entry above describes, where the next core-chunk
+ * change of ANY kind (a sibling's one-line fix included) would go red on a
+ * budget line unrelated to its own work. This bump leaves ~4KB raw; the
+ * gzip line keeps its ~0.7KB and is not moved. The structural fix (VERDICT
+ * split web-mtbodv7m-uzhovs) remains the tracked follow-up.
  */
-const CORE_RAW_BUDGET = 180 * 1024;
+const CORE_RAW_BUDGET = 184 * 1024;
 const CORE_GZIP_BUDGET = 54 * 1024;
 const CHUNK_RAW_BUDGET = 112 * 1024;
 const CHUNK_GZIP_BUDGET = 34 * 1024;

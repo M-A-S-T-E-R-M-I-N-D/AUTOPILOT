@@ -3258,7 +3258,11 @@ function renderProjectPage(state, pid) {
   soBtn.setAttribute('data-tip', soTip);
   soBtn.setAttribute('aria-label', soTip);
   so.appendChild(soBtn);
-  so.appendChild(el('span', 'muted', 'Resets firings + ship-rate counters to 0/0. Tasks, index, and backups are kept.'));
+  // i18n (board web-msnsndki-dz3vn1): the hint follows the button beside it —
+  // painted via tr() at birth, tagged for the page-level and toggle sweeps.
+  var soHint = el('span', 'muted', tr('startOverHint'));
+  soHint.setAttribute('data-i18n', 'startOverHint');
+  so.appendChild(soHint);
   fleet.appendChild(so);
   // Sync to GitHub (BOARD web-mss4lpwi-p0w1d0, "GITHUB 2/5 - sync any
   // project"): one action = 'gh repo create --private --source --push' when
@@ -3274,7 +3278,9 @@ function renderProjectPage(state, pid) {
   ghBtn.setAttribute('data-tip', ghTip);
   ghBtn.setAttribute('aria-label', ghTip);
   gh.appendChild(ghBtn);
-  gh.appendChild(el('span', 'muted', 'Private by default. Creates a repo on first sync, pushes on every one after.'));
+  var ghHint = el('span', 'muted', tr('githubSyncHint'));
+  ghHint.setAttribute('data-i18n', 'githubSyncHint');
+  gh.appendChild(ghHint);
   // "public" is the epic's confirm-guarded SECOND choice (BOARD
   // web-mss4lpwi-p0w1d0): an explicit opt-in checkbox, off by default, read
   // at click time by the sync handler below to pick which confirm() wording
