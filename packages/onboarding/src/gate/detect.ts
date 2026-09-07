@@ -11,7 +11,13 @@ import {
   type GateSpec,
   type Ambiguity,
 } from './types.js';
-import { jsDetector, pythonDetector, goDetector, rustDetector } from './detectors/index.js';
+import {
+  jsDetector,
+  pythonDetector,
+  goDetector,
+  rustDetector,
+  staticSiteDetector,
+} from './detectors/index.js';
 
 /** The shipped ecosystem detectors, tried in order (the registry is open — pass
  *  a custom list to extend). */
@@ -20,6 +26,7 @@ export const DEFAULT_DETECTORS: readonly EcosystemDetector[] = [
   pythonDetector,
   goDetector,
   rustDetector,
+  staticSiteDetector,
 ];
 
 function tierOf(score: number): ConfidenceTier {
