@@ -102,6 +102,41 @@ describe('anomaly chips on the fleet card', () => {
     expect(chips[1]?.getAttribute('aria-label')).not.toContain('3 consecutive');
   });
 
+  it('gives convergence-unverifiable and guard-verify-failed chips a proper label, not the raw kind string', async () => {
+    const withNewKinds = {
+      ...PROJECT,
+      anomalies: [
+        {
+          kind: 'convergence-unverifiable',
+          evidence:
+            'A convergence gate reported green too fast to trust (typecheck): 50ms < 200ms floor',
+        },
+        {
+          kind: 'guard-verify-failed',
+          evidence:
+            'A flight refused to start because its containment guard could not be verified: settings mismatch',
+        },
+      ],
+    };
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    globalThis.fetch = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          json: async () => ({ ...STATE, projects: [withNewKinds] }),
+        }) as unknown as Response,
+    );
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const chips = Array.from(document.querySelectorAll('.card-head-badges .chip-anomaly'));
+    expect(chips.length).toBe(2);
+    expect(chips[0]?.getAttribute('aria-label')).toBe('anomaly: ❓ convergence unverifiable');
+    expect(chips[1]?.getAttribute('aria-label')).toBe('anomaly: 🛑 guard verify failed');
+  });
+
   it('renders no anomaly chips for a project with a clean flight log', async () => {
     const clean = { ...PROJECT, anomalies: [] };
     document.open();
