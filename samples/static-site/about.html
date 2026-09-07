@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>About — Field Notes</title>
+    <meta
+      name="description"
+      content="What the static-site sample demonstrates and how its gate works."
+    >
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <p class="wordmark">Field Notes</p>
+      <nav aria-label="Main">
+        <a href="index.html">Home</a>
+        <a href="about.html" aria-current="page">About</a>
+      </nav>
+    </header>
+    <main>
+      <h1>What this sample proves</h1>
+      <p>
+        Most target repos AUTOPILOT flies have a manifest — a
+        <code>package.json</code>, a <code>pyproject.toml</code> — that names
+        a gate directly. A static site has neither, so the
+        <code>static-site</code> detector recognizes the ecosystem from the
+        files themselves: no manifest, at least one <code>.html</code> file.
+      </p>
+      <h2>The gate</h2>
+      <p>
+        Two checks, both run through <code>npx --yes</code> since there is no
+        local install to reuse:
+      </p>
+      <ul>
+        <li>
+          <code>html-validate **/*.html</code> — lints every page for markup
+          errors.
+        </li>
+        <li>
+          <code>linkinator . --recurse</code> — crawls every page from
+          <a href="index.html">the home page</a> and fails on a broken link.
+        </li>
+      </ul>
+      <p><a href="index.html">Back home.</a></p>
+    </main>
+    <footer class="site-footer">
+      <p>Part of AUTOPILOT's samples/ target-repo fixtures.</p>
+    </footer>
+  </body>
+</html>

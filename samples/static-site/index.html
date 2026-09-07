@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Field Notes — an AUTOPILOT sample</title>
+    <meta
+      name="description"
+      content="A tiny two-page static site with no build tooling, used as an AUTOPILOT onboarding fixture."
+    >
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <p class="wordmark">Field Notes</p>
+      <nav aria-label="Main">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="about.html">About</a>
+      </nav>
+    </header>
+    <main>
+      <h1>A static site with nothing to build</h1>
+      <p>
+        This sample has no <code>package.json</code>, no bundler, and no
+        server-side code — just hand-written HTML and CSS. It exists so
+        AUTOPILOT's <code>static-site</code> onboarding detector
+        (<code>packages/onboarding/src/gate/detectors/static-site.ts</code>)
+        has a real fixture to flight-test against, the same way sibling
+        samples exercise the <code>js</code> and <code>python</code>
+        detectors.
+      </p>
+      <p>
+        Read more on the <a href="about.html">about page</a> — every link on
+        this site stays local so the gate's link check never depends on
+        network access.
+      </p>
+    </main>
+    <footer class="site-footer">
+      <p>Part of AUTOPILOT's samples/ target-repo fixtures.</p>
+    </footer>
+  </body>
+</html>

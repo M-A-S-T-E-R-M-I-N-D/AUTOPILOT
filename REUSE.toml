@@ -82,3 +82,9 @@ path = "samples/python-lib/**/*.py"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["samples/static-site/**/*.html", "samples/static-site/**/*.css"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
+SPDX-License-Identifier = "Apache-2.0"
