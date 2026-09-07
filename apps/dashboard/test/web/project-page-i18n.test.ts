@@ -127,3 +127,53 @@ describe('the per-project "Contribute upstream" PR form i18n wiring (board web-m
     expect(branchLabel?.textContent).toBe(STRINGS.he.githubPrLabel.replace('{name}', 'Alpha'));
   });
 });
+
+describe('the per-project "Project not found" empty state i18n wiring (board web-msnsndki-dz3vn1)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.removeItem('ap-locale'); // isolate from a prior describe's language-switch click
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function bootMissing(): void {
+    document.open();
+    document.write(renderShell('missing-project'));
+    document.close();
+    globalThis.fetch = vi.fn(
+      async () => ({ ok: true, json: async () => STATE }) as unknown as Response,
+    );
+    new Function(clientJs())();
+  }
+
+  it('tags the heading and body text with their STRINGS keys', async () => {
+    bootMissing();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const empty = document.querySelector('#fleet .empty');
+    expect(empty).not.toBeNull();
+
+    const heading = empty?.querySelector('h2');
+    expect(heading?.textContent).toBe('Project not found');
+    expect(heading?.getAttribute('data-i18n')).toBe('projectNotFound');
+
+    const body = empty?.querySelector('p');
+    expect(body?.textContent).toBe(
+      'It may have been removed from the dashboard. Head back to the fleet.',
+    );
+    expect(body?.getAttribute('data-i18n')).toBe('projectNotFoundBody');
+  });
+
+  it('switching to Hebrew translates the heading and body text', async () => {
+    bootMissing();
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    const empty = document.querySelector('#fleet .empty');
+    expect(empty?.querySelector('h2')?.textContent).toBe(STRINGS.he.projectNotFound);
+    expect(empty?.querySelector('p')?.textContent).toBe(STRINGS.he.projectNotFoundBody);
+  });
+});
