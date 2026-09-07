@@ -39,6 +39,15 @@
  * viewer's scroll position and re-fetching the open doc mid-read. Caching
  * the mounted nodes per project id lets `renderProjectPage()`'s own
  * `replaceChildren()` + `appendChild()` cycle just reattach the same nodes.
+ *
+ * i18n (board web-msnsndki-dz3vn1): this panel's own literal text — the
+ * "📚 Docs" title (created once, the first time a project's panel mounts)
+ * and the empty/fetch-failure states inside `refreshDocsList` (rebuilt on
+ * every list refresh, cached panel or not) — carries its English default AND
+ * a `data-i18n` tag, then is swept by `translateDom()` (a bare hoisted
+ * identifier from `web/features/locale.ts`'s splice, same as `fleetJs()`'s
+ * call sites), the exact shape `web/features/round-panel.ts` already
+ * follows.
  */
 import { docFileTip } from '../docs-panel.js';
 
@@ -71,6 +80,7 @@ function docsSection(pid) {
   }
   var wrap = el('section', 'docs-panel');
   var head = el('h3', 'docs-title', '📚 Docs');
+  head.setAttribute('data-i18n', 'docsTitle');
   wrap.appendChild(head);
   var list = el('ul', 'docs-list');
   list.setAttribute('data-docs-list', pid);
@@ -79,6 +89,7 @@ function docsSection(pid) {
   viewer.setAttribute('data-docs-viewer', pid);
   wrap.appendChild(viewer);
   docsPanelCache[pid] = { wrap: wrap, list: list, viewer: viewer };
+  translateDom(document.documentElement.lang || 'en');
   refreshDocsList(pid, list, viewer);
   return wrap;
 }
@@ -93,7 +104,10 @@ function refreshDocsList(pid, list, viewer) {
       list.replaceChildren(); // re-mounted panel already has the last tick's entries
       var files = data.files || [];
       if (!files.length) {
-        list.appendChild(el('li', 'muted', 'No indexed documents yet.'));
+        var empty = el('li', 'muted', 'No indexed documents yet.');
+        empty.setAttribute('data-i18n', 'docsEmpty');
+        list.appendChild(empty);
+        translateDom(document.documentElement.lang || 'en');
         return;
       }
       for (var i = 0; i < files.length; i++) {
@@ -131,7 +145,10 @@ function refreshDocsList(pid, list, viewer) {
     .catch(function () {
       if (!list.isConnected) return;
       list.replaceChildren();
-      list.appendChild(el('li', 'muted', 'Docs unavailable.'));
+      var unavailable = el('li', 'muted', 'Docs unavailable.');
+      unavailable.setAttribute('data-i18n', 'docsUnavailable');
+      list.appendChild(unavailable);
+      translateDom(document.documentElement.lang || 'en');
     });
 }
 function loadDoc(pid, path, viewer) {

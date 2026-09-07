@@ -38,6 +38,18 @@ describe('docsViewerJs', () => {
     expect(out).toBe(out.trim());
   });
 
+  it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
+    const out = docsViewerJs();
+    expect(out).toContain("head.setAttribute('data-i18n', 'docsTitle');");
+    expect(out).toContain("empty.setAttribute('data-i18n', 'docsEmpty');");
+    expect(out).toContain("unavailable.setAttribute('data-i18n', 'docsUnavailable');");
+    // One sweep per tagged-DOM creation site: the panel's own title (fresh
+    // mount only), the empty state, and the fetch-failure state.
+    expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
+      3,
+    );
+  });
+
   // Epic 0018 "calm cockpit", STABILITY LAW "the reader is sacred": the docs
   // viewer must survive a full renderProjectPage() rebuild (fired on every
   // live-state tick) with scroll position and rendered content intact,
