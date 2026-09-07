@@ -40,6 +40,8 @@ const NO_STATE = [
   undefined,
   undefined,
   undefined,
+  // timelineOverlays — the firing-timeline cluster's trace/diff/replay maps
+  undefined,
 ] as const;
 
 describe('detailSectionSigs', () => {
@@ -93,20 +95,25 @@ describe('detailSectionSigs', () => {
     expect(after.dirs).toBe(before.dirs);
   });
 
-  it('changes the flightlog signature when any injected flight-log disclosure state moves, not just c', () => {
-    const before = detailSectionSigs(
+  it('changes the timeline signature when the trace/diff/replay overlays move — a diff-toggle click must never re-render into an unchanged sig (the frozen Hide-flip regression the card-state reuse exposed)', () => {
+    const before = detailSectionSigs(BASE, ...NO_STATE);
+    const after = detailSectionSigs(
       BASE,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
+      ...(NO_STATE.slice(0, 7) as [unknown, unknown, unknown, unknown, unknown, unknown, unknown]),
+      [{}, {}, { 'p1:f1': true }, {}, {}, {}],
     );
+    expect(after.timeline).not.toBe(before.timeline);
+    expect(after.flightlog).toBe(before.flightlog);
+    expect(after.activity).toBe(before.activity);
+    expect(after.metrics).toBe(before.metrics);
+  });
+
+  it('changes the flightlog signature when any injected flight-log disclosure state moves, not just c', () => {
+    const before = detailSectionSigs(BASE, ...NO_STATE);
     const afterExtra = detailSectionSigs(
       BASE,
       [{ id: 'f2' }],
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -120,6 +127,7 @@ describe('detailSectionSigs', () => {
       undefined,
       undefined,
       'f1',
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -141,6 +149,7 @@ describe('detailSectionSigs', () => {
       undefined,
       'orient',
       undefined,
+      undefined,
     );
     expect(after.activity).not.toBe(before.activity);
     expect(after.flightlog).toBe(before.flightlog);
@@ -158,6 +167,7 @@ describe('detailSectionSigs', () => {
       undefined,
       undefined,
       'fir-1',
+      undefined,
     );
     expect(after.timeline).not.toBe(before.timeline);
     expect(after.activity).toBe(before.activity);
