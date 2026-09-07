@@ -35,6 +35,17 @@
  * `coordinationLineMeta` is generated FROM `web/coordination-panel.ts` below
  * (epic 0002 "shell decomposition") — its real compiled source via
  * `.toString()`, not a hand-retyped copy. It can no longer drift apart.
+ *
+ * i18n (board web-msnsndki-dz3vn1): this panel's own literal text — title,
+ * loading placeholder, empty state, and fetch-failure state — is created
+ * with its English default AND a `data-i18n` tag, then swept by
+ * `translateDom()` (a bare hoisted identifier from `web/features/locale.ts`'s
+ * splice, same as `fleetJs()`'s call sites), exactly the shape
+ * `web/features/round-panel.ts` already follows: the panel fetches once on
+ * page load, well after the page's own one-time `applyLocale()` sweep, so
+ * each freshly created state needs its own sweep call. The coordination
+ * lines themselves (`meta.text`/`meta.tip`) stay as served — they quote the
+ * firing prompt's own FLEET digest verbatim, by design.
  */
 import { coordinationLineMeta } from '../coordination-panel.js';
 
@@ -46,7 +57,10 @@ function renderCoordinationBody(body, lines) {
   body.replaceChildren();
   lines = lines || [];
   if (!lines.length) {
-    body.appendChild(el('p', 'muted', 'No sibling claims or in-flight intents detected right now.'));
+    var empty = el('p', 'muted', 'No sibling claims or in-flight intents detected right now.');
+    empty.setAttribute('data-i18n', 'coordinationEmpty');
+    body.appendChild(empty);
+    translateDom(document.documentElement.lang || 'en');
     return;
   }
   var ul = el('ul', 'coordination-list');
@@ -82,9 +96,13 @@ function renderCoordinationBody(body, lines) {
 wireRoving('.coordination-list [tabindex]', '.coordination-list');
 function coordinationSection(pid) {
   var wrap = el('section', 'coordination-panel');
-  wrap.appendChild(el('h3', 'coordination-title', '🤝 Fleet coordination'));
+  var title = el('h3', 'coordination-title', '🤝 Fleet coordination');
+  title.setAttribute('data-i18n', 'coordinationTitle');
+  wrap.appendChild(title);
   var body = el('div', 'coordination-body');
-  body.appendChild(el('p', 'muted', 'Checking for sibling claims and in-flight intents…'));
+  var loading = el('p', 'muted', 'Checking for sibling claims and in-flight intents…');
+  loading.setAttribute('data-i18n', 'coordinationLoading');
+  body.appendChild(loading);
   wrap.appendChild(body);
   fetch('/api/coordination?project=' + encodeURIComponent(pid))
     .then(function (r) { return r.ok ? r.json() : { lines: [] }; })
@@ -94,8 +112,12 @@ function coordinationSection(pid) {
     })
     .catch(function () {
       if (!body.isConnected) return;
-      body.replaceChildren(el('p', 'muted', 'Fleet coordination unavailable.'));
+      var unavailable = el('p', 'muted', 'Fleet coordination unavailable.');
+      unavailable.setAttribute('data-i18n', 'coordinationUnavailable');
+      body.replaceChildren(unavailable);
+      translateDom(document.documentElement.lang || 'en');
     });
+  translateDom(document.documentElement.lang || 'en');
   return wrap;
 }
 `.trim();

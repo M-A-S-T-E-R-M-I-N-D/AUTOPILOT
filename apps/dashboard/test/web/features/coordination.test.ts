@@ -33,8 +33,21 @@ describe('coordinationJs', () => {
   });
 
   it('degrades to an honest unavailable message on fetch failure', () => {
-    expect(coordinationJs()).toContain(
-      "body.replaceChildren(el('p', 'muted', 'Fleet coordination unavailable.'));",
+    const out = coordinationJs();
+    expect(out).toContain("el('p', 'muted', 'Fleet coordination unavailable.')");
+    expect(out).toContain('body.replaceChildren(unavailable);');
+  });
+
+  it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
+    const out = coordinationJs();
+    expect(out).toContain("title.setAttribute('data-i18n', 'coordinationTitle');");
+    expect(out).toContain("loading.setAttribute('data-i18n', 'coordinationLoading');");
+    expect(out).toContain("empty.setAttribute('data-i18n', 'coordinationEmpty');");
+    expect(out).toContain("unavailable.setAttribute('data-i18n', 'coordinationUnavailable');");
+    // One sweep per tagged-DOM creation site: the empty state, the fetch
+    // failure state, and the section's own title/loading placeholder.
+    expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
+      3,
     );
   });
 
