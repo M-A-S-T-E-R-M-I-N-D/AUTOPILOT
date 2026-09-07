@@ -93,9 +93,20 @@ import {
  * Trimmed to byte-mode-only + inline-SVG output, panels measured 103403 raw
  * / 31798 gzip against the old 102400 / 30720 budget. Mirror any further
  * change here in scripts/ci/check-bundle-size.mjs.
+ *
+ * Raised 176→180KB / 52→53KB (2026-09-07): the Flight console panel's i18n
+ * slice (board web-msnsndki-dz3vn1 — three STRINGS.en keys, consoleEmpty /
+ * consoleCollapsed / consoleUnavailable, relanded after the 07:47 revert
+ * burst discarded c9f4d502) measured 53268 gzip against the old 53248
+ * budget: 20 bytes over on gzip alone, out of the 33 bytes of headroom the
+ * entry above left. The panel itself rides /project.js, but every English
+ * STRINGS entry lands in core via `localeJs()` regardless of which chunk its
+ * surface is served from. This bump leaves ~5.7KB raw / ~1KB gzip headroom,
+ * about five more slices at ~180 gzip each. The structural fix (VERDICT
+ * split web-mtbodv7m-uzhovs) remains the tracked follow-up.
  */
-const CORE_RAW_BUDGET = 176 * 1024;
-const CORE_GZIP_BUDGET = 52 * 1024;
+const CORE_RAW_BUDGET = 180 * 1024;
+const CORE_GZIP_BUDGET = 53 * 1024;
 const CHUNK_RAW_BUDGET = 112 * 1024;
 const CHUNK_GZIP_BUDGET = 34 * 1024;
 

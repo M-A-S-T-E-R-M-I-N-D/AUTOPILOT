@@ -27,6 +27,20 @@
  * has already run once), every feature module's functions — this one
  * included — are already defined in the same shared top-level scope, the
  * same way `tour.ts`'s `maybeAutoOpenTour` call site already relies on.
+ *
+ * i18n (board web-msnsndki-dz3vn1): the collapsed placeholder (built once,
+ * synchronously, when a project's panel first mounts) and the empty/
+ * fetch-failure states (rebuilt inside the async `/api/flightlog` handlers)
+ * carry their English default AND a `data-i18n` tag, then are swept by
+ * `translateDom()` (a bare hoisted identifier from `web/features/locale.ts`'s
+ * splice, same as `fleetJs()`'s call sites) — the collapsed placeholder rides
+ * the page-level sweep that follows every `renderProjectPage()` tick, while
+ * the two async states call `translateDom()` themselves since they can land
+ * well after that tick's sweep already ran, the exact shape
+ * `web/features/docs-viewer.ts`'s `refreshDocsList` already follows.
+ * (Relanded: first shipped as c9f4d502, then blind-reverted by the 07:47
+ * revert burst a false-positive drive-path scanner hit triggered — see
+ * 4fecba5f — and never forward-relanded with the burst's other victims.)
  */
 import { consoleLinesAriaLabel } from '../console-panel.js';
 
@@ -49,7 +63,10 @@ function renderConsoleBody(body, lines) {
   body.replaceChildren();
   lines = lines || [];
   if (!lines.length) {
-    body.appendChild(el('p', 'muted', 'No console output yet.'));
+    var emptyMsg = el('p', 'muted', 'No console output yet.');
+    emptyMsg.setAttribute('data-i18n', 'consoleEmpty');
+    body.appendChild(emptyMsg);
+    translateDom(document.documentElement.lang || 'en');
     return;
   }
   var pre = document.createElement('pre');
@@ -70,7 +87,9 @@ function flightConsoleSection(pid) {
   summary.setAttribute('data-tip', 'Raw stdout+stderr tail of the flight process for this project');
   details.appendChild(summary);
   var body = el('div', 'console-body');
-  body.appendChild(el('p', 'muted', 'Collapsed — expand to load.'));
+  var collapsedMsg = el('p', 'muted', 'Collapsed — expand to load.');
+  collapsedMsg.setAttribute('data-i18n', 'consoleCollapsed');
+  body.appendChild(collapsedMsg);
   details.appendChild(body);
   details.addEventListener('toggle', function () {
     if (!details.open || consoleLoaded[pid]) return;
@@ -84,7 +103,10 @@ function flightConsoleSection(pid) {
       .catch(function () {
         if (!body.isConnected) return;
         consoleLoaded[pid] = false; // allow a retry on the next expand
-        body.replaceChildren(el('p', 'muted', 'Flight console unavailable.'));
+        var unavailableMsg = el('p', 'muted', 'Flight console unavailable.');
+        unavailableMsg.setAttribute('data-i18n', 'consoleUnavailable');
+        body.replaceChildren(unavailableMsg);
+        translateDom(document.documentElement.lang || 'en');
       });
   });
   wrap.appendChild(details);
