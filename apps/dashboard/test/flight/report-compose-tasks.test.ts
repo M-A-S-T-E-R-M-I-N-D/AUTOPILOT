@@ -2,12 +2,56 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { openStore, migrate, type Store } from '@autopilot/store';
 import {
   buildReportComposeTasksPrompt,
   parseReportComposeTasksOutput,
   composeReportTasks,
+  applyComposedTasks,
   type ReportComposeTasksDeps,
+  type ReportComposeTaskItem,
 } from '../../src/flight/report-compose-tasks.js';
+
+function project(s: Store, id: string): void {
+  s.db
+    .prepare(
+      `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'flying', NULL, ?, ?)`,
+    )
+    .run(id, id, id, '/tmp/' + id, 100, 100);
+}
+
+function tasks(
+  s: Store,
+  projectId: string,
+): { id: string; title: string; body: string | null; status: string; source: string }[] {
+  return s.db
+    .prepare('SELECT id, title, body, status, source FROM tasks WHERE project_id = ? ORDER BY id')
+    .all(projectId) as {
+    id: string;
+    title: string;
+    body: string | null;
+    status: string;
+    source: string;
+  }[];
+}
+
+function cleanupDir(dir: string): void {
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+}
+
+function item(overrides: Partial<ReportComposeTaskItem> = {}): ReportComposeTaskItem {
+  return {
+    title: 'Fix disabled launch button',
+    body: 'The launch button stays disabled after a flight lands.',
+    severity: 'high',
+    dimension: 'ux',
+    ...overrides,
+  };
+}
 
 describe('buildReportComposeTasksPrompt', () => {
   it('includes the operator note, captured context, and module sources', () => {
@@ -287,5 +331,88 @@ describe('composeReportTasks', () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.tasks).toHaveLength(2);
+  });
+});
+
+describe('applyComposedTasks', () => {
+  it('creates one board task per composed item', () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-compose-tasks-apply-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+
+      const result = applyComposedTasks(
+        s,
+        'p1',
+        [item({ title: 'a' }), item({ title: 'b', severity: 'low', dimension: 'accessibility' })],
+        100,
+      );
+
+      expect(result).toEqual({ created: 2, skipped: 0 });
+      const rows = tasks(s, 'p1');
+      expect(rows).toHaveLength(2);
+      expect(rows.map((r) => r.title).sort()).toEqual(['a', 'b']);
+      expect(rows.every((r) => r.status === 'queued' && r.source === 'dashboard')).toBe(true);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('carries the body/severity/dimension through to the board row', () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-compose-tasks-fields-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+
+      applyComposedTasks(s, 'p1', [item()], 100);
+
+      const rows = tasks(s, 'p1');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        title: 'Fix disabled launch button',
+        body: 'The launch button stays disabled after a flight lands.',
+      });
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('is a harmless no-op on a retried task — the content-addressed id collides', () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-compose-tasks-repeat-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const composed = [item()];
+
+      const first = applyComposedTasks(s, 'p1', composed, 100);
+      const second = applyComposedTasks(s, 'p1', composed, 100);
+
+      expect(first).toEqual({ created: 1, skipped: 0 });
+      expect(second).toEqual({ created: 0, skipped: 1 });
+      expect(tasks(s, 'p1')).toHaveLength(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('returns {created:0, skipped:0} for an empty tasks array', () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-compose-tasks-empty-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+
+      expect(applyComposedTasks(s, 'p1', [], 100)).toEqual({ created: 0, skipped: 0 });
+      expect(tasks(s, 'p1')).toHaveLength(0);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
   });
 });

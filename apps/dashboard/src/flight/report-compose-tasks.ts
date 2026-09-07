@@ -2,28 +2,41 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * COMPOSER TARGET=TASKS (board web-mtq2m6la-ckpxm7) slice 1: `report-
- * compose.ts`'s `composeReport` turns a free-text note into ONE polished
- * report (title/body/labels/action) headed for an upstream GitHub issue.
- * This sibling composer targets the LOCAL board instead: it turns the same
- * kind of note into a `tasks[]` array — `{title, body, severity, dimension}`
- * — so an operator's rushed, possibly-bundled ask ("the launch button is
- * broken and the contrast on the fleet card is too low") gets SPLIT into
- * right-sized, independently actionable board tasks rather than one
- * oversized one. `severity`/`dimension` are `@autopilot/store`'s own
+ * COMPOSER TARGET=TASKS (board web-mtq2m6la-ckpxm7) slice 1 + slice 2:
+ * `report-compose.ts`'s `composeReport` turns a free-text note into ONE
+ * polished report (title/body/labels/action) headed for an upstream GitHub
+ * issue. This sibling composer targets the LOCAL board instead: it turns the
+ * same kind of note into a `tasks[]` array — `{title, body, severity,
+ * dimension}` — so an operator's rushed, possibly-bundled ask ("the launch
+ * button is broken and the contrast on the fleet card is too low") gets
+ * SPLIT into right-sized, independently actionable board tasks rather than
+ * one oversized one. `severity`/`dimension` are `@autopilot/store`'s own
  * `Severity`/`Dimension` enums, unmodified — the same fields
  * `flight/control-execute.ts` and `server/server.ts`'s task-create endpoint
  * already validate against, so a composed task slots directly into the
  * existing board contract. Shares the fence/defang/leak-guard machinery with
  * `report-compose.ts` (imported, not duplicated) since both composers face
- * the exact same untrusted-context and secret-leak surface. Pure: never
- * touches the store — applying the result (POST-ing each task to the board)
- * is a later slice's execute wiring, the same split `report-compose.ts`
- * itself took (1/3 core, 2/3 UI wiring, 3/3 hardening).
+ * the exact same untrusted-context and secret-leak surface.
+ *
+ * `composeReportTasks` (slice 1) is pure: it never touches the store.
+ * {@link applyComposedTasks} (slice 2) is the execute half — given a composed
+ * `tasks[]`, it actually creates each one on the board, the same split
+ * `report-from-here.ts` takes between `planReportFromHere` and
+ * `applyReportTask`. Still no UI entry point: the report-from-here dialog's
+ * "split into tasks" affordance and preview are the remaining follow-up
+ * slice (per UX-EXPRESSION DOCTRINE, this file alone is not yet a complete,
+ * user-reachable capability).
  */
 
 import { fenceTitle } from '@autopilot/engine';
-import { SEVERITIES, DIMENSIONS, type Severity, type Dimension } from '@autopilot/store';
+import {
+  createTask,
+  SEVERITIES,
+  DIMENSIONS,
+  type Severity,
+  type Dimension,
+  type Store,
+} from '@autopilot/store';
 import { FENCE_OPEN, FENCE_CLOSE, defang, hasComposeLeak } from './report-compose.js';
 import type { ReportComposePromptInput } from './report-compose.js';
 
@@ -212,4 +225,63 @@ export async function composeReportTasks(
     };
   }
   return { ok: true, tasks };
+}
+
+/** Same non-crypto hash `report-from-here.ts`'s `djb2` uses — copied rather
+ *  than imported, per this file's "each file owns its own bound/helper"
+ *  convention (see `TASK_TITLE_CHARS`/`TASK_BODY_CHARS` above). */
+function djb2(text: string): string {
+  let hash = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+/** Content-addressed by project + title + body, same "retry is a harmless
+ *  no-op" convention {@link reportTaskId} (`report-from-here.ts`) follows:
+ *  re-applying the same composed batch never mints duplicate board tasks. */
+function composedTaskId(projectId: string, task: ReportComposeTaskItem): string {
+  return `compose-task-${projectId}-${djb2(`${task.title}\n${task.body}`)}`;
+}
+
+/** How many of a composed batch actually landed as new board rows — a
+ *  duplicate id (a retried batch) counts as `skipped`, never an error. */
+export interface ApplyComposedTasksResult {
+  readonly created: number;
+  readonly skipped: number;
+}
+
+/**
+ * Creates one board task per {@link ReportComposeTaskItem} — the execute half
+ * of COMPOSER TARGET=TASKS (board web-mtq2m6la-ckpxm7) slice 1's pure
+ * `composeReportTasks`, same split `report-from-here.ts`'s `applyReportTask`
+ * takes for its own plan. `source: 'dashboard'` throughout: the operator
+ * explicitly typed the note and triggered the compose+execute themselves, the
+ * same "queued immediately, no approval gate" stance a hand-typed local-task
+ * report already takes — this is not an autopilot-mined proposal. Still no UI
+ * entry point (the report-from-here dialog's own follow-up slice); this is
+ * the store-writing half only.
+ */
+export function applyComposedTasks(
+  store: Store,
+  projectId: string,
+  tasks: readonly ReportComposeTaskItem[],
+  createdAt: number,
+): ApplyComposedTasksResult {
+  let created = 0;
+  for (const task of tasks) {
+    const ok = createTask(store, {
+      id: composedTaskId(projectId, task),
+      projectId,
+      title: task.title,
+      body: task.body,
+      severity: task.severity,
+      dimension: task.dimension,
+      source: 'dashboard',
+      createdAt,
+    });
+    if (ok) created += 1;
+  }
+  return { created, skipped: tasks.length - created };
 }
