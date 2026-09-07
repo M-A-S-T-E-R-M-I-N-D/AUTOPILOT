@@ -887,7 +887,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .langbar { display: flex; gap: 2px; height: 6px; border-radius: var(--radius-sm); overflow: hidden; }
 .langseg { min-width: 3px; background: var(--color-accent); }
 .legend { margin: 0; padding-inline-start: var(--space-4); font-size: var(--text-xs); color: var(--color-text-muted); }
-.flightlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--text-xs); }
+.flightlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--text-xs); max-height: 32rem; overflow-y: auto; }
 .flight { display: flex; flex-direction: column; gap: 0; }
 /* Flight-log toggles (COCKPIT 4/6): the same MX shape-morph + elevation
    hover/active pair the phase-rail segments, board buttons, and fly-bar CTAs
