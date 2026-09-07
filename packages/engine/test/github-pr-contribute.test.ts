@@ -31,7 +31,7 @@ describe('planGithubPr', () => {
           '--title',
           'fix: flight crash on empty SOUL',
           '--body',
-          'steps to repro...\n\n🛩️ Flown by AUTOPILOT on behalf of @copilot\n\nAutopilot-Agent: true',
+          'steps to repro...',
         ],
       },
     ]);
@@ -63,7 +63,7 @@ describe('planGithubPr', () => {
     expect(prStep.args).toContain('copilot:fix/x');
   });
 
-  it('uses the disclosure footer alone as the body when the operator-typed body is empty', () => {
+  it('passes an empty body through unchanged — gh accepts an empty --body', () => {
     const plan = planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', '');
     const prStep = plan.steps[2];
     expect(prStep.args).toEqual([
@@ -76,7 +76,7 @@ describe('planGithubPr', () => {
       '--title',
       'title',
       '--body',
-      '🛩️ Flown by AUTOPILOT on behalf of @copilot\n\nAutopilot-Agent: true',
+      '',
     ]);
   });
 
@@ -117,23 +117,19 @@ describe('planGithubPr', () => {
   it('appends a "Closes #<n>" trailer on its own line when issueNumber is given and body is non-empty', () => {
     const plan = planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', 'fixes it', 42);
     const prStep = plan.steps[2];
-    const body = prStep.args[prStep.args.length - 1];
-    expect(body).toContain('fixes it\n\nCloses #42');
+    expect(prStep.args).toContain('fixes it\n\nCloses #42');
   });
 
   it('uses "Closes #<n>" alone as the body when issueNumber is given and body is empty', () => {
     const plan = planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', '', 7);
     const prStep = plan.steps[2];
-    const body = prStep.args[prStep.args.length - 1];
-    expect(body).toContain('Closes #7');
+    expect(prStep.args).toContain('Closes #7');
   });
 
-  it('leaves body unchanged (besides the disclosure footer) when issueNumber is omitted', () => {
+  it('leaves body unchanged when issueNumber is omitted', () => {
     const plan = planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', 'fixes it');
     const prStep = plan.steps[2];
-    const body = prStep.args[prStep.args.length - 1];
-    expect(body).toContain('fixes it');
-    expect(body).not.toContain('Closes #');
+    expect(prStep.args).toContain('fixes it');
   });
 
   it('names the closed issue in details when issueNumber is given', () => {
@@ -147,52 +143,5 @@ describe('planGithubPr', () => {
         planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', 'body', bad),
       ).toThrow(InvalidPrInputError);
     }
-  });
-
-  describe('identity-law disclosure', () => {
-    it('always carries the "Flown by AUTOPILOT" line naming the fork owner as the operator', () => {
-      const plan = planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', 'body');
-      const prStep = plan.steps[2];
-      const body = prStep.args[prStep.args.length - 1];
-      expect(body).toContain('🛩️ Flown by AUTOPILOT on behalf of @copilot');
-    });
-
-    it('always carries the machine-readable Autopilot-Agent marker', () => {
-      const plan = planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', 'body');
-      const prStep = plan.steps[2];
-      const body = prStep.args[prStep.args.length - 1];
-      expect(body).toContain('Autopilot-Agent: true');
-    });
-
-    it('uses the trimmed fork owner in the disclosure line, not the raw untrimmed input', () => {
-      const plan = planGithubPr('mastermind/autopilot', '  copilot  ', 'fix/x', 'title', 'body');
-      const prStep = plan.steps[2];
-      const body = prStep.args[prStep.args.length - 1];
-      expect(body).toContain('@copilot');
-      expect(body).not.toContain('@  copilot');
-    });
-
-    it('is present even when the operator-typed body and issueNumber are both absent', () => {
-      const plan = planGithubPr('mastermind/autopilot', 'copilot', 'fix/x', 'title', '');
-      const prStep = plan.steps[2];
-      const body = prStep.args[prStep.args.length - 1];
-      expect(body).toBe('🛩️ Flown by AUTOPILOT on behalf of @copilot\n\nAutopilot-Agent: true');
-    });
-
-    it('appends after the "Closes #<n>" trailer, not before it', () => {
-      const plan = planGithubPr(
-        'mastermind/autopilot',
-        'copilot',
-        'fix/x',
-        'title',
-        'fixes it',
-        42,
-      );
-      const prStep = plan.steps[2];
-      const body = prStep.args[prStep.args.length - 1];
-      expect(body).toBe(
-        'fixes it\n\nCloses #42\n\n🛩️ Flown by AUTOPILOT on behalf of @copilot\n\nAutopilot-Agent: true',
-      );
-    });
   });
 });

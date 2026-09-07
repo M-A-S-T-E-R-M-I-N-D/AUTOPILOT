@@ -119,7 +119,7 @@ describe('createGithubPrExecuteApi', () => {
             '--title',
             'a landed fix',
             '--body',
-            'fixes the thing\n\n🛩️ Flown by AUTOPILOT on behalf of @octocat\n\nAutopilot-Agent: true',
+            'fixes the thing',
           ],
           cwd: repo,
         },
@@ -219,9 +219,7 @@ describe('createGithubPrExecuteApi', () => {
       )('p1', 'a landed fix', 'fixes the thing', 42);
 
       expect(calls).toHaveLength(3);
-      const body = calls[2]?.args[calls[2].args.length - 1];
-      expect(body).toContain('fixes the thing\n\nCloses #42');
-      expect(body).toContain('Autopilot-Agent: true');
+      expect(calls[2]?.args).toContain('fixes the thing\n\nCloses #42');
       expect(result?.ok).toBe(true);
       expect(result?.details).toContain('closing #42');
     } finally {
