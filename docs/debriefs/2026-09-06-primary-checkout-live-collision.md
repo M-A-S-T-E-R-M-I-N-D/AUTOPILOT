@@ -328,3 +328,55 @@ accidental sweep of the eleven still-unstaged foreign paths).
 movement is now confirmed reproducible via nothing more than two
 read-only `git status` polls a few seconds apart — this is not a rare
 timing accident, it is the checkout's steady state under fleet load.
+
+## Verdict reconfirmed a seventh time, two units landed back-to-back mid-investigation: firing-196 (2026-09-07)
+
+This firing's own investigation produced the clearest before/after pair
+yet. On start, `git status` showed two unrelated, file-disjoint uncommitted
+units sitting together in the working tree: (1) `.github/workflows/ci.yml`
++ `package.json` + an untracked `scripts/ci/launcher-smoke-cmd.mjs` (316
+lines, board `web-mtqanfe4-pil22i` slice 2/2 — Windows `.cmd` launcher
+smoke test), and (2) `apps/dashboard/src/control/post-push-watch.ts` +
+`landing/execute.ts` + `server/main.ts` + two test files (~374 lines, "POST-
+PUSH VERDICT RITUAL" slice 3, board `web-mtpbmay4-94ii65`) — neither
+touched by this firing.
+
+Three read-only `git status`/`git log` polls, spanning a few minutes: unit
+(1) landed cleanly as `9ece71aa` (`feat(ci): launcher smoke test now
+executes .cmd scripts too, not just .sh`) between the first and second
+poll; unit (2) landed cleanly as `22e4821b` (`feat(control): post-push
+verdict ritual slice 3 — start the watch from a green land`) between the
+second and third poll — each commit's message, diff, and provenance
+trailers matched what this firing had only just finished reading,
+reconfirming that the working-tree content was always the same identity
+that ultimately committed it, never something this firing needed to
+rescue. Immediately after the second landing, a **third** unit (i18n
+translation of the docs-viewer panel: `inbox/add.ts`, `web/features/
+docs-viewer.ts`, `packages/tokens/src/strings.ts`, two test files, one new
+untracked test file) was already sitting uncommitted — a live process had
+moved on to its next unit before this firing's own read had even finished.
+
+This firing touched none of the three units — no `git add`, no gate run, no
+edit against any of them, only observation. No data was lost (criteria (1)
+and (2) both hold a seventh time). The new data point: two full, unrelated
+units landing back-to-back and cleanly inside one firing's own read-only
+investigation window, immediately followed by a third unit's uncommitted
+start, is the sharpest evidence yet for firing-173's closing line — this
+is the checkout's steady state under fleet load, not a rare timing
+accident. `ap-mtq0bpgj-2`/`ap-mtm4qzty-1` remain **open, operator-owned**;
+the (a)/(b)/(c) decision is unchanged by this reconfirmation.
+
+### Board rank-4 task checked, found blocked (not touched)
+
+The same firing checked this session's board rank-4 item (`EPIC 0016 6/6:
+protocol red-team tests — duplicate-issue temptation, cap overflow,
+role-confusion, answer-for-a-human refusals`) against
+`apps/dashboard/src/flight/social-pass.ts` (epic 0016 slice 1/6, the only
+slice landed so far). Cap overflow is already covered by that slice's own
+test suite (`planSocialProtocol`'s cap/queue behavior). The other three
+fixtures the task names — duplicate-issue detection, role-based verb
+enforcement, and answer-for-a-human refusal — have no corresponding
+production logic anywhere in the module yet: they belong to epic 0016
+slices 2–5 (mirror-pass core, weave-in, standalone, observability), none
+of which have landed. Slice 6 cannot be meaningfully red-teamed ahead of
+the behavior it is meant to test. No code was changed for this check.
