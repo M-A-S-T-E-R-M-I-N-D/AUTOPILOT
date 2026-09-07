@@ -62,7 +62,6 @@
     "ci:spdx": "node scripts/ci/validate-spdx-headers.mjs",
     "ci:bundle-size": "node scripts/ci/check-bundle-size.mjs",
     "ci:npx-smoke-test": "node scripts/ci/npx-smoke-test.mjs",
-    "ci:launcher-smoke": "node scripts/ci/launcher-smoke.mjs",
     "ci:dependency-audit": "node scripts/ci/dependency-audit.mjs",
     "report:deadcode": "knip --no-exit-code --reporter compact",
     "ci:architecture": "node scripts/architecture/generate-diagram.mjs --check",
