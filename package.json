@@ -63,6 +63,7 @@
     "ci:bundle-size": "node scripts/ci/check-bundle-size.mjs",
     "ci:npx-smoke-test": "node scripts/ci/npx-smoke-test.mjs",
     "ci:dependency-audit": "node scripts/ci/dependency-audit.mjs",
+    "ci:license-check": "node scripts/ci/license-check.mjs",
     "report:deadcode": "knip --no-exit-code --reporter compact",
     "ci:architecture": "node scripts/architecture/generate-diagram.mjs --check",
     "ci:doc-links": "node scripts/docs/check-links.mjs --check",

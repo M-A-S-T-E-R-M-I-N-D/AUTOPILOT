@@ -82,6 +82,9 @@ jobs:
       - name: Dependency audit (production, high+ severity)
         run: pnpm run ci:dependency-audit
 
+      - name: License allowlist
+        run: pnpm run ci:license-check
+
       - name: Architecture diagram matches the real package graph
         run: pnpm run ci:architecture
 
