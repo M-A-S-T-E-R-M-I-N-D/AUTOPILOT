@@ -3397,7 +3397,12 @@ function renderLiveWorkers(state) {
   if (items.length === 0) return;
   if (liveWorkersRovingIndex >= items.length) liveWorkersRovingIndex = items.length - 1;
   if (liveWorkersRovingIndex < 0) liveWorkersRovingIndex = 0;
-  section.appendChild(el('span', 'live-workers-label', 'flying now'));
+  // i18n (board web-msnsndki-dz3vn1): the strip's visible label — distinct
+  // from the section's fuller liveWorkers aria-label ("Who's flying now").
+  // Rebuilt every tick, so it also rides renderFleet()'s translateDom() sweep.
+  var stripLabel = el('span', 'live-workers-label', tr('liveWorkersLabel'));
+  stripLabel.setAttribute('data-i18n', 'liveWorkersLabel');
+  section.appendChild(stripLabel);
   for (var i = 0; i < items.length; i++) {
     var w = items[i];
     var meta = liveWorkerChipMeta(w, OFFICE_TIPS);
@@ -3604,8 +3609,17 @@ function renderFleet(state) {
       if (fleetShowingEmpty !== true) {
         fleet.replaceChildren();
         var empty = el('div', 'empty');
-        empty.appendChild(el('h2', null, 'No projects flying yet'));
-        empty.appendChild(el('p', 'muted', 'Onboard a repo to watch it here. To see the dashboard populated now, run:'));
+        // i18n (board web-msnsndki-dz3vn1): built ONCE behind the
+        // fleetShowingEmpty guard, so the heading/hint are painted in the
+        // active locale here and kept there by the per-tick translateDom()
+        // sweep below. The demo command is a shell literal — same in every
+        // locale — so it stays untagged on purpose.
+        var emptyTitle = el('h2', null, tr('fleetEmptyTitle'));
+        emptyTitle.setAttribute('data-i18n', 'fleetEmptyTitle');
+        empty.appendChild(emptyTitle);
+        var emptyHint = el('p', 'muted', tr('fleetEmptyHint'));
+        emptyHint.setAttribute('data-i18n', 'fleetEmptyHint');
+        empty.appendChild(emptyHint);
         empty.appendChild(el('code', 'cmd', 'pnpm dashboard:demo'));
         fleet.appendChild(empty);
         fleetCardsById = {};
