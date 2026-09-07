@@ -54,6 +54,21 @@ describe('prReviewDecisionLabel', () => {
     expect(prReviewDecisionLabel('queue-for-human', trEn)).toBe('🟣 queue for human');
   });
 
+  it('labels a queue-for-human decision awaiting approval with a distinct badge', () => {
+    expect(prReviewDecisionLabel('queue-for-human', trEn, true)).toBe(
+      '🔒 awaiting approval to run CI',
+    );
+  });
+
+  it('falls back to the generic queue-for-human badge when awaitingApproval is explicitly false', () => {
+    expect(prReviewDecisionLabel('queue-for-human', trEn, false)).toBe('🟣 queue for human');
+  });
+
+  it('ignores awaitingApproval for merge/request-changes decisions', () => {
+    expect(prReviewDecisionLabel('merge', trEn, true)).toBe('✓ merge');
+    expect(prReviewDecisionLabel('request-changes', trEn, true)).toBe('✗ request changes');
+  });
+
   it('echoes back an unrecognized decision verbatim rather than throwing', () => {
     expect(prReviewDecisionLabel('mystery', trEn)).toBe('mystery');
   });
@@ -65,6 +80,9 @@ describe('prReviewDecisionLabel', () => {
     );
     expect(prReviewDecisionLabel('queue-for-human', trHe)).toBe(
       '🟣 ' + STRINGS.he.prReviewQueueForHumanLabel,
+    );
+    expect(prReviewDecisionLabel('queue-for-human', trHe, true)).toBe(
+      '🔒 ' + STRINGS.he.prReviewAwaitingApprovalLabel,
     );
   });
 });
