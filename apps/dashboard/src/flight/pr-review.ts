@@ -1305,6 +1305,22 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // with the package's src/ segment, like `onboarding/src/onboard/
   // onboard.ts` above.
   'onboarding/src/onboard/soul.ts',
+  // The donation address surface (FOUNDATION security): the source data
+  // (`docs/donations.json`), the public page `scripts/donations/
+  // generate-donate-doc.mjs` renders from it (`docs/DONATE.md`), and GitHub's
+  // own sponsor-button config (`.github/FUNDING.yml`) can each independently
+  // carry a real receiving address. A PR that swapped one — in the data, in a
+  // hand-edited generated doc bypassing the generator, or in FUNDING.yml's
+  // own links — would redirect real donor funds to an attacker with no
+  // "guard"/"auth"/"security" keyword in any of the three paths: the highest-
+  // value attack this repo will ever face, so it is security-hard
+  // queue-for-human, never auto-anything. Path-anchored (not a bare
+  // "donation"/"donate" substring) so prose like `docs/FOUNDATION.md` that
+  // only discusses donations, and the already-benign read-only
+  // `flight/donations.ts` parser, stay unflagged.
+  'docs/donations.json',
+  'docs/donate.md',
+  '.github/funding.yml',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {

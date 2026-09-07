@@ -1990,6 +1990,17 @@ describe('touchesSecuritySensitivePath', () => {
   it("flags read/mutate.ts — despite living under a directory named 'read', it is the store-mutation wrapper (deleteProject, resetProjectTelemetry, setTaskStatus, deleteTask, ratifySoulAmendment, ratifyFleetWisdomAmendment among others) every dashboard write API call goes through; a PR that weakened its fail-safe-to-false error handling or exposed a new dangerous mutation would carry no security keyword and match no other marker", () => {
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/read/mutate.ts'])).toBe(true);
   });
+
+  it('flags docs/donations.json, docs/DONATE.md, and .github/FUNDING.yml — the donation address surface: a PR that swapped an address in the source data, the generated public page, or GitHub\'s own sponsor-button config would redirect real funds toward an attacker, the highest-value attack this repo will ever face, with no "guard"/"auth"/"security" keyword in any of the three paths', () => {
+    expect(touchesSecuritySensitivePath(['docs/donations.json'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['docs/DONATE.md'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['.github/FUNDING.yml'])).toBe(true);
+  });
+
+  it('keeps the donation markers path-anchored: prose that only discusses donations, and the already-benign read-only docs/donations.json parser, stay unflagged', () => {
+    expect(touchesSecuritySensitivePath(['docs/FOUNDATION.md'])).toBe(false);
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/donations.ts'])).toBe(false);
+  });
 });
 
 describe('planPrReview', () => {
