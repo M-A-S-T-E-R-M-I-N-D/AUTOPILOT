@@ -1270,6 +1270,11 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'onboarding/src/gate/detectors/python.ts',
   'onboarding/src/gate/detectors/go.ts',
   'onboarding/src/gate/detectors/rust.ts',
+  // The fifth ecosystem detector — the exact "future fifth-language
+  // detector" this census's own test title warned about. Same decide-power
+  // class as the four above: it alone picks the gate a static-site project
+  // runs from its first firing on.
+  'onboarding/src/gate/detectors/static-site.ts',
   // The onboarding ritual's own orchestrator: locks/backs up the target FIRST
   // (MASTER-PLAN §7's load-bearing order), then registers a NEW project (or
   // resumes a seen one), seeds its starter board, and records the backup
