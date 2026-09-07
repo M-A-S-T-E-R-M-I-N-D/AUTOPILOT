@@ -26,6 +26,7 @@ import {
   type ConvergenceRedLike,
   type ConvergenceUnverifiableLike,
   type E2eLandBlockLike,
+  type GuardVerificationFailedLike,
 } from './anomalies.js';
 import { firingCallsign } from '../shared/callsign.js';
 import { countTurns } from '../shared/turns.js';
@@ -455,6 +456,15 @@ export interface ProjectAggregate {
    *  `guardDenialEvents`/`syncBackRefusalEvents`/`landGateAlarmEvents`/
    *  `convergenceRedEvents`/`convergenceUnverifiableEvents`. */
   readonly e2eLandBlockEvents?: readonly E2eLandBlockLike[];
+  /** Persisted CONTAINMENT GUARD settings-verification failures
+   *  (`guard-verify-failed` events, board web-mtq70agu-pjs8mg "gate-decision
+   *  observability"), newest first — feeds the guard-verify-failed
+   *  needs-you chip. Optional for the same pre-existing-fixture reason as
+   *  `familyRunaways`/`intentCollisions`/`nearMissRecurring`/
+   *  `guardDenialEvents`/`syncBackRefusalEvents`/`landGateAlarmEvents`/
+   *  `convergenceRedEvents`/`convergenceUnverifiableEvents`/
+   *  `e2eLandBlockEvents`. */
+  readonly guardVerificationFailedEvents?: readonly GuardVerificationFailedLike[];
   /** Persisted flight-landed events (`landed` events, board
    *  web-msnsndlk-exw3t9) from `landing/execute.ts`'s green gate-then-merge
    *  writes, newest first — feeds the Notifications channel's flight-landed
@@ -635,6 +645,7 @@ export function toCard(p: ProjectAggregate): ProjectCard {
       p.convergenceRedEvents ?? [],
       p.e2eLandBlockEvents ?? [],
       p.convergenceUnverifiableEvents ?? [],
+      p.guardVerificationFailedEvents ?? [],
     ),
   };
 }

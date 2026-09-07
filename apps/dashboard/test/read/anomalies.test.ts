@@ -595,3 +595,51 @@ describe('convergenceUnverifiableAlarms (via detectAnomalies)', () => {
     expect(detectAnomalies([])).toEqual([]);
   });
 });
+
+describe('guardVerificationFailedAlarms (via detectAnomalies)', () => {
+  it('surfaces one evidence-carrying chip for a single persisted refusal', () => {
+    const anomalies = detectAnomalies(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [{ reason: 'guard-hook script not found at /repo/dist/guard-hook.js' }],
+    );
+    expect(anomalies).toEqual([
+      {
+        kind: 'guard-verify-failed',
+        evidence:
+          'A flight refused to start because its containment guard could not be verified: ' +
+          'guard-hook script not found at /repo/dist/guard-hook.js',
+      },
+    ]);
+  });
+
+  it('AGGREGATES many refusals into ONE chip with the count and latest evidence', () => {
+    // Rows arrive newest-first (guardVerificationFailedEvents' `ORDER BY id
+    // DESC`), so the fixture is built newest-first too — index 0 is the
+    // latest refusal.
+    const refusals = [
+      { reason: 'settings file did not parse back as valid JSON' },
+      { reason: 'guard-hook script not found' },
+      { reason: 'settings read back do not match what fly.ts intended to write' },
+    ];
+    const anomalies = detectAnomalies([], [], [], [], [], [], [], [], [], [], [], refusals);
+    expect(anomalies).toHaveLength(1);
+    expect(anomalies[0]?.kind).toBe('guard-verify-failed');
+    expect(anomalies[0]?.evidence).toContain('3 guard-verify-failed refusals');
+    expect(anomalies[0]?.evidence).toContain('settings file did not parse back as valid JSON'); // the latest refusal named
+  });
+
+  it('stays quiet with no persisted refusals (and when the param is omitted)', () => {
+    expect(detectAnomalies([], [], [], [], [], [], [], [], [], [], [], [])).toEqual([]);
+    expect(detectAnomalies([])).toEqual([]);
+  });
+});

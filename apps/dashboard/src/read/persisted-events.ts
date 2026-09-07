@@ -22,6 +22,7 @@ import {
   convergenceRedEvents,
   convergenceUnverifiableEvents,
   e2eLandBlockEvents,
+  guardVerificationFailedEvents,
   landedEvents,
   type Store,
 } from '@autopilot/store';
@@ -354,6 +355,38 @@ export function parseE2eLandBlockEvents(store: Store, projectId: string): { deta
       }
     } catch {
       /* skip a malformed e2e-land-block payload */
+    }
+  }
+  return entries;
+}
+
+interface RawGuardVerificationFailed {
+  readonly reason?: unknown;
+}
+
+/**
+ * The persisted CONTAINMENT GUARD settings-verification failures (board
+ * web-mtq70agu-pjs8mg "gate-decision observability") from the store's
+ * `guard-verify-failed` events, newest first (no dedup — same convention as
+ * {@link parseE2eLandBlockEvents}: a repeated refusal across separate
+ * flight attempts is a separate real refusal, not a duplicate of the same
+ * failure). Defensive like the other parsers here: a malformed payload is
+ * skipped, never thrown.
+ */
+export function parseGuardVerificationFailedEvents(
+  store: Store,
+  projectId: string,
+): { reason: string }[] {
+  const entries: { reason: string }[] = [];
+  for (const row of guardVerificationFailedEvents(store.db, projectId)) {
+    if (row.payload === null) continue;
+    try {
+      const d = JSON.parse(row.payload) as RawGuardVerificationFailed;
+      if (typeof d.reason === 'string') {
+        entries.push({ reason: d.reason });
+      }
+    } catch {
+      /* skip a malformed guard-verify-failed payload */
     }
   }
   return entries;

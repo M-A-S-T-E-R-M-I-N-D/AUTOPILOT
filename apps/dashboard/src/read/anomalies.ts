@@ -25,7 +25,8 @@ export type AnomalyKind =
   | 'land-gate-alarm'
   | 'convergence-red'
   | 'convergence-unverifiable'
-  | 'e2e-land-block';
+  | 'e2e-land-block'
+  | 'guard-verify-failed';
 
 export interface Anomaly {
   readonly kind: AnomalyKind;
@@ -402,6 +403,36 @@ function e2eLandBlocks(blocks: readonly E2eLandBlockLike[]): Anomaly[] {
   ];
 }
 
+/** One persisted CONTAINMENT GUARD settings-verification failure (board
+ *  web-mtq70agu-pjs8mg "gate-decision observability") — the parsed
+ *  `{reason}` payload of a `guard-verify-failed` event `fly.ts` persists
+ *  whenever `flight/guard-verify.ts`'s `verifyGuardSettings` fails and the
+ *  flight refuses to start unguarded. */
+export interface GuardVerificationFailedLike {
+  readonly reason: string;
+}
+
+/** Guard-verify-failed chip: like {@link e2eLandBlocks}, the detection
+ *  itself already ran (fly.ts fails CLOSED and persists one event per
+ *  refusal) — this rule only surfaces those persisted refusals as ONE
+ *  aggregated evidence-carrying chip (the count plus the latest refusal's
+ *  reason), same anti-spam shape as `e2eLandBlocks`/`convergenceRedAlarms`. */
+function guardVerificationFailedAlarms(alarms: readonly GuardVerificationFailedLike[]): Anomaly[] {
+  if (alarms.length === 0) return [];
+  // Newest first (guardVerificationFailedEvents' `ORDER BY id DESC`), so the
+  // first entry is the latest refusal.
+  const latest = alarms[0] as GuardVerificationFailedLike;
+  const single = alarms.length === 1;
+  return [
+    {
+      kind: 'guard-verify-failed',
+      evidence: single
+        ? `A flight refused to start because its containment guard could not be verified: ${latest.reason}`
+        : `${alarms.length} guard-verify-failed refusals on record — latest: ${latest.reason}`,
+    },
+  ];
+}
+
 /**
  * Evaluate every anomaly rule against a project's flight log (newest first,
  * the same order {@link FlightEntry}[] is kept in everywhere else in the read
@@ -419,7 +450,9 @@ function e2eLandBlocks(blocks: readonly E2eLandBlockLike[]): Anomaly[] {
  * `convergenceUnverifiableRows` — persisted `convergence-unverifiable`
  * events, newest first — feeds the convergence-unverifiable chip;
  * `e2eLandBlockRows` — persisted `e2e-land-block` events, newest first —
- * feeds the e2e-land-block chip.
+ * feeds the e2e-land-block chip; `guardVerificationFailedRows` — persisted
+ * `guard-verify-failed` events, newest first — feeds the
+ * guard-verify-failed chip.
  * All default empty so pre-existing
  * callers/fixtures that predate them keep compiling and simply never fire
  * those rules. Returns only the anomalies that actually fired — an empty
@@ -442,6 +475,7 @@ export function detectAnomalies(
   convergenceRedRows: readonly ConvergenceRedLike[] = [],
   e2eLandBlockRows: readonly E2eLandBlockLike[] = [],
   convergenceUnverifiableRows: readonly ConvergenceUnverifiableLike[] = [],
+  guardVerificationFailedRows: readonly GuardVerificationFailedLike[] = [],
 ): readonly Anomaly[] {
   return [
     costSpike(flightLog),
@@ -457,5 +491,6 @@ export function detectAnomalies(
     ...convergenceRedAlarms(convergenceRedRows),
     ...e2eLandBlocks(e2eLandBlockRows),
     ...convergenceUnverifiableAlarms(convergenceUnverifiableRows),
+    ...guardVerificationFailedAlarms(guardVerificationFailedRows),
   ].filter((a): a is Anomaly => a !== null);
 }
