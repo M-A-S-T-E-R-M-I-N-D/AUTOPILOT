@@ -1448,6 +1448,15 @@ function renderCard(c, prev) {
   patchSections(art, CARD_SECTION_ORDER, prevNodes, nodes);
   return { art: art, sigs: sigs, nodes: nodes, detailState: detailState };
 }
+// id -> renderCard() result for the per-project INSIDE page (renderProjectPage's
+// card(c) call) — kept across ticks so renderCard's own section-by-section diff
+// (cardSectionSigs) can do its job here too, exactly like the fleet grid's
+// fleetCardStates. Without this, card() passed prev=null on every call, which
+// made renderCard rebuild EVERY section (including the head badges' anomaly/
+// guard-denial chips and the worker section's live lag chip) from scratch on
+// every tick, even a tick where nothing about THIS project changed — the
+// "chips repaint identical facts" blink epic 0018 slice 1 names.
+var projectCardStates = {};
 function card(c) {
   return renderCard(c, null).art;
 }
