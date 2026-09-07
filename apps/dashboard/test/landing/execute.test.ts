@@ -800,6 +800,182 @@ describe('createLandingExecuteApi', () => {
       }
     });
   });
+
+  describe('postPushWatch (POST-PUSH VERDICT RITUAL slice 3)', () => {
+    it('fires with the landed project id, root, base branch, and new HEAD sha on a green land', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-ppw-green-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const postPushWatch = vi.fn();
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          postPushWatch,
+        )('p1');
+        expect(result?.ok).toBe(true);
+        expect(postPushWatch).toHaveBeenCalledOnce();
+
+        const newHead = gitSync(repo, ['rev-parse', 'main']);
+        expect(postPushWatch).toHaveBeenCalledWith('p1', repo, 'main', newHead);
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('does NOT fire on a red-gate refusal', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-ppw-red-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_FAIL);
+        s.close();
+
+        const postPushWatch = vi.fn();
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          postPushWatch,
+        )('p1');
+        expect(result?.ok).toBe(false);
+        expect(postPushWatch).not.toHaveBeenCalled();
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('does NOT fire on a flight-running refusal', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-ppw-flying-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const postPushWatch = vi.fn();
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          () => true,
+          undefined,
+          undefined,
+          undefined,
+          postPushWatch,
+        )('p1');
+        expect(result?.ok).toBe(false);
+        expect(result?.reason).toBe('flight-running');
+        expect(postPushWatch).not.toHaveBeenCalled();
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('does NOT fire on an e2e-red refusal', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-ppw-e2ered-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const postPushWatch = vi.fn();
+        const e2eLandGuard: E2eLandGuard = () => ({ ok: false, detail: 'failure (5m ago)' });
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          e2eLandGuard,
+          undefined,
+          postPushWatch,
+        )('p1');
+        expect(result?.ok).toBe(false);
+        expect(result?.reason).toBe('e2e-red');
+        expect(postPushWatch).not.toHaveBeenCalled();
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('lands normally when postPushWatch is omitted', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-ppw-omit-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const result = await createLandingExecuteApi(dbPath)('p1');
+        expect(result?.ok).toBe(true);
+        expect(result?.reason).toBe('landed');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('a postPushWatch that throws synchronously never fails the land', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-ppw-throws-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const postPushWatch = vi.fn(() => {
+          throw new Error('boom');
+        });
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          postPushWatch,
+        )('p1');
+        expect(result?.ok).toBe(true);
+        expect(result?.reason).toBe('landed');
+        expect(postPushWatch).toHaveBeenCalledOnce();
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+  });
 });
 
 describe('createRealE2eLandGuard staleness (EVALUATION 2026-09-02 — its first live refusal was a week-old verdict)', () => {
