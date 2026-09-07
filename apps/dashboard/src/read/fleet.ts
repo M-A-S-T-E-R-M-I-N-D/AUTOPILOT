@@ -24,6 +24,7 @@ import {
   type SyncBackRefusalLike,
   type LandGateAlarmLike,
   type ConvergenceRedLike,
+  type ConvergenceUnverifiableLike,
   type E2eLandBlockLike,
 } from './anomalies.js';
 import { firingCallsign } from '../shared/callsign.js';
@@ -438,13 +439,21 @@ export interface ProjectAggregate {
    *  `familyRunaways`/`intentCollisions`/`nearMissRecurring`/
    *  `guardDenialEvents`/`syncBackRefusalEvents`/`landGateAlarmEvents`. */
   readonly convergenceRedEvents?: readonly ConvergenceRedLike[];
+  /** Persisted CONVERGENCE GATE plausibility-floor demotions
+   *  (`convergence-unverifiable` events, board web-mtq6zxl0-178q9e "GATE
+   *  HONESTY"), newest first — feeds the convergence-unverifiable needs-you
+   *  chip. Optional for the same pre-existing-fixture reason as
+   *  `familyRunaways`/`intentCollisions`/`nearMissRecurring`/
+   *  `guardDenialEvents`/`syncBackRefusalEvents`/`landGateAlarmEvents`/
+   *  `convergenceRedEvents`. */
+  readonly convergenceUnverifiableEvents?: readonly ConvergenceUnverifiableLike[];
   /** Persisted pre-land e2e guard refusals (`e2e-land-block` events, epic
    *  0010 slice 4 / ADR 0008 "option A"), newest first — feeds the
    *  e2e-land-block needs-you chip. Optional for the same
    *  pre-existing-fixture reason as
    *  `familyRunaways`/`intentCollisions`/`nearMissRecurring`/
    *  `guardDenialEvents`/`syncBackRefusalEvents`/`landGateAlarmEvents`/
-   *  `convergenceRedEvents`. */
+   *  `convergenceRedEvents`/`convergenceUnverifiableEvents`. */
   readonly e2eLandBlockEvents?: readonly E2eLandBlockLike[];
   /** Persisted flight-landed events (`landed` events, board
    *  web-msnsndlk-exw3t9) from `landing/execute.ts`'s green gate-then-merge
@@ -625,6 +634,7 @@ export function toCard(p: ProjectAggregate): ProjectCard {
       p.landGateAlarmEvents ?? [],
       p.convergenceRedEvents ?? [],
       p.e2eLandBlockEvents ?? [],
+      p.convergenceUnverifiableEvents ?? [],
     ),
   };
 }

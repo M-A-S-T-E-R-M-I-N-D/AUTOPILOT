@@ -33,6 +33,7 @@ import {
   syncBackRefusalEvents,
   landGateAlarmEvents,
   convergenceRedEvents,
+  convergenceUnverifiableEvents,
   e2eLandBlockEvents,
   landedEvents,
   evaluationLabelEvents,
@@ -1376,6 +1377,69 @@ describe('convergenceRedEvents', () => {
 
   it('returns an empty array for a project with no convergence-red events', () => {
     expect(convergenceRedEvents(store.db, 'cvr')).toEqual([]);
+  });
+});
+
+describe('convergenceUnverifiableEvents', () => {
+  const insertConvergenceUnverifiable = (
+    projectId: string,
+    payload: string | null,
+    at: number,
+  ): void => {
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES (?, NULL, 'convergence-unverifiable', ?, ?)`,
+      )
+      .run(projectId, payload, at);
+  };
+
+  beforeEach(() => {
+    insertProject('cvu', 'cvu', 'flying', 1);
+  });
+
+  it('returns convergence-unverifiable events newest first, ignoring other event types', () => {
+    insertConvergenceUnverifiable(
+      'cvu',
+      '{"branch":"flight","signature":"typecheck","ms":10,"floorMs":100}',
+      100,
+    );
+    insertConvergenceUnverifiable(
+      'cvu',
+      '{"branch":"flight","signature":"build","ms":5,"floorMs":50}',
+      200,
+    );
+    insertEvent('cvu', 300); // type 'firing' — must not leak in
+    expect(convergenceUnverifiableEvents(store.db, 'cvu')).toEqual([
+      { payload: '{"branch":"flight","signature":"build","ms":5,"floorMs":50}', created_at: 200 },
+      {
+        payload: '{"branch":"flight","signature":"typecheck","ms":10,"floorMs":100}',
+        created_at: 100,
+      },
+    ]);
+  });
+
+  it('scopes to the given project and respects the limit', () => {
+    insertProject('cvu-other', 'cvu-other', 'flying', 1);
+    insertConvergenceUnverifiable('cvu', '{"signature":"typecheck","ms":10,"floorMs":100}', 100);
+    insertConvergenceUnverifiable(
+      'cvu-other',
+      '{"signature":"typecheck","ms":10,"floorMs":100}',
+      100,
+    );
+    expect(convergenceUnverifiableEvents(store.db, 'cvu')).toHaveLength(1);
+    insertConvergenceUnverifiable('cvu', '{"signature":"typecheck","ms":10,"floorMs":100}', 200);
+    expect(convergenceUnverifiableEvents(store.db, 'cvu', 1)).toHaveLength(1);
+  });
+
+  it('clamps a negative limit instead of handing SQLite an unbounded LIMIT', () => {
+    insertConvergenceUnverifiable('cvu', '{"signature":"typecheck","ms":10,"floorMs":100}', 100);
+    insertConvergenceUnverifiable('cvu', '{"signature":"typecheck","ms":10,"floorMs":100}', 200);
+    expect(convergenceUnverifiableEvents(store.db, 'cvu', -1)).toHaveLength(1);
+  });
+
+  it('returns an empty array for a project with no convergence-unverifiable events', () => {
+    expect(convergenceUnverifiableEvents(store.db, 'cvu')).toEqual([]);
   });
 });
 

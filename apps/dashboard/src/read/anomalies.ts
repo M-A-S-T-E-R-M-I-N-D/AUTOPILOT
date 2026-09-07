@@ -24,6 +24,7 @@ export type AnomalyKind =
   | 'sync-back-refusal'
   | 'land-gate-alarm'
   | 'convergence-red'
+  | 'convergence-unverifiable'
   | 'e2e-land-block';
 
 export interface Anomaly {
@@ -331,6 +332,44 @@ function convergenceRedAlarms(alarms: readonly ConvergenceRedLike[]): Anomaly[] 
   ];
 }
 
+/** One persisted CONVERGENCE GATE plausibility-floor demotion (board
+ *  web-mtq6zxl0-178q9e "GATE HONESTY") — the parsed `{signature, ms, floorMs}`
+ *  payload of a `convergence-unverifiable` event
+ *  `flight/convergence-gate.ts`'s `gateConvergedBranch` persists via
+ *  fly.ts's `recordConvergenceUnverifiable` whenever a green convergence run
+ *  finishes faster than its own history's plausibility floor — a result too
+ *  fast to trust the checks actually ran. */
+export interface ConvergenceUnverifiableLike {
+  readonly signature: string;
+  readonly ms: number;
+  readonly floorMs: number;
+}
+
+/** Convergence-unverifiable chip: like {@link convergenceRedAlarms}, the
+ *  detection itself already ran (the convergence gate demoted an
+ *  implausibly-fast green and fly.ts persisted one event per demotion) —
+ *  this rule only surfaces those persisted demotions as ONE aggregated
+ *  evidence-carrying chip (the count plus the latest demotion's
+ *  signature/duration/floor), same anti-spam shape as
+ *  `convergenceRedAlarms`/`landGateAlarms`. */
+function convergenceUnverifiableAlarms(alarms: readonly ConvergenceUnverifiableLike[]): Anomaly[] {
+  if (alarms.length === 0) return [];
+  // Newest first (convergenceUnverifiableEvents' `ORDER BY id DESC`), so the
+  // first entry is the latest demotion.
+  const latest = alarms[0] as ConvergenceUnverifiableLike;
+  const single = alarms.length === 1;
+  return [
+    {
+      kind: 'convergence-unverifiable',
+      evidence: single
+        ? `A convergence gate reported green too fast to trust (${latest.signature}): ` +
+          `${Math.round(latest.ms)}ms < ${Math.round(latest.floorMs)}ms floor`
+        : `${alarms.length} convergence-unverifiable alarms on record — latest (${latest.signature}): ` +
+          `${Math.round(latest.ms)}ms < ${Math.round(latest.floorMs)}ms floor`,
+    },
+  ];
+}
+
 /** One persisted pre-land e2e guard refusal (E2E LANDING DAEMON, epic 0010
  *  slice 4 / ADR 0008 "option A") — the parsed `{detail}` payload of an
  *  `e2e-land-block` event `landing/execute.ts`'s `createLandingExecuteApi`
@@ -377,6 +416,8 @@ function e2eLandBlocks(blocks: readonly E2eLandBlockLike[]): Anomaly[] {
  * chip; `landGateAlarmRows` — persisted `land-gate-alarm` events, newest
  * first — feeds the land-gate-alarm chip; `convergenceRedRows` — persisted
  * `convergence-red` events, newest first — feeds the convergence-red chip;
+ * `convergenceUnverifiableRows` — persisted `convergence-unverifiable`
+ * events, newest first — feeds the convergence-unverifiable chip;
  * `e2eLandBlockRows` — persisted `e2e-land-block` events, newest first —
  * feeds the e2e-land-block chip.
  * All default empty so pre-existing
@@ -400,6 +441,7 @@ export function detectAnomalies(
   landGateAlarmRows: readonly LandGateAlarmLike[] = [],
   convergenceRedRows: readonly ConvergenceRedLike[] = [],
   e2eLandBlockRows: readonly E2eLandBlockLike[] = [],
+  convergenceUnverifiableRows: readonly ConvergenceUnverifiableLike[] = [],
 ): readonly Anomaly[] {
   return [
     costSpike(flightLog),
@@ -414,5 +456,6 @@ export function detectAnomalies(
     ...landGateAlarms(landGateAlarmRows),
     ...convergenceRedAlarms(convergenceRedRows),
     ...e2eLandBlocks(e2eLandBlockRows),
+    ...convergenceUnverifiableAlarms(convergenceUnverifiableRows),
   ].filter((a): a is Anomaly => a !== null);
 }

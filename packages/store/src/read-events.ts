@@ -291,6 +291,39 @@ export function convergenceRedEvents(
     .all(projectId, clampEventsLimit(limit)) as ConvergenceRedEventRow[];
 }
 
+/** One `type = 'convergence-unverifiable'` event's raw row — see
+ *  {@link convergenceUnverifiableEvents}. */
+export interface ConvergenceUnverifiableEventRow {
+  readonly payload: string | null;
+  readonly created_at: number;
+}
+
+/**
+ * The most recent CONVERGENCE GATE plausibility-floor demotions
+ * (`flight/convergence-gate.ts`'s `gateConvergedBranch` persists one row per
+ * green-but-too-fast-to-trust result via fly.ts's `recordConvergenceUnverifiable`,
+ * board web-mtq6zxl0-178q9e "GATE HONESTY") — newest first, the read path for
+ * the dashboard's convergence-unverifiable anomaly chip. A trusted green
+ * writes nothing (same silent-on-trouble-only convention as
+ * {@link landGateAlarmEvents}), so any row here is real news: the gate
+ * reported success but finished faster than its own history says a real run
+ * takes. Same convention as {@link convergenceRedEvents}: callers parse
+ * `payload` themselves.
+ */
+export function convergenceUnverifiableEvents(
+  db: Db,
+  projectId: string,
+  limit = 200,
+): ConvergenceUnverifiableEventRow[] {
+  return db
+    .prepare(
+      `SELECT payload, created_at FROM events
+         WHERE project_id = ? AND type = 'convergence-unverifiable'
+         ORDER BY id DESC LIMIT ?`,
+    )
+    .all(projectId, clampEventsLimit(limit)) as ConvergenceUnverifiableEventRow[];
+}
+
 /** One `type = 'e2e-land-block'` event's raw row — see {@link e2eLandBlockEvents}. */
 export interface E2eLandBlockEventRow {
   readonly payload: string | null;

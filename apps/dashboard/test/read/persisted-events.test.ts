@@ -11,6 +11,7 @@ import {
   parseSyncBackRefusalEvents,
   parseLandGateAlarmEvents,
   parseConvergenceRedEvents,
+  parseConvergenceUnverifiableEvents,
   parseE2eLandBlockEvents,
   parseLandedEvents,
 } from '../../src/read/persisted-events.js';
@@ -247,6 +248,29 @@ describe('parseConvergenceRedEvents', () => {
   it('skips a malformed JSON payload', () => {
     insertEvent('convergence-red', 'not json', 100);
     expect(parseConvergenceRedEvents(store, PROJECT_ID)).toEqual([]);
+  });
+});
+
+describe('parseConvergenceUnverifiableEvents', () => {
+  it('parses a well-formed convergence-unverifiable payload', () => {
+    insertEvent(
+      'convergence-unverifiable',
+      '{"signature":"typecheck+lint","ms":12,"floorMs":160}',
+      100,
+    );
+    expect(parseConvergenceUnverifiableEvents(store, PROJECT_ID)).toEqual([
+      { signature: 'typecheck+lint', ms: 12, floorMs: 160 },
+    ]);
+  });
+
+  it('skips a payload missing a required field', () => {
+    insertEvent('convergence-unverifiable', '{"signature":"typecheck+lint","ms":12}', 100);
+    expect(parseConvergenceUnverifiableEvents(store, PROJECT_ID)).toEqual([]);
+  });
+
+  it('skips a malformed JSON payload', () => {
+    insertEvent('convergence-unverifiable', 'not json', 100);
+    expect(parseConvergenceUnverifiableEvents(store, PROJECT_ID)).toEqual([]);
   });
 });
 

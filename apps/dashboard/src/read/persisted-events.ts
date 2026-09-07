@@ -20,6 +20,7 @@ import {
   syncBackRefusalEvents,
   landGateAlarmEvents,
   convergenceRedEvents,
+  convergenceUnverifiableEvents,
   e2eLandBlockEvents,
   landedEvents,
   type Store,
@@ -287,6 +288,44 @@ export function parseConvergenceRedEvents(
       }
     } catch {
       /* skip a malformed convergence-red payload */
+    }
+  }
+  return entries;
+}
+
+interface RawConvergenceUnverifiable {
+  readonly signature?: unknown;
+  readonly ms?: unknown;
+  readonly floorMs?: unknown;
+}
+
+/**
+ * The persisted CONVERGENCE GATE plausibility-floor demotions (board
+ * web-mtq6zxl0-178q9e "GATE HONESTY") from the store's
+ * `convergence-unverifiable` events, newest first (no dedup — same
+ * convention as {@link parseConvergenceRedEvents}: a repeated demotion
+ * across separate sync-backs is a separate real event, not a duplicate of
+ * the same run). Defensive like the other parsers here: a malformed payload
+ * is skipped, never thrown.
+ */
+export function parseConvergenceUnverifiableEvents(
+  store: Store,
+  projectId: string,
+): { signature: string; ms: number; floorMs: number }[] {
+  const entries: { signature: string; ms: number; floorMs: number }[] = [];
+  for (const row of convergenceUnverifiableEvents(store.db, projectId)) {
+    if (row.payload === null) continue;
+    try {
+      const d = JSON.parse(row.payload) as RawConvergenceUnverifiable;
+      if (
+        typeof d.signature === 'string' &&
+        typeof d.ms === 'number' &&
+        typeof d.floorMs === 'number'
+      ) {
+        entries.push({ signature: d.signature, ms: d.ms, floorMs: d.floorMs });
+      }
+    } catch {
+      /* skip a malformed convergence-unverifiable payload */
     }
   }
   return entries;
