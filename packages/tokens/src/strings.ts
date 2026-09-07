@@ -1283,6 +1283,9 @@ const EN_STRINGS = {
   flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
   projectNotFound: 'Project not found',
   projectNotFoundBody: 'It may have been removed from the dashboard. Head back to the fleet.',
+  consoleEmpty: 'No console output yet.',
+  consoleCollapsed: 'Collapsed — expand to load.',
+  consoleUnavailable: 'Flight console unavailable.',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1844,6 +1847,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightDebriefRemediationTip: 'תיקוני RemediatingGate מכניים בטיסה הזו',
     projectNotFound: 'הפרויקט לא נמצא',
     projectNotFoundBody: 'ייתכן שהוא הוסר מלוח הבקרה. חזרו לצי.',
+    consoleEmpty: 'עדיין אין פלט מסוף.',
+    consoleCollapsed: 'מכווץ — הרחיבו כדי לטעון.',
+    consoleUnavailable: 'מסוף הטיסה אינו זמין.',
   },
 };
 
