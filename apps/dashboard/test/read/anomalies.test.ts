@@ -549,3 +549,49 @@ describe('e2eLandBlocks (via detectAnomalies)', () => {
     expect(detectAnomalies([])).toEqual([]);
   });
 });
+
+describe('convergenceUnverifiableAlarms (via detectAnomalies)', () => {
+  it('surfaces one evidence-carrying chip for a single persisted demotion', () => {
+    const anomalies = detectAnomalies(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [{ signature: 'typecheck+lint', ms: 12, floorMs: 160 }],
+    );
+    expect(anomalies).toEqual([
+      {
+        kind: 'convergence-unverifiable',
+        evidence:
+          'A convergence gate reported green too fast to trust (typecheck+lint): 12ms < 160ms floor',
+      },
+    ]);
+  });
+
+  it('AGGREGATES many demotions into ONE chip with the count and latest evidence', () => {
+    // Rows arrive newest-first (convergenceUnverifiableEvents' `ORDER BY id
+    // DESC`), so the fixture is built newest-first too — index 0 is the
+    // latest demotion.
+    const demotions = [
+      { signature: 'build', ms: 3, floorMs: 90 },
+      { signature: 'typecheck', ms: 5, floorMs: 50 },
+      { signature: 'typecheck', ms: 4, floorMs: 50 },
+    ];
+    const anomalies = detectAnomalies([], [], [], [], [], [], [], [], [], [], demotions);
+    expect(anomalies).toHaveLength(1);
+    expect(anomalies[0]?.kind).toBe('convergence-unverifiable');
+    expect(anomalies[0]?.evidence).toContain('3 convergence-unverifiable alarms');
+    expect(anomalies[0]?.evidence).toContain('3ms < 90ms floor'); // the latest demotion named
+  });
+
+  it('stays quiet with no persisted demotions (and when the param is omitted)', () => {
+    expect(detectAnomalies([], [], [], [], [], [], [], [], [], [], [])).toEqual([]);
+    expect(detectAnomalies([])).toEqual([]);
+  });
+});
