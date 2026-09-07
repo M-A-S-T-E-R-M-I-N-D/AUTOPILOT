@@ -70,9 +70,23 @@ import {
  * slice costs ~700 raw / ~180 gzip; this bump buys ~4-5 more. The
  * structural fix (VERDICT split web-mtbodv7m-uzhovs) remains the tracked
  * follow-up.
+ *
+ * Raised 172→176KB / 51→52KB (2026-09-07): v0.27.0 crossed its own line, on
+ * `main`, with no PR in flight to attribute it to. The core chunk sat at 52183
+ * gzip from e9133d1 (v0.26.0) through 84d8df0, and moved to 52362 at dbe8249 —
+ * the release commit itself, which bundled a landing-page i18n slice with the
+ * version bump; its 28 new STRINGS entries land in core via `localeJs()` like
+ * every other English entry. That is 138 bytes past the 52224 line, so both
+ * this test and `pnpm run ci:bundle-size` were failing on a clean checkout.
+ * The 168→172 bump before it had left only 41 bytes of gzip headroom — under a
+ * quarter of one slice's ~180 — so the '~4-5 more' it bought was already spent
+ * the day it landed. Same 4KB/1KB step as the four before it, restoring 886
+ * bytes of gzip headroom (~5 slices) and 4657 raw. Five consecutive bumps is
+ * the signal that the structural fix above is now the cheaper move than a
+ * sixth.
  */
-const CORE_RAW_BUDGET = 172 * 1024;
-const CORE_GZIP_BUDGET = 51 * 1024;
+const CORE_RAW_BUDGET = 176 * 1024;
+const CORE_GZIP_BUDGET = 52 * 1024;
 const CHUNK_RAW_BUDGET = 100 * 1024;
 const CHUNK_GZIP_BUDGET = 30 * 1024;
 
