@@ -13,24 +13,18 @@
  *
  * Slice 3 ({@link createPostPushWatchTrigger}, below) is the piece this
  * slice's own docstring used to defer: actually STARTING a watch from
- * `landing/execute.ts` after a green land — shipped, wired in
- * `server/main.ts`. Still open: surviving a dashboard restart mid-watch —
+ * `landing/execute.ts` after a green land. Still open, and belongs to
+ * whoever eventually tackles it: surviving a dashboard restart mid-watch —
  * this trigger's poll loop lives only in the process's own memory, same
  * fire-and-forget posture `landing/execute.ts` already accepts for its
- * self-restart trigger and out-of-band gate check; and the real
- * {@link LaunchFixFiring} implementation for the escalation-mode lever
- * (board web-mtpbmazh-3en467, `postPushRemediationMode` in
- * `post-push-verdict.ts`) — today `createPostPushWatchTrigger` calls it
- * when set, but no caller passes a real one yet.
+ * self-restart trigger and out-of-band gate check.
  */
 
-import { openStore, type CreateTaskInput } from '@autopilot/store';
+import { openStore } from '@autopilot/store';
 import { ciWorkflowStatus, createGhRun, type GhRun, type WorkflowRunStatus } from './ci-status.js';
 import {
   decidePostPushVerdict,
   filePostPushVerdictTask,
-  postPushRemediationMode,
-  type PostPushRemediationMode,
   type PostPushVerdictContext,
   type PostPushVerdictResult,
 } from './post-push-verdict.js';
@@ -93,36 +87,19 @@ export type PostPushWatchTrigger = (
   sha: string,
 ) => void;
 
-/** Escalation hook (board web-mtpbmazh-3en467): invoked when
- *  `postPushRemediationMode` reads "fly" AND the evidence task was actually
- *  filed (never on a dedup no-op — a second red on an already-open incident
- *  must not spawn a second fix firing for it). Same fire-and-forget
- *  contract as {@link PostPushWatchTrigger} itself. The real implementation
- *  — spawning a single-lane fix firing scoped to `task.id` via
- *  `FlightRunner`/`createSpawnFlight` — is deferred to a follow-up slice,
- *  same reasoning `post-push-verdict.ts` slice 1 gave for deferring this
- *  trigger's own wiring to slice 3: a live child-process launch needs its
- *  own design (worktree, lock, scope), not just the config lever. */
-export type LaunchFixFiring = (task: CreateTaskInput, rootPath: string) => void;
-
 /**
  * Builds the real {@link PostPushWatchTrigger} (slice 3): watches `ci.yml`
  * on `branch` against `rootPath` (`ciWorkflowStatus`, the same read the
  * pre-land e2e guard already uses) until it concludes or the default
  * timeout elapses, then — on a concluded verdict only, never on a timeout,
  * per `PostPushWatchOutcome`'s own contract — files the evidence task
- * through `filePostPushVerdictTask`, additionally invoking
- * `launchFixFiring` when the operator's `AUTOPILOT_CI_REMEDIATION` lever
- * reads "fly" and a task was freshly filed. Every failure mode
- * (`checkStatus` throwing, the store failing to open) is swallowed: a
- * post-push watch must never be the thing that crashes the land it's
- * merely watching.
+ * through `filePostPushVerdictTask`. Every failure mode (`checkStatus`
+ * throwing, the store failing to open) is swallowed: a post-push watch must
+ * never be the thing that crashes the land it's merely watching.
  */
 export function createPostPushWatchTrigger(
   dbPath: string,
   run?: (rootPath: string) => GhRun,
-  launchFixFiring?: LaunchFixFiring,
-  mode: PostPushRemediationMode = postPushRemediationMode(),
 ): PostPushWatchTrigger {
   return (projectId, rootPath, branch, sha) => {
     void (async () => {
@@ -133,10 +110,7 @@ export function createPostPushWatchTrigger(
         if (outcome.kind !== 'concluded') return;
         const store = openStore(dbPath);
         try {
-          const filed = filePostPushVerdictTask(store, outcome.verdict);
-          if (filed && mode === 'fly' && outcome.verdict.kind === 'remediate') {
-            launchFixFiring?.(outcome.verdict.task, rootPath);
-          }
+          filePostPushVerdictTask(store, outcome.verdict);
         } finally {
           store.close();
         }
