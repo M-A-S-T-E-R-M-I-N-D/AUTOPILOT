@@ -3524,8 +3524,17 @@ function setBrbVisible(visible) {
       brbEl.setAttribute('aria-live', 'polite');
       var card = el('div', 'brb-card');
       card.appendChild(el('span', 'brb-plane', '✈️'));
-      card.appendChild(el('p', 'brb-title', 'Be right back'));
-      card.appendChild(el('p', 'brb-sub', 'Building something cool while we reconnect…'));
+      // i18n (board web-msnsndki-dz3vn1): built once, then only toggled via
+      // hidden — no successful tick sweeps it while it shows, so tr() paints
+      // the locale active at birth and the data-i18n tags let the language
+      // toggle's document-wide translateDom() (which reaches hidden nodes)
+      // keep it current across heals and later outages.
+      var brbTitle = el('p', 'brb-title', tr('brbTitle'));
+      brbTitle.setAttribute('data-i18n', 'brbTitle');
+      card.appendChild(brbTitle);
+      var brbSub = el('p', 'brb-sub', tr('brbSub'));
+      brbSub.setAttribute('data-i18n', 'brbSub');
+      card.appendChild(brbSub);
       var bar = el('div', 'brb-progress');
       bar.setAttribute('aria-hidden', 'true');
       bar.appendChild(el('span', ''));
