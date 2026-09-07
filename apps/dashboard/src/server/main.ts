@@ -58,6 +58,7 @@ import {
   type SelfRestart,
 } from '../landing/execute.js';
 import { createLandingJobRegistry } from '../landing/job.js';
+import { createPostPushWatchTrigger } from '../control/post-push-watch.js';
 import { readRecentLandingOutcome } from '../landing/history.js';
 import { createBuildRunner, createSelfRestartTrigger } from '../landing/self-restart.js';
 import { waitForHealth } from '../ready.js';
@@ -404,6 +405,11 @@ const landingExecuteApi = createLandingExecuteApi(
   // registry gets it, manual press and watchdog alike.
   createRealE2eLandGuard(),
   (projectId, event) => landingJobs.onGateProgress(projectId, event),
+  // POST-PUSH VERDICT RITUAL slice 3 (board web-mtpbmay4-94ii65): watches
+  // ci.yml on the branch just landed and files a CI-red evidence task on a
+  // red conclusion — wired here so every land path (manual EXECUTE and the
+  // watchdog alike) gets it, same as every other hook above.
+  createPostPushWatchTrigger(dbPath),
 );
 const landingJobs = createLandingJobRegistry({
   execute: landingExecuteApi,

@@ -37,6 +37,7 @@ import type { SelfRestartTrigger } from './self-restart.js';
 import { samePath } from '../paths.js';
 import { gateCommands } from '../gate-commands.js';
 import { ciWorkflowStatus, createGhRun, type GhRun } from '../control/ci-status.js';
+import type { PostPushWatchTrigger } from '../control/post-push-watch.js';
 import { isAnyFlightLockLive } from '../flight/lock.js';
 
 /** The dashboard's own root, paired with the trigger to fire when the
@@ -194,7 +195,14 @@ export const E2E_VERDICT_FRESHNESS_MS = 48 * 60 * 60 * 1000;
  *  previously invisible here and a concurrent land would race its commits
  *  in the SAME primary directory. This check has no injection seam: it
  *  reads real lock files unconditionally, in production and in tests alike,
- *  so a test wanting a "no flight running" land must simply not create one. */
+ *  so a test wanting a "no flight running" land must simply not create one.
+ *
+ *  `postPushWatch` (POST-PUSH VERDICT RITUAL slice 3, board
+ *  web-mtpbmay4-94ii65) fires fire-and-forget, same contract as
+ *  `outOfBandGateCheck` above, on EVERY green land — never on a refusal of
+ *  any kind (`gate-red`, `merge-failed`, `flight-running`, `e2e-red`). Omit
+ *  it (e.g. in tests) and a green land behaves exactly as it did before this
+ *  slice existed. */
 export function createLandingExecuteApi(
   dbPath: string,
   selfRestart?: SelfRestart,
@@ -202,6 +210,7 @@ export function createLandingExecuteApi(
   outOfBandGateCheck?: OutOfBandLandGateCheck,
   e2eLandGuard?: E2eLandGuard,
   onGateProgress?: LandingGateProgress,
+  postPushWatch?: PostPushWatchTrigger,
 ): LandingExecuteApi {
   return async (projectId) => {
     const store = openStore(dbPath);
@@ -285,6 +294,15 @@ export function createLandingExecuteApi(
             .run(projectId, 'landed', JSON.stringify({ details: result.details }), Date.now());
         } catch {
           /* landed telemetry is best-effort — never fail the land over it */
+        }
+        // POST-PUSH VERDICT RITUAL slice 3: fire-and-forget, never awaited —
+        // a hung or slow watch must never make EXECUTE itself hang. `head()`
+        // reads the just-landed base branch's new tip, the commit whichever
+        // CI run this watch observes actually describes.
+        try {
+          postPushWatch?.(projectId, project.root_path, base, await vcs.head());
+        } catch {
+          /* best-effort — see postPushWatch's own doc above */
         }
       }
       const restarting =

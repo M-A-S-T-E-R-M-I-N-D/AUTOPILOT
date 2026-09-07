@@ -11,16 +11,20 @@
  * parameters) so the cadence/timeout logic is unit-testable without a real
  * wall-clock wait or a real `gh` call.
  *
- * Still deferred to a follow-up slice: actually STARTING a watch from
- * `landing/execute.ts` after a green land, and where its async lifetime
- * lives once the HTTP request that triggered the land has already returned
- * (surviving a dashboard restart mid-watch is a real design question this
- * primitive intentionally has no opinion on).
+ * Slice 3 ({@link createPostPushWatchTrigger}, below) is the piece this
+ * slice's own docstring used to defer: actually STARTING a watch from
+ * `landing/execute.ts` after a green land. Still open, and belongs to
+ * whoever eventually tackles it: surviving a dashboard restart mid-watch —
+ * this trigger's poll loop lives only in the process's own memory, same
+ * fire-and-forget posture `landing/execute.ts` already accepts for its
+ * self-restart trigger and out-of-band gate check.
  */
 
-import type { WorkflowRunStatus } from './ci-status.js';
+import { openStore } from '@autopilot/store';
+import { ciWorkflowStatus, createGhRun, type GhRun, type WorkflowRunStatus } from './ci-status.js';
 import {
   decidePostPushVerdict,
+  filePostPushVerdictTask,
   type PostPushVerdictContext,
   type PostPushVerdictResult,
 } from './post-push-verdict.js';
@@ -71,4 +75,48 @@ export async function watchPostPushCi(
     }
     await sleep(options.pollIntervalMs);
   }
+}
+
+/** Fire-and-forget hook `landing/execute.ts` invokes after a green land —
+ *  same contract as {@link OutOfBandLandGateCheck} in `landing/execute.ts`:
+ *  synchronous, MUST NOT throw, and the caller never awaits it. */
+export type PostPushWatchTrigger = (
+  projectId: string,
+  rootPath: string,
+  branch: string,
+  sha: string,
+) => void;
+
+/**
+ * Builds the real {@link PostPushWatchTrigger} (slice 3): watches `ci.yml`
+ * on `branch` against `rootPath` (`ciWorkflowStatus`, the same read the
+ * pre-land e2e guard already uses) until it concludes or the default
+ * timeout elapses, then — on a concluded verdict only, never on a timeout,
+ * per `PostPushWatchOutcome`'s own contract — files the evidence task
+ * through `filePostPushVerdictTask`. Every failure mode (`checkStatus`
+ * throwing, the store failing to open) is swallowed: a post-push watch must
+ * never be the thing that crashes the land it's merely watching.
+ */
+export function createPostPushWatchTrigger(
+  dbPath: string,
+  run?: (rootPath: string) => GhRun,
+): PostPushWatchTrigger {
+  return (projectId, rootPath, branch, sha) => {
+    void (async () => {
+      try {
+        const outcome = await watchPostPushCi({ projectId, branch, sha }, () =>
+          ciWorkflowStatus('ci.yml', (run ?? createGhRun)(rootPath), Date.now(), branch),
+        );
+        if (outcome.kind !== 'concluded') return;
+        const store = openStore(dbPath);
+        try {
+          filePostPushVerdictTask(store, outcome.verdict);
+        } finally {
+          store.close();
+        }
+      } catch {
+        /* best-effort — a post-push watch must never crash the land it's watching */
+      }
+    })();
+  };
 }

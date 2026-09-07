@@ -9,12 +9,40 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { openStore, migrate, recentTasks, type Store } from '@autopilot/store';
 import type { WorkflowRunStatus } from '../../src/control/ci-status.js';
 import type { PostPushVerdictContext } from '../../src/control/post-push-verdict.js';
 import {
   watchPostPushCi,
+  createPostPushWatchTrigger,
   DEFAULT_POST_PUSH_WATCH_OPTIONS,
 } from '../../src/control/post-push-watch.js';
+
+/** `tasks.project_id` is a real FK against `projects(id)` (enforced —
+ *  `db.ts` turns `foreign_keys` ON) — filing a task for a project row that
+ *  doesn't exist throws, which `filePostPushVerdictTask`'s own try/catch
+ *  swallows into a silent `false`. A test asserting a task WAS filed must
+ *  seed this row first, same as `post-push-verdict.test.ts` does. */
+function project(s: Store, id: string): void {
+  s.db
+    .prepare(
+      `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'registered', NULL, ?, ?)`,
+    )
+    .run(id, id, id, '/repo', 100, 100);
+}
+
+/** Same best-effort Windows-EBUSY-tolerant cleanup `execute.test.ts` uses. */
+function cleanupDir(dir: string): void {
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  } catch {
+    /* OS will reclaim %TEMP% eventually */
+  }
+}
 
 const NOW = Date.parse('2026-09-07T12:00:00Z');
 
@@ -122,5 +150,91 @@ describe('watchPostPushCi', () => {
       pollIntervalMs: 30_000,
       timeoutMs: 20 * 60_000,
     });
+  });
+});
+
+describe('createPostPushWatchTrigger (slice 3 — starting a watch from a real green land)', () => {
+  /** A `run` factory whose `gh run list` already reports a CONCLUDED run —
+   *  `watchPostPushCi` resolves on its very first `checkStatus()` call, so
+   *  these tests need no fake clock/sleep and no real poll wait. */
+  function ghRunReporting(conclusion: 'success' | 'failure') {
+    return () => (args: readonly string[]) => {
+      expect(args).toContain('run');
+      return JSON.stringify([
+        { status: 'completed', conclusion, createdAt: new Date().toISOString() },
+      ]);
+    };
+  }
+
+  it('files a CI RED evidence task when the watched run concludes red', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-red-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      s.close();
+
+      const trigger = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'));
+      trigger('p1', '/repo', 'main', 'abc1234');
+
+      await vi.waitFor(() => {
+        const s2 = openStore(dbPath);
+        const tasks = recentTasks(s2.db, 'p1', 10);
+        s2.close();
+        expect(tasks.some((t) => t.title.startsWith('CI RED after landing main → abc1234'))).toBe(
+          true,
+        );
+      });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('files no task when the watched run concludes green', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-green-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      s.close();
+
+      const trigger = createPostPushWatchTrigger(dbPath, ghRunReporting('success'));
+      trigger('p1', '/repo', 'main', 'abc1234');
+
+      // Give the fire-and-forget watch's microtasks a beat to run, then
+      // confirm nothing was filed — there is no positive signal to
+      // vi.waitFor on for an intentional absence.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const s2 = openStore(dbPath);
+      const tasks = recentTasks(s2.db, 'p1', 10);
+      s2.close();
+      expect(tasks).toHaveLength(0);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('builds its GhRun against the given rootPath', () => {
+    const run = vi.fn(ghRunReporting('success'));
+    const trigger = createPostPushWatchTrigger(join(tmpdir(), 'unused.db'), run);
+    trigger('p1', '/my/repo', 'main', 'abc1234');
+    expect(run).toHaveBeenCalledWith('/my/repo');
+  });
+
+  it('never throws or leaves an unhandled rejection when opening the store fails', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-badstore-'));
+    try {
+      // A directory, not a real sqlite file — openStore throws opening it.
+      const badDbPath = join(dir, 'not-a-db');
+      mkdirSync(badDbPath);
+
+      const trigger = createPostPushWatchTrigger(badDbPath, ghRunReporting('failure'));
+      expect(() => trigger('p1', '/repo', 'main', 'abc1234')).not.toThrow();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    } finally {
+      cleanupDir(dir);
+    }
   });
 });
