@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+#
+# Commit-message lint for PULL REQUESTS only. Lives in its own workflow (not
+# ci.yml) so push runs stop showing a perpetual "commitlint (PR) — Skipped"
+# row: when a job's `if` filters by event, GitHub still lists it as skipped
+# on every non-matching run, which read as noise on every main push
+# (operator question, 2026-09-07). Push commits are already linted locally
+# by the husky commit-msg hook; PRs are the boundary where unlinted commits
+# can arrive, so pull_request is the only trigger that earns CI time.
+name: commitlint
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    name: commitlint (PR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable Corepack + pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate PR commit messages
+        run: >
+          pnpm commitlint
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}
