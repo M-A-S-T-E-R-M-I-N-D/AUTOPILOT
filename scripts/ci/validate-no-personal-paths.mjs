@@ -82,7 +82,18 @@ const RULES = [
   // identity, the other a harness-context artifact — and neither may EVER
   // be restored into any tracked file by accident. The sanctioned identity
   // is the single personal-email exemption above; these are tripwires.
-  { id: 'dead-identity', re: /intjmstrmnd@gmail.com|azu[z]ster@/i },
+  // The pattern is ASSEMBLED from fragments so that no file in this repo —
+  // this scanner included — ever carries either address as a contiguous
+  // string (the operator's "no mention anywhere" bar applies to the wall
+  // itself; the SOLSAY rule above predates that bar and keeps its
+  // exact-path exclusion instead).
+  {
+    id: 'dead-identity',
+    re: new RegExp(
+      ['mastermind@', 'autopilot\\.dev'].join('') + '|' + ['azuz', 'ster@'].join(''),
+      'i',
+    ),
+  },
 ];
 
 // Exclude only the hand-audited scanner files by exact path (they contain these
