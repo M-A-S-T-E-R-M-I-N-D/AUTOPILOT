@@ -219,8 +219,8 @@ pnpm dashboard:status   # running | stopped | stale (+ doctor checks)   · dashb
 pnpm dashboard:watch    # RING-0 supervisor: owns start/revive/replace — observe, don't babysit
 ```
 
-Every command has a double-click twin for Windows (`START-DASHBOARD.cmd`, `STOP-DASHBOARD.cmd`, …, repo root) and
-a `./*.sh` twin for macOS/Linux. Demo seeds live in `scripts/launchers/` (`DEMO-DASHBOARD.cmd` seeds sample
+Every dashboard command has a double-click twin for Windows (`WATCH-DASHBOARD.cmd`, …, repo root) and a
+`./*.sh` twin for macOS/Linux (`./WATCH-DASHBOARD.sh`, …). Demo seeds live in `scripts/launchers/` (`DEMO-DASHBOARD.cmd` seeds sample
 projects; `FLY-DASHBOARD.cmd` runs the $0 scripted flight).
 
 The dashboard ships **dark / light / terminal** themes and full **English / עברית** localization — Hebrew flips
