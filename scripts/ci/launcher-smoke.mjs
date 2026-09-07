@@ -92,6 +92,18 @@ const MANIFEST = [
       ['apps/dashboard/dist/control/cli.js', 'doctor'],
     ],
   },
+  {
+    // The PR #20 launcher — the one whose runtime bug (a literal `--`
+    // forwarded to the CLI as a phantom project folder, observed spawning a
+    // flight for a folder named `--`) motivated this whole smoke gate. It
+    // launches via pnpm, not node, so the exact pnpm argv is pinned instead:
+    // `dashboard:watch` with NO separator and NO stray argument.
+    file: 'WATCH-DASHBOARD.sh',
+    buildsFirst: true,
+    requiresDist: false,
+    nodeInvocations: [],
+    pnpmInvocations: ['run build', 'dashboard:watch'],
+  },
 ];
 
 const STUB_BODY = (recordFile) => `#!/usr/bin/env bash
@@ -206,7 +218,15 @@ function runScenario(entry, { simulateBuildFailure, includeDist }) {
         `${entry.file}: node invocation #${i + 1} expected "${expectedLine}", got "${nodeCalls[i]}"`,
       );
     });
-    if (entry.buildsFirst) {
+    if (entry.pnpmInvocations) {
+      // Exact pnpm argv pin — this is what makes a forwarded stray token
+      // (e.g. WATCH-DASHBOARD.sh's original `dashboard:watch --`) a red
+      // gate instead of a runtime surprise.
+      assert(
+        JSON.stringify(pnpmCalls) === JSON.stringify(entry.pnpmInvocations),
+        `${entry.file}: pnpm invocations expected [${entry.pnpmInvocations.join(' | ')}], saw [${pnpmCalls.join(' | ')}]`,
+      );
+    } else if (entry.buildsFirst) {
       assert(
         pnpmCalls.some((c) => c === 'run build'),
         `${entry.file}: expected \`pnpm run build\` before launching, saw: ${pnpmCalls.join(' | ')}`,
