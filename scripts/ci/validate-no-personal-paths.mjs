@@ -68,6 +68,10 @@ const RULES = [
   {
     id: 'personal-email',
     re: /[A-Za-z0-9._%+-]+@(?:gmail|outlook|hotmail|yahoo|icloud|protonmail|proton|live|aol)\.[A-Za-z.]{2,}/i,
+    // The operator's DECLARED public identity (2026-09-07) — the one address
+    // that is allowed to appear in attribution surfaces on purpose. Anything
+    // else on a personal provider is still a leak.
+    isSafe: (match) => match.toLowerCase() === 'intjmstrmnd@gmail.com',
   },
   // The founder's unreleased predecessor product must never be named in this
   // public repo (operator directive 2026-08-28; scrubbed the same day —

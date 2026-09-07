@@ -67,6 +67,15 @@ describe('findPersonalPaths', () => {
     expect(findPersonalPaths(line)).toEqual([]);
   });
 
+  it("exempts the operator's declared public identity, and ONLY it, from the personal-email rule", () => {
+    expect(findPersonalPaths('maintainer: INTJ Mastermind <intjmstrmnd@' + 'gmail.com>')).toEqual(
+      [],
+    );
+    const other = findPersonalPaths('contact: someone.else@' + 'gmail.com');
+    expect(other).toHaveLength(1);
+    expect(other[0]!.rule).toBe('personal-email');
+  });
+
   it("exempts the repo's placeholder operator home in its escaped double-backslash form", () => {
     // A JS string literal that embeds an escaped Windows path reads, on disk,
     // as a *doubled* backslash before each segment — exactly the shape
