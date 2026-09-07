@@ -6,6 +6,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-09-07
+
+### Added
+
+- feat(dashboard): epic 0018 many-lanes grid — compact per-lane cards replace the live-worker card
+- feat(i18n): translate the KEEPER issue-triage panel's title/loading/empty/unavailable text
+- feat(engine): reland the identity-law disclosure on contribute-upstream PRs
+- feat(i18n): reland the Flight console panel's collapsed/empty/unavailable text
+- feat(control): post-push verdict escalation lever — AUTOPILOT_CI_REMEDIATION=board|fly
+- feat(dashboard): epic 0017 nav remake 1/5 — theme/language become icon+popover menus
+- feat(dashboard): foundation 2/3 — docs/DONATE.md generated from donations.json + FUNDING.yml
+- feat(dashboard): foundation QR slice — local, chain-tagged donation QR codes
+- feat(dashboard): foundation 1/3 — masthead heart + donation panel, hidden until verified
+- feat: add watch dashboard shell launcher (#20)
+
+### Fixed
+
+- fix(dashboard): exclude own pid from isAnyFlightLockLive, guard fly.ts primary fallback
+- fix(dashboard): donation address surface joins touchesSecuritySensitivePath
+- fix(ci): reuse-ignore the DONATE generator's emitted SPDX strings + pin the donations poll 404
+- fix(self-study): refuse a regen that would republish LESS history than is committed (#23)
+- fix(ci): drive-path scanner stops reading overflow-y as drive y — and the scroll-bound fix relands
+- fix(flight): the static-site detector earns its marker — the census's own foretold fifth
+- fix(dashboard): timeline sig now includes the trace/diff/replay overlay maps
+
 ## [0.28.0] — 2026-09-07
 
 ### Added
