@@ -1902,7 +1902,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingTitle: '🛬 נחיתה',
     landingChecking: 'בודק אם יש עבודה שלא מוזגה…',
     landingUnavailable: 'תצוגה מקדימה של הנחיתה אינה זמינה.',
-    landingNothingToLand: 'אין מה לנחות — הענף מעודכן עם הבסיס שלו.',
+    landingNothingToLand: 'אין מה להנחית — הענף כבר מיושר עם הבסיס.',
     landingExecuteButton: '🛬 בצע נחיתה אל {base}',
     landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
     landingDebriefTitle: '📋 תחקיר טיסה',
