@@ -26,13 +26,9 @@ export interface InboxAddResult {
 export type InboxAddApi = (projectId: string, message: string) => Promise<InboxAddResult | null>;
 
 /** ISO timestamp with colons swapped for hyphens — `:` is invalid in a
- *  Windows filename, and sorting stays chronological either way. A random
- *  suffix guards against `writeFileSync` silently overwriting an earlier
- *  note when two drops land in the same millisecond (Windows' `Date.now()`
- *  tick is much coarser than 1ms, widening that window in practice). */
+ *  Windows filename, and sorting stays chronological either way. */
 function inboxFilename(now: number): string {
-  const suffix = Math.random().toString(36).slice(2, 8);
-  return `${new Date(now).toISOString().replace(/[:.]/g, '-')}-${suffix}-dashboard.md`;
+  return `${new Date(now).toISOString().replace(/[:.]/g, '-')}-dashboard.md`;
 }
 
 /** Build the INBOX add API against the real store + real filesystem — the
