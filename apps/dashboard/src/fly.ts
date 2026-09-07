@@ -731,6 +731,27 @@ async function main(): Promise<void> {
         `⛔ CONTAINMENT GUARD VERIFICATION FAILED — refusing to fly unguarded: ${guardVerification.reason}`,
       );
       out('   See docs/FLIGHT-CONTAINMENT.md.');
+      // Gate-decision observability (board web-mtq70agu-pjs8mg): this refusal
+      // previously only reached the console — nothing persisted it, so an
+      // operator away from the terminal at the moment a flight refused to
+      // start had zero dashboard signal. Best-effort like every other
+      // alarm-shaped event write here (recordConvergenceUnverifiable above):
+      // never let telemetry itself take the refusal path down.
+      try {
+        store.db
+          .prepare(
+            'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .run(
+            projectId,
+            null,
+            'guard-verify-failed',
+            JSON.stringify({ reason: guardVerification.reason ?? 'unknown' }),
+            now(),
+          );
+      } catch {
+        // Telemetry is best-effort — never let it mask the real refusal.
+      }
       process.exitCode = 1;
       return;
     }

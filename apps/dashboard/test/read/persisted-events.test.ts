@@ -11,7 +11,9 @@ import {
   parseSyncBackRefusalEvents,
   parseLandGateAlarmEvents,
   parseConvergenceRedEvents,
+  parseConvergenceUnverifiableEvents,
   parseE2eLandBlockEvents,
+  parseGuardVerificationFailedEvents,
   parseLandedEvents,
 } from '../../src/read/persisted-events.js';
 
@@ -250,6 +252,29 @@ describe('parseConvergenceRedEvents', () => {
   });
 });
 
+describe('parseConvergenceUnverifiableEvents', () => {
+  it('parses a well-formed convergence-unverifiable payload', () => {
+    insertEvent(
+      'convergence-unverifiable',
+      '{"signature":"typecheck+lint","ms":12,"floorMs":160}',
+      100,
+    );
+    expect(parseConvergenceUnverifiableEvents(store, PROJECT_ID)).toEqual([
+      { signature: 'typecheck+lint', ms: 12, floorMs: 160 },
+    ]);
+  });
+
+  it('skips a payload missing a required field', () => {
+    insertEvent('convergence-unverifiable', '{"signature":"typecheck+lint","ms":12}', 100);
+    expect(parseConvergenceUnverifiableEvents(store, PROJECT_ID)).toEqual([]);
+  });
+
+  it('skips a malformed JSON payload', () => {
+    insertEvent('convergence-unverifiable', 'not json', 100);
+    expect(parseConvergenceUnverifiableEvents(store, PROJECT_ID)).toEqual([]);
+  });
+});
+
 describe('parseE2eLandBlockEvents', () => {
   it('parses a well-formed e2e-land-block payload', () => {
     insertEvent('e2e-land-block', '{"detail":"critical journey failed"}', 100);
@@ -261,6 +286,20 @@ describe('parseE2eLandBlockEvents', () => {
   it('skips a malformed JSON payload', () => {
     insertEvent('e2e-land-block', 'not json', 100);
     expect(parseE2eLandBlockEvents(store, PROJECT_ID)).toEqual([]);
+  });
+});
+
+describe('parseGuardVerificationFailedEvents', () => {
+  it('parses a well-formed guard-verify-failed payload', () => {
+    insertEvent('guard-verify-failed', '{"reason":"guard-hook script not found"}', 100);
+    expect(parseGuardVerificationFailedEvents(store, PROJECT_ID)).toEqual([
+      { reason: 'guard-hook script not found' },
+    ]);
+  });
+
+  it('skips a malformed JSON payload', () => {
+    insertEvent('guard-verify-failed', 'not json', 100);
+    expect(parseGuardVerificationFailedEvents(store, PROJECT_ID)).toEqual([]);
   });
 });
 

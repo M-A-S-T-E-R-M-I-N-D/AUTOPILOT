@@ -55,7 +55,9 @@ import {
   parseSyncBackRefusalEvents,
   parseLandGateAlarmEvents,
   parseConvergenceRedEvents,
+  parseConvergenceUnverifiableEvents,
   parseE2eLandBlockEvents,
+  parseGuardVerificationFailedEvents,
   parseLandedEvents,
 } from './persisted-events.js';
 import { proposedWisdomKindLabel } from '../flight/fleet-wisdom-mining.js';
@@ -434,7 +436,9 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       syncBackRefusalEvents: parseSyncBackRefusalEvents(store, p.id),
       landGateAlarmEvents: parseLandGateAlarmEvents(store, p.id),
       convergenceRedEvents: parseConvergenceRedEvents(store, p.id),
+      convergenceUnverifiableEvents: parseConvergenceUnverifiableEvents(store, p.id),
       e2eLandBlockEvents: parseE2eLandBlockEvents(store, p.id),
+      guardVerificationFailedEvents: parseGuardVerificationFailedEvents(store, p.id),
       landedEvents: parseLandedEvents(store, p.id),
     };
   });

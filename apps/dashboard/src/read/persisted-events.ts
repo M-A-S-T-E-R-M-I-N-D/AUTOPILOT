@@ -20,7 +20,9 @@ import {
   syncBackRefusalEvents,
   landGateAlarmEvents,
   convergenceRedEvents,
+  convergenceUnverifiableEvents,
   e2eLandBlockEvents,
+  guardVerificationFailedEvents,
   landedEvents,
   type Store,
 } from '@autopilot/store';
@@ -292,6 +294,44 @@ export function parseConvergenceRedEvents(
   return entries;
 }
 
+interface RawConvergenceUnverifiable {
+  readonly signature?: unknown;
+  readonly ms?: unknown;
+  readonly floorMs?: unknown;
+}
+
+/**
+ * The persisted CONVERGENCE GATE plausibility-floor demotions (board
+ * web-mtq6zxl0-178q9e "GATE HONESTY") from the store's
+ * `convergence-unverifiable` events, newest first (no dedup — same
+ * convention as {@link parseConvergenceRedEvents}: a repeated demotion
+ * across separate sync-backs is a separate real event, not a duplicate of
+ * the same run). Defensive like the other parsers here: a malformed payload
+ * is skipped, never thrown.
+ */
+export function parseConvergenceUnverifiableEvents(
+  store: Store,
+  projectId: string,
+): { signature: string; ms: number; floorMs: number }[] {
+  const entries: { signature: string; ms: number; floorMs: number }[] = [];
+  for (const row of convergenceUnverifiableEvents(store.db, projectId)) {
+    if (row.payload === null) continue;
+    try {
+      const d = JSON.parse(row.payload) as RawConvergenceUnverifiable;
+      if (
+        typeof d.signature === 'string' &&
+        typeof d.ms === 'number' &&
+        typeof d.floorMs === 'number'
+      ) {
+        entries.push({ signature: d.signature, ms: d.ms, floorMs: d.floorMs });
+      }
+    } catch {
+      /* skip a malformed convergence-unverifiable payload */
+    }
+  }
+  return entries;
+}
+
 interface RawE2eLandBlock {
   readonly detail?: unknown;
 }
@@ -315,6 +355,38 @@ export function parseE2eLandBlockEvents(store: Store, projectId: string): { deta
       }
     } catch {
       /* skip a malformed e2e-land-block payload */
+    }
+  }
+  return entries;
+}
+
+interface RawGuardVerificationFailed {
+  readonly reason?: unknown;
+}
+
+/**
+ * The persisted CONTAINMENT GUARD settings-verification failures (board
+ * web-mtq70agu-pjs8mg "gate-decision observability") from the store's
+ * `guard-verify-failed` events, newest first (no dedup — same convention as
+ * {@link parseE2eLandBlockEvents}: a repeated refusal across separate
+ * flight attempts is a separate real refusal, not a duplicate of the same
+ * failure). Defensive like the other parsers here: a malformed payload is
+ * skipped, never thrown.
+ */
+export function parseGuardVerificationFailedEvents(
+  store: Store,
+  projectId: string,
+): { reason: string }[] {
+  const entries: { reason: string }[] = [];
+  for (const row of guardVerificationFailedEvents(store.db, projectId)) {
+    if (row.payload === null) continue;
+    try {
+      const d = JSON.parse(row.payload) as RawGuardVerificationFailed;
+      if (typeof d.reason === 'string') {
+        entries.push({ reason: d.reason });
+      }
+    } catch {
+      /* skip a malformed guard-verify-failed payload */
     }
   }
   return entries;

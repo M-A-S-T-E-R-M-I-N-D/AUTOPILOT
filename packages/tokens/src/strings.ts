@@ -564,6 +564,12 @@ const EN_STRINGS = {
   searchProject: 'Search a project',
   search: 'Search',
   searchQueryAria: 'Search query or question',
+  // web/features/search.ts's four result-state notes (board
+  // web-msnsndki-dz3vn1): each paints via tr() at birth and carries its key.
+  searchPickProject: 'Pick a project and type a query.',
+  searchSearching: 'Searching…',
+  searchNoMatches: 'No matches.',
+  searchFailed: 'Search failed.',
   deep: 'Deep',
   ask: 'Ask',
   askPersona: 'Ask persona',
@@ -594,6 +600,8 @@ const EN_STRINGS = {
   fleetEmptyHint: 'Onboard a repo to watch it here. To see the dashboard populated now, run:',
   updatedConnecting: 'connecting…',
   offlineRetrying: 'offline — retrying…',
+  brbTitle: 'Be right back',
+  brbSub: 'Building something cool while we reconnect…',
   updateBannerAria: 'Software update available',
   updateBannerText: 'A new version is ready: v{from} → v{to}',
   updateNow: 'Update now',
@@ -636,6 +644,7 @@ const EN_STRINGS = {
   prReviewMergeLabel: 'merge',
   prReviewRequestChangesLabel: 'request changes',
   prReviewQueueForHumanLabel: 'queue for human',
+  prReviewAwaitingApprovalLabel: 'awaiting approval to run CI',
   prReviewConfirmMessage:
     'Apply KEEPER review to #{number} "{title}"?\n\nDecision: {decision}\n{reasoning}\n\nThe decision is re-derived fresh from gh at execute time — this will not blindly trust what is shown here if the PR changed.',
   prReviewConfirmUndoMerge:
@@ -961,6 +970,10 @@ const EN_STRINGS = {
   // details/error of its own.
   githubSyncResultOk: 'synced.',
   githubSyncResultFail: 'sync failed.',
+  // The project page's settings-row hints beside "↺ Start over" and
+  // "⇪ Sync to GitHub" (shell.ts renderProjectPage, board web-msnsndki-dz3vn1).
+  startOverHint: 'Resets firings + ship-rate counters to 0/0. Tasks, index, and backups are kept.',
+  githubSyncHint: 'Private by default. Creates a repo on first sync, pushes on every one after.',
   githubPrResultOk: 'pull request opened.',
   githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
@@ -1393,6 +1406,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     searchProject: 'חיפוש בפרויקט',
     search: 'חיפוש',
     searchQueryAria: 'שאילתת חיפוש או שאלה',
+    searchPickProject: 'בחרו פרויקט והקלידו שאילתה.',
+    searchSearching: 'מחפש…',
+    searchNoMatches: 'לא נמצאו תוצאות.',
+    searchFailed: 'החיפוש נכשל.',
     deep: 'מעמיק',
     ask: 'שאל',
     askPersona: 'פרסונת שאלה',
@@ -1418,6 +1435,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'הוסיפו מאגר כדי לעקוב אחריו כאן. כדי לראות את לוח הבקרה מלא בנתונים כבר עכשיו, הריצו:',
     updatedConnecting: 'מתחבר…',
     offlineRetrying: 'לא מקוון — מנסה שוב…',
+    brbTitle: 'תכף חוזרים',
+    brbSub: 'בונים משהו מגניב בזמן שאנחנו מתחברים מחדש…',
     updateBannerAria: 'עדכון תוכנה זמין',
     updateBannerText: 'גרסה חדשה מוכנה: v{from} ← v{to}',
     updateNow: 'עדכן עכשיו',
@@ -1447,6 +1466,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prReviewMergeLabel: 'מיזוג',
     prReviewRequestChangesLabel: 'בקשת שינויים',
     prReviewQueueForHumanLabel: 'העברה לבדיקה אנושית',
+    prReviewAwaitingApprovalLabel: 'ממתין לאישור הרצת CI',
     prReviewConfirmMessage:
       'להחיל את סקירת KEEPER על #{number} "{title}"?\n\nהחלטה: {decision}\n{reasoning}\n\nההחלטה נגזרת מחדש מ-gh בזמן ההרצה — פעולה זו לא תסמוך באופן עיוור על מה שמוצג כאן אם ה-PR השתנה.',
     prReviewConfirmUndoMerge:
@@ -1651,6 +1671,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     githubSyncResultOk: 'סונכרן.',
     githubSyncResultFail: 'הסנכרון נכשל.',
+    startOverHint:
+      'מאפס את ספירת ההפעלות ואת שיעור השילוח ל-0/0. המשימות, האינדקס והגיבויים נשמרים.',
+    githubSyncHint: 'פרטי כברירת מחדל. הסנכרון הראשון יוצר מאגר, וכל סנכרון לאחריו דוחף אליו.',
     githubPrResultOk: 'ה-pull request נפתח.',
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',

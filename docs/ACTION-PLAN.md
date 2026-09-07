@@ -123,8 +123,8 @@
 | Scope creep (the 999 topics) | `FEATURE-COVERAGE.md` tracks every feature to a milestone; nothing is forgotten, nothing is smuggled in unplanned. |
 | Quota exhaustion during the build | the v2.4 quota-safety (hibernation + weekly pacing) already handles it. |
 
-## Status (2026-09-06)
-M0–M3 **shipped** (`v0.6.0`–`v0.10.0` era, pre-genesis); **M4 in progress** at v0.27.0 (live flights, fleets,
+## Status (2026-09-07)
+M0–M3 **shipped** (`v0.6.0`–`v0.10.0` era, pre-genesis); **M4 in progress** at v0.29.0 (live flights, fleets,
 RAG, task board all live); M5–M9 planned. This document is the FOUNDING build order, kept verbatim below its
 header — the live record of what exists is `CHANGELOG.md`. All founding decisions locked: name, TypeScript,
 Apache-2.0, read-only-first MVP, colors (§16.1), verification boundary (§17).

@@ -291,6 +291,39 @@ export function convergenceRedEvents(
     .all(projectId, clampEventsLimit(limit)) as ConvergenceRedEventRow[];
 }
 
+/** One `type = 'convergence-unverifiable'` event's raw row — see
+ *  {@link convergenceUnverifiableEvents}. */
+export interface ConvergenceUnverifiableEventRow {
+  readonly payload: string | null;
+  readonly created_at: number;
+}
+
+/**
+ * The most recent CONVERGENCE GATE plausibility-floor demotions
+ * (`flight/convergence-gate.ts`'s `gateConvergedBranch` persists one row per
+ * green-but-too-fast-to-trust result via fly.ts's `recordConvergenceUnverifiable`,
+ * board web-mtq6zxl0-178q9e "GATE HONESTY") — newest first, the read path for
+ * the dashboard's convergence-unverifiable anomaly chip. A trusted green
+ * writes nothing (same silent-on-trouble-only convention as
+ * {@link landGateAlarmEvents}), so any row here is real news: the gate
+ * reported success but finished faster than its own history says a real run
+ * takes. Same convention as {@link convergenceRedEvents}: callers parse
+ * `payload` themselves.
+ */
+export function convergenceUnverifiableEvents(
+  db: Db,
+  projectId: string,
+  limit = 200,
+): ConvergenceUnverifiableEventRow[] {
+  return db
+    .prepare(
+      `SELECT payload, created_at FROM events
+         WHERE project_id = ? AND type = 'convergence-unverifiable'
+         ORDER BY id DESC LIMIT ?`,
+    )
+    .all(projectId, clampEventsLimit(limit)) as ConvergenceUnverifiableEventRow[];
+}
+
 /** One `type = 'e2e-land-block'` event's raw row — see {@link e2eLandBlockEvents}. */
 export interface E2eLandBlockEventRow {
   readonly payload: string | null;
@@ -315,6 +348,40 @@ export function e2eLandBlockEvents(db: Db, projectId: string, limit = 200): E2eL
          ORDER BY id DESC LIMIT ?`,
     )
     .all(projectId, clampEventsLimit(limit)) as E2eLandBlockEventRow[];
+}
+
+/** One `type = 'guard-verify-failed'` event's raw row — see
+ *  {@link guardVerificationFailedEvents}. */
+export interface GuardVerificationFailedEventRow {
+  readonly payload: string | null;
+  readonly created_at: number;
+}
+
+/**
+ * The most recent CONTAINMENT GUARD settings-verification failures
+ * (`fly.ts`'s `recordGuardVerificationFailed`, written when the freshly
+ * written PreToolUse guard-settings file fails to read back correctly or its
+ * guard-hook script is missing — `flight/guard-verify.ts`'s
+ * `verifyGuardSettings`) — newest first, the read path for the dashboard's
+ * guard-verify-failed anomaly chip. Fly.ts refuses to fly at all when this
+ * happens (fail CLOSED, docs/FLIGHT-CONTAINMENT.md), so any row here means a
+ * flight never started rather than started unguarded. A passing verification
+ * writes nothing (same silent-on-trouble-only convention as
+ * {@link landGateAlarmEvents}). Same convention as {@link convergenceRedEvents}:
+ * callers parse `payload` themselves.
+ */
+export function guardVerificationFailedEvents(
+  db: Db,
+  projectId: string,
+  limit = 200,
+): GuardVerificationFailedEventRow[] {
+  return db
+    .prepare(
+      `SELECT payload, created_at FROM events
+         WHERE project_id = ? AND type = 'guard-verify-failed'
+         ORDER BY id DESC LIMIT ?`,
+    )
+    .all(projectId, clampEventsLimit(limit)) as GuardVerificationFailedEventRow[];
 }
 
 /** One `type = 'landed'` event's raw row — see {@link landedEvents}. */
