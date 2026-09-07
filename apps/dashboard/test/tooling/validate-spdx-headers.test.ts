@@ -12,6 +12,10 @@ import { describe, it, expect } from 'vitest';
 import { hasSpdxHeader, HEADER_SCAN_LINES } from '../../../../scripts/ci/validate-spdx-headers.mjs';
 
 describe('hasSpdxHeader', () => {
+  // REUSE-IgnoreStart — the SPDX strings below are TEST FIXTURES fed to
+  // hasSpdxHeader, not this file's own declaration (lines 1-2 are); the
+  // REUSE parser otherwise reads the trailing bracket-quote into the
+  // expression, the same failure shape generate-donate-doc.mjs hit.
   it('accepts a real two-line SPDX header at the top of a file (legit shape, must NOT flag)', () => {
     const text = [
       '// SPDX-FileCopyrightText: 2026 Example',
@@ -49,6 +53,7 @@ describe('hasSpdxHeader', () => {
     const text = [...filler, '// SPDX-License-Identifier: Apache-2.0'].join('\n');
     expect(hasSpdxHeader(text)).toBe(true);
   });
+  // REUSE-IgnoreEnd
 
   it('rejects an empty file', () => {
     expect(hasSpdxHeader('')).toBe(false);
