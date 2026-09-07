@@ -66,4 +66,7 @@ squadron board — who, on what, how far — at a glance.
 2. Lane grid read-side (`lanes[]` aggregator) + the grid cards.
 3. Center tabs with per-tab scroll; Keeper tab absorbs triage/PR/approvals
    with settled-verdict collapse.
-4. Anti-CLS e2e budget test (the law that keeps it fixed forever).
+4. Anti-CLS e2e budget test (the law that keeps it fixed forever). Shipped:
+   `e2e/anti-cls.spec.ts` freezes the clock, pumps 60s of fake-time fleet
+   ticks plus a scripted scroll against the populated project page, and
+   asserts the Layout Instability API's cumulative score stays at zero.
