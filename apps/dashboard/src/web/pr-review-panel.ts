@@ -22,7 +22,7 @@
  * sentence takes the bundle's `tr()` as its last parameter — the injection
  * route `flightProgressOf`/the `connect-panel.ts` family took — because a
  * `.toString()`-spliced function can no more import a translator than a
- * formatter: only its own scope survives the splice. The ✓/✗/🟣 marks are
+ * formatter: only its own scope survives the splice. The ✓/✗/🟣/🔒 marks are
  * glyphs, not prose, so they stay literal in the code around each `tr()`
  * call (the same shape `githubIssueExecuteResult` already takes) rather than
  * living inside a STRINGS entry.
@@ -35,6 +35,7 @@ export type PrReviewPanelKey =
   | 'prReviewMergeLabel'
   | 'prReviewRequestChangesLabel'
   | 'prReviewQueueForHumanLabel'
+  | 'prReviewAwaitingApprovalLabel'
   | 'prReviewConfirmMessage'
   | 'prReviewConfirmUndoMerge'
   | 'prReviewExecuteTip'
@@ -70,11 +71,28 @@ export interface PrReviewDecisionLike {
  *  `queue-for-human` are the only values `flight/pr-review.ts`'s
  *  `planPrReview` emits; anything else (should never happen) echoes back
  *  verbatim rather than throwing, so an unrecognized future decision kind
- *  degrades to a plain label instead of breaking the panel. */
-export function prReviewDecisionLabel(decision: string, tr: PrReviewPanelTranslator): string {
+ *  degrades to a plain label instead of breaking the panel. A
+ *  `queue-for-human` PR whose head is stuck in GitHub's `action_required`
+ *  status (`awaitingApprovalRunIds` on the candidate, board
+ *  web-mto1tya3-57v8ig) gets its own distinct badge — "needs eyes" and
+ *  "needs your approval to even run CI" read the same otherwise, and a
+ *  maintainer scanning the panel can't tell them apart without opening each
+ *  tooltip. Deliberately display-only: the human still runs the `gh api
+ *  .../approve` command by hand (named in the reasoning text) — wiring this
+ *  to an auto-execute button would defeat the point of gating an untrusted
+ *  fork's CI run behind manual approval. */
+export function prReviewDecisionLabel(
+  decision: string,
+  tr: PrReviewPanelTranslator,
+  awaitingApproval?: boolean,
+): string {
   if (decision === 'merge') return '✓ ' + tr('prReviewMergeLabel');
   if (decision === 'request-changes') return '✗ ' + tr('prReviewRequestChangesLabel');
-  if (decision === 'queue-for-human') return '🟣 ' + tr('prReviewQueueForHumanLabel');
+  if (decision === 'queue-for-human') {
+    return awaitingApproval
+      ? '🔒 ' + tr('prReviewAwaitingApprovalLabel')
+      : '🟣 ' + tr('prReviewQueueForHumanLabel');
+  }
   return decision;
 }
 

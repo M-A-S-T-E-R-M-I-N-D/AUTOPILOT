@@ -129,7 +129,8 @@ function renderPrReviewPanel(plans, fetchFailed) {
     // busy review round would otherwise cost one Tab press per open PR.
     // wireRoving() below moves it.
     prNumberEl.setAttribute('tabindex', i === 0 ? '0' : '-1');
-    var label = prReviewDecisionLabel(plan.decision.decision, tr);
+    var awaitingApproval = !!(plan.pr.awaitingApprovalRunIds && plan.pr.awaitingApprovalRunIds.length > 0);
+    var label = prReviewDecisionLabel(plan.decision.decision, tr, awaitingApproval);
     var headMeta = decisionItemHeadMeta(
       'GitHub PR',
       'pull request',

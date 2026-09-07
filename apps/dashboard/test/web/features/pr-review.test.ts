@@ -48,6 +48,16 @@ describe('prReviewJs', () => {
     expect(out).toContain('function loadPrReviewPanel() {');
   });
 
+  it('threads the awaiting-approval run list into the decision-label badge (board web-mto1tya3-57v8ig)', () => {
+    const out = prReviewJs();
+    expect(out).toContain(
+      'var awaitingApproval = !!(plan.pr.awaitingApprovalRunIds && plan.pr.awaitingApprovalRunIds.length > 0);',
+    );
+    expect(out).toContain(
+      'var label = prReviewDecisionLabel(plan.decision.decision, tr, awaitingApproval);',
+    );
+  });
+
   it('fetches the PR review preview on its own timer rather than riding the fleet stream', () => {
     const out = prReviewJs();
     expect(out).toContain("fetch('/api/pr-review', { headers: { accept: 'application/json' } })");

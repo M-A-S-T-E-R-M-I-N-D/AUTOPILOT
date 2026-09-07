@@ -638,6 +638,7 @@ const EN_STRINGS = {
   prReviewMergeLabel: 'merge',
   prReviewRequestChangesLabel: 'request changes',
   prReviewQueueForHumanLabel: 'queue for human',
+  prReviewAwaitingApprovalLabel: 'awaiting approval to run CI',
   prReviewConfirmMessage:
     'Apply KEEPER review to #{number} "{title}"?\n\nDecision: {decision}\n{reasoning}\n\nThe decision is re-derived fresh from gh at execute time — this will not blindly trust what is shown here if the PR changed.',
   prReviewConfirmUndoMerge:
@@ -1451,6 +1452,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prReviewMergeLabel: 'מיזוג',
     prReviewRequestChangesLabel: 'בקשת שינויים',
     prReviewQueueForHumanLabel: 'העברה לבדיקה אנושית',
+    prReviewAwaitingApprovalLabel: 'ממתין לאישור הרצת CI',
     prReviewConfirmMessage:
       'להחיל את סקירת KEEPER על #{number} "{title}"?\n\nהחלטה: {decision}\n{reasoning}\n\nההחלטה נגזרת מחדש מ-gh בזמן ההרצה — פעולה זו לא תסמוך באופן עיוור על מה שמוצג כאן אם ה-PR השתנה.',
     prReviewConfirmUndoMerge:
