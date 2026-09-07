@@ -60,3 +60,77 @@ themes, or capabilities — and it reads like a settings page, not a cockpit.
 3. Overflow menu absorbing tour/LTS/report/docs.
 4. Command palette.
 5. Deep-page side rail.
+
+## Dependency audit (firing 208, 2026-09-07)
+
+Requested via a dashboard "Report from here" task (`report-element-1q0t6o5`):
+what actually blocks slices 2-5, what infra already de-risks them, and the
+concrete backlog to track them.
+
+### Status
+
+- **Slice 1 shipped** — `9f9d287d` (`test(dashboard): masthead census — pin
+  every control before EPIC 0017 nav remake`). `masthead-census.test.ts` pins
+  every existing masthead control at markup level (brand, updated status,
+  OTLP chip, Connect popover + credential form + gh cluster + issue form,
+  theme nav, language nav, notify popover + quiet hours, Foundation heart,
+  tour button) so slices 2-5 fail loudly if a relocation silently drops one.
+  Slices 2-5 are still unclaimed on any branch as of this audit.
+
+### Blocking dependency — does NOT hold yet
+
+- This epic's own header says implementation "waits for the i18n sweep to
+  cool off `shell.ts`." That condition is still false: 43 commits touching
+  i18n landed in the 48h before this audit, and `shell.ts` itself was last
+  touched same-day (2026-09-07 09:55). The sweep's current targets have moved
+  past the masthead itself (searchbar, inbox, live-worker card, flight log —
+  the masthead is already fully `data-i18n`-tagged per the census test), but
+  it is still editing `shell.ts` at high frequency. Whoever claims slice 2
+  should re-check commit velocity on `shell.ts` immediately before starting,
+  not rely on this snapshot.
+
+### Reusable infra already in place (lowers slice risk)
+
+- `shell-html.ts` already extracts `themeButtons()`/`langButtons()` out of
+  `shell.ts` — slice 2's popover menus have a natural home to grow into
+  rather than needing a fresh module split.
+- The "designed states" CSS convention in `layout-css.ts` (rest/hover/focus/
+  active, each pinned red-first by its own `*-designed-states.test.ts`) is
+  the established idiom — every new icon-cluster control should follow it,
+  not invent a new one.
+- `scripts/i18n/find-rtl-hazards.mjs` (+ `find-rtl-hazards.test.ts`) already
+  statically flags physical CSS (`margin-left`, `right`, `border-top-left-
+  radius`, `text-align: right`, `float: left`) in favor of logical
+  properties — new nav CSS gets this guard for free, which matters most for
+  slice 5's "RTL-mirrored like everything else" requirement.
+- `packages/tokens/src/locales.ts` carries only two locales today (`en`,
+  `he`; `he` is RTL) — the globe menu's "scales to N" claim (target-model
+  point 1) is untested past N=2. Not a blocker, but worth a real check once
+  a third locale exists.
+- Keyboard patterns this remake needs already exist elsewhere: roving
+  tabindex / composite-widget semantics in `tabs.ts`, and a `role="tree"`
+  keyboard-navigable structure in `pipeline-tree-html.ts`. Slice 4 (command
+  palette) and slice 5 (side rail) should reuse these idioms rather than
+  design new keyboard semantics from scratch.
+
+### Net-new work (no existing scaffolding)
+
+- **Command palette (Ctrl/⌘-K)** — nothing like it exists in the dashboard
+  today; slice 4 is a from-scratch build, constrained to inline SVG/CSS only
+  (no new dependencies, per the epic's constraints).
+- **Deep-page side rail** — no generic section-jump rail exists. The closest
+  precedent, `pipeline-panel.ts`'s tree sidebar, is scoped to the D4
+  pipeline view only and not reusable as-is for board/log/panel anchors.
+
+### Backlog (see PROPOSALS on this firing's record)
+
+1. Slice 2 — status-pill consolidation (Claude/gh/OTLP → one traffic-light,
+   popover for detail/actions).
+2. Slice 3 — overflow `⋯` menu absorbing tour/LTS-check/report-issue/docs.
+3. Slice 4 — command palette (Ctrl/⌘-K): jump-to-project, fly, theme,
+   language, panel anchors.
+4. Slice 5 — deep-page side rail (RTL-mirrored) for board/log/panel
+   section jumps.
+5. Gate check — before claiming slice 2, re-verify `shell.ts` commit
+   velocity from the i18n sweep has actually dropped; this audit's 43-
+   commits/48h reading is a snapshot, not a standing fact.
