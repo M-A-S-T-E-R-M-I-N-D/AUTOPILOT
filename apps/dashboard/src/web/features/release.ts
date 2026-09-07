@@ -38,6 +38,16 @@
  * `renderProjectPage()` — a call site that stays a bare, unimported
  * identifier reference in `fleetJs()`'s own served text, the same reason
  * every whole-region move's own call site already relies on.
+ *
+ * i18n (board web-msnsndki-dz3vn1): the title and the loading placeholder
+ * (built once, synchronously, when a project's panel first mounts) and the
+ * body states rebuilt inside the async `/api/release` handlers (unavailable,
+ * no-tags-yet, the milestone-tag label) carry their English default AND a
+ * `data-i18n` tag, then are swept by `translateDom()` (a bare hoisted
+ * identifier from `web/features/locale.ts`'s splice) — the first two ride
+ * the page-level sweep that follows every `renderProjectPage()` tick, while
+ * each async landing site sweeps itself since it can land well after that
+ * tick's sweep already ran, the exact split `issue-triage.ts` follows.
  */
 import {
   releaseExecuteResult,
@@ -78,11 +88,15 @@ ${releaseMaturityOf.toString()}
 function renderReleaseBody(body, release, pid) {
   body.replaceChildren();
   if (!release || !release.currentVersion) {
-    body.appendChild(el('p', 'muted', 'Release preview unavailable.'));
+    var unavailableMsg = el('p', 'muted', 'Release preview unavailable.');
+    unavailableMsg.setAttribute('data-i18n', 'releaseUnavailable');
+    body.appendChild(unavailableMsg);
     return;
   }
   if (!release.tagName) {
-    body.appendChild(el('p', 'muted', 'No release tags yet — nothing to diff the next release against.'));
+    var noTagsMsg = el('p', 'muted', 'No release tags yet — nothing to diff the next release against.');
+    noTagsMsg.setAttribute('data-i18n', 'releaseNoTags');
+    body.appendChild(noTagsMsg);
     return;
   }
   if (!release.plan || !release.plan.ok) {
@@ -99,6 +113,7 @@ function renderReleaseBody(body, release, pid) {
   var milestoneRow = el('div', 'release-milestone');
   var milestoneLabelId = 'release-milestone-' + pid;
   var milestoneLabel = el('label', null, 'Milestone tag (optional)');
+  milestoneLabel.setAttribute('data-i18n', 'releaseMilestoneLabel');
   milestoneLabel.setAttribute('for', milestoneLabelId);
   var milestoneInput = document.createElement('input');
   milestoneInput.type = 'text';
@@ -195,17 +210,29 @@ function releaseSection(pid) {
   title.setAttribute('data-i18n', 'releaseTitle');
   wrap.appendChild(title);
   var body = el('div', 'release-body');
-  body.appendChild(el('p', 'muted', 'Checking for release-worthy commits…'));
+  var loadingMsg = el('p', 'muted', 'Checking for release-worthy commits…');
+  loadingMsg.setAttribute('data-i18n', 'releaseLoading');
+  body.appendChild(loadingMsg);
   wrap.appendChild(body);
+  // i18n (board web-msnsndki-dz3vn1): the title and loading placeholder
+  // above ride the page-level translateDom() sweep that follows every
+  // renderProjectPage() tick, but both async landings below can arrive well
+  // after that sweep already ran — so each sweeps its own fresh DOM, the
+  // split issue-triage.ts/flight-console.ts/coordination.ts already follow.
+  // One sweep after renderReleaseBody covers every branch it can take.
   fetch('/api/release?project=' + encodeURIComponent(pid))
     .then(function (r) { return r.ok ? r.json() : { release: null }; })
     .then(function (data) {
       if (!body.isConnected) return;
       renderReleaseBody(body, data && data.release, pid);
+      translateDom(document.documentElement.lang || 'en');
     })
     .catch(function () {
       if (!body.isConnected) return;
-      body.replaceChildren(el('p', 'muted', 'Release preview unavailable.'));
+      var unavailableMsg = el('p', 'muted', 'Release preview unavailable.');
+      unavailableMsg.setAttribute('data-i18n', 'releaseUnavailable');
+      body.replaceChildren(unavailableMsg);
+      translateDom(document.documentElement.lang || 'en');
     });
   return wrap;
 }

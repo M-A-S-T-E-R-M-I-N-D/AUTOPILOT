@@ -55,6 +55,23 @@ describe('releaseJs', () => {
     expect(out).toContain('function releaseSection(pid) {');
   });
 
+  it('tags every el()-built text state data-i18n and sweeps the async states itself (board web-msnsndki-dz3vn1)', () => {
+    const out = releaseJs();
+    // Built synchronously at mount — rides the page-level sweep like the title.
+    expect(out).toContain("loadingMsg.setAttribute('data-i18n', 'releaseLoading');");
+    // Rebuilt inside the async /api/release handlers — both the resolved
+    // body (every branch of renderReleaseBody) and the rejected catch.
+    expect(out).toContain("unavailableMsg.setAttribute('data-i18n', 'releaseUnavailable');");
+    expect(out).toContain("noTagsMsg.setAttribute('data-i18n', 'releaseNoTags');");
+    expect(out).toContain("milestoneLabel.setAttribute('data-i18n', 'releaseMilestoneLabel');");
+    // One panel-local sweep per async landing site, since either can land
+    // after the page-level sweep already ran; translateDom itself stays a
+    // bare hoisted identifier from locale.ts's splice, never re-declared.
+    const sweeps = out.split("translateDom(document.documentElement.lang || 'en');").length - 1;
+    expect(sweeps).toBe(2);
+    expect(out).not.toContain('function translateDom(');
+  });
+
   it('fetches the RELEASE preview on demand rather than folding into the polled /api/state', () => {
     expect(releaseJs()).toContain("fetch('/api/release?project=' + encodeURIComponent(pid))");
   });

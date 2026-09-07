@@ -1011,6 +1011,14 @@ const EN_STRINGS = {
   backlogConfirmDone: '✓ confirm done',
   backlogUnavailable: 'Detected backlog unavailable.',
   releaseTitle: '🚀 Next release',
+  // web/features/release.ts's body states: the loading placeholder rides the
+  // page-level sweep; the other three are rebuilt inside the async
+  // /api/release handlers, which sweep themselves (same split as the
+  // issueTriage* keys above).
+  releaseLoading: 'Checking for release-worthy commits…',
+  releaseUnavailable: 'Release preview unavailable.',
+  releaseNoTags: 'No release tags yet — nothing to diff the next release against.',
+  releaseMilestoneLabel: 'Milestone tag (optional)',
   // web/features/release.ts's RELEASE PHASE select (board github-4): built
   // fresh on every panel render, so tr() at build time is the sweep, the
   // same reasoning report-menu.ts's keys followed. releaseMaturityAutoTemplate's
@@ -1665,6 +1673,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     backlogConfirmDone: '✓ אשר בוצע',
     backlogUnavailable: 'הפיגור שזוהה אינו זמין.',
     releaseTitle: '🚀 המהדורה הבאה',
+    releaseLoading: 'בודק קומיטים ראויים לשחרור…',
+    releaseUnavailable: 'תצוגה מקדימה של המהדורה אינה זמינה.',
+    releaseNoTags: 'עדיין אין תגיות שחרור — אין מול מה להשוות את המהדורה הבאה.',
+    releaseMilestoneLabel: 'תגית אבן דרך (אופציונלי)',
     releaseMaturityLabel: 'שלב המהדורה',
     releaseMaturityAutoTemplate: 'אוטומטי — זוהה: {phase}',
     releaseMaturityAlpha: 'אלפא',
