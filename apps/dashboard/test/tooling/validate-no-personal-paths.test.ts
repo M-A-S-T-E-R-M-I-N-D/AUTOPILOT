@@ -62,6 +62,11 @@ describe('findPersonalPaths', () => {
     expect(findPersonalPaths(line)).toEqual([]);
   });
 
+  it('exempts a hyphenated CSS property regex source — overflow-y:\\s is not drive y: (the false positive that red-lit main on 2026-09-07)', () => {
+    const line = 'expect(css).toMatch(/\\.activity\\s*\\{[^}]*overflow-y:' + '\\s*auto/);';
+    expect(findPersonalPaths(line)).toEqual([]);
+  });
+
   it("exempts the repo's placeholder operator home in its escaped double-backslash form", () => {
     // A JS string literal that embeds an escaped Windows path reads, on disk,
     // as a *doubled* backslash before each segment — exactly the shape

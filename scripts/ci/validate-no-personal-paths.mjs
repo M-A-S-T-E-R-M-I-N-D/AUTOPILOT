@@ -57,7 +57,11 @@ const RULES = [
   // bare/placeholder root from a real leaked path (see module docstring).
   {
     id: 'windows-drive-path',
-    re: /(?<![A-Za-z\\])[A-Za-z]:[\\/](?:[\\/A-Za-z0-9._-])*/,
+    // The hyphen in the lookbehind: CSS-property regex sources in tests
+    // (`/overflow-y:\s*auto/`) read as drive `y:` + path `\s` without it —
+    // a real leaked path never hangs directly off a `-y`-style identifier
+    // tail, while `--path=C:\Users` keeps matching (preceded by `=`).
+    re: /(?<![A-Za-z\\-])[A-Za-z]:[\\/](?:[\\/A-Za-z0-9._-])*/,
     isSafe: (match) => SAFE_WINDOWS_DRIVE_PATH.test(match),
   },
   // Personal-provider email addresses (PII)
