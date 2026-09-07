@@ -19,6 +19,7 @@ import {
   watchPostPushCi,
   createPostPushWatchTrigger,
   DEFAULT_POST_PUSH_WATCH_OPTIONS,
+  type LaunchFixFiring,
 } from '../../src/control/post-push-watch.js';
 
 /** `tasks.project_id` is a real FK against `projects(id)` (enforced —
@@ -236,5 +237,100 @@ describe('createPostPushWatchTrigger (slice 3 — starting a watch from a real g
     } finally {
       cleanupDir(dir);
     }
+  });
+
+  describe('escalation-mode lever (board web-mtpbmazh-3en467)', () => {
+    it('invokes launchFixFiring with the freshly filed task when mode is "fly"', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-fly-'));
+      try {
+        const dbPath = join(dir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1');
+        s.close();
+
+        const launchFixFiring: LaunchFixFiring = vi.fn();
+        const trigger = createPostPushWatchTrigger(
+          dbPath,
+          ghRunReporting('failure'),
+          launchFixFiring,
+          'fly',
+        );
+        trigger('p1', '/repo', 'main', 'abc1234');
+
+        await vi.waitFor(() => {
+          expect(launchFixFiring).toHaveBeenCalledTimes(1);
+        });
+        const [task, rootPath] = (launchFixFiring as ReturnType<typeof vi.fn>).mock.calls[0] as [
+          { title: string },
+          string,
+        ];
+        expect(task.title).toContain('CI RED after landing main → abc1234');
+        expect(rootPath).toBe('/repo');
+      } finally {
+        cleanupDir(dir);
+      }
+    });
+
+    it('never invokes launchFixFiring in the default "board" mode', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-board-'));
+      try {
+        const dbPath = join(dir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1');
+        s.close();
+
+        const launchFixFiring: LaunchFixFiring = vi.fn();
+        const trigger = createPostPushWatchTrigger(
+          dbPath,
+          ghRunReporting('failure'),
+          launchFixFiring,
+          'board',
+        );
+        trigger('p1', '/repo', 'main', 'abc1234');
+
+        await vi.waitFor(() => {
+          const s2 = openStore(dbPath);
+          const tasks = recentTasks(s2.db, 'p1', 10);
+          s2.close();
+          expect(tasks).toHaveLength(1);
+        });
+        expect(launchFixFiring).not.toHaveBeenCalled();
+      } finally {
+        cleanupDir(dir);
+      }
+    });
+
+    it('never invokes launchFixFiring for a dedup no-op (an evidence task is already open)', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-dedup-'));
+      try {
+        const dbPath = join(dir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1');
+        s.close();
+
+        const launchFixFiring: LaunchFixFiring = vi.fn();
+        const trigger = createPostPushWatchTrigger(
+          dbPath,
+          ghRunReporting('failure'),
+          launchFixFiring,
+          'fly',
+        );
+        trigger('p1', '/repo', 'main', 'abc1234');
+        await vi.waitFor(() => {
+          expect(launchFixFiring).toHaveBeenCalledTimes(1);
+        });
+
+        trigger('p1', '/repo', 'main', 'def5678');
+        // No second positive signal to wait on for an intentional no-op —
+        // give the fire-and-forget watch's microtasks a beat to run.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(launchFixFiring).toHaveBeenCalledTimes(1);
+      } finally {
+        cleanupDir(dir);
+      }
+    });
   });
 });
