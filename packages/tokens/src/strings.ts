@@ -545,6 +545,8 @@ const EN_STRINGS = {
   saveVerify: 'Save & verify',
   themeNav: 'Theme',
   languageNav: 'Language',
+  themeMenuTip: 'Choose a color theme',
+  langMenuTip: 'Choose a language',
   flyFolder: 'Fly a folder',
   browse: 'Browse…',
   byCount: 'by count',
@@ -1283,6 +1285,12 @@ const EN_STRINGS = {
   flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
   projectNotFound: 'Project not found',
   projectNotFoundBody: 'It may have been removed from the dashboard. Head back to the fleet.',
+  // web/features/flight-console.ts (board web-msnsndki-dz3vn1): the project
+  // page's Flight console panel — collapsed placeholder, and the empty/
+  // fetch-failure states. Relanded after the 07:47 revert burst (c9f4d502).
+  consoleEmpty: 'No console output yet.',
+  consoleCollapsed: 'Collapsed — expand to load.',
+  consoleUnavailable: 'Flight console unavailable.',
   // web/features/foundation.ts's masthead heart + Foundation panel (FOUNDATION
   // 1/3, board web-mtq0rsit-ywz1m7) — hidden until GET /api/donations reports
   // a real, verified entry (see docs/FOUNDATION.md's "never before" custody
@@ -1313,6 +1321,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     saveVerify: 'שמור ואמת',
     themeNav: 'ערכת נושא',
     languageNav: 'שפה',
+    themeMenuTip: 'בחר ערכת נושא',
+    langMenuTip: 'בחר שפה',
     flyFolder: 'טוס על תיקייה',
     browse: 'עיון…',
     byCount: 'לפי כמות',
@@ -1853,6 +1863,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightDebriefRemediationTip: 'תיקוני RemediatingGate מכניים בטיסה הזו',
     projectNotFound: 'הפרויקט לא נמצא',
     projectNotFoundBody: 'ייתכן שהוא הוסר מלוח הבקרה. חזרו לצי.',
+    consoleEmpty: 'עדיין אין פלט מסוף.',
+    consoleCollapsed: 'מכווץ — הרחיבו כדי לטעון.',
+    consoleUnavailable: 'מסוף הטיסה אינו זמין.',
     foundation: 'קרן',
     foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
     foundationCopyAddress: 'העתק כתובת',

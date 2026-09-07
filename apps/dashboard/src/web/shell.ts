@@ -3784,8 +3784,14 @@ export function renderShell(project?: string): string {
           </div>
         </div>
       </details>
-      <nav class="switch" aria-label="Theme" data-i18n-aria="themeNav">${themeButtons()}</nav>
-      <nav class="switch" aria-label="Language" data-i18n-aria="languageNav">${langButtons()}</nav>
+      <details class="connect theme-menu" id="theme-menu">
+        <summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip">🎨</summary>
+        <div class="connect-body"><div class="switch">${themeButtons()}</div></div>
+      </details>
+      <details class="connect lang-menu" id="lang-menu">
+        <summary id="lang-menu-summary" aria-label="Language" data-i18n-aria="languageNav" data-tip="Choose a language" data-i18n-tip="langMenuTip">🌐</summary>
+        <div class="connect-body"><div class="switch">${langButtons()}</div></div>
+      </details>
       <details class="connect notify" id="notify">
         <summary id="notify-summary" data-tip="Browser notifications when a flight needs you or is dying" data-i18n-tip="notifySettingsTip" aria-label="Notification settings" data-i18n-aria="notifySettings">🔔</summary>
         <div class="connect-body">

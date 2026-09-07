@@ -73,6 +73,20 @@ test.describe('keyboard-only navigation', () => {
     const html = page.locator('html');
     await expect(html).toHaveAttribute('data-theme', 'dark');
 
+    // The theme buttons now live inside the theme-menu popover (EPIC 0017
+    // icon cluster) — reach and open its <summary> disclosure first, same as
+    // any other masthead popover, before the buttons themselves are in the
+    // tab order at all.
+    const themeMenuSummary = page.locator('#theme-menu-summary');
+    let reachedSummary = false;
+    for (let i = 0; i < 20 && !reachedSummary; i++) {
+      await page.keyboard.press('Tab');
+      reachedSummary = await themeMenuSummary.evaluate((el) => el === document.activeElement);
+    }
+    expect(reachedSummary).toBe(true);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#theme-menu')).toHaveAttribute('open', '');
+
     const lightButton = page.locator('[data-theme-btn="light"]');
     // Real Tab traversal (not `.focus()`) — proves the control is actually
     // reachable in the page's natural tab order, not merely present in the DOM.
