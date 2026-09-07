@@ -380,3 +380,62 @@ production logic anywhere in the module yet: they belong to epic 0016
 slices 2–5 (mirror-pass core, weave-in, standalone, observability), none
 of which have landed. Slice 6 cannot be meaningfully red-teamed ahead of
 the behavior it is meant to test. No code was changed for this check.
+
+## Verdict reconfirmed an eighth time, index gained unrelated staged work mid-observation: firing-218 (2026-09-07)
+
+This firing's first `git status` showed exactly the two-file shape a prior
+turn-capped session leaves behind: `apps/dashboard/test/web/features/
+issue-triage.test.ts` modified plus an untracked, fully-written
+`apps/dashboard/test/web/issue-triage-panel-i18n.test.ts` (163 lines, six
+tests, citing board `web-msnsndki-dz3vn1`). This firing treated it as
+possibly its own resumable work (the session hook's summary showed a
+"Last Updated" timestamp minutes old) and began verifying it: read the
+untracked test file, confirmed the `STRINGS.en`/`STRINGS.he`
+`issueTriage*` keys it depends on already existed in `packages/tokens/src/
+strings.ts`, and ran both test files — 14/14 green.
+
+The next `git status` (run only to confirm scope before staging) told a
+different story: the diff had grown from 2 files to **5** —
+`apps/dashboard/src/web/features/issue-triage.ts`,
+`apps/dashboard/src/web/layout-css.ts`, and `apps/dashboard/src/web/
+shell.ts` were now modified too, `packages/tokens/src/strings.ts` was now
+modified (not clean, as first read), and a *second* new untracked file,
+`apps/dashboard/test/web/live-worker-lane-grid.test.ts`, had appeared —
+none of which this firing had touched. This firing's own FLEET board data
+named `web-msnsndki-dz3vn1` ("i18n foundation + HEBREW... locale infras")
+as `CLAIMED by fleet-3` — the unit visibly growing in place, mid-session,
+is consistent with fleet-3 actively authoring it in this same checkout
+right now, not a resumable orphan.
+
+New flavor, sharper than any prior entry: that same `git status` also
+showed **staged** (index-level) changes to three files this firing had
+never opened — `apps/dashboard/test/github/pr-execute.test.ts`,
+`packages/engine/src/github-pr-contribute.ts`, `packages/engine/test/
+github-pr-contribute.test.ts` — proving a *second*, independent concurrent
+process had run its own `git add` against this checkout while this firing
+was merely reading. A follow-up poll, seconds later, found those three
+paths gone from `git status` entirely and `HEAD` advanced to `e0431744`
+(`feat(engine): reland the identity-law disclosure on contribute-upstream
+PRs`) — that second process's own clean commit, landing mid-observation,
+the same "caught it staged, then it committed cleanly" shape as
+firing-147/173/196's entries, but this is the first entry to catch the
+index accumulate a wholly unrelated unit's staged state (not just an
+already-complete stage) before the commit resolved it.
+
+Action taken: this firing did not stage, edit, or gate any of the six
+distinct contested paths above (the i18n unit's five, the
+`live-worker-lane-grid` file), and did not touch the
+`github-pr-contribute` unit either — despite having already run a full
+`vitest run` against the i18n unit's two test files, that verification was
+discarded rather than acted on, since the unit was, by the very next poll,
+demonstrably still growing under a live sibling's hands. Only this
+documentation file was edited and will be committed with a pathspec-scoped
+commit. No data was lost (criteria (1) and (2) hold an eighth time).
+`ap-mtnd737s-1`/`ap-mtq0bpgj-2`/`ap-mtm4qzty-1` remain **open,
+operator-owned**; the (a)/(b)/(c) decision is unchanged. Practical addendum
+for future firings: a session summary's "recently modified" timestamp is
+**not** reliable evidence that uncommitted state in the primary checkout
+belongs to the resuming session itself — verify by re-polling `git status`
+at least once before spending any verification effort on it, since a live
+sibling's in-progress unit will keep growing across polls while a truly
+orphaned one will not.
