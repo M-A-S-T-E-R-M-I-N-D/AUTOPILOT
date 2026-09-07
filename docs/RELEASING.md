@@ -23,6 +23,12 @@ is the durable record so the discipline is repeatable (and enforced by CI).
 - Every `0.x` release is an **alpha** and publishes as a GitHub **Pre-release**
   (SemVer §4, mechanized by `release/maturity.ts` — auto-detected, operator
   can override).
+- **Exactly ONE release is visible at any time** (operator call, 2026-09-07):
+  since alpha pre-releases never earn GitHub's "Latest" badge, a long list of
+  visible alphas invites installing an outdated one. On each new release the
+  previous entry is converted to a draft (recoverable, invisible to
+  visitors); tags and this changelog remain the full public history. Applied
+  by hand for v0.21.0–v0.28.0; wiring it into the ritual itself is boarded.
 - Workspace packages (`@autopilot/*`) are pre-1.0 internal libraries; they stay
   at `0.1.0` until first external publish, then adopt independent SemVer. The
   number that means "the product" is the repo version above.
