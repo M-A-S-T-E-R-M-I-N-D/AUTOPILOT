@@ -117,7 +117,12 @@ import {
 import { otlpConfigFromEnv } from './flight/otlp.js';
 import { selfStudyInvocation, commitSelfStudyIfDirty } from './flight/self-study.js';
 import { formatFlightDoneLine } from './flight/flight-summary.js';
-import { deriveFlyProjectId, engineLockFileName, guardSettingsFileName } from './flight/lock.js';
+import {
+  deriveFlyProjectId,
+  engineLockFileName,
+  guardSettingsFileName,
+  isAnyFlightLockLive,
+} from './flight/lock.js';
 import { verifyGuardSettings } from './flight/guard-verify.js';
 import { deriveWorktreePlan } from './flight/worktree.js';
 import { parseTaskScope, scopeFilterCandidates } from './flight/scope-partition.js';
@@ -377,6 +382,31 @@ async function main(): Promise<void> {
       out(
         `Flight isolation: worktree setup threw (${err instanceof Error ? err.message : String(err)}) — flying ${target} directly.`,
       );
+    }
+
+    // FLIGHT-VS-FLIGHT PRIMARY FALLBACK GUARD (board `ap-mtm4qzty-1` slice
+    // (a)+(b), docs/epics/0002-shell-decomposition.md): worktree isolation is
+    // NOT active for this flight (setup failed above or threw) — Bash is
+    // about to run directly in the shared, non-worktree `target` checkout. If
+    // a SIBLING flight (any instanceId) already holds a live engine lock for
+    // this same project, flying here too means two processes running
+    // git/Bash in the one shared tree with no isolation between them at
+    // all — the exact hazard that silently discarded another firing's
+    // uncommitted edits via a concurrent `git reset --hard`
+    // (docs/debriefs/2026-09-07-hard-reset-destroys-uncommitted-work-live.md).
+    // `lock` (this flight's own engine lock, acquired above) already exists
+    // on disk under this same `dbDir` by this point, so it must be excluded
+    // or this check would always self-match and refuse every flight that
+    // ever hits the worktree-fallback path, including a lone one.
+    if (flightRoot === target && isAnyFlightLockLive(dirname(dbPath), target, process.pid)) {
+      out(
+        `⛔ another AUTOPILOT flight already holds the lock for this project and worktree ` +
+          `isolation is unavailable here — refusing to fly the shared primary checkout ` +
+          `directly (would race a live sibling's git operations with no isolation). ` +
+          `Retry once the other flight finishes.`,
+      );
+      process.exitCode = 1;
+      return;
     }
 
     // Self-heal BEFORE this flight's own board read: a prior flight that

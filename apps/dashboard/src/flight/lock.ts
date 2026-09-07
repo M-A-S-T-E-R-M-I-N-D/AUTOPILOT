@@ -162,8 +162,22 @@ export function isFlightOwnerAlive(
  * could hold, exactly the way `fly.ts` writes them (`engineLockFileName`),
  * and treat any live one as "a flight owns the checkout" — the same
  * refusal path `isFlightRunning` already produces.
+ *
+ * `excludePid` (board `ap-mtm4qzty-1` slice (a)+(b),
+ * `docs/epics/0002-shell-decomposition.md`): omitted, every live lock counts
+ * — the `landing/execute.ts` flight-vs-land use above. A CALLER THAT IS
+ * ITSELF A FLIGHT (`fly.ts`, checking whether a SIBLING already owns the
+ * shared primary checkout before falling back to flying it directly without
+ * worktree isolation) has already written its OWN lock file by the time it
+ * asks this question — without excluding its own pid it would always
+ * self-match and refuse to fly at all. Passing `process.pid` here excludes
+ * exactly that one entry while still catching every other live lock.
  */
-export function isAnyFlightLockLive(dbDir: string, targetPath: string): boolean {
+export function isAnyFlightLockLive(
+  dbDir: string,
+  targetPath: string,
+  excludePid?: number,
+): boolean {
   const projectId = deriveFlyProjectId(targetPath);
   let entries: string[];
   try {
@@ -184,7 +198,7 @@ export function isAnyFlightLockLive(dbDir: string, targetPath: string): boolean 
       continue;
     }
     const info = parseLockInfo(raw);
-    if (info !== null && isProcessAlive(info.pid)) return true;
+    if (info !== null && info.pid !== excludePid && isProcessAlive(info.pid)) return true;
   }
   return false;
 }

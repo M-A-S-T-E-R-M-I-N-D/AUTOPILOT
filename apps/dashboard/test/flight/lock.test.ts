@@ -13,6 +13,7 @@ import {
   deriveFlyProjectId,
   readFlightOwnerPid,
   isFlightOwnerAlive,
+  isAnyFlightLockLive,
 } from '../../src/flight/lock.js';
 
 describe('engineLockFileName', () => {
@@ -220,6 +221,72 @@ describe('readFlightOwnerPid (RUNBOOK §4 — the pid half of isFlightOwnerAlive
 
       expect(readFlightOwnerPid(dir, target)).toBeNull(); // bare key: no lock there
       expect(readFlightOwnerPid(dir, target, 'fleet-2')).toBe(process.pid);
+    });
+  });
+});
+
+describe('isAnyFlightLockLive excludePid (board ap-mtm4qzty-1 slice (a): a flight must not self-match its own just-acquired lock when checking whether a SIBLING already owns the shared primary checkout)', () => {
+  function withTmpDir<T>(fn: (dir: string) => T): T {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-lock-anylive-'));
+    try {
+      return fn(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('returns false with no lock files at all', () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      expect(isAnyFlightLockLive(dir, target)).toBe(false);
+      expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(false);
+    });
+  });
+
+  it('returns true for a live lock when no excludePid is given (backward compatible)', () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      writeFileSync(
+        join(dir, engineLockFileName(deriveFlyProjectId(target))),
+        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+      );
+      expect(isAnyFlightLockLive(dir, target)).toBe(true);
+    });
+  });
+
+  it("excludes the caller's OWN just-acquired lock via excludePid, instead of self-matching it", () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      writeFileSync(
+        join(dir, engineLockFileName(deriveFlyProjectId(target))),
+        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+      );
+      expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(false);
+    });
+  });
+
+  it("still reports true when a DIFFERENT live pid holds an instanced (fleet sibling) lock, even with excludePid set to the caller's own pid", () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      // process.ppid is a real, currently-alive process distinct from our own
+      // pid — a stand-in for a live sibling flight's lock.
+      const siblingPid = process.ppid;
+      writeFileSync(
+        join(dir, engineLockFileName(deriveFlyProjectId(target), 'fleet-2')),
+        JSON.stringify({ pid: siblingPid, startedAt: Date.now() }),
+      );
+      expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(true);
+    });
+  });
+
+  it('returns false when the only lock is stale (dead pid), regardless of excludePid', () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      writeFileSync(
+        join(dir, engineLockFileName(deriveFlyProjectId(target))),
+        JSON.stringify({ pid: 999_999_999, startedAt: Date.now() }),
+      );
+      expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(false);
     });
   });
 });
