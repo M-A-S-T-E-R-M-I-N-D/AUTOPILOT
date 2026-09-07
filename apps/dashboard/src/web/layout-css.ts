@@ -346,7 +346,7 @@ main > * { min-width: 0; }
 .pill-flying { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
 .pill-needs_you { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .card-meta, .card-stats { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.chip { font-size: var(--text-xs); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-2); }
+.chip { font-size: var(--text-xs); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-2); text-decoration: none; display: inline-block; }
 .chip-proposed { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-anomaly { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-runaway { color: var(--color-needs-you); border-color: var(--color-needs-you); }

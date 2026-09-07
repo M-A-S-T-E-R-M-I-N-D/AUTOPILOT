@@ -192,6 +192,22 @@ function tipChip(text, tip, ariaLabel, extraClass) {
   e.setAttribute('aria-label', ariaLabel);
   return e;
 }
+/** Same shape as tipChip() but a real anchor element (board
+ *  web-mtq03uzp-hubr6g, masthead link): the "flying now" chip strip
+ *  navigates to the lane's own card — href is a real /p/id#lane-... URL (a
+ *  different project's page falls through to it when that lane isn't in
+ *  THIS document), while the click listener below intercepts the same-page
+ *  case for a smooth scroll + focus instead of a jarring reload. */
+function tipChipLink(text, tip, ariaLabel, extraClass, href, targetId) {
+  var e = document.createElement('a');
+  e.className = extraClass ? 'chip ' + extraClass : 'chip';
+  e.textContent = text;
+  e.href = href;
+  e.setAttribute('data-tip', tip);
+  e.setAttribute('aria-label', ariaLabel);
+  e.setAttribute('data-lane-target', targetId);
+  return e;
+}
 // fmtBytes/fmtCost/fmtTokens are generated FROM web/format.ts below (epic
 // 0002 "shell decomposition", slice 2) — their real compiled source via
 // .toString(), not a hand-retyped copy. They can no longer drift apart.
@@ -771,12 +787,22 @@ ${sharedOrientFixationChipMeta.toString()}
 // laneGridCard() and returns immediately, so the single/zero-lane path below is
 // completely untouched: same liveFiring(c) call, same fields, same DOM — every
 // test pinning THIS card's behavior keeps passing unchanged.
+// Stable per-lane DOM id (board web-mtq03uzp-hubr6g, masthead link): every
+// lane's own card carries one so the "flying now" chip strip can jump
+// straight to it instead of only naming it. Both project id and callsign
+// feed the id — a callsign alone is not guaranteed unique across two
+// different projects' concurrent lanes, only within one project's own.
+function laneAnchorId(projectId, callsign) {
+  return 'lane-' + (projectId + '-' + callsign).replace(/[^a-zA-Z0-9_-]+/g, '-');
+}
 function liveWorkerCard(c) {
   var lives = liveFirings(c);
-  if (lives.length > 1) return laneGridCard(lives);
+  if (lives.length > 1) return laneGridCard(lives, c.id);
   var live = liveFiring(c);
   if (!live) return null;
   var wrap = el('div', 'live-worker');
+  wrap.id = laneAnchorId(c.id, live.callsign);
+  wrap.setAttribute('tabindex', '-1');
   var head = el('div', 'live-worker-head');
   var dot = el('span', 'live-dot');
   dot.setAttribute('aria-hidden', 'true');
@@ -978,8 +1004,10 @@ wireRoving('.live-worker [tabindex]', '.live-worker');
 // detail N times. Reuses the exact same i18n'd helpers (liveWorkerHeadMeta,
 // tr(), OFFICE_TIPS) liveWorkerCard already uses, so it needs no new STRINGS
 // keys and can't drift from their translations.
-function laneCard(live) {
+function laneCard(live, projectId) {
   var wrap = el('div', 'lane-card');
+  wrap.id = laneAnchorId(projectId, live.callsign);
+  wrap.setAttribute('tabindex', '-1');
   var head = el('div', 'live-worker-head');
   var headMeta = liveWorkerHeadMeta(live.callsign, live.model);
   head.appendChild(tipChip(
@@ -1056,11 +1084,11 @@ function laneCard(live) {
 // in sync. STABILITY LAW (epic 0018): bounded by .lane-grid's own max-height
 // scroll container (layout-css.ts) rather than letting a busy fleet's card
 // grow the page underneath it.
-function laneGridCard(lives) {
+function laneGridCard(lives, projectId) {
   var grid = el('div', 'lane-grid');
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', tr('liveWorkers'));
-  for (var i = 0; i < lives.length; i++) grid.appendChild(laneCard(lives[i]));
+  for (var i = 0; i < lives.length; i++) grid.appendChild(laneCard(lives[i], projectId));
   return grid;
 }
 wireRoving('.lane-card [tabindex]', '.lane-card');
@@ -3373,11 +3401,30 @@ function renderLiveWorkers(state) {
   for (var i = 0; i < items.length; i++) {
     var w = items[i];
     var meta = liveWorkerChipMeta(w, OFFICE_TIPS);
-    var chip = tipChip(meta.text, meta.tip, meta.ariaLabel, 'live-worker-chip');
+    var targetId = laneAnchorId(w.projectId, w.callsign);
+    var href = '/p/' + encodeURIComponent(w.projectId) + '#' + targetId;
+    var chip = tipChipLink(meta.text, meta.tip, meta.ariaLabel, 'live-worker-chip', href, targetId);
     chip.setAttribute('tabindex', i === liveWorkersRovingIndex ? '0' : '-1');
     section.appendChild(chip);
   }
 }
+// Activating a "flying now" chip (click or Enter) jumps to its lane's own
+// card (board web-mtq03uzp-hubr6g): same-page — the id already exists in
+// THIS document (the fleet grid, or this exact project's own page) — smooth-
+// scrolls and focuses it in place; a lane belonging to a DIFFERENT project's
+// page isn't in this document, so the anchor's own href does a real
+// navigation there instead, landing directly on the fragment.
+document.addEventListener('click', function (e) {
+  var chip = e.target && e.target.closest && e.target.closest('.live-worker-chip');
+  if (!chip) return;
+  var targetId = chip.getAttribute('data-lane-target');
+  if (!targetId) return;
+  var target = document.getElementById(targetId);
+  if (!target) return;
+  e.preventDefault();
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.focus({ preventScroll: true });
+});
 // Roving-tabindex keyboard support for the #live-workers strip above: moves
 // the single Tab stop with Left/Right/Home/End instead of leaving every chip
 // individually tabbable. Delegated on document (chips are rebuilt wholesale

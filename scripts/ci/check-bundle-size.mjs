@@ -27,11 +27,13 @@ import { gzipSync } from 'node:zlib';
 // status-pill slice, then 168→172KB / 50→51KB for its flight-log
 // cost/ago-tips slice, then 172→176KB / 51→52KB (2026-09-06) for its LANDING
 // panel slice, then 176→180KB / 52→53KB (2026-09-07) for its Flight console
-// panel slice (all board web-msnsndki-dz3vn1) — see the matching comment in
+// panel slice (all board web-msnsndki-dz3vn1), then gzip-only 53→54KB
+// (2026-09-07) for EPIC 0018 slice 2's masthead link finishing piece (board
+// web-mtq03uzp-hubr6g) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
 // measured sizes behind each bump.
 const CORE_RAW_BUDGET = 180 * 1024;
-const CORE_GZIP_BUDGET = 53 * 1024;
+const CORE_GZIP_BUDGET = 54 * 1024;
 // Deferred chunks never block first paint — the budget exists so they cannot
 // silently become a second monolith. Measured at introduction (2026-08-28):
 // project ~44KB, panels ~19KB raw.

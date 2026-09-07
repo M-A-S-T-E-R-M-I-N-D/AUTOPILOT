@@ -104,9 +104,22 @@ import {
  * surface is served from. This bump leaves ~5.7KB raw / ~1KB gzip headroom,
  * about five more slices at ~180 gzip each. The structural fix (VERDICT
  * split web-mtbodv7m-uzhovs) remains the tracked follow-up.
+ *
+ * Raised GZIP ONLY 53→54KB (2026-09-07): the masthead link finishing piece
+ * of EPIC 0018 slice 2 (board web-mtq03uzp-hubr6g) — every lane card
+ * (`.live-worker` / `.lane-card`) now carries a stable id and the "flying
+ * now" chip strip is a real anchor to it (click/Enter smooth-scrolls +
+ * focuses same-page, falls through to a real `/p/<id>#lane-...` navigation
+ * for a lane on another project's page) — measured 183277 raw / 54362 gzip
+ * against the old 184320 / 54272 budget: still under on raw (~1KB headroom
+ * intact), 90 bytes over on gzip alone. `renderLiveWorkers`/`liveWorkerCard`/
+ * `laneCard`/`laneGridCard` all live in the same unguarded core-chunk set the
+ * entries above describe, so this bump is gzip-only rather than the usual
+ * paired raise. The structural fix (VERDICT split web-mtbodv7m-uzhovs)
+ * remains the tracked follow-up.
  */
 const CORE_RAW_BUDGET = 180 * 1024;
-const CORE_GZIP_BUDGET = 53 * 1024;
+const CORE_GZIP_BUDGET = 54 * 1024;
 const CHUNK_RAW_BUDGET = 112 * 1024;
 const CHUNK_GZIP_BUDGET = 34 * 1024;
 
