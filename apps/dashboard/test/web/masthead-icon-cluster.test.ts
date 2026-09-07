@@ -27,14 +27,21 @@ describe('masthead icon cluster (EPIC 0017 slice 1/5) — theme/language as icon
   const masthead = mastheadHtml();
 
   it('renders the theme switcher as an icon-triggered popover, matching the connect/notify/foundation idiom', () => {
-    expect(masthead).toContain('<details class="connect theme-menu" id="theme-menu">');
+    // name="masthead-popover" makes every masthead <details> a native
+    // exclusive accordion — opening one closes the rest (operator catch,
+    // 2026-09-07: theme + language popovers stacked open on each other).
+    expect(masthead).toContain(
+      '<details class="connect theme-menu" id="theme-menu" name="masthead-popover">',
+    );
     expect(masthead).toContain(
       '<summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip">🎨</summary>',
     );
   });
 
   it('renders the language switcher as an icon-triggered popover, matching the connect/notify/foundation idiom', () => {
-    expect(masthead).toContain('<details class="connect lang-menu" id="lang-menu">');
+    expect(masthead).toContain(
+      '<details class="connect lang-menu" id="lang-menu" name="masthead-popover">',
+    );
     expect(masthead).toContain(
       '<summary id="lang-menu-summary" aria-label="Language" data-i18n-aria="languageNav" data-tip="Choose a language" data-i18n-tip="langMenuTip">🌐</summary>',
     );
@@ -54,5 +61,15 @@ describe('masthead icon cluster (EPIC 0017 slice 1/5) — theme/language as icon
     expect(langButtonsIdx).toBeGreaterThan(langBodyIdx);
 
     expect(masthead).not.toContain('<nav class="switch"');
+  });
+});
+
+describe('masthead popover exclusivity (operator catch 2026-09-07)', () => {
+  it('every masthead <details> popover shares name="masthead-popover" — the native exclusive-accordion contract, so theme and language can never stack open on each other', () => {
+    const masthead = mastheadHtml();
+    const occurrences = masthead.split('name="masthead-popover"').length - 1;
+    const detailsCount = masthead.split('<details ').length - 1;
+    expect(occurrences).toBe(detailsCount);
+    expect(occurrences).toBeGreaterThanOrEqual(5);
   });
 });

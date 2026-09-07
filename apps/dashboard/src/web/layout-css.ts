@@ -79,6 +79,10 @@ body {
 .connect > summary:active { box-shadow: none; }
 .connect[open] > summary { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
 .connect-body { position: absolute; inset-inline-end: 0; margin-top: var(--space-2); width: 320px; max-width: 88vw; z-index: 20; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--elevation-level-2); }
+/* The theme/language popovers hold a single short pill row — the 320px
+   connect-panel width left the buttons swimming at the start of a mostly
+   empty box (operator catch, 2026-09-07). Size these two to content. */
+.theme-menu > .connect-body, .lang-menu > .connect-body { width: max-content; }
 .connect-status { margin: 0; font-size: var(--text-sm); }
 .connect-ok { color: var(--color-success); }
 .connect-bad { color: var(--color-sev-high); }

@@ -3861,7 +3861,7 @@ export function renderShell(project?: string): string {
     <div class="masthead-right">
       <span class="updated" id="updated" role="status" aria-live="polite" data-i18n="updatedConnecting">connecting…</span>
       <span class="chip otlp-chip" id="otlp-chip" tabindex="0" data-tip="An OTEL_EXPORTER_OTLP_* endpoint is configured — every flight exports its spans there" data-i18n-tip="otlpExportTip" aria-label="OTLP export: configured" data-i18n-aria="otlpExportConfigured" hidden>OTLP</span>
-      <details class="connect" id="connect">
+      <details class="connect" id="connect" name="masthead-popover">
         <summary id="connect-summary"><span class="conn-dot" id="conn-dot" aria-hidden="true"></span><span id="connect-label" data-i18n="connect">Connect</span></summary>
         <div class="connect-body">
           <p class="connect-status" id="connect-status" role="status" aria-live="polite" data-i18n="connectCheckingConnection">checking connection…</p>
@@ -3902,15 +3902,15 @@ export function renderShell(project?: string): string {
           </div>
         </div>
       </details>
-      <details class="connect theme-menu" id="theme-menu">
+      <details class="connect theme-menu" id="theme-menu" name="masthead-popover">
         <summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip">🎨</summary>
         <div class="connect-body"><div class="switch">${themeButtons()}</div></div>
       </details>
-      <details class="connect lang-menu" id="lang-menu">
+      <details class="connect lang-menu" id="lang-menu" name="masthead-popover">
         <summary id="lang-menu-summary" aria-label="Language" data-i18n-aria="languageNav" data-tip="Choose a language" data-i18n-tip="langMenuTip">🌐</summary>
         <div class="connect-body"><div class="switch">${langButtons()}</div></div>
       </details>
-      <details class="connect notify" id="notify">
+      <details class="connect notify" id="notify" name="masthead-popover">
         <summary id="notify-summary" data-tip="Browser notifications when a flight needs you or is dying" data-i18n-tip="notifySettingsTip" aria-label="Notification settings" data-i18n-aria="notifySettings">🔔</summary>
         <div class="connect-body">
           <label class="notify-enable" for="notify-enable">
@@ -3926,7 +3926,7 @@ export function renderShell(project?: string): string {
           <p class="connect-hint" id="notify-hint" role="status" aria-live="polite"></p>
         </div>
       </details>
-      <details class="connect foundation" id="foundation" hidden>
+      <details class="connect foundation" id="foundation" name="masthead-popover" hidden>
         <summary id="foundation-summary" data-tip="Support AUTOPILOT — verified donation addresses" data-i18n-tip="foundationTip" aria-label="Foundation" data-i18n-aria="foundation">♥</summary>
         <div class="connect-body foundation-body" id="foundation-body"></div>
       </details>
