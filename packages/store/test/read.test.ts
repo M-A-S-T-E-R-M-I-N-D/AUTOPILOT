@@ -35,6 +35,7 @@ import {
   convergenceRedEvents,
   convergenceUnverifiableEvents,
   e2eLandBlockEvents,
+  guardVerificationFailedEvents,
   landedEvents,
   evaluationLabelEvents,
   evaluationLabelSummary,
@@ -1484,6 +1485,54 @@ describe('e2eLandBlockEvents', () => {
 
   it('returns an empty array for a project with no e2e-land-block events', () => {
     expect(e2eLandBlockEvents(store.db, 'elb')).toEqual([]);
+  });
+});
+
+describe('guardVerificationFailedEvents', () => {
+  const insertGuardVerificationFailed = (
+    projectId: string,
+    payload: string | null,
+    at: number,
+  ): void => {
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES (?, NULL, 'guard-verify-failed', ?, ?)`,
+      )
+      .run(projectId, payload, at);
+  };
+
+  beforeEach(() => {
+    insertProject('gvf', 'gvf', 'flying', 1);
+  });
+
+  it('returns guard-verify-failed events newest first, ignoring other event types', () => {
+    insertGuardVerificationFailed('gvf', '{"reason":"guard-hook script not found"}', 100);
+    insertGuardVerificationFailed('gvf', '{"reason":"settings file did not parse back"}', 200);
+    insertEvent('gvf', 300); // type 'firing' — must not leak in
+    expect(guardVerificationFailedEvents(store.db, 'gvf')).toEqual([
+      { payload: '{"reason":"settings file did not parse back"}', created_at: 200 },
+      { payload: '{"reason":"guard-hook script not found"}', created_at: 100 },
+    ]);
+  });
+
+  it('scopes to the given project and respects the limit', () => {
+    insertProject('gvf-other', 'gvf-other', 'flying', 1);
+    insertGuardVerificationFailed('gvf', '{"reason":"mine"}', 100);
+    insertGuardVerificationFailed('gvf-other', '{"reason":"theirs"}', 100);
+    expect(guardVerificationFailedEvents(store.db, 'gvf')).toHaveLength(1);
+    insertGuardVerificationFailed('gvf', '{"reason":"mine 2"}', 200);
+    expect(guardVerificationFailedEvents(store.db, 'gvf', 1)).toHaveLength(1);
+  });
+
+  it('clamps a negative limit instead of handing SQLite an unbounded LIMIT', () => {
+    insertGuardVerificationFailed('gvf', '{"reason":"mine"}', 100);
+    insertGuardVerificationFailed('gvf', '{"reason":"mine 2"}', 200);
+    expect(guardVerificationFailedEvents(store.db, 'gvf', -1)).toHaveLength(1);
+  });
+
+  it('returns an empty array for a project with no guard-verify-failed events', () => {
+    expect(guardVerificationFailedEvents(store.db, 'gvf')).toEqual([]);
   });
 });
 

@@ -13,6 +13,7 @@ import {
   parseConvergenceRedEvents,
   parseConvergenceUnverifiableEvents,
   parseE2eLandBlockEvents,
+  parseGuardVerificationFailedEvents,
   parseLandedEvents,
 } from '../../src/read/persisted-events.js';
 
@@ -285,6 +286,20 @@ describe('parseE2eLandBlockEvents', () => {
   it('skips a malformed JSON payload', () => {
     insertEvent('e2e-land-block', 'not json', 100);
     expect(parseE2eLandBlockEvents(store, PROJECT_ID)).toEqual([]);
+  });
+});
+
+describe('parseGuardVerificationFailedEvents', () => {
+  it('parses a well-formed guard-verify-failed payload', () => {
+    insertEvent('guard-verify-failed', '{"reason":"guard-hook script not found"}', 100);
+    expect(parseGuardVerificationFailedEvents(store, PROJECT_ID)).toEqual([
+      { reason: 'guard-hook script not found' },
+    ]);
+  });
+
+  it('skips a malformed JSON payload', () => {
+    insertEvent('guard-verify-failed', 'not json', 100);
+    expect(parseGuardVerificationFailedEvents(store, PROJECT_ID)).toEqual([]);
   });
 });
 
