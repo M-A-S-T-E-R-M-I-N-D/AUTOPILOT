@@ -136,3 +136,23 @@ describe('layoutCss — EPIC 0018 slice 1: scroll-container audit for unbounded 
     expect(css).toMatch(/\.flightlog\s*\{[^}]*overflow-y:\s*auto/);
   });
 });
+
+/**
+ * Bug report (report-element-79ilap): "Tooltip text overflows panel
+ * boundaries in flight map visualization." The flight map's per-node tip
+ * (`fnodeTip()` in web/flight-map.ts) renders a full file path through the
+ * shared `.spark-tip` bubble, which sets `max-width: 240px` but never told
+ * the browser where it may break a long unbroken run of characters (a deep
+ * path segment or long filename with no space/hyphen/slash to wrap at) —
+ * the same class of bug `.task-title`/`.flight-summary-headline`/
+ * `.browse-path` already carry `overflow-wrap: anywhere` for. Without it,
+ * default text wrapping refuses to break the word and the rendered text
+ * spills past the bubble's own 240px box instead of staying inside it.
+ */
+describe('layoutCss — spark-tip tooltip text stays inside its own box (report-element-79ilap)', () => {
+  const css = layoutCss();
+
+  it('lets the shared tooltip bubble break long unbroken text instead of overflowing its max-width', () => {
+    expect(css).toMatch(/\.spark-tip\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  });
+});
