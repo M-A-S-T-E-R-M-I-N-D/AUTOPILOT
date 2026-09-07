@@ -77,9 +77,14 @@ const BASE_PROJECT = {
     },
   ],
   // Two past durations so the progress label + bar render (an 80s average).
+  // f0 also already landed here — only its trailing activity still sits in
+  // the shared window. Without this entry, liveFiringsOf (epic 0018 slice 2's
+  // many-lanes grid) reads f0 as a second still-live lane instead of the
+  // single-lane scenario this suite actually pins.
   flightLog: [
     { id: 'p1:firing-1', durationMs: 100_000 },
     { id: 'p1:firing-2', durationMs: 60_000 },
+    { id: 'f0' },
   ],
   tasks: [{ id: 't1', title: 'Add docs', status: 'queued', focus: true }],
 };

@@ -65,7 +65,11 @@ const BASE_PROJECT = {
       tokensOut: 20,
     },
   ],
-  flightLog: [],
+  // f0 already landed — only its trailing activity still sits in the shared
+  // window. Without this entry, liveFiringsOf (epic 0018 slice 2's many-lanes
+  // grid) reads f0 as a second still-live lane instead of the single-lane
+  // scenario this test actually pins.
+  flightLog: [{ id: 'f0' }],
   tasks: [],
 };
 

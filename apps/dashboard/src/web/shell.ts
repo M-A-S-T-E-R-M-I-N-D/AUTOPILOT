@@ -762,7 +762,18 @@ ${sharedLiveWorkerHeadMeta.toString()}
 ${sharedOrientFixationChipMeta.toString()}
 // The live worker card — "what is this firing doing right now?" — rendered on
 // both the fleet grid card and the project detail page (same card() markup).
+// EPIC 0018 "calm cockpit" slice 2 (many-lanes view, board web-mtq03uzp-hubr6g):
+// a project running several concurrent worktree lanes at once used to collapse
+// into this ONE card, always the newest lane, silently dropping the rest (board
+// web-mtbp0t86-rnimyi, "fleet cockpit shows 1 pilot for 8 lanes"). liveFirings(c)
+// already computes every still-live lane (shared/live-firing.ts's liveFiringsOf)
+// — it just wasn't consulted here yet. The >1 branch below hands off to
+// laneGridCard() and returns immediately, so the single/zero-lane path below is
+// completely untouched: same liveFiring(c) call, same fields, same DOM — every
+// test pinning THIS card's behavior keeps passing unchanged.
 function liveWorkerCard(c) {
+  var lives = liveFirings(c);
+  if (lives.length > 1) return laneGridCard(lives);
   var live = liveFiring(c);
   if (!live) return null;
   var wrap = el('div', 'live-worker');
@@ -960,6 +971,99 @@ function liveWorkerCard(c) {
   return wrap;
 }
 wireRoving('.live-worker [tabindex]', '.live-worker');
+// EPIC 0018 "calm cockpit" slice 2: a COMPACT per-lane card — callsign, phase,
+// model, current task, last action, elapsed — deliberately a smaller subset of
+// liveWorkerCard's fields (no narrator, no fixation chip, no progress bar) so a
+// squadron of lanes reads at a glance instead of repeating that card's full
+// detail N times. Reuses the exact same i18n'd helpers (liveWorkerHeadMeta,
+// tr(), OFFICE_TIPS) liveWorkerCard already uses, so it needs no new STRINGS
+// keys and can't drift from their translations.
+function laneCard(live) {
+  var wrap = el('div', 'lane-card');
+  var head = el('div', 'live-worker-head');
+  var headMeta = liveWorkerHeadMeta(live.callsign, live.model);
+  head.appendChild(tipChip(
+    live.callsign,
+    headMeta.callsign.tip,
+    headMeta.callsign.ariaLabel,
+    'live-callsign'
+  ));
+  var phaseTip = OFFICE_TIPS[live.phase] || 'phase not yet classified from recent activity';
+  var phasePill = el('span', 'pill live-phase-' + live.phase, live.phase);
+  phasePill.setAttribute('tabindex', '0');
+  phasePill.setAttribute('data-tip', phaseTip + ' (current)');
+  phasePill.setAttribute('aria-label', tr('livePhaseAria', live.phase));
+  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
+  phasePill.setAttribute('data-i18n-name', live.phase);
+  head.appendChild(phasePill);
+  if (headMeta.model) {
+    head.appendChild(tipChip(
+      live.model,
+      headMeta.model.tip,
+      headMeta.model.ariaLabel,
+      'chip-model live-model'
+    ));
+  }
+  wrap.appendChild(head);
+  var taskKey = live.focusTask ? 'liveFocusTask' : (live.probableTask ? 'liveProbableTask' : null);
+  if (taskKey) {
+    var taskName = live.focusTask || live.probableTask;
+    var taskEl = el(
+      'p',
+      'live-worker-line' + (taskKey === 'liveProbableTask' ? ' live-worker-guess' : ''),
+      tr(taskKey, taskName),
+    );
+    taskEl.setAttribute('tabindex', '0');
+    taskEl.setAttribute('data-i18n-template', taskKey);
+    taskEl.setAttribute('data-i18n-aria-template', taskKey);
+    taskEl.setAttribute('data-i18n-name', taskName);
+    taskEl.setAttribute('aria-label', taskEl.textContent);
+    wrap.appendChild(taskEl);
+  }
+  var actionLine = el('p', 'live-worker-line');
+  var toolSpan = el('span', 'act-tool act-' + (live.kind || 'other'), live.tool);
+  toolSpan.setAttribute('tabindex', '0');
+  toolSpan.setAttribute('data-tip', 'the most recent tool call this firing made');
+  toolSpan.setAttribute('data-i18n-tip', 'liveToolTip');
+  toolSpan.setAttribute('aria-label', tr('liveToolAria', live.tool));
+  toolSpan.setAttribute('data-i18n-aria-template', 'liveToolAria');
+  toolSpan.setAttribute('data-i18n-name', live.tool);
+  actionLine.appendChild(toolSpan);
+  if (live.target) {
+    var targetSpan = el('span', 'act-target', live.target);
+    targetSpan.setAttribute('tabindex', '0');
+    targetSpan.setAttribute('data-tip', 'the file, command, or target that tool call touched');
+    targetSpan.setAttribute('data-i18n-tip', 'liveTargetTip');
+    targetSpan.setAttribute('aria-label', tr('liveTargetAria', live.target));
+    targetSpan.setAttribute('data-i18n-aria-template', 'liveTargetAria');
+    targetSpan.setAttribute('data-i18n-name', live.target);
+    actionLine.appendChild(targetSpan);
+  }
+  wrap.appendChild(actionLine);
+  var elapsedEl = el('p', 'muted live-worker-turns', fmtElapsed(live.startedAt));
+  elapsedEl.setAttribute('tabindex', '0');
+  elapsedEl.setAttribute('data-tip', 'How long this lane has been running');
+  elapsedEl.setAttribute('data-i18n-tip', 'liveElapsedTip');
+  elapsedEl.setAttribute('aria-label', elapsedEl.textContent);
+  wrap.appendChild(elapsedEl);
+  seedRoving(wrap, '[tabindex]');
+  return wrap;
+}
+// The many-lanes squadron board (board web-mtq03uzp-hubr6g): one laneCard()
+// per still-live lane, newest first — matches liveFirings(c)'s own order,
+// which already matches the masthead's #live-workers chip strip order
+// (renderLiveWorkers below), so a lane's position here and in that strip stay
+// in sync. STABILITY LAW (epic 0018): bounded by .lane-grid's own max-height
+// scroll container (layout-css.ts) rather than letting a busy fleet's card
+// grow the page underneath it.
+function laneGridCard(lives) {
+  var grid = el('div', 'lane-grid');
+  grid.setAttribute('role', 'group');
+  grid.setAttribute('aria-label', tr('liveWorkers'));
+  for (var i = 0; i < lives.length; i++) grid.appendChild(laneCard(lives[i]));
+  return grid;
+}
+wireRoving('.lane-card [tabindex]', '.lane-card');
 // OFFICE_TIPS is generated FROM web/office-map.ts below (epic 0002 "shell
 // decomposition", slice 2) — its real value via JSON.stringify(), not a
 // hand-retyped copy. It can no longer drift apart. The rest of the agent

@@ -851,6 +851,11 @@ const EN_STRINGS = {
   liveToolAria: 'tool: {name}',
   liveTargetTip: 'the file, command, or target that tool call touched',
   liveTargetAria: 'target: {name}',
+  // The many-lanes grid's compact per-lane card (epic 0018 slice 2,
+  // shell.ts's laneCard()): its own elapsed line, distinct from the single
+  // live-worker card's liveTurnsTip (that one also covers a turn count and
+  // progress-vs-average this compact card omits).
+  liveElapsedTip: 'How long this lane has been running',
   // The rest of liveWorkerCard()'s own lines (the tool/target line above was
   // the first): the "live" label rides [data-i18n], the static tips ride
   // [data-i18n-tip], and the lines that wrap a live value — the phase pill's
@@ -1531,6 +1536,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveToolAria: 'כלי: {name}',
     liveTargetTip: 'הקובץ, הפקודה או היעד שקריאת הכלי הזו נגעה בהם',
     liveTargetAria: 'יעד: {name}',
+    liveElapsedTip: 'כמה זמן המסלול הזה פועל',
     liveLabel: 'חי — הפעלה בעיצומה',
     livePhaseAria: 'שלב נוכחי: {name}',
     liveNarratorTip: 'הסיכום של AUTOPILOT עצמו, במשפט אחד, לפעולה האחרונה שלו בהפעלה הזו',

@@ -1087,6 +1087,14 @@ main.project-mode { grid-template-columns: 1fr; }
 .live-phase-gate { color: var(--color-sev-medium); border-color: var(--color-sev-medium); }
 .live-phase-commit { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
 
+/* EPIC 0018 "calm cockpit" slice 2, many-lanes view (board web-mtq03uzp-hubr6g):
+   one compact .lane-card per concurrent lane, replacing the single
+   .live-worker card once >1 lane is live (shell.ts's laneGridCard()).
+   STABILITY LAW: bounded max-height + inner scroll — a busy fleet growing
+   past a few lanes scrolls INSIDE the grid, never reflows the page under it. */
+.lane-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-2); max-height: 32rem; overflow-y: auto; }
+.lane-card { display: flex; flex-direction: column; gap: 4px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-accent); border-radius: var(--radius-md); background: var(--color-surface-raised); box-shadow: var(--elevation-level-1); }
+
 .office-map-wrap { margin: var(--space-2) 0; }
 .office-map { width: 100%; max-width: 320px; height: auto; display: block; }
 .office-zone { fill: var(--color-surface); stroke: var(--color-border); stroke-width: 1; }
