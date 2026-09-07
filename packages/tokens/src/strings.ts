@@ -1318,6 +1318,12 @@ const EN_STRINGS = {
   doraTitle: '📈 Process health (DORA)',
   gateParallelTitle: '⚡ Parallel gate savings',
   warmSessionsTitle: '🔥 Warm sessions',
+  // web/features/evolution.ts (board web-msnsndki-dz3vn1): the project page's
+  // "is the agent improving?" evolution cluster — the trend chart's heading
+  // and its stat-tile summary's heading. Both ride the page-level sweep, the
+  // same wiring as the three process-health titles above.
+  evolutionTrendTitle: 'Evolution — is the agent improving?',
+  evolutionSummaryTitle: '🧬 Approval summary',
   // web/features/foundation.ts's masthead heart + Foundation panel (FOUNDATION
   // 1/3, board web-mtq0rsit-ywz1m7) — hidden until GET /api/donations reports
   // a real, verified entry (see docs/FOUNDATION.md's "never before" custody
@@ -1905,6 +1911,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',
+    evolutionTrendTitle: 'אבולוציה — האם הסוכן משתפר?',
+    evolutionSummaryTitle: '🧬 סיכום אישורים',
     foundation: 'קרן',
     foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
     foundationCopyAddress: 'העתק כתובת',

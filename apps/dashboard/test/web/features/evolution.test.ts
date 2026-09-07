@@ -67,6 +67,12 @@ describe('evolutionJs', () => {
     expect(out).toContain('if (summary.approved === 0 && summary.rejected === 0) return null;');
   });
 
+  it('tags both panel headings with their STRINGS keys for translateDom() (board web-msnsndki-dz3vn1)', () => {
+    const out = evolutionJs();
+    expect(out).toContain("setAttribute('data-i18n', 'evolutionTrendTitle')");
+    expect(out).toContain("setAttribute('data-i18n', 'evolutionSummaryTitle')");
+  });
+
   it('reuses the shared el/statTile helpers rather than re-declaring them', () => {
     // el/statTile stay inline in fleetJs() (statTile shared with the
     // process-health cluster); this panel calls them as bare hoisted bundle

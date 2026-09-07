@@ -48,6 +48,17 @@
  * `renderStatTiles` and the process-health cluster), called by name inside
  * `evolutionSection`, hoist the same way from `fleetJs()`'s own top-level
  * declarations.
+ *
+ * i18n (board web-msnsndki-dz3vn1): both panel headings — the chart's
+ * `<h2>` and the summary's `<h3>` — carry their English default AND a
+ * `data-i18n` tag, then ride the page-level `translateDom()` sweep that
+ * follows every `renderProjectPage()` tick (the same wiring the
+ * process-health cluster's three titles use). Both panels are built
+ * synchronously inside that tick with no async re-render path of their own,
+ * so no panel-local sweep is needed. The chart's `aria-label`/legend and the
+ * per-week tips are computed by `evaluationTrendLabel`/
+ * `evaluationTrendWeekTip` (shared with server-side code) and stay English
+ * for now — a `{…}` template key follow-up, not a plain tag.
  */
 import {
   EVAL_TREND_WEEKS,
@@ -137,7 +148,9 @@ function evaluationTrendPanel(c) {
     svg.appendChild(rect);
   }
   var wrap = el('div', 'eval-trend-wrap');
-  wrap.appendChild(el('h2', 'detail-h', 'Evolution — is the agent improving?'));
+  var trendTitle = el('h2', 'detail-h', 'Evolution — is the agent improving?');
+  trendTitle.setAttribute('data-i18n', 'evolutionTrendTitle');
+  wrap.appendChild(trendTitle);
   wrap.appendChild(svg);
   wrap.appendChild(el('p', 'eval-trend-legend muted', evaluationTrendLabel(summary)));
   return wrap;
@@ -170,7 +183,9 @@ function evolutionSection(c) {
   var summary = evaluationTrendSummary(weeks);
   if (summary.approved === 0 && summary.rejected === 0) return null;
   var wrap = el('section', 'evolution-panel');
-  wrap.appendChild(el('h3', 'evolution-title', '🧬 Approval summary'));
+  var summaryTitle = el('h3', 'evolution-title', '🧬 Approval summary');
+  summaryTitle.setAttribute('data-i18n', 'evolutionSummaryTitle');
+  wrap.appendChild(summaryTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'evolution-tiles';
   var items = evaluationTrendTileItems(summary, EVAL_TREND_WEEKS);
