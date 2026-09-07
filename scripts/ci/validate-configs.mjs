@@ -44,9 +44,40 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const NUL = String.fromCharCode(0);
+const SHA_RE = /^[0-9a-f]{40}$/i;
+
+/**
+ * Scan one GitHub Actions workflow file's YAML text for `uses:` steps that
+ * are not pinned to a full 40-hex commit SHA (check #8, OpenSSF Scorecard
+ * "Pinned-Dependencies"). Local actions (`./...`) and Docker actions
+ * (`docker://...`) carry no upstream ref to pin, so they are exempt. Pure —
+ * no fs/git access — so it can be unit-tested directly against fixture
+ * strings, same shape as secret-scan.mjs's findSecrets().
+ * @param {string} text
+ * @returns {{ ref: string, reason: string }[]}
+ */
+export function findUnpinnedActions(text) {
+  /** @type {{ ref: string, reason: string }[]} */
+  const findings = [];
+  for (const m of text.matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)) {
+    const ref = m[1];
+    if (ref.startsWith('./') || ref.startsWith('docker://')) continue;
+    const at = ref.lastIndexOf('@');
+    if (at < 0) {
+      findings.push({ ref, reason: 'has no @ref — pin it to a full commit SHA' });
+      continue;
+    }
+    const sha = ref.slice(at + 1);
+    if (!SHA_RE.test(sha)) {
+      findings.push({ ref, reason: `is not pinned to a full commit SHA (found "${sha}")` });
+    }
+  }
+  return findings;
+}
 
 /** @param {string} src */
 function stripJsonComments(src) {
@@ -237,21 +268,10 @@ function main() {
   // actions (`./...`) and Docker actions (`docker://...`) carry no upstream
   // ref to pin, so they are exempt.
   const workflowFiles = files.filter((f) => /^\.github\/workflows\/.*\.ya?ml$/.test(f));
-  const SHA_RE = /^[0-9a-f]{40}$/i;
   for (const f of workflowFiles) {
     const src = readFileSync(f, 'utf8');
-    for (const m of src.matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)) {
-      const ref = m[1];
-      if (ref.startsWith('./') || ref.startsWith('docker://')) continue;
-      const at = ref.lastIndexOf('@');
-      if (at < 0) {
-        errors.push(`${f}: action "${ref}" has no @ref — pin it to a full commit SHA`);
-        continue;
-      }
-      const sha = ref.slice(at + 1);
-      if (!SHA_RE.test(sha)) {
-        errors.push(`${f}: action "${ref}" is not pinned to a full commit SHA (found "${sha}")`);
-      }
+    for (const { ref, reason } of findUnpinnedActions(src)) {
+      errors.push(`${f}: action "${ref}" ${reason}`);
     }
   }
 
@@ -282,4 +302,5 @@ function main() {
   console.log(`validate-configs OK: ${jsonFiles.length} JSON config(s) valid`);
 }
 
-main();
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
