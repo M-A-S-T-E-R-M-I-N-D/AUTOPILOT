@@ -96,6 +96,12 @@ export interface IssueTriageDuplicate {
 export interface IssueTriageAccept {
   readonly decision: 'accept';
   readonly dimension: Dimension;
+  /** The house `area:` label (docs/epics/0019-github-steward.md S2) classified
+   *  from the issue's own text — a different axis from {@link dimension}:
+   *  WHERE in the codebase the issue lands, not WHAT KIND of work it is. */
+  readonly area: AreaLabel;
+  /** The house `priority:` label (S2), classified the same way. */
+  readonly priority: PriorityLabel;
   readonly reasoning: string;
 }
 
@@ -190,6 +196,116 @@ export function classifyIssueDimension(text: string): Dimension {
     if (score > bestScore) {
       bestScore = score;
       best = dimension;
+    }
+  }
+  return best;
+}
+
+/** The house `area:` label group (docs/GOVERNANCE.md, `HOUSE_TAXONOMY_LABELS`
+ *  in `taxonomy-seed.ts`) — declared order used for tie-breaking, same
+ *  convention as {@link DIMENSIONS}. */
+const AREA_LABELS = [
+  'area: dashboard',
+  'area: flight-engine',
+  'area: foundation',
+  'area: ci',
+  'area: i18n',
+  'area: community',
+] as const;
+export type AreaLabel = (typeof AREA_LABELS)[number];
+
+/** Keyword signals for each `area:` label — a different axis from {@link
+ *  DIMENSION_KEYWORDS}: WHERE in the codebase an issue lands, not WHAT KIND
+ *  of work it is. Same cheap, deterministic, operator-overridable first pass. */
+const AREA_KEYWORDS: Record<AreaLabel, readonly string[]> = {
+  'area: dashboard': [
+    'dashboard',
+    'panel',
+    'web cockpit',
+    'frontend',
+    'ui/ux',
+    'chip',
+    'badge',
+    'project page',
+  ],
+  'area: flight-engine': [
+    'firing',
+    'flight',
+    'gate',
+    'landing',
+    'fleet',
+    'orchestrat',
+    'worktree',
+    'sync-back',
+    'convergence',
+  ],
+  'area: foundation': ['donation', 'transparency', 'foundation'],
+  'area: ci': ['scanner', 'workflow', 'github action', 'pipeline', 'gate script'],
+  'area: i18n': ['i18n', 'locale', 'localiz', 'translat', 'hebrew', 'rtl'],
+  'area: community': ['contributor', 'community', 'claim', 'collaborat', 'partner'],
+};
+
+/**
+ * Deterministic area classifier: the `area:` label whose keywords appear most
+ * in `text` (case-insensitive substring counts), ties broken by
+ * {@link AREA_LABELS}' declared order. Falls back to `'area: dashboard'` —
+ * the most general user-facing surface — when nothing matches, so every
+ * accepted issue gets exactly one area label rather than none, mirroring
+ * {@link classifyIssueDimension}'s fallback shape.
+ */
+export function classifyIssueArea(text: string): AreaLabel {
+  const lower = text.toLowerCase();
+  let best: AreaLabel = 'area: dashboard';
+  let bestScore = 0;
+  for (const area of AREA_LABELS) {
+    const score = AREA_KEYWORDS[area].filter((keyword) => lower.includes(keyword)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = area;
+    }
+  }
+  return best;
+}
+
+/** The house `priority:` label group (docs/GOVERNANCE.md) — declared order
+ *  used for tie-breaking, same convention as {@link AREA_LABELS}. */
+const PRIORITY_LABELS = [
+  'priority: critical',
+  'priority: high',
+  'priority: medium',
+  'priority: low',
+] as const;
+export type PriorityLabel = (typeof PRIORITY_LABELS)[number];
+
+/** Keyword signals for each `priority:` label — deliberately sparse: this is
+ *  a cheap first pass an operator can read and override (epic 0019 law 2,
+ *  "what the maintainer marks outranks triage"), not a final verdict.
+ *  `'priority: medium'` has no keywords of its own — it is the declared
+ *  fallback for text that trips no stronger signal, matching
+ *  `HOUSE_TAXONOMY_LABELS`' own description ("Scheduled — normal queue
+ *  order"). */
+const PRIORITY_KEYWORDS: Record<PriorityLabel, readonly string[]> = {
+  'priority: critical': ['data loss', 'security vulnerab', 'critical', 'safety'],
+  'priority: high': ['urgent', 'blocking', 'high priority', 'regression', 'broken'],
+  'priority: medium': [],
+  'priority: low': ['nice to have', 'minor', 'low priority', 'someday', 'cosmetic'],
+};
+
+/**
+ * Deterministic priority classifier, same shape as {@link classifyIssueArea}:
+ * the `priority:` label whose keywords appear most in `text`, ties broken by
+ * {@link PRIORITY_LABELS}' declared order, falling back to
+ * `'priority: medium'` when nothing matches.
+ */
+export function classifyIssuePriority(text: string): PriorityLabel {
+  const lower = text.toLowerCase();
+  let best: PriorityLabel = 'priority: medium';
+  let bestScore = 0;
+  for (const priority of PRIORITY_LABELS) {
+    const score = PRIORITY_KEYWORDS[priority].filter((keyword) => lower.includes(keyword)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = priority;
     }
   }
   return best;
@@ -318,13 +434,18 @@ export function planIssueTriage(
     };
   }
 
-  const dimension = classifyIssueDimension(`${issue.title} ${issue.body}`);
+  const text = `${issue.title} ${issue.body}`;
+  const dimension = classifyIssueDimension(text);
+  const area = classifyIssueArea(text);
+  const priority = classifyIssuePriority(text);
   return {
     decision: 'accept',
     dimension,
+    area,
+    priority,
     reasoning:
       `#${issue.number} "${issue.title}" doesn't match any open board task or backlog entry — ` +
-      `accepting it and labeling "pool: ${dimension}".`,
+      `accepting it and labeling "pool: ${dimension}", "${area}", "${priority}".`,
   };
 }
 
@@ -339,9 +460,10 @@ export interface IssueTriageCommand {
 
 /**
  * Turns a {@link planIssueTriage} decision into the `gh` command(s) needed
- * to apply it: an accepted issue gets its pool label added
- * (`gh issue edit --add-label "pool: <dimension>"`) followed by a comment
- * posting the decision's reasoning; a duplicate gets GitHub's stock
+ * to apply it: an accepted issue gets its pool, area, and priority labels
+ * added in one `gh issue edit --add-label` call (docs/epics/0019-github-
+ * steward.md S2: "accepted issues get area/priority labels") followed by a
+ * comment posting the decision's reasoning; a duplicate gets GitHub's stock
  * `duplicate` label — so later passes {@link planIssueTriage} skip it — plus
  * the reasoning comment; a `'skip'` plans nothing at all, keeping re-runs
  * idempotent. A `'dossier'` ALSO plans nothing here — its real commands need
@@ -376,12 +498,24 @@ export function planIssueTriageCommands(
     ];
   }
 
-  const label = `pool: ${decision.dimension}`;
+  const poolLabel = `pool: ${decision.dimension}`;
   return [
     {
       command: 'gh',
-      args: ['issue', 'edit', issueRef, '--add-label', label],
-      details: `labeling #${issue.number} "${label}" per its classified dimension`,
+      args: [
+        'issue',
+        'edit',
+        issueRef,
+        '--add-label',
+        poolLabel,
+        '--add-label',
+        decision.area,
+        '--add-label',
+        decision.priority,
+      ],
+      details:
+        `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}" ` +
+        'per its classified dimension/area/priority',
     },
     comment,
   ];

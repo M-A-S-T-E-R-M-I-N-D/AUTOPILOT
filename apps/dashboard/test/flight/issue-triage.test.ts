@@ -8,6 +8,8 @@ import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
 import {
   classifyIssueDimension,
+  classifyIssueArea,
+  classifyIssuePriority,
   planIssueTriage,
   planIssueTriageCommands,
   planIssueTriageBatch,
@@ -71,6 +73,38 @@ describe('classifyIssueDimension', () => {
   });
 });
 
+describe('classifyIssueArea', () => {
+  it('picks the area whose keywords appear most in the text', () => {
+    expect(classifyIssueArea('The dashboard panel chip is misaligned')).toBe('area: dashboard');
+    expect(classifyIssueArea('A firing died mid-flight and the gate never ran')).toBe(
+      'area: flight-engine',
+    );
+    expect(classifyIssueArea('The Hebrew translation is missing on this locale string')).toBe(
+      'area: i18n',
+    );
+  });
+
+  it('falls back to area: dashboard when no keyword matches', () => {
+    expect(classifyIssueArea('The sky is blue today')).toBe('area: dashboard');
+  });
+});
+
+describe('classifyIssuePriority', () => {
+  it('picks the priority whose keywords appear most in the text', () => {
+    expect(classifyIssuePriority('This causes data loss and is a critical safety issue')).toBe(
+      'priority: critical',
+    );
+    expect(classifyIssuePriority('Urgent: this is blocking the release')).toBe('priority: high');
+    expect(classifyIssuePriority('Minor cosmetic issue, nice to have someday')).toBe(
+      'priority: low',
+    );
+  });
+
+  it('falls back to priority: medium when no keyword matches', () => {
+    expect(classifyIssuePriority('The sky is blue today')).toBe('priority: medium');
+  });
+});
+
 describe('planIssueTriage', () => {
   it('flags a duplicate when the issue title strongly overlaps an open board task', () => {
     const decision = planIssueTriage(
@@ -111,7 +145,13 @@ describe('planIssueTriage', () => {
       ['Unrelated backlog line about billing'],
     );
 
-    expect(decision).toMatchObject({ decision: 'accept', dimension: 'accessibility' });
+    expect(decision).toMatchObject({
+      decision: 'accept',
+      dimension: 'accessibility',
+      // Title contains "fleet" (area: flight-engine) and "broken" (priority: high).
+      area: 'area: flight-engine',
+      priority: 'priority: high',
+    });
     expect(decision.reasoning).toContain('#9');
     expect(decision.reasoning).toContain('pool: accessibility');
   });
@@ -278,14 +318,26 @@ describe('planIssueTriage', () => {
 describe('planIssueTriageCommands', () => {
   const issue = { number: 9, title: 'Keyboard nav is broken in the fleet table', body: '' };
 
-  it('plans an add-label edit followed by a reasoning comment for an accepted issue', () => {
+  it('plans an add-label edit (pool + area + priority) followed by a reasoning comment for an accepted issue', () => {
     const decision = planIssueTriage(issue, [], []);
 
     expect(planIssueTriageCommands(issue, decision)).toEqual([
       {
         command: 'gh',
-        args: ['issue', 'edit', '9', '--add-label', 'pool: accessibility'],
-        details: 'labeling #9 "pool: accessibility" per its classified dimension',
+        args: [
+          'issue',
+          'edit',
+          '9',
+          '--add-label',
+          'pool: accessibility',
+          '--add-label',
+          'area: flight-engine',
+          '--add-label',
+          'priority: high',
+        ],
+        details:
+          'labeling #9 "pool: accessibility", "area: flight-engine", "priority: high" per its ' +
+          'classified dimension/area/priority',
       },
       {
         command: 'gh',
@@ -660,6 +712,10 @@ describe('executeIssueTriageCommands', () => {
       '9',
       '--add-label',
       'pool: accessibility',
+      '--add-label',
+      'area: flight-engine',
+      '--add-label',
+      'priority: high',
     ]);
     expect(exec).toHaveBeenNthCalledWith(2, 'gh', [
       'issue',
