@@ -2078,6 +2078,40 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(404);
   });
 
+  it('threads a valid severity from the request body into the parsed capture', async () => {
+    let seenSeverity: unknown;
+    const base = await start({
+      reportFromHere: (capture) => {
+        seenSeverity = capture.severity;
+        return { ok: false, reasoning: 'n/a' };
+      },
+    });
+    const res = await fetch(`${base}/api/report-from-here`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...reportCaptureBody, severity: 'high' }),
+    });
+    expect(res.status).toBe(200);
+    expect(seenSeverity).toBe('high');
+  });
+
+  it('drops an unrecognized severity value instead of rejecting the whole request', async () => {
+    let seenSeverity: unknown;
+    const base = await start({
+      reportFromHere: (capture) => {
+        seenSeverity = capture.severity;
+        return { ok: false, reasoning: 'n/a' };
+      },
+    });
+    const res = await fetch(`${base}/api/report-from-here`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...reportCaptureBody, severity: 'catastrophic' }),
+    });
+    expect(res.status).toBe(200);
+    expect(seenSeverity).toBeNull();
+  });
+
   it('POST /api/report-from-here/execute runs the ritual for a valid capture (CSRF-guarded)', async () => {
     const seen: string[] = [];
     const base = await start({

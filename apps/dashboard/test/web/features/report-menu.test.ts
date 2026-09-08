@@ -471,6 +471,84 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     );
   });
 
+  it('a successful compose carrying a severity threads it onto the next Preview/Execute body', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    (document.getElementById('report-dialog-desc') as HTMLTextAreaElement).value = 'raw note';
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        title: 'The button is misaligned',
+        body: 'Detailed body text.',
+        labels: ['bug'],
+        action: 'quick-fix-pr',
+        language: 'en',
+        severity: 'high',
+        severityReasoning: 'blocks the primary flow',
+      }),
+    })) as unknown as typeof fetch;
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    let captured: { severity?: unknown } | null = null;
+    globalThis.fetch = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      captured = init?.body ? JSON.parse(String(init.body)) : null;
+      return {
+        ok: true,
+        json: async () => ({ plan: { ok: false, reasoning: 'blank' } }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    (document.querySelector('.report-preview') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(captured).not.toBeNull();
+    expect(captured!.severity).toBe('high');
+  });
+
+  it('an unrecognized severity from compose is dropped rather than sent on', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    (document.getElementById('report-dialog-desc') as HTMLTextAreaElement).value = 'raw note';
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        title: 'The button is misaligned',
+        body: 'Detailed body text.',
+        labels: ['bug'],
+        action: 'quick-fix-pr',
+        language: 'en',
+        severity: 'catastrophic',
+        severityReasoning: 'not a real severity',
+      }),
+    })) as unknown as typeof fetch;
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    let captured: { severity?: unknown } | null = null;
+    globalThis.fetch = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      captured = init?.body ? JSON.parse(String(init.body)) : null;
+      return {
+        ok: true,
+        json: async () => ({ plan: { ok: false, reasoning: 'blank' } }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    (document.querySelector('.report-preview') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(captured).not.toBeNull();
+    expect(captured!.severity).toBeUndefined();
+  });
+
   it('a rejected compose shows the reasoning and leaves the description untouched', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);

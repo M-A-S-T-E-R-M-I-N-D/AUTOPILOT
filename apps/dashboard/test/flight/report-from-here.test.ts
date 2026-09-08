@@ -152,6 +152,32 @@ describe('planReportFromHere — bug issue', () => {
     expect(plan.title.startsWith('Headline line ')).toBe(true);
     expect(plan.title).not.toContain('Second line');
   });
+
+  it('adds a priority label alongside the bug label when the capture carries a composer severity', () => {
+    const plan = planReportFromHere(capture({ severity: 'high' }), 'issue', 'p1', 1);
+    if (!plan.ok || plan.action !== 'issue') throw new Error('expected an issue plan');
+    expect(plan.commands[0]!.args).toEqual([
+      'issue',
+      'create',
+      '--title',
+      plan.title,
+      '--body',
+      plan.body,
+      '--label',
+      'bug',
+      '--label',
+      'priority: high',
+    ]);
+    expect(plan.commands[0]!.details).toContain('(priority: high)');
+    expect(plan.summary).toContain('(priority: high)');
+  });
+
+  it('adds no priority label when the capture carries no severity', () => {
+    const plan = planReportFromHere(capture({ severity: null }), 'issue', 'p1', 1);
+    if (!plan.ok || plan.action !== 'issue') throw new Error('expected an issue plan');
+    expect(plan.commands[0]!.args).not.toContain('priority: high');
+    expect(plan.commands[0]!.args.filter((a) => a === '--label')).toHaveLength(1);
+  });
 });
 
 describe('planReportFromHere — pool offer', () => {
@@ -163,6 +189,29 @@ describe('planReportFromHere — pool offer', () => {
     expect(plan.commands[0]!.args).toContain(expected);
     expect(plan.title.startsWith('[pool] ')).toBe(true);
     expect(plan.body).toContain('any co-pilot may claim it');
+  });
+
+  it('adds a priority label alongside the pool dimension label when the capture carries a severity', () => {
+    const cap = capture({
+      description: 'XSS vulnerability in the notes field lets scripts run.',
+      severity: 'critical',
+    });
+    const plan = planReportFromHere(cap, 'pool-offer', 'p1', 1);
+    if (!plan.ok || plan.action !== 'pool-offer') throw new Error('expected a pool plan');
+    const dimensionLabel = `pool: ${classifyIssueDimension(`${cap.regionLabel} ${cap.description}`)}`;
+    expect(plan.commands[0]!.args).toEqual([
+      'issue',
+      'create',
+      '--title',
+      plan.title,
+      '--body',
+      plan.body,
+      '--label',
+      dimensionLabel,
+      '--label',
+      'priority: critical',
+    ]);
+    expect(plan.summary).toContain('(priority: critical)');
   });
 });
 
@@ -185,6 +234,18 @@ describe('planReportFromHere — local task and quick-fix PR', () => {
     if (!plan.ok || plan.action !== 'quick-fix-pr') throw new Error('expected a task plan');
     expect(plan.taskInput.title.startsWith('QUICK-FIX (deliver as PR): ')).toBe(true);
     expect(plan.summary).toContain('PR');
+  });
+
+  it('threads the composer-suggested severity into taskInput.severity', () => {
+    const plan = planReportFromHere(capture({ severity: 'medium' }), 'local-task', 'proj-9', 4242);
+    if (!plan.ok || plan.action !== 'local-task') throw new Error('expected a task plan');
+    expect(plan.taskInput.severity).toBe('medium');
+  });
+
+  it('defaults taskInput.severity to null when the capture carries none', () => {
+    const plan = planReportFromHere(capture(), 'local-task', 'proj-9', 4242);
+    if (!plan.ok || plan.action !== 'local-task') throw new Error('expected a task plan');
+    expect(plan.taskInput.severity).toBeNull();
   });
 
   it('content-addresses the task id so a retried capture cannot mint a second task', () => {
