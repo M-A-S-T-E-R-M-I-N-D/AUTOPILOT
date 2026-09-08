@@ -105,11 +105,11 @@
 ## J. Security & standards (regulatory-grade)
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] Product hardening: CSP, DNS-rebind guard, rate limits, path-traversal guards, no secrets | PATTERNS §2 | M0→M8 |
-| [ ] OWASP ASVS + LLM-Top-10; SLSA + OpenSSF Scorecard; SAST/dep-audit | PATTERNS §2 | M0, M8 |
-| [ ] All-layer vulnerability detection + propose-fix (security-sensitive = approval-gated) | MASTER §8 | M8 |
-| [ ] Only reputable/official sources (deps, models); confidentiality (local-only, no exfil) | MASTER §8; PATTERNS §2 | M0→M9 |
-| [~] OTel-shaped attributes captured in the firing record + SQLite (M1); OTel wire-format export at M3; structured logging (no console.log) | PATTERNS §3 | M1→M3 |
+| [x] Product hardening: CSP, DNS-rebind guard, rate limits, path-traversal guards, no secrets — all five live: strict CSP + hardening headers (`securityHeaders`) and loopback-only `isAllowedHost` DNS-rebind guard (`apps/dashboard/src/server/security.ts`); fixed-window `createRateLimiter` (`server/rate-limit.ts`) on quota-spending endpoints; doc reads are root-jailed BY CONSTRUCTION — only indexed paths from the search store are ever read, no filesystem path touches user input (`read/project-detail.ts`'s `readProjectDoc`); CI secret-scan gate | PATTERNS §2 | M0→M8 |
+| [~] OWASP ASVS + LLM-Top-10; SLSA + OpenSSF Scorecard; SAST/dep-audit — Scorecard's "Pinned-Dependencies" practice is live (every GitHub Action SHA-pinned in `ci.yml`) and dep-audit is live (`ci:dependency-audit` + Dependabot); no formal ASVS or LLM-Top-10 checklist audit exists despite `PATTERNS-AND-STANDARDS.md` claiming one "verified in the security harness" (`security.test.ts` covers headers/host-guard only, not an ASVS item-by-item pass); no SLSA provenance attestation; no SAST tool (CodeQL/Semgrep) wired into CI | PATTERNS §2 | M0, M8 |
+| [~] All-layer vulnerability detection + propose-fix (security-sensitive = approval-gated) — secret-scan + dependency-audit run every CI build; SAST-style review + auto-propose-fix still M8 (matches `BACKLOG-999.md` §F) | MASTER §8 | M8 |
+| [~] Only reputable/official sources (deps, models); confidentiality (local-only, no exfil) — confidentiality is live (local-only architecture; content never leaves the machine except via the user's own Claude account); source vetting for deps/Ollama models is not yet built (matches `BACKLOG-999.md` §F) | MASTER §8; PATTERNS §2 | M0→M9 |
+| [x] OTel-shaped attributes captured in the firing record + SQLite (M1); OTel wire-format export live (env-driven `OTEL_EXPORTER_OTLP_*`, `apps/dashboard/src/flight/otlp.ts` + `exportOtlpResourceSpans` called per-firing in `fly.ts`, best-effort so a collector outage never fails the flight); structured logging enforced (`no-console: 'error'` in `eslint.config.js`) | PATTERNS §3 | M1→M3 |
 | [x] Test pyramid, TDD, coverage ≥80%, CI validators-as-gates | PATTERNS §4 | M0 |
 
 ## K. Versioning / backup
@@ -178,7 +178,12 @@ INBOX read/write/auto-triage loop were both fully live though marked `[ ]`; the 
 sub-agent are each partially live, upgraded to `[~]` with the specific gap named; the status-ladder row was
 verified genuinely unbuilt and left alone) — `BACKLOG-999.md` §I carried the same wrong marks and was corrected
 alongside it, except its status-ladder-adjacent PURPLE/BLUE-GREEN gate rows, which name a computed ladder state
-that still does not exist and were left `[ ]`. Sections D (remaining rows), G (already current), J–O are still
-**not** re-audited (board web-mtndm5fc-2vloky) — `BACKLOG-999.md` is generally the more actively-maintained
-backlog when the two disagree, but as this pass shows it isn't infallible either; check the live tree before
-trusting either doc's `[x]`/`[~]` marks.*
+that still does not exist and were left `[ ]`. Section J was audited on 2026-09-08 — 5 of its 6 rows corrected:
+product hardening (CSP/DNS-rebind/rate-limit/path-traversal/secrets) is fully live and was upgraded to `[x]`; the
+OTel row's wire-format export turned out to be fully wired (env-driven, called per-firing in `fly.ts`, not just
+defined) and was upgraded to `[x]`; the ASVS/LLM-Top-10/SLSA/Scorecard/SAST row, the all-layer vulnerability
+detection row, and the reputable-sources row were each only partially true and downgraded from `[ ]` to `[~]`
+with the real split named — `BACKLOG-999.md` §F already carried the correct partial marks these three rows now
+match. Sections D (remaining rows), G, K–O are still **not** re-audited (board web-mtndm5fc-2vloky) —
+`BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this pass shows
+it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
