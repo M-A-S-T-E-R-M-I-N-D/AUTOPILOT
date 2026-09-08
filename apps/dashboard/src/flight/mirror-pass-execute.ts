@@ -11,9 +11,11 @@
  * {@link planMirrorPassBatch}'s reconcile ("board task done ⇒ close linked
  * issue with the landing SHA") and {@link planMirrorPassLandingNoteBatch}'s
  * landing-note dedup ("landed commits get landed-in comments" for a task
- * whose issue was already closed some other way) — both named directly by
- * `docs/epics/0019-github-steward.md`. The remaining two derivations
- * (version/counts/link drift, stale-claim reaper) and the mutating execute
+ * whose issue was already closed some other way) and derivation 3/4 —
+ * {@link readMirrorPassVersionDrift}/{@link readMirrorPassCountsDrift}/
+ * {@link readMirrorPassLinkDrift}'s "README/docs public claims ↔ tree
+ * reality" trio — each named directly by `docs/epics/0019-github-steward.md`.
+ * The remaining derivation (stale-claim reaper) and the mutating execute
  * path are each their own slice per the VERDICT's split — not attempted
  * here.
  *
@@ -25,6 +27,7 @@
  * anything, never writes to the store.
  */
 
+import { join } from 'node:path';
 import { openStore, listProjects, type Store } from '@autopilot/store';
 import { realCliExec, type CliExec } from '../connection/cli-probe.js';
 import {
@@ -32,9 +35,15 @@ import {
   fetchMirrorPassIssueStates,
   planMirrorPassLandingNoteBatch,
   fetchMirrorPassIssueComments,
+  readMirrorPassVersionDrift,
+  readMirrorPassCountsDrift,
+  readMirrorPassLinkDrift,
   type MirrorPassTaskCandidate,
   type MirrorPassPlan,
   type MirrorPassLandingNotePlan,
+  type MirrorPassVersionDriftFinding,
+  type MirrorPassCountsDriftFinding,
+  type MirrorPassBrokenLinkFinding,
 } from './mirror-pass.js';
 
 /** One `github-<n>` task row as the `tasks` table stores it — just enough
@@ -141,6 +150,54 @@ export function createMirrorPassLandingNotePreviewApi(
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
       return planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** Derivation 3/4's combined outcome — each of the three "doc claims ↔ tree
+ *  reality" checks the epic doc names together, `null` on whichever one(s)
+ *  found nothing to flag (a project missing the doc it checks degrades the
+ *  same way, per {@link readMirrorPassVersionDrift}'s own null convention —
+ *  never a reason to fail the whole preview). */
+export interface MirrorPassDriftPlan {
+  readonly versionDrift: MirrorPassVersionDriftFinding | null;
+  readonly countsDrift: MirrorPassCountsDriftFinding | null;
+  readonly linkDrift: MirrorPassBrokenLinkFinding | null;
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassDriftPreviewApi = (projectId: string) => Promise<MirrorPassDriftPlan | null>;
+
+/**
+ * Build the MIRROR PASS drift preview API (derivation 3/4) for a project's
+ * own tree — unlike {@link createMirrorPassPreviewApi} and
+ * {@link createMirrorPassLandingNotePreviewApi}, this checks the project's
+ * `README.md` against its `package.json` version, its
+ * `docs/THIRD-PARTY-LICENSES.md` package-count table, and its own internal
+ * links; no `gh` call at all, since nothing here depends on issue state. The
+ * store lookup exists only to resolve `projectId` to the project's
+ * `root_path` the same way every other preview API resolves it — read-only,
+ * closed before returning.
+ */
+export function createMirrorPassDriftPreviewApi(dbPath: string): MirrorPassDriftPreviewApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const root = project.root_path;
+      const readmePath = join(root, 'README.md');
+      return {
+        versionDrift: readMirrorPassVersionDrift(readmePath, join(root, 'package.json')),
+        countsDrift: readMirrorPassCountsDrift(
+          readmePath,
+          join(root, 'docs', 'THIRD-PARTY-LICENSES.md'),
+        ),
+        linkDrift: readMirrorPassLinkDrift(readmePath, root),
+      };
     } finally {
       store.close();
     }

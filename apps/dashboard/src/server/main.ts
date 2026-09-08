@@ -82,6 +82,7 @@ import {
 import {
   createMirrorPassPreviewApi,
   createMirrorPassLandingNotePreviewApi,
+  createMirrorPassDriftPreviewApi,
 } from '../flight/mirror-pass-execute.js';
 import {
   createPoolClientPreviewApi,
@@ -586,6 +587,10 @@ const server = createServer({
   // commits get landed-in comments" for a task whose issue closed some
   // other way.
   mirrorPassLandingNote: createMirrorPassLandingNotePreviewApi(dbPath),
+  // MIRROR PASS drift preview: read-only, derivation 3/4 — the project's own
+  // README/docs claims (version, package count, internal links) checked
+  // against its tree; no `gh` call involved.
+  mirrorPassDrift: createMirrorPassDriftPreviewApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool
   // issues for themselves, not on behalf of a stored project. Claiming can
