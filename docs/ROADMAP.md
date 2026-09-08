@@ -19,10 +19,14 @@ Live granular truth: [`CHANGELOG.md`](../CHANGELOG.md) (what landed) and the
 2. **LLM issue composer** — write a bug note in YOUR language, free-form; the system
    investigates locally and composes a top-tier GitHub issue for one-click submission.
    Raw notes never leave your machine; report language is yours to choose.
-3. **Post-push verdict ritual** — the autopilot itself watches CI after every push/land,
-   and on red files an evidence-rich remediation task instead of a human noticing hours later.
-4. **This collaboration protocol** — public claims, visible direction, no duplicate work
+3. **This collaboration protocol** — public claims, visible direction, no duplicate work
    (see [`CONTRIBUTING.md`](../.github/CONTRIBUTING.md) → "Claiming work").
+
+Shipped since the last update: the **post-push verdict ritual** — the autopilot itself
+watches CI after every push/land, files an evidence-rich remediation task on red
+(`apps/dashboard/src/control/post-push-verdict.ts`, `post-push-watch.ts`), and can
+optionally escalate straight to a scoped fix flight (`AUTOPILOT_CI_REMEDIATION=fly`,
+0.29.0). Surviving a dashboard restart mid-watch is the one open follow-up.
 
 ## Next up (M4 → M5 arc)
 
