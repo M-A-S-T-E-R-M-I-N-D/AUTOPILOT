@@ -221,6 +221,58 @@ describe('planIssueTriage', () => {
 
     expect(decision.decision).toBe('accept');
   });
+
+  it('routes a partner-application issue to a dossier decision, never auto-verdicting it', () => {
+    const decision = planIssueTriage(
+      {
+        number: 50,
+        title: 'partner application: @gabibi555',
+        body: 'Applying for Active-partner standing.',
+        labels: ['partner-application'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('dossier');
+    expect(decision.reasoning).toContain('#50');
+    expect(decision.reasoning).toContain('never auto-verdict');
+  });
+
+  it('routes a partner-application issue to a dossier decision even when assigned', () => {
+    // A partner-application issue is checked BEFORE the assignee/good-first-issue
+    // checks below — a standing application always gets a dossier, regardless of
+    // what else is true about the issue.
+    const decision = planIssueTriage(
+      {
+        number: 51,
+        title: 'partner application: @gabibi555',
+        body: '',
+        labels: ['partner-application'],
+        assignees: ['gabibi555'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('dossier');
+  });
+
+  it('skips a partner-application issue whose dossier a previous pass already posted', () => {
+    const decision = planIssueTriage(
+      {
+        number: 52,
+        title: 'partner application: @gabibi555',
+        body: '',
+        labels: ['partner-application', 'dossier-posted'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('dossier-posted');
+  });
 });
 
 describe('planIssueTriageCommands', () => {
@@ -267,6 +319,18 @@ describe('planIssueTriageCommands', () => {
 
     expect(decision.decision).toBe('skip');
     expect(planIssueTriageCommands(skipIssue, decision)).toEqual([]);
+  });
+
+  it('plans no commands at all for a dossier — its real commands need async gh facts', () => {
+    const applicationIssue = {
+      ...issue,
+      title: 'partner application: @gabibi555',
+      labels: ['partner-application'],
+    };
+    const decision = planIssueTriage(applicationIssue, [], []);
+
+    expect(decision.decision).toBe('dossier');
+    expect(planIssueTriageCommands(applicationIssue, decision)).toEqual([]);
   });
 });
 
@@ -458,7 +522,7 @@ describe('fetchOpenIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,body,labels,assignees',
+      'number,title,body,labels,assignees,author',
     ]);
   });
 
@@ -489,6 +553,21 @@ describe('fetchOpenIssues', () => {
     const issues = await fetchOpenIssues(exec);
 
     expect(issues.map((i) => i.assignees)).toEqual([['octocat'], []]);
+  });
+
+  it('parses the author login off each issue, dropping a malformed author', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        { number: 9, title: 'Has author', author: { login: 'gabibi555', is_bot: false } },
+        { number: 10, title: 'No author' },
+        { number: 11, title: 'Malformed author', author: 'nope' },
+      ]),
+    });
+
+    const issues = await fetchOpenIssues(exec);
+
+    expect(issues.map((i) => i.author)).toEqual(['gabibi555', undefined, undefined]);
   });
 
   it('parses well-formed issue JSON into IncomingIssue entries', async () => {
@@ -727,6 +806,70 @@ describe('runIssueTriageRitual', () => {
       expect(result.commandResults).toEqual([]);
       expect(result.tasksCreated).toBe(0);
       expect(exec).toHaveBeenCalledTimes(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('posts a KEEPER evidence dossier for a partner-application issue instead of auto-triaging it', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-ritual-dossier-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+
+      const exec: CliExec = vi.fn(async (_bin, args) => {
+        if (args[0] === 'issue' && args[1] === 'list') {
+          return {
+            code: 0,
+            stdout: JSON.stringify([
+              {
+                number: 50,
+                title: 'partner application: @gabibi555',
+                body: '',
+                labels: [{ name: 'partner-application' }],
+                author: { login: 'gabibi555' },
+              },
+            ]),
+          };
+        }
+        if (args[0] === 'api') {
+          return {
+            code: 0,
+            stdout: JSON.stringify({
+              created_at: '2024-01-01T00:00:00Z',
+              public_repos: 3,
+              followers: 1,
+            }),
+          };
+        }
+        if (args[0] === 'pr' && args[1] === 'list') {
+          return { code: 0, stdout: '[]' };
+        }
+        // issue edit / issue comment writes
+        return { code: 0, stdout: '' };
+      });
+
+      const result = await runIssueTriageRitual(exec, s, 'p1', [], [], undefined, () => 100);
+
+      expect(result.plans).toHaveLength(1);
+      expect(result.plans[0]?.decision.decision).toBe('dossier');
+      // dossier-posted label edit + the dossier comment itself
+      expect(result.commandResults).toHaveLength(2);
+      expect(result.commandResults[0]?.command.args).toEqual([
+        'issue',
+        'edit',
+        '50',
+        '--add-label',
+        'dossier-posted',
+      ]);
+      expect(result.commandResults[1]?.command.args[1]).toBe('comment');
+      expect(result.commandResults[1]?.command.args[4]).toContain('@gabibi555');
+      // A dossier decision never becomes a board task — it routes to the maintainer.
+      expect(result.tasksCreated).toBe(0);
+      expect(tasks(s, 'p1')).toEqual([]);
       s.close();
     } finally {
       cleanupDir(dbDir);
