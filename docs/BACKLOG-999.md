@@ -21,10 +21,10 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] (M2 complete, e2e DoD) Re-orient safely on projects it has seen before (resume state)
 
 ## C. Dashboard (web GUI)
-- [x] Fleet home: single-project ↔ whole-fleet toggle; status, last ship, cost, ship-rate, improvement sparkline
-- [x] Project detail: board by status, live flight log, graphs, raw exportable data
+- [~] (live cards: status/stack/files/ship-rate/severity gauge/last activity, 3s poll — FEATURE-COVERAGE §C) Fleet home: single-project ↔ whole-fleet toggle; status, last ship, cost, ship-rate, improvement sparkline — no dedicated toggle or improvement sparkline found in the live tree
+- [~] (live flight log + graphs + task board done — FEATURE-COVERAGE §C) Project detail: board by status, live flight log, graphs, raw exportable data — no board-by-status columns or raw-data export UI found in the live tree
 - [x] Graphs: cost/shipped, tokens, turns, ship-rate, self-report, improvement-over-time — numeric + visual + DATA
-- [x] (needs_approval + approve/reject/delete UI) Approvals queue: propose-for-approval, edit/approve/reject, explain impact before save
+- [~] (needs_approval + approve/reject/delete UI live, `TaskActionKind` in `apps/dashboard/src/web/task-queue.ts` is `'approve' | 'reject' | 'done' | 'delete'` — FEATURE-COVERAGE §C) Approvals queue: propose-for-approval, approve/reject/delete; edit action + explain-impact-before-save not yet built
 - [ ] SOUL/identity editor: locked-by-default, proposable prompt improvements, per-project overrides
 - [ ] Versions screen: MYTH/LEGACY/flight timeline, diff, one-click additive restore
 - [~] (connect screen live; rest M5) Settings: models, quota/token view, membership connection, language, accessibility, security policy

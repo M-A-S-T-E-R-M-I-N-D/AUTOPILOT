@@ -39,8 +39,8 @@
 | [ ] Versions screen (MYTH/LEGACY/flight timeline, diff, additive restore) | MASTER §5.5, §7 | M5 |
 | [~] Settings — **connect screen delivered early** (dashboard: choose subscription / API key / headless token · verify the `claude` CLI · secret stored 0600, CSRF-guarded, never echoed); models/quota/language/a11y/security settings remain | MASTER §5.6 | M5 |
 | [ ] Anomalies/health (regressions, cost spikes, gate-fails, security findings + proposed fixes) | MASTER §5.7 | M8 |
-| [ ] "Hidden by default, open to edit" everywhere; calm unless the user intervenes | MASTER §2.5, §18.2.5 | M3→M5 |
-| [ ] Evolution view (is the agent improving? approval↑ rejection↓ rework↓ over time) | MASTER §17.3 | M5 |
+| [~] "Hidden by default, open to edit" everywhere; calm unless the user intervenes — progressive disclosure live (chips + drill-downs on activity/firing-timeline/landing, Load-More — BACKLOG-999 §C); not yet swept across every surface | MASTER §2.5, §18.2.5 | M3→M5 |
+| [x] Evolution view (is the agent improving? approval↑ rejection↓ over time) — weekly operator approval-rate trend chart + summary tiles, live and tested (`web/features/evolution.ts` + `web/evaluation-trend.ts` — BACKLOG-999 §J) | MASTER §17.3 | M5 |
 
 ## D. Reactivity — talk · assign · live (spec REACTIVITY.md)
 | Feature | Spec | Milestone |
@@ -164,6 +164,10 @@ Reconciled against the M0/M1 build state by the 2026-07-07 completeness audit; s
 C's Approvals-queue row were re-verified against `BACKLOG-999.md` and the live tree on 2026-09-05 — 5 rows corrected
 (three claimed "pending" work — gate auto-wiring, quota pacing, the single-instance lock — that had already shipped;
 one claimed the orient→pace loop "needs a real run" despite 160+ real firings; Approvals-queue overclaimed an "edit"
-action `TaskActionKind` doesn't have). Sections B, D–O were **not** re-audited this pass — `BACKLOG-999.md` is the
-more actively-maintained backlog when the two disagree; don't trust this matrix's other `[x]`/`[~]` marks as current
-without checking there or the live tree first.*
+action `TaskActionKind` doesn't have). The rest of section C was re-verified the same way on 2026-09-08 — 2 more rows
+corrected here (progressive disclosure and the Evolution view were both already live but marked `[ ]`), plus 3 rows
+in `BACKLOG-999.md` §C itself that overclaimed done (a fleet-home improvement sparkline/toggle, project-detail
+board-by-status columns + raw export, and the same Approvals-queue "edit" action) — none of that UI exists in the
+live tree. Sections B, D–O still have **not** been re-audited (board web-mtndm5fc-2vloky, ~2 more wrong rows
+estimated) — `BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this
+pass shows it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
