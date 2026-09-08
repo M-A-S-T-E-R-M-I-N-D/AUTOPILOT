@@ -811,6 +811,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // never auto-verdicted). Ends in neither `-execute.ts` nor any security
   // keyword.
   'flight/contributor-dossier',
+  // The taxonomy seeder ritual (epic 0019 "GitHub Steward" slice 1, board
+  // web-mtrh1hjq-760dic): plans AND applies `gh label create --force` /
+  // `gh api .../milestones` writes stamping the house label + starter
+  // milestone scheme onto a repo the acting identity owns — the same
+  // decide-and-execute class `flight/mirror-pass` above is flagged for,
+  // ending in neither `-execute.ts` nor any security keyword.
+  'flight/taxonomy-seed',
   // Dispatches the ARCHITECT chat control tools' write/DESTRUCTIVE store
   // operations (tasks_create/set-status/reorder/delete, project_reset) and
   // owns their argument validation itself — server.ts leaves it only the
