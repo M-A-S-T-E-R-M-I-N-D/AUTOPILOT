@@ -6,6 +6,7 @@ import {
   isMechanicalDiffPath,
   evaluateDiffSize,
   DIFF_SIZE_THRESHOLD_LINES,
+  DIFF_SIZE_BLOCK_LINES,
 } from '../src/diff-size-gate.js';
 
 describe('isMechanicalDiffPath', () => {
@@ -90,12 +91,31 @@ describe('evaluateDiffSize', () => {
     expect(verdict.reviewLines).toBe(DIFF_SIZE_THRESHOLD_LINES);
   });
 
-  it('fails one line past the threshold', () => {
+  it('WARNS one line past the threshold — the commit still lands (ok stays true)', () => {
     const verdict = evaluateDiffSize([
       { path: 'src/a.ts', insertions: DIFF_SIZE_THRESHOLD_LINES + 1, deletions: 0 },
     ]);
+    expect(verdict.ok).toBe(true);
+    expect(verdict.tier).toBe('warn');
+    expect(verdict.details).toContain('WARN');
+    expect(verdict.details).toContain('LANDS');
+  });
+
+  it('BLOCKS past the runaway ceiling — the only tier that reverts', () => {
+    const verdict = evaluateDiffSize([
+      { path: 'src/a.ts', insertions: DIFF_SIZE_BLOCK_LINES + 1, deletions: 0 },
+    ]);
     expect(verdict.ok).toBe(false);
-    expect(verdict.details).toContain('too large');
+    expect(verdict.tier).toBe('block');
+    expect(verdict.details).toContain('runaway ceiling');
+  });
+
+  it('a diff exactly AT the runaway ceiling still lands as a warn', () => {
+    const verdict = evaluateDiffSize([
+      { path: 'src/a.ts', insertions: DIFF_SIZE_BLOCK_LINES, deletions: 0 },
+    ]);
+    expect(verdict.ok).toBe(true);
+    expect(verdict.tier).toBe('warn');
   });
 
   it('excludes mechanical paths from the review-burden total', () => {
@@ -114,7 +134,7 @@ describe('evaluateDiffSize', () => {
       { path: 'src/a.ts', insertions: 300, deletions: 0 },
       { path: 'src/b.ts', insertions: 200, deletions: 0 },
     ]);
-    expect(verdict.ok).toBe(false);
+    expect(verdict.tier).toBe('warn');
     expect(verdict.reviewLines).toBe(500);
   });
 
@@ -141,14 +161,15 @@ describe('evaluateDiffSize', () => {
     // numbers in it are load-bearing, not decoration.
     const verdict = evaluateDiffSize([{ path: 'src/a.ts', insertions: 401, deletions: 0 }]);
 
-    expect(verdict.ok).toBe(false);
+    expect(verdict.tier).toBe('warn');
     expect(verdict.details).toContain('401 review line(s)');
     expect(verdict.details).toContain(`${DIFF_SIZE_THRESHOLD_LINES}-line cap`);
     expect(verdict.details).not.toContain('mechanical');
   });
-  it('honors a custom threshold', () => {
-    const verdict = evaluateDiffSize([{ path: 'src/a.ts', insertions: 50, deletions: 0 }], 10);
+  it('honors custom warn and block thresholds', () => {
+    const verdict = evaluateDiffSize([{ path: 'src/a.ts', insertions: 50, deletions: 0 }], 10, 40);
     expect(verdict.ok).toBe(false);
+    expect(verdict.tier).toBe('block');
     expect(verdict.threshold).toBe(10);
   });
 });

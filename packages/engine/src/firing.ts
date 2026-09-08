@@ -288,9 +288,18 @@ export async function runFiring(
       try {
         const stats = await deps.vcs.diffNumstat(headBefore, headAfter);
         const diffSize = evaluateDiffSize(stats);
+        // Two-tier (review verdict on this PR): a warn LANDS — the label
+        // carries the loud note so gate-step surfaces and telemetry see it —
+        // and only the runaway tier takes the revert path. Destroying green,
+        // tested work is reserved for correctness failures
+        // (docs/FAILURE-DOCTRINE.md row 2).
+        const label =
+          diffSize.tier === 'warn'
+            ? `diff-size (WARN ${diffSize.reviewLines} review lines — split advised)`
+            : 'diff-size';
         gateChecks = [
           ...gateChecks,
-          { label: 'diff-size', pass: diffSize.ok, durationMs: Date.now() - diffStart },
+          { label, pass: diffSize.ok, durationMs: Date.now() - diffStart },
         ];
         if (!diffSize.ok) {
           effectiveOk = false;

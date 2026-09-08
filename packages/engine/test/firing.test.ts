@@ -272,13 +272,35 @@ describe('runFiring', () => {
     expect(store.records).toHaveLength(1);
   });
 
-  it('DIFF-SIZE GATE (BACKLOG-999 C4): reverts an oversized commit even though the real gate passed', async () => {
+  it('DIFF-SIZE GATE (BACKLOG-999 C4): a warn-tier oversize LANDS with a loud check label', async () => {
     const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
     const vcs = new FakeVcs({
       heads: ['h0', 'h1'],
       last: { subject: 'feat: AP-1', shortSha: 'abc' },
       existing: new Set(['abc']),
-      diffStats: [{ path: 'src/huge.ts', insertions: 300, deletions: 200 }], // 500 > 400
+      diffStats: [{ path: 'src/huge.ts', insertions: 300, deletions: 200 }], // 500: warn tier
+    });
+    const gate = new FakeGate(true);
+    const store = new FakeStore();
+
+    const out = await runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+
+    expect(vcs.revertCalls).toBe(0);
+    expect(out.record.shipped).toBe(true);
+    expect(out.record.gateChecks[0]).toMatchObject({ pass: true });
+    expect(String(out.record.gateChecks[0]!.label)).toContain('WARN 500 review lines');
+  });
+
+  it('DIFF-SIZE GATE: a runaway diff past the block ceiling reverts even though the real gate passed', async () => {
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-1', shortSha: 'abc' },
+      existing: new Set(['abc']),
+      diffStats: [{ path: 'src/huge.ts', insertions: 900, deletions: 400 }], // 1300 > 1200
     });
     const gate = new FakeGate(true);
     const store = new FakeStore();
@@ -293,7 +315,7 @@ describe('runFiring', () => {
     expect(vcs.revertSinceRefs).toEqual(['h0']);
     expect(out.gateResult).toBe('reverted');
     expect(out.record.shipped).toBe(false);
-    expect(out.record.gateError).toContain('too large');
+    expect(out.record.gateError).toContain('runaway ceiling');
     expect(out.record.gateChecks).toHaveLength(1);
     expect(out.record.gateChecks[0]).toMatchObject({ label: 'diff-size', pass: false });
     // Reverted work is undone — never a fabricated filesTouched list.

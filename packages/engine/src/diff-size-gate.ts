@@ -31,6 +31,13 @@ import type { DiffFileStat } from './ports.js';
  */
 export const DIFF_SIZE_THRESHOLD_LINES = 400;
 
+/** Above the warn threshold the commit still LANDS (destroying green, tested
+ *  work is reserved for correctness failures — docs/FAILURE-DOCTRINE.md row
+ *  2, and the warn-soft/block-extreme consensus the review cites); above
+ *  THIS ceiling the diff is almost certainly a containment/scope failure
+ *  rather than a big-but-honest unit, and the existing revert path applies. */
+export const DIFF_SIZE_BLOCK_LINES = 1200;
+
 /**
  * Paths whose changed lines are not review burden — regenerated, binary, or
  * build/vendor output nobody reads line-by-line. Deliberately small and
@@ -62,9 +69,13 @@ export function isMechanicalDiffPath(path: string): boolean {
   return MECHANICAL_PATH_PATTERNS.some((pattern) => pattern.test(path));
 }
 
-/** The diff-size gate's verdict — pure data, no side effects. */
+/** The diff-size gate's verdict — pure data, no side effects. Two-tier:
+ *  `warn` lands with a loud note (review-burden pressure without destroying
+ *  green work); only `block` takes the revert path. `ok` stays as the
+ *  "don't revert" boolean so wiring reads one flag. */
 export interface DiffSizeVerdict {
   readonly ok: boolean;
+  readonly tier: 'ok' | 'warn' | 'block';
   /** Changed lines counted toward the threshold (mechanical paths excluded). */
   readonly reviewLines: number;
   /** Every changed line, mechanical or not — for an honest total in `details`. */
@@ -83,6 +94,7 @@ export interface DiffSizeVerdict {
 export function evaluateDiffSize(
   stats: readonly DiffFileStat[],
   threshold: number = DIFF_SIZE_THRESHOLD_LINES,
+  blockThreshold: number = DIFF_SIZE_BLOCK_LINES,
 ): DiffSizeVerdict {
   let reviewLines = 0;
   let totalLines = 0;
@@ -91,12 +103,20 @@ export function evaluateDiffSize(
     totalLines += lines;
     if (!isMechanicalDiffPath(file.path)) reviewLines += lines;
   }
-  const ok = reviewLines <= threshold;
+  const tier: DiffSizeVerdict['tier'] =
+    reviewLines > blockThreshold ? 'block' : reviewLines > threshold ? 'warn' : 'ok';
+  const ok = tier !== 'block';
   const mechanicalLines = totalLines - reviewLines;
   const mechanicalNote = mechanicalLines > 0 ? ` (+${mechanicalLines} mechanical, exempt)` : '';
-  const details = ok
-    ? `diff size ok: ${reviewLines} review line(s)${mechanicalNote}`
-    : `diff too large to honestly claim as byte-reviewed: ${reviewLines} review line(s) ` +
-      `exceeds the ${threshold}-line cap${mechanicalNote} — split into more than one unit`;
-  return { ok, reviewLines, totalLines, threshold, details };
+  const details =
+    tier === 'ok'
+      ? `diff size ok: ${reviewLines} review line(s)${mechanicalNote}`
+      : tier === 'warn'
+        ? `diff size WARN: ${reviewLines} review line(s) exceeds the ${threshold}-line ` +
+          `cap${mechanicalNote} — the commit LANDS, but split the next unit smaller ` +
+          `(a split follow-up belongs on the board)`
+        : `diff far beyond any honest unit: ${reviewLines} review line(s) exceeds the ` +
+          `${blockThreshold}-line runaway ceiling${mechanicalNote} — almost certainly a ` +
+          `containment/scope failure, reverting like any red gate`;
+  return { ok, tier, reviewLines, totalLines, threshold, details };
 }
