@@ -25,9 +25,22 @@
  * output, and `composeReport` re-checks the model's OWN composed text
  * against a leak guard (see `hasComposeLeak` below) before ever handing it
  * back for preview — a prompt rule is advisory, this check is enforcement.
+ *
+ * COMPOSER contract grows severity (board web-mtsf3buh-wdvfvv, slice 1): the
+ * composer also suggests a `severity` (`@autopilot/store`'s own `Severity`
+ * enum — the same `critical`/`high`/`medium`/`low` scale `report-compose-
+ * tasks.ts`'s sibling composer already validates against) plus a one-line
+ * `severityReasoning`, so the operator sees WHY the model rated it that way
+ * rather than a bare label. This slice only grows the pure contract
+ * (prompt + parse); threading the suggested severity into a `local-task`/
+ * `quick-fix-pr` plan's `taskInput.severity` and mapping it to a `priority:`
+ * label on an `issue`/`pool-offer` plan's `gh issue create` are follow-on
+ * slices — `report-from-here.ts`'s `planLocal`/`planUpstream` still take no
+ * severity input as of this slice.
  */
 
 import { fenceTitle } from '@autopilot/engine';
+import { SEVERITIES, type Severity } from '@autopilot/store';
 import { isReportAction, type ReportAction } from './report-from-here.js';
 
 /** Bump on any prompt-text change — same convention as engine's
@@ -103,6 +116,8 @@ export function buildReportComposePrompt(input: ReportComposePromptInput): strin
     '  "quick-fix-pr" — small and safe enough to fix directly as a PR;',
     '  "local-task" — needs a human\'s judgment first;',
     '  "pool-offer" — open to any contributor to claim.',
+    `- Suggest a "severity": exactly one of ${SEVERITIES.join(', ')} — how urgent`,
+    '  this is to fix. Include a one-sentence "severityReasoning" explaining why.',
     '',
     FENCE_OPEN,
     defang(`${contextText}\n\n${moduleText}`),
@@ -111,10 +126,11 @@ export function buildReportComposePrompt(input: ReportComposePromptInput): strin
     `Operator's note: ${defang(input.description.trim())}`,
     '',
     'Reply with EXACTLY one line and nothing else:',
-    'REPORT_COMPOSE:{"title":"...","body":"...","labels":["..."],"action":"...","language":"..."}',
+    'REPORT_COMPOSE:{"title":"...","body":"...","labels":["..."],"action":"...","language":"...","severity":"...","severityReasoning":"..."}',
     '"language" is the language the operator\'s note was written in (e.g. "en",',
     '"ja", "fr") — the composed title/body must still be English. "action" must',
-    'be exactly one of: issue, quick-fix-pr, local-task, pool-offer.',
+    `be exactly one of: issue, quick-fix-pr, local-task, pool-offer. "severity"`,
+    `must be exactly one of: ${SEVERITIES.join(', ')}.`,
   ].join('\n');
 }
 
@@ -124,6 +140,8 @@ export interface ReportComposeOutput {
   readonly labels: readonly string[];
   readonly action: ReportAction;
   readonly language: string;
+  readonly severity: Severity;
+  readonly severityReasoning: string;
 }
 
 const REPORT_COMPOSE_RE = /^REPORT_COMPOSE:(\{.*\})\s*$/m;
@@ -136,6 +154,14 @@ const COMPOSE_BODY_CHARS = 4000;
 const COMPOSE_LABEL_CHARS = 40;
 const COMPOSE_MAX_LABELS = 6;
 const COMPOSE_LANGUAGE_CHARS = 40;
+/** A "one-line" reasoning is still bounded defensively, same stance every
+ *  other model-fed field here takes — a rambling justification is a
+ *  malformed reply, not something to truncate and ship. */
+const COMPOSE_SEVERITY_REASONING_CHARS = 200;
+
+function isSeverity(value: unknown): value is Severity {
+  return typeof value === 'string' && (SEVERITIES as readonly string[]).includes(value);
+}
 
 /**
  * Strictly parse the model's `REPORT_COMPOSE:` line into a validated
@@ -189,7 +215,26 @@ export function parseReportComposeOutput(text: string): ReportComposeOutput | nu
   }
   if (labels.length === 0) return null;
 
-  return { title: title.trim(), body: body.trim(), labels, action, language: language.trim() };
+  const severity = record['severity'];
+  if (!isSeverity(severity)) return null;
+  const severityReasoning = record['severityReasoning'];
+  if (
+    typeof severityReasoning !== 'string' ||
+    severityReasoning.trim() === '' ||
+    severityReasoning.length > COMPOSE_SEVERITY_REASONING_CHARS
+  ) {
+    return null;
+  }
+
+  return {
+    title: title.trim(),
+    body: body.trim(),
+    labels,
+    action,
+    language: language.trim(),
+    severity,
+    severityReasoning: severityReasoning.trim(),
+  };
 }
 
 /**
@@ -283,7 +328,11 @@ export async function composeReport(
       reasoning: 'The model returned an unusable composition — try rephrasing the note.',
     };
   }
-  if (hasComposeLeak(parsed.title) || hasComposeLeak(parsed.body)) {
+  if (
+    hasComposeLeak(parsed.title) ||
+    hasComposeLeak(parsed.body) ||
+    hasComposeLeak(parsed.severityReasoning)
+  ) {
     return {
       ok: false,
       reasoning:

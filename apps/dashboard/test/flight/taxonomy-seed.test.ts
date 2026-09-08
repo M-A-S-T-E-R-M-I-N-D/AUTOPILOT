@@ -39,7 +39,11 @@ function execFor(responses: Record<string, { code: number; stdout: string }>): C
 describe('planTaxonomySeed', () => {
   it('skips with identity-unresolved and zero actions when identity failed to resolve', () => {
     const plan = planTaxonomySeed(undefined, new Set(), new Set());
-    expect(plan).toEqual({ identity: undefined, actions: [], skippedReason: 'identity-unresolved' });
+    expect(plan).toEqual({
+      identity: undefined,
+      actions: [],
+      skippedReason: 'identity-unresolved',
+    });
   });
 
   it('skips with guest and zero actions for a non-maintainer identity', () => {
@@ -77,7 +81,8 @@ describe('planTaxonomySeed', () => {
     expect(milestoneActions).toHaveLength(HOUSE_STARTER_MILESTONES.length - 1);
     expect(
       milestoneActions.some(
-        (a) => a.kind === 'create-milestone' && a.milestone.title === HOUSE_STARTER_MILESTONES[0]!.title,
+        (a) =>
+          a.kind === 'create-milestone' && a.milestone.title === HOUSE_STARTER_MILESTONES[0]!.title,
       ),
     ).toBe(false);
   });
