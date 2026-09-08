@@ -58,16 +58,20 @@ describe('pipelineJs (the PIPELINE VIEW panel client)', () => {
     expect(js).toContain("b.setAttribute('aria-pressed', String(opt.value === state[key]))");
     // lens: fleet/file
     expect(js).toContain("'Pipeline lens', 'pipelineLensLabel'");
-    expect(js).toContain("value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet'");
-    expect(js).toContain("value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles'");
+    expect(js).toContain("{ value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet' }");
+    expect(js).toContain("{ value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles' }");
     // mode: grouped/flat
     expect(js).toContain("'Pipeline node grouping', 'pipelineModeLabel'");
-    expect(js).toContain("value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped'");
-    expect(js).toContain("value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat'");
+    expect(js).toContain("{ value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped' }");
+    expect(js).toContain("{ value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat' }");
     // layout: layered/compact
     expect(js).toContain("'Pipeline canvas layout', 'pipelineLayoutLabel'");
-    expect(js).toContain("value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered'");
-    expect(js).toContain("value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact'");
+    expect(js).toContain(
+      "{ value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered' }",
+    );
+    expect(js).toContain(
+      "{ value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact' }",
+    );
   });
 
   it('tags the title and switch group aria-labels/button labels for i18n', () => {
@@ -75,29 +79,6 @@ describe('pipelineJs (the PIPELINE VIEW panel client)', () => {
     expect(js).toContain("title.setAttribute('data-i18n', 'pipelineViewTitle')");
     expect(js).toContain("group.setAttribute('data-i18n-aria', labelI18nKey)");
     expect(js).toContain("b.setAttribute('data-i18n', opt.i18nKey)");
-  });
-
-  it('gives every switch button a clarifying tooltip (report-element-mb528l)', () => {
-    const js = pipelineJs();
-    expect(js).toContain("b.setAttribute('data-tip', opt.tip)");
-    expect(js).toContain("b.setAttribute('data-i18n-tip', opt.tipI18nKey)");
-    // one tip per option, naming what selecting it changes about the graph
-    expect(js).toContain(
-      "tip: 'Nodes represent firing traces, fleet-wide', tipI18nKey: 'pipelineLensFleetTip'",
-    );
-    expect(js).toContain(
-      "tip: 'Nodes represent files touched by gate-passed firings', tipI18nKey: 'pipelineLensFilesTip'",
-    );
-    expect(js).toContain(
-      "tip: 'One node per trace or file, with a count', tipI18nKey: 'pipelineModeGroupedTip'",
-    );
-    expect(js).toContain("tip: 'One node per span, in order', tipI18nKey: 'pipelineModeFlatTip'");
-    expect(js).toContain(
-      "tip: 'One lane per trace on the canvas', tipI18nKey: 'pipelineLayoutLayeredTip'",
-    );
-    expect(js).toContain(
-      "tip: 'Related traces share a lane; others pack into a grid', tipI18nKey: 'pipelineLayoutCompactTip'",
-    );
   });
 
   it('exposes the lens switch — filesTouched flows from the engine, so file is a real option', () => {
@@ -348,23 +329,7 @@ describe('pipeline selection interaction (real DOM)', () => {
     expect(filesButton.getAttribute('data-i18n')).toBe('pipelineLensFiles');
   });
 
-  it('every switch button carries a clarifying tooltip (report-element-mb528l)', async () => {
-    boot();
-    await vi.advanceTimersByTimeAsync(1);
-
-    const buttons = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.pipeline-controls button'),
-    );
-    expect(buttons).toHaveLength(6);
-    for (const button of buttons) {
-      expect(button.getAttribute('data-tip')).toBe(
-        STRINGS.en[button.dataset['i18nTip'] as keyof typeof STRINGS.en],
-      );
-      expect(button.getAttribute('data-tip')?.length).toBeGreaterThan(0);
-    }
-  });
-
-  it('switching to Hebrew translates the panel title, the lens switch group/buttons, and their tooltips', async () => {
+  it('switching to Hebrew translates the panel title and the lens switch group/buttons', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
 
@@ -381,7 +346,6 @@ describe('pipeline selection interaction (real DOM)', () => {
       (b) => b.getAttribute('data-i18n') === 'pipelineLensFiles',
     )!;
     expect(filesButton.textContent).toBe(STRINGS.he.pipelineLensFiles);
-    expect(filesButton.getAttribute('data-tip')).toBe(STRINGS.he.pipelineLensFilesTip);
   });
 
   it('unavailable copy comes from tr() — Hebrew when that locale is already active', async () => {

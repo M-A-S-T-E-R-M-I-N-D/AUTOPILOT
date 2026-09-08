@@ -76,18 +76,6 @@
  * `tr(key)` directly instead, since a lens/mode/layout button's own click
  * handler can re-run `load()` well outside `renderFleet()`'s sweep — the
  * same reason `features/fly.ts`'s `browseDrives`/`browseUpParent` do.
- *
- * CLARITY (report-element-mb528l: "Pipeline view section UX needs
- * clarification") — the six switch buttons shipped as bare single-word
- * labels ("Fleet"/"Files", "Grouped"/"Flat", "Layered"/"Compact") with no
- * explanation of what choosing them changes, unlike every other terse
- * control on the dashboard (theme, language, notify, the OTLP chip), which
- * all carry the shared `[data-tip]` hover/focus tooltip primitive
- * (`shell.ts`'s `showTip`/`hideTip`, document-delegated so it needs no
- * per-feature wiring). Each option now also sets `data-tip` (English,
- * matching `label`'s own literal-then-`data-i18n`-key shape) and
- * `data-i18n-tip`, so `translateDom()`'s existing `[data-i18n-tip]` sweep
- * repaints the tooltip text on a locale switch same as everything else here.
  */
 import { pipelineApiUrl } from '../pipeline-panel.js';
 
@@ -106,8 +94,6 @@ function pipelineSwitchGroup(cls, label, labelI18nKey, options, state, key, onCh
     b.type = 'button';
     b.textContent = opt.label;
     b.setAttribute('data-i18n', opt.i18nKey);
-    b.setAttribute('data-tip', opt.tip);
-    b.setAttribute('data-i18n-tip', opt.tipI18nKey);
     b.dataset.value = opt.value;
     b.setAttribute('aria-pressed', String(opt.value === state[key]));
     b.addEventListener('click', function () {
@@ -242,16 +228,16 @@ function pipelineSection(pid) {
   });
   var controls = el('div', 'pipeline-controls');
   controls.appendChild(pipelineSwitchGroup('pipeline-lens-switch', 'Pipeline lens', 'pipelineLensLabel', [
-    { value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet', tip: 'Nodes represent firing traces, fleet-wide', tipI18nKey: 'pipelineLensFleetTip' },
-    { value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles', tip: 'Nodes represent files touched by gate-passed firings', tipI18nKey: 'pipelineLensFilesTip' },
+    { value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet' },
+    { value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles' },
   ], state, 'lens', load));
   controls.appendChild(pipelineSwitchGroup('pipeline-mode-switch', 'Pipeline node grouping', 'pipelineModeLabel', [
-    { value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped', tip: 'One node per trace or file, with a count', tipI18nKey: 'pipelineModeGroupedTip' },
-    { value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat', tip: 'One node per span, in order', tipI18nKey: 'pipelineModeFlatTip' },
+    { value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped' },
+    { value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat' },
   ], state, 'mode', load));
   controls.appendChild(pipelineSwitchGroup('pipeline-layout-switch', 'Pipeline canvas layout', 'pipelineLayoutLabel', [
-    { value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered', tip: 'One lane per trace on the canvas', tipI18nKey: 'pipelineLayoutLayeredTip' },
-    { value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact', tip: 'Related traces share a lane; others pack into a grid', tipI18nKey: 'pipelineLayoutCompactTip' },
+    { value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered' },
+    { value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact' },
   ], state, 'layout', load));
   wrap.appendChild(controls);
   wrap.appendChild(body);
