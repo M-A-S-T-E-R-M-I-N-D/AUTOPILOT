@@ -162,6 +162,22 @@ export interface CommitRef {
 }
 
 /**
+ * One file's line-level diff footprint between two refs (`git diff
+ * --numstat`) — the deterministic diff-size gate's input (docs/BACKLOG-999.md
+ * C4, `diff-size-gate.ts`): a changed-lines threshold needs PER-FILE counts
+ * to exempt mechanical paths (lockfiles, generated snapshots) from the
+ * review-burden total, which {@link VcsPort.changedFiles} (path-only) can't
+ * supply. A binary file's insertions/deletions are 0 (git never reports a
+ * line count for binary content) — its path still rides through for
+ * mechanical classification.
+ */
+export interface DiffFileStat {
+  readonly path: string;
+  readonly insertions: number;
+  readonly deletions: number;
+}
+
+/**
  * Version control — always additive and safety-branch aware. `revertLast` adds a
  * revert commit (never `reset --hard`); it undoes a firing whose commit failed
  * the gate while keeping history intact (MASTER-PLAN §7).
@@ -187,6 +203,17 @@ export interface VcsPort {
    * the field rather than fabricating paths.
    */
   changedFiles(fromRef: string, toRef: string): Promise<readonly string[]>;
+  /**
+   * Per-file insertions/deletions between two refs — the deterministic
+   * diff-size gate's input (docs/BACKLOG-999.md C4, `diff-size-gate.ts`).
+   * Optional: a VcsPort that doesn't implement it simply skips the diff-size
+   * check (`firing.ts`) rather than failing closed — an unsupported
+   * capability is not evidence the diff is too big, the same non-punishing
+   * stance {@link GateResult.crashed} already takes for a gate that couldn't
+   * judge the work. `[]` on an invalid ref/non-repo path or an unborn-HEAD
+   * `''` ref, same degrade-empty contract as {@link changedFiles}.
+   */
+  diffNumstat?(fromRef: string, toRef: string): Promise<readonly DiffFileStat[]>;
   /**
    * Additively revert commit(s) via `git revert` (never `reset --hard`). With
    * no `sinceRef`, reverts only HEAD (RemediatingGate's own autoformat

@@ -44,6 +44,7 @@ import type {
   ModelResponse,
 } from './ports.js';
 import type { EngineConfig } from './config.js';
+import { evaluateDiffSize } from './diff-size-gate.js';
 
 export interface FiringDeps {
   readonly model: ModelPort;
@@ -272,7 +273,44 @@ export async function runFiring(
       gate = { ok: false, crashed: true };
     }
     gateChecks = gate.checks ?? [];
-    if (gate.ok) {
+    // Deterministic diff-size gate (docs/BACKLOG-999.md C4): a green
+    // typecheck/test/build gate proves the CODE works, not that the diff is
+    // a reviewable SIZE — "ONE small unit" is instruction-tier (SOUL), and an
+    // instruction the agent can silently drift from is not a gate. Only
+    // evaluated once the real gate is green: a failing gate reverts
+    // regardless of size, so judging size on work already dead adds nothing.
+    // `diffNumstat` is an optional VcsPort capability (diff-size-gate.ts) —
+    // absent means "skip", not "fail": an unsupported capability is not
+    // evidence the diff is too big.
+    let effectiveOk = gate.ok;
+    if (gate.ok && deps.vcs.diffNumstat) {
+      const diffStart = Date.now();
+      try {
+        const stats = await deps.vcs.diffNumstat(headBefore, headAfter);
+        const diffSize = evaluateDiffSize(stats);
+        gateChecks = [
+          ...gateChecks,
+          { label: 'diff-size', pass: diffSize.ok, durationMs: Date.now() - diffStart },
+        ];
+        if (!diffSize.ok) {
+          effectiveOk = false;
+          gateError = diffSize.details;
+        }
+      } catch (error) {
+        // Same reasoning as the gate port's own catch above: loop.ts has no
+        // try/catch around runFiring, so a VcsPort whose diffNumstat rejects
+        // would kill the whole flight — and on a GREEN firing, the one case
+        // that should be safest of all. A capability that cannot answer is
+        // not evidence the diff is too big, so this degrades to the same
+        // "skip" an ABSENT capability already gets, and the reason rides
+        // along in the record instead of vanishing. The shipped GitVcs never
+        // rejects; a third-party VcsPort is free to.
+        gateError = `diff-size check skipped — the VCS port's diffNumstat failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
+      }
+    }
+    if (effectiveOk) {
       gateResult = 'passed';
     } else if (gate.crashed) {
       // The gate crashed before it could judge the work (missing dep/OOM/tool
