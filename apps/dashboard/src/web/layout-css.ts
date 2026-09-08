@@ -499,12 +499,6 @@ main.project-mode { grid-template-columns: 1fr; }
 .landing-group-label { font-weight: 600; }
 .landing-group-count { font-size: var(--text-xs); }
 .landing-commit-nested { list-style: none; margin: 0; padding-inline-start: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); border-inline-start: 1px solid var(--color-border); }
-/* display:flex on the base class OVERRIDES the UA's [hidden]{display:none}
-   — without this guard the toggle (landingCommitGroupNode, features/landing.ts)
-   relabels itself ("Show all (N)" ↔ "Hide") but the nested commit list never
-   actually expands or collapses (report-landing-1ufcu6l), same bug class as
-   .update-banner/.tour-overlay/.browse-overlay/.brb-overlay above. */
-.landing-commit-nested[hidden] { display: none; }
 .landing-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
 .landing-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .landing-execute:disabled { opacity: 0.6; cursor: default; }
