@@ -1024,6 +1024,10 @@ const BENIGN_SCRIPTS = new Set([
   // .d.mts declaration stub for the sibling .mjs — types only, no runtime,
   // the same class as every other generator .d.mts already listed here.
   'threat-model/render-table.d.mts',
+  // Same declaration-stub class for generate-table.mjs itself — added in the
+  // same refactor, missed in this list's first pass (the census caught it,
+  // as designed).
+  'threat-model/generate-table.d.mts',
   // Renders docs/CONTRAST-MATRIX.md from @autopilot/tokens' own pure
   // contrastMatrix() — the same generate-a-committed-doc-from-pure-data class
   // as data-model/generate-doc.mjs and threat-model/generate-table.mjs above.
