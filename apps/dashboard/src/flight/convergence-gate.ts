@@ -55,7 +55,7 @@ import { median } from '@autopilot/store';
 export interface ConvergenceGateDeps {
   readonly gate: GatePort;
   readonly out: (line: string) => void;
-  readonly recordRed: (check: string, mergeDetails: string) => void;
+  readonly recordRed: (check: string, mergeDetails: string, ms: number) => void;
   /** Past durations (ms) of GREEN convergence runs sharing this exact check
    *  SIGNATURE — the population {@link convergencePlausibilityFloorMs} judges
    *  a new green against. Empty or short (cold start) falls back to a fixed
@@ -161,9 +161,10 @@ export async function gateConvergedBranch(
   }
 
   const reason = checks.find((c) => !c.pass)?.label ?? 'gate';
+  const redMs = checks.reduce((sum, c) => sum + c.durationMs, 0);
   deps.out(
     `  ⛔ CONVERGENCE RED: '${targetBranch}' fails ${reason} AFTER this sync-back — ` +
       `both sides were green alone, so this is a merge interaction. ${mergeDetails}`,
   );
-  deps.recordRed(reason, mergeDetails);
+  deps.recordRed(reason, mergeDetails, redMs);
 }

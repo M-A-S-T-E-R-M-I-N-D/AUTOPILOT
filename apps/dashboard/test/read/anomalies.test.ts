@@ -499,6 +499,40 @@ describe('convergenceRedAlarms (via detectAnomalies)', () => {
     expect(anomalies[0]?.evidence).toContain('still red on the merged branch'); // the latest alarm named
   });
 
+  it('includes the check duration in the evidence when the alarm carries one', () => {
+    const anomalies = detectAnomalies(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [{ check: 'build', details: 'still red on the merged branch', ms: 4321 }],
+    );
+    expect(anomalies[0]?.evidence).toBe(
+      'A convergence gate went red after a sync-back (build) after 4321ms: still red on the merged branch',
+    );
+  });
+
+  it('omits the duration clause for an alarm persisted before ms was tracked', () => {
+    const anomalies = detectAnomalies(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [{ check: 'typecheck', details: 'no duration on this old row' }],
+    );
+    expect(anomalies[0]?.evidence).toBe(
+      'A convergence gate went red after a sync-back (typecheck): no duration on this old row',
+    );
+  });
+
   it('stays quiet with no persisted alarms (and when the param is omitted)', () => {
     expect(detectAnomalies([], [], [], [], [], [], [], [], [])).toEqual([]);
     expect(detectAnomalies([])).toEqual([]);
