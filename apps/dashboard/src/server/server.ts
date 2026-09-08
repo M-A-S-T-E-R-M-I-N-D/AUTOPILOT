@@ -121,6 +121,7 @@ import {
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
 import type { MirrorPassPlan, MirrorPassLandingNotePlan } from '../flight/mirror-pass.js';
 import type { MirrorPassDriftPlan } from '../flight/mirror-pass-execute.js';
+import type { HumanMergeResult } from '../flight/human-merge.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -430,6 +431,16 @@ export type PrReviewExecuteApi = (
   expectedHeadRefOid?: string,
 ) => Promise<PrReviewExecuteResult | null>;
 
+/** The maintainer's own merge (injected; see `flight/human-merge.ts`) —
+ *  never planned by any ritual, run only from an operator's click on a PR
+ *  the ritual queued for a human, and only after re-verifying open + head
+ *  + all-green + mergeable fresh from `gh`. A refusal is a normal result,
+ *  not an error: `merged: false` with the reason. */
+export type HumanMergeApi = (
+  number: number,
+  expectedHeadRefOid?: string,
+) => Promise<HumanMergeResult>;
+
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
  *  list` on demand) — every open issue's planned decision against the
  *  project's open board tasks + backlog file, judged fresh each call (see
@@ -586,6 +597,8 @@ export interface ServerDeps extends RouteDeps {
   readonly inboxAdd?: InboxAddApi;
   readonly prReview?: PrReviewApi;
   readonly prReviewExecute?: PrReviewExecuteApi;
+  /** The maintainer's own merge button — see flight/human-merge.ts. */
+  readonly humanMerge?: HumanMergeApi;
   readonly issueTriage?: IssueTriagePreviewApi;
   readonly issueTriageExecute?: IssueTriageExecuteApi;
   /** MIRROR PASS reconcile preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
@@ -1888,6 +1901,79 @@ async function handlePrReviewExecute(
   }
 }
 
+/**
+ * THE HUMAN MERGE endpoint (`POST /api/pr-review/human-merge`, body
+ * `{number, expectedHeadRefOid?}`). The maintainer's own act, not an
+ * automation: the KEEPER ritual queues gate-path PRs for a human and then
+ * refuses to merge them, and until now the human's answer had no home in
+ * the app at all (operator, 2026-09-09: "איך אני עושה את זה דרך הדשבורד
+ * עצמו?").
+ *
+ * Same guard shape as `/api/pr-review/execute` — CSRF-guarded JSON POST,
+ * separately rate-limited, every fact re-read fresh from `gh` rather than
+ * trusted from the card. `expectedHeadRefOid` is the one client value
+ * honored and only to NARROW: a moved head refuses the merge. A refusal
+ * is a 200 carrying `merged: false` and its reason, because "checks are
+ * still red" is a valid answer, not a transport failure.
+ */
+async function handleHumanMerge(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: HumanMergeApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'human merge unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many PR review requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let number: number;
+  let expectedHeadRefOid: string | undefined;
+  try {
+    const parsed = JSON.parse(raw) as { number?: unknown; expectedHeadRefOid?: unknown };
+    number = typeof parsed.number === 'number' ? parsed.number : NaN;
+    if (parsed.expectedHeadRefOid !== undefined) {
+      if (typeof parsed.expectedHeadRefOid !== 'string' || parsed.expectedHeadRefOid === '') {
+        send(400, { error: 'expectedHeadRefOid must be a non-empty string' });
+        return;
+      }
+      expectedHeadRefOid = parsed.expectedHeadRefOid;
+    }
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (!Number.isInteger(number) || number <= 0) {
+    send(400, { error: 'a positive integer PR number is required' });
+    return;
+  }
+  try {
+    send(200, await api(number, expectedHeadRefOid));
+  } catch (error) {
+    send(500, { error: error instanceof Error ? error.message : 'human merge failed' });
+  }
+}
+
 // handlePoolClient/handlePublicity/handlePoolClientExecute moved to
 // `./pool-client.js` (epic 0002 shell decomposition) — imported above.
 
@@ -2820,6 +2906,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/pr-review/execute') {
       void handlePrReviewExecute(req, res, deps.prReviewExecute, headers, prReviewLimiter);
+      return;
+    }
+
+    if (path === '/api/pr-review/human-merge') {
+      void handleHumanMerge(req, res, deps.humanMerge, headers, prReviewLimiter);
       return;
     }
 

@@ -1381,6 +1381,16 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // and every other marker's posting path is unguarded again.
   'flight/anti-flood',
   'flight/gh-exec',
+  // The maintainer's own merge button (operator, 2026-09-09). It runs the
+  // single most irreversible `gh` command this repo has — a squash-merge
+  // into the default branch — on PRs the security-hard rule deliberately
+  // refused to let any ritual merge. Its four re-verifications (open,
+  // head unmoved, every gating check green, GitHub-mergeable) are the ONLY
+  // thing between a click and that command; a PR that weakened any of them,
+  // or that let something other than an operator click reach it, would
+  // hand automation the exact power the queue-for-human rule exists to
+  // withhold — with no "guard"/"auth"/"security" keyword in its path.
+  'flight/human-merge',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {

@@ -202,6 +202,74 @@ export function prReviewConfirmMessage(
   );
 }
 
+/** Whether the human-merge button can act on this card, and the reason
+ *  either way — the disabled-with-reason law applied to the one verb the
+ *  ritual deliberately refuses to perform itself. Mirrors
+ *  `flight/human-merge.ts`'s `judgeHumanMerge` so the button never invites
+ *  a click the server will refuse, but the SERVER's copy is the one that
+ *  decides: this is a courtesy, not a gate. */
+export function humanMergeReadiness(pr: PrReviewCandidateLike): {
+  ready: boolean;
+  reason: string;
+} {
+  const checks = (pr.checkRuns ?? []).filter((c) => !c.optional);
+  if (checks.length === 0) {
+    return { ready: false, reason: 'No gating check has reported on this head yet.' };
+  }
+  const notPassed = checks.filter((c) => c.state !== 'pass');
+  if (notPassed.length > 0) {
+    const running = notPassed.filter((c) => c.state === 'running' || c.state === 'queued').length;
+    const failed = notPassed.filter((c) => c.state === 'fail').length;
+    const detail =
+      failed > 0
+        ? failed + (failed === 1 ? ' check failed' : ' checks failed')
+        : running + ' still running';
+    return { ready: false, reason: 'Not mergeable yet — ' + detail + '.' };
+  }
+  return {
+    ready: true,
+    reason:
+      'Squash-merge #' +
+      pr.number +
+      ' and delete its branch. Your own act as maintainer — the ritual queued this ' +
+      'for a human and will not merge it. Re-verified against gh before anything runs.',
+  };
+}
+
+/** The human-merge confirm dialog. Names the PR, the method, and that it
+ *  is irreversible — the same state-what-happens shape every other
+ *  confirm here uses. */
+export function humanMergeConfirmMessage(pr: PrReviewCandidateLike): string {
+  return (
+    'Merge #' +
+    pr.number +
+    ' — "' +
+    pr.title +
+    '"?\n\n' +
+    'This squash-merges it into the default branch and deletes the source branch. ' +
+    'It cannot be undone from here.\n\n' +
+    'Every check is re-read fresh from gh first — if anything has gone red or the head ' +
+    'has moved since this card was drawn, nothing will merge.'
+  );
+}
+
+/** The `.pr-review-result` line for one human-merge response. */
+export function humanMergeResult(data: { merged?: boolean; reason?: string } | null | undefined): {
+  className: string;
+  text: string;
+} {
+  if (data && data.merged) {
+    return {
+      className: 'pr-review-result pr-review-result-ok',
+      text: '✓ ' + (data.reason || 'Merged.'),
+    };
+  }
+  return {
+    className: 'pr-review-result pr-review-result-fail',
+    text: '✗ ' + ((data && data.reason) || 'The merge did not run.'),
+  };
+}
+
 /** One planned `gh` command's result, the same shape `POST
  *  /api/pr-review/execute`'s `results[]` entries carry — see
  *  `flight/pr-review.ts`'s `PrReviewCommandResult`. */
