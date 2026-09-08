@@ -108,6 +108,75 @@ export function judgeHumanMerge(
   return { allow: true, reason: 'Every gating check passed and GitHub reports it mergeable.' };
 }
 
+/** One update-branch attempt's outcome. */
+export interface UpdateBranchResult {
+  readonly updated: boolean;
+  readonly reason: string;
+  readonly code?: number;
+}
+
+/** The API shape `POST /api/pr-review/update-branch` wires. */
+export type UpdateBranchApi = (number: number) => Promise<UpdateBranchResult>;
+
+/**
+ * Brings a PR's branch up to date with base — the one blocked state that
+ * has a one-click way out, and the one the panel used to state as an
+ * instruction the operator had no way to follow ("update the branch
+ * first"). Merges base into the contributor's branch, which restarts
+ * every check on the new head.
+ *
+ * Refuses on a PR that is not open, and on one whose author has not
+ * allowed maintainer edits — pushing to someone's branch without that
+ * permission is not ours to do, and GitHub would refuse it anyway; saying
+ * so plainly beats surfacing a raw `gh` error. Deliberately NOT gated on
+ * checks being green: a stale branch is worth refreshing precisely when
+ * its checks are not yet trustworthy.
+ */
+export function createUpdateBranchApi(exec: CliExec = ghExec): UpdateBranchApi {
+  return async (number) => {
+    const { code: viewCode, stdout } = await exec('gh', [
+      'pr',
+      'view',
+      String(number),
+      '--json',
+      'state,maintainerCanModify',
+    ]);
+    if (viewCode !== 0) {
+      return { updated: false, reason: `Could not read #${number} from gh (exit ${viewCode}).` };
+    }
+    let view: { state?: unknown; maintainerCanModify?: unknown };
+    try {
+      view = JSON.parse(stdout) as typeof view;
+    } catch {
+      return { updated: false, reason: `gh returned an unreadable response for #${number}.` };
+    }
+    if (view.state !== 'OPEN') {
+      return { updated: false, reason: `#${number} is not open — nothing to update.` };
+    }
+    if (view.maintainerCanModify === false) {
+      return {
+        updated: false,
+        reason:
+          `#${number}'s author has not allowed maintainer edits, so their branch cannot be ` +
+          'updated from here — ask them to update it.',
+      };
+    }
+    const { code } = await exec('gh', ['pr', 'update-branch', String(number)]);
+    if (code !== 0) {
+      return {
+        updated: false,
+        reason: `gh refused the branch update (exit ${code}) — it may already be up to date.`,
+        code,
+      };
+    }
+    return {
+      updated: true,
+      reason: `#${number}'s branch updated from base — every check is re-running on the new head.`,
+      code,
+    };
+  };
+}
+
 /** The API shape `POST /api/pr-review/human-merge` wires. */
 export type HumanMergeApi = (
   number: number,

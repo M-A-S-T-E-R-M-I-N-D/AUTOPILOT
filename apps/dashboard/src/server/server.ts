@@ -121,7 +121,7 @@ import {
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
 import type { MirrorPassPlan, MirrorPassLandingNotePlan } from '../flight/mirror-pass.js';
 import type { MirrorPassDriftPlan } from '../flight/mirror-pass-execute.js';
-import type { HumanMergeResult } from '../flight/human-merge.js';
+import type { HumanMergeResult, UpdateBranchResult } from '../flight/human-merge.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -441,6 +441,11 @@ export type HumanMergeApi = (
   expectedHeadRefOid?: string,
 ) => Promise<HumanMergeResult>;
 
+/** Brings a PR branch up to date with base (injected; see
+ *  flight/human-merge.ts) — the one blocked state with a one-click way
+ *  out. A refusal is a normal result, not an error. */
+export type UpdateBranchApi = (number: number) => Promise<UpdateBranchResult>;
+
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
  *  list` on demand) — every open issue's planned decision against the
  *  project's open board tasks + backlog file, judged fresh each call (see
@@ -599,6 +604,8 @@ export interface ServerDeps extends RouteDeps {
   readonly prReviewExecute?: PrReviewExecuteApi;
   /** The maintainer's own merge button — see flight/human-merge.ts. */
   readonly humanMerge?: HumanMergeApi;
+  /** The update-branch companion to {@link humanMerge}. */
+  readonly updateBranch?: UpdateBranchApi;
   readonly issueTriage?: IssueTriagePreviewApi;
   readonly issueTriageExecute?: IssueTriageExecuteApi;
   /** MIRROR PASS reconcile preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
@@ -1974,6 +1981,65 @@ async function handleHumanMerge(
   }
 }
 
+/**
+ * THE UPDATE-BRANCH endpoint (`POST /api/pr-review/update-branch`, body
+ * `{number}`). The companion to `/api/pr-review/human-merge`: when the
+ * only thing between a PR and its merge is a stale branch, the panel
+ * used to state that as an instruction ("update the branch first") with
+ * nothing in the app that could carry it out. Same guard shape as its
+ * sibling — CSRF-guarded JSON POST, rate-limited, refusals are 200s
+ * carrying `updated: false` and the reason.
+ */
+async function handleUpdateBranch(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: UpdateBranchApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'update branch unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many PR review requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let number: number;
+  try {
+    const parsed = JSON.parse(raw) as { number?: unknown };
+    number = typeof parsed.number === 'number' ? parsed.number : NaN;
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (!Number.isInteger(number) || number <= 0) {
+    send(400, { error: 'a positive integer PR number is required' });
+    return;
+  }
+  try {
+    send(200, await api(number));
+  } catch (error) {
+    send(500, { error: error instanceof Error ? error.message : 'update branch failed' });
+  }
+}
+
 // handlePoolClient/handlePublicity/handlePoolClientExecute moved to
 // `./pool-client.js` (epic 0002 shell decomposition) — imported above.
 
@@ -2911,6 +2977,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/pr-review/human-merge') {
       void handleHumanMerge(req, res, deps.humanMerge, headers, prReviewLimiter);
+      return;
+    }
+
+    if (path === '/api/pr-review/update-branch') {
+      void handleUpdateBranch(req, res, deps.updateBranch, headers, prReviewLimiter);
       return;
     }
 

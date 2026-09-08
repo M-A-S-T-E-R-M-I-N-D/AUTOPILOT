@@ -70,6 +70,8 @@ import {
   humanMergeReadiness,
   humanMergeConfirmMessage,
   humanMergeResult,
+  updateBranchConfirmMessage,
+  updateBranchResult,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -105,6 +107,8 @@ ${prCheckSummary.toString()}
 ${humanMergeReadiness.toString()}
 ${humanMergeConfirmMessage.toString()}
 ${humanMergeResult.toString()}
+${updateBranchConfirmMessage.toString()}
+${updateBranchResult.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -245,6 +249,22 @@ function renderPrReviewPanel(plans, fetchFailed) {
       mergeBtn.setAttribute('data-tip', readiness.reason);
       mergeBtn.setAttribute('aria-label', readiness.reason);
       actions.appendChild(mergeBtn);
+      // A refusal that names an action offers that action: behind-base is
+      // the one blocked state with a one-click way out, so the instruction
+      // gets a button beside it instead of sending the operator elsewhere.
+      if (readiness.behindBase) {
+        var updateBtn = document.createElement('button');
+        updateBtn.type = 'button';
+        updateBtn.className = 'pr-review-update-branch';
+        updateBtn.textContent = '⟳ Update branch';
+        updateBtn.setAttribute('data-pr-update-branch', String(plan.pr.number));
+        var updateTip =
+          'Merge the current base into this branch so protection lets it merge. ' +
+          'Restarts every check on the new head.';
+        updateBtn.setAttribute('data-tip', updateTip);
+        updateBtn.setAttribute('aria-label', updateTip);
+        actions.appendChild(updateBtn);
+      }
     }
     item.appendChild(actions);
     // The execute outcome lands here AFTER the confirm dialog, once focus has
@@ -325,51 +345,74 @@ document.addEventListener('click', function (e) {
       }
     });
 });
-document.addEventListener('click', function (e) {
-  var b = e.target && e.target.closest && e.target.closest('[data-pr-human-merge]');
-  if (!b || b.disabled) return;
-  var number = parseInt(b.getAttribute('data-pr-human-merge'), 10);
-  var plan = prReviewPlansByNumber[number];
-  if (!plan) return;
-  if (!window.confirm(humanMergeConfirmMessage(plan.pr))) return;
-  var item = b.closest('.pr-review-item');
-  var resultEl = item && item.querySelector('.pr-review-result');
-  b.disabled = true;
-  var originalText = b.textContent;
-  b.textContent = 'Merging…';
-  // expectedHeadRefOid pins the merge to the head the operator was looking
-  // at — the server refuses outright if new commits landed since this card
-  // was drawn, rather than merging something nobody read.
-  fetch('/api/pr-review/human-merge', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ number: number, expectedHeadRefOid: plan.pr.headRefOid }),
-  })
-    .then(function (res) { return res.json(); })
-    .then(function (data) {
-      var result = humanMergeResult(data);
-      if (resultEl) {
-        resultEl.className = result.className;
-        resultEl.textContent = result.text;
-      }
-      if (data && data.merged) {
-        // The PR is gone from the open list now — re-poll so the card goes
-        // with it rather than lingering as a merged ghost.
-        loadPrReviewPanel();
-        return;
-      }
+// The two maintainer verbs — merge and update-branch — are the same
+// interaction: confirm, disable with a working label, POST, write the
+// outcome into the card's live region, re-poll. One wiring, two configs;
+// duplicating it cost real bundle bytes for zero behavior.
+function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor) {
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('[' + attr + ']');
+    if (!b || b.disabled) return;
+    var number = parseInt(b.getAttribute(attr), 10);
+    var plan = prReviewPlansByNumber[number];
+    if (!plan) return;
+    if (!window.confirm(confirmFor(plan.pr))) return;
+    var item = b.closest('.pr-review-item');
+    var resultEl = item && item.querySelector('.pr-review-result');
+    var originalText = b.textContent;
+    b.disabled = true;
+    b.textContent = label;
+    var restore = function () {
       b.disabled = false;
       b.textContent = originalText;
+    };
+    fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(bodyFor(number, plan)),
     })
-    .catch(function () {
-      b.disabled = false;
-      b.textContent = originalText;
-      if (resultEl) {
-        resultEl.className = 'pr-review-result pr-review-result-fail';
-        resultEl.textContent = tr('reportRequestFailed');
-      }
-    });
-});
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        var result = formatFor(data);
+        if (resultEl) {
+          resultEl.className = result.className;
+          resultEl.textContent = result.text;
+        }
+        // Either verb changes the PR's real facts — a merge removes it from
+        // the open list, an update moves its head — so re-poll rather than
+        // leave a stale card on screen. A merged card's button never comes
+        // back, so it is not restored.
+        if (!(data && data.merged)) restore();
+        loadPrReviewPanel();
+      })
+      .catch(function () {
+        restore();
+        if (resultEl) {
+          resultEl.className = 'pr-review-result pr-review-result-fail';
+          resultEl.textContent = tr('reportRequestFailed');
+        }
+      });
+  });
+}
+// expectedHeadRefOid pins the merge to the head the operator was looking at
+// — the server refuses outright if new commits landed since this card was
+// drawn, rather than merging something nobody read.
+wirePrMaintainerAction(
+  'data-pr-human-merge',
+  'Merging…',
+  '/api/pr-review/human-merge',
+  humanMergeConfirmMessage,
+  function (n, plan) { return { number: n, expectedHeadRefOid: plan.pr.headRefOid }; },
+  humanMergeResult
+);
+wirePrMaintainerAction(
+  'data-pr-update-branch',
+  'Updating…',
+  '/api/pr-review/update-branch',
+  updateBranchConfirmMessage,
+  function (n) { return { number: n }; },
+  updateBranchResult
+);
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
 // function declaration from fleetJs()'s text in the same concatenated
 // bundle, the same top-level call shape coordination.ts already relies on.
