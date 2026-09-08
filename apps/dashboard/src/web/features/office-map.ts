@@ -121,8 +121,15 @@ function officeSatellites(svg, NS, center, subagents) {
     // clientJs() concatenates fleetJs() before featureModulesJs()) moves it.
     sat.setAttribute('tabindex', i === 0 ? '0' : '-1');
     sat.setAttribute('role', 'img');
-    sat.setAttribute('data-tip', 'Subagent — ' + subagents[i].label);
-    sat.setAttribute('aria-label', 'Subagent — ' + subagents[i].label);
+    // i18n (board web-msnsndki-dz3vn1): a {name}-templated key embedding the
+    // live, untranslated subagent label — same shape as askActivityAria —
+    // painted via tr() at build and swept by translateDom()'s
+    // [data-i18n-tip-template]/[data-i18n-aria-template] on a locale switch.
+    sat.setAttribute('data-i18n-name', subagents[i].label);
+    sat.setAttribute('data-tip', tr('officeSubagent', subagents[i].label));
+    sat.setAttribute('data-i18n-tip-template', 'officeSubagent');
+    sat.setAttribute('aria-label', tr('officeSubagent', subagents[i].label));
+    sat.setAttribute('data-i18n-aria-template', 'officeSubagent');
     svg.appendChild(sat);
   }
 }
@@ -138,7 +145,12 @@ function officeMapSection(c) {
   svg.setAttribute('viewBox', '0 0 ' + OFFICE_W + ' ' + OFFICE_H);
   svg.setAttribute('class', 'office-map');
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'Agent office map — currently ' + (live ? live.phase : 'idle'));
+  // i18n (board web-msnsndki-dz3vn1): same {name}-template shape as the
+  // subagent satellites above — the live phase key itself stays untranslated
+  // in the slot, like a tool name or file path in every other {name} key.
+  svg.setAttribute('data-i18n-name', live ? live.phase : 'idle');
+  svg.setAttribute('aria-label', tr('officeMapAria', live ? live.phase : 'idle'));
+  svg.setAttribute('data-i18n-aria-template', 'officeMapAria');
   for (var i = 0; i < OFFICE_PHASES.length; i++) {
     var phase = OFFICE_PHASES[i];
     var active = !!live && live.phase === phase;
