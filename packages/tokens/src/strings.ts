@@ -524,6 +524,16 @@
  * chip's `data-i18n-args`) on both surfaces that build it from
  * `web/anomaly.ts`'s `guardDenialChipMeta` — the flight log row and the
  * per-firing trace row — so a bounced firing reads the same in both.
+ * The slice after that tags `web/features/office-map.ts`'s own two
+ * self-contained strings — the orbiting subagent satellites' tip/aria-label
+ * (`officeSubagent`, a `{name}` template embedding the live subagent's
+ * label) and the map SVG's own aria-label (`officeMapAria`, a `{name}`
+ * template embedding the live phase key) — via `tr()` at build plus
+ * `[data-i18n-tip-template]`/`[data-i18n-aria-template]` reading the
+ * element's own `data-i18n-name`. The zone rects' and the live dot's
+ * tips/aria-labels stay English: both embed the shared `OFFICE_TIPS` map
+ * (also read by `liveWorkerCard`/`renderStatTiles`/the activity phase rail),
+ * already flagged above as a later slice.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -1426,6 +1436,8 @@ const EN_STRINGS = {
   foundationCopyAddress: 'Copy address',
   foundationCopied: 'Copied!',
   foundationQrAlt: 'QR code for the {name} address',
+  officeSubagent: 'Subagent — {name}',
+  officeMapAria: 'Agent office map — currently {name}',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -2064,6 +2076,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     foundationCopyAddress: 'העתק כתובת',
     foundationCopied: 'הועתק!',
     foundationQrAlt: 'קוד QR לכתובת {name}',
+    officeSubagent: 'תת-סוכן — {name}',
+    officeMapAria: 'מפת משרד הסוכן — כרגע {name}',
   },
 };
 
