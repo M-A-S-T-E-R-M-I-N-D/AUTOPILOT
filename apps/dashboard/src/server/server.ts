@@ -26,7 +26,7 @@ import { parseFleetCliArgs } from '../flight/fleet-launch.js';
 import type { FleetLaunchApi } from '../flight/fleet-launch-api.js';
 import type { LuckyPlan, LuckyProbe } from '../flight/lucky-plan.js';
 import { FLY_MAX_TURNS } from '../flight/budget.js';
-import type { SearchHit } from '@autopilot/store';
+import { SEVERITIES, type SearchHit, type Severity } from '@autopilot/store';
 import { MILESTONE_TAG_PATTERN } from '@autopilot/engine';
 import type { SpanGraphLens, SpanGraphMode } from '../read/pipeline-graph.js';
 import type { GraphLayoutMode } from '../read/pipeline-layout.js';
@@ -2022,11 +2022,16 @@ async function handleIssueTriageExecute(
 
 /** Shared body parser for both report-from-here endpoints — `{regionId,
  *  regionLabel, description, moduleSources, hasScreenshot, action,
- *  projectId}`. `null` (→ 400) means malformed JSON/body or an unrecognized
- *  `action`. A blank `regionId`/`description`/`projectId` is deliberately
- *  NOT rejected here: `planReportFromHere` is total over those and already
- *  turns a blank field into a reasoned `ReportRejected` plan rather than a
- *  bare error — "always previewed" holds even for a bad report. */
+ *  projectId, severity?}`. `null` (→ 400) means malformed JSON/body or an
+ *  unrecognized `action`. A blank `regionId`/`description`/`projectId` is
+ *  deliberately NOT rejected here: `planReportFromHere` is total over those
+ *  and already turns a blank field into a reasoned `ReportRejected` plan
+ *  rather than a bare error — "always previewed" holds even for a bad
+ *  report. `severity` (board web-mtsf3buh-wdvfvv slice 2) is optional and,
+ *  if present, must be one of the known `SEVERITIES` — an unrecognized value
+ *  is dropped rather than rejecting the whole request, the same
+ *  best-effort stance `moduleSources` filtering already takes on its own
+ *  entries. */
 function parseReportFromHereBody(
   raw: string,
 ): { capture: ReportRegionCapture; action: ReportAction; projectId: string } | null {
@@ -2045,12 +2050,17 @@ function parseReportFromHereBody(
     hasScreenshot?: unknown;
     action?: unknown;
     projectId?: unknown;
+    severity?: unknown;
   };
   const action = typeof body.action === 'string' ? body.action : '';
   if (!isReportAction(action)) return null;
   const moduleSources = Array.isArray(body.moduleSources)
     ? body.moduleSources.filter((source): source is string => typeof source === 'string')
     : [];
+  const severity =
+    typeof body.severity === 'string' && (SEVERITIES as readonly string[]).includes(body.severity)
+      ? (body.severity as Severity)
+      : null;
   return {
     capture: {
       regionId: typeof body.regionId === 'string' ? body.regionId : '',
@@ -2058,6 +2068,7 @@ function parseReportFromHereBody(
       description: typeof body.description === 'string' ? body.description : '',
       moduleSources,
       hasScreenshot: body.hasScreenshot === true,
+      severity,
     },
     action,
     projectId: typeof body.projectId === 'string' ? body.projectId : '',
@@ -2067,7 +2078,7 @@ function parseReportFromHereBody(
 /**
  * Report-from-here's preview endpoint (`POST /api/report-from-here`, body
  * `{regionId, regionLabel, description, moduleSources, hasScreenshot,
- * action, projectId}`). Pure — never touches the store or `gh`:
+ * action, projectId, severity?}`). Pure — never touches the store or `gh`:
  * `planReportFromHere` is total over its inputs, so a blank/invalid capture
  * still returns 200 with a `ReportRejected` plan and reasoning rather than a
  * bare error. A POST (not GET) because the capture body — free-form

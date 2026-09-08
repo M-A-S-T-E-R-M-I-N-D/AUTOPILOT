@@ -27,9 +27,25 @@
  * screenshot/module-source capture wiring in the web shell, that HTTP pair,
  * and the operator panel — a capture reaches this planner as
  * caller-supplied data, so the core stays judgeable in isolation.
+ *
+ * COMPOSER contract grows severity, slice 2 (board web-mtsf3buh-wdvfvv):
+ * `report-compose.ts`'s `composeReport` now suggests a `severity` alongside
+ * its title/body/action (slice 1); this slice threads that suggestion, when
+ * a capture carries one, into the actual plan — `taskInput.severity` for a
+ * `local-task`/`quick-fix-pr` plan, an added `priority: <severity>` label
+ * (the exact scheme `taxonomy-seed.ts`'s HOUSE_TAXONOMY_LABELS already
+ * seeds) for an `issue`/`pool-offer` plan's `gh issue create`. A capture
+ * with no `severity` plans exactly as it always did — this is additive,
+ * never a required field.
  */
 
-import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@autopilot/store';
+import {
+  createTask,
+  setTaskFocus,
+  type CreateTaskInput,
+  type Severity,
+  type Store,
+} from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { classifyIssueDimension } from './issue-triage.js';
 
@@ -52,6 +68,13 @@ export interface ReportRegionCapture {
   readonly description: string;
   readonly moduleSources: readonly string[];
   readonly hasScreenshot: boolean;
+  /** The composer's AI-suggested severity (`report-compose.ts`'s
+   *  `ReportComposeOutput.severity`, board web-mtsf3buh-wdvfvv slice 2) —
+   *  absent for a capture that never ran compose or whose compose was
+   *  rejected. When present, becomes the `taskInput.severity` on a
+   *  local-task/quick-fix-pr plan and an added `priority: <severity>` label
+   *  on an issue/pool-offer plan's `gh issue create`. */
+  readonly severity?: Severity | null;
 }
 
 /** One planned `gh` call — exact argv for `execFile`, never a shell string,
@@ -159,6 +182,14 @@ function planUpstream(
   const body = isPool
     ? `${reportBody(capture)}\n\nOffered to the pool — any co-pilot may claim it and deliver a PR referencing this issue.`
     : reportBody(capture);
+  // `priority: <severity>` matches `taxonomy-seed.ts`'s HOUSE_TAXONOMY_LABELS
+  // scheme exactly — added only when the composer suggested one, never a
+  // second source of truth for the label text itself.
+  const priorityLabel = capture.severity ? `priority: ${capture.severity}` : null;
+  const priorityNote = priorityLabel ? ` (${priorityLabel})` : '';
+  const labelArgs = priorityLabel
+    ? ['--label', label, '--label', priorityLabel]
+    : ['--label', label];
   return {
     ok: true,
     action,
@@ -167,15 +198,15 @@ function planUpstream(
     commands: [
       {
         command: 'gh',
-        args: ['issue', 'create', '--title', title, '--body', body, '--label', label],
+        args: ['issue', 'create', '--title', title, '--body', body, ...labelArgs],
         details: isPool
-          ? `offering "${title}" to the pool under the "${label}" label`
-          : `filing "${title}" as a "${BUG_LABEL}" issue upstream`,
+          ? `offering "${title}" to the pool under the "${label}" label${priorityNote}`
+          : `filing "${title}" as a "${BUG_LABEL}" issue upstream${priorityNote}`,
       },
     ],
     summary: isPool
-      ? `gh issue create — pool offer "${title}" (label "${label}")`
-      : `gh issue create — bug issue "${title}" (label "${BUG_LABEL}")`,
+      ? `gh issue create — pool offer "${title}" (label "${label}"${priorityNote})`
+      : `gh issue create — bug issue "${title}" (label "${BUG_LABEL}"${priorityNote})`,
   };
 }
 
@@ -195,6 +226,7 @@ function planLocal(
       id: reportTaskId(capture, action),
       projectId,
       title,
+      severity: capture.severity ?? null,
       dimension: classifyIssueDimension(`${capture.regionLabel} ${capture.description}`),
       // Operator-authored through the dashboard, so it is queued directly the
       // same way any 'dashboard' task is — no needs_approval detour.
