@@ -593,6 +593,30 @@ main.project-mode { grid-template-columns: 1fr; }
 .pr-review-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .pr-review-number { font-family: var(--font-mono); color: var(--color-text-muted); }
 .pr-review-pr-title { margin: 0; font-size: var(--text-sm); }
+.pr-review-number-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.pr-review-number-link:hover, .pr-review-number-link:focus-visible { border-bottom-color: currentColor; }
+.pr-review-checks { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-1); }
+.pr-review-checks-summary { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.pr-review-check-strip { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.pr-review-check { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); font-size: var(--text-xs); color: var(--color-text-muted); text-decoration: none; }
+a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: currentColor; }
+.pr-review-check-glyph { font-family: var(--font-mono); }
+.pr-review-check-name { font-family: var(--font-mono); }
+.pr-review-check-time { font-variant-numeric: tabular-nums; opacity: 0.75; }
+.pr-review-check-pass { color: var(--color-success); border-color: color-mix(in oklab, var(--color-success) 40%, var(--color-border)); }
+.pr-review-check-fail { color: var(--color-sev-critical); border-color: var(--color-sev-critical); }
+.pr-review-check-running { color: var(--color-accent); border-color: var(--color-accent); }
+/* The one moving thing on the card: a running check breathes so a glance
+   tells work-in-flight from work-parked, the loader affordance GitHub's own
+   checks list uses. Opacity only — compositor-friendly, no layout. No local
+   prefers-reduced-motion block: the sheet's global kill switch (last rule,
+   census-pinned by reduced-motion-kill-switch.test.ts) already zeroes every
+   animation with !important, and a local one would break that census. */
+.pr-review-check-running .pr-review-check-glyph { animation: pr-check-pulse 1.4s ease-in-out infinite; }
+@keyframes pr-check-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.pr-review-check-queued { color: var(--color-text-muted); border-style: dashed; }
+.pr-review-check-skipped { opacity: 0.6; }
+.pr-review-check-optional { opacity: 0.7; border-style: dotted; }
 .pr-review-badge-merge { color: var(--color-success); border-color: var(--color-success); }
 .pr-review-badge-request-changes { color: var(--color-sev-high); border-color: var(--color-sev-high); }
 .pr-review-badge-queue-for-human { color: var(--color-needs-you); border-color: var(--color-needs-you); }

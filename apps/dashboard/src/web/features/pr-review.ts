@@ -63,6 +63,10 @@ import {
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
+  prCheckStateGlyph,
+  formatCheckDuration,
+  prCheckRunTip,
+  prCheckSummary,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -86,6 +90,13 @@ ${prReviewDecisionLabel.toString()}
 ${prReviewConfirmMessage.toString()}
 ${prReviewExecuteResult.toString()}
 ${prReviewExecuteTip.toString()}
+// The pipeline strip's four helpers, same .toString() splice — the per-check
+// rows GET /api/pr-review now carries (operator's "give the tests/stages
+// real expression" catch, 2026-09-09).
+${prCheckStateGlyph.toString()}
+${formatCheckDuration.toString()}
+${prCheckRunTip.toString()}
+${prCheckSummary.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -124,7 +135,19 @@ function renderPrReviewPanel(plans, fetchFailed) {
     prReviewPlansByNumber[plan.pr.number] = plan;
     var item = el('div', 'pr-review-item');
     var head = el('div', 'pr-review-head');
-    var prNumberEl = el('span', 'pr-review-number', '#' + plan.pr.number);
+    // The number is a real link when gh reported the PR's own url (operator,
+    // 2026-09-09: "we pull the data from GitHub — why can't we link straight
+    // to it?"). An <a> only when there IS a url: a link element that goes
+    // nowhere is worse than plain text. rel=noreferrer on a _blank target is
+    // the standard reverse-tabnabbing guard.
+    var prNumberEl = plan.pr.url
+      ? el('a', 'pr-review-number pr-review-number-link', '#' + plan.pr.number)
+      : el('span', 'pr-review-number', '#' + plan.pr.number);
+    if (plan.pr.url) {
+      prNumberEl.setAttribute('href', plan.pr.url);
+      prNumberEl.setAttribute('target', '_blank');
+      prNumberEl.setAttribute('rel', 'noopener noreferrer');
+    }
     // D1 TAB-STOP ROVING (epic 0015): one Tab stop for the whole panel — a
     // busy review round would otherwise cost one Tab press per open PR.
     // wireRoving() below moves it.
@@ -146,6 +169,44 @@ function renderPrReviewPanel(plans, fetchFailed) {
     head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass));
     item.appendChild(head);
     item.appendChild(el('p', 'pr-review-pr-title', plan.pr.title));
+    // THE PIPELINE STRIP: the stages behind the one-word gate verdict, each
+    // its own deep link, each carrying its own elapsed time, running ones
+    // animated. The rollup was always fetched and always discarded at this
+    // boundary — showing it is what turns "pending" into "e2e is 4m in,
+    // windows still queued".
+    var checks = plan.pr.checkRuns || [];
+    if (checks.length) {
+      var checksWrap = el('div', 'pr-review-checks');
+      var summary = el('p', 'pr-review-checks-summary', prCheckSummary(checks));
+      checksWrap.appendChild(summary);
+      var strip = el('div', 'pr-review-check-strip');
+      for (var c = 0; c < checks.length; c++) {
+        var check = checks[c];
+        var chipClass =
+          'pr-review-check pr-review-check-' + check.state + (check.optional ? ' pr-review-check-optional' : '');
+        var chip = check.url ? el('a', chipClass) : el('span', chipClass);
+        var glyph = el('span', 'pr-review-check-glyph', prCheckStateGlyph(check.state));
+        // Decorative: the state is already in the tip and the chip text, so
+        // a screen reader must not hear "check mark" twice per chip.
+        glyph.setAttribute('aria-hidden', 'true');
+        chip.appendChild(glyph);
+        chip.appendChild(el('span', 'pr-review-check-name', check.name));
+        if (check.elapsedMs !== undefined) {
+          chip.appendChild(el('span', 'pr-review-check-time', formatCheckDuration(check.elapsedMs)));
+        }
+        var checkTip = prCheckRunTip(check);
+        chip.setAttribute('data-tip', checkTip);
+        chip.setAttribute('aria-label', checkTip);
+        if (check.url) {
+          chip.setAttribute('href', check.url);
+          chip.setAttribute('target', '_blank');
+          chip.setAttribute('rel', 'noopener noreferrer');
+        }
+        strip.appendChild(chip);
+      }
+      checksWrap.appendChild(strip);
+      item.appendChild(checksWrap);
+    }
     var actions = el('div', 'pr-review-actions');
     var applyBtn = document.createElement('button');
     applyBtn.type = 'button';

@@ -58,6 +58,90 @@ export type PrReviewPanelTranslator = (
 export interface PrReviewCandidateLike {
   readonly number: number;
   readonly title: string;
+  readonly url?: string;
+  readonly checkRuns?: readonly PrCheckRunLike[];
+}
+
+/** One check run as the panel shows it — `flight/pr-review.ts`'s
+ *  `PrCheckRun`, client-side. */
+export interface PrCheckRunLike {
+  readonly name: string;
+  readonly state: string;
+  readonly url?: string;
+  readonly elapsedMs?: number;
+  readonly workflow?: string;
+  readonly optional?: boolean;
+}
+
+/** The glyph one check's state renders as. A dedicated symbol per state
+ *  (not a color alone) is what keeps the strip readable for a colorblind
+ *  reader and in a screenshot — the same reasoning the decision badges
+ *  already carry glyphs. */
+export function prCheckStateGlyph(state: string): string {
+  if (state === 'pass') return '✓';
+  if (state === 'fail') return '✗';
+  if (state === 'running') return '◐';
+  if (state === 'queued') return '◌';
+  if (state === 'skipped') return '⊘';
+  return '?';
+}
+
+/** Human-sized duration for a check's elapsed time: `14s`, `4m44s`,
+ *  `17m31s` — the form GitHub's own checks list uses, because a reader
+ *  comparing our strip to that page should not have to translate. */
+export function formatCheckDuration(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.round(elapsedMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes === 0 ? `${seconds}s` : `${minutes}m${seconds}s`;
+}
+
+/** One check chip's hover/focus text: what it is, where it stands, how
+ *  long it took, and whether it gates the merge at all. */
+export function prCheckRunTip(check: PrCheckRunLike): string {
+  const stateWord =
+    check.state === 'pass'
+      ? 'passed'
+      : check.state === 'fail'
+        ? 'FAILED'
+        : check.state === 'running'
+          ? 'still running'
+          : check.state === 'queued'
+            ? 'queued, not started'
+            : check.state === 'skipped'
+              ? 'skipped'
+              : 'reported no readable state';
+  const parts = [`${check.name} — ${stateWord}`];
+  if (check.elapsedMs !== undefined) parts.push(`${formatCheckDuration(check.elapsedMs)} elapsed`);
+  if (check.workflow) parts.push(`workflow: ${check.workflow}`);
+  if (check.optional) parts.push('optional — does not gate the merge');
+  if (check.url) parts.push('opens this check’s own log on GitHub');
+  return parts.join(' · ') + '.';
+}
+
+/** The one-line summary above the strip: how many checks passed out of how
+ *  many gating ones, and what is still moving. Answers "where is this PR"
+ *  without counting chips. */
+export function prCheckSummary(checks: readonly PrCheckRunLike[]): string {
+  const gating = checks.filter((c) => !c.optional);
+  if (gating.length === 0) return 'No gating checks reported on this head yet.';
+  const passed = gating.filter((c) => c.state === 'pass').length;
+  const failed = gating.filter((c) => c.state === 'fail').length;
+  const running = gating.filter((c) => c.state === 'running').length;
+  const queued = gating.filter((c) => c.state === 'queued').length;
+  const head = passed + '/' + gating.length + ' checks passed';
+  if (failed > 0) return head + ' · ' + failed + ' failed';
+  // Running and queued are counted apart: "2 still running" when one has
+  // not started is the kind of small lie that makes a reader stop trusting
+  // the panel and go read GitHub instead.
+  const moving: string[] = [];
+  if (running > 0) moving.push(running + ' running');
+  if (queued > 0) moving.push(queued + ' queued');
+  // Concatenation, not a template literal, on purpose: a top-level
+  // template-literal return is the shape `discoverFeatureModules` treats as
+  // a bundle-composing assembler, and this display helper is not one — it
+  // would land in the splice manifest as a phantom module.
+  return moving.length > 0 ? head + ' · ' + moving.join(', ') : head;
 }
 
 /** The decision `GET /api/pr-review`'s `plans[].decision` carries — see
