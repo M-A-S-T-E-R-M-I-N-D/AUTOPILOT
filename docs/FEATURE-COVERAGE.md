@@ -97,10 +97,10 @@
 ## I. Models & languages (Ollama)
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] Optional Ollama (toggle), local-only guard (refuse cloud models) | MASTER §6 | M6 |
-| [ ] Multilingual set: he+en critical; zh/ja/ru/es + more | MASTER §6; §2.8 | M6, M9 |
-| [ ] One-click model install/copy; per-task model choice; guidance editable (proposed-not-locked) | MASTER §2.8 | M5, M9 |
-| [ ] Token/usage awareness + Claude membership connection | MASTER §2.12 | M5 |
+| [~] Optional Ollama (toggle), local-only guard (refuse cloud models) — the local adapter is live (`OllamaModel`, `packages/engine/src/adapters/ollama.ts`: single-turn `/api/generate`, cost genuinely 0, a dead server reports a failed envelope rather than throwing) and opt-in via the env sentinel `AUTOPILOT_MECHANICAL_MODEL=ollama-local` (RUNBOOK §6) — an env toggle, not the Settings-screen toggle MASTER §6 names, and only the board-TRIAGE substep routes to it (§G). No local-only guard exists: `AUTOPILOT_OLLAMA_BASE_URL` accepts any URL (the RUNBOOK even suggests a LAN GPU box) and nothing refuses a cloud-hosted Ollama endpoint or model | MASTER §6 | M6 |
+| [ ] Multilingual set: he+en critical; zh/ja/ru/es + more — the local multilingual MODEL set MASTER §6 means (Hebrew via DictaLM, zh/ja/ru/es via multilingual Ollama models) is unbuilt: the tree pulls, recommends, or vets no model at all. Not to be confused with dashboard-UI i18n, which IS live for he+en and RTL-correct — that is §N's row | MASTER §6; §2.8 | M6, M9 |
+| [~] One-click model install/copy; per-task model choice; guidance editable (proposed-not-locked) — per-task model choice is live but AUTOMATIC, not operator-chosen: MODEL ROUTING v1 (`apps/dashboard/src/flight/model-routing.ts`, §G) tiers each firing's claimed task into mechanical/default/escalated → `haiku`/`sonnet`/`fable`, with `AUTOPILOT_MODEL` (flight-wide pin), `AUTOPILOT_MECHANICAL_MODEL` and `AUTOPILOT_OLLAMA_MODEL` the only operator levers (env, RUNBOOK §6). Still unbuilt: any dashboard model picker; one-click Ollama model install/copy (nothing in the tree runs `ollama pull` — `scripts/setup.mjs` bootstraps git/pnpm/deps/the Claude CLI only); and the guidance editor, which is §C's still-unbuilt SOUL editor | MASTER §2.8 | M5, M9 |
+| [x] Token/usage awareness + Claude membership connection — membership connection is the connect screen (`apps/dashboard/src/web/features/connect.ts` + `connect-panel.ts`: subscription / API key / headless OAuth token, secret stored 0600, CSRF-guarded, never echoed — §C's Settings row); usage awareness is the fleet-home stat tiles (`web/stat-tiles.ts`: total cost, total tokens in+out, cost-per-firing sparkline) plus cost semantics v3 (epic 0013): `realCostUsd` apportions the operator's stated subscription price by each unit's share of MACHINE-WIDE 30-day transcript usage (`AUTOPILOT_SUBSCRIPTION_PRICE_USD` + `AUTOPILOT_USAGE_POOL_DIRS`, `flight/usage-pool-config.ts`), surfaced as the fleet-wide "real cost" tile and per-firing flight-log chips (`flight-log-rows.ts`); the quota-pacing advisor (§A) is the engine-side twin. Residual: usage is derived from local transcripts, never queried live from the Claude account, and epic 0013's last `shell.ts` `fmtCost` call site is still open | MASTER §2.12 | M5 |
 
 ## J. Security & standards (regulatory-grade)
 | Feature | Spec | Milestone |
@@ -148,7 +148,7 @@
 |---|---|---|
 | [ ] Strict WCAG 2.2 AA+ (keyboard-complete, contrast, focus, reduced-motion), ARIA APG | PATTERNS §5 | M3→M8 |
 | [x] Machine-checkable a11y automated in the gate (axe-core) — `apps/dashboard/test/web/a11y.test.ts` runs `axe-core` (WCAG 2.0/2.1/2.2 A+AA) against the ACTUAL rendered shell, fleet cards, project page, first-run tour dialog, and the LANDING/RELEASE cards' live-fetched markup, asserting zero violations; runs automatically every `pnpm run test`/`test:impacted` (part of the gate, not a manual/opt-in check) | PATTERNS §5; MASTER §17.1 | M3 |
-| [ ] i18n he/en first (RTL-correct) → wider set; Unicode/CLDR/ICU | PATTERNS §6 | M5, M9 |
+| [~] i18n he/en first (RTL-correct) → wider set; Unicode/CLDR/ICU — he/en is live: `packages/tokens/src/locales.ts` (`LOCALE_NAMES = ['en','he']`, reading direction a first-class locale property) + a full Hebrew `STRINGS` table (`packages/tokens/src/strings.ts`), the masthead language switcher (`shell-html.ts`'s `langButtons` + `web/features/locale.ts`'s `applyLocale`/`translateDom`, which flips `<html lang>` AND `dir` to `rtl` and re-sweeps every `data-i18n*`-tagged element on each fleet tick), non-English tables deferred into `/panels.js` (`locale-data.ts`). Per-surface string coverage is still being extended slice by slice (an active board item); the wider locale set and CLDR/ICU formatting are unbuilt | PATTERNS §6 | M5, M9 |
 | [ ] High UX; calm-by-default, opinionated-strong defaults | MASTER §2.5 | M3→M9 |
 
 ## O. Harness pack & multi-harness projection
@@ -190,7 +190,15 @@ prompt-level subagent fan-out) were both fully live though marked `[ ]`; the war
 the loop's CLI-`--resume` session-carry shipped but measured a net loss and was narrowed to checkpoint continuation
 plus finish-line extension; the incremental-index row kept `[~]` with the REPO-MAP digest credited and the
 stable-prefix cache layout named as the real gap — `BACKLOG-999.md` §H's matching warm-session/semantic-index row
-carried the same wrong `[ ]` and was corrected alongside it. Sections D (remaining rows), I, K–O are still **not**
-re-audited (board web-mtndm5fc-2vloky) —
+carried the same wrong `[ ]` and was corrected alongside it. Section I was audited on 2026-09-08 — 3 of its 4 rows
+corrected: the Ollama row moved to `[~]` (the local adapter and its env opt-in are live; the Settings toggle and the
+cloud-refusing guard are not — `AUTOPILOT_OLLAMA_BASE_URL` accepts any URL); the model-choice row moved to `[~]`
+(automatic per-task routing is live; the picker, one-click install and guidance editor are not); token/usage awareness
++ membership connection was fully live (connect screen, cost/tokens tiles, cost-semantics-v3 real cost) though marked
+`[ ]` and moved to `[x]`; the multilingual-MODEL-set row was verified genuinely unbuilt and kept `[ ]`, but §N's
+dashboard-UI i18n row — he/en live and RTL-correct — was corrected to `[~]` alongside, since the two are easily
+conflated. `BACKLOG-999.md` §E carried the same wrong `[ ]` marks on its Ollama, model-choice and (partially) bootstrap
+rows, as did §H's token/usage row; all were corrected alongside. Sections D (remaining rows) and K–O (bar N's i18n
+row) are still **not** re-audited (board web-mtndm5fc-2vloky) —
 `BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this pass shows
 it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
