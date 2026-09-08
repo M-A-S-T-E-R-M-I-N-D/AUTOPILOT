@@ -1015,8 +1015,18 @@ const BENIGN_SCRIPTS = new Set([
   'self-study/pin-eval-suite.mjs',
   'setup.mjs',
   'threat-model/generate-table.mjs',
+  // The pure render half of generate-table.mjs — string formatting only: no
+  // fs, no built output, no credentials, no decisions. It exists so the unit
+  // test can import it on a tree that has never been built; the dist-reading
+  // half stays in generate-table.mjs, out of every test import graph (see
+  // apps/dashboard/test/tooling/tests-need-no-build.test.ts).
+  'threat-model/render-table.mjs',
   // .d.mts declaration stub for the sibling .mjs — types only, no runtime,
   // the same class as every other generator .d.mts already listed here.
+  'threat-model/render-table.d.mts',
+  // Same declaration-stub class for generate-table.mjs itself — added in the
+  // same refactor, missed in this list's first pass (the census caught it,
+  // as designed).
   'threat-model/generate-table.d.mts',
   // Renders docs/CONTRAST-MATRIX.md from @autopilot/tokens' own pure
   // contrastMatrix() — the same generate-a-committed-doc-from-pure-data class
