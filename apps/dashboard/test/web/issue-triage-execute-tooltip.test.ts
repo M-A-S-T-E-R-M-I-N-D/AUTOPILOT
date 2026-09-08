@@ -32,6 +32,10 @@ const SKIP = {
   issue: { number: 44, title: 'Already handled last pass' },
   decision: { decision: 'skip', reasoning: 'Triaged previously.' },
 };
+const DOSSIER = {
+  issue: { number: 45, title: 'partner application: @someone' },
+  decision: { decision: 'dossier', reasoning: 'Standing application.' },
+};
 
 describe('issueTriageExecuteTip — Run KEEPER triage button hover/focus text', () => {
   it('names the batch size and per-decision counts in one sentence', () => {
@@ -55,6 +59,13 @@ describe('issueTriageExecuteTip — Run KEEPER triage button hover/focus text', 
     expect(tip).toContain('1 to accept');
     expect(tip).toContain('0 already triaged');
     expect(tip).toContain('label + comment + new board task');
+  });
+
+  it('counts a dossier decision separately from accept/duplicate/skip', () => {
+    const tip = issueTriageExecuteTip([ACCEPT, DUPLICATE, SKIP, DOSSIER]);
+    expect(tip).toContain('4 open issues');
+    expect(tip).toContain('1 to post a maintainer evidence dossier for');
+    expect(tip).toContain('1 already triaged');
   });
 });
 

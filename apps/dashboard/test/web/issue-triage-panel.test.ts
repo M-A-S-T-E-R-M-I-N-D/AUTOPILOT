@@ -29,6 +29,10 @@ describe('issueTriageDecisionLabel', () => {
     expect(issueTriageDecisionLabel('skip')).toBe('⏭ skip');
   });
 
+  it('labels a dossier decision', () => {
+    expect(issueTriageDecisionLabel('dossier')).toBe('📋 dossier → maintainer');
+  });
+
   it('echoes back an unrecognized decision verbatim rather than throwing', () => {
     expect(issueTriageDecisionLabel('mystery')).toBe('mystery');
   });
@@ -77,6 +81,25 @@ describe('issueTriageConfirmMessage', () => {
     expect(msg).toContain(
       '0 issues already matching open work will be labeled duplicate and commented',
     );
+  });
+
+  it('counts a dossier decision separately, never folding it into skip', () => {
+    const plans = [
+      {
+        issue: { number: 5, title: 'partner application: @someone' },
+        decision: { decision: 'dossier', reasoning: 'Standing application.' },
+      },
+      {
+        issue: { number: 6, title: 'already triaged' },
+        decision: { decision: 'skip', reasoning: 'already carries a pool label' },
+      },
+    ];
+    const msg = issueTriageConfirmMessage(plans);
+    expect(msg).toContain(
+      '1 standing application will get a KEEPER evidence dossier posted for the maintainer ' +
+        'to decide (never auto-verdicted)',
+    );
+    expect(msg).toContain('1 issue already triaged in a previous pass will be skipped');
   });
 
   it('handles an all-duplicate batch with zero accepts', () => {
