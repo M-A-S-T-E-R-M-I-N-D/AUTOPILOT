@@ -309,6 +309,23 @@ flipped back to open — reopen = a fresh-id task, and only through your explici
 Both sweeps are best-effort: a crash prints `sweep skipped (best-effort, non-fatal)` in the
 flight log and never fails the flight.
 
+**MIRROR PASS previews (epic 0019 S3, on demand — not a per-flight sweep):** three read-only
+endpoints let you ask what the issues⇄board mirror WOULD do for one project before any execute
+path exists. Each takes `?project=<id>`, answers `null` for an unknown project id, 400 without
+one, and 404 when the dashboard was started without the preview wired in; none of them writes
+to GitHub or the store.
+
+| Endpoint | Derivation | What it reports |
+|---|---|---|
+| `GET /api/mirror-pass` | reconcile | per `github-<n>` task: a done board task whose linked issue is still open ⇒ "close it with the landing SHA" |
+| `GET /api/mirror-pass/landing-note` | landing-note dedup | a task whose issue already closed some other way but whose landed commits have no landed-in comment yet |
+| `GET /api/mirror-pass/drift` | README/docs claims ↔ tree | the project's own `README.md` checked against `package.json` (version), `docs/THIRD-PARTY-LICENSES.md` (package count) and its internal links — no `gh` call at all |
+
+The drift preview is the on-demand cousin of DOC-FRESHNESS above: it answers "what does the
+README claim that the tree no longer backs?" for a single project right now, instead of
+proposing a task once per flight. The mutating execute counterpart and the stale-claim reaper
+derivation are separate slices and have not shipped.
+
 ## 8. KEEPER review ritual (why a PR was merged, bounced, or held for you)
 
 Not a failure mode — the maintainer-autopilot behavior (epic 0007, PLATFORM 4/7), written down
