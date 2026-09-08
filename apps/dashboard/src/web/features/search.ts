@@ -449,7 +449,8 @@ function searchInit() {
     if (!activityEl || !activity || typeof activity !== 'object') return;
     var tool = typeof activity.tool === 'string' ? activity.tool : 'Tool';
     var target = typeof activity.target === 'string' ? activity.target : '';
-    var chip = el('span', 'ask-activity-chip', target ? tool + ': ' + target : tool);
+    var label = target ? tool + ': ' + target : tool;
+    var chip = el('span', 'ask-activity-chip', label);
     // D1 TAB-STOP ROVING (epic 0015, board web-mtd1wyte-ssntzi): the trail is
     // ONE roving group — a Deep answer streams one chip per Read/Grep/Glob
     // call, and each used to be its own Tab stop (thirty files read, thirty
@@ -459,8 +460,15 @@ function searchInit() {
     // trail, so there is never a second '0'. The shared wireRoving() handlers
     // (registered below) move it with Left/Right/Home/End.
     chip.setAttribute('tabindex', activityEl.querySelector('.ask-activity-chip') ? '-1' : '0');
-    chip.setAttribute('data-tip', 'A tool call the model made while researching this answer');
-    chip.setAttribute('aria-label', 'Tool call: ' + (target ? tool + ': ' + target : tool));
+    // i18n (board web-msnsndki-dz3vn1): the tip/aria prefix are fixed UI text;
+    // the tool/target pair itself is live data, untranslated in the chip's
+    // own label AND embedded via the {name} slot the way shell.ts's
+    // liveToolAria does.
+    chip.setAttribute('data-tip', tr('askActivityTip'));
+    chip.setAttribute('data-i18n-tip', 'askActivityTip');
+    chip.setAttribute('aria-label', tr('askActivityAria', label));
+    chip.setAttribute('data-i18n-aria-template', 'askActivityAria');
+    chip.setAttribute('data-i18n-name', label);
     activityEl.appendChild(chip);
   }
   // wireRoving comes from fleetJs()'s output, hoisted into the same flat
@@ -472,10 +480,22 @@ function searchInit() {
     if (!text) return;
     renderMarkdown(answerEl, text);
     if (sources && sources.length) {
-      var sourcesEl = el('span', 'ask-sources', 'sources: ' + sources.join(' · '));
+      // i18n (board web-msnsndki-dz3vn1): "sources:"/"Sources:" are fixed UI
+      // text, {name}-templated the way liveToolAria/architectProposes are;
+      // the joined file list itself is live data, left untranslated. The
+      // aria-label reuses the SAME ' · '-joined list as the visible text
+      // (rather than a separately-joined ', ' list) so one data-i18n-name
+      // value can serve both this element's [data-i18n-template] AND
+      // [data-i18n-aria-template] sweep.
+      var joined = sources.join(' · ');
+      var sourcesEl = el('span', 'ask-sources', tr('askSources', joined));
+      sourcesEl.setAttribute('data-i18n-template', 'askSources');
+      sourcesEl.setAttribute('data-i18n-name', joined);
       sourcesEl.setAttribute('tabindex', '0');
-      sourcesEl.setAttribute('data-tip', 'Indexed files the model consulted to ground this answer');
-      sourcesEl.setAttribute('aria-label', 'Sources: ' + sources.join(', '));
+      sourcesEl.setAttribute('data-tip', tr('askSourcesTip'));
+      sourcesEl.setAttribute('data-i18n-tip', 'askSourcesTip');
+      sourcesEl.setAttribute('aria-label', tr('askSourcesAria', joined));
+      sourcesEl.setAttribute('data-i18n-aria-template', 'askSourcesAria');
       answerEl.appendChild(sourcesEl);
     }
   }
@@ -499,11 +519,34 @@ function searchInit() {
     var safety = typeof proposal.safety === 'string' ? proposal.safety : 'write';
     var args = proposal.args && typeof proposal.args === 'object' ? proposal.args : {};
     var card = el('div', 'control-proposal');
-    card.appendChild(el('p', 'control-proposal-summary', 'ARCHITECT proposes: ' + tool));
+    // i18n (board web-msnsndki-dz3vn1): "ARCHITECT proposes: " is fixed UI
+    // text, {name}-templated with the live tool name, the way
+    // shell.ts's liveToolAria embeds a live value.
+    var summaryEl = el('p', 'control-proposal-summary', tr('architectProposes', tool));
+    summaryEl.setAttribute('data-i18n-template', 'architectProposes');
+    summaryEl.setAttribute('data-i18n-name', tool);
+    card.appendChild(summaryEl);
     card.appendChild(el('pre', 'control-proposal-text', JSON.stringify(args, null, 2)));
     var statusEl = el('p', 'control-proposal-status', '');
+    // The status swaps between three states over one run (Running…, then
+    // Done. or Failed: <reason>) while the card stays mounted — tagged with
+    // whichever key/template matches its CURRENT state, the busy/idle
+    // key-swap setAskLabel() already uses for the Ask button, so a mid-run
+    // locale toggle repaints the state actually showing and not a stale one.
+    function setStatus(key) {
+      statusEl.textContent = tr(key);
+      statusEl.setAttribute('data-i18n', key);
+      statusEl.removeAttribute('data-i18n-template');
+      statusEl.removeAttribute('data-i18n-name');
+    }
+    function setStatusFailed(name) {
+      statusEl.textContent = tr('proposalFailed', name);
+      statusEl.setAttribute('data-i18n-template', 'proposalFailed');
+      statusEl.setAttribute('data-i18n-name', name);
+      statusEl.removeAttribute('data-i18n');
+    }
     function run() {
-      statusEl.textContent = 'Running…';
+      setStatus('proposalRunning');
       fetch('/api/control/execute', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -511,23 +554,26 @@ function searchInit() {
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
-          statusEl.textContent = res && res.ok ? 'Done.' : 'Failed: ' + ((res && res.error) || 'unknown error');
+          if (res && res.ok) setStatus('proposalDone');
+          else setStatusFailed((res && res.error) || tr('proposalUnknownError'));
           operatorActionLog = recordOperatorAction(operatorActionLog, 'ARCHITECT ran ' + tool, OPERATOR_ACTION_LOG_CAP);
         })
-        .catch(function () { statusEl.textContent = 'Failed: request error.'; });
+        .catch(function () { setStatusFailed(tr('proposalRequestError')); });
     }
     if (safety === 'read') {
       card.appendChild(statusEl);
       run();
     } else {
       var row = el('div', 'control-proposal-row');
-      var tip = safety === 'destructive'
-        ? 'This action cannot be undone — confirm to run it'
-        : 'Run this proposed action';
-      var confirmBtn = el('button', 'control-proposal-confirm', safety === 'destructive' ? 'Confirm (destructive)' : 'Confirm');
+      var tipKey = safety === 'destructive' ? 'proposalConfirmDestructiveTip' : 'proposalConfirmTip';
+      var labelKey = safety === 'destructive' ? 'proposalConfirmDestructive' : 'proposalConfirm';
+      var confirmBtn = el('button', 'control-proposal-confirm', tr(labelKey));
+      confirmBtn.setAttribute('data-i18n', labelKey);
       confirmBtn.setAttribute('type', 'button');
-      confirmBtn.setAttribute('data-tip', tip);
-      confirmBtn.setAttribute('aria-label', tip);
+      confirmBtn.setAttribute('data-tip', tr(tipKey));
+      confirmBtn.setAttribute('data-i18n-tip', tipKey);
+      confirmBtn.setAttribute('aria-label', tr(tipKey));
+      confirmBtn.setAttribute('data-i18n-aria', tipKey);
       confirmBtn.addEventListener('click', function () {
         confirmBtn.disabled = true;
         run();
