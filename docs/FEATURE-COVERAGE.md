@@ -60,11 +60,11 @@
 ## E. Progression gauge + inbox/intake
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] Per-finding tagging: severity (🔴🟠🟡⚪) × dimension (a11y/security/UX/human/learnings/info/data/priorities) | MASTER §16.1 | M4 |
-| [ ] Readiness gauge: % + color bar + per-dimension breakdown, per-project AND fleet | MASTER §16.1 | M4 |
+| [x] Per-finding tagging: severity (🔴🟠🟡⚪) × dimension (a11y/security/UX/human/learnings/info/data/priorities) — the task schema carries both (`SEVERITIES`/`DIMENSIONS` enums, `packages/store/src/types.ts`, matching the full dimension set), rendered on the task board as chips (`taskSeverityChip`/`taskDimensionChip`, `apps/dashboard/src/web/task-queue.ts`) | MASTER §16.1 | M4 |
+| [~] Readiness gauge: % + color bar + per-dimension breakdown, per-project AND fleet — per-project severity color bar is live (`openSeverityGauge` + `gaugeSegments`, the fleet card's findings gauge); fleet-wide is only a scalar open-findings count (`FleetTotals.openFindings`, `apps/dashboard/src/read/fleet.ts`), with no per-severity/per-dimension breakdown at fleet level and no numeric "%" framing anywhere | MASTER §16.1 | M4 |
 | [ ] Status ladder: RED→ORANGE→YELLOW→WHITE→🟣needs-you→🔵STABLE→🟢completed/affirmed | MASTER §16.1 | M4 |
-| [ ] Autopilot INBOX (message the running bot: note/task/plan-request/update-request mid-flight) | MASTER §16.2 | M4 |
-| [ ] Triage sub-agent: live-watch inbox+repo+backlog; place/plan/task/do; never stall | MASTER §16.2 | M4 |
+| [x] Autopilot INBOX (message the running bot: note/task/plan-request/update-request mid-flight) — a dashboard message box (`apps/dashboard/src/inbox/add.ts`, wired into `server/main.ts`) writes into the same `INBOX/` folder every firing reads as optional context (`buildInboxDigest`, `packages/engine/src/inbox.ts`); dropped notes auto-triage into board tasks (`flight/inbox-triage.ts`, `source:'inbox'`) — every note collapses to one generic task, with no formal note/plan-request/update-request type split | MASTER §16.2 | M4 |
+| [~] Triage sub-agent: live-watch inbox+repo+backlog; place/plan/task/do; never stall — post-flight (once-per-firing) inbox triage is live and unconditional (`triageInboxEntries` turns every dropped note straight into a task, no place/plan-further decision); live-watch and repo/backlog-driven triage are still pending | MASTER §16.2 | M4 |
 
 ## F. Verification boundary + evolution
 | Feature | Spec | Milestone |
@@ -171,7 +171,14 @@ board-by-status columns + raw export, and the same Approvals-queue "edit" action
 live tree. Sections F and H were audited the same day — 4 more rows corrected (evaluation-label capture and the
 firing prompt's own reasonable-interpretation/never-stall principle were both further along than `[ ]`; the
 multi-project registry's run/stop/scheduling and its fleet-wide telemetry/fairness rollup were both live and
-untracked) — `BACKLOG-999.md` §D agreed with the same wrong `[ ]` marks and was corrected alongside it. Sections
-B, D (remaining rows), E, G (already current), I–O are still **not** re-audited (board web-mtndm5fc-2vloky) —
-`BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this pass shows
-it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
+untracked) — `BACKLOG-999.md` §D agreed with the same wrong `[ ]` marks and was corrected alongside it. Section B
+was re-audited on 2026-09-08 and found already accurate (all 5 rows' `[x]`/`[~]` marks matched the live tree; no
+change). Section E was audited the same day — 4 of its 5 rows corrected (severity×dimension tagging and the
+INBOX read/write/auto-triage loop were both fully live though marked `[ ]`; the readiness gauge and the triage
+sub-agent are each partially live, upgraded to `[~]` with the specific gap named; the status-ladder row was
+verified genuinely unbuilt and left alone) — `BACKLOG-999.md` §I carried the same wrong marks and was corrected
+alongside it, except its status-ladder-adjacent PURPLE/BLUE-GREEN gate rows, which name a computed ladder state
+that still does not exist and were left `[ ]`. Sections D (remaining rows), G (already current), J–O are still
+**not** re-audited (board web-mtndm5fc-2vloky) — `BACKLOG-999.md` is generally the more actively-maintained
+backlog when the two disagree, but as this pass shows it isn't infallible either; check the live tree before
+trusting either doc's `[x]`/`[~]` marks.*
