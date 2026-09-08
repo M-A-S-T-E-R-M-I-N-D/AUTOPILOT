@@ -6,6 +6,41 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Added
+
+- feat(i18n): the flight console panel's own chrome speaks Hebrew too
+- feat(i18n): the severity gauge's all-clear tip + the task drag handle tip speak Hebrew
+- feat(i18n): the flight log's Show-all / Show-fewer toggle speaks Hebrew
+- feat(i18n): the flight log's Load-older-firings button speaks Hebrew
+- feat(i18n): the project page's Sync-to-GitHub button + Make-public checkbox speak Hebrew
+- feat(dashboard): pre-push PARITY GATE — landing/convergence runs CI's own ci:* checks
+- feat(i18n): the search palette's result states + the settings-row hints speak Hebrew
+- feat(dashboard): guard-verify refusals reach the event stream + surface as a needs-you chip
+- feat(i18n): the be-right-back reconnect overlay speaks Hebrew
+- feat(dashboard): convergence-unverifiable gate demotions surface as a needs-you chip
+- feat(i18n): the fleet landmark's "flying now" label + empty state speak Hebrew
+- feat(community): @gabibi555 becomes the first Active partner — registry row per #29
+- feat(samples): build the missing static-site fixture repo
+- feat(dashboard): the "flying now" chip strip links to its lane card
+- feat(dashboard): a report-born task lands FOCUSED — visible and prioritized at birth
+- feat(i18n): translate the SOUL-unreviewed badge and the fleet-wisdom ratify/dismiss buttons
+- feat(i18n): translate the task board's focus/empty notes and its approve/reject/done buttons
+- feat(i18n): translate the evolution cluster's trend-chart and approval-summary headings
+- feat(i18n): translate the RELEASE panel's loading/unavailable/no-tags states and milestone label
+- feat(identity): dead-identity tripwires — neither retired address can ever be restored by accident
+- feat(identity): the operator's declared public address is the one sanctioned personal email
+- feat(i18n): translate the process-health cluster's DORA/parallel-gate/warm-sessions panel titles
+
+### Fixed
+
+- fix(dashboard): guard fly.ts sync-back git calls against a live sibling lock
+- fix(dashboard): flag contributor-dossier.ts as security-sensitive, apply prettier
+- fix(dashboard): convergence-unverifiable and guard-verify-failed chips get a real label
+- fix(dashboard): flight-map tooltip text stays inside its own bubble
+- fix(dashboard): masthead popovers are mutually exclusive + theme/lang panels size to content
+- fix(i18n): landing empty-state speaks native Hebrew + the translation doctrine is law
+- fix(identity): the dead-identity wall no longer carries what it bans
+
 ## [0.29.0] — 2026-09-07
 
 ### Added
