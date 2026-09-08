@@ -110,7 +110,7 @@ function reportMenuDescription(typed, capture) {
   var captured = formatCapturedReportContext(capture);
   return typed.trim() ? typed + '\\n\\n' + captured : captured;
 }
-function reportMenuCaptureBody(pid, capture, typed, action) {
+function reportMenuCaptureBody(pid, capture, typed, action, severity) {
   var owning = capture && capture.owningModule;
   return JSON.stringify({
     regionId: owning ? owning.regionId : 'element',
@@ -120,6 +120,7 @@ function reportMenuCaptureBody(pid, capture, typed, action) {
     hasScreenshot: false,
     action: action,
     projectId: pid,
+    severity: severity || undefined,
   });
 }
 var reportMenuEl = null;
@@ -343,6 +344,7 @@ function paintReportDialog(pid, capture) {
   actionSel.id = actionId;
   actionSel.className = 'report-action';
   var actionValues = ['issue', 'quick-fix-pr', 'local-task', 'pool-offer'];
+  var severityValues = ['critical', 'high', 'medium', 'low'];
   for (var i = 0; i < actionValues.length; i++) {
     var opt = document.createElement('option');
     opt.value = actionValues[i];
@@ -363,7 +365,14 @@ function paintReportDialog(pid, capture) {
   // the model suggests one of the four known actions, pre-selects it —
   // Preview/Execute below always re-derive from whatever text/action are on
   // screen at that moment, so a rejected or malformed compose leaves the
-  // operator's own typing untouched.
+  // operator's own typing untouched. COMPOSER contract grows severity, slice
+  // 2 (board web-mtsf3buh-wdvfvv): a successful compose's suggested
+  // severity is captured into composedSeverity here too (validated against
+  // the same four known values actionValues mirrors for action) and travels
+  // on every Preview/Execute body report-from-here.ts's parseReportFromHereBody
+  // already accepts it on — this dialog is the ONLY live caller of that
+  // endpoint, so without this wire the backend field a capture can carry
+  // would never actually get populated.
   var composeBtn = document.createElement('button');
   composeBtn.type = 'button';
   composeBtn.className = 'report-compose';
@@ -399,6 +408,7 @@ function paintReportDialog(pid, capture) {
         if (j && j.ok && title && body) {
           desc.value = title + '\\n\\n' + body;
           if (j.action && actionValues.indexOf(j.action) !== -1) actionSel.value = j.action;
+          composedSeverity = j.severity && severityValues.indexOf(j.severity) !== -1 ? j.severity : null;
           composeStatusEl.className = 'report-compose-status report-compose-ok';
           composeStatusEl.textContent = tr('reportComposeAiReady', { action: reportActionLabel(actionSel.value) });
         } else {
@@ -427,6 +437,7 @@ function paintReportDialog(pid, capture) {
   resultEl.setAttribute('aria-live', 'polite');
   dialog.appendChild(resultEl);
   var previewedPlan = null;
+  var composedSeverity = null;
   function renderPlan(plan) {
     previewedPlan = null;
     planEl.replaceChildren();
@@ -455,7 +466,7 @@ function paintReportDialog(pid, capture) {
       fetch('/api/report-from-here/execute', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: reportMenuCaptureBody(pid, capture, desc.value, actionSel.value),
+        body: reportMenuCaptureBody(pid, capture, desc.value, actionSel.value, composedSeverity),
       })
         .then(function (res) { return res.json().then(function (data) { return data; }); })
         .then(function (data) {
@@ -479,7 +490,7 @@ function paintReportDialog(pid, capture) {
     fetch('/api/report-from-here', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: reportMenuCaptureBody(pid, capture, desc.value, actionSel.value),
+      body: reportMenuCaptureBody(pid, capture, desc.value, actionSel.value, composedSeverity),
     })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
