@@ -38,10 +38,10 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] Resource/quota sharing + fairness across parallel projects — `FlightRunnerRegistry`'s `maxConcurrent` FIFO queue, its own doc comment calls it "shared-quota fairness"
 
 ## E. Models & languages (Ollama)
-- [ ] Optional Ollama integration (toggle), local-only guard (refuse cloud models for confidentiality)
-- [ ] Multilingual set: Hebrew + English (critical), Chinese, Japanese, Russian, Spanish, + more
-- [ ] One-click model install/copy; per-task model choice; enable/disable; guidance editable (proposed-not-locked)
-- [ ] The "install everything" bootstrap (runtime + Ollama + models) — takes as long as it takes, SOTA UX
+- [~] (`adapters/ollama.ts` live, opt-in via `AUTOPILOT_MECHANICAL_MODEL=ollama-local` — an env toggle, not a Settings toggle; NO local-only guard, `AUTOPILOT_OLLAMA_BASE_URL` accepts any URL — FEATURE-COVERAGE §I) Optional Ollama integration (toggle), local-only guard (refuse cloud models for confidentiality)
+- [ ] (the local multilingual MODEL set is unbuilt; dashboard-UI i18n for he+en IS live and RTL-correct — FEATURE-COVERAGE §N) Multilingual set: Hebrew + English (critical), Chinese, Japanese, Russian, Spanish, + more
+- [~] (automatic per-task routing live — `flight/model-routing.ts` + `routing.ts`, env-only levers; no model picker, no one-click install, no guidance editor — FEATURE-COVERAGE §I) One-click model install/copy; per-task model choice; enable/disable; guidance editable (proposed-not-locked)
+- [~] (`SETUP.cmd`/`SETUP.sh` → `scripts/setup.mjs` bootstraps pnpm + deps + the Claude CLI on first run; the Node runtime, Ollama and models are NOT installed) The "install everything" bootstrap (runtime + Ollama + models) — takes as long as it takes, SOTA UX
 
 ## F. Security & trust
 - [x] (CSP self, guard hooks, pinning, scans) Product hardening: no secrets, CSP, dep pinning + SRI, input validation at boundaries
@@ -56,7 +56,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [ ] README + ARCHITECTURE + demo GIF + docs site
 
 ## H. The long tail (to be expanded toward 999)
-- [ ] Token/usage awareness surfaced in the UI + membership connection flows
+- [x] (connect screen + fleet-home cost/tokens tiles + cost-semantics-v3 real-cost tile and flight-log chips — FEATURE-COVERAGE §I) Token/usage awareness surfaced in the UI + membership connection flows
 - [ ] Backup/restore ergonomics + "explain the hardware/impact" prompts before destructive-ish actions
 - [ ] Notifications (needs-you, anomaly, ship) across channels
 - [ ] Export/share reports; scheduled runs; cron/time-of-day windows
