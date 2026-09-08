@@ -97,6 +97,6 @@ describe('the ask answer sources strip explains itself on hover/focus', () => {
     expect(sources?.getAttribute('data-tip')).toBe(
       'Indexed files the model consulted to ground this answer',
     );
-    expect(sources?.getAttribute('aria-label')).toBe('Sources: src/a.ts, src/b.ts');
+    expect(sources?.getAttribute('aria-label')).toBe('Sources: src/a.ts · src/b.ts');
   });
 });
