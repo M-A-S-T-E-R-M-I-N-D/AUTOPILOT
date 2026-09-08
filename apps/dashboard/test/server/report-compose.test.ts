@@ -177,6 +177,8 @@ describe('handleReportCompose', () => {
       labels: ['bug'],
       action: 'issue',
       language: 'en',
+      severity: 'high',
+      severityReasoning: 'why',
     });
     const req = fakeRequest({ method: 'POST', contentType: 'application/json' });
     const res = fakeResponse();
