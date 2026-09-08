@@ -119,6 +119,7 @@ import {
   type PrReviewExecuteResult,
 } from '../flight/pr-review-execute.js';
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
+import type { MirrorPassPlan } from '../flight/mirror-pass.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -441,6 +442,15 @@ export type IssueTriagePreviewApi = (
  *  `flight/issue-triage-execute.ts`). `null` means an unknown project id. */
 export type IssueTriageExecuteApi = (projectId: string) => Promise<IssueTriageRitualResult | null>;
 
+/** MIRROR PASS reconcile preview (injected; reads only, shells to `gh issue
+ *  view` on demand) — derivation 1/4 of EPIC 0019 S3 (board
+ *  `web-mtrh1hlh-62l41b`), "board task done ⇒ close linked issue with the
+ *  landing SHA" — see `flight/mirror-pass-execute.ts`'s
+ *  `createMirrorPassPreviewApi`. `null` means an unknown project id. */
+export type MirrorPassPreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassPlan[] | null>;
+
 /** The report-from-here preview (injected; pure — a region capture arrives
  *  fully formed from the request body, so this never reads the store or
  *  shells out — see `flight/report-from-here-execute.ts`). Turns a capture +
@@ -563,6 +573,11 @@ export interface ServerDeps extends RouteDeps {
   readonly prReviewExecute?: PrReviewExecuteApi;
   readonly issueTriage?: IssueTriagePreviewApi;
   readonly issueTriageExecute?: IssueTriageExecuteApi;
+  /** MIRROR PASS reconcile preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
+   *  VERDICT `ap-mtsg3nc0-3` slice (a)) — read-only, behind `GET
+   *  /api/mirror-pass`. The mutating execute counterpart is a separate
+   *  slice per the VERDICT, not wired here. */
+  readonly mirrorPass?: MirrorPassPreviewApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -2020,6 +2035,42 @@ async function handleIssueTriageExecute(
   }
 }
 
+/**
+ * The MIRROR PASS reconcile preview endpoint (`GET
+ * /api/mirror-pass?project=`). Read-only, same on-demand-not-polled
+ * rationale as {@link handleIssueTriage} — shells to `gh` fresh on every
+ * call, reconciling every `github-<n>` board task against its real issue
+ * state. Degrades to `{ mirrorPass: null }` instead of crashing when the
+ * read throws (a flaky `gh` call shouldn't take the dashboard down).
+ */
+async function handleMirrorPass(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassPreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    send(200, { mirrorPass: await api(project) });
+  } catch {
+    send(200, { mirrorPass: null });
+  }
+}
+
 /** Shared body parser for both report-from-here endpoints — `{regionId,
  *  regionLabel, description, moduleSources, hasScreenshot, action,
  *  projectId, severity?}`. `null` (→ 400) means malformed JSON/body or an
@@ -2686,6 +2737,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/issue-triage/execute') {
       void handleIssueTriageExecute(req, res, deps.issueTriageExecute, headers, issueTriageLimiter);
+      return;
+    }
+
+    if (path === '/api/mirror-pass') {
+      void handleMirrorPass(req, res, deps.mirrorPass, headers);
       return;
     }
 

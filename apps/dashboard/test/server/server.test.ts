@@ -1945,6 +1945,46 @@ describe('createServer (live loopback)', () => {
     expect((await fetch(`${base}/api/issue-triage?project=p1`)).status).toBe(404);
   });
 
+  it('GET /api/mirror-pass previews the reconcile finding for every github-<n> task on a known project', async () => {
+    const plan = {
+      task: { id: 'github-9', status: 'done' as const, landedSha: 'abc123' },
+      finding: null,
+      commands: [],
+    };
+    const base = await start({ mirrorPass: async (pid) => (pid === 'p1' ? [plan] : null) });
+    const res = await fetch(`${base}/api/mirror-pass?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ mirrorPass: [plan] });
+
+    const unknown = await fetch(`${base}/api/mirror-pass?project=nope`);
+    expect(await unknown.json()).toEqual({ mirrorPass: null });
+
+    const noProject = await fetch(`${base}/api/mirror-pass`);
+    expect(noProject.status).toBe(400);
+  });
+
+  it('degrades /api/mirror-pass to { mirrorPass: null } instead of crashing when the read throws', async () => {
+    const base = await start({
+      mirrorPass: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/mirror-pass?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ mirrorPass: null });
+  });
+
+  it('404s /api/mirror-pass when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/mirror-pass?project=p1`)).status).toBe(404);
+  });
+
+  it('405s /api/mirror-pass for a non-GET method', async () => {
+    const base = await start({ mirrorPass: async () => [] });
+    const res = await fetch(`${base}/api/mirror-pass?project=p1`, { method: 'POST' });
+    expect(res.status).toBe(405);
+  });
+
   it('POST /api/issue-triage/execute runs the ritual for a known project (CSRF-guarded)', async () => {
     const seen: string[] = [];
     const base = await start({
