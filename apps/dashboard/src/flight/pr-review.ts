@@ -1329,6 +1329,18 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'docs/donations.json',
   'docs/donate.md',
   '.github/funding.yml',
+  // Epic 0019 "GitHub Steward" slice 1's taxonomy seeder (board
+  // web-mtrh1hjq-760dic): plans AND executes real `gh label create
+  // --force`/`gh api .../milestones` writes against a repo's own
+  // label/milestone taxonomy — the same decide-and-execute class
+  // `flight/mirror-pass` above is flagged for, gated on `social-pass.ts`'s
+  // maintainer-role resolve (a guest identity gets a zero-action plan). A
+  // PR that loosened that guest/unresolved-identity skip, or widened the
+  // label/milestone set it upserts, would carry no "guard"/"auth"/
+  // "security" keyword in its path. Directory-prefixed like every other
+  // `flight/*` entry above so a future `flight/taxonomy-seed-execute.ts`
+  // stays covered too.
+  'flight/taxonomy-seed',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {

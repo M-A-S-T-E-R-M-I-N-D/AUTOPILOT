@@ -272,6 +272,14 @@ const BENIGN_ENGINE_SRC = new Set([
   // call lives in apps/dashboard/src/connection/gh-lts.ts (dashboard side),
   // and alignment stays an operator action by epic-0006 design.
   'lts-check.ts',
+  // github-identity-disclosure.ts: PURE string-template formatter for the
+  // identity-law "Flown by AUTOPILOT" disclosure footer (STANDING 1/5,
+  // board web-mtq07kf7-lylkor) — no I/O, no decision surface; it is
+  // consumed BY the already-flagged github-contribute.ts and
+  // github-pr-contribute.ts planners, which decide when and where the
+  // footer is appended, the same impure-sibling-is-flagged-instead class
+  // usage-pool.ts above is benign for.
+  'github-identity-disclosure.ts',
   'info.ts',
   'index.ts',
   'inbox.ts',
