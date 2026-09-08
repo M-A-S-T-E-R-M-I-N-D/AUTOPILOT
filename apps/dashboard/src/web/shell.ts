@@ -813,8 +813,9 @@ function liveWorkerCard(c) {
   // live value in data-i18n-name) for every line wrapping a phase name, task
   // title, or count label, each painted via tr() at build so a saved locale
   // renders right first time and a mid-session switch flips it in place.
-  // The phase pill's data-tip (shared OFFICE_TIPS) and the chips built by
-  // the live-progress.ts helpers stay English for now.
+  // The phase pill's data-tip (shared OFFICE_TIPS) and the callsign/model
+  // chips built by liveWorkerHeadMeta stay English for now; the fixation
+  // chip below now speaks Hebrew too.
   var liveLabel = el('span', 'live-worker-label', 'live — firing in progress');
   liveLabel.setAttribute('data-i18n', 'liveLabel');
   head.appendChild(liveLabel);
@@ -848,12 +849,21 @@ function liveWorkerCard(c) {
   }
   if (live.orientFixation) {
     var fixationMeta = orientFixationChipMeta(live.turnsSeen);
-    head.appendChild(tipChip(
+    var fixationChip = tipChip(
       '⚠ no edit yet',
       fixationMeta.tip,
       fixationMeta.ariaLabel,
       'chip-anomaly live-orient-fixation'
-    ));
+    );
+    // i18n (board web-msnsndki-dz3vn1): tip and aria-label are two distinct
+    // sentences, so they need their own template pair (can't share one key
+    // like consoleLinesAria's identical tip/aria text) — the singular vs
+    // plural key is chosen here by turnsSeen, {n} riding data-i18n-args.
+    var fixationKey = live.turnsSeen === 1 ? 'Singular' : 'Plural';
+    fixationChip.setAttribute('data-i18n-tip-template', 'orientFixationTip' + fixationKey);
+    fixationChip.setAttribute('data-i18n-aria-template', 'orientFixationAria' + fixationKey);
+    fixationChip.setAttribute('data-i18n-args', JSON.stringify({ n: live.turnsSeen }));
+    head.appendChild(fixationChip);
   }
   wrap.appendChild(head);
   var narratorEl = el('p', 'live-worker-narrator', live.narrator);

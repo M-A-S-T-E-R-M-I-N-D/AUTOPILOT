@@ -534,6 +534,16 @@
  * tips/aria-labels stay English: both embed the shared `OFFICE_TIPS` map
  * (also read by `liveWorkerCard`/`renderStatTiles`/the activity phase rail),
  * already flagged above as a later slice.
+ * The slice after that tags the live worker card's fixation-warning chip
+ * (`shell.ts`'s `liveWorkerCard()`, built from `live-progress.ts`'s
+ * `orientFixationChipMeta`): `orientFixationTipSingular`/`Plural` for the
+ * tip and `orientFixationAriaSingular`/`Plural` for the aria-label — two
+ * distinct sentences, so unlike `consoleLinesAria` they can't share one key
+ * between the two attributes. The call site picks the template key by
+ * `turnsSeen === 1`, same as `flight-console.ts`'s line-count aria, with
+ * `{n}` riding `data-i18n-args`. The callsign/model chips built by
+ * `liveWorkerHeadMeta` and the phase pill's `OFFICE_TIPS` tip stay English —
+ * still a later slice.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -979,6 +989,19 @@ const EN_STRINGS = {
     'An approximate turn count — adjacent tool calls collapse into one turn when they share the same model, token usage, and reasoning; the real cost is unknown until this firing lands',
   liveProgressTip:
     'Elapsed time for this firing against the average duration of past firings on this project',
+  // The live worker card's fixation-warning chip (shell.ts's liveWorkerCard(),
+  // board web-msnsndki-dz3vn1) — shown when orientFixation is true. The tip
+  // and aria-label are two different sentences (not one string reused, like
+  // consoleLinesAria), so each needs its own singular/plural pair; the
+  // template key itself is chosen by turnsSeen === 1 at the call site, {n}
+  // filling from data-i18n-args. The callsign/model chips built by
+  // liveWorkerHeadMeta stay English — a later slice.
+  orientFixationTipSingular:
+    '{n} turn with no edit yet — may be stuck reading/planning instead of making progress',
+  orientFixationTipPlural:
+    '{n} turns with no edit yet — may be stuck reading/planning instead of making progress',
+  orientFixationAriaSingular: 'possible fixation: {n} turn with no edit yet',
+  orientFixationAriaPlural: 'possible fixation: {n} turns with no edit yet',
   // Status pills (shell.ts's statusPill(), board web-msnsndki-dz3vn1): the
   // fleet card header's project-status badge and the task board's per-task
   // status pill. Each status has a label key + its `Tip` twin; the pill's
@@ -1747,6 +1770,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveTurnsTip:
       'ספירת תורות משוערת — קריאות כלים סמוכות מתמזגות לתור אחד כשהן חולקות את אותם מודל, שימוש באסימונים והיגיון; העלות האמיתית אינה ידועה עד שההפעלה הזו תנחת',
     liveProgressTip: 'הזמן שחלף בהפעלה הזו לעומת משך ההפעלה הממוצע של ההפעלות הקודמות בפרויקט הזה',
+    orientFixationTipSingular:
+      '{n} תור ללא עריכה עדיין — ייתכן שהיא תקועה בקריאה/תכנון במקום להתקדם',
+    orientFixationTipPlural:
+      '{n} תורות ללא עריכה עדיין — ייתכן שהיא תקועה בקריאה/תכנון במקום להתקדם',
+    orientFixationAriaSingular: 'קיבעון אפשרי: {n} תור ללא עריכה עדיין',
+    orientFixationAriaPlural: 'קיבעון אפשרי: {n} תורות ללא עריכה עדיין',
     statusAria: 'סטטוס: {label} — {tip}',
     projectStatusRegistered: 'רשום',
     projectStatusRegisteredTip: 'רשום אך עדיין לא טס',
