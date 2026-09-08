@@ -19,6 +19,7 @@ import {
   parseWatchArgs,
   DEFAULT_WATCH_FLY_FIRINGS,
 } from './flight-watchdog.js';
+import { runTaxonomySeed } from '../flight/taxonomy-seed.js';
 import { fleetFlightWatchdogTick, type FleetFlightWatchdogControl } from './fleet-watchdog.js';
 import { landWatchdogTick, createLandWatchdogControl } from './land-watchdog.js';
 import { createSpawnFlight } from '../flight/spawn-flight.js';
@@ -194,6 +195,34 @@ async function main(): Promise<void> {
       for (const c of r.ciRuns) {
         out(`[${c.ok ? 'ok' : '!!'}] ci: ${c.workflow}: ${c.detail}`);
       }
+      break;
+    }
+    case 'taxonomy-seed': {
+      // Epic 0019 "GitHub Steward" slice 1 (docs/epics/0019-github-steward.md,
+      // board web-mtrh1hjq-760dic): stamps the house label scheme + starter
+      // milestones (docs/GOVERNANCE.md) onto the current repo. Role-gated —
+      // a guest identity (or one that fails to resolve) writes nothing.
+      const report = await runTaxonomySeed();
+      if (report.plan.skippedReason === 'identity-unresolved') {
+        out('[!!] taxonomy-seed: could not resolve a GitHub identity — nothing seeded');
+        process.exitCode = 1;
+        break;
+      }
+      if (report.plan.skippedReason === 'guest') {
+        out(
+          `[!!] taxonomy-seed: ${report.plan.identity?.login} is a guest on ` +
+            `${report.plan.identity?.nameWithOwner} — nothing seeded (role honesty, epic 0019 law 1)`,
+        );
+        process.exitCode = 1;
+        break;
+      }
+      const applied = report.result?.applied.length ?? 0;
+      const failed = report.result?.failed.length ?? 0;
+      out(
+        `[${failed === 0 ? 'ok' : '!!'}] taxonomy-seed: ${applied} applied, ${failed} failed ` +
+          `on ${report.plan.identity?.nameWithOwner}`,
+      );
+      if (failed > 0) process.exitCode = 1;
       break;
     }
     case 'vacuum': {
@@ -522,7 +551,7 @@ async function main(): Promise<void> {
     }
     default: {
       out(
-        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | vacuum | watch | fleet',
+        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | vacuum | watch | fleet',
       );
       process.exitCode = 1;
     }

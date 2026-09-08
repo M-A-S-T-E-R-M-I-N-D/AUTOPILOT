@@ -524,6 +524,16 @@
  * chip's `data-i18n-args`) on both surfaces that build it from
  * `web/anomaly.ts`'s `guardDenialChipMeta` — the flight log row and the
  * per-firing trace row — so a bounced firing reads the same in both.
+ * The slice after that tags `web/features/office-map.ts`'s own two
+ * self-contained strings — the orbiting subagent satellites' tip/aria-label
+ * (`officeSubagent`, a `{name}` template embedding the live subagent's
+ * label) and the map SVG's own aria-label (`officeMapAria`, a `{name}`
+ * template embedding the live phase key) — via `tr()` at build plus
+ * `[data-i18n-tip-template]`/`[data-i18n-aria-template]` reading the
+ * element's own `data-i18n-name`. The zone rects' and the live dot's
+ * tips/aria-labels stay English: both embed the shared `OFFICE_TIPS` map
+ * (also read by `liveWorkerCard`/`renderStatTiles`/the activity phase rail),
+ * already flagged above as a later slice.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -572,6 +582,38 @@ const EN_STRINGS = {
   searchFailed: 'Search failed.',
   deep: 'Deep',
   ask: 'Ask',
+  // web/features/search.ts's Ask flow (board web-msnsndki-dz3vn1): the
+  // button's busy label (tagged with THIS key mid-request, so a fleet tick's
+  // sweep repaints it and not the idle `ask`), and the four #ask-answer notes
+  // — each paints via tr() at birth and carries its key.
+  askAsking: 'Asking…',
+  askPickProject: 'Pick a project and type a question first.',
+  askThinking: 'Asking the model (grounded in the indexed code)…',
+  askThinkingDeep: 'Reading the project to find the answer (Deep)…',
+  askFailed: 'Ask failed — is the dashboard still running?',
+  // The follow-up slice flagged in fd617a93's commit body (board
+  // web-msnsndki-dz3vn1): the ARCHITECT proposal card's summary/status/
+  // confirm strings, the completed answer's "sources:" line, and the live
+  // tool-activity chip's tip/aria — search.ts's renderProposal()/
+  // renderAnswer()/renderActivity(). architectProposes/proposalFailed/
+  // askActivityAria/askSources/askSourcesAria are {name}-templates (like
+  // liveToolAria above) embedding live, untranslated data (a tool name, a
+  // server error string, a joined file list) inside fixed UI text.
+  architectProposes: 'ARCHITECT proposes: {name}',
+  proposalRunning: 'Running…',
+  proposalDone: 'Done.',
+  proposalFailed: 'Failed: {name}',
+  proposalUnknownError: 'unknown error',
+  proposalRequestError: 'request error.',
+  proposalConfirm: 'Confirm',
+  proposalConfirmDestructive: 'Confirm (destructive)',
+  proposalConfirmTip: 'Run this proposed action',
+  proposalConfirmDestructiveTip: 'This action cannot be undone — confirm to run it',
+  askActivityTip: 'A tool call the model made while researching this answer',
+  askActivityAria: 'Tool call: {name}',
+  askSources: 'sources: {name}',
+  askSourcesTip: 'Indexed files the model consulted to ground this answer',
+  askSourcesAria: 'Sources: {name}',
   askPersona: 'Ask persona',
   personaGenius: 'GENIUS',
   personaArchitect: 'ARCHITECT',
@@ -742,6 +784,21 @@ const EN_STRINGS = {
   flightLog: 'Flight log',
   flightLogAria:
     'Flight log: every firing this project has flown, newest first, click a row to expand it',
+  // The flight log's server round-trip for firings older than the initial
+  // window carried; the tip doubles as the button's accessible name.
+  flightLogLoadMore: 'Load older firings',
+  flightLogLoadMoreLoading: 'Loading…',
+  flightLogLoadMoreTip:
+    'Fetch firings older than what the browser already holds — a real server round-trip, not a local reveal',
+  // The "Show all (N)" / "Show fewer" toggle above that button
+  // (web/flight-log-rows.ts's spliced flightLogMoreMeta(), which takes the
+  // bundle's tr() injected the replayNav way): {n} is the locally-held row
+  // count, {compact} the collapsed window. Each state's tip doubles as the
+  // button's accessible name; the counts ride data-i18n-args for the sweep.
+  flightLogShowAll: 'Show all ({n})',
+  flightLogShowAllTip: 'Reveal all {n} locally-held firings, not just the most recent {compact}',
+  flightLogShowFewer: 'Show fewer',
+  flightLogShowFewerTip: 'Collapse back to the most recent {compact} firings',
   firingTrace: 'Per-firing trace',
   firingTraceAria:
     'Per-firing trace: every firing for this project, grouped and collapsible, unlike the Activity feed above which only shows the last flight',
@@ -854,6 +911,9 @@ const EN_STRINGS = {
   taskApprove: '✓ approve',
   taskReject: '✗ reject',
   taskDone: '✓ done',
+  // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
+  // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
+  taskDragTip: 'Drag to reorder',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
   // the human side of the board) — the Inbox form's older sibling, built the
   // same DOM-call way the tag scanner cannot see. taskAddTip is ONE key for
@@ -871,6 +931,11 @@ const EN_STRINGS = {
   cardFindingsTip: 'Unresolved review findings for this project — see the breakdown below',
   cardActivityTip: 'When this project last had any activity',
   cardActivityAria: 'last activity: {name}',
+  // The severity gauge's all-clear segment (shell.ts's gaugeBar(): the single
+  // role="img" span painted when the project has no open findings) — its tip
+  // IS its accessible name, so ONE key rides both [data-i18n-tip] and
+  // [data-i18n-aria].
+  gaugeClearTip: 'No open findings',
   // The live worker card's action line (shell.ts's liveWorkerCard(): the
   // most recent tool call and the target it touched). The two tips are swept
   // as [data-i18n-tip]; the two aria prefixes wrap the live tool/target name
@@ -974,6 +1039,11 @@ const EN_STRINGS = {
   // "⇪ Sync to GitHub" (shell.ts renderProjectPage, board web-msnsndki-dz3vn1).
   startOverHint: 'Resets firings + ship-rate counters to 0/0. Tasks, index, and backups are kept.',
   githubSyncHint: 'Private by default. Creates a repo on first sync, pushes on every one after.',
+  // The "⇪ Sync to GitHub" button's idle label (its click handler swaps the
+  // button's data-i18n key to githubSyncing for the request's duration) and
+  // the opt-in public checkbox's text beside it.
+  githubSync: '⇪ Sync to GitHub',
+  githubSyncPublicLabel: 'Make public instead (visible to everyone)',
   githubPrResultOk: 'pull request opened.',
   githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
@@ -1337,6 +1407,16 @@ const EN_STRINGS = {
   consoleEmpty: 'No console output yet.',
   consoleCollapsed: 'Collapsed — expand to load.',
   consoleUnavailable: 'Flight console unavailable.',
+  // The panel's own always-on chrome, missed by the states above: the
+  // <summary> toggle's title/tip, and the loaded <pre>'s line-count
+  // aria-label/tip. Singular/plural are separate keys — the same real-
+  // grammar choice flightDebriefGuardDenialSingular/Plural already makes —
+  // so the translated grammar matches console-panel.ts's own
+  // consoleLinesAriaLabel(), not a lowest-common-denominator "(s)" suffix.
+  consoleTitle: '🖥️ Flight console',
+  consoleTitleTip: 'Raw stdout+stderr tail of the flight process for this project',
+  consoleLinesAriaSingular: '{n} line of raw flight process output',
+  consoleLinesAriaPlural: '{n} lines of raw flight process output',
   // web/features/issue-triage.ts (board web-msnsndki-dz3vn1): the project
   // page's KEEPER issue-triage panel — title, loading placeholder, and the
   // empty/fetch-failure states. "KEEPER" is the persona's proper name and
@@ -1366,6 +1446,8 @@ const EN_STRINGS = {
   foundationCopyAddress: 'Copy address',
   foundationCopied: 'Copied!',
   foundationQrAlt: 'QR code for the {name} address',
+  officeSubagent: 'Subagent — {name}',
+  officeMapAria: 'Agent office map — currently {name}',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -1412,6 +1494,26 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     searchFailed: 'החיפוש נכשל.',
     deep: 'מעמיק',
     ask: 'שאל',
+    askAsking: 'שואל…',
+    askPickProject: 'בחרו פרויקט והקלידו שאלה תחילה.',
+    askThinking: 'שואל את המודל (על סמך הקוד המאונדקס)…',
+    askThinkingDeep: 'קורא את הפרויקט כדי למצוא את התשובה (מעמיק)…',
+    askFailed: 'הבקשה נכשלה — האם לוח הבקרה עדיין פועל?',
+    architectProposes: 'ה-ARCHITECT מציע: {name}',
+    proposalRunning: 'בביצוע…',
+    proposalDone: 'בוצע.',
+    proposalFailed: 'נכשל: {name}',
+    proposalUnknownError: 'שגיאה לא ידועה',
+    proposalRequestError: 'שגיאת בקשה.',
+    proposalConfirm: 'אשר',
+    proposalConfirmDestructive: 'אשר (לא הפיך)',
+    proposalConfirmTip: 'מריץ את הפעולה המוצעת הזו',
+    proposalConfirmDestructiveTip: 'לא ניתן לבטל פעולה זו — אשרו כדי להריץ אותה',
+    askActivityTip: 'קריאה לכלי שהמודל ביצע תוך כדי המחקר לתשובה הזו',
+    askActivityAria: 'קריאה לכלי: {name}',
+    askSources: 'מקורות: {name}',
+    askSourcesTip: 'קבצים מאונדקסים שהמודל התייעץ בהם כדי לבסס את התשובה הזו',
+    askSourcesAria: 'מקורות: {name}',
     askPersona: 'פרסונת שאלה',
     personaGenius: 'GENIUS',
     personaArchitect: 'ARCHITECT',
@@ -1545,6 +1647,14 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightLog: 'יומן טיסות',
     flightLogAria:
       'יומן טיסות: כל הפעלה שהפרויקט הזה טס, החדשה ביותר קודם, לחצו על שורה כדי להרחיב אותה',
+    flightLogLoadMore: 'טען הפעלות ישנות יותר',
+    flightLogLoadMoreLoading: 'טוען…',
+    flightLogLoadMoreTip:
+      'מביא הפעלות ישנות יותר מאלה שהדפדפן כבר מחזיק — סבב אמיתי מול השרת, לא חשיפה מקומית',
+    flightLogShowAll: 'הצג הכול ({n})',
+    flightLogShowAllTip: 'חושף את כל {n} ההפעלות המוחזקות מקומית, לא רק את {compact} האחרונות',
+    flightLogShowFewer: 'הצג פחות',
+    flightLogShowFewerTip: 'כיווץ חזרה אל {compact} ההפעלות האחרונות',
     firingTrace: 'עקבה לפי הפעלה',
     firingTraceAria:
       'עקבה לפי הפעלה: כל הפעלה עבור פרויקט זה, מקובצת וניתנת לכיווץ, בניגוד לפיד הפעילות למעלה שמציג רק את הטיסה האחרונה',
@@ -1596,6 +1706,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskApprove: '✓ אשר',
     taskReject: '✗ דחה',
     taskDone: '✓ בוצע',
+    taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
     taskAdd: 'הוסף',
@@ -1603,6 +1714,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     cardFindingsTip: 'ממצאי סקירה פתוחים לפרויקט הזה — ראו את הפירוט למטה',
     cardActivityTip: 'מתי הייתה בפרויקט הזה פעילות כלשהי בפעם האחרונה',
     cardActivityAria: 'פעילות אחרונה: {name}',
+    gaugeClearTip: 'אין ממצאים פתוחים',
     liveToolTip: 'קריאת הכלי האחרונה שההפעלה הזו ביצעה',
     liveToolAria: 'כלי: {name}',
     liveTargetTip: 'הקובץ, הפקודה או היעד שקריאת הכלי הזו נגעה בהם',
@@ -1674,6 +1786,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     startOverHint:
       'מאפס את ספירת ההפעלות ואת שיעור השילוח ל-0/0. המשימות, האינדקס והגיבויים נשמרים.',
     githubSyncHint: 'פרטי כברירת מחדל. הסנכרון הראשון יוצר מאגר, וכל סנכרון לאחריו דוחף אליו.',
+    githubSync: '⇪ סנכרן ל-GitHub',
+    githubSyncPublicLabel: 'הפוך לציבורי במקום זאת (גלוי לכולם)',
     githubPrResultOk: 'ה-pull request נפתח.',
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',
@@ -1958,6 +2072,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     consoleEmpty: 'עדיין אין פלט מסוף.',
     consoleCollapsed: 'מכווץ — הרחיבו כדי לטעון.',
     consoleUnavailable: 'מסוף הטיסה אינו זמין.',
+    consoleTitle: '🖥️ מסוף טיסה',
+    consoleTitleTip: 'זנב stdout+stderr גולמי של תהליך הטיסה עבור הפרויקט הזה',
+    consoleLinesAriaSingular: '{n} שורה של פלט גולמי של תהליך הטיסה',
+    consoleLinesAriaPlural: '{n} שורות של פלט גולמי של תהליך הטיסה',
     issueTriageTitle: '🗝️ טריאז׳ issues של KEEPER',
     issueTriageLoading: 'בודק issues פתוחים מול הלוח…',
     issueTriageEmpty: 'אין issues פתוחים לטריאז׳.',
@@ -1972,6 +2090,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     foundationCopyAddress: 'העתק כתובת',
     foundationCopied: 'הועתק!',
     foundationQrAlt: 'קוד QR לכתובת {name}',
+    officeSubagent: 'תת-סוכן — {name}',
+    officeMapAria: 'מפת משרד הסוכן — כרגע {name}',
   },
 };
 

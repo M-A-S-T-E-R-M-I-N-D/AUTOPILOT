@@ -61,4 +61,51 @@ describe('gateCommands', () => {
   it('exposes exactly typecheck/lint/format as the parallel-safe kinds', () => {
     expect([...PARALLEL_GATE_KINDS].sort()).toEqual(['format', 'lint', 'typecheck']);
   });
+
+  it('omits ciExtras by default even when the spec has them', () => {
+    const result = gateCommands(
+      spec({
+        test: { bin: 'vitest', args: ['run'], label: 'test' },
+        ciExtras: [
+          { bin: 'npm', args: ['run', 'ci:bundle-size'], label: 'npm run ci:bundle-size' },
+        ],
+      }),
+    );
+    expect(result.map((c) => c.label)).toEqual(['test']);
+  });
+
+  it('appends ciExtras, in order, after the core kinds, when includeCiExtras is true', () => {
+    const result = gateCommands(
+      spec({
+        typecheck: { bin: 'tsc', args: [], label: 'typecheck' },
+        test: { bin: 'vitest', args: ['run'], label: 'test' },
+        ciExtras: [
+          { bin: 'npm', args: ['run', 'ci:bundle-size'], label: 'npm run ci:bundle-size' },
+          { bin: 'npm', args: ['run', 'ci:secret-scan'], label: 'npm run ci:secret-scan' },
+        ],
+      }),
+      { includeCiExtras: true },
+    );
+    expect(result.map((c) => c.label)).toEqual([
+      'typecheck',
+      'test',
+      'npm run ci:bundle-size',
+      'npm run ci:secret-scan',
+    ]);
+    expect(result.slice(-2).every((c) => !c.parallel)).toBe(true);
+  });
+
+  it('includeCiExtras is a no-op when the spec has no ciExtras', () => {
+    const result = gateCommands(spec({ test: { bin: 'vitest', args: ['run'], label: 'test' } }), {
+      includeCiExtras: true,
+    });
+    expect(result.map((c) => c.label)).toEqual(['test']);
+  });
+
+  it('skips a ciExtras entry with no bin, same as the core kinds', () => {
+    const result = gateCommands(spec({ ciExtras: [{ bin: '', args: [], label: 'broken' }] }), {
+      includeCiExtras: true,
+    });
+    expect(result).toEqual([]);
+  });
 });

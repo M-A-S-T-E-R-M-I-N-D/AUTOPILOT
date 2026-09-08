@@ -1223,6 +1223,11 @@ function gaugeBar(g) {
     clear.setAttribute('role', 'img');
     clear.setAttribute('data-tip', 'No open findings');
     clear.setAttribute('aria-label', 'No open findings');
+    // The tip IS the accessible name, so one key rides both sweeps; the card
+    // is rebuilt on every fleet tick and renderFleet()'s post-patch
+    // translateDom() keeps a freshly built segment in the current locale.
+    clear.setAttribute('data-i18n-tip', 'gaugeClearTip');
+    clear.setAttribute('data-i18n-aria', 'gaugeClearTip');
     wrap.appendChild(clear);
     return wrap;
   }
@@ -2023,10 +2028,18 @@ function flightLogNode(c) {
     moreBtn.className = 'flight-more';
     moreBtn.setAttribute('data-flightlog-all', c.id);
     moreBtn.setAttribute('aria-expanded', String(!!openFlightLogAll[c.id]));
-    var moreMeta = flightLogMoreMeta(!!openFlightLogAll[c.id], displayRows.length, FLIGHTLOG_COMPACT_ROWS);
+    var moreMeta = flightLogMoreMeta(!!openFlightLogAll[c.id], displayRows.length, FLIGHTLOG_COMPACT_ROWS, tr);
     moreBtn.textContent = moreMeta.text;
     moreBtn.setAttribute('data-tip', moreMeta.tip);
     moreBtn.setAttribute('aria-label', moreMeta.tip);
+    // Rebuilt from state on every render, so tagged with the CURRENT state's
+    // open/closed key pair (the "Load older firings" reasoning below); the
+    // tip IS the accessible name, and the live counts ride data-i18n-args so
+    // a locale switch re-fills {n}/{compact} in place.
+    moreBtn.setAttribute('data-i18n-template', moreMeta.textKey);
+    moreBtn.setAttribute('data-i18n-tip-template', moreMeta.tipKey);
+    moreBtn.setAttribute('data-i18n-aria-template', moreMeta.tipKey);
+    moreBtn.setAttribute('data-i18n-args', JSON.stringify(moreMeta.args));
     wrap.appendChild(moreBtn);
   }
   // A real server round-trip for OLDER firings than the initial window ever
@@ -2038,10 +2051,18 @@ function flightLogNode(c) {
     loadMoreBtn.className = 'flight-more';
     loadMoreBtn.setAttribute('data-flightlog-more', c.id);
     loadMoreBtn.disabled = !!flightLogLoading[c.id];
-    loadMoreBtn.textContent = flightLogLoading[c.id] ? 'Loading…' : 'Load older firings';
-    var loadMoreTip = 'Fetch firings older than what the browser already holds — a real server round-trip, not a local reveal';
+    // Tagged with whichever key matches the CURRENT state: renderFleet()'s
+    // document-wide translateDom() sweep runs every fleet tick, and a fixed
+    // idle tag would repaint "Load older firings" over "Loading…" mid-request.
+    var loadMoreKey = flightLogLoading[c.id] ? 'flightLogLoadMoreLoading' : 'flightLogLoadMore';
+    loadMoreBtn.textContent = tr(loadMoreKey);
+    loadMoreBtn.setAttribute('data-i18n', loadMoreKey);
+    // The tip IS the accessible name — one key, tagged for both attributes.
+    var loadMoreTip = tr('flightLogLoadMoreTip');
     loadMoreBtn.setAttribute('data-tip', loadMoreTip);
+    loadMoreBtn.setAttribute('data-i18n-tip', 'flightLogLoadMoreTip');
     loadMoreBtn.setAttribute('aria-label', loadMoreTip);
+    loadMoreBtn.setAttribute('data-i18n-aria', 'flightLogLoadMoreTip');
     wrap.appendChild(loadMoreBtn);
   }
   return wrap;
@@ -2272,6 +2293,9 @@ function tasksSection(c) {
         // must stay out of the keyboard focus order rather than become a
         // focusable-but-hidden element.
         handle.setAttribute('data-tip', 'Drag to reorder');
+        // Tip only — decorative (aria-hidden), so there is no aria-label to
+        // translate; the [data-i18n-tip] sweep repaints it on a locale switch.
+        handle.setAttribute('data-i18n-tip', 'taskDragTip');
         li.appendChild(handle);
         // Reorder controls — the accessible primary (keyboard-first; no-DnD-quirks).
         var up = el('button', 'task-move', '↑');
@@ -2916,8 +2940,20 @@ document.addEventListener('click', function (e) {
   var syncConfirmKey = visibility === 'public' ? 'githubSyncConfirmPublic' : 'githubSyncConfirmPrivate';
   if (!window.confirm(tr(syncConfirmKey, name))) return;
   b.disabled = true;
-  var originalText = b.textContent;
+  // i18n (board web-msnsndki-dz3vn1): the button carries data-i18n, and
+  // renderFleet()'s per-tick translateDom() sweep repaints every tagged
+  // element — so for the request's duration the TAG switches to the busy key
+  // along with the text: a sweep or a language flip landing mid-request
+  // repaints "Syncing…" in the current locale instead of the idle label.
+  // Completion restores the idle key and paints it in whatever locale is
+  // active THEN, rather than the text captured at click time.
+  b.setAttribute('data-i18n', 'githubSyncing');
   b.textContent = tr('githubSyncing');
+  function restoreIdle() {
+    b.disabled = false;
+    b.setAttribute('data-i18n', 'githubSync');
+    b.textContent = tr('githubSync');
+  }
   fetch('/api/github-sync/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -2925,16 +2961,14 @@ document.addEventListener('click', function (e) {
   })
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {
-      b.disabled = false;
-      b.textContent = originalText;
+      restoreIdle();
       if (!resultEl) return;
       var result = githubSyncExecuteResult(r.data, tr);
       resultEl.className = result.className;
       resultEl.textContent = result.text;
     })
     .catch(function () {
-      b.disabled = false;
-      b.textContent = originalText;
+      restoreIdle();
       if (resultEl) {
         resultEl.className = 'github-sync-result github-sync-result-fail';
         resultEl.textContent = tr('githubRequestFailed');
@@ -3273,7 +3307,12 @@ function renderProjectPage(state, pid) {
   var gh = el('section', 'github-sync');
   var ghBtn = document.createElement('button');
   ghBtn.type = 'button';
-  ghBtn.textContent = '⇪ Sync to GitHub';
+  // i18n (board web-msnsndki-dz3vn1): tr() at birth + tag, the Start-over
+  // button's route — the click handler below swaps the tag to the busy key
+  // for the request's duration, so a mid-request sweep cannot repaint this
+  // idle label over "Syncing…".
+  ghBtn.textContent = tr('githubSync');
+  ghBtn.setAttribute('data-i18n', 'githubSync');
   ghBtn.setAttribute('data-github-sync', c.id);
   ghBtn.setAttribute('data-name', c.name);
   var ghTip = githubSyncTip(c.name);
@@ -3293,7 +3332,14 @@ function renderProjectPage(state, pid) {
   ghPublicCheckbox.type = 'checkbox';
   ghPublicCheckbox.setAttribute('data-github-public', c.id);
   ghPublicLabel.appendChild(ghPublicCheckbox);
-  ghPublicLabel.appendChild(document.createTextNode(' Make public instead (visible to everyone)'));
+  // i18n (board web-msnsndki-dz3vn1): the text gets its own tagged span
+  // rather than tagging the <label> — translateDom() writes textContent,
+  // which on the label itself would wipe the checkbox out along with the
+  // words. .github-sync-public is inline-flex with a gap, so the old leading
+  // space is not needed.
+  var ghPublicText = el('span', null, tr('githubSyncPublicLabel'));
+  ghPublicText.setAttribute('data-i18n', 'githubSyncPublicLabel');
+  ghPublicLabel.appendChild(ghPublicText);
   gh.appendChild(ghPublicLabel);
   var ghResult = el('span', 'github-sync-result');
   ghResult.setAttribute('aria-live', 'polite');

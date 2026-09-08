@@ -77,7 +77,8 @@ export function cardGaugeLabels(
  *  "2 high") and aria-label ("&lt;kind&gt;: N") — the text every segment
  *  `<span>` in the bar carries, distinct from the all-clear segment's static
  *  "No open findings" copy which stays inline since it has no per-segment
- *  data to format. */
+ *  data to format (it is tagged `data-i18n-tip`/`data-i18n-aria` as
+ *  `STRINGS.gaugeClearTip`, so the locale sweeps translate it in place). */
 export function gaugeSegmentMeta(seg: GaugeSegment): GaugeSegmentMeta {
   return {
     tip: seg.count + ' ' + seg.kind,

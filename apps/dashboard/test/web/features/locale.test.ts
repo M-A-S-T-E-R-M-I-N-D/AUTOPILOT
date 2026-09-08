@@ -31,7 +31,26 @@ describe('localeJs', () => {
     expect(localeJs()).toContain('const table = STRINGS[l] || STRINGS.en;');
     expect(localeJs()).toContain("document.querySelectorAll('[data-i18n]').forEach((el) => {");
     expect(localeJs()).toContain('const text = table[el.dataset.i18n];');
-    expect(localeJs()).toContain('if (text) el.textContent = text;');
+    expect(localeJs()).toContain('if (text && el.textContent !== text) el.textContent = text;');
+  });
+
+  it('the [data-i18n] sweep leaves an already-current element’s text node alone — an aria-live region must not re-announce an identical repaint', () => {
+    const { translateDom } = new Function(`${localeJs()}\nreturn { translateDom };`)();
+    const host = document.createElement('p');
+    host.setAttribute('data-i18n', 'ask');
+    host.textContent = STRINGS.en.ask;
+    document.body.appendChild(host);
+    const node = host.firstChild;
+
+    translateDom('en');
+    expect(host.firstChild).toBe(node);
+
+    // A real change still writes (only STRINGS.en ships in this chunk, so the
+    // change is a re-tag, not a locale switch).
+    host.setAttribute('data-i18n', 'search');
+    translateDom('en');
+    expect(host.textContent).toBe(STRINGS.en.search);
+    host.remove();
   });
 
   it('translateDom swaps the aria-label of every [data-i18n-aria] element to the given locale', () => {

@@ -39,8 +39,8 @@
 | [ ] Versions screen (MYTH/LEGACY/flight timeline, diff, additive restore) | MASTER §5.5, §7 | M5 |
 | [~] Settings — **connect screen delivered early** (dashboard: choose subscription / API key / headless token · verify the `claude` CLI · secret stored 0600, CSRF-guarded, never echoed); models/quota/language/a11y/security settings remain | MASTER §5.6 | M5 |
 | [ ] Anomalies/health (regressions, cost spikes, gate-fails, security findings + proposed fixes) | MASTER §5.7 | M8 |
-| [ ] "Hidden by default, open to edit" everywhere; calm unless the user intervenes | MASTER §2.5, §18.2.5 | M3→M5 |
-| [ ] Evolution view (is the agent improving? approval↑ rejection↓ rework↓ over time) | MASTER §17.3 | M5 |
+| [~] "Hidden by default, open to edit" everywhere; calm unless the user intervenes — progressive disclosure live (chips + drill-downs on activity/firing-timeline/landing, Load-More — BACKLOG-999 §C); not yet swept across every surface | MASTER §2.5, §18.2.5 | M3→M5 |
+| [x] Evolution view (is the agent improving? approval↑ rejection↓ over time) — weekly operator approval-rate trend chart + summary tiles, live and tested (`web/features/evolution.ts` + `web/evaluation-trend.ts` — BACKLOG-999 §J) | MASTER §17.3 | M5 |
 
 ## D. Reactivity — talk · assign · live (spec REACTIVITY.md)
 | Feature | Spec | Milestone |
@@ -60,11 +60,11 @@
 ## E. Progression gauge + inbox/intake
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] Per-finding tagging: severity (🔴🟠🟡⚪) × dimension (a11y/security/UX/human/learnings/info/data/priorities) | MASTER §16.1 | M4 |
-| [ ] Readiness gauge: % + color bar + per-dimension breakdown, per-project AND fleet | MASTER §16.1 | M4 |
+| [x] Per-finding tagging: severity (🔴🟠🟡⚪) × dimension (a11y/security/UX/human/learnings/info/data/priorities) — the task schema carries both (`SEVERITIES`/`DIMENSIONS` enums, `packages/store/src/types.ts`, matching the full dimension set), rendered on the task board as chips (`taskSeverityChip`/`taskDimensionChip`, `apps/dashboard/src/web/task-queue.ts`) | MASTER §16.1 | M4 |
+| [~] Readiness gauge: % + color bar + per-dimension breakdown, per-project AND fleet — per-project severity color bar is live (`openSeverityGauge` + `gaugeSegments`, the fleet card's findings gauge); fleet-wide is only a scalar open-findings count (`FleetTotals.openFindings`, `apps/dashboard/src/read/fleet.ts`), with no per-severity/per-dimension breakdown at fleet level and no numeric "%" framing anywhere | MASTER §16.1 | M4 |
 | [ ] Status ladder: RED→ORANGE→YELLOW→WHITE→🟣needs-you→🔵STABLE→🟢completed/affirmed | MASTER §16.1 | M4 |
-| [ ] Autopilot INBOX (message the running bot: note/task/plan-request/update-request mid-flight) | MASTER §16.2 | M4 |
-| [ ] Triage sub-agent: live-watch inbox+repo+backlog; place/plan/task/do; never stall | MASTER §16.2 | M4 |
+| [x] Autopilot INBOX (message the running bot: note/task/plan-request/update-request mid-flight) — a dashboard message box (`apps/dashboard/src/inbox/add.ts`, wired into `server/main.ts`) writes into the same `INBOX/` folder every firing reads as optional context (`buildInboxDigest`, `packages/engine/src/inbox.ts`); dropped notes auto-triage into board tasks (`flight/inbox-triage.ts`, `source:'inbox'`) — every note collapses to one generic task, with no formal note/plan-request/update-request type split | MASTER §16.2 | M4 |
+| [~] Triage sub-agent: live-watch inbox+repo+backlog; place/plan/task/do; never stall — post-flight (once-per-firing) inbox triage is live and unconditional (`triageInboxEntries` turns every dropped note straight into a task, no place/plan-further decision); live-watch and repo/backlog-driven triage are still pending | MASTER §16.2 | M4 |
 
 ## F. Verification boundary + evolution
 | Feature | Spec | Milestone |
@@ -72,8 +72,8 @@
 | [ ] Classify machine-100%-verifiable (autonomous) vs human-required (🟣); default to human when unsure | MASTER §17.1-2 | M5 |
 | [ ] Autonomous set: gate, secret/dep/SAST, invariants, byte-identity, machine-checkable a11y, budgets | MASTER §17.1 | M1→M8 |
 | [ ] Human-required set: visual/brand, UX/human-interaction, ethics (serves living beings), intent, forks | MASTER §17.2 | M5 |
-| [ ] Human verdict captured as evaluation label (the fitness/evolution signal); Goodhart guard | MASTER §17.3 | M5 |
-| [ ] Operating principle: proceed on reasonable interpretation, reserve forks/🟣, never stall | MASTER §17.4 | M1 |
+| [~] Human verdict captured as evaluation label (the fitness/evolution signal); Goodhart guard — approve/reject/SOUL-ratify wired (`recordEvaluationLabel`, `packages/store/src/mutate.ts`), read back into the Evolution view (BACKLOG-999 §J); edit/note still uncaptured (store has no `updateTask`) | MASTER §17.3 | M5 |
+| [x] Operating principle: proceed on reasonable interpretation, reserve forks/🟣, never stall — wired into the firing prompt itself (`packages/engine/src/prompt.ts`'s NOOP→VERDICT and PROPOSALS sections) | MASTER §17.4 | M1 |
 
 ## G. Efficiency levers (measurable)
 | Feature | Spec | Milestone |
@@ -90,8 +90,8 @@
 ## H. Multi-project & supervisor
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] Supervisor daemon: registry, run/stop, parallel vs solo scheduling | MASTER §3 | M7 |
-| [ ] Aggregate telemetry across projects; improvement-over-time; fairness | MASTER §5.1 | M7 |
+| [~] Supervisor daemon: registry, run/stop, parallel vs solo scheduling — `FlightRunnerRegistry` (`apps/dashboard/src/flight/registry.ts`) does registry + start/stop/pause/status + `maxConcurrent` FIFO scheduling, wired live into `server/main.ts`; still lives inside the dashboard server process, not a standalone daemon | MASTER §3 | M7 |
+| [x] Aggregate telemetry across projects; improvement-over-time; fairness — `buildFleetView`/`FleetTotals` + `fleetChronoLog` (`apps/dashboard/src/read/fleet.ts`) roll up cost/shipped/ship-rate/streak across every project into the fleet-home stat tiles; `FlightRunnerRegistry`'s `maxConcurrent` FIFO queue is the shared-quota fairness cap | MASTER §5.1 | M7 |
 | [ ] View each project or all together | MASTER §2.7 | M3, M7 |
 
 ## I. Models & languages (Ollama)
@@ -105,11 +105,11 @@
 ## J. Security & standards (regulatory-grade)
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] Product hardening: CSP, DNS-rebind guard, rate limits, path-traversal guards, no secrets | PATTERNS §2 | M0→M8 |
-| [ ] OWASP ASVS + LLM-Top-10; SLSA + OpenSSF Scorecard; SAST/dep-audit | PATTERNS §2 | M0, M8 |
-| [ ] All-layer vulnerability detection + propose-fix (security-sensitive = approval-gated) | MASTER §8 | M8 |
-| [ ] Only reputable/official sources (deps, models); confidentiality (local-only, no exfil) | MASTER §8; PATTERNS §2 | M0→M9 |
-| [~] OTel-shaped attributes captured in the firing record + SQLite (M1); OTel wire-format export at M3; structured logging (no console.log) | PATTERNS §3 | M1→M3 |
+| [x] Product hardening: CSP, DNS-rebind guard, rate limits, path-traversal guards, no secrets — all five live: strict CSP + hardening headers (`securityHeaders`) and loopback-only `isAllowedHost` DNS-rebind guard (`apps/dashboard/src/server/security.ts`); fixed-window `createRateLimiter` (`server/rate-limit.ts`) on quota-spending endpoints; doc reads are root-jailed BY CONSTRUCTION — only indexed paths from the search store are ever read, no filesystem path touches user input (`read/project-detail.ts`'s `readProjectDoc`); CI secret-scan gate | PATTERNS §2 | M0→M8 |
+| [~] OWASP ASVS + LLM-Top-10; SLSA + OpenSSF Scorecard; SAST/dep-audit — Scorecard's "Pinned-Dependencies" practice is live (every GitHub Action SHA-pinned in `ci.yml`) and dep-audit is live (`ci:dependency-audit` + Dependabot); no formal ASVS or LLM-Top-10 checklist audit exists despite `PATTERNS-AND-STANDARDS.md` claiming one "verified in the security harness" (`security.test.ts` covers headers/host-guard only, not an ASVS item-by-item pass); no SLSA provenance attestation; no SAST tool (CodeQL/Semgrep) wired into CI | PATTERNS §2 | M0, M8 |
+| [~] All-layer vulnerability detection + propose-fix (security-sensitive = approval-gated) — secret-scan + dependency-audit run every CI build; SAST-style review + auto-propose-fix still M8 (matches `BACKLOG-999.md` §F) | MASTER §8 | M8 |
+| [~] Only reputable/official sources (deps, models); confidentiality (local-only, no exfil) — confidentiality is live (local-only architecture; content never leaves the machine except via the user's own Claude account); source vetting for deps/Ollama models is not yet built (matches `BACKLOG-999.md` §F) | MASTER §8; PATTERNS §2 | M0→M9 |
+| [x] OTel-shaped attributes captured in the firing record + SQLite (M1); OTel wire-format export live (env-driven `OTEL_EXPORTER_OTLP_*`, `apps/dashboard/src/flight/otlp.ts` + `exportOtlpResourceSpans` called per-firing in `fly.ts`, best-effort so a collector outage never fails the flight); structured logging enforced (`no-console: 'error'` in `eslint.config.js`) | PATTERNS §3 | M1→M3 |
 | [x] Test pyramid, TDD, coverage ≥80%, CI validators-as-gates | PATTERNS §4 | M0 |
 
 ## K. Versioning / backup
@@ -164,6 +164,26 @@ Reconciled against the M0/M1 build state by the 2026-07-07 completeness audit; s
 C's Approvals-queue row were re-verified against `BACKLOG-999.md` and the live tree on 2026-09-05 — 5 rows corrected
 (three claimed "pending" work — gate auto-wiring, quota pacing, the single-instance lock — that had already shipped;
 one claimed the orient→pace loop "needs a real run" despite 160+ real firings; Approvals-queue overclaimed an "edit"
-action `TaskActionKind` doesn't have). Sections B, D–O were **not** re-audited this pass — `BACKLOG-999.md` is the
-more actively-maintained backlog when the two disagree; don't trust this matrix's other `[x]`/`[~]` marks as current
-without checking there or the live tree first.*
+action `TaskActionKind` doesn't have). The rest of section C was re-verified the same way on 2026-09-08 — 2 more rows
+corrected here (progressive disclosure and the Evolution view were both already live but marked `[ ]`), plus 3 rows
+in `BACKLOG-999.md` §C itself that overclaimed done (a fleet-home improvement sparkline/toggle, project-detail
+board-by-status columns + raw export, and the same Approvals-queue "edit" action) — none of that UI exists in the
+live tree. Sections F and H were audited the same day — 4 more rows corrected (evaluation-label capture and the
+firing prompt's own reasonable-interpretation/never-stall principle were both further along than `[ ]`; the
+multi-project registry's run/stop/scheduling and its fleet-wide telemetry/fairness rollup were both live and
+untracked) — `BACKLOG-999.md` §D agreed with the same wrong `[ ]` marks and was corrected alongside it. Section B
+was re-audited on 2026-09-08 and found already accurate (all 5 rows' `[x]`/`[~]` marks matched the live tree; no
+change). Section E was audited the same day — 4 of its 5 rows corrected (severity×dimension tagging and the
+INBOX read/write/auto-triage loop were both fully live though marked `[ ]`; the readiness gauge and the triage
+sub-agent are each partially live, upgraded to `[~]` with the specific gap named; the status-ladder row was
+verified genuinely unbuilt and left alone) — `BACKLOG-999.md` §I carried the same wrong marks and was corrected
+alongside it, except its status-ladder-adjacent PURPLE/BLUE-GREEN gate rows, which name a computed ladder state
+that still does not exist and were left `[ ]`. Section J was audited on 2026-09-08 — 5 of its 6 rows corrected:
+product hardening (CSP/DNS-rebind/rate-limit/path-traversal/secrets) is fully live and was upgraded to `[x]`; the
+OTel row's wire-format export turned out to be fully wired (env-driven, called per-firing in `fly.ts`, not just
+defined) and was upgraded to `[x]`; the ASVS/LLM-Top-10/SLSA/Scorecard/SAST row, the all-layer vulnerability
+detection row, and the reputable-sources row were each only partially true and downgraded from `[ ]` to `[~]`
+with the real split named — `BACKLOG-999.md` §F already carried the correct partial marks these three rows now
+match. Sections D (remaining rows), G, K–O are still **not** re-audited (board web-mtndm5fc-2vloky) —
+`BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this pass shows
+it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*

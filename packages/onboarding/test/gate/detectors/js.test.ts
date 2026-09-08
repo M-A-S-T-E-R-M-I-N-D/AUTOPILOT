@@ -197,6 +197,49 @@ describe('jsDetector', () => {
     });
   });
 
+  it('detects every "ci:*" script as a sorted ciExtras list, ignoring non-ci scripts', () => {
+    const d = jsDetector.detect(
+      snap(['package.json'], {
+        'package.json': JSON.stringify({
+          scripts: {
+            test: 'vitest run',
+            'ci:bundle-size': 'node scripts/ci/check-bundle-size.mjs',
+            'ci:secret-scan': 'node scripts/ci/secret-scan.mjs',
+            'ci:launcher-smoke': 'node scripts/ci/launcher-smoke.mjs',
+          },
+        }),
+      }),
+    );
+    expect(d?.gate.ciExtras).toEqual([
+      {
+        bin: 'npm',
+        args: ['run', 'ci:bundle-size'],
+        label: 'npm run ci:bundle-size',
+      },
+      {
+        bin: 'npm',
+        args: ['run', 'ci:launcher-smoke'],
+        label: 'npm run ci:launcher-smoke',
+      },
+      {
+        bin: 'npm',
+        args: ['run', 'ci:secret-scan'],
+        label: 'npm run ci:secret-scan',
+      },
+    ]);
+    expect(d?.evidence).toContain('scripts.ci:* (3)');
+  });
+
+  it('leaves ciExtras undetected when no "ci:*" script is present', () => {
+    const d = jsDetector.detect(
+      snap(['package.json'], {
+        'package.json': JSON.stringify({ scripts: { test: 'vitest run' } }),
+      }),
+    );
+    expect(d?.gate.ciExtras).toBeUndefined();
+    expect(d?.evidence.some((e) => e.startsWith('scripts.ci:*'))).toBe(false);
+  });
+
   it('scores as detected-commands count plus the package.json manifest bonus', () => {
     const d = jsDetector.detect(
       snap(['package.json'], {

@@ -45,6 +45,11 @@ import {
 } from '@autopilot/store';
 import { titleMatchScore } from '../read/reconcile.js';
 import type { CliExec } from '../connection/cli-probe.js';
+import {
+  DOSSIER_POSTED_LABEL,
+  isPartnerApplicationIssue,
+  planContributorDossierCommands,
+} from './contributor-dossier.js';
 
 /** The subset of a GitHub issue this policy needs — title/body/labels, never
  *  trusted as anything but data to score and classify. `labels` is optional
@@ -64,6 +69,12 @@ export interface IncomingIssue {
    *  callers need not fabricate it; {@link fetchOpenIssues} always
    *  populates it. */
   readonly assignees?: readonly string[];
+  /** The issue author's GitHub login — used only by the `'dossier'` path
+   *  (a partner-application issue) to look up the applicant's evidence; the
+   *  ordinary accept/duplicate/skip classification never reads it. Optional,
+   *  defaulting to unset, so pure-planning callers need not fabricate it;
+   *  {@link fetchOpenIssues} always populates it when `gh` reports one. */
+  readonly author?: string;
 }
 
 /** One existing title to dedup an incoming issue against — a board task's
@@ -85,6 +96,12 @@ export interface IssueTriageDuplicate {
 export interface IssueTriageAccept {
   readonly decision: 'accept';
   readonly dimension: Dimension;
+  /** The house `area:` label (docs/epics/0019-github-steward.md S2) classified
+   *  from the issue's own text — a different axis from {@link dimension}:
+   *  WHERE in the codebase the issue lands, not WHAT KIND of work it is. */
+  readonly area: AreaLabel;
+  /** The house `priority:` label (S2), classified the same way. */
+  readonly priority: PriorityLabel;
   readonly reasoning: string;
 }
 
@@ -96,7 +113,19 @@ export interface IssueTriageSkip {
   readonly reasoning: string;
 }
 
-export type IssueTriageDecision = IssueTriageDuplicate | IssueTriageAccept | IssueTriageSkip;
+/** A `partner-application`-labeled issue (board web-mtq07kgf-2h6trk;
+ *  `docs/epics/0019-github-steward.md` S2: "never auto-verdicts") — routed
+ *  around the ordinary accept/duplicate/skip classification entirely. The
+ *  real `gh` commands for this decision need the applicant's fetched
+ *  evidence, which is async I/O `planIssueTriage` itself never performs
+ *  (see `runIssueTriageRitual`'s own `'dossier'` handling). */
+export interface IssueTriageDossier {
+  readonly decision: 'dossier';
+  readonly reasoning: string;
+}
+
+export type IssueTriageDecision =
+  IssueTriageDuplicate | IssueTriageAccept | IssueTriageSkip | IssueTriageDossier;
 
 /** Below this token-overlap score (same convention as `reconcile.ts`'s
  *  `DEFAULT_MATCH_THRESHOLD`), an issue is treated as genuinely new rather
@@ -172,6 +201,116 @@ export function classifyIssueDimension(text: string): Dimension {
   return best;
 }
 
+/** The house `area:` label group (docs/GOVERNANCE.md, `HOUSE_TAXONOMY_LABELS`
+ *  in `taxonomy-seed.ts`) — declared order used for tie-breaking, same
+ *  convention as {@link DIMENSIONS}. */
+const AREA_LABELS = [
+  'area: dashboard',
+  'area: flight-engine',
+  'area: foundation',
+  'area: ci',
+  'area: i18n',
+  'area: community',
+] as const;
+export type AreaLabel = (typeof AREA_LABELS)[number];
+
+/** Keyword signals for each `area:` label — a different axis from {@link
+ *  DIMENSION_KEYWORDS}: WHERE in the codebase an issue lands, not WHAT KIND
+ *  of work it is. Same cheap, deterministic, operator-overridable first pass. */
+const AREA_KEYWORDS: Record<AreaLabel, readonly string[]> = {
+  'area: dashboard': [
+    'dashboard',
+    'panel',
+    'web cockpit',
+    'frontend',
+    'ui/ux',
+    'chip',
+    'badge',
+    'project page',
+  ],
+  'area: flight-engine': [
+    'firing',
+    'flight',
+    'gate',
+    'landing',
+    'fleet',
+    'orchestrat',
+    'worktree',
+    'sync-back',
+    'convergence',
+  ],
+  'area: foundation': ['donation', 'transparency', 'foundation'],
+  'area: ci': ['scanner', 'workflow', 'github action', 'pipeline', 'gate script'],
+  'area: i18n': ['i18n', 'locale', 'localiz', 'translat', 'hebrew', 'rtl'],
+  'area: community': ['contributor', 'community', 'claim', 'collaborat', 'partner'],
+};
+
+/**
+ * Deterministic area classifier: the `area:` label whose keywords appear most
+ * in `text` (case-insensitive substring counts), ties broken by
+ * {@link AREA_LABELS}' declared order. Falls back to `'area: dashboard'` —
+ * the most general user-facing surface — when nothing matches, so every
+ * accepted issue gets exactly one area label rather than none, mirroring
+ * {@link classifyIssueDimension}'s fallback shape.
+ */
+export function classifyIssueArea(text: string): AreaLabel {
+  const lower = text.toLowerCase();
+  let best: AreaLabel = 'area: dashboard';
+  let bestScore = 0;
+  for (const area of AREA_LABELS) {
+    const score = AREA_KEYWORDS[area].filter((keyword) => lower.includes(keyword)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = area;
+    }
+  }
+  return best;
+}
+
+/** The house `priority:` label group (docs/GOVERNANCE.md) — declared order
+ *  used for tie-breaking, same convention as {@link AREA_LABELS}. */
+const PRIORITY_LABELS = [
+  'priority: critical',
+  'priority: high',
+  'priority: medium',
+  'priority: low',
+] as const;
+export type PriorityLabel = (typeof PRIORITY_LABELS)[number];
+
+/** Keyword signals for each `priority:` label — deliberately sparse: this is
+ *  a cheap first pass an operator can read and override (epic 0019 law 2,
+ *  "what the maintainer marks outranks triage"), not a final verdict.
+ *  `'priority: medium'` has no keywords of its own — it is the declared
+ *  fallback for text that trips no stronger signal, matching
+ *  `HOUSE_TAXONOMY_LABELS`' own description ("Scheduled — normal queue
+ *  order"). */
+const PRIORITY_KEYWORDS: Record<PriorityLabel, readonly string[]> = {
+  'priority: critical': ['data loss', 'security vulnerab', 'critical', 'safety'],
+  'priority: high': ['urgent', 'blocking', 'high priority', 'regression', 'broken'],
+  'priority: medium': [],
+  'priority: low': ['nice to have', 'minor', 'low priority', 'someday', 'cosmetic'],
+};
+
+/**
+ * Deterministic priority classifier, same shape as {@link classifyIssueArea}:
+ * the `priority:` label whose keywords appear most in `text`, ties broken by
+ * {@link PRIORITY_LABELS}' declared order, falling back to
+ * `'priority: medium'` when nothing matches.
+ */
+export function classifyIssuePriority(text: string): PriorityLabel {
+  const lower = text.toLowerCase();
+  let best: PriorityLabel = 'priority: medium';
+  let bestScore = 0;
+  for (const priority of PRIORITY_LABELS) {
+    const score = PRIORITY_KEYWORDS[priority].filter((keyword) => lower.includes(keyword)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = priority;
+    }
+  }
+  return best;
+}
+
 /**
  * Decides what a KEEPER triage pass should do with one incoming issue, given
  * the current open board and backlog titles. Scores `issue.title` against
@@ -191,7 +330,13 @@ export function classifyIssueDimension(text: string): Dimension {
  * issue's own board task (same title) would score as a duplicate OF ITSELF
  * on the next pass and every re-run would post another bogus comment. Pure:
  * never fetches, labels, or comments — a caller wires those once this
- * decision is made.
+ * decision is made. A `partner-application`-labeled issue ({@link
+ * isPartnerApplicationIssue}) is checked FIRST, ahead of even the assignee
+ * check — a standing application is never ordinary triage, no matter who
+ * (if anyone) it's assigned to — and plans `'dossier'` (an evidence dossier
+ * is owed regardless), or `'skip'` when a previous pass already posted one
+ * ({@link DOSSIER_POSTED_LABEL} present), so re-runs stay idempotent the
+ * same way an already-labeled `pool: *`/`duplicate` issue does below.
  */
 export function planIssueTriage(
   issue: IncomingIssue,
@@ -199,6 +344,25 @@ export function planIssueTriage(
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
 ): IssueTriageDecision {
+  const labels = issue.labels ?? [];
+  if (isPartnerApplicationIssue(labels)) {
+    if (labels.includes(DOSSIER_POSTED_LABEL)) {
+      return {
+        decision: 'skip',
+        reasoning:
+          `#${issue.number} "${issue.title}" already carries "${DOSSIER_POSTED_LABEL}" from a ` +
+          'previous KEEPER pass — skipping so re-runs never post the dossier twice.',
+      };
+    }
+    return {
+      decision: 'dossier',
+      reasoning:
+        `#${issue.number} "${issue.title}" is a standing application — assembling a KEEPER ` +
+        'evidence dossier for the maintainer instead of auto-triaging it (docs/epics/0019-' +
+        'github-steward.md S2: partner applications never auto-verdict).',
+    };
+  }
+
   const assignees = issue.assignees ?? [];
   if (assignees.length > 0) {
     return {
@@ -209,7 +373,6 @@ export function planIssueTriage(
     };
   }
 
-  const labels = issue.labels ?? [];
   if (labels.some(isGoodFirstIssueLabel)) {
     return {
       decision: 'skip',
@@ -271,13 +434,18 @@ export function planIssueTriage(
     };
   }
 
-  const dimension = classifyIssueDimension(`${issue.title} ${issue.body}`);
+  const text = `${issue.title} ${issue.body}`;
+  const dimension = classifyIssueDimension(text);
+  const area = classifyIssueArea(text);
+  const priority = classifyIssuePriority(text);
   return {
     decision: 'accept',
     dimension,
+    area,
+    priority,
     reasoning:
       `#${issue.number} "${issue.title}" doesn't match any open board task or backlog entry — ` +
-      `accepting it and labeling "pool: ${dimension}".`,
+      `accepting it and labeling "pool: ${dimension}", "${area}", "${priority}".`,
   };
 }
 
@@ -292,19 +460,25 @@ export interface IssueTriageCommand {
 
 /**
  * Turns a {@link planIssueTriage} decision into the `gh` command(s) needed
- * to apply it: an accepted issue gets its pool label added
- * (`gh issue edit --add-label "pool: <dimension>"`) followed by a comment
- * posting the decision's reasoning; a duplicate gets GitHub's stock
+ * to apply it: an accepted issue gets its pool, area, and priority labels
+ * added in one `gh issue edit --add-label` call (docs/epics/0019-github-
+ * steward.md S2: "accepted issues get area/priority labels") followed by a
+ * comment posting the decision's reasoning; a duplicate gets GitHub's stock
  * `duplicate` label — so later passes {@link planIssueTriage} skip it — plus
  * the reasoning comment; a `'skip'` plans nothing at all, keeping re-runs
- * idempotent. Pure: plans argv, never invokes `gh` itself — a caller wires
- * the actual `execFile` calls once these plans are reviewed.
+ * idempotent. A `'dossier'` ALSO plans nothing here — its real commands need
+ * `contributor-dossier.ts`'s async `gh` lookups this function has no way to
+ * perform (it stays synchronous, same contract as every other decision);
+ * `runIssueTriageRitual` below builds those commands separately, through
+ * {@link planContributorDossierCommands}. Pure: plans argv, never invokes
+ * `gh` itself — a caller wires the actual `execFile` calls once these plans
+ * are reviewed.
  */
 export function planIssueTriageCommands(
   issue: IncomingIssue,
   decision: IssueTriageDecision,
 ): readonly IssueTriageCommand[] {
-  if (decision.decision === 'skip') return [];
+  if (decision.decision === 'skip' || decision.decision === 'dossier') return [];
 
   const issueRef = String(issue.number);
   const comment: IssueTriageCommand = {
@@ -324,12 +498,24 @@ export function planIssueTriageCommands(
     ];
   }
 
-  const label = `pool: ${decision.dimension}`;
+  const poolLabel = `pool: ${decision.dimension}`;
   return [
     {
       command: 'gh',
-      args: ['issue', 'edit', issueRef, '--add-label', label],
-      details: `labeling #${issue.number} "${label}" per its classified dimension`,
+      args: [
+        'issue',
+        'edit',
+        issueRef,
+        '--add-label',
+        poolLabel,
+        '--add-label',
+        decision.area,
+        '--add-label',
+        decision.priority,
+      ],
+      details:
+        `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}" ` +
+        'per its classified dimension/area/priority',
     },
     comment,
   ];
@@ -446,6 +632,16 @@ interface RawGithubIssue {
   readonly body?: unknown;
   readonly labels?: unknown;
   readonly assignees?: unknown;
+  readonly author?: unknown;
+}
+
+/** `gh`'s `author` field is a single `{ login, ... }` object (unlike the
+ *  `labels`/`assignees` arrays above) — reduced to just the login string,
+ *  or `undefined` when missing/malformed. */
+function parseAuthorLogin(raw: unknown): string | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const login = (raw as { login?: unknown }).login;
+  return typeof login === 'string' ? login : undefined;
 }
 
 /** `gh`'s `labels` field is an array of `{ name, ... }` objects — reduced
@@ -479,10 +675,10 @@ export function parseAssignees(raw: unknown): readonly string[] {
 
 /**
  * Lists every open issue via `gh issue list --state open --json
- * number,title,body,labels,assignees`, run through the injectable `exec` —
- * the same `CliExec` shape `connection/cli-probe.ts` uses, so this stays
- * deterministically testable without a real `gh` on PATH. Read-only: never
- * labels, comments, or closes anything, only lists. Returns `[]` on a
+ * number,title,body,labels,assignees,author`, run through the injectable
+ * `exec` — the same `CliExec` shape `connection/cli-probe.ts` uses, so this
+ * stays deterministically testable without a real `gh` on PATH. Read-only:
+ * never labels, comments, or closes anything, only lists. Returns `[]` on a
  * non-zero exit or unparseable/non-array stdout rather than throwing — a
  * triage sweep finding nothing to review is a valid outcome, and a flaky
  * `gh` call shouldn't crash the ritual. Entries missing a numeric `number`
@@ -495,7 +691,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     '--state',
     'open',
     '--json',
-    'number,title,body,labels,assignees',
+    'number,title,body,labels,assignees,author',
   ]);
   if (code !== 0) return [];
 
@@ -509,13 +705,17 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
 
   return (parsed as RawGithubIssue[])
     .filter((raw) => typeof raw.number === 'number' && typeof raw.title === 'string')
-    .map((raw) => ({
-      number: raw.number as number,
-      title: raw.title as string,
-      body: typeof raw.body === 'string' ? raw.body : '',
-      labels: parseIssueLabels(raw.labels),
-      assignees: parseAssignees(raw.assignees),
-    }));
+    .map((raw) => {
+      const author = parseAuthorLogin(raw.author);
+      return {
+        number: raw.number as number,
+        title: raw.title as string,
+        body: typeof raw.body === 'string' ? raw.body : '',
+        labels: parseIssueLabels(raw.labels),
+        assignees: parseAssignees(raw.assignees),
+        ...(author !== undefined ? { author } : {}),
+      };
+    });
 }
 
 /** One {@link IssueTriageCommand} run to completion — the same `{code,
@@ -562,16 +762,22 @@ export interface IssueTriageRitualResult {
 /**
  * The whole KEEPER triage ritual as one composed pass: {@link
  * fetchOpenIssues} the open issues, {@link planIssueTriageBatch} a decision +
- * gh commands for each against `boardTasks`/`backlogTitles`, run every plan's
- * commands through {@link executeIssueTriageCommands}, then {@link
- * applyIssueTriageTasks} to create board tasks for whatever got accepted.
- * This is the single entrypoint a confirm-guarded HTTP handler will call once
- * that wiring lands (see this file's header comment) — everything the ritual
- * needs to run end to end already composes here; injectable `exec`/`store`
- * keep it deterministically testable without a real `gh` or database. Runs
- * every plan's gh commands even when the batch is empty for others — no
- * early return short-circuits the loop, so a caller always gets a result
- * paired 1:1 with `plans`.
+ * gh commands for each against `boardTasks`/`backlogTitles`, resolve each
+ * `'dossier'` plan's REAL commands through {@link
+ * planContributorDossierCommands} (async `gh` lookups `planIssueTriageBatch`
+ * itself can't perform — see that function's own `'dossier'` handling), run
+ * every plan's commands through {@link executeIssueTriageCommands}, then
+ * {@link applyIssueTriageTasks} to create board tasks for whatever got
+ * accepted (a `'dossier'` plan contributes none — {@link
+ * planIssueTriageTask} returns `null` for it, same as `'duplicate'`/`'skip'`,
+ * since a standing application routes to the maintainer, never straight onto
+ * the board). This is the single entrypoint a confirm-guarded HTTP handler
+ * will call once that wiring lands (see this file's header comment) —
+ * everything the ritual needs to run end to end already composes here;
+ * injectable `exec`/`store` keep it deterministically testable without a
+ * real `gh` or database. Runs every plan's gh commands even when the batch
+ * is empty for others — no early return short-circuits the loop, so a
+ * caller always gets a result paired 1:1 with `plans`.
  */
 export async function runIssueTriageRitual(
   exec: CliExec,
@@ -583,7 +789,22 @@ export async function runIssueTriageRitual(
   now: () => number = Date.now,
 ): Promise<IssueTriageRitualResult> {
   const issues = await fetchOpenIssues(exec);
-  const plans = planIssueTriageBatch(issues, boardTasks, backlogTitles, threshold);
+  const basePlans = planIssueTriageBatch(issues, boardTasks, backlogTitles, threshold);
+
+  const plans: IssueTriagePlan[] = [];
+  for (const plan of basePlans) {
+    if (plan.decision.decision !== 'dossier') {
+      plans.push(plan);
+      continue;
+    }
+    const commands = await planContributorDossierCommands(
+      plan.issue.number,
+      plan.issue.author ?? '',
+      exec,
+      now(),
+    );
+    plans.push({ ...plan, commands });
+  }
 
   const commandResults: IssueTriageCommandResult[] = [];
   for (const plan of plans) {

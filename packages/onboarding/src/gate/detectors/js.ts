@@ -104,6 +104,19 @@ export const jsDetector: EcosystemDetector = {
       evidence.push('scripts.format:check');
     }
 
+    // PARITY GATE (board web-mtqtec7m-dhxd9h): every `ci:*` script is a CI-only
+    // check absent from the core kinds above (bundle-size budget, launcher
+    // smokes, secret/license/config validators, generated-doc census suites, …).
+    // Sorted for a deterministic command order independent of package.json's
+    // own key order.
+    const ciScriptNames = Object.keys(scripts)
+      .filter((name) => name.startsWith('ci:'))
+      .sort();
+    if (ciScriptNames.length > 0) {
+      gate.ciExtras = ciScriptNames.map((name) => scriptCommand(pm, name));
+      evidence.push(`scripts.ci:* (${ciScriptNames.length})`);
+    }
+
     const detected = Object.keys(gate).length;
     const score = detected + (pkgText !== null ? 1 : 0);
     return { gate, score, evidence };

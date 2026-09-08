@@ -41,6 +41,18 @@
  * (Relanded: first shipped as c9f4d502, then blind-reverted by the 07:47
  * revert burst a false-positive drive-path scanner hit triggered — see
  * 4fecba5f — and never forward-relanded with the burst's other victims.)
+ * That first i18n pass tagged every state EXCEPT the panel's own always-on
+ * chrome: the `<summary>` toggle's title/tip (`consoleTitle`/
+ * `consoleTitleTip`, riding the same page-level sweep as the collapsed
+ * placeholder) and the loaded `<pre>`'s line-count `aria-label`/`data-tip`
+ * (a `{n}` template — one key rides both attributes, the same key-reuse
+ * `web/shell.ts`'s "Exit replay" already established for text+aria-label —
+ * chosen between `consoleLinesAriaSingular`/`consoleLinesAriaPlural` by
+ * count, the same real-grammar branch `consoleLinesAriaLabel()` itself
+ * already takes, rather than a lowest-common-denominator "(s)" suffix) —
+ * both stayed English-only until this slice, since the `<pre>` branch never
+ * called `translateDom()` itself the way the other two async branches
+ * already did.
  */
 import { consoleLinesAriaLabel } from '../console-panel.js';
 
@@ -74,8 +86,17 @@ function renderConsoleBody(body, lines) {
   pre.setAttribute('tabindex', '0');
   pre.setAttribute('aria-label', consoleLinesAriaLabel(lines.length));
   pre.setAttribute('data-tip', consoleLinesAriaLabel(lines.length));
+  // i18n (board web-msnsndki-dz3vn1): the template key itself is chosen by
+  // count — singular vs plural, the same real-grammar branch
+  // consoleLinesAriaLabel() takes above — and rides both the aria-label and
+  // the tip sweep; {n} fills from data-i18n-args.
+  var linesAriaKey = lines.length === 1 ? 'consoleLinesAriaSingular' : 'consoleLinesAriaPlural';
+  pre.setAttribute('data-i18n-aria-template', linesAriaKey);
+  pre.setAttribute('data-i18n-tip-template', linesAriaKey);
+  pre.setAttribute('data-i18n-args', JSON.stringify({ n: lines.length }));
   pre.textContent = lines.join('\\n');
   body.appendChild(pre);
+  translateDom(document.documentElement.lang || 'en');
 }
 function flightConsoleSection(pid) {
   var wrap = el('section', 'console-panel');
@@ -84,7 +105,9 @@ function flightConsoleSection(pid) {
   var summary = document.createElement('summary');
   summary.className = 'console-title';
   summary.textContent = '🖥️ Flight console';
+  summary.setAttribute('data-i18n', 'consoleTitle');
   summary.setAttribute('data-tip', 'Raw stdout+stderr tail of the flight process for this project');
+  summary.setAttribute('data-i18n-tip', 'consoleTitleTip');
   details.appendChild(summary);
   var body = el('div', 'console-body');
   var collapsedMsg = el('p', 'muted', 'Collapsed — expand to load.');

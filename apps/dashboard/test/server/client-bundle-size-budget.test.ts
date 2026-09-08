@@ -131,9 +131,32 @@ import {
  * budget line unrelated to its own work. This bump leaves ~4KB raw; the
  * gzip line keeps its ~0.7KB and is not moved. The structural fix (VERDICT
  * split web-mtbodv7m-uzhovs) remains the tracked follow-up.
+ *
+ * NOT raised (2026-09-08): the project page's "⇪ Sync to GitHub" button
+ * label + its "Make public instead" checkbox text (board web-msnsndki-dz3vn1
+ * — two STRINGS.en keys, `githubSync` / `githubSyncPublicLabel`, plus the
+ * click handler's busy/idle data-i18n key swap in `shell.ts`) measured
+ * 184470 raw / 54757 gzip against the 188416 / 55296 budget the entry above
+ * set: ~3.9KB raw and ~0.5KB gzip headroom, no bump needed. Recorded because
+ * a checkpoint of this slice briefly raised raw to 188KB by reading the
+ * entry above's OLD budget (184320 = 180KB) as the current one — "184KB" is
+ * 188416 bytes, not 184320. Compare in bytes, not in the KB label.
+ *
+ * Raised GZIP ONLY 54→55KB (2026-09-08): the search palette's Ask flow
+ * (board web-msnsndki-dz3vn1 — five STRINGS.en keys, `askAsking` /
+ * `askPickProject` / `askThinking` / `askThinkingDeep` / `askFailed`, the
+ * tr()-at-birth `renderAskNote()` + `setAskLabel()` helpers in
+ * `web/features/search.ts`, and the change-only guard on
+ * `features/locale.ts`'s [data-i18n] sweep) measured 186011 raw / 55168 gzip
+ * against the 188416 / 55296 budget: green on both axes, but with 128 bytes
+ * of gzip headroom — the same next-change-of-any-kind-goes-red margin the
+ * 172→176KB and 180→184KB entries above describe, this time on the gzip
+ * line. This bump leaves ~1.1KB gzip; the raw line keeps its ~2.3KB and is
+ * not moved. The structural fix (VERDICT split web-mtbodv7m-uzhovs) remains
+ * the tracked follow-up.
  */
 const CORE_RAW_BUDGET = 184 * 1024;
-const CORE_GZIP_BUDGET = 54 * 1024;
+const CORE_GZIP_BUDGET = 55 * 1024;
 const CHUNK_RAW_BUDGET = 112 * 1024;
 const CHUNK_GZIP_BUDGET = 34 * 1024;
 

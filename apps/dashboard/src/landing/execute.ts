@@ -273,7 +273,11 @@ export function createLandingExecuteApi(
       const spec = parseGateSpec(project.gate_config);
       const gate = new GateRunner({
         cwd: project.root_path,
-        commands: spec ? gateCommands(spec) : [],
+        // PARITY GATE (board web-mtqtec7m-dhxd9h): a LANDING EXECUTE is the
+        // landing/convergence call site, so it opts into the CI-only extras
+        // (`ciExtras`) — the same set CI runs on push, run here before the
+        // push happens instead of after.
+        commands: spec ? gateCommands(spec, { includeCiExtras: true }) : [],
         ...(onGateProgress
           ? { onProgress: (event: GateProgressEvent) => onGateProgress(projectId, event) }
           : {}),
@@ -317,9 +321,10 @@ export function createLandingExecuteApi(
 
 /**
  * Builds the real {@link OutOfBandLandGateCheck}: on a flight-running
- * refusal, runs the SAME gate `spec ? gateCommands(spec) : []` produces —
- * but against a disposable DETACHED worktree of the project's current HEAD
- * (`addDetachedWorktree`) instead of the live checkout `land()` itself uses.
+ * refusal, runs the SAME gate `spec ? gateCommands(spec, { includeCiExtras:
+ * true }) : []` produces — but against a disposable DETACHED worktree of the
+ * project's current HEAD (`addDetachedWorktree`) instead of the live
+ * checkout `land()` itself uses.
  * A detached checkout never contends for git's one-checkout-per-branch slot,
  * so this runs safely alongside the flight that already has that same
  * commit's branch checked out live.
@@ -335,7 +340,10 @@ export function createLandingExecuteApi(
 export function createOutOfBandLandGateCheck(dbPath: string): OutOfBandLandGateCheck {
   return (projectId, rootPath, gateConfig) => {
     const spec = parseGateSpec(gateConfig);
-    const commands = spec ? gateCommands(spec) : [];
+    // Same PARITY GATE opt-in as the real EXECUTE path above — this check
+    // exists to warn BEFORE a landing whether the converged branch would
+    // pass, so it must gate on the identical command set EXECUTE itself uses.
+    const commands = spec ? gateCommands(spec, { includeCiExtras: true }) : [];
     if (commands.length === 0) return;
 
     void (async () => {

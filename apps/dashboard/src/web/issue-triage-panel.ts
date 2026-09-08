@@ -46,14 +46,16 @@ export interface IssueTriagePlanLike {
 }
 
 /** Maps a KEEPER triage decision kind to its badge text. `accept`/
- *  `duplicate`/`skip` are the only values `flight/issue-triage.ts`'s
- *  `planIssueTriage` emits; anything else (should never happen) echoes back
- *  verbatim rather than throwing, so an unrecognized future decision kind
- *  degrades to a plain label instead of breaking the panel. */
+ *  `duplicate`/`skip`/`dossier` are the only values `flight/issue-triage.ts`'s
+ *  `planIssueTriage` emits (`dossier`: a `partner-application` issue,
+ *  board web-mtq07kgf-2h6trk); anything else (should never happen) echoes
+ *  back verbatim rather than throwing, so an unrecognized future decision
+ *  kind degrades to a plain label instead of breaking the panel. */
 export function issueTriageDecisionLabel(decision: string): string {
   if (decision === 'accept') return '✓ accept';
   if (decision === 'duplicate') return '⧉ duplicate';
   if (decision === 'skip') return '⏭ skip';
+  if (decision === 'dossier') return '📋 dossier → maintainer';
   return decision;
 }
 
@@ -61,13 +63,15 @@ export function issueTriageDecisionLabel(decision: string): string {
  *  covers the whole batch (execute has no single-issue target, unlike KEEPER
  *  PR review), same "state what happens before confirming" shape
  *  `prReviewConfirmMessage` uses. States how many issues get labeled +
- *  commented as newly accepted, labeled duplicate + commented, or skipped as
- *  already triaged by a previous pass, so the operator knows the blast
- *  radius before real `gh` calls fire. */
+ *  commented as newly accepted, labeled duplicate + commented, routed to a
+ *  KEEPER evidence dossier for the maintainer, or skipped as already triaged
+ *  by a previous pass, so the operator knows the blast radius before real
+ *  `gh` calls fire. */
 export function issueTriageConfirmMessage(plans: readonly IssueTriagePlanLike[]): string {
   const acceptCount = plans.filter((p) => p.decision.decision === 'accept').length;
   const duplicateCount = plans.filter((p) => p.decision.decision === 'duplicate').length;
-  const skipCount = plans.length - acceptCount - duplicateCount;
+  const dossierCount = plans.filter((p) => p.decision.decision === 'dossier').length;
+  const skipCount = plans.length - acceptCount - duplicateCount - dossierCount;
   return (
     'Run KEEPER triage on ' +
     plans.length +
@@ -79,6 +83,10 @@ export function issueTriageConfirmMessage(plans: readonly IssueTriagePlanLike[])
     duplicateCount +
     (duplicateCount === 1 ? ' issue' : ' issues') +
     ' already matching open work will be labeled duplicate and commented; ' +
+    dossierCount +
+    (dossierCount === 1 ? ' standing application' : ' standing applications') +
+    ' will get a KEEPER evidence dossier posted for the maintainer to decide (never ' +
+    'auto-verdicted); ' +
     skipCount +
     (skipCount === 1 ? ' issue' : ' issues') +
     ' already triaged in a previous pass will be skipped.\n\n' +
@@ -98,7 +106,8 @@ export function issueTriageConfirmMessage(plans: readonly IssueTriagePlanLike[])
 export function issueTriageExecuteTip(plans: readonly IssueTriagePlanLike[]): string {
   const acceptCount = plans.filter((p) => p.decision.decision === 'accept').length;
   const duplicateCount = plans.filter((p) => p.decision.decision === 'duplicate').length;
-  const skipCount = plans.length - acceptCount - duplicateCount;
+  const dossierCount = plans.filter((p) => p.decision.decision === 'dossier').length;
+  const skipCount = plans.length - acceptCount - duplicateCount - dossierCount;
   return (
     'Run KEEPER triage on ' +
     plans.length +
@@ -108,6 +117,8 @@ export function issueTriageExecuteTip(plans: readonly IssueTriagePlanLike[]): st
     ' to accept (label + comment + new board task), ' +
     duplicateCount +
     ' to mark duplicate, ' +
+    dossierCount +
+    ' to post a maintainer evidence dossier for, ' +
     skipCount +
     ' already triaged. Real gh calls fire only after a confirm.'
   );

@@ -36,6 +36,21 @@ function ruleFor(css: string, selector: string): string {
 const css = layoutCss();
 const selector = '.landing-group-toggle';
 
+describe('landing commit-group nested list [hidden] override (report-landing-1ufcu6l)', () => {
+  it('the stylesheet actually hides a [hidden] nested commit list — the toggle must not just relabel itself', () => {
+    // features/landing.ts's landingCommitGroupNode toggles the nested <ul> via
+    // the `hidden` DOM property (nested.hidden = expanded), same as the tour
+    // overlay (first-run-tour.test.ts). `.landing-commit-nested { display:
+    // flex }` beats the UA's `[hidden] { display: none }` default with no
+    // guard rule, so the nested list stayed visible (or invisible) regardless
+    // of the attribute — the toggle button's label changed ("Show all (N)" /
+    // "Hide") but the content underneath never actually expanded or
+    // collapsed. jsdom does not compute the real cascade, so this pins the
+    // rule at the stylesheet level, like every other [hidden] guard here.
+    expect(layoutCss()).toContain('.landing-commit-nested[hidden] { display: none; }');
+  });
+});
+
 describe('landing group toggle designed states (COCKPIT 6/6)', () => {
   it('rests on the small shape token with the shape-morph + elevation transition', () => {
     const rest = ruleFor(css, selector);

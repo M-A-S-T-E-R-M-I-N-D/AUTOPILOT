@@ -20,6 +20,8 @@ describe('buildReportComposePrompt', () => {
     expect(prompt).toContain('{"selector":"#launch"}');
     expect(prompt).toContain('apps/dashboard/src/web/features/fly.ts');
     expect(prompt).toContain('REPORT_COMPOSE:');
+    expect(prompt).toContain('"severity": exactly one of critical, high, medium, low');
+    expect(prompt).toContain('severityReasoning');
   });
 
   it('says "(none captured)" for absent context and module sources', () => {
@@ -57,7 +59,7 @@ describe('buildReportComposePrompt', () => {
 
 describe('parseReportComposeOutput', () => {
   const validLine =
-    'REPORT_COMPOSE:{"title":"Launch button stays disabled","body":"Steps to reproduce...","labels":["bug","ui"],"action":"issue","language":"en"}';
+    'REPORT_COMPOSE:{"title":"Launch button stays disabled","body":"Steps to reproduce...","labels":["bug","ui"],"action":"issue","language":"en","severity":"high","severityReasoning":"Blocks the primary flow for every operator."}';
 
   it('parses a well-formed reply', () => {
     const parsed = parseReportComposeOutput(validLine);
@@ -67,6 +69,8 @@ describe('parseReportComposeOutput', () => {
       labels: ['bug', 'ui'],
       action: 'issue',
       language: 'en',
+      severity: 'high',
+      severityReasoning: 'Blocks the primary flow for every operator.',
     });
   });
 
@@ -77,7 +81,7 @@ describe('parseReportComposeOutput', () => {
 
   it('lowercases and dedupes labels, capping at 6', () => {
     const parsed = parseReportComposeOutput(
-      'REPORT_COMPOSE:{"title":"t","body":"b","labels":["Bug","bug","UI","perf","a11y","docs","extra","more"],"action":"issue","language":"en"}',
+      'REPORT_COMPOSE:{"title":"t","body":"b","labels":["Bug","bug","UI","perf","a11y","docs","extra","more"],"action":"issue","language":"en","severity":"low","severityReasoning":"Cosmetic only."}',
     );
     expect(parsed?.labels).toEqual(['bug', 'ui', 'perf', 'a11y', 'docs', 'extra']);
   });
@@ -130,6 +134,47 @@ describe('parseReportComposeOutput', () => {
       ),
     ).toBeNull();
   });
+
+  it('returns null when severity is missing', () => {
+    expect(
+      parseReportComposeOutput(
+        'REPORT_COMPOSE:{"title":"t","body":"b","labels":["bug"],"action":"issue","language":"en","severityReasoning":"why"}',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when severity is not one of the known values', () => {
+    expect(
+      parseReportComposeOutput(
+        'REPORT_COMPOSE:{"title":"t","body":"b","labels":["bug"],"action":"issue","language":"en","severity":"urgent","severityReasoning":"why"}',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when severityReasoning is missing', () => {
+    expect(
+      parseReportComposeOutput(
+        'REPORT_COMPOSE:{"title":"t","body":"b","labels":["bug"],"action":"issue","language":"en","severity":"low"}',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when severityReasoning is blank', () => {
+    expect(
+      parseReportComposeOutput(
+        'REPORT_COMPOSE:{"title":"t","body":"b","labels":["bug"],"action":"issue","language":"en","severity":"low","severityReasoning":"   "}',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when severityReasoning exceeds the length bound', () => {
+    const longReasoning = 'x'.repeat(201);
+    expect(
+      parseReportComposeOutput(
+        `REPORT_COMPOSE:{"title":"t","body":"b","labels":["bug"],"action":"issue","language":"en","severity":"low","severityReasoning":"${longReasoning}"}`,
+      ),
+    ).toBeNull();
+  });
 });
 
 describe('composeReport', () => {
@@ -175,7 +220,7 @@ describe('composeReport', () => {
     const result = await composeReport(
       deps(
         async () =>
-          `REPORT_COMPOSE:{"title":"Leaked key ${fakeKey}","body":"b","labels":["bug"],"action":"issue","language":"en"}`,
+          `REPORT_COMPOSE:{"title":"Leaked key ${fakeKey}","body":"b","labels":["bug"],"action":"issue","language":"en","severity":"high","severityReasoning":"Looks credential-shaped."}`,
       ),
       'note',
       undefined,
@@ -190,7 +235,22 @@ describe('composeReport', () => {
     const result = await composeReport(
       deps(
         async () =>
-          `REPORT_COMPOSE:{"title":"t","body":"Contact ${fakeEmail} for details","labels":["bug"],"action":"issue","language":"en"}`,
+          `REPORT_COMPOSE:{"title":"t","body":"Contact ${fakeEmail} for details","labels":["bug"],"action":"issue","language":"en","severity":"medium","severityReasoning":"Contact info needed to follow up."}`,
+      ),
+      'note',
+      undefined,
+      [],
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reasoning).toContain('personal');
+  });
+
+  it('rejects a composition whose severityReasoning leaks a personal email address', async () => {
+    const fakeEmail = 'someone' + '@gmail.com';
+    const result = await composeReport(
+      deps(
+        async () =>
+          `REPORT_COMPOSE:{"title":"t","body":"b","labels":["bug"],"action":"issue","language":"en","severity":"medium","severityReasoning":"Reported by ${fakeEmail}."}`,
       ),
       'note',
       undefined,
@@ -204,7 +264,7 @@ describe('composeReport', () => {
     const result = await composeReport(
       deps(
         async () =>
-          'REPORT_COMPOSE:{"title":"Launch button stays disabled","body":"b","labels":["bug"],"action":"issue","language":"en"}',
+          'REPORT_COMPOSE:{"title":"Launch button stays disabled","body":"b","labels":["bug"],"action":"issue","language":"en","severity":"high","severityReasoning":"Blocks the primary flow for every operator."}',
       ),
       'the launch button stays disabled',
       undefined,
@@ -217,6 +277,8 @@ describe('composeReport', () => {
       labels: ['bug'],
       action: 'issue',
       language: 'en',
+      severity: 'high',
+      severityReasoning: 'Blocks the primary flow for every operator.',
     });
   });
 });

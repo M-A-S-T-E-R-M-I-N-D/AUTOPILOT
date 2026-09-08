@@ -803,6 +803,21 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // execute class `flight/issue-triage` above is flagged for, ending in
   // neither `-execute.ts` nor any security keyword.
   'flight/mirror-pass',
+  // The KEEPER contributor dossier (board web-mtq07kgf-2h6trk, "STANDING
+  // 2/5"): plans the `gh issue edit --add-label`/`gh issue comment` argv
+  // that posts a partner-application applicant's evidence dossier — the
+  // same decide-and-eventually-execute class `flight/issue-triage` above is
+  // flagged for (dossier facts feed the maintainer's decision but are
+  // never auto-verdicted). Ends in neither `-execute.ts` nor any security
+  // keyword.
+  'flight/contributor-dossier',
+  // The taxonomy seeder ritual (epic 0019 "GitHub Steward" slice 1, board
+  // web-mtrh1hjq-760dic): plans AND applies `gh label create --force` /
+  // `gh api .../milestones` writes stamping the house label + starter
+  // milestone scheme onto a repo the acting identity owns — the same
+  // decide-and-execute class `flight/mirror-pass` above is flagged for,
+  // ending in neither `-execute.ts` nor any security keyword.
+  'flight/taxonomy-seed',
   // Dispatches the ARCHITECT chat control tools' write/DESTRUCTIVE store
   // operations (tasks_create/set-status/reorder/delete, project_reset) and
   // owns their argument validation itself — server.ts leaves it only the
@@ -1019,6 +1034,16 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // usage-pool-scan.ts may read (private-transcript scope) — a data-flow/
   // privacy surface, the same stance flight/otlp.ts above is flagged under.
   'flight/usage-pool-config.ts',
+  // Epic 0019 "GitHub Steward" slice 1 (board web-mtrh1hjq-760dic): plans
+  // AND executes the taxonomy-seed ritual's real `gh label create --force`
+  // / `gh api .../milestones` writes against the operator's live repo — the
+  // same decide-and-execute GitHub-write class flight/mirror-pass and
+  // flight/contributor-dossier above are flagged for. Role-gated behind
+  // resolveSocialIdentity (the already-benign social-pass.ts) the same way
+  // flight/pool-client-execute.ts is, but the actual write lives here, not
+  // there. `.ts`-suffixed so `test/flight/taxonomy-seed.test.ts` stays
+  // unflagged, same anchoring as flight/worktree.ts above.
+  'flight/taxonomy-seed.ts',
   'engine/src/landing.ts',
   'engine/src/release.ts',
   'engine/src/adapters/git.ts',
@@ -1321,6 +1346,18 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'docs/donations.json',
   'docs/donate.md',
   '.github/funding.yml',
+  // Epic 0019 "GitHub Steward" slice 1's taxonomy seeder (board
+  // web-mtrh1hjq-760dic): plans AND executes real `gh label create
+  // --force`/`gh api .../milestones` writes against a repo's own
+  // label/milestone taxonomy — the same decide-and-execute class
+  // `flight/mirror-pass` above is flagged for, gated on `social-pass.ts`'s
+  // maintainer-role resolve (a guest identity gets a zero-action plan). A
+  // PR that loosened that guest/unresolved-identity skip, or widened the
+  // label/milestone set it upserts, would carry no "guard"/"auth"/
+  // "security" keyword in its path. Directory-prefixed like every other
+  // `flight/*` entry above so a future `flight/taxonomy-seed-execute.ts`
+  // stays covered too.
+  'flight/taxonomy-seed',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {

@@ -250,6 +250,23 @@ describe('parseConvergenceRedEvents', () => {
     insertEvent('convergence-red', 'not json', 100);
     expect(parseConvergenceRedEvents(store, PROJECT_ID)).toEqual([]);
   });
+
+  it('parses the optional `ms` duration when the payload carries one', () => {
+    insertEvent(
+      'convergence-red',
+      '{"check":"full-gate","merge":"conflict in shell.ts","ms":3000}',
+      100,
+    );
+    expect(parseConvergenceRedEvents(store, PROJECT_ID)).toEqual([
+      { check: 'full-gate', details: 'conflict in shell.ts', ms: 3000 },
+    ]);
+  });
+
+  it('leaves `ms` absent for a row persisted before duration was tracked', () => {
+    insertEvent('convergence-red', '{"check":"full-gate","merge":"conflict in shell.ts"}', 100);
+    const [entry] = parseConvergenceRedEvents(store, PROJECT_ID);
+    expect(entry).not.toHaveProperty('ms');
+  });
 });
 
 describe('parseConvergenceUnverifiableEvents', () => {

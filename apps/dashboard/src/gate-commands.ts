@@ -28,9 +28,22 @@ export const PARALLEL_GATE_KINDS: ReadonlySet<keyof GateSpec> = new Set([
   'format',
 ]);
 
+export interface GateCommandsOptions {
+  /** Append `spec.ciExtras` (every detected `ci:*` script — bundle-size
+   *  budget, launcher smokes, generated-doc census suites, …) after the core
+   *  kinds. Landing/convergence call sites opt in; the per-firing gate does
+   *  not, so CI-parity checks never add their combined cost to firing cadence
+   *  (board web-mtqtec7m-dhxd9h "pre-push PARITY GATE"). Defaults to `false`
+   *  so every existing caller keeps its prior command list unchanged. */
+  readonly includeCiExtras?: boolean;
+}
+
 /** Map a flat `GateSpec` (fly.ts's own detected gate, or the `gate_config`
  *  column's parsed JSON) into a runnable command list, in gate order. */
-export function gateCommands(spec: GateSpec): GateShellCommand[] {
+export function gateCommands(
+  spec: GateSpec,
+  options: GateCommandsOptions = {},
+): GateShellCommand[] {
   const kinds: (keyof GateSpec)[] = ['typecheck', 'lint', 'format', 'test', 'build'];
   const commands: GateShellCommand[] = [];
   for (const kind of kinds) {
@@ -42,6 +55,11 @@ export function gateCommands(spec: GateSpec): GateShellCommand[] {
         label: command.label,
         ...(PARALLEL_GATE_KINDS.has(kind) ? { parallel: true } : {}),
       });
+    }
+  }
+  if (options.includeCiExtras) {
+    for (const extra of spec.ciExtras ?? []) {
+      if (extra.bin) commands.push({ bin: extra.bin, args: [...extra.args], label: extra.label });
     }
   }
   return commands;

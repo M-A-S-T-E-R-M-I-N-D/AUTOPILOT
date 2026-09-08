@@ -238,8 +238,15 @@ const BENIGN_FLIGHT = new Set([
  *  injected system-clock reader, and `pacer.ts` only computes an advisory
  *  cadence suggestion (SELECT-only, no write) that `fly.ts` — already
  *  flagged — is free to use or ignore; the actual budget enforcement lives
- *  in the already-flagged flight-orchestration wiring, not here. */
-const BENIGN_ADAPTERS = new Set(['index.ts', 'clock.ts', 'pacer.ts']);
+ *  in the already-flagged flight-orchestration wiring, not here.
+ *  `merge-conflict-context.ts` only runs read-only `git show :N:path`
+ *  against the repo's own tracked blobs (sync-back rung-4 context
+ *  gathering, docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md) — no
+ *  write, no privacy surface like `usage-pool-scan.ts`'s operator-private
+ *  reads, and no decision of its own; the escalation agent that will
+ *  consume this context and decide/write a resolution is unbuilt follow-on
+ *  work that will need its own marker once it ships. */
+const BENIGN_ADAPTERS = new Set(['index.ts', 'clock.ts', 'pacer.ts', 'merge-conflict-context.ts']);
 
 /** Flat `engine/src` files with no write/decide power of their own: static
  *  descriptors and config constants (`info.ts`, `config.ts`), a pure
@@ -265,6 +272,14 @@ const BENIGN_ENGINE_SRC = new Set([
   // call lives in apps/dashboard/src/connection/gh-lts.ts (dashboard side),
   // and alignment stays an operator action by epic-0006 design.
   'lts-check.ts',
+  // github-identity-disclosure.ts: PURE string-template formatter for the
+  // identity-law "Flown by AUTOPILOT" disclosure footer (STANDING 1/5,
+  // board web-mtq07kf7-lylkor) — no I/O, no decision surface; it is
+  // consumed BY the already-flagged github-contribute.ts and
+  // github-pr-contribute.ts planners, which decide when and where the
+  // footer is appended, the same impure-sibling-is-flagged-instead class
+  // usage-pool.ts above is benign for.
+  'github-identity-disclosure.ts',
   'info.ts',
   'index.ts',
   'inbox.ts',

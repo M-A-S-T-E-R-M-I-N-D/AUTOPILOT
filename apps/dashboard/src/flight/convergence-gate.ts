@@ -21,14 +21,17 @@ import { median } from '@autopilot/store';
  *    between two lanes advancing the branch can't absorb a full gate
  *    (~160s), and typecheck alone caught both recorded incidents.
  *  - Flight-end final sync-back: the FULL detected gate (typecheck + lint +
- *    format + test + build) — this runs once, after the last lane for the
- *    flight has landed, so the cadence pressure above doesn't apply. It is
- *    the one point that can still catch an ADDITIVE invariant two
- *    individually-green lanes each respect alone but jointly bust (a lint
- *    rule, a test count, a build-time budget) before the next landing
- *    ritual runs — `docs/DOCTRINE-COORDINATION.md` documents that ritual as
- *    the only OTHER full-suite gate on this branch, and it only fires on an
- *    explicit land, so a flight that never lands never sees it.
+ *    format + test + build), PLUS the CI-only parity extras (`ciExtras` —
+ *    bundle-size budget, launcher smokes, generated-doc census suites, …;
+ *    board web-mtqtec7m-dhxd9h "pre-push PARITY GATE") — this runs once,
+ *    after the last lane for the flight has landed, so the cadence pressure
+ *    above doesn't apply. It is the one point that can still catch an
+ *    ADDITIVE invariant two individually-green lanes each respect alone but
+ *    jointly bust (a lint rule, a test count, a build-time budget) before
+ *    the next landing ritual runs — `docs/DOCTRINE-COORDINATION.md`
+ *    documents that ritual as the only OTHER full-suite gate on this
+ *    branch, and it only fires on an explicit land, so a flight that never
+ *    lands never sees it.
  *
  * Alarm, not a blocker either way: refusing the merge here would strand
  * work that is already committed and safe. A red convergence is surfaced
@@ -52,7 +55,7 @@ import { median } from '@autopilot/store';
 export interface ConvergenceGateDeps {
   readonly gate: GatePort;
   readonly out: (line: string) => void;
-  readonly recordRed: (check: string, mergeDetails: string) => void;
+  readonly recordRed: (check: string, mergeDetails: string, ms: number) => void;
   /** Past durations (ms) of GREEN convergence runs sharing this exact check
    *  SIGNATURE — the population {@link convergencePlausibilityFloorMs} judges
    *  a new green against. Empty or short (cold start) falls back to a fixed
@@ -158,9 +161,10 @@ export async function gateConvergedBranch(
   }
 
   const reason = checks.find((c) => !c.pass)?.label ?? 'gate';
+  const redMs = checks.reduce((sum, c) => sum + c.durationMs, 0);
   deps.out(
     `  ⛔ CONVERGENCE RED: '${targetBranch}' fails ${reason} AFTER this sync-back — ` +
       `both sides were green alone, so this is a merge interaction. ${mergeDetails}`,
   );
-  deps.recordRed(reason, mergeDetails);
+  deps.recordRed(reason, mergeDetails, redMs);
 }

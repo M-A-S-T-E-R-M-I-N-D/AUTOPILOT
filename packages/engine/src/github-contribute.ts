@@ -9,15 +9,22 @@
  * `github-sync.ts`'s `planGithubSync` is a pure policy step ahead of its own
  * I/O wiring (`dashboard`'s `github/issue-execute.ts`). The landed-fix half
  * (fork → push → `gh pr create`) lives in `github-pr-contribute.ts`'s
- * `planGithubPr`, wired via `dashboard`'s `github/pr-execute.ts`.
+ * `planGithubPr`, wired via `dashboard`'s `github/pr-execute.ts`. The
+ * identity-law disclosure footer every issue carries is
+ * {@link identityDisclosure}, shared with `github-pr-contribute.ts`'s
+ * `planGithubPr` via `github-identity-disclosure.ts` so both artifact types
+ * emit byte-identical disclosure text.
  */
 
-/** Thrown by {@link planGithubIssue} when `title` is empty (after trimming)
- *  — refused up front, before any command is planned. Same fail-loud-on-
- *  malformed-input stance as `github-sync.ts`'s `InvalidRepoNameError`. */
+import { identityDisclosure } from './github-identity-disclosure.js';
+
+/** Thrown by {@link planGithubIssue} when `title` or `operatorHandle` is
+ *  empty (after trimming) — refused up front, before any command is
+ *  planned. Same fail-loud-on-malformed-input stance as `github-sync.ts`'s
+ *  `InvalidRepoNameError`. */
 export class InvalidIssueInputError extends Error {
-  constructor() {
-    super('planGithubIssue: a non-empty title is required');
+  constructor(field: 'title' | 'operatorHandle') {
+    super(`planGithubIssue: a non-empty ${field} is required`);
     this.name = 'InvalidIssueInputError';
   }
 }
@@ -33,22 +40,35 @@ export interface GithubIssuePlan {
 /**
  * Decides the one command a CONNECT popover "report to upstream" action
  * should run: `gh issue create --repo <upstreamRepo> --title <title> --body
- * <body>`. `title` is trimmed and must be non-empty (throws
- * {@link InvalidIssueInputError} otherwise, touching nothing); `body` is
- * passed through as-is (an empty body is a valid `gh issue create` body).
+ * <body>`. `title` and `operatorHandle` are trimmed and must be non-empty
+ * (throws {@link InvalidIssueInputError} otherwise, touching nothing);
+ * `body` is the operator-typed text, always followed by
+ * {@link identityDisclosure} on its own paragraph — the identity law
+ * applies to every issue this plans, so there is no path through this
+ * function that produces an undisclosed body (an empty `body` yields the
+ * disclosure footer alone, never a truly empty `--body`).
  */
 export function planGithubIssue(
   upstreamRepo: string,
+  operatorHandle: string,
   title: string,
   body: string,
 ): GithubIssuePlan {
+  const trimmedOperatorHandle = operatorHandle.trim();
+  if (trimmedOperatorHandle.length === 0) {
+    throw new InvalidIssueInputError('operatorHandle');
+  }
   const trimmedTitle = title.trim();
   if (trimmedTitle.length === 0) {
-    throw new InvalidIssueInputError();
+    throw new InvalidIssueInputError('title');
   }
+  const finalBody =
+    body.length === 0
+      ? identityDisclosure(trimmedOperatorHandle)
+      : `${body}\n\n${identityDisclosure(trimmedOperatorHandle)}`;
   return {
     command: 'gh',
-    args: ['issue', 'create', '--repo', upstreamRepo, '--title', trimmedTitle, '--body', body],
+    args: ['issue', 'create', '--repo', upstreamRepo, '--title', trimmedTitle, '--body', finalBody],
     details: `opening an issue against ${upstreamRepo}: "${trimmedTitle}"`,
   };
 }

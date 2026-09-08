@@ -8,6 +8,8 @@ import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
 import {
   classifyIssueDimension,
+  classifyIssueArea,
+  classifyIssuePriority,
   planIssueTriage,
   planIssueTriageCommands,
   planIssueTriageBatch,
@@ -71,6 +73,38 @@ describe('classifyIssueDimension', () => {
   });
 });
 
+describe('classifyIssueArea', () => {
+  it('picks the area whose keywords appear most in the text', () => {
+    expect(classifyIssueArea('The dashboard panel chip is misaligned')).toBe('area: dashboard');
+    expect(classifyIssueArea('A firing died mid-flight and the gate never ran')).toBe(
+      'area: flight-engine',
+    );
+    expect(classifyIssueArea('The Hebrew translation is missing on this locale string')).toBe(
+      'area: i18n',
+    );
+  });
+
+  it('falls back to area: dashboard when no keyword matches', () => {
+    expect(classifyIssueArea('The sky is blue today')).toBe('area: dashboard');
+  });
+});
+
+describe('classifyIssuePriority', () => {
+  it('picks the priority whose keywords appear most in the text', () => {
+    expect(classifyIssuePriority('This causes data loss and is a critical safety issue')).toBe(
+      'priority: critical',
+    );
+    expect(classifyIssuePriority('Urgent: this is blocking the release')).toBe('priority: high');
+    expect(classifyIssuePriority('Minor cosmetic issue, nice to have someday')).toBe(
+      'priority: low',
+    );
+  });
+
+  it('falls back to priority: medium when no keyword matches', () => {
+    expect(classifyIssuePriority('The sky is blue today')).toBe('priority: medium');
+  });
+});
+
 describe('planIssueTriage', () => {
   it('flags a duplicate when the issue title strongly overlaps an open board task', () => {
     const decision = planIssueTriage(
@@ -111,7 +145,13 @@ describe('planIssueTriage', () => {
       ['Unrelated backlog line about billing'],
     );
 
-    expect(decision).toMatchObject({ decision: 'accept', dimension: 'accessibility' });
+    expect(decision).toMatchObject({
+      decision: 'accept',
+      dimension: 'accessibility',
+      // Title contains "fleet" (area: flight-engine) and "broken" (priority: high).
+      area: 'area: flight-engine',
+      priority: 'priority: high',
+    });
     expect(decision.reasoning).toContain('#9');
     expect(decision.reasoning).toContain('pool: accessibility');
   });
@@ -221,19 +261,83 @@ describe('planIssueTriage', () => {
 
     expect(decision.decision).toBe('accept');
   });
+
+  it('routes a partner-application issue to a dossier decision, never auto-verdicting it', () => {
+    const decision = planIssueTriage(
+      {
+        number: 50,
+        title: 'partner application: @gabibi555',
+        body: 'Applying for Active-partner standing.',
+        labels: ['partner-application'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('dossier');
+    expect(decision.reasoning).toContain('#50');
+    expect(decision.reasoning).toContain('never auto-verdict');
+  });
+
+  it('routes a partner-application issue to a dossier decision even when assigned', () => {
+    // A partner-application issue is checked BEFORE the assignee/good-first-issue
+    // checks below — a standing application always gets a dossier, regardless of
+    // what else is true about the issue.
+    const decision = planIssueTriage(
+      {
+        number: 51,
+        title: 'partner application: @gabibi555',
+        body: '',
+        labels: ['partner-application'],
+        assignees: ['gabibi555'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('dossier');
+  });
+
+  it('skips a partner-application issue whose dossier a previous pass already posted', () => {
+    const decision = planIssueTriage(
+      {
+        number: 52,
+        title: 'partner application: @gabibi555',
+        body: '',
+        labels: ['partner-application', 'dossier-posted'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('dossier-posted');
+  });
 });
 
 describe('planIssueTriageCommands', () => {
   const issue = { number: 9, title: 'Keyboard nav is broken in the fleet table', body: '' };
 
-  it('plans an add-label edit followed by a reasoning comment for an accepted issue', () => {
+  it('plans an add-label edit (pool + area + priority) followed by a reasoning comment for an accepted issue', () => {
     const decision = planIssueTriage(issue, [], []);
 
     expect(planIssueTriageCommands(issue, decision)).toEqual([
       {
         command: 'gh',
-        args: ['issue', 'edit', '9', '--add-label', 'pool: accessibility'],
-        details: 'labeling #9 "pool: accessibility" per its classified dimension',
+        args: [
+          'issue',
+          'edit',
+          '9',
+          '--add-label',
+          'pool: accessibility',
+          '--add-label',
+          'area: flight-engine',
+          '--add-label',
+          'priority: high',
+        ],
+        details:
+          'labeling #9 "pool: accessibility", "area: flight-engine", "priority: high" per its ' +
+          'classified dimension/area/priority',
       },
       {
         command: 'gh',
@@ -267,6 +371,18 @@ describe('planIssueTriageCommands', () => {
 
     expect(decision.decision).toBe('skip');
     expect(planIssueTriageCommands(skipIssue, decision)).toEqual([]);
+  });
+
+  it('plans no commands at all for a dossier — its real commands need async gh facts', () => {
+    const applicationIssue = {
+      ...issue,
+      title: 'partner application: @gabibi555',
+      labels: ['partner-application'],
+    };
+    const decision = planIssueTriage(applicationIssue, [], []);
+
+    expect(decision.decision).toBe('dossier');
+    expect(planIssueTriageCommands(applicationIssue, decision)).toEqual([]);
   });
 });
 
@@ -458,7 +574,7 @@ describe('fetchOpenIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,body,labels,assignees',
+      'number,title,body,labels,assignees,author',
     ]);
   });
 
@@ -489,6 +605,21 @@ describe('fetchOpenIssues', () => {
     const issues = await fetchOpenIssues(exec);
 
     expect(issues.map((i) => i.assignees)).toEqual([['octocat'], []]);
+  });
+
+  it('parses the author login off each issue, dropping a malformed author', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        { number: 9, title: 'Has author', author: { login: 'gabibi555', is_bot: false } },
+        { number: 10, title: 'No author' },
+        { number: 11, title: 'Malformed author', author: 'nope' },
+      ]),
+    });
+
+    const issues = await fetchOpenIssues(exec);
+
+    expect(issues.map((i) => i.author)).toEqual(['gabibi555', undefined, undefined]);
   });
 
   it('parses well-formed issue JSON into IncomingIssue entries', async () => {
@@ -581,6 +712,10 @@ describe('executeIssueTriageCommands', () => {
       '9',
       '--add-label',
       'pool: accessibility',
+      '--add-label',
+      'area: flight-engine',
+      '--add-label',
+      'priority: high',
     ]);
     expect(exec).toHaveBeenNthCalledWith(2, 'gh', [
       'issue',
@@ -727,6 +862,70 @@ describe('runIssueTriageRitual', () => {
       expect(result.commandResults).toEqual([]);
       expect(result.tasksCreated).toBe(0);
       expect(exec).toHaveBeenCalledTimes(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('posts a KEEPER evidence dossier for a partner-application issue instead of auto-triaging it', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-ritual-dossier-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+
+      const exec: CliExec = vi.fn(async (_bin, args) => {
+        if (args[0] === 'issue' && args[1] === 'list') {
+          return {
+            code: 0,
+            stdout: JSON.stringify([
+              {
+                number: 50,
+                title: 'partner application: @gabibi555',
+                body: '',
+                labels: [{ name: 'partner-application' }],
+                author: { login: 'gabibi555' },
+              },
+            ]),
+          };
+        }
+        if (args[0] === 'api') {
+          return {
+            code: 0,
+            stdout: JSON.stringify({
+              created_at: '2024-01-01T00:00:00Z',
+              public_repos: 3,
+              followers: 1,
+            }),
+          };
+        }
+        if (args[0] === 'pr' && args[1] === 'list') {
+          return { code: 0, stdout: '[]' };
+        }
+        // issue edit / issue comment writes
+        return { code: 0, stdout: '' };
+      });
+
+      const result = await runIssueTriageRitual(exec, s, 'p1', [], [], undefined, () => 100);
+
+      expect(result.plans).toHaveLength(1);
+      expect(result.plans[0]?.decision.decision).toBe('dossier');
+      // dossier-posted label edit + the dossier comment itself
+      expect(result.commandResults).toHaveLength(2);
+      expect(result.commandResults[0]?.command.args).toEqual([
+        'issue',
+        'edit',
+        '50',
+        '--add-label',
+        'dossier-posted',
+      ]);
+      expect(result.commandResults[1]?.command.args[1]).toBe('comment');
+      expect(result.commandResults[1]?.command.args[4]).toContain('@gabibi555');
+      // A dossier decision never becomes a board task — it routes to the maintainer.
+      expect(result.tasksCreated).toBe(0);
+      expect(tasks(s, 'p1')).toEqual([]);
       s.close();
     } finally {
       cleanupDir(dbDir);

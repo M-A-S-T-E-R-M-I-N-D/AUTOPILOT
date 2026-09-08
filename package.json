@@ -34,6 +34,7 @@
     "dashboard:doctor": "node apps/dashboard/dist/control/cli.js doctor",
     "dashboard:ci-status": "node apps/dashboard/dist/control/cli.js ci-status",
     "dashboard:maintenance-sweep": "node apps/dashboard/dist/control/cli.js maintenance-sweep",
+    "dashboard:taxonomy-seed": "node apps/dashboard/dist/control/cli.js taxonomy-seed",
     "dashboard:vacuum": "pnpm run build && node apps/dashboard/dist/control/cli.js vacuum",
     "dashboard:watch": "node apps/dashboard/dist/control/cli.js watch",
     "dashboard:demo": "pnpm run build && node apps/dashboard/dist/demo.js",

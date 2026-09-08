@@ -67,20 +67,34 @@ function listTrackedFiles() {
 }
 
 /**
+ * Redact a matched secret to a safe evidence fingerprint — enough to confirm
+ * a true positive (or spot a regex-precision bug) without printing the live
+ * credential into CI logs, which are more widely retained/shared than the
+ * tracked file itself.
+ * @param {string} value
+ * @returns {string}
+ */
+function redact(value) {
+  if (value.length <= 8) return '*'.repeat(value.length);
+  return `${value.slice(0, 4)}${'*'.repeat(value.length - 8)}${value.slice(-4)}`;
+}
+
+/**
  * Scan one file's text for credential patterns. Pure — no fs/git access — so
  * it can be unit-tested directly against fixture strings.
  * @param {string} text
- * @returns {{ line: number, rule: string }[]}
+ * @returns {{ line: number, rule: string, match: string }[]}
  */
 export function findSecrets(text) {
-  /** @type {{ line: number, rule: string }[]} */
+  /** @type {{ line: number, rule: string, match: string }[]} */
   const findings = [];
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
     for (const rule of RULES) {
-      if (rule.re.test(line)) {
-        findings.push({ line: i + 1, rule: rule.id });
+      const m = rule.re.exec(line);
+      if (m) {
+        findings.push({ line: i + 1, rule: rule.id, match: redact(m[0]) });
       }
     }
   }
@@ -89,7 +103,7 @@ export function findSecrets(text) {
 
 function main() {
   const files = listTrackedFiles();
-  /** @type {{ file: string, line: number, rule: string }[]} */
+  /** @type {{ file: string, line: number, rule: string, match: string }[]} */
   const findings = [];
 
   for (const file of files) {
@@ -112,7 +126,7 @@ function main() {
   if (findings.length > 0) {
     console.error(`secret-scan FAILED: ${findings.length} potential secret(s) found:`);
     for (const f of findings) {
-      console.error(`  ${f.file}:${f.line}  [${f.rule}]`);
+      console.error(`  ${f.file}:${f.line}  [${f.rule}]  ${f.match}`);
     }
     console.error('\nRemove the secret, rotate it, and use the user keychain / env vars instead.');
     process.exit(1);
