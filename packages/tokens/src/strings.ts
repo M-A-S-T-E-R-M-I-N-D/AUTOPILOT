@@ -572,6 +572,15 @@ const EN_STRINGS = {
   searchFailed: 'Search failed.',
   deep: 'Deep',
   ask: 'Ask',
+  // web/features/search.ts's Ask flow (board web-msnsndki-dz3vn1): the
+  // button's busy label (tagged with THIS key mid-request, so a fleet tick's
+  // sweep repaints it and not the idle `ask`), and the four #ask-answer notes
+  // — each paints via tr() at birth and carries its key.
+  askAsking: 'Asking…',
+  askPickProject: 'Pick a project and type a question first.',
+  askThinking: 'Asking the model (grounded in the indexed code)…',
+  askThinkingDeep: 'Reading the project to find the answer (Deep)…',
+  askFailed: 'Ask failed — is the dashboard still running?',
   askPersona: 'Ask persona',
   personaGenius: 'GENIUS',
   personaArchitect: 'ARCHITECT',
@@ -1440,6 +1449,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     searchFailed: 'החיפוש נכשל.',
     deep: 'מעמיק',
     ask: 'שאל',
+    askAsking: 'שואל…',
+    askPickProject: 'בחרו פרויקט והקלידו שאלה תחילה.',
+    askThinking: 'שואל את המודל (על סמך הקוד המאונדקס)…',
+    askThinkingDeep: 'קורא את הפרויקט כדי למצוא את התשובה (מעמיק)…',
+    askFailed: 'הבקשה נכשלה — האם לוח הבקרה עדיין פועל?',
     askPersona: 'פרסונת שאלה',
     personaGenius: 'GENIUS',
     personaArchitect: 'ARCHITECT',

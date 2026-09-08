@@ -571,17 +571,44 @@ ${applyAskStreamFrame.toString()}
     }
     return pump();
   }
+  // i18n (board web-msnsndki-dz3vn1): the Ask flow's four notes — the
+  // incomplete-submit nudge, the two thinking placeholders (grounded / Deep),
+  // and the failure line — are painted into #ask-answer from the click
+  // handler and its fetch continuations, long after any page-level
+  // translateDom() sweep, so each paints via tr() in the locale active at
+  // birth AND carries its data-i18n key, the way searchNote() above does. A
+  // note deliberately bypasses renderMarkdown(): it is fixed UI text, not
+  // model output, and the sweep writes textContent, which a markdown tree
+  // would not survive. A real answer clears the note (renderAnswer rebuilds
+  // answerEl from scratch), so no tag ever outlives it to overwrite the
+  // model's words. #ask-answer is aria-live — the [data-i18n] sweep writes
+  // only on a real change, so a tick never re-announces an unchanged note.
+  function renderAskNote(key) {
+    if (!answerEl) return;
+    while (answerEl.firstChild) answerEl.removeChild(answerEl.firstChild);
+    var p = el('p', 'ask-note', tr(key));
+    p.setAttribute('data-i18n', key);
+    answerEl.appendChild(p);
+  }
+  // The button is tagged data-i18n="ask" in the shell HTML, so a fixed tag
+  // would let renderFleet()'s per-tick sweep repaint the idle "Ask" over
+  // "Asking…" mid-request — the same trap the flight log's Load-older button
+  // closed. The label is tagged with whichever key matches its state.
+  function setAskLabel(key) {
+    askBtn.textContent = tr(key);
+    askBtn.setAttribute('data-i18n', key);
+  }
   if (askBtn) askBtn.addEventListener('click', function () {
     var project = sel ? sel.value : '';
     var q = qEl ? qEl.value.trim() : '';
-    if (!project || !q) { renderAnswer('Pick a project and type a question first.', null); return; }
+    if (!project || !q) { renderAskNote('askPickProject'); return; }
     rememberSearchQuery(q);
     askBtn.disabled = true;
-    askBtn.textContent = 'Asking…';
+    setAskLabel('askAsking');
     if (activityEl) { while (activityEl.firstChild) activityEl.removeChild(activityEl.firstChild); }
     if (proposalEl) { while (proposalEl.firstChild) proposalEl.removeChild(proposalEl.firstChild); }
     var deep = !!(askDeepEl && askDeepEl.checked);
-    renderAnswer(deep ? 'Reading the project to find the answer (Deep)…' : 'Asking the model (grounded in the indexed code)…', null);
+    renderAskNote(deep ? 'askThinkingDeep' : 'askThinking');
     // Omniscient chat context (web-msnrw1ok-0gsdff), first slice: tell the model
     // which dashboard page the operator is currently on — the fleet overview or
     // this specific project's page (body's data-project, same idiom the live
@@ -607,8 +634,8 @@ ${applyAskStreamFrame.toString()}
         if (!r.ok || !r.body || !r.body.getReader) throw new Error('stream unavailable');
         return pumpAskStream(r.body.getReader(), new TextDecoder());
       })
-      .catch(function () { renderAnswer('Ask failed — is the dashboard still running?', null); })
-      .then(function () { askBtn.disabled = false; askBtn.textContent = 'Ask'; });
+      .catch(function () { renderAskNote('askFailed'); })
+      .then(function () { askBtn.disabled = false; setAskLabel('ask'); });
   });
 }
 searchInit();

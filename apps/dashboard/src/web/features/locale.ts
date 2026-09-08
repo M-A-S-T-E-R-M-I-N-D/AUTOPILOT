@@ -159,7 +159,12 @@ function translateDom(l) {
   const table = STRINGS[l] || STRINGS.en;
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const text = table[el.dataset.i18n];
-    if (text) el.textContent = text;
+    // Write only on a real change, like the template sweep below: a tagged
+    // note inside an aria-live region (the Ask flow's #ask-answer,
+    // role="status") would otherwise be re-announced by every renderFleet()
+    // tick's sweep — and every other tagged element is spared a needless
+    // text-node replacement per tick.
+    if (text && el.textContent !== text) el.textContent = text;
   });
   document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
     const text = table[el.dataset.i18nAria];
