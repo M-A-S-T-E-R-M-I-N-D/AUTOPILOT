@@ -95,7 +95,6 @@ describe('prCheckRunTip — every chip explains itself', () => {
     expect(tip).toContain('still running');
     expect(tip).toContain('4m20s elapsed');
     expect(tip).toContain('workflow: CI');
-    expect(tip).toContain('log on GitHub');
   });
 
   it('says plainly when a check does not gate the merge', () => {

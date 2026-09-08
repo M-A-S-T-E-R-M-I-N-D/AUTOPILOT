@@ -113,7 +113,9 @@ export function prCheckRunTip(check: PrCheckRunLike): string {
   if (check.elapsedMs !== undefined) parts.push(formatCheckDuration(check.elapsedMs) + ' elapsed');
   if (check.workflow) parts.push('workflow: ' + check.workflow);
   if (check.optional) parts.push('optional — does not gate the merge');
-  if (check.url) parts.push('opens this check’s own log on GitHub');
+  // No "opens its log" clause: a linked chip is an <a> with its own hover
+  // and focus treatment, so saying so in the tip was words the styling
+  // already spends — and words are bundle bytes on a budgeted chunk.
   return parts.join(' · ') + '.';
 }
 
