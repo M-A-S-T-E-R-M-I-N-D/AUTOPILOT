@@ -273,6 +273,28 @@ describe('worktree lifecycle', () => {
     expect(gitSync(dir, ['worktree', 'list', '--porcelain'])).not.toContain('wt-stale');
   });
 
+  it('self-heals an orphaned on-disk directory at worktreePath that was never registered (crash/prune leftover, board web-mtrfudsv-djicva)', async () => {
+    // Simulates a crashed flight (or an out-of-band `rm` that missed a
+    // `git worktree prune`) leaving real files on disk at the lane path with
+    // no matching git registration: `worktreeIsRegistered` correctly reports
+    // false, but `git worktree add` still refuses outright into a non-empty
+    // existing directory ("fatal: already exists") — silently blocking the
+    // lane forever, with no path back to a live worktree short of a human
+    // clearing the directory by hand.
+    const wtPath = join(dir, '..', 'wt-orphan');
+    mkdirSync(wtPath, { recursive: true });
+    writeFileSync(join(wtPath, 'leftover.txt'), 'crash leftover, never a real worktree');
+
+    const result = await ensureWorktree(dir, wtPath, 'flight-work');
+
+    expect(result.ok).toBe(true);
+    expect(result.created).toBe(true);
+    expect(existsSync(join(wtPath, 'a.txt'))).toBe(true);
+    expect(existsSync(join(wtPath, 'leftover.txt'))).toBe(false);
+
+    await removeWorktree(dir, wtPath);
+  });
+
   it('checks out an existing branch (no -b) when ensureWorktree is called again after a remove', async () => {
     const wtPath = join(dir, '..', 'wt-recreate');
     await ensureWorktree(dir, wtPath, 'flight-work');
