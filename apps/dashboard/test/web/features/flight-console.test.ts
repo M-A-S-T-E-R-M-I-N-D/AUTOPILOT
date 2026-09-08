@@ -46,12 +46,13 @@ describe('flightConsoleJs', () => {
     expect(out).toContain("collapsedMsg.setAttribute('data-i18n', 'consoleCollapsed');");
     expect(out).toContain("emptyMsg.setAttribute('data-i18n', 'consoleEmpty');");
     expect(out).toContain("unavailableMsg.setAttribute('data-i18n', 'consoleUnavailable');");
-    // One sweep per ASYNC tagged-DOM creation site — the empty state and the
-    // fetch-failure state, both built inside /api/flightlog handlers that can
-    // resolve after the page-level sweep. The collapsed placeholder is built
-    // synchronously at mount and rides renderProjectPage()'s own sweep.
+    // One sweep per ASYNC tagged-DOM creation site — the empty state, the
+    // loaded lines state, and the fetch-failure state, all built inside
+    // /api/flightlog handlers that can resolve after the page-level sweep.
+    // The collapsed placeholder is built synchronously at mount and rides
+    // renderProjectPage()'s own sweep.
     expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
-      2,
+      3,
     );
   });
 });

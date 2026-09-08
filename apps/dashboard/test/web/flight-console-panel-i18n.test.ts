@@ -16,6 +16,13 @@
  * in its window. The scanner and its other innocent victims were forward-
  * relanded; this one was not, so the three strings reappeared in the
  * scanner's report.
+ *
+ * That relanded pass missed the panel's own always-on chrome — the
+ * `<summary>` toggle's title/tip and the loaded `<pre>`'s line-count
+ * `aria-label`/`data-tip` — since neither is a literal `<tag>text</tag>` or
+ * `el()` call the untagged-string scanner's regex can see (`.textContent =`
+ * and a function-call value are both outside its detection). Covered below
+ * alongside the original three.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -64,7 +71,7 @@ const STATE = {
   empty: false,
 };
 
-type ConsoleMode = 'empty' | 'fail';
+type ConsoleMode = 'empty' | 'fail' | 'lines' | 'lines1';
 
 function boot(mode: ConsoleMode): void {
   document.open();
@@ -74,7 +81,9 @@ function boot(mode: ConsoleMode): void {
     const url = String(input);
     if (url.includes('/api/flightlog')) {
       if (mode === 'fail') throw new Error('network down');
-      return { ok: true, json: async () => ({ lines: [] }) } as unknown as Response;
+      const lines =
+        mode === 'lines' ? ['first line', 'second line'] : mode === 'lines1' ? ['only line'] : [];
+      return { ok: true, json: async () => ({ lines }) } as unknown as Response;
     }
     return { ok: true, json: async () => STATE } as unknown as Response;
   });
@@ -178,5 +187,84 @@ describe('the Flight console panel i18n wiring (board web-msnsndki-dz3vn1)', () 
         STRINGS.he.consoleUnavailable,
       );
     });
+  });
+
+  it('tags the panel toggle title and tip with their STRINGS keys', async () => {
+    boot('empty');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-title')).not.toBeNull();
+    });
+
+    const summary = document.querySelector('.console-title');
+    expect(summary?.textContent).toBe('🖥️ Flight console');
+    expect(summary?.getAttribute('data-i18n')).toBe('consoleTitle');
+    expect(summary?.getAttribute('data-tip')).toBe(
+      'Raw stdout+stderr tail of the flight process for this project',
+    );
+    expect(summary?.getAttribute('data-i18n-tip')).toBe('consoleTitleTip');
+  });
+
+  it('switching to Hebrew translates the panel toggle title and tip', async () => {
+    boot('empty');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-title')).not.toBeNull();
+    });
+
+    switchToHebrew();
+
+    const summary = document.querySelector('.console-title');
+    expect(summary?.textContent).toBe(STRINGS.he.consoleTitle);
+    expect(summary?.getAttribute('data-tip')).toBe(STRINGS.he.consoleTitleTip);
+  });
+
+  it('tags the loaded console lines with the {n} template key for aria-label and tip', async () => {
+    boot('lines');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-panel')).not.toBeNull();
+    });
+    expandConsole();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-lines')).not.toBeNull();
+    });
+    const pre = document.querySelector('.console-lines');
+    expect(pre?.getAttribute('aria-label')).toBe('2 lines of raw flight process output');
+    expect(pre?.getAttribute('data-tip')).toBe('2 lines of raw flight process output');
+    expect(pre?.getAttribute('data-i18n-aria-template')).toBe('consoleLinesAriaPlural');
+    expect(pre?.getAttribute('data-i18n-tip-template')).toBe('consoleLinesAriaPlural');
+    expect(pre?.getAttribute('data-i18n-args')).toBe(JSON.stringify({ n: 2 }));
+  });
+
+  it('picks the singular template key for a single-line console', async () => {
+    boot('lines1');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-panel')).not.toBeNull();
+    });
+    expandConsole();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-lines')).not.toBeNull();
+    });
+    const pre = document.querySelector('.console-lines');
+    expect(pre?.getAttribute('aria-label')).toBe('1 line of raw flight process output');
+    expect(pre?.getAttribute('data-i18n-aria-template')).toBe('consoleLinesAriaSingular');
+    expect(pre?.getAttribute('data-i18n-args')).toBe(JSON.stringify({ n: 1 }));
+  });
+
+  it('renders the loaded console lines aria-label and tip in Hebrew when expanded after the language switch', async () => {
+    boot('lines');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-panel')).not.toBeNull();
+    });
+    switchToHebrew();
+    expandConsole();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.console-lines')).not.toBeNull();
+    });
+    const expected = STRINGS.he.consoleLinesAriaPlural.replace('{n}', '2');
+    const pre = document.querySelector('.console-lines');
+    expect(pre?.getAttribute('aria-label')).toBe(expected);
+    expect(pre?.getAttribute('data-tip')).toBe(expected);
   });
 });
