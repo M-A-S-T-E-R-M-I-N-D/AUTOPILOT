@@ -33,9 +33,9 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [~] (AA baseline + axe gate green; AA+ sweep = M8) Strict accessibility (WCAG 2.2 AA+), keyboard-complete, reduced-motion, RTL-correct i18n
 
 ## D. Multi-project & supervisor
-- [ ] Supervisor daemon: project registry, run/stop, parallel vs solo scheduling
-- [ ] Aggregate telemetry across projects; compare improvement over time
-- [ ] Resource/quota sharing + fairness across parallel projects
+- [~] Supervisor daemon: project registry, run/stop, parallel vs solo scheduling — `FlightRunnerRegistry` (`apps/dashboard/src/flight/registry.ts`) does this inside the dashboard server process (wired into `server/main.ts`); no standalone daemon process yet
+- [x] Aggregate telemetry across projects; compare improvement over time — `buildFleetView`/`fleetChronoLog` (`apps/dashboard/src/read/fleet.ts`) roll cost/shipped/ship-rate/streak up across every project, rendered on fleet home via `stat-tiles.ts`
+- [x] Resource/quota sharing + fairness across parallel projects — `FlightRunnerRegistry`'s `maxConcurrent` FIFO queue, its own doc comment calls it "shared-quota fairness"
 
 ## E. Models & languages (Ollama)
 - [ ] Optional Ollama integration (toggle), local-only guard (refuse cloud models for confidentiality)

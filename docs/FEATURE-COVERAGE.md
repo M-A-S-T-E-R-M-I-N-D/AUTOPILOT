@@ -72,8 +72,8 @@
 | [ ] Classify machine-100%-verifiable (autonomous) vs human-required (🟣); default to human when unsure | MASTER §17.1-2 | M5 |
 | [ ] Autonomous set: gate, secret/dep/SAST, invariants, byte-identity, machine-checkable a11y, budgets | MASTER §17.1 | M1→M8 |
 | [ ] Human-required set: visual/brand, UX/human-interaction, ethics (serves living beings), intent, forks | MASTER §17.2 | M5 |
-| [ ] Human verdict captured as evaluation label (the fitness/evolution signal); Goodhart guard | MASTER §17.3 | M5 |
-| [ ] Operating principle: proceed on reasonable interpretation, reserve forks/🟣, never stall | MASTER §17.4 | M1 |
+| [~] Human verdict captured as evaluation label (the fitness/evolution signal); Goodhart guard — approve/reject/SOUL-ratify wired (`recordEvaluationLabel`, `packages/store/src/mutate.ts`), read back into the Evolution view (BACKLOG-999 §J); edit/note still uncaptured (store has no `updateTask`) | MASTER §17.3 | M5 |
+| [x] Operating principle: proceed on reasonable interpretation, reserve forks/🟣, never stall — wired into the firing prompt itself (`packages/engine/src/prompt.ts`'s NOOP→VERDICT and PROPOSALS sections) | MASTER §17.4 | M1 |
 
 ## G. Efficiency levers (measurable)
 | Feature | Spec | Milestone |
@@ -90,8 +90,8 @@
 ## H. Multi-project & supervisor
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] Supervisor daemon: registry, run/stop, parallel vs solo scheduling | MASTER §3 | M7 |
-| [ ] Aggregate telemetry across projects; improvement-over-time; fairness | MASTER §5.1 | M7 |
+| [~] Supervisor daemon: registry, run/stop, parallel vs solo scheduling — `FlightRunnerRegistry` (`apps/dashboard/src/flight/registry.ts`) does registry + start/stop/pause/status + `maxConcurrent` FIFO scheduling, wired live into `server/main.ts`; still lives inside the dashboard server process, not a standalone daemon | MASTER §3 | M7 |
+| [x] Aggregate telemetry across projects; improvement-over-time; fairness — `buildFleetView`/`FleetTotals` + `fleetChronoLog` (`apps/dashboard/src/read/fleet.ts`) roll up cost/shipped/ship-rate/streak across every project into the fleet-home stat tiles; `FlightRunnerRegistry`'s `maxConcurrent` FIFO queue is the shared-quota fairness cap | MASTER §5.1 | M7 |
 | [ ] View each project or all together | MASTER §2.7 | M3, M7 |
 
 ## I. Models & languages (Ollama)
@@ -168,6 +168,10 @@ action `TaskActionKind` doesn't have). The rest of section C was re-verified the
 corrected here (progressive disclosure and the Evolution view were both already live but marked `[ ]`), plus 3 rows
 in `BACKLOG-999.md` §C itself that overclaimed done (a fleet-home improvement sparkline/toggle, project-detail
 board-by-status columns + raw export, and the same Approvals-queue "edit" action) — none of that UI exists in the
-live tree. Sections B, D–O still have **not** been re-audited (board web-mtndm5fc-2vloky, ~2 more wrong rows
-estimated) — `BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this
-pass shows it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
+live tree. Sections F and H were audited the same day — 4 more rows corrected (evaluation-label capture and the
+firing prompt's own reasonable-interpretation/never-stall principle were both further along than `[ ]`; the
+multi-project registry's run/stop/scheduling and its fleet-wide telemetry/fairness rollup were both live and
+untracked) — `BACKLOG-999.md` §D agreed with the same wrong `[ ]` marks and was corrected alongside it. Sections
+B, D (remaining rows), E, G (already current), I–O are still **not** re-audited (board web-mtndm5fc-2vloky) —
+`BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this pass shows
+it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
