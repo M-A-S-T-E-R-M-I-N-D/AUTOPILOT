@@ -7,7 +7,10 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, createTask, setTaskStatus, type Store } from '@autopilot/store';
 import type * as AutopilotStore from '@autopilot/store';
-import { createMirrorPassPreviewApi } from '../../src/flight/mirror-pass-execute.js';
+import {
+  createMirrorPassPreviewApi,
+  createMirrorPassLandingNotePreviewApi,
+} from '../../src/flight/mirror-pass-execute.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 vi.mock('@autopilot/store', async (importOriginal) => {
@@ -47,6 +50,30 @@ function issueViewExec(states: Readonly<Record<number, 'open' | 'closed'>>): Cli
       const state = states[number];
       if (state === undefined) return { code: 1, stdout: '' };
       return { code: 0, stdout: JSON.stringify({ number, state: state.toUpperCase() }) };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+/** A `CliExec` stub answering both `gh issue view <n> --json number,state`
+ *  and `gh issue view <n> --json comments` from `issues` (issue number ->
+ *  `{state, comments}`) — the two reads
+ *  `createMirrorPassLandingNotePreviewApi` composes. */
+function issueViewAndCommentsExec(
+  issues: Readonly<Record<number, { state: 'open' | 'closed'; comments?: readonly string[] }>>,
+): CliExec {
+  return vi.fn(async (_bin, args) => {
+    if (args[0] === 'issue' && args[1] === 'view') {
+      const number = Number(args[2]);
+      const entry = issues[number];
+      if (entry === undefined) return { code: 1, stdout: '' };
+      if (args[4] === 'comments') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({ comments: (entry.comments ?? []).map((body) => ({ body })) }),
+        };
+      }
+      return { code: 0, stdout: JSON.stringify({ number, state: entry.state.toUpperCase() }) };
     }
     return { code: 0, stdout: '' };
   });
@@ -221,6 +248,137 @@ describe('createMirrorPassPreviewApi', () => {
 
       vi.mocked(openStore).mockClear();
       await createMirrorPassPreviewApi(dbPath, issueViewExec({}))('p1');
+      expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createMirrorPassLandingNotePreviewApi', () => {
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      expect(
+        await createMirrorPassLandingNotePreviewApi(dbPath, issueViewAndCommentsExec({}))('nope'),
+      ).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('notes the landing SHA when a done task landed but its already-closed issue never recorded it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-fires-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-11',
+        projectId: 'p1',
+        title: 'Landed but closed by hand, no note',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-11', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-11', 'cafe123');
+      s.close();
+
+      const plans = await createMirrorPassLandingNotePreviewApi(
+        dbPath,
+        issueViewAndCommentsExec({ 11: { state: 'closed', comments: [] } }),
+      )('p1');
+
+      expect(plans).toHaveLength(1);
+      expect(plans?.[0]?.finding).toMatchObject({
+        action: 'note-landing-sha',
+        taskId: 'github-11',
+        issueNumber: 11,
+        sha: 'cafe123',
+      });
+      expect(plans?.[0]?.command).toMatchObject({
+        args: ['issue', 'comment', '11', '--body', expect.stringContaining('cafe123')],
+      });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('does not duplicate the note when a comment already carries the landing SHA', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-dedup-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-12',
+        projectId: 'p1',
+        title: 'Already noted',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-12', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-12', 'beef456');
+      s.close();
+
+      const plans = await createMirrorPassLandingNotePreviewApi(
+        dbPath,
+        issueViewAndCommentsExec({
+          12: { state: 'closed', comments: ['Landed in beef456 — noting for the record.'] },
+        }),
+      )('p1');
+
+      expect(plans?.[0]?.finding).toBeNull();
+      expect(plans?.[0]?.command).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it("skips a still-open issue — that gap is derivation 1/4's close-with-landing-note", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-open-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-13',
+        projectId: 'p1',
+        title: 'Still open',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-13', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-13', 'aaaa111');
+      s.close();
+
+      const exec = issueViewAndCommentsExec({ 13: { state: 'open' } });
+      const plans = await createMirrorPassLandingNotePreviewApi(dbPath, exec)('p1');
+
+      expect(plans?.[0]?.finding).toBeNull();
+      // Read-only, and no comments fetch needed for a still-open issue.
+      expect(exec).toHaveBeenCalledTimes(1);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('opens the store read-only — a preview never writes', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-readonly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      vi.mocked(openStore).mockClear();
+      await createMirrorPassLandingNotePreviewApi(dbPath, issueViewAndCommentsExec({}))('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
     } finally {
       cleanupDir(dir);

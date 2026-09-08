@@ -7,13 +7,15 @@
  * smallest slice that turns 'pure planner' into 'something a firing can
  * actually run and see output from'"). `mirror-pass.ts` holds four
  * independent pure-planner derivations but composed none of them into a
- * runnable pass; this file composes derivation 1/4 only —
- * {@link planMirrorPassBatch}'s reconcile, the exact half of S3 the epic
- * doc names directly: "board task done ⇒ close linked issue with the
- * landing SHA" (`docs/epics/0019-github-steward.md`). The other three
- * derivations (landing-note dedup, version/counts/link drift, stale-claim
- * reaper) and the mutating execute path are each their own slice per the
- * VERDICT's split — not attempted here.
+ * runnable pass; this file composes derivations 1/4 and 2/4 —
+ * {@link planMirrorPassBatch}'s reconcile ("board task done ⇒ close linked
+ * issue with the landing SHA") and {@link planMirrorPassLandingNoteBatch}'s
+ * landing-note dedup ("landed commits get landed-in comments" for a task
+ * whose issue was already closed some other way) — both named directly by
+ * `docs/epics/0019-github-steward.md`. The remaining two derivations
+ * (version/counts/link drift, stale-claim reaper) and the mutating execute
+ * path are each their own slice per the VERDICT's split — not attempted
+ * here.
  *
  * Same shape as `issue-triage-execute.ts`'s `createIssueTriagePreviewApi`:
  * gather real inputs for a project (its `github-<n>` board tasks, each
@@ -28,8 +30,11 @@ import { realCliExec, type CliExec } from '../connection/cli-probe.js';
 import {
   planMirrorPassBatch,
   fetchMirrorPassIssueStates,
+  planMirrorPassLandingNoteBatch,
+  fetchMirrorPassIssueComments,
   type MirrorPassTaskCandidate,
   type MirrorPassPlan,
+  type MirrorPassLandingNotePlan,
 } from './mirror-pass.js';
 
 /** One `github-<n>` task row as the `tasks` table stores it — just enough
@@ -102,6 +107,40 @@ export function createMirrorPassPreviewApi(
       const tasks = mirrorPassTaskCandidates(store, projectId);
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       return planMirrorPassBatch(tasks, issuesByNumber);
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassLandingNotePreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassLandingNotePlan[] | null>;
+
+/**
+ * Build the MIRROR PASS landing-note preview API (derivation 2/4) against
+ * the real store + real `gh` — same production wiring as
+ * {@link createMirrorPassPreviewApi}, composing
+ * {@link planMirrorPassLandingNoteBatch} instead of {@link
+ * planMirrorPassBatch}. Read-only: fetches every task's issue state, then —
+ * only for the issues that actually need the check — their existing
+ * comments, and never posts one itself.
+ */
+export function createMirrorPassLandingNotePreviewApi(
+  dbPath: string,
+  exec: CliExec = realCliExec,
+): MirrorPassLandingNotePreviewApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const tasks = mirrorPassTaskCandidates(store, projectId);
+      const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
+      const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
+      return planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
     } finally {
       store.close();
     }
