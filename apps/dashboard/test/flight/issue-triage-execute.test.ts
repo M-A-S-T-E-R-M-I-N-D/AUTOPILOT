@@ -197,6 +197,10 @@ describe('createIssueTriageExecuteApi', () => {
         '9',
         '--add-label',
         'pool: accessibility',
+        '--add-label',
+        'area: flight-engine',
+        '--add-label',
+        'priority: high',
       ]);
 
       const verify = openStore(dbPath);
