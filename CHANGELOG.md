@@ -6,6 +6,187 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-09-08
+
+### Added
+
+- feat(i18n): the agent office map's subagent tips + map aria-label speak Hebrew
+- feat(mirror-pass): wire reconcile preview behind GET /api/mirror-pass
+- feat(mirror-pass): runMirrorPass reconcile composition + read-only preview API
+- feat(i18n): the search palette's Ask flow speaks Hebrew
+- feat(i18n): the flight console panel's own chrome speaks Hebrew too
+- feat(i18n): the severity gauge's all-clear tip + the task drag handle tip speak Hebrew
+- feat(github): mirror-pass — maintainer's priority label steers board priority
+- feat(i18n): the flight log's Show-all / Show-fewer toggle speaks Hebrew
+- feat(i18n): the flight log's Load-older-firings button speaks Hebrew
+- feat(i18n): the project page's Sync-to-GitHub button + Make-public checkbox speak Hebrew
+- feat(dashboard): pre-push PARITY GATE — landing/convergence runs CI's own ci:* checks
+- feat(i18n): the search palette's result states + the settings-row hints speak Hebrew
+- feat(dashboard): guard-verify refusals reach the event stream + surface as a needs-you chip
+- feat(i18n): the be-right-back reconnect overlay speaks Hebrew
+- feat(dashboard): convergence-unverifiable gate demotions surface as a needs-you chip
+- feat(i18n): the fleet landmark's "flying now" label + empty state speak Hebrew
+- feat(community): @gabibi555 becomes the first Active partner — registry row per #29
+- feat(samples): build the missing static-site fixture repo
+- feat(dashboard): the "flying now" chip strip links to its lane card
+- feat(dashboard): a report-born task lands FOCUSED — visible and prioritized at birth
+- feat(i18n): translate the SOUL-unreviewed badge and the fleet-wisdom ratify/dismiss buttons
+- feat(i18n): translate the task board's focus/empty notes and its approve/reject/done buttons
+- feat(i18n): translate the evolution cluster's trend-chart and approval-summary headings
+- feat(i18n): translate the RELEASE panel's loading/unavailable/no-tags states and milestone label
+- feat(identity): dead-identity tripwires — neither retired address can ever be restored by accident
+- feat(identity): the operator's declared public address is the one sanctioned personal email
+- feat(i18n): translate the process-health cluster's DORA/parallel-gate/warm-sessions panel titles
+- feat(dashboard): epic 0018 many-lanes grid — compact per-lane cards replace the live-worker card
+- feat(i18n): translate the KEEPER issue-triage panel's title/loading/empty/unavailable text
+- feat(engine): reland the identity-law disclosure on contribute-upstream PRs
+- feat(i18n): reland the Flight console panel's collapsed/empty/unavailable text
+- feat(control): post-push verdict escalation lever — AUTOPILOT_CI_REMEDIATION=board|fly
+- feat(dashboard): epic 0017 nav remake 1/5 — theme/language become icon+popover menus
+- feat(dashboard): foundation 2/3 — docs/DONATE.md generated from donations.json + FUNDING.yml
+- feat(dashboard): foundation QR slice — local, chain-tagged donation QR codes
+- feat(dashboard): foundation 1/3 — masthead heart + donation panel, hidden until verified
+- feat(flight): reland compose-to-tasks execute wiring the 03:18 revert burst discarded
+- feat(i18n): translate the Flight console panel's collapsed/empty/unavailable text
+- feat(control): post-push verdict escalation-mode lever — AUTOPILOT_CI_REMEDIATION=board|fly
+- feat(engine): every contribute-upstream PR now carries the identity-law disclosure
+- feat(i18n): translate the Docs reader panel's title and state text
+- feat(control): post-push verdict ritual slice 3 — start the watch from a green land
+- feat(ci): launcher smoke test now executes .cmd scripts too, not just .sh
+- feat(i18n): translate the FLEET COORDINATION panel's title and state text
+- feat(control): post-push verdict ritual slice 2 — injectable CI-watch polling primitive
+- feat(dashboard): project-page card sections survive unrelated ticks
+- feat(control): post-push verdict ritual slice 1 — pure CI-red decision + evidence task
+- feat(ci): launcher smoke test actually executes .sh scripts, not just describes them
+- feat(ci): license allowlist gate over pnpm licenses list
+- feat(ci): launcher smoke test actually executes .sh scripts, not just describes them
+- feat(flight): compose-to-tasks execute wiring — creates each composed task on the board
+- feat(github): mirror-pass reaps a stale GitHub issue claim after 14 quiet days
+- feat(github): mirror-pass catches internal doc links that no longer resolve
+- feat(i18n): translate the FLIGHT DEBRIEF panel's stat-chip and notable-event text
+- feat(i18n): translate the GitHub sync/PR result panels' generic fallback text
+- feat(i18n): translate the contribution heatmap's aria-label and color-key legend
+- feat: add watch dashboard shell launcher (#20)
+- feat(i18n): translate the Notifications channel's control tips and hints
+- feat(flight): compose-to-tasks[] core — free-text notes split into right-sized board tasks
+- feat(flight): skip issues already assigned to a human in KEEPER triage
+- feat(flight): social-pass core — gh identity/role resolve, own-submissions inventory, protocol caps
+- feat(i18n): translate the CURRENT ROUND panel's chip text via injected tr()
+- feat(docs): doc-freshness detector now tracks MODEL-CARD.md drift (ap-mtndm54g-p62ibx)
+- feat(flight): mirror-pass reconcile planner — README version claim vs tree (3/4)
+- feat(dashboard): wire the right-click report dialog's AI compose into its own captured context
+- feat(flight): mirror-pass reconcile planner — board-done vs issue-state (1/4)
+- feat(github): add free-text compose to the report-to-upstream issue form
+- feat(i18n): translate the guard-denial chip on both surfaces via its three template sweeps
+- feat(i18n): translate the flight log's "slice of <task>" chip via all three template sweeps at once
+- feat(community): contributor standing — identity law, earned trust tiers, the easy partner path
+- feat(i18n): translate the flight log's sha chip and group head cost tip via a tip-template sweep
+- feat(community): the shared-work protocol — visible direction, public claims, no duplicate work
+- feat(i18n): translate the Firing Replay's "Step N of M" position label
+- feat(i18n): translate the flight log rows' cost, real-cost, and happened-ago tips
+- feat(i18n): translate the trace row's count/started-ago tips and the auto-fixed chip
+- feat(i18n): translate the trace row's diff toggle and its loading/empty placeholders
+- feat(i18n): translate the Firing Replay playback controls' text, aria-label, and tip
+- feat(i18n): translate the project and task status pills' label, tip, and composed aria-label
+- feat(i18n): translate the live worker card's label, phase prefix, task lines, and line tips
+- feat(i18n): sweep [data-i18n-aria-template] and translate the live worker card's tool/target line
+- feat(i18n): translate the fleet card gauge-label tips and last-activity aria prefix
+- feat(i18n): translate the Tasks "Add a task" form via data-i18n keys
+- feat(i18n): translate the SOUL propose, github-sync, and github-pr handler status lines via tr()
+- feat(i18n): translate the Inbox "Drop a note" form and its status lines
+- feat(i18n): translate the searchbar's five data-tips via tr()
+- feat(i18n): translate the fly-bar Browse button's data-tip via tr()
+- feat(i18n): translate the REPORT EXECUTE confirm dialog via tr()
+- feat(i18n): translate the Remove/Start-over card buttons via tr()
+- feat(i18n): translate the RELEASE EXECUTE confirm dialog (#18)
+- feat(i18n): translate the masthead tour button's data-tip via tr()
+- feat(i18n): translate the masthead OTLP chip's data-tip via tr()
+- feat(i18n): translate the masthead notify popover's data-tip via tr()
+- feat(i18n): add Hebrew translations for the Release-phase select (#15)
+- feat(dashboard): doc-freshness tracks FLIGHT-CONTAINMENT.md's own guard files
+- feat(dashboard): over-the-air update banner — one click to latest, zero clobbered progress
+- feat(calculator): add a percent key — divide-by-100, wired end to end
+- feat(dashboard): grid-wrap disconnected pipeline lanes, firing-ordinal labels
+- feat(dashboard): queue for a human any PR that deletes a test — KEEPER's first improves verdict
+- feat(dashboard): queue a PR that deletes a test file — KEEPER's first genuinely-improves verdict
+- feat(release): the ritual writes its own release notes — no more placeholder tags
+- feat(dashboard): release-maturity intelligence — the ritual knows an alpha when it cuts one
+- feat(i18n): translate the fly-bar HINT sentence to Hebrew via injected tr
+- feat(i18n): translate the DETECTED BACKLOG panel's remaining states to Hebrew
+- feat(onboarding): add static-site gate detector (html-validate + linkinator)
+- feat: add ci:license-check gate — allowlist validator + doc drift check
+- feat(onboarding): add static-site EcosystemDetector (html-validate + linkinator)
+- feat: implement pocket-calculator state machine for calc.js
+
+### Fixed
+
+- fix(engine): ensureWorktree self-heals an orphaned, unregistered lane dir
+- fix(dashboard): landing commit-group toggle actually expands/collapses content
+- fix(dashboard): landing commit-group toggle actually expands/collapses content
+- fix(dashboard): landing commit-group toggle actually expands/collapses content
+- fix(dashboard): guard fly.ts sync-back git calls against a live sibling lock
+- fix(dashboard): flag contributor-dossier.ts as security-sensitive, apply prettier
+- fix(dashboard): convergence-unverifiable and guard-verify-failed chips get a real label
+- fix(dashboard): flight-map tooltip text stays inside its own bubble
+- fix(dashboard): masthead popovers are mutually exclusive + theme/lang panels size to content
+- fix(i18n): landing empty-state speaks native Hebrew + the translation doctrine is law
+- fix(identity): the dead-identity wall no longer carries what it bans
+- fix(dashboard): exclude own pid from isAnyFlightLockLive, guard fly.ts primary fallback
+- fix(dashboard): donation address surface joins touchesSecuritySensitivePath
+- fix(ci): reuse-ignore the DONATE generator's emitted SPDX strings + pin the donations poll 404
+- fix(self-study): refuse a regen that would republish LESS history than is committed (#23)
+- fix(ci): drive-path scanner stops reading overflow-y as drive y — and the scroll-bound fix relands
+- fix(flight): the static-site detector earns its marker — the census's own foretold fifth
+- fix(dashboard): timeline sig now includes the trace/diff/replay overlay maps
+- fix(onboarding): reland the static-site gate detector the 03:18 revert burst discarded
+- fix(dashboard): bound the expanded flight log to a scroll container
+- fix(dashboard): inbox drops from the same millisecond no longer clobber each other
+- fix(dashboard): project-page card() actually reuses per-project render state
+- fix(onboarding): re-land the static-site gate detector reverted without explanation
+- fix(telemetry): classify unverifiable gate results by cause
+- fix(i18n): close scanner blind spot for el() DOM-builder text nodes
+- fix(dashboard): bound the activity feed and per-firing trace to scroll containers
+- fix(dashboard): `dashboard watch` no longer flies a real directory named `--`
+- fix(flight): hard-rule — an orphaned uncommitted diff may be a live sibling's, not just yours
+- fix(release): scope the release commit to touched paths, never a whole-tree sweep
+- fix(flight): hard-rule against reacting to a red-main signal with a revert walk
+- fix(dashboard): raise core bundle budget 172/51KB -> 176/52KB for LANDING i18n
+- fix(flight): gate honesty — demote implausibly-fast convergence green to UNVERIFIABLE
+- fix(engine): deny a flight's own `git revert` of anything but HEAD
+- fix(web): ship the update banner to actual users — discovery now admits substitution-free assemblers
+- fix(e2e): the flight-log gate pumps with a HARD fake-time ceiling — 25x2s, minute-safe
+- fix(security): the owner-only ACL also strips EXPLICIT broad grants — runners exposed the gap
+- fix(docs): seed the trusted-contributors registry + repair archive-relative links
+- fix(flight): harden the LLM issue composer against secret/PII leakage
+- fix(security): connection.json gets a REAL owner-only ACL on Windows — chmod 0600 was a no-op there
+- fix(e2e): pump the frozen clock until the flight log paints — the theme-biased gate race
+- fix(ci): give the doc-commit-refs job its pnpm setup step
+- fix(engine): deny a git commit that hand-writes its own Signed-off-by trailer (#17)
+- fix(ci): the doc-commit-refs job invokes the pnpm alias its own gate census pins
+- fix(dashboard): hide the Windows console on every spawned child (#19)
+- fix(dashboard): restore fly.ts's live-lock flight-vs-flight race guard
+- fix(dashboard): fly.ts worktree-fallback refuses a live flight-vs-flight race
+- fix(ci): retry dependency-audit with backoff instead of failing on a registry outage
+- fix(dashboard): issue triage reserves good-first-issue labels for humans
+- fix(dashboard): restart() confirms the old server died, kills whoever squats the port
+- fix(dashboard): re-triage before Apply — pin KEEPER PR review execute to the previewed head SHA too
+- fix(dashboard): the hidden update banner actually hides — [hidden] guard beats display:flex
+- fix(dashboard): appease all seven census guards the OTA banner tripped
+- fix(dashboard): translate the masthead's offline-retrying status text (#13)
+- fix(deps): pin transitive qs override to >=6.16.0, close 2 moderate CVEs (#14)
+- fix(dashboard): translate the CONNECT popover's first-paint status text
+- fix(dashboard): persist an INBOX note's full body on its task record
+- fix(dashboard): render the pipeline canvas at natural size — no more screen-sized nodes
+- fix(dashboard): announce the KEEPER PR review Apply result through a polite live region
+- fix(dashboard): deep-link each publicity affordance to its own page, with live counts
+- fix(engine): gate remediation commits only the fixer's own paths, not the whole tree
+- fix(dashboard): neutralize @-mentions in KEEPER's base-branch reasoning too
+- fix(dashboard): landing refuses when ANY process holds a live flight lock
+- fix(licensing): make REUSE compliance actually pass
+- fix(dashboard): stop duplicating the tip into fly-row action button aria-labels
+- fix(flight): scope worktree flightRoot to a flown subfolder's own repo path
+- fix: neutralize @-mentions in the KEEPER ritual's base-branch reasoning
+
 ## [0.29.0] — 2026-09-07
 
 ### Added
