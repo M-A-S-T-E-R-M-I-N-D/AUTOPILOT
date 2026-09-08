@@ -55,6 +55,18 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] Author/brand: 1337 · REL AZEUS · MΔSTERMIND (the only identity)
 - [ ] README + ARCHITECTURE + demo GIF + docs site
 
+## H. The long tail (to be expanded toward 999)
+- [ ] Token/usage awareness surfaced in the UI + membership connection flows
+- [ ] Backup/restore ergonomics + "explain the hardware/impact" prompts before destructive-ish actions
+- [ ] Notifications (needs-you, anomaly, ship) across channels
+- [ ] Export/share reports; scheduled runs; cron/time-of-day windows
+- [ ] Plugin/extension model for custom harness steps and review agents
+- [~] (GENIUS+ARCHITECT step 1, RAG, live view; inbox pending) Reactivity: talk-to-agent chat, hybrid RAG, task assignment, live view + abstract activity map (spec: `REACTIVITY.md`)
+- [ ] Multi-harness projection: catalog → install-target adapter registry (Claude/Codex/Cursor/Gemini/OpenCode/Kiro…)
+- [ ] Warm agent session (Agent SDK) instead of per-message CLI spawn; semantic index (FTS5 + embeddings) with cache-invalidation
+- [x] (OWASP/WCAG/SemVer/SPDX/REUSE/OTel-OTLP all live) Standards backbone wired in from day one (spec: `PATTERNS-AND-STANDARDS.md`) — OWASP/SLSA/WCAG/SemVer/SPDX/OTel
+- [ ] (This register is the tracked implementation backlog — the standard long-tail carrier for a project this size.)
+
 ## I. Progression gauge & autonomous intake (2026-07-06)
 - [x] Per-finding tagging: severity (🔴critical/🟠high/🟡medium/⚪low) × dimension (a11y/security/UX/human/learnings/info/data/priorities) — task schema carries both (`SEVERITIES`/`DIMENSIONS`, `packages/store/src/types.ts`), rendered as task-board chips (`taskSeverityChip`/`taskDimensionChip`, `apps/dashboard/src/web/task-queue.ts`)
 - [~] Project readiness gauge: numeric % + color bar + per-dimension breakdown, per-project AND whole-fleet — per-project severity color bar is live (`openSeverityGauge`, the fleet card's findings gauge); fleet-wide is only a scalar open-findings count (`FleetTotals.openFindings`), no per-severity/per-dimension breakdown at fleet level, no "%" framing
@@ -75,17 +87,69 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] Goodhart guard: never let the agent optimize only the gate; the human signal tunes lived-quality judgment + the soul — a SOUL amendment the agent proposes only takes effect on operator ratify (`ratifySoulAmendment`), which is the human signal tuning the soul in practice, not just in spec
 - [x] Operating principle wired in: proceed on reasonable interpretation, reserve forks/🟣 for approval, never stall — `MASTER-PLAN.md` §17.4; the firing prompt's NOOP→VERDICT and empty-board PROPOSALS sections encode it
 
-## H. The long tail (to be expanded toward 999)
-- [ ] Token/usage awareness surfaced in the UI + membership connection flows
-- [ ] Backup/restore ergonomics + "explain the hardware/impact" prompts before destructive-ish actions
-- [ ] Notifications (needs-you, anomaly, ship) across channels
-- [ ] Export/share reports; scheduled runs; cron/time-of-day windows
-- [ ] Plugin/extension model for custom harness steps and review agents
-- [~] (GENIUS+ARCHITECT step 1, RAG, live view; inbox pending) Reactivity: talk-to-agent chat, hybrid RAG, task assignment, live view + abstract activity map (spec: `REACTIVITY.md`)
-- [ ] Multi-harness projection: catalog → install-target adapter registry (Claude/Codex/Cursor/Gemini/OpenCode/Kiro…)
-- [ ] Warm agent session (Agent SDK) instead of per-message CLI spawn; semantic index (FTS5 + embeddings) with cache-invalidation
-- [x] (OWASP/WCAG/SemVer/SPDX/REUSE/OTel-OTLP all live) Standards backbone wired in from day one (spec: `PATTERNS-AND-STANDARDS.md`) — OWASP/SLSA/WCAG/SemVer/SPDX/OTel
-- [ ] (This register is the tracked implementation backlog — the standard long-tail carrier for a project this size.)
+## K. M0-review forward notes (deferred low-severity items from the M0 adversarial review, 2026-07-06)
+- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` that opens the DB
+  read-only and skips write-only pragmas (`journal_mode = WAL`) — needed when the dashboard opens the store for reads (M3).
+  Done — `StoreOptions.readonly` in `packages/store/src/db.ts` (existing callers unaffected); dashboard adoption
+  landed too — every pure-read `openStore` call site in `apps/dashboard/src/read/source.ts`
+  (`readFleetFromStore` .. `gatherLiveState`) now passes `{ readonly: true }`, so the dashboard never holds a
+  write-capable handle alongside the engine's own writer connection; mutation functions (`createTaskInStore` etc.)
+  are unaffected. Covered by `test/read/source.test.ts`'s "read-only openStore adoption" spy assertion.
+- [ ] TypeScript type-aware linting (M1): when enabling `parserOptions.projectService`, give ESLint a project whose
+  `include` covers every linted file (root config files + `scripts/*.mjs`).
+- [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
+  Done — renamed to `tsconfig.typecheck.json`; `package.json`'s `typecheck` script updated to match.
+- [x] `apps/dashboard` browser tsconfig — `lib`/jsdom half (M3 prep): give the app its own `compilerOptions.lib`
+  (incl. `DOM`) and a jsdom Vitest environment instead of the Node base. Done — this added the jsdom
+  `environmentMatchGlobs` env; this item's `lib` half needed splitting the single flat `tsconfig.typecheck.json`
+  into per-package configs first (`lib` is program-wide, not per-directory), landed by splitting it into
+  `packages/*/tsconfig.typecheck.json` + `apps/dashboard/tsconfig.typecheck.json` (each `extends` that package's
+  own build `tsconfig.json`, chained in the root `typecheck` script since composite project references can't
+  combine with `--noEmit` — TS6310, confirmed empirically). `apps/dashboard/tsconfig.typecheck.json` now sets
+  `"lib": ["ES2022", "DOM"]` for real (`src/web/shell.ts` uses `document`/`window` directly), scoped to that
+  package alone — Node-only packages no longer see DOM globals leak in from the old flat program. Removed the
+  now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
+  N/A — no React/Vite UI yet; add it if/when that lands.
+- [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
+  Done — `.github/workflows/ci.yml`'s new `reuse-lint` job (`continue-on-error: true`, so it's informational only)
+  runs `pip install reuse==6.2.0 && reuse lint`. Getting the repo REUSE-3.3-compliant surfaced two real gaps: a
+  false-positive in `scripts/ci/validate-spdx-headers.mjs` (its own printed CLI guidance string contained a
+  literal SPDX-header line that `reuse`'s parser read as a second, malformed header — fixed by wrapping it in a
+  REUSE ignore-marker block) and two bundled third-party font license texts
+  (`apps/dashboard/src/assets/OFL-{inter,roboto}.txt`) with no SPDX metadata — annotated in `REUSE.toml` under
+  their own upstream copyright + `OFL-1.1`, with `LICENSES/OFL-1.1.txt` downloaded via `reuse download OFL-1.1`.
+- [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions (`actions/checkout`,
+  `actions/setup-node`, `pnpm/action-setup`) to full commit SHAs with version comments; Dependabot's github-actions
+  ecosystem keeps them current. Done — `.github/workflows/ci.yml` pins all three actions to their `v4.4.0` commit
+  SHAs with `# vX.Y.Z` comments; `.github/dependabot.yml` already tracks the `github-actions` ecosystem so PRs
+  keep the pins current.
+- [x] Store path hardening (M3): validate/normalize the filesystem path passed to `openStore` before it reaches
+  `better-sqlite3` once a less-trusted caller (the dashboard/config) can supply it, to avoid path-confusion.
+  Done — `resolveStorePath` in `packages/store/src/db.ts` rejects NUL-byte paths and resolves relative paths to
+  absolute ones; it runs unconditionally inside the `Store` constructor (the sole path every caller — dashboard,
+  CLI, onboarding — goes through), so no caller can bypass it.
+- [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling): fold an over-long system prompt into the child's
+  stdin instead of an argv entry (MDVIEWER-STUDY §1). Done — `CLI_STDIN_PROMPT_THRESHOLD` in
+  `packages/engine/src/adapters/claude-cli.ts`.
+- [x] Single-instance guard for the engine loop (per-project): cross-platform `O_EXCL` lockfile + PID-liveness check
+  (v2.4 used a Windows named mutex). Done — `FileInstanceLock` in `packages/engine/src/adapters/instance-lock.ts`,
+  wired into `apps/dashboard/src/fly.ts` keyed per PROJECT id (`engine-<projectId>.lock`), so flights against
+  different projects in the same store never contend (PARALLEL FLIGHTS 1/6, plus a follow-up).
+- [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`): port the observed-spend usage advisor (v2.4
+  `usage_advisor.py`) behind the pacer port. Done — pure `nextAdaptivePaceMin` in `packages/engine/src/pace.ts`
+  (base cadence under half of either soft cap, ramps to a bounded 6x as real spend nears the hourly/weekly cap),
+  backed by `SqlitePacer` (`packages/engine/src/adapters/pacer.ts`) reading real gate-verified spend from the same
+  `metrics` rows the dashboard graphs use; wired into `apps/dashboard/src/fly.ts`.
+- [~] (live-CLI dogfood proven at scale — 160+ real firings; formal the internal predecessor behavioral diff never run) M1 experiential DoD (deferred from the machine-verifiable M1): a **live-CLI dogfood run** (real `claude -p`
+  flying a repo, exercising `ClaudeCliModel.invoke`) and a **behavioral diff against the running internal v2.4 script**.
+  The deterministic sandbox e2e proves the pipeline; these confirm the live behavior.
+- [x] OpenTelemetry wire-format export for firings (the OTel-shaped attributes are already captured in the firing
+  record + SQLite): export over OTLP for standard-portable dashboards — lands with the dashboard at M3.
+  Mapping + injectable HTTP transport done — `toOtlpResourceSpans`/`exportOtlpResourceSpans` in
+  `packages/engine/src/otlp.ts`. Endpoint wiring (`ap-msksw1me-0`) done —
+  `apps/dashboard/src/flight/otlp.ts`'s `otlpConfigFromEnv` reads the standard `OTEL_EXPORTER_OTLP_*` env vars
+  (off when unset); `fly.ts`'s `onFiringComplete` exports each firing's span best-effort (a collector outage logs
+  a warning, never fails the flight). Documented in the root README's "Telemetry & OTLP export" section.
 
 ## L. SOTA-MAP gap items (2026-08-08 · cite map IDs — `docs/SOTA-MAP-llm-software-engineering-2026-08.md`; analysis: RESEARCH-LIBRARY)
 - [~] (DEFERRED BY MEASUREMENT ~$0.02/firing — RESEARCH-LIBRARY "Firing cost anatomy"; revisit M6) **B2+K3** Prompt prefix reorder for cache: stable blocks (SOUL + discipline + containment + hard rules) FIRST,
@@ -168,67 +232,3 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   against both `surface` and `surfaceRaised`.
 - [ ] **firing-v9 (bundle)** PLAN phase (incl. the delegation decision) + REFLECT + the B2 prompt-prefix reorder +
   E8/K2 routing annotation for M6 — one deliberate prompt-version bump, gated on the C6+H3 eval set once it exists
-
-## K. M0-review forward notes (deferred low-severity items from the M0 adversarial review, 2026-07-06)
-- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` that opens the DB
-  read-only and skips write-only pragmas (`journal_mode = WAL`) — needed when the dashboard opens the store for reads (M3).
-  Done — `StoreOptions.readonly` in `packages/store/src/db.ts` (existing callers unaffected); dashboard adoption
-  landed too — every pure-read `openStore` call site in `apps/dashboard/src/read/source.ts`
-  (`readFleetFromStore` .. `gatherLiveState`) now passes `{ readonly: true }`, so the dashboard never holds a
-  write-capable handle alongside the engine's own writer connection; mutation functions (`createTaskInStore` etc.)
-  are unaffected. Covered by `test/read/source.test.ts`'s "read-only openStore adoption" spy assertion.
-- [ ] TypeScript type-aware linting (M1): when enabling `parserOptions.projectService`, give ESLint a project whose
-  `include` covers every linted file (root config files + `scripts/*.mjs`).
-- [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
-  Done — renamed to `tsconfig.typecheck.json`; `package.json`'s `typecheck` script updated to match.
-- [x] `apps/dashboard` browser tsconfig — `lib`/jsdom half (M3 prep): give the app its own `compilerOptions.lib`
-  (incl. `DOM`) and a jsdom Vitest environment instead of the Node base. Done — this added the jsdom
-  `environmentMatchGlobs` env; this item's `lib` half needed splitting the single flat `tsconfig.typecheck.json`
-  into per-package configs first (`lib` is program-wide, not per-directory), landed by splitting it into
-  `packages/*/tsconfig.typecheck.json` + `apps/dashboard/tsconfig.typecheck.json` (each `extends` that package's
-  own build `tsconfig.json`, chained in the root `typecheck` script since composite project references can't
-  combine with `--noEmit` — TS6310, confirmed empirically). `apps/dashboard/tsconfig.typecheck.json` now sets
-  `"lib": ["ES2022", "DOM"]` for real (`src/web/shell.ts` uses `document`/`window` directly), scoped to that
-  package alone — Node-only packages no longer see DOM globals leak in from the old flat program. Removed the
-  now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
-  N/A — no React/Vite UI yet; add it if/when that lands.
-- [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
-  Done — `.github/workflows/ci.yml`'s new `reuse-lint` job (`continue-on-error: true`, so it's informational only)
-  runs `pip install reuse==6.2.0 && reuse lint`. Getting the repo REUSE-3.3-compliant surfaced two real gaps: a
-  false-positive in `scripts/ci/validate-spdx-headers.mjs` (its own printed CLI guidance string contained a
-  literal SPDX-header line that `reuse`'s parser read as a second, malformed header — fixed by wrapping it in a
-  REUSE ignore-marker block) and two bundled third-party font license texts
-  (`apps/dashboard/src/assets/OFL-{inter,roboto}.txt`) with no SPDX metadata — annotated in `REUSE.toml` under
-  their own upstream copyright + `OFL-1.1`, with `LICENSES/OFL-1.1.txt` downloaded via `reuse download OFL-1.1`.
-- [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions (`actions/checkout`,
-  `actions/setup-node`, `pnpm/action-setup`) to full commit SHAs with version comments; Dependabot's github-actions
-  ecosystem keeps them current. Done — `.github/workflows/ci.yml` pins all three actions to their `v4.4.0` commit
-  SHAs with `# vX.Y.Z` comments; `.github/dependabot.yml` already tracks the `github-actions` ecosystem so PRs
-  keep the pins current.
-- [x] Store path hardening (M3): validate/normalize the filesystem path passed to `openStore` before it reaches
-  `better-sqlite3` once a less-trusted caller (the dashboard/config) can supply it, to avoid path-confusion.
-  Done — `resolveStorePath` in `packages/store/src/db.ts` rejects NUL-byte paths and resolves relative paths to
-  absolute ones; it runs unconditionally inside the `Store` constructor (the sole path every caller — dashboard,
-  CLI, onboarding — goes through), so no caller can bypass it.
-- [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling): fold an over-long system prompt into the child's
-  stdin instead of an argv entry (MDVIEWER-STUDY §1). Done — `CLI_STDIN_PROMPT_THRESHOLD` in
-  `packages/engine/src/adapters/claude-cli.ts`.
-- [x] Single-instance guard for the engine loop (per-project): cross-platform `O_EXCL` lockfile + PID-liveness check
-  (v2.4 used a Windows named mutex). Done — `FileInstanceLock` in `packages/engine/src/adapters/instance-lock.ts`,
-  wired into `apps/dashboard/src/fly.ts` keyed per PROJECT id (`engine-<projectId>.lock`), so flights against
-  different projects in the same store never contend (PARALLEL FLIGHTS 1/6, plus a follow-up).
-- [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`): port the observed-spend usage advisor (v2.4
-  `usage_advisor.py`) behind the pacer port. Done — pure `nextAdaptivePaceMin` in `packages/engine/src/pace.ts`
-  (base cadence under half of either soft cap, ramps to a bounded 6x as real spend nears the hourly/weekly cap),
-  backed by `SqlitePacer` (`packages/engine/src/adapters/pacer.ts`) reading real gate-verified spend from the same
-  `metrics` rows the dashboard graphs use; wired into `apps/dashboard/src/fly.ts`.
-- [~] (live-CLI dogfood proven at scale — 160+ real firings; formal the internal predecessor behavioral diff never run) M1 experiential DoD (deferred from the machine-verifiable M1): a **live-CLI dogfood run** (real `claude -p`
-  flying a repo, exercising `ClaudeCliModel.invoke`) and a **behavioral diff against the running internal v2.4 script**.
-  The deterministic sandbox e2e proves the pipeline; these confirm the live behavior.
-- [x] OpenTelemetry wire-format export for firings (the OTel-shaped attributes are already captured in the firing
-  record + SQLite): export over OTLP for standard-portable dashboards — lands with the dashboard at M3.
-  Mapping + injectable HTTP transport done — `toOtlpResourceSpans`/`exportOtlpResourceSpans` in
-  `packages/engine/src/otlp.ts`. Endpoint wiring (`ap-msksw1me-0`) done —
-  `apps/dashboard/src/flight/otlp.ts`'s `otlpConfigFromEnv` reads the standard `OTEL_EXPORTER_OTLP_*` env vars
-  (off when unset); `fly.ts`'s `onFiringComplete` exports each firing's span best-effort (a collector outage logs
-  a warning, never fails the flight). Documented in the root README's "Telemetry & OTLP export" section.
