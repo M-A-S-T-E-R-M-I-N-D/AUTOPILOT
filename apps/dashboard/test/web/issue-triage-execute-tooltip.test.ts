@@ -17,7 +17,11 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { issueTriageExecuteTip } from '../../src/web/issue-triage-panel.js';
+import {
+  issueTriageExecuteTip,
+  issueTriageHasWork,
+  issueTriageNothingToRunTip,
+} from '../../src/web/issue-triage-panel.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 const ACCEPT = {
@@ -145,5 +149,65 @@ describe('Run KEEPER triage button explains itself on hover/focus (shell wiring)
     expect(button?.getAttribute('data-tip')).toBe(button?.getAttribute('aria-label'));
     expect(button?.getAttribute('data-tip')).toBe(issueTriageExecuteTip([ACCEPT, DUPLICATE, SKIP]));
     expect(button?.getAttribute('data-tip')).toContain('3 open issues');
+  });
+});
+
+/**
+ * Operator catch (2026-09-09): with every open issue already triaged the
+ * button still read "🗝️ Run KEEPER triage" and its tip still said "0 to
+ * accept … 6 already triaged" — an affordance offering a confirm dialog
+ * for a run that would touch nothing. The disabled-with-reason law says a
+ * control that cannot act must SAY SO, not pretend; the button now goes
+ * disabled and its tip names the condition and what re-enables it.
+ */
+describe('the triage button goes disabled-with-reason when nothing is actionable', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('reports no work when every plan is a skip', () => {
+    expect(issueTriageHasWork([SKIP, SKIP])).toBe(false);
+    expect(issueTriageHasWork([])).toBe(false);
+  });
+
+  it('reports work when any plan accepts, dedups, or opens a dossier', () => {
+    expect(issueTriageHasWork([SKIP, ACCEPT])).toBe(true);
+    expect(issueTriageHasWork([SKIP, DUPLICATE])).toBe(true);
+    expect(issueTriageHasWork([SKIP, DOSSIER])).toBe(true);
+  });
+
+  it('names the count and what re-enables the button in the reason tip', () => {
+    const tip = issueTriageNothingToRunTip(6);
+    expect(tip).toContain('Nothing to run');
+    expect(tip).toContain('6 open issues are');
+    expect(tip).toContain('new or changed issue');
+    expect(issueTriageNothingToRunTip(1)).toContain('1 open issue is');
+  });
+
+  it('renders the button disabled with the reason tip on an all-skip round', async () => {
+    bootWithTriage([SKIP, SKIP, SKIP]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-issue-triage-execute]')).not.toBeNull();
+    });
+    const button = document.querySelector('[data-issue-triage-execute]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.getAttribute('data-tip')).toBe(issueTriageNothingToRunTip(3));
+    expect(button.getAttribute('data-tip')).toBe(button.getAttribute('aria-label'));
+    expect(button.getAttribute('data-tip')).not.toContain('to accept');
+  });
+
+  it('leaves the button enabled with the batch tip when one issue is new', async () => {
+    bootWithTriage([SKIP, SKIP, ACCEPT]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-issue-triage-execute]')).not.toBeNull();
+    });
+    const button = document.querySelector('[data-issue-triage-execute]') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.hasAttribute('aria-disabled')).toBe(false);
+    expect(button.getAttribute('data-tip')).toContain('1 to accept');
   });
 });
