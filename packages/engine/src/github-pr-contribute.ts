@@ -16,23 +16,18 @@
  * slices that call this once the real inputs (upstream repo, the
  * operator's own fork owner from `gh auth status`, and the branch to
  * contribute) are gathered — same staged shape those modules shipped in.
+ * The identity-law disclosure footer every PR carries is
+ * {@link identityDisclosure}, shared with `github-contribute.ts`'s
+ * `planGithubIssue` via `github-identity-disclosure.ts` so both artifact
+ * types emit byte-identical disclosure text.
  */
+
+import { identityDisclosure } from './github-identity-disclosure.js';
 
 /** The fixed git remote name the fork step adds and the push step targets
  *  — a plan-internal constant, not operator-configurable, so `steps[0]`'s
  *  `--remote-name` and `steps[1]`'s push target always agree. */
 export const FORK_REMOTE = 'autopilot-fork';
-
-/** Builds the identity-law disclosure footer (`.github/CONTRIBUTOR-
- *  STANDING.md`'s "the identity law") every PR {@link planGithubPr} opens
- *  carries: the human-visible "Flown by" line naming the operator —
- *  `operatorHandle` is always `forkOwner`, the same `gh auth status` login
- *  the PR's own `--head` points the fork at — plus a machine-readable
- *  `Autopilot-Agent:` marker. Appended unconditionally so no PR this plans
- *  can ever leave `planGithubPr` undisclosed. */
-function identityDisclosure(operatorHandle: string): string {
-  return `🛩️ Flown by AUTOPILOT on behalf of @${operatorHandle}\n\nAutopilot-Agent: true`;
-}
 
 /** Thrown by {@link planGithubPr} when `title`, `branch`, or `forkOwner` is
  *  empty (after trimming), or when a provided `issueNumber` is not a
