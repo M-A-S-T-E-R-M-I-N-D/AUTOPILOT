@@ -107,11 +107,7 @@ describe('searchJs', () => {
       "chip.setAttribute('tabindex', activityEl.querySelector('.ask-activity-chip') ? '-1' : '0');",
     );
     expect(out).toContain("wireRoving('.ask-activity-chip', '.ask-activity');");
-    expect(out).toContain(
-      "chip.setAttribute('data-tip', 'A tool call the model made while researching this answer');",
-    );
-    expect(out).toContain(
-      "chip.setAttribute('aria-label', 'Tool call: ' + (target ? tool + ': ' + target : tool));",
-    );
+    expect(out).toContain("chip.setAttribute('data-tip', tr('askActivityTip'));");
+    expect(out).toContain("chip.setAttribute('aria-label', tr('askActivityAria', label));");
   });
 });
