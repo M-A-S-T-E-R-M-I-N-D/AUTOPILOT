@@ -2037,6 +2037,46 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('GET /api/mirror-pass/drift previews the README/tree drift for a known project', async () => {
+    const plan = { versionDrift: null, countsDrift: null, linkDrift: null };
+    const base = await start({
+      mirrorPassDrift: async (pid) => (pid === 'p1' ? plan : null),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ drift: plan });
+
+    const unknown = await fetch(`${base}/api/mirror-pass/drift?project=nope`);
+    expect(await unknown.json()).toEqual({ drift: null });
+
+    const noProject = await fetch(`${base}/api/mirror-pass/drift`);
+    expect(noProject.status).toBe(400);
+  });
+
+  it('degrades /api/mirror-pass/drift to { drift: null } instead of crashing when the read throws', async () => {
+    const base = await start({
+      mirrorPassDrift: () => {
+        throw new Error('unreadable tree');
+      },
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ drift: null });
+  });
+
+  it('404s /api/mirror-pass/drift when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/mirror-pass/drift?project=p1`)).status).toBe(404);
+  });
+
+  it('405s /api/mirror-pass/drift for a non-GET method', async () => {
+    const base = await start({
+      mirrorPassDrift: async () => ({ versionDrift: null, countsDrift: null, linkDrift: null }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift?project=p1`, { method: 'POST' });
+    expect(res.status).toBe(405);
+  });
+
   it('POST /api/issue-triage/execute runs the ritual for a known project (CSRF-guarded)', async () => {
     const seen: string[] = [];
     const base = await start({

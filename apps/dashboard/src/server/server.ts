@@ -120,6 +120,7 @@ import {
 } from '../flight/pr-review-execute.js';
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
 import type { MirrorPassPlan, MirrorPassLandingNotePlan } from '../flight/mirror-pass.js';
+import type { MirrorPassDriftPlan } from '../flight/mirror-pass-execute.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -458,6 +459,13 @@ export type MirrorPassLandingNotePreviewApi = (
   projectId: string,
 ) => Promise<readonly MirrorPassLandingNotePlan[] | null>;
 
+/** MIRROR PASS drift preview (injected; reads only, checks the project's own
+ *  tree — no `gh` call) — derivation 3/4 of EPIC 0019 S3 (board
+ *  `web-mtrh1hlh-62l41b`), "README/docs public claims ↔ tree reality" — see
+ *  `flight/mirror-pass-execute.ts`'s `createMirrorPassDriftPreviewApi`.
+ *  `null` means an unknown project id. */
+export type MirrorPassDriftPreviewApi = (projectId: string) => Promise<MirrorPassDriftPlan | null>;
+
 /** The report-from-here preview (injected; pure — a region capture arrives
  *  fully formed from the request body, so this never reads the store or
  *  shells out — see `flight/report-from-here-execute.ts`). Turns a capture +
@@ -589,6 +597,10 @@ export interface ServerDeps extends RouteDeps {
    *  derivation 2/4) — read-only, behind `GET /api/mirror-pass/landing-note`.
    *  Same "mutating execute is a separate slice" stance as `mirrorPass` above. */
   readonly mirrorPassLandingNote?: MirrorPassLandingNotePreviewApi;
+  /** MIRROR PASS drift preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
+   *  derivation 3/4) — read-only, behind `GET /api/mirror-pass/drift`. Same
+   *  "mutating execute is a separate slice" stance as `mirrorPass` above. */
+  readonly mirrorPassDrift?: MirrorPassDriftPreviewApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -2117,6 +2129,41 @@ async function handleMirrorPassLandingNote(
   }
 }
 
+/**
+ * The MIRROR PASS drift preview endpoint (`GET /api/mirror-pass/drift?
+ * project=`) — derivation 3/4: the project's `README.md` claims (version,
+ * third-party package count, internal links) checked against its own tree,
+ * no `gh` call involved. Same on-demand, degrade-to-null shape as
+ * {@link handleMirrorPass}.
+ */
+async function handleMirrorPassDrift(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassDriftPreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass drift preview unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    send(200, { drift: await api(project) });
+  } catch {
+    send(200, { drift: null });
+  }
+}
+
 /** Shared body parser for both report-from-here endpoints — `{regionId,
  *  regionLabel, description, moduleSources, hasScreenshot, action,
  *  projectId, severity?}`. `null` (→ 400) means malformed JSON/body or an
@@ -2793,6 +2840,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass/landing-note') {
       void handleMirrorPassLandingNote(req, res, deps.mirrorPassLandingNote, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/drift') {
+      void handleMirrorPassDrift(req, res, deps.mirrorPassDrift, headers);
       return;
     }
 
