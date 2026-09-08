@@ -557,7 +557,11 @@ async function main(): Promise<void> {
       run: () =>
         new GateRunner({
           cwd: target,
-          commands: gateCommands(fullGateSpec(result.gate.spec)),
+          // PARITY GATE (board web-mtqtec7m-dhxd9h): this is a landing/
+          // convergence call site, so it opts into the CI-only extras
+          // (`ciExtras`) too — the one point where cadence pressure doesn't
+          // apply (see the FULL gate comment above).
+          commands: gateCommands(fullGateSpec(result.gate.spec), { includeCiExtras: true }),
         }).run(),
     };
     if (fleetTaskScope !== null) {
