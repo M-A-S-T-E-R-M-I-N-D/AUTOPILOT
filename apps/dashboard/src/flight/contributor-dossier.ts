@@ -96,7 +96,10 @@ function dcoLine(dcoCleanCount: number, dcoTotalChecked: number): string {
  * is auto-approved". Pure and total: every field degrades to an explicit
  * "unknown"/"none yet" line rather than throwing or omitting a section.
  */
-export function formatContributorDossier(facts: ContributorFacts, nowMs: number = Date.now()): string {
+export function formatContributorDossier(
+  facts: ContributorFacts,
+  nowMs: number = Date.now(),
+): string {
   return [
     `### KEEPER evidence dossier — @${facts.login}`,
     '',
@@ -126,7 +129,10 @@ interface RawMergedPr {
   readonly commits?: unknown;
 }
 
-function countSignedOffCommits(commits: unknown): { readonly clean: number; readonly total: number } {
+function countSignedOffCommits(commits: unknown): {
+  readonly clean: number;
+  readonly total: number;
+} {
   if (!Array.isArray(commits)) return { clean: 0, total: 0 };
   let clean = 0;
   let total = 0;
@@ -155,7 +161,10 @@ const MAX_MERGED_PRS_CHECKED = 50;
  * "unknown"/zero values rather than losing the whole dossier — a partial
  * dossier is still more evidence than none.
  */
-export async function fetchContributorFacts(login: string, exec: CliExec): Promise<ContributorFacts> {
+export async function fetchContributorFacts(
+  login: string,
+  exec: CliExec,
+): Promise<ContributorFacts> {
   let accountCreatedAt: string | null = null;
   let publicRepos: number | null = null;
   let followers: number | null = null;

@@ -803,6 +803,14 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // execute class `flight/issue-triage` above is flagged for, ending in
   // neither `-execute.ts` nor any security keyword.
   'flight/mirror-pass',
+  // The KEEPER contributor dossier (board web-mtq07kgf-2h6trk, "STANDING
+  // 2/5"): plans the `gh issue edit --add-label`/`gh issue comment` argv
+  // that posts a partner-application applicant's evidence dossier — the
+  // same decide-and-eventually-execute class `flight/issue-triage` above is
+  // flagged for (dossier facts feed the maintainer's decision but are
+  // never auto-verdicted). Ends in neither `-execute.ts` nor any security
+  // keyword.
+  'flight/contributor-dossier',
   // Dispatches the ARCHITECT chat control tools' write/DESTRUCTIVE store
   // operations (tasks_create/set-status/reorder/delete, project_reset) and
   // owns their argument validation itself — server.ts leaves it only the
