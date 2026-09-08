@@ -25,7 +25,8 @@
  * against a repo the viewer doesn't own).
  */
 
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import { resolveSocialIdentity, type SocialIdentity } from './social-pass.js';
 
 export interface TaxonomyLabel {
@@ -289,7 +290,7 @@ export interface TaxonomySeedReport {
  *  reads entirely once identity resolution rules out a maintainer write
  *  (unresolved, or a guest) — there is nothing to plan against a repo this
  *  identity cannot act on. */
-export async function runTaxonomySeed(exec: CliExec = realCliExec): Promise<TaxonomySeedReport> {
+export async function runTaxonomySeed(exec: CliExec = ghExec): Promise<TaxonomySeedReport> {
   const identity = await resolveSocialIdentity(exec);
   if (identity === undefined || identity.role !== 'maintainer') {
     return { plan: planTaxonomySeed(identity, new Set(), new Set()), result: undefined };

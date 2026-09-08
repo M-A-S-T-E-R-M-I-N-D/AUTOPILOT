@@ -32,7 +32,8 @@
  */
 
 import { openStore, listProjects, type Store } from '@autopilot/store';
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import { fetchViewerLogin } from './pr-review.js';
 import {
   fetchPoolIssues,
@@ -52,7 +53,7 @@ export type PoolClientPreviewApi = () => Promise<readonly PoolBrowseEntry[]>;
  *  production wiring `main.ts` injects into the server. Fetches the open
  *  pool and the caller's own gh identity in parallel, same shape {@link
  *  claimPoolIssue} composes for the write side. */
-export function createPoolClientPreviewApi(exec: CliExec = realCliExec): PoolClientPreviewApi {
+export function createPoolClientPreviewApi(exec: CliExec = ghExec): PoolClientPreviewApi {
   return async () => {
     const [issues, claimant] = await Promise.all([fetchPoolIssues(exec), fetchViewerLogin(exec)]);
     return planPoolBrowseBatch(issues, claimant);
@@ -86,7 +87,7 @@ function resolveKnownProjectId(store: Store, projectId: string | undefined): str
  *  case today) never pays for a store open it doesn't need. */
 export function createPoolClientExecuteApi(
   dbPath: string,
-  exec: CliExec = realCliExec,
+  exec: CliExec = ghExec,
 ): PoolClientExecuteApi {
   return async (issueNumber, projectId) => {
     if (projectId === undefined) {

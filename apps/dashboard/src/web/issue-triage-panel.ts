@@ -124,6 +124,28 @@ export function issueTriageExecuteTip(plans: readonly IssueTriagePlanLike[]): st
   );
 }
 
+/** True when a triage run would DO nothing — every open issue is already
+ *  triaged (no accepts, no duplicates, no dossiers). The execute button
+ *  renders disabled-with-reason instead of inviting a no-op click
+ *  (operator catch 2026-09-09: the tip said "0 to accept … 6 already
+ *  triaged" while the button still offered to run; the
+ *  disabled-with-reason law says an affordance that cannot act must say
+ *  why, not pretend). */
+export function issueTriageHasWork(plans: readonly IssueTriagePlanLike[]): boolean {
+  return plans.some((p) => p.decision.decision !== 'skip');
+}
+
+/** The disabled button's honest reason — replaces the run tip when
+ *  {@link issueTriageHasWork} is false. */
+export function issueTriageNothingToRunTip(count: number): string {
+  return (
+    'Nothing to run — all ' +
+    count +
+    (count === 1 ? ' open issue is' : ' open issues are') +
+    ' already triaged. The button re-enables when a new or changed issue arrives.'
+  );
+}
+
 /** One planned `gh` command's result, the same shape `POST
  *  /api/issue-triage/execute`'s `commandResults[]` entries carry — see
  *  `flight/issue-triage.ts`'s `IssueTriageCommandResult`. */
