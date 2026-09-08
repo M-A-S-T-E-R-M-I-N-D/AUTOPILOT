@@ -238,8 +238,15 @@ const BENIGN_FLIGHT = new Set([
  *  injected system-clock reader, and `pacer.ts` only computes an advisory
  *  cadence suggestion (SELECT-only, no write) that `fly.ts` — already
  *  flagged — is free to use or ignore; the actual budget enforcement lives
- *  in the already-flagged flight-orchestration wiring, not here. */
-const BENIGN_ADAPTERS = new Set(['index.ts', 'clock.ts', 'pacer.ts']);
+ *  in the already-flagged flight-orchestration wiring, not here.
+ *  `merge-conflict-context.ts` only runs read-only `git show :N:path`
+ *  against the repo's own tracked blobs (sync-back rung-4 context
+ *  gathering, docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md) — no
+ *  write, no privacy surface like `usage-pool-scan.ts`'s operator-private
+ *  reads, and no decision of its own; the escalation agent that will
+ *  consume this context and decide/write a resolution is unbuilt follow-on
+ *  work that will need its own marker once it ships. */
+const BENIGN_ADAPTERS = new Set(['index.ts', 'clock.ts', 'pacer.ts', 'merge-conflict-context.ts']);
 
 /** Flat `engine/src` files with no write/decide power of their own: static
  *  descriptors and config constants (`info.ts`, `config.ts`), a pure
