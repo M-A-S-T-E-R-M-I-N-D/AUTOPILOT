@@ -1027,6 +1027,16 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // usage-pool-scan.ts may read (private-transcript scope) — a data-flow/
   // privacy surface, the same stance flight/otlp.ts above is flagged under.
   'flight/usage-pool-config.ts',
+  // Epic 0019 "GitHub Steward" slice 1 (board web-mtrh1hjq-760dic): plans
+  // AND executes the taxonomy-seed ritual's real `gh label create --force`
+  // / `gh api .../milestones` writes against the operator's live repo — the
+  // same decide-and-execute GitHub-write class flight/mirror-pass and
+  // flight/contributor-dossier above are flagged for. Role-gated behind
+  // resolveSocialIdentity (the already-benign social-pass.ts) the same way
+  // flight/pool-client-execute.ts is, but the actual write lives here, not
+  // there. `.ts`-suffixed so `test/flight/taxonomy-seed.test.ts` stays
+  // unflagged, same anchoring as flight/worktree.ts above.
+  'flight/taxonomy-seed.ts',
   'engine/src/landing.ts',
   'engine/src/release.ts',
   'engine/src/adapters/git.ts',
