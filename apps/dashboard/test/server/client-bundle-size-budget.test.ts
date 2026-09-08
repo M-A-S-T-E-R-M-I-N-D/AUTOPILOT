@@ -131,8 +131,19 @@ import {
  * budget line unrelated to its own work. This bump leaves ~4KB raw; the
  * gzip line keeps its ~0.7KB and is not moved. The structural fix (VERDICT
  * split web-mtbodv7m-uzhovs) remains the tracked follow-up.
+ *
+ * Raised RAW ONLY 184→188KB (2026-09-08): the 270 bytes the entry above
+ * left were spent by the very next slice — the project page's "⇪ Sync to
+ * GitHub" button label + its "Make public instead" checkbox text (board
+ * web-msnsndki-dz3vn1 — two STRINGS.en keys, `githubSync` /
+ * `githubSyncPublicLabel`, plus the click handler's busy/idle data-i18n key
+ * swap in `shell.ts`, a core module) measured 184470 raw / 54757 gzip
+ * against the old 184320 / 55296 budget: 150 bytes over on raw alone, green
+ * on gzip with ~0.5KB to spare. This bump leaves ~4KB raw; the gzip line is
+ * not moved. The structural fix (VERDICT split web-mtbodv7m-uzhovs) remains
+ * the tracked follow-up.
  */
-const CORE_RAW_BUDGET = 184 * 1024;
+const CORE_RAW_BUDGET = 188 * 1024;
 const CORE_GZIP_BUDGET = 54 * 1024;
 const CHUNK_RAW_BUDGET = 112 * 1024;
 const CHUNK_GZIP_BUDGET = 34 * 1024;

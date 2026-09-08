@@ -2916,8 +2916,20 @@ document.addEventListener('click', function (e) {
   var syncConfirmKey = visibility === 'public' ? 'githubSyncConfirmPublic' : 'githubSyncConfirmPrivate';
   if (!window.confirm(tr(syncConfirmKey, name))) return;
   b.disabled = true;
-  var originalText = b.textContent;
+  // i18n (board web-msnsndki-dz3vn1): the button carries data-i18n, and
+  // renderFleet()'s per-tick translateDom() sweep repaints every tagged
+  // element — so for the request's duration the TAG switches to the busy key
+  // along with the text: a sweep or a language flip landing mid-request
+  // repaints "Syncing…" in the current locale instead of the idle label.
+  // Completion restores the idle key and paints it in whatever locale is
+  // active THEN, rather than the text captured at click time.
+  b.setAttribute('data-i18n', 'githubSyncing');
   b.textContent = tr('githubSyncing');
+  function restoreIdle() {
+    b.disabled = false;
+    b.setAttribute('data-i18n', 'githubSync');
+    b.textContent = tr('githubSync');
+  }
   fetch('/api/github-sync/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -2925,16 +2937,14 @@ document.addEventListener('click', function (e) {
   })
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {
-      b.disabled = false;
-      b.textContent = originalText;
+      restoreIdle();
       if (!resultEl) return;
       var result = githubSyncExecuteResult(r.data, tr);
       resultEl.className = result.className;
       resultEl.textContent = result.text;
     })
     .catch(function () {
-      b.disabled = false;
-      b.textContent = originalText;
+      restoreIdle();
       if (resultEl) {
         resultEl.className = 'github-sync-result github-sync-result-fail';
         resultEl.textContent = tr('githubRequestFailed');
@@ -3273,7 +3283,12 @@ function renderProjectPage(state, pid) {
   var gh = el('section', 'github-sync');
   var ghBtn = document.createElement('button');
   ghBtn.type = 'button';
-  ghBtn.textContent = '⇪ Sync to GitHub';
+  // i18n (board web-msnsndki-dz3vn1): tr() at birth + tag, the Start-over
+  // button's route — the click handler below swaps the tag to the busy key
+  // for the request's duration, so a mid-request sweep cannot repaint this
+  // idle label over "Syncing…".
+  ghBtn.textContent = tr('githubSync');
+  ghBtn.setAttribute('data-i18n', 'githubSync');
   ghBtn.setAttribute('data-github-sync', c.id);
   ghBtn.setAttribute('data-name', c.name);
   var ghTip = githubSyncTip(c.name);
@@ -3293,7 +3308,14 @@ function renderProjectPage(state, pid) {
   ghPublicCheckbox.type = 'checkbox';
   ghPublicCheckbox.setAttribute('data-github-public', c.id);
   ghPublicLabel.appendChild(ghPublicCheckbox);
-  ghPublicLabel.appendChild(document.createTextNode(' Make public instead (visible to everyone)'));
+  // i18n (board web-msnsndki-dz3vn1): the text gets its own tagged span
+  // rather than tagging the <label> — translateDom() writes textContent,
+  // which on the label itself would wipe the checkbox out along with the
+  // words. .github-sync-public is inline-flex with a gap, so the old leading
+  // space is not needed.
+  var ghPublicText = el('span', null, tr('githubSyncPublicLabel'));
+  ghPublicText.setAttribute('data-i18n', 'githubSyncPublicLabel');
+  ghPublicLabel.appendChild(ghPublicText);
   gh.appendChild(ghPublicLabel);
   var ghResult = el('span', 'github-sync-result');
   ghResult.setAttribute('aria-live', 'polite');
