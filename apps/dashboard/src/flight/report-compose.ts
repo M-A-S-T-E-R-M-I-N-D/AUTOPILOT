@@ -31,12 +31,11 @@
  * enum — the same `critical`/`high`/`medium`/`low` scale `report-compose-
  * tasks.ts`'s sibling composer already validates against) plus a one-line
  * `severityReasoning`, so the operator sees WHY the model rated it that way
- * rather than a bare label. This slice only grows the pure contract
- * (prompt + parse); threading the suggested severity into a `local-task`/
- * `quick-fix-pr` plan's `taskInput.severity` and mapping it to a `priority:`
- * label on an `issue`/`pool-offer` plan's `gh issue create` are follow-on
- * slices — `report-from-here.ts`'s `planLocal`/`planUpstream` still take no
- * severity input as of this slice.
+ * rather than a bare label. This slice grows the pure contract (prompt +
+ * parse) only; slice 2, `report-from-here.ts`'s `planLocal`/`planUpstream`,
+ * threads the suggested severity into a `local-task`/`quick-fix-pr` plan's
+ * `taskInput.severity` and maps it to a `priority:` label on an `issue`/
+ * `pool-offer` plan's `gh issue create`.
  */
 
 import { fenceTitle } from '@autopilot/engine';
