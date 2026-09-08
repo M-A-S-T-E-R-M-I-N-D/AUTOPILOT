@@ -11,6 +11,14 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import axe from 'axe-core';
+
+// axe-core over a full jsdom document is the heaviest single check in the
+// suite, and the windows runner is the slowest box it runs on — two external
+// PRs (#33, #34) went red in one evening on 30s timeouts in DIFFERENT cases
+// of this file while every other OS passed. Triple the budget for this file
+// only: a real hang still fails, a slow-but-honest axe pass stops reading as
+// a flake (FAILURE-DOCTRINE ledger — windows a11y flake row).
+vi.setConfig({ testTimeout: 90_000 });
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 import { renderPipelinePanel } from '../../src/web/pipeline-panel.js';

@@ -63,6 +63,15 @@ import {
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
+  prCheckStateGlyph,
+  formatCheckDuration,
+  prCheckRunTip,
+  prCheckSummary,
+  humanMergeReadiness,
+  humanMergeConfirmMessage,
+  humanMergeResult,
+  updateBranchConfirmMessage,
+  updateBranchResult,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -86,6 +95,20 @@ ${prReviewDecisionLabel.toString()}
 ${prReviewConfirmMessage.toString()}
 ${prReviewExecuteResult.toString()}
 ${prReviewExecuteTip.toString()}
+// The pipeline strip's four helpers, same .toString() splice — the per-check
+// rows GET /api/pr-review now carries (operator's "give the tests/stages
+// real expression" catch, 2026-09-09).
+${prCheckStateGlyph.toString()}
+${formatCheckDuration.toString()}
+${prCheckRunTip.toString()}
+${prCheckSummary.toString()}
+// The human merge button (operator, 2026-09-09) — the maintainer's own act
+// on a PR the ritual queued for a human and refuses to merge itself.
+${humanMergeReadiness.toString()}
+${humanMergeConfirmMessage.toString()}
+${humanMergeResult.toString()}
+${updateBranchConfirmMessage.toString()}
+${updateBranchResult.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -124,7 +147,19 @@ function renderPrReviewPanel(plans, fetchFailed) {
     prReviewPlansByNumber[plan.pr.number] = plan;
     var item = el('div', 'pr-review-item');
     var head = el('div', 'pr-review-head');
-    var prNumberEl = el('span', 'pr-review-number', '#' + plan.pr.number);
+    // The number is a real link when gh reported the PR's own url (operator,
+    // 2026-09-09: "we pull the data from GitHub — why can't we link straight
+    // to it?"). An <a> only when there IS a url: a link element that goes
+    // nowhere is worse than plain text. rel=noreferrer on a _blank target is
+    // the standard reverse-tabnabbing guard.
+    var prNumberEl = plan.pr.url
+      ? el('a', 'pr-review-number pr-review-number-link', '#' + plan.pr.number)
+      : el('span', 'pr-review-number', '#' + plan.pr.number);
+    if (plan.pr.url) {
+      prNumberEl.setAttribute('href', plan.pr.url);
+      prNumberEl.setAttribute('target', '_blank');
+      prNumberEl.setAttribute('rel', 'noopener noreferrer');
+    }
     // D1 TAB-STOP ROVING (epic 0015): one Tab stop for the whole panel — a
     // busy review round would otherwise cost one Tab press per open PR.
     // wireRoving() below moves it.
@@ -146,6 +181,44 @@ function renderPrReviewPanel(plans, fetchFailed) {
     head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass));
     item.appendChild(head);
     item.appendChild(el('p', 'pr-review-pr-title', plan.pr.title));
+    // THE PIPELINE STRIP: the stages behind the one-word gate verdict, each
+    // its own deep link, each carrying its own elapsed time, running ones
+    // animated. The rollup was always fetched and always discarded at this
+    // boundary — showing it is what turns "pending" into "e2e is 4m in,
+    // windows still queued".
+    var checks = plan.pr.checkRuns || [];
+    if (checks.length) {
+      var checksWrap = el('div', 'pr-review-checks');
+      var summary = el('p', 'pr-review-checks-summary', prCheckSummary(checks));
+      checksWrap.appendChild(summary);
+      var strip = el('div', 'pr-review-check-strip');
+      for (var c = 0; c < checks.length; c++) {
+        var check = checks[c];
+        var chipClass =
+          'pr-review-check pr-review-check-' + check.state + (check.optional ? ' pr-review-check-optional' : '');
+        var chip = check.url ? el('a', chipClass) : el('span', chipClass);
+        var glyph = el('span', 'pr-review-check-glyph', prCheckStateGlyph(check.state));
+        // Decorative: the state is already in the tip and the chip text, so
+        // a screen reader must not hear "check mark" twice per chip.
+        glyph.setAttribute('aria-hidden', 'true');
+        chip.appendChild(glyph);
+        chip.appendChild(el('span', 'pr-review-check-name', check.name));
+        if (check.elapsedMs !== undefined) {
+          chip.appendChild(el('span', 'pr-review-check-time', formatCheckDuration(check.elapsedMs)));
+        }
+        var checkTip = prCheckRunTip(check);
+        chip.setAttribute('data-tip', checkTip);
+        chip.setAttribute('aria-label', checkTip);
+        if (check.url) {
+          chip.setAttribute('href', check.url);
+          chip.setAttribute('target', '_blank');
+          chip.setAttribute('rel', 'noopener noreferrer');
+        }
+        strip.appendChild(chip);
+      }
+      checksWrap.appendChild(strip);
+      item.appendChild(checksWrap);
+    }
     var actions = el('div', 'pr-review-actions');
     var applyBtn = document.createElement('button');
     applyBtn.type = 'button';
@@ -157,6 +230,42 @@ function renderPrReviewPanel(plans, fetchFailed) {
     applyBtn.setAttribute('data-tip', applyTip);
     applyBtn.setAttribute('aria-label', applyTip);
     actions.appendChild(applyBtn);
+    // THE HUMAN MERGE BUTTON — only on the cards the ritual deliberately
+    // refuses to merge itself. The maintainer's answer had no home in the
+    // app before this (operator: "איך אני עושה את זה דרך הדשבורד עצמו?");
+    // the panel queued the PR and then sent you to a browser. Renders
+    // disabled-with-reason until every gating check is green.
+    if (plan.decision.decision === 'queue-for-human') {
+      var mergeBtn = document.createElement('button');
+      mergeBtn.type = 'button';
+      mergeBtn.className = 'pr-review-human-merge';
+      mergeBtn.textContent = '🤝 Merge as maintainer';
+      mergeBtn.setAttribute('data-pr-human-merge', String(plan.pr.number));
+      var readiness = humanMergeReadiness(plan.pr);
+      if (!readiness.ready) {
+        mergeBtn.disabled = true;
+        mergeBtn.setAttribute('aria-disabled', 'true');
+      }
+      mergeBtn.setAttribute('data-tip', readiness.reason);
+      mergeBtn.setAttribute('aria-label', readiness.reason);
+      actions.appendChild(mergeBtn);
+      // A refusal that names an action offers that action: behind-base is
+      // the one blocked state with a one-click way out, so the instruction
+      // gets a button beside it instead of sending the operator elsewhere.
+      if (readiness.behindBase) {
+        var updateBtn = document.createElement('button');
+        updateBtn.type = 'button';
+        updateBtn.className = 'pr-review-update-branch';
+        updateBtn.textContent = '⟳ Update branch';
+        updateBtn.setAttribute('data-pr-update-branch', String(plan.pr.number));
+        var updateTip =
+          'Merge the current base into this branch so protection lets it merge. ' +
+          'Restarts every check on the new head.';
+        updateBtn.setAttribute('data-tip', updateTip);
+        updateBtn.setAttribute('aria-label', updateTip);
+        actions.appendChild(updateBtn);
+      }
+    }
     item.appendChild(actions);
     // The execute outcome lands here AFTER the confirm dialog, once focus has
     // long moved on — a polite live region is what lets a screen reader hear
@@ -236,6 +345,74 @@ document.addEventListener('click', function (e) {
       }
     });
 });
+// The two maintainer verbs — merge and update-branch — are the same
+// interaction: confirm, disable with a working label, POST, write the
+// outcome into the card's live region, re-poll. One wiring, two configs;
+// duplicating it cost real bundle bytes for zero behavior.
+function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor) {
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('[' + attr + ']');
+    if (!b || b.disabled) return;
+    var number = parseInt(b.getAttribute(attr), 10);
+    var plan = prReviewPlansByNumber[number];
+    if (!plan) return;
+    if (!window.confirm(confirmFor(plan.pr))) return;
+    var item = b.closest('.pr-review-item');
+    var resultEl = item && item.querySelector('.pr-review-result');
+    var originalText = b.textContent;
+    b.disabled = true;
+    b.textContent = label;
+    var restore = function () {
+      b.disabled = false;
+      b.textContent = originalText;
+    };
+    fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(bodyFor(number, plan)),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        var result = formatFor(data);
+        if (resultEl) {
+          resultEl.className = result.className;
+          resultEl.textContent = result.text;
+        }
+        // Either verb changes the PR's real facts — a merge removes it from
+        // the open list, an update moves its head — so re-poll rather than
+        // leave a stale card on screen. A merged card's button never comes
+        // back, so it is not restored.
+        if (!(data && data.merged)) restore();
+        loadPrReviewPanel();
+      })
+      .catch(function () {
+        restore();
+        if (resultEl) {
+          resultEl.className = 'pr-review-result pr-review-result-fail';
+          resultEl.textContent = tr('reportRequestFailed');
+        }
+      });
+  });
+}
+// expectedHeadRefOid pins the merge to the head the operator was looking at
+// — the server refuses outright if new commits landed since this card was
+// drawn, rather than merging something nobody read.
+wirePrMaintainerAction(
+  'data-pr-human-merge',
+  'Merging…',
+  '/api/pr-review/human-merge',
+  humanMergeConfirmMessage,
+  function (n, plan) { return { number: n, expectedHeadRefOid: plan.pr.headRefOid }; },
+  humanMergeResult
+);
+wirePrMaintainerAction(
+  'data-pr-update-branch',
+  'Updating…',
+  '/api/pr-review/update-branch',
+  updateBranchConfirmMessage,
+  function (n) { return { number: n }; },
+  updateBranchResult
+);
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
 // function declaration from fleetJs()'s text in the same concatenated
 // bundle, the same top-level call shape coordination.ts already relies on.

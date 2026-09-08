@@ -30,6 +30,7 @@ import {
   executePrReviewCommands,
   remediateDanglingApproval,
   isRitualPolicyGreenApprovalBody,
+  summarizePrCheckRuns,
 } from '../../src/flight/pr-review.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { PrReviewCandidate } from '../../src/flight/pr-review.js';
@@ -1021,8 +1022,18 @@ const BENIGN_SCRIPTS = new Set([
   'self-study/pin-eval-suite.mjs',
   'setup.mjs',
   'threat-model/generate-table.mjs',
+  // The pure render half of generate-table.mjs — string formatting only: no
+  // fs, no built output, no credentials, no decisions. It exists so the unit
+  // test can import it on a tree that has never been built; the dist-reading
+  // half stays in generate-table.mjs, out of every test import graph (see
+  // apps/dashboard/test/tooling/tests-need-no-build.test.ts).
+  'threat-model/render-table.mjs',
   // .d.mts declaration stub for the sibling .mjs — types only, no runtime,
   // the same class as every other generator .d.mts already listed here.
+  'threat-model/render-table.d.mts',
+  // Same declaration-stub class for generate-table.mjs itself — added in the
+  // same refactor, missed in this list's first pass (the census caught it,
+  // as designed).
   'threat-model/generate-table.d.mts',
   // Renders docs/CONTRAST-MATRIX.md from @autopilot/tokens' own pure
   // contrastMatrix() — the same generate-a-committed-doc-from-pure-data class
@@ -2412,7 +2423,7 @@ describe('fetchOpenPrCandidates', () => {
       '--limit',
       String(MAX_PR_LIST_CANDIDATES),
       '--json',
-      'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews',
+      'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews,url',
     ]);
   });
 
@@ -6320,5 +6331,124 @@ describe('annotateAwaitingApproval', () => {
 
     expect(annotated[0]).toBe(noHead);
     expect(annotated[1]).toBe(unpinned);
+  });
+});
+
+/**
+ * summarizePrCheckRuns — the display rows behind `gateStatus`'s one word
+ * (operator, 2026-09-09: "לתת יותר ביטוי לטסטים שמתרחשים, השלבים").
+ * Display-only by construction: no decision in this file reads them, so
+ * these assert the SHAPE and the honesty of the mapping, never a policy.
+ */
+describe('summarizePrCheckRuns', () => {
+  it('maps every rollup entry to a named row with its display state', () => {
+    const rows = summarizePrCheckRuns([
+      { name: 'verify (ubuntu-latest)', conclusion: 'SUCCESS', status: 'COMPLETED' },
+      { name: 'verify (windows-latest)', status: 'IN_PROGRESS' },
+      { name: 'e2e', status: 'QUEUED' },
+      { name: 'lint', conclusion: 'FAILURE', status: 'COMPLETED' },
+      { name: 'codeql', conclusion: 'SKIPPED', status: 'COMPLETED' },
+    ]);
+
+    expect(rows.map((r) => r.state)).toEqual(['pass', 'running', 'queued', 'fail', 'skipped']);
+  });
+
+  it('flags the (optional) jobs rather than hiding them — a hidden red is an unanswerable question', () => {
+    const [row] = summarizePrCheckRuns([{ name: 'reuse lint (optional)', conclusion: 'FAILURE' }]);
+    expect(row?.optional).toBe(true);
+    expect(row?.state).toBe('fail');
+  });
+
+  it('classifies an external commit status by its state, not a missing conclusion', () => {
+    expect(summarizePrCheckRuns([{ name: 'vercel', state: 'FAILURE' }])[0]?.state).toBe('fail');
+    expect(summarizePrCheckRuns([{ name: 'vercel', state: 'PENDING' }])[0]?.state).toBe('queued');
+  });
+
+  it('computes elapsed time from the reported timestamps, and from start-to-now while running', () => {
+    const rows = summarizePrCheckRuns(
+      [
+        {
+          name: 'done',
+          conclusion: 'SUCCESS',
+          startedAt: '2026-09-09T00:00:00Z',
+          completedAt: '2026-09-09T00:00:17Z',
+        },
+        { name: 'moving', status: 'IN_PROGRESS', startedAt: '2026-09-09T00:00:00Z' },
+      ],
+      Date.parse('2026-09-09T00:04:20Z'),
+    );
+    expect(rows[0]?.elapsedMs).toBe(17_000);
+    expect(rows[1]?.elapsedMs).toBe(260_000);
+  });
+
+  it('carries only an https details url, never a garbage or javascript one', () => {
+    const rows = summarizePrCheckRuns([
+      { name: 'a', detailsUrl: 'https://github.com/o/r/runs/1' },
+      { name: 'b', detailsUrl: 'javascript:alert(1)' },
+      { name: 'c', targetUrl: 'https://vercel.com/x' },
+      { name: 'd', detailsUrl: 42 },
+    ]);
+    expect(rows.map((r) => r.url)).toEqual([
+      'https://github.com/o/r/runs/1',
+      undefined,
+      'https://vercel.com/x',
+      undefined,
+    ]);
+  });
+
+  it('drops entries gh reported without a usable name — there is nothing to label a chip with', () => {
+    expect(summarizePrCheckRuns([{ conclusion: 'SUCCESS' }, { name: '' }, null as never])).toEqual(
+      [],
+    );
+  });
+
+  it('never disagrees with the gate the same candidate carries', async () => {
+    const rollup = [
+      { name: 'a', conclusion: 'SUCCESS' },
+      { name: 'b', conclusion: 'TIMED_OUT' },
+    ];
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 5,
+          title: 'Red PR',
+          mergeable: 'MERGEABLE',
+          statusCheckRollup: rollup,
+          files: [],
+          labels: [],
+          latestReviews: [],
+          url: 'https://github.com/o/r/pull/5',
+        },
+      ]),
+    });
+
+    const [candidate] = await fetchOpenPrCandidates(exec);
+
+    expect(candidate?.gateStatus).toBe('fail');
+    expect(candidate?.checkRuns?.some((r) => r.state === 'fail')).toBe(true);
+    expect(candidate?.url).toBe('https://github.com/o/r/pull/5');
+  });
+
+  it('keeps a non-https PR url off the candidate rather than rendering a link nobody can trust', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 6,
+          title: 'Odd url',
+          mergeable: 'MERGEABLE',
+          statusCheckRollup: [],
+          files: [],
+          labels: [],
+          latestReviews: [],
+          url: 'javascript:alert(1)',
+        },
+      ]),
+    });
+
+    const [candidate] = await fetchOpenPrCandidates(exec);
+
+    expect(candidate?.url).toBeUndefined();
   });
 });

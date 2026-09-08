@@ -79,7 +79,7 @@ describe('createPrReviewExecuteApi', () => {
       '--limit',
       '100',
       '--json',
-      'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews',
+      'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews,url',
     ]);
     expect(exec).toHaveBeenNthCalledWith(2, 'gh', ['pr', 'view', '12', '--json', 'state,isDraft']);
     expect(exec).toHaveBeenCalledTimes(2);

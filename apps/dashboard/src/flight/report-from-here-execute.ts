@@ -19,7 +19,8 @@
  */
 
 import { openStore } from '@autopilot/store';
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import {
   planReportFromHere,
   runReportFromHereRitual,
@@ -59,7 +60,7 @@ export type ReportFromHereExecuteApi = (
  *  to `taskCreated: false` instead of throwing. */
 export function createReportFromHereExecuteApi(
   dbPath: string,
-  exec: CliExec = realCliExec,
+  exec: CliExec = ghExec,
 ): ReportFromHereExecuteApi {
   return async (capture, action, projectId) => {
     const store = openStore(dbPath);

@@ -53,6 +53,8 @@ import {
   issueTriageConfirmMessage,
   issueTriageExecuteResult,
   issueTriageExecuteTip,
+  issueTriageHasWork,
+  issueTriageNothingToRunTip,
 } from '../issue-triage-panel.js';
 
 /** The KEEPER issue-triage panel client — vanilla, external (keeps CSP script-src 'self'). */
@@ -80,6 +82,8 @@ ${issueTriageExecuteResult.toString()}
 // source via .toString(), not a hand-retyped copy. It can no longer drift
 // apart.
 ${issueTriageExecuteTip.toString()}
+${issueTriageHasWork.toString()}
+${issueTriageNothingToRunTip.toString()}
 var issueTriagePlansByProject = {};
 function renderIssueTriageBody(body, plans, pid) {
   body.replaceChildren();
@@ -126,7 +130,15 @@ function renderIssueTriageBody(body, plans, pid) {
   execBtn.className = 'issue-triage-execute';
   execBtn.textContent = '🗝️ Run KEEPER triage';
   execBtn.setAttribute('data-issue-triage-execute', pid);
-  var triageExecTip = issueTriageExecuteTip(plans);
+  // Disabled-with-reason law: an all-skip round has nothing to execute, so
+  // the button says exactly that instead of inviting a no-op confirm.
+  var triageExecTip = issueTriageHasWork(plans)
+    ? issueTriageExecuteTip(plans)
+    : issueTriageNothingToRunTip(plans.length);
+  if (!issueTriageHasWork(plans)) {
+    execBtn.disabled = true;
+    execBtn.setAttribute('aria-disabled', 'true');
+  }
   execBtn.setAttribute('data-tip', triageExecTip);
   execBtn.setAttribute('aria-label', triageExecTip);
   actions.appendChild(execBtn);

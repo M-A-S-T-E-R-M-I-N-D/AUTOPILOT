@@ -75,11 +75,16 @@ import {
   planPrReviewBatch,
 } from '../flight/pr-review.js';
 import { createPrReviewExecuteApi } from '../flight/pr-review-execute.js';
+import { createHumanMergeApi, createUpdateBranchApi } from '../flight/human-merge.js';
 import {
   createIssueTriagePreviewApi,
   createIssueTriageExecuteApi,
 } from '../flight/issue-triage-execute.js';
-import { createMirrorPassPreviewApi } from '../flight/mirror-pass-execute.js';
+import {
+  createMirrorPassPreviewApi,
+  createMirrorPassLandingNotePreviewApi,
+  createMirrorPassDriftPreviewApi,
+} from '../flight/mirror-pass-execute.js';
 import {
   createPoolClientPreviewApi,
   createPoolClientExecuteApi,
@@ -570,15 +575,25 @@ const server = createServer({
     };
   },
   prReviewExecute: createPrReviewExecuteApi(),
+  humanMerge: createHumanMergeApi(),
+  updateBranch: createUpdateBranchApi(),
   // KEEPER TRIAGE ritual (epic 0007, "PLATFORM 3/7"): project-scoped — dedups
   // an incoming issue against that project's own open board tasks + backlog
   // file, unlike KEEPER REVIEW's single canonical repo above.
   issueTriage: createIssueTriagePreviewApi(dbPath),
   issueTriageExecute: createIssueTriageExecuteApi(dbPath),
   // MIRROR PASS reconcile preview (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slice
-  // (a)): read-only, derivation 1/4 only — the mutating execute path is a
+  // (a)): read-only, derivation 1/4 — the mutating execute path is a
   // separate follow-up slice.
   mirrorPass: createMirrorPassPreviewApi(dbPath),
+  // MIRROR PASS landing-note preview: read-only, derivation 2/4 — "landed
+  // commits get landed-in comments" for a task whose issue closed some
+  // other way.
+  mirrorPassLandingNote: createMirrorPassLandingNotePreviewApi(dbPath),
+  // MIRROR PASS drift preview: read-only, derivation 3/4 — the project's own
+  // README/docs claims (version, package count, internal links) checked
+  // against its tree; no `gh` call involved.
+  mirrorPassDrift: createMirrorPassDriftPreviewApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool
   // issues for themselves, not on behalf of a stored project. Claiming can

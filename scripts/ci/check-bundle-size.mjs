@@ -52,8 +52,19 @@ const CORE_GZIP_BUDGET = 55 * 1024;
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the exact
 // numbers and `apps/dashboard/test/web/qrcode-lib.test.ts` for the
 // upstream-equivalence proof the trim didn't change behavior.
+//
+// Then gzip-only 34→35KB (2026-09-09) for EPIC 0020 slices 1+2: the PR
+// cards' pipeline strip (per-check glyph, duration, deep link) plus the
+// maintainer merge + update-branch buttons. The tripwire fired first and
+// was paid twice before this bump — a prose pass on the new tips/confirms
+// (-466B raw) and a real DRY fix folding the two maintainer-verb click
+// handlers into one wiring (they were the same confirm→disable→POST→
+// live-region→re-poll shape). Raw came back under 112KB on its own; only
+// gzip stayed over, at 35068B against 34816B, because the remaining growth
+// is unique prose that compresses poorly. Core (first-paint) budgets are
+// untouched.
 const CHUNK_RAW_BUDGET = 112 * 1024;
-const CHUNK_GZIP_BUDGET = 34 * 1024;
+const CHUNK_GZIP_BUDGET = 35 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

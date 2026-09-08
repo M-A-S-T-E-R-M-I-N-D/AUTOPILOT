@@ -17,7 +17,8 @@
  * project's `root_path`.
  */
 
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import {
   fetchOpenPrCandidates,
   annotateAlreadyApplied,
@@ -113,7 +114,7 @@ export type PrReviewExecuteApi = (
  * the same fail-toward-existing-behavior stance
  * `resolvePrReviewAutoMergePolicy` takes on an unset env var.
  */
-export function createPrReviewExecuteApi(exec: CliExec = realCliExec): PrReviewExecuteApi {
+export function createPrReviewExecuteApi(exec: CliExec = ghExec): PrReviewExecuteApi {
   return async (number, expectedDecision, expectedHeadRefOid) => {
     const candidates = await fetchOpenPrCandidates(exec);
     const pr = candidates.find((candidate) => candidate.number === number);

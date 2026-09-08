@@ -119,7 +119,9 @@ import {
   type PrReviewExecuteResult,
 } from '../flight/pr-review-execute.js';
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
-import type { MirrorPassPlan } from '../flight/mirror-pass.js';
+import type { MirrorPassPlan, MirrorPassLandingNotePlan } from '../flight/mirror-pass.js';
+import type { MirrorPassDriftPlan } from '../flight/mirror-pass-execute.js';
+import type { HumanMergeResult, UpdateBranchResult } from '../flight/human-merge.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -429,6 +431,21 @@ export type PrReviewExecuteApi = (
   expectedHeadRefOid?: string,
 ) => Promise<PrReviewExecuteResult | null>;
 
+/** The maintainer's own merge (injected; see `flight/human-merge.ts`) —
+ *  never planned by any ritual, run only from an operator's click on a PR
+ *  the ritual queued for a human, and only after re-verifying open + head
+ *  + all-green + mergeable fresh from `gh`. A refusal is a normal result,
+ *  not an error: `merged: false` with the reason. */
+export type HumanMergeApi = (
+  number: number,
+  expectedHeadRefOid?: string,
+) => Promise<HumanMergeResult>;
+
+/** Brings a PR branch up to date with base (injected; see
+ *  flight/human-merge.ts) — the one blocked state with a one-click way
+ *  out. A refusal is a normal result, not an error. */
+export type UpdateBranchApi = (number: number) => Promise<UpdateBranchResult>;
+
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
  *  list` on demand) — every open issue's planned decision against the
  *  project's open board tasks + backlog file, judged fresh each call (see
@@ -448,6 +465,22 @@ export type IssueTriageExecuteApi = (projectId: string) => Promise<IssueTriageRi
  *  landing SHA" — see `flight/mirror-pass-execute.ts`'s
  *  `createMirrorPassPreviewApi`. `null` means an unknown project id. */
 export type MirrorPassPreviewApi = (projectId: string) => Promise<readonly MirrorPassPlan[] | null>;
+
+/** MIRROR PASS landing-note preview (injected; reads only, shells to `gh
+ *  issue view` on demand) — derivation 2/4 of EPIC 0019 S3 (board
+ *  `web-mtrh1hlh-62l41b`), "landed commits get landed-in comments" — see
+ *  `flight/mirror-pass-execute.ts`'s `createMirrorPassLandingNotePreviewApi`.
+ *  `null` means an unknown project id. */
+export type MirrorPassLandingNotePreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassLandingNotePlan[] | null>;
+
+/** MIRROR PASS drift preview (injected; reads only, checks the project's own
+ *  tree — no `gh` call) — derivation 3/4 of EPIC 0019 S3 (board
+ *  `web-mtrh1hlh-62l41b`), "README/docs public claims ↔ tree reality" — see
+ *  `flight/mirror-pass-execute.ts`'s `createMirrorPassDriftPreviewApi`.
+ *  `null` means an unknown project id. */
+export type MirrorPassDriftPreviewApi = (projectId: string) => Promise<MirrorPassDriftPlan | null>;
 
 /** The report-from-here preview (injected; pure — a region capture arrives
  *  fully formed from the request body, so this never reads the store or
@@ -569,6 +602,10 @@ export interface ServerDeps extends RouteDeps {
   readonly inboxAdd?: InboxAddApi;
   readonly prReview?: PrReviewApi;
   readonly prReviewExecute?: PrReviewExecuteApi;
+  /** The maintainer's own merge button — see flight/human-merge.ts. */
+  readonly humanMerge?: HumanMergeApi;
+  /** The update-branch companion to {@link humanMerge}. */
+  readonly updateBranch?: UpdateBranchApi;
   readonly issueTriage?: IssueTriagePreviewApi;
   readonly issueTriageExecute?: IssueTriageExecuteApi;
   /** MIRROR PASS reconcile preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
@@ -576,6 +613,14 @@ export interface ServerDeps extends RouteDeps {
    *  /api/mirror-pass`. The mutating execute counterpart is a separate
    *  slice per the VERDICT, not wired here. */
   readonly mirrorPass?: MirrorPassPreviewApi;
+  /** MIRROR PASS landing-note preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
+   *  derivation 2/4) — read-only, behind `GET /api/mirror-pass/landing-note`.
+   *  Same "mutating execute is a separate slice" stance as `mirrorPass` above. */
+  readonly mirrorPassLandingNote?: MirrorPassLandingNotePreviewApi;
+  /** MIRROR PASS drift preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
+   *  derivation 3/4) — read-only, behind `GET /api/mirror-pass/drift`. Same
+   *  "mutating execute is a separate slice" stance as `mirrorPass` above. */
+  readonly mirrorPassDrift?: MirrorPassDriftPreviewApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -1863,6 +1908,138 @@ async function handlePrReviewExecute(
   }
 }
 
+/**
+ * THE HUMAN MERGE endpoint (`POST /api/pr-review/human-merge`, body
+ * `{number, expectedHeadRefOid?}`). The maintainer's own act, not an
+ * automation: the KEEPER ritual queues gate-path PRs for a human and then
+ * refuses to merge them, and until now the human's answer had no home in
+ * the app at all (operator, 2026-09-09: "איך אני עושה את זה דרך הדשבורד
+ * עצמו?").
+ *
+ * Same guard shape as `/api/pr-review/execute` — CSRF-guarded JSON POST,
+ * separately rate-limited, every fact re-read fresh from `gh` rather than
+ * trusted from the card. `expectedHeadRefOid` is the one client value
+ * honored and only to NARROW: a moved head refuses the merge. A refusal
+ * is a 200 carrying `merged: false` and its reason, because "checks are
+ * still red" is a valid answer, not a transport failure.
+ */
+async function handleHumanMerge(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: HumanMergeApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'human merge unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many PR review requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let number: number;
+  let expectedHeadRefOid: string | undefined;
+  try {
+    const parsed = JSON.parse(raw) as { number?: unknown; expectedHeadRefOid?: unknown };
+    number = typeof parsed.number === 'number' ? parsed.number : NaN;
+    if (parsed.expectedHeadRefOid !== undefined) {
+      if (typeof parsed.expectedHeadRefOid !== 'string' || parsed.expectedHeadRefOid === '') {
+        send(400, { error: 'expectedHeadRefOid must be a non-empty string' });
+        return;
+      }
+      expectedHeadRefOid = parsed.expectedHeadRefOid;
+    }
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (!Number.isInteger(number) || number <= 0) {
+    send(400, { error: 'a positive integer PR number is required' });
+    return;
+  }
+  try {
+    send(200, await api(number, expectedHeadRefOid));
+  } catch (error) {
+    send(500, { error: error instanceof Error ? error.message : 'human merge failed' });
+  }
+}
+
+/**
+ * THE UPDATE-BRANCH endpoint (`POST /api/pr-review/update-branch`, body
+ * `{number}`). The companion to `/api/pr-review/human-merge`: when the
+ * only thing between a PR and its merge is a stale branch, the panel
+ * used to state that as an instruction ("update the branch first") with
+ * nothing in the app that could carry it out. Same guard shape as its
+ * sibling — CSRF-guarded JSON POST, rate-limited, refusals are 200s
+ * carrying `updated: false` and the reason.
+ */
+async function handleUpdateBranch(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: UpdateBranchApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'update branch unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many PR review requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let number: number;
+  try {
+    const parsed = JSON.parse(raw) as { number?: unknown };
+    number = typeof parsed.number === 'number' ? parsed.number : NaN;
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (!Number.isInteger(number) || number <= 0) {
+    send(400, { error: 'a positive integer PR number is required' });
+    return;
+  }
+  try {
+    send(200, await api(number));
+  } catch (error) {
+    send(500, { error: error instanceof Error ? error.message : 'update branch failed' });
+  }
+}
+
 // handlePoolClient/handlePublicity/handlePoolClientExecute moved to
 // `./pool-client.js` (epic 0002 shell decomposition) — imported above.
 
@@ -2066,6 +2243,76 @@ async function handleMirrorPass(
     send(200, { mirrorPass: await api(project) });
   } catch {
     send(200, { mirrorPass: null });
+  }
+}
+
+/**
+ * The MIRROR PASS landing-note preview endpoint (`GET
+ * /api/mirror-pass/landing-note?project=`) — derivation 2/4: a task whose
+ * issue is already closed in sync with the board, but never got a comment
+ * recording the landing SHA. Same on-demand, degrade-to-null shape as
+ * {@link handleMirrorPass}.
+ */
+async function handleMirrorPassLandingNote(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassLandingNotePreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass landing-note preview unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    send(200, { landingNote: await api(project) });
+  } catch {
+    send(200, { landingNote: null });
+  }
+}
+
+/**
+ * The MIRROR PASS drift preview endpoint (`GET /api/mirror-pass/drift?
+ * project=`) — derivation 3/4: the project's `README.md` claims (version,
+ * third-party package count, internal links) checked against its own tree,
+ * no `gh` call involved. Same on-demand, degrade-to-null shape as
+ * {@link handleMirrorPass}.
+ */
+async function handleMirrorPassDrift(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassDriftPreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass drift preview unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    send(200, { drift: await api(project) });
+  } catch {
+    send(200, { drift: null });
   }
 }
 
@@ -2728,6 +2975,16 @@ export function createServer(deps: ServerDeps = {}): Server {
       return;
     }
 
+    if (path === '/api/pr-review/human-merge') {
+      void handleHumanMerge(req, res, deps.humanMerge, headers, prReviewLimiter);
+      return;
+    }
+
+    if (path === '/api/pr-review/update-branch') {
+      void handleUpdateBranch(req, res, deps.updateBranch, headers, prReviewLimiter);
+      return;
+    }
+
     if (path === '/api/issue-triage') {
       void handleIssueTriage(req, res, deps.issueTriage, headers);
       return;
@@ -2740,6 +2997,16 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass') {
       void handleMirrorPass(req, res, deps.mirrorPass, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/landing-note') {
+      void handleMirrorPassLandingNote(req, res, deps.mirrorPassLandingNote, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/drift') {
+      void handleMirrorPassDrift(req, res, deps.mirrorPassDrift, headers);
       return;
     }
 
