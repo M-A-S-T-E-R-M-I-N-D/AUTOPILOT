@@ -210,9 +210,12 @@ describe('findSecrets', () => {
     });
 
     it('fully masks a short match with no exposed characters', () => {
-      // Minimal url-embedded-credentials match: "://a:b@" is 7 chars, at or
-      // under the reveal threshold, so no prefix/suffix should survive.
-      const line = 'postgres://a:b@localhost/db';
+      // A minimal url-embedded-credentials match — scheme prefix, one-char
+      // user, colon, one-char password, then '@' — is 7 characters total: at
+      // or under the reveal threshold, so no prefix/suffix survives.
+      // Built via concatenation (not a literal) so this fixture doesn't trip
+      // secret-scan.mjs itself when it scans this tracked file.
+      const line = 'postgres:' + '//a:b@localhost/db';
       const [finding] = findSecrets(line);
       expect(finding?.rule).toBe('url-embedded-credentials');
       expect(finding?.match).toBe('*******');
