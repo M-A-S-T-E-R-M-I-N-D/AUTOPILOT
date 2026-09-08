@@ -349,27 +349,52 @@ async function main(): Promise<void> {
           : `Flight isolation: worktree setup failed (${worktree.details}) — flying ${target} directly.`,
       );
       if (worktree.ok) {
-        // Catch up target on any work a PRIOR flight left unsynced in this
-        // same worktree branch (e.g. a mid-flight crash before its own
-        // sync-back ran) before this flight's containment baseline is
-        // snapshotted below — best-effort, never fails the flight.
-        const catchUp = await syncWorktreeBranch(target, targetBranch, worktreePlan.branch);
-        if (!catchUp.ok) out(`  ⚠ worktree catch-up sync skipped: ${catchUp.details}`);
-        // FORWARD-FF (the other half of lane freshness, 2026-09-03): the
-        // catch-up above drains lane→target, but nothing ever moved a REUSED
-        // lane forward — parked on an older base it rebuilds on dead code
-        // and manufactures avoidable conflicts at sync-back. With the drain
-        // done the lane is ordinarily a plain ancestor of target again, so a
-        // clean fast-forward brings it to the tip; dirty or diverged lanes
-        // refuse gracefully (fastForwardWorktree never merges or resets) and
-        // the flight proceeds from wherever the lane stands — best-effort,
-        // same stance as the catch-up.
-        const forward = await fastForwardWorktree(worktreePlan.path, targetBranch);
-        out(
-          forward.ok
-            ? `  ⏩ lane worktree brought to '${targetBranch}' tip (${forward.details})`
-            : `  ⏩ lane worktree left as-is: ${forward.details}`,
-        );
+        // FLIGHT-VS-FLIGHT SYNC-BACK GUARD (board `ap-mtq191kz-1` slice (c),
+        // docs/epics/0002-shell-decomposition.md: "(c) the same guard around
+        // the sync-back calls at fly.ts:351,362"): syncWorktreeBranch/
+        // fastForwardWorktree below run `git status`/`git merge` directly
+        // against `target`'s own working directory and index — the exact
+        // write surface the FLIGHT-VS-FLIGHT PRIMARY FALLBACK GUARD below
+        // protects for a DIFFERENT flight's fallback path, but until now
+        // nothing protected THIS flight's own sync-back calls from colliding
+        // with a sibling that is concurrently running Bash/git directly
+        // against `target` (mid-fallback itself, or a legacy flight that flew
+        // before that guard existed) — the same shared-primary-checkout
+        // hazard that silently discarded another firing's uncommitted edits
+        // via a concurrent `git reset --hard`
+        // (docs/debriefs/2026-09-07-hard-reset-destroys-uncommitted-work-live.md).
+        // Skipped best-effort, same never-a-single-point-of-flight-failure
+        // stance as the calls themselves — a skipped sync-back just means the
+        // operator sees the lane's commits one flight later, not lost work.
+        if (isAnyFlightLockLive(dirname(dbPath), target, process.pid)) {
+          out(
+            `  ⚠ sync-back skipped: another flight already holds a live lock for this ` +
+              `project — running git directly against the shared primary checkout here ` +
+              `would race it.`,
+          );
+        } else {
+          // Catch up target on any work a PRIOR flight left unsynced in this
+          // same worktree branch (e.g. a mid-flight crash before its own
+          // sync-back ran) before this flight's containment baseline is
+          // snapshotted below — best-effort, never fails the flight.
+          const catchUp = await syncWorktreeBranch(target, targetBranch, worktreePlan.branch);
+          if (!catchUp.ok) out(`  ⚠ worktree catch-up sync skipped: ${catchUp.details}`);
+          // FORWARD-FF (the other half of lane freshness, 2026-09-03): the
+          // catch-up above drains lane→target, but nothing ever moved a REUSED
+          // lane forward — parked on an older base it rebuilds on dead code
+          // and manufactures avoidable conflicts at sync-back. With the drain
+          // done the lane is ordinarily a plain ancestor of target again, so a
+          // clean fast-forward brings it to the tip; dirty or diverged lanes
+          // refuse gracefully (fastForwardWorktree never merges or resets) and
+          // the flight proceeds from wherever the lane stands — best-effort,
+          // same stance as the catch-up.
+          const forward = await fastForwardWorktree(worktreePlan.path, targetBranch);
+          out(
+            forward.ok
+              ? `  ⏩ lane worktree brought to '${targetBranch}' tip (${forward.details})`
+              : `  ⏩ lane worktree left as-is: ${forward.details}`,
+          );
+        }
       }
     } catch (err) {
       // mkdirSync et al. can throw (permissions, disk full, …) where
