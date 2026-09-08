@@ -18,7 +18,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createHumanMergeApi, judgeHumanMerge } from '../../src/flight/human-merge.js';
+import {
+  createHumanMergeApi,
+  createUpdateBranchApi,
+  judgeHumanMerge,
+} from '../../src/flight/human-merge.js';
 import type { PrReviewCandidate } from '../../src/flight/pr-review.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -188,5 +192,77 @@ describe('createHumanMergeApi — only a click can cause a merge', () => {
 
     expect(result.merged).toBe(false);
     expect(result.reason).toContain('exit 1');
+  });
+});
+
+/**
+ * THE UPDATE-BRANCH COMPANION (operator, 2026-09-09): the human-merge
+ * refusal read "the branch is behind base and protection requires it up
+ * to date — update the branch first", and nothing in the app could carry
+ * that instruction out. A refusal that names an action must offer it.
+ */
+describe('createUpdateBranchApi — the way out of the one blocked state that has one', () => {
+  function viewExec(view: Record<string, unknown>, calls: string[][], updateCode = 0): CliExec {
+    return async (bin, args) => {
+      calls.push([bin, ...args]);
+      if (args[1] === 'view') return { code: 0, stdout: JSON.stringify(view) };
+      if (args[1] === 'update-branch') return { code: updateCode, stdout: '' };
+      return { code: 0, stdout: '' };
+    };
+  }
+
+  it('updates an open PR whose author allowed maintainer edits', async () => {
+    const calls: string[][] = [];
+    const update = createUpdateBranchApi(
+      viewExec({ state: 'OPEN', maintainerCanModify: true }, calls),
+    );
+
+    const result = await update(34);
+
+    expect(result.updated).toBe(true);
+    expect(result.reason).toContain('re-running on the new head');
+    expect(calls.some((c) => c[2] === 'update-branch')).toBe(true);
+  });
+
+  it('refuses — and pushes nothing — when the author did not allow maintainer edits', async () => {
+    const calls: string[][] = [];
+    const update = createUpdateBranchApi(
+      viewExec({ state: 'OPEN', maintainerCanModify: false }, calls),
+    );
+
+    const result = await update(34);
+
+    expect(result.updated).toBe(false);
+    expect(result.reason).toContain('has not allowed maintainer edits');
+    expect(calls.some((c) => c[2] === 'update-branch')).toBe(false);
+  });
+
+  it('refuses on a PR that is not open', async () => {
+    const calls: string[][] = [];
+    const update = createUpdateBranchApi(
+      viewExec({ state: 'MERGED', maintainerCanModify: true }, calls),
+    );
+
+    expect((await update(34)).updated).toBe(false);
+    expect(calls.some((c) => c[2] === 'update-branch')).toBe(false);
+  });
+
+  it('reports honestly when gh refuses the update', async () => {
+    const calls: string[][] = [];
+    const update = createUpdateBranchApi(
+      viewExec({ state: 'OPEN', maintainerCanModify: true }, calls, 1),
+    );
+
+    const result = await update(34);
+
+    expect(result.updated).toBe(false);
+    expect(result.reason).toContain('already be up to date');
+  });
+
+  it('survives an unreadable gh response instead of throwing at the route', async () => {
+    const broken: CliExec = async (_bin, args) =>
+      args[1] === 'view' ? { code: 0, stdout: 'not json' } : { code: 0, stdout: '' };
+
+    expect((await createUpdateBranchApi(broken)(34)).updated).toBe(false);
   });
 });

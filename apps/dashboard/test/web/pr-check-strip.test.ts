@@ -23,6 +23,7 @@ import {
   formatCheckDuration,
   prCheckRunTip,
   prCheckSummary,
+  humanMergeReadiness,
 } from '../../src/web/pr-review-panel.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
@@ -200,5 +201,110 @@ describe('the rendered card links out and shows its stages', () => {
     expect(document.querySelector('.pr-review-number')?.tagName).toBe('SPAN');
     expect(document.querySelector('.pr-review-number-link')).toBeNull();
     expect(document.querySelector('.pr-review-checks')).toBeNull();
+  });
+});
+
+/**
+ * The client-side readiness mirror — the button must never invite a click
+ * the server will refuse, and a refusal that names an action must offer
+ * that action (operator, 2026-09-09: the merge refusal on #34 read
+ * "update the branch first" with nothing in the app that could).
+ */
+describe('humanMergeReadiness — the button says what the server would', () => {
+  const ALL_GREEN = { number: 33, title: 'x', checkRuns: [{ name: 'verify', state: 'pass' }] };
+
+  it('is ready when every gating check passed and nothing blocks the merge', () => {
+    expect(humanMergeReadiness(ALL_GREEN).ready).toBe(true);
+  });
+
+  it('offers the branch update when that is the only thing left', () => {
+    const behind = { ...ALL_GREEN, behindBase: true };
+    const readiness = humanMergeReadiness(behind);
+    expect(readiness.ready).toBe(false);
+    expect(readiness.behindBase).toBe(true);
+    expect(readiness.reason).toContain('button beside this');
+  });
+
+  it('does not call a behind-base branch conflicting — that sends you hunting a conflict that is not there', () => {
+    const behind = { ...ALL_GREEN, behindBase: true, mergeable: false };
+    expect(humanMergeReadiness(behind).reason).not.toContain('conflicting');
+  });
+
+  it('names a real conflict as one, and an uncomputed state as its own thing', () => {
+    expect(humanMergeReadiness({ ...ALL_GREEN, mergeable: false }).reason).toContain('conflicting');
+    expect(
+      humanMergeReadiness({ ...ALL_GREEN, mergeable: false, mergeStateUnknown: true }).reason,
+    ).toContain('not computed');
+  });
+
+  it('leads with the checks — a red PR is not a branch-staleness problem', () => {
+    const red = {
+      ...ALL_GREEN,
+      behindBase: true,
+      checkRuns: [{ name: 'verify', state: 'fail' }],
+    };
+    expect(humanMergeReadiness(red).reason).toContain('1 check failed');
+    expect(humanMergeReadiness(red).behindBase).toBeUndefined();
+  });
+});
+
+describe('the update-branch button appears exactly when it can help', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('renders beside a disabled merge button on a behind-base PR', async () => {
+    bootWithPlans([
+      {
+        pr: {
+          number: 34,
+          title: 'Behind base',
+          behindBase: true,
+          headRefOid: 'sha',
+          checkRuns: [{ name: 'verify', state: 'pass' }],
+        },
+        decision: { decision: 'queue-for-human', reasoning: 'Security-hard path.' },
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-pr-update-branch]')).not.toBeNull();
+    });
+    const merge = document.querySelector('[data-pr-human-merge]') as HTMLButtonElement;
+    expect(merge.disabled).toBe(true);
+    expect(merge.getAttribute('data-tip')).toContain('behind base');
+  });
+
+  it('stays away when the PR is simply ready to merge', async () => {
+    bootWithPlans([
+      {
+        pr: { number: 33, title: 'Green', checkRuns: [{ name: 'verify', state: 'pass' }] },
+        decision: { decision: 'queue-for-human', reasoning: 'Security-hard path.' },
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-pr-human-merge]')).not.toBeNull();
+    });
+    expect(document.querySelector('[data-pr-update-branch]')).toBeNull();
+    expect((document.querySelector('[data-pr-human-merge]') as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it('never offers either button on a card the ritual did not queue for a human', async () => {
+    bootWithPlans([
+      {
+        pr: { number: 12, title: 'Auto', checkRuns: [{ name: 'verify', state: 'pass' }] },
+        decision: { decision: 'merge', reasoning: 'Policy green.' },
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-pr-review-execute]')).not.toBeNull();
+    });
+    expect(document.querySelector('[data-pr-human-merge]')).toBeNull();
+    expect(document.querySelector('[data-pr-update-branch]')).toBeNull();
   });
 });

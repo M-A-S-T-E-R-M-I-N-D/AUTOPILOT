@@ -158,7 +158,13 @@ import {
 const CORE_RAW_BUDGET = 184 * 1024;
 const CORE_GZIP_BUDGET = 55 * 1024;
 const CHUNK_RAW_BUDGET = 112 * 1024;
-const CHUNK_GZIP_BUDGET = 34 * 1024;
+// gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
+// maintainer merge/update-branch buttons. Paid the tripwire twice first — a
+// prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
+// click handlers — which brought RAW back under 112KB on its own. Gzip
+// measured 35068B against 34816B; the residue is unique prose that gzip
+// cannot compress away. Core budgets untouched.
+const CHUNK_GZIP_BUDGET = 35 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

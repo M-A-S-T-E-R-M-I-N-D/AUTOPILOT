@@ -60,6 +60,9 @@ export interface PrReviewCandidateLike {
   readonly title: string;
   readonly url?: string;
   readonly checkRuns?: readonly PrCheckRunLike[];
+  readonly mergeable?: boolean;
+  readonly behindBase?: boolean;
+  readonly mergeStateUnknown?: boolean;
 }
 
 /** One check run as the panel shows it — `flight/pr-review.ts`'s
@@ -99,21 +102,16 @@ export function formatCheckDuration(elapsedMs: number): string {
 /** One check chip's hover/focus text: what it is, where it stands, how
  *  long it took, and whether it gates the merge at all. */
 export function prCheckRunTip(check: PrCheckRunLike): string {
-  const stateWord =
-    check.state === 'pass'
-      ? 'passed'
-      : check.state === 'fail'
-        ? 'FAILED'
-        : check.state === 'running'
-          ? 'still running'
-          : check.state === 'queued'
-            ? 'queued, not started'
-            : check.state === 'skipped'
-              ? 'skipped'
-              : 'reported no readable state';
-  const parts = [`${check.name} — ${stateWord}`];
-  if (check.elapsedMs !== undefined) parts.push(`${formatCheckDuration(check.elapsedMs)} elapsed`);
-  if (check.workflow) parts.push(`workflow: ${check.workflow}`);
+  const words: Record<string, string> = {
+    pass: 'passed',
+    fail: 'FAILED',
+    running: 'still running',
+    queued: 'queued, not started',
+    skipped: 'skipped',
+  };
+  const parts = [check.name + ' — ' + (words[check.state] || 'no readable state')];
+  if (check.elapsedMs !== undefined) parts.push(formatCheckDuration(check.elapsedMs) + ' elapsed');
+  if (check.workflow) parts.push('workflow: ' + check.workflow);
   if (check.optional) parts.push('optional — does not gate the merge');
   if (check.url) parts.push('opens this check’s own log on GitHub');
   return parts.join(' · ') + '.';
@@ -211,6 +209,12 @@ export function prReviewConfirmMessage(
 export function humanMergeReadiness(pr: PrReviewCandidateLike): {
   ready: boolean;
   reason: string;
+  /** Set when the ONLY thing standing between this PR and a merge is a
+   *  stale branch — the panel offers the update as its own button rather
+   *  than leaving the operator with an instruction and no way to follow
+   *  it (operator, 2026-09-09: the refusal read "update the branch first"
+   *  and there was nothing in the app that could). */
+  behindBase?: boolean;
 } {
   const checks = (pr.checkRuns ?? []).filter((c) => !c.optional);
   if (checks.length === 0) {
@@ -226,13 +230,51 @@ export function humanMergeReadiness(pr: PrReviewCandidateLike): {
         : running + ' still running';
     return { ready: false, reason: 'Not mergeable yet — ' + detail + '.' };
   }
+  // Checked BEFORE mergeable: a behind-base branch is the one blocked
+  // state with a one-click way out, and saying "conflicting" about it
+  // would send the operator looking for a conflict that isn't there.
+  if (pr.behindBase) {
+    return {
+      ready: false,
+      behindBase: true,
+      reason: 'All green, but the branch is behind base — update it first (button beside this).',
+    };
+  }
+  if (pr.mergeable === false) {
+    return {
+      ready: false,
+      reason: pr.mergeStateUnknown
+        ? 'GitHub has not computed mergeability yet — try again shortly.'
+        : 'GitHub reports this PR as conflicting — it cannot merge as-is.',
+    };
+  }
   return {
     ready: true,
-    reason:
-      'Squash-merge #' +
-      pr.number +
-      ' and delete its branch. Your own act as maintainer — the ritual queued this ' +
-      'for a human and will not merge it. Re-verified against gh before anything runs.',
+    reason: 'Squash-merge #' + pr.number + ' and delete its branch. Re-verified against gh first.',
+  };
+}
+
+/** The update-branch button's confirm — names both things a maintainer
+ *  should mean to do: a real commit on someone else's branch, and a
+ *  restart of their whole check run. */
+export function updateBranchConfirmMessage(pr: PrReviewCandidateLike): string {
+  return (
+    'Update #' +
+    pr.number +
+    "'s branch from base?\n\n" +
+    'Merges base into the contributor’s branch (a real commit on it) and restarts every ' +
+    'check. The green you see now is replaced by a fresh run.'
+  );
+}
+
+/** The `.pr-review-result` line for one update-branch response. */
+export function updateBranchResult(
+  data: { updated?: boolean; reason?: string } | null | undefined,
+): { className: string; text: string } {
+  const ok = !!(data && data.updated);
+  return {
+    className: 'pr-review-result pr-review-result-' + (ok ? 'ok' : 'fail'),
+    text: (ok ? '✓ ' : '✗ ') + ((data && data.reason) || 'The branch update did not run.'),
   };
 }
 
@@ -245,11 +287,9 @@ export function humanMergeConfirmMessage(pr: PrReviewCandidateLike): string {
     pr.number +
     ' — "' +
     pr.title +
-    '"?\n\n' +
-    'This squash-merges it into the default branch and deletes the source branch. ' +
-    'It cannot be undone from here.\n\n' +
-    'Every check is re-read fresh from gh first — if anything has gone red or the head ' +
-    'has moved since this card was drawn, nothing will merge.'
+    '"?\n\nSquash-merges into the default branch and deletes the source branch. Cannot be ' +
+    'undone from here.\n\nEvery check is re-read from gh first — if anything went red or the ' +
+    'head moved since this card was drawn, nothing merges.'
   );
 }
 
@@ -258,15 +298,10 @@ export function humanMergeResult(data: { merged?: boolean; reason?: string } | n
   className: string;
   text: string;
 } {
-  if (data && data.merged) {
-    return {
-      className: 'pr-review-result pr-review-result-ok',
-      text: '✓ ' + (data.reason || 'Merged.'),
-    };
-  }
+  const ok = !!(data && data.merged);
   return {
-    className: 'pr-review-result pr-review-result-fail',
-    text: '✗ ' + ((data && data.reason) || 'The merge did not run.'),
+    className: 'pr-review-result pr-review-result-' + (ok ? 'ok' : 'fail'),
+    text: (ok ? '✓ ' : '✗ ') + ((data && data.reason) || 'The merge did not run.'),
   };
 }
 

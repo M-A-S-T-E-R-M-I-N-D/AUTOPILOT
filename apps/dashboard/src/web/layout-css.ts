@@ -627,6 +627,9 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-review-human-merge { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-needs-you); background: transparent; color: var(--color-needs-you); }
 .pr-review-human-merge:hover:not(:disabled), .pr-review-human-merge:focus-visible:not(:disabled) { background: color-mix(in oklab, var(--color-needs-you) 14%, transparent); }
 .pr-review-human-merge:disabled { opacity: 0.5; cursor: default; }
+.pr-review-update-branch { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); }
+.pr-review-update-branch:hover, .pr-review-update-branch:focus-visible { border-color: currentColor; color: var(--color-text); }
+.pr-review-update-branch:disabled { opacity: 0.5; cursor: default; }
 .pr-review-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
 .pr-review-result:empty { display: none; }
 .pr-review-result-ok { color: var(--color-success); }

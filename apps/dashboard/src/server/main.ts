@@ -75,7 +75,7 @@ import {
   planPrReviewBatch,
 } from '../flight/pr-review.js';
 import { createPrReviewExecuteApi } from '../flight/pr-review-execute.js';
-import { createHumanMergeApi } from '../flight/human-merge.js';
+import { createHumanMergeApi, createUpdateBranchApi } from '../flight/human-merge.js';
 import {
   createIssueTriagePreviewApi,
   createIssueTriageExecuteApi,
@@ -578,6 +578,7 @@ const server = createServer({
   },
   prReviewExecute: createPrReviewExecuteApi(),
   humanMerge: createHumanMergeApi(),
+  updateBranch: createUpdateBranchApi(),
   // KEEPER TRIAGE ritual (epic 0007, "PLATFORM 3/7"): project-scoped — dedups
   // an incoming issue against that project's own open board tasks + backlog
   // file, unlike KEEPER REVIEW's single canonical repo above.
