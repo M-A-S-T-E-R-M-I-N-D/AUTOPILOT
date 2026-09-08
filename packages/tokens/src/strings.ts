@@ -742,6 +742,12 @@ const EN_STRINGS = {
   flightLog: 'Flight log',
   flightLogAria:
     'Flight log: every firing this project has flown, newest first, click a row to expand it',
+  // The flight log's server round-trip for firings older than the initial
+  // window carried; the tip doubles as the button's accessible name.
+  flightLogLoadMore: 'Load older firings',
+  flightLogLoadMoreLoading: 'Loading…',
+  flightLogLoadMoreTip:
+    'Fetch firings older than what the browser already holds — a real server round-trip, not a local reveal',
   firingTrace: 'Per-firing trace',
   firingTraceAria:
     'Per-firing trace: every firing for this project, grouped and collapsible, unlike the Activity feed above which only shows the last flight',
@@ -1550,6 +1556,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightLog: 'יומן טיסות',
     flightLogAria:
       'יומן טיסות: כל הפעלה שהפרויקט הזה טס, החדשה ביותר קודם, לחצו על שורה כדי להרחיב אותה',
+    flightLogLoadMore: 'טען הפעלות ישנות יותר',
+    flightLogLoadMoreLoading: 'טוען…',
+    flightLogLoadMoreTip:
+      'מביא הפעלות ישנות יותר מאלה שהדפדפן כבר מחזיק — סבב אמיתי מול השרת, לא חשיפה מקומית',
     firingTrace: 'עקבה לפי הפעלה',
     firingTraceAria:
       'עקבה לפי הפעלה: כל הפעלה עבור פרויקט זה, מקובצת וניתנת לכיווץ, בניגוד לפיד הפעילות למעלה שמציג רק את הטיסה האחרונה',
