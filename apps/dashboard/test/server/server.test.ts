@@ -1993,6 +1993,50 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('GET /api/mirror-pass/landing-note previews the landing-note finding for every github-<n> task on a known project', async () => {
+    const plan = {
+      task: { id: 'github-9', status: 'done' as const, landedSha: 'abc123' },
+      finding: null,
+      command: null,
+    };
+    const base = await start({
+      mirrorPassLandingNote: async (pid) => (pid === 'p1' ? [plan] : null),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ landingNote: [plan] });
+
+    const unknown = await fetch(`${base}/api/mirror-pass/landing-note?project=nope`);
+    expect(await unknown.json()).toEqual({ landingNote: null });
+
+    const noProject = await fetch(`${base}/api/mirror-pass/landing-note`);
+    expect(noProject.status).toBe(400);
+  });
+
+  it('degrades /api/mirror-pass/landing-note to { landingNote: null } instead of crashing when the read throws', async () => {
+    const base = await start({
+      mirrorPassLandingNote: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ landingNote: null });
+  });
+
+  it('404s /api/mirror-pass/landing-note when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/mirror-pass/landing-note?project=p1`)).status).toBe(404);
+  });
+
+  it('405s /api/mirror-pass/landing-note for a non-GET method', async () => {
+    const base = await start({ mirrorPassLandingNote: async () => [] });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note?project=p1`, {
+      method: 'POST',
+    });
+    expect(res.status).toBe(405);
+  });
+
   it('POST /api/issue-triage/execute runs the ritual for a known project (CSRF-guarded)', async () => {
     const seen: string[] = [];
     const base = await start({

@@ -119,7 +119,7 @@ import {
   type PrReviewExecuteResult,
 } from '../flight/pr-review-execute.js';
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
-import type { MirrorPassPlan } from '../flight/mirror-pass.js';
+import type { MirrorPassPlan, MirrorPassLandingNotePlan } from '../flight/mirror-pass.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -449,6 +449,15 @@ export type IssueTriageExecuteApi = (projectId: string) => Promise<IssueTriageRi
  *  `createMirrorPassPreviewApi`. `null` means an unknown project id. */
 export type MirrorPassPreviewApi = (projectId: string) => Promise<readonly MirrorPassPlan[] | null>;
 
+/** MIRROR PASS landing-note preview (injected; reads only, shells to `gh
+ *  issue view` on demand) — derivation 2/4 of EPIC 0019 S3 (board
+ *  `web-mtrh1hlh-62l41b`), "landed commits get landed-in comments" — see
+ *  `flight/mirror-pass-execute.ts`'s `createMirrorPassLandingNotePreviewApi`.
+ *  `null` means an unknown project id. */
+export type MirrorPassLandingNotePreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassLandingNotePlan[] | null>;
+
 /** The report-from-here preview (injected; pure — a region capture arrives
  *  fully formed from the request body, so this never reads the store or
  *  shells out — see `flight/report-from-here-execute.ts`). Turns a capture +
@@ -576,6 +585,10 @@ export interface ServerDeps extends RouteDeps {
    *  /api/mirror-pass`. The mutating execute counterpart is a separate
    *  slice per the VERDICT, not wired here. */
   readonly mirrorPass?: MirrorPassPreviewApi;
+  /** MIRROR PASS landing-note preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
+   *  derivation 2/4) — read-only, behind `GET /api/mirror-pass/landing-note`.
+   *  Same "mutating execute is a separate slice" stance as `mirrorPass` above. */
+  readonly mirrorPassLandingNote?: MirrorPassLandingNotePreviewApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -2069,6 +2082,41 @@ async function handleMirrorPass(
   }
 }
 
+/**
+ * The MIRROR PASS landing-note preview endpoint (`GET
+ * /api/mirror-pass/landing-note?project=`) — derivation 2/4: a task whose
+ * issue is already closed in sync with the board, but never got a comment
+ * recording the landing SHA. Same on-demand, degrade-to-null shape as
+ * {@link handleMirrorPass}.
+ */
+async function handleMirrorPassLandingNote(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassLandingNotePreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass landing-note preview unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    send(200, { landingNote: await api(project) });
+  } catch {
+    send(200, { landingNote: null });
+  }
+}
+
 /** Shared body parser for both report-from-here endpoints — `{regionId,
  *  regionLabel, description, moduleSources, hasScreenshot, action,
  *  projectId, severity?}`. `null` (→ 400) means malformed JSON/body or an
@@ -2740,6 +2788,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass') {
       void handleMirrorPass(req, res, deps.mirrorPass, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/landing-note') {
+      void handleMirrorPassLandingNote(req, res, deps.mirrorPassLandingNote, headers);
       return;
     }
 
