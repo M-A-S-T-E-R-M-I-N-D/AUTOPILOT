@@ -17,7 +17,7 @@ function fakeGate(result: GateResult): GatePort {
 
 interface Deps {
   out: ReturnType<typeof vi.fn<(line: string) => void>>;
-  recordRed: ReturnType<typeof vi.fn<(check: string, mergeDetails: string) => void>>;
+  recordRed: ReturnType<typeof vi.fn<(check: string, mergeDetails: string, ms: number) => void>>;
   pastGreenDurationsMs: ReturnType<typeof vi.fn<(signature: string) => readonly number[]>>;
   recordGreen: ReturnType<typeof vi.fn<(signature: string, ms: number) => void>>;
   recordUnverifiable: ReturnType<
@@ -141,7 +141,11 @@ describe('gateConvergedBranch', () => {
     expect(deps.out.mock.calls[0]?.[0]).toContain('CONVERGENCE RED');
     expect(deps.out.mock.calls[0]?.[0]).toContain('build');
     expect(deps.out.mock.calls[0]?.[0]).toContain('chore: sync lane into autopilot/flight');
-    expect(deps.recordRed).toHaveBeenCalledWith('build', 'chore: sync lane into autopilot/flight');
+    expect(deps.recordRed).toHaveBeenCalledWith(
+      'build',
+      'chore: sync lane into autopilot/flight',
+      3000,
+    );
     expect(deps.recordGreen).not.toHaveBeenCalled();
     expect(deps.recordUnverifiable).not.toHaveBeenCalled();
   });
@@ -152,6 +156,6 @@ describe('gateConvergedBranch', () => {
       gate: fakeGate({ ok: false, checks: [{ label: 'typecheck', pass: true, durationMs: 10 }] }),
       ...deps,
     });
-    expect(deps.recordRed).toHaveBeenCalledWith('gate', 'merge details');
+    expect(deps.recordRed).toHaveBeenCalledWith('gate', 'merge details', 10);
   });
 });

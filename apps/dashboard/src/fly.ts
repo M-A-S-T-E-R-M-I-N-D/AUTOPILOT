@@ -473,7 +473,7 @@ async function main(): Promise<void> {
     // CONVERGENCE GATE telemetry (board web-mtbeu5d3-n09acx "CONVERGENCE FULL
     // GATE") — best-effort, same contract as every other events-table insert
     // in this file: never let a telemetry hiccup take the flight down.
-    const recordConvergenceRed = (check: string, mergeDetails: string): void => {
+    const recordConvergenceRed = (check: string, mergeDetails: string, ms: number): void => {
       try {
         store.db
           .prepare(
@@ -483,7 +483,7 @@ async function main(): Promise<void> {
             projectId,
             null,
             'convergence-red',
-            JSON.stringify({ branch: targetBranch, check, merge: mergeDetails }),
+            JSON.stringify({ branch: targetBranch, check, merge: mergeDetails, ms }),
             now(),
           );
       } catch {

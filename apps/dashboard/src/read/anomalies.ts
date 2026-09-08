@@ -301,13 +301,17 @@ function landGateAlarms(alarms: readonly LandGateAlarmLike[]): Anomaly[] {
 }
 
 /** One persisted CONVERGENCE GATE alarm (board web-mtbeu5d3-n09acx
- *  "CONVERGENCE FULL GATE") — the parsed `{check, details}` payload of a
+ *  "CONVERGENCE FULL GATE") — the parsed `{check, details, ms}` payload of a
  *  `convergence-red` event `flight/convergence-gate.ts`'s `gateConvergedBranch`
  *  persists via fly.ts's `recordConvergenceRed` whenever the merged branch
- *  fails a check that both sides passed alone. */
+ *  fails a check that both sides passed alone. `ms` is optional — a row
+ *  persisted before board web-mtq70agu-pjs8mg threaded the check duration
+ *  through the red path (mirroring `ConvergenceUnverifiableLike`'s `ms`,
+ *  which the green/demoted path already carried) has none. */
 export interface ConvergenceRedLike {
   readonly check: string;
   readonly details: string;
+  readonly ms?: number;
 }
 
 /** Convergence-red chip: like {@link landGateAlarms}, the detection itself
@@ -315,7 +319,7 @@ export interface ConvergenceRedLike {
  *  gate — judged the merged branch and fly.ts persisted one event per red
  *  result) — this rule only surfaces those persisted alarms as ONE
  *  aggregated evidence-carrying chip (the count plus the latest alarm's
- *  check/details), same anti-spam shape as
+ *  check/details/duration), same anti-spam shape as
  *  `guardDenials`/`syncBackRefusals`/`landGateAlarms`. */
 function convergenceRedAlarms(alarms: readonly ConvergenceRedLike[]): Anomaly[] {
   if (alarms.length === 0) return [];
@@ -323,12 +327,13 @@ function convergenceRedAlarms(alarms: readonly ConvergenceRedLike[]): Anomaly[] 
   // entry is the latest alarm.
   const latest = alarms[0] as ConvergenceRedLike;
   const single = alarms.length === 1;
+  const durationSuffix = typeof latest.ms === 'number' ? ` after ${Math.round(latest.ms)}ms` : '';
   return [
     {
       kind: 'convergence-red',
       evidence: single
-        ? `A convergence gate went red after a sync-back (${latest.check}): ${latest.details}`
-        : `${alarms.length} convergence-red alarms on record — latest (${latest.check}): ${latest.details}`,
+        ? `A convergence gate went red after a sync-back (${latest.check})${durationSuffix}: ${latest.details}`
+        : `${alarms.length} convergence-red alarms on record — latest (${latest.check})${durationSuffix}: ${latest.details}`,
     },
   ];
 }

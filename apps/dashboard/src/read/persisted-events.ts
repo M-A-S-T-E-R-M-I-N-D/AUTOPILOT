@@ -262,6 +262,7 @@ export function parseLandGateAlarmEvents(store: Store, projectId: string): { det
 interface RawConvergenceRed {
   readonly check?: unknown;
   readonly merge?: unknown;
+  readonly ms?: unknown;
 }
 
 /**
@@ -273,19 +274,25 @@ interface RawConvergenceRed {
  * malformed payload is skipped, never thrown. fly.ts's `recordConvergenceRed`
  * writes the merge details under the `merge` key; this parser surfaces it as
  * `details`, the same field name every other alarm-shaped `*Like` type here
- * uses.
+ * uses. `ms` is optional — rows persisted before the duration was threaded
+ * through (board web-mtq70agu-pjs8mg) predate the field entirely, and must
+ * keep surfacing rather than being dropped for lacking it.
  */
 export function parseConvergenceRedEvents(
   store: Store,
   projectId: string,
-): { check: string; details: string }[] {
-  const entries: { check: string; details: string }[] = [];
+): { check: string; details: string; ms?: number }[] {
+  const entries: { check: string; details: string; ms?: number }[] = [];
   for (const row of convergenceRedEvents(store.db, projectId)) {
     if (row.payload === null) continue;
     try {
       const d = JSON.parse(row.payload) as RawConvergenceRed;
       if (typeof d.check === 'string' && typeof d.merge === 'string') {
-        entries.push({ check: d.check, details: d.merge });
+        entries.push({
+          check: d.check,
+          details: d.merge,
+          ...(typeof d.ms === 'number' && Number.isFinite(d.ms) ? { ms: d.ms } : {}),
+        });
       }
     } catch {
       /* skip a malformed convergence-red payload */
