@@ -11,6 +11,7 @@
 export interface SecretFinding {
   line: number;
   rule: string;
+  match: string;
 }
 
 export function findSecrets(text: string): SecretFinding[];
