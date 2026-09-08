@@ -9,13 +9,16 @@
  * with the JSDoc/exports in the `.mjs`.
  */
 
-export interface ToolGrant {
+/** One agent's tool grant, plus the citation for the constant governing it. */
+export interface AgentGrant {
+  readonly name: string;
   readonly allowed: readonly string[];
   readonly disallowed: readonly string[];
+  readonly source: string;
 }
 
 export const MARKER_START: string;
 export const MARKER_END: string;
-export function renderTable(grant: ToolGrant): string;
+export function renderTable(agents: readonly AgentGrant[]): string;
 export function replaceBlock(source: string, block: string, docPath?: string): string;
 export function withoutTimestamp(text: string): string;

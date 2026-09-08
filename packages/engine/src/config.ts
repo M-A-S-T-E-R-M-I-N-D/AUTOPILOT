@@ -86,6 +86,19 @@ export const DEFAULT_DISALLOWED_TOOLS = [
   'ExitWorktree',
 ] as const;
 
+/**
+ * Tool grant shared by every tool-less single-turn substep — the model
+ * answers from its prompt/context alone, never calling a tool. Named and
+ * exported (rather than each call site repeating the literal) so the
+ * threat-model generator (`scripts/threat-model/generate-table.mjs`,
+ * `docs/THREAT-MODEL.md` §3) can render an agent's real grant from the same
+ * source its CLI invocation reads, not a hand-copied guess. Currently reused
+ * by post-flight triage (`apps/dashboard/src/flight/board-triage.ts`) and
+ * "Ask your project" tier 1 (`apps/dashboard/src/server/main.ts`).
+ */
+export const TOOL_LESS_ALLOWED_TOOLS = [] as const;
+export const TOOL_LESS_DISALLOWED_TOOLS = ['*'] as const;
+
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   primaryModel: 'fable',
   fallbackModel: 'opus',
