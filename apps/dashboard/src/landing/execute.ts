@@ -321,8 +321,9 @@ export function createLandingExecuteApi(
 
 /**
  * Builds the real {@link OutOfBandLandGateCheck}: on a flight-running
- * refusal, runs the SAME gate `spec ? gateCommands(spec) : []` produces —
- * but against a disposable DETACHED worktree of the project's current HEAD
+ * refusal, runs the SAME gate `spec ? gateCommands(spec, { includeCiExtras:
+ * true }) : []` produces — but against a disposable DETACHED worktree of the
+ * project's current HEAD
  * (`addDetachedWorktree`) instead of the live checkout `land()` itself uses.
  * A detached checkout never contends for git's one-checkout-per-branch slot,
  * so this runs safely alongside the flight that already has that same
