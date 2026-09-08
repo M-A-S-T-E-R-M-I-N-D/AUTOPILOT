@@ -2038,10 +2038,18 @@ function flightLogNode(c) {
     loadMoreBtn.className = 'flight-more';
     loadMoreBtn.setAttribute('data-flightlog-more', c.id);
     loadMoreBtn.disabled = !!flightLogLoading[c.id];
-    loadMoreBtn.textContent = flightLogLoading[c.id] ? 'Loading…' : 'Load older firings';
-    var loadMoreTip = 'Fetch firings older than what the browser already holds — a real server round-trip, not a local reveal';
+    // Tagged with whichever key matches the CURRENT state: renderFleet()'s
+    // document-wide translateDom() sweep runs every fleet tick, and a fixed
+    // idle tag would repaint "Load older firings" over "Loading…" mid-request.
+    var loadMoreKey = flightLogLoading[c.id] ? 'flightLogLoadMoreLoading' : 'flightLogLoadMore';
+    loadMoreBtn.textContent = tr(loadMoreKey);
+    loadMoreBtn.setAttribute('data-i18n', loadMoreKey);
+    // The tip IS the accessible name — one key, tagged for both attributes.
+    var loadMoreTip = tr('flightLogLoadMoreTip');
     loadMoreBtn.setAttribute('data-tip', loadMoreTip);
+    loadMoreBtn.setAttribute('data-i18n-tip', 'flightLogLoadMoreTip');
     loadMoreBtn.setAttribute('aria-label', loadMoreTip);
+    loadMoreBtn.setAttribute('data-i18n-aria', 'flightLogLoadMoreTip');
     wrap.appendChild(loadMoreBtn);
   }
   return wrap;
