@@ -869,6 +869,9 @@ const EN_STRINGS = {
   taskApprove: '✓ approve',
   taskReject: '✗ reject',
   taskDone: '✓ done',
+  // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
+  // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
+  taskDragTip: 'Drag to reorder',
   // The "Add a task" form under the Tasks heading (shell.ts's tasksSection(),
   // the human side of the board) — the Inbox form's older sibling, built the
   // same DOM-call way the tag scanner cannot see. taskAddTip is ONE key for
@@ -886,6 +889,11 @@ const EN_STRINGS = {
   cardFindingsTip: 'Unresolved review findings for this project — see the breakdown below',
   cardActivityTip: 'When this project last had any activity',
   cardActivityAria: 'last activity: {name}',
+  // The severity gauge's all-clear segment (shell.ts's gaugeBar(): the single
+  // role="img" span painted when the project has no open findings) — its tip
+  // IS its accessible name, so ONE key rides both [data-i18n-tip] and
+  // [data-i18n-aria].
+  gaugeClearTip: 'No open findings',
   // The live worker card's action line (shell.ts's liveWorkerCard(): the
   // most recent tool call and the target it touched). The two tips are swept
   // as [data-i18n-tip]; the two aria prefixes wrap the live tool/target name
@@ -1624,6 +1632,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskApprove: '✓ אשר',
     taskReject: '✗ דחה',
     taskDone: '✓ בוצע',
+    taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
     taskAdd: 'הוסף',
@@ -1631,6 +1640,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     cardFindingsTip: 'ממצאי סקירה פתוחים לפרויקט הזה — ראו את הפירוט למטה',
     cardActivityTip: 'מתי הייתה בפרויקט הזה פעילות כלשהי בפעם האחרונה',
     cardActivityAria: 'פעילות אחרונה: {name}',
+    gaugeClearTip: 'אין ממצאים פתוחים',
     liveToolTip: 'קריאת הכלי האחרונה שההפעלה הזו ביצעה',
     liveToolAria: 'כלי: {name}',
     liveTargetTip: 'הקובץ, הפקודה או היעד שקריאת הכלי הזו נגעה בהם',
