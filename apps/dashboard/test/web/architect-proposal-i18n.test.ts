@@ -102,7 +102,10 @@ function buildFetch(proposal: unknown, execMode: { value: ExecMode }): typeof fe
     if (href.includes('/api/control/execute')) {
       if (execMode.value === 'reject') throw new Error('network down');
       if (execMode.value === 'appError') {
-        return { ok: true, json: async () => ({ ok: false, error: 'bad args' }) } as unknown as Response;
+        return {
+          ok: true,
+          json: async () => ({ ok: false, error: 'bad args' }),
+        } as unknown as Response;
       }
       return { ok: true, json: async () => ({ ok: true }) } as unknown as Response;
     }
@@ -110,7 +113,10 @@ function buildFetch(proposal: unknown, execMode: { value: ExecMode }): typeof fe
   }) as unknown as typeof fetch;
 }
 
-async function boot(proposal: unknown, execMode: { value: ExecMode } = { value: 'ok' }): Promise<void> {
+async function boot(
+  proposal: unknown,
+  execMode: { value: ExecMode } = { value: 'ok' },
+): Promise<void> {
   document.open();
   document.write(renderShell(''));
   document.close();
@@ -176,7 +182,9 @@ describe('search palette proposal/sources/activity i18n (board web-msnsndki-dz3v
     localStorage.setItem('ap-locale', 'he');
     await boot(WRITE_PROPOSAL);
     await ask();
-    expect(proposalSummary()?.textContent).toBe(STRINGS.he.architectProposes.replace('{name}', 'fs_write'));
+    expect(proposalSummary()?.textContent).toBe(
+      STRINGS.he.architectProposes.replace('{name}', 'fs_write'),
+    );
   });
 
   it('switching to Hebrew mid-render translates the proposal summary in place', async () => {
