@@ -27,6 +27,19 @@ are" to "credit where it is due, in the form each medium expects".
 4. **The user's README** — the offered (never forced) badge + a pointer
    to `CITATION.cff` for formal citation.
 
+## Signing & DCO — the human always signs as themself
+
+`Author` and `Signed-off-by` are ALWAYS the contributing human's own
+identity — their name, their email, their DCO certification. An
+AUTOPILOT instance never signs as the upstream maintainer and never
+invents an identity: it inherits whatever `git config` the human set
+(per-repo overrides respected, global untouched — the @gabibi555
+precedent from #30/#32 is the canonical form). The engine hardcodes no
+identity anywhere; the tool's credit lives ONLY in the `Assisted-by`
+trailer, which certifies nothing and claims nothing. A pilot that finds
+itself without a usable identity STOPS and asks its operator rather
+than guessing — a wrong signature is a rights problem, not a default.
+
 ## Rights, stated plainly
 
 - Content a pilot writes on behalf of an operator belongs to that
