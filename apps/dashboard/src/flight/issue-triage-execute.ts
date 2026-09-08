@@ -28,7 +28,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openStore, listProjects, recentTasks, type Store } from '@autopilot/store';
 import { readFsSnapshot, detectBacklogPath } from '@autopilot/onboarding';
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import { parseBacklogTitles } from './backlog.js';
 import {
   fetchOpenIssues,
@@ -78,7 +79,7 @@ export type IssueTriagePreviewApi = (
  *  a board task. */
 export function createIssueTriagePreviewApi(
   dbPath: string,
-  exec: CliExec = realCliExec,
+  exec: CliExec = ghExec,
 ): IssueTriagePreviewApi {
   return async (projectId) => {
     const store = openStore(dbPath, { readonly: true });
@@ -103,7 +104,7 @@ export type IssueTriageExecuteApi = (projectId: string) => Promise<IssueTriageRi
  *  the production wiring `main.ts` injects into the server. */
 export function createIssueTriageExecuteApi(
   dbPath: string,
-  exec: CliExec = realCliExec,
+  exec: CliExec = ghExec,
 ): IssueTriageExecuteApi {
   return async (projectId) => {
     const store = openStore(dbPath);

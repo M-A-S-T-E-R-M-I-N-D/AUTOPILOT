@@ -1358,6 +1358,20 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // `flight/*` entry above so a future `flight/taxonomy-seed-execute.ts`
   // stays covered too.
   'flight/taxonomy-seed',
+  // The anti-flood guard and the one guarded exec every posting path
+  // defaults to (operator's SPAM catch on PR #33, 2026-09-09). Together
+  // they decide whether a real `gh` comment posts at all, and can EDIT an
+  // existing comment in place via `gh api --method PATCH`. Two distinct
+  // attack shapes, neither carrying a "guard"/"auth"/"security" keyword in
+  // its path: loosening the duplicate ratio or the fold rule turns the
+  // fleet back into a flooder, while TIGHTENING either (ratio toward 0, or
+  // a fold that silently swallows instead of editing) suppresses genuine
+  // maintainer replies — a censorship path, which is why the guard fails
+  // open by design and why a PR that changes it queues for a human.
+  // `gh-exec.ts` is one line of policy: swap it back to the unguarded exec
+  // and every other marker's posting path is unguarded again.
+  'flight/anti-flood',
+  'flight/gh-exec',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {

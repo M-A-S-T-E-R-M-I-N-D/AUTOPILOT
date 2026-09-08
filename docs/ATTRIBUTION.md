@@ -36,6 +36,19 @@ are" to "credit where it is due, in the form each medium expects".
    subject. Two consecutive messages from the same identity is the
    ceiling; three is a cleanup bug (issue #16 carried exactly that
    before this law).
+
+   **Enforced, not merely written (2026-09-09):** the law is a wrapper
+   now. `flight/anti-flood.ts` inspects every `gh issue|pr comment` argv
+   before it runs — a >=90%-similar message from this identity already on
+   the thread is a clean no-op (PR #33 received the same approval twice
+   because a retry fired after the first had landed), and a post that
+   would be the third consecutive message is EDITED onto the tail as a
+   dated `**Update:**` block instead. `flight/gh-exec.ts` is the one
+   guarded exec every posting path defaults to, census-pinned so a new
+   module cannot default back to the raw one. It fails OPEN: if the
+   thread cannot be read, the message posts — a guard that eats a
+   maintainer's reply when GitHub blinks is worse than the flood.
+   `pnpm audit:board-flood` sweeps for what still gets through.
 4. **The user's README** — the offered (never forced) badge + a pointer
    to `CITATION.cff` for formal citation.
 

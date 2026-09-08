@@ -33,6 +33,14 @@ commit that fixes it.
 | 16 | Machine starvation under multi-lane gates (88-100% CPU) | below-normal lane priority + cross-lane gate semaphore + sustained-load planner | boarded (mercy 1-3) |
 | 17 | KEEPER Apply on stale cards | execute re-verifies live PR state and no-ops on merged/closed | `pr-review-execute.ts` `confirmPrNotOpen` |
 | 18 | New file added without its census pin (taxonomy stubs ×2) | "a census completes the change" — same-commit pin updates | firing prompt (v13) + additive-only law |
+| 19 | The same message posted twice by a retry after an apparent failure that had actually landed (PR #33's approval, 16s apart, 97% identical) | every `gh issue\|pr comment` runs through a guard that reads the thread first: a >=90%-similar message from this identity is a clean no-op | `flight/anti-flood.ts` + `flight/gh-exec.ts` (defaulted, census-pinned) |
+| 20 | A third consecutive message from one identity stacking on a thread (issue #16) | at the ceiling the guard EDITS the tail into a dated `**Update:**` block instead of posting | `flight/anti-flood.ts` fold tier + `docs/ATTRIBUTION.md` §3 |
+| 21 | An affordance offering an action that would do nothing ("Run KEEPER triage": 0 to accept, 6 already triaged) | disabled-with-reason: a control that cannot act says why, and what re-enables it | `issueTriageHasWork` + `issueTriageNothingToRunTip` |
+
+Board hygiene has its own auditor: `pnpm audit:board-flood` sweeps every
+thread for near-duplicates, consecutive runs past the ceiling, and
+rapid-fire posts. It found rows 19 and 20 across 31 threads; it is what
+proves the guard is working rather than the guard proving itself.
 
 Rows 8, 10 (reland), 14 (structural), 16 are the open counters — each is
 a boarded task; everything else is live machinery. When one ships, move
