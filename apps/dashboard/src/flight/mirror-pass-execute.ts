@@ -139,11 +139,7 @@ export function createMirrorPassLandingNotePreviewApi(
       if (!project) return null;
       const tasks = mirrorPassTaskCandidates(store, projectId);
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
-      const commentsByIssueNumber = await fetchMirrorPassIssueComments(
-        exec,
-        tasks,
-        issuesByNumber,
-      );
+      const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
       return planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
     } finally {
       store.close();
