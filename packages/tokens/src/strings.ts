@@ -635,11 +635,9 @@ const EN_STRINGS = {
   asking: 'Asking…',
   askReadingDeep: 'Reading the project to find the answer (Deep)…',
   askAskingModel: 'Asking the model (grounded in the indexed code)…',
-  askFailed: 'Ask failed — is the dashboard still running?',
-  // ARCHITECT proposal action card (search.ts's renderProposal()) — same
-  // el()/textContent-at-render/click-time blind spot as the Ask status lines
-  // above; controlFailed's {name} carries the server's own error text.
-  architectProposes: 'ARCHITECT proposes: {name}',
+  // (#30's askFailed/architectProposes duplicates dropped in the landing
+  // merge — the fleet's earlier copies above are the live ones; the
+  // control* family stays for parity until a pruning pass.)
   controlRunning: 'Running…',
   controlDone: 'Done.',
   controlFailed: 'Failed: {name}',
@@ -1547,8 +1545,6 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     asking: 'בשאלה…',
     askReadingDeep: 'קורא את הפרויקט כדי למצוא את התשובה (מעמיק)…',
     askAskingModel: 'שואל את המודל (מבוסס על הקוד המאונדקס)…',
-    askFailed: 'השאלה נכשלה — האם לוח הבקרה עדיין פועל?',
-    architectProposes: 'ARCHITECT מציע/ה: {name}',
     controlRunning: 'רץ…',
     controlDone: 'בוצע.',
     controlFailed: 'נכשל: {name}',
