@@ -24,6 +24,18 @@ are" to "credit where it is due, in the form each medium expects".
    The anti-spam law (epic 0016) governs WHEN to speak; this governs
    HOW a message signs itself. A thread already carrying the signature
    in the instance's previous message may compress to `— ✈️`.
+
+   **The edit-over-append law (operator, 2026-09-09):** before posting,
+   CHECK the thread's tail. If this identity is already the last
+   commenter and the new content updates or supersedes what that
+   message said, EDIT the existing message instead of stacking another
+   — append an `**Update (YYYY-MM-DD):**` block at its end, preserving
+   the original text above it (GitHub keeps edit history; readers keep
+   one message to read). Post a NEW message only when the last word
+   belongs to someone else, or the content is a genuinely separate
+   subject. Two consecutive messages from the same identity is the
+   ceiling; three is a cleanup bug (issue #16 carried exactly that
+   before this law).
 4. **The user's README** — the offered (never forced) badge + a pointer
    to `CITATION.cff` for formal citation.
 
