@@ -288,11 +288,34 @@ export function flightCostAgoMeta(
   };
 }
 
+/** The STRINGS keys {@link flightLogMoreMeta} asks its injected translator
+ *  for — the closed state's "Show all ({n})" text + tip and the open state's
+ *  "Show fewer" text + tip. */
+export type FlightLogMoreKey =
+  'flightLogShowAll' | 'flightLogShowAllTip' | 'flightLogShowFewer' | 'flightLogShowFewerTip';
+
+/** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected into
+ *  {@link flightLogMoreMeta} the way `replayNav`/`flightProgressOf` take it
+ *  (i18n, board web-msnsndki-dz3vn1) — this function stays spliced into
+ *  `/app.js` via `.toString()`, so it cannot import a translator. Without
+ *  one the text and tip are the byte-identical English defaults. */
+export type FlightLogMoreTranslator = (
+  key: FlightLogMoreKey,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
 /** The "Show all (N)"/"Show fewer" toggle button's visible text and its
- *  matching tip/aria-label pair. */
+ *  matching tip/aria-label pair, plus the keys and `{n}`/`{compact}` slot
+ *  values they were filled from so `flightLogNode` can tag the button as a
+ *  template (`data-i18n-template` / `data-i18n-tip-template` /
+ *  `data-i18n-aria-template` + a `data-i18n-args` map) for `translateDom()`
+ *  to re-fill in place on a locale switch. */
 export interface FlightLogMoreMeta {
   readonly text: string;
   readonly tip: string;
+  readonly textKey: FlightLogMoreKey;
+  readonly tipKey: FlightLogMoreKey;
+  readonly args: { readonly n: number; readonly compact: number };
 }
 
 /** The flight log's "Show all (N)"/"Show fewer" toggle button's text+tip —
@@ -308,17 +331,31 @@ export function flightLogMoreMeta(
   isOpen: boolean,
   totalCount: number,
   compactRows: number,
+  tr?: FlightLogMoreTranslator,
 ): FlightLogMoreMeta {
+  const args = { n: totalCount, compact: compactRows };
   if (isOpen) {
     return {
-      text: 'Show fewer',
-      tip: 'Collapse back to the most recent ' + compactRows + ' firings',
+      text: tr ? tr('flightLogShowFewer', args) : 'Show fewer',
+      tip: tr
+        ? tr('flightLogShowFewerTip', args)
+        : 'Collapse back to the most recent ' + compactRows + ' firings',
+      textKey: 'flightLogShowFewer',
+      tipKey: 'flightLogShowFewerTip',
+      args,
     };
   }
   return {
-    text: 'Show all (' + totalCount + ')',
-    tip:
-      'Reveal all ' + totalCount + ' locally-held firings, not just the most recent ' + compactRows,
+    text: tr ? tr('flightLogShowAll', args) : 'Show all (' + totalCount + ')',
+    tip: tr
+      ? tr('flightLogShowAllTip', args)
+      : 'Reveal all ' +
+        totalCount +
+        ' locally-held firings, not just the most recent ' +
+        compactRows,
+    textKey: 'flightLogShowAll',
+    tipKey: 'flightLogShowAllTip',
+    args,
   };
 }
 
