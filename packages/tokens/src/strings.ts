@@ -581,6 +581,29 @@ const EN_STRINGS = {
   askThinking: 'Asking the model (grounded in the indexed code)…',
   askThinkingDeep: 'Reading the project to find the answer (Deep)…',
   askFailed: 'Ask failed — is the dashboard still running?',
+  // The follow-up slice flagged in fd617a93's commit body (board
+  // web-msnsndki-dz3vn1): the ARCHITECT proposal card's summary/status/
+  // confirm strings, the completed answer's "sources:" line, and the live
+  // tool-activity chip's tip/aria — search.ts's renderProposal()/
+  // renderAnswer()/renderActivity(). architectProposes/proposalFailed/
+  // askActivityAria/askSources/askSourcesAria are {name}-templates (like
+  // liveToolAria above) embedding live, untranslated data (a tool name, a
+  // server error string, a joined file list) inside fixed UI text.
+  architectProposes: 'ARCHITECT proposes: {name}',
+  proposalRunning: 'Running…',
+  proposalDone: 'Done.',
+  proposalFailed: 'Failed: {name}',
+  proposalUnknownError: 'unknown error',
+  proposalRequestError: 'request error.',
+  proposalConfirm: 'Confirm',
+  proposalConfirmDestructive: 'Confirm (destructive)',
+  proposalConfirmTip: 'Run this proposed action',
+  proposalConfirmDestructiveTip: 'This action cannot be undone — confirm to run it',
+  askActivityTip: 'A tool call the model made while researching this answer',
+  askActivityAria: 'Tool call: {name}',
+  askSources: 'sources: {name}',
+  askSourcesTip: 'Indexed files the model consulted to ground this answer',
+  askSourcesAria: 'Sources: {name}',
   askPersona: 'Ask persona',
   personaGenius: 'GENIUS',
   personaArchitect: 'ARCHITECT',
@@ -1464,6 +1487,21 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     askThinking: 'שואל את המודל (על סמך הקוד המאונדקס)…',
     askThinkingDeep: 'קורא את הפרויקט כדי למצוא את התשובה (מעמיק)…',
     askFailed: 'הבקשה נכשלה — האם לוח הבקרה עדיין פועל?',
+    architectProposes: 'ה-ARCHITECT מציע: {name}',
+    proposalRunning: 'בביצוע…',
+    proposalDone: 'בוצע.',
+    proposalFailed: 'נכשל: {name}',
+    proposalUnknownError: 'שגיאה לא ידועה',
+    proposalRequestError: 'שגיאת בקשה.',
+    proposalConfirm: 'אשר',
+    proposalConfirmDestructive: 'אשר (לא הפיך)',
+    proposalConfirmTip: 'מריץ את הפעולה המוצעת הזו',
+    proposalConfirmDestructiveTip: 'לא ניתן לבטל פעולה זו — אשרו כדי להריץ אותה',
+    askActivityTip: 'קריאה לכלי שהמודל ביצע תוך כדי המחקר לתשובה הזו',
+    askActivityAria: 'קריאה לכלי: {name}',
+    askSources: 'מקורות: {name}',
+    askSourcesTip: 'קבצים מאונדקסים שהמודל התייעץ בהם כדי לבסס את התשובה הזו',
+    askSourcesAria: 'מקורות: {name}',
     askPersona: 'פרסונת שאלה',
     personaGenius: 'GENIUS',
     personaArchitect: 'ARCHITECT',
