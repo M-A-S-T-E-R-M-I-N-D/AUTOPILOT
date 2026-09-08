@@ -3204,12 +3204,26 @@ now skipped (best-effort, logged, never fails the flight) whenever
 `isAnyFlightLockLive` reports a live sibling lock for `target`, excluding
 this flight's own just-acquired one. `ap-mtm4qzty-1`/`ap-mtq191kz-1`'s
 fly.ts-hardening scope is now fully shipped; only slice (d) — a
-concurrency-simulating test (two lock files, one live one dead) — remains
+concurrency-simulating test (two lock files, one live one dead) — remained
 unclaimed, and `fly.ts` itself still has no dedicated test file to host it
 in (its orchestration is exercised only through the primitives it calls,
 each already covered at their own layer — `lock.test.ts`'s `excludePid`
 cases, `worktree.test.ts`'s `syncWorktreeBranch`/`fastForwardWorktree`
 cases).
+
+Slice (d) shipped (2026-09-08): four new `isAnyFlightLockLive` cases added
+to `lock.test.ts`, each writing TWO lock files into the same tmp dir (a bare
+project lock and an instanced `fleet-2` sibling lock) so the scan is
+actually exercised over multiple `readdirSync` entries instead of just one —
+the prior excludePid cases each wrote only a single lock file. Covers: a
+live instanced lock found despite a dead bare lock sitting alongside it (and
+the mirror case, live bare + dead instanced); both dead → `false`, so a
+stale entry never contaminates the scan into a false positive; and
+`excludePid` still finds a live sibling when this flight's OWN lock is one
+of the two files present, not the only one. All 40 `lock.test.ts` cases
+plus the full gate (typecheck/lint/format:check/9575 tests/build) pass.
+`ap-mtm4qzty-1`/`ap-mtq191kz-1`'s fly.ts-hardening is now fully closed —
+slices (a) through (d) all shipped, nothing further outstanding.
 
 ## Related
 

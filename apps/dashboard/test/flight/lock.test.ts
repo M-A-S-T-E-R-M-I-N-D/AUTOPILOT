@@ -289,4 +289,68 @@ describe('isAnyFlightLockLive excludePid (board ap-mtm4qzty-1 slice (a): a fligh
       expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(false);
     });
   });
+
+  describe('two lock files, one live one dead (slice (d), docs/epics/0002-shell-decomposition.md) — a stale sibling lock left behind by a crashed flight must never mask a genuinely live one, regardless of which entry readdirSync happens to visit first', () => {
+    it('finds the live instanced lock even though the bare project lock is dead', () => {
+      withTmpDir((dir) => {
+        const target = join(dir, 'my-project');
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target))),
+          JSON.stringify({ pid: 999_999_999, startedAt: Date.now() }),
+        );
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target), 'fleet-2')),
+          JSON.stringify({ pid: process.ppid, startedAt: Date.now() }),
+        );
+        expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(true);
+      });
+    });
+
+    it('finds the live bare project lock even though an instanced sibling lock is dead', () => {
+      withTmpDir((dir) => {
+        const target = join(dir, 'my-project');
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target))),
+          JSON.stringify({ pid: process.ppid, startedAt: Date.now() }),
+        );
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target), 'fleet-2')),
+          JSON.stringify({ pid: 999_999_999, startedAt: Date.now() }),
+        );
+        expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(true);
+      });
+    });
+
+    it('returns false when BOTH lock files are dead (a dead entry never counts, even alongside another dead one)', () => {
+      withTmpDir((dir) => {
+        const target = join(dir, 'my-project');
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target))),
+          JSON.stringify({ pid: 999_999_998, startedAt: Date.now() }),
+        );
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target), 'fleet-2')),
+          JSON.stringify({ pid: 999_999_999, startedAt: Date.now() }),
+        );
+        expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(false);
+      });
+    });
+
+    it("still finds the live sibling when excludePid matches this flight's OWN lock entry among the two files", () => {
+      withTmpDir((dir) => {
+        const target = join(dir, 'my-project');
+        // This flight's own just-acquired lock — must be excluded, not
+        // read as "another dead/live lock happens to sit alongside it".
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target))),
+          JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+        );
+        writeFileSync(
+          join(dir, engineLockFileName(deriveFlyProjectId(target), 'fleet-2')),
+          JSON.stringify({ pid: process.ppid, startedAt: Date.now() }),
+        );
+        expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(true);
+      });
+    });
+  });
 });
