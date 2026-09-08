@@ -38,6 +38,18 @@ export interface GateCommands {
    *  path for `test` when a firing's gate schedules impacted-only over a full
    *  run (BACKLOG web-msnt26tn-jvyihy "PARALLEL GATE + test-impact"). */
   readonly testImpacted?: GateCommand;
+  /**
+   * CI-only parity checks — bundle-size budget, launcher smokes, secret/
+   * license/config validators, generated-doc census suites (architecture,
+   * citation, data-model, …) — that CI runs on every push but the per-firing
+   * gate does not, because paying their combined cost every firing would
+   * blow the cadence the fast per-firing gate exists for (board
+   * web-mtqtec7m-dhxd9h "pre-push PARITY GATE"). Detected generically from
+   * every `ci:*` package.json script rather than named one at a time, so a
+   * new CI check adopting that naming convention is covered automatically.
+   * Consumed only at LANDING/CONVERGENCE time — see
+   * `apps/dashboard/src/gate-commands.ts`'s `includeCiExtras` option. */
+  readonly ciExtras?: readonly GateCommand[];
 }
 
 /** Mutable builder for the incremental construction of {@link GateCommands}. */
