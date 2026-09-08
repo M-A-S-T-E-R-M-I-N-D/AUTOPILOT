@@ -63,7 +63,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [ ] Plugin/extension model for custom harness steps and review agents
 - [~] (GENIUS+ARCHITECT step 1, RAG, live view; inbox pending) Reactivity: talk-to-agent chat, hybrid RAG, task assignment, live view + abstract activity map (spec: `REACTIVITY.md`)
 - [ ] Multi-harness projection: catalog → install-target adapter registry (Claude/Codex/Cursor/Gemini/OpenCode/Kiro…)
-- [ ] Warm agent session (Agent SDK) instead of per-message CLI spawn; semantic index (FTS5 + embeddings) with cache-invalidation
+- [~] (epic 0009: the loop's CLI-`--resume` session-carry is live but MEASURED a net loss at n=197 and was narrowed to checkpoint continuation + FINISH-LINE EXTENSION; FTS5 + `sqlite-vec` hybrid search live — FEATURE-COVERAGE §D/§G) Warm agent session (Agent SDK) instead of per-message CLI spawn; semantic index (FTS5 + embeddings) with cache-invalidation — still open: an Agent-SDK warm session for chat (chat itself unbuilt), the local ONNX embedder
 - [x] (OWASP/WCAG/SemVer/SPDX/REUSE/OTel-OTLP all live) Standards backbone wired in from day one (spec: `PATTERNS-AND-STANDARDS.md`) — OWASP/SLSA/WCAG/SemVer/SPDX/OTel
 - [ ] (This register is the tracked implementation backlog — the standard long-tail carrier for a project this size.)
 
