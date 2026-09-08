@@ -56,13 +56,13 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [ ] README + ARCHITECTURE + demo GIF + docs site
 
 ## I. Progression gauge & autonomous intake (2026-07-06)
-- [ ] Per-finding tagging: severity (🔴critical/🟠high/🟡medium/⚪low) × dimension (a11y/security/UX/human/learnings/info/data/priorities)
-- [ ] Project readiness gauge: numeric % + color bar + per-dimension breakdown, per-project AND whole-fleet
+- [x] Per-finding tagging: severity (🔴critical/🟠high/🟡medium/⚪low) × dimension (a11y/security/UX/human/learnings/info/data/priorities) — task schema carries both (`SEVERITIES`/`DIMENSIONS`, `packages/store/src/types.ts`), rendered as task-board chips (`taskSeverityChip`/`taskDimensionChip`, `apps/dashboard/src/web/task-queue.ts`)
+- [~] Project readiness gauge: numeric % + color bar + per-dimension breakdown, per-project AND whole-fleet — per-project severity color bar is live (`openSeverityGauge`, the fleet card's findings gauge); fleet-wide is only a scalar open-findings count (`FleetTotals.openFindings`), no per-severity/per-dimension breakdown at fleet level, no "%" framing
 - [ ] Status ladder: RED→ORANGE→YELLOW→WHITE→🟣needs-you→🔵STABLE→🟢completed/affirmed
 - [ ] 🟣 PURPLE gate: human-required items block GREEN; sit in Approvals until the founder acts
 - [ ] 🔵 BLUE "stable" computed only when critical→medium are clear across EVERY dimension; 🟢 GREEN needs affirmation
-- [ ] Autopilot INBOX (human→bot): dashboard message box + `INBOX/` drop; leave a note/task/plan-request/update-request mid-flight
-- [ ] Engine reads the inbox at the start of every firing (optional input, never a dependency)
+- [x] Autopilot INBOX (human→bot): dashboard message box + `INBOX/` drop; leave a note/task/plan-request/update-request mid-flight — `apps/dashboard/src/inbox/add.ts` (wired into `server/main.ts`) writes into the same `INBOX/` folder every firing reads; auto-triage promotes each note to a board task (`flight/inbox-triage.ts`, `source:'inbox'`), though every note collapses to one generic task with no formal type split
+- [x] Engine reads the inbox at the start of every firing (optional input, never a dependency) — `buildInboxDigest` (`packages/engine/src/inbox.ts`), spliced into the firing prompt as strictly optional context
 - [~] (post-flight triage live; inbox live-watch pending) Triage sub-agent: live-watch inbox + repo; answer "place / plan-further / task / do-now?" from inbox + repo + backlog
 - [ ] Fully-autonomous scenarios: empty inbox → mine repo/backlog; urgent msg → prioritize; drained → propose next plan; blocked → defer(🟣); needs-human → surface, never stall
 
