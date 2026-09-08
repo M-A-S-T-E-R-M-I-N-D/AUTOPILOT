@@ -2023,10 +2023,18 @@ function flightLogNode(c) {
     moreBtn.className = 'flight-more';
     moreBtn.setAttribute('data-flightlog-all', c.id);
     moreBtn.setAttribute('aria-expanded', String(!!openFlightLogAll[c.id]));
-    var moreMeta = flightLogMoreMeta(!!openFlightLogAll[c.id], displayRows.length, FLIGHTLOG_COMPACT_ROWS);
+    var moreMeta = flightLogMoreMeta(!!openFlightLogAll[c.id], displayRows.length, FLIGHTLOG_COMPACT_ROWS, tr);
     moreBtn.textContent = moreMeta.text;
     moreBtn.setAttribute('data-tip', moreMeta.tip);
     moreBtn.setAttribute('aria-label', moreMeta.tip);
+    // Rebuilt from state on every render, so tagged with the CURRENT state's
+    // open/closed key pair (the "Load older firings" reasoning below); the
+    // tip IS the accessible name, and the live counts ride data-i18n-args so
+    // a locale switch re-fills {n}/{compact} in place.
+    moreBtn.setAttribute('data-i18n-template', moreMeta.textKey);
+    moreBtn.setAttribute('data-i18n-tip-template', moreMeta.tipKey);
+    moreBtn.setAttribute('data-i18n-aria-template', moreMeta.tipKey);
+    moreBtn.setAttribute('data-i18n-args', JSON.stringify(moreMeta.args));
     wrap.appendChild(moreBtn);
   }
   // A real server round-trip for OLDER firings than the initial window ever

@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import {
   flightLogDisplayRows,
   flightDetailLine,
@@ -451,5 +452,51 @@ describe('flightLogMoreMeta', () => {
       'Reveal all 10 locally-held firings, not just the most recent 3',
     );
     expect(flightLogMoreMeta(true, 10, 3).tip).toBe('Collapse back to the most recent 3 firings');
+  });
+
+  it('hands back the keys and {n}/{compact} args each state fills from, for the template tags', () => {
+    const closed = flightLogMoreMeta(false, 23, 8);
+    expect(closed.textKey).toBe('flightLogShowAll');
+    expect(closed.tipKey).toBe('flightLogShowAllTip');
+    expect(closed.args).toEqual({ n: 23, compact: 8 });
+
+    const open = flightLogMoreMeta(true, 23, 8);
+    expect(open.textKey).toBe('flightLogShowFewer');
+    expect(open.tipKey).toBe('flightLogShowFewerTip');
+    expect(open.args).toEqual({ n: 23, compact: 8 });
+  });
+
+  it('routes text and tip through an injected translator with those same keys and args', () => {
+    const calls: unknown[][] = [];
+    const tr = (key: string, subs?: Readonly<Record<string, string | number>>) => {
+      calls.push([key, subs]);
+      return '<' + key + ':' + (subs ? subs['n'] + '/' + subs['compact'] : '') + '>';
+    };
+
+    const closed = flightLogMoreMeta(false, 23, 8, tr);
+    expect(closed.text).toBe('<flightLogShowAll:23/8>');
+    expect(closed.tip).toBe('<flightLogShowAllTip:23/8>');
+
+    const open = flightLogMoreMeta(true, 23, 8, tr);
+    expect(open.text).toBe('<flightLogShowFewer:23/8>');
+    expect(open.tip).toBe('<flightLogShowFewerTip:23/8>');
+
+    expect(calls).toEqual([
+      ['flightLogShowAll', { n: 23, compact: 8 }],
+      ['flightLogShowAllTip', { n: 23, compact: 8 }],
+      ['flightLogShowFewer', { n: 23, compact: 8 }],
+      ['flightLogShowFewerTip', { n: 23, compact: 8 }],
+    ]);
+  });
+
+  it('the English defaults without a translator equal the STRINGS.en templates filled in', () => {
+    const fill = (tpl: string, n: number, compact: number) =>
+      tpl.replace('{n}', String(n)).replace('{compact}', String(compact));
+    const closed = flightLogMoreMeta(false, 23, 8);
+    expect(closed.text).toBe(fill(STRINGS.en.flightLogShowAll, 23, 8));
+    expect(closed.tip).toBe(fill(STRINGS.en.flightLogShowAllTip, 23, 8));
+    const open = flightLogMoreMeta(true, 23, 8);
+    expect(open.text).toBe(fill(STRINGS.en.flightLogShowFewer, 23, 8));
+    expect(open.tip).toBe(fill(STRINGS.en.flightLogShowFewerTip, 23, 8));
   });
 });

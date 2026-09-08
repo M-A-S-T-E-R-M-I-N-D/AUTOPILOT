@@ -748,6 +748,15 @@ const EN_STRINGS = {
   flightLogLoadMoreLoading: 'Loading…',
   flightLogLoadMoreTip:
     'Fetch firings older than what the browser already holds — a real server round-trip, not a local reveal',
+  // The "Show all (N)" / "Show fewer" toggle above that button
+  // (web/flight-log-rows.ts's spliced flightLogMoreMeta(), which takes the
+  // bundle's tr() injected the replayNav way): {n} is the locally-held row
+  // count, {compact} the collapsed window. Each state's tip doubles as the
+  // button's accessible name; the counts ride data-i18n-args for the sweep.
+  flightLogShowAll: 'Show all ({n})',
+  flightLogShowAllTip: 'Reveal all {n} locally-held firings, not just the most recent {compact}',
+  flightLogShowFewer: 'Show fewer',
+  flightLogShowFewerTip: 'Collapse back to the most recent {compact} firings',
   firingTrace: 'Per-firing trace',
   firingTraceAria:
     'Per-firing trace: every firing for this project, grouped and collapsible, unlike the Activity feed above which only shows the last flight',
@@ -1560,6 +1569,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightLogLoadMoreLoading: 'טוען…',
     flightLogLoadMoreTip:
       'מביא הפעלות ישנות יותר מאלה שהדפדפן כבר מחזיק — סבב אמיתי מול השרת, לא חשיפה מקומית',
+    flightLogShowAll: 'הצג הכול ({n})',
+    flightLogShowAllTip: 'חושף את כל {n} ההפעלות המוחזקות מקומית, לא רק את {compact} האחרונות',
+    flightLogShowFewer: 'הצג פחות',
+    flightLogShowFewerTip: 'כיווץ חזרה אל {compact} ההפעלות האחרונות',
     firingTrace: 'עקבה לפי הפעלה',
     firingTraceAria:
       'עקבה לפי הפעלה: כל הפעלה עבור פרויקט זה, מקובצת וניתנת לכיווץ, בניגוד לפיד הפעילות למעלה שמציג רק את הטיסה האחרונה',
