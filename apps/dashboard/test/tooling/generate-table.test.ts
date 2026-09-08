@@ -2,34 +2,53 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Coverage for the pure renderTable()/replaceBlock()/withoutTimestamp()
- * helpers of scripts/threat-model/generate-table.mjs — the generator that
- * regenerates docs/THREAT-MODEL.md's TOOLGRANT:TABLE block. `main()` itself
- * stays unimported — it writes docs/THREAT-MODEL.md in place, same stance
- * apps/dashboard/test/tooling/verify-branch-protection.test.ts takes for its
- * sibling script's `main()`.
+ * Coverage for the pure render half of the TOOLGRANT:TABLE generator —
+ * `scripts/threat-model/render-table.mjs`. It imports that module and NOT its
+ * `generate-table.mjs` caller on purpose: the caller reads the real tool grant
+ * out of `packages/engine/dist`, a build artifact that does not exist when
+ * `pnpm verify` reaches `test:coverage` (build runs after it), so importing it
+ * here would make the gate fail on any tree that has not been built — the same
+ * dependency-free stance `self-study-history-guard.test.ts` takes towards its
+ * own `generate-data.mjs` sibling.
+ *
+ * What that split gives up — that the REAL constants render into the committed
+ * doc — is not lost: `ci:threat-model` re-renders from `dist` and diffs against
+ * `docs/THREAT-MODEL.md` after the build, which is the only place that check
+ * can honestly run.
  */
 import { describe, it, expect } from 'vitest';
 import {
   renderTable,
   replaceBlock,
   withoutTimestamp,
-} from '../../../../scripts/threat-model/generate-table.mjs';
+} from '../../../../scripts/threat-model/render-table.mjs';
+
+const GRANT = { allowed: ['Bash', 'Read'], disallowed: ['WebSearch'] };
 
 describe('renderTable', () => {
   it('wraps the table in the TOOLGRANT:TABLE markers', () => {
-    const table = renderTable();
+    const table = renderTable(GRANT);
 
     expect(table.startsWith('<!-- TOOLGRANT:TABLE:START -->')).toBe(true);
     expect(table.endsWith('<!-- TOOLGRANT:TABLE:END -->')).toBe(true);
   });
 
-  it('renders a Tool/Grant table with at least one allowed and one disallowed row', () => {
-    const table = renderTable();
+  it('renders one Tool/Grant row per tool, allowed before disallowed', () => {
+    const table = renderTable(GRANT);
 
     expect(table).toContain('| Tool | Grant |');
-    expect(table).toContain('✅ allowed');
-    expect(table).toContain('⛔ disallowed');
+    expect(table).toContain('| Bash | ✅ allowed |');
+    expect(table).toContain('| Read | ✅ allowed |');
+    expect(table).toContain('| WebSearch | ⛔ disallowed |');
+    expect(table.indexOf('| Bash |')).toBeLessThan(table.indexOf('| WebSearch |'));
+  });
+
+  it('renders without touching the filesystem or any build output', () => {
+    // The whole point of the split: this module must stay importable on a tree
+    // that has never run `pnpm build`. A regression here (someone re-importing
+    // the engine constants into the pure module) would surface as `pnpm verify`
+    // failing at test:coverage on a fresh clone, long before CI's build.
+    expect(() => renderTable({ allowed: [], disallowed: [] })).not.toThrow();
   });
 });
 
@@ -67,6 +86,12 @@ describe('replaceBlock', () => {
     // quietly return the source unchanged — that would let `--check` pass
     // forever on a doc that no longer has anywhere to regenerate into.
     expect(() => replaceBlock('# Doc with no markers', 'block')).toThrow(/markers not found/);
+  });
+
+  it('names the document it could not find markers in, so the failure is actionable', () => {
+    expect(() => replaceBlock('# Doc', 'block', 'docs/THREAT-MODEL.md')).toThrow(
+      /docs\/THREAT-MODEL\.md/,
+    );
   });
 });
 
