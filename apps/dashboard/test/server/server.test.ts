@@ -1914,7 +1914,15 @@ describe('createServer (live loopback)', () => {
   it('GET /api/issue-triage previews the planned decision for every open issue on a known project', async () => {
     const plan = {
       issue: { number: 9, title: 'Keyboard nav is broken', body: '' },
-      decision: { decision: 'accept' as const, dimension: 'accessibility' as const, reasoning: '' },
+      decision: {
+        decision: 'accept' as const,
+        dimension: 'accessibility' as const,
+        // epic 0019 S2: every accept now carries the house area/priority
+        // labels — this stub gained them when the taxonomy slice landed.
+        area: 'area: dashboard' as const,
+        priority: 'priority: high' as const,
+        reasoning: '',
+      },
       commands: [],
     };
     const base = await start({ issueTriage: async (pid) => (pid === 'p1' ? [plan] : null) });
