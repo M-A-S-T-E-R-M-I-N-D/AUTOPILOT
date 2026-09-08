@@ -13,6 +13,10 @@
  * secret-scan.mjs when `pnpm run verify` scans the tree (same reason
  * apps/dashboard/test/connection/service.test.ts uses an under-threshold
  * 'sk-ant-test-not-real' fixture instead of a real-shaped key).
+ *
+ * Positive-match assertions use `objectContaining({ line, rule })` rather than
+ * pinning the exact `match` fingerprint — the redaction format is covered by
+ * its own dedicated tests below, so a fixture test isn't coupled to it.
  */
 import { describe, it, expect } from 'vitest';
 import { findSecrets } from '../../../../scripts/ci/secret-scan.mjs';
@@ -24,67 +28,85 @@ describe('findSecrets', () => {
 
   it('detects a private key block', () => {
     const line = '-----BEGIN' + ' RSA PRIVATE KEY-----';
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'private-key-block' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'private-key-block' }),
+    ]);
   });
 
   it('detects an AWS access key id', () => {
     const line = 'AKIA' + 'ABCDEFGHIJKLMNOP';
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'aws-access-key-id' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'aws-access-key-id' }),
+    ]);
   });
 
   it('detects a github token', () => {
     const line = 'ghp_' + 'A'.repeat(36);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'github-token' }]);
+    expect(findSecrets(line)).toEqual([expect.objectContaining({ line: 1, rule: 'github-token' })]);
   });
 
   it('detects a github fine-grained PAT', () => {
     const line = 'github_pat_' + 'A'.repeat(22);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'github-fine-grained-pat' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'github-fine-grained-pat' }),
+    ]);
   });
 
   it('detects a slack token', () => {
     const line = 'xoxb-' + '1234567890';
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'slack-token' }]);
+    expect(findSecrets(line)).toEqual([expect.objectContaining({ line: 1, rule: 'slack-token' })]);
   });
 
   it('detects a google api key', () => {
     const line = 'AIza' + 'A'.repeat(35);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'google-api-key' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'google-api-key' }),
+    ]);
   });
 
   it('detects a stripe live secret key', () => {
     const line = 'sk_live_' + 'A'.repeat(24);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'stripe-secret-key' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'stripe-secret-key' }),
+    ]);
   });
 
   it('detects an anthropic api key', () => {
     const line = 'sk-ant-' + 'A'.repeat(20);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'anthropic-api-key' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'anthropic-api-key' }),
+    ]);
   });
 
   it('detects an openai api key', () => {
     const line = 'sk-' + 'A'.repeat(48);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'openai-api-key' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'openai-api-key' }),
+    ]);
   });
 
   it('detects an npm token', () => {
     const line = 'npm_' + 'A'.repeat(36);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'npm-token' }]);
+    expect(findSecrets(line)).toEqual([expect.objectContaining({ line: 1, rule: 'npm-token' })]);
   });
 
   it('detects a jwt', () => {
     const line = 'eyJ' + 'A'.repeat(10) + '.' + 'B'.repeat(10) + '.' + 'C'.repeat(10);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'jwt' }]);
+    expect(findSecrets(line)).toEqual([expect.objectContaining({ line: 1, rule: 'jwt' })]);
   });
 
   it('detects a slack webhook url', () => {
     const line = 'https://hooks.slack.com/services/' + 'A'.repeat(20);
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'slack-webhook' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'slack-webhook' }),
+    ]);
   });
 
   it('detects url-embedded credentials', () => {
     const line = 'https://user' + ':pass@example.com';
-    expect(findSecrets(line)).toEqual([{ line: 1, rule: 'url-embedded-credentials' }]);
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'url-embedded-credentials' }),
+    ]);
   });
 
   it('does not match an under-threshold near-miss key', () => {
@@ -97,7 +119,9 @@ describe('findSecrets', () => {
   it('reports 1-indexed line numbers for a match past the first line', () => {
     const key = 'AKIA' + 'ABCDEFGHIJKLMNOP';
     const text = `const a = 1;\nconst b = 2;\nconst leaked = "${key}";`;
-    expect(findSecrets(text)).toEqual([{ line: 3, rule: 'aws-access-key-id' }]);
+    expect(findSecrets(text)).toEqual([
+      expect.objectContaining({ line: 3, rule: 'aws-access-key-id' }),
+    ]);
   });
 
   it('collects one finding per matching rule across multiple lines', () => {
@@ -105,8 +129,8 @@ describe('findSecrets', () => {
     const npm = 'npm_' + 'B'.repeat(36);
     const text = `const a = "${aws}";\nconst clean = "fine";\nconst b = "${npm}";`;
     expect(findSecrets(text)).toEqual([
-      { line: 1, rule: 'aws-access-key-id' },
-      { line: 3, rule: 'npm-token' },
+      expect.objectContaining({ line: 1, rule: 'aws-access-key-id' }),
+      expect.objectContaining({ line: 3, rule: 'npm-token' }),
     ]);
   });
 
@@ -162,6 +186,36 @@ describe('findSecrets', () => {
 
     it('a connection string with a port but no embedded credentials', () => {
       expect(findSecrets('postgres://localhost:5432/mydb')).toEqual([]);
+    });
+  });
+
+  // Guard-precision doctrine, second half: every scanner red must carry the
+  // matched text as evidence (board web-mtqumz0u-j39av4) — but secret-scan's
+  // "matched text" IS the live credential, so unlike validate-no-personal-paths.mjs
+  // (which prints its match raw) the evidence must be redacted before it ever
+  // reaches a CI log line.
+  describe('redacts matched evidence instead of leaking the live secret', () => {
+    it('never includes the raw secret value in the evidence field', () => {
+      const secret = 'AKIA' + 'ABCDEFGHIJKLMNOP';
+      const [finding] = findSecrets(secret);
+      expect(finding?.match).toBeDefined();
+      expect(finding?.match).not.toBe(secret);
+      expect(finding?.match).not.toContain('ABCDEFGHIJKL');
+    });
+
+    it('keeps only a short prefix and suffix of a long secret, masking the middle', () => {
+      const secret = 'sk_live_' + 'A'.repeat(24);
+      const [finding] = findSecrets(secret);
+      expect(finding?.match).toBe(`sk_l${'*'.repeat(secret.length - 8)}AAAA`);
+    });
+
+    it('fully masks a short match with no exposed characters', () => {
+      // Minimal url-embedded-credentials match: "://a:b@" is 7 chars, at or
+      // under the reveal threshold, so no prefix/suffix should survive.
+      const line = 'postgres://a:b@localhost/db';
+      const [finding] = findSecrets(line);
+      expect(finding?.rule).toBe('url-embedded-credentials');
+      expect(finding?.match).toBe('*******');
     });
   });
 });
