@@ -121,6 +121,13 @@ ${decisionItemHeadMeta.toString()}
 var PR_REVIEW_POLL_MS = 30000;
 var prReviewPlansByNumber = {};
 function renderPrReviewPanel(plans, fetchFailed) {
+  // The panel self-initializes and then polls forever on its own timer, so
+  // its callbacks can land after the page (or, under vitest, the whole jsdom
+  // environment) is gone — an unhandled "document is not defined" rejection
+  // that fails a run in which every test passed. The sibling issue-triage
+  // panel already guards with isConnected; this is the same guard one level
+  // up, covering both the fetch .then and the interval.
+  if (typeof document === 'undefined') return;
   var section = document.getElementById('pr-review-panel');
   if (!section) return;
   plans = plans || [];
