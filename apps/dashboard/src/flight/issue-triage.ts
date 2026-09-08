@@ -119,7 +119,10 @@ export interface IssueTriageDossier {
 }
 
 export type IssueTriageDecision =
-  IssueTriageDuplicate | IssueTriageAccept | IssueTriageSkip | IssueTriageDossier;
+  | IssueTriageDuplicate
+  | IssueTriageAccept
+  | IssueTriageSkip
+  | IssueTriageDossier;
 
 /** Below this token-overlap score (same convention as `reconcile.ts`'s
  *  `DEFAULT_MATCH_THRESHOLD`), an issue is treated as genuinely new rather

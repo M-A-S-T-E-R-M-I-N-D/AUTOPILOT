@@ -112,10 +112,7 @@ describe('fetchContributorFacts', () => {
                 { messageBody: 'no trailer here' },
               ],
             },
-            {
-              title: 'Add a feature',
-              commits: [{ messageBody: 'Signed-off-by: A <a@example.com>' }],
-            },
+            { title: 'Add a feature', commits: [{ messageBody: 'Signed-off-by: A <a@example.com>' }] },
           ]),
         };
       }
