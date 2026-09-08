@@ -109,4 +109,59 @@ describe('findSecrets', () => {
       { line: 3, rule: 'npm-token' },
     ]);
   });
+
+  // Guard-precision doctrine: every rule above needs a companion legit shape
+  // that looks like its trigger but is real, non-secret code/docs content —
+  // otherwise a tightened-but-too-broad regex change ships unnoticed until it
+  // fires on a real PR (the near-miss test above only covered anthropic-api-key).
+  describe('does not flag legit shapes that merely resemble a rule', () => {
+    it('a certificate header is not a private key block', () => {
+      expect(findSecrets('-----BEGIN CERTIFICATE-----')).toEqual([]);
+    });
+
+    it('an AWS docs placeholder shorter than the key-id length', () => {
+      expect(findSecrets('AKIAEXAMPLE')).toEqual([]);
+    });
+
+    it('a GitHub Container Registry reference', () => {
+      expect(findSecrets('ghcr.io/anthropics/claude-code')).toEqual([]);
+    });
+
+    it('a fine-grained PAT placeholder shorter than the token length', () => {
+      expect(findSecrets('github_pat_placeholder')).toEqual([]);
+    });
+
+    it('the word "xoxo" is not a Slack token', () => {
+      expect(findSecrets('xoxo-love-you')).toEqual([]);
+    });
+
+    it('a Google API key placeholder shorter than the key length', () => {
+      expect(findSecrets('AIzaSyExampleKeyTooShort')).toEqual([]);
+    });
+
+    it('a Stripe TEST-mode secret key (only sk_live_ is a rule)', () => {
+      const line = 'sk_test_' + 'A'.repeat(24);
+      expect(findSecrets(line)).toEqual([]);
+    });
+
+    it('a promo-code-shaped string is not an OpenAI key', () => {
+      expect(findSecrets('sk-summer-sale')).toEqual([]);
+    });
+
+    it('the real npm config env var, not an npm token', () => {
+      expect(findSecrets('npm_config_registry')).toEqual([]);
+    });
+
+    it('a single base64 segment is not a 3-part JWT', () => {
+      expect(findSecrets('eyJhbGciOiJIUzI1NiJ9')).toEqual([]);
+    });
+
+    it('a slack webhook doc placeholder shorter than the id length', () => {
+      expect(findSecrets('https://hooks.slack.com/services/short')).toEqual([]);
+    });
+
+    it('a connection string with a port but no embedded credentials', () => {
+      expect(findSecrets('postgres://localhost:5432/mydb')).toEqual([]);
+    });
+  });
 });
