@@ -1223,6 +1223,11 @@ function gaugeBar(g) {
     clear.setAttribute('role', 'img');
     clear.setAttribute('data-tip', 'No open findings');
     clear.setAttribute('aria-label', 'No open findings');
+    // The tip IS the accessible name, so one key rides both sweeps; the card
+    // is rebuilt on every fleet tick and renderFleet()'s post-patch
+    // translateDom() keeps a freshly built segment in the current locale.
+    clear.setAttribute('data-i18n-tip', 'gaugeClearTip');
+    clear.setAttribute('data-i18n-aria', 'gaugeClearTip');
     wrap.appendChild(clear);
     return wrap;
   }
@@ -2288,6 +2293,9 @@ function tasksSection(c) {
         // must stay out of the keyboard focus order rather than become a
         // focusable-but-hidden element.
         handle.setAttribute('data-tip', 'Drag to reorder');
+        // Tip only — decorative (aria-hidden), so there is no aria-label to
+        // translate; the [data-i18n-tip] sweep repaints it on a locale switch.
+        handle.setAttribute('data-i18n-tip', 'taskDragTip');
         li.appendChild(handle);
         // Reorder controls — the accessible primary (keyboard-first; no-DnD-quirks).
         var up = el('button', 'task-move', '↑');
