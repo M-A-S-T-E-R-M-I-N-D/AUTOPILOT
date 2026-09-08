@@ -79,6 +79,7 @@ import {
   createIssueTriagePreviewApi,
   createIssueTriageExecuteApi,
 } from '../flight/issue-triage-execute.js';
+import { createMirrorPassPreviewApi } from '../flight/mirror-pass-execute.js';
 import {
   createPoolClientPreviewApi,
   createPoolClientExecuteApi,
@@ -574,6 +575,10 @@ const server = createServer({
   // file, unlike KEEPER REVIEW's single canonical repo above.
   issueTriage: createIssueTriagePreviewApi(dbPath),
   issueTriageExecute: createIssueTriageExecuteApi(dbPath),
+  // MIRROR PASS reconcile preview (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slice
+  // (a)): read-only, derivation 1/4 only — the mutating execute path is a
+  // separate follow-up slice.
+  mirrorPass: createMirrorPassPreviewApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool
   // issues for themselves, not on behalf of a stored project. Claiming can
