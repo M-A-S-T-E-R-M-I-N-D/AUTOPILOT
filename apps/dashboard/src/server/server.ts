@@ -447,9 +447,7 @@ export type IssueTriageExecuteApi = (projectId: string) => Promise<IssueTriageRi
  *  `web-mtrh1hlh-62l41b`), "board task done ⇒ close linked issue with the
  *  landing SHA" — see `flight/mirror-pass-execute.ts`'s
  *  `createMirrorPassPreviewApi`. `null` means an unknown project id. */
-export type MirrorPassPreviewApi = (
-  projectId: string,
-) => Promise<readonly MirrorPassPlan[] | null>;
+export type MirrorPassPreviewApi = (projectId: string) => Promise<readonly MirrorPassPlan[] | null>;
 
 /** The report-from-here preview (injected; pure — a region capture arrives
  *  fully formed from the request body, so this never reads the store or
