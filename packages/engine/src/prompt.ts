@@ -83,7 +83,7 @@ export interface BoardTaskRef {
   readonly shippedSlices?: readonly string[];
 }
 
-export const FIRING_PROMPT_VERSION = 'firing-v12';
+export const FIRING_PROMPT_VERSION = 'firing-v13';
 
 /** The adapter that runs the agent — cited in commit provenance trailers (SOTA-MAP D1). */
 export const HARNESS_NAME = 'claude-cli';
@@ -551,6 +551,10 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     '  stray work from a second unit can get your GOOD commit reverted along with it.',
     '- Run the full project verification (all detected gate commands, including lint and',
     '  format checks) BEFORE committing — a formatting drift fails the gate too.',
+    '- Autoformat is CHECK-only for you — the landing alone owns the format WRITE (one writer).',
+    '- A census completes the change — update the census pin for any file you add, SAME commit.',
+    '- Before fixing an observed red, `git log -3 -- <file>` — a newer commit may already fix it.',
+    '- docs/FAILURE-DOCTRINE.md is the won-battles ledger — read it when a failure feels familiar.',
     '',
   ];
   return body.join('\n');
