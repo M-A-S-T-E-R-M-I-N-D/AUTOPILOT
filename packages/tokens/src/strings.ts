@@ -1365,6 +1365,16 @@ const EN_STRINGS = {
   consoleEmpty: 'No console output yet.',
   consoleCollapsed: 'Collapsed — expand to load.',
   consoleUnavailable: 'Flight console unavailable.',
+  // The panel's own always-on chrome, missed by the states above: the
+  // <summary> toggle's title/tip, and the loaded <pre>'s line-count
+  // aria-label/tip. Singular/plural are separate keys — the same real-
+  // grammar choice flightDebriefGuardDenialSingular/Plural already makes —
+  // so the translated grammar matches console-panel.ts's own
+  // consoleLinesAriaLabel(), not a lowest-common-denominator "(s)" suffix.
+  consoleTitle: '🖥️ Flight console',
+  consoleTitleTip: 'Raw stdout+stderr tail of the flight process for this project',
+  consoleLinesAriaSingular: '{n} line of raw flight process output',
+  consoleLinesAriaPlural: '{n} lines of raw flight process output',
   // web/features/issue-triage.ts (board web-msnsndki-dz3vn1): the project
   // page's KEEPER issue-triage panel — title, loading placeholder, and the
   // empty/fetch-failure states. "KEEPER" is the persona's proper name and
@@ -1998,6 +2008,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     consoleEmpty: 'עדיין אין פלט מסוף.',
     consoleCollapsed: 'מכווץ — הרחיבו כדי לטעון.',
     consoleUnavailable: 'מסוף הטיסה אינו זמין.',
+    consoleTitle: '🖥️ מסוף טיסה',
+    consoleTitleTip: 'זנב stdout+stderr גולמי של תהליך הטיסה עבור הפרויקט הזה',
+    consoleLinesAriaSingular: '{n} שורה של פלט גולמי של תהליך הטיסה',
+    consoleLinesAriaPlural: '{n} שורות של פלט גולמי של תהליך הטיסה',
     issueTriageTitle: '🗝️ טריאז׳ issues של KEEPER',
     issueTriageLoading: 'בודק issues פתוחים מול הלוח…',
     issueTriageEmpty: 'אין issues פתוחים לטריאז׳.',
