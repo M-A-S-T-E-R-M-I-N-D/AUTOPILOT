@@ -76,6 +76,29 @@ export async function resolveSocialIdentity(exec: CliExec): Promise<SocialIdenti
   return { login, nameWithOwner: repo.nameWithOwner, role };
 }
 
+/** The role-gated dashboard's identity read (`GET /api/social-identity`,
+ *  epic 0019 "GitHub steward" law 1 extended to the UI — board
+ *  `web-mtt3f7j6-3bj899`) — composes {@link resolveSocialIdentity} behind
+ *  one call, the same injectable-exec-with-a-real-default seam
+ *  `publicity.ts`'s `createPublicityPreviewApi` uses. */
+export type SocialIdentityApi = () => Promise<SocialIdentity | undefined>;
+
+/** Builds the social identity read, defaulting to the real `gh` CLI like
+ *  {@link fetchSocialPassReport} does. Never rejects: a thrown `exec`
+ *  failure degrades to `undefined` (unresolved identity) rather than
+ *  crashing the route — the client already treats an unresolved identity as
+ *  "not a maintainer", so the fail-closed default here is also the
+ *  fail-safe one for the endpoint. */
+export function createSocialIdentityApi(exec: CliExec = ghExec): SocialIdentityApi {
+  return async () => {
+    try {
+      return await resolveSocialIdentity(exec);
+    } catch {
+      return undefined;
+    }
+  };
+}
+
 /** The two submission kinds `gh`'s `--author` filter can enumerate
  *  end-to-end today (see this module's own doc comment for why comments
  *  are a follow-up slice, not covered here). */

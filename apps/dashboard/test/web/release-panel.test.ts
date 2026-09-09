@@ -54,12 +54,15 @@ const STATE = {
   empty: false,
 };
 
-function bootWithRelease(release: unknown): void {
+function bootWithRelease(release: unknown, identity: unknown = null): void {
   document.open();
   document.write(renderShell('p1'));
   document.close();
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url.includes('/api/social-identity')) {
+      return { ok: true, json: async () => ({ identity }) } as unknown as Response;
+    }
     if (url.includes('/api/release')) {
       return { ok: true, json: async () => ({ release }) } as unknown as Response;
     }
@@ -152,6 +155,58 @@ describe('the RELEASE preview panel', () => {
       expect(document.querySelector('.release-body')).not.toBeNull();
     });
     expect(document.querySelector('[data-release-execute]')).toBeNull();
+  });
+});
+
+describe('RELEASE role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const RELEASABLE = {
+    tagName: 'v1.2.0',
+    currentVersion: '1.2.0',
+    plan: { ok: true, bump: 'minor', version: '1.3.0', changelog: '# Changelog' },
+  };
+
+  it('hides the EXECUTE button and its inputs for a confirmed non-owner, showing a guest note instead', async () => {
+    bootWithRelease(RELEASABLE, {
+      login: 'a-contributor',
+      nameWithOwner: 'octocat/hello-world',
+      role: 'user',
+    });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.release-body')?.textContent).toContain('1.2.0 → 1.3.0');
+    });
+    expect(document.querySelector('[data-release-execute]')).toBeNull();
+    expect(document.querySelector('.release-milestone-input')).toBeNull();
+    expect(document.querySelector('.release-guest-note')?.textContent).toBe(
+      'Releases on this repo are cut by its maintainer (octocat) — you are signed in as a-contributor.',
+    );
+  });
+
+  it('keeps the EXECUTE button for the resolved repo owner', async () => {
+    bootWithRelease(RELEASABLE, {
+      login: 'octocat',
+      nameWithOwner: 'octocat/hello-world',
+      role: 'maintainer',
+    });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-release-execute]')).not.toBeNull();
+    });
+    expect(document.querySelector('.release-guest-note')).toBeNull();
+  });
+
+  it('keeps the EXECUTE button when identity is unresolved — the common fully-local project with no GitHub remote', async () => {
+    bootWithRelease(RELEASABLE, null);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-release-execute]')).not.toBeNull();
+    });
+    expect(document.querySelector('.release-guest-note')).toBeNull();
   });
 });
 

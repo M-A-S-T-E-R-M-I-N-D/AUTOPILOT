@@ -54,6 +54,7 @@ import {
   releaseVersionItems,
   releaseConfirmMessage,
   releaseExecuteTip,
+  releaseGuestNote,
 } from '../release-panel.js';
 import { releaseMaturityOf } from '../../release/maturity.js';
 
@@ -80,12 +81,17 @@ ${releaseVersionItems.toString()}
 // interactivity audit v2, web-msm66jlc-gm4oom) — its real compiled source
 // via .toString(), not a hand-retyped copy. It can no longer drift apart.
 ${releaseExecuteTip.toString()}
+// releaseGuestNote is generated FROM web/release-panel.ts below (epic 0019
+// law 1 extended to the UI, board web-mtt3f7j6-3bj899) — its real compiled
+// source via .toString(), not a hand-retyped copy. It can no longer drift
+// apart.
+${releaseGuestNote.toString()}
 // releaseMaturityOf is generated FROM release/maturity.ts below (operator
 // ask, 2026-09-04: the ritual should KNOW an 0.x is an alpha) — its real
 // compiled source via .toString(), not a hand-retyped copy. It can no
 // longer drift apart from the server's own --prerelease decision.
 ${releaseMaturityOf.toString()}
-function renderReleaseBody(body, release, pid) {
+function renderReleaseBody(body, release, pid, identity) {
   body.replaceChildren();
   if (!release || !release.currentVersion) {
     var unavailableMsg = el('p', 'muted', 'Release preview unavailable.');
@@ -109,6 +115,18 @@ function renderReleaseBody(body, release, pid) {
     line.appendChild(tipChip(versionItems[vi][0], versionItems[vi][1], versionItems[vi][2], versionItems[vi][3]));
   }
   body.appendChild(line);
+
+  // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):
+  // a confirmed non-owner of this repo is a guest — it sees the preview
+  // above but never the EXECUTE button or the inputs feeding it. An
+  // unresolved identity (no gh, no GitHub remote at all — the common
+  // fully-local project) is NOT a known guest, so it falls through and the
+  // button renders exactly as before.
+  if (identity && identity.role === 'user') {
+    var guestNote = el('p', 'muted release-guest-note', releaseGuestNote(identity));
+    body.appendChild(guestNote);
+    return;
+  }
 
   var milestoneRow = el('div', 'release-milestone');
   var milestoneLabelId = 'release-milestone-' + pid;
@@ -220,11 +238,21 @@ function releaseSection(pid) {
   // after that sweep already ran — so each sweeps its own fresh DOM, the
   // split issue-triage.ts/flight-console.ts/coordination.ts already follow.
   // One sweep after renderReleaseBody covers every branch it can take.
-  fetch('/api/release?project=' + encodeURIComponent(pid))
-    .then(function (r) { return r.ok ? r.json() : { release: null }; })
-    .then(function (data) {
+  // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):
+  // fetched alongside the release preview, never blocking it — a failed
+  // identity read (own .catch()) still lets the release panel render, since
+  // an unresolved identity means "not a known guest", not "unavailable".
+  var identityFetch = fetch('/api/social-identity')
+    .then(function (r) { return r.ok ? r.json() : { identity: null }; })
+    .catch(function () { return { identity: null }; });
+  var releaseFetch = fetch('/api/release?project=' + encodeURIComponent(pid))
+    .then(function (r) { return r.ok ? r.json() : { release: null }; });
+  Promise.all([releaseFetch, identityFetch])
+    .then(function (results) {
       if (!body.isConnected) return;
-      renderReleaseBody(body, data && data.release, pid);
+      var data = results[0];
+      var identityData = results[1];
+      renderReleaseBody(body, data && data.release, pid, identityData && identityData.identity);
       translateDom(document.documentElement.lang || 'en');
     })
     .catch(function () {

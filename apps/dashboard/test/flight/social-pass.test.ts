@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   resolveSocialIdentity,
+  createSocialIdentityApi,
   fetchOwnSubmissions,
   fetchSocialPassReport,
   planSocialProtocol,
@@ -101,6 +102,40 @@ describe('resolveSocialIdentity', () => {
     });
 
     expect(await resolveSocialIdentity(exec)).toBeUndefined();
+  });
+});
+
+describe('createSocialIdentityApi', () => {
+  it('resolves the identity through the injected exec', async () => {
+    const exec = execFor({
+      'gh api user': { code: 0, stdout: JSON.stringify({ login: 'octocat' }) },
+      'gh repo view': {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: 'octocat/hello-world',
+          url: 'https://github.com/octocat/hello-world',
+          isPrivate: false,
+        }),
+      },
+    });
+
+    const api = createSocialIdentityApi(exec);
+
+    expect(await api()).toEqual({
+      login: 'octocat',
+      nameWithOwner: 'octocat/hello-world',
+      role: 'maintainer',
+    });
+  });
+
+  it('degrades to undefined rather than rejecting when exec throws', async () => {
+    const throwingExec = vi.fn(async () => {
+      throw new Error('gh not installed');
+    });
+
+    const api = createSocialIdentityApi(throwingExec);
+
+    await expect(api()).resolves.toBeUndefined();
   });
 });
 
