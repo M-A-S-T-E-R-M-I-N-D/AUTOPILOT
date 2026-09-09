@@ -15,6 +15,7 @@
  * sequential commits, not a skipped ritual.
  */
 
+import { dirname, join } from 'node:path';
 import { FileInstanceLock } from '@autopilot/engine';
 
 /** Shared across every flight launched from this checkout, independent of target project. */
@@ -32,6 +33,21 @@ export const RITUAL_LOCK_FILE_NAME = 'ritual.lock';
  * addendum).
  */
 export const AUTOFORMAT_LOCK_FILE_NAME = 'autoformat.lock';
+
+/**
+ * The on-disk path for a named lock, colocated with `dbPath`'s directory —
+ * the same lock directory every sibling instance flying this checkout
+ * already shares. `fly.ts` has two call sites that each build this path
+ * (the AUTOFORMAT critical section and the self-study PAPER ritual); before
+ * this function existed both repeated the identical `join(dirname(dbPath),
+ * X)` expression inline, so only the raw `X` constants — never the actual
+ * composed path a swapped or mistyped constant would produce — had any test
+ * coverage. Factoring the composition into one function both call sites
+ * share closes that gap and makes it directly testable.
+ */
+export function resolveLockPath(dbPath: string, lockFileName: string): string {
+  return join(dirname(dbPath), lockFileName);
+}
 
 export interface RitualLockOptions {
   /** How many times to retry acquiring before giving up. Default 30. */
