@@ -6,7 +6,11 @@ import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileInstanceLock } from '@autopilot/engine';
-import { RITUAL_LOCK_FILE_NAME, withRitualLock } from '../../src/flight/ritual-lock.js';
+import {
+  AUTOFORMAT_LOCK_FILE_NAME,
+  RITUAL_LOCK_FILE_NAME,
+  withRitualLock,
+} from '../../src/flight/ritual-lock.js';
 
 const dirs: string[] = [];
 
@@ -26,6 +30,16 @@ afterEach(() => {
 describe('RITUAL_LOCK_FILE_NAME', () => {
   it('is the fixed name shared across every flight launched from this checkout', () => {
     expect(RITUAL_LOCK_FILE_NAME).toBe('ritual.lock');
+  });
+});
+
+describe('AUTOFORMAT_LOCK_FILE_NAME', () => {
+  it('is the fixed name RemediatingGate serializes its critical section on', () => {
+    expect(AUTOFORMAT_LOCK_FILE_NAME).toBe('autoformat.lock');
+  });
+
+  it('is a SEPARATE lockfile from RITUAL_LOCK_FILE_NAME — an autoformat fix on one flight must never wait on an unrelated self-study ritual on another, or vice versa', () => {
+    expect(AUTOFORMAT_LOCK_FILE_NAME).not.toBe(RITUAL_LOCK_FILE_NAME);
   });
 });
 
