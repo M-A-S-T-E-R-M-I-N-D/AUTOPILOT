@@ -29,6 +29,12 @@ get a case study yet. Writing one anyway would mean inventing the missing number
 exactly the failure mode this directory exists to refuse. It gets one the next time it is flown
 for real, with telemetry captured live.
 
+The same refusal covers a sample that was never flown as a mission at all. `samples/static-site`
+was built directly as onboarding-detector test infrastructure (`00bc8f9a`, one firing, no
+`MISSION.md`) rather than delivered against a human ask — there is no brief to score the result
+against, so a case study would have nothing honest to narrate. It gets one the first time it is
+picked up as an actual flight target.
+
 ## Index
 
 | Mini-app | Case study | Telemetry source |
@@ -36,6 +42,7 @@ for real, with telemetry captured live.
 | [`samples/calculator`](../../samples/calculator) | [calculator.md](calculator.md) | observed live, launch night (2026-09-04) |
 | `samples/node-cli` | not yet — history squashed at `genesis`, no paper trail | none survives |
 | `samples/python-lib` | not yet — history squashed at `genesis`, no paper trail | none survives |
+| `samples/static-site` | not yet — built as a fixture, never flown as a mission | none — not yet flown |
 
 ## Adding one
 
