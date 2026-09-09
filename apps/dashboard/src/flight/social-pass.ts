@@ -233,6 +233,13 @@ export interface SocialCandidateAction {
    *  it simply skips the duplicate check rather than failing closed, since
    *  an untitled candidate cannot be compared. */
   readonly title?: string;
+  /** True when this candidate would use a maintainer-only verb — label,
+   *  triage, answer authoritatively (epic law 5, "role honesty"). A
+   *  candidate marked `true` is refused outright for a non-`'maintainer'`
+   *  role, never merely queued: a user identity does not earn maintainer
+   *  verbs by waiting for the next pass. Omitted (or `false`) for anything
+   *  any role may say — most candidates. */
+  readonly requiresMaintainer?: boolean;
 }
 
 /** Per-pass hard caps for each budgeted voice kind — the epic's law 4,
@@ -248,11 +255,15 @@ export interface SocialProtocolCaps {
  *  and may proceed; `queued` actions exceeded their kind's cap and must
  *  wait for a human or a later pass; `duplicate` actions matched something
  *  this identity already submitted and must never proceed at all — never
- *  dropped silently, never forced through, but also never re-said. */
+ *  dropped silently, never forced through, but also never re-said;
+ *  `refused` actions demanded maintainer verbs the acting identity's role
+ *  does not hold (epic law 5) — never allowed, never queued, since no
+ *  amount of waiting earns a role the identity does not have. */
 export interface SocialProtocolVerdict {
   readonly allowed: readonly SocialCandidateAction[];
   readonly queued: readonly SocialCandidateAction[];
   readonly duplicate: readonly SocialCandidateAction[];
+  readonly refused: readonly SocialCandidateAction[];
 }
 
 /** A titled `'new-issue'` candidate counts as a duplicate of an own
@@ -277,19 +288,26 @@ function isDuplicateOfOwnIssue(
 
 /** Admits `candidates` into `allowed` in order, per kind, up to `caps`' cap
  *  for that kind — first-come-first-admitted within a pass, matching the
- *  order the caller proposed them in. A `'new-issue'` candidate that
- *  duplicates one of `ownSubmissions`' own issue titles (epic law 1,
- *  "search before you speak"; law 2, "know what is already ours") is
- *  diverted to `duplicate` before the cap is even considered — a duplicate
- *  never consumes budget, since it was never going to be said. `ownSubmissions`
- *  defaults to empty for callers with nothing to dedup against yet. Pure: no
- *  I/O, no randomness, so both a cap-overflow and a duplicate-issue
- *  temptation scenario are deterministically reproducible in a test, the
- *  epic's own slice 6 red-team requirements. */
+ *  order the caller proposed them in. A candidate marked
+ *  {@link SocialCandidateAction.requiresMaintainer} is refused outright when
+ *  `role` isn't `'maintainer'` (epic law 5, "role honesty") before either
+ *  the duplicate or cap check runs — a role mismatch is a boundary, not a
+ *  budget question. A `'new-issue'` candidate that duplicates one of
+ *  `ownSubmissions`' own issue titles (epic law 1, "search before you
+ *  speak"; law 2, "know what is already ours") is diverted to `duplicate`
+ *  before the cap is even considered — a duplicate never consumes budget,
+ *  since it was never going to be said. `ownSubmissions` defaults to empty
+ *  for callers with nothing to dedup against yet; `role` defaults to the
+ *  least-privileged `'user'` so a caller that forgets to pass it never
+ *  accidentally admits a maintainer-only candidate. Pure: no I/O, no
+ *  randomness, so a cap-overflow, a duplicate-issue temptation, and a
+ *  role-confusion scenario are all deterministically reproducible in a
+ *  test, the epic's own slice 6 red-team requirements. */
 export function planSocialProtocol(
   candidates: readonly SocialCandidateAction[],
   caps: SocialProtocolCaps,
   ownSubmissions: readonly SocialSubmission[] = [],
+  role: SocialRole = 'user',
 ): SocialProtocolVerdict {
   const ownIssueTitles = ownSubmissions
     .filter((submission) => submission.kind === 'issue')
@@ -298,9 +316,14 @@ export function planSocialProtocol(
   const allowed: SocialCandidateAction[] = [];
   const queued: SocialCandidateAction[] = [];
   const duplicate: SocialCandidateAction[] = [];
+  const refused: SocialCandidateAction[] = [];
   let newIssueCount = 0;
   let commentCount = 0;
   for (const candidate of candidates) {
+    if (candidate.requiresMaintainer === true && role !== 'maintainer') {
+      refused.push(candidate);
+      continue;
+    }
     if (candidate.kind === 'new-issue') {
       if (isDuplicateOfOwnIssue(candidate, ownIssueTitles)) {
         duplicate.push(candidate);
@@ -319,5 +342,5 @@ export function planSocialProtocol(
       }
     }
   }
-  return { allowed, queued, duplicate };
+  return { allowed, queued, duplicate, refused };
 }
