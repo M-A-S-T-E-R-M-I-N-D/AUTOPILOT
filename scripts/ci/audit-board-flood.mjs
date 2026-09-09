@@ -29,18 +29,20 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const REPO = argValue('--repo') ?? 'M-A-S-T-E-R-M-I-N-D/AUTOPILOT';
 const AS_JSON = process.argv.includes('--json');
 
 /** Similarity at or above which two same-author messages are a duplicate. */
-const DUPLICATE_RATIO = 0.9;
+export const DUPLICATE_RATIO = 0.9;
 /** Same-author messages this many ms apart or less are rapid-fire. */
-const RAPID_FIRE_MS = 120_000;
+export const RAPID_FIRE_MS = 120_000;
 /** Consecutive same-author messages allowed before it reads as a flood. */
-const CONSECUTIVE_CEILING = 2;
+export const CONSECUTIVE_CEILING = 2;
 /** Messages shorter than this are greetings/acks — too small to compare. */
-const MIN_COMPARE_LENGTH = 40;
+export const MIN_COMPARE_LENGTH = 40;
 
 function argValue(flag) {
   const i = process.argv.indexOf(flag);
@@ -59,7 +61,7 @@ function gh(path) {
 /** Collapses the noise two retries of the same text differ by — smart
  *  punctuation swapped for ASCII, whitespace runs, case — so a retry that
  *  only survived the shell differently still reads as the same message. */
-function normalize(body) {
+export function normalize(body) {
   return (body ?? '')
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
@@ -75,7 +77,7 @@ function normalize(body) {
 /** Word-level Jaccard similarity — robust to the small edits a retry makes
  *  (a clause reworded, a symbol downgraded) in a way character diffing is
  *  not, and cheap enough for whole-board sweeps. */
-function similarity(a, b) {
+export function similarity(a, b) {
   const setA = new Set(a.split(' '));
   const setB = new Set(b.split(' '));
   if (setA.size === 0 || setB.size === 0) return 0;
@@ -111,7 +113,7 @@ function threadMessages(number, isPr) {
   return [...comments, ...reviews].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 
-function auditThread(thread, messages) {
+export function auditThread(thread, messages) {
   const findings = [];
   const normalized = messages.map((m) => normalize(m.body));
 
@@ -198,4 +200,8 @@ function main() {
   process.exitCode = findings.length === 0 ? 0 : 1;
 }
 
-main();
+// Guarded like every sibling scanner (secret-scan.mjs, validate-no-personal-
+// paths.mjs, …): importing this module for its pure functions (as the test
+// suite does) must never trigger a live `gh api` call against the real repo.
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
