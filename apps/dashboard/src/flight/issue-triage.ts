@@ -102,6 +102,11 @@ export interface IssueTriageAccept {
   readonly area: AreaLabel;
   /** The house `priority:` label (S2), classified the same way. */
   readonly priority: PriorityLabel;
+  /** The house starter milestone (S2; docs/GOVERNANCE.md "Starter
+   *  milestones") classified the same way — a third axis from {@link area}/
+   *  {@link priority}: which maturity phase the issue belongs to, not where
+   *  it lands or how urgent it is. */
+  readonly milestone: MilestoneTitle;
   readonly reasoning: string;
 }
 
@@ -311,6 +316,51 @@ export function classifyIssuePriority(text: string): PriorityLabel {
   return best;
 }
 
+/** The house starter milestone set (docs/GOVERNANCE.md "Starter milestones",
+ *  byte-for-byte record `taxonomy-seed.ts`'s `HOUSE_STARTER_MILESTONES`) —
+ *  declared order used for tie-breaking, same convention as {@link
+ *  AREA_LABELS}/{@link PRIORITY_LABELS}. Not imported from `taxonomy-seed.ts`
+ *  directly (same choice {@link AREA_LABELS} already made against
+ *  `HOUSE_TAXONOMY_LABELS`): a fresh repo needs the seeder to have created
+ *  these titles first, but this classifier's own contract is just "pick a
+ *  title from the fixed house set", independent of that ritual's plumbing. */
+const MILESTONE_TITLES = ['Foundations', 'V1', 'Hardening'] as const;
+export type MilestoneTitle = (typeof MILESTONE_TITLES)[number];
+
+/** Keyword signals for each starter milestone — a third axis from {@link
+ *  AREA_KEYWORDS}/{@link PRIORITY_KEYWORDS}: which maturity phase (docs/
+ *  GOVERNANCE.md's own milestone descriptions) an issue belongs to, not
+ *  where it lands or how urgent it is. `'V1'` has no keywords of its own —
+ *  same fallback shape as {@link PRIORITY_KEYWORDS}' `'priority: medium'` —
+ *  since it is the declared "first user-facing release" default for an
+ *  issue that signals neither foundational scaffolding nor a pre-release
+ *  hardening pass. */
+const MILESTONE_KEYWORDS: Record<MilestoneTitle, readonly string[]> = {
+  Foundations: ['scaffold', 'bootstrap', 'infrastructure', 'initial architecture'],
+  V1: [],
+  Hardening: ['security', 'vulnerab', 'accessib', 'a11y', 'harden', 'performance'],
+};
+
+/**
+ * Deterministic milestone classifier, same shape as {@link
+ * classifyIssuePriority}: the starter milestone whose keywords appear most
+ * in `text`, ties broken by {@link MILESTONE_TITLES}' declared order,
+ * falling back to `'V1'` when nothing matches.
+ */
+export function classifyIssueMilestone(text: string): MilestoneTitle {
+  const lower = text.toLowerCase();
+  let best: MilestoneTitle = 'V1';
+  let bestScore = 0;
+  for (const milestone of MILESTONE_TITLES) {
+    const score = MILESTONE_KEYWORDS[milestone].filter((keyword) => lower.includes(keyword)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = milestone;
+    }
+  }
+  return best;
+}
+
 /**
  * Decides what a KEEPER triage pass should do with one incoming issue, given
  * the current open board and backlog titles. Scores `issue.title` against
@@ -438,14 +488,17 @@ export function planIssueTriage(
   const dimension = classifyIssueDimension(text);
   const area = classifyIssueArea(text);
   const priority = classifyIssuePriority(text);
+  const milestone = classifyIssueMilestone(text);
   return {
     decision: 'accept',
     dimension,
     area,
     priority,
+    milestone,
     reasoning:
       `#${issue.number} "${issue.title}" doesn't match any open board task or backlog entry — ` +
-      `accepting it and labeling "pool: ${dimension}", "${area}", "${priority}".`,
+      `accepting it, labeling "pool: ${dimension}", "${area}", "${priority}", and setting ` +
+      `milestone "${milestone}".`,
   };
 }
 
@@ -461,9 +514,10 @@ export interface IssueTriageCommand {
 /**
  * Turns a {@link planIssueTriage} decision into the `gh` command(s) needed
  * to apply it: an accepted issue gets its pool, area, and priority labels
- * added in one `gh issue edit --add-label` call (docs/epics/0019-github-
- * steward.md S2: "accepted issues get area/priority labels") followed by a
- * comment posting the decision's reasoning; a duplicate gets GitHub's stock
+ * plus its milestone set in one `gh issue edit --add-label ... --milestone`
+ * call (docs/epics/0019-github-steward.md S2: "accepted issues get area/
+ * priority labels + a milestone") followed by a comment posting the
+ * decision's reasoning; a duplicate gets GitHub's stock
  * `duplicate` label — so later passes {@link planIssueTriage} skip it — plus
  * the reasoning comment; a `'skip'` plans nothing at all, keeping re-runs
  * idempotent. A `'dossier'` ALSO plans nothing here — its real commands need
@@ -524,11 +578,14 @@ export function planIssueTriageCommands(
         decision.area,
         '--add-label',
         decision.priority,
+        '--milestone',
+        decision.milestone,
         ...supersededLabels.flatMap((label) => ['--remove-label', label]),
       ],
       details:
         `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}" ` +
-        'per its classified dimension/area/priority' +
+        `and setting milestone "${decision.milestone}" per its classified ` +
+        'dimension/area/priority/milestone' +
         (supersededLabels.length > 0
           ? ` (replacing ${supersededLabels.map((l) => `"${l}"`).join(', ')})`
           : ''),

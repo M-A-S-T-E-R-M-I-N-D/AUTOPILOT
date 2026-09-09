@@ -198,12 +198,14 @@ describe('createIssueTriageExecuteApi', () => {
         '--add-label',
         'pool: accessibility',
         // epic 0019 S2: accepted issues now also earn the house area/priority
-        // labels in the same gh edit — this pin gained them when the KEEPER
-        // taxonomy slice landed.
+        // labels + milestone in the same gh edit — this pin gained them as the
+        // KEEPER taxonomy slice landed.
         '--add-label',
         'area: flight-engine',
         '--add-label',
         'priority: high',
+        '--milestone',
+        'V1',
       ]);
 
       const verify = openStore(dbPath);
