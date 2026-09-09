@@ -49,7 +49,7 @@
 | [~] Best-in-class hybrid RAG (SQLite FTS5 + local embeddings + BM25/vector ranker) — **FTS5 trigram + bm25 retrieval core + onboarding auto-index + RRF fusion core** done (`project_search` migration v4 + `SqliteSearchStore` + `reciprocalRankFusion` k=60, pure/tested); **vector leg LIVE**: `sqlite-vec` loaded into the same DB (`openVectorStore`+`SqliteVecStore`: lazy vec0 table, 384-dim, graceful BM25-only degradation) + `hybridSearch` (BM25⊕KNN via RRF, vector-only hits surface with content excerpts); remaining: local ONNX embedder (fastembed/transformers.js) for document+query vectors | REACTIVITY §1.1 | M4 |
 | [x] `<<< PROJECT_CONTENT >>>` untrusted-data injection defense — `buildAskPrompt` fences excerpts as untrusted data between explicit markers, defangs forged fence markers, and mandates no-guess replies (`ask-v1`, tested incl. break-out attempts) | REACTIVITY §5 | M4 |
 | [ ] Retrieval-as-MCP (one retrieval API for dashboard + any harness) | REACTIVITY §1.1 | M4 |
-| [~] Assign tasks (dashboard form / chat NL→draft / inbox / self-generated) → one unified task entity — **the assign→fly loop is CLOSED**: dashboard task form + done-button (POST /api/task/create|status), flights consume the open board (`firing-v3` BOARD section, prefer-assigned, task-id-as-METRICS-item), and gate-verified shipped firings auto-mark their task done; plus launch/stop a flight from the dashboard. Chat/inbox NL→draft + richer task entity fields pending | REACTIVITY §2 | M4 |
+| [~] Assign tasks (dashboard form / chat NL→draft / inbox / self-generated) → one unified task entity — **the assign→fly loop is CLOSED**: dashboard task form + done-button (POST /api/task/create|status), flights consume the open board (the firing prompt's own `BOARD` section, prefer-assigned, task-id-as-METRICS-item — `packages/engine/src/prompt.ts`, now `firing-v13`), and gate-verified shipped firings auto-mark their task done; plus launch/stop a flight from the dashboard (`/api/fly`, `/api/fly/stop`). **The Inbox path is also live**, contrary to this row's prior wording — a dropped note auto-triages into a real board task every firing (`flight/inbox-triage.ts`, credited in §E), matching REACTIVITY §2's own "via the Inbox" bullet verbatim. Only chat NL→draft (no chat surface exists yet, §D1) and self-generated repo/backlog mining (§E: the Triage sub-agent reorders the board but does not yet mine and file new tasks on its own) remain pending | REACTIVITY §2 | M4 |
 | [ ] Inline agent control-channel tokens ([task:… ], [defer:human …]) | REACTIVITY §2 | M4 |
 | [ ] Task/handoff/status worktree-orchestration dispatch contract (parallel workers) | REACTIVITY §2; MDVIEWER §4 | M7 |
 | [~] Live view: agent-semantics SSE + filesystem WS + `__live__` echo-suppression — **fleet-state SSE push** done (`/api/stream`: 1.5s cadence, same-origin, poll fallback; the flight bar + phase rail + activity move live during a flight); per-agent-semantic events + filesystem WS pending | REACTIVITY §3 | M4 |
@@ -205,6 +205,15 @@ that row was last touched; 326+ now) — a case of `FEATURE-COVERAGE.md` itself 
 not `BACKLOG-999.md`. The other 15 rows (K's MYTH/LEGACY/restore split, additive-git guarantee, SemVer/Changelog;
 L's pack/landing-site/operator-files/install rows; M's OSS/brand/community-health rows; N's WCAG-strictness row;
 O's harness-pack and multi-harness-catalog rows) were verified genuinely accurate against the live tree — no
-change. Section D (remaining rows) is still **not** re-audited —
+change. **Section D was audited on 2026-09-09 (board web-mtndm5fc-2vloky), closing the last unaudited section** —
+1 of its 9 rows corrected: the "Assign tasks" row bundled the Inbox path in with chat NL→draft as "pending," but
+`flight/inbox-triage.ts` already does exactly what REACTIVITY §2's "via the Inbox" bullet specifies (a dropped note
+auto-triages into a real board task every firing) — the SAME live behavior §E already credits elsewhere in this
+very doc, an internal contradiction this pass closes; its stale `firing-v3` citation was also corrected to the
+live `firing-v13`. The other 8 rows (the grounded-Ask/RAG split, the injection-defense fence, retrieval-as-MCP,
+inline control-channel tokens, the worktree task/handoff/status dispatch triad, the SSE live-view split, in-chat
+tool chips, and the activity map) were verified genuinely accurate against the live tree — no change. Every
+section (A–O) has now been re-audited against the live tree at least once; treat this matrix as current as of
+2026-09-09, but re-check any `[x]`/`[~]` mark before trusting it on a long-lived branch — code moves faster than docs.
 `BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this pass shows
 it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
