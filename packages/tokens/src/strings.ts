@@ -1140,6 +1140,16 @@ const EN_STRINGS = {
   releaseMaturityBeta: 'Beta',
   releaseMaturityRc: 'Release candidate',
   releaseMaturityStable: 'Stable',
+  // The EXECUTE button's own text states (release.ts's click handler): the
+  // initial label built fresh on every render (tr() at build time, same
+  // reasoning releaseMaturityLabel above follows), the in-flight "Releasing…"
+  // swap, and the network-failure fallback — the last named releaseRequestFailed
+  // rather than a shared 'requestFailed', following every other panel's own
+  // <panel>RequestFailed key (githubRequestFailed, poolRequestFailed,
+  // reportRequestFailed, issueTriageRequestFailed).
+  releaseExecuteButton: '🚀 Cut release v{version}',
+  releasing: 'Releasing…',
+  releaseRequestFailed: '✗ Request failed — try again shortly.',
   tourFiringTitle: 'Firing',
   tourFiringBody:
     'One autonomous work session: the agent orients, does the work, runs the gate, then commits — and stops. A flight is made of many firings.',
@@ -1885,6 +1895,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     releaseMaturityBeta: 'בטא',
     releaseMaturityRc: 'מועמדת לשחרור',
     releaseMaturityStable: 'יציבה',
+    releaseExecuteButton: '🚀 הוצא מהדורה v{version}',
+    releasing: 'מוציא…',
+    releaseRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     tourFiringTitle: 'הפעלה',
     tourFiringBody:
       'מפגש עבודה אוטונומי אחד: הסוכן מתמצא, מבצע את העבודה, מריץ את השער, ואז מבצע קומיט — ועוצר. טיסה מורכבת מהפעלות רבות.',

@@ -48,6 +48,19 @@
  * the page-level sweep that follows every `renderProjectPage()` tick, while
  * each async landing site sweeps itself since it can land well after that
  * tick's sweep already ran, the exact split `issue-triage.ts` follows.
+ * This slice finishes the EXECUTE click handler's own three text states,
+ * left as English literals when the rest of the panel was translated: the
+ * button's initial label (`releaseExecuteButton`, a `{version}` template
+ * substituted via `tr()`'s map form, the same shape `releaseMaturityLabel`
+ * above already established for text built fresh on every render), its
+ * in-flight "Releasing…" swap (`releasing`), and the network-failure
+ * fallback (`releaseRequestFailed`, named like every other panel's own
+ * `<panel>RequestFailed` key — `githubRequestFailed`, `poolRequestFailed`,
+ * `reportRequestFailed`, `issueTriageRequestFailed` — rather than one shared
+ * key). None of the three carry a `data-i18n` tag: the button rebuilds from
+ * scratch on every `renderReleaseBody()` call and the handler reads
+ * `document.documentElement.lang` itself at click time, so there is no
+ * stale DOM a mid-session locale switch could leave behind untranslated.
  */
 import {
   releaseExecuteResult,
@@ -195,7 +208,7 @@ function renderReleaseBody(body, release, pid) {
   var execBtn = document.createElement('button');
   execBtn.type = 'button';
   execBtn.className = 'release-execute';
-  execBtn.textContent = '🚀 Cut release v' + release.plan.version;
+  execBtn.textContent = tr('releaseExecuteButton', { version: release.plan.version });
   execBtn.setAttribute('data-release-execute', pid);
   var execTip = releaseExecuteTip(release.plan.version);
   execBtn.setAttribute('data-tip', execTip);
@@ -266,7 +279,7 @@ document.addEventListener('click', function (e) {
   if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease, tr))) return;
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = 'Releasing…';
+  b.textContent = tr('releasing');
   var payload = { project: pid };
   if (milestoneTag) payload.milestoneTag = milestoneTag;
   if (ghRelease) payload.ghRelease = true;
@@ -291,7 +304,7 @@ document.addEventListener('click', function (e) {
       b.textContent = originalText;
       if (resultEl) {
         resultEl.className = 'release-result release-result-fail';
-        resultEl.textContent = '✗ Request failed — try again shortly.';
+        resultEl.textContent = tr('releaseRequestFailed');
       }
     });
 });
