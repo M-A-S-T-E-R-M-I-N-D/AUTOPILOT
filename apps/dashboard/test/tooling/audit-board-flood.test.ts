@@ -25,6 +25,7 @@ import {
   RAPID_FIRE_MS,
   CONSECUTIVE_CEILING,
   MIN_COMPARE_LENGTH,
+  SNIPPET_LENGTH,
 } from '../../../../scripts/ci/audit-board-flood.mjs';
 
 function msg(
@@ -160,6 +161,65 @@ describe('auditThread — RAPID-FIRE', () => {
       msg(2, 'bob', '2026-09-09T10:00:05.000Z', 'two'),
     ]);
     expect(findings.filter((f) => f.kind === 'RAPID-FIRE')).toEqual([]);
+  });
+});
+
+describe('auditThread — evidence snippet (guard-precision doctrine: a red must carry matched TEXT)', () => {
+  const long = 'this message is deliberately long enough to clear the compare-length floor';
+
+  it('carries the matched message body, not just a ratio/id/url, on a NEAR-DUPLICATE finding', () => {
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00Z', long),
+      msg(2, 'bot', '2026-09-09T10:00:16Z', `${long}!`),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ kind: 'NEAR-DUPLICATE', snippet: `${long}!` }),
+    );
+  });
+
+  it('carries the tipping message body on a CONSECUTIVE-RUN finding', () => {
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00Z', 'one'),
+      msg(2, 'bot', '2026-09-09T10:05:00Z', 'two'),
+      msg(3, 'bot', '2026-09-09T10:10:00Z', 'three — the one that tips the ceiling'),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({
+        kind: 'CONSECUTIVE-RUN',
+        snippet: 'three — the one that tips the ceiling',
+      }),
+    );
+  });
+
+  it('carries the second message body on a RAPID-FIRE finding', () => {
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00.000Z', 'one'),
+      msg(2, 'bot', '2026-09-09T10:02:00.000Z', 'two, right after'),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ kind: 'RAPID-FIRE', snippet: 'two, right after' }),
+    );
+  });
+
+  it(`truncates a snippet past ${SNIPPET_LENGTH} characters with an ellipsis`, () => {
+    const overlong = 'x'.repeat(SNIPPET_LENGTH + 40);
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00.000Z', overlong),
+      msg(2, 'bot', '2026-09-09T10:02:00.000Z', overlong),
+    ]);
+    const rapidFire = findings.find((f) => f.kind === 'RAPID-FIRE');
+    expect(rapidFire?.snippet).toBe(`${'x'.repeat(SNIPPET_LENGTH)}…`);
+    expect(rapidFire?.snippet.length).toBe(SNIPPET_LENGTH + 1);
+  });
+
+  it('does NOT truncate a snippet at exactly the length ceiling (legit shape, must NOT ellipsize)', () => {
+    const exact = 'y'.repeat(SNIPPET_LENGTH);
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00.000Z', exact),
+      msg(2, 'bot', '2026-09-09T10:02:00.000Z', exact),
+    ]);
+    const rapidFire = findings.find((f) => f.kind === 'RAPID-FIRE');
+    expect(rapidFire?.snippet).toBe(exact);
   });
 });
 
