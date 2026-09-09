@@ -4073,6 +4073,7 @@ export function renderShell(project?: string): string {
   <section class="pr-review-panel" id="pr-review-panel" aria-label="KEEPER PR review" data-i18n-aria="keeperPrReview" hidden></section>
   <section class="pool-client-panel" id="pool-client-panel" aria-label="Contributor pool" data-i18n-aria="poolClientPanel" hidden></section>
   <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" hidden></nav>
+  <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" hidden></section>
   <section class="fleet-wisdom" id="fleet-wisdom" aria-label="Fleet wisdom proposal" data-i18n-aria="fleetWisdomProposal" hidden></section>
   <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" hidden>
     <form class="fly-form" id="fly-form">

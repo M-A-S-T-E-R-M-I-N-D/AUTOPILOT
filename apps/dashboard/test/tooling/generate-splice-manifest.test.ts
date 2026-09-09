@@ -41,6 +41,7 @@ import { activityHeatmapJs } from '../../src/web/features/activity-heatmap.js';
 import { activityJs } from '../../src/web/features/activity.js';
 import { backlogJs } from '../../src/web/features/backlog.js';
 import { connectJs } from '../../src/web/features/connect.js';
+import { contributorStandingJs } from '../../src/web/features/contributor-standing.js';
 import { coordinationJs } from '../../src/web/features/coordination.js';
 import { docsViewerJs } from '../../src/web/features/docs-viewer.js';
 import { evolutionJs } from '../../src/web/features/evolution.js';
@@ -106,6 +107,7 @@ const ACTIVITY_TS = featureTs('activity');
 const BACKLOG_TS = featureTs('backlog');
 const SWITCHER_TS = featureTs('switcher');
 const CONNECT_TS = featureTs('connect');
+const CONTRIBUTOR_STANDING_TS = featureTs('contributor-standing');
 const COORDINATION_TS = featureTs('coordination');
 const DOCS_VIEWER_TS = featureTs('docs-viewer');
 const EVOLUTION_TS = featureTs('evolution');
@@ -1359,6 +1361,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'activity.ts': ['activityJs'],
     'backlog.ts': ['backlogJs'],
     'connect.ts': ['connectJs'],
+    'contributor-standing.ts': ['contributorStandingJs'],
     'coordination.ts': ['coordinationJs'],
     'docs-viewer.ts': ['docsViewerJs'],
     'evolution.ts': ['evolutionJs'],
@@ -1409,6 +1412,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const activitySource = readFileSync(ACTIVITY_TS, 'utf8');
     const backlogSource = readFileSync(BACKLOG_TS, 'utf8');
     const connectSource = readFileSync(CONNECT_TS, 'utf8');
+    const contributorStandingSource = readFileSync(CONTRIBUTOR_STANDING_TS, 'utf8');
     const coordinationSource = readFileSync(COORDINATION_TS, 'utf8');
     const docsViewerSource = readFileSync(DOCS_VIEWER_TS, 'utf8');
     const evolutionSource = readFileSync(EVOLUTION_TS, 'utf8');
@@ -1448,6 +1452,11 @@ describe('discoverFeatureModules against the real src/web/features directory —
     ]);
     const directBacklogManifest = buildAssemblyManifest(backlogSource, BACKLOG_TS, ['backlogJs']);
     const directConnectManifest = buildAssemblyManifest(connectSource, CONNECT_TS, ['connectJs']);
+    const directContributorStandingManifest = buildAssemblyManifest(
+      contributorStandingSource,
+      CONTRIBUTOR_STANDING_TS,
+      ['contributorStandingJs'],
+    );
     const directCoordinationManifest = buildAssemblyManifest(coordinationSource, COORDINATION_TS, [
       'coordinationJs',
     ]);
@@ -1535,6 +1544,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directActivityManifest,
       directBacklogManifest,
       directConnectManifest,
+      directContributorStandingManifest,
       directCoordinationManifest,
       directDocsViewerManifest,
       directEvolutionManifest,
@@ -1827,13 +1837,14 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
     expect(source).toContain("import { activityJs } from './activity.js';");
     expect(source).toContain("import { backlogJs } from './backlog.js';");
     expect(source).toContain("import { connectJs } from './connect.js';");
+    expect(source).toContain("import { contributorStandingJs } from './contributor-standing.js';");
     expect(source).toContain("import { coordinationJs } from './coordination.js';");
     expect(source).toContain("import { docsViewerJs } from './docs-viewer.js';");
     expect(source).toContain("import { evolutionJs } from './evolution.js';");
@@ -1867,7 +1878,12 @@ describe('generateFeatureModulesIndexSource', () => {
     );
     expect(source.indexOf("'./activity.js'")).toBeLessThan(source.indexOf("'./backlog.js'"));
     expect(source.indexOf("'./backlog.js'")).toBeLessThan(source.indexOf("'./connect.js'"));
-    expect(source.indexOf("'./connect.js'")).toBeLessThan(source.indexOf("'./coordination.js'"));
+    expect(source.indexOf("'./connect.js'")).toBeLessThan(
+      source.indexOf("'./contributor-standing.js'"),
+    );
+    expect(source.indexOf("'./contributor-standing.js'")).toBeLessThan(
+      source.indexOf("'./coordination.js'"),
+    );
     expect(source.indexOf("'./coordination.js'")).toBeLessThan(
       source.indexOf("'./docs-viewer.js'"),
     );
@@ -1914,7 +1930,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2693,6 +2709,45 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
       await assembleFromManifest(manifest, 'connectJs', resolvedBindings)
     ).trim();
     expect(reassembled).toBe(connectJs());
+  });
+
+  /**
+   * contributorStandingJs's own reconstruction, from its real file under
+   * web/features/. It carries two real relative-import splices of its own
+   * (CONTRIBUTOR_STANDING_TIERS via JSON.stringify(), contributorStanding-
+   * TierSummary via .toString()), both resolved against web/features/ rather
+   * than SHELL_DIR, and no non-splice slots at all — the same shape
+   * tourJs's TOUR_STEPS/tourStepMeta pair already proves.
+   */
+  async function reconstructContributorStandingJs(): Promise<string> {
+    const contributorStandingSource = readFileSync(CONTRIBUTOR_STANDING_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(contributorStandingSource, CONTRIBUTOR_STANDING_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        contributorStandingSource,
+        'contributorStandingJs',
+        resolvedBindings,
+        undefined,
+        CONTRIBUTOR_STANDING_TS,
+      )
+    ).trim();
+  }
+
+  it('contributorStandingJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/contributor-standing.ts', async () => {
+    expect(await reconstructContributorStandingJs()).toBe(contributorStandingJs());
+  });
+
+  it('contributorStandingJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off contributor-standing.ts', async () => {
+    const contributorStandingSource = readFileSync(CONTRIBUTOR_STANDING_TS, 'utf8');
+    const manifest = buildAssemblyManifest(contributorStandingSource, CONTRIBUTOR_STANDING_TS, [
+      'contributorStandingJs',
+    ]);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'contributorStandingJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(contributorStandingJs());
   });
 
   /**
@@ -3701,6 +3756,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('activityJs', await reconstructActivityJs());
     nestedOutputs.set('backlogJs', await reconstructBacklogJs());
     nestedOutputs.set('connectJs', await reconstructConnectJs());
+    nestedOutputs.set('contributorStandingJs', await reconstructContributorStandingJs());
     nestedOutputs.set('coordinationJs', await reconstructCoordinationJs());
     nestedOutputs.set('docsViewerJs', await reconstructDocsViewerJs());
     nestedOutputs.set('evolutionJs', await reconstructEvolutionJs());
