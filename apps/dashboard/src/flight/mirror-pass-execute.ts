@@ -15,9 +15,11 @@
  * {@link readMirrorPassVersionDrift}/{@link readMirrorPassCountsDrift}/
  * {@link readMirrorPassLinkDrift}'s "README/docs public claims ↔ tree
  * reality" trio — each named directly by `docs/epics/0019-github-steward.md`.
- * The remaining derivation (stale-claim reaper) and the mutating execute
- * path are each their own slice per the VERDICT's split — not attempted
- * here.
+ * Also composes derivation 4/4 — {@link planMirrorPassStaleClaimBatch}'s
+ * stale-claim reaper ("assignee quiet 14d on a claimed pool issue → free it
+ * up"), the last of the four pure planners this file wires into a runnable
+ * preview. The mutating execute path for all four remains its own slice per
+ * the VERDICT's split — not attempted here.
  *
  * Same shape as `issue-triage-execute.ts`'s `createIssueTriagePreviewApi`:
  * gather real inputs for a project (its `github-<n>` board tasks, each
@@ -31,6 +33,7 @@ import { join } from 'node:path';
 import { openStore, listProjects, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
+import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
 import {
   planMirrorPassBatch,
   fetchMirrorPassIssueStates,
@@ -39,12 +42,16 @@ import {
   readMirrorPassVersionDrift,
   readMirrorPassCountsDrift,
   readMirrorPassLinkDrift,
+  fetchClaimedIssueActivity,
+  planMirrorPassStaleClaimBatch,
   type MirrorPassTaskCandidate,
   type MirrorPassPlan,
   type MirrorPassLandingNotePlan,
   type MirrorPassVersionDriftFinding,
   type MirrorPassCountsDriftFinding,
   type MirrorPassBrokenLinkFinding,
+  type MirrorPassClaimedIssue,
+  type MirrorPassStaleClaimPlan,
 } from './mirror-pass.js';
 
 /** One `github-<n>` task row as the `tasks` table stores it — just enough
@@ -199,6 +206,50 @@ export function createMirrorPassDriftPreviewApi(dbPath: string): MirrorPassDrift
         ),
         linkDrift: readMirrorPassLinkDrift(readmePath, root),
       };
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassStaleClaimPreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassStaleClaimPlan[] | null>;
+
+/**
+ * Build the MIRROR PASS stale-claim preview API (derivation 4/4) against the
+ * real store + real `gh` — same production wiring as
+ * {@link createMirrorPassPreviewApi}, composing {@link
+ * planMirrorPassStaleClaimBatch} instead of {@link planMirrorPassBatch}. The
+ * candidate pool is repo-wide (same "canonical repo, not project-scoped"
+ * shape `pool-client.ts`'s `fetchPoolIssues` already uses for browse/claim),
+ * not the project's own `github-<n>` board tasks — a claim is "in the pool"
+ * the moment KEEPER triage labels it, independent of whether any project's
+ * board ever mirrored it — so the store lookup here exists only to validate
+ * `projectId`, the same "unknown project ⇒ null" convention every other
+ * preview API in this file uses, never to scope the `gh` reads. Read-only:
+ * fetches every currently-claimed pool issue's live activity and plans a
+ * reap finding for each, never unassigns or comments.
+ */
+export function createMirrorPassStaleClaimPreviewApi(
+  dbPath: string,
+  exec: CliExec = ghExec,
+  now: () => number = Date.now,
+): MirrorPassStaleClaimPreviewApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      const activity: MirrorPassClaimedIssue[] = [];
+      for (const issue of claimedPoolIssues) {
+        const entry = await fetchClaimedIssueActivity(exec, issue.number);
+        if (entry) activity.push(entry);
+      }
+      return planMirrorPassStaleClaimBatch(activity, now());
     } finally {
       store.close();
     }

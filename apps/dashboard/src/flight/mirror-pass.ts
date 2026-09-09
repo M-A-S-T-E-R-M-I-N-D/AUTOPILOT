@@ -900,3 +900,34 @@ export async function fetchClaimedIssueActivity(
     lastActivityAt,
   };
 }
+
+/** One claimed issue's full derivation-4/4 outcome — the finding {@link
+ *  planMirrorPassStaleClaimReaper} reached (or `null` when the claim is
+ *  still fresh) paired with the `gh` commands {@link
+ *  planMirrorPassStaleClaimCommands} derived from it — same shape as {@link
+ *  MirrorPassPlan} for the other three derivations. */
+export interface MirrorPassStaleClaimPlan {
+  readonly issue: MirrorPassClaimedIssue;
+  readonly finding: MirrorPassStaleClaimFinding | null;
+  readonly commands: readonly MirrorPassCommand[];
+}
+
+/**
+ * Runs {@link planMirrorPassStaleClaimReaper} then {@link
+ * planMirrorPassStaleClaimCommands} for every issue in `issues` — the pure
+ * batch composer a caller (`mirror-pass-execute.ts`) pairs with a real
+ * `gh`-backed fetch of the currently-claimed pool issues, same "compose two
+ * already-pure functions, no I/O of its own" shape as {@link
+ * planMirrorPassBatch}.
+ */
+export function planMirrorPassStaleClaimBatch(
+  issues: readonly MirrorPassClaimedIssue[],
+  nowMs: number,
+  thresholdDays: number = STALE_TASK_DAYS,
+): readonly MirrorPassStaleClaimPlan[] {
+  return issues.map((issue) => {
+    const finding = planMirrorPassStaleClaimReaper(issue, nowMs, thresholdDays);
+    const commands = finding ? planMirrorPassStaleClaimCommands(finding) : [];
+    return { issue, finding, commands };
+  });
+}

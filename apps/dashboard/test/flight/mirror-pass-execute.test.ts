@@ -11,6 +11,7 @@ import {
   createMirrorPassPreviewApi,
   createMirrorPassLandingNotePreviewApi,
   createMirrorPassDriftPreviewApi,
+  createMirrorPassStaleClaimPreviewApi,
 } from '../../src/flight/mirror-pass-execute.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -75,6 +76,55 @@ function issueViewAndCommentsExec(
         };
       }
       return { code: 0, stdout: JSON.stringify({ number, state: entry.state.toUpperCase() }) };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+/** A `CliExec` stub answering `gh issue list --state open --json
+ *  number,title,url,labels,assignees` from `poolIssues` and `gh issue view
+ *  <n> --json number,state,assignees,comments,updatedAt` from `activity`
+ *  (issue number -> state/assignee/updatedAt) — the two reads
+ *  `createMirrorPassStaleClaimPreviewApi` composes. */
+function poolListAndActivityExec(
+  poolIssues: ReadonlyArray<{
+    number: number;
+    labels: readonly string[];
+    assignees: readonly string[];
+  }>,
+  activity: Readonly<
+    Record<number, { state: 'OPEN' | 'CLOSED'; assignee: string; updatedAt: string }>
+  >,
+): CliExec {
+  return vi.fn(async (_bin, args) => {
+    if (args[0] === 'issue' && args[1] === 'list') {
+      return {
+        code: 0,
+        stdout: JSON.stringify(
+          poolIssues.map((issue) => ({
+            number: issue.number,
+            title: `issue #${issue.number}`,
+            url: `https://github.com/x/y/issues/${issue.number}`,
+            labels: issue.labels.map((name) => ({ name })),
+            assignees: issue.assignees.map((login) => ({ login })),
+          })),
+        ),
+      };
+    }
+    if (args[0] === 'issue' && args[1] === 'view') {
+      const number = Number(args[2]);
+      const entry = activity[number];
+      if (entry === undefined) return { code: 1, stdout: '' };
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          number,
+          state: entry.state,
+          assignees: [{ login: entry.assignee }],
+          comments: [],
+          updatedAt: entry.updatedAt,
+        }),
+      };
     }
     return { code: 0, stdout: '' };
   });
@@ -505,6 +555,147 @@ describe('createMirrorPassDriftPreviewApi', () => {
 
       vi.mocked(openStore).mockClear();
       await createMirrorPassDriftPreviewApi(dbPath)('p1');
+      expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createMirrorPassStaleClaimPreviewApi', () => {
+  const NOW = Date.UTC(2026, 8, 9, 12, 0, 0);
+  const now = (): number => NOW;
+
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      const exec = poolListAndActivityExec([], {});
+      expect(await createMirrorPassStaleClaimPreviewApi(dbPath, exec, now)('nope')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('plans a reap finding for a claimed pool issue quiet past the stale threshold', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-fires-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const exec = poolListAndActivityExec(
+        [{ number: 5, labels: ['pool: web'], assignees: ['someone'] }],
+        { 5: { state: 'OPEN', assignee: 'someone', updatedAt: '2026-08-01T00:00:00Z' } },
+      );
+
+      const plans = await createMirrorPassStaleClaimPreviewApi(dbPath, exec, now)('p1');
+
+      expect(plans).toHaveLength(1);
+      expect(plans?.[0]?.finding).toMatchObject({
+        action: 'reap-stale-claim',
+        issueNumber: 5,
+        assignee: 'someone',
+      });
+      expect(plans?.[0]?.commands).toHaveLength(2);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('finds nothing to reap for a freshly-claimed pool issue, and never mutates', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-fresh-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const exec = poolListAndActivityExec(
+        [{ number: 6, labels: ['pool: web'], assignees: ['someone'] }],
+        { 6: { state: 'OPEN', assignee: 'someone', updatedAt: '2026-09-09T00:00:00Z' } },
+      );
+
+      const plans = await createMirrorPassStaleClaimPreviewApi(dbPath, exec, now)('p1');
+
+      expect(plans?.[0]?.finding).toBeNull();
+      expect(plans?.[0]?.commands).toHaveLength(0);
+      // Read-only: only the `issue list` + `issue view` reads happened.
+      expect(exec).toHaveBeenCalledTimes(2);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('ignores an unclaimed pool issue — nothing assigned, nothing to reap', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-unclaimed-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const exec = poolListAndActivityExec(
+        [{ number: 7, labels: ['pool: web'], assignees: [] }],
+        {},
+      );
+
+      const plans = await createMirrorPassStaleClaimPreviewApi(dbPath, exec, now)('p1');
+
+      expect(plans).toHaveLength(0);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('ignores an issue with no pool label — never in the pool to begin with', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-nolabel-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const exec = poolListAndActivityExec([{ number: 8, labels: [], assignees: ['someone'] }], {
+        8: { state: 'OPEN', assignee: 'someone', updatedAt: '2026-08-01T00:00:00Z' },
+      });
+
+      const plans = await createMirrorPassStaleClaimPreviewApi(dbPath, exec, now)('p1');
+
+      expect(plans).toHaveLength(0);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('defaults to the real CLI exec and Date.now when none is injected', () => {
+    expect(() => createMirrorPassStaleClaimPreviewApi('/tmp/unused.db')).not.toThrow();
+  });
+
+  it('opens the store read-only — a preview never writes', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-readonly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      vi.mocked(openStore).mockClear();
+      await createMirrorPassStaleClaimPreviewApi(
+        dbPath,
+        poolListAndActivityExec([], {}),
+        now,
+      )('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
     } finally {
       cleanupDir(dir);

@@ -2078,6 +2078,56 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('GET /api/mirror-pass/stale-claims previews the stale-claim reap finding for a known project', async () => {
+    const plans = [
+      {
+        issue: { number: 5, state: 'open' as const, assignee: 'someone', lastActivityAt: 100 },
+        finding: {
+          action: 'reap-stale-claim' as const,
+          issueNumber: 5,
+          assignee: 'someone',
+          quietDays: 14,
+          comment: 'Unassigning @someone — quiet for 14 days.',
+        },
+        commands: [],
+      },
+    ];
+    const base = await start({
+      mirrorPassStaleClaim: async (pid) => (pid === 'p1' ? plans : null),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/stale-claims?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ staleClaims: plans });
+
+    const unknown = await fetch(`${base}/api/mirror-pass/stale-claims?project=nope`);
+    expect(await unknown.json()).toEqual({ staleClaims: null });
+
+    const noProject = await fetch(`${base}/api/mirror-pass/stale-claims`);
+    expect(noProject.status).toBe(400);
+  });
+
+  it('degrades /api/mirror-pass/stale-claims to { staleClaims: null } instead of crashing when the read throws', async () => {
+    const base = await start({
+      mirrorPassStaleClaim: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/mirror-pass/stale-claims?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ staleClaims: null });
+  });
+
+  it('404s /api/mirror-pass/stale-claims when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/mirror-pass/stale-claims?project=p1`)).status).toBe(404);
+  });
+
+  it('405s /api/mirror-pass/stale-claims for a non-GET method', async () => {
+    const base = await start({ mirrorPassStaleClaim: async () => [] });
+    const res = await fetch(`${base}/api/mirror-pass/stale-claims?project=p1`, { method: 'POST' });
+    expect(res.status).toBe(405);
+  });
+
   it('POST /api/issue-triage/execute runs the ritual for a known project (CSRF-guarded)', async () => {
     const seen: string[] = [];
     const base = await start({
