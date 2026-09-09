@@ -144,13 +144,6 @@ export interface LiveFiringResult {
    *  renderer computes "elapsed" from this against the current clock rather
    *  than baking in a duration here, which would go stale between renders. */
   readonly startedAt: number;
-  /** `at` of the NEWEST activity — when the current `tool`/`target`/`kind`
-   *  action itself started, as opposed to `startedAt` (the whole firing's
-   *  start). Lets the renderer show how long THIS action has been running
-   *  (EPIC 0020 "the legible surface", slice 4): a gate step stuck for ten
-   *  minutes and one thirty seconds in currently render identically, since
-   *  only the whole-firing elapsed counter exists today. */
-  readonly currentActionAt: number;
   /** The operator-focused task's title, if one is locked (WIP-limit-1) — the
    *  honest best guess at "what this firing is working", not a self-report. */
   readonly focusTask: string | null;
@@ -214,7 +207,6 @@ export function liveFiringOf(
     recentActionsCapped: matching.length === p.activity.length,
     turnsSeen,
     startedAt: matching[matching.length - 1]!.at,
-    currentActionAt: newest.at,
     focusTask: p.tasks.find((t) => t.focus)?.title ?? null,
     narrator: narratorLineOf(matching),
     subagents: liveSubagents(matching),
@@ -277,7 +269,6 @@ export function liveFiringsOf(
       recentActionsCapped: matching.length === p.activity.length,
       turnsSeen,
       startedAt: matching[matching.length - 1]!.at,
-      currentActionAt: newest.at,
       focusTask,
       narrator: narratorLineOf(matching),
       subagents: liveSubagents(matching),

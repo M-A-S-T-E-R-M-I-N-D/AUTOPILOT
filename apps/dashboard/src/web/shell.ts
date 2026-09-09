@@ -928,20 +928,6 @@ function liveWorkerCard(c) {
     targetSpan.setAttribute('data-i18n-name', live.target);
     actionLine.appendChild(targetSpan);
   }
-  // Per-action elapsed (EPIC 0020 "the legible surface", slice 4): a four-
-  // minute ritual and a stalled one used to render identically — only the
-  // whole-firing elapsed counter existed, nothing timed THIS action. Stays
-  // English-only for now, same as the model/callsign chips above — no new
-  // STRINGS key needed for a first cut.
-  var actionElapsed = fmtElapsed(live.currentActionAt);
-  var actionElapsedEl = el('span', 'act-elapsed muted', actionElapsed);
-  actionElapsedEl.setAttribute('tabindex', '0');
-  actionElapsedEl.setAttribute(
-    'data-tip',
-    'how long this action has been running — a stalled one keeps climbing instead of completing',
-  );
-  actionElapsedEl.setAttribute('aria-label', 'running for ' + actionElapsed);
-  actionLine.appendChild(actionElapsedEl);
   wrap.appendChild(actionLine);
   var countLabel = liveWorkerCountLabel(live.recentActions, live.recentActionsCapped);
   var countEl = el('p', 'muted live-worker-count', countLabel);

@@ -126,22 +126,6 @@ describe('liveFiringsOf', () => {
     expect(f2?.startedAt).toBe(NOW - 1_000);
   });
 
-  it("times each lane's currentActionAt off its own newest row, not the lane's startedAt or another lane's newest", () => {
-    const p = project({
-      activity: [
-        act({ firingId: 'f2', at: NOW - 500 }),
-        act({ firingId: 'f1', at: NOW - 2_000 }),
-        act({ firingId: 'f1', at: NOW - 9_000 }),
-      ],
-    });
-    const lanes = liveFiringsOf(p, callsignOf, narratorLineOf, countTurnsOf);
-    const f1 = lanes.find((l) => l.firingId === 'f1');
-    const f2 = lanes.find((l) => l.firingId === 'f2');
-    expect(f1?.currentActionAt).toBe(NOW - 2_000);
-    expect(f1?.startedAt).toBe(NOW - 9_000);
-    expect(f2?.currentActionAt).toBe(NOW - 500);
-  });
-
   it('shares focusTask and avgFiringDurationMs across every lane rather than recomputing per lane', () => {
     const p = project({
       activity: [

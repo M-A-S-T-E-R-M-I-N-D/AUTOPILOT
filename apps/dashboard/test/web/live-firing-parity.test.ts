@@ -305,47 +305,6 @@ describe('client-side liveFiring aggregate stays in sync with the shared liveFir
     expect(document.querySelector('.live-model')?.textContent).toBe(expected?.model);
   });
 
-  it("times the current action off the newest activity, not the whole firing's start", async () => {
-    // EPIC 0020 "the legible surface", slice 4: a stalled gate step and a
-    // normal one used to render identically — only the whole-firing elapsed
-    // counter (startedAt, from the OLDEST activity row) existed. The newest
-    // row here is 90s old; the oldest is 10 minutes old — currentActionAt
-    // must key off the newest, or this action would misreport as stalled
-    // for 10 minutes when it only just started.
-    const activity = [
-      act({
-        tool: 'Bash',
-        target: 'pnpm run typecheck',
-        kind: 'command',
-        phase: 'gate',
-        firingId: 'p1:firing-3',
-        at: NOW - 90_000,
-      }),
-      act({
-        tool: 'Bash',
-        target: 'pnpm run lint',
-        kind: 'command',
-        phase: 'gate',
-        firingId: 'p1:firing-3',
-        at: NOW - 600_000,
-      }),
-    ];
-    await renderFleetPage({ ...BASE_PROJECT, activity });
-
-    const expected = liveFiringOf(
-      { status: 'flying', activity, flightLog: [], tasks: [] },
-      firingCallsign,
-      narratorLine,
-      countTurns,
-    );
-    expect(expected?.currentActionAt).toBe(NOW - 90_000);
-    expect(expected?.startedAt).toBe(NOW - 600_000);
-
-    const elapsedEl = document.querySelector('.act-elapsed');
-    expect(elapsedEl?.textContent).toBe('1m 30s');
-    expect(elapsedEl?.getAttribute('aria-label')).toBe('running for 1m 30s');
-  });
-
   it('hides the model chip when the newest activity predates per-step model tracking', async () => {
     const activity = [act({ firingId: 'p1:firing-3' })];
     await renderFleetPage({ ...BASE_PROJECT, activity });
