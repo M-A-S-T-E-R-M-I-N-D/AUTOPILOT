@@ -6,6 +6,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-09-09
+
+### Added
+
+- feat(ci): detect the merge that claims both parents and keeps one tree
+- feat(engine): deterministic diff-size gate — make "ONE small unit" mechanical (BACKLOG-999 C4) (#33)
+- feat(dashboard): a refusal that names an action now offers it
+- feat(dashboard): the maintainer's merge button, in the app
+- feat(dashboard): pr cards link out and show their pipeline stages
+- feat(flight): the anti-flood guard — a duplicate comment can no longer post
+- feat(engine): firing-v13 — four won-battle laws join the hard rules + the failure ledger
+- feat(mirror-pass): wire README/docs drift preview behind GET /api/mirror-pass/drift
+
+### Fixed
+
+- fix(test): raise hookTimeout alongside testTimeout — the half-applied fix
+- fix(dashboard): a refused action keeps its reason and its button
+- fix(dashboard): the pr-review panel stops rendering into a torn-down document
+- fix(dashboard): a refused action keeps its reason and its button
+- fix(dashboard): the pr-review panel stops rendering into a torn-down document
+- fix(deps): close the 4 open dependabot alerts via pnpm overrides
+- fix(dashboard): the KEEPER triage button goes disabled-with-reason on an all-skip round
+- fix(tooling): tests must not import built output — `pnpm verify` is red on any unbuilt tree (#32)
+- fix(dashboard): clarify pipeline view switch buttons with tooltips
+- fix(engine): reland ensureWorktree self-heal of orphaned lane dirs
+
 ## [0.30.0] — 2026-09-08
 
 ### Added
