@@ -6,6 +6,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-09-09
+
+### Added
+
+- feat(landing): close row 8 — the landing now publishes what it lands
+- feat(flight-console): time the current live-firing action, not just the whole firing
+- feat(flight-console): time the current live-firing action, not just the whole firing
+- feat(flight): social-flight weave-in trigger decides run-phase (epic 0016 slice 3/6)
+- feat(flight): social-pass core adds open-threads inventory (epic 0016 slice 1/6)
+- feat(ask): signal lowConfidence on a sourced-but-unanswered question
+- feat(flight): social-pass protocol engine enforces role honesty (epic 0016 law 5)
+- feat(flight): withAttribution() signs every outbound conversation (ATTRIBUTION 4/4, rung 1)
+- feat(ask): ground citations in file:line, not just bare file paths
+- feat(flight): social-pass protocol engine dedups new-issue candidates (epic 0016 law 1)
+
+### Fixed
+
+- fix(dashboard): the standing panel asks who is looking, and sync can push
+
+### Performance
+
+- perf(dashboard): one identity read per page, not one per panel
+
 ## [0.32.0] — 2026-09-09
 
 ### Added
