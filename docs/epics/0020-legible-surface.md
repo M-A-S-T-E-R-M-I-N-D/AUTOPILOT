@@ -53,7 +53,7 @@ same failure:
 | 2 | The maintainer's merge button on queue-for-human cards, disabled-with-reason until green | **shipped** — `flight/human-merge.ts` |
 | 3 | Same treatment for the KEEPER issue-triage panel: issue numbers link out, labels render as real chips, decisions link to the comment they will post | queued |
 | 4 | Flight console: per-step progress with elapsed time — which gate step is running, how long it has been there — instead of a static status word | queued |
-| 5 | Link census: a test that fails when a rendered GitHub noun (number, SHA, handle) has no link and the API reported a URL for it — the structural stop for failure #2 | queued |
+| 5 | Link census: a test that fails when a rendered GitHub noun (number, SHA, handle) has no link and the API reported a URL for it — the structural stop for failure #2 | **shipped** — `test/flight/link-census.test.ts` (found and fixed the pool-client panel's own dead issue-number link), `web/features/pool-client.ts`, `test/web/pool-client-link.test.ts` |
 | 6 | Payload census: a test that fails when a field fetched by a flight module never reaches any client renderer — the structural stop for failure #1 | queued |
 | 7 | Typography and rhythm pass across panels: one scale, deliberate spacing, hierarchy by size not by weight-everywhere | queued |
 
