@@ -58,20 +58,16 @@ describe('pipelineJs (the PIPELINE VIEW panel client)', () => {
     expect(js).toContain("b.setAttribute('aria-pressed', String(opt.value === state[key]))");
     // lens: fleet/file
     expect(js).toContain("'Pipeline lens', 'pipelineLensLabel'");
-    expect(js).toContain("{ value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet' }");
-    expect(js).toContain("{ value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles' }");
+    expect(js).toContain("{ value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet'");
+    expect(js).toContain("{ value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles'");
     // mode: grouped/flat
     expect(js).toContain("'Pipeline node grouping', 'pipelineModeLabel'");
-    expect(js).toContain("{ value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped' }");
-    expect(js).toContain("{ value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat' }");
+    expect(js).toContain("{ value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped'");
+    expect(js).toContain("{ value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat'");
     // layout: layered/compact
     expect(js).toContain("'Pipeline canvas layout', 'pipelineLayoutLabel'");
-    expect(js).toContain(
-      "{ value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered' }",
-    );
-    expect(js).toContain(
-      "{ value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact' }",
-    );
+    expect(js).toContain("{ value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered'");
+    expect(js).toContain("{ value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact'");
   });
 
   it('tags the title and switch group aria-labels/button labels for i18n', () => {
@@ -79,6 +75,18 @@ describe('pipelineJs (the PIPELINE VIEW panel client)', () => {
     expect(js).toContain("title.setAttribute('data-i18n', 'pipelineViewTitle')");
     expect(js).toContain("group.setAttribute('data-i18n-aria', labelI18nKey)");
     expect(js).toContain("b.setAttribute('data-i18n', opt.i18nKey)");
+  });
+
+  it('explains each switch option on hover/focus via the shared [data-tip] primitive (report-element-mb528l)', () => {
+    const js = pipelineJs();
+    expect(js).toContain("b.setAttribute('data-tip', opt.tip)");
+    // every option literal carries a tip — none left unexplained
+    expect(js).toContain("tip: 'Every recorded trace across the fleet.'");
+    expect(js).toContain("tip: 'Only files touched by gate-passed firings.'");
+    expect(js).toContain("tip: 'Folds each trace or file into a single node.'");
+    expect(js).toContain("tip: 'One node per individual span.'");
+    expect(js).toContain("tip: 'Gives every trace its own row.'");
+    expect(js).toContain("tip: 'Merges connected traces and grids single-span ones.'");
   });
 
   it('exposes the lens switch — filesTouched flows from the engine, so file is a real option', () => {
@@ -327,6 +335,29 @@ describe('pipeline selection interaction (real DOM)', () => {
       (b) => b.textContent === 'Files',
     )!;
     expect(filesButton.getAttribute('data-i18n')).toBe('pipelineLensFiles');
+  });
+
+  it('a lens button carries a hover/focus tip explaining what it does (report-element-mb528l)', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const filesButton = Array.from(document.querySelectorAll('.pipeline-lens-switch button')).find(
+      (b) => b.textContent === 'Files',
+    )!;
+    expect(filesButton.getAttribute('data-tip')).toBe('Only files touched by gate-passed firings.');
+  });
+
+  it('a switch tip stays English literal across a locale switch — no data-i18n-tip yet (tracked follow-up)', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    const filesButton = Array.from(document.querySelectorAll('.pipeline-lens-switch button')).find(
+      (b) => b.getAttribute('data-i18n') === 'pipelineLensFiles',
+    )!;
+    expect(filesButton.getAttribute('data-tip')).toBe('Only files touched by gate-passed firings.');
+    expect(filesButton.hasAttribute('data-i18n-tip')).toBe(false);
   });
 
   it('switching to Hebrew translates the panel title and the lens switch group/buttons', async () => {
