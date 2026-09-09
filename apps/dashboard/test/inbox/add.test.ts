@@ -49,12 +49,37 @@ describe('createInboxAddApi', () => {
       const api = createInboxAddApi(dbPath, () => 1_700_000_000_000);
       const result = await api('p1', 'context for the next firing');
       expect(result?.ok).toBe(true);
-      expect(result?.file).toMatch(/^2023-11-14T22-13-20-000Z-dashboard\.md$/);
+      expect(result?.file).toMatch(/^2023-11-14T22-13-20-000Z-[0-9a-z]{6}-dashboard\.md$/);
 
       const files = readdirSync(join(repo, 'INBOX'));
       expect(files).toEqual([result?.file]);
       const content = readFileSync(join(repo, 'INBOX', files[0] as string), 'utf8');
       expect(content).toBe('context for the next firing\n');
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('keeps both notes when two writes land in the same millisecond', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-inbox-collide-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-inbox-db3-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo);
+      s.close();
+
+      const api = createInboxAddApi(dbPath, () => 1_700_000_000_000);
+      const first = await api('p1', 'first note');
+      const second = await api('p1', 'second note');
+      expect(first?.file).not.toBe(second?.file);
+
+      const files = readdirSync(join(repo, 'INBOX'));
+      expect(files).toHaveLength(2);
+      const contents = files.map((f) => readFileSync(join(repo, 'INBOX', f), 'utf8'));
+      expect(contents.sort()).toEqual(['first note\n', 'second note\n']);
     } finally {
       cleanupDir(repo);
       cleanupDir(dbDir);
