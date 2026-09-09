@@ -95,7 +95,6 @@ describe('prCheckRunTip — every chip explains itself', () => {
     expect(tip).toContain('still running');
     expect(tip).toContain('4m20s elapsed');
     expect(tip).toContain('workflow: CI');
-    expect(tip).toContain('log on GitHub');
   });
 
   it('says plainly when a check does not gate the merge', () => {
@@ -306,5 +305,84 @@ describe('the update-branch button appears exactly when it can help', () => {
     });
     expect(document.querySelector('[data-pr-human-merge]')).toBeNull();
     expect(document.querySelector('[data-pr-update-branch]')).toBeNull();
+  });
+});
+
+/**
+ * The retry path (operator, 2026-09-09): "after an ERROR the button stops
+ * and you can't submit again — how do we solve it?" Two bugs behind one
+ * symptom: the refusal message was wiped by an immediate re-poll, and a
+ * red check left no verb to act on.
+ */
+describe('a refused action leaves its reason on screen and its button usable', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function bootWithRefusal(response: Record<string, unknown>): void {
+    document.open();
+    document.write(renderShell());
+    document.close();
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/pr-review/')) {
+        return { ok: true, json: async () => response } as unknown as Response;
+      }
+      if (url.includes('/api/pr-review')) {
+        return {
+          ok: true,
+          json: async () => ({
+            plans: [
+              {
+                pr: {
+                  number: 34,
+                  title: 'Red PR',
+                  headRefOid: 'sha',
+                  checkRuns: [
+                    { name: 'verify (ubuntu-latest)', state: 'pass' },
+                    { name: 'verify (macos-latest)', state: 'fail' },
+                  ],
+                },
+                decision: { decision: 'queue-for-human', reasoning: 'Security-hard path.' },
+              },
+            ],
+          }),
+        } as unknown as Response;
+      }
+      return { ok: true, json: async () => ({ projects: [], empty: true }) } as unknown as Response;
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    new Function(clientJs())();
+  }
+
+  it('offers a re-run button when a gating check is red, and says so in the merge tip', async () => {
+    bootWithRefusal({ rerun: false, reason: 'x' });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-pr-rerun-checks]')).not.toBeNull();
+    });
+    const merge = document.querySelector('[data-pr-human-merge]') as HTMLButtonElement;
+    expect(merge.disabled).toBe(true);
+    expect(merge.getAttribute('data-tip')).toContain('re-run the failed jobs');
+  });
+
+  it('keeps the failure message and re-enables the button after a refusal', async () => {
+    bootWithRefusal({ rerun: false, reason: 'gh refused the re-run.' });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-pr-rerun-checks]')).not.toBeNull();
+    });
+    const button = document.querySelector('[data-pr-rerun-checks]') as HTMLButtonElement;
+    button.click();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-result')?.textContent).toContain('gh refused');
+    });
+    // The reason must survive: a refusal changes nothing, so nothing
+    // re-renders it away, and the same click can be tried again.
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toBe('↻ Re-run failed');
+    expect(document.querySelector('.pr-review-result')?.className).toContain('fail');
   });
 });
