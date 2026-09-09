@@ -42,11 +42,16 @@ import { execFileSync } from 'node:child_process';
 
 const range = process.argv[2] ?? 'HEAD~50..HEAD';
 
-/** The tip of a range — what `git cherry` measures "already applied"
- *  against. `a..b` measures against b; a bare ref measures against it. */
-function headOf(r) {
-  const parts = r.split('..');
-  return parts.length === 2 && parts[1] ? parts[1] : r;
+/** The distinct content lines a diff ADDS, ignoring blank and file
+ *  headers — the unit of "what this side actually contributed". */
+function addedLines(diff) {
+  return new Set(
+    diff
+      .split('\n')
+      .filter((l) => l.startsWith('+') && !l.startsWith('+++'))
+      .map((l) => l.slice(1).trim())
+      .filter(Boolean),
+  );
 }
 
 function git(args) {
@@ -97,37 +102,31 @@ function main() {
 
     for (let i = 1; i < parents.length; i += 1) {
       const parent = parents[i];
-      // THE DECISIVE TEST, and the reason the pre-filter alone is not
-      // enough: an identical tree usually means the other side's work was
-      // ALREADY APPLIED — relanded, cherry-picked, or landed by a sibling
-      // lane first. Merging it then legitimately changes nothing. Run
-      // against this repo's real history the pre-filter alone flagged 14
-      // merges, every one of them a false positive. A guard with fourteen
-      // false alarms and no true ones trains everyone to ignore it
-      // (guard-precision doctrine, FAILURE-DOCTRINE row 6).
+      // THE DECISIVE TEST. Two earlier attempts got this wrong, and both
+      // wrongs are worth naming because they are the natural ones to make:
       //
-      // `git cherry` cannot answer this: the merge makes the parent
-      // reachable, so it reports every one of its commits as "applied"
-      // even when the content was discarded. The honest question is about
-      // the TREE, at the branch tip, restricted to the files the parent's
-      // own commits touched: is their work still there?
-      const files = git(['diff', '--name-only', `${parents[0]}...${parent}`])
-        .split('\n')
-        .map((f) => f.trim())
-        .filter(Boolean);
-      if (files.length === 0) continue;
-      const lost = git(['diff', '--no-color', headOf(range), parent, '--', ...files])
-        .split('\n')
-        .filter((line) => line.startsWith('+') && !line.startsWith('+++'));
+      //   1. "Does the parent have lines the merge lacks?" — flagged 14 of
+      //      this repo's 90 merges, every one a false positive. A lane that
+      //      is merely BEHIND on some file has old content the merge
+      //      legitimately superseded.
+      //   2. Comparing against the branch TIP instead of the merge — made
+      //      the answer depend on which branch you ran from. The same
+      //      commit passed on main and failed on PR #34, where unrelated
+      //      files legitimately differ. A check whose verdict changes with
+      //      the checkout is not a check.
+      //
+      // The question is only ever about ONE commit and its own parents:
+      // what did this parent ADD since the merge base, and is that in the
+      // merge's tree? Already-applied work is in the tree via the first
+      // parent and passes; a `-s ours` discard is not and fails. No branch
+      // tip is consulted, so the verdict is identical everywhere.
+      const base = git(['merge-base', parents[0], parent]).trim();
+      const contributed = addedLines(git(['diff', '--no-color', base, parent]));
+      if (contributed.size === 0) continue;
+      const absentFromMerge = addedLines(git(['diff', '--no-color', sha, parent]));
+      const lost = [...contributed].filter((line) => absentFromMerge.has(line));
       if (lost.length === 0) continue;
-      findings.push({
-        sha,
-        parent,
-        index: i,
-        lines: lost.length,
-        files,
-        sample: lost.slice(0, 3),
-      });
+      findings.push({ sha, parent, index: i, lines: lost.length, sample: lost.slice(0, 3) });
     }
   }
 
@@ -143,9 +142,9 @@ function main() {
   for (const f of findings) {
     console.error(`  ${f.sha.slice(0, 8)}  ${subject(f.sha)}`);
     console.error(
-      `    parent ${f.index} (${f.parent.slice(0, 8)}) has ${f.lines} line(s) MISSING from the branch tip:`,
+      `    parent ${f.index} (${f.parent.slice(0, 8)}) has ${f.lines} line(s) it ADDED that this merge does not contain:`,
     );
-    console.error(`    files it touched: ${f.files.slice(0, 5).join(', ')}`);
+
     for (const c of f.sample) console.error(`      ${c.slice(0, 90)}`);
     console.error('    A merge commit claims both parents are included. Re-merge without -s ours,');
     console.error('    or land the missing work as its own commit.\n');
