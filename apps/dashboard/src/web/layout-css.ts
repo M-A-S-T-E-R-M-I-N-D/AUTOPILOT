@@ -791,6 +791,12 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    the chip's width, and inherit-colored so the -live hover's accent voice
    recolors the badge together with its label. */
 .publicity-count { margin-inline-start: var(--space-2); padding: 0 var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); font-size: var(--text-xs); font-variant-numeric: tabular-nums; color: inherit; background: var(--color-surface); }
+.contributor-standing-panel { margin-bottom: var(--space-3); }
+.contributor-standing-title { margin: 0 0 var(--space-1); }
+.contributor-standing-intro { color: var(--color-text-muted); font-size: var(--text-sm); margin: 0 0 var(--space-2); }
+.contributor-standing-list { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-3); margin: 0; }
+.contributor-standing-tier { font-weight: 600; }
+.contributor-standing-summary { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
 .heatmap-wrap { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .heatmap-grid { display: block; margin-top: var(--space-2); }
 .heat-cell { cursor: default; }
