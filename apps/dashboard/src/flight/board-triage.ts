@@ -15,6 +15,8 @@
 import { recentTasks, reorderTasks, type Store } from '@autopilot/store';
 import {
   DEFAULT_ENGINE_CONFIG,
+  TOOL_LESS_ALLOWED_TOOLS,
+  TOOL_LESS_DISALLOWED_TOOLS,
   ClaudeCliModel,
   OllamaModel,
   tierForSubstepKind,
@@ -144,8 +146,8 @@ export async function runBoardTriage(deps: BoardTriageDeps, context: string): Pr
             fallbackModel: 'sonnet',
             maxTurns: 2,
             maxBudgetUsd: 0.5,
-            allowedTools: [],
-            disallowedTools: ['*'],
+            allowedTools: TOOL_LESS_ALLOWED_TOOLS,
+            disallowedTools: TOOL_LESS_DISALLOWED_TOOLS,
           },
           auth,
           pidRegistry,

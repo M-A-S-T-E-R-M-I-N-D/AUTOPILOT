@@ -128,6 +128,8 @@ import {
   ClaudeCliModel,
   StreamingClaudeCliModel,
   DEFAULT_ENGINE_CONFIG,
+  TOOL_LESS_ALLOWED_TOOLS,
+  TOOL_LESS_DISALLOWED_TOOLS,
   modelForTier,
   tierForSubstepKind,
   buildAskEscalationConfig,
@@ -273,8 +275,8 @@ const askEngineConfig = {
   fallbackModel: 'sonnet',
   maxTurns: 2,
   maxBudgetUsd: 0.5,
-  allowedTools: [],
-  disallowedTools: ['*'],
+  allowedTools: TOOL_LESS_ALLOWED_TOOLS,
+  disallowedTools: TOOL_LESS_DISALLOWED_TOOLS,
 };
 const askAuth = () => readConnectionConfig(join(dirname(dbPath), 'connection.json'));
 

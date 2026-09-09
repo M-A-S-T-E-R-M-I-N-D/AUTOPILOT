@@ -3,46 +3,89 @@
 
 /**
  * threat-model/render-table — the pure half of the TOOLGRANT:TABLE generator:
- * turns a tool grant into the marker-wrapped markdown block, splices that block
- * into a document, and normalizes the generated timestamp for comparison.
+ * turns each agent's tool grant into the marker-wrapped markdown block, splices
+ * that block into a document, and normalizes the generated timestamp for
+ * comparison.
  *
- * It is deliberately dependency-free — no `node:fs`, no `packages/*\/dist`, no
- * I/O of any kind — so `apps/dashboard/test/tooling/generate-table.test.ts` can
- * import it on a tree that has never been built. Its `generate-table.mjs`
- * caller is what reads the real grant out of `packages/engine/dist` and touches
- * the filesystem; that half stays out of the test's import graph because
- * `pnpm verify` runs `test:coverage` BEFORE `build`, so a build artifact simply
- * is not there yet when the tests run. Same split, and same reason, as
- * `scripts/self-study/history-guard.mjs` beside its `generate-data.mjs`.
- *
- * Keep it that way: adding an import of built output here would turn a fresh
- * clone's `pnpm verify` red at the test step.
+ * It is deliberately dependency-free — no `node:fs`, no built package output,
+ * no I/O of any kind — so `apps/dashboard/test/tooling/generate-table.test.ts`
+ * can import it on a tree that has never been built. Its `generate-table.mjs`
+ * caller is what reads the real grants out of the built engine and touches the
+ * filesystem; that half stays out of the test's import graph because
+ * `pnpm verify` runs `test:coverage` BEFORE `build`. Same split, same reason,
+ * as `scripts/self-study/history-guard.mjs` beside its `generate-data.mjs`;
+ * `apps/dashboard/test/tooling/tests-need-no-build.test.ts` is the gate that
+ * keeps it true.
  */
 
 export const MARKER_START = '<!-- TOOLGRANT:TABLE:START -->';
 export const MARKER_END = '<!-- TOOLGRANT:TABLE:END -->';
 
 /**
- * Renders the marker-wrapped TOOLGRANT:TABLE block for one tool grant.
+ * The table rows for one agent.
  *
- * @param {{ allowed: readonly string[], disallowed: readonly string[] }} grant
- *   The allowed/disallowed tool lists to tabulate — supplied by the caller so
- *   this module never has to reach for the built constants itself.
+ * Two shapes need special handling, and both for the same reason: an agent
+ * that renders ZERO rows reads as "not covered" rather than "denied
+ * everything", which is the opposite of the truth in a threat model.
+ *
+ *  - A `'*'` in `disallowed` is a WILDCARD, not a tool named `*`. Looping over
+ *    it would put a literal `| * |` row into a document meant to be read at
+ *    face value, so the whole grant collapses to one honest row instead.
+ *  - An agent with nothing on either list would otherwise vanish outright.
+ *
+ * Checked by shape rather than by matching one exact literal grant: the narrow
+ * form (`allowed: []` + `disallowed: ['*']`) is the only one in the tree today,
+ * but the next agent to deny everything may well encode it differently, and
+ * this table going quietly wrong is precisely the failure being guarded.
+ *
+ * @param {{ name: string, allowed: readonly string[], disallowed: readonly string[],
+ *   source: string }} agent
+ * @returns {string[]}
  */
-export function renderTable(grant) {
+function agentRows(agent) {
+  if (agent.disallowed.includes('*')) {
+    const except = agent.allowed.length > 0 ? ` (except ${agent.allowed.join(', ')})` : '';
+    return [
+      `| ${agent.name} | _(none)_ | ⛔ all tools denied (tool-less)${except} | ${agent.source} |`,
+    ];
+  }
+
+  const rows = [
+    ...agent.allowed.map((tool) => `| ${agent.name} | ${tool} | ✅ allowed | ${agent.source} |`),
+    ...agent.disallowed.map(
+      (tool) => `| ${agent.name} | ${tool} | ⛔ disallowed | ${agent.source} |`,
+    ),
+  ];
+  if (rows.length > 0) return rows;
+
+  return [`| ${agent.name} | _(none)_ | ⛔ no tools granted | ${agent.source} |`];
+}
+
+/**
+ * Renders the marker-wrapped TOOLGRANT:TABLE block for a list of agents.
+ *
+ * @param {ReadonlyArray<{
+ *   name: string,
+ *   allowed: readonly string[],
+ *   disallowed: readonly string[],
+ *   source: string,
+ * }>} agents Each agent's grant plus the citation for where the constant that
+ *   governs it lives — supplied by the caller so this module never has to reach
+ *   for the built constants itself. Rendered in the order given.
+ */
+export function renderTable(agents) {
   const generatedAt = new Date().toISOString();
   const lines = [
     MARKER_START,
-    `_Generated ${generatedAt} by \`pnpm threat-model:update\` from` +
-      ' `packages/engine/src/config.ts` `DEFAULT_ALLOWED_TOOLS` /' +
-      " `DEFAULT_DISALLOWED_TOOLS` — the source the flying agent's CLI invocation" +
-      ' actually builds its `--allowedTools`/`--disallowedTools` args from._',
+    `_Generated ${generatedAt} by \`pnpm threat-model:update\` from each agent's` +
+      ' own exported tool-grant constant (cited per row) — the source that' +
+      " agent's CLI invocation actually builds its `--allowedTools`/" +
+      '`--disallowedTools` args from._',
     '',
-    '| Tool | Grant |',
-    '|---|---|',
+    '| Agent | Tool | Grant | Source |',
+    '|---|---|---|---|',
   ];
-  for (const tool of grant.allowed) lines.push(`| ${tool} | ✅ allowed |`);
-  for (const tool of grant.disallowed) lines.push(`| ${tool} | ⛔ disallowed |`);
+  for (const agent of agents) lines.push(...agentRows(agent));
   lines.push(MARKER_END);
   return lines.join('\n');
 }

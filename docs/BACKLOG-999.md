@@ -201,7 +201,20 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [ ] **G4** Retrieval eval metrics for Ask/GENIUS RAG (M4+): faithfulness, context precision/recall, hallucination
   rate, answer-to-chunk traceability; calibrate any LLM-judge against accumulated operator verdicts
 - [ ] **I1** Agent/tool/credential inventory: one generated table — every agent (firing, triage, Ask, ARCHITECT,
-  M8 reviewers), the tools each reaches, the credentials each holds; regenerate on config change
+  M8 reviewers), the tools each reaches, the credentials each holds; regenerate on config change. Slice landed —
+  `scripts/threat-model/generate-table.mjs` now renders one combined Agent/Tool/Grant table (`docs/THREAT-MODEL.md`
+  §3) instead of just the main flying agent's; `packages/engine/src/config.ts`'s new `TOOL_LESS_ALLOWED_TOOLS`/
+  `TOOL_LESS_DISALLOWED_TOOLS` replaced the inline `[]`/`['*']` literals post-flight triage
+  (`flight/board-triage.ts`) and Ask tier 1 (`server/main.ts`) each hand-repeated, so both are now generator-visible
+  too, alongside the main flying agent and the Ask-escalation tier (already a named export). Remaining: the
+  auth-verification probe genuinely has no tool grant (fine as a documented zero-row); the M8 PR-reviewer LLM
+  surface (the SAST-style review propose-fix work tracked under M8 above, itself still `~` in progress) has not
+  been built in code anywhere in this repo yet — verified by grepping for any `allowedTools`/`disallowedTools`
+  literal or CLI/agent spawn outside the four already-generated rows, and for any GitHub Actions workflow invoking
+  `claude-code-action`; none exists — so there is no inline literal to extract yet. Re-check once that surface
+  actually spawns an agent. Credentials (§4) are still hand-maintained prose, not part of this generated table
+  yet — that's the next concrete slice, though it's a larger one: §4 is narrative (location/purpose/at-rest
+  protection), not a flat tool list, so it needs its own structured source before it can generate cleanly.
 - [x] **Board hygiene** Reconcile board vs git on session end: interactive-session work marks no task done (only
   flight METRICS ids do) — reuse the headline resolver's commit↔title matching to propose "this shipped, mark done?"
   The matching primitive landed (`ap-msksw1mf-3`) — `findReconciliationCandidates`/`titleMatchScore` in
