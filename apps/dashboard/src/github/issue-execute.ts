@@ -29,7 +29,7 @@
  */
 
 import { planGithubIssue } from '@autopilot/engine';
-import { UPSTREAM_REPO } from '../info.js';
+import { UPSTREAM_REPO, PRODUCT_VERSION } from '../info.js';
 import { getGhStatus } from '../connection/gh-probe.js';
 import { realCliExec, type CliExec } from '../connection/cli-probe.js';
 import { realRunner, type CommandRunner } from './execute.js';
@@ -57,11 +57,15 @@ export type GithubIssueExecuteApi = (
  *  real CLI probe exec; tests inject fakes for both so no real `gh auth
  *  status`/`gh issue create` ever fires. `upstreamRepo` defaults to the
  *  canonical `UPSTREAM_REPO`; tests override it to assert the exact `--repo`
- *  argument without depending on that constant's live value. */
+ *  argument without depending on that constant's live value. `version`
+ *  defaults to `PRODUCT_VERSION` — the identity-law disclosure's
+ *  `docs/ATTRIBUTION.md` §2 spread-line names the version that actually
+ *  filed the issue; tests override it too, for the same reason. */
 export function createGithubIssueExecuteApi(
   runCommand: CommandRunner = realRunner,
   upstreamRepo: string = UPSTREAM_REPO,
   ghExec: CliExec = realCliExec,
+  version: string = PRODUCT_VERSION,
 ): GithubIssueExecuteApi {
   return async (title, body) => {
     const status = await getGhStatus(ghExec);
@@ -74,7 +78,7 @@ export function createGithubIssueExecuteApi(
 
     let plan;
     try {
-      plan = planGithubIssue(upstreamRepo, status.login, title, body);
+      plan = planGithubIssue(upstreamRepo, status.login, title, body, version);
     } catch (error) {
       return {
         ok: false,

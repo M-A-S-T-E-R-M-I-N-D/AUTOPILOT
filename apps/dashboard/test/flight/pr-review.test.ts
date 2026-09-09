@@ -231,6 +231,13 @@ const BENIGN_FLIGHT = new Set([
   // pool-client.ts: the executor that acts on an admitted plan is a
   // follow-up slice that will need its own marker once it ships one.
   'social-pass.ts',
+  // SOCIAL FLIGHT weave-in 3/6 (board web-mtpzzx23-n1kqv0's follow-on
+  // slice): parseSocialFlightToggle/shouldRunSocialFlight are pure functions
+  // over an env-var string and a phase enum — no I/O, no gh call, and not
+  // imported from fly.ts or anywhere else yet. The fly.ts hook wiring that
+  // will actually call the social pass at a phase is a follow-up slice that
+  // will need its own marker once it ships one.
+  'social-flight-trigger.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
@@ -815,6 +822,12 @@ const BENIGN_WEB = new Set([
   'flight-metrics.ts',
   'flights.ts',
   'markdown.ts',
+  // mirror-pass-panel.ts: pure MIRROR PASS finding-to-line formatting over
+  // the server's four already-flagged read-only preview endpoints
+  // (`flight/mirror-pass.ts` + `flight/mirror-pass-execute.ts`) — no HTML
+  // building, no fetch, no writes, preview-only (the mutating execute path
+  // is a separate, unwired VERDICT slice).
+  'mirror-pass-panel.ts',
   'notifications.ts',
   'operator-actions.ts',
   'phase-rail.ts',
@@ -924,6 +937,11 @@ const BENIGN_WEB_FEATURES = new Set([
   'locale-data.ts',
   'locale.ts',
   'metrics.ts',
+  // mirror-pass.ts: GET-only fetch of the four already-flagged
+  // `flight/mirror-pass*` preview endpoints, folded via the already-flagged
+  // `mirror-pass-panel.ts` and rendered read-only — no execute button, the
+  // mutating path is a separate, unwired VERDICT slice.
+  'mirror-pass.ts',
   'notifications.ts',
   'office-map.ts',
   'process-health.ts',

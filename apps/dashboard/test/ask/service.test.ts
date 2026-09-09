@@ -6,6 +6,7 @@ import {
   LIVE_STATE_LABEL,
   VIEW_CONTEXT_LABEL,
   ASK_ESCALATION_PROMPT_VERSION,
+  NO_ANSWER,
   type Activity,
 } from '@autopilot/engine';
 import {
@@ -273,6 +274,50 @@ describe('askProject', () => {
     expect(prompt).not.toContain('question 0');
     expect(prompt).toContain('question 9');
   });
+
+  it('flags lowConfidence when sources existed but the model gave the exact NO_ANSWER refusal', async () => {
+    const result = await askProject(deps({ invoke: () => Promise.resolve(NO_ANSWER) }), 'p1', 'q?');
+    expect(result.ok).toBe(true);
+    expect(result.answer).toBe(NO_ANSWER);
+    expect(result.lowConfidence).toBe(true);
+  });
+
+  it('omits lowConfidence entirely on a real answer', async () => {
+    const result = await askProject(
+      deps({ invoke: () => Promise.resolve('a real answer') }),
+      'p1',
+      'q?',
+    );
+    expect(result.lowConfidence).toBeUndefined();
+  });
+
+  it('omits lowConfidence on the zero-sources auto-escalated answer', async () => {
+    const escalate = vi.fn(() => Promise.resolve<string | null>(NO_ANSWER));
+    const result = await askProject(
+      deps({
+        sources: () => [],
+        projectMap: () => null,
+        liveState: () => null,
+        escalation: { invoke: escalate },
+      }),
+      'p1',
+      'q?',
+    );
+    expect(result.lowConfidence).toBeUndefined();
+  });
+
+  it('omits lowConfidence on a deep:true forced escalation', async () => {
+    const escalate = vi.fn(() => Promise.resolve<string | null>(NO_ANSWER));
+    const result = await askProject(
+      deps({ escalation: { invoke: escalate } }),
+      'p1',
+      'q?',
+      undefined,
+      undefined,
+      true,
+    );
+    expect(result.lowConfidence).toBeUndefined();
+  });
 });
 
 describe('askProjectStream', () => {
@@ -479,6 +524,42 @@ describe('askProjectStream', () => {
     const prompt = invokeStream.mock.calls[0]?.[0] ?? '';
     expect(prompt).toContain('fleet page (all projects)');
   });
+
+  it('flags lowConfidence when sources existed but the model gave the exact NO_ANSWER refusal', async () => {
+    const invokeStream = vi.fn((_p: string, onChunk: (t: string) => void) => {
+      onChunk(NO_ANSWER);
+      return Promise.resolve<string | null>(NO_ANSWER);
+    });
+    const result = await askProjectStream(streamDeps({ invokeStream }), 'p1', 'q?', () => {});
+    expect(result.ok).toBe(true);
+    expect(result.answer).toBe(NO_ANSWER);
+    expect(result.lowConfidence).toBe(true);
+  });
+
+  it('omits lowConfidence entirely on a real answer', async () => {
+    const invokeStream = vi.fn((_p: string, onChunk: (t: string) => void) => {
+      onChunk('a real answer');
+      return Promise.resolve<string | null>('a real answer');
+    });
+    const result = await askProjectStream(streamDeps({ invokeStream }), 'p1', 'q?', () => {});
+    expect(result.lowConfidence).toBeUndefined();
+  });
+
+  it('omits lowConfidence on the zero-sources auto-escalated answer', async () => {
+    const escalate = vi.fn(() => Promise.resolve<string | null>(NO_ANSWER));
+    const result = await askProjectStream(
+      streamDeps({
+        sources: () => [],
+        projectMap: () => null,
+        liveState: () => null,
+        escalation: { invoke: escalate },
+      }),
+      'p1',
+      'q?',
+      () => {},
+    );
+    expect(result.lowConfidence).toBeUndefined();
+  });
 });
 
 function escalationDeps(over: Partial<AskEscalationDeps> = {}): AskEscalationDeps {
@@ -631,6 +712,21 @@ describe('ARCHITECT persona (epic 0011 slice 3)', () => {
       'q?',
     );
     expect(result.answer).toContain(ARCHITECT_PROPOSAL_FENCE);
+    expect(result.proposal).toBeUndefined();
+  });
+
+  it('flags lowConfidence under the ARCHITECT persona too, when the answer is the exact NO_ANSWER refusal', async () => {
+    const result = await askProject(
+      deps({ invoke: () => Promise.resolve(NO_ANSWER) }),
+      'p1',
+      'q?',
+      undefined,
+      undefined,
+      undefined,
+      'architect',
+    );
+    expect(result.answer).toBe(NO_ANSWER);
+    expect(result.lowConfidence).toBe(true);
     expect(result.proposal).toBeUndefined();
   });
 

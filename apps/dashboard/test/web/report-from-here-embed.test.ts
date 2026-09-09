@@ -7,10 +7,10 @@
  * `reportFromHereSection` panels this file used to pin (BOARD
  * web-mss50ia8-nthtf3, "PLATFORM 5/7") are gone; `renderProjectPage()` now
  * tags each region's own container with `REPORT_REGION_ATTR` directly at
- * render instead. This pins that each of the eight project-page regions
- * (flight console, KEEPER issue triage, detected backlog, docs, this round,
- * next release, landing, tasks) is tagged exactly once with its real
- * `regionId`, and that a right-click inside a tagged region resolves the
+ * render instead. This pins that each of the nine project-page regions
+ * (flight console, KEEPER issue triage, mirror pass, detected backlog, docs,
+ * this round, next release, landing, tasks) is tagged exactly once with its
+ * real `regionId`, and that a right-click inside a tagged region resolves the
  * owning module `web/shell.ts`'s `REPORT_REGIONS` carries for it — the
  * contract `web/features/report-menu.ts`'s dialog and
  * `web/features/report-capture-client.ts`'s resolver depend on.
@@ -78,6 +78,14 @@ const REGIONS: ReadonlyArray<{
     moduleSources: [
       'apps/dashboard/src/web/features/issue-triage.ts',
       'apps/dashboard/src/flight/issue-triage.ts',
+    ],
+  },
+  {
+    regionId: 'mirror-pass',
+    regionLabel: 'Mirror pass',
+    moduleSources: [
+      'apps/dashboard/src/web/features/mirror-pass.ts',
+      'apps/dashboard/src/web/mirror-pass-panel.ts',
     ],
   },
   {

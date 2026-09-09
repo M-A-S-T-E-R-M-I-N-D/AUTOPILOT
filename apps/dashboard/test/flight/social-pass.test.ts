@@ -6,9 +6,11 @@ import {
   resolveSocialIdentity,
   createSocialIdentityApi,
   fetchOwnSubmissions,
+  fetchOpenThreads,
   fetchSocialPassReport,
   planSocialProtocol,
   type SocialCandidateAction,
+  type SocialSubmission,
 } from '../../src/flight/social-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -257,8 +259,98 @@ describe('fetchOwnSubmissions', () => {
   });
 });
 
+describe('fetchOpenThreads', () => {
+  it('calls gh issue list and gh pr list filtered to open, with no --author', async () => {
+    const exec = execFor({
+      'issue list': { code: 0, stdout: '[]' },
+      'pr list': { code: 0, stdout: '[]' },
+    });
+
+    await fetchOpenThreads(exec);
+
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'issue',
+      'list',
+      '--state',
+      'open',
+      '--json',
+      'number,title,url,state',
+    ]);
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'pr',
+      'list',
+      '--state',
+      'open',
+      '--json',
+      'number,title,url,state',
+    ]);
+    expect(exec).not.toHaveBeenCalledWith('gh', expect.arrayContaining(['--author']));
+  });
+
+  it('merges parsed issues before PRs', async () => {
+    const exec = execFor({
+      'issue list': {
+        code: 0,
+        stdout: JSON.stringify([
+          {
+            number: 3,
+            title: 'Someone else filed this',
+            url: 'https://github.com/o/r/issues/3',
+            state: 'OPEN',
+          },
+        ]),
+      },
+      'pr list': {
+        code: 0,
+        stdout: JSON.stringify([
+          { number: 4, title: 'An open PR', url: 'https://github.com/o/r/pull/4', state: 'OPEN' },
+        ]),
+      },
+    });
+
+    expect(await fetchOpenThreads(exec)).toEqual([
+      {
+        kind: 'issue',
+        number: 3,
+        title: 'Someone else filed this',
+        url: 'https://github.com/o/r/issues/3',
+        state: 'OPEN',
+      },
+      {
+        kind: 'pr',
+        number: 4,
+        title: 'An open PR',
+        url: 'https://github.com/o/r/pull/4',
+        state: 'OPEN',
+      },
+    ]);
+  });
+
+  it('degrades a failing read to an empty list without failing the other', async () => {
+    const exec = execFor({
+      'issue list': { code: 1, stdout: '' },
+      'pr list': {
+        code: 0,
+        stdout: JSON.stringify([
+          { number: 4, title: 'An open PR', url: 'https://github.com/o/r/pull/4', state: 'OPEN' },
+        ]),
+      },
+    });
+
+    expect(await fetchOpenThreads(exec)).toEqual([
+      {
+        kind: 'pr',
+        number: 4,
+        title: 'An open PR',
+        url: 'https://github.com/o/r/pull/4',
+        state: 'OPEN',
+      },
+    ]);
+  });
+});
+
 describe('fetchSocialPassReport', () => {
-  it('composes identity and own-submissions behind one call', async () => {
+  it('composes identity, own-submissions, and open-threads behind one call', async () => {
     const exec = execFor({
       'gh api user': { code: 0, stdout: JSON.stringify({ login: 'octocat' }) },
       'gh repo view': {
@@ -269,13 +361,25 @@ describe('fetchSocialPassReport', () => {
           isPrivate: false,
         }),
       },
-      'issue list': {
+      'issue list --author': {
         code: 0,
         stdout: JSON.stringify([
           { number: 1, title: 'An issue', url: 'https://github.com/o/r/issues/1', state: 'OPEN' },
         ]),
       },
-      'pr list': { code: 0, stdout: '[]' },
+      'pr list --author': { code: 0, stdout: '[]' },
+      'issue list --state': {
+        code: 0,
+        stdout: JSON.stringify([
+          {
+            number: 3,
+            title: 'Someone else filed this',
+            url: 'https://github.com/o/r/issues/3',
+            state: 'OPEN',
+          },
+        ]),
+      },
+      'pr list --state': { code: 0, stdout: '[]' },
     });
 
     const report = await fetchSocialPassReport(exec);
@@ -294,18 +398,31 @@ describe('fetchSocialPassReport', () => {
         state: 'OPEN',
       },
     ]);
+    expect(report.openThreads).toEqual([
+      {
+        kind: 'issue',
+        number: 3,
+        title: 'Someone else filed this',
+        url: 'https://github.com/o/r/issues/3',
+        state: 'OPEN',
+      },
+    ]);
   });
 
-  it('skips the own-submissions read entirely when identity is unresolved', async () => {
+  it('skips the own-submissions read but still fetches open-threads when identity is unresolved', async () => {
     const exec = execFor({
       'gh api user': { code: 1, stdout: '' },
+      'issue list --state': { code: 0, stdout: '[]' },
+      'pr list --state': { code: 0, stdout: '[]' },
     });
 
     const report = await fetchSocialPassReport(exec);
 
     expect(report.identity).toBeUndefined();
     expect(report.ownSubmissions).toEqual([]);
+    expect(report.openThreads).toEqual([]);
     expect(exec).not.toHaveBeenCalledWith('gh', expect.arrayContaining(['--author']));
+    expect(exec).toHaveBeenCalledWith('gh', expect.arrayContaining(['--state', 'open']));
   });
 });
 
@@ -364,10 +481,325 @@ describe('planSocialProtocol', () => {
     ).toEqual([...candidates].sort((a, b) => a.reasoning.localeCompare(b.reasoning)));
   });
 
-  it('returns empty allowed/queued for zero candidates', () => {
+  it('returns empty allowed/queued/duplicate/refused for zero candidates', () => {
     expect(planSocialProtocol([], { maxNewIssues: 3, maxComments: 3 })).toEqual({
       allowed: [],
       queued: [],
+      duplicate: [],
+      refused: [],
     });
+  });
+
+  it('diverts a new-issue candidate matching an own issue title to duplicate (law 1)', () => {
+    const ownSubmissions: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 1,
+        title: 'The dashboard fails to render the fleet view on narrow viewports',
+        url: 'https://github.com/o/r/issues/1',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'found the same bug independently',
+        title: 'Dashboard fails to render the fleet view on narrow viewports',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      ownSubmissions,
+    );
+
+    expect(verdict.duplicate).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+    expect(verdict.queued).toEqual([]);
+  });
+
+  it('does not count a duplicate candidate against the new-issue cap', () => {
+    const ownSubmissions: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 1,
+        title: 'The dashboard fails to render the fleet view on narrow viewports',
+        url: 'https://github.com/o/r/issues/1',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'duplicate of #1',
+        title: 'Dashboard fails to render the fleet view on narrow viewports',
+      },
+      { kind: 'new-issue', reasoning: 'genuinely new finding' },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 1, maxComments: 5 },
+      ownSubmissions,
+    );
+
+    expect(verdict.duplicate).toEqual([candidates[0]]);
+    expect(verdict.allowed).toEqual([candidates[1]]);
+    expect(verdict.queued).toEqual([]);
+  });
+
+  it('diverts a new-issue candidate matching an OPEN THREAD title to duplicate, even when ownSubmissions is empty (law 1 beyond "already ours")', () => {
+    const openThreads: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 9,
+        title: 'The dashboard fails to render the fleet view on narrow viewports',
+        url: 'https://github.com/o/r/issues/9',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'found the same bug someone else already filed',
+        title: 'Dashboard fails to render the fleet view on narrow viewports',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      [],
+      'user',
+      openThreads,
+    );
+
+    expect(verdict.duplicate).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+  });
+
+  it('does not count an open-thread duplicate against the new-issue cap', () => {
+    const openThreads: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 9,
+        title: 'The dashboard fails to render the fleet view on narrow viewports',
+        url: 'https://github.com/o/r/issues/9',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'duplicate of open #9',
+        title: 'Dashboard fails to render the fleet view on narrow viewports',
+      },
+      { kind: 'new-issue', reasoning: 'genuinely new finding' },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 1, maxComments: 5 },
+      [],
+      'user',
+      openThreads,
+    );
+
+    expect(verdict.duplicate).toEqual([candidates[0]]);
+    expect(verdict.allowed).toEqual([candidates[1]]);
+    expect(verdict.queued).toEqual([]);
+  });
+
+  it('defaults openThreads to empty, allowing a titled candidate with no open-thread corpus to dedup against', () => {
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'first ever finding',
+        title: 'The onboarding flow skips step 3 silently',
+      },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 }, []);
+
+    expect(verdict.duplicate).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('allows a new-issue candidate whose title genuinely differs from own submissions', () => {
+    const ownSubmissions: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 1,
+        title: 'The dashboard fails to render the fleet view on narrow viewports',
+        url: 'https://github.com/o/r/issues/1',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'unrelated finding',
+        title: 'The release notes link to a documentation page that returns 404',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      ownSubmissions,
+    );
+
+    expect(verdict.allowed).toEqual(candidates);
+    expect(verdict.duplicate).toEqual([]);
+  });
+
+  it('never flags a comment candidate as a duplicate, regardless of ownSubmissions', () => {
+    const ownSubmissions: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 1,
+        title: 'The dashboard fails to render the fleet view on narrow viewports',
+        url: 'https://github.com/o/r/issues/1',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'comment',
+        reasoning: 'The dashboard fails to render the fleet view on narrow viewports',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      ownSubmissions,
+    );
+
+    expect(verdict.duplicate).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('skips the duplicate check for a new-issue candidate with no title', () => {
+    const ownSubmissions: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 1,
+        title: 'The dashboard fails to render the fleet view on narrow viewports',
+        url: 'https://github.com/o/r/issues/1',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [{ kind: 'new-issue', reasoning: 'no title yet' }];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      ownSubmissions,
+    );
+
+    expect(verdict.duplicate).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('exempts short titles from the duplicate check (too little signal to compare)', () => {
+    const ownSubmissions: SocialSubmission[] = [
+      {
+        kind: 'issue',
+        number: 1,
+        title: 'Fix bug',
+        url: 'https://github.com/o/r/issues/1',
+        state: 'OPEN',
+      },
+    ];
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'new-issue', reasoning: 'short title', title: 'Fix bug' },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      ownSubmissions,
+    );
+
+    expect(verdict.duplicate).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('defaults ownSubmissions to empty, allowing a titled candidate with no corpus to dedup against', () => {
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'first ever finding',
+        title: 'The onboarding flow skips step 3 silently',
+      },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 });
+
+    expect(verdict.duplicate).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('refuses a maintainer-only candidate when the role is user (law 5)', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'triage label', requiresMaintainer: true },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 }, [], 'user');
+
+    expect(verdict.refused).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+    expect(verdict.queued).toEqual([]);
+  });
+
+  it('admits a maintainer-only candidate when the role is maintainer', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'triage label', requiresMaintainer: true },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      [],
+      'maintainer',
+    );
+
+    expect(verdict.allowed).toEqual(candidates);
+    expect(verdict.refused).toEqual([]);
+  });
+
+  it('defaults role to user, refusing a maintainer-only candidate when role is omitted', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'new-issue', reasoning: 'authoritative filing', requiresMaintainer: true },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 });
+
+    expect(verdict.refused).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+  });
+
+  it('never refuses a candidate that does not require maintainer verbs, regardless of role', () => {
+    const candidates: SocialCandidateAction[] = [{ kind: 'comment', reasoning: 'ordinary reply' }];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 }, [], 'user');
+
+    expect(verdict.refused).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('does not count a refused candidate against its kind cap', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'refused first', requiresMaintainer: true },
+      { kind: 'comment', reasoning: 'ordinary reply that should still fit the cap' },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 1 }, [], 'user');
+
+    expect(verdict.refused).toEqual([candidates[0]]);
+    expect(verdict.allowed).toEqual([candidates[1]]);
+    expect(verdict.queued).toEqual([]);
   });
 });

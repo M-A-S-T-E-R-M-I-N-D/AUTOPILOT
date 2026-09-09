@@ -174,7 +174,7 @@ const CORE_GZIP_BUDGET = 55 * 1024;
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
 // replacing four verbatim button blocks (-400B). Deferred chunk, never blocks
 // first paint; core budgets untouched.
-const CHUNK_RAW_BUDGET = 117 * 1024;
+const CHUNK_RAW_BUDGET = 118 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -187,6 +187,15 @@ const CHUNK_RAW_BUDGET = 117 * 1024;
 // tour.ts already establish — added ~95B gzip on top of the EPIC 0020
 // baseline. Panels.js raw stays well under CHUNK_RAW_BUDGET (117709B against
 // 118784B); this is a gzip-only bump. Core budgets untouched.
+// raw-only 117→118KB (2026-09-09), MIRROR PASS panel (EPIC 0019 S3, VERDICT
+// ap-mtsg3nc0-3 slice (c)): the panel client itself rides /project.js (huge
+// headroom there), but its four STRINGS.he translations land in panels.js
+// via locale-data.ts regardless of which chunk the panel's own code is
+// served from — the same "every locale key costs the deferred chunk, not
+// just the surface's own chunk" shape the core-chunk entries above describe
+// for English keys. Measured 119958B raw against the old 119808B budget: 150
+// bytes over on raw alone, gzip (36160B against 36864B) untouched. Core
+// budgets untouched.
 const CHUNK_GZIP_BUDGET = 36 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {

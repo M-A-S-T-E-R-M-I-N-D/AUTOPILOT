@@ -79,6 +79,7 @@ export const PROJECT_PAGE_FEATURES: readonly string[] = [
   'flight-summary',
   'issue-triage',
   'landing',
+  'mirror-pass',
   'pipeline',
   'process-health',
   'release',

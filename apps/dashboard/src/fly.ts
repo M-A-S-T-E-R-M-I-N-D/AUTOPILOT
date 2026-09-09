@@ -135,6 +135,7 @@ import { deriveWorktreePlan } from './flight/worktree.js';
 import { parseTaskScope, scopeFilterCandidates } from './flight/scope-partition.js';
 import {
   withRitualLock,
+  resolveLockPath,
   RITUAL_LOCK_FILE_NAME,
   AUTOFORMAT_LOCK_FILE_NAME,
 } from './flight/ritual-lock.js';
@@ -864,7 +865,7 @@ async function main(): Promise<void> {
           // the fixer→commit→re-verify span across every sibling instance flying
           // this repo, using the same cross-process mutex the self-study ritual
           // uses. A green gate never touches this lock at all.
-          withLock: (fn) => withRitualLock(join(dirname(dbPath), AUTOFORMAT_LOCK_FILE_NAME), fn),
+          withLock: (fn) => withRitualLock(resolveLockPath(dbPath, AUTOFORMAT_LOCK_FILE_NAME), fn),
         })
       : innerGate;
     if (formatFix)
@@ -1482,7 +1483,7 @@ async function main(): Promise<void> {
         flightFiringStats.s,
       );
       if (invocation && existsSync(paperPath) && existsSync(scriptPath)) {
-        const ritualLockPath = join(dirname(dbPath), RITUAL_LOCK_FILE_NAME);
+        const ritualLockPath = resolveLockPath(dbPath, RITUAL_LOCK_FILE_NAME);
         const committed = await withRitualLock(ritualLockPath, async () => {
           execFileSync(invocation.command, invocation.args, {
             cwd: process.cwd(),

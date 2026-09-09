@@ -55,6 +55,7 @@ import { landingJs } from '../../src/web/features/landing.js';
 import { localeDataJs } from '../../src/web/features/locale-data.js';
 import { localeJs } from '../../src/web/features/locale.js';
 import { metricsJs } from '../../src/web/features/metrics.js';
+import { mirrorPassJs } from '../../src/web/features/mirror-pass.js';
 import { officeMapJs } from '../../src/web/features/office-map.js';
 import { pipelineJs } from '../../src/web/features/pipeline.js';
 import { poolClientJs } from '../../src/web/features/pool-client.js';
@@ -121,6 +122,7 @@ const LANDING_TS = featureTs('landing');
 const LOCALE_DATA_TS = featureTs('locale-data');
 const LOCALE_TS = featureTs('locale');
 const METRICS_TS = featureTs('metrics');
+const MIRROR_PASS_TS = featureTs('mirror-pass');
 const NOTIFICATIONS_TS = featureTs('notifications');
 const OFFICE_MAP_TS = featureTs('office-map');
 const PIPELINE_TS = featureTs('pipeline');
@@ -1375,6 +1377,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'locale-data.ts': ['localeDataJs'],
     'locale.ts': ['localeJs'],
     'metrics.ts': ['metricsJs'],
+    'mirror-pass.ts': ['mirrorPassJs'],
     'notifications.ts': ['notificationsJs'],
     'office-map.ts': ['officeMapJs'],
     'pipeline.ts': ['pipelineJs'],
@@ -1426,6 +1429,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const localeDataSource = readFileSync(LOCALE_DATA_TS, 'utf8');
     const localeSource = readFileSync(LOCALE_TS, 'utf8');
     const metricsSource = readFileSync(METRICS_TS, 'utf8');
+    const mirrorPassSource = readFileSync(MIRROR_PASS_TS, 'utf8');
     const notificationsSource = readFileSync(NOTIFICATIONS_TS, 'utf8');
     const officeMapSource = readFileSync(OFFICE_MAP_TS, 'utf8');
     const pipelineSource = readFileSync(PIPELINE_TS, 'utf8');
@@ -1494,6 +1498,9 @@ describe('discoverFeatureModules against the real src/web/features directory —
     ]);
     const directLocaleManifest = buildAssemblyManifest(localeSource, LOCALE_TS, ['localeJs']);
     const directMetricsManifest = buildAssemblyManifest(metricsSource, METRICS_TS, ['metricsJs']);
+    const directMirrorPassManifest = buildAssemblyManifest(mirrorPassSource, MIRROR_PASS_TS, [
+      'mirrorPassJs',
+    ]);
     const directNotificationsManifest = buildAssemblyManifest(
       notificationsSource,
       NOTIFICATIONS_TS,
@@ -1558,6 +1565,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directLocaleDataManifest,
       directLocaleManifest,
       directMetricsManifest,
+      directMirrorPassManifest,
       directNotificationsManifest,
       directOfficeMapManifest,
       directPipelineManifest,
@@ -1837,7 +1845,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
@@ -1858,6 +1866,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { localeDataJs } from './locale-data.js';");
     expect(source).toContain("import { localeJs } from './locale.js';");
     expect(source).toContain("import { metricsJs } from './metrics.js';");
+    expect(source).toContain("import { mirrorPassJs } from './mirror-pass.js';");
     expect(source).toContain("import { notificationsJs } from './notifications.js';");
     expect(source).toContain("import { officeMapJs } from './office-map.js';");
     expect(source).toContain("import { pipelineJs } from './pipeline.js';");
@@ -1904,7 +1913,10 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./landing.js'")).toBeLessThan(source.indexOf("'./locale-data.js'"));
     expect(source.indexOf("'./locale-data.js'")).toBeLessThan(source.indexOf("'./locale.js'"));
     expect(source.indexOf("'./locale.js'")).toBeLessThan(source.indexOf("'./metrics.js'"));
-    expect(source.indexOf("'./metrics.js'")).toBeLessThan(source.indexOf("'./notifications.js'"));
+    expect(source.indexOf("'./metrics.js'")).toBeLessThan(source.indexOf("'./mirror-pass.js'"));
+    expect(source.indexOf("'./mirror-pass.js'")).toBeLessThan(
+      source.indexOf("'./notifications.js'"),
+    );
     expect(source.indexOf("'./notifications.js'")).toBeLessThan(
       source.indexOf("'./office-map.js'"),
     );
@@ -1930,7 +1942,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -3313,6 +3325,42 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   });
 
   /**
+   * mirrorPassJs's own reconstruction, from its real file under
+   * web/features/. It carries one real relative-import splice of its own
+   * (mirrorPassItems from ../mirror-pass-panel.js), resolved against
+   * web/features/, and no non-splice slots — the same shape issueTriageJs
+   * below takes, just with one splice instead of four.
+   */
+  async function reconstructMirrorPassJs(): Promise<string> {
+    const mirrorPassSource = readFileSync(MIRROR_PASS_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(mirrorPassSource, MIRROR_PASS_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        mirrorPassSource,
+        'mirrorPassJs',
+        resolvedBindings,
+        undefined,
+        MIRROR_PASS_TS,
+      )
+    ).trim();
+  }
+
+  it('mirrorPassJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/mirror-pass.ts', async () => {
+    expect(await reconstructMirrorPassJs()).toBe(mirrorPassJs());
+  });
+
+  it('mirrorPassJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off mirror-pass.ts', async () => {
+    const mirrorPassSource = readFileSync(MIRROR_PASS_TS, 'utf8');
+    const manifest = buildAssemblyManifest(mirrorPassSource, MIRROR_PASS_TS, ['mirrorPassJs']);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'mirrorPassJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(mirrorPassJs());
+  });
+
+  /**
    * issueTriageJs's own reconstruction, from its real file under
    * web/features/. It carries four real relative-import splices of its own
    * (issueTriageDecisionLabel/issueTriageConfirmMessage/
@@ -3741,7 +3789,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
 
   // Shared by both reconstruction proofs below (the in-memory one and the
   // disk-round-trip one) — REGISTRY DERIVATION (web-mteostss-7u5oaq): before
-  // this helper, each proof hand-listed the same 30 `nestedOutputs.set(name,
+  // this helper, each proof hand-listed the same 31 `nestedOutputs.set(name,
   // await reconstructNameJs())` lines and, in the disk-round-trip proof, a
   // second hand-ordered 30-line featureModulesJs join — a new feature module
   // meant editing four places in lockstep, and the round-trip proof's join
@@ -3770,6 +3818,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('localeDataJs', await reconstructLocaleDataJs());
     nestedOutputs.set('localeJs', await reconstructLocaleJs());
     nestedOutputs.set('metricsJs', await reconstructMetricsJs());
+    nestedOutputs.set('mirrorPassJs', await reconstructMirrorPassJs());
     nestedOutputs.set('notificationsJs', await reconstructNotificationsJs());
     nestedOutputs.set('officeMapJs', await reconstructOfficeMapJs());
     nestedOutputs.set('pipelineJs', await reconstructPipelineJs());

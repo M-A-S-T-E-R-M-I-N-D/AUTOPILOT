@@ -150,6 +150,20 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     subjects: ['scripts/cockpit-metrics.mjs'],
   },
   {
+    // Active epic (2 of 4 doctrine pieces shipped, 1 already-true-by-
+    // construction, 1 blocked on a shared strings file per its own
+    // Constraints section); the tier-1 grounded-answer flow and its prompt
+    // builder are its well-defined subject area — narrower than the shared
+    // Ask panel client (web/features/search.ts) already tracked by epic
+    // 0002's broader web/ entry above.
+    doc: 'docs/epics/0021-ask-answer-quality-doctrine.md',
+    subjects: [
+      'apps/dashboard/src/ask/service.ts',
+      'apps/dashboard/src/server/ask.ts',
+      'packages/engine/src/ask.ts',
+    ],
+  },
+  {
     // Non-epic doc, first of its kind here — its own "Defense in depth" list
     // names layer (1) as `containment.ts` and layer (2) as `guard.ts` +
     // `guard-hook.ts` by exact filename, giving it the same well-defined,

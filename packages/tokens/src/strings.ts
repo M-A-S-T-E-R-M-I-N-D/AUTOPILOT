@@ -1474,6 +1474,15 @@ const EN_STRINGS = {
   issueTriageExecute: '🗝️ Run KEEPER triage',
   issueTriageExecuting: 'Triaging…',
   issueTriageRequestFailed: '✗ Request failed — try again shortly.',
+  // web/features/mirror-pass.ts (EPIC 0019 S3, board web-mtrh1hlh-62l41b,
+  // VERDICT ap-mtsg3nc0-3 slice (c)): the project page's read-only MIRROR
+  // PASS panel — title, loading placeholder, and the empty/fetch-failure
+  // states. Preview-only (no execute button yet), same shape issueTriage*
+  // above establishes for a fetch-then-render panel.
+  mirrorPassTitle: '🔁 Mirror pass',
+  mirrorPassLoading: 'Checking the board against GitHub…',
+  mirrorPassEmpty: 'Board and GitHub agree — nothing to reconcile.',
+  mirrorPassUnavailable: 'Mirror pass unavailable.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2153,6 +2162,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     issueTriageExecute: '🗝️ בצע טריאז׳ KEEPER',
     issueTriageExecuting: 'מבצע טריאז׳…',
     issueTriageRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
+    mirrorPassTitle: '🔁 מעבר שיקוף',
+    mirrorPassLoading: 'בודק את הלוח מול GitHub…',
+    mirrorPassEmpty: 'הלוח וGitHub תואמים — אין מה לתאם.',
+    mirrorPassUnavailable: 'מעבר השיקוף אינו זמין.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',

@@ -17,6 +17,17 @@ are" to "credit where it is due, in the form each medium expects".
    `Assisted-by: AUTOPILOT vX.Y.Z <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>`
 2. **PRs / issues an instance files** — body ends with the spread-line:
    `🛩️ Flown by [AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT) vX.Y.Z`
+
+   **Wired (2026-09-09):** folded into the existing identity-law disclosure
+   footer (`.github/CONTRIBUTOR-STANDING.md`) rather than stacked as a
+   second line — `packages/engine/src/github-identity-disclosure.ts`'s
+   `identityDisclosure()`, shared by `github-contribute.ts`'s
+   `planGithubIssue` and `github-pr-contribute.ts`'s `planGithubPr` (the
+   "contribute upstream" epic 0006 flow — currently the only filing path
+   with a disclosure footer to extend). `mirror-pass.ts` and
+   `report-from-here.ts` also run `gh issue create`, but both file against
+   AUTOPILOT's OWN repo as self-management rituals, not "on a user's
+   project" — outside this channel's frame, left unwired.
 3. **Conversations** — when a pilot speaks in a thread (issue comment,
    review, discussion — its own project or one it participates in), the
    message carries a compact signature, once per message, at the end:
@@ -76,6 +87,17 @@ than guessing — a wrong signature is a rights problem, not a default.
 - One opt-out lever covers all four channels
   (`AUTOPILOT_ATTRIBUTION=off`) — respected credit spreads, forced
   credit sours.
+
+  **Wired for channel 3 (2026-09-09):** `flight/attribution.ts`'s
+  `withAttribution()` checks the env var before the identity lookup and
+  posts unsigned when it is `off` — no extra `gh api user` call spent on a
+  signature that will not be added. Channels 1 and 4 have no shipped
+  implementation yet to gate. Channel 2's `identityDisclosure()` folds the
+  credit line into the SAME footer text as the identity law's own mandatory
+  self-disclosure (CONTRIBUTOR-STANDING.md, non-optional) — the lever
+  cannot switch off one half of a single fused string without also
+  suppressing the identity law, so it is deliberately left unwired there
+  until that footer is split back into two independently-gateable lines.
 
 ## Wiring map (for the fleet)
 

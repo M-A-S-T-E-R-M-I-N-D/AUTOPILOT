@@ -46,13 +46,16 @@ export interface GithubIssuePlan {
  * {@link identityDisclosure} on its own paragraph — the identity law
  * applies to every issue this plans, so there is no path through this
  * function that produces an undisclosed body (an empty `body` yields the
- * disclosure footer alone, never a truly empty `--body`).
+ * disclosure footer alone, never a truly empty `--body`). `version` is the
+ * flying AUTOPILOT's own product version, folded into that same disclosure
+ * per `docs/ATTRIBUTION.md` §2's filing-channel spread-line.
  */
 export function planGithubIssue(
   upstreamRepo: string,
   operatorHandle: string,
   title: string,
   body: string,
+  version: string,
 ): GithubIssuePlan {
   const trimmedOperatorHandle = operatorHandle.trim();
   if (trimmedOperatorHandle.length === 0) {
@@ -64,8 +67,8 @@ export function planGithubIssue(
   }
   const finalBody =
     body.length === 0
-      ? identityDisclosure(trimmedOperatorHandle)
-      : `${body}\n\n${identityDisclosure(trimmedOperatorHandle)}`;
+      ? identityDisclosure(trimmedOperatorHandle, version)
+      : `${body}\n\n${identityDisclosure(trimmedOperatorHandle, version)}`;
   return {
     command: 'gh',
     args: ['issue', 'create', '--repo', upstreamRepo, '--title', trimmedTitle, '--body', finalBody],

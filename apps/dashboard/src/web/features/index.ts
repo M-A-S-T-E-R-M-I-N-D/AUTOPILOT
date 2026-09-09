@@ -21,6 +21,7 @@ import { landingJs } from './landing.js';
 import { localeDataJs } from './locale-data.js';
 import { localeJs } from './locale.js';
 import { metricsJs } from './metrics.js';
+import { mirrorPassJs } from './mirror-pass.js';
 import { notificationsJs } from './notifications.js';
 import { officeMapJs } from './office-map.js';
 import { pipelineJs } from './pipeline.js';
@@ -57,6 +58,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   localeDataJs,
   localeJs,
   metricsJs,
+  mirrorPassJs,
   notificationsJs,
   officeMapJs,
   pipelineJs,
@@ -101,6 +103,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'locale-data': localeDataJs,
   locale: localeJs,
   metrics: metricsJs,
+  'mirror-pass': mirrorPassJs,
   notifications: notificationsJs,
   'office-map': officeMapJs,
   pipeline: pipelineJs,

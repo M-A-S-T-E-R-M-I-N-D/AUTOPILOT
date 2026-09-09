@@ -22,7 +22,7 @@ import { GitVcs, planGithubPr } from '@autopilot/engine';
 import { openStore, listProjects } from '@autopilot/store';
 import { getGhStatus } from '../connection/gh-probe.js';
 import { realCliExec, type CliExec } from '../connection/cli-probe.js';
-import { UPSTREAM_REPO } from '../info.js';
+import { UPSTREAM_REPO, PRODUCT_VERSION } from '../info.js';
 import { realRunner, type CommandRunner, type CommandResult } from './execute.js';
 
 /** One `POST /api/github-pr/execute` attempt's outcome. `url` is the
@@ -54,12 +54,16 @@ export type GithubPrExecuteApi = (
  *  `github/execute.ts`); `ghExec` defaults to the real CLI probe exec;
  *  tests inject fakes for both so no real `gh repo fork`/`git push`/`gh pr
  *  create` ever fires. `upstreamRepo` defaults to the canonical
- *  `UPSTREAM_REPO`. */
+ *  `UPSTREAM_REPO`. `version` defaults to `PRODUCT_VERSION` — the
+ *  identity-law disclosure's `docs/ATTRIBUTION.md` §2 spread-line names the
+ *  version that actually opened the PR; tests override it to assert exact
+ *  body text without depending on that constant's live value. */
 export function createGithubPrExecuteApi(
   dbPath: string,
   runCommand: CommandRunner = realRunner,
   ghExec: CliExec = realCliExec,
   upstreamRepo: string = UPSTREAM_REPO,
+  version: string = PRODUCT_VERSION,
 ): GithubPrExecuteApi {
   return async (projectId, title, body, issueNumber) => {
     const store = openStore(dbPath);
@@ -80,7 +84,7 @@ export function createGithubPrExecuteApi(
 
       let plan;
       try {
-        plan = planGithubPr(upstreamRepo, status.login, branch, title, body, issueNumber);
+        plan = planGithubPr(upstreamRepo, status.login, branch, title, body, version, issueNumber);
       } catch (error) {
         return {
           ok: false,
