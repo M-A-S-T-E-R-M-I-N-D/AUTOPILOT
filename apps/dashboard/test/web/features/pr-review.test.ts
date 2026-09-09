@@ -70,6 +70,17 @@ describe('prReviewJs', () => {
     expect(out).toContain("approveLink.setAttribute('href', approveChecksUrl);");
     expect(out).toContain("approveLink.setAttribute('target', '_blank');");
     expect(out).toContain("approveLink.setAttribute('rel', 'noopener noreferrer');");
+    // Accessible name: the tooltip doubles as the aria-label, the same
+    // data-tip/aria-label pairing every other card control carries.
+    expect(out).toContain("approveLink.setAttribute('data-tip', approveLinkTip);");
+    expect(out).toContain("approveLink.setAttribute('aria-label', approveLinkTip);");
+    expect(out).toContain('actions.appendChild(approveLink);');
+    // Ordering: the approve link lands BEFORE the maintainer merge button —
+    // nothing can merge until the blocked run is approved, so the one
+    // actionable next step reads first in the row.
+    expect(out.indexOf('actions.appendChild(approveLink);')).toBeLessThan(
+      out.indexOf("actions.appendChild(prPanelButton('pr-review-human-merge'"),
+    );
   });
 
   it('fetches the PR review preview on its own timer rather than riding the fleet stream', () => {
