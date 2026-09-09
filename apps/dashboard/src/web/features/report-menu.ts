@@ -73,13 +73,10 @@
  * three client-written status lines — reads `STRINGS` through the core
  * chunk's global `tr()` at build time, since both are painted fresh on
  * every open and there is no persistent node for `translateDom()` to
- * revisit (the browse-folder modal's route). The five copy-toolkit items
- * below the separator (label + tip each) and the ✓/✗ result `reportMenuCopy`
- * flashes on the clicked item took that same route in a later slice — they
- * shipped English-literal first with an inline TODO comment, upgraded here.
- * `reportConfirmMessage` (the EXECUTE button's `window.confirm()`) now takes
- * that same `tr` as its second argument, the injected-`tr` route
- * `release-panel.ts`'s `releaseConfirmMessage` established; `reportActionLabel`/
+ * revisit (the browse-folder modal's route). `reportConfirmMessage` (the
+ * EXECUTE button's `window.confirm()`) now takes that same `tr` as its
+ * second argument, the injected-`tr` route `release-panel.ts`'s
+ * `releaseConfirmMessage` established; `reportActionLabel`/
  * `reportExecuteResult`/`reportExecuteTip` below still compose English and
  * are the remaining follow-up, same split the CONNECT popover took.
  */
@@ -187,7 +184,7 @@ function reportMenuContextOf(target, capture) {
 }
 function reportMenuCopy(text, itemEl) {
   function done(ok) {
-    itemEl.textContent = ok ? tr('reportCopied') : tr('reportCopyFailed');
+    itemEl.textContent = ok ? '\\u2713 Copied' : '\\u2717 Copy failed';
     setTimeout(closeReportMenu, 450);
   }
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -257,20 +254,23 @@ function openReportMenu(x, y) {
   sep.className = 'report-ctx-menu-sep';
   sep.setAttribute('role', 'separator');
   reportMenuEl.appendChild(sep);
-  reportMenuAddItem(tr('reportCopyTextLabel'), tr('reportCopyTextTip'), function (it) {
+  // English literals for the copy labels until their STRINGS keys exist —
+  // the same stance setGoLabel's dynamic texts took (fly.ts), and the i18n
+  // lane's sweep is the ritual that upgrades them.
+  reportMenuAddItem('\\uD83D\\uDCCB Copy text', 'Copies the current selection, or this element\\u2019s full text.', function (it) {
     var sel = window.getSelection ? String(window.getSelection()) : '';
     reportMenuCopy(sel && sel.trim() ? sel : (target && (target.innerText || target.textContent) || '').trim(), it);
   });
-  reportMenuAddItem(tr('reportCopyHtmlLabel'), tr('reportCopyHtmlTip'), function (it) {
+  reportMenuAddItem('\\uD83E\\uDDE9 Copy element HTML', 'Copies this element\\u2019s outerHTML markup.', function (it) {
     reportMenuCopy(target ? target.outerHTML : '', it);
   });
-  reportMenuAddItem(tr('reportCopySelectorLabel'), tr('reportCopySelectorTip'), function (it) {
+  reportMenuAddItem('\\uD83C\\uDFAF Copy CSS selector', 'Copies a rooted selector path to this element.', function (it) {
     reportMenuCopy(reportMenuSelectorOf(target), it);
   });
-  reportMenuAddItem(tr('reportCopyStylesLabel'), tr('reportCopyStylesTip'), function (it) {
+  reportMenuAddItem('\\uD83C\\uDFA8 Copy computed styles', 'Copies this element\\u2019s computed CSS as a ready style block.', function (it) {
     reportMenuCopy(reportMenuStylesOf(target, reportMenuSelectorOf(target) || 'element'), it);
   });
-  reportMenuAddItem(tr('reportCopyContextLabel'), tr('reportCopyContextTip'), function (it) {
+  reportMenuAddItem('\\uD83E\\uDDE0 Copy smart context (JSON)', 'Copies selector, geometry, data attributes, and the source modules that own this region \\u2014 everything a bug report or an AI needs.', function (it) {
     reportMenuCopy(reportMenuContextOf(target, window.__autopilotReportCapture), it);
   });
   document.body.appendChild(reportMenuEl);

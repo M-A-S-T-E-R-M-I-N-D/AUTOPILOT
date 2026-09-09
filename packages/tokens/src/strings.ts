@@ -1339,23 +1339,6 @@ const EN_STRINGS = {
   // stays untranslated, the same server-message stance every prior slice took.
   reportFromHere: 'Report from here',
   reportFromHereTitle: '🚩 Report from here',
-  // The five copy-toolkit menu items below the separator (label + hover tip
-  // each) and the transient ✓/✗ result flashed on the clicked item — the
-  // "English literals for the copy labels until their STRINGS keys exist"
-  // stance report-menu.ts's own comment flagged as the next i18n-lane sweep.
-  reportCopyTextLabel: '📋 Copy text',
-  reportCopyTextTip: 'Copies the current selection, or this element’s full text.',
-  reportCopyHtmlLabel: '🧩 Copy element HTML',
-  reportCopyHtmlTip: 'Copies this element’s outerHTML markup.',
-  reportCopySelectorLabel: '🎯 Copy CSS selector',
-  reportCopySelectorTip: 'Copies a rooted selector path to this element.',
-  reportCopyStylesLabel: '🎨 Copy computed styles',
-  reportCopyStylesTip: 'Copies this element’s computed CSS as a ready style block.',
-  reportCopyContextLabel: '🧠 Copy smart context (JSON)',
-  reportCopyContextTip:
-    'Copies selector, geometry, data attributes, and the source modules that own this region — everything a bug report or an AI needs.',
-  reportCopied: '✓ Copied',
-  reportCopyFailed: '✗ Copy failed',
   reportDialogCloseTip: 'Closes this dialog without filing anything.',
   reportDescLabel: 'What is wrong or missing here?',
   reportDescTip: 'Your words become the title; the captured context above always travels with it.',
@@ -2049,19 +2032,6 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     ghIssueOpenFailed: 'פתיחת ה-issue נכשלה.',
     reportFromHere: 'דיווח מכאן',
     reportFromHereTitle: '🚩 דיווח מכאן',
-    reportCopyTextLabel: '📋 העתק טקסט',
-    reportCopyTextTip: 'מעתיק את הבחירה הנוכחית, או את מלוא הטקסט של האלמנט הזה.',
-    reportCopyHtmlLabel: '🧩 העתק HTML של האלמנט',
-    reportCopyHtmlTip: 'מעתיק את ה-outerHTML של האלמנט הזה.',
-    reportCopySelectorLabel: '🎯 העתק בורר CSS',
-    reportCopySelectorTip: 'מעתיק נתיב בורר מוענק לאלמנט הזה.',
-    reportCopyStylesLabel: '🎨 העתק סגנונות מחושבים',
-    reportCopyStylesTip: 'מעתיק את ה-CSS המחושב של האלמנט הזה כבלוק סגנון מוכן.',
-    reportCopyContextLabel: '🧠 העתק הקשר חכם (JSON)',
-    reportCopyContextTip:
-      'מעתיק בורר, גיאומטריה, מאפייני נתונים, ומודולי המקור הבעלים של האזור הזה — כל מה שדוח באג או AI צריכים.',
-    reportCopied: '✓ הועתק',
-    reportCopyFailed: '✗ ההעתקה נכשלה',
     reportDialogCloseTip: 'סוגר את הדו-שיח הזה בלי להגיש דבר.',
     reportDescLabel: 'מה שגוי או חסר כאן?',
     reportDescTip: 'המילים שלכם הופכות לכותרת; ההקשר שנלכד למעלה תמיד נשלח יחד איתן.',

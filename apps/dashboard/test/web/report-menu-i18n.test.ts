@@ -27,12 +27,6 @@
  * the call site here passes the bundle's `tr` through. `client-tr-keys.test.ts`
  * resolves every key asserted here (and `reportConfirmMessage`'s own) against
  * STRINGS.
- *
- * The five copy-toolkit menu items below the separator (board
- * web-msnsndki-dz3vn1, follow-up slice): `report-menu.ts` shipped them as
- * English literals with an inline "until their STRINGS keys exist" comment;
- * this slice moves their labels, hover tips, and the ✓/✗ result
- * `reportMenuCopy` flashes on the clicked item to `tr()`.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -101,28 +95,6 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
     expect(out).toContain('window.confirm(reportConfirmMessage(previewedPlan, tr))');
   });
 
-  it('translates the five copy-toolkit items (label + tip each)', () => {
-    expect(out).toContain("reportMenuAddItem(tr('reportCopyTextLabel'), tr('reportCopyTextTip')");
-    expect(out).toContain("reportMenuAddItem(tr('reportCopyHtmlLabel'), tr('reportCopyHtmlTip')");
-    expect(out).toContain(
-      "reportMenuAddItem(tr('reportCopySelectorLabel'), tr('reportCopySelectorTip')",
-    );
-    expect(out).toContain(
-      "reportMenuAddItem(tr('reportCopyStylesLabel'), tr('reportCopyStylesTip')",
-    );
-    expect(out).toContain(
-      "reportMenuAddItem(tr('reportCopyContextLabel'), tr('reportCopyContextTip')",
-    );
-    expect(out).not.toContain("'\\uD83D\\uDCCB Copy text'");
-    expect(out).not.toContain("'Copies the current selection");
-  });
-
-  it('translates the ✓/✗ copy result flashed on the clicked item', () => {
-    expect(out).toContain("itemEl.textContent = ok ? tr('reportCopied') : tr('reportCopyFailed');");
-    expect(out).not.toContain("'\\u2713 Copied'");
-    expect(out).not.toContain("'\\u2717 Copy failed'");
-  });
-
   it('translates the three client-written status lines, templating the server reasoning', () => {
     expect(out).toContain("el('p', 'muted', tr('reportPreviewUnavailable'))");
     expect(out).toContain(
@@ -148,20 +120,12 @@ describe('STRINGS carries the report dialog keys', () => {
     expect(STRINGS.en.reportPreviewUnavailable).toBe('Preview unavailable — try again shortly.');
     expect(STRINGS.en.reportNothingToFile).toBe('Nothing to file — {reasoning}');
     expect(STRINGS.en.reportRequestFailed).toBe('✗ Request failed — try again shortly.');
-    expect(STRINGS.en.reportCopyTextLabel).toBe('📋 Copy text');
-    expect(STRINGS.en.reportCopyHtmlLabel).toBe('🧩 Copy element HTML');
-    expect(STRINGS.en.reportCopySelectorLabel).toBe('🎯 Copy CSS selector');
-    expect(STRINGS.en.reportCopyStylesLabel).toBe('🎨 Copy computed styles');
-    expect(STRINGS.en.reportCopyContextLabel).toBe('🧠 Copy smart context (JSON)');
-    expect(STRINGS.en.reportCopied).toBe('✓ Copied');
-    expect(STRINGS.en.reportCopyFailed).toBe('✗ Copy failed');
   });
 
   it('keeps the 🚩 and ✗ glyphs literal in every locale, like ghIssueRequestFailed', () => {
     for (const table of Object.values(STRINGS)) {
       expect(table.reportFromHereTitle.startsWith('🚩 ')).toBe(true);
       expect(table.reportRequestFailed.startsWith('✗ ')).toBe(true);
-      expect(table.reportCopyFailed.startsWith('✗ ')).toBe(true);
     }
   });
 });
@@ -233,41 +197,5 @@ describe('the Report-from-here dialog paints in the active locale (live, full bu
     expect(document.querySelector('.report-dialog-close')?.getAttribute('aria-label')).toBe(
       STRINGS.he.close,
     );
-  });
-
-  it('switching to Hebrew renders the copy-toolkit items and the copy result in Hebrew', async () => {
-    vi.useFakeTimers();
-    document.open();
-    document.write(renderShell('p1'));
-    document.close();
-    globalThis.fetch = vi.fn(
-      async () => ({ ok: true, json: async () => STATE }) as unknown as Response,
-    );
-    Object.defineProperty(window.navigator, 'clipboard', {
-      value: { writeText: vi.fn(() => Promise.resolve()) },
-      configurable: true,
-    });
-    new Function(clientJs())();
-    await vi.advanceTimersByTimeAsync(1);
-    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
-
-    const target = document.createElement('div');
-    target.textContent = 'hello';
-    document.body.appendChild(target);
-    target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-    const items = Array.from(
-      document.querySelectorAll('.report-ctx-menu-item'),
-    ) as HTMLButtonElement[];
-    const copyTextItem = items[1]!;
-    expect(copyTextItem.textContent).toBe(STRINGS.he.reportCopyTextLabel);
-    expect(copyTextItem.getAttribute('data-tip')).toBe(STRINGS.he.reportCopyTextTip);
-    expect(items[2]!.textContent).toBe(STRINGS.he.reportCopyHtmlLabel);
-    expect(items[3]!.textContent).toBe(STRINGS.he.reportCopySelectorLabel);
-    expect(items[4]!.textContent).toBe(STRINGS.he.reportCopyStylesLabel);
-    expect(items[5]!.textContent).toBe(STRINGS.he.reportCopyContextLabel);
-
-    copyTextItem.click();
-    await vi.advanceTimersByTimeAsync(1);
-    expect(copyTextItem.textContent).toBe(STRINGS.he.reportCopied);
   });
 });
