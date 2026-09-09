@@ -22,7 +22,16 @@
  * The four tiers below are ported verbatim from `.github/CONTRIBUTOR-
  * STANDING.md`'s "Standing tiers" table — that file, not this one, is the
  * source of truth; `contributor-standing-panel.test.ts` pins the two in sync.
+ *
+ * `CONTRIBUTOR_STANDING_APPLY_URL` imports `info.ts`'s `UPSTREAM_REPO` (a
+ * plain string constant, no Node built-ins, safe from any module) so the
+ * real "prefilled partner-application deep-link" URL is itself a top-level
+ * binding — `generate-splice-manifest.mjs` only recognizes `JSON.stringify(
+ * <relative-import binding>)` as a splice, not a same-file local const built
+ * from a function call, so the URL is computed HERE, once, instead of at the
+ * `features/contributor-standing.ts` call site.
  */
+import { UPSTREAM_REPO } from '../info.js';
 
 /** One contributor standing tier's explainer row. */
 export interface ContributorStandingTier {
@@ -72,3 +81,23 @@ export const CONTRIBUTOR_STANDING_TIERS: readonly ContributorStandingTier[] = [
 export function contributorStandingTierSummary(tier: ContributorStandingTier): string {
   return tier.who + ' — unlocks ' + tier.unlocks + ' — earned by ' + tier.earnedBy;
 }
+
+/** The "prefilled partner-application deep-link" the CONTRIBUTOR JOURNEY
+ *  board task names — a second slice of that task, alongside the tiers
+ *  explainer above. GitHub pre-selects an issue template from a `template=`
+ *  query param naming the file under `.github/ISSUE_TEMPLATE/` (here,
+ *  `partner-application.yml` — the same 🤝 Active-partner application form
+ *  `.github/CONTRIBUTOR-STANDING.md`'s "Applying" section walks through), so
+ *  this needs no server round trip: the link is fully determined by which
+ *  repo it targets. `upstreamRepo` takes `info.ts`'s `UPSTREAM_REPO` at the
+ *  Node-side call in `features/contributor-standing.ts` — this function
+ *  itself stays param-only (no closure) so its `.toString()` splices clean
+ *  into the served bundle, the same self-containment
+ *  `contributorStandingTierSummary` above already keeps. */
+export function partnerApplicationUrl(upstreamRepo: string): string {
+  return 'https://github.com/' + upstreamRepo + '/issues/new?template=partner-application.yml';
+}
+
+/** The real deep-link for THIS repo, spliced into the served bundle via
+ *  `JSON.stringify()` the same way {@link CONTRIBUTOR_STANDING_TIERS} is. */
+export const CONTRIBUTOR_STANDING_APPLY_URL = partnerApplicationUrl(UPSTREAM_REPO);

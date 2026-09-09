@@ -797,6 +797,9 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .contributor-standing-list { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-3); margin: 0; }
 .contributor-standing-tier { font-weight: 600; }
 .contributor-standing-summary { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.contributor-standing-apply { display: inline-block; margin-top: var(--space-2); font-size: var(--text-sm); padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface-raised); color: var(--color-text); text-decoration: none; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.contributor-standing-apply:hover, .contributor-standing-apply:focus-visible { border-color: var(--color-accent); color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.contributor-standing-apply:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .heatmap-wrap { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .heatmap-grid { display: block; margin-top: var(--space-2); }
 .heat-cell { cursor: default; }

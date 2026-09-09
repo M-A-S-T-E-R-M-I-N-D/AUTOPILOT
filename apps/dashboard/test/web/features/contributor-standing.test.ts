@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  CONTRIBUTOR_STANDING_APPLY_URL,
   CONTRIBUTOR_STANDING_TIERS,
   contributorStandingTierSummary,
 } from '../../../src/web/contributor-standing-panel.js';
@@ -46,5 +47,29 @@ describe('contributorStandingJs', () => {
   it('is trimmed — no leading/trailing whitespace', () => {
     const out = contributorStandingJs();
     expect(out).toBe(out.trim());
+  });
+});
+
+describe('contributorStandingJs — apply deep-link', () => {
+  it('embeds the real CONTRIBUTOR_STANDING_APPLY_URL value via JSON.stringify()', () => {
+    const out = contributorStandingJs();
+    expect(out).toContain(JSON.stringify(CONTRIBUTOR_STANDING_APPLY_URL));
+  });
+
+  it('builds a real external anchor, not an internal chip', () => {
+    const out = contributorStandingJs();
+    expect(out).toContain("document.createElement('a')");
+    expect(out).toContain("apply.target = '_blank'");
+    expect(out).toContain("apply.rel = 'noopener noreferrer'");
+    expect(out).toContain('apply.href = CONTRIBUTOR_STANDING_APPLY_URL');
+  });
+
+  it('appends the apply link into the panel before unhiding it', () => {
+    const out = contributorStandingJs();
+    const appendIndex = out.indexOf('section.appendChild(apply);');
+    const unhideIndex = out.indexOf('section.hidden = false;');
+
+    expect(appendIndex).toBeGreaterThan(-1);
+    expect(appendIndex).toBeLessThan(unhideIndex);
   });
 });
