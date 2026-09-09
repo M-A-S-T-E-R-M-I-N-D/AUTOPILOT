@@ -23,12 +23,14 @@ export interface FloodFinding {
   author: string;
   detail: string;
   url: string;
+  snippet: string;
 }
 
 export const DUPLICATE_RATIO: number;
 export const RAPID_FIRE_MS: number;
 export const CONSECUTIVE_CEILING: number;
 export const MIN_COMPARE_LENGTH: number;
+export const SNIPPET_LENGTH: number;
 
 export function normalize(body: string): string;
 export function similarity(a: string, b: string): number;

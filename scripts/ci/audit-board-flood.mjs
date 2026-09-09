@@ -43,6 +43,17 @@ export const RAPID_FIRE_MS = 120_000;
 export const CONSECUTIVE_CEILING = 2;
 /** Messages shorter than this are greetings/acks — too small to compare. */
 export const MIN_COMPARE_LENGTH = 40;
+/** Evidence snippets are truncated to this many characters (guard-precision
+ *  doctrine: a scanner red must carry the matched TEXT, not just a category
+ *  label — an operator auditing a finding should be able to see what
+ *  actually matched without following the URL). */
+export const SNIPPET_LENGTH = 80;
+
+/** @param {string} body */
+function snippet(body) {
+  const flat = (body ?? '').replace(/\s+/g, ' ').trim();
+  return flat.length > SNIPPET_LENGTH ? `${flat.slice(0, SNIPPET_LENGTH)}…` : flat;
+}
 
 function argValue(flag) {
   const i = process.argv.indexOf(flag);
@@ -129,6 +140,7 @@ export function auditThread(thread, messages) {
           author: messages[i].author,
           detail: `${Math.round(ratio * 100)}% identical to an earlier ${messages[i].kind} (${messages[i].id})`,
           url: messages[j].url,
+          snippet: snippet(messages[j].body),
         });
       }
     }
@@ -152,6 +164,7 @@ export function auditThread(thread, messages) {
         author: runAuthor,
         detail: `${runLength} messages in a row with nobody else speaking (run starts at ${runStart.id})`,
         url: message.url,
+        snippet: snippet(message.body),
       });
     }
   }
@@ -165,6 +178,7 @@ export function auditThread(thread, messages) {
         author: messages[i].author,
         detail: `${Math.round(gap / 1000)}s after the same author's previous ${messages[i - 1].kind}`,
         url: messages[i].url,
+        snippet: snippet(messages[i].body),
       });
     }
   }
@@ -194,6 +208,7 @@ function main() {
     for (const f of findings) {
       console.log(`  ${f.kind}  ${f.thread}  @${f.author}`);
       console.log(`    ${f.detail}`);
+      console.log(`    "${f.snippet}"`);
       console.log(`    ${f.url}`);
     }
   }
