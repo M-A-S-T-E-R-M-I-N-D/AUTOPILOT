@@ -46,6 +46,20 @@ The maintainer then landed the pilot's own commit — a cherry-pick, so the
 flight keeps its authorship (`762269e4`) — after re-verifying the 12/12 and
 the browser behavior independently.
 
+```mermaid
+flowchart TD
+  mission["MISSION.md read"] --> impl["Pilot implements calc.js<br/>(116 lines, within the 150-line ceiling)"]
+  impl --> commit1["commit: feat: implement<br/>pocket-calculator state machine"]
+  commit1 --> gate1{"Gate runs"}
+  gate1 -->|"repo-scoped — wrong worktree root"| revert1["Revert"]
+  revert1 --> retry["Pilot re-commits the same fix"]
+  retry --> gate2{"Gate runs again"}
+  gate2 -->|"same root cause"| revert2["Revert"]
+  revert2 --> board["Boarded HIGH:<br/>scope gate + worktree to the flown folder"]
+  board --> maintainer["Maintainer cherry-picks 762269e4,<br/>re-verifies 12/12 + browser behavior"]
+  maintainer --> landed["Landed — pilot keeps authorship"]
+```
+
 ## The scorecard, against MISSION.md's own checklist
 
 | Endpoint item | Result |
@@ -61,6 +75,27 @@ the browser behavior independently.
 delivered with one human assist that exists only because of a now-boarded
 harness bug.** That sentence is the honest version, and it is the only
 version this repo publishes.
+
+```mermaid
+flowchart LR
+  subgraph before["Before — seed state"]
+    b1["calc.js: deliberate stub"]
+    b2["calc.test.js: 1 pass / 11 fail"]
+    b3["browser: 7 + 2 = leaves the display at 0"]
+  end
+  subgraph after["After — verified endpoint"]
+    a1["calc.js: 116-line state machine,<br/>DOM-free, zero dependencies"]
+    a2["calc.test.js: 12 pass / 12"]
+    a3["browser: 7 + 2 = 9,<br/>2 + 3 × 4 = 20"]
+  end
+  before -->|"one flight, 2 firings, $5 budget"| after
+```
+
+No cost/firing/ship-rate chart accompanies this diagram: this mission predates
+per-firing telemetry granular enough to chart honestly (`docs/SELF-STUDY/DATASHEET.md`) —
+"2 firings, $5 budget" above is the whole paper trail that survives. A chart
+built from anything finer would be inventing numbers, which is exactly what
+this directory's [standard](README.md#standard) exists to refuse.
 
 ## Try it yourself
 
