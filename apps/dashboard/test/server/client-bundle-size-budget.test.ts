@@ -157,7 +157,12 @@ import {
  */
 const CORE_RAW_BUDGET = 184 * 1024;
 const CORE_GZIP_BUDGET = 55 * 1024;
-const CHUNK_RAW_BUDGET = 112 * 1024;
+// raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
+// checks) closed the panel's last dead end. Tripwire paid three times first —
+// prose pass (-466B), one shared click-handler wiring, and prPanelButton()
+// replacing four verbatim button blocks (-400B). Deferred chunk, never blocks
+// first paint; core budgets untouched.
+const CHUNK_RAW_BUDGET = 116 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

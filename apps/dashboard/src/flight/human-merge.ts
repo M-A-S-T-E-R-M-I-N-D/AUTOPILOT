@@ -177,6 +177,92 @@ export function createUpdateBranchApi(exec: CliExec = ghExec): UpdateBranchApi {
   };
 }
 
+/** One rerun attempt's outcome. */
+export interface RerunChecksResult {
+  readonly rerun: boolean;
+  readonly reason: string;
+  /** How many distinct workflow runs were restarted. */
+  readonly runs?: number;
+}
+
+/** The API shape `POST /api/pr-review/rerun-checks` wires. */
+export type RerunChecksApi = (number: number) => Promise<RerunChecksResult>;
+
+/** Pulls the workflow-run id out of a check's own log URL —
+ *  `.../actions/runs/<runId>/job/<jobId>`. Returns null for anything else
+ *  (an external commit status links somewhere entirely different), so only
+ *  real Actions runs are ever restarted. */
+export function runIdFromCheckUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  const match = /\/actions\/runs\/(\d+)\b/.exec(url);
+  return match ? (match[1] ?? null) : null;
+}
+
+/**
+ * Restarts the failed jobs of every workflow run a PR has a red check in —
+ * the way out of the one remaining dead end.
+ *
+ * The operator found it the hard way (2026-09-09): a red check disabled
+ * the merge button with an honest reason and no way to act on it. When
+ * the red is a flake — and one of the two reds that day was our own jsdom
+ * teardown race, in a run where all 9,865 tests passed — the only fix was
+ * a rerun, and the app could not do it.
+ *
+ * `--failed` restarts only the jobs that failed, not the whole matrix: a
+ * 17-minute Windows job should not be re-spent to retry a macOS flake.
+ * Deduplicates by run id, since six red checks usually belong to one run.
+ */
+export function createRerunChecksApi(exec: CliExec = ghExec): RerunChecksApi {
+  return async (number) => {
+    const candidates = await fetchOpenPrCandidates(exec);
+    const pr = candidates.find((candidate) => candidate.number === number);
+    if (!pr) return { rerun: false, reason: `#${number} is no longer open.` };
+
+    // Gating failures only — an "(optional)" job's red does not block the
+    // merge, so re-spending CI on it is not what the operator asked for.
+    // Same exclusion humanMergeReadiness applies before it offers this
+    // button at all; the two must agree or the button appears for a red
+    // this endpoint would then refuse to act on.
+    const failed = (pr.checkRuns ?? []).filter(
+      (check) => check.state === 'fail' && !isOptionalCheck(check.name),
+    );
+    if (failed.length === 0) {
+      return { rerun: false, reason: 'No gating check is failing — there is nothing to re-run.' };
+    }
+    const runIds = [...new Set(failed.map((check) => runIdFromCheckUrl(check.url)))].filter(
+      (id): id is string => id !== null,
+    );
+    if (runIds.length === 0) {
+      return {
+        rerun: false,
+        reason:
+          'The failing checks are not GitHub Actions runs (an external status, or gh ' +
+          'reported no run link) — they cannot be re-run from here.',
+      };
+    }
+    const failures: string[] = [];
+    for (const id of runIds) {
+      const { code } = await exec('gh', ['run', 'rerun', id, '--failed']);
+      if (code !== 0) failures.push(id);
+    }
+    if (failures.length === runIds.length) {
+      return {
+        rerun: false,
+        reason: `gh refused to re-run ${failures.length === 1 ? 'the run' : 'every run'} — it may still be in progress.`,
+      };
+    }
+    const started = runIds.length - failures.length;
+    return {
+      rerun: true,
+      runs: started,
+      reason:
+        `Re-running the failed jobs in ${started} ${started === 1 ? 'run' : 'runs'}` +
+        (failures.length > 0 ? ` (${failures.length} refused)` : '') +
+        ' — the checks strip updates as they report.',
+    };
+  };
+}
+
 /** The API shape `POST /api/pr-review/human-merge` wires. */
 export type HumanMergeApi = (
   number: number,

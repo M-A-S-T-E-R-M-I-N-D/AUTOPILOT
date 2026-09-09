@@ -121,7 +121,11 @@ import {
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
 import type { MirrorPassPlan, MirrorPassLandingNotePlan } from '../flight/mirror-pass.js';
 import type { MirrorPassDriftPlan } from '../flight/mirror-pass-execute.js';
-import type { HumanMergeResult, UpdateBranchResult } from '../flight/human-merge.js';
+import type {
+  HumanMergeResult,
+  UpdateBranchResult,
+  RerunChecksResult,
+} from '../flight/human-merge.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -446,6 +450,11 @@ export type HumanMergeApi = (
  *  out. A refusal is a normal result, not an error. */
 export type UpdateBranchApi = (number: number) => Promise<UpdateBranchResult>;
 
+/** Restarts the failed jobs of a PR's red runs (injected; see
+ *  flight/human-merge.ts) — the way out of a red check, the last dead end
+ *  the panel had. */
+export type RerunChecksApi = (number: number) => Promise<RerunChecksResult>;
+
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
  *  list` on demand) — every open issue's planned decision against the
  *  project's open board tasks + backlog file, judged fresh each call (see
@@ -606,6 +615,8 @@ export interface ServerDeps extends RouteDeps {
   readonly humanMerge?: HumanMergeApi;
   /** The update-branch companion to {@link humanMerge}. */
   readonly updateBranch?: UpdateBranchApi;
+  /** The re-run companion to {@link humanMerge}. */
+  readonly rerunChecks?: RerunChecksApi;
   readonly issueTriage?: IssueTriagePreviewApi;
   readonly issueTriageExecute?: IssueTriageExecuteApi;
   /** MIRROR PASS reconcile preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
@@ -2040,6 +2051,63 @@ async function handleUpdateBranch(
   }
 }
 
+/**
+ * THE RE-RUN endpoint (`POST /api/pr-review/rerun-checks`, body
+ * `{number}`). The third maintainer verb, and the one that closes the last
+ * dead end: a red check disabled the merge button with an honest reason
+ * and nothing in the app could act on it. Same guard shape as its two
+ * siblings; refusals are 200s carrying `rerun: false` and the reason.
+ */
+async function handleRerunChecks(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: RerunChecksApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'rerun checks unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many PR review requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let number: number;
+  try {
+    const parsed = JSON.parse(raw) as { number?: unknown };
+    number = typeof parsed.number === 'number' ? parsed.number : NaN;
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (!Number.isInteger(number) || number <= 0) {
+    send(400, { error: 'a positive integer PR number is required' });
+    return;
+  }
+  try {
+    send(200, await api(number));
+  } catch (error) {
+    send(500, { error: error instanceof Error ? error.message : 'rerun checks failed' });
+  }
+}
+
 // handlePoolClient/handlePublicity/handlePoolClientExecute moved to
 // `./pool-client.js` (epic 0002 shell decomposition) — imported above.
 
@@ -2982,6 +3050,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/pr-review/update-branch') {
       void handleUpdateBranch(req, res, deps.updateBranch, headers, prReviewLimiter);
+      return;
+    }
+
+    if (path === '/api/pr-review/rerun-checks') {
+      void handleRerunChecks(req, res, deps.rerunChecks, headers, prReviewLimiter);
       return;
     }
 
