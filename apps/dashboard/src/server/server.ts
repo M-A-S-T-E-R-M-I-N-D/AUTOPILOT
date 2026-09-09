@@ -119,7 +119,11 @@ import {
   type PrReviewExecuteResult,
 } from '../flight/pr-review-execute.js';
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
-import type { MirrorPassPlan, MirrorPassLandingNotePlan } from '../flight/mirror-pass.js';
+import type {
+  MirrorPassPlan,
+  MirrorPassLandingNotePlan,
+  MirrorPassStaleClaimPlan,
+} from '../flight/mirror-pass.js';
 import type { MirrorPassDriftPlan } from '../flight/mirror-pass-execute.js';
 import type {
   HumanMergeResult,
@@ -491,6 +495,13 @@ export type MirrorPassLandingNotePreviewApi = (
  *  `null` means an unknown project id. */
 export type MirrorPassDriftPreviewApi = (projectId: string) => Promise<MirrorPassDriftPlan | null>;
 
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. See
+ *  `flight/mirror-pass-execute.ts`'s `createMirrorPassStaleClaimPreviewApi`. */
+export type MirrorPassStaleClaimPreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassStaleClaimPlan[] | null>;
+
 /** The report-from-here preview (injected; pure — a region capture arrives
  *  fully formed from the request body, so this never reads the store or
  *  shells out — see `flight/report-from-here-execute.ts`). Turns a capture +
@@ -632,6 +643,11 @@ export interface ServerDeps extends RouteDeps {
    *  derivation 3/4) — read-only, behind `GET /api/mirror-pass/drift`. Same
    *  "mutating execute is a separate slice" stance as `mirrorPass` above. */
   readonly mirrorPassDrift?: MirrorPassDriftPreviewApi;
+  /** MIRROR PASS stale-claim preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
+   *  derivation 4/4) — read-only, behind `GET /api/mirror-pass/stale-claims`.
+   *  Same "mutating execute is a separate slice" stance as `mirrorPass`
+   *  above. */
+  readonly mirrorPassStaleClaim?: MirrorPassStaleClaimPreviewApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -2384,6 +2400,41 @@ async function handleMirrorPassDrift(
   }
 }
 
+/**
+ * The MIRROR PASS stale-claim preview endpoint (`GET
+ * /api/mirror-pass/stale-claims?project=`) — derivation 4/4: a claimed pool
+ * issue whose assignee has gone quiet past the shared stale threshold, so
+ * its claim can be freed up for someone else. Same on-demand, degrade-to-
+ * null shape as {@link handleMirrorPass}.
+ */
+async function handleMirrorPassStaleClaim(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassStaleClaimPreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass stale-claim preview unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    send(200, { staleClaims: await api(project) });
+  } catch {
+    send(200, { staleClaims: null });
+  }
+}
+
 /** Shared body parser for both report-from-here endpoints — `{regionId,
  *  regionLabel, description, moduleSources, hasScreenshot, action,
  *  projectId, severity?}`. `null` (→ 400) means malformed JSON/body or an
@@ -3080,6 +3131,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass/drift') {
       void handleMirrorPassDrift(req, res, deps.mirrorPassDrift, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/stale-claims') {
+      void handleMirrorPassStaleClaim(req, res, deps.mirrorPassStaleClaim, headers);
       return;
     }
 

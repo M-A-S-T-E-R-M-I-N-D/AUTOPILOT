@@ -88,6 +88,7 @@ import {
   createMirrorPassPreviewApi,
   createMirrorPassLandingNotePreviewApi,
   createMirrorPassDriftPreviewApi,
+  createMirrorPassStaleClaimPreviewApi,
 } from '../flight/mirror-pass-execute.js';
 import {
   createPoolClientPreviewApi,
@@ -601,6 +602,10 @@ const server = createServer({
   // README/docs claims (version, package count, internal links) checked
   // against its tree; no `gh` call involved.
   mirrorPassDrift: createMirrorPassDriftPreviewApi(dbPath),
+  // MIRROR PASS stale-claim preview: read-only, derivation 4/4 — a claimed
+  // pool issue whose assignee has gone quiet past the shared stale
+  // threshold, so the claim can be freed up for someone else.
+  mirrorPassStaleClaim: createMirrorPassStaleClaimPreviewApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool
   // issues for themselves, not on behalf of a stored project. Claiming can

@@ -33,6 +33,7 @@ import {
   planMirrorPassStaleClaimReaper,
   planMirrorPassStaleClaimCommands,
   fetchClaimedIssueActivity,
+  planMirrorPassStaleClaimBatch,
   type MirrorPassTaskCandidate,
   type MirrorPassIssueState,
   type MirrorPassClaimedIssue,
@@ -987,5 +988,34 @@ describe('fetchClaimedIssueActivity', () => {
     }));
 
     expect(await fetchClaimedIssueActivity(exec, 42)).toBeNull();
+  });
+});
+
+describe('planMirrorPassStaleClaimBatch', () => {
+  it('pairs a reap finding with its commands for a stale claim, and null/empty for a fresh one', () => {
+    const plans = planMirrorPassStaleClaimBatch(
+      [claimedIssue({ number: 1 }), claimedIssue({ number: 2, lastActivityAt: NOW })],
+      NOW,
+    );
+
+    expect(plans).toHaveLength(2);
+    expect(plans[0]?.finding).toMatchObject({ action: 'reap-stale-claim', issueNumber: 1 });
+    expect(plans[0]?.commands).toHaveLength(2);
+    expect(plans[1]?.finding).toBeNull();
+    expect(plans[1]?.commands).toHaveLength(0);
+  });
+
+  it('returns an empty plan list for no claimed issues', () => {
+    expect(planMirrorPassStaleClaimBatch([], NOW)).toEqual([]);
+  });
+
+  it('honors a custom threshold override across the whole batch', () => {
+    const plans = planMirrorPassStaleClaimBatch(
+      [claimedIssue({ lastActivityAt: NOW - 3 * DAY_MS })],
+      NOW,
+      3,
+    );
+
+    expect(plans[0]?.finding).toMatchObject({ action: 'reap-stale-claim', quietDays: 3 });
   });
 });
