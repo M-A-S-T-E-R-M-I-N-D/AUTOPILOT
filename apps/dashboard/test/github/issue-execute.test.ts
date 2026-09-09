@@ -7,6 +7,9 @@ import type { CommandResult } from '../../src/github/execute.js';
 import type { CliRun } from '../../src/connection/cli-probe.js';
 import { UPSTREAM_REPO } from '../../src/info.js';
 
+const V = '1.2.3';
+const REPO_LINK = '[AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)';
+
 const authedExec = async (bin: string, args: readonly string[]): Promise<CliRun> => {
   if (bin === 'gh' && args[0] === '--version') return { code: 0, stdout: 'gh version 2.60.0' };
   if (bin === 'gh' && args[0] === 'auth') {
@@ -30,6 +33,7 @@ describe('createGithubIssueExecuteApi', () => {
       },
       'mastermind/autopilot',
       authedExec,
+      V,
     );
 
     const result = await api('flights crash on empty SOUL', 'steps to repro...');
@@ -45,7 +49,7 @@ describe('createGithubIssueExecuteApi', () => {
           '--title',
           'flights crash on empty SOUL',
           '--body',
-          'steps to repro...\n\n🛩️ Flown by AUTOPILOT on behalf of @octocat\n\nAutopilot-Agent: true',
+          `steps to repro...\n\n🛩️ Flown by ${REPO_LINK} v${V}, on behalf of @octocat\n\nAutopilot-Agent: true`,
         ],
       },
     ]);

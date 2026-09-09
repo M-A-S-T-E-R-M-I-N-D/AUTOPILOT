@@ -87,6 +87,10 @@ export interface GithubPrPlan {
  * integer (throws {@link InvalidPrInputError} otherwise, touching nothing)
  * — a zero, negative, or fractional issue number can never be a valid
  * GitHub issue reference.
+ *
+ * `version` is the flying AUTOPILOT's own product version, folded into the
+ * disclosure footer per `docs/ATTRIBUTION.md` §2's filing-channel
+ * spread-line.
  */
 export function planGithubPr(
   upstreamRepo: string,
@@ -94,6 +98,7 @@ export function planGithubPr(
   branch: string,
   title: string,
   body: string,
+  version: string,
   issueNumber?: number,
 ): GithubPrPlan {
   const trimmedForkOwner = forkOwner.trim();
@@ -119,8 +124,8 @@ export function planGithubPr(
         : `${body}\n\nCloses #${issueNumber}`;
   const finalBody =
     withIssue.length === 0
-      ? identityDisclosure(trimmedForkOwner)
-      : `${withIssue}\n\n${identityDisclosure(trimmedForkOwner)}`;
+      ? identityDisclosure(trimmedForkOwner, version)
+      : `${withIssue}\n\n${identityDisclosure(trimmedForkOwner, version)}`;
   return {
     steps: [
       {

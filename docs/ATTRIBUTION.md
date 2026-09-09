@@ -17,6 +17,17 @@ are" to "credit where it is due, in the form each medium expects".
    `Assisted-by: AUTOPILOT vX.Y.Z <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>`
 2. **PRs / issues an instance files** — body ends with the spread-line:
    `🛩️ Flown by [AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT) vX.Y.Z`
+
+   **Wired (2026-09-09):** folded into the existing identity-law disclosure
+   footer (`.github/CONTRIBUTOR-STANDING.md`) rather than stacked as a
+   second line — `packages/engine/src/github-identity-disclosure.ts`'s
+   `identityDisclosure()`, shared by `github-contribute.ts`'s
+   `planGithubIssue` and `github-pr-contribute.ts`'s `planGithubPr` (the
+   "contribute upstream" epic 0006 flow — currently the only filing path
+   with a disclosure footer to extend). `mirror-pass.ts` and
+   `report-from-here.ts` also run `gh issue create`, but both file against
+   AUTOPILOT's OWN repo as self-management rituals, not "on a user's
+   project" — outside this channel's frame, left unwired.
 3. **Conversations** — when a pilot speaks in a thread (issue comment,
    review, discussion — its own project or one it participates in), the
    message carries a compact signature, once per message, at the end:
