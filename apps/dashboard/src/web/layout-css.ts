@@ -593,6 +593,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .pr-review-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .pr-review-number { font-family: var(--font-mono); color: var(--color-text-muted); }
 .pr-review-pr-title { margin: 0; font-size: var(--text-sm); }
+.contributor-standing-tier-you { color: var(--color-accent); font-weight: 600; }
 .pr-review-number-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
 .pr-review-number-link:hover, .pr-review-number-link:focus-visible { border-bottom-color: currentColor; }
 .pr-review-checks { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-1); }

@@ -33,6 +33,65 @@
  */
 import { UPSTREAM_REPO } from '../info.js';
 
+/**
+ * What the standing panel should OFFER, given who is looking at it.
+ *
+ * The panel used to render "Apply for Active partner standing" to
+ * everyone, unconditionally — including the repo's own maintainer, who
+ * was being invited to apply for a rank below the one he already holds
+ * (operator, 2026-09-09: "it looks like the system doesn't recognise
+ * that I'm MASTERMIND"). The identity was never the problem:
+ * `GET /api/social-identity` already resolved `role: 'maintainer'`
+ * correctly. The panel simply never asked.
+ *
+ * This is the role-honesty law (EPIC 0019 law 1) pointed the other way.
+ * The law is usually read as "a non-owner must not see a maintainer
+ * verb"; its mirror is just as true — **an owner must not be shown a
+ * visitor's verb**. A control offered to someone it cannot apply to is
+ * the same defect in either direction.
+ *
+ * `'unknown'` (identity not resolved yet, or the lookup failed) keeps the
+ * apply link: a visitor whose role we could not determine is far more
+ * likely to be a newcomer than the maintainer, and withholding the one
+ * onboarding affordance from a real newcomer is the worse mistake.
+ */
+export type StandingViewerRole = 'maintainer' | 'user' | 'unknown';
+
+export interface StandingPanelOffer {
+  /** Render the "Apply for Active partner standing" link. */
+  readonly showApply: boolean;
+  /** The viewer's own place on the ladder, when we know it — rendered as
+   *  a "you are here" marker rather than an invitation. */
+  readonly youAreHere: string | null;
+  /** What to offer a maintainer instead of an application: their actual
+   *  job, which is reviewing the applications other people file. */
+  readonly showReviewApplications: boolean;
+}
+
+export function standingPanelOffer(role: StandingViewerRole): StandingPanelOffer {
+  if (role === 'maintainer') {
+    return { showApply: false, youAreHere: 'Maintainer', showReviewApplications: true };
+  }
+  return { showApply: true, youAreHere: null, showReviewApplications: false };
+}
+
+/** Where a maintainer goes to see who has applied — the standing
+ *  applications are `partner-application`-labeled issues on the upstream
+ *  repo, the same ones `flight/contributor-dossier.ts` builds evidence
+ *  dossiers for. */
+export function partnerApplicationsReviewUrl(upstreamRepo: string): string {
+  // Concatenation, not a template literal — a bare template-literal return
+  // is exactly the shape `generate-splice-manifest.mjs` treats as a
+  // bundle-composing assembler, which would land this data module in the
+  // splice manifest as a phantom. Its sibling `partnerApplicationUrl`
+  // below carries the same note for the same reason.
+  return (
+    'https://github.com/' +
+    upstreamRepo +
+    '/issues?q=is%3Aissue+is%3Aopen+label%3Apartner-application'
+  );
+}
+
 /** One contributor standing tier's explainer row. */
 export interface ContributorStandingTier {
   readonly tier: string;
@@ -101,3 +160,8 @@ export function partnerApplicationUrl(upstreamRepo: string): string {
 /** The real deep-link for THIS repo, spliced into the served bundle via
  *  `JSON.stringify()` the same way {@link CONTRIBUTOR_STANDING_TIERS} is. */
 export const CONTRIBUTOR_STANDING_APPLY_URL = partnerApplicationUrl(UPSTREAM_REPO);
+
+/** Where a maintainer reviews the applications others filed — computed
+ *  here beside its sibling so the feature module splices a value, never a
+ *  call. */
+export const CONTRIBUTOR_STANDING_REVIEW_URL = partnerApplicationsReviewUrl(UPSTREAM_REPO);

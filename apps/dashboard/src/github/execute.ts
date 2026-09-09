@@ -106,7 +106,14 @@ export function createGithubSyncExecuteApi(
 
       const vcs = new GitVcs(project.root_path);
       const hasRemote = await vcs.hasRemote();
-      const plan = planGithubSync(project.slug, visibility, hasRemote);
+      // Naming the branch is what makes a re-sync work on a branch created
+      // locally — every flight branch this fleet makes. `currentBranch()`
+      // answers `'HEAD'` on a detached checkout and `''` outside a repo;
+      // both are passed through as "unnamed", which falls back to the bare
+      // push rather than inventing a ref to push.
+      const branch = await vcs.currentBranch();
+      const named = branch === 'HEAD' || branch.trim() === '' ? undefined : branch;
+      const plan = planGithubSync(project.slug, visibility, hasRemote, named);
 
       if (visibility === 'public') {
         const flagged = scan(project.root_path);

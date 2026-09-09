@@ -91,8 +91,15 @@ const CORE_GZIP_BUDGET = 55 * 1024;
 // against the old 119808B budget: 150 bytes over on raw alone, gzip
 // untouched. See apps/dashboard/test/server/client-bundle-size-budget.test.ts
 // for the mirrored budget and full reasoning.
-const CHUNK_RAW_BUDGET = 118 * 1024;
-const CHUNK_GZIP_BUDGET = 36 * 1024;
+//
+// Then panels raw 118→119KB / gzip 36→37KB (2026-09-09) for the standing
+// panel's role gating. It used to invite the repo's OWN maintainer to
+// apply for a rank below his — the identity endpoint resolved his role
+// correctly, the panel simply never asked. Paid first by folding the two
+// near-identical anchor builders into one; the residue is the role
+// decision itself, spliced from the panel module so it cannot drift.
+const CHUNK_RAW_BUDGET = 119 * 1024;
+const CHUNK_GZIP_BUDGET = 37 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

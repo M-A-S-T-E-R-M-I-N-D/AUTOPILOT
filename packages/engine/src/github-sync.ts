@@ -69,6 +69,7 @@ export function planGithubSync(
   repoName: string,
   visibility: RepoVisibility,
   hasRemote: boolean,
+  branch?: string,
 ): GithubSyncPlan {
   if (!REPO_NAME_PATTERN.test(repoName)) {
     throw new InvalidRepoNameError(repoName);
@@ -79,6 +80,25 @@ export function planGithubSync(
       command: 'gh',
       args: ['repo', 'create', repoName, `--${visibility}`, '--source=.', '--push'],
       details: `no remote configured — creating a new ${visibility} GitHub repo "${repoName}" and pushing`,
+    };
+  }
+  // A bare `git push` only works when the current branch already TRACKS a
+  // remote one. It does not on a branch created locally — which is every
+  // flight branch this fleet makes — and the operator got git's own raw
+  // error text in the panel instead of a sync (2026-09-09): "fatal: The
+  // current branch autopilot/flight has no upstream branch."
+  //
+  // Naming the branch explicitly with `-u` is what git itself suggests in
+  // that message, and it is correct in BOTH cases: it sets the tracking
+  // link the first time and is a plain push every time after. Still never
+  // a force, and still only ever the branch the operator is on.
+  if (branch !== undefined && branch.trim() !== '') {
+    const ref = branch.trim();
+    return {
+      action: 'push',
+      command: 'git',
+      args: ['push', '-u', 'origin', ref],
+      details: `re-sync: pushing "${ref}" to the configured remote (setting upstream if unset)`,
     };
   }
   return {

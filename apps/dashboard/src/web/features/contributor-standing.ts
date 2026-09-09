@@ -50,6 +50,8 @@ import {
   CONTRIBUTOR_STANDING_APPLY_URL,
   CONTRIBUTOR_STANDING_TIERS,
   contributorStandingTierSummary as sharedContributorStandingTierSummary,
+  standingPanelOffer,
+  CONTRIBUTOR_STANDING_REVIEW_URL,
 } from '../contributor-standing-panel.js';
 
 /** The Contributor standing explainer panel client — vanilla, external (keeps CSP script-src 'self'). */
@@ -67,8 +69,12 @@ export function contributorStandingJs(): string {
 // no longer drift apart.
 var CONTRIBUTOR_STANDING_TIERS = ${JSON.stringify(CONTRIBUTOR_STANDING_TIERS)};
 var CONTRIBUTOR_STANDING_APPLY_URL = ${JSON.stringify(CONTRIBUTOR_STANDING_APPLY_URL)};
+var CONTRIBUTOR_STANDING_REVIEW_URL = ${JSON.stringify(CONTRIBUTOR_STANDING_REVIEW_URL)};
 ${sharedContributorStandingTierSummary.toString()}
-function renderContributorStandingPanel() {
+// standingPanelOffer decides what this panel may OFFER the viewer — the
+// role-honesty law pointed at the owner instead of the visitor.
+${standingPanelOffer.toString()}
+function renderContributorStandingPanel(role) {
   var section = document.getElementById('contributor-standing-panel');
   if (!section) return;
   section.replaceChildren();
@@ -87,19 +93,68 @@ function renderContributorStandingPanel() {
     list.appendChild(dd);
   }
   section.appendChild(list);
-  var apply = document.createElement('a');
-  apply.className = 'contributor-standing-apply';
-  apply.textContent = 'Apply for Active partner standing';
-  apply.setAttribute('data-i18n', 'contributorStandingApplyLabel');
-  apply.href = CONTRIBUTOR_STANDING_APPLY_URL;
-  apply.target = '_blank';
-  apply.rel = 'noopener noreferrer';
-  apply.setAttribute('data-tip', 'Opens a prefilled GitHub issue using the Active-partner application template.');
-  apply.setAttribute('data-i18n-tip', 'contributorStandingApplyTip');
-  section.appendChild(apply);
+  // One builder for both links: they differ only in text, href and tip.
+  // Duplicating the anchor setup cost real bundle bytes on a budgeted chunk
+  // for no behaviour.
+  function standingLink(text, href, tip, i18nKey) {
+    var a = document.createElement('a');
+    a.className = 'contributor-standing-apply';
+    a.textContent = text;
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.setAttribute('data-tip', tip);
+    a.setAttribute('aria-label', tip);
+    if (i18nKey) {
+      a.setAttribute('data-i18n', i18nKey);
+      a.setAttribute('data-i18n-tip', 'contributorStandingApplyTip');
+    }
+    section.appendChild(a);
+  }
+  var offer = standingPanelOffer(role || 'unknown');
+  if (offer.showApply) {
+    standingLink(
+      'Apply for Active partner standing',
+      CONTRIBUTOR_STANDING_APPLY_URL,
+      'Opens a prefilled GitHub issue using the Active-partner application template.',
+      'contributorStandingApplyLabel'
+    );
+  }
+  if (offer.showReviewApplications) {
+    standingLink(
+      'Review standing applications',
+      CONTRIBUTOR_STANDING_REVIEW_URL,
+      'You are the maintainer — the ladder above is what others climb. Opens the open partner-application issues awaiting your decision.',
+      ''
+    );
+  }
   section.hidden = false;
   translateDom(document.documentElement.lang || 'en');
 }
-renderContributorStandingPanel();
+// Mark the viewer's own rung, so the ladder reads as "where you stand"
+// rather than "what you are missing".
+function markStandingTier(youAreHere) {
+  if (!youAreHere) return;
+  var rows = document.querySelectorAll('#contributor-standing-panel .contributor-standing-tier');
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].textContent !== youAreHere) continue;
+    rows[i].classList.add('contributor-standing-tier-you');
+    rows[i].setAttribute('data-tip', 'This is you.');
+    rows[i].textContent = youAreHere + ' - you';
+  }
+}
+// Render immediately with what we know (nothing), then correct once the
+// identity resolves. A failed lookup leaves the newcomer-safe default
+// standing rather than blanking the panel.
+renderContributorStandingPanel('unknown');
+fetch('/api/social-identity', { headers: { accept: 'application/json' } })
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (data) {
+    var role = data && data.identity && data.identity.role;
+    if (!role) return;
+    renderContributorStandingPanel(role);
+    markStandingTier(standingPanelOffer(role).youAreHere);
+  })
+  .catch(function () {});
 `.trim();
 }

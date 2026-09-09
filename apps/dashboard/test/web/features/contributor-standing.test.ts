@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  standingPanelOffer,
   CONTRIBUTOR_STANDING_APPLY_URL,
   CONTRIBUTOR_STANDING_TIERS,
   contributorStandingTierSummary,
@@ -25,17 +26,35 @@ describe('contributorStandingJs', () => {
     expect(contributorStandingJs()).toContain(contributorStandingTierSummary.toString());
   });
 
-  it('declares renderContributorStandingPanel and self-initializes once', () => {
+  it('declares a ROLE-taking renderContributorStandingPanel and self-initializes once', () => {
     const out = contributorStandingJs();
-    expect(out).toContain('function renderContributorStandingPanel() {');
-    expect(out).toContain('renderContributorStandingPanel();');
+    expect(out).toContain('function renderContributorStandingPanel(role) {');
+    expect(out).toContain("renderContributorStandingPanel('unknown');");
   });
 
-  it('renders into #contributor-standing-panel with no fetch and no poll timer', () => {
+  it('renders into #contributor-standing-panel, resolves the viewer once, and never polls', () => {
+    // The panel USED to be a pure static render. It now asks who is
+    // looking, exactly once — because rendering "Apply for Active partner
+    // standing" to the repo's own maintainer was the bug that prompted
+    // this (operator, 2026-09-09). Still no timer: a role does not change
+    // while the page is open.
     const out = contributorStandingJs();
     expect(out).toContain("document.getElementById('contributor-standing-panel')");
-    expect(out).not.toContain('fetch(');
+    expect(out).toContain("fetch('/api/social-identity'");
     expect(out).not.toContain('setInterval');
+  });
+
+  it('renders newcomer-safe FIRST, so a failed identity lookup still onboards a visitor', () => {
+    const out = contributorStandingJs();
+    // The synchronous first render passes 'unknown', which standingPanelOffer
+    // maps to showApply — withholding the one onboarding affordance from a
+    // real newcomer is the worse failure of the two.
+    expect(out).toContain("renderContributorStandingPanel('unknown');");
+    expect(out).toContain('.catch(function () {});');
+  });
+
+  it('splices standingPanelOffer so the role decision cannot drift from the panel module', () => {
+    expect(contributorStandingJs()).toContain(standingPanelOffer.toString());
   });
 
   it('unhides the panel and sweeps i18n after rendering', () => {
@@ -59,14 +78,18 @@ describe('contributorStandingJs — apply deep-link', () => {
   it('builds a real external anchor, not an internal chip', () => {
     const out = contributorStandingJs();
     expect(out).toContain("document.createElement('a')");
-    expect(out).toContain("apply.target = '_blank'");
-    expect(out).toContain("apply.rel = 'noopener noreferrer'");
-    expect(out).toContain('apply.href = CONTRIBUTOR_STANDING_APPLY_URL');
+    expect(out).toContain("a.target = '_blank'");
+    expect(out).toContain("a.rel = 'noopener noreferrer'");
+    // The href now arrives as standingLink()'s argument.
+    expect(out).toContain('CONTRIBUTOR_STANDING_APPLY_URL,');
+    expect(out).toContain('a.href = href;');
   });
 
-  it('appends the apply link into the panel before unhiding it', () => {
+  it('appends its links into the panel before unhiding it', () => {
     const out = contributorStandingJs();
-    const appendIndex = out.indexOf('section.appendChild(apply);');
+    // Both links are built by one shared standingLink() now — the two
+    // anchor builders were byte-for-byte the same but for text/href/tip.
+    const appendIndex = out.indexOf('section.appendChild(a);');
     const unhideIndex = out.indexOf('section.hidden = false;');
 
     expect(appendIndex).toBeGreaterThan(-1);
