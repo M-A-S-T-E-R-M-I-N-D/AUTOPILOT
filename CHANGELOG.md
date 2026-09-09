@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Added
+
+- feat(flight): lane children spawn BELOW-NORMAL CPU priority on Windows
+- feat(security): generate one combined agent/tool-grant table (BACKLOG-999 I1) (#34)
+
+### Fixed
+
+- fix(pr-review): stop publishing the ritual's internal monologue
+- fix(triage): priority and area labels are exclusive families, not additive
+- fix(ci): merge-integrity gave different verdicts on different branches
+
 ## [0.31.0] — 2026-09-09
 
 ### Added
@@ -162,7 +173,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - fix(ci): reuse-ignore the DONATE generator's emitted SPDX strings + pin the donations poll 404
 - fix(self-study): refuse a regen that would republish LESS history than is committed (#23)
 - fix(ci): drive-path scanner stops reading overflow-y as drive y — and the scroll-bound fix relands
-- fix(flight): the static-site detector earns its marker — the census's own foretold fifth
 - fix(dashboard): timeline sig now includes the trace/diff/replay overlay maps
 - fix(onboarding): reland the static-site gate detector the 03:18 revert burst discarded
 - fix(dashboard): bound the expanded flight log to a scroll container
@@ -206,12 +216,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - fix(dashboard): announce the KEEPER PR review Apply result through a polite live region
 - fix(dashboard): deep-link each publicity affordance to its own page, with live counts
 - fix(engine): gate remediation commits only the fixer's own paths, not the whole tree
-- fix(dashboard): neutralize @-mentions in KEEPER's base-branch reasoning too
 - fix(dashboard): landing refuses when ANY process holds a live flight lock
 - fix(licensing): make REUSE compliance actually pass
 - fix(dashboard): stop duplicating the tip into fly-row action button aria-labels
 - fix(flight): scope worktree flightRoot to a flown subfolder's own repo path
-- fix: neutralize @-mentions in the KEEPER ritual's base-branch reasoning
 
 ## [0.29.0] — 2026-09-07
 
