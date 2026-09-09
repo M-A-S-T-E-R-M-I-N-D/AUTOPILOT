@@ -107,9 +107,7 @@ export function mirrorPassStaleClaimItems(
  *  sentence since (unlike the other three previews) none of them carries a
  *  pre-written `comment` — `null` (drift-free, or the preview itself
  *  unavailable) yields no items. */
-export function mirrorPassDriftItems(
-  drift: MirrorPassDriftLike | null,
-): readonly MirrorPassItem[] {
+export function mirrorPassDriftItems(drift: MirrorPassDriftLike | null): readonly MirrorPassItem[] {
   if (!drift) return [];
   const items: MirrorPassItem[] = [];
   if (drift.versionDrift) {
