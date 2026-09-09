@@ -89,6 +89,22 @@ describe('releaseJs', () => {
     expect(releaseJs()).toContain("fetch('/api/release?project=' + encodeURIComponent(pid))");
   });
 
+  it('tags the EXECUTE button label as a {version} template and paints its transient states via tr() (board web-msnsndki-dz3vn1)', () => {
+    const out = releaseJs();
+    // The label carries a live {version} — a data-i18n-template, not a plain
+    // data-i18n tag, which could only paint fixed text.
+    expect(out).toContain("execBtn.setAttribute('data-i18n-template', 'releaseExecuteTemplate');");
+    expect(out).toContain(
+      "execBtn.setAttribute('data-i18n-args', JSON.stringify({ version: release.plan.version }));",
+    );
+    // Neither transient state is a DOM attribute a sweep can reach — both
+    // paint via tr() at the moment they're set, never a bare literal.
+    expect(out).toContain("b.textContent = tr('releaseExecuting');");
+    expect(out).toContain("resultEl.textContent = tr('releaseRequestFailed');");
+    expect(out).not.toContain("b.textContent = 'Releasing…';");
+    expect(out).not.toContain("resultEl.textContent = '✗ Request failed — try again shortly.';");
+  });
+
   it('carries its own EXECUTE click handler, confirm-guarded', () => {
     const out = releaseJs();
     expect(out).toContain(
