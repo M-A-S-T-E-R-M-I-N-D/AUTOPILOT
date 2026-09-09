@@ -36,7 +36,18 @@ import { gzipSync } from 'node:zlib';
 // fixation-chip i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
 // measured sizes behind each bump.
-const CORE_RAW_BUDGET = 185 * 1024;
+//
+// Then core raw 185→186KB and panels raw 116→117KB / gzip 35→36KB
+// (2026-09-09) to RELAND the Hebrew report-menu toolkit. That work was
+// reverted mid-flight by a bare `Revert` with no stated reason and then
+// abandoned — 115 lines of the founders' own language silently dropped.
+// The revert was legitimate (it did breach the wall); the abandonment was
+// not. This is new user-facing value in a language the roadmap names as a
+// goal, not accidental bloat, so the wall moves by the smallest amount
+// that fits it: 0.1KB core, 0.3KB panels raw, 0.5KB panels gzip over.
+// The structural answer row 14 keeps inviting — move the non-English
+// STRINGS table out of core entirely — is boarded, not done here.
+const CORE_RAW_BUDGET = 186 * 1024;
 const CORE_GZIP_BUDGET = 55 * 1024;
 // Deferred chunks never block first paint — the budget exists so they cannot
 // silently become a second monolith. Measured at introduction (2026-08-28):
@@ -73,8 +84,8 @@ const CORE_GZIP_BUDGET = 55 * 1024;
 // a prPanelButton() helper replacing four verbatim button-construction
 // blocks (-400B). Panels is a deferred chunk — it never blocks first paint
 // — and the core budgets are untouched at 184KB/55KB.
-const CHUNK_RAW_BUDGET = 116 * 1024;
-const CHUNK_GZIP_BUDGET = 35 * 1024;
+const CHUNK_RAW_BUDGET = 117 * 1024;
+const CHUNK_GZIP_BUDGET = 36 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;
