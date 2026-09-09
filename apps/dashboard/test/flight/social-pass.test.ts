@@ -330,11 +330,12 @@ describe('planSocialProtocol', () => {
     ).toEqual([...candidates].sort((a, b) => a.reasoning.localeCompare(b.reasoning)));
   });
 
-  it('returns empty allowed/queued/duplicate for zero candidates', () => {
+  it('returns empty allowed/queued/duplicate/refused for zero candidates', () => {
     expect(planSocialProtocol([], { maxNewIssues: 3, maxComments: 3 })).toEqual({
       allowed: [],
       queued: [],
       duplicate: [],
+      refused: [],
     });
   });
 
@@ -511,5 +512,66 @@ describe('planSocialProtocol', () => {
 
     expect(verdict.duplicate).toEqual([]);
     expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('refuses a maintainer-only candidate when the role is user (law 5)', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'triage label', requiresMaintainer: true },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 }, [], 'user');
+
+    expect(verdict.refused).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+    expect(verdict.queued).toEqual([]);
+  });
+
+  it('admits a maintainer-only candidate when the role is maintainer', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'triage label', requiresMaintainer: true },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      [],
+      'maintainer',
+    );
+
+    expect(verdict.allowed).toEqual(candidates);
+    expect(verdict.refused).toEqual([]);
+  });
+
+  it('defaults role to user, refusing a maintainer-only candidate when role is omitted', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'new-issue', reasoning: 'authoritative filing', requiresMaintainer: true },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 });
+
+    expect(verdict.refused).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+  });
+
+  it('never refuses a candidate that does not require maintainer verbs, regardless of role', () => {
+    const candidates: SocialCandidateAction[] = [{ kind: 'comment', reasoning: 'ordinary reply' }];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 5 }, [], 'user');
+
+    expect(verdict.refused).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('does not count a refused candidate against its kind cap', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'refused first', requiresMaintainer: true },
+      { kind: 'comment', reasoning: 'ordinary reply that should still fit the cap' },
+    ];
+
+    const verdict = planSocialProtocol(candidates, { maxNewIssues: 5, maxComments: 1 }, [], 'user');
+
+    expect(verdict.refused).toEqual([candidates[0]]);
+    expect(verdict.allowed).toEqual([candidates[1]]);
+    expect(verdict.queued).toEqual([]);
   });
 });
