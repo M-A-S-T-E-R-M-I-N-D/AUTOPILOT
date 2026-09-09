@@ -63,7 +63,16 @@ const CORE_GZIP_BUDGET = 55 * 1024;
 // gzip stayed over, at 35068B against 34816B, because the remaining growth
 // is unique prose that compresses poorly. Core (first-paint) budgets are
 // untouched.
-const CHUNK_RAW_BUDGET = 112 * 1024;
+// Then raw-only 112→116KB (2026-09-09) for the third maintainer verb —
+// re-run failed checks — which closed the panel's last dead end: a red
+// check disabled the merge button with an honest reason and nothing in the
+// app could act on it. The tripwire was paid THREE times across this epic
+// before either number moved: a prose pass on the new tips (-466B), a fold
+// of the two identical maintainer-verb click handlers into one wiring, and
+// a prPanelButton() helper replacing four verbatim button-construction
+// blocks (-400B). Panels is a deferred chunk — it never blocks first paint
+// — and the core budgets are untouched at 184KB/55KB.
+const CHUNK_RAW_BUDGET = 116 * 1024;
 const CHUNK_GZIP_BUDGET = 35 * 1024;
 
 function formatKb(bytes) {

@@ -21,6 +21,8 @@ import { describe, it, expect } from 'vitest';
 import {
   createHumanMergeApi,
   createUpdateBranchApi,
+  createRerunChecksApi,
+  runIdFromCheckUrl,
   judgeHumanMerge,
 } from '../../src/flight/human-merge.js';
 import type { PrReviewCandidate } from '../../src/flight/pr-review.js';
@@ -122,6 +124,7 @@ function execReturning(candidates: readonly PrReviewCandidate[], calls: string[]
               name: r.name,
               conclusion: r.state === 'pass' ? 'SUCCESS' : r.state === 'fail' ? 'FAILURE' : null,
               status: r.state === 'running' ? 'IN_PROGRESS' : 'COMPLETED',
+              detailsUrl: r.url,
             })),
             files: c.touchedPaths.map((path) => ({ path })),
             labels: [],
@@ -131,6 +134,17 @@ function execReturning(candidates: readonly PrReviewCandidate[], calls: string[]
       };
     }
     return { code: 0, stdout: '' };
+  };
+}
+
+function execReturningRaw(pr: PrReviewCandidate, calls: string[][]): CliExec {
+  const base = execReturning([pr], calls);
+  return async (bin, args) => {
+    if (args[0] === 'run') {
+      calls.push([bin, ...args]);
+      return { code: 0, stdout: '' };
+    }
+    return base(bin, args);
   };
 }
 
@@ -264,5 +278,92 @@ describe('createUpdateBranchApi — the way out of the one blocked state that ha
       args[1] === 'view' ? { code: 0, stdout: 'not json' } : { code: 0, stdout: '' };
 
     expect((await createUpdateBranchApi(broken)(34)).updated).toBe(false);
+  });
+});
+
+/**
+ * THE RE-RUN VERB — the last dead end (operator, 2026-09-09: "אחרי שהיה
+ * ERROR אז הכפתור עוצר ואי אפשר לנסות להגיש שוב, איך פותרים?").
+ *
+ * A red check disabled the merge button with an honest reason and no way
+ * to act on it. One of the two reds that day was our own jsdom teardown
+ * race, in a run where all 9,865 tests passed — a flake that could only
+ * be cleared by a rerun the app could not perform.
+ */
+describe('runIdFromCheckUrl', () => {
+  it('reads the workflow run id out of a check’s own log url', () => {
+    expect(
+      runIdFromCheckUrl('https://github.com/o/r/actions/runs/34289745510/job/102273433807'),
+    ).toBe('34289745510');
+  });
+
+  it('returns null for an external status link or no url at all', () => {
+    expect(runIdFromCheckUrl('https://vercel.com/x/deployments/abc')).toBeNull();
+    expect(runIdFromCheckUrl(undefined)).toBeNull();
+  });
+});
+
+describe('createRerunChecksApi — restarts only what failed', () => {
+  const RED: PrReviewCandidate = {
+    ...GREEN,
+    checkRuns: [
+      { name: 'verify (ubuntu-latest)', state: 'pass' },
+      {
+        name: 'verify (macos-latest)',
+        state: 'fail',
+        url: 'https://github.com/o/r/actions/runs/900/job/1',
+      },
+      {
+        name: 'e2e',
+        state: 'fail',
+        url: 'https://github.com/o/r/actions/runs/900/job/2',
+      },
+    ],
+  };
+
+  it('re-runs each distinct run once with --failed, not the whole matrix', async () => {
+    const calls: string[][] = [];
+    const rerun = createRerunChecksApi(execReturningRaw(RED, calls));
+
+    const result = await rerun(33);
+
+    expect(result.rerun).toBe(true);
+    expect(result.runs).toBe(1);
+    const reruns = calls.filter((c) => c[1] === 'run' && c[2] === 'rerun');
+    expect(reruns).toHaveLength(1);
+    expect(reruns[0]).toEqual(['gh', 'run', 'rerun', '900', '--failed']);
+  });
+
+  it('refuses when nothing is failing', async () => {
+    const calls: string[][] = [];
+    const rerun = createRerunChecksApi(execReturningRaw(GREEN, calls));
+
+    const result = await rerun(33);
+
+    expect(result.rerun).toBe(false);
+    expect(result.reason).toContain('nothing to re-run');
+    expect(calls.some((c) => c[2] === 'rerun')).toBe(false);
+  });
+
+  it('refuses when the red check is not an Actions run we can restart', async () => {
+    const external = {
+      ...GREEN,
+      checkRuns: [{ name: 'vercel', state: 'fail' as const, url: 'https://vercel.com/x' }],
+    };
+    const calls: string[][] = [];
+
+    const result = await createRerunChecksApi(execReturningRaw(external, calls))(33);
+
+    expect(result.rerun).toBe(false);
+    expect(calls.some((c) => c[2] === 'rerun')).toBe(false);
+  });
+
+  it('reports honestly when gh refuses every run', async () => {
+    const calls: string[][] = [];
+    const base = execReturningRaw(RED, calls);
+    const refusing: CliExec = async (bin, args) =>
+      args[0] === 'run' ? { code: 1, stdout: '' } : base(bin, args);
+
+    expect((await createRerunChecksApi(refusing)(33)).rerun).toBe(false);
   });
 });

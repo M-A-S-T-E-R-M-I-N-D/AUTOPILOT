@@ -72,6 +72,8 @@ import {
   humanMergeResult,
   updateBranchConfirmMessage,
   updateBranchResult,
+  rerunChecksConfirmMessage,
+  rerunChecksResult,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -109,6 +111,8 @@ ${humanMergeConfirmMessage.toString()}
 ${humanMergeResult.toString()}
 ${updateBranchConfirmMessage.toString()}
 ${updateBranchResult.toString()}
+${rerunChecksConfirmMessage.toString()}
+${rerunChecksResult.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -120,6 +124,24 @@ ${updateBranchResult.toString()}
 ${decisionItemHeadMeta.toString()}
 var PR_REVIEW_POLL_MS = 30000;
 var prReviewPlansByNumber = {};
+// Every button on a card is built the same way: class, label, the data-
+// attribute its delegated handler listens for, a tip that doubles as the
+// aria-label, and disabled-with-reason. Four call sites shared this shape
+// verbatim, which is bundle bytes on a budgeted chunk for no behavior.
+function prPanelButton(cls, label, attr, number, tip, disabled) {
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.className = cls;
+  b.textContent = label;
+  b.setAttribute(attr, String(number));
+  b.setAttribute('data-tip', tip);
+  b.setAttribute('aria-label', tip);
+  if (disabled) {
+    b.disabled = true;
+    b.setAttribute('aria-disabled', 'true');
+  }
+  return b;
+}
 function renderPrReviewPanel(plans, fetchFailed) {
   // The panel self-initializes and then polls forever on its own timer, so
   // its callbacks can land after the page (or, under vitest, the whole jsdom
@@ -227,50 +249,32 @@ function renderPrReviewPanel(plans, fetchFailed) {
       item.appendChild(checksWrap);
     }
     var actions = el('div', 'pr-review-actions');
-    var applyBtn = document.createElement('button');
-    applyBtn.type = 'button';
-    applyBtn.className = 'pr-review-execute';
-    applyBtn.textContent = 'Apply';
+    var applyBtn = prPanelButton('pr-review-execute', 'Apply', 'data-pr-review-execute',
+      plan.pr.number, prReviewExecuteTip(plan.pr, plan.decision, tr), false);
     applyBtn.setAttribute('data-i18n', 'prReviewApply');
-    applyBtn.setAttribute('data-pr-review-execute', String(plan.pr.number));
-    var applyTip = prReviewExecuteTip(plan.pr, plan.decision, tr);
-    applyBtn.setAttribute('data-tip', applyTip);
-    applyBtn.setAttribute('aria-label', applyTip);
     actions.appendChild(applyBtn);
-    // THE HUMAN MERGE BUTTON — only on the cards the ritual deliberately
-    // refuses to merge itself. The maintainer's answer had no home in the
+    // THE MAINTAINER VERBS — only on the cards the ritual deliberately
+    // refuses to act on itself. The maintainer's answer had no home in the
     // app before this (operator: "איך אני עושה את זה דרך הדשבורד עצמו?");
-    // the panel queued the PR and then sent you to a browser. Renders
-    // disabled-with-reason until every gating check is green.
+    // the panel queued the PR and then sent you to a browser. Each renders
+    // disabled-with-reason, and every refusal that names an action gets
+    // that action as a button beside it — a red check offers the re-run, a
+    // stale branch offers the update.
     if (plan.decision.decision === 'queue-for-human') {
-      var mergeBtn = document.createElement('button');
-      mergeBtn.type = 'button';
-      mergeBtn.className = 'pr-review-human-merge';
-      mergeBtn.textContent = '🤝 Merge as maintainer';
-      mergeBtn.setAttribute('data-pr-human-merge', String(plan.pr.number));
       var readiness = humanMergeReadiness(plan.pr);
-      if (!readiness.ready) {
-        mergeBtn.disabled = true;
-        mergeBtn.setAttribute('aria-disabled', 'true');
+      actions.appendChild(prPanelButton('pr-review-human-merge', '🤝 Merge as maintainer',
+        'data-pr-human-merge', plan.pr.number, readiness.reason, !readiness.ready));
+      if (readiness.hasFailedChecks) {
+        actions.appendChild(prPanelButton('pr-review-update-branch', '↻ Re-run failed',
+          'data-pr-rerun-checks', plan.pr.number,
+          'Restart only the jobs that failed, not the whole matrix. For a flake — a real failure fails again.',
+          false));
       }
-      mergeBtn.setAttribute('data-tip', readiness.reason);
-      mergeBtn.setAttribute('aria-label', readiness.reason);
-      actions.appendChild(mergeBtn);
-      // A refusal that names an action offers that action: behind-base is
-      // the one blocked state with a one-click way out, so the instruction
-      // gets a button beside it instead of sending the operator elsewhere.
       if (readiness.behindBase) {
-        var updateBtn = document.createElement('button');
-        updateBtn.type = 'button';
-        updateBtn.className = 'pr-review-update-branch';
-        updateBtn.textContent = '⟳ Update branch';
-        updateBtn.setAttribute('data-pr-update-branch', String(plan.pr.number));
-        var updateTip =
-          'Merge the current base into this branch so protection lets it merge. ' +
-          'Restarts every check on the new head.';
-        updateBtn.setAttribute('data-tip', updateTip);
-        updateBtn.setAttribute('aria-label', updateTip);
-        actions.appendChild(updateBtn);
+        actions.appendChild(prPanelButton('pr-review-update-branch', '⟳ Update branch',
+          'data-pr-update-branch', plan.pr.number,
+          'Merge the current base into this branch so protection lets it merge. Restarts every check on the new head.',
+          false));
       }
     }
     item.appendChild(actions);
@@ -385,12 +389,18 @@ function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor
           resultEl.className = result.className;
           resultEl.textContent = result.text;
         }
-        // Either verb changes the PR's real facts — a merge removes it from
-        // the open list, an update moves its head — so re-poll rather than
-        // leave a stale card on screen. A merged card's button never comes
-        // back, so it is not restored.
-        if (!(data && data.merged)) restore();
-        loadPrReviewPanel();
+        var changed = !!(data && (data.merged || data.updated || data.rerun));
+        // Re-poll ONLY when the action actually changed the PR. A refusal
+        // changed nothing, and re-rendering would wipe the very message
+        // explaining the refusal before it could be read — the operator saw
+        // a button go dead with no reason left on screen (2026-09-09). On a
+        // refusal the button comes back so the same click can be retried
+        // once its cause is fixed.
+        if (changed) {
+          loadPrReviewPanel();
+          return;
+        }
+        restore();
       })
       .catch(function () {
         restore();
@@ -411,6 +421,14 @@ wirePrMaintainerAction(
   humanMergeConfirmMessage,
   function (n, plan) { return { number: n, expectedHeadRefOid: plan.pr.headRefOid }; },
   humanMergeResult
+);
+wirePrMaintainerAction(
+  'data-pr-rerun-checks',
+  'Re-running…',
+  '/api/pr-review/rerun-checks',
+  rerunChecksConfirmMessage,
+  function (n) { return { number: n }; },
+  rerunChecksResult
 );
 wirePrMaintainerAction(
   'data-pr-update-branch',

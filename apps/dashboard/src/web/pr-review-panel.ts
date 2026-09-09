@@ -211,6 +211,10 @@ export function prReviewConfirmMessage(
 export function humanMergeReadiness(pr: PrReviewCandidateLike): {
   ready: boolean;
   reason: string;
+  /** Set when a gating check is RED — the panel offers the re-run beside
+   *  the disabled merge button, because a red check with no way to act on
+   *  it was the last dead end the panel had. */
+  hasFailedChecks?: boolean;
   /** Set when the ONLY thing standing between this PR and a merge is a
    *  stale branch — the panel offers the update as its own button rather
    *  than leaving the operator with an instruction and no way to follow
@@ -226,11 +230,17 @@ export function humanMergeReadiness(pr: PrReviewCandidateLike): {
   if (notPassed.length > 0) {
     const running = notPassed.filter((c) => c.state === 'running' || c.state === 'queued').length;
     const failed = notPassed.filter((c) => c.state === 'fail').length;
-    const detail =
-      failed > 0
-        ? failed + (failed === 1 ? ' check failed' : ' checks failed')
-        : running + ' still running';
-    return { ready: false, reason: 'Not mergeable yet — ' + detail + '.' };
+    if (failed > 0) {
+      return {
+        ready: false,
+        hasFailedChecks: true,
+        reason:
+          failed +
+          (failed === 1 ? ' check failed' : ' checks failed') +
+          ' — fix it, or re-run the failed jobs with the button beside this.',
+      };
+    }
+    return { ready: false, reason: 'Not mergeable yet — ' + running + ' still running.' };
   }
   // Checked BEFORE mergeable: a behind-base branch is the one blocked
   // state with a one-click way out, and saying "conflicting" about it
@@ -253,6 +263,30 @@ export function humanMergeReadiness(pr: PrReviewCandidateLike): {
   return {
     ready: true,
     reason: 'Squash-merge #' + pr.number + ' and delete its branch. Re-verified against gh first.',
+  };
+}
+
+/** The re-run button's confirm — says what it will and will not spend:
+ *  only the failed jobs restart, so a 17-minute Windows job is not
+ *  re-spent to retry a macOS flake. */
+export function rerunChecksConfirmMessage(pr: PrReviewCandidateLike): string {
+  return (
+    'Re-run the failed jobs on #' +
+    pr.number +
+    '?\n\nRestarts only the jobs that failed, not the whole matrix. Use this when the red ' +
+    'is a flake; a real failure will just fail again.'
+  );
+}
+
+/** The `.pr-review-result` line for one re-run response. */
+export function rerunChecksResult(data: { rerun?: boolean; reason?: string } | null | undefined): {
+  className: string;
+  text: string;
+} {
+  const ok = !!(data && data.rerun);
+  return {
+    className: 'pr-review-result pr-review-result-' + (ok ? 'ok' : 'fail'),
+    text: (ok ? '✓ ' : '✗ ') + ((data && data.reason) || 'The re-run did not start.'),
   };
 }
 
