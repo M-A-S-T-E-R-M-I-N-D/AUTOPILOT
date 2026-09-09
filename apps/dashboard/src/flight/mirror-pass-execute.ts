@@ -2,31 +2,39 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * MIRROR PASS reconcile ritual's read-only preview wiring (EPIC 0019 S3,
- * board `web-mtrh1hlh-62l41b` — VERDICT `ap-mtsg3nc0-3` slice (a): "the
- * smallest slice that turns 'pure planner' into 'something a firing can
- * actually run and see output from'"). `mirror-pass.ts` holds four
- * independent pure-planner derivations but composed none of them into a
- * runnable pass; this file composes derivations 1/4 and 2/4 —
- * {@link planMirrorPassBatch}'s reconcile ("board task done ⇒ close linked
- * issue with the landing SHA") and {@link planMirrorPassLandingNoteBatch}'s
- * landing-note dedup ("landed commits get landed-in comments" for a task
- * whose issue was already closed some other way) and derivation 3/4 —
- * {@link readMirrorPassVersionDrift}/{@link readMirrorPassCountsDrift}/
- * {@link readMirrorPassLinkDrift}'s "README/docs public claims ↔ tree
- * reality" trio — each named directly by `docs/epics/0019-github-steward.md`.
- * Also composes derivation 4/4 — {@link planMirrorPassStaleClaimBatch}'s
- * stale-claim reaper ("assignee quiet 14d on a claimed pool issue → free it
- * up"), the last of the four pure planners this file wires into a runnable
- * preview. The mutating execute path for all four remains its own slice per
- * the VERDICT's split — not attempted here.
+ * MIRROR PASS reconcile ritual's HTTP-layer wiring (EPIC 0019 S3, board
+ * `web-mtrh1hlh-62l41b` — VERDICT `ap-mtsg3nc0-3` slice (a): "the smallest
+ * slice that turns 'pure planner' into 'something a firing can actually run
+ * and see output from'"). `mirror-pass.ts` holds four independent
+ * pure-planner derivations but composed none of them into a runnable pass;
+ * this file composes derivations 1/4 and 2/4 — {@link planMirrorPassBatch}'s
+ * reconcile ("board task done ⇒ close linked issue with the landing SHA")
+ * and {@link planMirrorPassLandingNoteBatch}'s landing-note dedup ("landed
+ * commits get landed-in comments" for a task whose issue was already closed
+ * some other way) and derivation 3/4 — {@link readMirrorPassVersionDrift}/
+ * {@link readMirrorPassCountsDrift}/{@link readMirrorPassLinkDrift}'s
+ * "README/docs public claims ↔ tree reality" trio — each named directly by
+ * `docs/epics/0019-github-steward.md`. Also composes derivation 4/4 —
+ * {@link planMirrorPassStaleClaimBatch}'s stale-claim reaper ("assignee
+ * quiet 14d on a claimed pool issue → free it up"), the last of the four
+ * pure planners this file wires into a runnable preview.
  *
  * Same shape as `issue-triage-execute.ts`'s `createIssueTriagePreviewApi`:
  * gather real inputs for a project (its `github-<n>` board tasks, each
  * paired with the most recent landing SHA `@autopilot/store`'s `metrics`
  * table recorded for it) and run them through the injectable `CliExec`
- * `connection/cli-probe.ts` uses. Read-only — never calls `gh` to change
- * anything, never writes to the store.
+ * `connection/cli-probe.ts` uses. The four preview APIs above are read-only
+ * — never call `gh` to change anything, never write to the store.
+ *
+ * {@link createMirrorPassExecuteApi} is VERDICT slice (b)'s first
+ * installment — the mutating counterpart to {@link createMirrorPassPreviewApi},
+ * scoped to derivation 1/4 only (the other three derivations' mutating
+ * paths remain their own follow-up slices, same per-derivation split slice
+ * (a) already used above). Same "resolve identity, refuse to write for a
+ * non-maintainer" role gate `taxonomy-seed.ts`'s `runTaxonomySeed` uses for
+ * epic law 1 ("role honesty first"). The `POST /api/mirror-pass/execute`
+ * HTTP route and the dashboard panel that would call it are not wired
+ * here — VERDICT slices (b)'s HTTP half and (c) remain their own slices.
  */
 
 import { join } from 'node:path';
@@ -34,6 +42,7 @@ import { openStore, listProjects, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
+import { resolveSocialIdentity, type SocialIdentity } from './social-pass.js';
 import {
   planMirrorPassBatch,
   fetchMirrorPassIssueStates,
@@ -44,6 +53,7 @@ import {
   readMirrorPassLinkDrift,
   fetchClaimedIssueActivity,
   planMirrorPassStaleClaimBatch,
+  applyMirrorPassCommands,
   type MirrorPassTaskCandidate,
   type MirrorPassPlan,
   type MirrorPassLandingNotePlan,
@@ -52,6 +62,7 @@ import {
   type MirrorPassBrokenLinkFinding,
   type MirrorPassClaimedIssue,
   type MirrorPassStaleClaimPlan,
+  type MirrorPassCommandOutcome,
 } from './mirror-pass.js';
 
 /** One `github-<n>` task row as the `tasks` table stores it — just enough
@@ -124,6 +135,88 @@ export function createMirrorPassPreviewApi(
       const tasks = mirrorPassTaskCandidates(store, projectId);
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       return planMirrorPassBatch(tasks, issuesByNumber);
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** One reconciled task's real outcome after {@link createMirrorPassExecuteApi}
+ *  ran it — the {@link MirrorPassPlan} {@link planMirrorPassBatch} reached,
+ *  paired with what `gh` actually reported for each of its commands (empty
+ *  when the plan carried no finding — nothing was sent). */
+export interface MirrorPassExecuteOutcome {
+  readonly plan: MirrorPassPlan;
+  readonly commandOutcomes: readonly MirrorPassCommandOutcome[];
+}
+
+/** Why {@link createMirrorPassExecuteApi} sent zero `gh` mutations this
+ *  call — epic 0019 law 1, role honesty: `'identity-unresolved'` when `gh`
+ *  itself could not resolve who is acting, `'guest'` when it resolved to
+ *  someone other than this repo's own maintainer. Same two reasons, same
+ *  names, as `taxonomy-seed.ts`'s `TaxonomySeedSkipReason`. */
+export type MirrorPassExecuteSkipReason = 'identity-unresolved' | 'guest';
+
+/** The reconcile EXECUTE ritual's full report: the identity it resolved
+ *  (`undefined` when resolution itself failed), every task whose plan
+ *  carried a finding paired with its real command outcomes, or a
+ *  `skippedReason` (with `outcomes` always `[]`) when role honesty forbade
+ *  sending a single mutation. */
+export interface MirrorPassExecuteReport {
+  readonly identity: SocialIdentity | undefined;
+  readonly outcomes: readonly MirrorPassExecuteOutcome[];
+  readonly skippedReason?: MirrorPassExecuteSkipReason;
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassExecuteApi = (projectId: string) => Promise<MirrorPassExecuteReport | null>;
+
+/**
+ * Build the MIRROR PASS reconcile EXECUTE api against the real store + real
+ * `gh` — derivation 1/4's mutating counterpart to
+ * {@link createMirrorPassPreviewApi} (EPIC 0019 S3, board
+ * `web-mtrh1hlh-62l41b`, VERDICT `ap-mtsg3nc0-3` slice (b), scoped to
+ * derivation 1/4 only — the other three derivations' execute paths remain
+ * their own follow-up slices, same per-derivation split slice (a) already
+ * used for the preview APIs above). Role-gated the same way
+ * `taxonomy-seed.ts`'s `runTaxonomySeed` gates its own writes: resolves the
+ * acting identity first (epic law 1, "role honesty first") and returns a
+ * zero-mutation report the moment that identity is unresolved or not this
+ * repo's own maintainer — a guest identity never reaches a single `gh issue
+ * close`/`reopen`/`comment` call. Only a task {@link planMirrorPassBatch}
+ * actually finds a finding for gets its commands sent; an already-in-sync
+ * task costs nothing beyond the read already spent planning it.
+ */
+export function createMirrorPassExecuteApi(
+  dbPath: string,
+  exec: CliExec = ghExec,
+): MirrorPassExecuteApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const identity = await resolveSocialIdentity(exec);
+      if (identity === undefined || identity.role !== 'maintainer') {
+        return {
+          identity,
+          outcomes: [],
+          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
+        };
+      }
+      const tasks = mirrorPassTaskCandidates(store, projectId);
+      const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
+      const plans = planMirrorPassBatch(tasks, issuesByNumber);
+      const outcomes: MirrorPassExecuteOutcome[] = [];
+      for (const plan of plans) {
+        if (plan.commands.length === 0) continue;
+        outcomes.push({
+          plan,
+          commandOutcomes: await applyMirrorPassCommands(exec, plan.commands),
+        });
+      }
+      return { identity, outcomes };
     } finally {
       store.close();
     }

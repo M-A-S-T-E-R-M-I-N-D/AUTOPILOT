@@ -9,6 +9,7 @@ import { openStore, migrate, createTask, setTaskStatus, type Store } from '@auto
 import type * as AutopilotStore from '@autopilot/store';
 import {
   createMirrorPassPreviewApi,
+  createMirrorPassExecuteApi,
   createMirrorPassLandingNotePreviewApi,
   createMirrorPassDriftPreviewApi,
   createMirrorPassStaleClaimPreviewApi,
@@ -47,6 +48,45 @@ function cleanupDir(dir: string): void {
  *  success — mirrors `mirror-pass.ts`'s own test doubles. */
 function issueViewExec(states: Readonly<Record<number, 'open' | 'closed'>>): CliExec {
   return vi.fn(async (_bin, args) => {
+    if (args[0] === 'issue' && args[1] === 'view') {
+      const number = Number(args[2]);
+      const state = states[number];
+      if (state === undefined) return { code: 1, stdout: '' };
+      return { code: 0, stdout: JSON.stringify({ number, state: state.toUpperCase() }) };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+/** A `CliExec` stub answering identity resolution (`gh api user` as
+ *  `login`, `gh repo view` as owned by `ownerLogin`) plus `gh issue view <n>
+ *  --json number,state` from `states`, and a bare success for every other
+ *  call (the mutating `issue comment`/`issue close`/`issue reopen` calls
+ *  `createMirrorPassExecuteApi` sends) — the exec double it needs, since it
+ *  composes `resolveSocialIdentity` with `createMirrorPassPreviewApi`'s own
+ *  reconcile read. Every call is appended to `calls` so a test can assert
+ *  exactly which `gh` argv ran (or didn't). */
+function identityAndIssueViewExec(
+  login: string,
+  ownerLogin: string,
+  states: Readonly<Record<number, 'open' | 'closed'>>,
+  calls: Array<readonly [string, readonly string[]]> = [],
+): CliExec {
+  return vi.fn(async (bin, args) => {
+    calls.push([bin, args]);
+    if (args[0] === 'api' && args[1] === 'user') {
+      return { code: 0, stdout: JSON.stringify({ login }) };
+    }
+    if (args[0] === 'repo' && args[1] === 'view') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: `${ownerLogin}/hello-world`,
+          url: `https://github.com/${ownerLogin}/hello-world`,
+          isPrivate: false,
+        }),
+      };
+    }
     if (args[0] === 'issue' && args[1] === 'view') {
       const number = Number(args[2]);
       const state = states[number];
@@ -299,6 +339,209 @@ describe('createMirrorPassPreviewApi', () => {
 
       vi.mocked(openStore).mockClear();
       await createMirrorPassPreviewApi(dbPath, issueViewExec({}))('p1');
+      expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createMirrorPassExecuteApi', () => {
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      const exec = identityAndIssueViewExec('octocat', 'octocat', {});
+      expect(await createMirrorPassExecuteApi(dbPath, exec)('nope')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with identity-unresolved and sends zero mutations when gh cannot resolve who is acting', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-unresolved-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-42', projectId: 'p1', title: 'Fix it', createdAt: 100 });
+      setTaskStatus(s, 'github-42', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-42', 'abc1234');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec: CliExec = vi.fn(async (bin, args) => {
+        calls.push([bin, args]);
+        return { code: 1, stdout: '' };
+      });
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report).toEqual({
+        identity: undefined,
+        outcomes: [],
+        skippedReason: 'identity-unresolved',
+      });
+      expect(calls.some(([, args]) => args.includes('close') || args.includes('reopen'))).toBe(
+        false,
+      );
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with guest and sends zero mutations for a non-maintainer identity', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-guest-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-42', projectId: 'p1', title: 'Fix it', createdAt: 100 });
+      setTaskStatus(s, 'github-42', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-42', 'abc1234');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewExec('a-contributor', 'octocat', { 42: 'open' }, calls);
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBe('guest');
+      expect(report?.outcomes).toEqual([]);
+      expect(report?.identity).toMatchObject({ login: 'a-contributor', role: 'user' });
+      // Role honesty: identity resolution ran, but the board task read and any
+      // issue view/mutation never did.
+      expect(calls.some(([, args]) => args[0] === 'issue')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends the close-with-landing-note commands for a maintainer identity', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-close-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-42',
+        projectId: 'p1',
+        title: 'Fix the fleet table keyboard nav',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-42', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-42', 'abc1234');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewExec('octocat', 'octocat', { 42: 'open' }, calls);
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+      expect(report?.outcomes).toHaveLength(1);
+      expect(report?.outcomes[0]?.plan.finding).toMatchObject({
+        action: 'close-with-landing-note',
+        issueNumber: 42,
+      });
+      expect(report?.outcomes[0]?.commandOutcomes).toEqual([
+        {
+          command: expect.objectContaining({
+            args: ['issue', 'comment', '42', '--body', expect.any(String)],
+          }),
+          ok: true,
+        },
+        { command: expect.objectContaining({ args: ['issue', 'close', '42'] }), ok: true },
+      ]);
+      expect(calls).toContainEqual(['gh', ['issue', 'close', '42']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends the reopen-honestly commands when the board no longer says done', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-reopen-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-7',
+        projectId: 'p1',
+        title: 'Regression in the search palette',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-7', 'deferred', 200);
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewExec('octocat', 'octocat', { 7: 'closed' }, calls);
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.outcomes[0]?.plan.finding).toMatchObject({ action: 'reopen-honestly' });
+      expect(calls).toContainEqual(['gh', ['issue', 'reopen', '7']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends nothing when the board and the issue already agree', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-insync-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-3',
+        projectId: 'p1',
+        title: 'Already closed the right way',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-3', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-3', 'def5678');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewExec('octocat', 'octocat', { 3: 'closed' }, calls);
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.outcomes).toEqual([]);
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] !== 'view')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('defaults to the real CLI exec when none is injected', () => {
+    expect(() => createMirrorPassExecuteApi('/tmp/unused.db')).not.toThrow();
+  });
+
+  it('opens the store read-only — this reconcile never writes to the board itself', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-readonly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      vi.mocked(openStore).mockClear();
+      await createMirrorPassExecuteApi(
+        dbPath,
+        identityAndIssueViewExec('octocat', 'octocat', {}),
+      )('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
     } finally {
       cleanupDir(dir);
