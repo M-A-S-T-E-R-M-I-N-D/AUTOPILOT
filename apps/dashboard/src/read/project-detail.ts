@@ -530,10 +530,22 @@ export function readProjectDoc(dbPath: string, projectId: string, path: string):
 const ASK_EXCERPT_CHARS = 3000;
 const ASK_HIT_LIMIT = 3;
 
+/** Prefix each line with its 1-based line number (`N| `) so the model can cite
+ *  `path:line` instead of just the bare file path (`ask.ts`'s "Cite file:line"
+ *  rule) — the excerpt always starts at line 1, so the numbering stays correct
+ *  even after the char-budget truncation below. */
+function numberLines(text: string): string {
+  return text
+    .split('\n')
+    .map((line, i) => `${i + 1}| ${line}`)
+    .join('\n');
+}
+
 /**
  * Retrieval for ask-your-project: top-ranked files for the question, each with
- * its indexed content truncated to a prompt-sized excerpt. Degrades to [] on any
- * store failure (the ask flow then answers honestly without spending quota).
+ * its indexed content truncated to a prompt-sized, line-numbered excerpt.
+ * Degrades to [] on any store failure (the ask flow then answers honestly
+ * without spending quota).
  */
 export function gatherAskSources(
   dbPath: string,
@@ -549,7 +561,10 @@ export function gatherAskSources(
     for (const hit of search.search(projectId, question, ASK_HIT_LIMIT)) {
       const content = search.documentContent(projectId, hit.path);
       if (content !== null) {
-        sources.push({ path: hit.path, excerpt: content.slice(0, ASK_EXCERPT_CHARS) });
+        sources.push({
+          path: hit.path,
+          excerpt: numberLines(content.slice(0, ASK_EXCERPT_CHARS)),
+        });
       }
     }
     return sources;

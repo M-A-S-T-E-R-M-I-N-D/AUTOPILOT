@@ -1061,6 +1061,27 @@ describe('gatherAskSources', () => {
     }
   });
 
+  it('prefixes every excerpt line with its 1-based line number, for file:line citations', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-ask-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      new SqliteSearchStore(s).indexDocument(
+        'p1',
+        'src/widget.ts',
+        'line one\nline two\nline three',
+        'typescript',
+      );
+      s.close();
+
+      const sources = gatherAskSources(dbPath, 'p1', 'line');
+      expect(sources[0]!.excerpt).toBe('1| line one\n2| line two\n3| line three');
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
   it('degrades to [] when the store throws (unmigrated DB)', () => {
     const { dir, dbPath } = unmigratedDbPath('ap-dash-ask-bad-');
     try {
