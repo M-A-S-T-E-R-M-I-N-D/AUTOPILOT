@@ -409,6 +409,13 @@ instead of merging; unset or any other value keeps the default. The lever only n
 value widens what may auto-merge past policy-green, and the security-hard rule applies
 identically in every mode.
 
+**Operator lever** (env, fleet-wide, not KEEPER-specific): `AUTOPILOT_ATTRIBUTION=off` strips
+the `— ✈️` credit signature this ritual's comments/reviews (and every other outbound `gh`
+conversational post — issue comments, PR reviews, mirror-pass notes) otherwise carry; unset or
+any other value keeps signing (see `docs/ATTRIBUTION.md` §"one opt-out lever covers all four
+channels"). `ghExec` (`apps/dashboard/src/flight/gh-exec.ts`) wires every ritual's `gh` calls
+through `withAttribution()`, so the lever is checked once, centrally, not per-ritual.
+
 **Verify necessity** (live): before judging gate/conflict state, each non-security PR's
 diff is fetched (`gh pr diff`) and reverse-apply-checked against the current tree
 (`git apply --reverse --check`, via a temp patch file); a clean reverse-apply means the
