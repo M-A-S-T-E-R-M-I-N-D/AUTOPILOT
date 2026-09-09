@@ -126,14 +126,19 @@ test.describe('visual regression — populated fleet', () => {
       // Explicit bounded loop, NOT toPass: the pump advances FAKE time, and
       // an unbounded retry loop on a fast box could pump minutes of it —
       // sliding every ago-label into the next minute and diffing the
-      // baselines. 25 pumps x 2s = a hard 50s fake-time ceiling (fixture
-      // NOW+2m -> worst case 2m53s, same minute for every label), while a
-      // loaded runner gets ~25 generous chances instead of the previous
-      // 20 (observed: a dev box paints on pump 1; a churning windows
-      // runner exhausted 20).
+      // baselines. The FAKE-TIME ceiling is what must stay fixed (50s:
+      // fixture NOW+2m -> worst case 2m53s, same minute for every label);
+      // the number of chances to OBSERVE within it is free.
+      //
+      // So the pump halved and the count doubled (2026-09-09): 50 x 1s is
+      // the same 50s ceiling with twice the observation points. Raised
+      // after the windows runner exhausted 25 on a project page that has
+      // grown to 3762px this round — a loaded runner needs more chances,
+      // not more fake time, and the two were previously coupled for no
+      // reason. A dev box still paints on the first pump.
       let firingAgoVisible = false;
-      for (let pump = 0; pump < 25 && !firingAgoVisible; pump++) {
-        await page.clock.runFor(2000);
+      for (let pump = 0; pump < 50 && !firingAgoVisible; pump++) {
+        await page.clock.runFor(1000);
         firingAgoVisible = (await page.locator('.firing-ago').count()) > 0;
       }
       expect(firingAgoVisible, 'flight log never painted within 50s of pumped fake time').toBe(
