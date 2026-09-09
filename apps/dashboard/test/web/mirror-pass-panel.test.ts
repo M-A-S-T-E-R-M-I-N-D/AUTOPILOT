@@ -23,9 +23,7 @@ describe('mirrorPassReconcileItems / mirrorPassLandingNoteItems / mirrorPassStal
   });
 
   it('mirrorPassLandingNoteItems and mirrorPassStaleClaimItems share the same rendering', () => {
-    const plans = [
-      { finding: { issueNumber: 7, comment: 'Unassigning @rel — quiet for 20 days.' } },
-    ];
+    const plans = [{ finding: { issueNumber: 7, comment: 'Unassigning @rel — quiet for 20 days.' } }];
     expect(mirrorPassLandingNoteItems(plans)).toEqual([
       { text: '#7 — Unassigning @rel — quiet for 20 days.' },
     ]);
