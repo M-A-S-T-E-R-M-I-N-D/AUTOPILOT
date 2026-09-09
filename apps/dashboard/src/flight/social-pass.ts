@@ -21,26 +21,37 @@
  *
  * Own-submissions inventory ({@link fetchOwnSubmissions}) is the "know what
  * is already ours" law (2): issues and PRs authored by the resolved login,
- * across all states — the same evidence a later dedup slice needs before it
- * can tell a genuine new finding from something this identity already said.
- * Comment-level inventory (the finer-grained half `ownComments` already
- * gives `pr-review.ts` for its own PRs) is a follow-up slice: `gh` has no
- * single "list my comments across the repo" read the way it has `issue
- * list --author`/`pr list --author`, and synthesizing one (paging every
- * issue/PR's comment list) is real scope of its own, not "core".
+ * across all states — the exact evidence {@link planSocialProtocol} dedups
+ * `'new-issue'` candidates against below. Comment-level inventory (the
+ * finer-grained half `ownComments` already gives `pr-review.ts` for its own
+ * PRs) is a follow-up slice: `gh` has no single "list my comments across the
+ * repo" read the way it has `issue list --author`/`pr list --author`, and
+ * synthesizing one (paging every issue/PR's comment list) is real scope of
+ * its own, not "core".
  *
  * The protocol engine ({@link planSocialProtocol}) is the epic's law 4 made
  * mechanical: candidate actions are admitted in order up to each kind's cap,
- * then queued — never dropped, never forced through over the cap. A caller
- * (a later slice) supplies the candidates (from mirror-pass findings,
- * issue-triage answers, etc.) and the caps (visible in the flight log, per
- * the law's own wording); this module never invents either.
+ * then queued — never dropped, never forced through over the cap. It also
+ * enforces law 1, "search before you speak": a `'new-issue'` candidate whose
+ * title matches an own-submissions issue title (via `anti-flood.ts`'s same
+ * word-Jaccard similarity) is diverted to `duplicate` before the cap is even
+ * checked — never a duplicate, never counted against budget it was never
+ * going to spend. A caller (a later slice) supplies the candidates (from
+ * mirror-pass findings, issue-triage answers, etc.) and the caps (visible in
+ * the flight log, per the law's own wording); this module never invents
+ * either.
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchRepoIdentity } from './publicity.js';
 import { fetchViewerLogin } from './pr-review.js';
+import {
+  commentSimilarity,
+  normalizeCommentText,
+  FLOOD_DUPLICATE_RATIO,
+  MIN_COMPARE_LENGTH,
+} from './anti-flood.js';
 
 /** `'maintainer'` when the resolved identity owns the flown repo (acts with
  *  maintainer verbs — label, triage, answer authoritatively); `'user'`
@@ -215,6 +226,13 @@ export type SocialCandidateActionKind = 'new-issue' | 'comment';
 export interface SocialCandidateAction {
   readonly kind: SocialCandidateActionKind;
   readonly reasoning: string;
+  /** The exact title a `'new-issue'` candidate would open with — the
+   *  protocol engine's own-submissions duplicate check (epic law 1, "search
+   *  before you speak") reads this to decide whether it is already ours.
+   *  Unused for `'comment'` candidates; a `'new-issue'` candidate that omits
+   *  it simply skips the duplicate check rather than failing closed, since
+   *  an untitled candidate cannot be compared. */
+  readonly title?: string;
 }
 
 /** Per-pass hard caps for each budgeted voice kind — the epic's law 4,
@@ -228,28 +246,65 @@ export interface SocialProtocolCaps {
 
 /** The protocol engine's verdict: `allowed` actions fit this pass's budget
  *  and may proceed; `queued` actions exceeded their kind's cap and must
- *  wait for a human or a later pass — never dropped, never forced through. */
+ *  wait for a human or a later pass; `duplicate` actions matched something
+ *  this identity already submitted and must never proceed at all — never
+ *  dropped silently, never forced through, but also never re-said. */
 export interface SocialProtocolVerdict {
   readonly allowed: readonly SocialCandidateAction[];
   readonly queued: readonly SocialCandidateAction[];
+  readonly duplicate: readonly SocialCandidateAction[];
+}
+
+/** A titled `'new-issue'` candidate counts as a duplicate of an own
+ *  submission when its title's word-level Jaccard similarity to an existing
+ *  own issue title clears the same {@link FLOOD_DUPLICATE_RATIO} threshold
+ *  `anti-flood.ts` uses for outgoing comments — one "is this the same thing
+ *  said twice" bar for every outgoing voice this identity has. Titles
+ *  shorter than {@link MIN_COMPARE_LENGTH} after normalizing are exempted,
+ *  the same guard `judgeOutgoingComment` applies, since short text carries
+ *  too little word-overlap signal to compare reliably. */
+function isDuplicateOfOwnIssue(
+  candidate: SocialCandidateAction,
+  ownIssueTitles: readonly string[],
+): boolean {
+  if (candidate.title === undefined) return false;
+  const normalized = normalizeCommentText(candidate.title);
+  if (normalized.length < MIN_COMPARE_LENGTH) return false;
+  return ownIssueTitles.some(
+    (title) => commentSimilarity(normalized, title) >= FLOOD_DUPLICATE_RATIO,
+  );
 }
 
 /** Admits `candidates` into `allowed` in order, per kind, up to `caps`' cap
  *  for that kind — first-come-first-admitted within a pass, matching the
- *  order the caller proposed them in. Pure: no I/O, no randomness, so a
- *  cap-overflow scenario is deterministically reproducible in a test, the
- *  epic's own slice 6 red-team requirement ("cap overflow" fixture). */
+ *  order the caller proposed them in. A `'new-issue'` candidate that
+ *  duplicates one of `ownSubmissions`' own issue titles (epic law 1,
+ *  "search before you speak"; law 2, "know what is already ours") is
+ *  diverted to `duplicate` before the cap is even considered — a duplicate
+ *  never consumes budget, since it was never going to be said. `ownSubmissions`
+ *  defaults to empty for callers with nothing to dedup against yet. Pure: no
+ *  I/O, no randomness, so both a cap-overflow and a duplicate-issue
+ *  temptation scenario are deterministically reproducible in a test, the
+ *  epic's own slice 6 red-team requirements. */
 export function planSocialProtocol(
   candidates: readonly SocialCandidateAction[],
   caps: SocialProtocolCaps,
+  ownSubmissions: readonly SocialSubmission[] = [],
 ): SocialProtocolVerdict {
+  const ownIssueTitles = ownSubmissions
+    .filter((submission) => submission.kind === 'issue')
+    .map((submission) => normalizeCommentText(submission.title));
+
   const allowed: SocialCandidateAction[] = [];
   const queued: SocialCandidateAction[] = [];
+  const duplicate: SocialCandidateAction[] = [];
   let newIssueCount = 0;
   let commentCount = 0;
   for (const candidate of candidates) {
     if (candidate.kind === 'new-issue') {
-      if (newIssueCount < caps.maxNewIssues) {
+      if (isDuplicateOfOwnIssue(candidate, ownIssueTitles)) {
+        duplicate.push(candidate);
+      } else if (newIssueCount < caps.maxNewIssues) {
         allowed.push(candidate);
         newIssueCount += 1;
       } else {
@@ -264,5 +319,5 @@ export function planSocialProtocol(
       }
     }
   }
-  return { allowed, queued };
+  return { allowed, queued, duplicate };
 }
