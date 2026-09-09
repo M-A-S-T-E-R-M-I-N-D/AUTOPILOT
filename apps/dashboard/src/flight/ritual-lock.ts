@@ -20,6 +20,19 @@ import { FileInstanceLock } from '@autopilot/engine';
 /** Shared across every flight launched from this checkout, independent of target project. */
 export const RITUAL_LOCK_FILE_NAME = 'ritual.lock';
 
+/**
+ * Guards `RemediatingGate`'s fixer→commit→re-verify critical section
+ * (`packages/engine/src/adapters/remediating-gate.ts`) — a SEPARATE lock
+ * from `RITUAL_LOCK_FILE_NAME` so an autoformat fix on one flight never
+ * waits on an unrelated self-study regen on another, and vice versa. Closes
+ * the race `docs/DOCTRINE-COORDINATION.md`'s "AUTOFORMAT is not yet a
+ * single writer" section names: two lanes racing this section can commit,
+ * revert, and re-commit the exact same autoformat fix out from under each
+ * other (`docs/debriefs/2026-09-06-red-main-revert-cascade.md`'s firing-179
+ * addendum).
+ */
+export const AUTOFORMAT_LOCK_FILE_NAME = 'autoformat.lock';
+
 export interface RitualLockOptions {
   /** How many times to retry acquiring before giving up. Default 30. */
   readonly maxAttempts?: number;

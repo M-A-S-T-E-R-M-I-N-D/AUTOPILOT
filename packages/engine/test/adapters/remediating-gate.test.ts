@@ -320,6 +320,72 @@ describe('RemediatingGate', () => {
     expect(vcs.reverts).toBe(0); // …never undone: the crash never judged the fix either way
   });
 
+  it('runs the remediation critical section (fixer → commit → re-verify) inside withLock when provided', async () => {
+    const inner = gateOf([red, ok]);
+    const vcs = vcsFake(true);
+    const calls: string[] = [];
+    const gate = new RemediatingGate({
+      inner,
+      vcs,
+      runFixer: () => {
+        calls.push('fixer');
+        vcs.markFixerRan();
+        return Promise.resolve(true);
+      },
+      withLock: (fn) => {
+        calls.push('lock-acquired');
+        return fn();
+      },
+    });
+
+    const result = await gate.run();
+
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual(['lock-acquired', 'fixer']);
+    expect(vcs.commits).toEqual([AUTOFORMAT_COMMIT_MESSAGE]);
+  });
+
+  it('never calls withLock on a green gate — the common case stays unserialized', async () => {
+    const inner = gateOf([ok]);
+    const vcs = vcsFake(true);
+    let lockCalls = 0;
+    const gate = new RemediatingGate({
+      inner,
+      vcs,
+      runFixer: () => Promise.resolve(true),
+      withLock: (fn) => {
+        lockCalls += 1;
+        return fn();
+      },
+    });
+
+    await gate.run();
+
+    expect(lockCalls).toBe(0);
+  });
+
+  it('degrades to the unremediated failure when withLock never frees up (a sibling instance is mid-remediation)', async () => {
+    const inner = gateOf([red, ok]); // a second run would pass — must never be reached
+    const vcs = vcsFake(true);
+    let fixerRuns = 0;
+    const gate = new RemediatingGate({
+      inner,
+      vcs,
+      runFixer: () => {
+        fixerRuns += 1;
+        return Promise.resolve(true);
+      },
+      withLock: () => Promise.resolve(null), // lock timed out, mirrors withRitualLock's contract
+    });
+
+    const result = await gate.run();
+
+    expect(result).toEqual(red);
+    expect(fixerRuns).toBe(0);
+    expect(vcs.commits).toHaveLength(0);
+    expect(inner.runs).toBe(1);
+  });
+
   it('merges per-command checks from both attempts so the drill-down shows the full story', async () => {
     const inner = gateOf([redWithChecks, okWithChecks]);
     const vcs = vcsFake(true);

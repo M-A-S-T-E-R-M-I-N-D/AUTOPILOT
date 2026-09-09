@@ -27,6 +27,18 @@ export interface RemediatingGateOptions {
   readonly vcs: VcsPort;
   /** Run the deterministic fixer; resolve true when it executed successfully. */
   readonly runFixer: () => Promise<boolean>;
+  /**
+   * Serializes the fixer→commit→re-verify critical section across concurrent
+   * instances flying the same repo (docs/DOCTRINE-COORDINATION.md's "AUTOFORMAT
+   * is not yet a single writer" gap: two lanes racing this section can fight
+   * over the exact same autoformat commit). Only wraps the critical section,
+   * never the initial gate run, so a green gate — the common case — never
+   * waits on a lock at all. `null` means the lock never freed up within its
+   * own bound; treated the same as a failing fixer, so a stuck sibling
+   * degrades to the unremediated result rather than hanging. Omit to run
+   * unlocked (single-instance callers, and every existing test).
+   */
+  readonly withLock?: <T>(fn: () => Promise<T>) => Promise<T | null>;
 }
 
 /**
@@ -62,6 +74,19 @@ export class RemediatingGate implements GatePort {
     // (up to the timeout) on an environment remediation can't repair.
     if (first.crashed) return first;
 
+    if (!this.opts.withLock) return this.remediate(first);
+    const locked = await this.opts.withLock(() => this.remediate(first));
+    // Lock never freed up (a sibling instance is mid-remediation) — degrade
+    // to the unremediated failure rather than fighting it for the same commit.
+    return locked ?? first;
+  }
+
+  /**
+   * The fixer→commit→re-verify critical section — the part that must never
+   * run concurrently with another instance's copy of itself. Split out of
+   * `run` so callers can wrap exactly this span with `withLock`.
+   */
+  private async remediate(first: GateResult): Promise<GateResult> {
     // Mechanical remediation attempt — deterministic, model-free. Snapshot
     // the dirty set BEFORE the fixer runs so its own edits can be told apart
     // from any unrelated WIP already sitting in this working tree (RITUAL

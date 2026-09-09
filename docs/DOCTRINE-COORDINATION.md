@@ -118,28 +118,38 @@ commits, because the existing defense only checked *hunk overlap* in the watchdo
 path — not "ahead of base, no overlap" in the API path. **Convergence needs a
 completeness check, not only a conflict check.**
 
-**How it also broke — AUTOFORMAT is not yet a single writer.**
+**How it also broke — AUTOFORMAT was not a single writer.**
 `RemediatingGate` (`packages/engine/src/adapters/remediating-gate.ts`) exists
 precisely so a format-only gate failure never costs a unit its shipped work:
 run the fixer, commit additively as `style(autopilot): autoformat — mechanical
 gate remediation`, re-verify, keep or revert. That design is sound for a
 *single* writer. It is wired per-firing inside `fly.ts`, so with several
-instances flying the same repo, each red format check spawns its own
+instances flying the same repo, each red format check used to spawn its own
 independent remediation actor — and `docs/debriefs/2026-09-06-red-main-revert-
 cascade.md`'s firing-179 addendum caught two of them fighting over the exact
 same autoformat commit inside a single two-second window
 (`763edde6` reverted at 03:18:26, reapplied at 03:18:27, reverted again at
 03:18:27), sweeping six unrelated sibling commits into the blast radius on the
 way past. **The fixer is correct; the number of writers running it
-concurrently is not.** The invariant Convergence actually needs is: style
-remediation runs at most once per gate-red episode, from exactly one writer —
-which argues for moving it to land/sync-back time (the single point every
-lane's work already funnels through) rather than leaving it live inside every
-lane's own gate. Landing (`packages/engine/src/landing.ts`) has no remediation
-today; it just fails the merge if `format:check` is red, which is why the
-per-lane fixer was put where it is. Trading that per-lane safety net for a
-single-writer one without reopening the format-revert exposure it was built to
-close is the open redesign — see the open board task.
+concurrently is not.**
+
+**Fixed (single-writer via mutex, not phase-move).** `RemediatingGate` now
+takes an optional `withLock` around exactly its fixer→commit→re-verify span
+(never the initial gate run, so a green gate — the common case — never waits
+on anything). `fly.ts` wires it to `withRitualLock` at a dedicated
+`autoformat.lock` file (`apps/dashboard/src/flight/ritual-lock.ts`) in the
+same lock directory every sibling instance already shares for the self-study
+ritual — a SEPARATE lock file, so an autoformat fix on one flight never waits
+on an unrelated PAPER regen on another. A lock that never frees up (a sibling
+is mid-remediation) degrades to the unremediated failure rather than fighting
+it for the same commit. This closes the concrete race above without moving
+remediation to land/sync-back time, so the per-lane safety net Landing
+(`packages/engine/src/landing.ts`) still leans on stays exactly as it was —
+Landing itself still has no remediation of its own; it just fails the merge
+on a red `format:check`. Whether remediation *should* also move to
+land/sync-back — a larger redesign trading the per-lane net for a
+land-time-only one — remains an open question if the mutex alone proves
+insufficient in practice; it is not required to close this gap.
 
 ## Where ACID still governs
 

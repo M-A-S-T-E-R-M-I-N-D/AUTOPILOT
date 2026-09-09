@@ -127,7 +127,11 @@ import {
 import { verifyGuardSettings } from './flight/guard-verify.js';
 import { deriveWorktreePlan } from './flight/worktree.js';
 import { parseTaskScope, scopeFilterCandidates } from './flight/scope-partition.js';
-import { withRitualLock, RITUAL_LOCK_FILE_NAME } from './flight/ritual-lock.js';
+import {
+  withRitualLock,
+  RITUAL_LOCK_FILE_NAME,
+  AUTOFORMAT_LOCK_FILE_NAME,
+} from './flight/ritual-lock.js';
 import {
   buildFleetDigest,
   claimSurvivesFiring,
@@ -833,6 +837,11 @@ async function main(): Promise<void> {
             out(`  gate red → mechanical remediation: ${formatFix.label ?? formatFix.bin}`);
             return (await new GateRunner({ cwd: flightRoot, commands: [formatFix] }).run()).ok;
           },
+          // Single-writer law for AUTOFORMAT (DOCTRINE-COORDINATION.md): serializes
+          // the fixer→commit→re-verify span across every sibling instance flying
+          // this repo, using the same cross-process mutex the self-study ritual
+          // uses. A green gate never touches this lock at all.
+          withLock: (fn) => withRitualLock(join(dirname(dbPath), AUTOFORMAT_LOCK_FILE_NAME), fn),
         })
       : innerGate;
     if (formatFix)
