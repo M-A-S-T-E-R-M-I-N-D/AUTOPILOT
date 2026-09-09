@@ -1163,6 +1163,15 @@ const EN_STRINGS = {
   releaseMaturityBeta: 'Beta',
   releaseMaturityRc: 'Release candidate',
   releaseMaturityStable: 'Stable',
+  // web/features/release.ts's EXECUTE button (board web-msnsndki-dz3vn1): the
+  // label carries the live {version}, so it takes the data-i18n-template
+  // route rather than a plain data-i18n tag; the two transient click-handler
+  // states are painted via tr() since they're never a DOM attribute a sweep
+  // can reach, the same shape issueTriageExecuting/issueTriageRequestFailed
+  // follow for the KEEPER panel's own EXECUTE button.
+  releaseExecuteTemplate: '🚀 Cut release v{version}',
+  releaseExecuting: 'Releasing…',
+  releaseRequestFailed: '✗ Request failed — try again shortly.',
   tourFiringTitle: 'Firing',
   tourFiringBody:
     'One autonomous work session: the agent orients, does the work, runs the gate, then commits — and stops. A flight is made of many firings.',
@@ -1923,6 +1932,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     releaseMaturityBeta: 'בטא',
     releaseMaturityRc: 'מועמדת לשחרור',
     releaseMaturityStable: 'יציבה',
+    releaseExecuteTemplate: '🚀 הוצא מהדורה v{version}',
+    releaseExecuting: 'מוציא…',
+    releaseRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     tourFiringTitle: 'הפעלה',
     tourFiringBody:
       'מפגש עבודה אוטונומי אחד: הסוכן מתמצא, מבצע את העבודה, מריץ את השער, ואז מבצע קומיט — ועוצר. טיסה מורכבת מהפעלות רבות.',

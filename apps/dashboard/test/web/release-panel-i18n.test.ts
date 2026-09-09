@@ -14,7 +14,11 @@
  * "no release tags yet" message, and the milestone-tag `<label>` on a
  * planned release. Each must carry its STRINGS key so `translateDom()` (page
  * load, language switch, AND the panel's own post-fetch sweep) renders it
- * in the active locale — the contract `issue-triage.ts` already meets.
+ * in the active locale — the contract `issue-triage.ts` already meets. The
+ * EXECUTE button (added in a follow-on slice) carries a live `{version}`
+ * value rather than fixed text, so it's covered here as a
+ * `data-i18n-template` DOM assertion instead — the same shape
+ * `firing-replay-position-i18n.test.ts` verifies for `replayPosition`.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -177,6 +181,18 @@ describe('"🚀 Next release" panel i18n (board web-msnsndki-dz3vn1)', () => {
     expect(label?.getAttribute('for')).toBe('release-milestone-p1');
   });
 
+  it('tags the EXECUTE button as a {version} template on a planned release', async () => {
+    boot('plan');
+    await settle();
+
+    const execBtn = document.querySelector('.release-panel .release-execute');
+    expect(execBtn?.textContent).toBe('🚀 Cut release v1.3.0');
+    expect(execBtn?.getAttribute('data-i18n-template')).toBe('releaseExecuteTemplate');
+    expect(JSON.parse(execBtn?.getAttribute('data-i18n-args') ?? '{}')).toEqual({
+      version: '1.3.0',
+    });
+  });
+
   it('switching to Hebrew translates the already-rendered states', async () => {
     boot('notags');
     await settle();
@@ -188,6 +204,9 @@ describe('"🚀 Next release" panel i18n (board web-msnsndki-dz3vn1)', () => {
     switchToHebrew();
     expect(document.querySelector('.release-panel .release-milestone label')?.textContent).toBe(
       STRINGS.he.releaseMilestoneLabel,
+    );
+    expect(document.querySelector('.release-panel .release-execute')?.textContent).toBe(
+      STRINGS.he.releaseExecuteTemplate.split('{version}').join('1.3.0'),
     );
   });
 

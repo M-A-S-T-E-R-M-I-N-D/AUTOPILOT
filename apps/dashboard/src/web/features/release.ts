@@ -47,7 +47,14 @@
  * identifier from `web/features/locale.ts`'s splice) — the first two ride
  * the page-level sweep that follows every `renderProjectPage()` tick, while
  * each async landing site sweeps itself since it can land well after that
- * tick's sweep already ran, the exact split `issue-triage.ts` follows.
+ * tick's sweep already ran, the exact split `issue-triage.ts` follows. The
+ * EXECUTE button's label carries a live `{version}` value, so it takes the
+ * `data-i18n-template`/`data-i18n-args` route (`firing-timeline.ts`'s
+ * `replayPosition` label) instead of a plain `data-i18n` tag, which could
+ * only paint fixed text; the click handler's two transient states
+ * ("Releasing…", the failure message) are never DOM attributes a sweep can
+ * reach, so they call `tr()` directly at the moment they're set, the same
+ * shape `issue-triage.ts`'s own EXECUTE handler already follows.
  */
 import {
   releaseExecuteResult,
@@ -214,6 +221,8 @@ function renderReleaseBody(body, release, pid, identity) {
   execBtn.type = 'button';
   execBtn.className = 'release-execute';
   execBtn.textContent = '🚀 Cut release v' + release.plan.version;
+  execBtn.setAttribute('data-i18n-template', 'releaseExecuteTemplate');
+  execBtn.setAttribute('data-i18n-args', JSON.stringify({ version: release.plan.version }));
   execBtn.setAttribute('data-release-execute', pid);
   var execTip = releaseExecuteTip(release.plan.version);
   execBtn.setAttribute('data-tip', execTip);
@@ -294,7 +303,7 @@ document.addEventListener('click', function (e) {
   if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease, tr))) return;
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = 'Releasing…';
+  b.textContent = tr('releaseExecuting');
   var payload = { project: pid };
   if (milestoneTag) payload.milestoneTag = milestoneTag;
   if (ghRelease) payload.ghRelease = true;
@@ -319,7 +328,7 @@ document.addEventListener('click', function (e) {
       b.textContent = originalText;
       if (resultEl) {
         resultEl.className = 'release-result release-result-fail';
-        resultEl.textContent = '✗ Request failed — try again shortly.';
+        resultEl.textContent = tr('releaseRequestFailed');
       }
     });
 });
