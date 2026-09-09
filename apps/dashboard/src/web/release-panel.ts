@@ -165,6 +165,35 @@ export function releaseConfirmMessage(
   );
 }
 
+/** Structural subset of `flight/social-pass.ts`'s `SocialIdentity` this
+ *  panel needs — kept local rather than imported, same "no cross-module
+ *  reference in a `.toString()` splice" reasoning {@link ReleasePlanLike}
+ *  already follows. */
+export interface ReleaseViewerIdentity {
+  readonly login: string;
+  readonly nameWithOwner: string;
+  readonly role: 'maintainer' | 'user';
+}
+
+/** The RELEASE panel's guest note (epic 0019 law 1 extended to the UI,
+ *  board web-mtt3f7j6-3bj899): replaces the EXECUTE button + its inputs
+ *  when the resolved identity is a confirmed non-owner of this repo — "the
+ *  steward is a guest and proposes instead of writes". Never called for an
+ *  unresolved identity (no `gh`, no GitHub remote at all — the common
+ *  fully-local project): only a positively-resolved `'user'` role counts as
+ *  a known guest, so the button stays visible whenever ownership cannot be
+ *  determined. */
+export function releaseGuestNote(identity: ReleaseViewerIdentity): string {
+  const owner = identity.nameWithOwner.split('/')[0];
+  return (
+    'Releases on this repo are cut by its maintainer (' +
+    owner +
+    ') — you are signed in as ' +
+    identity.login +
+    '.'
+  );
+}
+
 /** The RELEASE EXECUTE button's `[data-tip]`/`aria-label` (app-wide
  *  interactivity audit v2, web-msm66jlc-gm4oom) — the button carried no
  *  explanation of what cutting a release does before the operator's click

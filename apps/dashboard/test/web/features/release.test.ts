@@ -18,6 +18,7 @@ import {
   releaseVersionItems,
   releaseConfirmMessage,
   releaseExecuteTip,
+  releaseGuestNote,
 } from '../../../src/web/release-panel.js';
 import { releaseJs } from '../../../src/web/features/release.js';
 import { releaseMaturityOf } from '../../../src/release/maturity.js';
@@ -29,6 +30,15 @@ describe('releaseJs', () => {
     expect(out).toContain(releaseExecuteTip.toString());
     expect(out).toContain(releaseExecuteResult.toString());
     expect(out).toContain(releaseConfirmMessage.toString());
+    expect(out).toContain(releaseGuestNote.toString());
+  });
+
+  it('fetches the viewer identity alongside the release preview and role-gates the EXECUTE button (epic 0019, board web-mtt3f7j6-3bj899)', () => {
+    const out = releaseJs();
+    expect(out).toContain("fetch('/api/social-identity')");
+    expect(out).toContain("identity && identity.role === 'user'");
+    // A confirmed guest gets the note instead of the execute button/inputs.
+    expect(out).toContain("el('p', 'muted release-guest-note', releaseGuestNote(identity))");
   });
 
   it('embeds the maturity detector and wires the RELEASE PHASE select: auto-detect shown, override posted, auto omitted', () => {
@@ -51,7 +61,7 @@ describe('releaseJs', () => {
 
   it('declares renderReleaseBody and releaseSection', () => {
     const out = releaseJs();
-    expect(out).toContain('function renderReleaseBody(body, release, pid) {');
+    expect(out).toContain('function renderReleaseBody(body, release, pid, identity) {');
     expect(out).toContain('function releaseSection(pid) {');
   });
 

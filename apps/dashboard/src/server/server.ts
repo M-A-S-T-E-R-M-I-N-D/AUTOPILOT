@@ -95,6 +95,8 @@ import {
 // so existing importers of the pool client/publicity contracts keep working
 // unchanged.
 export type { PoolClientApi, PublicityApi, PoolClientExecuteApi };
+import { handleSocialIdentity, type SocialIdentityApi } from './social-identity.js';
+export type { SocialIdentityApi };
 import { handleDonations } from './donations.js';
 import type { DonationsPreviewApi } from '../flight/donations.js';
 import type {
@@ -664,6 +666,11 @@ export interface ServerDeps extends RouteDeps {
   /** Publicity affordances (epic 0007, "PLATFORM 7/7"): repo/watch/star/
    *  discussions links, dormant while the repo stays private. */
   readonly publicity?: PublicityApi;
+  /** Role-gated dashboard identity (epic 0019 law 1 extended to the UI,
+   *  board web-mtt3f7j6-3bj899): the viewer's resolved GitHub login + role
+   *  on this repo, so a panel can hide a maintainer verb from a non-owner —
+   *  see `flight/social-pass.ts`'s `resolveSocialIdentity`. */
+  readonly socialIdentity?: SocialIdentityApi;
   /** Foundation donation addresses (FOUNDATION 1/3, board
    *  web-mtq0rsit-ywz1m7): chain-tagged BTC/EVM/SOL addresses, hidden until
    *  `docs/donations.json` carries a verified entry — see
@@ -3151,6 +3158,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/publicity') {
       void handlePublicity(req, res, deps.publicity, headers);
+      return;
+    }
+
+    if (path === '/api/social-identity') {
+      void handleSocialIdentity(req, res, deps.socialIdentity, headers);
       return;
     }
 

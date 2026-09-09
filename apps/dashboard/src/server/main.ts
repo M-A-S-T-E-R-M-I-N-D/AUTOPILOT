@@ -99,6 +99,7 @@ import {
   createReportFromHereExecuteApi,
 } from '../flight/report-from-here-execute.js';
 import { createPublicityPreviewApi } from '../flight/publicity.js';
+import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
 import { isAnyFlightLockLive } from '../flight/lock.js';
@@ -624,6 +625,11 @@ const server = createServer({
   // discussions links, dormant while the repo stays private; read-only, no
   // execute pair (each affordance is an outbound link, never a `gh` write).
   publicity: createPublicityPreviewApi(),
+  // Role-gated dashboard identity (epic 0019 law 1 extended to the UI,
+  // board web-mtt3f7j6-3bj899) — read-only, shells to `gh` fresh on every
+  // call like publicity above; a panel reads `.role` to decide whether the
+  // viewer sees a maintainer-only verb.
+  socialIdentity: createSocialIdentityApi(),
   // Foundation donation addresses (FOUNDATION 1/3, board web-mtq0rsit-ywz1m7)
   // — reads docs/donations.json once that file exists; degrades to an empty
   // list (masthead heart + panel stay hidden) until it does.
