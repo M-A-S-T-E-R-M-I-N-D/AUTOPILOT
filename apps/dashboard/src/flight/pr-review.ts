@@ -1396,6 +1396,14 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // and every other marker's posting path is unguarded again.
   'flight/anti-flood',
   'flight/gh-exec',
+  // The attribution wrapper (ATTRIBUTION.md §3, board web-mtt0a97o-18fblk):
+  // decides whether and how every outgoing comment/review body gets a
+  // signature appended before `gh-exec.ts` posts it. A THIRD attack shape
+  // alongside anti-flood's two — this one can inject or alter content
+  // itself (a hostile "on behalf of @operator" line attributed to the
+  // wrong human is a rights/trust problem, not just a duplicate-post
+  // nuisance), with no "guard"/"auth"/"security" keyword in its path.
+  'flight/attribution',
   // The maintainer's own merge button (operator, 2026-09-09). It runs the
   // single most irreversible `gh` command this repo has — a squash-merge
   // into the default branch — on PRs the security-hard rule deliberately
