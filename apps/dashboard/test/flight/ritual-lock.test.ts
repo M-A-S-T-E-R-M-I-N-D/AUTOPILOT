@@ -9,6 +9,7 @@ import { FileInstanceLock } from '@autopilot/engine';
 import {
   AUTOFORMAT_LOCK_FILE_NAME,
   RITUAL_LOCK_FILE_NAME,
+  resolveLockPath,
   withRitualLock,
 } from '../../src/flight/ritual-lock.js';
 
@@ -40,6 +41,21 @@ describe('AUTOFORMAT_LOCK_FILE_NAME', () => {
 
   it('is a SEPARATE lockfile from RITUAL_LOCK_FILE_NAME — an autoformat fix on one flight must never wait on an unrelated self-study ritual on another, or vice versa', () => {
     expect(AUTOFORMAT_LOCK_FILE_NAME).not.toBe(RITUAL_LOCK_FILE_NAME);
+  });
+});
+
+describe('resolveLockPath', () => {
+  it("joins the db path's directory with the given lock file name", () => {
+    expect(resolveLockPath(join('Z:', 'data', 'store.db'), 'example.lock')).toBe(
+      join('Z:', 'data', 'example.lock'),
+    );
+  });
+
+  it("resolves AUTOFORMAT and RITUAL to DIFFERENT paths from the same db path — the actual invariant fly.ts's two lock call sites depend on, not just the raw constants being unequal", () => {
+    const dbPath = join('Z:', 'data', 'store.db');
+    const autoformatPath = resolveLockPath(dbPath, AUTOFORMAT_LOCK_FILE_NAME);
+    const ritualPath = resolveLockPath(dbPath, RITUAL_LOCK_FILE_NAME);
+    expect(autoformatPath).not.toBe(ritualPath);
   });
 });
 
