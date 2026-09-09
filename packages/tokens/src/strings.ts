@@ -1454,6 +1454,9 @@ const EN_STRINGS = {
   issueTriageLoading: 'Checking open issues against the board…',
   issueTriageEmpty: 'No open issues to triage.',
   issueTriageUnavailable: 'Issue triage unavailable.',
+  issueTriageExecute: '🗝️ Run KEEPER triage',
+  issueTriageExecuting: 'Triaging…',
+  issueTriageRequestFailed: '✗ Request failed — try again shortly.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2117,6 +2120,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     issueTriageLoading: 'בודק issues פתוחים מול הלוח…',
     issueTriageEmpty: 'אין issues פתוחים לטריאז׳.',
     issueTriageUnavailable: 'טריאז׳ ה-issues אינו זמין.',
+    issueTriageExecute: '🗝️ בצע טריאז׳ KEEPER',
+    issueTriageExecuting: 'מבצע טריאז׳…',
+    issueTriageRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',

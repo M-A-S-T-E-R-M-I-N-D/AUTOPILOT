@@ -61,14 +61,24 @@ describe('issueTriageJs', () => {
     expect(out).toContain("loadingMsg.setAttribute('data-i18n', 'issueTriageLoading');");
     expect(out).toContain("emptyMsg.setAttribute('data-i18n', 'issueTriageEmpty');");
     expect(out).toContain("unavailableMsg.setAttribute('data-i18n', 'issueTriageUnavailable');");
-    // One sweep per ASYNC tagged-DOM creation site — the empty state and the
-    // fetch-failure state, both built inside /api/issue-triage handlers that
-    // can resolve after the page-level sweep. The title and the loading
-    // placeholder are built synchronously at mount and ride
-    // renderProjectPage()'s own sweep, the same split flight-console.ts uses.
+    expect(out).toContain("execBtn.setAttribute('data-i18n', 'issueTriageExecute');");
+    // One sweep per ASYNC tagged-DOM creation site — the empty state, the
+    // fetch-failure state, and the non-empty/execute-button state, all built
+    // inside /api/issue-triage handlers that can resolve after the page-level
+    // sweep. The title and the loading placeholder are built synchronously at
+    // mount and ride renderProjectPage()'s own sweep, the same split
+    // flight-console.ts uses.
     expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
-      2,
+      3,
     );
+  });
+
+  it('paints its two transient states via tr() rather than a literal (board web-msnsndki-dz3vn1)', () => {
+    const out = issueTriageJs();
+    expect(out).toContain("b.textContent = tr('issueTriageExecuting');");
+    expect(out).toContain("resultEl.textContent = tr('issueTriageRequestFailed');");
+    expect(out).not.toContain("b.textContent = 'Triaging…';");
+    expect(out).not.toContain("resultEl.textContent = '✗ Request failed — try again shortly.';");
   });
 
   it('is trimmed — no leading/trailing whitespace', () => {
