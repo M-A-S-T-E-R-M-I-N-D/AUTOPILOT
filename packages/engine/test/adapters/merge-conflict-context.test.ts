@@ -6,7 +6,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gatherMergeConflictContext } from '../../src/adapters/merge-conflict-context.js';
+import {
+  formatMergeEscalationContext,
+  gatherMergeConflictContext,
+} from '../../src/adapters/merge-conflict-context.js';
 
 function gitSync(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
@@ -139,5 +142,40 @@ describe('gatherMergeConflictContext', () => {
       ours: null,
       theirs: null,
     });
+  });
+});
+
+describe('formatMergeEscalationContext', () => {
+  it('renders base/ours/theirs per path under a rung-4 heading naming the taxonomy doc', () => {
+    const rendered = formatMergeEscalationContext([
+      { path: 'a.txt', base: 'base-a', ours: 'ours-a', theirs: 'theirs-a' },
+    ]);
+
+    expect(rendered).toContain('docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md rung 4');
+    expect(rendered).toContain('1 unresolved path(s)');
+    expect(rendered).toContain('## a.txt');
+    expect(rendered).toContain('--- base ---\nbase-a');
+    expect(rendered).toContain('--- ours ---\nours-a');
+    expect(rendered).toContain('--- theirs ---\ntheirs-a');
+  });
+
+  it('marks a null side as absent rather than rendering the literal word "null"', () => {
+    const rendered = formatMergeEscalationContext([
+      { path: 'new.txt', base: null, ours: 'ours-new', theirs: 'theirs-new' },
+    ]);
+
+    expect(rendered).toContain('--- base ---\n(absent on this side)');
+    expect(rendered).not.toMatch(/---\s*null/);
+  });
+
+  it('renders every conflicted path when more than one survives the abort', () => {
+    const rendered = formatMergeEscalationContext([
+      { path: 'a.txt', base: 'a', ours: 'a-ours', theirs: 'a-theirs' },
+      { path: 'b.txt', base: 'b', ours: 'b-ours', theirs: 'b-theirs' },
+    ]);
+
+    expect(rendered).toContain('2 unresolved path(s)');
+    expect(rendered).toContain('## a.txt');
+    expect(rendered).toContain('## b.txt');
   });
 });

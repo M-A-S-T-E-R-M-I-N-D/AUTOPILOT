@@ -20,6 +20,7 @@
 import { execFile } from 'node:child_process';
 import { existsSync, realpathSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { gatherMergeConflictContext, type MergeConflictSides } from './merge-conflict-context.js';
 
 /**
  * OS-canonical form (symlinks resolved, Windows 8.3 short names expanded,
@@ -303,6 +304,13 @@ export async function addDetachedWorktree(
 export interface SyncWorktreeBranchResult {
   readonly ok: boolean;
   readonly details: string;
+  /** Base/ours/theirs content for every path still unresolved when the
+   *  fallback merge below is aborted (docs/EVALUATION-2026-09-03-sync-
+   *  conflict-taxonomy.md rung 4) — undefined on every other path, including
+   *  `ok: true` and the refusals above that never attempt a merge. Gathered
+   *  from the index BEFORE the abort discards it, so a later escalation has
+   *  the whole file on each side, not just the conflict-marker hunk. */
+  readonly conflicts?: readonly MergeConflictSides[];
 }
 
 /**
@@ -408,7 +416,14 @@ export async function syncWorktreeBranch(
     // resolutions — commit it. Any path still unmerged means at least one
     // conflict has no recorded resolution: abort, refuse, touch nothing.
     const unresolved = await git(repo, ['diff', '--name-only', '--diff-filter=U']);
-    if (unresolved.exitCode === 0 && unresolved.stdout.trim().length === 0) {
+    const unresolvedPaths =
+      unresolved.exitCode === 0
+        ? unresolved.stdout
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0)
+        : [];
+    if (unresolvedPaths.length === 0) {
       const commit = await git(repo, ['commit', '--no-edit', '--signoff']);
       if (commit.exitCode === 0) {
         return {
@@ -417,10 +432,18 @@ export async function syncWorktreeBranch(
         };
       }
     }
+    // Rung 4 (see the field doc on `conflicts` above): read every still-
+    // unresolved path's base/ours/theirs from the index while the merge is
+    // still in progress — `merge --abort` right below throws that state away.
+    const conflicts =
+      unresolvedPaths.length > 0
+        ? await Promise.all(unresolvedPaths.map((path) => gatherMergeConflictContext(repo, path)))
+        : undefined;
     await git(repo, ['merge', '--abort']);
     return {
       ok: false,
       details: `merge of '${worktreeBranch}' into '${targetBranch}' failed (exit ${merge.exitCode}): ${merge.stdout.trim()}`,
+      ...(conflicts ? { conflicts } : {}),
     };
   }
 
