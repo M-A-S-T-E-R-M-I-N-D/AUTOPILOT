@@ -4,7 +4,6 @@
 export * from './git.js';
 export * from './worktree.js';
 export * from './merge-conflict-context.js';
-export * from './merge-escalation-agent.js';
 export * from './clock.js';
 export * from './store.js';
 export * from './fs-control.js';
