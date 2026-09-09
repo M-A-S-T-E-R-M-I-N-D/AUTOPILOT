@@ -59,11 +59,11 @@ describe('prReviewJs', () => {
     );
   });
 
-  it('embeds awaitingApprovalChecksUrl and links an awaiting-approval card to GitHub\'s own approve control (board web-mto1tya3-57v8ig)', () => {
+  it("embeds awaitingApprovalChecksUrl and links an awaiting-approval card to GitHub's own approve control (board web-mto1tya3-57v8ig)", () => {
     const out = prReviewJs();
     expect(out).toContain(awaitingApprovalChecksUrl.toString());
     expect(out).toContain('var approveChecksUrl = awaitingApprovalChecksUrl(plan.pr.url);');
-    expect(out).toContain("if (awaitingApproval && approveChecksUrl) {");
+    expect(out).toContain('if (awaitingApproval && approveChecksUrl) {');
     expect(out).toContain(
       "var approveLink = el('a', 'pr-review-approve-link', '🔓 Review & approve on GitHub');",
     );
