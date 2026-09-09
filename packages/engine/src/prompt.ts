@@ -9,6 +9,8 @@
  * change is a deliberate, traceable event (telemetry records the version).
  */
 
+import { AUTOPILOT_REPO_URL } from './github-identity-disclosure.js';
+
 export interface FiringPromptInput {
   /** The project's SOUL (persona + stack + gate + operating rules). */
   readonly soul: string;
@@ -62,6 +64,24 @@ export interface FiringPromptInput {
    * drops duplicated teammate work 78%->0%).
    */
   readonly fleet?: string;
+  /**
+   * The running PRODUCT_VERSION (apps/dashboard/src/info.ts) — names the
+   * flying version in the `Assisted-by:` commit trailer docs/ATTRIBUTION.md
+   * channel 1 mandates. Undefined omits the trailer instruction entirely
+   * (same "no section without its input" contract as repoMap/inbox/fleet
+   * above), so every pre-attribution call site — including this file's own
+   * tests — renders byte-identical to before this field existed.
+   */
+  readonly productVersion?: string;
+  /**
+   * False only when the operator opted out via `AUTOPILOT_ATTRIBUTION=off`
+   * (docs/ATTRIBUTION.md's single opt-out lever, shared across all four
+   * channels — `flight/attribution.ts`'s `attributionEnabled()`). Computed
+   * by the caller, not read from `process.env` here, so this module stays a
+   * pure function of its input. Defaults to true (on by default) whenever
+   * `productVersion` is given.
+   */
+  readonly attributionEnabled?: boolean;
 }
 
 /** One open task handed to a firing (the assign→fly loop). */
@@ -420,6 +440,27 @@ function boardSection(
   ].join('\n');
 }
 
+/**
+ * The `Assisted-by:` commit trailer instruction docs/ATTRIBUTION.md channel 1
+ * mandates ("every commit an instance makes on a USER project carries a
+ * credit trailer... on by default, `AUTOPILOT_ATTRIBUTION=off` opts out") —
+ * an ADDITIVE line spliced between the Model/Firing-Prompt-Version trailer
+ * line and the Harness trailer line, never touching either. Returns `[]`
+ * (adding no line at all) when `productVersion` is undefined — the same
+ * "no section without its input" contract `repoMap`/`inbox`/`fleet` already
+ * follow — or when the caller has resolved the opt-out lever to `false`.
+ */
+function commitTrailerLines(
+  productVersion: string | undefined,
+  attributionEnabled: boolean | undefined,
+): readonly string[] {
+  if (!productVersion || attributionEnabled === false) return [];
+  return [
+    `   \`Assisted-by: AUTOPILOT v${productVersion} <${AUTOPILOT_REPO_URL}>\` (docs/ATTRIBUTION.md`,
+    '   channel 1 — you stay Author; this credits the tool, it claims nothing),',
+  ];
+}
+
 /** Build the firing prompt for a live flight. */
 export function buildFiringPrompt(input: FiringPromptInput): string {
   const body = [
@@ -452,6 +493,7 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
     '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
     `   \`Model: <your exact model id>\`, \`Firing-Prompt-Version: ${FIRING_PROMPT_VERSION}\`,`,
+    ...commitTrailerLines(input.productVersion, input.attributionEnabled),
     `   and \`Harness: ${HARNESS_NAME}\`. Then, on the FINAL line of your response, emit EXACTLY`,
     '   one METRICS line and nothing after it:',
     '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',

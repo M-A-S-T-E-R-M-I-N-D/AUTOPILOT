@@ -15,6 +15,15 @@ are" to "credit where it is due, in the form each medium expects".
 1. **Commits on a user's project** — the human stays `Author`; the tool
    earns a trailer:
    `Assisted-by: AUTOPILOT vX.Y.Z <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>`
+
+   **Wired (2026-09-09):** `packages/engine/src/prompt.ts`'s `buildFiringPrompt`
+   splices the trailer instruction into COMMIT step 5, next to the existing
+   Model/Firing-Prompt-Version/Harness provenance trailers, whenever the
+   caller supplies a running `productVersion` — `apps/dashboard/src/fly.ts`
+   passes `info.ts`'s `PRODUCT_VERSION` on every firing. The module itself
+   stays pure (no `process.env` read): `fly.ts` resolves the opt-out via the
+   SAME `flight/attribution.ts`'s `attributionEnabled()` channel 3 already
+   uses, so the one lever still covers channel 1 too.
 2. **PRs / issues an instance files** — body ends with the spread-line:
    `🛩️ Flown by [AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT) vX.Y.Z`
 
@@ -91,8 +100,15 @@ than guessing — a wrong signature is a rights problem, not a default.
   **Wired for channel 3 (2026-09-09):** `flight/attribution.ts`'s
   `withAttribution()` checks the env var before the identity lookup and
   posts unsigned when it is `off` — no extra `gh api user` call spent on a
-  signature that will not be added. Channels 1 and 4 have no shipped
-  implementation yet to gate. Channel 2's `identityDisclosure()` folds the
+  signature that will not be added.
+
+  **Wired for channel 1 (2026-09-09):** `fly.ts` resolves the SAME
+  `attributionEnabled()` before calling `buildFiringPrompt`, so
+  `AUTOPILOT_ATTRIBUTION=off` drops the commit-trailer instruction too —
+  one function, checked once per firing, gating two channels. Channel 4
+  (the README badge) has no shipped implementation yet to gate — it is
+  offered, never forced, so there is no default-on behavior to opt out of
+  in the first place. Channel 2's `identityDisclosure()` folds the
   credit line into the SAME footer text as the identity law's own mandatory
   self-disclosure (CONTRIBUTOR-STANDING.md, non-optional) — the lever
   cannot switch off one half of a single fused string without also

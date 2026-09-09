@@ -15,6 +15,7 @@ import {
   withAttribution,
   parseConversationPost,
   conversationSignature,
+  attributionEnabled,
   AUTOPILOT_REPO_URL,
 } from '../../src/flight/attribution.js';
 import { withAntiFlood } from '../../src/flight/anti-flood.js';
@@ -159,6 +160,15 @@ describe('AUTOPILOT_ATTRIBUTION=off — the doc’s one opt-out lever', () => {
 
     const post = calls.find((c) => c[1] === 'issue' && c[2] === 'comment');
     expect(bodyOf(post)).toBe(`Fixed, take a look.\n\n${conversationSignature('gabibi555')}`);
+  });
+
+  it("exports the same check other channels reuse (ATTRIBUTION channel 1's commit trailer, fly.ts)", () => {
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'off';
+    expect(attributionEnabled()).toBe(false);
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'on';
+    expect(attributionEnabled()).toBe(true);
+    delete process.env['AUTOPILOT_ATTRIBUTION'];
+    expect(attributionEnabled()).toBe(true);
   });
 });
 

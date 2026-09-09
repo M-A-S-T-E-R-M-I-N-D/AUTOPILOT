@@ -4,8 +4,10 @@
 /** AUTOPILOT's own canonical repo — never the repo a PR/issue is filed
  *  against (`upstreamRepo`, the caller's own parameter, can be any target);
  *  this is always the "what flew this" link the spread-line points readers
- *  at, per `docs/ATTRIBUTION.md`'s four channels. */
-const AUTOPILOT_REPO_URL = 'https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT';
+ *  at, per `docs/ATTRIBUTION.md`'s four channels. Exported so `prompt.ts`
+ *  (channel 1's commit trailer, same package) shares this exact string
+ *  rather than hand-copying a third repo-local literal. */
+export const AUTOPILOT_REPO_URL = 'https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT';
 
 /**
  * The identity-law disclosure footer (`.github/CONTRIBUTOR-STANDING.md`'s
