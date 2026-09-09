@@ -34,8 +34,20 @@
  * `aria-label` with no `data-i18n-aria` — `shell-i18n.test.ts` requires
  * every `data-i18n-aria` key to resolve in every locale, which a
  * `strings.ts`-less key cannot satisfy today.
+ *
+ * The "prefilled partner-application deep-link" (CONTRIBUTOR JOURNEY's
+ * second named piece): a real `<a>` to `.github/ISSUE_TEMPLATE/partner-
+ * application.yml`, pre-selected via GitHub's own `?template=` query param —
+ * no server round trip, no new API. `CONTRIBUTOR_STANDING_APPLY_URL` (from
+ * `web/contributor-standing-panel.ts`) is the real URL, built there against
+ * `info.ts`'s `UPSTREAM_REPO`, spliced in via `JSON.stringify()` the same way
+ * `CONTRIBUTOR_STANDING_TIERS` is below — a same-file local const built from
+ * a function call is a "non-splice slot" `generate-splice-manifest.mjs`
+ * cannot resolve, so the URL is computed at its source module instead of
+ * here.
  */
 import {
+  CONTRIBUTOR_STANDING_APPLY_URL,
   CONTRIBUTOR_STANDING_TIERS,
   contributorStandingTierSummary as sharedContributorStandingTierSummary,
 } from '../contributor-standing-panel.js';
@@ -45,15 +57,16 @@ export function contributorStandingJs(): string {
   return `
 // Contributor standing explainer (CONTRIBUTOR JOURNEY, board web-mtt3hery-
 // l8v0lf): a static read-only render of .github/CONTRIBUTOR-STANDING.md's
-// tiers table — the smallest of that task's four named pieces, since its
-// content needs no GitHub API call. Fixed doctrine, not a live fact, so
-// (like the tour's TOUR_STEPS) it renders once at load instead of riding a
-// fetch or poll timer.
+// tiers table plus a prefilled "apply" deep-link — two of that task's four
+// named pieces, since neither needs a GitHub API call. Fixed doctrine, not a
+// live fact, so (like the tour's TOUR_STEPS) it renders once at load instead
+// of riding a fetch or poll timer.
 // CONTRIBUTOR_STANDING_TIERS/contributorStandingTierSummary are generated
 // FROM web/contributor-standing-panel.ts below — their real value/compiled
 // source via JSON.stringify()/.toString(), not a hand-retyped copy. They can
 // no longer drift apart.
 var CONTRIBUTOR_STANDING_TIERS = ${JSON.stringify(CONTRIBUTOR_STANDING_TIERS)};
+var CONTRIBUTOR_STANDING_APPLY_URL = ${JSON.stringify(CONTRIBUTOR_STANDING_APPLY_URL)};
 ${sharedContributorStandingTierSummary.toString()}
 function renderContributorStandingPanel() {
   var section = document.getElementById('contributor-standing-panel');
@@ -74,6 +87,16 @@ function renderContributorStandingPanel() {
     list.appendChild(dd);
   }
   section.appendChild(list);
+  var apply = document.createElement('a');
+  apply.className = 'contributor-standing-apply';
+  apply.textContent = 'Apply for Active partner standing';
+  apply.setAttribute('data-i18n', 'contributorStandingApplyLabel');
+  apply.href = CONTRIBUTOR_STANDING_APPLY_URL;
+  apply.target = '_blank';
+  apply.rel = 'noopener noreferrer';
+  apply.setAttribute('data-tip', 'Opens a prefilled GitHub issue using the Active-partner application template.');
+  apply.setAttribute('data-i18n-tip', 'contributorStandingApplyTip');
+  section.appendChild(apply);
   section.hidden = false;
   translateDom(document.documentElement.lang || 'en');
 }
