@@ -202,6 +202,39 @@ describe('buildFiringPrompt', () => {
     expect(p).toContain('Model: <your exact model id>');
     expect(p).toContain(`Firing-Prompt-Version: ${FIRING_PROMPT_VERSION}`);
     expect(p).toContain(`Harness: ${HARNESS_NAME}`);
+    // ATTRIBUTION channel 1 (docs/ATTRIBUTION.md) needs a real running version
+    // to name — omitted, not invented, when the caller has none to offer.
+    expect(p).not.toContain('Assisted-by:');
+  });
+
+  it('instructs the commit to also carry the Assisted-by credit trailer when a product version is given (ATTRIBUTION channel 1)', () => {
+    const p = buildFiringPrompt({
+      soul: SOUL,
+      firing: 1,
+      retro: false,
+      productVersion: '0.31.0',
+    });
+    expect(p).toContain(
+      '`Assisted-by: AUTOPILOT v0.31.0 <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>`',
+    );
+    expect(p).toContain('docs/ATTRIBUTION.md');
+    expect(p).toContain('you stay Author; this credits the tool, it claims nothing');
+    // Still next to the other two provenance trailers, same sentence.
+    expect(p).toContain(`Firing-Prompt-Version: ${FIRING_PROMPT_VERSION}`);
+    expect(p).toContain(`Harness: ${HARNESS_NAME}`);
+  });
+
+  it('omits the Assisted-by trailer when the operator opted out (AUTOPILOT_ATTRIBUTION=off, resolved by the caller)', () => {
+    const p = buildFiringPrompt({
+      soul: SOUL,
+      firing: 1,
+      retro: false,
+      productVersion: '0.31.0',
+      attributionEnabled: false,
+    });
+    expect(p).not.toContain('Assisted-by:');
+    // The rest of the COMMIT step is unaffected by the opt-out.
+    expect(p).toContain(`Harness: ${HARNESS_NAME}`);
   });
 
   it('states the research-first doctrine (official docs, battle-tested packages)', () => {

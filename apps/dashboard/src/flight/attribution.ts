@@ -44,8 +44,11 @@ export const AUTOPILOT_REPO_URL = 'https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPI
 /** False only when the operator has explicitly opted out via
  *  `AUTOPILOT_ATTRIBUTION=off` — every other value, including unset, keeps
  *  attribution on (ATTRIBUTION.md: "respected credit spreads, forced credit
- *  sours" — on by default). */
-function attributionEnabled(): boolean {
+ *  sours" — on by default). Exported so every channel checks the SAME one
+ *  opt-out lever (`fly.ts`'s channel-1 commit-trailer wiring reuses this
+ *  rather than re-reading the env var itself) instead of drifting toward
+ *  N independent copies of the same condition. */
+export function attributionEnabled(): boolean {
   return process.env['AUTOPILOT_ATTRIBUTION'] !== 'off';
 }
 
