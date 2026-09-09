@@ -72,6 +72,12 @@ are" to "credit where it is due, in the form each medium expects".
 4. **The user's README** — the offered (never forced) badge + a pointer
    to `CITATION.cff` for formal citation.
 
+   **Wired (2026-09-09):** [`docs/BADGE.md`](BADGE.md) carries the
+   shields.io snippet and the `CITATION.cff` pointer, written for a
+   maintainer to paste in voluntarily. Unlike channels 1-3, no ritual here
+   ever writes to a user's README, so there is no opt-out lever to wire —
+   the offer itself is the whole implementation.
+
 ## Signing & DCO — the human always signs as themself
 
 `Author` and `Signed-off-by` are ALWAYS the contributing human's own
@@ -106,9 +112,9 @@ than guessing — a wrong signature is a rights problem, not a default.
   `attributionEnabled()` before calling `buildFiringPrompt`, so
   `AUTOPILOT_ATTRIBUTION=off` drops the commit-trailer instruction too —
   one function, checked once per firing, gating two channels. Channel 4
-  (the README badge) has no shipped implementation yet to gate — it is
-  offered, never forced, so there is no default-on behavior to opt out of
-  in the first place. Channel 2's `identityDisclosure()` folds the
+  (the README badge, `docs/BADGE.md`) has nothing to gate — no ritual ever
+  writes to a user's README, so there is no default-on behavior to opt out
+  of in the first place. Channel 2's `identityDisclosure()` folds the
   credit line into the SAME footer text as the identity law's own mandatory
   self-disclosure (CONTRIBUTOR-STANDING.md, non-optional) — the lever
   cannot switch off one half of a single fused string without also
