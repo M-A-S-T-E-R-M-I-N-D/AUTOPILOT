@@ -36,14 +36,29 @@
  * target — the same stance `issue-triage.ts`'s `plan.issue.title` render
  * takes on dynamic text.
  */
-import { mirrorPassItems } from '../mirror-pass-panel.js';
+import {
+  mirrorPassReconcileItems,
+  mirrorPassLandingNoteItems,
+  mirrorPassStaleClaimItems,
+  mirrorPassDriftItems,
+  mirrorPassItems,
+} from '../mirror-pass-panel.js';
 
 /** The Mirror pass panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function mirrorPassJs(): string {
   return `
-// mirrorPassItems is generated FROM web/mirror-pass-panel.ts below (EPIC
-// 0019 S3, VERDICT ap-mtsg3nc0-3 slice (c)) — its real compiled source via
+// The five functions below are generated FROM web/mirror-pass-panel.ts (EPIC
+// 0019 S3, VERDICT ap-mtsg3nc0-3 slice (c)) — their real compiled source via
 // .toString(), not a hand-retyped copy. It can no longer drift apart.
+// mirrorPassItems calls all four of the others, so every one of them must be
+// spliced in too (issue-triage.ts's mirrorPassJs-equivalent splices all six
+// of its own helpers for the same reason) — a lone mirrorPassItems.toString()
+// throws ReferenceError the moment it runs, since its callees would not
+// exist in this generated scope.
+${mirrorPassReconcileItems.toString()}
+${mirrorPassLandingNoteItems.toString()}
+${mirrorPassStaleClaimItems.toString()}
+${mirrorPassDriftItems.toString()}
 ${mirrorPassItems.toString()}
 function renderMirrorPassBody(body, items) {
   body.replaceChildren();
