@@ -9,6 +9,11 @@
  * untagged. Each must carry its STRINGS key so `translateDom()` (page load,
  * language switch, AND the panel's own post-fetch sweep) renders it in the
  * active locale, the same contract `coordination.ts` already meets.
+ *
+ * The execute button (`issueTriageExecute`) was a fifth gap the scanner
+ * missed entirely — a `.textContent =` assignment, not an `el()` call — so
+ * it stayed English-only under the Hebrew locale even after the other four
+ * were fixed. It gets the same `data-i18n` tag plus its own sweep.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -57,7 +62,12 @@ const STATE = {
   empty: false,
 };
 
-type TriageMode = 'empty' | 'pending' | 'fail';
+type TriageMode = 'empty' | 'pending' | 'fail' | 'nonEmpty';
+
+const OPEN_ISSUE = {
+  issue: { number: 42, title: 'Widget renders blank on load' },
+  decision: { decision: 'accept', reasoning: 'No matching open task.' },
+};
 
 function boot(mode: TriageMode): void {
   document.open();
@@ -68,6 +78,8 @@ function boot(mode: TriageMode): void {
     if (url.includes('/api/issue-triage')) {
       if (mode === 'pending') return new Promise<Response>(() => {});
       if (mode === 'fail') throw new Error('network down');
+      if (mode === 'nonEmpty')
+        return { ok: true, json: async () => ({ triage: [OPEN_ISSUE] }) } as unknown as Response;
       return { ok: true, json: async () => ({ triage: [] }) } as unknown as Response;
     }
     return { ok: true, json: async () => STATE } as unknown as Response;
@@ -158,6 +170,39 @@ describe('the KEEPER ISSUE TRIAGE panel i18n wiring (board web-msnsndki-dz3vn1)'
 
     expect(document.querySelector('.issue-triage-body p')?.textContent).toBe(
       STRINGS.he.issueTriageUnavailable,
+    );
+  });
+
+  it('tags the execute button with its STRINGS key', async () => {
+    boot('nonEmpty');
+    await settle();
+
+    const button = document.querySelector('.issue-triage-execute');
+    expect(button?.textContent).toBe('🗝️ Run KEEPER triage');
+    expect(button?.getAttribute('data-i18n')).toBe('issueTriageExecute');
+  });
+
+  it('switching to Hebrew translates the execute button', async () => {
+    boot('nonEmpty');
+    await settle();
+
+    switchToHebrew();
+
+    expect(document.querySelector('.issue-triage-execute')?.textContent).toBe(
+      STRINGS.he.issueTriageExecute,
+    );
+  });
+
+  it('renders the execute button in Hebrew when the fetch resolves after the language switch', async () => {
+    boot('pending');
+    await settle();
+    switchToHebrew();
+
+    boot('nonEmpty');
+    await settle();
+
+    expect(document.querySelector('.issue-triage-execute')?.textContent).toBe(
+      STRINGS.he.issueTriageExecute,
     );
   });
 });

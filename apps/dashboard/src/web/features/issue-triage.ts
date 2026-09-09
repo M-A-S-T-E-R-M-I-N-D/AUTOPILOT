@@ -46,7 +46,15 @@
  * every `renderProjectPage()` tick, while the two async states call
  * `translateDom()` themselves since they can land well after that tick's
  * sweep already ran, the exact split `web/features/flight-console.ts` and
- * `coordination.ts` already follow.
+ * `coordination.ts` already follow. The execute button (`issueTriageExecute`)
+ * is built inside that same async path, so it gets the same `data-i18n` tag
+ * plus its own `translateDom()` call at the end of the non-empty branch. Its
+ * two transient states — the in-flight `Triaging…` label and the click
+ * handler's own request-failed message — are never left standing long enough
+ * for a page-level or language-switch sweep to matter, so they call `tr()`
+ * directly at paint time instead of carrying a `data-i18n` tag, the same
+ * shape `shell.ts`'s `githubSyncing`/`githubRequestFailed` and
+ * `pool-client.ts`'s `poolClaiming` already use.
  */
 import {
   issueTriageDecisionLabel,
@@ -129,6 +137,7 @@ function renderIssueTriageBody(body, plans, pid) {
   execBtn.type = 'button';
   execBtn.className = 'issue-triage-execute';
   execBtn.textContent = '🗝️ Run KEEPER triage';
+  execBtn.setAttribute('data-i18n', 'issueTriageExecute');
   execBtn.setAttribute('data-issue-triage-execute', pid);
   // Disabled-with-reason law: an all-skip round has nothing to execute, so
   // the button says exactly that instead of inviting a no-op confirm.
@@ -144,6 +153,7 @@ function renderIssueTriageBody(body, plans, pid) {
   actions.appendChild(execBtn);
   body.appendChild(actions);
   body.appendChild(el('div', 'issue-triage-result'));
+  translateDom(document.documentElement.lang || 'en');
 }
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
 // function declaration from fleetJs()'s text in the same concatenated
@@ -191,7 +201,7 @@ document.addEventListener('click', function (e) {
   var resultEl = body && body.querySelector('.issue-triage-result');
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = 'Triaging…';
+  b.textContent = tr('issueTriageExecuting');
   fetch('/api/issue-triage/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -221,7 +231,7 @@ document.addEventListener('click', function (e) {
       b.textContent = originalText;
       if (resultEl) {
         resultEl.className = 'issue-triage-result issue-triage-result-fail';
-        resultEl.textContent = '✗ Request failed — try again shortly.';
+        resultEl.textContent = tr('issueTriageRequestFailed');
       }
     });
 });
