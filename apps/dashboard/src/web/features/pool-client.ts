@@ -158,7 +158,21 @@ function renderPoolClientPanel(entries) {
     poolClientEntriesByNumber[entry.issue.number] = entry;
     var item = el('div', 'pool-client-item');
     var head = el('div', 'pool-client-head');
-    var issueNumberEl = el('span', 'pool-client-number', '#' + entry.issue.number);
+    // The number is a real link when gh reported the issue's own url
+    // (epic 0020 "the legible surface", slice 5 — operator, 2026-09-09: "we
+    // pull the data from GitHub — why can't we link straight to it?"),
+    // the same fix pr-review.ts's PR number already carries. An <a> only
+    // when there IS a url: a link element that goes nowhere is worse than
+    // plain text. rel=noreferrer on a _blank target is the standard
+    // reverse-tabnabbing guard.
+    var issueNumberEl = entry.issue.url
+      ? el('a', 'pool-client-number pool-client-number-link', '#' + entry.issue.number)
+      : el('span', 'pool-client-number', '#' + entry.issue.number);
+    if (entry.issue.url) {
+      issueNumberEl.setAttribute('href', entry.issue.url);
+      issueNumberEl.setAttribute('target', '_blank');
+      issueNumberEl.setAttribute('rel', 'noopener noreferrer');
+    }
     // D1 TAB-STOP ROVING (epic 0015): one Tab stop for the whole panel — a
     // busy pool round would otherwise cost one Tab press per browsable
     // issue. wireRoving() below moves it.

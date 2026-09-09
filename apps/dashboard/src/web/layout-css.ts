@@ -747,6 +747,8 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pool-client-item:first-of-type { border-top: none; }
 .pool-client-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .pool-client-number { font-family: var(--font-mono); color: var(--color-text-muted); }
+.pool-client-number-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.pool-client-number-link:hover, .pool-client-number-link:focus-visible { border-bottom-color: currentColor; }
 .pool-client-issue-title { margin: 0; font-size: var(--text-sm); }
 .pool-client-badge-claim { color: var(--color-success); border-color: var(--color-success); }
 .pool-client-badge-skip { color: var(--color-text-muted); border-color: var(--color-border); opacity: 0.7; }
