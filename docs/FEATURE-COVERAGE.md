@@ -128,7 +128,7 @@
 
 | Feature | Spec | Milestone |
 |---|---|---|
-| [ ] AUTOPILOT builds itself (dogfooding = continuous self-test) from M1 | MASTER §18.1 | M1→M9 |
+| [~] AUTOPILOT builds itself (dogfooding = continuous self-test) from M1 — live-CLI dogfood proven at scale: this repo is tracked project #1, and 326+ recorded firings (`docs/SELF-STUDY/PAPER.md`) have flown it, this firing among them; the formal behavioral diff against the internal predecessor script that `BACKLOG-999.md` §K already marks `[~]` for the same reason is still unrun | MASTER §18.1 | M1→M9 |
 | [ ] `pack` → shareable zero-private-data package | MASTER §18.2 | M9 |
 | [ ] Landing site with all explanations + ONE "Install & Load" button (installs from 0, honest progress) | MASTER §18.2 | M9 |
 | [ ] Product-grade operator files: run / stop / doctor / update / pack / uninstall (cross-platform, signed, idempotent) | MASTER §18.2 | M9 |
@@ -198,7 +198,13 @@ cloud-refusing guard are not — `AUTOPILOT_OLLAMA_BASE_URL` accepts any URL); t
 `[ ]` and moved to `[x]`; the multilingual-MODEL-set row was verified genuinely unbuilt and kept `[ ]`, but §N's
 dashboard-UI i18n row — he/en live and RTL-correct — was corrected to `[~]` alongside, since the two are easily
 conflated. `BACKLOG-999.md` §E carried the same wrong `[ ]` marks on its Ollama, model-choice and (partially) bootstrap
-rows, as did §H's token/usage row; all were corrected alongside. Sections D (remaining rows) and K–O (bar N's i18n
-row) are still **not** re-audited (board web-mtndm5fc-2vloky) —
+rows, as did §H's token/usage row; all were corrected alongside. Sections K, L, M, N (bar its i18n row, already
+current) and O were audited on 2026-09-09 (board web-mtndm5fc-2vloky) — 1 of their 16 rows corrected: §L's
+dogfooding row claimed `[ ]` unbuilt while `BACKLOG-999.md` §K already correctly had it `[~]` (160+ firings when
+that row was last touched; 326+ now) — a case of `FEATURE-COVERAGE.md` itself carrying the stale mark this time,
+not `BACKLOG-999.md`. The other 15 rows (K's MYTH/LEGACY/restore split, additive-git guarantee, SemVer/Changelog;
+L's pack/landing-site/operator-files/install rows; M's OSS/brand/community-health rows; N's WCAG-strictness row;
+O's harness-pack and multi-harness-catalog rows) were verified genuinely accurate against the live tree — no
+change. Section D (remaining rows) is still **not** re-audited —
 `BACKLOG-999.md` is generally the more actively-maintained backlog when the two disagree, but as this pass shows
 it isn't infallible either; check the live tree before trusting either doc's `[x]`/`[~]` marks.*
