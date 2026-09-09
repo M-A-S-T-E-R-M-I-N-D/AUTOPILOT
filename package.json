@@ -78,6 +78,7 @@
     "ci:threat-model": "node scripts/threat-model/generate-table.mjs --check",
     "ci:donate": "node scripts/donations/generate-donate-doc.mjs --check",
     "ci:quarantine-report": "node scripts/ci/quarantine-report.mjs",
+    "ci:merge-integrity": "node scripts/ci/check-merge-integrity.mjs",
     "ci:doc-commit-refs": "node scripts/ci/check-doc-commit-refs.mjs",
     "detect-flaky": "node scripts/ci/detect-flaky.mjs",
     "gh:sync-labels": "node scripts/github/sync-labels.mjs",

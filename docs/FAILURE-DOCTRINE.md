@@ -41,6 +41,18 @@ commit that fixes it.
 | 24 | Panel callbacks rendering into a torn-down document — a run with 9,865 passing tests failing on an unhandled rejection | self-polling panels bail when the document is gone | `renderPrReviewPanel` guard (sibling of issue-triage's `isConnected`) |
 | 25 | A timeout fix applied to `testTimeout` only, while the flakier half — `beforeEach` setup — stayed at the 10s default | one budget covers both: `hookTimeout` raised alongside `testTimeout`, same reasoning | `vitest.config.ts` |
 
+| 26 | A merge commit that CLAIMS both parents and keeps only one's tree (`-s ours`) — undetectable by anything in the repo | merge-integrity check: tree-identical-to-first-parent AND content missing at the tip = the parent's work was discarded | `ci:merge-integrity` + both corpora in `merge-integrity.test.ts` |
+
+Row 26 came with a second lesson about guards themselves. The obvious
+check — "does a parent have lines the merge lacks?" — flagged **14 of
+this repo's 90 merges**, every one a false positive: the fleet's
+sync-back legitimately produces identical-tree merges when a lane's work
+already landed by another route. `git cherry` could not adjudicate it
+either (the merge makes the parent reachable, so every commit reads as
+"applied" even when its content was dropped). Only the tip-content test
+separates the two. **A guard is not finished when it fires; it is
+finished when it stops firing on the things that are fine.**
+
 Row 25 is the shape worth naming on its own: **a fix applied to half its
 surface reads as a fix until the other half fails.** The comment above
 `testTimeout` had already diagnosed the exact cause (real-git suites,
