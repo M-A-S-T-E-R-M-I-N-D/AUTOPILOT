@@ -21,25 +21,32 @@
  *
  * Own-submissions inventory ({@link fetchOwnSubmissions}) is the "know what
  * is already ours" law (2): issues and PRs authored by the resolved login,
- * across all states — the exact evidence {@link planSocialProtocol} dedups
- * `'new-issue'` candidates against below. Comment-level inventory (the
- * finer-grained half `ownComments` already gives `pr-review.ts` for its own
- * PRs) is a follow-up slice: `gh` has no single "list my comments across the
- * repo" read the way it has `issue list --author`/`pr list --author`, and
- * synthesizing one (paging every issue/PR's comment list) is real scope of
- * its own, not "core".
+ * across all states — one of the two evidence sources {@link
+ * planSocialProtocol} dedups `'new-issue'` candidates against below.
+ * Comment-level inventory (the finer-grained half `ownComments` already
+ * gives `pr-review.ts` for its own PRs) is a follow-up slice: `gh` has no
+ * single "list my comments across the repo" read the way it has `issue list
+ * --author`/`pr list --author`, and synthesizing one (paging every
+ * issue/PR's comment list) is real scope of its own, not "core".
+ *
+ * Open-threads inventory ({@link fetchOpenThreads}) is the slice's other
+ * named inventory: every currently open issue and PR in the repo, by
+ * ANYONE — not filtered to the resolved identity, and needs no identity to
+ * fetch. Law 1, "search before you speak", is broader than law 2's "already
+ * ours": a candidate duplicating a still-open finding someone else already
+ * filed is exactly as much "already said" as duplicating our own, so it
+ * feeds the same dedup corpus as {@link fetchOwnSubmissions}.
  *
  * The protocol engine ({@link planSocialProtocol}) is the epic's law 4 made
  * mechanical: candidate actions are admitted in order up to each kind's cap,
  * then queued — never dropped, never forced through over the cap. It also
- * enforces law 1, "search before you speak": a `'new-issue'` candidate whose
- * title matches an own-submissions issue title (via `anti-flood.ts`'s same
- * word-Jaccard similarity) is diverted to `duplicate` before the cap is even
- * checked — never a duplicate, never counted against budget it was never
- * going to spend. A caller (a later slice) supplies the candidates (from
- * mirror-pass findings, issue-triage answers, etc.) and the caps (visible in
- * the flight log, per the law's own wording); this module never invents
- * either.
+ * enforces law 1: a `'new-issue'` candidate whose title matches an issue
+ * title drawn from EITHER inventory (via `anti-flood.ts`'s same word-Jaccard
+ * similarity) is diverted to `duplicate` before the cap is even checked —
+ * never a duplicate, never counted against budget it was never going to
+ * spend. A caller (a later slice) supplies the candidates (from mirror-pass
+ * findings, issue-triage answers, etc.) and the caps (visible in the flight
+ * log, per the law's own wording); this module never invents either.
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
@@ -104,25 +111,26 @@ export interface SocialSubmission {
 
 const SUBMISSION_NOUN: Record<SocialSubmissionKind, 'issue' | 'pr'> = { issue: 'issue', pr: 'pr' };
 
-/** Fetches one kind of submission (`gh issue list`/`gh pr list --author
- *  <login> --state all`) and parses it into {@link SocialSubmission}s.
+/** Fetches one kind of submission via `gh issue|pr list <extraArgs> --json
+ *  number,title,url,state` and parses it into {@link SocialSubmission}s.
  *  Fails closed to an empty list on a non-zero exit, unparseable stdout, a
  *  non-array payload, or an entry missing a required field — a submission
  *  this call cannot read is simply absent from the inventory, never a
  *  crash, the same shape `publicity.ts`'s `fetchRepoIdentity` and
- *  `pr-review.ts`'s `fetchViewerLogin` already fail closed with. */
-async function fetchSubmissionsOfKind(
+ *  `pr-review.ts`'s `fetchViewerLogin` already fail closed with. Shared by
+ *  {@link fetchSubmissionsOfKind} (own, any state) and {@link
+ *  fetchOpenThreadsOfKind} (anyone's, open only) — the two inventories the
+ *  epic's slice-1 DoD names, differing only in which `gh` filter flags they
+ *  pass. */
+async function fetchSubmissionList(
   exec: CliExec,
   kind: SocialSubmissionKind,
-  login: string,
+  extraArgs: readonly string[],
 ): Promise<readonly SocialSubmission[]> {
   const { code, stdout } = await exec('gh', [
     SUBMISSION_NOUN[kind],
     'list',
-    '--author',
-    login,
-    '--state',
-    'all',
+    ...extraArgs,
     '--json',
     'number,title,url,state',
   ]);
@@ -161,6 +169,21 @@ async function fetchSubmissionsOfKind(
   return submissions;
 }
 
+function fetchSubmissionsOfKind(
+  exec: CliExec,
+  kind: SocialSubmissionKind,
+  login: string,
+): Promise<readonly SocialSubmission[]> {
+  return fetchSubmissionList(exec, kind, ['--author', login, '--state', 'all']);
+}
+
+function fetchOpenThreadsOfKind(
+  exec: CliExec,
+  kind: SocialSubmissionKind,
+): Promise<readonly SocialSubmission[]> {
+  return fetchSubmissionList(exec, kind, ['--state', 'open']);
+}
+
 /** The resolved identity's full own-submissions inventory: every issue and
  *  PR it authored on this repo, any state, issues before PRs. Runs both
  *  `gh` reads concurrently — neither depends on the other's result. */
@@ -175,22 +198,45 @@ export async function fetchOwnSubmissions(
   return [...issues, ...prs];
 }
 
-/** Composes {@link resolveSocialIdentity} and {@link fetchOwnSubmissions}
- *  behind one call — the injectable-`exec`-with-a-real-default seam
- *  `publicity.ts`'s `createPublicityPreviewApi` and `pr-review.ts`'s
- *  `fetchOpenPrCandidateReport` already establish. An unresolved identity
- *  skips the submissions read entirely (there is no login to inventory
- *  against) rather than issuing a doomed `gh ... --author undefined` call. */
+/** The repo's open-threads inventory — every currently open issue and PR,
+ *  by ANYONE, not just the resolved identity. The epic's law 1 ("search
+ *  before you speak") reaches wider than "know what is already ours" (law
+ *  2, {@link fetchOwnSubmissions}): a candidate must not duplicate a still-
+ *  open finding someone else already filed either. Needs no identity at
+ *  all — unlike {@link fetchOwnSubmissions} it never depends on a resolved
+ *  login, so a caller can fetch it even when {@link resolveSocialIdentity}
+ *  came back `undefined`. Runs both `gh` reads concurrently, issues before
+ *  PRs, the same shape {@link fetchOwnSubmissions} takes. */
+export async function fetchOpenThreads(exec: CliExec): Promise<readonly SocialSubmission[]> {
+  const [issues, prs] = await Promise.all([
+    fetchOpenThreadsOfKind(exec, 'issue'),
+    fetchOpenThreadsOfKind(exec, 'pr'),
+  ]);
+  return [...issues, ...prs];
+}
+
+/** Composes {@link resolveSocialIdentity}, {@link fetchOwnSubmissions}, and
+ *  {@link fetchOpenThreads} behind one call — the injectable-`exec`-with-a-
+ *  real-default seam `publicity.ts`'s `createPublicityPreviewApi` and
+ *  `pr-review.ts`'s `fetchOpenPrCandidateReport` already establish. An
+ *  unresolved identity skips the own-submissions read entirely (there is no
+ *  login to inventory against) rather than issuing a doomed `gh ... --author
+ *  undefined` call; the open-threads read has no such dependency and always
+ *  runs. */
 export interface SocialPassReport {
   readonly identity: SocialIdentity | undefined;
   readonly ownSubmissions: readonly SocialSubmission[];
+  readonly openThreads: readonly SocialSubmission[];
 }
 
 export async function fetchSocialPassReport(exec: CliExec = ghExec): Promise<SocialPassReport> {
-  const identity = await resolveSocialIdentity(exec);
+  const [identity, openThreads] = await Promise.all([
+    resolveSocialIdentity(exec),
+    fetchOpenThreads(exec),
+  ]);
   const ownSubmissions =
     identity === undefined ? [] : await fetchOwnSubmissions(exec, identity.login);
-  return { identity, ownSubmissions };
+  return { identity, ownSubmissions, openThreads };
 }
 
 /** A kind of voice the protocol engine budgets separately — the epic's own
@@ -231,11 +277,12 @@ export interface SocialProtocolCaps {
 /** The protocol engine's verdict: `allowed` actions fit this pass's budget
  *  and may proceed; `queued` actions exceeded their kind's cap and must
  *  wait for a human or a later pass; `duplicate` actions matched something
- *  this identity already submitted and must never proceed at all — never
- *  dropped silently, never forced through, but also never re-said;
- *  `refused` actions demanded maintainer verbs the acting identity's role
- *  does not hold (epic law 5) — never allowed, never queued, since no
- *  amount of waiting earns a role the identity does not have. */
+ *  already submitted — by this identity, or already open from anyone else —
+ *  and must never proceed at all — never dropped silently, never forced
+ *  through, but also never re-said; `refused` actions demanded maintainer
+ *  verbs the acting identity's role does not hold (epic law 5) — never
+ *  allowed, never queued, since no amount of waiting earns a role the
+ *  identity does not have. */
 export interface SocialProtocolVerdict {
   readonly allowed: readonly SocialCandidateAction[];
   readonly queued: readonly SocialCandidateAction[];
@@ -243,22 +290,26 @@ export interface SocialProtocolVerdict {
   readonly refused: readonly SocialCandidateAction[];
 }
 
-/** A titled `'new-issue'` candidate counts as a duplicate of an own
- *  submission when its title's word-level Jaccard similarity to an existing
- *  own issue title clears the same {@link FLOOD_DUPLICATE_RATIO} threshold
- *  `anti-flood.ts` uses for outgoing comments — one "is this the same thing
- *  said twice" bar for every outgoing voice this identity has. Titles
- *  shorter than {@link MIN_COMPARE_LENGTH} after normalizing are exempted,
- *  the same guard `judgeOutgoingComment` applies, since short text carries
- *  too little word-overlap signal to compare reliably. */
-function isDuplicateOfOwnIssue(
+/** A titled `'new-issue'` candidate counts as a duplicate when its title's
+ *  word-level Jaccard similarity to an existing issue title — drawn from
+ *  `existingIssueTitles`, the union of the identity's own submissions (law
+ *  2, "know what is already ours") and every currently open thread (law 1,
+ *  "search before you speak" reaches beyond just our own) — clears the same
+ *  {@link FLOOD_DUPLICATE_RATIO} threshold `anti-flood.ts` uses for
+ *  outgoing comments — one "is this the same thing said twice" bar for
+ *  every outgoing voice this identity has, own or someone else's still-open
+ *  finding alike. Titles shorter than {@link MIN_COMPARE_LENGTH} after
+ *  normalizing are exempted, the same guard `judgeOutgoingComment` applies,
+ *  since short text carries too little word-overlap signal to compare
+ *  reliably. */
+function isDuplicateOfExistingIssue(
   candidate: SocialCandidateAction,
-  ownIssueTitles: readonly string[],
+  existingIssueTitles: readonly string[],
 ): boolean {
   if (candidate.title === undefined) return false;
   const normalized = normalizeCommentText(candidate.title);
   if (normalized.length < MIN_COMPARE_LENGTH) return false;
-  return ownIssueTitles.some(
+  return existingIssueTitles.some(
     (title) => commentSimilarity(normalized, title) >= FLOOD_DUPLICATE_RATIO,
   );
 }
@@ -269,13 +320,13 @@ function isDuplicateOfOwnIssue(
  *  {@link SocialCandidateAction.requiresMaintainer} is refused outright when
  *  `role` isn't `'maintainer'` (epic law 5, "role honesty") before either
  *  the duplicate or cap check runs — a role mismatch is a boundary, not a
- *  budget question. A `'new-issue'` candidate that duplicates one of
- *  `ownSubmissions`' own issue titles (epic law 1, "search before you
- *  speak"; law 2, "know what is already ours") is diverted to `duplicate`
- *  before the cap is even considered — a duplicate never consumes budget,
- *  since it was never going to be said. `ownSubmissions` defaults to empty
- *  for callers with nothing to dedup against yet; `role` defaults to the
- *  least-privileged `'user'` so a caller that forgets to pass it never
+ *  budget question. A `'new-issue'` candidate that duplicates an issue title
+ *  drawn from `ownSubmissions` OR `openThreads` (epic law 1, "search before
+ *  you speak"; law 2, "know what is already ours") is diverted to
+ *  `duplicate` before the cap is even considered — a duplicate never
+ *  consumes budget, since it was never going to be said. Both default to
+ *  empty for callers with nothing to dedup against yet; `role` defaults to
+ *  the least-privileged `'user'` so a caller that forgets to pass it never
  *  accidentally admits a maintainer-only candidate. Pure: no I/O, no
  *  randomness, so a cap-overflow, a duplicate-issue temptation, and a
  *  role-confusion scenario are all deterministically reproducible in a
@@ -285,8 +336,9 @@ export function planSocialProtocol(
   caps: SocialProtocolCaps,
   ownSubmissions: readonly SocialSubmission[] = [],
   role: SocialRole = 'user',
+  openThreads: readonly SocialSubmission[] = [],
 ): SocialProtocolVerdict {
-  const ownIssueTitles = ownSubmissions
+  const existingIssueTitles = [...ownSubmissions, ...openThreads]
     .filter((submission) => submission.kind === 'issue')
     .map((submission) => normalizeCommentText(submission.title));
 
@@ -302,7 +354,7 @@ export function planSocialProtocol(
       continue;
     }
     if (candidate.kind === 'new-issue') {
-      if (isDuplicateOfOwnIssue(candidate, ownIssueTitles)) {
+      if (isDuplicateOfExistingIssue(candidate, existingIssueTitles)) {
         duplicate.push(candidate);
       } else if (newIssueCount < caps.maxNewIssues) {
         allowed.push(candidate);
