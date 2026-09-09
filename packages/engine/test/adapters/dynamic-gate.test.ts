@@ -59,4 +59,21 @@ describe('DynamicGate', () => {
     expect(result.ok).toBe(false);
     expect(result.details).toContain('full failed (exit 1)');
   });
+
+  it('forwards the semaphore into each fresh GateRunner (mercy 2)', async () => {
+    const order: string[] = [];
+    const semaphore = {
+      acquire: async () => {
+        order.push('acquire');
+        return () => order.push('release');
+      },
+    };
+    const exec: GateExec = () => {
+      order.push('exec');
+      return Promise.resolve({ code: 0 });
+    };
+    const gate = new DynamicGate({ cwd: '/repo', commands: () => [IMPACTED], exec, semaphore });
+    await gate.run();
+    expect(order).toEqual(['acquire', 'exec', 'release']);
+  });
 });

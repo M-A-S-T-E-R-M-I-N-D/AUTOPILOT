@@ -13,6 +13,7 @@
 
 import { execFile } from 'node:child_process';
 import type { GatePort, GateResult, GateCheckResult } from '../ports.js';
+import type { GateSemaphorePort } from './gate-semaphore.js';
 
 /** One gate command — argv only (never a shell string). */
 export interface GateCommandSpec {
@@ -71,6 +72,12 @@ export interface GateRunnerOptions {
    *  exactly this. Purely observational: it can never change a verdict, and a
    *  throwing observer is swallowed rather than failing the gate it watches. */
   readonly onProgress?: (event: GateProgressEvent) => void;
+  /** Cross-lane scheduling gate (operator-machine mercy 2, board
+   *  web-mtsvchak-kecyjk): when given, a shared-slot semaphore acquired
+   *  before running any command and released once this gate finishes,
+   *  win or lose — see `gate-semaphore.ts`. Undefined (the default) runs
+   *  exactly as before every existing caller/test already relies on. */
+  readonly semaphore?: GateSemaphorePort;
 }
 
 /** One live gate-progress notification: a command STARTED, or one ENDED with
@@ -170,67 +177,72 @@ export class GateRunner implements GatePort {
       return { ok: true, details: 'no gate commands configured', checks: [] };
     }
 
-    const checks: GateCheckResult[] = [];
-    // Never let an observer's own failure change a gate verdict — this is a
-    // reporting side channel, not part of the decision.
-    const notify = (event: GateProgressEvent): void => {
-      try {
-        this.opts.onProgress?.(event);
-      } catch {
-        /* observational only — a broken observer must not fail the gate */
-      }
-    };
-    let i = 0;
-    while (i < commands.length) {
-      const { batch, next } = nextBatch(commands, i);
-      const runs = await Promise.all(
-        batch.map(async (cmd, offset) => {
-          const label = cmd.label ?? cmd.bin;
-          const position = i + offset + 1;
-          notify({ kind: 'start', label, index: position, total: commands.length });
-          const startedAt = Date.now();
-          const { code, crashed, crashReason } = await exec(cmd, cwd, timeoutMs);
-          const durationMs = Date.now() - startedAt;
-          notify({
-            kind: 'end',
-            label,
-            index: position,
-            total: commands.length,
-            pass: code === 0,
-            durationMs,
+    const release = await this.opts.semaphore?.acquire();
+    try {
+      const checks: GateCheckResult[] = [];
+      // Never let an observer's own failure change a gate verdict — this is a
+      // reporting side channel, not part of the decision.
+      const notify = (event: GateProgressEvent): void => {
+        try {
+          this.opts.onProgress?.(event);
+        } catch {
+          /* observational only — a broken observer must not fail the gate */
+        }
+      };
+      let i = 0;
+      while (i < commands.length) {
+        const { batch, next } = nextBatch(commands, i);
+        const runs = await Promise.all(
+          batch.map(async (cmd, offset) => {
+            const label = cmd.label ?? cmd.bin;
+            const position = i + offset + 1;
+            notify({ kind: 'start', label, index: position, total: commands.length });
+            const startedAt = Date.now();
+            const { code, crashed, crashReason } = await exec(cmd, cwd, timeoutMs);
+            const durationMs = Date.now() - startedAt;
+            notify({
+              kind: 'end',
+              label,
+              index: position,
+              total: commands.length,
+              pass: code === 0,
+              durationMs,
+            });
+            return { cmd, code, crashed, crashReason, durationMs };
+          }),
+        );
+        for (const r of runs) {
+          checks.push({
+            label: r.cmd.label ?? r.cmd.bin,
+            pass: r.code === 0,
+            durationMs: r.durationMs,
           });
-          return { cmd, code, crashed, crashReason, durationMs };
-        }),
-      );
-      for (const r of runs) {
-        checks.push({
-          label: r.cmd.label ?? r.cmd.bin,
-          pass: r.code === 0,
-          durationMs: r.durationMs,
-        });
+        }
+        // First failure in BATCH ORDER (not completion order) — deterministic
+        // regardless of which concurrent command happens to settle first.
+        const failed = runs.find((r) => r.code !== 0);
+        if (failed) {
+          const label = failed.cmd.label ?? failed.cmd.bin;
+          // verdict-quality (board web-mtq6zn6x-3khfkb): a crash's `details` used
+          // to read identically to a real failure ("label failed (exit 1)"),
+          // making a spawn error, a timeout, and a genuine tool crash all look
+          // the same downstream. Keep "failed" in the text (existing callers
+          // match on it) but fold in WHY when it's known.
+          const details = failed.crashed
+            ? `${label} failed (crashed${failed.crashReason ? `: ${failed.crashReason}` : ''}) — gate could not verify the commit`
+            : `${label} failed (exit ${failed.code})`;
+          return {
+            ok: false,
+            details,
+            checks,
+            ...(failed.crashed ? { crashed: true } : {}),
+          };
+        }
+        i = next;
       }
-      // First failure in BATCH ORDER (not completion order) — deterministic
-      // regardless of which concurrent command happens to settle first.
-      const failed = runs.find((r) => r.code !== 0);
-      if (failed) {
-        const label = failed.cmd.label ?? failed.cmd.bin;
-        // verdict-quality (board web-mtq6zn6x-3khfkb): a crash's `details` used
-        // to read identically to a real failure ("label failed (exit 1)"),
-        // making a spawn error, a timeout, and a genuine tool crash all look
-        // the same downstream. Keep "failed" in the text (existing callers
-        // match on it) but fold in WHY when it's known.
-        const details = failed.crashed
-          ? `${label} failed (crashed${failed.crashReason ? `: ${failed.crashReason}` : ''}) — gate could not verify the commit`
-          : `${label} failed (exit ${failed.code})`;
-        return {
-          ok: false,
-          details,
-          checks,
-          ...(failed.crashed ? { crashed: true } : {}),
-        };
-      }
-      i = next;
+      return { ok: true, details: `${commands.length} gate command(s) passed`, checks };
+    } finally {
+      release?.();
     }
-    return { ok: true, details: `${commands.length} gate command(s) passed`, checks };
   }
 }

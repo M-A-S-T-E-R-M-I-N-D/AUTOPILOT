@@ -52,3 +52,22 @@ export function cliTimeoutMsFromEnv(env: Record<string, string | undefined>): nu
   const raw = Number(env['AUTOPILOT_CLI_TIMEOUT_MS']);
   return Number.isInteger(raw) && raw > 0 ? raw : undefined;
 }
+
+/** Default cross-lane gate slot count — see `gate-semaphore.ts`'s doc comment
+ *  for why 2 (not, say, 1): mirrors mercy 1's own `FLEET_GATE_WORKERS_DEFAULT`
+ *  (spawn-flight.ts), the value calibrated against the incident that starved
+ *  the dashboard. */
+const FLEET_GATE_SLOTS_DEFAULT = 2;
+
+/**
+ * OPERATOR-MACHINE MERCY 2 (board web-mtsvchak-kecyjk): how many FLEET lanes
+ * may run a heavy gate step (typecheck/vitest/build) at once, operator-tunable
+ * via `AUTOPILOT_FLEET_GATE_SLOTS`. Same fail-closed parsing as
+ * `cliTimeoutMsFromEnv`/mercy 1's `fleetGateWorkers` — anything but a positive
+ * integer falls back to the calibrated default rather than uncapping, so a
+ * typo can't silently resurrect the starvation class this exists to prevent.
+ */
+export function fleetGateSlotsFromEnv(env: Record<string, string | undefined>): number {
+  const raw = Number(env['AUTOPILOT_FLEET_GATE_SLOTS']);
+  return Number.isInteger(raw) && raw > 0 ? raw : FLEET_GATE_SLOTS_DEFAULT;
+}

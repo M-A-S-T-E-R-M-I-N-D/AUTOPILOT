@@ -92,6 +92,67 @@ describe('GateRunner', () => {
     expect(result.checks).toEqual([]);
   });
 
+  describe('semaphore (cross-lane gate slot, mercy 2)', () => {
+    it('acquires the semaphore before running commands and releases it once done', async () => {
+      const order: string[] = [];
+      const { exec } = scriptedExec([0]);
+      const semaphore = {
+        acquire: async () => {
+          order.push('acquire');
+          return () => order.push('release');
+        },
+      };
+      const result = await new GateRunner({
+        cwd: '/repo',
+        commands: [CMDS[0]!],
+        exec: async (cmd, cwd, timeoutMs) => {
+          order.push('exec');
+          return exec(cmd, cwd, timeoutMs);
+        },
+        semaphore,
+      }).run();
+      expect(result.ok).toBe(true);
+      expect(order).toEqual(['acquire', 'exec', 'release']);
+    });
+
+    it('releases the semaphore even when the gate fails', async () => {
+      const order: string[] = [];
+      const semaphore = {
+        acquire: async () => {
+          order.push('acquire');
+          return () => order.push('release');
+        },
+      };
+      const { exec } = scriptedExec([1]);
+      const result = await new GateRunner({
+        cwd: '/repo',
+        commands: [CMDS[0]!],
+        exec,
+        semaphore,
+      }).run();
+      expect(result.ok).toBe(false);
+      expect(order).toEqual(['acquire', 'release']);
+    });
+
+    it('never touches the semaphore for a vacuous (empty command list) gate', async () => {
+      let acquired = false;
+      const semaphore = {
+        acquire: async () => {
+          acquired = true;
+          return () => {};
+        },
+      };
+      await new GateRunner({ cwd: '/repo', commands: [], semaphore }).run();
+      expect(acquired).toBe(false);
+    });
+
+    it('runs exactly as before when no semaphore is given', async () => {
+      const { exec } = scriptedExec([0]);
+      const result = await new GateRunner({ cwd: '/repo', commands: [CMDS[0]!], exec }).run();
+      expect(result.ok).toBe(true);
+    });
+  });
+
   it('runs real commands via the default execFile — a passing command', async () => {
     const result = await new GateRunner({
       cwd: process.cwd(),

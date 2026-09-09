@@ -30,7 +30,7 @@ commit that fixes it.
 | 13 | Fleet identity mis-signing a contributor's work (DCO) | human always signs as themself; engine hardcodes no identity; credit only in the Assisted-by trailer | `docs/ATTRIBUTION.md` §Signing & DCO |
 | 14 | Core-bundle wall re-hit by every i18n slice | budgets as tripwires + dead-key pruning; structural: defer the locale table (invited) | `check-bundle-size` + VERDICT web-mtbodv7m |
 | 15 | Operator-created tasks invisible below the board fold | report-born tasks are FOCUSED at birth | `applyReportTask` |
-| 16 | Machine starvation under multi-lane gates (88-100% CPU) | below-normal lane priority + cross-lane gate semaphore + sustained-load planner | boarded (mercy 1-3) |
+| 16 | Machine starvation under multi-lane gates (88-100% CPU) | below-normal lane priority + cross-lane gate semaphore + sustained-load planner | mercy 1-2 shipped (`spawn-flight.ts` + `gate-semaphore.ts`), mercy 3 boarded |
 | 17 | KEEPER Apply on stale cards | execute re-verifies live PR state and no-ops on merged/closed | `pr-review-execute.ts` `confirmPrNotOpen` |
 | 18 | New file added without its census pin (taxonomy stubs ×2) | "a census completes the change" — same-commit pin updates | firing prompt (v13) + additive-only law |
 | 19 | The same message posted twice by a retry after an apparent failure that had actually landed (PR #33's approval, 16s apart, 97% identical) | every `gh issue\|pr comment` runs through a guard that reads the thread first: a >=90%-similar message from this identity is a clean no-op | `flight/anti-flood.ts` + `flight/gh-exec.ts` (defaulted, census-pinned) |
