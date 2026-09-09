@@ -216,3 +216,11 @@ jobs:
       - name: Check doc commit-SHA citations resolve to real HEAD ancestors
         run: pnpm run ci:doc-commit-refs
           --verbose
+
+      # Rides this job because it needs the same full history for the same
+      # reason: a merge's parents and the branch tip must all be fetched
+      # before their trees can be compared. Catches the merge commit that
+      # claims to include both parents while keeping only one's tree — the
+      # `-s ours` discard nothing in the repo could see until 2026-09-09.
+      - name: Check no merge discarded a parent's work
+        run: pnpm run ci:merge-integrity
