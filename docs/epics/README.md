@@ -85,3 +85,4 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0016](0016-github-social-flight.md) | The GitHub social flight — on/off, only when gh is connected and authenticated | Active |
 | [0017](0017-navigation-remake.md) | Navigation remake — minimal, visual, memorable | Active |
 | [0018](0018-calm-cockpit.md) | Calm Cockpit — layout stability, tabs, and the many-lanes view | Active |
+| [0021](0021-ask-answer-quality-doctrine.md) | ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale | Active |
