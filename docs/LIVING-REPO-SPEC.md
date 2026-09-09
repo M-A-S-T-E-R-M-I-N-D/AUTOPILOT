@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 > **Build status (2026-09-09): largely UNBUILT.** This is a preserved operator
 > SPEC, not a description of the repo — §2's file tree, §3/§6/§7's client
-> surface, and the workflow set mostly do not exist yet at v0.31.0; treat every
+> surface, and the workflow set mostly do not exist yet at v0.33.0; treat every
 > claim as intent until a shipped artifact says otherwise.
 >
 > **Provenance:** authored by the operator (2026-08-08), preserved as the
