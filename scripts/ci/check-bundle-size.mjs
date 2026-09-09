@@ -47,8 +47,16 @@ import { gzipSync } from 'node:zlib';
 // that fits it: 0.1KB core, 0.3KB panels raw, 0.5KB panels gzip over.
 // The structural answer row 14 keeps inviting — move the non-English
 // STRINGS table out of core entirely — is boarded, not done here.
-const CORE_RAW_BUDGET = 186 * 1024;
-const CORE_GZIP_BUDGET = 55 * 1024;
+//
+// Then core raw 186→187KB / gzip 55→56KB (2026-09-09) for the shared
+// socialIdentity() resolver. This one is a RELOCATION, not growth: three
+// role-gated panels each ran their own identity fetch, so the helper moved
+// those bytes into core (where every chunk can reach it) and deleted them
+// from panels and project. Combined across the three chunks measured
+// 364.6KB both before and after — identical. What actually shrank is the
+// network: one identity read per page load instead of three.
+const CORE_RAW_BUDGET = 187 * 1024;
+const CORE_GZIP_BUDGET = 56 * 1024;
 // Deferred chunks never block first paint — the budget exists so they cannot
 // silently become a second monolith. Measured at introduction (2026-08-28):
 // project ~44KB, panels ~19KB raw.

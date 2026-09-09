@@ -1672,6 +1672,24 @@ function langBar(langs) {
 // across SSE re-renders (liveWorkersRovingIndex) instead of always
 // resetting the Tab stop to item 0, a real behavioral difference this
 // helper doesn't support.
+// ONE identity read per page load, shared by every panel that gates on
+// role (KEEPER PR review, the release panel, contributor standing).
+// Three panels each ran their own fetch, so a single page asked GitHub who
+// the viewer was three times and the hermetic e2e saw the same 404 twice
+// over — the duplicate WAS the bug the allowlist was about to be padded
+// to hide. The role is one fact and it cannot change while the page is
+// open, so it is resolved once and every caller awaits the same promise.
+// Failure resolves to a null identity rather than rejecting: an
+// unresolved role means "not a known guest", never "unavailable".
+var socialIdentityPromise = null;
+function socialIdentity() {
+  if (!socialIdentityPromise) {
+    socialIdentityPromise = fetch('/api/social-identity', { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : { identity: null }; })
+      .catch(function () { return { identity: null }; });
+  }
+  return socialIdentityPromise;
+}
 function wireRoving(itemSel, groupSel) {
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;

@@ -242,9 +242,9 @@ function releaseSection(pid) {
   // fetched alongside the release preview, never blocking it — a failed
   // identity read (own .catch()) still lets the release panel render, since
   // an unresolved identity means "not a known guest", not "unavailable".
-  var identityFetch = fetch('/api/social-identity')
-    .then(function (r) { return r.ok ? r.json() : { identity: null }; })
-    .catch(function () { return { identity: null }; });
+  // socialIdentity() is a hoisted core helper — one read per page load,
+  // shared with every other role-gated panel.
+  var identityFetch = socialIdentity();
   var releaseFetch = fetch('/api/release?project=' + encodeURIComponent(pid))
     .then(function (r) { return r.ok ? r.json() : { release: null }; });
   Promise.all([releaseFetch, identityFetch])

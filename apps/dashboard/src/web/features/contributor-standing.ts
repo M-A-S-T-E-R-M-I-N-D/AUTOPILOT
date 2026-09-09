@@ -147,8 +147,7 @@ function markStandingTier(youAreHere) {
 // identity resolves. A failed lookup leaves the newcomer-safe default
 // standing rather than blanking the panel.
 renderContributorStandingPanel('unknown');
-fetch('/api/social-identity', { headers: { accept: 'application/json' } })
-  .then(function (r) { return r.ok ? r.json() : null; })
+socialIdentity()
   .then(function (data) {
     var role = data && data.identity && data.identity.role;
     if (!role) return;

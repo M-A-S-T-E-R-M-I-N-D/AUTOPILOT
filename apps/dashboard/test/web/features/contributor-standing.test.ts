@@ -40,7 +40,7 @@ describe('contributorStandingJs', () => {
     // while the page is open.
     const out = contributorStandingJs();
     expect(out).toContain("document.getElementById('contributor-standing-panel')");
-    expect(out).toContain("fetch('/api/social-identity'");
+    expect(out).toContain('socialIdentity()');
     expect(out).not.toContain('setInterval');
   });
 

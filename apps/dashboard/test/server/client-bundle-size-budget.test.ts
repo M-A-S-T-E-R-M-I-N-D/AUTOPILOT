@@ -167,8 +167,10 @@ import {
  */
 // Raised with the script (2026-09-09) to reland the Hebrew report-menu
 // toolkit — see check-bundle-size.mjs for the full reasoning.
-const CORE_RAW_BUDGET = 186 * 1024;
-const CORE_GZIP_BUDGET = 55 * 1024;
+// Raised with the script (2026-09-09) for the shared socialIdentity()
+// resolver — a relocation, not growth: combined bundle is unchanged.
+const CORE_RAW_BUDGET = 187 * 1024;
+const CORE_GZIP_BUDGET = 56 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()

@@ -318,9 +318,9 @@ function loadPrReviewPanel() {
   // blocking it — a failed identity read (own .catch()) still lets the
   // panel render, since an unresolved identity means "not a known guest",
   // not "unavailable".
-  var identityFetch = fetch('/api/social-identity')
-    .then(function (r) { return r.ok ? r.json() : { identity: null }; })
-    .catch(function () { return { identity: null }; });
+  // socialIdentity() is a hoisted core helper — one read per page load,
+  // shared with every other role-gated panel.
+  var identityFetch = socialIdentity();
   var plansFetch = fetch('/api/pr-review', { headers: { accept: 'application/json' } })
     .then(function (r) { return r.ok ? r.json() : { plans: [] }; });
   Promise.all([plansFetch, identityFetch])
