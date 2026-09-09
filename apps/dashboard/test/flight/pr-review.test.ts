@@ -231,6 +231,13 @@ const BENIGN_FLIGHT = new Set([
   // pool-client.ts: the executor that acts on an admitted plan is a
   // follow-up slice that will need its own marker once it ships one.
   'social-pass.ts',
+  // SOCIAL FLIGHT weave-in 3/6 (board web-mtpzzx23-n1kqv0's follow-on
+  // slice): parseSocialFlightToggle/shouldRunSocialFlight are pure functions
+  // over an env-var string and a phase enum — no I/O, no gh call, and not
+  // imported from fly.ts or anywhere else yet. The fly.ts hook wiring that
+  // will actually call the social pass at a phase is a follow-up slice that
+  // will need its own marker once it ships one.
+  'social-flight-trigger.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
