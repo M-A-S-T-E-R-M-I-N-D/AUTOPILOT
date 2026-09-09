@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
 import {
+  supersededFamilyLabels,
   classifyIssueDimension,
   classifyIssueArea,
   classifyIssuePriority,
@@ -930,5 +931,48 @@ describe('runIssueTriageRitual', () => {
     } finally {
       cleanupDir(dbDir);
     }
+  });
+});
+
+/**
+ * MUTUALLY EXCLUSIVE LABEL FAMILIES (operator sweep, 2026-09-09): issues
+ * #21, #27 and #28 each carried BOTH `priority: high` and
+ * `priority: medium`. The triage only ever ran `--add-label`, so a
+ * classification that disagreed with a hand-set label left the board
+ * showing a contradiction it could not resolve.
+ */
+describe('supersededFamilyLabels', () => {
+  it('names the sibling priority a new classification replaces', () => {
+    expect(
+      supersededFamilyLabels(
+        ['priority: high', 'area: i18n', 'epic'],
+        ['area: i18n', 'priority: medium'],
+      ),
+    ).toEqual(['priority: high']);
+  });
+
+  it('replaces a stale area too, and leaves unrelated labels alone', () => {
+    expect(
+      supersededFamilyLabels(
+        ['area: dashboard', 'help wanted', 'epic', 'pool: information'],
+        ['area: i18n', 'priority: high'],
+      ),
+    ).toEqual(['area: dashboard']);
+  });
+
+  it('returns nothing when the issue already carries exactly the chosen labels', () => {
+    expect(
+      supersededFamilyLabels(['area: i18n', 'priority: high'], ['area: i18n', 'priority: high']),
+    ).toEqual([]);
+  });
+
+  it('never proposes removing a label the issue does not have — gh would fail the whole edit', () => {
+    expect(supersededFamilyLabels([], ['area: i18n', 'priority: high'])).toEqual([]);
+  });
+
+  it('leaves the pool marker alone — it is the ritual’s own idempotency flag', () => {
+    expect(
+      supersededFamilyLabels(['pool: accessibility'], ['area: i18n', 'priority: high']),
+    ).toEqual([]);
   });
 });
