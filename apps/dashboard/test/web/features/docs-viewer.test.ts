@@ -38,6 +38,13 @@ describe('docsViewerJs', () => {
     expect(out).toBe(out.trim());
   });
 
+  it('pins CONTRIBUTOR-STANDING.md to the top of the list (board ap-mtu6l8ct-3)', () => {
+    const out = docsViewerJs();
+    expect(out).toContain("var STANDING_DOC_PATH = '.github/CONTRIBUTOR-STANDING.md';");
+    expect(out).toContain('files.unshift(STANDING_DOC_PATH);');
+    expect(out).toContain("'🤝 Contributor Standing'");
+  });
+
   it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
     const out = docsViewerJs();
     expect(out).toContain("head.setAttribute('data-i18n', 'docsTitle');");
