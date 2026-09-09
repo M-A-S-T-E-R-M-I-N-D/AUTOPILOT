@@ -52,6 +52,13 @@ export interface AskApiResult {
    *  Untrusted model output: nothing executes until the operator confirms it
    *  via the action card against `/api/control/execute`. */
   readonly proposal?: unknown;
+  /** ASK/ARCHITECT answer-quality doctrine (board web-mtt5qwjp-xns6ps):
+   *  passed straight through from `ask/service.ts`'s `AskResult.lowConfidence`
+   *  — true when the tier-1 answer was the model's exact "not in the index"
+   *  refusal despite having sources, a stronger signal than the empty-source
+   *  case (which already auto-escalates). The client offering a Deep re-ask
+   *  on this signal is a follow-up slice; this only carries the flag. */
+  readonly lowConfidence?: boolean;
 }
 export type AskApi = (
   projectId: string,

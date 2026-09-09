@@ -16,6 +16,7 @@ import {
   ASK_ESCALATION_PROMPT_VERSION,
   LIVE_STATE_LABEL,
   VIEW_CONTEXT_LABEL,
+  NO_ANSWER,
   type AskSource,
   type AskTurn,
   type Activity,
@@ -90,6 +91,18 @@ export interface AskResult {
    *  model output: nothing executes until the operator confirms it via the
    *  action card against the confirm-gated execute endpoint. */
   readonly proposal?: ArchitectProposal;
+  /** Tier-1 grounded flow only (ASK/ARCHITECT answer-quality doctrine, board
+   *  web-mtt5qwjp-xns6ps): true when the model's answer is the exact
+   *  {@link NO_ANSWER} refusal — sources existed but didn't contain the
+   *  answer, a stronger LOW-CONFIDENCE signal than the zero-sources case
+   *  (which already escalates automatically, epic 0012 slice 2). Absent
+   *  (never `false`) on every other outcome, including an escalated answer —
+   *  there is nothing further to offer once the read-only agentic tier has
+   *  already looked. The UI's own offer to flip Deep and re-ask is a
+   *  follow-up slice; this only carries the deterministic signal, matching
+   *  the epic's Out-of-scope line against a fuzzier self-assessed AUTOMATIC
+   *  trigger — the operator still decides. */
+  readonly lowConfidence?: boolean;
 }
 
 /** Append the ARCHITECT-mode addendum (static trusted text) after the grounded
@@ -108,15 +121,17 @@ function groundedSuccess(
   sources: readonly AskSource[],
   persona?: AskPersona,
 ): AskResult {
+  const trimmed = answer.trim();
   const paths = sources.map((s) => s.path);
   const base = {
     ok: true,
-    answer: answer.trim(),
+    answer: trimmed,
     sources: paths,
     promptVersion: ASK_PROMPT_VERSION,
+    ...(trimmed === NO_ANSWER ? { lowConfidence: true } : {}),
   };
   if (persona !== 'architect') return base;
-  const { prose, proposal } = parseArchitectProposal(answer.trim());
+  const { prose, proposal } = parseArchitectProposal(trimmed);
   return { ...base, answer: prose, ...(proposal ? { proposal } : {}) };
 }
 
