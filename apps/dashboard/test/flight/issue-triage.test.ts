@@ -11,6 +11,7 @@ import {
   classifyIssueDimension,
   classifyIssueArea,
   classifyIssuePriority,
+  classifyIssueMilestone,
   planIssueTriage,
   planIssueTriageCommands,
   planIssueTriageBatch,
@@ -106,6 +107,21 @@ describe('classifyIssuePriority', () => {
   });
 });
 
+describe('classifyIssueMilestone', () => {
+  it('picks the milestone whose keywords appear most in the text', () => {
+    expect(classifyIssueMilestone('Bootstrap the initial architecture scaffold')).toBe(
+      'Foundations',
+    );
+    expect(classifyIssueMilestone('Screen reader accessib gap and a security vulnerab')).toBe(
+      'Hardening',
+    );
+  });
+
+  it('falls back to V1 when no keyword matches', () => {
+    expect(classifyIssueMilestone('The sky is blue today')).toBe('V1');
+  });
+});
+
 describe('planIssueTriage', () => {
   it('flags a duplicate when the issue title strongly overlaps an open board task', () => {
     const decision = planIssueTriage(
@@ -152,9 +168,36 @@ describe('planIssueTriage', () => {
       // Title contains "fleet" (area: flight-engine) and "broken" (priority: high).
       area: 'area: flight-engine',
       priority: 'priority: high',
+      // Neither the title nor body carries a Foundations/Hardening keyword.
+      milestone: 'V1',
     });
     expect(decision.reasoning).toContain('#9');
     expect(decision.reasoning).toContain('pool: accessibility');
+    expect(decision.reasoning).toContain('milestone "V1"');
+  });
+
+  it('classifies an accepted issue into the Hardening milestone by its security/a11y/perf signal', () => {
+    const decision = planIssueTriage(
+      { number: 60, title: 'Auth bypass security vulnerab found in login flow', body: '' },
+      [],
+      [],
+    );
+
+    expect(decision).toMatchObject({ decision: 'accept', milestone: 'Hardening' });
+  });
+
+  it('classifies an accepted issue into the Foundations milestone by its scaffolding signal', () => {
+    const decision = planIssueTriage(
+      {
+        number: 61,
+        title: 'Bootstrap the initial architecture scaffold for a fresh repo',
+        body: '',
+      },
+      [],
+      [],
+    );
+
+    expect(decision).toMatchObject({ decision: 'accept', milestone: 'Foundations' });
   });
 
   it('respects a custom threshold', () => {
@@ -335,10 +378,12 @@ describe('planIssueTriageCommands', () => {
           'area: flight-engine',
           '--add-label',
           'priority: high',
+          '--milestone',
+          'V1',
         ],
         details:
-          'labeling #9 "pool: accessibility", "area: flight-engine", "priority: high" per its ' +
-          'classified dimension/area/priority',
+          'labeling #9 "pool: accessibility", "area: flight-engine", "priority: high" and ' +
+          'setting milestone "V1" per its classified dimension/area/priority/milestone',
       },
       {
         command: 'gh',
@@ -717,6 +762,8 @@ describe('executeIssueTriageCommands', () => {
       'area: flight-engine',
       '--add-label',
       'priority: high',
+      '--milestone',
+      'V1',
     ]);
     expect(exec).toHaveBeenNthCalledWith(2, 'gh', [
       'issue',

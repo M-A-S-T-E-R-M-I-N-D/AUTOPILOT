@@ -1918,9 +1918,10 @@ describe('createServer (live loopback)', () => {
         decision: 'accept' as const,
         dimension: 'accessibility' as const,
         // epic 0019 S2: every accept now carries the house area/priority
-        // labels — this stub gained them when the taxonomy slice landed.
+        // labels + milestone — this stub gained them as that taxonomy slice landed.
         area: 'area: dashboard' as const,
         priority: 'priority: high' as const,
+        milestone: 'V1' as const,
         reasoning: '',
       },
       commands: [],
