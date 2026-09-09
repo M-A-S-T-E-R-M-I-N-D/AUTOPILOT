@@ -2252,20 +2252,24 @@ export function planPrReviewCommands(
   const prRef = String(pr.number);
 
   if (decision.decision === 'queue-for-human') {
-    // Re-run idempotency (the same doctrine issue-triage's re-runs follow):
-    // the ritual runs pass after pass while a queued PR waits on MASTERMIND,
-    // and the identical verdict comment must not be re-posted each pass. The
-    // reasoning embeds the PR's number/title and the specific verdict, so any
-    // changed fact produces different text and posts fresh; only an exact
-    // repeat plans nothing. Comment-dedup only — review verdicts never skip.
-    if (pr.ownComments?.includes(decision.reasoning)) return [];
-    return [
-      {
-        command: 'gh',
-        args: ['pr', 'comment', prRef, '--body', decision.reasoning],
-        details: `flagging #${pr.number} for MASTERMIND's human review — never auto-merged`,
-      },
-    ];
+    // POSTS NOTHING, on purpose (operator, 2026-09-09: "it feels like
+    // you're replying to me through GitHub — you're not talking to
+    // gabibi, you're talking to me").
+    //
+    // This used to publish `decision.reasoning` verbatim as a PR comment.
+    // That string is written for the MAINTAINER's judgment — it names the
+    // internal rule, quotes the PR's own title back, and refers to the
+    // operator in the third person. Published on a contributor's PR it
+    // addressed nobody: the author read machine rule-speak about a
+    // decision that was never theirs to act on, and the maintainer read a
+    // note they had already made themselves. Two readers, neither served.
+    //
+    // Queueing for a human is INTERNAL ROUTING. The maintainer sees it in
+    // the KEEPER panel, which now carries the merge/update/re-run verbs
+    // for it. If a contributor needs to be told something, a human tells
+    // them, in their own voice. Silence here is not a missing feature —
+    // it is the absence of a message that had no author.
+    return [];
   }
 
   if (decision.decision === 'request-changes') {

@@ -2090,16 +2090,12 @@ describe('planPrReview', () => {
     expect(decision.reasoning).not.toContain('conflicts');
   });
 
-  it('an unreported gate plans the queue comment and dedups it like every other queue-for-human verdict', () => {
+  it('an unreported gate plans nothing — queueing for a human posts no message', () => {
     const pr = candidate({ gateStatus: 'unreported' });
     const decision = planPrReview(pr);
 
-    const commands = planPrReviewCommands(pr, decision);
-    expect(commands).toHaveLength(1);
-    expect(commands[0]?.args).toEqual(['pr', 'comment', '12', '--body', decision.reasoning]);
-    expect(planPrReviewCommands({ ...pr, ownComments: [decision.reasoning] }, decision)).toEqual(
-      [],
-    );
+    expect(decision.decision).toBe('queue-for-human');
+    expect(planPrReviewCommands(pr, decision)).toEqual([]);
   });
 
   it('confirms a specific awaiting-approval reasoning when a matching action_required run was found — not the generic "nothing may be running" guess', () => {
@@ -2378,17 +2374,18 @@ describe('planPrReviewCommands', () => {
     ]);
   });
 
-  it('plans only a plain comment for queue-for-human — never a review verdict', () => {
+  it('plans NOTHING for queue-for-human — the routing is internal, not a message', () => {
+    // Operator, 2026-09-09: this used to publish decision.reasoning verbatim
+    // on the contributor's PR. That text is written for the MAINTAINER — it
+    // names the internal rule and refers to the operator in the third person
+    // — so on a contributor's PR it addressed nobody. Queueing for a human
+    // is routing; the maintainer sees it in the KEEPER panel, and a human
+    // who wants to say something says it in their own voice.
     const pr = candidate({ touchedPaths: ['apps/dashboard/src/server/security.ts'] });
     const decision = planPrReview(pr);
 
-    expect(planPrReviewCommands(pr, decision)).toEqual([
-      {
-        command: 'gh',
-        args: ['pr', 'comment', '12', '--body', decision.reasoning],
-        details: "flagging #12 for MASTERMIND's human review — never auto-merged",
-      },
-    ]);
+    expect(decision.decision).toBe('queue-for-human');
+    expect(planPrReviewCommands(pr, decision)).toEqual([]);
   });
 });
 
@@ -3310,7 +3307,8 @@ describe('planPrReview with the auto-merge policy lever', () => {
     const plans = planPrReviewBatch([policyGreen], 'off');
 
     expect(plans[0]?.decision.decision).toBe('queue-for-human');
-    expect(plans[0]?.commands.map((command) => command.args[1])).toEqual(['comment']);
+    // A queued PR plans no commands at all — the routing is internal.
+    expect(plans[0]?.commands).toEqual([]);
   });
 
   it('planPrReviewBatch defaults from the environment, still merging when unset', () => {
@@ -5741,14 +5739,18 @@ describe('planPrReviewCommands queue-for-human idempotency (re-runs mint nothing
     expect(commands).toEqual([]);
   });
 
-  it('still plans the comment when prior own comments carry a DIFFERENT verdict text — a changed fact posts fresh', () => {
+  it('plans nothing for a queued PR regardless of what earlier passes said', () => {
+    // The comment-dedup this once guarded is moot: there is no comment to
+    // dedup. Kept as a case because prior-comment state must not resurrect
+    // one.
     const decision = planPrReview(queued);
-    const commands = planPrReviewCommands(
-      { ...queued, ownComments: ['an earlier pass posted a different verdict'] },
-      decision,
-    );
-    expect(commands).toHaveLength(1);
-    expect(commands[0]?.args).toContain('comment');
+
+    expect(
+      planPrReviewCommands(
+        { ...queued, ownComments: ['an earlier pass posted a different verdict'] },
+        decision,
+      ),
+    ).toEqual([]);
   });
 
   it('never suppresses a request-changes decision — the dedup is comment-only, review verdicts always post', () => {
@@ -5847,7 +5849,7 @@ describe('planPrReviewCommands request-changes idempotency (re-runs mint nothing
     expect(commands[0]?.args).toContain('--request-changes');
   });
 
-  it('never dedups a queue-for-human comment off the review body — the two verdicts dedup only against their own kind', () => {
+  it('a standing request-changes body never causes a queued PR to post anything', () => {
     const queued: PrReviewCandidate = {
       number: 91,
       title: 'touches a guarded path',
@@ -5857,12 +5859,9 @@ describe('planPrReviewCommands request-changes idempotency (re-runs mint nothing
     };
     const decision = planPrReview(queued);
     expect(decision.decision).toBe('queue-for-human');
-    const commands = planPrReviewCommands(
-      { ...queued, ownRequestChangesBody: decision.reasoning },
-      decision,
-    );
-    expect(commands).toHaveLength(1);
-    expect(commands[0]?.args).toContain('comment');
+    expect(
+      planPrReviewCommands({ ...queued, ownRequestChangesBody: decision.reasoning }, decision),
+    ).toEqual([]);
   });
 });
 
@@ -6076,16 +6075,12 @@ describe('unresolved review-thread guard (branch protection requires conversatio
     );
   });
 
-  it('plans the queue comment and dedups it like every other queue-for-human verdict', () => {
+  it('plans nothing when unresolved review threads queue the PR for a human', () => {
     const pr = candidate({ unresolvedReviewThreads: 1 });
     const decision = planPrReview(pr);
 
-    expect(planPrReviewCommands(pr, decision)).toMatchObject([
-      { args: ['pr', 'comment', '12', '--body', decision.reasoning] },
-    ]);
-    expect(planPrReviewCommands({ ...pr, ownComments: [decision.reasoning] }, decision)).toEqual(
-      [],
-    );
+    expect(decision.decision).toBe('queue-for-human');
+    expect(planPrReviewCommands(pr, decision)).toEqual([]);
   });
 });
 
