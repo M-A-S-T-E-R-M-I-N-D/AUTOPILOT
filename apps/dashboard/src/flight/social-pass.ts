@@ -37,7 +37,8 @@
  * the law's own wording); this module never invents either.
  */
 
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import { fetchRepoIdentity } from './publicity.js';
 import { fetchViewerLogin } from './pr-review.js';
 
@@ -174,9 +175,7 @@ export interface SocialPassReport {
   readonly ownSubmissions: readonly SocialSubmission[];
 }
 
-export async function fetchSocialPassReport(
-  exec: CliExec = realCliExec,
-): Promise<SocialPassReport> {
+export async function fetchSocialPassReport(exec: CliExec = ghExec): Promise<SocialPassReport> {
   const identity = await resolveSocialIdentity(exec);
   const ownSubmissions =
     identity === undefined ? [] : await fetchOwnSubmissions(exec, identity.login);

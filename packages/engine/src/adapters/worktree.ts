@@ -18,7 +18,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { existsSync, realpathSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 /**
@@ -211,6 +211,20 @@ export async function ensureWorktree(
       created: false,
       details: `reusing existing worktree at ${worktreePath}`,
     };
+  }
+
+  // SELF-HEAL (board web-mtrfudsv-djicva): the check above only rules out a
+  // LIVE git registration — worktreePath can still hold real files on disk
+  // that were never registered at all: a crashed flight killed mid `worktree
+  // add`, or a prior `removeWorktree`'s `--force remove` succeeded but the
+  // process died before its `worktree prune`. `git worktree add` refuses
+  // outright into a non-empty existing directory ("fatal: already exists"),
+  // which silently stranded 3 of 4 lanes behind a manual `rm` until an
+  // operator noticed. Nothing reaches this line while a real registration
+  // exists (handled above), so any leftover content here is orphaned scratch
+  // space, never live operator work — clear it so the add below can proceed.
+  if (existsSync(worktreePath)) {
+    rmSync(worktreePath, { recursive: true, force: true });
   }
 
   const branchExists = await git(repo, [

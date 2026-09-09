@@ -5,7 +5,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { VcsPort, CommitRef } from '../ports.js';
+import type { VcsPort, CommitRef, DiffFileStat } from '../ports.js';
 import type { HeadReader } from '../containment.js';
 
 // Field separator git emits via `%x1f` in the OUTPUT. We must not put a NUL byte
@@ -274,6 +274,51 @@ export class GitVcs implements VcsPort {
     ]);
     if (exitCode !== 0) return [];
     return stdout.split('\0').filter((path) => path.length > 0);
+  }
+
+  /**
+   * Per-file insertions/deletions between two refs — VcsPort's diff-size gate
+   * input (docs/BACKLOG-999.md C4). `--no-renames` sidesteps a rename's
+   * ambiguous `--numstat` shape (this repo diffs with no `-M`/rename
+   * detection anywhere else either — see {@link changedLineRanges}'s own
+   * note); a renamed-and-edited file simply reports as a delete of the old
+   * path plus an add of the new one, which sums to the same review-burden
+   * line count a reviewer without rename detection would actually see. A
+   * binary file's counts print as the literal `-` (git never estimates line
+   * counts for binary content) — parsed as 0 rather than `NaN`, since there
+   * is no reviewable LINE count to sum for it anyway; its path still rides
+   * through for the diff-size gate's mechanical-path classification. `-z`
+   * earns its place the same way it does in {@link changedFiles}: without it
+   * git C-quotes any path holding non-ASCII bytes, and a quoted path matches
+   * none of the gate's anchored mechanical-path patterns — a snapshot or
+   * lockfile with an accented name would count as review burden and could
+   * revert an otherwise-legitimate commit. It also switches each record's
+   * terminator from a newline to a NUL. Degrades to `[]` on an unborn-HEAD
+   * `''` ref or an invalid ref, same contract as {@link changedFiles}.
+   */
+  async diffNumstat(fromRef: string, toRef: string): Promise<readonly DiffFileStat[]> {
+    if (fromRef === '' || toRef === '') return [];
+    const { stdout, exitCode } = await git(this.repo, [
+      'diff',
+      '--numstat',
+      '--no-renames',
+      '-z',
+      fromRef,
+      toRef,
+    ]);
+    if (exitCode !== 0) return [];
+    return stdout
+      .split('\0')
+      .filter((record) => record.length > 0)
+      .map((record) => {
+        const [ins, del, ...pathParts] = record.split('\t');
+        return {
+          path: pathParts.join('\t'),
+          insertions: ins === '-' ? 0 : Number(ins),
+          deletions: del === '-' ? 0 : Number(del),
+        };
+      })
+      .filter((f) => f.path.length > 0);
   }
 
   /**

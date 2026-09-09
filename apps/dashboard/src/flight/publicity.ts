@@ -24,7 +24,8 @@
  * panel is `web/publicity-panel.ts`, embedded via `web/shell.ts`.
  */
 
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 
 /** The subset of `gh repo view`'s JSON output a publicity decision needs.
  *  The three counts are OPTIONAL by contract: a `gh` old enough to not know
@@ -188,7 +189,7 @@ export type PublicityPreviewApi = () => Promise<readonly PublicityAffordance[]>;
  * resolves to the unresolved-identity affordance set instead of crashing the
  * route, the same fail-closed stance the identity resolution itself takes.
  */
-export function createPublicityPreviewApi(exec: CliExec = realCliExec): PublicityPreviewApi {
+export function createPublicityPreviewApi(exec: CliExec = ghExec): PublicityPreviewApi {
   return async () => {
     try {
       return planPublicityAffordances(await fetchRepoIdentity(exec));

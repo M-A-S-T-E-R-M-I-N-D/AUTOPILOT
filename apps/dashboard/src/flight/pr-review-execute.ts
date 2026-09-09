@@ -17,7 +17,8 @@
  * project's `root_path`.
  */
 
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import {
   fetchOpenPrCandidates,
   annotateAlreadyApplied,
@@ -113,7 +114,7 @@ export type PrReviewExecuteApi = (
  * the same fail-toward-existing-behavior stance
  * `resolvePrReviewAutoMergePolicy` takes on an unset env var.
  */
-export function createPrReviewExecuteApi(exec: CliExec = realCliExec): PrReviewExecuteApi {
+export function createPrReviewExecuteApi(exec: CliExec = ghExec): PrReviewExecuteApi {
   return async (number, expectedDecision, expectedHeadRefOid) => {
     const candidates = await fetchOpenPrCandidates(exec);
     const pr = candidates.find((candidate) => candidate.number === number);
@@ -149,10 +150,9 @@ export function createPrReviewExecuteApi(exec: CliExec = realCliExec): PrReviewE
     // must not keep satisfying branch protection while this pass posts only a
     // comment — or dedupes away the review that would supersede it.
     const staleApprovals = await remediateStalePolicyGreenApprovals(assessed, decision, exec);
-    if (decision.decision === 'queue-for-human') {
-      const standing = await findStandingQueueComment(number, decision.reasoning, exec);
-      if (standing) return { decision, results: [...staleApprovals, standing] };
-    }
+    // No queue-for-human branch: that decision plans no commands at all
+    // now (see planPrReviewCommands), so there is no repeatable write to
+    // dedup. The standing-comment probe it used to need went with it.
     if (decision.decision === 'request-changes') {
       const standing = await findStandingRequestChangesReview(number, decision.reasoning, exec);
       if (standing) return { decision, results: [...staleApprovals, standing] };
@@ -214,13 +214,6 @@ async function confirmPrNotOpen(number: number, exec: CliExec): Promise<null> {
   );
 }
 
-/** One comment entry as `gh api repos/{owner}/{repo}/issues/N/comments`
- *  emits it — untrusted process output; only `body` matters to the
- *  duplicate probe. */
-interface RawIssueComment {
-  readonly body?: unknown;
-}
-
 /** One review entry as `gh api repos/{owner}/{repo}/pulls/N/reviews` emits
  *  it — untrusted process output; only `state` and `body` matter to the
  *  duplicate probe (`remediateDanglingApproval` keeps its own shape since it
@@ -254,38 +247,6 @@ async function findStandingDuplicate(
   }
   if (!Array.isArray(parsed)) return undefined;
   return parsed.some(matches) ? { command, code, stdout } : undefined;
-}
-
-/**
- * The idempotency probe for a queue-for-human execute (epic 0007's re-runs-
- * are-idempotent doctrine — `issue-triage.ts` plans a `'skip'` for an
- * already-labeled issue). A PR that stays queued across passes —
- * security-touching, hold-labeled, oversized — would otherwise collect an
- * identical `gh pr comment` on every confirmed execute. The probe lists the
- * PR's issue comments (`gh pr comment` posts issue comments) and matches any
- * comment whose body is EXACTLY the fresh decision's reasoning — the same
- * body-exact match {@link remediateDanglingApproval} uses to recognize the
- * ritual's own reviews. `per_page=100` reads one page only (no `--paginate`
- * concatenation to mis-parse); a duplicate hiding beyond the first 100
- * comments merely re-posts — today's behavior, the safe direction.
- */
-async function findStandingQueueComment(
-  number: number,
-  reasoning: string,
-  exec: CliExec,
-): Promise<PrReviewCommandResult | undefined> {
-  return findStandingDuplicate(
-    {
-      command: 'gh',
-      args: ['api', `repos/{owner}/{repo}/issues/${number}/comments?per_page=100`],
-      details:
-        `#${number} already carries this exact queue-for-human comment — ` +
-        'nothing re-posted (re-runs are idempotent)',
-    },
-    (entry) =>
-      typeof entry === 'object' && entry !== null && (entry as RawIssueComment).body === reasoning,
-    exec,
-  );
 }
 
 /**

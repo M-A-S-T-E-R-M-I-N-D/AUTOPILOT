@@ -29,7 +29,8 @@
 
 import { join } from 'node:path';
 import { openStore, listProjects, type Store } from '@autopilot/store';
-import { realCliExec, type CliExec } from '../connection/cli-probe.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import {
   planMirrorPassBatch,
   fetchMirrorPassIssueStates,
@@ -106,7 +107,7 @@ export type MirrorPassPreviewApi = (projectId: string) => Promise<readonly Mirro
  */
 export function createMirrorPassPreviewApi(
   dbPath: string,
-  exec: CliExec = realCliExec,
+  exec: CliExec = ghExec,
 ): MirrorPassPreviewApi {
   return async (projectId) => {
     const store = openStore(dbPath, { readonly: true });
@@ -139,7 +140,7 @@ export type MirrorPassLandingNotePreviewApi = (
  */
 export function createMirrorPassLandingNotePreviewApi(
   dbPath: string,
-  exec: CliExec = realCliExec,
+  exec: CliExec = ghExec,
 ): MirrorPassLandingNotePreviewApi {
   return async (projectId) => {
     const store = openStore(dbPath, { readonly: true });

@@ -38,10 +38,10 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [x] Resource/quota sharing + fairness across parallel projects — `FlightRunnerRegistry`'s `maxConcurrent` FIFO queue, its own doc comment calls it "shared-quota fairness"
 
 ## E. Models & languages (Ollama)
-- [ ] Optional Ollama integration (toggle), local-only guard (refuse cloud models for confidentiality)
-- [ ] Multilingual set: Hebrew + English (critical), Chinese, Japanese, Russian, Spanish, + more
-- [ ] One-click model install/copy; per-task model choice; enable/disable; guidance editable (proposed-not-locked)
-- [ ] The "install everything" bootstrap (runtime + Ollama + models) — takes as long as it takes, SOTA UX
+- [~] (`adapters/ollama.ts` live, opt-in via `AUTOPILOT_MECHANICAL_MODEL=ollama-local` — an env toggle, not a Settings toggle; NO local-only guard, `AUTOPILOT_OLLAMA_BASE_URL` accepts any URL — FEATURE-COVERAGE §I) Optional Ollama integration (toggle), local-only guard (refuse cloud models for confidentiality)
+- [ ] (the local multilingual MODEL set is unbuilt; dashboard-UI i18n for he+en IS live and RTL-correct — FEATURE-COVERAGE §N) Multilingual set: Hebrew + English (critical), Chinese, Japanese, Russian, Spanish, + more
+- [~] (automatic per-task routing live — `flight/model-routing.ts` + `routing.ts`, env-only levers; no model picker, no one-click install, no guidance editor — FEATURE-COVERAGE §I) One-click model install/copy; per-task model choice; enable/disable; guidance editable (proposed-not-locked)
+- [~] (`SETUP.cmd`/`SETUP.sh` → `scripts/setup.mjs` bootstraps pnpm + deps + the Claude CLI on first run; the Node runtime, Ollama and models are NOT installed) The "install everything" bootstrap (runtime + Ollama + models) — takes as long as it takes, SOTA UX
 
 ## F. Security & trust
 - [x] (CSP self, guard hooks, pinning, scans) Product hardening: no secrets, CSP, dep pinning + SRI, input validation at boundaries
@@ -56,14 +56,14 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [ ] README + ARCHITECTURE + demo GIF + docs site
 
 ## H. The long tail (to be expanded toward 999)
-- [ ] Token/usage awareness surfaced in the UI + membership connection flows
+- [x] (connect screen + fleet-home cost/tokens tiles + cost-semantics-v3 real-cost tile and flight-log chips — FEATURE-COVERAGE §I) Token/usage awareness surfaced in the UI + membership connection flows
 - [ ] Backup/restore ergonomics + "explain the hardware/impact" prompts before destructive-ish actions
 - [ ] Notifications (needs-you, anomaly, ship) across channels
 - [ ] Export/share reports; scheduled runs; cron/time-of-day windows
 - [ ] Plugin/extension model for custom harness steps and review agents
 - [~] (GENIUS+ARCHITECT step 1, RAG, live view; inbox pending) Reactivity: talk-to-agent chat, hybrid RAG, task assignment, live view + abstract activity map (spec: `REACTIVITY.md`)
 - [ ] Multi-harness projection: catalog → install-target adapter registry (Claude/Codex/Cursor/Gemini/OpenCode/Kiro…)
-- [ ] Warm agent session (Agent SDK) instead of per-message CLI spawn; semantic index (FTS5 + embeddings) with cache-invalidation
+- [~] (epic 0009: the loop's CLI-`--resume` session-carry is live but MEASURED a net loss at n=197 and was narrowed to checkpoint continuation + FINISH-LINE EXTENSION; FTS5 + `sqlite-vec` hybrid search live — FEATURE-COVERAGE §D/§G) Warm agent session (Agent SDK) instead of per-message CLI spawn; semantic index (FTS5 + embeddings) with cache-invalidation — still open: an Agent-SDK warm session for chat (chat itself unbuilt), the local ONNX embedder
 - [x] (OWASP/WCAG/SemVer/SPDX/REUSE/OTel-OTLP all live) Standards backbone wired in from day one (spec: `PATTERNS-AND-STANDARDS.md`) — OWASP/SLSA/WCAG/SemVer/SPDX/OTel
 - [ ] (This register is the tracked implementation backlog — the standard long-tail carrier for a project this size.)
 
@@ -163,8 +163,15 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   (`packages/engine/src/adapters/remediating-gate.ts`), which used to run the mechanical fixer + a full gate
   re-run (up to the timeout) on a crashed verdict too — now it short-circuits straight through on `first.crashed`,
   since a formatter can't repair a broken environment.
-- [ ] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption
-  (gate on review burden, not raw count)
+- [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption
+  (gate on review burden, not raw count). Done — `packages/engine/src/diff-size-gate.ts`'s `evaluateDiffSize`
+  sums insertions+deletions from `VcsPort.diffNumstat` (new, optional capability; `GitVcs` implements it via
+  `git diff --numstat --no-renames -z` — `-z` keeps non-ASCII paths raw, so a C-quoted path cannot
+  escape the mechanical-path exemption and revert legitimate work), excluding paths that
+  `isMechanicalDiffPath` classifies as review-exempt
+  (lockfiles, generated snapshots/binaries, build/vendor output). `firing.ts` runs it only once the real
+  typecheck/test/build gate is already green, folding a failing verdict into the SAME additive-revert path a
+  real gate failure takes — an oversized diff is reverted, not silently shipped.
 - [ ] **C5** Commit-time independent review (pre-M8 slice): one cheap fresh-context diff-review call per firing,
   find-problems instruction, non-blocking, finding recorded on the firing
 - [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal (candidate inventory → operator
@@ -194,7 +201,20 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [ ] **G4** Retrieval eval metrics for Ask/GENIUS RAG (M4+): faithfulness, context precision/recall, hallucination
   rate, answer-to-chunk traceability; calibrate any LLM-judge against accumulated operator verdicts
 - [ ] **I1** Agent/tool/credential inventory: one generated table — every agent (firing, triage, Ask, ARCHITECT,
-  M8 reviewers), the tools each reaches, the credentials each holds; regenerate on config change
+  M8 reviewers), the tools each reaches, the credentials each holds; regenerate on config change. Slice landed —
+  `scripts/threat-model/generate-table.mjs` now renders one combined Agent/Tool/Grant table (`docs/THREAT-MODEL.md`
+  §3) instead of just the main flying agent's; `packages/engine/src/config.ts`'s new `TOOL_LESS_ALLOWED_TOOLS`/
+  `TOOL_LESS_DISALLOWED_TOOLS` replaced the inline `[]`/`['*']` literals post-flight triage
+  (`flight/board-triage.ts`) and Ask tier 1 (`server/main.ts`) each hand-repeated, so both are now generator-visible
+  too, alongside the main flying agent and the Ask-escalation tier (already a named export). Remaining: the
+  auth-verification probe genuinely has no tool grant (fine as a documented zero-row); the M8 PR-reviewer LLM
+  surface (the SAST-style review propose-fix work tracked under M8 above, itself still `~` in progress) has not
+  been built in code anywhere in this repo yet — verified by grepping for any `allowedTools`/`disallowedTools`
+  literal or CLI/agent spawn outside the four already-generated rows, and for any GitHub Actions workflow invoking
+  `claude-code-action`; none exists — so there is no inline literal to extract yet. Re-check once that surface
+  actually spawns an agent. Credentials (§4) are still hand-maintained prose, not part of this generated table
+  yet — that's the next concrete slice, though it's a larger one: §4 is narrative (location/purpose/at-rest
+  protection), not a flat tool list, so it needs its own structured source before it can generate cleanly.
 - [x] **Board hygiene** Reconcile board vs git on session end: interactive-session work marks no task done (only
   flight METRICS ids do) — reuse the headline resolver's commit↔title matching to propose "this shipped, mark done?"
   The matching primitive landed (`ap-msksw1mf-3`) — `findReconciliationCandidates`/`titleMatchScore` in

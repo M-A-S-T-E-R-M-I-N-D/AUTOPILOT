@@ -68,6 +68,15 @@ export type GateStatus = 'pass' | 'fail' | 'pending' | 'unreported';
 export interface PrReviewCandidate {
   readonly number: number;
   readonly title: string;
+  /** The PR's own GitHub page. Optional so every existing test fixture and
+   *  the execute path's bare candidates stay valid — the panel simply
+   *  renders an unlinked number when it is absent, never a broken link. */
+  readonly url?: string;
+  /** Every check run on the head, normalized for display — the stages of
+   *  the pipeline behind {@link gateStatus}'s one word. Optional and
+   *  display-only: no policy decision anywhere reads it, so a garbage
+   *  rollup can affect what is SHOWN but never what is DECIDED. */
+  readonly checkRuns?: readonly PrCheckRun[];
   readonly gateStatus: GateStatus;
   readonly mergeable: boolean;
   readonly touchedPaths: readonly string[];
@@ -1358,6 +1367,30 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // `flight/*` entry above so a future `flight/taxonomy-seed-execute.ts`
   // stays covered too.
   'flight/taxonomy-seed',
+  // The anti-flood guard and the one guarded exec every posting path
+  // defaults to (operator's SPAM catch on PR #33, 2026-09-09). Together
+  // they decide whether a real `gh` comment posts at all, and can EDIT an
+  // existing comment in place via `gh api --method PATCH`. Two distinct
+  // attack shapes, neither carrying a "guard"/"auth"/"security" keyword in
+  // its path: loosening the duplicate ratio or the fold rule turns the
+  // fleet back into a flooder, while TIGHTENING either (ratio toward 0, or
+  // a fold that silently swallows instead of editing) suppresses genuine
+  // maintainer replies — a censorship path, which is why the guard fails
+  // open by design and why a PR that changes it queues for a human.
+  // `gh-exec.ts` is one line of policy: swap it back to the unguarded exec
+  // and every other marker's posting path is unguarded again.
+  'flight/anti-flood',
+  'flight/gh-exec',
+  // The maintainer's own merge button (operator, 2026-09-09). It runs the
+  // single most irreversible `gh` command this repo has — a squash-merge
+  // into the default branch — on PRs the security-hard rule deliberately
+  // refused to let any ritual merge. Its four re-verifications (open,
+  // head unmoved, every gating check green, GitHub-mergeable) are the ONLY
+  // thing between a click and that command; a PR that weakened any of them,
+  // or that let something other than an operator click reach it, would
+  // hand automation the exact power the queue-for-human rule exists to
+  // withhold — with no "guard"/"auth"/"security" keyword in its path.
+  'flight/human-merge',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {
@@ -2219,20 +2252,24 @@ export function planPrReviewCommands(
   const prRef = String(pr.number);
 
   if (decision.decision === 'queue-for-human') {
-    // Re-run idempotency (the same doctrine issue-triage's re-runs follow):
-    // the ritual runs pass after pass while a queued PR waits on MASTERMIND,
-    // and the identical verdict comment must not be re-posted each pass. The
-    // reasoning embeds the PR's number/title and the specific verdict, so any
-    // changed fact produces different text and posts fresh; only an exact
-    // repeat plans nothing. Comment-dedup only — review verdicts never skip.
-    if (pr.ownComments?.includes(decision.reasoning)) return [];
-    return [
-      {
-        command: 'gh',
-        args: ['pr', 'comment', prRef, '--body', decision.reasoning],
-        details: `flagging #${pr.number} for MASTERMIND's human review — never auto-merged`,
-      },
-    ];
+    // POSTS NOTHING, on purpose (operator, 2026-09-09: "it feels like
+    // you're replying to me through GitHub — you're not talking to
+    // gabibi, you're talking to me").
+    //
+    // This used to publish `decision.reasoning` verbatim as a PR comment.
+    // That string is written for the MAINTAINER's judgment — it names the
+    // internal rule, quotes the PR's own title back, and refers to the
+    // operator in the third person. Published on a contributor's PR it
+    // addressed nobody: the author read machine rule-speak about a
+    // decision that was never theirs to act on, and the maintainer read a
+    // note they had already made themselves. Two readers, neither served.
+    //
+    // Queueing for a human is INTERNAL ROUTING. The maintainer sees it in
+    // the KEEPER panel, which now carries the merge/update/re-run verbs
+    // for it. If a contributor needs to be told something, a human tells
+    // them, in their own voice. Silence here is not a missing feature —
+    // it is the absence of a message that had no author.
+    return [];
   }
 
   if (decision.decision === 'request-changes') {
@@ -2312,6 +2349,114 @@ interface RawPrCheck {
   readonly name?: unknown;
   readonly conclusion?: unknown;
   readonly state?: unknown;
+  /** CheckRun lifecycle: `QUEUED`/`IN_PROGRESS`/`COMPLETED`. Absent on
+   *  StatusContext entries, which carry `state` instead. */
+  readonly status?: unknown;
+  /** CheckRun's own page; StatusContext uses `targetUrl`. Either one is
+   *  the deep link a reader needs to see WHY a check is red. */
+  readonly detailsUrl?: unknown;
+  readonly targetUrl?: unknown;
+  readonly startedAt?: unknown;
+  readonly completedAt?: unknown;
+  /** The workflow a CheckRun belongs to ("CI"), so a strip of eight checks
+   *  reads as stages of one pipeline rather than eight unrelated jobs. */
+  readonly workflowName?: unknown;
+}
+
+/**
+ * One check run as the DASHBOARD needs to show it — the per-check detail
+ * `gh pr list --json statusCheckRollup` already returns and
+ * {@link deriveGateStatus} then throws away, collapsing eight named stages
+ * into one word.
+ *
+ * The operator's catch (2026-09-09): "we pull the data from GitHub — why
+ * can't we link straight to it, and give the tests/stages real
+ * expression?" Both facts were already in hand; only the client boundary
+ * was lossy. Carrying them costs one more mapped array and makes every
+ * check its own linkable, timed, live-updating row.
+ */
+export interface PrCheckRun {
+  readonly name: string;
+  /** Normalized for display: `pass`/`fail`/`running`/`queued`/`skipped`/
+   *  `unknown`. Deliberately NOT reusing {@link GateStatus} — that type is
+   *  a whole-PR gate verdict with policy meaning, and a per-check display
+   *  state must never be mistaken for one. */
+  readonly state: PrCheckRunState;
+  /** Deep link to this specific check's own log page, when gh reported one. */
+  readonly url?: string;
+  /** Wall-clock milliseconds this check has taken, when both timestamps are
+   *  present (or start + now for a running one). */
+  readonly elapsedMs?: number;
+  /** The workflow this run belongs to, when reported. */
+  readonly workflow?: string;
+  /** True for the "(optional)" jobs {@link deriveGateStatus} excludes — the
+   *  strip still shows them, dimmed, because hiding a red job entirely is
+   *  how "why is it red" becomes unanswerable. */
+  readonly optional?: boolean;
+}
+
+/** The display states one check run can be in. */
+export type PrCheckRunState = 'pass' | 'fail' | 'running' | 'queued' | 'skipped' | 'unknown';
+
+/** Maps one raw rollup entry to its display state. Mirrors
+ *  {@link deriveGateStatus}'s classification so the strip can never show
+ *  all-green beside a red gate verdict, but adds the distinctions a
+ *  human reading a pipeline needs: queued is not the same as running, and
+ *  a skipped job is not a failure. */
+function readCheckRunState(check: RawPrCheck): PrCheckRunState {
+  if (TERMINAL_NON_PASS_CONCLUSIONS.has(check?.conclusion)) return 'fail';
+  if (TERMINAL_NON_PASS_STATES.has(check?.state)) return 'fail';
+  if (check?.conclusion === 'SUCCESS' || check?.state === 'SUCCESS') return 'pass';
+  if (check?.conclusion === 'SKIPPED' || check?.conclusion === 'NEUTRAL') return 'skipped';
+  if (check?.status === 'IN_PROGRESS') return 'running';
+  if (check?.status === 'QUEUED' || check?.state === 'PENDING' || check?.state === 'EXPECTED') {
+    return 'queued';
+  }
+  return 'unknown';
+}
+
+function readTimestamp(value: unknown): number | undefined {
+  if (typeof value !== 'string' || value === '') return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function readCheckUrl(check: RawPrCheck): string | undefined {
+  const url = typeof check?.detailsUrl === 'string' ? check.detailsUrl : check?.targetUrl;
+  return typeof url === 'string' && url.startsWith('https://') ? url : undefined;
+}
+
+/**
+ * Normalizes a PR's whole rollup into the per-check rows the panel renders.
+ * Entries gh reports without a usable name are dropped (there is nothing to
+ * label a chip with); everything else survives, including the optional jobs,
+ * flagged rather than hidden.
+ */
+export function summarizePrCheckRuns(
+  checks: readonly RawPrCheck[],
+  now: number = Date.now(),
+): readonly PrCheckRun[] {
+  const rows: PrCheckRun[] = [];
+  for (const check of checks) {
+    if (typeof check?.name !== 'string' || check.name === '') continue;
+    const state = readCheckRunState(check);
+    const started = readTimestamp(check.startedAt);
+    const completed = readTimestamp(check.completedAt);
+    const end = completed ?? (state === 'running' ? now : undefined);
+    const url = readCheckUrl(check);
+    const workflow = typeof check.workflowName === 'string' ? check.workflowName : undefined;
+    rows.push({
+      name: check.name,
+      state,
+      ...(url ? { url } : {}),
+      ...(started !== undefined && end !== undefined && end >= started
+        ? { elapsedMs: end - started }
+        : {}),
+      ...(workflow ? { workflow } : {}),
+      ...(check.name.toLowerCase().includes('(optional)') ? { optional: true } : {}),
+    });
+  }
+  return rows;
 }
 
 /** One touched-file entry as `gh pr list --json files` emits it. */
@@ -2352,7 +2497,7 @@ interface RawPrHistoryReview {
   readonly submittedAt?: unknown;
 }
 
-/** One PR entry as `gh pr list --json number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews` emits it. */
+/** One PR entry as `gh pr list --json number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews,url` emits it. */
 interface RawPr {
   readonly number?: unknown;
   readonly title?: unknown;
@@ -2372,6 +2517,8 @@ interface RawPr {
   readonly autoMergeRequest?: unknown;
   readonly comments?: unknown;
   readonly reviews?: unknown;
+  /** The PR's own GitHub page (`gh pr list --json url`) — display-only. */
+  readonly url?: unknown;
 }
 
 /** Check-run conclusions that are TERMINAL without being a pass — gh's
@@ -2520,7 +2667,7 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
     '--limit',
     String(MAX_PR_LIST_CANDIDATES),
     '--json',
-    'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews',
+    'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews,url',
   ]);
   if (code !== 0) return { candidates: [], fetchFailed: true };
 
@@ -2580,6 +2727,7 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
       reviewEntries === undefined ||
       reviewEntries.some((review) => typeof review?.state !== 'string' || review.state === '');
     const authorLogin = readAuthorLogin(raw.author);
+    const checkRuns = summarizePrCheckRuns(checks);
     const ownComments =
       viewerLogin === undefined
         ? []
@@ -2593,6 +2741,17 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
     return {
       number: raw.number as number,
       title: raw.title as string,
+      // Display-only, both of them: a deep link the panel can offer, and
+      // the per-check rows behind the one-word gate verdict. Only accept an
+      // https URL gh actually reported — never synthesize one from the
+      // number, which would guess at the repo and could point a click
+      // anywhere.
+      ...(typeof raw.url === 'string' && raw.url.startsWith('https://') ? { url: raw.url } : {}),
+      // Omitted entirely when the rollup yields no showable row (no checks,
+      // or none gh named) — absent reads as "nothing to show", the same
+      // optional-field convention every narrowing flag here uses, and keeps
+      // the 30s-poll payload from carrying an empty array per PR.
+      ...(checkRuns.length > 0 ? { checkRuns } : {}),
       gateStatus: deriveGateStatus(checks),
       mergeable: raw.mergeable === 'MERGEABLE',
       // Anything but the two real verdicts is an uncomputed/unclear state:

@@ -53,44 +53,77 @@ row). Absent an ARCHITECT proposal, the same trust boundary T8 documents for `/a
 anything already reaching the loopback dashboard port can drive this endpoint directly. Re-review triggers again
 only if `createControlServer`'s external transport is ever stood up for a client outside this dashboard.
 
-## 3. Tool grant — main flying agent
+## 3. Tool grant — every agent with a named, exported grant constant
 
-The main flying agent is the only agent with a non-empty tool grant, so it is the one worth tracking precisely. The
-table below is **not hand-maintained** — it is generated from `packages/engine/src/config.ts`'s
-`DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS`, the same constants `packages/engine/src/adapters/claude-cli.ts`
-(`buildClaudeArgs`) reads to build the real `--allowedTools`/`--disallowedTools` CLI arguments. Regenerate with
-`pnpm threat-model:update` whenever the grant changes — a manually-edited table here would silently drift from the
-code that governs actual behavior, exactly the failure mode this document exists to prevent.
+The table below is **not hand-maintained** — it is generated from each agent's own exported tool-grant constant
+(`packages/engine/src/config.ts`'s `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` and
+`TOOL_LESS_ALLOWED_TOOLS`/`TOOL_LESS_DISALLOWED_TOOLS`, `ask-escalation.ts`'s
+`ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS`) — the same constants each agent's real CLI
+invocation reads to build its `--allowedTools`/`--disallowedTools` arguments. Regenerate with
+`pnpm threat-model:update` whenever a grant changes — a manually-edited table here would silently drift from the
+code that governs actual behavior, exactly the failure mode this document exists to prevent. Not every agent in §2 is
+covered yet — the auth-verification probe has no tool grant surface at all, and the M8 PR-reviewer LLM surface (the
+still-unbuilt SAST-style review propose-fix work under the M8 milestone, §BACKLOG-999) doesn't exist in code
+anywhere in this repo yet, so there is no grant literal to extract — that slice applies once that surface actually
+spawns an agent (same pattern as the rows below: extract to a named export, then add it to
+`scripts/threat-model/generate-table.mjs`'s `AGENTS` list). Until then, BACKLOG-999 I1's next concrete slice is §4's
+credentials inventory, which is narrative today rather than a flat tool list.
 
 <!-- TOOLGRANT:TABLE:START -->
-_Generated 2026-08-11T00:28:41.246Z by `pnpm threat-model:update` from `packages/engine/src/config.ts` `DEFAULT_ALLOWED_TOOLS` / `DEFAULT_DISALLOWED_TOOLS` — the source the flying agent's CLI invocation actually builds its `--allowedTools`/`--disallowedTools` args from._
+_Generated 2026-09-08T20:29:21.035Z by `pnpm threat-model:update` from each agent's own exported tool-grant constant (cited per row) — the source that agent's CLI invocation actually builds its `--allowedTools`/`--disallowedTools` args from._
 
-| Tool | Grant |
-|---|---|
-| Bash | ✅ allowed |
-| Read | ✅ allowed |
-| Write | ✅ allowed |
-| Edit | ✅ allowed |
-| Glob | ✅ allowed |
-| Grep | ✅ allowed |
-| WebSearch | ✅ allowed |
-| WebFetch | ✅ allowed |
-| Agent | ✅ allowed |
-| Task | ✅ allowed |
-| Workflow | ✅ allowed |
-| Skill | ✅ allowed |
-| ToolSearch | ✅ allowed |
-| TodoWrite | ✅ allowed |
-| AskUserQuestion | ⛔ disallowed |
-| CronCreate | ⛔ disallowed |
-| CronDelete | ⛔ disallowed |
-| CronList | ⛔ disallowed |
-| ScheduleWakeup | ⛔ disallowed |
-| SendMessage | ⛔ disallowed |
-| TaskStop | ⛔ disallowed |
-| NotebookEdit | ⛔ disallowed |
-| EnterWorktree | ⛔ disallowed |
-| ExitWorktree | ⛔ disallowed |
+| Agent | Tool | Grant | Source |
+|---|---|---|---|
+| Main flying agent | Bash | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Read | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Write | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Edit | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Glob | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Grep | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | WebSearch | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | WebFetch | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Agent | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Task | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Workflow | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | Skill | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | ToolSearch | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | TodoWrite | ✅ allowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | AskUserQuestion | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | CronCreate | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | CronDelete | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | CronList | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | ScheduleWakeup | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | SendMessage | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | TaskStop | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | NotebookEdit | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | EnterWorktree | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Main flying agent | ExitWorktree | ⛔ disallowed | `config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` |
+| Post-flight triage | _(none)_ | ⛔ all tools denied (tool-less) | `config.ts` `TOOL_LESS_ALLOWED_TOOLS`/`TOOL_LESS_DISALLOWED_TOOLS` |
+| "Ask your project" (tier 1) | _(none)_ | ⛔ all tools denied (tool-less) | `config.ts` `TOOL_LESS_ALLOWED_TOOLS`/`TOOL_LESS_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Read | ✅ allowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Grep | ✅ allowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Glob | ✅ allowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Bash | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Write | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Edit | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | WebSearch | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | WebFetch | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Agent | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Task | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Workflow | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | Skill | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | ToolSearch | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | TodoWrite | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | AskUserQuestion | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | CronCreate | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | CronDelete | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | CronList | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | ScheduleWakeup | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | SendMessage | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | TaskStop | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | NotebookEdit | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | EnterWorktree | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
+| "Ask your project" (escalated, read-only agentic) | ExitWorktree | ⛔ disallowed | `ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS` |
 <!-- TOOLGRANT:TABLE:END -->
 
 Notable entries:

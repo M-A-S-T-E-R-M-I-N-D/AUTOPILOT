@@ -3,11 +3,17 @@
 
 /**
  * threat-model/generate-table — regenerates the TOOLGRANT:TABLE block in
- * docs/THREAT-MODEL.md from `packages/engine/src/config.ts`'s
- * `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS` — the actual tool grant
- * the flying agent's CLI invocation builds (`adapters/claude-cli.ts`
- * `buildClaudeArgs`), not a hand-copied table that can drift from the code
- * that governs real behavior.
+ * docs/THREAT-MODEL.md from the actual exported tool-grant constants each
+ * agent's CLI invocation is built from, never a hand-copied table that can
+ * drift from the code governing real behavior.
+ *
+ * Covers every agent whose grant is a named, exported constant today. An agent
+ * whose grant is still an inline literal at its call site is NOT in this list:
+ * extract that literal into an exported constant first — the same move
+ * `TOOL_LESS_ALLOWED_TOOLS`/`TOOL_LESS_DISALLOWED_TOOLS` made for post-flight
+ * triage and "Ask your project" — then add the row here. Extraction is the
+ * point, not bookkeeping: a literal at a call site cannot be rendered from its
+ * own source, so it can drift from this table forever without anything noticing.
  *
  * `--check` computes the same block and fails without writing if it differs
  * from what's committed (the `ci:threat-model` gate, wired into `pnpm
@@ -15,6 +21,13 @@
  * (`pnpm threat-model:update`) — the same `--check`/no-flag split every
  * other marker-block generator here uses (`architecture:generate-diagram`,
  * `tokens:generate-contrast-matrix`).
+ *
+ * This file owns everything needing the world to exist: the built engine
+ * constants and the filesystem. The pure rendering lives next door in
+ * `render-table.mjs`, which is what the unit test imports — `pnpm verify` runs
+ * `test:coverage` before `build`, so anything reachable from a test may not
+ * import built output. Both halves stay covered: this script renders the real
+ * constants under `ci:threat-model`, which runs after the build.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -22,53 +35,52 @@ import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_ALLOWED_TOOLS,
   DEFAULT_DISALLOWED_TOOLS,
+  TOOL_LESS_ALLOWED_TOOLS,
+  TOOL_LESS_DISALLOWED_TOOLS,
+  ASK_ESCALATION_ALLOWED_TOOLS,
+  ASK_ESCALATION_DISALLOWED_TOOLS,
 } from '../../packages/engine/dist/index.js';
+import { renderTable, replaceBlock, withoutTimestamp } from './render-table.mjs';
 
 const DOC_PATH = join(process.cwd(), 'docs', 'THREAT-MODEL.md');
-const MARKER_START = '<!-- TOOLGRANT:TABLE:START -->';
-const MARKER_END = '<!-- TOOLGRANT:TABLE:END -->';
 
-export function renderTable() {
-  const generatedAt = new Date().toISOString();
-  const lines = [
-    MARKER_START,
-    `_Generated ${generatedAt} by \`pnpm threat-model:update\` from` +
-      ' `packages/engine/src/config.ts` `DEFAULT_ALLOWED_TOOLS` /' +
-      " `DEFAULT_DISALLOWED_TOOLS` — the source the flying agent's CLI invocation" +
-      ' actually builds its `--allowedTools`/`--disallowedTools` args from._',
-    '',
-    '| Tool | Grant |',
-    '|---|---|',
-  ];
-  for (const tool of DEFAULT_ALLOWED_TOOLS) lines.push(`| ${tool} | ✅ allowed |`);
-  for (const tool of DEFAULT_DISALLOWED_TOOLS) lines.push(`| ${tool} | ⛔ disallowed |`);
-  lines.push(MARKER_END);
-  return lines.join('\n');
-}
+const TOOL_LESS_SOURCE = '`config.ts` `TOOL_LESS_ALLOWED_TOOLS`/`TOOL_LESS_DISALLOWED_TOOLS`';
 
-export function replaceBlock(source, block) {
-  const start = source.indexOf(MARKER_START);
-  const end = source.indexOf(MARKER_END);
-  if (start === -1 || end === -1) {
-    throw new Error(
-      `generate-table: markers not found in ${DOC_PATH} — expected ${MARKER_START} / ${MARKER_END}`,
-    );
-  }
-  return source.slice(0, start) + block + source.slice(end + MARKER_END.length);
-}
-
-/** The generated block embeds a `_Generated <timestamp>_` line, which always
- *  differs run to run — strip it before comparing so `--check` only fails on
- *  a REAL drift (a tool grant added/removed/reclassified), not on the
- *  clock. */
-export function withoutTimestamp(text) {
-  return text.replace(/^_Generated .+$/m, '_Generated_');
-}
+/** One row per agent whose tool grant is a named exported constant — the source
+ *  each agent's real CLI invocation reads its `--allowedTools`/
+ *  `--disallowedTools` args from. `source` cites where to look the constant up
+ *  when a row needs explaining. */
+const AGENTS = [
+  {
+    name: 'Main flying agent',
+    allowed: DEFAULT_ALLOWED_TOOLS,
+    disallowed: DEFAULT_DISALLOWED_TOOLS,
+    source: '`config.ts` `DEFAULT_ALLOWED_TOOLS`/`DEFAULT_DISALLOWED_TOOLS`',
+  },
+  {
+    name: 'Post-flight triage',
+    allowed: TOOL_LESS_ALLOWED_TOOLS,
+    disallowed: TOOL_LESS_DISALLOWED_TOOLS,
+    source: TOOL_LESS_SOURCE,
+  },
+  {
+    name: '"Ask your project" (tier 1)',
+    allowed: TOOL_LESS_ALLOWED_TOOLS,
+    disallowed: TOOL_LESS_DISALLOWED_TOOLS,
+    source: TOOL_LESS_SOURCE,
+  },
+  {
+    name: '"Ask your project" (escalated, read-only agentic)',
+    allowed: ASK_ESCALATION_ALLOWED_TOOLS,
+    disallowed: ASK_ESCALATION_DISALLOWED_TOOLS,
+    source: '`ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS`',
+  },
+];
 
 function main() {
   const check = process.argv.includes('--check');
   const source = readFileSync(DOC_PATH, 'utf8');
-  const next = replaceBlock(source, renderTable());
+  const next = replaceBlock(source, renderTable(AGENTS), DOC_PATH);
 
   if (check) {
     if (withoutTimestamp(next) !== withoutTimestamp(source)) {
@@ -79,16 +91,15 @@ function main() {
       process.exit(1);
     }
     console.log(
-      "threat-model-check OK: docs/THREAT-MODEL.md's TOOLGRANT:TABLE matches" +
-        ' DEFAULT_ALLOWED_TOOLS/DEFAULT_DISALLOWED_TOOLS.',
+      "threat-model-check OK: docs/THREAT-MODEL.md's TOOLGRANT:TABLE matches every agent's" +
+        ' exported tool-grant constants.',
     );
     return;
   }
 
   writeFileSync(DOC_PATH, next);
   console.log(
-    `generate-table: TOOLGRANT:TABLE refreshed in ${DOC_PATH}` +
-      ` (${DEFAULT_ALLOWED_TOOLS.length} allowed, ${DEFAULT_DISALLOWED_TOOLS.length} disallowed).`,
+    `generate-table: TOOLGRANT:TABLE refreshed in ${DOC_PATH} (${AGENTS.length} agents).`,
   );
 }
 

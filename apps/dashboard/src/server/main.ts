@@ -76,6 +76,11 @@ import {
 } from '../flight/pr-review.js';
 import { createPrReviewExecuteApi } from '../flight/pr-review-execute.js';
 import {
+  createHumanMergeApi,
+  createUpdateBranchApi,
+  createRerunChecksApi,
+} from '../flight/human-merge.js';
+import {
   createIssueTriagePreviewApi,
   createIssueTriageExecuteApi,
 } from '../flight/issue-triage-execute.js';
@@ -123,6 +128,8 @@ import {
   ClaudeCliModel,
   StreamingClaudeCliModel,
   DEFAULT_ENGINE_CONFIG,
+  TOOL_LESS_ALLOWED_TOOLS,
+  TOOL_LESS_DISALLOWED_TOOLS,
   modelForTier,
   tierForSubstepKind,
   buildAskEscalationConfig,
@@ -268,8 +275,8 @@ const askEngineConfig = {
   fallbackModel: 'sonnet',
   maxTurns: 2,
   maxBudgetUsd: 0.5,
-  allowedTools: [],
-  disallowedTools: ['*'],
+  allowedTools: TOOL_LESS_ALLOWED_TOOLS,
+  disallowedTools: TOOL_LESS_DISALLOWED_TOOLS,
 };
 const askAuth = () => readConnectionConfig(join(dirname(dbPath), 'connection.json'));
 
@@ -574,6 +581,9 @@ const server = createServer({
     };
   },
   prReviewExecute: createPrReviewExecuteApi(),
+  humanMerge: createHumanMergeApi(),
+  updateBranch: createUpdateBranchApi(),
+  rerunChecks: createRerunChecksApi(),
   // KEEPER TRIAGE ritual (epic 0007, "PLATFORM 3/7"): project-scoped — dedups
   // an incoming issue against that project's own open board tasks + backlog
   // file, unlike KEEPER REVIEW's single canonical repo above.

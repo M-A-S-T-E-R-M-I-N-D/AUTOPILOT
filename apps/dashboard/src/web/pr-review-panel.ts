@@ -58,6 +58,90 @@ export type PrReviewPanelTranslator = (
 export interface PrReviewCandidateLike {
   readonly number: number;
   readonly title: string;
+  readonly url?: string;
+  readonly checkRuns?: readonly PrCheckRunLike[];
+  readonly mergeable?: boolean;
+  readonly behindBase?: boolean;
+  readonly mergeStateUnknown?: boolean;
+}
+
+/** One check run as the panel shows it — `flight/pr-review.ts`'s
+ *  `PrCheckRun`, client-side. */
+export interface PrCheckRunLike {
+  readonly name: string;
+  readonly state: string;
+  readonly url?: string;
+  readonly elapsedMs?: number;
+  readonly workflow?: string;
+  readonly optional?: boolean;
+}
+
+/** The glyph one check's state renders as. A dedicated symbol per state
+ *  (not a color alone) is what keeps the strip readable for a colorblind
+ *  reader and in a screenshot — the same reasoning the decision badges
+ *  already carry glyphs. */
+export function prCheckStateGlyph(state: string): string {
+  if (state === 'pass') return '✓';
+  if (state === 'fail') return '✗';
+  if (state === 'running') return '◐';
+  if (state === 'queued') return '◌';
+  if (state === 'skipped') return '⊘';
+  return '?';
+}
+
+/** Human-sized duration for a check's elapsed time: `14s`, `4m44s`,
+ *  `17m31s` — the form GitHub's own checks list uses, because a reader
+ *  comparing our strip to that page should not have to translate. */
+export function formatCheckDuration(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.round(elapsedMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes === 0 ? `${seconds}s` : `${minutes}m${seconds}s`;
+}
+
+/** One check chip's hover/focus text: what it is, where it stands, how
+ *  long it took, and whether it gates the merge at all. */
+export function prCheckRunTip(check: PrCheckRunLike): string {
+  const words: Record<string, string> = {
+    pass: 'passed',
+    fail: 'FAILED',
+    running: 'still running',
+    queued: 'queued, not started',
+    skipped: 'skipped',
+  };
+  const parts = [check.name + ' — ' + (words[check.state] || 'no readable state')];
+  if (check.elapsedMs !== undefined) parts.push(formatCheckDuration(check.elapsedMs) + ' elapsed');
+  if (check.workflow) parts.push('workflow: ' + check.workflow);
+  if (check.optional) parts.push('optional — does not gate the merge');
+  // No "opens its log" clause: a linked chip is an <a> with its own hover
+  // and focus treatment, so saying so in the tip was words the styling
+  // already spends — and words are bundle bytes on a budgeted chunk.
+  return parts.join(' · ') + '.';
+}
+
+/** The one-line summary above the strip: how many checks passed out of how
+ *  many gating ones, and what is still moving. Answers "where is this PR"
+ *  without counting chips. */
+export function prCheckSummary(checks: readonly PrCheckRunLike[]): string {
+  const gating = checks.filter((c) => !c.optional);
+  if (gating.length === 0) return 'No gating checks reported on this head yet.';
+  const passed = gating.filter((c) => c.state === 'pass').length;
+  const failed = gating.filter((c) => c.state === 'fail').length;
+  const running = gating.filter((c) => c.state === 'running').length;
+  const queued = gating.filter((c) => c.state === 'queued').length;
+  const head = passed + '/' + gating.length + ' checks passed';
+  if (failed > 0) return head + ' · ' + failed + ' failed';
+  // Running and queued are counted apart: "2 still running" when one has
+  // not started is the kind of small lie that makes a reader stop trusting
+  // the panel and go read GitHub instead.
+  const moving: string[] = [];
+  if (running > 0) moving.push(running + ' running');
+  if (queued > 0) moving.push(queued + ' queued');
+  // Concatenation, not a template literal, on purpose: a top-level
+  // template-literal return is the shape `discoverFeatureModules` treats as
+  // a bundle-composing assembler, and this display helper is not one — it
+  // would land in the splice manifest as a phantom module.
+  return moving.length > 0 ? head + ' · ' + moving.join(', ') : head;
 }
 
 /** The decision `GET /api/pr-review`'s `plans[].decision` carries — see
@@ -116,6 +200,145 @@ export function prReviewConfirmMessage(
       reasoning: decision.reasoning,
     }) + undoNote
   );
+}
+
+/** Whether the human-merge button can act on this card, and the reason
+ *  either way — the disabled-with-reason law applied to the one verb the
+ *  ritual deliberately refuses to perform itself. Mirrors
+ *  `flight/human-merge.ts`'s `judgeHumanMerge` so the button never invites
+ *  a click the server will refuse, but the SERVER's copy is the one that
+ *  decides: this is a courtesy, not a gate. */
+export function humanMergeReadiness(pr: PrReviewCandidateLike): {
+  ready: boolean;
+  reason: string;
+  /** Set when a gating check is RED — the panel offers the re-run beside
+   *  the disabled merge button, because a red check with no way to act on
+   *  it was the last dead end the panel had. */
+  hasFailedChecks?: boolean;
+  /** Set when the ONLY thing standing between this PR and a merge is a
+   *  stale branch — the panel offers the update as its own button rather
+   *  than leaving the operator with an instruction and no way to follow
+   *  it (operator, 2026-09-09: the refusal read "update the branch first"
+   *  and there was nothing in the app that could). */
+  behindBase?: boolean;
+} {
+  const checks = (pr.checkRuns ?? []).filter((c) => !c.optional);
+  if (checks.length === 0) {
+    return { ready: false, reason: 'No gating check has reported on this head yet.' };
+  }
+  const notPassed = checks.filter((c) => c.state !== 'pass');
+  if (notPassed.length > 0) {
+    const running = notPassed.filter((c) => c.state === 'running' || c.state === 'queued').length;
+    const failed = notPassed.filter((c) => c.state === 'fail').length;
+    if (failed > 0) {
+      return {
+        ready: false,
+        hasFailedChecks: true,
+        reason:
+          failed +
+          (failed === 1 ? ' check failed' : ' checks failed') +
+          ' — fix it, or re-run the failed jobs with the button beside this.',
+      };
+    }
+    return { ready: false, reason: 'Not mergeable yet — ' + running + ' still running.' };
+  }
+  // Checked BEFORE mergeable: a behind-base branch is the one blocked
+  // state with a one-click way out, and saying "conflicting" about it
+  // would send the operator looking for a conflict that isn't there.
+  if (pr.behindBase) {
+    return {
+      ready: false,
+      behindBase: true,
+      reason: 'All green, but the branch is behind base — update it first (button beside this).',
+    };
+  }
+  if (pr.mergeable === false) {
+    return {
+      ready: false,
+      reason: pr.mergeStateUnknown
+        ? 'GitHub has not computed mergeability yet — try again shortly.'
+        : 'GitHub reports this PR as conflicting — it cannot merge as-is.',
+    };
+  }
+  return {
+    ready: true,
+    reason: 'Squash-merge #' + pr.number + ' and delete its branch. Re-verified against gh first.',
+  };
+}
+
+/** The re-run button's confirm — says what it will and will not spend:
+ *  only the failed jobs restart, so a 17-minute Windows job is not
+ *  re-spent to retry a macOS flake. */
+export function rerunChecksConfirmMessage(pr: PrReviewCandidateLike): string {
+  return (
+    'Re-run the failed jobs on #' +
+    pr.number +
+    '?\n\nRestarts only the jobs that failed, not the whole matrix. Use this when the red ' +
+    'is a flake; a real failure will just fail again.'
+  );
+}
+
+/** The `.pr-review-result` line for one re-run response. */
+export function rerunChecksResult(data: { rerun?: boolean; reason?: string } | null | undefined): {
+  className: string;
+  text: string;
+} {
+  const ok = !!(data && data.rerun);
+  return {
+    className: 'pr-review-result pr-review-result-' + (ok ? 'ok' : 'fail'),
+    text: (ok ? '✓ ' : '✗ ') + ((data && data.reason) || 'The re-run did not start.'),
+  };
+}
+
+/** The update-branch button's confirm — names both things a maintainer
+ *  should mean to do: a real commit on someone else's branch, and a
+ *  restart of their whole check run. */
+export function updateBranchConfirmMessage(pr: PrReviewCandidateLike): string {
+  return (
+    'Update #' +
+    pr.number +
+    "'s branch from base?\n\n" +
+    'Merges base into the contributor’s branch (a real commit on it) and restarts every ' +
+    'check. The green you see now is replaced by a fresh run.'
+  );
+}
+
+/** The `.pr-review-result` line for one update-branch response. */
+export function updateBranchResult(
+  data: { updated?: boolean; reason?: string } | null | undefined,
+): { className: string; text: string } {
+  const ok = !!(data && data.updated);
+  return {
+    className: 'pr-review-result pr-review-result-' + (ok ? 'ok' : 'fail'),
+    text: (ok ? '✓ ' : '✗ ') + ((data && data.reason) || 'The branch update did not run.'),
+  };
+}
+
+/** The human-merge confirm dialog. Names the PR, the method, and that it
+ *  is irreversible — the same state-what-happens shape every other
+ *  confirm here uses. */
+export function humanMergeConfirmMessage(pr: PrReviewCandidateLike): string {
+  return (
+    'Merge #' +
+    pr.number +
+    ' — "' +
+    pr.title +
+    '"?\n\nSquash-merges into the default branch and deletes the source branch. Cannot be ' +
+    'undone from here.\n\nEvery check is re-read from gh first — if anything went red or the ' +
+    'head moved since this card was drawn, nothing merges.'
+  );
+}
+
+/** The `.pr-review-result` line for one human-merge response. */
+export function humanMergeResult(data: { merged?: boolean; reason?: string } | null | undefined): {
+  className: string;
+  text: string;
+} {
+  const ok = !!(data && data.merged);
+  return {
+    className: 'pr-review-result pr-review-result-' + (ok ? 'ok' : 'fail'),
+    text: (ok ? '✓ ' : '✗ ') + ((data && data.reason) || 'The merge did not run.'),
+  };
 }
 
 /** One planned `gh` command's result, the same shape `POST

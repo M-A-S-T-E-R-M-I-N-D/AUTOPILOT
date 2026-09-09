@@ -118,6 +118,29 @@ commits, because the existing defense only checked *hunk overlap* in the watchdo
 path — not "ahead of base, no overlap" in the API path. **Convergence needs a
 completeness check, not only a conflict check.**
 
+**How it also broke — AUTOFORMAT is not yet a single writer.**
+`RemediatingGate` (`packages/engine/src/adapters/remediating-gate.ts`) exists
+precisely so a format-only gate failure never costs a unit its shipped work:
+run the fixer, commit additively as `style(autopilot): autoformat — mechanical
+gate remediation`, re-verify, keep or revert. That design is sound for a
+*single* writer. It is wired per-firing inside `fly.ts`, so with several
+instances flying the same repo, each red format check spawns its own
+independent remediation actor — and `docs/debriefs/2026-09-06-red-main-revert-
+cascade.md`'s firing-179 addendum caught two of them fighting over the exact
+same autoformat commit inside a single two-second window
+(`763edde6` reverted at 03:18:26, reapplied at 03:18:27, reverted again at
+03:18:27), sweeping six unrelated sibling commits into the blast radius on the
+way past. **The fixer is correct; the number of writers running it
+concurrently is not.** The invariant Convergence actually needs is: style
+remediation runs at most once per gate-red episode, from exactly one writer —
+which argues for moving it to land/sync-back time (the single point every
+lane's work already funnels through) rather than leaving it live inside every
+lane's own gate. Landing (`packages/engine/src/landing.ts`) has no remediation
+today; it just fails the merge if `format:check` is red, which is why the
+per-lane fixer was put where it is. Trading that per-lane safety net for a
+single-writer one without reopening the format-revert exposure it was built to
+close is the open redesign — see the open board task.
+
 ## Where ACID still governs
 
 Nothing above replaces the store's ACID guarantees; it sits on top of them.

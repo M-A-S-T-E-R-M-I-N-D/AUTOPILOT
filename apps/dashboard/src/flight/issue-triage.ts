@@ -499,6 +499,18 @@ export function planIssueTriageCommands(
   }
 
   const poolLabel = `pool: ${decision.dimension}`;
+  // `priority:` and `area:` are MUTUALLY EXCLUSIVE families — an issue has
+  // one priority, not two. `--add-label` alone only ever adds, so an issue
+  // already carrying a hand-set `priority: high` that the classifier reads
+  // as `medium` ended up wearing both, and the board showed a
+  // contradiction it could not resolve (found live on #21/#27/#28,
+  // 2026-09-09). Superseded siblings are removed in the SAME `gh` call, so
+  // an issue is never momentarily unlabelled and a failed second call can
+  // never leave the contradiction behind.
+  const supersededLabels = supersededFamilyLabels(issue.labels ?? [], [
+    decision.area,
+    decision.priority,
+  ]);
   return [
     {
       command: 'gh',
@@ -512,13 +524,45 @@ export function planIssueTriageCommands(
         decision.area,
         '--add-label',
         decision.priority,
+        ...supersededLabels.flatMap((label) => ['--remove-label', label]),
       ],
       details:
         `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}" ` +
-        'per its classified dimension/area/priority',
+        'per its classified dimension/area/priority' +
+        (supersededLabels.length > 0
+          ? ` (replacing ${supersededLabels.map((l) => `"${l}"`).join(', ')})`
+          : ''),
     },
     comment,
   ];
+}
+
+/**
+ * The labels a new classification SUPERSEDES: every label the issue already
+ * carries that belongs to one of the chosen labels' families but is not
+ * itself chosen. Only labels actually present are returned — `gh issue edit
+ * --remove-label` fails on a label the issue does not have, and a failed
+ * edit would drop the whole labelling call including the adds.
+ *
+ * Family is the `prefix:` before the colon, which is exactly how the
+ * taxonomy is defined (`priority: high`, `area: i18n`). `pool:` is
+ * deliberately NOT passed in by the caller: a pool label is the ritual's
+ * own idempotency marker — re-labelling an issue that already has one is a
+ * `skip`, so it never reaches here, and treating it as exclusive would let
+ * a re-run strip a marker another pass depends on.
+ */
+export function supersededFamilyLabels(
+  current: readonly string[],
+  chosen: readonly string[],
+): readonly string[] {
+  const families = new Set(
+    chosen.map((label) => label.split(':')[0]).filter((f): f is string => Boolean(f)),
+  );
+  const keep = new Set(chosen);
+  return current.filter((label) => {
+    const family = label.split(':')[0];
+    return family !== undefined && families.has(family) && !keep.has(label);
+  });
 }
 
 /** A task board needs a bounded title; an issue title is already short but
