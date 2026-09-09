@@ -9,6 +9,7 @@ import {
   issueNumberFromTaskId,
   planMirrorPassReconcile,
   planMirrorPassCommands,
+  applyMirrorPassCommands,
   planMirrorPassBatch,
   fetchIssueState,
   fetchMirrorPassIssueStates,
@@ -180,6 +181,63 @@ describe('planMirrorPassBatch', () => {
     expect(plans[1]!.finding).toBeNull();
     expect(plans[1]!.commands).toHaveLength(0);
     expect(plans[2]!.finding).toBeNull();
+  });
+});
+
+describe('applyMirrorPassCommands', () => {
+  it('sends every command to exec in order and reports ok per command', async () => {
+    const calls: Array<readonly [string, readonly string[]]> = [];
+    const exec: CliExec = vi.fn(async (bin, args) => {
+      calls.push([bin, args]);
+      return { code: 0, stdout: '' };
+    });
+    const commands = planMirrorPassCommands({
+      action: 'close-with-landing-note',
+      taskId: 'github-42',
+      issueNumber: 42,
+      sha: 'abc1234',
+      comment: 'Landed in abc1234 — closing.',
+    });
+
+    const outcomes = await applyMirrorPassCommands(exec, commands);
+
+    expect(outcomes).toEqual([
+      { command: commands[0], ok: true },
+      { command: commands[1], ok: true },
+    ]);
+    expect(calls).toEqual([
+      ['gh', commands[0]!.args],
+      ['gh', commands[1]!.args],
+    ]);
+  });
+
+  it('reports a failed command without skipping the one after it', async () => {
+    const exec: CliExec = vi.fn(async (_bin, args) =>
+      args[0] === 'issue' && args[1] === 'comment'
+        ? { code: 1, stdout: '' }
+        : { code: 0, stdout: '' },
+    );
+    const commands = planMirrorPassCommands({
+      action: 'reopen-honestly',
+      taskId: 'github-7',
+      issueNumber: 7,
+      comment: 'Reopening — not done.',
+    });
+
+    const outcomes = await applyMirrorPassCommands(exec, commands);
+
+    expect(outcomes).toEqual([
+      { command: commands[0], ok: false },
+      { command: commands[1], ok: true },
+    ]);
+    expect(exec).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns an empty outcome list for an empty command list, without calling exec', async () => {
+    const exec: CliExec = vi.fn(async () => ({ code: 0, stdout: '' }));
+
+    expect(await applyMirrorPassCommands(exec, [])).toEqual([]);
+    expect(exec).not.toHaveBeenCalled();
   });
 });
 

@@ -65,6 +65,14 @@
  * has gone quiet for that many days gets unassigned (never closed — the work
  * may still be valid) with an honest comment, freeing it for anyone to pick
  * back up, same anti-stale-claim spirit as the board chip itself.
+ *
+ * {@link applyMirrorPassCommands} is the first piece of this file that
+ * actually calls `gh` to change something (VERDICT `ap-mtsg3nc0-3` slice
+ * (b), scoped to derivation 1/4 only, same per-derivation split slice (a)'s
+ * four preview commits already used) — everything above it stays a pure
+ * planner or a read; `mirror-pass-execute.ts`'s `createMirrorPassExecuteApi`
+ * is the only caller, and only for a resolved maintainer identity (epic law
+ * 1, role honesty).
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -197,6 +205,37 @@ export function planMirrorPassCommands(finding: MirrorPassFinding): readonly Mir
           details: `reopening #${finding.issueNumber} — board task ${finding.taskId} is not done`,
         };
   return [comment, stateChange];
+}
+
+/** One planned {@link MirrorPassCommand}'s real outcome after {@link
+ *  applyMirrorPassCommands} sends it to `gh` — `ok` is `code === 0`, nothing
+ *  more; a caller that needs the raw stdout/stderr for diagnostics reads it
+ *  from its own `exec` mock in a test, same as every other read in this
+ *  file. */
+export interface MirrorPassCommandOutcome {
+  readonly command: MirrorPassCommand;
+  readonly ok: boolean;
+}
+
+/**
+ * Sends every command in `commands` to `exec` in order, never throwing and
+ * never stopping early on a failure — the same "each command tried, a
+ * failure reported rather than fatal" stance `taxonomy-seed.ts`'s
+ * `executeTaxonomySeed` takes for its own `gh` calls. Preserves {@link
+ * planMirrorPassCommands}'s comment-before-state-change ordering by running
+ * `commands` in the order given rather than reordering or short-circuiting:
+ * a failed comment still lets the close/reopen call that follows it run.
+ */
+export async function applyMirrorPassCommands(
+  exec: CliExec,
+  commands: readonly MirrorPassCommand[],
+): Promise<readonly MirrorPassCommandOutcome[]> {
+  const outcomes: MirrorPassCommandOutcome[] = [];
+  for (const command of commands) {
+    const { code } = await exec(command.command, command.args);
+    outcomes.push({ command, ok: code === 0 });
+  }
+  return outcomes;
 }
 
 /** One reconciled task's full outcome — the finding {@link
