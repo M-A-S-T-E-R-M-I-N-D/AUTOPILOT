@@ -59,7 +59,7 @@ describe('contributorStandingTierSummary', () => {
 });
 
 describe('partnerApplicationUrl', () => {
-  it('points at the given repo\'s issues/new with the partner-application template preselected', () => {
+  it("points at the given repo's issues/new with the partner-application template preselected", () => {
     expect(partnerApplicationUrl('some-owner/some-repo')).toBe(
       'https://github.com/some-owner/some-repo/issues/new?template=partner-application.yml',
     );
@@ -69,14 +69,14 @@ describe('partnerApplicationUrl', () => {
     const url = partnerApplicationUrl('some-owner/some-repo');
     const templateFile = new URL(url).searchParams.get('template');
 
-    expect(
-      existsSync(join(process.cwd(), '.github/ISSUE_TEMPLATE', templateFile ?? '')),
-    ).toBe(true);
+    expect(existsSync(join(process.cwd(), '.github/ISSUE_TEMPLATE', templateFile ?? ''))).toBe(
+      true,
+    );
   });
 });
 
 describe('CONTRIBUTOR_STANDING_APPLY_URL', () => {
-  it('is the real deep-link for THIS repo\'s UPSTREAM_REPO', () => {
+  it("is the real deep-link for THIS repo's UPSTREAM_REPO", () => {
     expect(CONTRIBUTOR_STANDING_APPLY_URL).toBe(partnerApplicationUrl(UPSTREAM_REPO));
   });
 });
