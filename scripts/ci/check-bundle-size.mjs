@@ -32,10 +32,11 @@ import { gzipSync } from 'node:zlib';
 // web-mtq03uzp-hubr6g), then raw-only 180→184KB (2026-09-07) for the i18n
 // search-palette notes + settings-hints slice (board web-msnsndki-dz3vn1),
 // then gzip-only 54→55KB (2026-09-08) for the i18n Ask-flow slice (same
-// board) — see the matching comment in
+// board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
+// toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
 // measured sizes behind each bump.
-const CORE_RAW_BUDGET = 184 * 1024;
+const CORE_RAW_BUDGET = 188 * 1024;
 const CORE_GZIP_BUDGET = 55 * 1024;
 // Deferred chunks never block first paint — the budget exists so they cannot
 // silently become a second monolith. Measured at introduction (2026-08-28):

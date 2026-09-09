@@ -154,8 +154,19 @@ import {
  * line. This bump leaves ~1.1KB gzip; the raw line keeps its ~2.3KB and is
  * not moved. The structural fix (VERDICT split web-mtbodv7m-uzhovs) remains
  * the tracked follow-up.
+ *
+ * Raised RAW ONLY 184→188KB (2026-09-09): the report-menu copy toolkit's
+ * i18n slice (board web-msnsndki-dz3vn1 — seven STRINGS.en keys, the five
+ * copy-item label/tip pairs plus the ✓/✗ `reportMenuCopy` result flash,
+ * `report-menu.ts`) measured 188924 raw / 55905 gzip against the 188416 /
+ * 56320 budget: 508 bytes over on raw alone, gzip still ~400 bytes under.
+ * `report-menu.ts` is a core module (the context menu paints on every page),
+ * so its English + Hebrew STRINGS entries land in core via `localeJs()` like
+ * every prior i18n slice here. This bump leaves ~3.5KB raw; the gzip line
+ * keeps its headroom and is not moved. The structural fix (VERDICT split
+ * web-mtbodv7m-uzhovs) remains the tracked follow-up.
  */
-const CORE_RAW_BUDGET = 184 * 1024;
+const CORE_RAW_BUDGET = 188 * 1024;
 const CORE_GZIP_BUDGET = 55 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
