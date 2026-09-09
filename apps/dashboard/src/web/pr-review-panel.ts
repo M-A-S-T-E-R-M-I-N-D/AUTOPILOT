@@ -437,3 +437,37 @@ export function prReviewExecuteTip(
     }) + undoNote
   );
 }
+
+/** Structural subset of `flight/social-pass.ts`'s `SocialIdentity` this
+ *  panel needs — kept local rather than imported, same "no cross-module
+ *  reference in a `.toString()` splice" reasoning `release-panel.ts`'s
+ *  `ReleaseViewerIdentity` already follows. */
+export interface PrReviewViewerIdentity {
+  readonly login: string;
+  readonly nameWithOwner: string;
+  readonly role: 'maintainer' | 'user';
+}
+
+/** The KEEPER PR review panel's guest note (epic 0019 law 1 extended to the
+ *  UI, board web-mtt3f7j6-3bj899): replaces every maintainer-write button on
+ *  a card — Apply, merge-as-maintainer, re-run, update-branch — when the
+ *  resolved identity is a confirmed non-owner of this repo, the same
+ *  "steward is a guest and proposes instead of writes" rule
+ *  `release-panel.ts`'s `releaseGuestNote` already applies to the RELEASE
+ *  panel. Never called for an unresolved identity (no `gh`, no GitHub
+ *  remote at all — the common fully-local project): only a
+ *  positively-resolved `'user'` role counts as a known guest, so every
+ *  button stays visible whenever ownership cannot be determined. Plain
+ *  English rather than `tr()`-routed, the same gap `releaseGuestNote` has
+ *  against this module's own i18n law (board web-msnsndki-dz3vn1) — a
+ *  follow-up slice, not this one. */
+export function prReviewGuestNote(identity: PrReviewViewerIdentity): string {
+  const owner = identity.nameWithOwner.split('/')[0];
+  return (
+    'PR review actions on this repo are taken by its maintainer (' +
+    owner +
+    ') — you are signed in as ' +
+    identity.login +
+    '.'
+  );
+}

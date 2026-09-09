@@ -20,6 +20,7 @@ import {
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
+  prReviewGuestNote,
 } from '../../../src/web/pr-review-panel.js';
 import { decisionItemHeadMeta } from '../../../src/web/decision-item.js';
 import { prReviewJs } from '../../../src/web/features/pr-review.js';
@@ -31,7 +32,16 @@ describe('prReviewJs', () => {
     expect(out).toContain(prReviewConfirmMessage.toString());
     expect(out).toContain(prReviewExecuteResult.toString());
     expect(out).toContain(prReviewExecuteTip.toString());
+    expect(out).toContain(prReviewGuestNote.toString());
     expect(out).toContain(decisionItemHeadMeta.toString());
+  });
+
+  it('fetches the viewer identity alongside the PR review preview and role-gates the write buttons (epic 0019, board web-mtt3f7j6-3bj899)', () => {
+    const out = prReviewJs();
+    expect(out).toContain("fetch('/api/social-identity')");
+    expect(out).toContain("identity && identity.role === 'user'");
+    // A confirmed guest gets the note instead of the write buttons.
+    expect(out).toContain("el('p', 'muted pr-review-guest-note', prReviewGuestNote(identity))");
   });
 
   it('pins the execute POST to the operator-confirmed decision kind (stale-decision guard)', () => {
@@ -44,7 +54,7 @@ describe('prReviewJs', () => {
 
   it('declares renderPrReviewPanel and loadPrReviewPanel', () => {
     const out = prReviewJs();
-    expect(out).toContain('function renderPrReviewPanel(plans, fetchFailed) {');
+    expect(out).toContain('function renderPrReviewPanel(plans, fetchFailed, identity) {');
     expect(out).toContain('function loadPrReviewPanel() {');
   });
 

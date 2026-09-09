@@ -63,6 +63,7 @@ import {
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
+  prReviewGuestNote,
   prCheckStateGlyph,
   formatCheckDuration,
   prCheckRunTip,
@@ -97,6 +98,11 @@ ${prReviewDecisionLabel.toString()}
 ${prReviewConfirmMessage.toString()}
 ${prReviewExecuteResult.toString()}
 ${prReviewExecuteTip.toString()}
+// prReviewGuestNote is generated FROM web/pr-review-panel.ts below (epic
+// 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899) — its real
+// compiled source via .toString(), not a hand-retyped copy. It can no
+// longer drift apart.
+${prReviewGuestNote.toString()}
 // The pipeline strip's four helpers, same .toString() splice — the per-check
 // rows GET /api/pr-review now carries (operator's "give the tests/stages
 // real expression" catch, 2026-09-09).
@@ -142,7 +148,7 @@ function prPanelButton(cls, label, attr, number, tip, disabled) {
   }
   return b;
 }
-function renderPrReviewPanel(plans, fetchFailed) {
+function renderPrReviewPanel(plans, fetchFailed, identity) {
   // The panel self-initializes and then polls forever on its own timer, so
   // its callbacks can land after the page (or, under vitest, the whole jsdom
   // environment) is gone — an unhandled "document is not defined" rejection
@@ -277,7 +283,18 @@ function renderPrReviewPanel(plans, fetchFailed) {
           false));
       }
     }
-    item.appendChild(actions);
+    // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):
+    // a confirmed non-owner of this repo is a guest — it sees the preview
+    // above but never the write buttons (Apply / merge / re-run / update
+    // branch). An unresolved identity (no gh, no GitHub remote at all — the
+    // common fully-local project) is NOT a known guest, so it falls through
+    // and the buttons render exactly as before.
+    if (identity && identity.role === 'user') {
+      var guestNote = el('p', 'muted pr-review-guest-note', prReviewGuestNote(identity));
+      item.appendChild(guestNote);
+    } else {
+      item.appendChild(actions);
+    }
     // The execute outcome lands here AFTER the confirm dialog, once focus has
     // long moved on — a polite live region is what lets a screen reader hear
     // that a real gh merge/review landed or failed, the same role=status shape
@@ -296,9 +313,22 @@ function renderPrReviewPanel(plans, fetchFailed) {
   translateDom(document.documentElement.lang || 'en');
 }
 function loadPrReviewPanel() {
-  fetch('/api/pr-review', { headers: { accept: 'application/json' } })
-    .then(function (r) { return r.ok ? r.json() : { plans: [] }; })
-    .then(function (data) { renderPrReviewPanel(data && data.plans, !!(data && data.fetchFailed)); })
+  // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):
+  // fetched alongside the PR review preview on every poll tick, never
+  // blocking it — a failed identity read (own .catch()) still lets the
+  // panel render, since an unresolved identity means "not a known guest",
+  // not "unavailable".
+  var identityFetch = fetch('/api/social-identity')
+    .then(function (r) { return r.ok ? r.json() : { identity: null }; })
+    .catch(function () { return { identity: null }; });
+  var plansFetch = fetch('/api/pr-review', { headers: { accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : { plans: [] }; });
+  Promise.all([plansFetch, identityFetch])
+    .then(function (results) {
+      var data = results[0];
+      var identityData = results[1];
+      renderPrReviewPanel(data && data.plans, !!(data && data.fetchFailed), identityData && identityData.identity);
+    })
     .catch(function () {});
 }
 document.addEventListener('click', function (e) {

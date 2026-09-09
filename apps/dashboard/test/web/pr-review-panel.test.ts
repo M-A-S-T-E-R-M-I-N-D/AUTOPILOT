@@ -26,6 +26,7 @@ import {
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
+  prReviewGuestNote,
   type PrReviewPanelTranslator,
 } from '../../src/web/pr-review-panel.js';
 
@@ -163,6 +164,20 @@ describe('prReviewExecuteTip', () => {
     const tip = prReviewExecuteTip(pr, { decision: 'merge', reasoning: 'policy-green' }, trHe);
     expect(tip).toContain(STRINGS.he.prReviewConfirmUndoMerge);
     expect(tip).toContain('#42');
+  });
+});
+
+describe('prReviewGuestNote (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899)', () => {
+  it('names the repo owner and the signed-in login', () => {
+    const note = prReviewGuestNote({
+      login: 'a-contributor',
+      nameWithOwner: 'octocat/hello-world',
+      role: 'user',
+    });
+
+    expect(note).toBe(
+      'PR review actions on this repo are taken by its maintainer (octocat) — you are signed in as a-contributor.',
+    );
   });
 });
 
