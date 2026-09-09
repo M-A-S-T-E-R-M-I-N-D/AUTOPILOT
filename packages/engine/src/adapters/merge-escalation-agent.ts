@@ -18,14 +18,20 @@
  * — the same fail-loud floor `worktree.ts`'s `syncWorktreeBranch` already
  * guarantees today.
  *
- * Deliberately unwired: every side effect (`invokeAgent`/`listUnresolvedPaths`/
- * `runGate`/`commit`/`abortMerge`) is injected, so this orchestrates purely
- * against fakes in tests. Wiring a real `ClaudeCliModel` invocation mid-merge
- * into `syncWorktreeBranch`'s live sync-back path — the path every flight's
- * catch-up and flight-end sync runs through — is a separate, riskier slice
- * that needs its own integration test against a real conflicted repo.
+ * Deliberately unwired from the live sync-back path: `runMergeEscalationAgent`
+ * still orchestrates purely against injected deps in its own tests.
+ * {@link createGitMergeEscalationDeps} below supplies the DETERMINISTIC half
+ * of those deps for real — real git for `listUnresolvedPaths`/`commit`/
+ * `abortMerge`, the project's own detected gate for `runGate` — verified here
+ * against a real conflicted repo. `invokeAgent` stays the caller's own
+ * responsibility: spawning a real `ClaudeCliModel` mid-merge, and wiring the
+ * result into `syncWorktreeBranch`'s live sync-back path — the path every
+ * flight's catch-up and flight-end sync runs through — is still a separate,
+ * riskier slice this module defers.
  */
 
+import { execFile } from 'node:child_process';
+import type { GatePort } from '../ports.js';
 import { formatMergeEscalationContext, type MergeConflictSides } from './merge-conflict-context.js';
 
 /**
@@ -128,4 +134,78 @@ export async function runMergeEscalationAgent(
     return { kind: 'commit-failed', details: commit.details };
   }
   return { kind: 'resolved', details: commit.details };
+}
+
+/** Run git with an args array (never a shell string). Deliberately duplicates
+ *  `adapters/git.ts`'s small execFile wrapper instead of importing it,
+ *  matching `worktree.ts`'s and `merge-conflict-context.ts`'s own precedent
+ *  for a low-risk, unwired addition. */
+function git(
+  repo: string,
+  args: readonly string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve) => {
+    execFile(
+      'git',
+      ['-C', repo, ...args],
+      { maxBuffer: 16 * 1024 * 1024, windowsHide: true },
+      (err, stdout, stderr) => {
+        const code =
+          err && typeof (err as NodeJS.ErrnoException & { code?: unknown }).code === 'number'
+            ? (err as unknown as { code: number }).code
+            : err
+              ? 1
+              : 0;
+        resolve({ stdout: stdout ?? '', stderr: stderr ?? '', exitCode: code });
+      },
+    );
+  });
+}
+
+/**
+ * Wires the deterministic half of {@link MergeEscalationDeps} to real git and
+ * the project's own detected gate — `listUnresolvedPaths` reads the index
+ * exactly like `syncWorktreeBranch`'s own unresolved-path check, `runGate`
+ * delegates to the caller's {@link GatePort} (Merge-Bench's lesson: semantic
+ * validation, never a textual trust of the diff), `commit` signs off the same
+ * way every other engine-authored commit does (this repo's commit-msg hook
+ * requires it), and `abortMerge` mirrors `syncWorktreeBranch`'s existing
+ * `git merge --abort` fail-loud floor. `invokeAgent` is passed through
+ * unchanged — spawning the real model is still the caller's job (see the
+ * module doc for why that stays a separate slice).
+ */
+export function createGitMergeEscalationDeps(
+  repo: string,
+  gate: GatePort,
+  invokeAgent: MergeEscalationDeps['invokeAgent'],
+): MergeEscalationDeps {
+  return {
+    invokeAgent,
+    listUnresolvedPaths: async () => {
+      const result = await git(repo, ['diff', '--name-only', '--diff-filter=U']);
+      if (result.exitCode !== 0) return [];
+      return result.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    },
+    runGate: async () => {
+      const result = await gate.run();
+      return {
+        ok: result.ok,
+        details: result.details ?? (result.ok ? 'gate passed' : 'gate failed'),
+      };
+    },
+    commit: async (message) => {
+      const result = await git(repo, ['commit', '--signoff', '-m', message]);
+      if (result.exitCode !== 0) {
+        const reason = result.stderr.trim() || result.stdout.trim();
+        return { ok: false, details: reason || `git commit failed (exit ${result.exitCode})` };
+      }
+      return { ok: true, details: result.stdout.trim() };
+    },
+    abortMerge: async () => {
+      await git(repo, ['merge', '--abort']);
+    },
+  };
 }
