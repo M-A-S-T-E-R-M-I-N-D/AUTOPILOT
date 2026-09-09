@@ -29,7 +29,11 @@
  * without new `packages/tokens/src/strings.ts` entries: that file carries
  * live, uncommitted work on the Hebrew i18n foundation this firing (FLEET
  * claim), and touching it here would collide. A follow-up slice adds the
- * real per-tier translation keys once that work lands.
+ * real per-tier translation keys once that work lands. For the same reason,
+ * `web/shell.ts`'s `#contributor-standing-panel` section carries a plain
+ * `aria-label` with no `data-i18n-aria` — `shell-i18n.test.ts` requires
+ * every `data-i18n-aria` key to resolve in every locale, which a
+ * `strings.ts`-less key cannot satisfy today.
  */
 import {
   CONTRIBUTOR_STANDING_TIERS,

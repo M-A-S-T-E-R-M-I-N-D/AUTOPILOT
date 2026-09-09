@@ -763,6 +763,11 @@ const BENIGN_WEB = new Set([
   'status-pill.ts',
   'stat-tiles.ts',
   'tour.ts',
+  // Pure CONTRIBUTOR_STANDING_TIERS data + one-line summary formatter, ported
+  // verbatim from `.github/CONTRIBUTOR-STANDING.md` — no HTML building, no
+  // I/O, the same "fixed doctrine, not a live fact" shape `tour.ts`'s
+  // TOUR_STEPS already establishes.
+  'contributor-standing-panel.ts',
   // Pure APG tabs markup (attr-escaped literals, no untrusted HTML), the
   // pure roving-focus model, and pure location.hash tab-routing math (epic
   // 0015 D2.13) — DOM-free, no I/O, not yet spliced into the served bundle.
@@ -902,6 +907,7 @@ const BENIGN_WEB_FEATURES = new Set([
   'activity-heatmap.ts',
   'activity.ts',
   'backlog.ts',
+  'contributor-standing.ts',
   'coordination.ts',
   'docs-viewer.ts',
   'evolution.ts',
