@@ -8,6 +8,15 @@
  * Keep in step with the JSDoc types in the `.mjs`.
  */
 
+/** The marker that made a failed run look like a registry outage, plus the
+ *  (clipped) line it matched on — the evidence every degrade warning quotes. */
+export interface TransientAuditMatch {
+  marker: string;
+  evidence: string;
+}
+
+export function findTransientAuditMarker(output: string): TransientAuditMatch | null;
+
 export function isTransientAuditFailure(output: string): boolean;
 
 export interface DependencyAuditRunResult {
