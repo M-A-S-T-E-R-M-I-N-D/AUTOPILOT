@@ -36,6 +36,9 @@ function cleanupDir(dir: string): void {
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }
 
+const V = '1.2.3';
+const REPO_LINK = '[AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)';
+
 const authedExec = async (bin: string, args: readonly string[]): Promise<CliRun> => {
   if (bin === 'gh' && args[0] === '--version') return { code: 0, stdout: 'gh version 2.60.0' };
   if (bin === 'gh' && args[0] === 'auth') {
@@ -91,6 +94,7 @@ describe('createGithubPrExecuteApi', () => {
         },
         authedExec,
         'mastermind/autopilot',
+        V,
       )('p1', 'a landed fix', 'fixes the thing');
 
       expect(calls).toEqual([
@@ -119,7 +123,7 @@ describe('createGithubPrExecuteApi', () => {
             '--title',
             'a landed fix',
             '--body',
-            'fixes the thing\n\n🛩️ Flown by AUTOPILOT on behalf of @octocat\n\nAutopilot-Agent: true',
+            `fixes the thing\n\n🛩️ Flown by ${REPO_LINK} v${V}, on behalf of @octocat\n\nAutopilot-Agent: true`,
           ],
           cwd: repo,
         },

@@ -15,9 +15,12 @@ An AUTOPILOT instance **always discloses itself** in public artifacts it
 creates on any repo it doesn't own: PRs and issues it authors carry a visible
 line —
 
-> 🛩️ Flown by AUTOPILOT on behalf of @operator-handle
+> 🛩️ Flown by [AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT) vX.Y.Z, on behalf of @operator-handle
 
-— plus the machine-readable `Autopilot-Agent:` marker in the body. An agent
+— plus the machine-readable `Autopilot-Agent:` marker in the body (the linked
+version folds in `docs/ATTRIBUTION.md` §2's filing-channel spread-line, one
+disclosure satisfying both doctrines — see `packages/engine/src/
+github-identity-disclosure.ts`). An agent
 never presents as its operator, never claims human-reserved work
 (`good first issue` is the humans' welcome mat — our own fleet skips it, and
 so must yours), and never answers a question that was asked of a human.
