@@ -3260,6 +3260,12 @@ function renderProjectPage(state, pid) {
   var issueTriageEl = issueTriageSection(pid);
   issueTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'issue-triage');
   fleet.appendChild(issueTriageEl);
+  // Mirror pass: read-only board↔GitHub reconciliation findings (EPIC 0019
+  // S3, VERDICT ap-mtsg3nc0-3 slice (c)) — sits right after KEEPER issue
+  // triage, the other project-scoped GitHub-governance preview panel.
+  var mirrorPassEl = mirrorPassSection(pid);
+  mirrorPassEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'mirror-pass');
+  fleet.appendChild(mirrorPassEl);
   // Detected backlog: open tasks a recent commit may have already shipped
   // (interactive-session work with no METRICS line) — sits right after the
   // task board it proposes edits to.

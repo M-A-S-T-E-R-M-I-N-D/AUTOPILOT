@@ -84,7 +84,14 @@ const CORE_GZIP_BUDGET = 55 * 1024;
 // a prPanelButton() helper replacing four verbatim button-construction
 // blocks (-400B). Panels is a deferred chunk — it never blocks first paint
 // — and the core budgets are untouched at 184KB/55KB.
-const CHUNK_RAW_BUDGET = 117 * 1024;
+// raw-only 117→118KB (2026-09-09), MIRROR PASS panel (EPIC 0019 S3, VERDICT
+// ap-mtsg3nc0-3 slice (c)): the panel client rides /project.js, but its four
+// STRINGS.he translations land in panels.js via locale-data.ts regardless of
+// which chunk the panel's own code is served from. Measured 119958B raw
+// against the old 119808B budget: 150 bytes over on raw alone, gzip
+// untouched. See apps/dashboard/test/server/client-bundle-size-budget.test.ts
+// for the mirrored budget and full reasoning.
+const CHUNK_RAW_BUDGET = 118 * 1024;
 const CHUNK_GZIP_BUDGET = 36 * 1024;
 
 function formatKb(bytes) {
