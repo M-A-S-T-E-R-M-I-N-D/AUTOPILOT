@@ -82,7 +82,6 @@ describe('check-merge-integrity', () => {
 
     expect(code).toBe(1);
     expect(output).toContain('dropped a parent');
-    expect(output).toContain('lane-only.txt');
     expect(output).toContain('work nobody else has');
   });
 
@@ -124,6 +123,27 @@ describe('check-merge-integrity', () => {
 
     expect(code).toBe(0);
     expect(output).toContain('merge integrity OK');
+  });
+
+  it('gives the SAME verdict from any branch — the check consults no tip', () => {
+    // The design flaw that broke PR #34's CI: measuring against whatever
+    // branch you ran from made one commit pass on main and fail on a PR,
+    // where unrelated files legitimately differ. The verdict must depend
+    // only on the merge and its own parents.
+    git(['checkout', '-q', '-b', 'lane']);
+    commit('lane-only.txt', 'lane work\n', 'feat: lane work');
+    git(['checkout', '-q', 'main']);
+    commit('main.txt', 'main work\n', 'feat: main work');
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+    const fromMain = runGuard('HEAD~2..HEAD');
+
+    // A second branch that diverges afterwards — an unrelated PR.
+    git(['checkout', '-q', '-b', 'other']);
+    commit('lane-only.txt', 'a different edit entirely\n', 'feat: other work');
+    const fromOther = runGuard('HEAD~3..HEAD');
+
+    expect(fromMain.code).toBe(0);
+    expect(fromOther.code).toBe(0);
   });
 
   it('PASSES a history with no merges at all', () => {
