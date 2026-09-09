@@ -815,6 +815,12 @@ const BENIGN_WEB = new Set([
   'flight-metrics.ts',
   'flights.ts',
   'markdown.ts',
+  // mirror-pass-panel.ts: pure MIRROR PASS finding-to-line formatting over
+  // the server's four already-flagged read-only preview endpoints
+  // (`flight/mirror-pass.ts` + `flight/mirror-pass-execute.ts`) — no HTML
+  // building, no fetch, no writes, preview-only (the mutating execute path
+  // is a separate, unwired VERDICT slice).
+  'mirror-pass-panel.ts',
   'notifications.ts',
   'operator-actions.ts',
   'phase-rail.ts',
@@ -924,6 +930,11 @@ const BENIGN_WEB_FEATURES = new Set([
   'locale-data.ts',
   'locale.ts',
   'metrics.ts',
+  // mirror-pass.ts: GET-only fetch of the four already-flagged
+  // `flight/mirror-pass*` preview endpoints, folded via the already-flagged
+  // `mirror-pass-panel.ts` and rendered read-only — no execute button, the
+  // mutating path is a separate, unwired VERDICT slice.
+  'mirror-pass.ts',
   'notifications.ts',
   'office-map.ts',
   'process-health.ts',

@@ -704,6 +704,7 @@ describe('liveFiring', () => {
       recentActionsCapped: false,
       turnsSeen: 1,
       startedAt: 2,
+      currentActionAt: 3,
       focusTask: 'Wire up retries',
       narrator: 'Running the gate: pnpm run test.',
       subagents: [],
