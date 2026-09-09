@@ -1069,6 +1069,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'engine/src/adapters/claude-cli.ts',
   'engine/src/adapters/ollama.ts',
   'engine/src/adapters/worktree.ts',
+  // Rung 4's decision core (docs/EVALUATION-2026-09-03-sync-conflict-
+  // taxonomy.md): drives an agent-resolved sync-back conflict through
+  // invoke -> verify unresolved -> gate -> COMMIT, deciding the exact
+  // sequence that lands (or aborts) a merge no earlier rung could settle —
+  // same decide-and-commit class as worktree.ts and git.ts above, with no
+  // security keyword in its path.
+  'engine/src/adapters/merge-escalation-agent.ts',
   'apps/dashboard/src/fly.ts',
   'flight/spawn-flight.ts',
   'apps/dashboard/src/gate-commands.ts',
