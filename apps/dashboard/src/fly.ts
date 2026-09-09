@@ -68,6 +68,7 @@ import {
   fastForwardWorktree,
   repoPrefixOf,
   syncWorktreeBranch,
+  formatMergeEscalationContext,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -1562,10 +1563,20 @@ async function main(): Promise<void> {
             c: number;
           };
           if (open.c === 0) {
+            // MERGE-ESCALATION rung 4 (docs/EVALUATION-2026-09-03-sync-
+            // conflict-taxonomy.md): a genuine merge conflict carries the
+            // base/ours/theirs content syncWorktreeBranch gathered right
+            // before it aborted — attach it as the task body so whoever (or
+            // whatever firing) resolves this has full-file context on each
+            // side instead of having to reproduce the conflict from scratch.
+            const body = finalSync.conflicts?.length
+              ? formatMergeEscalationContext(finalSync.conflicts)
+              : null;
             createTask(store, {
               id: `ap-${now().toString(36)}-strand`,
               projectId,
               title: strandTitle.slice(0, 300),
+              body,
               severity: 'high',
               dimension: 'process',
               source: 'self',

@@ -8,10 +8,14 @@
  * escalation agent needs the SAME context a human resolving the conflict by
  * hand would read — both sides' full file content plus the merge base, not
  * just the conflict-marker hunk (Rover's 2026 finding: resolution quality
- * depends on context beyond the hunk). This module gathers that context for
- * one unmerged path; nothing in the live flight loop (`fly.ts`) invokes it
- * yet — that wiring, and the invoke/apply-patch/re-gate steps around it, is
- * follow-on work.
+ * depends on context beyond the hunk). {@link gatherMergeConflictContext}
+ * gathers that context for one unmerged path; `adapters/worktree.ts`'s
+ * `syncWorktreeBranch` now calls it for every path still unresolved right
+ * before it aborts a conflicting merge, and {@link
+ * formatMergeEscalationContext} renders the result as a task body. Still
+ * follow-on work: the agent that reads that task, writes a candidate
+ * resolution, and re-gates it — today the ladder still stops at "abort,
+ * refuse, file the task" (docs/EVALUATION-2026-08-30-stranded-syncback.md).
  *
  * Deliberately duplicates `adapters/git.ts`'s small execFile wrapper instead
  * of importing it, matching `adapters/worktree.ts`'s own precedent: that
@@ -77,4 +81,25 @@ export async function gatherMergeConflictContext(
     showStage(repo, 3, path),
   ]);
   return { path, base, ours, theirs };
+}
+
+/**
+ * Renders {@link gatherMergeConflictContext} output as the body of a
+ * MERGE-ESCALATION task (rung 4, docs/EVALUATION-2026-09-03-sync-conflict-
+ * taxonomy.md): the full base/ours/theirs file content per unresolved path,
+ * not just the conflict-marker hunk `git status` would show — Rover's 2026
+ * finding is that resolution quality depends on context beyond the hunk.
+ */
+export function formatMergeEscalationContext(conflicts: readonly MergeConflictSides[]): string {
+  const side = (label: string, content: string | null): string =>
+    `--- ${label} ---\n${content ?? '(absent on this side)'}`;
+  const sections = conflicts.map(
+    (c) =>
+      `## ${c.path}\n\n${side('base', c.base)}\n\n${side('ours', c.ours)}\n\n${side('theirs', c.theirs)}`,
+  );
+  return (
+    `MERGE-ESCALATION CONTEXT (docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md rung 4) — ` +
+    `${conflicts.length} unresolved path(s) survived union-merge, rerere replay, and fastForwardWorktree. ` +
+    `Full file content on each side, gathered from the index before the merge was aborted:\n\n${sections.join('\n\n')}`
+  );
 }

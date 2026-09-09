@@ -424,6 +424,8 @@ describe('syncWorktreeBranch', () => {
     expect(gitSync(dir, ['log', '-1', '--format=%s'])).toBe(`chore: sync flight-work into ${base}`);
     expect(existsSync(join(dir, 'flown.txt'))).toBe(true);
     expect(existsSync(join(dir, 'operator.txt'))).toBe(true);
+    // A clean non-ff merge never touches the MERGE-ESCALATION context path.
+    expect(result.conflicts).toBeUndefined();
 
     await removeWorktree(dir, wtPath);
   });
@@ -575,6 +577,35 @@ describe('syncWorktreeBranch', () => {
     expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe(
       'changed on the live checkout, conflicting',
     );
+
+    await removeWorktree(dir, wtPath);
+  });
+
+  it('surfaces base/ours/theirs context for every unresolved path before aborting (MERGE-ESCALATION rung 4, docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md)', async () => {
+    const wtPath = join(dir, '..', 'wt-sync-conflict-context');
+    await ensureWorktree(dir, wtPath, 'flight-work');
+    writeFileSync(join(wtPath, 'a.txt'), 'changed in the worktree');
+    gitSync(wtPath, ['add', '-A']);
+    gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 conflicting worktree edit']);
+
+    writeFileSync(join(dir, 'a.txt'), 'changed on the live checkout, conflicting');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-3 conflicting operator edit']);
+
+    const result = await syncWorktreeBranch(dir, base, 'flight-work');
+
+    expect(result.ok).toBe(false);
+    expect(result.conflicts).toEqual([
+      {
+        path: 'a.txt',
+        base: 'one',
+        ours: 'changed on the live checkout, conflicting',
+        theirs: 'changed in the worktree',
+      },
+    ]);
+    // The abort below the context-gathering step must still leave the
+    // checkout clean — gathering context must never leak into the index.
+    expect(gitSync(dir, ['status', '--porcelain'])).toBe('');
 
     await removeWorktree(dir, wtPath);
   });
