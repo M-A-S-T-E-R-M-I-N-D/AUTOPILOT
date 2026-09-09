@@ -10,7 +10,11 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderShell, clientJs } from '../../src/web/shell.js';
-import { landingWorktreeDivergence, landingJobLine } from '../../src/web/landing-panel.js';
+import {
+  landingWorktreeDivergence,
+  landingJobLine,
+  landingExecuteResult,
+} from '../../src/web/landing-panel.js';
 
 describe('landingWorktreeDivergence (web-msvbzahx-uiemjb)', () => {
   it('warns with a pluralized count when commits are stranded on the flight worktree', () => {
@@ -451,5 +455,55 @@ describe('landingJobLine — the LAND button telling the truth while it works', 
 
   it('never reports negative elapsed time when a clock skews backwards', () => {
     expect(landingJobLine({ phase: 'gate', startedAt: 5_000, steps: [] }, 0)?.text).toContain('0s');
+  });
+});
+
+/**
+ * THE PUSH LEG'S OWN ROW (FAILURE-DOCTRINE row 8, closed 2026-09-09).
+ * The landing merged into base LOCALLY and stopped — an operator saw a
+ * green land while GitHub knew nothing, for a day. A push result nobody
+ * renders is the same silence, so the row is loud: a failed push turns
+ * the line amber and says the remote is behind, without ever claiming
+ * the land itself failed (nothing undoes a merge that already happened).
+ */
+describe('landingExecuteResult — the push leg', () => {
+  it('appends the push detail to a fully successful land', () => {
+    const out = landingExecuteResult({
+      ok: true,
+      details: 'merged autopilot/flight',
+      push: { ok: true, detail: 'pushed main to origin' },
+    });
+
+    expect(out.className).toContain('landing-result-ok');
+    expect(out.text).toContain('Landed');
+    expect(out.text).toContain('pushed main to origin');
+  });
+
+  it('goes AMBER and names the remote when the merge landed but the push did not', () => {
+    const out = landingExecuteResult({
+      ok: true,
+      details: 'merged autopilot/flight',
+      push: { ok: false, detail: 'main is behind origin — someone pushed first.' },
+    });
+
+    expect(out.className).toContain('landing-result-warn');
+    expect(out.text).toContain('NOT pushed');
+    expect(out.text).toContain('behind origin');
+    // Never claims the land failed — the merge is done and nothing undoes it.
+    expect(out.text).not.toContain('✗');
+  });
+
+  it('reads exactly as before for a land that reported no push leg at all', () => {
+    const out = landingExecuteResult({ ok: true, details: 'merged autopilot/flight' });
+
+    expect(out.className).toContain('landing-result-ok');
+    expect(out.text).toBe('✓ Landed — merged autopilot/flight');
+  });
+
+  it('still reports a genuinely failed land as failed', () => {
+    const out = landingExecuteResult({ ok: false, details: 'gate red' });
+
+    expect(out.className).toContain('landing-result-fail');
+    expect(out.text).toContain('✗');
   });
 });

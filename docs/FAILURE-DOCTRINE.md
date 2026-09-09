@@ -22,7 +22,7 @@ commit that fixes it.
 | 5 | A census trusting the instrument it audits (features barrel; i18n scanner) | censuses diff against the DIRECTORY/disk, never the discoverer alone | `chunks.test.ts` + boarded i18n-scanner fix |
 | 6 | Scanner false-positives triggering damage (drive-`y:` from CSS regex) | guard-precision doctrine: negative corpus per scanner, matched text in evidence, scanner-wrong is a first-class hypothesis | `validate-no-personal-paths` + negative-corpus suites |
 | 7 | CI-only failures discovered after push, layer by layer | PARITY landing gate runs CI's own ci:* checks before any push | `landing/execute.ts` (proved itself day one) |
-| 8 | Landing push-leg failing silently (GitHub a day stale) | push result surfaced as its own landing row; non-FF offers integrate-and-retry | boarded (HIGH) |
+| 8 | Landing push-leg failing silently (GitHub a day stale) | the landing PUSHES after a green merge and reports it as its own row — a failed push turns the line amber and names the remote, never claiming the land failed; non-FF says integrate-and-land-again | `GitVcs.pushBranch` + `landing/execute.ts` push leg + `landingExecuteResult` |
 | 9 | Zombie server serving a stale build ("feature missing") | update-check self-reports the RUNNING build; restart after rebuild ritual | `/api/update-check` + boarded restart-detect |
 | 10 | Stale lane worktree dirs silently killing lanes | ensureWorktree self-heals orphaned dirs | shipped, storm-reverted, reland boarded+focused |
 | 11 | Duplicate fixes of the same red by two actors | check `git log` on the failing file before fixing; intent-claims | firing prompt (v13) |
@@ -64,6 +64,12 @@ thread for near-duplicates, consecutive runs past the ceiling, and
 rapid-fire posts. It found rows 19 and 20 across 31 threads; it is what
 proves the guard is working rather than the guard proving itself.
 
-Rows 8, 10 (reland), 14 (structural), 16 are the open counters — each is
+Row 8 closed 2026-09-09, and its shape is worth keeping: the ritual had a
+hook named `postPushWatch` sitting directly beneath a merge that never
+pushed. **A name can carry an assumption the code never honoured**, and
+nothing failed loudly enough to notice — the operator found it by asking
+which button publishes.
+
+Rows 10 (reland), 14 (structural), 16 are the open counters — each is
 a boarded task; everything else is live machinery. When one ships, move
 its row's "where" to the code path in the same commit.

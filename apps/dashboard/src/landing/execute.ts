@@ -283,6 +283,9 @@ export function createLandingExecuteApi(
           : {}),
       });
       const result = await executeLanding(gate, vcs, base);
+      /** The push leg's own outcome — see the block below. `undefined`
+       *  when the land never got as far as merging. */
+      let push: { ok: boolean; detail: string } | undefined;
       if (result.ok) {
         // Notifications channel flight-landed event (board web-msnsndlk-exw3t9):
         // persist one `landed` events row per green gate-then-merge, same
@@ -299,6 +302,40 @@ export function createLandingExecuteApi(
         } catch {
           /* landed telemetry is best-effort — never fail the land over it */
         }
+        // THE PUSH LEG (FAILURE-DOCTRINE row 8, closed 2026-09-09). Until
+        // now this ritual merged into `base` LOCALLY and stopped: an
+        // operator clicked "Execute landing → main", watched the full gate
+        // pass, saw a green land — and GitHub knew nothing. The hook
+        // immediately below is literally named for a push that never
+        // happened, which is how long this sat unnoticed.
+        //
+        // Deliberately NON-FATAL: the merge already succeeded and nothing
+        // undoes it, so a failed push must not report the land as failed.
+        // It gets its own row in the result instead — row 8's own
+        // prescription, "push result surfaced as its own landing row" —
+        // because a silent push failure is exactly what left GitHub a day
+        // stale. A non-fast-forward is named separately since it has a
+        // specific remedy the generic failure text cannot offer.
+        try {
+          if (await vcs.hasRemote()) {
+            const pushed = await vcs.pushBranch(base);
+            push = pushed.ok
+              ? { ok: true, detail: `pushed ${base} to origin` }
+              : {
+                  ok: false,
+                  detail: pushed.nonFastForward
+                    ? `${base} is behind origin — someone pushed first. Integrate, then land again.`
+                    : `push failed: ${pushed.detail}`,
+                };
+          } else {
+            push = { ok: true, detail: 'no remote configured — nothing to push' };
+          }
+        } catch (error) {
+          push = {
+            ok: false,
+            detail: `push failed: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
         // POST-PUSH VERDICT RITUAL slice 3: fire-and-forget, never awaited —
         // a hung or slow watch must never make EXECUTE itself hang. `head()`
         // reads the just-landed base branch's new tip, the commit whichever
@@ -312,7 +349,7 @@ export function createLandingExecuteApi(
       const restarting =
         result.ok && !!selfRestart && samePath(project.root_path, selfRestart.root);
       if (restarting) selfRestart?.trigger();
-      return { ...result, restarting };
+      return { ...result, restarting, ...(push ? { push } : {}) };
     } finally {
       store.close();
     }

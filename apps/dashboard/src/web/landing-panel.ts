@@ -21,6 +21,7 @@
  *  rejected request (rate limit, bad content-type, unavailable) returns
  *  instead — the client falls back to it when `details` is absent. */
 export interface LandingExecuteResponse {
+  readonly push?: { readonly ok: boolean; readonly detail: string };
   readonly ok: boolean;
   readonly details?: string;
   readonly error?: string;
@@ -47,9 +48,24 @@ export function landingExecuteResult(
       text: '✗ ' + ((data && (data.details || data.error)) || 'landing failed.'),
     };
   }
+  // The push leg gets its own sentence, and a FAILED push turns the whole
+  // line amber rather than green (FAILURE-DOCTRINE row 8). The merge did
+  // succeed, so this is never reported as a failed land — but "landed"
+  // printed in plain green while GitHub sits behind is exactly the silence
+  // that let the remote go a day stale.
+  const push = data!.push;
+  if (push && !push.ok) {
+    return {
+      className: 'landing-result landing-result-warn',
+      text: '⚠ Landed locally, but NOT pushed — ' + push.detail,
+    };
+  }
   return {
     className,
-    text: '✓ Landed — ' + (data!.details || 'merged.'),
+    text:
+      '✓ Landed — ' +
+      (data!.details || 'merged.') +
+      (push && push.ok ? ' ' + push.detail + '.' : ''),
   };
 }
 

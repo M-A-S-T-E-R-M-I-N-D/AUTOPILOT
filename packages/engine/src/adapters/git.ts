@@ -205,6 +205,17 @@ async function withMessageFile<T>(message: string, run: (file: string) => Promis
  * `git revert` commit rather than rewriting history, so a gate-failed firing is
  * undone without ever `reset --hard`ing or touching prior commits.
  */
+/** One `git push` attempt's outcome — reported, never thrown, so the
+ *  landing ritual can surface it as its own row instead of failing a merge
+ *  that already succeeded. */
+export interface GitPushResult {
+  readonly ok: boolean;
+  /** True when the remote refused because it has commits we lack — the one
+   *  failure with a specific remedy: integrate, then land again. */
+  readonly nonFastForward: boolean;
+  readonly detail: string;
+}
+
 export class GitVcs implements VcsPort {
   constructor(private readonly repo: string) {}
 
@@ -462,6 +473,37 @@ export class GitVcs implements VcsPort {
   async hasRemote(): Promise<boolean> {
     const { stdout, exitCode } = await git(this.repo, ['remote']);
     return exitCode === 0 && stdout.trim().length > 0;
+  }
+
+  /**
+   * Pushes one branch to `origin`, reporting the outcome instead of
+   * throwing. The landing ritual's missing leg (FAILURE-DOCTRINE row 8,
+   * "landing push-leg failing silently — GitHub a day stale"): the panel
+   * merged into the base branch LOCALLY and stopped, so an operator who
+   * clicked "Execute landing → main" saw a green land while GitHub knew
+   * nothing. The `postPushWatch` hook next to that merge is even named for
+   * a push that never happened.
+   *
+   * Never forces, and never guesses a ref: the caller names the branch it
+   * just landed into. A non-fast-forward is reported as its own outcome
+   * rather than an error string to grep, because "someone else pushed
+   * first" has a specific remedy (integrate, then land again) that a
+   * generic failure cannot offer.
+   */
+  async pushBranch(branch: string): Promise<GitPushResult> {
+    const { stdout, stderr, exitCode } = await git(this.repo, ['push', 'origin', branch]);
+    if (exitCode === 0) return { ok: true, nonFastForward: false, detail: 'pushed' };
+    const text = `${stdout}\n${stderr}`;
+    // git words this several ways across versions ("non-fast-forward",
+    // "fetch first", "Updates were rejected"); any of them means the same
+    // thing to an operator, and all of them have the same remedy.
+    const nonFastForward =
+      /non-fast-forward|fetch first|Updates were rejected|behind its remote/i.test(text);
+    return {
+      ok: false,
+      nonFastForward,
+      detail: text.trim().split('\n').filter(Boolean).slice(-3).join(' · ') || 'push failed',
+    };
   }
 
   async isDirty(): Promise<boolean> {
