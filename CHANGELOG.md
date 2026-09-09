@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-09-09
+
 ### Added
 
 - feat(flight): lane children spawn BELOW-NORMAL CPU priority on Windows
