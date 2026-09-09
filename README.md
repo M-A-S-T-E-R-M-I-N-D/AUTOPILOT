@@ -335,3 +335,6 @@ Star the repo — at zero marketing, stars are literally how GitHub decides who 
 Found a bug or watched a flight do something interesting? [Open an issue](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/issues) or
 [tell the story in Discussions](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions) — failure reports are
 first-class citizens here; we publish our own.
+
+Want to credit it in your own project's README? [`docs/BADGE.md`](docs/BADGE.md) has a shields.io snippet to paste
+in — offered, never forced; nothing here ever edits a README on your behalf.
