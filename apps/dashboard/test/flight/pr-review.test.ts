@@ -281,6 +281,12 @@ const BENIGN_ENGINE_SRC = new Set([
   // footer is appended, the same impure-sibling-is-flagged-instead class
   // usage-pool.ts above is benign for.
   'github-identity-disclosure.ts',
+  // diff-size-gate.ts: PURE changed-lines threshold math over caller-supplied
+  // DiffFileStat[] (evaluateDiffSize/isMechanicalDiffPath) — no filesystem,
+  // no process, no network. Its caller (firing.ts, already flagged by its own
+  // exact-path marker below) is what turns a failing verdict into a real
+  // revert decision; this module only computes the verdict.
+  'diff-size-gate.ts',
   'info.ts',
   'index.ts',
   'inbox.ts',

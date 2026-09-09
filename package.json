@@ -133,6 +133,7 @@
     "mutation:engine-routing": "stryker run config/mutation/stryker.engine-routing.config.mjs",
     "mutation:engine-prompt-position-audit": "stryker run config/mutation/stryker.engine-prompt-position-audit.config.mjs",
     "mutation:engine-github-sync": "stryker run config/mutation/stryker.engine-github-sync.config.mjs",
+    "mutation:engine-diff-size-gate": "stryker run config/mutation/stryker.engine-diff-size-gate.config.mjs",
     "mutation:dashboard-anomalies": "stryker run config/mutation/stryker.dashboard-anomalies.config.mjs",
     "mutation:dashboard-backups": "stryker run config/mutation/stryker.dashboard-backups.config.mjs",
     "mutation:dashboard-flightlog": "stryker run config/mutation/stryker.dashboard-flightlog.config.mjs",

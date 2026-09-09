@@ -19,6 +19,7 @@ import type {
   InvokeCaps,
   VcsPort,
   CommitRef,
+  DiffFileStat,
   GatePort,
   GateResult,
   StorePort,
@@ -99,8 +100,21 @@ class FakeVcs implements VcsPort {
       readonly existing?: ReadonlySet<string>;
       /** What `changedFiles` reports for any range — the shipped net diff. */
       readonly changed?: readonly string[];
+      /** What `diffNumstat` reports for any range — the diff-size gate's
+       *  input. Defaults to `[]`; to model a VcsPort that has no such
+       *  capability at all, use `omitDiffNumstat` below. */
+      readonly diffStats?: readonly DiffFileStat[];
+      /** Drops `diffNumstat` from the port entirely — a VcsPort predating
+       *  the diff-size gate. The engine must SKIP the check, not fail it. */
+      readonly omitDiffNumstat?: boolean;
+      /** Makes `diffNumstat` reject with this message — a third-party port
+       *  whose implementation can fail (the shipped GitVcs never does). */
+      readonly diffNumstatError?: string;
     },
-  ) {}
+  ) {
+    // A real own property, so delete genuinely removes the capability.
+    if (opts.omitDiffNumstat === true) delete this.diffNumstat;
+  }
   head(): Promise<string> {
     const idx = Math.min(this.headIdx, this.opts.heads.length - 1);
     this.headIdx++;
@@ -118,6 +132,20 @@ class FakeVcs implements VcsPort {
     this.changedFilesCalls.push([fromRef, toRef]);
     return Promise.resolve(this.opts.changed ?? []);
   }
+  diffNumstatCalls: [string, string][] = [];
+  /** An own field, not a prototype method, so `omitDiffNumstat` can really
+   *  remove it: the engine skips on `deps.vcs.diffNumstat` being undefined,
+   *  which a prototype method can never be. */
+  diffNumstat?: (fromRef: string, toRef: string) => Promise<readonly DiffFileStat[]> = (
+    fromRef,
+    toRef,
+  ) => {
+    this.diffNumstatCalls.push([fromRef, toRef]);
+    if (this.opts.diffNumstatError !== undefined) {
+      return Promise.reject(new Error(this.opts.diffNumstatError));
+    }
+    return Promise.resolve(this.opts.diffStats ?? []);
+  };
   revertLast(sinceRef?: string): Promise<void> {
     this.revertCalls++;
     this.revertSinceRefs.push(sinceRef);
@@ -228,8 +256,12 @@ describe('runFiring', () => {
       shaVerified: true,
       headAdvanced: true,
       quotaFallback: false,
-      gateChecks: [],
     });
+    // The deterministic diff-size gate (docs/BACKLOG-999.md C4) rides along
+    // as its own check once the real gate is green — an empty diff (the
+    // FakeVcs default) is trivially within threshold.
+    expect(out.record.gateChecks).toHaveLength(1);
+    expect(out.record.gateChecks[0]).toMatchObject({ label: 'diff-size', pass: true });
     expect(out.record.proposals).toBeUndefined();
     expect(out.record.checkpointError).toBeUndefined();
     expect(out.record.gateError).toBeUndefined();
@@ -238,6 +270,132 @@ describe('runFiring', () => {
     expect(vcs.changedFilesCalls).toEqual([['h0', 'h1']]);
     expect(out.record.filesTouched).toEqual(['src/a.ts', 'docs/b.md']);
     expect(store.records).toHaveLength(1);
+  });
+
+  it('DIFF-SIZE GATE (BACKLOG-999 C4): a warn-tier oversize LANDS with a loud check label', async () => {
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-1', shortSha: 'abc' },
+      existing: new Set(['abc']),
+      diffStats: [{ path: 'src/huge.ts', insertions: 300, deletions: 200 }], // 500: warn tier
+    });
+    const gate = new FakeGate(true);
+    const store = new FakeStore();
+
+    const out = await runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+
+    expect(vcs.revertCalls).toBe(0);
+    expect(out.record.shipped).toBe(true);
+    expect(out.record.gateChecks[0]).toMatchObject({ pass: true });
+    expect(String(out.record.gateChecks[0]!.label)).toContain('WARN 500 review lines');
+  });
+
+  it('DIFF-SIZE GATE: a runaway diff past the block ceiling reverts even though the real gate passed', async () => {
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-1', shortSha: 'abc' },
+      existing: new Set(['abc']),
+      diffStats: [{ path: 'src/huge.ts', insertions: 900, deletions: 400 }], // 1300 > 1200
+    });
+    const gate = new FakeGate(true);
+    const store = new FakeStore();
+
+    const out = await runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+
+    expect(vcs.diffNumstatCalls).toEqual([['h0', 'h1']]);
+    expect(vcs.revertCalls).toBe(1);
+    expect(vcs.revertSinceRefs).toEqual(['h0']);
+    expect(out.gateResult).toBe('reverted');
+    expect(out.record.shipped).toBe(false);
+    expect(out.record.gateError).toContain('runaway ceiling');
+    expect(out.record.gateChecks).toHaveLength(1);
+    expect(out.record.gateChecks[0]).toMatchObject({ label: 'diff-size', pass: false });
+    // Reverted work is undone — never a fabricated filesTouched list.
+    expect(out.record.filesTouched).toBeUndefined();
+  });
+
+  it('DIFF-SIZE GATE: a VcsPort without diffNumstat skips the check instead of failing it', async () => {
+    // diffNumstat is an OPTIONAL VcsPort capability. A port that predates the
+    // diff-size gate must not have its firings judged on evidence it cannot
+    // produce — absent means skip, never fail.
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-1', shortSha: 'abc' },
+      existing: new Set(['abc']),
+      omitDiffNumstat: true,
+    });
+    const gate = new FakeGate(true);
+    const store = new FakeStore();
+
+    const out = await runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+
+    expect(vcs.diffNumstat).toBeUndefined();
+    expect(vcs.diffNumstatCalls).toEqual([]);
+    expect(out.gateResult).toBe('passed');
+    expect(vcs.revertCalls).toBe(0);
+    expect(out.record.gateChecks.map((c) => c.label)).not.toContain('diff-size');
+  });
+
+  it('DIFF-SIZE GATE: a diffNumstat that rejects skips the check instead of killing the flight', async () => {
+    // loop.ts has no try/catch around runFiring. An adapter whose diffNumstat
+    // rejects would otherwise take the whole flight down on a GREEN firing —
+    // the case that should be safest of all. The reason still rides along in
+    // the record rather than vanishing.
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-1', shortSha: 'abc' },
+      existing: new Set(['abc']),
+      diffNumstatError: 'numstat exploded',
+    });
+    const gate = new FakeGate(true);
+    const store = new FakeStore();
+
+    const out = await runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+
+    expect(out.gateResult).toBe('passed');
+    expect(vcs.revertCalls).toBe(0);
+    expect(out.record.gateChecks.map((c) => c.label)).not.toContain('diff-size');
+    expect(out.record.gateError).toContain('numstat exploded');
+  });
+
+  it('DIFF-SIZE GATE: a mechanical-only diff (e.g. a lockfile regen) stays under threshold regardless of raw line count', async () => {
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'chore: AP-1 bump deps', shortSha: 'abc' },
+      existing: new Set(['abc']),
+      diffStats: [
+        { path: 'pnpm-lock.yaml', insertions: 900, deletions: 800 }, // mechanical, exempt
+        { path: 'package.json', insertions: 2, deletions: 1 }, // real review burden, tiny
+      ],
+    });
+    const gate = new FakeGate(true);
+    const store = new FakeStore();
+
+    const out = await runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+
+    expect(vcs.revertCalls).toBe(0);
+    expect(out.gateResult).toBe('passed');
+    expect(out.record.gateChecks[0]).toMatchObject({ label: 'diff-size', pass: true });
   });
 
   it('additively reverts a commit that fails the gate', async () => {

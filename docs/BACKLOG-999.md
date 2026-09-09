@@ -163,8 +163,15 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   (`packages/engine/src/adapters/remediating-gate.ts`), which used to run the mechanical fixer + a full gate
   re-run (up to the timeout) on a crashed verdict too — now it short-circuits straight through on `first.crashed`,
   since a formatter can't repair a broken environment.
-- [ ] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption
-  (gate on review burden, not raw count)
+- [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption
+  (gate on review burden, not raw count). Done — `packages/engine/src/diff-size-gate.ts`'s `evaluateDiffSize`
+  sums insertions+deletions from `VcsPort.diffNumstat` (new, optional capability; `GitVcs` implements it via
+  `git diff --numstat --no-renames -z` — `-z` keeps non-ASCII paths raw, so a C-quoted path cannot
+  escape the mechanical-path exemption and revert legitimate work), excluding paths that
+  `isMechanicalDiffPath` classifies as review-exempt
+  (lockfiles, generated snapshots/binaries, build/vendor output). `firing.ts` runs it only once the real
+  typecheck/test/build gate is already green, folding a failing verdict into the SAME additive-revert path a
+  real gate failure takes — an oversized diff is reverted, not silently shipped.
 - [ ] **C5** Commit-time independent review (pre-M8 slice): one cheap fresh-context diff-review call per firing,
   find-problems instruction, non-blocking, finding recorded on the firing
 - [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal (candidate inventory → operator

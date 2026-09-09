@@ -449,6 +449,48 @@ describe('GitVcs', () => {
     expect(stat).toEqual({ filesChanged: 0, insertions: 0, deletions: 0 });
   });
 
+  it('computes per-file insertions/deletions between two refs (diff-size gate input, BACKLOG-999 C4)', async () => {
+    const from = await vcs.head();
+    writeFileSync(join(dir, 'a.txt'), 'one\ntwo\nthree');
+    writeFileSync(join(dir, 'c.txt'), 'new file');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-2 grow a.txt, add c.txt']);
+
+    const stats = [...(await vcs.diffNumstat(from, 'HEAD'))].sort((a, b) =>
+      a.path.localeCompare(b.path),
+    );
+
+    expect(stats).toEqual([
+      { path: 'a.txt', insertions: 3, deletions: 1 },
+      { path: 'c.txt', insertions: 1, deletions: 0 },
+    ]);
+  });
+
+  it('returns non-ASCII paths raw, not C-quoted — a quoted path escapes the mechanical-path exemption and can revert a legitimate commit (BACKLOG-999 C4)', async () => {
+    // git C-quotes any path carrying non-ASCII bytes unless -z is passed
+    // (core.quotePath): the wire shape becomes "__snapshots__/caf\303\251.snap",
+    // quotes and all. isMechanicalDiffPath() anchors on `.snap$` and on a
+    // `__snapshots__/` segment, so a quoted path matches NEITHER — the file's
+    // lines then count as review burden, and a big-but-mechanical commit gets
+    // reverted wholesale. changedFiles() above already passes -z for exactly
+    // this reason; this pins that diffNumstat does too.
+    const from = await vcs.head();
+    mkdirSync(join(dir, '__snapshots__'), { recursive: true });
+    writeFileSync(join(dir, '__snapshots__', 'café.snap'), 'one\ntwo\nthree\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'test: AP-2 add a non-ASCII snapshot path']);
+
+    const stats = await vcs.diffNumstat(from, 'HEAD');
+
+    expect(stats.map((s) => s.path)).toEqual(['__snapshots__/café.snap']);
+  });
+
+  it('degrades to [] for diffNumstat on an unborn/invalid ref, same as changedFiles', async () => {
+    expect(await vcs.diffNumstat('', 'HEAD')).toEqual([]);
+    expect(await vcs.diffNumstat('deadbeef', 'HEAD')).toEqual([]);
+    expect(await vcs.diffNumstat('HEAD', 'HEAD')).toEqual([]);
+  });
+
   it('computes per-file old-side line ranges for a modification, an addition, and a deletion', async () => {
     writeFileSync(
       join(dir, 'multi.txt'),
