@@ -1025,6 +1025,67 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     expect(found.map((v) => v.id)).toEqual([]);
   });
 
+  it('the Mirror pass panel with findings from all four preview derivations is axe-clean', async () => {
+    // Same verification-gap class as the risk-chip/eval-trend/backlog fixes
+    // above: no fixture anywhere in this suite ever populated any of the four
+    // `/api/mirror-pass*` previews, so mirror-pass-panel.ts's rendered
+    // `<ul>`/`<li>` finding list (EPIC 0019 S3, VERDICT `ap-mtsg3nc0-3` slice
+    // (c)) never actually got axe-scanned — every prior scan only ever saw
+    // the "Checking the board against GitHub…" loading placeholder.
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/mirror-pass/landing-note')) {
+        return {
+          ok: true,
+          json: async () => ({
+            landingNote: [{ finding: { issueNumber: 34, comment: 'Landed at a1b2c3d.' } }],
+          }),
+        };
+      }
+      if (url.includes('/api/mirror-pass/drift')) {
+        return {
+          ok: true,
+          json: async () => ({
+            drift: {
+              versionDrift: {
+                source: 'README.md',
+                claimedVersion: '0.30.0',
+                actualVersion: '0.32.0',
+              },
+              countsDrift: null,
+              linkDrift: { source: 'README.md', brokenLinks: ['docs/OLD.md'] },
+            },
+          }),
+        };
+      }
+      if (url.includes('/api/mirror-pass/stale-claims')) {
+        return {
+          ok: true,
+          json: async () => ({
+            staleClaims: [{ finding: { issueNumber: 56, comment: 'Assignee quiet 20 days.' } }],
+          }),
+        };
+      }
+      if (url.includes('/api/mirror-pass')) {
+        return {
+          ok: true,
+          json: async () => ({
+            mirrorPass: [{ finding: { issueNumber: 12, comment: 'Issue #12 is still open.' } }],
+          }),
+        };
+      }
+      return { ok: true, json: async () => SAMPLE_STATE };
+    }) as unknown as typeof fetch;
+
+    new Function(clientJs())();
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('.mirror-pass-item')).toHaveLength(5);
+    });
+
+    const found = await violations();
+    expect(found.map((v) => v.id)).toEqual([]);
+  });
+
   it('the RELEASE card with the optional milestone-tag input is axe-clean', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
