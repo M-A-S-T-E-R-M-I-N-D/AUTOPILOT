@@ -14,6 +14,7 @@ import {
   issueTriageDecisionLabel,
   issueTriageConfirmMessage,
   issueTriageExecuteResult,
+  issueTriageGuestNote,
 } from '../../src/web/issue-triage-panel.js';
 
 describe('issueTriageDecisionLabel', () => {
@@ -170,6 +171,20 @@ describe('issueTriageExecuteResult', () => {
     expect(issueTriageExecuteResult(null).text).toBe('✗ Issue triage execute failed.');
     expect(issueTriageExecuteResult(undefined).className).toBe(
       'issue-triage-result issue-triage-result-fail',
+    );
+  });
+});
+
+describe('issueTriageGuestNote (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899)', () => {
+  it('names the repo owner and the signed-in login', () => {
+    const note = issueTriageGuestNote({
+      login: 'a-contributor',
+      nameWithOwner: 'octocat/hello-world',
+      role: 'user',
+    });
+
+    expect(note).toBe(
+      'Issue triage on this repo is run by its maintainer (octocat) — you are signed in as a-contributor.',
     );
   });
 });

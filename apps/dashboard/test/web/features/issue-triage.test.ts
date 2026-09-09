@@ -14,16 +14,27 @@ import {
   issueTriageConfirmMessage,
   issueTriageExecuteResult,
   issueTriageExecuteTip,
+  issueTriageGuestNote,
 } from '../../../src/web/issue-triage-panel.js';
 import { issueTriageJs } from '../../../src/web/features/issue-triage.js';
 
 describe('issueTriageJs', () => {
-  it('embeds issueTriageDecisionLabel/issueTriageConfirmMessage/issueTriageExecuteResult/issueTriageExecuteTip real compiled source via .toString()', () => {
+  it('embeds issueTriageDecisionLabel/issueTriageConfirmMessage/issueTriageExecuteResult/issueTriageExecuteTip/issueTriageGuestNote real compiled source via .toString()', () => {
     const out = issueTriageJs();
     expect(out).toContain(issueTriageDecisionLabel.toString());
     expect(out).toContain(issueTriageConfirmMessage.toString());
     expect(out).toContain(issueTriageExecuteResult.toString());
     expect(out).toContain(issueTriageExecuteTip.toString());
+    expect(out).toContain(issueTriageGuestNote.toString());
+  });
+
+  it('role-gates the execute button behind a confirmed non-owner check (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899)', () => {
+    const out = issueTriageJs();
+    expect(out).toContain("identity && identity.role === 'user'");
+    // A confirmed guest gets the note instead of the execute button.
+    expect(out).toContain(
+      "el('p', 'muted issue-triage-guest-note', issueTriageGuestNote(identity))",
+    );
   });
 
   it('does not re-splice decisionItemHeadMeta — it relies on shell.ts hoisting it', () => {
@@ -35,7 +46,7 @@ describe('issueTriageJs', () => {
   it('declares issueTriageSection, renderIssueTriageBody, and loadIssueTriageBody', () => {
     const out = issueTriageJs();
     expect(out).toContain('function issueTriageSection(pid) {');
-    expect(out).toContain('function renderIssueTriageBody(body, plans, pid) {');
+    expect(out).toContain('function renderIssueTriageBody(body, plans, pid, identity) {');
     expect(out).toContain('function loadIssueTriageBody(body, pid) {');
   });
 
@@ -63,13 +74,14 @@ describe('issueTriageJs', () => {
     expect(out).toContain("unavailableMsg.setAttribute('data-i18n', 'issueTriageUnavailable');");
     expect(out).toContain("execBtn.setAttribute('data-i18n', 'issueTriageExecute');");
     // One sweep per ASYNC tagged-DOM creation site — the empty state, the
-    // fetch-failure state, and the non-empty/execute-button state, all built
-    // inside /api/issue-triage handlers that can resolve after the page-level
-    // sweep. The title and the loading placeholder are built synchronously at
-    // mount and ride renderProjectPage()'s own sweep, the same split
-    // flight-console.ts uses.
+    // guest-note state (epic 0019 law 1 extended to the UI, board
+    // web-mtt3f7j6-3bj899), the fetch-failure state, and the non-empty/
+    // execute-button state, all built inside /api/issue-triage handlers that
+    // can resolve after the page-level sweep. The title and the loading
+    // placeholder are built synchronously at mount and ride
+    // renderProjectPage()'s own sweep, the same split flight-console.ts uses.
     expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
-      3,
+      4,
     );
   });
 

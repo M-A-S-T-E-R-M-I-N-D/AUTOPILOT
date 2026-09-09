@@ -63,6 +63,7 @@ import {
   issueTriageExecuteTip,
   issueTriageHasWork,
   issueTriageNothingToRunTip,
+  issueTriageGuestNote,
 } from '../issue-triage-panel.js';
 
 /** The KEEPER issue-triage panel client — vanilla, external (keeps CSP script-src 'self'). */
@@ -92,8 +93,13 @@ ${issueTriageExecuteResult.toString()}
 ${issueTriageExecuteTip.toString()}
 ${issueTriageHasWork.toString()}
 ${issueTriageNothingToRunTip.toString()}
+// issueTriageGuestNote is generated FROM web/issue-triage-panel.ts below
+// (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899) — its real
+// compiled source via .toString(), not a hand-retyped copy. It can no
+// longer drift apart.
+${issueTriageGuestNote.toString()}
 var issueTriagePlansByProject = {};
-function renderIssueTriageBody(body, plans, pid) {
+function renderIssueTriageBody(body, plans, pid, identity) {
   body.replaceChildren();
   plans = plans || [];
   if (!plans.length) {
@@ -132,6 +138,18 @@ function renderIssueTriageBody(body, plans, pid) {
     list.appendChild(item);
   }
   body.appendChild(list);
+  // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):
+  // a confirmed non-owner of this repo is a guest — it sees the preview
+  // above but never the KEEPER execute button. An unresolved identity (no
+  // gh, no GitHub remote at all — the common fully-local project) is NOT a
+  // known guest, so it falls through and the button renders exactly as
+  // before.
+  if (identity && identity.role === 'user') {
+    var guestNote = el('p', 'muted issue-triage-guest-note', issueTriageGuestNote(identity));
+    body.appendChild(guestNote);
+    translateDom(document.documentElement.lang || 'en');
+    return;
+  }
   var actions = el('div', 'issue-triage-actions');
   var execBtn = document.createElement('button');
   execBtn.type = 'button';
@@ -162,13 +180,23 @@ function renderIssueTriageBody(body, plans, pid) {
 // keep working without re-wiring.
 wireRoving('.issue-triage-number', '.issue-triage-list');
 function loadIssueTriageBody(body, pid) {
-  fetch('/api/issue-triage?project=' + encodeURIComponent(pid))
-    .then(function (r) { return r.ok ? r.json() : { triage: null }; })
-    .then(function (data) {
+  // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):
+  // fetched alongside the triage preview, never blocking it — a failed
+  // identity read (own .catch()) still lets the panel render, since an
+  // unresolved identity means "not a known guest", not "unavailable".
+  // socialIdentity() is a hoisted core helper — one read per page load,
+  // shared with every other role-gated panel.
+  var identityFetch = socialIdentity();
+  var plansFetch = fetch('/api/issue-triage?project=' + encodeURIComponent(pid))
+    .then(function (r) { return r.ok ? r.json() : { triage: null }; });
+  Promise.all([plansFetch, identityFetch])
+    .then(function (results) {
       if (!body.isConnected) return;
+      var data = results[0];
+      var identityData = results[1];
       var plans = (data && data.triage) || [];
       issueTriagePlansByProject[pid] = plans;
-      renderIssueTriageBody(body, plans, pid);
+      renderIssueTriageBody(body, plans, pid, identityData && identityData.identity);
     })
     .catch(function () {
       if (!body.isConnected) return;
