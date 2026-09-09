@@ -33,6 +33,16 @@ export default defineConfig({
     // (4 different 5s timeouts across two runs, all green in isolation).
     // Inherited by every project below via `extends: true`.
     testTimeout: 30_000,
+    // The same budget for HOOKS, which the line above does not cover — the
+    // half-applied fix that bit on 2026-09-09: a Windows CI run reported
+    // 9896/9898 passing and still failed, both losses being `beforeEach`
+    // hooks timing out at Vitest's 10s default while doing exactly the work
+    // the comment above describes (mkdtempSync + git init + sqlite open,
+    // ten minutes into a run with the runner's filesystem contended). The
+    // setup cost of a real-git suite lives in its hooks, so raising only
+    // the test budget left the flakier half at the default. A generous
+    // budget hides nothing: a hook that genuinely hangs still fails, later.
+    hookTimeout: 30_000,
     // Scrubs flight-runtime env vars so the gate behaves identically inside
     // and outside a fleet flight — see vitest.setup.ts for the field report.
     setupFiles: ['./vitest.setup.ts'],

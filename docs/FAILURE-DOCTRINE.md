@@ -36,6 +36,16 @@ commit that fixes it.
 | 19 | The same message posted twice by a retry after an apparent failure that had actually landed (PR #33's approval, 16s apart, 97% identical) | every `gh issue\|pr comment` runs through a guard that reads the thread first: a >=90%-similar message from this identity is a clean no-op | `flight/anti-flood.ts` + `flight/gh-exec.ts` (defaulted, census-pinned) |
 | 20 | A third consecutive message from one identity stacking on a thread (issue #16) | at the ceiling the guard EDITS the tail into a dated `**Update:**` block instead of posting | `flight/anti-flood.ts` fold tier + `docs/ATTRIBUTION.md` §3 |
 | 21 | An affordance offering an action that would do nothing ("Run KEEPER triage": 0 to accept, 6 already triaged) | disabled-with-reason: a control that cannot act says why, and what re-enables it | `issueTriageHasWork` + `issueTriageNothingToRunTip` |
+| 22 | A refusal naming an action the operator had no way to take ("update the branch first"; a red check with no re-run) | every refusal that names an action ships that action as a button beside it | `update-branch` + `rerun-checks` verbs in `flight/human-merge.ts` |
+| 23 | A refusal's reason wiped by the success-path re-render, leaving a dead-looking button | re-poll only when something actually changed; a refusal keeps its message and its button | `wirePrMaintainerAction`'s `changed` gate |
+| 24 | Panel callbacks rendering into a torn-down document — a run with 9,865 passing tests failing on an unhandled rejection | self-polling panels bail when the document is gone | `renderPrReviewPanel` guard (sibling of issue-triage's `isConnected`) |
+| 25 | A timeout fix applied to `testTimeout` only, while the flakier half — `beforeEach` setup — stayed at the 10s default | one budget covers both: `hookTimeout` raised alongside `testTimeout`, same reasoning | `vitest.config.ts` |
+
+Row 25 is the shape worth naming on its own: **a fix applied to half its
+surface reads as a fix until the other half fails.** The comment above
+`testTimeout` had already diagnosed the exact cause (real-git suites,
+loaded Windows CI) — the setup cost simply lived in hooks the setting
+never reached.
 
 Board hygiene has its own auditor: `pnpm audit:board-flood` sweeps every
 thread for near-duplicates, consecutive runs past the ceiling, and
