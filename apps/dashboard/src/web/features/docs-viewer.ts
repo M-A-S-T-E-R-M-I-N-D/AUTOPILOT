@@ -68,6 +68,15 @@ var openDoc = {}; // project id -> currently open doc path (survives SSE re-rend
 // to reload. Reusing the same nodes means shell.ts's replaceChildren()+
 // appendChild() cycle just reattaches them, scroll and content intact.
 var docsPanelCache = {}; // project id -> { wrap, list, viewer }
+// STANDING explainer (board ap-mtu6l8ct-3, CONTRIBUTOR JOURNEY slice 4/4):
+// renders CONTRIBUTOR-STANDING.md's tiers table in-app instead of leaving it
+// undiscoverable in the alphabetical doc list. Reuses the SAME fetch+
+// renderMarkdown pipeline as every other doc (zero drift risk — the tiers
+// table lives in exactly one place), so this is only a pin-to-top + friendlier
+// label, not a rebuilt viewer. Not every flown project ships this file —
+// refreshDocsList only pins it when the indexed list actually contains it, so
+// a project without one gets the unchanged plain list, never a dead entry.
+var STANDING_DOC_PATH = '.github/CONTRIBUTOR-STANDING.md';
 // docFileTip is generated FROM web/docs-panel.ts below (epic 0002 "shell
 // decomposition", slice 2) — its real compiled source via .toString(), not a
 // hand-retyped copy. It can no longer drift apart.
@@ -110,13 +119,27 @@ function refreshDocsList(pid, list, viewer) {
         translateDom(document.documentElement.lang || 'en');
         return;
       }
+      // Pin the Standing explainer to the top instead of wherever it falls
+      // alphabetically — same file, reordered, never duplicated.
+      var standingIdx = files.indexOf(STANDING_DOC_PATH);
+      if (standingIdx > 0) {
+        files = files.slice();
+        files.splice(standingIdx, 1);
+        files.unshift(STANDING_DOC_PATH);
+      }
       for (var i = 0; i < files.length; i++) {
+        var isStanding = files[i] === STANDING_DOC_PATH;
         var li = document.createElement('li');
         var btn = document.createElement('button');
         var isOpenDoc = openDoc[pid] === files[i];
         btn.type = 'button';
         btn.className = 'docs-file' + (isOpenDoc ? ' on' : '');
-        btn.textContent = files[i];
+        // English-only label for now, deliberately: packages/tokens/src/
+        // strings.ts is a hot shared file with another fleet lane's unlanded
+        // work on it as of this slice (epic 0021 hit the identical
+        // collision) — tagging data-i18n here waits for a firing where that
+        // file is clear, not a gap in this one.
+        btn.textContent = isStanding ? '🤝 Contributor Standing' : files[i];
         btn.setAttribute('data-doc-open', files[i]);
         btn.setAttribute('data-doc-pid', pid);
         btn.setAttribute('aria-pressed', String(isOpenDoc));
