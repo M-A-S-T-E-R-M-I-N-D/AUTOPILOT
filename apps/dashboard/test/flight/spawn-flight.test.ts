@@ -3,16 +3,27 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, setPriority, constants as osConstants } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
+import type * as os from 'node:os';
 import {
   createSpawnFlight,
   forceKillProcess,
+  lowerLaneChildPriority,
   STOP_GRACE_MS,
 } from '../../src/flight/spawn-flight.js';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
+// Real ESM module namespaces aren't configurable (vi.spyOn on the real
+// export throws "Cannot redefine property") — only `setPriority` is faked,
+// everything else (tmpdir, constants) rides through to the real module.
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof os>();
+  return { ...actual, setPriority: vi.fn() };
+});
+
+const setPrioritySpy = vi.mocked(setPriority);
 
 // spawn's return type/overloads aren't worth fighting from a test double —
 // same untyped-mock approach as apps/dashboard/test/connection/login.test.ts.
@@ -493,6 +504,64 @@ describe('createSpawnFlight', () => {
 
       vi.advanceTimersByTime(STOP_GRACE_MS * 10);
       expect(forceKill).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setChildPriority seam (OPERATOR-MACHINE MERCY 1, board web-mtsvcgwx-zo9ju8)', () => {
+    it('calls the injected setChildPriority with the real child pid', () => {
+      const child = fakeChild();
+      spawnMock.mockReturnValue(child);
+      const setChildPriority = vi.fn();
+
+      createSpawnFlight(
+        '/repo/dist/fly.js',
+        () => join(dir, 'flight.log'),
+        undefined,
+        setChildPriority,
+      )('/target', 1, 5);
+
+      expect(setChildPriority).toHaveBeenCalledWith(4242);
+    });
+
+    it('never calls setChildPriority when the child has no pid', () => {
+      const child = { ...fakeChild(), pid: undefined };
+      spawnMock.mockReturnValue(child);
+      const setChildPriority = vi.fn();
+
+      createSpawnFlight(
+        '/repo/dist/fly.js',
+        () => join(dir, 'flight.log'),
+        undefined,
+        setChildPriority,
+      )('/target', 1, 5);
+
+      expect(setChildPriority).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('lowerLaneChildPriority (real BELOW_NORMAL priority drop)', () => {
+    beforeEach(() => {
+      setPrioritySpy.mockReset();
+    });
+
+    it('on win32, drops the pid to PRIORITY_BELOW_NORMAL', () => {
+      lowerLaneChildPriority(4242, 'win32');
+
+      expect(setPrioritySpy).toHaveBeenCalledWith(4242, osConstants.priority.PRIORITY_BELOW_NORMAL);
+    });
+
+    it('never touches priority on POSIX — the starvation report was Windows-only', () => {
+      lowerLaneChildPriority(4242, 'linux');
+
+      expect(setPrioritySpy).not.toHaveBeenCalled();
+    });
+
+    it('swallows a setPriority error instead of throwing (already-exited pid, no permission)', () => {
+      setPrioritySpy.mockImplementation(() => {
+        throw new Error('ESRCH');
+      });
+
+      expect(() => lowerLaneChildPriority(4242, 'win32')).not.toThrow();
     });
   });
 

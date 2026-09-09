@@ -28,6 +28,7 @@
 import { spawn } from 'node:child_process';
 import { mkdirSync, openSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { setPriority, constants as osConstants } from 'node:os';
 import type { FlightRunnerDeps, SpawnedFlight } from './runner.js';
 
 /**
@@ -91,6 +92,31 @@ export function forceKillProcess(pid: number, platform: NodeJS.Platform = proces
   }
 }
 
+/** OPERATOR-MACHINE MERCY 1 (board web-mtsvcgwx-zo9ju8): drops the lane
+ *  child's OS priority class to BELOW_NORMAL on Windows right after spawn.
+ *  Windows' CreateProcess only inherits a parent's priority class into its
+ *  children when that class is already IDLE or BELOW_NORMAL — NORMAL (the
+ *  default) or above always resets a child back to NORMAL regardless of the
+ *  parent — so lowering just THIS one process here rides down through the
+ *  whole tree it grows beneath it: the `claude` CLI it execs
+ *  (claude-cli.ts), and every node/tsc/vitest its own gate spawns in turn.
+ *  Four lanes at NORMAL priority once starved the operator's own dashboard
+ *  UI to 88-100% CPU. POSIX is untouched: the incident report was
+ *  Windows-specific, and raising POSIX `nice` needs privileges this process
+ *  may not have, while lowering it there was never the reported problem. */
+export function lowerLaneChildPriority(
+  pid: number,
+  platform: NodeJS.Platform = process.platform,
+): void {
+  if (platform !== 'win32') return;
+  try {
+    setPriority(pid, osConstants.priority.PRIORITY_BELOW_NORMAL);
+  } catch {
+    // Lost the race against an already-exited child, or lacked permission —
+    // a CPU-niceness knob is never worth crashing the dashboard server over.
+  }
+}
+
 /** Real `FlightRunnerDeps['spawnFlight']`: spawns the compiled `fly` entry
  *  (`flyEntry`) detached + unref'd, capturing stdout+stderr to the path
  *  `flightLogPathFor(folder)` resolves to — a silent `stdio: 'ignore'`
@@ -106,6 +132,10 @@ export function createSpawnFlight(
    *  the real cross-platform escalation; tests inject a spy instead of
    *  depending on fake timers racing a real taskkill/SIGKILL. */
   forceKill: (pid: number) => void = forceKillProcess,
+  /** OPERATOR-MACHINE MERCY 1 seam (board web-mtsvcgwx-zo9ju8) — defaults to
+   *  the real BELOW_NORMAL priority drop; tests inject a spy instead of
+   *  asserting on the current process's actual OS priority class. */
+  setChildPriority: (pid: number) => void = lowerLaneChildPriority,
 ): FlightRunnerDeps['spawnFlight'] {
   return (
     folder,
@@ -169,6 +199,7 @@ export function createSpawnFlight(
       detached: true,
       windowsHide: true,
     });
+    if (child.pid !== undefined) setChildPriority(child.pid);
     child.unref(); // the listening socket keeps the server alive, not the child
     return {
       pid: child.pid ?? null,
