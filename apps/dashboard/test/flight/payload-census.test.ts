@@ -102,7 +102,10 @@ describe('payload census — every field of a censused display payload reaches i
     for (const { file, interfaceName } of PAYLOAD_INTERFACES) {
       const source = readFileSync(`${FLIGHT_DIR}${file}`, 'utf8');
       const fields = interfaceFields(source, interfaceName);
-      expect(fields.length, `${file}#${interfaceName}: interface not found or has no fields`).toBeGreaterThan(0);
+      expect(
+        fields.length,
+        `${file}#${interfaceName}: interface not found or has no fields`,
+      ).toBeGreaterThan(0);
     }
   });
 
@@ -136,7 +139,9 @@ describe('payload census — every field of a censused display payload reaches i
       const censused = PAYLOAD_INTERFACES.some(
         (entry) => entry.file === file && entry.interfaceName === interfaceName,
       );
-      expect(censused, `${key}: excused but ${interfaceName} is not in PAYLOAD_INTERFACES`).toBe(true);
+      expect(censused, `${key}: excused but ${interfaceName} is not in PAYLOAD_INTERFACES`).toBe(
+        true,
+      );
       const source = readFileSync(`${FLIGHT_DIR}${file}`, 'utf8');
       expect(
         interfaceFields(source, interfaceName as string),
