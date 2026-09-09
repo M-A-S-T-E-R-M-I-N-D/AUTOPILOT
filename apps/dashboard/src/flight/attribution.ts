@@ -27,12 +27,27 @@
  * cannot be resolved (`gh api user` errors, no network, no `gh`), the
  * message posts unsigned rather than being swallowed — a lost signature
  * is a smaller failure than a lost reply.
+ *
+ * `AUTOPILOT_ATTRIBUTION=off` (ATTRIBUTION.md's "one opt-out lever covers
+ * all four channels") disables the signature entirely — checked BEFORE the
+ * identity lookup, so opting out costs no extra `gh api user` call either.
+ * Channel 2's identity-law disclosure is a separate, non-optional doctrine
+ * (CONTRIBUTOR-STANDING.md) folded into the same footer text and is left
+ * alone; this lever only ever covers the credit portion.
  */
 
 import type { CliExec, CliRun } from '../connection/cli-probe.js';
 
 /** Canonical repo the signature and every credit line points at. */
 export const AUTOPILOT_REPO_URL = 'https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT';
+
+/** False only when the operator has explicitly opted out via
+ *  `AUTOPILOT_ATTRIBUTION=off` — every other value, including unset, keeps
+ *  attribution on (ATTRIBUTION.md: "respected credit spreads, forced credit
+ *  sours" — on by default). */
+function attributionEnabled(): boolean {
+  return process.env['AUTOPILOT_ATTRIBUTION'] !== 'off';
+}
 
 /** The compact signature ATTRIBUTION.md §3 prescribes for a conversational
  *  post — a comment or a review, once per message. */
@@ -102,6 +117,7 @@ export function withAttribution(exec: CliExec, options: AttributionOptions = {})
   return async (bin: string, args: readonly string[]): Promise<CliRun> => {
     const post = parseConversationPost(bin, args);
     if (!post) return exec(bin, args);
+    if (!attributionEnabled()) return exec(bin, args);
     if (post.body.includes('— ✈️')) return exec(bin, args);
 
     const operatorHandle = await resolveOperatorHandle(exec);

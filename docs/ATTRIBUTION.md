@@ -88,6 +88,17 @@ than guessing — a wrong signature is a rights problem, not a default.
   (`AUTOPILOT_ATTRIBUTION=off`) — respected credit spreads, forced
   credit sours.
 
+  **Wired for channel 3 (2026-09-09):** `flight/attribution.ts`'s
+  `withAttribution()` checks the env var before the identity lookup and
+  posts unsigned when it is `off` — no extra `gh api user` call spent on a
+  signature that will not be added. Channels 1 and 4 have no shipped
+  implementation yet to gate. Channel 2's `identityDisclosure()` folds the
+  credit line into the SAME footer text as the identity law's own mandatory
+  self-disclosure (CONTRIBUTOR-STANDING.md, non-optional) — the lever
+  cannot switch off one half of a single fused string without also
+  suppressing the identity law, so it is deliberately left unwired there
+  until that footer is split back into two independently-gateable lines.
+
 ## Wiring map (for the fleet)
 
 Every `gh` argv that posts text runs through one shared

@@ -10,7 +10,7 @@
  * flood guard to.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   withAttribution,
   parseConversationPost,
@@ -129,6 +129,36 @@ describe('withAttribution — signs every conversational post it recognizes', ()
     const post = calls.find((c) => c[1] === 'issue' && c[2] === 'comment');
     expect(bodyOf(post)).toBe('Fixed, take a look.');
     expect(notes[0]).toContain('unresolved');
+  });
+});
+
+describe('AUTOPILOT_ATTRIBUTION=off — the doc’s one opt-out lever', () => {
+  const original = process.env['AUTOPILOT_ATTRIBUTION'];
+
+  afterEach(() => {
+    if (original === undefined) delete process.env['AUTOPILOT_ATTRIBUTION'];
+    else process.env['AUTOPILOT_ATTRIBUTION'] = original;
+  });
+
+  it('posts unsigned and skips the identity lookup entirely when set to off', async () => {
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'off';
+    const calls: string[][] = [];
+    const exec = withAttribution(fakeExec('gabibi555', calls));
+
+    await exec('gh', ['issue', 'comment', '16', '--body', 'Fixed, take a look.']);
+
+    expect(calls).toEqual([['gh', 'issue', 'comment', '16', '--body', 'Fixed, take a look.']]);
+  });
+
+  it('keeps signing for any other value, including unset', async () => {
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'on';
+    const calls: string[][] = [];
+    const exec = withAttribution(fakeExec('gabibi555', calls));
+
+    await exec('gh', ['issue', 'comment', '16', '--body', 'Fixed, take a look.']);
+
+    const post = calls.find((c) => c[1] === 'issue' && c[2] === 'comment');
+    expect(bodyOf(post)).toBe(`Fixed, take a look.\n\n${conversationSignature('gabibi555')}`);
   });
 });
 
