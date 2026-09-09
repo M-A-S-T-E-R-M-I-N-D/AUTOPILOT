@@ -263,6 +263,15 @@ const BENIGN_ADAPTERS = new Set(['index.ts', 'clock.ts', 'pacer.ts', 'merge-conf
  *  entry here either — they're already caught by the broad `guard`/`auth`/
  *  `containment` substring markers above. */
 const BENIGN_ENGINE_SRC = new Set([
+  // models.ts: a PURE descriptive catalogue of model ids/labels/notes plus
+  // three total functions over strings — no I/O, no process, no decision
+  // surface. It deliberately never gates: an id absent from it is passed
+  // to the CLI unchanged (docs/MODELS.md, "the catalogue describes, it
+  // never restricts"), so editing it cannot deny a capability, only change
+  // what a picker OFFERS. The grant that actually bounds an agent stays in
+  // config.ts's tool-grant constants, which the threat-model table renders
+  // and `flight/pr-review.ts` flags.
+  'models.ts',
   // usage-pool.ts: PURE list-price parser over caller-supplied strings — no
   // filesystem, no process, no decision surface; its impure sibling
   // (adapters/usage-pool-scan.ts, which READS the operator's private

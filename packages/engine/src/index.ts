@@ -3,6 +3,7 @@
 
 export * from './info.js';
 export * from './config.js';
+export * from './models.js';
 export * from './auth.js';
 export * from './prompt.js';
 export * from './prompt-position-audit.js';

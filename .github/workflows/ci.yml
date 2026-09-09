@@ -224,3 +224,13 @@ jobs:
       # `-s ours` discard nothing in the repo could see until 2026-09-09.
       - name: Check no merge discarded a parent's work
         run: pnpm run ci:merge-integrity
+
+      # Informational by design: reports when the CLI advertises a model
+      # family the catalogue does not offer yet. Deliberately NOT --strict —
+      # a model launch must never turn into a red build here, and an
+      # uncatalogued model still flies (docs/MODELS.md). CI has no `claude`
+      # on PATH, so this prints its SKIPPED line there and does the real
+      # work on an operator's machine; it is wired here so the reminder
+      # lives in the same place as every other freshness check.
+      - name: Report model-catalogue freshness (informational)
+        run: pnpm run ci:model-freshness
