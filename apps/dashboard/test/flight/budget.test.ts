@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
-import { totalBudgetExhausted, cliTimeoutMsFromEnv } from '../../src/flight/budget.js';
+import {
+  totalBudgetExhausted,
+  cliTimeoutMsFromEnv,
+  fleetGateSlotsFromEnv,
+} from '../../src/flight/budget.js';
 
 describe('totalBudgetExhausted', () => {
   it('never stops fixed-firings mode (no total target set)', () => {
@@ -41,5 +45,19 @@ describe('cliTimeoutMsFromEnv (THIRD CAP, wall-clock — operator/launcher tunab
     expect(cliTimeoutMsFromEnv({ AUTOPILOT_CLI_TIMEOUT_MS: 'forever' })).toBeUndefined();
     expect(cliTimeoutMsFromEnv({ AUTOPILOT_CLI_TIMEOUT_MS: '0' })).toBeUndefined();
     expect(cliTimeoutMsFromEnv({ AUTOPILOT_CLI_TIMEOUT_MS: '-5' })).toBeUndefined();
+  });
+});
+
+describe('fleetGateSlotsFromEnv (OPERATOR-MACHINE MERCY 2 — cross-lane gate semaphore)', () => {
+  it('parses a positive integer slot count', () => {
+    expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: '4' })).toBe(4);
+  });
+
+  it('falls back to the calibrated default (2) when unset, blank, non-numeric, or non-positive', () => {
+    expect(fleetGateSlotsFromEnv({})).toBe(2);
+    expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: '' })).toBe(2);
+    expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: 'many' })).toBe(2);
+    expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: '0' })).toBe(2);
+    expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: '-3' })).toBe(2);
   });
 });

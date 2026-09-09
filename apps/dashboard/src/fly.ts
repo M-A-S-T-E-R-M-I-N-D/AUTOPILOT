@@ -58,6 +58,7 @@ import {
   buildFlightSettings,
   guardHookScriptPath,
   FileInstanceLock,
+  FileGateSemaphore,
   CliDescendantRegistry,
   reapCliDescendants,
   SqlitePacer,
@@ -97,7 +98,12 @@ import { readConnectionConfig } from './connection/config.js';
 import { taskEconomicsFromRows } from './flight/triage-factors.js';
 import { runBoardTriage } from './flight/board-triage.js';
 import { triageInboxEntries } from './flight/inbox-triage.js';
-import { totalBudgetExhausted, FLY_MAX_TURNS, cliTimeoutMsFromEnv } from './flight/budget.js';
+import {
+  totalBudgetExhausted,
+  FLY_MAX_TURNS,
+  cliTimeoutMsFromEnv,
+  fleetGateSlotsFromEnv,
+} from './flight/budget.js';
 import { subscriptionPriceUsdFromEnv, usagePoolDirsFromEnv } from './flight/usage-pool-config.js';
 import { verdictDeferTargetsForFiring } from './flight/completion.js';
 import {
@@ -220,6 +226,20 @@ async function main(): Promise<void> {
 
   const dbPath = resolveDbPath();
   mkdirSync(dirname(dbPath), { recursive: true });
+
+  // OPERATOR-MACHINE MERCY 2 (board web-mtsvchak-kecyjk, `docs/FAILURE-
+  // DOCTRINE.md` row 16): mercy 1 caps how many vitest workers EACH lane
+  // uses, but N lanes each capped can still all start their heavy gate step
+  // (typecheck/vitest/build) in the same instant — the actual multi-lane CPU
+  // spike (88-100%) that starved the operator's dashboard. A shared-slot
+  // semaphore across the store's directory (every FLEET lane targeting the
+  // same project family writes its lock files there — see `engineLockFileName`
+  // above) caps how many lanes may run one AT ONCE, queueing the rest. Solo
+  // flights (no instanceId) skip it entirely — same "never capped, they have
+  // the machine to themselves" carve-out mercy 1 already makes.
+  const gateSemaphore = instanceId
+    ? new FileGateSemaphore({ dir: dirname(dbPath), slots: fleetGateSlotsFromEnv(process.env) })
+    : undefined;
 
   // Per-project single-instance guard: FlightRunner already refuses a second
   // flight in-memory (apps/dashboard/src/flight/runner.ts), but that only
@@ -575,6 +595,7 @@ async function main(): Promise<void> {
         return new GateRunner({
           cwd: target,
           commands: [{ bin: typecheck.bin, args: [...typecheck.args], label: typecheck.label }],
+          ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
         }).run();
       },
     };
@@ -592,6 +613,7 @@ async function main(): Promise<void> {
           // (`ciExtras`) too — the one point where cadence pressure doesn't
           // apply (see the FULL gate comment above).
           commands: gateCommands(fullGateSpec(result.gate.spec), { includeCiExtras: true }),
+          ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
         }).run(),
     };
     if (fleetTaskScope !== null) {
@@ -827,6 +849,7 @@ async function main(): Promise<void> {
     const innerGate = new DynamicGate({
       cwd: flightRoot,
       commands: () => gateCommands(buildGateSpec()),
+      ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
     });
     const formatFix = deriveFormatFixCommand(result.gate.spec.format);
     const gate = formatFix

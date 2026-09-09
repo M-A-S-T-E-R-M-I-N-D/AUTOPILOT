@@ -1088,6 +1088,14 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'engine/src/adapters/store.ts',
   'engine/src/adapters/fs-control.ts',
   'engine/src/adapters/instance-lock.ts',
+  // OPERATOR-MACHINE MERCY 2's cross-lane gate semaphore — the same
+  // lockfile-mutex class as instance-lock.ts just above (atomic `wx` create,
+  // stale-pid reclaim), generalized to N numbered slots. A PR that weakened
+  // its staleness check, or made `acquire()` fail closed instead of the
+  // documented FAIL OPEN past `maxWaitMs`, would defeat the machine-mercy
+  // scheduling guard (or reintroduce the multi-lane starvation it exists to
+  // prevent) with no "guard"/"auth"/"security"-style keyword in its path.
+  'engine/src/adapters/gate-semaphore.ts',
   'engine/src/adapters/sibling-commit-scan.ts',
   'engine/src/github-sync.ts',
   // Decides the exact `gh issue create` argv the dashboard executes against

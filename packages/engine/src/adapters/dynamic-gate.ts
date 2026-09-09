@@ -14,6 +14,7 @@
 
 import type { GatePort, GateResult } from '../ports.js';
 import { GateRunner, type GateCommandSpec, type GateExec } from './gate.js';
+import type { GateSemaphorePort } from './gate-semaphore.js';
 
 export interface DynamicGateOptions {
   readonly cwd: string;
@@ -22,6 +23,9 @@ export interface DynamicGateOptions {
   readonly timeoutMs?: number;
   /** Test seam: forwarded to the fresh GateRunner built for each run(). */
   readonly exec?: GateExec;
+  /** Cross-lane gate semaphore (mercy 2) — forwarded to the fresh GateRunner
+   *  built for each run(), same as `exec`. */
+  readonly semaphore?: GateSemaphorePort;
 }
 
 export class DynamicGate implements GatePort {
@@ -33,6 +37,7 @@ export class DynamicGate implements GatePort {
       commands: this.opts.commands(),
       ...(this.opts.timeoutMs !== undefined ? { timeoutMs: this.opts.timeoutMs } : {}),
       ...(this.opts.exec !== undefined ? { exec: this.opts.exec } : {}),
+      ...(this.opts.semaphore !== undefined ? { semaphore: this.opts.semaphore } : {}),
     }).run();
   }
 }
