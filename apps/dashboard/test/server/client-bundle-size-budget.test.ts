@@ -179,7 +179,13 @@ const CHUNK_RAW_BUDGET = 116 * 1024;
 // click handlers — which brought RAW back under 112KB on its own. Gzip
 // measured 35068B against 34816B; the residue is unique prose that gzip
 // cannot compress away. Core budgets untouched.
-const CHUNK_GZIP_BUDGET = 35 * 1024;
+// gzip-only 35→36KB (2026-09-09), CONTRIBUTOR JOURNEY (board web-mtt3hery-
+// l8v0lf): the contributor-standing panel client — a deferred-chunk feature
+// module (chunks.ts's DEFERRED_OPERATOR_FEATURES), same shape publicity.ts/
+// tour.ts already establish — added ~95B gzip on top of the EPIC 0020
+// baseline. Panels.js raw stays well under CHUNK_RAW_BUDGET (117709B against
+// 118784B); this is a gzip-only bump. Core budgets untouched.
+const CHUNK_GZIP_BUDGET = 36 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([
