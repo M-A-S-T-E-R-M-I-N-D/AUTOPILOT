@@ -88,3 +88,13 @@ path = ["samples/static-site/**/*.html", "samples/static-site/**/*.css"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Generated SEO surfaces for the docs site (scripts/docs/…): a robots.txt
+# carries no comment syntax REUSE recognises and a sitemap's XML comment
+# would be regenerated away on the next build, so both are annotated here
+# instead of header-tagged at the file.
+[[annotations]]
+path = ["docs/robots.txt", "docs/sitemap.xml"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 1337 · REL AZEUS · MΔSTERMIND"
+SPDX-License-Identifier = "Apache-2.0"

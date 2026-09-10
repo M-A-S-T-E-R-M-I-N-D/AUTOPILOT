@@ -37,11 +37,11 @@ export default {
     'signed-off-by': [2, 'always', 'Signed-off-by:'],
     // NO OPERATOR-ENVIRONMENT DETAIL IN A PUBLIC LOG (operator, 2026-09-10).
     //
-    // Three commits shipped with "after the 13:06 power loss" in the SUBJECT.
-    // That published, permanently and publicly, the exact time the
-    // maintainer's own machine went down — private infrastructure state with
-    // no engineering value to any reader, in a log that describes the
-    // session rather than the change.
+    // Commit subjects once carried operator-environment detail — a wall-clock
+    // time and the state of the maintainer's own hardware. A public log is
+    // the wrong home for either: they are private infrastructure facts with
+    // no engineering value to a reader, in a place that should describe the
+    // change rather than the session.
     //
     // It is the same failure as the ritual's internal monologue on PR #33
     // (FAILURE-DOCTRINE rows 19-20), relocated from GitHub comments into
@@ -62,10 +62,10 @@ export default {
         'subject-no-operator-environment': ({ subject }) => {
           if (!subject) return [true];
           const patterns = [
-            /\d{1,2}:\d{2}/, // a wall-clock time
+            /\b\d{1,2}:\d{2}\b/, // a wall-clock time
             /power (loss|cut|outage|failure)/i,
-            /my (machine|computer|laptop|desktop|box)/i,
-            /the operator's (machine|computer|laptop|box)/i,
+            /\bmy (machine|computer|laptop|desktop|box)\b/i,
+            /\bthe operator's (machine|computer|laptop|box)\b/i,
           ];
           const hit = patterns.find((re) => re.test(subject));
           return [
