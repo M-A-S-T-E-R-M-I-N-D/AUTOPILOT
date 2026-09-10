@@ -55,8 +55,12 @@ import { gzipSync } from 'node:zlib';
 // from panels and project. Combined across the three chunks measured
 // 364.6KB both before and after — identical. What actually shrank is the
 // network: one identity read per page load instead of three.
-const CORE_RAW_BUDGET = 187 * 1024;
+const CORE_RAW_BUDGET = 188 * 1024;
 const CORE_GZIP_BUDGET = 56 * 1024;
+// board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
+// toolkit's i18n slice (same board) — see the matching comment in
+// apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
+// measured sizes behind each bump.
 // Deferred chunks never block first paint — the budget exists so they cannot
 // silently become a second monolith. Measured at introduction (2026-08-28):
 // project ~44KB, panels ~19KB raw.

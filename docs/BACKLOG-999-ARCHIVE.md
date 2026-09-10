@@ -47,3 +47,20 @@ so the "no claims without a paper trail" standard
   via the path signal (`apps/dashboard/test/read/reconcile.test.ts`, the fixture immediately after the one above).
   `apps/dashboard/src/fly.ts`'s end-of-flight block now passes `commit.files` through for real, so the fix applies
   to live flights, not just the test fixture.
+<<<<<<< HEAD
+=======
+
+## §K — Dashboard browser tsconfig lib/jsdom split (moved 2026-09-10)
+
+- [x] `apps/dashboard` browser tsconfig — `lib`/jsdom half (M3 prep): give the app its own `compilerOptions.lib`
+  (incl. `DOM`) and a jsdom Vitest environment instead of the Node base. Done — this added the jsdom
+  `environmentMatchGlobs` env; this item's `lib` half needed splitting the single flat `tsconfig.typecheck.json`
+  into per-package configs first (`lib` is program-wide, not per-directory), landed by splitting it into
+  `packages/*/tsconfig.typecheck.json` + `apps/dashboard/tsconfig.typecheck.json` (each `extends` that package's
+  own build `tsconfig.json`, chained in the root `typecheck` script since composite project references can't
+  combine with `--noEmit` — TS6310, confirmed empirically). `apps/dashboard/tsconfig.typecheck.json` now sets
+  `"lib": ["ES2022", "DOM"]` for real (`src/web/shell.ts` uses `document`/`window` directly), scoped to that
+  package alone — Node-only packages no longer see DOM globals leak in from the old flat program. Removed the
+  now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
+  N/A — no React/Vite UI yet; add it if/when that lands.
+>>>>>>> autopilot/flight-worktree-fly-autopilot--fleet-5

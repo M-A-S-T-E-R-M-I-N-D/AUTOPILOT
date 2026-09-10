@@ -21,6 +21,7 @@ import {
   prReviewExecuteResult,
   prReviewExecuteTip,
   prReviewGuestNote,
+  awaitingApprovalChecksUrl,
 } from '../../../src/web/pr-review-panel.js';
 import { decisionItemHeadMeta } from '../../../src/web/decision-item.js';
 import { prReviewJs } from '../../../src/web/features/pr-review.js';
@@ -68,6 +69,30 @@ describe('prReviewJs', () => {
     );
     expect(out).toContain(
       'var label = prReviewDecisionLabel(plan.decision.decision, tr, awaitingApproval);',
+    );
+  });
+
+  it("embeds awaitingApprovalChecksUrl and links an awaiting-approval card to GitHub's own approve control (board web-mto1tya3-57v8ig)", () => {
+    const out = prReviewJs();
+    expect(out).toContain(awaitingApprovalChecksUrl.toString());
+    expect(out).toContain('var approveChecksUrl = awaitingApprovalChecksUrl(plan.pr.url);');
+    expect(out).toContain('if (awaitingApproval && approveChecksUrl) {');
+    expect(out).toContain(
+      "var approveLink = el('a', 'pr-review-approve-link', '🔓 Review & approve on GitHub');",
+    );
+    expect(out).toContain("approveLink.setAttribute('href', approveChecksUrl);");
+    expect(out).toContain("approveLink.setAttribute('target', '_blank');");
+    expect(out).toContain("approveLink.setAttribute('rel', 'noopener noreferrer');");
+    // Accessible name: the tooltip doubles as the aria-label, the same
+    // data-tip/aria-label pairing every other card control carries.
+    expect(out).toContain("approveLink.setAttribute('data-tip', approveLinkTip);");
+    expect(out).toContain("approveLink.setAttribute('aria-label', approveLinkTip);");
+    expect(out).toContain('actions.appendChild(approveLink);');
+    // Ordering: the approve link lands BEFORE the maintainer merge button —
+    // nothing can merge until the blocked run is approved, so the one
+    // actionable next step reads first in the row.
+    expect(out.indexOf('actions.appendChild(approveLink);')).toBeLessThan(
+      out.indexOf("actions.appendChild(prPanelButton('pr-review-human-merge'"),
     );
   });
 

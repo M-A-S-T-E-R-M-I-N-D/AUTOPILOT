@@ -162,9 +162,10 @@ export interface PrReviewDecisionLike {
  *  "needs your approval to even run CI" read the same otherwise, and a
  *  maintainer scanning the panel can't tell them apart without opening each
  *  tooltip. Deliberately display-only: the human still runs the `gh api
- *  .../approve` command by hand (named in the reasoning text) — wiring this
- *  to an auto-execute button would defeat the point of gating an untrusted
- *  fork's CI run behind manual approval. */
+ *  .../approve` command by hand (named in the reasoning text), or clicks
+ *  {@link awaitingApprovalChecksUrl}'s link to GitHub's own "Approve and
+ *  run" button — wiring this to an auto-execute button would defeat the
+ *  point of gating an untrusted fork's CI run behind manual approval. */
 export function prReviewDecisionLabel(
   decision: string,
   tr: PrReviewPanelTranslator,
@@ -178,6 +179,21 @@ export function prReviewDecisionLabel(
       : '🟣 ' + tr('prReviewQueueForHumanLabel');
   }
   return decision;
+}
+
+/** The GitHub "Checks" tab URL for a PR whose head is awaiting an
+ *  `action_required` approval (board web-mto1tya3-57v8ig) — the native page
+ *  where GitHub's own "Approve and run" button lives, no `gh` CLI needed.
+ *  Derived from the PR's own `url` (`.../pull/{number}`) rather than a
+ *  fresh API field: GitHub's PR page and its Checks tab share the same base
+ *  path, so `{prUrl}/checks` is exact — one fewer round trip than resolving
+ *  each blocked run's own `html_url`. A link, not an auto-execute button:
+ *  the maintainer still clicks GitHub's own approve control, same stance as
+ *  the reasoning text's `gh api .../approve` command. Absent when the
+ *  candidate carries no `url` at all (a malformed `gh pr list` row) — no
+ *  link is safer than a guessed one. */
+export function awaitingApprovalChecksUrl(prUrl: string | undefined): string | undefined {
+  return prUrl ? prUrl + '/checks' : undefined;
 }
 
 /** The KEEPER REVIEW EXECUTE button's `window.confirm()` message for one

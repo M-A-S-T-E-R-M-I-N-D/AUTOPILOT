@@ -629,6 +629,16 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-review-human-merge { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-needs-you); background: transparent; color: var(--color-needs-you); }
 .pr-review-human-merge:hover:not(:disabled), .pr-review-human-merge:focus-visible:not(:disabled) { background: color-mix(in oklab, var(--color-needs-you) 14%, transparent); }
 .pr-review-human-merge:disabled { opacity: 0.5; cursor: default; }
+/* The awaiting-approval card's "Review & approve on GitHub" link (board
+   web-mto1tya3-57v8ig): a real <a> to the PR's Checks tab, sitting in the
+   same actions row as the maintainer buttons, so it wears the human-merge
+   button's exact needs-you outline shell — text-decoration off and
+   inline-flex so the anchor sizes like its button siblings. Hover and
+   focus-visible pair on one line (hover-focus-visible-pairing.test.ts), the
+   body byte-identical to .pr-review-human-merge's so the twins cannot
+   drift (pr-review-approve-link-designed-states.test.ts). */
+.pr-review-approve-link { display: inline-flex; align-items: center; font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-needs-you); background: transparent; color: var(--color-needs-you); text-decoration: none; }
+.pr-review-approve-link:hover, .pr-review-approve-link:focus-visible { background: color-mix(in oklab, var(--color-needs-you) 14%, transparent); }
 .pr-review-update-branch { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); }
 .pr-review-update-branch:hover, .pr-review-update-branch:focus-visible { border-color: currentColor; color: var(--color-text); }
 .pr-review-update-branch:disabled { opacity: 0.5; cursor: default; }

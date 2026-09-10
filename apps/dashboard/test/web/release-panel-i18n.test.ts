@@ -244,3 +244,91 @@ describe('"🚀 Next release" panel i18n (board web-msnsndki-dz3vn1)', () => {
     expect(bodyText()).toBe(STRINGS.he.releaseUnavailable);
   });
 });
+
+describe('RELEASE EXECUTE button i18n (board web-msnsndki-dz3vn1)', () => {
+  beforeEach(() => localStorage.removeItem('ap-locale'));
+  afterEach(() => vi.restoreAllMocks());
+
+  /** Boots the panel with a planned release AND a mocked /api/release/execute,
+   *  so the EXECUTE button's click handler (not just its initial render) can
+   *  be driven — the plain `boot()` above only mocks GET /api/release. */
+  function bootExecuteReady(succeed: boolean): void {
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/release/execute') {
+        if (!succeed) return Promise.reject(new Error('network down'));
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            reason: 'released',
+            details: 'released v1.3.0 (minor)',
+            version: '1.3.0',
+            bump: 'minor',
+          }),
+        } as unknown as Response);
+      }
+      if (url.includes('/api/release')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ release: RELEASE_BY_MODE.plan }),
+        } as unknown as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => STATE } as unknown as Response);
+    }) as unknown as typeof fetch;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    new Function(clientJs())();
+  }
+
+  it('renders the EXECUTE button label with the planned version by default', async () => {
+    boot('plan');
+    await settle();
+
+    const button = document.querySelector('[data-release-execute]') as HTMLButtonElement;
+    expect(button.textContent).toBe('🚀 Cut release v1.3.0');
+  });
+
+  it('renders the EXECUTE button label in Hebrew when the panel builds after a language switch', async () => {
+    boot('pending');
+    await settle();
+    switchToHebrew();
+
+    boot('plan');
+    await settle();
+
+    const button = document.querySelector('[data-release-execute]') as HTMLButtonElement;
+    expect(button.textContent).toBe(
+      STRINGS.he.releaseExecuteTemplate.replace('{version}', '1.3.0'),
+    );
+  });
+
+  it('shows the in-flight "Releasing…" label in Hebrew immediately on click under a Hebrew locale', async () => {
+    bootExecuteReady(true);
+    await settle();
+    switchToHebrew();
+
+    const button = document.querySelector('[data-release-execute]') as HTMLButtonElement;
+    button.click();
+
+    expect(button.textContent).toBe(STRINGS.he.releaseExecuting);
+  });
+
+  it('shows the network-failure fallback in Hebrew when Hebrew is active', async () => {
+    bootExecuteReady(false);
+    await settle();
+    switchToHebrew();
+
+    const button = document.querySelector('[data-release-execute]') as HTMLButtonElement;
+    button.click();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.release-result')?.textContent).toBe(
+        STRINGS.he.releaseRequestFailed,
+      );
+    });
+  });
+});
