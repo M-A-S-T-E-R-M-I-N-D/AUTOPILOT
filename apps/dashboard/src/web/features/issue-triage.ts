@@ -149,6 +149,23 @@ function renderIssueTriageBody(body, plans, pid, identity) {
     head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass));
     item.appendChild(head);
     item.appendChild(el('p', 'issue-triage-issue-title', plan.issue.title));
+    // Real GitHub labels, rendered as chips (epic 0020 "the legible surface"
+    // slice 3, board web-mtt8loci-8hnte4, "labels render as real chips") — gh
+    // already reports each open issue's label names (flight/issue-triage.ts's
+    // IncomingIssue.labels) and they reached this far only to be discarded;
+    // the same "if we fetched it, we can show it" principle the issue-number
+    // link above already applies. No color data comes back from gh's labels
+    // field, so every chip renders in the shared neutral chip style rather
+    // than fabricating a color the API never reported.
+    if (plan.issue.labels && plan.issue.labels.length) {
+      var labelsRow = el('div', 'issue-triage-labels');
+      for (var li = 0; li < plan.issue.labels.length; li++) {
+        var labelName = plan.issue.labels[li];
+        var labelTip = 'GitHub label: ' + labelName;
+        labelsRow.appendChild(tipChip(labelName, labelTip, labelTip, 'issue-triage-label-chip'));
+      }
+      item.appendChild(labelsRow);
+    }
     list.appendChild(item);
   }
   body.appendChild(list);
