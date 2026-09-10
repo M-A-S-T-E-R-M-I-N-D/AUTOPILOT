@@ -6,11 +6,11 @@
 > document; analysis reads better with the raw values one click away.
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-10T09:27:36.632Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-10T09:44:22.997Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-10T09:27:36.632Z",
+  "generatedAt": "2026-09-10T09:44:22.997Z",
   "project": "autopilot",
   "perFiring": [
     {
@@ -5304,6 +5304,18 @@ _Generated 2026-09-10T09:27:36.632Z by `pnpm self-study:update` — the chart da
       "promptVersion": "firing-v13",
       "costUsd": 1.0326454000000003,
       "turns": 33
+    },
+    {
+      "firingId": "fly-autopilot--fleet-3:firing-446",
+      "day": "2026-09-10",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v13",
+      "costUsd": 0,
+      "turns": 167
     }
   ],
   "perDay": [
@@ -5365,11 +5377,11 @@ _Generated 2026-09-10T09:27:36.632Z by `pnpm self-study:update` — the chart da
     },
     {
       "day": "2026-09-10",
-      "firings": 38,
+      "firings": 39,
       "shipped": 24,
       "costUsd": 52.8577,
-      "turns": 2062,
-      "rollingShipRate": 0.4974
+      "turns": 2229,
+      "rollingShipRate": 0.4948
     }
   ],
   "perEra": [
@@ -5384,9 +5396,9 @@ _Generated 2026-09-10T09:27:36.632Z by `pnpm self-study:update` — the chart da
     },
     {
       "promptVersion": "firing-v13",
-      "firings": 115,
+      "firings": 116,
       "shipped": 68,
-      "passRate": 0.5913,
+      "passRate": 0.5862,
       "medianTurns": 52,
       "costVariance": 1.1706333330642047,
       "costPerSolved": 2.637519797794118
@@ -5491,7 +5503,7 @@ _Generated 2026-09-10T09:27:36.632Z by `pnpm self-study:update` — the chart da
     },
     {
       "bucketStart": 160,
-      "firings": 2,
+      "firings": 3,
       "shipped": 0,
       "bucketLabel": "160-169"
     },
