@@ -86,6 +86,7 @@ import {
 } from '../flight/issue-triage-execute.js';
 import {
   createMirrorPassPreviewApi,
+  createMirrorPassExecuteApi,
   createMirrorPassLandingNotePreviewApi,
   createMirrorPassDriftPreviewApi,
   createMirrorPassStaleClaimPreviewApi,
@@ -592,9 +593,13 @@ const server = createServer({
   issueTriage: createIssueTriagePreviewApi(dbPath),
   issueTriageExecute: createIssueTriageExecuteApi(dbPath),
   // MIRROR PASS reconcile preview (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slice
-  // (a)): read-only, derivation 1/4 — the mutating execute path is a
-  // separate follow-up slice.
+  // (a)): read-only, derivation 1/4.
   mirrorPass: createMirrorPassPreviewApi(dbPath),
+  // MIRROR PASS reconcile execute (VERDICT ap-mtsg3nc0-3 slice (b),
+  // derivation 1/4 only): the mutating counterpart to the preview above —
+  // the other three derivations' execute paths are their own follow-up
+  // slices.
+  mirrorPassExecute: createMirrorPassExecuteApi(dbPath),
   // MIRROR PASS landing-note preview: read-only, derivation 2/4 — "landed
   // commits get landed-in comments" for a task whose issue closed some
   // other way.

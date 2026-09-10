@@ -126,7 +126,10 @@ import type {
   MirrorPassLandingNotePlan,
   MirrorPassStaleClaimPlan,
 } from '../flight/mirror-pass.js';
-import type { MirrorPassDriftPlan } from '../flight/mirror-pass-execute.js';
+import type {
+  MirrorPassDriftPlan,
+  MirrorPassExecuteReport,
+} from '../flight/mirror-pass-execute.js';
 import type {
   HumanMergeResult,
   UpdateBranchResult,
@@ -190,6 +193,8 @@ const PR_REVIEW_RATE_WINDOW_MS = 60_000;
 // task creation per request, not just a read.
 const ISSUE_TRIAGE_RATE_LIMIT = 5;
 const ISSUE_TRIAGE_RATE_WINDOW_MS = 60_000;
+const MIRROR_PASS_EXECUTE_RATE_LIMIT = 5;
+const MIRROR_PASS_EXECUTE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/report-from-here/execute — same heavier-than-a-quota-spend
 // reasoning as ISSUE_TRIAGE's limiter: a real `gh issue create` call or board
 // task creation per request, not just a read. The preview endpoint stays
@@ -481,6 +486,14 @@ export type IssueTriageExecuteApi = (projectId: string) => Promise<IssueTriageRi
  *  `createMirrorPassPreviewApi`. `null` means an unknown project id. */
 export type MirrorPassPreviewApi = (projectId: string) => Promise<readonly MirrorPassPlan[] | null>;
 
+/** MIRROR PASS reconcile EXECUTE (injected; the mutating counterpart to
+ *  {@link MirrorPassPreviewApi} — role-gated, resolves the acting identity
+ *  first and sends zero `gh` mutations unless it is this repo's own
+ *  maintainer) — derivation 1/4's execute path, VERDICT `ap-mtsg3nc0-3`
+ *  slice (b) — see `flight/mirror-pass-execute.ts`'s
+ *  `createMirrorPassExecuteApi`. `null` means an unknown project id. */
+export type MirrorPassExecuteApi = (projectId: string) => Promise<MirrorPassExecuteReport | null>;
+
 /** MIRROR PASS landing-note preview (injected; reads only, shells to `gh
  *  issue view` on demand) — derivation 2/4 of EPIC 0019 S3 (board
  *  `web-mtrh1hlh-62l41b`), "landed commits get landed-in comments" — see
@@ -634,9 +647,13 @@ export interface ServerDeps extends RouteDeps {
   readonly issueTriageExecute?: IssueTriageExecuteApi;
   /** MIRROR PASS reconcile preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
    *  VERDICT `ap-mtsg3nc0-3` slice (a)) — read-only, behind `GET
-   *  /api/mirror-pass`. The mutating execute counterpart is a separate
-   *  slice per the VERDICT, not wired here. */
+   *  /api/mirror-pass`. */
   readonly mirrorPass?: MirrorPassPreviewApi;
+  /** MIRROR PASS reconcile EXECUTE (VERDICT `ap-mtsg3nc0-3` slice (b),
+   *  derivation 1/4 only) — the mutating counterpart to `mirrorPass` above,
+   *  behind `POST /api/mirror-pass/execute`. The other three derivations'
+   *  execute paths remain their own follow-up slices, not wired here. */
+  readonly mirrorPassExecute?: MirrorPassExecuteApi;
   /** MIRROR PASS landing-note preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
    *  derivation 2/4) — read-only, behind `GET /api/mirror-pass/landing-note`.
    *  Same "mutating execute is a separate slice" stance as `mirrorPass` above. */
@@ -2338,6 +2355,74 @@ async function handleMirrorPass(
 }
 
 /**
+ * The MIRROR PASS reconcile EXECUTE endpoint (`POST /api/mirror-pass/execute`,
+ * body `{project}`) — derivation 1/4's mutating counterpart to
+ * {@link handleMirrorPass}. State-changing — closes/reopens issues and posts
+ * comments via `gh` — so it is a CSRF-guarded JSON POST like every other
+ * write, and separately rate-limited (same heavier-than-a-quota-spend
+ * reasoning as {@link handleIssueTriageExecute}). Role gating happens inside
+ * the injected `api` itself (epic law 1, role honesty) — a non-maintainer
+ * identity still gets a 200 with `skippedReason` set, never a 403, since
+ * refusing to mutate is itself a valid, reportable outcome. 404 only for an
+ * unknown project or an unwired API.
+ */
+async function handleMirrorPassExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many mirror pass requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let project: string;
+  try {
+    project = String((JSON.parse(raw) as { project?: unknown }).project ?? '');
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    const result = await api(project);
+    if (!result) {
+      send(404, { error: 'unknown project' });
+      return;
+    }
+    send(200, result);
+  } catch (error) {
+    send(500, {
+      error: error instanceof Error ? error.message : 'mirror pass execute failed',
+    });
+  }
+}
+
+/**
  * The MIRROR PASS landing-note preview endpoint (`GET
  * /api/mirror-pass/landing-note?project=`) — derivation 2/4: a task whose
  * issue is already closed in sync with the board, but never got a comment
@@ -2946,6 +3031,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     ISSUE_TRIAGE_RATE_LIMIT,
     ISSUE_TRIAGE_RATE_WINDOW_MS,
   );
+  const mirrorPassExecuteLimiter = createRateLimiter(
+    MIRROR_PASS_EXECUTE_RATE_LIMIT,
+    MIRROR_PASS_EXECUTE_RATE_WINDOW_MS,
+  );
   const reportFromHereLimiter = createRateLimiter(
     REPORT_FROM_HERE_RATE_LIMIT,
     REPORT_FROM_HERE_RATE_WINDOW_MS,
@@ -3128,6 +3217,17 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass') {
       void handleMirrorPass(req, res, deps.mirrorPass, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/execute') {
+      void handleMirrorPassExecute(
+        req,
+        res,
+        deps.mirrorPassExecute,
+        headers,
+        mirrorPassExecuteLimiter,
+      );
       return;
     }
 
