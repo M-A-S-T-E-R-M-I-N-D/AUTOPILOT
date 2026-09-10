@@ -920,6 +920,13 @@ const EN_STRINGS = {
   flightGuardChipTip:
     'The containment/read-hygiene guard denied {n} tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
   flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
+  // The per-firing trace row's step-cost line (shell.ts's actRow(), rendered
+  // only in the reasoning drill-down — features/firing-timeline.ts). The tip
+  // is fixed text, swept as [data-i18n-tip]; the aria prefix wraps the live
+  // model/token text in {name}, painted via tr() and swept as
+  // [data-i18n-aria-template]/[data-i18n-name] on a locale switch.
+  actMetaTip: 'Model and token usage billed for this step',
+  actMetaAria: 'step cost: {name}',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The task board's notes and per-task decision buttons (shell.ts's
@@ -1830,6 +1837,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightGuardChipTip:
       'שומר ההכלה/היגיינת הקריאה דחה {n} קריאות כלים במהלך ההפעלה הזו — היא ניסתה לחרוג מהגבול שלה ונעצרה.',
     flightGuardChipAria: 'השומר חסם {n} קריאות כלים בהפעלה הזו (הכלה / היגיינת קריאה)',
+    actMetaTip: 'המודל וכמות הטוקנים שחויבו על הצעד הזה',
+    actMetaAria: 'עלות הצעד: {name}',
     liveProbableTask: 'כנראה עובדת על: {name}',
     liveProbableTaskTip:
       'ההערכה הטובה ביותר של AUTOPILOT למשימה שההפעלה הזו עובדת עליה, על סמך תור הלוח — לא קישור מאומת',
