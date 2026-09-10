@@ -6,6 +6,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-09-10
+
+### Added
+
+- feat(docs): indexable GitHub Pages landing page for AUTOPILOT
+- feat(issue-triage): render real GitHub labels as chips on the KEEPER panel
+- feat(issue-triage): reland the KEEPER issue-triage panel's issue number link
+- feat(issue-triage): the KEEPER issue-triage panel's issue number links out
+- feat(flight): contributor journey slice 1/4 — live gh issue list read
+- feat(discussions): pure reply-text draft, signed per ATTRIBUTION.md (web-mtlsiac0-v8rksh)
+- feat(flight): contributor journey slice 1/4 — pure good-first/help-wanted list core
+- feat(discussions): pure decision core + GraphQL read for KEEPER triage (web-mtlsiac0-v8rksh)
+- feat(discussions): pure decision core + GraphQL read for KEEPER triage (web-mtlsiac0-v8rksh)
+- feat(pr-review): awaiting-approval card links to GitHub's Approve-and-run (web-mto1tya3-57v8ig)
+- feat(i18n): the report-menu copy toolkit speaks Hebrew
+
+### Fixed
+
+- fix(test): clear the timers each bundle execution leaks between a11y tests
+- fix(e2e): give the flight-log gate a real-time budget of its own
+- fix(commitlint): the privacy guard now reads the whole message
+- fix(ci): green the lint gate and drop the specifics from the rule's own text
+- fix(commitlint): refuse operator-environment detail in a public subject
+- fix(gate): resync stale-branch format+budget reds, re-land ap-mtuks0jm-0 verdict
+- fix(census): triage contributor-issue-list files into BENIGN_WEB/BENIGN_WEB_FEATURES
+- fix(pipeline): key tree lanes by traceId, not compact-mode y-index (web-mtdc6wq3-5wuc6i)
+- fix(i18n): restore the release guest-note Hebrew wiring, land the actual format fix
+- fix(ci): dependency-audit fails closed on a real finding, quotes evidence (web-mtqumz0u-j39av4)
+
 ## [0.34.0] — 2026-09-10
 
 ### Added
