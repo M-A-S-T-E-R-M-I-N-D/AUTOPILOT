@@ -39,10 +39,12 @@
  * (b)'s third installment — derivation 4/4's mutating counterpart to
  * {@link createMirrorPassStaleClaimPreviewApi}, same role gate; derivation
  * 3/4's own execute path (which files a NEW issue rather than mutating an
- * existing one) remains its own follow-up slice. The `POST
- * /api/mirror-pass/execute` HTTP route and the dashboard panel that would
- * call any execute API are not wired here — VERDICT slice (b)'s HTTP half
- * and slice (c) remain their own slices.
+ * existing one) remains its own follow-up slice. All three wired execute
+ * APIs above (derivations 1/4, 2/4, 4/4) are reachable over HTTP —
+ * `server.ts`'s `POST /api/mirror-pass/execute`,
+ * `/mirror-pass/landing-note/execute`, and `/mirror-pass/stale-claims/execute`
+ * — but the dashboard panel that would call any of them is not wired here;
+ * VERDICT slice (c) remains its own slice.
  */
 
 import { join } from 'node:path';
