@@ -544,6 +544,10 @@
  * `{n}` riding `data-i18n-args`. The callsign/model chips built by
  * `liveWorkerHeadMeta` and the phase pill's `OFFICE_TIPS` tip stay English —
  * still a later slice.
+ * This slice closes the `pnpm i18n:untagged` finding on the contributor
+ * standing panel's landmark (`shell.ts`'s `<section id="contributor-standing-panel">`,
+ * a static server-rendered element like `#pool-client-panel`/`#publicity-panel`
+ * beside it): `contributorStandingPanel` tags its `aria-label` the same way.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -1077,6 +1081,7 @@ const EN_STRINGS = {
   githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
   publicityPanel: 'Publicity',
+  contributorStandingPanel: 'Contributor standing',
   pipelineView: 'Pipeline view',
   pipelineViewTitle: '🛠️ Pipeline view',
   pipelineLensLabel: 'Pipeline lens',
@@ -1872,6 +1877,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',
     publicityPanel: 'פרסום',
+    contributorStandingPanel: 'מעמד תורמים',
     pipelineView: 'תצוגת צנרת',
     pipelineViewTitle: '🛠️ תצוגת צנרת',
     pipelineLensLabel: 'מסנן הצנרת',
