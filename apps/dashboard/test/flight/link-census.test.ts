@@ -40,6 +40,13 @@ const NOT_YET_RENDERED = new Set<string>([
   // web-mtt3f7j6-3bj899, still queued): resolved by social-pass.ts but not
   // consumed by any web/features panel yet.
   'social-pass.ts',
+  // ContributorListEntry (CONTRIBUTOR JOURNEY slice 1/4, board
+  // web-mtt3hery-l8v0lf): this ships only the pure filter/rank core; the
+  // live `gh issue list --label` read and the web/features panel that
+  // renders this list are separate, later slices — too large to combine
+  // with the core in one firing (docs/debriefs/2026-09-10-verdict-
+  // ap-mttxbufs-0-contributor-journey-split-reconfirmed.md).
+  'contributor-issue-list.ts',
 ]);
 
 function flightSources(): readonly string[] {
