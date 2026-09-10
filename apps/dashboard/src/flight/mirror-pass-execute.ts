@@ -35,10 +35,14 @@
  * epic law 1 ("role honesty first"). {@link createMirrorPassLandingNoteExecuteApi}
  * is slice (b)'s second installment — derivation 2/4's mutating counterpart
  * to {@link createMirrorPassLandingNotePreviewApi}, same role gate, same
- * per-derivation split. The `POST /api/mirror-pass/execute` HTTP route and
- * the dashboard panel that would call either execute API are not wired
- * here — VERDICT slice (b)'s HTTP half and slice (c) remain their own
- * slices.
+ * per-derivation split. {@link createMirrorPassStaleClaimExecuteApi} is slice
+ * (b)'s third installment — derivation 4/4's mutating counterpart to
+ * {@link createMirrorPassStaleClaimPreviewApi}, same role gate; derivation
+ * 3/4's own execute path (which files a NEW issue rather than mutating an
+ * existing one) remains its own follow-up slice. The `POST
+ * /api/mirror-pass/execute` HTTP route and the dashboard panel that would
+ * call any execute API are not wired here — VERDICT slice (b)'s HTTP half
+ * and slice (c) remain their own slices.
  */
 
 import { join } from 'node:path';
@@ -417,6 +421,86 @@ export function createMirrorPassStaleClaimPreviewApi(
         if (entry) activity.push(entry);
       }
       return planMirrorPassStaleClaimBatch(activity, now());
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** One reaped issue's real outcome after
+ *  {@link createMirrorPassStaleClaimExecuteApi} ran it — the {@link
+ *  MirrorPassStaleClaimPlan} {@link planMirrorPassStaleClaimBatch} reached,
+ *  paired with what `gh` actually reported for each of its commands. */
+export interface MirrorPassStaleClaimExecuteOutcome {
+  readonly plan: MirrorPassStaleClaimPlan;
+  readonly commandOutcomes: readonly MirrorPassCommandOutcome[];
+}
+
+/** The stale-claim EXECUTE ritual's full report — same shape as {@link
+ *  MirrorPassExecuteReport}, one derivation over. */
+export interface MirrorPassStaleClaimExecuteReport {
+  readonly identity: SocialIdentity | undefined;
+  readonly outcomes: readonly MirrorPassStaleClaimExecuteOutcome[];
+  readonly skippedReason?: MirrorPassExecuteSkipReason;
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassStaleClaimExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassStaleClaimExecuteReport | null>;
+
+/**
+ * Build the MIRROR PASS stale-claim EXECUTE api against the real store +
+ * real `gh` — derivation 4/4's mutating counterpart to
+ * {@link createMirrorPassStaleClaimPreviewApi} (EPIC 0019 S3, board
+ * `web-mtrh1hlh-62l41b`, VERDICT `ap-mtsg3nc0-3` slice (b), third
+ * installment — derivation 3/4's own execute path, which files a NEW issue
+ * rather than mutating an existing one, remains its own follow-up slice).
+ * Same role gate as {@link createMirrorPassExecuteApi} and
+ * {@link createMirrorPassLandingNoteExecuteApi}: resolves the acting
+ * identity first (epic law 1, "role honesty first") and returns a
+ * zero-mutation report the moment it is unresolved or not this repo's own
+ * maintainer — a guest identity never reaches a single `gh issue
+ * comment`/`issue edit --remove-assignee` call, and the pool list/activity
+ * reads never even run. Only a claimed pool issue {@link
+ * planMirrorPassStaleClaimBatch} actually finds a reap finding for (its
+ * assignee quiet past the threshold) gets its commands sent.
+ */
+export function createMirrorPassStaleClaimExecuteApi(
+  dbPath: string,
+  exec: CliExec = ghExec,
+  now: () => number = Date.now,
+): MirrorPassStaleClaimExecuteApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const identity = await resolveSocialIdentity(exec);
+      if (identity === undefined || identity.role !== 'maintainer') {
+        return {
+          identity,
+          outcomes: [],
+          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
+        };
+      }
+      const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      const activity: MirrorPassClaimedIssue[] = [];
+      for (const issue of claimedPoolIssues) {
+        const entry = await fetchClaimedIssueActivity(exec, issue.number);
+        if (entry) activity.push(entry);
+      }
+      const plans = planMirrorPassStaleClaimBatch(activity, now());
+      const outcomes: MirrorPassStaleClaimExecuteOutcome[] = [];
+      for (const plan of plans) {
+        if (plan.commands.length === 0) continue;
+        outcomes.push({
+          plan,
+          commandOutcomes: await applyMirrorPassCommands(exec, plan.commands),
+        });
+      }
+      return { identity, outcomes };
     } finally {
       store.close();
     }
