@@ -16,13 +16,16 @@
  * `CliExec` `connection/cli-probe.ts` uses, and now {@link
  * draftDiscussionReply}: pure reply-TEXT composition (no `gh`/GraphQL call)
  * for an accepted decision, signed per docs/ATTRIBUTION.md §3's binding
- * conversational-message format. Zero write/mutation capability still holds:
- * no reply is ever POSTED from this file — only drafted, in memory, for a
- * follow-on slice to actually send. The `addDiscussionComment` GraphQL
- * mutation itself, the CSRF-guarded preview/execute HTTP endpoints, and the
- * operator panel remain deferred to those follow-on slices, the same
- * staged-rollout shape `issue-triage.ts` itself used before `issue-triage-
- * execute.ts` + `issue-triage-panel.ts` landed.
+ * conversational-message format — and now {@link postDiscussionReply}, the
+ * `addDiscussionComment` GraphQL mutation itself, the write-side counterpart
+ * to {@link fetchOpenDiscussions}'s read, same hand-rolled `gh api graphql`
+ * shape since `gh` ships no `discussion` subcommand. Nothing in this
+ * codebase calls it yet — same deferred-caller stance `issue-triage.ts`'s
+ * own `executeIssueTriageCommands` held before its HTTP wiring landed. The
+ * CSRF-guarded preview/execute HTTP endpoints and the operator panel remain
+ * deferred to those follow-on slices, the same staged-rollout shape
+ * `issue-triage.ts` itself used before `issue-triage-execute.ts` +
+ * `issue-triage-panel.ts` landed.
  */
 
 import { type Dimension } from '@autopilot/store';
@@ -38,6 +41,11 @@ import { classifyIssueDimension, parseIssueLabels, POOL_LABEL_PREFIX } from './i
  *  discussion plans a `'skip'`), the same convention `issue-triage.ts`'s
  *  {@link IncomingIssue} uses for `labels`. */
 export interface IncomingDiscussion {
+  /** The discussion's opaque GraphQL node ID — what {@link
+   *  postDiscussionReply}'s `addDiscussionComment` mutation actually targets;
+   *  `gh` has no `discussion` subcommand to address one by its human-facing
+   *  `number` the way `gh issue comment <number>` can. */
+  readonly id: string;
   readonly number: number;
   readonly title: string;
   readonly body: string;
@@ -142,8 +150,13 @@ function attributionSignature(operatorLogin: string): string {
   );
 }
 
-/** A drafted reply, ready for a follow-on slice to post — never posted here. */
+/** A drafted reply, ready for {@link postDiscussionReply} to send — never
+ *  posted by the function that builds this. */
 export interface DiscussionReplyDraft {
+  /** The discussion's node {@link IncomingDiscussion.id}, carried through so
+   *  a caller never has to re-look-up the ID {@link postDiscussionReply}'s
+   *  mutation targets — {@link discussionNumber} alone can't address it. */
+  readonly discussionId: string;
   readonly discussionNumber: number;
   readonly dimension: Dimension;
   readonly body: string;
@@ -167,6 +180,7 @@ export function draftDiscussionReply(
   operatorLogin: string,
 ): DiscussionReplyDraft {
   return {
+    discussionId: discussion.id,
     discussionNumber: discussion.number,
     dimension: decision.dimension,
     body: `${decision.reasoning}\n\n${attributionSignature(operatorLogin)}`,
@@ -189,13 +203,14 @@ const MAX_DISCUSSION_CANDIDATES = 50;
 const OPEN_DISCUSSIONS_QUERY =
   'query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { ' +
   `discussions(states: OPEN, first: ${MAX_DISCUSSION_CANDIDATES}, ` +
-  'orderBy: {field: CREATED_AT, direction: DESC}) { nodes { number title body isAnswered ' +
+  'orderBy: {field: CREATED_AT, direction: DESC}) { nodes { id number title body isAnswered ' +
   'locked category { name } labels(first: 20) { nodes { name } } } } } }';
 
 /** One discussion node as {@link OPEN_DISCUSSIONS_QUERY} returns it —
  *  untrusted process output, parsed defensively rather than trusted as
  *  already shaped like {@link IncomingDiscussion}. */
 interface RawDiscussionNode {
+  readonly id?: unknown;
   readonly number?: unknown;
   readonly title?: unknown;
   readonly body?: unknown;
@@ -235,8 +250,10 @@ function parseDiscussionLabels(raw: unknown): readonly string[] {
  * stdout, or a missing/malformed `data.repository.discussions.nodes` array
  * rather than throwing — a triage sweep finding nothing to review is a valid
  * outcome, and a flaky `gh` call shouldn't crash the ritual. Entries missing
- * a numeric `number` or string `title` are dropped rather than passed
- * through malformed.
+ * a numeric `number`, string `title`, or string `id` are dropped rather than
+ * passed through malformed — `id` matters as much as `number` here, since
+ * {@link postDiscussionReply} addresses a discussion by that opaque node ID,
+ * not its human-facing number.
  */
 export async function fetchOpenDiscussions(exec: CliExec): Promise<IncomingDiscussion[]> {
   const { code, stdout } = await exec('gh', [
@@ -265,9 +282,13 @@ export async function fetchOpenDiscussions(exec: CliExec): Promise<IncomingDiscu
   return (nodes as readonly (RawDiscussionNode | null)[])
     .filter(
       (raw): raw is RawDiscussionNode =>
-        raw !== null && typeof raw.number === 'number' && typeof raw.title === 'string',
+        raw !== null &&
+        typeof raw.id === 'string' &&
+        typeof raw.number === 'number' &&
+        typeof raw.title === 'string',
     )
     .map((raw) => ({
+      id: raw.id as string,
       number: raw.number as number,
       title: raw.title as string,
       body: typeof raw.body === 'string' ? raw.body : '',
@@ -276,4 +297,60 @@ export async function fetchOpenDiscussions(exec: CliExec): Promise<IncomingDiscu
       locked: raw.locked === true,
       labels: parseDiscussionLabels(raw.labels),
     }));
+}
+
+/** The one `gh api graphql` mutation behind {@link postDiscussionReply} —
+ *  GitHub's own Discussions GraphQL schema exposes `addDiscussionComment`
+ *  taking `discussionId`/`body`, returning just the new comment's `id` since
+ *  nothing here needs more than confirmation the post landed. `$discussionId`/
+ *  `$body` are resolved the same way {@link OPEN_DISCUSSIONS_QUERY}'s
+ *  `$owner`/`$name` are: matched against `-f`-supplied variables of the same
+ *  name at the `gh api graphql` call site. */
+const ADD_DISCUSSION_COMMENT_MUTATION =
+  'mutation($discussionId: ID!, $body: String!) { addDiscussionComment(input: ' +
+  '{discussionId: $discussionId, body: $body}) { comment { id } } }';
+
+/** One {@link postDiscussionReply} call's outcome — the same `{code,
+ *  stdout}` shape {@link CliExec} returns, paired back with the discussion
+ *  number it was posted to, mirroring `issue-triage.ts`'s {@link
+ *  IssueTriageCommandResult} write-side convention. */
+export interface DiscussionReplyPostResult {
+  readonly discussionNumber: number;
+  readonly code: number;
+  readonly stdout: string;
+}
+
+/**
+ * Posts one {@link DiscussionReplyDraft} via `gh api graphql`'s {@link
+ * ADD_DISCUSSION_COMMENT_MUTATION} — the write-side counterpart to {@link
+ * fetchOpenDiscussions}'s read, run through the same injectable `CliExec`.
+ * `gh` ships no `discussion` subcommand (unlike `issue`/`pr`), so this, like
+ * the read query, is hand-rolled GraphQL against the discussion's opaque node
+ * `id` (`draft.discussionId`), never its human-facing `number` — GitHub's API
+ * has no way to address a discussion by number alone. `discussionId`/`body`
+ * are passed via `-f` (raw string fields), not `-F` (typed/magic fields):
+ * unlike {@link fetchOpenDiscussions}'s `owner={owner}`/`name={repo}`, which
+ * lean on `gh`'s own `{owner}`/`{repo}` magic-string expansion, both values
+ * here are literal content the mutation must send byte-for-byte, most
+ * importantly `body`, which can be arbitrary multi-line reply text. Nothing
+ * in this codebase calls this yet — same deferred-caller stance `issue-
+ * triage.ts`'s own `executeIssueTriageCommands` held before its HTTP wiring
+ * landed: this is a building block for the CSRF-guarded preview/execute pair
+ * this file's header comment defers, not an autonomous trigger.
+ */
+export async function postDiscussionReply(
+  exec: CliExec,
+  draft: DiscussionReplyDraft,
+): Promise<DiscussionReplyPostResult> {
+  const { code, stdout } = await exec('gh', [
+    'api',
+    'graphql',
+    '-f',
+    `discussionId=${draft.discussionId}`,
+    '-f',
+    `body=${draft.body}`,
+    '-f',
+    `query=${ADD_DISCUSSION_COMMENT_MUTATION}`,
+  ]);
+  return { discussionNumber: draft.discussionNumber, code, stdout };
 }
