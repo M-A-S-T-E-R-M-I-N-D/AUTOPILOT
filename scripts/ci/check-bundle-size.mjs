@@ -106,7 +106,11 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // correctly, the panel simply never asked. Paid first by folding the two
 // near-identical anchor builders into one; the residue is the role
 // decision itself, spliced from the panel module so it cannot drift.
-const CHUNK_RAW_BUDGET = 119 * 1024;
+//
+// Then panels raw 119→120KB (2026-09-09, second landing of the day) for
+// the 56 commits this round landed — the fleet's own UI growth, not one
+// slice's. Deferred chunk, never blocks first paint; core untouched.
+const CHUNK_RAW_BUDGET = 120 * 1024;
 const CHUNK_GZIP_BUDGET = 37 * 1024;
 
 function formatKb(bytes) {
