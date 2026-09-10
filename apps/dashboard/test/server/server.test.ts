@@ -2130,6 +2130,98 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('POST /api/mirror-pass/landing-note/execute runs the landing-note ritual for a known project (CSRF-guarded)', async () => {
+    const seen: string[] = [];
+    const base = await start({
+      mirrorPassLandingNoteExecute: async (projectId) => {
+        seen.push(projectId);
+        return {
+          identity: {
+            login: 'rel',
+            nameWithOwner: 'rel/fly-autopilot',
+            role: 'maintainer' as const,
+          },
+          outcomes: [],
+        };
+      },
+    });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ outcomes: [] });
+    expect(seen).toEqual(['p1']);
+  });
+
+  it('POST /api/mirror-pass/landing-note/execute reports a skipped run for a non-maintainer identity, never a 403', async () => {
+    const base = await start({
+      mirrorPassLandingNoteExecute: async () => ({
+        identity: { login: 'guest', nameWithOwner: 'guest/fork', role: 'user' as const },
+        outcomes: [],
+        skippedReason: 'guest' as const,
+      }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ skippedReason: 'guest' });
+  });
+
+  it('POST /api/mirror-pass/landing-note/execute 404s for an unknown project', async () => {
+    const base = await start({ mirrorPassLandingNoteExecute: async () => null });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'nope' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /api/mirror-pass/landing-note/execute rejects a non-JSON content-type (CSRF guard)', async () => {
+    const base = await start({
+      mirrorPassLandingNoteExecute: async () => ({ identity: undefined, outcomes: [] }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(415);
+  });
+
+  it('POST /api/mirror-pass/landing-note/execute 400s without a project id', async () => {
+    const base = await start({ mirrorPassLandingNoteExecute: async () => null });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('404s /api/mirror-pass/landing-note/execute when no API is injected', async () => {
+    const base = await start();
+    const res = await fetch(`${base}/api/mirror-pass/landing-note/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('405s /api/mirror-pass/landing-note/execute for a non-POST method', async () => {
+    const base = await start({
+      mirrorPassLandingNoteExecute: async () => ({ identity: undefined, outcomes: [] }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/landing-note/execute?project=p1`);
+    expect(res.status).toBe(405);
+  });
+
   it('GET /api/mirror-pass/drift previews the README/tree drift for a known project', async () => {
     const plan = { versionDrift: null, countsDrift: null, linkDrift: null };
     const base = await start({
