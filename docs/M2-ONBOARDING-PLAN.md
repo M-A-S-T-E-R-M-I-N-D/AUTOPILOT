@@ -5,10 +5,6 @@ SPDX-License-Identifier: Apache-2.0
 
 # M2 — Onboarding plan ("lock onto any project, safely")
 
-> **Status:** SHIPPED PLAN — M2 landed in the `v0.6.0`–`v0.10.0` era (pre-genesis); kept for orientation and intent,
-> deliberately not re-edited as the build advances. For the current version and the live record of what exists, read
-> `CHANGELOG.md` (always current) and `FEATURE-COVERAGE.md`.
->
 > Synthesized from the M2 design pass (gate-detection · backup-safety · project-index blueprints) plus the
 > orchestrator design. Package: `@autopilot/onboarding`. Depends on M1 (`v0.7.1`). Built in gated TDD slices, each
 > `typecheck + lint + test≥80% + build` green before commit — same discipline as M1.

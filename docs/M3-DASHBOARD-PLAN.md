@@ -5,10 +5,6 @@ SPDX-License-Identifier: Apache-2.0
 
 # M3 — Read-only dashboard plan ("watch it fly")
 
-> **Status:** SHIPPED PLAN — M3 landed in the `v0.6.0`–`v0.10.0` era (pre-genesis; MVP complete per `ACTION-PLAN.md`);
-> kept for orientation and intent, deliberately not re-edited as the build advances. For the current version and the
-> live record of what exists, read `CHANGELOG.md` (always current) and `FEATURE-COVERAGE.md`.
->
 > ACTION-PLAN M3 DoD: on a clean machine, one command installs; add a real repo; it backs up, orients, ships ≥1 gated
 > commit; the dashboard shows it **live** (graphs, flight log, activity map, gauge). axe-core clean. Depends on M1, M2.
 

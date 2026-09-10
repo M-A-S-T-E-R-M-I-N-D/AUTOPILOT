@@ -5,10 +5,6 @@ SPDX-License-Identifier: Apache-2.0
 
 # M1 — Engine port plan (faithful TypeScript port of the proven v2.4 loop)
 
-> **Status:** SHIPPED PLAN — M1 landed in the `v0.6.0`–`v0.10.0` era (pre-genesis); kept for orientation and intent,
-> deliberately not re-edited as the build advances. For the current version and the live record of what exists, read
-> `CHANGELOG.md` (always current) and `FEATURE-COVERAGE.md`.
->
 > Grounded in a read-only study of the proven engine (the internal v2.4 autopilot loop, `the internal v2.4 loop script`, 308 lines —
 > mechanism only; the predecessor product code is confidential). This is the strangler-fig port: behaviorally identical, verified
 > against the working script, built as small gate-able TDD slices. DoD (ACTION-PLAN M1): on a sandbox repo, runs headless
