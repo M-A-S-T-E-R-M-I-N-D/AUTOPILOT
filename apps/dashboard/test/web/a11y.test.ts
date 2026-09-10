@@ -61,10 +61,44 @@ document.addEventListener = ((
   return nativeDocumentAddEventListener(type, listener, options);
 }) as typeof document.addEventListener;
 
+// The SAME leak, through the other door. The listener tracking above was
+// added after a stale handler was caught rebuilding the pool-client panel
+// out from under a later test — but every execution of the bundle also
+// starts SEVEN intervals and EIGHT timeouts that nothing ever clears, and
+// this file executes the bundle once per test. By the end of the file a
+// couple of hundred pollers are live, each firing into whichever
+// `globalThis.fetch` the CURRENT test installed and re-rendering panels
+// that test just built.
+//
+// `pool-client.ts` owns two of those intervals, which is why the "fly
+// locally" test was the one that kept failing on the Windows runner with
+// `expected null not to be null`: its freshly-appended button was real,
+// and an earlier test's poller rebuilt the panel and threw it away. Same
+// diagnosis as the listener bug — widening the timeout never helped,
+// because the button was gone rather than late.
+const trackedTimers: Array<ReturnType<typeof setInterval>> = [];
+const nativeSetInterval = globalThis.setInterval;
+const nativeSetTimeout = globalThis.setTimeout;
+globalThis.setInterval = ((...args: Parameters<typeof setInterval>) => {
+  const id = nativeSetInterval(...args);
+  trackedTimers.push(id);
+  return id;
+}) as typeof setInterval;
+globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+  const id = nativeSetTimeout(...args);
+  trackedTimers.push(id as unknown as ReturnType<typeof setInterval>);
+  return id;
+}) as typeof setTimeout;
+
 afterEach(() => {
   while (trackedDocumentListeners.length) {
     const [type, listener, options] = trackedDocumentListeners.pop()!;
     document.removeEventListener(type, listener, options);
+  }
+  while (trackedTimers.length) {
+    const id = trackedTimers.pop()!;
+    clearInterval(id);
+    clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
   }
 });
 
