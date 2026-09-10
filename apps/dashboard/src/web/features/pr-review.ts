@@ -291,6 +291,15 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
     // and the buttons render exactly as before.
     if (identity && identity.role === 'user') {
       var guestNote = el('p', 'muted pr-review-guest-note', prReviewGuestNote(identity));
+      // i18n (epic 0019 law 1's role gate, board web-mtt3f7j6-3bj899): the
+      // English literal above stays as the byte-identical default; this
+      // two-slot template + args map let the translateDom() sweep below
+      // repaint it in the active locale.
+      guestNote.setAttribute('data-i18n-template', 'prReviewGuestNote');
+      guestNote.setAttribute(
+        'data-i18n-args',
+        JSON.stringify({ owner: identity.nameWithOwner.split('/')[0], login: identity.login }),
+      );
       item.appendChild(guestNote);
     } else {
       item.appendChild(actions);

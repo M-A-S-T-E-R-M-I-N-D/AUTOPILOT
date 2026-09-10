@@ -1525,6 +1525,18 @@ const EN_STRINGS = {
   // orient/do/gate/commit phase names above it name AUTOPILOT's own flight
   // phases, not translatable English words, so they stay out of this table.
   flightMapAria: 'Files in flight',
+  // web/{issue-triage,pr-review,release}-panel.ts's *GuestNote() (epic 0019
+  // law 1's role gate, board web-mtt3f7j6-3bj899): the maintainer-verb guest
+  // notices were plain English concatenation, a gap prReviewGuestNote's own
+  // header comment flagged against release-panel.ts's twin. {owner}/{login}
+  // are the resolved identity's live values, the same two-slot
+  // data-i18n-args map firing-timeline.ts's replayPosition established.
+  issueTriageGuestNote:
+    'Issue triage on this repo is run by its maintainer ({owner}) — you are signed in as {login}.',
+  prReviewGuestNote:
+    'PR review actions on this repo are taken by its maintainer ({owner}) — you are signed in as {login}.',
+  releaseGuestNote:
+    'Releases on this repo are cut by its maintainer ({owner}) — you are signed in as {login}.',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -2202,6 +2214,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     officeSubagent: 'תת-סוכן — {name}',
     officeMapAria: 'מפת משרד הסוכן — כרגע {name}',
     flightMapAria: 'קבצים בטיסה',
+    issueTriageGuestNote: 'טריאז׳ ה-issues במאגר זה מנוהל על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
+    prReviewGuestNote:
+      'פעולות סקירת ה-PR במאגר זה מתבצעות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
+    releaseGuestNote: 'מהדורות במאגר זה מוצאות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
   },
 };
 
