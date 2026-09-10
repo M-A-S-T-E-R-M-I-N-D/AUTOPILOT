@@ -28,6 +28,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const STRICT = process.argv.includes('--strict');
@@ -61,6 +62,31 @@ function cliModelHelp() {
   }
 }
 
+/**
+ * Extracts the alias words the CLI's help text advertises, scoped to the
+ * ONE sentence that names them — "Provide an alias for the latest model
+ * (e.g. 'fable', 'opus', or 'sonnet')" — not every quoted word in the help
+ * text. The loose version flagged `'agent'` from an unrelated flag on its
+ * first run: a check that cries wolf trains everyone to ignore it
+ * (guard-precision doctrine, FAILURE-DOCTRINE row 6), and this one is meant
+ * to be believed the day it fires for real. Pure — no I/O, no CLI
+ * invocation — so callers (including the negative-corpus test) exercise the
+ * exact matching logic the live check runs, without shelling out.
+ */
+export function extractAdvertisedAliases(helpText) {
+  const sentence = helpText.match(/alias for the latest model[^)]*\)/i)?.[0] ?? '';
+  return [...new Set([...sentence.matchAll(/'([a-z][a-z0-9]{2,11})'/g)].map((m) => m[1]))];
+}
+
+/**
+ * The scanner's finding logic: advertised aliases `families` does not
+ * cover. The returned words ARE the matched-text evidence a red carries
+ * (guard-precision doctrine) — never a paraphrase, never a count alone.
+ */
+export function findUnknownFamilyAliases(helpText, families) {
+  return extractAdvertisedAliases(helpText).filter((word) => !families.includes(word));
+}
+
 function main() {
   const ids = catalogueIds();
   const families = catalogueFamilies();
@@ -72,17 +98,7 @@ function main() {
     return;
   }
 
-  // Scoped to the ONE sentence that names aliases — "Provide an alias for
-  // the latest model (e.g. 'fable', 'opus', or 'sonnet')" — not to every
-  // quoted word in the help text. The loose version flagged `'agent'` from
-  // an unrelated flag on its first run: a check that cries wolf trains
-  // everyone to ignore it (guard-precision doctrine, FAILURE-DOCTRINE
-  // row 6), and this one is meant to be believed the day it fires for real.
-  const sentence = help.match(/alias for the latest model[^)]*\)/i)?.[0] ?? '';
-  const advertised = [
-    ...new Set([...sentence.matchAll(/'([a-z][a-z0-9]{2,11})'/g)].map((m) => m[1])),
-  ];
-  const unknownFamilies = advertised.filter((word) => !families.includes(word));
+  const unknownFamilies = findUnknownFamilyAliases(help, families);
 
   const findings = [];
   if (unknownFamilies.length > 0) {
@@ -106,4 +122,5 @@ function main() {
   if (STRICT) process.exitCode = 1;
 }
 
-main();
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
