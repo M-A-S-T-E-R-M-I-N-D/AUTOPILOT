@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   planDiscussionTriage,
+  planDiscussionTriageBatch,
   fetchOpenDiscussions,
   draftDiscussionReply,
   postDiscussionReply,
@@ -115,6 +116,43 @@ describe('draftDiscussionReply', () => {
     const draft = draftDiscussionReply(discussion(), accept(), 'someone-else');
 
     expect(draft.body).toContain('on behalf of @someone-else');
+  });
+});
+
+describe('planDiscussionTriageBatch', () => {
+  it('pairs an accepted discussion with a signed draft addressed to the same discussion', () => {
+    const plans = planDiscussionTriageBatch([discussion()], 'gabibi555');
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.decision.decision).toBe('accept');
+    expect(plans[0]?.draft).toMatchObject({
+      discussionId: 'D_kwDOA1b2c84AXyZw',
+      discussionNumber: 9,
+      dimension: 'accessibility',
+    });
+    expect(plans[0]?.draft?.body).toContain('on behalf of @gabibi555');
+  });
+
+  it('gives a skipped discussion a null draft — nothing to post', () => {
+    const plans = planDiscussionTriageBatch([discussion({ locked: true })], 'gabibi555');
+
+    expect(plans[0]?.decision.decision).toBe('skip');
+    expect(plans[0]?.draft).toBeNull();
+  });
+
+  it('judges each discussion independently — one skip never affects a sibling accept', () => {
+    const plans = planDiscussionTriageBatch(
+      [discussion({ number: 1, locked: true }), discussion({ number: 2 })],
+      'gabibi555',
+    );
+
+    expect(plans.map((p) => p.decision.decision)).toEqual(['skip', 'accept']);
+    expect(plans[0]?.draft).toBeNull();
+    expect(plans[1]?.draft).not.toBeNull();
+  });
+
+  it('returns [] for an empty batch', () => {
+    expect(planDiscussionTriageBatch([], 'gabibi555')).toEqual([]);
   });
 });
 

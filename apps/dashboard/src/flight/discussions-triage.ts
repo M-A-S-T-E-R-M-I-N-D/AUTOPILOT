@@ -19,9 +19,19 @@
  * conversational-message format — and now {@link postDiscussionReply}, the
  * `addDiscussionComment` GraphQL mutation itself, the write-side counterpart
  * to {@link fetchOpenDiscussions}'s read, same hand-rolled `gh api graphql`
- * shape since `gh` ships no `discussion` subcommand. Nothing in this
- * codebase calls it yet — same deferred-caller stance `issue-triage.ts`'s
- * own `executeIssueTriageCommands` held before its HTTP wiring landed. The
+ * shape since `gh` ships no `discussion` subcommand — and now {@link
+ * planDiscussionTriageBatch}, the connective tissue mirroring
+ * `issue-triage.ts`'s {@link planIssueTriageBatch}: runs the decision core
+ * then the reply draft over a whole fetched batch, pairing each discussion
+ * with the `null` draft a `'skip'` gets or the real one an `'accept'` gets.
+ * Nothing in this codebase calls it yet — same deferred-caller stance
+ * `issue-triage.ts`'s own `executeIssueTriageCommands` held before its HTTP
+ * wiring landed. Still missing before a ritual composer (an
+ * `issue-triage-execute.ts`-style `runDiscussionTriageRitual`) can land: an
+ * idempotency marker equivalent to `POOL_LABEL_PREFIX` actually gets applied
+ * post-reply — GitHub Discussions labels are GraphQL-only
+ * (`addLabelsToLabelable`, keyed by opaque label node IDs, not names), so
+ * that write needs its own label-ID lookup this slice does not yet add. The
  * CSRF-guarded preview/execute HTTP endpoints and the operator panel remain
  * deferred to those follow-on slices, the same staged-rollout shape
  * `issue-triage.ts` itself used before `issue-triage-execute.ts` +
@@ -185,6 +195,42 @@ export function draftDiscussionReply(
     dimension: decision.dimension,
     body: `${decision.reasoning}\n\n${attributionSignature(operatorLogin)}`,
   };
+}
+
+/** One discussion's full triage outcome — the decision {@link
+ *  planDiscussionTriage} reached, paired with the reply {@link
+ *  draftDiscussionReply} composed for it when accepted, or `null` for a
+ *  `'skip'` decision (nothing to draft) — the same `decision`+derived-payload
+ *  pairing `issue-triage.ts`'s {@link IssueTriagePlan} gives issue commands. */
+export interface DiscussionTriagePlan {
+  readonly discussion: IncomingDiscussion;
+  readonly decision: DiscussionTriageDecision;
+  readonly draft: DiscussionReplyDraft | null;
+}
+
+/**
+ * Runs {@link planDiscussionTriage} then, for an `'accept'`ed decision, {@link
+ * draftDiscussionReply} for every discussion in `discussions` — the
+ * connective tissue between a batch fetch ({@link fetchOpenDiscussions}) and
+ * a batch post (each accepted plan's `draft` handed to {@link
+ * postDiscussionReply}), mirroring `issue-triage.ts`'s {@link
+ * planIssueTriageBatch}. Pure: composes two already-pure functions, no I/O of
+ * its own. Each discussion is judged independently, same as
+ * `planIssueTriageBatch` — one discussion's decision never influences
+ * another's in the same batch.
+ */
+export function planDiscussionTriageBatch(
+  discussions: readonly IncomingDiscussion[],
+  operatorLogin: string,
+): readonly DiscussionTriagePlan[] {
+  return discussions.map((discussion) => {
+    const decision = planDiscussionTriage(discussion);
+    const draft =
+      decision.decision === 'accept'
+        ? draftDiscussionReply(discussion, decision, operatorLogin)
+        : null;
+    return { discussion, decision, draft };
+  });
 }
 
 /** How many open discussions one read spends its whole budget on — same
