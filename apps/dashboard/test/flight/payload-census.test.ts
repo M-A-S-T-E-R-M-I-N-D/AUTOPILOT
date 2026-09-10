@@ -69,6 +69,12 @@ interface PayloadInterface {
 const PAYLOAD_INTERFACES: readonly PayloadInterface[] = [
   { file: 'pool-client.ts', interfaceName: 'PoolIssue' },
   { file: 'publicity.ts', interfaceName: 'PublicityAffordance' },
+  // `PrCheckRun` (not its parent `PrReviewCandidate` — see file header: that
+  // interface mixes in ~30 decision-only/reasoning-only fields that would
+  // need per-field adjudication) is the sub-shape `statusCheckRollup` feeds
+  // the pipeline strip through, and every one of its fields is display-only
+  // by its own doc comment.
+  { file: 'pr-review.ts', interfaceName: 'PrCheckRun' },
 ];
 
 /** `${file}#${interfaceName}#${field}` -> why this one field is excused
