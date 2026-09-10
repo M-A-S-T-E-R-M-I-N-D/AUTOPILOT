@@ -548,6 +548,8 @@
  * standing panel's landmark (`shell.ts`'s `<section id="contributor-standing-panel">`,
  * a static server-rendered element like `#pool-client-panel`/`#publicity-panel`
  * beside it): `contributorStandingPanel` tags its `aria-label` the same way.
+ * Same pattern again for the neighboring `#contributor-issue-list-panel`
+ * landmark: `contributorIssueListPanel` tags its `aria-label`.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -1082,6 +1084,7 @@ const EN_STRINGS = {
   poolClientPanel: 'Contributor pool',
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
+  contributorIssueListPanel: 'Good first issues',
   pipelineView: 'Pipeline view',
   pipelineViewTitle: '🛠️ Pipeline view',
   pipelineLensLabel: 'Pipeline lens',
@@ -1897,6 +1900,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     poolClientPanel: 'מאגר תורמים',
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
+    contributorIssueListPanel: 'בעיות טובות למתחילים',
     pipelineView: 'תצוגת צנרת',
     pipelineViewTitle: '🛠️ תצוגת צנרת',
     pipelineLensLabel: 'מסנן הצנרת',
