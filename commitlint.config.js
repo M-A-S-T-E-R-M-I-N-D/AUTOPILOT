@@ -54,23 +54,41 @@ export default {
     // never block a firing that is mid-unit and trying to check its work in
     // (the same reason `wip` is an allowed type above). It is loud enough to
     // catch the eye at commit time, which is the whole job.
-    'subject-no-operator-environment': [1, 'always'],
+    'no-operator-private-context': [1, 'always'],
   },
   plugins: [
     {
       rules: {
-        'subject-no-operator-environment': ({ subject }) => {
-          if (!subject) return [true];
+        // Reads the WHOLE message, subject and body alike. The first version
+        // of this rule checked only the subject — and the very commit that
+        // introduced it repeated the private detail in its own BODY, which
+        // sailed straight through. A guard that covers one half of the
+        // surface is how the thing it forbids comes back.
+        'no-operator-private-context': ({ subject, body, footer }) => {
+          const text = [subject, body, footer].filter(Boolean).join('\n');
+          if (!text) return [true];
           const patterns = [
-            /\b\d{1,2}:\d{2}\b/, // a wall-clock time
-            /power (loss|cut|outage|failure)/i,
-            /\bmy (machine|computer|laptop|desktop|box)\b/i,
-            /\bthe operator's (machine|computer|laptop|box)\b/i,
+            // The operator's own environment — never a reader's concern.
+            [/\b\d{1,2}:\d{2}\b/, 'a wall-clock time'],
+            [/power (loss|cut|outage|failure)/i, 'the machine losing power'],
+            [
+              /\b(my|your|the operator's) (machine|computer|laptop|desktop|box|pc)\b/i,
+              "someone's hardware",
+            ],
+            // Session narration — writing to the operator instead of to a
+            // reader who will find this commit in two years with no context.
+            [
+              /\byou (asked|caught|noticed|said|wanted|flagged|pointed)\b/i,
+              'second-person address',
+            ],
+            [/\bas you (said|noted|asked|put it)\b/i, 'second-person address'],
           ];
-          const hit = patterns.find((re) => re.test(subject));
+          const hit = patterns.find(([re]) => re.test(text));
           return [
             !hit,
-            `subject leaks operator-environment detail (${hit?.source ?? ''}) — say what changed, not what happened to the machine; session detail belongs in a debrief`,
+            hit
+              ? `commit message leaks private operator context (${hit[1]}) — a public log describes the CHANGE, not the session; put session detail in a debrief`
+              : '',
           ];
         },
       },

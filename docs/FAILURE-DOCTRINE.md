@@ -44,7 +44,7 @@ commit that fixes it.
 | 26 | A merge commit that CLAIMS both parents and keeps only one's tree (`-s ours`) — undetectable by anything in the repo | merge-integrity check: tree-identical-to-first-parent AND content missing at the tip = the parent's work was discarded | `ci:merge-integrity` + both corpora in `merge-integrity.test.ts` |
 | 27 | Concurrent flights sharing one non-worktree checkout race at git-index/working-tree level (`ap-mtm4qzty-1`, reconfirmed 8×: swept commits, identical-content races, a hard reset silently erasing another firing's uncommitted edit) | `fly.ts`'s FLIGHT-VS-FLIGHT guards refuse the land-time bookends (primary-fallback start, sync-back call sites) when a sibling's lock is live; the edit-time window between those bookends has no lock and relies only on the reactive `3f4bd6c6` detect-before-commit rule | `fly.ts` land-time guards + firing-prompt hard rule (`packages/engine/src/prompt.ts`) — **open**: full edit-time isolation is the already-proposed operator call (every flight in its own worktree, per debriefs 2026-09-06/07/10) |
 
-| 28 | Operator-environment detail published in a PUBLIC commit log — subjects describing the maintainer's own hardware state and the time of day it happened | commitlint refuses wall-clock times and machine-state phrases in a subject (warning, never blocking a WIP checkpoint); session detail belongs in a debrief | `commitlint.config.js` `subject-no-operator-environment` |
+| 28 | Private operator context published in a PUBLIC commit log — the maintainer's own hardware state, the time of day it happened, and second-person session narration | commitlint reads the WHOLE message (subject, body, footer) and warns on wall-clock times, machine-state phrases and second-person address; warning-not-error so a mid-unit checkpoint still commits | `commitlint.config.js` `no-operator-private-context` + both corpora in `commit-privacy.test.ts` |
 
 Row 28 is row 19-20's lesson wearing different clothes, and that is the
 part worth keeping: **the same mistake relocates.** Publishing the
@@ -54,6 +54,13 @@ SURFACE and not the habit. The habit is writing for the author instead
 of the reader. A commit message says what changed and why; whose machine
 died, at what o'clock, is a debrief detail — and debriefs already exist
 for exactly that.
+
+Row 28's second lesson is the sharper one, and it cost a second leak to
+learn: **the first version of that rule checked only the SUBJECT, and the
+very commit that introduced it repeated the private detail in its own
+BODY — straight past the new guard.** A guard covering half its surface
+is how the thing it forbids comes back. The rule now reads the whole
+message, and the first test in its suite is the body case.
 
 Row 26 came with a second lesson about guards themselves. The obvious
 check — "does a parent have lines the merge lacks?" — flagged **14 of
