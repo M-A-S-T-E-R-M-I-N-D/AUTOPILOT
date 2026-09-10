@@ -670,15 +670,22 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    all four the same MX shape-morph + elevation hover/active pair as #fly-go,
    the fly bar's filled-accent CTA, guarded by :not(:disabled) like .task-move.
    Rest declarations only gain the transition — rest-state pixels do not move. */
-.landing-execute, .release-execute, .pr-review-execute, .issue-triage-execute, .pool-client-execute, .report-execute, .pool-client-fly { transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
-.landing-execute:not(:disabled):hover, .landing-execute:not(:disabled):focus-visible, .release-execute:not(:disabled):hover, .release-execute:not(:disabled):focus-visible, .pr-review-execute:not(:disabled):hover, .pr-review-execute:not(:disabled):focus-visible, .issue-triage-execute:not(:disabled):hover, .issue-triage-execute:not(:disabled):focus-visible, .pool-client-execute:not(:disabled):hover, .pool-client-execute:not(:disabled):focus-visible, .report-execute:not(:disabled):hover, .report-execute:not(:disabled):focus-visible, .pool-client-fly:not(:disabled):hover, .pool-client-fly:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
-.landing-execute:not(:disabled):active, .release-execute:not(:disabled):active, .pr-review-execute:not(:disabled):active, .issue-triage-execute:not(:disabled):active, .pool-client-execute:not(:disabled):active, .report-execute:not(:disabled):active, .pool-client-fly:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.landing-execute, .release-execute, .pr-review-execute, .issue-triage-execute, .pool-client-execute, .report-execute, .pool-client-fly, .mirror-pass-execute { transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.landing-execute:not(:disabled):hover, .landing-execute:not(:disabled):focus-visible, .release-execute:not(:disabled):hover, .release-execute:not(:disabled):focus-visible, .pr-review-execute:not(:disabled):hover, .pr-review-execute:not(:disabled):focus-visible, .issue-triage-execute:not(:disabled):hover, .issue-triage-execute:not(:disabled):focus-visible, .pool-client-execute:not(:disabled):hover, .pool-client-execute:not(:disabled):focus-visible, .report-execute:not(:disabled):hover, .report-execute:not(:disabled):focus-visible, .pool-client-fly:not(:disabled):hover, .pool-client-fly:not(:disabled):focus-visible, .mirror-pass-execute:not(:disabled):hover, .mirror-pass-execute:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.landing-execute:not(:disabled):active, .release-execute:not(:disabled):active, .pr-review-execute:not(:disabled):active, .issue-triage-execute:not(:disabled):active, .pool-client-execute:not(:disabled):active, .report-execute:not(:disabled):active, .pool-client-fly:not(:disabled):active, .mirror-pass-execute:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .issue-triage-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
 .issue-triage-result:empty { display: none; }
 .issue-triage-result-ok { color: var(--color-success); }
 .issue-triage-result-fail { color: var(--color-sev-critical); }
 .issue-triage-comment-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
 .issue-triage-comment-link:hover, .issue-triage-comment-link:focus-visible { border-bottom-color: currentColor; }
+.mirror-pass-actions { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
+.mirror-pass-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+.mirror-pass-execute:disabled { opacity: 0.6; cursor: default; }
+.mirror-pass-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
+.mirror-pass-result:empty { display: none; }
+.mirror-pass-result-ok { color: var(--color-success); }
+.mirror-pass-result-fail { color: var(--color-sev-critical); }
 .report-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); margin-top: var(--space-3); }
 .report-details { padding: var(--space-3) var(--space-4); }
 .report-title { margin: 0; font-size: var(--text-base); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
