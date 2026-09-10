@@ -130,15 +130,26 @@ test.describe('visual regression — populated fleet', () => {
       // fixture NOW+2m -> worst case 2m53s, same minute for every label);
       // the number of chances to OBSERVE within it is free.
       //
-      // So the pump halved and the count doubled (2026-09-09): 50 x 1s is
-      // the same 50s ceiling with twice the observation points. Raised
-      // after the windows runner exhausted 25 on a project page that has
-      // grown to 3762px this round — a loaded runner needs more chances,
-      // not more fake time, and the two were previously coupled for no
-      // reason. A dev box still paints on the first pump.
+      // TWO CLOCKS, and only one of them was ever the problem (2026-09-10).
+      //
+      // An earlier fix here halved the pump and doubled the count — same
+      // 50s FAKE ceiling, twice the observation points — and the runner
+      // still exhausted it. That tuned the wrong axis. The paint needs a
+      // network response to LAND first, and a response lands in REAL time;
+      // pumping fake time cannot make a fetch arrive. All the loop's real
+      // time came incidentally from its own `count()` round-trips, so the
+      // fetch's budget was an accident of how chatty the polling was.
+      //
+      // The two are now explicit and independent: 1s of FAKE time per turn
+      // drains the render timer (the ceiling stays 50s, which is what keeps
+      // every ago-label inside the same minute and the baselines valid),
+      // plus 100ms of REAL time per turn giving the response up to 5s to
+      // actually arrive. `waitForTimeout` is driven by the Playwright
+      // driver, not by page timers, so the frozen clock does not stall it.
       let firingAgoVisible = false;
       for (let pump = 0; pump < 50 && !firingAgoVisible; pump++) {
         await page.clock.runFor(1000);
+        await page.waitForTimeout(100);
         firingAgoVisible = (await page.locator('.firing-ago').count()) > 0;
       }
       expect(firingAgoVisible, 'flight log never painted within 50s of pumped fake time').toBe(

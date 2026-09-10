@@ -31,6 +31,7 @@ test.describe('dashboard boot smoke', () => {
       // foundation donation-panel self-init poll (FOUNDATION 1/3) — the
       // hermetic fixture wires no donations backend; the panel treats the
       // 404 as "not configured" and stays hidden, same class as the rest.
+      '404 /api/contributor-issues',
       '404 /api/donations',
       '404 /api/fly',
       '404 /api/pool-client',
