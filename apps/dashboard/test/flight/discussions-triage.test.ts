@@ -8,6 +8,8 @@ import {
   fetchOpenDiscussions,
   draftDiscussionReply,
   postDiscussionReply,
+  fetchDiscussionLabelId,
+  applyDiscussionPoolLabel,
   type IncomingDiscussion,
   type DiscussionTriageAccept,
 } from '../../src/flight/discussions-triage.js';
@@ -335,6 +337,117 @@ describe('postDiscussionReply', () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: 'GraphQL error' });
 
     const result = await postDiscussionReply(exec, draft());
+
+    expect(result).toEqual({ discussionNumber: 9, code: 1, stdout: 'GraphQL error' });
+  });
+});
+
+function labelGraphql(id: string | null): string {
+  return JSON.stringify({ data: { repository: { label: id === null ? null : { id } } } });
+}
+
+describe('fetchDiscussionLabelId', () => {
+  it('spends one gh api graphql read carrying the label name as a raw field', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: labelGraphql('LA_abc123') });
+
+    const id = await fetchDiscussionLabelId(exec, 'pool: accessibility');
+
+    expect(id).toBe('LA_abc123');
+    expect(exec).toHaveBeenCalledTimes(1);
+    const [bin, args] = vi.mocked(exec).mock.calls[0] as [string, readonly string[]];
+    expect(bin).toBe('gh');
+    expect(args).toEqual([
+      'api',
+      'graphql',
+      '-F',
+      'owner={owner}',
+      '-F',
+      'name={repo}',
+      '-f',
+      'label=pool: accessibility',
+      '-f',
+      expect.stringMatching(/^query=query\(\$owner: String!, \$name: String!, \$label: String!\)/),
+    ]);
+  });
+
+  it('returns null when the repo has no label by that exact name', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: labelGraphql(null) });
+
+    expect(await fetchDiscussionLabelId(exec, 'pool: nope')).toBeNull();
+  });
+
+  it('returns null on a non-zero exit or unparseable stdout, never throwing', async () => {
+    for (const reply of [
+      { code: 1, stdout: '' },
+      { code: 0, stdout: 'not json' },
+      { code: 0, stdout: JSON.stringify({ data: null }) },
+    ]) {
+      const exec: CliExec = vi.fn().mockResolvedValue(reply);
+      expect(await fetchDiscussionLabelId(exec, 'pool: accessibility')).toBeNull();
+    }
+  });
+});
+
+describe('applyDiscussionPoolLabel', () => {
+  it('looks up the pool label by dimension, then applies it, returning the result', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_abc123') })
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: JSON.stringify({ data: { addLabelsToLabelable: {} } }),
+      });
+
+    const result = await applyDiscussionPoolLabel(
+      exec,
+      { id: 'D_kwDOA1b2c84AXyZw', number: 9 },
+      'accessibility',
+    );
+
+    expect(result).toEqual({ discussionNumber: 9, code: 0, stdout: expect.any(String) });
+    expect(exec).toHaveBeenCalledTimes(2);
+
+    const [firstBin, firstArgs] = vi.mocked(exec).mock.calls[0] as [string, readonly string[]];
+    expect(firstBin).toBe('gh');
+    expect(firstArgs).toContain('label=pool: accessibility');
+
+    const [secondBin, secondArgs] = vi.mocked(exec).mock.calls[1] as [string, readonly string[]];
+    expect(secondBin).toBe('gh');
+    expect(secondArgs).toEqual([
+      'api',
+      'graphql',
+      '-f',
+      'labelableId=D_kwDOA1b2c84AXyZw',
+      '-f',
+      expect.stringMatching(/^query=mutation\(\$labelableId: ID!\)/),
+    ]);
+    expect(secondArgs.join(' ')).toContain('labelIds: ["LA_abc123"]');
+  });
+
+  it('returns null without spending the mutation call when the label lookup fails', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: labelGraphql(null) });
+
+    const result = await applyDiscussionPoolLabel(
+      exec,
+      { id: 'D_kwDOA1b2c84AXyZw', number: 9 },
+      'accessibility',
+    );
+
+    expect(result).toBeNull();
+    expect(exec).toHaveBeenCalledTimes(1);
+  });
+
+  it('pairs a failing mutation back with the discussion number, never throwing', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_abc123') })
+      .mockResolvedValueOnce({ code: 1, stdout: 'GraphQL error' });
+
+    const result = await applyDiscussionPoolLabel(
+      exec,
+      { id: 'D_kwDOA1b2c84AXyZw', number: 9 },
+      'accessibility',
+    );
 
     expect(result).toEqual({ discussionNumber: 9, code: 1, stdout: 'GraphQL error' });
   });

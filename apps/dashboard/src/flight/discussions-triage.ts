@@ -23,19 +23,21 @@
  * planDiscussionTriageBatch}, the connective tissue mirroring
  * `issue-triage.ts`'s {@link planIssueTriageBatch}: runs the decision core
  * then the reply draft over a whole fetched batch, pairing each discussion
- * with the `null` draft a `'skip'` gets or the real one an `'accept'` gets.
- * Nothing in this codebase calls it yet — same deferred-caller stance
- * `issue-triage.ts`'s own `executeIssueTriageCommands` held before its HTTP
- * wiring landed. Still missing before a ritual composer (an
- * `issue-triage-execute.ts`-style `runDiscussionTriageRitual`) can land: an
- * idempotency marker equivalent to `POOL_LABEL_PREFIX` actually gets applied
- * post-reply — GitHub Discussions labels are GraphQL-only
- * (`addLabelsToLabelable`, keyed by opaque label node IDs, not names), so
- * that write needs its own label-ID lookup this slice does not yet add. The
- * CSRF-guarded preview/execute HTTP endpoints and the operator panel remain
- * deferred to those follow-on slices, the same staged-rollout shape
- * `issue-triage.ts` itself used before `issue-triage-execute.ts` +
- * `issue-triage-panel.ts` landed.
+ * with the `null` draft a `'skip'` gets or the real one an `'accept'` gets —
+ * and now {@link fetchDiscussionLabelId} + {@link applyDiscussionPoolLabel},
+ * the idempotency marker this header once flagged as missing: GitHub
+ * Discussions labels are GraphQL-only (`addLabelsToLabelable`, keyed by
+ * opaque label node IDs, never names, unlike `issue-triage.ts`'s
+ * name-addressed `gh issue edit --add-label`), so applying one takes its own
+ * label-ID lookup first. Nothing in this codebase calls any of these yet —
+ * same deferred-caller stance `issue-triage.ts`'s own
+ * `executeIssueTriageCommands` held before its HTTP wiring landed. Still
+ * missing before a ritual composer (an `issue-triage-execute.ts`-style
+ * `runDiscussionTriageRitual`) can land: the actual post-reply,
+ * then-label sequencing (this file exposes the pieces, not the order they
+ * run in), plus the CSRF-guarded preview/execute HTTP endpoints and the
+ * operator panel — the same staged-rollout shape `issue-triage.ts` itself
+ * used before `issue-triage-execute.ts` + `issue-triage-panel.ts` landed.
  */
 
 import { type Dimension } from '@autopilot/store';
@@ -399,4 +401,104 @@ export async function postDiscussionReply(
     `query=${ADD_DISCUSSION_COMMENT_MUTATION}`,
   ]);
   return { discussionNumber: draft.discussionNumber, code, stdout };
+}
+
+/** The GraphQL query behind {@link fetchDiscussionLabelId} — GitHub's
+ *  `Repository` type exposes `label(name: String!)` as a direct field, so a
+ *  single spend resolves one label's opaque node `id` without paging the
+ *  repo's full label list. That `id` is exactly what {@link
+ *  applyDiscussionPoolLabel}'s `addLabelsToLabelable` mutation needs:
+ *  Discussions labeling is GraphQL-only, keyed by label ID, never by name —
+ *  unlike `issue-triage.ts`'s name-addressed `gh issue edit --add-label`. */
+const REPOSITORY_LABEL_ID_QUERY =
+  'query($owner: String!, $name: String!, $label: String!) { repository(owner: $owner, name: $name) { ' +
+  'label(name: $label) { id } } }';
+
+/**
+ * Looks up a repo label's opaque GraphQL node ID by its human-facing `name`
+ * (e.g. `"pool: accessibility"`) via one `gh api graphql` read ({@link
+ * REPOSITORY_LABEL_ID_QUERY}) — the piece {@link applyDiscussionPoolLabel}
+ * needs before it can label a discussion at all. Returns `null` on a
+ * non-zero exit, unparseable stdout, or when the repo simply has no label by
+ * that exact name (a KEEPER pool label not yet created, or a typo) rather
+ * than throwing — the caller decides whether a missing label is fatal to the
+ * batch or just this one discussion, the same defensive-return convention
+ * {@link fetchOpenDiscussions} already uses for its own read.
+ */
+export async function fetchDiscussionLabelId(
+  exec: CliExec,
+  labelName: string,
+): Promise<string | null> {
+  const { code, stdout } = await exec('gh', [
+    'api',
+    'graphql',
+    '-F',
+    'owner={owner}',
+    '-F',
+    'name={repo}',
+    '-f',
+    `label=${labelName}`,
+    '-f',
+    `query=${REPOSITORY_LABEL_ID_QUERY}`,
+  ]);
+  if (code !== 0) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return null;
+  }
+  const id = (
+    parsed as { data?: { repository?: { label?: { id?: unknown } | null } | null } | null }
+  )?.data?.repository?.label?.id;
+  return typeof id === 'string' ? id : null;
+}
+
+/** One {@link applyDiscussionPoolLabel} call's outcome — mirrors {@link
+ *  DiscussionReplyPostResult}'s `{discussionNumber, code, stdout}` shape for
+ *  the label-side write. */
+export interface DiscussionLabelPostResult {
+  readonly discussionNumber: number;
+  readonly code: number;
+  readonly stdout: string;
+}
+
+/**
+ * Applies the KEEPER pool label (`` `pool: ${dimension}` ``, {@link
+ * POOL_LABEL_PREFIX}'s own convention) to a discussion — the idempotency
+ * marker this file's header comment flagged as still missing: without it, a
+ * re-run's {@link planDiscussionTriage} has no `labels` signal to recognize
+ * an already-handled discussion, and would draft a duplicate reply every
+ * pass. Two `gh api graphql` spends: {@link fetchDiscussionLabelId} resolves
+ * the label's opaque node ID first, then `addLabelsToLabelable` applies it —
+ * that ID is inlined into the mutation string (JSON-escaped, never
+ * string-concatenated raw) rather than passed as a `$labelIds` variable,
+ * since `gh api graphql`'s `-f`/`-F` flags carry only scalar values (a raw
+ * string, or `-F`'s bool/null/int/placeholder set), neither able to express
+ * a GraphQL `[ID!]!` list. Returns `null` without spending the mutation call
+ * at all when the label lookup itself fails — nothing to apply an ID for,
+ * the same short-circuit-on-missing-prerequisite shape {@link
+ * fetchOpenDiscussions} uses for its own read failures.
+ */
+export async function applyDiscussionPoolLabel(
+  exec: CliExec,
+  discussion: Pick<IncomingDiscussion, 'id' | 'number'>,
+  dimension: Dimension,
+): Promise<DiscussionLabelPostResult | null> {
+  const labelId = await fetchDiscussionLabelId(exec, `${POOL_LABEL_PREFIX}${dimension}`);
+  if (labelId === null) return null;
+
+  const mutation =
+    'mutation($labelableId: ID!) { addLabelsToLabelable(input: ' +
+    `{labelableId: $labelableId, labelIds: [${JSON.stringify(labelId)}]}) { clientMutationId } }`;
+  const { code, stdout } = await exec('gh', [
+    'api',
+    'graphql',
+    '-f',
+    `labelableId=${discussion.id}`,
+    '-f',
+    `query=${mutation}`,
+  ]);
+  return { discussionNumber: discussion.number, code, stdout };
 }
