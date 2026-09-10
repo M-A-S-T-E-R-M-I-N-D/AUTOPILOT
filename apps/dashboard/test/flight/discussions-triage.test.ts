@@ -5,7 +5,9 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   planDiscussionTriage,
   fetchOpenDiscussions,
+  draftDiscussionReply,
   type IncomingDiscussion,
+  type DiscussionTriageAccept,
 } from '../../src/flight/discussions-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -68,6 +70,48 @@ describe('planDiscussionTriage', () => {
     );
 
     expect(decision).toMatchObject({ decision: 'accept', dimension: 'information' });
+  });
+});
+
+describe('draftDiscussionReply', () => {
+  function accept(overrides: Partial<DiscussionTriageAccept> = {}): DiscussionTriageAccept {
+    const decision = planDiscussionTriage(discussion());
+    if (decision.decision !== 'accept') throw new Error('fixture must classify as accept');
+    return { ...decision, ...overrides };
+  }
+
+  it('never posts anything — pure text composition only', () => {
+    const draft = draftDiscussionReply(discussion(), accept(), 'gabibi555');
+
+    expect(draft).toEqual({
+      discussionNumber: 9,
+      dimension: 'accessibility',
+      body: expect.stringContaining('#9'),
+    });
+  });
+
+  it('signs the reply with the binding conversational signature, credited to the operator', () => {
+    const draft = draftDiscussionReply(discussion(), accept(), 'gabibi555');
+
+    expect(draft.body).toContain(
+      '— ✈️ AUTOPILOT agent, on behalf of @gabibi555 · ' +
+        '[what is this?](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)',
+    );
+  });
+
+  it('leads with the decision reasoning, signature trailing after a blank line', () => {
+    const decision = accept();
+    const draft = draftDiscussionReply(discussion(), decision, 'gabibi555');
+
+    expect(draft.body).toBe(
+      `${decision.reasoning}\n\n— ✈️ AUTOPILOT agent, on behalf of @gabibi555 · [what is this?](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)`,
+    );
+  });
+
+  it('credits whichever operator login the caller resolves, not a hardcoded one', () => {
+    const draft = draftDiscussionReply(discussion(), accept(), 'someone-else');
+
+    expect(draft.body).toContain('on behalf of @someone-else');
   });
 });
 

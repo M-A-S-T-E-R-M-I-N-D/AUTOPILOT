@@ -10,14 +10,19 @@
  * issue-specific: `gh` ships no `discussion` subcommand at all, so both the
  * read query and the eventual reply mutation must be hand-rolled GraphQL
  * against opaque node IDs rather than simple issue numbers. This slice ships
- * only the pure decision core — {@link planDiscussionTriage}, mirroring
+ * the pure decision core — {@link planDiscussionTriage}, mirroring
  * `issue-triage.ts`'s {@link classifyIssueDimension}-driven classification —
- * and its read wiring, {@link fetchOpenDiscussions}, through the same
- * injectable `CliExec` `connection/cli-probe.ts` uses. Zero write/mutation
- * capability: no reply is ever posted from this file. Reply-posting, the
- * preview/execute HTTP endpoints, and the operator panel are deferred to
- * follow-on slices, the same staged-rollout shape `issue-triage.ts` itself
- * used before `issue-triage-execute.ts` + `issue-triage-panel.ts` landed.
+ * its read wiring, {@link fetchOpenDiscussions}, through the same injectable
+ * `CliExec` `connection/cli-probe.ts` uses, and now {@link
+ * draftDiscussionReply}: pure reply-TEXT composition (no `gh`/GraphQL call)
+ * for an accepted decision, signed per docs/ATTRIBUTION.md §3's binding
+ * conversational-message format. Zero write/mutation capability still holds:
+ * no reply is ever POSTED from this file — only drafted, in memory, for a
+ * follow-on slice to actually send. The `addDiscussionComment` GraphQL
+ * mutation itself, the CSRF-guarded preview/execute HTTP endpoints, and the
+ * operator panel remain deferred to those follow-on slices, the same
+ * staged-rollout shape `issue-triage.ts` itself used before `issue-triage-
+ * execute.ts` + `issue-triage-panel.ts` landed.
  */
 
 import { type Dimension } from '@autopilot/store';
@@ -119,6 +124,52 @@ export function planDiscussionTriage(discussion: IncomingDiscussion): Discussion
     reasoning:
       `#${discussion.number} "${discussion.title}" (${discussion.category}) has no chosen ` +
       `answer yet — classifying as "pool: ${dimension}" for a follow-on reply pass.`,
+  };
+}
+
+/** The `— ✈️ AUTOPILOT agent, on behalf of @<operator> · [what is this?](…)`
+ *  line docs/ATTRIBUTION.md §3 makes binding for every conversational
+ *  message a pilot posts outside its own working tree — issue comment,
+ *  review, or (named explicitly there) discussion. Composed, not resolved:
+ *  the caller supplies the operator's own `gh` login (the identity a
+ *  follow-on execute slice would actually post under, per that doc's
+ *  Signing & DCO section) so this stays pure, the same decide-don't-fetch
+ *  split {@link planDiscussionTriage} already keeps. */
+function attributionSignature(operatorLogin: string): string {
+  return (
+    `— ✈️ AUTOPILOT agent, on behalf of @${operatorLogin} · ` +
+    '[what is this?](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)'
+  );
+}
+
+/** A drafted reply, ready for a follow-on slice to post — never posted here. */
+export interface DiscussionReplyDraft {
+  readonly discussionNumber: number;
+  readonly dimension: Dimension;
+  readonly body: string;
+}
+
+/**
+ * Composes the reply text a follow-on execute slice would post on an
+ * `'accept'`-decided discussion — pure text composition only: no `gh` call,
+ * no GraphQL mutation, nothing sent anywhere. Reuses {@link
+ * planDiscussionTriage}'s own `reasoning` as the substance (the same
+ * decision-doubles-as-message convention `issue-triage.ts`'s
+ * `planIssueTriageCommands` uses for its own comment body), then appends
+ * {@link attributionSignature} so the eventual post is clearly identified as
+ * autopilot the moment it lands — never drafted unsigned first and signed
+ * later, which would let an unsigned draft ship if a future call site forgot
+ * the signing step.
+ */
+export function draftDiscussionReply(
+  discussion: IncomingDiscussion,
+  decision: DiscussionTriageAccept,
+  operatorLogin: string,
+): DiscussionReplyDraft {
+  return {
+    discussionNumber: discussion.number,
+    dimension: decision.dimension,
+    body: `${decision.reasoning}\n\n${attributionSignature(operatorLogin)}`,
   };
 }
 
