@@ -239,21 +239,36 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
   }
   // D1 TAB-STOP ROVING: the branch line is one roving group — the branch
   // name always leads, so it seeds '0' directly; arrow/base start at -1.
+  // i18n (board web-msnsndki-dz3vn1): this panel is never swept after its
+  // fetch resolves (no translateDom() follows this body build), so every tip
+  // and aria here is painted via tr() at build time — English stays
+  // byte-identical — AND tagged for the in-place sweep a mid-session locale
+  // switch runs: fixed tips as [data-i18n-tip], the arrow's fixed aria as
+  // [data-i18n-aria], and the branch/base aria prefixes (which wrap the live
+  // ref name in {name}) as [data-i18n-aria-template]/[data-i18n-name].
   var branchLine = el('p', 'landing-branch');
   var branchNameEl = el('span', 'landing-branch-name', landing.branch);
   branchNameEl.setAttribute('tabindex', '0');
-  branchNameEl.setAttribute('data-tip', 'Currently checked-out branch');
-  branchNameEl.setAttribute('aria-label', 'branch: ' + landing.branch);
+  branchNameEl.setAttribute('data-tip', tr('landingBranchTip'));
+  branchNameEl.setAttribute('data-i18n-tip', 'landingBranchTip');
+  branchNameEl.setAttribute('aria-label', tr('landingBranchAria', landing.branch));
+  branchNameEl.setAttribute('data-i18n-aria-template', 'landingBranchAria');
+  branchNameEl.setAttribute('data-i18n-name', landing.branch);
   branchLine.appendChild(branchNameEl);
   var arrowEl = el('span', 'landing-branch-arrow', '→');
   arrowEl.setAttribute('tabindex', '-1');
-  arrowEl.setAttribute('data-tip', 'Merge direction: branch into base');
-  arrowEl.setAttribute('aria-label', 'merges into');
+  arrowEl.setAttribute('data-tip', tr('landingBranchArrowTip'));
+  arrowEl.setAttribute('data-i18n-tip', 'landingBranchArrowTip');
+  arrowEl.setAttribute('aria-label', tr('landingBranchArrowAria'));
+  arrowEl.setAttribute('data-i18n-aria', 'landingBranchArrowAria');
   branchLine.appendChild(arrowEl);
   var baseNameEl = el('span', 'landing-base-name', landing.base);
   baseNameEl.setAttribute('tabindex', '-1');
-  baseNameEl.setAttribute('data-tip', 'Branch this would merge into');
-  baseNameEl.setAttribute('aria-label', 'base branch: ' + landing.base);
+  baseNameEl.setAttribute('data-tip', tr('landingBaseTip'));
+  baseNameEl.setAttribute('data-i18n-tip', 'landingBaseTip');
+  baseNameEl.setAttribute('aria-label', tr('landingBaseAria', landing.base));
+  baseNameEl.setAttribute('data-i18n-aria-template', 'landingBaseAria');
+  baseNameEl.setAttribute('data-i18n-name', landing.base);
   branchLine.appendChild(baseNameEl);
   body.appendChild(branchLine);
 
