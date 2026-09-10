@@ -850,6 +850,12 @@ const BENIGN_WEB = new Set([
   // behavioral equivalence to the real upstream package is a devDependency
   // cross-check in `test/web/qrcode-lib.test.ts`, not a hand-audit here.
   'qrcode-lib.ts',
+  // contributor-issue-list-panel.ts: pure tier→badge label formatting for
+  // the CONTRIBUTOR JOURNEY slice 1/4 issue list (board web-mtt3hery-l8v0lf)
+  // — same "unrecognized value echoes back verbatim" shape as
+  // `poolClaimDecisionLabel`, no HTML building, no I/O. The same class as
+  // the other pure icon/label/badge text-math files above.
+  'contributor-issue-list-panel.ts',
 ]);
 
 /** `web/features/` files (epic 0002 "shell decomposition") — each is a
@@ -918,6 +924,12 @@ const BENIGN_WEB_FEATURES = new Set([
   // copy-to-clipboard button is a client-local no-op, never a write). Same
   // shape as publicity.ts below.
   'foundation.ts',
+  // contributor-issue-list.ts: GET /api/contributor-issues only — read-only,
+  // no execute pair (claiming an issue is slice 2's separate /claim
+  // walkthrough). Renders each gh-returned issue url via `setAttribute`
+  // with target="_blank"/rel="noopener noreferrer", the same unvalidated
+  // gh-URL-as-href pattern pool-client.ts's issue link below already uses.
+  'contributor-issue-list.ts',
   // locale-data.ts: no fetch, no I/O — the non-English half of the
   // build-time STRINGS table (board ap-mtk2tgvh-0's BUNDLE DIET),
   // Object.assign'd into core's already-benign locale.ts data.
