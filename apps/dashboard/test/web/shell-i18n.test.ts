@@ -205,6 +205,13 @@ describe('renderShell masthead i18n wiring', () => {
     );
   });
 
+  it('tags the contributor-standing-panel landmark with data-i18n-aria', () => {
+    const html = renderShell();
+    expect(html).toContain(
+      'aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel"',
+    );
+  });
+
   it('tags the ask-persona GENIUS/ARCHITECT buttons with data-i18n', () => {
     const html = renderShell();
     expect(html).toContain(
