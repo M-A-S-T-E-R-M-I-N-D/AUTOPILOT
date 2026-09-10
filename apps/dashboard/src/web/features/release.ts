@@ -131,6 +131,15 @@ function renderReleaseBody(body, release, pid, identity) {
   // button renders exactly as before.
   if (identity && identity.role === 'user') {
     var guestNote = el('p', 'muted release-guest-note', releaseGuestNote(identity));
+    // i18n (epic 0019 law 1's role gate, board web-mtt3f7j6-3bj899): the
+    // English literal above stays as the byte-identical default; this
+    // two-slot template + args map lets releaseSection()'s translateDom()
+    // sweep repaint it in the active locale.
+    guestNote.setAttribute('data-i18n-template', 'releaseGuestNote');
+    guestNote.setAttribute(
+      'data-i18n-args',
+      JSON.stringify({ owner: identity.nameWithOwner.split('/')[0], login: identity.login }),
+    );
     body.appendChild(guestNote);
     return;
   }

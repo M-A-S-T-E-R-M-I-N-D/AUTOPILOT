@@ -44,6 +44,15 @@ describe('releaseJs', () => {
     expect(out).toContain("el('p', 'muted release-guest-note', releaseGuestNote(identity))");
   });
 
+  it('tags the guest note with a data-i18n-template pair for locale repaint (board web-msnsndki-dz3vn1)', () => {
+    const out = releaseJs();
+    expect(out).toContain("guestNote.setAttribute('data-i18n-template', 'releaseGuestNote');");
+    expect(out).toContain("'data-i18n-args',");
+    expect(out).toContain(
+      "JSON.stringify({ owner: identity.nameWithOwner.split('/')[0], login: identity.login }),",
+    );
+  });
+
   it('embeds the maturity detector and wires the RELEASE PHASE select: auto-detect shown, override posted, auto omitted', () => {
     const out = releaseJs();
     expect(out).toContain(releaseMaturityOf.toString());
