@@ -140,7 +140,12 @@ function flightMap(acts, pid) {
   if (!nodes.length) return null;
   var frag = document.createDocumentFragment();
   var ul = el('ul', 'flightmap');
+  // i18n (board web-msnsndki-dz3vn1): a fixed sentence, no live value, so a
+  // plain data-i18n-aria tag is enough — translateDom() (page load, language
+  // switch, AND renderFleet()'s own post-render sweep) repaints it in place;
+  // the English literal stays as the byte-identical default.
   ul.setAttribute('aria-label', 'Files in flight');
+  ul.setAttribute('data-i18n-aria', 'flightMapAria');
   frag.appendChild(ul);
   for (var i = 0; i < nodes.length; i++) {
     var n = nodes[i];
