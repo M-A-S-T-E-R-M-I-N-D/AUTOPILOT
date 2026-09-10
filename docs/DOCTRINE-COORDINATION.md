@@ -133,23 +133,34 @@ same autoformat commit inside a single two-second window
 way past. **The fixer is correct; the number of writers running it
 concurrently is not.**
 
-**Fixed (single-writer via mutex, not phase-move).** `RemediatingGate` now
-takes an optional `withLock` around exactly its fixer→commit→re-verify span
-(never the initial gate run, so a green gate — the common case — never waits
-on anything). `fly.ts` wires it to `withRitualLock` at a dedicated
-`autoformat.lock` file (`apps/dashboard/src/flight/ritual-lock.ts`) in the
-same lock directory every sibling instance already shares for the self-study
-ritual — a SEPARATE lock file, so an autoformat fix on one flight never waits
-on an unrelated PAPER regen on another. A lock that never frees up (a sibling
-is mid-remediation) degrades to the unremediated failure rather than fighting
-it for the same commit. This closes the concrete race above without moving
-remediation to land/sync-back time, so the per-lane safety net Landing
-(`packages/engine/src/landing.ts`) still leans on stays exactly as it was —
-Landing itself still has no remediation of its own; it just fails the merge
-on a red `format:check`. Whether remediation *should* also move to
+**Fixed for one checkout; NOT fixed across the fleet's real topology
+(`docs/debriefs/2026-09-10-verdict-ap-mtv8ql4c-0-autoformat-mutex-per-checkout-
+only.md`).** `RemediatingGate` now takes an optional `withLock` around exactly
+its fixer→commit→re-verify span (never the initial gate run, so a green gate
+— the common case — never waits on anything). `fly.ts` wires it to
+`withRitualLock` at a dedicated `autoformat.lock` file
+(`apps/dashboard/src/flight/ritual-lock.ts`), colocated with `resolveDbPath()`
+(`apps/dashboard/src/read/config.ts`) — `AUTOPILOT_DB` if set, otherwise
+`cwd()`-relative. The fleet does not set `AUTOPILOT_DB` (verified live), and
+each sibling flies its own worktree (`git worktree list`: `AUTOPILOT`,
+`fly-autopilot`, `fleet-2`..`fleet-6`), so this "shared" lock directory is in
+fact **per-checkout** — two `RemediatingGate` runs in the same worktree
+correctly serialize; two in different fleet worktrees hold two different
+lock files and never contend at all. A lock that never frees up (a same-
+checkout sibling is mid-remediation) degrades to the unremediated failure
+rather than fighting it for the same commit — but only within that one
+checkout's own traffic. This closes the concrete single-checkout race above
+without moving remediation to land/sync-back time, so the per-lane safety net
+Landing (`packages/engine/src/landing.ts`) still leans on stays exactly as it
+was — Landing itself still has no remediation of its own; it just fails the
+merge on a red `format:check`. Whether remediation *should* also move to
 land/sync-back — a larger redesign trading the per-lane net for a
-land-time-only one — remains an open question if the mutex alone proves
-insufficient in practice; it is not required to close this gap.
+land-time-only one — was framed as an open question "if the mutex alone
+proves insufficient in practice." It has: `18aafd26` (2026-09-10 08:22:29)
+and, independently, `4dc4bc24` (2026-09-10 11:42:15) both reproduce the exact
+revert→reapply→revert shape 19–23 hours *after* this mutex landed
+(`87982ca7`, 2026-09-09 12:46:42) — the cross-checkout race is live, not
+theoretical.
 
 ## Where ACID still governs
 
