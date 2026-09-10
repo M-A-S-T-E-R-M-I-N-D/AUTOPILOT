@@ -2214,10 +2214,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     officeSubagent: 'תת-סוכן — {name}',
     officeMapAria: 'מפת משרד הסוכן — כרגע {name}',
     flightMapAria: 'קבצים בטיסה',
-    issueTriageGuestNote: 'טריאז׳ ה-issues במאגר זה מנוהל על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
+    issueTriageGuestNote:
+      'טריאז׳ ה-issues במאגר זה מנוהל על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
     prReviewGuestNote:
       'פעולות סקירת ה-PR במאגר זה מתבצעות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
-    releaseGuestNote: 'מהדורות במאגר זה מוצאות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
+    releaseGuestNote:
+      'מהדורות במאגר זה מוצאות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
   },
 };
 
