@@ -11,6 +11,7 @@ import {
   createMirrorPassPreviewApi,
   createMirrorPassExecuteApi,
   createMirrorPassLandingNotePreviewApi,
+  createMirrorPassLandingNoteExecuteApi,
   createMirrorPassDriftPreviewApi,
   createMirrorPassStaleClaimPreviewApi,
 } from '../../src/flight/mirror-pass-execute.js';
@@ -105,6 +106,51 @@ function issueViewAndCommentsExec(
   issues: Readonly<Record<number, { state: 'open' | 'closed'; comments?: readonly string[] }>>,
 ): CliExec {
   return vi.fn(async (_bin, args) => {
+    if (args[0] === 'issue' && args[1] === 'view') {
+      const number = Number(args[2]);
+      const entry = issues[number];
+      if (entry === undefined) return { code: 1, stdout: '' };
+      if (args[4] === 'comments') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({ comments: (entry.comments ?? []).map((body) => ({ body })) }),
+        };
+      }
+      return { code: 0, stdout: JSON.stringify({ number, state: entry.state.toUpperCase() }) };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+/** A `CliExec` stub answering identity resolution (same shape as {@link
+ *  identityAndIssueViewExec}) plus both `gh issue view <n> --json
+ *  number,state` and `gh issue view <n> --json comments` from `issues` (same
+ *  shape as {@link issueViewAndCommentsExec}) — the exec double
+ *  `createMirrorPassLandingNoteExecuteApi` needs, since it composes
+ *  `resolveSocialIdentity` with `createMirrorPassLandingNotePreviewApi`'s own
+ *  reads. Every call is appended to `calls` so a test can assert exactly
+ *  which `gh` argv ran (or didn't). */
+function identityAndIssueViewAndCommentsExec(
+  login: string,
+  ownerLogin: string,
+  issues: Readonly<Record<number, { state: 'open' | 'closed'; comments?: readonly string[] }>>,
+  calls: Array<readonly [string, readonly string[]]> = [],
+): CliExec {
+  return vi.fn(async (bin, args) => {
+    calls.push([bin, args]);
+    if (args[0] === 'api' && args[1] === 'user') {
+      return { code: 0, stdout: JSON.stringify({ login }) };
+    }
+    if (args[0] === 'repo' && args[1] === 'view') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: `${ownerLogin}/hello-world`,
+          url: `https://github.com/${ownerLogin}/hello-world`,
+          isPrivate: false,
+        }),
+      };
+    }
     if (args[0] === 'issue' && args[1] === 'view') {
       const number = Number(args[2]);
       const entry = issues[number];
@@ -673,6 +719,190 @@ describe('createMirrorPassLandingNotePreviewApi', () => {
 
       vi.mocked(openStore).mockClear();
       await createMirrorPassLandingNotePreviewApi(dbPath, issueViewAndCommentsExec({}))('p1');
+      expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createMirrorPassLandingNoteExecuteApi', () => {
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-execute-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      const exec = identityAndIssueViewAndCommentsExec('octocat', 'octocat', {});
+      expect(await createMirrorPassLandingNoteExecuteApi(dbPath, exec)('nope')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with identity-unresolved and sends zero mutations when gh cannot resolve who is acting', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-execute-unresolved-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-11', projectId: 'p1', title: 'Fix it', createdAt: 100 });
+      setTaskStatus(s, 'github-11', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-11', 'cafe123');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec: CliExec = vi.fn(async (bin, args) => {
+        calls.push([bin, args]);
+        return { code: 1, stdout: '' };
+      });
+
+      const report = await createMirrorPassLandingNoteExecuteApi(dbPath, exec)('p1');
+
+      expect(report).toEqual({
+        identity: undefined,
+        outcomes: [],
+        skippedReason: 'identity-unresolved',
+      });
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] === 'comment')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with guest and sends zero mutations for a non-maintainer identity', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-execute-guest-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-11', projectId: 'p1', title: 'Fix it', createdAt: 100 });
+      setTaskStatus(s, 'github-11', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-11', 'cafe123');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewAndCommentsExec(
+        'a-contributor',
+        'octocat',
+        { 11: { state: 'closed', comments: [] } },
+        calls,
+      );
+
+      const report = await createMirrorPassLandingNoteExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBe('guest');
+      expect(report?.outcomes).toEqual([]);
+      expect(report?.identity).toMatchObject({ login: 'a-contributor', role: 'user' });
+      // Role honesty: identity resolution ran, but the board task read and any
+      // issue view/comment call never did.
+      expect(calls.some(([, args]) => args[0] === 'issue')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends the landing-note comment for a maintainer identity when the note is missing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-execute-fires-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-11',
+        projectId: 'p1',
+        title: 'Landed but closed by hand, no note',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-11', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-11', 'cafe123');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewAndCommentsExec(
+        'octocat',
+        'octocat',
+        { 11: { state: 'closed', comments: [] } },
+        calls,
+      );
+
+      const report = await createMirrorPassLandingNoteExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+      expect(report?.outcomes).toHaveLength(1);
+      expect(report?.outcomes[0]?.plan.finding).toMatchObject({
+        action: 'note-landing-sha',
+        issueNumber: 11,
+        sha: 'cafe123',
+      });
+      expect(report?.outcomes[0]?.commandOutcome).toEqual({
+        command: expect.objectContaining({
+          args: ['issue', 'comment', '11', '--body', expect.stringContaining('cafe123')],
+        }),
+        ok: true,
+      });
+      expect(calls).toContainEqual([
+        'gh',
+        ['issue', 'comment', '11', '--body', expect.stringContaining('cafe123')],
+      ]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends nothing when a comment already carries the landing SHA', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-execute-dedup-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-12', projectId: 'p1', title: 'Already noted', createdAt: 100 });
+      setTaskStatus(s, 'github-12', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-12', 'beef456');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewAndCommentsExec(
+        'octocat',
+        'octocat',
+        { 12: { state: 'closed', comments: ['Landed in beef456 — noting for the record.'] } },
+        calls,
+      );
+
+      const report = await createMirrorPassLandingNoteExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.outcomes).toEqual([]);
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] === 'comment')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('defaults to the real CLI exec when none is injected', () => {
+    expect(() => createMirrorPassLandingNoteExecuteApi('/tmp/unused.db')).not.toThrow();
+  });
+
+  it('opens the store read-only — this reconcile never writes to the board itself', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-landing-note-execute-readonly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      vi.mocked(openStore).mockClear();
+      await createMirrorPassLandingNoteExecuteApi(
+        dbPath,
+        identityAndIssueViewAndCommentsExec('octocat', 'octocat', {}),
+      )('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
     } finally {
       cleanupDir(dir);

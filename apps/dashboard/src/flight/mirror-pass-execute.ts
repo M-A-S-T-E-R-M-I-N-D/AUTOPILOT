@@ -32,9 +32,13 @@
  * paths remain their own follow-up slices, same per-derivation split slice
  * (a) already used above). Same "resolve identity, refuse to write for a
  * non-maintainer" role gate `taxonomy-seed.ts`'s `runTaxonomySeed` uses for
- * epic law 1 ("role honesty first"). The `POST /api/mirror-pass/execute`
- * HTTP route and the dashboard panel that would call it are not wired
- * here — VERDICT slices (b)'s HTTP half and (c) remain their own slices.
+ * epic law 1 ("role honesty first"). {@link createMirrorPassLandingNoteExecuteApi}
+ * is slice (b)'s second installment — derivation 2/4's mutating counterpart
+ * to {@link createMirrorPassLandingNotePreviewApi}, same role gate, same
+ * per-derivation split. The `POST /api/mirror-pass/execute` HTTP route and
+ * the dashboard panel that would call either execute API are not wired
+ * here — VERDICT slice (b)'s HTTP half and slice (c) remain their own
+ * slices.
  */
 
 import { join } from 'node:path';
@@ -251,6 +255,76 @@ export function createMirrorPassLandingNotePreviewApi(
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
       return planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** One landing-note task's real outcome after
+ *  {@link createMirrorPassLandingNoteExecuteApi} ran it — the {@link
+ *  MirrorPassLandingNotePlan} {@link planMirrorPassLandingNoteBatch} reached,
+ *  paired with what `gh` actually reported for its single comment command. */
+export interface MirrorPassLandingNoteExecuteOutcome {
+  readonly plan: MirrorPassLandingNotePlan;
+  readonly commandOutcome: MirrorPassCommandOutcome;
+}
+
+/** The landing-note EXECUTE ritual's full report — same shape as {@link
+ *  MirrorPassExecuteReport}, one derivation over. */
+export interface MirrorPassLandingNoteExecuteReport {
+  readonly identity: SocialIdentity | undefined;
+  readonly outcomes: readonly MirrorPassLandingNoteExecuteOutcome[];
+  readonly skippedReason?: MirrorPassExecuteSkipReason;
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassLandingNoteExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassLandingNoteExecuteReport | null>;
+
+/**
+ * Build the MIRROR PASS landing-note EXECUTE api against the real store +
+ * real `gh` — derivation 2/4's mutating counterpart to
+ * {@link createMirrorPassLandingNotePreviewApi} (EPIC 0019 S3, board
+ * `web-mtrh1hlh-62l41b`, VERDICT `ap-mtsg3nc0-3` slice (b), second
+ * installment — the other two derivations' execute paths remain their own
+ * follow-up slices). Same role gate as {@link createMirrorPassExecuteApi}:
+ * resolves the acting identity first and returns a zero-mutation report the
+ * moment it is unresolved or not this repo's own maintainer — a guest
+ * identity never reaches a single `gh issue comment` call. Only a task
+ * {@link planMirrorPassLandingNoteBatch} actually finds a finding for (its
+ * issue already closed, landed, and not yet noted) gets its comment sent.
+ */
+export function createMirrorPassLandingNoteExecuteApi(
+  dbPath: string,
+  exec: CliExec = ghExec,
+): MirrorPassLandingNoteExecuteApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const identity = await resolveSocialIdentity(exec);
+      if (identity === undefined || identity.role !== 'maintainer') {
+        return {
+          identity,
+          outcomes: [],
+          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
+        };
+      }
+      const tasks = mirrorPassTaskCandidates(store, projectId);
+      const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
+      const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
+      const plans = planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
+      const outcomes: MirrorPassLandingNoteExecuteOutcome[] = [];
+      for (const plan of plans) {
+        if (!plan.command) continue;
+        const [commandOutcome] = await applyMirrorPassCommands(exec, [plan.command]);
+        if (commandOutcome) outcomes.push({ plan, commandOutcome });
+      }
+      return { identity, outcomes };
     } finally {
       store.close();
     }
