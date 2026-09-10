@@ -2,7 +2,9 @@
 
 The founder noted there are "at least 999" topics AUTOPILOT should cover. This is their home — a living,
 categorized register. Nothing gets lost; items graduate into phased work (see `MASTER-PLAN.md` §13).
-Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
+Status legend: `[ ]` open · `[~]` in a phase · `[x]` done. A `[x]` item's full implementation evidence
+may live in [BACKLOG-999-ARCHIVE.md](BACKLOG-999-ARCHIVE.md) instead of inline, as this register is
+compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline line always says so.
 
 ## A. Engine & autonomy
 - [x] (M1, e2e-proven; 160+ real firings) Cross-platform TypeScript port of the v2.4 loop (orient/pick/gate/commit/report/pace/hibernate)
@@ -61,7 +63,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
 - [ ] Notifications (needs-you, anomaly, ship) across channels
 - [ ] Export/share reports; scheduled runs; cron/time-of-day windows
 - [ ] Plugin/extension model for custom harness steps and review agents
-- [~] (GENIUS+ARCHITECT step 1, RAG, live view; inbox pending) Reactivity: talk-to-agent chat, hybrid RAG, task assignment, live view + abstract activity map (spec: `REACTIVITY.md`)
+- [~] (GENIUS+ARCHITECT step 1, RAG, live view, inbox task-assign all live — FEATURE-COVERAGE §D; chat itself + repo/backlog self-generated mining still pending) Reactivity: talk-to-agent chat, hybrid RAG, task assignment, live view + abstract activity map (spec: `REACTIVITY.md`)
 - [ ] Multi-harness projection: catalog → install-target adapter registry (Claude/Codex/Cursor/Gemini/OpenCode/Kiro…)
 - [~] (epic 0009: the loop's CLI-`--resume` session-carry is live but MEASURED a net loss at n=197 and was narrowed to checkpoint continuation + FINISH-LINE EXTENSION; FTS5 + `sqlite-vec` hybrid search live — FEATURE-COVERAGE §D/§G) Warm agent session (Agent SDK) instead of per-message CLI spawn; semantic index (FTS5 + embeddings) with cache-invalidation — still open: an Agent-SDK warm session for chat (chat itself unbuilt), the local ONNX embedder
 - [x] (OWASP/WCAG/SemVer/SPDX/REUSE/OTel-OTLP all live) Standards backbone wired in from day one (spec: `PATTERNS-AND-STANDARDS.md`) — OWASP/SLSA/WCAG/SemVer/SPDX/OTel
@@ -99,17 +101,9 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   `include` covers every linted file (root config files + `scripts/*.mjs`).
 - [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
   Done — renamed to `tsconfig.typecheck.json`; `package.json`'s `typecheck` script updated to match.
-- [x] `apps/dashboard` browser tsconfig — `lib`/jsdom half (M3 prep): give the app its own `compilerOptions.lib`
-  (incl. `DOM`) and a jsdom Vitest environment instead of the Node base. Done — this added the jsdom
-  `environmentMatchGlobs` env; this item's `lib` half needed splitting the single flat `tsconfig.typecheck.json`
-  into per-package configs first (`lib` is program-wide, not per-directory), landed by splitting it into
-  `packages/*/tsconfig.typecheck.json` + `apps/dashboard/tsconfig.typecheck.json` (each `extends` that package's
-  own build `tsconfig.json`, chained in the root `typecheck` script since composite project references can't
-  combine with `--noEmit` — TS6310, confirmed empirically). `apps/dashboard/tsconfig.typecheck.json` now sets
-  `"lib": ["ES2022", "DOM"]` for real (`src/web/shell.ts` uses `document`/`window` directly), scoped to that
-  package alone — Node-only packages no longer see DOM globals leak in from the old flat program. Removed the
-  now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
-  N/A — no React/Vite UI yet; add it if/when that lands.
+- [x] **Dashboard browser tsconfig (M3 prep)** Split the flat `tsconfig.typecheck.json` per-package and gave
+  `apps/dashboard` its own `DOM` lib + jsdom Vitest env — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--dashboard-browser-tsconfig-libjsdom-split-moved-2026-09-10).
 - [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
   Done — `.github/workflows/ci.yml`'s new `reuse-lint` job (`continue-on-error: true`, so it's informational only)
   runs `pip install reuse==6.2.0 && reuse lint`. Getting the repo REUSE-3.3-compliant surfaced two real gaps: a
@@ -215,36 +209,9 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done.
   actually spawns an agent. Credentials (§4) are still hand-maintained prose, not part of this generated table
   yet — that's the next concrete slice, though it's a larger one: §4 is narrative (location/purpose/at-rest
   protection), not a flat tool list, so it needs its own structured source before it can generate cleanly.
-- [x] **Board hygiene** Reconcile board vs git on session end: interactive-session work marks no task done (only
-  flight METRICS ids do) — reuse the headline resolver's commit↔title matching to propose "this shipped, mark done?"
-  The matching primitive landed (`ap-msksw1mf-3`) — `findReconciliationCandidates`/`titleMatchScore` in
-  `apps/dashboard/src/read/reconcile.ts` score an open task's title against a commit subject (Jaccard token
-  overlap) and surface proposal-only candidates; it caught this backlog file's own live evidence of the bug
-  (`ap-msksw1mf-4`'s reuse-lint work and `ap-msksw1me-0`'s OTLP endpoint wiring both shipped via interactive
-  commits with no METRICS line, so their board tasks never flipped to `done`). Done — the real caller landed:
-  `GitVcs.recentCommits` (`packages/engine/src/adapters/git.ts`) reads the target's recent history, and
-  `apps/dashboard/src/fly.ts`'s end-of-flight block feeds it plus the open board through
-  `findReconciliationCandidates`, printing each unconfirmed candidate for the operator to confirm on the
-  dashboard. Proposal-only by design (never auto-applied) and best-effort (a reconciliation hiccup never fails
-  the flight). `ap-msksw1mf-4` and `ap-msksw1me-0` themselves are still manually left open on the live board as
-  a real-world fixture for this exact matcher to prove out on the next flight — but only `ap-msksw1mf-4` actually
-  will: its shipping commit has a descriptive subject that scores 0.615 against the task title, well
-  past the 0.5 threshold. `ap-msksw1me-0` shipped inside a WIP-checkpoint commit whose subject is
-  generic firing-cadence boilerplate with no mention of OTLP — that pairing scores ~0.05, so the matcher
-  originally could not surface it. This was a real blind spot, not a matcher bug: a checkpoint commit's subject
-  never carries the descriptive content title-matching needs, since the firing that packs up mid-unit has no room
-  left to compose one. Proven as a regression fixture in `apps/dashboard/test/read/reconcile.test.ts` (`"of the two
-  real board fixtures, only the descriptively-committed one is proposed"`).
-  **Resolved** — closed exactly this gap: `GitVcs.recentCommits`
-  (`packages/engine/src/adapters/git.ts`) now also returns each commit's changed file paths, and
-  `findReconciliationCandidates` (`apps/dashboard/src/read/reconcile.ts`) falls back to a boolean
-  `filePathMatchesTitle` check — a shared, non-generic token (length >= 4, filtered against a structural-noise
-  list) between the task title and a touched path — whenever no commit subject clears the threshold. Proposal-only
-  and best-effort like the rest of this feature. Proven against both real fixtures once wired with real file data:
-  the reuse-lint task still matches via subject text (score 0.615, unchanged), and the OTLP task is now recovered
-  via the path signal (`apps/dashboard/test/read/reconcile.test.ts`, the fixture immediately after the one above).
-  `apps/dashboard/src/fly.ts`'s end-of-flight block now passes `commit.files` through for real, so the fix applies
-  to live flights, not just the test fixture.
+- [x] **Board hygiene** Reconcile board vs git on session end (subject-text match `ap-msksw1mf-3` +
+  file-path fallback `ap-msksw1mf-4`, both proven against real fixtures in `reconcile.test.ts`) — full
+  evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--board-hygiene-moved-2026-09-09).
 - [x] **WCAG-AA (real bug, from the a11y round)** Light theme `--color-sev-medium` 3.92:1 against surface — under
   AA's 4.5:1, used as gate-phase TEXT color (`.fnode-gate`/`.live-phase-gate`/`.act-search`); nudge OKLCH L down.
   Done — a light-theme `sevMedium` WCAG AA fix as gate-phase text (`packages/tokens/src/themes.ts`);
