@@ -6,6 +6,7 @@ import {
   planDiscussionTriage,
   fetchOpenDiscussions,
   draftDiscussionReply,
+  postDiscussionReply,
   type IncomingDiscussion,
   type DiscussionTriageAccept,
 } from '../../src/flight/discussions-triage.js';
@@ -13,6 +14,7 @@ import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function discussion(overrides: Partial<IncomingDiscussion> = {}): IncomingDiscussion {
   return {
+    id: 'D_kwDOA1b2c84AXyZw',
     number: 9,
     title: 'Keyboard nav is broken in the fleet table',
     body: 'Screen reader users are stuck',
@@ -84,6 +86,7 @@ describe('draftDiscussionReply', () => {
     const draft = draftDiscussionReply(discussion(), accept(), 'gabibi555');
 
     expect(draft).toEqual({
+      discussionId: 'D_kwDOA1b2c84AXyZw',
       discussionNumber: 9,
       dimension: 'accessibility',
       body: expect.stringContaining('#9'),
@@ -139,15 +142,16 @@ describe('fetchOpenDiscussions', () => {
     ]);
     expect(args[7]).toMatch(/^query=/);
     expect(args[7]).toContain('discussions(states: OPEN, first: 50');
-    expect(args[7]).toContain('isAnswered');
+    expect(args[7]).toContain(' id number title body isAnswered');
     expect(args[7]).toContain('locked');
   });
 
-  it('parses number/title/body/category/isAnswered/locked off each discussion node', async () => {
+  it('parses id/number/title/body/category/isAnswered/locked off each discussion node', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({
       code: 0,
       stdout: discussionsGraphql([
         {
+          id: 'D_kwDOA1b2c84AXyZw',
           number: 9,
           title: 'Show and tell',
           body: 'Flew a repo',
@@ -163,6 +167,7 @@ describe('fetchOpenDiscussions', () => {
 
     expect(discussions).toEqual([
       {
+        id: 'D_kwDOA1b2c84AXyZw',
         number: 9,
         title: 'Show and tell',
         body: 'Flew a repo',
@@ -179,6 +184,7 @@ describe('fetchOpenDiscussions', () => {
       code: 0,
       stdout: discussionsGraphql([
         {
+          id: 'D_kwDOA1b2c84AXyZw',
           number: 9,
           title: 'Labeled',
           labels: { nodes: [{ name: 'pool: ux' }, { id: 3 }, 'nope'] },
@@ -195,9 +201,9 @@ describe('fetchOpenDiscussions', () => {
     const exec: CliExec = vi.fn().mockResolvedValue({
       code: 0,
       stdout: discussionsGraphql([
-        { number: 1, title: 'a', isAnswered: true },
-        { number: 2, title: 'b', isAnswered: false },
-        { number: 3, title: 'c', isAnswered: null },
+        { id: 'D_1', number: 1, title: 'a', isAnswered: true },
+        { id: 'D_2', number: 2, title: 'b', isAnswered: false },
+        { id: 'D_3', number: 3, title: 'c', isAnswered: null },
       ]),
     });
 
@@ -206,15 +212,17 @@ describe('fetchOpenDiscussions', () => {
     expect(discussions.map((d) => d.isAnswered)).toEqual([true, false, false]);
   });
 
-  it('drops entries missing a numeric number or string title', async () => {
+  it('drops entries missing a numeric number, string title, or string id', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({
       code: 0,
       stdout: discussionsGraphql([
-        { number: 'nine', title: 'bad number' },
-        { title: 'no number' },
+        { id: 'D_1', number: 'nine', title: 'bad number' },
+        { id: 'D_2', title: 'no number' },
         {
+          id: 'D_3',
           number: 1,
         },
+        { number: 1, title: 'no id' },
       ]),
     });
 
@@ -224,7 +232,7 @@ describe('fetchOpenDiscussions', () => {
   it('falls back to an empty category name when the category is missing or malformed', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({
       code: 0,
-      stdout: discussionsGraphql([{ number: 1, title: 'no category' }]),
+      stdout: discussionsGraphql([{ id: 'D_1', number: 1, title: 'no category' }]),
     });
 
     const discussions = await fetchOpenDiscussions(exec);
@@ -242,5 +250,54 @@ describe('fetchOpenDiscussions', () => {
       const exec: CliExec = vi.fn().mockResolvedValue(reply);
       expect(await fetchOpenDiscussions(exec)).toEqual([]);
     }
+  });
+});
+
+describe('postDiscussionReply', () => {
+  function draft(): ReturnType<typeof draftDiscussionReply> {
+    const decision = planDiscussionTriage(discussion());
+    if (decision.decision !== 'accept') throw new Error('fixture must classify as accept');
+    return draftDiscussionReply(discussion(), decision, 'gabibi555');
+  }
+
+  it('spends one gh api graphql call carrying the discussion id and body as raw fields', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify({ data: { addDiscussionComment: {} } }),
+    });
+
+    await postDiscussionReply(exec, draft());
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    const [bin, args] = vi.mocked(exec).mock.calls[0] as [string, readonly string[]];
+    expect(bin).toBe('gh');
+    expect(args).toEqual([
+      'api',
+      'graphql',
+      '-f',
+      'discussionId=D_kwDOA1b2c84AXyZw',
+      '-f',
+      `body=${draft().body}`,
+      '-f',
+      expect.stringMatching(/^query=mutation\(\$discussionId: ID!, \$body: String!\)/),
+    ]);
+  });
+
+  it('sends the mutation as a raw field, not a magic owner/repo placeholder', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{}' });
+
+    await postDiscussionReply(exec, draft());
+
+    const [, args] = vi.mocked(exec).mock.calls[0] as [string, readonly string[]];
+    expect(args).not.toContain('-F');
+    expect(args.join(' ')).toContain('addDiscussionComment(input: {discussionId: $discussionId');
+  });
+
+  it('pairs the exec result back with the discussion number, never throwing on failure', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: 'GraphQL error' });
+
+    const result = await postDiscussionReply(exec, draft());
+
+    expect(result).toEqual({ discussionNumber: 9, code: 1, stdout: 'GraphQL error' });
   });
 });
