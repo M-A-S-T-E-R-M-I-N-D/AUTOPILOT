@@ -667,6 +667,8 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .issue-triage-result:empty { display: none; }
 .issue-triage-result-ok { color: var(--color-success); }
 .issue-triage-result-fail { color: var(--color-sev-critical); }
+.issue-triage-comment-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.issue-triage-comment-link:hover, .issue-triage-comment-link:focus-visible { border-bottom-color: currentColor; }
 .report-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); margin-top: var(--space-3); }
 .report-details { padding: var(--space-3) var(--space-4); }
 .report-title { margin: 0; font-size: var(--text-base); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }

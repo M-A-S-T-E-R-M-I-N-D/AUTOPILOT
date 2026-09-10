@@ -15,6 +15,7 @@ import {
   issueTriageConfirmMessage,
   issueTriageExecuteResult,
   issueTriageGuestNote,
+  issueTriageCommentLinks,
 } from '../../src/web/issue-triage-panel.js';
 
 describe('issueTriageDecisionLabel', () => {
@@ -172,6 +173,75 @@ describe('issueTriageExecuteResult', () => {
     expect(issueTriageExecuteResult(undefined).className).toBe(
       'issue-triage-result issue-triage-result-fail',
     );
+  });
+});
+
+describe('issueTriageCommentLinks (epic 0020 "the legible surface" slice 3, board web-mtt8loci-8hnte4)', () => {
+  it('links a successful comment call to the real URL gh reported', () => {
+    const links = issueTriageCommentLinks([
+      { command: { details: 'labeling #1 "pool: accessibility"' }, code: 0 },
+      {
+        command: { details: "posting KEEPER's triage reasoning as a comment on #1" },
+        code: 0,
+        stdout: 'https://github.com/example/repo/issues/1#issuecomment-1',
+      },
+    ]);
+    expect(links).toEqual([
+      { issueNumber: 1, url: 'https://github.com/example/repo/issues/1#issuecomment-1' },
+    ]);
+  });
+
+  it('finds a link per issue across a mixed batch', () => {
+    const links = issueTriageCommentLinks([
+      {
+        command: { details: "posting KEEPER's triage reasoning as a comment on #1" },
+        code: 0,
+        stdout: 'https://github.com/example/repo/issues/1#issuecomment-1',
+      },
+      {
+        command: { details: "posting KEEPER's triage reasoning as a comment on #2" },
+        code: 0,
+        stdout: 'https://github.com/example/repo/issues/2#issuecomment-2',
+      },
+    ]);
+    expect(links.map((l) => l.issueNumber)).toEqual([1, 2]);
+  });
+
+  it('never synthesizes a link for a failed comment call', () => {
+    const links = issueTriageCommentLinks([
+      {
+        command: { details: "posting KEEPER's triage reasoning as a comment on #1" },
+        code: 1,
+        stdout: '',
+      },
+    ]);
+    expect(links).toEqual([]);
+  });
+
+  it('skips a command result whose stdout is not a real https:// url', () => {
+    const links = issueTriageCommentLinks([
+      {
+        command: { details: "posting KEEPER's triage reasoning as a comment on #1" },
+        code: 0,
+        stdout: 'not a url',
+      },
+      {
+        command: { details: "posting KEEPER's triage reasoning as a comment on #2" },
+        code: 0,
+      },
+    ]);
+    expect(links).toEqual([]);
+  });
+
+  it('ignores non-comment commands even when they succeed', () => {
+    const links = issueTriageCommentLinks([
+      {
+        command: { details: 'labeling #1 "pool: accessibility"' },
+        code: 0,
+        stdout: 'https://github.com/example/repo/issues/1',
+      },
+    ]);
+    expect(links).toEqual([]);
   });
 });
 
