@@ -1,18 +1,21 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
+import type { CliExec } from '../connection/cli-probe.js';
+import { parseIssueLabels, parseAssignees } from './issue-triage.js';
+
 /**
  * CONTRIBUTOR JOURNEY (board web-mtt3hery-l8v0lf), slice 1 of 4 — "live
  * good-first/help-wanted list". The epic's four slices are independently
  * shippable (docs/debriefs/2026-09-10-verdict-ap-mttxbufs-0-contributor-
  * journey-split-reconfirmed.md); slices 3-4 (partner-application deep-link,
- * STANDING explainer) already shipped as static content, but this one needs
- * a real `gh issue list` read plus a UI surface, which the debrief judged
- * too large for one firing combined. This ships only the pure decision core
- * — {@link planContributorIssueList} — mirroring the pool-client/pr-review
- * seam style (`flight/pool-client.ts`'s `fetchPoolIssues` vs. its pure
- * `planClaimPoolIssue`): the live `gh` read and the dashboard panel that
- * renders this list are separate, later slices.
+ * STANDING explainer) already shipped as static content. This adds the
+ * second half of this slice — {@link fetchContributorFacingIssues}, the
+ * live `gh issue list` read — alongside the pure decision core already
+ * shipped, {@link planContributorIssueList}; mirroring the pool-client/
+ * pr-review seam style (`flight/pool-client.ts`'s `fetchPoolIssues` vs. its
+ * pure `planClaimPoolIssue`). The dashboard panel that renders this list is
+ * still a separate, later slice.
  */
 
 /** The subset of a GitHub issue this planner needs — the same fields
@@ -75,4 +78,68 @@ export function planContributorIssueList(
     entries.push({ number: issue.number, title: issue.title, url: issue.url, tier });
   }
   return entries.sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.number - b.number);
+}
+
+/** One issue entry as `gh issue list --json number,title,url,labels,
+ *  assignees` emits it — untrusted process output, parsed defensively
+ *  rather than trusted as already shaped like {@link ContributorFacingIssue}. */
+interface RawContributorFacingIssue {
+  readonly number?: unknown;
+  readonly title?: unknown;
+  readonly url?: unknown;
+  readonly labels?: unknown;
+  readonly assignees?: unknown;
+}
+
+/**
+ * Lists every open issue via `gh issue list --state open --json
+ * number,title,url,labels,assignees`, run through the injectable `exec` —
+ * the same `CliExec` shape `issue-triage.ts`'s `fetchOpenIssues` and
+ * `pool-client.ts`'s `fetchPoolIssues` already use, reusing their
+ * `parseIssueLabels`/`parseAssignees` reductions rather than duplicating
+ * them. `gh issue list --label` ANDs multiple `--label` flags together
+ * rather than ORing them (`pool-client.ts`'s own doc comment), so filtering
+ * for `good first issue` OR `help wanted` at the `gh` layer would need two
+ * separate calls; every open issue is fetched unfiltered instead and
+ * {@link planContributorIssueList} classifies client-side, the same
+ * fetch-then-classify split `fetchPoolIssues` already uses. Read-only.
+ * Returns `[]` on a non-zero exit or unparseable/non-array stdout rather
+ * than throwing. Entries missing a numeric `number`, string `title`, or
+ * string `url` are dropped rather than passed through malformed.
+ */
+export async function fetchContributorFacingIssues(
+  exec: CliExec,
+): Promise<ContributorFacingIssue[]> {
+  const { code, stdout } = await exec('gh', [
+    'issue',
+    'list',
+    '--state',
+    'open',
+    '--json',
+    'number,title,url,labels,assignees',
+  ]);
+  if (code !== 0) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  return (parsed as RawContributorFacingIssue[])
+    .filter(
+      (raw) =>
+        typeof raw.number === 'number' &&
+        typeof raw.title === 'string' &&
+        typeof raw.url === 'string',
+    )
+    .map((raw) => ({
+      number: raw.number as number,
+      title: raw.title as string,
+      url: raw.url as string,
+      labels: parseIssueLabels(raw.labels),
+      assignees: parseAssignees(raw.assignees),
+    }));
 }

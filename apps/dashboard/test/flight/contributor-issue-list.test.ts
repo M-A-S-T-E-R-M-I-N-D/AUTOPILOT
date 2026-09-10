@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   planContributorIssueList,
+  fetchContributorFacingIssues,
   type ContributorFacingIssue,
 } from '../../src/flight/contributor-issue-list.js';
+import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function issue(overrides: Partial<ContributorFacingIssue> = {}): ContributorFacingIssue {
   return {
@@ -86,5 +88,118 @@ describe('planContributorIssueList', () => {
       issue({ number: 3, labels: ['good first issue'] }),
     ]);
     expect(result.map((e) => e.number)).toEqual([3, 9]);
+  });
+});
+
+describe('fetchContributorFacingIssues', () => {
+  it('calls gh issue list with the expected argv', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '[]' });
+
+    await fetchContributorFacingIssues(exec);
+
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'issue',
+      'list',
+      '--state',
+      'open',
+      '--json',
+      'number,title,url,labels,assignees',
+    ]);
+  });
+
+  it('parses labels and assignees off gh issue list output', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 1,
+          title: 'Fix the thing',
+          url: 'https://github.com/example/repo/issues/1',
+          labels: [{ name: 'good first issue' }, { name: 'bug' }],
+          assignees: [{ login: 'octocat' }],
+        },
+      ]),
+    });
+
+    const issues = await fetchContributorFacingIssues(exec);
+
+    expect(issues).toEqual([
+      {
+        number: 1,
+        title: 'Fix the thing',
+        url: 'https://github.com/example/repo/issues/1',
+        labels: ['good first issue', 'bug'],
+        assignees: ['octocat'],
+      },
+    ]);
+  });
+
+  it('does not filter by label — every open issue is returned for the caller to classify', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 1,
+          title: 'Unlabeled',
+          url: 'https://github.com/example/repo/issues/1',
+          labels: [],
+          assignees: [],
+        },
+      ]),
+    });
+
+    const issues = await fetchContributorFacingIssues(exec);
+
+    expect(issues).toHaveLength(1);
+  });
+
+  it('drops entries missing a numeric number, string title, or string url', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 1,
+          title: 'Valid',
+          url: 'https://github.com/example/repo/issues/1',
+        },
+        {
+          number: 'not-a-number',
+          title: 'Bad number',
+          url: 'https://github.com/example/repo/issues/2',
+        },
+        { title: 'Missing number', url: 'x' },
+        { number: 3, title: 'Missing url' },
+      ]),
+    });
+
+    const issues = await fetchContributorFacingIssues(exec);
+
+    expect(issues).toEqual([
+      {
+        number: 1,
+        title: 'Valid',
+        url: 'https://github.com/example/repo/issues/1',
+        labels: [],
+        assignees: [],
+      },
+    ]);
+  });
+
+  it('returns an empty list on a non-zero exit code', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
+
+    expect(await fetchContributorFacingIssues(exec)).toEqual([]);
+  });
+
+  it('returns an empty list on unparseable stdout', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: 'not json' });
+
+    expect(await fetchContributorFacingIssues(exec)).toEqual([]);
+  });
+
+  it('returns an empty list when stdout is valid JSON but not an array', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{}' });
+
+    expect(await fetchContributorFacingIssues(exec)).toEqual([]);
   });
 });
