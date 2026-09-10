@@ -179,7 +179,9 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // Raised with the script (2026-09-09) for the standing panel's role
 // gating — see check-bundle-size.mjs for the reasoning.
 // Raised with the script (2026-09-09) for this round's landed UI.
-const CHUNK_RAW_BUDGET = 120 * 1024;
+// Raised with the script (2026-09-10) for the recovered
+// contributor-issue-list panel.
+const CHUNK_RAW_BUDGET = 122 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

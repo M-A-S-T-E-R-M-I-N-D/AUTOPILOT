@@ -110,7 +110,11 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // Then panels raw 119→120KB (2026-09-09, second landing of the day) for
 // the 56 commits this round landed — the fleet's own UI growth, not one
 // slice's. Deferred chunk, never blocks first paint; core untouched.
-const CHUNK_RAW_BUDGET = 120 * 1024;
+//
+// Then panels raw 120→122KB (2026-09-10) for the contributor-issue-list
+// panel recovered from the lanes after the 13:06 power loss. Deferred
+// chunk, never blocks first paint; core untouched.
+const CHUNK_RAW_BUDGET = 122 * 1024;
 const CHUNK_GZIP_BUDGET = 37 * 1024;
 
 function formatKb(bytes) {
