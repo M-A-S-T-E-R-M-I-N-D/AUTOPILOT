@@ -129,6 +129,7 @@ import type {
 import type {
   MirrorPassDriftPlan,
   MirrorPassExecuteReport,
+  MirrorPassLandingNoteExecuteReport,
 } from '../flight/mirror-pass-execute.js';
 import type {
   HumanMergeResult,
@@ -195,6 +196,11 @@ const ISSUE_TRIAGE_RATE_LIMIT = 5;
 const ISSUE_TRIAGE_RATE_WINDOW_MS = 60_000;
 const MIRROR_PASS_EXECUTE_RATE_LIMIT = 5;
 const MIRROR_PASS_EXECUTE_RATE_WINDOW_MS = 60_000;
+// Guards POST /api/mirror-pass/landing-note/execute — same reasoning as
+// MIRROR_PASS_EXECUTE's own limiter, one derivation over: a real `gh issue
+// comment` call per finding, not just a read.
+const MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_LIMIT = 5;
+const MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/report-from-here/execute — same heavier-than-a-quota-spend
 // reasoning as ISSUE_TRIAGE's limiter: a real `gh issue create` call or board
 // task creation per request, not just a read. The preview endpoint stays
@@ -503,6 +509,16 @@ export type MirrorPassLandingNotePreviewApi = (
   projectId: string,
 ) => Promise<readonly MirrorPassLandingNotePlan[] | null>;
 
+/** MIRROR PASS landing-note EXECUTE (injected; the mutating counterpart to
+ *  {@link MirrorPassLandingNotePreviewApi} — same role gate as
+ *  {@link MirrorPassExecuteApi}) — derivation 2/4's execute path, VERDICT
+ *  `ap-mtsg3nc0-3` slice (b), second installment — see
+ *  `flight/mirror-pass-execute.ts`'s `createMirrorPassLandingNoteExecuteApi`.
+ *  `null` means an unknown project id. */
+export type MirrorPassLandingNoteExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassLandingNoteExecuteReport | null>;
+
 /** MIRROR PASS drift preview (injected; reads only, checks the project's own
  *  tree — no `gh` call) — derivation 3/4 of EPIC 0019 S3 (board
  *  `web-mtrh1hlh-62l41b`), "README/docs public claims ↔ tree reality" — see
@@ -658,6 +674,12 @@ export interface ServerDeps extends RouteDeps {
    *  derivation 2/4) — read-only, behind `GET /api/mirror-pass/landing-note`.
    *  Same "mutating execute is a separate slice" stance as `mirrorPass` above. */
   readonly mirrorPassLandingNote?: MirrorPassLandingNotePreviewApi;
+  /** MIRROR PASS landing-note EXECUTE (VERDICT `ap-mtsg3nc0-3` slice (b),
+   *  derivation 2/4 only) — the mutating counterpart to `mirrorPassLandingNote`
+   *  above, behind `POST /api/mirror-pass/landing-note/execute`. The other two
+   *  derivations' execute paths remain their own follow-up slices, not wired
+   *  here. */
+  readonly mirrorPassLandingNoteExecute?: MirrorPassLandingNoteExecuteApi;
   /** MIRROR PASS drift preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
    *  derivation 3/4) — read-only, behind `GET /api/mirror-pass/drift`. Same
    *  "mutating execute is a separate slice" stance as `mirrorPass` above. */
@@ -2423,6 +2445,72 @@ async function handleMirrorPassExecute(
 }
 
 /**
+ * The MIRROR PASS landing-note EXECUTE endpoint (`POST
+ * /api/mirror-pass/landing-note/execute`, body `{project}`) — derivation
+ * 2/4's mutating counterpart to {@link handleMirrorPassLandingNote}. Same
+ * shape as {@link handleMirrorPassExecute} one derivation over: state-
+ * changing (posts a landed-in comment via `gh`), so CSRF-guarded JSON POST,
+ * separately rate-limited, role gating happens inside the injected `api`
+ * itself (a non-maintainer identity still gets a 200 with `skippedReason`
+ * set, never a 403). 404 only for an unknown project or an unwired API.
+ */
+async function handleMirrorPassLandingNoteExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassLandingNoteExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass landing-note execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many mirror pass requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let project: string;
+  try {
+    project = String((JSON.parse(raw) as { project?: unknown }).project ?? '');
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    const result = await api(project);
+    if (!result) {
+      send(404, { error: 'unknown project' });
+      return;
+    }
+    send(200, result);
+  } catch (error) {
+    send(500, {
+      error: error instanceof Error ? error.message : 'mirror pass landing-note execute failed',
+    });
+  }
+}
+
+/**
  * The MIRROR PASS landing-note preview endpoint (`GET
  * /api/mirror-pass/landing-note?project=`) — derivation 2/4: a task whose
  * issue is already closed in sync with the board, but never got a comment
@@ -3035,6 +3123,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     MIRROR_PASS_EXECUTE_RATE_LIMIT,
     MIRROR_PASS_EXECUTE_RATE_WINDOW_MS,
   );
+  const mirrorPassLandingNoteExecuteLimiter = createRateLimiter(
+    MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_LIMIT,
+    MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_WINDOW_MS,
+  );
   const reportFromHereLimiter = createRateLimiter(
     REPORT_FROM_HERE_RATE_LIMIT,
     REPORT_FROM_HERE_RATE_WINDOW_MS,
@@ -3227,6 +3319,17 @@ export function createServer(deps: ServerDeps = {}): Server {
         deps.mirrorPassExecute,
         headers,
         mirrorPassExecuteLimiter,
+      );
+      return;
+    }
+
+    if (path === '/api/mirror-pass/landing-note/execute') {
+      void handleMirrorPassLandingNoteExecute(
+        req,
+        res,
+        deps.mirrorPassLandingNoteExecute,
+        headers,
+        mirrorPassLandingNoteExecuteLimiter,
       );
       return;
     }

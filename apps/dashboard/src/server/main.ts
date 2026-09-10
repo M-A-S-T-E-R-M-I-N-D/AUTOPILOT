@@ -88,6 +88,7 @@ import {
   createMirrorPassPreviewApi,
   createMirrorPassExecuteApi,
   createMirrorPassLandingNotePreviewApi,
+  createMirrorPassLandingNoteExecuteApi,
   createMirrorPassDriftPreviewApi,
   createMirrorPassStaleClaimPreviewApi,
 } from '../flight/mirror-pass-execute.js';
@@ -604,6 +605,11 @@ const server = createServer({
   // commits get landed-in comments" for a task whose issue closed some
   // other way.
   mirrorPassLandingNote: createMirrorPassLandingNotePreviewApi(dbPath),
+  // MIRROR PASS landing-note execute (VERDICT ap-mtsg3nc0-3 slice (b),
+  // derivation 2/4 only): the mutating counterpart to the preview above —
+  // the other two derivations' execute paths are their own follow-up
+  // slices.
+  mirrorPassLandingNoteExecute: createMirrorPassLandingNoteExecuteApi(dbPath),
   // MIRROR PASS drift preview: read-only, derivation 3/4 — the project's own
   // README/docs claims (version, package count, internal links) checked
   // against its tree; no `gh` call involved.
