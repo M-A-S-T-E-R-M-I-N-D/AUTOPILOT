@@ -101,17 +101,9 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
   `include` covers every linted file (root config files + `scripts/*.mjs`).
 - [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
   Done — renamed to `tsconfig.typecheck.json`; `package.json`'s `typecheck` script updated to match.
-- [x] `apps/dashboard` browser tsconfig — `lib`/jsdom half (M3 prep): give the app its own `compilerOptions.lib`
-  (incl. `DOM`) and a jsdom Vitest environment instead of the Node base. Done — this added the jsdom
-  `environmentMatchGlobs` env; this item's `lib` half needed splitting the single flat `tsconfig.typecheck.json`
-  into per-package configs first (`lib` is program-wide, not per-directory), landed by splitting it into
-  `packages/*/tsconfig.typecheck.json` + `apps/dashboard/tsconfig.typecheck.json` (each `extends` that package's
-  own build `tsconfig.json`, chained in the root `typecheck` script since composite project references can't
-  combine with `--noEmit` — TS6310, confirmed empirically). `apps/dashboard/tsconfig.typecheck.json` now sets
-  `"lib": ["ES2022", "DOM"]` for real (`src/web/shell.ts` uses `document`/`window` directly), scoped to that
-  package alone — Node-only packages no longer see DOM globals leak in from the old flat program. Removed the
-  now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
-  N/A — no React/Vite UI yet; add it if/when that lands.
+- [x] **Dashboard browser tsconfig (M3 prep)** Split the flat `tsconfig.typecheck.json` per-package and gave
+  `apps/dashboard` its own `DOM` lib + jsdom Vitest env — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--dashboard-browser-tsconfig-libjsdom-split-moved-2026-09-10).
 - [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
   Done — `.github/workflows/ci.yml`'s new `reuse-lint` job (`continue-on-error: true`, so it's informational only)
   runs `pip install reuse==6.2.0 && reuse lint`. Getting the repo REUSE-3.3-compliant surfaced two real gaps: a

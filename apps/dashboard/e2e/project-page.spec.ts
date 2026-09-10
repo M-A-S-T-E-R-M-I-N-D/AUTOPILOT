@@ -50,6 +50,7 @@ test.describe('project page (/p/:id)', () => {
       '404 /api/connection/gh',
       '404 /api/connection/gh-lts',
       // foundation donation-panel poll — same class (see dashboard.spec.ts).
+      '404 /api/contributor-issues',
       '404 /api/donations',
       '404 /api/fly',
       '404 /api/pool-client',

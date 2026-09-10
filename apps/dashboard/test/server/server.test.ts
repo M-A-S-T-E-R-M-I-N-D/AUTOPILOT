@@ -3118,6 +3118,38 @@ describe('createServer (live loopback)', () => {
     expect(await res.json()).toMatchObject({ ok: true, sources: ['src/cart.ts'] });
   });
 
+  it('POST /api/ask relays lowConfidence when the service signals a sourced-but-refused answer (board web-mtt5qwjp-xns6ps)', async () => {
+    const base = await start({
+      ask: () =>
+        Promise.resolve({
+          ok: true,
+          answer: "I don't see that in the indexed code.",
+          sources: ['src/cart.ts'],
+          lowConfidence: true,
+        }),
+    });
+    const res = await fetch(`${base}/api/ask`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', question: 'how is the total computed?' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ lowConfidence: true });
+  });
+
+  it('POST /api/ask omits lowConfidence on a confident answer', async () => {
+    const base = await start({
+      ask: () => Promise.resolve({ ok: true, answer: 'A reduce.', sources: ['src/cart.ts'] }),
+    });
+    const res = await fetch(`${base}/api/ask`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', question: 'how is the total computed?' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).not.toHaveProperty('lowConfidence');
+  });
+
   it('POST /api/ask threads prior turns to the ask API for multi-turn context', async () => {
     let received: unknown;
     const base = await start({
@@ -3745,6 +3777,28 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toContain('"proposal":{"tool":"tasks_list"');
+  });
+
+  it('POST /api/ask/stream relays lowConfidence on the terminal frame (board web-mtt5qwjp-xns6ps)', async () => {
+    const base = await start({
+      askStream: (_project, _question, onChunk) => {
+        onChunk("I don't see that in the indexed code.");
+        return Promise.resolve({
+          ok: true,
+          answer: "I don't see that in the indexed code.",
+          sources: ['src/cart.ts'],
+          lowConfidence: true,
+        });
+      },
+    });
+    const res = await fetch(`${base}/api/ask/stream`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', question: 'q' }),
+    });
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('"lowConfidence":true');
   });
 
   it('POST /api/ask/stream 400s on an invalid persona without calling the model', async () => {

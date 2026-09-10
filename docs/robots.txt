@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://m-a-s-t-e-r-m-i-n-d.github.io/AUTOPILOT/sitemap.xml

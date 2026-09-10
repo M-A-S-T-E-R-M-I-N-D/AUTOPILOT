@@ -68,6 +68,7 @@ import {
   formatCheckDuration,
   prCheckRunTip,
   prCheckSummary,
+  awaitingApprovalChecksUrl,
   humanMergeReadiness,
   humanMergeConfirmMessage,
   humanMergeResult,
@@ -110,6 +111,10 @@ ${prCheckStateGlyph.toString()}
 ${formatCheckDuration.toString()}
 ${prCheckRunTip.toString()}
 ${prCheckSummary.toString()}
+// GitHub's own Checks-tab URL for a PR stuck in action_required, same
+// .toString() splice (board web-mto1tya3-57v8ig) — turns the badge's
+// tooltip-only command into a real link to GitHub's own approve control.
+${awaitingApprovalChecksUrl.toString()}
 // The human merge button (operator, 2026-09-09) — the maintainer's own act
 // on a PR the ritual queued for a human and refuses to merge itself.
 ${humanMergeReadiness.toString()}
@@ -267,6 +272,22 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
     // that action as a button beside it — a red check offers the re-run, a
     // stale branch offers the update.
     if (plan.decision.decision === 'queue-for-human') {
+      // Awaiting-approval cards get a real link to GitHub's own "Approve and
+      // run" control, ahead of the merge button — nothing can merge before
+      // the blocked run is approved, so this is the one actionable next
+      // step here (board web-mto1tya3-57v8ig).
+      var approveChecksUrl = awaitingApprovalChecksUrl(plan.pr.url);
+      if (awaitingApproval && approveChecksUrl) {
+        var approveLink = el('a', 'pr-review-approve-link', '🔓 Review & approve on GitHub');
+        approveLink.setAttribute('href', approveChecksUrl);
+        approveLink.setAttribute('target', '_blank');
+        approveLink.setAttribute('rel', 'noopener noreferrer');
+        var approveLinkTip =
+          'Opens the Checks tab for this PR on GitHub, where "Approve and run" starts the blocked workflow run(s).';
+        approveLink.setAttribute('data-tip', approveLinkTip);
+        approveLink.setAttribute('aria-label', approveLinkTip);
+        actions.appendChild(approveLink);
+      }
       var readiness = humanMergeReadiness(plan.pr);
       actions.appendChild(prPanelButton('pr-review-human-merge', '🤝 Merge as maintainer',
         'data-pr-human-merge', plan.pr.number, readiness.reason, !readiness.ready));
