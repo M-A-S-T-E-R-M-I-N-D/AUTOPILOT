@@ -101,6 +101,7 @@ import {
   createReportFromHereExecuteApi,
 } from '../flight/report-from-here-execute.js';
 import { createPublicityPreviewApi } from '../flight/publicity.js';
+import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
@@ -625,6 +626,10 @@ const server = createServer({
   // "fly locally" leg's HTTP half), so execute is handed `dbPath`.
   poolClient: createPoolClientPreviewApi(),
   poolClientExecute: createPoolClientExecuteApi(dbPath),
+  // CONTRIBUTOR JOURNEY (board web-mtt3hery-l8v0lf), slice 1 of 4 — a
+  // visitor's live good-first-issue/help-wanted pick list, project-agnostic
+  // like the pool browse above.
+  contributorIssueList: createContributorIssueListPreviewApi(),
   // Report-from-here ritual (epic 0007, "PLATFORM 5/7") — the CSRF-guarded
   // HTTP pair behind `flight/report-from-here.ts`'s pure decision core; no
   // shell-side capture wiring or operator panel calls these yet (deferred to

@@ -64,6 +64,7 @@ import {
   issueTriageHasWork,
   issueTriageNothingToRunTip,
   issueTriageGuestNote,
+  issueTriageCommentLinks,
 } from '../issue-triage-panel.js';
 
 /** The KEEPER issue-triage panel client — vanilla, external (keeps CSP script-src 'self'). */
@@ -86,6 +87,12 @@ export function issueTriageJs(): string {
 ${issueTriageDecisionLabel.toString()}
 ${issueTriageConfirmMessage.toString()}
 ${issueTriageExecuteResult.toString()}
+// issueTriageCommentLinks is generated FROM web/issue-triage-panel.ts below
+// (epic 0020 "the legible surface" slice 3, board web-mtt8loci-8hnte4,
+// "decisions link to the comment they will post") — its real compiled
+// source via .toString(), not a hand-retyped copy. It can no longer drift
+// apart.
+${issueTriageCommentLinks.toString()}
 // issueTriageExecuteTip is generated FROM web/issue-triage-panel.ts below
 // (app-wide interactivity audit v2, web-msm66jlc-gm4oom) — its real compiled
 // source via .toString(), not a hand-retyped copy. It can no longer drift
@@ -99,6 +106,15 @@ ${issueTriageNothingToRunTip.toString()}
 // longer drift apart.
 ${issueTriageGuestNote.toString()}
 var issueTriagePlansByProject = {};
+// pid-keyed: the real comment URLs the LAST successful execute posted (epic
+// 0020 "the legible surface" slice 3, board web-mtt8loci-8hnte4) — kept in
+// its own map, not the .issue-triage-result line, because a clean apply
+// immediately reloads the body (the "success re-fetches" convention below),
+// which would otherwise wipe a result-line link before anyone could read
+// it. renderIssueTriageBody reads this on every render, so the links
+// survive that reload and stay visible until the NEXT execute replaces (or,
+// for an all-skip re-run, clears) them.
+var issueTriageCommentLinksByProject = {};
 function renderIssueTriageBody(body, plans, pid, identity) {
   body.replaceChildren();
   plans = plans || [];
@@ -114,7 +130,21 @@ function renderIssueTriageBody(body, plans, pid, identity) {
     var plan = plans[i];
     var item = el('div', 'issue-triage-item');
     var head = el('div', 'issue-triage-head');
-    var issueNumberEl = el('span', 'issue-triage-number', '#' + plan.issue.number);
+    // The number is a real link when gh reported the issue's own url (epic
+    // 0020 "the legible surface" slice 3 — operator, 2026-09-09: "אם אנחנו
+    // מביאים מידע מהGITHUB למה אנחנו לא יכולים לקשר באופן ישיר"). An <a>
+    // only when there IS a url: a link element that goes nowhere is worse
+    // than plain text. rel=noreferrer on a _blank target is the standard
+    // reverse-tabnabbing guard — same pattern as pr-review.ts's own
+    // PR-number link and pool-client.ts's issue-number link.
+    var issueNumberEl = plan.issue.url
+      ? el('a', 'issue-triage-number issue-triage-number-link', '#' + plan.issue.number)
+      : el('span', 'issue-triage-number', '#' + plan.issue.number);
+    if (plan.issue.url) {
+      issueNumberEl.setAttribute('href', plan.issue.url);
+      issueNumberEl.setAttribute('target', '_blank');
+      issueNumberEl.setAttribute('rel', 'noopener noreferrer');
+    }
     // D1 TAB-STOP ROVING (epic 0015): one Tab stop for the whole list — a
     // busy triage round would otherwise cost one Tab press per open issue.
     // wireRoving() below moves it.
@@ -135,9 +165,51 @@ function renderIssueTriageBody(body, plans, pid, identity) {
     head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass));
     item.appendChild(head);
     item.appendChild(el('p', 'issue-triage-issue-title', plan.issue.title));
+    // Real GitHub labels, rendered as chips (epic 0020 "the legible surface"
+    // slice 3, board web-mtt8loci-8hnte4, "labels render as real chips") — gh
+    // already reports each open issue's label names (flight/issue-triage.ts's
+    // IncomingIssue.labels) and they reached this far only to be discarded;
+    // the same "if we fetched it, we can show it" principle the issue-number
+    // link above already applies. No color data comes back from gh's labels
+    // field, so every chip renders in the shared neutral chip style rather
+    // than fabricating a color the API never reported.
+    if (plan.issue.labels && plan.issue.labels.length) {
+      var labelsRow = el('div', 'issue-triage-labels');
+      for (var li = 0; li < plan.issue.labels.length; li++) {
+        var labelName = plan.issue.labels[li];
+        var labelTip = 'GitHub label: ' + labelName;
+        labelsRow.appendChild(tipChip(labelName, labelTip, labelTip, 'issue-triage-label-chip'));
+      }
+      item.appendChild(labelsRow);
+    }
     list.appendChild(item);
   }
   body.appendChild(list);
+  // Real links to the comments the LAST execute on this project actually
+  // posted (epic 0020 "the legible surface" slice 3, board
+  // web-mtt8loci-8hnte4, "decisions link to the comment they will post") —
+  // gh issue comment's own reported URL, read-only history visible to a
+  // guest the same as the preview above, never gated behind the maintainer
+  // role check below.
+  var commentLinks = issueTriageCommentLinksByProject[pid];
+  if (commentLinks && commentLinks.length) {
+    var commentLinksRow = el('p', 'muted issue-triage-comment-links');
+    var commentLinksLabel = el('span', '', 'Comments posted:');
+    commentLinksLabel.setAttribute('data-i18n', 'issueTriageCommentsPosted');
+    commentLinksRow.appendChild(commentLinksLabel);
+    commentLinksRow.appendChild(document.createTextNode(' '));
+    for (var ci = 0; ci < commentLinks.length; ci++) {
+      if (ci > 0) commentLinksRow.appendChild(document.createTextNode(' '));
+      var commentLinkEl = document.createElement('a');
+      commentLinkEl.className = 'issue-triage-comment-link';
+      commentLinkEl.href = commentLinks[ci].url;
+      commentLinkEl.target = '_blank';
+      commentLinkEl.rel = 'noopener noreferrer';
+      commentLinkEl.textContent = '#' + commentLinks[ci].issueNumber;
+      commentLinksRow.appendChild(commentLinkEl);
+    }
+    body.appendChild(commentLinksRow);
+  }
   // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):
   // a confirmed non-owner of this repo is a guest — it sees the preview
   // above but never the KEEPER execute button. An unresolved identity (no
@@ -256,6 +328,14 @@ document.addEventListener('click', function (e) {
         }
         return;
       }
+      // Real links to the comments THIS run actually posted (epic 0020
+      // slice 3, board web-mtt8loci-8hnte4) — gh's own reported URL, kept
+      // pid-keyed so renderIssueTriageBody can show them AFTER the reload
+      // below replaces this whole body (a run that posted nothing sets an
+      // empty list, clearing any stale links from a previous run).
+      issueTriageCommentLinksByProject[pid] = issueTriageCommentLinks(
+        (r.data && r.data.commandResults) || [],
+      );
       // A clean apply changed real issues' state (labels/comments posted,
       // board tasks created) — reload so the panel reflects reality (an
       // accepted issue now matches its own new board task and reads as a

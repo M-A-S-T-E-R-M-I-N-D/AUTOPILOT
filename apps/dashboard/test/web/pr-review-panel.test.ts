@@ -27,6 +27,7 @@ import {
   prReviewExecuteResult,
   prReviewExecuteTip,
   prReviewGuestNote,
+  awaitingApprovalChecksUrl,
   type PrReviewPanelTranslator,
 } from '../../src/web/pr-review-panel.js';
 
@@ -85,6 +86,18 @@ describe('prReviewDecisionLabel', () => {
     expect(prReviewDecisionLabel('queue-for-human', trHe, true)).toBe(
       '🔒 ' + STRINGS.he.prReviewAwaitingApprovalLabel,
     );
+  });
+});
+
+describe('awaitingApprovalChecksUrl', () => {
+  it("appends /checks to the PR's own url", () => {
+    expect(awaitingApprovalChecksUrl('https://github.com/acme/widgets/pull/42')).toBe(
+      'https://github.com/acme/widgets/pull/42/checks',
+    );
+  });
+
+  it('returns undefined when the candidate carries no url', () => {
+    expect(awaitingApprovalChecksUrl(undefined)).toBeUndefined();
   });
 });
 

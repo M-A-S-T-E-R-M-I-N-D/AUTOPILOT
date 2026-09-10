@@ -179,10 +179,14 @@ export function issueTriageGuestNote(identity: IssueTriageViewerIdentity): strin
 
 /** One planned `gh` command's result, the same shape `POST
  *  /api/issue-triage/execute`'s `commandResults[]` entries carry — see
- *  `flight/issue-triage.ts`'s `IssueTriageCommandResult`. */
+ *  `flight/issue-triage.ts`'s `IssueTriageCommandResult`. `stdout` is
+ *  optional (existing callers/tests built this literal without it) even
+ *  though the real endpoint always sets it — {@link issueTriageCommentLinks}
+ *  is the only reader and treats a missing value as "no link". */
 export interface IssueTriageCommandResultLike {
   readonly command: { readonly details: string };
   readonly code: number;
+  readonly stdout?: string;
 }
 
 /** The shape `issueTriageExecuteResult` reads off `POST
@@ -252,4 +256,43 @@ export function issueTriageExecuteResult(
       (results.length === 1 ? ' gh command.' : ' gh commands.') +
       tasksNote,
   };
+}
+
+/** One real link to a comment a KEEPER TRIAGE EXECUTE run actually posted. */
+export interface IssueTriageCommentLink {
+  readonly issueNumber: number;
+  readonly url: string;
+}
+
+/**
+ * Real links to the comments a KEEPER TRIAGE EXECUTE run actually posted
+ * (epic 0020 "the legible surface" slice 3, board web-mtt8loci-8hnte4,
+ * "decisions link to the comment they will post") — `gh issue comment`
+ * prints the new comment's own URL to stdout on success, the same
+ * "if we fetched it, we can show it" rule the issue-number link and label
+ * chips above already follow. A synthesized URL is forbidden (epic 0020's
+ * "every GitHub noun is a link" principle names this explicitly), so this
+ * reads ONLY the real `stdout` gh reported for a successful comment call —
+ * never builds one — and skips anything that doesn't look like a real
+ * `https://` URL (a mocked test double, or a `gh` version whose stdout
+ * shape differs). The comment-call detector regex is inlined rather than a
+ * shared module-scope constant — this file's header comment's own rule,
+ * since `web/shell.ts` splices this function's real compiled source via
+ * `.toString()`, which serializes only the function body, never a
+ * surrounding closure.
+ */
+export function issueTriageCommentLinks(
+  results: readonly IssueTriageCommandResultLike[],
+): readonly IssueTriageCommentLink[] {
+  const links: IssueTriageCommentLink[] = [];
+  for (const result of results) {
+    if (result.code !== 0) continue;
+    const match = /as a comment on #(\d+)/.exec(result.command.details);
+    const issueNumberText = match?.[1];
+    if (issueNumberText === undefined) continue;
+    const url = (result.stdout ?? '').trim();
+    if (!/^https:\/\//.test(url)) continue;
+    links.push({ issueNumber: Number(issueNumberText), url });
+  }
+  return links;
 }

@@ -629,6 +629,16 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-review-human-merge { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-needs-you); background: transparent; color: var(--color-needs-you); }
 .pr-review-human-merge:hover:not(:disabled), .pr-review-human-merge:focus-visible:not(:disabled) { background: color-mix(in oklab, var(--color-needs-you) 14%, transparent); }
 .pr-review-human-merge:disabled { opacity: 0.5; cursor: default; }
+/* The awaiting-approval card's "Review & approve on GitHub" link (board
+   web-mto1tya3-57v8ig): a real <a> to the PR's Checks tab, sitting in the
+   same actions row as the maintainer buttons, so it wears the human-merge
+   button's exact needs-you outline shell — text-decoration off and
+   inline-flex so the anchor sizes like its button siblings. Hover and
+   focus-visible pair on one line (hover-focus-visible-pairing.test.ts), the
+   body byte-identical to .pr-review-human-merge's so the twins cannot
+   drift (pr-review-approve-link-designed-states.test.ts). */
+.pr-review-approve-link { display: inline-flex; align-items: center; font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-needs-you); background: transparent; color: var(--color-needs-you); text-decoration: none; }
+.pr-review-approve-link:hover, .pr-review-approve-link:focus-visible { background: color-mix(in oklab, var(--color-needs-you) 14%, transparent); }
 .pr-review-update-branch { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); }
 .pr-review-update-branch:hover, .pr-review-update-branch:focus-visible { border-color: currentColor; color: var(--color-text); }
 .pr-review-update-branch:disabled { opacity: 0.5; cursor: default; }
@@ -643,7 +653,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .issue-triage-item:first-of-type { border-top: none; }
 .issue-triage-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .issue-triage-number { font-family: var(--font-mono); color: var(--color-text-muted); }
+.issue-triage-number-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.issue-triage-number-link:hover, .issue-triage-number-link:focus-visible { border-bottom-color: currentColor; }
 .issue-triage-issue-title { margin: 0; font-size: var(--text-sm); }
+.issue-triage-labels { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .issue-triage-badge-accept { color: var(--color-success); border-color: var(--color-success); }
 .issue-triage-badge-duplicate { color: var(--color-text-muted); border-color: var(--color-border); }
 .issue-triage-badge-skip { color: var(--color-text-muted); border-color: var(--color-border); opacity: 0.7; }
@@ -664,6 +677,8 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .issue-triage-result:empty { display: none; }
 .issue-triage-result-ok { color: var(--color-success); }
 .issue-triage-result-fail { color: var(--color-sev-critical); }
+.issue-triage-comment-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.issue-triage-comment-link:hover, .issue-triage-comment-link:focus-visible { border-bottom-color: currentColor; }
 .report-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); margin-top: var(--space-3); }
 .report-details { padding: var(--space-3) var(--space-4); }
 .report-title { margin: 0; font-size: var(--text-base); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }

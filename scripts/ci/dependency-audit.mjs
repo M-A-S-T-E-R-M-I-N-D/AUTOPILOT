@@ -37,10 +37,55 @@ const TRANSIENT_MARKERS = [
   'audit endpoint',
 ];
 
+/** Shapes only a PARSED vulnerability report prints — the box table's
+ *  severity cell, the count line, the `Severity:` summary. Any of these means
+ *  the registry answered; whatever outage-flavored prose the advisory titles
+ *  happen to quote ("socket hang up …", "Internal Server Error …") is then
+ *  the finding's text, not ours. Guard-precision doctrine (board
+ *  web-mtqumz0u-j39av4, docs/FAILURE-DOCTRINE.md row 6): here a false
+ *  positive fails CI OPEN — a real high+ finding downgraded to exit 0 — so a
+ *  report outranks every marker below. */
+const VULNERABILITY_REPORT_SIGNATURES = [
+  /\b\d+ vulnerabilit(?:y|ies) found\b/i,
+  /^\s*Severity:\s/im,
+  /│\s*(?:low|moderate|high|critical)\s*│/i,
+];
+
+/** Longest evidence line the warning quotes — one readable row, not a dump. */
+const EVIDENCE_MAX_CHARS = 160;
+
+/** @param {string} line @returns {string} */
+function clipEvidence(line) {
+  const trimmed = line.trim();
+  return trimmed.length > EVIDENCE_MAX_CHARS
+    ? `${trimmed.slice(0, EVIDENCE_MAX_CHARS - 1)}…`
+    : trimmed;
+}
+
+/**
+ * Classify a failed `pnpm audit` run. Returns the marker that made the output
+ * look like a registry outage AND the line it matched on — the evidence a
+ * degraded run must print so an operator can judge whether the scanner was
+ * right — or `null` when the output is a vulnerability report, or something
+ * unrecognized (an unknown failure stays a hard red: the gate fails closed).
+ * @param {string} output
+ * @returns {{ marker: string, evidence: string } | null}
+ */
+export function findTransientAuditMarker(output) {
+  if (VULNERABILITY_REPORT_SIGNATURES.some((signature) => signature.test(output))) {
+    return null;
+  }
+  for (const line of output.split(/\r?\n/)) {
+    const lower = line.toLowerCase();
+    const marker = TRANSIENT_MARKERS.find((candidate) => lower.includes(candidate));
+    if (marker) return { marker, evidence: clipEvidence(line) };
+  }
+  return null;
+}
+
 /** @param {string} output @returns {boolean} */
 export function isTransientAuditFailure(output) {
-  const lower = output.toLowerCase();
-  return TRANSIENT_MARKERS.some((marker) => lower.includes(marker));
+  return findTransientAuditMarker(output) !== null;
 }
 
 /** On Windows, `pnpm` is a `.cmd` shim that `execFileSync` cannot launch
@@ -99,18 +144,20 @@ export async function runAuditWithRetry({
       return { exitCode: 0, attempts: attempt };
     }
 
-    if (!isTransientAuditFailure(output)) {
+    const transient = findTransientAuditMarker(output);
+    if (transient === null) {
       error(output.trim());
       error('dependency-audit FAILED: pnpm audit reported a high+ severity issue');
       return { exitCode: 1, attempts: attempt };
     }
 
+    const evidence = `matched "${transient.marker}" in: ${transient.evidence}`;
     if (attempt === maxAttempts) {
       warn(output.trim());
       warn(
         `dependency-audit WARN: the npm registry audit endpoint looked unreachable after ` +
-          `${maxAttempts} attempts (transient network error, not a reported vulnerability) — ` +
-          'not failing CI on a registry outage; rerun once the registry recovers.',
+          `${maxAttempts} attempts (transient network error, not a reported vulnerability; ` +
+          `${evidence}) — not failing CI on a registry outage; rerun once the registry recovers.`,
       );
       return { exitCode: 0, attempts: attempt };
     }
@@ -118,7 +165,7 @@ export async function runAuditWithRetry({
     const delay = baseDelayMs * 2 ** (attempt - 1);
     warn(
       `dependency-audit: attempt ${attempt}/${maxAttempts} looked like a transient registry ` +
-        `error, retrying in ${delay}ms...`,
+        `error (${evidence}), retrying in ${delay}ms...`,
     );
     await sleep(delay);
   }
