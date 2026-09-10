@@ -1488,6 +1488,13 @@ const EN_STRINGS = {
   issueTriageExecute: '🗝️ Run KEEPER triage',
   issueTriageExecuting: 'Triaging…',
   issueTriageRequestFailed: '✗ Request failed — try again shortly.',
+  // web/features/issue-triage.ts (epic 0020 "the legible surface" slice 3,
+  // board web-mtt8loci-8hnte4, "decisions link to the comment they will
+  // post"): the static label ahead of the real gh-reported comment links a
+  // successful KEEPER execute leaves behind — the links themselves (#N)
+  // are live GitHub data, never a translation target, the same split this
+  // file's header comment already draws for every dynamic value it renders.
+  issueTriageCommentsPosted: 'Comments posted:',
   // web/features/mirror-pass.ts (EPIC 0019 S3, board web-mtrh1hlh-62l41b,
   // VERDICT ap-mtsg3nc0-3 slice (c)): the project page's read-only MIRROR
   // PASS panel — title, loading placeholder, and the empty/fetch-failure
@@ -2197,6 +2204,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     issueTriageExecute: '🗝️ בצע טריאז׳ KEEPER',
     issueTriageExecuting: 'מבצע טריאז׳…',
     issueTriageRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
+    issueTriageCommentsPosted: 'תגובות פורסמו:',
     mirrorPassTitle: '🔁 מעבר שיקוף',
     mirrorPassLoading: 'בודק את הלוח מול GitHub…',
     mirrorPassEmpty: 'הלוח וGitHub תואמים — אין מה לתאם.',

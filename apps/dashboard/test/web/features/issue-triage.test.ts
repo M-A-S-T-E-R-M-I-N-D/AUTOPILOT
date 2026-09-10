@@ -15,17 +15,19 @@ import {
   issueTriageExecuteResult,
   issueTriageExecuteTip,
   issueTriageGuestNote,
+  issueTriageCommentLinks,
 } from '../../../src/web/issue-triage-panel.js';
 import { issueTriageJs } from '../../../src/web/features/issue-triage.js';
 
 describe('issueTriageJs', () => {
-  it('embeds issueTriageDecisionLabel/issueTriageConfirmMessage/issueTriageExecuteResult/issueTriageExecuteTip/issueTriageGuestNote real compiled source via .toString()', () => {
+  it('embeds issueTriageDecisionLabel/issueTriageConfirmMessage/issueTriageExecuteResult/issueTriageExecuteTip/issueTriageGuestNote/issueTriageCommentLinks real compiled source via .toString()', () => {
     const out = issueTriageJs();
     expect(out).toContain(issueTriageDecisionLabel.toString());
     expect(out).toContain(issueTriageConfirmMessage.toString());
     expect(out).toContain(issueTriageExecuteResult.toString());
     expect(out).toContain(issueTriageExecuteTip.toString());
     expect(out).toContain(issueTriageGuestNote.toString());
+    expect(out).toContain(issueTriageCommentLinks.toString());
   });
 
   it('role-gates the execute button behind a confirmed non-owner check (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899)', () => {

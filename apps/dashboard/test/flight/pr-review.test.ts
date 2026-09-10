@@ -231,6 +231,12 @@ const BENIGN_FLIGHT = new Set([
   // pool-client.ts: the executor that acts on an admitted plan is a
   // follow-up slice that will need its own marker once it ships one.
   'social-pass.ts',
+  // CONTRIBUTOR JOURNEY slice 1 (board web-mtt3hery-l8v0lf): planContributorIssueList
+  // is a pure filter/rank over an already-fetched issue array (no `gh` call
+  // of its own) — same class as pool-client.ts's classifiers. The live
+  // `gh issue list` read and the dashboard panel that renders this list are
+  // separate, later slices that will need their own markers once they ship.
+  'contributor-issue-list.ts',
   // SOCIAL FLIGHT weave-in 3/6 (board web-mtpzzx23-n1kqv0's follow-on
   // slice): parseSocialFlightToggle/shouldRunSocialFlight are pure functions
   // over an env-var string and a phase enum — no I/O, no gh call, and not
@@ -238,6 +244,14 @@ const BENIGN_FLIGHT = new Set([
   // will actually call the social pass at a phase is a follow-up slice that
   // will need its own marker once it ships one.
   'social-flight-trigger.ts',
+  // KEEPER DISCUSSIONS TRIAGE first slice (board web-mtlsiac0-v8rksh, docs/
+  // epics/0007-platform-maintainer-and-pool.md S8): fetchOpenDiscussions only
+  // LISTS via a read-only `gh api graphql` query, and planDiscussionTriage is
+  // a pure dimension classifier over already-fetched fields — no reply,
+  // comment, or label write exists yet; reply-posting is a follow-on slice
+  // that will need its own marker once it ships one, same class as
+  // pool-client.ts/social-pass.ts above.
+  'discussions-triage.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
@@ -862,6 +876,12 @@ const BENIGN_WEB = new Set([
   // behavioral equivalence to the real upstream package is a devDependency
   // cross-check in `test/web/qrcode-lib.test.ts`, not a hand-audit here.
   'qrcode-lib.ts',
+  // contributor-issue-list-panel.ts: pure tier→badge label formatting for
+  // the CONTRIBUTOR JOURNEY slice 1/4 issue list (board web-mtt3hery-l8v0lf)
+  // — same "unrecognized value echoes back verbatim" shape as
+  // `poolClaimDecisionLabel`, no HTML building, no I/O. The same class as
+  // the other pure icon/label/badge text-math files above.
+  'contributor-issue-list-panel.ts',
 ]);
 
 /** `web/features/` files (epic 0002 "shell decomposition") — each is a
@@ -931,6 +951,12 @@ const BENIGN_WEB_FEATURES = new Set([
   // copy-to-clipboard button is a client-local no-op, never a write). Same
   // shape as publicity.ts below.
   'foundation.ts',
+  // contributor-issue-list.ts: GET /api/contributor-issues only — read-only,
+  // no execute pair (claiming an issue is slice 2's separate /claim
+  // walkthrough). Renders each gh-returned issue url via `setAttribute`
+  // with target="_blank"/rel="noopener noreferrer", the same unvalidated
+  // gh-URL-as-href pattern pool-client.ts's issue link below already uses.
+  'contributor-issue-list.ts',
   // locale-data.ts: no fetch, no I/O — the non-English half of the
   // build-time STRINGS table (board ap-mtk2tgvh-0's BUNDLE DIET),
   // Object.assign'd into core's already-benign locale.ts data.

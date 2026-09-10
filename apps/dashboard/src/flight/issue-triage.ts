@@ -60,6 +60,13 @@ export interface IncomingIssue {
   readonly number: number;
   readonly title: string;
   readonly body: string;
+  /** The issue's own GitHub page (epic 0020 "the legible surface", slice 3
+   *  — operator, 2026-09-09: "אם אנחנו מביאים מידע מהGITHUB למה אנחנו לא
+   *  יכולים לקשר באופן ישיר"). Optional so every existing test fixture and
+   *  the execute path's bare issues stay valid — the panel simply renders
+   *  an unlinked number when it is absent, never a broken link, the same
+   *  `pr-review.ts`'s `PrReviewCandidate.url` convention. */
+  readonly url?: string;
   readonly labels?: readonly string[];
   /** GitHub logins already assigned to this issue — a non-empty list means a
    *  human has claimed it (the same "claims (assign/comment)" convention
@@ -724,13 +731,14 @@ export function applyIssueTriageTasks(
   return created;
 }
 
-/** One issue entry as `gh issue list --json number,title,body,labels,
+/** One issue entry as `gh issue list --json number,title,body,url,labels,
  *  assignees` emits it — untrusted process output, parsed defensively
  *  rather than trusted as already shaped like {@link IncomingIssue}. */
 interface RawGithubIssue {
   readonly number?: unknown;
   readonly title?: unknown;
   readonly body?: unknown;
+  readonly url?: unknown;
   readonly labels?: unknown;
   readonly assignees?: unknown;
   readonly author?: unknown;
@@ -776,7 +784,7 @@ export function parseAssignees(raw: unknown): readonly string[] {
 
 /**
  * Lists every open issue via `gh issue list --state open --json
- * number,title,body,labels,assignees,author`, run through the injectable
+ * number,title,body,url,labels,assignees,author`, run through the injectable
  * `exec` — the same `CliExec` shape `connection/cli-probe.ts` uses, so this
  * stays deterministically testable without a real `gh` on PATH. Read-only:
  * never labels, comments, or closes anything, only lists. Returns `[]` on a
@@ -792,7 +800,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     '--state',
     'open',
     '--json',
-    'number,title,body,labels,assignees,author',
+    'number,title,body,url,labels,assignees,author',
   ]);
   if (code !== 0) return [];
 
@@ -814,6 +822,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
         body: typeof raw.body === 'string' ? raw.body : '',
         labels: parseIssueLabels(raw.labels),
         assignees: parseAssignees(raw.assignees),
+        ...(typeof raw.url === 'string' ? { url: raw.url } : {}),
         ...(author !== undefined ? { author } : {}),
       };
     });
