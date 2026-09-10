@@ -29,13 +29,19 @@
  * Discussions labels are GraphQL-only (`addLabelsToLabelable`, keyed by
  * opaque label node IDs, never names, unlike `issue-triage.ts`'s
  * name-addressed `gh issue edit --add-label`), so applying one takes its own
- * label-ID lookup first. Nothing in this codebase calls any of these yet —
- * same deferred-caller stance `issue-triage.ts`'s own
- * `executeIssueTriageCommands` held before its HTTP wiring landed. Still
- * missing before a ritual composer (an `issue-triage-execute.ts`-style
- * `runDiscussionTriageRitual`) can land: the actual post-reply,
- * then-label sequencing (this file exposes the pieces, not the order they
- * run in), plus the CSRF-guarded preview/execute HTTP endpoints and the
+ * label-ID lookup first — and now {@link runDiscussionTriageRitual}, the
+ * post-reply-then-label sequencing composer mirroring `issue-triage.ts`'s own
+ * {@link runIssueTriageRitual}: fetch, plan the batch, then for every
+ * accepted plan post the reply first and only label on a successful post —
+ * unlike `issue-triage.ts`'s `executeIssueTriageCommands`, which always runs
+ * every command even after an earlier one fails, a discussion's label IS the
+ * idempotency marker a re-run's {@link planDiscussionTriage} checks, so
+ * labeling after a failed post would mark a discussion "handled" that never
+ * actually got a reply — silently losing it to every future pass. Nothing in
+ * this codebase calls {@link runDiscussionTriageRitual} yet — same
+ * deferred-caller stance `issue-triage.ts`'s own `runIssueTriageRitual` held
+ * before its HTTP wiring landed. Still missing before this ritual is
+ * reachable: the CSRF-guarded preview/execute HTTP endpoints and the
  * operator panel — the same staged-rollout shape `issue-triage.ts` itself
  * used before `issue-triage-execute.ts` + `issue-triage-panel.ts` landed.
  */
@@ -501,4 +507,63 @@ export async function applyDiscussionPoolLabel(
     `query=${mutation}`,
   ]);
   return { discussionNumber: discussion.number, code, stdout };
+}
+
+/** One accepted discussion's full ritual outcome — the reply post's result
+ *  always present, the label result `null` whenever {@link
+ *  runDiscussionTriageRitual} skipped labeling: a failed post ({@link
+ *  DiscussionReplyPostResult.code} non-zero) never gets one, since labeling
+ *  it would falsely mark a never-delivered reply as handled. */
+export interface DiscussionRitualOutcome {
+  readonly discussionNumber: number;
+  readonly replyResult: DiscussionReplyPostResult;
+  readonly labelResult: DiscussionLabelPostResult | null;
+}
+
+/** One {@link runDiscussionTriageRitual} pass's full outcome — every open
+ *  discussion's plan (accepted or skipped), paired with the ritual outcome
+ *  for each accepted one, mirroring `issue-triage.ts`'s {@link
+ *  IssueTriageRitualResult} plans+results split. */
+export interface DiscussionTriageRitualResult {
+  readonly plans: readonly DiscussionTriagePlan[];
+  readonly outcomes: readonly DiscussionRitualOutcome[];
+}
+
+/**
+ * The whole KEEPER Discussions ritual as one composed pass: {@link
+ * fetchOpenDiscussions} the open discussions, {@link
+ * planDiscussionTriageBatch} a decision + reply draft for each, then for
+ * every `'accept'`ed plan {@link postDiscussionReply} first and, only on a
+ * successful post (`code === 0`), {@link applyDiscussionPoolLabel} to mark it
+ * handled — mirroring `issue-triage.ts`'s {@link runIssueTriageRitual} as the
+ * single entrypoint a confirm-guarded HTTP handler will call once that wiring
+ * lands (see this file's header comment), but simpler: Discussions carry no
+ * board-task or duplicate-detection side, so there is no store to open and no
+ * `applyIssueTriageTasks`-style write beyond the reply + label themselves.
+ * Every accepted plan gets an outcome even when an earlier one's post failed
+ * — no early return short-circuits the loop, the same
+ * always-process-every-plan stance `runIssueTriageRitual` takes, just gated
+ * per-outcome on that one plan's own post result rather than always running
+ * every command regardless of a sibling's failure.
+ */
+export async function runDiscussionTriageRitual(
+  exec: CliExec,
+  operatorLogin: string,
+): Promise<DiscussionTriageRitualResult> {
+  const discussions = await fetchOpenDiscussions(exec);
+  const plans = planDiscussionTriageBatch(discussions, operatorLogin);
+
+  const outcomes: DiscussionRitualOutcome[] = [];
+  for (const plan of plans) {
+    if (plan.decision.decision !== 'accept' || plan.draft === null) continue;
+
+    const replyResult = await postDiscussionReply(exec, plan.draft);
+    const labelResult =
+      replyResult.code === 0
+        ? await applyDiscussionPoolLabel(exec, plan.discussion, plan.decision.dimension)
+        : null;
+    outcomes.push({ discussionNumber: plan.discussion.number, replyResult, labelResult });
+  }
+
+  return { plans, outcomes };
 }

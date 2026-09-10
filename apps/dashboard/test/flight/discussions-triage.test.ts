@@ -10,6 +10,7 @@ import {
   postDiscussionReply,
   fetchDiscussionLabelId,
   applyDiscussionPoolLabel,
+  runDiscussionTriageRitual,
   type IncomingDiscussion,
   type DiscussionTriageAccept,
 } from '../../src/flight/discussions-triage.js';
@@ -450,5 +451,83 @@ describe('applyDiscussionPoolLabel', () => {
     );
 
     expect(result).toEqual({ discussionNumber: 9, code: 1, stdout: 'GraphQL error' });
+  });
+});
+
+describe('runDiscussionTriageRitual', () => {
+  function openDiscussionNode(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      id: 'D_kwDOA1b2c84AXyZw',
+      number: 9,
+      title: 'Keyboard nav is broken in the fleet table',
+      body: 'Screen reader users are stuck',
+      isAnswered: false,
+      locked: false,
+      category: { name: 'Q&A' },
+      labels: { nodes: [] },
+      ...overrides,
+    };
+  }
+
+  it('posts the reply then applies the pool label on a successful post', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: discussionsGraphql([openDiscussionNode()]) })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) })
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_abc123') })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(exec).toHaveBeenCalledTimes(4);
+    expect(result.plans).toHaveLength(1);
+    expect(result.outcomes).toEqual([
+      {
+        discussionNumber: 9,
+        replyResult: { discussionNumber: 9, code: 0, stdout: expect.any(String) },
+        labelResult: { discussionNumber: 9, code: 0, stdout: expect.any(String) },
+      },
+    ]);
+  });
+
+  it('never labels a discussion whose reply post failed', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: discussionsGraphql([openDiscussionNode()]) })
+      .mockResolvedValueOnce({ code: 1, stdout: 'GraphQL error' });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(result.outcomes).toEqual([
+      {
+        discussionNumber: 9,
+        replyResult: { discussionNumber: 9, code: 1, stdout: 'GraphQL error' },
+        labelResult: null,
+      },
+    ]);
+  });
+
+  it('gives a skipped discussion no outcome at all — nothing posted, nothing labeled', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValueOnce({
+      code: 0,
+      stdout: discussionsGraphql([openDiscussionNode({ locked: true })]),
+    });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(result.plans[0]?.decision.decision).toBe('skip');
+    expect(result.outcomes).toEqual([]);
+  });
+
+  it('returns empty plans and outcomes when there is nothing open to triage', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: discussionsGraphql([]) });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(result).toEqual({ plans: [], outcomes: [] });
   });
 });
