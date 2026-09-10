@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-09-10
+
+### Added
+
+- feat(i18n): the release panel's guest note speaks Hebrew
+- feat(mirror-pass): wire POST /api/mirror-pass/landing-note/execute (derivation 2/4)
+- feat(mirror-pass): wire POST /api/mirror-pass/execute (derivation 1/4)
+- feat(i18n): the contributor-standing panel's landmark speaks Hebrew
+- feat(mirror-pass): derivation 2/4's mutating landing-note execute path
+- feat(i18n): the flight map's "Files in flight" aria-label speaks Hebrew
+- feat(mirror-pass): the reconcile derivation's mutating execute path
+- feat(i18n): the release panel's Execute button speaks Hebrew
+- feat(dashboard): role-gate the KEEPER issue-triage execute button
+
 ## [0.33.0] — 2026-09-09
 
 ### Added
