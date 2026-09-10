@@ -10,13 +10,29 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { contributorIssueTierBadge } from '../../../src/web/contributor-issue-list-panel.js';
+import {
+  contributorIssueTierBadge,
+  CLAIM_WALKTHROUGH_STEPS,
+} from '../../../src/web/contributor-issue-list-panel.js';
 import { contributorIssueListJs } from '../../../src/web/features/contributor-issue-list.js';
 
 describe('contributorIssueListJs', () => {
   it('embeds contributor-issue-list-panel splice real compiled source via .toString()', () => {
     const out = contributorIssueListJs();
     expect(out).toContain(contributorIssueTierBadge.toString());
+  });
+
+  it('embeds CLAIM_WALKTHROUGH_STEPS real value via JSON.stringify()', () => {
+    const out = contributorIssueListJs();
+    expect(out).toContain(
+      `var CLAIM_WALKTHROUGH_STEPS = ${JSON.stringify(CLAIM_WALKTHROUGH_STEPS)};`,
+    );
+  });
+
+  it('declares renderClaimWalkthrough and calls it from renderContributorIssueListPanel', () => {
+    const out = contributorIssueListJs();
+    expect(out).toContain('function renderClaimWalkthrough(section) {');
+    expect(out).toContain('renderClaimWalkthrough(section);');
   });
 
   it('declares renderContributorIssueListPanel and loadContributorIssueListPanel', () => {

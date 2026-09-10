@@ -10,14 +10,27 @@
  * slice. `discoverFeatureModules('web/features')` finds this file's
  * `contributorIssueListJs` export the same way it finds `pool-client.ts`'s
  * `poolClientJs`. Read-only, like the KEEPER PR review and Pool panels — no
- * claim action here, since claiming from this list is slice 2's `/claim`
- * walkthrough, a separate later slice — so it polls on its own timer
- * independent of any flown project, the same self-init shape `pool-client.ts`
- * uses, and `contributorIssueTierBadge` is generated FROM
+ * claim ACTION here (no `gh` write, no comment post) — so it polls on its
+ * own timer independent of any flown project, the same self-init shape
+ * `pool-client.ts` uses. `contributorIssueTierBadge` is generated FROM
  * `web/contributor-issue-list-panel.ts` below — its real compiled source via
  * `.toString()`, not a hand-retyped copy.
+ *
+ * Also renders slice 2 of 4, the "/claim walkthrough (fork-first
+ * etiquette)": `CLAIM_WALKTHROUGH_STEPS` (below, spliced via
+ * `JSON.stringify()` the same way `contributor-standing-panel.ts`'s
+ * `CONTRIBUTOR_STANDING_TIERS` is) renders as a collapsed-by-default
+ * `<details>` under the list — native disclosure semantics need no hand-
+ * rolled ARIA state, and it only ever appears alongside issues worth
+ * claiming, never on its own (same `section.hidden` gate as the list
+ * itself, since a visitor with nothing open to claim has nothing to walk
+ * through). Still a guide, not an action: it names the `/claim` comment a
+ * visitor should type, it never posts one on their behalf.
  */
-import { contributorIssueTierBadge } from '../contributor-issue-list-panel.js';
+import {
+  contributorIssueTierBadge,
+  CLAIM_WALKTHROUGH_STEPS,
+} from '../contributor-issue-list-panel.js';
 
 /** The CONTRIBUTOR ISSUE LIST panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function contributorIssueListJs(): string {
@@ -25,14 +38,30 @@ export function contributorIssueListJs(): string {
 // Contributor issue list (board web-mtt3hery-l8v0lf, CONTRIBUTOR JOURNEY
 // slice 1/4): GET /api/contributor-issues browses every open
 // good-first-issue/help-wanted issue for a visiting contributor. Read-only —
-// no claim action here (that is slice 2's /claim walkthrough) — so the
-// section stays hidden entirely when there is nothing open to show, the
-// same "hide rather than show an empty panel" convention the Pool panel
-// uses. contributorIssueTierBadge is generated FROM
-// web/contributor-issue-list-panel.ts below — its real compiled source via
-// .toString(), not a hand-retyped copy.
+// no claim action here — so the section stays hidden entirely when there is
+// nothing open to show, the same "hide rather than show an empty panel"
+// convention the Pool panel uses. contributorIssueTierBadge is generated
+// FROM web/contributor-issue-list-panel.ts below — its real compiled source
+// via .toString(), not a hand-retyped copy.
 ${contributorIssueTierBadge.toString()}
+// CONTRIBUTOR JOURNEY slice 2/4 — the "/claim walkthrough (fork-first
+// etiquette)" the board task names, condensed from .github/CONTRIBUTING.md.
+// CLAIM_WALKTHROUGH_STEPS is generated FROM
+// web/contributor-issue-list-panel.ts below — its real value via
+// JSON.stringify(), not a hand-retyped copy.
+var CLAIM_WALKTHROUGH_STEPS = ${JSON.stringify(CLAIM_WALKTHROUGH_STEPS)};
 var CONTRIBUTOR_ISSUE_LIST_POLL_MS = 30000;
+function renderClaimWalkthrough(section) {
+  var details = document.createElement('details');
+  details.className = 'contributor-claim-walkthrough';
+  details.appendChild(el('summary', '', 'How to claim'));
+  var steps = document.createElement('ol');
+  for (var i = 0; i < CLAIM_WALKTHROUGH_STEPS.length; i++) {
+    steps.appendChild(el('li', '', CLAIM_WALKTHROUGH_STEPS[i]));
+  }
+  details.appendChild(steps);
+  section.appendChild(details);
+}
 function renderContributorIssueListPanel(entries) {
   var section = document.getElementById('contributor-issue-list-panel');
   if (!section) return;
@@ -62,6 +91,7 @@ function renderContributorIssueListPanel(entries) {
     item.appendChild(el('p', 'contributor-issue-list-issue-title', entry.title));
     section.appendChild(item);
   }
+  renderClaimWalkthrough(section);
 }
 function loadContributorIssueListPanel() {
   fetch('/api/contributor-issues', { headers: { accept: 'application/json' } })

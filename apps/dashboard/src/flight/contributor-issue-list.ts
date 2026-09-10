@@ -19,8 +19,10 @@ import { ghExec } from './gh-exec.js';
  * composes the two behind `GET /api/contributor-issues` (`server/
  * contributor-issue-list.ts`), and `web/features/contributor-issue-list.ts`
  * is that endpoint's dashboard panel — this slice's UX expression, not just
- * its backend. Claiming an issue from this list is slice 2's `/claim`
- * walkthrough, a separate later slice.
+ * its backend. Slice 2's `/claim` walkthrough (fork-first etiquette) now
+ * renders alongside this same list — see `web/contributor-issue-list-
+ * panel.ts`'s `CLAIM_WALKTHROUGH_STEPS` — but stays a guide, never an
+ * action: no write lands here or anywhere in this module.
  */
 
 /** The subset of a GitHub issue this planner needs — the same fields

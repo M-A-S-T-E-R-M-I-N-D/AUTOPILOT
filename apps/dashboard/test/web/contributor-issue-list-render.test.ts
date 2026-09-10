@@ -81,4 +81,27 @@ describe('the contributor issue list panel', () => {
       'Keyboard nav is broken in the fleet table',
     );
   });
+
+  it('renders the /claim walkthrough as a real, keyboard-operable <details> disclosure alongside the list', async () => {
+    bootWithEntries([ENTRY]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.contributor-claim-walkthrough')).not.toBeNull();
+    });
+    const details = document.querySelector('.contributor-claim-walkthrough');
+    expect(details?.tagName).toBe('DETAILS');
+    expect(details?.querySelector('summary')?.textContent).toBe('How to claim');
+    const steps = details?.querySelectorAll('li');
+    expect(steps?.length).toBe(4);
+    expect(steps?.[0]?.textContent).toContain('Fork it');
+  });
+
+  it('renders no walkthrough at all when there is nothing open to claim', async () => {
+    bootWithEntries([]);
+
+    await vi.waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalled();
+    });
+    expect(document.querySelector('.contributor-claim-walkthrough')).toBeNull();
+  });
 });
