@@ -70,7 +70,7 @@ identity law.
    `apps/dashboard/src/flight/discussions-triage.ts:141` uses
    `[what is this?](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)` —
    this is channel 3 (conversations), format
-   `— ✈️ AUTOPILOT agent, on behalf of @<operator> · [what is this?](<link>)`,
+   `— ✈️ AUTOPILOT agent, on behalf of @<operator> · [what is this?](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)`,
    confirmed by `discussions-triage.test.ts:98,107`. It is a real,
    separately-shipped channel — but it is channel 3, not channel 2, and it
    still carries no version number.
@@ -82,7 +82,7 @@ by `planGithubIssue`/`planGithubPr`) implements the
 `.github/CONTRIBUTOR-STANDING.md` identity law, not ATTRIBUTION.md's
 channel-2 spread-line. The two share the `🛩️ Flown by AUTOPILOT` prefix by
 coincidence of wording, but the literal spread-line
-(`[AUTOPILOT](<link>) vX.Y.Z`) is not present in either the implementation
+(`[AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT) vX.Y.Z`) is not present in either the implementation
 or its tests, and the version-number plumbing it would need does not exist
 yet. Channel 2 remains open work. This firing leaves `web-mtt056ng-zt77x5`
 itself untouched (per the VERDICT-processing protocol, a verdict's target

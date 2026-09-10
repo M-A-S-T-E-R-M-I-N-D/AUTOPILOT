@@ -31,7 +31,7 @@ missing.
    `parseConversationPost` matches `gh issue|pr comment --body` and
    `gh pr review --body`, and `withAttribution` appends
    `conversationSignature(operatorHandle)` — the exact
-   `— ✈️ AUTOPILOT agent, on behalf of @<operator> · [what is this?](<link>)`
+   `— ✈️ AUTOPILOT agent, on behalf of @<operator> · [what is this?](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)`
    line channel 3 specifies — once per message (a body already containing
    `— ✈️` is left alone), failing open (unsigned, not swallowed) when the
    operator's login cannot be resolved.
@@ -72,7 +72,7 @@ missing.
 ## What remains open (not this claim's scope)
 
 `attribution.ts`'s own doc comment is explicit: `gh issue|pr create`
-(ATTRIBUTION.md §2's filing spread-line, `[AUTOPILOT](<link>) vX.Y.Z`) is
+(ATTRIBUTION.md §2's filing spread-line, `[AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT) vX.Y.Z`) is
 "still unwired — a separate slice", and channel 4 (README badge +
 `CITATION.cff` pointer) is untouched by this module entirely. Those are
 real, separate board scope — not part of what `ap-mtuks0jr-2` claimed, and

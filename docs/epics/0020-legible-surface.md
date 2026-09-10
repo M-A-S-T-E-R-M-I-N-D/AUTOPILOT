@@ -56,10 +56,60 @@ same failure:
 | 5 | Link census: a test that fails when a rendered GitHub noun (number, SHA, handle) has no link and the API reported a URL for it — the structural stop for failure #2 | **shipped** — `test/flight/link-census.test.ts` (found and fixed the pool-client panel's own dead issue-number link), `web/features/pool-client.ts`, `test/web/pool-client-link.test.ts` |
 | 6 | Payload census: a test that fails when a field fetched by a flight module never reaches any client renderer — the structural stop for failure #1 | **started** — `test/flight/payload-census.test.ts` covers `PoolIssue` (pool-client.ts) and `PublicityAffordance` (publicity.ts); `PrReviewCandidate`, `IssueTriageDossier` and the `MirrorPass*Finding` payloads remain — see the test's own header for why they're follow-up, not scope skipped by accident |
 | 7 | Typography and rhythm pass across panels: one scale, deliberate spacing, hierarchy by size not by weight-everywhere | queued |
+| 8 | **Diagnose & fix a red check** — the fourth maintainer verb: read the failing check's own log, CLASSIFY the failure (our flake / real defect / dependency drift), then either re-run it or prepare a fix commit on the PR branch and show the operator a diff to approve before anything is pushed | queued |
 
 Slices 5 and 6 are the ones that matter most for "never again": 1–4 fix
 today's surfaces, 5–6 make the next one fail a test instead of waiting
 for the operator to notice.
+
+### Slice 8 in full — the verb the chain is missing
+
+**Where it comes from (operator, 2026-09-10):** *"for example #37 has an
+error — how can we take it and let the pilot understand the failure, fix
+it, and land it instead… propose an alternative commit that answers it."*
+
+Today a red check ends the chain. Slice 2 gave the card three verbs —
+merge, update-branch, re-run — and re-run is the only answer it has to
+a failure. That is the right answer for a flake and **useless against a
+real defect**, which is the case an operator actually needs help with.
+
+**The classification is the whole feature.** On PR #37 the distinction
+was made by hand, in three steps, and it decided everything:
+
+1. Read the failing job: an axe-core a11y assertion, `expected null not
+   to be null`.
+2. Run that same test on our own `main` — it passed. So the branch's
+   content was not obviously at fault.
+3. Ask whether the PR's change could even reach it. #37 bumped `zod`,
+   and `zod` is imported by **exactly one file in the repo**
+   (`packages/mcp/src/control.ts`, the MCP server). It cannot touch the
+   dashboard's pool-client panel.
+
+Verdict: our own Windows a11y flake, not the dependency. Re-run, merge.
+Had step 3 come out the other way, the honest answer would have been a
+fix commit — and that is the half that does not exist.
+
+**Shape:**
+
+- `flight/check-diagnosis.ts` — pure classifier over a fetched job log
+  plus the PR's own touched paths. Returns one of `flake` (known
+  signature, or the same test passes on base), `defect` (the change can
+  reach the failure), or `unknown`. **`unknown` must be a real, common
+  answer** — a classifier that always decides is the cry-wolf failure
+  (FAILURE-DOCTRINE row 6) wearing a new hat.
+- A `🔧 Diagnose` button beside the existing three, rendering the verdict
+  with its evidence — never a bare label. The reasoning is the product;
+  the button is just where it lives.
+- For `defect`, prepare a commit on the PR branch and show a **diff for
+  approval**. Never auto-push: pushing to a contributor's branch without
+  asking is exactly what `update-branch` already refuses to do silently
+  (it confirms first, and says it is putting a real commit on someone
+  else's branch).
+
+**Non-goals:** no auto-push, no auto-merge on a `flake` verdict, and no
+guessing when the evidence is thin — `unknown` with its reasoning shown
+beats a confident wrong answer, because the operator can act on honest
+uncertainty and cannot act on a plausible fiction.
 
 ## Non-goals
 
