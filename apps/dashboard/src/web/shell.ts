@@ -660,8 +660,15 @@ function actRow(a, showReasoning) {
     if (meta) {
       var metaEl = el('p', 'muted act-meta', meta);
       metaEl.setAttribute('tabindex', '0');
+      // i18n (board web-msnsndki-dz3vn1): the tip is swept as [data-i18n-tip];
+      // the aria prefix wraps the live meta text in {name}, so it is painted
+      // via tr() here AND tagged [data-i18n-aria-template]/[data-i18n-name]
+      // so a mid-session locale switch flips it in place too.
       metaEl.setAttribute('data-tip', 'Model and token usage billed for this step');
-      metaEl.setAttribute('aria-label', 'step cost: ' + meta);
+      metaEl.setAttribute('data-i18n-tip', 'actMetaTip');
+      metaEl.setAttribute('aria-label', tr('actMetaAria', meta));
+      metaEl.setAttribute('data-i18n-aria-template', 'actMetaAria');
+      metaEl.setAttribute('data-i18n-name', meta);
       li.appendChild(metaEl);
     }
   }
