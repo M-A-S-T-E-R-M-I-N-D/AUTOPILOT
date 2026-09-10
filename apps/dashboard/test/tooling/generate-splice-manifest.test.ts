@@ -41,6 +41,7 @@ import { activityHeatmapJs } from '../../src/web/features/activity-heatmap.js';
 import { activityJs } from '../../src/web/features/activity.js';
 import { backlogJs } from '../../src/web/features/backlog.js';
 import { connectJs } from '../../src/web/features/connect.js';
+import { contributorIssueListJs } from '../../src/web/features/contributor-issue-list.js';
 import { coordinationJs } from '../../src/web/features/coordination.js';
 import { docsViewerJs } from '../../src/web/features/docs-viewer.js';
 import { evolutionJs } from '../../src/web/features/evolution.js';
@@ -106,6 +107,7 @@ const ACTIVITY_TS = featureTs('activity');
 const BACKLOG_TS = featureTs('backlog');
 const SWITCHER_TS = featureTs('switcher');
 const CONNECT_TS = featureTs('connect');
+const CONTRIBUTOR_ISSUE_LIST_TS = featureTs('contributor-issue-list');
 const COORDINATION_TS = featureTs('coordination');
 const DOCS_VIEWER_TS = featureTs('docs-viewer');
 const EVOLUTION_TS = featureTs('evolution');
@@ -1359,6 +1361,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'activity.ts': ['activityJs'],
     'backlog.ts': ['backlogJs'],
     'connect.ts': ['connectJs'],
+    'contributor-issue-list.ts': ['contributorIssueListJs'],
     'coordination.ts': ['coordinationJs'],
     'docs-viewer.ts': ['docsViewerJs'],
     'evolution.ts': ['evolutionJs'],
@@ -1409,6 +1412,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const activitySource = readFileSync(ACTIVITY_TS, 'utf8');
     const backlogSource = readFileSync(BACKLOG_TS, 'utf8');
     const connectSource = readFileSync(CONNECT_TS, 'utf8');
+    const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');
     const coordinationSource = readFileSync(COORDINATION_TS, 'utf8');
     const docsViewerSource = readFileSync(DOCS_VIEWER_TS, 'utf8');
     const evolutionSource = readFileSync(EVOLUTION_TS, 'utf8');
@@ -1448,6 +1452,11 @@ describe('discoverFeatureModules against the real src/web/features directory —
     ]);
     const directBacklogManifest = buildAssemblyManifest(backlogSource, BACKLOG_TS, ['backlogJs']);
     const directConnectManifest = buildAssemblyManifest(connectSource, CONNECT_TS, ['connectJs']);
+    const directContributorIssueListManifest = buildAssemblyManifest(
+      contributorIssueListSource,
+      CONTRIBUTOR_ISSUE_LIST_TS,
+      ['contributorIssueListJs'],
+    );
     const directCoordinationManifest = buildAssemblyManifest(coordinationSource, COORDINATION_TS, [
       'coordinationJs',
     ]);
@@ -1535,6 +1544,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directActivityManifest,
       directBacklogManifest,
       directConnectManifest,
+      directContributorIssueListManifest,
       directCoordinationManifest,
       directDocsViewerManifest,
       directEvolutionManifest,
@@ -1834,6 +1844,9 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { activityJs } from './activity.js';");
     expect(source).toContain("import { backlogJs } from './backlog.js';");
     expect(source).toContain("import { connectJs } from './connect.js';");
+    expect(source).toContain(
+      "import { contributorIssueListJs } from './contributor-issue-list.js';",
+    );
     expect(source).toContain("import { coordinationJs } from './coordination.js';");
     expect(source).toContain("import { docsViewerJs } from './docs-viewer.js';");
     expect(source).toContain("import { evolutionJs } from './evolution.js';");
@@ -1867,7 +1880,12 @@ describe('generateFeatureModulesIndexSource', () => {
     );
     expect(source.indexOf("'./activity.js'")).toBeLessThan(source.indexOf("'./backlog.js'"));
     expect(source.indexOf("'./backlog.js'")).toBeLessThan(source.indexOf("'./connect.js'"));
-    expect(source.indexOf("'./connect.js'")).toBeLessThan(source.indexOf("'./coordination.js'"));
+    expect(source.indexOf("'./connect.js'")).toBeLessThan(
+      source.indexOf("'./contributor-issue-list.js'"),
+    );
+    expect(source.indexOf("'./contributor-issue-list.js'")).toBeLessThan(
+      source.indexOf("'./coordination.js'"),
+    );
     expect(source.indexOf("'./coordination.js'")).toBeLessThan(
       source.indexOf("'./docs-viewer.js'"),
     );
@@ -1914,7 +1932,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorIssueListJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2693,6 +2711,44 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
       await assembleFromManifest(manifest, 'connectJs', resolvedBindings)
     ).trim();
     expect(reassembled).toBe(connectJs());
+  });
+
+  /**
+   * contributorIssueListJs's own reconstruction, from its real file under
+   * web/features/. It carries one real relative-import splice of its own
+   * (contributorIssueTierBadge from ../contributor-issue-list-panel.js),
+   * resolved against web/features/ rather than SHELL_DIR, and no non-splice
+   * slots at all.
+   */
+  async function reconstructContributorIssueListJs(): Promise<string> {
+    const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(contributorIssueListSource, CONTRIBUTOR_ISSUE_LIST_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        contributorIssueListSource,
+        'contributorIssueListJs',
+        resolvedBindings,
+        undefined,
+        CONTRIBUTOR_ISSUE_LIST_TS,
+      )
+    ).trim();
+  }
+
+  it('contributorIssueListJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/contributor-issue-list.ts', async () => {
+    expect(await reconstructContributorIssueListJs()).toBe(contributorIssueListJs());
+  });
+
+  it('contributorIssueListJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off contributor-issue-list.ts', async () => {
+    const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');
+    const manifest = buildAssemblyManifest(contributorIssueListSource, CONTRIBUTOR_ISSUE_LIST_TS, [
+      'contributorIssueListJs',
+    ]);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'contributorIssueListJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(contributorIssueListJs());
   });
 
   /**
@@ -3701,6 +3757,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('activityJs', await reconstructActivityJs());
     nestedOutputs.set('backlogJs', await reconstructBacklogJs());
     nestedOutputs.set('connectJs', await reconstructConnectJs());
+    nestedOutputs.set('contributorIssueListJs', await reconstructContributorIssueListJs());
     nestedOutputs.set('coordinationJs', await reconstructCoordinationJs());
     nestedOutputs.set('docsViewerJs', await reconstructDocsViewerJs());
     nestedOutputs.set('evolutionJs', await reconstructEvolutionJs());

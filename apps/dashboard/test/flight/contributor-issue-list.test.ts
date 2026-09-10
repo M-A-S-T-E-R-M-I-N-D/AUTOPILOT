@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   planContributorIssueList,
   fetchContributorFacingIssues,
+  createContributorIssueListPreviewApi,
   type ContributorFacingIssue,
 } from '../../src/flight/contributor-issue-list.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
@@ -201,5 +202,39 @@ describe('fetchContributorFacingIssues', () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{}' });
 
     expect(await fetchContributorFacingIssues(exec)).toEqual([]);
+  });
+});
+
+describe('createContributorIssueListPreviewApi', () => {
+  it('composes fetch + plan into the GET /api/contributor-issues preview read', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 1,
+          title: 'Fix the thing',
+          url: 'https://github.com/example/repo/issues/1',
+          labels: [{ name: 'good first issue' }],
+          assignees: [],
+        },
+      ]),
+    });
+
+    const entries = await createContributorIssueListPreviewApi(exec)();
+
+    expect(entries).toEqual([
+      {
+        number: 1,
+        title: 'Fix the thing',
+        url: 'https://github.com/example/repo/issues/1',
+        tier: 'good first issue',
+      },
+    ]);
+  });
+
+  it('degrades to an empty list rather than rejecting when exec throws', async () => {
+    const exec: CliExec = vi.fn().mockRejectedValue(new Error('gh unavailable'));
+
+    await expect(createContributorIssueListPreviewApi(exec)()).resolves.toEqual([]);
   });
 });

@@ -95,6 +95,12 @@ import {
 // so existing importers of the pool client/publicity contracts keep working
 // unchanged.
 export type { PoolClientApi, PublicityApi, PoolClientExecuteApi };
+import {
+  handleContributorIssueList,
+  type ContributorIssueListPreviewApi,
+} from './contributor-issue-list.js';
+
+export type { ContributorIssueListPreviewApi };
 import { handleDonations } from './donations.js';
 import type { DonationsPreviewApi } from '../flight/donations.js';
 import type {
@@ -636,6 +642,9 @@ export interface ServerDeps extends RouteDeps {
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
   readonly poolClientExecute?: PoolClientExecuteApi;
+  /** CONTRIBUTOR JOURNEY (board web-mtt3hery-l8v0lf) slice 1 of 4: a
+   *  visitor's live good-first-issue/help-wanted pick list. */
+  readonly contributorIssueList?: ContributorIssueListPreviewApi;
   readonly reportFromHere?: ReportFromHerePreviewApi;
   readonly reportFromHereExecute?: ReportFromHereExecuteApi;
   /** LLM ISSUE COMPOSER 1/3 (board web-mtpzdrt1-lirsgh): the LLM-backed
@@ -3090,6 +3099,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/pool-client/execute') {
       void handlePoolClientExecute(req, res, deps.poolClientExecute, headers, poolClientLimiter);
+      return;
+    }
+
+    if (path === '/api/contributor-issues') {
+      void handleContributorIssueList(req, res, deps.contributorIssueList, headers);
       return;
     }
 

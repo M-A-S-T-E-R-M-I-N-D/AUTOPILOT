@@ -3,6 +3,7 @@
 
 import type { CliExec } from '../connection/cli-probe.js';
 import { parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { ghExec } from './gh-exec.js';
 
 /**
  * CONTRIBUTOR JOURNEY (board web-mtt3hery-l8v0lf), slice 1 of 4 — "live
@@ -14,8 +15,12 @@ import { parseIssueLabels, parseAssignees } from './issue-triage.js';
  * live `gh issue list` read — alongside the pure decision core already
  * shipped, {@link planContributorIssueList}; mirroring the pool-client/
  * pr-review seam style (`flight/pool-client.ts`'s `fetchPoolIssues` vs. its
- * pure `planClaimPoolIssue`). The dashboard panel that renders this list is
- * still a separate, later slice.
+ * pure `planClaimPoolIssue`). {@link createContributorIssueListPreviewApi}
+ * composes the two behind `GET /api/contributor-issues` (`server/
+ * contributor-issue-list.ts`), and `web/features/contributor-issue-list.ts`
+ * is that endpoint's dashboard panel — this slice's UX expression, not just
+ * its backend. Claiming an issue from this list is slice 2's `/claim`
+ * walkthrough, a separate later slice.
  */
 
 /** The subset of a GitHub issue this planner needs — the same fields
@@ -142,4 +147,30 @@ export async function fetchContributorFacingIssues(
       labels: parseIssueLabels(raw.labels),
       assignees: parseAssignees(raw.assignees),
     }));
+}
+
+/** The contributor issue list preview read `GET /api/contributor-issues`
+ *  wires — composes {@link fetchContributorFacingIssues} and {@link
+ *  planContributorIssueList} behind one call, the same "fetch + pure plan"
+ *  composition shape `flight/publicity.ts`'s `PublicityPreviewApi` uses. */
+export type ContributorIssueListPreviewApi = () => Promise<readonly ContributorListEntry[]>;
+
+/**
+ * Builds the contributor issue list preview read, defaulting to the real
+ * `gh` CLI like `publicity.ts`'s `createPublicityPreviewApi` does. Never
+ * rejects: a thrown `exec` failure ({@link fetchContributorFacingIssues}
+ * already degrades a non-zero exit or unparseable stdout to `[]`) still
+ * resolves to an empty list rather than crashing the route, the same
+ * fail-closed stance every other preview API in this codebase takes.
+ */
+export function createContributorIssueListPreviewApi(
+  exec: CliExec = ghExec,
+): ContributorIssueListPreviewApi {
+  return async () => {
+    try {
+      return planContributorIssueList(await fetchContributorFacingIssues(exec));
+    } catch {
+      return [];
+    }
+  };
 }
