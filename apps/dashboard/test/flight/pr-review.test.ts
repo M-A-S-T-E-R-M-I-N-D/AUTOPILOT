@@ -231,6 +231,14 @@ const BENIGN_FLIGHT = new Set([
   // pool-client.ts: the executor that acts on an admitted plan is a
   // follow-up slice that will need its own marker once it ships one.
   'social-pass.ts',
+  // KEEPER DISCUSSIONS TRIAGE first slice (board web-mtlsiac0-v8rksh, docs/
+  // epics/0007-platform-maintainer-and-pool.md S8): fetchOpenDiscussions only
+  // LISTS via a read-only `gh api graphql` query, and planDiscussionTriage is
+  // a pure dimension classifier over already-fetched fields — no reply,
+  // comment, or label write exists yet; reply-posting is a follow-on slice
+  // that will need its own marker once it ships one, same class as
+  // pool-client.ts/social-pass.ts above.
+  'discussions-triage.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
