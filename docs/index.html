@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+SPDX-License-Identifier: Apache-2.0
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AUTOPILOT — the autonomous Claude Code agent that flies your repo</title>
+    <meta
+      name="description"
+      content="AUTOPILOT is a standalone, open-source, cross-platform autonomous coding agent for Claude Code. Point it at any repo: it backs it up, understands it, gates every change with typecheck/lint/test/build, and flies real work — with the telemetry to prove it."
+    />
+    <meta
+      name="keywords"
+      content="claude code autonomous agent, autonomous coding agent, AI coding agent, claude code, autonomous AI developer, self-flying repo agent, open source AI agent, AI software engineer, agentic coding, autopilot AI"
+    />
+    <meta name="author" content="1337 · REL AZEUS · MΔSTERMIND" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://m-a-s-t-e-r-m-i-n-d.github.io/AUTOPILOT/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AUTOPILOT" />
+    <meta property="og:title" content="AUTOPILOT — the autonomous Claude Code agent that flies your repo" />
+    <meta
+      property="og:description"
+      content="Point your Claude account at any repo: AUTOPILOT locks on, backs it up, understands it, and flies it — shipping gated, verified work, measuring itself, and surfacing the human-only calls."
+    />
+    <meta property="og:url" content="https://m-a-s-t-e-r-m-i-n-d.github.io/AUTOPILOT/" />
+    <meta property="og:image" content="https://m-a-s-t-e-r-m-i-n-d.github.io/AUTOPILOT/brand/social-preview.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="AUTOPILOT — aviator goggles mark on a dark field" />
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AUTOPILOT — the autonomous Claude Code agent that flies your repo" />
+    <meta
+      name="twitter:description"
+      content="A standalone, open-source, cross-platform autonomous coding agent for Claude Code. Gated, verified, self-measuring — and it builds itself."
+    />
+    <meta name="twitter:image" content="https://m-a-s-t-e-r-m-i-n-d.github.io/AUTOPILOT/brand/social-preview.png" />
+
+    <link rel="icon" type="image/svg+xml" href="brand/goggles-mark-dark.svg" />
+    <link rel="apple-touch-icon" href="brand/avatar.png" />
+    <meta name="theme-color" content="#0a0d12" />
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --color-surface: #0a0d12;
+        --color-surface-raised: #10151c;
+        --color-text: #f0f2f5;
+        --color-text-muted: #9aa4b2;
+        --color-accent: #25baf2;
+        --color-border: #1e2530;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--color-surface);
+        color: var(--color-text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+      }
+
+      a {
+        color: var(--color-accent);
+      }
+
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
+      }
+
+      .skip-link {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        background: var(--color-accent);
+        color: var(--color-surface);
+        padding: 0.75rem 1rem;
+        z-index: 10;
+      }
+
+      .skip-link:focus {
+        left: 1rem;
+        top: 1rem;
+      }
+
+      header.hero {
+        padding: 4rem 1.5rem 3rem;
+        text-align: center;
+        border-bottom: 1px solid var(--color-border);
+      }
+
+      .hero img.mark {
+        width: 72px;
+        height: 72px;
+      }
+
+      .hero h1 {
+        font-size: clamp(2rem, 1.4rem + 2.5vw, 3.25rem);
+        margin: 1rem 0 0.5rem;
+        letter-spacing: 0.02em;
+      }
+
+      .hero p.tagline {
+        max-width: 46rem;
+        margin: 0 auto;
+        font-size: 1.15rem;
+        color: var(--color-text-muted);
+      }
+
+      .badges {
+        margin-top: 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+      }
+
+      .badges img {
+        height: 20px;
+      }
+
+      .cta-row {
+        margin-top: 2rem;
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        text-decoration: none;
+        font-weight: 600;
+        border: 1px solid var(--color-border);
+      }
+
+      .btn-primary {
+        background: var(--color-accent);
+        color: var(--color-surface);
+        border-color: var(--color-accent);
+      }
+
+      .btn-secondary {
+        color: var(--color-text);
+      }
+
+      main {
+        max-width: 64rem;
+        margin: 0 auto;
+        padding: 3rem 1.5rem;
+      }
+
+      section {
+        margin-bottom: 3.5rem;
+      }
+
+      section h2 {
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: 1.25rem;
+      }
+
+      .card {
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+      }
+
+      .card h3 {
+        margin-top: 0;
+        font-size: 1.05rem;
+      }
+
+      .card p {
+        color: var(--color-text-muted);
+        margin-bottom: 0;
+      }
+
+      pre {
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-border);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      footer {
+        border-top: 1px solid var(--color-border);
+        padding: 2rem 1.5rem 3rem;
+        text-align: center;
+        color: var(--color-text-muted);
+        font-size: 0.9rem;
+      }
+
+      footer a + a {
+        margin-left: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="hero">
+      <img
+        class="mark"
+        src="brand/goggles-mark-dark.svg"
+        alt="AUTOPILOT — aviator goggles mark"
+        width="72"
+        height="72"
+      />
+      <h1>AUTOPILOT</h1>
+      <p class="tagline">
+        An autonomous AI coding agent for
+        <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>. Point your Claude account at any
+        repo — it locks on, backs it up, understands it, and flies it: shipping gated, verified work, measuring
+        itself, and surfacing the human-only calls for your approval.
+      </p>
+      <p class="badges">
+        <img
+          src="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/actions/workflows/ci.yml/badge.svg"
+          alt="CI status"
+        />
+        <img src="https://img.shields.io/badge/status-public%20alpha-orange" alt="Public alpha" />
+        <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0" />
+        <img src="https://img.shields.io/badge/tests-8%2C500%2B-brightgreen" alt="8,500+ tests" />
+      </p>
+      <p class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT">View on GitHub</a>
+        <a class="btn btn-secondary" href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT#start-here-2-minutes-from-nothing-to-a-live-dashboard"
+          >Start here (2 minutes)</a
+        >
+      </p>
+    </header>
+
+    <main id="main-content">
+      <section aria-labelledby="what-heading">
+        <h2 id="what-heading">What it does</h2>
+        <p>
+          A standalone, open-source, cross-platform TypeScript agent. It locks onto a project folder, researches and
+          understands it, stands up its own control panel, then flies the repo — improving it, finding bugs,
+          closing security holes, documenting, charting, detecting anomalies, and managing versions. A local web
+          dashboard drives it all. Multi-project, with optional local (Ollama) models, and one-command install from
+          zero.
+        </p>
+      </section>
+
+      <section aria-labelledby="how-heading">
+        <h2 id="how-heading">How it works</h2>
+        <p>
+          AUTOPILOT's unit of work is a <strong>firing</strong> — one gated attempt at one task: orient, pick one
+          task, implement it, run the gate (typecheck · lint · test · build), and either commit on green or revert
+          on red. Every firing is recorded to local SQLite telemetry — gate verdict, cost, tokens, and the
+          commit-on-HEAD check — mechanically verified, never self-reported.
+        </p>
+        <div class="card-grid">
+          <div class="card">
+            <h3>Nothing lands unverified</h3>
+            <p>A firing that fails the gate reverts — bad work never reaches your history.</p>
+          </div>
+          <div class="card">
+            <h3>Fleets parallelize it</h3>
+            <p>N lanes fly in isolated git worktrees; a self-healing merge ladder collects them with zero overwrites.</p>
+          </div>
+          <div class="card">
+            <h3>Telemetry can't flatter itself</h3>
+            <p>Load-bearing numbers are mechanically verified and published in the living self-study paper.</p>
+          </div>
+          <div class="card">
+            <h3>Humans keep the human calls</h3>
+            <p>Dependency changes, publicity, and spending queue for your approval in the dashboard's KEEPER panel.</p>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="start-heading">
+        <h2 id="start-heading">Start here</h2>
+        <pre><code>git clone https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT.git
+cd AUTOPILOT
+pnpm run setup
+pnpm dashboard:start    # → http://127.0.0.1:4317 (localhost-only, hardened)</code></pre>
+        <p>
+          Log in once with <code>claude</code> — your existing Claude subscription, no API key, no per-token bill —
+          then fly the built-in calculator sample: 12 deliberately-red acceptance tests taken 0 → 12/12 green,
+          documented honestly, mistakes included.
+        </p>
+      </section>
+
+      <section aria-labelledby="safety-heading">
+        <h2 id="safety-heading">Can it hurt my repo?</h2>
+        <p>The first question anyone should ask an agent that edits code, answered in order of importance:</p>
+        <ul>
+          <li><strong>Backup before first touch</strong> — locking onto a repo snapshots it first.</li>
+          <li><strong>Everything is a git commit</strong> — no force-pushes, no history rewrites, no touching remotes on its own.</li>
+          <li><strong>Nothing lands unverified</strong> — the gate runs before every commit; red means revert.</li>
+          <li><strong>Landing is your click</strong> — merging to <code>main</code> is an explicit operator action, never automatic.</li>
+          <li><strong>Containment is seatbelts, not a cage</strong> — isolated worktrees and a containment guard, stated plainly as not a kernel sandbox.</li>
+          <li><strong>Nothing phones home</strong> — telemetry is a local SQLite file; no analytics, no tracking.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="alpha-heading">
+        <h2 id="alpha-heading">Honest about alpha</h2>
+        <p>
+          AUTOPILOT is public before 1.0 on purpose, for real-world testing while the system is still forming. It's a
+          0.x alpha: APIs, the dashboard, and flight rituals may change without migration paths. Every commit
+          requires a DCO sign-off, PRs merge only through a gated review ritual, and dependency/security-sensitive
+          changes always queue for a human. Use it on code you have backups of.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Author / brand: <strong>1337 · REL AZEUS · MΔSTERMIND</strong> · License:
+        <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/main/LICENSE">Apache-2.0</a>
+      </p>
+      <p>
+        <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT">GitHub</a>
+        <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/tree/main/docs">Documentation</a>
+        <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions">Discussions</a>
+        <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/releases">Releases</a>
+      </p>
+    </footer>
+  </body>
+</html>
