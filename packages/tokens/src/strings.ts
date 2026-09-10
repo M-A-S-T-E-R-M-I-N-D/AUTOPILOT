@@ -1438,10 +1438,11 @@ const EN_STRINGS = {
   // poll tick, so `tr()` at build time is the sweep, the same shape
   // `report-menu.ts`'s fresh-each-open dialog already uses. Per the stance
   // every prior slice took (see reportConfirmSuffix above), only the
-  // panel's persistent ON-SCREEN text moves this slice — the per-commit
-  // `data-tip`/`aria-label` hover text (sha, subject, files-changed, branch
-  // arrow, best/worst firing) stays English, same as the per-project fleet
-  // card hover text this table already leaves untranslated.
+  // panel's persistent ON-SCREEN text moved that slice — the per-commit
+  // `data-tip`/`aria-label` hover text (sha, subject, files-changed,
+  // best/worst firing) still stays English, same as the per-project fleet
+  // card hover text this table already leaves untranslated; the branch line
+  // below moved in a later slice.
   landingTitle: '🛬 Landing',
   landingChecking: 'Checking for unmerged work…',
   landingUnavailable: 'Landing preview unavailable.',
@@ -1452,6 +1453,19 @@ const EN_STRINGS = {
   landingDebriefTitle: '📋 Flight debrief',
   landingDebriefBestLabel: '🏆 Best: ',
   landingDebriefWorstLabel: '💀 Worst: ',
+  // The panel's branch line (renderLandingBody()'s "branch → base" row above
+  // the commit list). The panel is never swept after its fetch resolves, so
+  // every one of these is painted via tr() at build time AND tagged: the
+  // three fixed tips as [data-i18n-tip], the arrow's fixed aria as
+  // [data-i18n-aria], and the branch/base aria prefixes — which wrap the
+  // live ref name in {name} — as [data-i18n-aria-template]/[data-i18n-name],
+  // so a mid-session locale switch flips all six in place.
+  landingBranchTip: 'Currently checked-out branch',
+  landingBranchAria: 'branch: {name}',
+  landingBranchArrowTip: 'Merge direction: branch into base',
+  landingBranchArrowAria: 'merges into',
+  landingBaseTip: 'Branch this would merge into',
+  landingBaseAria: 'base branch: {name}',
   // web/flight-debrief.ts's flightDebriefChipItems/flightDebriefNotableItems
   // — the FLIGHT DEBRIEF panel's stat-chip and notable-event text.
   flightDebriefShippedCount: '{count} shipped',
@@ -2186,6 +2200,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingDebriefTitle: '📋 תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',
     landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
+    landingBranchTip: 'הענף הפעיל כרגע',
+    landingBranchAria: 'ענף: {name}',
+    landingBranchArrowTip: 'כיוון המיזוג: מהענף אל הבסיס',
+    landingBranchArrowAria: 'מתמזג אל',
+    landingBaseTip: 'הענף שאליו זה ימוזג',
+    landingBaseAria: 'ענף הבסיס: {name}',
     flightDebriefShippedCount: '{count} שוגרו',
     flightDebriefShippedTip: 'הפעלות שעברו את השער ונחתו כקומיט אמיתי',
     flightDebriefDeathCount: '{count} נכשלו',
