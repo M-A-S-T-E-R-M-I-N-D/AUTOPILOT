@@ -231,6 +231,12 @@ const BENIGN_FLIGHT = new Set([
   // pool-client.ts: the executor that acts on an admitted plan is a
   // follow-up slice that will need its own marker once it ships one.
   'social-pass.ts',
+  // CONTRIBUTOR JOURNEY slice 1 (board web-mtt3hery-l8v0lf): planContributorIssueList
+  // is a pure filter/rank over an already-fetched issue array (no `gh` call
+  // of its own) — same class as pool-client.ts's classifiers. The live
+  // `gh issue list` read and the dashboard panel that renders this list are
+  // separate, later slices that will need their own markers once they ship.
+  'contributor-issue-list.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage

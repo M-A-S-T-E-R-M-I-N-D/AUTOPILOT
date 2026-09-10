@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+// SPDX-License-Identifier: Apache-2.0
+
+import { describe, it, expect } from 'vitest';
+import {
+  planContributorIssueList,
+  type ContributorFacingIssue,
+} from '../../src/flight/contributor-issue-list.js';
+
+function issue(overrides: Partial<ContributorFacingIssue> = {}): ContributorFacingIssue {
+  return {
+    number: 1,
+    title: 'Fix the thing',
+    url: 'https://github.com/org/repo/issues/1',
+    labels: [],
+    assignees: [],
+    ...overrides,
+  };
+}
+
+describe('planContributorIssueList', () => {
+  it('returns an empty list for no issues', () => {
+    expect(planContributorIssueList([])).toEqual([]);
+  });
+
+  it('includes an unassigned good-first-issue-labeled issue', () => {
+    const result = planContributorIssueList([issue({ number: 1, labels: ['good first issue'] })]);
+    expect(result).toEqual([
+      {
+        number: 1,
+        title: 'Fix the thing',
+        url: 'https://github.com/org/repo/issues/1',
+        tier: 'good first issue',
+      },
+    ]);
+  });
+
+  it('includes an unassigned help-wanted-labeled issue', () => {
+    const result = planContributorIssueList([issue({ number: 2, labels: ['help wanted'] })]);
+    expect(result).toEqual([
+      {
+        number: 2,
+        title: 'Fix the thing',
+        url: 'https://github.com/org/repo/issues/1',
+        tier: 'help wanted',
+      },
+    ]);
+  });
+
+  it('excludes an issue carrying neither label', () => {
+    const result = planContributorIssueList([issue({ labels: ['bug'] })]);
+    expect(result).toEqual([]);
+  });
+
+  it('excludes an already-assigned issue even when labeled', () => {
+    const result = planContributorIssueList([
+      issue({ labels: ['good first issue'], assignees: ['octocat'] }),
+    ]);
+    expect(result).toEqual([]);
+  });
+
+  it('normalizes hyphenated and mixed-case label spellings', () => {
+    const result = planContributorIssueList([issue({ labels: ['Good-First-Issue'] })]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.tier).toBe('good first issue');
+  });
+
+  it('treats an issue carrying both labels as good-first-issue tier', () => {
+    const result = planContributorIssueList([
+      issue({ labels: ['good first issue', 'help wanted'] }),
+    ]);
+    expect(result).toEqual([expect.objectContaining({ tier: 'good first issue' })]);
+  });
+
+  it('ranks good-first-issue entries before help-wanted entries', () => {
+    const result = planContributorIssueList([
+      issue({ number: 1, labels: ['help wanted'] }),
+      issue({ number: 2, labels: ['good first issue'] }),
+    ]);
+    expect(result.map((e) => e.number)).toEqual([2, 1]);
+  });
+
+  it('breaks ties within the same tier by ascending issue number', () => {
+    const result = planContributorIssueList([
+      issue({ number: 9, labels: ['good first issue'] }),
+      issue({ number: 3, labels: ['good first issue'] }),
+    ]);
+    expect(result.map((e) => e.number)).toEqual([3, 9]);
+  });
+});
