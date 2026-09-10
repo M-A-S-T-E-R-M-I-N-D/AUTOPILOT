@@ -33,13 +33,26 @@ describe('isAllowedLicenseId', () => {
     expect(isAllowedLicenseId(id)).toBe(true);
   });
 
-  it('allows the MIT-0 variant via the MIT family prefix', () => {
+  it('allows the MIT-0 variant', () => {
     expect(isAllowedLicenseId('MIT-0')).toBe(true);
   });
 
   it.each(['GPL-3.0', 'AGPL-3.0', 'SSPL-1.0', 'UNLICENSED', ''])('rejects %s', (id) => {
     expect(isAllowedLicenseId(id)).toBe(false);
   });
+
+  it.each([
+    ['MITNFA', 'MIT +no-false-attribs — a distinct, more restrictive SPDX id, not plain MIT'],
+    ['BSD-4-Clause', 'the advertising-clause BSD variant — GPL-incompatible, excluded by design'],
+    ['BSD-Protection', 'a BSD-family id with an added defensive-termination clause'],
+    ['CC0-1.0-fake', 'a fabricated id that merely shares the CC0 prefix'],
+    ['BlueOakCouncil', 'shares the BlueOak prefix without a version, not the real id'],
+  ])(
+    'rejects %s (guard-precision: a shared family prefix must not smuggle an unaudited variant past the allowlist — %s)',
+    (id) => {
+      expect(isAllowedLicenseId(id)).toBe(false);
+    },
+  );
 });
 
 describe('isAllowedLicenseExpression', () => {

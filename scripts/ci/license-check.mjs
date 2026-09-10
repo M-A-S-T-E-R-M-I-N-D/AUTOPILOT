@@ -16,18 +16,41 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** Exact SPDX identifiers allowed as-is (the allowlist itself pins the version). */
-const EXACT_ALLOWED = new Set(['Apache-2.0', 'MPL-2.0', 'Python-2.0', 'CC-BY-4.0', '0BSD', 'ISC']);
-
-/** Family prefixes allowed regardless of variant/version suffix (e.g. `MIT-0`, `BSD-3-Clause`). */
-const PREFIX_ALLOWED = ['MIT', 'BSD', 'CC0', 'BlueOak'];
+/**
+ * Exact SPDX identifiers allowed — the allowlist itself pins the version AND
+ * the exact variant, deliberately NOT a family-prefix match. A prefix check
+ * (`id.startsWith('MIT')`, `id.startsWith('BSD')`) previously let unaudited
+ * siblings of an allowed family through unreviewed — `MITNFA` ("MIT
+ * +no-false-attribs", a real, stricter SPDX id) and `BSD-4-Clause` (the
+ * advertising-clause variant, GPL-incompatible and normally excluded from a
+ * permissive allowlist) both satisfied `startsWith('MIT'|'BSD')` while never
+ * having been reviewed for this list. That silently contradicted this
+ * module's own default-deny doc comment ("only an SPDX id explicitly on the
+ * allowlist passes"): a prefix match is not an explicit allow. A genuinely
+ * new, actually-safe variant (e.g. a future `BlueOak-1.1.0`) now fails
+ * closed instead of passing by prefix luck — exactly the stated contract —
+ * and gets added here once reviewed.
+ */
+const EXACT_ALLOWED = new Set([
+  'Apache-2.0',
+  'MPL-2.0',
+  'Python-2.0',
+  'CC-BY-4.0',
+  '0BSD',
+  'ISC',
+  'MIT',
+  'MIT-0',
+  'BSD-2-Clause',
+  'BSD-3-Clause',
+  'CC0-1.0',
+  'BlueOak-1.0.0',
+]);
 
 /** @param {string} id @returns {boolean} */
 export function isAllowedLicenseId(id) {
   const trimmed = id.trim();
   if (trimmed === '') return false;
-  if (EXACT_ALLOWED.has(trimmed)) return true;
-  return PREFIX_ALLOWED.some((prefix) => trimmed.startsWith(prefix));
+  return EXACT_ALLOWED.has(trimmed);
 }
 
 /**
