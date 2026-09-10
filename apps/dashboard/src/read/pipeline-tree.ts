@@ -4,10 +4,10 @@
 /**
  * D4 pipeline-view, tree-sidebar data slice (epic 0015 "cockpit supervisory control", board
  * web-mtdc6wq3-5wuc6i) — `buildPipelineTree` folds a `SpanGraph` and its `GraphLayout` into the
- * lane → item hierarchy the eventual ARIA tree sidebar will render (`role="tree"` per lane
- * group, `role="treeitem"` per item). Pure and side-effect-free, per the epic's own phase order
- * (model → worker layout → tree sidebar → canvases → file lens): still no rendering, no DOM —
- * this only computes the hierarchy the sidebar WOULD walk.
+ * lane → item hierarchy the ARIA tree sidebar renders (`role="tree"` per lane group,
+ * `role="treeitem"` per item, via `renderPipelineTreeHtml` in `pipeline-tree-html.ts`, wired
+ * into the live server through `renderPipelinePanel`). This function stays pure and
+ * side-effect-free itself — the rendering and DOM live one layer up, in the renderer it feeds.
  *
  * One lane per distinct `traceId`, ordered by each trace's first-appearance `y` — NOT `y`
  * itself as a lane index: `layoutGraph(g, { mode: 'compact' })` grid-packs several
