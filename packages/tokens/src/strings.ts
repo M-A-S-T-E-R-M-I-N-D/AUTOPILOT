@@ -1515,6 +1515,11 @@ const EN_STRINGS = {
   foundationQrAlt: 'QR code for the {name} address',
   officeSubagent: 'Subagent — {name}',
   officeMapAria: 'Agent office map — currently {name}',
+  // web/features/activity.ts's flightMap() (board web-msnsndki-dz3vn1) — the
+  // files-in-flight map's own aria-label, its first i18n wiring; the
+  // orient/do/gate/commit phase names above it name AUTOPILOT's own flight
+  // phases, not translatable English words, so they stay out of this table.
+  flightMapAria: 'Files in flight',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -2190,6 +2195,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     foundationQrAlt: 'קוד QR לכתובת {name}',
     officeSubagent: 'תת-סוכן — {name}',
     officeMapAria: 'מפת משרד הסוכן — כרגע {name}',
+    flightMapAria: 'קבצים בטיסה',
   },
 };
 

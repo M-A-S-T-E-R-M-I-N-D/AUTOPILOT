@@ -46,6 +46,12 @@ describe('activityJs', () => {
     expect(out).toContain('function activitySection(c) {');
   });
 
+  it('tags the flight map aria-label with its STRINGS key (board web-msnsndki-dz3vn1)', () => {
+    const out = activityJs();
+    expect(out).toContain("ul.setAttribute('aria-label', 'Files in flight');");
+    expect(out).toContain("ul.setAttribute('data-i18n-aria', 'flightMapAria');");
+  });
+
   it('calls actRow, el, liveFiring, openPhases, OFFICE_TIPS, and basename as bare hoisted identifiers, never defines them', () => {
     // actRow is ALSO called by firingTimelineSection (the still-inline
     // Per-firing trace panel), so it stays behind in fleetJs() rather than
