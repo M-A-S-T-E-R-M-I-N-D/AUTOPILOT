@@ -114,21 +114,7 @@ function renderIssueTriageBody(body, plans, pid, identity) {
     var plan = plans[i];
     var item = el('div', 'issue-triage-item');
     var head = el('div', 'issue-triage-head');
-    // The number is a real link when gh reported the issue's own url (epic
-    // 0020 "the legible surface" slice 3 — operator, 2026-09-09: "אם אנחנו
-    // מביאים מידע מהGITHUB למה אנחנו לא יכולים לקשר באופן ישיר"). An <a>
-    // only when there IS a url: a link element that goes nowhere is worse
-    // than plain text. rel=noreferrer on a _blank target is the standard
-    // reverse-tabnabbing guard — same pattern as pr-review.ts's own
-    // PR-number link and pool-client.ts's issue-number link.
-    var issueNumberEl = plan.issue.url
-      ? el('a', 'issue-triage-number issue-triage-number-link', '#' + plan.issue.number)
-      : el('span', 'issue-triage-number', '#' + plan.issue.number);
-    if (plan.issue.url) {
-      issueNumberEl.setAttribute('href', plan.issue.url);
-      issueNumberEl.setAttribute('target', '_blank');
-      issueNumberEl.setAttribute('rel', 'noopener noreferrer');
-    }
+    var issueNumberEl = el('span', 'issue-triage-number', '#' + plan.issue.number);
     // D1 TAB-STOP ROVING (epic 0015): one Tab stop for the whole list — a
     // busy triage round would otherwise cost one Tab press per open issue.
     // wireRoving() below moves it.

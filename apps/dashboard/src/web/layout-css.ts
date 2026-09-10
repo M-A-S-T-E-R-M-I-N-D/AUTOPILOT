@@ -643,8 +643,6 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .issue-triage-item:first-of-type { border-top: none; }
 .issue-triage-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .issue-triage-number { font-family: var(--font-mono); color: var(--color-text-muted); }
-.issue-triage-number-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
-.issue-triage-number-link:hover, .issue-triage-number-link:focus-visible { border-bottom-color: currentColor; }
 .issue-triage-issue-title { margin: 0; font-size: var(--text-sm); }
 .issue-triage-badge-accept { color: var(--color-success); border-color: var(--color-success); }
 .issue-triage-badge-duplicate { color: var(--color-text-muted); border-color: var(--color-border); }

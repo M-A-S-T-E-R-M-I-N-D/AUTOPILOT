@@ -620,26 +620,7 @@ describe('fetchOpenIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,body,url,labels,assignees,author',
-    ]);
-  });
-
-  it('parses the url off each issue, dropping a malformed url', async () => {
-    const exec: CliExec = vi.fn().mockResolvedValue({
-      code: 0,
-      stdout: JSON.stringify([
-        { number: 9, title: 'Has url', url: 'https://github.com/example/repo/issues/9' },
-        { number: 10, title: 'No url' },
-        { number: 11, title: 'Malformed url', url: 42 },
-      ]),
-    });
-
-    const issues = await fetchOpenIssues(exec);
-
-    expect(issues.map((i) => i.url)).toEqual([
-      'https://github.com/example/repo/issues/9',
-      undefined,
-      undefined,
+      'number,title,body,labels,assignees,author',
     ]);
   });
 
