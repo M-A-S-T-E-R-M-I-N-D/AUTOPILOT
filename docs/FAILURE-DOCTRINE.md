@@ -42,6 +42,7 @@ commit that fixes it.
 | 25 | A timeout fix applied to `testTimeout` only, while the flakier half — `beforeEach` setup — stayed at the 10s default | one budget covers both: `hookTimeout` raised alongside `testTimeout`, same reasoning | `vitest.config.ts` |
 
 | 26 | A merge commit that CLAIMS both parents and keeps only one's tree (`-s ours`) — undetectable by anything in the repo | merge-integrity check: tree-identical-to-first-parent AND content missing at the tip = the parent's work was discarded | `ci:merge-integrity` + both corpora in `merge-integrity.test.ts` |
+| 27 | Concurrent flights sharing one non-worktree checkout race at git-index/working-tree level (`ap-mtm4qzty-1`, reconfirmed 8×: swept commits, identical-content races, a hard reset silently erasing another firing's uncommitted edit) | `fly.ts`'s FLIGHT-VS-FLIGHT guards refuse the land-time bookends (primary-fallback start, sync-back call sites) when a sibling's lock is live; the edit-time window between those bookends has no lock and relies only on the reactive `3f4bd6c6` detect-before-commit rule | `fly.ts` land-time guards + firing-prompt hard rule (`packages/engine/src/prompt.ts`) — **open**: full edit-time isolation is the already-proposed operator call (every flight in its own worktree, per debriefs 2026-09-06/07/10) |
 
 Row 26 came with a second lesson about guards themselves. The obvious
 check — "does a parent have lines the merge lacks?" — flagged **14 of
@@ -70,6 +71,7 @@ pushed. **A name can carry an assumption the code never honoured**, and
 nothing failed loudly enough to notice — the operator found it by asking
 which button publishes.
 
-Rows 10 (reland), 14 (structural), 16 are the open counters — each is
-a boarded task; everything else is live machinery. When one ships, move
-its row's "where" to the code path in the same commit.
+Rows 10 (reland), 14 (structural), 16, 27 (operator-owned) are the open
+counters — each is a boarded task or a standing operator decision;
+everything else is live machinery. When one ships, move its row's "where"
+to the code path in the same commit.
