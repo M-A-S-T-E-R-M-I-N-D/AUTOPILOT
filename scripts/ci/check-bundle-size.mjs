@@ -65,7 +65,10 @@ import { gzipSync } from 'node:zlib';
 // against the 192512B / 57344B budget: 354 bytes over on raw alone, gzip
 // still ~390 bytes under and not moved. The prior slice's 241-byte headroom
 // note said the next core string of any size would go red — it did.
-const CORE_RAW_BUDGET = 189 * 1024;
+// Then core raw 189→190KB (2026-09-12) for EPIC 0021 slices 7+8: thirteen
+// English strings for the command palette and focus mode (the Hebrew ones
+// ride the deferred locale-data chunk) — measured 189.4KB.
+const CORE_RAW_BUDGET = 190 * 1024;
 const CORE_GZIP_BUDGET = 56 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
@@ -146,8 +149,11 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // Then raw 127→128KB (2026-09-12) for EPIC 0021 slice 5: the subject nav
 // reads its subject set from the page's links, scans main#fleet's sections
 // on a project page and marks inactive ones — measured 127.4KB raw.
-const CHUNK_RAW_BUDGET = 128 * 1024;
-const CHUNK_GZIP_BUDGET = 39 * 1024;
+// Then raw 128→133KB / gzip 39→41KB (2026-09-12) for EPIC 0021 slices 7+8:
+// the command palette (a combobox over a listbox, items read from the page)
+// and focus mode join the shell's deferred client — measured 132.7KB/40.1KB.
+const CHUNK_RAW_BUDGET = 133 * 1024;
+const CHUNK_GZIP_BUDGET = 41 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

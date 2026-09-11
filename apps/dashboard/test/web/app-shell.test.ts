@@ -34,7 +34,52 @@ const SUBJECT_KEYS = [
   'subjectKeeper',
   'subjectCommunity',
   'subjectEmpty',
+  'focusMode',
+  'focusModeTip',
+  'focusExit',
+  'paletteOpen',
+  'paletteTitle',
+  'palettePlaceholder',
+  'paletteEmpty',
+  'paletteGoTo',
+  'paletteOpenProject',
+  'paletteTheme',
+  'paletteLanguage',
+  'paletteSearch',
 ] as const;
+
+/** The client bundle's `tr()` lives in core (locale.ts); the shell module
+ *  reads it as a free global, so the tests give it a transparent one. */
+function stubTranslator(): void {
+  (globalThis as unknown as { tr: unknown }).tr = (key: string, subs?: Record<string, string>) =>
+    subs ? `${key}:${Object.values(subs).join(',')}` : key;
+}
+
+// jsdom's document.open()/write() keeps every listener registered on the
+// `document` and `window` objects themselves (matching browsers), so each
+// boot() below would leave its Ctrl+K and hashchange handlers behind for
+// the next test — and a toggle shortcut fired through an even number of
+// stale handlers opens and re-closes the palette in one keystroke. Track
+// what the module attaches and strip it after each test (the a11y harness
+// does the same, for the same reason).
+type Tracked = [EventTarget, string, EventListenerOrEventListenerObject, unknown];
+const trackedListeners: Tracked[] = [];
+for (const target of [document, window] as EventTarget[]) {
+  const native = target.addEventListener.bind(target);
+  target.addEventListener = ((
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: unknown,
+  ) => {
+    trackedListeners.push([target, type, listener, options]);
+    return native(type, listener, options as AddEventListenerOptions | undefined);
+  }) as typeof target.addEventListener;
+}
+function stripTrackedListeners(): void {
+  for (const [target, type, listener, options] of trackedListeners.splice(0)) {
+    target.removeEventListener(type, listener, options as EventListenerOptions | undefined);
+  }
+}
 
 function tagFor(html: string, id: string): string | undefined {
   return html.match(new RegExp(`<(?:section|nav|main)(?: [^>]*)? id="${id}"[^>]*>`))?.[0];
@@ -209,6 +254,7 @@ describe('subject-nav client — switching subjects', () => {
       addEventListener: () => {},
     });
     (window as unknown as { scrollTo: unknown }).scrollTo = () => {};
+    stubTranslator();
   });
   afterEach(async () => {
     // jsdom defers an anchor's fragment navigation to a later task (a real
@@ -218,6 +264,7 @@ describe('subject-nav client — switching subjects', () => {
     await new Promise((r) => setTimeout(r, 0));
     window.location.hash = '';
     await new Promise((r) => setTimeout(r, 0));
+    stripTrackedListeners();
   });
 
   function boot(): void {
@@ -272,6 +319,63 @@ describe('subject-nav client — switching subjects', () => {
     expect(ev.defaultPrevented).toBe(true);
     expect(document.body.dataset['subject']).toBe('docs');
     expect(document.getElementById('totals')?.getAttribute('data-subject-inactive')).toBe('true');
+  });
+
+  it('focus mode hides the chrome through one body attribute and Escape brings it back', () => {
+    boot();
+    const toggle = document.getElementById('focus-toggle') as HTMLButtonElement;
+    const exit = document.getElementById('focus-exit') as HTMLButtonElement;
+    expect(exit.hidden).toBe(true);
+    toggle.click();
+    expect(document.body.dataset['focus']).toBe('on');
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(exit.hidden).toBe(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.body.dataset['focus']).toBeUndefined();
+    expect(exit.hidden).toBe(true);
+    // Never persisted: nothing about focus reaches localStorage.
+    expect(window.localStorage.getItem('ap-focus')).toBeNull();
+  });
+
+  it('Ctrl+K opens the palette with the page’s places and actions, typing filters, Enter runs', () => {
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    stubTranslator();
+    boot();
+    const dialog = document.getElementById('palette') as HTMLDialogElement;
+    expect(dialog.hasAttribute('open')).toBe(false);
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+    );
+    expect(dialog.hasAttribute('open')).toBe(true);
+    const labels = () =>
+      [...document.querySelectorAll('#palette-list li')].map((li) => li.textContent);
+    expect(labels()).toEqual(
+      expect.arrayContaining(['paletteGoTo:Docs', 'paletteTheme:dark', 'focusMode', 'tour']),
+    );
+
+    const input = document.getElementById('palette-input') as HTMLInputElement;
+    input.value = 'docs';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(labels()).toEqual(['paletteGoTo:Docs']);
+    expect(input.getAttribute('aria-activedescendant')).toBe('palette-opt-0');
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(dialog.hasAttribute('open')).toBe(false);
+    expect(document.body.dataset['subject']).toBe('docs');
+  });
+
+  it('the masthead offers ⌘K from md and the shell carries one dialog for it', () => {
+    const html = renderShell();
+    expect(html).toContain('id="palette-btn"');
+    expect(html).toContain('<dialog class="palette" id="palette" aria-labelledby="palette-title">');
+    expect(html).toContain('role="combobox"');
+    expect(css).toContain('.palette-btn { display: none;');
+    expect(css.slice(css.indexOf(mediaMin('md')))).toContain(
+      '.palette-btn { display: inline-flex;',
+    );
+    expect(css).toContain('body[data-focus="on"] .masthead, body[data-focus="on"] .subject-nav');
   });
 
   it('re-marks the sections renderProjectPage rebuilds when the page announces them', () => {

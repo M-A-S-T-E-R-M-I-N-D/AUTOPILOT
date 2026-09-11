@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * APP SHELL — subject navigation (epic 0021, slice 2).
+ * APP SHELL — the shell's client (epic 0021): subject navigation (slice 2),
+ * project-page tabs (slice 5), focus mode (slice 8) and the command palette
+ * (slice 7). One module because they share one fact — what the page's
+ * subjects are — and one discipline: guarded writes, nothing persisted that
+ * could trap a reader.
  *
  * A SUBJECT is a place in the app: every body-level section declares the one
  * it belongs to (`data-subject` on the element, set by `renderShell`), and
@@ -194,6 +198,169 @@ function bootSubjectNav() {
     });
   }
 }
+// ---- FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays. ----
+// Opt-in and never persisted — a reload is the way home a less technical
+// operator always has. Escape exits (unless the palette owns the key).
+function setFocusMode(on) {
+  var body = document.body;
+  var next = on ? 'on' : null;
+  if ((body.dataset.focus || null) !== next) {
+    if (next) body.dataset.focus = next; else delete body.dataset.focus;
+  }
+  var toggle = document.getElementById('focus-toggle');
+  if (toggle && toggle.getAttribute('aria-pressed') !== String(!!on)) toggle.setAttribute('aria-pressed', String(!!on));
+  var exit = document.getElementById('focus-exit');
+  if (exit && exit.hidden === !!on) exit.hidden = !on;
+}
+function bootFocusMode() {
+  var toggle = document.getElementById('focus-toggle');
+  var exit = document.getElementById('focus-exit');
+  if (!toggle || !exit) return;
+  toggle.addEventListener('click', function () { setFocusMode(document.body.dataset.focus !== 'on'); });
+  exit.addEventListener('click', function () {
+    setFocusMode(false);
+    if (typeof toggle.focus === 'function') toggle.focus();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.body.dataset.focus === 'on' && !paletteIsOpen()) setFocusMode(false);
+  });
+}
+// ---- COMMAND PALETTE (epic 0021 slice 7, closes 0017 slice 4) ----
+// Ctrl/⌘-K. A combobox over a listbox: the input keeps focus, the active
+// option is a virtual highlight (aria-activedescendant), Enter runs it.
+// Items are read from the page itself — its subject links, its project
+// cards, the theme and language buttons, focus, the tour — so a new place
+// or action appears here the day it appears on the page.
+var paletteAll = [];
+var paletteShown = [];
+var paletteActive = 0;
+function paletteEl() { return document.getElementById('palette'); }
+function paletteIsOpen() { var d = paletteEl(); return !!(d && d.hasAttribute('open')); }
+function paletteText(key, name) {
+  if (typeof tr === 'function') return name === undefined ? tr(key) : tr(key, { name: name });
+  return name === undefined ? key : key + ' ' + name;
+}
+function paletteCollect() {
+  var items = [];
+  subjectLinks().forEach(function (a) {
+    var name = (a.textContent || '').trim();
+    items.push({ label: paletteText('paletteGoTo', name), run: function () { a.click(); } });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('a.card-link[href^="/p/"]'), function (a) {
+    var name = (a.textContent || '').trim();
+    if (name) items.push({ label: paletteText('paletteOpenProject', name), run: function () { location.href = a.getAttribute('href'); } });
+  });
+  var fly = document.getElementById('fly-folder');
+  if (fly) items.push({ label: paletteText('flyFolder'), run: function () { showSubject('fly'); fly.focus(); } });
+  var q = document.getElementById('search-q');
+  if (q) items.push({ label: paletteText('paletteSearch'), run: function () { showSubject('fly'); q.focus(); } });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-theme-btn]'), function (b) {
+    items.push({ label: paletteText('paletteTheme', (b.textContent || '').trim()), run: function () { b.click(); } });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-lang-btn]'), function (b) {
+    items.push({ label: paletteText('paletteLanguage', (b.textContent || '').trim()), run: function () { b.click(); } });
+  });
+  if (document.getElementById('focus-toggle')) {
+    var on = document.body.dataset.focus === 'on';
+    items.push({ label: paletteText(on ? 'focusExit' : 'focusMode'), run: function () { setFocusMode(!on); } });
+  }
+  var tour = document.getElementById('tour-btn');
+  if (tour) items.push({ label: paletteText('tour'), run: function () { tour.click(); } });
+  return items;
+}
+function paletteRender() {
+  var list = document.getElementById('palette-list');
+  var input = document.getElementById('palette-input');
+  if (!list || !input) return;
+  var q = (input.value || '').trim().toLowerCase();
+  paletteShown = paletteAll.filter(function (it) { return !q || it.label.toLowerCase().indexOf(q) >= 0; });
+  if (paletteActive >= paletteShown.length) paletteActive = 0;
+  list.replaceChildren();
+  if (paletteShown.length === 0) {
+    var none = document.createElement('li');
+    none.className = 'palette-empty';
+    none.textContent = paletteText('paletteEmpty');
+    list.appendChild(none);
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+  paletteShown.forEach(function (it, i) {
+    var li = document.createElement('li');
+    li.id = 'palette-opt-' + i;
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', String(i === paletteActive));
+    li.textContent = it.label;
+    li.addEventListener('click', function () { paletteRun(i); });
+    list.appendChild(li);
+  });
+  input.setAttribute('aria-activedescendant', 'palette-opt-' + paletteActive);
+}
+function paletteRun(i) {
+  var it = paletteShown[i];
+  paletteClose();
+  if (it) it.run();
+}
+function paletteOpen() {
+  var d = paletteEl();
+  var input = document.getElementById('palette-input');
+  if (!d || !input) return;
+  paletteAll = paletteCollect();
+  paletteActive = 0;
+  input.value = '';
+  if (!d.hasAttribute('open')) {
+    // showModal traps focus and gives Escape for free; where it is missing or
+    // unimplemented (jsdom throws), the open attribute still shows the dialog.
+    var modal = false;
+    if (typeof d.showModal === 'function') { try { d.showModal(); modal = true; } catch (e) { modal = false; } }
+    if (!modal) d.setAttribute('open', '');
+  }
+  paletteRender();
+  input.focus();
+}
+function paletteClose() {
+  var d = paletteEl();
+  if (!d) return;
+  if (d.hasAttribute('open')) {
+    var closed = false;
+    if (typeof d.close === 'function') { try { d.close(); closed = true; } catch (e) { closed = false; } }
+    if (!closed || d.hasAttribute('open')) d.removeAttribute('open');
+  }
+  var btn = document.getElementById('palette-btn');
+  if (btn && typeof btn.focus === 'function') btn.focus();
+}
+function bootCommandPalette() {
+  var d = paletteEl();
+  var input = document.getElementById('palette-input');
+  if (!d || !input) return;
+  var btn = document.getElementById('palette-btn');
+  if (btn) btn.addEventListener('click', function () { if (paletteIsOpen()) paletteClose(); else paletteOpen(); });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (paletteIsOpen()) paletteClose(); else paletteOpen();
+    }
+  });
+  input.addEventListener('input', function () { paletteActive = 0; paletteRender(); });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (paletteShown.length) { paletteActive = (paletteActive + 1) % paletteShown.length; paletteRender(); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (paletteShown.length) { paletteActive = (paletteActive - 1 + paletteShown.length) % paletteShown.length; paletteRender(); }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      paletteRun(paletteActive);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      paletteClose();
+    }
+  });
+  // A click on the backdrop (the dialog element itself, outside its content) closes.
+  d.addEventListener('click', function (e) { if (e.target === d) paletteClose(); });
+}
 bootSubjectNav();
+bootFocusMode();
+bootCommandPalette();
 `.trim();
 }

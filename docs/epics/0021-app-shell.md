@@ -192,8 +192,8 @@ Fluid where fluidity carries meaning, fixed where density does:
 | 4 | **Keeper as an inbox**: one queue of everything waiting on a human — PR verdicts, triage, approvals, proposals — each item carrying the accumulated context (what ran, what this step does, what comes next), settled items collapsing to a badge history (0018 slice 3's Keeper tab, done as a subject) | queued |
 | 5 | **Project-page subjects**: 0018's tabs become subjects of this shell — Overview · Board · Keeper · Plan · Docs · Data, one at a time at every width, each section tagged by `renderProjectPage` | **shipped** — `shell-html.ts` `subjectNavHtml`, `subject-nav.ts` inactive marking |
 | 6 | **Context rail at expanded**: the supporting pane — live lanes + the Keeper queue beside whatever subject is open (M3 supporting-pane canonical layout) | queued |
-| 7 | **⌘K** (0017 slice 4) registers subjects, projects, fly, theme, language — the power-user spine that keeps the bar minimal | queued |
-| 8 | **Focus mode**: hide chrome, keep the canvas (opt-in, the Figma lesson) | queued |
+| 7 | **⌘K** (0017 slice 4): a real `<dialog>` combobox over a listbox whose items are read from the page itself — places, project cards, theme, language, focus, tour — so a new place appears the day it appears on the page | **shipped** — `subject-nav.ts` `bootCommandPalette`, `command-palette.spec.ts` |
+| 8 | **Focus mode**: the chrome leaves, the work stays; a nav button in, an exit pill or Escape out; never persisted | **shipped** — `subject-nav.ts` `bootFocusMode` |
 
 ## Constraints carried forward
 

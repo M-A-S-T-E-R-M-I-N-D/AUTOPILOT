@@ -145,10 +145,17 @@ export function subjectNavHtml(project?: string): string {
           subjectLink('docs', '#fleet', 'subjectDocs', 'Docs', SUBJECT_ICON.docs, false),
           subjectLink('data', '#fleet', 'subjectData', 'Data', SUBJECT_ICON.data, false),
         ];
+  // FOCUS MODE (slice 8) rides the nav as its last item — a button, not a
+  // place — and its exit pill sits outside the nav so it survives the nav
+  // leaving the page. Never persisted: a reload is always the way home.
+  const focusToggle =
+    '    <button type="button" class="subject-link subject-focus" id="focus-toggle" aria-pressed="false" data-tip="Hide the chrome, keep the work (Esc to exit)" data-i18n-tip="focusModeTip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg><span data-i18n="focusMode">Focus</span></button>\n';
   return (
     '  <nav class="subject-nav" id="subject-nav" aria-label="Sections" data-i18n-aria="subjectNav">\n' +
     links.join('') +
+    focusToggle +
     '  </nav>\n' +
+    '  <button type="button" class="focus-exit" id="focus-exit" hidden><span data-i18n="focusExit">Exit focus</span></button>\n' +
     '  <p class="subject-empty" id="subject-empty" role="status" data-i18n="subjectEmpty" hidden>Nothing here yet — this area fills as the fleet works.</p>'
   );
 }

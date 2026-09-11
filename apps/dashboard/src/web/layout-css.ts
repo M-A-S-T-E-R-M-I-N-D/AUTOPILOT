@@ -1449,5 +1449,42 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 @media (min-width: 64rem) {
   .subject-empty { display: none; }
 }
+/* FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays. The
+   toggle is the nav's last item (a button, not a place); the exit pill is
+   the one floating control, in the thumb-reachable top corner, 44px. */
+.subject-focus { background: none; border: 0; cursor: pointer; font: inherit; font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.02em; }
+.subject-focus[aria-pressed="true"] { color: var(--color-accent); }
+.focus-exit {
+  position: fixed; inset-block-start: var(--space-3); inset-inline-end: var(--space-3); z-index: 40;
+  min-block-size: 2.75rem; padding: var(--space-2) var(--space-4); border-radius: var(--radius-full);
+  border: 1px solid var(--color-border); color: var(--color-text); font: inherit; font-size: var(--text-sm); cursor: pointer;
+  background: color-mix(in srgb, var(--color-surface-raised) 84%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: var(--elevation-level-2);
+}
+.focus-exit:hover, .focus-exit:focus-visible { border-color: var(--color-accent); outline: none; }
+body[data-focus="on"] .masthead, body[data-focus="on"] .subject-nav, body[data-focus="on"] .update-banner { display: none; }
+body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
+/* COMMAND PALETTE (epic 0021 slice 7): one modal, top-anchored so the list
+   grows downward; a combobox over a listbox — the Linear / VS Code shape.
+   The masthead's ⌘K pill is a keyboard affordance, so it appears from md. */
+.palette-btn { display: none; font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); color: var(--color-text-muted); background: transparent; border: 1px solid var(--color-border); transition: box-shadow var(--duration-short2) var(--easing-standard); }
+.palette-btn kbd { font: inherit; font-family: var(--font-mono); }
+.palette-btn:hover, .palette-btn:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
+.palette {
+  inset: 0; margin: 12vh auto 0; inline-size: min(36rem, 92vw); padding: 0;
+  border: 1px solid var(--color-border); border-radius: var(--shape-medium);
+  background: var(--color-surface-raised); color: var(--color-text); box-shadow: var(--elevation-level-3);
+}
+.palette::backdrop { background: rgba(0, 0, 0, 0.5); }
+.palette-title { margin: 0; padding: var(--space-3) var(--space-4) 0; font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.palette-input { display: block; inline-size: 100%; font: inherit; font-size: var(--text-lg); padding: var(--space-3) var(--space-4); border: 0; border-block-end: 1px solid var(--color-border); background: transparent; color: var(--color-text); outline: none; }
+.palette-list { list-style: none; margin: 0; padding: var(--space-2); max-block-size: 50vh; overflow-y: auto; }
+.palette-list li { padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); cursor: pointer; min-block-size: 2.25rem; }
+.palette-list li[aria-selected="true"] { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
+.palette-list li:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.palette-empty { color: var(--color-text-muted); cursor: default; }
+@media (min-width: 48rem) {
+  .palette-btn { display: inline-flex; align-items: center; }
+}
 `.trim();
 }

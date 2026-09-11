@@ -4130,10 +4130,16 @@ export function renderShell(project?: string): string {
         <summary id="foundation-summary" data-tip="Support AUTOPILOT — verified donation addresses" data-i18n-tip="foundationTip" aria-label="Foundation" data-i18n-aria="foundation">♥</summary>
         <div class="connect-body foundation-body" id="foundation-body"></div>
       </details>
+      <button type="button" class="palette-btn" id="palette-btn" aria-haspopup="dialog" aria-controls="palette" aria-label="Commands (Ctrl or ⌘ K)" data-i18n-aria="paletteOpen" data-tip="Commands (Ctrl or ⌘ K)" data-i18n-tip="paletteOpen"><kbd>⌘K</kbd></button>
       <button type="button" class="tour-btn" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip" data-i18n="tour">Tour</button>
     </div>
   </header>
 ${subjectNavHtml(project)}
+  <dialog class="palette" id="palette" aria-labelledby="palette-title">
+    <h2 class="palette-title" id="palette-title" data-i18n="paletteTitle">Go to, open, or do</h2>
+    <input class="palette-input" id="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Type a place, a project or an action…" data-i18n-placeholder="palettePlaceholder" />
+    <ul class="palette-list" id="palette-list" role="listbox" aria-labelledby="palette-title"></ul>
+  </dialog>
   <section class="totals" id="totals" aria-label="Fleet summary" data-i18n-aria="fleetSummary" data-subject="fleet"></section>
   <section class="live-workers" id="live-workers" role="group" aria-label="Who's flying now" data-i18n-aria="liveWorkers" data-subject="fleet" hidden></section>
   <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance" data-subject="fleet"></section>

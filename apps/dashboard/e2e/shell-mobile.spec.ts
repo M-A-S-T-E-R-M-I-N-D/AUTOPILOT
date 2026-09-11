@@ -103,7 +103,7 @@ test.describe('app shell — compact window', () => {
     await page.goto(`${POPULATED_BASE_URL}/p/demo-checkout-web`);
     await page.clock.runFor(3000);
     await expect(page.locator('main#fleet')).toHaveClass(/project-mode/);
-    await expect(page.locator('#subject-nav .subject-link')).toHaveCount(6);
+    await expect(page.locator('#subject-nav [data-subject-link]')).toHaveCount(6);
     await expect(page.locator('main#fleet > .card[data-project]')).toBeVisible();
     await expect(page.locator('main#fleet .task-add')).toBeHidden();
 
@@ -112,6 +112,23 @@ test.describe('app shell — compact window', () => {
     await expect(page.locator('body')).toHaveAttribute('data-subject', 'board');
     await expect(page.locator('main#fleet .task-add')).toBeVisible();
     await expect(page.locator('main#fleet > .card[data-project]')).toBeHidden();
+  });
+
+  test('focus mode: the chrome leaves, the exit pill stays reachable, a tap brings it back', async ({
+    page,
+  }) => {
+    await openFleet(page);
+    await page.locator('#focus-toggle').tap();
+    await expect(page.locator('body')).toHaveAttribute('data-focus', 'on');
+    await expect(page.locator('.masthead')).toBeHidden();
+    await expect(page.locator('#subject-nav')).toBeHidden();
+    const exit = page.locator('#focus-exit');
+    await expect(exit).toBeVisible();
+    const b = (await exit.boundingBox())!;
+    expect(b.height).toBeGreaterThanOrEqual(44);
+    await exit.tap();
+    await expect(page.locator('.masthead')).toBeVisible();
+    await expect(page.locator('#subject-nav')).toBeVisible();
   });
 
   test('visual — fleet populated, dark, phone', async ({ page }) => {
