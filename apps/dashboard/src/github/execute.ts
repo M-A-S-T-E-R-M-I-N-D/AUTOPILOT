@@ -22,6 +22,8 @@
  */
 
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { commandLaunch } from './command-launch.js';
 import { openStore, listProjects } from '@autopilot/store';
 import { GitVcs, planGithubSync, type RepoVisibility } from '@autopilot/engine';
 import { scanForSecrets } from '@autopilot/onboarding';
@@ -47,18 +49,32 @@ export type CommandRunner = (
  *  instead of a second hand-rolled copy. */
 export const realRunner: CommandRunner = (command, args, cwd) =>
   new Promise((resolve) => {
+    // On Windows a bare `pnpm`/`npm`/`yarn` resolves to a .CMD batch shim,
+    // which CreateProcess cannot start — see command-launch.ts.
+    const launch = commandLaunch(command, args, {
+      platform: process.platform,
+      env: process.env,
+      exists: existsSync,
+    });
     execFile(
-      command,
-      args as string[],
+      launch.file,
+      launch.args as string[],
       { cwd, windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
       (err, stdout, stderr) => {
-        const code =
-          err && typeof (err as NodeJS.ErrnoException & { code?: unknown }).code === 'number'
-            ? (err as unknown as { code: number }).code
-            : err
-              ? 1
-              : 0;
-        resolve({ exitCode: code, stdout: stdout ?? '', stderr: stderr ?? '' });
+        const failure = err as (NodeJS.ErrnoException & { code?: unknown }) | null;
+        const code = failure && typeof failure.code === 'number' ? failure.code : err ? 1 : 0;
+        // A spawn failure never reaches the child, so stderr comes back
+        // EMPTY and every caller’s `|| "<thing> failed"` fallback then names
+        // nothing and points nowhere. Carry the errno instead: "ENOENT: spawn
+        // pnpm ENOENT" tells an operator what to go fix.
+        const spawnFailure =
+          failure && typeof failure.code === 'string' ? `${failure.code}: ${failure.message}` : '';
+        const err2 = stderr ?? '';
+        resolve({
+          exitCode: code,
+          stdout: stdout ?? '',
+          stderr: err2.trim() === '' ? spawnFailure : err2,
+        });
       },
     );
   });
