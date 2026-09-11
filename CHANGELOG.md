@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.38.0] — 2026-09-11
+
+### Added
+
+- feat(dashboard): epic 0021 slices 3+4 first cuts — a camera for the plan, a count for the Keeper
+- feat(dashboard): epic 0021 slices 7+8 — a command palette and a focus mode
+- feat(dashboard): epic 0021 slice 5 — the project page becomes six subjects
+
+### Fixed
+
+- fix(update): build the pulled source before restarting onto it (#47)
+
 ## [0.37.0] — 2026-09-11
 
 ### Added
