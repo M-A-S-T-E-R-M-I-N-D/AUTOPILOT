@@ -1537,14 +1537,29 @@ const EN_STRINGS = {
   // file's header comment already draws for every dynamic value it renders.
   issueTriageCommentsPosted: 'Comments posted:',
   // web/features/mirror-pass.ts (EPIC 0019 S3, board web-mtrh1hlh-62l41b,
-  // VERDICT ap-mtsg3nc0-3 slice (c)): the project page's read-only MIRROR
-  // PASS panel — title, loading placeholder, and the empty/fetch-failure
-  // states. Preview-only (no execute button yet), same shape issueTriage*
-  // above establishes for a fetch-then-render panel.
+  // VERDICT ap-mtsg3nc0-3 slice (c)): the project page's MIRROR PASS panel —
+  // title, loading placeholder, and the empty/fetch-failure states, same
+  // shape issueTriage* above establishes for a fetch-then-render panel.
   mirrorPassTitle: '🔁 Mirror pass',
   mirrorPassLoading: 'Checking the board against GitHub…',
   mirrorPassEmpty: 'Board and GitHub agree — nothing to reconcile.',
   mirrorPassUnavailable: 'Mirror pass unavailable.',
+  // Its "Run mirror pass" EXECUTE button (board web-msnsndki-dz3vn1): the
+  // idle label rides a plain data-i18n tag (the button carried that tag from
+  // its first render, but no key existed here — so it never translated); its
+  // hover tip IS its accessible name, so one key rides both the
+  // [data-i18n-tip] and [data-i18n-aria] sweeps. The window.confirm() text
+  // and the two transient click-handler states are painted via tr() since
+  // they're never a DOM attribute a sweep can reach — the same shape
+  // issueTriageExecuting/issueTriageRequestFailed and releaseExecuting/
+  // releaseRequestFailed follow for their own EXECUTE buttons.
+  mirrorPassExecute: 'Run mirror pass',
+  mirrorPassExecuteTip:
+    'Applies every reconcile finding above — closes or reopens issues and posts comments via gh.',
+  mirrorPassExecuteConfirm:
+    'Run the mirror pass now? This closes or reopens issues and posts comments on GitHub for every reconcile finding above.',
+  mirrorPassExecuting: 'Running…',
+  mirrorPassRequestFailed: 'Mirror pass request failed.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2274,6 +2289,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     mirrorPassLoading: 'בודק את הלוח מול GitHub…',
     mirrorPassEmpty: 'הלוח וGitHub תואמים — אין מה לתאם.',
     mirrorPassUnavailable: 'מעבר השיקוף אינו זמין.',
+    mirrorPassExecute: 'הרץ מעבר שיקוף',
+    mirrorPassExecuteTip:
+      'מחיל כל ממצא תיאום שלמעלה — סוגר או פותח מחדש issues ומפרסם תגובות דרך gh.',
+    mirrorPassExecuteConfirm:
+      'להריץ את מעבר השיקוף עכשיו? זה סוגר או פותח מחדש issues ומפרסם תגובות ב-GitHub עבור כל ממצא תיאום שלמעלה.',
+    mirrorPassExecuting: 'מריץ…',
+    mirrorPassRequestFailed: 'בקשת מעבר השיקוף נכשלה.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',

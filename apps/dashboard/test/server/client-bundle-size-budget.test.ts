@@ -179,7 +179,18 @@ import {
 // every prior i18n slice here. This bump leaves ~3.5KB raw; the gzip line
 // keeps its headroom and is not moved. The structural fix (VERDICT split
 // web-mtbodv7m-uzhovs) remains the tracked follow-up.
-const CORE_RAW_BUDGET = 188 * 1024;
+// Raised RAW ONLY 188→189KB (2026-09-11): the MIRROR PASS panel's EXECUTE
+// button i18n slice (board web-msnsndki-dz3vn1 — five STRINGS.en keys,
+// `mirrorPassExecute` (its data-i18n tag had shipped with no key behind it),
+// `mirrorPassExecuteTip`, `mirrorPassExecuteConfirm`, `mirrorPassExecuting`,
+// `mirrorPassRequestFailed`) measured 192866 raw / 56956 gzip against the
+// 192512 / 57344 budget: 354 bytes over on raw alone, gzip still ~390 bytes
+// under. The panel rides /project.js, but every English key lands in core
+// via `localeJs()`'s STRINGS.en splice, like every prior i18n slice here.
+// Panels (the Hebrew twins, via locale-data.ts) measured 129557 / 39557
+// against 130048 / 39936 and is not moved. Mirrored in
+// scripts/ci/check-bundle-size.mjs.
+const CORE_RAW_BUDGET = 189 * 1024;
 const CORE_GZIP_BUDGET = 56 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —

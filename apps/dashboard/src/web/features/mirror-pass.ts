@@ -50,10 +50,17 @@
  * split `issue-triage.ts`/`flight-console.ts` already follow. Each finding's
  * own text is built from live GitHub/tree facts, never static chrome, so it
  * is never a translation target — the same stance `issue-triage.ts`'s
- * `plan.issue.title` render takes on dynamic text. The confirm dialog, the
- * in-flight "Running…" label, and the result line stay English-only for
- * now, same as `pr-review.ts`'s Apply flow and `STRINGS.ts`'s own documented
- * stance on transient, non-persistent text.
+ * `plan.issue.title` render takes on dynamic text. The execute button's
+ * hover tip IS its accessible name, so one key (`mirrorPassExecuteTip`)
+ * rides both the `[data-i18n-tip]` and `[data-i18n-aria]` sweeps — the
+ * shape `shell.ts`'s "No open findings" gauge takes. The confirm dialog, the
+ * in-flight "Running…" label, and the click handler's own request-failed
+ * line are never DOM attributes a sweep can reach, so they call `tr()`
+ * directly at the moment they're set, the same shape `issue-triage.ts`'s
+ * and `release.ts`'s EXECUTE handlers already follow (board
+ * web-msnsndki-dz3vn1). `mirrorPassExecuteResultMessage`'s server-outcome
+ * lines (skip reasons, applied count) are spliced pure helpers with no
+ * `tr` in scope and stay English for now — a later tr-injection slice.
  */
 import {
   mirrorPassReconcileItems,
@@ -104,10 +111,15 @@ function renderMirrorPassBody(body, items, canExecute, pid) {
     runBtn.type = 'button';
     runBtn.setAttribute('data-i18n', 'mirrorPassExecute');
     runBtn.setAttribute('data-mirror-pass-execute', pid);
+    // i18n (board web-msnsndki-dz3vn1): the tip IS the accessible name, so
+    // one key rides both sweeps; the English literal stays as the
+    // byte-identical default and the translateDom() below repaints both.
     var runTip =
       'Applies every reconcile finding above — closes or reopens issues and posts comments via gh.';
     runBtn.setAttribute('data-tip', runTip);
+    runBtn.setAttribute('data-i18n-tip', 'mirrorPassExecuteTip');
     runBtn.setAttribute('aria-label', runTip);
+    runBtn.setAttribute('data-i18n-aria', 'mirrorPassExecuteTip');
     actions.appendChild(runBtn);
     body.appendChild(actions);
     var resultEl = el('div', 'mirror-pass-result');
@@ -164,14 +176,15 @@ document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-mirror-pass-execute]');
   if (!b || b.disabled) return;
   var pid = b.getAttribute('data-mirror-pass-execute');
-  var confirmMsg =
-    'Run the mirror pass now? This closes or reopens issues and posts comments on GitHub for every reconcile finding above.';
-  if (!window.confirm(confirmMsg)) return;
+  // i18n (board web-msnsndki-dz3vn1): a confirm's text is a call argument
+  // evaluated at click time, never an element a sweep visits — tr() reads
+  // the active locale itself, like release.ts's own confirm.
+  if (!window.confirm(tr('mirrorPassExecuteConfirm'))) return;
   var body = b.closest('.mirror-pass-body');
   var resultEl = body && body.querySelector('.mirror-pass-result');
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = 'Running…';
+  b.textContent = tr('mirrorPassExecuting');
   fetch('/api/mirror-pass/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -200,7 +213,7 @@ document.addEventListener('click', function (e) {
       b.textContent = originalText;
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
-        resultEl.textContent = 'Mirror pass request failed.';
+        resultEl.textContent = tr('mirrorPassRequestFailed');
       }
     });
 });
