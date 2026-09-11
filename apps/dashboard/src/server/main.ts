@@ -90,6 +90,7 @@ import {
   createMirrorPassLandingNotePreviewApi,
   createMirrorPassLandingNoteExecuteApi,
   createMirrorPassDriftPreviewApi,
+  createMirrorPassDriftExecuteApi,
   createMirrorPassStaleClaimPreviewApi,
   createMirrorPassStaleClaimExecuteApi,
 } from '../flight/mirror-pass-execute.js';
@@ -616,14 +617,18 @@ const server = createServer({
   // README/docs claims (version, package count, internal links) checked
   // against its tree; no `gh` call involved.
   mirrorPassDrift: createMirrorPassDriftPreviewApi(dbPath),
+  // MIRROR PASS drift execute (VERDICT ap-mtsg3nc0-3 slice (b), derivation
+  // 3/4's own execute path): unlike the other three derivations, this one
+  // files a NEW issue rather than mutating an existing one — de-duplication
+  // runs through social-pass.ts's shared protocol engine.
+  mirrorPassDriftExecute: createMirrorPassDriftExecuteApi(dbPath),
   // MIRROR PASS stale-claim preview: read-only, derivation 4/4 — a claimed
   // pool issue whose assignee has gone quiet past the shared stale
   // threshold, so the claim can be freed up for someone else.
   mirrorPassStaleClaim: createMirrorPassStaleClaimPreviewApi(dbPath),
   // MIRROR PASS stale-claim execute (VERDICT ap-mtsg3nc0-3 slice (b),
-  // derivation 4/4 only): the mutating counterpart to the preview above —
-  // derivation 3/4's own execute path (files a NEW drift issue) remains its
-  // own follow-up slice.
+  // derivation 4/4 only): the mutating counterpart to the preview above. All
+  // four derivations' execute paths are now wired.
   mirrorPassStaleClaimExecute: createMirrorPassStaleClaimExecuteApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool

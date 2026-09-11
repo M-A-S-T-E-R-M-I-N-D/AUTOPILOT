@@ -2262,6 +2262,119 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('POST /api/mirror-pass/drift/execute runs the drift filer for a known project (CSRF-guarded)', async () => {
+    const seen: string[] = [];
+    const base = await start({
+      mirrorPassDriftExecute: async (projectId) => {
+        seen.push(projectId);
+        return {
+          identity: {
+            login: 'rel',
+            nameWithOwner: 'rel/fly-autopilot',
+            role: 'maintainer' as const,
+          },
+          outcomes: [],
+          duplicates: [],
+        };
+      },
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ outcomes: [], duplicates: [] });
+    expect(seen).toEqual(['p1']);
+  });
+
+  it('POST /api/mirror-pass/drift/execute reports a skipped run for a non-maintainer identity, never a 403', async () => {
+    const base = await start({
+      mirrorPassDriftExecute: async () => ({
+        identity: { login: 'guest', nameWithOwner: 'guest/fork', role: 'user' as const },
+        outcomes: [],
+        duplicates: [],
+        skippedReason: 'guest' as const,
+      }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ skippedReason: 'guest' });
+  });
+
+  it('POST /api/mirror-pass/drift/execute reports duplicates for a finding that already has an open issue', async () => {
+    const base = await start({
+      mirrorPassDriftExecute: async () => ({
+        identity: { login: 'rel', nameWithOwner: 'rel/fly-autopilot', role: 'maintainer' as const },
+        outcomes: [],
+        duplicates: ['README.md claims version 0.24.0, tree is at 0.25.0'],
+      }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      duplicates: ['README.md claims version 0.24.0, tree is at 0.25.0'],
+    });
+  });
+
+  it('POST /api/mirror-pass/drift/execute 404s for an unknown project', async () => {
+    const base = await start({ mirrorPassDriftExecute: async () => null });
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'nope' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /api/mirror-pass/drift/execute rejects a non-JSON content-type (CSRF guard)', async () => {
+    const base = await start({
+      mirrorPassDriftExecute: async () => ({ identity: undefined, outcomes: [], duplicates: [] }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(415);
+  });
+
+  it('POST /api/mirror-pass/drift/execute 400s without a project id', async () => {
+    const base = await start({ mirrorPassDriftExecute: async () => null });
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('404s /api/mirror-pass/drift/execute when no API is injected', async () => {
+    const base = await start();
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('405s /api/mirror-pass/drift/execute for a non-POST method', async () => {
+    const base = await start({
+      mirrorPassDriftExecute: async () => ({ identity: undefined, outcomes: [], duplicates: [] }),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/drift/execute?project=p1`);
+    expect(res.status).toBe(405);
+  });
+
   it('GET /api/mirror-pass/stale-claims previews the stale-claim reap finding for a known project', async () => {
     const plans = [
       {
