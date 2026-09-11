@@ -143,13 +143,15 @@ test.describe('visual regression — populated fleet', () => {
       // The two are now explicit and independent: 1s of FAKE time per turn
       // drains the render timer (the ceiling stays 50s, which is what keeps
       // every ago-label inside the same minute and the baselines valid),
-      // plus 100ms of REAL time per turn giving the response up to 5s to
-      // actually arrive. `waitForTimeout` is driven by the Playwright
+      // plus 250ms of REAL time per turn giving the response up to 12.5s to
+      // actually arrive (100ms/5s until the mobile Playwright project began
+      // sharing the CI runner: three of six populated-project attempts then
+      // exhausted 5s before the first state fetch landed). `waitForTimeout` is driven by the Playwright
       // driver, not by page timers, so the frozen clock does not stall it.
       let firingAgoVisible = false;
       for (let pump = 0; pump < 50 && !firingAgoVisible; pump++) {
         await page.clock.runFor(1000);
-        await page.waitForTimeout(100);
+        await page.waitForTimeout(250);
         firingAgoVisible = (await page.locator('.firing-ago').count()) > 0;
       }
       expect(firingAgoVisible, 'flight log never painted within 50s of pumped fake time').toBe(
