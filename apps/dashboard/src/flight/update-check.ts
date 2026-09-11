@@ -189,6 +189,10 @@ export function createUpdateExecuteApi(
       stashed = true;
     }
 
+    // Captured BEFORE the pull so a failed install can put the checkout
+    // back exactly where it started (see the install branch below).
+    const headBefore = await runCommand('git', ['rev-parse', 'HEAD'], cwd);
+
     const pull = await runCommand('git', ['pull', '--ff-only', 'origin'], cwd);
     if (pull.exitCode !== 0) {
       if (stashed) await runCommand('git', ['stash', 'pop'], cwd);
@@ -210,13 +214,34 @@ export function createUpdateExecuteApi(
 
     const install = await runCommand('pnpm', ['install', '--frozen-lockfile'], cwd);
     if (install.exitCode !== 0) {
-      return {
-        ok: false,
-        reason: 'install-failed',
-        details:
-          (install.stderr.trim() || 'pnpm install failed') +
-          (stashed ? ' — your stashed progress is intact (git stash pop).' : ''),
-      };
+      // The pull has ALREADY moved this checkout. Leaving it there is what
+      // turns one failed install into an unbreakable loop: sources sit at
+      // the new version, node_modules at the old one, and the running
+      // process older still — and the banner compares the RUNNING version
+      // against the newest tag, so it re-fires on every refresh forever.
+      // Put the tree back where it was; the module promises nothing was
+      // touched, and that promise has to survive this branch too.
+      const previousHead = headBefore.stdout.trim();
+      const canRollBack = headBefore.exitCode === 0 && /^[0-9a-f]{7,40}$/i.test(previousHead);
+      const rollback = canRollBack
+        ? await runCommand('git', ['reset', '--hard', previousHead], cwd)
+        : undefined;
+      const rolledBack = rollback?.exitCode === 0;
+      // Only safe once the tree is back on the commit the stash was made
+      // against — popping onto the newer tree invites conflicts the
+      // operator never asked for.
+      if (stashed && rolledBack) await runCommand('git', ['stash', 'pop'], cwd);
+
+      const reason = install.stderr.trim() || install.stdout.trim() || 'pnpm install failed';
+      const aftermath = rolledBack
+        ? ` — rolled back to ${previousHead}; your checkout is unchanged.` +
+          (stashed ? ' Your stashed progress was restored.' : '')
+        : ` — WARNING: the rollback did not run, so this checkout is now on the` +
+          ` new version with the old dependencies. Run "pnpm install" here,` +
+          ` or "git reset --hard ${previousHead}" to go back.` +
+          (stashed ? ' Your progress is still in git stash (git stash pop).' : '');
+
+      return { ok: false, reason: 'install-failed', details: reason + aftermath };
     }
 
     deps.restart();
