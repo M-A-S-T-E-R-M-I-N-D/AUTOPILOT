@@ -57,6 +57,16 @@ describe('mirrorPassJs', () => {
     expect(out).toContain("runBtn.setAttribute('data-mirror-pass-execute', pid);");
   });
 
+  it('tags the execute tip/aria with one shared key and paints the confirm + transient states via tr() (board web-msnsndki-dz3vn1)', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("runBtn.setAttribute('data-i18n-tip', 'mirrorPassExecuteTip');");
+    expect(out).toContain("runBtn.setAttribute('data-i18n-aria', 'mirrorPassExecuteTip');");
+    expect(out).toContain("window.confirm(tr('mirrorPassExecuteConfirm'))");
+    expect(out).toContain("b.textContent = tr('mirrorPassExecuting');");
+    expect(out).toContain("resultEl.textContent = tr('mirrorPassRequestFailed');");
+    expect(out).not.toContain("'Running…'");
+  });
+
   it('posts to /api/mirror-pass/execute with the project id on click', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-execute]')");

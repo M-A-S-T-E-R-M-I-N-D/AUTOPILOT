@@ -55,7 +55,17 @@ import { gzipSync } from 'node:zlib';
 // from panels and project. Combined across the three chunks measured
 // 364.6KB both before and after — identical. What actually shrank is the
 // network: one identity read per page load instead of three.
-const CORE_RAW_BUDGET = 188 * 1024;
+//
+// Then raw-only 188→189KB (2026-09-11) for the MIRROR PASS panel's EXECUTE
+// button i18n slice (board web-msnsndki-dz3vn1 — five STRINGS.en keys: the
+// idle label whose data-i18n tag had shipped with no key behind it, the
+// tip/aria, the confirm, and the two transient click-handler states). The
+// panel's own code rides /project.js, but every English key lands in core
+// via `localeJs()`'s STRINGS.en splice. Measured 192866B raw / 56956B gzip
+// against the 192512B / 57344B budget: 354 bytes over on raw alone, gzip
+// still ~390 bytes under and not moved. The prior slice's 241-byte headroom
+// note said the next core string of any size would go red — it did.
+const CORE_RAW_BUDGET = 189 * 1024;
 const CORE_GZIP_BUDGET = 56 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
