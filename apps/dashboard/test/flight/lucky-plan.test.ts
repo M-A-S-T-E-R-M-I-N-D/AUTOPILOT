@@ -64,12 +64,21 @@ describe('luckyPlan refusals — when now is simply not the time', () => {
 });
 
 describe('luckyPlan calibration — each bound can be the binding one', () => {
-  it('CPU-bound: a half-loaded 12-core box gets ~2 cores per lane', () => {
-    // (100-50)% of 12 cores = 6 usable → 3 lanes at 2 cores each.
+  it('CPU-bound: a half-loaded 12-core box gets ~3 cores per lane', () => {
+    // (100-50)% of 12 cores = 6 usable → 2 lanes at 3 cores each.
     const plan = luckyPlan(probe({ cpuLoadPct: 50 }));
     expect(plan.ok).toBe(true);
-    expect(plan.lanes).toBe(3);
+    expect(plan.lanes).toBe(2);
     expect(plan.reasoning.join('\n')).toContain('CPU');
+  });
+
+  it('CPU-bound: caps lanes at cores/3, not cores/2 (board web-mtsvcibf-bh6asp — a near-idle probe still undercounted the load a 4-lane gate round spikes to once tsc/vitest/build run concurrently)', () => {
+    // 90% idle of 12 cores = 10.8 usable. Old ratio (÷2) rolled 5 lanes;
+    // the tightened ratio (÷3) rolls 3 — RAM/tasks are given enough slack
+    // below not to bind instead, so CPU is the one under test.
+    const plan = luckyPlan(probe({ cpuLoadPct: 10, freeRamGb: 20, queuedTasks: 20 }));
+    expect(plan.ok).toBe(true);
+    expect(plan.lanes).toBe(3);
   });
 
   it('RAM-bound: 7 GB free minus the 4 GB floor funds exactly 2 lanes at 1.5 GB each', () => {
