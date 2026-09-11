@@ -163,13 +163,44 @@ describe('createUpdateExecuteApi — the never-clobber guarantees', () => {
     expect(calls.some((c) => c.startsWith('pnpm install'))).toBe(false);
   });
 
-  it('surfaces an install failure while keeping the stash intact', async () => {
+  it('rolls the pull back when the install fails — a half-updated checkout is the loop', async () => {
+    // Without this, `git pull` has already moved the checkout by the time the
+    // install fails: sources are the NEW version, node_modules the old one, and
+    // the still-running process older still. The banner compares the RUNNING
+    // version against the newest tag, so it re-fires on every refresh and the
+    // operator is stuck in an update loop that can never succeed.
+    const calls: string[] = [];
+    const restart = vi.fn();
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart },
+      runnerScript(
+        {
+          'git rev-parse HEAD': { ...OK, stdout: 'abc1234\n' },
+          'git pull': { ...OK, stdout: 'Updating abc..def\n' },
+          'pnpm install': { exitCode: 1, stdout: '', stderr: 'ERR_PNPM_OUTDATED_LOCKFILE' },
+        },
+        calls,
+      ),
+    );
+
+    const result = await api();
+
+    expect(result).toMatchObject({ ok: false, reason: 'install-failed' });
+    expect(calls).toContain('git reset --hard abc1234');
+    expect(result.details).toContain('ERR_PNPM_OUTDATED_LOCKFILE');
+    expect(result.details).toContain('rolled back');
+    expect(restart).not.toHaveBeenCalled();
+  });
+
+  it('restores the stash too when it rolls an install failure back', async () => {
     const calls: string[] = [];
     const api = createUpdateExecuteApi(
       '/repo',
       { isFlightLive: () => false, restart: vi.fn() },
       runnerScript(
         {
+          'git rev-parse HEAD': { ...OK, stdout: 'abc1234\n' },
           'git status': { ...OK, stdout: ' M a.ts\n' },
           'git pull': { ...OK, stdout: 'Updating abc..def\n' },
           'pnpm install': { exitCode: 1, stdout: '', stderr: 'ERR_PNPM' },
@@ -177,8 +208,37 @@ describe('createUpdateExecuteApi — the never-clobber guarantees', () => {
         calls,
       ),
     );
+
     const result = await api('stash');
+
     expect(result).toMatchObject({ ok: false, reason: 'install-failed' });
-    expect(result.details).toContain('git stash pop');
+    expect(calls).toContain('git reset --hard abc1234');
+    expect(calls.filter((c) => c.startsWith('git stash pop'))).toHaveLength(1);
+    expect(result.details).toContain('restored');
+  });
+
+  it('says the checkout is on the new version when the rollback ITSELF fails', async () => {
+    // Rolling back is best-effort. If it cannot be done, the operator has to be
+    // told the truth — plus the sha to get back — rather than a message that
+    // implies nothing moved.
+    const calls: string[] = [];
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart: vi.fn() },
+      runnerScript(
+        {
+          'git rev-parse HEAD': { ...OK, stdout: 'abc1234\n' },
+          'git pull': { ...OK, stdout: 'Updating abc..def\n' },
+          'pnpm install': { exitCode: 1, stdout: '', stderr: 'ERR_PNPM' },
+          'git reset --hard': { exitCode: 1, stdout: '', stderr: 'reset refused' },
+        },
+        calls,
+      ),
+    );
+
+    const result = await api();
+
+    expect(result.details).toContain('abc1234');
+    expect(result.details).not.toContain('rolled back');
   });
 });
