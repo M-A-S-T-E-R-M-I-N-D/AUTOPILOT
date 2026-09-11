@@ -52,7 +52,15 @@ import { openStore, listProjects, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
-import { resolveSocialIdentity, type SocialIdentity } from './social-pass.js';
+import {
+  resolveSocialIdentity,
+  fetchOwnSubmissions,
+  fetchOpenThreads,
+  planSocialProtocol,
+  type SocialIdentity,
+  type SocialCandidateAction,
+  type SocialProtocolCaps,
+} from './social-pass.js';
 import {
   planMirrorPassBatch,
   fetchMirrorPassIssueStates,
@@ -61,6 +69,9 @@ import {
   readMirrorPassVersionDrift,
   readMirrorPassCountsDrift,
   readMirrorPassLinkDrift,
+  planMirrorPassVersionDriftCommand,
+  planMirrorPassCountsDriftCommand,
+  planMirrorPassLinkDriftCommand,
   fetchClaimedIssueActivity,
   planMirrorPassStaleClaimBatch,
   applyMirrorPassCommands,
@@ -72,6 +83,7 @@ import {
   type MirrorPassBrokenLinkFinding,
   type MirrorPassClaimedIssue,
   type MirrorPassStaleClaimPlan,
+  type MirrorPassCommand,
   type MirrorPassCommandOutcome,
 } from './mirror-pass.js';
 
@@ -379,6 +391,169 @@ export function createMirrorPassDriftPreviewApi(dbPath: string): MirrorPassDrift
         ),
         linkDrift: readMirrorPassLinkDrift(readmePath, root),
       };
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** One drift finding {@link createMirrorPassDriftExecuteApi} actually filed a
+ *  new issue for — the finding itself paired with what `gh` reported for the
+ *  `gh issue create` command it sent. */
+export interface MirrorPassDriftExecuteOutcome {
+  readonly finding:
+    | MirrorPassVersionDriftFinding
+    | MirrorPassCountsDriftFinding
+    | MirrorPassBrokenLinkFinding;
+  readonly commandOutcome: MirrorPassCommandOutcome;
+}
+
+/** The drift EXECUTE ritual's full report — same `identity`/`skippedReason`
+ *  shape as {@link MirrorPassExecuteReport}, plus `duplicates`: the titles
+ *  {@link planSocialProtocol}'s "search before you speak" check (epic 0016
+ *  law 1) refused to re-file because an issue with a near-identical title —
+ *  this identity's own, or anyone else's still open — already exists. A
+ *  duplicate is reported, never silently dropped: the pass found real drift,
+ *  it just isn't news. */
+export interface MirrorPassDriftExecuteReport {
+  readonly identity: SocialIdentity | undefined;
+  readonly outcomes: readonly MirrorPassDriftExecuteOutcome[];
+  readonly duplicates: readonly string[];
+  readonly skippedReason?: MirrorPassExecuteSkipReason;
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassDriftExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassDriftExecuteReport | null>;
+
+/** Derivation 3/4's own natural ceiling: the drift preview can never surface
+ *  more than one finding per check (version, counts, links), so a cap of 3
+ *  new issues never actually binds — it exists only so the shared protocol
+ *  engine has a real number to enforce rather than an unlimited escape
+ *  hatch. Zero comments: this derivation only ever files, never comments. */
+const MIRROR_PASS_DRIFT_CAPS: SocialProtocolCaps = { maxNewIssues: 3, maxComments: 0 };
+
+/** Reads the `--title` argument out of a planned {@link MirrorPassCommand} —
+ *  every drift command is a `gh issue create --title <t> --body <b>` call,
+ *  so this recovers the exact title `gh` would receive without re-deriving
+ *  it from the finding a second time, which could drift from the real
+ *  command if the two ever diverged. */
+function commandTitle(command: MirrorPassCommand): string | undefined {
+  const i = command.args.indexOf('--title');
+  return i >= 0 ? command.args[i + 1] : undefined;
+}
+
+/**
+ * Build the MIRROR PASS drift EXECUTE api against the real store + real
+ * `gh` — derivation 3/4's mutating counterpart to
+ * {@link createMirrorPassDriftPreviewApi} (EPIC 0019 S3, board
+ * `web-mtrh1hlh-62l41b`, VERDICT `ap-mtsg3nc0-3` slice (b), fourth and final
+ * installment — the other three derivations' execute paths (1/4, 2/4, 4/4)
+ * already shipped above). Same role gate as every other EXECUTE api in this
+ * file: resolves the acting identity first (epic law 1, "role honesty
+ * first") and returns a zero-mutation report the moment it is unresolved or
+ * not this repo's own maintainer.
+ *
+ * Unlike the other three derivations, this one FILES A NEW issue rather than
+ * mutating an existing one — {@link planMirrorPassVersionDriftCommand}/
+ * {@link planMirrorPassCountsDriftCommand}/{@link planMirrorPassLinkDriftCommand}
+ * each say plainly that de-duplicating against an already-open issue is a
+ * caller's job, not theirs (epic 0016 law 1, "search before you speak"; law
+ * 2, "know what is already ours"). This is that caller: every non-null
+ * finding becomes a `'new-issue'` {@link SocialCandidateAction}, and
+ * `social-pass.ts`'s {@link planSocialProtocol} — the engine epic 0016 built
+ * for exactly this — decides which are real news (`allowed`) versus a
+ * near-identical title this identity already opened or that is still open
+ * from anyone else (`duplicate`) before a single `gh issue create` runs.
+ */
+export function createMirrorPassDriftExecuteApi(
+  dbPath: string,
+  exec: CliExec = ghExec,
+): MirrorPassDriftExecuteApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const identity = await resolveSocialIdentity(exec);
+      if (identity === undefined || identity.role !== 'maintainer') {
+        return {
+          identity,
+          outcomes: [],
+          duplicates: [],
+          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
+        };
+      }
+      const root = project.root_path;
+      const readmePath = join(root, 'README.md');
+      const findings: Array<{
+        finding:
+          | MirrorPassVersionDriftFinding
+          | MirrorPassCountsDriftFinding
+          | MirrorPassBrokenLinkFinding;
+        command: MirrorPassCommand;
+      }> = [];
+      const versionDrift = readMirrorPassVersionDrift(readmePath, join(root, 'package.json'));
+      if (versionDrift) {
+        findings.push({
+          finding: versionDrift,
+          command: planMirrorPassVersionDriftCommand(versionDrift),
+        });
+      }
+      const countsDrift = readMirrorPassCountsDrift(
+        readmePath,
+        join(root, 'docs', 'THIRD-PARTY-LICENSES.md'),
+      );
+      if (countsDrift) {
+        findings.push({
+          finding: countsDrift,
+          command: planMirrorPassCountsDriftCommand(countsDrift),
+        });
+      }
+      const linkDrift = readMirrorPassLinkDrift(readmePath, root);
+      if (linkDrift) {
+        findings.push({ finding: linkDrift, command: planMirrorPassLinkDriftCommand(linkDrift) });
+      }
+      if (findings.length === 0) return { identity, outcomes: [], duplicates: [] };
+
+      const candidatesByAction = new Map<SocialCandidateAction, (typeof findings)[number]>();
+      for (const entry of findings) {
+        candidatesByAction.set(
+          {
+            kind: 'new-issue',
+            reasoning: entry.command.details,
+            title: commandTitle(entry.command),
+            requiresMaintainer: true,
+          },
+          entry,
+        );
+      }
+      const candidates = [...candidatesByAction.keys()];
+      const [ownSubmissions, openThreads] = await Promise.all([
+        fetchOwnSubmissions(exec, identity.login),
+        fetchOpenThreads(exec),
+      ]);
+      const verdict = planSocialProtocol(
+        candidates,
+        MIRROR_PASS_DRIFT_CAPS,
+        ownSubmissions,
+        identity.role,
+        openThreads,
+      );
+
+      const outcomes: MirrorPassDriftExecuteOutcome[] = [];
+      for (const candidate of verdict.allowed) {
+        const entry = candidatesByAction.get(candidate);
+        if (!entry) continue;
+        const [commandOutcome] = await applyMirrorPassCommands(exec, [entry.command]);
+        if (commandOutcome) outcomes.push({ finding: entry.finding, commandOutcome });
+      }
+      const duplicates = verdict.duplicate
+        .map((candidate) => candidate.title)
+        .filter((title): title is string => title !== undefined);
+      return { identity, outcomes, duplicates };
     } finally {
       store.close();
     }
