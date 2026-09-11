@@ -103,6 +103,7 @@ export const DEFERRED_OPERATOR_FEATURES: readonly string[] = [
   'report-menu',
   'update',
   'locale-data',
+  'subject-nav',
 ];
 
 function joined(names: readonly string[]): string {

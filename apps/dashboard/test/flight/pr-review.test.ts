@@ -941,6 +941,10 @@ const BENIGN_WEB_FEATURES = new Set([
   'activity.ts',
   'backlog.ts',
   'contributor-standing.ts',
+  // subject-nav.ts (epic 0021 app shell): no fetch at all — toggles
+  // `<body data-subject>` and the nav's aria state from clicks, the URL
+  // hash and localStorage; never writes anywhere but the DOM.
+  'subject-nav.ts',
   'coordination.ts',
   'docs-viewer.ts',
   'evolution.ts',

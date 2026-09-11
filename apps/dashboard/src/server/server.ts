@@ -136,6 +136,7 @@ import type {
   MirrorPassDriftPlan,
   MirrorPassExecuteReport,
   MirrorPassLandingNoteExecuteReport,
+  MirrorPassStaleClaimExecuteReport,
 } from '../flight/mirror-pass-execute.js';
 import type {
   HumanMergeResult,
@@ -207,6 +208,11 @@ const MIRROR_PASS_EXECUTE_RATE_WINDOW_MS = 60_000;
 // comment` call per finding, not just a read.
 const MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_LIMIT = 5;
 const MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_WINDOW_MS = 60_000;
+// Guards POST /api/mirror-pass/stale-claims/execute — same reasoning as
+// MIRROR_PASS_EXECUTE's own limiter, derivation 4/4: real `gh issue comment`
+// + `gh issue edit --remove-assignee` calls per finding, not just a read.
+const MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_LIMIT = 5;
+const MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/report-from-here/execute — same heavier-than-a-quota-spend
 // reasoning as ISSUE_TRIAGE's limiter: a real `gh issue create` call or board
 // task creation per request, not just a read. The preview endpoint stays
@@ -539,6 +545,15 @@ export type MirrorPassStaleClaimPreviewApi = (
   projectId: string,
 ) => Promise<readonly MirrorPassStaleClaimPlan[] | null>;
 
+/** The mutating counterpart to {@link MirrorPassStaleClaimPreviewApi} —
+ *  same role gate as {@link MirrorPassExecuteApi}) — derivation 4/4's
+ *  execute path, VERDICT `ap-mtsg3nc0-3` slice (b), third installment. See
+ *  `flight/mirror-pass-execute.ts`'s `createMirrorPassStaleClaimExecuteApi`.
+ *  `null` means an unknown project id. */
+export type MirrorPassStaleClaimExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassStaleClaimExecuteReport | null>;
+
 /** The report-from-here preview (injected; pure — a region capture arrives
  *  fully formed from the request body, so this never reads the store or
  *  shells out — see `flight/report-from-here-execute.ts`). Turns a capture +
@@ -695,6 +710,12 @@ export interface ServerDeps extends RouteDeps {
    *  Same "mutating execute is a separate slice" stance as `mirrorPass`
    *  above. */
   readonly mirrorPassStaleClaim?: MirrorPassStaleClaimPreviewApi;
+  /** MIRROR PASS stale-claim EXECUTE (VERDICT `ap-mtsg3nc0-3` slice (b),
+   *  derivation 4/4 only) — the mutating counterpart to `mirrorPassStaleClaim`
+   *  above, behind `POST /api/mirror-pass/stale-claims/execute`. Derivation
+   *  3/4's own execute path (files a NEW drift issue rather than mutating an
+   *  existing one) remains its own follow-up slice, not wired here. */
+  readonly mirrorPassStaleClaimExecute?: MirrorPassStaleClaimExecuteApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -2624,6 +2645,73 @@ async function handleMirrorPassStaleClaim(
   }
 }
 
+/**
+ * The MIRROR PASS stale-claim EXECUTE endpoint (`POST
+ * /api/mirror-pass/stale-claims/execute`, body `{project}`) — derivation
+ * 4/4's mutating counterpart to {@link handleMirrorPassStaleClaim}. Same
+ * shape as {@link handleMirrorPassLandingNoteExecute} two derivations over:
+ * state-changing (unassigns a stale claim and comments via `gh`), so
+ * CSRF-guarded JSON POST, separately rate-limited, role gating happens
+ * inside the injected `api` itself (a non-maintainer identity still gets a
+ * 200 with `skippedReason` set, never a 403). 404 only for an unknown
+ * project or an unwired API.
+ */
+async function handleMirrorPassStaleClaimExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassStaleClaimExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass stale-claim execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many mirror pass requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let project: string;
+  try {
+    project = String((JSON.parse(raw) as { project?: unknown }).project ?? '');
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    const result = await api(project);
+    if (!result) {
+      send(404, { error: 'unknown project' });
+      return;
+    }
+    send(200, result);
+  } catch (error) {
+    send(500, {
+      error: error instanceof Error ? error.message : 'mirror pass stale-claim execute failed',
+    });
+  }
+}
+
 /** Shared body parser for both report-from-here endpoints — `{regionId,
  *  regionLabel, description, moduleSources, hasScreenshot, action,
  *  projectId, severity?}`. `null` (→ 400) means malformed JSON/body or an
@@ -3136,6 +3224,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_LIMIT,
     MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_WINDOW_MS,
   );
+  const mirrorPassStaleClaimExecuteLimiter = createRateLimiter(
+    MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_LIMIT,
+    MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_WINDOW_MS,
+  );
   const reportFromHereLimiter = createRateLimiter(
     REPORT_FROM_HERE_RATE_LIMIT,
     REPORT_FROM_HERE_RATE_WINDOW_MS,
@@ -3350,6 +3442,17 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass/drift') {
       void handleMirrorPassDrift(req, res, deps.mirrorPassDrift, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/stale-claims/execute') {
+      void handleMirrorPassStaleClaimExecute(
+        req,
+        res,
+        deps.mirrorPassStaleClaimExecute,
+        headers,
+        mirrorPassStaleClaimExecuteLimiter,
+      );
       return;
     }
 

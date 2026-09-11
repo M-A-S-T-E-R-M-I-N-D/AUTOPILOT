@@ -10,9 +10,21 @@
  * those into one human-readable line per finding is a client presentation
  * concern. Closes the UX-expression gap VERDICT `ap-mtsg3nc0-3` flagged as
  * slice (c) — four real read-only APIs existed with zero dashboard consumer.
- * Preview-only: the mutating execute path is VERDICT slice (b), still
- * unwired, so this panel has no action button, same "read the findings,
- * nothing to click yet" stance `process-health.ts`'s stat tiles take.
+ *
+ * {@link mirrorPassCanExecute} and {@link mirrorPassExecuteResultMessage}
+ * close a second UX-expression gap the same VERDICT's slice (b) left behind:
+ * `POST /api/mirror-pass/execute` (derivation 1/4, reconcile) has been live
+ * since commit `3d3a6aaf` with zero dashboard trigger — a real, working
+ * "close the issue with the landing SHA" mutation an operator had no way to
+ * fire short of `curl`. This gives the panel ONE execute button for that
+ * derivation only; the other two wired execute paths (landing-note,
+ * stale-claim) and derivation 3/4's own unwritten execute path (files a NEW
+ * issue rather than mutating an existing one) remain their own follow-up
+ * slices, same per-derivation split already used throughout this epic.
+ * Role-gated the same way `pr-review.ts`'s Apply button is (epic 0019 law 1
+ * extended to the UI, board web-mtt3f7j6-3bj899): a confirmed non-maintainer
+ * never sees it, an unresolved identity is not a known guest so it still
+ * does.
  *
  * `web/shell.ts` embeds this module's real compiled source into the
  * generated `/app.js` text via `.toString()` — see `fleetJs()` — instead of
@@ -147,4 +159,71 @@ export function mirrorPassItems(previews: {
     ...mirrorPassDriftItems(previews.drift),
     ...mirrorPassStaleClaimItems(previews.staleClaims ?? []),
   ];
+}
+
+/** Duck-typed subset of `flight/social-pass.ts`'s `SocialIdentity` this
+ *  panel's role gate needs — no server-side type import, same stance the
+ *  rest of this file already takes. */
+export interface MirrorPassIdentityLike {
+  readonly role: string;
+}
+
+/** Whether the panel may show its "Run mirror pass" execute button — a
+ *  confirmed non-maintainer never gets it (epic 0019 law 1 extended to the
+ *  UI, board web-mtt3f7j6-3bj899), an unresolved identity is not a known
+ *  guest so it still does, same convention `pr-review.ts`'s Apply button
+ *  already follows. Also requires at least one actionable reconcile
+ *  finding — an execute button with nothing to execute is a dead control. */
+export function mirrorPassCanExecute(
+  identity: MirrorPassIdentityLike | null | undefined,
+  reconcile: readonly MirrorPassFindingPlanLike[] | null,
+): boolean {
+  if (identity && identity.role !== 'maintainer') return false;
+  return mirrorPassReconcileItems(reconcile ?? []).length > 0;
+}
+
+/** One reconciled task's real outcome, as {@link createMirrorPassExecuteApi}
+ *  (`flight/mirror-pass-execute.ts`) reports it over HTTP — duck-typed, same
+ *  "no server-side type import" stance as the rest of this file. */
+export interface MirrorPassExecuteReportLike {
+  readonly outcomes?: readonly unknown[];
+  readonly skippedReason?: string;
+}
+
+/** Formats `POST /api/mirror-pass/execute`'s response into the panel's
+ *  result line — same shape as `pr-review-panel.ts`'s
+ *  `prReviewExecuteResult`: an "ok" and a "fail" variant are both always
+ *  produced (fully specified, unit-testable), even though the caller only
+ *  ever renders the "fail" one — a clean run instead reloads the panel so
+ *  the applied finding(s) simply vanish from the refreshed list, the same
+ *  "success re-fetches, no separate message" convention `pr-review.ts`'s
+ *  Apply button uses. A non-200 response or a role-gate skip are the only
+ *  outcomes the panel actually shows. */
+export function mirrorPassExecuteResultMessage(
+  status: number,
+  data: MirrorPassExecuteReportLike | null,
+): { readonly className: string; readonly text: string } {
+  if (status !== 200 || !data) {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Mirror pass failed to run.',
+    };
+  }
+  if (data.skippedReason === 'guest') {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — you are not this repo's maintainer.",
+    };
+  }
+  if (data.skippedReason === 'identity-unresolved') {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Not run — could not resolve your GitHub identity.',
+    };
+  }
+  const applied = data.outcomes?.length ?? 0;
+  return {
+    className: 'mirror-pass-result mirror-pass-result-ok',
+    text: applied === 0 ? 'Nothing to apply — already in sync.' : `Applied ${applied} finding(s).`,
+  };
 }

@@ -3,6 +3,13 @@ SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 SPDX-License-Identifier: Apache-2.0
 -->
 
+> **Superseded.** `ap-mtv8ql4c-0` (`2026-09-10-verdict-ap-mtv8ql4c-0-
+> autoformat-mutex-per-checkout-only.md`) presents dated evidence
+> (`18aafd26`, `4dc4bc24` — both after the mutex fix below landed) that the
+> mutex only serializes within one checkout, not across the fleet's actual
+> multi-worktree topology. The "Confirmed — close" verdict here no longer
+> holds; treat `web-mtsx325f-uzdisr` as reopened.
+
 # Processing VERDICT `ap-mtuks0jm-0`: AUTOFORMAT single-writer fix confirmed shipped and synced
 
 Board: `ap-mtuks0jm-0` (VERDICT close, targeting `web-mtsx325f-uzdisr`) —

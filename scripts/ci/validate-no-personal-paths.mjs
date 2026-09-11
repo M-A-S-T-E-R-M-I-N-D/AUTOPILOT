@@ -39,8 +39,16 @@ const SAFE_WINDOWS_DRIVE_PATH =
 
 /** @type {{ id: string, re: RegExp, isSafe?: (match: string) => boolean }[]} */
 const RULES = [
-  // Windows user home with a username segment: C:\Users\<name> or C:/Users/<name>
-  { id: 'windows-user-home', re: /[A-Za-z]:[\\/]Users[\\/][A-Za-z0-9._-]+/ },
+  // Windows user home with a username segment: C:\Users\<name> or C:/Users/<name>.
+  // The repo's own placeholder home is exempt here exactly as it is for the
+  // drive-path rule below: `C:\Users\operator` names no real person, and the
+  // single-separator form is the one a Markdown doc naturally carries (the
+  // drive-path exemption alone only ever saw the escaped `\\` twin).
+  {
+    id: 'windows-user-home',
+    re: /[A-Za-z]:[\\/]Users[\\/][A-Za-z0-9._-]+/,
+    isSafe: (match) => SAFE_WINDOWS_DRIVE_PATH.test(match),
+  },
   // macOS user home: /Users/<name>
   { id: 'macos-user-home', re: /(?<![A-Za-z0-9])\/Users\/[A-Za-z0-9._-]+/ },
   // Linux user home: /home/<name>

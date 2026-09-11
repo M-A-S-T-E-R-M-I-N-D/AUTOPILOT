@@ -17,7 +17,7 @@ describe('css generation', () => {
     const vars = globalVars();
     expect(vars['--space-4']).toBe('1rem');
     expect(vars['--radius-md']).toBe('0.5rem');
-    expect(vars['--text-xl']).toBe('1.5rem');
+    expect(vars['--text-xl']).toBe('clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem)');
     expect(vars['--font-mono']).toContain('monospace');
     expect(vars['--font-sans']).toContain('"Inter"'); // self-hosted (M3 design foundation)
     expect(vars['--font-m3']).toContain('"Roboto"'); // the type-scale pass's typeface (live — see the next test)
@@ -76,7 +76,9 @@ describe('css generation', () => {
 
   it('joins adjacent property lines within a block with newlines, not concatenation', () => {
     const css = stylesheet();
-    expect(css).toContain('--space-8: 3rem;\n  --radius-sm: 0.25rem;');
+    expect(css).toContain(
+      '--space-8: clamp(1.75rem, 1rem + 2.75vw, 3rem);\n  --radius-sm: 0.25rem;',
+    );
   });
 
   it('separates each block from the next with a blank line', () => {

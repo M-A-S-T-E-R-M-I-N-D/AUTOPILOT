@@ -91,6 +91,7 @@ import {
   createMirrorPassLandingNoteExecuteApi,
   createMirrorPassDriftPreviewApi,
   createMirrorPassStaleClaimPreviewApi,
+  createMirrorPassStaleClaimExecuteApi,
 } from '../flight/mirror-pass-execute.js';
 import {
   createPoolClientPreviewApi,
@@ -619,6 +620,11 @@ const server = createServer({
   // pool issue whose assignee has gone quiet past the shared stale
   // threshold, so the claim can be freed up for someone else.
   mirrorPassStaleClaim: createMirrorPassStaleClaimPreviewApi(dbPath),
+  // MIRROR PASS stale-claim execute (VERDICT ap-mtsg3nc0-3 slice (b),
+  // derivation 4/4 only): the mutating counterpart to the preview above —
+  // derivation 3/4's own execute path (files a NEW drift issue) remains its
+  // own follow-up slice.
+  mirrorPassStaleClaimExecute: createMirrorPassStaleClaimExecuteApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool
   // issues for themselves, not on behalf of a stored project. Claiming can

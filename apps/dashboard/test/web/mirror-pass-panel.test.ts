@@ -8,6 +8,8 @@ import {
   mirrorPassStaleClaimItems,
   mirrorPassDriftItems,
   mirrorPassItems,
+  mirrorPassCanExecute,
+  mirrorPassExecuteResultMessage,
 } from '../../src/web/mirror-pass-panel.js';
 
 describe('mirrorPassReconcileItems / mirrorPassLandingNoteItems / mirrorPassStaleClaimItems', () => {
@@ -124,5 +126,69 @@ describe('mirrorPassItems', () => {
       staleClaims: null,
     });
     expect(items).toEqual([{ text: '#1 — x' }]);
+  });
+});
+
+describe('mirrorPassCanExecute', () => {
+  const oneFinding = [{ finding: { issueNumber: 1, comment: 'x' } }];
+
+  it('hides the execute button for a confirmed non-maintainer, even with a real finding', () => {
+    expect(mirrorPassCanExecute({ role: 'user' }, oneFinding)).toBe(false);
+  });
+
+  it('shows the execute button for a confirmed maintainer with a real finding', () => {
+    expect(mirrorPassCanExecute({ role: 'maintainer' }, oneFinding)).toBe(true);
+  });
+
+  it('shows the execute button when identity is unresolved — not a known guest', () => {
+    expect(mirrorPassCanExecute(undefined, oneFinding)).toBe(true);
+    expect(mirrorPassCanExecute(null, oneFinding)).toBe(true);
+  });
+
+  it('hides the execute button when there is nothing to execute, even for the maintainer', () => {
+    expect(mirrorPassCanExecute({ role: 'maintainer' }, [])).toBe(false);
+    expect(mirrorPassCanExecute({ role: 'maintainer' }, null)).toBe(false);
+    expect(mirrorPassCanExecute({ role: 'maintainer' }, [{ finding: null }])).toBe(false);
+  });
+});
+
+describe('mirrorPassExecuteResultMessage', () => {
+  it('reports a generic failure for a non-200 response', () => {
+    expect(mirrorPassExecuteResultMessage(500, { outcomes: [] })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Mirror pass failed to run.',
+    });
+    expect(mirrorPassExecuteResultMessage(200, null)).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Mirror pass failed to run.',
+    });
+  });
+
+  it('reports the guest skip reason', () => {
+    expect(mirrorPassExecuteResultMessage(200, { skippedReason: 'guest' })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — you are not this repo's maintainer.",
+    });
+  });
+
+  it('reports the identity-unresolved skip reason', () => {
+    expect(mirrorPassExecuteResultMessage(200, { skippedReason: 'identity-unresolved' })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Not run — could not resolve your GitHub identity.',
+    });
+  });
+
+  it('reports a clean run with real outcomes as ok', () => {
+    expect(mirrorPassExecuteResultMessage(200, { outcomes: [{}, {}] })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: 'Applied 2 finding(s).',
+    });
+  });
+
+  it('reports a clean run with zero outcomes as ok but empty', () => {
+    expect(mirrorPassExecuteResultMessage(200, { outcomes: [] })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: 'Nothing to apply — already in sync.',
+    });
   });
 });

@@ -1,0 +1,110 @@
+// SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+// SPDX-License-Identifier: Apache-2.0
+
+import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { skipFirstRunTour, setTheme } from './helpers.js';
+import { POPULATED_BASE_URL, POPULATED_NOW } from './playwright.config.js';
+
+/**
+ * THE APP SHELL ON A PHONE (epic 0021) — runs under the `mobile` Playwright
+ * project only (Pixel 7 profile: 412px wide, touch, coarse pointer). The
+ * desktop project ignores this file; `responsive.spec.ts` keeps the 320px
+ * overflow assertion for both.
+ *
+ * What a phone must get that the desktop render cannot prove: the subject
+ * bar sits in the thumb zone at ≥44px, exactly one subject renders at a
+ * time, Fly is one tap away, a deep link lands on its subject, and every
+ * visible control clears WCAG 2.5.8's 24px floor.
+ */
+async function openFleet(page: Page): Promise<void> {
+  await skipFirstRunTour(page);
+  await setTheme(page, 'dark');
+  await page.clock.install({ time: POPULATED_NOW + 2 * 60_000 });
+  await page.goto(POPULATED_BASE_URL);
+  await page.clock.runFor(3000);
+  await expect(page.locator('main#fleet')).toBeVisible();
+}
+
+test.describe('app shell — compact window', () => {
+  test('the subject bar is fixed to the bottom edge with thumb-sized targets', async ({ page }) => {
+    await openFleet(page);
+    const nav = page.locator('#subject-nav');
+    await expect(nav).toBeVisible();
+    const box = (await nav.boundingBox())!;
+    const viewport = page.viewportSize()!;
+    expect(box.y + box.height).toBeCloseTo(viewport.height, 0);
+    for (const link of await page.locator('#subject-nav .subject-link').all()) {
+      const b = (await link.boundingBox())!;
+      expect(b.height, 'subject link height').toBeGreaterThanOrEqual(44);
+      expect(b.width, 'subject link width').toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test('one subject at a time — Fly is one tap away and the fleet leaves the page', async ({
+    page,
+  }) => {
+    await openFleet(page);
+    await expect(page.locator('#totals')).toBeVisible();
+    // The fly SUBJECT is the fly bar + the search bar. The fly bar reveals
+    // itself only when GET /api/fly answers, which the populated e2e server
+    // does not serve, so the search bar is the section that proves the
+    // subject switched.
+    await expect(page.locator('#searchbar')).toBeHidden();
+
+    await page.locator('[data-subject-link="fly"]').tap();
+
+    await expect(page.locator('body')).toHaveAttribute('data-subject', 'fly');
+    await expect(page.locator('#searchbar')).toBeVisible();
+    await expect(page.locator('#totals')).toBeHidden();
+    await expect(page.locator('[data-subject-link="fly"]')).toHaveAttribute('aria-current', 'page');
+    // The URL did not change: the tap switched a subject, it did not navigate.
+    expect(new URL(page.url()).hash).toBe('');
+  });
+
+  test('a deep link lands on the subject that owns it', async ({ page }) => {
+    await skipFirstRunTour(page);
+    await setTheme(page, 'dark');
+    await page.goto(`${POPULATED_BASE_URL}/#searchbar`);
+    await expect(page.locator('body')).toHaveAttribute('data-subject', 'fly');
+    await expect(page.locator('#searchbar')).toBeVisible();
+  });
+
+  test('the masthead stays under two rows', async ({ page }) => {
+    await openFleet(page);
+    const box = (await page.locator('.masthead').boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(100);
+  });
+
+  test('every visible control clears the 24px floor (WCAG 2.5.8)', async ({ page }) => {
+    await openFleet(page);
+    const offenders = await page.evaluate(() => {
+      const out: string[] = [];
+      document.querySelectorAll('button, a[href], summary, select').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return; // not rendered
+        if (r.height < 24 || r.width < 24) {
+          out.push(
+            `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).split(' ')[0] : ''} ${Math.round(r.width)}x${Math.round(r.height)}`,
+          );
+        }
+      });
+      return out;
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  test('visual — fleet populated, dark, phone', async ({ page }) => {
+    await openFleet(page);
+    await expect(page.locator('#updated')).not.toHaveText('connecting…');
+    await expect(page).toHaveScreenshot('fleet-populated-dark.png', {
+      fullPage: true,
+      mask: [
+        page.locator('.gauge-label .muted'),
+        page.locator('.live-worker-turns'),
+        page.locator('.live-worker-progress-label'),
+      ],
+      maxDiffPixels: 2500,
+    });
+  });
+});
