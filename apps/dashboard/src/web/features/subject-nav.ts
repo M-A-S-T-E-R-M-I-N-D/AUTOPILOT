@@ -88,9 +88,40 @@ function subjectHasContent(name) {
   }
   return false;
 }
+/** KEEPER (epic 0021 slice 4, first cut): everything waiting on a human,
+ *  counted where it renders — PR cards, pool rows, triage plans, mirror
+ *  findings, backlog candidates, a pending wisdom proposal. */
+var KEEPER_ITEM_SELECTOR = '.pr-review-item, .pool-client-item, .issue-triage-item, .mirror-pass-item, .backlog-item';
+function keeperWaitingCount() {
+  var n = 0;
+  subjectSections().forEach(function (k) {
+    if (k.dataset.subject !== 'keeper' || k.hidden) return;
+    if (k.id === 'fleet-wisdom') { n += 1; return; }
+    n += k.querySelectorAll(KEEPER_ITEM_SELECTOR).length;
+  });
+  return n;
+}
+function markKeeperBadge(a) {
+  var n = keeperWaitingCount();
+  var badge = a.querySelector('.subject-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'subject-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    a.appendChild(badge);
+  }
+  var text = n > 0 ? String(n) : '';
+  if (badge.textContent !== text) badge.textContent = text;
+  if (badge.hidden !== (n === 0)) badge.hidden = n === 0;
+  var labelEl = a.querySelector('span[data-i18n]');
+  var label = ((labelEl || a).textContent || '').trim();
+  if (n > 0 && typeof tr === 'function') label += ', ' + tr('keeperWaiting', { n: String(n) });
+  if (a.getAttribute('aria-label') !== label) a.setAttribute('aria-label', label);
+}
 function markSubjectLinks(active) {
   subjectLinks().forEach(function (a) {
     var name = a.dataset.subjectLink;
+    if (name === 'keeper') markKeeperBadge(a);
     var current = name === active ? 'page' : null;
     if (a.getAttribute('aria-current') !== current) {
       if (current) a.setAttribute('aria-current', current); else a.removeAttribute('aria-current');
@@ -174,17 +205,21 @@ function bootSubjectNav() {
   // keep an identical tick silent (epic 0018 law 3).
   if (typeof MutationObserver === 'function') {
     new MutationObserver(function (records) {
+      // A record can arrive while the page is being torn down (unload, or a
+      // test harness closing its document): nothing to mark on nothing.
+      if (typeof document === 'undefined' || !document.body) return;
       for (var i = 0; i < records.length; i++) {
         if (records[i].target && records[i].target.id === 'subject-empty') continue; // our own write
         showSubject(document.body.dataset.subject || 'fleet');
         return;
       }
-    }).observe(document.body, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+    }).observe(document.body, { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true });
   }
   // From lg up every subject is on the page: the rail follows the reader.
   if (typeof IntersectionObserver === 'function') {
     var visible = {};
     var spy = new IntersectionObserver(function (entries) {
+      if (typeof document === 'undefined' || !document.body) return;
       if (!subjectIsStacked()) return;
       entries.forEach(function (en) { visible[en.target.id] = en.isIntersecting ? en.intersectionRatio : 0; });
       var best = '', bestRatio = 0;

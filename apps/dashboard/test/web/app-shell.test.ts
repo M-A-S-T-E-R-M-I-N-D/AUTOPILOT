@@ -378,6 +378,22 @@ describe('subject-nav client — switching subjects', () => {
     expect(css).toContain('body[data-focus="on"] .masthead, body[data-focus="on"] .subject-nav');
   });
 
+  it('the Keeper place shows how many things wait on a human, and says so to a reader', async () => {
+    const panel = document.getElementById('pr-review-panel') as HTMLElement;
+    panel.hidden = false;
+    panel.innerHTML = '<div class="pr-review-item"></div><div class="pr-review-item"></div>';
+    boot();
+    const badge = link('keeper').querySelector('.subject-badge') as HTMLElement;
+    expect(badge.textContent).toBe('2');
+    expect(badge.hidden).toBe(false);
+    expect(link('keeper').getAttribute('aria-label')).toBe('Keeper, keeperWaiting:2');
+    // The panel empties on a later poll; the observer recounts.
+    panel.hidden = true;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(badge.hidden).toBe(true);
+    expect(link('keeper').getAttribute('aria-label')).toBe('Keeper');
+  });
+
   it('re-marks the sections renderProjectPage rebuilds when the page announces them', () => {
     document.open();
     document.write(renderShell('demo'));

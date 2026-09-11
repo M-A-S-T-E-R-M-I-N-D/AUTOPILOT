@@ -93,12 +93,127 @@
  * `STRINGS` keys for these six tips is the tracked follow-up rather than
  * this same-firing fix waiting on that file.
  */
-import { pipelineApiUrl } from '../pipeline-panel.js';
+import {
+  pipelineApiUrl,
+  parseViewBox,
+  zoomViewBox,
+  panViewBox,
+  formatViewBox,
+} from '../pipeline-panel.js';
 
 /** The PIPELINE VIEW panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function pipelineJs(): string {
   return `
 ${pipelineApiUrl.toString()}
+// PLAN CANVAS camera math (epic 0021 slice 3) — generated FROM
+// web/pipeline-panel.ts via .toString(), never a hand-retyped copy.
+${parseViewBox.toString()}
+${zoomViewBox.toString()}
+${panViewBox.toString()}
+${formatViewBox.toString()}
+// PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline SVG is a camera.
+// Wheel or pinch zooms about the pointer, a drag on the background pans, a
+// node press never pans (it selects), double-click or 0 fits, +/- and the
+// arrows work from the keyboard. The camera lives in the section's state so
+// the poll's re-render (body.innerHTML) keeps it; a new drawing resets it.
+function wirePlanCanvas(body, state) {
+  var svg = body.querySelector('svg.pipeline-canvas');
+  if (!svg) return null;
+  var base = parseViewBox(svg.getAttribute('viewBox'));
+  if (!base) return null;
+  var baseKey = base.join(' ');
+  if (state.planBaseKey !== baseKey) { state.planBaseKey = baseKey; state.planViewBox = null; }
+  var vb = state.planViewBox ? state.planViewBox.slice() : base.slice();
+  function apply(next) {
+    vb = next;
+    state.planViewBox = next.slice();
+    var attr = formatViewBox(next);
+    if (svg.getAttribute('viewBox') !== attr) svg.setAttribute('viewBox', attr);
+  }
+  function box() { return svg.getBoundingClientRect(); }
+  function toUnits(clientX, clientY) {
+    var r = box();
+    return [vb[0] + (clientX - r.left) * vb[2] / (r.width || 1), vb[1] + (clientY - r.top) * vb[3] / (r.height || 1)];
+  }
+  function centre() { return [vb[0] + vb[2] / 2, vb[1] + vb[3] / 2]; }
+  function zoomAt(factor, p) { apply(zoomViewBox(vb, factor, p[0], p[1], base)); }
+  function dist(a, b) { var dx = a[0] - b[0], dy = a[1] - b[1]; return Math.sqrt(dx * dx + dy * dy); }
+  apply(vb);
+  svg.setAttribute('tabindex', '0');
+  svg.setAttribute('aria-label', typeof tr === 'function' ? tr('planCanvasAria') : 'Plan canvas');
+  svg.setAttribute('data-i18n-aria', 'planCanvasAria');
+  svg.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    zoomAt(Math.pow(1.0015, -e.deltaY), toUnits(e.clientX, e.clientY));
+  }, { passive: false });
+  var pointers = {};
+  var lastDist = 0;
+  var dragging = false;
+  var last = null;
+  svg.addEventListener('pointerdown', function (e) {
+    if (e.target && e.target.closest && e.target.closest('.pipeline-node')) return;
+    pointers[e.pointerId] = [e.clientX, e.clientY];
+    var ids = Object.keys(pointers);
+    if (ids.length === 1) { dragging = true; last = [e.clientX, e.clientY]; svg.classList.add('is-panning'); }
+    else { lastDist = dist(pointers[ids[0]], pointers[ids[1]]); dragging = false; }
+    if (typeof svg.setPointerCapture === 'function') { try { svg.setPointerCapture(e.pointerId); } catch (err) { /* synthetic */ } }
+  });
+  svg.addEventListener('pointermove', function (e) {
+    if (!(e.pointerId in pointers)) return;
+    pointers[e.pointerId] = [e.clientX, e.clientY];
+    var ids = Object.keys(pointers);
+    if (ids.length >= 2) {
+      var d = dist(pointers[ids[0]], pointers[ids[1]]);
+      if (lastDist > 0 && d > 0) {
+        var a = pointers[ids[0]], b = pointers[ids[1]];
+        zoomAt(d / lastDist, toUnits((a[0] + b[0]) / 2, (a[1] + b[1]) / 2));
+      }
+      lastDist = d;
+    } else if (dragging && last) {
+      var r = box();
+      apply(panViewBox(vb, (e.clientX - last[0]) * vb[2] / (r.width || 1), (e.clientY - last[1]) * vb[3] / (r.height || 1)));
+      last = [e.clientX, e.clientY];
+    }
+  });
+  function endPointer(e) {
+    delete pointers[e.pointerId];
+    if (Object.keys(pointers).length === 0) { dragging = false; last = null; lastDist = 0; svg.classList.remove('is-panning'); }
+  }
+  svg.addEventListener('pointerup', endPointer);
+  svg.addEventListener('pointercancel', endPointer);
+  svg.addEventListener('dblclick', function () { apply(base.slice()); });
+  svg.addEventListener('keydown', function (e) {
+    var step = vb[2] * 0.1;
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomAt(1.25, centre()); }
+    else if (e.key === '-') { e.preventDefault(); zoomAt(0.8, centre()); }
+    else if (e.key === '0') { e.preventDefault(); apply(base.slice()); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); apply(panViewBox(vb, step, 0)); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); apply(panViewBox(vb, -step, 0)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); apply(panViewBox(vb, 0, step)); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); apply(panViewBox(vb, 0, -step)); }
+  });
+  var bar = document.createElement('div');
+  bar.className = 'plan-zoom';
+  bar.setAttribute('role', 'group');
+  bar.setAttribute('aria-label', typeof tr === 'function' ? tr('planCanvasAria') : 'Plan canvas');
+  bar.setAttribute('data-i18n-aria', 'planCanvasAria');
+  [['+', 'planZoomIn', function () { zoomAt(1.25, centre()); }],
+   ['−', 'planZoomOut', function () { zoomAt(0.8, centre()); }],
+   ['⤢', 'planFit', function () { apply(base.slice()); }]].forEach(function (spec) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = spec[0];
+    var name = typeof tr === 'function' ? tr(spec[1]) : spec[1];
+    b.setAttribute('aria-label', name);
+    b.setAttribute('data-i18n-aria', spec[1]);
+    b.setAttribute('data-tip', name);
+    b.setAttribute('data-i18n-tip', spec[1]);
+    b.addEventListener('click', spec[2]);
+    bar.appendChild(b);
+  });
+  svg.parentNode.insertBefore(bar, svg);
+  return { svg: svg, viewBox: function () { return vb.slice(); } };
+}
 function pipelineSwitchGroup(cls, label, labelI18nKey, options, state, key, onChange) {
   var group = el('div', 'switch ' + cls);
   group.setAttribute('role', 'group');
@@ -147,6 +262,7 @@ function pipelineSection(pid) {
         }
         // Same-origin server-rendered markup, escaped at the renderer — see module header.
         body.innerHTML = data.html;
+        wirePlanCanvas(body, state);
       })
       .catch(function () {
         if (!body.isConnected) return;

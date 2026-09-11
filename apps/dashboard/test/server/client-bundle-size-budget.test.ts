@@ -194,8 +194,12 @@ import {
  * Then core raw 189→190KB (2026-09-12) for EPIC 0021 slices 7+8: thirteen
  * English strings for the command palette and focus mode — measured 189.4KB.
  */
+/**
+ * Then core gzip 56→57KB (2026-09-12) for EPIC 0021 slices 3+4 (first cuts):
+ * five English strings for the plan canvas and the Keeper count — 56.1KB.
+ */
 const CORE_RAW_BUDGET = 190 * 1024;
-const CORE_GZIP_BUDGET = 56 * 1024;
+const CORE_GZIP_BUDGET = 57 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -236,7 +240,11 @@ const CORE_GZIP_BUDGET = 56 * 1024;
  * the command palette and focus mode join the shell's deferred client —
  * measured 132.7KB/40.1KB.
  */
-const CHUNK_RAW_BUDGET = 133 * 1024;
+/**
+ * Then raw 133→135KB (2026-09-12) for EPIC 0021 slice 4 (first cut): the
+ * Keeper place's live "waiting on you" count — measured 134.0KB raw.
+ */
+const CHUNK_RAW_BUDGET = 135 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

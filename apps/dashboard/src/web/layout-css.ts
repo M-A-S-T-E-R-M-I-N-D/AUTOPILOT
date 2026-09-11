@@ -1443,7 +1443,7 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
     padding: var(--space-3) var(--space-1) env(safe-area-inset-bottom);
     border-block-start: 0; border-inline-end: 1px solid var(--color-border);
   }
-  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; }
+  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; padding-inline: var(--space-1); }
   body { padding-block-end: 0; padding-inline-start: var(--shell-rail-size); }
 }
 @media (min-width: 64rem) {
@@ -1486,5 +1486,18 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 @media (min-width: 48rem) {
   .palette-btn { display: inline-flex; align-items: center; }
 }
+/* PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline SVG is a camera —
+   wheel or pinch zooms about the pointer, a drag pans, double-click or 0
+   fits. touch-action: none hands the gestures to the canvas, not the page. */
+.pipeline-canvas { touch-action: none; cursor: grab; outline: none; }
+.pipeline-canvas:focus-visible { box-shadow: 0 0 0 2px var(--color-accent); border-radius: var(--shape-small); }
+.pipeline-canvas.is-panning { cursor: grabbing; }
+.plan-zoom { display: inline-flex; gap: var(--space-1); margin: 0 0 var(--space-2); }
+.plan-zoom button { font: inherit; font-size: var(--text-sm); min-inline-size: 2rem; min-block-size: 1.75rem; cursor: pointer; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: transparent; color: var(--color-text-muted); }
+.plan-zoom button:hover, .plan-zoom button:focus-visible { color: var(--color-text); border-color: var(--color-accent); outline: none; }
+/* KEEPER BADGE (epic 0021 slice 4, first cut): how many things wait on a
+   human, shown on the place where they wait. Needs-you ink, by definition. */
+.subject-link { position: relative; }
+.subject-badge { position: absolute; inset-block-start: 4px; inset-inline-end: calc(50% - 1.375rem); min-inline-size: 1.125rem; block-size: 1.125rem; padding: 0 4px; border-radius: var(--radius-full); background: var(--color-needs-you); color: var(--color-accent-text); font-size: 0.6875rem; font-weight: 700; line-height: 1.125rem; text-align: center; }
 `.trim();
 }
