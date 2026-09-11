@@ -222,7 +222,12 @@ const CORE_GZIP_BUDGET = 56 * 1024;
  * deferred chunk by design — it self-initializes and nothing in core calls
  * it — measured 125.8KB/38.4KB after landing, 2.8KB/0.4KB over the old line.
  */
-const CHUNK_RAW_BUDGET = 127 * 1024;
+/**
+ * Then raw 127→128KB (2026-09-12) for EPIC 0021 slice 5: the subject nav
+ * reads its subject set from the page's links, scans main#fleet's sections
+ * on a project page and marks inactive ones — measured 127.4KB raw.
+ */
+const CHUNK_RAW_BUDGET = 128 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

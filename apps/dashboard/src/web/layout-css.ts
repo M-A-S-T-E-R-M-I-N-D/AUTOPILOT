@@ -26,7 +26,7 @@ export function layoutCss(): string {
    --page-inline is the ONE inline padding every body-level section shares —
    one left edge on every width. The shell sizes are the bottom bar's height
    (compact) and the rail's width (medium and up). */
-:root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 4.5rem; }
+:root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 5rem; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
   margin: 0; font-family: var(--font-sans);
@@ -1401,7 +1401,9 @@ body > [data-subject] { scroll-margin-block-start: 5rem; }
   border-radius: var(--shape-small);
   transition: color var(--duration-short2) var(--easing-standard), background var(--duration-short2) var(--easing-standard);
 }
-.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+/* Six places on a project page share a 320px bar: the label yields, the icon never does. */
+.subject-link > span { max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .subject-link:hover, .subject-link:focus-visible { color: var(--color-text); outline: none; background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
 .subject-link:focus-visible { box-shadow: 0 0 0 2px var(--color-accent) inset; }
 .subject-link[aria-current="page"] { color: var(--color-accent); }
@@ -1409,17 +1411,13 @@ body > [data-subject] { scroll-margin-block-start: 5rem; }
 .subject-link[data-empty="true"] { opacity: 0.55; }
 .subject-empty { margin: var(--space-6) var(--page-inline); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
 body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
-/* Below lg, one subject at a time (the M3 compact/medium canonical layout).
-   A rule about narrowness, so it is the sheet's one range query. Keyed on
-   body[data-nav="on"], which only the nav module sets at boot: with no
-   script (yet), every subject is on the page and the bar's anchors scroll
+/* One subject at a time — below lg on the fleet page, at every width on a
+   project page (0018: the center is tabs). The nav module marks each
+   inactive section with ONE attribute and this is the only rule that reads
+   it, so the subject set is the nav's business, not the stylesheet's, and
+   with no script every subject is on the page and the bar's anchors scroll
    the stack — nothing hides behind an attribute nobody wrote. */
-@media (width < 64rem) {
-  body[data-nav="on"][data-subject="fleet"] > [data-subject]:not([data-subject="fleet"]),
-  body[data-nav="on"][data-subject="fly"] > [data-subject]:not([data-subject="fly"]),
-  body[data-nav="on"][data-subject="keeper"] > [data-subject]:not([data-subject="keeper"]),
-  body[data-nav="on"][data-subject="community"] > [data-subject]:not([data-subject="community"]) { display: none; }
-}
+[data-subject-inactive="true"] { display: none !important; }
 @media (min-width: 48rem) {
   :root { --page-inline: var(--space-5); }
   .masthead { padding: var(--space-4) var(--page-inline); gap: var(--space-4); }

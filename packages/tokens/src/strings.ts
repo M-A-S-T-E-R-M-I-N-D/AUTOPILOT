@@ -1096,7 +1096,14 @@ const EN_STRINGS = {
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
   subjectFleet: 'Fleet',
-  subjectProject: 'Project',
+  // Project-page subjects (epic 0021 slice 5 — 0018's tabs): Overview,
+  // Board, Keeper, Plan, Docs, Data. Plain words a non-technical operator
+  // can read as places, not features.
+  subjectOverview: 'Overview',
+  subjectBoard: 'Board',
+  subjectPlan: 'Plan',
+  subjectDocs: 'Docs',
+  subjectData: 'Data',
   subjectFly: 'Fly',
   subjectKeeper: 'Keeper',
   subjectCommunity: 'Community',
@@ -1958,7 +1965,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     contributorIssueListPanel: 'בעיות טובות למתחילים',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
-    subjectProject: 'פרויקט',
+    subjectOverview: 'סקירה',
+    subjectBoard: 'לוח',
+    subjectPlan: 'תוכנית',
+    subjectDocs: 'מסמכים',
+    subjectData: 'נתונים',
     subjectFly: 'טיסה',
     subjectKeeper: 'שומר',
     subjectCommunity: 'קהילה',

@@ -25,7 +25,11 @@ const SUBJECTS = ['fleet', 'fly', 'keeper', 'community'] as const;
 const SUBJECT_KEYS = [
   'subjectNav',
   'subjectFleet',
-  'subjectProject',
+  'subjectOverview',
+  'subjectBoard',
+  'subjectPlan',
+  'subjectDocs',
+  'subjectData',
   'subjectFly',
   'subjectKeeper',
   'subjectCommunity',
@@ -48,9 +52,11 @@ describe('layout-css — mobile-first laws', () => {
     expect(css).not.toMatch(/@media[^{]*max-width/);
   });
 
-  it('has exactly one range query: the one-subject-at-a-time rule below lg', () => {
-    const ranges = css.match(/@media \(width < [^)]+\)/g) ?? [];
-    expect(ranges).toEqual([`@media (width < ${BREAKPOINT.lg})`]);
+  it('hides an inactive subject through one state attribute only the nav module sets', () => {
+    // No range query and no width-keyed hide rule: which subjects exist is
+    // the nav's business, and without the module nothing is hidden at all.
+    expect(css).not.toMatch(/@media \(width </);
+    expect(css).toContain('[data-subject-inactive="true"] { display: none !important; }');
   });
 
   it('gives every pointer target the WCAG 2.5.8 floor, and 44px under a coarse pointer', () => {
@@ -149,9 +155,29 @@ describe('renderShell — every section belongs to a subject', () => {
     }
   });
 
-  it('labels the first subject "Project" on a project page and "Fleet" on the fleet page', () => {
+  it('a project page has six subjects (0018 tabs) and is marked as tabs at every width', () => {
+    const project = renderShell('demo');
     expect(html).toContain('data-i18n="subjectFleet"');
-    expect(renderShell('demo')).toContain('data-i18n="subjectProject"');
+    expect(project).toContain(
+      '<body data-project="demo" data-subject="fleet" data-subject-mode="tabs">',
+    );
+    const links = [...project.matchAll(/data-subject-link="([a-z]+)"/g)].map((m) => m[1]);
+    expect(links).toEqual(['fleet', 'board', 'keeper', 'plan', 'docs', 'data']);
+    for (const key of [
+      'subjectOverview',
+      'subjectBoard',
+      'subjectPlan',
+      'subjectDocs',
+      'subjectData',
+    ]) {
+      expect(project).toContain(`data-i18n="${key}"`);
+    }
+    // main#fleet is the CONTAINER of a project page's subjects, not one of them;
+    // the fly sections join Overview there and the community sections join Keeper.
+    expect(tagFor(project, 'fleet')).not.toContain('data-subject=');
+    expect(tagFor(html, 'fleet')).toContain('data-subject="fleet"');
+    expect(tagFor(project, 'flightbar')).toContain('data-subject="fleet"');
+    expect(tagFor(project, 'contributor-standing-panel')).toContain('data-subject="keeper"');
   });
 
   it('carries every subject string in every locale', () => {
@@ -224,6 +250,45 @@ describe('subject-nav client — switching subjects', () => {
     expect(document.body.dataset['subject']).toBe('fly');
     expect(link('fly').getAttribute('aria-current')).toBe('page');
     expect(window.localStorage.getItem('ap-subject')).toBe('fly');
+    // The inactive subjects leave the page through the one state attribute.
+    expect(document.getElementById('totals')?.getAttribute('data-subject-inactive')).toBe('true');
+    expect(document.getElementById('flightbar')?.hasAttribute('data-subject-inactive')).toBe(false);
+  });
+
+  it('from lg up on the fleet page nothing is marked inactive — every subject stacks', () => {
+    stacked = true;
+    boot();
+    tap('keeper');
+    expect(document.querySelector('[data-subject-inactive]')).toBeNull();
+  });
+
+  it('a project page is tabs at every width: a wide window still shows one subject', () => {
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    stacked = true;
+    boot();
+    const ev = tap('docs');
+    expect(ev.defaultPrevented).toBe(true);
+    expect(document.body.dataset['subject']).toBe('docs');
+    expect(document.getElementById('totals')?.getAttribute('data-subject-inactive')).toBe('true');
+  });
+
+  it('re-marks the sections renderProjectPage rebuilds when the page announces them', () => {
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    boot();
+    tap('board');
+    const main = document.getElementById('fleet') as HTMLElement;
+    const tasks = document.createElement('section');
+    tasks.dataset['subject'] = 'board';
+    const docs = document.createElement('section');
+    docs.dataset['subject'] = 'docs';
+    main.append(tasks, docs);
+    document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
+    expect(tasks.hasAttribute('data-subject-inactive')).toBe(false);
+    expect(docs.getAttribute('data-subject-inactive')).toBe('true');
   });
 
   it('from lg up the anchor jump IS the navigation — the click is not prevented', () => {

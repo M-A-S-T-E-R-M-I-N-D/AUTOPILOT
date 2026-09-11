@@ -72,7 +72,7 @@ import { subjectNavJs } from '../../src/web/features/subject-nav.js';
 import { tourJs } from '../../src/web/features/tour.js';
 import { updateJs } from '../../src/web/features/update.js';
 import { PRELOAD_FONT_PATHS } from '../../src/assets/fonts.js';
-import { themeButtons, langButtons, escapeAttr } from '../../src/web/shell-html.js';
+import { themeButtons, langButtons, escapeAttr, subjectNavHtml } from '../../src/web/shell-html.js';
 import { gogglesMarkInlineSvg } from '../../src/assets/goggles-mark.js';
 
 const SHELL_TS = fileURLToPath(new URL('../../src/web/shell.ts', import.meta.url));
@@ -2051,6 +2051,10 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     // Brand masthead lockup (epic 0008): a template-literal helper call in
     // renderShell's HTML, same non-splice shape as themeButtons()/langButtons().
     'gogglesMarkInlineSvg',
+    // The app shell's subject nav (epic 0021 slice 5): the same helper-call
+    // shape, varying by page kind (four links on the fleet page, six tabs on
+    // a project page).
+    'subjectNavHtml',
   ]);
 
   it('accounts for every relative-import binding: either discovered as a splice, or a known non-splice exception', () => {
@@ -4131,6 +4135,11 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
     }
     if (exprText === 'gogglesMarkInlineSvg()') {
       return gogglesMarkInlineSvg();
+    }
+    if (exprText === 'subjectNavHtml(project)') {
+      // the app shell's subject nav (epic 0021): four links on the fleet
+      // page, six on a project page — a server helper beside themeButtons().
+      return subjectNavHtml(project);
     }
     if (exprText.includes('PRELOAD_FONT_PATHS')) {
       return PRELOAD_FONT_PATHS.map(

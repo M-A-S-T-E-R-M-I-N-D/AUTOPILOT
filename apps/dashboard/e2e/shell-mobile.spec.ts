@@ -94,6 +94,26 @@ test.describe('app shell — compact window', () => {
     expect(offenders).toEqual([]);
   });
 
+  test('a project page is six tabs — Board is one tap away and Overview leaves the page', async ({
+    page,
+  }) => {
+    await skipFirstRunTour(page);
+    await setTheme(page, 'dark');
+    await page.clock.install({ time: POPULATED_NOW + 2 * 60_000 });
+    await page.goto(`${POPULATED_BASE_URL}/p/demo-checkout-web`);
+    await page.clock.runFor(3000);
+    await expect(page.locator('main#fleet')).toHaveClass(/project-mode/);
+    await expect(page.locator('#subject-nav .subject-link')).toHaveCount(6);
+    await expect(page.locator('main#fleet > .card[data-project]')).toBeVisible();
+    await expect(page.locator('main#fleet .task-add')).toBeHidden();
+
+    await page.locator('[data-subject-link="board"]').tap();
+
+    await expect(page.locator('body')).toHaveAttribute('data-subject', 'board');
+    await expect(page.locator('main#fleet .task-add')).toBeVisible();
+    await expect(page.locator('main#fleet > .card[data-project]')).toBeHidden();
+  });
+
   test('visual — fleet populated, dark, phone', async ({ page }) => {
     await openFleet(page);
     await expect(page.locator('#updated')).not.toHaveText('connecting…');

@@ -29,14 +29,44 @@ export function subjectNavJs(): string {
 // APP SHELL subject navigation (epic 0021 slice 2). See web/features/subject-nav.ts.
 var SUBJECT_KEY = 'ap-subject';
 var SUBJECT_STACKED_MQ = '(min-width: 64rem)';
-var SUBJECT_NAMES = ['fleet', 'fly', 'keeper', 'community'];
 var subjectScrollMemo = {};
 var subjectStored = null;
+/** Project pages are TABS (epic 0018): one subject at every width. The fleet
+ *  page stacks every subject from lg up. */
 function subjectIsStacked() {
+  if (document.body.dataset.subjectMode === 'tabs') return false;
   return typeof window.matchMedia === 'function' && window.matchMedia(SUBJECT_STACKED_MQ).matches;
 }
 function subjectLinks() {
   return Array.prototype.slice.call(document.querySelectorAll('#subject-nav [data-subject-link]'));
+}
+/** The page's subjects are whatever its nav offers — four on the fleet page,
+ *  six on a project page — never a list this module has to know. */
+function subjectNames() {
+  return subjectLinks().map(function (a) { return a.dataset.subjectLink; });
+}
+/** Every element that declares a subject: body-level sections, and on a
+ *  project page the sections renderProjectPage tags inside main#fleet. */
+function subjectSections() {
+  var out = Array.prototype.filter.call(document.body.children, function (k) { return k.dataset && k.dataset.subject; });
+  var main = document.getElementById('fleet');
+  if (main) {
+    Array.prototype.forEach.call(main.children, function (k) { if (k.dataset && k.dataset.subject) out.push(k); });
+  }
+  return out;
+}
+/** Below lg (and always on a project page) the inactive subjects leave the
+ *  page through ONE attribute the stylesheet hides. Set only by this module,
+ *  so without it every subject is on the page and the bar's anchors scroll
+ *  the stack. Guarded: an identical tick writes nothing. */
+function markInactiveSections(active) {
+  var stacked = subjectIsStacked();
+  subjectSections().forEach(function (k) {
+    var inactive = !stacked && k.dataset.subject !== active ? 'true' : null;
+    if (k.getAttribute('data-subject-inactive') !== inactive) {
+      if (inactive) k.setAttribute('data-subject-inactive', inactive); else k.removeAttribute('data-subject-inactive');
+    }
+  });
 }
 /** The subject owning an element id (walks up to the body-level section). */
 function subjectOfId(id) {
@@ -48,10 +78,9 @@ function subjectOfId(id) {
   return '';
 }
 function subjectHasContent(name) {
-  var kids = document.body.children;
-  for (var i = 0; i < kids.length; i++) {
-    var k = kids[i];
-    if (k.dataset && k.dataset.subject === name && !k.hidden) return true;
+  var sections = subjectSections();
+  for (var i = 0; i < sections.length; i++) {
+    if (sections[i].dataset.subject === name && !sections[i].hidden) return true;
   }
   return false;
 }
@@ -72,7 +101,7 @@ function markSubjectLinks(active) {
   });
 }
 function showSubject(name) {
-  if (SUBJECT_NAMES.indexOf(name) < 0) name = 'fleet';
+  if (subjectNames().indexOf(name) < 0) name = 'fleet';
   var body = document.body;
   var previous = body.dataset.subject || 'fleet';
   if (previous !== name) {
@@ -82,6 +111,7 @@ function showSubject(name) {
     // a sibling; here the sibling is not even rendered).
     if (!subjectIsStacked()) window.scrollTo(0, subjectScrollMemo[name] || 0);
   }
+  markInactiveSections(name);
   var empty = document.getElementById('subject-empty');
   var showEmpty = !subjectIsStacked() && !subjectHasContent(name);
   if (empty && empty.hidden === showEmpty) empty.hidden = !showEmpty;
@@ -122,6 +152,12 @@ function bootSubjectNav() {
   window.addEventListener('hashchange', function () {
     var s = subjectFromLocation();
     if (s) showSubject(s);
+  });
+  // renderProjectPage rebuilds main#fleet's sections on every render and
+  // announces it; the active subject's inactive marks are re-applied to
+  // the new nodes (guarded, so an identical render writes nothing).
+  document.addEventListener('ap:subjects-changed', function () {
+    showSubject(document.body.dataset.subject || 'fleet');
   });
   if (typeof window.matchMedia === 'function') {
     var mq = window.matchMedia(SUBJECT_STACKED_MQ);

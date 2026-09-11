@@ -160,7 +160,11 @@ Fluid where fluidity carries meaning, fixed where density does:
 ### Laws (tests enforce, not taste)
 
 1. **Mobile-first, min-width only.** No `max-width` media query in
-   `layout-css.ts`; the one narrowness rule uses range syntax.
+   `layout-css.ts`, and no width-keyed hide rule either: an inactive
+   subject leaves the page through one state attribute
+   (`data-subject-inactive`) that only the nav module sets, so the subject
+   set is the nav's business and a page without the script shows
+   everything.
 2. **24px floor everywhere, 44px under a coarse pointer** (WCAG 2.5.8 AA;
    Apple/Google). Inputs render at ≥ 1rem under a coarse pointer.
 3. **Switching subjects never reflows another subject** (0018 law 1 by
@@ -186,7 +190,7 @@ Fluid where fluidity carries meaning, fixed where density does:
 | 2 | **Subject shell**: `data-subject` on body + sections; bottom bar / rail / scroll-spy; per-subject scroll; deep-link activation; empty state; `mobile` Playwright project + phone baseline | in this epic's first landing |
 | 3 | **Plan canvas** (the node workflow): the gate pipeline / flight plan as an editable graph — palette · canvas · properties; pan/zoom, drag, tap-tap connect on touch, deterministic auto-layout, undo/redo, autosave to config, read-only for visitors. Grows from `pipeline-panel.ts`'s SVG canvas + tree; no new dependencies | queued |
 | 4 | **Keeper as an inbox**: one queue of everything waiting on a human — PR verdicts, triage, approvals, proposals — each item carrying the accumulated context (what ran, what this step does, what comes next), settled items collapsing to a badge history (0018 slice 3's Keeper tab, done as a subject) | queued |
-| 5 | **Project-page subjects**: 0018's `board` · `log` · `docs` · `data` tabs become subjects of this shell, each with its own scroll | queued |
+| 5 | **Project-page subjects**: 0018's tabs become subjects of this shell — Overview · Board · Keeper · Plan · Docs · Data, one at a time at every width, each section tagged by `renderProjectPage` | **shipped** — `shell-html.ts` `subjectNavHtml`, `subject-nav.ts` inactive marking |
 | 6 | **Context rail at expanded**: the supporting pane — live lanes + the Keeper queue beside whatever subject is open (M3 supporting-pane canonical layout) | queued |
 | 7 | **⌘K** (0017 slice 4) registers subjects, projects, fly, theme, language — the power-user spine that keeps the bar minimal | queued |
 | 8 | **Focus mode**: hide chrome, keep the canvas (opt-in, the Figma lesson) | queued |
