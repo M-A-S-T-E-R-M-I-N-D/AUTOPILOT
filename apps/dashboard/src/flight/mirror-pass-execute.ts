@@ -402,9 +402,7 @@ export function createMirrorPassDriftPreviewApi(dbPath: string): MirrorPassDrift
  *  `gh issue create` command it sent. */
 export interface MirrorPassDriftExecuteOutcome {
   readonly finding:
-    | MirrorPassVersionDriftFinding
-    | MirrorPassCountsDriftFinding
-    | MirrorPassBrokenLinkFinding;
+    MirrorPassVersionDriftFinding | MirrorPassCountsDriftFinding | MirrorPassBrokenLinkFinding;
   readonly commandOutcome: MirrorPassCommandOutcome;
 }
 
