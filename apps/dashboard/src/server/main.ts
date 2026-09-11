@@ -103,6 +103,7 @@ import {
 import { createPublicityPreviewApi } from '../flight/publicity.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
+import { createCiStatusApi } from '../control/ci-status.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
 import { isAnyFlightLockLive } from '../flight/lock.js';
@@ -646,6 +647,10 @@ const server = createServer({
   // call like publicity above; a panel reads `.role` to decide whether the
   // viewer sees a maintainer-only verb.
   socialIdentity: createSocialIdentityApi(),
+  // CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
+  // `gh run list` report `dashboard ci-status` already prints, surfaced for
+  // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.
+  ciStatus: createCiStatusApi(),
   // Foundation donation addresses (FOUNDATION 1/3, board web-mtq0rsit-ywz1m7)
   // — reads docs/donations.json once that file exists; degrades to an empty
   // list (masthead heart + panel stay hidden) until it does.

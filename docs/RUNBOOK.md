@@ -457,6 +457,14 @@ A "go look" signal for you or a KEEPER-style firing, never an auto-retry (this r
 reports; it does not act). Requires the operator's own authenticated `gh` against the
 live repo, so it is deliberately not wired into the CI gate.
 
+The same report is also a cached `GET /api/ci-status` (board web-mtq70abw-opouz8,
+`server/ci-status-route.ts` + `control/ci-status.ts`'s `createCiStatusApi`) — the
+browser-reachable half of the CLI command above, since `ciWorkflowStatus` blocks the
+request thread with one `execFileSync` per workflow file and a live dashboard poll
+would otherwise pay that cost every tick. Cached for 60s, read-only, degrades to
+`{ workflows: [] }` rather than a 500. Slice landed: the read; a Keeper-tab panel or
+stat tile consuming it is a follow-up.
+
 ## 10. OTLP span export (wiring an OTel collector)
 
 Every firing already emits spans internally; setting one environment variable before
