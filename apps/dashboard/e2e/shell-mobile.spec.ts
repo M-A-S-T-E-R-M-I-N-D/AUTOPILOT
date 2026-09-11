@@ -104,7 +104,10 @@ test.describe('app shell — compact window', () => {
     await page.clock.runFor(3000);
     await expect(page.locator('main#fleet')).toHaveClass(/project-mode/);
     await expect(page.locator('#subject-nav [data-subject-link]')).toHaveCount(6);
-    await expect(page.locator('main#fleet > .card[data-project]')).toBeVisible();
+    // The project card paints after the fixture's first state fetch lands in
+    // REAL time; under the CI runner's parallel load that once outran the
+    // default 5s (passed on retry), so the first sighting gets a real budget.
+    await expect(page.locator('main#fleet > .card[data-project]')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('main#fleet .task-add')).toBeHidden();
 
     await page.locator('[data-subject-link="board"]').tap();
