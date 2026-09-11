@@ -241,4 +241,124 @@ describe('createUpdateExecuteApi — the never-clobber guarantees', () => {
     expect(result.details).toContain('abc1234');
     expect(result.details).not.toContain('rolled back');
   });
+
+  it('compiles the pulled source before restarting — a bare restart comes back on the OLD build', async () => {
+    // `dist/` is gitignored, so the pull only ever delivers TypeScript, and the
+    // restart leg compiles nothing (`control.restart()` is stop + start, and
+    // `start()` spawns `serverEntry` directly). Without a build in between, the
+    // server comes back up on the previous build — and since PRODUCT_VERSION is
+    // a compile-time constant, it keeps reporting the old version, the banner
+    // re-arms on every refresh, and the operator is in a loop that no number of
+    // presses can leave.
+    const calls: string[] = [];
+    const restart = vi.fn(() => {
+      calls.push('restart');
+    });
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart },
+      runnerScript({ 'git pull': { ...OK, stdout: 'Updating abc..def\n' } }, calls),
+    );
+
+    const result = await api();
+
+    expect(result).toMatchObject({ ok: true, reason: 'updated', restarting: true });
+    const install = calls.findIndex((c) => c.startsWith('pnpm install'));
+    const build = calls.findIndex((c) => c.startsWith('pnpm run build'));
+    expect(build).toBeGreaterThan(install);
+    expect(calls.indexOf('restart')).toBeGreaterThan(build);
+  });
+
+  it('rolls the pull back when the BUILD fails — never restart onto code that will not compile', async () => {
+    const calls: string[] = [];
+    const restart = vi.fn();
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart },
+      runnerScript(
+        {
+          'git rev-parse HEAD': { ...OK, stdout: 'abc1234\n' },
+          'git pull': { ...OK, stdout: 'Updating abc..def\n' },
+          'pnpm run build': {
+            exitCode: 2,
+            stdout: '',
+            stderr: "error TS2307: Cannot find module './gone.js'",
+          },
+        },
+        calls,
+      ),
+    );
+
+    const result = await api();
+
+    expect(result).toMatchObject({ ok: false, reason: 'build-failed' });
+    expect(calls).toContain('git reset --hard abc1234');
+    expect(result.details).toContain('error TS2307');
+    expect(result.details).toContain('rolled back');
+    // The running process holds its modules in memory, so it survives — but a
+    // half-written dist/ would greet the NEXT restart, so the advice has to
+    // name a build rather than imply the checkout is simply fine.
+    expect(result.details).toContain('pnpm run build');
+    expect(restart).not.toHaveBeenCalled();
+  });
+
+  it('restores the stash too when it rolls a build failure back', async () => {
+    const calls: string[] = [];
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart: vi.fn() },
+      runnerScript(
+        {
+          'git rev-parse HEAD': { ...OK, stdout: 'abc1234\n' },
+          'git status': { ...OK, stdout: ' M a.ts\n' },
+          'git pull': { ...OK, stdout: 'Updating abc..def\n' },
+          'pnpm run build': { exitCode: 2, stdout: '', stderr: 'error TS1005' },
+        },
+        calls,
+      ),
+    );
+
+    const result = await api('stash');
+
+    expect(result).toMatchObject({ ok: false, reason: 'build-failed' });
+    expect(calls).toContain('git reset --hard abc1234');
+    expect(calls.filter((c) => c.startsWith('git stash pop'))).toHaveLength(1);
+    expect(result.details).toContain('restored');
+  });
+
+  it('names the uncompilable checkout when a build failure cannot be rolled back', async () => {
+    const calls: string[] = [];
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart: vi.fn() },
+      runnerScript(
+        {
+          'git rev-parse HEAD': { ...OK, stdout: 'abc1234\n' },
+          'git pull': { ...OK, stdout: 'Updating abc..def\n' },
+          'pnpm run build': { exitCode: 2, stdout: '', stderr: 'error TS1005' },
+          'git reset --hard': { exitCode: 1, stdout: '', stderr: 'reset refused' },
+        },
+        calls,
+      ),
+    );
+
+    const result = await api();
+
+    expect(result.details).toContain('abc1234');
+    expect(result.details).toContain('does not compile');
+    expect(result.details).not.toContain('rolled back');
+  });
+
+  it('never reaches the build when the pull was already up to date', async () => {
+    const calls: string[] = [];
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart: vi.fn() },
+      runnerScript({ 'git pull': { ...OK, stdout: 'Already up to date.\n' } }, calls),
+    );
+
+    await api();
+
+    expect(calls.some((c) => c.startsWith('pnpm run build'))).toBe(false);
+  });
 });
