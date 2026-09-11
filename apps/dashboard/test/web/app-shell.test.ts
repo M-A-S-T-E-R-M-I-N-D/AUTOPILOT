@@ -132,7 +132,7 @@ describe('renderShell — every section belongs to a subject', () => {
     // browser-blue links flush to the viewport edge — and nothing said a
     // word. This is the structural stop: a body-level section is a
     // designed surface, and a designed surface has a rule.
-    const classes = [...html.matchAll(/\n  <(?:section|nav|main|p) class="([a-z-]+)"/g)].map(
+    const classes = [...html.matchAll(/\n {2}<(?:section|nav|main|p) class="([a-z-]+)"/g)].map(
       (m) => m[1]!,
     );
     expect(classes.length).toBeGreaterThan(10);
