@@ -198,7 +198,12 @@ import {
  * Then core gzip 56→57KB (2026-09-12) for EPIC 0021 slices 3+4 (first cuts):
  * five English strings for the plan canvas and the Keeper count — 56.1KB.
  */
-const CORE_RAW_BUDGET = 190 * 1024;
+/**
+ * Then core raw 190→191KB (2026-09-12) for the Ask panel's low-confidence
+ * escalation offer (a fleet lane's checkpointed-then-completed unit) —
+ * measured 190.4KB at landing.
+ */
+const CORE_RAW_BUDGET = 191 * 1024;
 const CORE_GZIP_BUDGET = 57 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
