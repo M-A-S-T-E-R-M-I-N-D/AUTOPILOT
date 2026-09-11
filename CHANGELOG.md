@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.37.0] — 2026-09-11
+
+### Added
+
+- feat(i18n): the mirror-pass panel's Run button speaks Hebrew
+
+### Fixed
+
+- fix(update): the update button cannot start pnpm on Windows, and leaves a half-updated checkout (#39)
+
 ## [0.36.0] — 2026-09-11
 
 ### Added
