@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * The project page's read-only MIRROR PASS panel (EPIC 0019 S3, board
+ * The project page's MIRROR PASS panel (EPIC 0019 S3, board
  * web-mtrh1hlh-62l41b) — VERDICT `ap-mtsg3nc0-3` split this into four
  * independently-shippable slices; (a) the four preview APIs and (b) the
  * mutating execute path are covered elsewhere, but slice (c) — a dashboard
@@ -11,10 +11,24 @@
  * `/mirror-pass/stale-claims` existed with zero UI reader: four real,
  * working reconciliation checks an operator had no way to see. This panel
  * fetches all four on mount, folds them into one combined finding list via
- * `mirror-pass-panel.ts`'s `mirrorPassItems`, and renders it — no execute
- * button, since the mutating path (VERDICT slice (b)) is a separate,
- * unshipped slice; this is preview-only, the same "read the findings,
- * nothing to click yet" stance `process-health.ts`'s stat tiles take.
+ * `mirror-pass-panel.ts`'s `mirrorPassItems`, and renders it.
+ *
+ * It also closes a second UX-expression gap slice (c) left preview-only:
+ * `POST /api/mirror-pass/execute` (derivation 1/4, the reconcile ritual —
+ * "close the issue with the landing SHA") has been live since commit
+ * `3d3a6aaf` with zero dashboard trigger. `renderMirrorPassBody` now shows a
+ * "Run mirror pass" button whenever `mirror-pass-panel.ts`'s
+ * `mirrorPassCanExecute` allows it — a confirmed maintainer (or an
+ * unresolved identity, not a known guest) AND at least one actionable
+ * reconcile finding. The other two wired execute paths (landing-note,
+ * stale-claim) and derivation 3/4's own unwritten execute path (files a NEW
+ * issue rather than mutating an existing one) remain their own follow-up
+ * slices, same per-derivation split already used throughout this epic. A
+ * clean run reloads the panel so the applied finding(s) vanish from the
+ * refreshed list, the same "success re-fetches, no separate message"
+ * convention `pr-review.ts`'s Apply button uses; a role-gate skip or a
+ * failed request shows `mirror-pass-panel.ts`'s
+ * `mirrorPassExecuteResultMessage` instead.
  *
  * `web/shell.ts`'s `clientJs()` calls this indirectly through
  * `featureModulesJs()`, so its return value — not its compiled source — is
@@ -24,17 +38,22 @@
  * below) is called from `fleetJs()`'s `renderProjectPage()` — a bare,
  * unimported identifier reference in `fleetJs()`'s own served text, hoisted
  * the same way `issueTriageSection`'s call site already relies on.
+ * `socialIdentity()` is `web/shell.ts`'s own hoisted core helper — ONE
+ * identity read per page load, shared with every other role-gated panel.
  *
- * i18n: the title, loading placeholder, and empty/unavailable states carry
- * their English default AND a `data-i18n` tag, then are swept by
- * `translateDom()` — the title/loading placeholder ride the page-level sweep
- * that follows every `renderProjectPage()` tick, while the async empty/
- * unavailable states call `translateDom()` themselves since they land after
- * that tick's sweep already ran, the same split `issue-triage.ts`/
- * `flight-console.ts` already follow. Each finding's own text is built from
- * live GitHub/tree facts, never static chrome, so it is never a translation
- * target — the same stance `issue-triage.ts`'s `plan.issue.title` render
- * takes on dynamic text.
+ * i18n: the title, loading placeholder, empty/unavailable states, and the
+ * execute button's idle label carry their English default AND a `data-i18n`
+ * tag, then are swept by `translateDom()` — the title/loading placeholder
+ * ride the page-level sweep that follows every `renderProjectPage()` tick,
+ * while the async empty/unavailable/execute states call `translateDom()`
+ * themselves since they land after that tick's sweep already ran, the same
+ * split `issue-triage.ts`/`flight-console.ts` already follow. Each finding's
+ * own text is built from live GitHub/tree facts, never static chrome, so it
+ * is never a translation target — the same stance `issue-triage.ts`'s
+ * `plan.issue.title` render takes on dynamic text. The confirm dialog, the
+ * in-flight "Running…" label, and the result line stay English-only for
+ * now, same as `pr-review.ts`'s Apply flow and `STRINGS.ts`'s own documented
+ * stance on transient, non-persistent text.
  */
 import {
   mirrorPassReconcileItems,
@@ -42,25 +61,29 @@ import {
   mirrorPassStaleClaimItems,
   mirrorPassDriftItems,
   mirrorPassItems,
+  mirrorPassCanExecute,
+  mirrorPassExecuteResultMessage,
 } from '../mirror-pass-panel.js';
 
 /** The Mirror pass panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function mirrorPassJs(): string {
   return `
-// The five functions below are generated FROM web/mirror-pass-panel.ts (EPIC
-// 0019 S3, VERDICT ap-mtsg3nc0-3 slice (c)) — their real compiled source via
-// .toString(), not a hand-retyped copy. It can no longer drift apart.
-// mirrorPassItems calls all four of the others, so every one of them must be
-// spliced in too (issue-triage.ts's mirrorPassJs-equivalent splices all six
-// of its own helpers for the same reason) — a lone mirrorPassItems.toString()
-// throws ReferenceError the moment it runs, since its callees would not
-// exist in this generated scope.
+// The seven functions below are generated FROM web/mirror-pass-panel.ts
+// (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slices (c) and (c) v2) — their real
+// compiled source via .toString(), not a hand-retyped copy. It can no
+// longer drift apart. mirrorPassItems calls all four of the finding
+// formatters, so every one of them must be spliced in too (issue-triage.ts's
+// mirrorPassJs-equivalent splices all six of its own helpers for the same
+// reason) — a lone mirrorPassItems.toString() throws ReferenceError the
+// moment it runs, since its callees would not exist in this generated scope.
 ${mirrorPassReconcileItems.toString()}
 ${mirrorPassLandingNoteItems.toString()}
 ${mirrorPassStaleClaimItems.toString()}
 ${mirrorPassDriftItems.toString()}
 ${mirrorPassItems.toString()}
-function renderMirrorPassBody(body, items) {
+${mirrorPassCanExecute.toString()}
+${mirrorPassExecuteResultMessage.toString()}
+function renderMirrorPassBody(body, items, canExecute, pid) {
   body.replaceChildren();
   items = items || [];
   if (!items.length) {
@@ -75,6 +98,24 @@ function renderMirrorPassBody(body, items) {
     list.appendChild(el('li', 'mirror-pass-item', items[i].text));
   }
   body.appendChild(list);
+  if (canExecute) {
+    var actions = el('div', 'mirror-pass-actions');
+    var runBtn = el('button', 'mirror-pass-execute', 'Run mirror pass');
+    runBtn.type = 'button';
+    runBtn.setAttribute('data-i18n', 'mirrorPassExecute');
+    runBtn.setAttribute('data-mirror-pass-execute', pid);
+    var runTip =
+      'Applies every reconcile finding above — closes or reopens issues and posts comments via gh.';
+    runBtn.setAttribute('data-tip', runTip);
+    runBtn.setAttribute('aria-label', runTip);
+    actions.appendChild(runBtn);
+    body.appendChild(actions);
+    var resultEl = el('div', 'mirror-pass-result');
+    resultEl.setAttribute('role', 'status');
+    resultEl.setAttribute('aria-live', 'polite');
+    body.appendChild(resultEl);
+  }
+  translateDom(document.documentElement.lang || 'en');
 }
 function loadMirrorPassBody(body, pid) {
   var base = '/api/mirror-pass';
@@ -84,16 +125,19 @@ function loadMirrorPassBody(body, pid) {
     fetch(base + '/landing-note' + qs).then(function (r) { return r.ok ? r.json() : { landingNote: null }; }),
     fetch(base + '/drift' + qs).then(function (r) { return r.ok ? r.json() : { drift: null }; }),
     fetch(base + '/stale-claims' + qs).then(function (r) { return r.ok ? r.json() : { staleClaims: null }; }),
+    socialIdentity(),
   ])
     .then(function (results) {
       if (!body.isConnected) return;
+      var reconcile = results[0] && results[0].mirrorPass;
       var items = mirrorPassItems({
-        reconcile: results[0] && results[0].mirrorPass,
+        reconcile: reconcile,
         landingNote: results[1] && results[1].landingNote,
         drift: results[2] && results[2].drift,
         staleClaims: results[3] && results[3].staleClaims,
       });
-      renderMirrorPassBody(body, items);
+      var identity = results[4] && results[4].identity;
+      renderMirrorPassBody(body, items, mirrorPassCanExecute(identity, reconcile), pid);
     })
     .catch(function () {
       if (!body.isConnected) return;
@@ -116,5 +160,49 @@ function mirrorPassSection(pid) {
   loadMirrorPassBody(body, pid);
   return wrap;
 }
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-mirror-pass-execute]');
+  if (!b || b.disabled) return;
+  var pid = b.getAttribute('data-mirror-pass-execute');
+  var confirmMsg =
+    'Run the mirror pass now? This closes or reopens issues and posts comments on GitHub for every reconcile finding above.';
+  if (!window.confirm(confirmMsg)) return;
+  var body = b.closest('.mirror-pass-body');
+  var resultEl = body && body.querySelector('.mirror-pass-result');
+  b.disabled = true;
+  var originalText = b.textContent;
+  b.textContent = 'Running…';
+  fetch('/api/mirror-pass/execute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid }),
+  })
+    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+    .then(function (r) {
+      var result = mirrorPassExecuteResultMessage(r.status, r.data);
+      if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
+        b.disabled = false;
+        b.textContent = originalText;
+        if (resultEl) {
+          resultEl.className = result.className;
+          resultEl.textContent = result.text;
+        }
+        return;
+      }
+      // A clean apply changed real issue state (closed/reopened/commented) —
+      // reload the panel so it reflects reality instead of the stale
+      // findings, same "success re-fetches" convention pr-review.ts's Apply
+      // button and release/landing execute already use.
+      loadMirrorPassBody(body, pid);
+    })
+    .catch(function () {
+      b.disabled = false;
+      b.textContent = originalText;
+      if (resultEl) {
+        resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
+        resultEl.textContent = 'Mirror pass request failed.';
+      }
+    });
+});
 `.trim();
 }

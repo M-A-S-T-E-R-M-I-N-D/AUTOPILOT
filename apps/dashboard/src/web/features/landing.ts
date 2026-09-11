@@ -101,21 +101,33 @@ function landingCommitRow(commit) {
   // row — the sha always leads, so it seeds '0' directly (no seedRoving pass
   // needed); subject/files start at -1 and wireRoving() below moves the stop
   // with Left/Right/Home/End.
+  // i18n (board web-msnsndki-dz3vn1): painted via tr() at build time AND
+  // tagged for the sweep, the same reason renderLandingBody's branch line
+  // gives — this panel is never swept after its fetch resolves. The sha aria
+  // wraps the live hash in {name}; the files aria carries its count in a
+  // {n} data-i18n-args map (the flightGuardChipAria shape). The subject's
+  // aria IS the subject — a live value, nothing to translate.
   var shaEl = el('span', 'landing-commit-sha', commit.shortSha);
   shaEl.setAttribute('tabindex', '0');
-  shaEl.setAttribute('data-tip', 'Abbreviated commit hash');
-  shaEl.setAttribute('aria-label', 'commit ' + commit.shortSha);
+  shaEl.setAttribute('data-tip', tr('landingCommitShaTip'));
+  shaEl.setAttribute('data-i18n-tip', 'landingCommitShaTip');
+  shaEl.setAttribute('aria-label', tr('landingCommitShaAria', commit.shortSha));
+  shaEl.setAttribute('data-i18n-aria-template', 'landingCommitShaAria');
+  shaEl.setAttribute('data-i18n-name', commit.shortSha);
   li.appendChild(shaEl);
   var subjectEl = el('span', 'landing-commit-subject', commit.subject);
   subjectEl.setAttribute('tabindex', '-1');
-  subjectEl.setAttribute('data-tip', 'What this commit changed');
+  subjectEl.setAttribute('data-tip', tr('landingCommitSubjectTip'));
+  subjectEl.setAttribute('data-i18n-tip', 'landingCommitSubjectTip');
   subjectEl.setAttribute('aria-label', commit.subject);
   li.appendChild(subjectEl);
   var filesMeta = landingCommitFilesMeta(files);
   var filesEl = el('span', 'landing-commit-files muted', filesMeta.label);
   filesEl.setAttribute('tabindex', '-1');
   filesEl.setAttribute('data-tip', filesMeta.tip);
-  filesEl.setAttribute('aria-label', files.length + ' files changed');
+  filesEl.setAttribute('aria-label', tr('landingCommitFilesAria', { n: files.length }));
+  filesEl.setAttribute('data-i18n-aria-template', 'landingCommitFilesAria');
+  filesEl.setAttribute('data-i18n-args', JSON.stringify({ n: files.length }));
   li.appendChild(filesEl);
   return li;
 }
@@ -188,10 +200,15 @@ function flightDebriefSection(flightLog, tasks) {
     var bestText = flightHeadlineOf(digest.best, taskById) + ' — ' + fmtCost(digest.best.cost);
     var bestLine = el('p', 'flight-debrief-best');
     bestLine.appendChild(el('span', 'flight-debrief-label', tr('landingDebriefBestLabel')));
+    // i18n (board web-msnsndki-dz3vn1): tr() at build time + sweep tags —
+    // the headline/cost text is a live value the aria wraps in {name}.
     var bestVal = el('span', null, bestText);
     bestVal.setAttribute('tabindex', '0');
-    bestVal.setAttribute('data-tip', 'The most cost-efficient shipped firing this flight');
-    bestVal.setAttribute('aria-label', 'best firing: ' + bestText);
+    bestVal.setAttribute('data-tip', tr('landingDebriefBestTip'));
+    bestVal.setAttribute('data-i18n-tip', 'landingDebriefBestTip');
+    bestVal.setAttribute('aria-label', tr('landingDebriefBestAria', bestText));
+    bestVal.setAttribute('data-i18n-aria-template', 'landingDebriefBestAria');
+    bestVal.setAttribute('data-i18n-name', bestText);
     bestLine.appendChild(bestVal);
     wrap.appendChild(bestLine);
   }
@@ -201,8 +218,11 @@ function flightDebriefSection(flightLog, tasks) {
     worstLine.appendChild(el('span', 'flight-debrief-label', tr('landingDebriefWorstLabel')));
     var worstVal = el('span', null, worstText);
     worstVal.setAttribute('tabindex', '0');
-    worstVal.setAttribute('data-tip', 'The priciest firing that did not ship this flight');
-    worstVal.setAttribute('aria-label', 'worst firing: ' + worstText);
+    worstVal.setAttribute('data-tip', tr('landingDebriefWorstTip'));
+    worstVal.setAttribute('data-i18n-tip', 'landingDebriefWorstTip');
+    worstVal.setAttribute('aria-label', tr('landingDebriefWorstAria', worstText));
+    worstVal.setAttribute('data-i18n-aria-template', 'landingDebriefWorstAria');
+    worstVal.setAttribute('data-i18n-name', worstText);
     worstLine.appendChild(worstVal);
     wrap.appendChild(worstLine);
   }
@@ -239,21 +259,36 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
   }
   // D1 TAB-STOP ROVING: the branch line is one roving group — the branch
   // name always leads, so it seeds '0' directly; arrow/base start at -1.
+  // i18n (board web-msnsndki-dz3vn1): this panel is never swept after its
+  // fetch resolves (no translateDom() follows this body build), so every tip
+  // and aria here is painted via tr() at build time — English stays
+  // byte-identical — AND tagged for the in-place sweep a mid-session locale
+  // switch runs: fixed tips as [data-i18n-tip], the arrow's fixed aria as
+  // [data-i18n-aria], and the branch/base aria prefixes (which wrap the live
+  // ref name in {name}) as [data-i18n-aria-template]/[data-i18n-name].
   var branchLine = el('p', 'landing-branch');
   var branchNameEl = el('span', 'landing-branch-name', landing.branch);
   branchNameEl.setAttribute('tabindex', '0');
-  branchNameEl.setAttribute('data-tip', 'Currently checked-out branch');
-  branchNameEl.setAttribute('aria-label', 'branch: ' + landing.branch);
+  branchNameEl.setAttribute('data-tip', tr('landingBranchTip'));
+  branchNameEl.setAttribute('data-i18n-tip', 'landingBranchTip');
+  branchNameEl.setAttribute('aria-label', tr('landingBranchAria', landing.branch));
+  branchNameEl.setAttribute('data-i18n-aria-template', 'landingBranchAria');
+  branchNameEl.setAttribute('data-i18n-name', landing.branch);
   branchLine.appendChild(branchNameEl);
   var arrowEl = el('span', 'landing-branch-arrow', '→');
   arrowEl.setAttribute('tabindex', '-1');
-  arrowEl.setAttribute('data-tip', 'Merge direction: branch into base');
-  arrowEl.setAttribute('aria-label', 'merges into');
+  arrowEl.setAttribute('data-tip', tr('landingBranchArrowTip'));
+  arrowEl.setAttribute('data-i18n-tip', 'landingBranchArrowTip');
+  arrowEl.setAttribute('aria-label', tr('landingBranchArrowAria'));
+  arrowEl.setAttribute('data-i18n-aria', 'landingBranchArrowAria');
   branchLine.appendChild(arrowEl);
   var baseNameEl = el('span', 'landing-base-name', landing.base);
   baseNameEl.setAttribute('tabindex', '-1');
-  baseNameEl.setAttribute('data-tip', 'Branch this would merge into');
-  baseNameEl.setAttribute('aria-label', 'base branch: ' + landing.base);
+  baseNameEl.setAttribute('data-tip', tr('landingBaseTip'));
+  baseNameEl.setAttribute('data-i18n-tip', 'landingBaseTip');
+  baseNameEl.setAttribute('aria-label', tr('landingBaseAria', landing.base));
+  baseNameEl.setAttribute('data-i18n-aria-template', 'landingBaseAria');
+  baseNameEl.setAttribute('data-i18n-name', landing.base);
   branchLine.appendChild(baseNameEl);
   body.appendChild(branchLine);
 

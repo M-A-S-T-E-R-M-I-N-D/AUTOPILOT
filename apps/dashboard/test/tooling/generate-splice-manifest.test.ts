@@ -68,6 +68,7 @@ import { reportCaptureClientJs } from '../../src/web/features/report-capture-cli
 import { reportMenuJs } from '../../src/web/features/report-menu.js';
 import { roundPanelJs } from '../../src/web/features/round-panel.js';
 import { searchJs } from '../../src/web/features/search.js';
+import { subjectNavJs } from '../../src/web/features/subject-nav.js';
 import { tourJs } from '../../src/web/features/tour.js';
 import { updateJs } from '../../src/web/features/update.js';
 import { PRELOAD_FONT_PATHS } from '../../src/assets/fonts.js';
@@ -137,6 +138,7 @@ const REPORT_CAPTURE_CLIENT_TS = featureTs('report-capture-client');
 const REPORT_MENU_TS = featureTs('report-menu');
 const ROUND_PANEL_TS = featureTs('round-panel');
 const SEARCH_TS = featureTs('search');
+const SUBJECT_NAV_TS = featureTs('subject-nav');
 const TOUR_TS = featureTs('tour');
 const UPDATE_TS = featureTs('update');
 
@@ -1393,6 +1395,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'report-menu.ts': ['reportMenuJs'],
     'round-panel.ts': ['roundPanelJs'],
     'search.ts': ['searchJs'],
+    'subject-nav.ts': ['subjectNavJs'],
     'switcher.ts': ['switcherJs'],
     'tour.ts': ['tourJs'],
     'update.ts': ['updateJs'],
@@ -1548,6 +1551,10 @@ describe('discoverFeatureModules against the real src/web/features directory —
       'roundPanelJs',
     ]);
     const directSearchManifest = buildAssemblyManifest(searchSource, SEARCH_TS, ['searchJs']);
+    const subjectNavSource = readFileSync(SUBJECT_NAV_TS, 'utf8');
+    const directSubjectNavManifest = buildAssemblyManifest(subjectNavSource, SUBJECT_NAV_TS, [
+      'subjectNavJs',
+    ]);
     const directSwitcherManifest = buildAssemblyManifest(switcherSource, SWITCHER_TS, [
       'switcherJs',
     ]);
@@ -1588,6 +1595,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directReportMenuManifest,
       directRoundPanelManifest,
       directSearchManifest,
+      directSubjectNavManifest,
       directSwitcherManifest,
       directTourManifest,
       directUpdateManifest,
@@ -1855,7 +1863,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, subject-nav.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
@@ -1892,6 +1900,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { reportMenuJs } from './report-menu.js';");
     expect(source).toContain("import { roundPanelJs } from './round-panel.js';");
     expect(source).toContain("import { searchJs } from './search.js';");
+    expect(source).toContain("import { subjectNavJs } from './subject-nav.js';");
     expect(source).toContain("import { switcherJs } from './switcher.js';");
     expect(source).toContain("import { tourJs } from './tour.js';");
     expect(source).toContain("import { updateJs } from './update.js';");
@@ -1954,11 +1963,12 @@ describe('generateFeatureModulesIndexSource', () => {
     );
     expect(source.indexOf("'./report-menu.js'")).toBeLessThan(source.indexOf("'./round-panel.js'"));
     expect(source.indexOf("'./round-panel.js'")).toBeLessThan(source.indexOf("'./search.js'"));
-    expect(source.indexOf("'./search.js'")).toBeLessThan(source.indexOf("'./switcher.js'"));
+    expect(source.indexOf("'./search.js'")).toBeLessThan(source.indexOf("'./subject-nav.js'"));
+    expect(source.indexOf("'./subject-nav.js'")).toBeLessThan(source.indexOf("'./switcher.js'"));
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2911,6 +2921,38 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
     const reassembled = (await assembleFromManifest(manifest, 'searchJs', resolvedBindings)).trim();
     expect(reassembled).toBe(searchJs());
+  });
+
+  /** subjectNavJs’s own reconstruction (epic 0021 app shell): a pure template —
+   *  no relative-import splices, no non-splice slots — like switcherJs, but
+   *  under web/features/. */
+  async function reconstructSubjectNavJs(): Promise<string> {
+    const subjectNavSource = readFileSync(SUBJECT_NAV_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(subjectNavSource, SUBJECT_NAV_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        subjectNavSource,
+        'subjectNavJs',
+        resolvedBindings,
+        undefined,
+        SUBJECT_NAV_TS,
+      )
+    ).trim();
+  }
+
+  it('subjectNavJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/subject-nav.ts', async () => {
+    expect(await reconstructSubjectNavJs()).toBe(subjectNavJs());
+  });
+
+  it('subjectNavJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off subject-nav.ts', async () => {
+    const subjectNavSource = readFileSync(SUBJECT_NAV_TS, 'utf8');
+    const manifest = buildAssemblyManifest(subjectNavSource, SUBJECT_NAV_TS, ['subjectNavJs']);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'subjectNavJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(subjectNavJs());
   });
 
   /**
@@ -3886,6 +3928,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('reportMenuJs', await reconstructReportMenuJs());
     nestedOutputs.set('roundPanelJs', await reconstructRoundPanelJs());
     nestedOutputs.set('searchJs', await reconstructSearchJs());
+    nestedOutputs.set('subjectNavJs', await reconstructSubjectNavJs());
     nestedOutputs.set('tourJs', await reconstructTourJs());
     nestedOutputs.set('updateJs', await reconstructUpdateJs());
     // featureModulesJs() (web/features/index.ts, generated) is
@@ -4095,6 +4138,10 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
           `<link rel="preload" href="${p}" as="font" type="font/woff2" crossorigin="anonymous" />`,
       ).join('\n  ');
     }
+    // The subject nav's first label (epic 0021 app shell): key and text both
+    // pick by page kind, as `project !== undefined ? '<project>' : '<fleet>'`.
+    const byPageKind = exprText.match(/^project !== undefined \? '([^']*)' : '([^']*)'$/);
+    if (byPageKind) return project !== undefined ? byPageKind[1] : byPageKind[2];
     throw new Error(
       `renderShell: no known resolution for non-splice slot \`${exprText}\` — a new ` +
         'substitution shape appeared; teach resolveRenderShellSlot about it',

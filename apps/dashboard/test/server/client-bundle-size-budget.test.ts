@@ -191,7 +191,27 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // Raised with the script (2026-09-09) for this round's landed UI.
 // Raised with the script (2026-09-10) for the recovered
 // contributor-issue-list panel.
-const CHUNK_RAW_BUDGET = 122 * 1024;
+// Raised panels raw 122→123KB / gzip 37→38KB (2026-09-10): the LANDING
+// panel's branch-line i18n slice (board web-msnsndki-dz3vn1 — six STRINGS
+// keys, `landingBranchTip`/`landingBranchAria`, `landingBranchArrowTip`/
+// `landingBranchArrowAria`, `landingBaseTip`/`landingBaseAria`, plus the
+// tr()-at-build + sweep tags on the three branch-line fields in
+// `web/features/landing.ts`). The panel's own code rides /project.js (huge
+// headroom there), but its six STRINGS.he translations land in panels.js via
+// locale-data.ts — the same shape the MIRROR PASS entry below describes.
+// Measured 124884 raw / 37932 gzip against the old 124928 / 37888 budget: 44
+// bytes over on gzip, and 44 bytes UNDER on raw — the next-change-of-any-
+// kind-goes-red margin the core entries above describe — so both lines move.
+// Core measured 191852 / 56682 against 192512 / 57344 (~660B headroom each
+// way, about one more slice) and is not moved. Mirrored in
+// scripts/ci/check-bundle-size.mjs.
+/**
+ * Then raw 123→127KB / gzip 38→39KB (2026-09-11) for EPIC 0021 slice 2: the
+ * app shell's subject-nav client (web/features/subject-nav.ts) rides this
+ * deferred chunk by design — it self-initializes and nothing in core calls
+ * it — measured 125.8KB/38.4KB after landing, 2.8KB/0.4KB over the old line.
+ */
+const CHUNK_RAW_BUDGET = 127 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -213,7 +233,9 @@ const CHUNK_RAW_BUDGET = 122 * 1024;
 // for English keys. Measured 119958B raw against the old 119808B budget: 150
 // bytes over on raw alone, gzip (36160B against 36864B) untouched. Core
 // budgets untouched.
-const CHUNK_GZIP_BUDGET = 37 * 1024;
+// gzip 37→38KB (2026-09-10): see the branch-line i18n entry above
+// CHUNK_RAW_BUDGET — 37932B measured against 37888B.
+const CHUNK_GZIP_BUDGET = 39 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

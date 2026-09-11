@@ -660,8 +660,15 @@ function actRow(a, showReasoning) {
     if (meta) {
       var metaEl = el('p', 'muted act-meta', meta);
       metaEl.setAttribute('tabindex', '0');
+      // i18n (board web-msnsndki-dz3vn1): the tip is swept as [data-i18n-tip];
+      // the aria prefix wraps the live meta text in {name}, so it is painted
+      // via tr() here AND tagged [data-i18n-aria-template]/[data-i18n-name]
+      // so a mid-session locale switch flips it in place too.
       metaEl.setAttribute('data-tip', 'Model and token usage billed for this step');
-      metaEl.setAttribute('aria-label', 'step cost: ' + meta);
+      metaEl.setAttribute('data-i18n-tip', 'actMetaTip');
+      metaEl.setAttribute('aria-label', tr('actMetaAria', meta));
+      metaEl.setAttribute('data-i18n-aria-template', 'actMetaAria');
+      metaEl.setAttribute('data-i18n-name', meta);
       li.appendChild(metaEl);
     }
   }
@@ -4033,7 +4040,7 @@ export function renderShell(project?: string): string {
   ${PRELOAD_FONT_PATHS.map((p) => `<link rel="preload" href="${p}" as="font" type="font/woff2" crossorigin="anonymous" />`).join('\n  ')}
   <link rel="stylesheet" href="/tokens.css?v=${v}" />
 </head>
-<body${anchor}>
+<body${anchor} data-subject="fleet">
   <a class="skip-link" href="#fleet" data-i18n="skipToFleet">Skip to fleet</a>
   <div id="update-banner" class="update-banner" role="status" aria-live="polite" data-i18n-aria="updateBannerAria" aria-label="Software update available" hidden></div>
   <header class="masthead">
@@ -4113,16 +4120,23 @@ export function renderShell(project?: string): string {
       <button type="button" class="tour-btn" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip" data-i18n="tour">Tour</button>
     </div>
   </header>
-  <section class="totals" id="totals" aria-label="Fleet summary" data-i18n-aria="fleetSummary"></section>
-  <section class="live-workers" id="live-workers" role="group" aria-label="Who's flying now" data-i18n-aria="liveWorkers" hidden></section>
-  <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance"></section>
-  <section class="pr-review-panel" id="pr-review-panel" aria-label="KEEPER PR review" data-i18n-aria="keeperPrReview" hidden></section>
-  <section class="pool-client-panel" id="pool-client-panel" aria-label="Contributor pool" data-i18n-aria="poolClientPanel" hidden></section>
-  <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" hidden></section>
-  <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" hidden></nav>
-  <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" hidden></section>
-  <section class="fleet-wisdom" id="fleet-wisdom" aria-label="Fleet wisdom proposal" data-i18n-aria="fleetWisdomProposal" hidden></section>
-  <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" hidden>
+  <nav class="subject-nav" id="subject-nav" aria-label="Sections" data-i18n-aria="subjectNav">
+    <a class="subject-link" href="#totals" data-subject-link="fleet" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span data-i18n="${project !== undefined ? 'subjectProject' : 'subjectFleet'}">${project !== undefined ? 'Project' : 'Fleet'}</span></a>
+    <a class="subject-link" href="#flightbar" data-subject-link="fly"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg><span data-i18n="subjectFly">Fly</span></a>
+    <a class="subject-link" href="#pool-client-panel" data-subject-link="keeper"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span data-i18n="subjectKeeper">Keeper</span></a>
+    <a class="subject-link" href="#contributor-issue-list-panel" data-subject-link="community"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="subjectCommunity">Community</span></a>
+  </nav>
+  <p class="subject-empty" id="subject-empty" role="status" data-i18n="subjectEmpty" hidden>Nothing here yet — this area fills as the fleet works.</p>
+  <section class="totals" id="totals" aria-label="Fleet summary" data-i18n-aria="fleetSummary" data-subject="fleet"></section>
+  <section class="live-workers" id="live-workers" role="group" aria-label="Who's flying now" data-i18n-aria="liveWorkers" data-subject="fleet" hidden></section>
+  <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance" data-subject="fleet"></section>
+  <section class="pr-review-panel" id="pr-review-panel" aria-label="KEEPER PR review" data-i18n-aria="keeperPrReview" data-subject="keeper" hidden></section>
+  <section class="pool-client-panel" id="pool-client-panel" aria-label="Contributor pool" data-i18n-aria="poolClientPanel" data-subject="keeper" hidden></section>
+  <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="community" hidden></section>
+  <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="community" hidden></nav>
+  <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="community" hidden></section>
+  <section class="fleet-wisdom" id="fleet-wisdom" aria-label="Fleet wisdom proposal" data-i18n-aria="fleetWisdomProposal" data-subject="keeper" hidden></section>
+  <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="fly" hidden>
     <form class="fly-form" id="fly-form">
       <label for="fly-folder" data-i18n="flyFolder">Fly a folder</label>
       <input type="text" id="fly-folder" name="folder" list="fly-folder-options" placeholder="absolute path to a git repo" data-i18n-placeholder="flyFolderPlaceholder" autocomplete="off" spellcheck="false" />
@@ -4154,7 +4168,7 @@ export function renderShell(project?: string): string {
     </form>
     <div class="fly-flights" id="fly-flights" role="group" aria-label="Active flights" data-i18n-aria="activeFlights"></div>
   </section>
-  <section class="searchbar" id="searchbar" aria-label="Search a project" data-i18n-aria="searchProject" hidden>
+  <section class="searchbar" id="searchbar" aria-label="Search a project" data-i18n-aria="searchProject" data-subject="fly" hidden>
     <form class="search-form" id="search-form">
       <label for="search-project" data-i18n="search">Search</label>
       <select id="search-project" name="project"></select>
@@ -4176,7 +4190,7 @@ export function renderShell(project?: string): string {
     <div class="ask-proposal" id="ask-proposal" role="status" aria-live="polite"></div>
     <div class="search-results" id="search-results" aria-live="polite"></div>
   </section>
-  <main id="fleet" tabindex="-1" aria-label="Fleet" data-i18n-aria="fleetMain" aria-busy="true">
+  <main id="fleet" tabindex="-1" aria-label="Fleet" data-i18n-aria="fleetMain" aria-busy="true" data-subject="fleet">
     <p class="hint" id="placeholder" data-i18n="connectingFleet">Connecting to the fleet…</p>
   </main>
   <script src="/app.js?v=${v}"></script>${

@@ -21,6 +21,13 @@
 export function layoutCss(): string {
   return `
 * { box-sizing: border-box; }
+/* APP SHELL (epic 0021). Base styles ARE the phone; wider windows add via
+   min-width queries at the END of this sheet (one cascade, one direction).
+   --page-inline is the ONE inline padding every body-level section shares —
+   one left edge on every width. The shell sizes are the bottom bar's height
+   (compact) and the rail's width (medium and up). */
+:root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 4.5rem; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
   margin: 0; font-family: var(--font-sans);
   background: var(--color-surface); color: var(--color-text);
@@ -48,16 +55,18 @@ body {
 .update-banner-later { font: inherit; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .update-banner-later:hover, .update-banner-later:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); }
 .masthead {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--page-inline);
   background: var(--color-surface-raised); border-bottom: 1px solid var(--color-border);
   position: sticky; top: 0; z-index: 10;
 }
-.masthead-right { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-4); }
+.masthead-right { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
 .brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; letter-spacing: 0.02em; font-size: var(--text-lg); }
 .brand-mark { display: inline-flex; width: 22px; height: 22px; flex-shrink: 0; }
 .brand-mark svg { width: 100%; height: 100%; }
-.updated { font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+/* Compact windows drop the "updated Ns ago" readout from the masthead — it is
+   the one control worth a whole row on a phone least; it returns from md up. */
+.updated { display: none; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 .switch { display: flex; gap: var(--space-2); }
 /* Masthead pill designed states (COCKPIT 6/6): shape-morph no-ops on full
    radius (stateRadius, packages/tokens), so the pill idiom is elevation
@@ -172,8 +181,8 @@ body {
 .connect-form button:disabled, .connect-login:disabled, .task-add button:disabled, .inbox-add button:disabled, .soul-editor-form button:disabled { box-shadow: none; }
 
 .totals {
-  display: flex; flex-wrap: wrap; gap: var(--space-5);
-  padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border);
+  display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--page-inline); border-bottom: 1px solid var(--color-border);
 }
 .total { display: flex; flex-direction: column; gap: 2px; border-radius: var(--radius-sm); }
 /* Hero number (COCKPIT 3/6): the fleet home's first, most-glanced-at
@@ -188,7 +197,7 @@ body {
    tiles, hidden outright when nothing is flying (see renderLiveWorkers). */
 .live-workers {
   display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
-  padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--page-inline); border-bottom: 1px solid var(--color-border);
 }
 .live-workers-label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
@@ -196,8 +205,8 @@ body {
    distinct from the plain .total count row above: these are derived rates,
    not raw counts, and read better as their own visual tier. */
 .stat-tiles {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-3); padding: var(--space-4) var(--space-5);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2); padding: var(--space-3) var(--page-inline);
   border-bottom: 1px solid var(--color-border);
 }
 .stat-tile {
@@ -210,11 +219,11 @@ body {
 .stat-tile-n { font-size: var(--text-2xl); font-weight: 700; font-variant-numeric: tabular-nums; }
 .stat-tile-l { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
-.flightbar { padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--color-border); background: var(--color-surface-raised); }
+.flightbar { padding: var(--space-3) var(--page-inline); border-bottom: 1px solid var(--color-border); background: var(--color-surface-raised); }
 .fly-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .fly-form label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .fly-form input { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
-#fly-folder { flex: 1 1 260px; min-width: 200px; font-family: var(--font-mono); }
+#fly-folder { flex: 1 1 100%; min-width: 0; font-family: var(--font-mono); }
 #fly-firings { width: 68px; }
 #fly-budget { width: 76px; }
 #fly-total { width: 76px; }
@@ -289,11 +298,11 @@ body {
 .fly-flight-actions .fly-flight-stop { border-color: var(--color-sev-high); color: var(--color-sev-high); }
 .fly-flight-actions .fly-flight-pause { border-color: var(--color-sev-medium); color: var(--color-sev-medium); }
 
-.searchbar { padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--color-border); }
+.searchbar { padding: var(--space-3) var(--page-inline); border-bottom: 1px solid var(--color-border); }
 .search-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .search-form label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .search-form select, .search-form input { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
-#search-q { flex: 1 1 260px; min-width: 200px; }
+#search-q { flex: 1 1 100%; min-width: 0; }
 /* search/ask CTA designed states (COCKPIT 6/6): the pair joins the MX
    shape-morph treatment their structural twin #fly-go already carries —
    rest radius swaps --radius-sm for --shape-extra-small (both 4px) so the
@@ -326,7 +335,7 @@ body {
 .search-path { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-accent); }
 .search-snippet { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); white-space: pre-wrap; word-break: break-word; }
 
-main { padding: var(--space-5); display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+main { padding: var(--space-3) var(--page-inline) var(--space-5); display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
 /* THE grid-blowout guard (operator: page breaks above 80% zoom): grid/flex
    children default to min-width:auto, so one wide row inside a card forces its
    whole column past the viewport. min-width:0 lets every card shrink; inner
@@ -529,8 +538,8 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-section { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .pipeline-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .pipeline-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0 0 var(--space-3); }
-.pipeline-panel { display: flex; align-items: flex-start; gap: var(--space-3); }
-.pipeline-tree { flex: 0 1 32%; min-width: 12em; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); }
+.pipeline-panel { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-3); }
+.pipeline-tree { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); }
 .pipeline-lane { display: flex; flex-direction: column; gap: var(--space-1); }
 .pipeline-lane-label { color: var(--color-text-muted); font-size: var(--text-xs); font-family: var(--font-mono); }
 /* Pipeline tree rows (COCKPIT 6/6): the role="treeitem" rows are structural
@@ -670,15 +679,22 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    all four the same MX shape-morph + elevation hover/active pair as #fly-go,
    the fly bar's filled-accent CTA, guarded by :not(:disabled) like .task-move.
    Rest declarations only gain the transition — rest-state pixels do not move. */
-.landing-execute, .release-execute, .pr-review-execute, .issue-triage-execute, .pool-client-execute, .report-execute, .pool-client-fly { transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
-.landing-execute:not(:disabled):hover, .landing-execute:not(:disabled):focus-visible, .release-execute:not(:disabled):hover, .release-execute:not(:disabled):focus-visible, .pr-review-execute:not(:disabled):hover, .pr-review-execute:not(:disabled):focus-visible, .issue-triage-execute:not(:disabled):hover, .issue-triage-execute:not(:disabled):focus-visible, .pool-client-execute:not(:disabled):hover, .pool-client-execute:not(:disabled):focus-visible, .report-execute:not(:disabled):hover, .report-execute:not(:disabled):focus-visible, .pool-client-fly:not(:disabled):hover, .pool-client-fly:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
-.landing-execute:not(:disabled):active, .release-execute:not(:disabled):active, .pr-review-execute:not(:disabled):active, .issue-triage-execute:not(:disabled):active, .pool-client-execute:not(:disabled):active, .report-execute:not(:disabled):active, .pool-client-fly:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.landing-execute, .release-execute, .pr-review-execute, .issue-triage-execute, .pool-client-execute, .report-execute, .pool-client-fly, .mirror-pass-execute { transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.landing-execute:not(:disabled):hover, .landing-execute:not(:disabled):focus-visible, .release-execute:not(:disabled):hover, .release-execute:not(:disabled):focus-visible, .pr-review-execute:not(:disabled):hover, .pr-review-execute:not(:disabled):focus-visible, .issue-triage-execute:not(:disabled):hover, .issue-triage-execute:not(:disabled):focus-visible, .pool-client-execute:not(:disabled):hover, .pool-client-execute:not(:disabled):focus-visible, .report-execute:not(:disabled):hover, .report-execute:not(:disabled):focus-visible, .pool-client-fly:not(:disabled):hover, .pool-client-fly:not(:disabled):focus-visible, .mirror-pass-execute:not(:disabled):hover, .mirror-pass-execute:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.landing-execute:not(:disabled):active, .release-execute:not(:disabled):active, .pr-review-execute:not(:disabled):active, .issue-triage-execute:not(:disabled):active, .pool-client-execute:not(:disabled):active, .report-execute:not(:disabled):active, .pool-client-fly:not(:disabled):active, .mirror-pass-execute:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .issue-triage-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
 .issue-triage-result:empty { display: none; }
 .issue-triage-result-ok { color: var(--color-success); }
 .issue-triage-result-fail { color: var(--color-sev-critical); }
 .issue-triage-comment-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
 .issue-triage-comment-link:hover, .issue-triage-comment-link:focus-visible { border-bottom-color: currentColor; }
+.mirror-pass-actions { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
+.mirror-pass-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+.mirror-pass-execute:disabled { opacity: 0.6; cursor: default; }
+.mirror-pass-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
+.mirror-pass-result:empty { display: none; }
+.mirror-pass-result-ok { color: var(--color-success); }
+.mirror-pass-result-fail { color: var(--color-sev-critical); }
 .report-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); margin-top: var(--space-3); }
 .report-details { padding: var(--space-3) var(--space-4); }
 .report-title { margin: 0; font-size: var(--text-base); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
@@ -761,6 +777,21 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pool-client-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
 .pool-client-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .pool-client-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
+/* The visitor-facing GOOD FIRST ISSUES panel had NO stylesheet at all until
+   epic 0021 — browser-blue links flush to the viewport edge. Its markup is the
+   Pool panel's structural twin (contributor-issue-list.ts), so it shares the
+   Pool's surface and row idiom rather than growing a second one. */
+.contributor-issue-list-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
+.contributor-issue-list-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+.contributor-issue-list-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
+.contributor-issue-list-item:first-of-type { border-top: none; }
+.contributor-issue-list-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.contributor-issue-list-number { font-family: var(--font-mono); color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.contributor-issue-list-number:hover, .contributor-issue-list-number:focus-visible { border-bottom-color: currentColor; }
+.contributor-issue-list-issue-title { margin: 0; font-size: var(--text-sm); }
+.contributor-claim-walkthrough { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
+.contributor-claim-walkthrough > summary { cursor: pointer; color: var(--color-text); }
+.contributor-claim-walkthrough ol { margin: var(--space-2) 0 0; padding-inline-start: var(--space-5); }
 .pool-client-item:first-of-type { border-top: none; }
 .pool-client-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .pool-client-number { font-family: var(--font-mono); color: var(--color-text-muted); }
@@ -769,7 +800,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pool-client-issue-title { margin: 0; font-size: var(--text-sm); }
 .pool-client-badge-claim { color: var(--color-success); border-color: var(--color-success); }
 .pool-client-badge-skip { color: var(--color-text-muted); border-color: var(--color-border); opacity: 0.7; }
+/* Compact: the row's actions span the width — the Claim button lands in the
+   thumb zone. From md up the item becomes one row (see the shell block). */
 .pool-client-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-1); }
+.pool-client-actions > select { flex: 1 1 auto; min-width: 0; }
 .pool-client-project { font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 /* .pool-client-fly (COCKPIT 6/6): the post-claim "Fly" button
    features/pool-client.ts appends to the item after a claim that queued a
@@ -1161,7 +1195,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    .live-worker card once >1 lane is live (shell.ts's laneGridCard()).
    STABILITY LAW: bounded max-height + inner scroll — a busy fleet growing
    past a few lanes scrolls INSIDE the grid, never reflows the page under it. */
-.lane-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-2); max-height: 32rem; overflow-y: auto; }
+.lane-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-2); max-height: 32rem; overflow-y: auto; }
 .lane-card { display: flex; flex-direction: column; gap: 4px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-accent); border-radius: var(--radius-md); background: var(--color-surface-raised); box-shadow: var(--elevation-level-1); }
 
 .office-map-wrap { margin: var(--space-2) 0; }
@@ -1321,6 +1355,101 @@ main:focus { outline: none; }
 @keyframes brb-progress {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(250%); }
+}
+
+/* ===================================================================
+   APP SHELL (epic 0021) — the subject nav, the tap-target floors, and
+   every min-width override. This block is LAST on purpose: base rules
+   above are the phone; these add at width. Breakpoints are the token
+   package's BREAKPOINT (md 48rem, lg 64rem) — app-shell.test.ts pins
+   that these literals and mediaMin() agree.
+   =================================================================== */
+/* WCAG 2.5.8 (AA): every pointer target clears 24×24 CSS px. Under a coarse
+   pointer (a finger) the floor is 44px (Apple HIG; Google says 48), and
+   inputs render at ≥1rem so iOS Safari never zooms a focused field. */
+button, summary, select, [role="button"] { min-block-size: 1.5rem; }
+/* Link CONTROLS (a chip that links out, a card's title link) are standalone
+   targets, not inline prose — they take the same floor; inline-flex centers
+   the label inside it without moving the surrounding line. */
+a.chip, .card-link { display: inline-flex; align-items: center; min-block-size: 1.5rem; }
+@media (pointer: coarse) {
+  button, summary, select, [role="button"], .subject-link { min-block-size: 2.75rem; }
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { min-block-size: 2.75rem; font-size: max(1rem, var(--text-sm)); }
+  input[type="checkbox"], input[type="radio"] { inline-size: 1.5rem; block-size: 1.5rem; }
+}
+/* Body-level panels share main's inline edge: one left edge on every width. */
+body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel,
+body > .contributor-standing-panel, body > .publicity-panel, body > .fleet-wisdom { margin-inline: var(--page-inline); }
+body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel { margin-block-start: var(--space-3); }
+/* Anchored sections clear the sticky masthead when a deep link lands. */
+body > [data-subject] { scroll-margin-block-start: 5rem; }
+/* The subject nav: a bottom bar on a compact window — the thumb zone — as
+   one translucent layer floating above content (the Liquid-Glass idiom:
+   structure above, content beneath, never stealing focus). */
+.subject-nav {
+  position: fixed; inset-block-end: 0; inset-inline: 0; z-index: 30;
+  display: flex; align-items: stretch; justify-content: space-around;
+  block-size: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); padding-block-end: env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--color-surface-raised) 84%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%);
+  border-block-start: 1px solid var(--color-border);
+}
+.subject-link {
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-inline-size: 2.75rem; padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.02em; color: var(--color-text-muted); text-decoration: none;
+  border-radius: var(--shape-small);
+  transition: color var(--duration-short2) var(--easing-standard), background var(--duration-short2) var(--easing-standard);
+}
+.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.subject-link:hover, .subject-link:focus-visible { color: var(--color-text); outline: none; background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.subject-link:focus-visible { box-shadow: 0 0 0 2px var(--color-accent) inset; }
+.subject-link[aria-current="page"] { color: var(--color-accent); }
+.subject-link[aria-current="page"] svg { stroke-width: 2.25; }
+.subject-link[data-empty="true"] { opacity: 0.55; }
+.subject-empty { margin: var(--space-6) var(--page-inline); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
+body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
+/* Below lg, one subject at a time (the M3 compact/medium canonical layout).
+   A rule about narrowness, so it is the sheet's one range query. Keyed on
+   body[data-nav="on"], which only the nav module sets at boot: with no
+   script (yet), every subject is on the page and the bar's anchors scroll
+   the stack — nothing hides behind an attribute nobody wrote. */
+@media (width < 64rem) {
+  body[data-nav="on"][data-subject="fleet"] > [data-subject]:not([data-subject="fleet"]),
+  body[data-nav="on"][data-subject="fly"] > [data-subject]:not([data-subject="fly"]),
+  body[data-nav="on"][data-subject="keeper"] > [data-subject]:not([data-subject="keeper"]),
+  body[data-nav="on"][data-subject="community"] > [data-subject]:not([data-subject="community"]) { display: none; }
+}
+@media (min-width: 48rem) {
+  :root { --page-inline: var(--space-5); }
+  .masthead { padding: var(--space-4) var(--page-inline); gap: var(--space-4); }
+  .masthead-right { gap: var(--space-4); }
+  .updated { display: inline; }
+  .totals { padding: var(--space-4) var(--page-inline); }
+  .live-workers { padding: var(--space-3) var(--page-inline); }
+  .stat-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); padding: var(--space-4) var(--page-inline); }
+  #fly-folder, #search-q { flex: 1 1 260px; min-width: 200px; }
+  main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
+  .pipeline-panel { flex-direction: row; align-items: flex-start; }
+  .pipeline-tree { flex: 0 1 32%; min-width: 12em; }
+  .pool-client-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head actions" "title actions"; column-gap: var(--space-4); align-items: center; }
+  .pool-client-head { grid-area: head; }
+  .pool-client-issue-title { grid-area: title; }
+  .pool-client-actions { grid-area: actions; margin-top: 0; }
+  .pool-client-actions > select { flex: 0 1 auto; }
+  /* The bar becomes a rail: fixed to the inline-start edge, icon over
+     label (M3 navigation rail), mirrored under RTL by the logical inset. */
+  .subject-nav {
+    inset-block: 0; inset-inline-end: auto; inline-size: var(--shell-rail-size); block-size: auto;
+    flex-direction: column; justify-content: flex-start; gap: var(--space-1);
+    padding: var(--space-3) var(--space-1) env(safe-area-inset-bottom);
+    border-block-start: 0; border-inline-end: 1px solid var(--color-border);
+  }
+  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; }
+  body { padding-block-end: 0; padding-inline-start: var(--shell-rail-size); }
+}
+@media (min-width: 64rem) {
+  .subject-empty { display: none; }
 }
 `.trim();
 }

@@ -548,6 +548,8 @@
  * standing panel's landmark (`shell.ts`'s `<section id="contributor-standing-panel">`,
  * a static server-rendered element like `#pool-client-panel`/`#publicity-panel`
  * beside it): `contributorStandingPanel` tags its `aria-label` the same way.
+ * Same pattern again for the neighboring `#contributor-issue-list-panel`
+ * landmark: `contributorIssueListPanel` tags its `aria-label`.
  */
 
 import { DEFAULT_LOCALE, type LocaleName } from './locales.js';
@@ -918,6 +920,13 @@ const EN_STRINGS = {
   flightGuardChipTip:
     'The containment/read-hygiene guard denied {n} tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
   flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
+  // The per-firing trace row's step-cost line (shell.ts's actRow(), rendered
+  // only in the reasoning drill-down — features/firing-timeline.ts). The tip
+  // is fixed text, swept as [data-i18n-tip]; the aria prefix wraps the live
+  // model/token text in {name}, painted via tr() and swept as
+  // [data-i18n-aria-template]/[data-i18n-name] on a locale switch.
+  actMetaTip: 'Model and token usage billed for this step',
+  actMetaAria: 'step cost: {name}',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
   // The task board's notes and per-task decision buttons (shell.ts's
@@ -1082,6 +1091,16 @@ const EN_STRINGS = {
   poolClientPanel: 'Contributor pool',
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
+  contributorIssueListPanel: 'Good first issues',
+  // APP SHELL (epic 0021): the subject navigation — a bottom bar on a phone,
+  // a rail from tablet width up. Each subject is a place in the app.
+  subjectNav: 'Sections',
+  subjectFleet: 'Fleet',
+  subjectProject: 'Project',
+  subjectFly: 'Fly',
+  subjectKeeper: 'Keeper',
+  subjectCommunity: 'Community',
+  subjectEmpty: 'Nothing here yet — this area fills as the fleet works.',
   pipelineView: 'Pipeline view',
   pipelineViewTitle: '🛠️ Pipeline view',
   pipelineLensLabel: 'Pipeline lens',
@@ -1428,10 +1447,11 @@ const EN_STRINGS = {
   // poll tick, so `tr()` at build time is the sweep, the same shape
   // `report-menu.ts`'s fresh-each-open dialog already uses. Per the stance
   // every prior slice took (see reportConfirmSuffix above), only the
-  // panel's persistent ON-SCREEN text moves this slice — the per-commit
-  // `data-tip`/`aria-label` hover text (sha, subject, files-changed, branch
-  // arrow, best/worst firing) stays English, same as the per-project fleet
-  // card hover text this table already leaves untranslated.
+  // panel's persistent ON-SCREEN text moved that slice — the per-commit
+  // `data-tip`/`aria-label` hover text (sha, subject, files-changed,
+  // best/worst firing) still stays English, same as the per-project fleet
+  // card hover text this table already leaves untranslated; the branch line
+  // below moved in a later slice.
   landingTitle: '🛬 Landing',
   landingChecking: 'Checking for unmerged work…',
   landingUnavailable: 'Landing preview unavailable.',
@@ -1442,6 +1462,27 @@ const EN_STRINGS = {
   landingDebriefTitle: '📋 Flight debrief',
   landingDebriefBestLabel: '🏆 Best: ',
   landingDebriefWorstLabel: '💀 Worst: ',
+  // The panel's branch line (renderLandingBody()'s "branch → base" row above
+  // the commit list). The panel is never swept after its fetch resolves, so
+  // every one of these is painted via tr() at build time AND tagged: the
+  // three fixed tips as [data-i18n-tip], the arrow's fixed aria as
+  // [data-i18n-aria], and the branch/base aria prefixes — which wrap the
+  // live ref name in {name} — as [data-i18n-aria-template]/[data-i18n-name],
+  // so a mid-session locale switch flips all six in place.
+  landingBranchTip: 'Currently checked-out branch',
+  landingBranchAria: 'branch: {name}',
+  landingBranchArrowTip: 'Merge direction: branch into base',
+  landingBranchArrowAria: 'merges into',
+  landingBaseTip: 'Branch this would merge into',
+  landingBaseAria: 'base branch: {name}',
+  landingCommitShaTip: 'Abbreviated commit hash',
+  landingCommitShaAria: 'commit {name}',
+  landingCommitSubjectTip: 'What this commit changed',
+  landingCommitFilesAria: '{n} files changed',
+  landingDebriefBestTip: 'The most cost-efficient shipped firing this flight',
+  landingDebriefBestAria: 'best firing: {name}',
+  landingDebriefWorstTip: 'The priciest firing that did not ship this flight',
+  landingDebriefWorstAria: 'worst firing: {name}',
   // web/flight-debrief.ts's flightDebriefChipItems/flightDebriefNotableItems
   // — the FLIGHT DEBRIEF panel's stat-chip and notable-event text.
   flightDebriefShippedCount: '{count} shipped',
@@ -1827,6 +1868,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightGuardChipTip:
       'שומר ההכלה/היגיינת הקריאה דחה {n} קריאות כלים במהלך ההפעלה הזו — היא ניסתה לחרוג מהגבול שלה ונעצרה.',
     flightGuardChipAria: 'השומר חסם {n} קריאות כלים בהפעלה הזו (הכלה / היגיינת קריאה)',
+    actMetaTip: 'המודל וכמות הטוקנים שחויבו על הצעד הזה',
+    actMetaAria: 'עלות הצעד: {name}',
     liveProbableTask: 'כנראה עובדת על: {name}',
     liveProbableTaskTip:
       'ההערכה הטובה ביותר של AUTOPILOT למשימה שההפעלה הזו עובדת עליה, על סמך תור הלוח — לא קישור מאומת',
@@ -1897,6 +1940,14 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     poolClientPanel: 'מאגר תורמים',
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
+    contributorIssueListPanel: 'בעיות טובות למתחילים',
+    subjectNav: 'אזורים',
+    subjectFleet: 'צי',
+    subjectProject: 'פרויקט',
+    subjectFly: 'טיסה',
+    subjectKeeper: 'שומר',
+    subjectCommunity: 'קהילה',
+    subjectEmpty: 'עדיין אין כאן כלום — האזור הזה מתמלא ככל שהצי עובד.',
     pipelineView: 'תצוגת צנרת',
     pipelineViewTitle: '🛠️ תצוגת צנרת',
     pipelineLensLabel: 'מסנן הצנרת',
@@ -2173,6 +2224,20 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingDebriefTitle: '📋 תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',
     landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
+    landingBranchTip: 'הענף הפעיל כרגע',
+    landingBranchAria: 'ענף: {name}',
+    landingBranchArrowTip: 'כיוון המיזוג: מהענף אל הבסיס',
+    landingBranchArrowAria: 'מתמזג אל',
+    landingBaseTip: 'הענף שאליו זה ימוזג',
+    landingBaseAria: 'ענף הבסיס: {name}',
+    landingCommitShaTip: 'גיבוב קומיט מקוצר',
+    landingCommitShaAria: 'קומיט {name}',
+    landingCommitSubjectTip: 'מה הקומיט הזה שינה',
+    landingCommitFilesAria: '{n} קבצים שונו',
+    landingDebriefBestTip: 'ההפעלה ששוגרה בעלות היעילה ביותר בטיסה הזו',
+    landingDebriefBestAria: 'ההפעלה הטובה ביותר: {name}',
+    landingDebriefWorstTip: 'ההפעלה היקרה ביותר שלא שוגרה בטיסה הזו',
+    landingDebriefWorstAria: 'ההפעלה הגרועה ביותר: {name}',
     flightDebriefShippedCount: '{count} שוגרו',
     flightDebriefShippedTip: 'הפעלות שעברו את השער ונחתו כקומיט אמיתי',
     flightDebriefDeathCount: '{count} נכשלו',

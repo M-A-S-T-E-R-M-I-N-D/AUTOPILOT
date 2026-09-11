@@ -118,8 +118,23 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // Then panels raw 120→122KB (2026-09-10) for the contributor-issue-list
 // panel recovered from the lanes after the 13:06 power loss. Deferred
 // chunk, never blocks first paint; core untouched.
-const CHUNK_RAW_BUDGET = 122 * 1024;
-const CHUNK_GZIP_BUDGET = 37 * 1024;
+//
+// Then panels raw 122→123KB / gzip 37→38KB (2026-09-10) for the LANDING
+// panel's branch-line i18n slice (board web-msnsndki-dz3vn1 — six STRINGS
+// keys for the branch/arrow/base tips and aria-labels). The panel's own
+// code rides /project.js, but its six STRINGS.he translations land in
+// panels.js via locale-data.ts, the same shape the MIRROR PASS entry above
+// describes. Measured 124884B raw / 37932B gzip against the old 124928B /
+// 37888B budget: 44 bytes over on gzip and 44 bytes under on raw, so both
+// lines move. Core (191852B / 56682B against 192512B / 57344B) untouched.
+// See apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
+// mirrored budget and full reasoning.
+// Then raw 123→127KB / gzip 38→39KB (2026-09-11) for EPIC 0021 slice 2: the
+// app shell's subject-nav client (web/features/subject-nav.ts) rides this
+// deferred chunk by design — it self-initializes and nothing in core calls
+// it — measured 125.8KB/38.4KB after landing, 2.8KB/0.4KB over the old line.
+const CHUNK_RAW_BUDGET = 127 * 1024;
+const CHUNK_GZIP_BUDGET = 39 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

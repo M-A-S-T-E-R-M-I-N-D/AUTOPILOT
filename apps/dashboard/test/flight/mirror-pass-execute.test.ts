@@ -14,6 +14,7 @@ import {
   createMirrorPassLandingNoteExecuteApi,
   createMirrorPassDriftPreviewApi,
   createMirrorPassStaleClaimPreviewApi,
+  createMirrorPassStaleClaimExecuteApi,
 } from '../../src/flight/mirror-pass-execute.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -193,6 +194,75 @@ function poolListAndActivityExec(
             url: `https://github.com/x/y/issues/${issue.number}`,
             labels: issue.labels.map((name) => ({ name })),
             assignees: issue.assignees.map((login) => ({ login })),
+          })),
+        ),
+      };
+    }
+    if (args[0] === 'issue' && args[1] === 'view') {
+      const number = Number(args[2]);
+      const entry = activity[number];
+      if (entry === undefined) return { code: 1, stdout: '' };
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          number,
+          state: entry.state,
+          assignees: [{ login: entry.assignee }],
+          comments: [],
+          updatedAt: entry.updatedAt,
+        }),
+      };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+/** A `CliExec` stub answering identity resolution (same shape as {@link
+ *  identityAndIssueViewExec}) plus both `gh issue list ...` and `gh issue
+ *  view <n> --json number,state,assignees,comments,updatedAt` from
+ *  `poolIssues`/`activity` (same shape as {@link poolListAndActivityExec})
+ *  — the exec double `createMirrorPassStaleClaimExecuteApi` needs, since it
+ *  composes `resolveSocialIdentity` with `createMirrorPassStaleClaimPreviewApi`'s
+ *  own reads. Every call is appended to `calls` so a test can assert exactly
+ *  which `gh` argv ran (or didn't). */
+function identityAndPoolListAndActivityExec(
+  login: string,
+  ownerLogin: string,
+  poolIssues: ReadonlyArray<{
+    number: number;
+    labels: readonly string[];
+    assignees: readonly string[];
+  }>,
+  activity: Readonly<
+    Record<number, { state: 'OPEN' | 'CLOSED'; assignee: string; updatedAt: string }>
+  >,
+  calls: Array<readonly [string, readonly string[]]> = [],
+): CliExec {
+  return vi.fn(async (bin, args) => {
+    calls.push([bin, args]);
+    if (args[0] === 'api' && args[1] === 'user') {
+      return { code: 0, stdout: JSON.stringify({ login }) };
+    }
+    if (args[0] === 'repo' && args[1] === 'view') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: `${ownerLogin}/hello-world`,
+          url: `https://github.com/${ownerLogin}/hello-world`,
+          isPrivate: false,
+        }),
+      };
+    }
+    if (args[0] === 'issue' && args[1] === 'list') {
+      return {
+        code: 0,
+        stdout: JSON.stringify(
+          poolIssues.map((issue) => ({
+            number: issue.number,
+            title: `issue #${issue.number}`,
+            url: `https://github.com/x/y/issues/${issue.number}`,
+            labels: issue.labels.map((name) => ({ name })),
+            assignees: issue.assignees.map((assigneeLogin) => ({ login: assigneeLogin })),
           })),
         ),
       };
@@ -1167,6 +1237,183 @@ describe('createMirrorPassStaleClaimPreviewApi', () => {
       await createMirrorPassStaleClaimPreviewApi(
         dbPath,
         poolListAndActivityExec([], {}),
+        now,
+      )('p1');
+      expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createMirrorPassStaleClaimExecuteApi', () => {
+  const NOW = Date.UTC(2026, 8, 9, 12, 0, 0);
+  const now = (): number => NOW;
+
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-execute-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      const exec = identityAndPoolListAndActivityExec('octocat', 'octocat', [], {});
+      expect(await createMirrorPassStaleClaimExecuteApi(dbPath, exec, now)('nope')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with identity-unresolved and sends zero mutations when gh cannot resolve who is acting', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-execute-unresolved-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec: CliExec = vi.fn(async (bin, args) => {
+        calls.push([bin, args]);
+        return { code: 1, stdout: '' };
+      });
+
+      const report = await createMirrorPassStaleClaimExecuteApi(dbPath, exec, now)('p1');
+
+      expect(report).toEqual({
+        identity: undefined,
+        outcomes: [],
+        skippedReason: 'identity-unresolved',
+      });
+      expect(calls.some(([, args]) => args[0] === 'issue')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with guest and sends zero mutations for a non-maintainer identity', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-execute-guest-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndPoolListAndActivityExec(
+        'a-contributor',
+        'octocat',
+        [{ number: 5, labels: ['pool: web'], assignees: ['someone'] }],
+        { 5: { state: 'OPEN', assignee: 'someone', updatedAt: '2026-08-01T00:00:00Z' } },
+        calls,
+      );
+
+      const report = await createMirrorPassStaleClaimExecuteApi(dbPath, exec, now)('p1');
+
+      expect(report?.skippedReason).toBe('guest');
+      expect(report?.outcomes).toEqual([]);
+      expect(report?.identity).toMatchObject({ login: 'a-contributor', role: 'user' });
+      // Role honesty: identity resolution ran, but the pool list/activity
+      // reads and any issue comment/edit call never did.
+      expect(calls.some(([, args]) => args[0] === 'issue')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends the reap commands for a maintainer identity when a claim is stale', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-execute-fires-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndPoolListAndActivityExec(
+        'octocat',
+        'octocat',
+        [{ number: 5, labels: ['pool: web'], assignees: ['someone'] }],
+        { 5: { state: 'OPEN', assignee: 'someone', updatedAt: '2026-08-01T00:00:00Z' } },
+        calls,
+      );
+
+      const report = await createMirrorPassStaleClaimExecuteApi(dbPath, exec, now)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+      expect(report?.outcomes).toHaveLength(1);
+      expect(report?.outcomes[0]?.plan.finding).toMatchObject({
+        action: 'reap-stale-claim',
+        issueNumber: 5,
+        assignee: 'someone',
+      });
+      expect(report?.outcomes[0]?.commandOutcomes).toEqual([
+        {
+          command: expect.objectContaining({
+            args: ['issue', 'comment', '5', '--body', expect.any(String)],
+          }),
+          ok: true,
+        },
+        {
+          command: expect.objectContaining({
+            args: ['issue', 'edit', '5', '--remove-assignee', 'someone'],
+          }),
+          ok: true,
+        },
+      ]);
+      expect(calls).toContainEqual(['gh', ['issue', 'edit', '5', '--remove-assignee', 'someone']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends nothing when no claimed pool issue is stale', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-execute-fresh-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const exec = identityAndPoolListAndActivityExec(
+        'octocat',
+        'octocat',
+        [{ number: 6, labels: ['pool: web'], assignees: ['someone'] }],
+        { 6: { state: 'OPEN', assignee: 'someone', updatedAt: '2026-09-09T00:00:00Z' } },
+      );
+
+      const report = await createMirrorPassStaleClaimExecuteApi(dbPath, exec, now)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.outcomes).toEqual([]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('defaults to the real CLI exec and Date.now when none is injected', () => {
+    expect(() => createMirrorPassStaleClaimExecuteApi('/tmp/unused.db')).not.toThrow();
+  });
+
+  it('opens the store read-only — this reconcile never writes to the board itself', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-execute-readonly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      vi.mocked(openStore).mockClear();
+      await createMirrorPassStaleClaimExecuteApi(
+        dbPath,
+        identityAndPoolListAndActivityExec('octocat', 'octocat', [], {}),
         now,
       )('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });

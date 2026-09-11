@@ -6,6 +6,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-09-11
+
+### Added
+
+- feat(dashboard): epic 0021 app shell — subjects, a rail, a phone-first cockpit
+- feat(i18n): the landing panel's commit rows and debrief best/worst speak Hebrew
+- feat(mirror-pass): wire POST /api/mirror-pass/stale-claims/execute (derivation 4/4)
+- feat(i18n): the landing panel's branch line speaks Hebrew
+- feat(discussions): post-reply-then-label ritual composer (web-mtlsiac0-v8rksh)
+- feat(mirror-pass): derivation 4/4's mutating stale-claim reaper execute path
+- feat(discussions): pool-label ID lookup + addLabelsToLabelable apply (web-mtlsiac0-v8rksh)
+- feat(i18n): the per-firing trace's step-cost line speaks Hebrew
+- feat(discussions): planDiscussionTriageBatch batch composer (web-mtlsiac0-v8rksh)
+- feat(discussions): addDiscussionComment mutation wiring (web-mtlsiac0-v8rksh)
+- feat(i18n): the contributor-issue-list panel's landmark speaks Hebrew
+
+### Fixed
+
+- fix(ci): no-personal-paths exempts placeholder home under both Windows rules (web-mtqumz0u-j39av4)
+- fix(ci): license-check allowlist by exact SPDX id, not family prefix
+
 ## [0.35.0] — 2026-09-10
 
 ### Added
