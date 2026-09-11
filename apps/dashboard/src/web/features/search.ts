@@ -439,6 +439,7 @@ function searchInit() {
   var askDeepEl = document.getElementById('ask-deep');
   var answerEl = document.getElementById('ask-answer');
   var activityEl = document.getElementById('ask-activity');
+  var offerEl = document.getElementById('ask-offer');
   var proposalEl = document.getElementById('ask-proposal');
   // Epic 0012 slice 3's live tool-activity chips: one per Read/Grep/Glob call
   // the escalation session makes, appended as it happens — REACTIVITY.md §3's
@@ -498,6 +499,31 @@ function searchInit() {
       sourcesEl.setAttribute('data-i18n-aria-template', 'askSourcesAria');
       answerEl.appendChild(sourcesEl);
     }
+  }
+  // ASK/ARCHITECT answer-quality doctrine slice 3 (docs/epics/0021-ask-
+  // answer-quality-doctrine.md, board web-mtt5qwjp-xns6ps): the terminal
+  // frame's \`lowConfidence\` signal only ever fires on a tier-1 (non-Deep)
+  // answer that was the exact refusal string (ask/service.ts's
+  // groundedSuccess) — never on an already-escalated Deep answer, so the
+  // \`deep\` guard here is redundant with the server signal but kept as a
+  // belt-and-suspenders check against ever re-offering Deep after Deep
+  // already ran. This only shows an offer; it never auto-fires the
+  // escalation itself — the operator still clicks it (epic 0012's Out of
+  // scope "operator decides" line, which this doctrine follows).
+  function renderOffer(lowConfidence, deep) {
+    if (!offerEl) return;
+    while (offerEl.firstChild) offerEl.removeChild(offerEl.firstChild);
+    if (!lowConfidence || deep) return;
+    var btn = el('button', 'ask-offer-btn', tr('askLowConfidenceOffer'));
+    btn.setAttribute('type', 'button');
+    btn.setAttribute('data-i18n', 'askLowConfidenceOffer');
+    btn.setAttribute('data-tip', tr('askLowConfidenceOfferTip'));
+    btn.setAttribute('data-i18n-tip', 'askLowConfidenceOfferTip');
+    btn.addEventListener('click', function () {
+      if (askDeepEl) askDeepEl.checked = true;
+      askBtn.click();
+    });
+    offerEl.appendChild(btn);
   }
   // ARCHITECT chat v2 slice 3's client half (docs/epics/0011-architect-chat-
   // v2.md, board web-msnqmgge-oijj8x): renders the terminal frame's
@@ -594,7 +620,7 @@ ${applyAskStreamFrame.toString()}
   // EventSource, which cannot carry the guarding JSON POST body) and re-renders
   // the accumulated answer on every \`{delta}\` frame, so the reply builds up
   // live instead of appearing all at once on the terminal \`{done}\` frame.
-  function pumpAskStream(reader, decoder) {
+  function pumpAskStream(reader, decoder, deep) {
     var buf = '';
     var answered = '';
     function handleFrame(frame) {
@@ -604,6 +630,7 @@ ${applyAskStreamFrame.toString()}
       answered = update.answered;
       renderAnswer(answered, update.sources);
       renderProposal(update.proposal);
+      renderOffer(update.lowConfidence, deep);
     }
     function pump() {
       return reader.read().then(function (step) {
@@ -653,6 +680,7 @@ ${applyAskStreamFrame.toString()}
     setAskLabel('askAsking');
     if (activityEl) { while (activityEl.firstChild) activityEl.removeChild(activityEl.firstChild); }
     if (proposalEl) { while (proposalEl.firstChild) proposalEl.removeChild(proposalEl.firstChild); }
+    if (offerEl) { while (offerEl.firstChild) offerEl.removeChild(offerEl.firstChild); }
     var deep = !!(askDeepEl && askDeepEl.checked);
     renderAskNote(deep ? 'askThinkingDeep' : 'askThinking');
     // Omniscient chat context (web-msnrw1ok-0gsdff), first slice: tell the model
@@ -678,7 +706,7 @@ ${applyAskStreamFrame.toString()}
     fetch('/api/ask/stream', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: project, question: q, view: view, deep: deep, persona: askPersona }) })
       .then(function (r) {
         if (!r.ok || !r.body || !r.body.getReader) throw new Error('stream unavailable');
-        return pumpAskStream(r.body.getReader(), new TextDecoder());
+        return pumpAskStream(r.body.getReader(), new TextDecoder(), deep);
       })
       .catch(function () { renderAskNote('askFailed'); })
       .then(function () { askBtn.disabled = false; setAskLabel('ask'); });

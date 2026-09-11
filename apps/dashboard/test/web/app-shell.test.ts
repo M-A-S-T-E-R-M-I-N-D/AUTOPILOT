@@ -25,12 +25,61 @@ const SUBJECTS = ['fleet', 'fly', 'keeper', 'community'] as const;
 const SUBJECT_KEYS = [
   'subjectNav',
   'subjectFleet',
-  'subjectProject',
+  'subjectOverview',
+  'subjectBoard',
+  'subjectPlan',
+  'subjectDocs',
+  'subjectData',
   'subjectFly',
   'subjectKeeper',
   'subjectCommunity',
   'subjectEmpty',
+  'focusMode',
+  'focusModeTip',
+  'focusExit',
+  'paletteOpen',
+  'paletteTitle',
+  'palettePlaceholder',
+  'paletteEmpty',
+  'paletteGoTo',
+  'paletteOpenProject',
+  'paletteTheme',
+  'paletteLanguage',
+  'paletteSearch',
 ] as const;
+
+/** The client bundle's `tr()` lives in core (locale.ts); the shell module
+ *  reads it as a free global, so the tests give it a transparent one. */
+function stubTranslator(): void {
+  (globalThis as unknown as { tr: unknown }).tr = (key: string, subs?: Record<string, string>) =>
+    subs ? `${key}:${Object.values(subs).join(',')}` : key;
+}
+
+// jsdom's document.open()/write() keeps every listener registered on the
+// `document` and `window` objects themselves (matching browsers), so each
+// boot() below would leave its Ctrl+K and hashchange handlers behind for
+// the next test — and a toggle shortcut fired through an even number of
+// stale handlers opens and re-closes the palette in one keystroke. Track
+// what the module attaches and strip it after each test (the a11y harness
+// does the same, for the same reason).
+type Tracked = [EventTarget, string, EventListenerOrEventListenerObject, unknown];
+const trackedListeners: Tracked[] = [];
+for (const target of [document, window] as EventTarget[]) {
+  const native = target.addEventListener.bind(target);
+  target.addEventListener = ((
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: unknown,
+  ) => {
+    trackedListeners.push([target, type, listener, options]);
+    return native(type, listener, options as AddEventListenerOptions | undefined);
+  }) as typeof target.addEventListener;
+}
+function stripTrackedListeners(): void {
+  for (const [target, type, listener, options] of trackedListeners.splice(0)) {
+    target.removeEventListener(type, listener, options as EventListenerOptions | undefined);
+  }
+}
 
 function tagFor(html: string, id: string): string | undefined {
   return html.match(new RegExp(`<(?:section|nav|main)(?: [^>]*)? id="${id}"[^>]*>`))?.[0];
@@ -48,9 +97,11 @@ describe('layout-css — mobile-first laws', () => {
     expect(css).not.toMatch(/@media[^{]*max-width/);
   });
 
-  it('has exactly one range query: the one-subject-at-a-time rule below lg', () => {
-    const ranges = css.match(/@media \(width < [^)]+\)/g) ?? [];
-    expect(ranges).toEqual([`@media (width < ${BREAKPOINT.lg})`]);
+  it('hides an inactive subject through one state attribute only the nav module sets', () => {
+    // No range query and no width-keyed hide rule: which subjects exist is
+    // the nav's business, and without the module nothing is hidden at all.
+    expect(css).not.toMatch(/@media \(width </);
+    expect(css).toContain('[data-subject-inactive="true"] { display: none !important; }');
   });
 
   it('gives every pointer target the WCAG 2.5.8 floor, and 44px under a coarse pointer', () => {
@@ -149,9 +200,29 @@ describe('renderShell — every section belongs to a subject', () => {
     }
   });
 
-  it('labels the first subject "Project" on a project page and "Fleet" on the fleet page', () => {
+  it('a project page has six subjects (0018 tabs) and is marked as tabs at every width', () => {
+    const project = renderShell('demo');
     expect(html).toContain('data-i18n="subjectFleet"');
-    expect(renderShell('demo')).toContain('data-i18n="subjectProject"');
+    expect(project).toContain(
+      '<body data-project="demo" data-subject="fleet" data-subject-mode="tabs">',
+    );
+    const links = [...project.matchAll(/data-subject-link="([a-z]+)"/g)].map((m) => m[1]);
+    expect(links).toEqual(['fleet', 'board', 'keeper', 'plan', 'docs', 'data']);
+    for (const key of [
+      'subjectOverview',
+      'subjectBoard',
+      'subjectPlan',
+      'subjectDocs',
+      'subjectData',
+    ]) {
+      expect(project).toContain(`data-i18n="${key}"`);
+    }
+    // main#fleet is the CONTAINER of a project page's subjects, not one of them;
+    // the fly sections join Overview there and the community sections join Keeper.
+    expect(tagFor(project, 'fleet')).not.toContain('data-subject=');
+    expect(tagFor(html, 'fleet')).toContain('data-subject="fleet"');
+    expect(tagFor(project, 'flightbar')).toContain('data-subject="fleet"');
+    expect(tagFor(project, 'contributor-standing-panel')).toContain('data-subject="keeper"');
   });
 
   it('carries every subject string in every locale', () => {
@@ -183,6 +254,7 @@ describe('subject-nav client — switching subjects', () => {
       addEventListener: () => {},
     });
     (window as unknown as { scrollTo: unknown }).scrollTo = () => {};
+    stubTranslator();
   });
   afterEach(async () => {
     // jsdom defers an anchor's fragment navigation to a later task (a real
@@ -192,6 +264,7 @@ describe('subject-nav client — switching subjects', () => {
     await new Promise((r) => setTimeout(r, 0));
     window.location.hash = '';
     await new Promise((r) => setTimeout(r, 0));
+    stripTrackedListeners();
   });
 
   function boot(): void {
@@ -224,6 +297,118 @@ describe('subject-nav client — switching subjects', () => {
     expect(document.body.dataset['subject']).toBe('fly');
     expect(link('fly').getAttribute('aria-current')).toBe('page');
     expect(window.localStorage.getItem('ap-subject')).toBe('fly');
+    // The inactive subjects leave the page through the one state attribute.
+    expect(document.getElementById('totals')?.getAttribute('data-subject-inactive')).toBe('true');
+    expect(document.getElementById('flightbar')?.hasAttribute('data-subject-inactive')).toBe(false);
+  });
+
+  it('from lg up on the fleet page nothing is marked inactive — every subject stacks', () => {
+    stacked = true;
+    boot();
+    tap('keeper');
+    expect(document.querySelector('[data-subject-inactive]')).toBeNull();
+  });
+
+  it('a project page is tabs at every width: a wide window still shows one subject', () => {
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    stacked = true;
+    boot();
+    const ev = tap('docs');
+    expect(ev.defaultPrevented).toBe(true);
+    expect(document.body.dataset['subject']).toBe('docs');
+    expect(document.getElementById('totals')?.getAttribute('data-subject-inactive')).toBe('true');
+  });
+
+  it('focus mode hides the chrome through one body attribute and Escape brings it back', () => {
+    boot();
+    const toggle = document.getElementById('focus-toggle') as HTMLButtonElement;
+    const exit = document.getElementById('focus-exit') as HTMLButtonElement;
+    expect(exit.hidden).toBe(true);
+    toggle.click();
+    expect(document.body.dataset['focus']).toBe('on');
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(exit.hidden).toBe(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.body.dataset['focus']).toBeUndefined();
+    expect(exit.hidden).toBe(true);
+    // Never persisted: nothing about focus reaches localStorage.
+    expect(window.localStorage.getItem('ap-focus')).toBeNull();
+  });
+
+  it('Ctrl+K opens the palette with the page’s places and actions, typing filters, Enter runs', () => {
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    stubTranslator();
+    boot();
+    const dialog = document.getElementById('palette') as HTMLDialogElement;
+    expect(dialog.hasAttribute('open')).toBe(false);
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+    );
+    expect(dialog.hasAttribute('open')).toBe(true);
+    const labels = () =>
+      [...document.querySelectorAll('#palette-list li')].map((li) => li.textContent);
+    expect(labels()).toEqual(
+      expect.arrayContaining(['paletteGoTo:Docs', 'paletteTheme:dark', 'focusMode', 'tour']),
+    );
+
+    const input = document.getElementById('palette-input') as HTMLInputElement;
+    input.value = 'docs';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(labels()).toEqual(['paletteGoTo:Docs']);
+    expect(input.getAttribute('aria-activedescendant')).toBe('palette-opt-0');
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(dialog.hasAttribute('open')).toBe(false);
+    expect(document.body.dataset['subject']).toBe('docs');
+  });
+
+  it('the masthead offers ⌘K from md and the shell carries one dialog for it', () => {
+    const html = renderShell();
+    expect(html).toContain('id="palette-btn"');
+    expect(html).toContain('<dialog class="palette" id="palette" aria-labelledby="palette-title">');
+    expect(html).toContain('role="combobox"');
+    expect(css).toContain('.palette-btn { display: none;');
+    expect(css.slice(css.indexOf(mediaMin('md')))).toContain(
+      '.palette-btn { display: inline-flex;',
+    );
+    expect(css).toContain('body[data-focus="on"] .masthead, body[data-focus="on"] .subject-nav');
+  });
+
+  it('the Keeper place shows how many things wait on a human, and says so to a reader', async () => {
+    const panel = document.getElementById('pr-review-panel') as HTMLElement;
+    panel.hidden = false;
+    panel.innerHTML = '<div class="pr-review-item"></div><div class="pr-review-item"></div>';
+    boot();
+    const badge = link('keeper').querySelector('.subject-badge') as HTMLElement;
+    expect(badge.textContent).toBe('2');
+    expect(badge.hidden).toBe(false);
+    expect(link('keeper').getAttribute('aria-label')).toBe('Keeper, keeperWaiting:2');
+    // The panel empties on a later poll; the observer recounts.
+    panel.hidden = true;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(badge.hidden).toBe(true);
+    expect(link('keeper').getAttribute('aria-label')).toBe('Keeper');
+  });
+
+  it('re-marks the sections renderProjectPage rebuilds when the page announces them', () => {
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    boot();
+    tap('board');
+    const main = document.getElementById('fleet') as HTMLElement;
+    const tasks = document.createElement('section');
+    tasks.dataset['subject'] = 'board';
+    const docs = document.createElement('section');
+    docs.dataset['subject'] = 'docs';
+    main.append(tasks, docs);
+    document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
+    expect(tasks.hasAttribute('data-subject-inactive')).toBe(false);
+    expect(docs.getAttribute('data-subject-inactive')).toBe('true');
   });
 
   it('from lg up the anchor jump IS the navigation — the click is not prevented', () => {

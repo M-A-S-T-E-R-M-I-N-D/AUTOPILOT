@@ -147,7 +147,7 @@ import {
 } from './chunks.js';
 import { layoutCss } from './layout-css.js';
 import { REPORT_REGION_ATTR } from './report-capture.js';
-import { themeButtons, langButtons, escapeAttr } from './shell-html.js';
+import { themeButtons, langButtons, escapeAttr, subjectNavHtml } from './shell-html.js';
 import { ACT_ICON_SHAPES, actIconShapes as sharedActIconShapes } from './activity-icon.js';
 import { tipPosition as sharedTipPosition } from './tip-position.js';
 import { dragBeforeIndex as sharedDragBeforeIndex } from './drag-reorder.js';
@@ -3238,6 +3238,13 @@ var REPORT_REGIONS = {
     moduleSources: ['apps/dashboard/src/web/shell.ts', 'apps/dashboard/src/web/task-queue.ts'],
   },
 };
+// APP SHELL (epic 0021 slice 5): a project-page section declares the SUBJECT
+// it belongs to — Overview ('fleet'), 'board', 'keeper', 'plan', 'docs', 'data'
+// — so the shell shows one at a time (0018: the center becomes tabs).
+function subj(node, name) {
+  if (node && node.dataset && node.dataset.subject !== name) node.dataset.subject = name;
+  return node;
+}
 function renderProjectPage(state, pid) {
   var fleet = document.getElementById('fleet');
   if (!fleet) return;
@@ -3249,7 +3256,7 @@ function renderProjectPage(state, pid) {
   a.href = '/';
   a.textContent = '← Fleet';
   back.appendChild(a);
-  fleet.appendChild(back);
+  fleet.appendChild(subj(back, 'fleet'));
   var c = null;
   var list = state.projects || [];
   for (var i = 0; i < list.length; i++) if (list[i].id === pid) c = list[i];
@@ -3266,19 +3273,19 @@ function renderProjectPage(state, pid) {
   }
   // The human story first: what shipped, what it cost, which task it closed.
   var summary = flightSummarySection(c);
-  if (summary) fleet.appendChild(summary);
+  if (summary) fleet.appendChild(subj(summary, 'fleet'));
   // What's next: unmerged commits sitting on the checked-out branch, ready to land.
   var landingEl = landingSection(pid, c.flightLog, c.tasks);
   landingEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'landing');
-  fleet.appendChild(landingEl);
+  fleet.appendChild(subj(landingEl, 'fleet'));
   // The raw process console — collapsed by default, lazy-loaded on expand.
   var flightConsoleEl = flightConsoleSection(pid);
   flightConsoleEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'flight-console');
-  fleet.appendChild(flightConsoleEl);
+  fleet.appendChild(subj(flightConsoleEl, 'fleet'));
   var heatmap = contributionHeatmap(c);
-  if (heatmap) fleet.appendChild(heatmap);
+  if (heatmap) fleet.appendChild(subj(heatmap, 'data'));
   var evalTrend = evaluationTrendPanel(c);
-  if (evalTrend) fleet.appendChild(evalTrend);
+  if (evalTrend) fleet.appendChild(subj(evalTrend, 'data'));
   // The trend chart's own stat-tile summary sits right after it (UX weakness
   // sweep cut 3/3, epic 0015, board web-mtju8ekq-dlpe9n) — both read the
   // same evaluationLabelDayCounts window, so scattering them apart (this
@@ -3286,64 +3293,64 @@ function renderProjectPage(state, pid) {
   // read as an unrelated, disconnected repeat of "Evolution" rather than the
   // chart's own companion row.
   var evolution = evolutionSection(c);
-  if (evolution) fleet.appendChild(evolution);
+  if (evolution) fleet.appendChild(subj(evolution, 'data'));
   var cardEl = card(c);
   var det = cardEl.querySelector('details.detail');
   if (det) det.open = true; // the inside page shows everything, always
-  fleet.appendChild(cardEl);
+  fleet.appendChild(subj(cardEl, 'fleet'));
   var dora = doraSection(c);
-  if (dora) fleet.appendChild(dora);
+  if (dora) fleet.appendChild(subj(dora, 'data'));
   var gateParallel = gateParallelSection(c);
-  if (gateParallel) fleet.appendChild(gateParallel);
+  if (gateParallel) fleet.appendChild(subj(gateParallel, 'data'));
   var warmSessions = warmSessionsSection(c);
-  if (warmSessions) fleet.appendChild(warmSessions);
+  if (warmSessions) fleet.appendChild(subj(warmSessions, 'fleet'));
   var tasksEl = tasksSection(c);
   tasksEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'tasks');
-  fleet.appendChild(tasksEl);
+  fleet.appendChild(subj(tasksEl, 'board'));
   // KEEPER issue triage: incoming GitHub issues judged accept-or-duplicate
   // against this project's board/backlog — sits right before Detected
   // backlog, since an accepted issue becomes a new task that panel itself
   // could later flag as shipped.
   var issueTriageEl = issueTriageSection(pid);
   issueTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'issue-triage');
-  fleet.appendChild(issueTriageEl);
+  fleet.appendChild(subj(issueTriageEl, 'keeper'));
   // Mirror pass: read-only board↔GitHub reconciliation findings (EPIC 0019
   // S3, VERDICT ap-mtsg3nc0-3 slice (c)) — sits right after KEEPER issue
   // triage, the other project-scoped GitHub-governance preview panel.
   var mirrorPassEl = mirrorPassSection(pid);
   mirrorPassEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'mirror-pass');
-  fleet.appendChild(mirrorPassEl);
+  fleet.appendChild(subj(mirrorPassEl, 'keeper'));
   // Detected backlog: open tasks a recent commit may have already shipped
   // (interactive-session work with no METRICS line) — sits right after the
   // task board it proposes edits to.
   var backlogEl = backlogSection(pid);
   backlogEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'backlog');
-  fleet.appendChild(backlogEl);
+  fleet.appendChild(subj(backlogEl, 'keeper'));
   // Fleet coordination: which sibling lanes hold what board claim / what a
   // sibling branch is touching right now — sits right after Detected
   // backlog, since a board claim is the same "who already has this?"
   // question an operator would otherwise have to piece together by hand.
-  fleet.appendChild(coordinationSection(pid));
+  fleet.appendChild(subj(coordinationSection(pid), 'keeper'));
   // Pipeline view (epic 0015 D4): the OTLP span graph — which firings ran in
   // which lane, and what continued what — server-rendered by /api/pipeline
   // and fetched on demand, right after Fleet coordination since both answer
   // the same "what is the fleet actually doing?" question at different depths.
-  fleet.appendChild(pipelineSection(pid));
+  fleet.appendChild(subj(pipelineSection(pid), 'plan'));
   var docsEl = docsSection(pid);
   docsEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'docs');
-  fleet.appendChild(docsEl);
+  fleet.appendChild(subj(docsEl, 'docs'));
   // This round: the non-destructive answer to "how am I doing lately?" —
   // pairs with Start over just below, which is the destructive version of
   // the same question.
   var roundEl = roundSection(pid);
   roundEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'round');
-  fleet.appendChild(roundEl);
+  fleet.appendChild(subj(roundEl, 'fleet'));
   // Next release: the SemVer bump the commits since the last release tag
   // would cut, if any — pairs with This round just above (same "since the
   // last tag" boundary, different question: how am I doing vs. what ships next).
   var releaseEl = releaseSection(pid);
   releaseEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'release');
-  fleet.appendChild(releaseEl);
+  fleet.appendChild(subj(releaseEl, 'fleet'));
   // Start over: a DECLARED telemetry reset (fresh 0/0 round) — the project,
   // its tasks, its index, and its git backups are untouched.
   var so = el('section', 'start-over');
@@ -3473,6 +3480,12 @@ function renderProjectPage(state, pid) {
   // Pin the search/ask bar to this project.
   var sel = document.getElementById('search-project');
   if (sel) sel.value = pid;
+  // APP SHELL (epic 0021 slice 5): anything not tagged above is Overview,
+  // then the nav re-reads the page (guarded writes — an identical render
+  // changes nothing).
+  Array.prototype.forEach.call(fleet.children, function (k) { if (k.dataset && !k.dataset.subject) k.dataset.subject = 'fleet'; });
+  if (typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
+
 }
 function renderTotals(t) {
   var bar = document.getElementById('totals');
@@ -4040,7 +4053,7 @@ export function renderShell(project?: string): string {
   ${PRELOAD_FONT_PATHS.map((p) => `<link rel="preload" href="${p}" as="font" type="font/woff2" crossorigin="anonymous" />`).join('\n  ')}
   <link rel="stylesheet" href="/tokens.css?v=${v}" />
 </head>
-<body${anchor} data-subject="fleet">
+<body${anchor} data-subject="fleet"${project !== undefined ? ' data-subject-mode="tabs"' : ''}>
   <a class="skip-link" href="#fleet" data-i18n="skipToFleet">Skip to fleet</a>
   <div id="update-banner" class="update-banner" role="status" aria-live="polite" data-i18n-aria="updateBannerAria" aria-label="Software update available" hidden></div>
   <header class="masthead">
@@ -4117,26 +4130,26 @@ export function renderShell(project?: string): string {
         <summary id="foundation-summary" data-tip="Support AUTOPILOT — verified donation addresses" data-i18n-tip="foundationTip" aria-label="Foundation" data-i18n-aria="foundation">♥</summary>
         <div class="connect-body foundation-body" id="foundation-body"></div>
       </details>
+      <button type="button" class="palette-btn" id="palette-btn" aria-haspopup="dialog" aria-controls="palette" aria-label="Commands (Ctrl or ⌘ K)" data-i18n-aria="paletteOpen" data-tip="Commands (Ctrl or ⌘ K)" data-i18n-tip="paletteOpen"><kbd>⌘K</kbd></button>
       <button type="button" class="tour-btn" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip" data-i18n="tour">Tour</button>
     </div>
   </header>
-  <nav class="subject-nav" id="subject-nav" aria-label="Sections" data-i18n-aria="subjectNav">
-    <a class="subject-link" href="#totals" data-subject-link="fleet" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span data-i18n="${project !== undefined ? 'subjectProject' : 'subjectFleet'}">${project !== undefined ? 'Project' : 'Fleet'}</span></a>
-    <a class="subject-link" href="#flightbar" data-subject-link="fly"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg><span data-i18n="subjectFly">Fly</span></a>
-    <a class="subject-link" href="#pool-client-panel" data-subject-link="keeper"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span data-i18n="subjectKeeper">Keeper</span></a>
-    <a class="subject-link" href="#contributor-issue-list-panel" data-subject-link="community"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="subjectCommunity">Community</span></a>
-  </nav>
-  <p class="subject-empty" id="subject-empty" role="status" data-i18n="subjectEmpty" hidden>Nothing here yet — this area fills as the fleet works.</p>
+${subjectNavHtml(project)}
+  <dialog class="palette" id="palette" aria-labelledby="palette-title">
+    <h2 class="palette-title" id="palette-title" data-i18n="paletteTitle">Go to, open, or do</h2>
+    <input class="palette-input" id="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Type a place, a project or an action…" data-i18n-placeholder="palettePlaceholder" />
+    <ul class="palette-list" id="palette-list" role="listbox" aria-labelledby="palette-title"></ul>
+  </dialog>
   <section class="totals" id="totals" aria-label="Fleet summary" data-i18n-aria="fleetSummary" data-subject="fleet"></section>
   <section class="live-workers" id="live-workers" role="group" aria-label="Who's flying now" data-i18n-aria="liveWorkers" data-subject="fleet" hidden></section>
   <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance" data-subject="fleet"></section>
   <section class="pr-review-panel" id="pr-review-panel" aria-label="KEEPER PR review" data-i18n-aria="keeperPrReview" data-subject="keeper" hidden></section>
   <section class="pool-client-panel" id="pool-client-panel" aria-label="Contributor pool" data-i18n-aria="poolClientPanel" data-subject="keeper" hidden></section>
-  <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="community" hidden></section>
-  <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="community" hidden></nav>
-  <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="community" hidden></section>
+  <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
+  <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
+  <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
   <section class="fleet-wisdom" id="fleet-wisdom" aria-label="Fleet wisdom proposal" data-i18n-aria="fleetWisdomProposal" data-subject="keeper" hidden></section>
-  <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="fly" hidden>
+  <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>
     <form class="fly-form" id="fly-form">
       <label for="fly-folder" data-i18n="flyFolder">Fly a folder</label>
       <input type="text" id="fly-folder" name="folder" list="fly-folder-options" placeholder="absolute path to a git repo" data-i18n-placeholder="flyFolderPlaceholder" autocomplete="off" spellcheck="false" />
@@ -4168,7 +4181,7 @@ export function renderShell(project?: string): string {
     </form>
     <div class="fly-flights" id="fly-flights" role="group" aria-label="Active flights" data-i18n-aria="activeFlights"></div>
   </section>
-  <section class="searchbar" id="searchbar" aria-label="Search a project" data-i18n-aria="searchProject" data-subject="fly" hidden>
+  <section class="searchbar" id="searchbar" aria-label="Search a project" data-i18n-aria="searchProject" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>
     <form class="search-form" id="search-form">
       <label for="search-project" data-i18n="search">Search</label>
       <select id="search-project" name="project"></select>
@@ -4187,10 +4200,11 @@ export function renderShell(project?: string): string {
     </form>
     <div class="ask-activity" id="ask-activity" aria-live="polite"></div>
     <div class="ask-answer" id="ask-answer" role="status" aria-live="polite"></div>
+    <div class="ask-offer" id="ask-offer" role="status" aria-live="polite"></div>
     <div class="ask-proposal" id="ask-proposal" role="status" aria-live="polite"></div>
     <div class="search-results" id="search-results" aria-live="polite"></div>
   </section>
-  <main id="fleet" tabindex="-1" aria-label="Fleet" data-i18n-aria="fleetMain" aria-busy="true" data-subject="fleet">
+  <main id="fleet" tabindex="-1" aria-label="Fleet" data-i18n-aria="fleetMain" aria-busy="true"${project !== undefined ? '' : ' data-subject="fleet"'}>
     <p class="hint" id="placeholder" data-i18n="connectingFleet">Connecting to the fleet…</p>
   </main>
   <script src="/app.js?v=${v}"></script>${

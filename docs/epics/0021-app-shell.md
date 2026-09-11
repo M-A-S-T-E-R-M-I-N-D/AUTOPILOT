@@ -160,7 +160,11 @@ Fluid where fluidity carries meaning, fixed where density does:
 ### Laws (tests enforce, not taste)
 
 1. **Mobile-first, min-width only.** No `max-width` media query in
-   `layout-css.ts`; the one narrowness rule uses range syntax.
+   `layout-css.ts`, and no width-keyed hide rule either: an inactive
+   subject leaves the page through one state attribute
+   (`data-subject-inactive`) that only the nav module sets, so the subject
+   set is the nav's business and a page without the script shows
+   everything.
 2. **24px floor everywhere, 44px under a coarse pointer** (WCAG 2.5.8 AA;
    Apple/Google). Inputs render at ≥ 1rem under a coarse pointer.
 3. **Switching subjects never reflows another subject** (0018 law 1 by
@@ -184,12 +188,12 @@ Fluid where fluidity carries meaning, fixed where density does:
 | --- | --- | --- |
 | 1 | **Foundation**: fluid tokens + `BREAKPOINT`; `--page-inline`; compact masthead; tap-target floors; the unstyled panel fixed; Pool rows; pipeline/lane/tile stacking | in this epic's first landing |
 | 2 | **Subject shell**: `data-subject` on body + sections; bottom bar / rail / scroll-spy; per-subject scroll; deep-link activation; empty state; `mobile` Playwright project + phone baseline | in this epic's first landing |
-| 3 | **Plan canvas** (the node workflow): the gate pipeline / flight plan as an editable graph — palette · canvas · properties; pan/zoom, drag, tap-tap connect on touch, deterministic auto-layout, undo/redo, autosave to config, read-only for visitors. Grows from `pipeline-panel.ts`'s SVG canvas + tree; no new dependencies | queued |
-| 4 | **Keeper as an inbox**: one queue of everything waiting on a human — PR verdicts, triage, approvals, proposals — each item carrying the accumulated context (what ran, what this step does, what comes next), settled items collapsing to a badge history (0018 slice 3's Keeper tab, done as a subject) | queued |
-| 5 | **Project-page subjects**: 0018's `board` · `log` · `docs` · `data` tabs become subjects of this shell, each with its own scroll | queued |
+| 3 | **Plan canvas** (the node workflow): the gate pipeline / flight plan as an editable graph — palette · canvas · properties; pan/zoom, drag, tap-tap connect on touch, deterministic auto-layout, undo/redo, autosave to config, read-only for visitors. Grows from `pipeline-panel.ts`'s SVG canvas + tree; no new dependencies | **first cut shipped** — the canvas is a camera (wheel/pinch zoom about the pointer, drag pan, keyboard, fit; `pipeline-panel.ts` camera math, `features/pipeline.ts` `wirePlanCanvas`); editing, auto-layout and autosave remain queued |
+| 4 | **Keeper as an inbox**: one queue of everything waiting on a human — PR verdicts, triage, approvals, proposals — each item carrying the accumulated context (what ran, what this step does, what comes next), settled items collapsing to a badge history (0018 slice 3's Keeper tab, done as a subject) | **first cut shipped** — the Keeper place carries a live "N waiting on you" count (`subject-nav.ts` `keeperWaitingCount`); the unified queue with accumulated context remains queued |
+| 5 | **Project-page subjects**: 0018's tabs become subjects of this shell — Overview · Board · Keeper · Plan · Docs · Data, one at a time at every width, each section tagged by `renderProjectPage` | **shipped** — `shell-html.ts` `subjectNavHtml`, `subject-nav.ts` inactive marking |
 | 6 | **Context rail at expanded**: the supporting pane — live lanes + the Keeper queue beside whatever subject is open (M3 supporting-pane canonical layout) | queued |
-| 7 | **⌘K** (0017 slice 4) registers subjects, projects, fly, theme, language — the power-user spine that keeps the bar minimal | queued |
-| 8 | **Focus mode**: hide chrome, keep the canvas (opt-in, the Figma lesson) | queued |
+| 7 | **⌘K** (0017 slice 4): a real `<dialog>` combobox over a listbox whose items are read from the page itself — places, project cards, theme, language, focus, tour — so a new place appears the day it appears on the page | **shipped** — `subject-nav.ts` `bootCommandPalette`, `command-palette.spec.ts` |
+| 8 | **Focus mode**: the chrome leaves, the work stays; a nav button in, an exit pill or Escape out; never persisted | **shipped** — `subject-nav.ts` `bootFocusMode` |
 
 ## Constraints carried forward
 
