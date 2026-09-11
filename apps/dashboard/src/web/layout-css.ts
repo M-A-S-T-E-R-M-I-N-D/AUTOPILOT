@@ -318,6 +318,11 @@ body {
 .ask-answer table { margin: var(--space-2) 0; border-collapse: collapse; }
 .ask-answer th, .ask-answer td { border: 1px solid var(--color-border); padding: 2px var(--space-2); text-align: start; font-size: var(--text-xs); }
 .ask-sources { display: block; margin-top: var(--space-2); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
+.ask-offer:empty { display: none; }
+.ask-offer { margin-top: var(--space-2); }
+.ask-offer-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: transparent; color: var(--color-accent); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.ask-offer-btn:hover, .ask-offer-btn:focus-visible { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.ask-offer-btn:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .search-results:empty { display: none; }
 .search-results { margin-top: var(--space-3); }
 .search-empty { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }

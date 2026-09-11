@@ -4173,6 +4173,7 @@ export function renderShell(project?: string): string {
     </form>
     <div class="ask-activity" id="ask-activity" aria-live="polite"></div>
     <div class="ask-answer" id="ask-answer" role="status" aria-live="polite"></div>
+    <div class="ask-offer" id="ask-offer" role="status" aria-live="polite"></div>
     <div class="ask-proposal" id="ask-proposal" role="status" aria-live="polite"></div>
     <div class="search-results" id="search-results" aria-live="polite"></div>
   </section>

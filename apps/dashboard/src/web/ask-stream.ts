@@ -37,12 +37,20 @@ export function splitSseFrames(buf: string): SseSplitResult {
  *  answer text. `proposal` carries the terminal frame's ARCHITECT-mode
  *  control-tool proposal (ARCHITECT chat v2 slice 3, docs/epics/0011-
  *  architect-chat-v2.md) — `null` on every other frame, so the caller only
- *  ever sees a real proposal once the answer is complete. */
+ *  ever sees a real proposal once the answer is complete. `lowConfidence`
+ *  (ASK/ARCHITECT answer-quality doctrine slice 3, docs/epics/0021-ask-
+ *  answer-quality-doctrine.md, board web-mtt5qwjp-xns6ps) mirrors the
+ *  terminal frame's `AskResult.lowConfidence` signal — `true` only when a
+ *  tier-1 (non-Deep) answer was the exact refusal string; `false` on every
+ *  other frame, including every non-terminal one, so the caller can render
+ *  the "try Deep" offer purely off the terminal value without tracking
+ *  frame-order itself. */
 export interface AskStreamUpdate {
   readonly answered: string;
   readonly sources: unknown;
   readonly activity: unknown;
   readonly proposal: unknown;
+  readonly lowConfidence: boolean;
 }
 
 /** The shape of one decoded `data: {...}` frame's JSON payload. */
@@ -53,6 +61,7 @@ interface AskStreamFramePayload {
   readonly sources?: unknown;
   readonly activity?: unknown;
   readonly proposal?: unknown;
+  readonly lowConfidence?: unknown;
 }
 
 /** Parses one `/api/ask/stream` SSE frame against the answer accumulated so
@@ -76,10 +85,22 @@ export function applyAskStreamFrame(frame: string, answered: string): AskStreamU
     return null;
   }
   if (typeof payload.delta === 'string') {
-    return { answered: answered + payload.delta, sources: null, activity: null, proposal: null };
+    return {
+      answered: answered + payload.delta,
+      sources: null,
+      activity: null,
+      proposal: null,
+      lowConfidence: false,
+    };
   }
   if (payload.activity !== undefined && payload.activity !== null) {
-    return { answered, sources: null, activity: payload.activity, proposal: null };
+    return {
+      answered,
+      sources: null,
+      activity: payload.activity,
+      proposal: null,
+      lowConfidence: false,
+    };
   }
   if (payload.done) {
     return {
@@ -87,6 +108,7 @@ export function applyAskStreamFrame(frame: string, answered: string): AskStreamU
       sources: payload.sources,
       activity: null,
       proposal: payload.proposal ?? null,
+      lowConfidence: payload.lowConfidence === true,
     };
   }
   return null;
