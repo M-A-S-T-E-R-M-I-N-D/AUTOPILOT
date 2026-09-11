@@ -641,6 +641,17 @@ const EN_STRINGS = {
     'Find matching code in the selected project — hits list the file, line, and surrounding excerpt.',
   askDeepTip:
     'Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts',
+  // The escalation-offer affordance (ASK/ARCHITECT answer-quality doctrine
+  // slice 3, docs/epics/0021-ask-answer-quality-doctrine.md, board
+  // web-mtt5qwjp-xns6ps): search.ts's renderOffer() shows this button only
+  // when the terminal frame's lowConfidence signal is true AND the request
+  // that produced it was NOT already Deep — clicking it checks #ask-deep and
+  // re-asks the same question in one click. Static, translated copy, never
+  // model-generated (epic's own framing note) — it opens no injection
+  // surface and never auto-fires Deep on its own.
+  askLowConfidenceOffer: 'Not confident in that answer — try Deep?',
+  askLowConfidenceOfferTip:
+    'Re-ask this exact question with Deep escalation (a read-only agentic session that can go looking for the answer)',
   askTip:
     'Ask the question instead of searching — an AI answer built from the indexed code streams in below.',
   // (#30's parallel Ask/ARCHITECT vocabulary — ask* variants and the whole
@@ -1701,6 +1712,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     searchTip: 'מציאת קוד תואם בפרויקט שנבחר — התוצאות מציגות את הקובץ, השורה והקטע שסביבה.',
     askDeepTip:
       'הסלמה לסשן סוכני לקריאה בלבד (Read/Grep/Glob, עד 10 תורות) שיוצא לחפש את התשובה במקום להסתמך על הקטעים המאונדקסים',
+    askLowConfidenceOffer: 'לא בטוחים בתשובה הזו — לנסות מעמיק?',
+    askLowConfidenceOfferTip:
+      'לשאול שוב את אותה השאלה בהסלמה למעמיק (סשן סוכני לקריאה בלבד שיוצא לחפש את התשובה)',
     askTip: 'שאלו את השאלה במקום לחפש — תשובת AI שנבנית מהקוד המאונדקס מוזרמת למטה.',
     // (#30's parallel ask*/control* vocabulary pruned with its en side —
     // zero references; see the en-table note.)

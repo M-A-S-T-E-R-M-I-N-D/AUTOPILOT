@@ -46,6 +46,7 @@ describe('applyAskStreamFrame', () => {
       sources: null,
       activity: null,
       proposal: null,
+      lowConfidence: false,
     });
   });
 
@@ -60,6 +61,7 @@ describe('applyAskStreamFrame', () => {
       sources: ['a.ts'],
       activity: null,
       proposal: null,
+      lowConfidence: false,
     });
   });
 
@@ -74,6 +76,7 @@ describe('applyAskStreamFrame', () => {
       sources: ['b.ts'],
       activity: null,
       proposal: null,
+      lowConfidence: false,
     });
   });
 
@@ -88,6 +91,7 @@ describe('applyAskStreamFrame', () => {
       sources: null,
       activity: { tool: 'Read', target: 'src/cart.ts' },
       proposal: null,
+      lowConfidence: false,
     });
   });
 
@@ -102,6 +106,7 @@ describe('applyAskStreamFrame', () => {
       sources: undefined,
       activity: null,
       proposal: { tool: 'tasks_list', args: { projectId: 'p1' }, safety: 'read' },
+      lowConfidence: false,
     });
   });
 
@@ -109,6 +114,21 @@ describe('applyAskStreamFrame', () => {
     const update = applyAskStreamFrame('data: {"done":true,"answer":"done"}', 'streamed-in text');
 
     expect(update?.proposal).toBeNull();
+  });
+
+  it('carries lowConfidence: true (ASK answer-quality doctrine slice 3, board web-mtt5qwjp-xns6ps) on a terminal frame flagged low-confidence', () => {
+    const update = applyAskStreamFrame(
+      'data: {"done":true,"answer":"I don\'t see that in the indexed code.","lowConfidence":true}',
+      'streamed-in text',
+    );
+
+    expect(update?.lowConfidence).toBe(true);
+  });
+
+  it('defaults lowConfidence to false on a terminal frame that omits it', () => {
+    const update = applyAskStreamFrame('data: {"done":true,"answer":"done"}', 'streamed-in text');
+
+    expect(update?.lowConfidence).toBe(false);
   });
 
   it('ignores a non-data line', () => {
