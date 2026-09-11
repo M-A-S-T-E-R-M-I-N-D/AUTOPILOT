@@ -67,5 +67,13 @@ export default defineConfig({
       timeout: 30_000,
     },
   ],
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    // Every existing spec, at the desktop width every baseline was captured at.
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /shell-mobile/ },
+    // APP SHELL (epic 0021): a real phone profile — compact width, touch,
+    // COARSE pointer — so the bottom subject bar, the one-subject-at-a-time
+    // rule and the 44px tap-target floor are exercised by the browser that
+    // actually applies them, not inferred from a desktop render.
+    { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /shell-mobile|responsive/ },
+  ],
 });

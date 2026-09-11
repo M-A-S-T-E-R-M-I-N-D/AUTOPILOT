@@ -205,7 +205,13 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // Core measured 191852 / 56682 against 192512 / 57344 (~660B headroom each
 // way, about one more slice) and is not moved. Mirrored in
 // scripts/ci/check-bundle-size.mjs.
-const CHUNK_RAW_BUDGET = 123 * 1024;
+/**
+ * Then raw 123→127KB / gzip 38→39KB (2026-09-11) for EPIC 0021 slice 2: the
+ * app shell's subject-nav client (web/features/subject-nav.ts) rides this
+ * deferred chunk by design — it self-initializes and nothing in core calls
+ * it — measured 125.8KB/38.4KB after landing, 2.8KB/0.4KB over the old line.
+ */
+const CHUNK_RAW_BUDGET = 127 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -229,7 +235,7 @@ const CHUNK_RAW_BUDGET = 123 * 1024;
 // budgets untouched.
 // gzip 37→38KB (2026-09-10): see the branch-line i18n entry above
 // CHUNK_RAW_BUDGET — 37932B measured against 37888B.
-const CHUNK_GZIP_BUDGET = 38 * 1024;
+const CHUNK_GZIP_BUDGET = 39 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

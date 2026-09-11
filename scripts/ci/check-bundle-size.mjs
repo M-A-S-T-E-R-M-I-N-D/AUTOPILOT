@@ -129,8 +129,12 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // lines move. Core (191852B / 56682B against 192512B / 57344B) untouched.
 // See apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
 // mirrored budget and full reasoning.
-const CHUNK_RAW_BUDGET = 123 * 1024;
-const CHUNK_GZIP_BUDGET = 38 * 1024;
+// Then raw 123→127KB / gzip 38→39KB (2026-09-11) for EPIC 0021 slice 2: the
+// app shell's subject-nav client (web/features/subject-nav.ts) rides this
+// deferred chunk by design — it self-initializes and nothing in core calls
+// it — measured 125.8KB/38.4KB after landing, 2.8KB/0.4KB over the old line.
+const CHUNK_RAW_BUDGET = 127 * 1024;
+const CHUNK_GZIP_BUDGET = 39 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;
