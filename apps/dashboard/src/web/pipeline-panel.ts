@@ -108,3 +108,51 @@ export function renderPipelinePanel(graph: SpanGraph, options: PipelinePanelOpti
   const canvas = renderPipelineSvg(graph, layoutCanvas(graph, canvasLayout, cell), selection);
   return `${open}${sidebar}${canvas}</section>`;
 }
+
+/* ---- PLAN CANVAS camera (epic 0021 slice 3, first cut) ----
+ * The pipeline SVG is a camera over a fixed drawing: zoom and pan are edits
+ * to its `viewBox`, nothing else moves. Pure so the client splices them by
+ * `.toString()` and the tests read the same math the browser runs. */
+
+/** A `viewBox` attribute as `[x, y, w, h]`, or null when malformed. */
+export function parseViewBox(value: string | null): number[] | null {
+  if (!value) return null;
+  const parts = value
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+  const ok =
+    parts.length === 4 && parts.every((n) => Number.isFinite(n)) && parts[2]! > 0 && parts[3]! > 0;
+  return ok ? parts : null;
+}
+
+/** Zoom by `factor` (>1 zooms in) about the anchor `(ax, ay)` in viewBox
+ *  units, so the point under the pointer stays under the pointer. The width
+ *  stays within a quarter and four times the base drawing's width; the
+ *  factor actually applied is derived from the clamped width. */
+export function zoomViewBox(
+  vb: readonly number[],
+  factor: number,
+  ax: number,
+  ay: number,
+  base: readonly number[],
+): number[] {
+  const minW = base[2]! / 4;
+  const maxW = base[2]! * 4;
+  const w = Math.min(maxW, Math.max(minW, vb[2]! / (factor > 0 ? factor : 1)));
+  const applied = vb[2]! / w;
+  const h = vb[3]! / applied;
+  return [ax - (ax - vb[0]!) / applied, ay - (ay - vb[1]!) / applied, w, h];
+}
+
+/** Pan by `(dx, dy)` viewBox units: the drawing moves with the pointer, so
+ *  the camera moves the other way. */
+export function panViewBox(vb: readonly number[], dx: number, dy: number): number[] {
+  return [vb[0]! - dx, vb[1]! - dy, vb[2]!, vb[3]!];
+}
+
+/** The attribute string for a viewBox, rounded so an identical camera
+ *  serialises identically (guarded writes compare strings). */
+export function formatViewBox(vb: readonly number[]): string {
+  return vb.map((n) => Math.round(n * 1000) / 1000).join(' ');
+}

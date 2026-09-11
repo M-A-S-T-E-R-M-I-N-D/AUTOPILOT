@@ -641,6 +641,17 @@ const EN_STRINGS = {
     'Find matching code in the selected project — hits list the file, line, and surrounding excerpt.',
   askDeepTip:
     'Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts',
+  // The escalation-offer affordance (ASK/ARCHITECT answer-quality doctrine
+  // slice 3, docs/epics/0021-ask-answer-quality-doctrine.md, board
+  // web-mtt5qwjp-xns6ps): search.ts's renderOffer() shows this button only
+  // when the terminal frame's lowConfidence signal is true AND the request
+  // that produced it was NOT already Deep — clicking it checks #ask-deep and
+  // re-asks the same question in one click. Static, translated copy, never
+  // model-generated (epic's own framing note) — it opens no injection
+  // surface and never auto-fires Deep on its own.
+  askLowConfidenceOffer: 'Not confident in that answer — try Deep?',
+  askLowConfidenceOfferTip:
+    'Re-ask this exact question with Deep escalation (a read-only agentic session that can go looking for the answer)',
   askTip:
     'Ask the question instead of searching — an AI answer built from the indexed code streams in below.',
   // (#30's parallel Ask/ARCHITECT vocabulary — ask* variants and the whole
@@ -1096,7 +1107,36 @@ const EN_STRINGS = {
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
   subjectFleet: 'Fleet',
-  subjectProject: 'Project',
+  // Project-page subjects (epic 0021 slice 5 — 0018's tabs): Overview,
+  // Board, Keeper, Plan, Docs, Data. Plain words a non-technical operator
+  // can read as places, not features.
+  subjectOverview: 'Overview',
+  subjectBoard: 'Board',
+  subjectPlan: 'Plan',
+  subjectDocs: 'Docs',
+  subjectData: 'Data',
+  // FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays.
+  focusMode: 'Focus',
+  focusModeTip: 'Hide the chrome, keep the work (Esc to exit)',
+  focusExit: 'Exit focus',
+  // COMMAND PALETTE (epic 0021 slice 7, closes 0017 slice 4): go to a
+  // place, open a project, or do an action — by typing.
+  paletteOpen: 'Commands (Ctrl or ⌘ K)',
+  paletteTitle: 'Go to, open, or do',
+  palettePlaceholder: 'Type a place, a project or an action…',
+  paletteEmpty: 'No match',
+  paletteGoTo: 'Go to {name}',
+  paletteOpenProject: 'Open {name}',
+  paletteTheme: 'Theme: {name}',
+  paletteLanguage: 'Language: {name}',
+  paletteSearch: 'Search or ask the project',
+  // PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline as a camera.
+  planZoomIn: 'Zoom in',
+  planZoomOut: 'Zoom out',
+  planFit: 'Fit to view',
+  planCanvasAria: 'Plan canvas: scroll or pinch to zoom, drag to pan, 0 to fit',
+  // KEEPER (epic 0021 slice 4, first cut): how many things wait on a human.
+  keeperWaiting: '{n} waiting on you',
   subjectFly: 'Fly',
   subjectKeeper: 'Keeper',
   subjectCommunity: 'Community',
@@ -1672,6 +1712,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     searchTip: 'מציאת קוד תואם בפרויקט שנבחר — התוצאות מציגות את הקובץ, השורה והקטע שסביבה.',
     askDeepTip:
       'הסלמה לסשן סוכני לקריאה בלבד (Read/Grep/Glob, עד 10 תורות) שיוצא לחפש את התשובה במקום להסתמך על הקטעים המאונדקסים',
+    askLowConfidenceOffer: 'לא בטוחים בתשובה הזו — לנסות מעמיק?',
+    askLowConfidenceOfferTip:
+      'לשאול שוב את אותה השאלה בהסלמה למעמיק (סשן סוכני לקריאה בלבד שיוצא לחפש את התשובה)',
     askTip: 'שאלו את השאלה במקום לחפש — תשובת AI שנבנית מהקוד המאונדקס מוזרמת למטה.',
     // (#30's parallel ask*/control* vocabulary pruned with its en side —
     // zero references; see the en-table note.)
@@ -1958,7 +2001,28 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     contributorIssueListPanel: 'בעיות טובות למתחילים',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
-    subjectProject: 'פרויקט',
+    subjectOverview: 'סקירה',
+    subjectBoard: 'לוח',
+    subjectPlan: 'תוכנית',
+    subjectDocs: 'מסמכים',
+    subjectData: 'נתונים',
+    focusMode: 'ריכוז',
+    focusModeTip: 'להסתיר את המסגרת ולהשאיר את העבודה (Esc ליציאה)',
+    focusExit: 'יציאה מריכוז',
+    paletteOpen: 'פקודות (Ctrl או ⌘ K)',
+    paletteTitle: 'לעבור, לפתוח או לבצע',
+    palettePlaceholder: 'הקלידו מקום, פרויקט או פעולה…',
+    paletteEmpty: 'אין התאמה',
+    paletteGoTo: 'לעבור אל {name}',
+    paletteOpenProject: 'לפתוח את {name}',
+    paletteTheme: 'ערכת נושא: {name}',
+    paletteLanguage: 'שפה: {name}',
+    paletteSearch: 'לחפש או לשאול את הפרויקט',
+    planZoomIn: 'להגדיל',
+    planZoomOut: 'להקטין',
+    planFit: 'להתאים לתצוגה',
+    planCanvasAria: 'קנבס התוכנית: גלילה או צביטה להגדלה, גרירה להזזה, 0 להתאמה',
+    keeperWaiting: '{n} ממתינים לך',
     subjectFly: 'טיסה',
     subjectKeeper: 'שומר',
     subjectCommunity: 'קהילה',

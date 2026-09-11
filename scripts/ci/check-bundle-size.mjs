@@ -65,8 +65,17 @@ import { gzipSync } from 'node:zlib';
 // against the 192512B / 57344B budget: 354 bytes over on raw alone, gzip
 // still ~390 bytes under and not moved. The prior slice's 241-byte headroom
 // note said the next core string of any size would go red — it did.
-const CORE_RAW_BUDGET = 189 * 1024;
-const CORE_GZIP_BUDGET = 56 * 1024;
+// Then core raw 189→190KB (2026-09-12) for EPIC 0021 slices 7+8: thirteen
+// English strings for the command palette and focus mode (the Hebrew ones
+// ride the deferred locale-data chunk) — measured 189.4KB.
+// Then core gzip 56→57KB (2026-09-12) for EPIC 0021 slices 3+4 (first cuts):
+// five English strings for the plan canvas and the Keeper count — measured
+// 56.1KB gzip.
+// Then core raw 190→191KB (2026-09-12) for the Ask panel's low-confidence
+// escalation offer (answer-quality doctrine slice 3, a fleet lane's
+// checkpointed-then-completed unit) — measured 190.4KB at landing.
+const CORE_RAW_BUDGET = 191 * 1024;
+const CORE_GZIP_BUDGET = 57 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -143,8 +152,16 @@ const CORE_GZIP_BUDGET = 56 * 1024;
 // app shell's subject-nav client (web/features/subject-nav.ts) rides this
 // deferred chunk by design — it self-initializes and nothing in core calls
 // it — measured 125.8KB/38.4KB after landing, 2.8KB/0.4KB over the old line.
-const CHUNK_RAW_BUDGET = 127 * 1024;
-const CHUNK_GZIP_BUDGET = 39 * 1024;
+// Then raw 127→128KB (2026-09-12) for EPIC 0021 slice 5: the subject nav
+// reads its subject set from the page's links, scans main#fleet's sections
+// on a project page and marks inactive ones — measured 127.4KB raw.
+// Then raw 128→133KB / gzip 39→41KB (2026-09-12) for EPIC 0021 slices 7+8:
+// the command palette (a combobox over a listbox, items read from the page)
+// and focus mode join the shell's deferred client — measured 132.7KB/40.1KB.
+// Then raw 133→135KB (2026-09-12) for EPIC 0021 slice 4 (first cut): the
+// Keeper place's live "waiting on you" count — measured 134.0KB raw.
+const CHUNK_RAW_BUDGET = 135 * 1024;
+const CHUNK_GZIP_BUDGET = 41 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

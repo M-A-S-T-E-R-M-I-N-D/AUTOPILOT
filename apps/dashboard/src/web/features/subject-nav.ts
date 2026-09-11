@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * APP SHELL — subject navigation (epic 0021, slice 2).
+ * APP SHELL — the shell's client (epic 0021): subject navigation (slice 2),
+ * project-page tabs (slice 5), focus mode (slice 8) and the command palette
+ * (slice 7). One module because they share one fact — what the page's
+ * subjects are — and one discipline: guarded writes, nothing persisted that
+ * could trap a reader.
  *
  * A SUBJECT is a place in the app: every body-level section declares the one
  * it belongs to (`data-subject` on the element, set by `renderShell`), and
@@ -29,14 +33,44 @@ export function subjectNavJs(): string {
 // APP SHELL subject navigation (epic 0021 slice 2). See web/features/subject-nav.ts.
 var SUBJECT_KEY = 'ap-subject';
 var SUBJECT_STACKED_MQ = '(min-width: 64rem)';
-var SUBJECT_NAMES = ['fleet', 'fly', 'keeper', 'community'];
 var subjectScrollMemo = {};
 var subjectStored = null;
+/** Project pages are TABS (epic 0018): one subject at every width. The fleet
+ *  page stacks every subject from lg up. */
 function subjectIsStacked() {
+  if (document.body.dataset.subjectMode === 'tabs') return false;
   return typeof window.matchMedia === 'function' && window.matchMedia(SUBJECT_STACKED_MQ).matches;
 }
 function subjectLinks() {
   return Array.prototype.slice.call(document.querySelectorAll('#subject-nav [data-subject-link]'));
+}
+/** The page's subjects are whatever its nav offers — four on the fleet page,
+ *  six on a project page — never a list this module has to know. */
+function subjectNames() {
+  return subjectLinks().map(function (a) { return a.dataset.subjectLink; });
+}
+/** Every element that declares a subject: body-level sections, and on a
+ *  project page the sections renderProjectPage tags inside main#fleet. */
+function subjectSections() {
+  var out = Array.prototype.filter.call(document.body.children, function (k) { return k.dataset && k.dataset.subject; });
+  var main = document.getElementById('fleet');
+  if (main) {
+    Array.prototype.forEach.call(main.children, function (k) { if (k.dataset && k.dataset.subject) out.push(k); });
+  }
+  return out;
+}
+/** Below lg (and always on a project page) the inactive subjects leave the
+ *  page through ONE attribute the stylesheet hides. Set only by this module,
+ *  so without it every subject is on the page and the bar's anchors scroll
+ *  the stack. Guarded: an identical tick writes nothing. */
+function markInactiveSections(active) {
+  var stacked = subjectIsStacked();
+  subjectSections().forEach(function (k) {
+    var inactive = !stacked && k.dataset.subject !== active ? 'true' : null;
+    if (k.getAttribute('data-subject-inactive') !== inactive) {
+      if (inactive) k.setAttribute('data-subject-inactive', inactive); else k.removeAttribute('data-subject-inactive');
+    }
+  });
 }
 /** The subject owning an element id (walks up to the body-level section). */
 function subjectOfId(id) {
@@ -48,16 +82,46 @@ function subjectOfId(id) {
   return '';
 }
 function subjectHasContent(name) {
-  var kids = document.body.children;
-  for (var i = 0; i < kids.length; i++) {
-    var k = kids[i];
-    if (k.dataset && k.dataset.subject === name && !k.hidden) return true;
+  var sections = subjectSections();
+  for (var i = 0; i < sections.length; i++) {
+    if (sections[i].dataset.subject === name && !sections[i].hidden) return true;
   }
   return false;
+}
+/** KEEPER (epic 0021 slice 4, first cut): everything waiting on a human,
+ *  counted where it renders — PR cards, pool rows, triage plans, mirror
+ *  findings, backlog candidates, a pending wisdom proposal. */
+var KEEPER_ITEM_SELECTOR = '.pr-review-item, .pool-client-item, .issue-triage-item, .mirror-pass-item, .backlog-item';
+function keeperWaitingCount() {
+  var n = 0;
+  subjectSections().forEach(function (k) {
+    if (k.dataset.subject !== 'keeper' || k.hidden) return;
+    if (k.id === 'fleet-wisdom') { n += 1; return; }
+    n += k.querySelectorAll(KEEPER_ITEM_SELECTOR).length;
+  });
+  return n;
+}
+function markKeeperBadge(a) {
+  var n = keeperWaitingCount();
+  var badge = a.querySelector('.subject-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'subject-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    a.appendChild(badge);
+  }
+  var text = n > 0 ? String(n) : '';
+  if (badge.textContent !== text) badge.textContent = text;
+  if (badge.hidden !== (n === 0)) badge.hidden = n === 0;
+  var labelEl = a.querySelector('span[data-i18n]');
+  var label = ((labelEl || a).textContent || '').trim();
+  if (n > 0 && typeof tr === 'function') label += ', ' + tr('keeperWaiting', { n: String(n) });
+  if (a.getAttribute('aria-label') !== label) a.setAttribute('aria-label', label);
 }
 function markSubjectLinks(active) {
   subjectLinks().forEach(function (a) {
     var name = a.dataset.subjectLink;
+    if (name === 'keeper') markKeeperBadge(a);
     var current = name === active ? 'page' : null;
     if (a.getAttribute('aria-current') !== current) {
       if (current) a.setAttribute('aria-current', current); else a.removeAttribute('aria-current');
@@ -72,7 +136,7 @@ function markSubjectLinks(active) {
   });
 }
 function showSubject(name) {
-  if (SUBJECT_NAMES.indexOf(name) < 0) name = 'fleet';
+  if (subjectNames().indexOf(name) < 0) name = 'fleet';
   var body = document.body;
   var previous = body.dataset.subject || 'fleet';
   if (previous !== name) {
@@ -82,6 +146,7 @@ function showSubject(name) {
     // a sibling; here the sibling is not even rendered).
     if (!subjectIsStacked()) window.scrollTo(0, subjectScrollMemo[name] || 0);
   }
+  markInactiveSections(name);
   var empty = document.getElementById('subject-empty');
   var showEmpty = !subjectIsStacked() && !subjectHasContent(name);
   if (empty && empty.hidden === showEmpty) empty.hidden = !showEmpty;
@@ -123,6 +188,12 @@ function bootSubjectNav() {
     var s = subjectFromLocation();
     if (s) showSubject(s);
   });
+  // renderProjectPage rebuilds main#fleet's sections on every render and
+  // announces it; the active subject's inactive marks are re-applied to
+  // the new nodes (guarded, so an identical render writes nothing).
+  document.addEventListener('ap:subjects-changed', function () {
+    showSubject(document.body.dataset.subject || 'fleet');
+  });
   if (typeof window.matchMedia === 'function') {
     var mq = window.matchMedia(SUBJECT_STACKED_MQ);
     var onRegime = function () { showSubject(document.body.dataset.subject || 'fleet'); };
@@ -134,17 +205,21 @@ function bootSubjectNav() {
   // keep an identical tick silent (epic 0018 law 3).
   if (typeof MutationObserver === 'function') {
     new MutationObserver(function (records) {
+      // A record can arrive while the page is being torn down (unload, or a
+      // test harness closing its document): nothing to mark on nothing.
+      if (typeof document === 'undefined' || !document.body) return;
       for (var i = 0; i < records.length; i++) {
         if (records[i].target && records[i].target.id === 'subject-empty') continue; // our own write
         showSubject(document.body.dataset.subject || 'fleet');
         return;
       }
-    }).observe(document.body, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+    }).observe(document.body, { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true });
   }
   // From lg up every subject is on the page: the rail follows the reader.
   if (typeof IntersectionObserver === 'function') {
     var visible = {};
     var spy = new IntersectionObserver(function (entries) {
+      if (typeof document === 'undefined' || !document.body) return;
       if (!subjectIsStacked()) return;
       entries.forEach(function (en) { visible[en.target.id] = en.isIntersecting ? en.intersectionRatio : 0; });
       var best = '', bestRatio = 0;
@@ -158,6 +233,169 @@ function bootSubjectNav() {
     });
   }
 }
+// ---- FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays. ----
+// Opt-in and never persisted — a reload is the way home a less technical
+// operator always has. Escape exits (unless the palette owns the key).
+function setFocusMode(on) {
+  var body = document.body;
+  var next = on ? 'on' : null;
+  if ((body.dataset.focus || null) !== next) {
+    if (next) body.dataset.focus = next; else delete body.dataset.focus;
+  }
+  var toggle = document.getElementById('focus-toggle');
+  if (toggle && toggle.getAttribute('aria-pressed') !== String(!!on)) toggle.setAttribute('aria-pressed', String(!!on));
+  var exit = document.getElementById('focus-exit');
+  if (exit && exit.hidden === !!on) exit.hidden = !on;
+}
+function bootFocusMode() {
+  var toggle = document.getElementById('focus-toggle');
+  var exit = document.getElementById('focus-exit');
+  if (!toggle || !exit) return;
+  toggle.addEventListener('click', function () { setFocusMode(document.body.dataset.focus !== 'on'); });
+  exit.addEventListener('click', function () {
+    setFocusMode(false);
+    if (typeof toggle.focus === 'function') toggle.focus();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.body.dataset.focus === 'on' && !paletteIsOpen()) setFocusMode(false);
+  });
+}
+// ---- COMMAND PALETTE (epic 0021 slice 7, closes 0017 slice 4) ----
+// Ctrl/⌘-K. A combobox over a listbox: the input keeps focus, the active
+// option is a virtual highlight (aria-activedescendant), Enter runs it.
+// Items are read from the page itself — its subject links, its project
+// cards, the theme and language buttons, focus, the tour — so a new place
+// or action appears here the day it appears on the page.
+var paletteAll = [];
+var paletteShown = [];
+var paletteActive = 0;
+function paletteEl() { return document.getElementById('palette'); }
+function paletteIsOpen() { var d = paletteEl(); return !!(d && d.hasAttribute('open')); }
+function paletteText(key, name) {
+  if (typeof tr === 'function') return name === undefined ? tr(key) : tr(key, { name: name });
+  return name === undefined ? key : key + ' ' + name;
+}
+function paletteCollect() {
+  var items = [];
+  subjectLinks().forEach(function (a) {
+    var name = (a.textContent || '').trim();
+    items.push({ label: paletteText('paletteGoTo', name), run: function () { a.click(); } });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('a.card-link[href^="/p/"]'), function (a) {
+    var name = (a.textContent || '').trim();
+    if (name) items.push({ label: paletteText('paletteOpenProject', name), run: function () { location.href = a.getAttribute('href'); } });
+  });
+  var fly = document.getElementById('fly-folder');
+  if (fly) items.push({ label: paletteText('flyFolder'), run: function () { showSubject('fly'); fly.focus(); } });
+  var q = document.getElementById('search-q');
+  if (q) items.push({ label: paletteText('paletteSearch'), run: function () { showSubject('fly'); q.focus(); } });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-theme-btn]'), function (b) {
+    items.push({ label: paletteText('paletteTheme', (b.textContent || '').trim()), run: function () { b.click(); } });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-lang-btn]'), function (b) {
+    items.push({ label: paletteText('paletteLanguage', (b.textContent || '').trim()), run: function () { b.click(); } });
+  });
+  if (document.getElementById('focus-toggle')) {
+    var on = document.body.dataset.focus === 'on';
+    items.push({ label: paletteText(on ? 'focusExit' : 'focusMode'), run: function () { setFocusMode(!on); } });
+  }
+  var tour = document.getElementById('tour-btn');
+  if (tour) items.push({ label: paletteText('tour'), run: function () { tour.click(); } });
+  return items;
+}
+function paletteRender() {
+  var list = document.getElementById('palette-list');
+  var input = document.getElementById('palette-input');
+  if (!list || !input) return;
+  var q = (input.value || '').trim().toLowerCase();
+  paletteShown = paletteAll.filter(function (it) { return !q || it.label.toLowerCase().indexOf(q) >= 0; });
+  if (paletteActive >= paletteShown.length) paletteActive = 0;
+  list.replaceChildren();
+  if (paletteShown.length === 0) {
+    var none = document.createElement('li');
+    none.className = 'palette-empty';
+    none.textContent = paletteText('paletteEmpty');
+    list.appendChild(none);
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+  paletteShown.forEach(function (it, i) {
+    var li = document.createElement('li');
+    li.id = 'palette-opt-' + i;
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', String(i === paletteActive));
+    li.textContent = it.label;
+    li.addEventListener('click', function () { paletteRun(i); });
+    list.appendChild(li);
+  });
+  input.setAttribute('aria-activedescendant', 'palette-opt-' + paletteActive);
+}
+function paletteRun(i) {
+  var it = paletteShown[i];
+  paletteClose();
+  if (it) it.run();
+}
+function paletteOpen() {
+  var d = paletteEl();
+  var input = document.getElementById('palette-input');
+  if (!d || !input) return;
+  paletteAll = paletteCollect();
+  paletteActive = 0;
+  input.value = '';
+  if (!d.hasAttribute('open')) {
+    // showModal traps focus and gives Escape for free; where it is missing or
+    // unimplemented (jsdom throws), the open attribute still shows the dialog.
+    var modal = false;
+    if (typeof d.showModal === 'function') { try { d.showModal(); modal = true; } catch (e) { modal = false; } }
+    if (!modal) d.setAttribute('open', '');
+  }
+  paletteRender();
+  input.focus();
+}
+function paletteClose() {
+  var d = paletteEl();
+  if (!d) return;
+  if (d.hasAttribute('open')) {
+    var closed = false;
+    if (typeof d.close === 'function') { try { d.close(); closed = true; } catch (e) { closed = false; } }
+    if (!closed || d.hasAttribute('open')) d.removeAttribute('open');
+  }
+  var btn = document.getElementById('palette-btn');
+  if (btn && typeof btn.focus === 'function') btn.focus();
+}
+function bootCommandPalette() {
+  var d = paletteEl();
+  var input = document.getElementById('palette-input');
+  if (!d || !input) return;
+  var btn = document.getElementById('palette-btn');
+  if (btn) btn.addEventListener('click', function () { if (paletteIsOpen()) paletteClose(); else paletteOpen(); });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (paletteIsOpen()) paletteClose(); else paletteOpen();
+    }
+  });
+  input.addEventListener('input', function () { paletteActive = 0; paletteRender(); });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (paletteShown.length) { paletteActive = (paletteActive + 1) % paletteShown.length; paletteRender(); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (paletteShown.length) { paletteActive = (paletteActive - 1 + paletteShown.length) % paletteShown.length; paletteRender(); }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      paletteRun(paletteActive);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      paletteClose();
+    }
+  });
+  // A click on the backdrop (the dialog element itself, outside its content) closes.
+  d.addEventListener('click', function (e) { if (e.target === d) paletteClose(); });
+}
 bootSubjectNav();
+bootFocusMode();
+bootCommandPalette();
 `.trim();
 }

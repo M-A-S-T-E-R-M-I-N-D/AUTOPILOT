@@ -26,7 +26,7 @@ export function layoutCss(): string {
    --page-inline is the ONE inline padding every body-level section shares —
    one left edge on every width. The shell sizes are the bottom bar's height
    (compact) and the rail's width (medium and up). */
-:root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 4.5rem; }
+:root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 5rem; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
   margin: 0; font-family: var(--font-sans);
@@ -327,6 +327,11 @@ body {
 .ask-answer table { margin: var(--space-2) 0; border-collapse: collapse; }
 .ask-answer th, .ask-answer td { border: 1px solid var(--color-border); padding: 2px var(--space-2); text-align: start; font-size: var(--text-xs); }
 .ask-sources { display: block; margin-top: var(--space-2); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
+.ask-offer:empty { display: none; }
+.ask-offer { margin-top: var(--space-2); }
+.ask-offer-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: transparent; color: var(--color-accent); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.ask-offer-btn:hover, .ask-offer-btn:focus-visible { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.ask-offer-btn:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .search-results:empty { display: none; }
 .search-results { margin-top: var(--space-3); }
 .search-empty { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }
@@ -1401,7 +1406,9 @@ body > [data-subject] { scroll-margin-block-start: 5rem; }
   border-radius: var(--shape-small);
   transition: color var(--duration-short2) var(--easing-standard), background var(--duration-short2) var(--easing-standard);
 }
-.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+/* Six places on a project page share a 320px bar: the label yields, the icon never does. */
+.subject-link > span { max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .subject-link:hover, .subject-link:focus-visible { color: var(--color-text); outline: none; background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
 .subject-link:focus-visible { box-shadow: 0 0 0 2px var(--color-accent) inset; }
 .subject-link[aria-current="page"] { color: var(--color-accent); }
@@ -1409,17 +1416,13 @@ body > [data-subject] { scroll-margin-block-start: 5rem; }
 .subject-link[data-empty="true"] { opacity: 0.55; }
 .subject-empty { margin: var(--space-6) var(--page-inline); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
 body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
-/* Below lg, one subject at a time (the M3 compact/medium canonical layout).
-   A rule about narrowness, so it is the sheet's one range query. Keyed on
-   body[data-nav="on"], which only the nav module sets at boot: with no
-   script (yet), every subject is on the page and the bar's anchors scroll
+/* One subject at a time — below lg on the fleet page, at every width on a
+   project page (0018: the center is tabs). The nav module marks each
+   inactive section with ONE attribute and this is the only rule that reads
+   it, so the subject set is the nav's business, not the stylesheet's, and
+   with no script every subject is on the page and the bar's anchors scroll
    the stack — nothing hides behind an attribute nobody wrote. */
-@media (width < 64rem) {
-  body[data-nav="on"][data-subject="fleet"] > [data-subject]:not([data-subject="fleet"]),
-  body[data-nav="on"][data-subject="fly"] > [data-subject]:not([data-subject="fly"]),
-  body[data-nav="on"][data-subject="keeper"] > [data-subject]:not([data-subject="keeper"]),
-  body[data-nav="on"][data-subject="community"] > [data-subject]:not([data-subject="community"]) { display: none; }
-}
+[data-subject-inactive="true"] { display: none !important; }
 @media (min-width: 48rem) {
   :root { --page-inline: var(--space-5); }
   .masthead { padding: var(--space-4) var(--page-inline); gap: var(--space-4); }
@@ -1445,11 +1448,61 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
     padding: var(--space-3) var(--space-1) env(safe-area-inset-bottom);
     border-block-start: 0; border-inline-end: 1px solid var(--color-border);
   }
-  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; }
+  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; padding-inline: var(--space-1); }
   body { padding-block-end: 0; padding-inline-start: var(--shell-rail-size); }
 }
 @media (min-width: 64rem) {
   .subject-empty { display: none; }
 }
+/* FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays. The
+   toggle is the nav's last item (a button, not a place); the exit pill is
+   the one floating control, in the thumb-reachable top corner, 44px. */
+.subject-focus { background: none; border: 0; cursor: pointer; font: inherit; font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.02em; }
+.subject-focus[aria-pressed="true"] { color: var(--color-accent); }
+.focus-exit {
+  position: fixed; inset-block-start: var(--space-3); inset-inline-end: var(--space-3); z-index: 40;
+  min-block-size: 2.75rem; padding: var(--space-2) var(--space-4); border-radius: var(--radius-full);
+  border: 1px solid var(--color-border); color: var(--color-text); font: inherit; font-size: var(--text-sm); cursor: pointer;
+  background: color-mix(in srgb, var(--color-surface-raised) 84%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: var(--elevation-level-2);
+}
+.focus-exit:hover, .focus-exit:focus-visible { border-color: var(--color-accent); outline: none; }
+body[data-focus="on"] .masthead, body[data-focus="on"] .subject-nav, body[data-focus="on"] .update-banner { display: none; }
+body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
+/* COMMAND PALETTE (epic 0021 slice 7): one modal, top-anchored so the list
+   grows downward; a combobox over a listbox — the Linear / VS Code shape.
+   The masthead's ⌘K pill is a keyboard affordance, so it appears from md. */
+.palette-btn { display: none; font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); color: var(--color-text-muted); background: transparent; border: 1px solid var(--color-border); transition: box-shadow var(--duration-short2) var(--easing-standard); }
+.palette-btn kbd { font: inherit; font-family: var(--font-mono); }
+.palette-btn:hover, .palette-btn:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
+.palette {
+  inset: 0; margin: 12vh auto 0; inline-size: min(36rem, 92vw); padding: 0;
+  border: 1px solid var(--color-border); border-radius: var(--shape-medium);
+  background: var(--color-surface-raised); color: var(--color-text); box-shadow: var(--elevation-level-3);
+}
+.palette::backdrop { background: rgba(0, 0, 0, 0.5); }
+.palette-title { margin: 0; padding: var(--space-3) var(--space-4) 0; font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.palette-input { display: block; inline-size: 100%; font: inherit; font-size: var(--text-lg); padding: var(--space-3) var(--space-4); border: 0; border-block-end: 1px solid var(--color-border); background: transparent; color: var(--color-text); outline: none; }
+.palette-list { list-style: none; margin: 0; padding: var(--space-2); max-block-size: 50vh; overflow-y: auto; }
+.palette-list li { padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); cursor: pointer; min-block-size: 2.25rem; }
+.palette-list li[aria-selected="true"] { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
+.palette-list li:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.palette-empty { color: var(--color-text-muted); cursor: default; }
+@media (min-width: 48rem) {
+  .palette-btn { display: inline-flex; align-items: center; }
+}
+/* PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline SVG is a camera —
+   wheel or pinch zooms about the pointer, a drag pans, double-click or 0
+   fits. touch-action: none hands the gestures to the canvas, not the page. */
+.pipeline-canvas { touch-action: none; cursor: grab; outline: none; }
+.pipeline-canvas:focus-visible { box-shadow: 0 0 0 2px var(--color-accent); border-radius: var(--shape-small); }
+.pipeline-canvas.is-panning { cursor: grabbing; }
+.plan-zoom { display: inline-flex; gap: var(--space-1); margin: 0 0 var(--space-2); }
+.plan-zoom button { font: inherit; font-size: var(--text-sm); min-inline-size: 2rem; min-block-size: 1.75rem; cursor: pointer; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: transparent; color: var(--color-text-muted); }
+.plan-zoom button:hover, .plan-zoom button:focus-visible { color: var(--color-text); border-color: var(--color-accent); outline: none; }
+/* KEEPER BADGE (epic 0021 slice 4, first cut): how many things wait on a
+   human, shown on the place where they wait. Needs-you ink, by definition. */
+.subject-link { position: relative; }
+.subject-badge { position: absolute; inset-block-start: 4px; inset-inline-end: calc(50% - 1.375rem); min-inline-size: 1.125rem; block-size: 1.125rem; padding: 0 4px; border-radius: var(--radius-full); background: var(--color-needs-you); color: var(--color-accent-text); font-size: 0.6875rem; font-weight: 700; line-height: 1.125rem; text-align: center; }
 `.trim();
 }

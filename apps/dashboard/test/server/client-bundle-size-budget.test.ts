@@ -190,8 +190,21 @@ import {
 // Panels (the Hebrew twins, via locale-data.ts) measured 129557 / 39557
 // against 130048 / 39936 and is not moved. Mirrored in
 // scripts/ci/check-bundle-size.mjs.
-const CORE_RAW_BUDGET = 189 * 1024;
-const CORE_GZIP_BUDGET = 56 * 1024;
+/**
+ * Then core raw 189→190KB (2026-09-12) for EPIC 0021 slices 7+8: thirteen
+ * English strings for the command palette and focus mode — measured 189.4KB.
+ */
+/**
+ * Then core gzip 56→57KB (2026-09-12) for EPIC 0021 slices 3+4 (first cuts):
+ * five English strings for the plan canvas and the Keeper count — 56.1KB.
+ */
+/**
+ * Then core raw 190→191KB (2026-09-12) for the Ask panel's low-confidence
+ * escalation offer (a fleet lane's checkpointed-then-completed unit) —
+ * measured 190.4KB at landing.
+ */
+const CORE_RAW_BUDGET = 191 * 1024;
+const CORE_GZIP_BUDGET = 57 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -222,7 +235,21 @@ const CORE_GZIP_BUDGET = 56 * 1024;
  * deferred chunk by design — it self-initializes and nothing in core calls
  * it — measured 125.8KB/38.4KB after landing, 2.8KB/0.4KB over the old line.
  */
-const CHUNK_RAW_BUDGET = 127 * 1024;
+/**
+ * Then raw 127→128KB (2026-09-12) for EPIC 0021 slice 5: the subject nav
+ * reads its subject set from the page's links, scans main#fleet's sections
+ * on a project page and marks inactive ones — measured 127.4KB raw.
+ */
+/**
+ * Then raw 128→133KB / gzip 39→41KB (2026-09-12) for EPIC 0021 slices 7+8:
+ * the command palette and focus mode join the shell's deferred client —
+ * measured 132.7KB/40.1KB.
+ */
+/**
+ * Then raw 133→135KB (2026-09-12) for EPIC 0021 slice 4 (first cut): the
+ * Keeper place's live "waiting on you" count — measured 134.0KB raw.
+ */
+const CHUNK_RAW_BUDGET = 135 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -246,7 +273,7 @@ const CHUNK_RAW_BUDGET = 127 * 1024;
 // budgets untouched.
 // gzip 37→38KB (2026-09-10): see the branch-line i18n entry above
 // CHUNK_RAW_BUDGET — 37932B measured against 37888B.
-const CHUNK_GZIP_BUDGET = 39 * 1024;
+const CHUNK_GZIP_BUDGET = 41 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

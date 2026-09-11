@@ -5,7 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0021. ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale
 
-Status: Active
+Status: Done — all 4 doctrine pieces / 3 slices shipped: citations (`56752134`),
+`lowConfidence` signal (`920e8081`), and the escalation-offer UI + `en`/`he`
+strings (this commit).
 
 Board task: `web-mtt5qwjp-xns6ps` ("ASK/ARCHITECT answer-quality doctrine (SOTA
 in-app answers): grounded file:line citations in every answer, honest
@@ -54,17 +56,22 @@ a committed fact instead of something every future firing re-derives from
    - The **offer** — a UI affordance in the Ask panel
      (`apps/dashboard/src/web/features/search.ts`) that appears on
      `lowConfidence: true` and lets the operator flip Deep and re-ask in one
-     click — is NOT shipped. Blocked, not skipped: see Constraints.
+     click — is shipped. `applyAskStreamFrame` (`ask-stream.ts`) carries the
+     terminal frame's `lowConfidence` through to `AskStreamUpdate`; `search.ts`'s
+     `renderOffer()` renders a real `<button id="ask-offer">` (translated,
+     keyboard-reachable) only when `lowConfidence` is true AND the request
+     was not already Deep, clearing it on every new Ask. It never auto-fires
+     Deep — the operator still clicks it.
 4. **Native He/En.** The infrastructure this needs already exists and is
    mature — `@autopilot/tokens`'s `STRINGS` table, the
    `data-i18n`/`data-i18n-aria`/`data-i18n-template`/… attribute family,
    `tr()`, and `translateDom()` (`apps/dashboard/src/web/features/locale.ts`)
    — and the Ask panel is ALREADY wired into it (`askThinking`, `askSources`,
    `askActivity*`, `askDeepTip`, … all carry both `en` and `he` entries in
-   `packages/tokens/src/strings.ts` today). This piece is not blocked on
-   missing foundation; it only needs piece 3's new offer copy tagged and
-   translated the same established way once that copy exists. There is
-   nothing to build here independent of piece 3.
+   `packages/tokens/src/strings.ts` today). Shipped alongside piece 3:
+   `askLowConfidenceOffer`/`askLowConfidenceOfferTip` carry both `en` and `he`
+   entries, and the offer button is tagged `data-i18n`/`data-i18n-tip` the
+   same established way as every other Ask panel string.
 
 ## Constraints
 
@@ -99,9 +106,9 @@ a committed fact instead of something every future firing re-derives from
 1. Grounded file:line citations. Shipped, `56752134`.
 2. `lowConfidence` signal (tier-1, sourced-but-refused case). Shipped,
    `920e8081`.
-3. The escalation-offer UI + its `en`/`he` strings. Not started — blocked on
-   `packages/tokens/src/strings.ts` per Constraints; pick this up once that
-   file is clear of concurrent unlanded work.
+3. The escalation-offer UI + its `en`/`he` strings. Shipped — `search.ts`'s
+   `renderOffer()`, `ask-stream.ts`'s `lowConfidence` passthrough, and the
+   `askLowConfidenceOffer`/`askLowConfidenceOfferTip` string pair.
 
 ## Related
 
