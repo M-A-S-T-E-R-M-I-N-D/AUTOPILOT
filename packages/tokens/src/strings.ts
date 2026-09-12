@@ -940,6 +940,11 @@ const EN_STRINGS = {
   actMetaAria: 'step cost: {name}',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
+  boardViewColumns: 'Columns',
+  boardViewList: 'List',
+  boardColQueued: 'Queued',
+  boardColActive: 'In flight · needs you',
+  boardColDone: 'Done',
   // The task board's notes and per-task decision buttons (shell.ts's
   // tasksSection(), board web-msnsndki-dz3vn1): the FOCUS-MODE lock note, the
   // empty-board note, and ✓ approve / ✗ reject on a self-proposed task,
@@ -1145,6 +1150,8 @@ const EN_STRINGS = {
   contextRailEmpty: 'Nothing in flight and nothing waiting on you.',
   keeperQueueTitle: 'Waiting on you',
   keeperQueueHint: 'j / k or the arrows move · Enter opens · a acts',
+  keeperQueueSettled: '{n} settled this session',
+  keeperQueueClear: 'Nothing waiting on you',
   keeperSourcePr: 'PR',
   keeperSourcePool: 'Pool',
   keeperSourceTriage: 'Triage',
@@ -1179,6 +1186,8 @@ const EN_STRINGS = {
   planEditorPublishFailed: 'Not published',
   planEditorPublish: 'Publish',
   planEditorDiscard: 'Discard draft',
+  planEditorUndo: 'Undo',
+  planEditorRedo: 'Redo',
   soulRatifyConfirm:
     'Replace the live SOUL prompt with the proposed text?\n\nYou can undo this afterward with un-ratify.',
   soulUnratifyConfirm:
@@ -1933,6 +1942,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightSliceChipAria: 'פרוסה של {name}',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
+    boardViewColumns: 'עמודות',
+    boardViewList: 'רשימה',
+    boardColQueued: 'בתור',
+    boardColActive: 'בטיסה · מחכה לך',
+    boardColDone: 'בוצע',
     tasksFocusNote: 'המיקוד נעול: הטיסות עובדות רק על המשימות הממוקדות עד לסיומן.',
     tasksEmpty:
       'אין משימות עדיין — הוסיפו אחת למטה, או תנו ל-AUTOPILOT לזרוע את הלוח שלו בעצמו תוך כדי טיסה.',
@@ -2067,6 +2081,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     contextRailEmpty: 'שום דבר לא בטיסה ושום דבר לא מחכה לך.',
     keeperQueueTitle: 'ממתין לך',
     keeperQueueHint: 'j / k או החצים מזיזים · Enter פותח · a פועל',
+    keeperQueueSettled: '{n} הוסדרו בסשן הזה',
+    keeperQueueClear: 'שום דבר לא מחכה לך',
     keeperSourcePr: 'PR',
     keeperSourcePool: 'מאגר',
     keeperSourceTriage: 'מיון',
@@ -2101,6 +2117,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     planEditorPublishFailed: 'לא פורסם',
     planEditorPublish: 'פרסם',
     planEditorDiscard: 'בטל טיוטה',
+    planEditorUndo: 'בטל',
+    planEditorRedo: 'בצע שוב',
     soulRatifyConfirm:
       'להחליף את הנחיית ה-SOUL החיה בטקסט המוצע?\n\nניתן לבטל זאת לאחר מכן באמצעות ביטול-אישור.',
     soulUnratifyConfirm:

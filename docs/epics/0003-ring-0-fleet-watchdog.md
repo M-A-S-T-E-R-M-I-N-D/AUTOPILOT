@@ -26,6 +26,19 @@ run by `watch` or any automatic ritual). Those belong to their own board items
 and `docs/RESEARCH-LIBRARY.md` entries; the watchdog contract recorded here is
 unchanged.
 
+Landing-ritual refusal added 2026-09-12 (board web-mtq2cubl-e5z0ae, LANE HALF-STEP
+GUARD): `landWatchdogTick` now also consults an optional `halfSteps()` — open
+(`in_progress`) board tasks whose already-shipped slices sit in the commits a land
+would carry (`landing/lane-half-step.ts`, joining the board against the store's own
+ship ledger) — and refuses the automatic land while any exist, the same shape as the
+overlap refusal. A mid-flight push had shipped a lane's half-step to `main`; the git-only
+overlap detector could not see it once the slices were synced into the branch being
+landed. The manual path warns instead of refusing: the project page's LANDING card
+renders each half-step as an alert row (task, lane, slices and files in the diff) and
+folds the task ids into the EXECUTE confirm dialog (`web/landing-panel.ts`
+`landingHalfStepItems` / `landingExecuteConfirmMessage`), so an operator can knowingly
+land one where the daemon may not.
+
 The board's M7 PARALLEL PILOTS item (critical priority) names two halves: "FlightRunner
 becomes a per-project registry of concurrent detached flights" and "the ring-0 watchdog
 owns per-project spawning and revival." The first half shipped as

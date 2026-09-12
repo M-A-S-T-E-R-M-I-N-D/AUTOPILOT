@@ -454,6 +454,51 @@ export function prReviewExecuteTip(
   );
 }
 
+/** The shape `GET /api/pr-review/diagnose?number=` returns — see
+ *  `flight/check-diagnosis.ts`'s `CheckDiagnosisApiOutcome`. Only `verdict`
+ *  and `reasoning` reach the panel; the classifier's other evidence fields
+ *  (`failingTestPaths`/`touchedFailingPaths`/`matchedQuarantineEntries`) are
+ *  already folded into `reasoning`'s own sentences. */
+export interface CheckDiagnosisResponse {
+  readonly diagnosis?: {
+    readonly verdict: string;
+    readonly reasoning: readonly string[];
+  };
+  readonly reason?: string;
+}
+
+/** The `.pr-review-result` line for one `🔧 Diagnose` response (epic 0020
+ *  slice 8, board web-mtvpuoj4-tv1z09) — "the reasoning is the product; the
+ *  button is just where it lives," so this always renders the classifier's
+ *  own sentences, never a bare verdict word. `defect` reads as a failure (a
+ *  real problem the PR itself may need to fix) and `flake` as ok (safe to
+ *  re-run); `unknown` and a bare refusal (`reason` with no `diagnosis` at
+ *  all — nothing was failing, or gh could not produce a log) share a third,
+ *  neutral styling — an honest "not enough evidence" is not the same as a
+ *  failure. Read-only: this call never mutates anything, so there is no
+ *  confirm dialog and no `expectedHeadRefOid` pin to carry. */
+export function checkDiagnosisResult(data: CheckDiagnosisResponse | null | undefined): {
+  className: string;
+  text: string;
+} {
+  const base = 'pr-review-result pr-review-result-';
+  const diagnosis = data && data.diagnosis;
+  if (!diagnosis) {
+    return {
+      className: base + 'warn',
+      text: '? ' + ((data && data.reason) || 'Nothing to diagnose.'),
+    };
+  }
+  const evidence = diagnosis.reasoning.join(' ');
+  if (diagnosis.verdict === 'defect') {
+    return { className: base + 'fail', text: '✗ Defect — ' + evidence };
+  }
+  if (diagnosis.verdict === 'flake') {
+    return { className: base + 'ok', text: '✓ Flake — ' + evidence };
+  }
+  return { className: base + 'warn', text: '? Unknown — ' + evidence };
+}
+
 /** Structural subset of `flight/social-pass.ts`'s `SocialIdentity` this
  *  panel needs — kept local rather than imported, same "no cross-module
  *  reference in a `.toString()` splice" reasoning `release-panel.ts`'s

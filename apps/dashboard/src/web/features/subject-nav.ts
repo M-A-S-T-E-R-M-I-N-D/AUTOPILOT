@@ -143,7 +143,9 @@ function keeperQueueItems() {
         var title = (titleEl ? titleEl.textContent : n.textContent).trim();
         var number = num ? num.textContent.trim() : '';
         items.push({
-          key: src.source + ':' + (number || String(i)) + ':' + title,
+          // Stable across ticks: never the index (a settled neighbour would
+          // re-key every row after it and count them all as settled).
+          key: src.source + ':' + number + ':' + title,
           source: src.source,
           fallback: src.fallback,
           title: (number ? number + ' ' : '') + title,
@@ -177,6 +179,7 @@ function keeperWaitingCount() {
   return keeperQueueItems().length;
 }
 var keeperQueueLive = [];
+var keeperQueueSeen = {};
 /** The queue's host section: created once, placed as the first Keeper
  *  section outside the context rail (so it reads first under Keeper at
  *  every width), else ahead of Community; re-placed when the page rebuilds
@@ -246,13 +249,33 @@ function renderKeeperQueue() {
   if (!host) return;
   var sig = items.map(function (it) { return it.key + '|' + it.why + '|' + (it.action ? it.action.textContent + (it.action.disabled ? '!' : '') : ''); }).join('\\n');
   keeperQueueLive = items;
+  var liveKeys = {};
+  items.forEach(function (it) { liveKeys[it.key] = true; keeperQueueSeen[it.key] = true; });
+  var settled = 0;
+  Object.keys(keeperQueueSeen).forEach(function (k) { if (!liveKeys[k]) settled++; });
+  sig += '\\n#settled=' + settled;
   if (host.dataset.sig === sig) return;
   host.dataset.sig = sig;
   host.replaceChildren();
-  if (!items.length) { if (!host.hidden) host.hidden = true; return; }
+  if (!items.length && settled === 0) { if (!host.hidden) host.hidden = true; return; }
+  if (!items.length) {
+    // Everything the session listed has settled: say so once, quietly.
+    var doneH = document.createElement('h2');
+    doneH.className = 'keeper-queue-title';
+    doneH.textContent = trOr('keeperQueueClear', 'Nothing waiting on you') + ' · ' + trOr('keeperQueueSettled', settled + ' settled this session', { n: String(settled) });
+    host.appendChild(doneH);
+    if (host.hidden) host.hidden = false;
+    return;
+  }
   var h = document.createElement('h2');
   h.className = 'keeper-queue-title';
   h.textContent = trOr('keeperQueueTitle', 'Waiting on you') + ' · ' + items.length;
+  if (settled > 0) {
+    var settledEl = document.createElement('span');
+    settledEl.className = 'keeper-queue-settled';
+    settledEl.textContent = ' · ' + trOr('keeperQueueSettled', settled + ' settled this session', { n: String(settled) });
+    h.appendChild(settledEl);
+  }
   host.appendChild(h);
   var hint = document.createElement('p');
   hint.className = 'keeper-queue-hint';

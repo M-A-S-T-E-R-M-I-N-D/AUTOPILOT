@@ -35,6 +35,7 @@ import {
   type LandingOverlapWarning,
 } from '@autopilot/engine';
 import { gatherLandingOverlaps } from '../landing/overlap.js';
+import { gatherLaneHalfSteps, type LaneHalfStepWarning } from '../landing/lane-half-step.js';
 import { liveFiring, type ActivityEntry, type FlightEntry } from './fleet.js';
 import { tailFlightLog } from './flightlog.js';
 import { deriveFlyProjectId, flightLogFileName } from '../flight/lock.js';
@@ -204,6 +205,12 @@ export interface LandingInfo {
   readonly commits: readonly CommitWithFiles[];
   readonly diffstat: DiffStat;
   readonly overlaps: readonly LandingOverlapWarning[];
+  /** LANE HALF-STEP GUARD (board web-mtq2cubl-e5z0ae): open (`in_progress`)
+   *  board tasks whose already-shipped slices sit among `commits` — landing
+   *  now would carry an unfinished unit to base. Detection-only here (the
+   *  manual EXECUTE path warns; `control/land-watchdog.ts`'s automatic
+   *  ritual refuses). See `landing/lane-half-step.ts`. */
+  readonly halfSteps: readonly LaneHalfStepWarning[];
   readonly worktreeAhead: readonly CommitWithFiles[];
 }
 
@@ -259,7 +266,10 @@ export async function readLandingInfo(
     const worktreeAhead = existsSync(worktreePlan.path)
       ? await vcs.commitsAhead(branch, worktreePlan.branch)
       : [];
-    return { branch, base, commits, diffstat, overlaps, worktreeAhead };
+    // Store-only join over the commits already listed above — no extra git
+    // call, and the read-only handle opened at the top is all it needs.
+    const halfSteps = gatherLaneHalfSteps(store, projectId, commits);
+    return { branch, base, commits, diffstat, overlaps, halfSteps, worktreeAhead };
   } catch {
     return null;
   } finally {

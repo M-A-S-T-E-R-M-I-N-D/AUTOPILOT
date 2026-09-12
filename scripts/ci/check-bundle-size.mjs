@@ -79,8 +79,12 @@ import { gzipSync } from 'node:zlib';
 // 191.0KB, 19 bytes over the old line.
 // Then core raw 192→193KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the
 // flight plan editor's fourteen English strings — measured 192.2KB.
-const CORE_RAW_BUDGET = 193 * 1024;
-const CORE_GZIP_BUDGET = 57 * 1024;
+// Then core raw 193→195KB (2026-09-12) for EPIC 0021 slice 9: the board as
+// columns (view toggle, column heads, a status attribute per row; five
+// strings) — measured 194.0KB.
+const CORE_RAW_BUDGET = 195 * 1024;
+// Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
+const CORE_GZIP_BUDGET = 58 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -172,7 +176,15 @@ const CORE_GZIP_BUDGET = 57 * 1024;
 // Then raw 137→144KB (2026-09-12) for EPIC 0021 slice 4: the Keeper queue — one
 // list of everything waiting on a human, a view over the panels with keyboard
 // exit actions — measured 142.6KB raw.
-const CHUNK_RAW_BUDGET = 144 * 1024;
+// Then raw 144→146KB (2026-09-12) for EPIC 0021 slice 4 (remainder): the Keeper
+// queue's settled-this-session history — measured 144.3KB raw.
+// Then raw 144→145KB (2026-09-12) for EPIC 0020 slice 8: the 🔧 Diagnose button
+// — measured 144.1KB raw after trimming (shared restore/render helpers, a
+// generalized wirePrMaintainerAction, a shorter tooltip). Mirrors the budget
+// comment in test/server/client-bundle-size-budget.test.ts.
+// Merged 2026-09-12: both lines above landed in the same round (the Keeper queue's
+// settled history HERE, the Diagnose button in a lane); one budget covers both.
+const CHUNK_RAW_BUDGET = 146 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight

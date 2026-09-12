@@ -12,6 +12,29 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
+// Every boot() below re-registers the client's document/window listeners
+// (document.write keeps them, as browsers do); a delegated click handled by
+// N stale copies toggles N times. Track what the client attaches and strip
+// it after each test — the same discipline app-shell.test.ts uses.
+type Tracked = [EventTarget, string, EventListenerOrEventListenerObject, unknown];
+const trackedListeners: Tracked[] = [];
+for (const target of [document, window] as EventTarget[]) {
+  const native = target.addEventListener.bind(target);
+  target.addEventListener = ((
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: unknown,
+  ) => {
+    trackedListeners.push([target, type, listener, options]);
+    return native(type, listener, options as AddEventListenerOptions | undefined);
+  }) as typeof target.addEventListener;
+}
+afterEach(() => {
+  for (const [target, type, listener, options] of trackedListeners.splice(0)) {
+    target.removeEventListener(type, listener, options as EventListenerOptions | undefined);
+  }
+});
+
 const PROJECT = {
   id: 'p1',
   slug: 'alpha',
@@ -233,6 +256,42 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     ).toBeUndefined();
   });
 
+  it('undo and redo walk the draft history — Ctrl+Z / Ctrl+Shift+Z while the editor has focus', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    step('test').click();
+    const cmd = () => document.querySelector('[data-plan-command="test"]') as HTMLInputElement;
+    cmd().value = 'pnpm run test -- --coverage';
+    cmd().dispatchEvent(new Event('change', { bubbles: true }));
+    expect(cmd().value).toBe('pnpm run test -- --coverage');
+    const undoBtn = () => document.querySelector('[data-plan-undo]') as HTMLButtonElement;
+    const redoBtn = () => document.querySelector('[data-plan-redo]') as HTMLButtonElement;
+    expect(undoBtn().disabled).toBe(false);
+    expect(redoBtn().disabled).toBe(true);
+
+    // Ctrl+Z from the editor: the edit is gone, the draft equals the published plan again.
+    cmd().dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+    expect(cmd().value).toBe('pnpm run test');
+    expect(window.localStorage.getItem('ap-plan-draft:p1')).toBeNull();
+    expect(publishButton().disabled).toBe(true);
+    expect(redoBtn().disabled).toBe(false);
+
+    // Ctrl+Shift+Z brings it back; the button does the same.
+    cmd().dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, shiftKey: true, bubbles: true }),
+    );
+    expect(cmd().value).toBe('pnpm run test -- --coverage');
+    undoBtn().click();
+    expect(cmd().value).toBe('pnpm run test');
+    redoBtn().click();
+    expect(cmd().value).toBe('pnpm run test -- --coverage');
+    // A Discard is itself undoable.
+    (document.querySelector('[data-plan-discard]') as HTMLElement).click();
+    expect(cmd().value).toBe('pnpm run test');
+    undoBtn().click();
+    expect(cmd().value).toBe('pnpm run test -- --coverage');
+  });
+
   it('is read-only where the plan route is not served', async () => {
     bootWithPlan(404);
     await vi.advanceTimersByTimeAsync(1);
@@ -240,6 +299,62 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     expect(document.querySelector('.plan-editor')?.textContent).toContain(
       STRINGS.en['planEditorUnavailable'],
     );
+  });
+});
+
+describe('the board as columns (epic 0021 slice 9)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('places every row in a column by status, counts the columns, and remembers the toggle', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+    const card = document.querySelector('[data-board-view]') as HTMLElement;
+    expect(card.getAttribute('data-board-view')).toBe('auto');
+    expect(document.querySelector('[data-task-id="t1"]')?.getAttribute('data-task-status')).toBe(
+      'queued',
+    );
+    expect(document.querySelector('[data-task-id="t2"]')?.getAttribute('data-task-status')).toBe(
+      'in_progress',
+    );
+    const counts = Array.from(document.querySelectorAll('.board-column-count')).map(
+      (n) => n.textContent,
+    );
+    expect(counts).toEqual(['1', '1', '0']);
+
+    // jsdom has no matchMedia: "auto" reads as a list, so the toggle offers Columns.
+    const toggle = document.querySelector('[data-board-view-toggle]') as HTMLButtonElement;
+    expect(toggle.textContent).toBe('Columns');
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    toggle.click();
+    expect(card.getAttribute('data-board-view')).toBe('columns');
+    expect(window.localStorage.getItem('ap-board-view')).toBe('columns');
+    expect(toggle.textContent).toBe('List');
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+
+    // The next render (a state tick) keeps the remembered view.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(
+      (document.querySelector('[data-board-view]') as HTMLElement).getAttribute('data-board-view'),
+    ).toBe('columns');
+  });
+
+  it('the stylesheet lays the columns out by status with dense auto-flow, from md by choice and from lg by default', async () => {
+    const { layoutCss } = await import('../../src/web/layout-css.js');
+    const css = layoutCss();
+    expect(css).toContain('[data-board-view="columns"] .tasks { display: grid;');
+    expect(css).toContain('grid-auto-flow: row dense');
+    expect(css).toContain('[data-board-view="auto"] .task[data-task-status="done"]');
+    const mdAt = css.indexOf('@media (min-width: 48rem) {\n  [data-board-view="columns"]');
+    const lgAt = css.indexOf('@media (min-width: 64rem) {\n  [data-board-view="auto"]');
+    expect(mdAt).toBeGreaterThan(-1);
+    expect(lgAt).toBeGreaterThan(mdAt);
   });
 });
 

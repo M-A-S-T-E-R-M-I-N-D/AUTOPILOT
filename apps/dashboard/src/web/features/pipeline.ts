@@ -272,8 +272,28 @@ function planEditorSection(pid) {
   var body = el('div', 'plan-editor-body');
   body.appendChild(el('p', 'muted', tr('planEditorLoading')));
   wrap.appendChild(body);
-  var state = { published: null, draft: null, selected: 'typecheck', note: '' };
+  var state = { published: null, draft: null, selected: 'typecheck', note: '', past: [], future: [] };
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
+  // Snapshot-based history (the React Flow / tldraw idiom): every edit pushes
+  // the draft it replaced; undo pops it back and parks the current one for
+  // redo; a fresh edit clears redo. Selection is never history.
+  function remember() { state.past.push(JSON.stringify(state.draft)); if (state.past.length > 50) state.past.shift(); state.future = []; }
+  function undo() {
+    if (!state.past.length) return;
+    state.future.push(JSON.stringify(state.draft));
+    state.draft = JSON.parse(state.past.pop());
+    state.note = '';
+    saveDraft();
+    render();
+  }
+  function redo() {
+    if (!state.future.length) return;
+    state.past.push(JSON.stringify(state.draft));
+    state.draft = JSON.parse(state.future.pop());
+    state.note = '';
+    saveDraft();
+    render();
+  }
   function dirty() { return JSON.stringify(state.draft) !== JSON.stringify(state.published); }
   function saveDraft() {
     try {
@@ -342,6 +362,18 @@ function planEditorSection(pid) {
     publish.setAttribute('data-i18n', 'planEditorPublish');
     publish.disabled = !isDirty;
     actions.appendChild(publish);
+    var undoBtn = el('button', 'plan-undo', tr('planEditorUndo'));
+    undoBtn.type = 'button';
+    undoBtn.setAttribute('data-plan-undo', '');
+    undoBtn.setAttribute('data-i18n', 'planEditorUndo');
+    undoBtn.disabled = state.past.length === 0;
+    actions.appendChild(undoBtn);
+    var redoBtn = el('button', 'plan-redo', tr('planEditorRedo'));
+    redoBtn.type = 'button';
+    redoBtn.setAttribute('data-plan-redo', '');
+    redoBtn.setAttribute('data-i18n', 'planEditorRedo');
+    redoBtn.disabled = state.future.length === 0;
+    actions.appendChild(redoBtn);
     var discard = el('button', 'plan-discard', tr('planEditorDiscard'));
     discard.type = 'button';
     discard.setAttribute('data-plan-discard', '');
@@ -358,16 +390,19 @@ function planEditorSection(pid) {
       if (next.enabled && next.command.trim().length === 0) next.command = 'pnpm run ' + kind;
       return next;
     });
+    remember();
     state.draft = planSpecFromSteps(steps, state.draft);
     state.note = '';
     saveDraft();
     render();
   }
   body.addEventListener('click', function (e) {
-    var t = e.target && e.target.closest ? e.target.closest('[data-plan-step], [data-plan-publish], [data-plan-discard]') : null;
+    var t = e.target && e.target.closest ? e.target.closest('[data-plan-step], [data-plan-publish], [data-plan-discard], [data-plan-undo], [data-plan-redo]') : null;
     if (!t) return;
     if (t.hasAttribute('data-plan-step')) { state.selected = t.getAttribute('data-plan-step'); render(); return; }
-    if (t.hasAttribute('data-plan-discard')) { state.draft = clone(state.published); state.note = ''; saveDraft(); render(); return; }
+    if (t.hasAttribute('data-plan-undo')) { undo(); return; }
+    if (t.hasAttribute('data-plan-redo')) { redo(); return; }
+    if (t.hasAttribute('data-plan-discard')) { remember(); state.draft = clone(state.published); state.note = ''; saveDraft(); render(); return; }
     t.disabled = true;
     fetch('/api/plan/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: pid, spec: state.draft }) })
       .then(function (r) { return r.json().then(function (j) { return { ok: !!(r.ok && j && j.ok), error: j && j.error }; }); })
@@ -378,6 +413,12 @@ function planEditorSection(pid) {
         render();
       })
       .catch(function () { if (!body.isConnected) return; state.note = tr('planEditorPublishFailed'); render(); });
+  });
+  wrap.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var k = String(e.key || '').toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
   });
   body.addEventListener('change', function (e) {
     var t = e.target;
