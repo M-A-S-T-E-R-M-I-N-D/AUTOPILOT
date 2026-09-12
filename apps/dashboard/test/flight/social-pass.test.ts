@@ -9,6 +9,9 @@ import {
   fetchOpenThreads,
   fetchSocialPassReport,
   planSocialProtocol,
+  planSocialCommand,
+  planSocialCommands,
+  executeSocialCommands,
   type SocialCandidateAction,
   type SocialSubmission,
 } from '../../src/flight/social-pass.js';
@@ -801,5 +804,175 @@ describe('planSocialProtocol', () => {
     expect(verdict.refused).toEqual([candidates[0]]);
     expect(verdict.allowed).toEqual([candidates[1]]);
     expect(verdict.queued).toEqual([]);
+  });
+});
+
+describe('planSocialCommand', () => {
+  it('builds a gh issue create command for a titled, bodied new-issue candidate', () => {
+    const candidate: SocialCandidateAction = {
+      kind: 'new-issue',
+      reasoning: 'internal reasoning never meant for the public body',
+      title: 'The release notes link to a documentation page that returns 404',
+      body: 'Found while flying the mirror pass: the link in README.md returns a 404.',
+    };
+
+    expect(planSocialCommand(candidate)).toEqual({
+      command: 'gh',
+      args: [
+        'issue',
+        'create',
+        '--title',
+        'The release notes link to a documentation page that returns 404',
+        '--body',
+        'Found while flying the mirror pass: the link in README.md returns a 404.',
+      ],
+      details:
+        'gh issue create — "The release notes link to a documentation page that returns 404"',
+    });
+  });
+
+  it('builds a gh issue comment command for a targeted, bodied comment candidate', () => {
+    const candidate: SocialCandidateAction = {
+      kind: 'comment',
+      reasoning: 'cross-linking the duplicate',
+      issueNumber: 42,
+      body: 'This looks like the same issue reported in #17 — linking for visibility.',
+    };
+
+    expect(planSocialCommand(candidate)).toEqual({
+      command: 'gh',
+      args: [
+        'issue',
+        'comment',
+        '42',
+        '--body',
+        'This looks like the same issue reported in #17 — linking for visibility.',
+      ],
+      details: 'gh issue comment — posting on #42',
+    });
+  });
+
+  it('fails closed to undefined when body is missing, never falling back to reasoning', () => {
+    const candidate: SocialCandidateAction = {
+      kind: 'new-issue',
+      reasoning: 'this is internal reasoning, not public-facing prose',
+      title: 'A real title',
+    };
+
+    expect(planSocialCommand(candidate)).toBeUndefined();
+  });
+
+  it('fails closed to undefined for a new-issue candidate missing a title', () => {
+    const candidate: SocialCandidateAction = {
+      kind: 'new-issue',
+      reasoning: 'no title yet',
+      body: 'some body text',
+    };
+
+    expect(planSocialCommand(candidate)).toBeUndefined();
+  });
+
+  it('fails closed to undefined for a comment candidate missing issueNumber', () => {
+    const candidate: SocialCandidateAction = {
+      kind: 'comment',
+      reasoning: 'no target yet',
+      body: 'some body text',
+    };
+
+    expect(planSocialCommand(candidate)).toBeUndefined();
+  });
+});
+
+describe('planSocialCommands', () => {
+  it('compiles every buildable candidate and drops the ones that fail closed', () => {
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'new-issue',
+        reasoning: 'buildable',
+        title: 'A real finding',
+        body: 'the evidence',
+      },
+      { kind: 'new-issue', reasoning: 'missing body — dropped', title: 'No body here' },
+      { kind: 'comment', reasoning: 'buildable', issueNumber: 7, body: 'a reply' },
+    ];
+
+    const commands = planSocialCommands(candidates);
+
+    expect(commands).toEqual([
+      {
+        command: 'gh',
+        args: ['issue', 'create', '--title', 'A real finding', '--body', 'the evidence'],
+        details: 'gh issue create — "A real finding"',
+      },
+      {
+        command: 'gh',
+        args: ['issue', 'comment', '7', '--body', 'a reply'],
+        details: 'gh issue comment — posting on #7',
+      },
+    ]);
+  });
+
+  it('returns an empty list for an empty allowed list', () => {
+    expect(planSocialCommands([])).toEqual([]);
+  });
+});
+
+describe('executeSocialCommands', () => {
+  it('runs every command through the injected exec and pairs results back', async () => {
+    const exec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: 'https://github.com/o/r/issues/9' })
+      .mockResolvedValueOnce({ code: 0, stdout: '' });
+    const commands = [
+      {
+        command: 'gh' as const,
+        args: ['issue', 'create', '--title', 't', '--body', 'b'],
+        details: 'gh issue create — "t"',
+      },
+      {
+        command: 'gh' as const,
+        args: ['issue', 'comment', '7', '--body', 'r'],
+        details: 'gh issue comment — posting on #7',
+      },
+    ];
+
+    const results = await executeSocialCommands(commands, exec);
+
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(results).toEqual([
+      { command: commands[0], code: 0, stdout: 'https://github.com/o/r/issues/9' },
+      { command: commands[1], code: 0, stdout: '' },
+    ]);
+  });
+
+  it('continues past a failing command rather than stopping (independent commands)', async () => {
+    const exec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 1, stdout: 'error: rate limited' })
+      .mockResolvedValueOnce({ code: 0, stdout: '' });
+    const commands = [
+      {
+        command: 'gh' as const,
+        args: ['issue', 'create', '--title', 't', '--body', 'b'],
+        details: 'gh issue create — "t"',
+      },
+      {
+        command: 'gh' as const,
+        args: ['issue', 'comment', '7', '--body', 'r'],
+        details: 'gh issue comment — posting on #7',
+      },
+    ];
+
+    const results = await executeSocialCommands(commands, exec);
+
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(results.map((r) => r.code)).toEqual([1, 0]);
+  });
+
+  it('returns an empty list for an empty command list without calling exec', async () => {
+    const exec = vi.fn();
+
+    expect(await executeSocialCommands([], exec)).toEqual([]);
+    expect(exec).not.toHaveBeenCalled();
   });
 });

@@ -286,6 +286,20 @@ export interface SocialCandidateAction {
    *  verbs by waiting for the next pass. Omitted (or `false`) for anything
    *  any role may say — most candidates. */
   readonly requiresMaintainer?: boolean;
+  /** The exact text to post — a `'new-issue'` candidate's issue body, or a
+   *  `'comment'` candidate's comment body. Deliberately separate from
+   *  {@link reasoning}: `reasoning` is this candidate's own internal
+   *  "why am I proposing this" record for the protocol engine and the flight
+   *  log, not vetted as public-facing prose — {@link planSocialCommand}
+   *  never falls back to it, so a candidate that omits `body` fails closed
+   *  (builds no command) rather than risking an internal reasoning string
+   *  landing in a public GitHub post. */
+  readonly body?: string;
+  /** The issue/PR number a `'comment'` candidate targets. Unused for
+   *  `'new-issue'` (there is no target yet — creating it produces one).
+   *  A `'comment'` candidate that omits this fails closed the same way an
+   *  omitted `body` does. */
+  readonly issueNumber?: number;
 }
 
 /** Per-pass hard caps for each budgeted voice kind — the epic's law 4,
@@ -395,4 +409,92 @@ export function planSocialProtocol(
     }
   }
   return { allowed, queued, duplicate, refused };
+}
+
+/** One `gh` invocation an ALLOWED {@link SocialCandidateAction} compiles
+ *  to — the same `{command: 'gh', args, details}` shape `pr-review.ts`'s
+ *  `PrReviewCommand` and `issue-triage.ts`'s `IssueTriageCommand` already
+ *  use, so {@link executeSocialCommands} is the same one-line `exec` loop
+ *  as `executeIssueTriageCommands`. */
+export interface SocialCommand {
+  readonly command: 'gh';
+  readonly args: readonly string[];
+  readonly details: string;
+}
+
+/** Turns one ALLOWED candidate into the `gh` command that says it — the
+ *  epic's "pure planner + injectable executor" DoD's planner half. Fails
+ *  closed to `undefined` (builds nothing) rather than guessing when a
+ *  candidate lacks the field its kind needs to actually post: a
+ *  `'new-issue'` candidate needs both {@link SocialCandidateAction.title}
+ *  and {@link SocialCandidateAction.body}; a `'comment'` candidate needs
+ *  both {@link SocialCandidateAction.issueNumber} and `body`. A caller is
+ *  expected to only ever pass candidates from {@link
+ *  SocialProtocolVerdict.allowed} — this makes no verdict of its own, it
+ *  only asks "is there enough here to post," never "should this post." */
+export function planSocialCommand(candidate: SocialCandidateAction): SocialCommand | undefined {
+  if (candidate.body === undefined) return undefined;
+  if (candidate.kind === 'new-issue') {
+    if (candidate.title === undefined) return undefined;
+    return {
+      command: 'gh',
+      args: ['issue', 'create', '--title', candidate.title, '--body', candidate.body],
+      details: `gh issue create — "${candidate.title}"`,
+    };
+  }
+  if (candidate.issueNumber === undefined) return undefined;
+  return {
+    command: 'gh',
+    args: ['issue', 'comment', String(candidate.issueNumber), '--body', candidate.body],
+    details: `gh issue comment — posting on #${candidate.issueNumber}`,
+  };
+}
+
+/** Compiles every ALLOWED candidate into its {@link SocialCommand}, in
+ *  order, silently dropping any {@link planSocialCommand} could not build
+ *  a command for — the fail-closed candidate simply posts nothing, the
+ *  same "absent, never a crash" convention {@link fetchSubmissionList}
+ *  already uses for a submission it cannot parse. Pure: no I/O. */
+export function planSocialCommands(
+  allowed: readonly SocialCandidateAction[],
+): readonly SocialCommand[] {
+  const commands: SocialCommand[] = [];
+  for (const candidate of allowed) {
+    const command = planSocialCommand(candidate);
+    if (command !== undefined) commands.push(command);
+  }
+  return commands;
+}
+
+/** One {@link SocialCommand} run to completion — paired back with the
+ *  command it came from, the same shape `PrReviewCommandResult` and
+ *  `IssueTriageCommandResult` already take. */
+export interface SocialCommandResult {
+  readonly command: SocialCommand;
+  readonly code: number;
+  readonly stdout: string;
+}
+
+/** Runs every {@link SocialCommand} through the injectable `exec` — the
+ *  epic's "pure planner + injectable executor" DoD's executor half, the
+ *  write-side counterpart to {@link fetchSocialPassReport}'s read wiring.
+ *  Unlike `pr-review.ts`'s `executePrReviewCommands` (which stops at the
+ *  first failure because an approve-then-merge pair is a real dependency),
+ *  every social command here is independent — one candidate's issue-create
+ *  failing has no bearing on the next candidate's comment — so this runs
+ *  the full list and continues past a failure, the same convention
+ *  `issue-triage.ts`'s `executeIssueTriageCommands` already uses for its
+ *  own independent per-issue commands. Never called autonomously: like
+ *  every other write path in this file's sibling rituals, a caller wires
+ *  this in only behind a confirm-guarded HTTP endpoint. */
+export async function executeSocialCommands(
+  commands: readonly SocialCommand[],
+  exec: CliExec,
+): Promise<readonly SocialCommandResult[]> {
+  const results: SocialCommandResult[] = [];
+  for (const command of commands) {
+    const { code, stdout } = await exec(command.command, command.args);
+    results.push({ command, code, stdout });
+  }
+  return results;
 }
