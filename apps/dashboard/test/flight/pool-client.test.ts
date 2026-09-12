@@ -448,6 +448,7 @@ describe('planPoolIssueTask', () => {
       projectId: 'p1',
       title: 'Keyboard nav is broken in the fleet table',
       dimension: 'accessibility',
+      body: expect.stringContaining('contract: human-closes'),
       source: 'github',
       createdAt: 100,
     });

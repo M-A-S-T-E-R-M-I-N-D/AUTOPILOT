@@ -51,10 +51,11 @@
  */
 
 import { join } from 'node:path';
-import { openStore, listProjects, type Store } from '@autopilot/store';
+import { openStore, listProjects, setTaskStatus, setTaskFocus, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
+import { isHumanClosedTask } from './claim-contract.js';
 import {
   resolveSocialIdentity,
   fetchOwnSubmissions,
@@ -96,6 +97,7 @@ import {
 interface RawGithubTaskRow {
   readonly id: string;
   readonly status: string;
+  readonly body: string | null;
 }
 
 const TASK_STATUSES = new Set<MirrorPassTaskCandidate['status']>([
@@ -119,7 +121,7 @@ function mirrorPassTaskCandidates(
   projectId: string,
 ): readonly MirrorPassTaskCandidate[] {
   const rows = store.db
-    .prepare("SELECT id, status FROM tasks WHERE project_id = ? AND id LIKE 'github-%'")
+    .prepare("SELECT id, status, body FROM tasks WHERE project_id = ? AND id LIKE 'github-%'")
     .all(projectId) as RawGithubTaskRow[];
   const landedShaStmt = store.db.prepare(
     `SELECT sha FROM metrics
@@ -134,7 +136,26 @@ function mirrorPassTaskCandidates(
       id: row.id,
       status: row.status,
       landedSha: (landedShaStmt.get(projectId, row.id) as { sha: string } | undefined)?.sha ?? null,
+      humanCloses: isHumanClosedTask(row),
     }));
+}
+
+/** THE CLAIM CONTRACT's settlement (claim-contract.ts): the claimant closed
+ *  the issue, so the board task that was delivering slices against it is
+ *  done and no longer the focus. A separate read-write connection — the
+ *  execute path's own store is opened read-only, like every other mirror
+ *  ritual's, and stays that way. */
+function settleClaimedTasks(dbPath: string, taskIds: readonly string[], now: number): void {
+  if (taskIds.length === 0) return;
+  const store = openStore(dbPath);
+  try {
+    for (const id of taskIds) {
+      setTaskStatus(store, id, 'done', now);
+      setTaskFocus(store, id, false, now);
+    }
+  } finally {
+    store.close();
+  }
 }
 
 /** `null` means the project id is unknown — same convention as
@@ -241,6 +262,13 @@ export function createMirrorPassExecuteApi(
           commandOutcomes: await applyMirrorPassCommands(exec, plan.commands),
         });
       }
+      settleClaimedTasks(
+        dbPath,
+        outcomes
+          .filter((o) => o.plan.finding?.action === 'settle-claimed')
+          .map((o) => o.plan.task.id),
+        Date.now(),
+      );
       return { identity, outcomes };
     } finally {
       store.close();

@@ -24,6 +24,7 @@ import {
 } from '@autopilot/store';
 import { MAX_PROPOSALS, firingIdOf, type GitVcs, type FiringOutcome } from '@autopilot/engine';
 import { taskShouldClose } from './completion.js';
+import { isHumanClosedTask } from './claim-contract.js';
 import { extractDeliverable, verifyDeliverable, verifyUxExpression } from './deliverable.js';
 import {
   parseDeliverablePredicates,
@@ -109,6 +110,21 @@ export async function markTaskDoneIfShipped(
     (t) => t.id === item && (t.status === 'queued' || t.status === 'in_progress'),
   );
   if (!task) return undefined;
+  if (isHumanClosedTask(task)) {
+    // THE CLAIM CONTRACT (claim-contract.ts): a claimed issue's task closes
+    // only when its claimant closes the issue — the mirror pass settles it
+    // then. A "complete" tag is demoted to a slice and the reason reaches
+    // the next firing's prompt, the same channel a refused close uses.
+    if (completion === 'complete' && sha) demoteMetricsCompletion(store, projectId, sha);
+    out(
+      `  ↻ board task advanced (claimed issue — only its claimant closes it): ${task.id} — ${task.title}`,
+    );
+    return completion === 'complete'
+      ? `COMPLETION DEMOTED — board task ${task.id} ("${task.title}") is a claimed issue under the ` +
+          'claim contract: only its claimant closes it. Ship the next slice this firing and tag ' +
+          '"slice"; never tag "complete" on it.'
+      : undefined;
+  }
   if (!taskShouldClose(completion)) {
     out(`  ↻ board task advanced (partial slice — stays open): ${task.id} — ${task.title}`);
     return undefined;

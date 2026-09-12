@@ -97,6 +97,10 @@ export interface MirrorPassTaskCandidate {
   readonly id: string;
   readonly status: 'queued' | 'in_progress' | 'done' | 'needs_approval' | 'deferred';
   readonly landedSha: string | null;
+  /** True when the task carries the claim contract (claim-contract.ts):
+   *  the issue's own closing — the claimant's word — settles it, and a
+   *  closed issue is never reopened on its account. */
+  readonly humanCloses?: boolean;
 }
 
 /** The subset of a GitHub issue's live state this reconcile needs — just
@@ -121,7 +125,18 @@ export interface MirrorPassReopenFinding {
   readonly comment: string;
 }
 
-export type MirrorPassFinding = MirrorPassCloseFinding | MirrorPassReopenFinding;
+/** A claimed issue's task whose claimant closed the issue: the board task
+ *  is settled (done, unfocused) and ONE note records it. The issue is
+ *  already closed, so no state change is planned for it. */
+export interface MirrorPassSettleFinding {
+  readonly action: 'settle-claimed';
+  readonly taskId: string;
+  readonly issueNumber: number;
+  readonly comment: string;
+}
+
+export type MirrorPassFinding =
+  MirrorPassCloseFinding | MirrorPassReopenFinding | MirrorPassSettleFinding;
 
 /**
  * Decides whether `task`'s issue needs to be closed or reopened to match the
@@ -152,6 +167,17 @@ export function planMirrorPassReconcile(
       comment: task.landedSha
         ? `Landed in ${task.landedSha} — closing.`
         : 'This is done on the board, but no landing commit was recorded — closing without a SHA reference.',
+    };
+  }
+
+  if (task.status !== 'done' && issue.state === 'closed' && task.humanCloses === true) {
+    return {
+      action: 'settle-claimed',
+      taskId: task.id,
+      issueNumber,
+      comment:
+        'The claimant closed this issue — settling the AUTOPILOT board task that was ' +
+        'delivering slices against it (claim contract: only the claimant closes it).',
     };
   }
 
@@ -192,6 +218,9 @@ export function planMirrorPassCommands(finding: MirrorPassFinding): readonly Mir
     args: ['issue', 'comment', issueRef, '--body', finding.comment],
     details: `posting the mirror-pass reconcile note on #${finding.issueNumber}`,
   };
+  // A settle changes nothing on GitHub — the issue is closed by the one
+  // person allowed to close it; the board mutation happens in execute.
+  if (finding.action === 'settle-claimed') return [comment];
   const stateChange: MirrorPassCommand =
     finding.action === 'close-with-landing-note'
       ? {

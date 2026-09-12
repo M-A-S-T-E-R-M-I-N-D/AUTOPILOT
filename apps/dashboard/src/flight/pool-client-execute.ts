@@ -92,14 +92,14 @@ export function createPoolClientExecuteApi(
   return async (issueNumber, projectId) => {
     if (projectId === undefined) {
       const result = await claimPoolIssue(issueNumber, exec);
-      return { ...result, taskQueued: false };
+      return { ...result, taskQueued: false, focused: false };
     }
     const store = openStore(dbPath);
     try {
       const knownProjectId = resolveKnownProjectId(store, projectId);
       if (knownProjectId === undefined) {
         const result = await claimPoolIssue(issueNumber, exec);
-        return { ...result, taskQueued: false };
+        return { ...result, taskQueued: false, focused: false };
       }
       return await claimAndQueuePoolIssueTask(issueNumber, knownProjectId, exec, store);
     } finally {

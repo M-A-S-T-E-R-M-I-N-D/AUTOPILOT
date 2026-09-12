@@ -55,7 +55,13 @@
  * issue).
  */
 
-import { createTask, DIMENSIONS, type CreateTaskInput, type Store } from '@autopilot/store';
+import {
+  createTask,
+  setTaskFocus,
+  DIMENSIONS,
+  type CreateTaskInput,
+  type Store,
+} from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import {
   POOL_LABEL_PREFIX,
@@ -64,6 +70,7 @@ import {
   issueTaskId,
 } from './issue-triage.js';
 import { fetchViewerLogin } from './pr-review.js';
+import { claimContractBody } from './claim-contract.js';
 
 /** One open, pool-labeled GitHub issue — the subset `gh issue list` reports
  *  that a co-pilot's dashboard needs to browse and claim it. */
@@ -403,6 +410,9 @@ export function planPoolIssueTask(
     projectId,
     title: issue.title.slice(0, POOL_TASK_TITLE_CHARS),
     dimension: knownPoolDimension(issue.labels),
+    // THE CLAIM CONTRACT (claim-contract.ts): the body names the issue and
+    // the rule every reader honours — only the claimant closes it.
+    body: claimContractBody(issue.number, issue.url),
     source: 'github',
     createdAt,
   };
@@ -413,6 +423,10 @@ export function planPoolIssueTask(
  *  actually got queued for it. */
 export interface ClaimAndQueuePoolIssueResult extends ClaimPoolIssueResult {
   readonly taskQueued: boolean;
+  /** True when the queued task was also FOCUSED — the claimant's own
+   *  pilot now delivers slices against it first (operator, 2026-09-12:
+   *  "אם גביבי בחר להתמקד במשהו הטיס שלו חייב להמשיך לדלבר"). */
+  readonly focused: boolean;
 }
 
 /**
@@ -434,9 +448,13 @@ export async function claimAndQueuePoolIssueTask(
   now: () => number = Date.now,
 ): Promise<ClaimAndQueuePoolIssueResult> {
   const result = await claimPoolIssue(issueNumber, exec);
-  if (result.issue === undefined) return { ...result, taskQueued: false };
+  if (result.issue === undefined) return { ...result, taskQueued: false, focused: false };
 
   const input = planPoolIssueTask(result.issue, result.decision, projectId, now());
   const taskQueued = input !== null && createTask(store, input);
-  return { ...result, taskQueued };
+  // The claim is a FOCUS, not just a row: the next firing claims this task
+  // first (focused-first ordering in fly.ts) and keeps slicing it until the
+  // mirror pass sees the claimant close the issue.
+  const focused = taskQueued && input !== null && setTaskFocus(store, input.id, true, now());
+  return { ...result, taskQueued, focused };
 }
