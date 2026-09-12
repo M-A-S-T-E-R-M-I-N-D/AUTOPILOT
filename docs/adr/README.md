@@ -83,3 +83,4 @@ convention already use for an unbacked completion claim.
 | [0006](0006-fleet-intent-claims.md) | Fleet intent claims — declared, rendered, retired, verified | Accepted |
 | [0007](0007-sqlite-durability-posture.md) | SQLite durability posture: `synchronous = NORMAL`, deliberately | Accepted |
 | [0008](0008-e2e-does-not-gate-direct-push-landings.md) | E2E does not gate direct-push landings — deliberately, for now | Accepted |
+| [0009](0009-real-sandbox-tier-evaluation.md) | Real sandbox tier for flights on native Windows — an evaluation | Proposed |
