@@ -402,9 +402,7 @@ export function createMirrorPassDriftPreviewApi(dbPath: string): MirrorPassDrift
  *  `gh issue create` command it sent. */
 export interface MirrorPassDriftExecuteOutcome {
   readonly finding:
-    | MirrorPassVersionDriftFinding
-    | MirrorPassCountsDriftFinding
-    | MirrorPassBrokenLinkFinding;
+    MirrorPassVersionDriftFinding | MirrorPassCountsDriftFinding | MirrorPassBrokenLinkFinding;
   readonly commandOutcome: MirrorPassCommandOutcome;
 }
 
@@ -520,11 +518,12 @@ export function createMirrorPassDriftExecuteApi(
 
       const candidatesByAction = new Map<SocialCandidateAction, (typeof findings)[number]>();
       for (const entry of findings) {
+        const title = commandTitle(entry.command);
         candidatesByAction.set(
           {
             kind: 'new-issue',
             reasoning: entry.command.details,
-            title: commandTitle(entry.command),
+            ...(title !== undefined ? { title } : {}),
             requiresMaintainer: true,
           },
           entry,
