@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Rung 4's still-missing half (docs/EVALUATION-2026-09-03-sync-conflict-
- * taxonomy.md): `merge-conflict-context.ts` gathers base/ours/theirs for
- * every path a sync-back merge still can't settle and files it as a
- * STRANDED SYNC-BACK inbox task; today the ladder stops there — "abort,
- * refuse, file the task". This module is the decision core the doc
- * describes next: build the agent's resolution prompt
+ * Rung 4 (docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md):
+ * `merge-conflict-context.ts` gathers base/ours/theirs for every path a
+ * sync-back merge still can't settle after rungs 1-3; without this module
+ * the ladder stopped there — "abort, refuse, file the task" as a STRANDED
+ * SYNC-BACK inbox item. This module is the decision core the doc describes
+ * next: build the agent's resolution prompt
  * ({@link buildMergeEscalationPrompt}), then drive the attempt
  * ({@link runMergeEscalationAgent}) through exactly the sequence the
  * evaluation specifies — invoke the agent, verify every listed path is
