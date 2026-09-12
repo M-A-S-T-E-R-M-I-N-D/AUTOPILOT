@@ -148,6 +148,10 @@ const BENIGN_FLIGHT = new Set([
   // issue #44): no I/O at all; server/main.ts assembles its inputs from the
   // already-flagged pool/contributor reads and the client only paints.
   'lucky-fit.ts',
+  // One boolean in, a two-flag plan out (which halves of the launch sync may
+  // run under a sibling's lock): no I/O; fly.ts's already-flagged launch
+  // path is the only caller and the only writer.
+  'lane-freshness.ts',
   // Pure bullet-title parser feeding proposal dedupe — weakening it causes
   // repeat proposals (operator-gated spam), not a safety bypass.
   'backlog.ts',
