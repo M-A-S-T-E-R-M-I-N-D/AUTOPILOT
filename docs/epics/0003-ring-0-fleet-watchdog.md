@@ -33,7 +33,11 @@ would carry (`landing/lane-half-step.ts`, joining the board against the store's 
 ship ledger) — and refuses the automatic land while any exist, the same shape as the
 overlap refusal. A mid-flight push had shipped a lane's half-step to `main`; the git-only
 overlap detector could not see it once the slices were synced into the branch being
-landed.
+landed. The manual path warns instead of refusing: the project page's LANDING card
+renders each half-step as an alert row (task, lane, slices and files in the diff) and
+folds the task ids into the EXECUTE confirm dialog (`web/landing-panel.ts`
+`landingHalfStepItems` / `landingExecuteConfirmMessage`), so an operator can knowingly
+land one where the daemon may not.
 
 The board's M7 PARALLEL PILOTS item (critical priority) names two halves: "FlightRunner
 becomes a per-project registry of concurrent detached flights" and "the ring-0 watchdog

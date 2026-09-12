@@ -26,6 +26,7 @@
  * export the same way it already finds `issue-triage.ts`'s. This file still
  * carries real relative-import splices of its own —
  * `landingDiffstatItems`/`landingCommitFilesMeta`/`landingOverlapItems`/
+ * `landingHalfStepItems`/
  * `landingWorktreeDivergence`/`landingCommitRuns`/`landingGroupHeadMeta`/
  * `landingExecuteResult`/`landingExecuteConfirmMessage`/`landingExecuteTip`
  * (from `web/landing-panel.ts`) and `flightDebriefOf`/
@@ -64,6 +65,7 @@ import {
   landingDiffstatItems,
   landingCommitFilesMeta,
   landingOverlapItems,
+  landingHalfStepItems,
   landingWorktreeDivergence,
   landingExecuteConfirmMessage,
   landingExecuteTip,
@@ -91,6 +93,10 @@ export function landingJs(): string {
 ${landingDiffstatItems.toString()}
 ${landingCommitFilesMeta.toString()}
 ${landingOverlapItems.toString()}
+// landingHalfStepItems is generated FROM web/landing-panel.ts (LANE
+// HALF-STEP GUARD, board web-mtq2cubl-e5z0ae) — its real compiled source via
+// .toString(), not a hand-retyped copy. It can no longer drift apart.
+${landingHalfStepItems.toString()}
 ${landingWorktreeDivergence.toString()}
 ${landingCommitRuns.toString()}
 ${landingGroupHeadMeta.toString()}
@@ -308,6 +314,36 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
     body.appendChild(overlapList);
   }
 
+  // LANE HALF-STEP GUARD (board web-mtq2cubl-e5z0ae): an in_progress board
+  // task whose shipped slices sit in this diff — landing now carries an
+  // unfinished unit to base. The automatic ritual refuses; this manual path
+  // WARNS here and folds the task into the EXECUTE confirm below. The alert
+  // role sits on a wrapper rather than the <ul> itself: an <li> whose parent
+  // has lost its list role (role="alert" on the <ul>) trips axe's listitem
+  // rule, so the list stays a real list and the wrapper does the announcing.
+  // Reuses the overlap list's own amber .landing-overlaps/.landing-overlap
+  // surface — same severity treatment, no new CSS — with .landing-half-steps/
+  // .landing-half-step modifiers as the distinct hooks.
+  var halfStepItems = landingHalfStepItems(landing.halfSteps || []);
+  if (halfStepItems.length) {
+    var halfStepWrap = el('div', 'landing-half-steps');
+    halfStepWrap.setAttribute('role', 'alert');
+    var halfStepList = el('ul', 'landing-overlaps landing-half-step-list');
+    for (var hi = 0; hi < halfStepItems.length; hi++) {
+      var halfStepItem = halfStepItems[hi];
+      var halfStepLi = el('li', 'landing-overlap landing-half-step', halfStepItem.text);
+      // D1 TAB-STOP ROVING: one stop for the whole half-step list — the
+      // <ul> carries .landing-overlaps, so wireRoving's existing group
+      // selector below already covers it.
+      halfStepLi.setAttribute('tabindex', hi === 0 ? '0' : '-1');
+      halfStepLi.setAttribute('data-tip', halfStepItem.tip);
+      halfStepLi.setAttribute('aria-label', halfStepItem.text + ': ' + halfStepItem.tip);
+      halfStepList.appendChild(halfStepLi);
+    }
+    halfStepWrap.appendChild(halfStepList);
+    body.appendChild(halfStepWrap);
+  }
+
   var ds = landing.diffstat || { filesChanged: 0, insertions: 0, deletions: 0 };
   var statLine = el('p', 'landing-diffstat');
   var diffstatItems = landingDiffstatItems(ds);
@@ -347,6 +383,12 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
     execBtn.setAttribute(
       'data-land-overlap-branches',
       JSON.stringify(landing.overlaps.map(function (o) { return o.branch; })),
+    );
+  }
+  if (landing.halfSteps && landing.halfSteps.length) {
+    execBtn.setAttribute(
+      'data-land-half-steps',
+      JSON.stringify(landing.halfSteps.map(function (h) { return h.taskId; })),
     );
   }
   actions.appendChild(execBtn);
@@ -491,7 +533,9 @@ document.addEventListener('click', function (e) {
   var pid = b.getAttribute('data-land-execute');
   var overlapBranchesAttr = b.getAttribute('data-land-overlap-branches');
   var overlapBranches = overlapBranchesAttr ? JSON.parse(overlapBranchesAttr) : [];
-  if (!window.confirm(landingExecuteConfirmMessage(overlapBranches))) return;
+  var halfStepsAttr = b.getAttribute('data-land-half-steps');
+  var halfStepTasks = halfStepsAttr ? JSON.parse(halfStepsAttr) : [];
+  if (!window.confirm(landingExecuteConfirmMessage(overlapBranches, halfStepTasks))) return;
   b.disabled = true;
   // Start following the job IMMEDIATELY — before the POST even resolves — so
   // the operator sees the gate's real progress within a poll tick instead of a
@@ -546,7 +590,8 @@ document.addEventListener('click', function (e) {
 // concatenated bundle, the exact top-level call shape flight-summary.ts and
 // coordination.ts already rely on. One registration covers every roving
 // group this panel renders: commit rows (top-level and nested alike),
-// the branch line, the overlap alert list, the diffstat chip line, and the
+// the branch line, the overlap alert list (and the half-step list, whose
+// <ul> shares the .landing-overlaps class), the diffstat chip line, and the
 // flight debrief's chip/notable lines. The debrief best/worst spans stay
 // plain tabindex=0 — each is already its line's only stop, so no group
 // selector names them and the delegated handlers leave them alone.

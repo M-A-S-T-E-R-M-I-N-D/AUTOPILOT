@@ -19,6 +19,7 @@ import {
   landingDiffstatItems,
   landingCommitFilesMeta,
   landingOverlapItems,
+  landingHalfStepItems,
   landingWorktreeDivergence,
   landingExecuteConfirmMessage,
   landingExecuteTip,
@@ -38,6 +39,7 @@ describe('landingJs', () => {
     expect(out).toContain(landingDiffstatItems.toString());
     expect(out).toContain(landingCommitFilesMeta.toString());
     expect(out).toContain(landingOverlapItems.toString());
+    expect(out).toContain(landingHalfStepItems.toString());
     expect(out).toContain(landingWorktreeDivergence.toString());
     expect(out).toContain(landingCommitRuns.toString());
     expect(out).toContain(landingGroupHeadMeta.toString());
@@ -77,8 +79,12 @@ describe('landingJs', () => {
     expect(out).toContain(
       "var b = e.target && e.target.closest && e.target.closest('[data-land-execute]');",
     );
+    // Both guards feed the confirm: the overlap branches (BOARD
+    // web-msw5zxfi-oa2olf) and the half-step task ids (LANE HALF-STEP GUARD,
+    // board web-mtq2cubl-e5z0ae), each read off the button's own data attr.
+    expect(out).toContain("var halfStepsAttr = b.getAttribute('data-land-half-steps');");
     expect(out).toContain(
-      'if (!window.confirm(landingExecuteConfirmMessage(overlapBranches))) return;',
+      'if (!window.confirm(landingExecuteConfirmMessage(overlapBranches, halfStepTasks))) return;',
     );
     expect(out).toContain("fetch('/api/landing/execute', {");
   });
