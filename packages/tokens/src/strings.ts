@@ -1105,6 +1105,7 @@ const EN_STRINGS = {
   githubPrResultOk: 'pull request opened.',
   githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
+  ciStatusPanel: 'CI status',
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
   contributorIssueListPanel: 'Good first issues',
@@ -1222,6 +1223,7 @@ const EN_STRINGS = {
   browseUpParent: 'Up to the parent folder',
   flightSummaryTitle: 'Recently shipped',
   poolTitle: '🧑‍🤝‍🧑 Pool',
+  ciStatusTitle: '⚙️ CI status',
   // web/features/pool-client.ts's per-entry text (board web-msnsndki-dz3vn1):
   // rebuilt fresh on every 30s poll or click, so tr() at build time is the
   // sweep, the same reasoning report-menu.ts's keys followed.
@@ -2062,6 +2064,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubPrResultOk: 'ה-pull request נפתח.',
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',
+    ciStatusPanel: 'מצב CI',
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
     contributorIssueListPanel: 'בעיות טובות למתחילים',
@@ -2162,6 +2165,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     browseUpParent: 'עלייה לתיקיית האב',
     flightSummaryTitle: 'שוחררו לאחרונה',
     poolTitle: '🧑‍🤝‍🧑 מאגר',
+    ciStatusTitle: '⚙️ מצב CI',
     poolNoLocalTask: 'ללא משימה מקומית',
     poolProjectSelectAria: 'פרויקט מקומי להוספת משימת לוח (אופציונלי)',
     poolProjectSelectTip:

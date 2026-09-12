@@ -462,8 +462,10 @@ The same report is also a cached `GET /api/ci-status` (board web-mtq70abw-opouz8
 browser-reachable half of the CLI command above, since `ciWorkflowStatus` blocks the
 request thread with one `execFileSync` per workflow file and a live dashboard poll
 would otherwise pay that cost every tick. Cached for 60s, read-only, degrades to
-`{ workflows: [] }` rather than a 500. Slice landed: the read; a Keeper-tab panel or
-stat tile consuming it is a follow-up.
+`{ workflows: [] }` rather than a 500. The read and its consumer both landed: a
+Keeper-tab-adjacent stat tile (`web/features/ci-status.ts`) polls the endpoint on its
+own timer and renders one chip per workflow, staying hidden entirely when the report
+is empty.
 
 ## 10. OTLP span export (wiring an OTel collector)
 

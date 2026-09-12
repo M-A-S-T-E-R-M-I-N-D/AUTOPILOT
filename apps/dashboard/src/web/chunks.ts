@@ -95,6 +95,7 @@ export const DEFERRED_OPERATOR_FEATURES: readonly string[] = [
   'metrics',
   'notifications',
   'pool-client',
+  'ci-status',
   'contributor-issue-list',
   'publicity',
   'contributor-standing',

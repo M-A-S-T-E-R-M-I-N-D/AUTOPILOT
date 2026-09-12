@@ -184,7 +184,10 @@ const CORE_GZIP_BUDGET = 58 * 1024;
 // comment in test/server/client-bundle-size-budget.test.ts.
 // Merged 2026-09-12: both lines above landed in the same round (the Keeper queue's
 // settled history HERE, the Diagnose button in a lane); one budget covers both.
-const CHUNK_RAW_BUDGET = 146 * 1024;
+// Then raw 146→148KB (2026-09-12) for a lane's KEEPER CI-status panel (ci-status.ts,
+// a self-initialising deferred panel that had been left out of every chunk list
+// and rode core) — measured 146.5KB raw with it in /panels.js.
+const CHUNK_RAW_BUDGET = 148 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight

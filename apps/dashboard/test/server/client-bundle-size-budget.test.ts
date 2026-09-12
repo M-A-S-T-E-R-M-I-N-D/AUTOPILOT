@@ -283,7 +283,10 @@ const CORE_GZIP_BUDGET = 58 * 1024;
  */
 // Merged 2026-09-12: both lines above landed in the same round (the Keeper queue's
 // settled history HERE, the Diagnose button in a lane); one budget covers both.
-const CHUNK_RAW_BUDGET = 146 * 1024;
+// Then raw 146→148KB (2026-09-12) for a lane's KEEPER CI-status panel (ci-status.ts,
+// a self-initialising deferred panel that had been left out of every chunk list
+// and rode core) — measured 146.5KB raw with it in /panels.js.
+const CHUNK_RAW_BUDGET = 148 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

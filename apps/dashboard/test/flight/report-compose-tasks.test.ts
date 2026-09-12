@@ -360,7 +360,7 @@ describe('applyComposedTasks', () => {
     }
   });
 
-  it('carries the body/severity/dimension through to the board row', () => {
+  it('carries the title/severity/dimension through to the board row, body prefixed verbatim', () => {
     const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-compose-tasks-fields-db-'));
     try {
       const s = openStore(join(dbDir, 'a.db'));
@@ -371,10 +371,31 @@ describe('applyComposedTasks', () => {
 
       const rows = tasks(s, 'p1');
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({
-        title: 'Fix disabled launch button',
-        body: 'The launch button stays disabled after a flight lands.',
-      });
+      expect(rows[0]?.title).toBe('Fix disabled launch button');
+      expect(
+        rows[0]?.body?.startsWith('The launch button stays disabled after a flight lands.'),
+      ).toBe(true);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('appends a one-line dated provenance note to the body (slice 2, web-mtq2lx1q-ff5az8)', () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-compose-tasks-provenance-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+
+      // 2026-09-04T00:00:00.000Z, same fixture date the calculator case study uses.
+      applyComposedTasks(s, 'p1', [item()], Date.parse('2026-09-04T00:00:00.000Z'));
+
+      const rows = tasks(s, 'p1');
+      expect(rows[0]?.body).toBe(
+        'The launch button stays disabled after a flight lands.\n\n' +
+          'Composed from an operator note (2026-09-04).',
+      );
       s.close();
     } finally {
       cleanupDir(dbDir);
