@@ -133,6 +133,11 @@ const BENIGN_FLIGHT = new Set([
   // done-hook, the mirror pass) are the flagged halves; weakening it makes a
   // claimed task closable by the fleet, which those readers' tests pin.
   'claim-contract.ts',
+  // Pure ledger (2026-09-13): derives who holds a pool issue from comments and
+  // assignees and how quiet each claim is. Decides nothing outward — the claim/
+  // contest/skip decision and every gh write live in pool-client.ts, which is
+  // flagged; the flight-end release lives in post-flight-sweeps.ts.
+  'claim-ledger.ts',
   // Read-only donations.json parse (FOUNDATION 1/3): reads a file path this
   // module hardcodes itself (never operator/request input), validates every
   // entry's shape, and degrades to an empty list on any missing/malformed

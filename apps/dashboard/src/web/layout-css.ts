@@ -866,6 +866,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pool-client-number-link:hover, .pool-client-number-link:focus-visible { border-bottom-color: currentColor; }
 .pool-client-issue-title { margin: 0; font-size: var(--text-sm); }
 .pool-client-badge-claim { color: var(--color-success); border-color: var(--color-success); }
+.pool-client-badge-contest { color: var(--color-warning); border-color: var(--color-warning); }
+/* The claims ledger line (claim-ledger.ts): who holds the issue, since when,
+   when it releases. Muted — context under the title, never the headline. */
+.pool-client-ledger { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .pool-client-badge-skip { color: var(--color-text-muted); border-color: var(--color-border); opacity: 0.7; }
 /* Compact: the row's actions span the width — the Claim button lands in the
    thumb zone. From md up the item becomes one row (see the shell block). */
@@ -888,6 +892,9 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    than copying their bodies; its only own declaration parks it at the column
    end, where the Claim row's flex-end actions row sat. */
 .pool-client-execute, .pool-client-fly { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+/* A deliberate second claim is the outlined, warning-toned variant — it reads
+   as "you know someone holds this", never as the default action. */
+.pool-client-execute-contest { background: transparent; color: var(--color-warning); border-color: var(--color-warning); }
 .pool-client-execute:disabled, .pool-client-fly:disabled { opacity: 0.6; cursor: default; }
 .pool-client-fly { align-self: flex-end; }
 .pool-client-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }

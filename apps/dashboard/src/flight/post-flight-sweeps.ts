@@ -52,6 +52,16 @@ import {
   SOUL_MINING_GATE_LOOKBACK,
 } from './soul-mining.js';
 import { mineFleetWisdom } from './fleet-wisdom-mining.js';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
+import { resolveSocialIdentity } from './social-pass.js';
+import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
+import {
+  fetchClaimedIssueClaims,
+  planMirrorPassStaleClaimBatch,
+  applyMirrorPassCommands,
+  type MirrorPassClaimedIssue,
+} from './mirror-pass.js';
 
 /** How many recent commits the end-of-flight reconciliation proposal scans for a title match. */
 const RECONCILE_COMMIT_WINDOW = 50;
@@ -435,6 +445,45 @@ export function runFleetWisdomSweep(store: Store, now: () => number): void {
  * DEFAULT_SNAPSHOT_RETENTION most recent copies. Best-effort: a backup hiccup
  * must never fail the flight itself.
  */
+/**
+ * STALE-CLAIM sweep (claims ledger, operator 2026-09-13: "a system that
+ * really releases the claims"): once per flight end, every pool claim that
+ * has gone quiet past the 14-day window is released — the mirror pass
+ * reaper's exact plan (`planMirrorPassStaleClaimBatch`), run on its own
+ * instead of waiting for someone to press "Free stale claim(s)". Role
+ * honesty first: only this repo's own maintainer identity ever writes; a
+ * guest or unresolved identity returns before a single read of the pool.
+ * Best-effort and network-bound — never fails the flight, never throws.
+ */
+export async function runStaleClaimSweep(
+  now: () => number,
+  exec: CliExec = ghExec,
+): Promise<readonly MirrorPassClaimedIssue[]> {
+  try {
+    const identity = await resolveSocialIdentity(exec);
+    if (identity === undefined || identity.role !== 'maintainer') return [];
+    const claimed = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+    const activity: MirrorPassClaimedIssue[] = [];
+    for (const issue of claimed) {
+      activity.push(...(await fetchClaimedIssueClaims(exec, issue.number)));
+    }
+    const released: MirrorPassClaimedIssue[] = [];
+    for (const plan of planMirrorPassStaleClaimBatch(activity, now())) {
+      if (plan.commands.length === 0 || !plan.finding) continue;
+      await applyMirrorPassCommands(exec, plan.commands);
+      released.push(plan.issue);
+      out(
+        `  ↩ stale claim released: #${plan.issue.number} @${plan.finding.assignee} ` +
+          `(quiet ${plan.finding.quietDays}d) — back in the pool`,
+      );
+    }
+    return released;
+  } catch {
+    /* stale-claim sweep is best-effort — never fail the flight over it */
+    return [];
+  }
+}
+
 export async function runStoreBackupSweep(
   store: Store,
   dbPath: string,

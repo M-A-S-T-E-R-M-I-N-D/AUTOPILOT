@@ -75,7 +75,7 @@ import {
   planMirrorPassVersionDriftCommand,
   planMirrorPassCountsDriftCommand,
   planMirrorPassLinkDriftCommand,
-  fetchClaimedIssueActivity,
+  fetchClaimedIssueClaims,
   planMirrorPassStaleClaimBatch,
   applyMirrorPassCommands,
   type MirrorPassTaskCandidate,
@@ -621,10 +621,11 @@ export function createMirrorPassStaleClaimPreviewApi(
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
       const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      // One entry per CLAIM (claims ledger): a comment-only claimant and a
+      // contested issue's second holder each get their own quiet clock.
       const activity: MirrorPassClaimedIssue[] = [];
       for (const issue of claimedPoolIssues) {
-        const entry = await fetchClaimedIssueActivity(exec, issue.number);
-        if (entry) activity.push(entry);
+        activity.push(...(await fetchClaimedIssueClaims(exec, issue.number)));
       }
       return planMirrorPassStaleClaimBatch(activity, now());
     } finally {
@@ -692,10 +693,11 @@ export function createMirrorPassStaleClaimExecuteApi(
         };
       }
       const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      // One entry per CLAIM (claims ledger): a comment-only claimant and a
+      // contested issue's second holder each get their own quiet clock.
       const activity: MirrorPassClaimedIssue[] = [];
       for (const issue of claimedPoolIssues) {
-        const entry = await fetchClaimedIssueActivity(exec, issue.number);
-        if (entry) activity.push(entry);
+        activity.push(...(await fetchClaimedIssueClaims(exec, issue.number)));
       }
       const plans = planMirrorPassStaleClaimBatch(activity, now());
       const outcomes: MirrorPassStaleClaimExecuteOutcome[] = [];

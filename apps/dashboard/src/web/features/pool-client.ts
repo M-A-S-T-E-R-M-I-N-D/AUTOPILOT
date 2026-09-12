@@ -69,6 +69,7 @@
  */
 import {
   poolClaimDecisionLabel,
+  poolClaimLedgerText,
   poolClaimConfirmMessage,
   poolClaimExecuteResult,
   poolClaimExecuteTip,
@@ -94,6 +95,7 @@ export function poolClientJs(): string {
 // source via .toString(), not a hand-retyped copy. They can no longer drift
 // apart.
 ${poolClaimDecisionLabel.toString()}
+${poolClaimLedgerText.toString()}
 ${poolClaimConfirmMessage.toString()}
 ${poolClaimExecuteResult.toString()}
 ${poolClaimExecuteTip.toString()}
@@ -189,8 +191,14 @@ function renderPoolClientPanel(entries) {
     head.appendChild(tipChip(label, entry.decision.reasoning, entry.decision.reasoning, badgeClass));
     item.appendChild(head);
     item.appendChild(el('p', 'pool-client-issue-title', entry.issue.title));
+    // THE CLAIMS LEDGER (claim-ledger.ts): who holds it, since when, when it
+    // releases — painted for every issue that is held, so a second claimant
+    // sees the first before the confirm dialog ever asks (#27 was claimed
+    // twice with no word of it on this panel).
+    var ledger = poolClaimLedgerText(entry.claims);
+    if (ledger) item.appendChild(el('p', 'pool-client-ledger', ledger));
     var actions = el('div', 'pool-client-actions');
-    if (entry.decision.decision === 'claim') {
+    if (entry.decision.decision === 'claim' || entry.decision.decision === 'contest') {
       var projectSelect = document.createElement('select');
       projectSelect.className = 'pool-client-project';
       projectSelect.setAttribute('aria-label', tr('poolProjectSelectAria'));
@@ -200,6 +208,12 @@ function renderPoolClientPanel(entries) {
       claimBtn.type = 'button';
       claimBtn.className = 'pool-client-execute';
       claimBtn.textContent = tr('poolClaim');
+      if (entry.decision.decision === 'contest') {
+        // A deliberate second claim reads as one: the button says so, and
+        // the confirm dialog (poolClaimConfirmMessage) spells out the rule.
+        claimBtn.className = 'pool-client-execute pool-client-execute-contest';
+        claimBtn.textContent = tr('poolClaimAnyway');
+      }
       claimBtn.setAttribute('data-pool-client-execute', String(entry.issue.number));
       var claimTip = poolClaimExecuteTip(entry.issue, entry.decision);
       claimBtn.setAttribute('data-tip', claimTip);

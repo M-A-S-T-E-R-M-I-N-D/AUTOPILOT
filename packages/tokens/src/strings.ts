@@ -1242,6 +1242,7 @@ const EN_STRINGS = {
   poolProjectSelectTip:
     'Also queue a local board task on this project when claiming — leave unset to only claim on GitHub.',
   poolClaim: 'Claim',
+  poolClaimAnyway: 'Claim anyway',
   poolClaiming: 'Claiming…',
   poolFly: 'Fly',
   poolStarting: 'Starting…',
@@ -2221,6 +2222,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     poolProjectSelectTip:
       'מוסיף גם משימת לוח מקומית לפרויקט הזה בעת התביעה — השאירו ללא בחירה כדי לתבוע רק ב-GitHub.',
     poolClaim: 'תבע',
+    poolClaimAnyway: 'תבע בכל זאת',
     poolClaiming: 'תובע…',
     poolFly: 'טוס',
     poolStarting: 'מתחיל…',

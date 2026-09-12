@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   poolClaimDecisionLabel,
+  poolClaimLedgerText,
   poolClaimConfirmMessage,
   poolClaimExecuteResult,
   poolClaimExecuteTip,
@@ -172,5 +173,95 @@ describe('poolClaimFlyResult', () => {
     expect(poolClaimFlyResult(undefined).className).toBe(
       'pool-client-result pool-client-result-fail',
     );
+  });
+});
+
+describe('the claims ledger on the panel (#27 was claimed twice without a word of it)', () => {
+  const T0 = Date.parse('2026-09-11T14:23:10Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const live = {
+    claim: { login: 'gabibi555', claimedAt: T0, assigned: false, contested: false },
+    quietDays: 2,
+    releasesAt: T0 + 14 * DAY,
+    stale: false,
+  };
+
+  it('labels a contest decision as held, with the claim-anyway question', () => {
+    expect(poolClaimDecisionLabel('contest')).toBe('⚑ held — claim anyway?');
+  });
+
+  it('paints who holds the issue, since when, and when it releases', () => {
+    expect(poolClaimLedgerText([live])).toBe(
+      'Held by @gabibi555 since 2026-09-11 · quiet 2d · releases 2026-09-25 if nothing moves.',
+    );
+  });
+
+  it('says a stale claim releases on the next claim or the flight-end sweep', () => {
+    expect(poolClaimLedgerText([{ ...live, quietDays: 16, stale: true }])).toContain(
+      'quiet 16d, stale: releases on the next claim or flight-end sweep',
+    );
+  });
+
+  it('lists every holder, marks the contested one, and calls an undated assignee out as such', () => {
+    const text = poolClaimLedgerText([
+      live,
+      {
+        claim: {
+          login: 'M-A-S-T-E-R-M-I-N-D',
+          claimedAt: T0 + DAY,
+          assigned: true,
+          contested: true,
+        },
+        quietDays: 1,
+        releasesAt: T0 + 15 * DAY,
+        stale: false,
+      },
+      {
+        claim: { login: 'silent', claimedAt: null, assigned: true, contested: false },
+        quietDays: null,
+        releasesAt: null,
+        stale: false,
+      },
+    ]);
+    expect(text).toContain('@gabibi555 since 2026-09-11');
+    expect(text).toContain('@M-A-S-T-E-R-M-I-N-D since 2026-09-12 (contested)');
+    expect(text).toContain('@silent date unknown');
+  });
+
+  it('is empty when nobody holds the issue', () => {
+    expect(poolClaimLedgerText([])).toBe('');
+    expect(poolClaimLedgerText(undefined)).toBe('');
+  });
+
+  it('the contest confirm spells out the 14-day release and the compare-both-solutions rule', () => {
+    const msg = poolClaimConfirmMessage(
+      { number: 27, title: 'Navigation remake', url: 'https://x/27', assignees: [] },
+      { decision: 'contest', reasoning: '#27 is held by @gabibi555 since 2026-09-11.' },
+      'dashboard',
+    );
+    expect(msg).toContain('Claim pool issue #27 "Navigation remake" ANYWAY?');
+    expect(msg).toContain('#27 is held by @gabibi555 since 2026-09-11.');
+    expect(msg).toContain('quiet for 14 days');
+    expect(msg).toContain('releases on its own');
+    expect(msg).toContain('the review compares them');
+    expect(msg).toContain('A local board task will also be queued on "dashboard"');
+  });
+
+  it('the plain claim confirm names the 14-day rule too, comment first', () => {
+    const msg = poolClaimConfirmMessage(
+      { number: 7, title: 'Fix the thing', url: 'https://x/7', assignees: [] },
+      { decision: 'claim', reasoning: 'claiming #7 for octocat' },
+    );
+    expect(msg).toContain('posts a claim comment on GitHub and assigns the issue to you');
+    expect(msg).toContain('14 quiet days release it back to the pool');
+  });
+
+  it('the contest tip says someone holds it', () => {
+    expect(
+      poolClaimExecuteTip(
+        { number: 27, title: 't', url: 'u', assignees: [] },
+        { decision: 'contest', reasoning: 'r' },
+      ),
+    ).toContain('Someone holds it already');
   });
 });

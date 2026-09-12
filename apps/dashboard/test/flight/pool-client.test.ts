@@ -48,6 +48,8 @@ function tasks(
   }[];
 }
 
+const DAY = 24 * 60 * 60 * 1000;
+
 function cleanupDir(dir: string): void {
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }
@@ -106,7 +108,7 @@ describe('fetchPoolIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,url,labels,assignees',
+      'number,title,url,labels,assignees,comments',
     ]);
   });
 
@@ -138,8 +140,49 @@ describe('fetchPoolIssues', () => {
         url: 'https://github.com/example/repo/issues/1',
         labels: ['pool: data'],
         assignees: [],
+        claims: [],
       },
     ]);
+  });
+
+  it('reads the claims ledger off the comments — a comment-only claim counts (#27)', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 27,
+          title: 'Navigation remake',
+          url: 'https://github.com/example/repo/issues/27',
+          labels: [{ name: 'pool: information' }],
+          assignees: [],
+          comments: [
+            {
+              author: { login: 'gabibi555' },
+              createdAt: '2026-09-11T14:23:10Z',
+              body: 'Claimed by gabibi555 via the pool client.\n\n— ✈️ AUTOPILOT agent',
+            },
+            {
+              author: { login: 'someone' },
+              createdAt: '2026-09-12T07:33:01Z',
+              body: 'Progress note.',
+            },
+          ],
+        },
+      ]),
+    });
+
+    const issues = await fetchPoolIssues(exec);
+
+    expect(issues[0]?.claims).toEqual([
+      {
+        login: 'gabibi555',
+        claimedAt: Date.parse('2026-09-11T14:23:10Z'),
+        assigned: false,
+        lastActivityAt: Date.parse('2026-09-11T14:23:10Z'),
+        contested: false,
+      },
+    ]);
+    expect(isClaimedPoolIssue(issues[0] as PoolIssue)).toBe(true);
   });
 
   it('parses assignee logins, dropping malformed entries', async () => {
@@ -195,6 +238,7 @@ describe('fetchPoolIssues', () => {
         url: 'https://github.com/example/repo/issues/1',
         labels: ['pool: ux'],
         assignees: [],
+        claims: [],
       },
     ]);
   });
@@ -235,11 +279,61 @@ describe('planClaimPoolIssue', () => {
     expect(decision.reasoning).toContain('octocat');
   });
 
-  it('skips an issue already claimed by someone else', () => {
+  it('CONTESTS an issue someone else holds live — never a silent skip, never a silent claim', () => {
     const decision = planClaimPoolIssue({ ...base, assignees: ['someone-else'] }, 'octocat');
 
-    expect(decision.decision).toBe('skip');
+    expect(decision.decision).toBe('contest');
     expect(decision.reasoning).toContain('someone-else');
+    expect(decision.reasoning).toContain('compares');
+    expect(decision).toMatchObject({
+      claimant: 'octocat',
+      holders: [{ login: 'someone-else', since: null, releasesAt: null }],
+    });
+  });
+
+  it('names when a live claim releases on its own', () => {
+    const at = Date.parse('2026-09-11T14:23:10Z');
+    const held = {
+      ...base,
+      claims: [
+        {
+          login: 'gabibi555',
+          claimedAt: at,
+          assigned: false,
+          lastActivityAt: at,
+          contested: false,
+        },
+      ],
+    };
+    const decision = planClaimPoolIssue(held, 'octocat', at + 2 * DAY);
+
+    expect(decision.decision).toBe('contest');
+    expect(decision.reasoning).toContain('since 2026-09-11');
+    expect(decision.reasoning).toContain('releases on its own 2026-09-25');
+  });
+
+  it('skips when the claimant already holds it', () => {
+    const decision = planClaimPoolIssue({ ...base, assignees: ['octocat'] }, 'octocat');
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('already yours');
+  });
+
+  it('claims over a STALE claim and plans its release — the system that really frees claims', () => {
+    const at = Date.parse('2026-08-01T00:00:00Z');
+    const stale = {
+      ...base,
+      claims: [
+        { login: 'quiet-one', claimedAt: at, assigned: true, lastActivityAt: at, contested: false },
+      ],
+    };
+    const decision = planClaimPoolIssue(stale, 'octocat', at + 20 * DAY);
+
+    expect(decision.decision).toBe('claim');
+    expect(decision).toMatchObject({
+      releases: [{ login: 'quiet-one', assigned: true, quietDays: 20 }],
+    });
+    expect(decision.reasoning).toContain("releasing @quiet-one's claim (quiet 20d)");
   });
 
   it('skips an issue that carries no pool: label', () => {
@@ -259,29 +353,92 @@ describe('planClaimPoolIssueCommands', () => {
     assignees: [],
   };
 
-  it('plans an assign command followed by a comment for a claim decision', () => {
+  it('plans the claim COMMENT first, then the assign — GitHub only assigns a commenter', () => {
     const decision = planClaimPoolIssue(base, 'octocat');
     const commands = planClaimPoolIssueCommands(base, 'octocat', decision);
 
     expect(commands).toEqual([
       {
         command: 'gh',
-        args: ['issue', 'edit', '7', '--add-assignee', 'octocat'],
+        args: [
+          'issue',
+          'comment',
+          '7',
+          '--body',
+          expect.stringContaining('Claimed by octocat via the pool client.'),
+        ],
         details: expect.stringContaining('7'),
       },
       {
         command: 'gh',
-        args: ['issue', 'comment', '7', '--body', expect.stringContaining('octocat')],
+        args: ['issue', 'edit', '7', '--add-assignee', 'octocat'],
         details: expect.stringContaining('7'),
       },
     ]);
+    expect(commands[0]?.args[4]).toContain('14 quiet days release it');
+  });
+
+  it('plans a contested claim as an "Also claimed" comment that names the holder, then the assign', () => {
+    const held = { ...base, assignees: ['someone-else'] };
+    const decision = planClaimPoolIssue(held, 'octocat');
+    const commands = planClaimPoolIssueCommands(held, 'octocat', decision);
+
+    expect(commands.map((c) => c.args.slice(0, 2))).toEqual([
+      ['issue', 'comment'],
+      ['issue', 'edit'],
+    ]);
+    const body = commands[0]?.args[4] ?? '';
+    expect(body).toMatch(/^Also claimed by octocat via the pool client \(contested\)\./);
+    expect(body).toContain('@someone-else');
+    expect(body).toContain('compares them');
+  });
+
+  it('releases a stale claim first — note, unassign when assigned — then claims', () => {
+    const at = Date.parse('2026-08-01T00:00:00Z');
+    const stale = {
+      ...base,
+      claims: [
+        { login: 'quiet-one', claimedAt: at, assigned: true, lastActivityAt: at, contested: false },
+      ],
+    };
+    const decision = planClaimPoolIssue(stale, 'octocat', at + 20 * DAY);
+    const commands = planClaimPoolIssueCommands(stale, 'octocat', decision);
+
+    expect(commands.map((c) => c.args.slice(0, 2).concat(c.args[3] ?? ''))).toEqual([
+      ['issue', 'comment', '--body'],
+      ['issue', 'edit', '--remove-assignee'],
+      ['issue', 'comment', '--body'],
+      ['issue', 'edit', '--add-assignee'],
+    ]);
+    expect(commands[0]?.args[4]).toMatch(/^Releasing @quiet-one's claim — quiet for 20 days/);
+    expect(commands[1]?.args[4]).toBe('quiet-one');
+  });
+
+  it('skips the unassign for a stale comment-only claim (nothing to unassign)', () => {
+    const at = Date.parse('2026-08-01T00:00:00Z');
+    const stale = {
+      ...base,
+      claims: [
+        {
+          login: 'quiet-one',
+          claimedAt: at,
+          assigned: false,
+          lastActivityAt: at,
+          contested: false,
+        },
+      ],
+    };
+    const decision = planClaimPoolIssue(stale, 'octocat', at + 20 * DAY);
+    const commands = planClaimPoolIssueCommands(stale, 'octocat', decision);
+
+    expect(commands.map((c) => c.args[1])).toEqual(['comment', 'comment', 'edit']);
   });
 
   it('plans no commands for a skip decision', () => {
-    const claimed = { ...base, assignees: ['someone-else'] };
-    const decision = planClaimPoolIssue(claimed, 'octocat');
+    const mine = { ...base, assignees: ['octocat'] };
+    const decision = planClaimPoolIssue(mine, 'octocat');
 
-    expect(planClaimPoolIssueCommands(claimed, 'octocat', decision)).toEqual([]);
+    expect(planClaimPoolIssueCommands(mine, 'octocat', decision)).toEqual([]);
   });
 });
 
@@ -403,11 +560,28 @@ describe('planPoolBrowseBatch', () => {
     const entries = planPoolBrowseBatch([claimable, claimed], 'octocat');
 
     expect(entries).toEqual([
-      { issue: claimable, decision: planClaimPoolIssue(claimable, 'octocat') },
-      { issue: claimed, decision: planClaimPoolIssue(claimed, 'octocat') },
+      { issue: claimable, decision: planClaimPoolIssue(claimable, 'octocat'), claims: [] },
+      {
+        issue: claimed,
+        decision: planClaimPoolIssue(claimed, 'octocat'),
+        claims: [
+          {
+            claim: {
+              login: 'someone-else',
+              claimedAt: null,
+              assigned: true,
+              lastActivityAt: null,
+              contested: false,
+            },
+            quietDays: null,
+            releasesAt: null,
+            stale: false,
+          },
+        ],
+      },
     ]);
     expect(entries[0]?.decision.decision).toBe('claim');
-    expect(entries[1]?.decision.decision).toBe('skip');
+    expect(entries[1]?.decision.decision).toBe('contest');
   });
 
   it('plans a skip for every issue when the claimant is unresolved', () => {
@@ -420,6 +594,7 @@ describe('planPoolBrowseBatch', () => {
           decision: 'skip',
           reasoning: expect.stringContaining('#7'),
         },
+        claims: [],
       },
     ]);
   });
@@ -455,10 +630,20 @@ describe('planPoolIssueTask', () => {
   });
 
   it('returns null for a skip decision', () => {
-    const claimed = { ...issue, assignees: ['someone-else'] };
-    const decision = planClaimPoolIssue(claimed, 'octocat');
+    const mine = { ...issue, assignees: ['octocat'] };
+    const decision = planClaimPoolIssue(mine, 'octocat');
 
-    expect(planPoolIssueTask(claimed, decision, 'p1', 100)).toBeNull();
+    expect(planPoolIssueTask(mine, decision, 'p1', 100)).toBeNull();
+  });
+
+  it('builds the task for a CONTESTED claim too, naming the holder it contests', () => {
+    const held = { ...issue, assignees: ['someone-else'] };
+    const decision = planClaimPoolIssue(held, 'octocat');
+
+    const input = planPoolIssueTask(held, decision, 'p1', 100);
+
+    expect(input?.body).toContain('claimed by @octocat — contested with @someone-else');
+    expect(input?.body).toContain('contract: human-closes');
   });
 
   it('degrades an unrecognized pool label dimension to null rather than a bad CHECK value', () => {

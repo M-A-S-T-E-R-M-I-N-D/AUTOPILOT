@@ -79,6 +79,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { CliExec } from '../connection/cli-probe.js';
 import { STALE_TASK_DAYS } from '../web/task-queue.js';
+import { claimLedger } from './claim-ledger.js';
+import { parsePoolComments } from './pool-client.js';
 
 /** Parses `issue-triage.ts`'s `issueTaskId` convention (`github-<n>`) back
  *  into the issue number it names — `null` for a task id from any other
@@ -834,8 +836,14 @@ export function readMirrorPassLinkDrift(
 export interface MirrorPassClaimedIssue {
   readonly number: number;
   readonly state: 'open' | 'closed';
+  /** The claim's holder — an assignee, or (claims ledger, claim-ledger.ts)
+   *  a login whose claim comment landed but whose assign did not. */
   readonly assignee: string | null;
   readonly lastActivityAt: number;
+  /** False for a comment-only claim: there is nothing to unassign, the
+   *  release note alone frees it. Absent means assigned (the pre-ledger
+   *  reading, every fixture that predates it). */
+  readonly assigned?: boolean;
 }
 
 /** Derivation 4/4's finding: an open issue's assignee has been quiet long
@@ -846,6 +854,9 @@ export interface MirrorPassStaleClaimFinding {
   readonly assignee: string;
   readonly quietDays: number;
   readonly comment: string;
+  /** False when the holder was never assigned (comment-only claim) — the
+   *  release note is the whole release, no unassign is planned. */
+  readonly assigned?: boolean;
 }
 
 /**
@@ -866,13 +877,18 @@ export function planMirrorPassStaleClaimReaper(
   const quietDays = Math.max(0, Math.floor((nowMs - issue.lastActivityAt) / (24 * 60 * 60 * 1000)));
   if (quietDays < thresholdDays) return null;
 
+  // The verb is what the claims ledger (claim-ledger.ts) reads back as the
+  // release, so a freed issue reads free on the next fetch; "Releasing" for
+  // a comment-only claim, since there is no assignment to undo.
+  const verb = issue.assigned === false ? 'Releasing' : 'Unassigning';
   return {
     action: 'reap-stale-claim',
     issueNumber: issue.number,
     assignee: issue.assignee,
     quietDays,
+    ...(issue.assigned === false ? { assigned: false } : {}),
     comment:
-      `Unassigning @${issue.assignee} — quiet for ${quietDays} days on this claim. ` +
+      `${verb} @${issue.assignee} — quiet for ${quietDays} days on this claim. ` +
       "Freeing it up so anyone can pick it back up. Comment here if you're still working on " +
       'it and this was a mistake.',
   };
@@ -889,12 +905,14 @@ export function planMirrorPassStaleClaimCommands(
   finding: MirrorPassStaleClaimFinding,
 ): readonly MirrorPassCommand[] {
   const issueRef = String(finding.issueNumber);
+  const note: MirrorPassCommand = {
+    command: 'gh',
+    args: ['issue', 'comment', issueRef, '--body', finding.comment],
+    details: `posting the stale-claim reaper note on #${finding.issueNumber}`,
+  };
+  if (finding.assigned === false) return [note];
   return [
-    {
-      command: 'gh',
-      args: ['issue', 'comment', issueRef, '--body', finding.comment],
-      details: `posting the stale-claim reaper note on #${finding.issueNumber}`,
-    },
+    note,
     {
       command: 'gh',
       args: ['issue', 'edit', issueRef, '--remove-assignee', finding.assignee],
@@ -982,6 +1000,56 @@ export async function fetchClaimedIssueActivity(
     assignee,
     lastActivityAt,
   };
+}
+
+/**
+ * Every claim on `issueNumber` as the claims ledger (claim-ledger.ts) reads
+ * it — one {@link MirrorPassClaimedIssue} per live claim, so a comment-only
+ * claimant (their assign failed, their claim comment landed) is reaped on
+ * the same 14-day clock as an assignee, and a contested issue's second
+ * holder has their own clock. Same `gh issue view` read and never-throw
+ * stance as {@link fetchClaimedIssueActivity}; `lastActivityAt` is the
+ * claimant's latest own comment, else the claim, else the issue's own
+ * `updatedAt` (the conservative fallback). Returns `[]` for a bad read or
+ * an unclaimed issue.
+ */
+export async function fetchClaimedIssueClaims(
+  exec: CliExec,
+  issueNumber: number,
+): Promise<readonly MirrorPassClaimedIssue[]> {
+  const { code, stdout } = await exec('gh', [
+    'issue',
+    'view',
+    String(issueNumber),
+    '--json',
+    'number,state,assignees,comments,updatedAt',
+  ]);
+  if (code !== 0) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+  if (typeof parsed !== 'object' || parsed === null) return [];
+  const raw = parsed as RawGithubIssueActivity;
+  if (typeof raw.number !== 'number' || typeof raw.state !== 'string') return [];
+  const state = raw.state.toUpperCase();
+  if (state !== 'OPEN' && state !== 'CLOSED') return [];
+  const updatedAtMs = typeof raw.updatedAt === 'string' ? Date.parse(raw.updatedAt) : NaN;
+  if (Number.isNaN(updatedAtMs)) return [];
+
+  const assignees = (Array.isArray(raw.assignees) ? raw.assignees : [])
+    .map((entry) => (entry as { login?: unknown })?.login)
+    .filter((login): login is string => typeof login === 'string');
+  return claimLedger(assignees, parsePoolComments(raw.comments)).map((claim) => ({
+    number: raw.number as number,
+    state: state === 'OPEN' ? 'open' : 'closed',
+    assignee: claim.login,
+    lastActivityAt: claim.lastActivityAt ?? updatedAtMs,
+    assigned: claim.assigned,
+  }));
 }
 
 /** One claimed issue's full derivation-4/4 outcome — the finding {@link
