@@ -3260,6 +3260,17 @@ var REPORT_REGIONS = {
       'apps/dashboard/src/web/mirror-pass-panel.ts',
     ],
   },
+  // KEEPER Discussions triage (epic 0007 S8): the lane that built the panel
+  // tagged its container but never registered the region, so a right-click
+  // there resolved no owning module — the census caught it.
+  'discussions-triage': {
+    regionId: 'discussions-triage',
+    regionLabel: 'KEEPER Discussions triage',
+    moduleSources: [
+      'apps/dashboard/src/web/features/discussions-triage.ts',
+      'apps/dashboard/src/web/discussions-triage-panel.ts',
+    ],
+  },
   'backlog': {
     regionId: 'backlog',
     regionLabel: 'Detected backlog',
