@@ -22,21 +22,10 @@
  * {@link applyComposedTasks} (slice 2) is the execute half — given a composed
  * `tasks[]`, it actually creates each one on the board, the same split
  * `report-from-here.ts` takes between `planReportFromHere` and
- * `applyReportTask`. A composed task needs no special wiring to enter the
- * SAME prioritization spine every other task rides: `recentTasks` (the ONE
- * true work order `read.ts` documents) sorts by `severity` for ANY row
- * regardless of `source`, and `board-triage.ts`'s `runBoardTriage` feeds
- * every `queued` row — composed ones included — into its LLM triage prompt
- * the same way. The one thing {@link applyComposedTasks} DOES add on top is
- * a one-line provenance note ({@link provenanceNote}) appended to each
- * task's body, so a reader of the board (human or the triage model) can
- * always tell a composed task apart from a hand-typed one and see when the
- * originating note was composed — the same dated-note convention
- * `anti-flood.ts`'s `foldCommentBody` already uses for its own `**Update
- * (<date>):**` stamp. Still no UI entry point: the report-from-here
- * dialog's "split into tasks" affordance and preview are the remaining
- * follow-up slice (per UX-EXPRESSION DOCTRINE, this file alone is not yet a
- * complete, user-reachable capability).
+ * `applyReportTask`. Still no UI entry point: the report-from-here dialog's
+ * "split into tasks" affordance and preview are the remaining follow-up
+ * slice (per UX-EXPRESSION DOCTRINE, this file alone is not yet a complete,
+ * user-reachable capability).
  */
 
 import { fenceTitle } from '@autopilot/engine';
@@ -256,18 +245,6 @@ function composedTaskId(projectId: string, task: ReportComposeTaskItem): string 
   return `compose-task-${projectId}-${djb2(`${task.title}\n${task.body}`)}`;
 }
 
-/** The one-line provenance note every composed task's body carries — "COMPOSER
- *  TARGET=TASKS slice 2" (board web-mtq2lx1q-ff5az8): a reader of the board
- *  must always be able to tell a composed task apart from a hand-typed one
- *  and see when the originating note was composed. `createdAt` (epoch ms) is
- *  the same timestamp the task row itself is stamped with, formatted the same
- *  `YYYY-MM-DD` way `anti-flood.ts`'s `foldCommentBody` stamps its own dated
- *  note. */
-function provenanceNote(createdAt: number): string {
-  const stamp = new Date(createdAt).toISOString().slice(0, 10);
-  return `Composed from an operator note (${stamp}).`;
-}
-
 /** How many of a composed batch actually landed as new board rows — a
  *  duplicate id (a retried batch) counts as `skipped`, never an error. */
 export interface ApplyComposedTasksResult {
@@ -282,11 +259,9 @@ export interface ApplyComposedTasksResult {
  * takes for its own plan. `source: 'dashboard'` throughout: the operator
  * explicitly typed the note and triggered the compose+execute themselves, the
  * same "queued immediately, no approval gate" stance a hand-typed local-task
- * report already takes — this is not an autopilot-mined proposal. Every body
- * gets {@link provenanceNote} appended (slice 2, board web-mtq2lx1q-ff5az8) so
- * the board and the LLM triage prompt alike can always tell a composed task
- * apart from a hand-typed one. Still no UI entry point (the report-from-here
- * dialog's own follow-up slice); this is the store-writing half only.
+ * report already takes — this is not an autopilot-mined proposal. Still no UI
+ * entry point (the report-from-here dialog's own follow-up slice); this is
+ * the store-writing half only.
  */
 export function applyComposedTasks(
   store: Store,
@@ -300,7 +275,7 @@ export function applyComposedTasks(
       id: composedTaskId(projectId, task),
       projectId,
       title: task.title,
-      body: `${task.body}\n\n${provenanceNote(createdAt)}`,
+      body: task.body,
       severity: task.severity,
       dimension: task.dimension,
       source: 'dashboard',
