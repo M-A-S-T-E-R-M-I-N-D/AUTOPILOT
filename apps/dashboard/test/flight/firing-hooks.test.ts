@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,7 +20,9 @@ import {
   harvestProposals,
   activityTrail,
   markTaskDoneIfShipped,
+  runMutationScopeAdvisory,
 } from '../../src/flight/firing-hooks.js';
+import type { MutationConfig } from '../../src/flight/mutation-scope.js';
 
 function proposal(title: string, overrides: Partial<TaskProposal> = {}): TaskProposal {
   return {
@@ -588,5 +590,99 @@ describe('activityTrail', () => {
     activity('Read', 'ok.ts', 2);
 
     expect(activityTrail(store, 'p1', 1)).toBe('- Read ok.ts');
+  });
+});
+
+describe('runMutationScopeAdvisory', () => {
+  const fakeConfigs: MutationConfig[] = [
+    { file: 'stryker.a.config.mjs', mutate: ['src/a.ts'], script: 'mutation:a' },
+  ];
+  const patchTouchingA = 'diff --git a/src/a.ts b/src/a.ts\n+change';
+
+  it('does nothing when the firing did not ship', async () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await runMutationScopeAdvisory(
+        outcomeWithRecord({ shipped: false, sha: 'deadbeef' }),
+        fakeVcs({ patch: patchTouchingA }),
+        () => fakeConfigs,
+      );
+      expect(writeSpy).not.toHaveBeenCalled();
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
+  it('does nothing when shipped but no sha was verified', async () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await runMutationScopeAdvisory(
+        outcomeWithRecord({ shipped: true, sha: null }),
+        fakeVcs({ patch: patchTouchingA }),
+        () => fakeConfigs,
+      );
+      expect(writeSpy).not.toHaveBeenCalled();
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
+  it('never scans for mutation configs when the firing did not ship', async () => {
+    let discovered = false;
+    await runMutationScopeAdvisory(
+      outcomeWithRecord({ shipped: false, sha: 'deadbeef' }),
+      fakeVcs({ patch: patchTouchingA }),
+      () => {
+        discovered = true;
+        return fakeConfigs;
+      },
+    );
+    expect(discovered).toBe(false);
+  });
+
+  it('names the matching mutation script when the shipped patch touches a mutated file', async () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await runMutationScopeAdvisory(
+        outcomeWithRecord({ shipped: true, sha: 'deadbeef' }),
+        fakeVcs({ patch: patchTouchingA }),
+        () => fakeConfigs,
+      );
+      expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('pnpm run mutation:a'));
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
+  it('prints nothing when the shipped patch touches no mutated file', async () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await runMutationScopeAdvisory(
+        outcomeWithRecord({ shipped: true, sha: 'deadbeef' }),
+        fakeVcs({ patch: 'diff --git a/src/untested.ts b/src/untested.ts\n+change' }),
+        () => fakeConfigs,
+      );
+      expect(writeSpy).not.toHaveBeenCalled();
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
+  it('is best-effort — a patch-fetch failure never throws', async () => {
+    const failingVcs: GitVcs = {
+      head: async () => 'headsha',
+      showPatch: async () => {
+        throw new Error('git show failed');
+      },
+      fileExists: async () => false,
+    } as unknown as GitVcs;
+
+    await expect(
+      runMutationScopeAdvisory(
+        outcomeWithRecord({ shipped: true, sha: 'deadbeef' }),
+        failingVcs,
+        () => fakeConfigs,
+      ),
+    ).resolves.toBeUndefined();
   });
 });
