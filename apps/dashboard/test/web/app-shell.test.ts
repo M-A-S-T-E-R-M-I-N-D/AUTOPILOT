@@ -196,6 +196,11 @@ describe('layout-css — mobile-first laws', () => {
     expect(css).toContain(
       '.board-view-toggle { display: block; inline-size: fit-content; margin: 0 0 var(--space-2) auto;',
     );
+    // Reorder arrows show on hover/focus-within with a hover-capable pointer from lg.
+    expect(css).toContain(
+      '@media (min-width: 64rem) and (hover: hover) {\n  .task-move { opacity: 0;',
+    );
+    expect(css).toContain('.task:hover .task-move, .task:focus-within .task-move { opacity: 1; }');
   });
 
   it('never tracks Hebrew: under dir=rtl every letter-spacing rule is undone, last in the sheet', () => {

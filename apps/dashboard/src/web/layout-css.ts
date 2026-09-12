@@ -978,6 +978,14 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 }
 .task-drag-handle { cursor: grab; color: var(--color-text-muted); font-size: var(--text-sm); padding: 0 2px; user-select: none; touch-action: none; }
 .task[draggable="true"]:active { cursor: grabbing; }
+/* DESKTOP DENSITY (2026-09-12): thirty rows × (↑ ↓) is sixty arrows nobody is
+   pressing. With a hover-capable pointer from lg a row's reorder arrows show
+   on hover and on focus-within — keyboard users land on them and see them;
+   screen readers never lost them (opacity, not display). Touch keeps them. */
+@media (min-width: 64rem) and (hover: hover) {
+  .task-move { opacity: 0; transition: opacity var(--duration-short2) var(--easing-standard); }
+  .task:hover .task-move, .task:focus-within .task-move { opacity: 1; }
+}
 .task-dragging { opacity: 0.4; }
 .focus-note { margin: 0 0 var(--space-2); font-size: var(--text-xs); font-weight: 600; color: var(--color-accent); }
 .task-move { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 0 6px; border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
