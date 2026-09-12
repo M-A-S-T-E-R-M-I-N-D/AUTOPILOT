@@ -252,6 +252,16 @@ const BENIGN_FLIGHT = new Set([
   // that will need its own marker once it ships one, same class as
   // pool-client.ts/social-pass.ts above.
   'discussions-triage.ts',
+  // STANDING 3/5 (board web-mtq07khu-h1kr9u): loadContributorRegistry/
+  // parseContributorRegistry read-parse `.github/TRUSTED-CONTRIBUTORS.md` —
+  // a path this module hardcodes itself, never operator/request input — into
+  // structured tier facts. Same class as donations.ts above: read-only,
+  // degrades to an empty registry (and DEFAULT_STANDING_TIER for every
+  // lookup) on any missing/unparseable file, no `gh` call, no write. Which
+  // scope a tier actually unlocks is a decision for whichever future ritual
+  // consumes tierForLogin/isAtLeastTier — that ritual will need its own
+  // marker once it ships one.
+  'contributor-registry.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
