@@ -756,7 +756,10 @@ ${sharedLiveFirings.toString()}
 // for this project, newest first, each wrapped with the same client-only
 // probableTask fallback.
 function liveFirings(c) {
-  var list = liveFiringsOf(c, firingCallsign, narratorLine, countTurns);
+  // The per-firing windows when the read carries them (read/fleet.ts's
+  // laneActivity) — the feed's project-wide window hid quiet lanes.
+  var lanes = c.laneActivity ? { status: c.status, activity: c.laneActivity, flightLog: c.flightLog, tasks: c.tasks } : c;
+  var list = liveFiringsOf(lanes, firingCallsign, narratorLine, countTurns);
   return list.map(function (core) {
     core.phase = core.phase || 'other';
     core.probableTask = core.focusTask ? null : probableTaskTitle(c.tasks || []);
@@ -948,6 +951,7 @@ function liveWorkerCard(c) {
   // STRINGS key needed for a first cut.
   var actionElapsed = fmtElapsed(live.currentActionAt);
   var actionElapsedEl = el('span', 'act-elapsed muted', actionElapsed);
+  actionElapsedEl.setAttribute('data-elapsed-from', String(live.currentActionAt));
   actionElapsedEl.setAttribute('tabindex', '0');
   actionElapsedEl.setAttribute(
     'data-tip',
@@ -1106,6 +1110,7 @@ function laneCard(live, projectId) {
   }
   wrap.appendChild(actionLine);
   var elapsedEl = el('p', 'muted live-worker-turns', fmtElapsed(live.startedAt));
+  elapsedEl.setAttribute('data-elapsed-from', String(live.startedAt));
   elapsedEl.setAttribute('tabindex', '0');
   elapsedEl.setAttribute('data-tip', 'How long this lane has been running');
   elapsedEl.setAttribute('data-i18n-tip', 'liveElapsedTip');
@@ -3328,6 +3333,43 @@ function subj(node, name) {
   if (node && node.dataset && node.dataset.subject !== name) node.dataset.subject = name;
   return node;
 }
+// PANEL CACHE (2026-09-12, "everything flickers"): renderProjectPage rebuilds
+// on every live-state tick — 1.5 s apart during a flight, since the state
+// signature hashes activity and live lanes — and every client-built panel
+// (landing, console, triage, mirror pass, discussions, backlog, coordination,
+// plan editor, pipeline, round, release) came back as a fresh node showing
+// "Loading…" and refiring its fetch, ~15 requests a tick, an open <details>
+// closing, an undo stack dying. The docs reader already kept its nodes
+// (docsPanelCache, "the reader is sacred"); this is that rule for every
+// panel: a panel is built once per project and per DATA KEY, and reattached
+// on every rebuild in between. The key names what the panel actually depends
+// on — the newest landed firing, the task count, the flying status — so a
+// landed firing rebuilds the panels that summarise firings, and nothing else
+// does. Live sections (the card, tasks, summary, data charts) keep their own
+// synchronous, in-place patching (patchSections) and stay outside the cache.
+var projectPanelCache = {}; // pid -> { fleet, panels: { name -> { key, node } } }
+// A new <main> element is a new page (a full re-render of the shell): cached
+// nodes belong to the document that built them, so the bucket resets.
+function panelBucket(pid, fleet) {
+  var bucket = projectPanelCache[pid];
+  if (!bucket || bucket.fleet !== fleet) {
+    bucket = { fleet: fleet, panels: {} };
+    projectPanelCache[pid] = bucket;
+  }
+  return bucket.panels;
+}
+function panelDataKey(c) {
+  var head = c.flightLog && c.flightLog.length ? c.flightLog[0].id : '';
+  return head + ':' + (c.tasks ? c.tasks.length : 0) + ':' + (c.status || '');
+}
+function cachedPanel(pid, name, key, build) {
+  var panels = panelBucket(pid, document.getElementById('fleet'));
+  var entry = panels[name];
+  if (entry && entry.key === key) return entry.node;
+  var node = build();
+  panels[name] = { key: key, node: node };
+  return node;
+}
 function renderProjectPage(state, pid) {
   var fleet = document.getElementById('fleet');
   if (!fleet) return;
@@ -3358,11 +3400,15 @@ function renderProjectPage(state, pid) {
   var summary = flightSummarySection(c);
   if (summary) fleet.appendChild(subj(summary, 'fleet'));
   // What's next: unmerged commits sitting on the checked-out branch, ready to land.
-  var landingEl = landingSection(pid, c.flightLog, c.tasks);
+  var dataKey = panelDataKey(c);
+  // The landing panel also rebuilds when its rebuild-and-restart grace state
+  // flips (landing.ts forces that repaint; the key must let it through).
+  var landingKey = dataKey + (landingRestarting[pid] ? ':restarting' : '');
+  var landingEl = cachedPanel(pid, 'landing', landingKey, function () { return landingSection(pid, c.flightLog, c.tasks); });
   landingEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'landing');
   fleet.appendChild(subj(landingEl, 'fleet'));
   // The raw process console — collapsed by default, lazy-loaded on expand.
-  var flightConsoleEl = flightConsoleSection(pid);
+  var flightConsoleEl = cachedPanel(pid, 'console', '', function () { return flightConsoleSection(pid); });
   flightConsoleEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'flight-console');
   fleet.appendChild(subj(flightConsoleEl, 'fleet'));
   var heatmap = contributionHeatmap(c);
@@ -3394,54 +3440,55 @@ function renderProjectPage(state, pid) {
   // against this project's board/backlog — sits right before Detected
   // backlog, since an accepted issue becomes a new task that panel itself
   // could later flag as shipped.
-  var issueTriageEl = issueTriageSection(pid);
+  var issueTriageEl = cachedPanel(pid, 'issue-triage', dataKey, function () { return issueTriageSection(pid); });
   issueTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'issue-triage');
   fleet.appendChild(subj(issueTriageEl, 'keeper'));
   // Mirror pass: read-only board↔GitHub reconciliation findings (EPIC 0019
   // S3, VERDICT ap-mtsg3nc0-3 slice (c)) — sits right after KEEPER issue
   // triage, the other project-scoped GitHub-governance preview panel.
-  var mirrorPassEl = mirrorPassSection(pid);
+  var mirrorPassEl = cachedPanel(pid, 'mirror-pass', dataKey, function () { return mirrorPassSection(pid); });
   mirrorPassEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'mirror-pass');
   fleet.appendChild(subj(mirrorPassEl, 'keeper'));
   // KEEPER Discussions triage (epic 0007 S8, board web-mtlsiac0-v8rksh): the
   // same accept/skip preview+execute shape as issue triage, extended to
   // GitHub Discussions — sits right after Mirror pass, the other
   // read-only-preview-plus-role-gated-execute GitHub-governance panel.
-  var discussionsTriageEl = discussionsTriageSection(pid);
+  var discussionsTriageEl = cachedPanel(pid, 'discussions-triage', dataKey, function () { return discussionsTriageSection(pid); });
   discussionsTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'discussions-triage');
   fleet.appendChild(subj(discussionsTriageEl, 'keeper'));
   // Detected backlog: open tasks a recent commit may have already shipped
   // (interactive-session work with no METRICS line) — sits right after the
   // task board it proposes edits to.
-  var backlogEl = backlogSection(pid);
+  var backlogEl = cachedPanel(pid, 'backlog', dataKey, function () { return backlogSection(pid); });
   backlogEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'backlog');
   fleet.appendChild(subj(backlogEl, 'keeper'));
   // Fleet coordination: which sibling lanes hold what board claim / what a
   // sibling branch is touching right now — sits right after Detected
   // backlog, since a board claim is the same "who already has this?"
   // question an operator would otherwise have to piece together by hand.
-  fleet.appendChild(subj(coordinationSection(pid), 'keeper'));
+  fleet.appendChild(subj(cachedPanel(pid, 'coordination', dataKey, function () { return coordinationSection(pid); }), 'keeper'));
   // Pipeline view (epic 0015 D4): the OTLP span graph — which firings ran in
   // which lane, and what continued what — server-rendered by /api/pipeline
   // and fetched on demand, right after Fleet coordination since both answer
   // the same "what is the fleet actually doing?" question at different depths.
   // The editor first — what the operator changes — then the observed pipeline
   // (RTL/density audit, 2026-09-12: the 13k-px span tree buried the editor).
-  fleet.appendChild(subj(planEditorSection(pid), 'plan'));
-  fleet.appendChild(subj(pipelineSection(pid), 'plan'));
+  // The editor keeps its draft, selection and undo stack for the whole visit.
+  fleet.appendChild(subj(cachedPanel(pid, 'plan-editor', '', function () { return planEditorSection(pid); }), 'plan'));
+  fleet.appendChild(subj(cachedPanel(pid, 'pipeline', dataKey, function () { return pipelineSection(pid); }), 'plan'));
   var docsEl = docsSection(pid);
   docsEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'docs');
   fleet.appendChild(subj(docsEl, 'docs'));
   // This round: the non-destructive answer to "how am I doing lately?" —
   // pairs with Start over just below, which is the destructive version of
   // the same question.
-  var roundEl = roundSection(pid);
+  var roundEl = cachedPanel(pid, 'round', dataKey, function () { return roundSection(pid); });
   roundEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'round');
   fleet.appendChild(subj(roundEl, 'fleet'));
   // Next release: the SemVer bump the commits since the last release tag
   // would cut, if any — pairs with This round just above (same "since the
   // last tag" boundary, different question: how am I doing vs. what ships next).
-  var releaseEl = releaseSection(pid);
+  var releaseEl = cachedPanel(pid, 'release', dataKey, function () { return releaseSection(pid); });
   releaseEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'release');
   fleet.appendChild(subj(releaseEl, 'fleet'));
   // Start over: a DECLARED telemetry reset (fresh 0/0 round) — the project,
@@ -3608,6 +3655,7 @@ function renderTotals(t) {
 // flying rather than showing an empty strip. A project running several
 // concurrent worktree lanes at once contributes one chip per lane, not one
 // per project — see liveWorkerItems (web/stat-tiles.ts).
+var liveWorkersSig = '';
 function renderLiveWorkers(state) {
   var section = document.getElementById('live-workers');
   if (!section) return;
@@ -3615,6 +3663,12 @@ function renderLiveWorkers(state) {
     return { id: p.id, name: p.name, lives: liveFirings(p) };
   });
   var items = liveWorkerItems(cards);
+  // Guarded (2026-09-12): this strip lives in the context rail, and an
+  // unguarded rebuild every tick made its chips and the rail's empty line
+  // blink together. Same chips, same lanes → nothing is touched.
+  var liveSig = JSON.stringify(items);
+  if (liveSig === liveWorkersSig) return;
+  liveWorkersSig = liveSig;
   section.replaceChildren();
   section.hidden = items.length === 0;
   if (items.length === 0) return;
@@ -3774,7 +3828,13 @@ function setBrbVisible(visible) {
 // decomposition", slice 2) — its real compiled source via .toString(), not a
 // hand-retyped copy. It can no longer drift apart.
 ${sharedFleetStateSig.toString()}
+// One client instance paints one page: the <main> it booted on. Once that
+// element is gone (the document was rewritten) every later tick is a stale
+// instance's, and it paints nothing — it must not repaint a page it does not
+// own with panels it cached for another.
+var renderOwnerFleet = document.getElementById('fleet');
 function renderFleet(state) {
+  if (renderOwnerFleet && !renderOwnerFleet.isConnected) return;
   // DEFER-ORDER LAW (2026-09-12): /project.js and /panels.js are defer
   // scripts that execute AFTER this one, and a state response can land
   // between them (the fixture answers in 2ms). A render that ran then threw
@@ -3957,13 +4017,52 @@ function refresh() {
       setBrbVisible(brbOverlayVisible(brbFailStreak));
     });
 }
+// LIVE CLOCKS (2026-09-12, "not real time"): every elapsed counter was
+// computed once at build and only moved when a lane's activity changed the
+// section's signature — frozen for a minute, then a jump. One 1 s timer now
+// advances every [data-elapsed-from] text in place; nothing else is touched,
+// and a hidden tab does not tick at all.
+var clocksOwnerFleet = document.getElementById('fleet');
+function tickElapsedClocks() {
+  // This client instance's page is gone (a rewritten document): stop ticking.
+  if (clocksOwnerFleet && !clocksOwnerFleet.isConnected) {
+    clearInterval(clocksTimer);
+    return;
+  }
+  if (document.visibilityState === 'hidden') return;
+  var nodes = document.querySelectorAll('[data-elapsed-from]');
+  for (var i = 0; i < nodes.length; i++) {
+    var from = Number(nodes[i].getAttribute('data-elapsed-from'));
+    if (!from) continue;
+    var text = fmtElapsed(from);
+    if (nodes[i].textContent === text) continue;
+    nodes[i].textContent = text;
+    if (nodes[i].hasAttribute('aria-label')) {
+      nodes[i].setAttribute('aria-label', nodes[i].classList.contains('act-elapsed') ? 'running for ' + text : text);
+    }
+  }
+}
+var clocksTimer = setInterval(tickElapsedClocks, 1000);
+// A hidden tab keeps the stream open but paints nothing; the newest state
+// waits and paints once when the tab is shown again.
+var pendingStreamState = null;
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState !== 'visible' || !pendingStreamState) return;
+  var pending = pendingStreamState;
+  pendingStreamState = null;
+  try { renderFleet(pending); } catch (err) {}
+});
 function startFleetStream() {
   refresh(); // immediate first paint
   if (typeof EventSource !== 'undefined') {
     try {
       var es = new EventSource('/api/stream');
       es.onmessage = function (e) {
-        try { renderFleet(JSON.parse(e.data)); } catch (err) {}
+        try {
+          var next = JSON.parse(e.data);
+          if (document.visibilityState === 'hidden') { pendingStreamState = next; return; }
+          renderFleet(next);
+        } catch (err) {}
       };
       setInterval(refresh, 15000); // slow backup poll behind the live stream
       return;

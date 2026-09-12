@@ -44,6 +44,15 @@
  * `duplicates`), so the panel reuses {@link mirrorPassExecuteResultMessage}
  * rather than a third near-identical formatter.
  *
+ * {@link mirrorPassCanExecuteStaleClaim} closes derivation 4/4's own
+ * UX-expression gap the same way: `POST /api/mirror-pass/stale-claims/execute`
+ * (`flight/mirror-pass-execute.ts`'s `createMirrorPassStaleClaimExecuteApi`)
+ * shipped with zero dashboard trigger — the last of the four wired execute
+ * paths this epic's slice (b) left unpainted. Same role gate, gated on at
+ * least one stale-claim finding rather than a reconcile one. Its report
+ * shares reconcile's exact shape too, so it also reuses
+ * {@link mirrorPassExecuteResultMessage}.
+ *
  * `web/shell.ts` embeds this module's real compiled source into the
  * generated `/app.js` text via `.toString()` — see `fleetJs()` — instead of
  * hand-retyping it, so the two copies can no longer drift apart. Each
@@ -222,6 +231,18 @@ export function mirrorPassCanExecuteLandingNote(
 ): boolean {
   if (identity && identity.role !== 'maintainer') return false;
   return mirrorPassLandingNoteItems(landingNote ?? []).length > 0;
+}
+
+/** Whether the panel may show its stale-claim EXECUTE button — same role
+ *  gate as {@link mirrorPassCanExecute} (a confirmed non-maintainer never
+ *  gets it, an unresolved identity is not a known guest so it still does),
+ *  gated on at least one stale-claim finding rather than a reconcile one. */
+export function mirrorPassCanExecuteStaleClaim(
+  identity: MirrorPassIdentityLike | null | undefined,
+  staleClaims: readonly MirrorPassStaleClaimPlanLike[] | null,
+): boolean {
+  if (identity && identity.role !== 'maintainer') return false;
+  return mirrorPassStaleClaimItems(staleClaims ?? []).length > 0;
 }
 
 /** One reconciled task's real outcome, as {@link createMirrorPassExecuteApi}

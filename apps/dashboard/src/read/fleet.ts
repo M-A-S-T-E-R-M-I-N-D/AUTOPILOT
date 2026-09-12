@@ -288,9 +288,15 @@ export function liveFiring(
  * web-mtbp0t86-rnimyi).
  */
 export function liveFirings(
-  p: Pick<ProjectAggregate, 'status' | 'activity' | 'flightLog' | 'tasks'>,
+  p: Pick<ProjectAggregate, 'status' | 'activity' | 'laneActivity' | 'flightLog' | 'tasks'>,
 ): readonly LiveFiring[] {
-  return sharedLiveFirings(p, firingCallsign, narratorLine, countTurns);
+  const lanes = {
+    status: p.status,
+    activity: p.laneActivity ?? p.activity,
+    flightLog: p.flightLog,
+    tasks: p.tasks,
+  };
+  return sharedLiveFirings(lanes, firingCallsign, narratorLine, countTurns);
 }
 
 /** Everything gathered for one project, already read out of the store. */
@@ -378,6 +384,12 @@ export interface ProjectAggregate {
    *  read always sets it explicitly. */
   readonly flightLogHasMore?: boolean;
   readonly activity: readonly ActivityEntry[];
+  /** Per-firing activity windows (newest N events of each live firing) —
+   *  what {@link liveFirings} reads when present, so a lane in a long quiet
+   *  step never drops out of the feed's project-wide window and vanishes
+   *  from the cockpit (2026-09-12: four lanes, three cards). Optional so
+   *  every fixture and older read path that predates it still type-checks. */
+  readonly laneActivity?: readonly ActivityEntry[];
   readonly tasks: readonly TaskEntry[];
   /** DORA-for-agents snapshot (backlog web-msnsxudt-sfw78a), computed store-side
    *  (packages/store/src/dora.ts) from this project's own metrics/tasks rows —

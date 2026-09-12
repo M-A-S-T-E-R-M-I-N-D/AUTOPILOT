@@ -648,7 +648,7 @@ const EN_STRINGS = {
   askDeepTip:
     'Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts',
   // The escalation-offer affordance (ASK/ARCHITECT answer-quality doctrine
-  // slice 3, docs/epics/0021-ask-answer-quality-doctrine.md, board
+  // slice 3, docs/epics/0022-ask-answer-quality-doctrine.md, board
   // web-mtt5qwjp-xns6ps): search.ts's renderOffer() shows this button only
   // when the terminal frame's lowConfidence signal is true AND the request
   // that produced it was NOT already Deep — clicking it checks #ask-deep and
@@ -1692,6 +1692,17 @@ const EN_STRINGS = {
     'Post the landing note(s) above now? This comments on GitHub for every already-closed issue missing one.',
   mirrorPassLandingNoteExecuting: 'Posting…',
   mirrorPassLandingNoteRequestFailed: 'Mirror pass landing-note request failed.',
+  // Its "Free stale claim(s)" EXECUTE button (derivation 4/4's own execute
+  // path) — same i18n shape as mirrorPassExecute above: idle label rides
+  // data-i18n, the tip doubles as the accessible name, and the
+  // confirm/in-flight/failure states are painted via tr() at click time.
+  mirrorPassStaleClaimExecute: 'Free stale claim(s)',
+  mirrorPassStaleClaimExecuteTip:
+    'Unassigns every claimed pool issue above whose assignee has gone quiet past the reap threshold.',
+  mirrorPassStaleClaimExecuteConfirm:
+    'Free the stale claim(s) above now? This unassigns every claimed pool issue whose assignee has gone quiet past the reap threshold.',
+  mirrorPassStaleClaimExecuting: 'Freeing…',
+  mirrorPassStaleClaimRequestFailed: 'Mirror pass stale-claim request failed.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2528,6 +2539,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לפרסם את הערות הנחיתה שלמעלה עכשיו? זה מפרסם תגובה ב-GitHub עבור כל issue סגור שחסרה לו אחת.',
     mirrorPassLandingNoteExecuting: 'מפרסם…',
     mirrorPassLandingNoteRequestFailed: 'בקשת הערת הנחיתה של מעבר השיקוף נכשלה.',
+    mirrorPassStaleClaimExecute: 'שחרר תביעות ישנות',
+    mirrorPassStaleClaimExecuteTip:
+      'מבטל שיוך לכל issue תבוע ב-pool שלמעלה שהאחראי עליו שקט מעבר לסף הקצירה.',
+    mirrorPassStaleClaimExecuteConfirm:
+      'לשחרר את התביעות הישנות שלמעלה עכשיו? זה מבטל שיוך לכל issue תבוע שהאחראי עליו שקט מעבר לסף הקצירה.',
+    mirrorPassStaleClaimExecuting: 'משחרר…',
+    mirrorPassStaleClaimRequestFailed: 'בקשת שחרור התביעות הישנות של מעבר השיקוף נכשלה.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',

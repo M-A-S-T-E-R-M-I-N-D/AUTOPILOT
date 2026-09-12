@@ -25,6 +25,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// waitFor with a 5 s ceiling (2026-09-13): the 1 s default flaked under a full
+// 700-file run and turned a landing gate red; the assertions are unchanged.
+const waitFor = <T>(probe: () => T | Promise<T>): Promise<T> =>
+  vi.waitFor(probe, { timeout: 5000 });
 import { STRINGS, type StringKey } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
@@ -128,7 +133,7 @@ function q(selector: string): HTMLElement {
 
 async function openLanding(): Promise<void> {
   boot();
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(document.querySelector('.landing-commit-sha')).not.toBeNull();
   });
 }

@@ -78,6 +78,34 @@ export function selectConfigFiles(configs, diffRef, touchedFiles) {
   return configs.filter((c) => c.mutate.some((m) => touched.has(m))).map((c) => c.file);
 }
 
+/** `--shard <i>/<n>` from argv: run only every n-th config starting at the
+ *  i-th (1-based), so a CI matrix can split the full sweep across jobs — the
+ *  nightly run of ~200 configs on one runner hit the 180-minute job timeout
+ *  four days running (2026-09-09→12) and read as "cancelled" on the CI
+ *  panel. `null` when absent (one job runs everything). A malformed value
+ *  is an error, not a silent full sweep: a typo in the workflow must not
+ *  quietly run six full sweeps. */
+export function parseShard(argv) {
+  const idx = argv.indexOf('--shard');
+  if (idx === -1) return null;
+  const m = /^(\d+)\/(\d+)$/.exec(argv[idx + 1] ?? '');
+  const index = m ? Number(m[1]) : NaN;
+  const total = m ? Number(m[2]) : NaN;
+  if (!m || index < 1 || total < 1 || index > total) {
+    throw new Error(
+      `run-all-mutation: --shard wants <i>/<n> with 1 ≤ i ≤ n, got '${argv[idx + 1] ?? ''}'`,
+    );
+  }
+  return { index, total };
+}
+
+/** The i-th of n interleaved slices of `files` (sorted discovery order, so
+ *  every shard gets a spread of packages rather than one package's tail). */
+export function shardConfigFiles(files, shard) {
+  if (!shard) return files;
+  return files.filter((_, i) => i % shard.total === shard.index - 1);
+}
+
 function touchedFilesSince(ref) {
   return execFileSync('git', ['diff', '--name-only', ref], { cwd: ROOT, encoding: 'utf8' })
     .split('\n')
@@ -93,11 +121,15 @@ function main() {
   }
 
   const diffRef = parseDiffRef(process.argv);
-  const scoped = selectConfigFiles(
-    configs,
-    diffRef,
-    diffRef === null ? [] : touchedFilesSince(diffRef),
+  const shard = parseShard(process.argv);
+  const scoped = shardConfigFiles(
+    selectConfigFiles(configs, diffRef, diffRef === null ? [] : touchedFilesSince(diffRef)),
+    shard,
   );
+  if (shard)
+    console.log(
+      `run-all-mutation: shard ${shard.index}/${shard.total} — ${scoped.length} of ${configs.length} config(s)`,
+    );
 
   if (diffRef !== null && scoped.length === 0) {
     console.log(`run-all-mutation: no mutation configs touched since ${diffRef}`);

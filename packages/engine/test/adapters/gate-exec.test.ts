@@ -37,7 +37,14 @@ describe('GateRunner default execFile wiring (real exec, mocked node:child_proce
     const [, , options] = execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>];
     // Exact equality (not toMatchObject) — an options object collapsed to {}
     // would otherwise pass a merely-partial check.
-    expect(options).toEqual({ cwd: '/work/repo', timeout: 4321, windowsHide: true });
+    // maxBuffer (2026-09-13): a full test run's output must never itself read as
+    // a crash — execFile kills a child past the default 1 MiB and reports it so.
+    expect(options).toEqual({
+      cwd: '/work/repo',
+      timeout: 4321,
+      windowsHide: true,
+      maxBuffer: 64 * 1024 * 1024,
+    });
   });
 
   it('falls back to the default timeout when none is given', async () => {

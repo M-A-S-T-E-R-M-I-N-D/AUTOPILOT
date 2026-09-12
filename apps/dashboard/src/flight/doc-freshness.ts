@@ -159,7 +159,7 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     // builder are its well-defined subject area — narrower than the shared
     // Ask panel client (web/features/search.ts) already tracked by epic
     // 0002's broader web/ entry above.
-    doc: 'docs/epics/0021-ask-answer-quality-doctrine.md',
+    doc: 'docs/epics/0022-ask-answer-quality-doctrine.md',
     subjects: [
       'apps/dashboard/src/ask/service.ts',
       'apps/dashboard/src/server/ask.ts',

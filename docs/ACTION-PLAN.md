@@ -123,11 +123,11 @@
 | Scope creep (the 999 topics) | `FEATURE-COVERAGE.md` tracks every feature to a milestone; nothing is forgotten, nothing is smuggled in unplanned. |
 | Quota exhaustion during the build | the v2.4 quota-safety (hibernation + weekly pacing) already handles it. |
 
-## Status (2026-09-09)
-M0–M3 **shipped** (`v0.6.0`–`v0.10.0` era, pre-genesis); **M4 essentially complete** at v0.33.0 — live
-flights, fleets, RAG, task board, AND live control (pause/stop mid-flight, operator focus/labels steering)
-all shipped; **M5 emerging**: the approvals queue exists in the board (`needs_approval` verdicts gate on the
-operator today), a dedicated one-place approvals panel is the open slice; M6–M9 planned. This document is the FOUNDING build order, kept verbatim below its
+## Status (2026-09-13)
+M0–M3 **shipped** (`v0.6.0`–`v0.10.0` era, pre-genesis); **M4 complete** and **M5 in progress** at v0.42.0 —
+live flights, fleets of worktree lanes, RAG, the task board, live control (pause/stop, focus and labels
+steering), and the one-place approvals surface the Keeper queue now is (every item waiting on a human, one
+list, in the app shell); M6–M9 planned. Direction lives in `ROADMAP.md`. This document is the FOUNDING build order, kept verbatim below its
 header — the live record of what exists is `CHANGELOG.md`. All founding decisions locked: name, TypeScript,
 Apache-2.0, read-only-first MVP, colors (§16.1), verification boundary (§17).
 

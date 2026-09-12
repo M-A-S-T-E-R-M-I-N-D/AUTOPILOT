@@ -47,8 +47,6 @@ so the "no claims without a paper trail" standard
   via the path signal (`apps/dashboard/test/read/reconcile.test.ts`, the fixture immediately after the one above).
   `apps/dashboard/src/fly.ts`'s end-of-flight block now passes `commit.files` through for real, so the fix applies
   to live flights, not just the test fixture.
-<<<<<<< HEAD
-=======
 
 ## §K — Dashboard browser tsconfig lib/jsdom split (moved 2026-09-10)
 
@@ -63,4 +61,3 @@ so the "no claims without a paper trail" standard
   package alone — Node-only packages no longer see DOM globals leak in from the old flat program. Removed the
   now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
   N/A — no React/Vite UI yet; add it if/when that lands.
->>>>>>> autopilot/flight-worktree-fly-autopilot--fleet-5

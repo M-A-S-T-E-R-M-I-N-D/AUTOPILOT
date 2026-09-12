@@ -5,10 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # LIVING REPO — the operator's full spec (SDD artifact)
 
-> **Build status (2026-09-09): largely UNBUILT.** This is a preserved operator
-> SPEC, not a description of the repo — §2's file tree, §3/§6/§7's client
-> surface, and the workflow set mostly do not exist yet at v0.33.0; treat every
-> claim as intent until a shipped artifact says otherwise.
+> **Build status (2026-09-13): PARTLY BUILT, read as a spec.** At v0.42.0 the
+> GitHub page and the steward fleet exist — issue triage and the protocol gate,
+> the `/claim` contract, the mirror pass, the pool client, contributor standing,
+> the Foundation surface ([epic 0019](epics/0019-github-steward.md)) — while
+> §2's file tree and several paths named below (`docs/AGENT-AUTONOMY.md`,
+> `docs/ROLLBACK.md`, `scripts/snapshot.ts`, `scripts/readme-sync.ts`,
+> `scripts/dedupe-hash.ts`) were never created as written. Treat every claim as
+> intent until a shipped artifact says otherwise.
 >
 > **Provenance:** authored by the operator (2026-08-08), preserved as the
 > spec-driven-development source of truth for the "living repo" epic. Tasks

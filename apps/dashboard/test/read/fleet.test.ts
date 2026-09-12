@@ -901,6 +901,25 @@ describe('liveFirings (board web-mtbp0t86-rnimyi: fleet cockpit showed 1 pilot f
     expect(ids).toEqual(['p1:firing-lane-a', 'p1:firing-lane-b', 'p1:firing-lane-c']);
   });
 
+  it('reads the per-firing windows when the aggregate carries them — a quiet lane outside the feed window still counts (2026-09-12)', () => {
+    const p = aggregate({
+      activity: [
+        act({ firingId: 'p1:firing-lane-a', at: 6 }),
+        act({ firingId: 'p1:firing-lane-b', at: 5 }),
+      ],
+      laneActivity: [
+        act({ firingId: 'p1:firing-lane-a', at: 6 }),
+        act({ firingId: 'p1:firing-lane-b', at: 5 }),
+        act({ firingId: 'p1:firing-lane-c', tool: 'Bash', target: 'sleep 60', at: 1 }),
+      ],
+    });
+    expect(liveFirings(p).map((f) => f.firingId)).toEqual([
+      'p1:firing-lane-a',
+      'p1:firing-lane-b',
+      'p1:firing-lane-c',
+    ]);
+  });
+
   it('excludes a firingId that already landed in the flight log even when it still has activity entries', () => {
     const p = aggregate({
       activity: [

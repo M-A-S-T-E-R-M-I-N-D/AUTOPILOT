@@ -311,6 +311,65 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
   });
 });
 
+describe('client-built panels survive live-state ticks (the flicker, 2026-09-12)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function bootWithStates(states: unknown[]): void {
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    let call = 0;
+    globalThis.fetch = vi.fn(async (url: unknown) => {
+      const u = String(url);
+      if (u.startsWith('/api/state')) {
+        const s = states[Math.min(call, states.length - 1)];
+        call += 1;
+        return { ok: true, json: async () => s } as unknown as Response;
+      }
+      return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+    });
+    new Function(clientJs())();
+  }
+
+  it('keeps the same panel nodes across a tick whose data key did not change, and rebuilds them when a firing lands', async () => {
+    const tick2 = { ...STATE, totals: { ...STATE.totals, cost: 0.2 } }; // a new signature, same data key
+    const landed = {
+      ...STATE,
+      projects: [
+        {
+          ...PROJECT,
+          flightLog: [{ ...PROJECT.flightLog[0], id: 'f3', at: 9 }, ...PROJECT.flightLog],
+        },
+      ],
+    };
+    bootWithStates([STATE, tick2, landed]);
+    await vi.advanceTimersByTimeAsync(1);
+    const round1 = document.querySelector('.round-panel');
+    const plan1 = document.querySelector('.plan-editor');
+    const console1 = document.querySelector('.console-panel');
+    expect(round1).not.toBeNull();
+    // The poll tick paints tick2: a changed signature, the same data key.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(document.querySelector('.round-panel')).toBe(round1);
+    expect(document.querySelector('.plan-editor')).toBe(plan1);
+    expect(document.querySelector('.console-panel')).toBe(console1);
+    expect(round1!.isConnected).toBe(true);
+    // A landed firing changes the key: the firing-summarising panels rebuild,
+    // the editor and the console (no data dependency) stay.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(document.querySelector('.round-panel')).not.toBe(round1);
+    expect(document.querySelector('.plan-editor')).toBe(plan1);
+    expect(document.querySelector('.console-panel')).toBe(console1);
+  });
+});
+
 describe('the board as columns (epic 0021 slice 9)', () => {
   beforeEach(() => {
     vi.useFakeTimers();

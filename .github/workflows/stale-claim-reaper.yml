@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+#
+# The other half of the shared-work claim protocol (docs/ROADMAP.md "How
+# work gets shared", claim.yml's own /claim reply): "14 quiet days auto-
+# release it" is a promise made to every human who claims a task, but
+# nothing enforced it — a claim with no activity just sat assigned forever.
+# This scheduled sweep is that enforcement: any open `claimed` issue whose
+# assignee has posted no comment and pushed no commit/PR referencing it for
+# 14 days is released, unlabeled, and given a kind auto-release note.
+# Deliberately zero third-party actions, same as claim.yml — the runner's
+# preinstalled `gh` + the workflow GITHUB_TOKEN are the whole implementation.
+name: stale-claim-reaper
+on:
+  schedule:
+    - cron: '15 7 * * *'
+  workflow_dispatch: {}
+permissions:
+  issues: write
+concurrency:
+  group: stale-claim-reaper
+  cancel-in-progress: false
+jobs:
+  reap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Release quiet claims
+        run: |
+          set -e
+          QUIET_DAYS=14
+          NOW_EPOCH=$(date -u +%s)
+
+          CLAIMED=$(gh issue list --repo "$REPO" --label claimed --state open --json number,assignees \
+            | jq -c '.[] | select(.assignees | length > 0) | {number, assignee: .assignees[0].login}')
+
+          if [ -z "$CLAIMED" ]; then
+            echo "no open claimed issues with an assignee"
+            exit 0
+          fi
+
+          echo "$CLAIMED" | while IFS= read -r row; do
+            [ -z "$row" ] && continue
+            NUM=$(echo "$row" | jq -r '.number')
+            ASSIGNEE=$(echo "$row" | jq -r '.assignee')
+
+            # The clock starts at assignment; the timeline endpoint also
+            # carries every later comment/commit-reference/cross-referenced
+            # PR attributed to that same actor — comments AND commits both
+            # show up here, so one endpoint covers the whole "no activity"
+            # check the protocol promises.
+            ASSIGNED_AT=$(gh api --paginate "repos/$REPO/issues/$NUM/timeline" \
+              -q ".[] | select(.event==\"assigned\" and .assignee.login==\"$ASSIGNEE\") | .created_at" \
+              | sort | tail -1)
+            LAST_ACTIVITY=$(gh api --paginate "repos/$REPO/issues/$NUM/timeline" \
+              -q ".[] | select(.actor.login==\"$ASSIGNEE\") | .created_at" \
+              | sort | tail -1)
+
+            # ISO 8601 timestamps sort lexicographically in chronological
+            # order, so a plain text sort finds the later of the two without
+            # any date parsing.
+            BASELINE=$(printf '%s\n%s\n' "$ASSIGNED_AT" "$LAST_ACTIVITY" | sed '/^$/d' | sort | tail -1)
+            if [ -z "$BASELINE" ]; then
+              echo "issue #$NUM: no assignment event found for @$ASSIGNEE — skipping"
+              continue
+            fi
+
+            BASELINE_EPOCH=$(date -u -d "$BASELINE" +%s)
+            QUIET_FOR=$(( (NOW_EPOCH - BASELINE_EPOCH) / 86400 ))
+
+            if [ "$QUIET_FOR" -ge "$QUIET_DAYS" ]; then
+              echo "issue #$NUM: @$ASSIGNEE quiet for $QUIET_FOR day(s) — auto-releasing"
+              gh api -X DELETE "repos/$REPO/issues/$NUM/assignees" -f "assignees[]=$ASSIGNEE" > /dev/null
+              gh issue edit "$NUM" --repo "$REPO" --remove-label claimed 2>/dev/null || true
+              gh issue comment "$NUM" --repo "$REPO" --body "$QUIET_FOR quiet days with no comment or commit from @$ASSIGNEE — auto-released per the claim protocol (docs/ROADMAP.md) so it doesn't sit silently stuck. No hard feelings: \`/claim\` it again any time you're ready, or leave it for the next claimer. 🤝"
+            else
+              echo "issue #$NUM: @$ASSIGNEE active $QUIET_FOR day(s) ago — leaving claimed"
+            fi
+          done

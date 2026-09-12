@@ -85,4 +85,7 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0016](0016-github-social-flight.md) | The GitHub social flight — on/off, only when gh is connected and authenticated | Active |
 | [0017](0017-navigation-remake.md) | Navigation remake — minimal, visual, memorable | Active |
 | [0018](0018-calm-cockpit.md) | Calm Cockpit — layout stability, tabs, and the many-lanes view | Active |
-| [0021](0021-ask-answer-quality-doctrine.md) | ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale | Active |
+| [0019](0019-github-steward.md) | GitHub Steward — the pilot manages the page | Active |
+| [0020](0020-legible-surface.md) | The legible surface — every panel says what it is and what it did | Active |
+| [0021](0021-app-shell.md) | The app shell — subjects, a rail, and a phone-first cockpit (rows 1–11 shipped; row 3 tap-tap connect open) | Active |
+| [0022](0022-ask-answer-quality-doctrine.md) | ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale (born 0021) | Active |

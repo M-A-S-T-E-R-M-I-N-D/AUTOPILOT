@@ -451,7 +451,11 @@ function pipelineSection(pid) {
   var state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null };
   var body = el('div', 'pipeline-body');
   function load() {
-    body.replaceChildren(el('p', 'muted', tr('pipelineLoading')));
+    // The rendered tree stays up while the next one is fetched (2026-09-12):
+    // replacing it with "Loading…" first blanked the view for a full round
+    // trip on every reload. Only an empty body shows the placeholder.
+    if (!body.firstChild) body.replaceChildren(el('p', 'muted', tr('pipelineLoading')));
+    body.setAttribute('aria-busy', 'true');
     var url = pipelineApiUrl(pid) + '&lens=' + state.lens + '&mode=' + state.mode + '&layout=' + state.layout;
     if (state.selectedId) url += '&selected=' + encodeURIComponent(state.selectedId);
     fetch(url)
@@ -464,6 +468,7 @@ function pipelineSection(pid) {
         }
         // Same-origin server-rendered markup, escaped at the renderer — see module header.
         body.innerHTML = data.html;
+        body.removeAttribute('aria-busy');
         wirePlanCanvas(body, state);
       })
       .catch(function () {

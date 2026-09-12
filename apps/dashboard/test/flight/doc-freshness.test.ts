@@ -259,7 +259,7 @@ describe('computeDocDrift', () => {
         subjects: ['scripts/cockpit-metrics.mjs'],
       },
       {
-        doc: 'docs/epics/0021-ask-answer-quality-doctrine.md',
+        doc: 'docs/epics/0022-ask-answer-quality-doctrine.md',
         subjects: [
           'apps/dashboard/src/ask/service.ts',
           'apps/dashboard/src/server/ask.ts',

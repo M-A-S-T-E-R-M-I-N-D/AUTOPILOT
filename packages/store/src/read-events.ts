@@ -47,6 +47,47 @@ export function recentActivityEvents(db: Db, projectId: string, limit = 12): Act
 }
 
 /**
+ * Newest `perFiring` activity events for EACH of the newest `maxFirings`
+ * distinct firings that logged anything since `sinceMs` — the LIVE LANES
+ * window (2026-09-12: a four-lane round showed three lane cards). The
+ * project-wide newest-N window ({@link recentActivityEvents}) is one list
+ * for the activity feed; with N lanes interleaving tool calls, a lane in a
+ * long step (a gate, a `sleep 60`) slid out of it and its card vanished
+ * until it logged again. A window PER FIRING keeps every live lane visible
+ * however quiet it is; `sinceMs` keeps a crashed firing that never landed
+ * from lingering forever. Newest first across the whole result, like the
+ * feed, so `liveFiringsOf` reads it unchanged.
+ */
+export function recentActivityEventsPerFiring(
+  db: Db,
+  projectId: string,
+  perFiring = 12,
+  maxFirings = 8,
+  sinceMs = 0,
+): ActivityEventRow[] {
+  return db
+    .prepare(
+      `WITH live AS (
+         SELECT firing_id FROM events
+          WHERE project_id = ? AND type = 'activity' AND firing_id IS NOT NULL AND created_at >= ?
+          GROUP BY firing_id ORDER BY MAX(id) DESC LIMIT ?),
+       ranked AS (
+         SELECT e.id, e.firing_id, e.payload, e.created_at,
+                ROW_NUMBER() OVER (PARTITION BY e.firing_id ORDER BY e.id DESC) AS rn
+           FROM events e JOIN live ON live.firing_id = e.firing_id
+          WHERE e.project_id = ? AND e.type = 'activity')
+       SELECT firing_id, payload, created_at FROM ranked WHERE rn <= ? ORDER BY id DESC`,
+    )
+    .all(
+      projectId,
+      sinceMs,
+      clampEventsLimit(maxFirings),
+      projectId,
+      clampEventsLimit(perFiring),
+    ) as ActivityEventRow[];
+}
+
+/**
  * Every activity event captured for ONE firing, newest first — unlike
  * {@link recentActivityEvents}, which caps at the newest N events across the
  * whole project. A project with more than that cap's worth of activity since

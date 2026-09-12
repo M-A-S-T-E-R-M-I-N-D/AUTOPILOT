@@ -2,12 +2,73 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   GateRunner,
   buildInvocation,
+  lastLines,
+  GATE_OUTPUT_TAIL_LINES,
   type GateCommandSpec,
   type GateExec,
 } from '../../src/adapters/gate.js';
+
+describe('a red gate says why (the output tail, 2026-09-13)', () => {
+  it('lastLines keeps the last n non-empty lines', () => {
+    expect(lastLines('a\n\nb\r\nc\n', 2)).toBe('b\nc');
+    expect(lastLines('', 5)).toBe('');
+    expect(GATE_OUTPUT_TAIL_LINES).toBe(40);
+  });
+
+  it("threads a failing command's tail into the verdict details and its check record, never on a pass", async () => {
+    const exec: GateExec = (cmd) =>
+      Promise.resolve(
+        cmd.label === 'test'
+          ? {
+              code: 1,
+              outputTail: 'FAIL apps/x.test.ts > paints\nAssertionError: expected 3 to be 4',
+            }
+          : { code: 0, outputTail: 'noise that a pass must not carry' },
+      );
+    const result = await new GateRunner({
+      cwd: '/repo',
+      commands: [
+        { bin: 'tsc', args: [], label: 'typecheck' },
+        { bin: 'vitest', args: [], label: 'test' },
+      ],
+      exec,
+    }).run();
+    expect(result.ok).toBe(false);
+    expect(result.details).toBe(
+      'test failed (exit 1)\nFAIL apps/x.test.ts > paints\nAssertionError: expected 3 to be 4',
+    );
+    expect(result.checks?.[0]).toEqual({
+      label: 'typecheck',
+      pass: true,
+      durationMs: expect.any(Number),
+    });
+    expect(result.checks?.[1]).toMatchObject({ label: 'test', pass: false });
+    expect(result.checks?.[1]?.outputTail).toContain('AssertionError');
+  });
+
+  it('the real runner captures stdout and stderr of a command that exits non-zero', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-tail-'));
+    const script = join(dir, 'noisy.mjs');
+    writeFileSync(
+      script,
+      "process.stdout.write('out line one\\nout line two\\n'); process.stderr.write('err line\\n'); process.exit(3);\n",
+    );
+    const result = await new GateRunner({
+      cwd: dir,
+      commands: [{ bin: process.execPath, args: [script], label: 'noisy' }],
+    }).run();
+    expect(result.ok).toBe(false);
+    expect(result.details).toContain('noisy failed (exit 3)');
+    expect(result.details).toContain('out line two');
+    expect(result.details).toContain('err line');
+  });
+});
 
 /** A scripted exec: return a fixed exit code per command index, recording calls. */
 function scriptedExec(codes: readonly number[]): { exec: GateExec; calls: GateCommandSpec[] } {
