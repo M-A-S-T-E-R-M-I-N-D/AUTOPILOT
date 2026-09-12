@@ -407,16 +407,68 @@ ${flyHintText.toString()}
   // justified it. Prepending it to the rolled summary still fits the single
   // {reason} slot above, so no new STRINGS key (and no new Hebrew string) is
   // needed for it.
+  // WHAT to fly (issue #44): the roll also carries the page's locale and the
+  // operator's stated attention, and the answer's fit shortlist paints under
+  // the bar — on a refusal too, since "nothing queued" is exactly when the
+  // claimable work one panel over matters. The attention toggle re-rolls.
   var luckyEl = document.getElementById('fly-lucky');
   setTip(luckyEl, 'flyLuckyTip');
-  if (luckyEl) luckyEl.addEventListener('click', function () {
+  var FLY_ATTENTION_KEY = 'ap-fly-attention';
+  var FLY_ATTENTIONS = ['evening', 'day', 'week'];
+  function flyAttention() {
+    var v = '';
+    try { v = localStorage.getItem(FLY_ATTENTION_KEY) || ''; } catch {}
+    return FLY_ATTENTIONS.indexOf(v) >= 0 ? v : 'evening';
+  }
+  function luckyQuery(folder) {
+    var q = '?locale=' + encodeURIComponent(document.documentElement.lang || 'en') + '&attention=' + flyAttention();
+    return q + (folder ? '&folder=' + encodeURIComponent(folder) : '');
+  }
+  var fitEl = document.getElementById('fly-fit');
+  var fitListEl = document.getElementById('fly-fit-list');
+  function paintLuckyFit(fit) {
+    if (!fitEl || !fitListEl) return;
+    var lines = (fit && fit.shortlist) || [];
+    var toggles = fitEl.querySelectorAll('[data-fly-attention]');
+    for (var t = 0; t < toggles.length; t++) toggles[t].setAttribute('aria-pressed', toggles[t].getAttribute('data-fly-attention') === flyAttention() ? 'true' : 'false');
+    fitListEl.textContent = '';
+    for (var i = 0; i < lines.length; i++) {
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.className = 'fly-fit-title';
+      a.href = lines[i].url; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = '#' + lines[i].number + ' ' + lines[i].title;
+      var score = document.createElement('span');
+      score.className = 'fly-fit-score';
+      score.textContent = tr('luckyFitScore', { score: Number(lines[i].fit).toFixed(2) });
+      var source = document.createElement('span');
+      source.className = 'fly-fit-source';
+      source.textContent = tr(lines[i].source === 'pool' ? 'luckyFitSourcePool' : 'luckyFitSourcePeople');
+      var why = document.createElement('span');
+      why.className = 'fly-fit-why';
+      why.textContent = lines[i].reasoning;
+      li.appendChild(a); li.appendChild(score); li.appendChild(source); li.appendChild(why);
+      fitListEl.appendChild(li);
+    }
+    fitEl.hidden = lines.length === 0;
+  }
+  if (luckyEl) luckyEl.addEventListener('click', rollLucky);
+  if (fitEl) fitEl.addEventListener('click', function (ev) {
+    var btn = ev.target && ev.target.closest ? ev.target.closest('[data-fly-attention]') : null;
+    if (!btn) return;
+    try { localStorage.setItem(FLY_ATTENTION_KEY, btn.getAttribute('data-fly-attention')); } catch {}
+    rollLucky();
+  });
+  function rollLucky() {
+    if (!luckyEl) return;
     var folder = folderEl ? folderEl.value.trim() : '';
     luckyEl.disabled = true;
-    fetch('/api/lucky' + (folder ? '?folder=' + encodeURIComponent(folder) : ''), { headers: { accept: 'application/json' } })
+    fetch('/api/lucky' + luckyQuery(folder), { headers: { accept: 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         luckyEl.disabled = false;
         if (!data || !data.plan) { setMsg(tr('luckyNoAnswer'), 'err'); return; }
+        paintLuckyFit(data.fit);
         if (!data.plan.ok) { setMsg(tr('luckyNotNow', { reason: data.plan.refusal || tr('luckyNoPlan') }), 'err'); return; }
         if (modeEl) modeEl.value = 'firings';
         if (lanesEl) lanesEl.value = String(data.plan.lanes);
@@ -431,7 +483,7 @@ ${flyHintText.toString()}
         // lucky: plan painted — flying stays the operator's click.
       })
       .catch(function () { luckyEl.disabled = false; setMsg(tr('luckyDashboardDown'), 'err'); });
-  });
+  }
   // FLEET LAUNCH FROM THE FLY BAR (board web-mtdcfel4-0bxf4h): more than 1
   // lane launches the SAME hub-aware partitioned multi-lane plan the
   // "dashboard fleet" CLI command already gives (flight/fleet-launch.ts) —

@@ -28,8 +28,8 @@ describe('contributorStandingJs', () => {
 
   it('declares a ROLE-taking renderContributorStandingPanel and self-initializes once', () => {
     const out = contributorStandingJs();
-    expect(out).toContain('function renderContributorStandingPanel(role) {');
-    expect(out).toContain("renderContributorStandingPanel('unknown');");
+    expect(out).toContain('function renderContributorStandingPanel(role, tier) {');
+    expect(out).toContain("renderContributorStandingPanel('unknown', null);");
   });
 
   it('renders into #contributor-standing-panel, resolves the viewer once, and never polls', () => {
@@ -49,7 +49,7 @@ describe('contributorStandingJs', () => {
     // The synchronous first render passes 'unknown', which standingPanelOffer
     // maps to showApply — withholding the one onboarding affordance from a
     // real newcomer is the worse failure of the two.
-    expect(out).toContain("renderContributorStandingPanel('unknown');");
+    expect(out).toContain("renderContributorStandingPanel('unknown', null);");
     expect(out).toContain('.catch(function () {});');
   });
 

@@ -87,11 +87,18 @@ body {
 .connect > summary:hover, .connect > summary:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
 .connect > summary:active { box-shadow: none; }
 .connect[open] > summary { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
-.connect-body { position: absolute; inset-inline-end: 0; margin-top: var(--space-2); width: 320px; max-width: 88vw; z-index: 20; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--elevation-level-2); }
+.connect-body { position: fixed; inset-inline: var(--space-3); inset-block-start: 6.5rem; margin-top: 0; width: auto; max-width: none; z-index: 20; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--elevation-level-2); }
 /* The theme/language popovers hold a single short pill row — the 320px
    connect-panel width left the buttons swimming at the start of a mostly
    empty box (operator catch, 2026-09-07). Size these two to content. */
-.theme-menu > .connect-body, .lang-menu > .connect-body { width: max-content; }
+@media (min-width: 48rem) {
+  /* From md the popover is a menu anchored to its control (inline-end, so it
+     grows toward the page's centre in both directions); below md it is a
+     sheet pinned to the viewport's inline edges, which no control's position
+     can push off-screen (RTL audit, 2026-09-12: 412px, Hebrew). */
+  .connect-body { position: absolute; inset-inline-start: auto; inset-inline-end: 0; inset-block-start: auto; margin-top: var(--space-2); width: 320px; max-width: 88vw; }
+  .theme-menu > .connect-body, .lang-menu > .connect-body { width: max-content; }
+}
 .connect-status { margin: 0; font-size: var(--text-sm); }
 .connect-ok { color: var(--color-success); }
 .connect-bad { color: var(--color-sev-high); }
@@ -279,6 +286,21 @@ body {
 .fly-status.fly-ok { color: var(--color-success); font-weight: 600; }
 .fly-status.fly-err { color: var(--color-sev-high); font-weight: 600; }
 .fly-hint { flex-basis: 100%; margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+/* 🍀 WHAT to fly (issue #44): the fit shortlist under the bar — one issue per
+   line with its score and the why; the attention toggle re-rolls. Titles and
+   reasons are user/server text: plaintext bidi, never forced either way. */
+.fly-fit { flex-basis: 100%; margin: var(--space-2) 0 0; padding-block-start: var(--space-2); border-top: 1px solid var(--color-border); }
+.fly-fit-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+.fly-fit-attention { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
+.fly-fit-attention button { font: inherit; font-size: var(--text-xs); min-block-size: 1.75rem; padding: 0 var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.fly-fit-attention button[aria-pressed="true"] { border-color: var(--color-success); color: var(--color-success); font-weight: 600; }
+.fly-fit-attention button:hover, .fly-fit-attention button:focus-visible { border-color: var(--color-success); color: inherit; }
+.fly-fit-list { margin: var(--space-2) 0 0; padding-inline-start: 1.25rem; font-size: var(--text-sm); }
+.fly-fit-list li { margin-block: var(--space-2); }
+.fly-fit-title { unicode-bidi: plaintext; }
+.fly-fit-score { margin-inline-start: var(--space-2); color: var(--color-success); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fly-fit-source { margin-inline-start: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+.fly-fit-why { display: block; font-size: var(--text-xs); color: var(--color-text-muted); unicode-bidi: plaintext; text-align: start; }
 .fly-progress-label { flex-basis: 100%; margin: 0; font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 #fly-progress-bar { flex-basis: 100%; }
 .fly-flights { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -396,6 +418,20 @@ main > * { min-width: 0; }
 .back a:hover, .back a:focus-visible { text-decoration: underline; }
 /* The inside page is ONE full-width column — boards need room, not card cells. */
 main.project-mode { grid-template-columns: 1fr; }
+/* DESKTOP OVERVIEW (operator, 2026-09-12: "on desktop we have more width"):
+   from lg a project page's Overview reads as two columns — the project card
+   on the inline-start side, the operational stack (recently shipped, landing,
+   console, this round, next release, start over, sync, contribute) on the
+   inline-end side, each column in DOM order. Overview only ("fleet" is its
+   subject id on a project page): Board, Keeper, Plan, Docs and Data keep the
+   single column their panels were built for. The card spans a generous row
+   range so the stack never spills under it; empty spanned rows cost nothing. */
+@media (min-width: 64rem) {
+  body[data-subject="fleet"] main.project-mode { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: start; }
+  body[data-subject="fleet"] main.project-mode > * { grid-column: 2; }
+  body[data-subject="fleet"] main.project-mode > .back { grid-column: 1 / -1; grid-row: 1; }
+  body[data-subject="fleet"] main.project-mode > .card { grid-column: 1; grid-row: 2 / span 40; }
+}
 .act-label { margin: 0 0 var(--space-1); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
 .act-label-live { color: var(--color-accent); }
 .docs-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
@@ -544,7 +580,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .pipeline-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0 0 var(--space-3); }
 .pipeline-panel { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-3); }
-.pipeline-tree { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); }
+.pipeline-tree { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); max-block-size: 70vh; overflow: auto; overscroll-behavior: contain; }
 .pipeline-lane { display: flex; flex-direction: column; gap: var(--space-1); }
 .pipeline-lane-label { color: var(--color-text-muted); font-size: var(--text-xs); font-family: var(--font-mono); }
 /* Pipeline tree rows (COCKPIT 6/6): the role="treeitem" rows are structural
@@ -565,7 +601,7 @@ main.project-mode { grid-template-columns: 1fr; }
    the panel row re-inflates the preserved aspect ratio until one node fills
    a whole screen (the 43-lane single-column flight the operator caught).
    max-width + height:auto still SHRINK a canvas wider than the panel. */
-.pipeline-canvas { flex: 0 1 auto; min-width: 0; max-width: 100%; height: auto; }
+.pipeline-canvas { flex: 1 1 auto; min-width: 0; inline-size: 100%; max-inline-size: 100%; block-size: min(70vh, 40rem); }
 .pipeline-empty { color: var(--color-text-muted); font-size: var(--text-sm); margin: 0; }
 /* Canvas status colors mirror .spark-shipped/-errored/-no's OTLP status→token mapping exactly —
    one status vocabulary, not a second one invented for the node-graph lens. */
@@ -794,6 +830,8 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .report-dialog-close:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .pool-client-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
 .pool-client-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+/* #43: a list says who it is for, right under its title. */
+.panel-audience { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
 .pool-client-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
 /* The visitor-facing GOOD FIRST ISSUES panel had NO stylesheet at all until
    epic 0021 — browser-blue links flush to the viewport edge. Its markup is the
@@ -825,7 +863,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .ci-status-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .ci-status-badge-ok { color: var(--color-success); border-color: var(--color-success); }
 .ci-status-badge-fail { color: var(--color-sev-critical); border-color: var(--color-sev-critical); }
-.pool-client-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-1); }
+.pool-client-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--space-2); margin-top: var(--space-2); }
 .pool-client-actions > select { flex: 1 1 auto; min-width: 0; }
 .pool-client-project { font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 /* .pool-client-fly (COCKPIT 6/6): the post-claim "Fly" button
@@ -920,7 +958,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    bounded (72vh, its own scroll): a board of thirty queued tasks is one
    column six screens tall otherwise (seen live), and the column heads stay
    above it. */
-.board-view-toggle { margin: 0 0 var(--space-2); }
+.board-view-toggle { display: block; inline-size: fit-content; margin: 0 0 var(--space-2) auto; font-size: var(--text-xs); }
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
 .board-column-count { font-variant-numeric: tabular-nums; }
@@ -945,6 +983,16 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-move { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 0 6px; border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .task-move:not(:disabled):hover, .task-move:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .task-move:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+/* DESKTOP DENSITY (2026-09-12): thirty rows × (↑ ↓) is sixty arrows nobody is
+   pressing. With a hover-capable pointer from lg a row's reorder arrows show
+   on hover and on focus-within — keyboard users land on them and see them;
+   screen readers never lost them (opacity, not display). Touch keeps them.
+   Placed AFTER the button's own rules: the shape tests read the first
+   ".task-move {" in the sheet, and that must stay the rest-state rule. */
+@media (min-width: 64rem) and (hover: hover) {
+  .task-move { opacity: 0; transition: opacity var(--duration-short2) var(--easing-standard); }
+  .task:hover .task-move, .task:focus-within .task-move { opacity: 1; }
+}
 .task-focus-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 0 5px; border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; filter: grayscale(1); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .task-focus-btn.on { filter: none; border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 15%, transparent); }
 .task-focus-btn:not(:disabled):hover, .task-focus-btn:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
@@ -1263,11 +1311,11 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 
 /* Accessibility: keyboard skip-link, visible focus, respect reduced motion. */
 .skip-link {
-  position: absolute; inset-inline-start: -9999px; top: var(--space-2); z-index: 100;
+  position: absolute; inset-inline-start: var(--space-3); top: var(--space-2); z-index: 100;
   background: var(--color-accent); color: var(--color-accent-text);
   padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm);
 }
-.skip-link:focus { inset-inline-start: var(--space-3); }
+.skip-link:not(:focus) { inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 main:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
@@ -1473,15 +1521,17 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   .updated { display: inline; }
   .totals { padding: var(--space-4) var(--page-inline); }
   .live-workers { padding: var(--space-3) var(--page-inline); }
-  .stat-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); padding: var(--space-4) var(--page-inline); }
+  /* 136px, not 150: five tiles must fit the ~780px main column the context
+     rail leaves at 1280, where 150px wrapped the fifth tile onto its own row. */
+  .stat-tiles { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: var(--space-3); padding: var(--space-4) var(--page-inline); }
   #fly-folder, #search-q { flex: 1 1 260px; min-width: 200px; }
   main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
   .pipeline-panel { flex-direction: row; align-items: flex-start; }
   .pipeline-tree { flex: 0 1 32%; min-width: 12em; }
-  .pool-client-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head actions" "title actions"; column-gap: var(--space-4); align-items: center; }
-  .pool-client-head { grid-area: head; }
-  .pool-client-issue-title { grid-area: title; }
-  .pool-client-actions { grid-area: actions; margin-top: 0; }
+  /* Pool rows stay stacked from md too — the side-by-side grid squeezed the
+     title beside a select and a button (operator, 2026-09-12: one under the
+     other); the actions keep their own line and their own breathing room. */
+  .pool-client-item { padding-block: var(--space-3); }
   .pool-client-actions > select { flex: 0 1 auto; }
   /* The bar becomes a rail: fixed to the inline-start edge, icon over
      label (M3 navigation rail), mirrored under RTL by the logical inset. */
@@ -1491,7 +1541,12 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
     padding: var(--space-3) var(--space-1) env(safe-area-inset-bottom);
     border-block-start: 0; border-inline-end: 1px solid var(--color-border);
   }
-  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; padding-inline: var(--space-1); }
+  /* "Community" ellipsised inside the 5rem rail: the label measured 67px in a
+     63px box (the link's own 4px inline padding on each side plus tracking).
+     The rail's padding already keeps the link off the edge, so the link goes
+     edge to edge and the label loses its tracking — 71px for 67. */
+  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; padding-inline: 0; }
+  .subject-link > span { letter-spacing: 0; }
   body { padding-block-end: 0; padding-inline-start: var(--shell-rail-size); }
 }
 @media (min-width: 64rem) {
@@ -1539,6 +1594,13 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .plan-status { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
 .plan-status-draft { color: var(--color-needs-you); }
 .plan-actions { display: flex; gap: var(--space-2); }
+/* BIDI LAWS (RTL audit, 2026-09-12): user content keeps its own direction —
+   an English issue title inside a Hebrew page reads left-to-right, is
+   ellipsised at its own end and keeps its number first; code, commands and
+   paths are always LTR. unicode-bidi: plaintext is the stylesheet's form of
+   dir="auto"; text-align: start then follows the resolved direction. */
+.keeper-queue-open, .keeper-queue-why, .pool-client-issue-title, .pr-review-pr-title, .issue-triage-issue-title, .task-title, .mirror-pass-item, .palette-input, #search-q { unicode-bidi: plaintext; text-align: start; }
+.plan-step-label, .plan-prop input[type="text"], #fly-folder, .search-path, .palette-btn, code, pre, kbd { direction: ltr; unicode-bidi: isolate; text-align: start; }
 .context-rail { display: none; }
 .context-rail-empty { margin: var(--space-4) var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
 @media (min-width: 80rem) {
@@ -1606,6 +1668,14 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 /* KEEPER BADGE (epic 0021 slice 4, first cut): how many things wait on a
    human, shown on the place where they wait. Needs-you ink, by definition. */
 .subject-link { position: relative; }
+/* HEBREW TYPOGRAPHY (RTL audit, 2026-09-12): Hebrew letterforms are not
+   designed to be tracked, so under dir="rtl" every tracked label (24 rules,
+   0.02–0.06em) loses its letter-spacing — this block is LAST so it wins the
+   specificity ties by order — and body copy gets the looser line Hebrew
+   reads best at (1.6 vs. the Latin default). Uppercase transforms are a
+   no-op for Hebrew and stay. */
+[dir="rtl"] body { line-height: 1.6; }
+[dir="rtl"] * { letter-spacing: normal; }
 .subject-badge { position: absolute; inset-block-start: 4px; inset-inline-end: calc(50% - 1.375rem); min-inline-size: 1.125rem; block-size: 1.125rem; padding: 0 4px; border-radius: var(--radius-full); background: var(--color-needs-you); color: var(--color-accent-text); font-size: 0.6875rem; font-weight: 700; line-height: 1.125rem; text-align: center; }
 `.trim();
 }

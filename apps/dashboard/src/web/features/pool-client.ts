@@ -153,6 +153,10 @@ function renderPoolClientPanel(entries) {
   var title = el('h3', 'pool-client-title', '🧑‍🤝‍🧑 Pool');
   title.setAttribute('data-i18n', 'poolTitle');
   section.appendChild(title);
+  // #43: the two lists looked like one inconsistency. Say who each is for.
+  var audience = el('p', 'panel-audience', 'For AUTOPILOT fleets: claim an issue here and your own pilot flies it, on your tokens. People claim on GitHub with /claim.');
+  audience.setAttribute('data-i18n', 'poolAudience');
+  section.appendChild(audience);
   for (var i = 0; i < entries.length; i++) {
     var entry = entries[i];
     poolClientEntriesByNumber[entry.issue.number] = entry;

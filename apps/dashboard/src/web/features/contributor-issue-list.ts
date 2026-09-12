@@ -75,6 +75,10 @@ function renderContributorIssueListPanel(entries) {
   if (entries.length === 0) return;
   var title = el('h3', 'contributor-issue-list-title', '🌱 Good first issues');
   section.appendChild(title);
+  // #43: this list is the humans' welcome mat — the fleet steps around it.
+  var audience = el('p', 'panel-audience', 'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below.');
+  audience.setAttribute('data-i18n', 'contributorIssueListAudience');
+  section.appendChild(audience);
   for (var i = 0; i < entries.length; i++) {
     var entry = entries[i];
     var item = el('div', 'contributor-issue-list-item');

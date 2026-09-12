@@ -25,6 +25,12 @@ import {
 import { parseFleetCliArgs } from '../flight/fleet-launch.js';
 import type { FleetLaunchApi } from '../flight/fleet-launch-api.js';
 import type { LuckyPlan, LuckyProbe } from '../flight/lucky-plan.js';
+import {
+  parseLuckyAttention,
+  parseLuckyLocale,
+  type LuckyAttention,
+  type LuckyFit,
+} from '../flight/lucky-fit.js';
 import { FLY_MAX_TURNS } from '../flight/budget.js';
 import { SEVERITIES, type SearchHit, type Severity } from '@autopilot/store';
 import { MILESTONE_TAG_PATTERN } from '@autopilot/engine';
@@ -349,8 +355,17 @@ export type SearchApi = (projectId: string, query: string, limit: number) => rea
 export interface LuckyResponse {
   readonly probe: LuckyProbe;
   readonly plan: LuckyPlan;
+  /** WHAT to fly (issue #44): claimable work ranked against the operator —
+   *  absent when the assembly could not read the pool (gh down), never an error. */
+  readonly fit?: LuckyFit;
 }
-export type LuckyApi = (folder: string | null) => Promise<LuckyResponse>;
+/** What the Fly bar tells the roll about the operator: the page's locale and
+ *  the attention they said they have (`?locale=he&attention=week`). */
+export interface LuckyAsk {
+  readonly locale: string;
+  readonly attention: LuckyAttention;
+}
+export type LuckyApi = (folder: string | null, ask: LuckyAsk) => Promise<LuckyResponse>;
 
 /** Remove a project from the store (injected; reads/mutates the store). */
 export type DeleteProjectApi = (projectId: string) => boolean;
@@ -1225,8 +1240,12 @@ async function handleLucky(
   }
   const url = new URL(req.url ?? '/', 'http://localhost');
   const folder = url.searchParams.get('folder');
+  const ask: LuckyAsk = {
+    locale: parseLuckyLocale(url.searchParams.get('locale')),
+    attention: parseLuckyAttention(url.searchParams.get('attention')),
+  };
   try {
-    send(200, await lucky(folder && folder.trim().length > 0 ? folder : null));
+    send(200, await lucky(folder && folder.trim().length > 0 ? folder : null, ask));
   } catch (err) {
     send(200, {
       probe: null,

@@ -13,6 +13,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
+// Each test boots the whole client and steps a replay: 1.7–6.3s on a dev box,
+// 30s+ on a loaded windows-latest runner (CI run 34697734760 turned main red
+// on the default timeout). The work is real, not a wait, so the budget stays.
+// The shell is assembled and the ~200KB client compiled once per file; what
+// remains per test is executing that client against a fresh document, which
+// is the boot's true cost (~3s each here).
+vi.setConfig({ testTimeout: 120_000 });
+const SHELL_HTML = renderShell('p1');
+const CLIENT = new Function(clientJs());
+
 const MULTI_FILE_PATCH = [
   'diff --git a/src/a.ts b/src/a.ts',
   'index 111..222 100644',
@@ -71,7 +81,7 @@ const STATE = {
 
 function boot(): void {
   document.open();
-  document.write(renderShell('p1'));
+  document.write(SHELL_HTML);
   document.close();
   globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
     if (String(url).indexOf('/api/firing-diff') !== -1) {
@@ -79,7 +89,7 @@ function boot(): void {
     }
     return { ok: true, json: async () => STATE } as unknown as Response;
   }) as unknown as typeof fetch;
-  new Function(clientJs())();
+  CLIENT();
 }
 
 async function openFiring(): Promise<void> {

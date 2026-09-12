@@ -33,7 +33,11 @@ export function themeButtons(): string {
   return THEME_NAMES.map((name) => {
     const tip = `Switch to the ${name} theme`;
     const descId = `theme-desc-${name}`;
-    return `<button data-theme-btn="${name}" aria-pressed="${String(name === DEFAULT_THEME)}" data-tip="${tip}" aria-describedby="${descId}">${name}</button><span class="sr-only" id="${descId}">${tip}</span>`;
+    // i18n (2026-09-12): the label and the tip were the raw theme id and an
+    // English sentence in every locale — "dark / light / terminal" inside a
+    // Hebrew masthead. Both now ride the DOM sweep: `themeDark`, `themeTipDark`…
+    const key = name.charAt(0).toUpperCase() + name.slice(1);
+    return `<button data-theme-btn="${name}" aria-pressed="${String(name === DEFAULT_THEME)}" data-tip="${tip}" data-i18n="theme${key}" data-i18n-tip="themeTip${key}" aria-describedby="${descId}">${name}</button><span class="sr-only" id="${descId}" data-i18n="themeTip${key}">${tip}</span>`;
   }).join('');
 }
 
