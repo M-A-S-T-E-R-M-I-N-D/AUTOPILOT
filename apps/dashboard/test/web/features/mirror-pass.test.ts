@@ -18,11 +18,13 @@ import {
   mirrorPassItems,
   mirrorPassCanExecute,
   mirrorPassExecuteResultMessage,
+  mirrorPassCanExecuteDrift,
+  mirrorPassDriftExecuteResultMessage,
 } from '../../../src/web/mirror-pass-panel.js';
 import { mirrorPassJs } from '../../../src/web/features/mirror-pass.js';
 
 describe('mirrorPassJs', () => {
-  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage real compiled source via .toString()', () => {
+  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage/mirrorPassCanExecuteDrift/mirrorPassDriftExecuteResultMessage real compiled source via .toString()', () => {
     const out = mirrorPassJs();
     expect(out).toContain(mirrorPassReconcileItems.toString());
     expect(out).toContain(mirrorPassLandingNoteItems.toString());
@@ -31,12 +33,16 @@ describe('mirrorPassJs', () => {
     expect(out).toContain(mirrorPassItems.toString());
     expect(out).toContain(mirrorPassCanExecute.toString());
     expect(out).toContain(mirrorPassExecuteResultMessage.toString());
+    expect(out).toContain(mirrorPassCanExecuteDrift.toString());
+    expect(out).toContain(mirrorPassDriftExecuteResultMessage.toString());
   });
 
   it('declares mirrorPassSection, renderMirrorPassBody, and loadMirrorPassBody', () => {
     const out = mirrorPassJs();
     expect(out).toContain('function mirrorPassSection(pid) {');
-    expect(out).toContain('function renderMirrorPassBody(body, items, canExecute, pid) {');
+    expect(out).toContain(
+      'function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, pid) {',
+    );
     expect(out).toContain('function loadMirrorPassBody(body, pid) {');
   });
 
@@ -84,5 +90,33 @@ describe('mirrorPassJs', () => {
     expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
       3,
     );
+  });
+
+  it('gates the drift-fix button on mirrorPassCanExecuteDrift, independent of the reconcile button', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain('if (canExecuteDrift) {');
+    expect(out).toContain('mirrorPassCanExecuteDrift(identity, drift)');
+  });
+
+  it('tags the drift-fix button data-i18n and points it at the project id', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("driftBtn.setAttribute('data-i18n', 'mirrorPassDriftExecute');");
+    expect(out).toContain("driftBtn.setAttribute('data-mirror-pass-drift-execute', pid);");
+  });
+
+  it('tags the drift-fix tip/aria with one shared key and paints the confirm + transient states via tr()', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("driftBtn.setAttribute('data-i18n-tip', 'mirrorPassDriftExecuteTip');");
+    expect(out).toContain("driftBtn.setAttribute('data-i18n-aria', 'mirrorPassDriftExecuteTip');");
+    expect(out).toContain("window.confirm(tr('mirrorPassDriftExecuteConfirm'))");
+    expect(out).toContain("b.textContent = tr('mirrorPassDriftExecuting');");
+    expect(out).toContain("resultEl.textContent = tr('mirrorPassDriftRequestFailed');");
+  });
+
+  it('posts to /api/mirror-pass/drift/execute with the project id on click, independent of the reconcile button', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("e.target.closest('[data-mirror-pass-drift-execute]')");
+    expect(out).toContain("fetch('/api/mirror-pass/drift/execute'");
+    expect(out.match(/body: JSON\.stringify\(\{ project: pid \}\),/g)?.length).toBe(2);
   });
 });

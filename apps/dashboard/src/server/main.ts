@@ -90,6 +90,7 @@ import {
   createMirrorPassLandingNotePreviewApi,
   createMirrorPassLandingNoteExecuteApi,
   createMirrorPassDriftPreviewApi,
+  createMirrorPassDriftExecuteApi,
   createMirrorPassStaleClaimPreviewApi,
   createMirrorPassStaleClaimExecuteApi,
 } from '../flight/mirror-pass-execute.js';
@@ -104,6 +105,7 @@ import {
 import { createPublicityPreviewApi } from '../flight/publicity.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
+import { createCiStatusApi } from '../control/ci-status.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
 import { isAnyFlightLockLive } from '../flight/lock.js';
@@ -616,14 +618,18 @@ const server = createServer({
   // README/docs claims (version, package count, internal links) checked
   // against its tree; no `gh` call involved.
   mirrorPassDrift: createMirrorPassDriftPreviewApi(dbPath),
+  // MIRROR PASS drift execute (VERDICT ap-mtsg3nc0-3 slice (b), derivation
+  // 3/4's own execute path): unlike the other three derivations, this one
+  // files a NEW issue rather than mutating an existing one — de-duplication
+  // runs through social-pass.ts's shared protocol engine.
+  mirrorPassDriftExecute: createMirrorPassDriftExecuteApi(dbPath),
   // MIRROR PASS stale-claim preview: read-only, derivation 4/4 — a claimed
   // pool issue whose assignee has gone quiet past the shared stale
   // threshold, so the claim can be freed up for someone else.
   mirrorPassStaleClaim: createMirrorPassStaleClaimPreviewApi(dbPath),
   // MIRROR PASS stale-claim execute (VERDICT ap-mtsg3nc0-3 slice (b),
-  // derivation 4/4 only): the mutating counterpart to the preview above —
-  // derivation 3/4's own execute path (files a NEW drift issue) remains its
-  // own follow-up slice.
+  // derivation 4/4 only): the mutating counterpart to the preview above. All
+  // four derivations' execute paths are now wired.
   mirrorPassStaleClaimExecute: createMirrorPassStaleClaimExecuteApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool
@@ -652,6 +658,10 @@ const server = createServer({
   // call like publicity above; a panel reads `.role` to decide whether the
   // viewer sees a maintainer-only verb.
   socialIdentity: createSocialIdentityApi(),
+  // CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
+  // `gh run list` report `dashboard ci-status` already prints, surfaced for
+  // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.
+  ciStatus: createCiStatusApi(),
   // Foundation donation addresses (FOUNDATION 1/3, board web-mtq0rsit-ywz1m7)
   // — reads docs/donations.json once that file exists; degrades to an empty
   // list (masthead heart + panel stay hidden) until it does.

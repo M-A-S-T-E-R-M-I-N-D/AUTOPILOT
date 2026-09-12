@@ -195,6 +195,21 @@ describe('flyJs', () => {
     expect(out).toContain('data.plan.refusal');
   });
 
+  it('surfaces the machine-load reading, not just the final lane count (board web-mtsvcibf-bh6asp)', () => {
+    const out = flyJs();
+    // reasoning[0] is always the CPU-bound line (flight/lucky-plan.ts) —
+    // prepend it to the rolled summary so the operator sees WHY the plan is
+    // sized the way it is, not just the final lane/firing numbers.
+    expect(out).toContain(
+      "var loadHint = (data.plan.reasoning && data.plan.reasoning.length) ? data.plan.reasoning[0] : '';",
+    );
+    expect(out).toContain(
+      "if (loadHint && loadHint !== rolled) rolled = loadHint + ' — ' + rolled;",
+    );
+    // Still rides the single {reason} slot — no new STRINGS key needed.
+    expect(out).toContain("setMsg(tr('luckyPressFlyIt', { reason: rolled }), '')");
+  });
+
   it('the 🍀 button never launches by itself — it hands focus to Fly it and stops there (quota stays the operator’s click)', () => {
     const out = flyJs();
     const start = out.indexOf("luckyEl.addEventListener('click'");

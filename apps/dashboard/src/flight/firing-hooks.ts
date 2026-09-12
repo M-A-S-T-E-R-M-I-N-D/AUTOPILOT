@@ -33,6 +33,11 @@ import { extractEpicSpec } from './epic-spec.js';
 import { extractAdrSpec } from './adr-spec.js';
 import { parseBacklogTitles } from './backlog.js';
 import { selectInboxFiles } from './inbox.js';
+import {
+  discoverMutationConfigs,
+  mutationScriptsForPatch,
+  type MutationConfig,
+} from './mutation-scope.js';
 
 /** The operator's own loop (backlog I): `<target>/INBOX/` is read fresh every firing. */
 const INBOX_DIR = 'INBOX';
@@ -183,6 +188,47 @@ export function reconcileMidFlightStragglers(
     out(`  ✓ board task done (straggler from a sibling flight): ${task.id} — ${task.title}`);
   }
   return closed;
+}
+
+/**
+ * MUTATION-SCOPE ADVISORY (board web-mtq70a97-45uxf0): flight/mutation-scope.ts's
+ * resolveMutationConfigsForFiles/mutationScriptsForPatch were fully built and
+ * tested but had ZERO importers anywhere in the app — dead code computing an
+ * answer nobody ever consumed. Every SHIPPED firing's own patch (the
+ * un-fakeable `record.sha`, the same anchor markTaskDoneIfShipped's
+ * DELIVERABLE check already trusts) is checked against the repo's Stryker
+ * configs; when it touches at least one mutated file, the matching
+ * `pnpm run mutation:<slug>` script name(s) print via out() — the SAME
+ * captured stdout the Flight console panel (web/features/flight-console.ts)
+ * already tails per project, so this needs no new UI surface of its own.
+ * Advisory only, per mutation-scope.ts's own docstring: it NAMES which
+ * script(s) a human should consider running, it never runs Stryker itself —
+ * wiring an AUTOMATIC execution step is a separate, larger change (timeout
+ * budget, VERIFY DIET's fast/deep-gate split, scripts/ci/validate-configs.mjs)
+ * left for a follow-up, and out of MACHINE BUDGET for a single firing besides.
+ * `discover` is injected as a function (not a precomputed default) so a
+ * non-shipped firing's early return skips the config/mutation/ directory scan
+ * entirely, and so tests never touch the real filesystem. Best-effort: a
+ * resolution hiccup must never fail the flight.
+ */
+export async function runMutationScopeAdvisory(
+  outcome: FiringOutcome,
+  vcs: GitVcs,
+  discover: () => readonly MutationConfig[] = discoverMutationConfigs,
+): Promise<void> {
+  if (!outcome.record.shipped || !outcome.record.sha) return;
+  try {
+    const patch = await vcs.showPatch(outcome.record.sha);
+    const scripts = mutationScriptsForPatch(patch, discover());
+    if (scripts.length > 0) {
+      out(
+        `  🧬 mutation-scope: this patch touches mutation-tested file(s) — consider running: ` +
+          scripts.map((s) => `pnpm run ${s}`).join(', '),
+      );
+    }
+  } catch {
+    /* mutation-scope advisory is best-effort — never fail the flight over it */
+  }
 }
 
 /**

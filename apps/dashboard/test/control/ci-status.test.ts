@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ciWorkflowStatus,
   ciRunReport,
+  createCiStatusApi,
   formatRunAge,
   listWorkflowFiles,
 } from '../../src/control/ci-status.js';
@@ -233,5 +234,67 @@ describe('listWorkflowFiles', () => {
   it("finds this repo's real workflow files", () => {
     const files = listWorkflowFiles('.github/workflows');
     expect(files).toEqual(expect.arrayContaining(['ci.yml', 'labels.yml', 'mutation.yml']));
+  });
+});
+
+describe('createCiStatusApi', () => {
+  const okRun: (args: readonly string[]) => string = () =>
+    JSON.stringify([
+      { status: 'completed', conclusion: 'success', createdAt: '2026-08-20T11:00:00Z' },
+    ]);
+
+  it('shells out on the first call', async () => {
+    let calls = 0;
+    const run = (args: readonly string[]): string => {
+      calls += 1;
+      return okRun(args);
+    };
+    const api = createCiStatusApi(['ci.yml'], run, 60_000, () => NOW);
+
+    const report = await api();
+
+    expect(calls).toBe(1);
+    expect(report.map((r) => r.workflow)).toEqual(['ci.yml']);
+  });
+
+  it('serves the cached report on a second call within the TTL, without re-shelling', async () => {
+    let calls = 0;
+    const run = (args: readonly string[]): string => {
+      calls += 1;
+      return okRun(args);
+    };
+    const api = createCiStatusApi(['ci.yml'], run, 60_000, () => NOW);
+
+    const first = await api();
+    const second = await api();
+
+    expect(calls).toBe(1);
+    expect(second).toBe(first);
+  });
+
+  it('re-shells once the TTL has elapsed', async () => {
+    let calls = 0;
+    let clock = NOW;
+    const run = (args: readonly string[]): string => {
+      calls += 1;
+      return okRun(args);
+    };
+    const api = createCiStatusApi(['ci.yml'], run, 60_000, () => clock);
+
+    await api();
+    clock += 60_001;
+    await api();
+
+    expect(calls).toBe(2);
+  });
+
+  it('defaults to the real .github/workflows directory listing', async () => {
+    const api = createCiStatusApi(undefined, () => {
+      throw new Error('spawn gh ENOENT');
+    });
+    const report = await api();
+    expect(report.map((r) => r.workflow)).toEqual(
+      expect.arrayContaining(['ci.yml', 'labels.yml', 'mutation.yml']),
+    );
   });
 });

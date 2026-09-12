@@ -63,5 +63,6 @@ describe('every flight module defaults to the guarded gh exec', () => {
     expect(wired).toContain('issue-triage-execute.ts');
     expect(wired).toContain('pr-review-execute.ts');
     expect(wired).toContain('mirror-pass-execute.ts');
+    expect(wired).toContain('discussions-triage-execute.ts');
   });
 });

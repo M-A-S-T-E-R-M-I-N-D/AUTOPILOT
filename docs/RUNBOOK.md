@@ -457,6 +457,14 @@ A "go look" signal for you or a KEEPER-style firing, never an auto-retry (this r
 reports; it does not act). Requires the operator's own authenticated `gh` against the
 live repo, so it is deliberately not wired into the CI gate.
 
+The same report is also a cached `GET /api/ci-status` (board web-mtq70abw-opouz8,
+`server/ci-status-route.ts` + `control/ci-status.ts`'s `createCiStatusApi`) — the
+browser-reachable half of the CLI command above, since `ciWorkflowStatus` blocks the
+request thread with one `execFileSync` per workflow file and a live dashboard poll
+would otherwise pay that cost every tick. Cached for 60s, read-only, degrades to
+`{ workflows: [] }` rather than a 500. Slice landed: the read; a Keeper-tab panel or
+stat tile consuming it is a follow-up.
+
 ## 10. OTLP span export (wiring an OTel collector)
 
 Every firing already emits spans internally; setting one environment variable before
@@ -571,17 +579,21 @@ you: the **🍀 "I'm feeling lucky"** button (`GET /api/lucky`, rolled by
 `os.cpus()` delta (Windows has no loadavg), free RAM, logical cores — plus the
 flight registry and the target folder's board, then fills Lanes/Firings/$ with
 a launch sized to what the box can carry right now. Lanes are the minimum of
-three bounds (about two idle cores per lane, about 1.5 GB free RAM per lane
+three bounds (about three idle cores per lane, about 1.5 GB free RAM per lane
 above a 4 GB reserve, at least two queued tasks per lane), capped at 8; firings
 are sized to drain each lane's shard, clamped to 2–4. It refuses outright, with
 the reason painted in the bar, when a flight is already running, the board has
 no queued tasks, free RAM is under the 4 GB floor, or CPU is above 85% — and a
 broken probe answers that same refusal shape rather than a 5xx. Every bound is
-printed as one reasoning line so the dice can be audited. Filling only: **Fly
-it** stays your click and your quota spend, the same never-auto-launch stance
-the bar has always had. Born of the 2026-09-03 incident where a blind 8-lane
-launch pegged a 12-core box at 99% CPU, froze the operator's foreground work,
-and starved the dashboard into its own BE-RIGHT-BACK overlay.
+printed as one reasoning line so the dice can be audited, and the CPU line
+rides along with the rolled plan as the bar's machine-load hint, not just the
+final lane count. Filling only: **Fly it** stays your click and your quota
+spend, the same never-auto-launch stance the bar has always had. Born of the
+2026-09-03 incident where a blind 8-lane launch pegged a 12-core box at 99%
+CPU, froze the operator's foreground work, and starved the dashboard into its
+own BE-RIGHT-BACK overlay — the three-idle-cores-per-lane ratio was tightened
+further (from two) after a near-idle probe still let a 4-lane round climb to
+~100% CPU once its gates actually ran (board web-mtsvcibf-bh6asp).
 
 ## 13. Quick reference
 

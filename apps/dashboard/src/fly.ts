@@ -110,6 +110,7 @@ import {
   out,
   markTaskDoneIfShipped,
   reconcileMidFlightStragglers,
+  runMutationScopeAdvisory,
   harvestProposals,
   readBacklogTitles,
   readInboxEntries,
@@ -1196,6 +1197,11 @@ async function main(): Promise<void> {
         // until this flight's own end-of-flight reconcileShippedTasks sweep. Catch it
         // the very next firing instead.
         reconcileMidFlightStragglers(store, projectId, now());
+        // MUTATION-SCOPE ADVISORY (board web-mtq70a97-45uxf0): a resolver with
+        // zero importers gets its first real caller — see firing-hooks.ts's
+        // own docstring for the full contract (advisory only, never runs
+        // Stryker itself).
+        await runMutationScopeAdvisory(outcome, vcs);
         // PARALLEL UNLOCK C (board task-CLAIMING): this firing's pre-work claim
         // (buildPrompt above) was a PREDICTION, not a guarantee — the agent may
         // have deviated (PICK DISCIPLINE allows it, with a reason) or shipped

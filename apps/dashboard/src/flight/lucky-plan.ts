@@ -63,10 +63,17 @@ const RAM_GB_PER_LANE = 1.5;
  *  server — refuse below it, budget lanes only from what exceeds it. */
 const RAM_GB_RESERVED = 4;
 
-/** A lane saturates about two logical cores while its gate runs (CLI + one
- *  compiler/test worker) — the 99%-CPU incident's 8 lanes on 12 cores was
- *  this ratio ignored. */
-const CORES_PER_LANE = 2;
+/** A lane saturates about three logical cores while its gate runs — not the
+ *  "CLI + one compiler/test worker" of two logical cores this constant
+ *  first shipped at (the 99%-CPU incident's 8 lanes on 12 cores was that
+ *  ratio ignored entirely). That two-core estimate was itself still too
+ *  thin: it reads CPU at the moment the dice are rolled, but a firing's
+ *  gate (tsc + vitest + build, often concurrent workers of each) spikes
+ *  well past its steady idle draw once it actually runs — a 4-lane round
+ *  sized off a near-idle probe was observed climbing to ~100% CPU minutes
+ *  later (board web-mtsvcibf-bh6asp). Tightening to three trades a little
+ *  suggested parallelism for the plan staying true once the gates land. */
+const CORES_PER_LANE = 3;
 
 /** A lane below this many reserved tasks is not worth its worktree spin-up
  *  and sync-back — the partitioner would hand it a starved shard. */

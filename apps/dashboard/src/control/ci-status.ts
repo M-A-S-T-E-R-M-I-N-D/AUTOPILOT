@@ -174,3 +174,43 @@ export function ciRunReport(
 ): readonly WorkflowRunStatus[] {
   return workflows.map((workflow) => ciWorkflowStatus(workflow, run, nowMs));
 }
+
+/** Long enough that the dashboard's own poll cadence never re-shells `gh run
+ *  list` (one blocking `execFileSync` per workflow file, each up to {@link
+ *  GH_PROBE_TIMEOUT_MS}) on every tick; short enough that a fresh CI failure
+ *  still surfaces on the next cache turn rather than being stuck for the rest
+ *  of the operator's session. */
+const CI_STATUS_CACHE_TTL_MS = 60_000;
+
+/** The dashboard's CI-health read (`GET /api/ci-status`, board
+ *  web-mtq70abw-opouz8) — `control/cli.ts`'s `ci-status` command surfaced
+ *  where the browser can see it without a terminal. */
+export type CiStatusApi = () => Promise<readonly WorkflowRunStatus[]>;
+
+/**
+ * Builds the cached CI-health read: serves the last {@link ciRunReport} for
+ * `ttlMs`, then re-runs it (one `gh run list` shell per workflow file) on the
+ * next call past that window. Unlike `flight/publicity.ts`'s
+ * `createPublicityPreviewApi` and this repo's other on-demand `create*Api`
+ * factories, this one caches BECAUSE its underlying read is synchronous and
+ * blocking — `ciWorkflowStatus` shells out via `execFileSync` per workflow
+ * file — so serving every dashboard poll fresh would stack up real
+ * wall-clock cost on the request thread for information that rarely changes
+ * between polls. Lazy: nothing runs until the first call.
+ */
+export function createCiStatusApi(
+  workflows: readonly string[] = listWorkflowFiles(),
+  run: GhRun = defaultGhRun,
+  ttlMs: number = CI_STATUS_CACHE_TTL_MS,
+  now: () => number = Date.now,
+): CiStatusApi {
+  let cached: readonly WorkflowRunStatus[] | undefined;
+  let cachedAtMs = -Infinity;
+  return async () => {
+    const nowMs = now();
+    if (cached !== undefined && nowMs - cachedAtMs < ttlMs) return cached;
+    cached = ciRunReport(workflows, run, nowMs);
+    cachedAtMs = nowMs;
+    return cached;
+  };
+}
