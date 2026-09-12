@@ -152,6 +152,7 @@ import type {
   UpdateBranchResult,
   RerunChecksResult,
 } from '../flight/human-merge.js';
+import type { CheckDiagnosisApiOutcome } from '../flight/check-diagnosis.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -503,6 +504,13 @@ export type UpdateBranchApi = (number: number) => Promise<UpdateBranchResult>;
  *  the panel had. */
 export type RerunChecksApi = (number: number) => Promise<RerunChecksResult>;
 
+/** Reads a failing check's own job log and classifies it flake/defect/unknown
+ *  (injected; see flight/check-diagnosis.ts) — epic 0020 slice 8's diagnose
+ *  verb, board web-mtvpuoj4-tv1z09. A refusal (nothing failing, no log to
+ *  read) comes back as a normal result carrying `reason`, not an error,
+ *  same convention as {@link RerunChecksApi}. */
+export type CheckDiagnosisApi = (number: number) => Promise<CheckDiagnosisApiOutcome>;
+
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
  *  list` on demand) — every open issue's planned decision against the
  *  project's open board tasks + backlog file, judged fresh each call (see
@@ -733,6 +741,9 @@ export interface ServerDeps extends RouteDeps {
   readonly updateBranch?: UpdateBranchApi;
   /** The re-run companion to {@link humanMerge}. */
   readonly rerunChecks?: RerunChecksApi;
+  /** The diagnose companion to {@link humanMerge} — epic 0020 slice 8,
+   *  board web-mtvpuoj4-tv1z09. */
+  readonly checkDiagnosis?: CheckDiagnosisApi;
   readonly issueTriage?: IssueTriagePreviewApi;
   readonly issueTriageExecute?: IssueTriageExecuteApi;
   /** KEEPER DISCUSSIONS preview (epic 0007 S8, board `web-mtlsiac0-v8rksh`)
@@ -2354,6 +2365,45 @@ async function handleRerunChecks(
   }
 }
 
+/**
+ * THE DIAGNOSE endpoint (`GET /api/pr-review/diagnose?number=`). Read-only —
+ * unlike its three siblings above it plans no `gh` mutation, so it carries
+ * no CSRF concern and no rate limiter of its own, the same split
+ * {@link handlePrReview} draws against {@link handlePrReviewExecute}. Epic
+ * 0020 slice 8 (board web-mtvpuoj4-tv1z09): shells to `gh run view
+ * --log-failed` for whichever check is red on the given PR and classifies
+ * it flake/defect/unknown. A refusal ("nothing failing", "no log to read")
+ * is a 200 carrying `reason` in place of `diagnosis` — the same
+ * refusal-is-not-an-error convention {@link handleRerunChecks} follows.
+ */
+async function handleCheckDiagnosis(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: CheckDiagnosisApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'check diagnosis unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const number = Number(url.searchParams.get('number'));
+  if (!Number.isInteger(number) || number <= 0) {
+    send(400, { error: 'a positive integer PR number is required' });
+    return;
+  }
+  try {
+    send(200, await api(number));
+  } catch (error) {
+    send(500, { error: error instanceof Error ? error.message : 'check diagnosis failed' });
+  }
+}
+
 // handlePoolClient/handlePublicity/handlePoolClientExecute moved to
 // `./pool-client.js` (epic 0002 shell decomposition) — imported above.
 
@@ -3728,6 +3778,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/pr-review/rerun-checks') {
       void handleRerunChecks(req, res, deps.rerunChecks, headers, prReviewLimiter);
+      return;
+    }
+
+    if (path === '/api/pr-review/diagnose') {
+      void handleCheckDiagnosis(req, res, deps.checkDiagnosis, headers);
       return;
     }
 

@@ -82,6 +82,7 @@ import {
   createUpdateBranchApi,
   createRerunChecksApi,
 } from '../flight/human-merge.js';
+import { createCheckDiagnosisApi } from '../flight/check-diagnosis.js';
 import {
   createIssueTriagePreviewApi,
   createIssueTriageExecuteApi,
@@ -605,6 +606,7 @@ const server = createServer({
   humanMerge: createHumanMergeApi(),
   updateBranch: createUpdateBranchApi(),
   rerunChecks: createRerunChecksApi(),
+  checkDiagnosis: createCheckDiagnosisApi(),
   // KEEPER TRIAGE ritual (epic 0007, "PLATFORM 3/7"): project-scoped — dedups
   // an incoming issue against that project's own open board tasks + backlog
   // file, unlike KEEPER REVIEW's single canonical repo above.

@@ -253,6 +253,14 @@ const BENIGN_FLIGHT = new Set([
   // and labeling (board web-mtlsiac0-v8rksh's later slices) it earned the
   // `flight/discussions-triage` marker, which also covers its `-execute`
   // wiring — exactly the "own marker once it ships one" this list promised.
+  // EPIC 0020 slice 8 (board web-mtvpuoj4-tv1z09), first derivation:
+  // diagnoseFailedCheck classifies an ALREADY-FETCHED job log against the
+  // PR's own touchedPaths and the flaky-test quarantine list — no `gh` call
+  // of its own, no write, same pure-classifier class as pool-client.ts and
+  // contributor-issue-list.ts above. The `🔧 Diagnose` button, its server
+  // route, and the `defect` verdict's diff-for-approval prep are unbuilt
+  // follow-on slices that will need their own marker once they ship one.
+  'check-diagnosis.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
