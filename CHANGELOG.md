@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.39.0] — 2026-09-12
+
+### Added
+
+- feat(dashboard): epic 0021 slice 6 — the context rail, and the shell on a tablet
+- feat(fleet): the claim contract — a claimed issue is delivered until its claimant closes it
+- feat(keeper): reserved-for-humans expiry and the issue protocol gate
+- feat(discussions): identity-gated preview/execute API pair (web-mtlsiac0-v8rksh)
+- feat(flight): wire mutation-scope advisory into the verify gate
+
+### Fixed
+
+- fix(dashboard): tick laws — no render before DOMContentLoaded; a throwing render keeps the tick
+- fix(dashboard): the context-rail grid keeps the masthead above the content; tablet baselines adopted
+
 ## [0.38.0] — 2026-09-11
 
 ### Added
