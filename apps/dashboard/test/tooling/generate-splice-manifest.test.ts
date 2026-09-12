@@ -72,7 +72,13 @@ import { subjectNavJs } from '../../src/web/features/subject-nav.js';
 import { tourJs } from '../../src/web/features/tour.js';
 import { updateJs } from '../../src/web/features/update.js';
 import { PRELOAD_FONT_PATHS } from '../../src/assets/fonts.js';
-import { themeButtons, langButtons, escapeAttr, subjectNavHtml } from '../../src/web/shell-html.js';
+import {
+  themeButtons,
+  langButtons,
+  escapeAttr,
+  subjectNavHtml,
+  contextRailHtml,
+} from '../../src/web/shell-html.js';
 import { gogglesMarkInlineSvg } from '../../src/assets/goggles-mark.js';
 
 const SHELL_TS = fileURLToPath(new URL('../../src/web/shell.ts', import.meta.url));
@@ -2055,6 +2061,9 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     // shape, varying by page kind (four links on the fleet page, six tabs on
     // a project page).
     'subjectNavHtml',
+    // The context rail's aside (epic 0021 slice 6): the same server-helper
+    // shape as subjectNavHtml — fleet page only, hidden until the client fills it.
+    'contextRailHtml',
   ]);
 
   it('accounts for every relative-import binding: either discovered as a splice, or a known non-splice exception', () => {
@@ -4140,6 +4149,10 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
       // the app shell's subject nav (epic 0021): four links on the fleet
       // page, six on a project page — a server helper beside themeButtons().
       return subjectNavHtml(project);
+    }
+    if (exprText === 'contextRailHtml(project)') {
+      // the context rail's aside (epic 0021 slice 6), fleet page only.
+      return contextRailHtml(project);
     }
     if (exprText.includes('PRELOAD_FONT_PATHS')) {
       return PRELOAD_FONT_PATHS.map(

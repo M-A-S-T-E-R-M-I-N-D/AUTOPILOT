@@ -74,7 +74,10 @@ import { gzipSync } from 'node:zlib';
 // Then core raw 190→191KB (2026-09-12) for the Ask panel's low-confidence
 // escalation offer (answer-quality doctrine slice 3, a fleet lane's
 // checkpointed-then-completed unit) — measured 190.4KB at landing.
-const CORE_RAW_BUDGET = 191 * 1024;
+// Then core raw 191→192KB (2026-09-12) for EPIC 0021 slice 6: the context
+// rail's two English strings (its aria-label and empty line) — measured
+// 191.0KB, 19 bytes over the old line.
+const CORE_RAW_BUDGET = 192 * 1024;
 const CORE_GZIP_BUDGET = 57 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
@@ -160,8 +163,13 @@ const CORE_GZIP_BUDGET = 57 * 1024;
 // and focus mode join the shell's deferred client — measured 132.7KB/40.1KB.
 // Then raw 133→135KB (2026-09-12) for EPIC 0021 slice 4 (first cut): the
 // Keeper place's live "waiting on you" count — measured 134.0KB raw.
-const CHUNK_RAW_BUDGET = 135 * 1024;
-const CHUNK_GZIP_BUDGET = 41 * 1024;
+// Then raw 135→137KB (2026-09-12) for EPIC 0021 slice 6: the context rail
+// — the shell client moves the lanes and the Keeper queue into the aside
+// from xl and back below it, and keeps the rail's empty line honest —
+// measured 136.6KB raw.
+const CHUNK_RAW_BUDGET = 137 * 1024;
+// Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
+const CHUNK_GZIP_BUDGET = 42 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

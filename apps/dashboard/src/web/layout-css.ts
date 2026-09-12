@@ -26,7 +26,7 @@ export function layoutCss(): string {
    --page-inline is the ONE inline padding every body-level section shares —
    one left edge on every width. The shell sizes are the bottom bar's height
    (compact) and the rail's width (medium and up). */
-:root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 5rem; }
+:root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 5rem; --shell-context-size: 22.5rem; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
   margin: 0; font-family: var(--font-sans);
@@ -1453,6 +1453,29 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 }
 @media (min-width: 64rem) {
   .subject-empty { display: none; }
+}
+/* CONTEXT RAIL (epic 0021 slice 6): from xl the fleet page gains M3's
+   supporting pane — the lanes in flight and the Keeper queue stay beside
+   whatever the reader is on, sticky, with their own scroll. The nav module
+   moves those sections into the aside at xl and back to their places below
+   it; with no script the aside stays hidden and empty and every section
+   sits where it always did. Body becomes a two-column grid only while the
+   module says so (body[data-rail]); the masthead and the update banner span
+   both columns, the rail spans every content row. */
+.context-rail { display: none; }
+.context-rail-empty { margin: var(--space-4) var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
+@media (min-width: 80rem) {
+  body[data-rail="on"] { display: grid; grid-template-columns: minmax(0, 1fr) var(--shell-context-size); align-items: start; }
+  body[data-rail="on"] > * { grid-column: 1; min-inline-size: 0; }
+  body[data-rail="on"] > .update-banner { grid-column: 1 / -1; grid-row: 1; }
+  body[data-rail="on"] > .masthead { grid-column: 1 / -1; grid-row: 2; }
+  body[data-rail="on"] > .context-rail {
+    display: block; grid-column: 2; grid-row: 3 / span 200; align-self: start;
+    position: sticky; inset-block-start: 0; max-block-size: 100dvh; overflow: auto; overscroll-behavior: contain;
+    padding: var(--space-3) 0; border-inline-start: 1px solid var(--color-border);
+  }
+  .context-rail > .live-workers, .context-rail > .pr-review-panel, .context-rail > .pool-client-panel { margin-inline: var(--space-3); padding-inline: var(--space-3); }
+  .context-rail > .live-workers { padding-block: var(--space-2); }
 }
 /* FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays. The
    toggle is the nav's last item (a button, not a place); the exit pill is
