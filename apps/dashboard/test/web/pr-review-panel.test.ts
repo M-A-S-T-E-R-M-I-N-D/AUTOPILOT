@@ -28,7 +28,6 @@ import {
   prReviewExecuteTip,
   prReviewGuestNote,
   awaitingApprovalChecksUrl,
-  checkDiagnosisResult,
   type PrReviewPanelTranslator,
 } from '../../src/web/pr-review-panel.js';
 
@@ -269,60 +268,6 @@ describe('prReviewExecuteResult', () => {
     );
     expect(prReviewExecuteResult({ staleDecision: true, results: [] }, trHe).text).toContain(
       STRINGS.he.prReviewUnknownDecision,
-    );
-  });
-});
-
-describe('checkDiagnosisResult — the 🔧 Diagnose button’s result line (epic 0020 slice 8)', () => {
-  it('reads a defect verdict as a failure and shows the classifier’s own evidence', () => {
-    const result = checkDiagnosisResult({
-      diagnosis: {
-        verdict: 'defect',
-        reasoning: ['The PR directly touches the failing test file(s): a.test.ts.'],
-      },
-    });
-    expect(result.className).toBe('pr-review-result pr-review-result-fail');
-    expect(result.text).toBe(
-      '✗ Defect — The PR directly touches the failing test file(s): a.test.ts.',
-    );
-  });
-
-  it('reads a flake verdict as ok — safe to re-run', () => {
-    const result = checkDiagnosisResult({
-      diagnosis: {
-        verdict: 'flake',
-        reasoning: ['a.test.ts is already quarantined as flaky (x).'],
-      },
-    });
-    expect(result.className).toBe('pr-review-result pr-review-result-ok');
-    expect(result.text).toBe('✓ Flake — a.test.ts is already quarantined as flaky (x).');
-  });
-
-  it('gives an unknown verdict its own neutral styling — not a green or a red verdict', () => {
-    const result = checkDiagnosisResult({
-      diagnosis: {
-        verdict: 'unknown',
-        reasoning: ['Could not identify a failing test file from the job log.'],
-      },
-    });
-    expect(result.className).toBe('pr-review-result pr-review-result-warn');
-    expect(result.text).toBe(
-      '? Unknown — Could not identify a failing test file from the job log.',
-    );
-  });
-
-  it('renders a bare refusal (nothing failing, or no log to read) with the same neutral styling', () => {
-    const result = checkDiagnosisResult({
-      reason: 'No gating check is failing — there is nothing to diagnose.',
-    });
-    expect(result.className).toBe('pr-review-result pr-review-result-warn');
-    expect(result.text).toBe('? No gating check is failing — there is nothing to diagnose.');
-  });
-
-  it('treats a null/undefined response as an unclassifiable refusal, not a crash', () => {
-    expect(checkDiagnosisResult(null).text).toBe('? Nothing to diagnose.');
-    expect(checkDiagnosisResult(undefined).className).toBe(
-      'pr-review-result pr-review-result-warn',
     );
   });
 });

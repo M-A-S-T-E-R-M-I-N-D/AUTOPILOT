@@ -314,51 +314,47 @@ describe('the update-branch button appears exactly when it can help', () => {
  * symptom: the refusal message was wiped by an immediate re-poll, and a
  * red check left no verb to act on.
  */
-// Shared by both describe blocks below: a queue-for-human PR with one red
-// gating check, whose maintainer-verb response is fully caller-controlled —
-// the re-run tests below and the 🔧 Diagnose tests further down both need a
-// red check to render their button in the first place.
-function bootWithRefusal(response: Record<string, unknown>): void {
-  document.open();
-  document.write(renderShell());
-  document.close();
-  globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input);
-    if (url.includes('/api/pr-review/')) {
-      return { ok: true, json: async () => response } as unknown as Response;
-    }
-    if (url.includes('/api/pr-review')) {
-      return {
-        ok: true,
-        json: async () => ({
-          plans: [
-            {
-              pr: {
-                number: 34,
-                title: 'Red PR',
-                headRefOid: 'sha',
-                checkRuns: [
-                  { name: 'verify (ubuntu-latest)', state: 'pass' },
-                  { name: 'verify (macos-latest)', state: 'fail' },
-                ],
-              },
-              decision: { decision: 'queue-for-human', reasoning: 'Security-hard path.' },
-            },
-          ],
-        }),
-      } as unknown as Response;
-    }
-    return { ok: true, json: async () => ({ projects: [], empty: true }) } as unknown as Response;
-  });
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
-  new Function(clientJs())();
-}
-
 describe('a refused action leaves its reason on screen and its button usable', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
+
+  function bootWithRefusal(response: Record<string, unknown>): void {
+    document.open();
+    document.write(renderShell());
+    document.close();
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/pr-review/')) {
+        return { ok: true, json: async () => response } as unknown as Response;
+      }
+      if (url.includes('/api/pr-review')) {
+        return {
+          ok: true,
+          json: async () => ({
+            plans: [
+              {
+                pr: {
+                  number: 34,
+                  title: 'Red PR',
+                  headRefOid: 'sha',
+                  checkRuns: [
+                    { name: 'verify (ubuntu-latest)', state: 'pass' },
+                    { name: 'verify (macos-latest)', state: 'fail' },
+                  ],
+                },
+                decision: { decision: 'queue-for-human', reasoning: 'Security-hard path.' },
+              },
+            ],
+          }),
+        } as unknown as Response;
+      }
+      return { ok: true, json: async () => ({ projects: [], empty: true }) } as unknown as Response;
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    new Function(clientJs())();
+  }
 
   it('offers a re-run button when a gating check is red, and says so in the merge tip', async () => {
     bootWithRefusal({ rerun: false, reason: 'x' });
@@ -388,73 +384,5 @@ describe('a refused action leaves its reason on screen and its button usable', (
     expect(button.disabled).toBe(false);
     expect(button.textContent).toBe('↻ Re-run failed');
     expect(document.querySelector('.pr-review-result')?.className).toContain('fail');
-  });
-});
-
-/**
- * The 🔧 Diagnose button (epic 0020 slice 8, board web-mtvpuoj4-tv1z09) — the
- * fourth maintainer verb: re-run is the right answer to a flake and useless
- * against a real defect. Read-only GET, so unlike its three siblings it
- * fires no confirm dialog and never re-polls the panel on completion —
- * nothing about the PR changed, only what the operator knows about it.
- */
-describe('the 🔧 Diagnose button — reads the failing check’s own verdict', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it('renders beside re-run whenever a gating check is red', async () => {
-    bootWithRefusal({ rerun: false, reason: 'x' });
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('[data-pr-diagnose]')).not.toBeNull();
-    });
-    expect(document.querySelector('[data-pr-diagnose]')?.textContent).toBe('🔧 Diagnose');
-  });
-
-  it('fetches the diagnose route and renders the verdict without a confirm dialog or a re-poll', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm');
-    bootWithRefusal({
-      diagnosis: {
-        verdict: 'defect',
-        reasoning: ['The PR directly touches the failing test file(s): a.test.ts.'],
-      },
-    });
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('[data-pr-diagnose]')).not.toBeNull();
-    });
-    const button = document.querySelector('[data-pr-diagnose]') as HTMLButtonElement;
-    button.click();
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('.pr-review-result')?.textContent).toContain('Defect');
-    });
-    expect(confirmSpy).not.toHaveBeenCalled();
-    expect(button.disabled).toBe(false);
-    expect(button.textContent).toBe('🔧 Diagnose');
-    expect(document.querySelector('.pr-review-result')?.className).toContain(
-      'pr-review-result-fail',
-    );
-  });
-
-  it('gives a flake verdict its own ok styling', async () => {
-    bootWithRefusal({
-      diagnosis: {
-        verdict: 'flake',
-        reasoning: ['a.test.ts is already quarantined as flaky (x).'],
-      },
-    });
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('[data-pr-diagnose]')).not.toBeNull();
-    });
-    (document.querySelector('[data-pr-diagnose]') as HTMLButtonElement).click();
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('.pr-review-result')?.textContent).toContain('Flake');
-    });
-    expect(document.querySelector('.pr-review-result')?.className).toContain('pr-review-result-ok');
   });
 });
