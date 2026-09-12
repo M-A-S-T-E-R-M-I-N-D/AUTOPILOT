@@ -48,6 +48,15 @@ const SUBJECT_KEYS = [
   'paletteSearch',
   'contextRail',
   'contextRailEmpty',
+  'keeperQueueTitle',
+  'keeperQueueHint',
+  'keeperSourcePr',
+  'keeperSourcePool',
+  'keeperSourceTriage',
+  'keeperSourceMirror',
+  'keeperSourceBacklog',
+  'keeperSourceWisdom',
+  'keeperSourceApproval',
 ] as const;
 
 /** The client bundle's `tr()` lives in core (locale.ts); the shell module
@@ -466,6 +475,79 @@ describe('subject-nav client — switching subjects', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(badge.hidden).toBe(true);
     expect(link('keeper').getAttribute('aria-label')).toBe('Keeper');
+  });
+
+  it('the Keeper queue lists everything waiting on a human — source, what, why, one exit action — keyboard-first', () => {
+    const pr = document.getElementById('pr-review-panel') as HTMLElement;
+    pr.hidden = false;
+    pr.innerHTML =
+      '<div class="pr-review-item"><div class="pr-review-head"><a class="pr-review-number" href="#x">#7</a>' +
+      '<span class="chip" data-tip="gate green, one approval">✓ merge</span></div><p class="pr-review-pr-title">Fix nav</p>' +
+      '<div class="pr-review-actions"><button type="button" data-pr-review-execute="7">Apply</button></div></div>';
+    const pool = document.getElementById('pool-client-panel') as HTMLElement;
+    pool.hidden = false;
+    pool.innerHTML =
+      '<div class="pool-client-item"><div class="pool-client-head"><span class="pool-client-number">#9</span>' +
+      '<span class="chip">claim</span></div><p class="pool-client-issue-title">Add dark mode</p>' +
+      '<div class="pool-client-actions"><button type="button" data-pool-client-execute="9">Claim</button></div></div>';
+    boot();
+    const queue = document.getElementById('keeper-queue') as HTMLElement;
+    expect(queue.hidden).toBe(false);
+    expect(queue.dataset['subject']).toBe('keeper');
+    // Placed as the first Keeper section: right before the PR review panel.
+    expect(queue.nextElementSibling).toBe(pr);
+    const rows = queue.querySelectorAll('.keeper-queue-item');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.querySelector('.keeper-queue-source')!.textContent).toBe('PR');
+    expect(rows[0]!.querySelector('.keeper-queue-open')!.textContent).toBe('#7 Fix nav');
+    expect(rows[0]!.querySelector('.keeper-queue-why')!.textContent).toBe('✓ merge');
+    expect(rows[0]!.querySelector('.keeper-queue-open')!.getAttribute('data-tip')).toBe(
+      'gate green, one approval',
+    );
+    expect(rows[0]!.querySelector('.keeper-queue-act')!.textContent).toBe('Apply');
+    expect(rows[1]!.querySelector('.keeper-queue-source')!.textContent).toBe('Pool');
+    // The badge and the queue count the same things.
+    expect(link('keeper').querySelector('.subject-badge')!.textContent).toBe('2');
+
+    // "a" acts through the panel's own button; j moves the roving focus.
+    let applied = 0;
+    pr.querySelector('button')!.addEventListener('click', () => applied++);
+    const first = rows[0]!.querySelector('.keeper-queue-open') as HTMLElement;
+    first.focus();
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    expect(applied).toBe(1);
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
+    const second = rows[1]!.querySelector('.keeper-queue-open') as HTMLElement;
+    expect(document.activeElement).toBe(second);
+    expect(second.getAttribute('tabindex')).toBe('0');
+    expect(first.getAttribute('tabindex')).toBe('-1');
+
+    // Open lands on the item itself: scrolled into view, its first control focused.
+    let scrolled = 0;
+    (pool.querySelector('.pool-client-item') as HTMLElement).scrollIntoView = () => {
+      scrolled++;
+    };
+    second.click();
+    expect(scrolled).toBe(1);
+    expect(document.activeElement).toBe(pool.querySelector('button'));
+
+    // An identical tick rewrites nothing: the same row nodes survive a re-mark.
+    document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
+    expect(queue.querySelectorAll('.keeper-queue-item')[0]).toBe(rows[0]);
+  });
+
+  it('the Keeper queue is never built for an empty queue, and hides when its last item leaves', async () => {
+    boot();
+    expect(document.getElementById('keeper-queue')).toBeNull();
+    const pr = document.getElementById('pr-review-panel') as HTMLElement;
+    pr.hidden = false;
+    pr.innerHTML = '<div class="pr-review-item"><p class="pr-review-pr-title">One</p></div>';
+    await new Promise((r) => setTimeout(r, 0));
+    const queue = document.getElementById('keeper-queue') as HTMLElement;
+    expect(queue.hidden).toBe(false);
+    pr.hidden = true;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(queue.hidden).toBe(true);
   });
 
   it('re-marks the sections renderProjectPage rebuilds when the page announces them', () => {

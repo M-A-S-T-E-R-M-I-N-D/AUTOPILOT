@@ -167,9 +167,13 @@ const CORE_GZIP_BUDGET = 57 * 1024;
 // — the shell client moves the lanes and the Keeper queue into the aside
 // from xl and back below it, and keeps the rail's empty line honest —
 // measured 136.6KB raw.
-const CHUNK_RAW_BUDGET = 137 * 1024;
+// Then raw 137→144KB (2026-09-12) for EPIC 0021 slice 4: the Keeper queue — one
+// list of everything waiting on a human, a view over the panels with keyboard
+// exit actions — measured 142.6KB raw.
+const CHUNK_RAW_BUDGET = 144 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
-const CHUNK_GZIP_BUDGET = 42 * 1024;
+// Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
+const CHUNK_GZIP_BUDGET = 43 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;
