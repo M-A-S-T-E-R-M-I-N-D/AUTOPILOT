@@ -13,6 +13,7 @@ import {
   mirrorPassCanExecuteDrift,
   mirrorPassDriftExecuteResultMessage,
   mirrorPassCanExecuteLandingNote,
+  mirrorPassCanExecuteStaleClaim,
 } from '../../src/web/mirror-pass-panel.js';
 
 describe('mirrorPassReconcileItems / mirrorPassLandingNoteItems / mirrorPassStaleClaimItems', () => {
@@ -249,6 +250,29 @@ describe('mirrorPassCanExecuteLandingNote', () => {
     expect(mirrorPassCanExecuteLandingNote({ role: 'maintainer' }, [{ finding: null }])).toBe(
       false,
     );
+  });
+});
+
+describe('mirrorPassCanExecuteStaleClaim', () => {
+  const oneStaleClaim = [{ finding: { issueNumber: 7, comment: 'x' } }];
+
+  it('hides the stale-claim button for a confirmed non-maintainer, even with a real finding', () => {
+    expect(mirrorPassCanExecuteStaleClaim({ role: 'user' }, oneStaleClaim)).toBe(false);
+  });
+
+  it('shows the stale-claim button for a confirmed maintainer with a real finding', () => {
+    expect(mirrorPassCanExecuteStaleClaim({ role: 'maintainer' }, oneStaleClaim)).toBe(true);
+  });
+
+  it('shows the stale-claim button when identity is unresolved — not a known guest', () => {
+    expect(mirrorPassCanExecuteStaleClaim(undefined, oneStaleClaim)).toBe(true);
+    expect(mirrorPassCanExecuteStaleClaim(null, oneStaleClaim)).toBe(true);
+  });
+
+  it('hides the stale-claim button when there is nothing to free, even for the maintainer', () => {
+    expect(mirrorPassCanExecuteStaleClaim({ role: 'maintainer' }, [])).toBe(false);
+    expect(mirrorPassCanExecuteStaleClaim({ role: 'maintainer' }, null)).toBe(false);
+    expect(mirrorPassCanExecuteStaleClaim({ role: 'maintainer' }, [{ finding: null }])).toBe(false);
   });
 });
 
