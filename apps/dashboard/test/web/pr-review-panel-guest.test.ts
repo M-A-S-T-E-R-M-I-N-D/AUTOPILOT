@@ -52,6 +52,17 @@ const MERGEABLE = [
   },
 ];
 
+const QUEUED_WITH_FAILED_CHECK = [
+  {
+    pr: {
+      number: 7,
+      title: 'fix: flaky test',
+      checkRuns: [{ name: 'ci', state: 'fail' }],
+    },
+    decision: { decision: 'queue-for-human', reasoning: 'red check' },
+  },
+];
+
 describe('KEEPER PR review role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899)', () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -94,5 +105,20 @@ describe('KEEPER PR review role gate (epic 0019 law 1 extended to the UI, board 
       expect(document.querySelector('[data-pr-review-execute]')).not.toBeNull();
     });
     expect(document.querySelector('.pr-review-guest-note')).toBeNull();
+  });
+
+  it('keeps the read-only Diagnose button visible for a confirmed non-owner, hiding only the write buttons', async () => {
+    bootWithPlans(QUEUED_WITH_FAILED_CHECK, {
+      login: 'a-contributor',
+      nameWithOwner: 'octocat/hello-world',
+      role: 'user',
+    });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-guest-note')).not.toBeNull();
+    });
+    expect(document.querySelector('[data-pr-diagnose]')).not.toBeNull();
+    expect(document.querySelector('[data-pr-rerun-checks]')).toBeNull();
+    expect(document.querySelector('[data-pr-human-merge]')).toBeNull();
   });
 });
