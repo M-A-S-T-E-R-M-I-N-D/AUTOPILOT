@@ -17,6 +17,9 @@ const LATIN_SCRIPT_KEYS: ReadonlySet<StringKey> = new Set<StringKey>([
   'connectCliVersion',
   'connectStatusLine',
   'connectTestStatusLine',
+  // The Keeper queue's source chip for a pull request: "PR" is the Latin
+  // acronym every locale's developers use, the same way KEEPER stays KEEPER.
+  'keeperSourcePr',
 ]);
 
 describe('STRINGS', () => {
