@@ -14,7 +14,9 @@ import { describe, it, expect } from 'vitest';
 import {
   discoverConfigs,
   parseDiffRef,
+  parseShard,
   selectConfigFiles,
+  shardConfigFiles,
 } from '../../../../scripts/ci/run-all-mutation.mjs';
 
 describe('parseDiffRef', () => {
@@ -32,6 +34,30 @@ describe('parseDiffRef', () => {
 
   it('uses the explicit ref that follows --diff', () => {
     expect(parseDiffRef(['node', 'run-all-mutation.mjs', '--diff', 'main'])).toBe('main');
+  });
+});
+
+describe('parseShard / shardConfigFiles (the nightly sweep split across a CI matrix, 2026-09-13)', () => {
+  it('is null without --shard, so one job still runs everything', () => {
+    expect(parseShard(['node', 'run-all-mutation.mjs', '--list'])).toBeNull();
+  });
+
+  it('parses <i>/<n> and refuses anything else loudly — a typo must not quietly run a full sweep six times', () => {
+    expect(parseShard(['node', 'x', '--shard', '2/6'])).toEqual({ index: 2, total: 6 });
+    for (const bad of ['', '0/6', '7/6', 'a/b', '2']) {
+      expect(() => parseShard(['node', 'x', '--shard', bad])).toThrow(/--shard wants/);
+    }
+    expect(() => parseShard(['node', 'x', '--shard'])).toThrow(/--shard wants/);
+  });
+
+  it('interleaves the discovery order so every shard gets a spread, and the shards partition the whole set', () => {
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    expect(shardConfigFiles(files, { index: 1, total: 3 })).toEqual(['a', 'd', 'g']);
+    expect(shardConfigFiles(files, { index: 2, total: 3 })).toEqual(['b', 'e']);
+    expect(shardConfigFiles(files, { index: 3, total: 3 })).toEqual(['c', 'f']);
+    const all = [1, 2, 3].flatMap((index) => shardConfigFiles(files, { index, total: 3 }));
+    expect([...all].sort()).toEqual([...files].sort());
+    expect(shardConfigFiles(files, null)).toBe(files);
   });
 });
 

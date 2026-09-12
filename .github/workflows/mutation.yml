@@ -7,6 +7,13 @@ name: Mutation
 # concurrency 1 each) — too slow to gate a PR on, but cheap to run while
 # nobody's waiting so a mutation-score regression doesn't sit undetected
 # until someone remembers to run it by hand.
+#
+# SHARDED (2026-09-13): ~200 configs on one runner ran past the 180-minute
+# job timeout four nights running (2026-09-09→12) and every run ended
+# "cancelled" — red on the dashboard's CI panel for days. Six matrix jobs
+# each take every sixth config (`--shard i/6`, interleaved), so each
+# finishes well inside the timeout and a real regression shows as one red
+# shard, not a timeout.
 on:
   schedule:
     - cron: '0 9 * * *'
@@ -21,9 +28,13 @@ concurrency:
 
 jobs:
   mutation:
-    name: mutation testing (all modules)
+    name: mutation testing (shard ${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       # Actions are SHA-pinned per OpenSSF Scorecard "Pinned-Dependencies";
       # Dependabot's github-actions ecosystem keeps these current.
@@ -43,7 +54,7 @@ jobs:
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Mutation testing (all modules, 100% break threshold per config)
+      - name: Mutation testing (this shard's modules, 100% break threshold per config)
         # None of the 102 per-module vitest configs Stryker drives (config/mutation/
         # vitest.*.config.ts) set an explicit `reporters` list, so vitest's own default
         # resolution auto-adds a 'github-actions' reporter whenever GITHUB_ACTIONS=true —
@@ -53,6 +64,6 @@ jobs:
         # every nightly run (runs 32122624614, 32238617186). Reproduced directly: running
         # one mutation vitest config wrote a summary chunk with GITHUB_ACTIONS=true and
         # wrote nothing with it unset — this override is the fix, not a guess.
-        run: pnpm run mutation
+        run: pnpm run mutation -- --shard ${{ matrix.shard }}/6
         env:
           GITHUB_ACTIONS: false
