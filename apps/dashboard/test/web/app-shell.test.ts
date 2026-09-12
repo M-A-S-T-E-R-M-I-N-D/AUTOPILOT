@@ -175,7 +175,7 @@ describe('layout-css — mobile-first laws', () => {
     const md = css.indexOf('@media (min-width: 48rem) {\n  /* From md the popover is a menu');
     expect(md).toBeGreaterThan(-1);
     expect(css.slice(md, md + 700)).toContain(
-      '.connect-body { position: absolute; inset-inline: auto 0;',
+      '.connect-body { position: absolute; inset-inline-start: auto; inset-inline-end: 0;',
     );
     // The skip link hides by clipping, never by a physical off-screen offset.
     expect(css).toContain(

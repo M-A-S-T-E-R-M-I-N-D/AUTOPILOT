@@ -39,7 +39,13 @@ describe('layoutCss', () => {
     expect(css).toContain('text-align: end;');
     expect(css).toContain('border-inline-start: 3px solid var(--color-accent);');
     expect(css).toContain('margin-inline-start: auto;');
-    expect(css).toContain('inset-inline-start: -9999px;');
+    // The skip link's visible position is logical; it hides by clipping, never by a
+    // physical off-screen offset (RTL audit 2026-09-12: -9999px inline-start
+    // landed 10,000px to the right of a Hebrew page).
+    expect(css).toContain(
+      '.skip-link {\n  position: absolute; inset-inline-start: var(--space-3);',
+    );
+    expect(css).not.toContain('-9999px');
   });
 
   it('is trimmed — no leading/trailing whitespace', () => {

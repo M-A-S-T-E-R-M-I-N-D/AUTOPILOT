@@ -96,7 +96,7 @@ body {
      grows toward the page's centre in both directions); below md it is a
      sheet pinned to the viewport's inline edges, which no control's position
      can push off-screen (RTL audit, 2026-09-12: 412px, Hebrew). */
-  .connect-body { position: absolute; inset-inline: auto 0; inset-block-start: auto; margin-top: var(--space-2); width: 320px; max-width: 88vw; }
+  .connect-body { position: absolute; inset-inline-start: auto; inset-inline-end: 0; inset-block-start: auto; margin-top: var(--space-2); width: 320px; max-width: 88vw; }
   .theme-menu > .connect-body, .lang-menu > .connect-body { width: max-content; }
 }
 .connect-status { margin: 0; font-size: var(--text-sm); }
