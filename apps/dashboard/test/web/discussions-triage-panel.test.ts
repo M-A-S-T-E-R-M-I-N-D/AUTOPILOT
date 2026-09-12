@@ -22,14 +22,11 @@ describe('discussionsTriageDecisionLabel', () => {
 });
 
 describe('discussionsTriageItems', () => {
-  it("includes both accept and skip plans, unlike mirror-pass's finding-only filter", () => {
+  it('includes both accept and skip plans, unlike mirror-pass\'s finding-only filter', () => {
     const items = discussionsTriageItems([
       {
         discussion: { number: 5, title: 'How do I configure X?' },
-        decision: {
-          decision: 'accept',
-          reasoning: '#5 "How do I configure X?" has no answer yet.',
-        },
+        decision: { decision: 'accept', reasoning: '#5 "How do I configure X?" has no answer yet.' },
       },
       {
         discussion: { number: 6, title: 'Already answered' },
@@ -83,12 +80,8 @@ describe('discussionsTriageConfirmMessage', () => {
       { discussion: { number: 3, title: 'c' }, decision: { decision: 'skip', reasoning: 'c' } },
     ]);
     expect(message).toContain('3 open discussions');
-    expect(message).toContain(
-      '2 discussions will get a signed reply posted and a pool label applied',
-    );
-    expect(message).toContain(
-      '1 discussion (already answered, locked, or already labeled) will be skipped',
-    );
+    expect(message).toContain('2 discussions will get a signed reply posted and a pool label applied');
+    expect(message).toContain('1 discussion (already answered, locked, or already labeled) will be skipped');
     expect(message).toContain('re-fetched fresh from gh at execute time');
   });
 
