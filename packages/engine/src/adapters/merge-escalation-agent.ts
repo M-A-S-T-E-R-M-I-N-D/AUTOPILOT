@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Rung 4's still-missing half (docs/EVALUATION-2026-09-03-sync-conflict-
- * taxonomy.md): `merge-conflict-context.ts` gathers base/ours/theirs for
- * every path a sync-back merge still can't settle and files it as a
- * STRANDED SYNC-BACK inbox task; today the ladder stops there — "abort,
- * refuse, file the task". This module is the decision core the doc
- * describes next: build the agent's resolution prompt
+ * Rung 4 (docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md):
+ * `merge-conflict-context.ts` gathers base/ours/theirs for every path a
+ * sync-back merge still can't settle after rungs 1-3; without this module
+ * the ladder stopped there — "abort, refuse, file the task" as a STRANDED
+ * SYNC-BACK inbox item. This module is the decision core the doc describes
+ * next: build the agent's resolution prompt
  * ({@link buildMergeEscalationPrompt}), then drive the attempt
  * ({@link runMergeEscalationAgent}) through exactly the sequence the
  * evaluation specifies — invoke the agent, verify every listed path is
@@ -18,16 +18,19 @@
  * — the same fail-loud floor `worktree.ts`'s `syncWorktreeBranch` already
  * guarantees today.
  *
- * Deliberately unwired from the live sync-back path: `runMergeEscalationAgent`
- * still orchestrates purely against injected deps in its own tests.
- * {@link createGitMergeEscalationDeps} below supplies the DETERMINISTIC half
- * of those deps for real — real git for `listUnresolvedPaths`/`commit`/
- * `abortMerge`, the project's own detected gate for `runGate` — verified here
- * against a real conflicted repo. `invokeAgent` stays the caller's own
- * responsibility: spawning a real `ClaudeCliModel` mid-merge, and wiring the
- * result into `syncWorktreeBranch`'s live sync-back path — the path every
- * flight's catch-up and flight-end sync runs through — is still a separate,
- * riskier slice this module defers.
+ * `runMergeEscalationAgent` still orchestrates purely against injected deps
+ * in its own tests. {@link createGitMergeEscalationDeps} below supplies the
+ * DETERMINISTIC half of those deps for real — real git for
+ * `listUnresolvedPaths`/`commit`/`abortMerge`, the project's own detected
+ * gate for `runGate` — verified here against a real conflicted repo.
+ * `invokeAgent` stays the caller's own responsibility: `fly.ts` supplies it
+ * (a real `ClaudeCliModel` spawn) and wires the whole thing into
+ * `worktree.ts`'s `syncWorktreeBranch` via its optional `escalate` hook —
+ * but ONLY at the flight-END sync-back call site, the one place the flight
+ * loop already affords the FULL gate with no per-firing cadence pressure.
+ * The per-firing catch-up sync stays exactly as fail-loud/unescalated as
+ * before: spawning a resolution agent mid-firing would blow that call site's
+ * budget for no benefit rerere/union/fastForwardWorktree don't already cover.
  */
 
 import { execFile } from 'node:child_process';
@@ -171,8 +174,8 @@ function git(
  * way every other engine-authored commit does (this repo's commit-msg hook
  * requires it), and `abortMerge` mirrors `syncWorktreeBranch`'s existing
  * `git merge --abort` fail-loud floor. `invokeAgent` is passed through
- * unchanged — spawning the real model is still the caller's job (see the
- * module doc for why that stays a separate slice).
+ * unchanged — spawning the real model is `fly.ts`'s job (see the module doc
+ * for exactly which call site wires it).
  */
 export function createGitMergeEscalationDeps(
   repo: string,

@@ -1911,6 +1911,58 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(404);
   });
 
+  it('GET /api/pr-review/diagnose?number= returns the classified verdict', async () => {
+    const diagnosis = {
+      verdict: 'flake' as const,
+      reasoning: ['apps/dashboard/test/web/a11y.test.ts is already quarantined as flaky.'],
+      failingTestPaths: ['apps/dashboard/test/web/a11y.test.ts'],
+      touchedFailingPaths: [],
+      matchedQuarantineEntries: [],
+    };
+    const base = await start({ checkDiagnosis: async () => ({ diagnosis }) });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ diagnosis });
+  });
+
+  it('GET /api/pr-review/diagnose?number= passes a refusal through as a reason, not an error', async () => {
+    const base = await start({
+      checkDiagnosis: async () => ({ reason: 'No gating check is failing.' }),
+    });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ reason: 'No gating check is failing.' });
+  });
+
+  it('400s /api/pr-review/diagnose without a positive integer PR number', async () => {
+    const base = await start({ checkDiagnosis: async () => ({ reason: 'n/a' }) });
+    for (const bad of ['', 'abc', '0', '-1']) {
+      const res = await fetch(`${base}/api/pr-review/diagnose?number=${bad}`);
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it('POST /api/pr-review/diagnose is not allowed (read-only endpoint)', async () => {
+    const base = await start({ checkDiagnosis: async () => ({ reason: 'n/a' }) });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`, { method: 'POST' });
+    expect(res.status).toBe(405);
+  });
+
+  it('500s /api/pr-review/diagnose instead of crashing when the read throws', async () => {
+    const base = await start({
+      checkDiagnosis: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`);
+    expect(res.status).toBe(500);
+  });
+
+  it('404s /api/pr-review/diagnose when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/pr-review/diagnose?number=37`)).status).toBe(404);
+  });
+
   it('GET /api/issue-triage previews the planned decision for every open issue on a known project', async () => {
     const plan = {
       issue: { number: 9, title: 'Keyboard nav is broken', body: '' },
@@ -2573,6 +2625,125 @@ describe('createServer (live loopback)', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ project: 'p1' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  const discussionsIdentity = {
+    login: 'gabibi555',
+    nameWithOwner: 'gabibi555/hello-world',
+    role: 'maintainer' as const,
+  };
+
+  it('GET /api/discussions-triage previews the identity-signed plan for every open discussion (no project id)', async () => {
+    const report = { identity: discussionsIdentity, plans: [] };
+    const base = await start({ discussionsTriage: async () => report });
+    const res = await fetch(`${base}/api/discussions-triage`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ triage: report });
+  });
+
+  it('degrades /api/discussions-triage to { triage: null } instead of crashing when the read throws', async () => {
+    const base = await start({
+      discussionsTriage: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/discussions-triage`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ triage: null });
+  });
+
+  it('404s /api/discussions-triage when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/discussions-triage`)).status).toBe(404);
+  });
+
+  it('POST /api/discussions-triage/execute runs the ritual (CSRF-guarded, no project id)', async () => {
+    let calls = 0;
+    const api = async () => {
+      calls += 1;
+      return { identity: discussionsIdentity, plans: [], outcomes: [] };
+    };
+    const base = await start({ discussionsTriageExecute: api });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ identity: discussionsIdentity, plans: [], outcomes: [] });
+    expect(calls).toBe(1);
+  });
+
+  it('POST /api/discussions-triage/execute passes a role-honest skip through as a 200, never a 403', async () => {
+    const base = await start({
+      discussionsTriageExecute: async () => ({
+        identity: { ...discussionsIdentity, login: 'visitor', role: 'user' as const },
+        plans: [],
+        outcomes: [],
+        skippedReason: 'guest' as const,
+      }),
+    });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ skippedReason: 'guest', outcomes: [] });
+  });
+
+  it('POST /api/discussions-triage/execute rejects a non-JSON content-type (CSRF guard)', async () => {
+    let calls = 0;
+    const api = async () => {
+      calls += 1;
+      return { identity: discussionsIdentity, plans: [], outcomes: [] };
+    };
+    const base = await start({ discussionsTriageExecute: api });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: '{}',
+    });
+    expect(res.status).toBe(415);
+    expect(calls).toBe(0);
+  });
+
+  it('POST /api/discussions-triage/execute 400s an unparseable body without running the ritual', async () => {
+    let calls = 0;
+    const api = async () => {
+      calls += 1;
+      return { identity: discussionsIdentity, plans: [], outcomes: [] };
+    };
+    const base = await start({ discussionsTriageExecute: api });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: 'not json',
+    });
+    expect(res.status).toBe(400);
+    expect(calls).toBe(0);
+  });
+
+  it('405s a GET to /api/discussions-triage/execute', async () => {
+    const base = await start({
+      discussionsTriageExecute: async () => ({
+        identity: discussionsIdentity,
+        plans: [],
+        outcomes: [],
+      }),
+    });
+    const res = await fetch(`${base}/api/discussions-triage/execute`);
+    expect(res.status).toBe(405);
+  });
+
+  it('404s /api/discussions-triage/execute when no API is injected', async () => {
+    const base = await start();
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
     });
     expect(res.status).toBe(404);
   });
@@ -3630,6 +3801,65 @@ describe('createServer (live loopback)', () => {
       body: JSON.stringify({ project: 'p1', question: 'q' }),
     });
     expect(streamRes.status).toBe(429);
+  });
+
+  it('GET /api/plan reads the stored flight plan; POST /api/plan/publish validates and writes it', async () => {
+    const published: unknown[] = [];
+    const stored = { ecosystem: 'js', test: { bin: 'pnpm', args: ['test'], label: 'pnpm test' } };
+    const base = await start({
+      plan: {
+        read: (project) => (project === 'p1' ? JSON.stringify(stored) : undefined),
+        publish: (project, spec) => {
+          published.push([project, spec]);
+          return project === 'p1';
+        },
+      },
+    });
+    const got = await fetch(`${base}/api/plan?project=p1`);
+    expect(got.status).toBe(200);
+    expect((await got.json()).spec).toEqual(stored);
+    expect((await fetch(`${base}/api/plan?project=ghost`)).status).toBe(404);
+    expect((await fetch(`${base}/api/plan`)).status).toBe(400);
+
+    const post = (body: unknown, contentType = 'application/json'): Promise<Response> =>
+      fetch(`${base}/api/plan/publish`, {
+        method: 'POST',
+        headers: { 'content-type': contentType },
+        body: JSON.stringify(body),
+      });
+    // An empty bin is refused with the reason; nothing is written.
+    const bad = await post({
+      project: 'p1',
+      spec: { ecosystem: 'js', test: { bin: '', args: [], label: '' } },
+    });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toContain('test');
+    // A plan with no step at all is refused too.
+    expect((await post({ project: 'p1', spec: { ecosystem: 'js' } })).status).toBe(400);
+    expect(published).toHaveLength(0);
+    // The CSRF guard: a non-JSON content type never reaches the store.
+    expect((await post({ project: 'p1', spec: stored }, 'text/plain')).status).toBe(415);
+    // A valid edit is stored, normalised (label filled from the command).
+    const edit = {
+      ecosystem: 'js',
+      test: { bin: 'pnpm', args: ['run', 'test', '--', '--coverage'] },
+    };
+    const ok = await post({ project: 'p1', spec: edit });
+    expect(ok.status).toBe(200);
+    expect(published).toEqual([
+      [
+        'p1',
+        {
+          ecosystem: 'js',
+          test: {
+            bin: 'pnpm',
+            args: ['run', 'test', '--', '--coverage'],
+            label: 'pnpm run test -- --coverage',
+          },
+        },
+      ],
+    ]);
+    expect((await post({ project: 'ghost', spec: edit })).status).toBe(404);
   });
 
   it('POST /api/task/create adds a task; /api/task/status moves it (CSRF-guarded)', async () => {

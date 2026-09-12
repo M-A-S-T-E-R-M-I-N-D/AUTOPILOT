@@ -99,15 +99,196 @@ function subjectHasContent(name) {
 /** KEEPER (epic 0021 slice 4, first cut): everything waiting on a human,
  *  counted where it renders — PR cards, pool rows, triage plans, mirror
  *  findings, backlog candidates, a pending wisdom proposal. */
-var KEEPER_ITEM_SELECTOR = '.pr-review-item, .pool-client-item, .issue-triage-item, .mirror-pass-item, .backlog-item';
-function keeperWaitingCount() {
-  var n = 0;
+// KEEPER QUEUE (epic 0021 slice 4): one list of everything waiting on a
+// human. A VIEW over the panels, never a second source: every row is read
+// from the DOM the panels already render — the same items the badge counts
+// — with its source, what it is, why it waits, one primary exit action
+// proxied to the panel's own button, and Open, which lands on the item.
+// Keyboard-first (the Linear / GitHub-inbox idiom): j/k or the arrows move,
+// Enter opens, "a" acts. Guarded: an identical tick rewrites nothing.
+var KEEPER_SOURCES = [
+  { selector: '.pr-review-item', source: 'keeperSourcePr', fallback: 'PR', title: '.pr-review-pr-title', head: '.pr-review-head', action: '.pr-review-actions button' },
+  { selector: '.pool-client-item', source: 'keeperSourcePool', fallback: 'Pool', title: '.pool-client-issue-title', head: '.pool-client-head', action: '[data-pool-client-execute]' },
+  { selector: '.issue-triage-item', source: 'keeperSourceTriage', fallback: 'Triage', title: '.issue-triage-issue-title', head: '.issue-triage-head', action: null },
+  { selector: '.mirror-pass-item', source: 'keeperSourceMirror', fallback: 'Mirror', title: null, head: null, action: null },
+  { selector: '.backlog-item', source: 'keeperSourceBacklog', fallback: 'Backlog', title: 'span', head: null, action: '[data-task-done]' }
+];
+function trOr(key, fallback, subs) {
+  if (typeof tr === 'function') { var s = tr(key, subs); if (s && s !== key) return s; }
+  return fallback;
+}
+function keeperQueueItems() {
+  var items = [];
   subjectSections().forEach(function (k) {
-    if (k.dataset.subject !== 'keeper' || k.hidden) return;
-    if (k.id === 'fleet-wisdom') { n += 1; return; }
-    n += k.querySelectorAll(KEEPER_ITEM_SELECTOR).length;
+    if (k.dataset.subject !== 'keeper' || k.hidden || k.id === 'keeper-queue') return;
+    if (k.id === 'fleet-wisdom') {
+      var d = k.querySelector('details');
+      var s = d ? d.querySelector('summary') : null;
+      items.push({ key: 'wisdom', source: 'keeperSourceWisdom', fallback: 'Wisdom', title: (s ? s.textContent : k.textContent).trim().slice(0, 120), why: '', tip: '', el: d || k, action: k.querySelector('[data-fleet-wisdom-ratify]') });
+      return;
+    }
+    KEEPER_SOURCES.forEach(function (src) {
+      var nodes = k.querySelectorAll(src.selector);
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        var titleEl = src.title ? n.querySelector(src.title) : null;
+        var head = src.head ? n.querySelector(src.head) : null;
+        var num = head ? head.firstElementChild : null;
+        var chip = head && head.children.length > 1 ? head.lastElementChild : n.querySelector('.backlog-match');
+        var title = (titleEl ? titleEl.textContent : n.textContent).trim();
+        var number = num ? num.textContent.trim() : '';
+        items.push({
+          key: src.source + ':' + (number || String(i)) + ':' + title,
+          source: src.source,
+          fallback: src.fallback,
+          title: (number ? number + ' ' : '') + title,
+          why: chip ? chip.textContent.trim() : '',
+          tip: chip ? chip.getAttribute('data-tip') || '' : '',
+          el: n,
+          action: src.action ? n.querySelector(src.action) : null
+        });
+      }
+    });
   });
-  return n;
+  var approvals = document.querySelectorAll('[data-task-approve]');
+  for (var a = 0; a < approvals.length; a++) {
+    var btn = approvals[a];
+    var row = btn.closest ? btn.closest('li') : null;
+    var t = row ? row.querySelector('.task-title') : null;
+    items.push({
+      key: 'approval:' + (btn.getAttribute('data-task-approve') || String(a)),
+      source: 'keeperSourceApproval',
+      fallback: 'Approval',
+      title: (t ? t.textContent : (row || btn).textContent).trim().slice(0, 160),
+      why: trOr('taskStatusNeedsApproval', 'needs approval'),
+      tip: btn.getAttribute('data-tip') || '',
+      el: row || btn,
+      action: btn
+    });
+  }
+  return items;
+}
+function keeperWaitingCount() {
+  return keeperQueueItems().length;
+}
+var keeperQueueLive = [];
+/** The queue's host section: created once, placed as the first Keeper
+ *  section outside the context rail (so it reads first under Keeper at
+ *  every width), else ahead of Community; re-placed when the page rebuilds
+ *  around it (renderProjectPage). Never created for an empty queue. */
+function keeperQueueHost(create) {
+  var host = document.getElementById('keeper-queue');
+  if (!host && !create) return null;
+  var sections = subjectSections();
+  var rail = document.getElementById('context-rail');
+  var anchor = null;
+  for (var i = 0; i < sections.length && !anchor; i++) {
+    var k = sections[i];
+    if (k.id !== 'keeper-queue' && k.dataset.subject === 'keeper' && !(rail && k.parentElement === rail)) anchor = k;
+  }
+  for (var j = 0; j < sections.length && !anchor; j++) if (sections[j].dataset.subject === 'community') anchor = sections[j];
+  if (!host) {
+    host = document.createElement('section');
+    host.id = 'keeper-queue';
+    host.className = 'keeper-queue';
+    host.dataset.subject = 'keeper';
+    host.hidden = true;
+    host.setAttribute('aria-label', trOr('keeperQueueTitle', 'Waiting on you'));
+    host.addEventListener('click', keeperQueueClick);
+    host.addEventListener('keydown', keeperQueueKeydown);
+  }
+  if (anchor && anchor.parentElement && host.nextElementSibling !== anchor) anchor.parentElement.insertBefore(host, anchor);
+  else if (!anchor && !host.parentElement) document.body.appendChild(host);
+  return host;
+}
+function keeperQueueOpenItem(i) {
+  var it = keeperQueueLive[i];
+  if (!it || !it.el) return;
+  if (it.el.tagName === 'DETAILS') it.el.open = true;
+  if (typeof it.el.scrollIntoView === 'function') it.el.scrollIntoView({ block: 'center' });
+  var target = it.el.querySelector('a[href], button:not([disabled]), [tabindex]');
+  if (!target) { it.el.setAttribute('tabindex', '-1'); target = it.el; }
+  if (typeof target.focus === 'function') target.focus();
+}
+function keeperQueueClick(e) {
+  var t = e.target && e.target.closest ? e.target.closest('[data-keeper-open], [data-keeper-act]') : null;
+  if (!t) return;
+  if (t.hasAttribute('data-keeper-open')) { keeperQueueOpenItem(Number(t.getAttribute('data-keeper-open'))); return; }
+  var it = keeperQueueLive[Number(t.getAttribute('data-keeper-act'))];
+  if (it && it.action && !it.action.disabled) it.action.click();
+}
+function keeperQueueKeydown(e) {
+  var host = e.currentTarget;
+  var opens = Array.prototype.slice.call(host.querySelectorAll('.keeper-queue-open'));
+  var cur = opens.indexOf(document.activeElement);
+  if (cur < 0) return;
+  var next = -1;
+  if (e.key === 'ArrowDown' || e.key === 'j') next = Math.min(cur + 1, opens.length - 1);
+  else if (e.key === 'ArrowUp' || e.key === 'k') next = Math.max(cur - 1, 0);
+  else if (e.key === 'a') {
+    var it = keeperQueueLive[cur];
+    if (it && it.action && !it.action.disabled) { e.preventDefault(); it.action.click(); }
+    return;
+  } else return;
+  e.preventDefault();
+  if (next === cur) return;
+  opens.forEach(function (b, i) { b.setAttribute('tabindex', i === next ? '0' : '-1'); });
+  opens[next].focus();
+}
+function renderKeeperQueue() {
+  var items = keeperQueueItems();
+  var host = keeperQueueHost(items.length > 0);
+  if (!host) return;
+  var sig = items.map(function (it) { return it.key + '|' + it.why + '|' + (it.action ? it.action.textContent + (it.action.disabled ? '!' : '') : ''); }).join('\\n');
+  keeperQueueLive = items;
+  if (host.dataset.sig === sig) return;
+  host.dataset.sig = sig;
+  host.replaceChildren();
+  if (!items.length) { if (!host.hidden) host.hidden = true; return; }
+  var h = document.createElement('h2');
+  h.className = 'keeper-queue-title';
+  h.textContent = trOr('keeperQueueTitle', 'Waiting on you') + ' · ' + items.length;
+  host.appendChild(h);
+  var hint = document.createElement('p');
+  hint.className = 'keeper-queue-hint';
+  hint.textContent = trOr('keeperQueueHint', 'j / k or the arrows move · Enter opens · a acts');
+  host.appendChild(hint);
+  var list = document.createElement('ol');
+  list.className = 'keeper-queue-list';
+  items.forEach(function (it, i) {
+    var li = document.createElement('li');
+    li.className = 'keeper-queue-item';
+    li.setAttribute('data-keeper-key', it.key);
+    var src = document.createElement('span');
+    src.className = 'keeper-queue-source';
+    src.textContent = trOr(it.source, it.fallback);
+    li.appendChild(src);
+    var open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'keeper-queue-open';
+    open.textContent = it.title;
+    open.setAttribute('data-keeper-open', String(i));
+    open.setAttribute('tabindex', i === 0 ? '0' : '-1');
+    if (it.tip) open.setAttribute('data-tip', it.tip);
+    li.appendChild(open);
+    var why = document.createElement('span');
+    why.className = 'keeper-queue-why';
+    why.textContent = it.why;
+    li.appendChild(why);
+    if (it.action) {
+      var act = document.createElement('button');
+      act.type = 'button';
+      act.className = 'keeper-queue-act';
+      act.textContent = (it.action.textContent || '').trim();
+      act.setAttribute('data-keeper-act', String(i));
+      act.setAttribute('tabindex', '-1');
+      act.disabled = !!it.action.disabled;
+      li.appendChild(act);
+    }
+    list.appendChild(li);
+  });
+  host.appendChild(list);
+  if (host.hidden) host.hidden = false;
 }
 function markKeeperBadge(a) {
   var n = keeperWaitingCount();
@@ -162,6 +343,7 @@ function showSubject(name) {
     try { localStorage.setItem(SUBJECT_KEY, name); } catch (e) { /* private mode */ }
     subjectStored = name;
   }
+  renderKeeperQueue();
   markSubjectLinks(name);
   markContextRailEmpty();
 }

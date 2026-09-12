@@ -253,6 +253,14 @@ const BENIGN_FLIGHT = new Set([
   // and labeling (board web-mtlsiac0-v8rksh's later slices) it earned the
   // `flight/discussions-triage` marker, which also covers its `-execute`
   // wiring — exactly the "own marker once it ships one" this list promised.
+  // EPIC 0020 slice 8 (board web-mtvpuoj4-tv1z09), first derivation:
+  // diagnoseFailedCheck classifies an ALREADY-FETCHED job log against the
+  // PR's own touchedPaths and the flaky-test quarantine list — no `gh` call
+  // of its own, no write, same pure-classifier class as pool-client.ts and
+  // contributor-issue-list.ts above. The `🔧 Diagnose` button, its server
+  // route, and the `defect` verdict's diff-for-approval prep are unbuilt
+  // follow-on slices that will need their own marker once they ship one.
+  'check-diagnosis.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
@@ -767,6 +775,10 @@ const BENIGN_INBOX = new Set<string>([]);
  *  future `web/` file starts building HTML from untrusted content instead
  *  of pure display math. */
 const BENIGN_WEB = new Set([
+  // Pure spec<->steps transforms for the flight plan editor (epic 0021 slice 3):
+  // no HTML, no I/O. The server-side validator that gates what gets STORED
+  // carries its own marker; this only shapes the form the operator edits.
+  'plan-editor.ts',
   // Pure icon/label/tooltip/badge text math for narrator, activity, anomaly,
   // gate/backup fact, console, docs, decision, flight-map, publicity, and
   // status chips — no HTML building, no I/O.

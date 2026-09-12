@@ -843,3 +843,22 @@ export function demoteMetricsCompletion(store: Store, projectId: string, sha: st
     .run(projectId, sha);
   return info.changes > 0;
 }
+
+/**
+ * Rewrite a project's stored flight plan (`gate_config`, the
+ * `JSON.stringify(GateSpec)` onboarding wrote) — the FLIGHT PLAN EDITOR's
+ * publish (epic 0021 slice 3, second cut). The dashboard validates the
+ * shape before calling; this only stores. Returns false for an unknown
+ * project id.
+ */
+export function setProjectGateConfig(
+  store: Store,
+  projectId: string,
+  gateConfig: string,
+  updatedAt: number,
+): boolean {
+  const info = store.db
+    .prepare('UPDATE projects SET gate_config = ?, updated_at = ? WHERE id = ?')
+    .run(gateConfig, updatedAt, projectId);
+  return info.changes > 0;
+}

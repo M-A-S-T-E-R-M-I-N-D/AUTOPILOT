@@ -314,6 +314,21 @@ export interface SyncWorktreeBranchResult {
 }
 
 /**
+ * Rung 4's live wiring point (docs/EVALUATION-2026-09-03-sync-conflict-
+ * taxonomy.md): given every path {@link syncWorktreeBranch} couldn't settle
+ * on its own, attempt an agent-resolved, gate-validated commit. `ok: true`
+ * means the hook committed a full resolution itself — the merge is over,
+ * `repo`'s working tree is clean, and `details` becomes the caller's success
+ * message. `ok: false` means the hook already left `repo` however it found
+ * appropriate (typically aborted) and `syncWorktreeBranch` falls through to
+ * its own unconditional abort-and-refuse floor regardless, so a hook that
+ * fails partway can never leave a merge stuck in progress.
+ */
+export type SyncWorktreeEscalationHook = (
+  conflicts: readonly MergeConflictSides[],
+) => Promise<{ readonly ok: boolean; readonly details: string }>;
+
+/**
  * Syncs `worktreeBranch`'s commits onto `targetBranch` as checked out in
  * `repo` — the target's own live checkout, not the worktree (docs/epics/
  * 0004-bash-containment-worktree.md slice 2). A worktree is always on a
@@ -354,12 +369,21 @@ export interface SyncWorktreeBranchResult {
  *     doc — by keeping both sides' lines, so those merges succeed outright.
  *
  * A conflict with no recorded resolution and no union attribute still
- * aborts and refuses, same fail-loud stance as ever.
+ * aborts and refuses, same fail-loud stance as ever — UNLESS the caller
+ * supplied `escalate` (rung 4, docs/EVALUATION-2026-09-03-sync-conflict-
+ * taxonomy.md): given the same base/ours/theirs context this function
+ * gathers for every unresolved path, it gets one attempt to resolve and
+ * commit BEFORE the abort below runs. `ok: true` short-circuits straight to
+ * a success result — the hook's own commit already landed cleanly. Anything
+ * else (including the parameter simply being omitted, as at every per-
+ * firing/catch-up call site) falls through to the exact abort-and-refuse
+ * floor this function has always had. The ladder only ever ADDS a rung.
  */
 export async function syncWorktreeBranch(
   repo: string,
   targetBranch: string,
   worktreeBranch: string,
+  escalate?: SyncWorktreeEscalationHook,
 ): Promise<SyncWorktreeBranchResult> {
   const current = await git(repo, ['rev-parse', '--abbrev-ref', 'HEAD']);
   // Stryker disable next-line ConditionalExpression: `git rev-parse` writes
@@ -439,6 +463,12 @@ export async function syncWorktreeBranch(
       unresolvedPaths.length > 0
         ? await Promise.all(unresolvedPaths.map((path) => gatherMergeConflictContext(repo, path)))
         : undefined;
+    if (escalate && conflicts) {
+      const attempt = await escalate(conflicts);
+      if (attempt.ok) {
+        return { ok: true, details: attempt.details };
+      }
+    }
     await git(repo, ['merge', '--abort']);
     return {
       ok: false,

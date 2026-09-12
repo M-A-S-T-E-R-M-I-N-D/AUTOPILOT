@@ -609,6 +609,82 @@ describe('syncWorktreeBranch', () => {
 
     await removeWorktree(dir, wtPath);
   });
+
+  it('skips the abort and reports success when the escalate hook resolves the conflict (MERGE-ESCALATION rung 4)', async () => {
+    const wtPath = join(dir, '..', 'wt-sync-escalate-resolved');
+    await ensureWorktree(dir, wtPath, 'flight-work');
+    writeFileSync(join(wtPath, 'a.txt'), 'changed in the worktree');
+    gitSync(wtPath, ['add', '-A']);
+    gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 conflicting worktree edit']);
+
+    writeFileSync(join(dir, 'a.txt'), 'changed on the live checkout, conflicting');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-3 conflicting operator edit']);
+
+    let receivedConflicts: unknown;
+    const result = await syncWorktreeBranch(dir, base, 'flight-work', async (conflicts) => {
+      receivedConflicts = conflicts;
+      // Stand in for what a real escalation does before reporting `ok: true`:
+      // resolve every listed path in the still-in-progress merge and commit it.
+      writeFileSync(join(dir, 'a.txt'), 'combined by the escalation agent');
+      gitSync(dir, ['add', 'a.txt']);
+      gitSync(dir, ['commit', '-q', '--no-edit']);
+      return { ok: true, details: 'resolved by the escalation agent' };
+    });
+
+    expect(receivedConflicts).toEqual([
+      {
+        path: 'a.txt',
+        base: 'one',
+        ours: 'changed on the live checkout, conflicting',
+        theirs: 'changed in the worktree',
+      },
+    ]);
+    expect(result).toEqual({ ok: true, details: 'resolved by the escalation agent' });
+    expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('combined by the escalation agent');
+    expect(gitSync(dir, ['status', '--porcelain'])).toBe('');
+
+    await removeWorktree(dir, wtPath);
+  });
+
+  it('still aborts and refuses, with conflicts attached, when the escalate hook fails to resolve (MERGE-ESCALATION rung 4)', async () => {
+    const wtPath = join(dir, '..', 'wt-sync-escalate-failed');
+    await ensureWorktree(dir, wtPath, 'flight-work');
+    writeFileSync(join(wtPath, 'a.txt'), 'changed in the worktree');
+    gitSync(wtPath, ['add', '-A']);
+    gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 conflicting worktree edit']);
+
+    writeFileSync(join(dir, 'a.txt'), 'changed on the live checkout, conflicting');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-3 conflicting operator edit']);
+
+    const before = gitSync(dir, ['rev-parse', 'HEAD']);
+    let escalateCalled = false;
+    const result = await syncWorktreeBranch(dir, base, 'flight-work', async () => {
+      escalateCalled = true;
+      return { ok: false, details: 'gate went red on the agent-proposed resolution' };
+    });
+
+    expect(escalateCalled).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.conflicts).toEqual([
+      {
+        path: 'a.txt',
+        base: 'one',
+        ours: 'changed on the live checkout, conflicting',
+        theirs: 'changed in the worktree',
+      },
+    ]);
+    // A failed escalation must leave `repo` exactly as untouched as no
+    // escalation at all — same fail-loud floor, the ladder only ADDS a rung.
+    expect(gitSync(dir, ['rev-parse', 'HEAD'])).toBe(before);
+    expect(gitSync(dir, ['status', '--porcelain'])).toBe('');
+    expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe(
+      'changed on the live checkout, conflicting',
+    );
+
+    await removeWorktree(dir, wtPath);
+  });
 });
 
 describe('fastForwardWorktree', () => {

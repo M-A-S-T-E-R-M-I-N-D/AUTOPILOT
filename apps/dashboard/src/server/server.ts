@@ -119,6 +119,8 @@ import type { ReconciliationCandidate } from '../read/reconcile.js';
 import type { LandingExecuteApiResult } from '../landing/execute.js';
 import type { LandingJobState } from '../landing/job.js';
 import type { ReleaseExecuteResult } from '../release/execute.js';
+import type { GateSpec } from '@autopilot/onboarding';
+import { validateGateSpec } from '../plan-guard.js';
 import { isMaturityChoice, type MaturityChoice } from '../release/maturity.js';
 import type { UpdateCheckApi, UpdateExecuteApi } from '../flight/update-check.js';
 import type { InboxAddResult } from '../inbox/add.js';
@@ -129,6 +131,10 @@ import {
   type PrReviewExecuteResult,
 } from '../flight/pr-review-execute.js';
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
+import type {
+  DiscussionsTriagePreviewReport,
+  DiscussionsTriageExecuteReport,
+} from '../flight/discussions-triage-execute.js';
 import type {
   MirrorPassPlan,
   MirrorPassLandingNotePlan,
@@ -146,6 +152,7 @@ import type {
   UpdateBranchResult,
   RerunChecksResult,
 } from '../flight/human-merge.js';
+import type { CheckDiagnosisApiOutcome } from '../flight/check-diagnosis.js';
 import {
   isControlTool,
   type ControlExecuteApi,
@@ -204,6 +211,11 @@ const PR_REVIEW_RATE_WINDOW_MS = 60_000;
 // task creation per request, not just a read.
 const ISSUE_TRIAGE_RATE_LIMIT = 5;
 const ISSUE_TRIAGE_RATE_WINDOW_MS = 60_000;
+// Guards POST /api/discussions-triage/execute — same heavier-than-a-quota-
+// spend reasoning as ISSUE_TRIAGE's limiter: a real `gh api graphql` reply
+// post + label mutation per accepted discussion, not just a read.
+const DISCUSSIONS_TRIAGE_RATE_LIMIT = 5;
+const DISCUSSIONS_TRIAGE_RATE_WINDOW_MS = 60_000;
 const MIRROR_PASS_EXECUTE_RATE_LIMIT = 5;
 const MIRROR_PASS_EXECUTE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/mirror-pass/landing-note/execute — same reasoning as
@@ -492,6 +504,13 @@ export type UpdateBranchApi = (number: number) => Promise<UpdateBranchResult>;
  *  the panel had. */
 export type RerunChecksApi = (number: number) => Promise<RerunChecksResult>;
 
+/** Reads a failing check's own job log and classifies it flake/defect/unknown
+ *  (injected; see flight/check-diagnosis.ts) — epic 0020 slice 8's diagnose
+ *  verb, board web-mtvpuoj4-tv1z09. A refusal (nothing failing, no log to
+ *  read) comes back as a normal result carrying `reason`, not an error,
+ *  same convention as {@link RerunChecksApi}. */
+export type CheckDiagnosisApi = (number: number) => Promise<CheckDiagnosisApiOutcome>;
+
 /** The KEEPER TRIAGE preview (injected; reads only, shells to `gh issue
  *  list` on demand) — every open issue's planned decision against the
  *  project's open board tasks + backlog file, judged fresh each call (see
@@ -504,6 +523,19 @@ export type IssueTriagePreviewApi = (
  *  `gh` and creates board tasks for accepted issues — see
  *  `flight/issue-triage-execute.ts`). `null` means an unknown project id. */
 export type IssueTriageExecuteApi = (projectId: string) => Promise<IssueTriageRitualResult | null>;
+
+/** The KEEPER DISCUSSIONS preview (injected; reads only, shells to `gh api
+ *  user` + `gh repo view` + one `gh api graphql` read on demand) — every
+ *  open discussion's planned decision plus its signed reply draft, judged
+ *  fresh each call (see `flight/discussions-triage-execute.ts`). Repo-scoped
+ *  like {@link PrReviewApi}: no project id, so no "unknown project" `null`. */
+export type DiscussionsTriagePreviewApi = () => Promise<DiscussionsTriagePreviewReport>;
+
+/** The KEEPER DISCUSSIONS card's EXECUTE action (injected; posts a signed
+ *  reply then applies the pool label to each accepted discussion via `gh api
+ *  graphql` — see `flight/discussions-triage-execute.ts`). Role-gated inside
+ *  the API itself: a non-maintainer gets a report with `skippedReason` set. */
+export type DiscussionsTriageExecuteApi = () => Promise<DiscussionsTriageExecuteReport>;
 
 /** MIRROR PASS reconcile preview (injected; reads only, shells to `gh issue
  *  view` on demand) — derivation 1/4 of EPIC 0019 S3 (board
@@ -617,6 +649,14 @@ export interface TasksApi {
   unpin(project: string, ids: readonly string[]): boolean;
 }
 
+/** THE FLIGHT PLAN (epic 0021 slice 3, second cut): read a project's stored
+ *  gate spec and publish an edited one. `read` returns `undefined` for an
+ *  unknown project and `null` when none is stored. */
+export interface PlanApi {
+  read(project: string): string | null | undefined;
+  publish(project: string, spec: GateSpec): boolean;
+}
+
 export interface ServerDeps extends RouteDeps {
   readonly connection?: ConnectionApi;
   /** The connect screen's GitHub detection half (read-only, no credential). */
@@ -688,6 +728,8 @@ export interface ServerDeps extends RouteDeps {
   /** D4 pipeline view (epic 0015, web-mtdc6wq3-5wuc6i) — the server-rendered
    *  panel behind `GET /api/pipeline`. */
   readonly pipelinePanel?: PipelinePanelApi;
+  /** `GET /api/plan?project=` + `POST /api/plan/publish` — the flight plan editor. */
+  readonly plan?: PlanApi;
   readonly firingActivity?: FiringActivityApi;
   readonly firingDiff?: FiringDiffApi;
   readonly inboxAdd?: InboxAddApi;
@@ -699,8 +741,17 @@ export interface ServerDeps extends RouteDeps {
   readonly updateBranch?: UpdateBranchApi;
   /** The re-run companion to {@link humanMerge}. */
   readonly rerunChecks?: RerunChecksApi;
+  /** The diagnose companion to {@link humanMerge} — epic 0020 slice 8,
+   *  board web-mtvpuoj4-tv1z09. */
+  readonly checkDiagnosis?: CheckDiagnosisApi;
   readonly issueTriage?: IssueTriagePreviewApi;
   readonly issueTriageExecute?: IssueTriageExecuteApi;
+  /** KEEPER DISCUSSIONS preview (epic 0007 S8, board `web-mtlsiac0-v8rksh`)
+   *  — read-only, behind `GET /api/discussions-triage`. */
+  readonly discussionsTriage?: DiscussionsTriagePreviewApi;
+  /** KEEPER DISCUSSIONS EXECUTE — the mutating counterpart to
+   *  `discussionsTriage` above, behind `POST /api/discussions-triage/execute`. */
+  readonly discussionsTriageExecute?: DiscussionsTriageExecuteApi;
   /** MIRROR PASS reconcile preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
    *  VERDICT `ap-mtsg3nc0-3` slice (a)) — read-only, behind `GET
    *  /api/mirror-pass`. */
@@ -1273,6 +1324,95 @@ function pipelineChoice<T extends string>(
  * one-span-per-firing traces: grouped mode is where the exporter's
  * `autopilot.item` continuation edges appear (epic 0015 D4, web-mtdc6wq3-5wuc6i).
  */
+/** `GET /api/plan?project=<id>` — the stored flight plan as JSON (`spec`
+ *  null when the project has none). */
+function handlePlanRead(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: PlanApi | undefined,
+  headers: Record<string, string>,
+): void {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'flight plan unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  const stored = api.read(project);
+  if (stored === undefined) {
+    send(404, { error: 'unknown project' });
+    return;
+  }
+  if (stored === null) {
+    send(200, { ok: true, spec: null });
+    return;
+  }
+  try {
+    send(200, { ok: true, spec: JSON.parse(stored) as unknown });
+  } catch {
+    send(200, { ok: true, spec: null });
+  }
+}
+
+/** `POST /api/plan/publish` `{project, spec}` — validate the edited plan
+ *  (`plan-spec.ts`) and store it; the next landing and firing run it.
+ *  CSRF-guarded like every other JSON write. */
+async function handlePlanPublish(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: PlanApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'flight plan unavailable' });
+    return;
+  }
+  if (req.method !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  const project = String(body['project'] ?? '');
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  const validated = validateGateSpec(body['spec']);
+  if (!validated.ok) {
+    send(400, { ok: false, error: validated.error });
+    return;
+  }
+  const ok = api.publish(project, validated.spec);
+  send(ok ? 200 : 404, ok ? { ok: true } : { ok: false, error: 'unknown project' });
+}
+
 function handlePipelinePanel(
   req: IncomingMessage,
   res: ServerResponse,
@@ -2225,6 +2365,45 @@ async function handleRerunChecks(
   }
 }
 
+/**
+ * THE DIAGNOSE endpoint (`GET /api/pr-review/diagnose?number=`). Read-only —
+ * unlike its three siblings above it plans no `gh` mutation, so it carries
+ * no CSRF concern and no rate limiter of its own, the same split
+ * {@link handlePrReview} draws against {@link handlePrReviewExecute}. Epic
+ * 0020 slice 8 (board web-mtvpuoj4-tv1z09): shells to `gh run view
+ * --log-failed` for whichever check is red on the given PR and classifies
+ * it flake/defect/unknown. A refusal ("nothing failing", "no log to read")
+ * is a 200 carrying `reason` in place of `diagnosis` — the same
+ * refusal-is-not-an-error convention {@link handleRerunChecks} follows.
+ */
+async function handleCheckDiagnosis(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: CheckDiagnosisApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'check diagnosis unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const number = Number(url.searchParams.get('number'));
+  if (!Number.isInteger(number) || number <= 0) {
+    send(400, { error: 'a positive integer PR number is required' });
+    return;
+  }
+  try {
+    send(200, await api(number));
+  } catch (error) {
+    send(500, { error: error instanceof Error ? error.message : 'check diagnosis failed' });
+  }
+}
+
 // handlePoolClient/handlePublicity/handlePoolClientExecute moved to
 // `./pool-client.js` (epic 0002 shell decomposition) — imported above.
 
@@ -2391,6 +2570,99 @@ async function handleIssueTriageExecute(
   } catch (error) {
     send(500, {
       error: error instanceof Error ? error.message : 'issue triage execute failed',
+    });
+  }
+}
+
+/**
+ * The KEEPER DISCUSSIONS preview endpoint (`GET /api/discussions-triage`).
+ * Read-only, same on-demand-not-polled rationale as {@link handleIssueTriage}
+ * — resolves the acting identity and lists open discussions fresh via `gh` on
+ * every call, drafting (never posting) a signed reply for each accepted one.
+ * No project id: like {@link handlePrReview}, the ritual acts on the one
+ * canonical repo the dashboard process itself runs in. Degrades to
+ * `{ triage: null }` instead of crashing when the read throws (a flaky `gh`
+ * call shouldn't take the dashboard down).
+ */
+async function handleDiscussionsTriage(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: DiscussionsTriagePreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'discussions triage unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  try {
+    send(200, { triage: await api() });
+  } catch {
+    send(200, { triage: null });
+  }
+}
+
+/**
+ * The KEEPER DISCUSSIONS EXECUTE endpoint (`POST
+ * /api/discussions-triage/execute`, body `{}`). State-changing — posts a
+ * signed reply and applies the pool label to every accepted discussion via
+ * `gh api graphql` — so it is a CSRF-guarded JSON POST like every other
+ * write, and separately rate-limited (same heavier-than-a-quota-spend
+ * reasoning as {@link handleIssueTriageExecute}). Role gating happens inside
+ * the injected `api` itself (epic 0019 law 1, role honesty) — a
+ * non-maintainer identity still gets a 200 with `skippedReason` set, never a
+ * 403, same as {@link handleMirrorPassExecute}. The body carries no
+ * parameters (the ritual re-fetches and re-plans everything fresh; a
+ * discussion's `pool: *` label is its idempotency marker), but it must still
+ * parse as JSON so a bare form post can never slip past the content-type
+ * guard on an empty body. 404 only for an unwired API.
+ */
+async function handleDiscussionsTriageExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: DiscussionsTriageExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'discussions triage execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many discussions triage requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  try {
+    JSON.parse(raw);
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  try {
+    send(200, await api());
+  } catch (error) {
+    send(500, {
+      error: error instanceof Error ? error.message : 'discussions triage execute failed',
     });
   }
 }
@@ -3309,6 +3581,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     ISSUE_TRIAGE_RATE_LIMIT,
     ISSUE_TRIAGE_RATE_WINDOW_MS,
   );
+  const discussionsTriageLimiter = createRateLimiter(
+    DISCUSSIONS_TRIAGE_RATE_LIMIT,
+    DISCUSSIONS_TRIAGE_RATE_WINDOW_MS,
+  );
   const mirrorPassExecuteLimiter = createRateLimiter(
     MIRROR_PASS_EXECUTE_RATE_LIMIT,
     MIRROR_PASS_EXECUTE_RATE_WINDOW_MS,
@@ -3384,6 +3660,16 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/firings') {
       handleFiringsPage(req, res, deps.firingsPage, headers);
+      return;
+    }
+
+    if (path === '/api/plan') {
+      handlePlanRead(req, res, deps.plan, headers);
+      return;
+    }
+
+    if (path === '/api/plan/publish') {
+      void handlePlanPublish(req, res, deps.plan, headers);
       return;
     }
 
@@ -3495,6 +3781,11 @@ export function createServer(deps: ServerDeps = {}): Server {
       return;
     }
 
+    if (path === '/api/pr-review/diagnose') {
+      void handleCheckDiagnosis(req, res, deps.checkDiagnosis, headers);
+      return;
+    }
+
     if (path === '/api/issue-triage') {
       void handleIssueTriage(req, res, deps.issueTriage, headers);
       return;
@@ -3502,6 +3793,22 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/issue-triage/execute') {
       void handleIssueTriageExecute(req, res, deps.issueTriageExecute, headers, issueTriageLimiter);
+      return;
+    }
+
+    if (path === '/api/discussions-triage') {
+      void handleDiscussionsTriage(req, res, deps.discussionsTriage, headers);
+      return;
+    }
+
+    if (path === '/api/discussions-triage/execute') {
+      void handleDiscussionsTriageExecute(
+        req,
+        res,
+        deps.discussionsTriageExecute,
+        headers,
+        discussionsTriageLimiter,
+      );
       return;
     }
 

@@ -47,6 +47,8 @@ import {
   setTaskFocusInStore,
   reorderTasksInStore,
   unpinTasksInStore,
+  readProjectGateConfigInStore,
+  setProjectGateConfigInStore,
   ensureStoreMigrated,
   requestFlightPauseInStore,
   isProjectPausedInStore,
@@ -80,10 +82,15 @@ import {
   createUpdateBranchApi,
   createRerunChecksApi,
 } from '../flight/human-merge.js';
+import { createCheckDiagnosisApi } from '../flight/check-diagnosis.js';
 import {
   createIssueTriagePreviewApi,
   createIssueTriageExecuteApi,
 } from '../flight/issue-triage-execute.js';
+import {
+  createDiscussionsTriagePreviewApi,
+  createDiscussionsTriageExecuteApi,
+} from '../flight/discussions-triage-execute.js';
 import {
   createMirrorPassPreviewApi,
   createMirrorPassExecuteApi,
@@ -551,6 +558,13 @@ const server = createServer({
   // D4 pipeline view (epic 0015, web-mtdc6wq3-5wuc6i): the pure chain composed
   // at the root — span source → graph model → panel markup. The handler has
   // already narrowed every query field to the chain's own unions.
+  // THE FLIGHT PLAN (epic 0021 slice 3, second cut): read the stored gate
+  // spec; publish a validated edit. The next landing/firing runs it.
+  plan: {
+    read: (project) => readProjectGateConfigInStore(dbPath, project),
+    publish: (project, spec) =>
+      setProjectGateConfigInStore(dbPath, project, JSON.stringify(spec), Date.now()),
+  },
   pipelinePanel: (projectId, query) => {
     const spans = readPipelineSpans(dbPath, projectId);
     if (spans === null) return null;
@@ -592,11 +606,18 @@ const server = createServer({
   humanMerge: createHumanMergeApi(),
   updateBranch: createUpdateBranchApi(),
   rerunChecks: createRerunChecksApi(),
+  checkDiagnosis: createCheckDiagnosisApi(),
   // KEEPER TRIAGE ritual (epic 0007, "PLATFORM 3/7"): project-scoped — dedups
   // an incoming issue against that project's own open board tasks + backlog
   // file, unlike KEEPER REVIEW's single canonical repo above.
   issueTriage: createIssueTriagePreviewApi(dbPath),
   issueTriageExecute: createIssueTriageExecuteApi(dbPath),
+  // KEEPER DISCUSSIONS ritual (epic 0007 S8, board web-mtlsiac0-v8rksh): like
+  // KEEPER REVIEW above, acts on the ONE canonical repo this dashboard process
+  // runs in — no project id, gh resolves {owner}/{repo} from its own cwd —
+  // and refuses to post unless the resolved identity is its maintainer.
+  discussionsTriage: createDiscussionsTriagePreviewApi(),
+  discussionsTriageExecute: createDiscussionsTriageExecuteApi(),
   // MIRROR PASS reconcile preview (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slice
   // (a)): read-only, derivation 1/4.
   mirrorPass: createMirrorPassPreviewApi(dbPath),

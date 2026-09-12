@@ -3342,6 +3342,7 @@ function renderProjectPage(state, pid) {
   // and fetched on demand, right after Fleet coordination since both answer
   // the same "what is the fleet actually doing?" question at different depths.
   fleet.appendChild(subj(pipelineSection(pid), 'plan'));
+  fleet.appendChild(subj(planEditorSection(pid), 'plan'));
   var docsEl = docsSection(pid);
   docsEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'docs');
   fleet.appendChild(subj(docsEl, 'docs'));

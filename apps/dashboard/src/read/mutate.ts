@@ -21,6 +21,7 @@ import {
   isProjectPaused,
   createTask,
   setTaskFocus,
+  setProjectGateConfig,
   reorderTasks,
   unpinTasks,
   setTaskStatus,
@@ -391,6 +392,45 @@ export function ensureStoreMigrated(dbPath: string): boolean {
     store = openStore(dbPath);
     migrate(store);
     return true;
+  } catch {
+    return false;
+  } finally {
+    store?.close();
+  }
+}
+
+/** The stored flight plan JSON for a project: `undefined` for an unknown
+ *  project, `null` when none is stored (open/read/close). */
+export function readProjectGateConfigInStore(
+  dbPath: string,
+  projectId: string,
+): string | null | undefined {
+  if (!existsSync(dbPath)) return undefined;
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath, { readonly: true });
+    const row = store.db.prepare('SELECT gate_config FROM projects WHERE id = ?').get(projectId) as
+      { gate_config: string | null } | undefined;
+    return row === undefined ? undefined : row.gate_config;
+  } catch {
+    return undefined;
+  } finally {
+    store?.close();
+  }
+}
+
+/** Publish a flight plan (open/mutate/close; false on failure). */
+export function setProjectGateConfigInStore(
+  dbPath: string,
+  projectId: string,
+  gateConfig: string,
+  updatedAt: number,
+): boolean {
+  if (!existsSync(dbPath)) return false;
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath);
+    return setProjectGateConfig(store, projectId, gateConfig, updatedAt);
   } catch {
     return false;
   } finally {

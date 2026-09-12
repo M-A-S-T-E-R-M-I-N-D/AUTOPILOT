@@ -1462,6 +1462,39 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
    sits where it always did. Body becomes a two-column grid only while the
    module says so (body[data-rail]); the masthead and the update banner span
    both columns, the rail spans every content row. */
+/* KEEPER QUEUE (epic 0021 slice 4): one list of everything waiting on a
+   human — a view the nav module builds over the panels' own items, so it
+   needs no second data source. Source · what · why · one exit action. */
+.keeper-queue { margin: var(--space-3) var(--page-inline); padding: var(--space-3) var(--space-4); background: var(--color-surface-raised); border: 1px solid var(--color-needs-you); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); }
+.keeper-queue-title { margin: 0 0 var(--space-1); font-size: var(--text-lg); }
+.keeper-queue-hint { margin: 0 0 var(--space-2); color: var(--color-text-muted); font-size: var(--text-xs); }
+.keeper-queue-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.keeper-queue-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "source open act" "source why act"; align-items: center; column-gap: var(--space-2); padding: var(--space-1) 0; border-block-end: 1px solid var(--color-border); }
+.keeper-queue-item:last-child { border-block-end: 0; }
+.keeper-queue-source { grid-area: source; min-inline-size: 4.5rem; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.keeper-queue-open { grid-area: open; background: none; border: 0; padding: 0; min-block-size: 1.5rem; font: inherit; color: var(--color-text); text-align: start; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.keeper-queue-open:hover, .keeper-queue-open:focus-visible { color: var(--color-accent); text-decoration: underline; outline: none; }
+.keeper-queue-why { grid-area: why; font-size: var(--text-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.keeper-queue-act { grid-area: act; }
+/* FLIGHT PLAN EDITOR (epic 0021 slice 3, second cut): the gate as a chain of
+   step nodes, the selected one editable in a properties pane; a draft line
+   that says so, Publish and Discard. */
+.plan-editor { margin: var(--space-3) 0; padding: var(--space-3) var(--space-4); background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); }
+.plan-editor-title { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
+.plan-chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--space-1); margin-block-end: var(--space-3); }
+.plan-arrow { align-self: center; color: var(--color-text-muted); }
+.plan-step { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-inline-size: 7rem; max-inline-size: 16rem; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); color: var(--color-text); font: inherit; text-align: start; cursor: pointer; }
+.plan-step:hover, .plan-step:focus-visible { border-color: var(--color-accent); outline: none; }
+.plan-step-selected { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent) inset; }
+.plan-step-off { opacity: 0.6; border-style: dashed; }
+.plan-step-kind { font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.plan-step-label { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-inline-size: 100%; }
+.plan-props { display: grid; gap: var(--space-2); margin-block-end: var(--space-2); }
+.plan-prop { display: grid; grid-template-columns: 7rem minmax(0, 1fr); align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
+.plan-prop input[type="text"] { min-inline-size: 0; padding: var(--space-1) var(--space-2); font: inherit; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-sm); color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--shape-small); }
+.plan-status { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+.plan-status-draft { color: var(--color-needs-you); }
+.plan-actions { display: flex; gap: var(--space-2); }
 .context-rail { display: none; }
 .context-rail-empty { margin: var(--space-4) var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
 @media (min-width: 80rem) {

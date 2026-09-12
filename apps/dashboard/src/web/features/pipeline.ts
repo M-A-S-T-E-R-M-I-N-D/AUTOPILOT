@@ -94,6 +94,14 @@
  * this same-firing fix waiting on that file.
  */
 import {
+  planStepKinds,
+  planApiUrl,
+  planDraftKey,
+  parseCommandLine,
+  planStepsFromSpec,
+  planSpecFromSteps,
+} from '../plan-editor.js';
+import {
   pipelineApiUrl,
   parseViewBox,
   zoomViewBox,
@@ -111,6 +119,13 @@ ${parseViewBox.toString()}
 ${zoomViewBox.toString()}
 ${panViewBox.toString()}
 ${formatViewBox.toString()}
+// FLIGHT PLAN EDITOR (epic 0021 slice 3, second cut) — pure half, spliced from web/plan-editor.ts.
+${planStepKinds.toString()}
+${planApiUrl.toString()}
+${planDraftKey.toString()}
+${parseCommandLine.toString()}
+${planStepsFromSpec.toString()}
+${planSpecFromSteps.toString()}
 // PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline SVG is a camera.
 // Wheel or pinch zooms about the pointer, a drag on the background pans, a
 // node press never pans (it selects), double-click or 0 fits, +/- and the
@@ -240,6 +255,152 @@ function pipelineSwitchGroup(cls, label, labelI18nKey, options, state, key, onCh
     group.appendChild(b);
   });
   return group;
+}
+// ---- FLIGHT PLAN EDITOR (epic 0021 slice 3, second cut) ----
+// The gate pipeline as an editable chain: each step a node (typecheck →
+// lint → format → test → build), the selected one editable in a properties
+// pane. Edits autosave to a local DRAFT (localStorage, per project) and go
+// live only on Publish — the draft-then-publish idiom every 2026 workflow
+// builder converged on — so a half-typed command never reaches a landing.
+// Discard returns to the published plan. Read-only wherever /api/plan is not
+// served (visitors, the e2e fixtures).
+function planEditorSection(pid) {
+  var wrap = el('section', 'plan-editor');
+  var title = el('h3', 'plan-editor-title', '✍️ Flight plan');
+  title.setAttribute('data-i18n', 'planEditorTitle');
+  wrap.appendChild(title);
+  var body = el('div', 'plan-editor-body');
+  body.appendChild(el('p', 'muted', tr('planEditorLoading')));
+  wrap.appendChild(body);
+  var state = { published: null, draft: null, selected: 'typecheck', note: '' };
+  function clone(v) { return JSON.parse(JSON.stringify(v)); }
+  function dirty() { return JSON.stringify(state.draft) !== JSON.stringify(state.published); }
+  function saveDraft() {
+    try {
+      if (dirty()) localStorage.setItem(planDraftKey(pid), JSON.stringify(state.draft));
+      else localStorage.removeItem(planDraftKey(pid));
+    } catch (e) { /* private mode */ }
+  }
+  function prop(labelKey, control) {
+    var label = el('label', 'plan-prop');
+    var text = el('span', null, tr(labelKey));
+    text.setAttribute('data-i18n', labelKey);
+    label.appendChild(text);
+    label.appendChild(control);
+    return label;
+  }
+  function render() {
+    body.replaceChildren();
+    var steps = planStepsFromSpec(state.draft);
+    var chain = el('div', 'plan-chain');
+    var selected = null;
+    steps.forEach(function (s, i) {
+      if (i > 0) { var arrow = el('span', 'plan-arrow', '→'); arrow.setAttribute('aria-hidden', 'true'); chain.appendChild(arrow); }
+      var isSel = s.kind === state.selected;
+      if (isSel) selected = s;
+      var node = el('button', 'plan-step' + (s.enabled ? '' : ' plan-step-off') + (isSel ? ' plan-step-selected' : ''));
+      node.type = 'button';
+      node.setAttribute('data-plan-step', s.kind);
+      node.setAttribute('aria-pressed', String(isSel));
+      node.appendChild(el('span', 'plan-step-kind', s.kind));
+      var off = el('span', 'plan-step-label', s.enabled ? s.command : tr('planEditorStepOff'));
+      if (!s.enabled) off.setAttribute('data-i18n', 'planEditorStepOff');
+      node.appendChild(off);
+      chain.appendChild(node);
+    });
+    body.appendChild(chain);
+    if (selected) {
+      var props = el('div', 'plan-props');
+      var enabled = document.createElement('input');
+      enabled.type = 'checkbox';
+      enabled.checked = selected.enabled;
+      enabled.setAttribute('data-plan-enabled', selected.kind);
+      props.appendChild(prop('planEditorEnabled', enabled));
+      var cmd = document.createElement('input');
+      cmd.type = 'text';
+      cmd.value = selected.command;
+      cmd.spellcheck = false;
+      cmd.disabled = !selected.enabled;
+      cmd.setAttribute('data-plan-command', selected.kind);
+      props.appendChild(prop('planEditorCommand', cmd));
+      var lbl = document.createElement('input');
+      lbl.type = 'text';
+      lbl.value = selected.label;
+      lbl.disabled = !selected.enabled;
+      lbl.setAttribute('data-plan-label', selected.kind);
+      props.appendChild(prop('planEditorLabel', lbl));
+      body.appendChild(props);
+    }
+    var isDirty = dirty();
+    var status = el('p', 'plan-status ' + (isDirty ? 'plan-status-draft' : 'plan-status-published'), state.note || tr(isDirty ? 'planEditorDraft' : 'planEditorPublished'));
+    status.setAttribute('role', 'status');
+    body.appendChild(status);
+    var actions = el('div', 'plan-actions');
+    var publish = el('button', 'plan-publish', tr('planEditorPublish'));
+    publish.type = 'button';
+    publish.setAttribute('data-plan-publish', '');
+    publish.setAttribute('data-i18n', 'planEditorPublish');
+    publish.disabled = !isDirty;
+    actions.appendChild(publish);
+    var discard = el('button', 'plan-discard', tr('planEditorDiscard'));
+    discard.type = 'button';
+    discard.setAttribute('data-plan-discard', '');
+    discard.setAttribute('data-i18n', 'planEditorDiscard');
+    discard.disabled = !isDirty;
+    actions.appendChild(discard);
+    body.appendChild(actions);
+  }
+  function applyEdit(kind, patch) {
+    var steps = planStepsFromSpec(state.draft).map(function (s) {
+      if (s.kind !== kind) return s;
+      var next = { kind: s.kind, enabled: s.enabled, command: s.command, label: s.label };
+      Object.keys(patch).forEach(function (k) { next[k] = patch[k]; });
+      if (next.enabled && next.command.trim().length === 0) next.command = 'pnpm run ' + kind;
+      return next;
+    });
+    state.draft = planSpecFromSteps(steps, state.draft);
+    state.note = '';
+    saveDraft();
+    render();
+  }
+  body.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-plan-step], [data-plan-publish], [data-plan-discard]') : null;
+    if (!t) return;
+    if (t.hasAttribute('data-plan-step')) { state.selected = t.getAttribute('data-plan-step'); render(); return; }
+    if (t.hasAttribute('data-plan-discard')) { state.draft = clone(state.published); state.note = ''; saveDraft(); render(); return; }
+    t.disabled = true;
+    fetch('/api/plan/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: pid, spec: state.draft }) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: !!(r.ok && j && j.ok), error: j && j.error }; }); })
+      .then(function (res) {
+        if (!body.isConnected) return;
+        if (res.ok) { state.published = clone(state.draft); state.note = tr('planEditorPublishedNow'); saveDraft(); }
+        else state.note = tr('planEditorPublishFailed') + (res.error ? ' — ' + res.error : '');
+        render();
+      })
+      .catch(function () { if (!body.isConnected) return; state.note = tr('planEditorPublishFailed'); render(); });
+  });
+  body.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || !t.getAttribute) return;
+    if (t.hasAttribute('data-plan-enabled')) applyEdit(t.getAttribute('data-plan-enabled'), { enabled: !!t.checked });
+    else if (t.hasAttribute('data-plan-command')) applyEdit(t.getAttribute('data-plan-command'), { command: t.value });
+    else if (t.hasAttribute('data-plan-label')) applyEdit(t.getAttribute('data-plan-label'), { label: t.value });
+  });
+  fetch(planApiUrl(pid))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      if (!body.isConnected) return;
+      if (!data || !data.ok || !data.spec) { body.replaceChildren(el('p', 'muted', tr('planEditorUnavailable'))); return; }
+      state.published = data.spec;
+      state.draft = clone(data.spec);
+      try {
+        var saved = localStorage.getItem(planDraftKey(pid));
+        if (saved) { var parsed = JSON.parse(saved); if (parsed && typeof parsed === 'object') state.draft = parsed; }
+      } catch (e) { /* private mode or a stale draft */ }
+      render();
+    })
+    .catch(function () { if (!body.isConnected) return; body.replaceChildren(el('p', 'muted', tr('planEditorUnavailable'))); });
+  return wrap;
 }
 function pipelineSection(pid) {
   var wrap = el('section', 'pipeline-section');

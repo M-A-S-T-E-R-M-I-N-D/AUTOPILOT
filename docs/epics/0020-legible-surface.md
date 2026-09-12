@@ -56,7 +56,7 @@ same failure:
 | 5 | Link census: a test that fails when a rendered GitHub noun (number, SHA, handle) has no link and the API reported a URL for it — the structural stop for failure #2 | **shipped** — `test/flight/link-census.test.ts` (found and fixed the pool-client panel's own dead issue-number link), `web/features/pool-client.ts`, `test/web/pool-client-link.test.ts` |
 | 6 | Payload census: a test that fails when a field fetched by a flight module never reaches any client renderer — the structural stop for failure #1 | **started** — `test/flight/payload-census.test.ts` covers `PoolIssue` (pool-client.ts) and `PublicityAffordance` (publicity.ts); `PrReviewCandidate`, `IssueTriageDossier` and the `MirrorPass*Finding` payloads remain — see the test's own header for why they're follow-up, not scope skipped by accident |
 | 7 | Typography and rhythm pass across panels: one scale, deliberate spacing, hierarchy by size not by weight-everywhere | **absorbed by epic [0021](0021-app-shell.md)** — fluid display type + section rhythm tokens, one inline edge (`--page-inline`), the unstyled panel fixed |
-| 8 | **Diagnose & fix a red check** — the fourth maintainer verb: read the failing check's own log, CLASSIFY the failure (our flake / real defect / dependency drift), then either re-run it or prepare a fix commit on the PR branch and show the operator a diff to approve before anything is pushed | queued |
+| 8 | **Diagnose & fix a red check** — the fourth maintainer verb: read the failing check's own log, CLASSIFY the failure (our flake / real defect / dependency drift), then either re-run it or prepare a fix commit on the PR branch and show the operator a diff to approve before anything is pushed | **started** — `flight/check-diagnosis.ts` ships the pure classifier over a fetched job log + touched paths + the flaky-test quarantine list, plus `createCheckDiagnosisApi` wiring it to `GET /api/pr-review/diagnose?number=`; the `🔧 Diagnose` button and defect diff-for-approval prep remain |
 
 Slices 5 and 6 are the ones that matter most for "never again": 1–4 fix
 today's surfaces, 5–6 make the next one fail a test instead of waiting
@@ -96,10 +96,13 @@ fix commit — and that is the half that does not exist.
   signature, or the same test passes on base), `defect` (the change can
   reach the failure), or `unknown`. **`unknown` must be a real, common
   answer** — a classifier that always decides is the cry-wolf failure
-  (FAILURE-DOCTRINE row 6) wearing a new hat.
-- A `🔧 Diagnose` button beside the existing three, rendering the verdict
-  with its evidence — never a bare label. The reasoning is the product;
-  the button is just where it lives.
+  (FAILURE-DOCTRINE row 6) wearing a new hat. Wired to `GET
+  /api/pr-review/diagnose?number=` (`createCheckDiagnosisApi`), which
+  re-reads the PR's checks fresh from `gh`, reads the red one's own log
+  with `gh run view --log-failed`, and feeds the classifier.
+- A `🔧 Diagnose` button beside the existing three, calling that route and
+  rendering the verdict with its evidence — never a bare label. The
+  reasoning is the product; the button is just where it lives.
 - For `defect`, prepare a commit on the PR branch and show a **diff for
   approval**. Never auto-push: pushing to a contributor's branch without
   asking is exactly what `update-branch` already refuses to do silently
