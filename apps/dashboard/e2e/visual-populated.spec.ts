@@ -36,7 +36,8 @@ async function freezeClock(page: Page): Promise<void> {
  * that review something real to look at instead of an empty page, and catches
  * future regressions mechanically.
  */
-const THEMES = ['dark', 'light'] as const;
+// All three shipped themes (terminal joined 2026-09-12; see visual.spec.ts).
+const THEMES = ['dark', 'light', 'terminal'] as const;
 
 test.describe('visual regression — populated fleet', () => {
   for (const theme of THEMES) {
