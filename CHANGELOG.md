@@ -6,6 +6,30 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.42.0] — 2026-09-12
+
+### Added
+
+- feat(dashboard): desktop uses its width — two-column overview, five-up tiles, board shows flow
+- feat(dashboard): the lucky roll says what to fly — a fit shortlist under the Fly bar
+- feat(dashboard): wire the MIRROR PASS landing-note execute button
+- feat(server): compose-to-tasks gains its HTTP preview endpoint
+- feat(flight): composed board tasks carry a dated provenance note
+- feat(flight): social-pass gains an injectable executor (epic 0016 slice 1/6)
+- feat(flight): composed board tasks carry a dated provenance note
+
+### Fixed
+
+- fix(dashboard): the reorder-arrow hover rule follows the button's own rules
+- fix(dashboard): the theme switcher speaks the page's language; reorder arrows show on hover
+- fix(fly): a lane fast-forwards to the tip even while a sibling holds the lock
+- fix: update pulls a named ref, standing knows its rung, lists say who they are for
+- fix(dashboard): pool rows stack at every width; replay-diff tests get a runner budget
+- fix(dashboard): hebrew typography law — no tracking under rtl, a looser line, ⌘K stays Latin
+- fix(dashboard): rtl and density audit — bidi laws, a popover sheet on phones, a bounded pipeline
+- fix(dashboard): register the Discussions triage report region so a right-click resolves its module
+- fix(dashboard): the read-only Diagnose button stays visible for a KEEPER PR review guest
+
 ## [0.41.0] — 2026-09-12
 
 ### Added
