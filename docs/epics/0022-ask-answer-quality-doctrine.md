@@ -3,7 +3,9 @@ SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# 0021. ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale
+# 0022. ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale
+
+> Renumbered 0022 on 2026-09-13. Born as 0021 on 2026-09-09; two days later the app-shell epic took the same number and became the operator-facing 0021 (issue #49, the release notes, every commit message), so this doctrine moved to the next free number. Code and tests reference it by path.
 
 Status: Done — all 4 doctrine pieces / 3 slices shipped: citations (`56752134`),
 `lowConfidence` signal (`920e8081`), and the escalation-offer UI + `en`/`he`

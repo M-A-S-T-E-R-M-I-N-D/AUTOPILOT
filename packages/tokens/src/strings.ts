@@ -648,7 +648,7 @@ const EN_STRINGS = {
   askDeepTip:
     'Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts',
   // The escalation-offer affordance (ASK/ARCHITECT answer-quality doctrine
-  // slice 3, docs/epics/0021-ask-answer-quality-doctrine.md, board
+  // slice 3, docs/epics/0022-ask-answer-quality-doctrine.md, board
   // web-mtt5qwjp-xns6ps): search.ts's renderOffer() shows this button only
   // when the terminal frame's lowConfidence signal is true AND the request
   // that produced it was NOT already Deep — clicking it checks #ask-deep and

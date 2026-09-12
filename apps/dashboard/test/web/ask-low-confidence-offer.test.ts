@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * ASK/ARCHITECT answer-quality doctrine slice 3 (docs/epics/0021-ask-answer-
+ * ASK/ARCHITECT answer-quality doctrine slice 3 (docs/epics/0022-ask-answer-
  * quality-doctrine.md, board web-mtt5qwjp-xns6ps): the Ask panel's
  * escalation-offer affordance. `ask/service.ts`'s `AskResult.lowConfidence`
  * signal (piece 3's earlier slice) reaches the client on the terminal SSE
