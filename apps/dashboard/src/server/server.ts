@@ -51,6 +51,13 @@ import {
 } from './report-compose.js';
 export type { ReportComposeApi } from './report-compose.js';
 import {
+  handleReportComposeTasks,
+  REPORT_COMPOSE_TASKS_RATE_LIMIT,
+  REPORT_COMPOSE_TASKS_RATE_WINDOW_MS,
+  type ReportComposeTasksApi,
+} from './report-compose-tasks.js';
+export type { ReportComposeTasksApi } from './report-compose-tasks.js';
+import {
   handleGithubSyncExecute,
   handleGithubIssueExecute,
   handleGithubPrExecute,
@@ -713,6 +720,12 @@ export interface ServerDeps extends RouteDeps {
    *  report dialog's AI compose (context-aware — sends the captured element
    *  bundle + module sources). */
   readonly reportCompose?: ReportComposeApi;
+  /** COMPOSER TARGET=TASKS (board web-mtq2m6la-ckpxm7): the `tasks[]`-shaped
+   *  sibling of `reportCompose` above — splits a bundled note into one or
+   *  more right-sized board tasks instead of a single upstream report.
+   *  Preview only (never touches the store); behind `POST
+   *  /api/report/compose-tasks`. */
+  readonly reportComposeTasks?: ReportComposeTasksApi;
   /** Publicity affordances (epic 0007, "PLATFORM 7/7"): repo/watch/star/
    *  discussions links, dormant while the repo stays private. */
   readonly publicity?: PublicityApi;
@@ -3150,6 +3163,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     REPORT_COMPOSE_RATE_LIMIT,
     REPORT_COMPOSE_RATE_WINDOW_MS,
   );
+  const reportComposeTasksLimiter = createRateLimiter(
+    REPORT_COMPOSE_TASKS_RATE_LIMIT,
+    REPORT_COMPOSE_TASKS_RATE_WINDOW_MS,
+  );
   const githubSyncLimiter = createRateLimiter(GITHUB_SYNC_RATE_LIMIT, GITHUB_SYNC_RATE_WINDOW_MS);
   const githubIssueLimiter = createRateLimiter(
     GITHUB_ISSUE_RATE_LIMIT,
@@ -3417,6 +3434,17 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/report/compose') {
       void handleReportCompose(req, res, deps.reportCompose, headers, reportComposeLimiter);
+      return;
+    }
+
+    if (path === '/api/report/compose-tasks') {
+      void handleReportComposeTasks(
+        req,
+        res,
+        deps.reportComposeTasks,
+        headers,
+        reportComposeTasksLimiter,
+      );
       return;
     }
 

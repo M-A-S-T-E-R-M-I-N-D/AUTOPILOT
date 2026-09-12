@@ -128,6 +128,7 @@ import { adoptFlight, realAdoptFlightDeps } from '../flight/adopt.js';
 import { otlpConfigFromEnv } from '../flight/otlp.js';
 import { askProject, askProjectStream, type AskEscalationDeps } from '../ask/service.js';
 import { composeReport } from '../flight/report-compose.js';
+import { composeReportTasks } from '../flight/report-compose-tasks.js';
 import { readConnectionConfig } from '../connection/config.js';
 import {
   resolveClaudeEnv,
@@ -756,6 +757,26 @@ const server = createServer({
   // takes no projectId.
   reportCompose: (description, contextJson, moduleSources) =>
     composeReport(
+      {
+        invoke: async (prompt) => {
+          const model = new ClaudeCliModel({
+            repo: process.cwd(),
+            config: askEngineConfig,
+            auth: askAuth(),
+          });
+          const res = await model.invoke(askModel, prompt);
+          return res.envelope?.isError === false ? res.envelope.result : null;
+        },
+      },
+      description,
+      contextJson,
+      moduleSources,
+    ),
+  // COMPOSER TARGET=TASKS (board web-mtq2m6la-ckpxm7): same tool-less
+  // ask/service model-calling convention as `reportCompose` above, project-
+  // agnostic for the same reason.
+  reportComposeTasks: (description, contextJson, moduleSources) =>
+    composeReportTasks(
       {
         invoke: async (prompt) => {
           const model = new ClaudeCliModel({
