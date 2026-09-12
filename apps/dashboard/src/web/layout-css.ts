@@ -769,6 +769,11 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pool-client-issue-title { margin: 0; font-size: var(--text-sm); }
 .pool-client-badge-claim { color: var(--color-success); border-color: var(--color-success); }
 .pool-client-badge-skip { color: var(--color-text-muted); border-color: var(--color-border); opacity: 0.7; }
+.ci-status-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
+.ci-status-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+.ci-status-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ci-status-badge-ok { color: var(--color-success); border-color: var(--color-success); }
+.ci-status-badge-fail { color: var(--color-sev-critical); border-color: var(--color-sev-critical); }
 .pool-client-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-1); }
 .pool-client-project { font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 /* .pool-client-fly (COCKPIT 6/6): the post-claim "Fly" button
