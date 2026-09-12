@@ -2276,6 +2276,30 @@ ${sharedTaskSeverityChip.toString()}
 // source via .toString(), not a hand-retyped copy. It can no longer drift apart.
 ${sharedQueueForecastMeta.toString()}
 var QUEUE_FORECAST_WINDOW = ${QUEUE_FORECAST_WINDOW};
+// BOARD AS COLUMNS (epic 0021 slice 9): the same task list, laid out as
+// three columns — Queued · In flight & needs you · Done — by CSS grid with
+// dense auto-flow and a column per status. NO DOM reorder: the list keeps
+// its priority order (drag, ↑/↓, screen readers all read the one list),
+// the stylesheet only places each row in its column. Columns from lg by
+// default, a list on a phone; the toggle is remembered per browser.
+var BOARD_VIEW_KEY = 'ap-board-view';
+function boardViewStored() {
+  try {
+    var v = localStorage.getItem(BOARD_VIEW_KEY);
+    return v === 'columns' || v === 'list' ? v : 'auto';
+  } catch (e) { return 'auto'; }
+}
+function boardViewEffective(view) {
+  if (view !== 'auto') return view;
+  return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 64rem)').matches ? 'columns' : 'list';
+}
+function boardViewToggleLabel(btn, view) {
+  var effective = boardViewEffective(view);
+  var key = effective === 'columns' ? 'boardViewList' : 'boardViewColumns';
+  btn.textContent = tr(key);
+  btn.setAttribute('data-i18n', key);
+  btn.setAttribute('aria-pressed', String(effective === 'columns'));
+}
 function tasksSection(c) {
   var tasks = c.tasks || [];
   var anyFocus = taskFocusActive(tasks);
@@ -2283,6 +2307,13 @@ function tasksSection(c) {
   var head = el('h3', 'detail-h', anyFocus ? 'Tasks — 🎯 FOCUS MODE' : 'Tasks');
   head.setAttribute('data-i18n', anyFocus ? 'tasksFocusMode' : 'tasks');
   wrap.appendChild(head);
+  var boardView = boardViewStored();
+  wrap.setAttribute('data-board-view', boardView);
+  var viewToggle = el('button', 'board-view-toggle');
+  viewToggle.type = 'button';
+  viewToggle.setAttribute('data-board-view-toggle', c.id);
+  boardViewToggleLabel(viewToggle, boardView);
+  wrap.appendChild(viewToggle);
   // i18n (board web-msnsndki-dz3vn1): the two notes and the per-task decision
   // buttons below carry their English default AND a data-i18n tag; the card
   // rides the same translateDom() sweep its heading already does (the fleet
@@ -2297,6 +2328,24 @@ function tasksSection(c) {
     emptyNote.setAttribute('data-i18n', 'tasksEmpty');
     wrap.appendChild(emptyNote);
   } else {
+    var colCounts = { queued: 0, active: 0, done: 0 };
+    for (var ci = 0; ci < tasks.length; ci++) {
+      var cs = tasks[ci].status;
+      if (cs === 'queued') colCounts.queued++;
+      else if (cs === 'in_progress' || cs === 'needs_approval') colCounts.active++;
+      else colCounts.done++;
+    }
+    var columns = el('p', 'board-columns');
+    var colKeys = [['boardColQueued', 'Queued', colCounts.queued], ['boardColActive', 'In flight · needs you', colCounts.active], ['boardColDone', 'Done', colCounts.done]];
+    for (var ck = 0; ck < colKeys.length; ck++) {
+      var colEl = el('span', 'board-column-head');
+      var colLabel = el('span', null, colKeys[ck][1]);
+      colLabel.setAttribute('data-i18n', colKeys[ck][0]);
+      colEl.appendChild(colLabel);
+      colEl.appendChild(el('span', 'board-column-count', String(colKeys[ck][2])));
+      columns.appendChild(colEl);
+    }
+    wrap.appendChild(columns);
     var ul = el('ul', 'tasks');
     // Announcements for keyboard reorder (research: live region, GitHub pattern).
     var live = el('p', 'sr-only');
@@ -2334,6 +2383,7 @@ function tasksSection(c) {
       var isWorkable = t.status === 'queued' || t.status === 'in_progress';
       var li = el('li', 'task' + (t.focus ? ' task-focused' : anyFocus ? ' task-dimmed' : ''));
       li.setAttribute('data-task-id', t.id);
+      li.setAttribute('data-task-status', t.status);
       if (isWorkable) {
         openIdx++;
         // Pointer drag reorder — the primary interaction for sighted mouse/touch
@@ -3960,6 +4010,16 @@ document.addEventListener('click', function (e) {
         flightLogLoading[mpid] = false;
         rerenderSoon();
       });
+    return;
+  }
+  var viewBtn = e.target && e.target.closest && e.target.closest('[data-board-view-toggle]');
+  if (viewBtn) {
+    var card = viewBtn.closest('[data-board-view]');
+    var current = card ? card.getAttribute('data-board-view') : 'auto';
+    var next = boardViewEffective(current) === 'columns' ? 'list' : 'columns';
+    try { localStorage.setItem(BOARD_VIEW_KEY, next); } catch (err) { /* private mode */ }
+    if (card) card.setAttribute('data-board-view', next);
+    boardViewToggleLabel(viewBtn, next);
     return;
   }
   var hist = e.target && e.target.closest && e.target.closest('[data-task-history-more]');

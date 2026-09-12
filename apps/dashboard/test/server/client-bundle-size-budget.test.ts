@@ -209,8 +209,12 @@ import {
  */
 // Then core raw 192→193KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the
 // flight plan editor's fourteen English strings — measured 192.2KB.
-const CORE_RAW_BUDGET = 193 * 1024;
-const CORE_GZIP_BUDGET = 57 * 1024;
+// Then core raw 193→195KB (2026-09-12) for EPIC 0021 slice 9: the board as
+// columns (view toggle, column heads, a status attribute per row; five
+// strings) — measured 194.0KB.
+const CORE_RAW_BUDGET = 195 * 1024;
+// Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
+const CORE_GZIP_BUDGET = 58 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()

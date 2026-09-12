@@ -79,8 +79,12 @@ import { gzipSync } from 'node:zlib';
 // 191.0KB, 19 bytes over the old line.
 // Then core raw 192→193KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the
 // flight plan editor's fourteen English strings — measured 192.2KB.
-const CORE_RAW_BUDGET = 193 * 1024;
-const CORE_GZIP_BUDGET = 57 * 1024;
+// Then core raw 193→195KB (2026-09-12) for EPIC 0021 slice 9: the board as
+// columns (view toggle, column heads, a status attribute per row; five
+// strings) — measured 194.0KB.
+const CORE_RAW_BUDGET = 195 * 1024;
+// Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
+const CORE_GZIP_BUDGET = 58 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the

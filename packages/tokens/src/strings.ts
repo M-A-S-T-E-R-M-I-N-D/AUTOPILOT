@@ -940,6 +940,11 @@ const EN_STRINGS = {
   actMetaAria: 'step cost: {name}',
   tasks: 'Tasks',
   tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
+  boardViewColumns: 'Columns',
+  boardViewList: 'List',
+  boardColQueued: 'Queued',
+  boardColActive: 'In flight · needs you',
+  boardColDone: 'Done',
   // The task board's notes and per-task decision buttons (shell.ts's
   // tasksSection(), board web-msnsndki-dz3vn1): the FOCUS-MODE lock note, the
   // empty-board note, and ✓ approve / ✗ reject on a self-proposed task,
@@ -1933,6 +1938,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightSliceChipAria: 'פרוסה של {name}',
     tasks: 'משימות',
     tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
+    boardViewColumns: 'עמודות',
+    boardViewList: 'רשימה',
+    boardColQueued: 'בתור',
+    boardColActive: 'בטיסה · מחכה לך',
+    boardColDone: 'בוצע',
     tasksFocusNote: 'המיקוד נעול: הטיסות עובדות רק על המשימות הממוקדות עד לסיומן.',
     tasksEmpty:
       'אין משימות עדיין — הוסיפו אחת למטה, או תנו ל-AUTOPILOT לזרוע את הלוח שלו בעצמו תוך כדי טיסה.',

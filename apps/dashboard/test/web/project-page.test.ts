@@ -243,6 +243,62 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
   });
 });
 
+describe('the board as columns (epic 0021 slice 9)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('places every row in a column by status, counts the columns, and remembers the toggle', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+    const card = document.querySelector('[data-board-view]') as HTMLElement;
+    expect(card.getAttribute('data-board-view')).toBe('auto');
+    expect(document.querySelector('[data-task-id="t1"]')?.getAttribute('data-task-status')).toBe(
+      'queued',
+    );
+    expect(document.querySelector('[data-task-id="t2"]')?.getAttribute('data-task-status')).toBe(
+      'in_progress',
+    );
+    const counts = Array.from(document.querySelectorAll('.board-column-count')).map(
+      (n) => n.textContent,
+    );
+    expect(counts).toEqual(['1', '1', '0']);
+
+    // jsdom has no matchMedia: "auto" reads as a list, so the toggle offers Columns.
+    const toggle = document.querySelector('[data-board-view-toggle]') as HTMLButtonElement;
+    expect(toggle.textContent).toBe('Columns');
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    toggle.click();
+    expect(card.getAttribute('data-board-view')).toBe('columns');
+    expect(window.localStorage.getItem('ap-board-view')).toBe('columns');
+    expect(toggle.textContent).toBe('List');
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+
+    // The next render (a state tick) keeps the remembered view.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(
+      (document.querySelector('[data-board-view]') as HTMLElement).getAttribute('data-board-view'),
+    ).toBe('columns');
+  });
+
+  it('the stylesheet lays the columns out by status with dense auto-flow, from md by choice and from lg by default', async () => {
+    const { layoutCss } = await import('../../src/web/layout-css.js');
+    const css = layoutCss();
+    expect(css).toContain('[data-board-view="columns"] .tasks { display: grid;');
+    expect(css).toContain('grid-auto-flow: row dense');
+    expect(css).toContain('[data-board-view="auto"] .task[data-task-status="done"]');
+    const mdAt = css.indexOf('@media (min-width: 48rem) {\n  [data-board-view="columns"]');
+    const lgAt = css.indexOf('@media (min-width: 64rem) {\n  [data-board-view="auto"]');
+    expect(mdAt).toBeGreaterThan(-1);
+    expect(lgAt).toBeGreaterThan(mdAt);
+  });
+});
+
 describe('the per-project inside page', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => {

@@ -895,6 +895,28 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .chip.sev-high { color: var(--color-sev-high); border-color: var(--color-sev-high); }
 .task-focused { border-inline-start: 3px solid var(--color-accent); padding-inline-start: var(--space-2); background: color-mix(in srgb, var(--color-accent) 8%, transparent); border-radius: var(--shape-extra-small); }
 .task-dimmed { opacity: 0.45; }
+/* BOARD AS COLUMNS (epic 0021 slice 9): one list, three columns by status
+   through dense grid auto-flow — no DOM reorder, so drag, ↑/↓ and screen
+   readers keep the priority order. Columns from lg by default ("auto"),
+   never below md; the remembered toggle overrides either way. */
+.board-view-toggle { margin: 0 0 var(--space-2); }
+.board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
+.board-column-count { font-variant-numeric: tabular-nums; }
+@media (min-width: 48rem) {
+  [data-board-view="columns"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+  [data-board-view="columns"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; }
+  [data-board-view="columns"] .task { grid-column: 1; align-content: start; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); }
+  [data-board-view="columns"] .task[data-task-status="in_progress"], [data-board-view="columns"] .task[data-task-status="needs_approval"] { grid-column: 2; }
+  [data-board-view="columns"] .task[data-task-status="done"], [data-board-view="columns"] .task[data-task-status="deferred"] { grid-column: 3; }
+}
+@media (min-width: 64rem) {
+  [data-board-view="auto"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+  [data-board-view="auto"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; }
+  [data-board-view="auto"] .task { grid-column: 1; align-content: start; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); }
+  [data-board-view="auto"] .task[data-task-status="in_progress"], [data-board-view="auto"] .task[data-task-status="needs_approval"] { grid-column: 2; }
+  [data-board-view="auto"] .task[data-task-status="done"], [data-board-view="auto"] .task[data-task-status="deferred"] { grid-column: 3; }
+}
 .task-drag-handle { cursor: grab; color: var(--color-text-muted); font-size: var(--text-sm); padding: 0 2px; user-select: none; touch-action: none; }
 .task[draggable="true"]:active { cursor: grabbing; }
 .task-dragging { opacity: 0.4; }
