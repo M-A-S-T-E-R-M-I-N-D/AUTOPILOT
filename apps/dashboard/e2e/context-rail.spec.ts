@@ -40,6 +40,10 @@ test.describe('app shell — context rail at xl', () => {
     // The masthead spans both columns: it is wider than the main column.
     const masthead = (await page.locator('.masthead').boundingBox())!;
     expect(masthead.width).toBeGreaterThan(main.width + 1);
+    // ...and above the content, never pushed below the first section (the
+    // grid must not leave an empty first row for auto-placement to fill).
+    const totals = (await page.locator('#totals').boundingBox())!;
+    expect(masthead.y + masthead.height).toBeLessThanOrEqual(totals.y + 1);
 
     // Sticky: after scrolling the page, the rail is still at the top of the viewport.
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));

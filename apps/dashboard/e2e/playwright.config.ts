@@ -31,6 +31,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 2 : 0,
+  // ONE worker on CI (2026-09-12): four projects now share the runner and
+  // the two fixture servers, and the populated project page's paint gate
+  // failed 3/3 under that load on a landing whose client had not changed
+  // (the rerun passed untouched). Serial on CI trades minutes for a verdict
+  // that means something; local runs keep every core.
+  ...(process.env['CI'] ? { workers: 1 } : {}),
   reporter: 'list',
   use: {
     baseURL: BASE_URL,
