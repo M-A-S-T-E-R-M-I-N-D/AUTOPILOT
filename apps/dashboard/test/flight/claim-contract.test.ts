@@ -103,7 +103,7 @@ describe('the claim path', () => {
       100,
     );
     expect(input?.id).toBe('github-42');
-    expect(isHumanClosedTask({ body: input?.body })).toBe(true);
+    expect(isHumanClosedTask({ body: input?.body ?? null })).toBe(true);
   });
 
   it('queues the task FOCUSED, so the next firing claims it first and keeps slicing', async () => {
