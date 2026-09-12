@@ -801,6 +801,8 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .report-dialog-close:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .pool-client-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
 .pool-client-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+/* #43: a list says who it is for, right under its title. */
+.panel-audience { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
 .pool-client-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
 /* The visitor-facing GOOD FIRST ISSUES panel had NO stylesheet at all until
    epic 0021 — browser-blue links flush to the viewport edge. Its markup is the

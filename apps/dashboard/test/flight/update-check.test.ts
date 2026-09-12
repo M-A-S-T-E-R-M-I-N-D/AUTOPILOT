@@ -362,3 +362,70 @@ describe('createUpdateExecuteApi — the never-clobber guarantees', () => {
     expect(calls.some((c) => c.startsWith('pnpm run build'))).toBe(false);
   });
 });
+
+describe('createUpdateExecuteApi — the pull names its ref (#48)', () => {
+  const deps = { isFlightLive: () => false, restart: vi.fn() };
+  const pulled = (calls: string[]): string | undefined =>
+    calls.find((c) => c.startsWith('git pull'));
+
+  it('on a branch tracking origin, pulls that branch by name — the self checkout keeps its own line', async () => {
+    const calls: string[] = [];
+    const api = createUpdateExecuteApi(
+      '/repo',
+      deps,
+      runnerScript(
+        {
+          'git rev-parse --abbrev-ref --symbolic-full-name @{upstream}': {
+            ...OK,
+            stdout: 'origin/autopilot/flight\n',
+          },
+          'git pull': { ...OK, stdout: 'Already up to date.\n' },
+        },
+        calls,
+      ),
+    );
+    await api();
+    expect(pulled(calls)).toBe('git pull --ff-only origin autopilot/flight');
+  });
+
+  it('on a contribution branch tracking a fork, pulls origin main — never a remote with no branch to resolve', async () => {
+    const calls: string[] = [];
+    const api = createUpdateExecuteApi(
+      '/repo',
+      deps,
+      runnerScript(
+        {
+          'git rev-parse --abbrev-ref --symbolic-full-name @{upstream}': {
+            ...OK,
+            stdout: 'fork/feat-x\n',
+          },
+          'git pull': { ...OK, stdout: 'Already up to date.\n' },
+        },
+        calls,
+      ),
+    );
+    await api();
+    expect(pulled(calls)).toBe('git pull --ff-only origin main');
+  });
+
+  it('with no upstream at all, pulls origin main', async () => {
+    const calls: string[] = [];
+    const api = createUpdateExecuteApi(
+      '/repo',
+      deps,
+      runnerScript(
+        {
+          'git rev-parse --abbrev-ref --symbolic-full-name @{upstream}': {
+            exitCode: 128,
+            stdout: '',
+            stderr: 'fatal: no upstream configured',
+          },
+          'git pull': { ...OK, stdout: 'Already up to date.\n' },
+        },
+        calls,
+      ),
+    );
+    await api();
+    expect(pulled(calls)).toBe('git pull --ff-only origin main');
+  });
+});

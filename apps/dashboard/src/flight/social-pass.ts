@@ -52,6 +52,7 @@
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchRepoIdentity } from './publicity.js';
+import { loadContributorRegistry, tierForLogin } from './contributor-registry.js';
 import { fetchViewerLogin } from './pr-review.js';
 import {
   commentSimilarity,
@@ -71,6 +72,10 @@ export interface SocialIdentity {
   readonly login: string;
   readonly nameWithOwner: string;
   readonly role: SocialRole;
+  /** The viewer's rung on the standing ladder (#45): the maintainer's own,
+   *  else the TRUSTED-CONTRIBUTORS registry's word for this login, else the
+   *  Newcomer floor. Optional so hand-built identities elsewhere stay valid. */
+  readonly tier?: string;
 }
 
 /** Resolves the acting identity and its role by composing two existing,
@@ -83,7 +88,16 @@ export interface SocialIdentity {
  *  against `nameWithOwner`'s owner segment case-insensitively — GitHub
  *  logins are case-insensitive, and `nameWithOwner` may report either
  *  case for the same account. */
-export async function resolveSocialIdentity(exec: CliExec): Promise<SocialIdentity | undefined> {
+/** The registry lookup the identity read uses by default; injectable so the
+ *  pure tests never touch the filesystem. */
+export function defaultTierOf(login: string): string {
+  return tierForLogin(login, loadContributorRegistry());
+}
+
+export async function resolveSocialIdentity(
+  exec: CliExec,
+  tierOf: (login: string) => string = defaultTierOf,
+): Promise<SocialIdentity | undefined> {
   const [login, repo] = await Promise.all([fetchViewerLogin(exec), fetchRepoIdentity(exec)]);
   if (login === undefined || repo === undefined) return undefined;
   const ownerSegment = repo.nameWithOwner.split('/')[0];
@@ -91,7 +105,12 @@ export async function resolveSocialIdentity(exec: CliExec): Promise<SocialIdenti
     ownerSegment !== undefined && ownerSegment.toLowerCase() === login.toLowerCase()
       ? 'maintainer'
       : 'user';
-  return { login, nameWithOwner: repo.nameWithOwner, role };
+  return {
+    login,
+    nameWithOwner: repo.nameWithOwner,
+    role,
+    tier: role === 'maintainer' ? 'Maintainer' : tierOf(login),
+  };
 }
 
 /** The role-gated dashboard's identity read (`GET /api/social-identity`,

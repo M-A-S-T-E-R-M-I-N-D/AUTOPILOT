@@ -189,7 +189,9 @@ const CORE_GZIP_BUDGET = 58 * 1024;
 // Then raw 146→148KB (2026-09-12) for a lane's KEEPER CI-status panel (ci-status.ts,
 // a self-initialising deferred panel that had been left out of every chunk list
 // and rode core) — measured 146.5KB raw with it in /panels.js.
-const CHUNK_RAW_BUDGET = 148 * 1024;
+// Then raw 148→149KB (2026-09-12) for #43: each list says who it is for (two
+// audience lines under the Pool and Good-first titles, en+he) — measured 148.1KB raw.
+const CHUNK_RAW_BUDGET = 149 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight

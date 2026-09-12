@@ -42,6 +42,7 @@ describe('resolveSocialIdentity', () => {
       login: 'octocat',
       nameWithOwner: 'octocat/hello-world',
       role: 'maintainer',
+      tier: 'Maintainer',
     });
   });
 
@@ -78,6 +79,8 @@ describe('resolveSocialIdentity', () => {
       login: 'a-contributor',
       nameWithOwner: 'octocat/hello-world',
       role: 'user',
+      // Not in TRUSTED-CONTRIBUTORS.md → the Newcomer floor (#45).
+      tier: 'Newcomer',
     });
   });
 
@@ -127,6 +130,7 @@ describe('createSocialIdentityApi', () => {
       login: 'octocat',
       nameWithOwner: 'octocat/hello-world',
       role: 'maintainer',
+      tier: 'Maintainer',
     });
   });
 
@@ -388,6 +392,7 @@ describe('fetchSocialPassReport', () => {
       login: 'octocat',
       nameWithOwner: 'octocat/hello-world',
       role: 'maintainer',
+      tier: 'Maintainer',
     });
     expect(report.ownSubmissions).toEqual([
       {
@@ -801,5 +806,32 @@ describe('planSocialProtocol', () => {
     expect(verdict.refused).toEqual([candidates[0]]);
     expect(verdict.allowed).toEqual([candidates[1]]);
     expect(verdict.queued).toEqual([]);
+  });
+});
+
+describe("resolveSocialIdentity — the viewer's tier rides the identity (#45)", () => {
+  const exec = (async (_bin: string, args: readonly string[]) => {
+    if (args[0] === 'api' && args[1] === 'user')
+      return { code: 0, stdout: JSON.stringify({ login: 'gabibi555' }) };
+    if (args[0] === 'repo' && args[1] === 'view')
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: 'M-A-S-T-E-R-M-I-N-D/AUTOPILOT',
+          url: 'https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT',
+          isPrivate: false,
+        }),
+      };
+    return { code: 1, stdout: '' };
+  }) as unknown as CliExec;
+
+  it('asks the registry for a user and carries the answer', async () => {
+    const seen: string[] = [];
+    const identity = await resolveSocialIdentity(exec, (login) => {
+      seen.push(login);
+      return 'Active partner';
+    });
+    expect(identity).toMatchObject({ login: 'gabibi555', role: 'user', tier: 'Active partner' });
+    expect(seen).toEqual(['gabibi555']);
   });
 });

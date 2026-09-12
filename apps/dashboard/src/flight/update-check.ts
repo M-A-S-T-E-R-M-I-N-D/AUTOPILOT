@@ -230,7 +230,20 @@ export function createUpdateExecuteApi(
     // back exactly where it started (see the install branch below).
     const headBefore = await runCommand('git', ['rev-parse', 'HEAD'], cwd);
 
-    const pull = await runCommand('git', ['pull', '--ff-only', 'origin'], cwd);
+    // #48 (gabibi555): `git pull origin` with no refspec resolves the branch
+    // from the CURRENT branch's tracking config, so on a contribution branch
+    // — one that tracks a fork, exactly as the claim walkthrough says to do —
+    // git refused with raw text before doing anything. The ref is explicit
+    // now: the branch's own upstream when it lives on origin (this checkout's
+    // released line), else origin's main, the released line for everyone.
+    const upstreamRead = await runCommand(
+      'git',
+      ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+      cwd,
+    );
+    const upstream = upstreamRead.exitCode === 0 ? upstreamRead.stdout.trim() : '';
+    const releasedLine = upstream.startsWith('origin/') ? upstream.slice('origin/'.length) : 'main';
+    const pull = await runCommand('git', ['pull', '--ff-only', 'origin', releasedLine], cwd);
     if (pull.exitCode !== 0) {
       if (stashed) await runCommand('git', ['stash', 'pop'], cwd);
       const diverged = /fatal:|non-fast-forward|divergent|not possible to fast-forward/i.test(
