@@ -26,7 +26,16 @@ test.describe('app shell — the board as columns', () => {
     await expect(page.locator('main#fleet .task-add')).toBeVisible({ timeout: 20_000 });
 
     const card = page.locator('[data-board-view]');
-    await expect(card).toHaveAttribute('data-board-view', 'auto');
+    // Columns show FLOW (2026-09-12): the fixture's rows all sit in one status
+    // group, so "auto" reads as a list here and the toggle offers Columns —
+    // thirty queued rows beside two empty lanes was a list squeezed to a
+    // third of the width. Forcing columns still places every row by status.
+    await expect(card).toHaveAttribute('data-board-view', 'list');
+    await expect(page.locator('.board-columns')).toBeHidden();
+    const toggle = page.locator('[data-board-view-toggle]');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await toggle.click();
+    await expect(card).toHaveAttribute('data-board-view', 'columns');
     await expect(page.locator('.board-columns')).toBeVisible();
 
     // Every row's left edge is its status column's head: the fixture may hold
@@ -48,8 +57,7 @@ test.describe('app shell — the board as columns', () => {
       expect(Math.abs(box.x - columnX[columnOf(status)]!), status).toBeLessThan(2);
     }
 
-    // The toggle: List, remembered across a reload.
-    const toggle = page.locator('[data-board-view-toggle]');
+    // The toggle back: List, remembered across a reload.
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await toggle.click();
     await expect(card).toHaveAttribute('data-board-view', 'list');
