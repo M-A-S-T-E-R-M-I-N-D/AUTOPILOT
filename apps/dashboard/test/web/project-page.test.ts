@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 const PROJECT = {
@@ -113,6 +114,134 @@ function boot(projectId: string): void {
   );
   new Function(clientJs())();
 }
+
+describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
+  const SPEC = {
+    ecosystem: 'js',
+    typecheck: { bin: 'pnpm', args: ['run', 'typecheck'], label: 'pnpm run typecheck' },
+    test: { bin: 'pnpm', args: ['run', 'test'], label: 'pnpm run test' },
+  };
+  function bootWithPlan(planStatus = 200): void {
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    globalThis.fetch = vi.fn(async (url: unknown) => {
+      const u = String(url);
+      if (u.startsWith('/api/plan/publish')) {
+        return { ok: true, json: async () => ({ ok: true }) } as unknown as Response;
+      }
+      if (u.startsWith('/api/plan')) {
+        return {
+          ok: planStatus === 200,
+          status: planStatus,
+          json: async () => ({ ok: true, spec: SPEC }),
+        } as unknown as Response;
+      }
+      return { ok: true, json: async () => STATE } as unknown as Response;
+    });
+    new Function(clientJs())();
+  }
+  function step(kind: string): HTMLElement {
+    return document.querySelector(`[data-plan-step="${kind}"]`) as HTMLElement;
+  }
+  function publishButton(): HTMLButtonElement {
+    return document.querySelector('[data-plan-publish]') as HTMLButtonElement;
+  }
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('renders the gate as a chain of steps, edits into a local draft, and publishes on demand', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    const kinds = Array.from(document.querySelectorAll('[data-plan-step]')).map((b) =>
+      b.getAttribute('data-plan-step'),
+    );
+    expect(kinds).toEqual(['typecheck', 'lint', 'format', 'test', 'build']);
+    expect(step('lint').classList.contains('plan-step-off')).toBe(true);
+    expect(step('test').classList.contains('plan-step-off')).toBe(false);
+    expect(publishButton().disabled).toBe(true);
+
+    // Select test and change its command: a draft appears and autosaves locally.
+    step('test').click();
+    const cmd = document.querySelector('[data-plan-command="test"]') as HTMLInputElement;
+    expect(cmd.value).toBe('pnpm run test');
+    cmd.value = 'pnpm run test -- --coverage';
+    cmd.dispatchEvent(new Event('change', { bubbles: true }));
+    const draft = JSON.parse(window.localStorage.getItem('ap-plan-draft:p1') ?? 'null');
+    expect(draft.test.args).toEqual(['run', 'test', '--', '--coverage']);
+    expect(draft.typecheck).toEqual(SPEC.typecheck);
+    expect(publishButton().disabled).toBe(false);
+    expect(document.querySelector('.plan-status')?.textContent).toBe(STRINGS.en['planEditorDraft']);
+
+    // Publish posts the draft; it becomes the published plan and the local copy clears.
+    publishButton().click();
+    await vi.advanceTimersByTimeAsync(1);
+    const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    const publish = calls.find((c) => String(c[0]) === '/api/plan/publish');
+    expect(publish).toBeDefined();
+    const sent = JSON.parse((publish?.[1] as RequestInit).body as string);
+    expect(sent.project).toBe('p1');
+    expect(sent.spec.ecosystem).toBe('js');
+    expect(sent.spec.test.args).toEqual(['run', 'test', '--', '--coverage']);
+    expect(window.localStorage.getItem('ap-plan-draft:p1')).toBeNull();
+    expect(publishButton().disabled).toBe(true);
+    expect(document.querySelector('.plan-status')?.textContent).toBe(
+      STRINGS.en['planEditorPublishedNow'],
+    );
+  });
+
+  it('a saved draft survives a reload; Discard returns to the published plan', async () => {
+    window.localStorage.setItem(
+      'ap-plan-draft:p1',
+      JSON.stringify({
+        ...SPEC,
+        lint: { bin: 'pnpm', args: ['run', 'lint'], label: 'pnpm run lint' },
+      }),
+    );
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(step('lint').classList.contains('plan-step-off')).toBe(false);
+    expect(publishButton().disabled).toBe(false);
+    (document.querySelector('[data-plan-discard]') as HTMLElement).click();
+    expect(step('lint').classList.contains('plan-step-off')).toBe(true);
+    expect(publishButton().disabled).toBe(true);
+    expect(window.localStorage.getItem('ap-plan-draft:p1')).toBeNull();
+  });
+
+  it('turning a step off drops it from the draft; turning it on with no command seeds one', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    step('lint').click();
+    const on = document.querySelector('[data-plan-enabled="lint"]') as HTMLInputElement;
+    on.checked = true;
+    on.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(JSON.parse(window.localStorage.getItem('ap-plan-draft:p1') ?? 'null').lint.bin).toBe(
+      'pnpm',
+    );
+    step('test').click();
+    const off = document.querySelector('[data-plan-enabled="test"]') as HTMLInputElement;
+    off.checked = false;
+    off.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(
+      JSON.parse(window.localStorage.getItem('ap-plan-draft:p1') ?? 'null').test,
+    ).toBeUndefined();
+  });
+
+  it('is read-only where the plan route is not served', async () => {
+    bootWithPlan(404);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(document.querySelector('[data-plan-step]')).toBeNull();
+    expect(document.querySelector('.plan-editor')?.textContent).toContain(
+      STRINGS.en['planEditorUnavailable'],
+    );
+  });
+});
 
 describe('the per-project inside page', () => {
   beforeEach(() => vi.useFakeTimers());

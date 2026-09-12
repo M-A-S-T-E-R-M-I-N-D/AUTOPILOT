@@ -119,6 +119,8 @@ import type { ReconciliationCandidate } from '../read/reconcile.js';
 import type { LandingExecuteApiResult } from '../landing/execute.js';
 import type { LandingJobState } from '../landing/job.js';
 import type { ReleaseExecuteResult } from '../release/execute.js';
+import type { GateSpec } from '@autopilot/onboarding';
+import { validateGateSpec } from '../plan-guard.js';
 import { isMaturityChoice, type MaturityChoice } from '../release/maturity.js';
 import type { UpdateCheckApi, UpdateExecuteApi } from '../flight/update-check.js';
 import type { InboxAddResult } from '../inbox/add.js';
@@ -639,6 +641,14 @@ export interface TasksApi {
   unpin(project: string, ids: readonly string[]): boolean;
 }
 
+/** THE FLIGHT PLAN (epic 0021 slice 3, second cut): read a project's stored
+ *  gate spec and publish an edited one. `read` returns `undefined` for an
+ *  unknown project and `null` when none is stored. */
+export interface PlanApi {
+  read(project: string): string | null | undefined;
+  publish(project: string, spec: GateSpec): boolean;
+}
+
 export interface ServerDeps extends RouteDeps {
   readonly connection?: ConnectionApi;
   /** The connect screen's GitHub detection half (read-only, no credential). */
@@ -710,6 +720,8 @@ export interface ServerDeps extends RouteDeps {
   /** D4 pipeline view (epic 0015, web-mtdc6wq3-5wuc6i) — the server-rendered
    *  panel behind `GET /api/pipeline`. */
   readonly pipelinePanel?: PipelinePanelApi;
+  /** `GET /api/plan?project=` + `POST /api/plan/publish` — the flight plan editor. */
+  readonly plan?: PlanApi;
   readonly firingActivity?: FiringActivityApi;
   readonly firingDiff?: FiringDiffApi;
   readonly inboxAdd?: InboxAddApi;
@@ -1301,6 +1313,95 @@ function pipelineChoice<T extends string>(
  * one-span-per-firing traces: grouped mode is where the exporter's
  * `autopilot.item` continuation edges appear (epic 0015 D4, web-mtdc6wq3-5wuc6i).
  */
+/** `GET /api/plan?project=<id>` — the stored flight plan as JSON (`spec`
+ *  null when the project has none). */
+function handlePlanRead(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: PlanApi | undefined,
+  headers: Record<string, string>,
+): void {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'flight plan unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  const stored = api.read(project);
+  if (stored === undefined) {
+    send(404, { error: 'unknown project' });
+    return;
+  }
+  if (stored === null) {
+    send(200, { ok: true, spec: null });
+    return;
+  }
+  try {
+    send(200, { ok: true, spec: JSON.parse(stored) as unknown });
+  } catch {
+    send(200, { ok: true, spec: null });
+  }
+}
+
+/** `POST /api/plan/publish` `{project, spec}` — validate the edited plan
+ *  (`plan-spec.ts`) and store it; the next landing and firing run it.
+ *  CSRF-guarded like every other JSON write. */
+async function handlePlanPublish(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: PlanApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'flight plan unavailable' });
+    return;
+  }
+  if (req.method !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  const project = String(body['project'] ?? '');
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  const validated = validateGateSpec(body['spec']);
+  if (!validated.ok) {
+    send(400, { ok: false, error: validated.error });
+    return;
+  }
+  const ok = api.publish(project, validated.spec);
+  send(ok ? 200 : 404, ok ? { ok: true } : { ok: false, error: 'unknown project' });
+}
+
 function handlePipelinePanel(
   req: IncomingMessage,
   res: ServerResponse,
@@ -3509,6 +3610,16 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/firings') {
       handleFiringsPage(req, res, deps.firingsPage, headers);
+      return;
+    }
+
+    if (path === '/api/plan') {
+      handlePlanRead(req, res, deps.plan, headers);
+      return;
+    }
+
+    if (path === '/api/plan/publish') {
+      void handlePlanPublish(req, res, deps.plan, headers);
       return;
     }
 

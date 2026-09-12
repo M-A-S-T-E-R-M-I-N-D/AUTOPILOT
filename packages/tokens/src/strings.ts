@@ -1165,6 +1165,20 @@ const EN_STRINGS = {
   pipelineLayoutCompact: 'Compact',
   pipelineLoading: 'Loading pipeline spans…',
   pipelineUnavailable: 'Pipeline view unavailable.',
+  planEditorTitle: '✍️ Flight plan',
+  planEditorLoading: 'Loading the flight plan…',
+  planEditorUnavailable: 'The flight plan is read-only here.',
+  planEditorEnabled: 'Runs',
+  planEditorCommand: 'Command',
+  planEditorLabel: 'Label',
+  planEditorStepOff: 'off',
+  planEditorDraft:
+    'Draft — autosaved here, not yet published. The next landing and firing still run the published plan.',
+  planEditorPublished: 'Published — this is what every landing and firing runs.',
+  planEditorPublishedNow: 'Published. The next landing and firing run this plan.',
+  planEditorPublishFailed: 'Not published',
+  planEditorPublish: 'Publish',
+  planEditorDiscard: 'Discard draft',
   soulRatifyConfirm:
     'Replace the live SOUL prompt with the proposed text?\n\nYou can undo this afterward with un-ratify.',
   soulUnratifyConfirm:
@@ -2073,6 +2087,20 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     pipelineLayoutCompact: 'קומפקטי',
     pipelineLoading: 'טוען נתוני צנרת…',
     pipelineUnavailable: 'תצוגת הצנרת אינה זמינה.',
+    planEditorTitle: '✍️ תוכנית טיסה',
+    planEditorLoading: 'טוען את תוכנית הטיסה…',
+    planEditorUnavailable: 'תוכנית הטיסה לקריאה בלבד כאן.',
+    planEditorEnabled: 'רץ',
+    planEditorCommand: 'פקודה',
+    planEditorLabel: 'תווית',
+    planEditorStepOff: 'כבוי',
+    planEditorDraft:
+      'טיוטה — נשמרת כאן אוטומטית, עדיין לא פורסמה. הנחיתה והירי הבאים עדיין מריצים את התוכנית שפורסמה.',
+    planEditorPublished: 'פורסם — זה מה שכל נחיתה וירי מריצים.',
+    planEditorPublishedNow: 'פורסם. הנחיתה והירי הבאים מריצים את התוכנית הזו.',
+    planEditorPublishFailed: 'לא פורסם',
+    planEditorPublish: 'פרסם',
+    planEditorDiscard: 'בטל טיוטה',
     soulRatifyConfirm:
       'להחליף את הנחיית ה-SOUL החיה בטקסט המוצע?\n\nניתן לבטל זאת לאחר מכן באמצעות ביטול-אישור.',
     soulUnratifyConfirm:

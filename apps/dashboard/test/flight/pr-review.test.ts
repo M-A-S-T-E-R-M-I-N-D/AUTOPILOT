@@ -767,6 +767,10 @@ const BENIGN_INBOX = new Set<string>([]);
  *  future `web/` file starts building HTML from untrusted content instead
  *  of pure display math. */
 const BENIGN_WEB = new Set([
+  // Pure spec<->steps transforms for the flight plan editor (epic 0021 slice 3):
+  // no HTML, no I/O. The server-side validator that gates what gets STORED
+  // carries its own marker; this only shapes the form the operator edits.
+  'plan-editor.ts',
   // Pure icon/label/tooltip/badge text math for narrator, activity, anomaly,
   // gate/backup fact, console, docs, decision, flight-map, publicity, and
   // status chips — no HTML building, no I/O.

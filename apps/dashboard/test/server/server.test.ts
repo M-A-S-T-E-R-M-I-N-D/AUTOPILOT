@@ -3751,6 +3751,65 @@ describe('createServer (live loopback)', () => {
     expect(streamRes.status).toBe(429);
   });
 
+  it('GET /api/plan reads the stored flight plan; POST /api/plan/publish validates and writes it', async () => {
+    const published: unknown[] = [];
+    const stored = { ecosystem: 'js', test: { bin: 'pnpm', args: ['test'], label: 'pnpm test' } };
+    const base = await start({
+      plan: {
+        read: (project) => (project === 'p1' ? JSON.stringify(stored) : undefined),
+        publish: (project, spec) => {
+          published.push([project, spec]);
+          return project === 'p1';
+        },
+      },
+    });
+    const got = await fetch(`${base}/api/plan?project=p1`);
+    expect(got.status).toBe(200);
+    expect((await got.json()).spec).toEqual(stored);
+    expect((await fetch(`${base}/api/plan?project=ghost`)).status).toBe(404);
+    expect((await fetch(`${base}/api/plan`)).status).toBe(400);
+
+    const post = (body: unknown, contentType = 'application/json'): Promise<Response> =>
+      fetch(`${base}/api/plan/publish`, {
+        method: 'POST',
+        headers: { 'content-type': contentType },
+        body: JSON.stringify(body),
+      });
+    // An empty bin is refused with the reason; nothing is written.
+    const bad = await post({
+      project: 'p1',
+      spec: { ecosystem: 'js', test: { bin: '', args: [], label: '' } },
+    });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toContain('test');
+    // A plan with no step at all is refused too.
+    expect((await post({ project: 'p1', spec: { ecosystem: 'js' } })).status).toBe(400);
+    expect(published).toHaveLength(0);
+    // The CSRF guard: a non-JSON content type never reaches the store.
+    expect((await post({ project: 'p1', spec: stored }, 'text/plain')).status).toBe(415);
+    // A valid edit is stored, normalised (label filled from the command).
+    const edit = {
+      ecosystem: 'js',
+      test: { bin: 'pnpm', args: ['run', 'test', '--', '--coverage'] },
+    };
+    const ok = await post({ project: 'p1', spec: edit });
+    expect(ok.status).toBe(200);
+    expect(published).toEqual([
+      [
+        'p1',
+        {
+          ecosystem: 'js',
+          test: {
+            bin: 'pnpm',
+            args: ['run', 'test', '--', '--coverage'],
+            label: 'pnpm run test -- --coverage',
+          },
+        },
+      ],
+    ]);
+    expect((await post({ project: 'ghost', spec: edit })).status).toBe(404);
+  });
+
   it('POST /api/task/create adds a task; /api/task/status moves it (CSRF-guarded)', async () => {
     const created: unknown[] = [];
     const moved: unknown[] = [];
