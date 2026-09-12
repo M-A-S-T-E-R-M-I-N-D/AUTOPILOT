@@ -84,9 +84,13 @@ import { gzipSync } from 'node:zlib';
 // strings) — measured 194.0KB.
 // Then core raw 195→196KB (2026-09-12) for the round-3 lanes' strings (mirror-pass
 // drift + landing-note execute, discussions triage, CI status) — measured 195.2KB.
-const CORE_RAW_BUDGET = 196 * 1024;
+// Then core raw 196→198KB (2026-09-12) for the 🍀 button's WHAT-to-fly half
+// (issue #44): the fit shortlist under the Fly bar and its attention toggle,
+// eight strings in two locales — measured 197.5KB raw.
+const CORE_RAW_BUDGET = 198 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
-const CORE_GZIP_BUDGET = 58 * 1024;
+// Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
+const CORE_GZIP_BUDGET = 59 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the

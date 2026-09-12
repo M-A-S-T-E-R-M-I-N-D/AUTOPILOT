@@ -4286,6 +4286,17 @@ ${contextRailHtml(project)}
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>
       <p class="fly-hint" id="fly-hint"></p>
+      <div class="fly-fit" id="fly-fit" hidden>
+        <div class="fly-fit-head">
+          <span data-i18n="luckyFitTitle">🍀 Work that fits you</span>
+          <div class="fly-fit-attention" role="group" aria-label="How much attention you have" data-i18n-aria="luckyFitAttentionAria">
+            <button type="button" data-fly-attention="evening" aria-pressed="true" data-i18n="luckyFitEvening">one evening</button>
+            <button type="button" data-fly-attention="day" aria-pressed="false" data-i18n="luckyFitDay">a day</button>
+            <button type="button" data-fly-attention="week" aria-pressed="false" data-i18n="luckyFitWeek">a week</button>
+          </div>
+        </div>
+        <ol class="fly-fit-list" id="fly-fit-list"></ol>
+      </div>
       <p class="muted fly-progress-label" id="fly-progress-label" hidden></p>
       <div class="fly-progress" id="fly-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" tabindex="0" hidden>
         <div class="fly-progress-fill" id="fly-progress-fill"></div>

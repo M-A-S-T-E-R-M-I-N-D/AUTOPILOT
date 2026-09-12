@@ -144,6 +144,10 @@ const BENIGN_FLIGHT = new Set([
   // Its plan FILLS the Fly bar; the launch (and its spend) stays behind
   // the operator's own already-guarded Fly click.
   'lucky-plan.ts',
+  // Pure candidates→shortlist arithmetic (the 🍀 button's WHAT-to-fly half,
+  // issue #44): no I/O at all; server/main.ts assembles its inputs from the
+  // already-flagged pool/contributor reads and the client only paints.
+  'lucky-fit.ts',
   // Pure bullet-title parser feeding proposal dedupe — weakening it causes
   // repeat proposals (operator-gated spam), not a safety bypass.
   'backlog.ts',
@@ -596,6 +600,11 @@ const BENIGN_READ = new Set([
   // decides what to do with the candidates" (module header) — proposes
   // board-task-done candidates by title/commit token overlap, never writes.
   'reconcile.ts',
+  // Read-only: every task's lifetime firings/cost for one project, keyed by
+  // task id (the 🍀 fit scorer's history signal, issue #44). Opens the store
+  // readonly like project-detail.ts's search read and degrades to an empty
+  // map; it decides nothing and writes nothing.
+  'task-economics.ts',
   // "All SQLite access is confined here so read/fleet.ts stays pure ...
   // the read-only dashboard must never crash the way in" (module header) —
   // the `/api/state` gather seam; degrades to empty/partial on failure.

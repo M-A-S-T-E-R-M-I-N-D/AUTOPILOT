@@ -286,6 +286,21 @@ body {
 .fly-status.fly-ok { color: var(--color-success); font-weight: 600; }
 .fly-status.fly-err { color: var(--color-sev-high); font-weight: 600; }
 .fly-hint { flex-basis: 100%; margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+/* 🍀 WHAT to fly (issue #44): the fit shortlist under the bar — one issue per
+   line with its score and the why; the attention toggle re-rolls. Titles and
+   reasons are user/server text: plaintext bidi, never forced either way. */
+.fly-fit { flex-basis: 100%; margin: var(--space-2) 0 0; padding-block-start: var(--space-2); border-top: 1px solid var(--color-border); }
+.fly-fit-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+.fly-fit-attention { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
+.fly-fit-attention button { font: inherit; font-size: var(--text-xs); min-block-size: 1.75rem; padding: 0 var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.fly-fit-attention button[aria-pressed="true"] { border-color: var(--color-success); color: var(--color-success); font-weight: 600; }
+.fly-fit-attention button:hover, .fly-fit-attention button:focus-visible { border-color: var(--color-success); color: inherit; }
+.fly-fit-list { margin: var(--space-2) 0 0; padding-inline-start: 1.25rem; font-size: var(--text-sm); }
+.fly-fit-list li { margin-block: var(--space-2); }
+.fly-fit-title { unicode-bidi: plaintext; }
+.fly-fit-score { margin-inline-start: var(--space-2); color: var(--color-success); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fly-fit-source { margin-inline-start: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+.fly-fit-why { display: block; font-size: var(--text-xs); color: var(--color-text-muted); unicode-bidi: plaintext; text-align: start; }
 .fly-progress-label { flex-basis: 100%; margin: 0; font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 #fly-progress-bar { flex-basis: 100%; }
 .fly-flights { display: flex; flex-direction: column; gap: var(--space-2); }
