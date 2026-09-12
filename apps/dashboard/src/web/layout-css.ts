@@ -1552,7 +1552,7 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
    paths are always LTR. unicode-bidi: plaintext is the stylesheet's form of
    dir="auto"; text-align: start then follows the resolved direction. */
 .keeper-queue-open, .keeper-queue-why, .pool-client-issue-title, .pr-review-pr-title, .issue-triage-issue-title, .task-title, .mirror-pass-item, .palette-input, #search-q { unicode-bidi: plaintext; text-align: start; }
-.plan-step-label, .plan-prop input[type="text"], #fly-folder, .search-path, code, pre, kbd { direction: ltr; unicode-bidi: isolate; text-align: start; }
+.plan-step-label, .plan-prop input[type="text"], #fly-folder, .search-path, .palette-btn, code, pre, kbd { direction: ltr; unicode-bidi: isolate; text-align: start; }
 .context-rail { display: none; }
 .context-rail-empty { margin: var(--space-4) var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
 @media (min-width: 80rem) {
@@ -1624,6 +1624,14 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 /* KEEPER BADGE (epic 0021 slice 4, first cut): how many things wait on a
    human, shown on the place where they wait. Needs-you ink, by definition. */
 .subject-link { position: relative; }
+/* HEBREW TYPOGRAPHY (RTL audit, 2026-09-12): Hebrew letterforms are not
+   designed to be tracked, so under dir="rtl" every tracked label (24 rules,
+   0.02–0.06em) loses its letter-spacing — this block is LAST so it wins the
+   specificity ties by order — and body copy gets the looser line Hebrew
+   reads best at (1.6 vs. the Latin default). Uppercase transforms are a
+   no-op for Hebrew and stay. */
+[dir="rtl"] body { line-height: 1.6; }
+[dir="rtl"] * { letter-spacing: normal; }
 .subject-badge { position: absolute; inset-block-start: 4px; inset-inline-end: calc(50% - 1.375rem); min-inline-size: 1.125rem; block-size: 1.125rem; padding: 0 4px; border-radius: var(--radius-full); background: var(--color-needs-you); color: var(--color-accent-text); font-size: 0.6875rem; font-weight: 700; line-height: 1.125rem; text-align: center; }
 `.trim();
 }

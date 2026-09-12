@@ -170,6 +170,19 @@ describe('layout-css — mobile-first laws', () => {
     );
   });
 
+  it('never tracks Hebrew: under dir=rtl every letter-spacing rule is undone, last in the sheet', () => {
+    const law = '[dir="rtl"] * { letter-spacing: normal; }';
+    expect(css).toContain(law);
+    expect(css).toContain('[dir="rtl"] body { line-height: 1.6; }');
+    // Every tracked rule precedes the law, so order alone decides the tie.
+    const lawAt = css.indexOf(law);
+    const tracked = [...css.matchAll(/letter-spacing: 0\.0\dem/g)];
+    expect(tracked.length).toBeGreaterThan(20);
+    for (const m of tracked) expect(m.index, m[0]).toBeLessThan(lawAt);
+    // The ⌘K chip is a Latin token an RTL paragraph must not reorder.
+    expect(css).toMatch(/\.palette-btn, code, pre, kbd \{ direction: ltr; unicode-bidi: isolate;/);
+  });
+
   it('the masthead popovers are a viewport sheet below md and an anchored menu from md', () => {
     expect(css).toMatch(/^\.connect-body \{ position: fixed; inset-inline: var\(--space-3\);/m);
     const md = css.indexOf('@media (min-width: 48rem) {\n  /* From md the popover is a menu');
