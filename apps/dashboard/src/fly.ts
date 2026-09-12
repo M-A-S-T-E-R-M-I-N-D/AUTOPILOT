@@ -70,6 +70,9 @@ import {
   repoPrefixOf,
   syncWorktreeBranch,
   formatMergeEscalationContext,
+  createGitMergeEscalationDeps,
+  runMergeEscalationAgent,
+  ClaudeCliModel,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -77,6 +80,7 @@ import {
   type EngineConfig,
   type Activity,
   type ContainmentBreach,
+  type SyncWorktreeEscalationHook,
 } from '@autopilot/engine';
 import {
   onboard,
@@ -1549,7 +1553,67 @@ async function main(): Promise<void> {
     // happen to catch it. Best-effort, same as every sync-back call site:
     // still-dirty target just leaves the work parked for next time.
     if (flightRoot !== target) {
-      const finalSync = await syncWorktreeBranch(target, targetBranch, worktreePlan.branch);
+      // MERGE-ESCALATION rung 4 (docs/EVALUATION-2026-09-03-sync-conflict-
+      // taxonomy.md): only wired at THIS call site, never the per-firing
+      // catch-up sync above — flight-end is the one sync-back with no
+      // cadence pressure, already paying for the FULL gate below on success.
+      // A conflict rungs 1-3 can't settle gets one agent-resolved,
+      // gate-validated attempt before it strands as an inbox task.
+      const escalate: SyncWorktreeEscalationHook = async (conflicts) => {
+        out(
+          '  🤖 sync-back conflict survived union/rerere/fast-forward — trying the merge-escalation agent (rung 4)…',
+        );
+        const invokeAgent = async (prompt: string) => {
+          const model = new ClaudeCliModel({
+            repo: target,
+            config,
+            auth,
+            settingsPath: guardSettingsPath,
+            pidRegistry,
+            ...(cliTimeoutMs !== undefined ? { timeoutMs: cliTimeoutMs } : {}),
+          });
+          // A resolution agent only ever needs to read a handful of files,
+          // edit them, and `git add` — a much narrower job than an ordinary
+          // firing's, so it gets a correspondingly narrower cap instead of
+          // the flight's full maxTurns/maxBudgetUsd ceiling.
+          const resp = await model.invoke(config.primaryModel, prompt, undefined, {
+            maxTurns: 15,
+            maxBudgetUsd: 3,
+          });
+          if (resp.exitCode !== 0 || resp.envelope === null || resp.envelope.isError) {
+            return {
+              ok: false,
+              details:
+                resp.envelope?.result ??
+                `merge-escalation agent invocation failed (exit ${resp.exitCode})`,
+            };
+          }
+          return { ok: true, details: resp.envelope.result ?? 'merge-escalation agent completed' };
+        };
+        const deps = createGitMergeEscalationDeps(target, fullConvergedGate, invokeAgent);
+        const outcome = await runMergeEscalationAgent(
+          conflicts,
+          worktreePlan.branch,
+          targetBranch,
+          deps,
+        );
+        if (outcome.kind === 'resolved') {
+          out(`  🤖 merge-escalation agent resolved and committed: ${outcome.details}`);
+          return { ok: true, details: outcome.details };
+        }
+        const reason =
+          outcome.kind === 'left-unresolved'
+            ? `left ${outcome.unresolvedPaths.length} path(s) unresolved`
+            : outcome.details;
+        out(`  ⚠ merge-escalation agent did not resolve the conflict (${outcome.kind}): ${reason}`);
+        return { ok: false, details: reason };
+      };
+      const finalSync = await syncWorktreeBranch(
+        target,
+        targetBranch,
+        worktreePlan.branch,
+        escalate,
+      );
       if (finalSync.ok) {
         guarded = snapshotGuardedHeads(headReader, guardedPathsFor(flightRoot, guardCandidates));
         out(`  🔁 flight-end sync-back: ${finalSync.details}`);
