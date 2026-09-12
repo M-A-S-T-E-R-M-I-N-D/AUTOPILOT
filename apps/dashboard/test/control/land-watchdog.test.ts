@@ -152,6 +152,44 @@ describe('landWatchdogTick (pure)', () => {
     expect(aheadSiblings).not.toHaveBeenCalled();
     expect(land).not.toHaveBeenCalled();
   });
+
+  it('refuses the land and names the half-step when an in_progress task has shipped slices in the diff (web-mtq2cubl-e5z0ae)', async () => {
+    const land = vi.fn();
+    const aheadSiblings = vi.fn(async () => []);
+    const halfSteps = [
+      {
+        taskId: 'web-mtq2cubl-e5z0ae',
+        title: 'connect.ts splices',
+        assignee: 'fleet-3',
+        commits: ['abc1234'],
+        files: ['src/connect.ts'],
+      },
+    ];
+    const control: LandWatchdogControl = {
+      landableCommitCount: async () => 8,
+      overlapWarnings: async () => [],
+      halfSteps: async () => halfSteps,
+      aheadSiblings,
+      land,
+    };
+    const result = await landWatchdogTick(control);
+    expect(result).toEqual({ attempted: false, result: null, halfSteps });
+    expect(land).not.toHaveBeenCalled();
+    expect(aheadSiblings).not.toHaveBeenCalled();
+  });
+
+  it('lands normally when halfSteps reports no open task in the diff', async () => {
+    const landResult = { ok: true, reason: 'landed', details: 'ok', restarting: false } as const;
+    const land = vi.fn(async () => landResult);
+    const control: LandWatchdogControl = {
+      landableCommitCount: async () => 1,
+      overlapWarnings: async () => [],
+      halfSteps: async () => [],
+      land,
+    };
+    expect(await landWatchdogTick(control)).toEqual({ attempted: true, result: landResult });
+    expect(land).toHaveBeenCalledOnce();
+  });
 });
 
 describe('createLandWatchdogControl (real store + real git)', () => {

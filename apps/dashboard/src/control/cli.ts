@@ -400,6 +400,18 @@ async function main(): Promise<void> {
                     );
                     return;
                   }
+                  if (lr.halfSteps?.length) {
+                    const who = lr.halfSteps
+                      .map(
+                        (h) =>
+                          `${h.taskId}${h.assignee ? ` @${h.assignee}` : ''} (${h.files.join(', ')})`,
+                      )
+                      .join('; ');
+                    out(
+                      `  🛬 landing deferred — half-step guard: in-progress board task(s) have shipped slices in this diff: ${who} — finish or release the task before landing`,
+                    );
+                    return;
+                  }
                   if (!lr.attempted || !lr.result) return;
                   out(
                     lr.result.ok
@@ -461,6 +473,15 @@ async function main(): Promise<void> {
                       const who = lr.overlaps.map((w) => w.branch).join('; ');
                       out(
                         `  🛬 fleet-watchdog landing deferred for ${project.root_path} — sibling unlanded overlap: ${who} — flagged for lead consolidation`,
+                      );
+                      return;
+                    }
+                    if (lr.halfSteps?.length) {
+                      const who = lr.halfSteps
+                        .map((h) => `${h.taskId}${h.assignee ? ` @${h.assignee}` : ''}`)
+                        .join('; ');
+                      out(
+                        `  🛬 fleet-watchdog landing deferred for ${project.root_path} — half-step guard: in-progress task(s) have shipped slices in this diff: ${who} — finish or release the task before landing`,
                       );
                       return;
                     }

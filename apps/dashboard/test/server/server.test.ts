@@ -902,6 +902,7 @@ describe('createServer (live loopback)', () => {
               commits: [{ shortSha: 'abc1234', subject: 'feat: thing', files: ['a.ts'] }],
               diffstat: { filesChanged: 1, insertions: 3, deletions: 0 },
               overlaps: [],
+              halfSteps: [],
               worktreeAhead: [],
             }
           : null,
