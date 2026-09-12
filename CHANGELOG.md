@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.41.0] — 2026-09-12
+
+### Added
+
+- feat(dashboard): epic 0020 slice 8 (redo) — the 🔧 Diagnose button, within budget
+- feat(landing): the LANDING card warns about lane half-steps and folds them into the EXECUTE confirm
+- feat(dashboard): the flight plan editor undoes and redoes — Ctrl+Z / Ctrl+Shift+Z and two buttons
+- feat(landing): refuse the auto-land when an in_progress task's shipped slices sit in the diff
+- feat(dashboard): epic 0020 slice 8 — the 🔧 Diagnose button
+- feat(dashboard): the Keeper queue keeps a settled-this-session history — the slice 4 remainder
+- feat(dashboard): epic 0021 slice 9 — the board as columns: Queued · In flight & needs you · Done
+
+### Fixed
+
+- fix(dashboard): bound the board's column grid to 72vh with its own scroll
+
 ## [0.40.0] — 2026-09-12
 
 ### Added
