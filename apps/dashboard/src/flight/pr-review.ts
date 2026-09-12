@@ -1114,6 +1114,15 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // write on someone else's repo under our login, so widening what it can
   // claim is a permission change: security-hard review always.
   'flight/pool-client-execute.ts',
+  // KEEPER DISCUSSIONS TRIAGE (epic 0007 S8): `discussions-triage.ts` now
+  // POSTS replies (`addDiscussionComment`) and applies labels
+  // (`addLabelsToLabelable`) via hand-rolled `gh api graphql` mutations
+  // under the operator's own login, and `discussions-triage-execute.ts` is
+  // the identity-gated wiring that runs them — a reply signed "on behalf of"
+  // the operator on a public discussion is the same write-on-GitHub-as-us
+  // class as pool-client-execute above. Prefix (no `.ts`) so both the core
+  // and its `-execute` wiring are flagged by one marker.
+  'flight/discussions-triage',
   // Decides the fork/push/`gh pr create` argv sequence the dashboard's
   // github/pr-execute.ts runs against the operator's GitHub — the wired
   // PR-leg of contribute-upstream, same plan-the-write-command class.

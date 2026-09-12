@@ -197,6 +197,8 @@ describe('computeDocDrift', () => {
         subjects: [
           'apps/dashboard/src/flight/issue-triage.ts',
           'apps/dashboard/src/flight/issue-triage-execute.ts',
+          'apps/dashboard/src/flight/discussions-triage.ts',
+          'apps/dashboard/src/flight/discussions-triage-execute.ts',
           'apps/dashboard/src/flight/pr-review.ts',
           'apps/dashboard/src/flight/pr-review-execute.ts',
           'apps/dashboard/src/flight/report-from-here.ts',

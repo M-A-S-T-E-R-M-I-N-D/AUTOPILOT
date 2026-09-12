@@ -60,13 +60,16 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
   },
   {
     // Active epic; slices 3 (issue triage), 4 (PR review), 5 (report-from-
-    // here), 6 (pool client), and 7 (publicity) have all landed pure-decision-
-    // core + execute files — their well-defined subject area. UI panels are
-    // already covered by epic 0002's broader web/ entry above.
+    // here), 6 (pool client), 7 (publicity), and 8 (discussions triage) have
+    // all landed pure-decision-core + execute files — their well-defined
+    // subject area. UI panels are already covered by epic 0002's broader web/
+    // entry above.
     doc: 'docs/epics/0007-platform-maintainer-and-pool.md',
     subjects: [
       'apps/dashboard/src/flight/issue-triage.ts',
       'apps/dashboard/src/flight/issue-triage-execute.ts',
+      'apps/dashboard/src/flight/discussions-triage.ts',
+      'apps/dashboard/src/flight/discussions-triage-execute.ts',
       'apps/dashboard/src/flight/pr-review.ts',
       'apps/dashboard/src/flight/pr-review-execute.ts',
       'apps/dashboard/src/flight/report-from-here.ts',

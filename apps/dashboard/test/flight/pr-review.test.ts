@@ -244,14 +244,10 @@ const BENIGN_FLIGHT = new Set([
   // will actually call the social pass at a phase is a follow-up slice that
   // will need its own marker once it ships one.
   'social-flight-trigger.ts',
-  // KEEPER DISCUSSIONS TRIAGE first slice (board web-mtlsiac0-v8rksh, docs/
-  // epics/0007-platform-maintainer-and-pool.md S8): fetchOpenDiscussions only
-  // LISTS via a read-only `gh api graphql` query, and planDiscussionTriage is
-  // a pure dimension classifier over already-fetched fields — no reply,
-  // comment, or label write exists yet; reply-posting is a follow-on slice
-  // that will need its own marker once it ships one, same class as
-  // pool-client.ts/social-pass.ts above.
-  'discussions-triage.ts',
+  // discussions-triage.ts needs no entry any more: once it grew reply-posting
+  // and labeling (board web-mtlsiac0-v8rksh's later slices) it earned the
+  // `flight/discussions-triage` marker, which also covers its `-execute`
+  // wiring — exactly the "own marker once it ships one" this list promised.
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
