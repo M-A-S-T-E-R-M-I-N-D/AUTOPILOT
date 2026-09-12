@@ -263,7 +263,19 @@ const CORE_GZIP_BUDGET = 57 * 1024;
  * Then raw 137→144KB (2026-09-12) for EPIC 0021 slice 4: the Keeper queue (a view
  * over the panels with keyboard exit actions) — measured 142.6KB raw.
  */
-const CHUNK_RAW_BUDGET = 144 * 1024;
+/**
+ * Then raw 144→145KB (2026-09-12) for EPIC 0020 slice 8: the 🔧 Diagnose
+ * button — the fourth maintainer verb, reading `GET /api/pr-review/diagnose`
+ * and rendering its flake/defect/unknown verdict. Paid the tripwire first:
+ * folded the repeated disable/restore/render-result logic across every
+ * maintainer-verb click handler (execute, merge, re-run, update-branch, and
+ * this one) into two shared helpers, generalized `wirePrMaintainerAction` to
+ * cover a confirm-free GET as well as its three POST call sites, and
+ * shortened the button's own tooltip — brought a 824B overage down to 81B.
+ * Measured 144.1KB raw against the old 144KB budget; gzip (43.4KB) stays
+ * comfortably under CHUNK_GZIP_BUDGET, untouched.
+ */
+const CHUNK_RAW_BUDGET = 145 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

@@ -172,7 +172,11 @@ const CORE_GZIP_BUDGET = 57 * 1024;
 // Then raw 137→144KB (2026-09-12) for EPIC 0021 slice 4: the Keeper queue — one
 // list of everything waiting on a human, a view over the panels with keyboard
 // exit actions — measured 142.6KB raw.
-const CHUNK_RAW_BUDGET = 144 * 1024;
+// Then raw 144→145KB (2026-09-12) for EPIC 0020 slice 8: the 🔧 Diagnose button
+// — measured 144.1KB raw after trimming (shared restore/render helpers, a
+// generalized wirePrMaintainerAction, a shorter tooltip). Mirrors the budget
+// comment in test/server/client-bundle-size-budget.test.ts.
+const CHUNK_RAW_BUDGET = 145 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
