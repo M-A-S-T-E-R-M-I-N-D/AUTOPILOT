@@ -203,6 +203,21 @@ describe('layout-css — mobile-first laws', () => {
     expect(css).toContain('.task:hover .task-move, .task:focus-within .task-move { opacity: 1; }');
   });
 
+  it('the themes reach the native chrome and the stray buttons: color-scheme per theme, themed scrollbars, the toggle and plan actions styled, the CI panel inset', () => {
+    expect(css).toContain('[data-theme="dark"], [data-theme="terminal"] { color-scheme: dark; }');
+    expect(css).toContain('[data-theme="light"] { color-scheme: light; }');
+    expect(css).toContain(
+      'html { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) var(--color-surface-sunken); }',
+    );
+    expect(css).toMatch(
+      /\.board-view-toggle, \.plan-actions button \{ font: inherit;[^\n]*border: 1px solid var\(--color-border\); background: transparent;/,
+    );
+    expect(css).toContain('.plan-actions button:disabled { opacity: 0.5; cursor: default; }');
+    expect(css).toMatch(
+      /body > \.fleet-wisdom, body > \.ci-status-panel \{ margin-inline: var\(--page-inline\); \}/,
+    );
+  });
+
   it('never tracks Hebrew: under dir=rtl every letter-spacing rule is undone, last in the sheet', () => {
     const law = '[dir="rtl"] * { letter-spacing: normal; }';
     expect(css).toContain(law);

@@ -27,6 +27,16 @@ export function layoutCss(): string {
    one left edge on every width. The shell sizes are the bottom bar's height
    (compact) and the rail's width (medium and up). */
 :root { --page-inline: var(--space-3); --shell-nav-size: 3.5rem; --shell-rail-size: 5rem; --shell-context-size: 22.5rem; }
+/* THE THEMES REACH THE NATIVE CHROME (operator, 2026-09-12: "the scrollbars
+   and some buttons are not adapted to our themes"): color-scheme tells the
+   browser which palette its OWN controls render in — scrollbars, unstyled
+   buttons and selects, checkboxes, the date picker — per theme, so nothing
+   the stylesheet never reached stays light-grey inside a dark cockpit;
+   scrollbar-color then paints the bars in the theme's own tokens where the
+   browser lets a page decide. */
+[data-theme="dark"], [data-theme="terminal"] { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+html { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) var(--color-surface-sunken); }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
   margin: 0; font-family: var(--font-sans);
@@ -959,6 +969,16 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    column six screens tall otherwise (seen live), and the column heads stay
    above it. */
 .board-view-toggle { display: block; inline-size: fit-content; margin: 0 0 var(--space-2) auto; font-size: var(--text-xs); }
+/* SECONDARY ACTION BUTTONS (2026-09-12): the board view toggle and the plan
+   editor's Publish · Undo · Redo · Discard rendered as the browser's default
+   button — grey, square, theme-blind. They share the task row's button
+   design: bordered, quiet, the M3 shape morph on hover and press, dimmed
+   when disabled; Publish carries the accent when it has something to publish. */
+.board-view-toggle, .plan-actions button { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard), color var(--duration-short2) var(--easing-standard); }
+.board-view-toggle:not(:disabled):hover, .board-view-toggle:not(:disabled):focus-visible, .plan-actions button:not(:disabled):hover, .plan-actions button:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.board-view-toggle:not(:disabled):active, .plan-actions button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.plan-actions button:disabled { opacity: 0.5; cursor: default; }
+.plan-publish:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
 .board-column-count { font-variant-numeric: tabular-nums; }
@@ -1475,8 +1495,10 @@ a.chip, .card-link { display: inline-flex; align-items: center; min-block-size: 
 }
 /* Body-level panels share main's inline edge: one left edge on every width. */
 body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel,
-body > .contributor-standing-panel, body > .publicity-panel, body > .fleet-wisdom { margin-inline: var(--page-inline); }
-body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel { margin-block-start: var(--space-3); }
+body > .contributor-standing-panel, body > .publicity-panel, body > .fleet-wisdom, body > .ci-status-panel { margin-inline: var(--page-inline); }
+/* The CI-status panel arrived from a lane without the page inset every other
+   body-level panel shares — it read a different width (operator, 2026-09-12). */
+body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel, body > .ci-status-panel { margin-block-start: var(--space-3); }
 /* Anchored sections clear the sticky masthead when a deep link lands. */
 body > [data-subject] { scroll-margin-block-start: 5rem; }
 /* The subject nav: a bottom bar on a compact window — the thumb zone — as
