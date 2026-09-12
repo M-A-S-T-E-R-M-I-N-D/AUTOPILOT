@@ -54,6 +54,14 @@ function cleanupDir(dir: string): void {
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }
 
+/** Bodies that pass the issue-protocol gate (operator, 2026-09-12): every
+ *  planner fixture here is filed ON the bug template, so these tests keep
+ *  proving dedup/accept/labeling; `issue-triage-protocol.test.ts` proves the
+ *  gate itself. The parse fixtures under `fetchOpenIssues` stay raw. */
+const templated = (text: string): string =>
+  `### What happened?\n${text}\n\n### Steps to reproduce\n1. see above\n\n### Expected behavior\nIt works.\n`;
+const TEMPLATED_BODY = templated('');
+
 describe('classifyIssueDimension', () => {
   it('picks the dimension whose keywords appear most in the text', () => {
     expect(classifyIssueDimension('Screen reader users cannot reach the aria-labeled button')).toBe(
@@ -125,7 +133,11 @@ describe('classifyIssueMilestone', () => {
 describe('planIssueTriage', () => {
   it('flags a duplicate when the issue title strongly overlaps an open board task', () => {
     const decision = planIssueTriage(
-      { number: 42, title: 'Dashboard crashes when opening the project page', body: '' },
+      {
+        number: 42,
+        title: 'Dashboard crashes when opening the project page',
+        body: TEMPLATED_BODY,
+      },
       [{ id: 'web-abc123', title: 'Dashboard crashes when opening the project page' }],
       [],
     );
@@ -140,7 +152,11 @@ describe('planIssueTriage', () => {
 
   it('flags a duplicate against a backlog title, not only board tasks', () => {
     const decision = planIssueTriage(
-      { number: 7, title: 'Add reuse lint as an optional CI job alongside SPDX gate', body: '' },
+      {
+        number: 7,
+        title: 'Add reuse lint as an optional CI job alongside SPDX gate',
+        body: TEMPLATED_BODY,
+      },
       [],
       ['Add reuse lint as an optional CI job alongside SPDX gate'],
     );
@@ -156,7 +172,7 @@ describe('planIssueTriage', () => {
       {
         number: 9,
         title: 'Keyboard nav is broken in the fleet table',
-        body: 'Screen reader users are stuck',
+        body: templated('Screen reader users are stuck'),
       },
       [{ id: 'web-other', title: 'Unrelated task about release tagging' }],
       ['Unrelated backlog line about billing'],
@@ -178,7 +194,11 @@ describe('planIssueTriage', () => {
 
   it('classifies an accepted issue into the Hardening milestone by its security/a11y/perf signal', () => {
     const decision = planIssueTriage(
-      { number: 60, title: 'Auth bypass security vulnerab found in login flow', body: '' },
+      {
+        number: 60,
+        title: 'Auth bypass security vulnerab found in login flow',
+        body: TEMPLATED_BODY,
+      },
       [],
       [],
     );
@@ -191,7 +211,7 @@ describe('planIssueTriage', () => {
       {
         number: 61,
         title: 'Bootstrap the initial architecture scaffold for a fresh repo',
-        body: '',
+        body: TEMPLATED_BODY,
       },
       [],
       [],
@@ -202,7 +222,7 @@ describe('planIssueTriage', () => {
 
   it('respects a custom threshold', () => {
     const weaklyRelated = planIssueTriage(
-      { number: 1, title: 'Dashboard project page sometimes crashes', body: '' },
+      { number: 1, title: 'Dashboard project page sometimes crashes', body: TEMPLATED_BODY },
       [{ id: 'web-x', title: 'Dashboard crashes when opening the project page' }],
       [],
       0.95,
@@ -216,7 +236,7 @@ describe('planIssueTriage', () => {
       {
         number: 9,
         title: 'Keyboard nav is broken in the fleet table',
-        body: '',
+        body: TEMPLATED_BODY,
         labels: ['pool: accessibility'],
       },
       [],
@@ -229,7 +249,7 @@ describe('planIssueTriage', () => {
 
   it('skips an issue already labeled duplicate by a previous pass', () => {
     const decision = planIssueTriage(
-      { number: 3, title: 'nav broken', body: '', labels: ['duplicate'] },
+      { number: 3, title: 'nav broken', body: TEMPLATED_BODY, labels: ['duplicate'] },
       [],
       [],
     );
@@ -243,7 +263,7 @@ describe('planIssueTriage', () => {
     // against its own task and answer "duplicate" — every re-run posted
     // another bogus comment on the issue's own thread.
     const decision = planIssueTriage(
-      { number: 9, title: 'Keyboard nav is broken in the fleet table', body: '' },
+      { number: 9, title: 'Keyboard nav is broken in the fleet table', body: TEMPLATED_BODY },
       [{ id: 'github-9', title: 'Keyboard nav is broken in the fleet table' }],
       [],
     );
@@ -257,7 +277,7 @@ describe('planIssueTriage', () => {
       {
         number: 21,
         title: 'Add a --dry-run flag to the CLI',
-        body: 'Small, well-scoped, great for a first PR',
+        body: templated('Small, well-scoped, great for a first PR'),
         labels: ['good first issue'],
       },
       [],
@@ -271,7 +291,12 @@ describe('planIssueTriage', () => {
 
   it('recognizes the hyphenated "good-first-issue" label spelling too', () => {
     const decision = planIssueTriage(
-      { number: 22, title: 'Fix a typo in the README', body: '', labels: ['good-first-issue'] },
+      {
+        number: 22,
+        title: 'Fix a typo in the README',
+        body: TEMPLATED_BODY,
+        labels: ['good-first-issue'],
+      },
       [],
       [],
     );
@@ -284,7 +309,7 @@ describe('planIssueTriage', () => {
       {
         number: 30,
         title: 'Keyboard nav is broken in the fleet table',
-        body: 'aria issue',
+        body: templated('aria issue'),
         assignees: ['octocat'],
       },
       [],
@@ -298,7 +323,7 @@ describe('planIssueTriage', () => {
 
   it('does not skip an unassigned issue on the assignee check', () => {
     const decision = planIssueTriage(
-      { number: 31, title: 'Add a --dry-run flag to the CLI', body: '', assignees: [] },
+      { number: 31, title: 'Add a --dry-run flag to the CLI', body: TEMPLATED_BODY, assignees: [] },
       [],
       [],
     );
@@ -331,7 +356,7 @@ describe('planIssueTriage', () => {
       {
         number: 51,
         title: 'partner application: @gabibi555',
-        body: '',
+        body: TEMPLATED_BODY,
         labels: ['partner-application'],
         assignees: ['gabibi555'],
       },
@@ -347,7 +372,7 @@ describe('planIssueTriage', () => {
       {
         number: 52,
         title: 'partner application: @gabibi555',
-        body: '',
+        body: TEMPLATED_BODY,
         labels: ['partner-application', 'dossier-posted'],
       },
       [],
@@ -360,7 +385,11 @@ describe('planIssueTriage', () => {
 });
 
 describe('planIssueTriageCommands', () => {
-  const issue = { number: 9, title: 'Keyboard nav is broken in the fleet table', body: '' };
+  const issue = {
+    number: 9,
+    title: 'Keyboard nav is broken in the fleet table',
+    body: TEMPLATED_BODY,
+  };
 
   it('plans an add-label edit (pool + area + priority) followed by a reasoning comment for an accepted issue', () => {
     const decision = planIssueTriage(issue, [], []);
@@ -435,8 +464,12 @@ describe('planIssueTriageCommands', () => {
 describe('planIssueTriageBatch', () => {
   it('plans a decision and its commands for every issue, independently', () => {
     const issues = [
-      { number: 1, title: 'Dashboard crashes when opening the project page', body: '' },
-      { number: 2, title: 'Keyboard nav is broken in the fleet table', body: 'aria issue' },
+      { number: 1, title: 'Dashboard crashes when opening the project page', body: TEMPLATED_BODY },
+      {
+        number: 2,
+        title: 'Keyboard nav is broken in the fleet table',
+        body: templated('aria issue'),
+      },
     ];
     const boardTasks = [
       { id: 'web-abc', title: 'Dashboard crashes when opening the project page' },
@@ -459,8 +492,8 @@ describe('planIssueTriageBatch', () => {
 
   it('does not let one issue in the batch dedup against another', () => {
     const issues = [
-      { number: 1, title: 'Add reuse lint as an optional CI job', body: '' },
-      { number: 2, title: 'Add reuse lint as an optional CI job', body: '' },
+      { number: 1, title: 'Add reuse lint as an optional CI job', body: TEMPLATED_BODY },
+      { number: 2, title: 'Add reuse lint as an optional CI job', body: TEMPLATED_BODY },
     ];
 
     const plans = planIssueTriageBatch(issues, [], []);
@@ -474,7 +507,9 @@ describe('planIssueTriageBatch', () => {
   });
 
   it('respects a custom threshold across the whole batch', () => {
-    const issues = [{ number: 1, title: 'Dashboard project page sometimes crashes', body: '' }];
+    const issues = [
+      { number: 1, title: 'Dashboard project page sometimes crashes', body: TEMPLATED_BODY },
+    ];
     const boardTasks = [{ id: 'web-x', title: 'Dashboard crashes when opening the project page' }];
 
     const plans = planIssueTriageBatch(issues, boardTasks, [], 0.95);
@@ -493,8 +528,12 @@ describe('applyIssueTriageTasks', () => {
       project(s, 'p1');
 
       const issues = [
-        { number: 9, title: 'Keyboard nav is broken in the fleet table', body: 'aria issue' },
-        { number: 10, title: 'Already tracked dashboard crash', body: '' },
+        {
+          number: 9,
+          title: 'Keyboard nav is broken in the fleet table',
+          body: templated('aria issue'),
+        },
+        { number: 10, title: 'Already tracked dashboard crash', body: TEMPLATED_BODY },
       ];
       const boardTasks = [{ id: 'web-abc', title: 'Already tracked dashboard crash' }];
       const plans = planIssueTriageBatch(issues, boardTasks, []);
@@ -525,7 +564,9 @@ describe('applyIssueTriageTasks', () => {
       migrate(s);
       project(s, 'p1');
 
-      const issues = [{ number: 9, title: 'Keyboard nav is broken in the fleet table', body: '' }];
+      const issues = [
+        { number: 9, title: 'Keyboard nav is broken in the fleet table', body: TEMPLATED_BODY },
+      ];
       const plans = planIssueTriageBatch(issues, [], []);
 
       applyIssueTriageTasks(s, 'p1', plans, () => 100);
@@ -567,7 +608,7 @@ describe('planIssueTriageTask', () => {
   const issue = {
     number: 9,
     title: 'Keyboard nav is broken in the fleet table',
-    body: 'aria issue',
+    body: templated('aria issue'),
   };
 
   it('turns an accepted decision into a source: github CreateTaskInput', () => {
@@ -599,7 +640,7 @@ describe('planIssueTriageTask', () => {
   });
 
   it('truncates a very long issue title to the task board title cap', () => {
-    const longIssue = { number: 1, title: 'x'.repeat(500), body: '' };
+    const longIssue = { number: 1, title: 'x'.repeat(500), body: TEMPLATED_BODY };
     const decision = planIssueTriage(longIssue, [], []);
 
     const task = planIssueTriageTask(longIssue, decision, 'proj-1', 1000);
@@ -620,7 +661,7 @@ describe('fetchOpenIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,body,url,labels,assignees,author',
+      'number,title,body,url,labels,assignees,author,createdAt',
     ]);
   });
 
@@ -759,7 +800,11 @@ describe('fetchOpenIssues', () => {
 });
 
 describe('executeIssueTriageCommands', () => {
-  const issue = { number: 9, title: 'Keyboard nav is broken in the fleet table', body: '' };
+  const issue = {
+    number: 9,
+    title: 'Keyboard nav is broken in the fleet table',
+    body: TEMPLATED_BODY,
+  };
 
   it('runs every planned command through exec, in order, and pairs each with its result', async () => {
     const decision = planIssueTriage(issue, [], []);
@@ -836,9 +881,9 @@ describe('runIssueTriageRitual', () => {
               {
                 number: 9,
                 title: 'Keyboard nav is broken in the fleet table',
-                body: 'aria issue',
+                body: templated('aria issue'),
               },
-              { number: 10, title: 'Already tracked dashboard crash', body: '' },
+              { number: 10, title: 'Already tracked dashboard crash', body: TEMPLATED_BODY },
             ]),
           };
         }
@@ -951,7 +996,7 @@ describe('runIssueTriageRitual', () => {
               {
                 number: 50,
                 title: 'partner application: @gabibi555',
-                body: '',
+                body: TEMPLATED_BODY,
                 labels: [{ name: 'partner-application' }],
                 author: { login: 'gabibi555' },
               },

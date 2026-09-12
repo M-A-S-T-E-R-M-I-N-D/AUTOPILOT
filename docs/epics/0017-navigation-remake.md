@@ -5,11 +5,15 @@ SPDX-License-Identifier: Apache-2.0
 
 # Epic 0017 — Navigation remake: minimal, visual, memorable
 
-**Status:** ACTIVE (operator directive 2026-09-06). Slice 1/5 shipped —
-`ae2c2419` (census) + `a0bdbc0f` (icon cluster). Slices 2-5 wait for
-`shell.ts` commit velocity to drop (the i18n sweep, and since 2026-09-07 epic
-0018 too — same-file collision discipline), then land in slices. See the
-dependency audit's refresh below for the measured state.
+**Status:** ACTIVE (operator directive 2026-09-06). Slices 1 and 4 shipped —
+`ae2c2419` (census) + `a0bdbc0f` (icon cluster), and the command palette
+landed as epic 0021 slice 7 (`242ec633`: a `<dialog>` combobox over a
+listbox, ⌘K, items read from the page itself). Slice 5 (deep-page side
+rail) is superseded by 0021's subject rail (`c97e82d2`) and its planned
+context rail (0021 slice 6). Slices 2 (status-pill consolidation) and 3
+(overflow menu absorbing tour/LTS/report/docs) remain, waiting for
+`shell.ts` commit velocity to drop (same-file collision discipline). See the
+dependency audit's refresh below for the measured state as of 2026-09-07.
 
 ## The complaint (accurate)
 

@@ -97,6 +97,7 @@ import { resolveDbPath } from './read/config.js';
 import { readConnectionConfig } from './connection/config.js';
 import { taskEconomicsFromRows } from './flight/triage-factors.js';
 import { runBoardTriage } from './flight/board-triage.js';
+import { isHumanClosedTask, CLAIMED_TASK_PROMPT_NOTE } from './flight/claim-contract.js';
 import { triageInboxEntries } from './flight/inbox-triage.js';
 import {
   totalBudgetExhausted,
@@ -1023,7 +1024,9 @@ async function main(): Promise<void> {
           .filter((t) => t.assignee === null || t.assignee === instanceKey)
           .map((t) => ({
             id: t.id,
-            title: t.title,
+            // THE CLAIM CONTRACT (claim-contract.ts): a claimed issue's row
+            // says so, so the agent ships a slice instead of declaring it done.
+            title: isHumanClosedTask(t) ? `${t.title} ${CLAIMED_TASK_PROMPT_NOTE}` : t.title,
             severity: t.severity,
             dimension: t.dimension,
             // FLEET-AWARE FOCUS: the WIP-1 lock binds to the claimer — a

@@ -128,6 +128,11 @@ const BENIGN_FLIGHT = new Set([
   // GitHub, so widening it changes what the operator sees, not what the
   // repo does — the pool client's own claim wiring is the flagged half.
   'publicity.ts',
+  // Pure marker + body builder for the claim contract (operator, 2026-09-12):
+  // no I/O at all. Its three readers (pool-client's claim wiring, the firing
+  // done-hook, the mirror pass) are the flagged halves; weakening it makes a
+  // claimed task closable by the fleet, which those readers' tests pin.
+  'claim-contract.ts',
   // Read-only donations.json parse (FOUNDATION 1/3): reads a file path this
   // module hardcodes itself (never operator/request input), validates every
   // entry's shape, and degrades to an empty list on any missing/malformed

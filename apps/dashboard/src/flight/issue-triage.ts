@@ -68,6 +68,11 @@ export interface IncomingIssue {
    *  `pr-review.ts`'s `PrReviewCandidate.url` convention. */
   readonly url?: string;
   readonly labels?: readonly string[];
+  /** ISO timestamp of the issue's creation (`gh --json createdAt`). Read by
+   *  the reserved-for-humans expiry (operator, 2026-09-12): a "good first
+   *  issue" nobody claimed for {@link RESERVED_FOR_HUMANS_DAYS} days opens to
+   *  the fleet. Optional: without it the reservation simply never expires. */
+  readonly createdAt?: string;
   /** GitHub logins already assigned to this issue — a non-empty list means a
    *  human has claimed it (the same "claims (assign/comment)" convention
    *  `pool-client.ts`'s `isClaimedPoolIssue` reads), so {@link
@@ -102,6 +107,12 @@ export interface IssueTriageDuplicate {
 
 export interface IssueTriageAccept {
   readonly decision: 'accept';
+  /** Set when this acceptance is a "good first issue" whose human
+   *  reservation expired unclaimed — the value is its age in days, so the
+   *  single reasoning comment can say exactly why the fleet is taking it
+   *  and how a person can still keep it (claim it). Absent on ordinary
+   *  acceptances and on issues already carrying `agent-ok`. */
+  readonly releasedFromHumansAfterDays?: number;
   readonly dimension: Dimension;
   /** The house `area:` label (docs/epics/0019-github-steward.md S2) classified
    *  from the issue's own text — a different axis from {@link dimension}:
@@ -136,8 +147,115 @@ export interface IssueTriageDossier {
   readonly reasoning: string;
 }
 
+/** An issue filed OFF the repo's template (operator, 2026-09-12: "אין מצב
+ *  שנרשמים ISSUES לא בפורמט הנדרש — יש לנו פרוטוקול בגיטהאב"). Blank issues
+ *  are disabled in `.github/ISSUE_TEMPLATE/config.yml`, yet the API and the
+ *  "Edit" pencil both let a body drop the template's sections, and nothing
+ *  ever checked. Such an issue is NOT boarded: it gets
+ *  {@link NEEDS_FORMAT_LABEL} and ONE reply naming the template and the
+ *  missing sections. When the body conforms, the accept path removes the
+ *  label in the same edit. */
+export interface IssueTriageNeedsFormat {
+  readonly decision: 'needs-format';
+  readonly kind: IssueTemplateKind;
+  readonly missing: readonly string[];
+  readonly reasoning: string;
+}
+
 export type IssueTriageDecision =
-  IssueTriageDuplicate | IssueTriageAccept | IssueTriageSkip | IssueTriageDossier;
+  | IssueTriageDuplicate
+  | IssueTriageAccept
+  | IssueTriageSkip
+  | IssueTriageDossier
+  | IssueTriageNeedsFormat;
+
+/** The label that opens a "good first issue" to the fleet once its human
+ *  reservation expired; also honoured when a maintainer sets it by hand. */
+export const AGENT_OK_LABEL = 'agent-ok';
+/** How long a "good first issue" stays reserved for a human before the
+ *  fleet may take it (operator, 2026-09-12: two such issues sat untouched
+ *  for a week while the fleet could have shipped them in hours). */
+export const RESERVED_FOR_HUMANS_DAYS = 14;
+/** The label an off-template issue carries while KEEPER waits for the
+ *  reporter to add the template's sections. */
+export const NEEDS_FORMAT_LABEL = 'status: needs-format';
+/** Epics are tracking issues with their own protocol (docs/epics) — never
+ *  gated on the bug/feature templates. */
+const EPIC_LABEL = 'epic';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type IssueTemplateKind = 'bug' | 'feature';
+
+/** One required section of a template: the heading as the template writes
+ *  it (what the reply names) and the loose test a reporter's heading must
+ *  pass (any heading level, with or without the trailing "?"/":", any
+ *  case). */
+interface TemplateSection {
+  readonly heading: string;
+  readonly matches: RegExp;
+}
+
+const TEMPLATE_SECTIONS: Readonly<Record<IssueTemplateKind, readonly TemplateSection[]>> = {
+  bug: [
+    { heading: 'What happened?', matches: /what happened/ },
+    { heading: 'Steps to reproduce', matches: /reproduce/ },
+    { heading: 'Expected behavior', matches: /expected/ },
+  ],
+  feature: [
+    { heading: 'Problem / motivation', matches: /problem/ },
+    { heading: 'Proposed solution', matches: /propos/ },
+  ],
+};
+
+export const TEMPLATE_FILES: Readonly<Record<IssueTemplateKind, string>> = {
+  bug: '.github/ISSUE_TEMPLATE/bug_report.yml',
+  feature: '.github/ISSUE_TEMPLATE/feature_request.yml',
+};
+
+/** Every markdown heading in a body, normalised for matching. */
+function bodyHeadings(body: string): readonly string[] {
+  return body
+    .split(/\r?\n/)
+    .map((line) => /^#{1,6}\s*(.+?)\s*$/.exec(line)?.[1])
+    .filter((heading): heading is string => heading !== undefined)
+    .map((heading) =>
+      heading
+        .toLowerCase()
+        .replace(/[?:]+$/, '')
+        .trim(),
+    );
+}
+
+function templateKindOf(issue: IncomingIssue, headings: readonly string[]): IssueTemplateKind {
+  const hasAny = (kind: IssueTemplateKind): boolean =>
+    TEMPLATE_SECTIONS[kind].some((section) => headings.some((h) => section.matches.test(h)));
+  if (hasAny('feature')) return 'feature';
+  if (hasAny('bug')) return 'bug';
+  const labels = issue.labels ?? [];
+  if (labels.some((label) => /^(enhancement|feature)/.test(label))) return 'feature';
+  return /\b(feature|request|proposal|idea|add|support)\b/i.test(issue.title) ? 'feature' : 'bug';
+}
+
+/** What the repo template requires that this body does not carry — `null`
+ *  when it conforms. Pure; the reply text and the label are built from it. */
+export function issueTemplateGaps(
+  issue: IncomingIssue,
+): { readonly kind: IssueTemplateKind; readonly missing: readonly string[] } | null {
+  const headings = bodyHeadings(issue.body);
+  const kind = templateKindOf(issue, headings);
+  const missing = TEMPLATE_SECTIONS[kind]
+    .filter((section) => !headings.some((h) => section.matches.test(h)))
+    .map((section) => section.heading);
+  return missing.length === 0 ? null : { kind, missing };
+}
+
+/** Whole days since the issue was opened; `undefined` when the age is
+ *  unknown (no or unparsable `createdAt`), which keeps the reservation. */
+function issueAgeDays(issue: IncomingIssue, now: number): number | undefined {
+  if (issue.createdAt === undefined) return undefined;
+  const opened = Date.parse(issue.createdAt);
+  return Number.isNaN(opened) ? undefined : Math.floor((now - opened) / DAY_MS);
+}
 
 /** Below this token-overlap score (same convention as `reconcile.ts`'s
  *  `DEFAULT_MATCH_THRESHOLD`), an issue is treated as genuinely new rather
@@ -400,6 +518,7 @@ export function planIssueTriage(
   boardTasks: readonly ExistingTitle[],
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
+  now: number = Date.now(),
 ): IssueTriageDecision {
   const labels = issue.labels ?? [];
   if (isPartnerApplicationIssue(labels)) {
@@ -430,14 +549,24 @@ export function planIssueTriage(
     };
   }
 
-  if (labels.some(isGoodFirstIssueLabel)) {
-    return {
-      decision: 'skip',
-      reasoning:
-        `#${issue.number} "${issue.title}" carries "good first issue" — reserved for a human ` +
-        'contributor to pick up; accepting it would board it for the fleet instead, which ' +
-        'implements it in hours and eats the community opportunity the label exists to protect.',
-    };
+  let releasedFromHumansAfterDays: number | undefined;
+  if (labels.some(isGoodFirstIssueLabel) && !labels.includes(AGENT_OK_LABEL)) {
+    const ageDays = issueAgeDays(issue, now);
+    if (ageDays === undefined || ageDays < RESERVED_FOR_HUMANS_DAYS) {
+      return {
+        decision: 'skip',
+        reasoning:
+          `#${issue.number} "${issue.title}" carries "good first issue" — reserved for a human ` +
+          'contributor to pick up; accepting it would board it for the fleet instead, which ' +
+          'implements it in hours and eats the community opportunity the label exists to protect.' +
+          (ageDays === undefined
+            ? ''
+            : ` Unclaimed for ${ageDays} of the ${RESERVED_FOR_HUMANS_DAYS} days it stays reserved.`),
+      };
+    }
+    // The reservation expired unclaimed: the fleet takes it, says so once,
+    // and leaves the door open (claim it and the fleet steps back).
+    releasedFromHumansAfterDays = ageDays;
   }
   const poolLabel = labels.find((label) => label.startsWith(POOL_LABEL_PREFIX));
   if (poolLabel) {
@@ -491,6 +620,30 @@ export function planIssueTriage(
     };
   }
 
+  // THE PROTOCOL GATE (after duplicate scoring, before boarding): a body
+  // without the template's sections is not boarded — it is labeled and asked
+  // ONCE; the next pass lifts the label by itself when the body conforms.
+  const gaps = labels.includes(EPIC_LABEL) ? null : issueTemplateGaps(issue);
+  if (gaps !== null) {
+    const named = gaps.missing.map((heading) => `"${heading}"`).join(', ');
+    if (labels.includes(NEEDS_FORMAT_LABEL)) {
+      return {
+        decision: 'skip',
+        reasoning:
+          `#${issue.number} "${issue.title}" still misses the ${gaps.kind} template's ${named} — ` +
+          `"${NEEDS_FORMAT_LABEL}" is already on it; waiting for the reporter, not repeating the reply.`,
+      };
+    }
+    return {
+      decision: 'needs-format',
+      kind: gaps.kind,
+      missing: gaps.missing,
+      reasoning:
+        `#${issue.number} "${issue.title}" was filed off the ${gaps.kind} template — missing ${named}. ` +
+        `Not boarding it: labeling "${NEEDS_FORMAT_LABEL}" and replying once with what the template needs.`,
+    };
+  }
+
   const text = `${issue.title} ${issue.body}`;
   const dimension = classifyIssueDimension(text);
   const area = classifyIssueArea(text);
@@ -498,6 +651,7 @@ export function planIssueTriage(
   const milestone = classifyIssueMilestone(text);
   return {
     decision: 'accept',
+    ...(releasedFromHumansAfterDays !== undefined ? { releasedFromHumansAfterDays } : {}),
     dimension,
     area,
     priority,
@@ -505,8 +659,29 @@ export function planIssueTriage(
     reasoning:
       `#${issue.number} "${issue.title}" doesn't match any open board task or backlog entry — ` +
       `accepting it, labeling "pool: ${dimension}", "${area}", "${priority}", and setting ` +
-      `milestone "${milestone}".`,
+      `milestone "${milestone}".` +
+      (releasedFromHumansAfterDays === undefined
+        ? ''
+        : ` Reserved for a human contributor as "good first issue" but unclaimed for ` +
+          `${releasedFromHumansAfterDays} days — opened to the fleet ("${AGENT_OK_LABEL}"). ` +
+          `To keep it for yourself, claim it (comment "/claim") and the fleet steps back.`),
   };
+}
+
+/** The ONE reply an off-template issue gets: which template, which
+ *  sections are missing, and that nothing else is needed from the reporter
+ *  — KEEPER's next pass lifts the label by itself once the body conforms. */
+export function needsFormatReply(decision: IssueTriageNeedsFormat): string {
+  const name = decision.kind === 'bug' ? 'Bug report' : 'Feature request';
+  const missing = decision.missing.map((heading) => `"${heading}"`).join(', ');
+  return (
+    `Thanks for filing this. AUTOPILOT's issue protocol asks every ${name} to follow the repo ` +
+    `template (${TEMPLATE_FILES[decision.kind]}) so a pilot — human or fleet — can act on it ` +
+    `without guessing. This one is missing: ${missing}.\n\n` +
+    "Edit the description to add those sections with the template's headings, and KEEPER " +
+    `will pick it up on its next pass and remove the "${NEEDS_FORMAT_LABEL}" label. Nothing else ` +
+    'is needed from you.'
+  );
 }
 
 /** One planned `gh` call to apply a triage decision — the exact argv a
@@ -542,6 +717,20 @@ export function planIssueTriageCommands(
   if (decision.decision === 'skip' || decision.decision === 'dossier') return [];
 
   const issueRef = String(issue.number);
+  if (decision.decision === 'needs-format') {
+    return [
+      {
+        command: 'gh',
+        args: ['issue', 'edit', issueRef, '--add-label', NEEDS_FORMAT_LABEL],
+        details: `labeling #${issue.number} "${NEEDS_FORMAT_LABEL}" — filed off the ${decision.kind} template`,
+      },
+      {
+        command: 'gh',
+        args: ['issue', 'comment', issueRef, '--body', needsFormatReply(decision)],
+        details: `replying once on #${issue.number} with the template and its missing sections`,
+      },
+    ];
+  }
   const comment: IssueTriageCommand = {
     command: 'gh',
     args: ['issue', 'comment', issueRef, '--body', decision.reasoning],
@@ -572,6 +761,12 @@ export function planIssueTriageCommands(
     decision.area,
     decision.priority,
   ]);
+  // A body that now conforms lifts the protocol label in the SAME edit that
+  // accepts it — never a second call that can fail and leave a lie behind.
+  const liftedLabels = (issue.labels ?? []).includes(NEEDS_FORMAT_LABEL)
+    ? [NEEDS_FORMAT_LABEL]
+    : [];
+  const openedLabels = decision.releasedFromHumansAfterDays === undefined ? [] : [AGENT_OK_LABEL];
   return [
     {
       command: 'gh',
@@ -587,7 +782,9 @@ export function planIssueTriageCommands(
         decision.priority,
         '--milestone',
         decision.milestone,
+        ...openedLabels.flatMap((label) => ['--add-label', label]),
         ...supersededLabels.flatMap((label) => ['--remove-label', label]),
+        ...liftedLabels.flatMap((label) => ['--remove-label', label]),
       ],
       details:
         `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}" ` +
@@ -595,7 +792,11 @@ export function planIssueTriageCommands(
         'dimension/area/priority/milestone' +
         (supersededLabels.length > 0
           ? ` (replacing ${supersededLabels.map((l) => `"${l}"`).join(', ')})`
-          : ''),
+          : '') +
+        (openedLabels.length > 0
+          ? ` — reserved-for-humans expired, adding "${AGENT_OK_LABEL}"`
+          : '') +
+        (liftedLabels.length > 0 ? ` — body now conforms, removing "${NEEDS_FORMAT_LABEL}"` : ''),
     },
     comment,
   ];
@@ -695,9 +896,10 @@ export function planIssueTriageBatch(
   boardTasks: readonly ExistingTitle[],
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
+  now: number = Date.now(),
 ): readonly IssueTriagePlan[] {
   return issues.map((issue) => {
-    const decision = planIssueTriage(issue, boardTasks, backlogTitles, threshold);
+    const decision = planIssueTriage(issue, boardTasks, backlogTitles, threshold, now);
     const commands = planIssueTriageCommands(issue, decision);
     return { issue, decision, commands };
   });
@@ -742,6 +944,7 @@ interface RawGithubIssue {
   readonly labels?: unknown;
   readonly assignees?: unknown;
   readonly author?: unknown;
+  readonly createdAt?: unknown;
 }
 
 /** `gh`'s `author` field is a single `{ login, ... }` object (unlike the
@@ -800,7 +1003,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     '--state',
     'open',
     '--json',
-    'number,title,body,url,labels,assignees,author',
+    'number,title,body,url,labels,assignees,author,createdAt',
   ]);
   if (code !== 0) return [];
 
@@ -824,6 +1027,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
         assignees: parseAssignees(raw.assignees),
         ...(typeof raw.url === 'string' ? { url: raw.url } : {}),
         ...(author !== undefined ? { author } : {}),
+        ...(typeof raw.createdAt === 'string' ? { createdAt: raw.createdAt } : {}),
       };
     });
 }
@@ -899,7 +1103,7 @@ export async function runIssueTriageRitual(
   now: () => number = Date.now,
 ): Promise<IssueTriageRitualResult> {
   const issues = await fetchOpenIssues(exec);
-  const basePlans = planIssueTriageBatch(issues, boardTasks, backlogTitles, threshold);
+  const basePlans = planIssueTriageBatch(issues, boardTasks, backlogTitles, threshold, now());
 
   const plans: IssueTriagePlan[] = [];
   for (const plan of basePlans) {

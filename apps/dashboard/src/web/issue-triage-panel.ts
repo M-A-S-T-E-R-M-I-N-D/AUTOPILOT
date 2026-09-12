@@ -56,6 +56,7 @@ export function issueTriageDecisionLabel(decision: string): string {
   if (decision === 'duplicate') return '⧉ duplicate';
   if (decision === 'skip') return '⏭ skip';
   if (decision === 'dossier') return '📋 dossier → maintainer';
+  if (decision === 'needs-format') return '📝 needs the template';
   return decision;
 }
 
@@ -71,7 +72,8 @@ export function issueTriageConfirmMessage(plans: readonly IssueTriagePlanLike[])
   const acceptCount = plans.filter((p) => p.decision.decision === 'accept').length;
   const duplicateCount = plans.filter((p) => p.decision.decision === 'duplicate').length;
   const dossierCount = plans.filter((p) => p.decision.decision === 'dossier').length;
-  const skipCount = plans.length - acceptCount - duplicateCount - dossierCount;
+  const needsFormatCount = plans.filter((p) => p.decision.decision === 'needs-format').length;
+  const skipCount = plans.length - acceptCount - duplicateCount - dossierCount - needsFormatCount;
   return (
     'Run KEEPER triage on ' +
     plans.length +
@@ -87,6 +89,10 @@ export function issueTriageConfirmMessage(plans: readonly IssueTriagePlanLike[])
     (dossierCount === 1 ? ' standing application' : ' standing applications') +
     ' will get a KEEPER evidence dossier posted for the maintainer to decide (never ' +
     'auto-verdicted); ' +
+    needsFormatCount +
+    (needsFormatCount === 1 ? ' issue' : ' issues') +
+    ' filed off the template will be labeled "status: needs-format" and asked once for the ' +
+    'missing sections; ' +
     skipCount +
     (skipCount === 1 ? ' issue' : ' issues') +
     ' already triaged in a previous pass will be skipped.\n\n' +
@@ -107,7 +113,8 @@ export function issueTriageExecuteTip(plans: readonly IssueTriagePlanLike[]): st
   const acceptCount = plans.filter((p) => p.decision.decision === 'accept').length;
   const duplicateCount = plans.filter((p) => p.decision.decision === 'duplicate').length;
   const dossierCount = plans.filter((p) => p.decision.decision === 'dossier').length;
-  const skipCount = plans.length - acceptCount - duplicateCount - dossierCount;
+  const needsFormatCount = plans.filter((p) => p.decision.decision === 'needs-format').length;
+  const skipCount = plans.length - acceptCount - duplicateCount - dossierCount - needsFormatCount;
   return (
     'Run KEEPER triage on ' +
     plans.length +
@@ -119,6 +126,8 @@ export function issueTriageExecuteTip(plans: readonly IssueTriagePlanLike[]): st
     ' to mark duplicate, ' +
     dossierCount +
     ' to post a maintainer evidence dossier for, ' +
+    needsFormatCount +
+    ' to ask for the template, ' +
     skipCount +
     ' already triaged. Real gh calls fire only after a confirm.'
   );

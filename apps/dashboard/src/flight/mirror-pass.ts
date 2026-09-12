@@ -97,6 +97,10 @@ export interface MirrorPassTaskCandidate {
   readonly id: string;
   readonly status: 'queued' | 'in_progress' | 'done' | 'needs_approval' | 'deferred';
   readonly landedSha: string | null;
+  /** True when the task carries the claim contract (claim-contract.ts):
+   *  the issue's own closing — the claimant's word — settles it, and a
+   *  closed issue is never reopened on its account. */
+  readonly humanCloses?: boolean;
 }
 
 /** The subset of a GitHub issue's live state this reconcile needs — just
@@ -121,7 +125,18 @@ export interface MirrorPassReopenFinding {
   readonly comment: string;
 }
 
-export type MirrorPassFinding = MirrorPassCloseFinding | MirrorPassReopenFinding;
+/** A claimed issue's task whose claimant closed the issue: the board task
+ *  is settled (done, unfocused) and ONE note records it. The issue is
+ *  already closed, so no state change is planned for it. */
+export interface MirrorPassSettleFinding {
+  readonly action: 'settle-claimed';
+  readonly taskId: string;
+  readonly issueNumber: number;
+  readonly comment: string;
+}
+
+export type MirrorPassFinding =
+  MirrorPassCloseFinding | MirrorPassReopenFinding | MirrorPassSettleFinding;
 
 /**
  * Decides whether `task`'s issue needs to be closed or reopened to match the
@@ -152,6 +167,17 @@ export function planMirrorPassReconcile(
       comment: task.landedSha
         ? `Landed in ${task.landedSha} — closing.`
         : 'This is done on the board, but no landing commit was recorded — closing without a SHA reference.',
+    };
+  }
+
+  if (task.status !== 'done' && issue.state === 'closed' && task.humanCloses === true) {
+    return {
+      action: 'settle-claimed',
+      taskId: task.id,
+      issueNumber,
+      comment:
+        'The claimant closed this issue — settling the AUTOPILOT board task that was ' +
+        'delivering slices against it (claim contract: only the claimant closes it).',
     };
   }
 
@@ -192,6 +218,9 @@ export function planMirrorPassCommands(finding: MirrorPassFinding): readonly Mir
     args: ['issue', 'comment', issueRef, '--body', finding.comment],
     details: `posting the mirror-pass reconcile note on #${finding.issueNumber}`,
   };
+  // A settle changes nothing on GitHub — the issue is closed by the one
+  // person allowed to close it; the board mutation happens in execute.
+  if (finding.action === 'settle-claimed') return [comment];
   const stateChange: MirrorPassCommand =
     finding.action === 'close-with-landing-note'
       ? {
@@ -545,9 +574,14 @@ export function planMirrorPassVersionDriftCommand(
 ): MirrorPassCommand {
   const title = `${finding.source} claims version ${finding.claimedVersion}, tree is at ${finding.actualVersion}`;
   const body =
+    '### What happened?\n' +
     `Mirror pass found a version drift: **${finding.source}** states the current version is ` +
     `\`${finding.claimedVersion}\`, but \`package.json\` in the tree is at \`${finding.actualVersion}\`. ` +
-    'Either the doc is stale or the version bump was missed.';
+    'Either the doc is stale or the version bump was missed.\n\n' +
+    '### Steps to reproduce\n' +
+    `1. Read the version claim in ${finding.source}.\n2. Compare it with the version in package.json.\n\n` +
+    '### Expected behavior\n' +
+    'The document and the tree state the same version.';
   return {
     command: 'gh',
     args: ['issue', 'create', '--title', title, '--body', body],
@@ -645,9 +679,14 @@ export function planMirrorPassCountsDriftCommand(
 ): MirrorPassCommand {
   const title = `${finding.source} claims ${finding.claimedCount} packages, tree has ${finding.actualCount}`;
   const body =
+    '### What happened?\n' +
     `Mirror pass found a package-count drift: **${finding.source}** states \`${finding.claimedCount}\` ` +
     `third-party packages, but \`docs/THIRD-PARTY-LICENSES.md\` lists \`${finding.actualCount}\`. ` +
-    'Either the doc is stale or the license inventory needs regenerating (`pnpm licenses list --json`).';
+    'Either the doc is stale or the license inventory needs regenerating (`pnpm licenses list --json`).\n\n' +
+    '### Steps to reproduce\n' +
+    `1. Read the package count claimed in ${finding.source}.\n2. Count the entries in docs/THIRD-PARTY-LICENSES.md.\n\n` +
+    '### Expected behavior\n' +
+    'The document and the license inventory state the same count.';
   return {
     command: 'gh',
     args: ['issue', 'create', '--title', title, '--body', body],
@@ -745,9 +784,14 @@ export function planMirrorPassLinkDriftCommand(
   const count = finding.brokenLinks.length;
   const title = `${finding.source} has ${count} broken internal link${count === 1 ? '' : 's'}`;
   const body =
+    '### What happened?\n' +
     `Mirror pass found ${count} internal link${count === 1 ? '' : 's'} in **${finding.source}** ` +
     `pointing to a path that no longer exists in the tree:\n\n` +
-    finding.brokenLinks.map((link) => `- \`${link}\``).join('\n');
+    finding.brokenLinks.map((link) => `- \`${link}\``).join('\n') +
+    '\n\n### Steps to reproduce\n' +
+    `1. Open ${finding.source} and follow the link${count === 1 ? '' : 's'} above.\n\n` +
+    '### Expected behavior\n' +
+    'Every internal link resolves to a path in the tree.';
   return {
     command: 'gh',
     args: ['issue', 'create', '--title', title, '--body', body],
