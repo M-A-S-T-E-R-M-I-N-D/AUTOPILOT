@@ -11,6 +11,7 @@ import {
   type LandingOverlapWarning,
   type AheadSibling,
 } from '../landing/overlap.js';
+import { gatherLaneHalfSteps, type LaneHalfStepWarning } from '../landing/lane-half-step.js';
 import { deriveFlyProjectId } from '../flight/lock.js';
 
 /** The slice of watchdog capability that decides whether to land a project's
@@ -33,6 +34,13 @@ export interface LandWatchdogControl {
    *  of merging silently. Optional — a control without it lands exactly as
    *  before, with no straggler reporting. */
   aheadSiblings?(): Promise<readonly AheadSibling[]>;
+  /** Open (`in_progress`) board tasks whose already-shipped slices sit in the
+   *  commits this land would carry (LANE HALF-STEP GUARD, board
+   *  web-mtq2cubl-e5z0ae — `landing/lane-half-step.ts`). The ritual REFUSES
+   *  on any: an automatic land that ships a known half-step is exactly the
+   *  incident, and there is no operator in this loop to warn instead.
+   *  Optional — a control without it lands exactly as before. */
+  halfSteps?(): Promise<readonly LaneHalfStepWarning[]>;
   /** Run one real gate-then-merge landing attempt against the target. */
   land(): Promise<LandingExecuteApiResult | null>;
 }
@@ -49,6 +57,10 @@ export interface LandWatchdogTickResult {
    *  files — surfaced, never blocking, so those branches don't silently turn
    *  into stragglers the moment base moves past them. */
   readonly stragglers?: readonly AheadSibling[];
+  /** Non-empty when this tick REFUSED to land because an open board task's
+   *  shipped slices are in the diff — the unit is unfinished, so landing it
+   *  now would push a half-step to base (LANE HALF-STEP GUARD). */
+  readonly halfSteps?: readonly LaneHalfStepWarning[];
 }
 
 /**
@@ -67,6 +79,8 @@ export async function landWatchdogTick(
   if (count === 0) return { attempted: false, result: null };
   const overlaps = (await control.overlapWarnings?.()) ?? [];
   if (overlaps.length > 0) return { attempted: false, result: null, overlaps };
+  const halfSteps = (await control.halfSteps?.()) ?? [];
+  if (halfSteps.length > 0) return { attempted: false, result: null, halfSteps };
   const stragglers = (await control.aheadSiblings?.()) ?? [];
   const result = await control.land();
   return stragglers.length > 0
@@ -151,6 +165,27 @@ export function createLandWatchdogControl(options: LandWatchdogOptions): LandWat
         branch,
         base,
       );
+    },
+    // Same fresh-every-tick read as the others; the store stays open (read-
+    // only) only for the join itself, and any failure degrades to [] so a
+    // guard that cannot read its evidence never wedges the ritual.
+    halfSteps: async () => {
+      const store = openStore(options.dbPath, { readonly: true });
+      try {
+        const project =
+          listProjects(store.db).find((p) => samePath(p.root_path, options.targetFolder)) ?? null;
+        if (!project) return [];
+        const vcs = new GitVcs(project.root_path);
+        const base = await vcs.defaultBranch();
+        if (!base) return [];
+        const branch = await vcs.currentBranch();
+        if (!branch || branch === base) return [];
+        return gatherLaneHalfSteps(store, project.id, await vcs.commitsAhead(base));
+      } catch {
+        return [];
+      } finally {
+        store.close();
+      }
     },
     land: async () => {
       const project = findProject();
