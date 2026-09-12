@@ -44,11 +44,9 @@
  * mutating an existing one. All four wired execute APIs above are reachable
  * over HTTP — `server.ts`'s `POST /api/mirror-pass/execute`,
  * `/mirror-pass/landing-note/execute`, `/mirror-pass/drift/execute`, and
- * `/mirror-pass/stale-claims/execute` — but the dashboard panel that would
- * call the last one is not wired here; that remains its own follow-up
- * slice (`web/features/mirror-pass.ts` now wires the reconcile, drift, and
- * landing-note execute buttons; the stale-claim execute button does not
- * exist yet).
+ * `/mirror-pass/stale-claims/execute` — and `web/features/mirror-pass.ts`
+ * now wires all four into a dashboard button (reconcile, drift, landing-note,
+ * and stale-claim), closing the last of this epic's UX-expression gaps.
  */
 
 import { join } from 'node:path';

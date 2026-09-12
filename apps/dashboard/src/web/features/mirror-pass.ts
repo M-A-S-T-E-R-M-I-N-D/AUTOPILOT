@@ -20,9 +20,7 @@
  * "Run mirror pass" button whenever `mirror-pass-panel.ts`'s
  * `mirrorPassCanExecute` allows it — a confirmed maintainer (or an
  * unresolved identity, not a known guest) AND at least one actionable
- * reconcile finding. The remaining wired execute path (stale-claim) stays
- * its own follow-up slice, same per-derivation split already used
- * throughout this epic. A clean run reloads the panel so the
+ * reconcile finding. A clean run reloads the panel so the
  * applied finding(s) vanish from the refreshed list, the same "success
  * re-fetches, no separate message" convention `pr-review.ts`'s Apply button
  * uses; a role-gate skip or a failed request shows `mirror-pass-panel.ts`'s
@@ -44,6 +42,16 @@
  * posting to `POST /api/mirror-pass/landing-note/execute`. Its report shares
  * reconcile's exact shape, so it reuses `mirrorPassExecuteResultMessage`
  * rather than a third near-identical formatter.
+ *
+ * A fourth, independent "Free stale claim(s)" button closes derivation 4/4's
+ * own unwritten execute path the same way (`flight/mirror-pass-execute.ts`'s
+ * `createMirrorPassStaleClaimExecuteApi`, live with zero dashboard trigger)
+ * — the last of the four wired execute paths this epic's slice (b) left
+ * unpainted. Gated on `mirrorPassCanExecuteStaleClaim` (at least one
+ * stale-claim finding) and posting to
+ * `POST /api/mirror-pass/stale-claims/execute`; its report shares
+ * reconcile's exact shape too, so it also reuses
+ * `mirrorPassExecuteResultMessage`.
  *
  * `web/shell.ts`'s `clientJs()` calls this indirectly through
  * `featureModulesJs()`, so its return value — not its compiled source — is
@@ -88,12 +96,13 @@ import {
   mirrorPassCanExecuteDrift,
   mirrorPassDriftExecuteResultMessage,
   mirrorPassCanExecuteLandingNote,
+  mirrorPassCanExecuteStaleClaim,
 } from '../mirror-pass-panel.js';
 
 /** The Mirror pass panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function mirrorPassJs(): string {
   return `
-// The ten functions below are generated FROM web/mirror-pass-panel.ts
+// The eleven functions below are generated FROM web/mirror-pass-panel.ts
 // (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slices (c) and (c) v2) — their real
 // compiled source via .toString(), not a hand-retyped copy. It can no
 // longer drift apart. mirrorPassItems calls all four of the finding
@@ -111,7 +120,8 @@ ${mirrorPassExecuteResultMessage.toString()}
 ${mirrorPassCanExecuteDrift.toString()}
 ${mirrorPassDriftExecuteResultMessage.toString()}
 ${mirrorPassCanExecuteLandingNote.toString()}
-function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, pid) {
+${mirrorPassCanExecuteStaleClaim.toString()}
+function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, canExecuteStaleClaim, pid) {
   body.replaceChildren();
   items = items || [];
   if (!items.length) {
@@ -126,7 +136,7 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
     list.appendChild(el('li', 'mirror-pass-item', items[i].text));
   }
   body.appendChild(list);
-  if (canExecute || canExecuteDrift || canExecuteLandingNote) {
+  if (canExecute || canExecuteDrift || canExecuteLandingNote || canExecuteStaleClaim) {
     var actions = el('div', 'mirror-pass-actions');
     if (canExecute) {
       var runBtn = el('button', 'mirror-pass-execute', 'Run mirror pass');
@@ -170,6 +180,19 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
       landingNoteBtn.setAttribute('data-i18n-aria', 'mirrorPassLandingNoteExecuteTip');
       actions.appendChild(landingNoteBtn);
     }
+    if (canExecuteStaleClaim) {
+      var staleClaimBtn = el('button', 'mirror-pass-execute', 'Free stale claim(s)');
+      staleClaimBtn.type = 'button';
+      staleClaimBtn.setAttribute('data-i18n', 'mirrorPassStaleClaimExecute');
+      staleClaimBtn.setAttribute('data-mirror-pass-stale-claim-execute', pid);
+      var staleClaimTip =
+        'Unassigns every claimed pool issue above whose assignee has gone quiet past the reap threshold.';
+      staleClaimBtn.setAttribute('data-tip', staleClaimTip);
+      staleClaimBtn.setAttribute('data-i18n-tip', 'mirrorPassStaleClaimExecuteTip');
+      staleClaimBtn.setAttribute('aria-label', staleClaimTip);
+      staleClaimBtn.setAttribute('data-i18n-aria', 'mirrorPassStaleClaimExecuteTip');
+      actions.appendChild(staleClaimBtn);
+    }
     body.appendChild(actions);
     var resultEl = el('div', 'mirror-pass-result');
     resultEl.setAttribute('role', 'status');
@@ -193,11 +216,12 @@ function loadMirrorPassBody(body, pid) {
       var reconcile = results[0] && results[0].mirrorPass;
       var landingNote = results[1] && results[1].landingNote;
       var drift = results[2] && results[2].drift;
+      var staleClaims = results[3] && results[3].staleClaims;
       var items = mirrorPassItems({
         reconcile: reconcile,
         landingNote: landingNote,
         drift: drift,
-        staleClaims: results[3] && results[3].staleClaims,
+        staleClaims: staleClaims,
       });
       var identity = results[4] && results[4].identity;
       renderMirrorPassBody(
@@ -206,6 +230,7 @@ function loadMirrorPassBody(body, pid) {
         mirrorPassCanExecute(identity, reconcile),
         mirrorPassCanExecuteDrift(identity, drift),
         mirrorPassCanExecuteLandingNote(identity, landingNote),
+        mirrorPassCanExecuteStaleClaim(identity, staleClaims),
         pid,
       );
     })
@@ -354,6 +379,47 @@ document.addEventListener('click', function (e) {
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassLandingNoteRequestFailed');
+      }
+    });
+});
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-mirror-pass-stale-claim-execute]');
+  if (!b || b.disabled) return;
+  var pid = b.getAttribute('data-mirror-pass-stale-claim-execute');
+  if (!window.confirm(tr('mirrorPassStaleClaimExecuteConfirm'))) return;
+  var body = b.closest('.mirror-pass-body');
+  var resultEl = body && body.querySelector('.mirror-pass-result');
+  b.disabled = true;
+  var originalText = b.textContent;
+  b.textContent = tr('mirrorPassStaleClaimExecuting');
+  fetch('/api/mirror-pass/stale-claims/execute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid }),
+  })
+    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+    .then(function (r) {
+      var result = mirrorPassExecuteResultMessage(r.status, r.data);
+      if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
+        b.disabled = false;
+        b.textContent = originalText;
+        if (resultEl) {
+          resultEl.className = result.className;
+          resultEl.textContent = result.text;
+        }
+        return;
+      }
+      // Same "success re-fetches" convention the reconcile/drift/landing-note
+      // buttons above use — a clean run unassigned real GitHub issues, so
+      // reload the panel rather than leave the stale claim findings on screen.
+      loadMirrorPassBody(body, pid);
+    })
+    .catch(function () {
+      b.disabled = false;
+      b.textContent = originalText;
+      if (resultEl) {
+        resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
+        resultEl.textContent = tr('mirrorPassStaleClaimRequestFailed');
       }
     });
 });
