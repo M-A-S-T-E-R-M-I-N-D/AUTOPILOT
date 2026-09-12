@@ -990,13 +990,13 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    identity-gated preview/execute API pair — a preview drafts nothing without a
    resolved `gh` login to sign on behalf of; an execute posts nothing unless that
    login is the repo's maintainer, reporting `skippedReason` instead of a 403,
-   epic 0019 law 1). Still deferred, in order: the `server.ts` routes (`GET
+   epic 0019 law 1). STATUS (2026-09-12, cont.): the `server.ts` routes (`GET
    /api/discussions-triage` and a CSRF-guarded, rate-limited `POST
-   /api/discussions-triage/execute`, injected in `main.ts` — a pure wiring
-   slice, held back only because `server.ts` was under a sibling flight's claim
-   when the API pair landed) and then the operator panel, so the board item
-   stays open (UX-expression doctrine: a capability with no panel is a slice,
-   not complete).
+   /api/discussions-triage/execute`, injected in `main.ts`) have now shipped
+   too — held back only because `server.ts` was under a sibling flight's claim
+   when the API pair landed; that claim has since cleared. Still deferred: the
+   operator panel, so the board item stays open (UX-expression doctrine: a
+   capability with no panel is a slice, not complete).
 
 ## Related
 

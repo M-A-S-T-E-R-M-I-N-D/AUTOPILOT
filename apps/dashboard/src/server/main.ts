@@ -85,6 +85,10 @@ import {
   createIssueTriageExecuteApi,
 } from '../flight/issue-triage-execute.js';
 import {
+  createDiscussionsTriagePreviewApi,
+  createDiscussionsTriageExecuteApi,
+} from '../flight/discussions-triage-execute.js';
+import {
   createMirrorPassPreviewApi,
   createMirrorPassExecuteApi,
   createMirrorPassLandingNotePreviewApi,
@@ -595,6 +599,12 @@ const server = createServer({
   // file, unlike KEEPER REVIEW's single canonical repo above.
   issueTriage: createIssueTriagePreviewApi(dbPath),
   issueTriageExecute: createIssueTriageExecuteApi(dbPath),
+  // KEEPER DISCUSSIONS ritual (epic 0007 S8, board web-mtlsiac0-v8rksh): like
+  // KEEPER REVIEW above, acts on the ONE canonical repo this dashboard process
+  // runs in — no project id, gh resolves {owner}/{repo} from its own cwd —
+  // and refuses to post unless the resolved identity is its maintainer.
+  discussionsTriage: createDiscussionsTriagePreviewApi(),
+  discussionsTriageExecute: createDiscussionsTriageExecuteApi(),
   // MIRROR PASS reconcile preview (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slice
   // (a)): read-only, derivation 1/4.
   mirrorPass: createMirrorPassPreviewApi(dbPath),
