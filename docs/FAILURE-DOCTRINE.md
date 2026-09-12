@@ -46,6 +46,7 @@ commit that fixes it.
 
 | 28 | Private operator context published in a PUBLIC commit log — the maintainer's own hardware state, the time of day it happened, and second-person session narration | commitlint reads the WHOLE message (subject, body, footer) and warns on wall-clock times, machine-state phrases and second-person address; warning-not-error so a mid-unit checkpoint still commits | `commitlint.config.js` `no-operator-private-context` + both corpora in `commit-privacy.test.ts` |
 | 29 | A recovery merge landed a literal unresolved conflict block (`<<<<<<< HEAD` / `=======` / `>>>>>>> <branch>`) straight into a committed doc — `check-merge-integrity.mjs` couldn't see it, since that guard compares tree CONTENT across merge parents, not marker syntax within a file | `check-conflict-markers.mjs` scans every tracked file's lines for the marker shape (`<{7} `/`>{7} ` always flag; a bare `={7}` only counts paired with one of the other two, so an innocent Markdown divider stays clean) | `check-conflict-markers.mjs` + `check-conflict-markers.test.ts` (real-file regression against `BACKLOG-999-ARCHIVE.md`) |
+| 30 | A reland restored a file's content verbatim from its original commit, but a census added AFTER that original commit was authored fired on it anyway — the restore read as already-proven work, not a fresh landing (`static-site.ts`'s detector marker, `2b2b3832`, needed one follow-up commit right after the `b3004cf7` reland) | reland IS a landing: run the full CURRENT gate + census sweep before committing restored content — never assume it clears checks added since the content was first authored | **open** — doctrine only; the firing prompt's hard-rules block has a 3-character tail-position budget left (`prompt-position-audit.test.ts`'s 0.75 `CRITICAL_TAIL_FRACTION`, `## Containment` at 0.7502 for a minimal prompt), so wiring this in needs a dedicated compaction pass across existing rules first, not a same-commit append |
 
 Row 28 is row 19-20's lesson wearing different clothes, and that is the
 part worth keeping: **the same mistake relocates.** Publishing the
@@ -90,7 +91,8 @@ pushed. **A name can carry an assumption the code never honoured**, and
 nothing failed loudly enough to notice — the operator found it by asking
 which button publishes.
 
-Rows 10 (reland), 14 (structural), 16, 27 (operator-owned) are the open
-counters — each is a boarded task or a standing operator decision;
-everything else is live machinery. When one ships, move its row's "where"
-to the code path in the same commit.
+Rows 10 (reland), 14 (structural), 16, 27 (operator-owned), 30 (needs a
+tail-position compaction pass first) are the open counters — each is a
+boarded task or a standing operator decision; everything else is live
+machinery. When one ships, move its row's "where" to the code path in the
+same commit.
