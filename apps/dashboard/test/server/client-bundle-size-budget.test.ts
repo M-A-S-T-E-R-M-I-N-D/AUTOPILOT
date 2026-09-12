@@ -267,7 +267,9 @@ const CORE_GZIP_BUDGET = 58 * 1024;
  * Then raw 137→144KB (2026-09-12) for EPIC 0021 slice 4: the Keeper queue (a view
  * over the panels with keyboard exit actions) — measured 142.6KB raw.
  */
-const CHUNK_RAW_BUDGET = 144 * 1024;
+// Then raw 144→146KB (2026-09-12) for EPIC 0021 slice 4 (remainder): the Keeper
+// queue's settled-this-session history — measured 144.3KB raw.
+const CHUNK_RAW_BUDGET = 146 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

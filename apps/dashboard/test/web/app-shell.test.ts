@@ -57,6 +57,8 @@ const SUBJECT_KEYS = [
   'keeperSourceBacklog',
   'keeperSourceWisdom',
   'keeperSourceApproval',
+  'keeperQueueSettled',
+  'keeperQueueClear',
 ] as const;
 
 /** The client bundle's `tr()` lives in core (locale.ts); the shell module
@@ -553,18 +555,35 @@ describe('subject-nav client — switching subjects', () => {
     expect(link('keeper').querySelector('.subject-badge')!.textContent).toBe('1');
   });
 
-  it('the Keeper queue is never built for an empty queue, and hides when its last item leaves', async () => {
+  it('the Keeper queue is never built for an empty queue; a settled item becomes the session history', async () => {
     boot();
     expect(document.getElementById('keeper-queue')).toBeNull();
     const pr = document.getElementById('pr-review-panel') as HTMLElement;
     pr.hidden = false;
-    pr.innerHTML = '<div class="pr-review-item"><p class="pr-review-pr-title">One</p></div>';
+    pr.innerHTML =
+      '<div class="pr-review-item"><p class="pr-review-pr-title">One</p></div>' +
+      '<div class="pr-review-item"><p class="pr-review-pr-title">Two</p></div>';
     await new Promise((r) => setTimeout(r, 0));
     const queue = document.getElementById('keeper-queue') as HTMLElement;
     expect(queue.hidden).toBe(false);
+    expect(queue.querySelector('.keeper-queue-settled')).toBeNull();
+    // One item settles: the title records it, the list keeps the other.
+    pr.innerHTML = '<div class="pr-review-item"><p class="pr-review-pr-title">Two</p></div>';
+    await new Promise((r) => setTimeout(r, 0));
+    expect(queue.querySelectorAll('.keeper-queue-item')).toHaveLength(1);
+    expect(queue.querySelector('.keeper-queue-settled')?.textContent).toBe(
+      ' · keeperQueueSettled:1',
+    );
+    // The last one settles too: the queue stays, saying the session cleared two.
     pr.hidden = true;
     await new Promise((r) => setTimeout(r, 0));
-    expect(queue.hidden).toBe(true);
+    expect(queue.hidden).toBe(false);
+    expect(queue.querySelectorAll('.keeper-queue-item')).toHaveLength(0);
+    expect(queue.querySelector('.keeper-queue-title')?.textContent).toBe(
+      'Nothing waiting on you · keeperQueueSettled:2',
+    );
+    // ...and the badge is honest: nothing waits.
+    expect((link('keeper').querySelector('.subject-badge') as HTMLElement).hidden).toBe(true);
   });
 
   it('re-marks the sections renderProjectPage rebuilds when the page announces them', () => {

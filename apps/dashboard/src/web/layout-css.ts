@@ -1489,6 +1489,7 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
    needs no second data source. Source · what · why · one exit action. */
 .keeper-queue { margin: var(--space-3) var(--page-inline); padding: var(--space-3) var(--space-4); background: var(--color-surface-raised); border: 1px solid var(--color-needs-you); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); }
 .keeper-queue-title { margin: 0 0 var(--space-1); font-size: var(--text-lg); }
+.keeper-queue-settled { font-size: var(--text-sm); font-weight: 400; color: var(--color-text-muted); }
 .keeper-queue-hint { margin: 0 0 var(--space-2); color: var(--color-text-muted); font-size: var(--text-xs); }
 .keeper-queue-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .keeper-queue-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "source open act" "source why act"; align-items: center; column-gap: var(--space-2); padding: var(--space-1) 0; border-block-end: 1px solid var(--color-border); }

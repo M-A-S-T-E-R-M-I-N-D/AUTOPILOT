@@ -176,7 +176,9 @@ const CORE_GZIP_BUDGET = 58 * 1024;
 // Then raw 137→144KB (2026-09-12) for EPIC 0021 slice 4: the Keeper queue — one
 // list of everything waiting on a human, a view over the panels with keyboard
 // exit actions — measured 142.6KB raw.
-const CHUNK_RAW_BUDGET = 144 * 1024;
+// Then raw 144→146KB (2026-09-12) for EPIC 0021 slice 4 (remainder): the Keeper
+// queue's settled-this-session history — measured 144.3KB raw.
+const CHUNK_RAW_BUDGET = 146 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
