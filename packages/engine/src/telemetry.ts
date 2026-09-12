@@ -390,6 +390,10 @@ export interface GateCheckResult {
   readonly label: string;
   readonly pass: boolean;
   readonly durationMs: number;
+  /** The last lines of a FAILED command's own output (stdout then stderr),
+   *  so a red gate says which test or rule failed instead of "exit 1" — the
+   *  landing panel renders it, the flight log keeps it. Absent on a pass. */
+  readonly outputTail?: string;
 }
 
 export interface FiringContext {

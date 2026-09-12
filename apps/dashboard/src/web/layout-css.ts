@@ -568,7 +568,8 @@ main.project-mode { grid-template-columns: 1fr; }
 .landing-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
 .landing-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .landing-execute:disabled { opacity: 0.6; cursor: default; }
-.landing-result { margin-top: var(--space-2); font-size: var(--text-sm); text-align: end; }
+/* pre-line: a red gate's details now carry the failing command's last lines. */
+.landing-result { margin-top: var(--space-2); font-size: var(--text-sm); text-align: end; white-space: pre-line; }
 .landing-result:empty { display: none; }
 .landing-result-ok { color: var(--color-success); }
 .landing-result-fail { color: var(--color-sev-critical); }

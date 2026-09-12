@@ -51,6 +51,22 @@ export interface CommandRun {
    * reason is actually distinguishable instead of a uniform "(exit 1)".
    */
   readonly crashReason?: string;
+  /** The last {@link GATE_OUTPUT_TAIL_LINES} lines the command printed —
+   *  stdout then stderr — attached on a NON-ZERO exit only, so a red gate
+   *  can name the failing test or rule (2026-09-13: a landing gate went red
+   *  twice on "pnpm run test failed (exit 1)" and nothing said why). */
+  readonly outputTail?: string;
+}
+
+/** How many trailing output lines a failed gate command keeps. Vitest's own
+ *  failure summary sits within the last few dozen lines; forty is enough to
+ *  name the file, the test and the assertion without carrying the whole run. */
+export const GATE_OUTPUT_TAIL_LINES = 40;
+
+/** The last `n` non-empty lines of `text`, joined by newlines. */
+export function lastLines(text: string, n: number): string {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  return lines.slice(Math.max(0, lines.length - n)).join('\n');
 }
 
 export type GateExec = (
@@ -116,27 +132,42 @@ export function buildInvocation(
 const realExec: GateExec = (cmd, cwd, timeoutMs) =>
   new Promise((resolve) => {
     const inv = buildInvocation(cmd.bin, cmd.args, process.platform);
-    execFile(inv.bin, inv.args, { cwd, timeout: timeoutMs, windowsHide: true }, (error) => {
-      if (!error) {
-        resolve({ code: 0 });
-        return;
-      }
-      // A real exit code is numeric; a spawn failure (ENOENT) or timeout carries a
-      // string/undefined code (e.g. 'ENOENT', 'ETIMEDOUT') — the tool never ran to
-      // completion, so this is a CRASH, not the tool's own verdict.
-      const raw = (error as { code?: unknown }).code;
-      const isRealExitCode = typeof raw === 'number';
-      if (isRealExitCode) {
-        resolve({ code: raw });
-        return;
-      }
-      // `killed` is set whenever execFile's own `timeout` option fired (it
-      // kills the child on expiry) — the one crash cause this command itself
-      // chose, as opposed to the environment (ENOENT) or an unidentified one.
-      const killed = (error as { killed?: unknown }).killed === true;
-      const crashReason = killed ? 'timeout' : typeof raw === 'string' ? raw : 'unknown';
-      resolve({ code: 1, crashed: true, crashReason });
-    });
+    execFile(
+      inv.bin,
+      inv.args,
+      // 64 MiB: a full vitest run's output must never itself become a crash
+      // (execFile kills the child past maxBuffer and reports it as one).
+      { cwd, timeout: timeoutMs, windowsHide: true, maxBuffer: 64 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (!error) {
+          resolve({ code: 0 });
+          return;
+        }
+        const outputTail = lastLines(
+          `${String(stdout)}\n${String(stderr)}`,
+          GATE_OUTPUT_TAIL_LINES,
+        );
+        // A real exit code is numeric; a spawn failure (ENOENT) or timeout carries a
+        // string/undefined code (e.g. 'ENOENT', 'ETIMEDOUT') — the tool never ran to
+        // completion, so this is a CRASH, not the tool's own verdict.
+        const raw = (error as { code?: unknown }).code;
+        const isRealExitCode = typeof raw === 'number';
+        if (isRealExitCode) {
+          resolve(outputTail ? { code: raw, outputTail } : { code: raw });
+          return;
+        }
+        // `killed` is set whenever execFile's own `timeout` option fired (it
+        // kills the child on expiry) — the one crash cause this command itself
+        // chose, as opposed to the environment (ENOENT) or an unidentified one.
+        const killed = (error as { killed?: unknown }).killed === true;
+        const crashReason = killed ? 'timeout' : typeof raw === 'string' ? raw : 'unknown';
+        resolve(
+          outputTail
+            ? { code: 1, crashed: true, crashReason, outputTail }
+            : { code: 1, crashed: true, crashReason },
+        );
+      },
+    );
   });
 
 /** Group leading run of `commands` starting at `start` that share the same
@@ -198,7 +229,7 @@ export class GateRunner implements GatePort {
             const position = i + offset + 1;
             notify({ kind: 'start', label, index: position, total: commands.length });
             const startedAt = Date.now();
-            const { code, crashed, crashReason } = await exec(cmd, cwd, timeoutMs);
+            const { code, crashed, crashReason, outputTail } = await exec(cmd, cwd, timeoutMs);
             const durationMs = Date.now() - startedAt;
             notify({
               kind: 'end',
@@ -208,7 +239,7 @@ export class GateRunner implements GatePort {
               pass: code === 0,
               durationMs,
             });
-            return { cmd, code, crashed, crashReason, durationMs };
+            return { cmd, code, crashed, crashReason, outputTail, durationMs };
           }),
         );
         for (const r of runs) {
@@ -216,6 +247,7 @@ export class GateRunner implements GatePort {
             label: r.cmd.label ?? r.cmd.bin,
             pass: r.code === 0,
             durationMs: r.durationMs,
+            ...(r.code !== 0 && r.outputTail ? { outputTail: r.outputTail } : {}),
           });
         }
         // First failure in BATCH ORDER (not completion order) — deterministic
@@ -228,9 +260,12 @@ export class GateRunner implements GatePort {
           // making a spawn error, a timeout, and a genuine tool crash all look
           // the same downstream. Keep "failed" in the text (existing callers
           // match on it) but fold in WHY when it's known.
-          const details = failed.crashed
+          const verdict = failed.crashed
             ? `${label} failed (crashed${failed.crashReason ? `: ${failed.crashReason}` : ''}) — gate could not verify the commit`
             : `${label} failed (exit ${failed.code})`;
+          // The tail rides after the verdict line, so callers that match on
+          // "failed (exit N)" still do and a human reads why underneath.
+          const details = failed.outputTail ? `${verdict}\n${failed.outputTail}` : verdict;
           return {
             ok: false,
             details,
