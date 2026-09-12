@@ -3688,6 +3688,18 @@ function setBrbVisible(visible) {
 // hand-retyped copy. It can no longer drift apart.
 ${sharedFleetStateSig.toString()}
 function renderFleet(state) {
+  // DEFER-ORDER LAW (2026-09-12): /project.js and /panels.js are defer
+  // scripts that execute AFTER this one, and a state response can land
+  // between them (the fixture answers in 2ms). A render that ran then threw
+  // a ReferenceError on a project page right after the back link, and the
+  // dirty-check below skipped every identical tick after it: the page stayed
+  // blank until the data changed (CI: "flight log never painted" 3 of 3;
+  // phone: "six tabs" 2 of 3). DOMContentLoaded fires only after every defer
+  // script has executed, so a tick that arrives earlier waits for it.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { renderFleet(state); }, { once: true });
+    return;
+  }
   lastFleetState = state; // kept so UI-only toggles (phase drill) can re-render instantly
   // Notifications channel (board web-msnsndlk-exw3t9): evaluated every tick,
   // ahead of the dirty-check sig below — a needs-you/death-cluster condition
@@ -3731,7 +3743,18 @@ function renderFleet(state) {
   var sig = fleetStateSig(state);
   if (sig === lastFleetSig) return;
   lastFleetSig = sig;
-
+  // A render that throws must not consume the tick: with the sig kept, the
+  // dirty-check would skip every identical tick after it and the page would
+  // stay half-built until the data changed. Forget the sig, let the error
+  // surface, and the next tick tries again.
+  try {
+    renderFleetBody(state);
+  } catch (e) {
+    lastFleetSig = null;
+    throw e;
+  }
+}
+function renderFleetBody(state) {
   renderTotals(state.totals);
   renderLiveWorkers(state);
   renderStatTiles(state);
