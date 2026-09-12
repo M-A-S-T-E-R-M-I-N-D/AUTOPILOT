@@ -42,6 +42,14 @@ function issuesExec(issues: readonly unknown[] = []): CliExec {
   });
 }
 
+/** Bodies that pass the issue-protocol gate (operator, 2026-09-12): every
+ *  planner fixture here is filed ON the bug template, so these tests keep
+ *  proving dedup/accept/labeling; `issue-triage-protocol.test.ts` proves the
+ *  gate itself. The parse fixtures under `fetchOpenIssues` stay raw. */
+const templated = (text: string): string =>
+  `### What happened?\n${text}\n\n### Steps to reproduce\n1. see above\n\n### Expected behavior\nIt works.\n`;
+const TEMPLATED_BODY = templated('');
+
 describe('createIssueTriagePreviewApi', () => {
   it('returns null for an unknown project id', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-unknown-'));
@@ -76,9 +84,13 @@ describe('createIssueTriagePreviewApi', () => {
       s.close();
 
       const exec = issuesExec([
-        { number: 9, title: 'Keyboard nav is broken in the fleet table', body: 'aria issue' },
-        { number: 10, title: 'Already tracked dashboard crash', body: '' },
-        { number: 11, title: 'Add Hebrew RTL support', body: '' },
+        {
+          number: 9,
+          title: 'Keyboard nav is broken in the fleet table',
+          body: templated('aria issue'),
+        },
+        { number: 10, title: 'Already tracked dashboard crash', body: TEMPLATED_BODY },
+        { number: 11, title: 'Add Hebrew RTL support', body: TEMPLATED_BODY },
       ]);
 
       const plans = await createIssueTriagePreviewApi(dbPath, exec)('p1');
@@ -120,7 +132,9 @@ describe('createIssueTriagePreviewApi', () => {
       });
       s.close();
 
-      const exec = issuesExec([{ number: 10, title: 'Already tracked dashboard crash', body: '' }]);
+      const exec = issuesExec([
+        { number: 10, title: 'Already tracked dashboard crash', body: TEMPLATED_BODY },
+      ]);
 
       const plans = await createIssueTriagePreviewApi(dbPath, exec)('p1');
 
@@ -182,7 +196,11 @@ describe('createIssueTriageExecuteApi', () => {
       s.close();
 
       const exec = issuesExec([
-        { number: 9, title: 'Keyboard nav is broken in the fleet table', body: 'aria issue' },
+        {
+          number: 9,
+          title: 'Keyboard nav is broken in the fleet table',
+          body: templated('aria issue'),
+        },
       ]);
 
       const result = await createIssueTriageExecuteApi(dbPath, exec)('p1');

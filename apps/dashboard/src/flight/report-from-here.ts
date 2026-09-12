@@ -47,7 +47,7 @@ import {
   type Store,
 } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
-import { classifyIssueDimension } from './issue-triage.js';
+import { classifyIssueDimension, issueTemplateGaps } from './issue-triage.js';
 
 /** The four one-click destinations the board task names for a report. */
 export const REPORT_ACTIONS = ['issue', 'quick-fix-pr', 'local-task', 'pool-offer'] as const;
@@ -147,8 +147,31 @@ function reportHeadline(capture: ReportRegionCapture): string {
  *  was reported from, which modules render that region, and an honest note
  *  about the screenshot — `gh issue create` cannot attach an image, so the
  *  body says the capture exists locally instead of pretending it uploaded. */
+/** The description under the repo's bug-template sections when it does not
+ *  already carry them — the fleet's own reports must pass the issue-protocol
+ *  gate KEEPER applies to everyone (`issue-triage.ts`, operator 2026-09-12).
+ *  The composer is asked to write the sections itself; this is the
+ *  deterministic safety net for a body that came back without them. */
+function templatedDescription(capture: ReportRegionCapture): readonly string[] {
+  const description = capture.description.trim();
+  if (issueTemplateGaps({ number: 0, title: '', body: description }) === null) {
+    return [description];
+  }
+  return [
+    '### What happened?',
+    description,
+    '',
+    '### Steps to reproduce',
+    `1. Open the dashboard's "${capture.regionLabel}" region.`,
+    '2. Compare what it shows with the description above.',
+    '',
+    '### Expected behavior',
+    'The region behaves as described in its documentation, without the problem above.',
+  ];
+}
+
 function reportBody(capture: ReportRegionCapture): string {
-  const lines: string[] = [capture.description.trim(), ''];
+  const lines: string[] = [...templatedDescription(capture), ''];
   lines.push(
     `Reported from the dashboard's "${capture.regionLabel}" region (\`${capture.regionId}\`).`,
   );
