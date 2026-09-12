@@ -400,6 +400,13 @@ ${flyHintText.toString()}
   // reasoning/refusal line (flight/lucky-plan.ts, English) passes through
   // as {reason}, the same server-message stance fly-status-i18n.test.ts
   // documents for res.message.
+  // Sustained-load hint (board web-mtsvcibf-bh6asp): reasoning[0] is always
+  // the CPU bound line ("CPU: N% load on M cores leaves ~K idle → L lane(s)
+  // at 3 cores each") — it was computed but never painted, so the operator
+  // only ever saw the FINAL lane/firing count, never the load reading that
+  // justified it. Prepending it to the rolled summary still fits the single
+  // {reason} slot above, so no new STRINGS key (and no new Hebrew string) is
+  // needed for it.
   var luckyEl = document.getElementById('fly-lucky');
   setTip(luckyEl, 'flyLuckyTip');
   if (luckyEl) luckyEl.addEventListener('click', function () {
@@ -416,7 +423,9 @@ ${flyHintText.toString()}
         if (firingsEl) firingsEl.value = String(data.plan.firings);
         if (budgetEl) budgetEl.value = String(data.plan.budgetUsd);
         updateFlyHint();
+        var loadHint = (data.plan.reasoning && data.plan.reasoning.length) ? data.plan.reasoning[0] : '';
         var rolled = (data.plan.reasoning && data.plan.reasoning.length) ? data.plan.reasoning[data.plan.reasoning.length - 1] : tr('luckyPlanReady');
+        if (loadHint && loadHint !== rolled) rolled = loadHint + ' — ' + rolled;
         setMsg(tr('luckyPressFlyIt', { reason: rolled }), '');
         if (goEl) goEl.focus();
         // lucky: plan painted — flying stays the operator's click.

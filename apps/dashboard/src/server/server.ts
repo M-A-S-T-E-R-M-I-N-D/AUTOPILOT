@@ -103,6 +103,8 @@ import {
 export type { ContributorIssueListPreviewApi };
 import { handleSocialIdentity, type SocialIdentityApi } from './social-identity.js';
 export type { SocialIdentityApi };
+import { handleCiStatus } from './ci-status-route.js';
+import type { CiStatusApi } from '../control/ci-status.js';
 import { handleDonations } from './donations.js';
 import type { DonationsPreviewApi } from '../flight/donations.js';
 import type {
@@ -740,6 +742,10 @@ export interface ServerDeps extends RouteDeps {
    *  on this repo, so a panel can hide a maintainer verb from a non-owner —
    *  see `flight/social-pass.ts`'s `resolveSocialIdentity`. */
   readonly socialIdentity?: SocialIdentityApi;
+  /** CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
+   *  `gh run list` report `control/ci-status.ts`'s `ci-status` CLI command
+   *  already prints, surfaced for the browser — see `createCiStatusApi`. */
+  readonly ciStatus?: CiStatusApi;
   /** Foundation donation addresses (FOUNDATION 1/3, board
    *  web-mtq0rsit-ywz1m7): chain-tagged BTC/EVM/SOL addresses, hidden until
    *  `docs/donations.json` carries a verified entry — see
@@ -3483,6 +3489,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/social-identity') {
       void handleSocialIdentity(req, res, deps.socialIdentity, headers);
+      return;
+    }
+
+    if (path === '/api/ci-status') {
+      void handleCiStatus(req, res, deps.ciStatus, headers);
       return;
     }
 
