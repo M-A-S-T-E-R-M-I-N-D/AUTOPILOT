@@ -13,6 +13,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
+// Each test boots the whole client (renderShell + clientJs) and steps a replay:
+// 1.7–6.3s on a dev box, 30s+ on a loaded windows-latest runner (CI run
+// 34697734760 turned main red on the default timeout). The work is real, not
+// a wait, so the budget is the fix; the boot itself is the next thing to slim.
+vi.setConfig({ testTimeout: 120_000 });
+
 const MULTI_FILE_PATCH = [
   'diff --git a/src/a.ts b/src/a.ts',
   'index 111..222 100644',

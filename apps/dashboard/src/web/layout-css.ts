@@ -832,7 +832,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .ci-status-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .ci-status-badge-ok { color: var(--color-success); border-color: var(--color-success); }
 .ci-status-badge-fail { color: var(--color-sev-critical); border-color: var(--color-sev-critical); }
-.pool-client-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-1); }
+.pool-client-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--space-2); margin-top: var(--space-2); }
 .pool-client-actions > select { flex: 1 1 auto; min-width: 0; }
 .pool-client-project { font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 /* .pool-client-fly (COCKPIT 6/6): the post-claim "Fly" button
@@ -1485,10 +1485,10 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
   .pipeline-panel { flex-direction: row; align-items: flex-start; }
   .pipeline-tree { flex: 0 1 32%; min-width: 12em; }
-  .pool-client-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head actions" "title actions"; column-gap: var(--space-4); align-items: center; }
-  .pool-client-head { grid-area: head; }
-  .pool-client-issue-title { grid-area: title; }
-  .pool-client-actions { grid-area: actions; margin-top: 0; }
+  /* Pool rows stay stacked from md too — the side-by-side grid squeezed the
+     title beside a select and a button (operator, 2026-09-12: one under the
+     other); the actions keep their own line and their own breathing room. */
+  .pool-client-item { padding-block: var(--space-3); }
   .pool-client-actions > select { flex: 0 1 auto; }
   /* The bar becomes a rail: fixed to the inline-start edge, icon over
      label (M3 navigation rail), mirrored under RTL by the logical inset. */
@@ -1570,10 +1570,6 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   }
   .context-rail > .live-workers, .context-rail > .pr-review-panel, .context-rail > .pool-client-panel { margin-inline: var(--space-3); padding-inline: var(--space-3); }
   .context-rail > .live-workers { padding-block: var(--space-2); }
-  /* In the 22.5rem rail a pool row's md grid (title | actions) left the title
-     ten characters wide; the row stacks there (RTL audit, 2026-09-12). */
-  .context-rail .pool-client-item { display: flex; flex-direction: column; align-items: stretch; }
-  .context-rail .pool-client-actions { margin-top: var(--space-2); }
 }
 /* FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays. The
    toggle is the nav's last item (a button, not a place); the exit pill is

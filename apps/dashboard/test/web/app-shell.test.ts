@@ -165,8 +165,10 @@ describe('layout-css — mobile-first laws', () => {
     expect(css).toContain('.pipeline-tree {');
     expect(css).toMatch(/\.pipeline-tree \{[^\n]*max-block-size: 70vh; overflow: auto;/);
     expect(css).toMatch(/\.pipeline-canvas \{[^\n]*block-size: min\(70vh, 40rem\)/);
-    expect(css).toContain(
-      '.context-rail .pool-client-item { display: flex; flex-direction: column;',
+    // Pool rows stack at every width: no md grid puts the actions beside the title.
+    expect(css).not.toContain('grid-template-areas: "head actions" "title actions"');
+    expect(css).toMatch(
+      /\.pool-client-actions \{ display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start;/,
     );
   });
 
