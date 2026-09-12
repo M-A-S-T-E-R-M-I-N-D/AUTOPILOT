@@ -87,11 +87,18 @@ body {
 .connect > summary:hover, .connect > summary:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
 .connect > summary:active { box-shadow: none; }
 .connect[open] > summary { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
-.connect-body { position: absolute; inset-inline-end: 0; margin-top: var(--space-2); width: 320px; max-width: 88vw; z-index: 20; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--elevation-level-2); }
+.connect-body { position: fixed; inset-inline: var(--space-3); inset-block-start: 6.5rem; margin-top: 0; width: auto; max-width: none; z-index: 20; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--elevation-level-2); }
 /* The theme/language popovers hold a single short pill row — the 320px
    connect-panel width left the buttons swimming at the start of a mostly
    empty box (operator catch, 2026-09-07). Size these two to content. */
-.theme-menu > .connect-body, .lang-menu > .connect-body { width: max-content; }
+@media (min-width: 48rem) {
+  /* From md the popover is a menu anchored to its control (inline-end, so it
+     grows toward the page's centre in both directions); below md it is a
+     sheet pinned to the viewport's inline edges, which no control's position
+     can push off-screen (RTL audit, 2026-09-12: 412px, Hebrew). */
+  .connect-body { position: absolute; inset-inline: auto 0; inset-block-start: auto; margin-top: var(--space-2); width: 320px; max-width: 88vw; }
+  .theme-menu > .connect-body, .lang-menu > .connect-body { width: max-content; }
+}
 .connect-status { margin: 0; font-size: var(--text-sm); }
 .connect-ok { color: var(--color-success); }
 .connect-bad { color: var(--color-sev-high); }
@@ -544,7 +551,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .pipeline-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0 0 var(--space-3); }
 .pipeline-panel { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-3); }
-.pipeline-tree { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); }
+.pipeline-tree { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); max-block-size: 70vh; overflow: auto; overscroll-behavior: contain; }
 .pipeline-lane { display: flex; flex-direction: column; gap: var(--space-1); }
 .pipeline-lane-label { color: var(--color-text-muted); font-size: var(--text-xs); font-family: var(--font-mono); }
 /* Pipeline tree rows (COCKPIT 6/6): the role="treeitem" rows are structural
@@ -565,7 +572,7 @@ main.project-mode { grid-template-columns: 1fr; }
    the panel row re-inflates the preserved aspect ratio until one node fills
    a whole screen (the 43-lane single-column flight the operator caught).
    max-width + height:auto still SHRINK a canvas wider than the panel. */
-.pipeline-canvas { flex: 0 1 auto; min-width: 0; max-width: 100%; height: auto; }
+.pipeline-canvas { flex: 1 1 auto; min-width: 0; inline-size: 100%; max-inline-size: 100%; block-size: min(70vh, 40rem); }
 .pipeline-empty { color: var(--color-text-muted); font-size: var(--text-sm); margin: 0; }
 /* Canvas status colors mirror .spark-shipped/-errored/-no's OTLP status→token mapping exactly —
    one status vocabulary, not a second one invented for the node-graph lens. */
@@ -1263,11 +1270,11 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 
 /* Accessibility: keyboard skip-link, visible focus, respect reduced motion. */
 .skip-link {
-  position: absolute; inset-inline-start: -9999px; top: var(--space-2); z-index: 100;
+  position: absolute; inset-inline-start: var(--space-3); top: var(--space-2); z-index: 100;
   background: var(--color-accent); color: var(--color-accent-text);
   padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm);
 }
-.skip-link:focus { inset-inline-start: var(--space-3); }
+.skip-link:not(:focus) { inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 main:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
@@ -1539,6 +1546,13 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .plan-status { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
 .plan-status-draft { color: var(--color-needs-you); }
 .plan-actions { display: flex; gap: var(--space-2); }
+/* BIDI LAWS (RTL audit, 2026-09-12): user content keeps its own direction —
+   an English issue title inside a Hebrew page reads left-to-right, is
+   ellipsised at its own end and keeps its number first; code, commands and
+   paths are always LTR. unicode-bidi: plaintext is the stylesheet's form of
+   dir="auto"; text-align: start then follows the resolved direction. */
+.keeper-queue-open, .keeper-queue-why, .pool-client-issue-title, .pr-review-pr-title, .issue-triage-issue-title, .task-title, .mirror-pass-item, .palette-input, #search-q { unicode-bidi: plaintext; text-align: start; }
+.plan-step-label, .plan-prop input[type="text"], #fly-folder, .search-path, code, pre, kbd { direction: ltr; unicode-bidi: isolate; text-align: start; }
 .context-rail { display: none; }
 .context-rail-empty { margin: var(--space-4) var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
 @media (min-width: 80rem) {
@@ -1556,6 +1570,10 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   }
   .context-rail > .live-workers, .context-rail > .pr-review-panel, .context-rail > .pool-client-panel { margin-inline: var(--space-3); padding-inline: var(--space-3); }
   .context-rail > .live-workers { padding-block: var(--space-2); }
+  /* In the 22.5rem rail a pool row's md grid (title | actions) left the title
+     ten characters wide; the row stacks there (RTL audit, 2026-09-12). */
+  .context-rail .pool-client-item { display: flex; flex-direction: column; align-items: stretch; }
+  .context-rail .pool-client-actions { margin-top: var(--space-2); }
 }
 /* FOCUS MODE (epic 0021 slice 8): the chrome leaves, the work stays. The
    toggle is the nav's last item (a button, not a place); the exit pill is

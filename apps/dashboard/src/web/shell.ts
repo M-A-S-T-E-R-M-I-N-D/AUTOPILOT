@@ -3409,8 +3409,10 @@ function renderProjectPage(state, pid) {
   // which lane, and what continued what — server-rendered by /api/pipeline
   // and fetched on demand, right after Fleet coordination since both answer
   // the same "what is the fleet actually doing?" question at different depths.
-  fleet.appendChild(subj(pipelineSection(pid), 'plan'));
+  // The editor first — what the operator changes — then the observed pipeline
+  // (RTL/density audit, 2026-09-12: the 13k-px span tree buried the editor).
   fleet.appendChild(subj(planEditorSection(pid), 'plan'));
+  fleet.appendChild(subj(pipelineSection(pid), 'plan'));
   var docsEl = docsSection(pid);
   docsEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'docs');
   fleet.appendChild(subj(docsEl, 'docs'));

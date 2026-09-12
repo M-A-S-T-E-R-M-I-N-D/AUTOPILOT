@@ -25,6 +25,9 @@ test.describe('dashboard boot smoke', () => {
     // client's own status polls for those subsystems 404 by design. Anything else
     // 404ing would be a regression.
     expect(badResponses.sort()).toEqual([
+      // The KEEPER CI-status panel (a round-3 lane): unserved by the fixtures, like its
+      // siblings; the list is alphabetical, so it leads.
+      '404 /api/ci-status',
       '404 /api/connection',
       '404 /api/connection/gh',
       '404 /api/connection/gh-lts',

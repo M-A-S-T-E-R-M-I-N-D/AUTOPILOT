@@ -292,6 +292,15 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     expect(cmd().value).toBe('pnpm run test -- --coverage');
   });
 
+  it('leads the Plan subject: the editor comes before the observed pipeline', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    const plan = Array.from(document.querySelectorAll('main#fleet > [data-subject="plan"]')).map(
+      (el) => el.className,
+    );
+    expect(plan).toEqual(['plan-editor', 'pipeline-section']);
+  });
+
   it('is read-only where the plan route is not served', async () => {
     bootWithPlan(404);
     await vi.advanceTimersByTimeAsync(1);

@@ -146,6 +146,44 @@ describe('layout-css — mobile-first laws', () => {
     );
   });
 
+  it('keeps user content in its own direction and code LTR (the bidi laws), and bounds the pipeline view', () => {
+    const bidi = css.match(
+      /^([^\n]*\.keeper-queue-open[^\n]*) \{ unicode-bidi: plaintext; text-align: start; \}/m,
+    );
+    expect(bidi, 'a plaintext rule names the queue title').not.toBeNull();
+    for (const sel of [
+      '.task-title',
+      '.pool-client-issue-title',
+      '.pr-review-pr-title',
+      '#search-q',
+    ]) {
+      expect(bidi![1], sel).toContain(sel);
+    }
+    expect(css).toMatch(
+      /\.plan-step-label[^\n]*#fly-folder[^\n]* \{ direction: ltr; unicode-bidi: isolate; text-align: start; \}/,
+    );
+    expect(css).toContain('.pipeline-tree {');
+    expect(css).toMatch(/\.pipeline-tree \{[^\n]*max-block-size: 70vh; overflow: auto;/);
+    expect(css).toMatch(/\.pipeline-canvas \{[^\n]*block-size: min\(70vh, 40rem\)/);
+    expect(css).toContain(
+      '.context-rail .pool-client-item { display: flex; flex-direction: column;',
+    );
+  });
+
+  it('the masthead popovers are a viewport sheet below md and an anchored menu from md', () => {
+    expect(css).toMatch(/^\.connect-body \{ position: fixed; inset-inline: var\(--space-3\);/m);
+    const md = css.indexOf('@media (min-width: 48rem) {\n  /* From md the popover is a menu');
+    expect(md).toBeGreaterThan(-1);
+    expect(css.slice(md, md + 700)).toContain(
+      '.connect-body { position: absolute; inset-inline: auto 0;',
+    );
+    // The skip link hides by clipping, never by a physical off-screen offset.
+    expect(css).toContain(
+      '.skip-link:not(:focus) { inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%);',
+    );
+    expect(css).not.toContain('-9999px');
+  });
+
   it('places the subject nav as a bottom bar at base and a rail from md', () => {
     expect(css).toMatch(/\.subject-nav \{\s*position: fixed; inset-block-end: 0; inset-inline: 0;/);
     const md = css.slice(css.indexOf(mediaMin('md')));
