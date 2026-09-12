@@ -76,6 +76,7 @@ import {
   updateBranchResult,
   rerunChecksConfirmMessage,
   rerunChecksResult,
+  checkDiagnosisResult,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -124,6 +125,11 @@ ${updateBranchConfirmMessage.toString()}
 ${updateBranchResult.toString()}
 ${rerunChecksConfirmMessage.toString()}
 ${rerunChecksResult.toString()}
+// The 🔧 Diagnose button (epic 0020 slice 8, board web-mtvpuoj4-tv1z09) — the
+// fourth maintainer verb: reads the failing check's own log and classifies
+// it flake/defect/unknown instead of leaving re-run as the only answer to a
+// real defect.
+${checkDiagnosisResult.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -296,6 +302,14 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
           'data-pr-rerun-checks', plan.pr.number,
           'Restart only the jobs that failed, not the whole matrix. For a flake — a real failure fails again.',
           false));
+        // The 🔧 Diagnose button (epic 0020 slice 8) — re-run is the right
+        // answer to a flake and useless against a real defect. Read-only: it
+        // never mutates anything, so it renders enabled beside a failed
+        // check with no readiness gate of its own.
+        actions.appendChild(prPanelButton('pr-review-update-branch', '🔧 Diagnose',
+          'data-pr-diagnose', plan.pr.number,
+          'Classifies the check as flake or defect — read-only.',
+          false));
       }
       if (readiness.behindBase) {
         actions.appendChild(prPanelButton('pr-review-update-branch', '⟳ Update branch',
@@ -361,6 +375,25 @@ function loadPrReviewPanel() {
     })
     .catch(function () {});
 }
+// Shared by every maintainer-verb click handler below (execute, merge,
+// re-run, update-branch, diagnose): re-enable the button with its original
+// label, and — when there is a result line to write — set its class/text.
+// Folding this out saved real bundle bytes; it was duplicated at every call
+// site before.
+function prPanelRestore(b, originalText, resultEl, result) {
+  b.disabled = false;
+  b.textContent = originalText;
+  if (resultEl && result) {
+    resultEl.className = result.className;
+    resultEl.textContent = result.text;
+  }
+}
+function prPanelReportFailure(b, originalText, resultEl) {
+  prPanelRestore(b, originalText, resultEl, {
+    className: 'pr-review-result pr-review-result-fail',
+    text: tr('reportRequestFailed'),
+  });
+}
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-pr-review-execute]');
   if (!b) return;
@@ -394,12 +427,7 @@ document.addEventListener('click', function (e) {
     .then(function (r) {
       var result = prReviewExecuteResult(r.data, tr);
       if (result.className.indexOf('pr-review-result-fail') !== -1) {
-        b.disabled = false;
-        b.textContent = originalText;
-        if (resultEl) {
-          resultEl.className = result.className;
-          resultEl.textContent = result.text;
-        }
+        prPanelRestore(b, originalText, resultEl, result);
         return;
       }
       // A clean apply changed the PR's state (comment posted, or merged) —
@@ -408,12 +436,7 @@ document.addEventListener('click', function (e) {
       loadPrReviewPanel();
     })
     .catch(function () {
-      b.disabled = false;
-      b.textContent = originalText;
-      if (resultEl) {
-        resultEl.className = 'pr-review-result pr-review-result-fail';
-        resultEl.textContent = tr('reportRequestFailed');
-      }
+      prPanelReportFailure(b, originalText, resultEl);
     });
 });
 // The two maintainer verbs — merge and update-branch — are the same
@@ -426,29 +449,25 @@ function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor
     if (!b || b.disabled) return;
     var number = parseInt(b.getAttribute(attr), 10);
     var plan = prReviewPlansByNumber[number];
-    if (!plan) return;
-    if (!window.confirm(confirmFor(plan.pr))) return;
+    // A GET action (no bodyFor — the 🔧 Diagnose button) carries no confirmFor
+    // either: read-only, so nothing to confirm and no plan lookup required.
+    if (confirmFor && (!plan || !window.confirm(confirmFor(plan.pr)))) return;
     var item = b.closest('.pr-review-item');
     var resultEl = item && item.querySelector('.pr-review-result');
     var originalText = b.textContent;
     b.disabled = true;
     b.textContent = label;
-    var restore = function () {
-      b.disabled = false;
-      b.textContent = originalText;
-    };
-    fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(bodyFor(number, plan)),
-    })
+    var req = bodyFor
+      ? fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(bodyFor(number, plan)),
+        })
+      : fetch(url + number, { headers: { accept: 'application/json' } });
+    req
       .then(function (res) { return res.json(); })
       .then(function (data) {
         var result = formatFor(data);
-        if (resultEl) {
-          resultEl.className = result.className;
-          resultEl.textContent = result.text;
-        }
         var changed = !!(data && (data.merged || data.updated || data.rerun));
         // Re-poll ONLY when the action actually changed the PR. A refusal
         // changed nothing, and re-rendering would wipe the very message
@@ -460,14 +479,10 @@ function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor
           loadPrReviewPanel();
           return;
         }
-        restore();
+        prPanelRestore(b, originalText, resultEl, result);
       })
       .catch(function () {
-        restore();
-        if (resultEl) {
-          resultEl.className = 'pr-review-result pr-review-result-fail';
-          resultEl.textContent = tr('reportRequestFailed');
-        }
+        prPanelReportFailure(b, originalText, resultEl);
       });
   });
 }
@@ -498,6 +513,11 @@ wirePrMaintainerAction(
   function (n) { return { number: n }; },
   updateBranchResult
 );
+// The 🔧 Diagnose button rides the same wiring as the three POST verbs above
+// — a null confirmFor/bodyFor tells wirePrMaintainerAction this one is a
+// read-only GET: no confirm dialog, no body, and (since formatFor's result
+// never sets merged/updated/rerun) no re-poll on completion either.
+wirePrMaintainerAction('data-pr-diagnose', 'Diagnosing…', '/api/pr-review/diagnose?number=', null, null, checkDiagnosisResult);
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
 // function declaration from fleetJs()'s text in the same concatenated
 // bundle, the same top-level call shape coordination.ts already relies on.

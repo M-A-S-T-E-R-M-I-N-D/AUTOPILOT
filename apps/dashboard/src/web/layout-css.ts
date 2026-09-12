@@ -660,6 +660,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-review-result:empty { display: none; }
 .pr-review-result-ok { color: var(--color-success); }
 .pr-review-result-fail { color: var(--color-sev-critical); }
+.pr-review-result-warn { color: var(--color-sev-medium); }
 .issue-triage-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .issue-triage-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .issue-triage-list { display: flex; flex-direction: column; }

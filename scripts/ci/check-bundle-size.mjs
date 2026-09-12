@@ -178,6 +178,12 @@ const CORE_GZIP_BUDGET = 58 * 1024;
 // exit actions — measured 142.6KB raw.
 // Then raw 144→146KB (2026-09-12) for EPIC 0021 slice 4 (remainder): the Keeper
 // queue's settled-this-session history — measured 144.3KB raw.
+// Then raw 144→145KB (2026-09-12) for EPIC 0020 slice 8: the 🔧 Diagnose button
+// — measured 144.1KB raw after trimming (shared restore/render helpers, a
+// generalized wirePrMaintainerAction, a shorter tooltip). Mirrors the budget
+// comment in test/server/client-bundle-size-budget.test.ts.
+// Merged 2026-09-12: both lines above landed in the same round (the Keeper queue's
+// settled history HERE, the Diagnose button in a lane); one budget covers both.
 const CHUNK_RAW_BUDGET = 146 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
