@@ -982,6 +982,21 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    `planDiscussionTriage`/classify), zero write/mutation capability, no HTTP/UI
    wiring — deferring reply-posting, the preview/execute endpoints, and the panel to
    follow-on slices, the same staged-rollout shape slice 3 itself used.
+   STATUS (2026-09-12): the ritual and its API pair have shipped, in exactly
+   that staged order — `flight/discussions-triage.ts` (decision core, GraphQL
+   read, ATTRIBUTION-signed reply draft, `addDiscussionComment` post, pool-label
+   ID lookup + `addLabelsToLabelable` apply, `runDiscussionTriageRitual`
+   post-then-label composer) and `flight/discussions-triage-execute.ts` (the
+   identity-gated preview/execute API pair — a preview drafts nothing without a
+   resolved `gh` login to sign on behalf of; an execute posts nothing unless that
+   login is the repo's maintainer, reporting `skippedReason` instead of a 403,
+   epic 0019 law 1). Still deferred, in order: the `server.ts` routes (`GET
+   /api/discussions-triage` and a CSRF-guarded, rate-limited `POST
+   /api/discussions-triage/execute`, injected in `main.ts` — a pure wiring
+   slice, held back only because `server.ts` was under a sibling flight's claim
+   when the API pair landed) and then the operator panel, so the board item
+   stays open (UX-expression doctrine: a capability with no panel is a slice,
+   not complete).
 
 ## Related
 
