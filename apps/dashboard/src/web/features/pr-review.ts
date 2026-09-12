@@ -76,6 +76,7 @@ import {
   updateBranchResult,
   rerunChecksConfirmMessage,
   rerunChecksResult,
+  checkDiagnosisResult,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -124,6 +125,11 @@ ${updateBranchConfirmMessage.toString()}
 ${updateBranchResult.toString()}
 ${rerunChecksConfirmMessage.toString()}
 ${rerunChecksResult.toString()}
+// The 🔧 Diagnose button (epic 0020 slice 8, board web-mtvpuoj4-tv1z09) — the
+// fourth maintainer verb: reads the failing check's own log and classifies
+// it flake/defect/unknown instead of leaving re-run as the only answer to a
+// real defect.
+${checkDiagnosisResult.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -295,6 +301,15 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
         actions.appendChild(prPanelButton('pr-review-update-branch', '↻ Re-run failed',
           'data-pr-rerun-checks', plan.pr.number,
           'Restart only the jobs that failed, not the whole matrix. For a flake — a real failure fails again.',
+          false));
+        // The 🔧 Diagnose button (epic 0020 slice 8) — re-run is the right
+        // answer to a flake and useless against a real defect. Read-only: it
+        // never mutates anything, so it renders enabled beside a failed
+        // check with no readiness gate of its own.
+        actions.appendChild(prPanelButton('pr-review-update-branch', '🔧 Diagnose',
+          'data-pr-diagnose', plan.pr.number,
+          'Reads the failing check’s own log and classifies it as a flake, a real defect, or ' +
+          'unknown — read-only, nothing is pushed.',
           false));
       }
       if (readiness.behindBase) {
@@ -498,6 +513,38 @@ wirePrMaintainerAction(
   function (n) { return { number: n }; },
   updateBranchResult
 );
+// The 🔧 Diagnose button's own wiring — a GET, not a POST, so it does not fit
+// wirePrMaintainerAction's confirm-then-mutate shape: read-only, no confirm
+// dialog, and a re-poll would be wasted since nothing about the PR changed.
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-pr-diagnose]');
+  if (!b || b.disabled) return;
+  var number = parseInt(b.getAttribute('data-pr-diagnose'), 10);
+  var item = b.closest('.pr-review-item');
+  var resultEl = item && item.querySelector('.pr-review-result');
+  var originalText = b.textContent;
+  b.disabled = true;
+  b.textContent = 'Diagnosing…';
+  fetch('/api/pr-review/diagnose?number=' + number, { headers: { accept: 'application/json' } })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      var result = checkDiagnosisResult(data);
+      if (resultEl) {
+        resultEl.className = result.className;
+        resultEl.textContent = result.text;
+      }
+      b.disabled = false;
+      b.textContent = originalText;
+    })
+    .catch(function () {
+      b.disabled = false;
+      b.textContent = originalText;
+      if (resultEl) {
+        resultEl.className = 'pr-review-result pr-review-result-fail';
+        resultEl.textContent = tr('reportRequestFailed');
+      }
+    });
+});
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
 // function declaration from fleetJs()'s text in the same concatenated
 // bundle, the same top-level call shape coordination.ts already relies on.
