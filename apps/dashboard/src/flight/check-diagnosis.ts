@@ -21,11 +21,24 @@
  * report.mjs` already validates (`testPath`/`owner`/`reason`/`addedDate`)
  * — a test already known to flake, that the PR does not itself touch, is
  * the strongest cheap signal available without re-running the suite
- * against `main`. Deferred to a follow-up derivation, per the epic's own
- * "Shape" section: the `🔧 Diagnose` button, the server route, and the
- * `defect` verdict's diff-for-approval preparation — none of that exists
- * yet, so this slice is backend-only.
+ * against `main`.
+ *
+ * {@link createCheckDiagnosisApi} is the follow-up derivation named in the
+ * epic's own "Shape" section as the server route: it re-reads the PR's
+ * open checks fresh from `gh` (same never-trust-the-card discipline as
+ * `human-merge.ts`), fetches the failed job's own log with `gh run view
+ * --log-failed`, loads the quarantine list off disk, and feeds all three
+ * to the pure classifier above. Still deferred: the `🔧 Diagnose` button
+ * and the `defect` verdict's diff-for-approval preparation — this
+ * derivation only makes the classification reachable over HTTP.
  */
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
+import { fetchOpenPrCandidates } from './pr-review.js';
+import { runIdFromCheckUrl } from './human-merge.js';
 
 /** One entry from `config/quarantine/flaky-tests.json`, in the shape
  *  `scripts/ci/quarantine-report.mjs`'s `validateQuarantineList` already
@@ -143,5 +156,103 @@ export function diagnoseFailedCheck(input: CheckDiagnosisInput): CheckDiagnosisR
     failingTestPaths,
     touchedFailingPaths,
     matchedQuarantineEntries,
+  };
+}
+
+/** Checks that do not gate — the same "(optional)" convention
+ *  `human-merge.ts`'s own `isOptionalCheck` uses: an optional job's red
+ *  is not the failure an operator needs diagnosed. */
+function isOptionalCheck(name: string): boolean {
+  return name.toLowerCase().includes('(optional)');
+}
+
+/** Reads `config/quarantine/flaky-tests.json` off `repoRoot`. Best-effort:
+ *  a missing file, unreadable JSON, or an entry missing a required field is
+ *  silently dropped rather than thrown — the quarantine list only ever
+ *  narrows a verdict toward `flake`, so a broken read degrades to "nothing
+ *  quarantined" instead of failing the whole diagnosis. */
+function loadQuarantineList(repoRoot: string): readonly QuarantineEntry[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(join(repoRoot, 'config/quarantine/flaky-tests.json'), 'utf8'));
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((entry): entry is QuarantineEntry => {
+    const candidate = entry as Record<string, unknown>;
+    return (
+      typeof candidate?.['testPath'] === 'string' &&
+      candidate['testPath'] !== '' &&
+      typeof candidate?.['owner'] === 'string' &&
+      typeof candidate?.['reason'] === 'string' &&
+      typeof candidate?.['addedDate'] === 'string'
+    );
+  });
+}
+
+/** Either the classified verdict, or the reason there was nothing to
+ *  classify — a refusal here is a normal result, not a transport failure,
+ *  the same convention {@link RerunChecksResult} in `human-merge.ts`
+ *  follows for its own sibling verb. */
+export interface CheckDiagnosisApiOutcome {
+  readonly diagnosis?: CheckDiagnosisResult;
+  readonly reason?: string;
+}
+
+/** The API shape `GET /api/pr-review/diagnose?number=` wires. */
+export type CheckDiagnosisApi = (number: number) => Promise<CheckDiagnosisApiOutcome>;
+
+/**
+ * Builds the diagnose API: re-reads the PR's open checks fresh from `gh`
+ * (never the previewed card), reads the log of whichever gating check(s)
+ * are failing, and classifies it against the PR's own touched paths and the
+ * quarantine list on disk. Multiple failing checks that share one workflow
+ * run (`runIdFromCheckUrl` dedupes them, same as `createRerunChecksApi`)
+ * have their logs concatenated before classification — the classifier only
+ * needs the failing test's own FAIL line, wherever in the log it lands.
+ */
+export function createCheckDiagnosisApi(
+  exec: CliExec = ghExec,
+  repoRoot: string = process.cwd(),
+): CheckDiagnosisApi {
+  return async (number) => {
+    const candidates = await fetchOpenPrCandidates(exec);
+    const pr = candidates.find((candidate) => candidate.number === number);
+    if (!pr) return { reason: `#${number} is no longer open — nothing to diagnose.` };
+
+    const failing = (pr.checkRuns ?? []).filter(
+      (check) => check.state === 'fail' && !isOptionalCheck(check.name),
+    );
+    if (failing.length === 0) {
+      return { reason: 'No gating check is failing — there is nothing to diagnose.' };
+    }
+    const runIds = [...new Set(failing.map((check) => runIdFromCheckUrl(check.url)))].filter(
+      (id): id is string => id !== null,
+    );
+    if (runIds.length === 0) {
+      return {
+        reason:
+          'The failing checks are not GitHub Actions runs (an external status, or gh ' +
+          'reported no run link) — there is no log to read from here.',
+      };
+    }
+
+    const logs: string[] = [];
+    for (const id of runIds) {
+      const { code, stdout } = await exec('gh', ['run', 'view', id, '--log-failed']);
+      if (code === 0) logs.push(stdout);
+    }
+    if (logs.length === 0) {
+      return { reason: 'gh could not read the failing job’s log — it may still be uploading.' };
+    }
+
+    return {
+      diagnosis: diagnoseFailedCheck({
+        jobLog: logs.join('\n'),
+        touchedPaths: pr.touchedPaths,
+        quarantine: loadQuarantineList(repoRoot),
+      }),
+    };
   };
 }

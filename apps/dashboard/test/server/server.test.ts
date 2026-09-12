@@ -1911,6 +1911,58 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(404);
   });
 
+  it('GET /api/pr-review/diagnose?number= returns the classified verdict', async () => {
+    const diagnosis = {
+      verdict: 'flake' as const,
+      reasoning: ['apps/dashboard/test/web/a11y.test.ts is already quarantined as flaky.'],
+      failingTestPaths: ['apps/dashboard/test/web/a11y.test.ts'],
+      touchedFailingPaths: [],
+      matchedQuarantineEntries: [],
+    };
+    const base = await start({ checkDiagnosis: async () => ({ diagnosis }) });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ diagnosis });
+  });
+
+  it('GET /api/pr-review/diagnose?number= passes a refusal through as a reason, not an error', async () => {
+    const base = await start({
+      checkDiagnosis: async () => ({ reason: 'No gating check is failing.' }),
+    });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ reason: 'No gating check is failing.' });
+  });
+
+  it('400s /api/pr-review/diagnose without a positive integer PR number', async () => {
+    const base = await start({ checkDiagnosis: async () => ({ reason: 'n/a' }) });
+    for (const bad of ['', 'abc', '0', '-1']) {
+      const res = await fetch(`${base}/api/pr-review/diagnose?number=${bad}`);
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it('POST /api/pr-review/diagnose is not allowed (read-only endpoint)', async () => {
+    const base = await start({ checkDiagnosis: async () => ({ reason: 'n/a' }) });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`, { method: 'POST' });
+    expect(res.status).toBe(405);
+  });
+
+  it('500s /api/pr-review/diagnose instead of crashing when the read throws', async () => {
+    const base = await start({
+      checkDiagnosis: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/pr-review/diagnose?number=37`);
+    expect(res.status).toBe(500);
+  });
+
+  it('404s /api/pr-review/diagnose when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/pr-review/diagnose?number=37`)).status).toBe(404);
+  });
+
   it('GET /api/issue-triage previews the planned decision for every open issue on a known project', async () => {
     const plan = {
       issue: { number: 9, title: 'Keyboard nav is broken', body: '' },
