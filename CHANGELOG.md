@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.40.0] — 2026-09-12
+
+### Added
+
+- feat(dashboard): epic 0020 slice 8 — wire the diagnose route over gh
+- feat(sync-back): wire the merge-escalation agent into the live flight-end sync (rung 4)
+- feat(dashboard): epic 0021 slice 3 (second cut) — the flight plan editor: edit, draft, publish
+- feat(dashboard): epic 0020 slice 8 — pure classifier for a red check's verdict
+- feat(discussions): wire KEEPER DISCUSSIONS routes into server.ts (web-mtlsiac0-v8rksh)
+- feat(dashboard): epic 0021 slice 4 — the Keeper queue, one list of everything waiting on a human
+
+### Fixed
+
+- fix(dashboard): a settled (skip) triage plan or PR review leaves the Keeper queue and its count
+
 ## [0.39.0] — 2026-09-12
 
 ### Added

@@ -131,6 +131,11 @@ function keeperQueueItems() {
       var nodes = k.querySelectorAll(src.selector);
       for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i];
+        // A settled item — a triage plan or a PR review whose decision is
+        // "skip" (already answered on a previous pass) — waits on nobody:
+        // it stays in its panel for the record and leaves the queue and the
+        // count (seen live: 41 skipped triage rows counted as "waiting").
+        if (n.querySelector('[class*="-badge-skip"]')) continue;
         var titleEl = src.title ? n.querySelector(src.title) : null;
         var head = src.head ? n.querySelector(src.head) : null;
         var num = head ? head.firstElementChild : null;
