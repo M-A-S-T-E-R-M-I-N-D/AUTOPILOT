@@ -940,6 +940,11 @@ const BENIGN_WEB_FEATURES = new Set([
   'activity-heatmap.ts',
   'activity.ts',
   'backlog.ts',
+  // ci-status.ts: GET /api/ci-status only, no execute pair — renders each
+  // workflow's name/detail as chip textContent (el()'s textContent
+  // assignment, never innerHTML), the same read-only shape backlog.ts and
+  // contributor-standing.ts already stay unflagged for.
+  'ci-status.ts',
   'contributor-standing.ts',
   'coordination.ts',
   'docs-viewer.ts',

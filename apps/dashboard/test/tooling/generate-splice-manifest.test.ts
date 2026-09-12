@@ -40,6 +40,7 @@ import { switcherJs } from '../../src/web/features/switcher.js';
 import { activityHeatmapJs } from '../../src/web/features/activity-heatmap.js';
 import { activityJs } from '../../src/web/features/activity.js';
 import { backlogJs } from '../../src/web/features/backlog.js';
+import { ciStatusJs } from '../../src/web/features/ci-status.js';
 import { connectJs } from '../../src/web/features/connect.js';
 import { contributorIssueListJs } from '../../src/web/features/contributor-issue-list.js';
 import { contributorStandingJs } from '../../src/web/features/contributor-standing.js';
@@ -107,6 +108,7 @@ function featureTs(basename: string): string {
 const ACTIVITY_HEATMAP_TS = featureTs('activity-heatmap');
 const ACTIVITY_TS = featureTs('activity');
 const BACKLOG_TS = featureTs('backlog');
+const CI_STATUS_TS = featureTs('ci-status');
 const SWITCHER_TS = featureTs('switcher');
 const CONNECT_TS = featureTs('connect');
 const CONTRIBUTOR_ISSUE_LIST_TS = featureTs('contributor-issue-list');
@@ -1364,6 +1366,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'activity-heatmap.ts': ['activityHeatmapJs'],
     'activity.ts': ['activityJs'],
     'backlog.ts': ['backlogJs'],
+    'ci-status.ts': ['ciStatusJs'],
     'connect.ts': ['connectJs'],
     'contributor-issue-list.ts': ['contributorIssueListJs'],
     'contributor-standing.ts': ['contributorStandingJs'],
@@ -1417,6 +1420,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
   it('builds a FeatureModulesManifest for src/web/features/ that matches buildAssemblyManifest called directly on each file', () => {
     const activitySource = readFileSync(ACTIVITY_TS, 'utf8');
     const backlogSource = readFileSync(BACKLOG_TS, 'utf8');
+    const ciStatusSource = readFileSync(CI_STATUS_TS, 'utf8');
     const connectSource = readFileSync(CONNECT_TS, 'utf8');
     const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');
     const contributorStandingSource = readFileSync(CONTRIBUTOR_STANDING_TS, 'utf8');
@@ -1459,6 +1463,9 @@ describe('discoverFeatureModules against the real src/web/features directory —
       'activityJs',
     ]);
     const directBacklogManifest = buildAssemblyManifest(backlogSource, BACKLOG_TS, ['backlogJs']);
+    const directCiStatusManifest = buildAssemblyManifest(ciStatusSource, CI_STATUS_TS, [
+      'ciStatusJs',
+    ]);
     const directConnectManifest = buildAssemblyManifest(connectSource, CONNECT_TS, ['connectJs']);
     const directContributorIssueListManifest = buildAssemblyManifest(
       contributorIssueListSource,
@@ -1559,6 +1566,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directActivityHeatmapManifest,
       directActivityManifest,
       directBacklogManifest,
+      directCiStatusManifest,
       directConnectManifest,
       directContributorIssueListManifest,
       directContributorStandingManifest,
@@ -1855,12 +1863,13 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, ci-status.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
     expect(source).toContain("import { activityJs } from './activity.js';");
     expect(source).toContain("import { backlogJs } from './backlog.js';");
+    expect(source).toContain("import { ciStatusJs } from './ci-status.js';");
     expect(source).toContain("import { connectJs } from './connect.js';");
     expect(source).toContain(
       "import { contributorIssueListJs } from './contributor-issue-list.js';",
@@ -1899,7 +1908,8 @@ describe('generateFeatureModulesIndexSource', () => {
       source.indexOf("'./activity.js'"),
     );
     expect(source.indexOf("'./activity.js'")).toBeLessThan(source.indexOf("'./backlog.js'"));
-    expect(source.indexOf("'./backlog.js'")).toBeLessThan(source.indexOf("'./connect.js'"));
+    expect(source.indexOf("'./backlog.js'")).toBeLessThan(source.indexOf("'./ci-status.js'"));
+    expect(source.indexOf("'./ci-status.js'")).toBeLessThan(source.indexOf("'./connect.js'"));
     expect(source.indexOf("'./connect.js'")).toBeLessThan(
       source.indexOf("'./contributor-issue-list.js'"),
     );
@@ -1958,7 +1968,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2701,6 +2711,42 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
       await assembleFromManifest(manifest, 'backlogJs', resolvedBindings)
     ).trim();
     expect(reassembled).toBe(backlogJs());
+  });
+
+  /**
+   * ciStatusJs's own reconstruction, from its real file under web/features/.
+   * Carries no relative-import splices and no non-splice slots at all — the
+   * returned string is a plain literal, using only the shared shell-scope
+   * helpers (el/tipChip/translateDom) the way switcherJs/localeJs simplify
+   * to once their own substitutions are stripped.
+   */
+  async function reconstructCiStatusJs(): Promise<string> {
+    const ciStatusSource = readFileSync(CI_STATUS_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(ciStatusSource, CI_STATUS_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        ciStatusSource,
+        'ciStatusJs',
+        resolvedBindings,
+        undefined,
+        CI_STATUS_TS,
+      )
+    ).trim();
+  }
+
+  it('ciStatusJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/ci-status.ts', async () => {
+    expect(await reconstructCiStatusJs()).toBe(ciStatusJs());
+  });
+
+  it('ciStatusJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off ci-status.ts', async () => {
+    const ciStatusSource = readFileSync(CI_STATUS_TS, 'utf8');
+    const manifest = buildAssemblyManifest(ciStatusSource, CI_STATUS_TS, ['ciStatusJs']);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'ciStatusJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(ciStatusJs());
   });
 
   /**
@@ -3857,6 +3903,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('activityHeatmapJs', await reconstructActivityHeatmapJs());
     nestedOutputs.set('activityJs', await reconstructActivityJs());
     nestedOutputs.set('backlogJs', await reconstructBacklogJs());
+    nestedOutputs.set('ciStatusJs', await reconstructCiStatusJs());
     nestedOutputs.set('connectJs', await reconstructConnectJs());
     nestedOutputs.set('contributorIssueListJs', await reconstructContributorIssueListJs());
     nestedOutputs.set('contributorStandingJs', await reconstructContributorStandingJs());
