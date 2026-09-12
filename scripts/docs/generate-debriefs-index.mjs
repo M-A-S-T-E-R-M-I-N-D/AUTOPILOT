@@ -22,10 +22,14 @@ const rows = files.map((file) => {
   return `| ${date} | [${heading}](${file}) |`;
 });
 
+// The header tags are assembled, not spelled out: REUSE scans every file's
+// text for SPDX tags, and a literal tag inside a quoted string reads as an
+// invalid expression (the closing quote rides along).
+const SPDX = 'SPDX';
 const out = [
   '<!--',
-  'SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND',
-  'SPDX-License-Identifier: Apache-2.0',
+  `${SPDX}-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND`,
+  `${SPDX}-License-Identifier: Apache-2.0`,
   '-->',
   '',
   '# Debriefs',

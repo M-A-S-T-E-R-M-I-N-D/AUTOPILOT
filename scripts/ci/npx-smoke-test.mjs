@@ -111,6 +111,12 @@ function packAll(packages, closureNames, destDir) {
   }
 }
 
+/** The files npm packs whatever the "files" allowlist says: the manifest and
+ *  the package's own README and LICENSE (npm's documented always-included
+ *  set). A package README landed in every workspace package on 2026-09-13;
+ *  a tarball carrying it is npm being npm, not `src/` leaking. */
+const ALWAYS_PACKED = /^(package\.json|README(\.[a-z]+)?|LICEN[CS]E(\.[a-z]+)?)$/i;
+
 /** Every packed file must ship the compiled dist output only — no leaking `src/`. */
 function assertFilesAllowlist(dashboardEntry) {
   assertDistBuilt(dashboardEntry);
@@ -122,7 +128,7 @@ function assertFilesAllowlist(dashboardEntry) {
   const { files } = JSON.parse(json);
   const offenders = files
     .map((f) => f.path)
-    .filter((p) => p !== 'package.json' && !p.startsWith('dist/'));
+    .filter((p) => !ALWAYS_PACKED.test(p) && !p.startsWith('dist/'));
   if (offenders.length > 0) {
     throw new Error(`tarball ships files outside the dist/ allowlist: ${offenders.join(', ')}`);
   }
