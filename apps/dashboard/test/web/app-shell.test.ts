@@ -536,6 +536,23 @@ describe('subject-nav client — switching subjects', () => {
     expect(queue.querySelectorAll('.keeper-queue-item')[0]).toBe(rows[0]);
   });
 
+  it('a settled item — a triage plan already answered with "skip" — waits on nobody and leaves the queue and the count', () => {
+    const triage = document.getElementById('pr-review-panel') as HTMLElement;
+    // Any Keeper section will do for the census; the item's own class names decide.
+    triage.hidden = false;
+    triage.innerHTML =
+      '<div class="issue-triage-item"><div class="issue-triage-head"><span class="issue-triage-number">#40</span>' +
+      '<span class="chip issue-triage-badge issue-triage-badge-skip">⏭ skip</span></div><p class="issue-triage-issue-title">Old</p></div>' +
+      '<div class="issue-triage-item"><div class="issue-triage-head"><span class="issue-triage-number">#49</span>' +
+      '<span class="chip issue-triage-badge issue-triage-badge-accept">✓ accept</span></div><p class="issue-triage-issue-title">New</p></div>';
+    boot();
+    const rows = document.querySelectorAll('#keeper-queue .keeper-queue-item');
+    expect(Array.from(rows).map((r) => r.querySelector('.keeper-queue-open')!.textContent)).toEqual(
+      ['#49 New'],
+    );
+    expect(link('keeper').querySelector('.subject-badge')!.textContent).toBe('1');
+  });
+
   it('the Keeper queue is never built for an empty queue, and hides when its last item leaves', async () => {
     boot();
     expect(document.getElementById('keeper-queue')).toBeNull();
