@@ -68,11 +68,28 @@ export interface StandingPanelOffer {
   readonly showReviewApplications: boolean;
 }
 
-export function standingPanelOffer(role: StandingViewerRole): StandingPanelOffer {
+export function standingPanelOffer(
+  role: StandingViewerRole,
+  tier?: string | null,
+): StandingPanelOffer {
   if (role === 'maintainer') {
     return { showApply: false, youAreHere: 'Maintainer', showReviewApplications: true };
   }
-  return { showApply: true, youAreHere: null, showReviewApplications: false };
+  // #45: an Active partner (or above) was still invited to apply for the
+  // rung they hold. The registry's word for the viewer decides: at or above
+  // "Active partner" the link goes and the rung is marked; a Newcomer sees
+  // the invitation with no marker (the floor is not a place to point at).
+  const ladder = CONTRIBUTOR_STANDING_TIERS.map((t) => t.tier);
+  const rank = tier ? ladder.indexOf(tier) : -1;
+  const partner = ladder.indexOf('Active partner');
+  if (rank >= partner && partner >= 0) {
+    return { showApply: false, youAreHere: tier ?? null, showReviewApplications: false };
+  }
+  return {
+    showApply: true,
+    youAreHere: rank > 0 ? (tier ?? null) : null,
+    showReviewApplications: false,
+  };
 }
 
 /** Where a maintainer goes to see who has applied — the standing

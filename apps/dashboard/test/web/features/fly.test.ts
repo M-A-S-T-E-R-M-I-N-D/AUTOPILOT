@@ -184,9 +184,14 @@ describe('flyJs', () => {
   it("wires the 🍀 I'm-feeling-lucky button: rolls GET /api/lucky and fills Lanes/Firings/$ from the calibrated plan", () => {
     const out = flyJs();
     expect(out).toContain("var luckyEl = document.getElementById('fly-lucky');");
+    // The roll carries the page's locale and the stated attention (issue #44).
     expect(out).toContain(
-      "fetch('/api/lucky' + (folder ? '?folder=' + encodeURIComponent(folder) : ''), { headers: { accept: 'application/json' } })",
+      "fetch('/api/lucky' + luckyQuery(folder), { headers: { accept: 'application/json' } })",
     );
+    expect(out).toContain(
+      "var q = '?locale=' + encodeURIComponent(document.documentElement.lang || 'en') + '&attention=' + flyAttention();",
+    );
+    expect(out).toContain("return q + (folder ? '&folder=' + encodeURIComponent(folder) : '');");
     // A real plan fills the form fields — all three knobs, count mode.
     expect(out).toContain('lanesEl.value = String(data.plan.lanes);');
     expect(out).toContain('firingsEl.value = String(data.plan.firings);');
@@ -208,6 +213,32 @@ describe('flyJs', () => {
     );
     // Still rides the single {reason} slot — no new STRINGS key needed.
     expect(out).toContain("setMsg(tr('luckyPressFlyIt', { reason: rolled }), '')");
+  });
+
+  it('paints the fit shortlist under the bar — on a refusal too — and the attention toggle re-rolls (issue #44)', () => {
+    const out = flyJs();
+    // The shortlist paints BEFORE the refusal early-return: "nothing queued"
+    // is exactly when the claimable work one panel over matters.
+    const paintAt = out.indexOf('paintLuckyFit(data.fit);');
+    const refuseAt = out.indexOf("if (!data.plan.ok) { setMsg(tr('luckyNotNow'");
+    expect(paintAt).toBeGreaterThan(-1);
+    expect(refuseAt).toBeGreaterThan(paintAt);
+    // One line per issue: the link, the score, the source, the why.
+    expect(out).toContain("a.textContent = '#' + lines[i].number + ' ' + lines[i].title;");
+    expect(out).toContain(
+      "score.textContent = tr('luckyFitScore', { score: Number(lines[i].fit).toFixed(2) });",
+    );
+    expect(out).toContain(
+      "tr(lines[i].source === 'pool' ? 'luckyFitSourcePool' : 'luckyFitSourcePeople')",
+    );
+    expect(out).toContain('why.textContent = lines[i].reasoning;');
+    expect(out).toContain('fitEl.hidden = lines.length === 0;');
+    // The attention toggle persists client-side and rolls again.
+    expect(out).toContain("var FLY_ATTENTION_KEY = 'ap-fly-attention';");
+    expect(out).toContain(
+      "try { localStorage.setItem(FLY_ATTENTION_KEY, btn.getAttribute('data-fly-attention')); } catch {}\n    rollLucky();",
+    );
+    expect(out).toContain("return FLY_ATTENTIONS.indexOf(v) >= 0 ? v : 'evening';");
   });
 
   it('the 🍀 button never launches by itself — it hands focus to Fly it and stops there (quota stays the operator’s click)', () => {

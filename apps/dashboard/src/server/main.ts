@@ -133,6 +133,14 @@ import {
   readFlightOwnerPid,
 } from '../flight/lock.js';
 import { luckyPlan, type LuckyProbe } from '../flight/lucky-plan.js';
+import {
+  luckyFit,
+  mergeFitCandidates,
+  type FitCandidate,
+  type LuckyFit,
+} from '../flight/lucky-fit.js';
+import { readTaskEconomicsFromStore } from '../read/task-economics.js';
+import type { LuckyAsk } from './server.js';
 import { adoptFlight, realAdoptFlightDeps } from '../flight/adopt.js';
 import { otlpConfigFromEnv } from '../flight/otlp.js';
 import { askProject, askProjectStream, type AskEscalationDeps } from '../ask/service.js';
@@ -488,6 +496,60 @@ async function measureCpuLoadPct(sampleMs = 150): Promise<number> {
   return Math.min(100, Math.max(0, (100 * (after.busy - before.busy)) / total));
 }
 
+// The two claimable-work reads the Pool and Good-first panels already make;
+// the 🍀 roll reuses the same instances for its fit shortlist (issue #44).
+const poolClientPreview = createPoolClientPreviewApi();
+const contributorIssueListPreview = createContributorIssueListPreviewApi();
+
+/** WHAT to fly (issue #44): pool + good-first issues, each with its board
+ *  task's cost history, scored against the operator's locale, stated
+ *  attention, the machine's lanes, and their firings flown. A failed read
+ *  (gh down, no network) yields no shortlist — the plan still answers. */
+async function rollLuckyFit(
+  projectId: string,
+  lanes: number,
+  firingsFlown: number,
+  ask: LuckyAsk,
+): Promise<LuckyFit | undefined> {
+  try {
+    const [pool, people] = await Promise.all([
+      poolClientPreview().catch(() => []),
+      contributorIssueListPreview().catch(() => []),
+    ]);
+    const history = readTaskEconomicsFromStore(dbPath, projectId);
+    const withHistory = (c: FitCandidate): FitCandidate => {
+      const h = history.get(`github-${c.number}`);
+      return h && h.firings > 0 ? { ...c, history: h } : c;
+    };
+    const candidates = mergeFitCandidates(
+      pool.map((e) => ({
+        number: e.issue.number,
+        title: e.issue.title,
+        url: e.issue.url,
+        labels: e.issue.labels,
+        assignees: e.issue.assignees,
+        source: 'pool' as const,
+      })),
+      people.map((e) => ({
+        number: e.number,
+        title: e.title,
+        url: e.url,
+        labels: [e.tier],
+        assignees: [],
+        source: 'people' as const,
+      })),
+    ).map(withHistory);
+    return luckyFit(candidates, {
+      locale: ask.locale,
+      attention: ask.attention,
+      lanes,
+      firingsFlown,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 const server = createServer({
   readState: () => ({ ...readFleetFromStore(dbPath, Date.now()), otlpConfigured }),
   // The Fly bar's 🍀 "I'm feeling lucky" button (GET /api/lucky): assemble
@@ -496,7 +558,7 @@ const server = createServer({
   // readFleetFromStore read /api/state serves — and roll
   // flight/lucky-plan.ts's calibrated launch plan from it. Read-only; the
   // plan fills the Fly bar and the launch click stays the operator's.
-  lucky: async (folder) => {
+  lucky: async (folder, ask) => {
     const target = resolve(folder ?? flightApi.defaultFolder?.() ?? process.cwd());
     const projectId = deriveFlyProjectId(target);
     const fleet = readFleetFromStore(dbPath, Date.now());
@@ -511,7 +573,9 @@ const server = createServer({
       queuedTasks,
       runningFlights,
     };
-    return { probe, plan: luckyPlan(probe) };
+    const plan = luckyPlan(probe);
+    const fit = await rollLuckyFit(projectId, plan.lanes, fleet.totals.firings, ask);
+    return fit ? { probe, plan, fit } : { probe, plan };
   },
   flight: flightApi,
   // The Fly bar's Lanes field (board web-mtdcfel4-0bxf4h): the same
@@ -658,12 +722,12 @@ const server = createServer({
   // issues for themselves, not on behalf of a stored project. Claiming can
   // now also queue a local board task on an operator-chosen project (the
   // "fly locally" leg's HTTP half), so execute is handed `dbPath`.
-  poolClient: createPoolClientPreviewApi(),
+  poolClient: poolClientPreview,
   poolClientExecute: createPoolClientExecuteApi(dbPath),
   // CONTRIBUTOR JOURNEY (board web-mtt3hery-l8v0lf), slice 1 of 4 — a
   // visitor's live good-first-issue/help-wanted pick list, project-agnostic
   // like the pool browse above.
-  contributorIssueList: createContributorIssueListPreviewApi(),
+  contributorIssueList: contributorIssueListPreview,
   // Report-from-here ritual (epic 0007, "PLATFORM 5/7") — the CSRF-guarded
   // HTTP pair behind `flight/report-from-here.ts`'s pure decision core; no
   // shell-side capture wiring or operator panel calls these yet (deferred to

@@ -74,7 +74,7 @@ ${sharedContributorStandingTierSummary.toString()}
 // standingPanelOffer decides what this panel may OFFER the viewer — the
 // role-honesty law pointed at the owner instead of the visitor.
 ${standingPanelOffer.toString()}
-function renderContributorStandingPanel(role) {
+function renderContributorStandingPanel(role, tier) {
   var section = document.getElementById('contributor-standing-panel');
   if (!section) return;
   section.replaceChildren();
@@ -111,7 +111,7 @@ function renderContributorStandingPanel(role) {
     }
     section.appendChild(a);
   }
-  var offer = standingPanelOffer(role || 'unknown');
+  var offer = standingPanelOffer(role || 'unknown', tier || null);
   if (offer.showApply) {
     standingLink(
       'Apply for Active partner standing',
@@ -146,13 +146,14 @@ function markStandingTier(youAreHere) {
 // Render immediately with what we know (nothing), then correct once the
 // identity resolves. A failed lookup leaves the newcomer-safe default
 // standing rather than blanking the panel.
-renderContributorStandingPanel('unknown');
+renderContributorStandingPanel('unknown', null);
 socialIdentity()
   .then(function (data) {
     var role = data && data.identity && data.identity.role;
     if (!role) return;
-    renderContributorStandingPanel(role);
-    markStandingTier(standingPanelOffer(role).youAreHere);
+    var tier = data.identity.tier || null;
+    renderContributorStandingPanel(role, tier);
+    markStandingTier(standingPanelOffer(role, tier).youAreHere);
   })
   .catch(function () {});
 `.trim();

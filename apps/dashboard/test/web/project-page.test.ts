@@ -292,6 +292,15 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     expect(cmd().value).toBe('pnpm run test -- --coverage');
   });
 
+  it('leads the Plan subject: the editor comes before the observed pipeline', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    const plan = Array.from(document.querySelectorAll('main#fleet > [data-subject="plan"]')).map(
+      (el) => el.className,
+    );
+    expect(plan).toEqual(['plan-editor', 'pipeline-section']);
+  });
+
   it('is read-only where the plan route is not served', async () => {
     bootWithPlan(404);
     await vi.advanceTimersByTimeAsync(1);
@@ -343,6 +352,32 @@ describe('the board as columns (epic 0021 slice 9)', () => {
     expect(
       (document.querySelector('[data-board-view]') as HTMLElement).getAttribute('data-board-view'),
     ).toBe('columns');
+  });
+
+  it('"auto" reads as a list until at least two columns would have rows — columns show flow, not a queue', async () => {
+    const allQueued = {
+      ...STATE,
+      projects: [
+        {
+          ...PROJECT,
+          tasks: PROJECT.tasks.map((t) => ({ ...t, status: 'queued' })),
+        },
+      ],
+    };
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    globalThis.fetch = vi.fn(
+      async () => ({ ok: true, json: async () => allQueued }) as unknown as Response,
+    );
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+    const card = document.querySelector('[data-board-view]') as HTMLElement;
+    expect(card.getAttribute('data-board-view')).toBe('list');
+    // The toggle still forces columns, and the choice is remembered.
+    (document.querySelector('[data-board-view-toggle]') as HTMLButtonElement).click();
+    expect(card.getAttribute('data-board-view')).toBe('columns');
+    expect(window.localStorage.getItem('ap-board-view')).toBe('columns');
   });
 
   it('the stylesheet lays the columns out by status with dense auto-flow, from md by choice and from lg by default', async () => {

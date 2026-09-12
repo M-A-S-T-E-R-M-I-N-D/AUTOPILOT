@@ -146,6 +146,90 @@ describe('layout-css — mobile-first laws', () => {
     );
   });
 
+  it('keeps user content in its own direction and code LTR (the bidi laws), and bounds the pipeline view', () => {
+    const bidi = css.match(
+      /^([^\n]*\.keeper-queue-open[^\n]*) \{ unicode-bidi: plaintext; text-align: start; \}/m,
+    );
+    expect(bidi, 'a plaintext rule names the queue title').not.toBeNull();
+    for (const sel of [
+      '.task-title',
+      '.pool-client-issue-title',
+      '.pr-review-pr-title',
+      '#search-q',
+    ]) {
+      expect(bidi![1], sel).toContain(sel);
+    }
+    expect(css).toMatch(
+      /\.plan-step-label[^\n]*#fly-folder[^\n]* \{ direction: ltr; unicode-bidi: isolate; text-align: start; \}/,
+    );
+    expect(css).toContain('.pipeline-tree {');
+    expect(css).toMatch(/\.pipeline-tree \{[^\n]*max-block-size: 70vh; overflow: auto;/);
+    expect(css).toMatch(/\.pipeline-canvas \{[^\n]*block-size: min\(70vh, 40rem\)/);
+    // Pool rows stack at every width: no md grid puts the actions beside the title.
+    expect(css).not.toContain('grid-template-areas: "head actions" "title actions"');
+    expect(css).toMatch(
+      /\.pool-client-actions \{ display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start;/,
+    );
+  });
+
+  it('uses desktop width: a two-column project Overview from lg, five-up tiles beside the rail, an untracked rail label, a compact board toggle', () => {
+    // Overview only — the subject id is "fleet" on a project page; every other
+    // subject keeps its single column. The card takes the inline-start column,
+    // the operational stack the inline-end one, DOM order kept within each.
+    expect(css).toContain(
+      '@media (min-width: 64rem) {\n  body[data-subject="fleet"] main.project-mode { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: start; }',
+    );
+    expect(css).toContain('body[data-subject="fleet"] main.project-mode > * { grid-column: 2; }');
+    expect(css).toContain(
+      'body[data-subject="fleet"] main.project-mode > .back { grid-column: 1 / -1; grid-row: 1; }',
+    );
+    expect(css).toContain(
+      'body[data-subject="fleet"] main.project-mode > .card { grid-column: 1; grid-row: 2 / span 40; }',
+    );
+    // Five tiles fit the ~780px main column the rail leaves at 1280.
+    expect(css).toContain(
+      '.stat-tiles { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));',
+    );
+    // "Community" no longer ellipsises inside the 5rem rail.
+    expect(css).toContain('  .subject-link > span { letter-spacing: 0; }');
+    // The board view toggle is a compact control, not a full-width bar.
+    expect(css).toContain(
+      '.board-view-toggle { display: block; inline-size: fit-content; margin: 0 0 var(--space-2) auto;',
+    );
+    // Reorder arrows show on hover/focus-within with a hover-capable pointer from lg.
+    expect(css).toContain(
+      '@media (min-width: 64rem) and (hover: hover) {\n  .task-move { opacity: 0;',
+    );
+    expect(css).toContain('.task:hover .task-move, .task:focus-within .task-move { opacity: 1; }');
+  });
+
+  it('never tracks Hebrew: under dir=rtl every letter-spacing rule is undone, last in the sheet', () => {
+    const law = '[dir="rtl"] * { letter-spacing: normal; }';
+    expect(css).toContain(law);
+    expect(css).toContain('[dir="rtl"] body { line-height: 1.6; }');
+    // Every tracked rule precedes the law, so order alone decides the tie.
+    const lawAt = css.indexOf(law);
+    const tracked = [...css.matchAll(/letter-spacing: 0\.0\dem/g)];
+    expect(tracked.length).toBeGreaterThan(20);
+    for (const m of tracked) expect(m.index, m[0]).toBeLessThan(lawAt);
+    // The ⌘K chip is a Latin token an RTL paragraph must not reorder.
+    expect(css).toMatch(/\.palette-btn, code, pre, kbd \{ direction: ltr; unicode-bidi: isolate;/);
+  });
+
+  it('the masthead popovers are a viewport sheet below md and an anchored menu from md', () => {
+    expect(css).toMatch(/^\.connect-body \{ position: fixed; inset-inline: var\(--space-3\);/m);
+    const md = css.indexOf('@media (min-width: 48rem) {\n  /* From md the popover is a menu');
+    expect(md).toBeGreaterThan(-1);
+    expect(css.slice(md, md + 700)).toContain(
+      '.connect-body { position: absolute; inset-inline-start: auto; inset-inline-end: 0;',
+    );
+    // The skip link hides by clipping, never by a physical off-screen offset.
+    expect(css).toContain(
+      '.skip-link:not(:focus) { inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%);',
+    );
+    expect(css).not.toContain('-9999px');
+  });
+
   it('places the subject nav as a bottom bar at base and a rail from md', () => {
     expect(css).toMatch(/\.subject-nav \{\s*position: fixed; inset-block-end: 0; inset-inline: 0;/);
     const md = css.slice(css.indexOf(mediaMin('md')));

@@ -19,7 +19,9 @@ import { skipFirstRunTour, setTheme } from './helpers.js';
  * rather than asserted on, since exact elapsed seconds isn't the thing this
  * suite is protecting.
  */
-const THEMES = ['dark', 'light'] as const;
+// All three shipped themes. Terminal had no visual coverage until 2026-09-12:
+// the theme nobody's baseline looked at is the one adaptation gaps hide in.
+const THEMES = ['dark', 'light', 'terminal'] as const;
 
 test.describe('visual regression', () => {
   for (const theme of THEMES) {
