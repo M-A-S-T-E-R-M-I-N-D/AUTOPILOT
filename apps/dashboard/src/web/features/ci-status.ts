@@ -67,8 +67,10 @@ function renderCiStatusPanel(workflows) {
 }
 function loadCiStatusPanel() {
   fetch('/api/ci-status', { headers: { accept: 'application/json' } })
-    .then(function (r) { return r.ok ? r.json() : { workflows: [] }; })
-    .then(function (data) { renderCiStatusPanel(data && data.workflows); })
+    // A failed poll keeps the last render (2026-09-12): a non-2xx used to be
+    // coerced to an empty list, which HID the panel for a whole poll period.
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) { if (data) renderCiStatusPanel(data.workflows); })
     .catch(function () {});
 }
 loadCiStatusPanel();

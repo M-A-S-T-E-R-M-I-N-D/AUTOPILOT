@@ -220,10 +220,14 @@ import {
 // Then core raw 198→199KB (2026-09-12, round 4): four lanes' strings (mirror-pass
 // stale-claim UI, reaper) merged 416 bytes past the budget each was under alone —
 // measured 198.4KB raw.
-const CORE_RAW_BUDGET = 199 * 1024;
+// Then core raw 199→201KB (2026-09-12) for the flicker fix: the project-page panel
+// cache, the 1 s live clocks, the hidden-tab pause and the live-workers guard —
+// measured 200.2KB raw.
+const CORE_RAW_BUDGET = 201 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
-const CORE_GZIP_BUDGET = 59 * 1024;
+// Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
+const CORE_GZIP_BUDGET = 60 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()

@@ -99,8 +99,9 @@ function renderContributorIssueListPanel(entries) {
 }
 function loadContributorIssueListPanel() {
   fetch('/api/contributor-issues', { headers: { accept: 'application/json' } })
-    .then(function (r) { return r.ok ? r.json() : { entries: [] }; })
-    .then(function (data) { renderContributorIssueListPanel(data && data.entries); })
+    // A failed poll keeps the last render (2026-09-12) — see ci-status.ts.
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) { if (data) renderContributorIssueListPanel(data.entries); })
     .catch(function () {});
 }
 loadContributorIssueListPanel();

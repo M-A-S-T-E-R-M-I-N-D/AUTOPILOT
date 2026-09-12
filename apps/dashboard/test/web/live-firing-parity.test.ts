@@ -344,6 +344,13 @@ describe('client-side liveFiring aggregate stays in sync with the shared liveFir
     const elapsedEl = document.querySelector('.act-elapsed');
     expect(elapsedEl?.textContent).toBe('1m 30s');
     expect(elapsedEl?.getAttribute('aria-label')).toBe('running for 1m 30s');
+    // The live clock (2026-09-12): the counter carries its origin so a 1 s
+    // timer advances it in place between activity ticks.
+    expect(elapsedEl?.getAttribute('data-elapsed-from')).toBe(String(NOW - 90_000));
+    // Two seconds later the clock has moved without any activity tick.
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(elapsedEl?.textContent).toBe('1m 32s');
+    expect(elapsedEl?.getAttribute('aria-label')).toBe('running for 1m 32s');
   });
 
   it('hides the model chip when the newest activity predates per-step model tracking', async () => {
