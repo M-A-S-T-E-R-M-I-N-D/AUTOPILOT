@@ -49,6 +49,13 @@ const NOT_YET_RENDERED = new Set<string>([
   'contributor-issue-list.ts',
 ]);
 
+/** Payloads painted by a web feature that does not share the flight module's
+ *  name — the census follows the map instead of excusing them. */
+const RENDERED_BY = new Map<string, string>([
+  // The 🍀 fit shortlist (issue #44) paints under the Fly bar, in fly.ts.
+  ['lucky-fit.ts', 'fly.ts'],
+]);
+
 function flightSources(): readonly string[] {
   return readdirSync(FLIGHT_DIR).filter((f) => f.endsWith('.ts'));
 }
@@ -79,10 +86,11 @@ describe('link census — every fetched GitHub url reaches a real anchor', () =>
       if (interfaces.length === 0) continue;
       if (NOT_YET_RENDERED.has(file)) continue;
 
-      const rendererPath = join(FEATURES_DIR, file);
+      const renderer = RENDERED_BY.get(file) ?? file;
+      const rendererPath = join(FEATURES_DIR, renderer);
       if (!existsSync(rendererPath)) {
         offenders.push(
-          `${file} (${interfaces.join(', ')}): fetches a GitHub url but web/features/${file} ` +
+          `${file} (${interfaces.join(', ')}): fetches a GitHub url but web/features/${renderer} ` +
             `does not exist to link it`,
         );
         continue;
@@ -90,7 +98,7 @@ describe('link census — every fetched GitHub url reaches a real anchor', () =>
       const rendererSource = readFileSync(rendererPath, 'utf8');
       if (!/\.url\b/.test(rendererSource) || !/href/i.test(rendererSource)) {
         offenders.push(
-          `${file} (${interfaces.join(', ')}): fetches a url but web/features/${file} never ` +
+          `${file} (${interfaces.join(', ')}): fetches a url but web/features/${renderer} never ` +
             `sets an href from it — fetched and discarded at the client boundary`,
         );
       }

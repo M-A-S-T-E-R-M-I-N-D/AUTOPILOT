@@ -84,9 +84,13 @@ import { gzipSync } from 'node:zlib';
 // strings) — measured 194.0KB.
 // Then core raw 195→196KB (2026-09-12) for the round-3 lanes' strings (mirror-pass
 // drift + landing-note execute, discussions triage, CI status) — measured 195.2KB.
-const CORE_RAW_BUDGET = 196 * 1024;
+// Then core raw 196→198KB (2026-09-12) for the 🍀 button's WHAT-to-fly half
+// (issue #44): the fit shortlist under the Fly bar and its attention toggle,
+// eight strings in two locales — measured 197.5KB raw.
+const CORE_RAW_BUDGET = 198 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
-const CORE_GZIP_BUDGET = 58 * 1024;
+// Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
+const CORE_GZIP_BUDGET = 59 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -189,7 +193,9 @@ const CORE_GZIP_BUDGET = 58 * 1024;
 // Then raw 146→148KB (2026-09-12) for a lane's KEEPER CI-status panel (ci-status.ts,
 // a self-initialising deferred panel that had been left out of every chunk list
 // and rode core) — measured 146.5KB raw with it in /panels.js.
-const CHUNK_RAW_BUDGET = 148 * 1024;
+// Then raw 148→149KB (2026-09-12) for #43: each list says who it is for (two
+// audience lines under the Pool and Good-first titles, en+he) — measured 148.1KB raw.
+const CHUNK_RAW_BUDGET = 149 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight

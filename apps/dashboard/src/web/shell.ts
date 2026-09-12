@@ -2293,6 +2293,21 @@ function boardViewEffective(view) {
   if (view !== 'auto') return view;
   return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 64rem)').matches ? 'columns' : 'list';
 }
+// How many of the three columns would have rows: Queued · In flight & needs
+// you · Done. Columns exist to show FLOW; thirty queued rows beside two
+// empty lanes (seen live at 1280) is a list squeezed to a third of the
+// width, so "auto" reads as a list until at least two columns have rows.
+// The remembered toggle still forces either view.
+function boardFlowGroups(tasks) {
+  var queued = 0, flow = 0, done = 0;
+  for (var i = 0; i < tasks.length; i++) {
+    var s = tasks[i].status;
+    if (s === 'in_progress' || s === 'needs_approval') flow++;
+    else if (s === 'done' || s === 'deferred') done++;
+    else queued++;
+  }
+  return (queued ? 1 : 0) + (flow ? 1 : 0) + (done ? 1 : 0);
+}
 function boardViewToggleLabel(btn, view) {
   var effective = boardViewEffective(view);
   var key = effective === 'columns' ? 'boardViewList' : 'boardViewColumns';
@@ -2308,6 +2323,7 @@ function tasksSection(c) {
   head.setAttribute('data-i18n', anyFocus ? 'tasksFocusMode' : 'tasks');
   wrap.appendChild(head);
   var boardView = boardViewStored();
+  if (boardView === 'auto' && boardFlowGroups(tasks) < 2) boardView = 'list';
   wrap.setAttribute('data-board-view', boardView);
   var viewToggle = el('button', 'board-view-toggle');
   viewToggle.type = 'button';
@@ -3409,8 +3425,10 @@ function renderProjectPage(state, pid) {
   // which lane, and what continued what — server-rendered by /api/pipeline
   // and fetched on demand, right after Fleet coordination since both answer
   // the same "what is the fleet actually doing?" question at different depths.
-  fleet.appendChild(subj(pipelineSection(pid), 'plan'));
+  // The editor first — what the operator changes — then the observed pipeline
+  // (RTL/density audit, 2026-09-12: the 13k-px span tree buried the editor).
   fleet.appendChild(subj(planEditorSection(pid), 'plan'));
+  fleet.appendChild(subj(pipelineSection(pid), 'plan'));
   var docsEl = docsSection(pid);
   docsEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'docs');
   fleet.appendChild(subj(docsEl, 'docs'));
@@ -4284,6 +4302,17 @@ ${contextRailHtml(project)}
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>
       <p class="fly-hint" id="fly-hint"></p>
+      <div class="fly-fit" id="fly-fit" hidden>
+        <div class="fly-fit-head">
+          <span data-i18n="luckyFitTitle">🍀 Work that fits you</span>
+          <div class="fly-fit-attention" role="group" aria-label="How much attention you have" data-i18n-aria="luckyFitAttentionAria">
+            <button type="button" data-fly-attention="evening" aria-pressed="true" data-i18n="luckyFitEvening">one evening</button>
+            <button type="button" data-fly-attention="day" aria-pressed="false" data-i18n="luckyFitDay">a day</button>
+            <button type="button" data-fly-attention="week" aria-pressed="false" data-i18n="luckyFitWeek">a week</button>
+          </div>
+        </div>
+        <ol class="fly-fit-list" id="fly-fit-list"></ol>
+      </div>
       <p class="muted fly-progress-label" id="fly-progress-label" hidden></p>
       <div class="fly-progress" id="fly-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" tabindex="0" hidden>
         <div class="fly-progress-fill" id="fly-progress-fill"></div>

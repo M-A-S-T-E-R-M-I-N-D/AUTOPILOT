@@ -16,6 +16,7 @@ import {
   CONTRIBUTOR_STANDING_TIERS,
   contributorStandingTierSummary,
   partnerApplicationUrl,
+  standingPanelOffer,
 } from '../../src/web/contributor-standing-panel.js';
 
 // import.meta.url is an http: URL under jsdom, so resolve from cwd (same fix
@@ -78,5 +79,38 @@ describe('partnerApplicationUrl', () => {
 describe('CONTRIBUTOR_STANDING_APPLY_URL', () => {
   it("is the real deep-link for THIS repo's UPSTREAM_REPO", () => {
     expect(CONTRIBUTOR_STANDING_APPLY_URL).toBe(partnerApplicationUrl(UPSTREAM_REPO));
+  });
+});
+
+describe("standingPanelOffer — the viewer's own rung (#45)", () => {
+  it('no longer invites an Active partner to apply for the rung they hold, and marks it', () => {
+    expect(standingPanelOffer('user', 'Active partner')).toEqual({
+      showApply: false,
+      youAreHere: 'Active partner',
+      showReviewApplications: false,
+    });
+    expect(standingPanelOffer('user', 'Maintainer-delegate').showApply).toBe(false);
+  });
+
+  it('still invites a Contributor (with their rung marked) and a Newcomer (no marker)', () => {
+    expect(standingPanelOffer('user', 'Contributor')).toEqual({
+      showApply: true,
+      youAreHere: 'Contributor',
+      showReviewApplications: false,
+    });
+    expect(standingPanelOffer('user', 'Newcomer')).toEqual({
+      showApply: true,
+      youAreHere: null,
+      showReviewApplications: false,
+    });
+    expect(standingPanelOffer('unknown', null)).toEqual({
+      showApply: true,
+      youAreHere: null,
+      showReviewApplications: false,
+    });
+  });
+
+  it('the maintainer offer is unchanged by any tier', () => {
+    expect(standingPanelOffer('maintainer', 'Newcomer').showReviewApplications).toBe(true);
   });
 });

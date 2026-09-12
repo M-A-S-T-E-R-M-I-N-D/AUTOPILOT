@@ -18,8 +18,11 @@ import {
   LOCALE_NAMES,
   DEFAULT_LOCALE,
   LOCALE_LABELS,
+  STRINGS,
 } from '@autopilot/tokens';
 import { themeButtons, langButtons, escapeAttr } from '../../src/web/shell-html.js';
+
+const key = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1);
 
 describe('themeButtons', () => {
   it('renders one button per known theme, each carrying its own name', () => {
@@ -44,7 +47,22 @@ describe('themeButtons', () => {
       expect(html).toContain(`data-tip="${tip}"`);
       expect(html).not.toContain(`aria-label="${tip}"`);
       expect(html).toContain(`aria-describedby="theme-desc-${name}"`);
-      expect(html).toContain(`<span class="sr-only" id="theme-desc-${name}">${tip}</span>`);
+      expect(html).toContain(
+        `<span class="sr-only" id="theme-desc-${name}" data-i18n="themeTip${key(name)}">${tip}</span>`,
+      );
+    }
+  });
+
+  it('labels and tips ride the DOM translation sweep — no raw theme id or English sentence in a Hebrew masthead', () => {
+    const html = themeButtons();
+    // The table is keyed by a literal union; the per-theme keys are composed.
+    const en: Readonly<Record<string, string>> = STRINGS.en;
+    const he: Readonly<Record<string, string>> = STRINGS.he;
+    for (const name of THEME_NAMES) {
+      expect(html).toContain(`data-i18n="theme${key(name)}" data-i18n-tip="themeTip${key(name)}"`);
+      expect(en[`theme${key(name)}`]).toBeDefined();
+      expect(he[`themeTip${key(name)}`]).toBeDefined();
+      expect(he[`theme${key(name)}`]).not.toBe(en[`theme${key(name)}`]);
     }
   });
 });

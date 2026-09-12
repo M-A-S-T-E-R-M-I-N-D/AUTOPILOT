@@ -102,6 +102,7 @@ import { readConnectionConfig } from './connection/config.js';
 import { taskEconomicsFromRows } from './flight/triage-factors.js';
 import { runBoardTriage } from './flight/board-triage.js';
 import { isHumanClosedTask, CLAIMED_TASK_PROMPT_NOTE } from './flight/claim-contract.js';
+import { planLaunchSync } from './flight/lane-freshness.js';
 import { triageInboxEntries } from './flight/inbox-triage.js';
 import {
   totalBudgetExhausted,
@@ -400,19 +401,20 @@ async function main(): Promise<void> {
         // Skipped best-effort, same never-a-single-point-of-flight-failure
         // stance as the calls themselves — a skipped sync-back just means the
         // operator sees the lane's commits one flight later, not lost work.
-        if (isAnyFlightLockLive(dirname(dbPath), target, process.pid)) {
-          out(
-            `  ⚠ sync-back skipped: another flight already holds a live lock for this ` +
-              `project — running git directly against the shared primary checkout here ` +
-              `would race it.`,
-          );
-        } else {
+        // Which halves may run is one decision (flight/lane-freshness.ts):
+        // the catch-up writes the shared primary checkout and yields to a
+        // live sibling; the forward-ff writes only this lane and never does.
+        const sync = planLaunchSync(isAnyFlightLockLive(dirname(dbPath), target, process.pid));
+        if (sync.skipped) out(`  ⚠ ${sync.skipped}`);
+        if (sync.catchUp) {
           // Catch up target on any work a PRIOR flight left unsynced in this
           // same worktree branch (e.g. a mid-flight crash before its own
           // sync-back ran) before this flight's containment baseline is
           // snapshotted below — best-effort, never fails the flight.
           const catchUp = await syncWorktreeBranch(target, targetBranch, worktreePlan.branch);
           if (!catchUp.ok) out(`  ⚠ worktree catch-up sync skipped: ${catchUp.details}`);
+        }
+        if (sync.forward) {
           // FORWARD-FF (the other half of lane freshness, 2026-09-03): the
           // catch-up above drains lane→target, but nothing ever moved a REUSED
           // lane forward — parked on an older base it rebuilds on dead code
@@ -421,7 +423,9 @@ async function main(): Promise<void> {
           // clean fast-forward brings it to the tip; dirty or diverged lanes
           // refuse gracefully (fastForwardWorktree never merges or resets) and
           // the flight proceeds from wherever the lane stands — best-effort,
-          // same stance as the catch-up.
+          // same stance as the catch-up. Runs under a live sibling lock too
+          // (2026-09-12): in a staggered fleet round every lane after the
+          // first launched while the first held the lock, and launched stale.
           const forward = await fastForwardWorktree(worktreePlan.path, targetBranch);
           out(
             forward.ok

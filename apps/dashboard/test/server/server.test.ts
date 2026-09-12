@@ -4729,6 +4729,41 @@ describe('createServer (live loopback)', () => {
     expect(seen).toEqual(['C:\\Users\\operator\\repo']);
   });
 
+  it('GET /api/lucky carries the operator’s ask — locale and attention — and defaults anything unrecognised (issue #44)', async () => {
+    const asks: unknown[] = [];
+    const refusal = {
+      probe: {
+        cpuLoadPct: 7,
+        logicalCores: 12,
+        freeRamGb: 15.2,
+        queuedTasks: 0,
+        runningFlights: 0,
+      },
+      plan: {
+        ok: false,
+        lanes: 0,
+        firings: 0,
+        budgetUsd: 0,
+        reasoning: [],
+        refusal: 'nothing queued',
+      },
+    };
+    const base = await start({
+      lucky: (_folder, ask) => {
+        asks.push(ask);
+        return Promise.resolve(refusal);
+      },
+    });
+    expect((await fetch(`${base}/api/lucky?locale=he-IL&attention=week`)).status).toBe(200);
+    expect((await fetch(`${base}/api/lucky?locale=%3Cb%3E&attention=fortnight`)).status).toBe(200);
+    expect((await fetch(`${base}/api/lucky`)).status).toBe(200);
+    expect(asks).toEqual([
+      { locale: 'he-IL', attention: 'week' },
+      { locale: 'en', attention: 'evening' },
+      { locale: 'en', attention: 'evening' },
+    ]);
+  });
+
   it('GET /api/lucky with no folder param hands the calibrator null (dashboard-default project)', async () => {
     const seen: Array<string | null> = [];
     const base = await start({

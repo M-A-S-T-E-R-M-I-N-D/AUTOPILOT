@@ -46,6 +46,9 @@ test.describe('project page (/p/:id)', () => {
     // gh-lts/pool-client/pr-review status polls 404 for the same reason (see
     // dashboard.spec.ts).
     expect(badResponses.sort()).toEqual([
+      // The KEEPER CI-status panel (a round-3 lane): unserved by the fixtures, like its
+      // siblings; the list is alphabetical, so it leads.
+      '404 /api/ci-status',
       '404 /api/connection',
       '404 /api/connection/gh',
       '404 /api/connection/gh-lts',

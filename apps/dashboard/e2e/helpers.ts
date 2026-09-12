@@ -15,6 +15,6 @@ export async function skipFirstRunTour(page: Page): Promise<void> {
 /** Same key `switcherJs()` (`apps/dashboard/src/web/shell.ts`) reads on load —
  *  pre-seeding it selects a theme before first paint instead of racing a
  *  click against the external script that applies it. */
-export async function setTheme(page: Page, theme: 'dark' | 'light'): Promise<void> {
+export async function setTheme(page: Page, theme: 'dark' | 'light' | 'terminal'): Promise<void> {
   await page.addInitScript((t) => window.localStorage.setItem('ap-theme', t), theme);
 }

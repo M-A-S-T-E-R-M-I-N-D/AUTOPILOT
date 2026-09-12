@@ -83,6 +83,9 @@ test.describe('app shell — compact window', () => {
       document.querySelectorAll('button, a[href], summary, select').forEach((el) => {
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) return; // not rendered
+        // Visually hidden until focused (the skip link: 1px, clipped) — not a
+        // pointer target at all; it reveals itself at full size on focus.
+        if (getComputedStyle(el).clipPath !== 'none') return;
         if (r.height < 24 || r.width < 24) {
           out.push(
             `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).split(' ')[0] : ''} ${Math.round(r.width)}x${Math.round(r.height)}`,
@@ -132,6 +135,28 @@ test.describe('app shell — compact window', () => {
     await exit.tap();
     await expect(page.locator('.masthead')).toBeVisible();
     await expect(page.locator('#subject-nav')).toBeVisible();
+  });
+
+  test('an opened masthead popover is a sheet inside the viewport, in either direction', async ({
+    page,
+  }) => {
+    await openFleet(page);
+    for (const lang of ['en', 'he'] as const) {
+      await page.evaluate((l) => {
+        document.documentElement.lang = l;
+        document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
+      }, lang);
+      const connect = page.locator('#connect');
+      await connect.locator('summary').tap();
+      await expect(connect).toHaveAttribute('open', '');
+      const body = (await connect.locator('.connect-body').boundingBox())!;
+      const viewport = page.viewportSize()!;
+      // RTL audit (2026-09-12): the anchored menu grew 166px past a Hebrew phone's edge.
+      expect(body.x, `${lang} left edge`).toBeGreaterThanOrEqual(0);
+      expect(body.x + body.width, `${lang} right edge`).toBeLessThanOrEqual(viewport.width + 1);
+      await connect.locator('summary').tap();
+      await expect(connect).not.toHaveAttribute('open', '');
+    }
   });
 
   test('visual — fleet populated, dark, phone', async ({ page }) => {
