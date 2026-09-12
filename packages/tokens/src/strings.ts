@@ -1600,6 +1600,22 @@ const EN_STRINGS = {
     'Run the mirror pass now? This closes or reopens issues and posts comments on GitHub for every reconcile finding above.',
   mirrorPassExecuting: 'Running…',
   mirrorPassRequestFailed: 'Mirror pass request failed.',
+  // web/features/discussions-triage.ts (epic 0007 S8, board
+  // web-mtlsiac0-v8rksh): the project page's KEEPER DISCUSSIONS panel —
+  // title, loading placeholder, empty/unavailable states, and the "Run
+  // KEEPER Discussions triage" EXECUTE button, same shape mirrorPass* above
+  // establishes for a fetch-then-render-then-execute panel. "KEEPER" stays
+  // Latin in every locale, the same proper-name stance issueTriageTitle
+  // above takes.
+  discussionsTriageTitle: '💬 KEEPER Discussions triage',
+  discussionsTriageLoading: 'Checking open discussions against the board…',
+  discussionsTriageEmpty: 'No open discussions to triage.',
+  discussionsTriageUnavailable: 'Discussions triage unavailable.',
+  discussionsTriageExecute: 'Run KEEPER Discussions triage',
+  discussionsTriageExecuteTip:
+    'Posts a signed reply and applies the pool label to every accepted discussion above via gh.',
+  discussionsTriageExecuting: 'Running…',
+  discussionsTriageRequestFailed: 'Discussions triage request failed.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2360,6 +2376,15 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'להריץ את מעבר השיקוף עכשיו? זה סוגר או פותח מחדש issues ומפרסם תגובות ב-GitHub עבור כל ממצא תיאום שלמעלה.',
     mirrorPassExecuting: 'מריץ…',
     mirrorPassRequestFailed: 'בקשת מעבר השיקוף נכשלה.',
+    discussionsTriageTitle: '💬 טריאז׳ Discussions של KEEPER',
+    discussionsTriageLoading: 'בודק דיונים פתוחים מול הלוח…',
+    discussionsTriageEmpty: 'אין דיונים פתוחים לטריאז׳.',
+    discussionsTriageUnavailable: 'טריאז׳ הדיונים אינו זמין.',
+    discussionsTriageExecute: 'הרץ טריאז׳ Discussions של KEEPER',
+    discussionsTriageExecuteTip:
+      'מפרסם תגובה חתומה ומחיל את תווית ה-pool על כל דיון שאושר למעלה דרך gh.',
+    discussionsTriageExecuting: 'מריץ…',
+    discussionsTriageRequestFailed: 'בקשת טריאז׳ הדיונים נכשלה.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',
