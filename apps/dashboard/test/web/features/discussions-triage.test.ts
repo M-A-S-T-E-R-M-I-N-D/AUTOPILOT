@@ -40,7 +40,7 @@ describe('discussionsTriageJs', () => {
     const out = discussionsTriageJs();
     expect(out).toContain("fetch('/api/discussions-triage')");
     expect(out).not.toContain('?project=');
-    expect(out).toContain("body: JSON.stringify({})");
+    expect(out).toContain('body: JSON.stringify({})');
   });
 
   it('fetches identity alongside the preview via the shared socialIdentity() core helper', () => {
@@ -63,7 +63,9 @@ describe('discussionsTriageJs', () => {
 
   it('paints the confirm + transient states via tr()', () => {
     const out = discussionsTriageJs();
-    expect(out).toContain('window.confirm(discussionsTriageConfirmMessage(discussionsTriagePlans))');
+    expect(out).toContain(
+      'window.confirm(discussionsTriageConfirmMessage(discussionsTriagePlans))',
+    );
     expect(out).toContain("b.textContent = tr('discussionsTriageExecuting');");
     expect(out).toContain("resultEl.textContent = tr('discussionsTriageRequestFailed');");
   });
