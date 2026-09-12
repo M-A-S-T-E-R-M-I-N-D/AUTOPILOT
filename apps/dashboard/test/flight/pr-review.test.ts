@@ -785,6 +785,10 @@ const BENIGN_INBOX = new Set<string>([]);
  *  future `web/` file starts building HTML from untrusted content instead
  *  of pure display math. */
 const BENIGN_WEB = new Set([
+  // Pure label/item/confirm/result text for the KEEPER Discussions triage
+  // panel (epic 0007 S8): no HTML building, no I/O — the same class as
+  // issue-triage-panel.ts; the execute route lives under the flagged server.
+  'discussions-triage-panel.ts',
   // Pure spec<->steps transforms for the flight plan editor (epic 0021 slice 3):
   // no HTML, no I/O. The server-side validator that gates what gets STORED
   // carries its own marker; this only shapes the form the operator edits.
@@ -937,6 +941,10 @@ const BENIGN_WEB_FEATURES = new Set([
   // issue-triage.ts: POST /api/issue-triage/execute — already-flagged
   // `flight/issue-triage`.
   'issue-triage.ts',
+  // discussions-triage.ts: POST /api/discussions-triage/execute — same
+  // confirm-gated preview+execute shape as issue-triage.ts; the write lives
+  // under the flagged server route and the flight/discussions-triage marker.
+  'discussions-triage.ts',
   // landing.ts: POST /api/landing/execute — already-flagged `landing/`.
   'landing.ts',
   // pool-client.ts: POST /api/pool-client/execute and /api/fly —

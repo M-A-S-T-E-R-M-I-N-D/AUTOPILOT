@@ -73,6 +73,7 @@ export const PROJECT_PAGE_FEATURES: readonly string[] = [
   'activity-heatmap',
   'backlog',
   'coordination',
+  'discussions-triage',
   'docs-viewer',
   'evolution',
   'flight-console',

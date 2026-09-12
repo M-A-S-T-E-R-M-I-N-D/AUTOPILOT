@@ -3376,6 +3376,13 @@ function renderProjectPage(state, pid) {
   var mirrorPassEl = mirrorPassSection(pid);
   mirrorPassEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'mirror-pass');
   fleet.appendChild(subj(mirrorPassEl, 'keeper'));
+  // KEEPER Discussions triage (epic 0007 S8, board web-mtlsiac0-v8rksh): the
+  // same accept/skip preview+execute shape as issue triage, extended to
+  // GitHub Discussions — sits right after Mirror pass, the other
+  // read-only-preview-plus-role-gated-execute GitHub-governance panel.
+  var discussionsTriageEl = discussionsTriageSection(pid);
+  discussionsTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'discussions-triage');
+  fleet.appendChild(subj(discussionsTriageEl, 'keeper'));
   // Detected backlog: open tasks a recent commit may have already shipped
   // (interactive-session work with no METRICS line) — sits right after the
   // task board it proposes edits to.
