@@ -2577,6 +2577,125 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(404);
   });
 
+  const discussionsIdentity = {
+    login: 'gabibi555',
+    nameWithOwner: 'gabibi555/hello-world',
+    role: 'maintainer' as const,
+  };
+
+  it('GET /api/discussions-triage previews the identity-signed plan for every open discussion (no project id)', async () => {
+    const report = { identity: discussionsIdentity, plans: [] };
+    const base = await start({ discussionsTriage: async () => report });
+    const res = await fetch(`${base}/api/discussions-triage`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ triage: report });
+  });
+
+  it('degrades /api/discussions-triage to { triage: null } instead of crashing when the read throws', async () => {
+    const base = await start({
+      discussionsTriage: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/discussions-triage`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ triage: null });
+  });
+
+  it('404s /api/discussions-triage when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/discussions-triage`)).status).toBe(404);
+  });
+
+  it('POST /api/discussions-triage/execute runs the ritual (CSRF-guarded, no project id)', async () => {
+    let calls = 0;
+    const api = async () => {
+      calls += 1;
+      return { identity: discussionsIdentity, plans: [], outcomes: [] };
+    };
+    const base = await start({ discussionsTriageExecute: api });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ identity: discussionsIdentity, plans: [], outcomes: [] });
+    expect(calls).toBe(1);
+  });
+
+  it('POST /api/discussions-triage/execute passes a role-honest skip through as a 200, never a 403', async () => {
+    const base = await start({
+      discussionsTriageExecute: async () => ({
+        identity: { ...discussionsIdentity, login: 'visitor', role: 'user' as const },
+        plans: [],
+        outcomes: [],
+        skippedReason: 'guest' as const,
+      }),
+    });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ skippedReason: 'guest', outcomes: [] });
+  });
+
+  it('POST /api/discussions-triage/execute rejects a non-JSON content-type (CSRF guard)', async () => {
+    let calls = 0;
+    const api = async () => {
+      calls += 1;
+      return { identity: discussionsIdentity, plans: [], outcomes: [] };
+    };
+    const base = await start({ discussionsTriageExecute: api });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: '{}',
+    });
+    expect(res.status).toBe(415);
+    expect(calls).toBe(0);
+  });
+
+  it('POST /api/discussions-triage/execute 400s an unparseable body without running the ritual', async () => {
+    let calls = 0;
+    const api = async () => {
+      calls += 1;
+      return { identity: discussionsIdentity, plans: [], outcomes: [] };
+    };
+    const base = await start({ discussionsTriageExecute: api });
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: 'not json',
+    });
+    expect(res.status).toBe(400);
+    expect(calls).toBe(0);
+  });
+
+  it('405s a GET to /api/discussions-triage/execute', async () => {
+    const base = await start({
+      discussionsTriageExecute: async () => ({
+        identity: discussionsIdentity,
+        plans: [],
+        outcomes: [],
+      }),
+    });
+    const res = await fetch(`${base}/api/discussions-triage/execute`);
+    expect(res.status).toBe(405);
+  });
+
+  it('404s /api/discussions-triage/execute when no API is injected', async () => {
+    const base = await start();
+    const res = await fetch(`${base}/api/discussions-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(404);
+  });
+
   const reportCaptureBody = {
     regionId: 'flight-log',
     regionLabel: 'Flight log',
