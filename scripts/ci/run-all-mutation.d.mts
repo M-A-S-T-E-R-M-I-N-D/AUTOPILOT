@@ -13,3 +13,14 @@ export declare function selectConfigFiles(
   diffRef: string | null,
   touchedFiles: readonly string[],
 ): string[];
+
+/** `--shard <i>/<n>` (1-based); null when absent; throws on a malformed value. */
+export interface MutationShard {
+  readonly index: number;
+  readonly total: number;
+}
+export declare function parseShard(argv: readonly string[]): MutationShard | null;
+export declare function shardConfigFiles(
+  files: readonly string[],
+  shard: MutationShard | null,
+): readonly string[];
