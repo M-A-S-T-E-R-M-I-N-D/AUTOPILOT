@@ -136,6 +136,7 @@ import type {
 } from '../flight/mirror-pass.js';
 import type {
   MirrorPassDriftPlan,
+  MirrorPassDriftExecuteReport,
   MirrorPassExecuteReport,
   MirrorPassLandingNoteExecuteReport,
   MirrorPassStaleClaimExecuteReport,
@@ -215,6 +216,11 @@ const MIRROR_PASS_LANDING_NOTE_EXECUTE_RATE_WINDOW_MS = 60_000;
 // + `gh issue edit --remove-assignee` calls per finding, not just a read.
 const MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_LIMIT = 5;
 const MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_WINDOW_MS = 60_000;
+// Guards POST /api/mirror-pass/drift/execute — same reasoning as
+// MIRROR_PASS_EXECUTE's own limiter, derivation 3/4: a real `gh issue create`
+// call per drift finding, not just a read.
+const MIRROR_PASS_DRIFT_EXECUTE_RATE_LIMIT = 5;
+const MIRROR_PASS_DRIFT_EXECUTE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/report-from-here/execute — same heavier-than-a-quota-spend
 // reasoning as ISSUE_TRIAGE's limiter: a real `gh issue create` call or board
 // task creation per request, not just a read. The preview endpoint stays
@@ -540,6 +546,17 @@ export type MirrorPassLandingNoteExecuteApi = (
  *  `null` means an unknown project id. */
 export type MirrorPassDriftPreviewApi = (projectId: string) => Promise<MirrorPassDriftPlan | null>;
 
+/** The mutating counterpart to {@link MirrorPassDriftPreviewApi} — same role
+ *  gate as {@link MirrorPassExecuteApi} — derivation 3/4's own execute path,
+ *  VERDICT `ap-mtsg3nc0-3` slice (b), fourth and final installment: unlike
+ *  the other three derivations this one FILES A NEW issue rather than
+ *  mutating an existing one, so a finding can also come back a `duplicate`
+ *  rather than an applied outcome. See `flight/mirror-pass-execute.ts`'s
+ *  `createMirrorPassDriftExecuteApi`. `null` means an unknown project id. */
+export type MirrorPassDriftExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassDriftExecuteReport | null>;
+
 /** `null` means the project id is unknown — same convention as
  *  {@link MirrorPassPreviewApi}. See
  *  `flight/mirror-pass-execute.ts`'s `createMirrorPassStaleClaimPreviewApi`. */
@@ -690,8 +707,7 @@ export interface ServerDeps extends RouteDeps {
   readonly mirrorPass?: MirrorPassPreviewApi;
   /** MIRROR PASS reconcile EXECUTE (VERDICT `ap-mtsg3nc0-3` slice (b),
    *  derivation 1/4 only) — the mutating counterpart to `mirrorPass` above,
-   *  behind `POST /api/mirror-pass/execute`. The other three derivations'
-   *  execute paths remain their own follow-up slices, not wired here. */
+   *  behind `POST /api/mirror-pass/execute`. */
   readonly mirrorPassExecute?: MirrorPassExecuteApi;
   /** MIRROR PASS landing-note preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
    *  derivation 2/4) — read-only, behind `GET /api/mirror-pass/landing-note`.
@@ -699,14 +715,18 @@ export interface ServerDeps extends RouteDeps {
   readonly mirrorPassLandingNote?: MirrorPassLandingNotePreviewApi;
   /** MIRROR PASS landing-note EXECUTE (VERDICT `ap-mtsg3nc0-3` slice (b),
    *  derivation 2/4 only) — the mutating counterpart to `mirrorPassLandingNote`
-   *  above, behind `POST /api/mirror-pass/landing-note/execute`. The other two
-   *  derivations' execute paths remain their own follow-up slices, not wired
-   *  here. */
+   *  above, behind `POST /api/mirror-pass/landing-note/execute`. */
   readonly mirrorPassLandingNoteExecute?: MirrorPassLandingNoteExecuteApi;
   /** MIRROR PASS drift preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
-   *  derivation 3/4) — read-only, behind `GET /api/mirror-pass/drift`. Same
-   *  "mutating execute is a separate slice" stance as `mirrorPass` above. */
+   *  derivation 3/4) — read-only, behind `GET /api/mirror-pass/drift`. */
   readonly mirrorPassDrift?: MirrorPassDriftPreviewApi;
+  /** MIRROR PASS drift EXECUTE (VERDICT `ap-mtsg3nc0-3` slice (b), derivation
+   *  3/4 only) — the mutating counterpart to `mirrorPassDrift` above, behind
+   *  `POST /api/mirror-pass/drift/execute`. Unlike the other three
+   *  derivations this one files a NEW issue rather than mutating an existing
+   *  one — de-duplication runs through `social-pass.ts`'s shared protocol
+   *  engine, same as every other new-issue candidate this repo files. */
+  readonly mirrorPassDriftExecute?: MirrorPassDriftExecuteApi;
   /** MIRROR PASS stale-claim preview (EPIC 0019 S3, board `web-mtrh1hlh-62l41b`,
    *  derivation 4/4) — read-only, behind `GET /api/mirror-pass/stale-claims`.
    *  Same "mutating execute is a separate slice" stance as `mirrorPass`
@@ -714,9 +734,8 @@ export interface ServerDeps extends RouteDeps {
   readonly mirrorPassStaleClaim?: MirrorPassStaleClaimPreviewApi;
   /** MIRROR PASS stale-claim EXECUTE (VERDICT `ap-mtsg3nc0-3` slice (b),
    *  derivation 4/4 only) — the mutating counterpart to `mirrorPassStaleClaim`
-   *  above, behind `POST /api/mirror-pass/stale-claims/execute`. Derivation
-   *  3/4's own execute path (files a NEW drift issue rather than mutating an
-   *  existing one) remains its own follow-up slice, not wired here. */
+   *  above, behind `POST /api/mirror-pass/stale-claims/execute`. All four
+   *  derivations' execute paths are now wired. */
   readonly mirrorPassStaleClaimExecute?: MirrorPassStaleClaimExecuteApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
@@ -2617,6 +2636,74 @@ async function handleMirrorPassDrift(
 }
 
 /**
+ * The MIRROR PASS drift EXECUTE endpoint (`POST /api/mirror-pass/drift/execute`,
+ * body `{project}`) — derivation 3/4's mutating counterpart to
+ * {@link handleMirrorPassDrift}. Same shape as
+ * {@link handleMirrorPassStaleClaimExecute}: state-changing (files a new `gh
+ * issue create` per finding), so CSRF-guarded JSON POST, separately
+ * rate-limited, role gating happens inside the injected `api` itself (a
+ * non-maintainer identity still gets a 200 with `skippedReason` set, never a
+ * 403). Unlike the other three derivations, a finding here can also come
+ * back a `duplicate` — a near-identical issue already open — never sent to
+ * `gh` at all. 404 only for an unknown project or an unwired API.
+ */
+async function handleMirrorPassDriftExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassDriftExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass drift execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many mirror pass requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let project: string;
+  try {
+    project = String((JSON.parse(raw) as { project?: unknown }).project ?? '');
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    const result = await api(project);
+    if (!result) {
+      send(404, { error: 'unknown project' });
+      return;
+    }
+    send(200, result);
+  } catch (error) {
+    send(500, {
+      error: error instanceof Error ? error.message : 'mirror pass drift execute failed',
+    });
+  }
+}
+
+/**
  * The MIRROR PASS stale-claim preview endpoint (`GET
  * /api/mirror-pass/stale-claims?project=`) — derivation 4/4: a claimed pool
  * issue whose assignee has gone quiet past the shared stale threshold, so
@@ -3234,6 +3321,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_LIMIT,
     MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_WINDOW_MS,
   );
+  const mirrorPassDriftExecuteLimiter = createRateLimiter(
+    MIRROR_PASS_DRIFT_EXECUTE_RATE_LIMIT,
+    MIRROR_PASS_DRIFT_EXECUTE_RATE_WINDOW_MS,
+  );
   const reportFromHereLimiter = createRateLimiter(
     REPORT_FROM_HERE_RATE_LIMIT,
     REPORT_FROM_HERE_RATE_WINDOW_MS,
@@ -3443,6 +3534,17 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass/landing-note') {
       void handleMirrorPassLandingNote(req, res, deps.mirrorPassLandingNote, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/drift/execute') {
+      void handleMirrorPassDriftExecute(
+        req,
+        res,
+        deps.mirrorPassDriftExecute,
+        headers,
+        mirrorPassDriftExecuteLimiter,
+      );
       return;
     }
 

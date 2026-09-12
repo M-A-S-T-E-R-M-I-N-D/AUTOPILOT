@@ -59,7 +59,17 @@ const RECONCILE_FINDING = [
   { finding: { issueNumber: 42, comment: 'Landed in abc123 — closing.' } },
 ];
 
-function bootWithReconcile(reconcile: unknown[], identity: unknown = null): void {
+const DRIFT_FINDING = {
+  versionDrift: { source: 'README.md', claimedVersion: '1', actualVersion: '2' },
+  countsDrift: null,
+  linkDrift: null,
+};
+
+function bootWithReconcile(
+  reconcile: unknown[],
+  identity: unknown = null,
+  drift: unknown = null,
+): void {
   document.open();
   document.write(renderShell('p1'));
   document.close();
@@ -75,7 +85,7 @@ function bootWithReconcile(reconcile: unknown[], identity: unknown = null): void
       return { ok: true, json: async () => ({ landingNote: [] }) } as unknown as Response;
     }
     if (url.includes('/api/mirror-pass/drift')) {
-      return { ok: true, json: async () => ({ drift: null }) } as unknown as Response;
+      return { ok: true, json: async () => ({ drift }) } as unknown as Response;
     }
     if (url.includes('/api/mirror-pass/stale-claims')) {
       return { ok: true, json: async () => ({ staleClaims: [] }) } as unknown as Response;
@@ -138,5 +148,71 @@ describe('MIRROR PASS execute button role gate (epic 0019 law 1 extended to the 
       expect(document.querySelector('.mirror-pass-body')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-execute]')).toBeNull();
+  });
+});
+
+describe('MIRROR PASS drift-fix button role gate (derivation 3/4 own execute path)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('hides the drift-fix button for a confirmed non-owner', async () => {
+    bootWithReconcile(
+      [],
+      { login: 'a-contributor', nameWithOwner: 'octocat/hello-world', role: 'user' },
+      DRIFT_FINDING,
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.mirror-pass-item')).not.toBeNull();
+    });
+    expect(document.querySelector('[data-mirror-pass-drift-execute]')).toBeNull();
+  });
+
+  it('shows the drift-fix button for the resolved repo owner when a drift finding exists', async () => {
+    bootWithReconcile(
+      [],
+      { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' },
+      DRIFT_FINDING,
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
+    });
+  });
+
+  it('shows the drift-fix button when identity is unresolved — the common fully-local project with no GitHub remote', async () => {
+    bootWithReconcile([], null, DRIFT_FINDING);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
+    });
+  });
+
+  it('hides the drift-fix button when there is no drift, even for the maintainer', async () => {
+    bootWithReconcile(
+      [],
+      { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' },
+      null,
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.mirror-pass-body')).not.toBeNull();
+    });
+    expect(document.querySelector('[data-mirror-pass-drift-execute]')).toBeNull();
+  });
+
+  it('shows both buttons independently when both a reconcile and a drift finding exist', async () => {
+    bootWithReconcile(
+      RECONCILE_FINDING,
+      { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' },
+      DRIFT_FINDING,
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
+      expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
+    });
   });
 });

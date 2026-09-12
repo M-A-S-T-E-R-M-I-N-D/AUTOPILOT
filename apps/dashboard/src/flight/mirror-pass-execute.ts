@@ -37,14 +37,17 @@
  * to {@link createMirrorPassLandingNotePreviewApi}, same role gate, same
  * per-derivation split. {@link createMirrorPassStaleClaimExecuteApi} is slice
  * (b)'s third installment — derivation 4/4's mutating counterpart to
- * {@link createMirrorPassStaleClaimPreviewApi}, same role gate; derivation
- * 3/4's own execute path (which files a NEW issue rather than mutating an
- * existing one) remains its own follow-up slice. All three wired execute
- * APIs above (derivations 1/4, 2/4, 4/4) are reachable over HTTP —
- * `server.ts`'s `POST /api/mirror-pass/execute`,
- * `/mirror-pass/landing-note/execute`, and `/mirror-pass/stale-claims/execute`
- * — but the dashboard panel that would call any of them is not wired here;
- * VERDICT slice (c) remains its own slice.
+ * {@link createMirrorPassStaleClaimPreviewApi}, same role gate.
+ * {@link createMirrorPassDriftExecuteApi} is slice (b)'s fourth and final
+ * installment — derivation 3/4's own execute path, which files a NEW issue
+ * (via `social-pass.ts`'s shared duplicate-detection protocol) rather than
+ * mutating an existing one. All four wired execute APIs above are reachable
+ * over HTTP — `server.ts`'s `POST /api/mirror-pass/execute`,
+ * `/mirror-pass/landing-note/execute`, `/mirror-pass/drift/execute`, and
+ * `/mirror-pass/stale-claims/execute` — but the dashboard panel that would
+ * call the latter two is not wired here; that remains its own follow-up
+ * slice (VERDICT slice (c) already wired the reconcile button; the
+ * landing-note, drift, and stale-claim execute buttons do not exist yet).
  */
 
 import { join } from 'node:path';
@@ -632,8 +635,8 @@ export type MirrorPassStaleClaimExecuteApi = (
  * {@link createMirrorPassStaleClaimPreviewApi} (EPIC 0019 S3, board
  * `web-mtrh1hlh-62l41b`, VERDICT `ap-mtsg3nc0-3` slice (b), third
  * installment — derivation 3/4's own execute path, which files a NEW issue
- * rather than mutating an existing one, remains its own follow-up slice).
- * Same role gate as {@link createMirrorPassExecuteApi} and
+ * rather than mutating an existing one, is {@link createMirrorPassDriftExecuteApi}
+ * below). Same role gate as {@link createMirrorPassExecuteApi} and
  * {@link createMirrorPassLandingNoteExecuteApi}: resolves the acting
  * identity first (epic law 1, "role honesty first") and returns a
  * zero-mutation report the moment it is unresolved or not this repo's own

@@ -1600,6 +1600,17 @@ const EN_STRINGS = {
     'Run the mirror pass now? This closes or reopens issues and posts comments on GitHub for every reconcile finding above.',
   mirrorPassExecuting: 'Running…',
   mirrorPassRequestFailed: 'Mirror pass request failed.',
+  // Its "Fix doc drift" EXECUTE button (derivation 3/4's own execute path) —
+  // same i18n shape as mirrorPassExecute above: idle label rides data-i18n,
+  // the tip doubles as the accessible name, and the confirm/in-flight/
+  // failure states are painted via tr() at click time.
+  mirrorPassDriftExecute: 'Fix doc drift',
+  mirrorPassDriftExecuteTip:
+    'Files a new GitHub issue for every doc-vs-tree drift finding above, skipping any that already have one open.',
+  mirrorPassDriftExecuteConfirm:
+    'File GitHub issues for the doc drift above now? This opens a new issue via gh for every finding that is not already tracked.',
+  mirrorPassDriftExecuting: 'Filing…',
+  mirrorPassDriftRequestFailed: 'Mirror pass drift fix request failed.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2360,6 +2371,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'להריץ את מעבר השיקוף עכשיו? זה סוגר או פותח מחדש issues ומפרסם תגובות ב-GitHub עבור כל ממצא תיאום שלמעלה.',
     mirrorPassExecuting: 'מריץ…',
     mirrorPassRequestFailed: 'בקשת מעבר השיקוף נכשלה.',
+    mirrorPassDriftExecute: 'תקן סטיית תיעוד',
+    mirrorPassDriftExecuteTip:
+      'פותח issue חדש ב-GitHub עבור כל ממצא סטיית תיעוד שלמעלה, ומדלג על כל ממצא שכבר יש לו issue פתוח.',
+    mirrorPassDriftExecuteConfirm:
+      'לפתוח issues ב-GitHub עבור סטיית התיעוד שלמעלה עכשיו? זה פותח issue חדש דרך gh עבור כל ממצא שאינו במעקב עדיין.',
+    mirrorPassDriftExecuting: 'פותח…',
+    mirrorPassDriftRequestFailed: 'בקשת תיקון סטיית התיעוד נכשלה.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',

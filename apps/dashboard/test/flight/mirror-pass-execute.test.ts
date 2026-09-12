@@ -13,6 +13,7 @@ import {
   createMirrorPassLandingNotePreviewApi,
   createMirrorPassLandingNoteExecuteApi,
   createMirrorPassDriftPreviewApi,
+  createMirrorPassDriftExecuteApi,
   createMirrorPassStaleClaimPreviewApi,
   createMirrorPassStaleClaimExecuteApi,
 } from '../../src/flight/mirror-pass-execute.js';
@@ -980,6 +981,60 @@ describe('createMirrorPassLandingNoteExecuteApi', () => {
   });
 });
 
+/** A `CliExec` stub answering identity resolution (same shape as {@link
+ *  identityAndIssueViewExec}) plus the four `gh issue|pr list` reads {@link
+ *  createMirrorPassDriftExecuteApi} composes via `social-pass.ts`'s {@link
+ *  fetchOwnSubmissions}/{@link fetchOpenThreads} (own issues/PRs, open
+ *  issues/PRs — `--author <login>` on the "own" pair distinguishes them from
+ *  the open-threads pair) and a bare success for `gh issue create`. Every
+ *  call is appended to `calls` so a test can assert exactly which `gh` argv
+ *  ran (or didn't). */
+function identityAndSocialListsExec(
+  login: string,
+  ownerLogin: string,
+  ownIssueTitles: readonly string[] = [],
+  openIssueTitles: readonly string[] = [],
+  calls: Array<readonly [string, readonly string[]]> = [],
+): CliExec {
+  return vi.fn(async (bin, args) => {
+    calls.push([bin, args]);
+    if (args[0] === 'api' && args[1] === 'user') {
+      return { code: 0, stdout: JSON.stringify({ login }) };
+    }
+    if (args[0] === 'repo' && args[1] === 'view') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: `${ownerLogin}/hello-world`,
+          url: `https://github.com/${ownerLogin}/hello-world`,
+          isPrivate: false,
+        }),
+      };
+    }
+    if (args[0] === 'issue' && args[1] === 'list') {
+      const titles = args.includes('--author') ? ownIssueTitles : openIssueTitles;
+      return {
+        code: 0,
+        stdout: JSON.stringify(
+          titles.map((title, i) => ({
+            number: i + 1,
+            title,
+            url: `https://github.com/x/y/issues/${i + 1}`,
+            state: 'OPEN',
+          })),
+        ),
+      };
+    }
+    if (args[0] === 'pr' && args[1] === 'list') {
+      return { code: 0, stdout: JSON.stringify([]) };
+    }
+    if (args[0] === 'issue' && args[1] === 'create') {
+      return { code: 0, stdout: '' };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
 describe('createMirrorPassDriftPreviewApi', () => {
   it('returns null for an unknown project id', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-unknown-'));
@@ -1098,6 +1153,191 @@ describe('createMirrorPassDriftPreviewApi', () => {
 
       vi.mocked(openStore).mockClear();
       await createMirrorPassDriftPreviewApi(dbPath)('p1');
+      expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createMirrorPassDriftExecuteApi', () => {
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      const exec = identityAndSocialListsExec('octocat', 'octocat');
+      expect(await createMirrorPassDriftExecuteApi(dbPath, exec)('nope')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with identity-unresolved and sends zero mutations when gh cannot resolve who is acting', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-unresolved-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+      writeFileSync(join(dir, 'README.md'), 'Current version **0.24.0** — see below.');
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.25.0' }));
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec: CliExec = vi.fn(async (bin, args) => {
+        calls.push([bin, args]);
+        return { code: 1, stdout: '' };
+      });
+
+      const report = await createMirrorPassDriftExecuteApi(dbPath, exec)('p1');
+
+      expect(report).toEqual({
+        identity: undefined,
+        outcomes: [],
+        duplicates: [],
+        skippedReason: 'identity-unresolved',
+      });
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] === 'create')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with guest and sends zero mutations for a non-maintainer identity', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-guest-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+      writeFileSync(join(dir, 'README.md'), 'Current version **0.24.0** — see below.');
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.25.0' }));
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndSocialListsExec('a-contributor', 'octocat', [], [], calls);
+
+      const report = await createMirrorPassDriftExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBe('guest');
+      expect(report?.outcomes).toEqual([]);
+      expect(report?.duplicates).toEqual([]);
+      expect(report?.identity).toMatchObject({ login: 'a-contributor', role: 'user' });
+      // Role honesty: identity resolution ran, but the drift reads never
+      // reach a single `gh issue create` call.
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] === 'create')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('files a new issue for a maintainer identity when a version drift is found', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-fires-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+      writeFileSync(join(dir, 'README.md'), 'Current version **0.24.0** — see below.');
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.25.0' }));
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndSocialListsExec('octocat', 'octocat', [], [], calls);
+
+      const report = await createMirrorPassDriftExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+      expect(report?.duplicates).toEqual([]);
+      expect(report?.outcomes).toHaveLength(1);
+      expect(report?.outcomes[0]?.finding).toMatchObject({
+        claimedVersion: '0.24.0',
+        actualVersion: '0.25.0',
+      });
+      expect(report?.outcomes[0]?.commandOutcome).toEqual({
+        command: expect.objectContaining({
+          args: ['issue', 'create', '--title', expect.any(String), '--body', expect.any(String)],
+        }),
+        ok: true,
+      });
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] === 'create')).toBe(true);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('reports a duplicate and files nothing when a matching issue is already open', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-duplicate-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+      writeFileSync(join(dir, 'README.md'), 'Current version **0.24.0** — see below.');
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.25.0' }));
+
+      const existingTitle = 'README.md claims version 0.24.0, tree is at 0.25.0';
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndSocialListsExec('octocat', 'octocat', [existingTitle], [], calls);
+
+      const report = await createMirrorPassDriftExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.outcomes).toEqual([]);
+      expect(report?.duplicates).toEqual([existingTitle]);
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] === 'create')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('sends nothing when the project has no README/docs drift to report', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-clean-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      const exec = identityAndSocialListsExec('octocat', 'octocat');
+
+      const report = await createMirrorPassDriftExecuteApi(dbPath, exec)('p1');
+
+      expect(report).toEqual({
+        identity: expect.objectContaining({ login: 'octocat' }),
+        outcomes: [],
+        duplicates: [],
+      });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('defaults to the real CLI exec when none is injected', () => {
+    expect(() => createMirrorPassDriftExecuteApi('/tmp/unused.db')).not.toThrow();
+  });
+
+  it('opens the store read-only — a drift execute never writes to the board itself', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-readonly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      vi.mocked(openStore).mockClear();
+      await createMirrorPassDriftExecuteApi(
+        dbPath,
+        identityAndSocialListsExec('octocat', 'octocat'),
+      )('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
     } finally {
       cleanupDir(dir);
