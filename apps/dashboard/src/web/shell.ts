@@ -2293,6 +2293,21 @@ function boardViewEffective(view) {
   if (view !== 'auto') return view;
   return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 64rem)').matches ? 'columns' : 'list';
 }
+// How many of the three columns would have rows: Queued · In flight & needs
+// you · Done. Columns exist to show FLOW; thirty queued rows beside two
+// empty lanes (seen live at 1280) is a list squeezed to a third of the
+// width, so "auto" reads as a list until at least two columns have rows.
+// The remembered toggle still forces either view.
+function boardFlowGroups(tasks) {
+  var queued = 0, flow = 0, done = 0;
+  for (var i = 0; i < tasks.length; i++) {
+    var s = tasks[i].status;
+    if (s === 'in_progress' || s === 'needs_approval') flow++;
+    else if (s === 'done' || s === 'deferred') done++;
+    else queued++;
+  }
+  return (queued ? 1 : 0) + (flow ? 1 : 0) + (done ? 1 : 0);
+}
 function boardViewToggleLabel(btn, view) {
   var effective = boardViewEffective(view);
   var key = effective === 'columns' ? 'boardViewList' : 'boardViewColumns';
@@ -2308,6 +2323,7 @@ function tasksSection(c) {
   head.setAttribute('data-i18n', anyFocus ? 'tasksFocusMode' : 'tasks');
   wrap.appendChild(head);
   var boardView = boardViewStored();
+  if (boardView === 'auto' && boardFlowGroups(tasks) < 2) boardView = 'list';
   wrap.setAttribute('data-board-view', boardView);
   var viewToggle = el('button', 'board-view-toggle');
   viewToggle.type = 'button';

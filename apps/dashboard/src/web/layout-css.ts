@@ -418,6 +418,20 @@ main > * { min-width: 0; }
 .back a:hover, .back a:focus-visible { text-decoration: underline; }
 /* The inside page is ONE full-width column — boards need room, not card cells. */
 main.project-mode { grid-template-columns: 1fr; }
+/* DESKTOP OVERVIEW (operator, 2026-09-12: "on desktop we have more width"):
+   from lg a project page's Overview reads as two columns — the project card
+   on the inline-start side, the operational stack (recently shipped, landing,
+   console, this round, next release, start over, sync, contribute) on the
+   inline-end side, each column in DOM order. Overview only ("fleet" is its
+   subject id on a project page): Board, Keeper, Plan, Docs and Data keep the
+   single column their panels were built for. The card spans a generous row
+   range so the stack never spills under it; empty spanned rows cost nothing. */
+@media (min-width: 64rem) {
+  body[data-subject="fleet"] main.project-mode { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: start; }
+  body[data-subject="fleet"] main.project-mode > * { grid-column: 2; }
+  body[data-subject="fleet"] main.project-mode > .back { grid-column: 1 / -1; grid-row: 1; }
+  body[data-subject="fleet"] main.project-mode > .card { grid-column: 1; grid-row: 2 / span 40; }
+}
 .act-label { margin: 0 0 var(--space-1); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
 .act-label-live { color: var(--color-accent); }
 .docs-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
@@ -944,7 +958,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    bounded (72vh, its own scroll): a board of thirty queued tasks is one
    column six screens tall otherwise (seen live), and the column heads stay
    above it. */
-.board-view-toggle { margin: 0 0 var(--space-2); }
+.board-view-toggle { display: block; inline-size: fit-content; margin: 0 0 var(--space-2) auto; font-size: var(--text-xs); }
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
 .board-column-count { font-variant-numeric: tabular-nums; }
@@ -1497,7 +1511,9 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   .updated { display: inline; }
   .totals { padding: var(--space-4) var(--page-inline); }
   .live-workers { padding: var(--space-3) var(--page-inline); }
-  .stat-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); padding: var(--space-4) var(--page-inline); }
+  /* 136px, not 150: five tiles must fit the ~780px main column the context
+     rail leaves at 1280, where 150px wrapped the fifth tile onto its own row. */
+  .stat-tiles { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: var(--space-3); padding: var(--space-4) var(--page-inline); }
   #fly-folder, #search-q { flex: 1 1 260px; min-width: 200px; }
   main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
   .pipeline-panel { flex-direction: row; align-items: flex-start; }
@@ -1515,7 +1531,12 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
     padding: var(--space-3) var(--space-1) env(safe-area-inset-bottom);
     border-block-start: 0; border-inline-end: 1px solid var(--color-border);
   }
-  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; padding-inline: var(--space-1); }
+  /* "Community" ellipsised inside the 5rem rail: the label measured 67px in a
+     63px box (the link's own 4px inline padding on each side plus tracking).
+     The rail's padding already keeps the link off the edge, so the link goes
+     edge to edge and the label loses its tracking — 71px for 67. */
+  .subject-link { flex: 0 0 auto; min-block-size: 3.5rem; padding-inline: 0; }
+  .subject-link > span { letter-spacing: 0; }
   body { padding-block-end: 0; padding-inline-start: var(--shell-rail-size); }
 }
 @media (min-width: 64rem) {

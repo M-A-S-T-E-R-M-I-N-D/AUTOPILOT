@@ -172,6 +172,32 @@ describe('layout-css — mobile-first laws', () => {
     );
   });
 
+  it('uses desktop width: a two-column project Overview from lg, five-up tiles beside the rail, an untracked rail label, a compact board toggle', () => {
+    // Overview only — the subject id is "fleet" on a project page; every other
+    // subject keeps its single column. The card takes the inline-start column,
+    // the operational stack the inline-end one, DOM order kept within each.
+    expect(css).toContain(
+      '@media (min-width: 64rem) {\n  body[data-subject="fleet"] main.project-mode { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: start; }',
+    );
+    expect(css).toContain('body[data-subject="fleet"] main.project-mode > * { grid-column: 2; }');
+    expect(css).toContain(
+      'body[data-subject="fleet"] main.project-mode > .back { grid-column: 1 / -1; grid-row: 1; }',
+    );
+    expect(css).toContain(
+      'body[data-subject="fleet"] main.project-mode > .card { grid-column: 1; grid-row: 2 / span 40; }',
+    );
+    // Five tiles fit the ~780px main column the rail leaves at 1280.
+    expect(css).toContain(
+      '.stat-tiles { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));',
+    );
+    // "Community" no longer ellipsises inside the 5rem rail.
+    expect(css).toContain('  .subject-link > span { letter-spacing: 0; }');
+    // The board view toggle is a compact control, not a full-width bar.
+    expect(css).toContain(
+      '.board-view-toggle { display: block; inline-size: fit-content; margin: 0 0 var(--space-2) auto;',
+    );
+  });
+
   it('never tracks Hebrew: under dir=rtl every letter-spacing rule is undone, last in the sheet', () => {
     const law = '[dir="rtl"] * { letter-spacing: normal; }';
     expect(css).toContain(law);
