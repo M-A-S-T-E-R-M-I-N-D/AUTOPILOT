@@ -65,10 +65,15 @@ const DRIFT_FINDING = {
   linkDrift: null,
 };
 
+const LANDING_NOTE_FINDING = [
+  { finding: { issueNumber: 7, comment: 'Landed in def456 — closing.' } },
+];
+
 function bootWithReconcile(
   reconcile: unknown[],
   identity: unknown = null,
   drift: unknown = null,
+  landingNote: unknown[] = [],
 ): void {
   document.open();
   document.write(renderShell('p1'));
@@ -82,7 +87,7 @@ function bootWithReconcile(
     // `/api/mirror-pass` preview — every one of them contains that same
     // substring, so order matters here.
     if (url.includes('/api/mirror-pass/landing-note')) {
-      return { ok: true, json: async () => ({ landingNote: [] }) } as unknown as Response;
+      return { ok: true, json: async () => ({ landingNote }) } as unknown as Response;
     }
     if (url.includes('/api/mirror-pass/drift')) {
       return { ok: true, json: async () => ({ drift }) } as unknown as Response;
@@ -213,6 +218,77 @@ describe('MIRROR PASS drift-fix button role gate (derivation 3/4 own execute pat
     await vi.waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
       expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
+    });
+  });
+});
+
+describe('MIRROR PASS landing-note button role gate (derivation 2/4 own execute path)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('hides the landing-note button for a confirmed non-owner', async () => {
+    bootWithReconcile(
+      [],
+      { login: 'a-contributor', nameWithOwner: 'octocat/hello-world', role: 'user' },
+      null,
+      LANDING_NOTE_FINDING,
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.mirror-pass-item')).not.toBeNull();
+    });
+    expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).toBeNull();
+  });
+
+  it('shows the landing-note button for the resolved repo owner when a landing-note finding exists', async () => {
+    bootWithReconcile(
+      [],
+      { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' },
+      null,
+      LANDING_NOTE_FINDING,
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).not.toBeNull();
+    });
+  });
+
+  it('shows the landing-note button when identity is unresolved — the common fully-local project with no GitHub remote', async () => {
+    bootWithReconcile([], null, null, LANDING_NOTE_FINDING);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).not.toBeNull();
+    });
+  });
+
+  it('hides the landing-note button when there is nothing to note, even for the maintainer', async () => {
+    bootWithReconcile(
+      [],
+      { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' },
+      null,
+      [],
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.mirror-pass-body')).not.toBeNull();
+    });
+    expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).toBeNull();
+  });
+
+  it('shows all three buttons independently when a reconcile, drift, and landing-note finding all exist', async () => {
+    bootWithReconcile(
+      RECONCILE_FINDING,
+      { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' },
+      DRIFT_FINDING,
+      LANDING_NOTE_FINDING,
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
+      expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
+      expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).not.toBeNull();
     });
   });
 });

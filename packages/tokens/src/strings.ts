@@ -1663,6 +1663,17 @@ const EN_STRINGS = {
     'Posts a signed reply and applies the pool label to every accepted discussion above via gh.',
   discussionsTriageExecuting: 'Running…',
   discussionsTriageRequestFailed: 'Discussions triage request failed.',
+  // Its "Post landing note(s)" EXECUTE button (derivation 2/4's own execute
+  // path) — same i18n shape as mirrorPassExecute above: idle label rides
+  // data-i18n, the tip doubles as the accessible name, and the
+  // confirm/in-flight/failure states are painted via tr() at click time.
+  mirrorPassLandingNoteExecute: 'Post landing note(s)',
+  mirrorPassLandingNoteExecuteTip:
+    'Posts a landing-note comment on every already-closed issue above that is missing one.',
+  mirrorPassLandingNoteExecuteConfirm:
+    'Post the landing note(s) above now? This comments on GitHub for every already-closed issue missing one.',
+  mirrorPassLandingNoteExecuting: 'Posting…',
+  mirrorPassLandingNoteRequestFailed: 'Mirror pass landing-note request failed.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2475,6 +2486,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'מפרסם תגובה חתומה ומחיל את תווית ה-pool על כל דיון שאושר למעלה דרך gh.',
     discussionsTriageExecuting: 'מריץ…',
     discussionsTriageRequestFailed: 'בקשת טריאז׳ הדיונים נכשלה.',
+    mirrorPassLandingNoteExecute: 'פרסם הערות נחיתה',
+    mirrorPassLandingNoteExecuteTip: 'מפרסם תגובת הערת-נחיתה על כל issue סגור שלמעלה שחסרה לו אחת.',
+    mirrorPassLandingNoteExecuteConfirm:
+      'לפרסם את הערות הנחיתה שלמעלה עכשיו? זה מפרסם תגובה ב-GitHub עבור כל issue סגור שחסרה לו אחת.',
+    mirrorPassLandingNoteExecuting: 'מפרסם…',
+    mirrorPassLandingNoteRequestFailed: 'בקשת הערת הנחיתה של מעבר השיקוף נכשלה.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',

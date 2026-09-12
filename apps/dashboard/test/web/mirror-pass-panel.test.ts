@@ -12,6 +12,7 @@ import {
   mirrorPassExecuteResultMessage,
   mirrorPassCanExecuteDrift,
   mirrorPassDriftExecuteResultMessage,
+  mirrorPassCanExecuteLandingNote,
 } from '../../src/web/mirror-pass-panel.js';
 
 describe('mirrorPassReconcileItems / mirrorPassLandingNoteItems / mirrorPassStaleClaimItems', () => {
@@ -223,6 +224,31 @@ describe('mirrorPassCanExecuteDrift', () => {
         { versionDrift: null, countsDrift: null, linkDrift: null },
       ),
     ).toBe(false);
+  });
+});
+
+describe('mirrorPassCanExecuteLandingNote', () => {
+  const oneLandingNote = [{ finding: { issueNumber: 7, comment: 'x' } }];
+
+  it('hides the landing-note button for a confirmed non-maintainer, even with a real finding', () => {
+    expect(mirrorPassCanExecuteLandingNote({ role: 'user' }, oneLandingNote)).toBe(false);
+  });
+
+  it('shows the landing-note button for a confirmed maintainer with a real finding', () => {
+    expect(mirrorPassCanExecuteLandingNote({ role: 'maintainer' }, oneLandingNote)).toBe(true);
+  });
+
+  it('shows the landing-note button when identity is unresolved — not a known guest', () => {
+    expect(mirrorPassCanExecuteLandingNote(undefined, oneLandingNote)).toBe(true);
+    expect(mirrorPassCanExecuteLandingNote(null, oneLandingNote)).toBe(true);
+  });
+
+  it('hides the landing-note button when there is nothing to note, even for the maintainer', () => {
+    expect(mirrorPassCanExecuteLandingNote({ role: 'maintainer' }, [])).toBe(false);
+    expect(mirrorPassCanExecuteLandingNote({ role: 'maintainer' }, null)).toBe(false);
+    expect(mirrorPassCanExecuteLandingNote({ role: 'maintainer' }, [{ finding: null }])).toBe(
+      false,
+    );
   });
 });
 

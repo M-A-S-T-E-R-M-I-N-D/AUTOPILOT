@@ -212,7 +212,9 @@ import {
 // Then core raw 193→195KB (2026-09-12) for EPIC 0021 slice 9: the board as
 // columns (view toggle, column heads, a status attribute per row; five
 // strings) — measured 194.0KB.
-const CORE_RAW_BUDGET = 195 * 1024;
+// Then core raw 195→196KB (2026-09-12) for the round-3 lanes' strings (mirror-pass
+// drift + landing-note execute, discussions triage, CI status) — measured 195.2KB.
+const CORE_RAW_BUDGET = 196 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 const CORE_GZIP_BUDGET = 58 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
@@ -314,7 +316,8 @@ const CHUNK_RAW_BUDGET = 148 * 1024;
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
 // plan editor — measured 43.1KB gzip.
-const CHUNK_GZIP_BUDGET = 44 * 1024;
+// Then gzip 44→45KB (2026-09-12) for the CI-status panel in /panels.js — measured 44.1KB gzip.
+const CHUNK_GZIP_BUDGET = 45 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([
