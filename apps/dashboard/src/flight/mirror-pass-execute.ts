@@ -45,9 +45,10 @@
  * over HTTP — `server.ts`'s `POST /api/mirror-pass/execute`,
  * `/mirror-pass/landing-note/execute`, `/mirror-pass/drift/execute`, and
  * `/mirror-pass/stale-claims/execute` — but the dashboard panel that would
- * call the latter two is not wired here; that remains its own follow-up
- * slice (VERDICT slice (c) already wired the reconcile button; the
- * landing-note, drift, and stale-claim execute buttons do not exist yet).
+ * call the last one is not wired here; that remains its own follow-up
+ * slice (`web/features/mirror-pass.ts` now wires the reconcile, drift, and
+ * landing-note execute buttons; the stale-claim execute button does not
+ * exist yet).
  */
 
 import { join } from 'node:path';

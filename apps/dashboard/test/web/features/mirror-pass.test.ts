@@ -20,11 +20,12 @@ import {
   mirrorPassExecuteResultMessage,
   mirrorPassCanExecuteDrift,
   mirrorPassDriftExecuteResultMessage,
+  mirrorPassCanExecuteLandingNote,
 } from '../../../src/web/mirror-pass-panel.js';
 import { mirrorPassJs } from '../../../src/web/features/mirror-pass.js';
 
 describe('mirrorPassJs', () => {
-  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage/mirrorPassCanExecuteDrift/mirrorPassDriftExecuteResultMessage real compiled source via .toString()', () => {
+  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage/mirrorPassCanExecuteDrift/mirrorPassDriftExecuteResultMessage/mirrorPassCanExecuteLandingNote real compiled source via .toString()', () => {
     const out = mirrorPassJs();
     expect(out).toContain(mirrorPassReconcileItems.toString());
     expect(out).toContain(mirrorPassLandingNoteItems.toString());
@@ -35,13 +36,14 @@ describe('mirrorPassJs', () => {
     expect(out).toContain(mirrorPassExecuteResultMessage.toString());
     expect(out).toContain(mirrorPassCanExecuteDrift.toString());
     expect(out).toContain(mirrorPassDriftExecuteResultMessage.toString());
+    expect(out).toContain(mirrorPassCanExecuteLandingNote.toString());
   });
 
   it('declares mirrorPassSection, renderMirrorPassBody, and loadMirrorPassBody', () => {
     const out = mirrorPassJs();
     expect(out).toContain('function mirrorPassSection(pid) {');
     expect(out).toContain(
-      'function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, pid) {',
+      'function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, pid) {',
     );
     expect(out).toContain('function loadMirrorPassBody(body, pid) {');
   });
@@ -117,6 +119,44 @@ describe('mirrorPassJs', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-drift-execute]')");
     expect(out).toContain("fetch('/api/mirror-pass/drift/execute'");
-    expect(out.match(/body: JSON\.stringify\(\{ project: pid \}\),/g)?.length).toBe(2);
+    expect(out.match(/body: JSON\.stringify\(\{ project: pid \}\),/g)?.length).toBe(3);
+  });
+
+  it('gates the landing-note button on mirrorPassCanExecuteLandingNote, independent of the other two', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain('if (canExecuteLandingNote) {');
+    expect(out).toContain('mirrorPassCanExecuteLandingNote(identity, landingNote)');
+  });
+
+  it('tags the landing-note button data-i18n and points it at the project id', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain(
+      "landingNoteBtn.setAttribute('data-i18n', 'mirrorPassLandingNoteExecute');",
+    );
+    expect(out).toContain(
+      "landingNoteBtn.setAttribute('data-mirror-pass-landing-note-execute', pid);",
+    );
+  });
+
+  it('tags the landing-note tip/aria with one shared key and paints the confirm + transient states via tr()', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain(
+      "landingNoteBtn.setAttribute('data-i18n-tip', 'mirrorPassLandingNoteExecuteTip');",
+    );
+    expect(out).toContain(
+      "landingNoteBtn.setAttribute('data-i18n-aria', 'mirrorPassLandingNoteExecuteTip');",
+    );
+    expect(out).toContain("window.confirm(tr('mirrorPassLandingNoteExecuteConfirm'))");
+    expect(out).toContain("b.textContent = tr('mirrorPassLandingNoteExecuting');");
+    expect(out).toContain("resultEl.textContent = tr('mirrorPassLandingNoteRequestFailed');");
+  });
+
+  it('posts to /api/mirror-pass/landing-note/execute with the project id on click, reusing mirrorPassExecuteResultMessage', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("e.target.closest('[data-mirror-pass-landing-note-execute]')");
+    expect(out).toContain("fetch('/api/mirror-pass/landing-note/execute'");
+    expect(
+      out.match(/var result = mirrorPassExecuteResultMessage\(r\.status, r\.data\);/g)?.length,
+    ).toBe(2);
   });
 });
