@@ -1115,6 +1115,11 @@ const BENIGN_SCRIPTS = new Set([
   // the same class as every other codemod/i18n .d.mts already listed here.
   'docs/check-links.d.mts',
   'docs/check-links.mjs',
+  // Writes docs/debriefs/README.md from the debrief files' own headings —
+  // the same generate-a-committed-doc-from-the-tree class as
+  // data-model/generate-doc.mjs; reads the docs folder, writes one index
+  // file, touches no store and no GitHub.
+  'docs/generate-debriefs-index.mjs',
   // Renders docs/DONATE.md from docs/donations.json via the SAME parser
   // flight/donations.ts gives GET /api/donations — same generate-a-committed
   // -doc-from-data class as data-model/generate-doc.mjs and

@@ -9,6 +9,11 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+
+// waitFor with a 5 s ceiling (2026-09-13): the 1 s default flaked under a full
+// 700-file run and turned a landing gate red; the assertions are unchanged.
+const waitFor = <T>(probe: () => T | Promise<T>): Promise<T> =>
+  vi.waitFor(probe, { timeout: 5000 });
 import { renderShell, clientJs } from '../../src/web/shell.js';
 import {
   landingWorktreeDivergence,
@@ -105,7 +110,7 @@ describe('the post-flight LANDING card', () => {
       diffstat: { filesChanged: 3, insertions: 42, deletions: 7 },
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-commits')).not.toBeNull();
     });
 
@@ -135,7 +140,7 @@ describe('the post-flight LANDING card', () => {
       diffstat: { filesChanged: 1, insertions: 5, deletions: 1 },
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-commits')).not.toBeNull();
     });
 
@@ -171,10 +176,10 @@ describe('the post-flight LANDING card', () => {
   it('shows an honest "nothing to land" state when the branch is level with its base', async () => {
     bootWithLanding(null);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-panel')).not.toBeNull();
     });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-body')?.textContent).toContain('Nothing to land');
     });
     expect(document.querySelector('.landing-commits')).toBeNull();
@@ -189,7 +194,7 @@ describe('the post-flight LANDING card', () => {
       overlaps: [{ branch: 'autopilot/flight-worktree-p1--fleet-2', files: ['shared.txt'] }],
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-overlap')).not.toBeNull();
     });
 
@@ -209,7 +214,7 @@ describe('the post-flight LANDING card', () => {
       diffstat: { filesChanged: 1, insertions: 1, deletions: 0 },
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-commits')).not.toBeNull();
     });
     expect(document.querySelector('.landing-overlaps')).toBeNull();
@@ -225,7 +230,7 @@ describe('the post-flight LANDING card', () => {
       overlaps: [{ branch: 'autopilot/flight-worktree-p1--fleet-2', files: ['shared.txt'] }],
     });
 
-    const button = await vi.waitFor(() => {
+    const button = await waitFor(() => {
       const b = document.querySelector('[data-land-execute]');
       expect(b).not.toBeNull();
       return b as HTMLButtonElement;
@@ -253,7 +258,7 @@ describe('the post-flight LANDING card', () => {
       diffstat: { filesChanged: 1, insertions: 1, deletions: 0 },
     });
 
-    const button = await vi.waitFor(() => {
+    const button = await waitFor(() => {
       const b = document.querySelector('[data-land-execute]');
       expect(b).not.toBeNull();
       return b as HTMLButtonElement;
@@ -279,7 +284,7 @@ describe('the post-flight LANDING card', () => {
       diffstat: { filesChanged: 3, insertions: 10, deletions: 2 },
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-commits')).not.toBeNull();
     });
 
@@ -343,7 +348,7 @@ describe('the post-flight LANDING card', () => {
     });
     new Function(clientJs())();
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.flight-debrief-notable')).not.toBeNull();
     });
 
@@ -372,7 +377,7 @@ describe('the post-flight LANDING card', () => {
     });
     new Function(clientJs())();
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.landing-body')?.textContent).toContain(
         'Landing preview unavailable',
       );

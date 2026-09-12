@@ -11,6 +11,11 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+
+// waitFor with a 5 s ceiling (2026-09-13): the 1 s default flaked under a full
+// 700-file run and turned a landing gate red; the assertions are unchanged.
+const waitFor = <T>(probe: () => T | Promise<T>): Promise<T> =>
+  vi.waitFor(probe, { timeout: 5000 });
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 const PROJECT = {
@@ -121,7 +126,7 @@ describe('MIRROR PASS execute button role gate (epic 0019 law 1 extended to the 
       role: 'user',
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-item')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-execute]')).toBeNull();
@@ -134,7 +139,7 @@ describe('MIRROR PASS execute button role gate (epic 0019 law 1 extended to the 
       role: 'maintainer',
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
     });
   });
@@ -142,7 +147,7 @@ describe('MIRROR PASS execute button role gate (epic 0019 law 1 extended to the 
   it('shows the execute button when identity is unresolved — the common fully-local project with no GitHub remote', async () => {
     bootWithReconcile(RECONCILE_FINDING, null);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
     });
   });
@@ -154,7 +159,7 @@ describe('MIRROR PASS execute button role gate (epic 0019 law 1 extended to the 
       role: 'maintainer',
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-body')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-execute]')).toBeNull();
@@ -174,7 +179,7 @@ describe('MIRROR PASS drift-fix button role gate (derivation 3/4 own execute pat
       DRIFT_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-item')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-drift-execute]')).toBeNull();
@@ -187,7 +192,7 @@ describe('MIRROR PASS drift-fix button role gate (derivation 3/4 own execute pat
       DRIFT_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
     });
   });
@@ -195,7 +200,7 @@ describe('MIRROR PASS drift-fix button role gate (derivation 3/4 own execute pat
   it('shows the drift-fix button when identity is unresolved — the common fully-local project with no GitHub remote', async () => {
     bootWithReconcile([], null, DRIFT_FINDING);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
     });
   });
@@ -207,7 +212,7 @@ describe('MIRROR PASS drift-fix button role gate (derivation 3/4 own execute pat
       null,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-body')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-drift-execute]')).toBeNull();
@@ -220,7 +225,7 @@ describe('MIRROR PASS drift-fix button role gate (derivation 3/4 own execute pat
       DRIFT_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
       expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
     });
@@ -241,7 +246,7 @@ describe('MIRROR PASS landing-note button role gate (derivation 2/4 own execute 
       LANDING_NOTE_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-item')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).toBeNull();
@@ -255,7 +260,7 @@ describe('MIRROR PASS landing-note button role gate (derivation 2/4 own execute 
       LANDING_NOTE_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).not.toBeNull();
     });
   });
@@ -263,7 +268,7 @@ describe('MIRROR PASS landing-note button role gate (derivation 2/4 own execute 
   it('shows the landing-note button when identity is unresolved — the common fully-local project with no GitHub remote', async () => {
     bootWithReconcile([], null, null, LANDING_NOTE_FINDING);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).not.toBeNull();
     });
   });
@@ -276,7 +281,7 @@ describe('MIRROR PASS landing-note button role gate (derivation 2/4 own execute 
       [],
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-body')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).toBeNull();
@@ -290,7 +295,7 @@ describe('MIRROR PASS landing-note button role gate (derivation 2/4 own execute 
       LANDING_NOTE_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
       expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
       expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).not.toBeNull();
@@ -313,7 +318,7 @@ describe('MIRROR PASS stale-claim button role gate (derivation 4/4 own execute p
       STALE_CLAIM_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-item')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-stale-claim-execute]')).toBeNull();
@@ -328,7 +333,7 @@ describe('MIRROR PASS stale-claim button role gate (derivation 4/4 own execute p
       STALE_CLAIM_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-stale-claim-execute]')).not.toBeNull();
     });
   });
@@ -336,7 +341,7 @@ describe('MIRROR PASS stale-claim button role gate (derivation 4/4 own execute p
   it('shows the stale-claim button when identity is unresolved — the common fully-local project with no GitHub remote', async () => {
     bootWithReconcile([], null, null, [], STALE_CLAIM_FINDING);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-stale-claim-execute]')).not.toBeNull();
     });
   });
@@ -350,7 +355,7 @@ describe('MIRROR PASS stale-claim button role gate (derivation 4/4 own execute p
       [],
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('.mirror-pass-body')).not.toBeNull();
     });
     expect(document.querySelector('[data-mirror-pass-stale-claim-execute]')).toBeNull();
@@ -365,7 +370,7 @@ describe('MIRROR PASS stale-claim button role gate (derivation 4/4 own execute p
       STALE_CLAIM_FINDING,
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(document.querySelector('[data-mirror-pass-execute]')).not.toBeNull();
       expect(document.querySelector('[data-mirror-pass-drift-execute]')).not.toBeNull();
       expect(document.querySelector('[data-mirror-pass-landing-note-execute]')).not.toBeNull();
