@@ -83,6 +83,9 @@ test.describe('app shell — compact window', () => {
       document.querySelectorAll('button, a[href], summary, select').forEach((el) => {
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) return; // not rendered
+        // Visually hidden until focused (the skip link: 1px, clipped) — not a
+        // pointer target at all; it reveals itself at full size on focus.
+        if (getComputedStyle(el).clipPath !== 'none') return;
         if (r.height < 24 || r.width < 24) {
           out.push(
             `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).split(' ')[0] : ''} ${Math.round(r.width)}x${Math.round(r.height)}`,
