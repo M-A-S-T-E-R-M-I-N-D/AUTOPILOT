@@ -71,9 +71,7 @@ describe('findConflictMarkers', () => {
   });
 
   it('the real archive file carries no unresolved conflict marker', () => {
-    const path = fileURLToPath(
-      new URL('../../../../docs/BACKLOG-999-ARCHIVE.md', import.meta.url),
-    );
+    const path = fileURLToPath(new URL('../../../../docs/BACKLOG-999-ARCHIVE.md', import.meta.url));
     expect(findConflictMarkers(readFileSync(path, 'utf8'))).toEqual([]);
   });
 });
