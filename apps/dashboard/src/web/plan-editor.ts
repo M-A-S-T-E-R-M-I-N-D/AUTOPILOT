@@ -56,7 +56,8 @@ export function planStepsFromSpec(spec: unknown): PlanStep[] {
     const enabled = !!(c && typeof c.bin === 'string' && c.bin.length > 0);
     const args = enabled && Array.isArray(c!.args) ? (c!.args as unknown[]).map(String) : [];
     const command = enabled ? [String(c!.bin)].concat(args).join(' ') : '';
-    const label = enabled && typeof c!.label === 'string' && c!.label.length > 0 ? c!.label : command;
+    const label =
+      enabled && typeof c!.label === 'string' && c!.label.length > 0 ? c!.label : command;
     return { kind: kind, enabled: enabled, command: command, label: label };
   });
 }
