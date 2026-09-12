@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.42.1] — 2026-09-12
+
+### Fixed
+
+- fix(engine): a red gate says which test failed; every test waits with a five-second ceiling
+- fix(dashboard): the themes reach the native chrome, the stray buttons, and the CI panel
+- fix(dashboard): every live lane keeps its card — a per-firing activity window
+- fix(dashboard): panels stop flickering — cached per data key, live clocks, no vanishing on a poll
+
 ## [0.42.0] — 2026-09-12
 
 ### Added
