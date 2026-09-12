@@ -25,16 +25,24 @@ Live granular truth: [`CHANGELOG.md`](../CHANGELOG.md) (what landed) and the
 3. **Attribution everywhere** (`docs/ATTRIBUTION.md`) — commit trailers, PR spread-lines,
    conversation signatures; the human always signs as themself (DCO), the tool takes
    credit only in the trailer.
+4. **The cockpit at SOTA** — the next four epics, each written with research citations
+   before a line of code: a first-class Markdown reader and editor (0023), the pipeline
+   view rethought as a readable plan with outcomes (0024), a vendored icon set in place
+   of emoji (0025), and the tasks screen rebuilt from the best list and board patterns
+   (0026) — animations, every state, strict accessibility, fast.
 
-Shipped since the last update (0.29.0 → 0.30.0): the **LLM issue composer end-to-end**
-(free-language note → local investigation → composed issue/task, severity suggested,
-report-born tasks focused at birth), the **post-push verdict ritual** with
-`AUTOPILOT_CI_REMEDIATION=fly` escalation, the **PARITY landing gate** (CI's own checks
-run before any push), the **mirror-pass reconcile API**, **multi-lane self-healing**
-worktrees, the **Foundation surface** (donations panel + DONATE.md, addresses
-operator-gated), the **single-visible-release policy**, and the collaboration protocol
-proving itself: two external contributors, the first **Active partner**
-(`.github/TRUSTED-CONTRIBUTORS.md`), and community-filed fixes landing same-day.
+Shipped since the last update (0.30.0 → 0.42.0): the **app shell**
+([epic 0021](epics/0021-app-shell.md)) — subjects with a bottom bar on phones and a rail
+from tablets, a context rail at desktop, the **Keeper queue** (everything waiting on a
+human, one list), the **flight plan editor** with undo/redo, the **board as columns**,
+⌘K, focus mode, an RTL and density audit in Hebrew, and a two-column desktop Overview;
+the **lucky roll says what to fly** (a fit shortlist under the Fly bar, #44); **lane
+freshness** (every lane launches on the tip, no more stale bases); the **claim contract**
+and the KEEPER issue-protocol gate; terminal-theme baselines and a translated theme menu;
+and contributor-reported fixes (#43, #45, #48) landing within a day of their report.
+Before that (0.29.0 → 0.30.0): the LLM issue composer end-to-end, the post-push verdict
+ritual, the PARITY landing gate, the mirror-pass reconcile API, multi-lane self-healing
+worktrees, the Foundation surface, and the collaboration protocol's first Active partner.
 
 ## Next up (M4 → M5 arc)
 
