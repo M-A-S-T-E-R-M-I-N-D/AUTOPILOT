@@ -1467,10 +1467,13 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 @media (min-width: 80rem) {
   body[data-rail="on"] { display: grid; grid-template-columns: minmax(0, 1fr) var(--shell-context-size); align-items: start; }
   body[data-rail="on"] > * { grid-column: 1; min-inline-size: 0; }
-  body[data-rail="on"] > .update-banner { grid-column: 1 / -1; grid-row: 1; }
-  body[data-rail="on"] > .masthead { grid-column: 1 / -1; grid-row: 2; }
+  /* No explicit rows: an explicit masthead row leaves an empty row 1 that
+     auto-placement fills with the first content section (seen on CI: the
+     totals strip rendered ABOVE the masthead). Both span the columns in
+     document order; the rail takes the next row in column 2 and spans down. */
+  body[data-rail="on"] > .update-banner, body[data-rail="on"] > .masthead { grid-column: 1 / -1; }
   body[data-rail="on"] > .context-rail {
-    display: block; grid-column: 2; grid-row: 3 / span 200; align-self: start;
+    display: block; grid-column: 2; grid-row: span 200; align-self: start;
     position: sticky; inset-block-start: 0; max-block-size: 100dvh; overflow: auto; overscroll-behavior: contain;
     padding: var(--space-3) 0; border-inline-start: 1px solid var(--color-border);
   }
