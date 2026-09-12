@@ -1105,6 +1105,7 @@ const EN_STRINGS = {
   githubPrResultOk: 'pull request opened.',
   githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
+  ciStatusPanel: 'CI status',
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
   contributorIssueListPanel: 'Good first issues',
@@ -1222,6 +1223,7 @@ const EN_STRINGS = {
   browseUpParent: 'Up to the parent folder',
   flightSummaryTitle: 'Recently shipped',
   poolTitle: '🧑‍🤝‍🧑 Pool',
+  ciStatusTitle: '⚙️ CI status',
   // web/features/pool-client.ts's per-entry text (board web-msnsndki-dz3vn1):
   // rebuilt fresh on every 30s poll or click, so tr() at build time is the
   // sweep, the same reasoning report-menu.ts's keys followed.
@@ -1645,6 +1647,33 @@ const EN_STRINGS = {
     'File GitHub issues for the doc drift above now? This opens a new issue via gh for every finding that is not already tracked.',
   mirrorPassDriftExecuting: 'Filing…',
   mirrorPassDriftRequestFailed: 'Mirror pass drift fix request failed.',
+  // web/features/discussions-triage.ts (epic 0007 S8, board
+  // web-mtlsiac0-v8rksh): the project page's KEEPER DISCUSSIONS panel —
+  // title, loading placeholder, empty/unavailable states, and the "Run
+  // KEEPER Discussions triage" EXECUTE button, same shape mirrorPass* above
+  // establishes for a fetch-then-render-then-execute panel. "KEEPER" stays
+  // Latin in every locale, the same proper-name stance issueTriageTitle
+  // above takes.
+  discussionsTriageTitle: '💬 KEEPER Discussions triage',
+  discussionsTriageLoading: 'Checking open discussions against the board…',
+  discussionsTriageEmpty: 'No open discussions to triage.',
+  discussionsTriageUnavailable: 'Discussions triage unavailable.',
+  discussionsTriageExecute: 'Run KEEPER Discussions triage',
+  discussionsTriageExecuteTip:
+    'Posts a signed reply and applies the pool label to every accepted discussion above via gh.',
+  discussionsTriageExecuting: 'Running…',
+  discussionsTriageRequestFailed: 'Discussions triage request failed.',
+  // Its "Post landing note(s)" EXECUTE button (derivation 2/4's own execute
+  // path) — same i18n shape as mirrorPassExecute above: idle label rides
+  // data-i18n, the tip doubles as the accessible name, and the
+  // confirm/in-flight/failure states are painted via tr() at click time.
+  mirrorPassLandingNoteExecute: 'Post landing note(s)',
+  mirrorPassLandingNoteExecuteTip:
+    'Posts a landing-note comment on every already-closed issue above that is missing one.',
+  mirrorPassLandingNoteExecuteConfirm:
+    'Post the landing note(s) above now? This comments on GitHub for every already-closed issue missing one.',
+  mirrorPassLandingNoteExecuting: 'Posting…',
+  mirrorPassLandingNoteRequestFailed: 'Mirror pass landing-note request failed.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -2046,6 +2075,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubPrResultOk: 'ה-pull request נפתח.',
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',
+    ciStatusPanel: 'מצב CI',
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
     contributorIssueListPanel: 'בעיות טובות למתחילים',
@@ -2146,6 +2176,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     browseUpParent: 'עלייה לתיקיית האב',
     flightSummaryTitle: 'שוחררו לאחרונה',
     poolTitle: '🧑‍🤝‍🧑 מאגר',
+    ciStatusTitle: '⚙️ מצב CI',
     poolNoLocalTask: 'ללא משימה מקומית',
     poolProjectSelectAria: 'פרויקט מקומי להוספת משימת לוח (אופציונלי)',
     poolProjectSelectTip:
@@ -2446,6 +2477,21 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לפתוח issues ב-GitHub עבור סטיית התיעוד שלמעלה עכשיו? זה פותח issue חדש דרך gh עבור כל ממצא שאינו במעקב עדיין.',
     mirrorPassDriftExecuting: 'פותח…',
     mirrorPassDriftRequestFailed: 'בקשת תיקון סטיית התיעוד נכשלה.',
+    discussionsTriageTitle: '💬 טריאז׳ Discussions של KEEPER',
+    discussionsTriageLoading: 'בודק דיונים פתוחים מול הלוח…',
+    discussionsTriageEmpty: 'אין דיונים פתוחים לטריאז׳.',
+    discussionsTriageUnavailable: 'טריאז׳ הדיונים אינו זמין.',
+    discussionsTriageExecute: 'הרץ טריאז׳ Discussions של KEEPER',
+    discussionsTriageExecuteTip:
+      'מפרסם תגובה חתומה ומחיל את תווית ה-pool על כל דיון שאושר למעלה דרך gh.',
+    discussionsTriageExecuting: 'מריץ…',
+    discussionsTriageRequestFailed: 'בקשת טריאז׳ הדיונים נכשלה.',
+    mirrorPassLandingNoteExecute: 'פרסם הערות נחיתה',
+    mirrorPassLandingNoteExecuteTip: 'מפרסם תגובת הערת-נחיתה על כל issue סגור שלמעלה שחסרה לו אחת.',
+    mirrorPassLandingNoteExecuteConfirm:
+      'לפרסם את הערות הנחיתה שלמעלה עכשיו? זה מפרסם תגובה ב-GitHub עבור כל issue סגור שחסרה לו אחת.',
+    mirrorPassLandingNoteExecuting: 'מפרסם…',
+    mirrorPassLandingNoteRequestFailed: 'בקשת הערת הנחיתה של מעבר השיקוף נכשלה.',
     doraTitle: '📈 בריאות התהליך (DORA)',
     gateParallelTitle: '⚡ חיסכון משער מקבילי',
     warmSessionsTitle: '🔥 מפגשים חמים',

@@ -20,9 +20,9 @@
  * "Run mirror pass" button whenever `mirror-pass-panel.ts`'s
  * `mirrorPassCanExecute` allows it — a confirmed maintainer (or an
  * unresolved identity, not a known guest) AND at least one actionable
- * reconcile finding. The other two wired execute paths (landing-note,
- * stale-claim) remain their own follow-up slices, same per-derivation split
- * already used throughout this epic. A clean run reloads the panel so the
+ * reconcile finding. The remaining wired execute path (stale-claim) stays
+ * its own follow-up slice, same per-derivation split already used
+ * throughout this epic. A clean run reloads the panel so the
  * applied finding(s) vanish from the refreshed list, the same "success
  * re-fetches, no separate message" convention `pr-review.ts`'s Apply button
  * uses; a role-gate skip or a failed request shows `mirror-pass-panel.ts`'s
@@ -37,6 +37,13 @@
  * independent: its own data attribute, confirm text, and in-flight/failure
  * labels, formatted by `mirror-pass-panel.ts`'s
  * `mirrorPassDriftExecuteResultMessage`.
+ *
+ * A third, independent "Post landing note(s)" button closes derivation 2/4's
+ * own unwritten execute path the same way, gated on
+ * `mirrorPassCanExecuteLandingNote` (at least one landing-note finding) and
+ * posting to `POST /api/mirror-pass/landing-note/execute`. Its report shares
+ * reconcile's exact shape, so it reuses `mirrorPassExecuteResultMessage`
+ * rather than a third near-identical formatter.
  *
  * `web/shell.ts`'s `clientJs()` calls this indirectly through
  * `featureModulesJs()`, so its return value — not its compiled source — is
@@ -80,12 +87,13 @@ import {
   mirrorPassExecuteResultMessage,
   mirrorPassCanExecuteDrift,
   mirrorPassDriftExecuteResultMessage,
+  mirrorPassCanExecuteLandingNote,
 } from '../mirror-pass-panel.js';
 
 /** The Mirror pass panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function mirrorPassJs(): string {
   return `
-// The nine functions below are generated FROM web/mirror-pass-panel.ts
+// The ten functions below are generated FROM web/mirror-pass-panel.ts
 // (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slices (c) and (c) v2) — their real
 // compiled source via .toString(), not a hand-retyped copy. It can no
 // longer drift apart. mirrorPassItems calls all four of the finding
@@ -102,7 +110,8 @@ ${mirrorPassCanExecute.toString()}
 ${mirrorPassExecuteResultMessage.toString()}
 ${mirrorPassCanExecuteDrift.toString()}
 ${mirrorPassDriftExecuteResultMessage.toString()}
-function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, pid) {
+${mirrorPassCanExecuteLandingNote.toString()}
+function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, pid) {
   body.replaceChildren();
   items = items || [];
   if (!items.length) {
@@ -117,7 +126,7 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, pid) {
     list.appendChild(el('li', 'mirror-pass-item', items[i].text));
   }
   body.appendChild(list);
-  if (canExecute || canExecuteDrift) {
+  if (canExecute || canExecuteDrift || canExecuteLandingNote) {
     var actions = el('div', 'mirror-pass-actions');
     if (canExecute) {
       var runBtn = el('button', 'mirror-pass-execute', 'Run mirror pass');
@@ -148,6 +157,19 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, pid) {
       driftBtn.setAttribute('data-i18n-aria', 'mirrorPassDriftExecuteTip');
       actions.appendChild(driftBtn);
     }
+    if (canExecuteLandingNote) {
+      var landingNoteBtn = el('button', 'mirror-pass-execute', 'Post landing note(s)');
+      landingNoteBtn.type = 'button';
+      landingNoteBtn.setAttribute('data-i18n', 'mirrorPassLandingNoteExecute');
+      landingNoteBtn.setAttribute('data-mirror-pass-landing-note-execute', pid);
+      var landingNoteTip =
+        'Posts a landing-note comment on every already-closed issue above that is missing one.';
+      landingNoteBtn.setAttribute('data-tip', landingNoteTip);
+      landingNoteBtn.setAttribute('data-i18n-tip', 'mirrorPassLandingNoteExecuteTip');
+      landingNoteBtn.setAttribute('aria-label', landingNoteTip);
+      landingNoteBtn.setAttribute('data-i18n-aria', 'mirrorPassLandingNoteExecuteTip');
+      actions.appendChild(landingNoteBtn);
+    }
     body.appendChild(actions);
     var resultEl = el('div', 'mirror-pass-result');
     resultEl.setAttribute('role', 'status');
@@ -169,10 +191,11 @@ function loadMirrorPassBody(body, pid) {
     .then(function (results) {
       if (!body.isConnected) return;
       var reconcile = results[0] && results[0].mirrorPass;
+      var landingNote = results[1] && results[1].landingNote;
       var drift = results[2] && results[2].drift;
       var items = mirrorPassItems({
         reconcile: reconcile,
-        landingNote: results[1] && results[1].landingNote,
+        landingNote: landingNote,
         drift: drift,
         staleClaims: results[3] && results[3].staleClaims,
       });
@@ -182,6 +205,7 @@ function loadMirrorPassBody(body, pid) {
         items,
         mirrorPassCanExecute(identity, reconcile),
         mirrorPassCanExecuteDrift(identity, drift),
+        mirrorPassCanExecuteLandingNote(identity, landingNote),
         pid,
       );
     })
@@ -289,6 +313,47 @@ document.addEventListener('click', function (e) {
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassDriftRequestFailed');
+      }
+    });
+});
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-mirror-pass-landing-note-execute]');
+  if (!b || b.disabled) return;
+  var pid = b.getAttribute('data-mirror-pass-landing-note-execute');
+  if (!window.confirm(tr('mirrorPassLandingNoteExecuteConfirm'))) return;
+  var body = b.closest('.mirror-pass-body');
+  var resultEl = body && body.querySelector('.mirror-pass-result');
+  b.disabled = true;
+  var originalText = b.textContent;
+  b.textContent = tr('mirrorPassLandingNoteExecuting');
+  fetch('/api/mirror-pass/landing-note/execute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid }),
+  })
+    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+    .then(function (r) {
+      var result = mirrorPassExecuteResultMessage(r.status, r.data);
+      if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
+        b.disabled = false;
+        b.textContent = originalText;
+        if (resultEl) {
+          resultEl.className = result.className;
+          resultEl.textContent = result.text;
+        }
+        return;
+      }
+      // Same "success re-fetches" convention the reconcile/drift buttons
+      // above use — a clean run posted real GitHub comments, so reload the
+      // panel rather than leave the stale landing-note findings on screen.
+      loadMirrorPassBody(body, pid);
+    })
+    .catch(function () {
+      b.disabled = false;
+      b.textContent = originalText;
+      if (resultEl) {
+        resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
+        resultEl.textContent = tr('mirrorPassLandingNoteRequestFailed');
       }
     });
 });

@@ -3260,6 +3260,17 @@ var REPORT_REGIONS = {
       'apps/dashboard/src/web/mirror-pass-panel.ts',
     ],
   },
+  // KEEPER Discussions triage (epic 0007 S8): the lane that built the panel
+  // tagged its container but never registered the region, so a right-click
+  // there resolved no owning module — the census caught it.
+  'discussions-triage': {
+    regionId: 'discussions-triage',
+    regionLabel: 'KEEPER Discussions triage',
+    moduleSources: [
+      'apps/dashboard/src/web/features/discussions-triage.ts',
+      'apps/dashboard/src/web/discussions-triage-panel.ts',
+    ],
+  },
   'backlog': {
     regionId: 'backlog',
     regionLabel: 'Detected backlog',
@@ -3376,6 +3387,13 @@ function renderProjectPage(state, pid) {
   var mirrorPassEl = mirrorPassSection(pid);
   mirrorPassEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'mirror-pass');
   fleet.appendChild(subj(mirrorPassEl, 'keeper'));
+  // KEEPER Discussions triage (epic 0007 S8, board web-mtlsiac0-v8rksh): the
+  // same accept/skip preview+execute shape as issue triage, extended to
+  // GitHub Discussions — sits right after Mirror pass, the other
+  // read-only-preview-plus-role-gated-execute GitHub-governance panel.
+  var discussionsTriageEl = discussionsTriageSection(pid);
+  discussionsTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'discussions-triage');
+  fleet.appendChild(subj(discussionsTriageEl, 'keeper'));
   // Detected backlog: open tasks a recent commit may have already shipped
   // (interactive-session work with no METRICS line) — sits right after the
   // task board it proposes edits to.
@@ -4236,6 +4254,7 @@ ${contextRailHtml(project)}
   <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance" data-subject="fleet"></section>
   <section class="pr-review-panel" id="pr-review-panel" aria-label="KEEPER PR review" data-i18n-aria="keeperPrReview" data-subject="keeper" hidden></section>
   <section class="pool-client-panel" id="pool-client-panel" aria-label="Contributor pool" data-i18n-aria="poolClientPanel" data-subject="keeper" hidden></section>
+  <section class="ci-status-panel" id="ci-status-panel" aria-label="CI status" data-i18n-aria="ciStatusPanel" data-subject="keeper" hidden></section>
   <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
   <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
   <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>

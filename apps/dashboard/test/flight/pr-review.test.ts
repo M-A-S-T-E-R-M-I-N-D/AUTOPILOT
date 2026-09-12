@@ -261,6 +261,16 @@ const BENIGN_FLIGHT = new Set([
   // route, and the `defect` verdict's diff-for-approval prep are unbuilt
   // follow-on slices that will need their own marker once they ship one.
   'check-diagnosis.ts',
+  // STANDING 3/5 (board web-mtq07khu-h1kr9u): loadContributorRegistry/
+  // parseContributorRegistry read-parse `.github/TRUSTED-CONTRIBUTORS.md` —
+  // a path this module hardcodes itself, never operator/request input — into
+  // structured tier facts. Same class as donations.ts above: read-only,
+  // degrades to an empty registry (and DEFAULT_STANDING_TIER for every
+  // lookup) on any missing/unparseable file, no `gh` call, no write. Which
+  // scope a tier actually unlocks is a decision for whichever future ritual
+  // consumes tierForLogin/isAtLeastTier — that ritual will need its own
+  // marker once it ships one.
+  'contributor-registry.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
@@ -775,6 +785,10 @@ const BENIGN_INBOX = new Set<string>([]);
  *  future `web/` file starts building HTML from untrusted content instead
  *  of pure display math. */
 const BENIGN_WEB = new Set([
+  // Pure label/item/confirm/result text for the KEEPER Discussions triage
+  // panel (epic 0007 S8): no HTML building, no I/O — the same class as
+  // issue-triage-panel.ts; the execute route lives under the flagged server.
+  'discussions-triage-panel.ts',
   // Pure spec<->steps transforms for the flight plan editor (epic 0021 slice 3):
   // no HTML, no I/O. The server-side validator that gates what gets STORED
   // carries its own marker; this only shapes the form the operator edits.
@@ -927,6 +941,10 @@ const BENIGN_WEB_FEATURES = new Set([
   // issue-triage.ts: POST /api/issue-triage/execute — already-flagged
   // `flight/issue-triage`.
   'issue-triage.ts',
+  // discussions-triage.ts: POST /api/discussions-triage/execute — same
+  // confirm-gated preview+execute shape as issue-triage.ts; the write lives
+  // under the flagged server route and the flight/discussions-triage marker.
+  'discussions-triage.ts',
   // landing.ts: POST /api/landing/execute — already-flagged `landing/`.
   'landing.ts',
   // pool-client.ts: POST /api/pool-client/execute and /api/fly —
@@ -953,6 +971,11 @@ const BENIGN_WEB_FEATURES = new Set([
   'activity-heatmap.ts',
   'activity.ts',
   'backlog.ts',
+  // ci-status.ts: GET /api/ci-status only, no execute pair — renders each
+  // workflow's name/detail as chip textContent (el()'s textContent
+  // assignment, never innerHTML), the same read-only shape backlog.ts and
+  // contributor-standing.ts already stay unflagged for.
+  'ci-status.ts',
   'contributor-standing.ts',
   // subject-nav.ts (epic 0021 app shell): no fetch at all — toggles
   // `<body data-subject>` and the nav's aria state from clicks, the URL

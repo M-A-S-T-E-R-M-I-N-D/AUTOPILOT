@@ -266,6 +266,13 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
       item.appendChild(checksWrap);
     }
     var actions = el('div', 'pr-review-actions');
+    // Read-only, so it never joins the actions div below — the guest role
+    // gate only ever hides WRITE buttons (see the gate's own comment), and
+    // gating a button that mutates nothing would contradict its own
+    // "Classifies... read-only" tooltip. Set inside the queue-for-human
+    // branch below, appended to item directly after the gate regardless of
+    // which side of it renders.
+    var diagnoseBtn = null;
     var applyBtn = prPanelButton('pr-review-execute', 'Apply', 'data-pr-review-execute',
       plan.pr.number, prReviewExecuteTip(plan.pr, plan.decision, tr), false);
     applyBtn.setAttribute('data-i18n', 'prReviewApply');
@@ -305,11 +312,12 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
         // The 🔧 Diagnose button (epic 0020 slice 8) — re-run is the right
         // answer to a flake and useless against a real defect. Read-only: it
         // never mutates anything, so it renders enabled beside a failed
-        // check with no readiness gate of its own.
-        actions.appendChild(prPanelButton('pr-review-update-branch', '🔧 Diagnose',
+        // check with no readiness gate of its own, and stays outside the
+        // actions div so the guest role gate below never hides it either.
+        diagnoseBtn = prPanelButton('pr-review-update-branch', '🔧 Diagnose',
           'data-pr-diagnose', plan.pr.number,
           'Classifies the check as flake or defect — read-only.',
-          false));
+          false);
       }
       if (readiness.behindBase) {
         actions.appendChild(prPanelButton('pr-review-update-branch', '⟳ Update branch',
@@ -338,6 +346,12 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
       item.appendChild(guestNote);
     } else {
       item.appendChild(actions);
+    }
+    // Diagnose rides outside the gate above (read-only — see where it's
+    // built) so a guest keeps it exactly like the preview: visible either
+    // side of the write-button cutoff.
+    if (diagnoseBtn) {
+      item.appendChild(diagnoseBtn);
     }
     // The execute outcome lands here AFTER the confirm dialog, once focus has
     // long moved on — a polite live region is what lets a screen reader hear

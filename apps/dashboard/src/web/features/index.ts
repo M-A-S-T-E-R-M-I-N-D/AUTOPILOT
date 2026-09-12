@@ -6,10 +6,12 @@
 import { activityHeatmapJs } from './activity-heatmap.js';
 import { activityJs } from './activity.js';
 import { backlogJs } from './backlog.js';
+import { ciStatusJs } from './ci-status.js';
 import { connectJs } from './connect.js';
 import { contributorIssueListJs } from './contributor-issue-list.js';
 import { contributorStandingJs } from './contributor-standing.js';
 import { coordinationJs } from './coordination.js';
+import { discussionsTriageJs } from './discussions-triage.js';
 import { docsViewerJs } from './docs-viewer.js';
 import { evolutionJs } from './evolution.js';
 import { firingTimelineJs } from './firing-timeline.js';
@@ -45,10 +47,12 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   activityHeatmapJs,
   activityJs,
   backlogJs,
+  ciStatusJs,
   connectJs,
   contributorIssueListJs,
   contributorStandingJs,
   coordinationJs,
+  discussionsTriageJs,
   docsViewerJs,
   evolutionJs,
   firingTimelineJs,
@@ -92,10 +96,12 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'activity-heatmap': activityHeatmapJs,
   activity: activityJs,
   backlog: backlogJs,
+  'ci-status': ciStatusJs,
   connect: connectJs,
   'contributor-issue-list': contributorIssueListJs,
   'contributor-standing': contributorStandingJs,
   coordination: coordinationJs,
+  'discussions-triage': discussionsTriageJs,
   'docs-viewer': docsViewerJs,
   evolution: evolutionJs,
   'firing-timeline': firingTimelineJs,

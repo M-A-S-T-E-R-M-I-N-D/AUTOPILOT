@@ -89,6 +89,14 @@ const REGIONS: ReadonlyArray<{
     ],
   },
   {
+    regionId: 'discussions-triage',
+    regionLabel: 'KEEPER Discussions triage',
+    moduleSources: [
+      'apps/dashboard/src/web/features/discussions-triage.ts',
+      'apps/dashboard/src/web/discussions-triage-panel.ts',
+    ],
+  },
+  {
     regionId: 'backlog',
     regionLabel: 'Detected backlog',
     moduleSources: ['apps/dashboard/src/web/features/backlog.ts'],

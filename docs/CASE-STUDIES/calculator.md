@@ -97,6 +97,52 @@ per-firing telemetry granular enough to chart honestly (`docs/SELF-STUDY/DATASHE
 built from anything finer would be inventing numbers, which is exactly what
 this directory's [standard](README.md#standard) exists to refuse.
 
+## Follow-up flight — the percent key (2026-09-04/05)
+
+A second, smaller unit flown against the same sample, worth recording for the
+same reason the first one is: the failure is as instructive as the feature.
+
+**What was asked:** GitHub issue #8 — a classic pocket calculator treats `%`
+as divide-current-entry-by-100 (`50 % → 0.5`); the seed calculator shipped
+without it.
+
+**The flight (RED → GREEN, ~4 minutes):** one commit, TDD in order —
+
+> `feat(calculator): add a percent key — divide-by-100, wired end to end`
+>
+> A classic pocket calculator treats % as divide-current-entry-by-100. Added
+> a failing acceptance test first (50 % → 0.5; RED at 12/13), then
+> `pressPercent` in `calc.js` (unary, sets overwrite so a following digit
+> starts fresh, consistent with `pressOperator`/`pressEquals`), the `%`
+> button in `index.html` … and the keydown allowlist. 13/13 green.
+>
+> Closes #8.
+
+`f062e62d`, 2026-09-04 23:07 — verified on its own merits: 13/13 tests green,
+the `%` key present in the DOM (`index.html:31`) and wired in `calc.js`'s
+`pressPercent` (`calc.js:96`).
+
+**What went wrong:** four minutes later (`c13e4a80`, 23:11) the commit was
+reverted — not for a defect in the percent key itself, but as one of six
+unrelated commits swept up together in the same two-minute window (a
+self-study data refresh, a primary-checkout concurrency doc, the repo-wide
+"great hygiene sweep" doc pass). All six were reverted as a batch, then all
+six reapplied as a batch nine hours later (`8cc9c6c6`, 2026-09-05 08:18) once
+the tree settled, the percent key landing back intact and unchanged. This is
+the same failure class the maintainer later formalized in
+[`docs/debriefs/2026-09-06-red-main-revert-cascade.md`](../debriefs/2026-09-06-red-main-revert-cascade.md):
+a stale red verdict, reacted to with a revert that discards every commit
+sitting near the bad SHA regardless of relevance, not just the one that
+caused it. No content was lost here — the batch reapply was exact — but the
+9-hour gap between "shipped" and "actually landed" is the honest cost of the
+pattern, paid twice on this one mini-app before it got a name.
+
+**Scorecard delta:**
+
+| Endpoint item | Result |
+| --- | --- |
+| `%` key: divide current entry by 100 | ✅ 13/13 (was 12/12 before this flight) |
+
 ## Try it yourself
 
 Open [`samples/calculator/index.html`](../../samples/calculator/index.html)
