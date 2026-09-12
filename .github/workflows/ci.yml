@@ -80,6 +80,9 @@ jobs:
       - name: No personal paths
         run: pnpm run ci:no-personal-paths
 
+      - name: No unresolved conflict markers
+        run: pnpm run ci:conflict-markers
+
       - name: Validate configs
         run: pnpm run ci:validate-configs
 
