@@ -235,6 +235,61 @@ export function landingOverlapItems(
   }));
 }
 
+/** The subset of `read/project-detail.ts`'s `LandingInfo.halfSteps` entries
+ *  (`landing/lane-half-step.ts`'s `LaneHalfStepWarning`) {@link
+ *  landingHalfStepItems} reads. */
+export interface LandingHalfStepLike {
+  readonly taskId: string;
+  readonly title: string;
+  readonly assignee: string | null;
+  readonly commits: readonly string[];
+  readonly files: readonly string[];
+}
+
+/** One LANDING half-step warning row's message + hover/focus tip (LANE
+ *  HALF-STEP GUARD, board web-mtq2cubl-e5z0ae): a board task still
+ *  `in_progress` — on a lane, or moved there by an operator — has shipped
+ *  slices sitting in the commits this landing would carry, so landing now
+ *  ships an UNFINISHED unit to base. The automatic ritual
+ *  (`control/land-watchdog.ts`) refuses outright; the manual EXECUTE path
+ *  renders this row and folds the task into the confirm dialog instead, since
+ *  an operator may knowingly land a half-step where a daemon may not. */
+export interface LandingHalfStepItem {
+  readonly text: string;
+  readonly tip: string;
+}
+
+/** The LANDING card's half-step warning rows — `[]` when `halfSteps` is
+ *  empty, the same "nothing to render" convention {@link landingOverlapItems}
+ *  follows. The row names the task, who holds it, and how many of its shipped
+ *  slices (and their files) sit in this diff; the tip carries the task title,
+ *  the slice SHAs, and the file list. */
+export function landingHalfStepItems(
+  halfSteps: readonly LandingHalfStepLike[],
+): readonly LandingHalfStepItem[] {
+  return halfSteps.map((h) => {
+    const slices = h.commits.length;
+    const files = h.files.length;
+    return {
+      text:
+        '⚠ ' +
+        h.taskId +
+        ' is still in progress' +
+        (h.assignee ? ' on ' + h.assignee : '') +
+        ' — ' +
+        slices +
+        ' shipped slice' +
+        (slices === 1 ? '' : 's') +
+        ' (' +
+        files +
+        ' file' +
+        (files === 1 ? '' : 's') +
+        ') in this diff: landing now ships a half-step',
+      tip: h.title + ' — ' + h.commits.join(', ') + (files ? ' — ' + h.files.join(', ') : ''),
+    };
+  });
+}
+
 /** The LANDING EXECUTE button's `window.confirm()` message (BOARD
  *  web-msw5zxfi-oa2olf, "flag for lead consolidation instead of blind
  *  merge"): the `.landing-overlaps` warning row rendered above the button
@@ -245,23 +300,42 @@ export function landingOverlapItems(
  *  order) gets folded into the prompt itself when non-empty, so the
  *  collision risk with a sibling's own unlanded work is the LAST thing an
  *  operator reads before confirming, not something they had to have already
- *  noticed above. Same base "cannot be undone" clause either way, matching
+ *  noticed above. `halfStepTasks` (each `LaneHalfStepWarning.taskId` from
+ *  `landing.halfSteps`, board web-mtq2cubl-e5z0ae) folds in the same way,
+ *  after the overlap clause: the automatic ritual refuses a half-step, so
+ *  the manual path must at least name it where the operator cannot scroll
+ *  past. Same base "cannot be undone" clause either way, matching
  *  `release-panel.ts`'s `releaseConfirmMessage` pattern. */
-export function landingExecuteConfirmMessage(overlapBranches: readonly string[]): string {
+export function landingExecuteConfirmMessage(
+  overlapBranches: readonly string[],
+  halfStepTasks: readonly string[] = [],
+): string {
   const base =
     'Land this branch?\n\nThis runs the full verification gate, then (only if it passes) a real git merge into the base branch. This cannot be undone by this dashboard.';
-  if (overlapBranches.length === 0) return base;
-  const plural = overlapBranches.length > 1;
-  return (
-    '⚠ ' +
-    overlapBranches.join(', ') +
-    (plural ? ' have' : ' has') +
-    ' unlanded work touching the same file(s) as this landing — merging now risks a ' +
-    'collision, or a silent duplicate-work collision, the moment ' +
-    (plural ? 'they land' : 'it lands') +
-    ' too. Consider flagging for lead consolidation instead of a blind merge.\n\n' +
-    base
-  );
+  let warnings = '';
+  if (overlapBranches.length > 0) {
+    const plural = overlapBranches.length > 1;
+    warnings +=
+      '⚠ ' +
+      overlapBranches.join(', ') +
+      (plural ? ' have' : ' has') +
+      ' unlanded work touching the same file(s) as this landing — merging now risks a ' +
+      'collision, or a silent duplicate-work collision, the moment ' +
+      (plural ? 'they land' : 'it lands') +
+      ' too. Consider flagging for lead consolidation instead of a blind merge.\n\n';
+  }
+  if (halfStepTasks.length > 0) {
+    const plural = halfStepTasks.length > 1;
+    warnings +=
+      '⚠ ' +
+      halfStepTasks.join(', ') +
+      (plural ? ' are' : ' is') +
+      ' still in progress — this landing carries ' +
+      (plural ? 'their' : 'its') +
+      ' shipped slices to base as a HALF-STEP, an unfinished unit. The automatic landing ' +
+      'ritual refuses this; landing it by hand is your call.\n\n';
+  }
+  return warnings + base;
 }
 
 /** The LANDING EXECUTE button's `[data-tip]`/`aria-label` (app-wide
