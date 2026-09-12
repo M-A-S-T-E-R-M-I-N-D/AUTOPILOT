@@ -207,8 +207,6 @@ export function discussionsTriageExecuteResultMessage(
     text:
       outcomes.length === 0
         ? 'Nothing to run — every open discussion is already triaged.'
-        : '✓ Replied to ' +
-          outcomes.length +
-          (outcomes.length === 1 ? ' discussion.' : ' discussions.'),
+        : '✓ Replied to ' + outcomes.length + (outcomes.length === 1 ? ' discussion.' : ' discussions.'),
   };
 }
