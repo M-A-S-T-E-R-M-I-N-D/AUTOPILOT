@@ -1186,6 +1186,8 @@ const EN_STRINGS = {
   planEditorPublishFailed: 'Not published',
   planEditorPublish: 'Publish',
   planEditorDiscard: 'Discard draft',
+  planEditorUndo: 'Undo',
+  planEditorRedo: 'Redo',
   soulRatifyConfirm:
     'Replace the live SOUL prompt with the proposed text?\n\nYou can undo this afterward with un-ratify.',
   soulUnratifyConfirm:
@@ -2115,6 +2117,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     planEditorPublishFailed: 'לא פורסם',
     planEditorPublish: 'פרסם',
     planEditorDiscard: 'בטל טיוטה',
+    planEditorUndo: 'בטל',
+    planEditorRedo: 'בצע שוב',
     soulRatifyConfirm:
       'להחליף את הנחיית ה-SOUL החיה בטקסט המוצע?\n\nניתן לבטל זאת לאחר מכן באמצעות ביטול-אישור.',
     soulUnratifyConfirm:
