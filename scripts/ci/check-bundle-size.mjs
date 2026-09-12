@@ -74,18 +74,8 @@ import { gzipSync } from 'node:zlib';
 // Then core raw 190→191KB (2026-09-12) for the Ask panel's low-confidence
 // escalation offer (answer-quality doctrine slice 3, a fleet lane's
 // checkpointed-then-completed unit) — measured 190.4KB at landing.
-// Then core raw 191→197KB / gzip 57→58KB (2026-09-12): by the time the
-// generate-splice-manifest census caught up to the already-landed
-// discussions-triage feature module (board ap-mtyb6gag-0), several more
-// fleet lanes (EPIC 0021's app shell + slice 5 among them) had landed on
-// top of the 190.4KB measurement above without a matching bump, leaving
-// core red at 196.2KB raw / 57.8KB gzip against the stale budget — not
-// attributable to any single slice. This bump reflects the actual
-// committed size (200866B raw / 59169B gzip) with the usual thin margin —
-// see the matching comment in
-// apps/dashboard/test/server/client-bundle-size-budget.test.ts.
-const CORE_RAW_BUDGET = 197 * 1024;
-const CORE_GZIP_BUDGET = 58 * 1024;
+const CORE_RAW_BUDGET = 191 * 1024;
+const CORE_GZIP_BUDGET = 57 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
