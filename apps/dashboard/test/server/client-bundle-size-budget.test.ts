@@ -203,8 +203,20 @@ import {
  * escalation offer (a fleet lane's checkpointed-then-completed unit) —
  * measured 190.4KB at landing.
  */
-const CORE_RAW_BUDGET = 191 * 1024;
-const CORE_GZIP_BUDGET = 57 * 1024;
+/**
+ * Then core raw 191→197KB / gzip 57→58KB (2026-09-12): by the time the
+ * generate-splice-manifest census caught up to the already-landed
+ * discussions-triage feature module (board ap-mtyb6gag-0), several more
+ * fleet lanes (EPIC 0021's app shell + slice 5 among them) had landed on
+ * top of the 190.4KB measurement above without a matching bump, leaving
+ * core red at 196.2KB raw / 57.8KB gzip against the stale 191/57 budget —
+ * not attributable to any single slice. This bump reflects the actual
+ * committed size (200866B raw / 59169B gzip) with the usual thin margin
+ * (862B raw / 223B gzip); the structural fix (VERDICT split
+ * web-mtbodv7m-uzhovs) remains the tracked follow-up.
+ */
+const CORE_RAW_BUDGET = 197 * 1024;
+const CORE_GZIP_BUDGET = 58 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()

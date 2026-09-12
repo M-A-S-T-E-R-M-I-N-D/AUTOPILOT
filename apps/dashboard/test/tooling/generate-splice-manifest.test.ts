@@ -44,6 +44,7 @@ import { connectJs } from '../../src/web/features/connect.js';
 import { contributorIssueListJs } from '../../src/web/features/contributor-issue-list.js';
 import { contributorStandingJs } from '../../src/web/features/contributor-standing.js';
 import { coordinationJs } from '../../src/web/features/coordination.js';
+import { discussionsTriageJs } from '../../src/web/features/discussions-triage.js';
 import { docsViewerJs } from '../../src/web/features/docs-viewer.js';
 import { evolutionJs } from '../../src/web/features/evolution.js';
 import { firingTimelineJs } from '../../src/web/features/firing-timeline.js';
@@ -113,6 +114,7 @@ const CONNECT_TS = featureTs('connect');
 const CONTRIBUTOR_ISSUE_LIST_TS = featureTs('contributor-issue-list');
 const CONTRIBUTOR_STANDING_TS = featureTs('contributor-standing');
 const COORDINATION_TS = featureTs('coordination');
+const DISCUSSIONS_TRIAGE_TS = featureTs('discussions-triage');
 const DOCS_VIEWER_TS = featureTs('docs-viewer');
 const EVOLUTION_TS = featureTs('evolution');
 const FIRING_TIMELINE_TS = featureTs('firing-timeline');
@@ -1370,6 +1372,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'contributor-issue-list.ts': ['contributorIssueListJs'],
     'contributor-standing.ts': ['contributorStandingJs'],
     'coordination.ts': ['coordinationJs'],
+    'discussions-triage.ts': ['discussionsTriageJs'],
     'docs-viewer.ts': ['docsViewerJs'],
     'evolution.ts': ['evolutionJs'],
     'firing-timeline.ts': ['firingTimelineJs'],
@@ -1424,6 +1427,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');
     const contributorStandingSource = readFileSync(CONTRIBUTOR_STANDING_TS, 'utf8');
     const coordinationSource = readFileSync(COORDINATION_TS, 'utf8');
+    const discussionsTriageSource = readFileSync(DISCUSSIONS_TRIAGE_TS, 'utf8');
     const docsViewerSource = readFileSync(DOCS_VIEWER_TS, 'utf8');
     const evolutionSource = readFileSync(EVOLUTION_TS, 'utf8');
     const firingTimelineSource = readFileSync(FIRING_TIMELINE_TS, 'utf8');
@@ -1476,6 +1480,11 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const directCoordinationManifest = buildAssemblyManifest(coordinationSource, COORDINATION_TS, [
       'coordinationJs',
     ]);
+    const directDiscussionsTriageManifest = buildAssemblyManifest(
+      discussionsTriageSource,
+      DISCUSSIONS_TRIAGE_TS,
+      ['discussionsTriageJs'],
+    );
     const directDocsViewerManifest = buildAssemblyManifest(docsViewerSource, DOCS_VIEWER_TS, [
       'docsViewerJs',
     ]);
@@ -1570,6 +1579,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directContributorIssueListManifest,
       directContributorStandingManifest,
       directCoordinationManifest,
+      directDiscussionsTriageManifest,
       directDocsViewerManifest,
       directEvolutionManifest,
       directFiringTimelineManifest,
@@ -1863,7 +1873,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, subject-nav.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, connect.ts, contributor-standing.ts, coordination.ts, discussions-triage.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, subject-nav.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
@@ -1875,6 +1885,7 @@ describe('generateFeatureModulesIndexSource', () => {
     );
     expect(source).toContain("import { contributorStandingJs } from './contributor-standing.js';");
     expect(source).toContain("import { coordinationJs } from './coordination.js';");
+    expect(source).toContain("import { discussionsTriageJs } from './discussions-triage.js';");
     expect(source).toContain("import { docsViewerJs } from './docs-viewer.js';");
     expect(source).toContain("import { evolutionJs } from './evolution.js';");
     expect(source).toContain("import { firingTimelineJs } from './firing-timeline.js';");
@@ -1919,6 +1930,9 @@ describe('generateFeatureModulesIndexSource', () => {
       source.indexOf("'./coordination.js'"),
     );
     expect(source.indexOf("'./coordination.js'")).toBeLessThan(
+      source.indexOf("'./discussions-triage.js'"),
+    );
+    expect(source.indexOf("'./discussions-triage.js'")).toBeLessThan(
       source.indexOf("'./docs-viewer.js'"),
     );
     expect(source.indexOf("'./docs-viewer.js'")).toBeLessThan(source.indexOf("'./evolution.js'"));
@@ -1968,7 +1982,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2863,6 +2877,46 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
       await assembleFromManifest(manifest, 'coordinationJs', resolvedBindings)
     ).trim();
     expect(reassembled).toBe(coordinationJs());
+  });
+
+  /**
+   * discussionsTriageJs's own reconstruction, from its real file under
+   * web/features/. It carries five real relative-import splices of its own
+   * (discussionsTriageDecisionLabel/discussionsTriageItems/
+   * discussionsTriageCanExecute/discussionsTriageConfirmMessage/
+   * discussionsTriageExecuteResultMessage from ../discussions-triage-panel.js),
+   * resolved against web/features/ rather than SHELL_DIR, and no non-splice
+   * slots at all.
+   */
+  async function reconstructDiscussionsTriageJs(): Promise<string> {
+    const discussionsTriageSource = readFileSync(DISCUSSIONS_TRIAGE_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(discussionsTriageSource, DISCUSSIONS_TRIAGE_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        discussionsTriageSource,
+        'discussionsTriageJs',
+        resolvedBindings,
+        undefined,
+        DISCUSSIONS_TRIAGE_TS,
+      )
+    ).trim();
+  }
+
+  it('discussionsTriageJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/discussions-triage.ts', async () => {
+    expect(await reconstructDiscussionsTriageJs()).toBe(discussionsTriageJs());
+  });
+
+  it('discussionsTriageJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off discussions-triage.ts', async () => {
+    const discussionsTriageSource = readFileSync(DISCUSSIONS_TRIAGE_TS, 'utf8');
+    const manifest = buildAssemblyManifest(discussionsTriageSource, DISCUSSIONS_TRIAGE_TS, [
+      'discussionsTriageJs',
+    ]);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'discussionsTriageJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(discussionsTriageJs());
   });
 
   /**
@@ -3907,6 +3961,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('contributorIssueListJs', await reconstructContributorIssueListJs());
     nestedOutputs.set('contributorStandingJs', await reconstructContributorStandingJs());
     nestedOutputs.set('coordinationJs', await reconstructCoordinationJs());
+    nestedOutputs.set('discussionsTriageJs', await reconstructDiscussionsTriageJs());
     nestedOutputs.set('docsViewerJs', await reconstructDocsViewerJs());
     nestedOutputs.set('evolutionJs', await reconstructEvolutionJs());
     nestedOutputs.set('firingTimelineJs', await reconstructFiringTimelineJs());

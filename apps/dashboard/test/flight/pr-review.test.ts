@@ -811,6 +811,12 @@ const BENIGN_WEB = new Set([
   'backlog-panel.ts',
   'card-actions.ts',
   'connect-panel.ts',
+  // discussions-triage-panel.ts: pure KEEPER DISCUSSIONS finding-to-line
+  // formatting over the server's already-flagged read/execute pair
+  // (`flight/discussions-triage.ts` + `flight/discussions-triage-execute.ts`)
+  // — no HTML building, no fetch, no writes, same shape mirror-pass-panel.ts
+  // below already establishes.
+  'discussions-triage-panel.ts',
   'issue-triage-panel.ts',
   'landing-panel.ts',
   'pool-client-panel.ts',
@@ -903,6 +909,9 @@ const BENIGN_WEB_FEATURES = new Set([
   // and gh-issue write live under the already-flagged `connection` and
   // `src/github/` markers.
   'connect.ts',
+  // discussions-triage.ts: POST /api/discussions-triage/execute —
+  // already-flagged `flight/discussions-triage`.
+  'discussions-triage.ts',
   // fly.ts: POST /api/fly, /api/fly/stop, /api/fly/pause — routed to the
   // already-flagged flight/flight-api.ts and apps/dashboard/src/fly.ts;
   // already directly tested unflagged above (the Fly-bar UI client test).
