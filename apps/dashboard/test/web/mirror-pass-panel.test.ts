@@ -10,6 +10,8 @@ import {
   mirrorPassItems,
   mirrorPassCanExecute,
   mirrorPassExecuteResultMessage,
+  mirrorPassCanExecuteDrift,
+  mirrorPassDriftExecuteResultMessage,
 } from '../../src/web/mirror-pass-panel.js';
 
 describe('mirrorPassReconcileItems / mirrorPassLandingNoteItems / mirrorPassStaleClaimItems', () => {
@@ -189,6 +191,98 @@ describe('mirrorPassExecuteResultMessage', () => {
     expect(mirrorPassExecuteResultMessage(200, { outcomes: [] })).toEqual({
       className: 'mirror-pass-result mirror-pass-result-ok',
       text: 'Nothing to apply — already in sync.',
+    });
+  });
+});
+
+describe('mirrorPassCanExecuteDrift', () => {
+  const oneDrift = {
+    versionDrift: { source: 'README.md', claimedVersion: '1', actualVersion: '2' },
+    countsDrift: null,
+    linkDrift: null,
+  };
+
+  it('hides the drift-fix button for a confirmed non-maintainer, even with a real finding', () => {
+    expect(mirrorPassCanExecuteDrift({ role: 'user' }, oneDrift)).toBe(false);
+  });
+
+  it('shows the drift-fix button for a confirmed maintainer with a real finding', () => {
+    expect(mirrorPassCanExecuteDrift({ role: 'maintainer' }, oneDrift)).toBe(true);
+  });
+
+  it('shows the drift-fix button when identity is unresolved — not a known guest', () => {
+    expect(mirrorPassCanExecuteDrift(undefined, oneDrift)).toBe(true);
+    expect(mirrorPassCanExecuteDrift(null, oneDrift)).toBe(true);
+  });
+
+  it('hides the drift-fix button when there is nothing to fix, even for the maintainer', () => {
+    expect(mirrorPassCanExecuteDrift({ role: 'maintainer' }, null)).toBe(false);
+    expect(
+      mirrorPassCanExecuteDrift(
+        { role: 'maintainer' },
+        { versionDrift: null, countsDrift: null, linkDrift: null },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('mirrorPassDriftExecuteResultMessage', () => {
+  it('reports a generic failure for a non-200 response', () => {
+    expect(mirrorPassDriftExecuteResultMessage(500, { outcomes: [] })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Mirror pass drift fix failed to run.',
+    });
+    expect(mirrorPassDriftExecuteResultMessage(200, null)).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Mirror pass drift fix failed to run.',
+    });
+  });
+
+  it('reports the guest skip reason', () => {
+    expect(mirrorPassDriftExecuteResultMessage(200, { skippedReason: 'guest' })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — you are not this repo's maintainer.",
+    });
+  });
+
+  it('reports the identity-unresolved skip reason', () => {
+    expect(
+      mirrorPassDriftExecuteResultMessage(200, { skippedReason: 'identity-unresolved' }),
+    ).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Not run — could not resolve your GitHub identity.',
+    });
+  });
+
+  it('reports a clean run with real outcomes as ok', () => {
+    expect(mirrorPassDriftExecuteResultMessage(200, { outcomes: [{}, {}] })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: 'Filed 2 issue(s).',
+    });
+  });
+
+  it('reports a clean run with zero outcomes and zero duplicates as ok but empty', () => {
+    expect(mirrorPassDriftExecuteResultMessage(200, { outcomes: [], duplicates: [] })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: 'Nothing to file — already in sync.',
+    });
+  });
+
+  it('reports zero outcomes with real duplicates as ok — real drift, but already tracked', () => {
+    expect(
+      mirrorPassDriftExecuteResultMessage(200, { outcomes: [], duplicates: ['Title A'] }),
+    ).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: 'Nothing new to file — 1 already tracked as duplicate(s).',
+    });
+  });
+
+  it('reports filed outcomes alongside skipped duplicates', () => {
+    expect(
+      mirrorPassDriftExecuteResultMessage(200, { outcomes: [{}], duplicates: ['Title A'] }),
+    ).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: 'Filed 1 issue(s). (1 duplicate(s) skipped)',
     });
   });
 });

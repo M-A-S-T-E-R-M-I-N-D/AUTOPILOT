@@ -18,13 +18,22 @@
  * "close the issue with the landing SHA" mutation an operator had no way to
  * fire short of `curl`. This gives the panel ONE execute button for that
  * derivation only; the other two wired execute paths (landing-note,
- * stale-claim) and derivation 3/4's own unwritten execute path (files a NEW
- * issue rather than mutating an existing one) remain their own follow-up
- * slices, same per-derivation split already used throughout this epic.
+ * stale-claim) remain their own follow-up slices, same per-derivation split
+ * already used throughout this epic.
  * Role-gated the same way `pr-review.ts`'s Apply button is (epic 0019 law 1
  * extended to the UI, board web-mtt3f7j6-3bj899): a confirmed non-maintainer
  * never sees it, an unresolved identity is not a known guest so it still
  * does.
+ *
+ * {@link mirrorPassCanExecuteDrift} and {@link mirrorPassDriftExecuteResultMessage}
+ * close derivation 3/4's own UX-expression gap the same way: `POST
+ * /api/mirror-pass/drift/execute` (`flight/mirror-pass-execute.ts`'s
+ * `createMirrorPassDriftExecuteApi`) shipped with zero dashboard trigger.
+ * Same role gate, but gated on at least one drift finding rather than a
+ * reconcile one. Unlike the reconcile report this one can also report
+ * `duplicates` — a near-identical issue already open, so nothing was filed
+ * for that finding — {@link mirrorPassDriftExecuteResultMessage} surfaces
+ * that count rather than folding it silently into "nothing to apply".
  *
  * `web/shell.ts` embeds this module's real compiled source into the
  * generated `/app.js` text via `.toString()` — see `fleetJs()` — instead of
@@ -182,6 +191,18 @@ export function mirrorPassCanExecute(
   return mirrorPassReconcileItems(reconcile ?? []).length > 0;
 }
 
+/** Whether the panel may show its drift-fix EXECUTE button — same role gate
+ *  as {@link mirrorPassCanExecute} (a confirmed non-maintainer never gets
+ *  it, an unresolved identity is not a known guest so it still does), gated
+ *  on at least one drift finding rather than a reconcile one. */
+export function mirrorPassCanExecuteDrift(
+  identity: MirrorPassIdentityLike | null | undefined,
+  drift: MirrorPassDriftLike | null,
+): boolean {
+  if (identity && identity.role !== 'maintainer') return false;
+  return mirrorPassDriftItems(drift).length > 0;
+}
+
 /** One reconciled task's real outcome, as {@link createMirrorPassExecuteApi}
  *  (`flight/mirror-pass-execute.ts`) reports it over HTTP — duck-typed, same
  *  "no server-side type import" stance as the rest of this file. */
@@ -225,5 +246,63 @@ export function mirrorPassExecuteResultMessage(
   return {
     className: 'mirror-pass-result mirror-pass-result-ok',
     text: applied === 0 ? 'Nothing to apply — already in sync.' : `Applied ${applied} finding(s).`,
+  };
+}
+
+/** One drift EXECUTE run's real outcome, as {@link createMirrorPassDriftExecuteApi}
+ *  (`flight/mirror-pass-execute.ts`) reports it over HTTP — duck-typed, same
+ *  "no server-side type import" stance as the rest of this file. Unlike
+ *  {@link MirrorPassExecuteReportLike} this also carries `duplicates`: a
+ *  finding whose issue already exists gets reported, not silently dropped. */
+export interface MirrorPassDriftExecuteReportLike {
+  readonly outcomes?: readonly unknown[];
+  readonly duplicates?: readonly string[];
+  readonly skippedReason?: string;
+}
+
+/** Formats `POST /api/mirror-pass/drift/execute`'s response into the panel's
+ *  result line — same shape as {@link mirrorPassExecuteResultMessage}, plus a
+ *  third case: real drift found but every candidate title already matched an
+ *  open issue, so nothing new was filed. */
+export function mirrorPassDriftExecuteResultMessage(
+  status: number,
+  data: MirrorPassDriftExecuteReportLike | null,
+): { readonly className: string; readonly text: string } {
+  if (status !== 200 || !data) {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Mirror pass drift fix failed to run.',
+    };
+  }
+  if (data.skippedReason === 'guest') {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — you are not this repo's maintainer.",
+    };
+  }
+  if (data.skippedReason === 'identity-unresolved') {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: 'Not run — could not resolve your GitHub identity.',
+    };
+  }
+  const filed = data.outcomes?.length ?? 0;
+  const duplicates = data.duplicates?.length ?? 0;
+  if (filed === 0 && duplicates === 0) {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: 'Nothing to file — already in sync.',
+    };
+  }
+  if (filed === 0) {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-ok',
+      text: `Nothing new to file — ${duplicates} already tracked as duplicate(s).`,
+    };
+  }
+  const duplicateSuffix = duplicates > 0 ? ` (${duplicates} duplicate(s) skipped)` : '';
+  return {
+    className: 'mirror-pass-result mirror-pass-result-ok',
+    text: `Filed ${filed} issue(s).${duplicateSuffix}`,
   };
 }

@@ -21,14 +21,22 @@
  * `mirrorPassCanExecute` allows it — a confirmed maintainer (or an
  * unresolved identity, not a known guest) AND at least one actionable
  * reconcile finding. The other two wired execute paths (landing-note,
- * stale-claim) and derivation 3/4's own unwritten execute path (files a NEW
- * issue rather than mutating an existing one) remain their own follow-up
- * slices, same per-derivation split already used throughout this epic. A
- * clean run reloads the panel so the applied finding(s) vanish from the
- * refreshed list, the same "success re-fetches, no separate message"
- * convention `pr-review.ts`'s Apply button uses; a role-gate skip or a
- * failed request shows `mirror-pass-panel.ts`'s
+ * stale-claim) remain their own follow-up slices, same per-derivation split
+ * already used throughout this epic. A clean run reloads the panel so the
+ * applied finding(s) vanish from the refreshed list, the same "success
+ * re-fetches, no separate message" convention `pr-review.ts`'s Apply button
+ * uses; a role-gate skip or a failed request shows `mirror-pass-panel.ts`'s
  * `mirrorPassExecuteResultMessage` instead.
+ *
+ * A second, independent "Fix doc drift" button closes derivation 3/4's own
+ * unwritten execute path the same way, gated on `mirrorPassCanExecuteDrift`
+ * (at least one drift finding rather than a reconcile one) and posting to
+ * `POST /api/mirror-pass/drift/execute`. It shares the reconcile button's
+ * `.mirror-pass-actions` row and `.mirror-pass-result` line — the two never
+ * fire at once since each is its own click — but is otherwise fully
+ * independent: its own data attribute, confirm text, and in-flight/failure
+ * labels, formatted by `mirror-pass-panel.ts`'s
+ * `mirrorPassDriftExecuteResultMessage`.
  *
  * `web/shell.ts`'s `clientJs()` calls this indirectly through
  * `featureModulesJs()`, so its return value — not its compiled source — is
@@ -70,12 +78,14 @@ import {
   mirrorPassItems,
   mirrorPassCanExecute,
   mirrorPassExecuteResultMessage,
+  mirrorPassCanExecuteDrift,
+  mirrorPassDriftExecuteResultMessage,
 } from '../mirror-pass-panel.js';
 
 /** The Mirror pass panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function mirrorPassJs(): string {
   return `
-// The seven functions below are generated FROM web/mirror-pass-panel.ts
+// The nine functions below are generated FROM web/mirror-pass-panel.ts
 // (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slices (c) and (c) v2) — their real
 // compiled source via .toString(), not a hand-retyped copy. It can no
 // longer drift apart. mirrorPassItems calls all four of the finding
@@ -90,7 +100,9 @@ ${mirrorPassDriftItems.toString()}
 ${mirrorPassItems.toString()}
 ${mirrorPassCanExecute.toString()}
 ${mirrorPassExecuteResultMessage.toString()}
-function renderMirrorPassBody(body, items, canExecute, pid) {
+${mirrorPassCanExecuteDrift.toString()}
+${mirrorPassDriftExecuteResultMessage.toString()}
+function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, pid) {
   body.replaceChildren();
   items = items || [];
   if (!items.length) {
@@ -105,22 +117,37 @@ function renderMirrorPassBody(body, items, canExecute, pid) {
     list.appendChild(el('li', 'mirror-pass-item', items[i].text));
   }
   body.appendChild(list);
-  if (canExecute) {
+  if (canExecute || canExecuteDrift) {
     var actions = el('div', 'mirror-pass-actions');
-    var runBtn = el('button', 'mirror-pass-execute', 'Run mirror pass');
-    runBtn.type = 'button';
-    runBtn.setAttribute('data-i18n', 'mirrorPassExecute');
-    runBtn.setAttribute('data-mirror-pass-execute', pid);
-    // i18n (board web-msnsndki-dz3vn1): the tip IS the accessible name, so
-    // one key rides both sweeps; the English literal stays as the
-    // byte-identical default and the translateDom() below repaints both.
-    var runTip =
-      'Applies every reconcile finding above — closes or reopens issues and posts comments via gh.';
-    runBtn.setAttribute('data-tip', runTip);
-    runBtn.setAttribute('data-i18n-tip', 'mirrorPassExecuteTip');
-    runBtn.setAttribute('aria-label', runTip);
-    runBtn.setAttribute('data-i18n-aria', 'mirrorPassExecuteTip');
-    actions.appendChild(runBtn);
+    if (canExecute) {
+      var runBtn = el('button', 'mirror-pass-execute', 'Run mirror pass');
+      runBtn.type = 'button';
+      runBtn.setAttribute('data-i18n', 'mirrorPassExecute');
+      runBtn.setAttribute('data-mirror-pass-execute', pid);
+      // i18n (board web-msnsndki-dz3vn1): the tip IS the accessible name, so
+      // one key rides both sweeps; the English literal stays as the
+      // byte-identical default and the translateDom() below repaints both.
+      var runTip =
+        'Applies every reconcile finding above — closes or reopens issues and posts comments via gh.';
+      runBtn.setAttribute('data-tip', runTip);
+      runBtn.setAttribute('data-i18n-tip', 'mirrorPassExecuteTip');
+      runBtn.setAttribute('aria-label', runTip);
+      runBtn.setAttribute('data-i18n-aria', 'mirrorPassExecuteTip');
+      actions.appendChild(runBtn);
+    }
+    if (canExecuteDrift) {
+      var driftBtn = el('button', 'mirror-pass-execute', 'Fix doc drift');
+      driftBtn.type = 'button';
+      driftBtn.setAttribute('data-i18n', 'mirrorPassDriftExecute');
+      driftBtn.setAttribute('data-mirror-pass-drift-execute', pid);
+      var driftTip =
+        'Files a new GitHub issue for every doc-vs-tree drift finding above, skipping any that already have one open.';
+      driftBtn.setAttribute('data-tip', driftTip);
+      driftBtn.setAttribute('data-i18n-tip', 'mirrorPassDriftExecuteTip');
+      driftBtn.setAttribute('aria-label', driftTip);
+      driftBtn.setAttribute('data-i18n-aria', 'mirrorPassDriftExecuteTip');
+      actions.appendChild(driftBtn);
+    }
     body.appendChild(actions);
     var resultEl = el('div', 'mirror-pass-result');
     resultEl.setAttribute('role', 'status');
@@ -142,14 +169,21 @@ function loadMirrorPassBody(body, pid) {
     .then(function (results) {
       if (!body.isConnected) return;
       var reconcile = results[0] && results[0].mirrorPass;
+      var drift = results[2] && results[2].drift;
       var items = mirrorPassItems({
         reconcile: reconcile,
         landingNote: results[1] && results[1].landingNote,
-        drift: results[2] && results[2].drift,
+        drift: drift,
         staleClaims: results[3] && results[3].staleClaims,
       });
       var identity = results[4] && results[4].identity;
-      renderMirrorPassBody(body, items, mirrorPassCanExecute(identity, reconcile), pid);
+      renderMirrorPassBody(
+        body,
+        items,
+        mirrorPassCanExecute(identity, reconcile),
+        mirrorPassCanExecuteDrift(identity, drift),
+        pid,
+      );
     })
     .catch(function () {
       if (!body.isConnected) return;
@@ -214,6 +248,47 @@ document.addEventListener('click', function (e) {
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassRequestFailed');
+      }
+    });
+});
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-mirror-pass-drift-execute]');
+  if (!b || b.disabled) return;
+  var pid = b.getAttribute('data-mirror-pass-drift-execute');
+  if (!window.confirm(tr('mirrorPassDriftExecuteConfirm'))) return;
+  var body = b.closest('.mirror-pass-body');
+  var resultEl = body && body.querySelector('.mirror-pass-result');
+  b.disabled = true;
+  var originalText = b.textContent;
+  b.textContent = tr('mirrorPassDriftExecuting');
+  fetch('/api/mirror-pass/drift/execute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid }),
+  })
+    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+    .then(function (r) {
+      var result = mirrorPassDriftExecuteResultMessage(r.status, r.data);
+      if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
+        b.disabled = false;
+        b.textContent = originalText;
+        if (resultEl) {
+          resultEl.className = result.className;
+          resultEl.textContent = result.text;
+        }
+        return;
+      }
+      // Same "success re-fetches" convention the reconcile button above
+      // uses — a clean run filed real GitHub issues, so reload the panel
+      // rather than leave the stale drift findings on screen.
+      loadMirrorPassBody(body, pid);
+    })
+    .catch(function () {
+      b.disabled = false;
+      b.textContent = originalText;
+      if (resultEl) {
+        resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
+        resultEl.textContent = tr('mirrorPassDriftRequestFailed');
       }
     });
 });
