@@ -46,6 +46,8 @@ const SUBJECT_KEYS = [
   'paletteTheme',
   'paletteLanguage',
   'paletteSearch',
+  'contextRail',
+  'contextRailEmpty',
 ] as const;
 
 /** The client bundle's `tr()` lives in core (locale.ts); the shell module
@@ -89,6 +91,7 @@ describe('layout-css — mobile-first laws', () => {
   it('uses the token package breakpoints, so the stylesheet and the tests read one width', () => {
     expect(css).toContain(mediaMin('md'));
     expect(css).toContain(mediaMin('lg'));
+    expect(css).toContain(mediaMin('xl'));
     expect(BREAKPOINT.md).toBe('48rem');
     expect(BREAKPOINT.lg).toBe('64rem');
   });
@@ -232,6 +235,14 @@ describe('renderShell — every section belongs to a subject', () => {
     }
   });
 
+  it('renders the context rail on the fleet page only, hidden until the nav module fills it', () => {
+    expect(html).toMatch(/<aside class="context-rail" id="context-rail"[^>]* hidden>/);
+    expect(html).toContain('data-i18n="contextRailEmpty"');
+    expect(renderShell('demo')).not.toContain('id="context-rail"');
+    expect(css).toContain('.context-rail {');
+    expect(css).toContain('body[data-rail="on"] > .context-rail');
+  });
+
   it('ships the nav module in the DEFERRED chunk — self-initializing, nothing in core calls it', () => {
     expect(DEFERRED_OPERATOR_FEATURES).toContain('subject-nav');
     expect(PROJECT_PAGE_FEATURES).not.toContain('subject-nav');
@@ -240,6 +251,8 @@ describe('renderShell — every section belongs to a subject', () => {
 
 describe('subject-nav client — switching subjects', () => {
   let stacked = false;
+  let wide = false;
+  let mqListeners: Array<[string, () => void]> = [];
 
   beforeEach(() => {
     document.open();
@@ -247,11 +260,15 @@ describe('subject-nav client — switching subjects', () => {
     document.close();
     window.localStorage.clear();
     stacked = false;
-    (window as unknown as { matchMedia: unknown }).matchMedia = () => ({
+    wide = false;
+    mqListeners = [];
+    (window as unknown as { matchMedia: unknown }).matchMedia = (query: string) => ({
       get matches() {
-        return stacked;
+        return query.includes('80rem') ? wide : stacked;
       },
-      addEventListener: () => {},
+      addEventListener: (_type: string, fn: () => void) => {
+        mqListeners.push([query, fn]);
+      },
     });
     (window as unknown as { scrollTo: unknown }).scrollTo = () => {};
     stubTranslator();
@@ -307,6 +324,63 @@ describe('subject-nav client — switching subjects', () => {
     boot();
     tap('keeper');
     expect(document.querySelector('[data-subject-inactive]')).toBeNull();
+  });
+
+  it('from xl the fleet page gains the context rail — lanes and the Keeper queue move beside the reader, and back below it', () => {
+    stacked = true;
+    wide = true;
+    boot();
+    const rail = document.getElementById('context-rail')!;
+    expect(rail.hidden).toBe(false);
+    expect(document.body.dataset['rail']).toBe('on');
+    for (const id of ['live-workers', 'pr-review-panel', 'pool-client-panel']) {
+      expect(document.getElementById(id)!.parentElement, id).toBe(rail);
+    }
+    expect(document.getElementById('totals')!.parentElement).toBe(document.body);
+    // Every railed section is hidden in this fixture: the rail says so.
+    expect((rail.querySelector('.context-rail-empty') as HTMLElement).hidden).toBe(false);
+    // Nothing is marked inactive — the rail's sections are part of the stacked page.
+    expect(document.querySelector('[data-subject-inactive]')).toBeNull();
+
+    // The window narrows: every section returns to where the server put it, in order.
+    wide = false;
+    for (const [query, fn] of mqListeners) if (query.includes('80rem')) fn();
+    expect(rail.hidden).toBe(true);
+    expect(document.body.dataset['rail']).toBeUndefined();
+    const ids = Array.from(document.body.children)
+      .map((k) => k.id)
+      .filter(Boolean);
+    expect(ids.indexOf('live-workers')).toBe(ids.indexOf('totals') + 1);
+    expect(ids.indexOf('pr-review-panel')).toBe(ids.indexOf('stat-tiles') + 1);
+    expect(ids.indexOf('pool-client-panel')).toBe(ids.indexOf('pr-review-panel') + 1);
+  });
+
+  it("the rail's empty line yields the moment a railed section shows content", () => {
+    stacked = true;
+    wide = true;
+    boot();
+    const rail = document.getElementById('context-rail')!;
+    const empty = rail.querySelector('.context-rail-empty') as HTMLElement;
+    expect(empty.hidden).toBe(false);
+    document.getElementById('live-workers')!.hidden = false;
+    // The hidden-attribute observer re-marks on the next microtask/task.
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(empty.hidden).toBe(true);
+        resolve();
+      }, 0);
+    });
+  });
+
+  it('a project page never grows a rail, however wide', () => {
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    stacked = true;
+    wide = true;
+    boot();
+    expect(document.getElementById('context-rail')).toBeNull();
+    expect(document.body.dataset['rail']).toBeUndefined();
   });
 
   it('a project page is tabs at every width: a wide window still shows one subject', () => {

@@ -203,7 +203,11 @@ import {
  * escalation offer (a fleet lane's checkpointed-then-completed unit) —
  * measured 190.4KB at landing.
  */
-const CORE_RAW_BUDGET = 191 * 1024;
+/**
+ * Then core raw 191→192KB (2026-09-12) for EPIC 0021 slice 6: the context
+ * rail's two English strings — measured 191.0KB, 19 bytes over the old line.
+ */
+const CORE_RAW_BUDGET = 192 * 1024;
 const CORE_GZIP_BUDGET = 57 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
@@ -249,7 +253,11 @@ const CORE_GZIP_BUDGET = 57 * 1024;
  * Then raw 133→135KB (2026-09-12) for EPIC 0021 slice 4 (first cut): the
  * Keeper place's live "waiting on you" count — measured 134.0KB raw.
  */
-const CHUNK_RAW_BUDGET = 135 * 1024;
+/**
+ * Then raw 135→137KB (2026-09-12) for EPIC 0021 slice 6: the context rail's
+ * client (sections in and out of the aside at xl) — measured 136.6KB raw.
+ */
+const CHUNK_RAW_BUDGET = 137 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -273,7 +281,8 @@ const CHUNK_RAW_BUDGET = 135 * 1024;
 // budgets untouched.
 // gzip 37→38KB (2026-09-10): see the branch-line i18n entry above
 // CHUNK_RAW_BUDGET — 37932B measured against 37888B.
-const CHUNK_GZIP_BUDGET = 41 * 1024;
+// Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
+const CHUNK_GZIP_BUDGET = 42 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

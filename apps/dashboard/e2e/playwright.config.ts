@@ -69,11 +69,30 @@ export default defineConfig({
   ],
   projects: [
     // Every existing spec, at the desktop width every baseline was captured at.
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /shell-mobile/ },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: /shell-mobile|shell-tablet/,
+    },
     // APP SHELL (epic 0021): a real phone profile — compact width, touch,
     // COARSE pointer — so the bottom subject bar, the one-subject-at-a-time
     // rule and the 44px tap-target floor are exercised by the browser that
     // actually applies them, not inferred from a desktop render.
     { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /shell-mobile|responsive/ },
+    // TABLET (epic 0021): the md regime (768 portrait — a rail and one subject
+    // at a time) and the lg regime (1024 landscape — every subject stacked,
+    // the rail a scroll-spy) in a real touch profile, on chromium (the one
+    // browser CI installs; the iPad descriptor's default is webkit). Scale
+    // factor 1 keeps the baselines the size of the viewport, not 2x.
+    {
+      name: 'tablet-portrait',
+      use: { ...devices['iPad Mini'], browserName: 'chromium', deviceScaleFactor: 1 },
+      testMatch: /shell-tablet/,
+    },
+    {
+      name: 'tablet-landscape',
+      use: { ...devices['iPad Mini landscape'], browserName: 'chromium', deviceScaleFactor: 1 },
+      testMatch: /shell-tablet/,
+    },
   ],
 });

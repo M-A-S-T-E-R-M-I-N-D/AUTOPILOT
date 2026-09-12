@@ -33,6 +33,10 @@ export function subjectNavJs(): string {
 // APP SHELL subject navigation (epic 0021 slice 2). See web/features/subject-nav.ts.
 var SUBJECT_KEY = 'ap-subject';
 var SUBJECT_STACKED_MQ = '(min-width: 64rem)';
+// CONTEXT RAIL (slice 6): the sections that become the supporting pane from xl.
+var CONTEXT_RAIL_MQ = '(min-width: 80rem)';
+var CONTEXT_RAIL_IDS = ['live-workers', 'pr-review-panel', 'pool-client-panel'];
+var contextRailHome = {};
 var subjectScrollMemo = {};
 var subjectStored = null;
 /** Project pages are TABS (epic 0018): one subject at every width. The fleet
@@ -56,6 +60,10 @@ function subjectSections() {
   var main = document.getElementById('fleet');
   if (main) {
     Array.prototype.forEach.call(main.children, function (k) { if (k.dataset && k.dataset.subject) out.push(k); });
+  }
+  var rail = document.getElementById('context-rail');
+  if (rail) {
+    Array.prototype.forEach.call(rail.children, function (k) { if (k.dataset && k.dataset.subject) out.push(k); });
   }
   return out;
 }
@@ -155,6 +163,48 @@ function showSubject(name) {
     subjectStored = name;
   }
   markSubjectLinks(name);
+  markContextRailEmpty();
+}
+/** From xl on the fleet page the lanes and the Keeper queue live in the
+ *  aside (M3 supporting pane); below it, exactly where they were. Each
+ *  move remembers the section's home so the way back is the same DOM
+ *  order the server rendered — screen-reader order below xl is untouched. */
+function contextRailWanted() {
+  if (document.body.dataset.subjectMode === 'tabs') return false;
+  return typeof window.matchMedia === 'function' && window.matchMedia(CONTEXT_RAIL_MQ).matches;
+}
+function layoutContextRail() {
+  var rail = document.getElementById('context-rail');
+  if (!rail) return;
+  var on = contextRailWanted();
+  CONTEXT_RAIL_IDS.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (on && el.parentElement !== rail) {
+      contextRailHome[id] = { parent: el.parentElement, next: el.nextSibling };
+      rail.appendChild(el);
+    } else if (!on && el.parentElement === rail && contextRailHome[id]) {
+      var home = contextRailHome[id];
+      home.parent.insertBefore(el, home.next && home.next.parentElement === home.parent ? home.next : null);
+      delete contextRailHome[id];
+    }
+  });
+  if (rail.hidden !== !on) rail.hidden = !on;
+  var mark = on ? 'on' : undefined;
+  if (document.body.dataset.rail !== mark) {
+    if (on) document.body.dataset.rail = 'on'; else delete document.body.dataset.rail;
+  }
+}
+/** The rail says so when nothing flies and nothing waits — its sections
+ *  hide themselves on every poll, and an empty column explains nothing. */
+function markContextRailEmpty() {
+  var rail = document.getElementById('context-rail');
+  if (!rail || rail.hidden) return;
+  var empty = rail.querySelector('.context-rail-empty');
+  if (!empty) return;
+  var any = false;
+  Array.prototype.forEach.call(rail.children, function (k) { if (k !== empty && !k.hidden) any = true; });
+  if (empty.hidden !== any) empty.hidden = any;
 }
 function subjectFromLocation() {
   var hash = (location.hash || '').slice(1);
@@ -179,6 +229,7 @@ function bootSubjectNav() {
   var stored = '';
   try { stored = localStorage.getItem(SUBJECT_KEY) || ''; } catch (e) { /* private mode */ }
   subjectStored = stored || null;
+  layoutContextRail();
   showSubject(fromHash || stored || 'fleet');
   if (fromHash) {
     var target = document.getElementById(location.hash.slice(1));
@@ -198,6 +249,9 @@ function bootSubjectNav() {
     var mq = window.matchMedia(SUBJECT_STACKED_MQ);
     var onRegime = function () { showSubject(document.body.dataset.subject || 'fleet'); };
     if (mq.addEventListener) mq.addEventListener('change', onRegime);
+    var railMq = window.matchMedia(CONTEXT_RAIL_MQ);
+    var onRail = function () { layoutContextRail(); showSubject(document.body.dataset.subject || 'fleet'); };
+    if (railMq.addEventListener) railMq.addEventListener('change', onRail);
   }
   // Panels hide/show themselves on every poll; the nav's "nothing here yet"
   // state and each link's aria-disabled follow them. One subtree observer on
@@ -229,7 +283,8 @@ function bootSubjectNav() {
       if (best) markSubjectLinks(best);
     }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
     Array.prototype.forEach.call(document.body.children, function (k) {
-      if (k.dataset && k.dataset.subject && k.id) spy.observe(k);
+      // The rail's sections are context, always in view from xl: they never steer the spy.
+      if (k.dataset && k.dataset.subject && k.id && CONTEXT_RAIL_IDS.indexOf(k.id) < 0) spy.observe(k);
     });
   }
 }

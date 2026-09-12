@@ -147,7 +147,13 @@ import {
 } from './chunks.js';
 import { layoutCss } from './layout-css.js';
 import { REPORT_REGION_ATTR } from './report-capture.js';
-import { themeButtons, langButtons, escapeAttr, subjectNavHtml } from './shell-html.js';
+import {
+  themeButtons,
+  langButtons,
+  escapeAttr,
+  subjectNavHtml,
+  contextRailHtml,
+} from './shell-html.js';
 import { ACT_ICON_SHAPES, actIconShapes as sharedActIconShapes } from './activity-icon.js';
 import { tipPosition as sharedTipPosition } from './tip-position.js';
 import { dragBeforeIndex as sharedDragBeforeIndex } from './drag-reorder.js';
@@ -4140,6 +4146,7 @@ ${subjectNavHtml(project)}
     <input class="palette-input" id="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Type a place, a project or an action…" data-i18n-placeholder="palettePlaceholder" />
     <ul class="palette-list" id="palette-list" role="listbox" aria-labelledby="palette-title"></ul>
   </dialog>
+${contextRailHtml(project)}
   <section class="totals" id="totals" aria-label="Fleet summary" data-i18n-aria="fleetSummary" data-subject="fleet"></section>
   <section class="live-workers" id="live-workers" role="group" aria-label="Who's flying now" data-i18n-aria="liveWorkers" data-subject="fleet" hidden></section>
   <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance" data-subject="fleet"></section>

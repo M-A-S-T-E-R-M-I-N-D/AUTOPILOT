@@ -114,6 +114,19 @@ const SUBJECT_ICON = {
  * deferred `subject-nav` module takes it from there. Every href is a real
  * anchor so the bar navigates without the module too.
  */
+/** CONTEXT RAIL (epic 0021 slice 6): the supporting pane's aside, on the
+ *  fleet page only — a project page is tabs. Rendered hidden and empty; the
+ *  shell client fills it from xl and empties it below. The empty line is
+ *  what the rail says when nothing flies and nothing waits. */
+export function contextRailHtml(project?: string): string {
+  if (project !== undefined) return '';
+  return (
+    '  <aside class="context-rail" id="context-rail" aria-label="Context: lanes in flight and the Keeper queue" data-i18n-aria="contextRail" hidden>' +
+    '<p class="context-rail-empty" data-i18n="contextRailEmpty" hidden>Nothing in flight and nothing waiting on you.</p>' +
+    '</aside>\n'
+  );
+}
+
 export function subjectNavHtml(project?: string): string {
   const links =
     project === undefined
