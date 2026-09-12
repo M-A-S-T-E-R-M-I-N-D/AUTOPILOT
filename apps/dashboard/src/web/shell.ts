@@ -756,7 +756,10 @@ ${sharedLiveFirings.toString()}
 // for this project, newest first, each wrapped with the same client-only
 // probableTask fallback.
 function liveFirings(c) {
-  var list = liveFiringsOf(c, firingCallsign, narratorLine, countTurns);
+  // The per-firing windows when the read carries them (read/fleet.ts's
+  // laneActivity) — the feed's project-wide window hid quiet lanes.
+  var lanes = c.laneActivity ? { status: c.status, activity: c.laneActivity, flightLog: c.flightLog, tasks: c.tasks } : c;
+  var list = liveFiringsOf(lanes, firingCallsign, narratorLine, countTurns);
   return list.map(function (core) {
     core.phase = core.phase || 'other';
     core.probableTask = core.focusTask ? null : probableTaskTitle(c.tasks || []);

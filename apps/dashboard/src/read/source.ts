@@ -22,6 +22,7 @@ import {
   firingDayCounts,
   evaluationLabelDayCounts,
   recentActivityEvents,
+  recentActivityEventsPerFiring,
   recentTasks,
   doraSnapshot,
   gateParallelSavings,
@@ -219,6 +220,18 @@ export function parseActivityRows(rows: readonly ActivityEventRow[]): ActivityEn
 
 export function parseActivities(store: Store, projectId: string): ActivityEntry[] {
   return parseActivityRows(recentActivityEvents(store.db, projectId));
+}
+
+/** A firing quiet for longer than this is no longer a live lane, whatever
+ *  the flight registry says — a crashed firing never lands a flight-log
+ *  row, and without a cutoff its last event would keep a card up forever. */
+export const LANE_ACTIVITY_WINDOW_MS = 45 * 60 * 1000;
+/** Per-firing activity windows for the live lanes — see the store's
+ *  `recentActivityEventsPerFiring` for why the feed's window is not enough. */
+export function parseLaneActivities(store: Store, projectId: string, now: number): ActivityEntry[] {
+  return parseActivityRows(
+    recentActivityEventsPerFiring(store.db, projectId, 12, 8, now - LANE_ACTIVITY_WINDOW_MS),
+  );
 }
 
 interface RawGateCheck {
@@ -424,6 +437,7 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       evaluationLabelDayCounts: evaluationLabelDayCounts(db, p.id),
       flightLogHasMore: flightPage.length > FLIGHT_LOG_PAGE_SIZE,
       activity: parseActivities(store, p.id),
+      laneActivity: parseLaneActivities(store, p.id, now),
       tasks: mapTaskEntries(db, p.id),
       dora: doraSnapshot(db, p.id, now),
       gateParallel: gateParallelSavings(db, p.id),

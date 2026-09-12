@@ -80,6 +80,25 @@ describe('the many-lanes grid', () => {
     vi.restoreAllMocks();
   });
 
+  it('renders a card for every lane in the per-firing windows, not only the lanes the feed window still holds (2026-09-12)', async () => {
+    const lane = (firingId: string, at: number) => ({
+      tool: 'Bash',
+      target: 'pnpm run test',
+      kind: 'command',
+      phase: 'gate',
+      at,
+      firingId,
+      model: 'claude-sonnet-5',
+    });
+    current = stateWith({
+      activity: [lane('f4', 8), lane('f3', 7), lane('f2', 6)],
+      laneActivity: [lane('f4', 8), lane('f3', 7), lane('f2', 6), lane('f1', 1)],
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(document.querySelectorAll('.lane-card').length).toBe(4);
+  });
+
   it('renders one compact lane card per concurrent lane, newest lane first', async () => {
     current = stateWith({
       activity: [

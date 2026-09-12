@@ -24,6 +24,7 @@ import {
 } from '../src/read.js';
 import {
   recentActivityEvents,
+  recentActivityEventsPerFiring,
   activityEventsForFiring,
   nearMissDebriefEvents,
   nearMissRecurringEvents,
@@ -528,6 +529,31 @@ describe('recentActivityEvents', () => {
     insertActivity('p1', null, '{"tool":"Read"}', 100);
     const rows = recentActivityEvents(store.db, 'p1');
     expect(rows[0]!.firing_id).toBeNull();
+  });
+
+  it('per-firing windows keep a quiet lane visible that the project-wide window would drop (2026-09-12)', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    // lane-quiet logged once, early; lane-busy then logged four times.
+    insertActivity('p1', 'p1:firing-quiet', '{"tool":"Bash"}', 100);
+    for (let i = 0; i < 4; i++) insertActivity('p1', 'p1:firing-busy', '{"tool":"Edit"}', 200 + i);
+    // The feed's window of 3 holds only the busy lane.
+    expect(new Set(recentActivityEvents(store.db, 'p1', 3).map((r) => r.firing_id)).size).toBe(1);
+    // The per-firing window holds both: two newest of busy, the one of quiet, newest first.
+    const rows = recentActivityEventsPerFiring(store.db, 'p1', 2, 8, 0);
+    expect(rows.map((r) => r.firing_id)).toEqual([
+      'p1:firing-busy',
+      'p1:firing-busy',
+      'p1:firing-quiet',
+    ]);
+    // sinceMs drops a firing whose newest event is older than the cutoff.
+    expect(
+      recentActivityEventsPerFiring(store.db, 'p1', 2, 8, 150).map((r) => r.firing_id),
+    ).toEqual(['p1:firing-busy', 'p1:firing-busy']);
+    // maxFirings caps the number of lanes, newest lane first.
+    expect(recentActivityEventsPerFiring(store.db, 'p1', 2, 1, 0).map((r) => r.firing_id)).toEqual([
+      'p1:firing-busy',
+      'p1:firing-busy',
+    ]);
   });
 
   it('caps at limit, dropping the older firing entirely from the window', () => {
