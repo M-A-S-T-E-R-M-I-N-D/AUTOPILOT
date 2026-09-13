@@ -27,7 +27,7 @@ describe('tierForSubstepKind', () => {
   it('routes routine work to cheap', () => {
     expect(tierForSubstepKind('docs-fix')).toBe('cheap');
     expect(tierForSubstepKind('code-review')).toBe('cheap');
-    expect(tierForSubstepKind('ask')).toBe('cheap');
+    expect(tierForSubstepKind('ask')).toBe('top');
   });
 
   it('routes hard reasoning/security/architecture to top', () => {

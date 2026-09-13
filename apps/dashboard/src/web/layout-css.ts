@@ -381,6 +381,12 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .ask-answer pre code { white-space: pre; }
 .ask-answer table { margin: var(--space-2) 0; border-collapse: collapse; }
 .ask-answer th, .ask-answer td { border: 1px solid var(--color-border); padding: 2px var(--space-2); text-align: start; font-size: var(--text-xs); }
+/* A cell that holds a long path used to hold its min-content width and squeeze every
+   other column to one character ("li ne", "8 8" — seen in the Ask sheet, 2026-09-13).
+   Cells break anywhere, so a numeric column keeps its natural width; the table itself
+   never exceeds its container. */
+.ask-answer table { max-inline-size: 100%; }
+.ask-answer th, .ask-answer td { overflow-wrap: anywhere; min-inline-size: 3ch; }
 .ask-sources { display: block; margin-top: var(--space-2); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
 .ask-offer:empty { display: none; }
 .ask-offer { margin-top: var(--space-2); }
