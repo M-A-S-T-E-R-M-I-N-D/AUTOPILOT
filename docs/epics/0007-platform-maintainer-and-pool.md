@@ -997,6 +997,20 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    when the API pair landed; that claim has since cleared. Still deferred: the
    operator panel, so the board item stays open (UX-expression doctrine: a
    capability with no panel is a slice, not complete).
+   STATUS (2026-09-13): re-verified against the current tree, not trusting
+   the 2026-09-12 note at face value — the operator panel is no longer
+   deferred; it already shipped. `web/discussions-triage-panel.ts` (214
+   lines) and `web/features/discussions-triage.ts` (189 lines) are wired
+   into `shell.ts`'s KEEPER region (the `discussions-triage` panel
+   registration and `discussionsTriageEl` append) and into
+   `features/index.ts`'s bundle map, both present on disk. All four layers'
+   test files pass in full: `test/flight/discussions-triage.test.ts` (35),
+   `test/flight/discussions-triage-execute.test.ts` (8),
+   `test/web/discussions-triage-panel.test.ts` (17), and
+   `test/web/features/discussions-triage.test.ts` (10) — 70 tests green.
+   Verdict: CONFIRMED — the board title's full ask (read, classify, reply,
+   with a UI expression per the UX-expression doctrine) is complete;
+   web-mtlsiac0-v8rksh closes on this evidence.
 
 ## The claims ledger (2026-09-13)
 
