@@ -1427,13 +1427,17 @@ main:focus { outline: none; }
 .ask-fab:hover, .ask-fab:focus-visible { transform: translateY(-2px); border-radius: var(--shape-large-hover, 1.25rem); }
 .ask-fab:active { transform: translateY(0); box-shadow: var(--elevation-level-1); }
 .ask-fab[aria-expanded="true"] { background: var(--color-surface-raised); color: var(--color-accent); border: 1px solid var(--color-accent); }
-.ask-sheet { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 55; display: grid; grid-template-rows: auto 1fr; max-block-size: 70vh; background: var(--color-surface-raised); border-block-start: 1px solid var(--color-border); border-start-start-radius: var(--shape-large, 1rem); border-start-end-radius: var(--shape-large, 1rem); box-shadow: var(--elevation-level-3, var(--elevation-level-2)); padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
+.ask-sheet { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 55; display: grid; grid-template-rows: auto 1fr auto; max-block-size: 70vh; background: var(--color-surface-raised); border-block-start: 1px solid var(--color-border); border-start-start-radius: var(--shape-large, 1rem); border-start-end-radius: var(--shape-large, 1rem); box-shadow: var(--elevation-level-3, var(--elevation-level-2)); padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
 .ask-sheet[hidden] { display: none; }
 .ask-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-block-end: 1px solid var(--color-border); }
 .ask-sheet-title { margin: 0; font-size: var(--text-base); }
 .ask-sheet-close { display: inline-flex; align-items: center; justify-content: center; inline-size: 2.5rem; block-size: 2.5rem; border-radius: var(--radius-full); border: 1px solid transparent; background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .ask-sheet-close:hover, .ask-sheet-close:focus-visible { color: var(--color-text); border-color: var(--color-border); }
 .ask-sheet-body { overflow: auto; overscroll-behavior: contain; padding: var(--space-3) var(--space-4); }
+/* The composer sits at the bottom, like every chat (operator, 2026-09-13): the
+   form moves into the foot while the sheet is open, answers stack above it. */
+.ask-sheet-foot { padding: var(--space-3) var(--space-4); border-block-start: 1px solid var(--color-border); background: var(--color-surface-raised); }
+.ask-sheet-foot:empty { display: none; }
 /* The moved section drops its card chrome inside the sheet: the sheet is the surface. */
 .ask-sheet-body > .searchbar { margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent; }
 @media (min-width: 64rem) {

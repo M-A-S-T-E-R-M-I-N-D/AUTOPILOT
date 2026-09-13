@@ -239,14 +239,19 @@ import {
 // iconEl() can build any of them), plus panelHeading(). Measured 235733B
 // raw / 70523B gzip against the old 231424B / 69632B budgets; the lane conversions that follow
 // remove emoji text, they do not add bytes.
-const CORE_RAW_BUDGET = 231 * 1024;
+// Then core raw 231→233KB / gzip 69→70KB (2026-09-13) for EPIC 0029 slice 6: the masthead
+// popovers' laws (light dismiss on an outside pointer or Escape, a theme or
+// language choice closes, hover opens temporarily and a click pins) — one
+// core feature module, web/features/popovers.ts. Measured 238116B raw /
+// 71187B gzip against the old 236544B / 70656B budgets.
+const CORE_RAW_BUDGET = 233 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
 // Then core gzip 64→66KB (2026-09-13) for THE ICON SYSTEM slice 1 (web/icons.ts:
 // the vendored Lucide shapes spliced into core as data + iconEl): measured
 // 218.5KB raw / 64.9KB gzip.
-const CORE_GZIP_BUDGET = 69 * 1024;
+const CORE_GZIP_BUDGET = 70 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()

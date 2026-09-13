@@ -73,6 +73,7 @@ import { officeMapJs } from '../../src/web/features/office-map.js';
 import { pipelineJs } from '../../src/web/features/pipeline.js';
 import { prefsJs } from '../../src/web/features/prefs.js';
 import { poolClientJs } from '../../src/web/features/pool-client.js';
+import { popoversJs } from '../../src/web/features/popovers.js';
 import { prReviewJs } from '../../src/web/features/pr-review.js';
 import { processHealthJs } from '../../src/web/features/process-health.js';
 import { publicityJs } from '../../src/web/features/publicity.js';
@@ -154,6 +155,7 @@ const OFFICE_MAP_TS = featureTs('office-map');
 const PIPELINE_TS = featureTs('pipeline');
 const PREFS_TS = featureTs('prefs');
 const POOL_CLIENT_TS = featureTs('pool-client');
+const POPOVERS_TS = featureTs('popovers');
 const PR_REVIEW_TS = featureTs('pr-review');
 const PROCESS_HEALTH_TS = featureTs('process-health');
 const PUBLICITY_TS = featureTs('publicity');
@@ -1416,6 +1418,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'pipeline.ts': ['pipelineJs'],
     'prefs.ts': ['prefsJs'],
     'pool-client.ts': ['poolClientJs'],
+    'popovers.ts': ['popoversJs'],
     'pr-review.ts': ['prReviewJs'],
     'process-health.ts': ['processHealthJs'],
     'publicity.ts': ['publicityJs'],
@@ -1475,6 +1478,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const pipelineSource = readFileSync(PIPELINE_TS, 'utf8');
     const poolClientSource = readFileSync(POOL_CLIENT_TS, 'utf8');
     const prReviewSource = readFileSync(PR_REVIEW_TS, 'utf8');
+    const popoversSource = readFileSync(POPOVERS_TS, 'utf8');
     const prefsSource = readFileSync(PREFS_TS, 'utf8');
     const processHealthSource = readFileSync(PROCESS_HEALTH_TS, 'utf8');
     const publicitySource = readFileSync(PUBLICITY_TS, 'utf8');
@@ -1577,6 +1581,9 @@ describe('discoverFeatureModules against the real src/web/features directory —
       'prReviewJs',
     ]);
     const directPrefsManifest = buildAssemblyManifest(prefsSource, PREFS_TS, ['prefsJs']);
+    const directPopoversManifest = buildAssemblyManifest(popoversSource, POPOVERS_TS, [
+      'popoversJs',
+    ]);
     const directProcessHealthManifest = buildAssemblyManifest(
       processHealthSource,
       PROCESS_HEALTH_TS,
@@ -1638,6 +1645,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directOfficeMapManifest,
       directPipelineManifest,
       directPoolClientManifest,
+      directPopoversManifest,
       directPrReviewManifest,
       directPrefsManifest,
       directProcessHealthManifest,
@@ -1950,6 +1958,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { poolClientJs } from './pool-client.js';");
     expect(source).toContain("import { prReviewJs } from './pr-review.js';");
     expect(source).toContain("import { prefsJs } from './prefs.js';");
+    expect(source).toContain("import { popoversJs } from './popovers.js';");
     expect(source).toContain("import { processHealthJs } from './process-health.js';");
     expect(source).toContain("import { publicityJs } from './publicity.js';");
     expect(source).toContain("import { releaseJs } from './release.js';");
@@ -2010,6 +2019,8 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./office-map.js'")).toBeLessThan(source.indexOf("'./pipeline.js'"));
     expect(source.indexOf("'./pipeline.js'")).toBeLessThan(source.indexOf("'./pool-client.js'"));
     expect(source.indexOf("'./pool-client.js'")).toBeLessThan(source.indexOf("'./pr-review.js'"));
+    expect(source.indexOf("'./pool-client.js'")).toBeLessThan(source.indexOf("'./popovers.js'"));
+    expect(source.indexOf("'./popovers.js'")).toBeLessThan(source.indexOf("'./pr-review.js'"));
     expect(source.indexOf("'./pr-review.js'")).toBeLessThan(source.indexOf("'./prefs.js'"));
     expect(source.indexOf("'./prefs.js'")).toBeLessThan(source.indexOf("'./process-health.js'"));
     expect(source.indexOf("'./process-health.js'")).toBeLessThan(
@@ -2029,7 +2040,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -3951,6 +3962,27 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     expect(await reconstructPrefsJs()).toBe(prefsJs());
   });
 
+  /** popoversJs's own reconstruction (epic 0029 slice 6): no slots at all —
+   *  a plain template, so the manifest is empty and the output is the source. */
+  async function reconstructPopoversJs(): Promise<string> {
+    const popoversSource = readFileSync(POPOVERS_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(popoversSource, POPOVERS_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        popoversSource,
+        'popoversJs',
+        resolvedBindings,
+        undefined,
+        POPOVERS_TS,
+      )
+    ).trim();
+  }
+
+  it('popoversJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/popovers.ts', async () => {
+    expect(await reconstructPopoversJs()).toBe(popoversJs());
+  });
+
   async function reconstructPrReviewJs(): Promise<string> {
     const prReviewSource = readFileSync(PR_REVIEW_TS, 'utf8');
     const spliceEntries = findSpliceManifest(prReviewSource, PR_REVIEW_TS);
@@ -4132,6 +4164,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('pipelineJs', await reconstructPipelineJs());
     nestedOutputs.set('poolClientJs', await reconstructPoolClientJs());
     nestedOutputs.set('prReviewJs', await reconstructPrReviewJs());
+    nestedOutputs.set('popoversJs', await reconstructPopoversJs());
     nestedOutputs.set('prefsJs', await reconstructPrefsJs());
     nestedOutputs.set('processHealthJs', await reconstructProcessHealthJs());
     nestedOutputs.set('publicityJs', await reconstructPublicityJs());

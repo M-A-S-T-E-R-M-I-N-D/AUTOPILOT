@@ -31,11 +31,14 @@ export function askSheetJs(): string {
 var ASK_SHEET_KEY = 'ap-ask-sheet';
 var askSheetPlaceholder = null;
 var askSheetSubject = null;
+var askSheetObserver = null;
 function askSheetNodes() {
   return {
     fab: document.getElementById('ask-fab'),
     sheet: document.getElementById('ask-sheet'),
     body: document.getElementById('ask-sheet-body'),
+    foot: document.getElementById('ask-sheet-foot'),
+    form: document.getElementById('search-form'),
     close: document.getElementById('ask-sheet-close'),
     bar: document.getElementById('searchbar'),
   };
@@ -55,6 +58,13 @@ function askSheetOpen() {
   askSheetSubject = n.bar.getAttribute('data-subject');
   n.bar.removeAttribute('data-subject');
   n.body.appendChild(n.bar);
+  // The composer goes to the foot — a chat reads bottom-up: the question
+  // box stays put, answers stack above it and the newest scrolls into view.
+  if (n.foot && n.form) n.foot.appendChild(n.form);
+  if (typeof MutationObserver === 'function') {
+    askSheetObserver = new MutationObserver(function () { n.body.scrollTop = n.body.scrollHeight; });
+    askSheetObserver.observe(n.body, { childList: true, subtree: true, characterData: true });
+  }
   if (n.bar.hidden) n.bar.hidden = false;
   n.sheet.hidden = false;
   n.fab.setAttribute('aria-expanded', 'true');
@@ -69,6 +79,8 @@ function askSheetClose(returnFocus) {
   var n = askSheetNodes();
   if (!n.fab || !n.sheet || !n.bar) return;
   if (n.sheet.hidden) return;
+  if (askSheetObserver) { askSheetObserver.disconnect(); askSheetObserver = null; }
+  if (n.form && n.form.parentNode !== n.bar) n.bar.insertBefore(n.form, n.bar.firstChild);
   if (askSheetPlaceholder && askSheetPlaceholder.parentNode) {
     askSheetPlaceholder.parentNode.insertBefore(n.bar, askSheetPlaceholder);
     askSheetPlaceholder.parentNode.removeChild(askSheetPlaceholder);

@@ -1005,6 +1005,7 @@ const BENIGN_WEB_FEATURES = new Set([
   // prefs.ts (epic 0029 slice 1): no fetch at all — reads/writes one
   // localStorage key and toggles data attributes on <html>; never writes
   // anywhere but the DOM.
+  'popovers.ts',
   'prefs.ts',
   // ask-sheet.ts (epic 0026 slice 3): no fetch at all — moves the existing
   // search/ask section into a sheet and back, toggles aria/data attributes

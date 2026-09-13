@@ -90,6 +90,9 @@ describe('the Ask sheet', () => {
     expect(fab().getAttribute('aria-expanded')).toBe('true');
     expect(document.getElementById('ask-sheet-body')?.contains(bar())).toBe(true);
     expect(bar()).toBe(before);
+    // The composer sits at the bottom of the sheet, like every chat.
+    const form = document.getElementById('search-form')!;
+    expect(form.parentElement?.id).toBe('ask-sheet-foot');
     expect(bar().hasAttribute('data-subject')).toBe(false);
     expect(bar().hidden).toBe(false);
     expect(document.documentElement.getAttribute('data-ask-sheet')).toBe('open');
@@ -100,6 +103,7 @@ describe('the Ask sheet', () => {
 
     expect(sheet().hidden).toBe(true);
     expect(bar().nextElementSibling).toBe(nextSibling);
+    expect(bar().firstElementChild?.id).toBe('search-form');
     expect(bar().getAttribute('data-subject')).toBe('fleet');
     expect(document.documentElement.hasAttribute('data-ask-sheet')).toBe(false);
     expect(document.activeElement).toBe(fab());
