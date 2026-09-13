@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import {
+  isUpdateStrategy,
   latestVersionFromTags,
   isNewerVersion,
   createUpdateCheckApi,
@@ -427,5 +428,53 @@ describe('createUpdateExecuteApi — the pull names its ref (#48)', () => {
     );
     await api();
     expect(pulled(calls)).toBe('git pull --ff-only origin main');
+  });
+});
+
+describe('the rebuild strategy (the version menu\'s "Run the latest")', () => {
+  it('installs, builds and restarts even when the pull says already up to date', async () => {
+    const calls: string[] = [];
+    const restart = vi.fn();
+    const api = createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart },
+      runnerScript({ 'git pull': { ...OK, stdout: 'Already up to date.\n' } }, calls),
+    );
+    const result = await api('rebuild');
+    expect(result).toMatchObject({ ok: true, reason: 'updated', restarting: true });
+    expect(calls.some((c) => c.startsWith('pnpm install'))).toBe(true);
+    expect(calls.some((c) => c.startsWith('pnpm run build'))).toBe(true);
+    expect(restart).toHaveBeenCalledTimes(1);
+  });
+
+  it('still refuses a dirty tree without the stash half, and parks it with stash+rebuild', async () => {
+    const restart = vi.fn();
+    const dirty = {
+      'git status': { ...OK, stdout: ' M a.ts\n' },
+      'git pull': { ...OK, stdout: 'Already up to date.\n' },
+    };
+    const refused = await createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart },
+      runnerScript(dirty, []),
+    )('rebuild');
+    expect(refused).toMatchObject({ ok: false, reason: 'dirty' });
+    expect(restart).not.toHaveBeenCalled();
+
+    const calls: string[] = [];
+    const parked = await createUpdateExecuteApi(
+      '/repo',
+      { isFlightLive: () => false, restart },
+      runnerScript(dirty, calls),
+    )('stash+rebuild');
+    expect(parked).toMatchObject({ ok: true, reason: 'updated', stashed: true });
+    expect(calls.some((c) => c.startsWith('git stash'))).toBe(true);
+    expect(restart).toHaveBeenCalledTimes(1);
+  });
+
+  it('isUpdateStrategy admits exactly the three strategies', () => {
+    expect(['stash', 'rebuild', 'stash+rebuild'].every(isUpdateStrategy)).toBe(true);
+    expect(isUpdateStrategy('reset')).toBe(false);
+    expect(isUpdateStrategy(undefined)).toBe(false);
   });
 });

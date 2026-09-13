@@ -131,7 +131,19 @@ export interface UpdateExecuteResult {
   readonly restarting?: boolean;
 }
 
-export type UpdateExecuteApi = (strategy?: 'stash') => Promise<UpdateExecuteResult>;
+/** The operator's choices on the update (2026-09-13, the version chip's
+ *  "Run the latest"): `stash` parks local progress first; `rebuild` runs
+ *  the install → build → restart legs even when the pull says "already up to
+ *  date" — a clean reset onto the version the checkout already has;
+ *  `stash+rebuild` is both. Absent = a plain update that stops short when
+ *  there is nothing new. */
+export type UpdateStrategy = 'stash' | 'rebuild' | 'stash+rebuild';
+
+export function isUpdateStrategy(value: unknown): value is UpdateStrategy {
+  return value === 'stash' || value === 'rebuild' || value === 'stash+rebuild';
+}
+
+export type UpdateExecuteApi = (strategy?: UpdateStrategy) => Promise<UpdateExecuteResult>;
 
 export interface UpdateExecuteDeps {
   /** Cross-process "a flight owns this checkout" check (`flight/lock.ts`). */
@@ -181,6 +193,8 @@ export function createUpdateExecuteApi(
   runCommand: CommandRunner = realRunner,
 ): UpdateExecuteApi {
   return async (strategy) => {
+    const wantStash = strategy === 'stash' || strategy === 'stash+rebuild';
+    const wantRebuild = strategy === 'rebuild' || strategy === 'stash+rebuild';
     if (deps.isFlightLive()) {
       return {
         ok: false,
@@ -202,7 +216,7 @@ export function createUpdateExecuteApi(
 
     let stashed = false;
     if (dirtyCount > 0) {
-      if (strategy !== 'stash') {
+      if (!wantStash) {
         return {
           ok: false,
           reason: 'dirty',
@@ -257,7 +271,7 @@ export function createUpdateExecuteApi(
           : pull.stderr.trim() || 'git pull failed',
       };
     }
-    if (/Already up to date/i.test(pull.stdout)) {
+    if (/Already up to date/i.test(pull.stdout) && !wantRebuild) {
       if (stashed) await runCommand('git', ['stash', 'pop'], cwd);
       return { ok: true, reason: 'up-to-date', details: 'Already on the latest version.' };
     }

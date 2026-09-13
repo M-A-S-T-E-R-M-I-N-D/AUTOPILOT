@@ -24,6 +24,47 @@
 /** The update banner client — vanilla, external (keeps CSP script-src 'self'). */
 export function updateJs(): string {
   return `
+// Shared by the banner and the version menu (both call these as hoisted
+// declarations of the same served script): the restart poller and the one
+// update runner, each surface handing in its own painters.
+function pollUntilBack() {
+  // The server is restarting onto the new build — wait for the API to
+  // answer again, then reload so this page runs the new bundle.
+  var timer = setInterval(function () {
+    fetch('/api/update-check', { headers: { accept: 'application/json' } })
+      .then(function (r) { if (r.ok) { clearInterval(timer); location.reload(); } })
+      .catch(function () {});
+  }, 3000);
+}
+// One update runner for both surfaces — the banner and the version menu
+// — each handing in its own painters (progress / refused / idle).
+function runUpdateWith(check, strategy, ui) {
+  ui.progress();
+  var payload = strategy ? { strategy: strategy } : {};
+  ritualFetch('update', '/api/update/execute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
+    .then(function (res) {
+      var d = res.data || {};
+      if (res.status === 200 && d.restarting) { pollUntilBack(); return; }
+      if (res.status === 200) { ui.idle(check, d); return; }
+      if (d.reason === 'dirty' && strategy !== 'stash' && strategy !== 'stash+rebuild') {
+        // Local progress exists — the server refused by design. Only an
+        // explicit operator confirm sends the stash strategy.
+        if (window.confirm(tr('updateDirtyPrompt'))) {
+          runUpdateWith(check, strategy === 'rebuild' ? 'stash+rebuild' : 'stash', ui);
+          return;
+        }
+        ui.idle(check, d);
+        return;
+      }
+      ui.refused(d.details || d.error || ('HTTP ' + res.status));
+    })
+    .catch(function () { ui.refused('network'); });
+}
 function updateInit() {
   var banner = document.getElementById('update-banner');
   if (!banner) return;
@@ -59,38 +100,12 @@ function updateInit() {
     banner.appendChild(retry);
     banner.hidden = false;
   }
-  function pollUntilBack() {
-    // The server is restarting onto the new build — wait for the API to
-    // answer again, then reload so this page runs the new bundle.
-    var timer = setInterval(function () {
-      fetch('/api/update-check', { headers: { accept: 'application/json' } })
-        .then(function (r) { if (r.ok) { clearInterval(timer); location.reload(); } })
-        .catch(function () {});
-    }, 3000);
-  }
   function runUpdate(check, strategy) {
-    showProgress();
-    var payload = strategy ? { strategy: strategy } : {};
-    ritualFetch('update', '/api/update/execute', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-      .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
-      .then(function (res) {
-        var d = res.data || {};
-        if (res.status === 200 && d.restarting) { pollUntilBack(); return; }
-        if (res.status === 200) { banner.hidden = true; return; }
-        if (d.reason === 'dirty' && !strategy) {
-          // Local progress exists — the server refused by design. Only an
-          // explicit operator confirm sends the stash strategy.
-          if (window.confirm(tr('updateDirtyPrompt'))) { runUpdate(check, 'stash'); return; }
-          paintBanner(check);
-          return;
-        }
-        showRefused(d.details || d.error || ('HTTP ' + res.status));
-      })
-      .catch(function () { showRefused('network'); });
+    runUpdateWith(check, strategy, {
+      progress: showProgress,
+      refused: showRefused,
+      idle: function () { banner.hidden = true; },
+    });
   }
   fetch('/api/update-check', { headers: { accept: 'application/json' } })
     .then(function (r) { return r.ok ? r.json() : null; })
@@ -104,5 +119,68 @@ function updateInit() {
     .catch(function () {});
 }
 updateInit();
+// THE VERSION MENU (operator, 2026-09-13: "make sure my dashboard shows the
+// latest version, and that I have a button to reset and always run the
+// latest"): the masthead chip reads v<current> from the build itself; the
+// popover reports the newest release from the check, and "Run the latest"
+// pulls, reinstalls, rebuilds and restarts — with the rebuild strategy when
+// the checkout is already current, so the button is also a clean reset.
+function versionInit() {
+  var menu = document.getElementById('version-menu');
+  var status = document.getElementById('version-status');
+  var runBtn = document.getElementById('version-run');
+  var checkBtn = document.getElementById('version-check');
+  if (!menu || !status || !runBtn || !checkBtn) return;
+  var lastCheck = null;
+  function fmtClock(ms) {
+    var d = new Date(ms);
+    var h = d.getHours(), m = d.getMinutes();
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  }
+  function paintCheck(check) {
+    lastCheck = check;
+    var available = !!(check && check.updateAvailable);
+    var dotState = available ? 'available' : (check ? 'current' : 'unknown');
+    if (menu.getAttribute('data-update') !== dotState) menu.setAttribute('data-update', dotState);
+    var text = !check
+      ? tr('versionUnknown')
+      : available
+        ? tr('versionAvailable', { from: check.current, to: check.latest })
+        : tr('versionLatest', { version: check.current, time: fmtClock(check.checkedAt) });
+    if (status.textContent !== text) status.textContent = text;
+    var label = available ? tr('versionRunUpdate', { to: check.latest }) : tr('versionRunLatest');
+    if (runBtn.textContent !== label) runBtn.textContent = label;
+  }
+  function load(force) {
+    checkBtn.disabled = true;
+    fetch('/api/update-check' + (force ? '?force=1' : ''), { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (check) { paintCheck(check); })
+      .catch(function () { paintCheck(null); })
+      .then(function () { checkBtn.disabled = false; });
+  }
+  var ui = {
+    progress: function () {
+      runBtn.disabled = true;
+      status.textContent = tr('updateInProgress');
+    },
+    refused: function (details) {
+      runBtn.disabled = false;
+      status.textContent = tr('updateRefused') + details;
+    },
+    idle: function (check, d) {
+      runBtn.disabled = false;
+      status.textContent = (d && d.details) || tr('versionUpToDate');
+    },
+  };
+  runBtn.addEventListener('click', function () {
+    var available = !!(lastCheck && lastCheck.updateAvailable);
+    runUpdateWith(lastCheck || { current: '', latest: '' }, available ? null : 'rebuild', ui);
+  });
+  checkBtn.addEventListener('click', function () { load(true); });
+  menu.addEventListener('toggle', function () { if (menu.open && !lastCheck) load(false); });
+  load(false);
+}
+versionInit();
 `.trim();
 }

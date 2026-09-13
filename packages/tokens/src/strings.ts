@@ -686,6 +686,22 @@ const EN_STRINGS = {
   updateBannerAria: 'Software update available',
   updateBannerText: 'A new version is ready: v{from} → v{to}',
   updateNow: 'Update now',
+  // THE VERSION MENU (2026-09-13): the masthead chip and its popover.
+  versionSummaryTip:
+    'Running this version — open for the newest-release check and the run-the-latest button',
+  versionSummaryAria: 'Version',
+  versionChecking: 'checking for the newest release…',
+  versionUnknown: 'Could not reach the release list — check the connection and try again.',
+  versionLatest: 'v{version} is the newest release · checked {time}',
+  versionAvailable: 'v{from} → v{to} is available',
+  versionUpToDate: 'Already on the latest version.',
+  versionRunLatest: 'Run the latest',
+  versionRunUpdate: 'Update to v{to}',
+  versionCheckNow: 'Check now',
+  versionRunTip:
+    'Pulls the newest release, reinstalls, rebuilds and restarts the dashboard — a clean reset onto the latest, even when you are already on it',
+  versionRunNote:
+    'Local progress is never touched: with uncommitted changes you are asked before they are parked in git stash.',
   updateLater: 'Later',
   updateInProgress: 'Updating — pulling, installing, restarting… the dashboard reconnects itself',
   updateDirtyPrompt:
@@ -1914,6 +1930,20 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     updateBannerAria: 'עדכון תוכנה זמין',
     updateBannerText: 'גרסה חדשה מוכנה: v{from} ← v{to}',
     updateNow: 'עדכן עכשיו',
+    versionSummaryTip: 'הגרסה שרצה — פתחו לבדיקת הגרסה החדשה ביותר ולכפתור ההרצה',
+    versionSummaryAria: 'גרסה',
+    versionChecking: 'בודק מהי הגרסה החדשה ביותר…',
+    versionUnknown: 'לא ניתן להגיע לרשימת הגרסאות — בדקו את החיבור ונסו שוב.',
+    versionLatest: 'v{version} היא הגרסה החדשה ביותר · נבדק {time}',
+    versionAvailable: 'v{from} ← v{to} זמינה',
+    versionUpToDate: 'כבר על הגרסה האחרונה.',
+    versionRunLatest: 'הרץ את העדכנית',
+    versionRunUpdate: 'עדכן ל-v{to}',
+    versionCheckNow: 'בדוק עכשיו',
+    versionRunTip:
+      'מושך את הגרסה החדשה ביותר, מתקין מחדש, בונה ומפעיל מחדש את הדשבורד — איפוס נקי לעדכנית, גם כשכבר אתם עליה',
+    versionRunNote:
+      'התקדמות מקומית לא נפגעת: עם שינויים לא מקומטים תישאלו לפני שהם נשמרים ב-git stash.',
     updateLater: 'אחר-כך',
     updateInProgress: 'מעדכן — מושך, מתקין, מאתחל… הדשבורד יתחבר מחדש לבד',
     updateDirtyPrompt:

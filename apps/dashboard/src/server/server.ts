@@ -135,7 +135,12 @@ import type { ReleaseExecuteResult } from '../release/execute.js';
 import type { GateSpec } from '@autopilot/onboarding';
 import { validateGateSpec } from '../plan-guard.js';
 import { isMaturityChoice, type MaturityChoice } from '../release/maturity.js';
-import type { UpdateCheckApi, UpdateExecuteApi } from '../flight/update-check.js';
+import {
+  isUpdateStrategy,
+  type UpdateCheckApi,
+  type UpdateExecuteApi,
+  type UpdateStrategy,
+} from '../flight/update-check.js';
 import type { InboxAddResult } from '../inbox/add.js';
 import type { PrReviewPlan } from '../flight/pr-review.js';
 import {
@@ -1959,14 +1964,16 @@ async function handleUpdateExecute(
     send(429, { error: 'Too many update requests — slow down and try again shortly.' });
     return;
   }
-  let strategy: 'stash' | undefined;
+  let strategy: UpdateStrategy | undefined;
   try {
     const raw = await readBody(req, MAX_BODY_BYTES);
     if (raw.trim() !== '') {
       const parsed = JSON.parse(raw) as { strategy?: unknown };
       if (parsed.strategy !== undefined) {
-        if (parsed.strategy !== 'stash') {
-          send(400, { error: 'strategy must be "stash" when present' });
+        if (!isUpdateStrategy(parsed.strategy)) {
+          send(400, {
+            error: 'strategy must be "stash", "rebuild" or "stash+rebuild" when present',
+          });
           return;
         }
         strategy = parsed.strategy;

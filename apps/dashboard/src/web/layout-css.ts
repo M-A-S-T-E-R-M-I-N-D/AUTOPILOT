@@ -92,6 +92,14 @@ body {
 .switch button[aria-pressed='true'] { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
 
 .connect { position: relative; }
+/* THE VERSION MENU (2026-09-13): the chip is the running version; the dot
+   turns accent when a newer release exists. The popover reuses .connect's
+   body and actions so the two masthead menus read as one family. */
+.version-menu > summary { font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: var(--space-2); }
+.version-dot { inline-size: 0.5rem; block-size: 0.5rem; border-radius: 50%; background: var(--color-border-strong); flex: none; }
+.version-menu[data-update="current"] .version-dot { background: var(--color-success); }
+.version-menu[data-update="available"] .version-dot { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent); }
+.version-note { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .connect > summary { cursor: pointer; list-style: none; font-size: var(--text-sm); color: var(--color-text-muted); padding: var(--space-1) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); transition: box-shadow var(--duration-short2) var(--easing-standard); }
 .connect > summary::-webkit-details-marker { display: none; }
 .connect > summary:hover, .connect > summary:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
