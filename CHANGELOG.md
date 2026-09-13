@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.47.1] — 2026-09-13
+
+### Fixed
+
+- fix(dashboard): the hue is computed by the client — relative colour made every colour vanish
+
 ## [0.47.0] — 2026-09-13
 
 ### Added
