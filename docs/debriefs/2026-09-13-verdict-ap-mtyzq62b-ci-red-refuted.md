@@ -26,7 +26,7 @@ ci.yml — failure (26m ago)".
    2026-09-13T13:43:47Z), a separate job from `ci.yml` that this fleet's own
    MACHINE BUDGET rule keeps agents from running/chasing directly.
 3. **The current tip is green.** HEAD (`9d92fdda`, `chore: land
-   autopilot/flight into main`) has a `CI` run (`34763966163`) that completed
+   autopilot/flight into main`) has a `CI` run (id 34763966163) that completed
    `success` 20 minutes before this check.
 
 No `ci.yml` failure reproduces against `d1c20c1`, against any commit between
