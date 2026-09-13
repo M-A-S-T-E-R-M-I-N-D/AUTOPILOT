@@ -131,6 +131,47 @@ describe('the agent office map', () => {
     expect(Number(dot!.getAttribute('cy'))).toBeCloseTo(22, 0);
   });
 
+  it('renders one dot per live lane — four pilots, four dots — spread inside a shared zone and named by callsign', async () => {
+    // Operator, 2026-09-13: "even when I run four pilots I see only one" —
+    // the map drew the newest lane alone while the live-worker card drew all.
+    current = stateWith({
+      status: 'flying',
+      activity: [
+        { tool: 'Edit', target: 'a.ts', kind: 'file', phase: 'do', at: 4, firingId: 'f-a' },
+        { tool: 'Read', target: 'b.ts', kind: 'file', phase: 'orient', at: 3, firingId: 'f-b' },
+        { tool: 'Read', target: 'c.ts', kind: 'file', phase: 'orient', at: 2, firingId: 'f-c' },
+        {
+          tool: 'Bash',
+          target: 'pnpm test',
+          kind: 'command',
+          phase: 'gate',
+          at: 1,
+          firingId: 'f-d',
+        },
+      ],
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(2000);
+
+    const dots = Array.from(document.querySelectorAll('.office-dot'));
+    expect(dots).toHaveLength(4);
+    // DO, ORIENT and GATE light up; COMMIT stays plain.
+    expect(document.querySelectorAll('.office-zone-active')).toHaveLength(3);
+    // The two ORIENT lanes share the zone, spread 14 apart around its centre
+    // (x = 45); DO sits at 122 and GATE at 199.
+    const xs = dots.map((d) => Number(d.getAttribute('cx'))).sort((a, b) => a - b);
+    expect(xs).toEqual([38, 52, 122, 199]);
+    // One Tab stop for the group (roving), and every dot names its lane by
+    // callsign — never a bare "Agent" once there is more than one.
+    expect(dots.filter((d) => d.getAttribute('tabindex') === '0')).toHaveLength(1);
+    for (const d of dots) {
+      expect(d.getAttribute('data-tip')).not.toMatch(/^Agent — /);
+      expect(d.getAttribute('aria-label')).toBe(d.getAttribute('data-tip'));
+    }
+    const named = document.querySelector('.office-map')?.getAttribute('data-i18n-name') ?? '';
+    expect(named.split(', ').sort()).toEqual(['do', 'gate', 'orient', 'orient']);
+  });
+
   it('re-eases the dot when the live phase moves from DO to COMMIT across a rebuild', async () => {
     current = stateWith({
       status: 'flying',

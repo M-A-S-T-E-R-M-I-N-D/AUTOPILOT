@@ -134,13 +134,71 @@ function officeSatellites(svg, NS, center, subagents) {
   }
 }
 wireRoving('.office-satellite', '.office-map');
+// One dot per live lane (operator, 2026-09-13: "I run four pilots and the map
+// shows one"): liveFirings() is the same multi-lane derivation the live-worker
+// card draws from, so the map and the card can never disagree about who is
+// in the office. Lanes in the same phase spread across the zone; each dot
+// names its lane by callsign once there is more than one; the first lane
+// keeps the project-keyed tween position so a single-lane map is unchanged.
+var OFFICE_DOT_SPREAD = 14;
+function officeDot(svg, NS, key, target, tip, first) {
+  var from = officeMapPos[key] || target;
+  var dot = document.createElementNS(NS, 'circle');
+  dot.setAttribute('r', '6');
+  dot.setAttribute('cx', String(from.x));
+  dot.setAttribute('cy', String(from.y));
+  dot.setAttribute('class', 'office-dot');
+  // The dot is a sibling <circle>, not nested in the zone rect, so hovering it
+  // directly missed the zone's tip (data-tip lookup is closest()-based) — every
+  // other office-map shape (zones, satellites) already explains itself.
+  // Roving tabindex: the first dot is the group's Tab stop; wireRoving() below
+  // moves it across the lanes with the arrow keys.
+  dot.setAttribute('tabindex', first ? '0' : '-1');
+  dot.setAttribute('role', 'img');
+  dot.setAttribute('data-tip', tip);
+  dot.setAttribute('aria-label', tip);
+  svg.appendChild(dot);
+
+  if (officeMapRaf[key]) {
+    try { cancelAnimationFrame(officeMapRaf[key]); } catch (e) {}
+    delete officeMapRaf[key];
+  }
+  if (from.x === target.x && from.y === target.y) {
+    officeMapPos[key] = target;
+  } else if (prefersReducedMotion() || typeof requestAnimationFrame === 'undefined') {
+    dot.setAttribute('cx', String(target.x));
+    dot.setAttribute('cy', String(target.y));
+    officeMapPos[key] = target;
+  } else {
+    // Elapsed time is measured via Date.now(), not the rAF callback's own
+    // timestamp — the two clocks can drift apart under a faked/throttled timer
+    // (background tab, test harness), and Date.now() is what stays authoritative.
+    var start = null;
+    var step = function () {
+      var now = Date.now();
+      if (start === null) start = now;
+      var t = Math.min(1, (now - start) / OFFICE_ANIM_MS);
+      var pos = officeTweenPos(from, target, t);
+      dot.setAttribute('cx', String(pos.x));
+      dot.setAttribute('cy', String(pos.y));
+      officeMapPos[key] = pos;
+      if (t < 1) officeMapRaf[key] = requestAnimationFrame(step);
+      else delete officeMapRaf[key];
+    };
+    officeMapRaf[key] = requestAnimationFrame(step);
+  }
+  return dot;
+}
 function officeMapSection(c) {
   var NS = 'http://www.w3.org/2000/svg';
-  var live = liveFiring(c);
+  var lanes = liveFirings(c);
+  var live = lanes.length ? lanes[0] : null;
   // The office only appears when someone is IN it — an idle map is noise
   // (operator feedback: "why do I see this when nothing is running?").
   if (!live) return null;
-  var target = officeTargetFor(live ? live.phase : null);
+  var byPhase = {};
+  for (var l = 0; l < lanes.length; l++) byPhase[lanes[l].phase] = (byPhase[lanes[l].phase] || 0) + 1;
+  var phaseName = lanes.length === 1 ? live.phase : lanes.map(function (x) { return x.phase; }).join(', ');
   var svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 ' + OFFICE_W + ' ' + OFFICE_H);
   svg.setAttribute('class', 'office-map');
@@ -148,12 +206,12 @@ function officeMapSection(c) {
   // i18n (board web-msnsndki-dz3vn1): same {name}-template shape as the
   // subagent satellites above — the live phase key itself stays untranslated
   // in the slot, like a tool name or file path in every other {name} key.
-  svg.setAttribute('data-i18n-name', live ? live.phase : 'idle');
-  svg.setAttribute('aria-label', tr('officeMapAria', live ? live.phase : 'idle'));
+  svg.setAttribute('data-i18n-name', phaseName);
+  svg.setAttribute('aria-label', tr('officeMapAria', phaseName));
   svg.setAttribute('data-i18n-aria-template', 'officeMapAria');
   for (var i = 0; i < OFFICE_PHASES.length; i++) {
     var phase = OFFICE_PHASES[i];
-    var active = !!live && live.phase === phase;
+    var active = !!byPhase[phase];
     var x = officeZoneX(i);
     var rect = document.createElementNS(NS, 'rect');
     rect.setAttribute('x', String(x));
@@ -180,59 +238,25 @@ function officeMapSection(c) {
     label.textContent = OFFICE_LABELS[phase];
     svg.appendChild(label);
   }
-  var from = officeMapPos[c.id] || target;
-  var dot = document.createElementNS(NS, 'circle');
-  dot.setAttribute('r', '6');
-  dot.setAttribute('cx', String(from.x));
-  dot.setAttribute('cy', String(from.y));
-  dot.setAttribute('class', 'office-dot' + (live ? '' : ' office-dot-idle'));
-  // The dot is a sibling <circle>, not nested in the zone rect, so hovering it
-  // directly missed the zone's tip (data-tip lookup is closest()-based) — every
-  // other office-map shape (zones, satellites) already explains itself.
-  var dotTip = 'Agent — ' + (OFFICE_TIPS[live.phase] || 'currently ' + live.phase);
-  dot.setAttribute('tabindex', '0');
-  dot.setAttribute('role', 'img');
-  dot.setAttribute('data-tip', dotTip);
-  dot.setAttribute('aria-label', dotTip);
-  svg.appendChild(dot);
-
-  if (live && live.subagents && live.subagents.length) {
-    officeSatellites(svg, NS, target, live.subagents);
-  }
-
-  if (officeMapRaf[c.id]) {
-    try { cancelAnimationFrame(officeMapRaf[c.id]); } catch (e) {}
-    delete officeMapRaf[c.id];
-  }
-  if (from.x === target.x && from.y === target.y) {
-    officeMapPos[c.id] = target;
-  } else if (prefersReducedMotion() || typeof requestAnimationFrame === 'undefined') {
-    dot.setAttribute('cx', String(target.x));
-    dot.setAttribute('cy', String(target.y));
-    officeMapPos[c.id] = target;
-  } else {
-    // Elapsed time is measured via Date.now(), not the rAF callback's own
-    // timestamp — the two clocks can drift apart under a faked/throttled timer
-    // (background tab, test harness), and Date.now() is what stays authoritative.
-    var start = null;
-    var step = function () {
-      var now = Date.now();
-      if (start === null) start = now;
-      var t = Math.min(1, (now - start) / OFFICE_ANIM_MS);
-      var pos = officeTweenPos(from, target, t);
-      dot.setAttribute('cx', String(pos.x));
-      dot.setAttribute('cy', String(pos.y));
-      officeMapPos[c.id] = pos;
-      if (t < 1) officeMapRaf[c.id] = requestAnimationFrame(step);
-      else delete officeMapRaf[c.id];
-    };
-    officeMapRaf[c.id] = requestAnimationFrame(step);
+  var placed = {};
+  for (var k = 0; k < lanes.length; k++) {
+    var lane = lanes[k];
+    var n = byPhase[lane.phase] || 1;
+    var j = placed[lane.phase] || 0;
+    placed[lane.phase] = j + 1;
+    var base = officeTargetFor(lane.phase);
+    var target = n > 1 ? { x: base.x + (j - (n - 1) / 2) * OFFICE_DOT_SPREAD, y: base.y } : base;
+    var who = lanes.length > 1 && lane.callsign ? lane.callsign : 'Agent';
+    var dotTip = who + ' — ' + (OFFICE_TIPS[lane.phase] || 'currently ' + lane.phase);
+    officeDot(svg, NS, k === 0 ? c.id : c.id + '#' + lane.firingId, target, dotTip, k === 0);
+    if (lane.subagents && lane.subagents.length) officeSatellites(svg, NS, target, lane.subagents);
   }
 
   var wrap = el('div', 'office-map-wrap');
   wrap.appendChild(svg);
   return wrap;
 }
+wireRoving('.office-dot', '.office-map');
 wireRoving('.office-zone', '.office-map');
 `.trim();
 }

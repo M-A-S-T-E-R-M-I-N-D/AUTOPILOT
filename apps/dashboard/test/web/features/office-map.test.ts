@@ -73,7 +73,7 @@ describe('officeMapJs', () => {
     expect(out).toContain('var officeMapRaf = {};');
   });
 
-  it('calls el, liveFiring, and OFFICE_TIPS as bare hoisted identifiers, never defines them', () => {
+  it('calls el, liveFirings, and OFFICE_TIPS as bare hoisted identifiers, never defines them', () => {
     // OFFICE_TIPS is ALSO read by liveWorkerCard/renderStatTiles (still
     // inline in fleetJs()) and web/features/activity.ts's phaseRail, so it
     // stays behind in fleetJs() rather than moving with this cluster — the
@@ -82,10 +82,10 @@ describe('officeMapJs', () => {
     // already established.
     const out = officeMapJs();
     expect(out).toContain("var wrap = el('div', 'office-map-wrap');");
-    expect(out).toContain('var live = liveFiring(c);');
+    expect(out).toContain('var lanes = liveFirings(c);');
     expect(out).toContain("OFFICE_TIPS[phase] + (active ? ' — current phase' : '')");
     expect(out).not.toContain('function el(');
-    expect(out).not.toContain('function liveFiring(');
+    expect(out).not.toContain('function liveFirings(');
     expect(out).not.toContain('var OFFICE_TIPS');
   });
 
