@@ -40,7 +40,29 @@
 
 import { fenceTitle } from '@autopilot/engine';
 import { SEVERITIES, type Severity } from '@autopilot/store';
-import { isReportAction, type ReportAction } from './report-from-here.js';
+import { isReportAction, REPORT_ACTIONS, type ReportAction } from './report-from-here.js';
+
+/** The actions a page with no project behind it can actually run (#41,
+ *  reported by @gabibi555): a task-shaped action needs a project. */
+const PROJECTLESS_ACTIONS: readonly ReportAction[] = ['issue', 'pool-offer'];
+
+/**
+ * #41: which report actions the page the note came from can execute. The
+ * capture bundle carries `url` (`location.pathname`); a project page is
+ * `/p/<slug>`, and only there can a "quick-fix-pr" or "local-task" report
+ * become a board task. Anything unparseable, or no bundle at all, reads as
+ * projectless — the narrower set, never the wider one.
+ */
+export function executableReportActions(contextJson: string | undefined): readonly ReportAction[] {
+  if (!contextJson || contextJson.trim() === '') return PROJECTLESS_ACTIONS;
+  try {
+    const parsed = JSON.parse(contextJson) as { url?: unknown };
+    const url = typeof parsed?.url === 'string' ? parsed.url : '';
+    return /^\/p\/[^/]+/.test(url) ? REPORT_ACTIONS : PROJECTLESS_ACTIONS;
+  } catch {
+    return PROJECTLESS_ACTIONS;
+  }
+}
 
 /** Bump on any prompt-text change — same convention as engine's
  *  `ASK_PROMPT_VERSION`. */
@@ -72,13 +94,24 @@ export interface ReportComposePromptInput {
    *  has none (e.g. a bare API call with no browser capture behind it). */
   readonly contextJson?: string | undefined;
   readonly moduleSources: readonly string[];
+  /** #41: the only actions the originating page can execute. The prompt
+   *  offers these and no other; absent means every action. */
+  readonly executableActions?: readonly ReportAction[];
 }
+
+const ACTION_MEANINGS: Readonly<Record<ReportAction, string>> = {
+  issue: '"issue" — files a bug upstream now;',
+  'quick-fix-pr': '"quick-fix-pr" — small and safe enough to fix directly as a PR;',
+  'local-task': '"local-task" — needs a human\'s judgment first;',
+  'pool-offer': '"pool-offer" — open to any contributor to claim.',
+};
 
 /** Build the tool-less compose prompt. The operator's own note is NOT fenced
  *  (it is the instruction — what to write about, mirroring engine `ask.ts`'s
  *  unfenced `question`); the captured context IS fenced (scraped page data,
  *  mirroring that same prompt's fenced `sources`). */
 export function buildReportComposePrompt(input: ReportComposePromptInput): string {
+  const actions = input.executableActions ?? REPORT_ACTIONS;
   const contextText =
     input.contextJson && input.contextJson.trim() !== ''
       ? `Captured page context:\n${input.contextJson.trim()}`
@@ -114,11 +147,9 @@ export function buildReportComposePrompt(input: ReportComposePromptInput): strin
     "  off-template body is bounced by the repo's issue protocol.",
     '- Suggest 1-4 short lowercase labels for what kind of report this is (e.g.',
     '  "bug", "ui", "perf", "a11y", "docs").',
-    '- Suggest the single best-fit action:',
-    '  "issue" — files a bug upstream now;',
-    '  "quick-fix-pr" — small and safe enough to fix directly as a PR;',
-    '  "local-task" — needs a human\'s judgment first;',
-    '  "pool-offer" — open to any contributor to claim.',
+    '- Suggest the single best-fit action. Only these can run from the page the',
+    '  note came from — never suggest any other:',
+    ...actions.map((action) => `  ${ACTION_MEANINGS[action]}`),
     `- Suggest a "severity": exactly one of ${SEVERITIES.join(', ')} — how urgent`,
     '  this is to fix. Include a one-sentence "severityReasoning" explaining why.',
     '',
@@ -132,7 +163,7 @@ export function buildReportComposePrompt(input: ReportComposePromptInput): strin
     'REPORT_COMPOSE:{"title":"...","body":"...","labels":["..."],"action":"...","language":"...","severity":"...","severityReasoning":"..."}',
     '"language" is the language the operator\'s note was written in (e.g. "en",',
     '"ja", "fr") — the composed title/body must still be English. "action" must',
-    `be exactly one of: issue, quick-fix-pr, local-task, pool-offer. "severity"`,
+    `be exactly one of: ${actions.join(', ')}. "severity"`,
     `must be exactly one of: ${SEVERITIES.join(', ')}.`,
   ].join('\n');
 }
@@ -295,9 +326,18 @@ export interface ReportComposeDeps {
   readonly invoke: (prompt: string) => Promise<string | null>;
 }
 
+/** The STRINGS key behind each compose refusal (#42). */
+export type ReportComposeReasonKey =
+  'composeNeedsDescription' | 'composeModelUnavailable' | 'composeUnusable' | 'composeLeak';
+
 export type ReportComposeResult =
-  | ({ readonly ok: true } & ReportComposeOutput)
-  | { readonly ok: false; readonly reasoning: string };
+  | ({
+      readonly ok: true;
+      /** #41: the actions the originating page can execute — the suggestion
+       *  above is always one of them, and the client offers no other. */
+      readonly executableActions: readonly ReportAction[];
+    } & ReportComposeOutput)
+  | { readonly ok: false; readonly reasoning: string; readonly reasonKey: ReportComposeReasonKey };
 
 /**
  * Compose one report from a free-text note plus captured page context — the
@@ -314,14 +354,25 @@ export async function composeReport(
 ): Promise<ReportComposeResult> {
   const note = description.trim();
   if (note === '') {
-    return { ok: false, reasoning: 'a report needs a non-empty description to compose from.' };
+    return {
+      ok: false,
+      reasoning: 'a report needs a non-empty description to compose from.',
+      reasonKey: 'composeNeedsDescription',
+    };
   }
-  const prompt = buildReportComposePrompt({ description: note, contextJson, moduleSources });
+  const executableActions = executableReportActions(contextJson);
+  const prompt = buildReportComposePrompt({
+    description: note,
+    contextJson,
+    moduleSources,
+    executableActions,
+  });
   const text = await deps.invoke(prompt);
   if (text === null || text.trim().length === 0) {
     return {
       ok: false,
       reasoning: 'The model is unavailable right now (quota or connection) — try again shortly.',
+      reasonKey: 'composeModelUnavailable',
     };
   }
   const parsed = parseReportComposeOutput(text);
@@ -329,6 +380,7 @@ export async function composeReport(
     return {
       ok: false,
       reasoning: 'The model returned an unusable composition — try rephrasing the note.',
+      reasonKey: 'composeUnusable',
     };
   }
   if (
@@ -340,7 +392,14 @@ export async function composeReport(
       ok: false,
       reasoning:
         'The composed report appears to contain a secret, credential, or personal file path — try rephrasing the note without pasting raw credentials, tokens, or local file paths.',
+      reasonKey: 'composeLeak',
     };
   }
-  return { ok: true, ...parsed };
+  // #41: a suggestion the page cannot execute is coerced to the first
+  // executable action ("issue") rather than handed to the operator as a dead
+  // end — the prompt already forbade it, this is the belt to that brace.
+  const action = executableActions.includes(parsed.action)
+    ? parsed.action
+    : (executableActions[0] as ReportAction);
+  return { ok: true, ...parsed, action, executableActions };
 }

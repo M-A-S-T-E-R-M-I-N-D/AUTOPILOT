@@ -1553,6 +1553,20 @@ const EN_STRINGS = {
     'Resolve this capture into the exact plan — what gets filed where — without applying anything.',
   reportPreviewUnavailable: 'Preview unavailable — try again shortly.',
   reportNothingToFile: 'Nothing to file — {reasoning}',
+  // #42 (gabibi555): the server's rejection and compose refusals, by key.
+  reportNeedsRegion: 'a report needs the region it was made from — no region was captured.',
+  reportNeedsDescription:
+    'a report from "{regionId}" needs a description — there is nothing to file, task, or offer yet.',
+  reportNeedsProject:
+    'a "{action}" report becomes a board task, and a task needs a project. Open a project page and report from there, or choose "issue" or "pool offer" here.',
+  composeNeedsDescription: 'a report needs a note to compose from.',
+  composeModelUnavailable:
+    'The model is unavailable right now (quota or connection) — try again shortly.',
+  composeUnusable: 'The model returned an unusable composition — try rephrasing the note.',
+  composeLeak:
+    'The composed report appears to contain a secret, credential, or personal file path — rephrase the note without raw credentials, tokens, or local file paths.',
+  // #41 (gabibi555): a task-shaped action needs a project page.
+  reportActionNeedsProject: 'needs a project page',
   reportExecute: 'Execute',
   reportExecuting: 'Executing…',
   reportRequestFailed: '✗ Request failed — try again shortly.',
@@ -2493,6 +2507,17 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     reportPreviewTip: 'פותר את הלכידה הזו לתוכנית המדויקת — מה מוגש ולאן — בלי להחיל דבר.',
     reportPreviewUnavailable: 'התצוגה המקדימה אינה זמינה — נסו שוב בעוד רגע.',
     reportNothingToFile: 'אין מה להגיש — {reasoning}',
+    reportNeedsRegion: 'דיווח צריך את האזור שממנו נוצר — לא נלכד אזור.',
+    reportNeedsDescription:
+      'דיווח מ-"{regionId}" צריך תיאור — עדיין אין מה להגיש, למשימה או להצעה.',
+    reportNeedsProject:
+      'דיווח מסוג "{action}" הופך למשימת לוח, ומשימה צריכה פרויקט. פתחו עמוד פרויקט ודווחו משם, או בחרו כאן "issue" או "pool offer".',
+    composeNeedsDescription: 'דיווח צריך הערה שממנה מנסחים.',
+    composeModelUnavailable: 'המודל אינו זמין כרגע (מכסה או חיבור) — נסו שוב בעוד רגע.',
+    composeUnusable: 'המודל החזיר ניסוח לא שמיש — נסו לנסח את ההערה מחדש.',
+    composeLeak:
+      'הדיווח המנוסח נראה כמכיל סוד, אישור גישה או נתיב קובץ אישי — נסחו מחדש בלי אישורי גישה, טוקנים או נתיבים מקומיים.',
+    reportActionNeedsProject: 'דורש עמוד פרויקט',
     reportExecute: 'בצע',
     reportExecuting: 'מבצע…',
     reportRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',

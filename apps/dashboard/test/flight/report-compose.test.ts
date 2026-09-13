@@ -6,6 +6,7 @@ import {
   buildReportComposePrompt,
   parseReportComposeOutput,
   composeReport,
+  executableReportActions,
   type ReportComposeDeps,
 } from '../../src/flight/report-compose.js';
 
@@ -279,6 +280,98 @@ describe('composeReport', () => {
       language: 'en',
       severity: 'high',
       severityReasoning: 'Blocks the primary flow for every operator.',
+      // #41: no context bundle ⇒ the projectless pair is all this page can run.
+      executableActions: ['issue', 'pool-offer'],
     });
+  });
+});
+
+/**
+ * #41 (gabibi555): the composer offered every action to every page; a
+ * "quick-fix-pr" suggested on the fleet index dead-ended at Preview. The
+ * page's context decides which actions can run, the prompt offers only
+ * those, and a stray suggestion is coerced rather than handed on.
+ * #42 (gabibi555): every refusal carries a STRINGS key for the screen.
+ */
+describe('executableReportActions (#41)', () => {
+  it('offers every action on a project page', () => {
+    expect(executableReportActions(JSON.stringify({ url: '/p/demo-checkout-web' }))).toEqual([
+      'issue',
+      'quick-fix-pr',
+      'local-task',
+      'pool-offer',
+    ]);
+  });
+
+  it('offers only issue and pool-offer on the fleet index, with no bundle, or on garbage', () => {
+    expect(executableReportActions(JSON.stringify({ url: '/' }))).toEqual(['issue', 'pool-offer']);
+    expect(executableReportActions(undefined)).toEqual(['issue', 'pool-offer']);
+    expect(executableReportActions('not json')).toEqual(['issue', 'pool-offer']);
+    expect(executableReportActions(JSON.stringify({ url: '/p/' }))).toEqual([
+      'issue',
+      'pool-offer',
+    ]);
+  });
+});
+
+describe('composeReport honours the page (#41) and keys its refusals (#42)', () => {
+  const reply = (action: string): string =>
+    'REPORT_COMPOSE:' +
+    JSON.stringify({
+      title: 'A title',
+      body: '### What happened?\nx\n### Steps to reproduce\ny\n### Expected behavior\nz',
+      labels: ['bug'],
+      action,
+      language: 'en',
+      severity: 'low',
+      severityReasoning: 'minor',
+    });
+
+  it('the prompt names only the executable actions', () => {
+    const prompt = buildReportComposePrompt({
+      description: 'note',
+      contextJson: JSON.stringify({ url: '/' }),
+      moduleSources: [],
+      executableActions: ['issue', 'pool-offer'],
+    });
+    expect(prompt).toContain('"issue" — files a bug upstream now;');
+    expect(prompt).toContain('"pool-offer" — open to any contributor to claim.');
+    expect(prompt).not.toContain('"quick-fix-pr"');
+    expect(prompt).not.toContain('"local-task"');
+    expect(prompt).toContain('be exactly one of: issue, pool-offer.');
+  });
+
+  it('coerces a suggestion the page cannot run to "issue" and reports the executable set', async () => {
+    const result = await composeReport(
+      { invoke: async () => reply('quick-fix-pr') },
+      'note',
+      JSON.stringify({ url: '/' }),
+      [],
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.action).toBe('issue');
+      expect(result.executableActions).toEqual(['issue', 'pool-offer']);
+    }
+  });
+
+  it('keeps a suggestion the page can run', async () => {
+    const result = await composeReport(
+      { invoke: async () => reply('quick-fix-pr') },
+      'note',
+      JSON.stringify({ url: '/p/demo' }),
+      [],
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.action).toBe('quick-fix-pr');
+  });
+
+  it('every refusal carries its STRINGS key', async () => {
+    const blank = await composeReport({ invoke: async () => 'x' }, '  ', undefined, []);
+    const gone = await composeReport({ invoke: async () => null }, 'note', undefined, []);
+    const junk = await composeReport({ invoke: async () => 'nonsense' }, 'note', undefined, []);
+    expect(blank).toMatchObject({ ok: false, reasonKey: 'composeNeedsDescription' });
+    expect(gone).toMatchObject({ ok: false, reasonKey: 'composeModelUnavailable' });
+    expect(junk).toMatchObject({ ok: false, reasonKey: 'composeUnusable' });
   });
 });

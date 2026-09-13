@@ -103,10 +103,19 @@ export interface ReportTaskPlan {
   readonly summary: string;
 }
 
-/** An invalid capture plans nothing — the reasoning says why. */
+/** The STRINGS key behind each rejection (#42, reported by @gabibi555:
+ *  server-composed prose reached the UI untranslated). The English
+ *  `reasoning` stays for logs and the API; the client renders
+ *  `tr(reasonKey, reasonArgs)` in the operator's own language. */
+export type ReportReasonKey = 'reportNeedsRegion' | 'reportNeedsDescription' | 'reportNeedsProject';
+
+/** An invalid capture plans nothing — the reasoning says why, in English
+ *  for the log and by key for the screen. */
 export interface ReportRejected {
   readonly ok: false;
   readonly reasoning: string;
+  readonly reasonKey: ReportReasonKey;
+  readonly reasonArgs?: Readonly<Record<string, string>>;
 }
 
 export type ReportPlan = ReportIssuePlan | ReportTaskPlan | ReportRejected;
@@ -282,12 +291,15 @@ export function planReportFromHere(
     return {
       ok: false,
       reasoning: 'a report needs the region it was made from — regionId is blank.',
+      reasonKey: 'reportNeedsRegion',
     };
   }
   if (capture.description.trim() === '') {
     return {
       ok: false,
       reasoning: `a report from "${capture.regionId}" needs a non-empty description — there is nothing to file, task, or offer yet.`,
+      reasonKey: 'reportNeedsDescription',
+      reasonArgs: { regionId: capture.regionId },
     };
   }
   if (action === 'issue' || action === 'pool-offer') {
@@ -297,6 +309,8 @@ export function planReportFromHere(
     return {
       ok: false,
       reasoning: `a "${action}" report becomes a board task, and a task needs a project — projectId is blank.`,
+      reasonKey: 'reportNeedsProject',
+      reasonArgs: { action },
     };
   }
   return planLocal(capture, action, projectId, createdAt);

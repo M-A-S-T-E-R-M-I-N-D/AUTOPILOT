@@ -345,10 +345,18 @@ function paintReportDialog(pid, capture) {
   actionSel.className = 'report-action';
   var actionValues = ['issue', 'quick-fix-pr', 'local-task', 'pool-offer'];
   var severityValues = ['critical', 'high', 'medium', 'low'];
+  // #41 (gabibi555): a page with no project behind it cannot run a
+  // task-shaped action, so those options are offered disabled with the way
+  // out named in their tip — never as a live choice that dead-ends at Preview.
+  var projectlessActions = ['quick-fix-pr', 'local-task'];
   for (var i = 0; i < actionValues.length; i++) {
     var opt = document.createElement('option');
     opt.value = actionValues[i];
     opt.textContent = reportActionLabel(actionValues[i]);
+    if (!pid && projectlessActions.indexOf(actionValues[i]) !== -1) {
+      opt.disabled = true;
+      opt.textContent = reportActionLabel(actionValues[i]) + ' — ' + tr('reportActionNeedsProject');
+    }
     actionSel.appendChild(opt);
   }
   dialog.appendChild(actionSel);
@@ -413,7 +421,9 @@ function paintReportDialog(pid, capture) {
           composeStatusEl.textContent = tr('reportComposeAiReady', { action: reportActionLabel(actionSel.value) });
         } else {
           composeStatusEl.className = 'report-compose-status report-compose-fail';
-          composeStatusEl.textContent = '\\u2717 ' + ((j && (j.reasoning || j.error)) || tr('reportComposeUnavailable'));
+          // #42: a keyed refusal renders in the operator's language; the
+          // English reasoning is the log's, not the screen's.
+          composeStatusEl.textContent = '\\u2717 ' + ((j && j.reasonKey ? tr(j.reasonKey) : j && (j.reasoning || j.error)) || tr('reportComposeUnavailable'));
         }
       })
       .catch(function () {
@@ -446,7 +456,8 @@ function paintReportDialog(pid, capture) {
       return;
     }
     if (!plan.ok) {
-      planEl.appendChild(el('p', 'muted', tr('reportNothingToFile', { reasoning: plan.reasoning })));
+      // #42: the rejection reaches the screen by key, in the operator's language.
+      planEl.appendChild(el('p', 'muted', tr('reportNothingToFile', { reasoning: plan.reasonKey ? tr(plan.reasonKey, plan.reasonArgs || {}) : plan.reasoning })));
       return;
     }
     previewedPlan = plan;

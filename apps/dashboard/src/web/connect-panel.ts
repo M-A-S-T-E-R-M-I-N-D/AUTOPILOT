@@ -29,6 +29,10 @@
  *  translator (its tests). */
 export type ConnectPanelKey =
   | 'connect'
+  | 'composeNeedsDescription'
+  | 'composeModelUnavailable'
+  | 'composeUnusable'
+  | 'composeLeak'
   | 'connected'
   | 'authModeApiKey'
   | 'connectApiKeyHint'
@@ -378,6 +382,9 @@ export interface ReportComposeResponse {
   readonly body?: string;
   readonly labels?: readonly string[];
   readonly reasoning?: string;
+  /** #42: the STRINGS key behind a refusal — rendered by key, in the
+   *  operator's language; `reasoning` stays the English log line. */
+  readonly reasonKey?: string;
   readonly error?: string;
 }
 
@@ -391,6 +398,17 @@ export interface ReportComposeResponse {
  * reports why and hands back empty strings, so the caller never copies a
  * half-formed composition into the visible title/body fields.
  */
+const COMPOSE_REASON_KEYS = [
+  'composeNeedsDescription',
+  'composeModelUnavailable',
+  'composeUnusable',
+  'composeLeak',
+] as const;
+type ComposeReasonKey = (typeof COMPOSE_REASON_KEYS)[number];
+function isComposeReasonKey(value: unknown): value is ComposeReasonKey {
+  return typeof value === 'string' && (COMPOSE_REASON_KEYS as readonly string[]).includes(value);
+}
+
 export function reportComposeStatusMeta(
   data: ReportComposeResponse | null | undefined,
   tr: ConnectPanelTranslator,
@@ -413,7 +431,11 @@ export function reportComposeStatusMeta(
       body,
     };
   }
-  const reasoning = (data && (data.reasoning || data.error)) || tr('reportComposeUnavailable');
+  // #42: a known refusal key renders in the operator's language; an unknown
+  // one (an older server, a typo) falls back to the English reasoning.
+  const keyed = data && isComposeReasonKey(data.reasonKey) ? tr(data.reasonKey) : '';
+  const reasoning =
+    keyed || (data && (data.reasoning || data.error)) || tr('reportComposeUnavailable');
   return {
     className: 'gh-issue-compose-status gh-issue-compose-fail',
     text: '✗ ' + reasoning,

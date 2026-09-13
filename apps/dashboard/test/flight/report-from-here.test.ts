@@ -392,3 +392,28 @@ describe('runReportFromHereRitual', () => {
     }
   });
 });
+
+describe('#42 — every rejection carries a STRINGS key and its arguments', () => {
+  it('blank description → reportNeedsDescription with the region', () => {
+    const plan = planReportFromHere(capture({ description: '  ' }), 'issue', 'p1', 1);
+    expect(plan).toMatchObject({
+      ok: false,
+      reasonKey: 'reportNeedsDescription',
+      reasonArgs: { regionId: capture().regionId },
+    });
+  });
+
+  it('blank region → reportNeedsRegion', () => {
+    const plan = planReportFromHere(capture({ regionId: ' ' }), 'local-task', 'p1', 1);
+    expect(plan).toMatchObject({ ok: false, reasonKey: 'reportNeedsRegion' });
+  });
+
+  it('task-shaped action with no project → reportNeedsProject naming the action', () => {
+    const plan = planReportFromHere(capture(), 'quick-fix-pr', '  ', 1);
+    expect(plan).toMatchObject({
+      ok: false,
+      reasonKey: 'reportNeedsProject',
+      reasonArgs: { action: 'quick-fix-pr' },
+    });
+  });
+});

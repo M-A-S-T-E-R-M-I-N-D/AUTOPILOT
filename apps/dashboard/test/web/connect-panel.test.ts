@@ -622,3 +622,27 @@ describe('reportComposeStatusMeta', () => {
     expect(reportComposeStatusMeta({ ok: false, reasoning: 'שגיאה' }, trHe).text).toBe('✗ שגיאה');
   });
 });
+
+describe('reportComposeStatusMeta renders a keyed refusal in the active language (#42)', () => {
+  const tr = ((key: string) => '[' + key + ']') as never;
+
+  it('translates a known reasonKey and ignores the English reasoning', () => {
+    const meta = reportComposeStatusMeta(
+      {
+        ok: false,
+        reasoning: 'The model is unavailable right now',
+        reasonKey: 'composeModelUnavailable',
+      },
+      tr,
+    );
+    expect(meta.text).toBe('✗ [composeModelUnavailable]');
+  });
+
+  it('falls back to the reasoning for an unknown key', () => {
+    const meta = reportComposeStatusMeta(
+      { ok: false, reasoning: 'something else', reasonKey: 'notAKey' },
+      tr,
+    );
+    expect(meta.text).toBe('✗ something else');
+  });
+});
