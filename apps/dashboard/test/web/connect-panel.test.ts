@@ -318,7 +318,9 @@ describe('ghStatusMeta', () => {
     const meta = ghStatusMeta({ present: true, version: '2.86.0', authenticated: false }, trEn);
 
     expect(meta.statusText).toBe('GitHub: gh 2.86.0, not logged in');
-    expect(meta.hint).toBe('Log in yourself in a terminal: gh auth login');
+    expect(meta.hint).toBe(
+      'Log in with the button — a terminal opens running gh auth login — or run it yourself.',
+    );
   });
 
   it('falls back to "found" when present but no version is reported', () => {
@@ -339,7 +341,9 @@ describe('ghStatusMeta', () => {
     );
 
     expect(meta.statusText).toBe('GitHub: connected as octocat');
-    expect(meta.hint).toBe('Disconnect any time in a terminal: gh auth logout');
+    expect(meta.hint).toBe(
+      'Switch or log out with the buttons — each opens a terminal running gh auth — or run it yourself.',
+    );
   });
 
   it('falls back to "unknown" when authenticated but the login could not be parsed', () => {

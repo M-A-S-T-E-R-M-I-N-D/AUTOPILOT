@@ -84,6 +84,7 @@ export type { GithubSyncExecuteApi, GithubIssueExecuteApi, GithubPrExecuteApi };
 import {
   handleGhStatus,
   handleGhLts,
+  handleGhAuth,
   GH_LTS_RATE_LIMIT,
   GH_LTS_RATE_WINDOW_MS,
   type GhApi,
@@ -93,6 +94,7 @@ import {
 // Moved to `./gh-connection.js` (epic 0002 shell decomposition) — re-exported
 // so existing importers of the gh connection contracts keep working unchanged.
 export type { GhApi, GhLtsApi };
+import { isGhAuthKind } from '../connection/gh-login.js';
 import {
   handlePoolClient,
   handlePublicity,
@@ -4147,6 +4149,15 @@ export function createServer(deps: ServerDeps = {}): Server {
     if (path === '/api/connection/gh') {
       void handleGhStatus(req, res, deps.gh, headers);
       return;
+    }
+
+    if (path.startsWith('/api/connection/gh/')) {
+      // Epic 0029 slice 2: login / switch / logout, each a terminal launch.
+      const kind = path.slice('/api/connection/gh/'.length);
+      if (isGhAuthKind(kind)) {
+        void handleGhAuth(req, res, deps.gh, headers, kind);
+        return;
+      }
     }
 
     if (path === '/api/connection/gh-lts') {

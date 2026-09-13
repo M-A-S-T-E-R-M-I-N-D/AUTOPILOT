@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * The connect screen's two GitHub read endpoints — status (`GET
+ * The connect screen's GitHub endpoints (plus, since epic 0029 slice 2,
+ * the three auth verbs `POST /api/connection/gh/{login,switch,logout}`, each
+ * a terminal launch of a fixed `gh auth …` literal) — status (`GET
  * /api/connection/gh`) and the LTS chip (`GET`/`POST
  * /api/connection/gh-lts`) — epic 0002 "shell decomposition" — split from
  * `server.ts`, mirroring the `github-execute.ts` extraction; the server
@@ -16,6 +18,7 @@ import type { RateLimiter } from './rate-limit.js';
 import { clientKey, sendJson } from './http-util.js';
 import type { GhStatus } from '../connection/gh-probe.js';
 import type { LtsCheckResult } from '../connection/gh-lts.js';
+import type { GhAuthKind } from '../connection/gh-login.js';
 
 // Guards POST /api/connection/gh-lts — a real `gh api` call against GitHub's
 // (separately rate-limited) REST API per request, same reasoning as
@@ -23,10 +26,22 @@ import type { LtsCheckResult } from '../connection/gh-lts.js';
 export const GH_LTS_RATE_LIMIT = 5;
 export const GH_LTS_RATE_WINDOW_MS = 60_000;
 
+/** What `POST /api/connection/gh/<kind>` answers: the terminal was (or was
+ *  not) opened; the flow itself finishes in that terminal, never here. */
+export interface GhAuthResult {
+  readonly launched: boolean;
+  readonly kind: GhAuthKind;
+  readonly message: string;
+}
+
 /** The connect screen's GitHub half (docs/epics/0006-github-connected-mode.md,
- *  slice 1) — read-only detection, never a write; `gh` owns the credential. */
+ *  slice 1) — read-only detection; `gh` owns the credential. Epic 0029
+ *  slice 2 adds `auth`: open a terminal running the fixed `gh auth <kind>`
+ *  literal (`connection/gh-login.ts`) — optional, so a read-only wiring
+ *  (fixtures, tests) stays valid and the verbs simply 404. */
 export interface GhApi {
   getStatus(): Promise<GhStatus>;
+  auth?(kind: GhAuthKind): Promise<GhAuthResult>;
 }
 
 /** The connect screen's LTS chip backing API (docs/epics/
@@ -57,6 +72,37 @@ export async function handleGhStatus(
     return;
   }
   send(200, await api.getStatus());
+}
+
+/**
+ * The connect screen's GitHub auth verbs (`POST /api/connection/gh/<kind>`,
+ * epic 0029 slice 2). POST-only and CSRF-guarded like every state-changing
+ * route here (`application/json` Content-Type); the verb opens a terminal
+ * running one fixed `gh auth …` literal and returns at once — the operator
+ * completes the flow there, so no credential ever crosses this route.
+ */
+export async function handleGhAuth(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: GhApi | undefined,
+  headers: Record<string, string>,
+  kind: GhAuthKind,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+
+  if (!api?.auth) {
+    send(404, { error: 'gh auth API unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  send(200, await api.auth(kind));
 }
 
 /**

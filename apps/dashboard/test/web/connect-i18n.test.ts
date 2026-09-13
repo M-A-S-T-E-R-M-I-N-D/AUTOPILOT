@@ -32,6 +32,12 @@ import { connectJs } from '../../src/web/features/connect.js';
 describe('the CONNECT popover reads its client-written status lines from STRINGS', () => {
   const out = connectJs();
 
+  it('translates the GitHub auth flow (epic 0029 slice 2)', () => {
+    expect(out).toContain("if (ghStatusEl) ghStatusEl.textContent = tr('ghAuthLaunching');");
+    expect(out).toContain('if (ghStatusEl) ghStatusEl.textContent = tr(openedKey);');
+    expect(out).toContain("if (ghStatusEl) ghStatusEl.textContent = tr('ghAuthLaunchFailed');");
+  });
+
   it('translates the three fetch-failure fallbacks', () => {
     expect(out).toContain("if (statusEl) statusEl.textContent = tr('connectionUnavailable');");
     expect(out).toContain("if (ghStatusEl) ghStatusEl.textContent = tr('ghUnavailable');");

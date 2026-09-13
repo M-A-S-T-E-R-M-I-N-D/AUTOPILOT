@@ -461,7 +461,9 @@ describe('subject-nav client — switching subjects', () => {
       .map((k) => k.id)
       .filter(Boolean);
     expect(ids.indexOf('live-workers')).toBe(ids.indexOf('totals') + 1);
-    expect(ids.indexOf('pr-review-panel')).toBe(ids.indexOf('stat-tiles') + 1);
+    // Epic 0030 slice 3 (docs/HIERARCHY.md): the project cards come before what
+    // waits on a human, so the Keeper panels now follow <main>, not the tiles.
+    expect(ids.indexOf('pr-review-panel')).toBe(ids.indexOf('fleet') + 1);
     expect(ids.indexOf('pool-client-panel')).toBe(ids.indexOf('pr-review-panel') + 1);
   });
 

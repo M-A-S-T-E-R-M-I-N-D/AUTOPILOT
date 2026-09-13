@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0030. Lock on and fire — the first file a user reads, the real flow in pictures, and the hierarchy behind it
 
-Status: Active (2026-09-13). Slice 1 shipped the same day.
+Status: Active (2026-09-13). Slices 1–3 shipped the same day (slice 3's phone variants open).
 
 ## The asks (operator, 2026-09-13)
 
@@ -38,8 +38,10 @@ the attention you have (an evening, a day, a week).
    neither); a flight underway at one of four. Captured at 1440×1030 @2×, dark,
    the browser clock frozen at the fixture's instant, no operator paths. The
    launch button now reads **Fire** in both locales (`flyIt`), and the three
-   shell frames were retaken on the same build.
-2. **The master prompt.** `docs/MASTER-PROMPT.md`: one document that states
+   shell frames were retaken on the same build. The retake is one command,
+   `node scripts/docs/capture-screens.mjs`, whose header says exactly what is
+   staged and what is real.
+2. **Shipped 2026-09-13 — the master prompt.** `docs/MASTER-PROMPT.md`: one document that states
    the product's promise, its laws (honest telemetry, additive git, gate before
    commit, one unit per firing, claim contracts), its surfaces (fleet, project,
    board, plan, docs, data), every ritual, every knob and its field, and what a
@@ -47,7 +49,7 @@ the attention you have (an evening, a day, a week).
    pilot's own prompt all read from. Written from `packages/engine/src/prompt.ts`,
    the flight laws, and this epic list; then the firing prompt is regenerated
    from it, not the other way round.
-3. **Hierarchy research and rethink.** Study how the best operator consoles
+3. **Shipped 2026-09-13 (desktop order, census, doc) — hierarchy research and rethink.** Study how the best operator consoles
    (flight decks, CI dashboards, IDE assistants) rank what the eye meets first.
    Slice 1's frames already show the first defect: on the fleet home the Fly
    bar — the product's one verb — sits fourth, under the totals, the tiles and

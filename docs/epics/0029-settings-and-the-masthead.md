@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0029. Settings and the masthead — one gear, icons not emoji, AAA within reach, GitHub as a first-class connection
 
-Status: Active (2026-09-13). Slice 1 shipped the same day.
+Status: Active (2026-09-13). Slices 1 and 2 shipped the same day.
 
 ## The asks (operator, 2026-09-13)
 
@@ -53,9 +53,16 @@ Status: Active (2026-09-13). Slice 1 shipped the same day.
    motion, terminal phosphor, Reset), the stroke icons in the masthead's icon
    cluster (palette, globe, bell, gear, heart), the OTLP chip below `md`,
    `web/features/prefs.ts` and its laws in the real bundle under jsdom.
-2. GitHub connection management: `gh auth login --web` relayed as a device
-   code, switch, log out — `connection/gh-login.ts` + routes + the Connect
-   popover's GitHub section.
+2. **Shipped 2026-09-13:** GitHub connection management — log in, switch
+   account, log out as three verbs in the Connect popover's GitHub section,
+   each opening a terminal running one fixed `gh auth …` literal (the Claude
+   button's own pattern; `connection/gh-login.ts`, `POST
+   /api/connection/gh/{login,switch,logout}`, CSRF-guarded, 404 on a
+   read-only wiring). The one-time code shows in that terminal rather than
+   being relayed — relaying would mean AUTOPILOT driving the flow, which epic
+   0006's law forbids; the identity line re-reads `gh auth status` on its own
+   once the flow has plausibly finished. Switch and log out appear only once
+   someone is logged in; all three only when `gh` is installed.
 3. The terminal HUD bar: scanlines and glow as preferences, the bar as a
    floating control under the terminal theme, dismissible, resettable.
 4. The masthead census as a design: which controls stay on top on which

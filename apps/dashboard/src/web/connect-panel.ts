@@ -237,9 +237,11 @@ export interface GhStatusInput {
 }
 
 /** The CONNECT popover's GitHub status display — status-line text and a hint
- *  pointing at the exact `gh` command to run next. AUTOPILOT never runs `gh
- *  auth login` for the operator (docs/epics/0006), so the hint is guidance
- *  text only — never a button that spends the operator's auth for them. */
+ *  pointing at the exact `gh` command to run next. Epic 0029 slice 2 put
+ *  the three verbs beside it (log in, switch, log out) — each opens a
+ *  terminal running a fixed `gh auth …` literal, the Claude button's own
+ *  pattern, so epic 0006's law holds: nothing is done on the operator's
+ *  behalf, and the hint still names the manual path. */
 export interface GhStatusMeta {
   readonly statusText: string;
   readonly hint: string;

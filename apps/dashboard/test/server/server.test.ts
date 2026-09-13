@@ -324,6 +324,48 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('POST /api/connection/gh/login opens the terminal through the injected auth verb (epic 0029 slice 2)', async () => {
+    const kinds: string[] = [];
+    const base = await start({
+      gh: {
+        getStatus: () =>
+          Promise.resolve({ present: true, version: '2.86.0', authenticated: false, login: null }),
+        auth: (kind) => {
+          kinds.push(kind);
+          return Promise.resolve({ launched: true, kind, message: 'opened' });
+        },
+      },
+    });
+    const res = await fetch(`${base}/api/connection/gh/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ launched: true, kind: 'login', message: 'opened' });
+    expect(kinds).toEqual(['login']);
+  });
+
+  it('404s the gh auth verbs on a read-only wiring and on an unknown verb; 405s a GET', async () => {
+    const readOnly = {
+      getStatus: () =>
+        Promise.resolve({
+          present: true,
+          version: '2.86.0',
+          authenticated: true,
+          login: 'octocat',
+        }),
+    };
+    const json = { method: 'POST', headers: { 'content-type': 'application/json' } };
+    const base = await start({ gh: readOnly });
+    expect((await fetch(`${base}/api/connection/gh/logout`, json)).status).toBe(404);
+    const wired = await start({
+      gh: { ...readOnly, auth: (kind) => Promise.resolve({ launched: true, kind, message: '' }) },
+    });
+    expect((await fetch(`${wired}/api/connection/gh/revoke`, json)).status).toBe(404);
+    expect((await fetch(`${wired}/api/connection/gh/logout`)).status).toBe(405);
+    expect((await fetch(`${wired}/api/connection/gh/switch`, { method: 'POST' })).status).toBe(415);
+  });
+
   it('POST /api/connection rejects a body over the 64KB cap (413, DoS guard)', async () => {
     let called = false;
     const base = await start({

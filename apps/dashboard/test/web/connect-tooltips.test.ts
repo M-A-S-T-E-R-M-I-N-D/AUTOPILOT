@@ -59,4 +59,10 @@ describe('the CONNECT popover buttons explain themselves on hover/focus, in the 
     expect(out).toContain("setTip(ghIssueBtn, 'ghIssueTip');");
     expect(out).not.toContain("'Files a real GitHub issue");
   });
+
+  it('tips the three GitHub auth verbs as terminal launches, nothing done on the operator’s behalf (epic 0029 slice 2)', () => {
+    expect(out).toContain("setTip(ghLoginBtn, 'ghLoginTip');");
+    expect(out).toContain("setTip(ghSwitchBtn, 'ghSwitchTip');");
+    expect(out).toContain("setTip(ghLogoutBtn, 'ghLogoutTip');");
+  });
 });

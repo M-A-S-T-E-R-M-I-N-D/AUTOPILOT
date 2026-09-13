@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   handleGhStatus,
   handleGhLts,
+  handleGhAuth,
   type GhApi,
   type GhLtsApi,
 } from '../../src/server/gh-connection.js';
@@ -235,5 +236,60 @@ describe('handleGhLts', () => {
     );
 
     expect(limiter.allow).toHaveBeenCalledWith('198.51.100.9', expect.any(Number));
+  });
+});
+
+describe('handleGhAuth (epic 0029 slice 2)', () => {
+  const wired: GhApi = {
+    getStatus: () =>
+      Promise.resolve({ present: true, version: '2.86.0', authenticated: false, login: null }),
+    auth: (kind) => Promise.resolve({ launched: true, kind, message: 'opened' }),
+  };
+
+  it('returns 404 when the gh API is unavailable or wired read-only', async () => {
+    for (const api of [undefined, { getStatus: wired.getStatus }]) {
+      const res = fakeResponse();
+      await handleGhAuth(
+        fakeRequest({ method: 'POST', contentType: 'application/json' }) as never,
+        res as never,
+        api,
+        {},
+        'login',
+      );
+      expect(res.writeHead.mock.calls[0]?.[0]).toBe(404);
+    }
+  });
+
+  it('returns 405 for anything but POST, and treats an undefined method as GET', async () => {
+    for (const method of ['GET', 'PUT', undefined]) {
+      const res = fakeResponse();
+      await handleGhAuth(fakeRequest({ method }) as never, res as never, wired, {}, 'switch');
+      expect(res.writeHead.mock.calls[0]?.[0]).toBe(405);
+    }
+  });
+
+  it('rejects a POST without an application/json Content-Type (CSRF guard)', async () => {
+    const res = fakeResponse();
+    await handleGhAuth(
+      fakeRequest({ method: 'POST', contentType: 'text/plain' }) as never,
+      res as never,
+      wired,
+      {},
+      'logout',
+    );
+    expect(res.writeHead.mock.calls[0]?.[0]).toBe(415);
+  });
+
+  it('opens the verb and serves its result on an allowed POST', async () => {
+    const res = fakeResponse();
+    await handleGhAuth(
+      fakeRequest({ method: 'POST', contentType: 'application/json' }) as never,
+      res as never,
+      wired,
+      {},
+      'logout',
+    );
+    expect(res.writeHead.mock.calls[0]?.[0]).toBe(200);
+    expect(readBody(res)).toEqual({ launched: true, kind: 'logout', message: 'opened' });
   });
 });

@@ -219,6 +219,17 @@ function iconEl(name) {
   }
   return svg;
 }
+// Epic 0025 slice 2: a panel heading is a leading stroke icon beside an inner
+// [data-i18n] span — translateDom() writes textContent on the tagged element,
+// so the tag sits on the span and a locale switch never wipes the icon.
+function panelHeading(tag, cls, key, iconName) {
+  var h = el(tag, cls);
+  if (iconName) h.appendChild(iconEl(iconName));
+  var label = el('span', 'heading-text', tr(key));
+  label.setAttribute('data-i18n', key);
+  h.appendChild(label);
+  return h;
+}
 // iconName (optional, epic 0025): a leading stroke icon instead of an emoji
 // glyph in the text — the text stays the chip's words and its textContent.
 function tipChip(text, tip, ariaLabel, extraClass, iconName) {
@@ -4467,6 +4478,11 @@ ${versionMenuHtml()}
           <div class="connect-gh">
             <p class="connect-status" id="gh-status" role="status" aria-live="polite" data-i18n="ghChecking">checking GitHub…</p>
             <p class="connect-hint" id="gh-hint"></p>
+            <div class="connect-actions gh-auth" id="gh-auth" hidden>
+              <button type="button" class="connect-login" id="gh-login" data-i18n="ghLogin">Log in with GitHub</button>
+              <button type="button" class="connect-test" id="gh-switch" data-i18n="ghSwitch" hidden>Switch account</button>
+              <button type="button" class="connect-test" id="gh-logout" data-i18n="ghLogout" hidden>Log out</button>
+            </div>
             <p class="connect-status" id="gh-lts" role="status" aria-live="polite" data-i18n="ltsChecking">checking for updates…</p>
             <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
             <form class="gh-issue-form" id="gh-issue-form">
@@ -4523,16 +4539,6 @@ ${subjectNavHtml(project)}
     <ul class="palette-list" id="palette-list" role="listbox" aria-labelledby="palette-title"></ul>
   </dialog>
 ${contextRailHtml(project)}
-  <section class="totals" id="totals" aria-label="Fleet summary" data-i18n-aria="fleetSummary" data-subject="fleet"></section>
-  <section class="live-workers" id="live-workers" role="group" aria-label="Who's flying now" data-i18n-aria="liveWorkers" data-subject="fleet" hidden></section>
-  <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance" data-subject="fleet"></section>
-  <section class="pr-review-panel" id="pr-review-panel" aria-label="KEEPER PR review" data-i18n-aria="keeperPrReview" data-subject="keeper" hidden></section>
-  <section class="pool-client-panel" id="pool-client-panel" aria-label="Contributor pool" data-i18n-aria="poolClientPanel" data-subject="keeper" hidden></section>
-  <section class="ci-status-panel" id="ci-status-panel" aria-label="CI status" data-i18n-aria="ciStatusPanel" data-subject="keeper" hidden></section>
-  <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
-  <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
-  <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
-  <section class="fleet-wisdom" id="fleet-wisdom" aria-label="Fleet wisdom proposal" data-i18n-aria="fleetWisdomProposal" data-subject="keeper" hidden></section>
   <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>
     <form class="fly-form" id="fly-form">
       <label for="fly-folder" data-i18n="flyFolder">Fly a folder</label>
@@ -4599,9 +4605,19 @@ ${contextRailHtml(project)}
     <div class="ask-proposal" id="ask-proposal" role="status" aria-live="polite"></div>
     <div class="search-results" id="search-results" aria-live="polite"></div>
   </section>
+  <section class="totals" id="totals" aria-label="Fleet summary" data-i18n-aria="fleetSummary" data-subject="fleet"></section>
+  <section class="live-workers" id="live-workers" role="group" aria-label="Who's flying now" data-i18n-aria="liveWorkers" data-subject="fleet" hidden></section>
+  <section class="stat-tiles" id="stat-tiles" aria-label="Fleet performance" data-i18n-aria="fleetPerformance" data-subject="fleet"></section>
   <main id="fleet" tabindex="-1" aria-label="Fleet" data-i18n-aria="fleetMain" aria-busy="true"${project !== undefined ? '' : ' data-subject="fleet"'}>
     <p class="hint" id="placeholder" data-i18n="connectingFleet">Connecting to the fleet…</p>
   </main>
+  <section class="pr-review-panel" id="pr-review-panel" aria-label="KEEPER PR review" data-i18n-aria="keeperPrReview" data-subject="keeper" hidden></section>
+  <section class="pool-client-panel" id="pool-client-panel" aria-label="Contributor pool" data-i18n-aria="poolClientPanel" data-subject="keeper" hidden></section>
+  <section class="ci-status-panel" id="ci-status-panel" aria-label="CI status" data-i18n-aria="ciStatusPanel" data-subject="keeper" hidden></section>
+  <section class="fleet-wisdom" id="fleet-wisdom" aria-label="Fleet wisdom proposal" data-i18n-aria="fleetWisdomProposal" data-subject="keeper" hidden></section>
+  <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
+  <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
+  <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
   <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
   <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
     <div class="ask-sheet-head">

@@ -1560,10 +1560,28 @@ const EN_STRINGS = {
   ghCliNotFound: 'GitHub: gh CLI not found',
   ghInstallHint: 'Optional — install the GitHub CLI to sync projects: cli.github.com',
   ghNotLoggedIn: 'GitHub: gh {version}, not logged in',
-  ghLoginHint: 'Log in yourself in a terminal: gh auth login',
+  ghLoginHint:
+    'Log in with the button — a terminal opens running gh auth login — or run it yourself.',
   ghConnectedAs: 'GitHub: connected as {login}',
   ghLoginUnknown: 'unknown',
-  ghLogoutHint: 'Disconnect any time in a terminal: gh auth logout',
+  ghLogoutHint:
+    'Switch or log out with the buttons — each opens a terminal running gh auth — or run it yourself.',
+  // GitHub connection management (epic 0029 slice 2): the three verbs, their
+  // tips, and the status line each paints — every one a terminal launch.
+  ghLogin: 'Log in with GitHub',
+  ghSwitch: 'Switch account',
+  ghLogout: 'Log out',
+  ghLoginTip:
+    'Opens a terminal running gh auth login — GitHub shows a one-time code there; nothing is done on your behalf.',
+  ghSwitchTip:
+    'Opens a terminal running gh auth switch — pick another account you are already logged in to.',
+  ghLogoutTip: 'Opens a terminal running gh auth logout — you confirm there.',
+  ghAuthLaunching: 'GitHub: opening a terminal…',
+  ghLoginOpened:
+    'GitHub: a terminal opened running gh auth login — follow the one-time code there; this line refreshes on its own.',
+  ghSwitchOpened: 'GitHub: a terminal opened running gh auth switch — pick the account there.',
+  ghLogoutOpened: 'GitHub: a terminal opened running gh auth logout — confirm there.',
+  ghAuthLaunchFailed: 'GitHub: could not open a terminal — run the gh auth command yourself.',
   ltsTipUpToDate: 'Running the latest GitHub Release — no update needed.',
   ltsTipUpdateAvailable:
     "A newer GitHub Release is available upstream. This dashboard never updates itself — pull and rebuild when you're ready.",
@@ -2605,10 +2623,23 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     ghCliNotFound: 'GitHub: gh CLI לא נמצא',
     ghInstallHint: 'אופציונלי — התקינו את GitHub CLI כדי לסנכרן פרויקטים: cli.github.com',
     ghNotLoggedIn: 'GitHub: gh {version}, לא בוצעה התחברות',
-    ghLoginHint: 'התחברו בעצמכם בטרמינל: gh auth login',
+    ghLoginHint: 'התחברו בכפתור — נפתח טרמינל שמריץ gh auth login — או הריצו בעצמכם.',
     ghConnectedAs: 'GitHub: מחובר בתור {login}',
     ghLoginUnknown: 'לא ידוע',
-    ghLogoutHint: 'ניתן להתנתק בכל עת בטרמינל: gh auth logout',
+    ghLogoutHint:
+      'החליפו חשבון או התנתקו בכפתורים — כל אחד פותח טרמינל שמריץ gh auth — או הריצו בעצמכם.',
+    ghLogin: 'התחברות ל-GitHub',
+    ghSwitch: 'החלפת חשבון',
+    ghLogout: 'התנתקות',
+    ghLoginTip: 'פותח טרמינל שמריץ gh auth login — GitHub מציג שם קוד חד-פעמי; דבר לא נעשה בשמכם.',
+    ghSwitchTip: 'פותח טרמינל שמריץ gh auth switch — בחרו חשבון אחר שכבר מחוברים אליו.',
+    ghLogoutTip: 'פותח טרמינל שמריץ gh auth logout — האישור נעשה שם.',
+    ghAuthLaunching: 'GitHub: פותח טרמינל…',
+    ghLoginOpened:
+      'GitHub: נפתח טרמינל שמריץ gh auth login — עקבו אחרי הקוד החד-פעמי שם; השורה הזו מתרעננת מעצמה.',
+    ghSwitchOpened: 'GitHub: נפתח טרמינל שמריץ gh auth switch — בחרו שם את החשבון.',
+    ghLogoutOpened: 'GitHub: נפתח טרמינל שמריץ gh auth logout — אשרו שם.',
+    ghAuthLaunchFailed: 'GitHub: לא ניתן היה לפתוח טרמינל — הריצו את פקודת gh auth בעצמכם.',
     ltsTipUpToDate: 'מריץ את ה-GitHub Release האחרון — אין צורך בעדכון.',
     ltsTipUpdateAvailable:
       'GitHub Release חדש יותר זמין במעלה הזרם. לוח הבקרה הזה לעולם לא מעדכן את עצמו — משכו ובנו מחדש כשתהיו מוכנים.',

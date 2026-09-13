@@ -47,7 +47,11 @@ propagation, and the filled style does not match the nav.
 1. `icons.ts` + `LICENSES/ISC-lucide.txt` + THANKS; the subject nav and the
    board's focus/burn/inbox/backlog chips first (the most visible).
 2. Panel headings and execute buttons (pool, PR review, triage, mirror pass,
-   release, landing).
+   release, landing). **Hub landed 2026-09-13:** 32 more shapes vendored and
+   `panelHeading(tag, cls, key, icon)` in the core bundle — an icon beside an
+   inner `[data-i18n]` span, so the locale sweep never wipes it. The per-panel
+   conversions (STRINGS drop the emoji in both locales, tests pin the new
+   text) are lane work, file-disjoint by feature module.
 3. Status pills and the live-worker cards; the office map's markers.
 4. The emoji census test pins zero; docs and screenshots refreshed.
 
