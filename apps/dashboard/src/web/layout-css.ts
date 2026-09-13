@@ -1370,6 +1370,31 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .skip-link:not(:focus) { inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 main:focus { outline: none; }
+/* THE ASK SHEET (epic 0026 slice 3, web/features/ask-sheet.ts): the one
+   floating action button of the page, bottom trailing above the phone nav
+   (56px, the accent); the sheet slides in beside the page from lg and rises
+   as a bottom sheet below it. Non-modal: the page stays live beneath. */
+.ask-fab { position: fixed; inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom)); inset-inline-end: var(--space-3); z-index: 60; display: inline-flex; align-items: center; justify-content: center; inline-size: 3.5rem; block-size: 3.5rem; border-radius: var(--shape-large, 1rem); border: 0; background: var(--color-accent); color: var(--color-accent-text); cursor: pointer; box-shadow: var(--elevation-level-3, var(--elevation-level-2)); transition: transform var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard), border-radius var(--duration-short2) var(--easing-standard); }
+.ask-fab:hover, .ask-fab:focus-visible { transform: translateY(-2px); border-radius: var(--shape-large-hover, 1.25rem); }
+.ask-fab:active { transform: translateY(0); box-shadow: var(--elevation-level-1); }
+.ask-fab[aria-expanded="true"] { background: var(--color-surface-raised); color: var(--color-accent); border: 1px solid var(--color-accent); }
+.ask-sheet { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 55; display: grid; grid-template-rows: auto 1fr; max-block-size: 70vh; background: var(--color-surface-raised); border-block-start: 1px solid var(--color-border); border-start-start-radius: var(--shape-large, 1rem); border-start-end-radius: var(--shape-large, 1rem); box-shadow: var(--elevation-level-3, var(--elevation-level-2)); padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
+.ask-sheet[hidden] { display: none; }
+.ask-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-block-end: 1px solid var(--color-border); }
+.ask-sheet-title { margin: 0; font-size: var(--text-base); }
+.ask-sheet-close { display: inline-flex; align-items: center; justify-content: center; inline-size: 2.5rem; block-size: 2.5rem; border-radius: var(--radius-full); border: 1px solid transparent; background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.ask-sheet-close:hover, .ask-sheet-close:focus-visible { color: var(--color-text); border-color: var(--color-border); }
+.ask-sheet-body { overflow: auto; overscroll-behavior: contain; padding: var(--space-3) var(--space-4); }
+/* The moved section drops its card chrome inside the sheet: the sheet is the surface. */
+.ask-sheet-body > .searchbar { margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent; }
+@media (min-width: 64rem) {
+  .ask-sheet { inset-inline: auto 0; inset-block: 0; inline-size: min(28rem, 100vw); max-block-size: none; border-block-start: 0; border-inline-start: 1px solid var(--color-border); border-radius: 0; padding-block-end: 0; }
+  .ask-fab { inset-block-end: var(--space-4); }
+  html[data-ask-sheet="open"] .ask-fab { inset-inline-end: calc(min(28rem, 100vw) + var(--space-3)); }
+}
+/* Other floating controls step up out of the button's way. */
+html[data-ask-sheet="open"] .ritual-pill, .ritual-pill { inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + 4rem + env(safe-area-inset-bottom)); }
+@media (min-width: 64rem) { .ritual-pill { inset-block-end: calc(var(--space-4) + 4rem); } }
 /* BUSY STATES (2026-09-13, web/features/busy.ts): the ritual scrim. One modal
    over a glass field while an outward write runs; the card carries a spinner,
    the elapsed clock, the note, a progress bar (determinate for the landing's

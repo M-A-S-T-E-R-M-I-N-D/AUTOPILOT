@@ -5,6 +5,7 @@
 //   node scripts/codemod/generate-splice-manifest.mjs --emit-index <features-dir>
 import { activityHeatmapJs } from './activity-heatmap.js';
 import { activityJs } from './activity.js';
+import { askSheetJs } from './ask-sheet.js';
 import { backlogJs } from './backlog.js';
 import { busyJs } from './busy.js';
 import { ciStatusJs } from './ci-status.js';
@@ -47,6 +48,7 @@ import { updateJs } from './update.js';
 export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   activityHeatmapJs,
   activityJs,
+  askSheetJs,
   backlogJs,
   busyJs,
   ciStatusJs,
@@ -97,6 +99,7 @@ export function featureModulesJs(): string {
 export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () => string>> = {
   'activity-heatmap': activityHeatmapJs,
   activity: activityJs,
+  'ask-sheet': askSheetJs,
   backlog: backlogJs,
   busy: busyJs,
   'ci-status': ciStatusJs,

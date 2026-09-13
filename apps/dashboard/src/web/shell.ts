@@ -4478,6 +4478,14 @@ ${contextRailHtml(project)}
   <main id="fleet" tabindex="-1" aria-label="Fleet" data-i18n-aria="fleetMain" aria-busy="true"${project !== undefined ? '' : ' data-subject="fleet"'}>
     <p class="hint" id="placeholder" data-i18n="connectingFleet">Connecting to the fleet…</p>
   </main>
+  <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
+  <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
+    <div class="ask-sheet-head">
+      <h2 class="ask-sheet-title" id="ask-sheet-title" data-i18n="askSheetTitle">Ask</h2>
+      <button type="button" class="ask-sheet-close" id="ask-sheet-close" aria-label="Close" data-i18n-aria="askSheetClose"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="ask-sheet-body" id="ask-sheet-body"></div>
+  </aside>
   <script src="/app.js?v=${v}"></script>${
     project !== undefined
       ? `

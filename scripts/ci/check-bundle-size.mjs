@@ -97,7 +97,10 @@ import { gzipSync } from 'node:zlib';
 // 45→47KB (2026-09-13) for BUSY STATES (web/features/busy.ts — the ritual
 // scrim, pill, toast and write lock, core) and the claims ledger line on the
 // pool panel (deferred): measured 210.2KB/62.3KB core, 152.0KB/45.7KB panels.
-const CORE_RAW_BUDGET = 216 * 1024;
+// Then core raw 216→220KB (2026-09-13) for THE ASK SHEET (web/features/
+// ask-sheet.ts, core: the floating button, the sheet, the move-and-return):
+// measured 216.0KB raw / 63.7KB gzip.
+const CORE_RAW_BUDGET = 220 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

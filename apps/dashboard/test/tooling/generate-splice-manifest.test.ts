@@ -45,6 +45,7 @@ import {
 import { switcherJs } from '../../src/web/features/switcher.js';
 import { activityHeatmapJs } from '../../src/web/features/activity-heatmap.js';
 import { activityJs } from '../../src/web/features/activity.js';
+import { askSheetJs } from '../../src/web/features/ask-sheet.js';
 import { backlogJs } from '../../src/web/features/backlog.js';
 import { busyJs } from '../../src/web/features/busy.js';
 import { ciStatusJs } from '../../src/web/features/ci-status.js';
@@ -122,6 +123,7 @@ function featureTs(basename: string): string {
 
 const ACTIVITY_HEATMAP_TS = featureTs('activity-heatmap');
 const ACTIVITY_TS = featureTs('activity');
+const ASK_SHEET_TS = featureTs('ask-sheet');
 const BACKLOG_TS = featureTs('backlog');
 const BUSY_TS = featureTs('busy');
 const CI_STATUS_TS = featureTs('ci-status');
@@ -1383,6 +1385,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
   const EXPECTED_FEATURE_MODULES: Record<string, string[]> = {
     'activity-heatmap.ts': ['activityHeatmapJs'],
     'activity.ts': ['activityJs'],
+    'ask-sheet.ts': ['askSheetJs'],
     'backlog.ts': ['backlogJs'],
     'busy.ts': ['busyJs'],
     'ci-status.ts': ['ciStatusJs'],
@@ -1440,6 +1443,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
 
   it('builds a FeatureModulesManifest for src/web/features/ that matches buildAssemblyManifest called directly on each file', () => {
     const activitySource = readFileSync(ACTIVITY_TS, 'utf8');
+    const askSheetSource = readFileSync(ASK_SHEET_TS, 'utf8');
     const backlogSource = readFileSync(BACKLOG_TS, 'utf8');
     const busySource = readFileSync(BUSY_TS, 'utf8');
     const ciStatusSource = readFileSync(CI_STATUS_TS, 'utf8');
@@ -1484,6 +1488,9 @@ describe('discoverFeatureModules against the real src/web/features directory —
     );
     const directActivityManifest = buildAssemblyManifest(activitySource, ACTIVITY_TS, [
       'activityJs',
+    ]);
+    const directAskSheetManifest = buildAssemblyManifest(askSheetSource, ASK_SHEET_TS, [
+      'askSheetJs',
     ]);
     const directBacklogManifest = buildAssemblyManifest(backlogSource, BACKLOG_TS, ['backlogJs']);
     const directBusyManifest = buildAssemblyManifest(busySource, BUSY_TS, ['busyJs']);
@@ -1598,6 +1605,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     expect(manifest.modules).toEqual([
       directActivityHeatmapManifest,
       directActivityManifest,
+      directAskSheetManifest,
       directBacklogManifest,
       directBusyManifest,
       directCiStatusManifest,
@@ -1904,6 +1912,7 @@ describe('generateFeatureModulesIndexSource', () => {
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
     expect(source).toContain("import { activityJs } from './activity.js';");
+    expect(source).toContain("import { askSheetJs } from './ask-sheet.js';");
     expect(source).toContain("import { backlogJs } from './backlog.js';");
     expect(source).toContain("import { busyJs } from './busy.js';");
     expect(source).toContain("import { ciStatusJs } from './ci-status.js';");
@@ -1946,7 +1955,8 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./activity-heatmap.js'")).toBeLessThan(
       source.indexOf("'./activity.js'"),
     );
-    expect(source.indexOf("'./activity.js'")).toBeLessThan(source.indexOf("'./backlog.js'"));
+    expect(source.indexOf("'./activity.js'")).toBeLessThan(source.indexOf("'./ask-sheet.js'"));
+    expect(source.indexOf("'./ask-sheet.js'")).toBeLessThan(source.indexOf("'./backlog.js'"));
     expect(source.indexOf("'./backlog.js'")).toBeLessThan(source.indexOf("'./ci-status.js'"));
     expect(source.indexOf("'./ci-status.js'")).toBeLessThan(source.indexOf("'./connect.js'"));
     expect(source.indexOf("'./connect.js'")).toBeLessThan(
@@ -2011,7 +2021,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2702,6 +2712,27 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
    * ../activity-log.js), resolved against web/features/ rather than
    * SHELL_DIR, and no non-splice slots at all.
    */
+  /** askSheetJs's own reconstruction (epic 0026 slice 3): a plain
+   *  substitution-free literal — no splices, no slots. */
+  async function reconstructAskSheetJs(): Promise<string> {
+    const askSheetSource = readFileSync(ASK_SHEET_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(askSheetSource, ASK_SHEET_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        askSheetSource,
+        'askSheetJs',
+        resolvedBindings,
+        undefined,
+        ASK_SHEET_TS,
+      )
+    ).trim();
+  }
+
+  it('askSheetJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/ask-sheet.ts', async () => {
+    expect(await reconstructAskSheetJs()).toBe(askSheetJs());
+  });
+
   async function reconstructActivityJs(): Promise<string> {
     const activitySource = readFileSync(ACTIVITY_TS, 'utf8');
     const spliceEntries = findSpliceManifest(activitySource, ACTIVITY_TS);
@@ -4036,6 +4067,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('switcherJs', await reconstructSwitcherJs());
     nestedOutputs.set('activityHeatmapJs', await reconstructActivityHeatmapJs());
     nestedOutputs.set('activityJs', await reconstructActivityJs());
+    nestedOutputs.set('askSheetJs', await reconstructAskSheetJs());
     nestedOutputs.set('backlogJs', await reconstructBacklogJs());
     nestedOutputs.set('busyJs', await reconstructBusyJs());
     nestedOutputs.set('ciStatusJs', await reconstructCiStatusJs());
