@@ -115,8 +115,9 @@ html[data-theme="terminal"][data-phosphor="white"] { --color-accent: oklch(0.93 
 html[data-theme="terminal"] .pref-terminal { display: block; }
 /* A phone masthead has two rows to give: the OTLP indicator (a diagnostic
    chip) steps out below md so the settings gear fits; it returns from md. */
-.otlp-chip:not([hidden]) { display: none; }
-@media (min-width: 48rem) { .otlp-chip:not([hidden]) { display: inline-flex; } }
+.masthead-right .otlp-chip[hidden] { display: none; }
+.masthead-right .otlp-chip { display: none; }
+@media (min-width: 48rem) { .masthead-right .otlp-chip:not([hidden]) { display: inline-flex; } }
 /* THE VERSION MENU (2026-09-13): the chip is the running version; the dot
    turns accent when a newer release exists. The popover reuses .connect's
    body and actions so the two masthead menus read as one family. */
