@@ -113,12 +113,19 @@ on a phone. The bottom bar is the rail.
 - `apps/dashboard/test/web/hierarchy-census.test.ts` pins the fleet home's
   section order and the rule that the Fly bar precedes the totals.
 - The visual baselines were re-rendered on CI for the new order.
+- **Totals collapse to two numbers on a phone** (`renderTotals`,
+  `TOTALS_PHONE_KEEP` in `shell.ts`): flying and need you — the two
+  actionable counts under the "quiet unless it needs you" doctrine above —
+  stay visible below 48rem; the rest (`.total-collapse`) return at 48rem.
+  The seeded Tab stop moves to the first visible cell on phone so the
+  collapse never strands keyboard focus on a hidden one.
+- The skip link (`.skip-link`, `shell.ts`) was already the first interactive
+  element in the DOM, ahead of the masthead — an earlier build, not this
+  slice; the "Open" bullet below is retired as already satisfied.
 
 ## 6. Open
 
 - The phone Fly tab as a one-line chip + Fire with expand-on-tap.
-- Totals collapsing to two numbers on a phone.
-- A skip link as the first interactive element (WCAG 2.4.1, technique G1).
 - `scroll-padding-top` if the Fly bar ever becomes sticky.
 - The diff counter (`+N −M`) on live-work rows once the record carries it.
 

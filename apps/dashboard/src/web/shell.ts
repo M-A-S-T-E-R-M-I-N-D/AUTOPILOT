@@ -3682,21 +3682,37 @@ function renderProjectPage(state, pid) {
   if (typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
 
 }
+// HIERARCHY.md §3/§6 (epic 0030 slice 3): on a phone the totals bar
+// collapses to the two actionable numbers — flying (what's happening now)
+// and need you (what needs a human) — the same "quiet unless it needs you"
+// doctrine the rest of the bar already follows; the other counts stay one
+// tap away on the fleet page proper. Fixed positions in totalsTileItems'
+// documented render order (stat-tiles.test.ts): 1 = flying, 6 = need you.
+var TOTALS_PHONE_KEEP = [1, 6];
+var TOTALS_PHONE_MQ = '(min-width: 48rem)';
+function totalsPhoneCollapsed() {
+  return typeof window.matchMedia === 'function' && !window.matchMedia(TOTALS_PHONE_MQ).matches;
+}
 function renderTotals(t) {
   var bar = document.getElementById('totals');
   if (!bar) return;
   bar.replaceChildren();
   // #16: labels and tips in the active locale (tr is locale.ts's, core).
   var items = totalsTileItems(t, fmtCost, tr);
+  // The seeded Tab stop must be a cell that is actually visible — on phone
+  // that is the first kept cell (flying), never the collapsed "projects"
+  // cell at 0, which display:none already drops out of the tab order.
+  var seedIndex = totalsPhoneCollapsed() ? TOTALS_PHONE_KEEP[0] : 0;
   for (var i = 0; i < items.length; i++) {
     var cell = el('div', 'total');
+    if (TOTALS_PHONE_KEEP.indexOf(i) < 0) cell.classList.add('total-collapse');
     cell.appendChild(el('span', 'total-n', String(items[i][0])));
     cell.appendChild(el('span', 'total-l', items[i][1]));
     // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): only
-    // the first count is a Tab stop, not one per cell — seven or eight stops
+    // one count is a Tab stop, not one per cell — seven or eight stops
     // before a keyboard user ever reached the stat-tile grid below.
     // wireRoving('.totals .total', '.totals') moves it.
-    cell.setAttribute('tabindex', i === 0 ? '0' : '-1');
+    cell.setAttribute('tabindex', i === seedIndex ? '0' : '-1');
     cell.setAttribute('data-tip', items[i][2]);
     cell.setAttribute('aria-label', statTileAriaLabel(items[i]));
     bar.appendChild(cell);
