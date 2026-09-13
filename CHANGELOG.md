@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.46.0] — 2026-09-13
+
+### Added
+
+- feat(dashboard): icons slice 2 hub — 32 more stroke shapes and one panelHeading law
+- feat(engine): firing-v14 — the prompt says what the guard and the gate already enforce
+- feat(dashboard): the fleet home ranks its one verb first — hierarchy doc, census, master prompt
+- feat(dashboard): github connection management — log in, switch, log out from the connect popover
+- feat(readme): lock on, lucky, fire — the first file sells the flow; the launch button says fire
+- feat(dashboard): settings — text size, font, spacing, motion, terminal phosphor, one reset
+
+### Fixed
+
+- fix(dashboard): masthead icon-only summaries stay centred — the heading margin skips a lone icon
+- fix(dashboard): the OTLP chip honours hidden and stays out of a phone masthead
+
 ## [0.45.0] — 2026-09-13
 
 ### Added
