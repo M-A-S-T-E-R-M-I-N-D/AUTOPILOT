@@ -252,7 +252,7 @@ the operator; each is a candidate for a guard or a hook:
 13. The prompt position audit — a test, not a runtime check.
 14. "A reland is a landing" (firing-v15) — no guard distinguishes a reland
     commit from any other; the gate + census sweep is honor-system only.
-14. The SOUL's three git rules vs the prompt's four vs the guard's nine — this
+15. The SOUL's three git rules vs the prompt's four vs the guard's nine — this
     file names the nine; the SOUL and the prompt point here.
 
 ## 9. Regeneration rule
