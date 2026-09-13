@@ -131,7 +131,7 @@ describe('panelHeading — the icon-beside-a-tagged-span law', () => {
 
   it('the stylesheet spaces a heading icon from its words', () => {
     expect(layoutCss()).toContain(
-      'h2 > .icon, h3 > .icon, summary > .icon { margin-inline-end: var(--space-2); }',
+      'h2 > .icon, h3 > .icon, summary > .icon:not(:only-child) { margin-inline-end: var(--space-2); }',
     );
   });
 });
