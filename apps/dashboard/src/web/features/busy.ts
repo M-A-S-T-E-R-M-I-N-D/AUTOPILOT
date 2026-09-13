@@ -166,6 +166,12 @@ function ritualFreeze(on) {
     else if (k.hasAttribute('inert')) k.removeAttribute('inert');
   }
 }
+// A ritual belongs to the page that started it: once that document is
+// replaced (a rewritten page, a test boot), its scrim is disconnected and the
+// ritual is dead — its guard must never hold the NEXT page's buttons.
+function ritualStale() {
+  return !!ritualDom && !ritualDom.scrim.isConnected;
+}
 function ritualState() {
   if (!ritual) return 'idle';
   if (!ritual.done) return 'running';
@@ -235,6 +241,7 @@ function ritualPaint() {
 }
 function ritualBegin(kind, opts) {
   opts = opts || {};
+  if (ritualStale()) { ritualDom = null; ritual = null; }
   if (ritual && !ritual.done) return ritual;
   ritual = {
     kind: kind,
@@ -359,7 +366,7 @@ function ritualFollowLandingJob(pid, job) {
 // Writes wait: a press on any other write button while a ritual runs is
 // refused here, in the capture phase, before the panel's own handler sees it.
 document.addEventListener('click', function (e) {
-  if (!ritual || ritual.done) return;
+  if (!ritual || ritual.done || ritualStale()) return;
   var b = e.target && e.target.closest && e.target.closest(RITUAL_WRITE_SELECTOR);
   if (!b) return;
   e.preventDefault();
@@ -367,7 +374,7 @@ document.addEventListener('click', function (e) {
   ritualToast(tr('ritualWaitToast', { title: ritualTitleText(ritual) }));
 }, true);
 document.addEventListener('keydown', function (e) {
-  if (e.key !== 'Escape' || !ritual || ritual.closed) return;
+  if (e.key !== 'Escape' || !ritual || ritual.closed || ritualStale()) return;
   var d = ritualNodes();
   if (d.scrim.hidden) return;
   e.preventDefault();

@@ -398,17 +398,6 @@ export interface ReportComposeResponse {
  * reports why and hands back empty strings, so the caller never copies a
  * half-formed composition into the visible title/body fields.
  */
-const COMPOSE_REASON_KEYS = [
-  'composeNeedsDescription',
-  'composeModelUnavailable',
-  'composeUnusable',
-  'composeLeak',
-] as const;
-type ComposeReasonKey = (typeof COMPOSE_REASON_KEYS)[number];
-function isComposeReasonKey(value: unknown): value is ComposeReasonKey {
-  return typeof value === 'string' && (COMPOSE_REASON_KEYS as readonly string[]).includes(value);
-}
-
 export function reportComposeStatusMeta(
   data: ReportComposeResponse | null | undefined,
   tr: ConnectPanelTranslator,
@@ -433,7 +422,16 @@ export function reportComposeStatusMeta(
   }
   // #42: a known refusal key renders in the operator's language; an unknown
   // one (an older server, a typo) falls back to the English reasoning.
-  const keyed = data && isComposeReasonKey(data.reasonKey) ? tr(data.reasonKey) : '';
+  // Inline (no module-scope helper): shell.ts splices this function's own
+  // source into the served bundle, where nothing outside it exists.
+  const composeKeys = [
+    'composeNeedsDescription',
+    'composeModelUnavailable',
+    'composeUnusable',
+    'composeLeak',
+  ];
+  const reasonKey = data && typeof data.reasonKey === 'string' ? data.reasonKey : '';
+  const keyed = composeKeys.indexOf(reasonKey) !== -1 ? tr(reasonKey as ConnectPanelKey) : '';
   const reasoning =
     keyed || (data && (data.reasoning || data.error)) || tr('reportComposeUnavailable');
   return {
