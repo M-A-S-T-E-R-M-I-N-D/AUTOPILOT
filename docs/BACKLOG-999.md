@@ -90,13 +90,9 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
 - [x] Operating principle wired in: proceed on reasonable interpretation, reserve forks/🟣 for approval, never stall — `MASTER-PLAN.md` §17.4; the firing prompt's NOOP→VERDICT and empty-board PROPOSALS sections encode it
 
 ## K. M0-review forward notes (deferred low-severity items from the M0 adversarial review, 2026-07-06)
-- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` that opens the DB
-  read-only and skips write-only pragmas (`journal_mode = WAL`) — needed when the dashboard opens the store for reads (M3).
-  Done — `StoreOptions.readonly` in `packages/store/src/db.ts` (existing callers unaffected); dashboard adoption
-  landed too — every pure-read `openStore` call site in `apps/dashboard/src/read/source.ts`
-  (`readFleetFromStore` .. `gatherLiveState`) now passes `{ readonly: true }`, so the dashboard never holds a
-  write-capable handle alongside the engine's own writer connection; mutation functions (`createTaskInStore` etc.)
-  are unaffected. Covered by `test/read/source.test.ts`'s "read-only openStore adoption" spy assertion.
+- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` (needed when the
+  dashboard opens the store for reads, M3). Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--read-only-open-path-moved-2026-09-13).
 - [ ] TypeScript type-aware linting (M1): when enabling `parserOptions.projectService`, give ESLint a project whose
   `include` covers every linted file (root config files + `scripts/*.mjs`).
 - [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
