@@ -35,6 +35,7 @@ import {
   liveFiringsOf as sharedLiveFirings,
 } from '../shared/live-firing.js';
 import { OFFICE_TIPS } from './office-map.js';
+import { PRODUCT_VERSION } from '../info.js';
 import {
   fmtBytes as sharedFmtBytes,
   fmtCost as sharedFmtCost,
@@ -4266,6 +4267,32 @@ export function assetVersion(): string {
 }
 
 /** The full HTML document for `GET /` (fleet) or `/p/<id>` (one project). */
+/** THE VERSION MENU (2026-09-13): the masthead chip that always shows the
+ *  running version, and its popover (newest-release check, "Run the latest",
+ *  "Check now") — see web/features/update.ts. Built by concatenation, not a
+ *  template substitution, so the splice registry sees no new splice site. */
+export function versionMenuHtml(): string {
+  return (
+    `      <details class="connect version-menu" id="version-menu" name="masthead-popover">
+        <summary id="version-summary" data-tip="Running v` +
+    PRODUCT_VERSION +
+    ` — open for the newest-release check and the run-the-latest button" data-i18n-tip="versionSummaryTip" aria-label="Version v` +
+    PRODUCT_VERSION +
+    `" data-i18n-aria="versionSummaryAria"><span class="version-dot" id="version-dot" aria-hidden="true"></span><span id="version-label">v` +
+    PRODUCT_VERSION +
+    `</span></summary>
+        <div class="connect-body version-body">
+          <p class="connect-status version-status" id="version-status" role="status" aria-live="polite" data-i18n="versionChecking">checking for the newest release…</p>
+          <div class="connect-actions">
+            <button type="button" class="connect-login version-run" id="version-run" data-i18n="versionRunLatest" data-tip="Pulls the newest release, reinstalls, rebuilds and restarts the dashboard — a clean reset onto the latest, even when you are already on it" data-i18n-tip="versionRunTip">Run the latest</button>
+            <button type="button" class="connect-test version-check" id="version-check" data-i18n="versionCheckNow">Check now</button>
+          </div>
+          <p class="connect-hint version-note" data-i18n="versionRunNote">Local progress is never touched: with uncommitted changes you are asked before they are parked in git stash.</p>
+        </div>
+      </details>`
+  );
+}
+
 export function renderShell(project?: string): string {
   const v = assetVersion();
   const anchor = project !== undefined ? ` data-project="${escapeAttr(project)}"` : '';
@@ -4290,6 +4317,7 @@ export function renderShell(project?: string): string {
     <div class="brand"><span class="brand-mark" aria-hidden="true">${gogglesMarkInlineSvg()}</span>AUTOPILOT</div>
     <div class="masthead-right">
       <span class="updated" id="updated" role="status" aria-live="polite" data-i18n="updatedConnecting">connecting…</span>
+${versionMenuHtml()}
       <span class="chip otlp-chip" id="otlp-chip" tabindex="0" data-tip="An OTEL_EXPORTER_OTLP_* endpoint is configured — every flight exports its spans there" data-i18n-tip="otlpExportTip" aria-label="OTLP export: configured" data-i18n-aria="otlpExportConfigured" hidden>OTLP</span>
       <details class="connect" id="connect" name="masthead-popover">
         <summary id="connect-summary"><span class="conn-dot" id="conn-dot" aria-hidden="true"></span><span id="connect-label" data-i18n="connect">Connect</span></summary>

@@ -30,7 +30,13 @@ import type {
   AssemblyManifest,
   FeatureModulesManifest,
 } from '../../../../scripts/codemod/generate-splice-manifest.mjs';
-import { clientJs, fleetJs, renderShell, assetVersion } from '../../src/web/shell.js';
+import {
+  clientJs,
+  fleetJs,
+  renderShell,
+  assetVersion,
+  versionMenuHtml,
+} from '../../src/web/shell.js';
 import {
   FEATURE_JS_BY_NAME,
   PROJECT_PAGE_FEATURES,
@@ -2092,6 +2098,10 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     // shape, varying by page kind (four links on the fleet page, six tabs on
     // a project page).
     'subjectNavHtml',
+    // The masthead's version chip (2026-09-13): the build's own version
+    // constant, concatenated into versionMenuHtml()'s markup — a server-side
+    // value, never a client-visible helper to splice.
+    'PRODUCT_VERSION',
     // The context rail's aside (epic 0021 slice 6): the same server-helper
     // shape as subjectNavHtml — fleet page only, hidden until the client fills it.
     'contextRailHtml',
@@ -4221,7 +4231,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
 
 describe("reconstructing shell.ts's renderShell() byte-for-byte — the documented follow-on", () => {
   // The clientJs() suite above left renderShell() as an explicit follow-on:
-  // none of its 6 slots are relative-import splices (findSpliceManifest
+  // none of its 7 slots are relative-import splices (findSpliceManifest
   // returns zero entries for it) — every one is a genuinely different
   // non-splice shape: a package-import binding used bare (`DEFAULT_THEME`), a
   // `.map().join()` expression over a relative-import array
@@ -4268,6 +4278,11 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
       // page, six on a project page — a server helper beside themeButtons().
       return subjectNavHtml(project);
     }
+    if (exprText === 'versionMenuHtml()') {
+      // the masthead's version menu (2026-09-13): a same-file exported helper
+      // built by concatenation, so it is a call slot, never a splice site.
+      return versionMenuHtml();
+    }
     if (exprText === 'contextRailHtml(project)') {
       // the context rail's aside (epic 0021 slice 6), fleet page only.
       return contextRailHtml(project);
@@ -4305,7 +4320,7 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
     },
   );
 
-  it('has no relative-import splice entries — every one of its 6 slots is a non-splice shape', () => {
+  it('has no relative-import splice entries — every one of its 7 slots is a non-splice shape', () => {
     const original = readFileSync(SHELL_TS, 'utf8');
     const spliceEntries = findSpliceManifest(original, SHELL_TS).filter(
       (e) => e.enclosingFunction === 'renderShell',
