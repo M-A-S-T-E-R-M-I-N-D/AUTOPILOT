@@ -103,7 +103,7 @@ export interface BoardTaskRef {
   readonly shippedSlices?: readonly string[];
 }
 
-export const FIRING_PROMPT_VERSION = 'firing-v14';
+export const FIRING_PROMPT_VERSION = 'firing-v15';
 
 /** The adapter that runs the agent — cited in commit provenance trailers (SOTA-MAP D1). */
 export const HARNESS_NAME = 'claude-cli';
@@ -618,6 +618,9 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     '  format checks) BEFORE committing — a formatting drift fails the gate too.',
     '- Autoformat is CHECK-only for you — the landing alone owns the format WRITE (one writer).',
     '- A census completes the change — update the census pin for any file you add, SAME commit.',
+    '- A RELAND (restoring reverted content) IS a landing: run the full CURRENT gate and refresh',
+    '  every census for the restored files — a census added after the content was first authored',
+    '  never retroactively clears byte-identical restores (docs/FAILURE-DOCTRINE.md row 30).',
     '- Before fixing an observed red, `git log -3 -- <file>` — a newer commit may already fix it.',
     '- docs/FAILURE-DOCTRINE.md is the won-battles ledger — read it when a failure feels familiar.',
     '',
