@@ -700,3 +700,66 @@ describe('roundStatItems', () => {
     ]);
   });
 });
+
+/**
+ * #16 (gabibi555), first slice: with a translator the fleet totals, the
+ * project card stats and the back link read from STRINGS in the active
+ * locale; without one the English stays, so every pure caller above is
+ * untouched.
+ */
+describe('the tiles translate (#16, first slice)', () => {
+  const he = (key: string): string => (STRINGS.he as Record<string, string>)[key] ?? key;
+  const TOTALS = {
+    projects: 4,
+    flying: 1,
+    firings: 20,
+    shipped: 15,
+    cost: 12.5,
+    openFindings: 3,
+    needsYou: 2,
+    costPerShipped: 12.5 / 15,
+    shipRate: 15 / 20,
+    currentStreak: 5,
+    avgTurns: 8.2,
+    cacheReadShare: 0.6,
+  };
+
+  it('totalsTileItems reads every label and tip off STRINGS when given a translator', () => {
+    const items = totalsTileItems({ ...TOTALS, realCost: 3.2 }, fmtCost, he);
+    expect(items.map((i) => i[1])).toEqual([
+      STRINGS.he.tileProjects,
+      STRINGS.he.tileFlying,
+      STRINGS.he.tileFirings,
+      STRINGS.he.tileShipped,
+      STRINGS.he.tileCost,
+      STRINGS.he.tileOpenFindings,
+      STRINGS.he.tileNeedYou,
+      STRINGS.he.tileRealCost,
+    ]);
+    expect(items[0]?.[2]).toBe(STRINGS.he.tileProjectsTip);
+    expect(items[7]?.[2]).toBe(STRINGS.he.tileRealCostTip);
+  });
+
+  it('cardStatItems does the same, with the project-scoped tips', () => {
+    const items = cardStatItems({ firings: 2, shipped: 1, shipRate: 0.5, recentShipRate: 0.4 }, he);
+    expect(items.map((i) => [i[1], i[2]])).toEqual([
+      [STRINGS.he.tileFirings, STRINGS.he.tileFiringsProjectTip],
+      [STRINGS.he.tileShipped, STRINGS.he.tileShippedTip],
+      [STRINGS.he.tileShipRate, STRINGS.he.tileShipRateProjectTip],
+      [STRINGS.he.tileRecentForm, STRINGS.he.tileRecentFormTip],
+    ]);
+  });
+
+  it('the English keys are byte-identical to the literals the pure callers still get', () => {
+    const en = (key: string): string => (STRINGS.en as Record<string, string>)[key] ?? key;
+    expect(totalsTileItems(TOTALS, fmtCost, en)).toEqual(totalsTileItems(TOTALS, fmtCost));
+    expect(
+      cardStatItems({ firings: 20, shipped: 15, shipRate: 0.75, recentShipRate: 0.4 }, en),
+    ).toEqual(cardStatItems({ firings: 20, shipped: 15, shipRate: 0.75, recentShipRate: 0.4 }));
+  });
+
+  it('the back link has a key in both locales, the arrow pointing the way the script reads', () => {
+    expect(STRINGS.en.backToFleet).toBe('← Fleet');
+    expect(STRINGS.he.backToFleet).toMatch(/→/);
+  });
+});

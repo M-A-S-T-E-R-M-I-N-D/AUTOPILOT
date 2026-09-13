@@ -245,21 +245,52 @@ export interface FleetTotalsLike {
 export function totalsTileItems(
   t: FleetTotalsLike,
   fmtCost: (n: number) => string,
+  tr?: (key: string) => string,
 ): readonly StatTileItem[] {
+  // #16 (gabibi555, first slice): with a translator the labels and tips come
+  // from STRINGS; without one (pure callers, older tests) the English stays.
+  const w = (key: string, english: string): string => (tr ? tr(key) : english);
   const items: StatTileItem[] = [
-    [String(t.projects), 'projects', 'Distinct projects AUTOPILOT is tracking'],
-    [String(t.flying), 'flying', 'Projects with a firing running right now'],
-    [String(t.firings), 'firings', 'Total engine firings across all projects'],
-    [String(t.shipped), 'shipped', 'Firings that passed the gate and committed'],
-    [fmtCost(t.cost), 'cost', 'Total spend across every firing'],
-    [String(t.openFindings), 'open findings', 'Unresolved review findings across all projects'],
-    [String(t.needsYou), 'need you', 'Items waiting on a decision from you'],
+    [
+      String(t.projects),
+      w('tileProjects', 'projects'),
+      w('tileProjectsTip', 'Distinct projects AUTOPILOT is tracking'),
+    ],
+    [
+      String(t.flying),
+      w('tileFlying', 'flying'),
+      w('tileFlyingTip', 'Projects with a firing running right now'),
+    ],
+    [
+      String(t.firings),
+      w('tileFirings', 'firings'),
+      w('tileFiringsTip', 'Total engine firings across all projects'),
+    ],
+    [
+      String(t.shipped),
+      w('tileShipped', 'shipped'),
+      w('tileShippedTip', 'Firings that passed the gate and committed'),
+    ],
+    [fmtCost(t.cost), w('tileCost', 'cost'), w('tileCostTip', 'Total spend across every firing')],
+    [
+      String(t.openFindings),
+      w('tileOpenFindings', 'open findings'),
+      w('tileOpenFindingsTip', 'Unresolved review findings across all projects'),
+    ],
+    [
+      String(t.needsYou),
+      w('tileNeedYou', 'need you'),
+      w('tileNeedYouTip', 'Items waiting on a decision from you'),
+    ],
   ];
   if (typeof t.realCost === 'number') {
     items.push([
       fmtCost(t.realCost),
-      'real cost',
-      'Total spend apportioned by real subscription share instead of API list price (cost semantics v3)',
+      w('tileRealCost', 'real cost'),
+      w(
+        'tileRealCostTip',
+        'Total spend apportioned by real subscription share instead of API list price (cost semantics v3)',
+      ),
     ]);
   }
   return items;
@@ -318,21 +349,35 @@ export interface CardStatsLike {
  *  form" tile — ship rate over the last 5 firings, an honest "how is it
  *  doing NOW?" complement to the lifetime rate — only appears once the
  *  project has enough history to compute one. */
-export function cardStatItems(c: CardStatsLike): readonly StatTileItem[] {
+export function cardStatItems(
+  c: CardStatsLike,
+  tr?: (key: string) => string,
+): readonly StatTileItem[] {
+  // #16 (gabibi555, first slice): see totalsTileItems — translated with a
+  // translator, English without one.
+  const w = (key: string, english: string): string => (tr ? tr(key) : english);
   const items: StatTileItem[] = [
-    [String(c.firings), 'firings', 'Total engine firings for this project'],
-    [String(c.shipped), 'shipped', 'Firings that passed the gate and committed'],
+    [
+      String(c.firings),
+      w('tileFirings', 'firings'),
+      w('tileFiringsProjectTip', 'Total engine firings for this project'),
+    ],
+    [
+      String(c.shipped),
+      w('tileShipped', 'shipped'),
+      w('tileShippedTip', 'Firings that passed the gate and committed'),
+    ],
     [
       c.shipRate === null ? '—' : Math.round(c.shipRate * 100) + '%',
-      'ship rate',
-      'Shipped firings as a share of all firings for this project',
+      w('tileShipRate', 'ship rate'),
+      w('tileShipRateProjectTip', 'Shipped firings as a share of all firings for this project'),
     ],
   ];
   if (c.recentShipRate !== null && c.recentShipRate !== undefined) {
     items.push([
       Math.round(c.recentShipRate * 100) + '%',
-      'recent form',
-      'Ship rate over the last 5 firings',
+      w('tileRecentForm', 'recent form'),
+      w('tileRecentFormTip', 'Ship rate over the last 5 firings'),
     ]);
   }
   return items;
