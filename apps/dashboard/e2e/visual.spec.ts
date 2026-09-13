@@ -37,7 +37,7 @@ test.describe('visual regression', () => {
 
       await expect(page).toHaveScreenshot(`fleet-${theme}.png`, {
         fullPage: true,
-        mask: [page.locator('#updated')],
+        mask: [page.locator('#updated'), page.locator('#version-label')],
       });
     });
 
@@ -52,7 +52,7 @@ test.describe('visual regression', () => {
 
       await expect(page).toHaveScreenshot(`project-${theme}.png`, {
         fullPage: true,
-        mask: [page.locator('#updated')],
+        mask: [page.locator('#updated'), page.locator('#version-label')],
       });
     });
   }

@@ -109,6 +109,7 @@ test.describe('app shell — tablet', () => {
       fullPage: true,
       mask: [
         page.locator('#updated'),
+        page.locator('#version-label'),
         page.locator('.gauge-label .muted'),
         page.locator('.live-worker-turns'),
         page.locator('.live-worker-progress-label'),
