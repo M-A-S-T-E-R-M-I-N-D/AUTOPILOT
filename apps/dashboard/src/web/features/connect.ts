@@ -48,6 +48,10 @@ function connectInit() {
   var labelEl = document.getElementById('connect-label');
   var ghStatusEl = document.getElementById('gh-status');
   var ghHintEl = document.getElementById('gh-hint');
+  var ghAuthEl = document.getElementById('gh-auth');
+  var ghLoginBtn = document.getElementById('gh-login');
+  var ghSwitchBtn = document.getElementById('gh-switch');
+  var ghLogoutBtn = document.getElementById('gh-logout');
   var ghLtsEl = document.getElementById('gh-lts');
   var ghLtsCheckBtn = document.getElementById('gh-lts-check');
   var ghIssueForm = document.getElementById('gh-issue-form');
@@ -82,6 +86,9 @@ function connectInit() {
   var saveBtn = form ? form.querySelector('button[type="submit"]') : null;
   setTip(saveBtn, 'connectSaveTip');
   setTip(ghLtsCheckBtn, 'ghLtsCheckTip');
+  setTip(ghLoginBtn, 'ghLoginTip');
+  setTip(ghSwitchBtn, 'ghSwitchTip');
+  setTip(ghLogoutBtn, 'ghLogoutTip');
   var ghIssueBtn = ghIssueForm ? ghIssueForm.querySelector('button[type="submit"]') : null;
   setTip(ghIssueBtn, 'ghIssueTip');
   setTip(ghIssueComposeBtn, 'reportComposeTip');
@@ -137,6 +144,33 @@ function connectInit() {
       .then(render)
       .catch(function () { if (statusEl) statusEl.textContent = tr('connectionUnavailable'); });
   }
+  // GitHub connection management (epic 0029 slice 2): the three verbs show
+  // only when gh is installed; switch/log out only once someone is logged
+  // in. Each POST opens a terminal running a fixed 'gh auth …' literal — the
+  // Claude button's own pattern — so nothing is done on the operator's
+  // behalf; the identity line re-reads itself once the flow has plausibly
+  // finished there.
+  function paintGhAuth(s) {
+    var present = !!(s && s.present);
+    var authed = present && !!s.authenticated;
+    if (ghAuthEl) ghAuthEl.hidden = !present;
+    if (ghSwitchBtn) ghSwitchBtn.hidden = !authed;
+    if (ghLogoutBtn) ghLogoutBtn.hidden = !authed;
+  }
+  function ghAuth(kind) {
+    var openedKey = kind === 'login' ? 'ghLoginOpened' : (kind === 'switch' ? 'ghSwitchOpened' : 'ghLogoutOpened');
+    if (ghStatusEl) ghStatusEl.textContent = tr('ghAuthLaunching');
+    fetch('/api/connection/gh/' + kind, { method: 'POST', headers: { 'content-type': 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(function () {
+        if (ghStatusEl) ghStatusEl.textContent = tr(openedKey);
+        setTimeout(loadGh, 30000);
+      })
+      .catch(function () { if (ghStatusEl) ghStatusEl.textContent = tr('ghAuthLaunchFailed'); });
+  }
+  if (ghLoginBtn) ghLoginBtn.addEventListener('click', function () { ghAuth('login'); });
+  if (ghSwitchBtn) ghSwitchBtn.addEventListener('click', function () { ghAuth('switch'); });
+  if (ghLogoutBtn) ghLogoutBtn.addEventListener('click', function () { ghAuth('logout'); });
   function loadGh() {
     fetch('/api/connection/gh', { headers: { accept: 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -144,6 +178,7 @@ function connectInit() {
         var m = ghStatusMeta(s, tr);
         if (ghStatusEl) ghStatusEl.textContent = m.statusText;
         if (ghHintEl) ghHintEl.textContent = m.hint;
+        paintGhAuth(s);
       })
       .catch(function () { if (ghStatusEl) ghStatusEl.textContent = tr('ghUnavailable'); });
   }

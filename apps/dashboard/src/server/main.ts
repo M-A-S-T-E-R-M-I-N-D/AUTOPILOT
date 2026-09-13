@@ -167,6 +167,7 @@ import {
 } from '@autopilot/engine';
 import { realCliExec, makeCliExec } from '../connection/cli-probe.js';
 import { launchClaudeLogin } from '../connection/login.js';
+import { launchGhAuth } from '../connection/gh-login.js';
 import { claudeAuthProbe } from '../connection/verify.js';
 import { getGhStatus } from '../connection/gh-probe.js';
 import { createLtsStatusApi } from '../connection/gh-lts.js';
@@ -932,6 +933,16 @@ const server = createServer({
   },
   gh: {
     getStatus: () => getGhStatus(realCliExec),
+    // Epic 0029 slice 2: a terminal opens running the fixed `gh auth <kind>`;
+    // the operator finishes there and the popover re-reads `gh auth status`.
+    auth: (kind) => {
+      launchGhAuth(kind);
+      return Promise.resolve({
+        launched: true,
+        kind,
+        message: `A terminal opened running "gh auth ${kind}" — finish it there; the GitHub line above refreshes on its own.`,
+      });
+    },
   },
   ghLts: createLtsStatusApi(realCliExec, UPSTREAM_REPO, PRODUCT_VERSION),
 });

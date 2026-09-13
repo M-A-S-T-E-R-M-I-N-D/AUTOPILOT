@@ -4467,6 +4467,11 @@ ${versionMenuHtml()}
           <div class="connect-gh">
             <p class="connect-status" id="gh-status" role="status" aria-live="polite" data-i18n="ghChecking">checking GitHub…</p>
             <p class="connect-hint" id="gh-hint"></p>
+            <div class="connect-actions gh-auth" id="gh-auth" hidden>
+              <button type="button" class="connect-login" id="gh-login" data-i18n="ghLogin">Log in with GitHub</button>
+              <button type="button" class="connect-test" id="gh-switch" data-i18n="ghSwitch" hidden>Switch account</button>
+              <button type="button" class="connect-test" id="gh-logout" data-i18n="ghLogout" hidden>Log out</button>
+            </div>
             <p class="connect-status" id="gh-lts" role="status" aria-live="polite" data-i18n="ltsChecking">checking for updates…</p>
             <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
             <form class="gh-issue-form" id="gh-issue-form">

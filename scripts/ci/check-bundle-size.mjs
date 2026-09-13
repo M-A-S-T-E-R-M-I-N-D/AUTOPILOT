@@ -220,13 +220,20 @@ const CORE_GZIP_BUDGET = 68 * 1024;
 // Then panels raw 156→160KB / gzip 47→48KB (2026-09-13) for THE VERSION MENU
 // (web/features/update.ts: the masthead chip, the popover, the shared update
 // runner): measured 157.3KB/47.2KB.
-const CHUNK_RAW_BUDGET = 160 * 1024;
+// Then panels raw 160→161KB / gzip 48→49KB (2026-09-13) for EPIC 0029 slice 2: GitHub
+// connection management in the Connect popover — log in / switch / log out
+// as three buttons with their tips and status lines, each a terminal launch
+// of a fixed gh auth literal (the Claude button's own pattern), plus the
+// STRINGS.he translations that land here via locale-data.ts. Measured
+// 164414B raw / 49318B gzip against the old 163840B / 49152B budgets.
+// Deferred chunk, never blocks first paint; core untouched.
+const CHUNK_RAW_BUDGET = 161 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
 // plan editor — measured 43.1KB gzip.
 // Then gzip 44→45KB (2026-09-12) for the CI-status panel in /panels.js — measured 44.1KB gzip.
-const CHUNK_GZIP_BUDGET = 48 * 1024;
+const CHUNK_GZIP_BUDGET = 49 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

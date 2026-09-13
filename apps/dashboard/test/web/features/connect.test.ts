@@ -99,11 +99,21 @@ describe('connectJs', () => {
     });
   });
 
-  it('fetches /api/connection/gh on init — read-only, no login/logout POST route for gh', () => {
+  it('fetches /api/connection/gh on init; the three auth verbs POST one fixed route each — a terminal opens, nothing is done on the operator’s behalf (epic 0029 slice 2)', () => {
     const out = connectJs();
     expect(out).toContain("fetch('/api/connection/gh'");
-    expect(out).not.toContain('/api/connection/gh/login');
-    expect(out).not.toContain('/api/connection/gh/logout');
+    expect(out).toContain(
+      "fetch('/api/connection/gh/' + kind, { method: 'POST', headers: { 'content-type': 'application/json' } })",
+    );
+    expect(out).toContain("ghAuth('login')");
+    expect(out).toContain("ghAuth('switch')");
+    expect(out).toContain("ghAuth('logout')");
+    // Switch and log out only once someone is logged in; all three only when gh exists.
+    expect(out).toContain('if (ghAuthEl) ghAuthEl.hidden = !present;');
+    expect(out).toContain('if (ghSwitchBtn) ghSwitchBtn.hidden = !authed;');
+    expect(out).toContain('if (ghLogoutBtn) ghLogoutBtn.hidden = !authed;');
+    // The identity line re-reads itself after the flow has plausibly finished in the terminal.
+    expect(out).toContain('setTimeout(loadGh, 30000);');
   });
 
   it('fetches the cached /api/connection/gh-lts chip on init — read-only, no gh call', () => {
