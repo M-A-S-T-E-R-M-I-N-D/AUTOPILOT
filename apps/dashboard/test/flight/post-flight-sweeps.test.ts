@@ -2,13 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
 import { openStore, migrate, type Store } from '@autopilot/store';
 import {
   runFamilyRunawaySweep,
   runFleetWisdomSweep,
   runSoulMiningSweep,
   runStaleClaimSweep,
+  runDocFreshnessSweep,
 } from '../../src/flight/post-flight-sweeps.js';
+import { DOC_SUBJECTS } from '../../src/flight/doc-freshness.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { RUNAWAY_SPEND_USD, RUNAWAY_FIRINGS } from '../../src/flight/triage-factors.js';
 import {
@@ -96,6 +102,94 @@ describe('runFamilyRunawaySweep', () => {
   it('is best-effort — a query failure never throws', () => {
     store.db.close();
     expect(() => runFamilyRunawaySweep(store, 'p1', () => 12345)).not.toThrow();
+  });
+});
+
+/**
+ * runDocFreshnessSweep (board web-mtzv4f1k-pmtfwh): DOC_SUBJECTS names paths
+ * that only ever exist in THIS engine repo, so a flight over an UNRELATED
+ * target repo must never mine that engine-repo drift and attach it to the
+ * flown project's board — a flight over a temp calculator repo (calc-story,
+ * 2026-09-13) got four AUTOPILOT docs/epics proposed against the wrong
+ * project this way. The sweep must only run when the flight IS the engine
+ * repo flying itself (`target === engineRepo`).
+ */
+describe('runDocFreshnessSweep', () => {
+  let store: Store;
+  let engineRepo: string;
+
+  function gitSync(repo: string, args: string[]): string {
+    return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
+  }
+
+  function commitAt(dir: string, file: string, content: string, epochSeconds: number): void {
+    const fullPath = join(dir, file);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, content);
+    gitSync(dir, ['add', '-A']);
+    const date = `${epochSeconds} +0000`;
+    execFileSync('git', ['-C', dir, 'commit', '-q', '-m', file], {
+      encoding: 'utf8',
+      env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+    });
+  }
+
+  function docFreshTasks(): { id: string; status: string }[] {
+    return store.db
+      .prepare("SELECT id, status FROM tasks WHERE project_id = 'p1' AND id LIKE 'docfresh-%'")
+      .all() as { id: string; status: string }[];
+  }
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+
+    engineRepo = mkdtempSync(join(tmpdir(), 'autopilot-doc-freshness-sweep-'));
+    gitSync(engineRepo, ['init', '-q']);
+    gitSync(engineRepo, ['config', 'user.email', 'test@autopilot.dev']);
+    gitSync(engineRepo, ['config', 'user.name', 'Test']);
+    gitSync(engineRepo, ['config', 'commit.gpgsign', 'false']);
+    const [firstEntry] = DOC_SUBJECTS;
+    if (!firstEntry) throw new Error('DOC_SUBJECTS must not be empty');
+    commitAt(engineRepo, firstEntry.doc, 'v1', 1_700_000_000);
+    const [firstSubject] = firstEntry.subjects;
+    if (!firstSubject) throw new Error('DOC_SUBJECTS[0] must have a subject');
+    commitAt(engineRepo, firstSubject, 'v1', 1_700_000_100);
+  });
+
+  afterEach(() => {
+    store.db.close();
+    rmSync(engineRepo, { recursive: true, force: true });
+  });
+
+  it('mines and proposes engine-repo drift when the flight IS the engine repo flying itself', () => {
+    runDocFreshnessSweep(store, 'p1', () => 12345, engineRepo, engineRepo);
+
+    expect(docFreshTasks()).toHaveLength(1);
+  });
+
+  it('proposes nothing when the flight target is a different repo than the engine checkout', () => {
+    const target = mkdtempSync(join(tmpdir(), 'autopilot-doc-freshness-target-'));
+    try {
+      runDocFreshnessSweep(store, 'p1', () => 12345, target, engineRepo);
+
+      expect(docFreshTasks()).toEqual([]);
+    } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it('is best-effort — a query failure never throws', () => {
+    store.db.close();
+    expect(() =>
+      runDocFreshnessSweep(store, 'p1', () => 12345, engineRepo, engineRepo),
+    ).not.toThrow();
   });
 });
 

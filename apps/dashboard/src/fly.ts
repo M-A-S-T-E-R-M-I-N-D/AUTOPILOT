@@ -1753,7 +1753,7 @@ async function main(): Promise<void> {
       /* near-miss ritual sweep is best-effort — never fail the flight over it */
     }
 
-    runDocFreshnessSweep(store, projectId, now);
+    runDocFreshnessSweep(store, projectId, now, target);
 
     await runClosedTaskAuditSweep(store, projectId, vcs, now);
 
