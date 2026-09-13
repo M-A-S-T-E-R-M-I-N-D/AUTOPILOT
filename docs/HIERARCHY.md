@@ -113,12 +113,34 @@ on a phone. The bottom bar is the rail.
 - `apps/dashboard/test/web/hierarchy-census.test.ts` pins the fleet home's
   section order and the rule that the Fly bar precedes the totals.
 - The visual baselines were re-rendered on CI for the new order.
+- **Totals collapse to two numbers on a phone** (`renderTotals`,
+  `TOTALS_PHONE_KEEP` in `shell.ts`): flying and need you — the two
+  actionable counts under the "quiet unless it needs you" doctrine above —
+  stay visible below 48rem; the rest (`.total-collapse`) return at 48rem.
+  The seeded Tab stop moves to the first visible cell on phone so the
+  collapse never strands keyboard focus on a hidden one.
+- The skip link (`.skip-link`, `shell.ts`) was already the first interactive
+  element in the DOM, ahead of the masthead — an earlier build, not this
+  slice; the "Open" bullet below is retired as already satisfied.
+- **The Fly bar is one line on a phone — folder chip + Fire — with
+  everything else behind expand-on-tap** (`#fly-options`, `shell.ts` +
+  `layout-css.ts`): browse, mode, firings/total, $/firing, lanes and Lucky
+  move into a `<details>`/`<summary>` disclosure (native keyboard/tap
+  toggle, no script), collapsed by default below 48rem; the folder's own
+  `<label>` goes visually-hidden at that width so the input and **Fire**
+  share the row instead of the label forcing it onto its own line.
+  `#fly-options`'s `order: 3` pushes the disclosure after every other
+  default-order field (folder, Fire/Pause/Stop, status, hint, fit,
+  progress) so those stay adjacent regardless of the disclosure's DOM
+  position. At 48rem and up `display: contents` unwraps the `<details>`
+  and its body back into the plain flex row §4 already specifies (folder,
+  browse, mode, firings, $/firing, lanes, Lucky, Fire) — an author rule
+  that overrides the UA's `details:not([open])` hiding, since origin beats
+  specificity in the cascade — so desktop's DOM order, and the already-
+  captured README frames, are unchanged.
 
 ## 6. Open
 
-- The phone Fly tab as a one-line chip + Fire with expand-on-tap.
-- Totals collapsing to two numbers on a phone.
-- A skip link as the first interactive element (WCAG 2.4.1, technique G1).
 - `scroll-padding-top` if the Fly bar ever becomes sticky.
 - The diff counter (`+N −M`) on live-work rows once the record carries it.
 

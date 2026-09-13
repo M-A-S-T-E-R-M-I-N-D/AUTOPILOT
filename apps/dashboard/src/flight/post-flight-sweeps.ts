@@ -113,14 +113,26 @@ export async function runReconciliationProposalSweep(
  * dashboard-actionable surface, not only the console line (which a flight
  * nobody is watching live would simply lose). Never edits the doc itself. The
  * library is THIS engine repo's own doc, not necessarily the flown target's —
- * skip cleanly when it isn't present in this process's cwd. Dedup by identity
- * prefix (title, not a sweep-run timestamp), same doctrine the DOC-FRESHNESS
+ * so (same self-hosting signal `runDocFreshnessSweep` uses, board
+ * web-mtzv4f1k-pmtfwh) the sweep only runs when the flight IS the engine repo
+ * flying itself (`target === engineRepo`): `process.cwd()` never moves off
+ * the engine's own checkout, so without this guard a flight over an
+ * unrelated target would still mine THIS repo's own verify-by notes and
+ * attach the proposal to the wrong project's board. Dedup by identity prefix
+ * (title, not a sweep-run timestamp), same doctrine the DOC-FRESHNESS
  * 40-duplicate-proposal incident recorded. Best-effort: a read/parse hiccup
  * must never fail the flight itself.
  */
-export function runVerifyBySweep(store: Store, projectId: string, now: () => number): void {
+export function runVerifyBySweep(
+  store: Store,
+  projectId: string,
+  now: () => number,
+  target: string,
+  engineRepo: string = process.cwd(),
+): void {
+  if (target !== engineRepo) return;
   try {
-    const libraryPath = join(process.cwd(), 'docs', 'RESEARCH-LIBRARY.md');
+    const libraryPath = join(engineRepo, 'docs', 'RESEARCH-LIBRARY.md');
     if (existsSync(libraryPath)) {
       const due = findDueVerifyByNotes(readFileSync(libraryPath, 'utf8'), now());
       const openVerifyByProposal = store.db.prepare(
@@ -228,18 +240,30 @@ export function runFamilyRunawaySweep(store: Store, projectId: string, now: () =
  * governed epic doc's last-touch time against its subjects' — a subject
  * touched more recently than the doc describing it is drift worth a look.
  * DOC_SUBJECTS names THIS engine repo's own paths (like self-study), so the
- * sweep reads process.cwd()'s git history, not the flown target's. Findings
- * become self-mined proposals through the SAME approval gate every other
- * self-mined task uses (source: 'self', status: 'needs_approval') — the
- * operator decides, the autopilot never edits docs on its own say-so. The id
- * folds in the newest-stale-subject's touch time so the SAME unresolved drift
- * is never re-proposed flight after flight, while a doc/subject touched again
- * later (a fresh drift, or a re-drift after an old proposal was resolved)
- * mints a new one.
+ * sweep only makes sense when the flight IS the engine repo flying itself
+ * (`target === engineRepo`, same self-hosting signal `fly.ts`'s containment
+ * guard already uses for `process.cwd()`/`target` — board web-mtzv4f1k-
+ * pmtfwh) — a flight over an unrelated target repo (e.g. a temp calculator
+ * project) must never mine this engine's own doc drift and attach it to that
+ * OTHER project's board; the proposals are AUTOPILOT's own to fix, not the
+ * flown project's. Findings become self-mined proposals through the SAME
+ * approval gate every other self-mined task uses (source: 'self', status:
+ * 'needs_approval') — the operator decides, the autopilot never edits docs on
+ * its own say-so. The id folds in the newest-stale-subject's touch time so
+ * the SAME unresolved drift is never re-proposed flight after flight, while a
+ * doc/subject touched again later (a fresh drift, or a re-drift after an old
+ * proposal was resolved) mints a new one.
  */
-export function runDocFreshnessSweep(store: Store, projectId: string, now: () => number): void {
+export function runDocFreshnessSweep(
+  store: Store,
+  projectId: string,
+  now: () => number,
+  target: string,
+  engineRepo: string = process.cwd(),
+): void {
+  if (target !== engineRepo) return;
   try {
-    const timestamps = collectDocFreshnessTimestamps(process.cwd(), DOC_SUBJECTS);
+    const timestamps = collectDocFreshnessTimestamps(engineRepo, DOC_SUBJECTS);
     const findings = computeDocDrift(DOC_SUBJECTS, timestamps);
     const openDocProposal = store.db.prepare(
       "SELECT 1 FROM tasks WHERE project_id = ? AND id LIKE ? AND status IN ('needs_approval', 'queued') LIMIT 1",

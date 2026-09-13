@@ -74,14 +74,14 @@ describe('poolClientJs', () => {
 
   it('reuses the shared el/tipChip helpers rather than re-declaring them', () => {
     const out = poolClientJs();
-    expect(out).toContain("el('h3', 'pool-client-title'");
+    expect(out).toContain("panelHeading('h3', 'pool-client-title', 'poolTitle', 'users')");
     expect(out).not.toContain('function el(');
     expect(out).not.toContain('function tipChip(');
   });
 
-  it('tags the panel title for i18n — an el()-built heading the regex scanner cannot see', () => {
+  it('tags the panel title for i18n via the shared panelHeading() helper', () => {
     const out = poolClientJs();
-    expect(out).toContain("title.setAttribute('data-i18n', 'poolTitle')");
+    expect(out).toContain("panelHeading('h3', 'pool-client-title', 'poolTitle', 'users')");
   });
 
   it('is trimmed — no leading/trailing whitespace', () => {

@@ -20,7 +20,7 @@ describe('the LANDING panel reads its persistent on-screen text from STRINGS', (
   const out = landingJs();
 
   it('translates the panel title and status lines', () => {
-    expect(out).toContain("el('h3', 'landing-title', tr('landingTitle'))");
+    expect(out).toContain("panelHeading('h3', 'landing-title', 'landingTitle', 'plane-landing')");
     expect(out).toContain("el('p', 'muted', tr('landingChecking'))");
     expect(out).toContain("el('p', 'muted', tr('landingUnavailable'))");
     expect(out).toContain("el('p', 'muted', tr('landingNothingToLand'))");

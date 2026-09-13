@@ -481,7 +481,7 @@ var landingRestarting = {}; // project id -> true while presumed rebuilding
 var LANDING_RESTART_GRACE_MS = 20000;
 function landingSection(pid, flightLog, tasks) {
   var wrap = el('section', 'landing-panel');
-  wrap.appendChild(el('h3', 'landing-title', tr('landingTitle')));
+  wrap.appendChild(panelHeading('h3', 'landing-title', 'landingTitle', 'plane-landing'));
   var body = el('div', 'landing-body');
   if (landingRestarting[pid]) {
     var restartingEl = el('p', 'muted landing-restarting', tr('landingRestarting'));

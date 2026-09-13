@@ -268,6 +268,10 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
   padding: var(--space-3) var(--page-inline); border-bottom: 1px solid var(--color-border);
 }
 .total { display: flex; flex-direction: column; gap: 2px; border-radius: var(--radius-sm); }
+/* HIERARCHY.md §3/§6 (epic 0030 slice 3): the totals bar collapses to two
+   numbers on a phone (flying, need you); the rest return at 48rem — see the
+   min-width block below and TOTALS_PHONE_KEEP in shell.ts. */
+.total-collapse { display: none; }
 /* Hero number (COCKPIT 3/6): the fleet home's first, most-glanced-at
    figures get real scale-contrast against their quiet labels below — the
    M3 headline role, not the ad hoc --text-xl scale.ts step, is the first
@@ -306,7 +310,26 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .fly-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .fly-form label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .fly-form input { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
-#fly-folder { flex: 1 1 100%; min-width: 0; font-family: var(--font-mono); }
+/* HIERARCHY.md §3/§6 (epic 0030 slice 3, second phone variant): the Fly bar
+   is one line on a phone — folder chip + Fire — with the rest of the fields
+   (browse, mode, firings/total, budget, lanes, Lucky) behind an
+   expand-on-tap <details> (.fly-options below) rather than wrapping onto
+   several rows. The folder label goes visually-hidden below 48rem so the
+   input + Fire fit one row; its accessible name survives via the label
+   element itself (clipped, not display:none), same technique as
+   .visually-hidden. #fly-options's own "order" pushes it after every
+   default-order-0 sibling (folder, Fire/Pause/Stop, status, hint, fit,
+   progress) so those stay adjacent; at 48rem+ (see the min-width block
+   below) display:contents unwraps it back into the plain flex row §4
+   specifies (folder, browse, mode, firings, $/firing, lanes, Lucky, Fire),
+   so desktop's already-captured README frames stay accurate. */
+.fly-folder-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+#fly-folder { flex: 1 1 auto; min-width: 0; font-family: var(--font-mono); }
+.fly-options { order: 3; flex-basis: 100%; }
+.fly-options-summary { cursor: pointer; list-style: none; font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding: var(--space-1) 0; }
+.fly-options-summary::-webkit-details-marker { display: none; }
+.fly-options-summary:hover, .fly-options-summary:focus-visible { color: var(--color-text); }
+.fly-options-body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-top: var(--space-2); }
 #fly-firings { width: 68px; }
 #fly-budget { width: 76px; }
 #fly-total { width: 76px; }
@@ -1718,11 +1741,15 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   .masthead-right { gap: var(--space-4); }
   .updated { display: inline; }
   .totals { padding: var(--space-4) var(--page-inline); }
+  .total-collapse { display: flex; }
   .live-workers { padding: var(--space-3) var(--page-inline); }
   /* 136px, not 150: five tiles must fit the ~780px main column the context
      rail leaves at 1280, where 150px wrapped the fifth tile onto its own row. */
   .stat-tiles { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: var(--space-3); padding: var(--space-4) var(--page-inline); }
   #fly-folder, #search-q { flex: 1 1 260px; min-width: 200px; }
+  .fly-folder-label { position: static; width: auto; height: auto; margin: 0; padding: 0; overflow: visible; clip: auto; white-space: normal; border: 0; }
+  .fly-options, .fly-options-body { display: contents; }
+  .fly-options-summary { display: none; }
   main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
   .pipeline-panel { flex-direction: row; align-items: flex-start; }
   .pipeline-tree { flex: 0 1 32%; min-width: 12em; }

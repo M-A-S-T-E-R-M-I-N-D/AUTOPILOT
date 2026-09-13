@@ -3682,21 +3682,37 @@ function renderProjectPage(state, pid) {
   if (typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
 
 }
+// HIERARCHY.md §3/§6 (epic 0030 slice 3): on a phone the totals bar
+// collapses to the two actionable numbers — flying (what's happening now)
+// and need you (what needs a human) — the same "quiet unless it needs you"
+// doctrine the rest of the bar already follows; the other counts stay one
+// tap away on the fleet page proper. Fixed positions in totalsTileItems'
+// documented render order (stat-tiles.test.ts): 1 = flying, 6 = need you.
+var TOTALS_PHONE_KEEP = [1, 6];
+var TOTALS_PHONE_MQ = '(min-width: 48rem)';
+function totalsPhoneCollapsed() {
+  return typeof window.matchMedia === 'function' && !window.matchMedia(TOTALS_PHONE_MQ).matches;
+}
 function renderTotals(t) {
   var bar = document.getElementById('totals');
   if (!bar) return;
   bar.replaceChildren();
   // #16: labels and tips in the active locale (tr is locale.ts's, core).
   var items = totalsTileItems(t, fmtCost, tr);
+  // The seeded Tab stop must be a cell that is actually visible — on phone
+  // that is the first kept cell (flying), never the collapsed "projects"
+  // cell at 0, which display:none already drops out of the tab order.
+  var seedIndex = totalsPhoneCollapsed() ? TOTALS_PHONE_KEEP[0] : 0;
   for (var i = 0; i < items.length; i++) {
     var cell = el('div', 'total');
+    if (TOTALS_PHONE_KEEP.indexOf(i) < 0) cell.classList.add('total-collapse');
     cell.appendChild(el('span', 'total-n', String(items[i][0])));
     cell.appendChild(el('span', 'total-l', items[i][1]));
     // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): only
-    // the first count is a Tab stop, not one per cell — seven or eight stops
+    // one count is a Tab stop, not one per cell — seven or eight stops
     // before a keyboard user ever reached the stat-tile grid below.
     // wireRoving('.totals .total', '.totals') moves it.
-    cell.setAttribute('tabindex', i === 0 ? '0' : '-1');
+    cell.setAttribute('tabindex', i === seedIndex ? '0' : '-1');
     cell.setAttribute('data-tip', items[i][2]);
     cell.setAttribute('aria-label', statTileAriaLabel(items[i]));
     bar.appendChild(cell);
@@ -4542,24 +4558,29 @@ ${subjectNavHtml(project)}
 ${contextRailHtml(project)}
   <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>
     <form class="fly-form" id="fly-form">
-      <label for="fly-folder" data-i18n="flyFolder">Fly a folder</label>
+      <label for="fly-folder" class="fly-folder-label" data-i18n="flyFolder">Fly a folder</label>
       <input type="text" id="fly-folder" name="folder" list="fly-folder-options" placeholder="absolute path to a git repo" data-i18n-placeholder="flyFolderPlaceholder" autocomplete="off" spellcheck="false" />
       <datalist id="fly-folder-options"></datalist>
-      <button type="button" id="fly-browse-btn" aria-haspopup="dialog" data-tip="Browse the filesystem to pick a folder" data-i18n-tip="flyBrowseTip" data-i18n="browse">Browse…</button>
-      <label for="fly-mode" class="visually-hidden" data-i18n="budgetModeLabel">Budget mode</label>
-      <select id="fly-mode" name="mode" aria-label="Budget mode: fixed firing count or total spend target" data-i18n-aria="budgetMode">
-        <option value="firings" selected data-i18n="byCount">by count</option>
-        <option value="total" data-i18n="byTotal">by total $</option>
-      </select>
-      <label for="fly-firings" id="fly-firings-label" data-i18n="firings">Firings</label>
-      <input type="number" id="fly-firings" name="firings" min="1" max="20" value="1" />
-      <label for="fly-total" id="fly-total-label" data-i18n="stopAtTotal" hidden>Stop at total $</label>
-      <input type="number" id="fly-total" name="total" min="0.5" step="0.5" value="30" hidden />
-      <label for="fly-budget" data-i18n="perFiringBudget">$ / firing</label>
-      <input type="number" id="fly-budget" name="budget" min="0.5" step="0.5" value="10" />
-      <label for="fly-lanes" data-i18n="lanes">Lanes</label>
-      <input type="number" id="fly-lanes" name="lanes" min="1" max="8" value="1" />
-      <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(90 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(180 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(270 12 12)"/><path d="M12.5 12.5c.9 2.7 2 4.5 3.6 5.9l-1.1 1.1c-1.8-1.6-3.1-3.7-4-6.5Z"/></svg></button>
+      <details class="fly-options" id="fly-options">
+        <summary class="fly-options-summary" data-i18n="flyOptions">Options</summary>
+        <div class="fly-options-body">
+          <button type="button" id="fly-browse-btn" aria-haspopup="dialog" data-tip="Browse the filesystem to pick a folder" data-i18n-tip="flyBrowseTip" data-i18n="browse">Browse…</button>
+          <label for="fly-mode" class="visually-hidden" data-i18n="budgetModeLabel">Budget mode</label>
+          <select id="fly-mode" name="mode" aria-label="Budget mode: fixed firing count or total spend target" data-i18n-aria="budgetMode">
+            <option value="firings" selected data-i18n="byCount">by count</option>
+            <option value="total" data-i18n="byTotal">by total $</option>
+          </select>
+          <label for="fly-firings" id="fly-firings-label" data-i18n="firings">Firings</label>
+          <input type="number" id="fly-firings" name="firings" min="1" max="20" value="1" />
+          <label for="fly-total" id="fly-total-label" data-i18n="stopAtTotal" hidden>Stop at total $</label>
+          <input type="number" id="fly-total" name="total" min="0.5" step="0.5" value="30" hidden />
+          <label for="fly-budget" data-i18n="perFiringBudget">$ / firing</label>
+          <input type="number" id="fly-budget" name="budget" min="0.5" step="0.5" value="10" />
+          <label for="fly-lanes" data-i18n="lanes">Lanes</label>
+          <input type="number" id="fly-lanes" name="lanes" min="1" max="8" value="1" />
+          <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(90 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(180 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(270 12 12)"/><path d="M12.5 12.5c.9 2.7 2 4.5 3.6 5.9l-1.1 1.1c-1.8-1.6-3.1-3.7-4-6.5Z"/></svg></button>
+        </div>
+      </details>
       <button type="submit" id="fly-go" data-i18n="flyIt">Fire</button>
       <button type="button" id="fly-pause" data-i18n="pause" hidden>Pause</button>
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>

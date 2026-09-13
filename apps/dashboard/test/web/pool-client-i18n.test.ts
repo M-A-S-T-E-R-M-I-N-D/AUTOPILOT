@@ -3,8 +3,9 @@
 
 /**
  * The Pool client panel's own static text (board web-msnsndki-dz3vn1):
- * `web/features/pool-client.ts` already tags its "🧑‍🤝‍🧑 Pool" heading
- * `data-i18n="poolTitle"` and calls `translateDom()` at the end of every
+ * `web/features/pool-client.ts` already builds its "Pool" heading via the
+ * shared `panelHeading()` helper (epic 0025 slice 2: `users`, `data-i18n`
+ * on the inner span) and calls `translateDom()` at the end of every
  * render (it rebuilds on its own 30s poll, not the fleet stream's tick), but
  * every per-entry string it paints — the "No local task" option, the local
  * project `<select>`'s aria-label and tip, the Claim button (idle +

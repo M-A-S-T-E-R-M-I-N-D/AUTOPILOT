@@ -2,13 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
 import { openStore, migrate, type Store } from '@autopilot/store';
+import type { GitVcs } from '@autopilot/engine';
 import {
   runFamilyRunawaySweep,
   runFleetWisdomSweep,
   runSoulMiningSweep,
   runStaleClaimSweep,
+  runDocFreshnessSweep,
+  runVerifyBySweep,
+  runReconciliationProposalSweep,
+  runClosedTaskAuditSweep,
+  runStoreBackupSweep,
 } from '../../src/flight/post-flight-sweeps.js';
+import { DOC_SUBJECTS } from '../../src/flight/doc-freshness.js';
+import type { AuditVcs } from '../../src/flight/closed-task-audit.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { RUNAWAY_SPEND_USD, RUNAWAY_FIRINGS } from '../../src/flight/triage-factors.js';
 import {
@@ -96,6 +108,160 @@ describe('runFamilyRunawaySweep', () => {
   it('is best-effort — a query failure never throws', () => {
     store.db.close();
     expect(() => runFamilyRunawaySweep(store, 'p1', () => 12345)).not.toThrow();
+  });
+});
+
+/**
+ * runDocFreshnessSweep (board web-mtzv4f1k-pmtfwh): DOC_SUBJECTS names paths
+ * that only ever exist in THIS engine repo, so a flight over an UNRELATED
+ * target repo must never mine that engine-repo drift and attach it to the
+ * flown project's board — a flight over a temp calculator repo (calc-story,
+ * 2026-09-13) got four AUTOPILOT docs/epics proposed against the wrong
+ * project this way. The sweep must only run when the flight IS the engine
+ * repo flying itself (`target === engineRepo`).
+ */
+describe('runDocFreshnessSweep', () => {
+  let store: Store;
+  let engineRepo: string;
+
+  function gitSync(repo: string, args: string[]): string {
+    return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
+  }
+
+  function commitAt(dir: string, file: string, content: string, epochSeconds: number): void {
+    const fullPath = join(dir, file);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, content);
+    gitSync(dir, ['add', '-A']);
+    const date = `${epochSeconds} +0000`;
+    execFileSync('git', ['-C', dir, 'commit', '-q', '-m', file], {
+      encoding: 'utf8',
+      env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+    });
+  }
+
+  function docFreshTasks(): { id: string; status: string }[] {
+    return store.db
+      .prepare("SELECT id, status FROM tasks WHERE project_id = 'p1' AND id LIKE 'docfresh-%'")
+      .all() as { id: string; status: string }[];
+  }
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+
+    engineRepo = mkdtempSync(join(tmpdir(), 'autopilot-doc-freshness-sweep-'));
+    gitSync(engineRepo, ['init', '-q']);
+    gitSync(engineRepo, ['config', 'user.email', 'test@autopilot.dev']);
+    gitSync(engineRepo, ['config', 'user.name', 'Test']);
+    gitSync(engineRepo, ['config', 'commit.gpgsign', 'false']);
+    const [firstEntry] = DOC_SUBJECTS;
+    if (!firstEntry) throw new Error('DOC_SUBJECTS must not be empty');
+    commitAt(engineRepo, firstEntry.doc, 'v1', 1_700_000_000);
+    const [firstSubject] = firstEntry.subjects;
+    if (!firstSubject) throw new Error('DOC_SUBJECTS[0] must have a subject');
+    commitAt(engineRepo, firstSubject, 'v1', 1_700_000_100);
+  });
+
+  afterEach(() => {
+    store.db.close();
+    rmSync(engineRepo, { recursive: true, force: true });
+  });
+
+  it('mines and proposes engine-repo drift when the flight IS the engine repo flying itself', () => {
+    runDocFreshnessSweep(store, 'p1', () => 12345, engineRepo, engineRepo);
+
+    expect(docFreshTasks()).toHaveLength(1);
+  });
+
+  it('proposes nothing when the flight target is a different repo than the engine checkout', () => {
+    const target = mkdtempSync(join(tmpdir(), 'autopilot-doc-freshness-target-'));
+    try {
+      runDocFreshnessSweep(store, 'p1', () => 12345, target, engineRepo);
+
+      expect(docFreshTasks()).toEqual([]);
+    } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it('is best-effort — a query failure never throws', () => {
+    store.db.close();
+    expect(() =>
+      runDocFreshnessSweep(store, 'p1', () => 12345, engineRepo, engineRepo),
+    ).not.toThrow();
+  });
+});
+
+/**
+ * runVerifyBySweep (board web-mtzv4f1k-pmtfwh, same foreign-target class as
+ * runDocFreshnessSweep above): docs/RESEARCH-LIBRARY.md is THIS engine
+ * repo's own doc, but the sweep read it straight off `process.cwd()` with no
+ * check on whether the flight's TARGET is actually the engine repo flying
+ * itself — flying an unrelated project would still mine the engine's own
+ * verify-by notes and attach the proposal to the wrong project's board, the
+ * exact bug class docfresh's `target === engineRepo` guard exists to close.
+ */
+describe('runVerifyBySweep', () => {
+  let store: Store;
+  let engineRepo: string;
+  const NOW = Date.parse('2026-09-20T00:00:00Z');
+
+  function verifyByTasks(): { id: string; status: string }[] {
+    return store.db
+      .prepare("SELECT id, status FROM tasks WHERE project_id = 'p1' AND id LIKE 'verifyby-%'")
+      .all() as { id: string; status: string }[];
+  }
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+
+    engineRepo = mkdtempSync(join(tmpdir(), 'autopilot-verify-by-sweep-'));
+    mkdirSync(join(engineRepo, 'docs'), { recursive: true });
+    writeFileSync(
+      join(engineRepo, 'docs', 'RESEARCH-LIBRARY.md'),
+      '## Some topic (2026-08-01, verify by 2026-08-15)\n\nBody text.\n',
+    );
+  });
+
+  afterEach(() => {
+    store.db.close();
+    rmSync(engineRepo, { recursive: true, force: true });
+  });
+
+  it('proposes a re-verification when the flight IS the engine repo flying itself', () => {
+    runVerifyBySweep(store, 'p1', () => NOW, engineRepo, engineRepo);
+
+    expect(verifyByTasks()).toHaveLength(1);
+  });
+
+  it('proposes nothing when the flight target is a different repo than the engine checkout', () => {
+    const target = mkdtempSync(join(tmpdir(), 'autopilot-verify-by-target-'));
+    try {
+      runVerifyBySweep(store, 'p1', () => NOW, target, engineRepo);
+
+      expect(verifyByTasks()).toEqual([]);
+    } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it('is best-effort — a query failure never throws', () => {
+    store.db.close();
+    expect(() => runVerifyBySweep(store, 'p1', () => NOW, engineRepo, engineRepo)).not.toThrow();
   });
 });
 
@@ -402,5 +568,212 @@ describe('runStaleClaimSweep', () => {
       throw new Error('gh exploded');
     });
     expect(await runStaleClaimSweep(() => NOW, exec)).toEqual([]);
+  });
+});
+
+/**
+ * runReconciliationProposalSweep (post-flight-sweeps.ts) had zero direct
+ * coverage — only its pure helper (read/reconcile.ts's
+ * findReconciliationCandidates) was tested. This proves the sweep's own
+ * wiring: it reads the project's open (queued/in_progress) tasks, scores
+ * them against recent commit subjects, and prints one console line per
+ * candidate — proposal-only, it never mutates the store.
+ */
+describe('runReconciliationProposalSweep', () => {
+  let store: Store;
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+  });
+
+  afterEach(() => store.db.close());
+
+  function seedTask(id: string, title: string, status: string): void {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, status, source, created_at, updated_at)
+         VALUES (?, 'p1', ?, ?, 'self', 1, 1)`,
+      )
+      .run(id, title, status);
+  }
+
+  function fakeVcs(commits: ReadonlyArray<{ shortSha: string; subject: string }>): GitVcs {
+    return {
+      recentCommits: async () => commits.map((c) => ({ ...c, files: [] })),
+    } as unknown as GitVcs;
+  }
+
+  it('logs a possible-ship line for an open task whose title matches a recent commit subject', async () => {
+    seedTask('t1', 'add dark mode toggle to settings panel', 'queued');
+    const vcs = fakeVcs([
+      { shortSha: 'abc1234', subject: 'add dark mode toggle to settings panel' },
+    ]);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await runReconciliationProposalSweep(store, 'p1', vcs);
+
+    const lines = write.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('t1') && l.includes('abc1234'))).toBe(true);
+    write.mockRestore();
+  });
+
+  it('never proposes an already-done task, even when its title matches perfectly', async () => {
+    seedTask('t2', 'add dark mode toggle to settings panel', 'done');
+    const vcs = fakeVcs([
+      { shortSha: 'abc1234', subject: 'add dark mode toggle to settings panel' },
+    ]);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await runReconciliationProposalSweep(store, 'p1', vcs);
+
+    const lines = write.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('t2'))).toBe(false);
+    write.mockRestore();
+  });
+
+  it('is best-effort — a query failure never throws', async () => {
+    store.db.close();
+    await expect(runReconciliationProposalSweep(store, 'p1', fakeVcs([]))).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * runClosedTaskAuditSweep (post-flight-sweeps.ts) had zero direct coverage —
+ * only its pure decision (closed-task-audit.ts's findClosedTaskAuditFindings)
+ * was tested. This proves the sweep's own wiring: it reads the project's DONE
+ * tasks from the store, re-checks each DELIVERABLE clause against the
+ * current tree, and proposes a `closedaudit-<taskId>` task through the same
+ * approval gate every other self-mined sweep uses.
+ */
+describe('runClosedTaskAuditSweep', () => {
+  let store: Store;
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+  });
+
+  afterEach(() => store.db.close());
+
+  function seedDoneTask(id: string, title: string): void {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, status, source, created_at, updated_at)
+         VALUES (?, 'p1', ?, 'done', 'self', 1, 1)`,
+      )
+      .run(id, title);
+  }
+
+  function closedAuditTasks(): { id: string; status: string }[] {
+    return store.db
+      .prepare("SELECT id, status FROM tasks WHERE project_id = 'p1' AND id LIKE 'closedaudit-%'")
+      .all() as { id: string; status: string }[];
+  }
+
+  function fakeVcs(haystack: string): AuditVcs {
+    const lower = haystack.toLowerCase();
+    return {
+      async containsText(pattern: string): Promise<boolean> {
+        return lower.includes(pattern.toLowerCase());
+      },
+      async filesContainingText(pattern: string): Promise<readonly string[]> {
+        return lower.includes(pattern.toLowerCase()) ? ['apps/dashboard/src/web/generic.ts'] : [];
+      },
+    };
+  }
+
+  it("proposes a re-check when a done task's DELIVERABLE clause no longer checks out", async () => {
+    seedDoneTask('t1', 'add a tooltip DELIVERABLE: adds a tooltip to the button');
+
+    await runClosedTaskAuditSweep(
+      store,
+      'p1',
+      fakeVcs('nothing relevant here') as unknown as GitVcs,
+      () => 12345,
+    );
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t1', status: 'needs_approval' }]);
+  });
+
+  it('proposes nothing when the DELIVERABLE clause still checks out', async () => {
+    seedDoneTask('t2', 'add a tooltip DELIVERABLE: adds a tooltip to the button');
+
+    await runClosedTaskAuditSweep(
+      store,
+      'p1',
+      fakeVcs('a tooltip renders on hover') as unknown as GitVcs,
+      () => 12345,
+    );
+
+    expect(closedAuditTasks()).toEqual([]);
+  });
+
+  it('is best-effort — a query failure never throws', async () => {
+    store.db.close();
+    await expect(
+      runClosedTaskAuditSweep(store, 'p1', fakeVcs('') as unknown as GitVcs, () => 12345),
+    ).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * runStoreBackupSweep (post-flight-sweeps.ts) had zero direct coverage —
+ * only the snapshot primitives it calls (@autopilot/store's
+ * createSnapshot/pruneSnapshots) were tested. This proves the sweep's own
+ * wiring: it derives the backup directory from `dbPath`, snapshots the live
+ * store into it, and degrades to a logged skip rather than throwing when the
+ * backup itself can't be created.
+ */
+describe('runStoreBackupSweep', () => {
+  let store: Store;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+    tmpDir = mkdtempSync(join(tmpdir(), 'autopilot-store-backup-sweep-'));
+  });
+
+  afterEach(() => {
+    store.db.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('snapshots the live store into a backups/ dir next to dbPath', async () => {
+    const dbPath = join(tmpDir, 'live.db');
+
+    await runStoreBackupSweep(store, dbPath, () => 1_700_000_000_000);
+
+    const files = readdirSync(join(tmpDir, 'backups'));
+    expect(files).toHaveLength(1);
+  });
+
+  it('is best-effort — a directory that cannot be created never throws', async () => {
+    const blockerFile = join(tmpDir, 'not-a-dir');
+    writeFileSync(blockerFile, 'x');
+    const dbPath = join(blockerFile, 'sub', 'live.db');
+
+    await expect(
+      runStoreBackupSweep(store, dbPath, () => 1_700_000_000_000),
+    ).resolves.toBeUndefined();
   });
 });

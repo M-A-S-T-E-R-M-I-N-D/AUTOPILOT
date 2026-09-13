@@ -14,7 +14,7 @@
  * digests; the note itself is never deleted (nothing is lost).
  */
 
-import { mkdirSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createTask, type Store } from '@autopilot/store';
 import { slugify } from '@autopilot/onboarding';
@@ -27,6 +27,29 @@ export interface InboxEntry {
 /** A task board needs SOME title; a note is free-form prose, not one. */
 const INBOX_TASK_TITLE_CHARS = 200;
 const TRIAGED_SUBDIR = '.triaged';
+
+/**
+ * INBOX/ is AUTOPILOT's own runtime protocol directory, not the flown
+ * project's source — but most target repos will not know to gitignore it
+ * themselves. Without a self-scoped ignore, a dropped (or archived) note
+ * sits untracked in the checkout, which `syncWorktreeBranch`
+ * (packages/engine/src/adapters/worktree.ts) reads as "uncommitted changes"
+ * and refuses to sync into, silently blocking every later fleet sync-back
+ * for that project until a human notices and commits or removes it.
+ * A per-directory `.gitignore` applies regardless of the target's own,
+ * so this is written once and left alone (idempotent, no-op if already
+ * present — including when the target already covers INBOX/ itself).
+ */
+function ensureInboxGitignore(dir: string): void {
+  const path = join(dir, '.gitignore');
+  if (existsSync(path)) return;
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path, '*\n', 'utf8');
+  } catch {
+    // best-effort — worst case the target's own .gitignore already covers it.
+  }
+}
 
 /** The note's first non-blank line, or its filename when the note is blank —
  *  truncated the same way task titles are capped everywhere else on the board. */
@@ -62,6 +85,7 @@ export function triageInboxEntries(
   if (entries.length === 0) return;
   const dir = join(target, 'INBOX');
   const archiveDir = join(dir, TRIAGED_SUBDIR);
+  ensureInboxGitignore(dir);
   for (const entry of entries) {
     createTask(store, {
       id: inboxTaskId(entry.name),

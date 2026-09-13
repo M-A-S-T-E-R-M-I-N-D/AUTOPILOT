@@ -129,7 +129,7 @@ describe('prReviewJs', () => {
 
   it('reuses the shared el/tipChip/translateDom helpers rather than re-declaring them', () => {
     const out = prReviewJs();
-    expect(out).toContain("el('h3', 'pr-review-title'");
+    expect(out).toContain("panelHeading('h3', 'pr-review-title', 'prReviewTitle', 'key-round')");
     expect(out).toContain("translateDom(document.documentElement.lang || 'en');");
     expect(out).not.toContain('function el(');
     expect(out).not.toContain('function tipChip(');

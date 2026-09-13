@@ -90,13 +90,9 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
 - [x] Operating principle wired in: proceed on reasonable interpretation, reserve forks/🟣 for approval, never stall — `MASTER-PLAN.md` §17.4; the firing prompt's NOOP→VERDICT and empty-board PROPOSALS sections encode it
 
 ## K. M0-review forward notes (deferred low-severity items from the M0 adversarial review, 2026-07-06)
-- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` that opens the DB
-  read-only and skips write-only pragmas (`journal_mode = WAL`) — needed when the dashboard opens the store for reads (M3).
-  Done — `StoreOptions.readonly` in `packages/store/src/db.ts` (existing callers unaffected); dashboard adoption
-  landed too — every pure-read `openStore` call site in `apps/dashboard/src/read/source.ts`
-  (`readFleetFromStore` .. `gatherLiveState`) now passes `{ readonly: true }`, so the dashboard never holds a
-  write-capable handle alongside the engine's own writer connection; mutation functions (`createTaskInStore` etc.)
-  are unaffected. Covered by `test/read/source.test.ts`'s "read-only openStore adoption" spy assertion.
+- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` (needed when the
+  dashboard opens the store for reads, M3). Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--read-only-open-path-moved-2026-09-13).
 - [ ] TypeScript type-aware linting (M1): when enabling `parserOptions.projectService`, give ESLint a project whose
   `include` covers every linted file (root config files + `scripts/*.mjs`).
 - [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
@@ -105,13 +101,8 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
   `apps/dashboard` its own `DOM` lib + jsdom Vitest env — full evidence moved to
   [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--dashboard-browser-tsconfig-libjsdom-split-moved-2026-09-10).
 - [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
-  Done — `.github/workflows/ci.yml`'s new `reuse-lint` job (`continue-on-error: true`, so it's informational only)
-  runs `pip install reuse==6.2.0 && reuse lint`. Getting the repo REUSE-3.3-compliant surfaced two real gaps: a
-  false-positive in `scripts/ci/validate-spdx-headers.mjs` (its own printed CLI guidance string contained a
-  literal SPDX-header line that `reuse`'s parser read as a second, malformed header — fixed by wrapping it in a
-  REUSE ignore-marker block) and two bundled third-party font license texts
-  (`apps/dashboard/src/assets/OFL-{inter,roboto}.txt`) with no SPDX metadata — annotated in `REUSE.toml` under
-  their own upstream copyright + `OFL-1.1`, with `LICENSES/OFL-1.1.txt` downloaded via `reuse download OFL-1.1`.
+  Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--reuse-lint-ci-job-moved-2026-09-13).
 - [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions (`actions/checkout`,
   `actions/setup-node`, `pnpm/action-setup`) to full commit SHAs with version comments; Dependabot's github-actions
   ecosystem keeps them current. Done — `.github/workflows/ci.yml` pins all three actions to their `v4.4.0` commit
@@ -137,13 +128,8 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
 - [~] (live-CLI dogfood proven at scale — 160+ real firings; formal the internal predecessor behavioral diff never run) M1 experiential DoD (deferred from the machine-verifiable M1): a **live-CLI dogfood run** (real `claude -p`
   flying a repo, exercising `ClaudeCliModel.invoke`) and a **behavioral diff against the running internal v2.4 script**.
   The deterministic sandbox e2e proves the pipeline; these confirm the live behavior.
-- [x] OpenTelemetry wire-format export for firings (the OTel-shaped attributes are already captured in the firing
-  record + SQLite): export over OTLP for standard-portable dashboards — lands with the dashboard at M3.
-  Mapping + injectable HTTP transport done — `toOtlpResourceSpans`/`exportOtlpResourceSpans` in
-  `packages/engine/src/otlp.ts`. Endpoint wiring (`ap-msksw1me-0`) done —
-  `apps/dashboard/src/flight/otlp.ts`'s `otlpConfigFromEnv` reads the standard `OTEL_EXPORTER_OTLP_*` env vars
-  (off when unset); `fly.ts`'s `onFiringComplete` exports each firing's span best-effort (a collector outage logs
-  a warning, never fails the flight). Documented in the root README's "Telemetry & OTLP export" section.
+- [x] OpenTelemetry wire-format export for firings — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--otel-wire-format-export-moved-2026-09-13).
 
 ## L. SOTA-MAP gap items (2026-08-08 · cite map IDs — `docs/SOTA-MAP-llm-software-engineering-2026-08.md`; analysis: RESEARCH-LIBRARY)
 - [~] (DEFERRED BY MEASUREMENT ~$0.02/firing — RESEARCH-LIBRARY "Firing cost anatomy"; revisit M6) **B2+K3** Prompt prefix reorder for cache: stable blocks (SOUL + discipline + containment + hard rules) FIRST,
