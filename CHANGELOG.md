@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.43.0] — 2026-09-13
+
+### Added
+
+- feat(i18n): the fleet totals, the project card stats and the back link read from STRINGS
+- feat(dashboard): busy states — the ritual scrim, a minimizable hold with a write lock
+- feat(pool): claims ledger — comment-first claims, contested claims, 14-day auto-release
+
+### Fixed
+
+- fix(dashboard): the scrim's sweep rides transform, and its progress bar has a name
+- fix(dashboard): a ritual dies with its page; the compose-key check rides inside the spliced function
+- fix(report): refusals reach the screen by key, and the composer offers only what the page can run
+- fix(mirror-pass): never close an issue on an unverified claim — note it, leave it open
+- fix(dashboard): text fields size to their content, no grip; a board column card is a card
+
 ## [0.42.1] — 2026-09-12
 
 ### Fixed
