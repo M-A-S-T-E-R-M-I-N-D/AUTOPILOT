@@ -1456,7 +1456,7 @@ async function main(): Promise<void> {
     // flight/post-flight-sweeps.ts (SHELL DECOMP: pure move, no behavior change).
     await runReconciliationProposalSweep(store, projectId, vcs);
 
-    runVerifyBySweep(store, projectId, now);
+    runVerifyBySweep(store, projectId, now, target);
 
     runFamilyRunawaySweep(store, projectId, now);
 

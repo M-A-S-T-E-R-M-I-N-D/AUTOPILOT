@@ -13,6 +13,7 @@ import {
   runSoulMiningSweep,
   runStaleClaimSweep,
   runDocFreshnessSweep,
+  runVerifyBySweep,
 } from '../../src/flight/post-flight-sweeps.js';
 import { DOC_SUBJECTS } from '../../src/flight/doc-freshness.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
@@ -190,6 +191,72 @@ describe('runDocFreshnessSweep', () => {
     expect(() =>
       runDocFreshnessSweep(store, 'p1', () => 12345, engineRepo, engineRepo),
     ).not.toThrow();
+  });
+});
+
+/**
+ * runVerifyBySweep (board web-mtzv4f1k-pmtfwh, same foreign-target class as
+ * runDocFreshnessSweep above): docs/RESEARCH-LIBRARY.md is THIS engine
+ * repo's own doc, but the sweep read it straight off `process.cwd()` with no
+ * check on whether the flight's TARGET is actually the engine repo flying
+ * itself — flying an unrelated project would still mine the engine's own
+ * verify-by notes and attach the proposal to the wrong project's board, the
+ * exact bug class docfresh's `target === engineRepo` guard exists to close.
+ */
+describe('runVerifyBySweep', () => {
+  let store: Store;
+  let engineRepo: string;
+  const NOW = Date.parse('2026-09-20T00:00:00Z');
+
+  function verifyByTasks(): { id: string; status: string }[] {
+    return store.db
+      .prepare("SELECT id, status FROM tasks WHERE project_id = 'p1' AND id LIKE 'verifyby-%'")
+      .all() as { id: string; status: string }[];
+  }
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+
+    engineRepo = mkdtempSync(join(tmpdir(), 'autopilot-verify-by-sweep-'));
+    mkdirSync(join(engineRepo, 'docs'), { recursive: true });
+    writeFileSync(
+      join(engineRepo, 'docs', 'RESEARCH-LIBRARY.md'),
+      '## Some topic (2026-08-01, verify by 2026-08-15)\n\nBody text.\n',
+    );
+  });
+
+  afterEach(() => {
+    store.db.close();
+    rmSync(engineRepo, { recursive: true, force: true });
+  });
+
+  it('proposes a re-verification when the flight IS the engine repo flying itself', () => {
+    runVerifyBySweep(store, 'p1', () => NOW, engineRepo, engineRepo);
+
+    expect(verifyByTasks()).toHaveLength(1);
+  });
+
+  it('proposes nothing when the flight target is a different repo than the engine checkout', () => {
+    const target = mkdtempSync(join(tmpdir(), 'autopilot-verify-by-target-'));
+    try {
+      runVerifyBySweep(store, 'p1', () => NOW, target, engineRepo);
+
+      expect(verifyByTasks()).toEqual([]);
+    } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it('is best-effort — a query failure never throws', () => {
+    store.db.close();
+    expect(() => runVerifyBySweep(store, 'p1', () => NOW, engineRepo, engineRepo)).not.toThrow();
   });
 });
 
