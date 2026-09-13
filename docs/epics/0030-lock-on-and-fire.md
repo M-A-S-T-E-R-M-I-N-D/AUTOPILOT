@@ -38,7 +38,9 @@ the attention you have (an evening, a day, a week).
    neither); a flight underway at one of four. Captured at 1440×1030 @2×, dark,
    the browser clock frozen at the fixture's instant, no operator paths. The
    launch button now reads **Fire** in both locales (`flyIt`), and the three
-   shell frames were retaken on the same build.
+   shell frames were retaken on the same build. The retake is one command,
+   `node scripts/docs/capture-screens.mjs`, whose header says exactly what is
+   staged and what is real.
 2. **The master prompt.** `docs/MASTER-PROMPT.md`: one document that states
    the product's promise, its laws (honest telemetry, additive git, gate before
    commit, one unit per firing, claim contracts), its surfaces (fleet, project,

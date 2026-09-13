@@ -1137,6 +1137,11 @@ const BENIGN_SCRIPTS = new Set([
   // the same class as every other codemod/i18n .d.mts already listed here.
   'docs/check-links.d.mts',
   'docs/check-links.mjs',
+  // Doc GENERATOR (epic 0030 slice 1): retakes the README's frames from the
+  // populated e2e fixture into docs/screens/ — writes PNGs only, reads a
+  // loopback fixture, never the store, git, or GitHub. Same class as the
+  // architecture/citation generators above.
+  'docs/capture-screens.mjs',
   // Writes docs/debriefs/README.md from the debrief files' own headings —
   // the same generate-a-committed-doc-from-the-tree class as
   // data-model/generate-doc.mjs; reads the docs folder, writes one index
