@@ -4553,7 +4553,7 @@ ${contextRailHtml(project)}
       <label for="fly-lanes" data-i18n="lanes">Lanes</label>
       <input type="number" id="fly-lanes" name="lanes" min="1" max="8" value="1" />
       <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(90 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(180 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(270 12 12)"/><path d="M12.5 12.5c.9 2.7 2 4.5 3.6 5.9l-1.1 1.1c-1.8-1.6-3.1-3.7-4-6.5Z"/></svg></button>
-      <button type="submit" id="fly-go" data-i18n="flyIt">Fly it</button>
+      <button type="submit" id="fly-go" data-i18n="flyIt">Fire</button>
       <button type="button" id="fly-pause" data-i18n="pause" hidden>Pause</button>
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>
