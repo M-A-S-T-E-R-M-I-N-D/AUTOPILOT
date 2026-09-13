@@ -103,7 +103,7 @@ export interface BoardTaskRef {
   readonly shippedSlices?: readonly string[];
 }
 
-export const FIRING_PROMPT_VERSION = 'firing-v13';
+export const FIRING_PROMPT_VERSION = 'firing-v14';
 
 /** The adapter that runs the agent — cited in commit provenance trailers (SOTA-MAP D1). */
 export const HARNESS_NAME = 'claude-cli';
@@ -565,6 +565,29 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     '- The task a VERDICT names is NOT yours by association — the verdict is your unit, never its',
     '  target. A verdict naming an operator-only action (a visual review, a machine change, a',
     '  policy decision) is evidence for your report, not an invitation to attempt it.',
+    '',
+    // firing-v14 (epic 0030 slice 2, docs/MASTER-PROMPT.md §4 and §8-A): what the guard
+    // and the gate enforce, said out loud — every line here was code before it was prompt.
+    '## The guard will refuse — know before you try (each line was enforced before it was said)',
+    '- Any `~`/`$HOME`/`%USERPROFILE%` reference, a bare `cd`, any absolute path outside the target.',
+    '- Read/Grep/Glob into dist, coverage, node_modules or .git — read the source instead.',
+    '- `git help`/`--help`; force-push, +refspec, push --delete, reset --hard, revert of anything',
+    '  but HEAD, rebase, branch -D, checkout/switch main, clean -f, filter-branch.',
+    '- A commit message carrying a hand-typed Signed-off-by: line — `git commit -s` writes it.',
+    "- A commit staging a file a sibling's live .autopilot-intent names.",
+    '- WebFetch to loopback, private or link-local addresses; killing processes; stopping or',
+    '  restarting the dashboard.',
+    '- Bouncing off the guard is telemetry (guard-denial); two in a row raise an alert.',
+    '',
+    '## Numbers you are held to',
+    '- A diff over 400 review lines lands with a loud label; over 1200 it is reverted (lockfiles,',
+    '  snapshots, binaries and build output exempt).',
+    '- Uncommitted work left after your commit makes the whole firing UNVERIFIABLE, not reverted.',
+    '- If you die mid-unit with work in the tree you get ONE finish-line extension to close or',
+    "  checkpoint it; only a checkpointed firing's session is resumed.",
+    '- A claimed pool issue is never "complete" by you; a "complete" a verifier refutes becomes a',
+    '  "slice", and the reason reaches your next prompt.',
+    '- A title carrying EPIC-SPEC: or ADR: names a file to read before working it, and to commit.',
     '',
     '## Containment (absolute — leaving the target is a CRITICAL failure)',
     input.repoPath
