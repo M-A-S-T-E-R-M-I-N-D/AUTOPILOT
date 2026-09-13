@@ -73,6 +73,16 @@ so the "no claims without a paper trail" standard
   (`apps/dashboard/src/assets/OFL-{inter,roboto}.txt`) with no SPDX metadata — annotated in `REUSE.toml` under
   their own upstream copyright + `OFL-1.1`, with `LICENSES/OFL-1.1.txt` downloaded via `reuse download OFL-1.1`.
 
+## §K — read-only open path (moved 2026-09-13)
+
+- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` that opens the DB
+  read-only and skips write-only pragmas (`journal_mode = WAL`) — needed when the dashboard opens the store for reads (M3).
+  Done — `StoreOptions.readonly` in `packages/store/src/db.ts` (existing callers unaffected); dashboard adoption
+  landed too — every pure-read `openStore` call site in `apps/dashboard/src/read/source.ts`
+  (`readFleetFromStore` .. `gatherLiveState`) now passes `{ readonly: true }`, so the dashboard never holds a
+  write-capable handle alongside the engine's own writer connection; mutation functions (`createTaskInStore` etc.)
+  are unaffected. Covered by `test/read/source.test.ts`'s "read-only openStore adoption" spy assertion.
+
 ## §L — C4 deterministic diff-size gate (moved 2026-09-13)
 
 - [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption
