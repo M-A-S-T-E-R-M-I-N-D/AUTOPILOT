@@ -63,7 +63,7 @@ describe('poolClientJs', () => {
     expect(out).toContain(
       'if (!window.confirm(poolClaimConfirmMessage(entry.issue, entry.decision, projectName))) return;',
     );
-    expect(out).toContain("fetch('/api/pool-client/execute', {");
+    expect(out).toContain("ritualFetch('claim', '/api/pool-client/execute', {");
   });
 
   it('keeps its own module-level state, not shared with any other module', () => {

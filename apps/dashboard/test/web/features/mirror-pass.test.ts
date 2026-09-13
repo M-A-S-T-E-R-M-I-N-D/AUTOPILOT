@@ -80,7 +80,7 @@ describe('mirrorPassJs', () => {
   it('posts to /api/mirror-pass/execute with the project id on click', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-execute]')");
-    expect(out).toContain("fetch('/api/mirror-pass/execute'");
+    expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/execute'");
     expect(out).toContain('body: JSON.stringify({ project: pid })');
   });
 
@@ -120,7 +120,7 @@ describe('mirrorPassJs', () => {
   it('posts to /api/mirror-pass/drift/execute with the project id on click, independent of the reconcile button', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-drift-execute]')");
-    expect(out).toContain("fetch('/api/mirror-pass/drift/execute'");
+    expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/drift/execute'");
     expect(out.match(/body: JSON\.stringify\(\{ project: pid \}\),/g)?.length).toBe(4);
   });
 
@@ -156,7 +156,7 @@ describe('mirrorPassJs', () => {
   it('posts to /api/mirror-pass/landing-note/execute with the project id on click, reusing mirrorPassExecuteResultMessage', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-landing-note-execute]')");
-    expect(out).toContain("fetch('/api/mirror-pass/landing-note/execute'");
+    expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/landing-note/execute'");
     expect(
       out.match(/var result = mirrorPassExecuteResultMessage\(r\.status, r\.data\);/g)?.length,
     ).toBe(3);
@@ -194,6 +194,6 @@ describe('mirrorPassJs', () => {
   it('posts to /api/mirror-pass/stale-claims/execute with the project id on click, reusing mirrorPassExecuteResultMessage', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-stale-claim-execute]')");
-    expect(out).toContain("fetch('/api/mirror-pass/stale-claims/execute'");
+    expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/stale-claims/execute'");
   });
 });

@@ -223,11 +223,15 @@ import {
 // Then core raw 199→201KB (2026-09-12) for the flicker fix: the project-page panel
 // cache, the 1 s live clocks, the hidden-tab pause and the live-workers guard —
 // measured 200.2KB raw.
-const CORE_RAW_BUDGET = 201 * 1024;
+// Then core raw 201→216KB / gzip 60→64KB and panels raw 150→156KB / gzip
+// 45→47KB (2026-09-13) for BUSY STATES (web/features/busy.ts — the ritual
+// scrim, pill, toast and write lock, core) and the claims ledger line on the
+// pool panel (deferred): measured 210.2KB/62.3KB core, 152.0KB/45.7KB panels.
+const CORE_RAW_BUDGET = 216 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
-const CORE_GZIP_BUDGET = 60 * 1024;
+const CORE_GZIP_BUDGET = 64 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -303,7 +307,7 @@ const CORE_GZIP_BUDGET = 60 * 1024;
 // audience lines under the Pool and Good-first titles, en+he) — measured 148.1KB raw.
 // Then raw 149→150KB (2026-09-12, round 4): the mirror-pass stale-claim UI in
 // /panels.js merged 226 bytes past the budget — measured 149.2KB raw.
-const CHUNK_RAW_BUDGET = 150 * 1024;
+const CHUNK_RAW_BUDGET = 156 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -332,7 +336,7 @@ const CHUNK_RAW_BUDGET = 150 * 1024;
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
 // plan editor — measured 43.1KB gzip.
 // Then gzip 44→45KB (2026-09-12) for the CI-status panel in /panels.js — measured 44.1KB gzip.
-const CHUNK_GZIP_BUDGET = 45 * 1024;
+const CHUNK_GZIP_BUDGET = 47 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

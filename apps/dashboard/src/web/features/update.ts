@@ -71,7 +71,7 @@ function updateInit() {
   function runUpdate(check, strategy) {
     showProgress();
     var payload = strategy ? { strategy: strategy } : {};
-    fetch('/api/update/execute', {
+    ritualFetch('update', '/api/update/execute', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),

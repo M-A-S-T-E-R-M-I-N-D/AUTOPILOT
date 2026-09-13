@@ -427,6 +427,9 @@ function landingPaintJob(pid) {
   if (!el2) return false;
   var line = landingJobLine(landingJobs[pid], Date.now());
   if (!line) return false;
+  // The ritual scrim (busy.ts) follows the same job: real gate steps, step
+  // N of M, closed on finished — the one determinate ritual.
+  ritualFollowLandingJob(pid, landingJobs[pid]);
   el2.className = line.className;
   el2.textContent = line.text;
   var btn = document.querySelector('[data-land-execute="' + pid + '"]');
@@ -543,11 +546,11 @@ document.addEventListener('click', function (e) {
   landingJobs[pid] = { phase: 'gate', startedAt: Date.now(), steps: [] };
   landingPaintJob(pid);
   landingPollJob(pid);
-  fetch('/api/landing/execute', {
+  ritualFetch('landing', '/api/landing/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ project: pid }),
-  })
+  }, { follow: true, subject: pid })
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {
       var ok = r.data && r.data.ok;

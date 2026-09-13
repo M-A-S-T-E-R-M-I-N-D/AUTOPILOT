@@ -119,7 +119,7 @@ describe('prReviewJs', () => {
     expect(out).toContain(
       'if (!window.confirm(prReviewConfirmMessage(plan.pr, plan.decision, tr))) return;',
     );
-    expect(out).toContain("fetch('/api/pr-review/execute', {");
+    expect(out).toContain("ritualFetch('pr-review', '/api/pr-review/execute', {");
   });
 
   it('keeps its own module-level state, not shared with any other module', () => {

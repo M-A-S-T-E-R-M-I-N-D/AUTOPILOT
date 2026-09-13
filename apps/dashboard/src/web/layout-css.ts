@@ -1346,6 +1346,55 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .skip-link:not(:focus) { inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 main:focus { outline: none; }
+/* BUSY STATES (2026-09-13, web/features/busy.ts): the ritual scrim. One modal
+   over a glass field while an outward write runs; the card carries a spinner,
+   the elapsed clock, the note, a progress bar (determinate for the landing's
+   real gate steps, a sweep otherwise), the step list and the one escape:
+   Minimize. Minimized, a corner pill keeps the clock and the "writes paused"
+   word; every other write button dims and refuses with a spoken reason. */
+.ritual-scrim { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: var(--space-4); background: color-mix(in srgb, var(--color-surface) 58%, transparent); -webkit-backdrop-filter: blur(10px) saturate(120%); backdrop-filter: blur(10px) saturate(120%); }
+.ritual-scrim[hidden] { display: none; }
+@media (prefers-reduced-transparency: reduce) { .ritual-scrim { background: var(--color-surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.ritual-card { inline-size: min(100%, 34rem); display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-2); }
+.ritual-head { display: flex; align-items: center; gap: var(--space-3); }
+.ritual-title { flex: 1 1 auto; margin: 0; font-size: var(--text-base); }
+.ritual-clock, .ritual-pill-clock { font-variant-numeric: tabular-nums; color: var(--color-text-muted); font-size: var(--text-sm); }
+.ritual-spinner, .ritual-pill-dot { flex: none; inline-size: 1.125rem; block-size: 1.125rem; border-radius: 50%; border: 2px solid var(--color-border-strong); border-inline-start-color: var(--color-accent); animation: ritual-spin 900ms linear infinite; }
+.ritual-pill-dot { inline-size: 0.75rem; block-size: 0.75rem; }
+[data-ritual-state="done"] .ritual-spinner, [data-ritual-state="done"] .ritual-pill-dot { animation: none; border-color: var(--color-success); }
+[data-ritual-state="failed"] .ritual-spinner, [data-ritual-state="failed"] .ritual-pill-dot { animation: none; border-color: var(--color-sev-high); }
+@keyframes ritual-spin { to { transform: rotate(360deg); } }
+.ritual-note { margin: 0; font-size: var(--text-sm); color: var(--color-text); }
+.ritual-progress { position: relative; block-size: 6px; border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
+.ritual-progress-fill { position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: 0; border-radius: inherit; background: var(--color-accent); transition: inline-size var(--duration-medium2) var(--easing-standard); }
+.ritual-progress[data-indeterminate] .ritual-progress-fill { inline-size: 32%; animation: ritual-sweep 1.5s var(--easing-standard) infinite; }
+@keyframes ritual-sweep { from { inset-inline-start: -32%; } to { inset-inline-start: 100%; } }
+[data-ritual-state="failed"] .ritual-progress-fill { background: var(--color-sev-high); }
+[data-ritual-state="done"] .ritual-progress-fill { background: var(--color-success); }
+.ritual-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-family: var(--font-mono); font-size: var(--text-xs); }
+.ritual-steps:empty { display: none; }
+.ritual-step { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--color-text-muted); }
+.ritual-step::before { content: '·'; inline-size: 1em; flex: none; }
+.ritual-step[data-state="running"] { color: var(--color-text); }
+.ritual-step[data-state="running"]::before { content: '…'; }
+.ritual-step[data-state="pass"] { color: var(--color-success); }
+.ritual-step[data-state="pass"]::before { content: '✓'; }
+.ritual-step[data-state="fail"] { color: var(--color-sev-high); }
+.ritual-step[data-state="fail"]::before { content: '✗'; }
+.ritual-step-label { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
+.ritual-warning { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+.ritual-warning:empty { display: none; }
+.ritual-actions { display: flex; justify-content: flex-end; }
+.ritual-minimize { font: inherit; font-size: var(--text-sm); cursor: pointer; min-block-size: 2.25rem; padding: var(--space-1) var(--space-4); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.ritual-minimize:hover, .ritual-minimize:focus-visible { border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.ritual-minimize:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.ritual-pill { position: fixed; inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom)); inset-inline-end: var(--space-3); z-index: 70; display: flex; align-items: center; gap: var(--space-2); min-block-size: 2.75rem; padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--color-border); color: var(--color-text); font: inherit; font-size: var(--text-sm); cursor: pointer; background: color-mix(in srgb, var(--color-surface-raised) 84%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: var(--elevation-level-2); }
+.ritual-pill[hidden] { display: none; }
+.ritual-pill:hover, .ritual-pill:focus-visible { border-color: var(--color-accent); }
+@media (min-width: 64rem) { .ritual-pill { inset-block-end: var(--space-4); } }
+.ritual-toast { position: fixed; inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom)); inset-inline-start: 50%; transform: translateX(-50%); z-index: 90; max-inline-size: min(90vw, 28rem); padding: var(--space-2) var(--space-4); border-radius: var(--shape-small); background: var(--color-text); color: var(--color-surface); font-size: var(--text-sm); box-shadow: var(--elevation-level-2); }
+.ritual-toast[hidden] { display: none; }
+html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .issue-triage-execute, .pool-client-execute, .pool-client-fly, .mirror-pass-execute, .discussions-triage-execute, .report-execute, .gh-issue-form button, .update-banner button) { opacity: 0.55; cursor: progress; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }

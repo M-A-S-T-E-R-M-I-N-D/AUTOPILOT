@@ -45,7 +45,7 @@ describe('connectJs', () => {
     // The spliced helper composes the dialog through the bundle's injected tr
     // (i18n, board web-msnsndki-dz3vn1) — connect-i18n.test.ts pins the key.
     expect(out).toContain('if (!window.confirm(githubIssueConfirmMessage(title, tr))) return;');
-    expect(out).toContain("fetch('/api/github-issue/execute'");
+    expect(out).toContain("ritualFetch('github-issue', '/api/github-issue/execute'");
   });
 
   describe('LLM ISSUE COMPOSER 2/3 (board web-mtpzdruu-vf25ry)', () => {
@@ -55,7 +55,7 @@ describe('connectJs', () => {
 
     it('POSTs only the free-text note to /api/report/compose — one field, description', () => {
       const out = connectJs();
-      expect(out).toContain("fetch('/api/report/compose'");
+      expect(out).toContain("ritualFetch('compose', '/api/report/compose'");
       expect(out).toContain('body: JSON.stringify({ description: note })');
     });
 

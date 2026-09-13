@@ -40,6 +40,7 @@ import { switcherJs } from '../../src/web/features/switcher.js';
 import { activityHeatmapJs } from '../../src/web/features/activity-heatmap.js';
 import { activityJs } from '../../src/web/features/activity.js';
 import { backlogJs } from '../../src/web/features/backlog.js';
+import { busyJs } from '../../src/web/features/busy.js';
 import { ciStatusJs } from '../../src/web/features/ci-status.js';
 import { connectJs } from '../../src/web/features/connect.js';
 import { contributorIssueListJs } from '../../src/web/features/contributor-issue-list.js';
@@ -116,6 +117,7 @@ function featureTs(basename: string): string {
 const ACTIVITY_HEATMAP_TS = featureTs('activity-heatmap');
 const ACTIVITY_TS = featureTs('activity');
 const BACKLOG_TS = featureTs('backlog');
+const BUSY_TS = featureTs('busy');
 const CI_STATUS_TS = featureTs('ci-status');
 const SWITCHER_TS = featureTs('switcher');
 const CONNECT_TS = featureTs('connect');
@@ -1376,6 +1378,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'activity-heatmap.ts': ['activityHeatmapJs'],
     'activity.ts': ['activityJs'],
     'backlog.ts': ['backlogJs'],
+    'busy.ts': ['busyJs'],
     'ci-status.ts': ['ciStatusJs'],
     'connect.ts': ['connectJs'],
     'contributor-issue-list.ts': ['contributorIssueListJs'],
@@ -1432,6 +1435,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
   it('builds a FeatureModulesManifest for src/web/features/ that matches buildAssemblyManifest called directly on each file', () => {
     const activitySource = readFileSync(ACTIVITY_TS, 'utf8');
     const backlogSource = readFileSync(BACKLOG_TS, 'utf8');
+    const busySource = readFileSync(BUSY_TS, 'utf8');
     const ciStatusSource = readFileSync(CI_STATUS_TS, 'utf8');
     const connectSource = readFileSync(CONNECT_TS, 'utf8');
     const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');
@@ -1476,6 +1480,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       'activityJs',
     ]);
     const directBacklogManifest = buildAssemblyManifest(backlogSource, BACKLOG_TS, ['backlogJs']);
+    const directBusyManifest = buildAssemblyManifest(busySource, BUSY_TS, ['busyJs']);
     const directCiStatusManifest = buildAssemblyManifest(ciStatusSource, CI_STATUS_TS, [
       'ciStatusJs',
     ]);
@@ -1588,6 +1593,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directActivityHeatmapManifest,
       directActivityManifest,
       directBacklogManifest,
+      directBusyManifest,
       directCiStatusManifest,
       directConnectManifest,
       directContributorIssueListManifest,
@@ -1893,6 +1899,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
     expect(source).toContain("import { activityJs } from './activity.js';");
     expect(source).toContain("import { backlogJs } from './backlog.js';");
+    expect(source).toContain("import { busyJs } from './busy.js';");
     expect(source).toContain("import { ciStatusJs } from './ci-status.js';");
     expect(source).toContain("import { connectJs } from './connect.js';");
     expect(source).toContain(
@@ -1998,7 +2005,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2738,6 +2745,21 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
 
   it('backlogJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/backlog.ts', async () => {
     expect(await reconstructBacklogJs()).toBe(backlogJs());
+  });
+
+  /** busyJs's own reconstruction (2026-09-13, the ritual scrim): a plain
+   *  substitution-free literal — no splices, no slots. */
+  async function reconstructBusyJs(): Promise<string> {
+    const busySource = readFileSync(BUSY_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(busySource, BUSY_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(busySource, 'busyJs', resolvedBindings, undefined, BUSY_TS)
+    ).trim();
+  }
+
+  it('busyJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/busy.ts', async () => {
+    expect(await reconstructBusyJs()).toBe(busyJs());
   });
 
   it('backlogJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off backlog.ts', async () => {
@@ -4005,6 +4027,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('activityHeatmapJs', await reconstructActivityHeatmapJs());
     nestedOutputs.set('activityJs', await reconstructActivityJs());
     nestedOutputs.set('backlogJs', await reconstructBacklogJs());
+    nestedOutputs.set('busyJs', await reconstructBusyJs());
     nestedOutputs.set('ciStatusJs', await reconstructCiStatusJs());
     nestedOutputs.set('connectJs', await reconstructConnectJs());
     nestedOutputs.set('contributorIssueListJs', await reconstructContributorIssueListJs());

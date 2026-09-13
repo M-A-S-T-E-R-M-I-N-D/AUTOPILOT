@@ -6,6 +6,7 @@
 import { activityHeatmapJs } from './activity-heatmap.js';
 import { activityJs } from './activity.js';
 import { backlogJs } from './backlog.js';
+import { busyJs } from './busy.js';
 import { ciStatusJs } from './ci-status.js';
 import { connectJs } from './connect.js';
 import { contributorIssueListJs } from './contributor-issue-list.js';
@@ -47,6 +48,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   activityHeatmapJs,
   activityJs,
   backlogJs,
+  busyJs,
   ciStatusJs,
   connectJs,
   contributorIssueListJs,
@@ -96,6 +98,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'activity-heatmap': activityHeatmapJs,
   activity: activityJs,
   backlog: backlogJs,
+  busy: busyJs,
   'ci-status': ciStatusJs,
   connect: connectJs,
   'contributor-issue-list': contributorIssueListJs,

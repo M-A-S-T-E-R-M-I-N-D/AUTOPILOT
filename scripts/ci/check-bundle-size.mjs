@@ -93,11 +93,15 @@ import { gzipSync } from 'node:zlib';
 // Then core raw 199→201KB (2026-09-12) for the flicker fix: the project-page panel
 // cache, the 1 s live clocks, the hidden-tab pause and the live-workers guard —
 // measured 200.2KB raw.
-const CORE_RAW_BUDGET = 201 * 1024;
+// Then core raw 201→216KB / gzip 60→64KB and panels raw 150→156KB / gzip
+// 45→47KB (2026-09-13) for BUSY STATES (web/features/busy.ts — the ritual
+// scrim, pill, toast and write lock, core) and the claims ledger line on the
+// pool panel (deferred): measured 210.2KB/62.3KB core, 152.0KB/45.7KB panels.
+const CORE_RAW_BUDGET = 216 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
-const CORE_GZIP_BUDGET = 60 * 1024;
+const CORE_GZIP_BUDGET = 64 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -204,13 +208,13 @@ const CORE_GZIP_BUDGET = 60 * 1024;
 // audience lines under the Pool and Good-first titles, en+he) — measured 148.1KB raw.
 // Then raw 149→150KB (2026-09-12, round 4): the mirror-pass stale-claim UI in
 // /panels.js merged 226 bytes past the budget — measured 149.2KB raw.
-const CHUNK_RAW_BUDGET = 150 * 1024;
+const CHUNK_RAW_BUDGET = 156 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
 // plan editor — measured 43.1KB gzip.
 // Then gzip 44→45KB (2026-09-12) for the CI-status panel in /panels.js — measured 44.1KB gzip.
-const CHUNK_GZIP_BUDGET = 45 * 1024;
+const CHUNK_GZIP_BUDGET = 47 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

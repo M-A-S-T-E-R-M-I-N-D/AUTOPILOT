@@ -308,11 +308,11 @@ document.addEventListener('click', function (e) {
   if (milestoneTag) payload.milestoneTag = milestoneTag;
   if (ghRelease) payload.ghRelease = true;
   if (maturity && maturity !== 'auto') payload.maturity = maturity;
-  fetch('/api/release/execute', {
+  ritualFetch('release', '/api/release/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
-  })
+  }, { subject: pid })
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {
       b.disabled = false;

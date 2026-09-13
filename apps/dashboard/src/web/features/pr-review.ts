@@ -428,7 +428,7 @@ document.addEventListener('click', function (e) {
   // previewed PR's head SHA too — the re-triage-before-Apply guard: a moved
   // head is caught even when the fresh kind coincidentally matches the stale
   // one. See flight/pr-review-execute.ts.
-  fetch('/api/pr-review/execute', {
+  ritualFetch('pr-review', '/api/pr-review/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -436,7 +436,7 @@ document.addEventListener('click', function (e) {
       expectedDecision: plan.decision.decision,
       expectedHeadRefOid: plan.pr.headRefOid,
     }),
-  })
+  }, { subject: '#' + number })
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {
       var result = prReviewExecuteResult(r.data, tr);

@@ -179,7 +179,7 @@ function connectInit() {
     if (!note) return;
     ghIssueComposeBtn.disabled = true;
     if (ghIssueComposeStatus) { ghIssueComposeStatus.className = 'gh-issue-compose-status'; ghIssueComposeStatus.textContent = tr('reportComposing'); }
-    fetch('/api/report/compose', {
+    ritualFetch('compose', '/api/report/compose', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ description: note }),
@@ -204,7 +204,7 @@ function connectInit() {
     if (!window.confirm(githubIssueConfirmMessage(title, tr))) return;
     var body = ghIssueBody ? ghIssueBody.value : '';
     if (ghIssueResult) { ghIssueResult.className = 'gh-issue-result'; ghIssueResult.textContent = tr('ghIssueOpening'); }
-    fetch('/api/github-issue/execute', {
+    ritualFetch('github-issue', '/api/github-issue/execute', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ title: title, body: body }),

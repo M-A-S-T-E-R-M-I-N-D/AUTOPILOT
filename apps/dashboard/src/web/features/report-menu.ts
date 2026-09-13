@@ -391,7 +391,7 @@ function paintReportDialog(pid, capture) {
     composeStatusEl.className = 'report-compose-status';
     composeStatusEl.textContent = tr('reportComposing');
     var owning = capture && capture.owningModule;
-    fetch('/api/report/compose', {
+    ritualFetch('compose', '/api/report/compose', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -463,7 +463,7 @@ function paintReportDialog(pid, capture) {
       if (!window.confirm(reportConfirmMessage(previewedPlan, tr))) return;
       execBtn.disabled = true;
       execBtn.textContent = tr('reportExecuting');
-      fetch('/api/report-from-here/execute', {
+      ritualFetch('report', '/api/report-from-here/execute', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: reportMenuCaptureBody(pid, capture, desc.value, actionSel.value, composedSeverity),

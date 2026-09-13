@@ -311,7 +311,7 @@ document.addEventListener('click', function (e) {
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = tr('issueTriageExecuting');
-  fetch('/api/issue-triage/execute', {
+  ritualFetch('issue-triage', '/api/issue-triage/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ project: pid }),

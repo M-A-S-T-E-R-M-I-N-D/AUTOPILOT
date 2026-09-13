@@ -999,6 +999,12 @@ const BENIGN_WEB_FEATURES = new Set([
   // `<body data-subject>` and the nav's aria state from clicks, the URL
   // hash and localStorage; never writes anywhere but the DOM.
   'subject-nav.ts',
+  // busy.ts (2026-09-13, the ritual scrim): ritualFetch is a drop-in wrapper
+  // around the caller's own fetch — every URL, method and body is the
+  // already-flagged EXECUTE panel's; this file adds no endpoint and builds its
+  // DOM from STRINGS and the landing job's step labels, never from untrusted
+  // content.
+  'busy.ts',
   'coordination.ts',
   'docs-viewer.ts',
   'evolution.ts',

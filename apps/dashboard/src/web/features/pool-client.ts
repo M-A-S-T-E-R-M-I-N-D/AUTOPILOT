@@ -258,11 +258,11 @@ document.addEventListener('click', function (e) {
   b.textContent = tr('poolClaiming');
   var body = { number: number };
   if (projectId) body.project = projectId;
-  fetch('/api/pool-client/execute', {
+  ritualFetch('claim', '/api/pool-client/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
-  })
+  }, { subject: '#' + number })
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {
       var result = poolClaimExecuteResult(r.data);
