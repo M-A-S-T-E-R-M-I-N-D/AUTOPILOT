@@ -3,10 +3,11 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { openStore, migrate, type Store } from '@autopilot/store';
+import type { GitVcs } from '@autopilot/engine';
 import {
   runFamilyRunawaySweep,
   runFleetWisdomSweep,
@@ -14,8 +15,12 @@ import {
   runStaleClaimSweep,
   runDocFreshnessSweep,
   runVerifyBySweep,
+  runReconciliationProposalSweep,
+  runClosedTaskAuditSweep,
+  runStoreBackupSweep,
 } from '../../src/flight/post-flight-sweeps.js';
 import { DOC_SUBJECTS } from '../../src/flight/doc-freshness.js';
+import type { AuditVcs } from '../../src/flight/closed-task-audit.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { RUNAWAY_SPEND_USD, RUNAWAY_FIRINGS } from '../../src/flight/triage-factors.js';
 import {
@@ -563,5 +568,212 @@ describe('runStaleClaimSweep', () => {
       throw new Error('gh exploded');
     });
     expect(await runStaleClaimSweep(() => NOW, exec)).toEqual([]);
+  });
+});
+
+/**
+ * runReconciliationProposalSweep (post-flight-sweeps.ts) had zero direct
+ * coverage — only its pure helper (read/reconcile.ts's
+ * findReconciliationCandidates) was tested. This proves the sweep's own
+ * wiring: it reads the project's open (queued/in_progress) tasks, scores
+ * them against recent commit subjects, and prints one console line per
+ * candidate — proposal-only, it never mutates the store.
+ */
+describe('runReconciliationProposalSweep', () => {
+  let store: Store;
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+  });
+
+  afterEach(() => store.db.close());
+
+  function seedTask(id: string, title: string, status: string): void {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, status, source, created_at, updated_at)
+         VALUES (?, 'p1', ?, ?, 'self', 1, 1)`,
+      )
+      .run(id, title, status);
+  }
+
+  function fakeVcs(commits: ReadonlyArray<{ shortSha: string; subject: string }>): GitVcs {
+    return {
+      recentCommits: async () => commits.map((c) => ({ ...c, files: [] })),
+    } as unknown as GitVcs;
+  }
+
+  it('logs a possible-ship line for an open task whose title matches a recent commit subject', async () => {
+    seedTask('t1', 'add dark mode toggle to settings panel', 'queued');
+    const vcs = fakeVcs([
+      { shortSha: 'abc1234', subject: 'add dark mode toggle to settings panel' },
+    ]);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await runReconciliationProposalSweep(store, 'p1', vcs);
+
+    const lines = write.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('t1') && l.includes('abc1234'))).toBe(true);
+    write.mockRestore();
+  });
+
+  it('never proposes an already-done task, even when its title matches perfectly', async () => {
+    seedTask('t2', 'add dark mode toggle to settings panel', 'done');
+    const vcs = fakeVcs([
+      { shortSha: 'abc1234', subject: 'add dark mode toggle to settings panel' },
+    ]);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await runReconciliationProposalSweep(store, 'p1', vcs);
+
+    const lines = write.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('t2'))).toBe(false);
+    write.mockRestore();
+  });
+
+  it('is best-effort — a query failure never throws', async () => {
+    store.db.close();
+    await expect(runReconciliationProposalSweep(store, 'p1', fakeVcs([]))).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * runClosedTaskAuditSweep (post-flight-sweeps.ts) had zero direct coverage —
+ * only its pure decision (closed-task-audit.ts's findClosedTaskAuditFindings)
+ * was tested. This proves the sweep's own wiring: it reads the project's DONE
+ * tasks from the store, re-checks each DELIVERABLE clause against the
+ * current tree, and proposes a `closedaudit-<taskId>` task through the same
+ * approval gate every other self-mined sweep uses.
+ */
+describe('runClosedTaskAuditSweep', () => {
+  let store: Store;
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+  });
+
+  afterEach(() => store.db.close());
+
+  function seedDoneTask(id: string, title: string): void {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, status, source, created_at, updated_at)
+         VALUES (?, 'p1', ?, 'done', 'self', 1, 1)`,
+      )
+      .run(id, title);
+  }
+
+  function closedAuditTasks(): { id: string; status: string }[] {
+    return store.db
+      .prepare("SELECT id, status FROM tasks WHERE project_id = 'p1' AND id LIKE 'closedaudit-%'")
+      .all() as { id: string; status: string }[];
+  }
+
+  function fakeVcs(haystack: string): AuditVcs {
+    const lower = haystack.toLowerCase();
+    return {
+      async containsText(pattern: string): Promise<boolean> {
+        return lower.includes(pattern.toLowerCase());
+      },
+      async filesContainingText(pattern: string): Promise<readonly string[]> {
+        return lower.includes(pattern.toLowerCase()) ? ['apps/dashboard/src/web/generic.ts'] : [];
+      },
+    };
+  }
+
+  it("proposes a re-check when a done task's DELIVERABLE clause no longer checks out", async () => {
+    seedDoneTask('t1', 'add a tooltip DELIVERABLE: adds a tooltip to the button');
+
+    await runClosedTaskAuditSweep(
+      store,
+      'p1',
+      fakeVcs('nothing relevant here') as unknown as GitVcs,
+      () => 12345,
+    );
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t1', status: 'needs_approval' }]);
+  });
+
+  it('proposes nothing when the DELIVERABLE clause still checks out', async () => {
+    seedDoneTask('t2', 'add a tooltip DELIVERABLE: adds a tooltip to the button');
+
+    await runClosedTaskAuditSweep(
+      store,
+      'p1',
+      fakeVcs('a tooltip renders on hover') as unknown as GitVcs,
+      () => 12345,
+    );
+
+    expect(closedAuditTasks()).toEqual([]);
+  });
+
+  it('is best-effort — a query failure never throws', async () => {
+    store.db.close();
+    await expect(
+      runClosedTaskAuditSweep(store, 'p1', fakeVcs('') as unknown as GitVcs, () => 12345),
+    ).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * runStoreBackupSweep (post-flight-sweeps.ts) had zero direct coverage —
+ * only the snapshot primitives it calls (@autopilot/store's
+ * createSnapshot/pruneSnapshots) were tested. This proves the sweep's own
+ * wiring: it derives the backup directory from `dbPath`, snapshots the live
+ * store into it, and degrades to a logged skip rather than throwing when the
+ * backup itself can't be created.
+ */
+describe('runStoreBackupSweep', () => {
+  let store: Store;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    store = openStore(':memory:');
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+      )
+      .run();
+    tmpDir = mkdtempSync(join(tmpdir(), 'autopilot-store-backup-sweep-'));
+  });
+
+  afterEach(() => {
+    store.db.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('snapshots the live store into a backups/ dir next to dbPath', async () => {
+    const dbPath = join(tmpDir, 'live.db');
+
+    await runStoreBackupSweep(store, dbPath, () => 1_700_000_000_000);
+
+    const files = readdirSync(join(tmpDir, 'backups'));
+    expect(files).toHaveLength(1);
+  });
+
+  it('is best-effort — a directory that cannot be created never throws', async () => {
+    const blockerFile = join(tmpDir, 'not-a-dir');
+    writeFileSync(blockerFile, 'x');
+    const dbPath = join(blockerFile, 'sub', 'live.db');
+
+    await expect(
+      runStoreBackupSweep(store, dbPath, () => 1_700_000_000_000),
+    ).resolves.toBeUndefined();
   });
 });
