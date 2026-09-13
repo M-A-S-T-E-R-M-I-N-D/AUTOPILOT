@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.47.0] — 2026-09-13
+
+### Added
+
+- feat(dashboard): a whole-design hue in settings — every chromatic token rotates, meaning stays
+- feat(dashboard): masthead popovers, ci states inline, the ask composer at the bottom
+- feat(dashboard): backlog panel heading drops its emoji for the vendored search icon
+
+### Fixed
+
+- fix(engine): wire the reland-is-a-landing rule into the firing prompt (firing-v15)
+
 ## [0.46.0] — 2026-09-13
 
 ### Added
