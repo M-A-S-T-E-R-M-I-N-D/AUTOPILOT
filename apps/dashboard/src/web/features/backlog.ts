@@ -139,8 +139,7 @@ function renderBacklogBody(body, candidates) {
 wireRoving('.backlog-item [tabindex]', '.backlog-item');
 function backlogSection(pid) {
   var wrap = el('section', 'backlog-panel');
-  var title = el('h3', 'backlog-title', '🔍 Detected backlog');
-  title.setAttribute('data-i18n', 'backlogTitle');
+  var title = panelHeading('h3', 'backlog-title', 'backlogTitle', 'search');
   wrap.appendChild(title);
   var body = el('div', 'backlog-body');
   var loading = el('p', 'muted', 'Checking recent commits against the open board…');

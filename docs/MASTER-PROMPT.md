@@ -7,13 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 
 One document that a new pilot, a new maintainer and the pilot's own firing
 prompt all read from. Epic 0030 slice 2 (2026-09-13). The firing prompt in
-`packages/engine/src/prompt.ts` (firing-v14) is the _executable subset_ of this file: the
+`packages/engine/src/prompt.ts` (firing-v15) is the _executable subset_ of this file: the
 lines a model must read every firing. This file is the whole — the laws the
 code enforces whether or not the prompt says them, the surfaces, the rituals,
 the knobs, and the ledger of drift between what the prompt says and what the
 code does. Where the two disagree, this file wins and the prompt is
 regenerated from it (§9). firing-v14 (2026-09-13) was the first regeneration: it added
-"The guard will refuse" and "Numbers you are held to" (§4).
+"The guard will refuse" and "Numbers you are held to" (§4). firing-v15
+(2026-09-13) added the reland-is-a-landing hard rule (§4, FAILURE-DOCTRINE
+row 30).
 
 ## 1. The promise
 
@@ -129,8 +131,11 @@ wait, never revert-walk. Uncommitted changes at start may be a live sibling's
 or personal data; flag any CI/security change. Never expand into a sibling's
 claimed area. One firing = one unit, committed, then stop. Run the full gate
 before committing. Autoformat is check-only for you. A census completes the
-change, same commit. `git log -3 -- <file>` before fixing an observed red.
-`docs/FAILURE-DOCTRINE.md` is the won-battles ledger.
+change, same commit. A reland is a landing: run the full current gate and
+refresh every census for the restored files — a census added after the
+content was first authored never retroactively clears a byte-identical
+restore (`docs/FAILURE-DOCTRINE.md` row 30). `git log -3 -- <file>` before
+fixing an observed red. `docs/FAILURE-DOCTRINE.md` is the won-battles ledger.
 
 ## 5. Surfaces
 
@@ -245,7 +250,9 @@ the operator; each is a candidate for a guard or a hook:
 11. "Do not start your own proposals" — only duplicate titles are stopped.
 12. The provenance trailers — never verified against the commit.
 13. The prompt position audit — a test, not a runtime check.
-14. The SOUL's three git rules vs the prompt's four vs the guard's nine — this
+14. "A reland is a landing" (firing-v15) — no guard distinguishes a reland
+    commit from any other; the gate + census sweep is honor-system only.
+15. The SOUL's three git rules vs the prompt's four vs the guard's nine — this
     file names the nine; the SOUL and the prompt point here.
 
 ## 9. Regeneration rule

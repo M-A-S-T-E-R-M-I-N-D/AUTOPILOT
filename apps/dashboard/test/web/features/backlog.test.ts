@@ -45,7 +45,7 @@ describe('backlogJs', () => {
 
   it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
     const out = backlogJs();
-    expect(out).toContain("title.setAttribute('data-i18n', 'backlogTitle');");
+    expect(out).toContain("panelHeading('h3', 'backlog-title', 'backlogTitle', 'search')");
     expect(out).toContain("loading.setAttribute('data-i18n', 'backlogChecking');");
     expect(out).toContain("empty.setAttribute('data-i18n', 'backlogEmpty');");
     expect(out).toContain("confirmBtn.setAttribute('data-i18n', 'backlogConfirmDone');");
