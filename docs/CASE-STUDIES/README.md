@@ -40,6 +40,7 @@ picked up as an actual flight target.
 | Mini-app | Case study | Telemetry source |
 | --- | --- | --- |
 | [`samples/calculator`](../../samples/calculator) | [calculator.md](calculator.md) | observed live, launch night (2026-09-04) |
+| [`samples/calculator-materials`](../../samples/calculator-materials) | [calculator-five-firings.md](calculator-five-firings.md) | five firings from a folder of notes, one frame each (2026-09-13) |
 | `samples/node-cli` | not yet — history squashed at `genesis`, no paper trail | none survives |
 | `samples/python-lib` | not yet — history squashed at `genesis`, no paper trail | none survives |
 | `samples/static-site` | not yet — built as a fixture, never flown as a mission | none — not yet flown |
