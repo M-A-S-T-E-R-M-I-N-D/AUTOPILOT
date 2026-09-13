@@ -2781,7 +2781,11 @@ describe('createServer (live loopback)', () => {
 
   it('POST /api/report-from-here still 200s a rejected plan instead of a bare error', async () => {
     const base = await start({
-      reportFromHere: () => ({ ok: false, reasoning: 'a report needs a description' }),
+      reportFromHere: () => ({
+        ok: false,
+        reasoning: 'a report needs a description',
+        reasonKey: 'reportNeedsDescription' as const,
+      }),
     });
     const res = await fetch(`${base}/api/report-from-here`, {
       method: 'POST',
@@ -2793,7 +2797,13 @@ describe('createServer (live loopback)', () => {
   });
 
   it('POST /api/report-from-here 400s for an unrecognized action', async () => {
-    const base = await start({ reportFromHere: () => ({ ok: false, reasoning: 'n/a' }) });
+    const base = await start({
+      reportFromHere: () => ({
+        ok: false,
+        reasoning: 'n/a',
+        reasonKey: 'reportNeedsRegion' as const,
+      }),
+    });
     const res = await fetch(`${base}/api/report-from-here`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -2803,7 +2813,13 @@ describe('createServer (live loopback)', () => {
   });
 
   it('POST /api/report-from-here rejects a non-JSON content-type (CSRF guard)', async () => {
-    const base = await start({ reportFromHere: () => ({ ok: false, reasoning: 'n/a' }) });
+    const base = await start({
+      reportFromHere: () => ({
+        ok: false,
+        reasoning: 'n/a',
+        reasonKey: 'reportNeedsRegion' as const,
+      }),
+    });
     const res = await fetch(`${base}/api/report-from-here`, {
       method: 'POST',
       headers: { 'content-type': 'text/plain' },
@@ -2827,7 +2843,7 @@ describe('createServer (live loopback)', () => {
     const base = await start({
       reportFromHere: (capture) => {
         seenSeverity = capture.severity;
-        return { ok: false, reasoning: 'n/a' };
+        return { ok: false, reasoning: 'n/a', reasonKey: 'reportNeedsRegion' as const };
       },
     });
     const res = await fetch(`${base}/api/report-from-here`, {
@@ -2844,7 +2860,7 @@ describe('createServer (live loopback)', () => {
     const base = await start({
       reportFromHere: (capture) => {
         seenSeverity = capture.severity;
-        return { ok: false, reasoning: 'n/a' };
+        return { ok: false, reasoning: 'n/a', reasonKey: 'reportNeedsRegion' as const };
       },
     });
     const res = await fetch(`${base}/api/report-from-here`, {
@@ -2888,7 +2904,7 @@ describe('createServer (live loopback)', () => {
   it('POST /api/report-from-here/execute 400s for an unrecognized action', async () => {
     const base = await start({
       reportFromHereExecute: async () => ({
-        plan: { ok: false, reasoning: 'n/a' },
+        plan: { ok: false, reasoning: 'n/a', reasonKey: 'reportNeedsRegion' as const },
         commandResults: [],
         taskCreated: false,
       }),
@@ -2904,7 +2920,7 @@ describe('createServer (live loopback)', () => {
   it('POST /api/report-from-here/execute rejects a non-JSON content-type (CSRF guard)', async () => {
     const base = await start({
       reportFromHereExecute: async () => ({
-        plan: { ok: false, reasoning: 'n/a' },
+        plan: { ok: false, reasoning: 'n/a', reasonKey: 'reportNeedsRegion' as const },
         commandResults: [],
         taskCreated: false,
       }),

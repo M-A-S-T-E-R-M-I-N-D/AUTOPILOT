@@ -133,6 +133,11 @@ const BENIGN_FLIGHT = new Set([
   // done-hook, the mirror pass) are the flagged halves; weakening it makes a
   // claimed task closable by the fleet, which those readers' tests pin.
   'claim-contract.ts',
+  // Pure ledger (2026-09-13): derives who holds a pool issue from comments and
+  // assignees and how quiet each claim is. Decides nothing outward — the claim/
+  // contest/skip decision and every gh write live in pool-client.ts, which is
+  // flagged; the flight-end release lives in post-flight-sweeps.ts.
+  'claim-ledger.ts',
   // Read-only donations.json parse (FOUNDATION 1/3): reads a file path this
   // module hardcodes itself (never operator/request input), validates every
   // entry's shape, and degrades to an empty list on any missing/malformed
@@ -994,6 +999,12 @@ const BENIGN_WEB_FEATURES = new Set([
   // `<body data-subject>` and the nav's aria state from clicks, the URL
   // hash and localStorage; never writes anywhere but the DOM.
   'subject-nav.ts',
+  // busy.ts (2026-09-13, the ritual scrim): ritualFetch is a drop-in wrapper
+  // around the caller's own fetch — every URL, method and body is the
+  // already-flagged EXECUTE panel's; this file adds no endpoint and builds its
+  // DOM from STRINGS and the landing job's step labels, never from untrusted
+  // content.
+  'busy.ts',
   'coordination.ts',
   'docs-viewer.ts',
   'evolution.ts',

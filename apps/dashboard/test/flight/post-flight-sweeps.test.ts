@@ -1,13 +1,15 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { openStore, migrate, type Store } from '@autopilot/store';
 import {
   runFamilyRunawaySweep,
   runFleetWisdomSweep,
   runSoulMiningSweep,
+  runStaleClaimSweep,
 } from '../../src/flight/post-flight-sweeps.js';
+import type { CliExec } from '../../src/connection/cli-probe.js';
 import { RUNAWAY_SPEND_USD, RUNAWAY_FIRINGS } from '../../src/flight/triage-factors.js';
 import {
   CHECKPOINT_SOUL_AMENDMENT_MARKER,
@@ -238,5 +240,167 @@ describe('runSoulMiningSweep', () => {
   it('is best-effort — a query failure never throws', () => {
     store.db.close();
     expect(() => runSoulMiningSweep(store, 'p1', () => 12345)).not.toThrow();
+  });
+});
+
+/**
+ * runStaleClaimSweep — the flight-end half of the claims ledger (operator,
+ * 2026-09-13: "a system that really releases the claims"). Role honesty
+ * first: a guest identity never even lists the pool; the maintainer frees
+ * exactly the claims quiet past the window, note first, unassign only when
+ * there is an assignee to remove.
+ */
+describe('runStaleClaimSweep', () => {
+  const NOW = Date.parse('2026-09-30T00:00:00Z');
+
+  function poolExec(
+    login: string,
+    ownerLogin: string,
+    issues: ReadonlyArray<{
+      number: number;
+      assignees: readonly string[];
+      comments: ReadonlyArray<{ author: string; createdAt: string; body: string }>;
+    }>,
+    calls: Array<readonly string[]>,
+  ): CliExec {
+    return vi.fn(async (_bin, args) => {
+      calls.push(args);
+      if (args[0] === 'api' && args[1] === 'user')
+        return { code: 0, stdout: JSON.stringify({ login }) };
+      if (args[0] === 'repo' && args[1] === 'view') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({
+            nameWithOwner: `${ownerLogin}/hello-world`,
+            url: `https://github.com/${ownerLogin}/hello-world`,
+            isPrivate: false,
+          }),
+        };
+      }
+      const shaped = (issue: (typeof issues)[number]) => ({
+        number: issue.number,
+        title: `issue #${issue.number}`,
+        url: `https://github.com/${ownerLogin}/hello-world/issues/${issue.number}`,
+        labels: [{ name: 'pool: ux' }],
+        assignees: issue.assignees.map((l) => ({ login: l })),
+        comments: issue.comments.map((c) => ({
+          author: { login: c.author },
+          createdAt: c.createdAt,
+          body: c.body,
+        })),
+      });
+      if (args[0] === 'issue' && args[1] === 'list') {
+        return { code: 0, stdout: JSON.stringify(issues.map(shaped)) };
+      }
+      if (args[0] === 'issue' && args[1] === 'view') {
+        const issue = issues.find((i) => i.number === Number(args[2]));
+        if (!issue) return { code: 1, stdout: '' };
+        return {
+          code: 0,
+          stdout: JSON.stringify({
+            ...shaped(issue),
+            state: 'OPEN',
+            updatedAt: '2026-09-01T00:00:00Z',
+          }),
+        };
+      }
+      return { code: 0, stdout: '' };
+    });
+  }
+
+  it('a guest identity never lists the pool, let alone writes', async () => {
+    const calls: Array<readonly string[]> = [];
+    const exec = poolExec('guest', 'owner', [], calls);
+
+    expect(await runStaleClaimSweep(() => NOW, exec)).toEqual([]);
+
+    expect(calls.some((a) => a[0] === 'issue')).toBe(false);
+  });
+
+  it('the maintainer releases a comment-only claim quiet past 14 days with a note alone', async () => {
+    const calls: Array<readonly string[]> = [];
+    const exec = poolExec(
+      'owner',
+      'owner',
+      [
+        {
+          number: 27,
+          assignees: [],
+          comments: [
+            {
+              author: 'gabibi555',
+              createdAt: '2026-09-11T14:23:10Z',
+              body: 'Claimed by gabibi555 via the pool client.',
+            },
+          ],
+        },
+        {
+          number: 30,
+          assignees: ['fresh'],
+          comments: [
+            {
+              author: 'fresh',
+              createdAt: '2026-09-29T00:00:00Z',
+              body: 'Claimed by fresh via the pool client.',
+            },
+          ],
+        },
+      ],
+      calls,
+    );
+
+    const released = await runStaleClaimSweep(() => NOW, exec);
+
+    expect(released.map((r) => [r.number, r.assignee])).toEqual([[27, 'gabibi555']]);
+    const writes = calls.filter((a) => a[0] === 'issue' && (a[1] === 'comment' || a[1] === 'edit'));
+    expect(writes).toEqual([
+      [
+        'issue',
+        'comment',
+        '27',
+        '--body',
+        expect.stringMatching(/^Releasing @gabibi555 — quiet for 18 days/),
+      ],
+    ]);
+  });
+
+  it('unassigns an assigned stale claim after the note', async () => {
+    const calls: Array<readonly string[]> = [];
+    const exec = poolExec(
+      'owner',
+      'owner',
+      [
+        {
+          number: 5,
+          assignees: ['quiet-one'],
+          comments: [
+            {
+              author: 'quiet-one',
+              createdAt: '2026-08-01T00:00:00Z',
+              body: 'Claimed by quiet-one via the pool client.',
+            },
+          ],
+        },
+      ],
+      calls,
+    );
+
+    await runStaleClaimSweep(() => NOW, exec);
+
+    expect(
+      calls
+        .filter((a) => a[0] === 'issue' && a[1] !== 'list' && a[1] !== 'view')
+        .map((a) => a.slice(0, 4)),
+    ).toEqual([
+      ['issue', 'comment', '5', '--body'],
+      ['issue', 'edit', '5', '--remove-assignee'],
+    ]);
+  });
+
+  it('never throws — a broken gh is a silent no-op', async () => {
+    const exec: CliExec = vi.fn(async () => {
+      throw new Error('gh exploded');
+    });
+    expect(await runStaleClaimSweep(() => NOW, exec)).toEqual([]);
   });
 });

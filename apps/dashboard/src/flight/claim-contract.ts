@@ -26,11 +26,28 @@
 /** The marker line every reader looks for. Stable text: it is a contract. */
 export const HUMAN_CLOSES_MARKER = 'contract: human-closes';
 
+/** Who holds the claim the task carries, and whom they contest (the
+ *  claims ledger, claim-ledger.ts). */
+export interface ClaimContractHolder {
+  readonly claimant: string;
+  readonly contestedWith?: readonly string[];
+}
+
 /** The body a claimed issue's task carries — the marker plus the why, for a
- *  human reading the board. */
-export function claimContractBody(issueNumber: number, url?: string): string {
+ *  human reading the board. Names the holder when known, and the contest
+ *  when this claim rides over a live one: two solutions are then expected,
+ *  and the review compares them. */
+export function claimContractBody(
+  issueNumber: number,
+  url?: string,
+  holder?: ClaimContractHolder,
+): string {
+  const contested = holder?.contestedWith?.length
+    ? ` — contested with ${holder.contestedWith.map((l) => `@${l}`).join(', ')} (both solutions get compared)`
+    : '';
+  const who = holder ? `\nclaimed by @${holder.claimant}${contested}` : '';
   return (
-    `Claimed from the pool: #${issueNumber}${url ? ` ${url}` : ''}\n` +
+    `Claimed from the pool: #${issueNumber}${url ? ` ${url}` : ''}${who}\n` +
     `${HUMAN_CLOSES_MARKER} — deliver a slice per firing; this task closes only when its claimant closes the issue.`
   );
 }

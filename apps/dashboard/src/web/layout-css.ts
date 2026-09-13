@@ -117,9 +117,18 @@ body {
 .connect-form select, .connect-form input { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .connect-form button { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .connect-hint { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+/* TEXT FIELDS (2026-09-13, operator: "the resize grip looks awfully old in every
+   theme"): the browser's diagonal grip is gone. Every textarea sizes itself to
+   its content (field-sizing: content — Baseline 2026: Chrome 123, Safari 26.2,
+   Firefox 152) between a three-line floor and a 40vh ceiling, then scrolls —
+   the composer idiom of every modern writing surface, no handle to draw. A
+   browser without field-sizing keeps a manual vertical resize instead of a
+   fixed box; the grip shows only there. */
+textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; resize: none; }
+@supports not (field-sizing: content) { textarea { resize: vertical; } }
 .gh-issue-form { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .gh-issue-form label { font-size: var(--text-xs); color: var(--color-text-muted); }
-.gh-issue-form input, .gh-issue-form textarea { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); resize: vertical; }
+.gh-issue-form input, .gh-issue-form textarea { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 /* gh-issue-form CTA designed states (COCKPIT 6/6): same shape-morph + elevation
    hover/active pair as .tour-actions button / .browse-actions button. Rest radius
    swaps --radius-sm for --shape-extra-small (both 4px) so the state tokens pair
@@ -767,7 +776,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .report-title:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .report-body { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .report-body label { font-size: var(--text-xs); color: var(--color-text-muted); }
-.report-desc, .report-action { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); resize: vertical; }
+.report-desc, .report-action { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .report-preview, .report-compose {
   font: inherit; font-size: var(--text-sm); cursor: pointer; align-self: flex-start;
   padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small);
@@ -866,6 +875,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pool-client-number-link:hover, .pool-client-number-link:focus-visible { border-bottom-color: currentColor; }
 .pool-client-issue-title { margin: 0; font-size: var(--text-sm); }
 .pool-client-badge-claim { color: var(--color-success); border-color: var(--color-success); }
+.pool-client-badge-contest { color: var(--color-warning); border-color: var(--color-warning); }
+/* The claims ledger line (claim-ledger.ts): who holds the issue, since when,
+   when it releases. Muted — context under the title, never the headline. */
+.pool-client-ledger { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .pool-client-badge-skip { color: var(--color-text-muted); border-color: var(--color-border); opacity: 0.7; }
 /* Compact: the row's actions span the width — the Claim button lands in the
    thumb zone. From md up the item becomes one row (see the shell block). */
@@ -888,6 +901,9 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    than copying their bodies; its only own declaration parks it at the column
    end, where the Claim row's flex-end actions row sat. */
 .pool-client-execute, .pool-client-fly { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+/* A deliberate second claim is the outlined, warning-toned variant — it reads
+   as "you know someone holds this", never as the default action. */
+.pool-client-execute-contest { background: transparent; color: var(--color-warning); border-color: var(--color-warning); }
 .pool-client-execute:disabled, .pool-client-fly:disabled { opacity: 0.6; cursor: default; }
 .pool-client-fly { align-self: flex-end; }
 .pool-client-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
@@ -986,7 +1002,14 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 @media (min-width: 48rem) {
   [data-board-view="columns"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   [data-board-view="columns"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; max-block-size: 72vh; overflow: auto; overscroll-behavior: contain; }
-  [data-board-view="columns"] .task { grid-column: 1; align-content: start; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); }
+  [data-board-view="columns"] .task { grid-column: 1; align-content: start; align-items: center; justify-content: flex-start; row-gap: var(--space-1); padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); }
+  /* A card, not a row (operator 2026-09-13: "columns lay out oddly — part
+     justified, part aligned one way"): in a narrow column the 16rem title
+     basis wrapped mid-strip and the rest scattered around it. The title now
+     takes its own full line under the compact control strip (handle · ↑↓ ·
+     focus · status); chips and actions wrap start-aligned beneath. DOM order
+     — and so keyboard and screen-reader order — is unchanged. */
+  [data-board-view="columns"] .task-title { flex: 1 1 100%; }
   [data-board-view="columns"] .task[data-task-status="in_progress"], [data-board-view="columns"] .task[data-task-status="needs_approval"] { grid-column: 2; }
   [data-board-view="columns"] .task[data-task-status="done"], [data-board-view="columns"] .task[data-task-status="deferred"] { grid-column: 3; }
 }
@@ -1036,7 +1059,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-add button:disabled { opacity: 0.6; cursor: default; }
 .inbox-add { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-3); }
 .inbox-add label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.inbox-add textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.inbox-add textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .inbox-add button { font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .inbox-add button:disabled { opacity: 0.6; cursor: default; }
 .card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-top: var(--space-1); }
@@ -1076,7 +1099,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-editor-summary:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .soul-editor-form { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-2); }
 .soul-editor-form label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.soul-editor-form textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: var(--text-xs); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.soul-editor-form textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--text-xs); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .soul-editor-form button { font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .soul-editor-form button:disabled { opacity: 0.6; cursor: default; }
 
@@ -1339,6 +1362,59 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .skip-link:not(:focus) { inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 main:focus { outline: none; }
+/* BUSY STATES (2026-09-13, web/features/busy.ts): the ritual scrim. One modal
+   over a glass field while an outward write runs; the card carries a spinner,
+   the elapsed clock, the note, a progress bar (determinate for the landing's
+   real gate steps, a sweep otherwise), the step list and the one escape:
+   Minimize. Minimized, a corner pill keeps the clock and the "writes paused"
+   word; every other write button dims and refuses with a spoken reason. */
+.ritual-scrim { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: var(--space-4); background: color-mix(in srgb, var(--color-surface) 58%, transparent); -webkit-backdrop-filter: blur(10px) saturate(120%); backdrop-filter: blur(10px) saturate(120%); }
+.ritual-scrim[hidden] { display: none; }
+@media (prefers-reduced-transparency: reduce) { .ritual-scrim { background: var(--color-surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.ritual-card { inline-size: min(100%, 34rem); display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-2); }
+.ritual-head { display: flex; align-items: center; gap: var(--space-3); }
+.ritual-title { flex: 1 1 auto; margin: 0; font-size: var(--text-base); }
+.ritual-clock, .ritual-pill-clock { font-variant-numeric: tabular-nums; color: var(--color-text-muted); font-size: var(--text-sm); }
+.ritual-spinner, .ritual-pill-dot { flex: none; inline-size: 1.125rem; block-size: 1.125rem; border-radius: 50%; border: 2px solid var(--color-border-strong); border-inline-start-color: var(--color-accent); animation: ritual-spin 900ms linear infinite; }
+.ritual-pill-dot { inline-size: 0.75rem; block-size: 0.75rem; }
+[data-ritual-state="done"] .ritual-spinner, [data-ritual-state="done"] .ritual-pill-dot { animation: none; border-color: var(--color-success); }
+[data-ritual-state="failed"] .ritual-spinner, [data-ritual-state="failed"] .ritual-pill-dot { animation: none; border-color: var(--color-sev-high); }
+@keyframes ritual-spin { to { transform: rotate(360deg); } }
+.ritual-note { margin: 0; font-size: var(--text-sm); color: var(--color-text); }
+.ritual-progress { position: relative; block-size: 6px; border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
+.ritual-progress-fill { position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: 0; border-radius: inherit; background: var(--color-accent); transition: inline-size var(--duration-medium2) var(--easing-standard); }
+/* The sweep rides transform only (compositor-composited, never layout): the
+   fill starts off the start edge and travels the track's width plus its own. */
+.ritual-progress[data-indeterminate] .ritual-progress-fill { inline-size: 32%; inset-inline-start: 0; animation: ritual-sweep 1.5s var(--easing-standard) infinite; }
+@keyframes ritual-sweep { from { transform: translateX(-100%); } to { transform: translateX(312.5%); } }
+[dir="rtl"] .ritual-progress[data-indeterminate] .ritual-progress-fill { animation-name: ritual-sweep-rtl; }
+@keyframes ritual-sweep-rtl { from { transform: translateX(100%); } to { transform: translateX(-312.5%); } }
+[data-ritual-state="failed"] .ritual-progress-fill { background: var(--color-sev-high); }
+[data-ritual-state="done"] .ritual-progress-fill { background: var(--color-success); }
+.ritual-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-family: var(--font-mono); font-size: var(--text-xs); }
+.ritual-steps:empty { display: none; }
+.ritual-step { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--color-text-muted); }
+.ritual-step::before { content: '·'; inline-size: 1em; flex: none; }
+.ritual-step[data-state="running"] { color: var(--color-text); }
+.ritual-step[data-state="running"]::before { content: '…'; }
+.ritual-step[data-state="pass"] { color: var(--color-success); }
+.ritual-step[data-state="pass"]::before { content: '✓'; }
+.ritual-step[data-state="fail"] { color: var(--color-sev-high); }
+.ritual-step[data-state="fail"]::before { content: '✗'; }
+.ritual-step-label { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
+.ritual-warning { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+.ritual-warning:empty { display: none; }
+.ritual-actions { display: flex; justify-content: flex-end; }
+.ritual-minimize { font: inherit; font-size: var(--text-sm); cursor: pointer; min-block-size: 2.25rem; padding: var(--space-1) var(--space-4); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.ritual-minimize:hover, .ritual-minimize:focus-visible { border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.ritual-minimize:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.ritual-pill { position: fixed; inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom)); inset-inline-end: var(--space-3); z-index: 70; display: flex; align-items: center; gap: var(--space-2); min-block-size: 2.75rem; padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--color-border); color: var(--color-text); font: inherit; font-size: var(--text-sm); cursor: pointer; background: color-mix(in srgb, var(--color-surface-raised) 84%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: var(--elevation-level-2); }
+.ritual-pill[hidden] { display: none; }
+.ritual-pill:hover, .ritual-pill:focus-visible { border-color: var(--color-accent); }
+@media (min-width: 64rem) { .ritual-pill { inset-block-end: var(--space-4); } }
+.ritual-toast { position: fixed; inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom)); inset-inline-start: 50%; transform: translateX(-50%); z-index: 90; max-inline-size: min(90vw, 28rem); padding: var(--space-2) var(--space-4); border-radius: var(--shape-small); background: var(--color-text); color: var(--color-surface); font-size: var(--text-sm); box-shadow: var(--elevation-level-2); }
+.ritual-toast[hidden] { display: none; }
+html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .issue-triage-execute, .pool-client-execute, .pool-client-fly, .mirror-pass-execute, .discussions-triage-execute, .report-execute, .gh-issue-form button, .update-banner button) { opacity: 0.55; cursor: progress; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }

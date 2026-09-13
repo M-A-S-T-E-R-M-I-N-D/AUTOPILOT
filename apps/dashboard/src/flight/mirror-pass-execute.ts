@@ -75,7 +75,9 @@ import {
   planMirrorPassVersionDriftCommand,
   planMirrorPassCountsDriftCommand,
   planMirrorPassLinkDriftCommand,
-  fetchClaimedIssueActivity,
+  fetchClaimedIssueClaims,
+  fetchIssueComments,
+  UNVERIFIED_NOTE_MARKER,
   planMirrorPassStaleClaimBatch,
   applyMirrorPassCommands,
   type MirrorPassTaskCandidate,
@@ -127,6 +129,10 @@ function mirrorPassTaskCandidates(
       WHERE project_id = ? AND item = ? AND shipped = 1 AND sha IS NOT NULL
       ORDER BY id DESC LIMIT 1`,
   );
+  // #40: "done" is public truth only when a gate-verified firing shipped it.
+  const shippedStmt = store.db.prepare(
+    'SELECT 1 FROM metrics WHERE project_id = ? AND item = ? AND shipped = 1 LIMIT 1',
+  );
   return rows
     .filter((row): row is RawGithubTaskRow & { status: MirrorPassTaskCandidate['status'] } =>
       TASK_STATUSES.has(row.status as MirrorPassTaskCandidate['status']),
@@ -136,7 +142,75 @@ function mirrorPassTaskCandidates(
       status: row.status,
       landedSha: (landedShaStmt.get(projectId, row.id) as { sha: string } | undefined)?.sha ?? null,
       humanCloses: isHumanClosedTask(row),
+      doneVerified: shippedStmt.get(projectId, row.id) !== undefined,
     }));
+}
+
+/**
+ * #40: a landing SHA a firing recorded can vanish under a rebase or a
+ * squash. Before the reconcile may cite it — let alone close on it — ask
+ * the checkout whether the commit still exists (`git cat-file -e
+ * <sha>^{commit}`, run through the same injectable `exec`). A candidate
+ * with no SHA has nothing to check and passes through unchanged.
+ */
+async function assessLandedShas(
+  exec: CliExec,
+  rootPath: string,
+  candidates: readonly MirrorPassTaskCandidate[],
+): Promise<readonly MirrorPassTaskCandidate[]> {
+  const out: MirrorPassTaskCandidate[] = [];
+  for (const candidate of candidates) {
+    if (candidate.landedSha === null) {
+      out.push(candidate);
+      continue;
+    }
+    const { code } = await exec('git', [
+      '-C',
+      rootPath,
+      'cat-file',
+      '-e',
+      `${candidate.landedSha}^{commit}`,
+    ]);
+    out.push({ ...candidate, landedShaExists: code === 0 });
+  }
+  return out;
+}
+
+/**
+ * #40: an unverified note is posted once. A plan whose finding would post it
+ * again — the issue already carries {@link UNVERIFIED_NOTE_MARKER} — is
+ * emptied (finding kept for the panel's reading, commands dropped), so every
+ * mirror pass after the first is a no-op until the truth changes.
+ */
+async function dropAlreadyNoted(
+  exec: CliExec,
+  plans: readonly MirrorPassPlan[],
+): Promise<readonly MirrorPassPlan[]> {
+  const out: MirrorPassPlan[] = [];
+  for (const plan of plans) {
+    if (plan.finding?.action !== 'note-unverified') {
+      out.push(plan);
+      continue;
+    }
+    const comments = await fetchIssueComments(exec, plan.finding.issueNumber);
+    const noted = comments.some((body) => body.includes(UNVERIFIED_NOTE_MARKER));
+    out.push(noted ? { ...plan, commands: [] } : plan);
+  }
+  return out;
+}
+
+/** The reconcile's full read side, shared by preview and execute: candidates
+ *  off the board, their SHAs checked against the checkout, the issues' live
+ *  states, the plan, and the already-noted filter. */
+async function planReconcileForProject(
+  exec: CliExec,
+  store: Store,
+  projectId: string,
+  rootPath: string,
+): Promise<readonly MirrorPassPlan[]> {
+  const tasks = await assessLandedShas(exec, rootPath, mirrorPassTaskCandidates(store, projectId));
+  const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
+  return dropAlreadyNoted(exec, planMirrorPassBatch(tasks, issuesByNumber));
 }
 
 /** THE CLAIM CONTRACT's settlement (claim-contract.ts): the claimant closed
@@ -177,9 +251,7 @@ export function createMirrorPassPreviewApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const tasks = mirrorPassTaskCandidates(store, projectId);
-      const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
-      return planMirrorPassBatch(tasks, issuesByNumber);
+      return await planReconcileForProject(exec, store, projectId, project.root_path);
     } finally {
       store.close();
     }
@@ -250,9 +322,7 @@ export function createMirrorPassExecuteApi(
           skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
         };
       }
-      const tasks = mirrorPassTaskCandidates(store, projectId);
-      const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
-      const plans = planMirrorPassBatch(tasks, issuesByNumber);
+      const plans = await planReconcileForProject(exec, store, projectId, project.root_path);
       const outcomes: MirrorPassExecuteOutcome[] = [];
       for (const plan of plans) {
         if (plan.commands.length === 0) continue;
@@ -621,10 +691,11 @@ export function createMirrorPassStaleClaimPreviewApi(
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
       const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      // One entry per CLAIM (claims ledger): a comment-only claimant and a
+      // contested issue's second holder each get their own quiet clock.
       const activity: MirrorPassClaimedIssue[] = [];
       for (const issue of claimedPoolIssues) {
-        const entry = await fetchClaimedIssueActivity(exec, issue.number);
-        if (entry) activity.push(entry);
+        activity.push(...(await fetchClaimedIssueClaims(exec, issue.number)));
       }
       return planMirrorPassStaleClaimBatch(activity, now());
     } finally {
@@ -692,10 +763,11 @@ export function createMirrorPassStaleClaimExecuteApi(
         };
       }
       const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      // One entry per CLAIM (claims ledger): a comment-only claimant and a
+      // contested issue's second holder each get their own quiet clock.
       const activity: MirrorPassClaimedIssue[] = [];
       for (const issue of claimedPoolIssues) {
-        const entry = await fetchClaimedIssueActivity(exec, issue.number);
-        if (entry) activity.push(entry);
+        activity.push(...(await fetchClaimedIssueClaims(exec, issue.number)));
       }
       const plans = planMirrorPassStaleClaimBatch(activity, now());
       const outcomes: MirrorPassStaleClaimExecuteOutcome[] = [];

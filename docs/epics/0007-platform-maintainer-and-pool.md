@@ -998,6 +998,44 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    operator panel, so the board item stays open (UX-expression doctrine: a
    capability with no panel is a slice, not complete).
 
+## The claims ledger (2026-09-13)
+
+Born of #27 being claimed twice with no word of warning. The claim had been
+`assignee + comment`, in that order, and "claimed" was read off `assignees` alone.
+GitHub only lets a repo assign someone who already has a footprint on the issue, so
+an outside contributor's assign fails silently and only their comment lands: the
+pool then calls the issue free, and the next claimant walks straight over the first.
+The stale-claim reaper (derivation 4/4 above) read assignees too, so a comment-only
+claim was invisible to it as well.
+
+Laws, all shipped:
+
+1. **The comment is the claim.** `flight/claim-ledger.ts` reads every live claim from
+   the claim comments (`Claimed by <login> via the pool client`, `Also claimed …
+   (contested)`) AND the assignees, merged per login. `fetchPoolIssues` now asks
+   `gh issue list` for `comments` and ships the ledger on every `PoolIssue`;
+   `isClaimedPoolIssue` reads it. The claim comment is posted FIRST, then the
+   assign, so the assign succeeds for an outside contributor.
+2. **A claim lives while it moves.** The claimant's own later comments count as
+   activity; anyone else's do not. Past `CLAIM_WINDOW_DAYS` (the board's own 14-day
+   STALE convention) the claim is stale. A release note (`Releasing @login …`, or
+   the reaper's `Unassigning @login …`) ends it in the ledger.
+3. **Never a silent skip, never a silent claim.** `planClaimPoolIssue` now decides
+   `claim` (free, or every other claim stale — those are released inline: note,
+   then unassign when there is an assignee), `contest` (someone holds it live:
+   the panel shows who, since when and when it releases, the button says "Claim
+   anyway", the confirm spells out the 14-day rule and the compare-both-solutions
+   promise, and the posted comment mentions the holder), or `skip` (already yours,
+   or not in the pool).
+4. **A system that really frees claims.** `runStaleClaimSweep` (post-flight sweeps)
+   runs the reaper's exact plan at every flight end under the maintainer identity
+   only — one clock per claim, comment-only claimants included — so a claim that
+   goes quiet releases on its own, without anyone pressing "Free stale claim(s)".
+5. **Two solutions are welcome.** A contested claim's board task names the holder it
+   contests; when two PRs arrive for one issue the review is to compare them side by
+   side and land the stronger (or combine them) — the PR-review awareness is the
+   open slice, seeded on the board.
+
 ## Related
 
 - Epic 0006 (the plumbing this platform stands on), `docs/LIVING-REPO-SPEC.md` (CI

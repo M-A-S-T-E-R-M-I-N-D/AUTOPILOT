@@ -73,7 +73,7 @@ describe('discussionsTriageJs', () => {
   it('posts to /api/discussions-triage/execute on click', () => {
     const out = discussionsTriageJs();
     expect(out).toContain("e.target.closest('[data-discussions-triage-execute]')");
-    expect(out).toContain("fetch('/api/discussions-triage/execute'");
+    expect(out).toContain("ritualFetch('discussions-triage', '/api/discussions-triage/execute'");
   });
 
   it('reloads the panel on a clean run instead of leaving a stale result message', () => {

@@ -41,8 +41,54 @@ export interface PoolClaimDecisionLike {
  *  same unrecognized-value stance `prReviewDecisionLabel` takes. */
 export function poolClaimDecisionLabel(decision: string): string {
   if (decision === 'claim') return '✓ claimable';
+  if (decision === 'contest') return '⚑ held — claim anyway?';
   if (decision === 'skip') return '— already claimed';
   return decision;
+}
+
+/** One measured claim as `GET /api/pool-client`'s `entries[].claims[]`
+ *  carries it — see `flight/claim-ledger.ts`'s `ClaimStanding`. */
+export interface PoolClaimStandingLike {
+  readonly claim: {
+    readonly login: string;
+    readonly claimedAt: number | null;
+    readonly assigned: boolean;
+    readonly contested: boolean;
+  };
+  readonly quietDays: number | null;
+  readonly releasesAt: number | null;
+  readonly stale: boolean;
+}
+
+/** The ledger line under a pool issue's title — who holds it, since when,
+ *  how quiet, and when it releases — so nobody claims over a live claim
+ *  unknowingly (the #27 double claim). Empty string when nobody holds it.
+ *  Self-contained (no closure) because `web/features/pool-client.ts`
+ *  serializes it with `.toString()`. */
+export function poolClaimLedgerText(claims: readonly PoolClaimStandingLike[] | undefined): string {
+  if (!claims || claims.length === 0) return '';
+  const parts: string[] = [];
+  for (const s of claims) {
+    const since =
+      s.claim.claimedAt === null
+        ? 'date unknown'
+        : 'since ' + new Date(s.claim.claimedAt).toISOString().slice(0, 10);
+    let text = '@' + s.claim.login + ' ' + since;
+    if (s.claim.contested) text += ' (contested)';
+    if (s.stale) {
+      text +=
+        ' — quiet ' + s.quietDays + 'd, stale: releases on the next claim or flight-end sweep';
+    } else if (s.releasesAt !== null) {
+      text +=
+        ' · quiet ' +
+        s.quietDays +
+        'd · releases ' +
+        new Date(s.releasesAt).toISOString().slice(0, 10) +
+        ' if nothing moves';
+    }
+    parts.push(text);
+  }
+  return 'Held by ' + parts.join('; ') + '.';
 }
 
 /** The pool client CLAIM button's `window.confirm()` message for one issue —
@@ -57,17 +103,33 @@ export function poolClaimConfirmMessage(
   decision: PoolClaimDecisionLike,
   projectName?: string,
 ): string {
+  const contest = decision.decision === 'contest';
+  const head = contest
+    ? 'Claim pool issue #' +
+      issue.number +
+      ' "' +
+      issue.title +
+      '" ANYWAY?\n\n' +
+      decision.reasoning +
+      '\n\n' +
+      'It is already held. A claim that goes quiet for 14 days — no progress note, no PR — releases ' +
+      'on its own, and the holder is told. Claiming anyway assigns you too and posts a contested-claim ' +
+      'comment that mentions them. Both solutions are welcome: when two land, the review compares them ' +
+      'and the stronger one merges, or the two are combined.'
+    : 'Claim pool issue #' +
+      issue.number +
+      ' "' +
+      issue.title +
+      '"?\n\n' +
+      decision.reasoning +
+      '\n\n' +
+      'This posts a claim comment on GitHub and assigns the issue to you — reversible there. ' +
+      'The claim holds while it moves: a progress note or a PR within every 14 days keeps it; 14 quiet ' +
+      'days release it back to the pool. ' +
+      'The decision is re-derived fresh from gh at execute time, so a race with another co-pilot ' +
+      'claiming it first will not silently succeed.';
   return (
-    'Claim pool issue #' +
-    issue.number +
-    ' "' +
-    issue.title +
-    '"?\n\n' +
-    decision.reasoning +
-    '\n\n' +
-    'This assigns the issue to you and posts a claim comment on GitHub — reversible there. ' +
-    'The decision is re-derived fresh from gh at execute time, so a race with another co-pilot ' +
-    'claiming it first will not silently succeed.' +
+    head +
     (projectName
       ? '\n\nA local board task will also be queued on "' +
         projectName +
@@ -161,7 +223,9 @@ export function poolClaimExecuteTip(issue: PoolIssueLike, decision: PoolClaimDec
     issue.number +
     ': ' +
     poolClaimDecisionLabel(decision.decision) +
-    '. This assigns it to you and posts a claim comment — reversible on GitHub.'
+    (decision.decision === 'contest'
+      ? '. Someone holds it already — claiming anyway posts a contested claim and both solutions get compared.'
+      : '. This posts a claim comment and assigns it to you — reversible on GitHub.')
   );
 }
 

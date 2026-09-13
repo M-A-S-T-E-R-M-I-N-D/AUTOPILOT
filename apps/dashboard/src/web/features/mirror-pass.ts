@@ -268,7 +268,7 @@ document.addEventListener('click', function (e) {
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = tr('mirrorPassExecuting');
-  fetch('/api/mirror-pass/execute', {
+  ritualFetch('mirror-pass', '/api/mirror-pass/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ project: pid }),
@@ -310,7 +310,7 @@ document.addEventListener('click', function (e) {
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = tr('mirrorPassDriftExecuting');
-  fetch('/api/mirror-pass/drift/execute', {
+  ritualFetch('mirror-pass', '/api/mirror-pass/drift/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ project: pid }),
@@ -351,7 +351,7 @@ document.addEventListener('click', function (e) {
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = tr('mirrorPassLandingNoteExecuting');
-  fetch('/api/mirror-pass/landing-note/execute', {
+  ritualFetch('mirror-pass', '/api/mirror-pass/landing-note/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ project: pid }),
@@ -392,7 +392,7 @@ document.addEventListener('click', function (e) {
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = tr('mirrorPassStaleClaimExecuting');
-  fetch('/api/mirror-pass/stale-claims/execute', {
+  ritualFetch('mirror-pass', '/api/mirror-pass/stale-claims/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ project: pid }),

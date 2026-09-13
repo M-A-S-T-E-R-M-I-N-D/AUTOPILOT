@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-13 | [Debrief: #27 claimed twice — the claims ledger](2026-09-13-double-claim-27-claims-ledger.md) |
 | 2026-09-12 | [Processing board `web-mtsvcibf-bh6asp`: "lucky planner sustained-load awareness" is already fully shipped](2026-09-12-verdict-web-mtsvcibf-bh6asp-sustained-load-planner-mercy-3-shipped.md) |
 | 2026-09-12 | [Processing board `web-mtqumz0u-j39av4`: guard-precision doctrine — closing the audit the prior firing left open](2026-09-12-verdict-web-mtqumz0u-j39av4-guard-precision-doctrine-closed.md) |
 | 2026-09-12 | [COLLAB PROTOCOL stale-claim reaper (`web-mtpzqruv-8puguv`): firing 507's checkpoint verified and closed](2026-09-12-verdict-web-mtpzqruv-8puguv-stale-claim-reaper-checkpoint-shipped.md) |

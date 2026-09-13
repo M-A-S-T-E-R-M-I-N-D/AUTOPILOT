@@ -168,3 +168,21 @@ describe('the Pool client panel paints in the active locale (live, full bundle)'
     expect(claimBtn.textContent).toBe(STRINGS.he.poolClaim);
   });
 });
+
+describe('the contested claim reads as one', () => {
+  it('the button says "claim anyway" from STRINGS in both locales', () => {
+    const out = poolClientJs();
+    expect(out).toContain("claimBtn.textContent = tr('poolClaimAnyway');");
+    expect(out).toContain(
+      "claimBtn.className = 'pool-client-execute pool-client-execute-contest';",
+    );
+    expect(STRINGS.en.poolClaimAnyway).toBe('Claim anyway');
+    expect(STRINGS.he.poolClaimAnyway).not.toBe(STRINGS.en.poolClaimAnyway);
+  });
+
+  it('paints the claims ledger line under the title', () => {
+    const out = poolClientJs();
+    expect(out).toContain('var ledger = poolClaimLedgerText(entry.claims);');
+    expect(out).toContain("if (ledger) item.appendChild(el('p', 'pool-client-ledger', ledger));");
+  });
+});

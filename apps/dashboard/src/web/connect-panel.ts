@@ -29,6 +29,10 @@
  *  translator (its tests). */
 export type ConnectPanelKey =
   | 'connect'
+  | 'composeNeedsDescription'
+  | 'composeModelUnavailable'
+  | 'composeUnusable'
+  | 'composeLeak'
   | 'connected'
   | 'authModeApiKey'
   | 'connectApiKeyHint'
@@ -378,6 +382,9 @@ export interface ReportComposeResponse {
   readonly body?: string;
   readonly labels?: readonly string[];
   readonly reasoning?: string;
+  /** #42: the STRINGS key behind a refusal — rendered by key, in the
+   *  operator's language; `reasoning` stays the English log line. */
+  readonly reasonKey?: string;
   readonly error?: string;
 }
 
@@ -413,7 +420,20 @@ export function reportComposeStatusMeta(
       body,
     };
   }
-  const reasoning = (data && (data.reasoning || data.error)) || tr('reportComposeUnavailable');
+  // #42: a known refusal key renders in the operator's language; an unknown
+  // one (an older server, a typo) falls back to the English reasoning.
+  // Inline (no module-scope helper): shell.ts splices this function's own
+  // source into the served bundle, where nothing outside it exists.
+  const composeKeys = [
+    'composeNeedsDescription',
+    'composeModelUnavailable',
+    'composeUnusable',
+    'composeLeak',
+  ];
+  const reasonKey = data && typeof data.reasonKey === 'string' ? data.reasonKey : '';
+  const keyed = composeKeys.indexOf(reasonKey) !== -1 ? tr(reasonKey as ConnectPanelKey) : '';
+  const reasoning =
+    keyed || (data && (data.reasoning || data.error)) || tr('reportComposeUnavailable');
   return {
     className: 'gh-issue-compose-status gh-issue-compose-fail',
     text: '✗ ' + reasoning,

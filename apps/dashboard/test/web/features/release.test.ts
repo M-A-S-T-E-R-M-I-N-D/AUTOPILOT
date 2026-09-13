@@ -113,7 +113,7 @@ describe('releaseJs', () => {
     expect(out).toContain(
       'if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease, tr))) return;',
     );
-    expect(out).toContain("fetch('/api/release/execute', {");
+    expect(out).toContain("ritualFetch('release', '/api/release/execute', {");
   });
 
   it('keeps no module-level state and calls refresh() as a bare hoisted identifier, never defines it', () => {

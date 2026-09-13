@@ -153,7 +153,7 @@ document.addEventListener('click', function (e) {
   b.disabled = true;
   var originalText = b.textContent;
   b.textContent = tr('discussionsTriageExecuting');
-  fetch('/api/discussions-triage/execute', {
+  ritualFetch('discussions-triage', '/api/discussions-triage/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({}),

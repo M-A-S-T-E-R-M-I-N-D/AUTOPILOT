@@ -86,7 +86,7 @@ describe('landingJs', () => {
     expect(out).toContain(
       'if (!window.confirm(landingExecuteConfirmMessage(overlapBranches, halfStepTasks))) return;',
     );
-    expect(out).toContain("fetch('/api/landing/execute', {");
+    expect(out).toContain("ritualFetch('landing', '/api/landing/execute', {");
   });
 
   it('reads fleet-wide mutable state and calls fleet-wide functions as bare hoisted identifiers, never defines them', () => {

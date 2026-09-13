@@ -126,7 +126,7 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
   it('translates the three client-written status lines, templating the server reasoning', () => {
     expect(out).toContain("el('p', 'muted', tr('reportPreviewUnavailable'))");
     expect(out).toContain(
-      "el('p', 'muted', tr('reportNothingToFile', { reasoning: plan.reasoning }))",
+      "el('p', 'muted', tr('reportNothingToFile', { reasoning: plan.reasonKey ? tr(plan.reasonKey, plan.reasonArgs || {}) : plan.reasoning }))",
     );
     expect(out).toContain("resultEl.textContent = tr('reportRequestFailed');");
     expect(out).not.toContain("'Preview unavailable — try again shortly.'");
@@ -269,5 +269,27 @@ describe('the Report-from-here dialog paints in the active locale (live, full bu
     copyTextItem.click();
     await vi.advanceTimersByTimeAsync(1);
     expect(copyTextItem.textContent).toBe(STRINGS.he.reportCopied);
+  });
+});
+
+describe('the report dialog offers no action the page cannot run (#41)', () => {
+  it('disables the task-shaped options when there is no project, naming the way out', () => {
+    const out = reportMenuJs();
+    expect(out).toContain("var projectlessActions = ['quick-fix-pr', 'local-task'];");
+    expect(out).toContain('if (!pid && projectlessActions.indexOf(actionValues[i]) !== -1) {');
+    expect(out).toContain(
+      "opt.textContent = reportActionLabel(actionValues[i]) + ' — ' + tr('reportActionNeedsProject');",
+    );
+    expect(STRINGS.en.reportActionNeedsProject).toBe('needs a project page');
+    expect(STRINGS.he.reportActionNeedsProject).not.toBe(STRINGS.en.reportActionNeedsProject);
+  });
+
+  it('renders a compose refusal by key, falling back to the English reasoning', () => {
+    const out = reportMenuJs();
+    expect(out).toContain(
+      "(j && j.reasonKey ? tr(j.reasonKey) : j && (j.reasoning || j.error)) || tr('reportComposeUnavailable')",
+    );
+    expect(STRINGS.en.reportNeedsProject).toContain('Open a project page');
+    expect(STRINGS.he.reportNeedsProject).toContain('{action}');
   });
 });

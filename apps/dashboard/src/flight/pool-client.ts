@@ -71,6 +71,14 @@ import {
 } from './issue-triage.js';
 import { fetchViewerLogin } from './pr-review.js';
 import { claimContractBody } from './claim-contract.js';
+import {
+  claimLedger,
+  claimStandings,
+  CLAIM_WINDOW_DAYS,
+  type ClaimStanding,
+  type IssueCommentLike,
+  type PoolClaim,
+} from './claim-ledger.js';
 
 /** One open, pool-labeled GitHub issue — the subset `gh issue list` reports
  *  that a co-pilot's dashboard needs to browse and claim it. */
@@ -80,6 +88,10 @@ export interface PoolIssue {
   readonly url: string;
   readonly labels: readonly string[];
   readonly assignees: readonly string[];
+  /** THE CLAIMS LEDGER (claim-ledger.ts): every live claim, read from the
+   *  claim comments AND the assignees. Optional so a bare fixture still
+   *  types; {@link issueClaims} derives assignee-only claims when absent. */
+  readonly claims?: readonly PoolClaim[];
 }
 
 /**
@@ -100,11 +112,18 @@ export function isPoolIssue(labels: readonly string[]): boolean {
   return poolDimension(labels) !== undefined;
 }
 
-/** True when a pool issue already carries an assignee — the epic's "claims
- *  (assign/comment)" mechanism, so an assigned issue is already claimed and
- *  should not be offered to a second co-pilot as available work. */
+/** The issue's live claims — the ledger when the fetch carried comments,
+ *  else the assignees as undated claims (the pre-ledger reading). */
+export function issueClaims(issue: PoolIssue): readonly PoolClaim[] {
+  return issue.claims ?? claimLedger(issue.assignees, []);
+}
+
+/** True when a pool issue is held by anyone — an assignee OR a claim
+ *  comment (claim-ledger.ts). Before the ledger this read `assignees`
+ *  alone, which is exactly how #27 got claimed twice: an outside
+ *  contributor's assign fails silently, only their comment lands. */
 export function isClaimedPoolIssue(issue: PoolIssue): boolean {
-  return issue.assignees.length > 0;
+  return issueClaims(issue).length > 0;
 }
 
 /** One issue entry as `gh issue list --json number,title,url,labels,
@@ -116,6 +135,28 @@ interface RawPoolIssue {
   readonly url?: unknown;
   readonly labels?: unknown;
   readonly assignees?: unknown;
+  readonly comments?: unknown;
+}
+
+/** `gh issue list --json comments` entries -> ledger comments. Untrusted:
+ *  anything without a string author login, a parseable date and a string
+ *  body is dropped rather than guessed at. */
+export function parsePoolComments(raw: unknown): readonly IssueCommentLike[] {
+  if (!Array.isArray(raw)) return [];
+  const out: IssueCommentLike[] = [];
+  for (const entry of raw as ReadonlyArray<{
+    author?: { login?: unknown };
+    createdAt?: unknown;
+    body?: unknown;
+  }>) {
+    const author = entry?.author?.login;
+    const createdAt = typeof entry?.createdAt === 'string' ? Date.parse(entry.createdAt) : NaN;
+    if (typeof author !== 'string' || Number.isNaN(createdAt) || typeof entry.body !== 'string') {
+      continue;
+    }
+    out.push({ author, createdAt, body: entry.body });
+  }
+  return out;
 }
 
 /**
@@ -141,7 +182,7 @@ export async function fetchPoolIssues(exec: CliExec): Promise<PoolIssue[]> {
     '--state',
     'open',
     '--json',
-    'number,title,url,labels,assignees',
+    'number,title,url,labels,assignees,comments',
   ]);
   if (code !== 0) return [];
 
@@ -160,31 +201,68 @@ export async function fetchPoolIssues(exec: CliExec): Promise<PoolIssue[]> {
         typeof raw.title === 'string' &&
         typeof raw.url === 'string',
     )
-    .map((raw) => ({
-      number: raw.number as number,
-      title: raw.title as string,
-      url: raw.url as string,
-      labels: parseIssueLabels(raw.labels),
-      assignees: parseAssignees(raw.assignees),
-    }))
+    .map((raw) => {
+      const assignees = parseAssignees(raw.assignees);
+      return {
+        number: raw.number as number,
+        title: raw.title as string,
+        url: raw.url as string,
+        labels: parseIssueLabels(raw.labels),
+        assignees,
+        claims: claimLedger(assignees, parsePoolComments(raw.comments)),
+      };
+    })
     .filter((issue) => isPoolIssue(issue.labels));
 }
 
-/** A pool issue can be claimed for `claimant` — it is still in the pool and
- *  carries no assignee yet. */
+/** A stale claim the new claim releases inline — its holder went quiet past
+ *  {@link CLAIM_WINDOW_DAYS}; `assigned` says whether an unassign is needed
+ *  on top of the release note. */
+export interface PoolClaimRelease {
+  readonly login: string;
+  readonly assigned: boolean;
+  readonly quietDays: number;
+}
+
+/** A live claim the contesting claimant is told about — who, since when
+ *  (`null` when undated), and when it releases on its own. */
+export interface PoolClaimHolder {
+  readonly login: string;
+  readonly since: number | null;
+  readonly releasesAt: number | null;
+}
+
+/** A pool issue can be claimed for `claimant` — it is in the pool and
+ *  nobody holds a live claim on it (stale ones release with this claim). */
 export interface PoolClaimAccept {
   readonly decision: 'claim';
   readonly reasoning: string;
+  readonly claimant: string;
+  readonly releases: readonly PoolClaimRelease[];
 }
 
-/** The issue cannot be claimed as-is — already assigned, or never accepted
- *  into the pool in the first place. */
+/** Someone else holds a live claim. The claimant may still claim — a
+ *  deliberate "claim anyway" — and both solutions get compared when they
+ *  land; the UI warns before it lets them. */
+export interface PoolClaimContest {
+  readonly decision: 'contest';
+  readonly reasoning: string;
+  readonly claimant: string;
+  readonly holders: readonly PoolClaimHolder[];
+}
+
+/** The issue cannot be claimed as-is — the claimant already holds it, or
+ *  it was never accepted into the pool in the first place. */
 export interface PoolClaimSkip {
   readonly decision: 'skip';
   readonly reasoning: string;
 }
 
-export type PoolClaimDecision = PoolClaimAccept | PoolClaimSkip;
+export type PoolClaimDecision = PoolClaimAccept | PoolClaimContest | PoolClaimSkip;
+
+function isoDay(ms: number | null): string {
+  return ms === null ? 'an unknown date' : new Date(ms).toISOString().slice(0, 10);
+}
 
 /**
  * Decides whether `issue` can be claimed for `claimant`: skip when it
@@ -194,22 +272,67 @@ export type PoolClaimDecision = PoolClaimAccept | PoolClaimSkip;
  * `fetchPoolIssues` already filters by rather than re-deriving pool/claimed
  * status a second way.
  */
-export function planClaimPoolIssue(issue: PoolIssue, claimant: string): PoolClaimDecision {
+export function planClaimPoolIssue(
+  issue: PoolIssue,
+  claimant: string,
+  nowMs: number = Date.now(),
+): PoolClaimDecision {
   if (!isPoolIssue(issue.labels)) {
     return {
       decision: 'skip',
       reasoning: `#${issue.number} carries no pool: label — it was never accepted into the pool`,
     };
   }
-  if (isClaimedPoolIssue(issue)) {
+  const standings = claimStandings(issueClaims(issue), nowMs);
+  const own = standings.find((s) => s.claim.login === claimant && !s.stale);
+  if (own) {
     return {
       decision: 'skip',
-      reasoning: `#${issue.number} is already claimed by ${issue.assignees.join(', ')}`,
+      reasoning: `#${issue.number} is already yours — you claimed it on ${isoDay(own.claim.claimedAt)}`,
     };
   }
+  const others = standings.filter((s) => s.claim.login !== claimant);
+  const live = others.filter((s) => !s.stale);
+  if (live.length > 0) {
+    const holders = live.map((s) => ({
+      login: s.claim.login,
+      since: s.claim.claimedAt,
+      releasesAt: s.releasesAt,
+    }));
+    const named = holders
+      .map(
+        (h) =>
+          `@${h.login} since ${isoDay(h.since)}` +
+          (h.releasesAt === null
+            ? ''
+            : ` (releases on its own ${isoDay(h.releasesAt)} if they stay quiet)`),
+      )
+      .join('; ');
+    return {
+      decision: 'contest',
+      claimant,
+      holders,
+      reasoning:
+        `#${issue.number} is held by ${named}. You can still claim it — both solutions are welcome, ` +
+        'and when two land the review compares them and the stronger one merges.',
+    };
+  }
+  const releases = others
+    .filter((s) => s.stale)
+    .map((s) => ({
+      login: s.claim.login,
+      assigned: s.claim.assigned,
+      quietDays: s.quietDays ?? 0,
+    }));
+  const releaseNote =
+    releases.length === 0
+      ? ''
+      : ` — releasing ${releases.map((r) => `@${r.login}'s claim (quiet ${r.quietDays}d)`).join(', ')} first`;
   return {
     decision: 'claim',
-    reasoning: `claiming #${issue.number} for ${claimant}: assigning and posting the claim as a comment`,
+    claimant,
+    releases,
+    reasoning: `claiming #${issue.number} for ${claimant}: posting the claim as a comment, then assigning${releaseNote}`,
   };
 }
 
@@ -238,18 +361,55 @@ export function planClaimPoolIssueCommands(
   if (decision.decision === 'skip') return [];
 
   const issueRef = String(issue.number);
-  return [
-    {
-      command: 'gh',
-      args: ['issue', 'edit', issueRef, '--add-assignee', claimant],
-      details: `assigning #${issue.number} to ${claimant}`,
-    },
-    {
-      command: 'gh',
-      args: ['issue', 'comment', issueRef, '--body', `Claimed by ${claimant} via the pool client.`],
-      details: `posting the claim as a comment on #${issue.number}`,
-    },
-  ];
+  const commands: PoolClaimCommand[] = [];
+  if (decision.decision === 'claim') {
+    for (const release of decision.releases) {
+      commands.push({
+        command: 'gh',
+        args: [
+          'issue',
+          'comment',
+          issueRef,
+          '--body',
+          `Releasing @${release.login}'s claim — quiet for ${release.quietDays} days, past the ` +
+            `${CLAIM_WINDOW_DAYS}-day window. The issue is back in the pool; re-claim any time.`,
+        ],
+        details: `releasing @${release.login}'s stale claim on #${issue.number} (quiet ${release.quietDays}d)`,
+      });
+      if (release.assigned) {
+        commands.push({
+          command: 'gh',
+          args: ['issue', 'edit', issueRef, '--remove-assignee', release.login],
+          details: `unassigning @${release.login} from #${issue.number}`,
+        });
+      }
+    }
+  }
+  const body =
+    decision.decision === 'contest'
+      ? `Also claimed by ${claimant} via the pool client (contested).\n\n` +
+        `${decision.holders.map((h) => `@${h.login}`).join(', ')} holds the first claim (since ` +
+        `${decision.holders.map((h) => isoDay(h.since)).join(', ')}); it releases on its own after ` +
+        `${CLAIM_WINDOW_DAYS} quiet days. Both solutions are welcome: when two land, the review ` +
+        'compares them and the stronger one merges, or the two are combined.'
+      : `Claimed by ${claimant} via the pool client.\n\n` +
+        `The claim holds while it moves: a progress note or a PR within every ${CLAIM_WINDOW_DAYS} ` +
+        `days keeps it; ${CLAIM_WINDOW_DAYS} quiet days release it back to the pool.`;
+  // COMMENT FIRST, THEN ASSIGN: GitHub only lets a repo assign someone who
+  // already has a footprint on the issue, so for an outside contributor the
+  // assign only succeeds once their comment is up. The old order (assign,
+  // then comment) is how gabibi555's claim on #27 lost its assignee.
+  commands.push({
+    command: 'gh',
+    args: ['issue', 'comment', issueRef, '--body', body],
+    details: `posting the claim as a comment on #${issue.number}`,
+  });
+  commands.push({
+    command: 'gh',
+    args: ['issue', 'edit', issueRef, '--add-assignee', claimant],
+    details: `assigning #${issue.number} to ${claimant}`,
+  });
+  return commands;
 }
 
 /** One {@link PoolClaimCommand} run to completion — paired back with the
@@ -308,6 +468,7 @@ export interface ClaimPoolIssueResult {
 export async function claimPoolIssue(
   issueNumber: number,
   exec: CliExec,
+  now: () => number = Date.now,
 ): Promise<ClaimPoolIssueResult> {
   const [issues, claimant] = await Promise.all([fetchPoolIssues(exec), fetchViewerLogin(exec)]);
   const issue = issues.find((entry) => entry.number === issueNumber);
@@ -323,7 +484,7 @@ export async function claimPoolIssue(
     return { decision, commandResults: [], issue };
   }
 
-  const decision = planClaimPoolIssue(issue, claimant);
+  const decision = planClaimPoolIssue(issue, claimant, now());
   const commands = planClaimPoolIssueCommands(issue, claimant, decision);
   const commandResults = await executeClaimPoolIssueCommands(commands, exec);
   return { decision, commandResults, issue };
@@ -335,6 +496,10 @@ export async function claimPoolIssue(
 export interface PoolBrowseEntry {
   readonly issue: PoolIssue;
   readonly decision: PoolClaimDecision;
+  /** THE CLAIMS LEDGER, measured: who holds the issue, since when, how
+   *  quiet, and when each claim releases — what the panel paints under the
+   *  title so a second claimant is never surprised. */
+  readonly claims: readonly ClaimStanding[];
 }
 
 /**
@@ -350,6 +515,7 @@ export interface PoolBrowseEntry {
 export function planPoolBrowseBatch(
   issues: readonly PoolIssue[],
   claimant: string | undefined,
+  nowMs: number = Date.now(),
 ): readonly PoolBrowseEntry[] {
   return issues.map((issue) => ({
     issue,
@@ -359,7 +525,8 @@ export function planPoolBrowseBatch(
             decision: 'skip',
             reasoning: `could not resolve the authenticated gh identity to claim #${issue.number} for`,
           }
-        : planClaimPoolIssue(issue, claimant),
+        : planClaimPoolIssue(issue, claimant, nowMs),
+    claims: claimStandings(issueClaims(issue), nowMs),
   }));
 }
 
@@ -404,15 +571,19 @@ export function planPoolIssueTask(
   projectId: string,
   createdAt: number,
 ): CreateTaskInput | null {
-  if (decision.decision !== 'claim') return null;
+  if (decision.decision === 'skip') return null;
   return {
     id: issueTaskId(issue.number),
     projectId,
     title: issue.title.slice(0, POOL_TASK_TITLE_CHARS),
     dimension: knownPoolDimension(issue.labels),
-    // THE CLAIM CONTRACT (claim-contract.ts): the body names the issue and
-    // the rule every reader honours — only the claimant closes it.
-    body: claimContractBody(issue.number, issue.url),
+    // THE CLAIM CONTRACT (claim-contract.ts): the body names the issue, who
+    // holds it (and whom they contest), and the rule every reader honours —
+    // only the claimant closes it.
+    body: claimContractBody(issue.number, issue.url, {
+      claimant: decision.claimant,
+      contestedWith: decision.decision === 'contest' ? decision.holders.map((h) => h.login) : [],
+    }),
     source: 'github',
     createdAt,
   };

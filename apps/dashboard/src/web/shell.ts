@@ -1366,7 +1366,8 @@ function cardMeta(c) {
 ${sharedCardStatItems.toString()}
 function cardStats(c) {
   var stats = el('div', 'card-stats');
-  var items = cardStatItems(c);
+  // #16: labels and tips in the active locale (tr is locale.ts's, core).
+  var items = cardStatItems(c, tr);
   for (var i = 0; i < items.length; i++) stats.appendChild(stat(items[i][0], items[i][1], items[i][2]));
   // Same roving fix as cardMeta above for the firings/shipped/ship-rate (and
   // optional recent-form) tiles — one Tab stop per row, not one per tile.
@@ -3379,7 +3380,10 @@ function renderProjectPage(state, pid) {
   var back = el('p', 'back');
   var a = document.createElement('a');
   a.href = '/';
-  a.textContent = '← Fleet';
+  // #16: the back link reads in the active locale; the tag lets a locale
+  // switch repaint it without a rerender.
+  a.textContent = tr('backToFleet');
+  a.setAttribute('data-i18n', 'backToFleet');
   back.appendChild(a);
   fleet.appendChild(subj(back, 'fleet'));
   var c = null;
@@ -3631,7 +3635,8 @@ function renderTotals(t) {
   var bar = document.getElementById('totals');
   if (!bar) return;
   bar.replaceChildren();
-  var items = totalsTileItems(t, fmtCost);
+  // #16: labels and tips in the active locale (tr is locale.ts's, core).
+  var items = totalsTileItems(t, fmtCost, tr);
   for (var i = 0; i < items.length; i++) {
     var cell = el('div', 'total');
     cell.appendChild(el('span', 'total-n', String(items[i][0])));

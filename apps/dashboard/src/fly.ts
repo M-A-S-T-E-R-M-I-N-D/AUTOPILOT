@@ -176,6 +176,7 @@ import {
   runSoulMiningSweep,
   runFleetWisdomSweep,
   runStoreBackupSweep,
+  runStaleClaimSweep,
 } from './flight/post-flight-sweeps.js';
 import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
@@ -1755,6 +1756,8 @@ async function main(): Promise<void> {
     runDocFreshnessSweep(store, projectId, now);
 
     await runClosedTaskAuditSweep(store, projectId, vcs, now);
+
+    await runStaleClaimSweep(now);
 
     runSoulMiningSweep(store, projectId, now);
 

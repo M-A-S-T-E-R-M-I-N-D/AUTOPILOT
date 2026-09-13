@@ -98,7 +98,7 @@ describe('the claim path', () => {
         labels: ['pool: accessibility'],
         assignees: [],
       },
-      { decision: 'claim', reasoning: 'r' },
+      { decision: 'claim', reasoning: 'r', claimant: 'octocat', releases: [] },
       'p1',
       100,
     );

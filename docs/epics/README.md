@@ -89,3 +89,9 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0020](0020-legible-surface.md) | The legible surface — every panel says what it is and what it did | Active |
 | [0021](0021-app-shell.md) | The app shell — subjects, a rail, and a phone-first cockpit (rows 1–11 shipped; row 3 tap-tap connect open) | Active |
 | [0022](0022-ask-answer-quality-doctrine.md) | ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale (born 0021) | Active |
+| [0023](0023-docs-reader.md) | The docs reader — Markdown rendered live, edited in place, kept honest | Draft |
+| [0024](0024-pipeline-graph-editor.md) | The pipeline as a node graph — every instruction, tool and stage visible and editable | Draft |
+| [0025](0025-icon-system.md) | The icon system — one stroke family, no emoji, credits kept | Draft |
+| [0026](0026-tasks-screen.md) | The tasks screen — a list with a point of view, and Ask one gesture away | Draft |
+| [0027](0027-the-envoy.md) | The envoy — the fleet's autonomous, critical representative in public | Draft |
+| [0028](0028-busy-states.md) | Busy states — the ritual scrim: acknowledge, show real progress, hold writes, always an escape | Active |

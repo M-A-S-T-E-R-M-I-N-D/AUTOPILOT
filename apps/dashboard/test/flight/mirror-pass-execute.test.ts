@@ -385,8 +385,16 @@ describe('createMirrorPassPreviewApi', () => {
       expect(plans).toHaveLength(1);
       expect(plans?.[0]?.finding).toBeNull();
       expect(plans?.[0]?.commands).toHaveLength(0);
-      // Read-only: only the `issue view` read happened, no comment/close/reopen write.
-      expect(exec).toHaveBeenCalledTimes(1);
+      // Read-only: the `issue view` read and the #40 `git cat-file` existence
+      // check happened — no comment/close/reopen write.
+      expect(exec).toHaveBeenCalledTimes(2);
+      const calls = (exec as ReturnType<typeof vi.fn>).mock.calls as Array<
+        [string, readonly string[]]
+      >;
+      expect(calls.map((c) => [c[0], c[1][0], c[1][1]])).toEqual([
+        ['git', '-C', dir],
+        ['gh', 'issue', 'view'],
+      ]);
     } finally {
       cleanupDir(dir);
     }
@@ -1657,6 +1665,137 @@ describe('createMirrorPassStaleClaimExecuteApi', () => {
         now,
       )('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+/**
+ * #40 (gabibi555): the reconcile's two unchecked claims, checked. A done
+ * task with no shipped firing behind it, or a landing SHA the checkout no
+ * longer has, gets ONE unverified note and stays open; the note is never
+ * posted twice.
+ */
+describe('#40 — unverified claims are noted, never closed on', () => {
+  function gitAwareExec(
+    states: Readonly<Record<number, 'open' | 'closed'>>,
+    opts: {
+      shaExists?: boolean;
+      comments?: readonly string[];
+      login?: string;
+      owner?: string;
+    } = {},
+    calls: Array<readonly string[]> = [],
+  ): CliExec {
+    return vi.fn(async (bin, args) => {
+      calls.push([bin, ...args]);
+      if (bin === 'git') return { code: opts.shaExists === false ? 1 : 0, stdout: '' };
+      if (args[0] === 'api' && args[1] === 'user')
+        return { code: 0, stdout: JSON.stringify({ login: opts.login ?? 'owner' }) };
+      if (args[0] === 'repo' && args[1] === 'view') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({
+            nameWithOwner: `${opts.owner ?? 'owner'}/x`,
+            url: 'https://github.com/owner/x',
+            isPrivate: false,
+          }),
+        };
+      }
+      if (args[0] === 'issue' && args[1] === 'view' && args[4] === 'comments') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({ comments: (opts.comments ?? []).map((body) => ({ body })) }),
+        };
+      }
+      if (args[0] === 'issue' && args[1] === 'view') {
+        const number = Number(args[2]);
+        const state = states[number];
+        if (state === undefined) return { code: 1, stdout: '' };
+        return { code: 0, stdout: JSON.stringify({ number, state: state.toUpperCase() }) };
+      }
+      return { code: 0, stdout: '' };
+    });
+  }
+
+  function doneTask(dbPath: string, dir: string, shipped: boolean): void {
+    const s = openStore(dbPath);
+    migrate(s);
+    project(s, 'p1', dir);
+    createTask(s, { id: 'github-42', projectId: 'p1', title: 'Fix it', createdAt: 100 });
+    setTaskStatus(s, 'github-42', 'done', 200);
+    if (shipped) shipSha(s, 'p1', 'firing-1', 'github-42', 'abc1234');
+    s.close();
+  }
+
+  it('a done task nobody shipped plans one note and no close', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-40-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      doneTask(dbPath, dir, false);
+      const plans = await createMirrorPassPreviewApi(dbPath, gitAwareExec({ 42: 'open' }))('p1');
+      expect(plans?.[0]?.finding).toMatchObject({ action: 'note-unverified', issueNumber: 42 });
+      expect(plans?.[0]?.commands.map((c) => c.args[1])).toEqual(['comment']);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('a shipped task whose landing commit vanished plans a note, asking git first', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-40-sha-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      doneTask(dbPath, dir, true);
+      const calls: Array<readonly string[]> = [];
+      const plans = await createMirrorPassPreviewApi(
+        dbPath,
+        gitAwareExec({ 42: 'open' }, { shaExists: false }, calls),
+      )('p1');
+      expect(calls).toContainEqual(['git', '-C', dir, 'cat-file', '-e', 'abc1234^{commit}']);
+      expect(plans?.[0]?.finding).toMatchObject({ action: 'note-unverified' });
+      expect(plans?.[0]?.finding?.comment).toContain('abc1234 no longer exists');
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('a shipped task whose commit exists still closes with its landing note', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-40-ok-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      doneTask(dbPath, dir, true);
+      const plans = await createMirrorPassPreviewApi(
+        dbPath,
+        gitAwareExec({ 42: 'open' }, { shaExists: true }),
+      )('p1');
+      expect(plans?.[0]?.finding).toMatchObject({
+        action: 'close-with-landing-note',
+        sha: 'abc1234',
+      });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('an issue that already carries the unverified note gets nothing sent again', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-40-noted-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      doneTask(dbPath, dir, false);
+      const calls: Array<readonly string[]> = [];
+      const report = await createMirrorPassExecuteApi(
+        dbPath,
+        gitAwareExec(
+          { 42: 'open' },
+          { comments: ['Done on the AUTOPILOT board, but unverified: earlier note.'] },
+          calls,
+        ),
+      )('p1');
+      expect(report?.outcomes).toEqual([]);
+      expect(calls.some((c) => c[1] === 'issue' && (c[2] === 'comment' || c[2] === 'close'))).toBe(
+        false,
+      );
     } finally {
       cleanupDir(dir);
     }

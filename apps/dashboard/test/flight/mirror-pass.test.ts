@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import {
   issueNumberFromTaskId,
   planMirrorPassReconcile,
+  UNVERIFIED_NOTE_MARKER,
   planMirrorPassCommands,
   applyMirrorPassCommands,
   planMirrorPassBatch,
@@ -34,10 +35,13 @@ import {
   planMirrorPassStaleClaimReaper,
   planMirrorPassStaleClaimCommands,
   fetchClaimedIssueActivity,
+  fetchClaimedIssueClaims,
   planMirrorPassStaleClaimBatch,
   type MirrorPassTaskCandidate,
   type MirrorPassIssueState,
   type MirrorPassClaimedIssue,
+  type MirrorPassFinding,
+  type MirrorPassStaleClaimFinding,
 } from '../../src/flight/mirror-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { STALE_TASK_DAYS } from '../../src/web/task-queue.js';
@@ -1075,5 +1079,168 @@ describe('planMirrorPassStaleClaimBatch', () => {
     );
 
     expect(plans[0]?.finding).toMatchObject({ action: 'reap-stale-claim', quietDays: 3 });
+  });
+});
+
+describe('fetchClaimedIssueClaims — the claims ledger, one clock per claim', () => {
+  it('reaps a comment-only claimant on the same clock, with nothing to unassign', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 27,
+        state: 'OPEN',
+        assignees: [],
+        comments: [
+          {
+            author: { login: 'gabibi555' },
+            createdAt: '2026-09-11T14:23:10Z',
+            body: 'Claimed by gabibi555 via the pool client.',
+          },
+        ],
+        updatedAt: '2026-09-12T00:00:00Z',
+      }),
+    }));
+
+    const claims = await fetchClaimedIssueClaims(exec, 27);
+
+    expect(claims).toEqual([
+      {
+        number: 27,
+        state: 'open',
+        assignee: 'gabibi555',
+        lastActivityAt: Date.parse('2026-09-11T14:23:10Z'),
+        assigned: false,
+      },
+    ]);
+    const finding = planMirrorPassStaleClaimReaper(
+      claims[0] as MirrorPassClaimedIssue,
+      Date.parse('2026-09-11T14:23:10Z') + STALE_TASK_DAYS * DAY_MS,
+    );
+    expect(finding?.comment).toMatch(/^Releasing @gabibi555 — quiet for 14 days/);
+    expect(
+      planMirrorPassStaleClaimCommands(finding as MirrorPassStaleClaimFinding).map(
+        (c) => c.args[1],
+      ),
+    ).toEqual(['comment']);
+  });
+
+  it('gives a contested issue one entry per holder, assignee-backed ones flagged assigned', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 27,
+        state: 'OPEN',
+        assignees: [{ login: 'M-A-S-T-E-R-M-I-N-D' }],
+        comments: [
+          {
+            author: { login: 'gabibi555' },
+            createdAt: '2026-09-11T14:23:10Z',
+            body: 'Claimed by gabibi555 via the pool client.',
+          },
+          {
+            author: { login: 'M-A-S-T-E-R-M-I-N-D' },
+            createdAt: '2026-09-12T23:10:53Z',
+            body: 'Also claimed by M-A-S-T-E-R-M-I-N-D via the pool client (contested).',
+          },
+        ],
+        updatedAt: '2026-09-13T00:00:00Z',
+      }),
+    }));
+
+    const claims = await fetchClaimedIssueClaims(exec, 27);
+
+    expect(claims.map((c) => [c.assignee, c.assigned])).toEqual([
+      ['gabibi555', false],
+      ['M-A-S-T-E-R-M-I-N-D', true],
+    ]);
+  });
+
+  it('falls back to updatedAt for an assignee with no claim comment, and returns [] on a bad read', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 42,
+        state: 'OPEN',
+        assignees: [{ login: 'someone' }],
+        comments: [],
+        updatedAt: '2026-09-06T00:00:00Z',
+      }),
+    }));
+    expect((await fetchClaimedIssueClaims(exec, 42))[0]?.lastActivityAt).toBe(
+      Date.parse('2026-09-06T00:00:00Z'),
+    );
+    expect(
+      await fetchClaimedIssueClaims(
+        makeExec(() => ({ code: 1, stdout: '' })),
+        42,
+      ),
+    ).toEqual([]);
+    expect(
+      await fetchClaimedIssueClaims(
+        makeExec(() => ({ code: 0, stdout: 'nope' })),
+        42,
+      ),
+    ).toEqual([]);
+  });
+
+  it('still plans the unassign for an assigned claim (the pre-ledger reading is unchanged)', () => {
+    const finding = planMirrorPassStaleClaimReaper(claimedIssue(), NOW);
+    expect(finding?.comment).toMatch(/^Unassigning @someone/);
+    expect(
+      planMirrorPassStaleClaimCommands(finding as MirrorPassStaleClaimFinding).map(
+        (c) => c.args[1],
+      ),
+    ).toEqual(['comment', 'edit']);
+  });
+});
+
+describe('#40 — the reconcile never closes on a claim it did not verify', () => {
+  const done = { id: 'github-42', status: 'done' as const, landedSha: 'abc1234' };
+  const open = { number: 42, state: 'open' as const };
+
+  it('notes instead of closing when no gate-verified firing shipped the task', () => {
+    const finding = planMirrorPassReconcile({ ...done, doneVerified: false }, open);
+    expect(finding).toMatchObject({
+      action: 'note-unverified',
+      taskId: 'github-42',
+      issueNumber: 42,
+    });
+    expect(finding?.comment).toMatch(
+      /^Done on the AUTOPILOT board, but unverified: the board task reached done without a gate-verified firing/,
+    );
+    expect(finding?.comment).toContain('Leaving this open');
+  });
+
+  it('notes instead of closing when the recorded landing commit no longer exists', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, doneVerified: true, landedShaExists: false },
+      open,
+    );
+    expect(finding).toMatchObject({ action: 'note-unverified' });
+    expect(finding?.comment).toContain('abc1234 no longer exists on the checkout');
+  });
+
+  it('still closes when both claims hold — verified firing, commit present', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, doneVerified: true, landedShaExists: true },
+      open,
+    );
+    expect(finding).toMatchObject({ action: 'close-with-landing-note', sha: 'abc1234' });
+  });
+
+  it('a pure caller that assessed nothing keeps the old reading (absent means not checked)', () => {
+    expect(planMirrorPassReconcile(done, open)).toMatchObject({
+      action: 'close-with-landing-note',
+    });
+  });
+
+  it('an unverified note is the whole action — one comment, no close', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, doneVerified: false },
+      open,
+    ) as MirrorPassFinding;
+    const commands = planMirrorPassCommands(finding);
+    expect(commands.map((c) => c.args.slice(0, 2))).toEqual([['issue', 'comment']]);
+    expect(commands[0]?.args[4]).toContain(UNVERIFIED_NOTE_MARKER);
   });
 });
