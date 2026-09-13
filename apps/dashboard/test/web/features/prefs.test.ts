@@ -138,42 +138,47 @@ describe('display & accessibility preferences', () => {
     expect(css).toContain('.pref-terminal { display: none; }');
     expect(css).toContain('html[data-theme="terminal"] .pref-terminal { display: block; }');
     expect(css).toMatch(/html\[data-theme="terminal"\]\[data-phosphor="amber"\] \{/);
-    // Epic 0029 slice 7: the hue rule rotates the chromatic tokens from their base twins…
-    expect(css).toContain(
-      'html[data-hue] { --color-surface: oklch(from var(--color-surface-base) l c calc(h + var(--hue-rot)));',
-    );
-    expect(css).toContain(
-      '--color-accent: oklch(from var(--color-accent-base) l c calc(h + var(--hue-rot)));',
-    );
-    // …and leaves the semantic colours their meaning.
-    const hueBlock = css.slice(
-      css.indexOf('html[data-hue] {'),
-      css.indexOf('}', css.indexOf('html[data-hue] {')),
-    );
-    for (const kept of [
-      '--color-danger',
-      '--color-success',
-      '--color-warning',
-      '--color-sev-critical',
-    ])
-      expect(hueBlock, kept).not.toContain(kept);
+    // Epic 0029 slice 7: NO relative-colour rule — the client computes the hue
+    // (this Chromium answers CSS.supports('color', 'oklch(from …)') false).
+    expect(css).not.toContain('html[data-hue]');
+    expect(css).not.toMatch(/--color-[a-z-]+: oklch\(from/);
+    expect(css).toContain('.pref-hue input[type="range"]');
   });
 
   it('hue: the range rotates the design; 0 is the theme as designed; Reset clears it', () => {
     boot();
     const range = document.getElementById('pref-hue') as HTMLInputElement;
     expect(html().hasAttribute('data-hue')).toBe(false);
+    // The tokens' base twins arrive from the linked stylesheet in a browser;
+    // jsdom loads no stylesheet, so the test sets two inline.
+    html().style.setProperty('--color-text-base', 'oklch(0.9 0.16 150)');
+    html().style.setProperty('--color-accent-base', 'oklch(0.86 0.16 300)');
     range.value = '120';
     range.dispatchEvent(new Event('input', { bubbles: true }));
     expect(html().getAttribute('data-hue')).toBe('120');
-    expect(html().style.getPropertyValue('--hue-rot')).toBe('120deg');
+    // Computed in the client from the base twins — 150 + 120, 300 + 120 mod 360.
+    expect(html().style.getPropertyValue('--color-text')).toBe('oklch(0.9 0.16 270)');
+    expect(html().style.getPropertyValue('--color-accent')).toBe('oklch(0.86 0.16 60)');
+    // A token without a base twin here is left alone, never written invalid.
+    expect(html().style.getPropertyValue('--color-danger')).toBe('');
+    expect(html().style.getPropertyValue('--color-surface')).toBe('');
     expect((document.getElementById('pref-hue-out') as HTMLElement).textContent).toBe('120°');
     expect(JSON.parse(localStorage.getItem('ap-prefs') ?? '{}').hue).toBe(120);
 
     (document.getElementById('prefs-reset') as HTMLButtonElement).click();
     expect(html().hasAttribute('data-hue')).toBe(false);
-    expect(html().style.getPropertyValue('--hue-rot')).toBe('');
+    expect(html().style.getPropertyValue('--color-text')).toBe('');
+    expect(html().style.getPropertyValue('--color-accent')).toBe('');
     expect(range.value).toBe('0');
+  });
+
+  it('hue: a theme change re-applies the rotation from the new base twins', async () => {
+    localStorage.setItem('ap-prefs', JSON.stringify({ hue: 90 }));
+    boot();
+    html().style.setProperty('--color-text-base', 'oklch(0.96 0.005 260)');
+    html().setAttribute('data-theme', 'terminal');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(html().style.getPropertyValue('--color-text')).toBe('oklch(0.96 0.005 350)');
   });
 
   it('hue: a saved value applies at boot; out-of-range and garbage values are ignored', () => {
