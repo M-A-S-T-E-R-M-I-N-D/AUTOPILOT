@@ -181,6 +181,8 @@ describe('TASK BURN chips', () => {
 
     const chip = document.querySelector('.chip-burn');
     expect(chip).toBeTruthy();
-    expect(chip!.textContent).toBe('🔥 1 slice · $0.50');
+    // epic 0025: the flame is a stroke icon beside the words, not an emoji.
+    expect(chip!.textContent).toBe('1 slice · $0.50');
+    expect(chip!.querySelector('svg.icon-flame')).not.toBeNull();
   });
 });

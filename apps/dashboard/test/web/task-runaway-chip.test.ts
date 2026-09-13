@@ -105,7 +105,9 @@ describe('TASK ECONOMICS runaway chip', () => {
 
     const chip = document.querySelector('.chip-runaway');
     expect(chip).toBeTruthy();
-    expect(chip!.textContent).toBe('⚠️ runaway');
+    // epic 0025: the warning is a stroke icon beside the word, not an emoji.
+    expect(chip!.textContent).toBe('runaway');
+    expect(chip!.querySelector('svg.icon-triangle-alert')).not.toBeNull();
     // D1 TAB-STOP ROVING (board web-mtd1wyte-ssntzi): the chip shares one
     // roving group with the row's status pill and title — the pill comes
     // first in DOM order and holds the '0' stop, so the chip is

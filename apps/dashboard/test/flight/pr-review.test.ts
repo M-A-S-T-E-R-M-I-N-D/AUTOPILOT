@@ -826,6 +826,9 @@ const BENIGN_WEB = new Set([
   'flight-summary-panel.ts',
   'fly-hint.ts',
   'publicity-panel.ts',
+  // icons.ts (epic 0025): pure vendored icon data + a markup printer that
+  // escapes every attribute value; decides nothing, fetches nothing.
+  'icons.ts',
   'status-pill.ts',
   'stat-tiles.ts',
   'tour.ts',
