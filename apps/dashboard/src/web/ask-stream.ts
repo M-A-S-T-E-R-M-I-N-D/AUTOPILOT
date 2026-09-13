@@ -51,6 +51,8 @@ export interface AskStreamUpdate {
   readonly activity: unknown;
   readonly proposal: unknown;
   readonly lowConfidence: boolean;
+  /** The terminal frame's AskMeta (model · duration · cost); null before. */
+  readonly meta: unknown;
 }
 
 /** The shape of one decoded `data: {...}` frame's JSON payload. */
@@ -58,6 +60,7 @@ interface AskStreamFramePayload {
   readonly delta?: unknown;
   readonly done?: unknown;
   readonly answer?: unknown;
+  readonly meta?: unknown;
   readonly sources?: unknown;
   readonly activity?: unknown;
   readonly proposal?: unknown;
@@ -91,6 +94,7 @@ export function applyAskStreamFrame(frame: string, answered: string): AskStreamU
       activity: null,
       proposal: null,
       lowConfidence: false,
+      meta: null,
     };
   }
   if (payload.activity !== undefined && payload.activity !== null) {
@@ -100,12 +104,14 @@ export function applyAskStreamFrame(frame: string, answered: string): AskStreamU
       activity: payload.activity,
       proposal: null,
       lowConfidence: false,
+      meta: null,
     };
   }
   if (payload.done) {
     return {
       answered: typeof payload.answer === 'string' ? payload.answer : answered,
       sources: payload.sources,
+      meta: payload.meta === undefined ? null : payload.meta,
       activity: null,
       proposal: payload.proposal ?? null,
       lowConfidence: payload.lowConfidence === true,

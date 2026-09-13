@@ -47,6 +47,7 @@ describe('applyAskStreamFrame', () => {
       activity: null,
       proposal: null,
       lowConfidence: false,
+      meta: null,
     });
   });
 
@@ -62,6 +63,7 @@ describe('applyAskStreamFrame', () => {
       activity: null,
       proposal: null,
       lowConfidence: false,
+      meta: null,
     });
   });
 
@@ -77,6 +79,7 @@ describe('applyAskStreamFrame', () => {
       activity: null,
       proposal: null,
       lowConfidence: false,
+      meta: null,
     });
   });
 
@@ -92,6 +95,7 @@ describe('applyAskStreamFrame', () => {
       activity: { tool: 'Read', target: 'src/cart.ts' },
       proposal: null,
       lowConfidence: false,
+      meta: null,
     });
   });
 
@@ -107,6 +111,7 @@ describe('applyAskStreamFrame', () => {
       activity: null,
       proposal: { tool: 'tasks_list', args: { projectId: 'p1' }, safety: 'read' },
       lowConfidence: false,
+      meta: null,
     });
   });
 
@@ -147,5 +152,23 @@ describe('applyAskStreamFrame', () => {
     const update = applyAskStreamFrame('data: {"ok":true}', 'unchanged');
 
     expect(update).toBeNull();
+  });
+});
+
+describe('the terminal frame carries the answer meta', () => {
+  it('passes meta through on done and reports null before', () => {
+    const meta = { model: 'claude-opus-5', durationMs: 4210, costUsd: 0.0312 };
+    const done = applyAskStreamFrame(
+      'data: ' + JSON.stringify({ done: true, ok: true, answer: 'final', sources: ['a.ts'], meta }),
+      'partial',
+    );
+    expect(done?.meta).toEqual(meta);
+    const delta = applyAskStreamFrame('data: ' + JSON.stringify({ delta: 'x' }), '');
+    expect(delta?.meta).toBeNull();
+    const noMeta = applyAskStreamFrame(
+      'data: ' + JSON.stringify({ done: true, ok: true, answer: 'final', sources: [] }),
+      '',
+    );
+    expect(noMeta?.meta).toBeNull();
   });
 });

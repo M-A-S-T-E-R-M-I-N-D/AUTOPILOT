@@ -475,11 +475,22 @@ function searchInit() {
   // wireRoving comes from fleetJs()'s output, hoisted into the same flat
   // /app.js text like el() above (see this file's header comment).
   wireRoving('.ask-activity-chip', '.ask-activity');
-  function renderAnswer(text, sources) {
+  // The answer's footer (2026-09-13, the chat study's transparency): who
+  // answered, how long it took, what it cost — off the model's own envelope.
+  function askMetaLine(meta) {
+    if (!meta || typeof meta.model !== 'string') return null;
+    var time = typeof meta.durationMs === 'number' ? (meta.durationMs / 1000).toFixed(1) + 's' : '—';
+    var cost = typeof meta.costUsd === 'number' ? '$' + meta.costUsd.toFixed(3) : '—';
+    var line = el('p', 'ask-meta', tr('askMeta', { model: meta.model, time: time, cost: cost }));
+    return line;
+  }
+  function renderAnswer(text, sources, meta) {
     if (!answerEl) return;
     while (answerEl.firstChild) answerEl.removeChild(answerEl.firstChild);
     if (!text) return;
     renderMarkdown(answerEl, text);
+    var metaLine = askMetaLine(meta);
+    if (metaLine) answerEl.appendChild(metaLine);
     if (sources && sources.length) {
       // i18n (board web-msnsndki-dz3vn1): "sources:"/"Sources:" are fixed UI
       // text, {name}-templated the way liveToolAria/architectProposes are;
@@ -628,7 +639,7 @@ ${applyAskStreamFrame.toString()}
       if (!update) return;
       if (update.activity) { renderActivity(update.activity); return; }
       answered = update.answered;
-      renderAnswer(answered, update.sources);
+      renderAnswer(answered, update.sources, update.meta);
       renderProposal(update.proposal);
       renderOffer(update.lowConfidence, deep);
     }
