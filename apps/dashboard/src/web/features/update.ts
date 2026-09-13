@@ -27,6 +27,17 @@ export function updateJs(): string {
 // Shared by the banner and the version menu (both call these as hoisted
 // declarations of the same served script): the restart poller and the one
 // update runner, each surface handing in its own painters.
+// One update check per boot, shared by the banner and the version menu — two
+// self-inits used to fetch it twice (the e2e boot spec counts every 404 the
+// hermetic fixture answers, and saw the duplicate). force bypasses the cache.
+var updateCheckShared = null;
+function fetchUpdateCheck(force) {
+  if (!force && updateCheckShared) return updateCheckShared;
+  var p = fetch('/api/update-check' + (force ? '?force=1' : ''), { headers: { accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; });
+  updateCheckShared = p;
+  return p;
+}
 function pollUntilBack() {
   // The server is restarting onto the new build — wait for the API to
   // answer again, then reload so this page runs the new bundle.
@@ -107,8 +118,7 @@ function updateInit() {
       idle: function () { banner.hidden = true; },
     });
   }
-  fetch('/api/update-check', { headers: { accept: 'application/json' } })
-    .then(function (r) { return r.ok ? r.json() : null; })
+  fetchUpdateCheck(false)
     .then(function (check) {
       if (!check || !check.updateAvailable) return;
       var dismissed = null;
@@ -153,8 +163,7 @@ function versionInit() {
   }
   function load(force) {
     checkBtn.disabled = true;
-    fetch('/api/update-check' + (force ? '?force=1' : ''), { headers: { accept: 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    fetchUpdateCheck(force)
       .then(function (check) { paintCheck(check); })
       .catch(function () { paintCheck(null); })
       .then(function () { checkBtn.disabled = false; });
