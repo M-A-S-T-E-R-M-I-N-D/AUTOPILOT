@@ -4420,6 +4420,7 @@ export function settingsMenuHtml(): string {
       ],
       'pref-terminal',
     ) +
+    '<fieldset class="pref"><legend data-i18n="prefHue">Hue</legend><div class="pref-hue"><input type="range" id="pref-hue" min="0" max="359" step="1" value="0" aria-label="Rotate every colour of the design, in degrees; 0 is the theme as designed" data-i18n-aria="prefHueAria" /><output id="pref-hue-out" for="pref-hue">0°</output></div></fieldset>' +
     '<div class="connect-actions"><button type="button" class="connect-test" id="prefs-reset" data-i18n="prefsReset">Reset to defaults</button></div>' +
     '<p class="connect-hint" data-i18n="prefsHint">Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.</p>' +
     '</div>\n' +
@@ -4625,6 +4626,7 @@ ${contextRailHtml(project)}
       <button type="button" class="ask-sheet-close" id="ask-sheet-close" aria-label="Close" data-i18n-aria="askSheetClose"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="ask-sheet-body" id="ask-sheet-body"></div>
+    <div class="ask-sheet-foot" id="ask-sheet-foot"></div>
   </aside>
   <script src="/app.js?v=${v}"></script>${
     project !== undefined

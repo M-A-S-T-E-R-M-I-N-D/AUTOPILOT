@@ -138,6 +138,54 @@ describe('display & accessibility preferences', () => {
     expect(css).toContain('.pref-terminal { display: none; }');
     expect(css).toContain('html[data-theme="terminal"] .pref-terminal { display: block; }');
     expect(css).toMatch(/html\[data-theme="terminal"\]\[data-phosphor="amber"\] \{/);
+    // Epic 0029 slice 7: the hue rule rotates the chromatic tokens from their base twins…
+    expect(css).toContain(
+      'html[data-hue] { --color-surface: oklch(from var(--color-surface-base) l c calc(h + var(--hue-rot)));',
+    );
+    expect(css).toContain(
+      '--color-accent: oklch(from var(--color-accent-base) l c calc(h + var(--hue-rot)));',
+    );
+    // …and leaves the semantic colours their meaning.
+    const hueBlock = css.slice(
+      css.indexOf('html[data-hue] {'),
+      css.indexOf('}', css.indexOf('html[data-hue] {')),
+    );
+    for (const kept of [
+      '--color-danger',
+      '--color-success',
+      '--color-warning',
+      '--color-sev-critical',
+    ])
+      expect(hueBlock, kept).not.toContain(kept);
+  });
+
+  it('hue: the range rotates the design; 0 is the theme as designed; Reset clears it', () => {
+    boot();
+    const range = document.getElementById('pref-hue') as HTMLInputElement;
+    expect(html().hasAttribute('data-hue')).toBe(false);
+    range.value = '120';
+    range.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(html().getAttribute('data-hue')).toBe('120');
+    expect(html().style.getPropertyValue('--hue-rot')).toBe('120deg');
+    expect((document.getElementById('pref-hue-out') as HTMLElement).textContent).toBe('120°');
+    expect(JSON.parse(localStorage.getItem('ap-prefs') ?? '{}').hue).toBe(120);
+
+    (document.getElementById('prefs-reset') as HTMLButtonElement).click();
+    expect(html().hasAttribute('data-hue')).toBe(false);
+    expect(html().style.getPropertyValue('--hue-rot')).toBe('');
+    expect(range.value).toBe('0');
+  });
+
+  it('hue: a saved value applies at boot; out-of-range and garbage values are ignored', () => {
+    localStorage.setItem('ap-prefs', JSON.stringify({ hue: 300 }));
+    boot();
+    expect(html().getAttribute('data-hue')).toBe('300');
+    expect((document.getElementById('pref-hue') as HTMLInputElement).value).toBe('300');
+    for (const bad of [400, -1, 12.5, 'red']) {
+      localStorage.setItem('ap-prefs', JSON.stringify({ hue: bad }));
+      boot();
+      expect(html().hasAttribute('data-hue'), String(bad)).toBe(false);
+    }
   });
 
   it('carries its words in both locales', () => {
@@ -148,6 +196,8 @@ describe('display & accessibility preferences', () => {
       'prefDensity',
       'prefMotion',
       'prefPhosphor',
+      'prefHue',
+      'prefHueAria',
       'prefsReset',
     ] as const) {
       expect(STRINGS.en[key]).toBeTruthy();

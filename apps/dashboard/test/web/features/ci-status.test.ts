@@ -38,7 +38,12 @@ describe('ciStatusJs', () => {
   it('renders one tipChip per workflow, colored by ok/fail', () => {
     const out = ciStatusJs();
     expect(out).toContain("var badgeClass = 'ci-status-badge-' + (w.ok ? 'ok' : 'fail');");
-    expect(out).toContain('tipChip(w.workflow, w.detail,');
+    expect(out).toContain('tipChip(label, w.detail,');
+    // The conclusion and age are in the chip's text, not only its tip.
+    expect(out).toContain("var state = w.conclusion ? w.conclusion : tr('ciRunning');");
+    expect(out).toContain(
+      "var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '');",
+    );
   });
 
   it('tags the title for i18n and re-translates on every rebuild', () => {

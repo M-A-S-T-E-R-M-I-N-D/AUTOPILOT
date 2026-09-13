@@ -31,6 +31,7 @@ import { notificationsJs } from './notifications.js';
 import { officeMapJs } from './office-map.js';
 import { pipelineJs } from './pipeline.js';
 import { poolClientJs } from './pool-client.js';
+import { popoversJs } from './popovers.js';
 import { prReviewJs } from './pr-review.js';
 import { prefsJs } from './prefs.js';
 import { processHealthJs } from './process-health.js';
@@ -75,6 +76,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   officeMapJs,
   pipelineJs,
   poolClientJs,
+  popoversJs,
   prReviewJs,
   prefsJs,
   processHealthJs,
@@ -127,6 +129,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'office-map': officeMapJs,
   pipeline: pipelineJs,
   'pool-client': poolClientJs,
+  popovers: popoversJs,
   'pr-review': prReviewJs,
   prefs: prefsJs,
   'process-health': processHealthJs,

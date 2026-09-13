@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0029. Settings and the masthead — one gear, icons not emoji, AAA within reach, GitHub as a first-class connection
 
-Status: Active (2026-09-13). Slices 1 and 2 shipped the same day.
+Status: Active (2026-09-13). Slices 1, 2, 6 and 7 shipped the same day.
 
 ## The asks (operator, 2026-09-13)
 
@@ -69,6 +69,15 @@ Status: Active (2026-09-13). Slices 1 and 2 shipped the same day.
    window class, written down and pinned by the mobile/tablet specs.
 5. Contrast and target-size census across phosphors and text scales (extend
    the oklch audit).
+6. **Shipped 2026-09-13:** the popover laws — light dismiss (an outside
+   pointer or Escape), a theme or language choice closes, hover opens
+   temporarily and a click pins, on hover devices only
+   (`web/features/popovers.ts`).
+7. **Shipped 2026-09-13:** the whole-design hue — a range in Settings that
+   rotates every chromatic, non-semantic token through relative colour
+   (`oklch(from var(--token-base) l c calc(h + var(--hue-rot)))`); success,
+   warning, danger and the severities keep their meaning; 0 is the theme as
+   designed and Reset returns there.
 
 ## Related
 

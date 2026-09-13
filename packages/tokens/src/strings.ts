@@ -1130,6 +1130,7 @@ const EN_STRINGS = {
   githubPrResultFail: 'failed to open pull request.',
   poolClientPanel: 'Contributor pool',
   ciStatusPanel: 'CI status',
+  ciRunning: 'running',
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
   contributorIssueListPanel: 'Good first issues',
@@ -1284,6 +1285,8 @@ const EN_STRINGS = {
   prefPhosphorGreen: 'Green',
   prefPhosphorAmber: 'Amber',
   prefPhosphorWhite: 'White',
+  prefHue: 'Hue',
+  prefHueAria: 'Rotate every colour of the design, in degrees; 0 is the theme as designed',
   prefsReset: 'Reset to defaults',
   prefsHint:
     'Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.',
@@ -2259,6 +2262,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',
     poolClientPanel: 'מאגר תורמים',
     ciStatusPanel: 'מצב CI',
+    ciRunning: 'רץ',
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
     contributorIssueListPanel: 'בעיות טובות למתחילים',
@@ -2392,6 +2396,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prefPhosphorGreen: 'ירוק',
     prefPhosphorAmber: 'ענבר',
     prefPhosphorWhite: 'לבן',
+    prefHue: 'גוון',
+    prefHueAria: 'סיבוב כל צבעי העיצוב, במעלות; 0 הוא ערכת הנושא כפי שעוצבה',
     prefsReset: 'איפוס לברירת המחדל',
     prefsHint:
       'נשמר בדפדפן הזה בלבד. הטקסט גדל עד 125% והריווח מתרחב בלי אובדן; תנועה מופחתת נשמרת גם כשהמערכת לא מבקשת.',

@@ -55,7 +55,11 @@ function renderCiStatusPanel(workflows) {
   for (var i = 0; i < workflows.length; i++) {
     var w = workflows[i];
     var badgeClass = 'ci-status-badge-' + (w.ok ? 'ok' : 'fail');
-    list.appendChild(tipChip(w.workflow, w.detail, w.workflow + ': ' + w.detail, badgeClass));
+    // The state rides the chip's own text (operator, 2026-09-13: the panel
+    // read as a list of file names — conclusion and age were hover-only).
+    var state = w.conclusion ? w.conclusion : tr('ciRunning');
+    var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '');
+    list.appendChild(tipChip(label, w.detail, w.workflow + ': ' + w.detail, badgeClass));
   }
   section.appendChild(list);
   // This panel rebuilds on its own poll (CI_STATUS_POLL_MS above), not the

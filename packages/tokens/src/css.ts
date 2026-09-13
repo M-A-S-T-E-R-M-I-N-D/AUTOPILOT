@@ -14,7 +14,13 @@ function kebab(name: string): string {
 /** The `--color-*` custom properties for one theme. */
 export function colorVars(theme: Theme): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const token of COLOR_TOKENS) out[`--color-${kebab(token)}`] = theme[token];
+  for (const token of COLOR_TOKENS) {
+    out[`--color-${kebab(token)}`] = theme[token];
+    // Epic 0029 slice 7 (the whole-design hue): a base twin every hue rule can
+    // rotate from — a custom property cannot reference itself inside
+    // oklch(from …), so the theme's own value needs a second name.
+    out[`--color-${kebab(token)}-base`] = theme[token];
+  }
   return out;
 }
 
