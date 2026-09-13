@@ -2,11 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
 import { inboxTaskTitle, inboxTaskId, triageInboxEntries } from '../../src/flight/inbox-triage.js';
+
+function gitSync(repo: string, args: string[]): string {
+  return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
+}
+
+function initRepo(dir: string): void {
+  gitSync(dir, ['init', '-q']);
+  gitSync(dir, ['config', 'user.email', 'test@autopilot.dev']);
+  gitSync(dir, ['config', 'user.name', 'Test']);
+  writeFileSync(join(dir, 'a.txt'), 'one');
+  gitSync(dir, ['add', '-A']);
+  gitSync(dir, ['commit', '-q', '-m', 'init']);
+}
 
 function project(s: Store, id: string, rootPath: string): void {
   s.db
@@ -154,6 +168,43 @@ describe('triageInboxEntries', () => {
       cleanupDir(dbDir);
     }
   });
+
+  it(
+    "never leaves the target checkout dirty, even when the target project's own " +
+      '.gitignore does not already cover INBOX/ (most flown projects will not — ' +
+      "this is AUTOPILOT's own runtime protocol directory, not the target's source; " +
+      'a dirty checkout after triage silently blocks every later fleet sync-back into ' +
+      'this repo, since syncWorktreeBranch refuses to merge into an uncommitted tree)',
+    () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-triage-dirty-repo-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-triage-dirty-db-'));
+      try {
+        initRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+
+        const inboxDir = join(repo, 'INBOX');
+        mkdirSync(inboxDir, { recursive: true });
+        writeFileSync(join(inboxDir, 'note.md'), 'ship faster please\n', 'utf8');
+
+        triageInboxEntries(
+          s,
+          'p1',
+          repo,
+          [{ name: 'note.md', content: 'ship faster please\n' }],
+          () => 100,
+        );
+        s.close();
+
+        expect(gitSync(repo, ['status', '--porcelain'])).toBe('');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    },
+  );
 
   it('is a no-op for an empty entry list (no INBOX dir created)', () => {
     const repo = mkdtempSync(join(tmpdir(), 'ap-dash-triage-empty-repo-'));
