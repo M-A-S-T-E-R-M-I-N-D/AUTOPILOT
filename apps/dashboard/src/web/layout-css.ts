@@ -136,7 +136,7 @@ html[data-theme="terminal"] .pref-terminal { display: block; }
 .connect > summary::-webkit-details-marker { display: none; }
 /* Icon-only summaries (theme, language, bell, settings, foundation): the
    stroke icon sits at the type scale, centred in the pill. */
-h2 > .icon, h3 > .icon, summary > .icon { margin-inline-end: var(--space-2); }
+h2 > .icon, h3 > .icon, summary > .icon:not(:only-child) { margin-inline-end: var(--space-2); }
 .connect > summary > .icon { inline-size: 1.125rem; block-size: 1.125rem; vertical-align: -0.2em; }
 .connect > summary:hover, .connect > summary:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
 .connect > summary:active { box-shadow: none; }
