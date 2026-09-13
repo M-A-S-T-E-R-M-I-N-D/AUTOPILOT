@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import {
   issueNumberFromTaskId,
   planMirrorPassReconcile,
+  UNVERIFIED_NOTE_MARKER,
   planMirrorPassCommands,
   applyMirrorPassCommands,
   planMirrorPassBatch,
@@ -39,6 +40,7 @@ import {
   type MirrorPassTaskCandidate,
   type MirrorPassIssueState,
   type MirrorPassClaimedIssue,
+  type MirrorPassFinding,
   type MirrorPassStaleClaimFinding,
 } from '../../src/flight/mirror-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
@@ -1189,5 +1191,56 @@ describe('fetchClaimedIssueClaims — the claims ledger, one clock per claim', (
         (c) => c.args[1],
       ),
     ).toEqual(['comment', 'edit']);
+  });
+});
+
+describe('#40 — the reconcile never closes on a claim it did not verify', () => {
+  const done = { id: 'github-42', status: 'done' as const, landedSha: 'abc1234' };
+  const open = { number: 42, state: 'open' as const };
+
+  it('notes instead of closing when no gate-verified firing shipped the task', () => {
+    const finding = planMirrorPassReconcile({ ...done, doneVerified: false }, open);
+    expect(finding).toMatchObject({
+      action: 'note-unverified',
+      taskId: 'github-42',
+      issueNumber: 42,
+    });
+    expect(finding?.comment).toMatch(
+      /^Done on the AUTOPILOT board, but unverified: the board task reached done without a gate-verified firing/,
+    );
+    expect(finding?.comment).toContain('Leaving this open');
+  });
+
+  it('notes instead of closing when the recorded landing commit no longer exists', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, doneVerified: true, landedShaExists: false },
+      open,
+    );
+    expect(finding).toMatchObject({ action: 'note-unverified' });
+    expect(finding?.comment).toContain('abc1234 no longer exists on the checkout');
+  });
+
+  it('still closes when both claims hold — verified firing, commit present', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, doneVerified: true, landedShaExists: true },
+      open,
+    );
+    expect(finding).toMatchObject({ action: 'close-with-landing-note', sha: 'abc1234' });
+  });
+
+  it('a pure caller that assessed nothing keeps the old reading (absent means not checked)', () => {
+    expect(planMirrorPassReconcile(done, open)).toMatchObject({
+      action: 'close-with-landing-note',
+    });
+  });
+
+  it('an unverified note is the whole action — one comment, no close', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, doneVerified: false },
+      open,
+    ) as MirrorPassFinding;
+    const commands = planMirrorPassCommands(finding);
+    expect(commands.map((c) => c.args.slice(0, 2))).toEqual([['issue', 'comment']]);
+    expect(commands[0]?.args[4]).toContain(UNVERIFIED_NOTE_MARKER);
   });
 });

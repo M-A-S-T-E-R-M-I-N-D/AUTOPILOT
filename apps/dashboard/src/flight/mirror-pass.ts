@@ -103,6 +103,17 @@ export interface MirrorPassTaskCandidate {
    *  the issue's own closing — the claimant's word — settles it, and a
    *  closed issue is never reopened on its account. */
   readonly humanCloses?: boolean;
+  /** #40 (gabibi555): "done" is only public truth when a gate-verified
+   *  firing shipped it. False when the row reached done some other way (an
+   *  operator's hand, a settle) — then the reconcile NOTES instead of
+   *  closing. Absent = not assessed (pure callers), which keeps the old
+   *  reading. */
+  readonly doneVerified?: boolean;
+  /** #40: whether `landedSha` still resolves to a commit on the checkout.
+   *  A rebase or squash can drop the SHA a firing recorded; closing an issue
+   *  on a commit nobody can find would be a wrong public statement. Absent =
+   *  not checked. */
+  readonly landedShaExists?: boolean;
 }
 
 /** The subset of a GitHub issue's live state this reconcile needs — just
@@ -127,6 +138,22 @@ export interface MirrorPassReopenFinding {
   readonly comment: string;
 }
 
+/** #40: the board says done, the issue is open, but the claim cannot be
+ *  verified — no gate-verified firing shipped it, or the recorded landing
+ *  commit no longer exists. One honest note, no close: whoever verifies it
+ *  closes it. The note carries {@link UNVERIFIED_NOTE_MARKER} so a later
+ *  pass recognises it and never posts it twice. */
+export interface MirrorPassUnverifiedFinding {
+  readonly action: 'note-unverified';
+  readonly taskId: string;
+  readonly issueNumber: number;
+  readonly comment: string;
+}
+
+/** The first words of every unverified note — the idempotence key
+ *  `mirror-pass-execute.ts` matches against the issue's existing comments. */
+export const UNVERIFIED_NOTE_MARKER = 'Done on the AUTOPILOT board, but unverified:';
+
 /** A claimed issue's task whose claimant closed the issue: the board task
  *  is settled (done, unfocused) and ONE note records it. The issue is
  *  already closed, so no state change is planned for it. */
@@ -138,7 +165,10 @@ export interface MirrorPassSettleFinding {
 }
 
 export type MirrorPassFinding =
-  MirrorPassCloseFinding | MirrorPassReopenFinding | MirrorPassSettleFinding;
+  | MirrorPassCloseFinding
+  | MirrorPassReopenFinding
+  | MirrorPassSettleFinding
+  | MirrorPassUnverifiedFinding;
 
 /**
  * Decides whether `task`'s issue needs to be closed or reopened to match the
@@ -161,6 +191,24 @@ export function planMirrorPassReconcile(
   if (issueNumber === null || !issue) return null;
 
   if (task.status === 'done' && issue.state === 'open') {
+    // #40: never close on a claim the pass did not verify. Two claims are
+    // checked when the caller assessed them — that a gate-verified firing
+    // shipped the task, and that the recorded landing commit still exists.
+    const shaMissing = task.landedSha !== null && task.landedShaExists === false;
+    if (task.doneVerified === false || shaMissing) {
+      const why =
+        task.doneVerified === false
+          ? 'the board task reached done without a gate-verified firing shipping it'
+          : `the recorded landing commit ${task.landedSha} no longer exists on the checkout (rebased or squashed away)`;
+      return {
+        action: 'note-unverified',
+        taskId: task.id,
+        issueNumber,
+        comment:
+          `${UNVERIFIED_NOTE_MARKER} ${why}. Leaving this open — whoever verifies the fix ` +
+          'closes it.',
+      };
+    }
     return {
       action: 'close-with-landing-note',
       taskId: task.id,
@@ -221,8 +269,12 @@ export function planMirrorPassCommands(finding: MirrorPassFinding): readonly Mir
     details: `posting the mirror-pass reconcile note on #${finding.issueNumber}`,
   };
   // A settle changes nothing on GitHub — the issue is closed by the one
-  // person allowed to close it; the board mutation happens in execute.
-  if (finding.action === 'settle-claimed') return [comment];
+  // person allowed to close it; the board mutation happens in execute. An
+  // unverified note (#40) is the whole action: nothing closes on a claim the
+  // pass could not verify.
+  if (finding.action === 'settle-claimed' || finding.action === 'note-unverified') {
+    return [comment];
+  }
   const stateChange: MirrorPassCommand =
     finding.action === 'close-with-landing-note'
       ? {
