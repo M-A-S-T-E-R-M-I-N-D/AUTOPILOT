@@ -36,6 +36,7 @@ import {
 } from '../shared/live-firing.js';
 import { OFFICE_TIPS } from './office-map.js';
 import { PRODUCT_VERSION } from '../info.js';
+import { ICON_SHAPES } from './icons.js';
 import {
   fmtBytes as sharedFmtBytes,
   fmtCost as sharedFmtCost,
@@ -192,8 +193,40 @@ function el(tag, cls, text) {
   return e;
 }
 /** A '.chip' span that explains itself on hover/focus via the shared [data-tip] primitive. */
-function tipChip(text, tip, ariaLabel, extraClass) {
-  var e = el('span', extraClass ? 'chip ' + extraClass : 'chip', text);
+// THE ICON SYSTEM (epic 0025 slice 1): ICON_SHAPES is generated FROM
+// web/icons.ts — the vendored Lucide data, embedded via JSON.stringify() the
+// same way BRB_FAIL_THRESHOLD is; iconEl() builds the SVG with
+// createElementNS (no innerHTML, CSP-clean), currentColor stroke, decorative
+// by default — the control or chip that holds it carries the name.
+var ICON_SHAPES = ${JSON.stringify(ICON_SHAPES)};
+function iconEl(name) {
+  var shapes = ICON_SHAPES[name] || [];
+  var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'icon icon-' + name);
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.75');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  for (var i = 0; i < shapes.length; i++) {
+    var node = document.createElementNS('http://www.w3.org/2000/svg', shapes[i][0]);
+    var attrs = shapes[i][1];
+    for (var k in attrs) node.setAttribute(k, attrs[k]);
+    svg.appendChild(node);
+  }
+  return svg;
+}
+// iconName (optional, epic 0025): a leading stroke icon instead of an emoji
+// glyph in the text — the text stays the chip's words and its textContent.
+function tipChip(text, tip, ariaLabel, extraClass, iconName) {
+  var e = el('span', extraClass ? 'chip ' + extraClass : 'chip', iconName ? '' : text);
+  if (iconName) {
+    e.appendChild(iconEl(iconName));
+    e.appendChild(document.createTextNode(text));
+  }
   e.setAttribute('tabindex', '0');
   e.setAttribute('data-tip', tip);
   e.setAttribute('aria-label', ariaLabel);
@@ -2413,7 +2446,8 @@ function tasksSection(c) {
         // users; feeds the SAME /api/task/reorder as the ↑/↓ buttons below,
         // which stay the accessible primary for keyboard/screen-reader users.
         li.setAttribute('draggable', 'true');
-        var handle = el('span', 'task-drag-handle', '⠿');
+        var handle = el('span', 'task-drag-handle');
+        handle.appendChild(iconEl('grip-vertical'));
         handle.setAttribute('aria-hidden', 'true');
         // data-tip (not title) to match the shell's shared tooltip primitive —
         // no tabindex here: this is decorative (aria-hidden) and drag-reorder
@@ -2441,7 +2475,8 @@ function tasksSection(c) {
         li.appendChild(up);
         li.appendChild(down);
         // Focus toggle — the operator's WIP-limit-1 lock.
-        var focusBtn = el('button', 'task-focus-btn' + (t.focus ? ' on' : ''), '🎯');
+        var focusBtn = el('button', 'task-focus-btn' + (t.focus ? ' on' : ''));
+        focusBtn.appendChild(iconEl('target'));
         focusBtn.setAttribute('type', 'button');
         focusBtn.setAttribute('data-task-focus', t.id);
         focusBtn.setAttribute('aria-pressed', String(!!t.focus));
@@ -2471,30 +2506,33 @@ function tasksSection(c) {
       if (t.source === 'self') {
         li.appendChild(
           tipChip(
-            '✦ proposed',
+            'proposed',
             'The autopilot proposed this task itself — it stays out of the flight queue until you approve or reject it',
             'Self-proposed task, awaiting your approval',
             'chip-proposed',
+            'sparkles',
           ),
         );
       }
       if (t.source === 'inbox') {
         li.appendChild(
           tipChip(
-            '📥 inbox',
+            'inbox',
             'Auto-triaged from a note you dropped in INBOX/ — already queued, no approval needed',
             'From your INBOX, auto-triaged into this task',
             'chip-inbox',
+            'inbox',
           ),
         );
       }
       if (t.source === 'backlog') {
         li.appendChild(
           tipChip(
-            '📋 backlog',
+            'backlog',
             'The autopilot lifted this from an open docs/BACKLOG-999.md item — it stays out of the flight queue until you approve or reject it',
             'Backlog-sourced task, awaiting your approval',
             'chip-backlog',
+            'clipboard-list',
           ),
         );
       }
@@ -2512,7 +2550,7 @@ function tasksSection(c) {
         // D1 ATTRIBUTE PAYLOAD (epic 0015, measured 08-28: 3,925 chars/row):
         // aria-label carries the same short text the chip already shows, not
         // the tip's full explanatory sentence duplicated verbatim.
-        li.appendChild(tipChip('🔥 ' + burnLabel.text, burnLabel.tip, 'Burn: ' + burnLabel.text, 'chip-burn'));
+        li.appendChild(tipChip(burnLabel.text, burnLabel.tip, 'Burn: ' + burnLabel.text, 'chip-burn', 'flame'));
       }
       if (t.isRunaway) {
         var runawayTip = taskRunawayTip(t.cumulativeCostUsd, t.firingCount, fmtCost);
@@ -2522,7 +2560,7 @@ function tasksSection(c) {
           ' across ' +
           t.firingCount +
           (t.firingCount === 1 ? ' firing' : ' firings');
-        li.appendChild(tipChip('⚠️ runaway', runawayTip, runawayAriaLabel, 'chip-runaway'));
+        li.appendChild(tipChip('runaway', runawayTip, runawayAriaLabel, 'chip-runaway', 'triangle-alert'));
       }
       // ADAPTIVE TASK BUDGET (board web-msnt26wf-wnv3w7): a task that has
       // hit the turn cap before suggests the next firing needs more than the
@@ -2608,7 +2646,8 @@ function tasksSection(c) {
         doneBtn.setAttribute('data-tip', doneTip);
         doneBtn.setAttribute('aria-label', doneTip);
         li.appendChild(doneBtn);
-        var delBtn = el('button', 'task-delete-btn', '🗑');
+        var delBtn = el('button', 'task-delete-btn');
+        delBtn.appendChild(iconEl('trash-2'));
         delBtn.setAttribute('type', 'button');
         delBtn.setAttribute('data-task-delete', t.id);
         delBtn.setAttribute('data-confirm', 'yes');
@@ -4478,6 +4517,14 @@ ${contextRailHtml(project)}
   <main id="fleet" tabindex="-1" aria-label="Fleet" data-i18n-aria="fleetMain" aria-busy="true"${project !== undefined ? '' : ' data-subject="fleet"'}>
     <p class="hint" id="placeholder" data-i18n="connectingFleet">Connecting to the fleet…</p>
   </main>
+  <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
+  <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
+    <div class="ask-sheet-head">
+      <h2 class="ask-sheet-title" id="ask-sheet-title" data-i18n="askSheetTitle">Ask</h2>
+      <button type="button" class="ask-sheet-close" id="ask-sheet-close" aria-label="Close" data-i18n-aria="askSheetClose"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="ask-sheet-body" id="ask-sheet-body"></div>
+  </aside>
   <script src="/app.js?v=${v}"></script>${
     project !== undefined
       ? `

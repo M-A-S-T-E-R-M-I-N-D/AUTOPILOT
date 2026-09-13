@@ -54,6 +54,13 @@ regenerated in [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md)
   **Christian Robertson** (Apache-2.0) — the only two typefaces the dashboard ships, self-hosted as woff2 so no
   visitor is ever tracked by a font CDN. Every word you read in AUTOPILOT is their craft.
 
+## The icons
+
+- **[Lucide](https://lucide.dev/)** by **Lucide Icons and Contributors** (ISC — license included at
+  [`LICENSES/ISC.txt`](LICENSES/ISC.txt), carrying the Feather notice for the icons Lucide derived from
+  **Cole Bemis**'s work). One stroke family, vendored as data into `apps/dashboard/src/web/icons.ts` —
+  only the icons in use, no icon font, no CDN.
+
 ## And beyond the `node_modules`
 
 - **[Git](https://git-scm.com/)** — the ground truth this whole system trusts with its work.

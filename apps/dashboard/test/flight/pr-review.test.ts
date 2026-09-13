@@ -826,6 +826,9 @@ const BENIGN_WEB = new Set([
   'flight-summary-panel.ts',
   'fly-hint.ts',
   'publicity-panel.ts',
+  // icons.ts (epic 0025): pure vendored icon data + a markup printer that
+  // escapes every attribute value; decides nothing, fetches nothing.
+  'icons.ts',
   'status-pill.ts',
   'stat-tiles.ts',
   'tour.ts',
@@ -999,6 +1002,10 @@ const BENIGN_WEB_FEATURES = new Set([
   // `<body data-subject>` and the nav's aria state from clicks, the URL
   // hash and localStorage; never writes anywhere but the DOM.
   'subject-nav.ts',
+  // ask-sheet.ts (epic 0026 slice 3): no fetch at all — moves the existing
+  // search/ask section into a sheet and back, toggles aria/data attributes
+  // and a sessionStorage flag; never writes anywhere but the DOM.
+  'ask-sheet.ts',
   // busy.ts (2026-09-13, the ritual scrim): ritualFetch is a drop-in wrapper
   // around the caller's own fetch — every URL, method and body is the
   // already-flagged EXECUTE panel's; this file adds no endpoint and builds its

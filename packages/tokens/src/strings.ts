@@ -1259,6 +1259,11 @@ const EN_STRINGS = {
     'Also queue a local board task on this project when claiming — leave unset to only claim on GitHub.',
   poolClaim: 'Claim',
   poolClaimAnyway: 'Claim anyway',
+  // THE ASK SHEET (epic 0026 slice 3): the floating button and its sheet.
+  askFab: 'Ask',
+  askFabTip: 'Ask Architect or Genius about this page — opens beside it',
+  askSheetTitle: 'Ask',
+  askSheetClose: 'Close',
   // #16 (gabibi555, first slice): the fleet totals, the project card stats
   // and the project page's back link.
   tileProjects: 'projects',
@@ -2318,6 +2323,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'מוסיף גם משימת לוח מקומית לפרויקט הזה בעת התביעה — השאירו ללא בחירה כדי לתבוע רק ב-GitHub.',
     poolClaim: 'תבע',
     poolClaimAnyway: 'תבע בכל זאת',
+    askFab: 'שאל',
+    askFabTip: 'שאלו את הארכיטקט או את הג׳ניוס על העמוד הזה — נפתח לצידו',
+    askSheetTitle: 'שאל',
+    askSheetClose: 'סגור',
     tileProjects: 'פרויקטים',
     tileProjectsTip: 'פרויקטים נפרדים ש-AUTOPILOT עוקב אחריהם',
     tileFlying: 'בטיסה',
