@@ -4,11 +4,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { execFile } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { rm, writeFile } from 'node:fs/promises';
+import type * as FsPromises from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { GitBackup } from '../../src/adapters/git-backup.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn() }));
+
+// mkdtemp stays real (the temp-file plumbing under test needs a real, unique
+// directory); writeFile/rm are spied-but-real so their exact call arguments
+// (encoding, recursive/force) can be pinned without losing the real I/O the
+// other tests in this file depend on.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof FsPromises>();
+  return { ...actual, writeFile: vi.fn(actual.writeFile), rm: vi.fn(actual.rm) };
+});
 
 // execFile is heavily overloaded (options shape picks the callback signature);
 // fighting that overload set from a test double buys nothing, so the mock is
@@ -64,6 +75,8 @@ function callOptions(index: number): unknown {
 describe('GitBackup', () => {
   beforeEach(() => {
     execFileMock.mockReset();
+    vi.mocked(writeFile).mockClear();
+    vi.mocked(rm).mockClear();
   });
 
   it('runs git with -C <repo> plus the given args, and the fixed maxBuffer/windowsHide options', async () => {
@@ -336,6 +349,63 @@ describe('GitBackup', () => {
     await backup.commitAll(longMessage);
 
     expect(messageFileContentAtCommitTime).toBe(longMessage);
+  });
+
+  it("commitAll uses the autopilot-git-msg- temp dir prefix, writes the message as utf8, and cleans up with a recursive, forced rm (mutation: onboarding-git-backup shard red, 98.20% < 100% break threshold — the mkdtemp prefix, writeFile encoding, the whole finally block, and rm's force flag all had surviving mutants)", async () => {
+    let messageFilePath: string | undefined;
+    let call = 0;
+    const results: Array<[(Error & { code?: unknown }) | null, string]> = [
+      [null, ''],
+      [null, ''],
+      [null, 'deadbeef\n'],
+    ];
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      if (call === 1) {
+        const commitArgs = args[1] as string[];
+        messageFilePath = commitArgs[commitArgs.indexOf('-F') + 1] as string;
+      }
+      const [error, stdout] = results[call] ?? [null, ''];
+      call += 1;
+      cb(error, stdout);
+      return {};
+    });
+
+    await new GitBackup('/repo').commitAll('baseline');
+
+    expect(messageFilePath).toBeDefined();
+    expect(dirname(messageFilePath as string)).toContain('autopilot-git-msg-');
+    expect(vi.mocked(writeFile)).toHaveBeenCalledWith(messageFilePath, 'baseline', 'utf8');
+    expect(vi.mocked(rm)).toHaveBeenCalledWith(dirname(messageFilePath as string), {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('commitAll still removes the temp dir when the commit itself fails', async () => {
+    let messageFilePath: string | undefined;
+    mockGitSequence([[null, '']]);
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      const commitArgs = args[1] as string[];
+      if (commitArgs.includes('-F')) {
+        messageFilePath = commitArgs[commitArgs.indexOf('-F') + 1] as string;
+        cb(Object.assign(new Error('fail'), { code: 1 }), '  nothing to commit  \n');
+      } else {
+        cb(null, '');
+      }
+      return {};
+    });
+
+    await expect(new GitBackup('/repo').commitAll('baseline')).rejects.toThrow(
+      'git commit failed: nothing to commit',
+    );
+
+    expect(messageFilePath).toBeDefined();
+    expect(vi.mocked(rm)).toHaveBeenCalledWith(dirname(messageFilePath as string), {
+      recursive: true,
+      force: true,
+    });
   });
 
   it('commitAll throws when a secret-shaped file is staged, without ever calling git', async () => {
