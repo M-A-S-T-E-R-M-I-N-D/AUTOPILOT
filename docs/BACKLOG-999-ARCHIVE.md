@@ -61,3 +61,15 @@ so the "no claims without a paper trail" standard
   package alone — Node-only packages no longer see DOM globals leak in from the old flat program. Removed the
   now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
   N/A — no React/Vite UI yet; add it if/when that lands.
+
+## §L — C4 deterministic diff-size gate (moved 2026-09-13)
+
+- [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption
+  (gate on review burden, not raw count). Done — `packages/engine/src/diff-size-gate.ts`'s `evaluateDiffSize`
+  sums insertions+deletions from `VcsPort.diffNumstat` (new, optional capability; `GitVcs` implements it via
+  `git diff --numstat --no-renames -z` — `-z` keeps non-ASCII paths raw, so a C-quoted path cannot
+  escape the mechanical-path exemption and revert legitimate work), excluding paths that
+  `isMechanicalDiffPath` classifies as review-exempt
+  (lockfiles, generated snapshots/binaries, build/vendor output). `firing.ts` runs it only once the real
+  typecheck/test/build gate is already green, folding a failing verdict into the SAME additive-revert path a
+  real gate failure takes — an oversized diff is reverted, not silently shipped.
