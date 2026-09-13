@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.44.0] — 2026-09-13
+
+### Added
+
+- feat(dashboard): the icon system, slice 1 — the board's glyphs are stroke icons, not emoji
+- feat(dashboard): the Ask sheet — one floating button opens Ask beside the page
+- feat(dashboard): the version menu — the running version in the masthead, and "run the latest"
+- feat(flight): reapply social-pass's executor, lost to a landing-race revert (epic 0016 slice 1/6)
+
+### Fixed
+
+- fix(dashboard): the version chip stays out of a phone masthead
+- fix(e2e): one update check per boot; adopt visual baselines for the chip, the sheet and the icons
+
 ## [0.43.0] — 2026-09-13
 
 ### Added
