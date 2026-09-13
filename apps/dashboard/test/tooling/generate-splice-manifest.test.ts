@@ -36,6 +36,7 @@ import {
   renderShell,
   assetVersion,
   versionMenuHtml,
+  settingsMenuHtml,
 } from '../../src/web/shell.js';
 import {
   FEATURE_JS_BY_NAME,
@@ -45,6 +46,7 @@ import {
 import { switcherJs } from '../../src/web/features/switcher.js';
 import { activityHeatmapJs } from '../../src/web/features/activity-heatmap.js';
 import { activityJs } from '../../src/web/features/activity.js';
+import { iconSvg } from '../../src/web/icons.js';
 import { askSheetJs } from '../../src/web/features/ask-sheet.js';
 import { backlogJs } from '../../src/web/features/backlog.js';
 import { busyJs } from '../../src/web/features/busy.js';
@@ -69,6 +71,7 @@ import { metricsJs } from '../../src/web/features/metrics.js';
 import { mirrorPassJs } from '../../src/web/features/mirror-pass.js';
 import { officeMapJs } from '../../src/web/features/office-map.js';
 import { pipelineJs } from '../../src/web/features/pipeline.js';
+import { prefsJs } from '../../src/web/features/prefs.js';
 import { poolClientJs } from '../../src/web/features/pool-client.js';
 import { prReviewJs } from '../../src/web/features/pr-review.js';
 import { processHealthJs } from '../../src/web/features/process-health.js';
@@ -149,6 +152,7 @@ const MIRROR_PASS_TS = featureTs('mirror-pass');
 const NOTIFICATIONS_TS = featureTs('notifications');
 const OFFICE_MAP_TS = featureTs('office-map');
 const PIPELINE_TS = featureTs('pipeline');
+const PREFS_TS = featureTs('prefs');
 const POOL_CLIENT_TS = featureTs('pool-client');
 const PR_REVIEW_TS = featureTs('pr-review');
 const PROCESS_HEALTH_TS = featureTs('process-health');
@@ -1410,6 +1414,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'notifications.ts': ['notificationsJs'],
     'office-map.ts': ['officeMapJs'],
     'pipeline.ts': ['pipelineJs'],
+    'prefs.ts': ['prefsJs'],
     'pool-client.ts': ['poolClientJs'],
     'pr-review.ts': ['prReviewJs'],
     'process-health.ts': ['processHealthJs'],
@@ -1470,6 +1475,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const pipelineSource = readFileSync(PIPELINE_TS, 'utf8');
     const poolClientSource = readFileSync(POOL_CLIENT_TS, 'utf8');
     const prReviewSource = readFileSync(PR_REVIEW_TS, 'utf8');
+    const prefsSource = readFileSync(PREFS_TS, 'utf8');
     const processHealthSource = readFileSync(PROCESS_HEALTH_TS, 'utf8');
     const publicitySource = readFileSync(PUBLICITY_TS, 'utf8');
     const releaseSource = readFileSync(RELEASE_TS, 'utf8');
@@ -1570,6 +1576,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const directPrReviewManifest = buildAssemblyManifest(prReviewSource, PR_REVIEW_TS, [
       'prReviewJs',
     ]);
+    const directPrefsManifest = buildAssemblyManifest(prefsSource, PREFS_TS, ['prefsJs']);
     const directProcessHealthManifest = buildAssemblyManifest(
       processHealthSource,
       PROCESS_HEALTH_TS,
@@ -1632,6 +1639,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directPipelineManifest,
       directPoolClientManifest,
       directPrReviewManifest,
+      directPrefsManifest,
       directProcessHealthManifest,
       directPublicityManifest,
       directReleaseManifest,
@@ -1941,6 +1949,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { pipelineJs } from './pipeline.js';");
     expect(source).toContain("import { poolClientJs } from './pool-client.js';");
     expect(source).toContain("import { prReviewJs } from './pr-review.js';");
+    expect(source).toContain("import { prefsJs } from './prefs.js';");
     expect(source).toContain("import { processHealthJs } from './process-health.js';");
     expect(source).toContain("import { publicityJs } from './publicity.js';");
     expect(source).toContain("import { releaseJs } from './release.js';");
@@ -2001,9 +2010,8 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./office-map.js'")).toBeLessThan(source.indexOf("'./pipeline.js'"));
     expect(source.indexOf("'./pipeline.js'")).toBeLessThan(source.indexOf("'./pool-client.js'"));
     expect(source.indexOf("'./pool-client.js'")).toBeLessThan(source.indexOf("'./pr-review.js'"));
-    expect(source.indexOf("'./pr-review.js'")).toBeLessThan(
-      source.indexOf("'./process-health.js'"),
-    );
+    expect(source.indexOf("'./pr-review.js'")).toBeLessThan(source.indexOf("'./prefs.js'"));
+    expect(source.indexOf("'./prefs.js'")).toBeLessThan(source.indexOf("'./process-health.js'"));
     expect(source.indexOf("'./process-health.js'")).toBeLessThan(
       source.indexOf("'./publicity.js'"),
     );
@@ -2021,7 +2029,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2112,6 +2120,9 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     // constant, concatenated into versionMenuHtml()'s markup — a server-side
     // value, never a client-visible helper to splice.
     'PRODUCT_VERSION',
+    // The icon printer (epic 0025): an imported helper called inline in the
+    // masthead's summaries, the same shape as themeButtons()/langButtons().
+    'iconSvg',
     // The context rail's aside (epic 0021 slice 6): the same server-helper
     // shape as subjectNavHtml — fleet page only, hidden until the client fills it.
     'contextRailHtml',
@@ -2560,6 +2571,14 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   ): Promise<unknown> {
     if (fnName === 'fleetJs' && exprText === 'REFRESH_MS') {
       return localTopLevelConstLiteral(original, 'REFRESH_MS', SHELL_TS);
+    }
+    if (fnName === 'prefsJs' && exprText === 'JSON.stringify(PREF_CHOICES)') {
+      // the Settings popover's choice table (epic 0029): a same-file constant
+      // embedded as JSON, the switcher's own convention.
+      const prefs = (await import('../../src/web/features/prefs.js')) as {
+        PREF_CHOICES: Readonly<Record<string, readonly string[]>>;
+      };
+      return JSON.stringify(prefs.PREF_CHOICES);
     }
     if (fnName === 'switcherJs' && exprText === 'names') {
       const tokens = (await import('@autopilot/tokens')) as { THEME_NAMES: readonly string[] };
@@ -3913,6 +3932,25 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
    * its own EXECUTE click handler as one assembler, self-initializing at the
    * end rather than being called from renderProjectPage().
    */
+  /** prefsJs's own reconstruction (epic 0029 slice 1): one JSON.stringify
+   *  slot for PREF_CHOICES, a same-file constant — no relative-import splice. */
+  async function reconstructPrefsJs(): Promise<string> {
+    const prefsSource = readFileSync(PREFS_TS, 'utf8');
+    return (
+      await assembleFunctionFromManifest(
+        prefsSource,
+        'prefsJs',
+        new Map(),
+        (exprText: string) => resolveNonSpliceSlot('prefsJs', exprText, prefsSource),
+        PREFS_TS,
+      )
+    ).trim();
+  }
+
+  it('prefsJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/prefs.ts', async () => {
+    expect(await reconstructPrefsJs()).toBe(prefsJs());
+  });
+
   async function reconstructPrReviewJs(): Promise<string> {
     const prReviewSource = readFileSync(PR_REVIEW_TS, 'utf8');
     const spliceEntries = findSpliceManifest(prReviewSource, PR_REVIEW_TS);
@@ -4094,6 +4132,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('pipelineJs', await reconstructPipelineJs());
     nestedOutputs.set('poolClientJs', await reconstructPoolClientJs());
     nestedOutputs.set('prReviewJs', await reconstructPrReviewJs());
+    nestedOutputs.set('prefsJs', await reconstructPrefsJs());
     nestedOutputs.set('processHealthJs', await reconstructProcessHealthJs());
     nestedOutputs.set('publicityJs', await reconstructPublicityJs());
     nestedOutputs.set('releaseJs', await reconstructReleaseJs());
@@ -4309,6 +4348,17 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
       // the app shell's subject nav (epic 0021): four links on the fleet
       // page, six on a project page — a server helper beside themeButtons().
       return subjectNavHtml(project);
+    }
+    if (exprText === 'settingsMenuHtml()') {
+      // the masthead's Settings popover (epic 0029): the same concatenating
+      // exported-helper shape as versionMenuHtml — a call slot, never a splice.
+      return settingsMenuHtml();
+    }
+    const icon = exprText.match(/^iconSvg\('([a-z0-9-]+)'\)$/);
+    if (icon) {
+      // a stroke icon printed into a masthead summary (epic 0025 / 0029):
+      // an imported helper call, same non-splice shape as themeButtons().
+      return iconSvg(icon[1] as string);
     }
     if (exprText === 'versionMenuHtml()') {
       // the masthead's version menu (2026-09-13): a same-file exported helper

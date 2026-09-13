@@ -36,7 +36,7 @@ import {
 } from '../shared/live-firing.js';
 import { OFFICE_TIPS } from './office-map.js';
 import { PRODUCT_VERSION } from '../info.js';
-import { ICON_SHAPES } from './icons.js';
+import { ICON_SHAPES, iconSvg } from './icons.js';
 import {
   fmtBytes as sharedFmtBytes,
   fmtCost as sharedFmtCost,
@@ -4332,6 +4332,90 @@ export function versionMenuHtml(): string {
   );
 }
 
+/** One row of a preference: a legend and a segmented group of buttons the
+ *  prefs client toggles by `data-pref`/`data-pref-value` (epic 0029). */
+function prefRowHtml(
+  pref: string,
+  legendKey: string,
+  legend: string,
+  choices: ReadonlyArray<readonly [value: string, key: string, label: string]>,
+  extraClass = '',
+): string {
+  let buttons = '';
+  for (const [value, key, label] of choices) {
+    buttons +=
+      '<button type="button" data-pref="' +
+      pref +
+      '" data-pref-value="' +
+      value +
+      '" aria-pressed="false" data-i18n="' +
+      key +
+      '">' +
+      label +
+      '</button>';
+  }
+  return (
+    '<fieldset class="pref' +
+    (extraClass ? ' ' + extraClass : '') +
+    '"><legend data-i18n="' +
+    legendKey +
+    '">' +
+    legend +
+    '</legend><div class="switch pref-switch" role="group">' +
+    buttons +
+    '</div></fieldset>'
+  );
+}
+
+/** DISPLAY & ACCESSIBILITY (epic 0029 slice 1): the masthead's Settings
+ *  popover — text size, font, density, motion, the terminal phosphor, one
+ *  Reset. Built by concatenation, not a template substitution, so the splice
+ *  registry sees one call slot (like versionMenuHtml). */
+export function settingsMenuHtml(): string {
+  return (
+    '      <details class="connect settings-menu" id="settings-menu" name="masthead-popover">\n' +
+    '        <summary id="settings-summary" aria-label="Display and accessibility" data-i18n-aria="settingsNav" data-tip="Display and accessibility settings" data-i18n-tip="settingsTip">' +
+    iconSvg('settings') +
+    '</summary>\n' +
+    '        <div class="connect-body settings-body">' +
+    prefRowHtml('text', 'prefText', 'Text size', [
+      ['sm', 'prefTextSm', 'Small'],
+      ['md', 'prefTextMd', 'Default'],
+      ['lg', 'prefTextLg', 'Large'],
+      ['xl', 'prefTextXl', 'Larger'],
+    ]) +
+    prefRowHtml('font', 'prefFont', 'Font', [
+      ['inter', 'prefFontInter', 'Inter'],
+      ['system', 'prefFontSystem', 'System'],
+      ['mono', 'prefFontMono', 'Mono'],
+    ]) +
+    prefRowHtml('density', 'prefDensity', 'Spacing', [
+      ['compact', 'prefDensityCompact', 'Compact'],
+      ['comfortable', 'prefDensityComfortable', 'Default'],
+      ['relaxed', 'prefDensityRelaxed', 'Relaxed'],
+    ]) +
+    prefRowHtml('motion', 'prefMotion', 'Motion', [
+      ['system', 'prefMotionSystem', 'Follow the system'],
+      ['reduce', 'prefMotionReduce', 'Reduce'],
+    ]) +
+    prefRowHtml(
+      'phosphor',
+      'prefPhosphor',
+      'Terminal phosphor',
+      [
+        ['green', 'prefPhosphorGreen', 'Green'],
+        ['amber', 'prefPhosphorAmber', 'Amber'],
+        ['white', 'prefPhosphorWhite', 'White'],
+      ],
+      'pref-terminal',
+    ) +
+    '<div class="connect-actions"><button type="button" class="connect-test" id="prefs-reset" data-i18n="prefsReset">Reset to defaults</button></div>' +
+    '<p class="connect-hint" data-i18n="prefsHint">Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.</p>' +
+    '</div>\n' +
+    '      </details>'
+  );
+}
+
 export function renderShell(project?: string): string {
   const v = assetVersion();
   const anchor = project !== undefined ? ` data-project="${escapeAttr(project)}"` : '';
@@ -4400,15 +4484,15 @@ ${versionMenuHtml()}
         </div>
       </details>
       <details class="connect theme-menu" id="theme-menu" name="masthead-popover">
-        <summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip">🎨</summary>
+        <summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip">${iconSvg('palette')}</summary>
         <div class="connect-body"><div class="switch">${themeButtons()}</div></div>
       </details>
       <details class="connect lang-menu" id="lang-menu" name="masthead-popover">
-        <summary id="lang-menu-summary" aria-label="Language" data-i18n-aria="languageNav" data-tip="Choose a language" data-i18n-tip="langMenuTip">🌐</summary>
+        <summary id="lang-menu-summary" aria-label="Language" data-i18n-aria="languageNav" data-tip="Choose a language" data-i18n-tip="langMenuTip">${iconSvg('globe')}</summary>
         <div class="connect-body"><div class="switch">${langButtons()}</div></div>
       </details>
       <details class="connect notify" id="notify" name="masthead-popover">
-        <summary id="notify-summary" data-tip="Browser notifications when a flight needs you or is dying" data-i18n-tip="notifySettingsTip" aria-label="Notification settings" data-i18n-aria="notifySettings">🔔</summary>
+        <summary id="notify-summary" data-tip="Browser notifications when a flight needs you or is dying" data-i18n-tip="notifySettingsTip" aria-label="Notification settings" data-i18n-aria="notifySettings">${iconSvg('bell')}</summary>
         <div class="connect-body">
           <label class="notify-enable" for="notify-enable">
             <input type="checkbox" id="notify-enable" />
@@ -4423,8 +4507,9 @@ ${versionMenuHtml()}
           <p class="connect-hint" id="notify-hint" role="status" aria-live="polite"></p>
         </div>
       </details>
+${settingsMenuHtml()}
       <details class="connect foundation" id="foundation" name="masthead-popover" hidden>
-        <summary id="foundation-summary" data-tip="Support AUTOPILOT — verified donation addresses" data-i18n-tip="foundationTip" aria-label="Foundation" data-i18n-aria="foundation">♥</summary>
+        <summary id="foundation-summary" data-tip="Support AUTOPILOT — verified donation addresses" data-i18n-tip="foundationTip" aria-label="Foundation" data-i18n-aria="foundation">${iconSvg('heart')}</summary>
         <div class="connect-body foundation-body" id="foundation-body"></div>
       </details>
       <button type="button" class="palette-btn" id="palette-btn" aria-haspopup="dialog" aria-controls="palette" aria-label="Commands (Ctrl or ⌘ K)" data-i18n-aria="paletteOpen" data-tip="Commands (Ctrl or ⌘ K)" data-i18n-tip="paletteOpen"><kbd>⌘K</kbd></button>

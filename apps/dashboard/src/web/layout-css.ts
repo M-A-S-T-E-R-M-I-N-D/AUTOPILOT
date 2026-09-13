@@ -92,6 +92,31 @@ body {
 .switch button[aria-pressed='true'] { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
 
 .connect { position: relative; }
+/* DISPLAY & ACCESSIBILITY (epic 0029 slice 1, web/features/prefs.ts): every
+   preference is an attribute on <html>; a default carries none. Text scales
+   the root (every rem follows — WCAG 1.4.4 up to 125%); density rewrites the
+   space tokens (1.4.12); motion can be reduced regardless of the OS (2.3.3);
+   the phosphor re-tints the terminal theme only. */
+html[data-text="sm"] { font-size: 93.75%; }
+html[data-text="lg"] { font-size: 112.5%; }
+html[data-text="xl"] { font-size: 125%; }
+html[data-font="system"] { --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
+html[data-font="mono"] { --font-sans: var(--font-mono); }
+html[data-density="compact"] { --space-1: 0.125rem; --space-2: 0.375rem; --space-3: 0.5rem; --space-4: 0.75rem; --space-5: 1rem; --space-6: 1.25rem; --space-8: 1.75rem; }
+html[data-density="relaxed"] { --space-1: 0.375rem; --space-2: 0.75rem; --space-3: 1rem; --space-4: 1.375rem; --space-5: 1.75rem; --space-6: 2.25rem; --space-8: 3.25rem; }
+html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-motion="reduce"] *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+html[data-theme="terminal"][data-phosphor="amber"] { --color-accent: oklch(0.82 0.16 80); --color-accent-text: oklch(0.18 0.03 80); --color-text: oklch(0.9 0.1 85); --color-text-muted: oklch(0.72 0.09 85); --color-success: oklch(0.82 0.16 80); --color-border-strong: oklch(0.55 0.08 85); }
+html[data-theme="terminal"][data-phosphor="white"] { --color-accent: oklch(0.93 0 0); --color-accent-text: oklch(0.15 0 0); --color-text: oklch(0.94 0 0); --color-text-muted: oklch(0.74 0 0); --color-success: oklch(0.86 0.12 150); --color-border-strong: oklch(0.5 0 0); }
+.settings-body { display: grid; gap: var(--space-3); }
+.pref { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+.pref legend { padding: 0; margin: 0 0 var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.pref-switch { flex-wrap: wrap; }
+.pref-terminal { display: none; }
+html[data-theme="terminal"] .pref-terminal { display: block; }
+/* A phone masthead has two rows to give: the OTLP indicator (a diagnostic
+   chip) steps out below md so the settings gear fits; it returns from md. */
+.otlp-chip:not([hidden]) { display: none; }
+@media (min-width: 48rem) { .otlp-chip:not([hidden]) { display: inline-flex; } }
 /* THE VERSION MENU (2026-09-13): the chip is the running version; the dot
    turns accent when a newer release exists. The popover reuses .connect's
    body and actions so the two masthead menus read as one family. */
@@ -108,6 +133,9 @@ body {
 .version-note { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .connect > summary { cursor: pointer; list-style: none; font-size: var(--text-sm); color: var(--color-text-muted); padding: var(--space-1) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); transition: box-shadow var(--duration-short2) var(--easing-standard); }
 .connect > summary::-webkit-details-marker { display: none; }
+/* Icon-only summaries (theme, language, bell, settings, foundation): the
+   stroke icon sits at the type scale, centred in the pill. */
+.connect > summary > .icon { inline-size: 1.125rem; block-size: 1.125rem; vertical-align: -0.2em; }
 .connect > summary:hover, .connect > summary:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
 .connect > summary:active { box-shadow: none; }
 .connect[open] > summary { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }

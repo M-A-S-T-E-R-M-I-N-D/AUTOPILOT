@@ -33,9 +33,11 @@ describe('masthead icon cluster (EPIC 0017 slice 1/5) — theme/language as icon
     expect(masthead).toContain(
       '<details class="connect theme-menu" id="theme-menu" name="masthead-popover">',
     );
+    // epic 0025: the trigger is a stroke icon (palette), not an emoji glyph.
     expect(masthead).toContain(
-      '<summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip">🎨</summary>',
+      '<summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip"><svg class="icon icon-palette"',
     );
+    expect(masthead).not.toContain('🎨');
   });
 
   it('renders the language switcher as an icon-triggered popover, matching the connect/notify/foundation idiom', () => {
@@ -43,8 +45,9 @@ describe('masthead icon cluster (EPIC 0017 slice 1/5) — theme/language as icon
       '<details class="connect lang-menu" id="lang-menu" name="masthead-popover">',
     );
     expect(masthead).toContain(
-      '<summary id="lang-menu-summary" aria-label="Language" data-i18n-aria="languageNav" data-tip="Choose a language" data-i18n-tip="langMenuTip">🌐</summary>',
+      '<summary id="lang-menu-summary" aria-label="Language" data-i18n-aria="languageNav" data-tip="Choose a language" data-i18n-tip="langMenuTip"><svg class="icon icon-globe"',
     );
+    expect(masthead).not.toContain('🌐');
   });
 
   it('keeps each button row inside a .connect-body popover panel, closed by default', () => {
