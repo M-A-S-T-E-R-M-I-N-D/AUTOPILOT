@@ -102,8 +102,11 @@ describe('the KEEPER ISSUE TRIAGE panel i18n wiring (board web-msnsndki-dz3vn1)'
     await settle();
 
     const title = document.querySelector('.issue-triage-title');
-    expect(title?.textContent).toBe('🗝️ KEEPER issue triage');
-    expect(title?.getAttribute('data-i18n')).toBe('issueTriageTitle');
+    expect(title?.textContent).toBe('KEEPER issue triage');
+    expect(title?.hasAttribute('data-i18n')).toBe(false);
+    expect(title?.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe(
+      'issueTriageTitle',
+    );
 
     const empty = document.querySelector('.issue-triage-body p');
     expect(empty?.textContent).toBe('No open issues to triage.');

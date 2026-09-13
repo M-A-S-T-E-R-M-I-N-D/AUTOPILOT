@@ -70,7 +70,9 @@ describe('issueTriageJs', () => {
 
   it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
     const out = issueTriageJs();
-    expect(out).toContain("title.setAttribute('data-i18n', 'issueTriageTitle');");
+    expect(out).toContain(
+      "panelHeading('h3', 'issue-triage-title', 'issueTriageTitle', 'key-round')",
+    );
     expect(out).toContain("loadingMsg.setAttribute('data-i18n', 'issueTriageLoading');");
     expect(out).toContain("emptyMsg.setAttribute('data-i18n', 'issueTriageEmpty');");
     expect(out).toContain("unavailableMsg.setAttribute('data-i18n', 'issueTriageUnavailable');");

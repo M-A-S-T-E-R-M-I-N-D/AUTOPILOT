@@ -56,9 +56,10 @@ describe('KEEPER PR review panel i18n (board web-msnsndki-dz3vn1)', () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(document.querySelector('.pr-review-title')?.getAttribute('data-i18n')).toBe(
-      'prReviewTitle',
-    );
+    expect(document.querySelector('.pr-review-title')?.hasAttribute('data-i18n')).toBe(false);
+    expect(
+      document.querySelector('.pr-review-title .heading-text')?.getAttribute('data-i18n'),
+    ).toBe('prReviewTitle');
     expect(document.querySelector('.pr-review-execute')?.getAttribute('data-i18n')).toBe(
       'prReviewApply',
     );

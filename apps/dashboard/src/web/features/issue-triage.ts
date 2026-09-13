@@ -289,8 +289,7 @@ function loadIssueTriageBody(body, pid) {
 }
 function issueTriageSection(pid) {
   var wrap = el('section', 'issue-triage-panel');
-  var title = el('h3', 'issue-triage-title', '🗝️ KEEPER issue triage');
-  title.setAttribute('data-i18n', 'issueTriageTitle');
+  var title = panelHeading('h3', 'issue-triage-title', 'issueTriageTitle', 'key-round');
   wrap.appendChild(title);
   var body = el('div', 'issue-triage-body');
   var loadingMsg = el('p', 'muted', 'Checking open issues against the board…');

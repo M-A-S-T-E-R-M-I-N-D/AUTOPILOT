@@ -233,8 +233,7 @@ function renderReleaseBody(body, release, pid, identity) {
 }
 function releaseSection(pid) {
   var wrap = el('section', 'release-panel');
-  var title = el('h3', 'release-title', '🚀 Next release');
-  title.setAttribute('data-i18n', 'releaseTitle');
+  var title = panelHeading('h3', 'release-title', 'releaseTitle', 'rocket');
   wrap.appendChild(title);
   var body = el('div', 'release-body');
   var loadingMsg = el('p', 'muted', 'Checking for release-worthy commits…');
