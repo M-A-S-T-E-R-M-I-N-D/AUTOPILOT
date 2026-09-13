@@ -117,9 +117,18 @@ body {
 .connect-form select, .connect-form input { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .connect-form button { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .connect-hint { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+/* TEXT FIELDS (2026-09-13, operator: "the resize grip looks awfully old in every
+   theme"): the browser's diagonal grip is gone. Every textarea sizes itself to
+   its content (field-sizing: content — Baseline 2026: Chrome 123, Safari 26.2,
+   Firefox 152) between a three-line floor and a 40vh ceiling, then scrolls —
+   the composer idiom of every modern writing surface, no handle to draw. A
+   browser without field-sizing keeps a manual vertical resize instead of a
+   fixed box; the grip shows only there. */
+textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; resize: none; }
+@supports not (field-sizing: content) { textarea { resize: vertical; } }
 .gh-issue-form { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .gh-issue-form label { font-size: var(--text-xs); color: var(--color-text-muted); }
-.gh-issue-form input, .gh-issue-form textarea { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); resize: vertical; }
+.gh-issue-form input, .gh-issue-form textarea { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 /* gh-issue-form CTA designed states (COCKPIT 6/6): same shape-morph + elevation
    hover/active pair as .tour-actions button / .browse-actions button. Rest radius
    swaps --radius-sm for --shape-extra-small (both 4px) so the state tokens pair
@@ -767,7 +776,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .report-title:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .report-body { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .report-body label { font-size: var(--text-xs); color: var(--color-text-muted); }
-.report-desc, .report-action { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); resize: vertical; }
+.report-desc, .report-action { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .report-preview, .report-compose {
   font: inherit; font-size: var(--text-sm); cursor: pointer; align-self: flex-start;
   padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small);
@@ -993,7 +1002,14 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 @media (min-width: 48rem) {
   [data-board-view="columns"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   [data-board-view="columns"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; max-block-size: 72vh; overflow: auto; overscroll-behavior: contain; }
-  [data-board-view="columns"] .task { grid-column: 1; align-content: start; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); }
+  [data-board-view="columns"] .task { grid-column: 1; align-content: start; align-items: center; justify-content: flex-start; row-gap: var(--space-1); padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); }
+  /* A card, not a row (operator 2026-09-13: "columns lay out oddly — part
+     justified, part aligned one way"): in a narrow column the 16rem title
+     basis wrapped mid-strip and the rest scattered around it. The title now
+     takes its own full line under the compact control strip (handle · ↑↓ ·
+     focus · status); chips and actions wrap start-aligned beneath. DOM order
+     — and so keyboard and screen-reader order — is unchanged. */
+  [data-board-view="columns"] .task-title { flex: 1 1 100%; }
   [data-board-view="columns"] .task[data-task-status="in_progress"], [data-board-view="columns"] .task[data-task-status="needs_approval"] { grid-column: 2; }
   [data-board-view="columns"] .task[data-task-status="done"], [data-board-view="columns"] .task[data-task-status="deferred"] { grid-column: 3; }
 }
@@ -1043,7 +1059,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-add button:disabled { opacity: 0.6; cursor: default; }
 .inbox-add { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-3); }
 .inbox-add label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.inbox-add textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.inbox-add textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .inbox-add button { font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .inbox-add button:disabled { opacity: 0.6; cursor: default; }
 .card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-top: var(--space-1); }
@@ -1083,7 +1099,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-editor-summary:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .soul-editor-form { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-2); }
 .soul-editor-form label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.soul-editor-form textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: var(--text-xs); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.soul-editor-form textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--text-xs); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .soul-editor-form button { font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .soul-editor-form button:disabled { opacity: 0.6; cursor: default; }
 
