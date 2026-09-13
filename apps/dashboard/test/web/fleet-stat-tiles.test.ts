@@ -171,6 +171,39 @@ describe('fleet stat tiles (bento grid)', () => {
     expect(document.querySelector('#totals .stat-tile')).toBeNull();
   });
 
+  it('never collapses flying or need you — the two counts HIERARCHY.md keeps on a phone', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const cells = Array.from(document.querySelectorAll('#totals .total'));
+    const keptLabels = cells
+      .filter((c) => !c.classList.contains('total-collapse'))
+      .map((c) => c.querySelector('.total-l')?.textContent);
+    expect(keptLabels).toEqual(['flying', 'need you']);
+  });
+
+  it('reseeds the Tab stop onto a visible cell when a phone-width matchMedia collapses the rest', async () => {
+    const realMatchMedia = window.matchMedia;
+    (window as unknown as { matchMedia: unknown }).matchMedia = (query: string) => ({
+      matches: false, // narrower than every "min-width" query this file uses — phone
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    });
+    try {
+      boot();
+      await vi.advanceTimersByTimeAsync(1);
+
+      const cells = Array.from(document.querySelectorAll('#totals .total'));
+      const tabStops = cells.filter((c) => c.getAttribute('tabindex') === '0');
+      expect(tabStops.length).toBe(1);
+      expect(tabStops[0]?.classList.contains('total-collapse')).toBe(false);
+      expect(tabStops[0]?.querySelector('.total-l')?.textContent).toBe('flying');
+    } finally {
+      (window as unknown as { matchMedia: unknown }).matchMedia = realMatchMedia;
+    }
+  });
+
   it('makes every tile keyboard-reachable with a real accessible label', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);

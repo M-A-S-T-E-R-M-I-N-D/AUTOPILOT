@@ -268,6 +268,10 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
   padding: var(--space-3) var(--page-inline); border-bottom: 1px solid var(--color-border);
 }
 .total { display: flex; flex-direction: column; gap: 2px; border-radius: var(--radius-sm); }
+/* HIERARCHY.md §3/§6 (epic 0030 slice 3): the totals bar collapses to two
+   numbers on a phone (flying, need you); the rest return at 48rem — see the
+   min-width block below and TOTALS_PHONE_KEEP in shell.ts. */
+.total-collapse { display: none; }
 /* Hero number (COCKPIT 3/6): the fleet home's first, most-glanced-at
    figures get real scale-contrast against their quiet labels below — the
    M3 headline role, not the ad hoc --text-xl scale.ts step, is the first
@@ -1718,6 +1722,7 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   .masthead-right { gap: var(--space-4); }
   .updated { display: inline; }
   .totals { padding: var(--space-4) var(--page-inline); }
+  .total-collapse { display: flex; }
   .live-workers { padding: var(--space-3) var(--page-inline); }
   /* 136px, not 150: five tiles must fit the ~780px main column the context
      rail leaves at 1280, where 150px wrapped the fifth tile onto its own row. */
