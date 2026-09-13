@@ -139,6 +139,16 @@ METRICS:{"item":"task-1","outcome":"shipped","kind":"feat","sha":"7f3e9c1","comp
 | Telemetry           | every firing, cross-checked against git, published as a living self-study                 | run logs                                                                           | none                   |
 | Proof               | it builds itself — most of this repo's commits are its own firings                        | —                                                                                  | —                      |
 
+### Five firings, from a folder of notes to a calculator
+
+A folder with notes, a key layout and one inbox line — no code — locked on and fired five times, one firing per
+press, $3.60 in all: tests first and the state machine, then the display and keys, then edge-case tests, its README,
+and housekeeping. Seventeen acceptance tests green, 109 lines of logic. The seed is
+[`samples/calculator-materials/`](samples/calculator-materials/); the frames, the costs and what went wrong are in
+[the case study](docs/CASE-STUDIES/calculator-five-firings.md).
+
+![Five frames of the calculator, one after each firing](docs/screens/calculator-five-firings.png)
+
 ## Start here (2 minutes, from nothing to a live dashboard)
 
 ```bash
