@@ -83,6 +83,16 @@ so the "no claims without a paper trail" standard
   write-capable handle alongside the engine's own writer connection; mutation functions (`createTaskInStore` etc.)
   are unaffected. Covered by `test/read/source.test.ts`'s "read-only openStore adoption" spy assertion.
 
+## §K — OTel wire-format export (moved 2026-09-13)
+
+- [x] OpenTelemetry wire-format export for firings (the OTel-shaped attributes are already captured in the firing
+  record + SQLite): export over OTLP for standard-portable dashboards — lands with the dashboard at M3.
+  Mapping + injectable HTTP transport done — `toOtlpResourceSpans`/`exportOtlpResourceSpans` in
+  `packages/engine/src/otlp.ts`. Endpoint wiring (`ap-msksw1me-0`) done —
+  `apps/dashboard/src/flight/otlp.ts`'s `otlpConfigFromEnv` reads the standard `OTEL_EXPORTER_OTLP_*` env vars
+  (off when unset); `fly.ts`'s `onFiringComplete` exports each firing's span best-effort (a collector outage logs
+  a warning, never fails the flight). Documented in the root README's "Telemetry & OTLP export" section.
+
 ## §L — C4 deterministic diff-size gate (moved 2026-09-13)
 
 - [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption

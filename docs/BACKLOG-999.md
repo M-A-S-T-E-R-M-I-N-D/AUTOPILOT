@@ -128,13 +128,8 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
 - [~] (live-CLI dogfood proven at scale — 160+ real firings; formal the internal predecessor behavioral diff never run) M1 experiential DoD (deferred from the machine-verifiable M1): a **live-CLI dogfood run** (real `claude -p`
   flying a repo, exercising `ClaudeCliModel.invoke`) and a **behavioral diff against the running internal v2.4 script**.
   The deterministic sandbox e2e proves the pipeline; these confirm the live behavior.
-- [x] OpenTelemetry wire-format export for firings (the OTel-shaped attributes are already captured in the firing
-  record + SQLite): export over OTLP for standard-portable dashboards — lands with the dashboard at M3.
-  Mapping + injectable HTTP transport done — `toOtlpResourceSpans`/`exportOtlpResourceSpans` in
-  `packages/engine/src/otlp.ts`. Endpoint wiring (`ap-msksw1me-0`) done —
-  `apps/dashboard/src/flight/otlp.ts`'s `otlpConfigFromEnv` reads the standard `OTEL_EXPORTER_OTLP_*` env vars
-  (off when unset); `fly.ts`'s `onFiringComplete` exports each firing's span best-effort (a collector outage logs
-  a warning, never fails the flight). Documented in the root README's "Telemetry & OTLP export" section.
+- [x] OpenTelemetry wire-format export for firings — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--otel-wire-format-export-moved-2026-09-13).
 
 ## L. SOTA-MAP gap items (2026-08-08 · cite map IDs — `docs/SOTA-MAP-llm-software-engineering-2026-08.md`; analysis: RESEARCH-LIBRARY)
 - [~] (DEFERRED BY MEASUREMENT ~$0.02/firing — RESEARCH-LIBRARY "Firing cost anatomy"; revisit M6) **B2+K3** Prompt prefix reorder for cache: stable blocks (SOUL + discipline + containment + hard rules) FIRST,
