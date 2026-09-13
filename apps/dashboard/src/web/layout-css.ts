@@ -96,6 +96,12 @@ body {
    turns accent when a newer release exists. The popover reuses .connect's
    body and actions so the two masthead menus read as one family. */
 .version-menu > summary { font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: var(--space-2); }
+/* A phone masthead has two rows to give (shell-mobile.spec pins <= 100px) and the
+   right cluster fills them to the pixel — even the dot-only chip pushed the tour
+   button to a third row. Below md the chip stays out; the update banner still
+   covers a phone when a newer release exists, and the chip returns from md. */
+.version-menu { display: none; }
+@media (min-width: 48rem) { .version-menu { display: block; } }
 .version-dot { inline-size: 0.5rem; block-size: 0.5rem; border-radius: 50%; background: var(--color-border-strong); flex: none; }
 .version-menu[data-update="current"] .version-dot { background: var(--color-success); }
 .version-menu[data-update="available"] .version-dot { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent); }
