@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.48.0] — 2026-09-13
+
+### Added
+
+- feat(dashboard): six more panel headings drop their emoji for vendored icons
+- feat(dashboard): the phone Fly tab collapses to a folder chip + Fire
+- feat(dashboard): totals bar collapses to flying and need you on a phone
+
+### Fixed
+
+- fix(dashboard): the office map draws one dot per live lane — four pilots, four dots
+- fix: verify-by sweep no longer scans engine checkout for foreign targets
+- fix: doc-freshness sweep no longer scans engine checkout for foreign targets
+
 ## [0.47.1] — 2026-09-13
 
 ### Fixed
