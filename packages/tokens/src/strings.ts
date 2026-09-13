@@ -634,6 +634,8 @@ const EN_STRINGS = {
   askActivityTip: 'A tool call the model made while researching this answer',
   askActivityAria: 'Tool call: {name}',
   askSources: 'sources: {name}',
+  // The answer's footer (2026-09-13): who answered, how long, what it cost.
+  askMeta: 'answered by {model} · {time} · {cost}',
   askSourcesTip: 'Indexed files the model consulted to ground this answer',
   askSourcesAria: 'Sources: {name}',
   askPersona: 'Ask persona',
@@ -1900,6 +1902,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     askActivityTip: 'קריאה לכלי שהמודל ביצע תוך כדי המחקר לתשובה הזו',
     askActivityAria: 'קריאה לכלי: {name}',
     askSources: 'מקורות: {name}',
+    askMeta: 'נענה על ידי {model} · {time} · {cost}',
     askSourcesTip: 'קבצים מאונדקסים שהמודל התייעץ בהם כדי לבסס את התשובה הזו',
     askSourcesAria: 'מקורות: {name}',
     askPersona: 'פרסונת שאלה',

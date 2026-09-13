@@ -143,7 +143,12 @@ import { readTaskEconomicsFromStore } from '../read/task-economics.js';
 import type { LuckyAsk } from './server.js';
 import { adoptFlight, realAdoptFlightDeps } from '../flight/adopt.js';
 import { otlpConfigFromEnv } from '../flight/otlp.js';
-import { askProject, askProjectStream, type AskEscalationDeps } from '../ask/service.js';
+import {
+  askProject,
+  askProjectStream,
+  type AskEscalationDeps,
+  type AskMeta,
+} from '../ask/service.js';
 import { composeReport } from '../flight/report-compose.js';
 import { composeReportTasks } from '../flight/report-compose-tasks.js';
 import { readConnectionConfig } from '../connection/config.js';
@@ -293,6 +298,28 @@ const flightRegistry = new FlightRunnerRegistry(
 // SubstepKind, so this resolves to the same haiku as before by default while
 // letting the routing config stay the one tuning point.
 const askModel = modelForTier(tierForSubstepKind('ask'), DEFAULT_ENGINE_CONFIG.routing);
+
+/** The answer text plus who/how long/how much, off the CLI envelope — what
+ *  every Ask invoke resolves so the answer can say it (AskMeta). */
+function askOutcome(res: {
+  readonly envelope: {
+    readonly isError: boolean;
+    readonly result: string | null;
+    readonly costUsd: number | null;
+    readonly durationMs: number | null;
+    readonly modelUsed: string | null;
+  } | null;
+}): { text: string | null; meta: AskMeta } {
+  const env = res.envelope;
+  return {
+    text: env?.isError === false ? env.result : null,
+    meta: {
+      model: env?.modelUsed ?? askModel,
+      durationMs: env?.durationMs ?? null,
+      costUsd: env?.costUsd ?? null,
+    },
+  };
+}
 const askEngineConfig = {
   ...DEFAULT_ENGINE_CONFIG,
   primaryModel: askModel,
@@ -354,7 +381,7 @@ function askEscalationDepsFor(projectId: string): AskEscalationDeps {
         ...(onActivity ? { onActivity } : {}),
       });
       const res = await model.invoke(askModel, prompt);
-      return res.envelope?.isError === false ? res.envelope.result : null;
+      return askOutcome(res);
     },
   };
 }
@@ -799,7 +826,7 @@ const server = createServer({
             auth: askAuth(),
           });
           const res = await model.invoke(askModel, prompt);
-          return res.envelope?.isError === false ? res.envelope.result : null;
+          return askOutcome(res);
         },
         escalation: askEscalationDepsFor(projectId),
       },
@@ -832,7 +859,7 @@ const server = createServer({
             onText,
           });
           const res = await model.invoke(askModel, prompt);
-          return res.envelope?.isError === false ? res.envelope.result : null;
+          return askOutcome(res);
         },
         escalation: askEscalationDepsFor(projectId),
       },

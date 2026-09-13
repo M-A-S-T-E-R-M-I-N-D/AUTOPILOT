@@ -17,6 +17,7 @@ import {
   type AskDeps,
   type AskStreamDeps,
   type AskEscalationDeps,
+  unwrapInvoke,
 } from '../../src/ask/service.js';
 import { ARCHITECT_PROPOSAL_FENCE } from '../../src/ask/architect-proposal.js';
 
@@ -784,5 +785,42 @@ describe('ARCHITECT persona (epic 0011 slice 3)', () => {
     await askProjectStream(streamDeps({ invokeStream }), 'p1', 'q?', () => {});
     const prompt = invokeStream.mock.calls[0]?.[0] ?? '';
     expect(prompt).not.toContain('ARCHITECT mode');
+  });
+});
+
+describe("the answer's footer — who answered, how long, what it cost (2026-09-13)", () => {
+  const META = { model: 'claude-opus-5', durationMs: 4210, costUsd: 0.0312 };
+
+  it('askProject carries the meta an invoke dependency hands back beside its text', async () => {
+    const result = await askProject(
+      deps({
+        invoke: () => Promise.resolve({ text: 'The total is a reduce. [src/cart.ts]', meta: META }),
+      }),
+      'p1',
+      'how is the total computed?',
+    );
+    expect(result.ok).toBe(true);
+    expect(result.meta).toEqual(META);
+  });
+
+  it('a bare string answer (every older stub) carries no meta', async () => {
+    const result = await askProject(deps(), 'p1', 'how is the total computed?');
+    expect(result.meta).toBeUndefined();
+  });
+
+  it('an object outcome with null text is still a failure', async () => {
+    const result = await askProject(
+      deps({ invoke: () => Promise.resolve({ text: null, meta: META }) }),
+      'p1',
+      'how is the total computed?',
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('unwrapInvoke normalizes every outcome shape', () => {
+    expect(unwrapInvoke(null)).toEqual({ text: null });
+    expect(unwrapInvoke('hi')).toEqual({ text: 'hi' });
+    expect(unwrapInvoke({ text: 'hi' })).toEqual({ text: 'hi' });
+    expect(unwrapInvoke({ text: 'hi', meta: META })).toEqual({ text: 'hi', meta: META });
   });
 });

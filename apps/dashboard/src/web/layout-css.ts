@@ -387,6 +387,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
    never exceeds its container. */
 .ask-answer table { max-inline-size: 100%; }
 .ask-answer th, .ask-answer td { overflow-wrap: anywhere; min-inline-size: 3ch; }
+.ask-meta { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 .ask-sources { display: block; margin-top: var(--space-2); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
 .ask-offer:empty { display: none; }
 .ask-offer { margin-top: var(--space-2); }

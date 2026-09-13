@@ -49,9 +49,34 @@ export interface AskRetrievalDeps {
   readonly liveState: (projectId: string) => string | null;
 }
 
+/** Who answered, how long it took, what it cost — the model's own envelope
+ *  facts, surfaced under the answer (operator, 2026-09-13: "a smarter model,
+ *  and the chat study's transparency": model · duration · cost). Every
+ *  field but `model` may be unknown (a driver without an envelope). */
+export interface AskMeta {
+  readonly model: string;
+  readonly durationMs: number | null;
+  readonly costUsd: number | null;
+}
+
+/** What an invoke dependency may resolve: the bare answer text (the original
+ *  contract every test stub still uses) or the text with its meta. */
+export type AskInvokeOutcome =
+  string | null | { readonly text: string | null; readonly meta?: AskMeta };
+
+/** Normalizes {@link AskInvokeOutcome} to one shape. */
+export function unwrapInvoke(outcome: AskInvokeOutcome): {
+  readonly text: string | null;
+  readonly meta?: AskMeta;
+} {
+  if (outcome === null || typeof outcome === 'string') return { text: outcome };
+  return outcome.meta ? { text: outcome.text, meta: outcome.meta } : { text: outcome.text };
+}
+
 export interface AskDeps extends AskRetrievalDeps {
-  /** Run the grounded prompt on a model with NO tools; null on quota/error. */
-  readonly invoke: (prompt: string) => Promise<string | null>;
+  /** Run the grounded prompt on a model with NO tools; null on quota/error.
+   *  May carry the answer's {@link AskMeta} beside the text. */
+  readonly invoke: (prompt: string) => Promise<AskInvokeOutcome>;
   /**
    * Epic 0012 slice 2's automatic trigger: when retrieval finds zero sources,
    * escalate to the read-only agentic tier ({@link askProjectEscalated})
@@ -71,7 +96,7 @@ export interface AskStreamDeps extends AskRetrievalDeps {
   readonly invokeStream: (
     prompt: string,
     onChunk: (text: string) => void,
-  ) => Promise<string | null>;
+  ) => Promise<AskInvokeOutcome>;
   /** Same automatic-trigger escalation as {@link AskDeps.escalation} —
    *  the escalated answer still resolves in full (no incremental answer-text
    *  chunks), but {@link askProjectStream}'s own `onActivity` param (epic
@@ -103,6 +128,9 @@ export interface AskResult {
    *  the epic's Out-of-scope line against a fuzzier self-assessed AUTOMATIC
    *  trigger — the operator still decides. */
   readonly lowConfidence?: boolean;
+  /** Who answered, how long, at what cost — present whenever the invoke
+   *  dependency carried the model's envelope. */
+  readonly meta?: AskMeta;
 }
 
 /** Append the ARCHITECT-mode addendum (static trusted text) after the grounded
@@ -120,6 +148,7 @@ function groundedSuccess(
   answer: string,
   sources: readonly AskSource[],
   persona?: AskPersona,
+  meta?: AskMeta,
 ): AskResult {
   const trimmed = answer.trim();
   const paths = sources.map((s) => s.path);
@@ -129,6 +158,7 @@ function groundedSuccess(
     sources: paths,
     promptVersion: ASK_PROMPT_VERSION,
     ...(trimmed === NO_ANSWER ? { lowConfidence: true } : {}),
+    ...(meta ? { meta } : {}),
   };
   if (persona !== 'architect') return base;
   const { prose, proposal } = parseArchitectProposal(trimmed);
@@ -195,19 +225,22 @@ export async function askProject(
     return { ok: true, answer: NO_SOURCES_ANSWER, sources: [], promptVersion: ASK_PROMPT_VERSION };
   }
 
-  const answer = await deps.invoke(
-    withPersona(
-      buildAskPrompt({ question: q, sources, history: history?.slice(-MAX_HISTORY_TURNS) }),
-      persona,
+  const outcome = unwrapInvoke(
+    await deps.invoke(
+      withPersona(
+        buildAskPrompt({ question: q, sources, history: history?.slice(-MAX_HISTORY_TURNS) }),
+        persona,
+      ),
     ),
   );
+  const answer = outcome.text;
   if (answer === null || answer.trim().length === 0) {
     return askFailure(
       'The model is unavailable right now (quota or connection) — try again shortly.',
     );
   }
 
-  return groundedSuccess(answer, sources, persona);
+  return groundedSuccess(answer, sources, persona, outcome.meta);
 }
 
 /**
@@ -243,20 +276,23 @@ export async function askProjectStream(
     return { ok: true, answer: NO_SOURCES_ANSWER, sources: [], promptVersion: ASK_PROMPT_VERSION };
   }
 
-  const answer = await deps.invokeStream(
-    withPersona(
-      buildAskPrompt({ question: q, sources, history: history?.slice(-MAX_HISTORY_TURNS) }),
-      persona,
+  const outcome = unwrapInvoke(
+    await deps.invokeStream(
+      withPersona(
+        buildAskPrompt({ question: q, sources, history: history?.slice(-MAX_HISTORY_TURNS) }),
+        persona,
+      ),
+      onChunk,
     ),
-    onChunk,
   );
+  const answer = outcome.text;
   if (answer === null || answer.trim().length === 0) {
     return askFailure(
       'The model is unavailable right now (quota or connection) — try again shortly.',
     );
   }
 
-  return groundedSuccess(answer, sources, persona);
+  return groundedSuccess(answer, sources, persona, outcome.meta);
 }
 
 export interface AskEscalationDeps {
@@ -273,7 +309,7 @@ export interface AskEscalationDeps {
   readonly invoke: (
     prompt: string,
     onActivity?: (activity: Activity) => void,
-  ) => Promise<string | null>;
+  ) => Promise<AskInvokeOutcome>;
 }
 
 /**
@@ -294,10 +330,13 @@ export async function askProjectEscalated(
   const q = question.trim();
   if (q.length === 0) return askFailure('A question is required.');
 
-  const answer = await deps.invoke(
-    buildAskEscalationPrompt({ question: q, history: history?.slice(-MAX_HISTORY_TURNS) }),
-    onActivity,
+  const outcome = unwrapInvoke(
+    await deps.invoke(
+      buildAskEscalationPrompt({ question: q, history: history?.slice(-MAX_HISTORY_TURNS) }),
+      onActivity,
+    ),
   );
+  const answer = outcome.text;
   if (answer === null || answer.trim().length === 0) {
     return askFailure(
       'The model is unavailable right now (quota or connection) — try again shortly.',
@@ -307,6 +346,7 @@ export async function askProjectEscalated(
   return {
     ok: true,
     answer: answer.trim(),
+    ...(outcome.meta ? { meta: outcome.meta } : {}),
     sources: [],
     promptVersion: ASK_ESCALATION_PROMPT_VERSION,
   };
