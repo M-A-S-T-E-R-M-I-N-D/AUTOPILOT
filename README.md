@@ -321,7 +321,8 @@ flight itself. Only HTTP/JSON is supported (the transport posts a JSON body, not
 
 Start at [`docs/README.md`](docs/README.md) — the doc index. Highlights: [MASTER-PLAN](docs/MASTER-PLAN.md) ·
 [ACTION-PLAN](docs/ACTION-PLAN.md) · [FEATURE-COVERAGE](docs/FEATURE-COVERAGE.md) ·
-[PATTERNS-AND-STANDARDS](docs/PATTERNS-AND-STANDARDS.md).
+[PATTERNS-AND-STANDARDS](docs/PATTERNS-AND-STANDARDS.md) · [MASTER-PROMPT](docs/MASTER-PROMPT.md) ·
+[HIERARCHY](docs/HIERARCHY.md).
 
 ## Contributing & standards
 

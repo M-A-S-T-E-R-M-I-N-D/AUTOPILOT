@@ -40,6 +40,11 @@ script and verified by CI — edit the source, not the file.
 
 - [ENGINEERING-DOCTRINE.md](ENGINEERING-DOCTRINE.md) — patterns, when to use them, canonical sources, package vetting.
 - [PATTERNS-AND-STANDARDS.md](PATTERNS-AND-STANDARDS.md) — the adopted patterns and the regulatory standards.
+- [MASTER-PROMPT.md](MASTER-PROMPT.md) — the one document a pilot, a maintainer and the firing prompt read from:
+  the promise, the laws in one voice (told · enforced · proven), the surfaces, the rituals, the knobs, and the
+  drift ledger the prompt is regenerated from.
+- [HIERARCHY.md](HIERARCHY.md) — what the eye meets first and why: the fleet home's order, sizes and fields,
+  sourced from flight-deck, mission-control and agent-console doctrine; pinned by a census test.
 - [FAILURE-DOCTRINE.md](FAILURE-DOCTRINE.md) — the won-battles ledger: every failure class beaten, and the law that
   keeps it dead.
 - [DOCTRINE-COORDINATION.md](DOCTRINE-COORDINATION.md) — the primitives a fleet actually runs on: sharding, leases,
