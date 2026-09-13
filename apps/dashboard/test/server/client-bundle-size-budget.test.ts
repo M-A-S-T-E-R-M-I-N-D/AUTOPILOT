@@ -234,7 +234,10 @@ const CORE_RAW_BUDGET = 220 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
-const CORE_GZIP_BUDGET = 64 * 1024;
+// Then core gzip 64→66KB (2026-09-13) for THE ICON SYSTEM slice 1 (web/icons.ts:
+// the vendored Lucide shapes spliced into core as data + iconEl): measured
+// 218.5KB raw / 64.9KB gzip.
+const CORE_GZIP_BUDGET = 66 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
