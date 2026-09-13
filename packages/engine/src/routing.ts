@@ -57,10 +57,12 @@ const SUBSTEP_TIER: Readonly<Record<SubstepKind, RoutingTier>> = {
   triage: 'local',
   'docs-fix': 'cheap',
   'code-review': 'cheap',
-  // Ask-your-project: tool-less single-turn Q&A over retrieved sources —
-  // routine comprehension, not deep reasoning; the cloud cheap tier (its
-  // pre-routing hardcoded model) keeps answer quality user-facing-grade.
-  ask: 'cheap',
+  // Ask-your-project: the operator's own question deserves the best answer
+  // in the fleet (operator, 2026-09-13: "offer a smarter LLM, like the
+  // reference chat study") — the top tier, one tool-less call over the
+  // retrieved sources; Deep escalates the same tier to a read-only agentic
+  // session. It was the cheap tier until then.
+  ask: 'top',
   'bug-fix': 'top',
   'feature-implementation': 'top',
   'security-review': 'top',
