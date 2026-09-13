@@ -122,10 +122,25 @@ on a phone. The bottom bar is the rail.
 - The skip link (`.skip-link`, `shell.ts`) was already the first interactive
   element in the DOM, ahead of the masthead — an earlier build, not this
   slice; the "Open" bullet below is retired as already satisfied.
+- **The Fly bar is one line on a phone — folder chip + Fire — with
+  everything else behind expand-on-tap** (`#fly-options`, `shell.ts` +
+  `layout-css.ts`): browse, mode, firings/total, $/firing, lanes and Lucky
+  move into a `<details>`/`<summary>` disclosure (native keyboard/tap
+  toggle, no script), collapsed by default below 48rem; the folder's own
+  `<label>` goes visually-hidden at that width so the input and **Fire**
+  share the row instead of the label forcing it onto its own line.
+  `#fly-options`'s `order: 3` pushes the disclosure after every other
+  default-order field (folder, Fire/Pause/Stop, status, hint, fit,
+  progress) so those stay adjacent regardless of the disclosure's DOM
+  position. At 48rem and up `display: contents` unwraps the `<details>`
+  and its body back into the plain flex row §4 already specifies (folder,
+  browse, mode, firings, $/firing, lanes, Lucky, Fire) — an author rule
+  that overrides the UA's `details:not([open])` hiding, since origin beats
+  specificity in the cascade — so desktop's DOM order, and the already-
+  captured README frames, are unchanged.
 
 ## 6. Open
 
-- The phone Fly tab as a one-line chip + Fire with expand-on-tap.
 - `scroll-padding-top` if the Fly bar ever becomes sticky.
 - The diff counter (`+N −M`) on live-work rows once the record carries it.
 
