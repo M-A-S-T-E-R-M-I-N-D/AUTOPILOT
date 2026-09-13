@@ -113,14 +113,26 @@ export async function runReconciliationProposalSweep(
  * dashboard-actionable surface, not only the console line (which a flight
  * nobody is watching live would simply lose). Never edits the doc itself. The
  * library is THIS engine repo's own doc, not necessarily the flown target's —
- * skip cleanly when it isn't present in this process's cwd. Dedup by identity
- * prefix (title, not a sweep-run timestamp), same doctrine the DOC-FRESHNESS
+ * so (same self-hosting signal `runDocFreshnessSweep` uses, board
+ * web-mtzv4f1k-pmtfwh) the sweep only runs when the flight IS the engine repo
+ * flying itself (`target === engineRepo`): `process.cwd()` never moves off
+ * the engine's own checkout, so without this guard a flight over an
+ * unrelated target would still mine THIS repo's own verify-by notes and
+ * attach the proposal to the wrong project's board. Dedup by identity prefix
+ * (title, not a sweep-run timestamp), same doctrine the DOC-FRESHNESS
  * 40-duplicate-proposal incident recorded. Best-effort: a read/parse hiccup
  * must never fail the flight itself.
  */
-export function runVerifyBySweep(store: Store, projectId: string, now: () => number): void {
+export function runVerifyBySweep(
+  store: Store,
+  projectId: string,
+  now: () => number,
+  target: string,
+  engineRepo: string = process.cwd(),
+): void {
+  if (target !== engineRepo) return;
   try {
-    const libraryPath = join(process.cwd(), 'docs', 'RESEARCH-LIBRARY.md');
+    const libraryPath = join(engineRepo, 'docs', 'RESEARCH-LIBRARY.md');
     if (existsSync(libraryPath)) {
       const due = findDueVerifyByNotes(readFileSync(libraryPath, 'utf8'), now());
       const openVerifyByProposal = store.db.prepare(
