@@ -341,7 +341,7 @@
  * slice.
  * This slice ends the "`data-tip` hover texts stay English" policy every
  * prior slice restated — for the fly bar, the app's primary action surface.
- * Its persistent controls (Fly it/Pause/Stop, the four form inputs, the
+ * Its persistent controls (Fire/Pause/Stop, the four form inputs, the
  * flight-row status span, the total-progress bar) get `fly*Tip`/
  * `flight*Tip` keys written by `web/features/fly.ts`'s new `setTip()`,
  * which also tags `data-i18n-tip` so `translateDom()`'s new fourth
@@ -587,7 +587,7 @@ const EN_STRINGS = {
   stopAtTotal: 'Stop at total $',
   perFiringBudget: '$ / firing',
   lanes: 'Lanes',
-  flyIt: 'Fly it',
+  flyIt: 'Fire',
   flying: 'Flying…',
   queued: 'Queued…',
   resume: 'Resume',
@@ -1461,13 +1461,13 @@ const EN_STRINGS = {
   resumeFlightOn: 'Resume the flight on {name}',
   flyLuckyAria: "I'm feeling lucky — probe this machine and fill a calibrated launch",
   flyLuckyTip:
-    'Probes this machine (CPU, RAM, cores) and the board, then fills Lanes/Firings/$ with a launch sized to what the computer can carry right now. Filling only — Fly it stays your click.',
+    'Probes this machine (CPU, RAM, cores) and the board, then fills Lanes/Firings/$ with a launch sized to what the computer can carry right now. Filling only — Fire stays your click.',
   luckyNoAnswer: 'Lucky roll failed — no answer from the server.',
   luckyDashboardDown: 'Lucky roll failed — is the dashboard up?',
   luckyNotNow: '🍀 Not now: {reason}',
   luckyNoPlan: 'no plan',
   luckyPlanReady: 'plan ready',
-  luckyPressFlyIt: '🍀 {reason} — press Fly it to launch.',
+  luckyPressFlyIt: '🍀 {reason} — press Fire to launch.',
   luckyFitTitle: '🍀 Work that fits you',
   luckyFitAttentionAria: 'How much attention you have',
   luckyFitEvening: 'one evening',
@@ -1895,7 +1895,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     stopAtTotal: 'עצור בסכום כולל של $',
     perFiringBudget: '$ / הפעלה',
     lanes: 'נתיבים',
-    flyIt: 'טוס!',
+    flyIt: 'אש!',
     flying: 'בטיסה…',
     queued: 'בתור…',
     resume: 'המשך',
@@ -2528,13 +2528,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     resumeFlightOn: 'חידוש הטיסה על {name}',
     flyLuckyAria: 'יש לי מזל — בדיקת המחשב הזה ומילוי שיגור מכויל',
     flyLuckyTip:
-      'בודק את המחשב הזה (מעבד, זיכרון, ליבות) ואת הלוח, ואז ממלא נתיבים/הפעלות/$ בשיגור בגודל שהמחשב יכול לשאת כרגע. מילוי בלבד — "טוס!" נשאר הלחיצה שלכם.',
+      'בודק את המחשב הזה (מעבד, זיכרון, ליבות) ואת הלוח, ואז ממלא נתיבים/הפעלות/$ בשיגור בגודל שהמחשב יכול לשאת כרגע. מילוי בלבד — "אש!" נשאר הלחיצה שלכם.',
     luckyNoAnswer: 'הגרלת המזל נכשלה — אין תשובה מהשרת.',
     luckyDashboardDown: 'הגרלת המזל נכשלה — האם לוח הבקרה פועל?',
     luckyNotNow: '🍀 לא עכשיו: {reason}',
     luckyNoPlan: 'אין תוכנית',
     luckyPlanReady: 'התוכנית מוכנה',
-    luckyPressFlyIt: '🍀 {reason} — לחצו על "טוס!" כדי לשגר.',
+    luckyPressFlyIt: '🍀 {reason} — לחצו על "אש!" כדי לשגר.',
     luckyFitTitle: '🍀 עבודה שמתאימה לכם',
     luckyFitAttentionAria: 'כמה קשב יש לכם',
     luckyFitEvening: 'ערב אחד',

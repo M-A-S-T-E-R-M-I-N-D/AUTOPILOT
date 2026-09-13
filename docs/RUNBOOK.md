@@ -589,7 +589,7 @@ no queued tasks, free RAM is under the 4 GB floor, or CPU is above 85% — and a
 broken probe answers that same refusal shape rather than a 5xx. Every bound is
 printed as one reasoning line so the dice can be audited, and the CPU line
 rides along with the rolled plan as the bar's machine-load hint, not just the
-final lane count. Filling only: **Fly it** stays your click and your quota
+final lane count. Filling only: **Fire** stays your click and your quota
 spend, the same never-auto-launch stance the bar has always had. Born of the
 2026-09-03 incident where a blind 8-lane launch pegged a 12-core box at 99%
 CPU, froze the operator's foreground work, and starved the dashboard into its

@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0030. Lock on and fire — the first file a user reads, the real flow in pictures, and the hierarchy behind it
 
-Status: Draft (2026-09-13).
+Status: Active (2026-09-13). Slice 1 shipped the same day.
 
 ## The asks (operator, 2026-09-13)
 
@@ -30,11 +30,15 @@ the attention you have (an evening, a day, a week).
 
 ## Slices
 
-1. **The selling first file.** README.md opens with the promise above, then
-   three real screenshots from the populated fixture: (1) the fleet home with the
-   Fly bar — a folder locked on, budget, Fire; (2) the Lucky shortlist under the
-   bar; (3) a live firing in progress with its phase rail. Captured at 1440×1030
-   @2× like the existing `docs/screens`, dark theme, no operator paths.
+1. **Shipped 2026-09-13 — the selling first file.** README.md opens with the
+   promise above, then three real frames of the Fly bar from the populated
+   fixture (`docs/screens/lock-on.png`, `lucky.png`, `fire.png`): a folder
+   locked on; the Lucky roll with its plan and shortlist (the roll and the
+   flight staged through the real client's own routes, since the fixture wires
+   neither); a flight underway at one of four. Captured at 1440×1030 @2×, dark,
+   the browser clock frozen at the fixture's instant, no operator paths. The
+   launch button now reads **Fire** in both locales (`flyIt`), and the three
+   shell frames were retaken on the same build.
 2. **The master prompt.** `docs/MASTER-PROMPT.md`: one document that states
    the product's promise, its laws (honest telemetry, additive git, gate before
    commit, one unit per firing, claim contracts), its surfaces (fleet, project,
@@ -44,12 +48,20 @@ the attention you have (an evening, a day, a week).
    the flight laws, and this epic list; then the firing prompt is regenerated
    from it, not the other way round.
 3. **Hierarchy research and rethink.** Study how the best operator consoles
-   (flight decks, CI dashboards, IDE assistants) rank what the eye meets first;
+   (flight decks, CI dashboards, IDE assistants) rank what the eye meets first.
+   Slice 1's frames already show the first defect: on the fleet home the Fly
+   bar — the product's one verb — sits fourth, under the totals, the tiles and
+   "Contributor standing"; it belongs where the eye lands first.
+   Then
    write `docs/HIERARCHY.md`: the order of subjects, the size of each, the
    fields each card carries and drops, the phone and desktop variants — and a
    census test that pins the order. Then patch the shell to it.
 4. **Release.** The README, the screenshots and the master prompt land in one
    minor release whose notes read like the first file.
+5. **Lock on to a GitHub URL.** The Fly bar accepts a repository URL, clones it
+   into the workspace folder (a preview/execute pair under the identity gate),
+   then locks on as if the folder had been typed — the README's "lock on a
+   folder or a GitHub project" made literal.
 
 ## Related
 

@@ -171,7 +171,7 @@ describe('multi-flight fly bar (epic slice 4/6)', () => {
     const goEl = document.getElementById('fly-go') as HTMLButtonElement;
     expect(folderEl.disabled).toBe(false);
     expect(goEl.disabled).toBe(false);
-    expect(goEl.textContent).toBe('Fly it');
+    expect(goEl.textContent).toBe('Fire');
   });
 
   it('disables Fly it only once the TYPED folder itself is already running', async () => {
