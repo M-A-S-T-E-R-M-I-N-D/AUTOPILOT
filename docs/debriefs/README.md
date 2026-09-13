@@ -12,8 +12,10 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-13 | [Processing `web-mtzkofrr-m80wne`: EPIC 0029 S2 GitHub connection is already fully shipped](2026-09-13-verdict-web-mtzkofrr-m80wne-github-connection-shipped.md) |
 | 2026-09-13 | [Processing VERDICT `web-mtt8lo8x-lna12h`: "link census" is already fully shipped](2026-09-13-verdict-web-mtt8lo8x-lna12h-link-census-shipped.md) |
 | 2026-09-13 | [Processing `web-mtt3f7j6-3bj899`: role-gated dashboard is already fully shipped](2026-09-13-verdict-web-mtt3f7j6-3bj899-role-gated-dashboard-shipped.md) |
+| 2026-09-13 | [Processing `ap-mtyzq62b-ci-red`: "CI RED after landing main → d1c20c1: ci.yml — failure" — refuted](2026-09-13-verdict-ap-mtyzq62b-ci-red-refuted.md) |
 | 2026-09-13 | [Processing VERDICT `ap-mtydvfm1-0`: EPIC 0020 S8's fix-commit half is confirmed unstarted, split into three slices](2026-09-13-verdict-ap-mtydvfm1-0-epic-0020-s8-fix-commit-half-confirmed.md) |
 | 2026-09-13 | [Debrief: #27 claimed twice — the claims ledger](2026-09-13-double-claim-27-claims-ledger.md) |
 | 2026-09-12 | [Processing board `web-mtsvcibf-bh6asp`: "lucky planner sustained-load awareness" is already fully shipped](2026-09-12-verdict-web-mtsvcibf-bh6asp-sustained-load-planner-mercy-3-shipped.md) |
