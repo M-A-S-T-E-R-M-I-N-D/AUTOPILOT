@@ -82,6 +82,63 @@ your click.
 
 ![A flight underway: one of four firings shipped, a quarter of the budget spent](docs/screens/fire.png)
 
+### What goes in, what comes out
+
+**In:** a folder with a git repo — nothing else. A board helps but is optional: on an empty board the first
+firing proposes work and waits for your approval.
+
+```text
+~/src/checkout-web/
+├── .git/                          any history, any branch — snapshotted as MYTH + LEGACY before the first touch
+├── src/  test/  package.json      the gate is detected from here: typecheck · lint · test · build
+└── INBOX/  (optional)             a note to the next firing, in your own words
+```
+
+**Out:** a signed commit on `autopilot/flight` with its provenance, a METRICS line the engine cross-checks
+against git, and a telemetry row — never a push, never a merge; landing on `main` is your click.
+
+```text
+feat(checkout): apply stacked discount codes in a deterministic order
+
+Sorts the code list before applying, so two orders of the same codes total
+the same; adds the regression test that failed first.
+
+Signed-off-by: Your Name <you@example.com>
+Model: claude-sonnet-5
+Firing-Prompt-Version: firing-v15
+Assisted-by: AUTOPILOT v0.46.0 https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT
+Harness: claude-cli
+
+METRICS:{"item":"task-1","outcome":"shipped","kind":"feat","sha":"7f3e9c1","completion":"complete","testFirst":true}
+```
+
+| firing | item   | gate                                     | cost  | turns | verdict            |
+| ------ | ------ | ---------------------------------------- | ----- | ----- | ------------------ |
+| 1      | task-1 | typecheck ✓ lint ✓ test ✓ build ✓ (54 s) | $2.14 | 22    | shipped · complete |
+
+### The workflow in one picture
+
+```text
+  you                 AUTOPILOT, every firing                                            you
+  ───                 ───────────────────────────────────────────────────────────────    ───
+  lock on a folder    backup (MYTH + LEGACY) → orient → pick ONE → do → GATE ─ green ─→ commit (signed, trailers) ─→ land on main
+  press Fire                                                       └──── red ─→ revert, report a noop            (your click)
+  (Lucky first,       every tool call passes the containment guard;
+   if you like)       every firing writes cost · tokens · gate per check · SHA on HEAD; human-only calls queue for the Keeper
+```
+
+### How it differs
+
+|                     | AUTOPILOT                                                                                 | Cloud coding agents (Copilot coding agent, Codex, Devin, Cursor background agents) | Claude Code alone      |
+| ------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------- |
+| First launch        | no prompt — the repo is the mission                                                       | a task prompt per run                                                              | a prompt per session   |
+| Where it runs       | your machine, your Claude subscription, no API key                                        | their cloud, their quota                                                           | your machine           |
+| Before a commit     | the whole gate runs; red reverts, always                                                  | tests when asked; a PR for you to review                                           | you review             |
+| Git                 | additive only — no force-push, no rewrite, never touches `main`; landing is your click   | a PR against your branch                                                           | whatever you run       |
+| Parallel work       | fleets of worktree lanes, a self-healing merge ladder                                     | one task per run                                                                   | one session            |
+| Telemetry           | every firing, cross-checked against git, published as a living self-study                 | run logs                                                                           | none                   |
+| Proof               | it builds itself — most of this repo's commits are its own firings                        | —                                                                                  | —                      |
+
 ## Start here (2 minutes, from nothing to a live dashboard)
 
 ```bash
