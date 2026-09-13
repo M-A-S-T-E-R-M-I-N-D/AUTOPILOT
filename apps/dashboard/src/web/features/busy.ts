@@ -96,6 +96,8 @@ function ritualNodes() {
   note.setAttribute('aria-live', 'polite');
   var bar = el('div', 'ritual-progress');
   bar.setAttribute('role', 'progressbar');
+  // Its accessible name is the ritual's title (axe: aria-progressbar-name).
+  bar.setAttribute('aria-labelledby', 'ritual-title');
   bar.setAttribute('aria-valuemin', '0');
   bar.setAttribute('aria-valuemax', '100');
   var fill = el('div', 'ritual-progress-fill');

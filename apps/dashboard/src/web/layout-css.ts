@@ -1383,8 +1383,12 @@ main:focus { outline: none; }
 .ritual-note { margin: 0; font-size: var(--text-sm); color: var(--color-text); }
 .ritual-progress { position: relative; block-size: 6px; border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
 .ritual-progress-fill { position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: 0; border-radius: inherit; background: var(--color-accent); transition: inline-size var(--duration-medium2) var(--easing-standard); }
-.ritual-progress[data-indeterminate] .ritual-progress-fill { inline-size: 32%; animation: ritual-sweep 1.5s var(--easing-standard) infinite; }
-@keyframes ritual-sweep { from { inset-inline-start: -32%; } to { inset-inline-start: 100%; } }
+/* The sweep rides transform only (compositor-composited, never layout): the
+   fill starts off the start edge and travels the track's width plus its own. */
+.ritual-progress[data-indeterminate] .ritual-progress-fill { inline-size: 32%; inset-inline-start: 0; animation: ritual-sweep 1.5s var(--easing-standard) infinite; }
+@keyframes ritual-sweep { from { transform: translateX(-100%); } to { transform: translateX(312.5%); } }
+[dir="rtl"] .ritual-progress[data-indeterminate] .ritual-progress-fill { animation-name: ritual-sweep-rtl; }
+@keyframes ritual-sweep-rtl { from { transform: translateX(100%); } to { transform: translateX(-312.5%); } }
 [data-ritual-state="failed"] .ritual-progress-fill { background: var(--color-sev-high); }
 [data-ritual-state="done"] .ritual-progress-fill { background: var(--color-success); }
 .ritual-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-family: var(--font-mono); font-size: var(--text-xs); }
