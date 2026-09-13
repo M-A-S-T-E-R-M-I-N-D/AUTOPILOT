@@ -111,6 +111,16 @@ html[data-theme="terminal"][data-phosphor="white"] { --color-accent: oklch(0.93 
 .pref { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
 .pref legend { padding: 0; margin: 0 0 var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .pref-switch { flex-wrap: wrap; }
+/* HUE (epic 0029 slice 7, operator 2026-09-13: "a full hue for the whole
+   design, not only the phosphor"): --hue-rot rotates every chromatic,
+   non-semantic token through relative colour — surfaces, text, borders, the
+   accent, info, the low severity and needs-you; success, warning, danger and
+   the other severities keep their meaning. A browser without oklch(from …)
+   ignores the rule and keeps the theme as designed. */
+html[data-hue] { --color-surface: oklch(from var(--color-surface-base) l c calc(h + var(--hue-rot))); --color-surface-raised: oklch(from var(--color-surface-raised-base) l c calc(h + var(--hue-rot))); --color-surface-sunken: oklch(from var(--color-surface-sunken-base) l c calc(h + var(--hue-rot))); --color-text: oklch(from var(--color-text-base) l c calc(h + var(--hue-rot))); --color-text-muted: oklch(from var(--color-text-muted-base) l c calc(h + var(--hue-rot))); --color-border: oklch(from var(--color-border-base) l c calc(h + var(--hue-rot))); --color-border-strong: oklch(from var(--color-border-strong-base) l c calc(h + var(--hue-rot))); --color-accent: oklch(from var(--color-accent-base) l c calc(h + var(--hue-rot))); --color-accent-text: oklch(from var(--color-accent-text-base) l c calc(h + var(--hue-rot))); --color-info: oklch(from var(--color-info-base) l c calc(h + var(--hue-rot))); --color-sev-low: oklch(from var(--color-sev-low-base) l c calc(h + var(--hue-rot))); --color-needs-you: oklch(from var(--color-needs-you-base) l c calc(h + var(--hue-rot))); }
+.pref-hue { display: flex; align-items: center; gap: var(--space-2); }
+.pref-hue input[type="range"] { flex: 1 1 auto; min-inline-size: 8rem; accent-color: var(--color-accent); }
+.pref-hue output { min-inline-size: 4ch; text-align: end; font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-text-muted); }
 .pref-terminal { display: none; }
 html[data-theme="terminal"] .pref-terminal { display: block; }
 /* A phone masthead has two rows to give: the OTLP indicator (a diagnostic

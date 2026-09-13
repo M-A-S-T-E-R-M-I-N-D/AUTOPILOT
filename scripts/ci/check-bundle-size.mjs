@@ -114,7 +114,11 @@ import { gzipSync } from 'node:zlib';
 // language choice closes, hover opens temporarily and a click pins) — one
 // core feature module, web/features/popovers.ts. Measured 238116B raw /
 // 71187B gzip against the old 236544B / 70656B budgets.
-const CORE_RAW_BUDGET = 233 * 1024;
+// Then core raw 233→234KB (2026-09-13) for EPIC 0029 slice 7: the whole-design
+// hue — a range in Settings that rotates every chromatic, non-semantic token
+// through relative colour (prefs.ts reads, validates, applies and resets it).
+// Measured 238943B raw against the old 238592B budget; gzip untouched.
+const CORE_RAW_BUDGET = 234 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

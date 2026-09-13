@@ -1285,6 +1285,8 @@ const EN_STRINGS = {
   prefPhosphorGreen: 'Green',
   prefPhosphorAmber: 'Amber',
   prefPhosphorWhite: 'White',
+  prefHue: 'Hue',
+  prefHueAria: 'Rotate every colour of the design, in degrees; 0 is the theme as designed',
   prefsReset: 'Reset to defaults',
   prefsHint:
     'Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.',
@@ -2394,6 +2396,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prefPhosphorGreen: 'ירוק',
     prefPhosphorAmber: 'ענבר',
     prefPhosphorWhite: 'לבן',
+    prefHue: 'גוון',
+    prefHueAria: 'סיבוב כל צבעי העיצוב, במעלות; 0 הוא ערכת הנושא כפי שעוצבה',
     prefsReset: 'איפוס לברירת המחדל',
     prefsHint:
       'נשמר בדפדפן הזה בלבד. הטקסט גדל עד 125% והריווח מתרחב בלי אובדן; תנועה מופחתת נשמרת גם כשהמערכת לא מבקשת.',

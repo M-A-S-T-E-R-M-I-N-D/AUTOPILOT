@@ -11,6 +11,9 @@ describe('css generation', () => {
     expect(vars['--color-surface']).toBe(DARK.surface);
     expect(vars['--color-surface-raised']).toBe(DARK.surfaceRaised);
     expect(vars['--color-sev-critical']).toBe(DARK.sevCritical);
+    // Epic 0029 slice 7: every colour also carries its base twin for the hue rule.
+    expect(vars['--color-accent-base']).toBe(DARK.accent);
+    expect(vars['--color-surface-base']).toBe(DARK.surface);
   });
 
   it('emits theme-invariant primitives', () => {

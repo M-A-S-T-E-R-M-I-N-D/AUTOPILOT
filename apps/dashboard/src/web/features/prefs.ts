@@ -37,9 +37,13 @@ export function prefsJs(): string {
 // DISPLAY & ACCESSIBILITY PREFERENCES (epic 0029 slice 1) — see web/features/prefs.ts.
 var PREFS_KEY = 'ap-prefs';
 var PREF_CHOICES = ${JSON.stringify(PREF_CHOICES)};
+// HUE (epic 0029 slice 7): a rotation in degrees, 0 = the theme as designed —
+// a range, not a choice list, so it rides beside PREF_CHOICES.
+var HUE_MAX = 359;
 function prefDefaults() {
   var out = {};
   for (var k in PREF_CHOICES) out[k] = PREF_CHOICES[k][0];
+  out.hue = 0;
   return out;
 }
 function readPrefs() {
@@ -53,6 +57,8 @@ function readPrefs() {
   for (var k in PREF_CHOICES) {
     if (PREF_CHOICES[k].indexOf(saved[k]) !== -1) prefs[k] = saved[k];
   }
+  var h = Number(saved.hue);
+  if (Number.isInteger(h) && h >= 0 && h <= HUE_MAX) prefs.hue = h;
   return prefs;
 }
 function writePrefs(prefs) {
@@ -70,6 +76,18 @@ function applyPrefs(prefs) {
       html.setAttribute(attr, v);
     }
   }
+  var hue = prefs.hue || 0;
+  if (hue) {
+    if (html.getAttribute('data-hue') !== String(hue)) html.setAttribute('data-hue', String(hue));
+    if (html.style.getPropertyValue('--hue-rot') !== hue + 'deg') html.style.setProperty('--hue-rot', hue + 'deg');
+  } else {
+    if (html.hasAttribute('data-hue')) html.removeAttribute('data-hue');
+    if (html.style.getPropertyValue('--hue-rot')) html.style.removeProperty('--hue-rot');
+  }
+  var range = document.getElementById('pref-hue');
+  if (range && range.value !== String(hue)) range.value = String(hue);
+  var out = document.getElementById('pref-hue-out');
+  if (out && out.textContent !== hue + '°') out.textContent = hue + '°';
   var buttons = document.querySelectorAll('[data-pref]');
   for (var i = 0; i < buttons.length; i++) {
     var b = buttons[i];
@@ -84,6 +102,14 @@ function setPref(name, value) {
   writePrefs(prefs);
   applyPrefs(prefs);
 }
+function setHue(value) {
+  var h = Number(value);
+  if (!Number.isInteger(h) || h < 0 || h > HUE_MAX) return;
+  var prefs = readPrefs();
+  prefs.hue = h;
+  writePrefs(prefs);
+  applyPrefs(prefs);
+}
 function resetPrefs() {
   try { localStorage.removeItem(PREFS_KEY); } catch (e) {}
   applyPrefs(prefDefaults());
@@ -95,6 +121,10 @@ document.addEventListener('click', function (e) {
   var b = t.closest('[data-pref]');
   if (b) { setPref(b.getAttribute('data-pref'), b.getAttribute('data-pref-value')); return; }
   if (t.closest('#prefs-reset')) resetPrefs();
+});
+document.addEventListener('input', function (e) {
+  var t = e.target;
+  if (t && t.id === 'pref-hue') setHue(t.value);
 });
 `.trim();
 }

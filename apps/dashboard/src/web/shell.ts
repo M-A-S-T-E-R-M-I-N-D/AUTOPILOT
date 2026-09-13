@@ -4420,6 +4420,7 @@ export function settingsMenuHtml(): string {
       ],
       'pref-terminal',
     ) +
+    '<fieldset class="pref"><legend data-i18n="prefHue">Hue</legend><div class="pref-hue"><input type="range" id="pref-hue" min="0" max="359" step="1" value="0" aria-label="Rotate every colour of the design, in degrees; 0 is the theme as designed" data-i18n-aria="prefHueAria" /><output id="pref-hue-out" for="pref-hue">0°</output></div></fieldset>' +
     '<div class="connect-actions"><button type="button" class="connect-test" id="prefs-reset" data-i18n="prefsReset">Reset to defaults</button></div>' +
     '<p class="connect-hint" data-i18n="prefsHint">Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.</p>' +
     '</div>\n' +
