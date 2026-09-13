@@ -32,6 +32,7 @@ import { officeMapJs } from './office-map.js';
 import { pipelineJs } from './pipeline.js';
 import { poolClientJs } from './pool-client.js';
 import { prReviewJs } from './pr-review.js';
+import { prefsJs } from './prefs.js';
 import { processHealthJs } from './process-health.js';
 import { publicityJs } from './publicity.js';
 import { releaseJs } from './release.js';
@@ -75,6 +76,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   pipelineJs,
   poolClientJs,
   prReviewJs,
+  prefsJs,
   processHealthJs,
   publicityJs,
   releaseJs,
@@ -126,6 +128,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   pipeline: pipelineJs,
   'pool-client': poolClientJs,
   'pr-review': prReviewJs,
+  prefs: prefsJs,
   'process-health': processHealthJs,
   publicity: publicityJs,
   release: releaseJs,

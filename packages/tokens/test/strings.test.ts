@@ -12,6 +12,8 @@ import { STRINGS, translate, type StringKey } from '../src/strings.js';
  *  separators between server-sent clauses) that carry no prose to translate. */
 const LATIN_SCRIPT_KEYS: ReadonlySet<StringKey> = new Set<StringKey>([
   'personaGenius',
+  // The Settings popover's font choice names the typeface itself (epic 0029).
+  'prefFontInter',
   'personaArchitect',
   'flightRowWatchdogSuffix',
   'connectCliVersion',
