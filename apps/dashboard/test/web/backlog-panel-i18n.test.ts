@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * The project page's "🔍 Detected backlog" panel heading
- * (`web/features/backlog.ts`'s `backlogSection()`) is an `el()`-built
- * `<h3 class="backlog-title">` the regex `pnpm i18n:untagged` scanner cannot
- * see — the same blind spot `flightSummarySection()`'s heading had before it
- * was tagged (board web-msnsndki-dz3vn1).
+ * The project page's "Detected backlog" panel heading
+ * (`web/features/backlog.ts`'s `backlogSection()`) is a `panelHeading()`-built
+ * `<h3 class="backlog-title">` — a leading stroke icon beside an inner
+ * `[data-i18n]` span (epic 0025 slice 2: `search`, dropping the emoji the
+ * regex `pnpm i18n:untagged` scanner couldn't see — the same blind spot
+ * `flightSummarySection()`'s heading had before it was tagged, board
+ * web-msnsndki-dz3vn1). The tag sits on the span, never the `<h3>` itself, so
+ * a locale switch's `textContent` sweep never wipes the icon.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -66,20 +69,21 @@ function boot(projectId: string): void {
   new Function(clientJs())();
 }
 
-describe('"🔍 Detected backlog" panel i18n (board web-msnsndki-dz3vn1)', () => {
+describe('"Detected backlog" panel i18n (board web-msnsndki-dz3vn1)', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it('tags the "Detected backlog" heading with its STRINGS key', async () => {
+  it('tags the "Detected backlog" heading\'s inner span with its STRINGS key', async () => {
     boot('p1');
     await vi.advanceTimersByTimeAsync(1);
 
     const heading = document.querySelector('.backlog-panel h3.backlog-title');
-    expect(heading?.getAttribute('data-i18n')).toBe('backlogTitle');
-    expect(heading?.textContent).toBe('🔍 Detected backlog');
+    expect(heading?.hasAttribute('data-i18n')).toBe(false);
+    expect(heading?.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe('backlogTitle');
+    expect(heading?.textContent).toBe('Detected backlog');
   });
 
   it('switching to Hebrew translates the heading', async () => {

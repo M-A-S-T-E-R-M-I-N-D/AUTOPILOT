@@ -1347,7 +1347,7 @@ const EN_STRINGS = {
   poolFly: 'Fly',
   poolStarting: 'Starting…',
   poolRequestFailed: '✗ Request failed — try again shortly.',
-  backlogTitle: '🔍 Detected backlog',
+  backlogTitle: 'Detected backlog',
   backlogChecking: 'Checking recent commits against the open board…',
   backlogEmpty:
     'No unconfirmed matches — every open task is either done or not yet echoed by a commit.',
@@ -2449,7 +2449,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     poolFly: 'טוס',
     poolStarting: 'מתחיל…',
     poolRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
-    backlogTitle: '🔍 פיגור שזוהה',
+    backlogTitle: 'פיגור שזוהה',
     backlogChecking: 'בודק קומיטים אחרונים מול הלוח הפתוח…',
     backlogEmpty: 'אין התאמות לא מאושרות — כל משימה פתוחה כבר בוצעה או שטרם הודהדה בקומיט.',
     backlogConfirmDone: '✓ אשר בוצע',
