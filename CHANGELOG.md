@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.45.0] — 2026-09-13
+
+### Added
+
+- feat(ask): the answer says who answered, how long it took and what it cost
+- feat(ask): route Ask to the top tier; answer tables stop squeezing their columns
+
+### Fixed
+
+- fix(e2e): mask the masthead's version label in every visual baseline
+
 ## [0.44.0] — 2026-09-13
 
 ### Added
