@@ -163,7 +163,7 @@ describe('buildFiringPrompt', () => {
   });
 
   it('exposes a stable version tag for telemetry', () => {
-    expect(FIRING_PROMPT_VERSION).toBe('firing-v14');
+    expect(FIRING_PROMPT_VERSION).toBe('firing-v15');
   });
 
   it('splices a pre-rendered REPO-MAP digest in verbatim ahead of ORIENT', () => {
@@ -788,7 +788,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v14`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v15`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',
@@ -913,6 +913,9 @@ describe('buildFiringPrompt', () => {
       '  format checks) BEFORE committing — a formatting drift fails the gate too.',
       '- Autoformat is CHECK-only for you — the landing alone owns the format WRITE (one writer).',
       '- A census completes the change — update the census pin for any file you add, SAME commit.',
+      '- A RELAND (restoring reverted content) IS a landing: run the full CURRENT gate and refresh',
+      '  every census for the restored files — a census added after the content was first authored',
+      '  never retroactively clears byte-identical restores (docs/FAILURE-DOCTRINE.md row 30).',
       '- Before fixing an observed red, `git log -3 -- <file>` — a newer commit may already fix it.',
       '- docs/FAILURE-DOCTRINE.md is the won-battles ledger — read it when a failure feels familiar.',
       '',
@@ -1108,7 +1111,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v14`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v15`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',
@@ -1229,6 +1232,9 @@ describe('buildFiringPrompt', () => {
       '  format checks) BEFORE committing — a formatting drift fails the gate too.',
       '- Autoformat is CHECK-only for you — the landing alone owns the format WRITE (one writer).',
       '- A census completes the change — update the census pin for any file you add, SAME commit.',
+      '- A RELAND (restoring reverted content) IS a landing: run the full CURRENT gate and refresh',
+      '  every census for the restored files — a census added after the content was first authored',
+      '  never retroactively clears byte-identical restores (docs/FAILURE-DOCTRINE.md row 30).',
       '- Before fixing an observed red, `git log -3 -- <file>` — a newer commit may already fix it.',
       '- docs/FAILURE-DOCTRINE.md is the won-battles ledger — read it when a failure feels familiar.',
       '',
