@@ -103,14 +103,20 @@ import { gzipSync } from 'node:zlib';
 // Then core raw 220→226KB / gzip 66→68KB (2026-09-13) for DISPLAY & ACCESSIBILITY
 // (web/features/prefs.ts + the Settings popover + five masthead stroke icons):
 // measured 222.7KB raw / 66.3KB gzip.
-const CORE_RAW_BUDGET = 226 * 1024;
+// Then core raw 226→231KB / gzip 68→69KB (2026-09-13) for EPIC 0025 slice 2's hub: 32 more
+// Lucide shapes vendored as data for the panel headings, chips and lines
+// that still draw emoji (ICON_SHAPES rides the core bundle as JSON so
+// iconEl() can build any of them), plus panelHeading(). Measured 235733B
+// raw / 70523B gzip against the old 231424B / 69632B budgets; the lane conversions that follow
+// remove emoji text, they do not add bytes.
+const CORE_RAW_BUDGET = 231 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
 // Then core gzip 64→66KB (2026-09-13) for THE ICON SYSTEM slice 1 (web/icons.ts:
 // the vendored Lucide shapes spliced into core as data + iconEl): measured
 // 218.5KB raw / 64.9KB gzip.
-const CORE_GZIP_BUDGET = 68 * 1024;
+const CORE_GZIP_BUDGET = 69 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the

@@ -219,6 +219,17 @@ function iconEl(name) {
   }
   return svg;
 }
+// Epic 0025 slice 2: a panel heading is a leading stroke icon beside an inner
+// [data-i18n] span — translateDom() writes textContent on the tagged element,
+// so the tag sits on the span and a locale switch never wipes the icon.
+function panelHeading(tag, cls, key, iconName) {
+  var h = el(tag, cls);
+  if (iconName) h.appendChild(iconEl(iconName));
+  var label = el('span', 'heading-text', tr(key));
+  label.setAttribute('data-i18n', key);
+  h.appendChild(label);
+  return h;
+}
 // iconName (optional, epic 0025): a leading stroke icon instead of an emoji
 // glyph in the text — the text stays the chip's words and its textContent.
 function tipChip(text, tip, ariaLabel, extraClass, iconName) {
