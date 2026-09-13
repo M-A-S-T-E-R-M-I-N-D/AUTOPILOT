@@ -38,8 +38,32 @@ export function prefsJs(): string {
 var PREFS_KEY = 'ap-prefs';
 var PREF_CHOICES = ${JSON.stringify(PREF_CHOICES)};
 // HUE (epic 0029 slice 7): a rotation in degrees, 0 = the theme as designed —
-// a range, not a choice list, so it rides beside PREF_CHOICES.
+// a range, not a choice list, so it rides beside PREF_CHOICES. The rotated
+// colours are computed HERE from the tokens' --color-*-base twins and written
+// inline on <html>: relative colour syntax is not available in every
+// Chromium, and an unparseable token at computed time makes every colour
+// vanish (the terminal theme, 2026-09-13).
 var HUE_MAX = 359;
+var HUE_TOKENS = ["surface","surface-raised","surface-sunken","text","text-muted","border","border-strong","accent","accent-text","info","sev-low","needs-you"];
+function hueBaseOf(html, name) {
+  var v = html.style.getPropertyValue(name);
+  if (!v && typeof getComputedStyle === 'function') v = getComputedStyle(html).getPropertyValue(name);
+  return (v || '').trim();
+}
+function hueRotate(oklch, rot) {
+  var m = /^oklch\\(\\s*([\\d.]+%?)\\s+([\\d.]+)\\s+([\\d.]+)\\s*\\)$/.exec(oklch);
+  if (!m) return '';
+  var h = (Number(m[3]) + rot) % 360;
+  return 'oklch(' + m[1] + ' ' + m[2] + ' ' + h + ')';
+}
+function applyHue(html, hue) {
+  for (var i = 0; i < HUE_TOKENS.length; i++) {
+    var name = '--color-' + HUE_TOKENS[i];
+    var next = hue ? hueRotate(hueBaseOf(html, name + '-base'), hue) : '';
+    if (next) { if (html.style.getPropertyValue(name) !== next) html.style.setProperty(name, next); }
+    else if (html.style.getPropertyValue(name)) html.style.removeProperty(name);
+  }
+}
 function prefDefaults() {
   var out = {};
   for (var k in PREF_CHOICES) out[k] = PREF_CHOICES[k][0];
@@ -79,11 +103,10 @@ function applyPrefs(prefs) {
   var hue = prefs.hue || 0;
   if (hue) {
     if (html.getAttribute('data-hue') !== String(hue)) html.setAttribute('data-hue', String(hue));
-    if (html.style.getPropertyValue('--hue-rot') !== hue + 'deg') html.style.setProperty('--hue-rot', hue + 'deg');
-  } else {
-    if (html.hasAttribute('data-hue')) html.removeAttribute('data-hue');
-    if (html.style.getPropertyValue('--hue-rot')) html.style.removeProperty('--hue-rot');
+  } else if (html.hasAttribute('data-hue')) {
+    html.removeAttribute('data-hue');
   }
+  applyHue(html, hue);
   var range = document.getElementById('pref-hue');
   if (range && range.value !== String(hue)) range.value = String(hue);
   var out = document.getElementById('pref-hue-out');
@@ -115,6 +138,11 @@ function resetPrefs() {
   applyPrefs(prefDefaults());
 }
 applyPrefs(readPrefs());
+// A theme or phosphor change swaps the base twins under a rotated hue — re-apply.
+if (typeof MutationObserver === 'function') {
+  new MutationObserver(function () { if (readPrefs().hue) applyHue(document.documentElement, readPrefs().hue); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-phosphor'] });
+}
 document.addEventListener('click', function (e) {
   var t = e.target;
   if (!t || !t.closest) return;

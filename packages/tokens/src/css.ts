@@ -16,9 +16,10 @@ export function colorVars(theme: Theme): Record<string, string> {
   const out: Record<string, string> = {};
   for (const token of COLOR_TOKENS) {
     out[`--color-${kebab(token)}`] = theme[token];
-    // Epic 0029 slice 7 (the whole-design hue): a base twin every hue rule can
-    // rotate from — a custom property cannot reference itself inside
-    // oklch(from …), so the theme's own value needs a second name.
+    // Epic 0029 slice 7 (the whole-design hue): a base twin the client reads
+    // to compute the rotated colour it writes inline on <html>
+    // (web/features/prefs.ts) — the theme's own value under a second name,
+    // untouched by the rotation.
     out[`--color-${kebab(token)}-base`] = theme[token];
   }
   return out;

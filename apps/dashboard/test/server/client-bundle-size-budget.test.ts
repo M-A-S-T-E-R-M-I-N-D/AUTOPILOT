@@ -248,14 +248,18 @@ import {
 // hue — a range in Settings that rotates every chromatic, non-semantic token
 // through relative colour (prefs.ts reads, validates, applies and resets it).
 // Measured 238943B raw against the old 238592B budget; gzip untouched.
-const CORE_RAW_BUDGET = 234 * 1024;
+// Then 234→235KB the same day: the rotation moved into the client (relative
+// colour syntax is unsupported in this Chromium and made every colour vanish);
+// measured 239865B raw / 71842B gzip against the old 239616B / 71680B
+// budgets (gzip 70→71KB).
+const CORE_RAW_BUDGET = 235 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
 // Then core gzip 64→66KB (2026-09-13) for THE ICON SYSTEM slice 1 (web/icons.ts:
 // the vendored Lucide shapes spliced into core as data + iconEl): measured
 // 218.5KB raw / 64.9KB gzip.
-const CORE_GZIP_BUDGET = 70 * 1024;
+const CORE_GZIP_BUDGET = 71 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
