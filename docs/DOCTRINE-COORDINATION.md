@@ -9,8 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Why this document exists
 
-AUTOPILOT's store is honestly ACID: atomic multi-step mutations, 78 declarative
-constraints with foreign keys deliberately switched **on**, WAL isolation with a
+AUTOPILOT's store is honestly ACID: atomic multi-step mutations, the
+declarative constraints enumerated in the generated [DATA-MODEL.md](DATA-MODEL.md)
+(foreign keys deliberately switched **on**), WAL isolation with a
 second bounded busy-retry behind it. That is the floor, and it holds.
 
 But ACID describes **one database on one node**. AUTOPILOT is a fleet: up to ten
@@ -97,11 +98,13 @@ highest one in the file and adding one — a read-then-write race across ten
 worktrees that see the same base. `validateMigrations` catches a collision at
 **merge**, which is late but not silent.
 
-**How it broke:** twice (v13, v20). Both were caught and renumbered by hand
-because the live database had not yet applied either side — a renumber that is
-only safe *before* application. Once a migration has run somewhere, renumbering
-is a data-integrity incident. **This is the one primitive we have a detector for
-and no allocator.** See the open board task.
+**How it broke:** migration v17 was minted by two parallel instances in the
+same round and caught and renumbered by hand to v17/v18
+(`docs/RESEARCH-LIBRARY.md`'s "global-sequence collision" post-mortem), safe
+only because the live database had not yet applied either side — a renumber
+that is only safe *before* application. Once a migration has run somewhere,
+renumbering is a data-integrity incident. **This is the one primitive we have
+a detector for and no allocator.** See the open board task.
 
 ### 5. Convergence — many branches, one main
 
