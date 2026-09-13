@@ -105,13 +105,8 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
   `apps/dashboard` its own `DOM` lib + jsdom Vitest env — full evidence moved to
   [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--dashboard-browser-tsconfig-libjsdom-split-moved-2026-09-10).
 - [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
-  Done — `.github/workflows/ci.yml`'s new `reuse-lint` job (`continue-on-error: true`, so it's informational only)
-  runs `pip install reuse==6.2.0 && reuse lint`. Getting the repo REUSE-3.3-compliant surfaced two real gaps: a
-  false-positive in `scripts/ci/validate-spdx-headers.mjs` (its own printed CLI guidance string contained a
-  literal SPDX-header line that `reuse`'s parser read as a second, malformed header — fixed by wrapping it in a
-  REUSE ignore-marker block) and two bundled third-party font license texts
-  (`apps/dashboard/src/assets/OFL-{inter,roboto}.txt`) with no SPDX metadata — annotated in `REUSE.toml` under
-  their own upstream copyright + `OFL-1.1`, with `LICENSES/OFL-1.1.txt` downloaded via `reuse download OFL-1.1`.
+  Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--reuse-lint-ci-job-moved-2026-09-13).
 - [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions (`actions/checkout`,
   `actions/setup-node`, `pnpm/action-setup`) to full commit SHAs with version comments; Dependabot's github-actions
   ecosystem keeps them current. Done — `.github/workflows/ci.yml` pins all three actions to their `v4.4.0` commit

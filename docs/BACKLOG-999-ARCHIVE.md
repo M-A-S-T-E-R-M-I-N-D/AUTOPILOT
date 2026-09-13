@@ -62,6 +62,17 @@ so the "no claims without a paper trail" standard
   now-redundant `apps/dashboard/test/web/dom-globals.d.ts` triple-slash shim it superseded. `jsx` remains
   N/A — no React/Vite UI yet; add it if/when that lands.
 
+## §K — reuse lint CI job (moved 2026-09-13)
+
+- [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
+  Done — `.github/workflows/ci.yml`'s new `reuse-lint` job (`continue-on-error: true`, so it's informational only)
+  runs `pip install reuse==6.2.0 && reuse lint`. Getting the repo REUSE-3.3-compliant surfaced two real gaps: a
+  false-positive in `scripts/ci/validate-spdx-headers.mjs` (its own printed CLI guidance string contained a
+  literal SPDX-header line that `reuse`'s parser read as a second, malformed header — fixed by wrapping it in a
+  REUSE ignore-marker block) and two bundled third-party font license texts
+  (`apps/dashboard/src/assets/OFL-{inter,roboto}.txt`) with no SPDX metadata — annotated in `REUSE.toml` under
+  their own upstream copyright + `OFL-1.1`, with `LICENSES/OFL-1.1.txt` downloaded via `reuse download OFL-1.1`.
+
 ## §L — C4 deterministic diff-size gate (moved 2026-09-13)
 
 - [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400) as a gate check, mechanical-change exemption
