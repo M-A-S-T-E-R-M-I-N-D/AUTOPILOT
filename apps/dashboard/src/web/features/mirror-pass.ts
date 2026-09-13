@@ -244,8 +244,7 @@ function loadMirrorPassBody(body, pid) {
 }
 function mirrorPassSection(pid) {
   var wrap = el('section', 'mirror-pass-panel');
-  var title = el('h3', 'mirror-pass-title', '🔁 Mirror pass');
-  title.setAttribute('data-i18n', 'mirrorPassTitle');
+  var title = panelHeading('h3', 'mirror-pass-title', 'mirrorPassTitle', 'repeat');
   wrap.appendChild(title);
   var body = el('div', 'mirror-pass-body');
   var loadingMsg = el('p', 'muted', 'Checking the board against GitHub…');

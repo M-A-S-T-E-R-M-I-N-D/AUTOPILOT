@@ -729,7 +729,7 @@ const EN_STRINGS = {
   // reuses soulRatify / soulDismiss above rather than minting twins.
   soulUnreviewed: '◐ SOUL unreviewed',
   startOver: '↺ Start over',
-  prReviewTitle: '🗝️ KEEPER PR review',
+  prReviewTitle: 'KEEPER PR review',
   prReviewApply: 'Apply',
   prReviewFetchFailed:
     '⚠ The open-PR list could not be read from gh — an outage, not a confirmed-empty queue; the next poll retries.',
@@ -1248,7 +1248,7 @@ const EN_STRINGS = {
   browseDrives: 'Drives',
   browseUpParent: 'Up to the parent folder',
   flightSummaryTitle: 'Recently shipped',
-  poolTitle: '🧑‍🤝‍🧑 Pool',
+  poolTitle: 'Pool',
   poolAudience:
     'For AUTOPILOT fleets: claim an issue here and your own pilot flies it, on your tokens. People claim on GitHub with /claim.',
   contributorIssueListAudience:
@@ -1357,7 +1357,7 @@ const EN_STRINGS = {
     'No unconfirmed matches — every open task is either done or not yet echoed by a commit.',
   backlogConfirmDone: '✓ confirm done',
   backlogUnavailable: 'Detected backlog unavailable.',
-  releaseTitle: '🚀 Next release',
+  releaseTitle: 'Next release',
   // web/features/release.ts's body states: the loading placeholder rides the
   // page-level sweep; the other three are rebuilt inside the async
   // /api/release handlers, which sweep themselves (same split as the
@@ -1683,7 +1683,7 @@ const EN_STRINGS = {
   // best/worst firing) still stays English, same as the per-project fleet
   // card hover text this table already leaves untranslated; the branch line
   // below moved in a later slice.
-  landingTitle: '🛬 Landing',
+  landingTitle: 'Landing',
   landingChecking: 'Checking for unmerged work…',
   landingUnavailable: 'Landing preview unavailable.',
   landingNothingToLand: 'Nothing to land — the branch is level with its base.',
@@ -1753,7 +1753,7 @@ const EN_STRINGS = {
   // page's KEEPER issue-triage panel — title, loading placeholder, and the
   // empty/fetch-failure states. "KEEPER" is the persona's proper name and
   // stays Latin in every locale, the way "AUTOPILOT" and "GitHub" do above.
-  issueTriageTitle: '🗝️ KEEPER issue triage',
+  issueTriageTitle: 'KEEPER issue triage',
   issueTriageLoading: 'Checking open issues against the board…',
   issueTriageEmpty: 'No open issues to triage.',
   issueTriageUnavailable: 'Issue triage unavailable.',
@@ -1771,7 +1771,7 @@ const EN_STRINGS = {
   // VERDICT ap-mtsg3nc0-3 slice (c)): the project page's MIRROR PASS panel —
   // title, loading placeholder, and the empty/fetch-failure states, same
   // shape issueTriage* above establishes for a fetch-then-render panel.
-  mirrorPassTitle: '🔁 Mirror pass',
+  mirrorPassTitle: 'Mirror pass',
   mirrorPassLoading: 'Checking the board against GitHub…',
   mirrorPassEmpty: 'Board and GitHub agree — nothing to reconcile.',
   mirrorPassUnavailable: 'Mirror pass unavailable.',
@@ -2020,7 +2020,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulUnratify: '↺ בטל אשרור',
     soulUnreviewed: '◐ SOUL לא נסקר',
     startOver: '↺ התחל מחדש',
-    prReviewTitle: '🗝️ סקירת PR של KEEPER',
+    prReviewTitle: 'סקירת PR של KEEPER',
     prReviewApply: 'החל',
     prReviewFetchFailed:
       '⚠ לא ניתן היה לקרוא את רשימת ה-PR הפתוחים מ-gh — זו תקלה, לא תור ריק מאומת; התשאול הבא ינסה שוב.',
@@ -2364,7 +2364,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     browseDrives: 'כוננים',
     browseUpParent: 'עלייה לתיקיית האב',
     flightSummaryTitle: 'שוחררו לאחרונה',
-    poolTitle: '🧑‍🤝‍🧑 מאגר',
+    poolTitle: 'מאגר',
     poolAudience:
       'לציי AUTOPILOT: תבעו כאן issue והטייס שלכם מטיס אותו, על הטוקנים שלכם. אנשים תובעים ב-GitHub עם ‎/claim.',
     contributorIssueListAudience:
@@ -2462,7 +2462,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     backlogEmpty: 'אין התאמות לא מאושרות — כל משימה פתוחה כבר בוצעה או שטרם הודהדה בקומיט.',
     backlogConfirmDone: '✓ אשר בוצע',
     backlogUnavailable: 'הפיגור שזוהה אינו זמין.',
-    releaseTitle: '🚀 המהדורה הבאה',
+    releaseTitle: 'המהדורה הבאה',
     releaseLoading: 'בודק קומיטים ראויים לשחרור…',
     releaseUnavailable: 'תצוגה מקדימה של המהדורה אינה זמינה.',
     releaseNoTags: 'עדיין אין תגיות שחרור — אין מול מה להשוות את המהדורה הבאה.',
@@ -2707,7 +2707,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'פעולה זו מגישה issue אמיתי ב-GitHub דרך gh — לוח הבקרה אינו יכול לבטל זאת; סִגרו אותו ב-GitHub אם זו הייתה טעות.',
     reportConfirmSuffix:
       'התוכנית נגזרת מחדש מהלכידה בזמן הביצוע — היא לא תסמוך באופן עיוור על מה שמוצג כאן.',
-    landingTitle: '🛬 נחיתה',
+    landingTitle: 'נחיתה',
     landingChecking: 'בודק אם יש עבודה שלא מוזגה…',
     landingUnavailable: 'תצוגה מקדימה של הנחיתה אינה זמינה.',
     landingNothingToLand: 'אין מה להנחית — הענף כבר מיושר עם הבסיס.',
@@ -2754,7 +2754,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     consoleTitleTip: 'זנב stdout+stderr גולמי של תהליך הטיסה עבור הפרויקט הזה',
     consoleLinesAriaSingular: '{n} שורה של פלט גולמי של תהליך הטיסה',
     consoleLinesAriaPlural: '{n} שורות של פלט גולמי של תהליך הטיסה',
-    issueTriageTitle: '🗝️ טריאז׳ issues של KEEPER',
+    issueTriageTitle: 'טריאז׳ issues של KEEPER',
     issueTriageLoading: 'בודק issues פתוחים מול הלוח…',
     issueTriageEmpty: 'אין issues פתוחים לטריאז׳.',
     issueTriageUnavailable: 'טריאז׳ ה-issues אינו זמין.',
@@ -2762,7 +2762,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     issueTriageExecuting: 'מבצע טריאז׳…',
     issueTriageRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     issueTriageCommentsPosted: 'תגובות פורסמו:',
-    mirrorPassTitle: '🔁 מעבר שיקוף',
+    mirrorPassTitle: 'מעבר שיקוף',
     mirrorPassLoading: 'בודק את הלוח מול GitHub…',
     mirrorPassEmpty: 'הלוח וGitHub תואמים — אין מה לתאם.',
     mirrorPassUnavailable: 'מעבר השיקוף אינו זמין.',

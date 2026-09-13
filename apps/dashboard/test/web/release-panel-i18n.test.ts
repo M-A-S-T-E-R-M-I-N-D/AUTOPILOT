@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * i18n wiring for the project page's "🚀 Next release" panel
+ * i18n wiring for the project page's "Next release" panel
  * (`web/features/release.ts`, board web-msnsndki-dz3vn1). The heading was
  * tagged first — an `el()`-built `<h3 class="release-title">` the regex
  * `pnpm i18n:untagged` scanner could not see until it learned the `el()`
@@ -109,7 +109,7 @@ function switchToHebrew(): void {
 const bodyText = (): string | undefined =>
   document.querySelector('.release-panel .release-body p')?.textContent ?? undefined;
 
-describe('"🚀 Next release" panel i18n (board web-msnsndki-dz3vn1)', () => {
+describe('"Next release" panel i18n (board web-msnsndki-dz3vn1)', () => {
   beforeEach(() => localStorage.removeItem('ap-locale'));
   afterEach(() => vi.restoreAllMocks());
 
@@ -118,8 +118,9 @@ describe('"🚀 Next release" panel i18n (board web-msnsndki-dz3vn1)', () => {
     await settle();
 
     const heading = document.querySelector('.release-panel h3.release-title');
-    expect(heading?.getAttribute('data-i18n')).toBe('releaseTitle');
-    expect(heading?.textContent).toBe('🚀 Next release');
+    expect(heading?.hasAttribute('data-i18n')).toBe(false);
+    expect(heading?.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe('releaseTitle');
+    expect(heading?.textContent).toBe('Next release');
   });
 
   it('switching to Hebrew translates the heading', async () => {

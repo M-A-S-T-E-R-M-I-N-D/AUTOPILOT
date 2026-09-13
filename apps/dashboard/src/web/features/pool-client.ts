@@ -51,10 +51,9 @@
  * already relies on for `el`/`tipChip`.
  *
  * I18N (board web-msnsndki-dz3vn1, `@autopilot/tokens`'s `strings.ts`) —
- * `renderPoolClientPanel()`'s "🧑‍🤝‍🧑 Pool" heading is an `el()`-built
- * `<h3>` the regex `pnpm i18n:untagged` scanner cannot see, the same blind
- * spot `pipelineJs()`'s and `flightSummarySection()`'s titles had; it is
- * tagged `data-i18n="poolTitle"`. Like `pr-review.ts`'s KEEPER panel, this
+ * `renderPoolClientPanel()`'s "Pool" heading is a `panelHeading()`-built
+ * `<h3>` (epic 0025 slice 2: `users`), `data-i18n="poolTitle"` on the inner
+ * span. Like `pr-review.ts`'s KEEPER panel, this
  * one rebuilds on its own 30s poll timer rather than the fleet stream's
  * tick, so `renderPoolClientPanel()` also calls `translateDom()` itself at
  * the end of every render — otherwise a panel rebuilt after the page's
@@ -152,8 +151,7 @@ function renderPoolClientPanel(entries) {
   var poolPanelHidden = entries.length === 0;
   if (section.hidden !== poolPanelHidden) section.hidden = poolPanelHidden;
   if (entries.length === 0) return;
-  var title = el('h3', 'pool-client-title', '🧑‍🤝‍🧑 Pool');
-  title.setAttribute('data-i18n', 'poolTitle');
+  var title = panelHeading('h3', 'pool-client-title', 'poolTitle', 'users');
   section.appendChild(title);
   // #43: the two lists looked like one inconsistency. Say who each is for.
   var audience = el('p', 'panel-audience', 'For AUTOPILOT fleets: claim an issue here and your own pilot flies it, on your tokens. People claim on GitHub with /claim.');

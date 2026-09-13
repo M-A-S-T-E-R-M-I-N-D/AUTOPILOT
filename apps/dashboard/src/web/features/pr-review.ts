@@ -180,8 +180,7 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
   var prPanelHidden = plans.length === 0 && !fetchFailed;
   if (section.hidden !== prPanelHidden) section.hidden = prPanelHidden;
   if (prPanelHidden) return;
-  var title = el('h3', 'pr-review-title', '🗝️ KEEPER PR review');
-  title.setAttribute('data-i18n', 'prReviewTitle');
+  var title = panelHeading('h3', 'pr-review-title', 'prReviewTitle', 'key-round');
   section.appendChild(title);
   if (fetchFailed) {
     var notice = el('p', 'pr-review-fetch-failed', '⚠ The open-PR list could not be read from gh — an outage, not a confirmed-empty queue; the next poll retries.');
