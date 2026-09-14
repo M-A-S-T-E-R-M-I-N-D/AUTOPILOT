@@ -291,6 +291,13 @@ const BENIGN_FLIGHT = new Set([
   // dashboard panel and server route that will render this list are
   // separate, later slices that will need their own markers once they ship.
   'roadmap-items.ts',
+  // COLLABORATION panel slice 2 (board web-mtpzqrxl-z7jgbu): fetchHelpWantedItems
+  // only LISTS via `gh issue list --label "help wanted"`, and isHelpWantedItem
+  // is a pure label classifier — no assign, label, or comment write exists,
+  // same class as roadmap-items.ts just above. The dashboard panel and server
+  // route that will render this list (with its assignee as claim state) are
+  // separate, later slices that will need their own markers once they ship.
+  'help-wanted-items.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
