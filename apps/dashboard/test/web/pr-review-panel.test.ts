@@ -29,6 +29,9 @@ import {
   prReviewGuestNote,
   awaitingApprovalChecksUrl,
   checkDiagnosisResult,
+  fixProposalDiffLines,
+  fixProposalApproveDisabledReason,
+  fixProposalDiscardTip,
   type PrReviewPanelTranslator,
 } from '../../src/web/pr-review-panel.js';
 
@@ -323,6 +326,56 @@ describe('checkDiagnosisResult — the 🔧 Diagnose button’s result line (epi
     expect(checkDiagnosisResult(null).text).toBe('? Nothing to diagnose.');
     expect(checkDiagnosisResult(undefined).className).toBe(
       'pr-review-result pr-review-result-warn',
+    );
+  });
+});
+
+describe('fixProposalDiffLines — the diff-approval UI shell (VERDICT ap-mtydvfm1-0 slice a)', () => {
+  const FIXTURE_DIFF = [
+    'diff --git a/src/util.ts b/src/util.ts',
+    'index 1111111..2222222 100644',
+    '--- a/src/util.ts',
+    '+++ b/src/util.ts',
+    '@@ -1,3 +1,3 @@',
+    ' export function add(a: number, b: number): number {',
+    '-  return a - b;',
+    '+  return a + b;',
+    ' }',
+  ].join('\n');
+
+  it('classifies every line of a hand-authored fixture diff — no live fix-commit generator required', () => {
+    const lines = fixProposalDiffLines({ diff: FIXTURE_DIFF });
+    expect(lines.map((l) => l.className)).toEqual([
+      'diff-meta',
+      'diff-meta',
+      'diff-file',
+      'diff-file',
+      'diff-hunk',
+      'diff-context',
+      'diff-remove',
+      'diff-add',
+      'diff-context',
+    ]);
+    expect(lines[6]).toEqual({ text: '-  return a - b;', className: 'diff-remove' });
+    expect(lines[7]).toEqual({ text: '+  return a + b;', className: 'diff-add' });
+  });
+
+  it('returns no lines for an empty or missing diff, not a crash', () => {
+    expect(fixProposalDiffLines({ diff: '' })).toEqual([]);
+    expect(fixProposalDiffLines(null)).toEqual([]);
+    expect(fixProposalDiffLines(undefined)).toEqual([]);
+  });
+});
+
+describe('fixProposalApproveDisabledReason / fixProposalDiscardTip', () => {
+  it('says why Approve cannot act yet — disabled-with-reason, never a fabricated success', () => {
+    expect(fixProposalApproveDisabledReason()).toContain('not available yet');
+    expect(fixProposalApproveDisabledReason()).toContain('Nothing is pushed');
+  });
+
+  it('names the proposal being discarded and that nothing on GitHub changes', () => {
+    expect(fixProposalDiscardTip({ title: 'Fix the off-by-one in add()' })).toBe(
+      'Dismiss the proposed fix "Fix the off-by-one in add()" — nothing on GitHub changes.',
     );
   });
 });

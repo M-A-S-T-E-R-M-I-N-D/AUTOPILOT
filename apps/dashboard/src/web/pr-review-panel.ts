@@ -454,15 +454,29 @@ export function prReviewExecuteTip(
   );
 }
 
+/** A candidate fix commit for a `defect` verdict, the panel's own subset of
+ *  `flight/check-diagnosis.ts`'s `FixCommitProposal` — see that type's own
+ *  doc comment for the VERDICT `ap-mtydvfm1-0` slice split this belongs to.
+ *  Always absent today: `diagnoseFailedCheck` never sets it yet. */
+export interface FixCommitProposalLike {
+  readonly title: string;
+  readonly summary: string;
+  readonly diff: string;
+  readonly filesChanged: readonly string[];
+}
+
 /** The shape `GET /api/pr-review/diagnose?number=` returns — see
  *  `flight/check-diagnosis.ts`'s `CheckDiagnosisApiOutcome`. Only `verdict`
  *  and `reasoning` reach the panel; the classifier's other evidence fields
  *  (`failingTestPaths`/`touchedFailingPaths`/`matchedQuarantineEntries`) are
- *  already folded into `reasoning`'s own sentences. */
+ *  already folded into `reasoning`'s own sentences. `fixProposal` is the one
+ *  exception — its diff is the thing being rendered, not evidence text, so
+ *  it rides through unfolded (see {@link fixProposalDiffLines}). */
 export interface CheckDiagnosisResponse {
   readonly diagnosis?: {
     readonly verdict: string;
     readonly reasoning: readonly string[];
+    readonly fixProposal?: FixCommitProposalLike;
   };
   readonly reason?: string;
 }
@@ -497,6 +511,56 @@ export function checkDiagnosisResult(data: CheckDiagnosisResponse | null | undef
     return { className: base + 'ok', text: '✓ Flake — ' + evidence };
   }
   return { className: base + 'warn', text: '? Unknown — ' + evidence };
+}
+
+/**
+ * The diff-approval UI shell's evidence rendering (VERDICT `ap-mtydvfm1-0`
+ * slice (a)) — one entry per line of a {@link FixCommitProposalLike}'s
+ * `diff`, classified the same six ways `web/diff-view.ts`'s `diffLineClass`
+ * already classifies a `git show` patch: file/hunk headers stay muted,
+ * additions/removals get their own color, everything else renders as plain
+ * context. Duplicated rather than imported — this module's own header notes
+ * every exported function here stays self-contained (no shared module-scope
+ * constants), since `web/features/pr-review.ts` splices each function's own
+ * `.toString()` source into the client bundle, which carries only the
+ * function body, never an outer import binding.
+ */
+export function fixProposalDiffLines(
+  proposal: Pick<FixCommitProposalLike, 'diff'> | null | undefined,
+): readonly { readonly text: string; readonly className: string }[] {
+  const diff = (proposal && proposal.diff) || '';
+  if (!diff) return [];
+  return diff.split('\n').map((text) => {
+    let className = 'diff-context';
+    if (text.startsWith('+++') || text.startsWith('---')) className = 'diff-file';
+    else if (text.startsWith('diff --git') || text.startsWith('index ')) className = 'diff-meta';
+    else if (text.startsWith('@@')) className = 'diff-hunk';
+    else if (text.startsWith('+')) className = 'diff-add';
+    else if (text.startsWith('-')) className = 'diff-remove';
+    return { text, className };
+  });
+}
+
+/** The Approve button's disabled-with-reason text (epic 0020's own
+ *  principle: "a control that cannot act says why and what would
+ *  re-enable it"). Always disabled today — no code has ever landed in this
+ *  repo that can push a fix commit, so pretending Approve does something
+ *  would be a fabricated success, not a preview. Re-enables once VERDICT
+ *  `ap-mtydvfm1-0`'s slice (c) — the apply-approved-fix execute path —
+ *  exists. */
+export function fixProposalApproveDisabledReason(): string {
+  return (
+    'Applying a fix commit is not available yet — this previews what would be proposed. ' +
+    'Nothing is pushed to the PR branch from here.'
+  );
+}
+
+/** The Discard button's tip/aria-label — the diff-approval shell's other
+ *  explicit choice. Purely a client-side dismissal: nothing on GitHub
+ *  changes, so unlike every write verb elsewhere in this panel, this one
+ *  needs no confirm dialog. */
+export function fixProposalDiscardTip(proposal: Pick<FixCommitProposalLike, 'title'>): string {
+  return 'Dismiss the proposed fix "' + proposal.title + '" — nothing on GitHub changes.';
 }
 
 /** Structural subset of `flight/social-pass.ts`'s `SocialIdentity` this
