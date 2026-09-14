@@ -5,6 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Epic 0017 — Navigation remake: minimal, visual, memorable
 
+Status: Done (2026-09-14). Slices 1, 2, 4 and 5 shipped across v0.45.0–v0.48.0 (the
+masthead census, the icon cluster and its popover laws, the command palette, the
+subject and context rails of epic 0021); slice 3, the overflow menu, continues as
+epic 0029 slice 4. Tracking issue #27 closed by its claimants.
+
 **Status:** ACTIVE (operator directive 2026-09-06). Slices 1 and 4 shipped —
 `ae2c2419` (census) + `a0bdbc0f` (icon cluster), and the command palette
 landed as epic 0021 slice 7 (`242ec633`: a `<dialog>` combobox over a
