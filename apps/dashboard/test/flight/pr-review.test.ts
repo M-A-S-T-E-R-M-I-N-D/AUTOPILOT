@@ -284,6 +284,13 @@ const BENIGN_FLIGHT = new Set([
   // consumes tierForLogin/isAtLeastTier — that ritual will need its own
   // marker once it ships one.
   'contributor-registry.ts',
+  // COLLABORATION panel slice 1 (board web-mtpzqrxl-z7jgbu): fetchRoadmapItems
+  // only LISTS via `gh issue list --label roadmap`, and isRoadmapItem is a
+  // pure label classifier — no assign, label, or comment write exists, same
+  // class as pool-client.ts and contributor-issue-list.ts above. The
+  // dashboard panel and server route that will render this list are
+  // separate, later slices that will need their own markers once they ship.
+  'roadmap-items.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
