@@ -758,8 +758,12 @@ describe('the tiles translate (#16, first slice)', () => {
     ).toEqual(cardStatItems({ firings: 20, shipped: 15, shipRate: 0.75, recentShipRate: 0.4 }));
   });
 
-  it('the back link has a key in both locales, the arrow pointing the way the script reads', () => {
-    expect(STRINGS.en.backToFleet).toBe('← Fleet');
-    expect(STRINGS.he.backToFleet).toMatch(/→/);
+  it('the back link carries only words — the arrow is a mirroring icon, not a character (2026-09-14)', () => {
+    // A glyph inside the sentence cannot mirror: in Hebrew it landed on the
+    // wrong side of the words. The icon flips under dir=rtl instead.
+    expect(STRINGS.en.backToFleet).toBe('Fleet');
+    expect(STRINGS.he.backToFleet).toBe('צי');
+    for (const locale of ['en', 'he'] as const)
+      expect(STRINGS[locale].backToFleet).not.toMatch(/[←→]/);
   });
 });

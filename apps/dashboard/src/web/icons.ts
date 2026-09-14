@@ -397,6 +397,12 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2' }],
     ['path', { d: 'm9 14 2 2 4-4' }],
   ],
+  // … the back link (epic 0031 fix): a directional icon that mirrors under
+  // dir=rtl, instead of an arrow character baked into the words.
+  'arrow-left': [
+    ['path', { d: 'm12 19-7-7 7-7' }],
+    ['path', { d: 'M19 12H5' }],
+  ],
   // … the overflow menu's summary (epic 0017 slice 3) — ellipsis
   ellipsis: [
     ['circle', { cx: '12', cy: '12', r: '1' }],

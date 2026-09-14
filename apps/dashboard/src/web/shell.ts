@@ -3433,8 +3433,13 @@ function renderProjectPage(state, pid) {
   a.href = '/';
   // #16: the back link reads in the active locale; the tag lets a locale
   // switch repaint it without a rerender.
-  a.textContent = tr('backToFleet');
-  a.setAttribute('data-i18n', 'backToFleet');
+  // The arrow is an ICON, not a character in the sentence: a glyph baked
+  // into the string cannot mirror, and in Hebrew it landed on the wrong side
+  // of the words (operator, 2026-09-14). CSS flips the icon under dir=rtl.
+  a.appendChild(iconEl('arrow-left'));
+  var backText = el('span', '', tr('backToFleet'));
+  backText.setAttribute('data-i18n', 'backToFleet');
+  a.appendChild(backText);
   back.appendChild(a);
   fleet.appendChild(subj(back, 'fleet'));
   var c = null;

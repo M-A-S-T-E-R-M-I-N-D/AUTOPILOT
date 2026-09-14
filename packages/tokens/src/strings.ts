@@ -1345,7 +1345,7 @@ const EN_STRINGS = {
   tileShipRateProjectTip: 'Shipped firings as a share of all firings for this project',
   tileRecentForm: 'recent form',
   tileRecentFormTip: 'Ship rate over the last 5 firings',
-  backToFleet: '← Fleet',
+  backToFleet: 'Fleet',
   // BUSY STATES (web/features/busy.ts): the ritual scrim's words.
   ritualLanding: 'Landing',
   ritualRelease: 'Release',
@@ -2473,7 +2473,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     tileShipRateProjectTip: 'יריות ששוגרו כחלק מכלל הירי בפרויקט הזה',
     tileRecentForm: 'כושר אחרון',
     tileRecentFormTip: 'שיעור השיגור בחמש היריות האחרונות',
-    backToFleet: 'צי →',
+    backToFleet: 'צי',
     ritualLanding: 'נחיתה',
     ritualRelease: 'שחרור גרסה',
     ritualClaim: 'תביעת סוגיה',
