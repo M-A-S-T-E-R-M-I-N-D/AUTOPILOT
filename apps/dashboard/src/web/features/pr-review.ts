@@ -77,9 +77,6 @@ import {
   rerunChecksConfirmMessage,
   rerunChecksResult,
   checkDiagnosisResult,
-  fixProposalDiffLines,
-  fixProposalApproveDisabledReason,
-  fixProposalDiscardTip,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -133,14 +130,6 @@ ${rerunChecksResult.toString()}
 // it flake/defect/unknown instead of leaving re-run as the only answer to a
 // real defect.
 ${checkDiagnosisResult.toString()}
-// The diff-approval UI shell's pure rendering helpers (VERDICT
-// ap-mtydvfm1-0 slice (a)) — renderFixProposal below (this module's own,
-// not spliced: it builds real DOM, the one thing a .toString()-spliced pure
-// function never does here) uses these three to turn a defect verdict's
-// fixProposal into a real diff block with Approve/Discard controls.
-${fixProposalDiffLines.toString()}
-${fixProposalApproveDisabledReason.toString()}
-${fixProposalDiscardTip.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -463,64 +452,11 @@ document.addEventListener('click', function (e) {
       prPanelReportFailure(b, originalText, resultEl);
     });
 });
-// The 🔧 Diagnose result's diff-approval shell (VERDICT ap-mtydvfm1-0 slice
-// (a) wired live) — a defect verdict's fixProposal, when present, renders as
-// its own block below the result line: title, summary, the diff itself
-// (each line pre-classified by fixProposalDiffLines, same six classes
-// web/diff-view.ts's diffLineClass uses for the Firing Replay diff), and an
-// Approve/Discard pair. Approve stays permanently disabled-with-reason —
-// fixProposalApproveDisabledReason's own text says why: no fix-commit
-// generator exists yet (slice (b)), so nothing here can ever push a commit.
-// Discard is the one live control: a client-only dismissal, no confirm
-// dialog needed since nothing on GitHub changes. Re-diagnosing replaces any
-// prior block rather than stacking a second one.
-function renderFixProposal(item, data) {
-  var existing = item.querySelector('.fix-proposal');
-  if (existing) existing.parentNode.removeChild(existing);
-  var proposal = data && data.diagnosis && data.diagnosis.fixProposal;
-  if (!proposal) return;
-  var box = el('div', 'fix-proposal');
-  box.appendChild(el('p', 'fix-proposal-title', proposal.title));
-  box.appendChild(el('p', 'fix-proposal-summary', proposal.summary));
-  var pre = el('pre', 'fix-proposal-diff firing-diff');
-  var lines = fixProposalDiffLines(proposal);
-  for (var i = 0; i < lines.length; i++) {
-    pre.appendChild(el('div', lines[i].className, lines[i].text));
-  }
-  box.appendChild(pre);
-  var actions = el('div', 'fix-proposal-actions');
-  var approveReason = fixProposalApproveDisabledReason();
-  var approveBtn = document.createElement('button');
-  approveBtn.type = 'button';
-  approveBtn.className = 'pr-review-update-branch fix-proposal-approve';
-  approveBtn.textContent = 'Approve';
-  approveBtn.disabled = true;
-  approveBtn.setAttribute('aria-disabled', 'true');
-  approveBtn.setAttribute('data-tip', approveReason);
-  approveBtn.setAttribute('aria-label', 'Approve — ' + approveReason);
-  actions.appendChild(approveBtn);
-  var discardTip = fixProposalDiscardTip(proposal);
-  var discardBtn = document.createElement('button');
-  discardBtn.type = 'button';
-  discardBtn.className = 'pr-review-update-branch fix-proposal-discard';
-  discardBtn.textContent = 'Discard';
-  discardBtn.setAttribute('data-tip', discardTip);
-  discardBtn.setAttribute('aria-label', discardTip);
-  discardBtn.addEventListener('click', function () {
-    box.parentNode.removeChild(box);
-  });
-  actions.appendChild(discardBtn);
-  box.appendChild(actions);
-  item.appendChild(box);
-}
 // The two maintainer verbs — merge and update-branch — are the same
 // interaction: confirm, disable with a working label, POST, write the
 // outcome into the card's live region, re-poll. One wiring, two configs;
-// duplicating it cost real bundle bytes for zero behavior. onResult is
-// optional (only the 🔧 Diagnose call below passes one): a hook for a verb
-// whose response needs more than the result line, called with the same item
-// and raw response data prPanelRestore already had.
-function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor, onResult) {
+// duplicating it cost real bundle bytes for zero behavior.
+function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor) {
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('[' + attr + ']');
     if (!b || b.disabled) return;
@@ -557,7 +493,6 @@ function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor
           return;
         }
         prPanelRestore(b, originalText, resultEl, result);
-        if (onResult && item) onResult(item, data);
       })
       .catch(function () {
         prPanelReportFailure(b, originalText, resultEl);
@@ -595,7 +530,7 @@ wirePrMaintainerAction(
 // — a null confirmFor/bodyFor tells wirePrMaintainerAction this one is a
 // read-only GET: no confirm dialog, no body, and (since formatFor's result
 // never sets merged/updated/rerun) no re-poll on completion either.
-wirePrMaintainerAction('data-pr-diagnose', 'Diagnosing…', '/api/pr-review/diagnose?number=', null, null, checkDiagnosisResult, renderFixProposal);
+wirePrMaintainerAction('data-pr-diagnose', 'Diagnosing…', '/api/pr-review/diagnose?number=', null, null, checkDiagnosisResult);
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
 // function declaration from fleetJs()'s text in the same concatenated
 // bundle, the same top-level call shape coordination.ts already relies on.
