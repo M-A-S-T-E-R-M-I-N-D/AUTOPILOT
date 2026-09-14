@@ -1160,6 +1160,10 @@ const BENIGN_SCRIPTS = new Set([
   // loopback fixture, never the store, git, or GitHub. Same class as the
   // architecture/citation generators above.
   'docs/capture-screens.mjs',
+  // Doc GENERATOR: composes docs/screens/evolution.png from the repository's
+  // own history (git show of past docs/screens frames) — reads git, writes one
+  // PNG, touches nothing else.
+  'docs/compose-evolution.mjs',
   // Writes docs/debriefs/README.md from the debrief files' own headings —
   // the same generate-a-committed-doc-from-the-tree class as
   // data-model/generate-doc.mjs; reads the docs folder, writes one index
