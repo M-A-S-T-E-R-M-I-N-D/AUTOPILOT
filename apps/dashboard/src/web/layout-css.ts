@@ -183,6 +183,21 @@ h2 > .icon, h3 > .icon, summary > .icon:not(:only-child) { margin-inline-end: va
    fixed box; the grip shows only there. */
 textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; resize: none; }
 @supports not (field-sizing: content) { textarea { resize: vertical; } }
+/* The CONNECT popover's GitHub half reads as three things, not one wall
+   (operator, 2026-09-14: "the GitHub connection area is really cramped"):
+   the account (identity, its three verbs, the hint), updates (a line and its
+   one button, side by side), and reporting upstream — a disclosure, closed
+   until wanted, because the form is most of the height. */
+.connect-gh { display: grid; gap: var(--space-3); }
+.gh-group { display: grid; gap: var(--space-2); }
+.gh-auth { flex-wrap: wrap; }
+.gh-auth button { flex: 0 1 auto; }
+.gh-updates { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); }
+.gh-report-summary { cursor: pointer; list-style: none; font-size: var(--text-xs); color: var(--color-text-muted); padding-block: var(--space-1); }
+.gh-report-summary::-webkit-details-marker { display: none; }
+.gh-report-summary::before { content: '▸'; display: inline-block; inline-size: 1em; }
+.gh-report[open] > .gh-report-summary::before { content: '▾'; }
+.gh-report-summary:hover, .gh-report-summary:focus-visible { color: var(--color-text); }
 .gh-issue-form { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .gh-issue-form label { font-size: var(--text-xs); color: var(--color-text-muted); }
 .gh-issue-form input, .gh-issue-form textarea { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
@@ -313,7 +328,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 /* HIERARCHY.md §3/§6 (epic 0030 slice 3, second phone variant): the Fly bar
    is one line on a phone — folder chip + Fire — with the rest of the fields
    (browse, mode, firings/total, budget, lanes, Lucky) behind an
-   expand-on-tap <details> (.fly-options below) rather than wrapping onto
+   show-or-hide settings panel (.fly-options below) rather than wrapping onto
    several rows. The folder label goes visually-hidden below 48rem so the
    input + Fire fit one row; its accessible name survives via the label
    element itself (clipped, not display:none), same technique as
@@ -325,11 +340,18 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
    so desktop's already-captured README frames stay accurate. */
 .fly-folder-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 #fly-folder { flex: 1 1 auto; min-width: 0; font-family: var(--font-mono); }
-.fly-options { order: 3; flex-basis: 100%; }
-.fly-options-summary { cursor: pointer; list-style: none; font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding: var(--space-1) 0; }
-.fly-options-summary::-webkit-details-marker { display: none; }
-.fly-options-summary:hover, .fly-options-summary:focus-visible { color: var(--color-text); }
-.fly-options-body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-top: var(--space-2); }
+/* The settings panel is a plain container toggled by the hidden attribute,
+   at every width — NOT a <details>. A closed <details> keeps hiding its
+   content even under display:contents, so the desktop unwrap silently swallowed
+   browse, the budget mode, firings, $/firing, lanes and Lucky (operator,
+   2026-09-14: "why did the lucky button disappear?"). Lucky and Fire now sit
+   in the row itself and never collapse. */
+.fly-options { order: 3; flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-block-start: var(--space-2); }
+.fly-options[hidden] { display: none; }
+.fly-options-toggle { order: 2; display: inline-flex; align-items: center; justify-content: center; min-inline-size: 2.25rem; min-block-size: 2.25rem; padding: var(--space-1); font: inherit; cursor: pointer; color: var(--color-text-muted); background: transparent; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); transition: box-shadow var(--duration-short2) var(--easing-standard); }
+.fly-options-toggle:hover, .fly-options-toggle:focus-visible { color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.fly-options-toggle:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.fly-options-toggle[aria-expanded='true'] { color: var(--color-accent); border-color: var(--color-accent); }
 #fly-firings { width: 68px; }
 #fly-budget { width: 76px; }
 #fly-total { width: 76px; }
@@ -1755,8 +1777,8 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   .stat-tiles { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: var(--space-3); padding: var(--space-4) var(--page-inline); }
   #fly-folder, #search-q { flex: 1 1 260px; min-width: 200px; }
   .fly-folder-label { position: static; width: auto; height: auto; margin: 0; padding: 0; overflow: visible; clip: auto; white-space: normal; border: 0; }
-  .fly-options, .fly-options-body { display: contents; }
-  .fly-options-summary { display: none; }
+  /* From md the panel is the same flex row it is on a phone — it simply has
+     the width to sit on one line under the folder. */
   main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
   .pipeline-panel { flex-direction: row; align-items: flex-start; }
   .pipeline-tree { flex: 0 1 32%; min-width: 12em; }
