@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0001. No agent framework for the core loop
 
-Status: Accepted
+Status: Accepted, amended 2026-09-14 (see "Amendment" below)
 
 ## Context
 
@@ -52,7 +52,33 @@ the CLI, preserves the hook/permission model. Not needed today: the
 `ClaudeCliModel` adapter already delivers subscription auth + stream-json +
 `--settings` guard injection.
 
+## Amendment (2026-09-14) — the "forgone" multi-provider abstraction was since built, narrowly
+
+The Consequences section above lists "multi-provider abstraction" as something
+AUTOPILOT forgoes by not adopting a framework. That held at genesis but is no
+longer accurate: the engine ships its own minimal `ModelPort` seam
+(`packages/engine/src/ports.ts`) — `invoke(model, prompt, resumeSessionId?,
+caps?): Promise<ModelResponse>` — with `ClaudeCliModel`/
+`StreamingClaudeCliModel` (`adapters/claude-cli.ts`) as the reference
+implementation and `OllamaModel` (`adapters/ollama.ts`) as a second,
+independent driver, both exported publicly from `@autopilot/engine`
+(`index.ts`'s `export type * from './ports.js'`). `auth.ts`'s `endpoint` mode
+(community epic #21 slice S1) layers Anthropic-compatible endpoint
+redirection (Ollama, DeepSeek, a self-hosted proxy) on top of the SAME
+`ClaudeCliModel` driver — no new adapter needed for that slice.
+
+This is not the framework-grade abstraction this ADR declined (no graph
+visualizer, no community integration marketplace) — it is the narrowest seam
+that lets a second driver exist at all, built because the core loop needed
+it, not because a framework was adopted. Issue #21's S2 slice ("PilotAdapter
+seam … documented interface with claude as reference impl") describes
+exactly this seam; it already existed before the issue was filed. The
+remaining tradeoff — no vendor-CLI adapters for Codex/Copilot/Kiro/OpenCode —
+stands and is issue #21's S3+ (community-claimed slices), not resolved by
+this amendment.
+
 ## Related
 
 - `docs/ECOSYSTEM-RESEARCH.md` §1
 - `docs/MASTER-PLAN.md` §15.2 (engine language / stack)
+- GitHub issue #21 (multi-provider pilots, community epic)
