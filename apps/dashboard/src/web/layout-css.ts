@@ -961,21 +961,36 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
   display: flex; align-items: center; justify-content: center; padding: var(--space-4);
 }
 .report-dialog-overlay[hidden] { display: none; }
+/* A short window is the hard case (operator, 2026-09-14: "too thin, clips
+   text at short viewport heights"): dvh follows the mobile browser's own
+   chrome, min-block-size:0 lets the flex children shrink instead of
+   overflowing their parent, and the capture block yields first because the
+   words the operator is typing matter more than the context they can
+   re-read. */
 .report-dialog {
-  position: relative; width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto;
+  position: relative; width: 100%; max-width: 560px; max-block-size: min(85vh, 85dvh); overflow-y: auto; min-block-size: 0;
   background: var(--color-surface-raised); border: 1px solid var(--color-border);
   border-radius: var(--shape-medium); padding: var(--space-5); box-shadow: var(--elevation-level-2);
   display: flex; flex-direction: column; gap: var(--space-2);
 }
 .report-dialog-title { margin: 0 var(--space-6) 0 0; font-size: var(--text-lg); }
 .report-dialog-capture {
-  margin: 0; max-height: 30vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  margin: 0; max-block-size: clamp(3.5rem, 22vh, 12rem); min-block-size: 0; flex: 0 1 auto; overflow: auto; white-space: pre-wrap; word-break: break-word;
   font-size: var(--text-xs); color: var(--color-text-muted); background: var(--color-surface);
   border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2);
 }
 /* Report dialog ✕ (COCKPIT 6/6): the same MX shape-morph + elevation
    hover/active pair its outline-chip siblings #fly-browse-btn / .docs-file
    carry, keeping its surface wash. Never disabled, so no guard. */
+.report-dialog textarea { min-block-size: 3lh; }
+@media (max-height: 640px) {
+  .report-dialog { padding: var(--space-3); gap: var(--space-1); }
+  .report-dialog-title { font-size: var(--text-base); }
+}
+/* The back link's arrow mirrors with the writing direction — Material's own
+   rule for a directional icon, and the reason the glyph left the string. */
+.back .icon { flex: 0 0 auto; }
+[dir='rtl'] .back .icon { transform: scaleX(-1); }
 .report-dialog-close {
   position: absolute; top: var(--space-3); inset-inline-end: var(--space-3); font: inherit; font-size: var(--text-sm);
   cursor: pointer; width: 28px; height: 28px; line-height: 1; border-radius: var(--shape-extra-small);

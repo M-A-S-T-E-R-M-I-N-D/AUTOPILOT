@@ -258,6 +258,13 @@ function planLocal(
       id: reportTaskId(capture, action),
       projectId,
       title,
+      // THE REPORT'S OWN WORDS (operator, 2026-09-14: a filed report reached
+      // the board as a title and nothing else). The capture the dialog
+      // showed — what the operator typed, then the element, its region and
+      // the modules that own it — is what a firing needs to act on it, and
+      // `createTask` has always had a column for it. Bounded so one report
+      // can never become a wall in the board.
+      body: reportTaskBody(capture),
       severity: capture.severity ?? null,
       dimension: classifyIssueDimension(`${capture.regionLabel} ${capture.description}`),
       // Operator-authored through the dashboard, so it is queued directly the
@@ -281,6 +288,19 @@ function planLocal(
  * invalid. `projectId`/`createdAt` feed only the task-shaped actions —
  * upstream issue plans ignore them.
  */
+/** How much of a capture a board task carries — enough to act on, never a
+ *  wall. The dialog's own context block is already bounded upstream. */
+export const REPORT_BODY_CHARS = 4000;
+
+/** The task body a report becomes: the operator's words and the capture that
+ *  came with them, then where it was taken from. */
+export function reportTaskBody(capture: ReportRegionCapture): string {
+  const where = capture.moduleSources.length
+    ? `\n\nRegion: ${capture.regionLabel} (${capture.regionId}) — ${capture.moduleSources.join(', ')}`
+    : `\n\nRegion: ${capture.regionLabel} (${capture.regionId})`;
+  return (capture.description.trim() + where).slice(0, REPORT_BODY_CHARS);
+}
+
 export function planReportFromHere(
   capture: ReportRegionCapture,
   action: ReportAction,
