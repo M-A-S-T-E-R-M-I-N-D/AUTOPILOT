@@ -6,6 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.49.0] — 2026-09-14
+
+### Added
+
+- feat(dashboard): github connection in three groups, ci's no-runs-yet, hebrew that launches
+- feat(dashboard): fleet coordination panel heading drops its emoji for the vendored handshake icon
+- feat(dashboard): wire the diff-approval UI shell into the live Diagnose panel
+- feat(flight): read the help-wanted label with claim state — COLLABORATION panel data source, slice 2
+- feat(dashboard): wire the diff-approval UI shell into the live Diagnose panel
+- feat(flight): read the roadmap label — COLLABORATION panel data source, slice 1
+- feat(dashboard): diff-approval UI shell's pure contract (epic 0020 slice 8a)
+- feat(engine): add endpoint auth mode for Anthropic-compatible providers
+- feat(dashboard): docs + flight console panel headings drop emoji for vendored icons
+
+### Fixed
+
+- fix(e2e): the phone popover test taps the popover's own trigger, not its nested disclosure
+- fix(dashboard): the settings gear rides the fly bar's first row, not below the hint
+- fix(dashboard): the fly bar's folder field yields, so lucky, fire and the gear share its row
+- fix(dashboard): the fly bar keeps two buttons — lucky and fire never collapse
+- fix(ask): ground live-state context in the project's on-disk location
+
 ## [0.48.1] — 2026-09-14
 
 ### Added
