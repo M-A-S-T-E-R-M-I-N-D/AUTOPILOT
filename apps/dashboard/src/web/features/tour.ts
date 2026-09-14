@@ -127,6 +127,25 @@ function paintTour() {
     next.setAttribute('data-tip', tr('tourNextTip'));
     next.addEventListener('click', function () { tourStep++; paintTour(); });
     nav.appendChild(next);
+  } else {
+    // THE HAND-OVER (operator, 2026-09-15: "the tour was supposed to be
+    // connected to the onboarding"). The tour teaches four words and then
+    // used to just stop, leaving the reader with vocabulary and nothing to
+    // press. Its last step now opens the checklist, which is the half that
+    // asks them to actually do something. Guarded: the ladder rides the same
+    // deferred chunk, and a page without it simply closes as before.
+    var toLadder = document.createElement('button');
+    toLadder.type = 'button';
+    // NOT 'tour-next': that class means ADVANCE, and anything walking the
+    // tour by clicking it would walk straight out of the dialog.
+    toLadder.className = 'tour-start';
+    toLadder.textContent = tr('tourToLadder');
+    toLadder.setAttribute('data-tip', tr('tourToLadderTip'));
+    toLadder.addEventListener('click', function () {
+      closeTour();
+      if (typeof obFocusLadder === 'function') obFocusLadder();
+    });
+    nav.appendChild(toLadder);
   }
   actions.appendChild(nav);
   dialog.appendChild(actions);

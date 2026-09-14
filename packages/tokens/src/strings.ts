@@ -1953,6 +1953,13 @@ const EN_STRINGS = {
   obSnoozeDone: 'Put away — it comes back the next day you open the dashboard.',
   obComplete: 'Both ticks earned. Thank you — contributors are why this gets better.',
   obSocialLocked: 'Fly one firing to open the pool, the discussions and the standing board.',
+  // The tour and the ladder are one path, not two (operator, 2026-09-15):
+  // the tour teaches the four words, its last step hands over to the
+  // checklist, and the checklist links back for anyone who wants the words.
+  tourToLadder: 'Start the checklist',
+  tourToLadderTip: 'Closes the tour and takes you to the first thing to do',
+  obTourLink: 'What do these words mean?',
+  obTourLinkTip: 'Opens the short tour: firing, slice, gate, flight',
   obBadgesAria: 'Badges earned',
   obWatermark: 'Built with AUTOPILOT',
 } as const;
@@ -2957,6 +2964,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     obSnoozeDone: 'הוסתר — זה יחזור ביום הבא שתפתחו את לוח המחוונים.',
     obComplete: 'שני הווים הושגו. תודה — תורמים הם הסיבה שזה משתפר.',
     obSocialLocked: 'טוסו הפעלה אחת כדי לפתוח את הבריכה, הדיונים ולוח הדירוג.',
+    tourToLadder: 'התחילו את הצ׳ק-ליסט',
+    tourToLadderTip: 'סוגר את הסיור ולוקח אתכם לדבר הראשון שצריך לעשות',
+    obTourLink: 'מה המילים האלה אומרות?',
+    obTourLinkTip: 'פותח את הסיור הקצר: הפעלה, פרוסה, שער, טיסה',
     obBadgesAria: 'תגים שהושגו',
     obWatermark: 'נבנה עם AUTOPILOT',
   },
