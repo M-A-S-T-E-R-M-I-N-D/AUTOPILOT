@@ -415,7 +415,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 /* 🍀 WHAT to fly (issue #44): the fit shortlist under the bar — one issue per
    line with its score and the why; the attention toggle re-rolls. Titles and
    reasons are user/server text: plaintext bidi, never forced either way. */
-.fly-fit { flex-basis: 100%; margin: var(--space-2) 0 0; padding-block-start: var(--space-2); border-top: 1px solid var(--color-border); }
+.fly-fit { order: 5; flex-basis: 100%; margin: var(--space-2) 0 0; padding-block-start: var(--space-2); border-top: 1px solid var(--color-border); }
 .fly-fit-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
 .fly-fit-attention { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
 .fly-fit-attention button { font: inherit; font-size: var(--text-xs); min-block-size: 1.75rem; padding: 0 var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
@@ -434,7 +434,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .fly-fit-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
 .fly-fit-why { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 /* The roll's arithmetic: one row per reason, under the bar. */
-.fly-why { flex-basis: 100%; margin-block-start: var(--space-2); padding-block-start: var(--space-2); border-block-start: 1px solid var(--color-border); }
+.fly-why { order: 4; flex-basis: 100%; margin-block-start: var(--space-2); padding-block-start: var(--space-2); border-block-start: 1px solid var(--color-border); }
 .fly-why[hidden] { display: none; }
 .fly-why-title { margin: 0; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
 .fly-why-list { margin: var(--space-1) 0 0; padding-inline-start: 1.25rem; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }

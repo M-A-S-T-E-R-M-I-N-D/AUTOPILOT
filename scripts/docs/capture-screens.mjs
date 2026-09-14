@@ -197,7 +197,13 @@ try {
   await page.fill('#fly-folder', FOLDER);
   await page.locator('#fly-folder').blur();
   await settle(page);
+  // Settings closed: the first impression is the row itself — folder, Lucky,
+  // Fire, and the gear that holds the rest (epic 0031 era).
   await clip(page, '#flightbar', join(OUT, 'lock-on.png'));
+  // …and open for the roll, so the numbers it fills are visible beside the
+  // reasoning it gives.
+  await page.click('#fly-options-toggle');
+  await settle(page);
   await page.click('#fly-lucky');
   await page.locator('#fly-fit:not([hidden])').waitFor();
   await page.locator('#fly-go').blur(); // the roll hands focus to Fire; its tip would cover the folder
@@ -209,9 +215,12 @@ try {
   ({ context, page } = await open(browser, { theme: 'dark', flight: runningFlight, stageProgress: true }));
   await page.locator('#flightbar').waitFor({ state: 'visible' });
   await page.fill('#fly-folder', FOLDER);
+  await page.click('#fly-options-toggle');
+  await settle(page);
   await page.fill('#fly-firings', '4');
   await page.fill('#fly-lanes', '2');
   await page.locator('#fly-lanes').blur();
+  await page.click('#fly-options-toggle');
   await settle(page, 4000);
   await clip(page, '#flightbar', join(OUT, 'fire.png'));
   await context.close();
