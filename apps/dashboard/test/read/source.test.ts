@@ -2123,8 +2123,9 @@ describe('readReleaseInfo', () => {
       expect(release?.currentVersion).toBe('1.0.0');
       expect(release?.plan?.ok).toBe(true);
       if (release?.plan?.ok) {
-        expect(release.plan.bump).toBe('minor');
-        expect(release.plan.version).toBe('1.1.0');
+        // The small-release law (2026-09-14): a few feat/fix commits make a sub-update.
+        expect(release.plan.bump).toBe('patch');
+        expect(release.plan.version).toBe('1.0.1');
       }
     } finally {
       cleanupDir(repo);
