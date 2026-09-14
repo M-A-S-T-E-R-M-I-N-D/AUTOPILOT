@@ -6,6 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.48.1] — 2026-09-14
+
+### Added
+
+- feat(dashboard): the overflow menu — tour, the docs and report from here behind one ellipsis
+- feat(release): the small-release law — few updates make a sub-update, 0.XX.YY
+
 ## [0.48.0] — 2026-09-13
 
 ### Added
