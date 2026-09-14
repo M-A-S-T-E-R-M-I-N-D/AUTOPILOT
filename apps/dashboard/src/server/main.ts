@@ -116,7 +116,7 @@ import { createCiStatusApi } from '../control/ci-status.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
 import { isAnyFlightLockLive } from '../flight/lock.js';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFile, execFileSync } from 'node:child_process';
 import { createControlExecuteApi } from '../flight/control-execute.js';
 import { ensureSelfOnboarded } from './self-onboard.js';
 import { listBrowsableFolder } from './browse-folder.js';
@@ -133,6 +133,7 @@ import {
   readFlightOwnerPid,
 } from '../flight/lock.js';
 import { luckyPlan, type LuckyProbe } from '../flight/lucky-plan.js';
+import { detectDiskClass, DISK_PROBE_TIMEOUT_MS, type DiskClass } from '../flight/disk-class.js';
 import {
   luckyFit,
   mergeFitCandidates,
@@ -587,6 +588,34 @@ async function rollLuckyFit(
   }
 }
 
+/** One answer per folder, for the life of the process. A failed probe is
+ *  cached too: retrying a 340 ms child process on every roll to re-learn the
+ *  same `unknown` would be the worse trade. */
+const diskClassCache = new Map<string, DiskClass>();
+
+async function cachedDiskClass(target: string): Promise<DiskClass> {
+  const known = diskClassCache.get(target);
+  if (known !== undefined) return known;
+  const exec = (command: string, args: readonly string[]): Promise<string | undefined> =>
+    new Promise((res) => {
+      execFile(
+        command,
+        [...args],
+        { windowsHide: true, timeout: DISK_PROBE_TIMEOUT_MS, encoding: 'utf8' },
+        (error, stdout) => res(error ? undefined : stdout),
+      );
+    });
+  let answer: DiskClass = 'unknown';
+  try {
+    answer = await detectDiskClass(target, process.platform, exec);
+  } catch {
+    // A probe must never be able to fail a roll. `unknown` means "do not
+    // constrain", so this degrades to exactly the old behaviour.
+  }
+  diskClassCache.set(target, answer);
+  return answer;
+}
+
 const server = createServer({
   readState: () => ({ ...readFleetFromStore(dbPath, Date.now()), otlpConfigured }),
   // The Fly bar's 🍀 "I'm feeling lucky" button (GET /api/lucky): assemble
@@ -595,6 +624,10 @@ const server = createServer({
   // readFleetFromStore read /api/state serves — and roll
   // flight/lucky-plan.ts's calibrated launch plan from it. Read-only; the
   // plan fills the Fly bar and the launch click stays the operator's.
+  // WHAT DISK THE WORKTREES ARE ON (profiling, 2026-09-14). Asked once and
+  // remembered: a disk does not change under a running dashboard, and the
+  // probe costs ~340 ms on Windows — worth paying once, never per roll.
+  // Keyed by folder, because a fleet can fly targets on different volumes.
   lucky: async (folder, ask) => {
     const target = resolve(folder ?? flightApi.defaultFolder?.() ?? process.cwd());
     const projectId = deriveFlyProjectId(target);
@@ -609,6 +642,7 @@ const server = createServer({
       freeRamGb: freemem() / 1024 ** 3,
       queuedTasks,
       runningFlights,
+      diskClass: await cachedDiskClass(target),
     };
     const plan = luckyPlan(probe);
     const fit = await rollLuckyFit(

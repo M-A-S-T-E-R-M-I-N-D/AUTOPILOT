@@ -149,6 +149,15 @@ const BENIGN_FLIGHT = new Set([
   // Its plan FILLS the Fly bar; the launch (and its spend) stays behind
   // the operator's own already-guarded Fly click.
   'lucky-plan.ts',
+  // disk-class.ts: asks the platform what kind of disk a folder lives on,
+  // so lucky-plan.ts can stop sizing a fleet as if every machine had an
+  // NVMe. Read-only by construction — one bounded child process per folder,
+  // cached, running a fixed CIM/sysfs/diskutil query with the drive LETTER
+  // as its only interpolation (uppercased, matched from /^([a-z]):/). It
+  // writes nothing, decides no command, and every failure path returns
+  // 'unknown', which the plan treats as 'do not constrain' — so the worst a
+  // broken probe can do is restore the previous behaviour.
+  'disk-class.ts',
   // Pure copy PLAN for the onboarding's one-click sample (epic 0032): what to
   // copy, where to, and which refusals to word. No filesystem, no git, no
   // store — server/main.ts performs the copy and the registration, and the

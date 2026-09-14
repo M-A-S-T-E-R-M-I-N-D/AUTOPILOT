@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi } from 'vitest';
-import { rmSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { rmSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -481,6 +481,84 @@ describe('createLandingExecuteApi', () => {
         // main never gained the flight branch's commit — git was never touched.
         const mainLog = gitSync(repo, ['log', 'main', '--oneline']);
         expect(mainLog).not.toContain('feat: second');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('LETS THROUGH a branch that re-renders the very baselines the converged branch is red on', async () => {
+      // THE DEADLOCK THIS CLOSES (operator, 2026-09-15: "how did you finish
+      // red?"). Visual baselines are CI-canonical — only a CI run can
+      // regenerate them — so any rendered-UI change leaves the converged
+      // branch red for one cycle, until the freshly rendered snapshots are
+      // adopted and landed. But this guard refuses to land INTO a red
+      // converged branch, so it blocked the one commit that could clear the
+      // redness it was reporting. A guard whose refusal cannot be cleared by
+      // the remedy has stopped guarding anything.
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-e2efix-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        // The branch carries an adopted baseline, exactly as the real fix did.
+        const snapDir = join(repo, 'apps/dashboard/e2e/visual.spec.ts-snapshots');
+        mkdirSync(snapDir, { recursive: true });
+        writeFileSync(join(snapDir, 'fleet-dark-chromium-win32.png'), 'rendered-by-ci');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'test(visual): adopt the CI-rendered baselines']);
+
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const e2eLandGuard: E2eLandGuard = vi.fn(() => ({
+          ok: false,
+          detail: 'failure (5m ago)',
+        }));
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          e2eLandGuard,
+        )('p1');
+
+        // The red verdict no longer wins: this branch IS the remedy.
+        expect(result?.reason).not.toBe('e2e-red');
+        const mainLog = gitSync(repo, ['log', 'main', '--oneline']);
+        expect(mainLog).toContain('adopt the CI-rendered baselines');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('still refuses a branch that changes anything OTHER than the baselines', async () => {
+      // The escape stays narrow on purpose. Keeping unrelated work off a
+      // broken converged branch is the whole point of the guard, and this
+      // is the case that proves the exception did not swallow the rule.
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-e2enofix-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          vi.fn(() => ({ ok: false, detail: 'failure (5m ago)' })) as E2eLandGuard,
+        )('p1');
+
+        expect(result?.reason).toBe('e2e-red');
+        expect(gitSync(repo, ['log', 'main', '--oneline'])).not.toContain('feat: second');
       } finally {
         cleanupDir(repo);
         cleanupDir(dbDir);
