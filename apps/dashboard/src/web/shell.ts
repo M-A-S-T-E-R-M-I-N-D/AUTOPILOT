@@ -4546,7 +4546,14 @@ ${settingsMenuHtml()}
         <div class="connect-body foundation-body" id="foundation-body"></div>
       </details>
       <button type="button" class="palette-btn" id="palette-btn" aria-haspopup="dialog" aria-controls="palette" aria-label="Commands (Ctrl or ⌘ K)" data-i18n-aria="paletteOpen" data-tip="Commands (Ctrl or ⌘ K)" data-i18n-tip="paletteOpen"><kbd>⌘K</kbd></button>
-      <button type="button" class="tour-btn" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip" data-i18n="tour">Tour</button>
+      <details class="connect more-menu" id="more-menu" name="masthead-popover">
+        <summary id="more-summary" aria-label="More: tour, docs, report from here" data-i18n-aria="moreNav" data-tip="Tour, the docs, report from here" data-i18n-tip="moreTip">${iconSvg('ellipsis')}</summary>
+        <div class="connect-body more-body">
+          <button type="button" class="more-item" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip">${iconSvg('compass')}<span data-i18n="tour">Tour</span></button>
+          <a class="more-item" id="docs-link" href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/main/docs/README.md" target="_blank" rel="noopener" data-tip="The documentation index on GitHub (opens a new tab)" data-i18n-tip="docsLinkTip">${iconSvg('book-open')}<span data-i18n="docsLink">Docs</span></a>
+          <button type="button" class="more-item" id="report-btn" data-tip="Capture this page for an issue, a quick fix or a note — a preview first, always" data-i18n-tip="reportBtnTip">${iconSvg('flag')}<span data-i18n="reportBtn">Report from here</span></button>
+        </div>
+      </details>
     </div>
   </header>
 ${subjectNavHtml(project)}

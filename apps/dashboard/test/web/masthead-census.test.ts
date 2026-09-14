@@ -119,6 +119,19 @@ describe('masthead census (EPIC 0017 slice 1/5) — pins every existing control 
     expect(masthead).toContain('id="foundation-body"');
   });
 
+  it('renders the overflow menu — one ellipsis holding Tour, the docs and Report from here (epic 0017 slice 3)', () => {
+    expect(masthead).toMatch(/<details[^>]*id="more-menu"[^>]*name="masthead-popover"/);
+    expect(masthead).toContain('data-i18n-aria="moreNav"');
+    expect(masthead).toContain('class="icon icon-ellipsis"');
+    expect(masthead).toContain('id="docs-link"');
+    expect(masthead).toContain('rel="noopener"');
+    expect(masthead).toContain('data-i18n="docsLink"');
+    expect(masthead).toContain('id="report-btn"');
+    expect(masthead).toContain('data-i18n="reportBtn"');
+    // The menu holds the launcher; nothing about it stands alone in the masthead any more.
+    expect(masthead.indexOf('id="more-menu"')).toBeLessThan(masthead.indexOf('id="tour-btn"'));
+  });
+
   it('renders the guided-tour launcher', () => {
     expect(masthead).toContain('id="tour-btn"');
     expect(masthead).toContain('aria-haspopup="dialog"');

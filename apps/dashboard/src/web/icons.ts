@@ -397,6 +397,12 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2' }],
     ['path', { d: 'm9 14 2 2 4-4' }],
   ],
+  // … the overflow menu's summary (epic 0017 slice 3) — ellipsis
+  ellipsis: [
+    ['circle', { cx: '12', cy: '12', r: '1' }],
+    ['circle', { cx: '19', cy: '12', r: '1' }],
+    ['circle', { cx: '5', cy: '12', r: '1' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
