@@ -22,6 +22,7 @@ import {
   type ProvenanceFacts,
   type ProvenanceProfile,
 } from '../src/provenance.js';
+import { identityDisclosure } from '../src/github-identity-disclosure.js';
 
 const PROFILES: readonly ProvenanceProfile[] = [
   'default',
@@ -187,5 +188,47 @@ describe('reading the target repository’s own policy', () => {
     const mixed =
       'Some projects use Assisted-by:. We do not. Do not add the assisted-by commit trailer here.';
     expect(profileFromPolicyText(mixed)).toBe('prose-only');
+  });
+});
+
+/**
+ * The seam: `identityDisclosure` is the one function both `planGithubIssue`
+ * and `planGithubPr` already call, so it is where provenance reaches a real
+ * artifact. Its old shape has to survive untouched — every existing filing
+ * path still calls it with two arguments.
+ */
+describe('identityDisclosure carries provenance without changing its old shape', () => {
+  it('returns byte-identical output to before when no provenance is supplied', () => {
+    expect(identityDisclosure('someone', '0.49.0')).toBe(
+      '🛩️ Flown by [AUTOPILOT](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT) v0.49.0, ' +
+        'on behalf of @someone\n\nAutopilot-Agent: true',
+    );
+  });
+
+  it('keeps the agent marker answerable when it does carry provenance', () => {
+    // The old `Autopilot-Agent: true` line becomes the block's `agent`
+    // field. Anything that parsed the marker still gets its answer; it just
+    // reads it from JSON now.
+    const out = identityDisclosure('someone', '0.49.0', {
+      review: 'human-reviewed',
+      models: [{ vendor: 'Anthropic', id: 'claude-sonnet-5' }],
+      generatedAt: '2026-09-14T18:22:04Z',
+      profile: 'default',
+    });
+    expect(parseBlock(out)['agent']).toBe(true);
+    expect(out).toContain('on behalf of @someone');
+    expect(out).toContain('human-reviewed before posting');
+  });
+
+  it('still says who it is and who it flies for under the quietest profile', () => {
+    const out = identityDisclosure('someone', '0.49.0', {
+      review: 'unreviewed',
+      models: [],
+      generatedAt: '2026-09-14T18:22:04Z',
+      profile: 'minimal',
+    });
+    expect(out).toContain('@someone');
+    expect(out).toContain('without human review');
+    expect(out).not.toContain(PROVENANCE_MARKER);
   });
 });
