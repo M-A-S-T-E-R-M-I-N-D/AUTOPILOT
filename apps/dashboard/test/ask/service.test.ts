@@ -158,6 +158,21 @@ describe('askProject', () => {
     expect(prompt).toContain('Flight: not running right now');
   });
 
+  it('awaits an async (Promise-returning) liveState dep and threads its text into the prompt', async () => {
+    const invoke = vi.fn((_p: string) => Promise.resolve<string | null>('ok'));
+    const result = await askProject(
+      deps({
+        invoke,
+        liveState: () => Promise.resolve('Flight: RUNNING right now — f42, phase: gate.'),
+      }),
+      'p1',
+      'is a flight running right now?',
+    );
+    expect(result.sources[0]).toBe(LIVE_STATE_LABEL);
+    const prompt = invoke.mock.calls[0]?.[0] ?? '';
+    expect(prompt).toContain('Flight: RUNNING right now — f42');
+  });
+
   it('threads the current view into the grounded prompt, ahead of live state', async () => {
     const invoke = vi.fn((_p: string) => Promise.resolve<string | null>('ok'));
     const result = await askProject(
