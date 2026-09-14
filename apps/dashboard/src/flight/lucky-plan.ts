@@ -31,7 +31,25 @@ export interface LuckyProbe {
   readonly queuedTasks: number;
   /** Flights currently running or queued in the registry, fleet-wide. */
   readonly runningFlights: number;
+  /** What kind of disk the worktrees and the package store live on.
+   *
+   *  Added 2026-09-14 after profiling the operator's own machine found the
+   *  term that actually dominates and was not being measured: the repo sat
+   *  on a 7200 RPM platter while an NVMe idled in the same box. A 4 KiB
+   *  fsync cost 11.2 ms there against 0.22 ms on the NVMe — 51x, measured
+   *  twice. A third of a typecheck is I/O read time, and N lanes over one
+   *  platter is N sets of random reads over tens of thousands of small
+   *  files competing for one head.
+   *
+   *  Optional: a probe that could not tell reports `unknown` and the plan
+   *  sizes exactly as it did before, rather than guessing. */
+  readonly diskClass?: DiskClass;
 }
+
+/** What the worktrees are stored on. `unknown` is a real answer — every
+ *  platform has cases the cheap probes cannot resolve without elevation,
+ *  and a wrong guess here throttles a fast machine for no reason. */
+export type DiskClass = 'nvme' | 'ssd' | 'hdd' | 'unknown';
 
 /** The rolled plan — either a calibrated launch or an explained refusal. */
 export interface LuckyPlan {
@@ -79,6 +97,30 @@ const CORES_PER_LANE = 3;
  *  and sync-back — the partitioner would hand it a starved shard. */
 const TASKS_PER_LANE = 2;
 
+/** Lanes a disk can carry before they spend their time queued behind each
+ *  other's reads. A spinning platter has ONE head: a second lane does not
+ *  halve the wait, it doubles the seeking. An NVMe has real queue depth and
+ *  barely notices. `unknown` sits at the SSD number — the common case on a
+ *  machine new enough to run this, and the conservative direction is to not
+ *  throttle a fast machine on a failed probe. */
+const LANES_BY_DISK: Readonly<Record<DiskClass, number>> = {
+  hdd: 1,
+  ssd: 4,
+  // An NVMe and a failed probe both mean 'do not constrain here'. Throttling
+  // a fast machine because a probe could not answer would be the worse
+  // mistake by far, so only a POSITIVELY identified slow disk ever bites.
+  nvme: LUCKY_MAX_LANES,
+  unknown: LUCKY_MAX_LANES,
+};
+
+/** How the disk term reads in the roll's own explanation. */
+const DISK_LABEL: Readonly<Record<DiskClass, string>> = {
+  hdd: 'a spinning disk',
+  ssd: 'an SSD',
+  nvme: 'an NVMe',
+  unknown: 'an unidentified disk',
+};
+
 const FIRINGS_MIN = 2;
 const FIRINGS_MAX = 4;
 
@@ -114,7 +156,12 @@ export function luckyPlan(probe: LuckyProbe): LuckyPlan {
   const lanesByCpu = Math.floor(idleCores / CORES_PER_LANE);
   const lanesByRam = Math.floor((probe.freeRamGb - RAM_GB_RESERVED) / RAM_GB_PER_LANE);
   const lanesByTasks = Math.floor(probe.queuedTasks / TASKS_PER_LANE);
-  const lanes = Math.max(1, Math.min(LUCKY_MAX_LANES, lanesByCpu, lanesByRam, lanesByTasks));
+  const diskClass: DiskClass = probe.diskClass ?? 'unknown';
+  const lanesByDisk = LANES_BY_DISK[diskClass];
+  const lanes = Math.max(
+    1,
+    Math.min(LUCKY_MAX_LANES, lanesByCpu, lanesByRam, lanesByTasks, lanesByDisk),
+  );
 
   // Size the round to roughly drain each lane's shard; the floor keeps a
   // second firing for collection/repair, the cap keeps the round short
@@ -128,6 +175,7 @@ export function luckyPlan(probe: LuckyProbe): LuckyPlan {
     `CPU: ${Math.round(probe.cpuLoadPct)}% load on ${probe.logicalCores} cores leaves ~${idleCores.toFixed(1)} idle → ${lanesByCpu} lane(s) at ${CORES_PER_LANE} cores each`,
     `RAM: ${probe.freeRamGb.toFixed(1)} GB free minus ${RAM_GB_RESERVED} GB reserved → ${lanesByRam} lane(s) at ${RAM_GB_PER_LANE} GB each`,
     `board: ${probe.queuedTasks} queued task(s) → ${lanesByTasks} lane(s) at ≥${TASKS_PER_LANE} tasks each`,
+    `disk: the worktrees are on ${DISK_LABEL[diskClass]} → ${lanesByDisk} lane(s)`,
     `rolled: ${lanes} lane(s) × ${firings} firing(s) at $${LUCKY_BUDGET_USD}/firing (cap ${LUCKY_MAX_LANES} lanes)`,
   ];
 
