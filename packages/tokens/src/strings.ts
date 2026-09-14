@@ -774,7 +774,7 @@ const EN_STRINGS = {
   coordinationUnavailable: 'Fleet coordination unavailable.',
   // web/features/docs-viewer.ts (board web-msnsndki-dz3vn1): the project
   // page's Docs reader panel — title, and the empty/fetch-failure states.
-  docsTitle: '📚 Docs',
+  docsTitle: 'Docs',
   docsEmpty: 'No indexed documents yet.',
   docsUnavailable: 'Docs unavailable.',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
@@ -1752,7 +1752,7 @@ const EN_STRINGS = {
   // grammar choice flightDebriefGuardDenialSingular/Plural already makes —
   // so the translated grammar matches console-panel.ts's own
   // consoleLinesAriaLabel(), not a lowest-common-denominator "(s)" suffix.
-  consoleTitle: '🖥️ Flight console',
+  consoleTitle: 'Flight console',
   consoleTitleTip: 'Raw stdout+stderr tail of the flight process for this project',
   consoleLinesAriaSingular: '{n} line of raw flight process output',
   consoleLinesAriaPlural: '{n} lines of raw flight process output',
@@ -2057,7 +2057,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     coordinationLoading: 'בודק תביעות של מופעים אחים וכוונות בטיסה…',
     coordinationEmpty: 'לא זוהו כרגע תביעות של מופעים אחים או כוונות בטיסה.',
     coordinationUnavailable: 'תיאום הצי אינו זמין.',
-    docsTitle: '📚 מסמכים',
+    docsTitle: 'מסמכים',
     docsEmpty: 'עדיין אין מסמכים באינדקס.',
     docsUnavailable: 'המסמכים אינם זמינים.',
     roundTitle: '🔄 הסבב הזה',
@@ -2763,7 +2763,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     consoleEmpty: 'עדיין אין פלט מסוף.',
     consoleCollapsed: 'מכווץ — הרחיבו כדי לטעון.',
     consoleUnavailable: 'מסוף הטיסה אינו זמין.',
-    consoleTitle: '🖥️ מסוף טיסה',
+    consoleTitle: 'מסוף טיסה',
     consoleTitleTip: 'זנב stdout+stderr גולמי של תהליך הטיסה עבור הפרויקט הזה',
     consoleLinesAriaSingular: '{n} שורה של פלט גולמי של תהליך הטיסה',
     consoleLinesAriaPlural: '{n} שורות של פלט גולמי של תהליך הטיסה',
