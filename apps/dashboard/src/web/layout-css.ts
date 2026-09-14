@@ -339,7 +339,9 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
    specifies (folder, browse, mode, firings, $/firing, lanes, Lucky, Fire),
    so desktop's already-captured README frames stay accurate. */
 .fly-folder-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-#fly-folder { flex: 1 1 auto; min-width: 0; font-family: var(--font-mono); }
+/* A small basis, not the path's own width: with flex-wrap on, a long folder
+   name would otherwise push Lucky, Fire and the gear onto their own line. */
+#fly-folder { flex: 1 1 8rem; min-width: 0; font-family: var(--font-mono); }
 /* The settings panel is a plain container toggled by the hidden attribute,
    at every width — NOT a <details>. A closed <details> keeps hiding its
    content even under display:contents, so the desktop unwrap silently swallowed
