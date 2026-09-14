@@ -41,13 +41,14 @@
  * `replaceChildren()` + `appendChild()` cycle just reattach the same nodes.
  *
  * i18n (board web-msnsndki-dz3vn1): this panel's own literal text — the
- * "📚 Docs" title (created once, the first time a project's panel mounts)
- * and the empty/fetch-failure states inside `refreshDocsList` (rebuilt on
- * every list refresh, cached panel or not) — carries its English default AND
- * a `data-i18n` tag, then is swept by `translateDom()` (a bare hoisted
- * identifier from `web/features/locale.ts`'s splice, same as `fleetJs()`'s
- * call sites), the exact shape `web/features/round-panel.ts` already
- * follows.
+ * "Docs" title (created once, the first time a project's panel mounts, epic
+ * 0025 slice 2: a `panelHeading()`-built `book-open` icon beside the label,
+ * the emoji it replaced) and the empty/fetch-failure states inside
+ * `refreshDocsList` (rebuilt on every list refresh, cached panel or not) —
+ * carries its English default AND a `data-i18n` tag, then is swept by
+ * `translateDom()` (a bare hoisted identifier from `web/features/locale.ts`'s
+ * splice, same as `fleetJs()`'s call sites), the exact shape
+ * `web/features/round-panel.ts` already follows.
  */
 import { docFileTip } from '../docs-panel.js';
 
@@ -88,8 +89,7 @@ function docsSection(pid) {
     return cached.wrap;
   }
   var wrap = el('section', 'docs-panel');
-  var head = el('h3', 'docs-title', '📚 Docs');
-  head.setAttribute('data-i18n', 'docsTitle');
+  var head = panelHeading('h3', 'docs-title', 'docsTitle', 'book-open');
   wrap.appendChild(head);
   var list = el('ul', 'docs-list');
   list.setAttribute('data-docs-list', pid);

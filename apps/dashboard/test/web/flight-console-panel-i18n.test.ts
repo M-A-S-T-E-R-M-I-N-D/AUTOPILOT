@@ -196,8 +196,9 @@ describe('the Flight console panel i18n wiring (board web-msnsndki-dz3vn1)', () 
     });
 
     const summary = document.querySelector('.console-title');
-    expect(summary?.textContent).toBe('🖥️ Flight console');
-    expect(summary?.getAttribute('data-i18n')).toBe('consoleTitle');
+    expect(summary?.textContent).toBe('Flight console');
+    expect(summary?.hasAttribute('data-i18n')).toBe(false);
+    expect(summary?.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe('consoleTitle');
     expect(summary?.getAttribute('data-tip')).toBe(
       'Raw stdout+stderr tail of the flight process for this project',
     );

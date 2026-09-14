@@ -47,7 +47,7 @@ describe('docsViewerJs', () => {
 
   it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
     const out = docsViewerJs();
-    expect(out).toContain("head.setAttribute('data-i18n', 'docsTitle');");
+    expect(out).toContain("panelHeading('h3', 'docs-title', 'docsTitle', 'book-open');");
     expect(out).toContain("empty.setAttribute('data-i18n', 'docsEmpty');");
     expect(out).toContain("unavailable.setAttribute('data-i18n', 'docsUnavailable');");
     // One sweep per tagged-DOM creation site: the panel's own title (fresh
