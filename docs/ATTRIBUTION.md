@@ -91,6 +91,31 @@ trailer, which certifies nothing and claims nothing. A pilot that finds
 itself without a usable identity STOPS and asks its operator rather
 than guessing — a wrong signature is a rights problem, not a default.
 
+## AI co-authors that arrive in someone else's contribution
+
+A contribution can carry a model's own `Co-authored-by` trailer, added by
+the CONTRIBUTOR's local tooling rather than by anything here. AUTOPILOT has
+exactly one so far: `Co-authored-by: Claude Opus 5 <noreply@anthropic.com>`
+on the commit that landed PR #47 (@gabibi555's fix for the update loop —
+the update sequence never compiled the source it had just pulled). Their
+Claude Code session wrote it; our engine did not, and channel 1's
+`Assisted-by` trailer is a different line for a different purpose.
+
+The policy, in two halves:
+
+- **Keep the credit.** A trailer a contributor chose to add is theirs to
+  add, it is accurate, and rewriting someone's commit message to strip a
+  co-author would be both rude and dishonest. It stays in the log.
+- **Never file in a model's name.** No application, issue, comment or
+  standing entry is ever opened "from" a model, however real its help was.
+  There is no account behind that trailer to consent, and an instance that
+  invents an identity breaks the signing law above. The credit lives where
+  the contributor put it — in the commit — and nowhere it would read as a
+  person who applied to join.
+
+This is the same asymmetry the signing section draws: tools get credited,
+humans get counted.
+
 ## Rights, stated plainly
 
 - Content a pilot writes on behalf of an operator belongs to that

@@ -1973,6 +1973,68 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 /* KEEPER BADGE (epic 0021 slice 4, first cut): how many things wait on a
    human, shown on the place where they wait. Needs-you ink, by definition. */
 .subject-link { position: relative; }
+/* THE ONBOARDING LADDER (epic 0032): a checklist that performs its own
+   steps. Deliberately NOT a card grid — one accent rail down the left, the
+   current step lifted off the surface, everything already done receding.
+   Hierarchy by weight and elevation, not by uniform boxes. */
+.onboarding { margin: 0 0 var(--space-4); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--shape-medium); background: var(--color-surface); box-shadow: var(--elevation-1, 0 1px 2px rgb(0 0 0 / 0.06)); }
+.onboarding[hidden] { display: none; }
+.ob-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); }
+.ob-title { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-lg); letter-spacing: 0.01em; }
+.ob-title .icon { color: var(--color-accent); flex: none; }
+.ob-tip { margin: 0; font-size: var(--text-sm); flex: 1 1 12rem; }
+.ob-snooze { margin-inline-start: auto; font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border: 1px solid transparent; border-radius: var(--shape-extra-small); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.ob-snooze:hover, .ob-snooze:focus-visible { color: var(--color-text); border-color: var(--color-border); outline: none; }
+
+/* Progress: a hairline, not a chunky meter — it reports, it does not shout. */
+.ob-progress { margin-block-start: var(--space-3); block-size: 4px; border-radius: var(--radius-full); background: var(--color-border); overflow: hidden; }
+.ob-progress-fill { block-size: 100%; inline-size: 0; border-radius: inherit; background: var(--color-accent); transition: inline-size var(--duration-normal, 300ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)); }
+.ob-progress-label { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
+
+/* Badges: the two ticks. An unearned badge is outlined and muted; an earned
+   one fills. Never colour alone — each carries its own state in words. */
+.ob-badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ob-badge { display: inline-flex; align-items: baseline; gap: var(--space-1); padding: 2px var(--space-2); border: 1px dashed var(--color-border); border-radius: var(--radius-full); font-size: var(--text-sm); color: var(--color-text-muted); }
+.ob-badge-name { font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.6875rem; }
+.ob-badge.is-earned { border-style: solid; border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+
+/* Steps. The rail is the spine: done steps sit quietly against it, the
+   current one steps forward off it. */
+.ob-steps { margin: var(--space-4) 0 0; padding: 0 0 0 var(--space-4); list-style: none; border-inline-start: 2px solid var(--color-border); }
+[dir="rtl"] .ob-steps { padding: 0 var(--space-4) 0 0; }
+.ob-level { margin-block: var(--space-3) var(--space-2); margin-inline-start: calc(var(--space-4) * -1 - 2px); padding-inline-start: calc(var(--space-4) - 2px); }
+.ob-level:first-child { margin-block-start: 0; }
+.ob-level-title { margin: 0; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); }
+.ob-level-note { margin: 2px 0 0; font-size: var(--text-sm); }
+.ob-step { position: relative; display: flex; gap: var(--space-3); margin-block: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); transition: background var(--duration-fast, 150ms) ease, transform var(--duration-fast, 150ms) ease; }
+.ob-step-mark { flex: none; display: grid; place-items: center; inline-size: 2rem; block-size: 2rem; border-radius: var(--radius-full); border: 1px solid var(--color-border); color: var(--color-text-muted); background: var(--color-surface); }
+.ob-step-body { min-inline-size: 0; }
+.ob-step-title { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); font-weight: 600; }
+.ob-step-status { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.ob-step-text { margin: 2px 0 0; font-size: var(--text-sm); }
+.ob-step-action { margin-block-start: var(--space-2); font: inherit; font-size: var(--text-sm); font-weight: 600; padding: var(--space-1) var(--space-3); border: 1px solid var(--color-accent); border-radius: var(--shape-extra-small); background: transparent; color: var(--color-accent); cursor: pointer; transition: background var(--duration-fast, 150ms) ease, color var(--duration-fast, 150ms) ease; }
+.ob-step-action:hover { background: var(--color-accent); color: var(--color-accent-text); }
+.ob-step-action:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.ob-step-action[disabled] { opacity: 0.55; cursor: progress; }
+
+/* The one step that matters right now. */
+.ob-step.is-current { background: var(--color-surface-variant, var(--color-surface)); box-shadow: var(--elevation-1, 0 1px 2px rgb(0 0 0 / 0.08)); }
+.ob-step.is-current .ob-step-mark { border-color: var(--color-accent); color: var(--color-accent); }
+.ob-step.is-current .ob-step-status { color: var(--color-accent); }
+
+/* Done recedes — legible, never invisible (it still has to pass contrast). */
+.ob-step.is-done .ob-step-title { font-weight: 500; }
+.ob-step.is-done .ob-step-mark { border-color: var(--color-accent); color: var(--color-accent-text); background: var(--color-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-progress-fill, .ob-step, .ob-step-action { transition: none; }
+}
+
+/* THE WATERMARK (epic 0032): one permanent line on every page — what built
+   this, who holds the copyright, under which licence. Quiet, never hidden. */
+.watermark { margin: var(--space-6, 3rem) 0 var(--space-4); padding-block-start: var(--space-3); border-top: 1px solid var(--color-border); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); justify-content: center; font-size: var(--text-sm); color: var(--color-text-muted); }
+.watermark-mark { font-family: var(--font-mono); font-size: 0.75rem; }
+
 /* HEBREW TYPOGRAPHY (RTL audit, 2026-09-12): Hebrew letterforms are not
    designed to be tracked, so under dir="rtl" every tracked label (24 rules,
    0.02–0.06em) loses its letter-spacing — this block is LAST so it wins the

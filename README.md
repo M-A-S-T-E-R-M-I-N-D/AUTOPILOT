@@ -118,16 +118,33 @@ went wrong are in [the case study](docs/CASE-STUDIES/calculator-five-firings.md)
 
 AUTOPILOT's unit of work is a **firing** — one gated attempt at one task:
 
-```text
-   board (tasks)          the firing               the gate                 the record
-  ┌─────────────┐   ┌──────────────────┐   ┌─────────────────────┐   ┌──────────────────┐
-  │ human-added │ → │ orient · pick ONE │ → │ typecheck·lint·test │ → │ commit (gate ✓)  │
-  │ self-mined  │   │ task · implement  │   │ ·build — all green? │   │ or REVERT (gate ✗)│
-  └─────────────┘   └──────────────────┘   └─────────────────────┘   └──────────────────┘
-                                                                              ↓
-                                              every firing → SQLite telemetry (cost, tokens,
-                                              gate verdict, SHA-on-HEAD — mechanically verified)
+```mermaid
+flowchart LR
+  accTitle: How one AUTOPILOT firing works
+  accDescr {
+    A firing runs in four stages. Work arrives on a board, either added by a
+    human or mined by AUTOPILOT itself. The firing orients, picks exactly one
+    task, and implements it. The project's own gate then runs typecheck, lint,
+    test and build. A green gate commits the work; a red gate reverts it.
+    Either outcome is written to a local record holding the cost, the tokens,
+    the gate verdict and the commit on HEAD.
+  }
+
+  Board["Board<br/>human-added · self-mined"] --> Firing["Firing<br/>orient · pick ONE task · implement"]
+  Firing --> Gate{"Gate<br/>typecheck · lint · test · build"}
+  Gate -->|"all green"| Commit["Commit"]
+  Gate -->|"any red"| Revert["Revert"]
+  Commit --> Record[("Record<br/>cost · tokens · verdict · SHA on HEAD")]
+  Revert --> Record
 ```
+
+**How to read this:** a task reaches the **board** either because you added it
+or because AUTOPILOT mined it from the repository. One **firing** picks a
+single task and implements it. Your project's own **gate** — typecheck, lint,
+test, build — then decides: all green and the work is **committed**, anything
+red and it is **reverted**. Both endings are written to the same local
+**record**, with what the firing cost, how many tokens it spent, how the gate
+ruled, and which commit is on HEAD.
 
 - **Nothing lands unverified.** A firing that fails the gate reverts.
 - **Fleets parallelise it.** N lanes fly in isolated git worktrees; a self-healing merge ladder

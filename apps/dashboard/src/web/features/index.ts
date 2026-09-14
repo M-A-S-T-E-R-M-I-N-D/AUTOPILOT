@@ -29,6 +29,7 @@ import { metricsJs } from './metrics.js';
 import { mirrorPassJs } from './mirror-pass.js';
 import { notificationsJs } from './notifications.js';
 import { officeMapJs } from './office-map.js';
+import { onboardingJs } from './onboarding.js';
 import { pipelineJs } from './pipeline.js';
 import { poolClientJs } from './pool-client.js';
 import { popoversJs } from './popovers.js';
@@ -75,6 +76,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   mirrorPassJs,
   notificationsJs,
   officeMapJs,
+  onboardingJs,
   pipelineJs,
   poolClientJs,
   popoversJs,
@@ -129,6 +131,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'mirror-pass': mirrorPassJs,
   notifications: notificationsJs,
   'office-map': officeMapJs,
+  onboarding: onboardingJs,
   pipeline: pipelineJs,
   'pool-client': poolClientJs,
   popovers: popoversJs,

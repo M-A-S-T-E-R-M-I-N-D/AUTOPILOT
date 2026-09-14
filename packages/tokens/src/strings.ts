@@ -1905,6 +1905,56 @@ const EN_STRINGS = {
     'PR review actions on this repo are taken by its maintainer ({owner}) — you are signed in as {login}.',
   releaseGuestNote:
     'Releases on this repo are cut by its maintainer ({owner}) — you are signed in as {login}.',
+
+  // ── THE ONBOARDING LADDER (epic 0032) ───────────────────────────────────
+  // A tour tells; this ladder asks the newcomer to DO one small thing at a
+  // time. Level 1 gets them to a real commit; level 2 is optional and only
+  // ever offered once level 1 is done. See web/onboarding.ts.
+  obTitle: 'Getting started',
+  obTip: 'Your first flight, one small step at a time',
+  obProgress: '{done} of {total} steps done',
+  obStepDone: 'Done',
+  obStepCurrent: 'Do this next',
+  obLevel1: 'Fly something',
+  obLevel2: 'Contribute back',
+  obLevel2Intro: 'Optional, and in no hurry — it waits as long as you like.',
+  obBadgePilot: 'Pilot',
+  obBadgeContributor: 'Contributor',
+  obBadgeEarned: 'Earned',
+  obBadgeLocked: 'Not earned yet',
+  obAddSample: 'Add the calculator sample',
+  obAddSampleBody:
+    'Copies a small real project into a folder of your own, so you have something to fly before you risk anything you care about.',
+  obAddSampleAction: 'Add it',
+  obLockOn: 'Lock on the folder',
+  obLockOnBody:
+    'Point the Fly bar at the folder you want worked on. Adding the sample fills this in for you.',
+  obLockOnAction: 'Lock on',
+  obFire: 'Press Fire',
+  obFireBody:
+    'One firing: the agent orients, does one task, runs your own checks, and commits only if they pass.',
+  obReadBack: 'Read what came back',
+  obReadBackBody:
+    'Every firing records what it cost, what it changed and how the gate ruled. That record is the product.',
+  obReadBackAction: 'Open the record',
+  obConnectGithub: 'Connect GitHub',
+  obConnectGithubBody:
+    'Signs in the GitHub CLI on this machine, so a finding or a fix can leave your laptop.',
+  obConnectGithubAction: 'Connect',
+  obPublishFinding: 'Publish a finding',
+  obPublishFindingBody:
+    'Report from here turns whatever is on your screen into an issue someone else can act on.',
+  obPublishFindingAction: 'Report from here',
+  obSubmitFix: 'Submit a fix',
+  obSubmitFixBody:
+    'Claim an open task, let a flight do the work, and open the pull request from its branch.',
+  obSubmitFixAction: 'Open the pool',
+  obSnooze: 'Remind me later',
+  obSnoozeDone: 'Put away — it comes back the next day you open the dashboard.',
+  obComplete: 'Both ticks earned. Thank you — contributors are why this gets better.',
+  obSocialLocked: 'Fly one firing to open the pool, the discussions and the standing board.',
+  obBadgesAria: 'Badges earned',
+  obWatermark: 'Built with AUTOPILOT',
 } as const;
 
 export type StringKey = keyof typeof EN_STRINGS;
@@ -2866,6 +2916,49 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'פעולות סקירת ה-PR במאגר זה מתבצעות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
     releaseGuestNote:
       'מהדורות במאגר זה מוצאות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
+
+    obTitle: 'איך מתחילים',
+    obTip: 'הטיסה הראשונה שלכם, צעד קטן בכל פעם',
+    obProgress: '{done} מתוך {total} שלבים הושלמו',
+    obStepDone: 'הושלם',
+    obStepCurrent: 'זה הצעד הבא',
+    obLevel1: 'לטוס על משהו',
+    obLevel2: 'לתרום בחזרה',
+    obLevel2Intro: 'רשות, ואין שום לחץ — זה ימתין לכם כמה שתרצו.',
+    obBadgePilot: 'טייס',
+    obBadgeContributor: 'תורם',
+    obBadgeEarned: 'הושג',
+    obBadgeLocked: 'עדיין לא הושג',
+    obAddSample: 'הוסיפו את דוגמת המחשבון',
+    obAddSampleBody:
+      'מעתיק פרויקט אמיתי וקטן לתיקייה משלכם, כדי שיהיה על מה לטוס לפני שתסכנו משהו שחשוב לכם.',
+    obAddSampleAction: 'הוסף',
+    obLockOn: 'נעלו על התיקייה',
+    obLockOnBody:
+      'כוונו את סרגל הטיסה לתיקייה שתרצו שיעבדו עליה. הוספת הדוגמה ממלאת את זה בשבילכם.',
+    obLockOnAction: 'נעילה',
+    obFire: 'לחצו שגר',
+    obFireBody:
+      'הפעלה אחת: הסוכן מתמצא, מבצע משימה אחת, מריץ את הבדיקות שלכם, ומבצע commit רק אם הן עברו.',
+    obReadBack: 'קראו מה חזר',
+    obReadBackBody:
+      'כל הפעלה מתעדת כמה היא עלתה, מה היא שינתה ואיך השער פסק. התיעוד הזה הוא המוצר.',
+    obReadBackAction: 'פתחו את התיעוד',
+    obConnectGithub: 'התחברו ל-GitHub',
+    obConnectGithubBody: 'מחבר את ה-CLI של GitHub במחשב הזה, כדי שממצא או תיקון יוכלו לצאת מהמחשב.',
+    obConnectGithubAction: 'התחברות',
+    obPublishFinding: 'פרסמו ממצא',
+    obPublishFindingBody: 'דיווח מכאן הופך את מה שעל המסך שלכם ל-issue שמישהו אחר יכול לפעול לפיו.',
+    obPublishFindingAction: 'דיווח מכאן',
+    obSubmitFix: 'הגישו תיקון',
+    obSubmitFixBody: 'תבעו משימה פתוחה, תנו לטיסה לעשות את העבודה, ופתחו pull request מהענף שלה.',
+    obSubmitFixAction: 'פתחו את הבריכה',
+    obSnooze: 'הזכירו לי אחר כך',
+    obSnoozeDone: 'הוסתר — זה יחזור ביום הבא שתפתחו את לוח המחוונים.',
+    obComplete: 'שני הווים הושגו. תודה — תורמים הם הסיבה שזה משתפר.',
+    obSocialLocked: 'טוסו הפעלה אחת כדי לפתוח את הבריכה, הדיונים ולוח הדירוג.',
+    obBadgesAria: 'תגים שהושגו',
+    obWatermark: 'נבנה עם AUTOPILOT',
   },
 };
 

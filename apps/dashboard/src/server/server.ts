@@ -11,6 +11,12 @@ import {
 import { handleRoute, type RouteDeps } from './routes.js';
 import { securityHeaders, isAllowedHost } from './security.js';
 import { createRateLimiter, type RateLimiter } from './rate-limit.js';
+import {
+  handleOnboardingSample,
+  SAMPLE_RATE_LIMIT,
+  SAMPLE_RATE_WINDOW_MS,
+  type OnboardingApi,
+} from './onboarding-route.js';
 import type { ConnectInput, ConnectionStatus } from '../connection/service.js';
 import type { AuthProbe } from '../connection/verify.js';
 import {
@@ -93,7 +99,7 @@ import {
 
 // Moved to `./gh-connection.js` (epic 0002 shell decomposition) — re-exported
 // so existing importers of the gh connection contracts keep working unchanged.
-export type { GhApi, GhLtsApi };
+export type { GhApi, GhLtsApi, OnboardingApi };
 import { isGhAuthKind } from '../connection/gh-login.js';
 import {
   handlePoolClient,
@@ -693,6 +699,8 @@ export interface ServerDeps extends RouteDeps {
   readonly connection?: ConnectionApi;
   /** The connect screen's GitHub detection half (read-only, no credential). */
   readonly gh?: GhApi;
+  /** The onboarding's "add a sample" micro-task (epic 0032). */
+  readonly onboarding?: OnboardingApi;
   readonly ghLts?: GhLtsApi;
   readonly flight?: FlightApi;
   /** The Fly bar's Lanes field (board web-mtdcfel4-0bxf4h) behind `POST
@@ -3617,6 +3625,7 @@ export function createServer(deps: ServerDeps = {}): Server {
   // Shared by /api/fly, /api/fly/stop, and /api/fly/pause so a client can't
   // dodge the cap by alternating between them.
   const flyLimiter = createRateLimiter(FLY_RATE_LIMIT, FLY_RATE_WINDOW_MS);
+  const sampleLimiter = createRateLimiter(SAMPLE_RATE_LIMIT, SAMPLE_RATE_WINDOW_MS);
   const landingLimiter = createRateLimiter(LANDING_RATE_LIMIT, LANDING_RATE_WINDOW_MS);
   const releaseLimiter = createRateLimiter(RELEASE_RATE_LIMIT, RELEASE_RATE_WINDOW_MS);
   const prReviewLimiter = createRateLimiter(PR_REVIEW_RATE_LIMIT, PR_REVIEW_RATE_WINDOW_MS);
@@ -4146,6 +4155,11 @@ export function createServer(deps: ServerDeps = {}): Server {
           ? 'test'
           : 'status';
       void handleConnection(req, res, deps.connection, headers, action);
+      return;
+    }
+
+    if (path === '/api/onboarding/sample') {
+      void handleOnboardingSample(req, res, deps.onboarding, headers, sampleLimiter);
       return;
     }
 

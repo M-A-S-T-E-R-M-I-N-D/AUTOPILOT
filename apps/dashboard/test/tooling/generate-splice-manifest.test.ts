@@ -70,6 +70,7 @@ import { localeJs } from '../../src/web/features/locale.js';
 import { metricsJs } from '../../src/web/features/metrics.js';
 import { mirrorPassJs } from '../../src/web/features/mirror-pass.js';
 import { officeMapJs } from '../../src/web/features/office-map.js';
+import { onboardingJs } from '../../src/web/features/onboarding.js';
 import { pipelineJs } from '../../src/web/features/pipeline.js';
 import { prefsJs } from '../../src/web/features/prefs.js';
 import { poolClientJs } from '../../src/web/features/pool-client.js';
@@ -153,6 +154,7 @@ const METRICS_TS = featureTs('metrics');
 const MIRROR_PASS_TS = featureTs('mirror-pass');
 const NOTIFICATIONS_TS = featureTs('notifications');
 const OFFICE_MAP_TS = featureTs('office-map');
+const ONBOARDING_TS = featureTs('onboarding');
 const PIPELINE_TS = featureTs('pipeline');
 const PREFS_TS = featureTs('prefs');
 const POOL_CLIENT_TS = featureTs('pool-client');
@@ -1417,6 +1419,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'mirror-pass.ts': ['mirrorPassJs'],
     'notifications.ts': ['notificationsJs'],
     'office-map.ts': ['officeMapJs'],
+    'onboarding.ts': ['onboardingJs'],
     'pipeline.ts': ['pipelineJs'],
     'prefs.ts': ['prefsJs'],
     'pool-client.ts': ['poolClientJs'],
@@ -1575,6 +1578,10 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const directOfficeMapManifest = buildAssemblyManifest(officeMapSource, OFFICE_MAP_TS, [
       'officeMapJs',
     ]);
+    const onboardingSource = readFileSync(ONBOARDING_TS, 'utf8');
+    const directOnboardingManifest = buildAssemblyManifest(onboardingSource, ONBOARDING_TS, [
+      'onboardingJs',
+    ]);
     const directPipelineManifest = buildAssemblyManifest(pipelineSource, PIPELINE_TS, [
       'pipelineJs',
     ]);
@@ -1647,6 +1654,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directMirrorPassManifest,
       directNotificationsManifest,
       directOfficeMapManifest,
+      directOnboardingManifest,
       directPipelineManifest,
       directPoolClientManifest,
       directPopoversManifest,
@@ -1959,6 +1967,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { mirrorPassJs } from './mirror-pass.js';");
     expect(source).toContain("import { notificationsJs } from './notifications.js';");
     expect(source).toContain("import { officeMapJs } from './office-map.js';");
+    expect(source).toContain("import { onboardingJs } from './onboarding.js';");
     expect(source).toContain("import { pipelineJs } from './pipeline.js';");
     expect(source).toContain("import { poolClientJs } from './pool-client.js';");
     expect(source).toContain("import { prReviewJs } from './pr-review.js';");
@@ -2047,7 +2056,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2604,6 +2613,12 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
         PREF_CHOICES: Readonly<Record<string, readonly string[]>>;
       };
       return JSON.stringify(prefs.PREF_CHOICES);
+    }
+    if (fnName === 'onboardingJs' && exprText === 'JSON.stringify(LADDER_ICONS)') {
+      const mod = (await import('../../src/web/features/onboarding.js')) as {
+        LADDER_ICONS: Readonly<Record<string, unknown>>;
+      };
+      return JSON.stringify(mod.LADDER_ICONS);
     }
     if (fnName === 'switcherJs' && exprText === 'names') {
       const tokens = (await import('@autopilot/tokens')) as { THEME_NAMES: readonly string[] };
@@ -3869,6 +3884,29 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     expect(reassembled).toBe(officeMapJs());
   });
 
+  /** onboardingJs's own reconstruction (epic 0032): two real relative-import
+   *  splices (ONBOARDING_STEPS/computeOnboarding from ../onboarding.js) plus
+   *  one derived same-file constant (LADDER_ICONS, the icon shapes the ladder
+   *  itself selects out of ../icons.js), which resolves the prefsJs way. */
+  async function reconstructOnboardingJs(): Promise<string> {
+    const onboardingSource = readFileSync(ONBOARDING_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(onboardingSource, ONBOARDING_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        onboardingSource,
+        'onboardingJs',
+        resolvedBindings,
+        (exprText: string) => resolveNonSpliceSlot('onboardingJs', exprText, onboardingSource),
+        ONBOARDING_TS,
+      )
+    ).trim();
+  }
+
+  it('onboardingJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/onboarding.ts', async () => {
+    expect(await reconstructOnboardingJs()).toBe(onboardingJs());
+  });
+
   /**
    * pipelineJs's own reconstruction, from its real file under web/features/.
    * It carries one real relative-import splice (pipelineApiUrl from
@@ -4196,6 +4234,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('mirrorPassJs', await reconstructMirrorPassJs());
     nestedOutputs.set('notificationsJs', await reconstructNotificationsJs());
     nestedOutputs.set('officeMapJs', await reconstructOfficeMapJs());
+    nestedOutputs.set('onboardingJs', await reconstructOnboardingJs());
     nestedOutputs.set('pipelineJs', await reconstructPipelineJs());
     nestedOutputs.set('poolClientJs', await reconstructPoolClientJs());
     nestedOutputs.set('prReviewJs', await reconstructPrReviewJs());

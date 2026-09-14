@@ -134,14 +134,20 @@ import { gzipSync } from 'node:zlib';
 // for EPIC 0031: the snackbar (one transient outcome surface: host, stacking,
 // pause-on-read, one action) plus the Lucky roll's why rows and the
 // shortlist's hand-to-the-pilot verb, and their STRINGS.he in panels.
-const CORE_RAW_BUDGET = 241 * 1024;
+// Then core raw 241→243KB (2026-09-14) for THE ONBOARDING LADDER (epic 0032):
+// the ladder adds ~30 English STRINGS keys, and locale.ts splices the whole
+// English table into CORE — measured 242.1KB. The ladder panel itself is
+// deferred, so none of its own code is in this number.
+const CORE_RAW_BUDGET = 243 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
 // Then core gzip 64→66KB (2026-09-13) for THE ICON SYSTEM slice 1 (web/icons.ts:
 // the vendored Lucide shapes spliced into core as data + iconEl): measured
 // 218.5KB raw / 64.9KB gzip.
-const CORE_GZIP_BUDGET = 72 * 1024;
+// Then core gzip 72→73KB (2026-09-14), the same epic-0032 English STRINGS
+// growth as the raw note above — measured 72.6KB.
+const CORE_GZIP_BUDGET = 73 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -258,13 +264,19 @@ const CORE_GZIP_BUDGET = 72 * 1024;
 // STRINGS.he translations that land here via locale-data.ts. Measured
 // 164414B raw / 49318B gzip against the old 163840B / 49152B budgets.
 // Deferred chunk, never blocks first paint; core untouched.
-const CHUNK_RAW_BUDGET = 163 * 1024;
+// Then chunk raw 163→176KB (2026-09-14) for THE ONBOARDING LADDER (epic 0032):
+// features/onboarding.ts (the panel, the seven micro-tasks and their actions)
+// plus the ladder model spliced in beside it, and locale-data.ts carrying the
+// same ~30 keys in Hebrew — measured 175.4KB.
+const CHUNK_RAW_BUDGET = 176 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
 // plan editor — measured 43.1KB gzip.
 // Then gzip 44→45KB (2026-09-12) for the CI-status panel in /panels.js — measured 44.1KB gzip.
-const CHUNK_GZIP_BUDGET = 49 * 1024;
+// Then chunk gzip 49→53KB (2026-09-14) for the same epic-0032 ladder panel
+// and its Hebrew strings — measured 52.6KB.
+const CHUNK_GZIP_BUDGET = 53 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;
