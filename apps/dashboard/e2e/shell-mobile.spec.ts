@@ -146,15 +146,15 @@ test.describe('app shell — compact window', () => {
         document.documentElement.lang = l;
         document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
       }, lang);
-      const connect = page.locator('#connect');
-      await connect.locator('summary').tap();
+      const connect = page.locator('#connect'); // > summary: the section holds a nested disclosure of its own
+      await connect.locator('> summary').tap();
       await expect(connect).toHaveAttribute('open', '');
       const body = (await connect.locator('.connect-body').boundingBox())!;
       const viewport = page.viewportSize()!;
       // RTL audit (2026-09-12): the anchored menu grew 166px past a Hebrew phone's edge.
       expect(body.x, `${lang} left edge`).toBeGreaterThanOrEqual(0);
       expect(body.x + body.width, `${lang} right edge`).toBeLessThanOrEqual(viewport.width + 1);
-      await connect.locator('summary').tap();
+      await connect.locator('> summary').tap();
       await expect(connect).not.toHaveAttribute('open', '');
     }
   });
