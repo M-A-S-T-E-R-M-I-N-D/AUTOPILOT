@@ -57,7 +57,10 @@ function renderCiStatusPanel(workflows) {
     var badgeClass = 'ci-status-badge-' + (w.ok ? 'ok' : 'fail');
     // The state rides the chip's own text (operator, 2026-09-13: the panel
     // read as a list of file names — conclusion and age were hover-only).
-    var state = w.conclusion ? w.conclusion : tr('ciRunning');
+    // A run in flight reports an empty conclusion with an age; a workflow
+    // that has never run reports neither — and is not "running" (operator,
+    // 2026-09-14: labels.yml read as running with no runs at all).
+    var state = w.conclusion ? w.conclusion : (w.ageLabel ? tr('ciRunning') : tr('ciNoRuns'));
     var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '');
     list.appendChild(tipChip(label, w.detail, w.workflow + ': ' + w.detail, badgeClass));
   }

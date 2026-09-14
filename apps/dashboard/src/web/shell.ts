@@ -4493,26 +4493,33 @@ ${versionMenuHtml()}
           </form>
           <hr class="connect-sep" />
           <div class="connect-gh">
+            <div class="gh-group">
             <p class="connect-status" id="gh-status" role="status" aria-live="polite" data-i18n="ghChecking">checking GitHub…</p>
-            <p class="connect-hint" id="gh-hint"></p>
             <div class="connect-actions gh-auth" id="gh-auth" hidden>
               <button type="button" class="connect-login" id="gh-login" data-i18n="ghLogin">Log in with GitHub</button>
               <button type="button" class="connect-test" id="gh-switch" data-i18n="ghSwitch" hidden>Switch account</button>
               <button type="button" class="connect-test" id="gh-logout" data-i18n="ghLogout" hidden>Log out</button>
             </div>
-            <p class="connect-status" id="gh-lts" role="status" aria-live="polite" data-i18n="ltsChecking">checking for updates…</p>
-            <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
+            <p class="connect-hint" id="gh-hint"></p>
+            </div>
+            <div class="gh-group gh-updates">
+              <p class="connect-status" id="gh-lts" role="status" aria-live="polite" data-i18n="ltsChecking">checking for updates…</p>
+              <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
+            </div>
+            <details class="gh-report">
+            <summary class="gh-report-summary" data-i18n="reportBugLabel">Report a bug or request a feature upstream</summary>
             <form class="gh-issue-form" id="gh-issue-form">
-              <label for="gh-issue-title" data-i18n="reportBugLabel">Report a bug or request a feature upstream</label>
               <label for="gh-issue-note" data-i18n="reportComposeNoteLabel">Or describe it in your own words — Compose writes the title and body for you</label>
               <textarea id="gh-issue-note" name="note" placeholder="What happened, or what you wish existed…" data-i18n-placeholder="reportComposeNotePlaceholder" rows="2"></textarea>
               <button type="button" id="gh-issue-compose" data-i18n="reportComposeButton">Compose</button>
               <p class="gh-issue-compose-status" id="gh-issue-compose-status" role="status" aria-live="polite"></p>
+              <label for="gh-issue-title" class="visually-hidden" data-i18n="titleLabel">Title</label>
               <input type="text" id="gh-issue-title" name="title" placeholder="Title" data-i18n-placeholder="titlePlaceholder" autocomplete="off" required />
               <textarea id="gh-issue-body" name="body" placeholder="Details (optional)" data-i18n-placeholder="detailsOptionalPlaceholder" rows="3"></textarea>
               <button type="submit" data-i18n="openGithubIssue">Open GitHub issue</button>
               <p class="gh-issue-result" id="gh-issue-result" role="status" aria-live="polite"></p>
             </form>
+            </details>
           </div>
         </div>
       </details>
@@ -4568,9 +4575,7 @@ ${contextRailHtml(project)}
       <label for="fly-folder" class="fly-folder-label" data-i18n="flyFolder">Fly a folder</label>
       <input type="text" id="fly-folder" name="folder" list="fly-folder-options" placeholder="absolute path to a git repo" data-i18n-placeholder="flyFolderPlaceholder" autocomplete="off" spellcheck="false" />
       <datalist id="fly-folder-options"></datalist>
-      <details class="fly-options" id="fly-options">
-        <summary class="fly-options-summary" data-i18n="flyOptions">Options</summary>
-        <div class="fly-options-body">
+      <div class="fly-options" id="fly-options" hidden>
           <button type="button" id="fly-browse-btn" aria-haspopup="dialog" data-tip="Browse the filesystem to pick a folder" data-i18n-tip="flyBrowseTip" data-i18n="browse">Browse…</button>
           <label for="fly-mode" class="visually-hidden" data-i18n="budgetModeLabel">Budget mode</label>
           <select id="fly-mode" name="mode" aria-label="Budget mode: fixed firing count or total spend target" data-i18n-aria="budgetMode">
@@ -4585,10 +4590,10 @@ ${contextRailHtml(project)}
           <input type="number" id="fly-budget" name="budget" min="0.5" step="0.5" value="10" />
           <label for="fly-lanes" data-i18n="lanes">Lanes</label>
           <input type="number" id="fly-lanes" name="lanes" min="1" max="8" value="1" />
-          <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(90 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(180 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(270 12 12)"/><path d="M12.5 12.5c.9 2.7 2 4.5 3.6 5.9l-1.1 1.1c-1.8-1.6-3.1-3.7-4-6.5Z"/></svg></button>
-        </div>
-      </details>
+      </div>
+      <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(90 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(180 12 12)"/><path d="M12 11.5C9.8 9.6 7.6 8.8 7.7 6.6 7.8 4.6 10.2 3.9 12 6.1 13.8 3.9 16.2 4.6 16.3 6.6 16.4 8.8 14.2 9.6 12 11.5Z" transform="rotate(270 12 12)"/><path d="M12.5 12.5c.9 2.7 2 4.5 3.6 5.9l-1.1 1.1c-1.8-1.6-3.1-3.7-4-6.5Z"/></svg></button>
       <button type="submit" id="fly-go" data-i18n="flyIt">Fire</button>
+      <button type="button" class="fly-options-toggle" id="fly-options-toggle" aria-expanded="false" aria-controls="fly-options" aria-label="Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes" data-i18n-aria="flyOptionsAria" data-tip="Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes" data-i18n-tip="flyOptionsTip">${iconSvg('settings')}</button>
       <button type="button" id="fly-pause" data-i18n="pause" hidden>Pause</button>
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>

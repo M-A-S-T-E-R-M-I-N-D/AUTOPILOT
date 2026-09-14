@@ -110,6 +110,7 @@ describe('connectJs', () => {
     expect(out).toContain("ghAuth('logout')");
     // Switch and log out only once someone is logged in; all three only when gh exists.
     expect(out).toContain('if (ghAuthEl) ghAuthEl.hidden = !present;');
+    expect(out).toContain('if (ghLoginBtn) ghLoginBtn.hidden = authed;');
     expect(out).toContain('if (ghSwitchBtn) ghSwitchBtn.hidden = !authed;');
     expect(out).toContain('if (ghLogoutBtn) ghLogoutBtn.hidden = !authed;');
     // The identity line re-reads itself after the flow has plausibly finished in the terminal.

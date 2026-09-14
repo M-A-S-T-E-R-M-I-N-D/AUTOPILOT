@@ -102,10 +102,7 @@ function flightConsoleSection(pid) {
   var wrap = el('section', 'console-panel');
   var details = document.createElement('details');
   details.className = 'console-details';
-  var summary = document.createElement('summary');
-  summary.className = 'console-title';
-  summary.textContent = '🖥️ Flight console';
-  summary.setAttribute('data-i18n', 'consoleTitle');
+  var summary = panelHeading('summary', 'console-title', 'consoleTitle', 'monitor');
   summary.setAttribute('data-tip', 'Raw stdout+stderr tail of the flight process for this project');
   summary.setAttribute('data-i18n-tip', 'consoleTitleTip');
   details.appendChild(summary);

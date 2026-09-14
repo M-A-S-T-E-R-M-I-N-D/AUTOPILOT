@@ -66,6 +66,34 @@ export interface CheckDiagnosisInput {
   readonly quarantine?: readonly QuarantineEntry[];
 }
 
+/**
+ * A candidate fix for a `defect` verdict — the epic's third "Shape" bullet:
+ * "prepare a commit on the PR branch and show a diff for approval." VERDICT
+ * `ap-mtydvfm1-0` (docs/debriefs/2026-09-13-verdict-ap-mtydvfm1-0-epic-0020-
+ * s8-fix-commit-half-confirmed.md) confirmed this half needs its own three
+ * slices — (a) a diff-approval UI shell, (b) the fix-commit generation core,
+ * (c) the apply-approved-fix execute path — since no code-gen infra exists
+ * anywhere in this repo. This type is slice (a)'s contract: it gives the UI
+ * shell something real to render against, even though {@link
+ * diagnoseFailedCheck} never populates it yet — slice (b) is what will.
+ */
+export interface FixCommitProposal {
+  /** One-line description of what the proposed commit would do. */
+  readonly title: string;
+  /** Why this diff addresses the classified defect — the same
+   *  evidence-first discipline {@link CheckDiagnosisResult.reasoning}
+   *  already follows. */
+  readonly summary: string;
+  /** The unified diff a `git diff`/`git show` would produce for the
+   *  proposed commit. Never applied automatically — the epic's own
+   *  non-goal: "no auto-push... pushing to a contributor's branch without
+   *  asking is exactly what `update-branch` already refuses to do
+   *  silently." */
+  readonly diff: string;
+  /** Every file path the diff touches. */
+  readonly filesChanged: readonly string[];
+}
+
 export interface CheckDiagnosisResult {
   readonly verdict: CheckDiagnosisVerdict;
   /** Human-readable evidence for the verdict — the epic's own principle:
@@ -78,6 +106,11 @@ export interface CheckDiagnosisResult {
   readonly touchedFailingPaths: readonly string[];
   /** The quarantine entries matching a path in {@link failingTestPaths}. */
   readonly matchedQuarantineEntries: readonly QuarantineEntry[];
+  /** A candidate fix commit for a `defect` verdict, awaiting operator
+   *  approval — see {@link FixCommitProposal}. Always `undefined` today:
+   *  fix-commit generation (VERDICT ap-mtydvfm1-0's slice (b)) is not built
+   *  here, so nothing ever fills this in yet. */
+  readonly fixProposal?: FixCommitProposal;
 }
 
 const FAILING_LINE_PATTERN = /\bFAIL\b|[✗×]|\bfailed\b/i;

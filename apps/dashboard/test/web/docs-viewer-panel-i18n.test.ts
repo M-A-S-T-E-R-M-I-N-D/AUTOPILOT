@@ -89,8 +89,9 @@ describe('the Docs reader panel i18n wiring (board web-msnsndki-dz3vn1)', () => 
     await settle();
 
     const title = document.querySelector('.docs-title');
-    expect(title?.textContent).toBe('📚 Docs');
-    expect(title?.getAttribute('data-i18n')).toBe('docsTitle');
+    expect(title?.textContent).toBe('Docs');
+    expect(title?.hasAttribute('data-i18n')).toBe(false);
+    expect(title?.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe('docsTitle');
 
     const empty = document.querySelector('.docs-list li');
     expect(empty?.textContent).toBe('No indexed documents yet.');

@@ -17,7 +17,7 @@
  * hardcoded or logged, and flow straight into the spawned CLI's env.
  */
 
-export type AuthMode = 'subscription' | 'api-key' | 'oauth-token';
+export type AuthMode = 'subscription' | 'api-key' | 'oauth-token' | 'endpoint';
 
 export interface AuthConfig {
   readonly mode: AuthMode;
@@ -25,10 +25,21 @@ export interface AuthConfig {
   readonly apiKey?: string;
   /** `oauth-token` mode: the CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`. */
   readonly oauthToken?: string;
+  /**
+   * `endpoint` mode: an Anthropic-API-compatible base URL (a local Ollama
+   * server, DeepSeek's Claude Code-compatible endpoint, a self-hosted
+   * gateway, …) — set as `ANTHROPIC_BASE_URL` (code.claude.com/docs/en/env-vars).
+   */
+  readonly baseUrl?: string;
+  /** `endpoint` mode: the bearer credential the endpoint expects, if any (a
+   *  local unauthenticated server needs none) — set as `ANTHROPIC_AUTH_TOKEN`. */
+  readonly authToken?: string;
 }
 
 const API_KEY_ENV = 'ANTHROPIC_API_KEY';
 const OAUTH_TOKEN_ENV = 'CLAUDE_CODE_OAUTH_TOKEN';
+const BASE_URL_ENV = 'ANTHROPIC_BASE_URL';
+const AUTH_TOKEN_ENV = 'ANTHROPIC_AUTH_TOKEN';
 
 /** The default: the user's Claude subscription via the local Claude Code login. */
 export const DEFAULT_AUTH: AuthConfig = { mode: 'subscription' };
@@ -38,15 +49,24 @@ export const DEFAULT_AUTH: AuthConfig = { mode: 'subscription' };
  * NEW env (never mutates the input). The credentials we manage are always cleared
  * first so modes never leak into each other; then the chosen mode's credential is
  * set. Subscription mode leaves BOTH unset → the CLI uses its stored `/login`
- * OAuth (and a stray ambient key can no longer override it).
+ * OAuth (and a stray ambient key can no longer override it). The same
+ * stripping applies to `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN`: a proxy
+ * override left over from a prior `endpoint`-mode run must never silently
+ * redirect subscription/api-key/oauth-token traffic away from Anthropic.
  */
 export function resolveClaudeEnv(auth: AuthConfig, baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...baseEnv };
   delete env[API_KEY_ENV];
   delete env[OAUTH_TOKEN_ENV];
+  delete env[BASE_URL_ENV];
+  delete env[AUTH_TOKEN_ENV];
 
   if (auth.mode === 'api-key' && auth.apiKey) env[API_KEY_ENV] = auth.apiKey;
   if (auth.mode === 'oauth-token' && auth.oauthToken) env[OAUTH_TOKEN_ENV] = auth.oauthToken;
+  if (auth.mode === 'endpoint' && auth.baseUrl) {
+    env[BASE_URL_ENV] = auth.baseUrl;
+    if (auth.authToken) env[AUTH_TOKEN_ENV] = auth.authToken;
+  }
   return env;
 }
 
@@ -56,6 +76,9 @@ export function isAuthReady(auth: AuthConfig): boolean {
   if (auth.mode === 'oauth-token') {
     return typeof auth.oauthToken === 'string' && auth.oauthToken.length > 0;
   }
+  // A base URL is required; authToken is not — some endpoints (a local,
+  // unauthenticated Ollama server) need no credential at all.
+  if (auth.mode === 'endpoint') return typeof auth.baseUrl === 'string' && auth.baseUrl.length > 0;
   // Subscription relies on the CLI's own stored login; readiness can only be
   // confirmed by the CLI itself (run `claude` once, or check `/status`).
   return true;
@@ -68,6 +91,8 @@ export function describeAuth(auth: AuthConfig): string {
       return 'Anthropic API key';
     case 'oauth-token':
       return 'Claude subscription (headless OAuth token)';
+    case 'endpoint':
+      return `Custom endpoint (${auth.baseUrl ?? 'not configured'})`;
     default:
       return 'Claude subscription (Claude Code login)';
   }

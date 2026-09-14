@@ -5,7 +5,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { openStore, migrate, createTask, setTaskStatus, type Store } from '@autopilot/store';
+import {
+  openStore,
+  migrate,
+  createTask,
+  setTaskStatus,
+  setTaskFocus,
+  type Store,
+} from '@autopilot/store';
 import type * as AutopilotStore from '@autopilot/store';
 import {
   createMirrorPassPreviewApi,
@@ -17,6 +24,7 @@ import {
   createMirrorPassStaleClaimPreviewApi,
   createMirrorPassStaleClaimExecuteApi,
 } from '../../src/flight/mirror-pass-execute.js';
+import { claimContractBody } from '../../src/flight/claim-contract.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 vi.mock('@autopilot/store', async (importOriginal) => {
@@ -644,6 +652,64 @@ describe('createMirrorPassExecuteApi', () => {
 
       expect(report?.outcomes).toEqual([]);
       expect(calls.some(([, args]) => args[0] === 'issue' && args[1] !== 'view')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('settles a claimed task (status done, unfocused) via settleClaimedTasks when the claimant closed the issue', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-settle-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-42',
+        projectId: 'p1',
+        title: 'Fix the fleet table keyboard nav',
+        body: claimContractBody(42, 'https://github.com/octocat/hello-world/issues/42'),
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-42', 'in_progress', 200);
+      setTaskFocus(s, 'github-42', true, 200);
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewExec('octocat', 'octocat', { 42: 'closed' }, calls);
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.outcomes).toHaveLength(1);
+      expect(report?.outcomes[0]?.plan.finding).toMatchObject({
+        action: 'settle-claimed',
+        issueNumber: 42,
+      });
+      // Settle only posts the note — the issue is already closed by the
+      // claimant, so no close/reopen call is sent.
+      expect(report?.outcomes[0]?.commandOutcomes).toEqual([
+        {
+          command: expect.objectContaining({
+            args: ['issue', 'comment', '42', '--body', expect.any(String)],
+          }),
+          ok: true,
+        },
+      ]);
+      expect(
+        calls.some(
+          ([, args]) => args[0] === 'issue' && (args[1] === 'close' || args[1] === 'reopen'),
+        ),
+      ).toBe(false);
+
+      const s2 = openStore(dbPath, { readonly: true });
+      const row = s2.db
+        .prepare('SELECT status, focus FROM tasks WHERE id = ?')
+        .get('github-42') as {
+        status: string;
+        focus: number;
+      };
+      s2.close();
+      expect(row).toEqual({ status: 'done', focus: 0 });
     } finally {
       cleanupDir(dir);
     }

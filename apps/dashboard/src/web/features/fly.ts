@@ -411,6 +411,30 @@ ${flyHintText.toString()}
   // operator's stated attention, and the answer's fit shortlist paints under
   // the bar — on a refusal too, since "nothing queued" is exactly when the
   // claimable work one panel over matters. The attention toggle re-rolls.
+  // THE SETTINGS TOGGLE (operator, 2026-09-14): two buttons always in the
+  // row — Lucky and Fire — and the manual fields behind one gear, minimal by
+  // default and remembered. A plain [hidden] flip, never a <details>: a
+  // closed <details> hides its content even under display:contents, which is
+  // exactly how the fields vanished from the desktop bar.
+  var FLY_OPTIONS_KEY = 'ap-fly-options';
+  var optionsEl = document.getElementById('fly-options');
+  var optionsToggle = document.getElementById('fly-options-toggle');
+  function paintFlyOptions(open) {
+    if (!optionsEl || !optionsToggle) return;
+    if (optionsEl.hidden === open) optionsEl.hidden = !open;
+    var expanded = open ? 'true' : 'false';
+    if (optionsToggle.getAttribute('aria-expanded') !== expanded) optionsToggle.setAttribute('aria-expanded', expanded);
+  }
+  if (optionsToggle) {
+    var remembered = null;
+    try { remembered = localStorage.getItem(FLY_OPTIONS_KEY); } catch (e) {}
+    paintFlyOptions(remembered === 'open');
+    optionsToggle.addEventListener('click', function () {
+      var open = optionsToggle.getAttribute('aria-expanded') !== 'true';
+      paintFlyOptions(open);
+      try { localStorage.setItem(FLY_OPTIONS_KEY, open ? 'open' : 'closed'); } catch (e) {}
+    });
+  }
   var luckyEl = document.getElementById('fly-lucky');
   setTip(luckyEl, 'flyLuckyTip');
   var FLY_ATTENTION_KEY = 'ap-fly-attention';

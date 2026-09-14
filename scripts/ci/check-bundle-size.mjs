@@ -127,7 +127,10 @@ import { gzipSync } from 'node:zlib';
 // the ellipsis shape in ICON_SHAPES, the report item's click delegate, and
 // the menu's STRINGS.he in panels. Measured 240964B / 165232B raw against
 // the old 240640B / 164864B budgets; gzip untouched.
-const CORE_RAW_BUDGET = 236 * 1024;
+// Then core raw 236→237KB (2026-09-14): the Fly bar's settings toggle (the
+// gear, its remembered [hidden] flip) and the CI panel's no-runs-yet state.
+// Measured 241694B raw against the old 241664B budget — 30 bytes.
+const CORE_RAW_BUDGET = 237 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

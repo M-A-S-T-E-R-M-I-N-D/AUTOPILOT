@@ -47,6 +47,16 @@ const NOT_YET_RENDERED = new Set<string>([
   // with the core in one firing (docs/debriefs/2026-09-10-verdict-
   // ap-mttxbufs-0-contributor-journey-split-reconfirmed.md).
   'contributor-issue-list.ts',
+  // RoadmapItem (COLLABORATION panel, board web-mtpzqrxl-z7jgbu, slice 1):
+  // the read-only data source for the 'roadmap' label; its panel is a later
+  // slice of the same board item.
+  'roadmap-items.ts',
+  // HelpWantedItem (COLLABORATION panel, board web-mtpzqrxl-z7jgbu, slice 2):
+  // the read-only data source for the 'help wanted' label WITH each issue's
+  // claim state. The panel that lists them beside the roadmap items is a
+  // later slice of the same board item — the same core-first split
+  // contributor-issue-list.ts is excused under, one slice behind.
+  'help-wanted-items.ts',
 ]);
 
 /** Payloads painted by a web feature that does not share the flight module's

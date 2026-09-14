@@ -654,20 +654,31 @@ export function gatherProjectRoot(dbPath: string, projectId: string): string | n
 const LIVE_STATE_RECENT_FIRINGS = 3;
 
 /**
- * A live-telemetry snapshot for retrieval-augmented ask: is a flight running
+ * A live-telemetry snapshot for retrieval-augmented ask: WHERE the project
+ * lives on disk (root path, current branch, linked flight worktree — none of
+ * this is indexed content, so a question like "what is the path of X"
+ * otherwise falls through to NO_SOURCES_ANSWER), whether a flight is running
  * RIGHT NOW (firing, phase, claimed task), the last few firings (shipped +
  * cost), and board counts by status. Indexed content is a snapshot from the
- * last onboard/reindex — this reads the store fresh every call, so it is
- * never stale the way a document excerpt can be (engine's ask.ts LIVE_STATE_LABEL
- * rule tells the model to prefer this source for what's-happening-now questions).
+ * last onboard/reindex — this reads the store (and git) fresh every call, so
+ * it is never stale the way a document excerpt can be (engine's ask.ts
+ * LIVE_STATE_LABEL rule tells the model to prefer this source for
+ * what's-happening-now, and now what's-where, questions).
  */
-export function gatherLiveState(dbPath: string, projectId: string): string | null {
+export async function gatherLiveState(dbPath: string, projectId: string): Promise<string | null> {
   if (!existsSync(dbPath)) return null;
   let store: Store | undefined;
   try {
     store = openStore(dbPath, { readonly: true });
     const p = listProjects(store.db).find((x) => x.id === projectId);
     if (!p) return null;
+
+    const branch = await new GitVcs(p.root_path).currentBranch();
+    const worktreePlan = deriveWorktreePlan(p.root_path, deriveFlyProjectId(p.root_path));
+    const worktreeLine = existsSync(worktreePlan.path)
+      ? `, flight worktree: ${worktreePlan.path} (branch: ${worktreePlan.branch})`
+      : '';
+    const location = `Location: ${p.root_path}${branch ? `, branch: ${branch}` : ''}${worktreeLine}`;
 
     const tasks = mapTaskEntries(store.db, p.id);
     const flightLog = mapFlightEntries(store.db, p.id);
@@ -700,7 +711,7 @@ export function gatherLiveState(dbPath: string, projectId: string): string | nul
         ? [...counts.entries()].map(([status, n]) => `${n} ${status}`).join(', ')
         : 'empty';
 
-    return [flightLine, recent ? `Last firings: ${recent}` : null, `Board: ${board}`]
+    return [location, flightLine, recent ? `Last firings: ${recent}` : null, `Board: ${board}`]
       .filter((line): line is string => line !== null)
       .join('\n');
   } catch {

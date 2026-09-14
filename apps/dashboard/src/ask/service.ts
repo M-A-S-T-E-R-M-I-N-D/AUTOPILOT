@@ -43,10 +43,12 @@ export interface AskRetrievalDeps {
   /** A compact structure map of the project — ALWAYS included so the model is
    *  fully aware of what it is being asked about, content match or not. */
   readonly projectMap: (projectId: string) => string | null;
-  /** A live-telemetry snapshot (current flight, recent firings, board counts) —
-   *  ALWAYS included so "what's happening now" questions are grounded in truth
-   *  rather than the (necessarily stale) indexed content. */
-  readonly liveState: (projectId: string) => string | null;
+  /** A live-telemetry snapshot (current flight, recent firings, board counts,
+   *  on-disk location/branch/worktree) — ALWAYS included so "what's happening
+   *  now" and "where does this live" questions are grounded in truth rather
+   *  than the (necessarily stale) indexed content. Async because the branch
+   *  read shells out to git. */
+  readonly liveState: (projectId: string) => string | null | Promise<string | null>;
 }
 
 /** Who answered, how long it took, what it cost — the model's own envelope
@@ -173,14 +175,14 @@ function groundedSuccess(
  * none of view, live state, map, or content match is there truly nothing to
  * ground on.
  */
-function gatherGroundedSources(
+async function gatherGroundedSources(
   deps: AskRetrievalDeps,
   projectId: string,
   question: string,
   view?: string,
-): AskSource[] {
+): Promise<AskSource[]> {
   const contentSources = deps.sources(projectId, question).slice(0, MAX_SOURCES);
-  const live = deps.liveState(projectId);
+  const live = await deps.liveState(projectId);
   const map = deps.projectMap(projectId);
   const viewText = view?.trim();
   return [
@@ -219,7 +221,7 @@ export async function askProject(
 
   if (deep && deps.escalation) return askProjectEscalated(deps.escalation, q, history);
 
-  const sources = gatherGroundedSources(deps, projectId, q, view);
+  const sources = await gatherGroundedSources(deps, projectId, q, view);
   if (sources.length === 0) {
     if (deps.escalation) return askProjectEscalated(deps.escalation, q, history);
     return { ok: true, answer: NO_SOURCES_ANSWER, sources: [], promptVersion: ASK_PROMPT_VERSION };
@@ -270,7 +272,7 @@ export async function askProjectStream(
     return askProjectEscalated(deps.escalation, q, history, onActivity);
   }
 
-  const sources = gatherGroundedSources(deps, projectId, q, view);
+  const sources = await gatherGroundedSources(deps, projectId, q, view);
   if (sources.length === 0) {
     if (deps.escalation) return askProjectEscalated(deps.escalation, q, history, onActivity);
     return { ok: true, answer: NO_SOURCES_ANSWER, sources: [], promptVersion: ASK_PROMPT_VERSION };

@@ -96,8 +96,7 @@ function renderCoordinationBody(body, lines) {
 wireRoving('.coordination-list [tabindex]', '.coordination-list');
 function coordinationSection(pid) {
   var wrap = el('section', 'coordination-panel');
-  var title = el('h3', 'coordination-title', '🤝 Fleet coordination');
-  title.setAttribute('data-i18n', 'coordinationTitle');
+  var title = panelHeading('h3', 'coordination-title', 'coordinationTitle', 'handshake');
   wrap.appendChild(title);
   var body = el('div', 'coordination-body');
   var loading = el('p', 'muted', 'Checking for sibling claims and in-flight intents…');

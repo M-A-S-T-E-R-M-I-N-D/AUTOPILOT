@@ -104,3 +104,90 @@ so the "no claims without a paper trail" standard
   (lockfiles, generated snapshots/binaries, build/vendor output). `firing.ts` runs it only once the real
   typecheck/test/build gate is already green, folding a failing verdict into the SAME additive-revert path a
   real gate failure takes — an oversized diff is reverted, not silently shipped.
+
+## §K — Security hardening (SHA-pinned actions) (moved 2026-09-14)
+
+- [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions (`actions/checkout`,
+  `actions/setup-node`, `pnpm/action-setup`) to full commit SHAs with version comments; Dependabot's github-actions
+  ecosystem keeps them current. Done — `.github/workflows/ci.yml` pins all three actions to their `v4.4.0` commit
+  SHAs with `# vX.Y.Z` comments; `.github/dependabot.yml` already tracks the `github-actions` ecosystem so PRs
+  keep the pins current.
+
+## §K — Store path hardening (moved 2026-09-14)
+
+- [x] Store path hardening (M3): validate/normalize the filesystem path passed to `openStore` before it reaches
+  `better-sqlite3` once a less-trusted caller (the dashboard/config) can supply it, to avoid path-confusion.
+  Done — `resolveStorePath` in `packages/store/src/db.ts` rejects NUL-byte paths and resolves relative paths to
+  absolute ones; it runs unconditionally inside the `Store` constructor (the sole path every caller — dashboard,
+  CLI, onboarding — goes through), so no caller can bypass it.
+
+## §K — ClaudeCli long-prompt-via-stdin (moved 2026-09-14)
+
+- [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling): fold an over-long system prompt into the child's
+  stdin instead of an argv entry (MDVIEWER-STUDY §1). Done — `CLI_STDIN_PROMPT_THRESHOLD` in
+  `packages/engine/src/adapters/claude-cli.ts`.
+
+## §K — Single-instance guard (moved 2026-09-14)
+
+- [x] Single-instance guard for the engine loop (per-project): cross-platform `O_EXCL` lockfile + PID-liveness check
+  (v2.4 used a Windows named mutex). Done — `FileInstanceLock` in `packages/engine/src/adapters/instance-lock.ts`,
+  wired into `apps/dashboard/src/fly.ts` keyed per PROJECT id (`engine-<projectId>.lock`), so flights against
+  different projects in the same store never contend (PARALLEL FLIGHTS 1/6, plus a follow-up).
+
+## §K — Adaptive cadence + weekly pacing (moved 2026-09-14)
+
+- [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`): port the observed-spend usage advisor (v2.4
+  `usage_advisor.py`) behind the pacer port. Done — pure `nextAdaptivePaceMin` in `packages/engine/src/pace.ts`
+  (base cadence under half of either soft cap, ramps to a bounded 6x as real spend nears the hourly/weekly cap),
+  backed by `SqlitePacer` (`packages/engine/src/adapters/pacer.ts`) reading real gate-verified spend from the same
+  `metrics` rows the dashboard graphs use; wired into `apps/dashboard/src/fly.ts`.
+
+## §L — A3 three-valued gate verdict (moved 2026-09-14)
+
+- [x] **A3** Three-valued gate verdict: `confirmed`/`refuted`/`unverifiable` — a crashed gate command (missing dep,
+  OOM) must NOT revert good work like a real failure; RemediatingGate + telemetry learn the third state. Done —
+  telemetry already carried `GateResultKind`'s `'unverifiable'` (`packages/engine/src/telemetry.ts`) and
+  `firing.ts` already skipped the revert on `gate.crashed`; the missing piece was `RemediatingGate`
+  (`packages/engine/src/adapters/remediating-gate.ts`), which used to run the mechanical fixer + a full gate
+  re-run (up to the timeout) on a crashed verdict too — now it short-circuits straight through on `first.crashed`,
+  since a formatter can't repair a broken environment.
+
+## §L — B5 Starter-SOUL curation guard (moved 2026-09-14)
+
+- [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal (candidate inventory → operator
+  compresses); "unreviewed SOUL" flag on the dashboard until the operator ratifies (M5 editor completes this).
+  Done — `soul_reviewed`/`soul_proposed` + `markSoulReviewed`/`ratifySoulAmendment`/`dismissSoulProposal`
+  ship the unreviewed flag and the operator review/ratify loop; `STARTER_SOUL_LINE_BUDGET`
+  (`packages/onboarding/src/onboard/soul.ts`, regression-tested) mechanizes "keep minimal" as an interim guard —
+  a new doctrine section can't be baked into the generator without consciously bumping the budget. The full fix
+  (M5's human-ratified editor) remains open and unblocked by this.
+
+## §L — D1 provenance trailers (moved 2026-09-14)
+
+- [x] **D1** Provenance trailers on autopilot commits: model + `FIRING_PROMPT_VERSION` + harness as git trailers
+  (already in SQLite; make it repo-native). Done — the COMMIT step in `buildFiringPrompt`
+  (`packages/engine/src/prompt.ts`) now instructs every firing to add `Model:`, `Firing-Prompt-Version:`, and
+  `Harness:` trailers next to `Signed-off-by:`.
+
+## §L — B6 schema-validate METRICS and PROPOSALS (moved 2026-09-14)
+
+- [x] **B6** Schema-validate METRICS/PROPOSALS at the parse boundary (enums for severity/dimension; fail-loud record,
+  defensive parse stays). Done — `parseProposalsLine` (`packages/engine/src/telemetry.ts`) checks each proposal's
+  severity/dimension against the store's `SEVERITIES`/`DIMENSIONS` enums and flags a rejected tag via `invalidTags`
+  instead of silently keeping it; `fly.ts`'s `harvestProposals` surfaces the drop to the operator.
+
+## §L — C3 destructive-git deny (moved 2026-09-14)
+
+- [x] **C3** Destructive-git deny in the guard hook: "additive git only" is prompt-only today — add deterministic
+  deny patterns (force-push, `reset --hard`, rebase, `branch -D`, checkout/switch main, `clean -f`, filter-branch)
+  to the same PreToolUse guard that already denies path escapes (anti-pattern #14 caught live). Done —
+  `packages/engine/src/guard.ts` denies every listed pattern (a follow-up hardening closed a git
+  global-flag bypass of the destructive-git guard).
+
+## §L — WCAG-AA light theme sev-medium contrast (moved 2026-09-14)
+
+- [x] **WCAG-AA (real bug, from the a11y round)** Light theme `--color-sev-medium` 3.92:1 against surface — under
+  AA's 4.5:1, used as gate-phase TEXT color (`.fnode-gate`/`.live-phase-gate`/`.act-search`); nudge OKLCH L down.
+  Done — a light-theme `sevMedium` WCAG AA fix as gate-phase text (`packages/tokens/src/themes.ts`);
+  contrast is now 5.02:1, and `packages/tokens/test/themes.test.ts` gates every theme's `sevMedium` at ≥ 4.5:1
+  against both `surface` and `surfaceRaised`.

@@ -12,6 +12,7 @@ import {
 
 const FAKE_KEY = 'sk-ant-test-not-a-real-key';
 const FAKE_TOKEN = 'oauth-test-not-a-real-token';
+const FAKE_BASE_URL = 'https://compat.example.test/anthropic';
 
 describe('resolveClaudeEnv', () => {
   it('subscription mode STRIPS a stray API key + oauth token (so neither overrides /login)', () => {
@@ -53,6 +54,38 @@ describe('resolveClaudeEnv', () => {
     expect(env['ANTHROPIC_API_KEY']).toBeUndefined();
     expect(env['CLAUDE_CODE_OAUTH_TOKEN']).toBeUndefined();
   });
+
+  it('endpoint mode sets ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN and clears the key/oauth pair', () => {
+    const auth: AuthConfig = { mode: 'endpoint', baseUrl: FAKE_BASE_URL, authToken: FAKE_TOKEN };
+    const env = resolveClaudeEnv(auth, { ANTHROPIC_API_KEY: FAKE_KEY });
+    expect(env['ANTHROPIC_BASE_URL']).toBe(FAKE_BASE_URL);
+    expect(env['ANTHROPIC_AUTH_TOKEN']).toBe(FAKE_TOKEN);
+    expect(env['ANTHROPIC_API_KEY']).toBeUndefined();
+  });
+
+  it('endpoint mode with no authToken sets only the base URL (e.g. an unauthenticated local Ollama server)', () => {
+    const env = resolveClaudeEnv({ mode: 'endpoint', baseUrl: FAKE_BASE_URL }, {});
+    expect(env['ANTHROPIC_BASE_URL']).toBe(FAKE_BASE_URL);
+    expect('ANTHROPIC_AUTH_TOKEN' in env).toBe(false);
+  });
+
+  it('never sets ANTHROPIC_BASE_URL when baseUrl is missing, even in endpoint mode', () => {
+    const env = resolveClaudeEnv({ mode: 'endpoint' }, {});
+    expect('ANTHROPIC_BASE_URL' in env).toBe(false);
+  });
+
+  it('every non-endpoint mode strips a stray ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN pair, so a leftover proxy override from a prior endpoint session can never silently redirect subscription/api-key/oauth-token traffic', () => {
+    const base = { ANTHROPIC_BASE_URL: FAKE_BASE_URL, ANTHROPIC_AUTH_TOKEN: FAKE_TOKEN };
+    expect(resolveClaudeEnv(DEFAULT_AUTH, base)['ANTHROPIC_BASE_URL']).toBeUndefined();
+    expect(
+      resolveClaudeEnv({ mode: 'api-key', apiKey: FAKE_KEY }, base)['ANTHROPIC_BASE_URL'],
+    ).toBeUndefined();
+    expect(
+      resolveClaudeEnv({ mode: 'oauth-token', oauthToken: FAKE_TOKEN }, base)[
+        'ANTHROPIC_AUTH_TOKEN'
+      ],
+    ).toBeUndefined();
+  });
 });
 
 describe('isAuthReady', () => {
@@ -67,6 +100,12 @@ describe('isAuthReady', () => {
     expect(isAuthReady({ mode: 'oauth-token' })).toBe(false);
     expect(isAuthReady({ mode: 'oauth-token', oauthToken: '' })).toBe(false);
     expect(isAuthReady({ mode: 'oauth-token', oauthToken: FAKE_TOKEN })).toBe(true);
+  });
+
+  it('endpoint mode needs a non-empty base URL, but not an authToken (some proxies are unauthenticated)', () => {
+    expect(isAuthReady({ mode: 'endpoint' })).toBe(false);
+    expect(isAuthReady({ mode: 'endpoint', baseUrl: '' })).toBe(false);
+    expect(isAuthReady({ mode: 'endpoint', baseUrl: FAKE_BASE_URL })).toBe(true);
   });
 });
 
@@ -88,5 +127,15 @@ describe('describeAuth', () => {
     const desc = describeAuth({ mode: 'oauth-token', oauthToken: FAKE_TOKEN });
     expect(desc).toBe('Claude subscription (headless OAuth token)');
     expect(desc).not.toContain(FAKE_TOKEN);
+  });
+
+  it('describes endpoint mode with the base URL but never the auth token', () => {
+    const desc = describeAuth({ mode: 'endpoint', baseUrl: FAKE_BASE_URL, authToken: FAKE_TOKEN });
+    expect(desc).toBe(`Custom endpoint (${FAKE_BASE_URL})`);
+    expect(desc).not.toContain(FAKE_TOKEN);
+  });
+
+  it('describes endpoint mode with no base URL set yet without throwing', () => {
+    expect(describeAuth({ mode: 'endpoint' })).toBe('Custom endpoint (not configured)');
   });
 });

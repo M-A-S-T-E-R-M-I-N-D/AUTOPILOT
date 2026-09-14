@@ -40,7 +40,9 @@ describe('coordinationJs', () => {
 
   it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
     const out = coordinationJs();
-    expect(out).toContain("title.setAttribute('data-i18n', 'coordinationTitle');");
+    expect(out).toContain(
+      "panelHeading('h3', 'coordination-title', 'coordinationTitle', 'handshake')",
+    );
     expect(out).toContain("loading.setAttribute('data-i18n', 'coordinationLoading');");
     expect(out).toContain("empty.setAttribute('data-i18n', 'coordinationEmpty');");
     expect(out).toContain("unavailable.setAttribute('data-i18n', 'coordinationUnavailable');");
