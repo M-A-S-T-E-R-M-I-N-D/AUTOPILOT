@@ -103,28 +103,17 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
 - [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
   Done — full evidence moved to
   [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--reuse-lint-ci-job-moved-2026-09-13).
-- [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions (`actions/checkout`,
-  `actions/setup-node`, `pnpm/action-setup`) to full commit SHAs with version comments; Dependabot's github-actions
-  ecosystem keeps them current. Done — `.github/workflows/ci.yml` pins all three actions to their `v4.4.0` commit
-  SHAs with `# vX.Y.Z` comments; `.github/dependabot.yml` already tracks the `github-actions` ecosystem so PRs
-  keep the pins current.
-- [x] Store path hardening (M3): validate/normalize the filesystem path passed to `openStore` before it reaches
-  `better-sqlite3` once a less-trusted caller (the dashboard/config) can supply it, to avoid path-confusion.
-  Done — `resolveStorePath` in `packages/store/src/db.ts` rejects NUL-byte paths and resolves relative paths to
-  absolute ones; it runs unconditionally inside the `Store` constructor (the sole path every caller — dashboard,
-  CLI, onboarding — goes through), so no caller can bypass it.
-- [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling): fold an over-long system prompt into the child's
-  stdin instead of an argv entry (MDVIEWER-STUDY §1). Done — `CLI_STDIN_PROMPT_THRESHOLD` in
-  `packages/engine/src/adapters/claude-cli.ts`.
-- [x] Single-instance guard for the engine loop (per-project): cross-platform `O_EXCL` lockfile + PID-liveness check
-  (v2.4 used a Windows named mutex). Done — `FileInstanceLock` in `packages/engine/src/adapters/instance-lock.ts`,
-  wired into `apps/dashboard/src/fly.ts` keyed per PROJECT id (`engine-<projectId>.lock`), so flights against
-  different projects in the same store never contend (PARALLEL FLIGHTS 1/6, plus a follow-up).
-- [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`): port the observed-spend usage advisor (v2.4
-  `usage_advisor.py`) behind the pacer port. Done — pure `nextAdaptivePaceMin` in `packages/engine/src/pace.ts`
-  (base cadence under half of either soft cap, ramps to a bounded 6x as real spend nears the hourly/weekly cap),
-  backed by `SqlitePacer` (`packages/engine/src/adapters/pacer.ts`) reading real gate-verified spend from the same
-  `metrics` rows the dashboard graphs use; wired into `apps/dashboard/src/fly.ts`.
+- [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions. Done — full
+  evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--security-hardening-sha-pinned-actions-moved-2026-09-14).
+- [x] Store path hardening (M3): validate/normalize the filesystem path passed to `openStore`. Done — full evidence
+  moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--store-path-hardening-moved-2026-09-14).
+- [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling). Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--claudecli-long-prompt-via-stdin-moved-2026-09-14).
+- [x] Single-instance guard for the engine loop (per-project). Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--single-instance-guard-moved-2026-09-14).
+- [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`). Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--adaptive-cadence--weekly-pacing-moved-2026-09-14).
 - [~] (live-CLI dogfood proven at scale — 160+ real firings; formal the internal predecessor behavioral diff never run) M1 experiential DoD (deferred from the machine-verifiable M1): a **live-CLI dogfood run** (real `claude -p`
   flying a repo, exercising `ClaudeCliModel.invoke`) and a **behavioral diff against the running internal v2.4 script**.
   The deterministic sandbox e2e proves the pipeline; these confirm the live behavior.
@@ -136,40 +125,27 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
   volatile (firing number, lastFailure, board) LAST — next prompt version; verify with cache-read-token telemetry
 - [ ] **C6+H3** Prompt regression eval set: 20–50 real repo tasks; report pass rate + variance + median steps +
   cost/solved together; gate every `FIRING_PROMPT_VERSION` bump on it
-- [x] **A3** Three-valued gate verdict: `confirmed`/`refuted`/`unverifiable` — a crashed gate command (missing dep,
-  OOM) must NOT revert good work like a real failure; RemediatingGate + telemetry learn the third state. Done —
-  telemetry already carried `GateResultKind`'s `'unverifiable'` (`packages/engine/src/telemetry.ts`) and
-  `firing.ts` already skipped the revert on `gate.crashed`; the missing piece was `RemediatingGate`
-  (`packages/engine/src/adapters/remediating-gate.ts`), which used to run the mechanical fixer + a full gate
-  re-run (up to the timeout) on a crashed verdict too — now it short-circuits straight through on `first.crashed`,
-  since a formatter can't repair a broken environment.
+- [x] **A3** Three-valued gate verdict: `confirmed`/`refuted`/`unverifiable`. Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--a3-three-valued-gate-verdict-moved-2026-09-14).
 - [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400), mechanical-change exempt — full
   evidence moved to
   [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--c4-deterministic-diff-size-gate-moved-2026-09-13).
 - [ ] **C5** Commit-time independent review (pre-M8 slice): one cheap fresh-context diff-review call per firing,
   find-problems instruction, non-blocking, finding recorded on the firing
-- [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal (candidate inventory → operator
-  compresses); "unreviewed SOUL" flag on the dashboard until the operator ratifies (M5 editor completes this).
-  Done — `soul_reviewed`/`soul_proposed` + `markSoulReviewed`/`ratifySoulAmendment`/`dismissSoulProposal`
-  ship the unreviewed flag and the operator review/ratify loop; `STARTER_SOUL_LINE_BUDGET`
-  (`packages/onboarding/src/onboard/soul.ts`, regression-tested) mechanizes "keep minimal" as an interim guard —
-  a new doctrine section can't be baked into the generator without consciously bumping the budget. The full fix
-  (M5's human-ratified editor) remains open and unblocked by this.
+- [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal, "unreviewed SOUL" flag until ratified.
+  Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--b5-starter-soul-curation-guard-moved-2026-09-14).
 - [ ] **A4+I3** OS-level sandbox + credential masking for flights (textual guard is layer 2; sandbox = Docker deploy
   stage, Linux-only; masking so the flight never holds the real token) — known, map confirms priority
-- [x] **D1** Provenance trailers on autopilot commits: model + `FIRING_PROMPT_VERSION` + harness as git trailers
-  (already in SQLite; make it repo-native). Done — the COMMIT step in `buildFiringPrompt`
-  (`packages/engine/src/prompt.ts`) now instructs every firing to add `Model:`, `Firing-Prompt-Version:`, and
-  `Harness:` trailers next to `Signed-off-by:`.
-- [x] **B6** Schema-validate METRICS/PROPOSALS at the parse boundary (enums for severity/dimension; fail-loud record,
-  defensive parse stays). Done — `parseProposalsLine` (`packages/engine/src/telemetry.ts`) checks each proposal's
-  severity/dimension against the store's `SEVERITIES`/`DIMENSIONS` enums and flags a rejected tag via `invalidTags`
-  instead of silently keeping it; `fly.ts`'s `harvestProposals` surfaces the drop to the operator.
-- [x] **C3** Destructive-git deny in the guard hook: "additive git only" is prompt-only today — add deterministic
-  deny patterns (force-push, `reset --hard`, rebase, `branch -D`, checkout/switch main, `clean -f`, filter-branch)
-  to the same PreToolUse guard that already denies path escapes (anti-pattern #14 caught live). Done —
-  `packages/engine/src/guard.ts` denies every listed pattern (a follow-up hardening closed a git
-  global-flag bypass of the destructive-git guard).
+- [x] **D1** Provenance trailers on autopilot commits: model + `FIRING_PROMPT_VERSION` + harness as git trailers.
+  Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--d1-provenance-trailers-moved-2026-09-14).
+- [x] **B6** Schema-validate METRICS/PROPOSALS at the parse boundary (enums for severity/dimension). Done — full
+  evidence moved to
+  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--b6-schema-validate-metrics-and-proposals-moved-2026-09-14).
+- [x] **C3** Destructive-git deny in the guard hook: deterministic deny patterns for force-push/`reset --hard`/rebase/etc.
+  Done — full evidence moved to
+  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--c3-destructive-git-deny-moved-2026-09-14).
 - [x] (dedupe done) **C2** Wire BACKLOG-999 into the loop: empty-board firings + the Triage sub-agent consult `docs/BACKLOG-999.md`
   (the reserved `source: 'backlog'` in TASK_SOURCES finally earns its seat); proposals dedupe against board AND backlog
 - [ ] **G4** Retrieval eval metrics for Ask/GENIUS RAG (M4+): faithfulness, context precision/recall, hallucination
@@ -192,10 +168,8 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
 - [x] **Board hygiene** Reconcile board vs git on session end (subject-text match `ap-msksw1mf-3` +
   file-path fallback `ap-msksw1mf-4`, both proven against real fixtures in `reconcile.test.ts`) — full
   evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--board-hygiene-moved-2026-09-09).
-- [x] **WCAG-AA (real bug, from the a11y round)** Light theme `--color-sev-medium` 3.92:1 against surface — under
-  AA's 4.5:1, used as gate-phase TEXT color (`.fnode-gate`/`.live-phase-gate`/`.act-search`); nudge OKLCH L down.
-  Done — a light-theme `sevMedium` WCAG AA fix as gate-phase text (`packages/tokens/src/themes.ts`);
-  contrast is now 5.02:1, and `packages/tokens/test/themes.test.ts` gates every theme's `sevMedium` at ≥ 4.5:1
-  against both `surface` and `surfaceRaised`.
+- [x] **WCAG-AA (real bug, from the a11y round)** Light theme `--color-sev-medium` contrast fix. Done — full
+  evidence moved to
+  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--wcag-aa-light-theme-sev-medium-contrast-moved-2026-09-14).
 - [ ] **firing-v9 (bundle)** PLAN phase (incl. the delegation decision) + REFLECT + the B2 prompt-prefix reorder +
   E8/K2 routing annotation for M6 — one deliberate prompt-version bump, gated on the C6+H3 eval set once it exists
