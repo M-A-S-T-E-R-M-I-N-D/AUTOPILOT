@@ -1661,7 +1661,7 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 }
 .tour-actions button:not(:disabled):hover, .tour-actions button:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .tour-actions button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
-.tour-next {
+.tour-next, .tour-start {
   border-color: var(--color-accent) !important; background: var(--color-accent) !important;
   color: var(--color-accent-text) !important; font-weight: 600;
 }
@@ -1978,7 +1978,9 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 .ob-title { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-lg); letter-spacing: 0.01em; }
 .ob-title .icon { color: var(--color-accent); flex: none; }
 .ob-tip { margin: 0; font-size: var(--text-sm); flex: 1 1 12rem; }
-.ob-snooze { margin-inline-start: auto; font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border: 1px solid transparent; border-radius: var(--shape-extra-small); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.ob-tour-link { margin-inline-start: auto; font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border: 0; background: transparent; color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ob-tour-link:hover, .ob-tour-link:focus-visible { text-decoration-thickness: 2px; outline: none; }
+.ob-snooze {  font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border: 1px solid transparent; border-radius: var(--shape-extra-small); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .ob-snooze:hover, .ob-snooze:focus-visible { color: var(--color-text); border-color: var(--color-border); outline: none; }
 
 /* Progress: a hairline, not a chunky meter — it reports, it does not shout. */

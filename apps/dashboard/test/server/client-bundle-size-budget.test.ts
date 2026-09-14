@@ -367,7 +367,10 @@ const CORE_GZIP_BUDGET = 73 * 1024;
 // features/onboarding.ts (the panel, the seven micro-tasks and their actions)
 // plus the ladder model spliced in beside it, and locale-data.ts carrying the
 // same ~30 keys in Hebrew — measured 175.4KB.
-const CHUNK_RAW_BUDGET = 176 * 1024;
+// Then chunk raw 176→178KB (2026-09-15): the ladder's GitHub-connection
+// fetch, the Connect-popover opener, and the tour<->ladder hand-over in
+// both directions — measured 177.0KB.
+const CHUNK_RAW_BUDGET = 178 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

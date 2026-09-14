@@ -125,13 +125,31 @@ function obSignals(state) {
     fixSubmitted: marks['submit-fix'] === 1,
   };
 }
-// The GitHub connection is already rendered into the Connect panel's status
-// line by features/connect.ts; reading its resolved state beats a second
-// probe of the same CLI.
+// Whether \`gh\` is signed in on this machine.
+//
+// This used to read a dataset flag off the Connect panel's status line that
+// nothing in the product ever wrote, so the step could never tick no matter
+// how connected the machine was (operator, 2026-09-15: "I click it, nothing
+// happens, and I think I am already connected"). Ask the same endpoint the
+// Connect panel asks, once, and re-sync when the answer lands. Its test
+// censuses the old attribute name so the guess cannot come back.
+var obGhConnected = false;
+var obGhAsked = false;
 function obGithubConnected() {
   if (obMarks()['connect-github'] === 1) return true;
-  var el = document.getElementById('gh-status');
-  return !!(el && el.dataset && el.dataset.connected === '1');
+  if (!obGhAsked) {
+    obGhAsked = true;
+    fetch('/api/connection/gh', { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) {
+        var next = !!(s && s.authenticated === true);
+        if (next === obGhConnected) return;
+        obGhConnected = next;
+        syncOnboarding(obLastState);
+      })
+      .catch(function () { /* unreachable gh is "not connected", not an error */ });
+  }
+  return obGhConnected;
 }
 
 // ── painting ───────────────────────────────────────────────────────────────
@@ -296,7 +314,7 @@ function obRunStep(id, btn) {
   if (id === 'add-sample') return obAddSample(btn);
   if (id === 'lock-on') return obLockOn();
   if (id === 'read-back') return obReadBack();
-  if (id === 'connect-github') return obOpenSubject('connect');
+  if (id === 'connect-github') return obOpenConnect();
   if (id === 'publish-finding') return obPublishFinding();
   if (id === 'submit-fix') return obOpenSubject('keeper');
 }
@@ -331,6 +349,23 @@ function obAddSample(btn) {
       if (typeof refresh === 'function') refresh();
     })
     .catch(function () { btn.disabled = false; snack(tr('obAddSample'), 'err'); });
+}
+
+// Connect is a masthead POPOVER (<details id="connect">), not one of the
+// subject panels — so the generic subject opener found nothing and the
+// button did nothing at all (operator, 2026-09-15). Open the popover, then
+// put focus on the control the step is actually asking them to press.
+function obOpenConnect() {
+  var panel = document.getElementById('connect');
+  if (!panel) { snack(tr('obConnectGithubBody'), 'info'); return; }
+  panel.open = true;
+  var summary = document.getElementById('connect-summary');
+  if (summary && typeof summary.scrollIntoView === 'function') {
+    summary.scrollIntoView({ block: 'nearest' });
+  }
+  var login = document.getElementById('gh-login');
+  if (login && typeof login.focus === 'function') login.focus();
+  else if (summary && typeof summary.focus === 'function') summary.focus();
 }
 
 function obLockOn() {
@@ -372,9 +407,32 @@ function obSnooze(forever) {
   snack(tr('obSnoozeDone'), 'info');
 }
 
+// THE HAND-OVER, receiving end (operator, 2026-09-15). The tour's last step
+// calls this. A reader who just learned the four words lands on the first
+// thing to do, with it actually visible — a snooze from an earlier day must
+// not swallow a hand-over they asked for by pressing the button.
+function obFocusLadder() {
+  try { localStorage.removeItem(OB_SNOOZE_KEY); } catch (err) {}
+  syncOnboarding(obLastState);
+  var panel = document.getElementById('onboarding');
+  if (!panel || panel.hidden) return;
+  if (typeof panel.scrollIntoView === 'function') panel.scrollIntoView({ block: 'center' });
+  // Focus the one step being nudged about, not the top of the panel.
+  var current = panel.querySelector('.ob-step.is-current .ob-step-action');
+  if (current && typeof current.focus === 'function') current.focus();
+}
+
 function onboardingInit() {
   var later = document.getElementById('ob-snooze');
   if (later) later.addEventListener('click', function () { obSnooze(false); });
+  // …and the way back: the ladder tells you what to DO, the tour tells you
+  // what the words MEAN. Either one should be able to reach the other.
+  var toTour = document.getElementById('ob-tour-link');
+  if (toTour) {
+    toTour.addEventListener('click', function () {
+      if (typeof openTour === 'function') openTour();
+    });
+  }
   syncOnboarding(null);
 }
 onboardingInit();
