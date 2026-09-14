@@ -41,6 +41,7 @@ import { reportCaptureClientJs } from './report-capture-client.js';
 import { reportMenuJs } from './report-menu.js';
 import { roundPanelJs } from './round-panel.js';
 import { searchJs } from './search.js';
+import { snackbarJs } from './snackbar.js';
 import { subjectNavJs } from './subject-nav.js';
 import { switcherJs } from './switcher.js';
 import { tourJs } from './tour.js';
@@ -86,6 +87,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   reportMenuJs,
   roundPanelJs,
   searchJs,
+  snackbarJs,
   subjectNavJs,
   switcherJs,
   tourJs,
@@ -139,6 +141,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'report-menu': reportMenuJs,
   'round-panel': roundPanelJs,
   search: searchJs,
+  snackbar: snackbarJs,
   'subject-nav': subjectNavJs,
   switcher: switcherJs,
   tour: tourJs,

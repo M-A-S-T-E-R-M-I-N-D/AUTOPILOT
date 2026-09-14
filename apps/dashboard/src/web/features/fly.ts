@@ -457,24 +457,93 @@ ${flyHintText.toString()}
     for (var t = 0; t < toggles.length; t++) toggles[t].setAttribute('aria-pressed', toggles[t].getAttribute('data-fly-attention') === flyAttention() ? 'true' : 'false');
     fitListEl.textContent = '';
     for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
       var li = document.createElement('li');
+      // The title owns its row; score, source and the one-line reasoning sit
+      // under it. They used to run together into one unreadable sentence
+      // (operator, 2026-09-14: "#5 Add the…התאמה 0.70צעד ראשון — ביד").
+      var head = document.createElement('div');
+      head.className = 'fly-fit-row';
       var a = document.createElement('a');
       a.className = 'fly-fit-title';
-      a.href = lines[i].url; a.target = '_blank'; a.rel = 'noopener';
-      a.textContent = '#' + lines[i].number + ' ' + lines[i].title;
+      a.href = line.url; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = '#' + line.number + ' ' + line.title;
+      head.appendChild(a);
+      // Work the pilot may fly gets the verb the panel was missing: hand it
+      // over. It writes one board task — no GitHub claim, no launch.
+      if (line.source === 'pool') {
+        var hand = document.createElement('button');
+        hand.type = 'button';
+        hand.className = 'fly-fit-hand';
+        hand.textContent = tr('luckyHandToPilot');
+        hand.dataset.i18n = 'luckyHandToPilot';
+        setTip(hand, 'luckyHandToPilotTip');
+        hand.addEventListener('click', function (ln, btn) {
+          return function () { handToPilot(ln, btn); };
+        }(line, hand));
+        head.appendChild(hand);
+      }
+      li.appendChild(head);
+      var meta = document.createElement('div');
+      meta.className = 'fly-fit-meta';
       var score = document.createElement('span');
       score.className = 'fly-fit-score';
-      score.textContent = tr('luckyFitScore', { score: Number(lines[i].fit).toFixed(2) });
+      score.textContent = tr('luckyFitScore', { score: Number(line.fit).toFixed(2) });
       var source = document.createElement('span');
       source.className = 'fly-fit-source';
-      source.textContent = tr(lines[i].source === 'pool' ? 'luckyFitSourcePool' : 'luckyFitSourcePeople');
-      var why = document.createElement('span');
+      source.textContent = tr(line.source === 'pool' ? 'luckyFitSourcePool' : 'luckyFitSourcePeople');
+      meta.appendChild(score); meta.appendChild(source);
+      li.appendChild(meta);
+      var why = document.createElement('p');
       why.className = 'fly-fit-why';
-      why.textContent = lines[i].reasoning;
-      li.appendChild(a); li.appendChild(score); li.appendChild(source); li.appendChild(why);
+      why.textContent = line.reasoning;
+      li.appendChild(why);
       fitListEl.appendChild(li);
     }
     fitEl.hidden = lines.length === 0;
+  }
+  // HAND TO THE PILOT (epic 0031): the shortlist used to rank work and
+  // then leave the operator with nothing to press. One click queues the
+  // issue on the board the roll itself read — the next firing can pick it
+  // up, and flying still waits for Fire.
+  var luckyProjectId = '';
+  function handToPilot(line, btn) {
+    if (!luckyProjectId) { snack(tr('luckyHandOffFailed', { number: line.number }), 'err'); return; }
+    btn.disabled = true;
+    var title = ('#' + line.number + ' ' + line.title).slice(0, 240) + ' — ' + line.url;
+    fetch('/api/task/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: luckyProjectId, title: title.slice(0, 300), severity: 'medium' }),
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res || res.ok !== true) { snack(tr('luckyHandOffFailed', { number: line.number }), 'err'); return; }
+        snack(tr('luckyHandedOff', { number: line.number }), 'ok', {
+          label: tr('luckyOpenBoard'),
+          run: function () {
+            var link = document.querySelector('[data-subject-link="board"], [data-subject-link="fleet"]');
+            if (link) link.click();
+          },
+        });
+      })
+      .catch(function () { btn.disabled = false; snack(tr('luckyHandOffFailed', { number: line.number }), 'err'); });
+  }
+  // The roll's arithmetic, one row per reason — never one paragraph in a
+  // status line (operator, 2026-09-14).
+  function paintLuckyWhy(reasoning) {
+    var whyEl = document.getElementById('fly-why');
+    var whyList = document.getElementById('fly-why-list');
+    if (!whyEl || !whyList) return;
+    var rows = reasoning || [];
+    whyList.textContent = '';
+    for (var i = 0; i < rows.length; i++) {
+      var li = document.createElement('li');
+      li.textContent = rows[i];
+      whyList.appendChild(li);
+    }
+    whyEl.hidden = rows.length === 0;
   }
   if (luckyEl) luckyEl.addEventListener('click', rollLucky);
   if (fitEl) fitEl.addEventListener('click', function (ev) {
@@ -491,22 +560,33 @@ ${flyHintText.toString()}
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         luckyEl.disabled = false;
-        if (!data || !data.plan) { setMsg(tr('luckyNoAnswer'), 'err'); return; }
+        if (!data || !data.plan) { setMsg(tr('luckyNoAnswer'), 'err'); snack(tr('luckyNoAnswer'), 'err'); return; }
+        luckyProjectId = data.projectId || '';
         paintLuckyFit(data.fit);
-        if (!data.plan.ok) { setMsg(tr('luckyNotNow', { reason: data.plan.refusal || tr('luckyNoPlan') }), 'err'); return; }
+        paintLuckyWhy(data.plan.reasoning);
+        if (!data.plan.ok) {
+          var refusal = tr('luckyNotNow', { reason: data.plan.refusal || tr('luckyNoPlan') });
+          setMsg(refusal, 'err');
+          snack(refusal, 'warn');
+          return;
+        }
         if (modeEl) modeEl.value = 'firings';
         if (lanesEl) lanesEl.value = String(data.plan.lanes);
         if (firingsEl) firingsEl.value = String(data.plan.firings);
         if (budgetEl) budgetEl.value = String(data.plan.budgetUsd);
         updateFlyHint();
-        var loadHint = (data.plan.reasoning && data.plan.reasoning.length) ? data.plan.reasoning[0] : '';
-        var rolled = (data.plan.reasoning && data.plan.reasoning.length) ? data.plan.reasoning[data.plan.reasoning.length - 1] : tr('luckyPlanReady');
-        if (loadHint && loadHint !== rolled) rolled = loadHint + ' — ' + rolled;
-        setMsg(tr('luckyPressFlyIt', { reason: rolled }), '');
+        // One short, localized sentence — the arithmetic is in the why panel.
+        var rolled = tr('luckyRolled', {
+          lanes: data.plan.lanes,
+          firings: data.plan.firings,
+          budget: data.plan.budgetUsd,
+        });
+        setMsg(rolled, '');
+        snack(rolled, 'ok');
         if (goEl) goEl.focus();
         // lucky: plan painted — flying stays the operator's click.
       })
-      .catch(function () { luckyEl.disabled = false; setMsg(tr('luckyDashboardDown'), 'err'); });
+      .catch(function () { luckyEl.disabled = false; setMsg(tr('luckyDashboardDown'), 'err'); snack(tr('luckyDashboardDown'), 'err'); });
   }
   // FLEET LAUNCH FROM THE FLY BAR (board web-mtdcfel4-0bxf4h): more than 1
   // lane launches the SAME hub-aware partitioned multi-lane plan the

@@ -422,7 +422,23 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .fly-fit-attention button[aria-pressed="true"] { border-color: var(--color-success); color: var(--color-success); font-weight: 600; }
 .fly-fit-attention button:hover, .fly-fit-attention button:focus-visible { border-color: var(--color-success); color: inherit; }
 .fly-fit-list { margin: var(--space-2) 0 0; padding-inline-start: 1.25rem; font-size: var(--text-sm); }
-.fly-fit-list li { margin-block: var(--space-2); }
+.fly-fit-list li { margin-block: var(--space-3); }
+/* A shortlist row is a title line, a meta line and one reason — never one
+   run-on sentence (operator, 2026-09-14). */
+.fly-fit-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); }
+.fly-fit-row .fly-fit-title { flex: 1 1 16rem; min-inline-size: 0; }
+.fly-fit-hand { flex: 0 0 auto; font: inherit; font-size: var(--text-xs); cursor: pointer; min-block-size: 1.75rem; padding: 0 var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text); }
+.fly-fit-hand:not(:disabled):hover, .fly-fit-hand:not(:disabled):focus-visible { border-color: var(--color-accent); color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.fly-fit-hand:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.fly-fit-hand:disabled { opacity: 0.6; cursor: default; }
+.fly-fit-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+.fly-fit-why { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+/* The roll's arithmetic: one row per reason, under the bar. */
+.fly-why { flex-basis: 100%; margin-block-start: var(--space-2); padding-block-start: var(--space-2); border-block-start: 1px solid var(--color-border); }
+.fly-why[hidden] { display: none; }
+.fly-why-title { margin: 0; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
+.fly-why-list { margin: var(--space-1) 0 0; padding-inline-start: 1.25rem; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.fly-why-list li { margin-block: 2px; }
 .fly-fit-title { unicode-bidi: plaintext; }
 .fly-fit-score { margin-inline-start: var(--space-2); color: var(--color-success); font-weight: 600; font-variant-numeric: tabular-nums; }
 .fly-fit-source { margin-inline-start: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
@@ -1561,6 +1577,21 @@ html[data-ask-sheet="open"] .ritual-pill, .ritual-pill { inset-block-end: calc(v
 .ritual-pill[hidden] { display: none; }
 .ritual-pill:hover, .ritual-pill:focus-visible { border-color: var(--color-accent); }
 @media (min-width: 64rem) { .ritual-pill { inset-block-end: var(--space-4); } }
+/* THE SNACKBAR (epic 0031): one place for a transient outcome, above the
+   phone's nav bar and inside the safe area. The host is a fixed overlay that
+   never takes layout from the page — nothing moves when a snack appears —
+   and it only catches pointer events on the snacks themselves. */
+.snackbar-host { position: fixed; inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom)); inset-inline: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding-inline: var(--space-3); pointer-events: none; }
+.snack { pointer-events: auto; display: flex; align-items: center; gap: var(--space-3); max-inline-size: min(34rem, 100%); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface-raised); color: var(--color-text); box-shadow: var(--elevation-level-3); font-size: var(--text-sm); animation: snack-in var(--duration-short2) var(--easing-standard); }
+@keyframes snack-in { from { opacity: 0; transform: translateY(var(--space-2)); } to { opacity: 1; transform: none; } }
+.snack-text { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
+.snack-ok { border-inline-start: 3px solid var(--color-success); }
+.snack-warn { border-inline-start: 3px solid var(--color-warning); }
+.snack-err { border-inline-start: 3px solid var(--color-sev-high); }
+.snack-action { flex: 0 0 auto; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; padding: var(--space-1) var(--space-2); min-block-size: 1.75rem; border: 0; border-radius: var(--shape-extra-small); background: transparent; color: var(--color-accent); }
+.snack-action:hover, .snack-action:focus-visible { background: var(--color-surface-sunken); border-radius: var(--shape-extra-small-hover); }
+.snack-close { flex: 0 0 auto; font: inherit; font-size: var(--text-sm); cursor: pointer; inline-size: 1.75rem; block-size: 1.75rem; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--color-text-muted); }
+.snack-close:hover, .snack-close:focus-visible { color: var(--color-text); background: var(--color-surface-sunken); }
 .ritual-toast { position: fixed; inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom)); inset-inline-start: 50%; transform: translateX(-50%); z-index: 90; max-inline-size: min(90vw, 28rem); padding: var(--space-2) var(--space-4); border-radius: var(--shape-small); background: var(--color-text); color: var(--color-surface); font-size: var(--text-sm); box-shadow: var(--elevation-level-2); }
 .ritual-toast[hidden] { display: none; }
 html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .issue-triage-execute, .pool-client-execute, .pool-client-fly, .mirror-pass-execute, .discussions-triage-execute, .report-execute, .gh-issue-form button, .update-banner button) { opacity: 0.55; cursor: progress; }

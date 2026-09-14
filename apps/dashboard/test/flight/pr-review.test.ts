@@ -997,6 +997,9 @@ const BENIGN_WEB_FEATURES = new Set([
   // here) — POSTs to /api/report-from-here and /api/report-from-here/execute,
   // already flagged under `flight/report-from-here`.
   'report-menu.ts',
+  // snackbar.ts: a transient message surface — appends text nodes to its own
+  // host, no HTML from content, no fetch of its own (epic 0031).
+  'snackbar.ts',
   // search.ts: POST /api/control/execute and /api/ask/stream —
   // already-flagged `flight/control-execute` and `server`.
   'search.ts',

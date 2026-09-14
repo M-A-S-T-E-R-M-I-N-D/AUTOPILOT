@@ -200,19 +200,19 @@ describe('flyJs', () => {
     expect(out).toContain('data.plan.refusal');
   });
 
-  it('surfaces the machine-load reading, not just the final lane count (board web-mtsvcibf-bh6asp)', () => {
+  it('surfaces the machine-load reading as its own rows, not a paragraph in a status line (board web-mtsvcibf-bh6asp, epic 0031)', () => {
     const out = flyJs();
-    // reasoning[0] is always the CPU-bound line (flight/lucky-plan.ts) —
-    // prepend it to the rolled summary so the operator sees WHY the plan is
-    // sized the way it is, not just the final lane/firing numbers.
-    expect(out).toContain(
-      "var loadHint = (data.plan.reasoning && data.plan.reasoning.length) ? data.plan.reasoning[0] : '';",
-    );
-    expect(out).toContain(
+    // Every reasoning line the plan carries — the CPU bound, the RAM bound,
+    // the board bound, the roll — becomes a row under the bar. It used to be
+    // concatenated into one sentence that wrapped through the layout
+    // (operator, 2026-09-14: "a really long text with strange line breaks").
+    expect(out).toContain('function paintLuckyWhy(reasoning) {');
+    expect(out).toContain('paintLuckyWhy(data.plan.reasoning);');
+    expect(out).toContain('li.textContent = rows[i];');
+    expect(out).toContain('whyEl.hidden = rows.length === 0;');
+    expect(out).not.toContain(
       "if (loadHint && loadHint !== rolled) rolled = loadHint + ' — ' + rolled;",
     );
-    // Still rides the single {reason} slot — no new STRINGS key needed.
-    expect(out).toContain("setMsg(tr('luckyPressFlyIt', { reason: rolled }), '')");
   });
 
   it('paints the fit shortlist under the bar — on a refusal too — and the attention toggle re-rolls (issue #44)', () => {
@@ -220,18 +220,22 @@ describe('flyJs', () => {
     // The shortlist paints BEFORE the refusal early-return: "nothing queued"
     // is exactly when the claimable work one panel over matters.
     const paintAt = out.indexOf('paintLuckyFit(data.fit);');
-    const refuseAt = out.indexOf("if (!data.plan.ok) { setMsg(tr('luckyNotNow'");
+    const refuseAt = out.indexOf('if (!data.plan.ok) {');
     expect(paintAt).toBeGreaterThan(-1);
     expect(refuseAt).toBeGreaterThan(paintAt);
     // One line per issue: the link, the score, the source, the why.
-    expect(out).toContain("a.textContent = '#' + lines[i].number + ' ' + lines[i].title;");
+    expect(out).toContain("a.textContent = '#' + line.number + ' ' + line.title;");
+    // …and the pilot can be handed the ones it may fly (epic 0031).
+    expect(out).toContain("if (line.source === 'pool') {");
+    expect(out).toContain("hand.textContent = tr('luckyHandToPilot');");
+    expect(out).toContain("fetch('/api/task/create', {");
     expect(out).toContain(
-      "score.textContent = tr('luckyFitScore', { score: Number(lines[i].fit).toFixed(2) });",
+      "score.textContent = tr('luckyFitScore', { score: Number(line.fit).toFixed(2) });",
     );
     expect(out).toContain(
-      "tr(lines[i].source === 'pool' ? 'luckyFitSourcePool' : 'luckyFitSourcePeople')",
+      "tr(line.source === 'pool' ? 'luckyFitSourcePool' : 'luckyFitSourcePeople')",
     );
-    expect(out).toContain('why.textContent = lines[i].reasoning;');
+    expect(out).toContain('why.textContent = line.reasoning;');
     expect(out).toContain('fitEl.hidden = lines.length === 0;');
     // The attention toggle persists client-side and rolls again.
     expect(out).toContain("var FLY_ATTENTION_KEY = 'ap-fly-attention';");
