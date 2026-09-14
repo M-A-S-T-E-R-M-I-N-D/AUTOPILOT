@@ -162,3 +162,63 @@ describe('layoutCss — spark-tip tooltip text stays inside its own box (report-
     expect(css).toMatch(/\.spark-tip\s*\{[^}]*overflow-wrap:\s*anywhere/);
   });
 });
+
+/**
+ * THE RULE THAT WAS WRITTEN TWICE (operator, 2026-09-14: the Hebrew fly bar
+ * "still looks really weird").
+ *
+ * `#fly-lucky` carried two complete rule sets. The later one — written when
+ * the clover had no styling at all — silently overrode the designed
+ * green-outline treatment the earlier one gives it, so the control rendered
+ * as a third unrelated grey chip beside Fire. Nothing caught it: both rules
+ * were valid, both were reachable, and a selector census that only asks
+ * "does this control have a rule?" answers yes twice.
+ *
+ * This census asks the harder question. A bare `#id { … }` written twice in
+ * one stylesheet means one of them is dead, and which one is dead depends on
+ * source order — which is exactly the kind of fact nobody re-derives while
+ * reading a diff.
+ */
+describe('layoutCss — no id is styled twice by a bare selector', () => {
+  const css = layoutCss();
+
+  it('declares each bare #id rule exactly once, so no designed treatment is silently overridden', () => {
+    const counts = new Map<string, number>();
+    // The id must be the ENTIRE selector of the rule. A stateful or
+    // descendant selector (`#fly-go:hover`, `#a #b`) is a deliberate second
+    // rule, and so is a grouped one (`#a, #b { … }`) — those share one
+    // declaration block on purpose. Only `#id { … }` twice is a bug.
+    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const match of withoutComments.matchAll(/(?:^|\})\s*([^{}]+)\{/g)) {
+      const selector = (match[1] as string).trim();
+      if (!/^#[a-z][a-z0-9-]*$/i.test(selector)) continue;
+      counts.set(selector, (counts.get(selector) ?? 0) + 1);
+    }
+    const duplicated = [...counts.entries()]
+      .filter(([, n]) => n > 1)
+      .map(([id, n]) => `${id} (${n} bare rules)`)
+      .sort();
+    expect(duplicated, 'one of each pair is dead — merge them').toEqual([]);
+  });
+});
+
+/**
+ * THE FLY BAR'S OWN ROW (same report). Three controls sat beside a
+ * full-height input at three different heights, each sized by its own
+ * padding, and a long status sentence shared their row and stretched it.
+ */
+describe('layoutCss — the fly bar reads as one row of one height', () => {
+  const css = layoutCss();
+
+  it('gives every fly-bar control and the folder input the same block size', () => {
+    expect(css).toMatch(
+      /#fly-lucky,\s*#fly-go,\s*\.fly-options-toggle[^{]*\{[^}]*min-block-size:\s*2\.25rem/,
+    );
+    expect(css).toMatch(/#fly-folder\s*\{[^}]*min-block-size:\s*2\.25rem/);
+  });
+
+  it('puts the status on its own line, and takes no space at all when it is empty', () => {
+    expect(css).toMatch(/\.fly-status\s*\{[^}]*flex-basis:\s*100%/);
+    expect(css).toMatch(/\.fly-status:empty\s*\{[^}]*display:\s*none/);
+  });
+});

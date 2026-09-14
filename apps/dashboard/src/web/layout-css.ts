@@ -341,7 +341,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .fly-folder-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 /* A small basis, not the path's own width: with flex-wrap on, a long folder
    name would otherwise push Lucky, Fire and the gear onto their own line. */
-#fly-folder { flex: 1 1 8rem; min-width: 0; font-family: var(--font-mono); }
+#fly-folder { flex: 1 1 8rem; min-width: 0; min-block-size: 2.25rem; font-family: var(--font-mono); }
 /* The settings panel is a plain container toggled by the hidden attribute,
    at every width — NOT a <details>. A closed <details> keeps hiding its
    content even under display:contents, so the desktop unwrap silently swallowed
@@ -396,19 +396,14 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 #fly-browse-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 #fly-browse-btn:hover, #fly-browse-btn:focus-visible { color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 #fly-browse-btn:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
-/* 🍀 I'm-feeling-lucky button (COCKPIT 6/6): the ONLY fly-bar control with no
-   stylesheet rule at all — it rendered as a raw UA-default <button> between
-   Lanes and Fly it, and escaped every prior audit (the cursor: pointer
-   census, the :hover-rule walk) precisely because a control with no rule has
-   nothing to find. Same outline-chip idiom as #fly-browse-btn beside it, plus
-   #fly-go's :disabled phase — features/fly.ts disables it for the /api/lucky
-   round-trip — so the hover/active pair sits behind :not(:disabled). */
-#fly-lucky { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
-#fly-lucky:disabled { cursor: default; opacity: 0.6; }
-#fly-lucky:not(:disabled):hover, #fly-lucky:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
-#fly-lucky:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .pill-paused { color: var(--color-sev-medium); border-color: var(--color-sev-medium); }
-.fly-status { font-size: var(--text-sm); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.fly-status { order: 6; flex-basis: 100%; font-size: var(--text-sm); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.fly-status:empty { display: none; }
+/* One cluster, one height. Without this the clover, Fire and the gear each
+   sized themselves from their own padding and sat at three different
+   heights beside a full-height input — the "weird" the operator saw. */
+#fly-lucky, #fly-go, .fly-options-toggle, #fly-pause, #fly-stop { min-block-size: 2.25rem; }
+#fly-lucky, #fly-go { display: inline-flex; align-items: center; justify-content: center; }
 .fly-status.fly-ok { color: var(--color-success); font-weight: 600; }
 .fly-status.fly-err { color: var(--color-sev-high); font-weight: 600; }
 .fly-hint { flex-basis: 100%; margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }

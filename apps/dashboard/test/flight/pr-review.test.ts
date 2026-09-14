@@ -346,6 +346,21 @@ const BENIGN_ENGINE_SRC = new Set([
   // config.ts's tool-grant constants, which the threat-model table renders
   // and `flight/pr-review.ts` flags.
   'models.ts',
+  // model-vendor.ts: PURE string→publisher attribution beside models.ts,
+  // with models.ts's own rule — it describes, it never restricts. No I/O,
+  // no decision surface: an unrecognized model still flies, and the only
+  // consequence of editing it is which organisation a provenance line
+  // names. Getting it WRONG is a credit error, not a capability one, and
+  // its test pins that an unknown id reports itself unknown.
+  'model-vendor.ts',
+  // provenance.ts: PURE formatting of the disclosure a public artifact
+  // carries — one visible line, one HTML comment, one commit trailer, and
+  // a profile chosen from the TARGET repo's own published policy text. No
+  // I/O and no gh call: github-contribute.ts / github-pr-contribute.ts are
+  // the flagged halves that actually file anything, and flight/gh-exec.ts
+  // still owns every write. It cannot emit a Signed-off-by, and its test
+  // pins that an unread policy fails toward LESS output, never more.
+  'provenance.ts',
   // usage-pool.ts: PURE list-price parser over caller-supplied strings — no
   // filesystem, no process, no decision surface; its impure sibling
   // (adapters/usage-pool-scan.ts, which READS the operator's private
