@@ -482,7 +482,16 @@ export function runFleetWisdomSweep(store: Store, now: () => number): void {
 export async function runStaleClaimSweep(
   now: () => number,
   exec: CliExec = ghExec,
+  target?: string,
+  engineRepo: string = process.cwd(),
 ): Promise<readonly MirrorPassClaimedIssue[]> {
+  // CROSS-PROJECT LEAK (operator, 2026-09-14): releasing a stale claim is a
+  // real GitHub write against THIS repository's pool. A flight over someone
+  // else's folder must not perform this repository's housekeeping — the
+  // maintainer role check is not enough, because the maintainer is exactly
+  // who flies other folders. Same self-target guard the doc-freshness and
+  // verify-by sweeps carry.
+  if (target !== undefined && target !== engineRepo) return [];
   try {
     const identity = await resolveSocialIdentity(exec);
     if (identity === undefined || identity.role !== 'maintainer') return [];
