@@ -810,20 +810,6 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-review-result-ok { color: var(--color-success); }
 .pr-review-result-fail { color: var(--color-sev-critical); }
 .pr-review-result-warn { color: var(--color-sev-medium); }
-/* The 🔧 Diagnose diff-approval shell (VERDICT ap-mtydvfm1-0 slice (a) wired
-   live): a defect verdict's fixProposal renders as its own indented block —
-   same border-inline-start treatment .firing-diff's block uses for the
-   Firing Replay diff, so a reader recognizes it as "a diff" on sight. The
-   diff itself reuses .firing-diff's own mono/pre-wrap/scroll styling
-   (fix-proposal-diff only resets its margins, tuned for a standalone block,
-   to zero inside this one); Approve/Discard reuse .pr-review-update-branch's
-   already-audited neutral button shell (hover-focus-visible-pairing.test.ts)
-   rather than inventing a second disabled/hover treatment. */
-.fix-proposal { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-1); padding: var(--space-2); border-inline-start: 2px solid var(--color-border); background: var(--color-surface-raised); }
-.fix-proposal-title { margin: 0; font-size: var(--text-sm); font-weight: 700; }
-.fix-proposal-summary { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }
-.fix-proposal-diff { margin: 0; }
-.fix-proposal-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
 .issue-triage-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .issue-triage-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .issue-triage-list { display: flex; flex-direction: column; }
