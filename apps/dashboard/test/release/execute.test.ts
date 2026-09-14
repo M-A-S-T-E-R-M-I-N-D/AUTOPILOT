@@ -36,7 +36,7 @@ function cleanupDir(dir: string): void {
 
 const CHANGELOG = ['# Changelog', '', '## [Unreleased]', '', ''].join('\n');
 
-/** The maturity verdict every v1.1.0 release in these tests detects —
+/** The maturity verdict every v1.0.1 release in these tests detects —
  *  >= 1.0.0, no pre-release suffix (release/maturity.ts). */
 const STABLE_MATURITY = {
   phase: 'stable',
@@ -165,27 +165,27 @@ describe('createReleaseExecuteApi', () => {
       expect(result).toEqual({
         ok: true,
         reason: 'released',
-        details: 'released v1.1.0 (minor)',
-        version: '1.1.0',
-        bump: 'minor',
+        details: 'released v1.0.1 (patch)',
+        version: '1.0.1',
+        bump: 'patch',
         attestation: { ok: true, details: "attached a note to 'HEAD'" },
       });
 
       const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
         version: string;
       };
-      expect(pkg.version).toBe('1.1.0');
+      expect(pkg.version).toBe('1.0.1');
       const changelog = readFileSync(join(repo, 'CHANGELOG.md'), 'utf8');
-      expect(changelog).toContain('## [1.1.0]');
+      expect(changelog).toContain('## [1.0.1]');
 
       const tags = gitSync(repo, ['tag', '-l']);
-      expect(tags.split('\n')).toContain('v1.1.0');
+      expect(tags.split('\n')).toContain('v1.0.1');
       const lastSubject = gitSync(repo, ['log', '-1', '--format=%s']);
-      expect(lastSubject).toBe('chore(release): v1.1.0');
+      expect(lastSubject).toBe('chore(release): v1.0.1');
       const trailer = gitSync(repo, ['log', '-1', '--format=%b']);
       expect(trailer).toContain('Signed-off-by:');
       const note = gitSync(repo, ['notes', 'show', 'HEAD']);
-      expect(note).toContain('Release v1.1.0 (minor)');
+      expect(note).toContain('Release v1.0.1 (patch)');
       expect(note).toContain('feat: a new capability');
     } finally {
       cleanupDir(repo);
@@ -218,14 +218,14 @@ describe('createReleaseExecuteApi', () => {
       expect(result).toEqual({
         ok: true,
         reason: 'released',
-        details: 'released v1.1.0 (minor)',
-        version: '1.1.0',
-        bump: 'minor',
+        details: 'released v1.0.1 (patch)',
+        version: '1.0.1',
+        bump: 'patch',
         attestation: { ok: true, details: "attached a note to 'HEAD'" },
       });
 
       const lastSubject = gitSync(repo, ['log', '-1', '--format=%s']);
-      expect(lastSubject).toBe('chore(release): v1.1.0');
+      expect(lastSubject).toBe('chore(release): v1.0.1');
       const stat = gitSync(repo, ['show', '--stat', '--format=', 'HEAD']);
       expect(stat).not.toContain('unrelated-feature.ts');
 
@@ -270,7 +270,7 @@ describe('createReleaseExecuteApi', () => {
         version: string;
         scripts: { version: string };
       };
-      expect(pkg.version).toBe('1.1.0');
+      expect(pkg.version).toBe('1.0.1');
       expect(pkg.scripts.version).toBe('echo hi');
     } finally {
       cleanupDir(repo);
@@ -301,9 +301,9 @@ describe('createReleaseExecuteApi', () => {
       });
 
       const tags = gitSync(repo, ['tag', '-l']);
-      expect(tags.split('\n')).toContain('v1.1.0');
+      expect(tags.split('\n')).toContain('v1.0.1');
       expect(tags.split('\n')).toContain('m4');
-      const vTagSha = gitSync(repo, ['rev-list', '-n1', 'v1.1.0']);
+      const vTagSha = gitSync(repo, ['rev-list', '-n1', 'v1.0.1']);
       const mTagSha = gitSync(repo, ['rev-list', '-n1', 'm4']);
       expect(mTagSha).toBe(vTagSha);
     } finally {
@@ -402,10 +402,10 @@ describe('createReleaseExecuteApi', () => {
 
       const result = await createReleaseExecuteApi(dbPath)('p1');
       expect(result?.ok).toBe(true);
-      expect(result?.version).toBe('1.1.0');
+      expect(result?.version).toBe('1.0.1');
 
       const infoRaw = readFileSync(infoPath, 'utf8');
-      expect(infoRaw).toContain("export const PRODUCT_VERSION = '1.1.0';");
+      expect(infoRaw).toContain("export const PRODUCT_VERSION = '1.0.1';");
       expect(infoRaw).toContain("export const DASHBOARD_VERSION = '0.1.0';");
     } finally {
       cleanupDir(repo);
@@ -510,7 +510,7 @@ describe('createReleaseExecuteApi', () => {
         // One release commit, and it carries BOTH the version bump AND the
         // citation write — never a separate follow-up commit.
         const log = gitSync(repo, ['log', '--format=%s', '-n', '2']);
-        expect(log.split('\n')[0]).toBe('chore(release): v1.1.0');
+        expect(log.split('\n')[0]).toBe('chore(release): v1.0.1');
         const committedFiles = gitSync(repo, ['show', '--stat', '--format=', 'HEAD']);
         expect(committedFiles).toContain('CITATION.cff');
         expect(committedFiles).toContain('package.json');
@@ -643,7 +643,7 @@ describe('createReleaseExecuteApi', () => {
           calls.push({ command, args, cwd });
           const ok: CommandResult =
             command === 'gh'
-              ? { exitCode: 0, stdout: 'https://github.com/x/x/releases/tag/v1.1.0', stderr: '' }
+              ? { exitCode: 0, stdout: 'https://github.com/x/x/releases/tag/v1.0.1', stderr: '' }
               : { exitCode: 0, stdout: '', stderr: '' };
           return ok;
         })('p1', undefined, true);
@@ -652,23 +652,23 @@ describe('createReleaseExecuteApi', () => {
         expect(result?.ghRelease).toEqual({
           ok: true,
           details:
-            'https://github.com/x/x/releases/tag/v1.1.0 (stable: >= 1.0.0 with no pre-release suffix — a stable release)',
+            'https://github.com/x/x/releases/tag/v1.0.1 (stable: >= 1.0.0 with no pre-release suffix — a stable release)',
           maturity: STABLE_MATURITY,
         });
         expect(calls).toEqual([
-          { command: 'git', args: ['push', 'origin', 'v1.1.0'], cwd: repo },
+          { command: 'git', args: ['push', 'origin', 'v1.0.1'], cwd: repo },
           {
             command: 'gh',
             args: [
               'release',
               'create',
-              'v1.1.0',
+              'v1.0.1',
               '--verify-tag',
               '--notes-from-tag',
               '--title',
               // The project's display name leads the title; stable drops the
               // phase suffix (the bare-"v0.22.0" placeholder-title lesson).
-              'p1 v1.1.0',
+              'p1 v1.0.1',
             ],
             cwd: repo,
           },

@@ -12,6 +12,11 @@ is the durable record so the discipline is repeatable (and enforced by CI).
 
 - The **product/repo version** is the single line the `CHANGELOG.md` and git
   version tags share. The root `package.json` `version` tracks it.
+- **The small-release law (2026-09-14):** a batch of fewer than eight
+  release-worthy commits (feat · fix · perf · revert) is a **patch** even when it
+  carries a feat — a day of small landings reads as 0.48.1, 0.48.2 — and a
+  batch of eight or more with a feat earns the **minor**. A breaking change
+  is unaffected (`SMALL_RELEASE_COMMITS` in `packages/engine/src/release.ts`).
 - **The live law (since the fleet took over releasing):** the bump is computed
   from Conventional Commits since the last release tag — `feat` ⇒ MINOR,
   `fix`/`perf` ⇒ PATCH, a breaking marker ⇒ MAJOR (`planRelease`,
