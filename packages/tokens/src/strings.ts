@@ -768,7 +768,7 @@ const EN_STRINGS = {
   // COORDINATION panel's own literal text — title, loading placeholder, and
   // the empty/unavailable states. The coordination lines themselves stay as
   // served (they quote the firing prompt's FLEET digest verbatim).
-  coordinationTitle: '🤝 Fleet coordination',
+  coordinationTitle: 'Fleet coordination',
   coordinationLoading: 'Checking for sibling claims and in-flight intents…',
   coordinationEmpty: 'No sibling claims or in-flight intents detected right now.',
   coordinationUnavailable: 'Fleet coordination unavailable.',
@@ -2053,7 +2053,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prReviewExecuteFailedGeneric: 'ביצוע סקירת ה-PR נכשל.',
     prReviewCommandFailedSuffix: ' נכשל (קוד יציאה {code}).',
     prReviewApplying: 'מחיל…',
-    coordinationTitle: '🤝 תיאום הצי',
+    coordinationTitle: 'תיאום הצי',
     coordinationLoading: 'בודק תביעות של מופעים אחים וכוונות בטיסה…',
     coordinationEmpty: 'לא זוהו כרגע תביעות של מופעים אחים או כוונות בטיסה.',
     coordinationUnavailable: 'תיאום הצי אינו זמין.',

@@ -90,8 +90,11 @@ describe('the FLEET COORDINATION panel i18n wiring (board web-msnsndki-dz3vn1)',
     await settle();
 
     const title = document.querySelector('.coordination-title');
-    expect(title?.textContent).toBe('🤝 Fleet coordination');
-    expect(title?.getAttribute('data-i18n')).toBe('coordinationTitle');
+    expect(title?.hasAttribute('data-i18n')).toBe(false);
+    expect(title?.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe(
+      'coordinationTitle',
+    );
+    expect(title?.textContent).toBe('Fleet coordination');
 
     const empty = document.querySelector('.coordination-body p');
     expect(empty?.textContent).toBe('No sibling claims or in-flight intents detected right now.');
