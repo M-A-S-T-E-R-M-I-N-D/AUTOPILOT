@@ -1,10 +1,7 @@
 # AUTOPILOT — Backlog (the "999 topics")
 
-The founder noted there are "at least 999" topics AUTOPILOT should cover. This is their home — a living,
-categorized register. Nothing gets lost; items graduate into phased work (see `MASTER-PLAN.md` §13).
-Status legend: `[ ]` open · `[~]` in a phase · `[x]` done. A `[x]` item's full implementation evidence
-may live in [BACKLOG-999-ARCHIVE.md](BACKLOG-999-ARCHIVE.md) instead of inline, as this register is
-compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline line always says so.
+The founder noted there are "at least 999" topics AUTOPILOT should cover. This is their home — a living, categorized register. Nothing gets lost; items graduate into phased work (see `MASTER-PLAN.md` §13).
+Status legend: `[ ]` open · `[~]` in a phase · `[x]` done. A `[x]` item's full implementation evidence may live in [BACKLOG-999-ARCHIVE.md](BACKLOG-999-ARCHIVE.md) instead of inline, as this register is compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline line always says so.
 
 ## A. Engine & autonomy
 - [x] (M1, e2e-proven; 160+ real firings) Cross-platform TypeScript port of the v2.4 loop (orient/pick/gate/commit/report/pace/hibernate)
@@ -90,86 +87,33 @@ compressed toward a scannable size (board `web-mtndm5m6-rfly97`) — the inline 
 - [x] Operating principle wired in: proceed on reasonable interpretation, reserve forks/🟣 for approval, never stall — `MASTER-PLAN.md` §17.4; the firing prompt's NOOP→VERDICT and empty-board PROPOSALS sections encode it
 
 ## K. M0-review forward notes (deferred low-severity items from the M0 adversarial review, 2026-07-06)
-- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` (needed when the
-  dashboard opens the store for reads, M3). Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--read-only-open-path-moved-2026-09-13).
-- [ ] TypeScript type-aware linting (M1): when enabling `parserOptions.projectService`, give ESLint a project whose
-  `include` covers every linted file (root config files + `scripts/*.mjs`).
-- [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it.
-  Done — renamed to `tsconfig.typecheck.json`; `package.json`'s `typecheck` script updated to match.
-- [x] **Dashboard browser tsconfig (M3 prep)** Split the flat `tsconfig.typecheck.json` per-package and gave
-  `apps/dashboard` its own `DOM` lib + jsdom Vitest env — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--dashboard-browser-tsconfig-libjsdom-split-moved-2026-09-10).
-- [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate.
-  Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--reuse-lint-ci-job-moved-2026-09-13).
-- [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions. Done — full
-  evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--security-hardening-sha-pinned-actions-moved-2026-09-14).
-- [x] Store path hardening (M3): validate/normalize the filesystem path passed to `openStore`. Done — full evidence
-  moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--store-path-hardening-moved-2026-09-14).
-- [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling). Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--claudecli-long-prompt-via-stdin-moved-2026-09-14).
-- [x] Single-instance guard for the engine loop (per-project). Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--single-instance-guard-moved-2026-09-14).
-- [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`). Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--adaptive-cadence--weekly-pacing-moved-2026-09-14).
-- [~] (live-CLI dogfood proven at scale — 160+ real firings; formal the internal predecessor behavioral diff never run) M1 experiential DoD (deferred from the machine-verifiable M1): a **live-CLI dogfood run** (real `claude -p`
-  flying a repo, exercising `ClaudeCliModel.invoke`) and a **behavioral diff against the running internal v2.4 script**.
-  The deterministic sandbox e2e proves the pipeline; these confirm the live behavior.
-- [x] OpenTelemetry wire-format export for firings — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--otel-wire-format-export-moved-2026-09-13).
+- [x] `packages/store` read-only open path: add a `{ readonly }` option to `openStore`/`Store` (needed when the dashboard opens the store for reads, M3). Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--read-only-open-path-moved-2026-09-13).
+- [ ] TypeScript type-aware linting (M1): when enabling `parserOptions.projectService`, give ESLint a project whose `include` covers every linted file (root config files + `scripts/*.mjs`).
+- [x] Rename `tsconfig.eslint.json` (M1 prep): it was never an ESLint project — only `pnpm run typecheck` used it. Done — renamed to `tsconfig.typecheck.json`; `package.json`'s `typecheck` script updated to match.
+- [x] **Dashboard browser tsconfig (M3 prep)** Split the flat `tsconfig.typecheck.json` per-package and gave `apps/dashboard` its own `DOM` lib + jsdom Vitest env — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--dashboard-browser-tsconfig-libjsdom-split-moved-2026-09-10).
+- [x] Consider adding the canonical `reuse lint` (Python) as an optional CI job alongside the Node SPDX-header gate. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--reuse-lint-ci-job-moved-2026-09-13).
+- [x] Security hardening (M8 / OpenSSF Scorecard "Pinned-Dependencies"): SHA-pin GitHub Actions. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--security-hardening-sha-pinned-actions-moved-2026-09-14).
+- [x] Store path hardening (M3): validate/normalize the filesystem path passed to `openStore`. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--store-path-hardening-moved-2026-09-14).
+- [x] ClaudeCli long-prompt-via-stdin (Windows 32K cmdline ceiling). Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--claudecli-long-prompt-via-stdin-moved-2026-09-14).
+- [x] Single-instance guard for the engine loop (per-project). Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--single-instance-guard-moved-2026-09-14).
+- [x] Adaptive cadence + weekly pacing adapter (`nextPaceMin`). Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--adaptive-cadence--weekly-pacing-moved-2026-09-14).
+- [~] (live-CLI dogfood proven at scale — 160+ real firings; formal the internal predecessor behavioral diff never run) M1 experiential DoD (deferred from the machine-verifiable M1): a **live-CLI dogfood run** (real `claude -p` flying a repo, exercising `ClaudeCliModel.invoke`) and a **behavioral diff against the running internal v2.4 script**. The deterministic sandbox e2e proves the pipeline; these confirm the live behavior.
+- [x] OpenTelemetry wire-format export for firings — full evidence moved to [BACKLOG-999-ARCHIVE.md §K](BACKLOG-999-ARCHIVE.md#k--otel-wire-format-export-moved-2026-09-13).
 
 ## L. SOTA-MAP gap items (2026-08-08 · cite map IDs — `docs/SOTA-MAP-llm-software-engineering-2026-08.md`; analysis: RESEARCH-LIBRARY)
-- [~] (DEFERRED BY MEASUREMENT ~$0.02/firing — RESEARCH-LIBRARY "Firing cost anatomy"; revisit M6) **B2+K3** Prompt prefix reorder for cache: stable blocks (SOUL + discipline + containment + hard rules) FIRST,
-  volatile (firing number, lastFailure, board) LAST — next prompt version; verify with cache-read-token telemetry
-- [ ] **C6+H3** Prompt regression eval set: 20–50 real repo tasks; report pass rate + variance + median steps +
-  cost/solved together; gate every `FIRING_PROMPT_VERSION` bump on it
-- [x] **A3** Three-valued gate verdict: `confirmed`/`refuted`/`unverifiable`. Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--a3-three-valued-gate-verdict-moved-2026-09-14).
-- [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400), mechanical-change exempt — full
-  evidence moved to
-  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--c4-deterministic-diff-size-gate-moved-2026-09-13).
-- [ ] **C5** Commit-time independent review (pre-M8 slice): one cheap fresh-context diff-review call per firing,
-  find-problems instruction, non-blocking, finding recorded on the firing
-- [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal, "unreviewed SOUL" flag until ratified.
-  Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--b5-starter-soul-curation-guard-moved-2026-09-14).
-- [ ] **A4+I3** OS-level sandbox + credential masking for flights (textual guard is layer 2; sandbox = Docker deploy
-  stage, Linux-only; masking so the flight never holds the real token) — known, map confirms priority
-- [x] **D1** Provenance trailers on autopilot commits: model + `FIRING_PROMPT_VERSION` + harness as git trailers.
-  Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--d1-provenance-trailers-moved-2026-09-14).
-- [x] **B6** Schema-validate METRICS/PROPOSALS at the parse boundary (enums for severity/dimension). Done — full
-  evidence moved to
-  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--b6-schema-validate-metrics-and-proposals-moved-2026-09-14).
-- [x] **C3** Destructive-git deny in the guard hook: deterministic deny patterns for force-push/`reset --hard`/rebase/etc.
-  Done — full evidence moved to
-  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--c3-destructive-git-deny-moved-2026-09-14).
-- [x] (dedupe done) **C2** Wire BACKLOG-999 into the loop: empty-board firings + the Triage sub-agent consult `docs/BACKLOG-999.md`
-  (the reserved `source: 'backlog'` in TASK_SOURCES finally earns its seat); proposals dedupe against board AND backlog
-- [ ] **G4** Retrieval eval metrics for Ask/GENIUS RAG (M4+): faithfulness, context precision/recall, hallucination
-  rate, answer-to-chunk traceability; calibrate any LLM-judge against accumulated operator verdicts
-- [ ] **I1** Agent/tool/credential inventory: one generated table — every agent (firing, triage, Ask, ARCHITECT,
-  M8 reviewers), the tools each reaches, the credentials each holds; regenerate on config change. Slice landed —
-  `scripts/threat-model/generate-table.mjs` now renders one combined Agent/Tool/Grant table (`docs/THREAT-MODEL.md`
-  §3) instead of just the main flying agent's; `packages/engine/src/config.ts`'s new `TOOL_LESS_ALLOWED_TOOLS`/
-  `TOOL_LESS_DISALLOWED_TOOLS` replaced the inline `[]`/`['*']` literals post-flight triage
-  (`flight/board-triage.ts`) and Ask tier 1 (`server/main.ts`) each hand-repeated, so both are now generator-visible
-  too, alongside the main flying agent and the Ask-escalation tier (already a named export). Remaining: the
-  auth-verification probe genuinely has no tool grant (fine as a documented zero-row); the M8 PR-reviewer LLM
-  surface (the SAST-style review propose-fix work tracked under M8 above, itself still `~` in progress) has not
-  been built in code anywhere in this repo yet — verified by grepping for any `allowedTools`/`disallowedTools`
-  literal or CLI/agent spawn outside the four already-generated rows, and for any GitHub Actions workflow invoking
-  `claude-code-action`; none exists — so there is no inline literal to extract yet. Re-check once that surface
-  actually spawns an agent. Credentials (§4) are still hand-maintained prose, not part of this generated table
-  yet — that's the next concrete slice, though it's a larger one: §4 is narrative (location/purpose/at-rest
-  protection), not a flat tool list, so it needs its own structured source before it can generate cleanly.
-- [x] **Board hygiene** Reconcile board vs git on session end (subject-text match `ap-msksw1mf-3` +
-  file-path fallback `ap-msksw1mf-4`, both proven against real fixtures in `reconcile.test.ts`) — full
-  evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--board-hygiene-moved-2026-09-09).
-- [x] **WCAG-AA (real bug, from the a11y round)** Light theme `--color-sev-medium` contrast fix. Done — full
-  evidence moved to
-  [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--wcag-aa-light-theme-sev-medium-contrast-moved-2026-09-14).
-- [ ] **firing-v9 (bundle)** PLAN phase (incl. the delegation decision) + REFLECT + the B2 prompt-prefix reorder +
-  E8/K2 routing annotation for M6 — one deliberate prompt-version bump, gated on the C6+H3 eval set once it exists
+- [~] (DEFERRED BY MEASUREMENT ~$0.02/firing — RESEARCH-LIBRARY "Firing cost anatomy"; revisit M6) **B2+K3** Prompt prefix reorder for cache: stable blocks (SOUL + discipline + containment + hard rules) FIRST, volatile (firing number, lastFailure, board) LAST — next prompt version; verify with cache-read-token telemetry
+- [ ] **C6+H3** Prompt regression eval set: 20–50 real repo tasks; report pass rate + variance + median steps + cost/solved together; gate every `FIRING_PROMPT_VERSION` bump on it
+- [x] **A3** Three-valued gate verdict: `confirmed`/`refuted`/`unverifiable`. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--a3-three-valued-gate-verdict-moved-2026-09-14).
+- [x] **C4** Deterministic diff-size gate: changed-lines threshold (~400), mechanical-change exempt — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--c4-deterministic-diff-size-gate-moved-2026-09-13).
+- [ ] **C5** Commit-time independent review (pre-M8 slice): one cheap fresh-context diff-review call per firing, find-problems instruction, non-blocking, finding recorded on the firing
+- [x] **B5** Starter-SOUL curation guard: keep the generated starter minimal, "unreviewed SOUL" flag until ratified. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--b5-starter-soul-curation-guard-moved-2026-09-14).
+- [ ] **A4+I3** OS-level sandbox + credential masking for flights (textual guard is layer 2; sandbox = Docker deploy stage, Linux-only; masking so the flight never holds the real token) — known, map confirms priority
+- [x] **D1** Provenance trailers on autopilot commits: model + `FIRING_PROMPT_VERSION` + harness as git trailers. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--d1-provenance-trailers-moved-2026-09-14).
+- [x] **B6** Schema-validate METRICS/PROPOSALS at the parse boundary (enums for severity/dimension). Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--b6-schema-validate-metrics-and-proposals-moved-2026-09-14).
+- [x] **C3** Destructive-git deny in the guard hook: deterministic deny patterns for force-push/`reset --hard`/rebase/etc. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--c3-destructive-git-deny-moved-2026-09-14).
+- [x] (dedupe done) **C2** Wire BACKLOG-999 into the loop: empty-board firings + the Triage sub-agent consult `docs/BACKLOG-999.md` (the reserved `source: 'backlog'` in TASK_SOURCES finally earns its seat); proposals dedupe against board AND backlog
+- [ ] **G4** Retrieval eval metrics for Ask/GENIUS RAG (M4+): faithfulness, context precision/recall, hallucination rate, answer-to-chunk traceability; calibrate any LLM-judge against accumulated operator verdicts
+- [ ] **I1** Agent/tool/credential inventory: one generated table — every agent (firing, triage, Ask, ARCHITECT, M8 reviewers), the tools each reaches, the credentials each holds; regenerate on config change. Slice landed — `scripts/threat-model/generate-table.mjs` now renders one combined Agent/Tool/Grant table (`docs/THREAT-MODEL.md` §3) instead of just the main flying agent's; `packages/engine/src/config.ts`'s new `TOOL_LESS_ALLOWED_TOOLS`/`TOOL_LESS_DISALLOWED_TOOLS` replaced the inline `[]`/`['*']` literals post-flight triage (`flight/board-triage.ts`) and Ask tier 1 (`server/main.ts`) each hand-repeated, so both are now generator-visible too, alongside the main flying agent and the Ask-escalation tier (already a named export). Remaining: the auth-verification probe genuinely has no tool grant (fine as a documented zero-row); the M8 PR-reviewer LLM surface (the SAST-style review propose-fix work tracked under M8 above, itself still `~` in progress) has not been built in code anywhere in this repo yet — verified by grepping for any `allowedTools`/`disallowedTools` literal or CLI/agent spawn outside the four already-generated rows, and for any GitHub Actions workflow invoking `claude-code-action`; none exists — so there is no inline literal to extract yet. Re-check once that surface actually spawns an agent. Credentials (§4) are still hand-maintained prose, not part of this generated table yet — that's the next concrete slice, though it's a larger one: §4 is narrative (location/purpose/at-rest protection), not a flat tool list, so it needs its own structured source before it can generate cleanly.
+- [x] **Board hygiene** Reconcile board vs git on session end (subject-text match `ap-msksw1mf-3` + file-path fallback `ap-msksw1mf-4`, both proven against real fixtures in `reconcile.test.ts`) — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--board-hygiene-moved-2026-09-09).
+- [x] **WCAG-AA (real bug, from the a11y round)** Light theme `--color-sev-medium` contrast fix. Done — full evidence moved to [BACKLOG-999-ARCHIVE.md §L](BACKLOG-999-ARCHIVE.md#l--wcag-aa-light-theme-sev-medium-contrast-moved-2026-09-14).
+- [ ] **firing-v9 (bundle)** PLAN phase (incl. the delegation decision) + REFLECT + the B2 prompt-prefix reorder + E8/K2 routing annotation for M6 — one deliberate prompt-version bump, gated on the C6+H3 eval set once it exists
