@@ -75,6 +75,7 @@ const frames = FRAMES.map((f) => {
   const png = f.file
     ? readFileSync(join(ROOT, f.file))
     : execFileSync('git', ['show', `${f.sha}:${PATH}`], {
+        windowsHide: true,
         cwd: ROOT,
         maxBuffer: 64 * 1024 * 1024,
         encoding: 'buffer',
@@ -86,7 +87,7 @@ const frames = FRAMES.map((f) => {
       : f.version;
   const date =
     f.date ||
-    execFileSync('git', ['log', '-1', '--format=%ad', '--date=short'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    execFileSync('git', ['log', '-1', '--format=%ad', '--date=short'], { windowsHide: true, cwd: ROOT, encoding: 'utf8' }).trim();
   return { ...f, version, date, data: 'data:image/png;base64,' + png.toString('base64') };
 });
 

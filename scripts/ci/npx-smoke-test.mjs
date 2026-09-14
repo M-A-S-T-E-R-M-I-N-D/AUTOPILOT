@@ -102,6 +102,7 @@ function packAll(packages, closureNames, destDir) {
     const entry = packages.get(name);
     assertDistBuilt(entry);
     execFileSync(bin('pnpm'), [...PACK_ARGS, '--pack-destination', destDir], {
+      windowsHide: true,
       cwd: join(repoRoot, entry.dir),
       stdio: 'ignore',
       ...shellOpts,
@@ -121,6 +122,7 @@ const ALWAYS_PACKED = /^(package\.json|README(\.[a-z]+)?|LICEN[CS]E(\.[a-z]+)?)$
 function assertFilesAllowlist(dashboardEntry) {
   assertDistBuilt(dashboardEntry);
   const json = execFileSync(bin('pnpm'), [...PACK_ARGS, '--json', '--dry-run'], {
+    windowsHide: true,
     cwd: join(repoRoot, dashboardEntry.dir),
     encoding: 'utf8',
     ...shellOpts,
@@ -174,6 +176,7 @@ function buildScratchManifest(packages, dashboardEntry, closureNames, packDir) {
 
 function runSmokeInvocation(installDir, binName) {
   const stdout = execFileSync(bin('npx'), ['--no-install', binName, 'status'], {
+    windowsHide: true,
     cwd: installDir,
     encoding: 'utf8',
     ...shellOpts,
@@ -260,6 +263,7 @@ async function waitForServerHealth(dashboardEntry, url) {
  *  server regardless of whether it happens to run inside one. */
 async function assertBinBootsTheServer(dashboardEntry, installDir, binName, port) {
   const startOutput = execFileSync(bin('npx'), ['--no-install', binName, 'start'], {
+    windowsHide: true,
     cwd: installDir,
     encoding: 'utf8',
     env: { ...process.env, AUTOPILOT_DASHBOARD_PORT: String(port), AUTOPILOT_NO_OPEN: '1' },
@@ -339,6 +343,7 @@ async function main() {
 
     console.log('npx-smoke-test: npm install (resolving external deps from the registry)…');
     execFileSync(bin('npm'), ['install', '--no-audit', '--no-fund'], {
+      windowsHide: true,
       cwd: installDir,
       stdio: 'ignore',
       ...shellOpts,

@@ -147,7 +147,7 @@ function promptVersionBySha() {
     out = execFileSync(
       'git',
       ['log', '--format=%H%x1f%(trailers:key=Firing-Prompt-Version,valueonly)'],
-      { encoding: 'utf8', cwd: process.cwd() },
+      { windowsHide: true, encoding: 'utf8', cwd: process.cwd() },
     );
   } catch {
     return map;
@@ -1284,7 +1284,7 @@ function previousPaperSha() {
     const out = execFileSync(
       'git',
       ['log', '-1', '--format=%h', '--', 'docs/SELF-STUDY/PAPER.md'],
-      { encoding: 'utf8', cwd: process.cwd() },
+      { windowsHide: true, encoding: 'utf8', cwd: process.cwd() },
     ).trim();
     return out.length > 0 ? out : null;
   } catch {
@@ -1302,6 +1302,7 @@ function githubRemoteBase() {
   let url;
   try {
     url = execFileSync('git', ['remote', 'get-url', 'origin'], {
+      windowsHide: true,
       encoding: 'utf8',
       cwd: process.cwd(),
     }).trim();

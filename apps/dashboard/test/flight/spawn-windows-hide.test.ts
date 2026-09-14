@@ -79,6 +79,13 @@ function productionSourceFiles(): string[] {
       'apps/*/src/**/*.ts',
       'packages/*/src/*.ts',
       'packages/*/src/**/*.ts',
+      // scripts/ too (2026-09-14): the operator saw console windows flash on
+      // Windows, and the dashboard invokes eleven of these scripts from its
+      // own rituals (landing, release, verify, metrics). A ritual the
+      // operator STARTED is exactly when a stolen focus is most disruptive,
+      // so a script spawn is no less production than a server spawn.
+      'scripts/*.mjs',
+      'scripts/**/*.mjs',
     ],
     { cwd: REPO_ROOT, encoding: 'utf8', windowsHide: true },
   );

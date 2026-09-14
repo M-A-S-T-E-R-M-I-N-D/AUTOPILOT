@@ -34,7 +34,7 @@ function applyLabel(label) {
       label.description,
       '--force',
     ],
-    { stdio: 'inherit' },
+    { windowsHide: true, stdio: 'inherit' },
   );
 }
 

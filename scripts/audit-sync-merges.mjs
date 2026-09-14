@@ -36,7 +36,11 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
 function git(args) {
-  return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim();
+  return execFileSync('git', args, {
+    windowsHide: true,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  }).trim();
 }
 
 /** Blob id of `path` at `ref`, or null when the path is absent there. */

@@ -204,6 +204,7 @@ function runScenario(entry, { simulateBuildFailure, includeDist }) {
     let output = '';
     try {
       output = execFileSync('cmd.exe', ['/c', scriptCopy], {
+        windowsHide: true,
         cwd: scratch,
         env: {
           ...process.env,

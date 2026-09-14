@@ -98,3 +98,4 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0029](0029-settings-and-the-masthead.md) | Settings and the masthead — one gear, icons not emoji, AAA within reach, GitHub as a connection | Active |
 | [0030](0030-lock-on-and-fire.md) | Lock on and fire — the selling first file, the real flow in pictures, the hierarchy behind it | Active |
 | [0031](0031-the-snackbar.md) | The snackbar — one place where an interaction says what happened | Active |
+| [0032](0032-the-onboarding-ladder.md) | The onboarding ladder — micro-tasks that perform themselves, and two ticks worth earning | Active |

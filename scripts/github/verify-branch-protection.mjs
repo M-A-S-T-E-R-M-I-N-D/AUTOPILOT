@@ -71,6 +71,7 @@ function main() {
   let stdout;
   try {
     stdout = execFileSync('gh', ['api', `repos/{owner}/{repo}/branches/${branch}/protection`], {
+      windowsHide: true,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
