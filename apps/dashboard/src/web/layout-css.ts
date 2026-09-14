@@ -350,7 +350,10 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
    in the row itself and never collapse. */
 .fly-options { order: 3; flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-block-start: var(--space-2); }
 .fly-options[hidden] { display: none; }
-.fly-options-toggle { order: 2; display: inline-flex; align-items: center; justify-content: center; min-inline-size: 2.25rem; min-block-size: 2.25rem; padding: var(--space-1); font: inherit; cursor: pointer; color: var(--color-text-muted); background: transparent; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); transition: box-shadow var(--duration-short2) var(--easing-standard); }
+/* No order override: the gear keeps its DOM place right after Fire, so it
+   rides the first row instead of dropping below the hint (order 2 put it
+   after every default-order sibling, the status and hint included). */
+.fly-options-toggle { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 2.25rem; min-block-size: 2.25rem; padding: var(--space-1); font: inherit; cursor: pointer; color: var(--color-text-muted); background: transparent; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); transition: box-shadow var(--duration-short2) var(--easing-standard); }
 .fly-options-toggle:hover, .fly-options-toggle:focus-visible { color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .fly-options-toggle:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .fly-options-toggle[aria-expanded='true'] { color: var(--color-accent); border-color: var(--color-accent); }
