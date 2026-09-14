@@ -8,94 +8,81 @@
 # AUTOPILOT
 
 <p align="center">
-  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/actions/workflows/ci.yml"><img src="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/releases"><img src="https://img.shields.io/github/v/release/M-A-S-T-E-R-M-I-N-D/AUTOPILOT?include_prereleases&label=release&color=orange" alt="Release"></a>
-  <img src="https://img.shields.io/badge/status-public%20alpha-orange" alt="Public alpha">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
-  <img src="https://img.shields.io/badge/node-%E2%89%A522.23-brightgreen" alt="Node >=22.23">
-  <img src="https://img.shields.io/badge/TypeScript-strict-3178c6" alt="TypeScript strict">
-  <img src="https://img.shields.io/badge/tests-8%2C500%2B-brightgreen" alt="Tests 8,500+">
-  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions"><img src="https://img.shields.io/badge/discussions-welcome-blueviolet" alt="Discussions welcome"></a>
+  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/actions/workflows/ci.yml"><img src="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/actions/workflows/ci.yml/badge.svg" alt="Continuous integration status"></a>
+  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/releases"><img src="https://img.shields.io/github/v/release/M-A-S-T-E-R-M-I-N-D/AUTOPILOT?include_prereleases&label=release&color=orange" alt="Latest release (public alpha)"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Licence: Apache 2.0"></a>
+  <img src="https://img.shields.io/badge/node-%E2%89%A522.23-brightgreen" alt="Requires Node 22.23 or newer">
+  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions"><img src="https://img.shields.io/badge/discussions-welcome-blueviolet" alt="Discussions are open"></a>
 </p>
 
-**Point AUTOPILOT at a folder. Press Fire.** It orients itself in your repo, picks the most valuable thing it can
-finish, does it, runs *your own* gate, commits when green, and tells you what happened — again and again, inside the
-budget you set. There is no prompt to write on the first launch: the mission is the code, the board, and the docs
-already in the folder. It flies on your own Claude subscription through the local
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI — no API key, no per-token bill — and nothing lands
-unverified, nothing phones home.
+**Point it at a folder. Press Fire.** AUTOPILOT orients itself in your repository, picks the
+most valuable thing it can finish, does it, runs **your own** gate, commits when green, and
+tells you what happened — again and again, inside the budget you set. There is no prompt to
+write on the first launch: the mission is the code, the board and the docs already there.
 
-AUTOPILOT is a standalone, open-source, cross-platform TypeScript agent with a local web dashboard. It locks onto a
-project folder, backs it up, learns it, and flies it — improving, fixing, closing security holes, documenting,
-charting, and versioning — one gated **firing** at a time, or in parallel fleets of git-worktree lanes. Multi-project.
-Optional local (Ollama) models. One-command install from zero — and it **builds itself**: most of this repo's commits
-were shipped by its own fleets, with the telemetry to prove it.
+It flies on your own Claude subscription through the local
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI — no API key, no per-token
+bill. Nothing leaves the machine. Nothing lands unverified.
 
-Author / brand: **1337 · REL AZEUS · MΔSTERMIND** · License: **Apache-2.0** · No private data — ever. Built on the
-shoulders of 487 open-source projects — see [`THANKS.md`](THANKS.md) and
-[`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md): licenses honored, credit given, gratitude real.
+```bash
+git clone https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT.git && cd AUTOPILOT
+./SETUP.sh        # Windows: double-click SETUP.cmd
+pnpm dashboard:start        # → http://127.0.0.1:4317
+```
 
-> ## ⚠️ PUBLIC ALPHA — read before you fly
->
-> AUTOPILOT is public **before 1.0** (all `0.x` releases are alpha), deliberately. The reasons, so expectations are
-> honest:
->
-> - **Public early, on purpose** — to open shared, real-world testing while the system is still forming, and because
->   an open repo is how this project's own CI, review rituals, and contributor pool are meant to run.
-> - **Expect alpha behavior** — APIs, the dashboard, the store schema, and flight rituals may change without
->   migration paths between `0.x` versions. An autonomous agent that edits repos is powerful: run it against code
->   you have backups of (AUTOPILOT snapshots and gates its own work, but alpha means alpha).
-> - **No misuse** — Apache-2.0 governs the license; beyond it, this project's tooling must not be used to generate
->   spam contributions, harvest data, attack repos or accounts, or automate abuse of any platform. See
->   [`SECURITY.md`](.github/SECURITY.md) for reporting and [`GOVERNANCE.md`](.github/GOVERNANCE.md) for how calls
->   get made.
-> - **Identified contributors only** — every commit requires a DCO `Signed-off-by` (enforced by commitlint in CI),
->   PRs merge only through the gated review ritual (KEEPER + CODEOWNERS = @M-A-S-T-E-R-M-I-N-D), and dependency/security-
->   sensitive changes always queue for a human. Anonymous drive-by pushes are not how updates land here — that bar
->   exists so users can trust what an autonomous agent ships to them.
->
-> - **Use at your own risk — and we mean it kindly**: we do not advise anyone to run an autonomous agent on
->   anything they cannot afford to lose. AUTOPILOT is provided **AS IS** (Apache-2.0 §7); whoever flies it does so
->   at their own risk and judgment. We do our best — gates, backups, containment, honest telemetry — to keep our
->   corner of the net safe, and we expect the same care from everyone who flies.
->
-> **1.0.0 ships at the public-launch milestone (M9 doctrine — [`docs/RELEASING.md`](docs/RELEASING.md)); until then,
-> every release is an alpha of a system that flies itself — treat it with a pilot's respect.**
+Author / brand: **1337 · REL AZEUS · MΔSTERMIND** · Licence: **Apache-2.0** · No private data,
+ever. Built on the shoulders of 487 open-source projects — [`THANKS.md`](THANKS.md) and
+[`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md).
+
+> [!WARNING]
+> **Public alpha, before 1.0 — on purpose.** APIs, the store schema and the flight rituals may
+> change between `0.x` releases without migration paths. An autonomous agent that edits repos is
+> powerful: run it against code you have backups of. Every commit needs a DCO sign-off, pull
+> requests merge only through the gated review ritual, and dependency- or security-sensitive
+> changes always queue for a human — see [`SECURITY.md`](.github/SECURITY.md) and
+> [`GOVERNANCE.md`](.github/GOVERNANCE.md). Provided **as is** (Apache-2.0 §7): whoever flies it
+> does so at their own risk and judgment. 1.0.0 ships at the public-launch milestone
+> ([`RELEASING.md`](docs/RELEASING.md)).
+
+## Who this is for
+
+| You are…                       | What you get                                                                                                    | Start here                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **a developer with a repo**    | an agent that ships small, gated, reversible changes while you do something else                                 | the three commands above, then [Lock on · Lucky · Fire](#lock-on--lucky--fire)                               |
+| **a contributor**              | a codebase that states its laws, a board of claimable work, and a claim contract that protects your claim        | [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) · [good first issues](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) |
+| **a researcher or data person** | per-firing telemetry — gate verdict, durations, tokens, cost, reverts — published as a living paper, failures included | [`docs/SELF-STUDY/PAPER.md`](docs/SELF-STUDY/PAPER.md) · [`docs/SELF-STUDY/DATA-SERIES.md`](docs/SELF-STUDY/DATA-SERIES.md) |
+| **a company evaluating it**    | a local-first agent with a written verification contract, Apache-2.0, no data egress, no metered agent compute   | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md)                         |
+
+Anyone with a GitHub account can help: open an issue, file a failure report, or tell the story
+of a flight in [Discussions](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions).
+Failure reports are first-class here — we publish our own.
 
 ## Lock on · Lucky · Fire
 
-**1. Lock on.** Type or browse to a folder — any git repo, including a clone of any GitHub project. That is the
-whole setup: no prompt, no config file, no YAML. (Pasting a GitHub URL and letting AUTOPILOT clone it is on the
-board — [epic 0030](docs/epics/0030-lock-on-and-fire.md).)
+**1. Lock on.** Type or browse to a folder — any git repository. That is the whole setup: no
+prompt, no config file, no YAML.
 
-![The Fly bar with a folder locked on and the Fire button](docs/screens/lock-on.png)
+![The Fly bar with a folder locked on, the Lucky button and Fire](docs/screens/lock-on.png)
 
-**2. Lucky (optional).** Press 🍀 and AUTOPILOT reads *this machine* (CPU, RAM, cores) and *this board*, sizes a
-launch the computer can actually carry, and lists the work that fits the attention you have — an evening, a day, a
-week. It only fills the form; the launch stays your click.
+**2. Lucky (optional).** AUTOPILOT reads *this machine* (CPU, RAM, cores) and *this board*,
+sizes a launch the computer can carry, and lists the work that fits the attention you have — an
+evening, a day, a week. It only fills the form; the launch stays your click.
 
-![The Lucky roll: a calibrated plan and the work that fits you](docs/screens/lucky.png)
+![The Lucky roll: a calibrated plan, and a shortlist of work that fits one evening](docs/screens/lucky.png)
 
-**3. Fire.** One firing is one gated attempt at one task: orient → do → gate → commit, or revert. Watch the
-progress, pause or stop at any moment; every dollar and every verdict is recorded, and the merge to `main` stays
-your click.
+**3. Fire.** One firing is one gated attempt at one task: orient → do → gate → commit, or
+revert. Watch the progress, pause or stop at any moment; every dollar and every verdict is
+recorded, and the merge to `main` stays your click.
 
 ![A flight underway: one of four firings shipped, a quarter of the budget spent](docs/screens/fire.png)
 
 ### What goes in, what comes out
 
-**In:** a folder with a git repo — nothing else. A board helps but is optional: on an empty board the first
-firing proposes work and waits for your approval.
+**In:** a folder with a git repository. A board helps but is optional — on an empty board the
+first firing proposes work and waits for your approval.
 
-```text
-~/src/checkout-web/
-├── .git/                          any history, any branch — snapshotted as MYTH + LEGACY before the first touch
-├── src/  test/  package.json      the gate is detected from here: typecheck · lint · test · build
-└── INBOX/  (optional)             a note to the next firing, in your own words
-```
-
-**Out:** a signed commit on `autopilot/flight` with its provenance, a METRICS line the engine cross-checks
-against git, and a telemetry row — never a push, never a merge; landing on `main` is your click.
+**Out:** a signed commit on `autopilot/flight` with its provenance, a METRICS line the engine
+cross-checks against git, and a telemetry row. Never a push, never a merge.
 
 ```text
 feat(checkout): apply stacked discount codes in a deterministic order
@@ -106,7 +93,7 @@ the same; adds the regression test that failed first.
 Signed-off-by: Your Name <you@example.com>
 Model: claude-sonnet-5
 Firing-Prompt-Version: firing-v15
-Assisted-by: AUTOPILOT v0.46.0 https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT
+Assisted-by: AUTOPILOT v0.49.0 https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT
 Harness: claude-cli
 
 METRICS:{"item":"task-1","outcome":"shipped","kind":"feat","sha":"7f3e9c1","completion":"complete","testFirst":true}
@@ -116,70 +103,22 @@ METRICS:{"item":"task-1","outcome":"shipped","kind":"feat","sha":"7f3e9c1","comp
 | ------ | ------ | ---------------------------------------- | ----- | ----- | ------------------ |
 | 1      | task-1 | typecheck ✓ lint ✓ test ✓ build ✓ (54 s) | $2.14 | 22    | shipped · complete |
 
-### The workflow in one picture
-
-```text
-  you                 AUTOPILOT, every firing                                            you
-  ───                 ───────────────────────────────────────────────────────────────    ───
-  lock on a folder    backup (MYTH + LEGACY) → orient → pick ONE → do → GATE ─ green ─→ commit (signed, trailers) ─→ land on main
-  press Fire                                                       └──── red ─→ revert, report a noop            (your click)
-  (Lucky first,       every tool call passes the containment guard;
-   if you like)       every firing writes cost · tokens · gate per check · SHA on HEAD; human-only calls queue for the Keeper
-```
-
-### How it differs
-
-|                     | AUTOPILOT                                                                                 | Cloud coding agents (Copilot coding agent, Codex, Devin, Cursor background agents) | Claude Code alone      |
-| ------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------- |
-| First launch        | no prompt — the repo is the mission                                                       | a task prompt per run                                                              | a prompt per session   |
-| Where it runs       | your machine, your Claude subscription, no API key                                        | their cloud, their quota                                                           | your machine           |
-| Before a commit     | the whole gate runs; red reverts, always                                                  | tests when asked; a PR for you to review                                           | you review             |
-| Git                 | additive only — no force-push, no rewrite, never touches `main`; landing is your click   | a PR against your branch                                                           | whatever you run       |
-| Parallel work       | fleets of worktree lanes, a self-healing merge ladder                                     | one task per run                                                                   | one session            |
-| Telemetry           | every firing, cross-checked against git, published as a living self-study                 | run logs                                                                           | none                   |
-| Proof               | it builds itself — most of this repo's commits are its own firings                        | —                                                                                  | —                      |
-
 ### Five firings, from a folder of notes to a calculator
 
-A folder with notes, a key layout and one inbox line — no code — locked on and fired five times, one firing per
-press, $3.60 in all: tests first and the state machine, then the display and keys, then edge-case tests, its README,
-and housekeeping. Seventeen acceptance tests green, 109 lines of logic. The seed is
-[`samples/calculator-materials/`](samples/calculator-materials/); the frames, the costs and what went wrong are in
-[the case study](docs/CASE-STUDIES/calculator-five-firings.md).
+A folder with notes, a key layout and one inbox line — no code — locked on and fired five
+times, one firing per press, **$3.60** in all: tests first and the state machine, then the
+display and keys, then edge-case tests, its README, and housekeeping. Seventeen acceptance
+tests green, 109 lines of logic. The seed is
+[`samples/calculator-materials/`](samples/calculator-materials/); the frames, the costs and what
+went wrong are in [the case study](docs/CASE-STUDIES/calculator-five-firings.md).
 
-![Five frames of the calculator, one after each firing](docs/screens/calculator-five-firings.png)
+![Five frames of the calculator, one after each firing: no page yet, then 9, then 20, then Error, then 25](docs/screens/calculator-five-firings.png)
 
-## Start here (2 minutes, from nothing to a live dashboard)
-
-```bash
-git clone https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT.git
-cd AUTOPILOT
-```
-
-1. **Set up** — Windows: double-click `SETUP.cmd` · macOS / Linux: `./SETUP.sh` · already have Node ≥ 22.13:
-   `npm install -g pnpm && pnpm run setup`. It prints a doctor report; anything not `[OK]` prints its own fix.
-2. **Log in once** with `claude` (your Claude subscription — no API key, no per-token bill; see
-   [Connecting your Claude account](#connecting-your-claude-account-for-live-flights)).
-3. **Open the control panel:**
-   ```bash
-   pnpm dashboard:start    # → http://127.0.0.1:4317 (localhost-only, hardened)
-   ```
-4. **Fly your first mission** — the built-in calculator sample ships with 12 deliberately-red acceptance tests and
-   a written mission ([`samples/calculator/MISSION.md`](samples/calculator/MISSION.md)). Lock the dashboard's
-   Fly bar onto `samples/calculator`, press **Fire**, and watch the agent take it 0 → 12/12 green —
-   the same arc documented honestly (including what went wrong) in
-   [`docs/CASE-STUDIES/calculator.md`](docs/CASE-STUDIES/calculator.md). Prefer not to spend anything yet?
-   `scripts/launchers/FLY-DASHBOARD.cmd` runs a scripted **$0 demo flight** — real engine loop, gate, telemetry, no
-   model calls.
-
-**Where the docs live:** the rest of this README explains what AUTOPILOT does and why;
-[`docs/README.md`](docs/README.md) is the full documentation index for everything past the basics.
-
-## How it works (60 seconds)
+## How it works, in 60 seconds
 
 AUTOPILOT's unit of work is a **firing** — one gated attempt at one task:
 
-```
+```text
    board (tasks)          the firing               the gate                 the record
   ┌─────────────┐   ┌──────────────────┐   ┌─────────────────────┐   ┌──────────────────┐
   │ human-added │ → │ orient · pick ONE │ → │ typecheck·lint·test │ → │ commit (gate ✓)  │
@@ -190,124 +129,119 @@ AUTOPILOT's unit of work is a **firing** — one gated attempt at one task:
                                               gate verdict, SHA-on-HEAD — mechanically verified)
 ```
 
-- **Nothing lands unverified.** A firing that fails the gate reverts — bad work never reaches your history.
-- **Fleets parallelize it.** N lanes fly in isolated git worktrees; a self-healing merge ladder (union merge +
-  rerere + audit) collects them with zero overwrites.
-- **The telemetry can't flatter itself.** Load-bearing numbers (gate result, commit-on-HEAD) are mechanically
+- **Nothing lands unverified.** A firing that fails the gate reverts.
+- **Fleets parallelise it.** N lanes fly in isolated git worktrees; a self-healing merge ladder
+  collects them with zero overwrites.
+- **The telemetry cannot flatter itself.** Gate result and commit-on-HEAD are mechanically
   verified, not self-reported — and published in [the living self-study](docs/SELF-STUDY/PAPER.md).
-- **Humans keep the human calls.** Dependency changes, publicity, spending — anything out-of-scope queues for
-  your approval in the dashboard's KEEPER panel.
+- **Humans keep the human calls.** Dependencies, publicity, spending — anything out of scope
+  queues for your approval in the Keeper list.
 
-## Can it hurt my repo? — the safety story, honestly
+Every law a firing flies by is written down in [`docs/MASTER-PROMPT.md`](docs/MASTER-PROMPT.md).
 
-The first question anyone should ask an agent that edits code. The answers, in order of importance:
+## How it differs
 
-1. **Backup before first touch.** Locking onto a repo snapshots it (the MYTH/LEGACY backup ritual) before any
-   flight — see [ADR-0003](docs/adr/0003-myth-legacy-flight-branch-backup-ritual.md).
-2. **Everything is a git commit.** No force-pushes, no history rewrites, no touching remotes on its own. Undoing
-   any change is `git revert <sha>` — always.
-3. **Nothing lands unverified.** The gate (typecheck · lint · test · build) runs before every commit; a red gate
-   means the work reverts. Gate durations are recorded too — we learned the hard way that "green" alone can lie
+|                 | AUTOPILOT                                                                          | Cloud coding agents                | Claude Code alone    |
+| --------------- | ---------------------------------------------------------------------------------- | ---------------------------------- | -------------------- |
+| First launch    | no prompt — the repo is the mission                                                | a task prompt per run              | a prompt per session |
+| Where it runs   | your machine, your subscription, no API key                                        | their cloud, their meter           | your machine         |
+| Before a commit | your whole gate runs; red reverts, always                                          | tests when asked; a PR to review   | you review           |
+| Git             | additive only — no force-push, no rewrite, never touches `main`; landing is a click | a PR against your branch           | whatever you run     |
+| Parallel work   | fleets of worktree lanes with a self-healing merge ladder                          | one task per run                   | one session          |
+| Telemetry       | every firing, cross-checked against git, published                                 | run logs                           | none                 |
+
+## Can it hurt my repo?
+
+The first question anyone should ask an agent that edits code.
+
+1. **Backup before first touch** — locking on snapshots the repo (MYTH/LEGACY) before any flight
+   ([ADR-0003](docs/adr/0003-myth-legacy-flight-branch-backup-ritual.md)).
+2. **Everything is a git commit** — no force-pushes, no history rewrites, no remotes touched on
+   its own. Undo is always `git revert <sha>`.
+3. **Nothing lands unverified** — the gate runs before every commit; gate *durations* are
+   recorded too, because we learned the hard way that "green" alone can lie
    ([the silent-gate evaluation](docs/EVALUATION-2026-08-27-silent-gate.md)).
-4. **Landing is your click.** Flights work on a flight branch; merging to `main` is an explicit operator action,
-   never automatic.
-5. **Containment is seatbelts, not a cage — we say so plainly.** Flights run in isolated git worktrees with a
-   containment guard that blocks and logs escape attempts (`guard-denial` telemetry), but a shell step is not a
-   kernel sandbox. That's exactly why the backup, the gate, and the operator-click landing exist. Full analysis:
-   [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) · [`docs/FLIGHT-CONTAINMENT.md`](docs/FLIGHT-CONTAINMENT.md).
-6. **Kill switch.** The dashboard's Stop button, or `pnpm dashboard:stop` — recovery paths for every known failure
-   mode live in [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
-7. **Nothing phones home.** All telemetry is a local SQLite file on your machine, and the self-study numbers are
-   computed from it locally. The one outbound path is the OTLP exporter
-   ([`packages/engine/src/otlp.ts`](packages/engine/src/otlp.ts)) — dormant unless *you* set
-   `OTEL_EXPORTER_OTLP_ENDPOINT`, and pointed only at the collector you name. No analytics, no tracking, no
-   data collection; the code is short enough to audit over coffee.
+4. **Landing is your click** — flights work on a flight branch; merging to `main` is explicit.
+5. **Containment is seatbelts, not a cage — we say so plainly.** Flights run in isolated
+   worktrees behind a guard that blocks and logs escape attempts, but a shell step is not a
+   kernel sandbox. Full analysis: [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) ·
+   [`docs/FLIGHT-CONTAINMENT.md`](docs/FLIGHT-CONTAINMENT.md).
+6. **Nothing phones home** — telemetry is a local SQLite file. The one outbound path is the
+   OpenTelemetry exporter, dormant unless *you* set `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
-## It builds itself — audit the claim
+## It builds itself — and you can audit the claim
 
-This is not a marketing line; it is checkable in two commands against this very repo:
+Most of this repository's commits were shipped by AUTOPILOT's own fleets. The same screen, at
+three points in its own history, each frame taken from the README that shipped at that version:
+
+![The fleet home at v0.21.0, v0.42.0 and today, side by side](docs/screens/evolution.png)
 
 ```bash
-git log --format=%B | grep -c "Firing-Prompt-Version"   # commits carrying the fleet's firing trailer
-pnpm self-study:update                                   # regenerate the paper's data from local telemetry
+git log --format=%B | grep -c "Firing-Prompt-Version"   # commits carrying the fleet's trailer
+pnpm self-study:update                                   # regenerate the paper from local telemetry
 ```
 
-Every firing, gate verdict, ship, revert, and dollar is recorded and published in
+Every firing, gate verdict, ship, revert and dollar is recorded and published in
 [the living self-study paper](docs/SELF-STUDY/PAPER.md) — including the failures
-([case studies](docs/CASE-STUDIES/) · [dated evaluations](docs/)). No claims without a paper trail.
-
-## What it's bad at today — honest limitations
-
-- **It's a 0.x alpha**: APIs, schema, and rituals change between releases without migration paths.
-- **Quota-bound**: flights pace themselves against your Claude subscription's limits; a starved quota means slow
-  or paused flights, not magic.
-- **Single-subject evidence**: the self-study measures AUTOPILOT flying *its own* repo; nothing here proves it
-  performs the same on yours ([threats to validity](docs/SELF-STUDY/PAPER.md#6-threats-to-validity)).
-- **Not a kernel sandbox** (see the safety story above) — run it on code you have backups of.
-- **Freshest lessons live in the open**: the gate once reported green while running zero tests; a subfolder flight
-  once gated the wrong project. Both are documented, fixed, and regression-guarded — that loop is the product.
+([case studies](docs/CASE-STUDIES/) · [dated evaluations](docs/)). Every number there carries the
+software version, the model id and the date it was measured. No claims without a paper trail.
 
 ## Status
 
-Built milestone-by-milestone per [`docs/ACTION-PLAN.md`](docs/ACTION-PLAN.md) (M0→M9). Current version **0.49.0** — see
-[`CHANGELOG.md`](CHANGELOG.md).
+Current version **0.49.0** — see [`CHANGELOG.md`](CHANGELOG.md). Built milestone by milestone;
+the honest, checked-against-the-code state of every milestone, the quarterly plan, the risks and
+what is deliberately not started yet all live in **[`docs/ROADMAP.md`](docs/ROADMAP.md)**.
 
-| Milestone | What | State |
-|-----------|------|-------|
-| **M0** | Foundations & standards (monorepo · strict TS · CI gates · SQLite schema) | ✅ `v0.6.0` |
-| **M1** | Engine — the gated autonomous loop (resilience · un-fakeable telemetry · gate+revert) | ✅ `v0.7.1` |
-| **M2** | Onboarding — lock · back up (MYTH/LEGACY) · detect the gate · content-hash index | ✅ `v0.8.0` |
-| **M3** | Read-only dashboard ("watch it fly") | ✅ `v0.10.0` |
-| **M4** | Reactivity — live flight control, RAG, task board, parallel fleets of worktree lanes | ✅ `v0.33.0` |
-| **M5** | Control & approvals — the Keeper queue (everything waiting on a human, one list), landings and releases from the cockpit | 🔄 in progress |
-| M6–M9 | Efficiency · multi-project · harness · packaging | planned |
+| Milestone                                               | State                                                           |
+| ------------------------------------------------------- | --------------------------------------------------------------- |
+| M0–M4 foundations · engine · onboarding · dashboard · reactivity | shipped (`v0.6.0` → `v0.33.0`)                            |
+| M5 control & approvals                                   | mostly shipped — open: task edit, impact preview, a versions screen |
+| M6–M9 efficiency · fleets & multi-project · harness & security · packaging | in progress, each with named gaps                |
+| M10–M13 the pool · GitHub mode · the cockpit · published evidence | in progress; evidence largely shipped                     |
+| M14–M16 providers & models · benchmarks & standing · adjacent modes | not started — the next frontier                        |
 
-The proof is in this repository itself: AUTOPILOT **builds AUTOPILOT** — fleets of its own agents fly this repo, and
-every firing, gate verdict, ship, death, and dollar is measured and published in
-[`docs/SELF-STUDY/PAPER.md`](docs/SELF-STUDY/PAPER.md) — data generated from the same store the dashboard reads,
-regenerated by the flights themselves. No claims without a paper trail.
+## What it is bad at today
 
-## See it
+- **It is a 0.x alpha**: APIs, schema and rituals change between releases.
+- **Quota-bound**: flights pace themselves against your subscription's limits.
+- **Single-subject evidence**: the self-study measures AUTOPILOT flying *its own* repo; nothing
+  here proves it performs the same on yours
+  ([threats to validity](docs/SELF-STUDY/PAPER.md#6-threats-to-validity)).
+- **No external benchmark score yet** — and we will not quote one we have not run. The plan for
+  earning one is in [the roadmap](docs/ROADMAP.md).
+- **Not a kernel sandbox** (see above) — run it on code you have backups of.
 
-The dashboard below is rendered from the deterministic demo fixture (`scripts/launchers/DEMO-DASHBOARD.cmd` seeds it in one click) — real server, real client, no live account needed.
+## Start here (2 minutes, from nothing to a live dashboard)
 
-**The fleet home — the app shell**: subjects on a rail (a bottom bar on a phone), the fleet's totals and
-tiles, the Fly bar, every project as a card with its live firing, and the context rail beside it all for who is
-flying now. In the masthead: the version chip that rebuilds to the latest release in one click, and the settings
-gear — text size, font, spacing, motion, and the terminal theme's phosphor — with one Reset *(dark)*:
+1. **Set up** — Windows: double-click `SETUP.cmd` · macOS/Linux: `./SETUP.sh` · already have
+   Node ≥ 22.13: `npm install -g pnpm && pnpm run setup`. It prints a doctor report; anything
+   not `[OK]` prints its own fix.
+2. **Log in once** with `claude` (your Claude subscription — no API key; see
+   [Connecting your Claude account](#connecting-your-claude-account)).
+3. **Open the control panel:** `pnpm dashboard:start` → <http://127.0.0.1:4317> (localhost only).
+4. **Fly your first mission** — the built-in calculator sample ships with 12 deliberately-red
+   acceptance tests and a written mission
+   ([`samples/calculator/MISSION.md`](samples/calculator/MISSION.md)). Lock the Fly bar onto
+   `samples/calculator`, press **Fire**, and watch it go 0 → 12/12 green — the same arc
+   documented, including what went wrong, in
+   [`docs/CASE-STUDIES/calculator.md`](docs/CASE-STUDIES/calculator.md). Prefer to spend nothing
+   yet? `scripts/launchers/FLY-DASHBOARD.cmd` runs a scripted **$0 demo flight**.
 
-![AUTOPILOT fleet dashboard, dark theme](docs/screens/fleet-dark.png)
+[`docs/README.md`](docs/README.md) is the full documentation index.
 
-**The same fleet in light** — all three themes (dark · light · terminal) are first-class, contrast-verified,
-and reach the browser's own chrome:
+## The dashboard
 
-![AUTOPILOT fleet dashboard, light theme](docs/screens/fleet-light.png)
+![The fleet home: the Fly bar, the totals, live work, and every project as a card](docs/screens/fleet-dark.png)
 
-**One project's cockpit** — the live firing beside its operational stack (landing, console, this round, next
-release), then the board as columns, the Keeper, the plan editor, the docs reader and the data, one subject at
-a time; ⌘K goes anywhere, and Hebrew mirrors the whole layout as a real `dir="rtl"`:
+Three themes (dark · light · terminal) with a whole-design hue control, full English/עברית
+localisation with a real RTL layout, and one settings gear for text size, font, spacing and
+motion. One project's cockpit — the live firing beside landing, console, this round and the next
+release, then the board as columns, the Keeper, the plan editor, the docs reader and the data:
 
-![AUTOPILOT project page, dark theme](docs/screens/project-dark.png)
+![A project page: the live firing, its operational stack, and the board](docs/screens/project-dark.png)
 
-## Evaluations — the honest mirror
-
-AUTOPILOT measures itself in public, in dated, regenerable documents — numbers first, verdicts second, no
-overclaiming. Start here:
-
-- [`docs/SELF-STUDY/PAPER.md`](docs/SELF-STUDY/PAPER.md) — the living paper: every firing, gate verdict, ship,
-  death, and dollar of AUTOPILOT building AUTOPILOT, regenerated from the store by the flights themselves.
-- [`docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md`](docs/EVALUATION-2026-09-03-sync-conflict-taxonomy.md) —
-  why parallel agent lanes conflict, the research base (DeepMerge → Merge-Bench), and the self-healing merge ladder
-  that reduced stranded work from 21 commits to zero.
-- [`docs/COCKPIT-BASELINE.md`](docs/COCKPIT-BASELINE.md) — the cockpit measurement battery,
-  as one living doc with a delta-only trend table: DOM growth, axe-by-impact, tab stops,
-  duplicate renders (14 → 0), contrast matrices, INP.
-- The full dated series lives in [`docs/`](docs/) (`EVALUATION-*.md`) — including the failures.
-
-## For developers
-
-Setup and the dashboard are covered in [Start here](#start-here-2-minutes-from-nothing-to-a-live-dashboard) above.
-The rest of the toolbox:
+<details>
+<summary>For developers — the toolbox</summary>
 
 ```bash
 pnpm run verify         # the full gate: typecheck · lint · format · test (≥80% cov) · build · secret/PII/SPDX scans
@@ -316,92 +250,76 @@ pnpm dashboard:status   # running | stopped | stale (+ doctor checks)   · dashb
 pnpm dashboard:watch    # RING-0 supervisor: owns start/revive/replace — observe, don't babysit
 ```
 
-Every dashboard command has a double-click twin for Windows (`WATCH-DASHBOARD.cmd`, …, repo root) and a
-`./*.sh` twin for macOS/Linux (`./WATCH-DASHBOARD.sh`, …). Demo seeds live in `scripts/launchers/` (`DEMO-DASHBOARD.cmd` seeds sample
-projects; `FLY-DASHBOARD.cmd` runs the $0 scripted flight).
+Every dashboard command has a double-click twin for Windows (`WATCH-DASHBOARD.cmd`, …) and a
+`./*.sh` twin for macOS/Linux. Demo seeds live in `scripts/launchers/`.
 
-The dashboard ships **dark / light / terminal** themes and full **English / עברית** localization — Hebrew flips
-the entire layout to a real `<html dir="rtl">`, screen readers included; your choice persists.
-
-## Connecting your Claude account (for live flights)
-
-AUTOPILOT flies projects through your **local [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI**, so it
-uses whatever that CLI is authenticated with — **your Claude subscription by default, no API key, no per-token bill**.
-Pick one:
-
-- **Subscription (default, recommended)** — Pro / Max / Team / Enterprise. Just log in once: run `claude` and complete
-  `/login`. AUTOPILOT will use that session.
-- **Subscription, headless** (a server / no browser) — run `claude setup-token` and export the printed
-  `CLAUDE_CODE_OAUTH_TOKEN`.
-- **API key** (pay-per-token) — export `ANTHROPIC_API_KEY`.
-
-AUTOPILOT strips a stray `ANTHROPIC_API_KEY` from the CLI's environment when you choose subscription mode, so a key left
-in your shell can't silently override (and bill) your account. A dashboard connect-and-verify screen lands in M5; today
-the CLI login above is the connection. See [Claude Code authentication](https://docs.anthropic.com/en/docs/claude-code/iam).
-
-## Repository layout
-
-```
+```text
 packages/
   engine/        the gated autonomous loop (resilience · telemetry · firing · loop + adapters)
   onboarding/    folder-lock backup ritual · gate auto-detection · content-hash project index
   store/         SQLite schema + migrations (projects · events · metrics · tasks · versions · index)
   tokens/        design tokens + dark/light/terminal themes (OKLCH, WCAG-verified)
-  mcp/           retrieval-as-MCP (list · read · search · annotations · recent-changes) + autopilot-control board tools
+  mcp/           control-as-MCP (the dashboard's own verbs) + a retrieval descriptor
 apps/
-  dashboard/     the localhost read-only control panel (server + shell + lifecycle control)
-docs/            vision · plan · research · milestone plans   ->  see docs/README.md
+  dashboard/     the localhost control panel (server + shell + lifecycle control)
+docs/            vision · plan · research · evidence   ->  see docs/README.md
 INBOX/           drop a note here for the next firing to read   ->  see INBOX/README.md
-scripts/ci/      the CI validators (secret-scan · no-personal-paths · config · SPDX · bundle-size · npx-smoke · quarantine-report)
+scripts/ci/      the CI validators (secret-scan · SPDX · bundle-size · npx-smoke · doc links · …)
 ```
 
-## Talking to a live flight
+</details>
 
-Drop a file into [`INBOX/`](INBOX/README.md) and the next firing of a live flight against this repo reads it,
-fresh, as optional context — an empty or missing INBOX changes nothing. That same firing also auto-triages it
-into a queued board task (`source: inbox`) and archives the file to `INBOX/.triaged/`; a firing still isn't
-required to work that task ahead of anything else already queued.
+<details>
+<summary>Connecting your Claude account</summary>
 
-## Telemetry & OTLP export
+AUTOPILOT flies through your **local Claude Code CLI**, so it uses whatever that CLI is
+authenticated with — your Claude subscription by default, no API key, no per-token bill.
 
-Every firing is captured as an un-fakeable `FiringRecord` (git-cross-checked self-report — model, tokens, cost, gate
-result, tests delta) in SQLite. [`packages/engine/src/otlp.ts`](packages/engine/src/otlp.ts) reshapes that record
-into an [OTLP/HTTP JSON](https://opentelemetry.io/docs/specs/otlp/) trace payload — `gen_ai.*` semantic-convention
-attributes for model/token usage, `autopilot.*` for firing/gate/quota metadata — plus an injectable, never-throwing
-HTTP transport (`exportOtlpResourceSpans`) that any OTLP/HTTP JSON-compatible collector can ingest.
+- **Subscription (default)** — Pro / Max / Team / Enterprise. Run `claude` and complete `/login`.
+- **Subscription, headless** — `claude setup-token`, then export `CLAUDE_CODE_OAUTH_TOKEN`.
+- **API key** (pay-per-token) — export `ANTHROPIC_API_KEY`.
 
-`pnpm dashboard:fly` exports every firing's span automatically once you set an endpoint — off by default, following
-the [OpenTelemetry env var spec](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/)
-so any standard OTLP/HTTP JSON collector (a local `otel-collector`, Honeycomb, Grafana Cloud, …) works from its own
-documented env vars alone:
+AUTOPILOT strips a stray `ANTHROPIC_API_KEY` from the spawned environment in subscription mode,
+so a key left in your shell cannot silently bill your account. The dashboard's Connect popover
+manages both the Claude and the GitHub connection.
+
+</details>
+
+<details>
+<summary>Talking to a live flight, and telemetry</summary>
+
+Drop a file into [`INBOX/`](INBOX/README.md) and the next firing reads it, fresh, as optional
+context; it is triaged into a queued board task and archived.
+
+Every firing is captured as an un-fakeable `FiringRecord` (git-cross-checked self-report — model,
+tokens, cost, gate result, tests delta) in SQLite.
+[`packages/engine/src/otlp.ts`](packages/engine/src/otlp.ts) reshapes that record into an
+[OTLP/HTTP JSON](https://opentelemetry.io/docs/specs/otlp/) trace — `gen_ai.*` and `autopilot.*`
+attributes — exported only once you set an endpoint:
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"   # or OTEL_EXPORTER_OTLP_TRACES_ENDPOINT for the full URL
-export OTEL_EXPORTER_OTLP_HEADERS="api-key=..."               # optional; OTEL_EXPORTER_OTLP_TRACES_HEADERS also works
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
+export OTEL_EXPORTER_OTLP_HEADERS="api-key=..."               # optional
 ```
 
-Export is best-effort (`apps/dashboard/src/flight/otlp.ts`) — a collector outage logs a warning but never fails the
-flight itself. Only HTTP/JSON is supported (the transport posts a JSON body, not protobuf), so
-`OTEL_EXPORTER_OTLP_PROTOCOL` is not read.
+Export is best-effort: a collector outage logs a warning and never fails a flight.
 
-## Documentation
-
-Start at [`docs/README.md`](docs/README.md) — the doc index. Highlights: [MASTER-PLAN](docs/MASTER-PLAN.md) ·
-[ACTION-PLAN](docs/ACTION-PLAN.md) · [FEATURE-COVERAGE](docs/FEATURE-COVERAGE.md) ·
-[PATTERNS-AND-STANDARDS](docs/PATTERNS-AND-STANDARDS.md) · [MASTER-PROMPT](docs/MASTER-PROMPT.md) ·
-[HIERARCHY](docs/HIERARCHY.md).
+</details>
 
 ## Contributing & standards
 
-Every change is gated (typecheck · test ≥80% · build) and follows [Conventional Commits](https://www.conventionalcommits.org)
-with DCO sign-off; Apache-2.0 + per-file SPDX + REUSE. See [`CONTRIBUTING.md`](.github/CONTRIBUTING.md),
+Every change is gated (typecheck · lint · test ≥80% · build) and follows
+[Conventional Commits](https://www.conventionalcommits.org) with DCO sign-off; Apache-2.0 with
+per-file SPDX. Start with [`CONTRIBUTING.md`](.github/CONTRIBUTING.md), then
 [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md), [`SECURITY.md`](.github/SECURITY.md),
-[`GOVERNANCE.md`](.github/GOVERNANCE.md), and [`RELEASING.md`](docs/RELEASING.md).
+[`GOVERNANCE.md`](.github/GOVERNANCE.md) and [`RELEASING.md`](docs/RELEASING.md). The engineering
+laws live in [`docs/PATTERNS-AND-STANDARDS.md`](docs/PATTERNS-AND-STANDARDS.md) and
+[`docs/ENGINEERING-DOCTRINE.md`](docs/ENGINEERING-DOCTRINE.md).
 
 ## How to cite
 
-Using AUTOPILOT in research or a derivative project? [`CITATION.cff`](CITATION.cff) at the repo root powers
-GitHub's "Cite this repository" button (APA/BibTeX export); the same metadata as plain text:
+Using AUTOPILOT in research or a derivative project? [`CITATION.cff`](CITATION.cff) powers
+GitHub's "Cite this repository" button; the same metadata as plain text:
 
 <!-- HOW-TO-CITE:START -->
 _Generated by `pnpm citation:update` from `package.json` + `CHANGELOG.md` — the same values [`CITATION.cff`](CITATION.cff) uses for GitHub's native "Cite this repository" button, so neither drifts from the other._
@@ -429,10 +347,10 @@ _Generated by `pnpm citation:update` from `package.json` + `CHANGELOG.md` — th
 
 ## If it flew for you
 
-Star the repo — at zero marketing, stars are literally how GitHub decides who else gets to discover this.
-Found a bug or watched a flight do something interesting? [Open an issue](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/issues) or
-[tell the story in Discussions](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions) — failure reports are
-first-class citizens here; we publish our own.
+Star the repository — at zero marketing, stars are how GitHub decides who else discovers this.
+Found a bug, or watched a flight do something interesting?
+[Open an issue](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/issues) or
+[tell the story in Discussions](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions).
 
-Want to credit it in your own project's README? [`docs/BADGE.md`](docs/BADGE.md) has a shields.io snippet to paste
-in — offered, never forced; nothing here ever edits a README on your behalf.
+Want to credit it in your own project? [`docs/BADGE.md`](docs/BADGE.md) has a snippet to paste —
+offered, never forced; nothing here ever edits a README on your behalf.
