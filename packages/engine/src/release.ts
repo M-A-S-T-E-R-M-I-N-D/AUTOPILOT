@@ -63,13 +63,28 @@ const PATCH_TYPES = new Set(['fix', 'perf', 'revert']);
  * outranks every patch-level commit. Non-conventional or changelog-only
  * subjects (docs, chore, ...) never contribute a bump.
  */
-export function computeBump(subjects: readonly string[]): SemverBump {
+/**
+ * SMALL RELEASE (operator, 2026-09-14: "when there are few updates, make a
+ * sub-update, 0.XX.YY"): a batch of fewer than this many release-worthy
+ * commits (feat, fix, perf, revert) is a patch even when it carries a feat —
+ * a day of small landings reads as 0.48.1, 0.48.2, and the minor is earned
+ * by a batch this size or larger. A breaking change is unaffected.
+ */
+export const SMALL_RELEASE_COMMITS = 8;
+
+export function computeBump(
+  subjects: readonly string[],
+  smallReleaseCommits: number = SMALL_RELEASE_COMMITS,
+): SemverBump {
   let bump: SemverBump = 'none';
+  let worthy = 0;
   for (const subject of subjects) {
     const { type, breaking } = parseConventionalCommit(subject);
     if (breaking) return 'major'; // nothing outranks major — short-circuit
-    if (type === 'feat') bump = 'minor';
-    else if (
+    if (type === 'feat') {
+      bump = 'minor';
+      worthy += 1;
+    } else if (
       bump !== 'minor' &&
       // Stryker disable next-line ConditionalExpression: narrows `type` from
       // `string | null` to `string` for `PATCH_TYPES.has` below — TypeScript
@@ -78,9 +93,15 @@ export function computeBump(subjects: readonly string[]): SemverBump {
       // equivalent, not killable.
       type !== null &&
       PATCH_TYPES.has(type)
-    )
+    ) {
       bump = 'patch';
+      worthy += 1;
+    } else if (type !== null && PATCH_TYPES.has(type)) {
+      worthy += 1;
+    }
   }
+  // The small-release law: a feat batch under the threshold is a sub-update.
+  if (bump === 'minor' && worthy < smallReleaseCommits) return 'patch';
   return bump;
 }
 

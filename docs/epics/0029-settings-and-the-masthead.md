@@ -66,7 +66,9 @@ Status: Active (2026-09-13). Slices 1, 2, 6 and 7 shipped the same day.
 3. The terminal HUD bar: scanlines and glow as preferences, the bar as a
    floating control under the terminal theme, dismissible, resettable.
 4. The masthead census as a design: which controls stay on top on which
-   window class, written down and pinned by the mobile/tablet specs.
+   window class, written down and pinned by the mobile/tablet specs. The
+   overflow menu (Tour, the docs, Report from here) shipped 2026-09-14 as
+   epic 0017 slice 3.
 5. Contrast and target-size census across phosphors and text scales (extend
    the oklch audit).
 6. **Shipped 2026-09-13:** the popover laws — light dismiss (an outside

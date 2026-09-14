@@ -1543,6 +1543,13 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 
 /* First-run guided tour — a dismissible dialog explaining core vocabulary
    (firing/slice/gate/flight), opened via the masthead "Tour" button. */
+/* The overflow menu (epic 0017 slice 3): Tour, the docs and Report from here
+   behind one ellipsis, so the masthead keeps its icon cluster and the phone
+   its two rows. Items are one column of icon + words. */
+.more-body { display: grid; gap: 2px; min-inline-size: 13rem; }
+.more-item { display: flex; align-items: center; gap: var(--space-2); inline-size: 100%; min-block-size: 2.25rem; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text); font: inherit; font-size: var(--text-sm); text-align: start; text-decoration: none; cursor: pointer; }
+.more-item:hover, .more-item:focus-visible { background: var(--color-surface-sunken); color: var(--color-text); }
+.more-item > .icon { inline-size: 1.1em; block-size: 1.1em; color: var(--color-text-muted); }
 .tour-btn {
   font: inherit; font-size: var(--text-sm); cursor: pointer;
   padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);

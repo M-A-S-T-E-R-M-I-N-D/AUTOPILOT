@@ -98,7 +98,10 @@ describe('renderShell masthead i18n wiring', () => {
   it('tags the masthead tour button with data-i18n-tip', () => {
     const html = renderShell();
     expect(html).toContain('data-tip="A short guided tour: firing, slice, gate, flight"');
-    expect(html).toContain('data-i18n-tip="tourTip" data-i18n="tour"');
+    // The launcher lives in the overflow menu (epic 0017 slice 3): the tip on
+    // the button, the label on an inner span beside its icon.
+    expect(html).toContain('data-i18n-tip="tourTip"');
+    expect(html).toContain('<span data-i18n="tour">Tour</span>');
   });
 
   it('tags the fly-bar browse button with data-i18n-tip', () => {

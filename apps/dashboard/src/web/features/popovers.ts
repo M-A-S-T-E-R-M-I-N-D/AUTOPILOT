@@ -65,7 +65,8 @@ function popoverInit() {
   document.addEventListener('click', function (e) {
     var t = e.target;
     if (!t || !t.closest) return;
-    var choice = t.closest('[data-theme-btn], [data-lang-btn]');
+    // A theme, a language, or an item of the overflow menu (epic 0017 slice 3).
+    var choice = t.closest('[data-theme-btn], [data-lang-btn], .more-item');
     if (!choice) return;
     var d = choice.closest(POPOVER_SELECTOR);
     if (d) popoverClose(d);

@@ -73,8 +73,26 @@ describe('computeBump', () => {
     expect(computeBump(['revert: revert "feat: bad idea"'])).toBe('patch');
   });
 
-  it('returns "minor" for a feat commit, outranking a patch-level commit in the same set', () => {
-    expect(computeBump(['fix: a bug', 'feat: a new capability'])).toBe('minor');
+  it('returns "minor" for a feat commit, outranking a patch-level commit in the same set — once the batch is not small', () => {
+    // SMALL RELEASE (2026-09-14): under the threshold a feat batch is a sub-update.
+    expect(computeBump(['fix: a bug', 'feat: a new capability'])).toBe('patch');
+    expect(computeBump(['fix: a bug', 'feat: a new capability'], 1)).toBe('minor');
+    const eight = [
+      'feat: one',
+      'fix: two',
+      'feat: three',
+      'perf: four',
+      'feat: five',
+      'fix: six',
+      'feat: seven',
+      'feat: eight',
+    ];
+    expect(computeBump(eight)).toBe('minor');
+    expect(computeBump(eight.slice(0, 7))).toBe('patch');
+    // Non-release-worthy subjects do not count toward the batch size.
+    expect(computeBump([...eight.slice(0, 7), 'docs: notes', 'chore: deps', 'test: more'])).toBe(
+      'patch',
+    );
   });
 
   it('returns "major" when any commit carries a breaking-change marker, outranking feat/fix', () => {
@@ -84,11 +102,11 @@ describe('computeBump', () => {
   });
 
   it('ignores unconventional subjects mixed in with real ones', () => {
-    expect(computeBump(['wip checkpoint', 'feat: a new capability'])).toBe('minor');
+    expect(computeBump(['wip checkpoint', 'feat: a new capability'], 1)).toBe('minor');
   });
 
   it('does not let a later patch-level commit downgrade an already-earned minor bump', () => {
-    expect(computeBump(['feat: a new capability', 'fix: a bug'])).toBe('minor');
+    expect(computeBump(['feat: a new capability', 'fix: a bug'], 1)).toBe('minor');
   });
 });
 
@@ -273,9 +291,9 @@ describe('planRelease', () => {
     const plan = planRelease('0.12.3', changelog, ['fix: a bug', 'feat: a thing'], '2026-08-12');
     expect(plan).toEqual({
       ok: true,
-      bump: 'minor',
-      version: '0.13.0',
-      changelog: cutChangelogRelease(changelog, '0.13.0', '2026-08-12'),
+      bump: 'patch',
+      version: '0.12.4',
+      changelog: cutChangelogRelease(changelog, '0.12.4', '2026-08-12'),
     });
   });
 
@@ -403,7 +421,7 @@ describe('executeRelease', () => {
     const { writer, versions, changelogs } = fakeWriter();
     const { vcs, commitCalls, commitPathsCalls, tagCalls, notesCalls } = fakeVcs({
       ok: true,
-      details: "created annotated tag 'v0.13.0' at HEAD",
+      details: "created annotated tag 'v0.12.4' at HEAD",
     });
 
     const result = await executeRelease(
@@ -418,31 +436,31 @@ describe('executeRelease', () => {
     expect(result).toEqual({
       ok: true,
       reason: 'released',
-      details: 'released v0.13.0 (minor)',
-      version: '0.13.0',
-      bump: 'minor',
+      details: 'released v0.12.4 (patch)',
+      version: '0.12.4',
+      bump: 'patch',
       attestation: { ok: true, details: 'attached a note' },
     });
-    expect(versions).toEqual(['0.13.0']);
+    expect(versions).toEqual(['0.12.4']);
     expect(changelogs).toEqual([
-      cutChangelogRelease(changelog, '0.13.0', '2026-08-12', ['feat: a thing']),
+      cutChangelogRelease(changelog, '0.12.4', '2026-08-12', ['feat: a thing']),
     ]);
-    expect(commitCalls).toEqual(['chore(release): v0.13.0']);
+    expect(commitCalls).toEqual(['chore(release): v0.12.4']);
     // the release commit must stay scoped to exactly what the writer touched,
     // never a whole-tree sweep — see release.ts's Releasable doc comment.
     expect(commitPathsCalls).toEqual([FAKE_WRITER_PATHS]);
     expect(tagCalls).toEqual([
-      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+      ['v0.12.4', 'Release v0.12.4 (patch) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
     ]);
     expect(notesCalls).toEqual([
-      ['HEAD', 'Release v0.13.0 (minor) — 2026-08-12\n1 commit included:\n- feat: a thing'],
+      ['HEAD', 'Release v0.12.4 (patch) — 2026-08-12\n1 commit included:\n- feat: a thing'],
     ]);
   });
 
   it('reports a successful release even when the attestation fails to attach', async () => {
     const { writer } = fakeWriter();
     const { vcs } = fakeVcs(
-      { ok: true, details: "created annotated tag 'v0.13.0' at HEAD" },
+      { ok: true, details: "created annotated tag 'v0.12.4' at HEAD" },
       { ok: false, details: "a note already exists on 'HEAD'" },
     );
 
@@ -464,7 +482,7 @@ describe('executeRelease', () => {
     const { writer } = fakeWriter();
     const { vcs, commitCalls, notesCalls } = fakeVcs({
       ok: false,
-      details: "tag 'v0.13.0' already exists",
+      details: "tag 'v0.12.4' already exists",
     });
 
     const result = await executeRelease(
@@ -479,12 +497,12 @@ describe('executeRelease', () => {
     expect(result).toEqual({
       ok: false,
       reason: 'tag-failed',
-      details: "tag 'v0.13.0' already exists",
-      version: '0.13.0',
-      bump: 'minor',
+      details: "tag 'v0.12.4' already exists",
+      version: '0.12.4',
+      bump: 'patch',
     });
     // the commit still landed even though the tag failed
-    expect(commitCalls).toEqual(['chore(release): v0.13.0']);
+    expect(commitCalls).toEqual(['chore(release): v0.12.4']);
     // no tag means nothing to attest to yet
     expect(notesCalls).toHaveLength(0);
   });
@@ -505,7 +523,7 @@ describe('executeRelease', () => {
     expect(notesCalls).toEqual([
       [
         'HEAD',
-        'Release v0.13.0 (minor) — 2026-08-12\n2 commits included:\n- fix: a bug\n- feat: a thing',
+        'Release v0.12.4 (patch) — 2026-08-12\n2 commits included:\n- fix: a bug\n- feat: a thing',
       ],
     ]);
   });
@@ -546,7 +564,7 @@ describe('executeRelease', () => {
     // undefined }` would serialize differently and lie to `'milestoneTag' in`.
     expect(result).not.toHaveProperty('milestoneTag');
     expect(tagCalls).toEqual([
-      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+      ['v0.12.4', 'Release v0.12.4 (patch) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
     ]);
   });
 
@@ -567,15 +585,15 @@ describe('executeRelease', () => {
     expect(result.ok).toBe(true);
     expect(result.milestoneTag).toEqual({ ok: true, details: 'created' });
     expect(tagCalls).toEqual([
-      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
-      ['m4', 'Milestone m4 — v0.13.0'],
+      ['v0.12.4', 'Release v0.12.4 (patch) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+      ['m4', 'Milestone m4 — v0.12.4'],
     ]);
   });
 
   it('reports a successful release even when the milestone tag fails to attach', async () => {
     const { writer } = fakeWriter();
     const { vcs } = fakeVcs(
-      { ok: true, details: "created annotated tag 'v0.13.0' at HEAD" },
+      { ok: true, details: "created annotated tag 'v0.12.4' at HEAD" },
       undefined,
       { ok: false, details: "tag 'm4' already exists" },
     );
@@ -597,7 +615,7 @@ describe('executeRelease', () => {
 
   it('does not attempt the milestone tag when the version tag itself fails', async () => {
     const { writer } = fakeWriter();
-    const { vcs, tagCalls } = fakeVcs({ ok: false, details: "tag 'v0.13.0' already exists" });
+    const { vcs, tagCalls } = fakeVcs({ ok: false, details: "tag 'v0.12.4' already exists" });
 
     const result = await executeRelease(
       '0.12.3',
@@ -612,7 +630,7 @@ describe('executeRelease', () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('tag-failed');
     expect(tagCalls).toEqual([
-      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+      ['v0.12.4', 'Release v0.12.4 (patch) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
     ]);
   });
 
@@ -662,8 +680,8 @@ describe('executeRelease', () => {
 
     expect(result.ok).toBe(true);
     expect(tagCalls).toEqual([
-      ['v0.13.0', 'Release v0.13.0 (minor) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
-      ['m10', 'Milestone m10 — v0.13.0'],
+      ['v0.12.4', 'Release v0.12.4 (patch) — 2026-08-12\n\n### Added\n\n- feat: a thing'],
+      ['m10', 'Milestone m10 — v0.12.4'],
     ]);
   });
 

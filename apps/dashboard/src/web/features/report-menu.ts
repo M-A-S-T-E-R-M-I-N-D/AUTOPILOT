@@ -231,6 +231,16 @@ function reportMenuAddItem(label, tip, onChoose) {
   reportMenuEl.appendChild(item);
   return item;
 }
+// The masthead's "Report from here" item (epic 0017 slice 3, the overflow
+// menu): the same menu the right-click opens, anchored under the item and
+// aimed at the page's main region.
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest ? e.target.closest('#report-btn') : null;
+  if (!b) return;
+  reportMenuTargetEl = document.getElementById('fleet') || document.body;
+  var r = b.getBoundingClientRect();
+  openReportMenu(Math.round(r.left), Math.round(r.bottom + 4));
+});
 function openReportMenu(x, y) {
   closeReportMenu();
   reportMenuTriggerFocus = document.activeElement;

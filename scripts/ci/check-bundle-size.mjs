@@ -122,7 +122,12 @@ import { gzipSync } from 'node:zlib';
 // colour syntax is unsupported in this Chromium and made every colour vanish);
 // measured 239865B raw / 71842B gzip against the old 239616B / 71680B
 // budgets (gzip 70→71KB).
-const CORE_RAW_BUDGET = 235 * 1024;
+// Then core raw 235→236KB / panels raw 161→162KB (2026-09-14) for EPIC 0017 slice 3:
+// the overflow menu (Tour, the docs, Report from here behind one ellipsis) —
+// the ellipsis shape in ICON_SHAPES, the report item's click delegate, and
+// the menu's STRINGS.he in panels. Measured 240964B / 165232B raw against
+// the old 240640B / 164864B budgets; gzip untouched.
+const CORE_RAW_BUDGET = 236 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -246,7 +251,7 @@ const CORE_GZIP_BUDGET = 71 * 1024;
 // STRINGS.he translations that land here via locale-data.ts. Measured
 // 164414B raw / 49318B gzip against the old 163840B / 49152B budgets.
 // Deferred chunk, never blocks first paint; core untouched.
-const CHUNK_RAW_BUDGET = 161 * 1024;
+const CHUNK_RAW_BUDGET = 162 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
