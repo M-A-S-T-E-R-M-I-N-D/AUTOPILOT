@@ -107,7 +107,11 @@ export function shardConfigFiles(files, shard) {
 }
 
 function touchedFilesSince(ref) {
-  return execFileSync('git', ['diff', '--name-only', ref], { cwd: ROOT, encoding: 'utf8' })
+  return execFileSync('git', ['diff', '--name-only', ref], {
+    windowsHide: true,
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
@@ -147,6 +151,7 @@ function main() {
     console.log(`\n[${i + 1}/${scoped.length}] stryker run ${cfg}`);
     try {
       execSync(`npx stryker run ${join('config', 'mutation', cfg)}`, {
+        windowsHide: true,
         cwd: ROOT,
         stdio: 'inherit',
       });

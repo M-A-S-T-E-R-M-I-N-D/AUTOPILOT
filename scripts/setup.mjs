@@ -50,7 +50,7 @@ function versionAtLeast(version, min) {
  *  input (string-only, no arg concatenation — avoids DEP0190 entirely). */
 function trySilent(command) {
   try {
-    execSync(command, { stdio: 'ignore', cwd: ROOT });
+    execSync(command, { windowsHide: true, stdio: 'ignore', cwd: ROOT });
     return true;
   } catch {
     return false;
@@ -60,7 +60,7 @@ function trySilent(command) {
 /** Run a FIXED command string with inherited stdio (visible progress). */
 function tryLoud(command) {
   try {
-    execSync(command, { stdio: 'inherit', cwd: ROOT });
+    execSync(command, { windowsHide: true, stdio: 'inherit', cwd: ROOT });
     return true;
   } catch {
     return false;

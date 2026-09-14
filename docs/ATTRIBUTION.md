@@ -91,6 +91,95 @@ trailer, which certifies nothing and claims nothing. A pilot that finds
 itself without a usable identity STOPS and asks its operator rather
 than guessing — a wrong signature is a rights problem, not a default.
 
+## The target repository's policy beats ours (2026-09-14)
+
+Researched before building, because the answer was not what we expected.
+Three findings changed the design, and a future firing that "helpfully"
+standardises the format everywhere will break all three.
+
+**There is no common format, and the projects that care most disagree.**
+
+| Project | Its rule |
+|---|---|
+| Linux kernel | `Assisted-by: LLM` required; an agent MUST NOT add `Signed-off-by` |
+| LLVM | `Assisted-by: <assistant>` recommended, issues and PR comments included |
+| Apache Software Foundation | `Generated-by:` recommended, not required |
+| Kubernetes | **forbids** the `assisted-by`/`co-developed` trailer; prose in the PR instead |
+| Homebrew | must disclose the tool in the issue or PR, but **no AI commit trailer** |
+| attrs, pip, requests | "no LLM bots in `Co-authored-by:`s" |
+| curl | disclosure **mandatory on issues**, not on PRs |
+| NumPy | must name the tool AND what it generated; autonomous agent PRs not accepted |
+| QEMU, Gentoo | AI-generated contributions banned outright |
+
+One fixed format emitted everywhere violates somebody's policy by
+construction. `packages/engine/src/provenance.ts` therefore picks a
+profile per target from the target's OWN published policy text, and an
+unread policy resolves to `minimal` — failing toward less output, because
+emitting more than a project allows is the expensive mistake and emitting
+less is merely quiet.
+
+**The Linux kernel deliberately removed the model name.** Its policy first
+required `Assisted-by: AGENT:MODEL_VERSION`. In August 2026 that was
+simplified to plain `Assisted-by: LLM`, with five reviewers, for a reason
+worth quoting: naming the model "provides free advertising to proprietary
+software companies while adding little or no useful information." This is
+the most-scrutinised decision anyone has published on the question, and it
+went AGAINST naming the model and its vendor. Academia goes the other way
+— ICMJE and Elsevier both require naming the tool. The split is real and
+unresolved, which is why the model name is a per-profile choice here rather
+than a doctrine.
+
+**The clause with legal weight is the review state, not the model name.**
+EU AI Act Article 50 has applied since 2026-08-02, and Article 2(12)'s
+open-source exemption expressly does not cover it. The Commission's
+guidelines put source code and its integral comments outside Article 50(2),
+but say nothing about issue bodies, PR descriptions or comments. Article
+50(4)'s carve-out is the exit: text a human reviewed before publication,
+with a person holding editorial responsibility, needs no label. The ASF
+states the same rule in one sentence — **review it before you publish it,
+or label it** — and Anthropic's usage policy requires that review
+independently, treating automatic generation published for external
+consumption as a high-risk use case. So every artifact carries whether a
+human reviewed it, and says so in words.
+
+**Cost and tokens do not go on a public artifact.** Our own figure is API
+list price, of which cache reads are most, self-reported by the agent whose
+performance it describes (`docs/MODEL-CARD.md`, `docs/RESEARCH-LIBRARY.md`).
+A maintainer reads "$2.40" as what their project cost someone; it is not.
+No provenance standard carries a money field — not C2PA, not SPDX 3.0's AI
+profile, not CycloneDX, not W3C PROV. The cross-pilot cost table is a good
+feature and it belongs on AUTOPILOT's own dashboard, where the caveats
+travel with the number and the reader can interpret them.
+
+One note on the section below: keeping a contributor's `Co-authored-by`
+trailer in history remains right. But it is not a pattern to propagate —
+several major projects now forbid that form, and nothing here emits one.
+
+## AI co-authors that arrive in someone else's contribution
+
+A contribution can carry a model's own `Co-authored-by` trailer, added by
+the CONTRIBUTOR's local tooling rather than by anything here. AUTOPILOT has
+exactly one so far: `Co-authored-by: Claude Opus 5 <noreply@anthropic.com>`
+on the commit that landed PR #47 (@gabibi555's fix for the update loop —
+the update sequence never compiled the source it had just pulled). Their
+Claude Code session wrote it; our engine did not, and channel 1's
+`Assisted-by` trailer is a different line for a different purpose.
+
+The policy, in two halves:
+
+- **Keep the credit.** A trailer a contributor chose to add is theirs to
+  add, it is accurate, and rewriting someone's commit message to strip a
+  co-author would be both rude and dishonest. It stays in the log.
+- **Never file in a model's name.** No application, issue, comment or
+  standing entry is ever opened "from" a model, however real its help was.
+  There is no account behind that trailer to consent, and an instance that
+  invents an identity breaks the signing law above. The credit lives where
+  the contributor put it — in the commit — and nowhere it would read as a
+  person who applied to join.
+
+This is the same asymmetry the signing section draws: tools get credited,
+humans get counted.
+
 ## Rights, stated plainly
 
 - Content a pilot writes on behalf of an operator belongs to that

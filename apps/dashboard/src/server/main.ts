@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { cpus, freemem } from 'node:os';
+import { cpus, freemem, homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, DEFAULT_PORT, LOOPBACK_HOST } from './server.js';
@@ -116,7 +116,7 @@ import { createCiStatusApi } from '../control/ci-status.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
 import { isAnyFlightLockLive } from '../flight/lock.js';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createControlExecuteApi } from '../flight/control-execute.js';
 import { ensureSelfOnboarded } from './self-onboard.js';
 import { listBrowsableFolder } from './browse-folder.js';
@@ -168,6 +168,7 @@ import {
 import { realCliExec, makeCliExec } from '../connection/cli-probe.js';
 import { launchClaudeLogin } from '../connection/login.js';
 import { launchGhAuth } from '../connection/gh-login.js';
+import { planSampleProject } from '../flight/sample-project.js';
 import { claudeAuthProbe } from '../connection/verify.js';
 import { getGhStatus } from '../connection/gh-probe.js';
 import { createLtsStatusApi } from '../connection/gh-lts.js';
@@ -944,6 +945,51 @@ const server = createServer({
       });
     },
     test: () => testConnection(connectionDeps),
+  },
+  // THE ONBOARDING'S FIRST MICRO-TASK (epic 0032): copy a bundled sample out
+  // of this checkout, make it a repository of its own, register it. Copying
+  // matters — locking onto a path inside AUTOPILOT's own tree would back up
+  // and fly AUTOPILOT (docs/CASE-STUDIES/calculator-five-firings.md).
+  onboarding: {
+    addSample: async (sample) => {
+      const plan = planSampleProject(sample, process.cwd(), homedir(), existsSync);
+      if (!plan.ok) {
+        // A copy that is already there is not a failure — it is the answer:
+        // the panel prefills the Fly bar with it.
+        return plan.reason === 'already-there' && plan.target !== undefined
+          ? { ok: true, folder: plan.target, message: plan.details }
+          : { ok: false, message: plan.details };
+      }
+      try {
+        mkdirSync(dirname(plan.target), { recursive: true });
+        cpSync(plan.source, plan.target, { recursive: true });
+        execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: plan.target, windowsHide: true });
+        execFileSync('git', ['add', '-A'], { cwd: plan.target, windowsHide: true });
+        execFileSync('git', ['commit', '-q', '-m', plan.commitSubject], {
+          cwd: plan.target,
+          windowsHide: true,
+          env: {
+            ...process.env,
+            GIT_AUTHOR_NAME: 'AUTOPILOT onboarding',
+            GIT_AUTHOR_EMAIL: 'onboarding@localhost',
+            GIT_COMMITTER_NAME: 'AUTOPILOT onboarding',
+            GIT_COMMITTER_EMAIL: 'onboarding@localhost',
+          },
+        });
+        const registered = await ensureSelfOnboarded(dbPath, plan.target);
+        return {
+          ok: true,
+          folder: plan.target,
+          ...(registered.projectId === undefined ? {} : { projectId: registered.projectId }),
+          message: `copied the ${plan.sample} sample to ${plan.target} and registered it — press Fire when you are ready`,
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          message: `could not add the sample: ${error instanceof Error ? error.message : 'unknown error'}`,
+        };
+      }
+    },
   },
   gh: {
     getStatus: () => getGhStatus(realCliExec),

@@ -581,7 +581,10 @@ ${flyHintText.toString()}
           firings: data.plan.firings,
           budget: data.plan.budgetUsd,
         });
-        setMsg(rolled, '');
+        // The snackbar alone (epic 0031 law 1). It used to ALSO write the
+        // inline status, and a long localized sentence there stretched the
+        // whole fly bar sideways. A refusal still writes inline below —
+        // an error should not leave on a timer.
         snack(rolled, 'ok');
         if (goEl) goEl.focus();
         // lucky: plan painted — flying stays the operator's click.

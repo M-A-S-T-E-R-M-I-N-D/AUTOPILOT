@@ -33,10 +33,7 @@ function listFiles() {
   const out = execFileSync(
     'git',
     ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
-    {
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    },
+    { windowsHide: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );
   return out.split(NUL).filter(Boolean);
 }

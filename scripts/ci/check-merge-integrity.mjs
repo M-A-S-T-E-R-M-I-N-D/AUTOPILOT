@@ -55,7 +55,11 @@ function addedLines(diff) {
 }
 
 function git(args) {
-  return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  return execFileSync('git', args, {
+    windowsHide: true,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+  });
 }
 
 /** Merge commits in the range, with their parent lists. */

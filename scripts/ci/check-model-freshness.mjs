@@ -56,7 +56,11 @@ function catalogueFamilies() {
  *  contributor without Claude installed still gets a green build. */
 function cliModelHelp() {
   try {
-    return execFileSync('claude', ['--help'], { encoding: 'utf8', timeout: 30_000 });
+    return execFileSync('claude', ['--help'], {
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
   } catch {
     return null;
   }

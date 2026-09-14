@@ -82,7 +82,7 @@ function listTrackedMarkdown() {
   const out = execFileSync(
     'git',
     ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '*.md'],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    { windowsHide: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );
   return out.split(NUL).filter(Boolean);
 }
@@ -90,7 +90,10 @@ function listTrackedMarkdown() {
 /** @param {string} sha @returns {boolean} */
 function isReachableFromHead(sha) {
   try {
-    execFileSync('git', ['merge-base', '--is-ancestor', sha, 'HEAD'], { stdio: 'ignore' });
+    execFileSync('git', ['merge-base', '--is-ancestor', sha, 'HEAD'], {
+      windowsHide: true,
+      stdio: 'ignore',
+    });
     return true;
   } catch {
     return false;

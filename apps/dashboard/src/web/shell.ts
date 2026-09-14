@@ -3989,6 +3989,7 @@ function renderFleetBody(state) {
     if (typeof syncSearchProjects === 'function') syncSearchProjects(state.projects || []);
     if (typeof syncFlyFolderOptions === 'function') syncFlyFolderOptions(state.projects || []);
     if (typeof syncPoolClientProjects === 'function') syncPoolClientProjects(state.projects || []);
+  if (typeof syncOnboarding === 'function') syncOnboarding(state);
     var sel2 = document.getElementById('search-project');
     if (sel2) sel2.value = pinned;
     translateDom(document.documentElement.lang || 'en');
@@ -4064,6 +4065,7 @@ function renderFleetBody(state) {
   if (typeof syncFlyFolderOptions === 'function') syncFlyFolderOptions(state.projects || []);
   // Keep the pool client's project picker in sync too (epic 0007 slice 6).
   if (typeof syncPoolClientProjects === 'function') syncPoolClientProjects(state.projects || []);
+  if (typeof syncOnboarding === 'function') syncOnboarding(state);
   // Fleet cards are client-rendered and patched on every tick — a card built
   // or patched after the page's one-time applyLocale() call would otherwise
   // render in English regardless of the active locale (board
@@ -4575,6 +4577,19 @@ ${subjectNavHtml(project)}
     <ul class="palette-list" id="palette-list" role="listbox" aria-labelledby="palette-title"></ul>
   </dialog>
 ${contextRailHtml(project)}
+  <section class="onboarding" id="onboarding" aria-labelledby="ob-title" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>
+    <div class="ob-head">
+      <h2 class="ob-title" id="ob-title">${iconSvg('compass')}<span data-i18n="obTitle">Getting started</span></h2>
+      <p class="ob-tip muted" data-i18n="obTip">Your first flight, one small step at a time</p>
+      <div class="ob-badges" id="ob-badges" role="group" aria-label="Badges earned" data-i18n-aria="obBadgesAria"></div>
+      <button type="button" class="ob-snooze" id="ob-snooze" data-i18n="obSnooze">Remind me later</button>
+    </div>
+    <div class="ob-progress" id="ob-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="ob-title">
+      <div class="ob-progress-fill" id="ob-progress-fill"></div>
+    </div>
+    <p class="ob-progress-label muted" id="ob-progress-label" role="status" aria-live="polite"></p>
+    <ol class="ob-steps" id="ob-steps"></ol>
+  </section>
   <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>
     <form class="fly-form" id="fly-form">
       <label for="fly-folder" class="fly-folder-label" data-i18n="flyFolder">Fly a folder</label>
@@ -4671,6 +4686,10 @@ ${contextRailHtml(project)}
     <div class="ask-sheet-body" id="ask-sheet-body"></div>
     <div class="ask-sheet-foot" id="ask-sheet-foot"></div>
   </aside>
+  <footer class="watermark">
+    <span data-i18n="obWatermark">Built with AUTOPILOT</span>
+    <span class="watermark-mark">© 2026 1337 · REL AZEUS · MΔSTERMIND · Apache-2.0</span>
+  </footer>
   <script src="/app.js?v=${v}"></script>${
     project !== undefined
       ? `

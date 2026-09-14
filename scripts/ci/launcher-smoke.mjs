@@ -132,7 +132,7 @@ function readRecord(recordFile) {
  *  (build failure short-circuit for a builder, "not built yet" for a
  *  dist-requiring launcher) — each in its own disposable scratch dir. */
 function smokeTestLauncher(entry) {
-  execFileSync('bash', ['-n', join(repoRoot, entry.file)], { stdio: 'pipe' });
+  execFileSync('bash', ['-n', join(repoRoot, entry.file)], { windowsHide: true, stdio: 'pipe' });
 
   runScenario(entry, { simulateBuildFailure: false, includeDist: true });
   if (entry.buildsFirst) {
@@ -166,6 +166,7 @@ function runScenario(entry, { simulateBuildFailure, includeDist }) {
     let output = '';
     try {
       output = execFileSync('bash', [scriptCopy], {
+        windowsHide: true,
         cwd: scratch,
         env: { ...process.env, PATH: `${binDir}${delimiter}${process.env.PATH}` },
         encoding: 'utf8',

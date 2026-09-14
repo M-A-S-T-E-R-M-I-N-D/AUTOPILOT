@@ -34,7 +34,7 @@ function main() {
       '--input',
       '-',
     ],
-    { input: JSON.stringify(protection), stdio: ['pipe', 'inherit', 'inherit'] },
+    { windowsHide: true, input: JSON.stringify(protection), stdio: ['pipe', 'inherit', 'inherit'] },
   );
   console.log(
     `gh:setup-branch-protection OK: "${branch}" locked per .github/branch-protection.json`,

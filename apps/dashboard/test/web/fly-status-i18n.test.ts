@@ -57,9 +57,13 @@ describe('the fly bar status line reads its client-generated messages from STRIN
     expect(out).toContain("snack(refusal, 'warn');");
     // The rolled plan is one short localized sentence (epic 0031) — the
     // arithmetic moved into the why panel instead of a paragraph in a status.
+    // It is said ONCE, in the snackbar: writing it inline as well stretched
+    // the fly bar sideways for as long as the sentence was (operator,
+    // 2026-09-14, on the Hebrew bar). The refusal above is the deliberate
+    // exception — an error stays on the page.
     expect(out).toContain("var rolled = tr('luckyRolled', {");
-    expect(out).toContain("setMsg(rolled, '');");
     expect(out).toContain("snack(rolled, 'ok');");
+    expect(out).not.toContain("setMsg(rolled, '');");
     expect(out).not.toContain("'Lucky roll failed");
     expect(out).not.toContain("'🍀 Not now: '");
     expect(out).not.toContain("' — press Fly it to launch.'");

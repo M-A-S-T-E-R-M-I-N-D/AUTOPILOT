@@ -62,6 +62,7 @@ function argValue(flag) {
 
 function gh(path) {
   const out = execFileSync('gh', ['api', path, '--paginate'], {
+    windowsHide: true,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });

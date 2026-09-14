@@ -149,6 +149,13 @@ const BENIGN_FLIGHT = new Set([
   // Its plan FILLS the Fly bar; the launch (and its spend) stays behind
   // the operator's own already-guarded Fly click.
   'lucky-plan.ts',
+  // Pure copy PLAN for the onboarding's one-click sample (epic 0032): what to
+  // copy, where to, and which refusals to word. No filesystem, no git, no
+  // store — server/main.ts performs the copy and the registration, and the
+  // route that reaches it (server/onboarding-route.ts) is POST-only,
+  // CSRF-guarded and rate-limited. Its own test pins that the target never
+  // lands inside this checkout.
+  'sample-project.ts',
   // Pure candidates→shortlist arithmetic (the 🍀 button's WHAT-to-fly half,
   // issue #44): no I/O at all; server/main.ts assembles its inputs from the
   // already-flagged pool/contributor reads and the client only paints.
@@ -339,6 +346,21 @@ const BENIGN_ENGINE_SRC = new Set([
   // config.ts's tool-grant constants, which the threat-model table renders
   // and `flight/pr-review.ts` flags.
   'models.ts',
+  // model-vendor.ts: PURE string→publisher attribution beside models.ts,
+  // with models.ts's own rule — it describes, it never restricts. No I/O,
+  // no decision surface: an unrecognized model still flies, and the only
+  // consequence of editing it is which organisation a provenance line
+  // names. Getting it WRONG is a credit error, not a capability one, and
+  // its test pins that an unknown id reports itself unknown.
+  'model-vendor.ts',
+  // provenance.ts: PURE formatting of the disclosure a public artifact
+  // carries — one visible line, one HTML comment, one commit trailer, and
+  // a profile chosen from the TARGET repo's own published policy text. No
+  // I/O and no gh call: github-contribute.ts / github-pr-contribute.ts are
+  // the flagged halves that actually file anything, and flight/gh-exec.ts
+  // still owns every write. It cannot emit a Signed-off-by, and its test
+  // pins that an unread policy fails toward LESS output, never more.
+  'provenance.ts',
   // usage-pool.ts: PURE list-price parser over caller-supplied strings — no
   // filesystem, no process, no decision surface; its impure sibling
   // (adapters/usage-pool-scan.ts, which READS the operator's private
@@ -846,6 +868,13 @@ const BENIGN_WEB = new Set([
   'status-pill.ts',
   'stat-tiles.ts',
   'tour.ts',
+  // onboarding.ts (epic 0032): the ladder's pure model — a step table and
+  // one derivation from a signals snapshot to which steps are done. Builds
+  // no markup, reads no DOM, performs no I/O; the same 'fixed doctrine, not
+  // a live fact' shape as tour.ts's TOUR_STEPS. Its client half is censused
+  // under web/features/ below, and every write it can reach goes through the
+  // already-flagged /api/onboarding/sample route.
+  'onboarding.ts',
   // Pure CONTRIBUTOR_STANDING_TIERS data + one-line summary formatter, ported
   // verbatim from `.github/CONTRIBUTOR-STANDING.md` — no HTML building, no
   // I/O, the same "fixed doctrine, not a live fact" shape `tour.ts`'s
@@ -1063,6 +1092,13 @@ const BENIGN_WEB_FEATURES = new Set([
   'mirror-pass.ts',
   'notifications.ts',
   'office-map.ts',
+  // onboarding.ts (epic 0032): the ladder panel. createElement/textContent
+  // only (zero innerHTML, icons via createElementNS from spliced shape data),
+  // and its single fetch targets POST /api/onboarding/sample — a POST-only,
+  // CSRF-guarded, rate-limited route whose planner (flight/sample-project.ts)
+  // is itself censused. Every other action clicks a control already on the
+  // page rather than reaching an endpoint of its own.
+  'onboarding.ts',
   'process-health.ts',
   'publicity.ts',
   'round-panel.ts',
