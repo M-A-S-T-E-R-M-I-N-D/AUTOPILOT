@@ -1634,6 +1634,29 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
    rule, closeTour() cleared the dialog but the full-screen backdrop stayed,
    leaving the whole page dimmed (field report, 2026-08-14). */
 .tour-overlay[hidden] { display: none; }
+/* THE GUIDED WALK (operator, 2026-09-15): the tour points at each real
+   control in turn. An anchored card is positioned by paintTour() from
+   measured geometry, so it drops out of the overlay's centring flex. */
+.tour-dialog.is-anchored { position: fixed; margin: 0; }
+/* The spotlight. A positioned ring — never a filter or clip-path on the page
+   itself, so nothing under it reflows and a control cannot shift out from
+   under the pointer mid-tour. It sits ABOVE the backdrop so the thing being
+   explained is the one bright object on screen. */
+.tour-ring {
+  position: fixed; inset-block-start: 0; inset-inline-start: 0; z-index: 51; pointer-events: none;
+  border-radius: var(--shape-small); outline: 2px solid var(--color-accent); outline-offset: 3px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  transition: transform var(--duration-normal, 300ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.tour-ring[hidden] { display: none; }
+/* With the ring drawing its own backdrop, the overlay must not double it. */
+.tour-overlay:has(~ .tour-ring:not([hidden])) { background: transparent; }
+.tour-dialog { z-index: 52; }
+.tour-step-count {
+  margin-inline-start: var(--space-2); font-size: 0.6875rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted);
+}
+@media (prefers-reduced-motion: reduce) { .tour-ring { transition: none; } }
 .tour-dialog {
   width: 100%; max-width: 420px; background: var(--color-surface-raised);
   border: 1px solid var(--color-border); border-radius: var(--shape-medium);

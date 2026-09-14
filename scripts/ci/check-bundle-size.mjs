@@ -138,7 +138,10 @@ import { gzipSync } from 'node:zlib';
 // the ladder adds ~30 English STRINGS keys, and locale.ts splices the whole
 // English table into CORE — measured 242.1KB. The ladder panel itself is
 // deferred, so none of its own code is in this number.
-const CORE_RAW_BUDGET = 243 * 1024;
+// Then core raw 243→246KB (2026-09-15) for THE GUIDED WALK: nine stops of
+// prose replace four, and locale.ts splices the whole English table into
+// CORE — measured 244.4KB.
+const CORE_RAW_BUDGET = 246 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -147,7 +150,9 @@ const CORE_RAW_BUDGET = 243 * 1024;
 // 218.5KB raw / 64.9KB gzip.
 // Then core gzip 72→73KB (2026-09-14), the same epic-0032 English STRINGS
 // growth as the raw note above — measured 72.6KB.
-const CORE_GZIP_BUDGET = 73 * 1024;
+// Then core gzip 73→74KB (2026-09-15), the same guided-walk prose growth as
+// the raw note above — measured 73.3KB.
+const CORE_GZIP_BUDGET = 74 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -271,7 +276,10 @@ const CORE_GZIP_BUDGET = 73 * 1024;
 // Then chunk raw 176→178KB (2026-09-15): the ladder's GitHub-connection
 // fetch, the Connect-popover opener, and the tour<->ladder hand-over in
 // both directions — measured 177.0KB.
-const CHUNK_RAW_BUDGET = 178 * 1024;
+// Then chunk raw 178→185KB (2026-09-15) for THE GUIDED WALK: the spotlight,
+// the anchoring geometry spliced from web/tour.ts, and the same nine stops
+// again in Hebrew via locale-data.ts — measured 184.0KB.
+const CHUNK_RAW_BUDGET = 185 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -279,7 +287,9 @@ const CHUNK_RAW_BUDGET = 178 * 1024;
 // Then gzip 44→45KB (2026-09-12) for the CI-status panel in /panels.js — measured 44.1KB gzip.
 // Then chunk gzip 49→53KB (2026-09-14) for the same epic-0032 ladder panel
 // and its Hebrew strings — measured 52.6KB.
-const CHUNK_GZIP_BUDGET = 53 * 1024;
+// Then chunk gzip 53→56KB (2026-09-15) for the guided walk and its Hebrew
+// half — measured 55.3KB.
+const CHUNK_GZIP_BUDGET = 56 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

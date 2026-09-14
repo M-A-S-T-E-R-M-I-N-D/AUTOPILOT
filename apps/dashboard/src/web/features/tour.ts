@@ -40,7 +40,14 @@
  * (`web/chunks.ts`), so `tr` is already a hoisted global by the time any
  * deferred script (this one included) can run.
  */
-import { TOUR_STEPS, TOUR_STEP_KEYS, tourStepMeta as sharedTourStepMeta } from '../tour.js';
+import {
+  TOUR_STEPS,
+  TOUR_STEP_KEYS,
+  tourStepMeta as sharedTourStepMeta,
+  anchorPosition as sharedAnchorPosition,
+  TOUR_GAP_PX,
+  TOUR_MARGIN_PX,
+} from '../tour.js';
 
 /** The first-run guided tour client — vanilla, external (keeps CSP script-src 'self'). */
 export function tourJs(): string {
@@ -59,6 +66,9 @@ export function tourJs(): string {
 var TOUR_STEPS = ${JSON.stringify(TOUR_STEPS)};
 var TOUR_STEP_KEYS = ${JSON.stringify(TOUR_STEP_KEYS)};
 ${sharedTourStepMeta.toString()}
+var TOUR_GAP_PX = ${TOUR_GAP_PX};
+var TOUR_MARGIN_PX = ${TOUR_MARGIN_PX};
+${sharedAnchorPosition.toString()}
 var TOUR_SEEN_KEY = 'ap-tour-seen';
 var tourStep = 0;
 var tourLastFocus = null;
@@ -70,6 +80,8 @@ function closeTour() {
   if (!tourEl) return;
   tourEl.hidden = true;
   tourEl.textContent = '';
+  var ring = document.getElementById('tour-ring');
+  if (ring) ring.hidden = true;
   try { localStorage.setItem(TOUR_SEEN_KEY, '1'); } catch (err) {}
   if (tourLastFocus && typeof tourLastFocus.focus === 'function') tourLastFocus.focus();
   tourLastFocus = null;
@@ -83,16 +95,81 @@ function onTourKeydown(e) {
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
+// The element this stop points at, or null when the page does not have it.
+function tourTarget(step) {
+  if (!step || !step.selector) return null;
+  try { return document.querySelector(step.selector); } catch (err) { return null; }
+}
+
+// Which stops this page can actually show. The Fly bar is absent on some
+// subjects and the checklist disappears once both ticks are earned, so a
+// fixed walk would point at empty space. Indices stay intact — TOUR_STEP_KEYS
+// is index-parallel — and absent ones are stepped over instead of removed.
+function tourPresent(i) {
+  return !!tourTarget(TOUR_STEPS[i]);
+}
+function tourFirstPresent(from, dir) {
+  var i = from;
+  while (i >= 0 && i < TOUR_STEPS.length && !tourPresent(i)) i += dir;
+  return i >= 0 && i < TOUR_STEPS.length ? i : -1;
+}
+function tourAdvance(dir) {
+  var i = tourFirstPresent(tourStep + dir, dir);
+  if (i === -1) { closeTour(); return; }
+  tourStep = i;
+  paintTour();
+}
+
+// Ring the target and bring it into view. The ring is a positioned box, not
+// a filter or a clip-path on the page — nothing about the underlying layout
+// moves, so a control cannot shift out from under the pointer mid-tour.
+function tourSpotlight(target) {
+  var ring = document.getElementById('tour-ring');
+  if (!ring) {
+    ring = el('div', 'tour-ring');
+    ring.id = 'tour-ring';
+    ring.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(ring);
+  }
+  if (!target || typeof target.getBoundingClientRect !== 'function') {
+    ring.hidden = true;
+    return null;
+  }
+  if (typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }
+  var r = target.getBoundingClientRect();
+  ring.hidden = false;
+  // translate, not offset: the stylesheet only ever animates transform
+  // (COCKPIT 6/6's compositor-only rule), and moving a 9999px box-shadow by
+  // layout would be the most expensive way possible to do it.
+  ring.style.transform = 'translate(' + r.left + 'px, ' + r.top + 'px)';
+  ring.style.inlineSize = r.width + 'px';
+  ring.style.blockSize = r.height + 'px';
+  return { x: r.left, y: r.top, width: r.width, height: r.height };
+}
+
 function paintTour() {
   tourEl.textContent = '';
   var meta = tourStepMeta(tourStep);
   var keys = TOUR_STEP_KEYS[tourStep];
+  // First/last are about what this PAGE can show, not the fixed array.
+  var isFirst = tourFirstPresent(tourStep - 1, -1) === -1;
+  var isLast = tourFirstPresent(tourStep + 1, 1) === -1;
   var dialog = el('div', 'tour-dialog');
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', 'tour-title');
   var h = el('h2', '', tr(keys.titleKey));
   h.id = 'tour-title';
+  // "Step 3 of 9" belongs in the dialog's own heading, not a live region:
+  // an aria-modal dialog hides outside live regions, and moving focus into
+  // it suppresses the announcement anyway (WCAG 4.1.3).
+  var counter = el('span', 'tour-step-count', tr('tourStepCount', {
+    step: tourStep + 1,
+    total: TOUR_STEPS.length,
+  }));
+  h.appendChild(counter);
   dialog.appendChild(h);
   dialog.appendChild(el('p', '', tr(keys.bodyKey)));
   var dots = el('div', 'tour-dots');
@@ -106,26 +183,26 @@ function paintTour() {
   var actions = el('div', 'tour-actions');
   var skip = document.createElement('button');
   skip.type = 'button';
-  skip.textContent = tr(meta.isLast ? 'tourClose' : 'tourSkip');
-  skip.setAttribute('data-tip', tr(meta.isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));
+  skip.textContent = tr(isLast ? 'tourClose' : 'tourSkip');
+  skip.setAttribute('data-tip', tr(isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));
   skip.addEventListener('click', closeTour);
   actions.appendChild(skip);
   var nav = el('div', 'tour-nav');
-  if (!meta.isFirst) {
+  if (!isFirst) {
     var back = document.createElement('button');
     back.type = 'button';
     back.textContent = tr('tourBack');
     back.setAttribute('data-tip', tr('tourBackTip'));
-    back.addEventListener('click', function () { tourStep--; paintTour(); });
+    back.addEventListener('click', function () { tourAdvance(-1); });
     nav.appendChild(back);
   }
-  if (!meta.isLast) {
+  if (!isLast) {
     var next = document.createElement('button');
     next.type = 'button';
     next.className = 'tour-next';
     next.textContent = tr('tourNext');
     next.setAttribute('data-tip', tr('tourNextTip'));
-    next.addEventListener('click', function () { tourStep++; paintTour(); });
+    next.addEventListener('click', function () { tourAdvance(1); });
     nav.appendChild(next);
   } else {
     // THE HAND-OVER (operator, 2026-09-15: "the tour was supposed to be
@@ -150,6 +227,26 @@ function paintTour() {
   actions.appendChild(nav);
   dialog.appendChild(actions);
   tourEl.appendChild(dialog);
+
+  // Ring the target, then place the card BESIDE it — measured, because the
+  // card's height depends on how long this stop's sentence wrapped. A
+  // placement that would overflow flips to the opposite side rather than
+  // sliding over the thing it is pointing at (WCAG 2.4.11).
+  var rect = tourSpotlight(tourTarget(meta.step));
+  if (rect) {
+    var card = dialog.getBoundingClientRect();
+    var at = anchorPosition(
+      rect,
+      { width: card.width, height: card.height },
+      { width: window.innerWidth, height: window.innerHeight },
+      meta.step.placement,
+    );
+    dialog.classList.add('is-anchored');
+    dialog.dataset.placement = at.placement;
+    dialog.style.insetInlineStart = at.x + 'px';
+    dialog.style.insetBlockStart = at.y + 'px';
+  }
+
   var focusable = tourFocusable();
   (focusable[focusable.length - 1] || skip).focus();
 }
@@ -159,7 +256,9 @@ function openTour() {
     tourEl.addEventListener('keydown', onTourKeydown);
     document.body.appendChild(tourEl);
   }
-  tourStep = 0;
+  // Start on the first stop this page can actually show.
+  var first = tourFirstPresent(0, 1);
+  tourStep = first === -1 ? 0 : first;
   tourLastFocus = document.activeElement;
   tourEl.hidden = false;
   paintTour();

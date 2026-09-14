@@ -1956,6 +1956,38 @@ const EN_STRINGS = {
   // The tour and the ladder are one path, not two (operator, 2026-09-15):
   // the tour teaches the four words, its last step hands over to the
   // checklist, and the checklist links back for anyone who wants the words.
+  // THE GUIDED WALK (operator, 2026-09-15): the tour points at each real
+  // control in turn instead of defining four words in the abstract. The
+  // vocabulary is still all here — firing, gate, slice, flight — taught on
+  // the thing that embodies it. See web/tour.ts.
+  tourLockOnTitle: 'Lock on a folder',
+  tourLockOnBody:
+    'Point AUTOPILOT at a git repository. Everything it does happens inside that folder, on its own branch — it never pushes and never merges on its own.',
+  tourLuckyTitle: 'Let it size the flight',
+  tourLuckyBody:
+    'The clover measures this machine — idle cores, free memory, even whether the disk is a platter or flash — and fills in how many lanes and firings it can carry without freezing your own work.',
+  tourFireTitle: 'Fire',
+  tourFireBody:
+    'One firing: the agent orients, does ONE task, runs your project’s own gate — typecheck, lint, test, build — and commits only if it passes. Red means the change is reverted, never shipped broken. A flight is many firings, bounded by the budget you set.',
+  tourLadderTitle: 'Your progress',
+  tourLadderBody:
+    'The checklist tracks what you have done and what it earned. Two ticks: one for flying something, one for contributing back. It puts itself away when you ask, and for good once both are earned.',
+  tourFleetTitle: 'The fleet',
+  tourFleetBody:
+    'One card per project: what it cost, what shipped, how the gate ruled, and which commit is on HEAD. A firing that advances a task without finishing it is a slice — the task stays open and the next firing resumes it.',
+  tourSearchTitle: 'Search the code',
+  tourSearchBody:
+    'Find matching code across a project — or ask this same box a question and get an answer built from the indexed source, with citations.',
+  tourAskTitle: 'Ask about this page',
+  tourAskBody:
+    'Ask about whatever is on screen. It answers read-only by default, and can escalate to a real agentic session when the answer needs going and looking.',
+  tourConnectTitle: 'Connections',
+  tourConnectBody:
+    'Claude is what flies the work. GitHub is how a finding or a fix leaves this machine — both live behind this one control.',
+  tourReportTitle: 'Report from here',
+  tourReportBody:
+    'Turn whatever is on screen into an issue, with the page captured alongside it. It is the fastest way to tell us something is wrong — and you always see the draft before anything is filed.',
+  tourStepCount: 'Step {step} of {total}',
   tourToLadder: 'Start the checklist',
   tourToLadderTip: 'Closes the tour and takes you to the first thing to do',
   obTourLink: 'What do these words mean?',
@@ -2964,6 +2996,34 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     obSnoozeDone: 'הוסתר — זה יחזור ביום הבא שתפתחו את לוח המחוונים.',
     obComplete: 'שני הווים הושגו. תודה — תורמים הם הסיבה שזה משתפר.',
     obSocialLocked: 'טוסו הפעלה אחת כדי לפתוח את הבריכה, הדיונים ולוח הדירוג.',
+    tourLockOnTitle: 'נעלו על תיקייה',
+    tourLockOnBody:
+      'כוונו את AUTOPILOT למאגר git. כל מה שהוא עושה קורה בתוך התיקייה הזו, בענף משלו — הוא אף פעם לא דוחף ולא ממזג מיוזמתו.',
+    tourLuckyTitle: 'תנו לו לקבוע את גודל הטיסה',
+    tourLuckyBody:
+      'התלתן מודד את המחשב הזה — ליבות פנויות, זיכרון פנוי, ואפילו אם הדיסק מכני או פלאש — וממלא כמה נתיבים והפעלות הוא יכול לשאת בלי להקפיא לכם את העבודה.',
+    tourFireTitle: 'שגר',
+    tourFireBody:
+      'הפעלה אחת: הסוכן מתמצא, מבצע משימה אחת, מריץ את השער של הפרויקט שלכם — בדיקת טיפוסים, לינט, טסטים, בנייה — ומבצע commit רק אם הוא עבר. אדום פירושו שהשינוי מוחזר לאחור, לעולם לא נשלח שבור. טיסה היא הרבה הפעלות, מוגבלת בתקציב שקבעתם.',
+    tourLadderTitle: 'ההתקדמות שלכם',
+    tourLadderBody:
+      'הצ׳ק-ליסט עוקב אחרי מה שעשיתם ומה זה הקנה. שני ווים: אחד על טיסה, אחד על תרומה בחזרה. הוא מסתלק כשתבקשו, ולתמיד ברגע ששניהם הושגו.',
+    tourFleetTitle: 'הצי',
+    tourFleetBody:
+      'כרטיס אחד לכל פרויקט: כמה הוא עלה, מה נשלח, איך השער פסק, ואיזה commit נמצא על HEAD. הפעלה שמקדמת משימה בלי לסיים אותה היא פרוסה — המשימה נשארת פתוחה וההפעלה הבאה ממשיכה אותה.',
+    tourSearchTitle: 'חיפוש בקוד',
+    tourSearchBody:
+      'מצאו קוד תואם בכל הפרויקט — או שאלו את אותה תיבה שאלה וקבלו תשובה שנבנתה מהקוד המאונדקס, עם הפניות.',
+    tourAskTitle: 'שאלו על העמוד הזה',
+    tourAskBody:
+      'שאלו על כל מה שנמצא על המסך. כברירת מחדל הוא עונה לקריאה בלבד, ויכול להסלים למפגש סוכן אמיתי כשהתשובה דורשת ללכת ולחפש.',
+    tourConnectTitle: 'חיבורים',
+    tourConnectBody:
+      'Claude הוא מה שמטיס את העבודה. GitHub הוא איך שממצא או תיקון יוצאים מהמחשב הזה — שניהם יושבים מאחורי הפקד הזה.',
+    tourReportTitle: 'דיווח מכאן',
+    tourReportBody:
+      'הפכו את מה שעל המסך ל-issue, עם צילום העמוד לצידו. זו הדרך המהירה ביותר להגיד לנו שמשהו לא תקין — ותמיד תראו את הטיוטה לפני שמשהו מוגש.',
+    tourStepCount: 'שלב {step} מתוך {total}',
     tourToLadder: 'התחילו את הצ׳ק-ליסט',
     tourToLadderTip: 'סוגר את הסיור ולוקח אתכם לדבר הראשון שצריך לעשות',
     obTourLink: 'מה המילים האלה אומרות?',
