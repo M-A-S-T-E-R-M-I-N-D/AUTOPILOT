@@ -71,7 +71,11 @@ describe('masthead popover exclusivity (operator catch 2026-09-07)', () => {
   it('every masthead <details> popover shares name="masthead-popover" — the native exclusive-accordion contract, so theme and language can never stack open on each other', () => {
     const masthead = mastheadHtml();
     const occurrences = masthead.split('name="masthead-popover"').length - 1;
-    const detailsCount = masthead.split('<details ').length - 1;
+    // Every POPOVER carries the name. A disclosure nested INSIDE one (the
+    // GitHub section's report form, 2026-09-14) is not a popover and must not
+    // join the accordion — closing its parent's siblings is not its job.
+    const nested = masthead.split('<details class="gh-report"').length - 1;
+    const detailsCount = masthead.split('<details ').length - 1 - nested;
     expect(occurrences).toBe(detailsCount);
     expect(occurrences).toBeGreaterThanOrEqual(5);
   });

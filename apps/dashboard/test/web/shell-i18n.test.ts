@@ -165,8 +165,13 @@ describe('renderShell masthead i18n wiring', () => {
 
   it('tags the masthead "Report a bug" GitHub-issue form with data-i18n', () => {
     const html = renderShell();
+    // The group's words are the disclosure's summary now (epic 0006, the
+    // cramped-section fix); the title input carries its own label.
     expect(html).toContain(
-      '<label for="gh-issue-title" data-i18n="reportBugLabel">Report a bug or request a feature upstream</label>',
+      '<summary class="gh-report-summary" data-i18n="reportBugLabel">Report a bug or request a feature upstream</summary>',
+    );
+    expect(html).toContain(
+      '<label for="gh-issue-title" class="visually-hidden" data-i18n="titleLabel">Title</label>',
     );
     expect(html).toContain('placeholder="Title" data-i18n-placeholder="titlePlaceholder"');
     expect(html).toContain(

@@ -154,6 +154,9 @@ function connectInit() {
     var present = !!(s && s.present);
     var authed = present && !!s.authenticated;
     if (ghAuthEl) ghAuthEl.hidden = !present;
+    // Logged in already? Then "log in" is noise beside Switch — three verbs in
+    // a narrow popover wrapped four lines deep (operator, 2026-09-14).
+    if (ghLoginBtn) ghLoginBtn.hidden = authed;
     if (ghSwitchBtn) ghSwitchBtn.hidden = !authed;
     if (ghLogoutBtn) ghLogoutBtn.hidden = !authed;
   }

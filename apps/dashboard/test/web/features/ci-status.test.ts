@@ -40,7 +40,9 @@ describe('ciStatusJs', () => {
     expect(out).toContain("var badgeClass = 'ci-status-badge-' + (w.ok ? 'ok' : 'fail');");
     expect(out).toContain('tipChip(label, w.detail,');
     // The conclusion and age are in the chip's text, not only its tip.
-    expect(out).toContain("var state = w.conclusion ? w.conclusion : tr('ciRunning');");
+    expect(out).toContain(
+      "var state = w.conclusion ? w.conclusion : (w.ageLabel ? tr('ciRunning') : tr('ciNoRuns'));",
+    );
     expect(out).toContain(
       "var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '');",
     );
