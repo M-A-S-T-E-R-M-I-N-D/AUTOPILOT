@@ -3,10 +3,24 @@
 
 /**
  * Composes `docs/screens/evolution.png` — the same screen, release by
- * release, from the repository's OWN history. Each frame is the
+ * release, from the repository's OWN history. A frame is either the
  * `docs/screens/fleet-dark.png` that shipped at that version, read straight
- * out of git (`git show <sha>:<path>`), so the strip cannot drift from what
- * the README actually showed at the time.
+ * out of git (`git show <sha>:<path>`), or a committed frame for an era that
+ * predates those files — so the strip cannot drift from what was true at the time.
+ *
+ * The first column predates the public repository. Its frame was taken by
+ * checking the MYTH backup tag out into a worktree, installing and building
+ * it, seeding its own demo store and running its server on a spare port:
+ *
+ *   git worktree add --detach /tmp/ap-v010 autopilot/myth
+ *   cd /tmp/ap-v010 && HUSKY=0 pnpm install --frozen-lockfile && pnpm run build
+ *   AUTOPILOT_DB=/tmp/ap-v010/.autopilot/demo.db node apps/dashboard/dist/demo.js
+ *   AUTOPILOT_DB=… AUTOPILOT_DASHBOARD_PORT=4399 AUTOPILOT_NO_OPEN=1 \
+ *     node apps/dashboard/dist/server/main.js
+ *
+ * …then screenshotting 127.0.0.1:4399 at 1440×1030 @2×, dark. The result is
+ * committed as `docs/screens/evolution-v0.10.0.png` because rebuilding a
+ * two-month-old tree on every run is not a doc generator's job.
  *
  *   node scripts/docs/compose-evolution.mjs
  *
@@ -28,6 +42,13 @@ const { chromium } = require('@playwright/test');
 
 /** sha → the commit that shipped that frame; caption → what it was then. */
 const FRAMES = [
+  {
+    file: 'docs/screens/evolution-v0.10.0.png',
+    version: 'v0.10.0',
+    date: '2026-07-11',
+    caption:
+      'Before the public repository — the read-only dashboard, taken from the MYTH backup tag. Totals all zero, one Firings field, three themes as words.',
+  },
   {
     sha: 'f6a2829f',
     version: 'v0.21.0',
@@ -51,13 +72,14 @@ const FRAMES = [
 const PATH = 'docs/screens/fleet-dark.png';
 const tmp = mkdtempSync(join(tmpdir(), 'ap-evolution-'));
 const frames = FRAMES.map((f) => {
-  const png = execFileSync('git', ['show', `${f.sha}:${PATH}`], {
-    cwd: ROOT,
-    maxBuffer: 64 * 1024 * 1024,
-    encoding: 'buffer',
-  });
-  const file = join(tmp, `${f.version}.png`);
-  writeFileSync(file, png);
+  const png = f.file
+    ? readFileSync(join(ROOT, f.file))
+    : execFileSync('git', ['show', `${f.sha}:${PATH}`], {
+        cwd: ROOT,
+        maxBuffer: 64 * 1024 * 1024,
+        encoding: 'buffer',
+      });
+  writeFileSync(join(tmp, `${f.version}.png`), png);
   const version =
     f.version === 'today'
       ? `v${JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version}`
@@ -80,9 +102,9 @@ const cards = frames
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   body { margin: 0; background: #0b0d12; color: #d7dde6; font: 14px/1.4 Inter, system-ui, sans-serif; }
-  main { display: grid; grid-template-columns: repeat(${frames.length}, 460px); gap: 24px; padding: 28px; }
+  main { display: grid; grid-template-columns: repeat(${frames.length}, 380px); gap: 20px; padding: 24px; }
   figure { margin: 0; display: grid; gap: 12px; align-content: start; }
-  img { width: 460px; border-radius: 10px; border: 1px solid #262b36; display: block; }
+  img { width: 380px; border-radius: 10px; border: 1px solid #262b36; display: block; }
   figcaption { display: grid; gap: 4px; }
   b { font-size: 16px; color: #fff; }
   i { font-style: normal; font-size: 12px; color: #7f8b99; }
@@ -90,7 +112,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
 </style></head><body><main>${cards}</main></body></html>`;
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1520, height: 900 }, deviceScaleFactor: 1.25 });
+const page = await browser.newPage({ viewport: { width: 1648, height: 900 }, deviceScaleFactor: 1.25 });
 await page.setContent(html);
 await page.waitForTimeout(400);
 const box = await page.locator('main').boundingBox();

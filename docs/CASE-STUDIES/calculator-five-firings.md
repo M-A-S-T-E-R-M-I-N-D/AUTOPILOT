@@ -63,11 +63,26 @@ demanded), `8 ÷ 0 =` (`Error`, and the next key recovers), and `12.5 × 2 =`.
 - The flight's sandbox has no browser, so the pilot verified the page under
   jsdom and said so in its commit. The frames here were taken afterwards in
   a real Chromium — the page works by mouse and keyboard as promised.
-- A defect surfaced: after the first flight the calculator's board carried
-  four doc-freshness proposals about AUTOPILOT's own `docs/epics/` — the
-  post-flight sweep had scanned the dashboard's checkout instead of the
-  flight's target. Boarded as a high-severity task the same hour; not a
-  cause for the story, but part of it.
+- **A cross-project leak surfaced — and is closed.** After the first flight the
+  calculator's board carried four DOC-FRESHNESS proposals about AUTOPILOT's own
+  `docs/epics/`: the post-flight sweep had scanned the dashboard's checkout
+  instead of the flight's target. Boarded the same hour, fixed the next day, and
+  widened past the one sweep that was reported. The doc-freshness and verify-by
+  sweeps now return early unless the flight IS the engine's own checkout; the
+  stale-claim sweep carries the same guard, because releasing a claim is a real
+  write against this repository's pool and the maintainer is exactly who flies
+  other folders; and the Lucky shortlist no longer offers this repository's
+  claimable work to a foreign target — it ranked AUTOPILOT's own pool issues on
+  every project, and the new "hand to the pilot" verb could have written one
+  onto the calculator's board.
+  [`cross-project-leak.test.ts`](../../apps/dashboard/test/flight/cross-project-leak.test.ts)
+  is the census that keeps it closed: a sweep that reads the engine's own tree
+  and forgets the guard fails that file.
+- **A second leak the story exposed.** The first firing archived the INBOX note
+  inside the operator's own checkout without committing it, so every later
+  sync-back refused with "uncommitted changes" and the work stayed in the
+  flight's worktree until it was merged by hand. Boarded as high severity; the
+  frames above were taken from that worktree.
 
 ## Reproduce it
 

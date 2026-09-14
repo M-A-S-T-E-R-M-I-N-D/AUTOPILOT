@@ -538,7 +538,15 @@ async function rollLuckyFit(
   lanes: number,
   firingsFlown: number,
   ask: LuckyAsk,
+  isSelfTarget: boolean,
 ): Promise<LuckyFit | undefined> {
+  // CROSS-PROJECT LEAK (operator, 2026-09-14): the pool and good-first lists
+  // are THIS repository's own claimable work. Ranked for a foreign target they
+  // offered project A's issues to project B's pilot — and with the shortlist's
+  // "hand to the pilot" verb they could have been written onto B's board. A
+  // roll against anything but the engine's own checkout answers with a plan
+  // and no shortlist, until a target's own issues can be read (epic 0006).
+  if (!isSelfTarget) return undefined;
   try {
     const [pool, people] = await Promise.all([
       poolClientPreview().catch(() => []),
@@ -602,7 +610,13 @@ const server = createServer({
       runningFlights,
     };
     const plan = luckyPlan(probe);
-    const fit = await rollLuckyFit(projectId, plan.lanes, fleet.totals.firings, ask);
+    const fit = await rollLuckyFit(
+      projectId,
+      plan.lanes,
+      fleet.totals.firings,
+      ask,
+      target === resolve(process.cwd()),
+    );
     return fit ? { probe, plan, fit, projectId } : { probe, plan, projectId };
   },
   flight: flightApi,

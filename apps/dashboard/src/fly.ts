@@ -1757,7 +1757,7 @@ async function main(): Promise<void> {
 
     await runClosedTaskAuditSweep(store, projectId, vcs, now);
 
-    await runStaleClaimSweep(now);
+    await runStaleClaimSweep(now, undefined, target);
 
     runSoulMiningSweep(store, projectId, now);
 
