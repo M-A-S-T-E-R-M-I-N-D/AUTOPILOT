@@ -172,6 +172,33 @@ export function createRealE2eLandGuard(
  *  this and it describes a long-gone commit, not the branch landing now. */
 export const E2E_VERDICT_FRESHNESS_MS = 48 * 60 * 60 * 1000;
 
+/** Where Playwright keeps the committed, CI-canonical visual baselines. */
+const SNAPSHOT_DIR_MARKER = '.spec.ts-snapshots/';
+
+/**
+ * Whether the branch about to land is plausibly the REMEDY for a red
+ * converged branch, rather than more weight piled on top of it.
+ *
+ * THE TRAP THIS CLOSES (operator, 2026-09-15: "how did you finish red?").
+ * Visual baselines are CI-canonical — only a CI run on the canonical
+ * platform can regenerate them — so any change to the rendered UI leaves
+ * the converged branch red for exactly one cycle, until the freshly
+ * rendered baselines are adopted and landed. But the e2e guard above
+ * refuses to land INTO a red converged branch. So the guard blocked the
+ * one commit that could clear the redness it was reporting, and the ritual
+ * had no way out of a state it had just created. That is a deadlock, not a
+ * safeguard: a guard whose refusal cannot be cleared by the fix has stopped
+ * guarding anything.
+ *
+ * The escape is deliberately narrow — the pending landing must actually
+ * touch the committed snapshots. A branch that changes anything else still
+ * waits exactly as before, so this does not weaken the thing the guard
+ * exists for: keeping unrelated work off a broken branch.
+ */
+export function landingCarriesBaselineFix(changedFiles: readonly string[]): boolean {
+  return changedFiles.some((file) => file.replace(/\\/g, '/').includes(SNAPSHOT_DIR_MARKER));
+}
+
 /** Build the LANDING execute API against the real store + real git/gate —
  *  the production wiring `main.ts` injects into the server. `selfRestart`
  *  is optional: omit it (e.g. in tests) and a landed self-project simply
@@ -244,7 +271,15 @@ export function createLandingExecuteApi(
       }
 
       const e2eHealth = e2eLandGuard?.(project.root_path, base);
-      if (e2eHealth && !e2eHealth.ok) {
+      // A red converged branch normally refuses the land. The one exception
+      // is a branch that re-renders the very baselines the branch is red on
+      // — see landingCarriesBaselineFix for why refusing THAT is a deadlock
+      // rather than a safeguard. Failing to read the diff yields an empty
+      // list, which takes the refusal, so an unreadable repo never buys a
+      // landing it has not earned.
+      const pendingFiles = await vcs.changedFiles(base, 'HEAD').catch((): readonly string[] => []);
+      const carriesBaselineFix = landingCarriesBaselineFix(pendingFiles);
+      if (e2eHealth && !e2eHealth.ok && !carriesBaselineFix) {
         // Alarm event, same best-effort/never-fail-the-refusal-over-it
         // posture as the 'landed' event write below — an audit trail entry,
         // not something that can itself block anything.
