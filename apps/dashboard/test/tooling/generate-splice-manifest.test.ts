@@ -82,6 +82,7 @@ import { reportCaptureClientJs } from '../../src/web/features/report-capture-cli
 import { reportMenuJs } from '../../src/web/features/report-menu.js';
 import { roundPanelJs } from '../../src/web/features/round-panel.js';
 import { searchJs } from '../../src/web/features/search.js';
+import { snackbarJs } from '../../src/web/features/snackbar.js';
 import { subjectNavJs } from '../../src/web/features/subject-nav.js';
 import { tourJs } from '../../src/web/features/tour.js';
 import { updateJs } from '../../src/web/features/update.js';
@@ -164,6 +165,7 @@ const REPORT_CAPTURE_CLIENT_TS = featureTs('report-capture-client');
 const REPORT_MENU_TS = featureTs('report-menu');
 const ROUND_PANEL_TS = featureTs('round-panel');
 const SEARCH_TS = featureTs('search');
+const SNACKBAR_TS = featureTs('snackbar');
 const SUBJECT_NAV_TS = featureTs('subject-nav');
 const TOUR_TS = featureTs('tour');
 const UPDATE_TS = featureTs('update');
@@ -1427,6 +1429,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'report-menu.ts': ['reportMenuJs'],
     'round-panel.ts': ['roundPanelJs'],
     'search.ts': ['searchJs'],
+    'snackbar.ts': ['snackbarJs'],
     'subject-nav.ts': ['subjectNavJs'],
     'switcher.ts': ['switcherJs'],
     'tour.ts': ['tourJs'],
@@ -1487,6 +1490,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const reportMenuSource = readFileSync(REPORT_MENU_TS, 'utf8');
     const roundPanelSource = readFileSync(ROUND_PANEL_TS, 'utf8');
     const searchSource = readFileSync(SEARCH_TS, 'utf8');
+    const snackbarSource = readFileSync(SNACKBAR_TS, 'utf8');
     const switcherSource = readFileSync(SWITCHER_TS, 'utf8');
     const tourSource = readFileSync(TOUR_TS, 'utf8');
     const manifest = buildFeatureModulesManifest(FEATURES_DIR);
@@ -1655,6 +1659,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directReportMenuManifest,
       directRoundPanelManifest,
       directSearchManifest,
+      buildAssemblyManifest(snackbarSource, SNACKBAR_TS, ['snackbarJs']),
       directSubjectNavManifest,
       directSwitcherManifest,
       directTourManifest,
@@ -1966,6 +1971,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { reportMenuJs } from './report-menu.js';");
     expect(source).toContain("import { roundPanelJs } from './round-panel.js';");
     expect(source).toContain("import { searchJs } from './search.js';");
+    expect(source).toContain("import { snackbarJs } from './snackbar.js';");
     expect(source).toContain("import { subjectNavJs } from './subject-nav.js';");
     expect(source).toContain("import { switcherJs } from './switcher.js';");
     expect(source).toContain("import { tourJs } from './tour.js';");
@@ -2035,12 +2041,13 @@ describe('generateFeatureModulesIndexSource', () => {
     );
     expect(source.indexOf("'./report-menu.js'")).toBeLessThan(source.indexOf("'./round-panel.js'"));
     expect(source.indexOf("'./round-panel.js'")).toBeLessThan(source.indexOf("'./search.js'"));
-    expect(source.indexOf("'./search.js'")).toBeLessThan(source.indexOf("'./subject-nav.js'"));
+    expect(source.indexOf("'./search.js'")).toBeLessThan(source.indexOf("'./snackbar.js'"));
+    expect(source.indexOf("'./snackbar.js'")).toBeLessThan(source.indexOf("'./subject-nav.js'"));
     expect(source.indexOf("'./subject-nav.js'")).toBeLessThan(source.indexOf("'./switcher.js'"));
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2582,6 +2589,13 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   ): Promise<unknown> {
     if (fnName === 'fleetJs' && exprText === 'REFRESH_MS') {
       return localTopLevelConstLiteral(original, 'REFRESH_MS', SHELL_TS);
+    }
+    if (fnName === 'snackbarJs') {
+      // The snackbar's three numeric laws (epic 0031) are same-file constants,
+      // the plainest slot shape there is: a literal read back from the source.
+      for (const name of ['SNACK_TIMEOUT_MS', 'SNACK_ERROR_TIMEOUT_MS', 'SNACK_MAX']) {
+        if (exprText === name) return localTopLevelConstLiteral(original, name, SNACKBAR_TS);
+      }
     }
     if (fnName === 'prefsJs' && exprText === 'JSON.stringify(PREF_CHOICES)') {
       // the Settings popover's choice table (epic 0029): a same-file constant
@@ -3945,6 +3959,27 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
    */
   /** prefsJs's own reconstruction (epic 0029 slice 1): one JSON.stringify
    *  slot for PREF_CHOICES, a same-file constant — no relative-import splice. */
+  /** snackbarJs's own reconstruction (epic 0031): three same-file numeric
+   *  constants in template slots, no relative-import splice. */
+  async function reconstructSnackbarJs(): Promise<string> {
+    const snackbarSource = readFileSync(SNACKBAR_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(snackbarSource, SNACKBAR_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        snackbarSource,
+        'snackbarJs',
+        resolvedBindings,
+        (exprText: string) => resolveNonSpliceSlot('snackbarJs', exprText, snackbarSource),
+        SNACKBAR_TS,
+      )
+    ).trim();
+  }
+
+  it('snackbarJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/snackbar.ts', async () => {
+    expect(await reconstructSnackbarJs()).toBe(snackbarJs());
+  });
+
   async function reconstructPrefsJs(): Promise<string> {
     const prefsSource = readFileSync(PREFS_TS, 'utf8');
     return (
@@ -4166,6 +4201,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('prReviewJs', await reconstructPrReviewJs());
     nestedOutputs.set('popoversJs', await reconstructPopoversJs());
     nestedOutputs.set('prefsJs', await reconstructPrefsJs());
+    nestedOutputs.set('snackbarJs', await reconstructSnackbarJs());
     nestedOutputs.set('processHealthJs', await reconstructProcessHealthJs());
     nestedOutputs.set('publicityJs', await reconstructPublicityJs());
     nestedOutputs.set('releaseJs', await reconstructReleaseJs());

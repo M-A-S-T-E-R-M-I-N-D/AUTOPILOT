@@ -362,6 +362,9 @@ export type SearchApi = (projectId: string, query: string, limit: number) => rea
 export interface LuckyResponse {
   readonly probe: LuckyProbe;
   readonly plan: LuckyPlan;
+  /** The project whose board this roll read — what a shortlist row writes to
+   *  when the operator hands an issue to their pilot (epic 0031). */
+  readonly projectId?: string;
   /** WHAT to fly (issue #44): claimable work ranked against the operator —
    *  absent when the assembly could not read the pool (gh down), never an error. */
   readonly fit?: LuckyFit;

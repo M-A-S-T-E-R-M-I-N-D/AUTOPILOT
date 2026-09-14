@@ -603,7 +603,7 @@ const server = createServer({
     };
     const plan = luckyPlan(probe);
     const fit = await rollLuckyFit(projectId, plan.lanes, fleet.totals.firings, ask);
-    return fit ? { probe, plan, fit } : { probe, plan };
+    return fit ? { probe, plan, fit, projectId } : { probe, plan, projectId };
   },
   flight: flightApi,
   // The Fly bar's Lanes field (board web-mtdcfel4-0bxf4h): the same

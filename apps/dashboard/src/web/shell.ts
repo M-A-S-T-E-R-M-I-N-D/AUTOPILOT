@@ -4598,6 +4598,10 @@ ${contextRailHtml(project)}
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>
       <p class="fly-hint" id="fly-hint"></p>
+      <div class="fly-why" id="fly-why" hidden>
+        <p class="fly-why-title" data-i18n="luckyWhyTitle">Why this size</p>
+        <ul class="fly-why-list" id="fly-why-list"></ul>
+      </div>
       <div class="fly-fit" id="fly-fit" hidden>
         <div class="fly-fit-head">
           <span data-i18n="luckyFitTitle">🍀 Work that fits you</span>
@@ -4652,6 +4656,7 @@ ${contextRailHtml(project)}
   <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
   <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
   <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
+  <div class="snackbar-host" id="snackbar-host" aria-live="polite" aria-atomic="false"></div>
   <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
   <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
     <div class="ask-sheet-head">

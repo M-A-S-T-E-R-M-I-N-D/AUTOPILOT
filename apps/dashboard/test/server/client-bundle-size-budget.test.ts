@@ -260,14 +260,18 @@ import {
 // Then core raw 236→237KB (2026-09-14): the Fly bar's settings toggle (the
 // gear, its remembered [hidden] flip) and the CI panel's no-runs-yet state.
 // Measured 241694B raw against the old 241664B budget — 30 bytes.
-const CORE_RAW_BUDGET = 237 * 1024;
+// Then core raw 237→241KB / gzip 71→72KB and panels raw 162→163KB (2026-09-14)
+// for EPIC 0031: the snackbar (one transient outcome surface: host, stacking,
+// pause-on-read, one action) plus the Lucky roll's why rows and the
+// shortlist's hand-to-the-pilot verb, and their STRINGS.he in panels.
+const CORE_RAW_BUDGET = 241 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
 // Then core gzip 64→66KB (2026-09-13) for THE ICON SYSTEM slice 1 (web/icons.ts:
 // the vendored Lucide shapes spliced into core as data + iconEl): measured
 // 218.5KB raw / 64.9KB gzip.
-const CORE_GZIP_BUDGET = 71 * 1024;
+const CORE_GZIP_BUDGET = 72 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -353,7 +357,7 @@ const CORE_GZIP_BUDGET = 71 * 1024;
 // STRINGS.he translations that land here via locale-data.ts. Measured
 // 164414B raw / 49318B gzip against the old 163840B / 49152B budgets.
 // Deferred chunk, never blocks first paint; core untouched.
-const CHUNK_RAW_BUDGET = 162 * 1024;
+const CHUNK_RAW_BUDGET = 163 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

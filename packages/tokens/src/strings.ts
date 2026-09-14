@@ -1144,6 +1144,18 @@ const EN_STRINGS = {
   poolClientPanel: 'Contributor pool',
   ciStatusPanel: 'CI status',
   ciRunning: 'running',
+  // THE SNACKBAR (epic 0031) — the region, its dismiss, and the outcomes the
+  // Fly bar raises through it.
+  snackDismiss: 'Dismiss this notice',
+  luckyRolled:
+    '🍀 Rolled {lanes} lane(s) × {firings} firing(s) at ${budget} each — press Fire to take off.',
+  luckyWhyTitle: 'Why this size',
+  luckyHandToPilot: 'Hand to the pilot',
+  luckyHandToPilotTip:
+    'Queues this issue on your board so the next firing can pick it up — nothing is claimed on GitHub and nothing flies until you press Fire',
+  luckyHandedOff: 'Queued for your pilot: #{number}. Press Fire when you are ready.',
+  luckyHandOffFailed: 'Could not queue #{number} on the board — try again shortly.',
+  luckyOpenBoard: 'Open the board',
   ciNoRuns: 'no runs yet',
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
@@ -2287,6 +2299,16 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     poolClientPanel: 'מאגר תורמים',
     ciStatusPanel: 'מצב CI',
     ciRunning: 'רץ',
+    snackDismiss: 'סגירת ההודעה',
+    luckyRolled:
+      '🍀 הוגרלו {lanes} נתיב/ים × {firings} הפעלות ב-${budget} כל אחת — לחצו על "שגר!" כדי להמריא.',
+    luckyWhyTitle: 'למה הגודל הזה',
+    luckyHandToPilot: 'העבירו לטייס',
+    luckyHandToPilotTip:
+      'מוסיף את ה-issue הזה ללוח שלכם כדי שההפעלה הבאה תוכל לקחת אותו — שום דבר לא נתבע ב-GitHub ושום דבר לא טס עד שתלחצו "שגר!"',
+    luckyHandedOff: 'נוסף ללוח עבור הטייס: #{number}. לחצו "שגר!" כשתהיו מוכנים.',
+    luckyHandOffFailed: 'לא ניתן היה להוסיף את #{number} ללוח — נסו שוב עוד רגע.',
+    luckyOpenBoard: 'פתחו את הלוח',
     ciNoRuns: 'טרם רץ',
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',

@@ -48,11 +48,18 @@ describe('the fly bar status line reads its client-generated messages from STRIN
   it('translates the 🍀 lucky-roll messages, templating the server-supplied reason', () => {
     expect(out).toContain("setMsg(tr('luckyNoAnswer'), 'err')");
     expect(out).toContain("setMsg(tr('luckyDashboardDown'), 'err')");
+    // The refusal is composed once and shown twice — the inline line keeps it
+    // on the page, the snackbar says it where every other outcome is said.
     expect(out).toContain(
-      "setMsg(tr('luckyNotNow', { reason: data.plan.refusal || tr('luckyNoPlan') }), 'err')",
+      "var refusal = tr('luckyNotNow', { reason: data.plan.refusal || tr('luckyNoPlan') });",
     );
-    expect(out).toContain("setMsg(tr('luckyPressFlyIt', { reason: rolled }), '')");
-    expect(out).toContain(": tr('luckyPlanReady');");
+    expect(out).toContain("setMsg(refusal, 'err');");
+    expect(out).toContain("snack(refusal, 'warn');");
+    // The rolled plan is one short localized sentence (epic 0031) — the
+    // arithmetic moved into the why panel instead of a paragraph in a status.
+    expect(out).toContain("var rolled = tr('luckyRolled', {");
+    expect(out).toContain("setMsg(rolled, '');");
+    expect(out).toContain("snack(rolled, 'ok');");
     expect(out).not.toContain("'Lucky roll failed");
     expect(out).not.toContain("'🍀 Not now: '");
     expect(out).not.toContain("' — press Fly it to launch.'");
