@@ -33,6 +33,10 @@ import {
 /** The CONNECT popover client — vanilla, external (keeps CSP script-src 'self'). */
 export function connectJs(): string {
   return `
+// Whether gh is signed in, as last resolved by loadGh() below. Read by the
+// onboarding ladder (features/onboarding.ts) rather than re-fetched there:
+// one request for one fact, which is also what the boot smoke test counts.
+var apGhAuthenticated = false;
 function connectInit() {
   var panel = document.getElementById('connect');
   if (!panel) return;
@@ -182,6 +186,13 @@ function connectInit() {
         if (ghStatusEl) ghStatusEl.textContent = m.statusText;
         if (ghHintEl) ghHintEl.textContent = m.hint;
         paintGhAuth(s);
+        // ONE fetch for this fact, not two (e2e boot smoke, 2026-09-15): the
+        // onboarding ladder needs the same answer to tick its GitHub step,
+        // and the boot smoke test pins the exact set of requests the shell
+        // makes. Publishing it here means the ladder reads rather than asks,
+        // and a later login/logout re-runs loadGh, so the tick follows.
+        apGhAuthenticated = !!(s && s.authenticated === true);
+        if (typeof syncOnboarding === 'function') syncOnboarding(null);
       })
       .catch(function () { if (ghStatusEl) ghStatusEl.textContent = tr('ghUnavailable'); });
   }

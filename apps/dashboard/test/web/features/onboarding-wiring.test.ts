@@ -24,15 +24,19 @@
 import { describe, it, expect } from 'vitest';
 import { onboardingJs } from '../../../src/web/features/onboarding.js';
 import { tourJs } from '../../../src/web/features/tour.js';
+import { connectJs } from '../../../src/web/features/connect.js';
 import { renderShell } from '../../../src/web/shell.js';
 
 const ob = onboardingJs();
 const tour = tourJs();
 
 describe('the GitHub step reads the connection, not a DOM attribute nobody sets', () => {
-  it('asks the same endpoint the Connect panel asks', () => {
-    expect(ob).toContain("fetch('/api/connection/gh'");
-    expect(ob).toContain('s.authenticated === true');
+  it('READS the connection the Connect panel already resolved, rather than asking again', () => {
+    // Two modules fetching the same fact at boot is one request too many,
+    // and the e2e boot smoke test counts the exact set the shell makes.
+    // features/connect.ts publishes it; the ladder reads it.
+    expect(ob).toContain('apGhAuthenticated === true');
+    expect(ob).not.toContain("fetch('/api/connection/gh'");
   });
 
   it('no longer sniffs the invented data-connected attribute', () => {
@@ -43,11 +47,9 @@ describe('the GitHub step reads the connection, not a DOM attribute nobody sets'
   });
 
   it('re-syncs when the answer lands, since the model is computed synchronously', () => {
-    expect(ob).toContain('syncOnboarding(obLastState);');
-  });
-
-  it('asks once, not on every repaint', () => {
-    expect(ob).toContain('obGhAsked');
+    const connect = connectJs();
+    expect(connect).toContain('apGhAuthenticated = !!(s && s.authenticated === true);');
+    expect(connect).toContain("typeof syncOnboarding === 'function'");
   });
 });
 
