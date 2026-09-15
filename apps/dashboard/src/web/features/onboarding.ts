@@ -133,23 +133,14 @@ function obSignals(state) {
 // happens, and I think I am already connected"). Ask the same endpoint the
 // Connect panel asks, once, and re-sync when the answer lands. Its test
 // censuses the old attribute name so the guess cannot come back.
-var obGhConnected = false;
-var obGhAsked = false;
 function obGithubConnected() {
   if (obMarks()['connect-github'] === 1) return true;
-  if (!obGhAsked) {
-    obGhAsked = true;
-    fetch('/api/connection/gh', { headers: { accept: 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (s) {
-        var next = !!(s && s.authenticated === true);
-        if (next === obGhConnected) return;
-        obGhConnected = next;
-        syncOnboarding(obLastState);
-      })
-      .catch(function () { /* unreachable gh is "not connected", not an error */ });
-  }
-  return obGhConnected;
+  // features/connect.ts resolves this once and publishes it; asking again
+  // here would be a second request for the same fact, which the boot smoke
+  // test rightly counts. A hoisted var read before that load yields
+  // undefined, which is "not connected" — correct, and it re-syncs when the
+  // real answer lands.
+  return apGhAuthenticated === true;
 }
 
 // ── painting ───────────────────────────────────────────────────────────────
