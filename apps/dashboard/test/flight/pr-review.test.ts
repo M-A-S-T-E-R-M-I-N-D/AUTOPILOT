@@ -164,6 +164,12 @@ const BENIGN_FLIGHT = new Set([
   // missing answer degrades to 'nothing found' rather than throwing. It
   // decides one thing: whether a checklist row is ticked.
   'contributions.ts',
+  // epic-drift.ts: pure markdown-table comparison — does an epic tracking
+  // issue still agree with its own epic doc? No I/O, no gh call, and it
+  // deliberately does not judge whether an epic is FINISHED, only whether
+  // two documents disagree. Its finding becomes a board proposal; closing
+  // a public issue stays a decision a human makes.
+  'epic-drift.ts',
   // Pure copy PLAN for the onboarding's one-click sample (epic 0032): what to
   // copy, where to, and which refusals to word. No filesystem, no git, no
   // store — server/main.ts performs the copy and the registration, and the
