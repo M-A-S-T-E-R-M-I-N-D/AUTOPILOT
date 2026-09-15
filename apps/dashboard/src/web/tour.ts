@@ -25,10 +25,25 @@
  */
 import type { StringKey } from '@autopilot/tokens';
 
-/** One guided-tour step's dialog content. */
+/** Which side of its target a stop's card prefers to sit on. */
+export type TourPlacement = 'top' | 'bottom' | 'start' | 'end' | 'center';
+
+/** One guided-tour stop: what it points AT, and what it says about it.
+ *
+ *  The tour used to be four paragraphs of vocabulary in the middle of the
+ *  screen — it defined "firing" and "gate" and then stopped, never once
+ *  showing you where those things live (operator, 2026-09-15: "I meant the
+ *  tour should really go one by one and point out exactly how to use every
+ *  part of the interface"). Every stop now anchors to a real control, and
+ *  the vocabulary is taught ON the thing it names. */
 export interface TourStep {
   readonly title: string;
   readonly body: string;
+  /** CSS selector for the element this stop points at. A stop whose target
+   *  is absent from the current page is SKIPPED, never rendered pointing at
+   *  nothing — see {@link presentStops}. */
+  readonly selector: string;
+  readonly placement: TourPlacement;
 }
 
 /** One tour step's STRINGS key pair, index-parallel to {@link TOUR_STEPS} —
@@ -38,33 +53,78 @@ export interface TourStepStringKeys {
   readonly bodyKey: StringKey;
 }
 
-/** The first-run guided tour's steps, in order — AUTOPILOT's core vocabulary
- *  (firing/slice/gate/flight) in plain language. */
+/** The guided tour, in order: a walk across the real interface, left to
+ *  right through the thing you actually do. The four words the old tour
+ *  defined in the abstract — firing, gate, slice, flight — are still all
+ *  here, each taught on the control that embodies it. */
 export const TOUR_STEPS: readonly TourStep[] = [
   {
-    title: 'Firing',
-    body: 'One autonomous work session: the agent orients, does the work, runs the gate, then commits — and stops. A flight is made of many firings.',
+    title: 'Lock on a folder',
+    body: 'Point AUTOPILOT at a git repository. Everything it does happens inside that folder, on its own branch — it never pushes and never merges on its own.',
+    selector: '#fly-folder',
+    placement: 'bottom',
   },
   {
-    title: 'Slice',
-    body: 'A firing that advances a task without finishing it. The task stays open and the next firing resumes it — nothing is lost waiting on one giant firing.',
+    title: 'Let it size the flight',
+    body: 'The clover measures this machine — idle cores, free memory, even whether the disk is a platter or flash — and fills in how many lanes and firings it can carry without freezing your own work.',
+    selector: '#fly-lucky',
+    placement: 'bottom',
   },
   {
-    title: 'Gate',
-    body: 'The project’s own checks — typecheck, lint, test, build — run before every commit. A red gate means the change is reverted, never shipped broken.',
+    title: 'Fire',
+    body: 'One firing: the agent orients, does ONE task, runs your project’s own gate — typecheck, lint, test, build — and commits only if it passes. Red means the change is reverted, never shipped broken. A flight is many firings, bounded by the budget you set.',
+    selector: '#fly-go',
+    placement: 'bottom',
   },
   {
-    title: 'Flight',
-    body: 'A run of firings against one project, bounded by a budget you set (a firing count or a $ total), until it finishes or you pause it.',
+    title: 'Your progress',
+    body: 'The checklist tracks what you have done and what it earned. Two ticks: one for flying something, one for contributing back. It puts itself away when you ask, and for good once both are earned.',
+    selector: '#onboarding',
+    placement: 'top',
+  },
+  {
+    title: 'The fleet',
+    body: 'One card per project: what it cost, what shipped, how the gate ruled, and which commit is on HEAD. A firing that advances a task without finishing it is a slice — the task stays open and the next firing resumes it.',
+    selector: '#fleet',
+    placement: 'top',
+  },
+  {
+    title: 'Search the code',
+    body: 'Find matching code across a project — or ask this same box a question and get an answer built from the indexed source, with citations.',
+    selector: '#search-q',
+    placement: 'bottom',
+  },
+  {
+    title: 'Ask about this page',
+    body: 'Ask about whatever is on screen. It answers read-only by default, and can escalate to a real agentic session when the answer needs going and looking.',
+    selector: '#ask-fab',
+    placement: 'start',
+  },
+  {
+    title: 'Connections',
+    body: 'Claude is what flies the work. GitHub is how a finding or a fix leaves this machine — both live behind this one control.',
+    selector: '#connect-summary',
+    placement: 'bottom',
+  },
+  {
+    title: 'Report from here',
+    body: 'Turn whatever is on screen into an issue, with the page captured alongside it. It is the fastest way to tell us something is wrong — and you always see the draft before anything is filed.',
+    selector: '#report-btn',
+    placement: 'bottom',
   },
 ];
 
 /** Index-parallel to {@link TOUR_STEPS} — see {@link TourStepStringKeys}. */
 export const TOUR_STEP_KEYS: readonly TourStepStringKeys[] = [
-  { titleKey: 'tourFiringTitle', bodyKey: 'tourFiringBody' },
-  { titleKey: 'tourSliceTitle', bodyKey: 'tourSliceBody' },
-  { titleKey: 'tourGateTitle', bodyKey: 'tourGateBody' },
-  { titleKey: 'tourFlightTitle', bodyKey: 'tourFlightBody' },
+  { titleKey: 'tourLockOnTitle', bodyKey: 'tourLockOnBody' },
+  { titleKey: 'tourLuckyTitle', bodyKey: 'tourLuckyBody' },
+  { titleKey: 'tourFireTitle', bodyKey: 'tourFireBody' },
+  { titleKey: 'tourLadderTitle', bodyKey: 'tourLadderBody' },
+  { titleKey: 'tourFleetTitle', bodyKey: 'tourFleetBody' },
+  { titleKey: 'tourSearchTitle', bodyKey: 'tourSearchBody' },
+  { titleKey: 'tourAskTitle', bodyKey: 'tourAskBody' },
+  { titleKey: 'tourConnectTitle', bodyKey: 'tourConnectBody' },
+  { titleKey: 'tourReportTitle', bodyKey: 'tourReportBody' },
 ];
 
 /** One tour step's rendered content plus the first/last-step derivations
@@ -107,5 +167,107 @@ export function tourStepMeta(stepIndex: number): TourStepMeta {
       : 'Dismisses the tour and marks it seen — it will not auto-open again, but the masthead Tour button reopens it any time.',
     backTip: 'Steps back to the previous term.',
     nextTip: 'Advances to the next term — the tour stays open.',
+  };
+}
+
+/** A rectangle in viewport coordinates. */
+export interface TourRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Where the tour card ends up, and which side it actually landed on. */
+export interface TourAnchor {
+  readonly x: number;
+  readonly y: number;
+  readonly placement: TourPlacement;
+}
+
+/** Gap between the highlighted target and the card, and the margin the card
+ *  keeps from the viewport edge. */
+export const TOUR_GAP_PX = 14;
+export const TOUR_MARGIN_PX = 12;
+
+/** Only the stops whose target actually exists on this page.
+ *
+ *  A tour that points at nothing is worse than no tour: the Fly bar is
+ *  absent on some subjects, the checklist disappears once both ticks are
+ *  earned, and a card pointing at empty space reads as a bug. `isPresent`
+ *  takes the selector so the caller can pass a real `querySelector`. */
+export function presentStops(
+  steps: readonly TourStep[],
+  isPresent: (selector: string) => boolean,
+): readonly TourStep[] {
+  return steps.filter((step) => isPresent(step.selector));
+}
+
+/**
+ * Places the card beside its target without covering it.
+ *
+ * Covering the thing you are pointing at is the classic coach-mark bug, and
+ * WCAG 2.4.11 (Focus Not Obscured) makes it an accessibility failure rather
+ * than a cosmetic one. So a placement that would overflow the viewport
+ * FLIPS to the opposite side rather than sliding over the target, and only
+ * falls back to centre when neither side fits.
+ */
+export function anchorPosition(
+  target: TourRect,
+  card: { readonly width: number; readonly height: number },
+  viewport: { readonly width: number; readonly height: number },
+  preferred: TourPlacement,
+): TourAnchor {
+  const clamp = (value: number, max: number): number =>
+    Math.max(TOUR_MARGIN_PX, Math.min(value, max - TOUR_MARGIN_PX));
+
+  const fits: Readonly<Record<TourPlacement, boolean>> = {
+    top: target.y - TOUR_GAP_PX - card.height >= TOUR_MARGIN_PX,
+    bottom:
+      target.y + target.height + TOUR_GAP_PX + card.height <= viewport.height - TOUR_MARGIN_PX,
+    start: target.x - TOUR_GAP_PX - card.width >= TOUR_MARGIN_PX,
+    end: target.x + target.width + TOUR_GAP_PX + card.width <= viewport.width - TOUR_MARGIN_PX,
+    center: true,
+  };
+  const opposite: Readonly<Record<TourPlacement, TourPlacement>> = {
+    top: 'bottom',
+    bottom: 'top',
+    start: 'end',
+    end: 'start',
+    center: 'center',
+  };
+
+  const placement: TourPlacement = fits[preferred]
+    ? preferred
+    : fits[opposite[preferred]]
+      ? opposite[preferred]
+      : 'center';
+
+  if (placement === 'center') {
+    return {
+      x: clamp((viewport.width - card.width) / 2, viewport.width - card.width),
+      y: clamp((viewport.height - card.height) / 2, viewport.height - card.height),
+      placement,
+    };
+  }
+  if (placement === 'top' || placement === 'bottom') {
+    const y =
+      placement === 'top'
+        ? target.y - TOUR_GAP_PX - card.height
+        : target.y + target.height + TOUR_GAP_PX;
+    return {
+      x: clamp(target.x + target.width / 2 - card.width / 2, viewport.width - card.width),
+      y: clamp(y, viewport.height - card.height),
+      placement,
+    };
+  }
+  const x =
+    placement === 'start'
+      ? target.x - TOUR_GAP_PX - card.width
+      : target.x + target.width + TOUR_GAP_PX;
+  return {
+    x: clamp(x, viewport.width - card.width),
+    y: clamp(target.y + target.height / 2 - card.height / 2, viewport.height - card.height),
+    placement,
   };
 }

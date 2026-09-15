@@ -29,9 +29,12 @@ describe('tourJs', () => {
     const out = tourJs();
     expect(out).toContain("var h = el('h2', '', tr(keys.titleKey));");
     expect(out).toContain("dialog.appendChild(el('p', '', tr(keys.bodyKey)));");
-    expect(out).toContain("skip.textContent = tr(meta.isLast ? 'tourClose' : 'tourSkip');");
+    // `isLast`, not `meta.isLast`: a stop whose target this page does not
+    // have is stepped over, so "last" is about what the page can SHOW rather
+    // than the fixed array's length (operator, 2026-09-15).
+    expect(out).toContain("skip.textContent = tr(isLast ? 'tourClose' : 'tourSkip');");
     expect(out).toContain(
-      "skip.setAttribute('data-tip', tr(meta.isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));",
+      "skip.setAttribute('data-tip', tr(isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));",
     );
     expect(out).toContain("back.textContent = tr('tourBack');");
     expect(out).toContain("back.setAttribute('data-tip', tr('tourBackTip'));");

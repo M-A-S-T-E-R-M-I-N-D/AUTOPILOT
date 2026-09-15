@@ -69,8 +69,10 @@ describe('guided tour dialog i18n (board web-msnsndki-dz3vn1)', () => {
 
     const dialog = document.querySelector('.tour-dialog');
     expect(dialog).not.toBeNull();
-    expect(document.getElementById('tour-title')?.textContent).toBe(STRINGS.he.tourFiringTitle);
-    expect(dialog!.querySelector('p')?.textContent).toBe(STRINGS.he.tourFiringBody);
+    expect(document.getElementById('tour-title')?.textContent).toContain(
+      STRINGS.he.tourLockOnTitle,
+    );
+    expect(dialog!.querySelector('p')?.textContent).toBe(STRINGS.he.tourLockOnBody);
 
     const buttons = Array.from(dialog!.querySelectorAll('button')).map((b) => b.textContent);
     expect(buttons).toContain(STRINGS.he.tourSkip);
@@ -85,11 +87,20 @@ describe('guided tour dialog i18n (board web-msnsndki-dz3vn1)', () => {
 
     switchToHebrew();
     openTour();
-    for (let i = 0; i < 3; i++) {
-      (document.querySelector('.tour-dialog button.tour-next') as HTMLButtonElement).click();
+    // Walk to the end rather than counting clicks: the tour steps OVER stops
+    // whose target this page does not have, so the number of Nexts between
+    // the first stop and the last is a property of the page, not a constant.
+    for (let i = 0; i < 20; i++) {
+      const next = document.querySelector(
+        '.tour-dialog button.tour-next',
+      ) as HTMLButtonElement | null;
+      if (!next) break;
+      next.click();
     }
 
-    expect(document.getElementById('tour-title')?.textContent).toBe(STRINGS.he.tourFlightTitle);
+    expect(document.getElementById('tour-title')?.textContent).toContain(
+      STRINGS.he.tourReportTitle,
+    );
     const buttons = Array.from(document.querySelectorAll('.tour-dialog button')).map(
       (b) => b.textContent,
     );
@@ -123,7 +134,9 @@ describe('guided tour dialog i18n (board web-msnsndki-dz3vn1)', () => {
 
     openTour();
 
-    expect(document.getElementById('tour-title')?.textContent).toBe(STRINGS.en.tourFiringTitle);
+    expect(document.getElementById('tour-title')?.textContent).toContain(
+      STRINGS.en.tourLockOnTitle,
+    );
     const buttons = Array.from(document.querySelectorAll('.tour-dialog button')).map(
       (b) => b.textContent,
     );

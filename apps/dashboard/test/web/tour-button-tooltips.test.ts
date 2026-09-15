@@ -45,7 +45,10 @@ describe('the tour dialog Skip/Back/Next buttons explain themselves on hover/foc
 
   it('wires the i18n skip/close tip onto the Skip/Close button', () => {
     expect(out).toContain(
-      "skip.setAttribute('data-tip', tr(meta.isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));",
+      // `isLast` rather than `meta.isLast`: a stop whose target is absent
+      // from this page is stepped over, so "last" is about what this page
+      // can SHOW, not the fixed array's length (operator, 2026-09-15).
+      "skip.setAttribute('data-tip', tr(isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));",
     );
   });
 

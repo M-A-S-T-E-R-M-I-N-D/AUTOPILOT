@@ -42,6 +42,16 @@ function mockFleet(fetchState: ReturnType<typeof state>): void {
   })) as unknown as typeof fetch;
 }
 
+/** The stop's title, without the "Step N of M" counter the heading also
+ *  carries — an aria-modal dialog hides outside live regions, so the count
+ *  belongs in the accessible name rather than a live region (WCAG 4.1.3). */
+function stopTitle(): string {
+  const h = document.getElementById('tour-title');
+  if (!h) return '';
+  const counter = h.querySelector('.tour-step-count');
+  return (h.textContent ?? '').replace(counter?.textContent ?? '', '').trim();
+}
+
 describe('first-run guided tour — auto-open', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -62,7 +72,7 @@ describe('first-run guided tour — auto-open', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     expect(document.querySelector('.tour-dialog')).not.toBeNull();
-    expect(document.getElementById('tour-title')?.textContent).toBe('Firing');
+    expect(stopTitle()).toBe('Lock on a folder');
   });
 
   it('does not auto-open once the tour has already been dismissed', async () => {
@@ -113,34 +123,45 @@ describe('first-run guided tour — manual open', () => {
     expect(dialog).not.toBeNull();
     expect(dialog!.getAttribute('role')).toBe('dialog');
     expect(dialog!.getAttribute('aria-modal')).toBe('true');
-    expect(document.getElementById('tour-title')?.textContent).toBe('Firing');
+    expect(stopTitle()).toBe('Lock on a folder');
     // First step: no Back button, focus lands on Next (the last focusable).
     expect(dialog!.querySelector('button.tour-next')).not.toBeNull();
     expect(document.activeElement?.textContent).toBe('Next');
 
     (dialog!.querySelector('button.tour-next') as HTMLButtonElement).click();
     dialog = document.querySelector('.tour-dialog');
-    expect(document.getElementById('tour-title')?.textContent).toBe('Slice');
+    expect(stopTitle()).toBe('Let it size the flight');
 
     const back = Array.from(dialog!.querySelectorAll('button')).find(
       (b) => b.textContent === 'Back',
     );
     expect(back).toBeDefined();
     back!.click();
-    expect(document.getElementById('tour-title')?.textContent).toBe('Firing');
+    expect(stopTitle()).toBe('Lock on a folder');
   });
 
-  it('walks all four steps in order and swaps Next for Close on the last', () => {
+  it('walks every stop in order and swaps Next for Close on the last', () => {
     tourBtn().click();
-    const titles: (string | null | undefined)[] = [];
-    for (let i = 0; i < 4; i++) {
-      titles.push(document.getElementById('tour-title')?.textContent);
+    const titles: string[] = [];
+    for (let i = 0; i < 20; i++) {
       const next = document.querySelector(
         '.tour-dialog button.tour-next',
       ) as HTMLButtonElement | null;
-      if (next) next.click();
+      titles.push(stopTitle());
+      if (!next) break;
+      next.click();
     }
-    expect(titles).toEqual(['Firing', 'Slice', 'Gate', 'Flight']);
+    expect(titles).toEqual([
+      'Lock on a folder',
+      'Let it size the flight',
+      'Fire',
+      'Your progress',
+      'The fleet',
+      'Search the code',
+      'Ask about this page',
+      'Connections',
+      'Report from here',
+    ]);
     expect(document.querySelector('.tour-dialog button.tour-next')).toBeNull();
     const buttons = Array.from(document.querySelectorAll('.tour-dialog button')).map(
       (b) => b.textContent,
@@ -190,7 +211,7 @@ describe('first-run guided tour — manual open', () => {
 
     tourBtn().click();
     expect(document.querySelector('.tour-dialog')).not.toBeNull();
-    expect(document.getElementById('tour-title')?.textContent).toBe('Firing');
+    expect(stopTitle()).toBe('Lock on a folder');
   });
 
   it('the stylesheet actually hides a [hidden] overlay — the closed tour must not keep dimming the page', () => {
