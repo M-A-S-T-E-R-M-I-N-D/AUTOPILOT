@@ -37,6 +37,7 @@ import {
   assetVersion,
   versionMenuHtml,
   settingsMenuHtml,
+  terminalHudHtml,
 } from '../../src/web/shell.js';
 import {
   FEATURE_JS_BY_NAME,
@@ -4472,6 +4473,11 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
       // the masthead's version menu (2026-09-13): a same-file exported helper
       // built by concatenation, so it is a call slot, never a splice site.
       return versionMenuHtml();
+    }
+    if (exprText === 'terminalHudHtml()') {
+      // the floating terminal HUD (epic 0029 slice 3): the same same-file
+      // exported-helper call-slot shape as settingsMenuHtml/versionMenuHtml.
+      return terminalHudHtml();
     }
     if (exprText === 'contextRailHtml(project)') {
       // the context rail's aside (epic 0021 slice 6), fleet page only.

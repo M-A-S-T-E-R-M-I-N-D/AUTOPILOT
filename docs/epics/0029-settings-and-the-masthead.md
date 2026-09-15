@@ -5,7 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0029. Settings and the masthead — one gear, icons not emoji, AAA within reach, GitHub as a first-class connection
 
-Status: Active (2026-09-13). Slices 1, 2, 6 and 7 shipped the same day.
+Status: Active (2026-09-13). Slices 1, 2, 6 and 7 shipped the same day; slice 3
+shipped 2026-09-15.
 
 ## The asks (operator, 2026-09-13)
 
@@ -63,8 +64,12 @@ Status: Active (2026-09-13). Slices 1, 2, 6 and 7 shipped the same day.
    0006's law forbids; the identity line re-reads `gh auth status` on its own
    once the flow has plausibly finished. Switch and log out appear only once
    someone is logged in; all three only when `gh` is installed.
-3. The terminal HUD bar: scanlines and glow as preferences, the bar as a
-   floating control under the terminal theme, dismissible, resettable.
+3. **Shipped 2026-09-15:** the terminal HUD bar — scanlines and glow as two
+   more choice-list preferences (`web/features/prefs.ts`'s `PREF_CHOICES`),
+   a floating control under the terminal theme only (bottom inline-start, the
+   Ask FAB's mirror corner), dismissible (its own boolean preference, `hud`,
+   the same shape `hue` already established) and resettable through the same
+   "Reset to defaults" every other row uses.
 4. The masthead census as a design: which controls stay on top on which
    window class, written down and pinned by the mobile/tablet specs. The
    overflow menu (Tour, the docs, Report from here) shipped 2026-09-14 as

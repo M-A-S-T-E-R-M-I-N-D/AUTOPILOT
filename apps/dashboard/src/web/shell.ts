@@ -4451,6 +4451,29 @@ export function settingsMenuHtml(): string {
   );
 }
 
+/** THE TERMINAL HUD (epic 0029 slice 3): a floating bar, visible only under
+ *  the terminal theme, offering scanlines and glow as the same kind of
+ *  choice-list preference `settingsMenuHtml()`'s rows already are — plus a
+ *  dismiss button, itself a preference (`web/features/prefs.ts`'s `hud`
+ *  boolean), so "Reset to defaults" in Settings brings a dismissed HUD back
+ *  too. Server-rendered like the rest of the chrome so nothing pops in. */
+export function terminalHudHtml(): string {
+  return (
+    '  <div class="terminal-hud" id="terminal-hud" role="region" aria-label="Terminal HUD" data-i18n-aria="terminalHudAria">\n' +
+    '    <p class="terminal-hud-label" data-i18n="terminalHudLabel">Terminal HUD</p>\n' +
+    prefRowHtml('scanlines', 'terminalHudScanlines', 'Scanlines', [
+      ['off', 'terminalHudScanlinesOff', 'Off'],
+      ['on', 'terminalHudScanlinesOn', 'On'],
+    ]) +
+    prefRowHtml('glow', 'terminalHudGlow', 'Glow', [
+      ['off', 'terminalHudGlowOff', 'Off'],
+      ['on', 'terminalHudGlowOn', 'On'],
+    ]) +
+    '    <button type="button" class="terminal-hud-close" id="terminal-hud-close" aria-label="Dismiss the terminal HUD" data-i18n-aria="terminalHudDismiss" data-tip="Reset to defaults in Settings brings it back" data-i18n-tip="terminalHudDismissTip"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>\n' +
+    '  </div>'
+  );
+}
+
 export function renderShell(project?: string): string {
   const v = assetVersion();
   const anchor = project !== undefined ? ` data-project="${escapeAttr(project)}"` : '';
@@ -4687,6 +4710,7 @@ ${contextRailHtml(project)}
     <div class="ask-sheet-body" id="ask-sheet-body"></div>
     <div class="ask-sheet-foot" id="ask-sheet-foot"></div>
   </aside>
+${terminalHudHtml()}
   <footer class="watermark">
     <span data-i18n="obWatermark">Built with AUTOPILOT</span>
     <span class="watermark-mark">© 2026 1337 · REL AZEUS · MΔSTERMIND · Apache-2.0</span>

@@ -2,12 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * DISPLAY & ACCESSIBILITY PREFERENCES (epic 0029 slice 1; operator,
+ * DISPLAY & ACCESSIBILITY PREFERENCES (epic 0029 slices 1 and 3; operator,
  * 2026-09-13: "closer to AAA — other fonts, other sizes, more or less
  * relaxed spacing, resettable at any time; in the terminal theme the default
  * greenish phosphor, resettable, plus a free-to-play HUD"): one Settings
  * popover in the masthead holds text size, font, density, motion and — under
- * the terminal theme — the phosphor tint, with one Reset.
+ * the terminal theme — the phosphor tint, with one Reset. The terminal
+ * theme also gets a floating HUD bar (`web/shell.ts`'s `terminalHudHtml()`)
+ * offering scanlines and glow the same way — a choice-list preference each —
+ * plus its own dismiss, which is a preference too (`hud`, boolean, false by
+ * default): dismissing sets it, Reset clears it, exactly like every other
+ * row here.
  *
  * Every preference is an attribute on `<html>` (`data-text`, `data-font`,
  * `data-density`, `data-motion`, `data-phosphor`) that the stylesheet reads;
@@ -29,6 +34,8 @@ export const PREF_CHOICES: Readonly<Record<string, readonly string[]>> = {
   density: ['comfortable', 'compact', 'relaxed'],
   motion: ['system', 'reduce'],
   phosphor: ['green', 'amber', 'white'],
+  scanlines: ['off', 'on'],
+  glow: ['off', 'on'],
 };
 
 /** The preferences client — vanilla, external (keeps CSP script-src 'self'). */
@@ -68,6 +75,7 @@ function prefDefaults() {
   var out = {};
   for (var k in PREF_CHOICES) out[k] = PREF_CHOICES[k][0];
   out.hue = 0;
+  out.hud = false;
   return out;
 }
 function readPrefs() {
@@ -83,6 +91,7 @@ function readPrefs() {
   }
   var h = Number(saved.hue);
   if (Number.isInteger(h) && h >= 0 && h <= HUE_MAX) prefs.hue = h;
+  if (saved.hud === true) prefs.hud = true;
   return prefs;
 }
 function writePrefs(prefs) {
@@ -107,6 +116,14 @@ function applyPrefs(prefs) {
     html.removeAttribute('data-hue');
   }
   applyHue(html, hue);
+  // The terminal HUD (epic 0029 slice 3): dismissible, resettable through
+  // this same Reset — a preference like any other, just boolean rather than
+  // a choice list, the same shape hue already established.
+  if (prefs.hud) {
+    if (html.getAttribute('data-hud') !== 'hidden') html.setAttribute('data-hud', 'hidden');
+  } else if (html.hasAttribute('data-hud')) {
+    html.removeAttribute('data-hud');
+  }
   var range = document.getElementById('pref-hue');
   if (range && range.value !== String(hue)) range.value = String(hue);
   var out = document.getElementById('pref-hue-out');
@@ -137,6 +154,12 @@ function resetPrefs() {
   try { localStorage.removeItem(PREFS_KEY); } catch (e) {}
   applyPrefs(prefDefaults());
 }
+function dismissHud() {
+  var prefs = readPrefs();
+  prefs.hud = true;
+  writePrefs(prefs);
+  applyPrefs(prefs);
+}
 applyPrefs(readPrefs());
 // A theme or phosphor change swaps the base twins under a rotated hue — re-apply.
 if (typeof MutationObserver === 'function') {
@@ -148,7 +171,8 @@ document.addEventListener('click', function (e) {
   if (!t || !t.closest) return;
   var b = t.closest('[data-pref]');
   if (b) { setPref(b.getAttribute('data-pref'), b.getAttribute('data-pref-value')); return; }
-  if (t.closest('#prefs-reset')) resetPrefs();
+  if (t.closest('#prefs-reset')) { resetPrefs(); return; }
+  if (t.closest('#terminal-hud-close')) dismissHud();
 });
 document.addEventListener('input', function (e) {
   var t = e.target;
