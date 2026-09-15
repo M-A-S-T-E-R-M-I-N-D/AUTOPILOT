@@ -95,3 +95,28 @@ describe('the tour and the ladder are one path', () => {
     expect(renderShell()).toContain('id="ob-tour-link"');
   });
 });
+
+/**
+ * THE CONTRIBUTION STEPS READ GITHUB (operator, 2026-09-15: "it looks like
+ * the system never really checked GitHub — there are a sea of issues there
+ * and fixes I already submitted"). They were ticked from marks this browser
+ * wrote, so contributions made anywhere else counted for nothing.
+ */
+describe('the contribution steps read what GitHub says, not what this browser saw', () => {
+  it('asks the server, and ORs the answer with the local mark', () => {
+    expect(ob).toContain("fetch('/api/onboarding/contributions'");
+    // The mark stays as a fast local yes, so an action just completed here
+    // ticks immediately rather than waiting for the next answer.
+    expect(ob).toContain("marks['publish-finding'] === 1 || obContrib.hasIssue === true");
+    expect(ob).toContain("marks['submit-fix'] === 1 || obContrib.hasPr === true");
+  });
+
+  it('asks once, and only once the connection makes the question meaningful', () => {
+    expect(ob).toContain('obContribAsked');
+    expect(ob).toContain('if (obGithubConnected()) obAskContributions();');
+  });
+
+  it('re-syncs when the answer lands, since the model is computed synchronously', () => {
+    expect(ob).toContain('syncOnboarding(obLastState);');
+  });
+});
