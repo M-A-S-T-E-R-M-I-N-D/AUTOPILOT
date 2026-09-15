@@ -13,6 +13,7 @@ import { securityHeaders, isAllowedHost } from './security.js';
 import { createRateLimiter, type RateLimiter } from './rate-limit.js';
 import {
   handleOnboardingSample,
+  handleOnboardingContributions,
   SAMPLE_RATE_LIMIT,
   SAMPLE_RATE_WINDOW_MS,
   type OnboardingApi,
@@ -4155,6 +4156,11 @@ export function createServer(deps: ServerDeps = {}): Server {
           ? 'test'
           : 'status';
       void handleConnection(req, res, deps.connection, headers, action);
+      return;
+    }
+
+    if (path === '/api/onboarding/contributions') {
+      void handleOnboardingContributions(req, res, deps.onboarding, headers);
       return;
     }
 

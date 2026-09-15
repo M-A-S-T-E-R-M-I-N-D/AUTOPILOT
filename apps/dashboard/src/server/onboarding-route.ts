@@ -17,6 +17,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RateLimiter } from './rate-limit.js';
 import { clientKey, sendJson, readBody } from './http-util.js';
+import { NO_CONTRIBUTIONS, type ContributionCounts } from '../flight/contributions.js';
 
 /** Guards the copy: a directory copy plus a `git init` per call. */
 export const SAMPLE_RATE_LIMIT = 5;
@@ -35,6 +36,10 @@ export interface SampleAddResult {
 /** The onboarding's backing API (injected; keeps the server testable). */
 export interface OnboardingApi {
   addSample(sample: string): Promise<SampleAddResult>;
+  /** What this account has actually contributed on GitHub, so the ladder's
+   *  two contribution steps read a real fact rather than a mark this browser
+   *  happened to write (operator, 2026-09-15). Read-only. */
+  contributions(): Promise<ContributionCounts>;
 }
 
 const MAX_BODY_BYTES = 4 * 1024;
@@ -81,4 +86,35 @@ export async function handleOnboardingSample(
   }
 
   send(200, await api.addSample(String(body['sample'] ?? '')));
+}
+
+/**
+ * `GET /api/onboarding/contributions` — has this account filed an issue or
+ * opened a pull request anywhere?
+ *
+ * GET and read-only, unlike its POST sibling above: it runs two `gh search`
+ * verbs and writes nothing. A machine with no `gh`, or one not signed in,
+ * answers "nothing found" with a 200 rather than an error, because the only
+ * consequence is a checklist row staying unticked.
+ */
+export async function handleOnboardingContributions(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: OnboardingApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'onboarding API unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  try {
+    send(200, await api.contributions());
+  } catch {
+    send(200, NO_CONTRIBUTIONS);
+  }
 }

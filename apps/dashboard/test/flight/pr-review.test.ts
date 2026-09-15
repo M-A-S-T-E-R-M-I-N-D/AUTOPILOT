@@ -158,6 +158,12 @@ const BENIGN_FLIGHT = new Set([
   // 'unknown', which the plan treats as 'do not constrain' — so the worst a
   // broken probe can do is restore the previous behaviour.
   'disk-class.ts',
+  // contributions.ts: pure parsing of two READ-ONLY gh searches, plus the
+  // argv for them. Its own test pins that neither argv can ever contain
+  // create/edit/close/comment/merge/delete, and that every malformed or
+  // missing answer degrades to 'nothing found' rather than throwing. It
+  // decides one thing: whether a checklist row is ticked.
+  'contributions.ts',
   // Pure copy PLAN for the onboarding's one-click sample (epic 0032): what to
   // copy, where to, and which refusals to word. No filesystem, no git, no
   // store — server/main.ts performs the copy and the registration, and the

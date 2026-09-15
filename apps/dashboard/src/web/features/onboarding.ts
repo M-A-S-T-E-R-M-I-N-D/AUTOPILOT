@@ -121,9 +121,33 @@ function obSignals(state) {
     firingCount: firings,
     readBack: marks['read-back'] === 1,
     githubConnected: obGithubConnected(),
-    findingPublished: marks['publish-finding'] === 1,
-    fixSubmitted: marks['submit-fix'] === 1,
+    // Real contributions, not marks this browser happened to write. An
+    // operator who filed issues from the GitHub web UI, from another
+    // machine, or before this checklist existed has still contributed
+    // (operator, 2026-09-15). The mark stays as a fast local yes so a
+    // just-completed action ticks instantly, before the next poll.
+    findingPublished: marks['publish-finding'] === 1 || obContrib.hasIssue === true,
+    fixSubmitted: marks['submit-fix'] === 1 || obContrib.hasPr === true,
   };
+}
+
+// What GitHub says this account has contributed. Asked once, on the first
+// paint that needs it, and re-synced when the answer lands — the model is
+// computed synchronously, so there is nowhere to await.
+var obContrib = { hasIssue: false, hasPr: false, hasMergedPr: false };
+var obContribAsked = false;
+function obAskContributions() {
+  if (obContribAsked) return;
+  obContribAsked = true;
+  fetch('/api/onboarding/contributions', { headers: { accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (c) {
+      if (!c) return;
+      if (c.hasIssue === obContrib.hasIssue && c.hasPr === obContrib.hasPr) return;
+      obContrib = c;
+      syncOnboarding(obLastState);
+    })
+    .catch(function () { /* unreachable gh is "nothing found", not an error */ });
 }
 // Whether \`gh\` is signed in on this machine.
 //
@@ -148,6 +172,9 @@ function syncOnboarding(state) {
   obLastState = state || obLastState;
   var panel = document.getElementById('onboarding');
   if (!panel) return;
+  // Only worth asking once the operator has got as far as connecting —
+  // before that the contribution steps are not even being offered.
+  if (obGithubConnected()) obAskContributions();
   obState = computeOnboarding(obSignals(obLastState));
   // The ladder disappears for good once both ticks are earned — it has
   // nothing left to say, and a permanent checklist reads as clutter.

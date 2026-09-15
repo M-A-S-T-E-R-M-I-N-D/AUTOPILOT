@@ -170,6 +170,12 @@ import { realCliExec, makeCliExec } from '../connection/cli-probe.js';
 import { launchClaudeLogin } from '../connection/login.js';
 import { launchGhAuth } from '../connection/gh-login.js';
 import { planSampleProject } from '../flight/sample-project.js';
+import {
+  readContributions,
+  ISSUE_SEARCH_ARGS,
+  PR_SEARCH_ARGS,
+  NO_CONTRIBUTIONS,
+} from '../flight/contributions.js';
 import { claudeAuthProbe } from '../connection/verify.js';
 import { getGhStatus } from '../connection/gh-probe.js';
 import { createLtsStatusApi } from '../connection/gh-lts.js';
@@ -985,6 +991,25 @@ const server = createServer({
   // matters — locking onto a path inside AUTOPILOT's own tree would back up
   // and fly AUTOPILOT (docs/CASE-STUDIES/calculator-five-firings.md).
   onboarding: {
+    // Ask GitHub what this account has actually contributed, rather than
+    // trusting a mark this browser wrote (operator, 2026-09-15: "there are
+    // a sea of issues there and fixes I already submitted"). Two read-only
+    // searches; anything that fails degrades to "nothing found", because
+    // the only consequence is a checklist row staying unticked.
+    contributions: async () => {
+      try {
+        const [issues, prs] = await Promise.all([
+          realCliExec('gh', ISSUE_SEARCH_ARGS),
+          realCliExec('gh', PR_SEARCH_ARGS),
+        ]);
+        return readContributions(
+          issues.code === 0 ? issues.stdout : undefined,
+          prs.code === 0 ? prs.stdout : undefined,
+        );
+      } catch {
+        return NO_CONTRIBUTIONS;
+      }
+    },
     addSample: async (sample) => {
       const plan = planSampleProject(sample, process.cwd(), homedir(), existsSync);
       if (!plan.ok) {
