@@ -324,11 +324,13 @@ describe('pipeline selection interaction (real DOM)', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const title = document.querySelector('.pipeline-title')!;
+    expect(title.textContent).toBe('Pipeline view');
+    // panelHeading() (epic 0025 slice 2, wrench icon): data-i18n rides the
+    // inner .heading-text span, not the h3 itself.
     expect(title.hasAttribute('data-i18n')).toBe(false);
     expect(title.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe(
       'pipelineViewTitle',
     );
-    expect(title.textContent).toBe('Pipeline view');
 
     const lensGroup = document.querySelector('.pipeline-lens-switch')!;
     expect(lensGroup.getAttribute('aria-label')).toBe('Pipeline lens');

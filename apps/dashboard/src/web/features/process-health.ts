@@ -71,8 +71,7 @@ function doraSection(c) {
   var d = c.dora;
   if (!d) return null;
   var wrap = el('section', 'dora-panel');
-  var doraTitle = el('h3', 'dora-title', '📈 Process health (DORA)');
-  doraTitle.setAttribute('data-i18n', 'doraTitle');
+  var doraTitle = panelHeading('h3', 'dora-title', 'doraTitle', 'chart-line');
   wrap.appendChild(doraTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'dora-tiles';
@@ -95,8 +94,7 @@ function gateParallelSection(c) {
   var g = c.gateParallel;
   if (!g || g.sampledFirings === 0) return null;
   var wrap = el('section', 'gate-parallel-panel');
-  var gateParallelTitle = el('h3', 'gate-parallel-title', '⚡ Parallel gate savings');
-  gateParallelTitle.setAttribute('data-i18n', 'gateParallelTitle');
+  var gateParallelTitle = panelHeading('h3', 'gate-parallel-title', 'gateParallelTitle', 'zap');
   wrap.appendChild(gateParallelTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'gate-parallel-tiles';
@@ -120,8 +118,7 @@ function warmSessionsSection(c) {
   var w = c.warmSessions;
   if (!w || w.resumed.firings === 0) return null;
   var wrap = el('section', 'warm-sessions-panel');
-  var warmSessionsTitle = el('h3', 'warm-sessions-title', '🔥 Warm sessions');
-  warmSessionsTitle.setAttribute('data-i18n', 'warmSessionsTitle');
+  var warmSessionsTitle = panelHeading('h3', 'warm-sessions-title', 'warmSessionsTitle', 'flame');
   wrap.appendChild(warmSessionsTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'warm-sessions-tiles';

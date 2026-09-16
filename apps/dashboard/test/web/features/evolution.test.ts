@@ -70,7 +70,7 @@ describe('evolutionJs', () => {
   it('tags both panel headings with their STRINGS keys for translateDom() (board web-msnsndki-dz3vn1)', () => {
     const out = evolutionJs();
     expect(out).toContain("setAttribute('data-i18n', 'evolutionTrendTitle')");
-    expect(out).toContain("setAttribute('data-i18n', 'evolutionSummaryTitle')");
+    expect(out).toContain("panelHeading('h3', 'evolution-title', 'evolutionSummaryTitle', 'dna')");
   });
 
   it('reuses the shared el/statTile helpers rather than re-declaring them', () => {

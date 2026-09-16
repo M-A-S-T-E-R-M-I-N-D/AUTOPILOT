@@ -48,9 +48,9 @@ describe('ciStatusJs', () => {
     );
   });
 
-  it('tags the title for i18n and re-translates on every rebuild', () => {
+  it('builds the title via panelHeading and re-translates on every rebuild', () => {
     const out = ciStatusJs();
-    expect(out).toContain("title.setAttribute('data-i18n', 'ciStatusTitle');");
+    expect(out).toContain("panelHeading('h3', 'ci-status-title', 'ciStatusTitle', 'activity')");
     expect(out).toContain("translateDom(document.documentElement.lang || 'en');");
   });
 

@@ -82,8 +82,13 @@ function switchToHebrew(): void {
 
 const TITLES: ReadonlyArray<readonly [selector: string, key: keyof typeof STRINGS.en]> = [
   ['.eval-trend-wrap h2.detail-h', 'evolutionTrendTitle'],
-  ['.evolution-panel h3.evolution-title', 'evolutionSummaryTitle'],
 ];
+
+// evolution-title is a panelHeading() build (epic 0025 slice 2, dna icon):
+// the STRINGS key rides the inner .heading-text span, not the h3 itself —
+// the law panelHeading enforces so translateDom()'s textContent sweep never
+// wipes the icon (same contract pr-review-panel-i18n.test.ts pins).
+const SUMMARY_TITLE_SELECTOR = '.evolution-panel h3.evolution-title';
 
 describe('the evolution cluster headings i18n wiring (board web-msnsndki-dz3vn1)', () => {
   beforeEach(() => {
@@ -106,6 +111,14 @@ describe('the evolution cluster headings i18n wiring (board web-msnsndki-dz3vn1)
       expect(title?.textContent, selector).toBe(STRINGS.en[key]);
       expect(title?.getAttribute('data-i18n'), selector).toBe(key);
     }
+
+    const summaryTitle = document.querySelector(SUMMARY_TITLE_SELECTOR);
+    expect(summaryTitle).not.toBeNull();
+    expect(summaryTitle?.textContent).toBe(STRINGS.en.evolutionSummaryTitle);
+    expect(summaryTitle?.hasAttribute('data-i18n')).toBe(false);
+    expect(summaryTitle?.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe(
+      'evolutionSummaryTitle',
+    );
   });
 
   it('switching to Hebrew translates both headings', async () => {
@@ -117,13 +130,14 @@ describe('the evolution cluster headings i18n wiring (board web-msnsndki-dz3vn1)
     for (const [selector, key] of TITLES) {
       expect(document.querySelector(selector)?.textContent, selector).toBe(STRINGS.he[key]);
     }
+    expect(document.querySelector(SUMMARY_TITLE_SELECTOR)?.textContent).toBe(
+      STRINGS.he.evolutionSummaryTitle,
+    );
   });
 
   it('keeps the two Hebrew headings distinct — the summary must not just repeat the chart title', () => {
     expect(STRINGS.he.evolutionTrendTitle).not.toBe(STRINGS.en.evolutionTrendTitle);
     expect(STRINGS.he.evolutionSummaryTitle).not.toBe(STRINGS.en.evolutionSummaryTitle);
     expect(STRINGS.he.evolutionSummaryTitle).not.toBe(STRINGS.he.evolutionTrendTitle);
-    // The 🧬 glyph is part of the heading's identity in both locales.
-    expect(STRINGS.he.evolutionSummaryTitle.startsWith('🧬')).toBe(true);
   });
 });

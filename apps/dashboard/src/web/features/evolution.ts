@@ -183,8 +183,7 @@ function evolutionSection(c) {
   var summary = evaluationTrendSummary(weeks);
   if (summary.approved === 0 && summary.rejected === 0) return null;
   var wrap = el('section', 'evolution-panel');
-  var summaryTitle = el('h3', 'evolution-title', '🧬 Approval summary');
-  summaryTitle.setAttribute('data-i18n', 'evolutionSummaryTitle');
+  var summaryTitle = panelHeading('h3', 'evolution-title', 'evolutionSummaryTitle', 'dna');
   wrap.appendChild(summaryTitle);
   var grid = el('div', 'stat-tiles');
   grid.id = 'evolution-tiles';
