@@ -17,7 +17,15 @@ const files = readdirSync(DIR)
 
 const rows = files.map((file) => {
   const src = readFileSync(join(DIR, file), 'utf8');
-  const heading = (src.match(/^# (.+)$/m)?.[1] ?? file).replace(/\|/g, '\\|').trim();
+  // Backslash first, then pipe (CodeQL js/incomplete-sanitization, 2026-09-16).
+  // Escaping only the pipe left the escape character itself unescaped, so a
+  // heading ending in `\` turned the `\|` this adds into a literal backslash
+  // followed by a live cell separator — splitting the row. Order matters:
+  // escaping the pipe first would then double the backslashes it just wrote.
+  const heading = (src.match(/^# (.+)$/m)?.[1] ?? file)
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .trim();
   const date = file.slice(0, 10);
   return `| ${date} | [${heading}](${file}) |`;
 });

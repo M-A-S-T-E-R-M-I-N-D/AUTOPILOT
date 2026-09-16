@@ -41,8 +41,13 @@ export function handleRoute(path: string, deps: RouteDeps = {}): RouteResponse {
     }
     return { status: 200, contentType: 'text/html; charset=utf-8', body: renderShell(projectId) };
   }
-  const fontRoute = FONT_ROUTES[path];
-  if (fontRoute) {
+  // `Object.hasOwn`, not a bare lookup (CodeQL js/unvalidated-dynamic-method-call,
+  // 2026-09-16). `path` is the request path, so a plain index reached
+  // `Object.prototype` too: a request for `/toString` found a real function
+  // and called it, answering 200 with `[object Object]` labelled `font/woff2`.
+  // Own-property only, so a route has to have actually been declared.
+  const fontRoute = Object.hasOwn(FONT_ROUTES, path) ? FONT_ROUTES[path] : undefined;
+  if (typeof fontRoute === 'function') {
     return { status: 200, contentType: 'font/woff2', body: fontRoute() };
   }
   switch (path) {

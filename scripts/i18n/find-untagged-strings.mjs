@@ -64,7 +64,13 @@ const STATIC_TEXT_TAGS = new Set([
   'legend',
 ]);
 
-const TAG_RE = /<([a-zA-Z][a-zA-Z0-9-]*)\b((?:[^<>]|\n)*?)(\/?)>([^<]*)/g;
+// `[^<>]*?`, not `(?:[^<>]|\n)*?` (CodeQL js/redos, 2026-09-16). A negated
+// class already matches a newline, so the `|\n` alternative was a second way
+// to match the same character — and two ways to match one character at every
+// position is the textbook shape for exponential backtracking. On a tag that
+// never closes, the engine explored that split across the whole rest of the
+// file. Removing the redundant branch changes nothing about what matches.
+const TAG_RE = /<([a-zA-Z][a-zA-Z0-9-]*)\b([^<>]*?)(\/?)>([^<]*)/g;
 const ARIA_LABEL_RE = /\baria-label="([^"$]*)"/;
 const PLACEHOLDER_RE = /\bplaceholder="([^"$]*)"/;
 

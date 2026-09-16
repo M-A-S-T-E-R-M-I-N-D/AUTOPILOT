@@ -1215,3 +1215,87 @@ describe('buildDenyDecision', () => {
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe('because');
   });
 });
+
+/**
+ * THE GUARD MUST NOT BE STALLABLE (CodeQL js/polynomial-redos, 2026-09-16).
+ *
+ * Four of these checks spelled "a short-flag cluster containing f" as
+ * `-[A-Za-z]*f[A-Za-z]*` — two unbounded classes around the letter — and the
+ * bare-`cd` check padded its separators with `\s*`, which also matched the
+ * newline the separator itself was looking for. Both are ambiguous, so the
+ * engine could split the input at every position and the cost grew with the
+ * SQUARE of the length.
+ *
+ * That is worse here than in ordinary code: this guard reads commands an
+ * agent proposed and decides whether they may run. A crafted flag run would
+ * stall the gate itself rather than merely being slow.
+ *
+ * These assert both halves — that the answers did not change, and that a
+ * pathological input is answered in ordinary time. The budget is deliberately
+ * loose (a second, against a sub-millisecond reality) so this fails on a
+ * reintroduced quadratic blowup and not on a slow machine.
+ */
+describe('the containment guard answers in linear time', () => {
+  const REDOS_BUDGET_MS = 1000;
+
+  function timed(command: string): number {
+    const started = performance.now();
+    check(command);
+    return performance.now() - started;
+  }
+
+  // The trailing character matters, and getting it wrong makes this test
+  // prove nothing. A run ending in a LETTER is swallowed by the trailing
+  // `[A-Za-z]*` and matches at once — measured at 0.0 ms even against the old
+  // pattern. The quadratic case needs the lookahead to FAIL, so the run has
+  // to end in something that is neither a letter, whitespace, nor the end of
+  // the string. Measured against the old pattern: 2k → 4 ms, 8k → 65 ms,
+  // 20k → 412 ms, which is the square growth this guards against.
+  const RUN = 60000;
+
+  it('answers a long bundled-flag run instantly instead of backtracking through it', () => {
+    expect(timed(`git push origin -${'f'.repeat(RUN)}!`)).toBeLessThan(REDOS_BUDGET_MS);
+    expect(timed(`git branch -${'d'.repeat(RUN)}!`)).toBeLessThan(REDOS_BUDGET_MS);
+    expect(timed(`git clean -${'f'.repeat(RUN)}!`)).toBeLessThan(REDOS_BUDGET_MS);
+  });
+
+  it('answers a script of many blank lines instantly — the bare-`cd` padding', () => {
+    // Measured against the old pattern: 20k newlines cost 193 ms, so this run
+    // would have taken roughly 1.7 s.
+    expect(timed(`${'\n'.repeat(RUN)}echo hi`)).toBeLessThan(REDOS_BUDGET_MS);
+  });
+
+  it('still denies every bundled spelling it denied before', () => {
+    // Force-push, bundled either way round.
+    expect(check('git push origin -uf main').allowed).toBe(false);
+    expect(check('git push origin -fu main').allowed).toBe(false);
+    // Remote delete, bundled.
+    expect(check('git push origin -vd main').allowed).toBe(false);
+    // Branch force-delete: an explicit -D, and the bundled lowercase pair.
+    expect(check('git branch -D old').allowed).toBe(false);
+    expect(check('git branch -Da old').allowed).toBe(false);
+    expect(check('git branch -fd old').allowed).toBe(false);
+    expect(check('git branch -df old').allowed).toBe(false);
+    // Clean, bundled.
+    expect(check('git clean -fdx').allowed).toBe(false);
+    // …and the long spellings, which never went through the cluster path.
+    expect(check('git push --force origin main').allowed).toBe(false);
+    expect(check('git push --force-with-lease=origin/main origin main').allowed).toBe(false);
+    expect(check('git push origin --delete main').allowed).toBe(false);
+    expect(check('git clean --force').allowed).toBe(false);
+  });
+
+  it('still allows a bundled cluster that carries none of the forbidden letters', () => {
+    // The whole point of matching the cluster instead of hunting a letter:
+    // `-u` is not `-uf`, and a case-sensitive `D` is not a `d`.
+    expect(check('git push -u origin feature').allowed).toBe(true);
+    expect(check('git branch -a').allowed).toBe(true);
+    expect(check('git branch -v').allowed).toBe(true);
+  });
+
+  it('still denies a bare `cd` on its own line, newline-separated', () => {
+    expect(check('echo one\ncd\necho two').allowed).toBe(false);
+    expect(check('cd').allowed).toBe(false);
+    expect(check('echo one && cd ; echo two').allowed).toBe(false);
+  });
+});
