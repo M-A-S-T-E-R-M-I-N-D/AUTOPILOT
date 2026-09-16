@@ -29,6 +29,15 @@ export default {
   concurrency: 1,
   symlinkNodeModules: false,
   coverageAnalysis: 'perTest',
+  // Static mutants are out of scope (2026-09-16). Stryker's own term for a
+  // mutant "only executed during the loading of a file": a module-level
+  // constant is built once at import, BEFORE a mutant can be activated for a
+  // given test, so no test can kill one and writing more would not change
+  // that. They are an artifact of WHERE the code runs, not evidence of an
+  // untested invariant — the store config's own comment works the case
+  // through in full. Mutants inside functions that tests call are unaffected,
+  // including functions the module also calls at load time.
+  ignoreStatic: true,
   thresholds: { high: 100, low: 100, break: 100 },
   reporters: ['clear-text', 'progress', 'html', 'json'],
   htmlReporter: { fileName: 'reports/mutation/dashboard-state/index.html' },
