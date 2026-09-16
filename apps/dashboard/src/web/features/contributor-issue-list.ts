@@ -73,7 +73,7 @@ function renderContributorIssueListPanel(entries) {
   var listHidden = entries.length === 0;
   if (section.hidden !== listHidden) section.hidden = listHidden;
   if (entries.length === 0) return;
-  var title = el('h3', 'contributor-issue-list-title', '🌱 Good first issues');
+  var title = panelHeading('h3', 'contributor-issue-list-title', 'contributorIssueListTitle', 'sprout');
   section.appendChild(title);
   // #43: this list is the humans' welcome mat — the fleet steps around it.
   var audience = el('p', 'panel-audience', 'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below.');

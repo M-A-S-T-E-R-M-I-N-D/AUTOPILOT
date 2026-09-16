@@ -1160,6 +1160,10 @@ const EN_STRINGS = {
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
   contributorIssueListPanel: 'Good first issues',
+  // Epic 0025 slice 2: the panel's own h3 heading (built via panelHeading()
+  // with the sprout icon) — distinct from contributorIssueListPanel above,
+  // which stays the section's aria-label.
+  contributorIssueListTitle: 'Good first issues',
   // APP SHELL (epic 0021): the subject navigation — a bottom bar on a phone,
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
@@ -1212,7 +1216,7 @@ const EN_STRINGS = {
   keeperSourceWisdom: 'Wisdom',
   keeperSourceApproval: 'Approval',
   pipelineView: 'Pipeline view',
-  pipelineViewTitle: '🛠️ Pipeline view',
+  pipelineViewTitle: 'Pipeline view',
   pipelineLensLabel: 'Pipeline lens',
   pipelineLensFleet: 'Fleet',
   pipelineLensFiles: 'Files',
@@ -1224,7 +1228,7 @@ const EN_STRINGS = {
   pipelineLayoutCompact: 'Compact',
   pipelineLoading: 'Loading pipeline spans…',
   pipelineUnavailable: 'Pipeline view unavailable.',
-  planEditorTitle: '✍️ Flight plan',
+  planEditorTitle: 'Flight plan',
   planEditorLoading: 'Loading the flight plan…',
   planEditorUnavailable: 'The flight plan is read-only here.',
   planEditorEnabled: 'Runs',
@@ -1278,7 +1282,7 @@ const EN_STRINGS = {
     'For AUTOPILOT fleets: claim an issue here and your own pilot flies it, on your tokens. People claim on GitHub with /claim.',
   contributorIssueListAudience:
     'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below.',
-  ciStatusTitle: '⚙️ CI status',
+  ciStatusTitle: 'CI status',
   // web/features/pool-client.ts's per-entry text (board web-msnsndki-dz3vn1):
   // rebuilt fresh on every 30s poll or click, so tr() at build time is the
   // sweep, the same reasoning report-menu.ts's keys followed.
@@ -1845,7 +1849,7 @@ const EN_STRINGS = {
   // establishes for a fetch-then-render-then-execute panel. "KEEPER" stays
   // Latin in every locale, the same proper-name stance issueTriageTitle
   // above takes.
-  discussionsTriageTitle: '💬 KEEPER Discussions triage',
+  discussionsTriageTitle: 'KEEPER Discussions triage',
   discussionsTriageLoading: 'Checking open discussions against the board…',
   discussionsTriageEmpty: 'No open discussions to triage.',
   discussionsTriageUnavailable: 'Discussions triage unavailable.',
@@ -1879,15 +1883,15 @@ const EN_STRINGS = {
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
-  doraTitle: '📈 Process health (DORA)',
-  gateParallelTitle: '⚡ Parallel gate savings',
-  warmSessionsTitle: '🔥 Warm sessions',
+  doraTitle: 'Process health (DORA)',
+  gateParallelTitle: 'Parallel gate savings',
+  warmSessionsTitle: 'Warm sessions',
   // web/features/evolution.ts (board web-msnsndki-dz3vn1): the project page's
   // "is the agent improving?" evolution cluster — the trend chart's heading
   // and its stat-tile summary's heading. Both ride the page-level sweep, the
   // same wiring as the three process-health titles above.
   evolutionTrendTitle: 'Evolution — is the agent improving?',
-  evolutionSummaryTitle: '🧬 Approval summary',
+  evolutionSummaryTitle: 'Approval summary',
   // web/features/foundation.ts's masthead heart + Foundation panel (FOUNDATION
   // 1/3, board web-mtq0rsit-ywz1m7) — hidden until GET /api/donations reports
   // a real, verified entry (see docs/FOUNDATION.md's "never before" custody
@@ -2413,6 +2417,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
     contributorIssueListPanel: 'בעיות טובות למתחילים',
+    contributorIssueListTitle: 'בעיות טובות למתחילים',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
     subjectOverview: 'סקירה',
@@ -2455,7 +2460,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     keeperSourceWisdom: 'חוכמה',
     keeperSourceApproval: 'אישור',
     pipelineView: 'תצוגת צנרת',
-    pipelineViewTitle: '🛠️ תצוגת צנרת',
+    pipelineViewTitle: 'תצוגת צנרת',
     pipelineLensLabel: 'מסנן הצנרת',
     pipelineLensFleet: 'צי',
     pipelineLensFiles: 'קבצים',
@@ -2467,7 +2472,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     pipelineLayoutCompact: 'קומפקטי',
     pipelineLoading: 'טוען נתוני צנרת…',
     pipelineUnavailable: 'תצוגת הצנרת אינה זמינה.',
-    planEditorTitle: '✍️ תוכנית טיסה',
+    planEditorTitle: 'תוכנית טיסה',
     planEditorLoading: 'טוען את תוכנית הטיסה…',
     planEditorUnavailable: 'תוכנית הטיסה לקריאה בלבד כאן.',
     planEditorEnabled: 'רץ',
@@ -2514,7 +2519,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לציי AUTOPILOT: תבעו כאן issue והטייס שלכם מטיס אותו, על הטוקנים שלכם. אנשים תובעים ב-GitHub עם ‎/claim.',
     contributorIssueListAudience:
       'לאנשים: שמור לבני אדם, הצי עוקף אותם. תבעו אחד ב-GitHub עם ‎/claim; ההדרכה למטה.',
-    ciStatusTitle: '⚙️ מצב CI',
+    ciStatusTitle: 'מצב CI',
     poolNoLocalTask: 'ללא משימה מקומית',
     poolProjectSelectAria: 'פרויקט מקומי להוספת משימת לוח (אופציונלי)',
     poolProjectSelectTip:
@@ -2935,7 +2940,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לפתוח issues ב-GitHub עבור סטיית התיעוד שלמעלה עכשיו? זה פותח issue חדש דרך gh עבור כל ממצא שאינו במעקב עדיין.',
     mirrorPassDriftExecuting: 'פותח…',
     mirrorPassDriftRequestFailed: 'בקשת תיקון סטיית התיעוד נכשלה.',
-    discussionsTriageTitle: '💬 טריאז׳ Discussions של KEEPER',
+    discussionsTriageTitle: 'טריאז׳ Discussions של KEEPER',
     discussionsTriageLoading: 'בודק דיונים פתוחים מול הלוח…',
     discussionsTriageEmpty: 'אין דיונים פתוחים לטריאז׳.',
     discussionsTriageUnavailable: 'טריאז׳ הדיונים אינו זמין.',
@@ -2957,11 +2962,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לשחרר את התביעות הישנות שלמעלה עכשיו? זה מבטל שיוך לכל issue תבוע שהאחראי עליו שקט מעבר לסף הקצירה.',
     mirrorPassStaleClaimExecuting: 'משחרר…',
     mirrorPassStaleClaimRequestFailed: 'בקשת שחרור התביעות הישנות של מעבר השיקוף נכשלה.',
-    doraTitle: '📈 בריאות התהליך (DORA)',
-    gateParallelTitle: '⚡ חיסכון משער מקבילי',
-    warmSessionsTitle: '🔥 מפגשים חמים',
+    doraTitle: 'בריאות התהליך (DORA)',
+    gateParallelTitle: 'חיסכון משער מקבילי',
+    warmSessionsTitle: 'מפגשים חמים',
     evolutionTrendTitle: 'אבולוציה — האם הסוכן משתפר?',
-    evolutionSummaryTitle: '🧬 סיכום אישורים',
+    evolutionSummaryTitle: 'סיכום אישורים',
     foundation: 'קרן',
     foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
     foundationCopyAddress: 'העתק כתובת',

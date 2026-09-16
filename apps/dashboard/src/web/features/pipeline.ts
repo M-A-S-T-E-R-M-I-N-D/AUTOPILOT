@@ -266,8 +266,7 @@ function pipelineSwitchGroup(cls, label, labelI18nKey, options, state, key, onCh
 // served (visitors, the e2e fixtures).
 function planEditorSection(pid) {
   var wrap = el('section', 'plan-editor');
-  var title = el('h3', 'plan-editor-title', '✍️ Flight plan');
-  title.setAttribute('data-i18n', 'planEditorTitle');
+  var title = panelHeading('h3', 'plan-editor-title', 'planEditorTitle', 'pen-line');
   wrap.appendChild(title);
   var body = el('div', 'plan-editor-body');
   body.appendChild(el('p', 'muted', tr('planEditorLoading')));
@@ -445,8 +444,7 @@ function planEditorSection(pid) {
 }
 function pipelineSection(pid) {
   var wrap = el('section', 'pipeline-section');
-  var title = el('h3', 'pipeline-title', '🛠️ Pipeline view');
-  title.setAttribute('data-i18n', 'pipelineViewTitle');
+  var title = panelHeading('h3', 'pipeline-title', 'pipelineViewTitle', 'wrench');
   wrap.appendChild(title);
   var state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null };
   var body = el('div', 'pipeline-body');

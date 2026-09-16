@@ -72,7 +72,9 @@ describe('contributorIssueListJs', () => {
 
   it('reuses the shared el/tipChip helpers rather than re-declaring them', () => {
     const out = contributorIssueListJs();
-    expect(out).toContain("el('h3', 'contributor-issue-list-title'");
+    expect(out).toContain(
+      "panelHeading('h3', 'contributor-issue-list-title', 'contributorIssueListTitle', 'sprout')",
+    );
     expect(out).not.toContain('function el(');
     expect(out).not.toContain('function tipChip(');
   });
