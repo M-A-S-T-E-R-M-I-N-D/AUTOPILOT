@@ -6,6 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.51.0] — 2026-09-16
+
+### Added
+
+- feat(dashboard): make the docs panel read like a reader
+- feat(dashboard): replace emoji with stroke icon on the Inbox drop-a-note summary
+- feat(dashboard): replace emoji with stroke icons on the auto-fixed and guard-denial chips
+- feat(dashboard): flight debrief heading drops its emoji for the vendored clipboard icon
+- feat(dashboard): replace emoji with stroke icons on the focus line and stale chip
+- feat(dashboard): replace emoji with stroke icons on the anomaly pills
+
+### Fixed
+
+- fix(flight): flag the visual-baseline adopter as security-sensitive
+- fix(dashboard): stop the tour dimming the whole cockpit over hidden targets
+- fix(dashboard): stop file-lens pipeline labels overflowing their rows
+
 ## [0.50.0] — 2026-09-16
 
 ### Added
