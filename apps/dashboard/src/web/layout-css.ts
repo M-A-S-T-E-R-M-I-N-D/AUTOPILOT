@@ -595,7 +595,14 @@ main.project-mode { grid-template-columns: 1fr; }
 .evolution-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); overflow: hidden; }
 .evolution-title { margin: 0; padding: var(--space-3) var(--space-4) 0; font-size: var(--text-base); }
 .evolution-panel .stat-tiles { border-bottom: none; }
-.docs-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* The docs panel reads as a reader, not a form (operator-reported 2026-09-17:
+   the documents view looks strange). It was a wrapping wall of bordered chips,
+   each carrying a full repo-relative path at the smallest type size, stacked
+   ABOVE the document — so the index dominated the thing being read, and twenty
+   near-identical docs/… prefixes dominated the index. Now it is a file rail:
+   one row per document, the directory muted and clipped first, the basename
+   kept. From md it sits BESIDE the document instead of on top of it. */
+.docs-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-direction: column; gap: 1px; max-block-size: 18rem; overflow: auto; overscroll-behavior: contain; }
 /* Docs-file chips (COCKPIT 6/6): the same MX shape-morph + elevation
    hover/active pair .task-delete-btn / .replay-nav-btn carry. Rest radius
    swaps --radius-sm for --shape-extra-small (both 4px) so the state tokens
@@ -606,8 +613,36 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-file:hover, .docs-file:focus-visible { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .docs-file:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .docs-file.on { border-color: var(--color-accent); color: var(--color-accent); }
-.docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); }
-.docs-viewer-body { max-height: 32rem; overflow-y: auto; font-size: var(--text-sm); }
+/* Row shape: full width, one line, the directory spent on the ellipsis before
+   the basename — the same two-span idiom .pipeline-item uses, so a path reads
+   the same way everywhere in the cockpit. */
+.docs-file { display: flex; align-items: baseline; inline-size: 100%; min-width: 0; text-align: start; border-color: transparent; }
+.docs-file-dir, .docs-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docs-file-dir { flex: 0 999 auto; color: var(--color-text-muted); }
+.docs-file-name { flex: 0 1 auto; color: var(--color-text); }
+.docs-file.on .docs-file-name, .docs-file.on .docs-file-dir { color: var(--color-accent); }
+/* The pinned explainer earns a standing marker instead of the emoji it used
+   to carry (epic 0025: emoji reads cheap). */
+.docs-file-pinned { border-inline-start: 2px solid var(--color-accent); }
+.docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
+/* Reading typography. The body used to inherit --text-sm with no measure, no
+   heading scale and no rhythm, so a rendered document came out as flat grey
+   mass. A measure cap is the single highest-value line here: unbounded line
+   length is what made long docs unreadable in a wide panel. */
+.docs-viewer-body { max-height: 32rem; overflow-y: auto; font-size: var(--text-sm); line-height: 1.65; }
+.docs-viewer-body > * { max-inline-size: 72ch; }
+.docs-viewer-body > :first-child { margin-top: 0; }
+.docs-viewer-body h1, .docs-viewer-body h2, .docs-viewer-body h3,
+.docs-viewer-body h4, .docs-viewer-body h5, .docs-viewer-body h6 { margin: var(--space-4) 0 var(--space-2); line-height: 1.25; font-weight: 700; }
+.docs-viewer-body h1 { font-size: var(--text-lg); }
+.docs-viewer-body h2 { font-size: var(--text-base); }
+.docs-viewer-body h3, .docs-viewer-body h4, .docs-viewer-body h5, .docs-viewer-body h6 { font-size: var(--text-sm); color: var(--color-text-muted); }
+.docs-viewer-body p { margin: var(--space-3) 0; }
+.docs-viewer-body ul, .docs-viewer-body ol { margin: var(--space-3) 0; padding-inline-start: var(--space-5); }
+.docs-viewer-body li { margin: var(--space-1) 0; }
+.docs-viewer-body code { font-family: var(--font-mono); font-size: var(--text-xs); }
+.docs-viewer-body table { margin: var(--space-3) 0; border-collapse: collapse; max-inline-size: 100%; }
+.docs-viewer-body th, .docs-viewer-body td { border: 1px solid var(--color-border); padding: 2px var(--space-2); text-align: start; font-size: var(--text-xs); }
 .docs-viewer-body pre { background: var(--color-surface-raised); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); overflow-x: auto; }
 .docs-viewer-body svg { max-width: 100%; height: auto; display: block; margin: var(--space-2) 0; }
 .docs-viewer-body svg [data-tip] { cursor: default; }
@@ -1907,6 +1942,13 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
   .pipeline-panel { flex-direction: row; align-items: flex-start; }
   .pipeline-tree { flex: 0 1 32%; min-width: 12em; }
+  /* The docs reader goes two-pane from md: the file rail beside the document
+     rather than stacked above it, so the index stops competing with the thing
+     being read. The heading spans both columns. Below md it stays stacked —
+     a rail and a reading measure do not both fit on a phone. */
+  .docs-panel { display: grid; grid-template-columns: minmax(11em, 22%) 1fr; grid-template-rows: auto 1fr; gap: 0 var(--space-4); align-items: start; }
+  .docs-title { grid-column: 1 / -1; }
+  .docs-list { margin: 0; max-block-size: 32rem; }
   /* Pool rows stay stacked from md too — the side-by-side grid squeezed the
      title beside a select and a button (operator, 2026-09-12: one under the
      other); the actions keep their own line and their own breathing room. */
