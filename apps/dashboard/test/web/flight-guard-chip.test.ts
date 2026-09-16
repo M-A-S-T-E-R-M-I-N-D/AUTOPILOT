@@ -116,6 +116,9 @@ describe('the guard-denial flight-log chip', () => {
     expect(chip?.getAttribute('tabindex')).toBe('-1');
     expect(chip?.getAttribute('data-tip')).toBeTruthy();
     expect(chip?.getAttribute('aria-label')).toBeTruthy();
+    // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): a
+    // shield stroke icon replaces the 🛡️ glyph the chip's label used to bake in.
+    expect(chip?.querySelector('svg.icon-shield')).not.toBeNull();
   });
 
   it('omits the chip on a firing with no guard denials', async () => {

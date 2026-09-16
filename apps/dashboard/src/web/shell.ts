@@ -2055,11 +2055,17 @@ function flightLogNode(c) {
     if (f.autoformatRescued) {
       // i18n (board web-msnsndki-dz3vn1): the same three keys the per-firing
       // trace row's copy of this chip carries (features/firing-timeline.ts).
+      // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): a
+      // wrench icon replaces the 🔧 glyph STRINGS used to bake into the text
+      // — setSweptText() (features/locale.ts) already keeps a leading icon
+      // child across the [data-i18n] sweep this chip carries, so no
+      // locale.ts change is needed for this pairing.
       var logAutoFixedChip = tipChip(
-        '🔧 auto-fixed',
+        'auto-fixed',
         'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
         'auto-fixed: formatting was mechanically remediated before this firing shipped',
         'flight-autoformat-chip',
+        'wrench',
       );
       logAutoFixedChip.setAttribute('data-i18n', 'autoFixed');
       logAutoFixedChip.setAttribute('data-i18n-tip', 'autoFixedTip');
@@ -2068,11 +2074,15 @@ function flightLogNode(c) {
     }
     if (f.guardDenials) {
       var logGuardMeta = guardDenialChipMeta(f.guardDenials);
+      // A shield icon replaces the 🛡️ glyph guardDenialChipMeta used to bake
+      // into its label — same setSweptText() coverage as the chip above, this
+      // one via the [data-i18n-template] sweep.
       var logGuardChip = tipChip(
         logGuardMeta.label,
         logGuardMeta.tip,
         logGuardMeta.ariaLabel,
         'flight-guard-chip',
+        'shield',
       );
       // i18n (board web-msnsndki-dz3vn1): text, tip and aria-label each wrap
       // the live denial count, so all three ride the template sweeps with {n}

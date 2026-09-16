@@ -923,7 +923,10 @@ const EN_STRINGS = {
   // same three literals, so one set of keys tags both surfaces.
   firingCountTip: 'Tool calls and activity recorded for this firing',
   firingStartedTip: 'When this firing started',
-  autoFixed: '🔧 auto-fixed',
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): no
+  // more baked-in 🔧 glyph — the callers (shell.ts, features/
+  // firing-timeline.ts) now pass tipChip() a leading wrench icon instead.
+  autoFixed: 'auto-fixed',
   autoFixedTip:
     'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
   autoFixedAria: 'auto-fixed: formatting was mechanically remediated before this firing shipped',
@@ -963,7 +966,9 @@ const EN_STRINGS = {
   // (features/firing-timeline.ts). Its text, tip and aria-label each wrap the
   // live denial count ({n}, from data-i18n-args), so all three ride the
   // template sweeps; the English is byte-identical to what the meta paints.
-  flightGuardChip: '🛡️ {n} blocked',
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): no
+  // more baked-in 🛡️ glyph — the callers pass tipChip() a shield icon.
+  flightGuardChip: '{n} blocked',
   flightGuardChipTip:
     'The containment/read-hygiene guard denied {n} tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
   flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
@@ -2273,7 +2278,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     diffEmpty: 'אין הבדלים זמינים להפעלה הזו.',
     firingCountTip: 'קריאות כלים ופעילות שנרשמו להפעלה הזו',
     firingStartedTip: 'מתי ההפעלה הזו התחילה',
-    autoFixed: '🔧 תוקן אוטומטית',
+    autoFixed: 'תוקן אוטומטית',
     autoFixedTip:
       'השער נכשל בבדיקת עיצוב הקוד; תיקון מכני פתר זאת אוטומטית וההפעלה הזו שוגרה נקייה במקום להתבטל.',
     autoFixedAria: 'תוקן אוטומטית: עיצוב הקוד תוקן באופן מכני לפני שההפעלה הזו שוגרה',
@@ -2322,7 +2327,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveNarratorTip: 'הסיכום של AUTOPILOT עצמו, במשפט אחד, לפעולה האחרונה שלו בהפעלה הזו',
     liveFocusTask: 'עובדת על: {name}',
     liveFocusTaskTip: 'משימת הלוח שההפעלה הזו עובדת עליה במפורש',
-    flightGuardChip: '🛡️ {n} נחסמו',
+    flightGuardChip: '{n} נחסמו',
     flightGuardChipTip:
       'שומר ההכלה/היגיינת הקריאה דחה {n} קריאות כלים במהלך ההפעלה הזו — היא ניסתה לחרוג מהגבול שלה ונעצרה.',
     flightGuardChipAria: 'השומר חסם {n} קריאות כלים בהפעלה הזו (הכלה / היגיינת קריאה)',
