@@ -1241,3 +1241,252 @@ describe('GitHeadReader (containment audit)', () => {
     expect(new GitHeadReader().headOf(join(dir, 'nope'))).toBe('');
   });
 });
+
+/**
+ * THE DEGRADE-TO-EMPTY CONTRACTS (mutation testing, 2026-09-16).
+ *
+ * `changedFiles`, `diffNumstat` and `commitInFiringRange` each open with
+ * guard clauses that every caller depends on and no test entered: an
+ * unborn-HEAD `''` ref, a ref git rejects, a binary file whose counts print
+ * as a literal `-`. Forty of git.ts's sixty surviving mutants lived in
+ * those few lines, because a guard nothing exercises is indistinguishable
+ * from a guard that isn't there.
+ *
+ * These are the contracts the firing record is built on — degrade to empty
+ * and omit the field honestly, never fabricate paths or a NaN line count.
+ */
+describe('GitVcs — the guard clauses the record depends on', () => {
+  let dir: string;
+  let vcs: GitVcs;
+  let first: string;
+  let second: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-git-guards-'));
+    initRepo(dir);
+    writeFileSync(join(dir, 'a.txt'), 'one\ntwo\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: first']);
+    first = gitSync(dir, ['rev-parse', 'HEAD']);
+    writeFileSync(join(dir, 'a.txt'), 'one\ntwo\nthree\n');
+    writeFileSync(join(dir, 'b.txt'), 'new\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: second']);
+    second = gitSync(dir, ['rev-parse', 'HEAD']);
+    vcs = new GitVcs(dir);
+  });
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  describe('changedFiles', () => {
+    it('lists the files that really differ between two refs', async () => {
+      expect([...(await vcs.changedFiles(first, second))].sort()).toEqual(['a.txt', 'b.txt']);
+    });
+
+    it('degrades to empty on an unborn-HEAD ref, from EITHER side', async () => {
+      // An unborn HEAD has no tree to diff, so there is nothing to report.
+      // Both sides are checked because the guard is an `||`: a mutant that
+      // turned it into `&&` still handled one empty ref and was invisible.
+      expect(await vcs.changedFiles('', second)).toEqual([]);
+      expect(await vcs.changedFiles(first, '')).toEqual([]);
+      expect(await vcs.changedFiles('', '')).toEqual([]);
+    });
+
+    it('degrades to empty when git rejects the ref rather than throwing', async () => {
+      expect(await vcs.changedFiles(first, 'no-such-ref')).toEqual([]);
+    });
+
+    it('drops the empty trailing record `-z` leaves behind', async () => {
+      // `-z` terminates each path with a NUL, so the split always yields a
+      // final empty string. It must never surface as a zero-length path.
+      const files = await vcs.changedFiles(first, second);
+      expect(files.every((p) => p.length > 0)).toBe(true);
+    });
+  });
+
+  describe('diffNumstat', () => {
+    it('counts insertions and deletions per file', async () => {
+      const stats = await vcs.diffNumstat(first, second);
+      const a = stats.find((s) => s.path === 'a.txt');
+      expect(a).toEqual({ path: 'a.txt', insertions: 1, deletions: 0 });
+    });
+
+    it('degrades to empty on an unborn-HEAD ref, from EITHER side', async () => {
+      expect(await vcs.diffNumstat('', second)).toEqual([]);
+      expect(await vcs.diffNumstat(first, '')).toEqual([]);
+      expect(await vcs.diffNumstat('', '')).toEqual([]);
+    });
+
+    it('degrades to empty when git rejects the ref', async () => {
+      expect(await vcs.diffNumstat(first, 'no-such-ref')).toEqual([]);
+    });
+
+    it('reads a binary file as zero lines, never NaN', async () => {
+      // git prints `-` for both counts on binary content because there is no
+      // line count to give. Parsed as 0: the path still rides through for the
+      // diff-size gate's mechanical-path classification, but it contributes
+      // no reviewable lines. `Number('-')` would be NaN and poison every sum
+      // downstream, which is exactly what this branch exists to prevent.
+      writeFileSync(join(dir, 'logo.png'), Buffer.from([0, 1, 2, 0, 255, 0, 3]));
+      gitSync(dir, ['add', '-A']);
+      gitSync(dir, ['commit', '-q', '-m', 'feat: binary']);
+      const third = gitSync(dir, ['rev-parse', 'HEAD']);
+
+      const binary = (await vcs.diffNumstat(second, third)).find((s) => s.path === 'logo.png');
+      expect(binary).toBeDefined();
+      expect(binary?.insertions).toBe(0);
+      expect(binary?.deletions).toBe(0);
+      expect(Number.isNaN(binary?.insertions)).toBe(false);
+    });
+
+    it('never yields a record with an empty path', async () => {
+      const stats = await vcs.diffNumstat(first, second);
+      expect(stats.length).toBeGreaterThan(0);
+      expect(stats.every((s) => s.path.length > 0)).toBe(true);
+    });
+  });
+
+  describe('commitInFiringRange', () => {
+    it('refuses everything when HEAD did not move — there is no range to be in', async () => {
+      expect(await vcs.commitInFiringRange(second, first, '')).toBe(false);
+    });
+
+    it('accepts any reachable commit when the firing started from an unborn HEAD', async () => {
+      // No `headBefore` means no ancestor constraint: reachability from
+      // `headAfter` alone is the whole check.
+      expect(await vcs.commitInFiringRange(first, '', second)).toBe(true);
+      expect(await vcs.commitInFiringRange(second, '', second)).toBe(true);
+    });
+
+    it('accepts a commit inside the range and refuses one from before it', async () => {
+      expect(await vcs.commitInFiringRange(second, first, second)).toBe(true);
+      // `first` is reachable from `headAfter`, but it is ALSO reachable from
+      // `headBefore` — so the firing did not create it, and claiming it would
+      // be exactly the stale-sha forgery this check exists to catch.
+      expect(await vcs.commitInFiringRange(first, first, second)).toBe(false);
+    });
+
+    it('refuses a sha that is not reachable at all', async () => {
+      expect(await vcs.commitInFiringRange('0'.repeat(40), first, second)).toBe(false);
+    });
+  });
+});
+
+/**
+ * PUSH AND DIRTY-TREE READING (mutation testing, 2026-09-16).
+ *
+ * `pushBranch` and `dirtyPaths` carried thirty-one mutants with NO COVERAGE
+ * at all — not survivors, but code no test had ever entered. They are not
+ * obscure: `pushBranch` is how a landing reaches the remote, and its
+ * non-fast-forward detection is the difference between telling an operator
+ * "someone else pushed first, integrate and land again" and handing them a
+ * generic failure string to grep. `dirtyPaths` feeds the remediating gate's
+ * before/after diff.
+ *
+ * Both went untested for the same reason: one needs a real remote and the
+ * other needs a deliberately messy tree. Both are cheap to arrange.
+ */
+describe('GitVcs — pushing to a real remote, and reading a dirty tree', () => {
+  let dir: string;
+  let remote: string;
+  let vcs: GitVcs;
+
+  beforeEach(() => {
+    remote = mkdtempSync(join(tmpdir(), 'autopilot-git-remote-'));
+    execFileSync('git', ['init', '-q', '--bare', remote], { windowsHide: true });
+
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-git-push-'));
+    initRepo(dir);
+    writeFileSync(join(dir, 'a.txt'), 'one\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: first']);
+    gitSync(dir, ['branch', '-M', 'main']);
+    gitSync(dir, ['remote', 'add', 'origin', remote]);
+    vcs = new GitVcs(dir);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(remote, { recursive: true, force: true });
+  });
+
+  describe('pushBranch', () => {
+    it('reports a clean push', async () => {
+      const result = await vcs.pushBranch('main');
+      expect(result).toEqual({ ok: true, nonFastForward: false, detail: 'pushed' });
+    });
+
+    it('names a non-fast-forward as its own outcome, not a generic failure', async () => {
+      // Someone else pushed first: the remote has a commit this clone has
+      // never seen, so the push is rejected. That has a specific remedy —
+      // integrate, then land again — which a bare `ok: false` cannot offer.
+      await vcs.pushBranch('main');
+      const other = mkdtempSync(join(tmpdir(), 'autopilot-git-other-'));
+      try {
+        // `--branch main` explicitly: the bare repo's own HEAD still points
+        // at whatever `git init --bare` chose, so a plain clone checks out an
+        // unborn branch and the push below has no refspec to match.
+        execFileSync('git', ['clone', '-q', '--branch', 'main', remote, other], {
+          windowsHide: true,
+        });
+        initRepo(other);
+        writeFileSync(join(other, 'b.txt'), 'theirs\n');
+        gitSync(other, ['add', '-A']);
+        gitSync(other, ['commit', '-q', '-m', 'feat: theirs']);
+        gitSync(other, ['push', '-q', 'origin', 'main']);
+      } finally {
+        rmSync(other, { recursive: true, force: true });
+      }
+
+      writeFileSync(join(dir, 'c.txt'), 'mine\n');
+      gitSync(dir, ['add', '-A']);
+      gitSync(dir, ['commit', '-q', '-m', 'feat: mine']);
+
+      const result = await vcs.pushBranch('main');
+      expect(result.ok).toBe(false);
+      expect(result.nonFastForward).toBe(true);
+      expect(result.detail.length).toBeGreaterThan(0);
+    });
+
+    it('reports an ordinary failure as NOT a non-fast-forward', async () => {
+      // A branch that does not exist is a plain failure. Conflating it with
+      // "someone else pushed first" would send an operator to integrate
+      // changes that are not there.
+      const result = await vcs.pushBranch('no-such-branch');
+      expect(result.ok).toBe(false);
+      expect(result.nonFastForward).toBe(false);
+      expect(result.detail.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('dirtyPaths', () => {
+    it('is empty on a clean tree', async () => {
+      expect(await vcs.dirtyPaths()).toEqual([]);
+      expect(await vcs.isDirty()).toBe(false);
+    });
+
+    it('reports a modified file and an untracked one', async () => {
+      writeFileSync(join(dir, 'a.txt'), 'changed\n');
+      writeFileSync(join(dir, 'new.txt'), 'fresh\n');
+      const paths = [...(await vcs.dirtyPaths())].sort();
+      expect(paths).toEqual(['a.txt', 'new.txt']);
+      expect(await vcs.isDirty()).toBe(true);
+    });
+
+    it('reports the NEW path of a rename, not the old one', async () => {
+      // A rename reads "orig -> new" in porcelain. The new path is the one
+      // that needs re-staging; handing back "orig -> new" as a single path
+      // would name a file that does not exist.
+      gitSync(dir, ['mv', 'a.txt', 'renamed.txt']);
+      const paths = await vcs.dirtyPaths();
+      expect(paths).toContain('renamed.txt');
+      expect(paths.every((p) => !p.includes(' -> '))).toBe(true);
+      expect(paths).not.toContain('a.txt');
+    });
+
+    it('never yields an empty path from porcelain’s trailing newline', async () => {
+      writeFileSync(join(dir, 'a.txt'), 'changed\n');
+      expect((await vcs.dirtyPaths()).every((p) => p !== '')).toBe(true);
+    });
+  });
+});

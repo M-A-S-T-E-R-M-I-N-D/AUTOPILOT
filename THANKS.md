@@ -66,6 +66,10 @@ regenerated in [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md)
 - **[Git](https://git-scm.com/)** — the ground truth this whole system trusts with its work.
 - **[GitHub](https://github.com)** — the runway: Actions, Discussions, the review rituals.
 - **[Shields.io](https://shields.io/)** — the badges at the top of the README.
+- **[Mermaid](https://mermaid.js.org/)** (MIT) — the pipeline diagram in the README is written in their syntax and
+  drawn by their renderer. We install nothing and ship none of their code — GitHub renders the block — so there is
+  no license obligation here at all. That is rather the point of naming it: the clearest picture in our front door
+  is theirs, and gratitude that only appears where a license compels it is not gratitude.
 - **[Keep a Changelog](https://keepachangelog.com/)**, **[SemVer](https://semver.org/)**,
   **[REUSE](https://reuse.software/)**, and the **[DCO](https://developercertificate.org/)** — the conventions this
   repo leans on instead of inventing worse ones.
