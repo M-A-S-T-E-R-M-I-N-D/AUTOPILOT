@@ -1229,6 +1229,18 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // operator-credential `gh` writers flag, not `.github/` configs (own
   // markers above) or `test/github/` fixtures.
   'scripts/github/',
+  // The visual-baseline adopters. `scripts/e2e/adopt-visual-actuals.mjs`
+  // overwrites committed Playwright baselines with the actuals a CI run
+  // produced — which is, by construction, the power to make a failing visual
+  // regression pass by redefining what "expected" means. That is the same
+  // gate-weakening class as the config markers below, and the RUNBOOK already
+  // treats DELETING a `*-snapshots/` baseline as queue-for-human; silently
+  // rewriting one deserves no less scrutiny. It is deliberately NOT in
+  // BENIGN_SCRIPTS beside the PNG-writing doc generators: those render new
+  // artifacts from source, while this one replaces an assertion's expected
+  // value. Directory-anchored so any future baseline tool landing here is
+  // covered without a second marker.
+  'scripts/e2e/',
   // ——— The gate's own config files. CI runs typecheck/lint/format/test/build
   // with the PR's OWN checkout of every config those tools read, so a PR that
   // excluded tests in vitest.config.ts, narrowed a tsconfig's include set,
