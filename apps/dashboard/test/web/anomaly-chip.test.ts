@@ -96,10 +96,14 @@ describe('anomaly chips on the fleet card', () => {
     // D1 ATTRIBUTE PAYLOAD (epic 0015, web-mtd1wmqc-v7h6cq): the aria-label
     // names the rule concisely and must NOT re-ship the tip's evidence
     // sentence as a second attribute on every chip.
-    expect(chips[0]?.getAttribute('aria-label')).toBe('anomaly: ⚠ cost spike');
+    expect(chips[0]?.getAttribute('aria-label')).toBe('anomaly: cost spike');
     expect(chips[0]?.getAttribute('aria-label')).not.toContain('$5.00');
-    expect(chips[1]?.getAttribute('aria-label')).toBe('anomaly: ⚠ gate fail streak');
+    expect(chips[1]?.getAttribute('aria-label')).toBe('anomaly: gate fail streak');
     expect(chips[1]?.getAttribute('aria-label')).not.toContain('3 consecutive');
+    // Epic 0025 slice 2 (icons, shell.ts lane): the emoji glyph is gone from
+    // the label text — each chip now carries a real stroke icon instead.
+    expect(chips[0]?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+    expect(chips[1]?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
   });
 
   it('gives convergence-unverifiable and guard-verify-failed chips a proper label, not the raw kind string', async () => {
@@ -133,8 +137,10 @@ describe('anomaly chips on the fleet card', () => {
 
     const chips = Array.from(document.querySelectorAll('.card-head-badges .chip-anomaly'));
     expect(chips.length).toBe(2);
-    expect(chips[0]?.getAttribute('aria-label')).toBe('anomaly: ❓ convergence unverifiable');
-    expect(chips[1]?.getAttribute('aria-label')).toBe('anomaly: 🛑 guard verify failed');
+    expect(chips[0]?.getAttribute('aria-label')).toBe('anomaly: convergence unverifiable');
+    expect(chips[1]?.getAttribute('aria-label')).toBe('anomaly: guard verify failed');
+    expect(chips[0]?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+    expect(chips[1]?.querySelector('svg.icon-octagon-x')).not.toBeNull();
   });
 
   it('renders no anomaly chips for a project with a clean flight log', async () => {

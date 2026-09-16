@@ -1250,26 +1250,49 @@ ${sharedAnomalyChipMeta.toString()}
 // apart.
 ${sharedGuardDenialChipMeta.toString()}
 var ANOMALY_LABELS = {
-  'cost-spike': '⚠ cost spike',
-  'death-cluster': '⚠ death cluster',
-  'gate-fail-streak': '⚠ gate fail streak',
-  'orient-drag': '🧭 orient drag',
-  'family-runaway': '⚠ family runaway',
-  'intent-collision': '🚨 intent collision',
-  'near-miss-recurring': '🩹 recurring near-miss',
-  'guard-denial': '🛡️ guard denial',
-  'sync-back-refusal': '🔁 sync-back refused',
-  'land-gate-alarm': '🚨 land gate alarm',
-  'convergence-red': '⛔ convergence red',
-  'e2e-land-block': '🚫 e2e land block',
-  'convergence-unverifiable': '❓ convergence unverifiable',
-  'guard-verify-failed': '🛑 guard verify failed',
+  'cost-spike': 'cost spike',
+  'death-cluster': 'death cluster',
+  'gate-fail-streak': 'gate fail streak',
+  'orient-drag': 'orient drag',
+  'family-runaway': 'family runaway',
+  'intent-collision': 'intent collision',
+  'near-miss-recurring': 'recurring near-miss',
+  'guard-denial': 'guard denial',
+  'sync-back-refusal': 'sync-back refused',
+  'land-gate-alarm': 'land gate alarm',
+  'convergence-red': 'convergence red',
+  'e2e-land-block': 'e2e land block',
+  'convergence-unverifiable': 'convergence unverifiable',
+  'guard-verify-failed': 'guard verify failed',
+};
+// Epic 0025 slice 2 (icons, shell.ts lane): one of the 8 vendored stroke
+// icons per anomaly kind — several kinds share an icon (four ⚠ variants all
+// read triangle-alert; convergence-red/guard-verify-failed both read
+// octagon-x, the closest stroke shape to the stop-sign emoji they replace);
+// convergence-unverifiable has no dedicated glyph and falls back to
+// triangle-alert (uncertain-result-as-warning reads closest to the ❓ it
+// replaces).
+var ANOMALY_ICONS = {
+  'cost-spike': 'triangle-alert',
+  'death-cluster': 'triangle-alert',
+  'gate-fail-streak': 'triangle-alert',
+  'orient-drag': 'compass',
+  'family-runaway': 'triangle-alert',
+  'intent-collision': 'siren',
+  'near-miss-recurring': 'bandage',
+  'guard-denial': 'shield',
+  'sync-back-refusal': 'repeat',
+  'land-gate-alarm': 'siren',
+  'convergence-red': 'octagon-x',
+  'e2e-land-block': 'ban',
+  'convergence-unverifiable': 'triangle-alert',
+  'guard-verify-failed': 'octagon-x',
 };
 /** A needs-you chip for one detected anomaly (see read/anomalies.ts) — label
  *  names the rule, the hover/focus tip carries the evidence that fired it. */
 function anomalyChip(a) {
   var meta = anomalyChipMeta(a, ANOMALY_LABELS);
-  return tipChip(meta.label, meta.tip, meta.ariaLabel, 'chip-anomaly');
+  return tipChip(meta.label, meta.tip, meta.ariaLabel, 'chip-anomaly', ANOMALY_ICONS[a.kind] || 'triangle-alert');
 }
 // statTileAriaLabel is generated FROM web/stat-tiles.ts below (epic 0002
 // "shell decomposition", slice 2, seventy-ninth cut) — its real compiled
