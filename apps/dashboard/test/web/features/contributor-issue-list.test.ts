@@ -70,11 +70,15 @@ describe('contributorIssueListJs', () => {
     expect(out).not.toContain('window.confirm');
   });
 
-  it('reuses the shared el/tipChip helpers rather than re-declaring them', () => {
+  it('reuses the shared el/tipChip/panelHeading helpers rather than re-declaring them', () => {
     const out = contributorIssueListJs();
-    expect(out).toContain("el('h3', 'contributor-issue-list-title'");
+    expect(out).toContain('panelHeading(');
+    expect(out).toContain("'contributor-issue-list-title'");
+    expect(out).toContain("'contributorIssueListTitle'");
+    expect(out).toContain("'sprout'");
     expect(out).not.toContain('function el(');
     expect(out).not.toContain('function tipChip(');
+    expect(out).not.toContain('function panelHeading(');
   });
 
   it('is trimmed — no leading/trailing whitespace', () => {
