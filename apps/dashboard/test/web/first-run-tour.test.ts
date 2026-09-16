@@ -72,7 +72,13 @@ describe('first-run guided tour — auto-open', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     expect(document.querySelector('.tour-dialog')).not.toBeNull();
-    expect(stopTitle()).toBe('Lock on a folder');
+    // NOT "Lock on a folder": at this instant #flightbar still carries its
+    // server-rendered `hidden` — only the onboarding "lock on" micro-task
+    // (obLockOn) drops it — so the Fly bar is not on screen. The walk starts
+    // at the checklist that IS on screen, and which is what reveals the Fly
+    // bar. Stopping on the hidden input instead measured a 0x0 spotlight ring
+    // and dimmed the whole cockpit (operator-reported 2026-09-17).
+    expect(stopTitle()).toBe('Your progress');
   });
 
   it('does not auto-open once the tour has already been dismissed', async () => {
@@ -151,13 +157,17 @@ describe('first-run guided tour — manual open', () => {
       if (!next) break;
       next.click();
     }
+    // "Search the code" is absent by design: #search-q lives inside the
+    // #searchbar section, which syncSearchProjects only un-hides once the
+    // fleet has projects — and this fixture's fleet is empty. A stop whose
+    // target has no box on this page is stepped over rather than spotlighted
+    // with a 0x0 ring (operator-reported 2026-09-17).
     expect(titles).toEqual([
       'Lock on a folder',
       'Let it size the flight',
       'Fire',
       'Your progress',
       'The fleet',
-      'Search the code',
       'Ask about this page',
       'Connections',
       'Report from here',

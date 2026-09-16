@@ -101,12 +101,28 @@ function tourTarget(step) {
   try { return document.querySelector(step.selector); } catch (err) { return null; }
 }
 
+// In the DOM is NOT the same as on the screen (operator-reported 2026-09-17:
+// "the dim sits over the panels and you cannot see them"). This shell renders
+// most panels up front carrying a hidden attribute and drops it only once
+// each one has something to show — #onboarding and the #searchbar that holds
+// #search-q are both tour targets that ship that way. querySelector still
+// finds them, so the walk would happily stop on one, measure a 0x0 rect, and
+// hand tourSpotlight a ring with no hole — whose 9999px shadow then dims the
+// entire page with nothing lit. Hiding here is attribute-based on purpose: it
+// is how this app actually hides things, and unlike a measured rect it is
+// still true under jsdom, where nothing has layout at all.
+function tourVisible(node) {
+  if (!node) return false;
+  if (typeof node.closest !== 'function') return true;
+  return !node.closest('[hidden]');
+}
+
 // Which stops this page can actually show. The Fly bar is absent on some
 // subjects and the checklist disappears once both ticks are earned, so a
 // fixed walk would point at empty space. Indices stay intact — TOUR_STEP_KEYS
 // is index-parallel — and absent ones are stepped over instead of removed.
 function tourPresent(i) {
-  return !!tourTarget(TOUR_STEPS[i]);
+  return tourVisible(tourTarget(TOUR_STEPS[i]));
 }
 function tourFirstPresent(from, dir) {
   var i = from;
@@ -139,6 +155,17 @@ function tourSpotlight(target) {
     target.scrollIntoView({ block: 'center', inline: 'nearest' });
   }
   var r = target.getBoundingClientRect();
+  // A target with no box cannot be spotlighted, and painting the ring anyway
+  // is actively harmful: the hole would be 0x0, so the ring's 9999px shadow
+  // covers the whole viewport and the page reads as uniformly dimmed. Hiding
+  // the ring instead lets .tour-overlay take its own backdrop back and the
+  // card centres — a plain explanation beats a blacked-out screen. This is
+  // the belt to tourVisible()'s braces: whatever future reason a target has
+  // for measuring empty, the tour can no longer black the cockpit out.
+  if (r.width === 0 && r.height === 0) {
+    ring.hidden = true;
+    return null;
+  }
   ring.hidden = false;
   // translate, not offset: the stylesheet only ever animates transform
   // (COCKPIT 6/6's compositor-only rule), and moving a 9999px box-shadow by
