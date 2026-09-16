@@ -279,7 +279,12 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // Then chunk raw 178→185KB (2026-09-15) for THE GUIDED WALK: the spotlight,
 // the anchoring geometry spliced from web/tour.ts, and the same nine stops
 // again in Hebrew via locale-data.ts — measured 184.0KB.
-const CHUNK_RAW_BUDGET = 185 * 1024;
+// Then chunk raw 185→187KB (2026-09-16) for the diff-approval UI shell
+// (VERDICT ap-mtydvfm1-0 slice (a), epic 0020 slice 8): fixProposalDiffLines/
+// fixProposalApproveDisabledReason/fixProposalDiscardTip spliced into
+// web/features/pr-review.ts, plus renderFixProposal and its Discard wiring —
+// measured 186.4KB (190840B).
+const CHUNK_RAW_BUDGET = 187 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -289,7 +294,9 @@ const CHUNK_RAW_BUDGET = 185 * 1024;
 // and its Hebrew strings — measured 52.6KB.
 // Then chunk gzip 53→56KB (2026-09-15) for the guided walk and its Hebrew
 // half — measured 55.3KB.
-const CHUNK_GZIP_BUDGET = 56 * 1024;
+// Then chunk gzip 56→57KB (2026-09-16) for the same diff-approval UI shell
+// entry above — measured 56.1KB (57407B).
+const CHUNK_GZIP_BUDGET = 57 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

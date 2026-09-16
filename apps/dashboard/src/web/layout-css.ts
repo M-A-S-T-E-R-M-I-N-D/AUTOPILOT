@@ -848,6 +848,20 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-review-result-ok { color: var(--color-success); }
 .pr-review-result-fail { color: var(--color-sev-critical); }
 .pr-review-result-warn { color: var(--color-sev-medium); }
+/* The diff-approval shell for a defect verdict's proposed fix commit
+   (VERDICT ap-mtydvfm1-0 slice (a)) — .pr-fix-diff reuses the same
+   monospace-block treatment .firing-diff already established for a patch,
+   and its line divs carry the shared .diff-add/.diff-remove/.diff-hunk/
+   .diff-meta/.diff-file/.diff-context classes (already defined above) rather
+   than duplicating that palette here. */
+.pr-fix-proposal { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }
+.pr-fix-proposal-title { margin: 0; font-weight: 700; }
+.pr-fix-proposal-summary { margin: var(--space-1) 0 0; }
+.pr-fix-diff { margin: var(--space-2) 0 0; padding: var(--space-2); border-inline-start: 2px solid var(--color-border); background: var(--color-surface); font-family: var(--font-mono); font-size: var(--text-xs); overflow-x: auto; white-space: pre; }
+.pr-fix-proposal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.pr-fix-approve, .pr-fix-discard { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); }
+.pr-fix-approve:hover:not(:disabled), .pr-fix-approve:focus-visible:not(:disabled), .pr-fix-discard:hover, .pr-fix-discard:focus-visible { border-color: currentColor; color: var(--color-text); }
+.pr-fix-approve:disabled { opacity: 0.5; cursor: default; }
 .issue-triage-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .issue-triage-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .issue-triage-list { display: flex; flex-direction: column; }
