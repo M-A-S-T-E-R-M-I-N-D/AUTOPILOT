@@ -48,8 +48,7 @@ function renderCiStatusPanel(workflows) {
   var ciPanelHidden = workflows.length === 0;
   if (section.hidden !== ciPanelHidden) section.hidden = ciPanelHidden;
   if (ciPanelHidden) return;
-  var title = el('h3', 'ci-status-title', '⚙️ CI status');
-  title.setAttribute('data-i18n', 'ciStatusTitle');
+  var title = panelHeading('h3', 'ci-status-title', 'ciStatusTitle', 'activity');
   section.appendChild(title);
   var list = el('div', 'ci-status-list');
   for (var i = 0; i < workflows.length; i++) {

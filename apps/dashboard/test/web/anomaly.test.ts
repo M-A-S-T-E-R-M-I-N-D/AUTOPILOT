@@ -62,7 +62,7 @@ describe('anomalyChipMeta', () => {
 describe('guardDenialChipMeta', () => {
   it('builds the label/tip/aria-label triple for a single denial', () => {
     expect(guardDenialChipMeta(1)).toEqual({
-      label: '🛡️ 1 blocked',
+      label: '1 blocked',
       tip: 'The containment/read-hygiene guard denied 1 tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
       ariaLabel: 'guard blocked 1 tool call(s) this firing (containment / read-hygiene)',
     });
@@ -70,7 +70,7 @@ describe('guardDenialChipMeta', () => {
 
   it('builds the label/tip/aria-label triple for multiple denials', () => {
     const meta = guardDenialChipMeta(4);
-    expect(meta.label).toBe('🛡️ 4 blocked');
+    expect(meta.label).toBe('4 blocked');
     expect(meta.tip).toContain('denied 4 tool call(s)');
     expect(meta.ariaLabel).toBe(
       'guard blocked 4 tool call(s) this firing (containment / read-hygiene)',

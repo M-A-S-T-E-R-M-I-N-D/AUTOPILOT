@@ -72,6 +72,21 @@ export function renderPipelineTreeHtml(
     const subject = lane.items[0]?.firingSubject;
     return subject ? `#${ordinal} — ${truncate(subject, SHORT_SUBJECT_LENGTH)}` : `#${ordinal}`;
   };
+  // The file lens (`lens=file`, features/pipeline.ts) labels every item with a repo-relative
+  // PATH, which is routinely wider than the sidebar — operator-reported 2026-09-17: the labels
+  // overflowed their item boxes and pushed the whole tree into a sideways scroll. Split at the
+  // last '/' so the stylesheet can feed the directory prefix to the ellipsis first and keep the
+  // basename, which is the part that actually identifies the node. Concatenated, the two spans'
+  // text is byte-identical to `item.label` — no separator, no reordering — so the visible name
+  // still contains the accessible name (SC 2.5.3 label-in-name) exactly as before.
+  const itemLabelMarkup = (label: string): string => {
+    const cut = label.lastIndexOf('/');
+    const dir = cut < 0 ? '' : label.slice(0, cut + 1);
+    return (
+      (dir === '' ? '' : `<span class="pipeline-item-dir">${esc(dir)}</span>`) +
+      `<span class="pipeline-item-name">${esc(label.slice(cut + 1))}</span>`
+    );
+  };
 
   const focusId = selection.selectedId ?? lanes[0]!.items[0]!.id;
 
@@ -85,7 +100,7 @@ export function renderPipelineTreeHtml(
             `<div class="pipeline-item" role="treeitem" aria-selected="${item.id === selection.selectedId}"` +
             ` tabindex="${item.id === focusId ? 0 : -1}" aria-label="${esc(name)}"` +
             ` data-node-id="${esc(item.id)}" data-status="${status}"` +
-            `${flag('connected', selection.connectedIds.has(item.id))}>${esc(item.label)}</div>`
+            `${flag('connected', selection.connectedIds.has(item.id))}>${itemLabelMarkup(item.label)}</div>`
           );
         })
         .join('');

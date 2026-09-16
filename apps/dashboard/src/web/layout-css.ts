@@ -732,8 +732,8 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0 0 var(--space-3); }
 .pipeline-panel { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-3); }
 .pipeline-tree { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); max-block-size: 70vh; overflow: auto; overscroll-behavior: contain; }
-.pipeline-lane { display: flex; flex-direction: column; gap: var(--space-1); }
-.pipeline-lane-label { color: var(--color-text-muted); font-size: var(--text-xs); font-family: var(--font-mono); }
+.pipeline-lane { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.pipeline-lane-label { color: var(--color-text-muted); font-size: var(--text-xs); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Pipeline tree rows (COCKPIT 6/6): the role="treeitem" rows are structural
    twins of .phase / .report-ctx-menu-item (transparent-bordered rows that
    recolor their border on hover) and now share their MX idiom — shape-morph
@@ -747,6 +747,17 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-item:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .pipeline-item[aria-selected='true'] { border-color: var(--color-accent); background: var(--color-surface); }
 .pipeline-item[data-connected='true'] { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+/* Item labels never widen their row (operator-reported 2026-09-17): in the file
+   lens every label is a repo-relative path, and unclipped they blew past the
+   sidebar and turned .pipeline-tree's own overflow:auto into a horizontal
+   scroll of the whole tree. The row is a flex line of two clipped spans; the
+   directory prefix carries a huge flex-shrink so it is spent on the ellipsis
+   FIRST and the basename — the part that names the node — survives to the last
+   character. Nothing here is animated: the row's transition stays radius+shadow. */
+.pipeline-item { display: flex; min-width: 0; }
+.pipeline-item-dir, .pipeline-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pipeline-item-dir { flex: 0 999 auto; color: var(--color-text-muted); }
+.pipeline-item-name { flex: 0 1 auto; }
 /* flex-grow 0, NOT 1: the svg carries its natural width/height attributes
    (1 viewBox unit = 1px) and must render at that size — growing it to fill
    the panel row re-inflates the preserved aspect ratio until one node fills

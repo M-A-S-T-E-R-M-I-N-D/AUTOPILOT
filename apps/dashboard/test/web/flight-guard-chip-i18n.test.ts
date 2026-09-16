@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * The guard-denial chip's i18n (board web-msnsndki-dz3vn1) — the "🛡️ N
+ * The guard-denial chip's i18n (board web-msnsndki-dz3vn1) — the "N
  * blocked" chip a firing carries when the containment/read-hygiene guard
  * denied one of its tool calls, built from `web/anomaly.ts`'s pure
  * `guardDenialChipMeta` by BOTH the flight log row (`shell.ts`) and the
@@ -16,9 +16,13 @@
  * an `{n}` slot filled from a `data-i18n-args` map (the `flightGroupCostTip`
  * shape): the text (`flightGuardChip`), the tip (`flightGuardChipTip`) and
  * the aria-label (`flightGuardChipAria`). The English text is byte-identical
- * to what `guardDenialChipMeta` said before this slice. Drives the REAL
- * client bundle in jsdom against a mocked /api/state, the same harness as
- * `firing-timeline-chips.test.ts` (whose fixture renders both surfaces).
+ * to what `guardDenialChipMeta` said before this slice, minus the 🛡️ glyph —
+ * epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t) replaced
+ * it with a leading shield icon both callers now pass to `tipChip()`, kept
+ * across a locale switch by `setSweptText()`'s icon-preserving sweep. Drives
+ * the REAL client bundle in jsdom against a mocked /api/state, the same
+ * harness as `firing-timeline-chips.test.ts` (whose fixture renders both
+ * surfaces).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -152,7 +156,8 @@ function fill(template: string, n: number): string {
 }
 
 function expectChipEnglish(chip: HTMLElement, n: number): void {
-  expect(chip.textContent).toBe('🛡️ ' + n + ' blocked');
+  expect(chip.querySelector('svg.icon-shield')).not.toBeNull();
+  expect(chip.textContent).toBe(n + ' blocked');
   expect(chip.getAttribute('data-tip')).toBe(
     'The containment/read-hygiene guard denied ' +
       n +
@@ -172,6 +177,10 @@ function expectChipEnglish(chip: HTMLElement, n: number): void {
 }
 
 function expectChipHebrew(chip: HTMLElement, n: number): void {
+  // The shield icon (a DOM child, not part of the translated string) must
+  // survive the in-place sweep — setSweptText() keeps it instead of
+  // translateDom()'s usual whole-element textContent write.
+  expect(chip.querySelector('svg.icon-shield')).not.toBeNull();
   expect(chip.textContent).toBe(fill(he('flightGuardChip'), n));
   expect(chip.getAttribute('data-tip')).toBe(fill(he('flightGuardChipTip'), n));
   expect(chip.getAttribute('aria-label')).toBe(fill(he('flightGuardChipAria'), n));

@@ -37,7 +37,9 @@ describe('the LANDING panel reads its persistent on-screen text from STRINGS', (
   });
 
   it('translates the flight debrief title and best/worst labels', () => {
-    expect(out).toContain("el('h4', 'flight-debrief-title', tr('landingDebriefTitle'))");
+    expect(out).toContain(
+      "panelHeading('h4', 'flight-debrief-title', 'landingDebriefTitle', 'clipboard-list')",
+    );
     expect(out).toContain("el('span', 'flight-debrief-label', tr('landingDebriefBestLabel'))");
     expect(out).toContain("el('span', 'flight-debrief-label', tr('landingDebriefWorstLabel'))");
     expect(out).not.toContain("'📋 Flight debrief'");

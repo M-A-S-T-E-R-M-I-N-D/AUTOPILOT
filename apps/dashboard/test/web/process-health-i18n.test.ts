@@ -122,7 +122,11 @@ describe('the process-health panel titles i18n wiring (board web-msnsndki-dz3vn1
       const title = document.querySelector(selector);
       expect(title, selector).not.toBeNull();
       expect(title?.textContent, selector).toBe(STRINGS.en[key]);
-      expect(title?.getAttribute('data-i18n'), selector).toBe(key);
+      // panelHeading() (epic 0025 slice 2): data-i18n rides the inner
+      // .heading-text span, not the h3 itself, so translateDom()'s
+      // textContent sweep never wipes the leading icon.
+      expect(title?.hasAttribute('data-i18n'), selector).toBe(false);
+      expect(title?.querySelector('.heading-text')?.getAttribute('data-i18n'), selector).toBe(key);
     }
   });
 

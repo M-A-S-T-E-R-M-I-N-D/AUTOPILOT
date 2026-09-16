@@ -1597,3 +1597,68 @@ describe('GitVcs — commit-log parsing, remotes, and scoped-commit failure', ()
     });
   });
 });
+
+/**
+ * THE PUSH FAILURE AN OPERATOR ACTUALLY READS (mutation testing, 2026-09-16).
+ *
+ * `pushBranch`'s `detail` is not decoration — it is the whole explanation a
+ * human gets when a landing cannot reach the remote. Eight mutants lived in
+ * that one line: drop the `.trim()`, drop the `filter(Boolean)`, widen the
+ * `slice(-3)`, blank the `' · '` separator, blank the `'push failed'`
+ * fallback. Every one of them changed what a person reads and none of them
+ * failed a test, because the only assertion on it was that it had a length.
+ */
+describe('GitVcs — the push failure detail', () => {
+  let dir: string;
+  let remote: string;
+  let vcs: GitVcs;
+
+  beforeEach(() => {
+    remote = mkdtempSync(join(tmpdir(), 'autopilot-git-detail-remote-'));
+    execFileSync('git', ['init', '-q', '--bare', remote], { windowsHide: true });
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-git-detail-'));
+    initRepo(dir);
+    writeFileSync(join(dir, 'a.txt'), 'one\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: first']);
+    gitSync(dir, ['branch', '-M', 'main']);
+    gitSync(dir, ['remote', 'add', 'origin', remote]);
+    vcs = new GitVcs(dir);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(remote, { recursive: true, force: true });
+  });
+
+  it('joins the last lines with the separator, and carries no blank ones', async () => {
+    const result = await vcs.pushBranch('no-such-branch');
+    expect(result.ok).toBe(false);
+    // The separator is what makes a multi-line git error readable on one
+    // line. Without it the words run together into a single sentence that
+    // reads as prose git never wrote.
+    expect(result.detail).toContain(' · ');
+    // `filter(Boolean)` is why: git's output is newline-padded, and an
+    // unfiltered join renders those blanks as " ·  · " runs.
+    expect(result.detail).not.toContain(' ·  · ');
+    expect(result.detail.startsWith(' ')).toBe(false);
+    expect(result.detail.endsWith(' ')).toBe(false);
+  });
+
+  it('keeps at most the last three lines, so one failure cannot flood the record', async () => {
+    const result = await vcs.pushBranch('no-such-branch');
+    expect(result.detail.split(' · ').length).toBeLessThanOrEqual(3);
+    expect(result.detail.split(' · ').length).toBeGreaterThan(0);
+  });
+
+  it('never returns an empty detail — there is always something to read', async () => {
+    // The `|| 'push failed'` fallback. A push that fails while printing
+    // nothing would otherwise hand the operator an empty string, which
+    // reads as "no reason given" rather than "it failed".
+    for (const branch of ['no-such-branch', 'refs/heads/nope']) {
+      const result = await vcs.pushBranch(branch);
+      expect(result.ok).toBe(false);
+      expect(result.detail.trim().length).toBeGreaterThan(0);
+    }
+  });
+});

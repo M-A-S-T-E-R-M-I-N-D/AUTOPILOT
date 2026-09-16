@@ -112,13 +112,17 @@ describe('project page card section reuse across ticks (epic 0018 slice 1)', () 
     new Function(clientJs())();
     await vi.advanceTimersByTimeAsync(1);
 
+    // Epic 0025 slice 2 (icons, shell.ts lane): the label text has no emoji
+    // glyph anymore — a real stroke icon renders alongside it instead.
     expect(document.querySelector('.card-head .chip-anomaly')?.textContent).toBe(
-      '🩹 recurring near-miss',
+      'recurring near-miss',
     );
+    expect(document.querySelector('.card-head .chip-anomaly svg.icon-bandage')).not.toBeNull();
 
     state.projects[0]!.anomalies = [{ kind: 'guard-denial', evidence: 'blocked a write' }];
     await vi.advanceTimersByTimeAsync(3000);
 
-    expect(document.querySelector('.card-head .chip-anomaly')?.textContent).toBe('🛡️ guard denial');
+    expect(document.querySelector('.card-head .chip-anomaly')?.textContent).toBe('guard denial');
+    expect(document.querySelector('.card-head .chip-anomaly svg.icon-shield')).not.toBeNull();
   });
 });

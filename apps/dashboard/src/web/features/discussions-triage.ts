@@ -133,8 +133,7 @@ function loadDiscussionsTriageBody(body) {
 }
 function discussionsTriageSection(pid) {
   var wrap = el('section', 'discussions-triage-panel');
-  var title = el('h3', 'discussions-triage-title', '💬 KEEPER Discussions triage');
-  title.setAttribute('data-i18n', 'discussionsTriageTitle');
+  var title = panelHeading('h3', 'discussions-triage-title', 'discussionsTriageTitle', 'message-circle');
   wrap.appendChild(title);
   var body = el('div', 'discussions-triage-body');
   var loadingMsg = el('p', 'muted', 'Checking open discussions against the board…');

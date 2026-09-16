@@ -297,7 +297,7 @@ describe('client-side liveFiring aggregate stays in sync with the shared liveFir
     );
     expect(document.querySelector('.live-worker-narrator')?.textContent).toBe(expected?.narrator);
     expect(document.querySelector('.live-worker-line')?.textContent).toBe(
-      '🎯 working: ' + expected?.focusTask,
+      'working: ' + expected?.focusTask,
     );
     expect(document.querySelector('.live-worker-turns')?.textContent).toContain(
       String(expected?.turnsSeen),

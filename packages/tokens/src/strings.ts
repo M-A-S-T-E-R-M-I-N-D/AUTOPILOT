@@ -840,7 +840,7 @@ const EN_STRINGS = {
   activityHeatmapAria:
     'Firing activity over the last {weeks} weeks — green days shipped, red days had a death',
   activityHeatmapLegend: 'green = shipped · red = died · gray = other activity',
-  inboxSummary: '📝 Drop a note',
+  inboxSummary: 'Drop a note',
   inboxNoteLabel: 'Drop a note for the next firing',
   inboxNotePlaceholder:
     'context, a plan, a correction — read fresh at the start of the next firing',
@@ -923,7 +923,10 @@ const EN_STRINGS = {
   // same three literals, so one set of keys tags both surfaces.
   firingCountTip: 'Tool calls and activity recorded for this firing',
   firingStartedTip: 'When this firing started',
-  autoFixed: '🔧 auto-fixed',
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): no
+  // more baked-in 🔧 glyph — the callers (shell.ts, features/
+  // firing-timeline.ts) now pass tipChip() a leading wrench icon instead.
+  autoFixed: 'auto-fixed',
   autoFixedTip:
     'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
   autoFixedAria: 'auto-fixed: formatting was mechanically remediated before this firing shipped',
@@ -963,7 +966,9 @@ const EN_STRINGS = {
   // (features/firing-timeline.ts). Its text, tip and aria-label each wrap the
   // live denial count ({n}, from data-i18n-args), so all three ride the
   // template sweeps; the English is byte-identical to what the meta paints.
-  flightGuardChip: '🛡️ {n} blocked',
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): no
+  // more baked-in 🛡️ glyph — the callers pass tipChip() a shield icon.
+  flightGuardChip: '{n} blocked',
   flightGuardChipTip:
     'The containment/read-hygiene guard denied {n} tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
   flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
@@ -1041,7 +1046,7 @@ const EN_STRINGS = {
   liveLabel: 'live — firing in progress',
   livePhaseAria: 'current phase: {name}',
   liveNarratorTip: "AUTOPILOT's own one-sentence summary of its most recent action this firing",
-  liveFocusTask: '🎯 working: {name}',
+  liveFocusTask: 'working: {name}',
   liveFocusTaskTip: 'The board task this firing is explicitly working on',
   liveProbableTask: 'probably working: {name}',
   liveProbableTaskTip:
@@ -1160,6 +1165,10 @@ const EN_STRINGS = {
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
   contributorIssueListPanel: 'Good first issues',
+  // Epic 0025 slice 2: the panel's own h3 heading (built via panelHeading()
+  // with the sprout icon) — distinct from contributorIssueListPanel above,
+  // which stays the section's aria-label.
+  contributorIssueListTitle: 'Good first issues',
   // APP SHELL (epic 0021): the subject navigation — a bottom bar on a phone,
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
@@ -1212,7 +1221,7 @@ const EN_STRINGS = {
   keeperSourceWisdom: 'Wisdom',
   keeperSourceApproval: 'Approval',
   pipelineView: 'Pipeline view',
-  pipelineViewTitle: '🛠️ Pipeline view',
+  pipelineViewTitle: 'Pipeline view',
   pipelineLensLabel: 'Pipeline lens',
   pipelineLensFleet: 'Fleet',
   pipelineLensFiles: 'Files',
@@ -1224,7 +1233,7 @@ const EN_STRINGS = {
   pipelineLayoutCompact: 'Compact',
   pipelineLoading: 'Loading pipeline spans…',
   pipelineUnavailable: 'Pipeline view unavailable.',
-  planEditorTitle: '✍️ Flight plan',
+  planEditorTitle: 'Flight plan',
   planEditorLoading: 'Loading the flight plan…',
   planEditorUnavailable: 'The flight plan is read-only here.',
   planEditorEnabled: 'Runs',
@@ -1278,7 +1287,7 @@ const EN_STRINGS = {
     'For AUTOPILOT fleets: claim an issue here and your own pilot flies it, on your tokens. People claim on GitHub with /claim.',
   contributorIssueListAudience:
     'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below.',
-  ciStatusTitle: '⚙️ CI status',
+  ciStatusTitle: 'CI status',
   // web/features/pool-client.ts's per-entry text (board web-msnsndki-dz3vn1):
   // rebuilt fresh on every 30s poll or click, so tr() at build time is the
   // sweep, the same reasoning report-menu.ts's keys followed.
@@ -1726,7 +1735,7 @@ const EN_STRINGS = {
   landingExecuteButton: '🛬 Execute landing → {base}',
   landingRestarting:
     '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
-  landingDebriefTitle: '📋 Flight debrief',
+  landingDebriefTitle: 'Flight debrief',
   landingDebriefBestLabel: '🏆 Best: ',
   landingDebriefWorstLabel: '💀 Worst: ',
   // The panel's branch line (renderLandingBody()'s "branch → base" row above
@@ -1845,7 +1854,7 @@ const EN_STRINGS = {
   // establishes for a fetch-then-render-then-execute panel. "KEEPER" stays
   // Latin in every locale, the same proper-name stance issueTriageTitle
   // above takes.
-  discussionsTriageTitle: '💬 KEEPER Discussions triage',
+  discussionsTriageTitle: 'KEEPER Discussions triage',
   discussionsTriageLoading: 'Checking open discussions against the board…',
   discussionsTriageEmpty: 'No open discussions to triage.',
   discussionsTriageUnavailable: 'Discussions triage unavailable.',
@@ -1879,15 +1888,15 @@ const EN_STRINGS = {
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
-  doraTitle: '📈 Process health (DORA)',
-  gateParallelTitle: '⚡ Parallel gate savings',
-  warmSessionsTitle: '🔥 Warm sessions',
+  doraTitle: 'Process health (DORA)',
+  gateParallelTitle: 'Parallel gate savings',
+  warmSessionsTitle: 'Warm sessions',
   // web/features/evolution.ts (board web-msnsndki-dz3vn1): the project page's
   // "is the agent improving?" evolution cluster — the trend chart's heading
   // and its stat-tile summary's heading. Both ride the page-level sweep, the
   // same wiring as the three process-health titles above.
   evolutionTrendTitle: 'Evolution — is the agent improving?',
-  evolutionSummaryTitle: '🧬 Approval summary',
+  evolutionSummaryTitle: 'Approval summary',
   // web/features/foundation.ts's masthead heart + Foundation panel (FOUNDATION
   // 1/3, board web-mtq0rsit-ywz1m7) — hidden until GET /api/donations reports
   // a real, verified entry (see docs/FOUNDATION.md's "never before" custody
@@ -2227,7 +2236,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     activityHeatmapAria:
       'פעילות טיסות ב-{weeks} השבועות האחרונים — בימים ירוקים שוגר קוד, בימים אדומים אירע כשל',
     activityHeatmapLegend: 'ירוק = שוגר · אדום = נכשל · אפור = פעילות אחרת',
-    inboxSummary: '📝 הוסף הערה',
+    inboxSummary: 'הוסף הערה',
     inboxNoteLabel: 'הוסף הערה להפעלה הבאה',
     inboxNotePlaceholder: 'הקשר, תוכנית, תיקון — נקרא מחדש בתחילת ההפעלה הבאה',
     inboxDropNote: 'הוסף הערה',
@@ -2273,7 +2282,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     diffEmpty: 'אין הבדלים זמינים להפעלה הזו.',
     firingCountTip: 'קריאות כלים ופעילות שנרשמו להפעלה הזו',
     firingStartedTip: 'מתי ההפעלה הזו התחילה',
-    autoFixed: '🔧 תוקן אוטומטית',
+    autoFixed: 'תוקן אוטומטית',
     autoFixedTip:
       'השער נכשל בבדיקת עיצוב הקוד; תיקון מכני פתר זאת אוטומטית וההפעלה הזו שוגרה נקייה במקום להתבטל.',
     autoFixedAria: 'תוקן אוטומטית: עיצוב הקוד תוקן באופן מכני לפני שההפעלה הזו שוגרה',
@@ -2320,9 +2329,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveLabel: 'חי — הפעלה בעיצומה',
     livePhaseAria: 'שלב נוכחי: {name}',
     liveNarratorTip: 'הסיכום של AUTOPILOT עצמו, במשפט אחד, לפעולה האחרונה שלו בהפעלה הזו',
-    liveFocusTask: '🎯 עובדת על: {name}',
+    liveFocusTask: 'עובדת על: {name}',
     liveFocusTaskTip: 'משימת הלוח שההפעלה הזו עובדת עליה במפורש',
-    flightGuardChip: '🛡️ {n} נחסמו',
+    flightGuardChip: '{n} נחסמו',
     flightGuardChipTip:
       'שומר ההכלה/היגיינת הקריאה דחה {n} קריאות כלים במהלך ההפעלה הזו — היא ניסתה לחרוג מהגבול שלה ונעצרה.',
     flightGuardChipAria: 'השומר חסם {n} קריאות כלים בהפעלה הזו (הכלה / היגיינת קריאה)',
@@ -2413,6 +2422,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
     contributorIssueListPanel: 'בעיות טובות למתחילים',
+    contributorIssueListTitle: 'בעיות טובות למתחילים',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
     subjectOverview: 'סקירה',
@@ -2455,7 +2465,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     keeperSourceWisdom: 'חוכמה',
     keeperSourceApproval: 'אישור',
     pipelineView: 'תצוגת צנרת',
-    pipelineViewTitle: '🛠️ תצוגת צנרת',
+    pipelineViewTitle: 'תצוגת צנרת',
     pipelineLensLabel: 'מסנן הצנרת',
     pipelineLensFleet: 'צי',
     pipelineLensFiles: 'קבצים',
@@ -2467,7 +2477,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     pipelineLayoutCompact: 'קומפקטי',
     pipelineLoading: 'טוען נתוני צנרת…',
     pipelineUnavailable: 'תצוגת הצנרת אינה זמינה.',
-    planEditorTitle: '✍️ תוכנית טיסה',
+    planEditorTitle: 'תוכנית טיסה',
     planEditorLoading: 'טוען את תוכנית הטיסה…',
     planEditorUnavailable: 'תוכנית הטיסה לקריאה בלבד כאן.',
     planEditorEnabled: 'רץ',
@@ -2514,7 +2524,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לציי AUTOPILOT: תבעו כאן issue והטייס שלכם מטיס אותו, על הטוקנים שלכם. אנשים תובעים ב-GitHub עם ‎/claim.',
     contributorIssueListAudience:
       'לאנשים: שמור לבני אדם, הצי עוקף אותם. תבעו אחד ב-GitHub עם ‎/claim; ההדרכה למטה.',
-    ciStatusTitle: '⚙️ מצב CI',
+    ciStatusTitle: 'מצב CI',
     poolNoLocalTask: 'ללא משימה מקומית',
     poolProjectSelectAria: 'פרויקט מקומי להוספת משימת לוח (אופציונלי)',
     poolProjectSelectTip:
@@ -2868,7 +2878,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingNothingToLand: 'אין מה להנחית — הענף כבר מיושר עם הבסיס.',
     landingExecuteButton: '🛬 בצע נחיתה אל {base}',
     landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
-    landingDebriefTitle: '📋 תחקיר טיסה',
+    landingDebriefTitle: 'תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',
     landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
     landingBranchTip: 'הענף הפעיל כרגע',
@@ -2935,7 +2945,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לפתוח issues ב-GitHub עבור סטיית התיעוד שלמעלה עכשיו? זה פותח issue חדש דרך gh עבור כל ממצא שאינו במעקב עדיין.',
     mirrorPassDriftExecuting: 'פותח…',
     mirrorPassDriftRequestFailed: 'בקשת תיקון סטיית התיעוד נכשלה.',
-    discussionsTriageTitle: '💬 טריאז׳ Discussions של KEEPER',
+    discussionsTriageTitle: 'טריאז׳ Discussions של KEEPER',
     discussionsTriageLoading: 'בודק דיונים פתוחים מול הלוח…',
     discussionsTriageEmpty: 'אין דיונים פתוחים לטריאז׳.',
     discussionsTriageUnavailable: 'טריאז׳ הדיונים אינו זמין.',
@@ -2957,11 +2967,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לשחרר את התביעות הישנות שלמעלה עכשיו? זה מבטל שיוך לכל issue תבוע שהאחראי עליו שקט מעבר לסף הקצירה.',
     mirrorPassStaleClaimExecuting: 'משחרר…',
     mirrorPassStaleClaimRequestFailed: 'בקשת שחרור התביעות הישנות של מעבר השיקוף נכשלה.',
-    doraTitle: '📈 בריאות התהליך (DORA)',
-    gateParallelTitle: '⚡ חיסכון משער מקבילי',
-    warmSessionsTitle: '🔥 מפגשים חמים',
+    doraTitle: 'בריאות התהליך (DORA)',
+    gateParallelTitle: 'חיסכון משער מקבילי',
+    warmSessionsTitle: 'מפגשים חמים',
     evolutionTrendTitle: 'אבולוציה — האם הסוכן משתפר?',
-    evolutionSummaryTitle: '🧬 סיכום אישורים',
+    evolutionSummaryTitle: 'סיכום אישורים',
     foundation: 'קרן',
     foundationTip: 'תמכו ב-AUTOPILOT — כתובות תרומה מאומתות',
     foundationCopyAddress: 'העתק כתובת',

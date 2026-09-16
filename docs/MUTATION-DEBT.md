@@ -88,7 +88,7 @@ Top files, which carry 63% of the debt between them:
 | `packages/store` (`schema.ts`, `rank.ts`) | 34.17% | **100%** | 78 static scoped out; two real gaps closed — the contiguity error's `join` separator, and versions declared out of order |
 | `packages/onboarding` secret-guard | 99.01% | **100%** | one static mutant |
 | `packages/engine/src/guard.ts` | 93.9% | 93.25% | the survivor in the new bundled-flag helper is killed; 41 remain |
-| `packages/engine/src/adapters/git.ts` | 87.61% | **92.86%** | 60 → 45 survivors; **no-coverage 31 → 3** (`pushBranch`, `dirtyPaths`) |
+| `packages/engine/src/adapters/git.ts` | 87.61% | **93.30%** | 60 → 42 survivors; **no-coverage 31 → 3** (`pushBranch`, `dirtyPaths`) |
 
 ### A third category the inventory did not anticipate
 
@@ -108,6 +108,36 @@ written into the comment. That is rule 1 working as intended, not an
 exception to it: the claim is checked before it is made, and a reader can
 re-run the check. Doing this to git.ts's four such guards moved it from
 90.88% to 92.86% and removed 16 survivors.
+
+### Is 100% actually reachable?
+
+Yes, and the evidence is already in the repository: **60 of the 103 configs
+sit at 100% today**, under the identical `break: 100` bar. This is not a
+target nobody has hit; it is the current state of the majority of the
+suite. Two more reached it on 2026-09-16 with real tests.
+
+With one honest qualification. A 100% score will include a minority of
+documented equivalent-mutant disables, because some mutants cannot be
+killed by any assertion on observable behaviour: a temp-directory name, an
+`rmSync` force flag, a guard whose removal reaches the same answer one line
+later. In `git.ts` that was four lines out of roughly thirty survivor
+sites. The integrity test is not that the number reads 100 — it is that
+every disable states a **measured** reason a reader can re-run.
+
+The real risk is the opposite failure: reaching 100% by writing assertions
+that exist only to satisfy Stryker. That converts a true signal into a
+false one and is strictly worse than the survivor it removes. Rule 3
+exists for it, and an honest 93% beats a hollow 100%.
+
+### A process note, learned the hard way
+
+`reports/mutation/<name>/mutation.json` is rewritten at the END of a run.
+Reading it while a run is still going returns the PREVIOUS run's numbers,
+with no indication that is what you are holding. That happened here on
+2026-09-16 and produced a confident, wrong conclusion that a batch of new
+tests had killed almost nothing — when the run that included them had not
+finished. Always confirm the run printed its `All files` summary line
+before reading the report.
 
 ## Working order
 

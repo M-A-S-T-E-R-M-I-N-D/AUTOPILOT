@@ -937,7 +937,14 @@ function liveWorkerCard(c) {
   narratorEl.setAttribute('aria-label', live.narrator);
   wrap.appendChild(narratorEl);
   if (live.focusTask) {
-    var focusTaskEl = el('p', 'live-worker-line', tr('liveFocusTask', live.focusTask));
+    // Epic 0025 slice 2 (icons, shell.ts lane, board web-mtzpcw6f-26443t): a
+    // leading target icon replaces the 🎯 glyph the STRINGS template used to
+    // bake into the text — translateDom()'s [data-i18n-template] sweep
+    // (features/locale.ts's setSweptText()) keeps this icon in place across
+    // a locale switch instead of overwriting the whole line's textContent.
+    var focusTaskEl = el('p', 'live-worker-line');
+    focusTaskEl.appendChild(iconEl('target'));
+    focusTaskEl.appendChild(document.createTextNode(tr('liveFocusTask', live.focusTask)));
     focusTaskEl.setAttribute('tabindex', '0');
     focusTaskEl.setAttribute('data-i18n-template', 'liveFocusTask');
     focusTaskEl.setAttribute('data-i18n-aria-template', 'liveFocusTask');
@@ -1250,26 +1257,49 @@ ${sharedAnomalyChipMeta.toString()}
 // apart.
 ${sharedGuardDenialChipMeta.toString()}
 var ANOMALY_LABELS = {
-  'cost-spike': '⚠ cost spike',
-  'death-cluster': '⚠ death cluster',
-  'gate-fail-streak': '⚠ gate fail streak',
-  'orient-drag': '🧭 orient drag',
-  'family-runaway': '⚠ family runaway',
-  'intent-collision': '🚨 intent collision',
-  'near-miss-recurring': '🩹 recurring near-miss',
-  'guard-denial': '🛡️ guard denial',
-  'sync-back-refusal': '🔁 sync-back refused',
-  'land-gate-alarm': '🚨 land gate alarm',
-  'convergence-red': '⛔ convergence red',
-  'e2e-land-block': '🚫 e2e land block',
-  'convergence-unverifiable': '❓ convergence unverifiable',
-  'guard-verify-failed': '🛑 guard verify failed',
+  'cost-spike': 'cost spike',
+  'death-cluster': 'death cluster',
+  'gate-fail-streak': 'gate fail streak',
+  'orient-drag': 'orient drag',
+  'family-runaway': 'family runaway',
+  'intent-collision': 'intent collision',
+  'near-miss-recurring': 'recurring near-miss',
+  'guard-denial': 'guard denial',
+  'sync-back-refusal': 'sync-back refused',
+  'land-gate-alarm': 'land gate alarm',
+  'convergence-red': 'convergence red',
+  'e2e-land-block': 'e2e land block',
+  'convergence-unverifiable': 'convergence unverifiable',
+  'guard-verify-failed': 'guard verify failed',
+};
+// Epic 0025 slice 2 (icons, shell.ts lane): one of the 8 vendored stroke
+// icons per anomaly kind — several kinds share an icon (four ⚠ variants all
+// read triangle-alert; convergence-red/guard-verify-failed both read
+// octagon-x, the closest stroke shape to the stop-sign emoji they replace);
+// convergence-unverifiable has no dedicated glyph and falls back to
+// triangle-alert (uncertain-result-as-warning reads closest to the ❓ it
+// replaces).
+var ANOMALY_ICONS = {
+  'cost-spike': 'triangle-alert',
+  'death-cluster': 'triangle-alert',
+  'gate-fail-streak': 'triangle-alert',
+  'orient-drag': 'compass',
+  'family-runaway': 'triangle-alert',
+  'intent-collision': 'siren',
+  'near-miss-recurring': 'bandage',
+  'guard-denial': 'shield',
+  'sync-back-refusal': 'repeat',
+  'land-gate-alarm': 'siren',
+  'convergence-red': 'octagon-x',
+  'e2e-land-block': 'ban',
+  'convergence-unverifiable': 'triangle-alert',
+  'guard-verify-failed': 'octagon-x',
 };
 /** A needs-you chip for one detected anomaly (see read/anomalies.ts) — label
  *  names the rule, the hover/focus tip carries the evidence that fired it. */
 function anomalyChip(a) {
   var meta = anomalyChipMeta(a, ANOMALY_LABELS);
-  return tipChip(meta.label, meta.tip, meta.ariaLabel, 'chip-anomaly');
+  return tipChip(meta.label, meta.tip, meta.ariaLabel, 'chip-anomaly', ANOMALY_ICONS[a.kind] || 'triangle-alert');
 }
 // statTileAriaLabel is generated FROM web/stat-tiles.ts below (epic 0002
 // "shell decomposition", slice 2, seventy-ninth cut) — its real compiled
@@ -2025,11 +2055,17 @@ function flightLogNode(c) {
     if (f.autoformatRescued) {
       // i18n (board web-msnsndki-dz3vn1): the same three keys the per-firing
       // trace row's copy of this chip carries (features/firing-timeline.ts).
+      // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): a
+      // wrench icon replaces the 🔧 glyph STRINGS used to bake into the text
+      // — setSweptText() (features/locale.ts) already keeps a leading icon
+      // child across the [data-i18n] sweep this chip carries, so no
+      // locale.ts change is needed for this pairing.
       var logAutoFixedChip = tipChip(
-        '🔧 auto-fixed',
+        'auto-fixed',
         'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.',
         'auto-fixed: formatting was mechanically remediated before this firing shipped',
         'flight-autoformat-chip',
+        'wrench',
       );
       logAutoFixedChip.setAttribute('data-i18n', 'autoFixed');
       logAutoFixedChip.setAttribute('data-i18n-tip', 'autoFixedTip');
@@ -2038,11 +2074,15 @@ function flightLogNode(c) {
     }
     if (f.guardDenials) {
       var logGuardMeta = guardDenialChipMeta(f.guardDenials);
+      // A shield icon replaces the 🛡️ glyph guardDenialChipMeta used to bake
+      // into its label — same setSweptText() coverage as the chip above, this
+      // one via the [data-i18n-template] sweep.
       var logGuardChip = tipChip(
         logGuardMeta.label,
         logGuardMeta.tip,
         logGuardMeta.ariaLabel,
         'flight-guard-chip',
+        'shield',
       );
       // i18n (board web-msnsndki-dz3vn1): text, tip and aria-label each wrap
       // the live denial count, so all three ride the template sweeps with {n}
@@ -2620,10 +2660,11 @@ function tasksSection(c) {
           var staleTip = taskStalenessTip(stalenessDays);
           li.appendChild(
             tipChip(
-              '🕒 ' + stalenessDays + 'd stale',
+              stalenessDays + 'd stale',
               staleTip,
               'Stale: ' + stalenessDays + (stalenessDays === 1 ? ' day' : ' days'),
               'chip-stale',
+              'clock',
             ),
           );
         }
@@ -2739,7 +2780,14 @@ function tasksSection(c) {
   wrap.appendChild(inboxH);
   var inboxDetails = document.createElement('details');
   inboxDetails.className = 'inbox-details';
-  var inboxSummary = el('summary', 'inbox-summary', '📝 Drop a note');
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): an
+  // inbox icon replaces the 📝 glyph STRINGS used to bake into the summary
+  // text — setSweptText() (features/locale.ts) already keeps a leading icon
+  // child across the [data-i18n] sweep this summary carries, and the
+  // summary > .icon spacing rule (layout-css.ts) already covers this tag.
+  var inboxSummary = el('summary', 'inbox-summary');
+  inboxSummary.appendChild(iconEl('inbox'));
+  inboxSummary.appendChild(document.createTextNode('Drop a note'));
   inboxSummary.setAttribute('data-i18n', 'inboxSummary');
   inboxDetails.appendChild(inboxSummary);
   var inboxForm = document.createElement('form');

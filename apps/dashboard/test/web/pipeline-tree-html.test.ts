@@ -68,7 +68,36 @@ describe('renderPipelineTreeHtml', () => {
       'aria-label="implement — 1 span, error" data-node-id="s2" data-status="error"',
     );
     expect(html).toContain('aria-label="review — 3 spans, ok" data-node-id="s3" data-status="ok"');
-    expect(html).toContain('>plan</div>');
+    expect(html).toContain('<span class="pipeline-item-name">plan</span></div>');
+  });
+
+  it('splits a file-lens path label so the ellipsis eats the directory, not the basename', () => {
+    // The file lens labels items with repo-relative paths. Rendered as one text
+    // node they overflowed the sidebar (operator-reported 2026-09-17); the split
+    // gives the stylesheet a prefix it can sacrifice and a basename it must keep.
+    const html = render(
+      graph([
+        {
+          id: 's1',
+          traceId: 't1',
+          label: 'packages/engine/src/adapters/git.ts',
+          spanCount: 1,
+          status: 1,
+        },
+      ]),
+    );
+    expect(html).toContain(
+      '<span class="pipeline-item-dir">packages/engine/src/adapters/</span>' +
+        '<span class="pipeline-item-name">git.ts</span>',
+    );
+    // Concatenated, the two spans still read back as the exact label — the
+    // visible name keeps containing the accessible name (SC 2.5.3).
+    expect(html).toContain('aria-label="packages/engine/src/adapters/git.ts — 1 span, ok"');
+  });
+
+  it('emits no directory span for a label that carries no path separator', () => {
+    const html = render(TWO_LANES);
+    expect(html).not.toContain('pipeline-item-dir');
   });
 
   it('gives every treeitem an explicit aria-selected and roves tabindex to the selected item', () => {
@@ -147,7 +176,9 @@ describe('renderPipelineTreeHtml', () => {
     expect(html).toContain('data-node-id="a&quot;&lt;b&gt;"');
     expect(html).toContain('data-trace-id="t&lt;1&gt;"');
     expect(html).toContain('aria-label="&lt;join&gt; &amp; &quot;quote&quot; — 2 spans, ok"');
-    expect(html).toContain('>&lt;join&gt; &amp; &quot;quote&quot;</div>');
+    expect(html).toContain(
+      '<span class="pipeline-item-name">&lt;join&gt; &amp; &quot;quote&quot;</span></div>',
+    );
     expect(html).not.toContain('<join>');
   });
 });

@@ -51,8 +51,11 @@ export function anomalyChipMeta(
  *  same "gate stays inline, meta stays pure" split `anomalyChipMeta`'s own
  *  caller (`anomalyChip`) uses. */
 export function guardDenialChipMeta(guardDenials: number): AnomalyChipMeta {
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): no
+  // more baked-in 🛡️ glyph in the label — both callers (shell.ts, features/
+  // firing-timeline.ts) now pass tipChip() a leading shield icon instead.
   return {
-    label: '🛡️ ' + guardDenials + ' blocked',
+    label: guardDenials + ' blocked',
     tip:
       'The containment/read-hygiene guard denied ' +
       guardDenials +
