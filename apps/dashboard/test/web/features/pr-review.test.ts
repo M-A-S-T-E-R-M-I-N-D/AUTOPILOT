@@ -22,6 +22,9 @@ import {
   prReviewExecuteTip,
   prReviewGuestNote,
   awaitingApprovalChecksUrl,
+  fixProposalDiffLines,
+  fixProposalApproveDisabledReason,
+  fixProposalDiscardTip,
 } from '../../../src/web/pr-review-panel.js';
 import { decisionItemHeadMeta } from '../../../src/web/decision-item.js';
 import { prReviewJs } from '../../../src/web/features/pr-review.js';
@@ -139,5 +142,23 @@ describe('prReviewJs', () => {
   it('is trimmed — no leading/trailing whitespace', () => {
     const out = prReviewJs();
     expect(out).toBe(out.trim());
+  });
+
+  it('embeds the diff-approval shell splices real compiled source via .toString() (VERDICT ap-mtydvfm1-0 slice a)', () => {
+    const out = prReviewJs();
+    expect(out).toContain(fixProposalDiffLines.toString());
+    expect(out).toContain(fixProposalApproveDisabledReason.toString());
+    expect(out).toContain(fixProposalDiscardTip.toString());
+  });
+
+  it('wires the Diagnose response into renderFixProposal, ready for the moment a defect verdict carries a fixProposal', () => {
+    const out = prReviewJs();
+    expect(out).toContain('function renderFixProposal(item, proposal, number) {');
+    expect(out).toContain(
+      "wirePrMaintainerAction('data-pr-diagnose', 'Diagnosing…', '/api/pr-review/diagnose?number=', null, null, checkDiagnosisResult,",
+    );
+    expect(out).toContain(
+      'renderFixProposal(item, data && data.diagnosis && data.diagnosis.fixProposal, number);',
+    );
   });
 });

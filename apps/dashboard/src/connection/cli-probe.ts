@@ -26,9 +26,17 @@ export interface CliProbe {
   readonly version: string | null;
 }
 
-/** Extract an `x.y.z` version from `--version` output, else the trimmed text, else null. */
+/** Extract an `x.y.z` version from `--version` output, else the trimmed text, else null.
+ *
+ *  The `(?<!\d)` is load-bearing (CodeQL js/polynomial-redos, 2026-09-16).
+ *  Without it, a long run of digits gave the engine a fresh start position at
+ *  every digit — each one re-consuming the rest of the run before failing —
+ *  so the scan cost grew with the square of the run's length. Refusing to
+ *  start mid-number makes every interior position fail on its first
+ *  character. A word boundary would have been wrong here: `\b` after the `v`
+ *  in `v1.2.3` fails, and that is the commonest shape `--version` prints. */
 export function parseCliVersion(stdout: string): string | null {
-  const match = stdout.match(/\d+\.\d+\.\d+/);
+  const match = stdout.match(/(?<!\d)\d+\.\d+\.\d+/);
   if (match) return match[0];
   const trimmed = stdout.trim();
   return trimmed.length > 0 ? trimmed : null;

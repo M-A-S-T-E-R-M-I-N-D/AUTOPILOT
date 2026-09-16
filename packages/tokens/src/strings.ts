@@ -784,7 +784,7 @@ const EN_STRINGS = {
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
-  roundTitle: '🔄 This round',
+  roundTitle: 'This round',
   roundLoading: 'Loading round totals…',
   roundUnavailable: 'Round totals unavailable.',
   roundNoTags: 'No release tags yet — every firing counts toward the round so far.',
@@ -1316,6 +1316,17 @@ const EN_STRINGS = {
   prefsReset: 'Reset to defaults',
   prefsHint:
     'Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.',
+  // THE TERMINAL HUD (epic 0029 slice 3): a floating bar under the terminal theme.
+  terminalHudAria: 'Terminal HUD',
+  terminalHudLabel: 'Terminal HUD',
+  terminalHudScanlines: 'Scanlines',
+  terminalHudScanlinesOff: 'Off',
+  terminalHudScanlinesOn: 'On',
+  terminalHudGlow: 'Glow',
+  terminalHudGlowOff: 'Off',
+  terminalHudGlowOn: 'On',
+  terminalHudDismiss: 'Dismiss the terminal HUD',
+  terminalHudDismissTip: 'Reset to defaults in Settings brings it back',
   // THE ASK SHEET (epic 0026 slice 3): the floating button and its sheet.
   askFab: 'Ask',
   askFabTip: 'Ask Architect or Genius about this page — opens beside it',
@@ -2169,7 +2180,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     docsTitle: 'מסמכים',
     docsEmpty: 'עדיין אין מסמכים באינדקס.',
     docsUnavailable: 'המסמכים אינם זמינים.',
-    roundTitle: '🔄 הסבב הזה',
+    roundTitle: 'הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
     roundNoTags: 'עדיין אין תגיות שחרור — כל הפעלה נספרת לסבב עד כה.',
@@ -2537,6 +2548,16 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prefsReset: 'איפוס לברירת המחדל',
     prefsHint:
       'נשמר בדפדפן הזה בלבד. הטקסט גדל עד 125% והריווח מתרחב בלי אובדן; תנועה מופחתת נשמרת גם כשהמערכת לא מבקשת.',
+    terminalHudAria: 'תצוגת HUD של הטרמינל',
+    terminalHudLabel: 'HUD של הטרמינל',
+    terminalHudScanlines: 'קווי סריקה',
+    terminalHudScanlinesOff: 'כבוי',
+    terminalHudScanlinesOn: 'פעיל',
+    terminalHudGlow: 'זוהר',
+    terminalHudGlowOff: 'כבוי',
+    terminalHudGlowOn: 'פעיל',
+    terminalHudDismiss: 'סגירת ה-HUD של הטרמינל',
+    terminalHudDismissTip: 'איפוס לברירת המחדל בהגדרות יחזיר אותו',
     askFab: 'שאל',
     askFabTip: 'שאלו את הארכיטקט או את הג׳ניוס על העמוד הזה — נפתח לצידו',
     askSheetTitle: 'שאל',

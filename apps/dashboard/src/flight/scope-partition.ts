@@ -83,10 +83,22 @@ const HUB_FILE_BASENAMES = ['shell.ts'];
  *  same hub file lands in the same group regardless of how its area reads. */
 function hubFileKeyOf(title: string): string | null {
   for (const basename of HUB_FILE_BASENAMES) {
-    const escaped = basename.replace(/\./g, '\\.');
-    if (new RegExp(`(?:^|[\\s/])${escaped}\\b`).test(title)) return basename;
+    if (new RegExp(`(?:^|[\\s/])${escapeForRegExp(basename)}\\b`).test(title)) return basename;
   }
   return null;
+}
+
+/** Every RegExp metacharacter escaped, not just the dot.
+ *
+ *  The dot was the only one a filename was expected to carry, so it was the
+ *  only one escaped (CodeQL js/incomplete-sanitization, 2026-09-16). That
+ *  held exactly as long as HUB_FILE_BASENAMES stayed ordinary filenames: the
+ *  first entry with a `+`, `(` or a backslash would have been compiled as
+ *  pattern syntax rather than matched literally — silently mis-grouping
+ *  tasks, or throwing on an unbalanced bracket. Escaping the whole set costs
+ *  nothing and removes the standing invitation. */
+function escapeForRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** The cohesion key a task groups under — hub file > path prefix > leading tag

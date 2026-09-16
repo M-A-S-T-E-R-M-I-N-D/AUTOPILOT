@@ -77,7 +77,15 @@ const HOME_REF =
 // A bare `cd` (no argument) changes to HOME — outside any target by definition.
 // A newline is a command separator too (the Bash tool can send a multi-line
 // script as one string), so it must count as a boundary alongside && / || / ;.
-const BARE_CD = /(?:^|&&|\|\||;|[\r\n])\s*cd\s*(?:$|&&|\|\||;|[\r\n])/;
+//
+// The padding is HORIZONTAL whitespace only (CodeQL js/polynomial-redos,
+// 2026-09-16). With a plain `\s*` the padding and the `[\r\n]` separator both
+// matched a newline, so a script with many blank lines gave the engine an
+// ambiguous split at every one of them and the cost grew quadratically —
+// in the guard that decides whether a command may run at all. `[^\S\r\n]*`
+// takes spaces and tabs and leaves newlines to the separator alternatives,
+// which is what they already meant. Same matches, no overlap.
+const BARE_CD = /(?:^|&&|\|\||;|[\r\n])[^\S\r\n]*cd[^\S\r\n]*(?:$|&&|\|\||;|[\r\n])/;
 
 // A `Signed-off-by:` trailer typed into a commit message. `git commit -s`
 // writes this line itself from the configured identity, so its presence in
@@ -252,13 +260,37 @@ function extractAbsolutePaths(command: string): string[] {
 // greedily-matched `\S+` subcommand token — always STARTS with the whitespace
 // that separated it from `sub`. A leading `^` alternative here can therefore
 // never be the one that fires: plain `\s` covers every reachable case.
-// The short-flag alternative is a bundled cluster (`-[A-Za-z]*f[A-Za-z]*`,
-// same shape as DELETE_BRANCH_RE's bundling below) rather than a bare `-f`:
+// BUNDLED SHORT FLAGS, MATCHED ONCE (CodeQL js/polynomial-redos, 2026-09-16).
+//
+// These checks used to spell "a short-flag cluster containing f" as
+// `-[A-Za-z]*f[A-Za-z]*` — two unbounded character classes around the letter.
+// That is ambiguous: for a token like `-ffffffff…` the engine can split the
+// run at every position, so the matching cost grows with the SQUARE of the
+// token length. This guard reads agent-proposed commands and decides whether
+// they may run, so a crafted flag run could stall the very check standing
+// between the agent and the command — a denial of service on the gate.
+//
+// One unambiguous match per token, then ask which letters it holds. Same
+// answers, linear cost, and the intent reads as English instead of as an
+// alternation. Every caller below pairs this with its own LONG-form pattern.
+const SHORT_FLAG_CLUSTER_RE = /\s-([A-Za-z]+)(?=\s|$)/g;
+
+/** True when some bundled short-flag token carries EVERY one of `letters`.
+ *  Case-sensitive on purpose: `git branch -D` is not `git branch -d`. */
+function hasBundledFlags(rest: string, ...letters: readonly string[]): boolean {
+  for (const match of rest.matchAll(SHORT_FLAG_CLUSTER_RE)) {
+    const cluster = match[1] ?? '';
+    if (letters.every((letter) => cluster.includes(letter))) return true;
+  }
+  return false;
+}
+
 // git's own option parser accepts `-f` bundled with any other single-letter
-// push flags (`git push -fd`, `-uf`, …), and a bare-`-f`-only pattern let
+// push flags (`git push -fd`, `-uf`, …), so a bare-`-f`-only pattern let
 // exactly that bundled form sail through unmatched — the same bypass class
-// DELETE_BRANCH_RE was already hardened against for `branch -D`.
-const FORCE_PUSH_RE = /\s(?:--force|--force-with-lease(?:=\S+)?|-[A-Za-z]*f[A-Za-z]*)(?=\s|$)/;
+// `branch -D` was already hardened against. The bundled half now lives in
+// hasBundledFlags(rest, 'f'); this constant keeps only the long spellings.
+const FORCE_PUSH_RE = /\s(?:--force|--force-with-lease(?:=\S+)?)(?=\s|$)/;
 // `git push` has a SECOND, flag-less spelling of force-push: prefixing the
 // refspec itself with `+` (`git push origin +main`, `git push origin
 // +feature:feature`) means "allow non-fast-forward" for that ref, identical
@@ -279,10 +311,10 @@ const PUSH_FORCE_REFSPEC_RE = /\s\+\S/;
 // refspec form requires the colon to be the FIRST character of its token
 // (preceded by whitespace, not by a source ref name) so an ordinary
 // `HEAD:refs/heads/main` push — colon preceded by "D", not whitespace —
-// stays unmatched. The short-flag alternative bundles the same way
-// FORCE_PUSH_RE's does, for the same reason (`-fd`/`-df` bypassed a
-// bare-`-d` pattern too).
-const PUSH_DELETE_RE = /\s(?:--delete|-[A-Za-z]*d[A-Za-z]*)(?=\s|$)/;
+// stays unmatched. The short-flag half bundles the same way FORCE_PUSH_RE's
+// did, for the same reason (`-fd`/`-df` bypassed a bare-`-d` pattern too),
+// and now lives in hasBundledFlags(rest, 'd').
+const PUSH_DELETE_RE = /\s--delete(?=\s|$)/;
 const PUSH_REFSPEC_DELETE_RE = /\s:\S/;
 const HARD_RESET_RE = /\s--hard(?=\s|$)/;
 // `git revert` of anything but the flight's own most recent commit is a
@@ -327,11 +359,16 @@ const REVERT_NOT_HEAD =
 // bundled short-flag form of `--force --delete`, equivalent to `-D`, but
 // neither letter alone (case-sensitively) is a `D` — without the extra
 // alternatives a bundled lowercase force+delete pair sailed through unmatched.
-const DELETE_BRANCH_RE =
-  /\s-[A-Za-z]*(?:D[A-Za-z]*|f[A-Za-z]*d[A-Za-z]*|d[A-Za-z]*f[A-Za-z]*)(?=\s|$)/;
+/** `git branch` force-deletes two ways: a cluster carrying `D`, or one
+ *  carrying both `f` and `d` in either order (git's bundled spelling of
+ *  `--force --delete`). Expressed as letter membership rather than three
+ *  regex alternatives of unbounded classes — see hasBundledFlags. */
+function isBranchForceDelete(rest: string): boolean {
+  return hasBundledFlags(rest, 'D') || hasBundledFlags(rest, 'f', 'd');
+}
 const BRANCH_DELETE_LONG_RE = /\s(?:-d|--delete)(?=\s|$)/;
 const BRANCH_FORCE_RE = /\s(?:-f|--force)(?=\s|$)/;
-const FORCE_CLEAN_RE = /\s(?:-[A-Za-z]*f[A-Za-z]*|--force)(?=\s|$)/;
+const FORCE_CLEAN_RE = /\s--force(?=\s|$)/;
 const MAIN_TARGET_RE = /\smain(?=\s|$)/;
 
 const ADDITIVE_GIT_ONLY =
@@ -410,10 +447,16 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
     // undefined; the `= ''` default is unreachable. Provably equivalent, not
     // killable.
     const [, sub, rest = ''] = m;
-    if (sub === 'push' && (FORCE_PUSH_RE.test(rest) || PUSH_FORCE_REFSPEC_RE.test(rest))) {
+    if (
+      sub === 'push' &&
+      (FORCE_PUSH_RE.test(rest) || hasBundledFlags(rest, 'f') || PUSH_FORCE_REFSPEC_RE.test(rest))
+    ) {
       return { allowed: false, reason: `\`git push --force\` is ${ADDITIVE_GIT_ONLY}` };
     }
-    if (sub === 'push' && (PUSH_DELETE_RE.test(rest) || PUSH_REFSPEC_DELETE_RE.test(rest))) {
+    if (
+      sub === 'push' &&
+      (PUSH_DELETE_RE.test(rest) || hasBundledFlags(rest, 'd') || PUSH_REFSPEC_DELETE_RE.test(rest))
+    ) {
       return { allowed: false, reason: `\`git push --delete\` is ${ADDITIVE_GIT_ONLY}` };
     }
     if (sub === 'reset' && HARD_RESET_RE.test(rest)) {
@@ -433,7 +476,7 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
     }
     if (
       sub === 'branch' &&
-      (DELETE_BRANCH_RE.test(rest) ||
+      (isBranchForceDelete(rest) ||
         (BRANCH_DELETE_LONG_RE.test(rest) && BRANCH_FORCE_RE.test(rest)))
     ) {
       return { allowed: false, reason: `\`git branch -D\` is ${ADDITIVE_GIT_ONLY}` };
@@ -441,7 +484,7 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
     if ((sub === 'checkout' || sub === 'switch') && MAIN_TARGET_RE.test(rest)) {
       return { allowed: false, reason: `\`git ${sub} main\` is ${ADDITIVE_GIT_ONLY}` };
     }
-    if (sub === 'clean' && FORCE_CLEAN_RE.test(rest)) {
+    if (sub === 'clean' && (FORCE_CLEAN_RE.test(rest) || hasBundledFlags(rest, 'f'))) {
       return { allowed: false, reason: `\`git clean -f\` is ${ADDITIVE_GIT_ONLY}` };
     }
     if (sub === 'filter-branch') {

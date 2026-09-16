@@ -77,6 +77,9 @@ import {
   rerunChecksConfirmMessage,
   rerunChecksResult,
   checkDiagnosisResult,
+  fixProposalDiffLines,
+  fixProposalApproveDisabledReason,
+  fixProposalDiscardTip,
 } from '../pr-review-panel.js';
 import { decisionItemHeadMeta } from '../decision-item.js';
 
@@ -130,6 +133,15 @@ ${rerunChecksResult.toString()}
 // it flake/defect/unknown instead of leaving re-run as the only answer to a
 // real defect.
 ${checkDiagnosisResult.toString()}
+// The diff-approval UI shell (VERDICT ap-mtydvfm1-0 slice (a)) — renders a
+// defect verdict's proposed fix commit for operator review. diagnoseFailedCheck
+// never populates fixProposal yet (slice (b), fix-commit generation, is a
+// separate follow-up), so this renders only once that lands; shipping the
+// shell now mirrors how the classifier itself shipped headless before its
+// own button did.
+${fixProposalDiffLines.toString()}
+${fixProposalApproveDisabledReason.toString()}
+${fixProposalDiscardTip.toString()}
 // decisionItemHeadMeta is generated FROM web/decision-item.ts below (epic
 // 0002 "shell decomposition", slice 2, eighty-fourth cut) — its real
 // compiled source via .toString(), not a hand-retyped copy. Shared with the
@@ -159,6 +171,46 @@ function prPanelButton(cls, label, attr, number, tip, disabled) {
   }
   return b;
 }
+// The diff-approval shell for a 'defect' verdict's proposed fix commit
+// (VERDICT ap-mtydvfm1-0 slice (a)) — one per card, rebuilt on every Diagnose
+// response. Always clears the previous box first so re-diagnosing (a 'flake'
+// or 'unknown' verdict after a 'defect' one) does not leave a stale proposal
+// on screen. Approve stays permanently disabled-with-reason
+// (fixProposalApproveDisabledReason) until slice (c), the apply-approved-fix
+// execute path, exists; Discard only removes this box — nothing on GitHub
+// changes, so it needs no confirm dialog and no server round-trip.
+function renderFixProposal(item, proposal, number) {
+  var existing = item.querySelector('.pr-fix-proposal');
+  if (existing) existing.remove();
+  if (!proposal) return;
+  var box = el('div', 'pr-fix-proposal');
+  box.appendChild(el('p', 'pr-fix-proposal-title', proposal.title));
+  box.appendChild(el('p', 'muted pr-fix-proposal-summary', proposal.summary));
+  var pre = el('pre', 'pr-fix-diff');
+  var lines = fixProposalDiffLines(proposal);
+  for (var i = 0; i < lines.length; i++) {
+    pre.appendChild(el('div', lines[i].className, lines[i].text));
+  }
+  box.appendChild(pre);
+  var actions = el('div', 'pr-fix-proposal-actions');
+  var approveReason = fixProposalApproveDisabledReason();
+  var approveBtn = prPanelButton('pr-fix-approve', 'Approve', 'data-pr-fix-approve',
+    number, approveReason, true);
+  actions.appendChild(approveBtn);
+  var discardTip = fixProposalDiscardTip(proposal);
+  var discardBtn = prPanelButton('pr-fix-discard', 'Discard', 'data-pr-fix-discard',
+    number, discardTip, false);
+  actions.appendChild(discardBtn);
+  box.appendChild(actions);
+  var resultEl = item.querySelector('.pr-review-result');
+  item.insertBefore(box, resultEl);
+}
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-pr-fix-discard]');
+  if (!b) return;
+  var box = b.closest('.pr-fix-proposal');
+  if (box) box.remove();
+});
 function renderPrReviewPanel(plans, fetchFailed, identity) {
   // The panel self-initializes and then polls forever on its own timer, so
   // its callbacks can land after the page (or, under vitest, the whole jsdom
@@ -456,7 +508,7 @@ document.addEventListener('click', function (e) {
 // interaction: confirm, disable with a working label, POST, write the
 // outcome into the card's live region, re-poll. One wiring, two configs;
 // duplicating it cost real bundle bytes for zero behavior.
-function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor) {
+function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor, afterFor) {
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('[' + attr + ']');
     if (!b || b.disabled) return;
@@ -493,6 +545,7 @@ function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor
           return;
         }
         prPanelRestore(b, originalText, resultEl, result);
+        if (afterFor) afterFor(data, item, number);
       })
       .catch(function () {
         prPanelReportFailure(b, originalText, resultEl);
@@ -529,8 +582,15 @@ wirePrMaintainerAction(
 // The 🔧 Diagnose button rides the same wiring as the three POST verbs above
 // — a null confirmFor/bodyFor tells wirePrMaintainerAction this one is a
 // read-only GET: no confirm dialog, no body, and (since formatFor's result
-// never sets merged/updated/rerun) no re-poll on completion either.
-wirePrMaintainerAction('data-pr-diagnose', 'Diagnosing…', '/api/pr-review/diagnose?number=', null, null, checkDiagnosisResult);
+// never sets merged/updated/rerun) no re-poll on completion either. afterFor
+// renders the diff-approval shell (VERDICT ap-mtydvfm1-0 slice (a)) when the
+// verdict carries a fixProposal — always undefined today, since
+// diagnoseFailedCheck doesn't populate it yet (slice (b)), but the wiring is
+// ready the moment it does.
+wirePrMaintainerAction('data-pr-diagnose', 'Diagnosing…', '/api/pr-review/diagnose?number=', null, null, checkDiagnosisResult,
+  function (data, item, number) {
+    renderFixProposal(item, data && data.diagnosis && data.diagnosis.fixProposal, number);
+  });
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
 // function declaration from fleetJs()'s text in the same concatenated
 // bundle, the same top-level call shape coordination.ts already relies on.

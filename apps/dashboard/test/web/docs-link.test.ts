@@ -127,7 +127,18 @@ describe('Evidence Log "view previous version" link in the Docs viewer', () => {
 
     const body = document.querySelector('.docs-viewer-body')!;
     const links = Array.from(body.querySelectorAll('a'));
-    expect(links.some((a) => (a.getAttribute('href') ?? '').startsWith('javascript:'))).toBe(false);
+    // Every scheme that executes, not just `javascript:` (CodeQL
+    // js/incomplete-url-scheme-check, 2026-09-16). `data:` can carry an HTML
+    // document and `vbscript:` still runs in some engines, so a check that
+    // named only one of the three would have passed against a renderer that
+    // let the other two through.
+    const EXECUTABLE_SCHEMES = ['javascript:', 'data:', 'vbscript:'];
+    expect(
+      links.some((a) => {
+        const href = (a.getAttribute('href') ?? '').trim().toLowerCase();
+        return EXECUTABLE_SCHEMES.some((scheme) => href.startsWith(scheme));
+      }),
+    ).toBe(false);
     // The malformed "[suspicious](javascript:alert(1))" source line renders as literal text instead.
     expect(body.textContent).toContain('[suspicious](javascript:alert(1))');
   });

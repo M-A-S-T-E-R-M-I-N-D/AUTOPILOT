@@ -848,6 +848,20 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-review-result-ok { color: var(--color-success); }
 .pr-review-result-fail { color: var(--color-sev-critical); }
 .pr-review-result-warn { color: var(--color-sev-medium); }
+/* The diff-approval shell for a defect verdict's proposed fix commit
+   (VERDICT ap-mtydvfm1-0 slice (a)) — .pr-fix-diff reuses the same
+   monospace-block treatment .firing-diff already established for a patch,
+   and its line divs carry the shared .diff-add/.diff-remove/.diff-hunk/
+   .diff-meta/.diff-file/.diff-context classes (already defined above) rather
+   than duplicating that palette here. */
+.pr-fix-proposal { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }
+.pr-fix-proposal-title { margin: 0; font-weight: 700; }
+.pr-fix-proposal-summary { margin: var(--space-1) 0 0; }
+.pr-fix-diff { margin: var(--space-2) 0 0; padding: var(--space-2); border-inline-start: 2px solid var(--color-border); background: var(--color-surface); font-family: var(--font-mono); font-size: var(--text-xs); overflow-x: auto; white-space: pre; }
+.pr-fix-proposal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.pr-fix-approve, .pr-fix-discard { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); }
+.pr-fix-approve:hover:not(:disabled), .pr-fix-approve:focus-visible:not(:disabled), .pr-fix-discard:hover, .pr-fix-discard:focus-visible { border-color: currentColor; color: var(--color-text); }
+.pr-fix-approve:disabled { opacity: 0.5; cursor: default; }
 .issue-triage-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .issue-triage-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .issue-triage-list { display: flex; flex-direction: column; }
@@ -1537,6 +1551,37 @@ main:focus { outline: none; }
 /* Other floating controls step up out of the button's way. */
 html[data-ask-sheet="open"] .ritual-pill, .ritual-pill { inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + 4rem + env(safe-area-inset-bottom)); }
 @media (min-width: 64rem) { .ritual-pill { inset-block-end: calc(var(--space-4) + 4rem); } }
+/* THE TERMINAL HUD (epic 0029 slice 3, web/features/prefs.ts): "free to play"
+   under the terminal theme only, and only while not dismissed — the same
+   "attribute on <html>, no attribute at default" law the rest of this
+   preference set follows (data-hud="hidden" once dismissed). Bottom
+   inline-start, the mirror of the Ask FAB's inline-end corner, so the two
+   floating controls never collide. */
+.terminal-hud { display: none; }
+html[data-theme="terminal"]:not([data-hud="hidden"]) .terminal-hud {
+  position: fixed; z-index: 60; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  inset-block-end: calc(var(--shell-nav-size) + var(--space-3) + env(safe-area-inset-bottom));
+  inset-inline-start: var(--space-3); max-inline-size: calc(100vw - var(--space-6));
+  padding: var(--space-2) var(--space-3); border-radius: var(--shape-large, 1rem);
+  background: var(--color-surface-raised); border: 1px solid var(--color-border-strong);
+  box-shadow: var(--elevation-level-3, var(--elevation-level-2));
+}
+@media (min-width: 64rem) { html[data-theme="terminal"]:not([data-hud="hidden"]) .terminal-hud { inset-block-end: var(--space-4); } }
+.terminal-hud-label { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.terminal-hud-close { display: inline-flex; align-items: center; justify-content: center; inline-size: 2rem; block-size: 2rem; border-radius: var(--radius-full); border: 1px solid transparent; background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.terminal-hud-close:hover, .terminal-hud-close:focus-visible { color: var(--color-text); border-color: var(--color-border); }
+/* The effects themselves — decorative only, gated on the same two rows the
+   HUD's buttons write (data-scanlines, data-glow), terminal theme only, and
+   inert to pointer/selection so they never sit between a click and its
+   target. Scanlines paint on the viewport, not the HUD card, so the whole
+   cockpit gets the phosphor texture, not just the control that toggled it. */
+html[data-theme="terminal"][data-scanlines="on"] body { position: relative; }
+html[data-theme="terminal"][data-scanlines="on"] body::after {
+  content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, color-mix(in srgb, var(--color-text) 8%, transparent) 0, color-mix(in srgb, var(--color-text) 8%, transparent) 1px, transparent 1px, transparent 3px);
+}
+html[data-theme="terminal"][data-glow="on"] .brand, html[data-theme="terminal"][data-glow="on"] .terminal-hud-label { text-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 65%, transparent); }
+@media (prefers-contrast: more) { html[data-theme="terminal"][data-scanlines="on"] body::after { display: none; } }
 /* BUSY STATES (2026-09-13, web/features/busy.ts): the ritual scrim. One modal
    over a glass field while an outward write runs; the card carries a spinner,
    the elapsed clock, the note, a progress bar (determinate for the landing's

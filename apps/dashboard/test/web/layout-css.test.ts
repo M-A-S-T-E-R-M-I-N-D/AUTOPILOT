@@ -222,3 +222,41 @@ describe('layoutCss — the fly bar reads as one row of one height', () => {
     expect(css).toMatch(/\.fly-status:empty\s*\{[^}]*display:\s*none/);
   });
 });
+
+/**
+ * Bug report (report-element-1twh12p): "Hebrew back-to-fleet arrow sits on
+ * the wrong side; report capture is too thin and clips text at short
+ * viewport heights." Fixed in the same commit (2026-09-14) that added
+ * `stat-tiles.test.ts`'s "the back link carries only words" test — that test
+ * covers the STRINGS side (no arrow character in the translated sentence);
+ * these cover the CSS side the string test cannot reach: the icon actually
+ * mirrors under `dir=rtl`, and the dialog actually shrinks instead of
+ * clipping in a short window.
+ */
+describe('layoutCss — back-link icon mirrors under RTL, report dialog survives a short viewport (report-element-1twh12p)', () => {
+  const css = layoutCss();
+
+  it('flips the back link icon under dir=rtl, and only under dir=rtl', () => {
+    expect(css).toMatch(/\[dir='rtl'\]\s*\.back \.icon\s*\{[^}]*transform:\s*scaleX\(-1\)/);
+    // The un-mirrored (ltr) rule must not itself carry a transform — only
+    // the [dir='rtl'] override may flip it.
+    const ltrRule = css.match(/(?<!\[dir='rtl'\]\s*)\.back \.icon\s*\{[^}]*\}/);
+    expect(ltrRule?.[0]).not.toMatch(/transform:/);
+  });
+
+  it('sizes the report dialog by min(85vh, 85dvh) so mobile browser chrome counts, and lets it shrink', () => {
+    expect(css).toMatch(/\.report-dialog\s*\{[^}]*max-block-size:\s*min\(85vh,\s*85dvh\)/);
+    expect(css).toMatch(/\.report-dialog\s*\{[^}]*min-block-size:\s*0/);
+  });
+
+  it('lets the capture block shrink and yield space first, instead of pushing the rest of the dialog off-screen', () => {
+    expect(css).toMatch(/\.report-dialog-capture\s*\{[^}]*min-block-size:\s*0/);
+    expect(css).toMatch(/\.report-dialog-capture\s*\{[^}]*flex:\s*0 1 auto/);
+  });
+
+  it('tightens the dialog padding under a short (<640px) viewport instead of clipping its content', () => {
+    expect(css).toMatch(
+      /@media \(max-height:\s*640px\)\s*\{\s*\.report-dialog\s*\{[^}]*padding:\s*var\(--space-3\)/,
+    );
+  });
+});
