@@ -104,7 +104,7 @@ describe('the worker card task line', () => {
     const lines = Array.from(document.querySelectorAll('.live-worker-line')).map(
       (n) => n.textContent,
     );
-    expect(lines).toContain('🎯 working: Add docs');
+    expect(lines).toContain('working: Add docs');
   });
 
   it('explains the confirmed-focus line on hover+focus like its worker-card siblings', async () => {
@@ -115,12 +115,13 @@ describe('the worker card task line', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const lines = Array.from(document.querySelectorAll('.live-worker-line'));
-    const line = lines.find((n) => n.textContent === '🎯 working: Add docs');
+    const line = lines.find((n) => n.textContent === 'working: Add docs');
     // D1 TAB-STOP ROVING: one Tab stop per live-worker card (its first line);
     // the arrow keys reach this line (live-worker-roving-tabindex.test.ts).
     expect(line?.getAttribute('tabindex')).toBe('-1');
     expect(line?.getAttribute('data-tip')).toContain('explicitly working on');
     expect(line?.getAttribute('aria-label')).toBe(line?.textContent);
+    expect(line?.querySelector('svg.icon-target')).not.toBeNull();
   });
 
   it('explains the honestly-labeled guess line on hover+focus like its worker-card siblings', async () => {

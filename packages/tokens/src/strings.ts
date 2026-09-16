@@ -1041,7 +1041,7 @@ const EN_STRINGS = {
   liveLabel: 'live — firing in progress',
   livePhaseAria: 'current phase: {name}',
   liveNarratorTip: "AUTOPILOT's own one-sentence summary of its most recent action this firing",
-  liveFocusTask: '🎯 working: {name}',
+  liveFocusTask: 'working: {name}',
   liveFocusTaskTip: 'The board task this firing is explicitly working on',
   liveProbableTask: 'probably working: {name}',
   liveProbableTaskTip:
@@ -2320,7 +2320,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveLabel: 'חי — הפעלה בעיצומה',
     livePhaseAria: 'שלב נוכחי: {name}',
     liveNarratorTip: 'הסיכום של AUTOPILOT עצמו, במשפט אחד, לפעולה האחרונה שלו בהפעלה הזו',
-    liveFocusTask: '🎯 עובדת על: {name}',
+    liveFocusTask: 'עובדת על: {name}',
     liveFocusTaskTip: 'משימת הלוח שההפעלה הזו עובדת עליה במפורש',
     flightGuardChip: '🛡️ {n} נחסמו',
     flightGuardChipTip:

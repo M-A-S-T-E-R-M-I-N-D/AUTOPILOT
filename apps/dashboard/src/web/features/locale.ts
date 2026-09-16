@@ -155,6 +155,20 @@ function fillTemplate(tpl, el, table) {
   if (tip) text = text.split('{tip}').join(tip);
   return substituteMap(text, parseArgs(el.dataset.i18nArgs));
 }
+function setSweptText(el, text) {
+  // Epic 0025 (icon system) slice 2: an icon+text pairing (tipChip()'s
+  // iconName param, shell.ts) puts a leading <svg class="icon ..."> as the
+  // element's own first child, sibling to its text node — overwriting the
+  // WHOLE element's textContent here would silently delete that icon on
+  // every sweep. Keep the icon, replace only the trailing text.
+  const icon = el.firstElementChild;
+  if (icon && icon.tagName === 'svg' && icon.classList.contains('icon')) {
+    while (el.lastChild && el.lastChild !== icon) el.removeChild(el.lastChild);
+    el.appendChild(document.createTextNode(text));
+  } else {
+    el.textContent = text;
+  }
+}
 function translateDom(l) {
   const table = STRINGS[l] || STRINGS.en;
   document.querySelectorAll('[data-i18n]').forEach((el) => {
@@ -164,7 +178,7 @@ function translateDom(l) {
     // role="status") would otherwise be re-announced by every renderFleet()
     // tick's sweep — and every other tagged element is spared a needless
     // text-node replacement per tick.
-    if (text && el.textContent !== text) el.textContent = text;
+    if (text && el.textContent !== text) setSweptText(el, text);
   });
   document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
     const text = table[el.dataset.i18nAria];
@@ -185,7 +199,7 @@ function translateDom(l) {
     // aria-live region, and an identical repaint (every renderFleet() tick
     // sweeps) would otherwise re-announce the unchanged position.
     const text = fillTemplate(tpl, el, table);
-    if (el.textContent !== text) el.textContent = text;
+    if (el.textContent !== text) setSweptText(el, text);
   });
   document.querySelectorAll('[data-i18n-aria-template]').forEach((el) => {
     const tpl = table[el.dataset.i18nAriaTemplate];

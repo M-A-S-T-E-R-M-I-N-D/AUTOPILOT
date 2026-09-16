@@ -106,7 +106,10 @@ describe('TRIAGE V2 staleness chip', () => {
 
     const chip = document.querySelector('.chip-stale');
     expect(chip).toBeTruthy();
-    expect(chip!.textContent).toBe('🕒 14d stale');
+    // Epic 0025 slice 2 (icons, shell.ts lane, board web-mtzpcw6f-26443t): a
+    // clock stroke icon replaces the 🕒 glyph baked into the old text.
+    expect(chip!.querySelector('svg.icon-clock')).not.toBeNull();
+    expect(chip!.textContent).toBe('14d stale');
     // D1 TAB-STOP ROVING (board web-mtd1wyte-ssntzi): the chip shares one
     // roving group with the row's status pill and title — the pill comes
     // first in DOM order and holds the '0' stop, so the chip is

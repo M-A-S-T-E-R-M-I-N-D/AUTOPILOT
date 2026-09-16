@@ -184,8 +184,11 @@ describe('live worker card own-lines i18n (board web-msnsndki-dz3vn1)', () => {
     expect(focus.getAttribute('data-i18n-name')).toBe('Add docs');
     expect(focus.getAttribute('data-i18n-aria-template')).toBe('liveFocusTask');
     expect(focus.getAttribute('data-i18n-tip')).toBe('liveFocusTaskTip');
-    expect(focus.textContent).toBe('🎯 working: Add docs');
-    expect(focus.getAttribute('aria-label')).toBe('🎯 working: Add docs');
+    // Epic 0025 slice 2 (icons, shell.ts lane): the 🎯 glyph is gone from the
+    // text — a target stroke icon carries that meaning instead.
+    expect(focus.querySelector('svg.icon-target')).not.toBeNull();
+    expect(focus.textContent).toBe('working: Add docs');
+    expect(focus.getAttribute('aria-label')).toBe('working: Add docs');
     expect(focus.getAttribute('data-tip')).toBe(STRINGS.en.liveFocusTaskTip);
 
     const count = q('.live-worker-count');
@@ -223,6 +226,10 @@ describe('live worker card own-lines i18n (board web-msnsndki-dz3vn1)', () => {
     expect(q('.live-worker-narrator').getAttribute('data-tip')).toBe(STRINGS.he.liveNarratorTip);
 
     const focus = q('.live-worker-line[data-i18n-template="liveFocusTask"]');
+    // The target icon (a DOM child, not part of the translated string) must
+    // survive the in-place sweep — features/locale.ts's setSweptText() keeps
+    // it instead of translateDom()'s usual whole-element textContent write.
+    expect(focus.querySelector('svg.icon-target')).not.toBeNull();
     expect(focus.textContent).toBe(STRINGS.he.liveFocusTask.replaceAll('{name}', 'Add docs'));
     expect(focus.getAttribute('aria-label')).toBe(focus.textContent);
     expect(focus.getAttribute('data-tip')).toBe(STRINGS.he.liveFocusTaskTip);
@@ -308,8 +315,8 @@ describe('live worker card own-lines i18n (board web-msnsndki-dz3vn1)', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const focus = q('.live-worker-line[data-i18n-template="liveFocusTask"]');
-    expect(focus.textContent).toBe('🎯 working: ' + title);
-    expect(focus.getAttribute('aria-label')).toBe('🎯 working: ' + title);
+    expect(focus.textContent).toBe('working: ' + title);
+    expect(focus.getAttribute('aria-label')).toBe('working: ' + title);
 
     (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
     expect(q('.live-worker-line[data-i18n-template="liveFocusTask"]').textContent).toBe(

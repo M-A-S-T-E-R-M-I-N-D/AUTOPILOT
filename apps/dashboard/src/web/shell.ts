@@ -937,7 +937,14 @@ function liveWorkerCard(c) {
   narratorEl.setAttribute('aria-label', live.narrator);
   wrap.appendChild(narratorEl);
   if (live.focusTask) {
-    var focusTaskEl = el('p', 'live-worker-line', tr('liveFocusTask', live.focusTask));
+    // Epic 0025 slice 2 (icons, shell.ts lane, board web-mtzpcw6f-26443t): a
+    // leading target icon replaces the 🎯 glyph the STRINGS template used to
+    // bake into the text — translateDom()'s [data-i18n-template] sweep
+    // (features/locale.ts's setSweptText()) keeps this icon in place across
+    // a locale switch instead of overwriting the whole line's textContent.
+    var focusTaskEl = el('p', 'live-worker-line');
+    focusTaskEl.appendChild(iconEl('target'));
+    focusTaskEl.appendChild(document.createTextNode(tr('liveFocusTask', live.focusTask)));
     focusTaskEl.setAttribute('tabindex', '0');
     focusTaskEl.setAttribute('data-i18n-template', 'liveFocusTask');
     focusTaskEl.setAttribute('data-i18n-aria-template', 'liveFocusTask');
@@ -2643,10 +2650,11 @@ function tasksSection(c) {
           var staleTip = taskStalenessTip(stalenessDays);
           li.appendChild(
             tipChip(
-              '🕒 ' + stalenessDays + 'd stale',
+              stalenessDays + 'd stale',
               staleTip,
               'Stale: ' + stalenessDays + (stalenessDays === 1 ? ' day' : ' days'),
               'chip-stale',
+              'clock',
             ),
           );
         }
