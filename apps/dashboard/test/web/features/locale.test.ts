@@ -31,7 +31,7 @@ describe('localeJs', () => {
     expect(localeJs()).toContain('const table = STRINGS[l] || STRINGS.en;');
     expect(localeJs()).toContain("document.querySelectorAll('[data-i18n]').forEach((el) => {");
     expect(localeJs()).toContain('const text = table[el.dataset.i18n];');
-    expect(localeJs()).toContain('if (text && el.textContent !== text) el.textContent = text;');
+    expect(localeJs()).toContain('if (text && el.textContent !== text) setSweptText(el, text);');
   });
 
   it('the [data-i18n] sweep leaves an already-current element’s text node alone — an aria-live region must not re-announce an identical repaint', () => {
@@ -83,7 +83,28 @@ describe('localeJs', () => {
 
   it('the [data-i18n-template] sweep only writes textContent on a real change — an aria-live region must not re-announce an identical repaint', () => {
     expect(localeJs()).toContain('const text = fillTemplate(tpl, el, table);');
-    expect(localeJs()).toContain('if (el.textContent !== text) el.textContent = text;');
+    expect(localeJs()).toContain('if (el.textContent !== text) setSweptText(el, text);');
+  });
+
+  it('setSweptText keeps a leading icon child (tipChip()’s iconName pairing, shell.ts) and only replaces the trailing text', () => {
+    const { setSweptText } = new Function(`${localeJs()}\nreturn { setSweptText };`)();
+    const withIcon = document.createElement('span');
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('class', 'icon icon-target');
+    withIcon.appendChild(icon);
+    withIcon.appendChild(document.createTextNode('working: Add docs'));
+
+    setSweptText(withIcon, 'עובדת על: הוסף תיעוד');
+
+    expect(withIcon.firstElementChild).toBe(icon);
+    expect(withIcon.textContent).toBe('עובדת על: הוסף תיעוד');
+
+    // No icon child at all: falls back to a plain whole-element textContent
+    // write, same as every other tagged element.
+    const noIcon = document.createElement('span');
+    noIcon.textContent = 'auto-fixed';
+    setSweptText(noIcon, 'תוקן אוטומטית');
+    expect(noIcon.textContent).toBe('תוקן אוטומטית');
   });
 
   it('translateDom fills the data-tip of every [data-i18n-tip-template] element through the same fillTemplate as the aria twin — a hover tip wrapping a live value', () => {
