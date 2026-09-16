@@ -6,6 +6,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.50.0] — 2026-09-16
+
+### Added
+
+- feat(dashboard): the current-round panel heading drops its emoji for the vendored refresh-cw icon
+- feat(dashboard): wire the diff-approval UI shell into the live Diagnose panel
+- feat(dashboard): the terminal HUD bar — scanlines, glow, dismiss (epic 0029 slice 3)
+- feat(flight): notice when an epic's tracking issue stops agreeing with its doc
+- feat(tour): walk the real interface, pointing at each control in turn
+- feat(provenance): let the shared disclosure carry it, without changing its old shape
+- feat(provenance): tag every public artifact with its pilot, its model and whether a human read it
+- feat(onboarding): a ladder of micro-tasks that performs its own steps
+- feat(dashboard): the snackbar — one place an interaction says what happened
+
+### Fixed
+
+- fix(security): close every CodeQL finding, starting with the guard that can be stalled
+- fix(onboarding): tick the contribution steps from GitHub, not from local marks
+- fix(onboarding): one request for the GitHub connection, not two
+- fix(onboarding): make the GitHub step see the connection, work when pressed, and join the tour
+- fix(landing): let the branch that fixes a red converged branch actually land
+- fix(scripts): hide the console window every script spawn opens on Windows
+- fix(flight): no cross-project leaks — one project's work never reaches another's pilot
+- fix(dashboard): a filed report reaches the pilot with its capture, and the back arrow mirrors
+
+### Performance
+
+- perf(lucky): size the fleet by the disk it flies on, not just cores and RAM
+
 ## [0.49.0] — 2026-09-14
 
 ### Added
