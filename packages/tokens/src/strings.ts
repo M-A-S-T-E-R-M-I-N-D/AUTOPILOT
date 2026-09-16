@@ -1730,7 +1730,7 @@ const EN_STRINGS = {
   landingExecuteButton: '🛬 Execute landing → {base}',
   landingRestarting:
     '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
-  landingDebriefTitle: '📋 Flight debrief',
+  landingDebriefTitle: 'Flight debrief',
   landingDebriefBestLabel: '🏆 Best: ',
   landingDebriefWorstLabel: '💀 Worst: ',
   // The panel's branch line (renderLandingBody()'s "branch → base" row above
@@ -2873,7 +2873,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingNothingToLand: 'אין מה להנחית — הענף כבר מיושר עם הבסיס.',
     landingExecuteButton: '🛬 בצע נחיתה אל {base}',
     landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
-    landingDebriefTitle: '📋 תחקיר טיסה',
+    landingDebriefTitle: 'תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',
     landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
     landingBranchTip: 'הענף הפעיל כרגע',

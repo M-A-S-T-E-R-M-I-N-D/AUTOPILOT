@@ -191,7 +191,7 @@ function flightDebriefSection(flightLog, tasks) {
   if (!digest) return null;
   var taskById = taskMap(tasks);
   var wrap = el('div', 'flight-debrief');
-  wrap.appendChild(el('h4', 'flight-debrief-title', tr('landingDebriefTitle')));
+  wrap.appendChild(panelHeading('h4', 'flight-debrief-title', 'landingDebriefTitle', 'clipboard-list'));
   var chips = el('p', 'flight-debrief-chips');
   var chipItems = flightDebriefChipItems(digest, fmtCost, fmtDuration, tr);
   chips.appendChild(tipChip(chipItems[0][0], chipItems[0][1], chipItems[0][2], 'flight-debrief-ship'));
