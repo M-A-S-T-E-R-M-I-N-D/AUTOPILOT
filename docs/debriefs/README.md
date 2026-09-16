@@ -14,6 +14,7 @@ hand-edited.
 | --- | --- |
 | 2026-09-16 | [Processing `ap-mu1uhdt4-ci-red`: "CI RED after landing main → cd9d8ba: ci.yml — failure" — refuted](2026-09-16-verdict-ap-mu1uhdt4-ci-red-refuted.md) |
 | 2026-09-16 | [Processing VERDICT `ap-mtq4l4fu-4`: EPIC 0016 slice 1/6 already got its dedicated firings — refuted as open work](2026-09-16-verdict-ap-mtq4l4fu-4-epic-0016-slice-1-6-refuted.md) |
+| 2026-09-16 | [EPIC 0020 S8a (`ap-mtzrb9gy-2`): diff-approval UI shell confirmed shipped, gate-verified](2026-09-16-epic-0020-s8a-diff-approval-shell-confirmed-shipped.md) |
 | 2026-09-13 | [Processing `web-mtzkofrr-m80wne`: EPIC 0029 S2 GitHub connection is already fully shipped](2026-09-13-verdict-web-mtzkofrr-m80wne-github-connection-shipped.md) |
 | 2026-09-13 | [Processing VERDICT `web-mtt8lo8x-lna12h`: "link census" is already fully shipped](2026-09-13-verdict-web-mtt8lo8x-lna12h-link-census-shipped.md) |
 | 2026-09-13 | [Processing `web-mtt3f7j6-3bj899`: role-gated dashboard is already fully shipped](2026-09-13-verdict-web-mtt3f7j6-3bj899-role-gated-dashboard-shipped.md) |
