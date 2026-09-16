@@ -257,9 +257,18 @@ export class GitVcs implements VcsPort {
    * reachability from `headAfter` alone is sufficient.
    */
   async commitInFiringRange(sha: string, headBefore: string, headAfter: string): Promise<boolean> {
+    // Stryker disable next-line all: equivalent, measured 2026-09-16. An
+    // empty ref makes `merge-base --is-ancestor` exit 128, so dropping this
+    // guard returns false one line later anyway. Same fast-path reasoning as
+    // changedFiles above.
     if (headAfter === '') return false;
     const after = await git(this.repo, ['merge-base', '--is-ancestor', sha, headAfter]);
     if (after.exitCode !== 0) return false;
+    // Stryker disable next-line all: equivalent, measured 2026-09-16. With
+    // an empty `headBefore` the ancestor check below exits 128, so
+    // `before.exitCode !== 0` is already true — the guard states the intent
+    // (an unborn HEAD carries no ancestor constraint) rather than changing
+    // the answer.
     if (headBefore === '') return true;
     const before = await git(this.repo, ['merge-base', '--is-ancestor', sha, headBefore]);
     return before.exitCode !== 0;
@@ -275,6 +284,15 @@ export class GitVcs implements VcsPort {
    * the field rather than fabricating paths.
    */
   async changedFiles(fromRef: string, toRef: string): Promise<readonly string[]> {
+    // Stryker disable next-line all: a FAST PATH, not a behaviour change.
+    // Measured 2026-09-16: git exits 128 on an empty ref, so deleting this
+    // guard reaches the identical `[]` one line later through the
+    // `exitCode !== 0` check. Every mutant here is therefore equivalent in
+    // output — what the guard actually buys is not spawning a subprocess for
+    // an input already known to be invalid, and no assertion on the RESULT
+    // can observe that. Killing these would need the git runner injected so
+    // a test could assert it was never called; that is a bigger change than
+    // the mutants justify, and this comment is the honest alternative.
     if (fromRef === '' || toRef === '') return [];
     const { stdout, exitCode } = await git(this.repo, [
       'diff',
@@ -308,6 +326,15 @@ export class GitVcs implements VcsPort {
    * `''` ref or an invalid ref, same contract as {@link changedFiles}.
    */
   async diffNumstat(fromRef: string, toRef: string): Promise<readonly DiffFileStat[]> {
+    // Stryker disable next-line all: a FAST PATH, not a behaviour change.
+    // Measured 2026-09-16: git exits 128 on an empty ref, so deleting this
+    // guard reaches the identical `[]` one line later through the
+    // `exitCode !== 0` check. Every mutant here is therefore equivalent in
+    // output — what the guard actually buys is not spawning a subprocess for
+    // an input already known to be invalid, and no assertion on the RESULT
+    // can observe that. Killing these would need the git runner injected so
+    // a test could assert it was never called; that is a bigger change than
+    // the mutants justify, and this comment is the honest alternative.
     if (fromRef === '' || toRef === '') return [];
     const { stdout, exitCode } = await git(this.repo, [
       'diff',

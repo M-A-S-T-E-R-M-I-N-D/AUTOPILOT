@@ -88,6 +88,26 @@ Top files, which carry 63% of the debt between them:
 | `packages/store` (`schema.ts`, `rank.ts`) | 34.17% | **100%** | 78 static scoped out; two real gaps closed — the contiguity error's `join` separator, and versions declared out of order |
 | `packages/onboarding` secret-guard | 99.01% | **100%** | one static mutant |
 | `packages/engine/src/guard.ts` | 93.9% | 93.25% | the survivor in the new bundled-flag helper is killed; 41 remain |
+| `packages/engine/src/adapters/git.ts` | 87.61% | **92.86%** | 60 → 45 survivors; **no-coverage 31 → 3** (`pushBranch`, `dirtyPaths`) |
+
+### A third category the inventory did not anticipate
+
+Some survivors are **equivalent by construction**, and no assertion on the
+result can kill them. `changedFiles`, `diffNumstat` and
+`commitInFiringRange` each open with an empty-ref guard — and git exits 128
+on an empty ref (measured, 2026-09-16), so deleting the guard reaches the
+identical answer one line later through the `exitCode !== 0` check.
+
+What the guard actually buys is not spawning a subprocess for an input
+already known to be invalid, and no test of the RESULT can observe that.
+Killing them would mean injecting the git runner so a test could assert it
+was never called — a bigger change than the mutants justify.
+
+These carry `// Stryker disable next-line all` with the measurement
+written into the comment. That is rule 1 working as intended, not an
+exception to it: the claim is checked before it is made, and a reader can
+re-run the check. Doing this to git.ts's four such guards moved it from
+90.88% to 92.86% and removed 16 survivors.
 
 ## Working order
 

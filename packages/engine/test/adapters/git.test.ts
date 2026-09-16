@@ -1490,3 +1490,110 @@ describe('GitVcs — pushing to a real remote, and reading a dirty tree', () => 
     });
   });
 });
+
+/**
+ * COMMIT-LOG PARSING, REMOTES, AND THE SCOPED-COMMIT FAILURE (mutation
+ * testing, 2026-09-16).
+ *
+ * `commitsAhead` feeds the fleet's same-file collision check: two lanes
+ * touching one file must intersect, and a rename has to list BOTH paths or
+ * the intersection misses a real collision. Nothing tested the rename or
+ * copy branch of that parser, nor the record it builds. `hasRemote` decides
+ * whether GITHUB SYNC plans `gh repo create --source --push` or a plain
+ * push — a wrong answer there creates a repository nobody asked for.
+ */
+describe('GitVcs — commit-log parsing, remotes, and scoped-commit failure', () => {
+  let dir: string;
+  let vcs: GitVcs;
+  let base: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-git-log-'));
+    initRepo(dir);
+    writeFileSync(join(dir, 'a.txt'), 'one\n');
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'note.md'), 'note\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: base']);
+    base = gitSync(dir, ['rev-parse', 'HEAD']);
+    vcs = new GitVcs(dir);
+  });
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  describe('hasRemote', () => {
+    it('is false with no remote configured', async () => {
+      expect(await vcs.hasRemote()).toBe(false);
+    });
+
+    it('is true once one exists', async () => {
+      gitSync(dir, ['remote', 'add', 'origin', 'https://example.invalid/x.git']);
+      expect(await vcs.hasRemote()).toBe(true);
+    });
+
+    it('is false for a path that is not a repo at all, rather than throwing', async () => {
+      const notARepo = mkdtempSync(join(tmpdir(), 'autopilot-git-bare-dir-'));
+      try {
+        expect(await new GitVcs(notARepo).hasRemote()).toBe(false);
+      } finally {
+        rmSync(notARepo, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('commitsAhead', () => {
+    it('lists each commit ahead of base with the files it touched', async () => {
+      writeFileSync(join(dir, 'a.txt'), 'two\n');
+      gitSync(dir, ['add', '-A']);
+      gitSync(dir, ['commit', '-q', '-m', 'feat: edit a']);
+
+      const commits = await vcs.commitsAhead(base);
+      expect(commits).toHaveLength(1);
+      expect(commits[0]?.subject).toBe('feat: edit a');
+      expect(commits[0]?.shortSha.length).toBeGreaterThan(0);
+      expect(commits[0]?.files).toEqual(['a.txt']);
+    });
+
+    it('lists BOTH paths of a rename, so a same-file collision still intersects', async () => {
+      // This is the whole reason the parser special-cases R/C status. A lane
+      // that renamed `a.txt` and a lane that edited `a.txt` collide — but
+      // only if the rename reports the OLD path too.
+      gitSync(dir, ['mv', 'a.txt', 'renamed.txt']);
+      gitSync(dir, ['commit', '-q', '-m', 'refactor: rename a']);
+
+      const files = (await vcs.commitsAhead(base))[0]?.files ?? [];
+      expect(files).toContain('a.txt');
+      expect(files).toContain('renamed.txt');
+    });
+
+    it('defaults its second ref to HEAD', async () => {
+      writeFileSync(join(dir, 'a.txt'), 'two\n');
+      gitSync(dir, ['add', '-A']);
+      gitSync(dir, ['commit', '-q', '-m', 'feat: edit a']);
+      expect(await vcs.commitsAhead(base)).toEqual(await vcs.commitsAhead(base, 'HEAD'));
+    });
+
+    it('is empty when nothing is ahead', async () => {
+      expect(await vcs.commitsAhead(base)).toEqual([]);
+    });
+
+    it('never yields a record with an empty sha', async () => {
+      writeFileSync(join(dir, 'a.txt'), 'two\n');
+      gitSync(dir, ['add', '-A']);
+      gitSync(dir, ['commit', '-q', '-m', 'feat: edit a']);
+      const commits = await vcs.commitsAhead(base);
+      expect(commits.length).toBeGreaterThan(0);
+      expect(commits.every((c) => c.shortSha.length > 0)).toBe(true);
+    });
+  });
+
+  describe('commitPaths', () => {
+    it('throws with the exit code and git’s own reason when the commit itself fails', async () => {
+      // An empty message is rejected by git. The scoped ritual must not
+      // swallow that: a silent false would read as "nothing to commit" and
+      // the work would be lost without anyone noticing.
+      writeFileSync(join(dir, 'docs', 'note.md'), 'changed\n');
+      await expect(vcs.commitPaths(['docs'], '')).rejects.toThrow(/git commit \(scoped\) failed/);
+    });
+  });
+});
