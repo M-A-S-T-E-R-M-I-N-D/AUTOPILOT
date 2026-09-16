@@ -225,9 +225,16 @@ describe('validateMigrations — the FLEET INTENT CLAIMS collision guard', () =>
     expect(() => validateMigrations(colliding)).toThrow(/duplicate migration version 13/);
   });
 
-  it('rejects a non-contiguous version sequence', () => {
+  it('rejects a non-contiguous version sequence, and NAMES the versions it saw', () => {
     const gap = [migration(1, 'initial_schema'), migration(3, 'skips_two')];
     expect(() => validateMigrations(gap)).toThrow(/contiguous and ascending/);
+    // The list, separator included (mutation testing, 2026-09-16). Matching
+    // only the prose left the `', '` inside the join unasserted: a mutant
+    // that collapsed it rendered `[1, 3]` as `[13]` — a message that reads
+    // like ONE version 13 rather than a gap between 1 and 3 — and every
+    // assertion still passed. The whole point of this error is telling a
+    // maintainer which numbers collided, so the formatting is the message.
+    expect(() => validateMigrations(gap)).toThrow(/got \[1, 3\]/);
   });
 
   it('rejects a migration with an empty name', () => {
@@ -243,5 +250,27 @@ describe('validateMigrations — the FLEET INTENT CLAIMS collision guard', () =>
   it('accepts a well-formed sequence', () => {
     const good = [migration(1, 'initial_schema'), migration(2, 'second')];
     expect(() => validateMigrations(good)).not.toThrow();
+  });
+
+  it('accepts a contiguous set DECLARED out of order — that is what the sort is for', () => {
+    // Mutation testing, 2026-09-16: three mutants on `[...seen].sort((a, b) =>
+    // a - b)` survived — dropping the sort, an `undefined` comparator, and
+    // `a + b`. Measured, all three behave identically to the real comparator
+    // on input that is ALREADY ascending, which is the only shape any test
+    // fed it. They diverge on exactly one input: a set that arrives out of
+    // order. So this is the assertion that was missing, and it is a real
+    // behaviour rather than a mutation-score chore — two fleet lanes adding
+    // migrations concurrently is precisely how the array ends up unsorted,
+    // and it must still validate.
+    const shuffled = [
+      migration(2, 'second'),
+      migration(3, 'third'),
+      migration(1, 'initial_schema'),
+    ];
+    expect(() => validateMigrations(shuffled)).not.toThrow();
+
+    // …and a genuine gap is still caught no matter what order it arrives in.
+    const shuffledGap = [migration(3, 'third'), migration(1, 'initial_schema')];
+    expect(() => validateMigrations(shuffledGap)).toThrow(/contiguous and ascending/);
   });
 });
