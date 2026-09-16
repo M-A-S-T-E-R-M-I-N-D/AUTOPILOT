@@ -176,7 +176,9 @@ describe('renderPipelineTreeHtml', () => {
     expect(html).toContain('data-node-id="a&quot;&lt;b&gt;"');
     expect(html).toContain('data-trace-id="t&lt;1&gt;"');
     expect(html).toContain('aria-label="&lt;join&gt; &amp; &quot;quote&quot; — 2 spans, ok"');
-    expect(html).toContain('<span class="pipeline-item-name">&lt;join&gt; &amp; &quot;quote&quot;</span></div>');
+    expect(html).toContain(
+      '<span class="pipeline-item-name">&lt;join&gt; &amp; &quot;quote&quot;</span></div>',
+    );
     expect(html).not.toContain('<join>');
   });
 });
