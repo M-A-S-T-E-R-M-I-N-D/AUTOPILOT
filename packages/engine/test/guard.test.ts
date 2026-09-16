@@ -1293,6 +1293,21 @@ describe('the containment guard answers in linear time', () => {
     expect(check('git branch -v').allowed).toBe(true);
   });
 
+  it('treats branch force-delete as needing BOTH letters, not either one', () => {
+    // Mutation testing, 2026-09-16: blanking the `'d'` of the `f`+`d` pair
+    // left `isBranchForceDelete` reading as "has D, or has f" — so a bare
+    // `git branch -f` became a force-delete — and every assertion still
+    // passed, because nothing pinned either single-letter case as allowed.
+    // Both halves of that boundary are the point: `-d` alone is git's SAFE
+    // delete (it refuses an unmerged branch) and `-f` alone moves a branch
+    // pointer without deleting anything. Only the pair, or `-D`, is the
+    // force-delete this guard exists to stop.
+    expect(check('git branch -d old-feature').allowed).toBe(true);
+    expect(check('git branch -f old-feature').allowed).toBe(true);
+    expect(check('git branch -fd old-feature').allowed).toBe(false);
+    expect(check('git branch -D old-feature').allowed).toBe(false);
+  });
+
   it('still denies a bare `cd` on its own line, newline-separated', () => {
     expect(check('echo one\ncd\necho two').allowed).toBe(false);
     expect(check('cd').allowed).toBe(false);
