@@ -72,7 +72,7 @@ describe('pipelineJs (the PIPELINE VIEW panel client)', () => {
 
   it('tags the title and switch group aria-labels/button labels for i18n', () => {
     const js = pipelineJs();
-    expect(js).toContain("title.setAttribute('data-i18n', 'pipelineViewTitle')");
+    expect(js).toContain("panelHeading('h3', 'pipeline-title', 'pipelineViewTitle', 'wrench')");
     expect(js).toContain("group.setAttribute('data-i18n-aria', labelI18nKey)");
     expect(js).toContain("b.setAttribute('data-i18n', opt.i18nKey)");
   });
@@ -324,8 +324,11 @@ describe('pipeline selection interaction (real DOM)', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const title = document.querySelector('.pipeline-title')!;
-    expect(title.textContent).toBe('🛠️ Pipeline view');
-    expect(title.getAttribute('data-i18n')).toBe('pipelineViewTitle');
+    expect(title.hasAttribute('data-i18n')).toBe(false);
+    expect(title.querySelector('.heading-text')?.getAttribute('data-i18n')).toBe(
+      'pipelineViewTitle',
+    );
+    expect(title.textContent).toBe('Pipeline view');
 
     const lensGroup = document.querySelector('.pipeline-lens-switch')!;
     expect(lensGroup.getAttribute('aria-label')).toBe('Pipeline lens');
