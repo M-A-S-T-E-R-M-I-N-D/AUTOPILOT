@@ -115,6 +115,9 @@ describe('the autoformat-rescue flight-log chip', () => {
     expect(chip?.getAttribute('tabindex')).toBe('-1');
     expect(chip?.getAttribute('data-tip')).toBeTruthy();
     expect(chip?.getAttribute('aria-label')).toBeTruthy();
+    // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): a
+    // wrench stroke icon replaces the 🔧 glyph the chip's text used to bake in.
+    expect(chip?.querySelector('svg.icon-wrench')).not.toBeNull();
   });
 
   it('omits the chip on a firing that shipped without remediation', async () => {

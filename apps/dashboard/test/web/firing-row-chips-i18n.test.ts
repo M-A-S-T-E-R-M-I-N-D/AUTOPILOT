@@ -6,7 +6,7 @@
  * (board web-msnsndki-dz3vn1) — the slice `firing-diff-i18n.test.ts` named
  * as still English: a per-firing trace row's "Tool calls and activity
  * recorded for this firing" and "When this firing started" hover tips
- * (`web/features/firing-timeline.ts`), and the "🔧 auto-fixed" chip a
+ * (`web/features/firing-timeline.ts`), and the "auto-fixed" chip a
  * formatting-rescued firing carries — its visible text, its full tip, and
  * its screen-reader aria-label — kept rendering English regardless of the
  * active locale after the row's replay controls and diff toggle beside them
@@ -18,8 +18,10 @@
  * locale. The count and started-ago labels themselves ("3 actions", "2m
  * ago") are `firingTimelineRowMeta()`'s own composed strings and stay as-is;
  * only their tips carry a key. The English text is byte-identical to what
- * each surface said before this slice. Drives the REAL client bundle in
- * jsdom against a mocked /api/state, same harness as
+ * each surface said before this slice, minus the 🔧 glyph — epic 0025 slice 2
+ * continuation (icons, board web-mtzpcw6f-26443t) replaced it with a leading
+ * wrench icon both callers now pass to `tipChip()`. Drives the REAL client
+ * bundle in jsdom against a mocked /api/state, same harness as
  * `firing-diff-i18n.test.ts`.
  */
 
@@ -71,7 +73,7 @@ const CHIP_KEYS = [
   'autoFixedAria',
 ];
 
-const AUTO_FIXED_TEXT = '🔧 auto-fixed';
+const AUTO_FIXED_TEXT = 'auto-fixed';
 const AUTO_FIXED_TIP =
   'The gate failed a formatting check; mechanical remediation fixed it automatically and this firing shipped clean instead of reverting.';
 const AUTO_FIXED_ARIA =
@@ -111,6 +113,9 @@ function he(key: string): string {
 }
 
 function expectChipTagged(chip: HTMLElement): void {
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): a
+  // wrench stroke icon replaces the 🔧 glyph the chip's text used to bake in.
+  expect(chip.querySelector('svg.icon-wrench')).not.toBeNull();
   expect(chip.textContent).toBe(AUTO_FIXED_TEXT);
   expect(chip.getAttribute('data-i18n')).toBe('autoFixed');
   expect(chip.getAttribute('data-tip')).toBe(AUTO_FIXED_TIP);
@@ -120,6 +125,9 @@ function expectChipTagged(chip: HTMLElement): void {
 }
 
 function expectChipHebrew(chip: HTMLElement): void {
+  // The wrench icon must survive the in-place sweep — setSweptText() keeps
+  // it instead of translateDom()'s usual whole-element textContent write.
+  expect(chip.querySelector('svg.icon-wrench')).not.toBeNull();
   expect(chip.textContent).toBe(he('autoFixed'));
   expect(chip.getAttribute('data-tip')).toBe(he('autoFixedTip'));
   expect(chip.getAttribute('aria-label')).toBe(he('autoFixedAria'));
