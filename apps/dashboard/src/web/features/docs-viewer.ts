@@ -133,13 +133,33 @@ function refreshDocsList(pid, list, viewer) {
         var btn = document.createElement('button');
         var isOpenDoc = openDoc[pid] === files[i];
         btn.type = 'button';
-        btn.className = 'docs-file' + (isOpenDoc ? ' on' : '');
+        btn.className =
+          'docs-file' + (isOpenDoc ? ' on' : '') + (isStanding ? ' docs-file-pinned' : '');
         // English-only label for now, deliberately: packages/tokens/src/
         // strings.ts is a hot shared file with another fleet lane's unlanded
         // work on it as of this slice (epic 0021 hit the identical
         // collision) — tagging data-i18n here waits for a firing where that
         // file is clear, not a gap in this one.
-        btn.textContent = isStanding ? '🤝 Contributor Standing' : files[i];
+        //
+        // The row is two spans, not one raw path (operator-reported
+        // 2026-09-17: the docs view reads strangely). A flat list of full
+        // repo-relative paths at chip size is a wall of near-identical
+        // prefixes — docs/epics/ repeated twenty times — with the one word
+        // that identifies each document buried at the end. Split at the last
+        // separator so the stylesheet can feed the directory to the ellipsis
+        // and keep the basename, the same idiom the pipeline tree uses. The
+        // concatenated text is still exactly the path, so the button's
+        // accessible name is unchanged.
+        if (isStanding) {
+          // The pinned explainer keeps its friendly name — and loses the
+          // emoji it carried, which epic 0025 is removing everywhere. Its
+          // accent comes from .docs-file-pinned now, not from a glyph.
+          btn.appendChild(el('span', 'docs-file-name', 'Contributor Standing'));
+        } else {
+          var cut = files[i].lastIndexOf('/');
+          if (cut >= 0) btn.appendChild(el('span', 'docs-file-dir', files[i].slice(0, cut + 1)));
+          btn.appendChild(el('span', 'docs-file-name', files[i].slice(cut + 1)));
+        }
         btn.setAttribute('data-doc-open', files[i]);
         btn.setAttribute('data-doc-pid', pid);
         btn.setAttribute('aria-pressed', String(isOpenDoc));
@@ -206,7 +226,11 @@ document.addEventListener('click', function (e) {
     var btns = listEl.querySelectorAll('[data-doc-open]');
     for (var i = 0; i < btns.length; i++) {
       var on = btns[i] === b;
-      btns[i].className = 'docs-file' + (on ? ' on' : '');
+      // Toggle only the open flag. Rebuilding className from scratch here
+      // would silently strip docs-file-pinned off the standing explainer the
+      // first time any OTHER document is opened — the row would lose its
+      // marker and never get it back until the whole list refreshed.
+      btns[i].classList.toggle('on', on);
       btns[i].setAttribute('aria-pressed', String(on));
     }
   }

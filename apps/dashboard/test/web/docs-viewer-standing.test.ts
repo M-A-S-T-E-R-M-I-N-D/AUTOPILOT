@@ -81,8 +81,18 @@ describe("the Docs reader panel's Standing explainer pin (board ap-mtu6l8ct-3)",
 
     const buttons = document.querySelectorAll('.docs-list .docs-file');
     expect(buttons.length).toBe(3);
-    expect(buttons[0]?.textContent).toBe('🤝 Contributor Standing');
+    // The friendly label stays; the emoji is gone (epic 0025 — emoji reads
+    // cheap). The pin is carried by a class the stylesheet renders as an
+    // accent edge, which also survives opening a different document.
+    expect(buttons[0]?.textContent).toBe('Contributor Standing');
+    expect(buttons[0]?.classList.contains('docs-file-pinned')).toBe(true);
     expect(buttons[0]?.getAttribute('data-doc-open')).toBe(STANDING_PATH);
+    // An ordinary row splits its path so the basename survives the ellipsis.
+    expect(buttons[1]?.querySelector('.docs-file-name')?.textContent).toBe('README.md');
+    expect(buttons[2]?.querySelector('.docs-file-dir')?.textContent).toBe('docs/');
+    expect(buttons[2]?.querySelector('.docs-file-name')?.textContent).toBe('foo.md');
+    // Concatenated, the row still reads back as the exact path.
+    expect(buttons[2]?.textContent).toBe('docs/foo.md');
     // Reordered, never duplicated — the raw path appears exactly once.
     const rawPathButtons = Array.from(buttons).filter(
       (b) => b.getAttribute('data-doc-open') === STANDING_PATH,
@@ -104,6 +114,25 @@ describe("the Docs reader panel's Standing explainer pin (board ap-mtu6l8ct-3)",
           String(input).includes(encodeURIComponent(STANDING_PATH)),
       ),
     ).toBe(true);
+  });
+
+  it('keeps the pin marker when a DIFFERENT document is opened', async () => {
+    // The click delegate used to rebuild className from scratch, which
+    // silently stripped docs-file-pinned off the standing row the first time
+    // any other document was opened — the row lost its marker and did not get
+    // it back until the whole list refreshed.
+    boot(['README.md', STANDING_PATH]);
+    await settle();
+
+    const buttons = document.querySelectorAll('.docs-list .docs-file');
+    expect(buttons[0]?.classList.contains('docs-file-pinned')).toBe(true);
+
+    (buttons[1] as HTMLButtonElement).click();
+    await settle();
+
+    expect(buttons[0]?.classList.contains('docs-file-pinned')).toBe(true);
+    expect(buttons[0]?.classList.contains('on')).toBe(false);
+    expect(buttons[1]?.classList.contains('on')).toBe(true);
   });
 
   it('leaves the plain list untouched for a project with no CONTRIBUTOR-STANDING.md', async () => {

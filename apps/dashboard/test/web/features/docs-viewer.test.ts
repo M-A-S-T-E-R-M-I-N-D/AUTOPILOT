@@ -42,7 +42,12 @@ describe('docsViewerJs', () => {
     const out = docsViewerJs();
     expect(out).toContain("var STANDING_DOC_PATH = '.github/CONTRIBUTOR-STANDING.md';");
     expect(out).toContain('files.unshift(STANDING_DOC_PATH);');
-    expect(out).toContain("'🤝 Contributor Standing'");
+    // The friendly name survives; the emoji does not (epic 0025 — emoji reads
+    // cheap). The pinned row is marked by docs-file-pinned now, which the
+    // stylesheet renders as an accent edge rather than a glyph.
+    expect(out).toContain("'Contributor Standing'");
+    expect(out).not.toContain('🤝');
+    expect(out).toContain("' docs-file-pinned'");
   });
 
   it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {

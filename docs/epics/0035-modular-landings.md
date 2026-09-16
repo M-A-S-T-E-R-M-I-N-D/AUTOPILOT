@@ -105,15 +105,25 @@ running `git rev-list` by hand three weeks later.
 **Acceptance.** Zero lane branches ahead of the flight branch after a round, or
 a named anomaly saying which and why.
 
-### Slice 2 — Land against the prospective tree
+### Slice 2 — Land against the prospective tree, and check preconditions first
 
 Change the landing gate's subject from "this branch" to "this branch merged onto
 the current target". Mechanically small, and the whole guarantee: today's gate
 can pass on a branch that will not be green once merged, which is how a red main
 happens despite a green gate.
 
+**And check the cheap preconditions before spending the expensive gate.**
+Observed 2026-09-17: a landing ran the full five-step gate — lint, format,
+typecheck, 11,383 tests, build, **5 minutes 40 seconds, all green** — and then
+refused with `nothing to land: the working tree is dirty`, because one untracked
+scratch file sat in the root. The precondition was knowable in milliseconds and
+was checked last. Every precondition that does not require the gate (clean tree,
+something actually to land, target reachable, lane not diverged) moves ahead of
+it, and the refusal names the file.
+
 **Acceptance.** A branch that is green alone but red once merged is refused, with
-the merged-state failure shown.
+the merged-state failure shown. A dirty tree is refused in under a second,
+naming what made it dirty, without running a single gate command.
 
 ### Slice 3 — The runway classifier
 
