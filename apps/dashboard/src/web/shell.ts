@@ -2780,7 +2780,14 @@ function tasksSection(c) {
   wrap.appendChild(inboxH);
   var inboxDetails = document.createElement('details');
   inboxDetails.className = 'inbox-details';
-  var inboxSummary = el('summary', 'inbox-summary', '📝 Drop a note');
+  // Epic 0025 slice 2 continuation (icons, board web-mtzpcw6f-26443t): an
+  // inbox icon replaces the 📝 glyph STRINGS used to bake into the summary
+  // text — setSweptText() (features/locale.ts) already keeps a leading icon
+  // child across the [data-i18n] sweep this summary carries, and the
+  // summary > .icon spacing rule (layout-css.ts) already covers this tag.
+  var inboxSummary = el('summary', 'inbox-summary');
+  inboxSummary.appendChild(iconEl('inbox'));
+  inboxSummary.appendChild(document.createTextNode('Drop a note'));
   inboxSummary.setAttribute('data-i18n', 'inboxSummary');
   inboxDetails.appendChild(inboxSummary);
   var inboxForm = document.createElement('form');
