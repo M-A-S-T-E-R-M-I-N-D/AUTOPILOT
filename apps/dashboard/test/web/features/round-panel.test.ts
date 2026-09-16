@@ -40,7 +40,7 @@ describe('roundPanelJs', () => {
 
   it('tags its own literal text data-i18n and sweeps freshly built DOM (board web-msnsndki-dz3vn1)', () => {
     const out = roundPanelJs();
-    expect(out).toContain("title.setAttribute('data-i18n', 'roundTitle');");
+    expect(out).toContain("panelHeading('h3', 'round-title', 'roundTitle', 'refresh-cw')");
     expect(out).toContain("loading.setAttribute('data-i18n', 'roundLoading');");
     expect(out).toContain("unavailable.setAttribute('data-i18n', 'roundUnavailable');");
     expect(out).toContain("noTags.setAttribute('data-i18n', 'roundNoTags');");

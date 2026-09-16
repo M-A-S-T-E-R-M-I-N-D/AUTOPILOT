@@ -784,7 +784,7 @@ const EN_STRINGS = {
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
-  roundTitle: '🔄 This round',
+  roundTitle: 'This round',
   roundLoading: 'Loading round totals…',
   roundUnavailable: 'Round totals unavailable.',
   roundNoTags: 'No release tags yet — every firing counts toward the round so far.',
@@ -2180,7 +2180,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     docsTitle: 'מסמכים',
     docsEmpty: 'עדיין אין מסמכים באינדקס.',
     docsUnavailable: 'המסמכים אינם זמינים.',
-    roundTitle: '🔄 הסבב הזה',
+    roundTitle: 'הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
     roundNoTags: 'עדיין אין תגיות שחרור — כל הפעלה נספרת לסבב עד כה.',

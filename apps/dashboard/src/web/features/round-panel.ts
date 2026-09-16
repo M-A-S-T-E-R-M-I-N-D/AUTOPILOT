@@ -96,8 +96,7 @@ function renderRoundBody(body, round) {
 }
 function roundSection(pid) {
   var wrap = el('section', 'round-panel');
-  var title = el('h3', 'round-title', '🔄 This round');
-  title.setAttribute('data-i18n', 'roundTitle');
+  var title = panelHeading('h3', 'round-title', 'roundTitle', 'refresh-cw');
   wrap.appendChild(title);
   var body = el('div', 'round-body');
   var loading = el('p', 'muted', 'Loading round totals…');
