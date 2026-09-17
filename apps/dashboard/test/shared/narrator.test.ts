@@ -17,6 +17,8 @@ import {
   narratorTarget,
   narratorKind,
   basename,
+  narratorPhrase,
+  narratorLine,
   NARRATOR_TARGET_CAP,
 } from '../../src/shared/narrator.js';
 import type { NarratorActivity } from '../../src/shared/narrator.js';
@@ -110,5 +112,65 @@ describe('basename', () => {
 
   it('returns the empty string unchanged', () => {
     expect(basename('')).toBe('');
+  });
+});
+
+// The board-task loop summariser and the compose-time line cap were both
+// unexercised: nothing passed a command whose target holds several board-task
+// ids, and nothing composed a sentence long enough to overflow. Each exists to
+// stop a specific ugliness on the worker card, and each could have been deleted
+// with the suite staying green.
+describe('narratorPhrase — the board-task loop', () => {
+  it('counts the ids instead of quoting the command soup', () => {
+    const target = 'for id in web-abc123-xy1 web-def456-zz2 web-ghi789-qq3; do ap task $id; done';
+    expect(narratorPhrase(activity({ tool: 'Bash', target }))).toBe('Updating 3 tasks');
+  });
+
+  it('quotes the command normally when only ONE id appears', () => {
+    // One id is not a loop, so the summary would lose information rather than
+    // save it — the boundary is > 1, not >= 1.
+    const target = 'ap task web-abc123-xy1';
+    expect(narratorPhrase(activity({ tool: 'Bash', target }))).toBe(
+      'Running: ap task web-abc123-xy1',
+    );
+  });
+
+  it('needs a real board-task shape, not merely the web- prefix', () => {
+    const target = 'grep web-  web- something';
+    expect(narratorPhrase(activity({ tool: 'Bash', target }))).not.toContain('tasks');
+  });
+
+  it('reads run-together ids as ONE token, not two', () => {
+    // The id segments are greedy on purpose. With a non-greedy final segment
+    // this single run-together token would split into two "ids" and the card
+    // would claim a 2-task loop that never happened. Measured: the two
+    // patterns give 1 match and 2 matches for exactly this input.
+    const target = 'web-abc-1web-def-2';
+    expect(narratorPhrase(activity({ tool: 'Bash', target }))).toBe('Running: web-abc-1web-def-2');
+  });
+});
+
+describe('narratorLine — the compose-time cap', () => {
+  const CAP = 90;
+
+  it('leaves a sentence of exactly the cap untouched — the boundary is >, not >=', () => {
+    // 'Using ' (6) + tool (19) + ' on ' (4) + target (60) + '.' (1) = 90.
+    // At exactly the cap the sentence must survive whole: truncating here
+    // would cost a character to say nothing, and it is the one input where
+    // `>` and `>=` differ at all.
+    const line = narratorLine([
+      activity({ tool: 'T'.repeat(19), target: 'y'.repeat(60), kind: 'other' }),
+    ]);
+    expect(line).toHaveLength(CAP);
+    expect(line.endsWith('.')).toBe(true);
+    expect(line).not.toContain('…');
+  });
+
+  it('truncates an over-long sentence to the cap with an ellipsis', () => {
+    const line = narratorLine([
+      activity({ tool: 'T'.repeat(80), target: 'y'.repeat(80), kind: 'other' }),
+    ]);
+    expect(line).toHaveLength(CAP);
+    expect(line.endsWith('…')).toBe(true);
   });
 });
