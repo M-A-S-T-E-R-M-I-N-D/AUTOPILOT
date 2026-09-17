@@ -223,3 +223,53 @@ describe('narrowToHunkOverlap', () => {
     expect(narrowToHunkOverlap([], new Map(), new Map())).toEqual([]);
   });
 });
+
+describe('narrowToHunkOverlap — the range intersection, each clause on its own', () => {
+  const warn = (files: string[]) => [{ branch: 'b', files }];
+  const ranges = (
+    mine: { start: number; end: number }[],
+    theirs: { start: number; end: number }[],
+  ) => ({
+    myRanges: new Map([['f', mine]]),
+    branchRanges: new Map([['b', new Map([['f', theirs]])]]),
+  });
+
+  it('drops a file whose ranges are fully disjoint — in either order', () => {
+    // Two comparisons, one per direction. A disjoint pair with MINE first
+    // only exercises `y.start <= x.end`; the mirror pair, with theirs first,
+    // is the only input that makes `x.start <= y.end` decide anything.
+    const a = ranges([{ start: 1, end: 5 }], [{ start: 100, end: 200 }]);
+    expect(narrowToHunkOverlap(warn(['f']), a.myRanges, a.branchRanges)).toEqual([]);
+    const b = ranges([{ start: 100, end: 200 }], [{ start: 1, end: 5 }]);
+    expect(narrowToHunkOverlap(warn(['f']), b.myRanges, b.branchRanges)).toEqual([]);
+  });
+
+  it('keeps a file when only the SECOND of my ranges overlaps (any, not every)', () => {
+    const { myRanges, branchRanges } = ranges(
+      [
+        { start: 1, end: 5 },
+        { start: 50, end: 60 },
+      ],
+      [{ start: 55, end: 58 }],
+    );
+    expect(narrowToHunkOverlap(warn(['f']), myRanges, branchRanges)).toEqual(warn(['f']));
+  });
+
+  it('keeps a file when only ONE of their ranges overlaps mine (any, not every)', () => {
+    const { myRanges, branchRanges } = ranges(
+      [{ start: 50, end: 60 }],
+      [
+        { start: 1, end: 5 },
+        { start: 55, end: 58 },
+      ],
+    );
+    expect(narrowToHunkOverlap(warn(['f']), myRanges, branchRanges)).toEqual(warn(['f']));
+  });
+
+  it('treats my range STARTING on the line theirs ends as touching (inclusive on that side too)', () => {
+    // The existing boundary test covers their range starting where mine ends;
+    // the mirror image is the other comparison, and each has its own `<=`.
+    const { myRanges, branchRanges } = ranges([{ start: 10, end: 20 }], [{ start: 1, end: 10 }]);
+    expect(narrowToHunkOverlap(warn(['f']), myRanges, branchRanges)).toEqual(warn(['f']));
+  });
+});

@@ -213,6 +213,64 @@ describe('toCard', () => {
     const card = toCard(aggregate({ activity: [act({ firingId: 'p1:firing-9' })] }));
     expect(card.liveFiring?.firingId).toBe('p1:firing-9');
   });
+
+  // liveFirings (the many-lanes read) had no test of its own — every
+  // clause below was unexercised through toCard.
+  it('reports no live lanes for a project that is not flying, whatever its activity says', () => {
+    const card = toCard(
+      aggregate({ status: 'registered', activity: [act({ firingId: 'p1:firing-9' })] }),
+    );
+    expect(card.liveFirings).toEqual([]);
+  });
+
+  it('carries the operator focus task onto every live lane', () => {
+    const card = toCard(
+      aggregate({
+        activity: [act({ firingId: 'p1:firing-9' })],
+        tasks: [
+          {
+            id: 't1',
+            title: 'Focus me',
+            body: null,
+            status: 'queued',
+            severity: 'high',
+            dimension: 'ux',
+            focus: true,
+            priority: null,
+            source: 'dashboard',
+            at: 1,
+            cumulativeCostUsd: 0,
+            firingCount: 0,
+            isRunaway: false,
+          },
+        ],
+      }),
+    );
+    expect(card.liveFirings[0]?.focusTask).toBe('Focus me');
+  });
+
+  it('counts each lane ONLY its own actions, and is not capped while another lane exists', () => {
+    // Two firings interleaved, newest first. Each lane's recentActions must
+    // be its own two rows — not all four — and capped means "this lane IS
+    // the whole window", which is false whenever a sibling shares it.
+    const card = toCard(
+      aggregate({
+        activity: [
+          act({ firingId: 'p1:firing-A', at: 4 }),
+          act({ firingId: 'p1:firing-B', at: 3 }),
+          act({ firingId: 'p1:firing-A', at: 2 }),
+          act({ firingId: 'p1:firing-B', at: 1 }),
+        ],
+      }),
+    );
+    expect(card.liveFirings).toHaveLength(2);
+    for (const lane of card.liveFirings) {
+      expect(lane.recentActions).toBe(2);
+      expect(lane.recentActionsCapped).toBe(false);
+    }
+    expect(card.liveFirings.find((l) => l.firingId === 'p1:firing-A')?.startedAt).toBe(2);
+    expect(card.liveFirings.find((l) => l.firingId === 'p1:firing-B')?.startedAt).toBe(1);
+  });
 });
 
 describe('activityPhase', () => {
@@ -462,6 +520,22 @@ describe('finishedFlightSummaries', () => {
       sha: 'abc1234',
       at: 5,
     });
+  });
+
+  // The headline falls through a ladder of reasons a firing ended with
+  // nothing committed. Every fixture died: null, so none of the rungs ran.
+  it.each([
+    ['turn-cap', 'died at the turn cap — nothing committed'],
+    ['timeout', 'timed out at the CLI wall-clock cap — nothing committed'],
+    ['error', 'errored mid-firing — nothing committed'],
+  ] as const)('headlines a firing that died of %s', (died, headline) => {
+    const [summary] = finishedFlightSummaries(
+      aggregate({
+        flightLog: [flight({ died, commitSubject: null, item: null, gateResult: 'no-commit' })],
+        tasks: [],
+      }),
+    );
+    expect(summary?.headline).toBe(headline);
   });
 
   it('carries realCostUsd through when the firing tracked it (cost semantics v3)', () => {
@@ -1449,5 +1523,68 @@ describe('buildFleetView recentFirings', () => {
     const projects = [aggregate({ id: 'p1', flightLog: [flight('f2', 20), flight('f1', 10)] })];
     const view = buildFleetView(0, projects);
     expect(view.recentFirings.map((f) => f.id)).toEqual(['f1', 'f2']);
+  });
+});
+
+// toCard feeds eleven optional event arrays into detectAnomalies with a
+// `?? []` default each, and NOTHING asserted the anomalies that came out —
+// so all twenty of those mutants lived. The dangerous direction is `??` to
+// `&&`: when the field IS present, `rows && []` yields [] and every real
+// anomaly of that kind silently vanishes from the card. The other direction is
+// the default becoming a bogus one-element array, which manufactures a chip
+// for a project that recorded nothing.
+describe('toCard surfaces each persisted-event anomaly, and invents none', () => {
+  it('reports no event-derived anomaly for a project with none of the arrays set', () => {
+    const kinds = toCard(aggregate()).anomalies.map((a) => a.kind);
+    for (const kind of [
+      'orient-drag',
+      'family-runaway',
+      'intent-collision',
+      'near-miss-recurring',
+      'guard-denial',
+      'sync-back-refusal',
+      'land-gate-alarm',
+      'convergence-red',
+      'e2e-land-block',
+      'convergence-unverifiable',
+      'guard-verify-failed',
+    ]) {
+      expect(kinds).not.toContain(kind);
+    }
+  });
+
+  it.each([
+    [
+      'orient-drag',
+      {
+        orientLengths: [
+          { actionsBeforeFirstEdit: 40 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+        ],
+      },
+    ],
+    ['family-runaway', { familyRunaways: [{ family: 'fix(x)', spendUsd: 12, firings: 9 }] }],
+    [
+      'intent-collision',
+      { intentCollisions: [{ file: 'src/a.ts', sibling: 'fleet-2', intent: 'refactor' }] },
+    ],
+    ['near-miss-recurring', { nearMissRecurring: [{ nearMissClass: 'guardDenials', streak: 3 }] }],
+    ['guard-denial', { guardDenialEvents: [{ kind: 'containment', target: '/etc/passwd' }] }],
+    ['sync-back-refusal', { syncBackRefusalEvents: [{ details: 'conflict in x' }] }],
+    ['land-gate-alarm', { landGateAlarmEvents: [{ details: 'lint red' }] }],
+    ['convergence-red', { convergenceRedEvents: [{ check: 'typecheck', details: 'TS2345' }] }],
+    ['e2e-land-block', { e2eLandBlockEvents: [{ detail: 'main is red' }] }],
+    [
+      'convergence-unverifiable',
+      { convergenceUnverifiableEvents: [{ signature: 'abc', ms: 100, floorMs: 5000 }] },
+    ],
+    ['guard-verify-failed', { guardVerificationFailedEvents: [{ reason: 'hook missing' }] }],
+  ] as const)('surfaces a %s anomaly when its rows are present', (kind, over) => {
+    const kinds = toCard(aggregate(over as Partial<ProjectAggregate>)).anomalies.map((a) => a.kind);
+    expect(kinds).toContain(kind);
   });
 });

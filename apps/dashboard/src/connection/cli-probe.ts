@@ -70,6 +70,11 @@ export function makeCliExec(env?: NodeJS.ProcessEnv, timeoutMs = 15_000): CliExe
               : err
                 ? 1
                 : 0;
+          // Stryker disable next-line LogicalOperator, StringLiteral: Node's execFile
+          // callback always hands stdout AND stderr over as strings unless an
+          // encoding of 'buffer' is asked for, which this probe never does — both
+          // `?? ''` fallbacks are unreachable defensive typing, not live behaviour
+          // (the same reasoning adapters/git.ts's git() records for its stdout).
           resolve({ code, stdout: stdout ?? '', stderr: stderr ?? '' });
         },
       );

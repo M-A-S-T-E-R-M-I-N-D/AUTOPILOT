@@ -58,6 +58,10 @@ export function gateCommands(
     }
   }
   if (options.includeCiExtras) {
+    // Stryker disable next-line ArrayDeclaration: equivalent by construction —
+    // the loop admits an entry only through `if (extra.bin)` below, so whatever
+    // a mutated default holds, a non-entry has no bin and never becomes a
+    // command. The empty default is the honest reading of "no extras".
     for (const extra of spec.ciExtras ?? []) {
       if (extra.bin) commands.push({ bin: extra.bin, args: [...extra.args], label: extra.label });
     }

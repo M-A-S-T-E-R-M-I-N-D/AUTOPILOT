@@ -302,6 +302,12 @@ describe('intentCollisions (via detectAnomalies)', () => {
     expect(anomalies[0]?.kind).toBe('intent-collision');
     expect(anomalies[0]?.evidence).toContain('12 intent collisions');
     expect(anomalies[0]?.evidence).toContain('src/file-11.ts'); // the latest breach named
+    // The aggregated chip's sentence names WHO had the claim and WHAT the claim
+    // was — the two facts an operator needs to act on it. The single-breach
+    // shape is asserted verbatim above; the aggregated shape was not.
+    expect(anomalies[0]?.evidence).toContain(
+      'while sibling fleet-4 had it claimed as its declared intent ("src/file-11.ts — unit 11").',
+    );
   });
 
   it('stays quiet with no persisted breaches (and when the param is omitted)', () => {

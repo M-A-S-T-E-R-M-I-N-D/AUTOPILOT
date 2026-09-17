@@ -435,3 +435,42 @@ describe('deriveFormatFixCommand', () => {
     expect(fix).not.toHaveProperty('label');
   });
 });
+
+describe('RemediatingGate — the two early returns after the fixer', () => {
+  it('commits nothing when the fixer reports it did not run, even if the tree gained dirt meanwhile', async () => {
+    // A fixer that did not run cannot be the author of new dirt — a
+    // concurrent process is. Without the `!fixerRan` return, that process's
+    // edit would be swept up and committed under the autoformat message.
+    const inner = gateOf([red]);
+    const base = vcsFake(false);
+    let dirtyCalls = 0;
+    const vcs = {
+      ...base,
+      dirtyPaths: () => Promise.resolve(++dirtyCalls === 1 ? [] : ['someone-elses.txt']),
+    };
+    const gate = new RemediatingGate({ inner, vcs, runFixer: () => Promise.resolve(false) });
+    const result = await gate.run();
+    expect(result).toEqual(red);
+    expect(base.commits).toHaveLength(0);
+  });
+
+  it('reports the ORIGINAL failure when the fix commit itself is refused', async () => {
+    // A rejected commit means the fix never landed, so re-running the gate
+    // would judge an uncommitted tree and could report a green that no commit
+    // backs. The first result is the honest one.
+    const inner = gateOf([red, ok]);
+    const base = vcsFake(true);
+    const vcs = { ...base, commitPaths: () => Promise.resolve(false) };
+    const gate = new RemediatingGate({
+      inner,
+      vcs,
+      runFixer: () => {
+        base.markFixerRan();
+        return Promise.resolve(true);
+      },
+    });
+    const result = await gate.run();
+    expect(result.ok).toBe(false);
+    expect(result.details).toBe(red.details);
+  });
+});

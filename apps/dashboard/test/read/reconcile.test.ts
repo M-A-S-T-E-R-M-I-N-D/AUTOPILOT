@@ -358,3 +358,12 @@ describe('findReconciliationCandidates', () => {
     expect(candidates[0]!.commitSha).toBe('first001');
   });
 });
+
+describe('filePathMatchesTitle — a file with no directory still yields its whole basename', () => {
+  it('matches a top-level file by its name, not by its last two characters', () => {
+    // lastIndexOf('/') is -1 for a top-level file; the +1 lands on index 0
+    // and the whole name is the basename. Off by two the other way, the slice
+    // starts from the END and the "basename" of CHANGELOG.md is "md".
+    expect(filePathMatchesTitle('update the CHANGELOG entries', ['CHANGELOG.md'])).toBe(true);
+  });
+});

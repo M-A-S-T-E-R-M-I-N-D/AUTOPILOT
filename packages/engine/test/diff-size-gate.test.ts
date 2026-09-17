@@ -173,3 +173,27 @@ describe('evaluateDiffSize', () => {
     expect(verdict.threshold).toBe(10);
   });
 });
+
+describe('evaluateDiffSize — the cap is exclusive, and each verdict says why', () => {
+  it('treats a diff of exactly the threshold as ok — the cap is "exceeds", not "reaches"', () => {
+    const v = evaluateDiffSize([{ path: 'src/a.ts', insertions: 100, deletions: 0 }], 100, 1000);
+    expect(v.tier).toBe('ok');
+    expect(v.details).toBe('diff size ok: 100 review line(s)');
+  });
+
+  it('names the cap and the board follow-up in a WARN verdict', () => {
+    const v = evaluateDiffSize([{ path: 'src/a.ts', insertions: 150, deletions: 0 }], 100, 1000);
+    expect(v.tier).toBe('warn');
+    expect(v.details).toContain('diff size WARN: 150 review line(s) exceeds the 100-line cap');
+    expect(v.details).toContain('(a split follow-up belongs on the board)');
+  });
+
+  it('names the runaway ceiling and the revert in a BLOCK verdict', () => {
+    const v = evaluateDiffSize([{ path: 'src/a.ts', insertions: 1500, deletions: 0 }], 100, 1000);
+    expect(v.tier).toBe('block');
+    expect(v.details).toContain(
+      'diff far beyond any honest unit: 1500 review line(s) exceeds the 1000-line runaway ceiling',
+    );
+    expect(v.details).toContain('containment/scope failure, reverting like any red gate');
+  });
+});

@@ -66,11 +66,20 @@ async function handleStdinEnd(): Promise<void> {
   }
 
   const webFetchUrl = extractWebFetchUrl(raw);
+  // Stryker disable next-line ConditionalExpression: equivalent by
+  // construction, measured 2026-09-17. Handing null to the rebinding check
+  // makes its own `new URL(null)` throw inside its try, and it returns
+  // allowed WITHOUT resolving anything — so a non-WebFetch input takes the
+  // identical path with or without this guard. It stays because "only a
+  // WebFetch gets a DNS check" deserves to be stated, not inferred.
   if (webFetchUrl !== null) {
     const verdict = await checkWebFetchDnsRebinding(webFetchUrl, (hostname) =>
       lookup(hostname, { all: true }),
     );
     if (!verdict.allowed) {
+      // Stryker disable next-line StringLiteral: unreachable — every deny the
+      // rebinding check returns carries its reason (the resolved address and
+      // why it is off-limits); the fallback is defensive typing only.
       process.stdout.write(buildDenyDecision(verdict.reason ?? 'blocked'));
       process.exit(0);
       return;

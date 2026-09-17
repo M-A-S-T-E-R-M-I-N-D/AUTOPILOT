@@ -349,3 +349,21 @@ describe('buildAskEscalationPrompt', () => {
     expect(p).not.toContain('Prior turns of this conversation');
   });
 });
+
+describe('buildAskEscalationPrompt — prior turns are labelled, then set off by a blank line', () => {
+  it('introduces the history with its header and closes it with an empty line before the question', () => {
+    const p = buildAskEscalationPrompt({
+      question: 'q',
+      history: [{ question: 'q1', answer: 'a1' }],
+    });
+    const lines = p.split('\n');
+    const header = lines.indexOf('Prior turns of this conversation:');
+    expect(header).toBeGreaterThan(-1);
+    expect(lines[header + 1]).toBe('Q: q1');
+    const question = lines.indexOf('Question: q');
+    expect(question).toBeGreaterThan(header);
+    // The history block ends with a deliberate blank line so the question
+    // stands apart from the last answer, not glued to it.
+    expect(lines[question - 1]).toBe('');
+  });
+});

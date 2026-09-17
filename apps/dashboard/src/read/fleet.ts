@@ -647,6 +647,11 @@ export function toCard(p: ProjectAggregate): ProjectCard {
     liveFirings: liveFirings(p),
     anomalies: detectAnomalies(
       p.flightLog,
+      // Stryker disable next-line ArrayDeclaration: the same provable
+      // equivalence detectAnomalies documents on its own `orient` default —
+      // a mutated one-element fallback is exactly as `<= ORIENT_DRAG_WINDOW`
+      // as the real [], so no card whose aggregate omits orientLengths can
+      // ever observe the difference.
       p.orientLengths ?? [],
       p.familyRunaways ?? [],
       p.intentCollisions ?? [],

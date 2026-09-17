@@ -139,3 +139,30 @@ describe('describeAuth', () => {
     expect(describeAuth({ mode: 'endpoint' })).toBe('Custom endpoint (not configured)');
   });
 });
+
+describe('resolveClaudeEnv — endpoint mode without a base URL sets NOTHING', () => {
+  it('leaves both endpoint variables absent as keys, not present-but-undefined', () => {
+    // The guard is `mode === 'endpoint' && baseUrl`. With the baseUrl half
+    // gone, the env gains ANTHROPIC_BASE_URL as a key holding undefined — and
+    // the auth token rides in beside it, pointed at no endpoint at all. A
+    // value check cannot see that; a key check can.
+    const env = resolveClaudeEnv({ mode: 'endpoint', authToken: FAKE_TOKEN } as AuthConfig, {});
+    expect('ANTHROPIC_BASE_URL' in env).toBe(false);
+    expect('ANTHROPIC_AUTH_TOKEN' in env).toBe(false);
+  });
+});
+
+describe('resolveClaudeEnv — a baseUrl on a NON-endpoint config is ignored', () => {
+  it('never sets ANTHROPIC_BASE_URL for api-key mode, even when the config happens to carry one', () => {
+    // The guard is `mode === 'endpoint' && baseUrl`, and the mode half is
+    // what says a stray baseUrl on an api-key config is not an instruction.
+    // Without it, an api-key session would be pointed at whatever URL the
+    // config file last held — the key sent to an endpoint nobody chose.
+    const env = resolveClaudeEnv(
+      { mode: 'api-key', apiKey: 'sk-test', baseUrl: 'http://localhost:9' } as AuthConfig,
+      {},
+    );
+    expect('ANTHROPIC_BASE_URL' in env).toBe(false);
+    expect(env['ANTHROPIC_API_KEY']).toBe('sk-test');
+  });
+});

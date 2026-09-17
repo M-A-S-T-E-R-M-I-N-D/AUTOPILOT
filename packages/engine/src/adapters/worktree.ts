@@ -172,6 +172,11 @@ export function parseWorktreeList(porcelainOutput: string): WorktreeListEntry[] 
  */
 export async function repoPrefixOf(path: string): Promise<string> {
   const result = await git(path, ['rev-parse', '--show-prefix']);
+  // Stryker disable next-line ConditionalExpression: equivalent by
+  // construction, measured 2026-09-17. This module's git() keeps STDOUT only,
+  // and a failed rev-parse writes its "not a git repository" to stderr — so
+  // on failure stdout is '' and the fall-through returns the same '' the guard
+  // does. It stays because "no repo means no prefix" deserves a line of its own.
   if (result.exitCode !== 0) return '';
   return result.stdout.trim();
 }
@@ -224,7 +229,15 @@ export async function ensureWorktree(
   // operator noticed. Nothing reaches this line while a real registration
   // exists (handled above), so any leftover content here is orphaned scratch
   // space, never live operator work — clear it so the add below can proceed.
+  // Stryker disable next-line ConditionalExpression: probed 2026-09-17 —
+  // rmSync on a MISSING path with force:true is a silent no-op, so dropping
+  // the existence check changes nothing observable. It stays because a bare
+  // rmSync on a path that is usually absent reads as a mistake.
   if (existsSync(worktreePath)) {
+    // Stryker disable next-line BooleanLiteral: probed the same day — with
+    // the existence check above holding, the path is there, and recursive
+    // removal of a present directory succeeds with force either way. force
+    // only matters for the ENOENT the guard already rules out.
     rmSync(worktreePath, { recursive: true, force: true });
   }
 
@@ -291,6 +304,9 @@ export async function addDetachedWorktree(
     return {
       ok: false,
       path: worktreePath,
+      // Stryker disable next-line MethodExpression: git() keeps stdout only and
+      // a failed `worktree add` reports on stderr, so stdout here is '' and the
+      // trim is unobservable through any real failure (measured 2026-09-17).
       details: `git worktree add --detach failed (exit ${add.exitCode}): ${add.stdout.trim()}`,
     };
   }
@@ -440,13 +456,26 @@ export async function syncWorktreeBranch(
     // resolutions — commit it. Any path still unmerged means at least one
     // conflict has no recorded resolution: abort, refuse, touch nothing.
     const unresolved = await git(repo, ['diff', '--name-only', '--diff-filter=U']);
-    const unresolvedPaths =
-      unresolved.exitCode === 0
-        ? unresolved.stdout
-            .split('\n')
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0)
-        : [];
+    // No exit-code branch here any more: `git diff --name-only` cannot fail
+    // inside a merge this function itself just started, and were it somehow
+    // to, its stdout would be empty — which the parse below already reads as
+    // "no unresolved paths". The ternary that guarded it was measured
+    // (2026-09-17) to be unreachable, so it is removed rather than excused.
+    // Stryker disable MethodExpression: git never pads a --name-only line,
+    // so the trim below only ever removes nothing; it stays as insurance
+    // against a stray CR, which no test can provoke git to emit. (Block form,
+    // not next-line: a directive placed between chained calls does not bind
+    // to the call after it — measured 2026-09-17, the mutant survived it.)
+    const unresolvedPaths = unresolved.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    // Stryker restore MethodExpression
+    // Stryker disable next-line ConditionalExpression: equivalent, measured
+    // 2026-09-17. With unmerged paths still in the index `git commit` refuses
+    // outright ("Committing is not possible because you have unmerged files"),
+    // so an always-true guard reaches the identical fall-through one failed
+    // command later.
     if (unresolvedPaths.length === 0) {
       const commit = await git(repo, ['commit', '--no-edit', '--signoff']);
       if (commit.exitCode === 0) {
@@ -519,6 +548,9 @@ export async function fastForwardWorktree(
   if (ff.exitCode !== 0) {
     return {
       ok: false,
+      // Stryker disable next-line MethodExpression: a refused --ff-only merge
+      // says "Not possible to fast-forward" on stderr, which git() drops, so
+      // stdout is '' and the trim is unobservable (measured 2026-09-17).
       details: `cannot fast-forward '${worktreePath}' onto '${ref}' (exit ${ff.exitCode}): ${ff.stdout.trim()}`,
     };
   }

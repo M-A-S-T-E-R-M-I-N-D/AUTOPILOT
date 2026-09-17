@@ -12,6 +12,7 @@ import {
   validateConnect,
   type ConnectionDeps,
 } from '../../src/connection/service.js';
+import { credentialsFilePath } from '../../src/connection/verify.js';
 import { readConnectionConfig } from '../../src/connection/config.js';
 import { parseCliVersion, probeClaudeCli, type CliExec } from '../../src/connection/cli-probe.js';
 
@@ -212,5 +213,27 @@ describe('cli-probe', () => {
   it('reports absent when the probe exits non-zero', async () => {
     const probe = await probeClaudeCli(() => Promise.resolve({ code: 127, stdout: '' }));
     expect(probe).toEqual({ present: false, version: null });
+  });
+});
+
+describe('getConnectionStatus — the platform it was HANDED decides the credential path', () => {
+  it('looks for the stored login where deps.platform says, never where the host is', async () => {
+    // `deps.platform ?? process.platform` falls back only when no platform is
+    // given. Read as `&&` it would take the HOST platform whenever one IS
+    // given — invisible to every fixture above, whose `exists` ignored the
+    // path it was asked about. This one answers only for the path the
+    // requested platform implies, and asks for whichever platform the host
+    // is NOT, so the wrong-platform path is wrong on every machine.
+    const chosen: NodeJS.Platform = process.platform === 'win32' ? 'linux' : 'win32';
+    const env = { HOME: 'TESTHOME', USERPROFILE: 'TESTPROFILE', APPDATA: 'TESTAPPDATA' };
+    const want = credentialsFilePath(env, chosen);
+    expect(want).not.toBeNull();
+    const status = await getConnectionStatus({
+      ...deps(cliPresent),
+      env,
+      platform: chosen,
+      exists: (p) => p === want,
+    });
+    expect(status.loggedIn).toBe(true);
   });
 });

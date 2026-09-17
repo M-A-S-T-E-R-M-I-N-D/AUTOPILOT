@@ -620,8 +620,15 @@ export interface FiringRecord {
  * the firing's ending.
  */
 export function mergeEnvelopeFacts(first: EnvelopeFacts, last: EnvelopeFacts): EnvelopeFacts {
+  // The null DECISION is kept apart from the arithmetic on purpose. In
+  // JavaScript `null + 5` is 5, so any single null check placed in front of
+  // a `+` is behaviourally redundant — only the both-null case can differ,
+  // and two earlier spellings of this helper each hid equivalent mutants
+  // behind that coercion (measured 2026-09-17). Here the one guard that
+  // matters — both absent stays null, never a fabricated 0 — is explicit,
+  // and the addition treats a lone absence as 0 in the open.
   const add = (a: number | null, b: number | null): number | null =>
-    a !== null && b !== null ? a + b : (a ?? b);
+    a === null && b === null ? null : (a ?? 0) + (b ?? 0);
   return {
     model: last.model,
     exitCode: last.exitCode,
