@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { THEMES, THEME_NAMES, type ThemeName } from '../src/themes.js';
-import { contrastMatrix } from '../src/color.js';
+import { contrastMatrix, classifyContrast } from '../src/color.js';
 
 /**
  * D1 CONTRAST MATRIX (epic 0015 §6.6, board web-mtd1wmrg-9w5bk7): `.flight-slice-chip`'s
@@ -320,5 +320,40 @@ describe('contrast matrix', () => {
       );
       expect(pair?.level).toBe('fail');
     }
+  });
+
+  // Nothing asserted that a pair can be classified 'text' at all — only that
+  // every level is one of the three, and that one specific pair is 'fail'. So
+  // a classifier that never returned 'text' passed the whole suite, which is
+  // the failure mode this matrix exists to prevent: it would silently demote
+  // every AA-passing pair to 'large'.
+  it('classifies a genuinely high-contrast pair as text-passing', () => {
+    for (const name of THEME_NAMES) {
+      const pair = contrastMatrix(THEMES[name]).find((p) => p.a === 'surface' && p.b === 'text');
+      expect(pair?.ratio).toBeGreaterThanOrEqual(4.5);
+      expect(pair?.level).toBe('text');
+    }
+  });
+});
+
+// Both WCAG AA floors are INCLUSIVE, and no real theme lands on either number
+// exactly — so these boundaries are unreachable through contrastMatrix and
+// were therefore untested, not unimportant. An off-by-one here reclassifies a
+// legitimately passing pair as failing (or the reverse), which is exactly the
+// kind of error a contrast ledger must not make.
+describe('classifyContrast boundaries', () => {
+  it('treats 4.5:1 as text-passing (SC 1.4.3 is >= 4.5, not > 4.5)', () => {
+    expect(classifyContrast(4.5)).toBe('text');
+    expect(classifyContrast(4.499)).toBe('large');
+  });
+
+  it('treats 3:1 as large-passing (SC 1.4.11 is >= 3, not > 3)', () => {
+    expect(classifyContrast(3)).toBe('large');
+    expect(classifyContrast(2.999)).toBe('fail');
+  });
+
+  it('classifies the extremes', () => {
+    expect(classifyContrast(21)).toBe('text');
+    expect(classifyContrast(1)).toBe('fail');
   });
 });
