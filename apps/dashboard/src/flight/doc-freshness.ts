@@ -297,14 +297,21 @@ export function findStaleDocFreshnessProposalIds(
  *  "skip, don't guess" degradation `computeDocDrift` already gives a missing
  *  lookup. */
 export function gitLastTouchedAt(repo: string, path: string): number | null {
-  let out: string;
+  // The catch deliberately does nothing: `out` stays empty and the single
+  // `!out` guard below answers for BOTH failure shapes — git not there (or the
+  // path not in a repo) and git there but silent about this path. It used to
+  // `return null` here as well, which read as two guards but was one: measured
+  // 2026-09-17, emptying the catch changed no result, because the guard on the
+  // next line already returned the same null one step later. Saying it once is
+  // both simpler and honest about there being a single decision.
+  let out = '';
   try {
     out = execFileSync('git', ['-C', repo, 'log', '-1', '--format=%ct', '--', path], {
       encoding: 'utf8',
       windowsHide: true,
     });
   } catch {
-    return null;
+    /* leave `out` empty — the guard below is the one decision */
   }
   if (!out) return null;
   return Number(out) * 1000;
