@@ -1241,6 +1241,15 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // value. Directory-anchored so any future baseline tool landing here is
   // covered without a second marker.
   'scripts/e2e/',
+  // The per-change mutation gate's selector. `scripts/mutation/
+  // configs-for-changes.mjs` decides WHICH Stryker configs the pull-request
+  // gate runs, so a PR that taught it to return nothing would pass a mutation
+  // gate it had just switched off — the same run-the-check-you-disabled class
+  // as the scripts/ci/ marker above, one layer up: that marker protects the
+  // enforcement scripts, this protects the thing that chooses what they
+  // enforce against. Directory-anchored so a future selector or shard planner
+  // landing here is covered without a second marker.
+  'scripts/mutation/',
   // ——— The gate's own config files. CI runs typecheck/lint/format/test/build
   // with the PR's OWN checkout of every config those tools read, so a PR that
   // excluded tests in vitest.config.ts, narrowed a tsconfig's include set,
