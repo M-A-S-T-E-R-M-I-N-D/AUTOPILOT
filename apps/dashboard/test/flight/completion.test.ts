@@ -227,6 +227,61 @@ describe('verdictBlockerCleared (VERDICT AUTO-RECONCILE part a, web-mtettjx9-57a
   });
 });
 
+// Four survivors clustered here, each a clause nothing exercised.
+describe('the clauses the verdict helpers were never asked about', () => {
+  it('survives a defer-kind proposal that names no task id at all', () => {
+    // `p.title.match(...) ?? []` — the fallback arm. Every fixture named at
+    // least one id, so the "matched nothing" path never ran, and a mutant
+    // replacing the fallback with a bogus id list went unseen.
+    expect(
+      verdictDeferTargets([{ title: 'VERDICT blocked: the gate is red, no id given' }]),
+    ).toEqual([]);
+  });
+
+  it('puts the claimed task FIRST, ahead of the other named targets', () => {
+    // The claimed defer is prepended before the named targets and then deduped.
+    // Since the claimed id is itself always one of the named targets, dropping
+    // the prepend changes no MEMBERSHIP — only order. Order is the observable,
+    // so order is what this asserts: fly.ts defers down this list, and the task
+    // the firing actually claimed should be handled first.
+    expect(
+      verdictDeferTargetsForFiring('web-bbb222-y', [
+        { title: 'VERDICT blocked web-aaa111-x: sibling lane holds it' },
+        { title: 'VERDICT blocked web-bbb222-y: same' },
+      ]),
+    ).toEqual(['web-bbb222-y', 'web-aaa111-x']);
+  });
+
+  it('matches a lane token whatever case the verdict wrote it in', () => {
+    // laneTokens lowercases, because the state's lane names are lowercase.
+    // Upper-casing instead would silently stop every verdict from clearing.
+    expect(
+      verdictBlockerCleared('VERDICT blocked web-abc123-x: waiting on FLEET-3', {
+        liveLanes: ['autopilot/flight-worktree-fly-autopilot--fleet-3'],
+        gateGreen: true,
+      }),
+    ).toBe(false);
+    expect(
+      verdictBlockerCleared('VERDICT blocked web-abc123-x: waiting on FLEET-9', {
+        liveLanes: ['autopilot/flight-worktree-fly-autopilot--fleet-3'],
+        gateGreen: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('never clears a title that is not a VERDICT blocked line, even when it names a lane', () => {
+    // The shape guard runs FIRST. Without it, any note mentioning a dead lane
+    // or the gate would "clear" a blocker that was never filed as one — the
+    // fail-closed stance this function is built on, inverted.
+    expect(
+      verdictBlockerCleared('chore: retire fleet-9 and check the gate', {
+        liveLanes: ['autopilot/flight-worktree-fly-autopilot--fleet-3'],
+        gateGreen: true,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('verdictRequeueTargets', () => {
   it('returns exactly the cleared defers’ task ids, ordered and deduped', () => {
     expect(

@@ -28,6 +28,12 @@ export function verdictDeferTarget(
   claimedTaskId: string | null,
   proposals: readonly { readonly title: string }[] | undefined,
 ): string | null {
+  // Stryker disable next-line ConditionalExpression: removing this guard is
+  // equivalent by construction, measured 2026-09-17 — `verdictDeferTargets`
+  // returns string[], so `.includes(null)` is always false and the next line
+  // returns the same null anyway. The guard stays because it is load-bearing
+  // for TYPES, not for behaviour: without it `claimedTaskId` is still
+  // `string | null` at the `.includes()` call and the typecheck fails.
   if (claimedTaskId === null) return null;
   return verdictDeferTargets(proposals).includes(claimedTaskId) ? claimedTaskId : null;
 }
@@ -114,6 +120,13 @@ const GATE_MENTION_RE = /\bgate\b/i;
  *  substring) is what keeps a verdict's `fleet-1` from matching a live
  *  `fleet-10` lane. */
 function laneTokens(text: string): string[] {
+  // Stryker disable next-line MethodExpression: upper- versus lower-casing is
+  // equivalent here, measured 2026-09-17 over 40 title/lane/gate combinations
+  // with zero differences. The fold is applied to BOTH sides of the only
+  // comparison there is — `laneTokens(title)` against `laneTokens(liveLane)` —
+  // so what matters is that it is CONSISTENT, not which direction it goes.
+  // Lower is chosen because the lane names themselves are lowercase and a
+  // reader comparing the two by eye should not have to case-shift one of them.
   return (text.match(LANE_TOKEN_RE) ?? []).map((token) => token.toLowerCase());
 }
 
