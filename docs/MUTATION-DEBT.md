@@ -261,9 +261,16 @@ The cause was the sandbox again. `symlinkNodeModules: false` (needed for
 better-sqlite3) means a workspace import like `@autopilot/engine` cannot
 resolve inside the sandbox unless the config aliases it to a leaf module.
 Four configs aliased nothing; `lock` aliased one of the **two** packages its
-module imports; `ask` reaches `@autopilot/store`'s `openStore` transitively,
-where leaf-aliasing cannot help, so it symlinks instead (safe at concurrency
-1 — the native-binding trouble was a concurrency problem).
+module imports; `ask` reaches `@autopilot/store`'s `openStore` and `@autopilot/mcp`'s
+control tools transitively, so its vitest config aliases the store's
+source, the mcp leaf (`control.ts`) and their four installed modules
+(better-sqlite3, sqlite-vec, the MCP SDK's server entry, zod) by absolute
+path, found by walking up from the sandbox to the real checkout. Its first
+fix, `symlinkNodeModules: true`, ran on Windows and STILL reported "No
+tests were found" on the Linux runners (two sweeps, 2026-09-17): that
+message is what a test file that fails to IMPORT looks like under Stryker,
+and the missing package turned out to be `@autopilot/mcp` — only visible by
+keeping a sandbox (`--cleanTempDir false`) and running vitest inside it.
 
 The failure mode is the part worth remembering: a crashing config produces no
 report, so it contributes nothing to the survivor count and **looks
