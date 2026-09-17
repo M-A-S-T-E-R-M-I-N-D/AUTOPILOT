@@ -22,6 +22,9 @@ export default defineConfig({
       '@autopilot/engine': fileURLToPath(
         new URL('./packages/engine/src/index.ts', import.meta.url),
       ),
+      '@autopilot/docs-links': fileURLToPath(
+        new URL('./packages/docs-links/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {
