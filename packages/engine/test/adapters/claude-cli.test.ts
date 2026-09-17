@@ -480,6 +480,7 @@ describe('ClaudeCliModel', () => {
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
       timeout: DEFAULT_CLI_TIMEOUT_MS,
+      encoding: 'utf8',
     });
   });
 
@@ -776,6 +777,104 @@ describe('ClaudeCliModel', () => {
     const model = new ClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
     await expect(model.invoke('sonnet', 'p')).resolves.toBeDefined();
   });
+
+  describe('mutation debt cleared 2026-09-17', () => {
+    it('treats an EMPTY resumeSessionId as no resume at all: no --resume, resumed stays unset', async () => {
+      mockExecFileResult(null, JSON.stringify({ result: 'ok', is_error: false }));
+
+      const model = new ClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
+      const res = await model.invoke('sonnet', 'p', '');
+
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args).not.toContain('--resume');
+      expect(res.resumed).toBeUndefined();
+    });
+
+    it('neither tracks nor untracks a child that never got a pid — there is nothing to hand the registry', async () => {
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1] as ExecFileCallback;
+        queueMicrotask(() =>
+          cb(Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }), '', ''),
+        );
+        return {}; // spawn failed before a pid existed
+      });
+      const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
+
+      const model = new ClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        pidRegistry,
+      });
+      const res = await model.invoke('sonnet', 'p');
+
+      expect(res.exitCode).toBe(1);
+      expect(pidRegistry.track).not.toHaveBeenCalled();
+      expect(pidRegistry.untrack).not.toHaveBeenCalled();
+    });
+
+    describe('THIRD CAP — timedOut on the response (the wall-clock cap, not any kill)', () => {
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      /** execFile whose callback fires only after the (fake) clock has moved `elapsedMs`. */
+      function mockExecFileAfter(
+        elapsedMs: number,
+        error: (Error & { code?: unknown; killed?: boolean }) | null,
+      ): void {
+        execFileMock.mockImplementation((...args: unknown[]) => {
+          const cb = args[args.length - 1] as ExecFileCallback;
+          queueMicrotask(() => {
+            vi.setSystemTime(Date.now() + elapsedMs);
+            cb(error, '', '');
+          });
+          return { pid: 1234 };
+        });
+      }
+
+      it('signal-killed AT the cap → timedOut: true', async () => {
+        vi.useFakeTimers();
+        mockExecFileAfter(5000, Object.assign(new Error('killed'), { killed: true }));
+
+        const model = new ClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+          timeoutMs: 5000,
+        });
+        const res = await model.invoke('sonnet', 'p');
+
+        expect(res.exitCode).toBe(1);
+        expect(res.envelope).toBeNull();
+        expect(res.timedOut).toBe(true);
+      });
+
+      it('exited on its own past the cap (no signal) → the key stays off', async () => {
+        vi.useFakeTimers();
+        mockExecFileAfter(5000, Object.assign(new Error('boom'), { code: 1, killed: false }));
+
+        const model = new ClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+          timeoutMs: 5000,
+        });
+        const res = await model.invoke('sonnet', 'p');
+
+        expect(res.exitCode).toBe(1);
+        expect('timedOut' in res).toBe(false);
+      });
+
+      it('signal-killed well UNDER the cap (an unrelated external kill) → the key stays off', async () => {
+        // Real clock: the callback fires microseconds after spawn, nowhere near 30 minutes.
+        mockExecFileResult(Object.assign(new Error('killed'), { killed: true }), '');
+
+        const model = new ClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
+        const res = await model.invoke('sonnet', 'p');
+
+        expect(res.exitCode).toBe(1);
+        expect('timedOut' in res).toBe(false);
+      });
+    });
+  });
 });
 
 describe('reapCliDescendants (ORPHAN SWEEP, board web-msu3sv1w-hfj87n)', () => {
@@ -801,7 +900,7 @@ describe('reapCliDescendants (ORPHAN SWEEP, board web-msu3sv1w-hfj87n)', () => {
     const [bin, argv, options] = spawnMock.mock.calls[0] as [string, string[], object];
     expect(bin).toBe('taskkill');
     expect(argv).toEqual(['/pid', '4242', '/t', '/f']);
-    expect(options).toMatchObject({ stdio: 'ignore' });
+    expect(options).toMatchObject({ stdio: 'ignore', windowsHide: true });
     expect(fakeTaskkill.on).toHaveBeenCalledWith('error', expect.any(Function));
   });
 
@@ -1571,5 +1670,172 @@ describe('StreamingClaudeCliModel', () => {
 
     const options = spawnMock.mock.calls[0]?.[2] as Record<string, unknown> | undefined;
     expect(options?.['detached']).toBe(true);
+  });
+
+  describe('mutation debt cleared 2026-09-17', () => {
+    const usageTurn =
+      JSON.stringify({
+        type: 'assistant',
+        message: { model: 'claude-sonnet-5', usage: { input_tokens: 10, output_tokens: 2 } },
+      }) + '\n';
+
+    describe('pid registry with a child that never got a pid', () => {
+      it('neither tracks nor untracks on a clean close', async () => {
+        const child = fakeChild(); // no pid — a spawn that failed synchronously
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+        const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+          pidRegistry,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        child.emit('close', 0);
+        await promise;
+
+        expect(pidRegistry.track).not.toHaveBeenCalled();
+        expect(pidRegistry.untrack).not.toHaveBeenCalled();
+      });
+
+      it('neither tracks nor untracks on an error exit', async () => {
+        const child = fakeChild();
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+        const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+          pidRegistry,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        child.emit('error', new Error('spawn claude ENOENT'));
+        await promise;
+
+        expect(pidRegistry.track).not.toHaveBeenCalled();
+        expect(pidRegistry.untrack).not.toHaveBeenCalled();
+      });
+
+      it('a child WITH a pid but NO registry configured still settles cleanly on an error exit', async () => {
+        const child = fakeChild() as FakeChild & { pid: number };
+        child.pid = 4242;
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        child.emit('error', new Error('spawn claude ENOENT'));
+
+        await expect(promise).resolves.toMatchObject({ exitCode: 1, envelope: null });
+      });
+    });
+
+    describe('DEATH-COST bookkeeping counts only USAGE-bearing events', () => {
+      it('a usage-less event after the last usage snapshot neither erases it nor counts as a turn', async () => {
+        const child = fakeChild();
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        const textDelta =
+          JSON.stringify({
+            type: 'stream_event',
+            event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'hi' } },
+          }) + '\n';
+        child.stdout.emit('data', usageTurn + textDelta);
+        child.emit('close', null, 'SIGTERM');
+
+        const res = await promise;
+        expect(res.partialUsage).toEqual({
+          modelUsed: 'claude-sonnet-5',
+          tokensIn: 10,
+          tokensOut: 2,
+          turnsObserved: 1,
+        });
+      });
+
+      it('once the result event lands there is a real envelope, so partialUsage is null even though usage streamed', async () => {
+        const child = fakeChild();
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        const resultEvent = { type: 'result', result: 'done', is_error: false, total_cost_usd: 1 };
+        child.stdout.emit('data', usageTurn + JSON.stringify(resultEvent) + '\n');
+        child.emit('close', 0);
+
+        const res = await promise;
+        expect(res.envelope).not.toBeNull();
+        expect(res.partialUsage).toBeNull();
+      });
+    });
+
+    describe('THIRD CAP — timedOut on the streaming response', () => {
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('signal-killed AT the cap → timedOut: true', async () => {
+        vi.useFakeTimers();
+        const child = fakeChild();
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+          timeoutMs: 5000,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        vi.setSystemTime(Date.now() + 5000);
+        child.emit('close', null, 'SIGTERM');
+
+        const res = await promise;
+        expect(res.exitCode).toBe(1);
+        expect(res.timedOut).toBe(true);
+      });
+
+      it('exited on its own past the cap (no signal) → the key stays off', async () => {
+        vi.useFakeTimers();
+        const child = fakeChild();
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+          timeoutMs: 5000,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        vi.setSystemTime(Date.now() + 5000);
+        child.emit('close', 1, null);
+
+        const res = await promise;
+        expect(res.exitCode).toBe(1);
+        expect('timedOut' in res).toBe(false);
+      });
+
+      it('signal-killed well UNDER the cap (an unrelated external kill) → the key stays off', async () => {
+        const child = fakeChild();
+        spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+        const model = new StreamingClaudeCliModel({
+          repo: '/work/sbx',
+          config: DEFAULT_ENGINE_CONFIG,
+        });
+        const promise = model.invoke('sonnet', 'p');
+        child.emit('close', null, 'SIGTERM');
+
+        const res = await promise;
+        expect(res.exitCode).toBe(1);
+        expect('timedOut' in res).toBe(false);
+      });
+    });
   });
 });

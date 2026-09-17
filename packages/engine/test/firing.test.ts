@@ -110,6 +110,9 @@ class FakeVcs implements VcsPort {
       /** Makes `diffNumstat` reject with this message — a third-party port
        *  whose implementation can fail (the shipped GitVcs never does). */
       readonly diffNumstatError?: string;
+      /** Makes `revertLast` reject with this message — a merge commit in the
+       *  range (git wants -m), or a tree the gate's own build re-dirtied. */
+      readonly revertError?: string;
     },
   ) {
     // A real own property, so delete genuinely removes the capability.
@@ -149,6 +152,9 @@ class FakeVcs implements VcsPort {
   revertLast(sinceRef?: string): Promise<void> {
     this.revertCalls++;
     this.revertSinceRefs.push(sinceRef);
+    if (this.opts.revertError !== undefined) {
+      return Promise.reject(new Error(this.opts.revertError));
+    }
     return Promise.resolve();
   }
 
@@ -1470,6 +1476,237 @@ describe('runFiring', () => {
       expect(p).toContain('ONE');
       expect(p).toContain('slice');
       expect(p).toContain('METRICS');
+    });
+  });
+});
+
+describe('runFiring — mutation debt cleared 2026-09-17', () => {
+  /** A cap death that left a session to extend (see the FINISH-LINE suite). */
+  function dyingResponse(over: Partial<ModelResponse> = {}): ModelResponse {
+    return response({
+      envelope: envelope({
+        result: 'ran out mid-unit',
+        stopReason: 'max_turns',
+        sessionId: 'sess-own',
+      }),
+      ...over,
+    });
+  }
+  /** An extension attempt that stayed on its session and changed nothing. */
+  function extensionResponse(over: Partial<ModelResponse> = {}): ModelResponse {
+    return response({ envelope: envelope({ result: 'x', sessionId: 'sess-own' }), ...over });
+  }
+  /** A child the driver's wall clock killed: no envelope, only the flag. */
+  const wallClockDeath: ModelResponse = { stdout: '', exitCode: 1, envelope: null, timedOut: true };
+
+  function run(model: FakeModel, vcs: FakeVcs, gate: GatePort = new FakeGate(true)) {
+    const store = new FakeStore();
+    return runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+  }
+
+  function shippedVcs(sha: string, extra: { revertError?: string } = {}): FakeVcs {
+    return new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: `feat: ${sha}`, shortSha: sha },
+      existing: new Set([sha]),
+      ...extra,
+    });
+  }
+
+  describe('HEAD after a finish-line extension is judged by the same two-part test as the first attempt', () => {
+    it('an unreadable (empty) HEAD after the extension is NOT an advance — the tree is checkpointed, never gated as a commit', async () => {
+      const model = new FakeModel([dyingResponse(), extensionResponse()]);
+      // head(): before, after the attempt (unchanged), after the extension (unreadable)
+      const vcs = new FakeVcs({ heads: ['h0', 'h0', ''] });
+      vcs.dirty = true;
+      const gate = new FakeGate(true);
+
+      const out = await run(model, vcs, gate);
+
+      expect(out.record.extended).toBe(true);
+      expect(out.gateResult).toBe('checkpointed');
+      expect(vcs.checkpointMessages).toHaveLength(1);
+      expect(gate.runs).toBe(1); // the checkpoint's evidence-only gate run, not a commit verdict
+    });
+  });
+
+  describe('DIFF-SIZE GATE ordering', () => {
+    it('never consults diffNumstat behind a RED gate — size is not judged on work about to be reverted', async () => {
+      const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+      const vcs = shippedVcs('abc');
+
+      const out = await run(model, vcs, new FakeGate(false));
+
+      expect(out.gateResult).toBe('reverted');
+      expect(vcs.diffNumstatCalls).toEqual([]);
+      expect(out.record.gateChecks.map((c) => c.label)).not.toContain('diff-size');
+    });
+
+    it('records the diff-size check with a real elapsed duration, never a clock sum', async () => {
+      const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+
+      const out = await run(model, shippedVcs('abc'));
+
+      const check = out.record.gateChecks.find((c) => c.label === 'diff-size');
+      expect(check).toBeDefined();
+      expect(check?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(check?.durationMs).toBeLessThan(60_000);
+    });
+  });
+
+  describe('gate verdict wording', () => {
+    it('a crashed gate that offers no details gets the generic reason verbatim — never an empty string', async () => {
+      const model = new FakeModel([shippedResponse('AP-3', 'ghi')]);
+
+      const out = await run(model, shippedVcs('ghi'), new FakeGate(false, true));
+
+      expect(out.gateResult).toBe('unverifiable');
+      expect(out.record.gateError).toBe('gate crashed before it could judge the work');
+    });
+
+    it('a red gate whose REVERT throws is unverifiable, and the reason names the failed revert', async () => {
+      const model = new FakeModel([shippedResponse('AP-2', 'def')]);
+      const vcs = shippedVcs('def', {
+        revertError: 'error: commit def is a merge but no -m option was given',
+      });
+      const store = new FakeStore();
+
+      const out = await runFiring(
+        deps(model, vcs, new FakeGate(false), store),
+        DEFAULT_ENGINE_CONFIG,
+        {
+          ...baseInput,
+          state: INITIAL_RESILIENCE_STATE,
+        },
+      );
+
+      expect(vcs.revertCalls).toBe(1);
+      expect(out.gateResult).toBe('unverifiable');
+      expect(out.record.shipped).toBe(false);
+      expect(out.record.gateError).toContain('the revert failed');
+      expect(out.record.gateError).toContain('no -m option was given');
+      expect(store.records).toHaveLength(1); // the loop never sees a rejection
+    });
+  });
+
+  describe('checkpoint gate evidence', () => {
+    it('a checkpoint gate that reports no per-check rows records an EMPTY gateChecks, never a fabricated one', async () => {
+      const model = new FakeModel([
+        response({ envelope: envelope({ result: 'died mid-unit', stopReason: 'max_turns' }) }),
+      ]);
+      const vcs = new FakeVcs({ heads: ['h0', 'h0'] });
+      vcs.dirty = true;
+      const gate = new FakeGate(true);
+
+      const out = await run(model, vcs, gate);
+
+      expect(out.gateResult).toBe('checkpointed');
+      expect(gate.runs).toBe(1);
+      expect(out.record.gateChecks).toEqual([]);
+    });
+  });
+
+  describe('extension accounting — guard denial details when only ONE attempt reported any', () => {
+    const detail = { kind: 'containment' as const, target: 'only one.' };
+
+    it('first attempt only', async () => {
+      const model = new FakeModel([
+        dyingResponse({ guardDenials: 1, guardDenialDetails: [detail] }),
+        extensionResponse(),
+      ]);
+      const vcs = new FakeVcs({ heads: ['h0', 'h0', 'h0'] });
+      vcs.dirty = true;
+
+      const out = await run(model, vcs);
+
+      expect(out.record.extended).toBe(true);
+      expect(out.record.guardDenialDetails).toEqual([detail]);
+    });
+
+    it('extension only', async () => {
+      const model = new FakeModel([
+        dyingResponse(),
+        extensionResponse({ guardDenials: 1, guardDenialDetails: [detail] }),
+      ]);
+      const vcs = new FakeVcs({ heads: ['h0', 'h0', 'h0'] });
+      vcs.dirty = true;
+
+      const out = await run(model, vcs);
+
+      expect(out.record.extended).toBe(true);
+      expect(out.record.guardDenialDetails).toEqual([detail]);
+    });
+  });
+
+  describe('THIRD CAP surfacing — record.timedOut', () => {
+    it('a plain attempt the wall clock killed is recorded timedOut', async () => {
+      const model = new FakeModel([wallClockDeath]);
+
+      const out = await run(model, new FakeVcs({ heads: ['h0', 'h0'] }));
+
+      expect(out.record.timedOut).toBe(true);
+    });
+
+    it('an ordinary exit leaves the key OFF the record entirely', async () => {
+      const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+
+      const out = await run(model, shippedVcs('abc'));
+
+      expect('timedOut' in out.record).toBe(false);
+    });
+
+    it('an extended firing is timedOut when the FIRST attempt was — its result event landed before the cap killed a child that would not exit', async () => {
+      const model = new FakeModel([dyingResponse({ timedOut: true }), extensionResponse()]);
+      const vcs = new FakeVcs({ heads: ['h0', 'h0', 'h0'] });
+      vcs.dirty = true;
+
+      const out = await run(model, vcs);
+
+      expect(out.record.extended).toBe(true);
+      expect(out.record.timedOut).toBe(true);
+    });
+
+    it('an extended firing is timedOut when the EXTENSION attempt was', async () => {
+      const model = new FakeModel([dyingResponse(), wallClockDeath]);
+      const vcs = new FakeVcs({ heads: ['h0', 'h0', 'h0'] });
+      vcs.dirty = true;
+
+      const out = await run(model, vcs);
+
+      expect(out.record.extended).toBe(true);
+      expect(out.record.timedOut).toBe(true);
+    });
+
+    it('an extended firing where neither attempt hit the cap keeps the key off', async () => {
+      const model = new FakeModel([dyingResponse(), extensionResponse()]);
+      const vcs = new FakeVcs({ heads: ['h0', 'h0', 'h0'] });
+      vcs.dirty = true;
+
+      const out = await run(model, vcs);
+
+      expect(out.record.extended).toBe(true);
+      expect('timedOut' in out.record).toBe(false);
+    });
+  });
+
+  describe('finishLinePrompt — pinned verbatim', () => {
+    it('reads exactly as the worker will see it', () => {
+      expect(finishLinePrompt(42).split('\n')).toEqual([
+        'FINISH-LINE EXTENSION — firing 42 ended MID-UNIT with uncommitted work in the tree.',
+        'You have been granted ONE bounded extension (a fraction of your original caps) because the',
+        'economics favor the worker who STARTED a unit FINISHING it — a checkpoint hand-off makes a',
+        'fresh firing re-pay orientation.',
+        'Rules:',
+        '1. Do NOT start anything new. Close the CURRENT unit only.',
+        '2. If the unit fits in this extension: finish it, run the gate commands, and commit.',
+        '3. If it is TOO BIG to close here: cut at the nearest coherent boundary — commit a',
+        '   gate-green SLICE of it NOW (completion: slice) and leave the rest on the board.',
+        '4. End with the standard METRICS line describing what you actually did.',
+        'This is the only extension — an uncommitted tree after it becomes a checkpoint.',
+      ]);
     });
   });
 });

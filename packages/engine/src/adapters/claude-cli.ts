@@ -507,7 +507,10 @@ export class StreamingClaudeCliModel implements ModelPort {
           lastUsage = usage;
         }
         const details = guardDenialDetailsFromEvent(event);
-        if (details.length > 0) guardDenialDetails.push(...details);
+        // No length guard: spreading an empty array into push is already a
+        // no-op, so a guard here is a branch no test can tell apart
+        // (measured 2026-09-17).
+        guardDenialDetails.push(...details);
         guardDenials += details.length;
         if (isResultEvent(event)) result = event;
       };
