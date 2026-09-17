@@ -7,6 +7,14 @@
  */
 export default {
   extends: ['@commitlint/config-conventional'],
+  // Dependabot signs its commits itself and writes its subject in its own
+  // house style ("chore(deps): Bump zod from …") — start-case, which
+  // `subject-case` rejects, so every dependency PR failed the `commitlint
+  // (PR)` check on arrival (2026-09-17, PRs #69/#70). Those commits never
+  // reach main as written: a PR is squash-merged, and the merger spells the
+  // squash subject in this repo's lowercase form. Exempting exactly the
+  // bot's own signed commits keeps the rule intact for every human commit.
+  ignores: [(message) => /^Signed-off-by: dependabot\[bot\] </m.test(message)],
   rules: {
     'type-enum': [
       2,
