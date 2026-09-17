@@ -72,8 +72,12 @@ function changedFiles() {
   // Three-dot: what THIS branch changed since it diverged, not everything that
   // landed on the base meanwhile — a per-change gate must answer for the
   // change, not for the branch it will land onto.
+  // windowsHide: every production spawn in this repo carries it (there is a
+  // census test for exactly that) — without it each child pops a console
+  // window on Windows, which is where this repo's dashboard actually runs.
   const out = execFileSync('git', ['diff', '--name-only', `${base}...HEAD`], {
     encoding: 'utf8',
+    windowsHide: true,
   });
   return out
     .split('\n')
