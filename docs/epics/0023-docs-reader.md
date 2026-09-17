@@ -50,6 +50,15 @@ the diff highlight fades on the compositor; nothing else moves.
 
 1. Freshness + link check on the rendered page (read-only; reuses
    `doc-freshness.ts` and `scripts/docs/check-links.mjs`'s resolver).
+   **Freshness half landed 2026-09-18:** `GET /api/file` now returns
+   `touchedAt` (epoch-ms of the doc's last real commit, via
+   `doc-freshness.ts`'s `gitLastTouchedAt`, degrading to `null` on any
+   failure), and the viewer paints a "Last updated" badge from it. The link-
+   check half (painting a dead internal link as one, reusing
+   `check-links.mjs`'s resolver) is still open — that resolver is a
+   repo-root script (`tsc -b`'s `apps/dashboard` project has `rootDir: src`,
+   so a direct import would break the production build); it needs its
+   local-link resolution extracted to a shared, importable module first.
 2. Search + ToC + "what links here".
 3. The editor: guarded write endpoint, split preview, provenance line, tests for
    the allow-list (the security-sensitive path census must flag it).

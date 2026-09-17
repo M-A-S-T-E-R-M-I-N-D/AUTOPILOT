@@ -203,6 +203,20 @@ function loadDoc(pid, path, viewer) {
       if (!viewer.isConnected) return; // re-rendered while loading — stale paint
       viewer.replaceChildren();
       viewer.appendChild(el('h4', 'docs-viewer-path', data.path));
+      // Freshness (epic 0023 "the docs reader" slice 1): the doc's last real
+      // commit, reused from flight/doc-freshness.ts's gitLastTouchedAt —
+      // never a guess, and absent entirely for an untracked path or a
+      // project whose root can't be resolved (server degrades to null).
+      if (data.touchedAt) {
+        var freshness = el('p', 'docs-viewer-freshness');
+        var freshTime = document.createElement('time');
+        var freshIso = new Date(data.touchedAt).toISOString();
+        freshTime.setAttribute('datetime', freshIso);
+        freshTime.textContent = freshIso.slice(0, 10);
+        freshness.appendChild(document.createTextNode('Last updated '));
+        freshness.appendChild(freshTime);
+        viewer.appendChild(freshness);
+      }
       var body = el('div', 'docs-viewer-body');
       if (/\\.md$/i.test(data.path)) renderMarkdown(body, data.content);
       else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }

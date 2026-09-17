@@ -62,6 +62,15 @@ describe('docsViewerJs', () => {
     );
   });
 
+  it('paints a freshness badge from the server-supplied touchedAt (epic 0023 slice 1), and skips it when absent', () => {
+    const out = docsViewerJs();
+    expect(out).toContain('if (data.touchedAt) {');
+    expect(out).toContain("var freshness = el('p', 'docs-viewer-freshness');");
+    expect(out).toContain("document.createElement('time')");
+    expect(out).toContain("freshTime.setAttribute('datetime', freshIso);");
+    expect(out).toContain("freshness.appendChild(document.createTextNode('Last updated '));");
+  });
+
   // Epic 0018 "calm cockpit", STABILITY LAW "the reader is sacred": the docs
   // viewer must survive a full renderProjectPage() rebuild (fired on every
   // live-state tick) with scroll position and rendered content intact,
