@@ -81,6 +81,16 @@ describe('worktreeIsRegistered', () => {
   it('returns false for empty porcelain output', () => {
     expect(worktreeIsRegistered('', '/repo/wt-a')).toBe(false);
   });
+
+  it('matches a backslash (Windows-native) target against the forward slashes git always echoes', () => {
+    // Pure string input on purpose: on a Linux runner no real path ever
+    // carries a backslash, so the separator normalisation was unprovable
+    // there and its replacement string could be emptied unseen (CI sweep
+    // 2026-09-17, shard 2).
+    const porcelain = 'worktree Z:/work/lanes/wt-a\nHEAD abc123\n\n';
+    expect(worktreeIsRegistered(porcelain, String.raw`Z:\work\lanes\wt-a`)).toBe(true);
+    expect(worktreeIsRegistered(porcelain, String.raw`Z:\work\lanes\wt-b`)).toBe(false);
+  });
 });
 
 describe('parseWorktreeList', () => {
