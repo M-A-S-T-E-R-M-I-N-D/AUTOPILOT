@@ -24,6 +24,16 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['apps/dashboard/test/read/fleet.test.ts'],
+    // shared/narrator.test.ts added 2026-09-17 — the module's OWN test file,
+    // 17 tests over narratorTarget/narratorKind/basename, which this include
+    // omitted while listing only read/fleet.test.ts (a caller). Stryker was
+    // therefore scoring narrator.ts against a suite that exercises it
+    // incidentally rather than the one written for it. The same instrument
+    // error as vitest.tokens-color.config.ts's: the mutants still have to die,
+    // but the runner has to be pointed at the tests that can kill them.
+    include: [
+      'apps/dashboard/test/shared/narrator.test.ts',
+      'apps/dashboard/test/read/fleet.test.ts',
+    ],
   },
 });

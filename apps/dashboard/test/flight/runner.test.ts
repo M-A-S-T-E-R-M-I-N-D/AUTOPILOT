@@ -494,6 +494,71 @@ describe('FlightRunner', () => {
     expect(seen).toEqual(['2', undefined]);
   });
 
+  // taskScope is sanitized on the way in because it rides an env var into the
+  // spawned child ("a wild API caller must not be able to ride an unbounded env
+  // var into the child", runner.ts). Every clause of that sanitizer was
+  // unexercised — no test ever passed a taskScope at all — so the whole chain
+  // could have been deleted and this suite stayed green.
+  it('sanitizes taskScope before it reaches the child: non-strings out, trimmed, blanks dropped', () => {
+    const seen: (readonly string[] | undefined)[] = [];
+    const { deps } = makeDeps();
+    const spy: FlightRunnerDeps = {
+      ...deps,
+      spawnFlight: (_f, _n, _b, _t, _i, taskScope) => {
+        seen.push(taskScope);
+        return fakeChild();
+      },
+    };
+    const runner = new FlightRunner(spy);
+    runner.start({
+      folder: '/work/a',
+      taskScope: ['  t-1  ', 42 as unknown as string, '', '   ', 't-2', null as unknown as string],
+    });
+
+    expect(seen[0]).toEqual(['t-1', 't-2']);
+  });
+
+  it('caps taskScope at 200 ids so an unbounded caller cannot grow the env var', () => {
+    const seen: (readonly string[] | undefined)[] = [];
+    const { deps } = makeDeps();
+    const spy: FlightRunnerDeps = {
+      ...deps,
+      spawnFlight: (_f, _n, _b, _t, _i, taskScope) => {
+        seen.push(taskScope);
+        return fakeChild();
+      },
+    };
+    const runner = new FlightRunner(spy);
+    runner.start({
+      folder: '/work/a',
+      taskScope: Array.from({ length: 250 }, (_, i) => `t-${i}`),
+    });
+
+    expect(seen[0]).toHaveLength(200);
+    expect(seen[0]?.[0]).toBe('t-0');
+    expect(seen[0]?.[199]).toBe('t-199');
+  });
+
+  it('passes undefined rather than an empty array when nothing survives the sanitizer', () => {
+    const seen: (readonly string[] | undefined)[] = [];
+    const { deps } = makeDeps();
+    const spy: FlightRunnerDeps = {
+      ...deps,
+      spawnFlight: (_f, _n, _b, _t, _i, taskScope) => {
+        seen.push(taskScope);
+        return fakeChild();
+      },
+    };
+    let r = new FlightRunner(spy);
+    r.start({ folder: '/work/a' }); // omitted entirely
+    r = new FlightRunner(spy);
+    r.start({ folder: '/work/b', taskScope: [] }); // empty to begin with
+    r = new FlightRunner(spy);
+    r.start({ folder: '/work/c', taskScope: ['   ', ''] }); // empty AFTER sanitizing
+
+    expect(seen).toEqual([undefined, undefined, undefined]);
+  });
+
   it('resuming a paused flight is just start() again — no separate resume() exists', () => {
     const { deps, spawns, child } = makeDeps({ isPaused: () => true });
     const runner = new FlightRunner(deps);

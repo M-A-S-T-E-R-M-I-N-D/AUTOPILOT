@@ -94,7 +94,10 @@ describe('createSpawnFlight', () => {
     // (or landing/self-restart.ts's own process.exit()) tears the flight's own
     // process-group/job-object down with it — killing quota-spending work the
     // operator never asked to stop.
-    expect(options).toMatchObject({ detached: true });
+    // windowsHide alongside it: the flight child is spawned detached, and
+    // without this every launch flashes a console window at the operator —
+    // the whole point of a background flight is that it stays out of the way.
+    expect(options).toMatchObject({ detached: true, windowsHide: true });
     expect(child.unref).toHaveBeenCalledOnce();
   });
 
@@ -378,6 +381,37 @@ describe('createSpawnFlight', () => {
       expect(options.env).toMatchObject({ VITEST_MAX_FORKS: '4', VITEST_MAX_THREADS: '4' });
     });
 
+    // The guard is `Number.isInteger(raw) && raw > 0`, and a non-numeric
+    // override fails BOTH halves — so it cannot tell the two apart, nor tell
+    // `> 0` from `>= 0`. These three inputs separate them: 2.5 is positive but
+    // not an integer, -3 is an integer but not positive, and 0 is the exact
+    // boundary. Each must fall back to the default rather than uncap the gate,
+    // which is the fail-closed stance the constant exists for.
+    it.each([
+      ['a positive non-integer', '2.5'],
+      ['a negative integer', '-3'],
+      ['exactly zero', '0'],
+    ])('falls back to the default for %s', (_label, value) => {
+      process.env['AUTOPILOT_FLEET_GATE_WORKERS'] = value;
+      const child = fakeChild();
+      spawnMock.mockReturnValue(child);
+
+      createSpawnFlight('/repo/dist/fly.js', () => join(dir, 'flight.log'))(
+        '/target',
+        1,
+        5,
+        undefined,
+        '2',
+      );
+
+      const [, , options] = spawnMock.mock.calls[0] as [
+        string,
+        string[],
+        { env?: Record<string, string> },
+      ];
+      expect(options.env).toMatchObject({ VITEST_MAX_FORKS: '2', VITEST_MAX_THREADS: '2' });
+    });
+
     it('falls back to the default on a non-positive-integer override', () => {
       process.env['AUTOPILOT_FLEET_GATE_WORKERS'] = 'all-of-them';
       const child = fakeChild();
@@ -484,6 +518,28 @@ describe('createSpawnFlight', () => {
       expect(forceKill).toHaveBeenCalledWith(4242);
     });
 
+    it('does not arm an escalation at all when the child never got a pid', () => {
+      // A spawn that failed to start has no pid, and forceKill(undefined) is
+      // not a kill — at best it does nothing, at worst it targets whatever a
+      // platform makes of an undefined pid. The guard must hold.
+      const child = fakeChild();
+      const kill = vi.fn();
+      spawnMock.mockReturnValue({ ...child, pid: undefined, kill });
+      const forceKill = vi.fn();
+
+      const spawned = createSpawnFlight(
+        '/repo/dist/fly.js',
+        () => join(dir, 'flight.log'),
+        forceKill,
+      )('/target', 1, 5);
+
+      spawned.kill();
+      expect(kill).toHaveBeenCalledOnce();
+
+      vi.advanceTimersByTime(STOP_GRACE_MS * 10);
+      expect(forceKill).not.toHaveBeenCalled();
+    });
+
     it('never escalates once the child actually exits before the grace window elapses', () => {
       const child = fakeChild();
       const kill = vi.fn();
@@ -579,7 +635,10 @@ describe('createSpawnFlight', () => {
       const [bin, argv, options] = spawnMock.mock.calls[0] as [string, string[], object];
       expect(bin).toBe('taskkill');
       expect(argv).toEqual(['/pid', '4242', '/t', '/f']);
-      expect(options).toMatchObject({ stdio: 'ignore' });
+      // windowsHide matters here specifically: this path fires while a flight
+      // is being stopped, and without it every force-kill flashes a console
+      // window at the operator.
+      expect(options).toMatchObject({ stdio: 'ignore', windowsHide: true });
       expect(child.on).toHaveBeenCalledWith('error', expect.any(Function));
     });
 
