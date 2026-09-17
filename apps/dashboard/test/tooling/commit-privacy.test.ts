@@ -101,3 +101,23 @@ describe('commit-privacy guard — negative corpus', () => {
     expect(out.toLowerCase()).toContain('warning');
   });
 });
+
+describe('dependabot exemption — the bot signs its own commits in its own house style', () => {
+  // Dependabot writes "chore(deps): Bump …" (start-case) and signs the commit
+  // itself. Those commits are squash-merged with a lowercase subject; the
+  // `commitlint (PR)` check must not fail every dependency PR on arrival.
+  const BOT_TRAILER = 'Signed-off-by: dependabot[bot] <support@github.com>';
+
+  it('lets a dependabot-signed start-case subject through', () => {
+    const out = lint(`chore(deps): Bump zod from 4.5.4 to 4.6.1\n\n${BOT_TRAILER}\n`);
+    expect(out).not.toContain('subject-case');
+    expect(out).not.toContain('problems');
+  });
+
+  it('still rejects the same subject from anyone else', () => {
+    const out = lint(
+      'chore(deps): Bump zod from 4.5.4 to 4.6.1\n\nSigned-off-by: A Person <a@example.com>\n',
+    );
+    expect(out).toContain('subject-case');
+  });
+});
