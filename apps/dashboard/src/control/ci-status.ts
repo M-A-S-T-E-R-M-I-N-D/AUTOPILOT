@@ -26,6 +26,11 @@ export interface WorkflowRunStatus {
    *  land guard treats an old failure as no-data, not as a live red) without
    *  re-parsing the human `ageLabel`. */
   readonly createdAtMs: number | null;
+  /** GitHub's numeric run id (`gh run list --json databaseId`) when the
+   *  latest run reported one — `null` otherwise. The e2e land guard uses it
+   *  to read that run's failed-job log (`gh run view <id> --log-failed`) and
+   *  learn which files the failure itself names. */
+  readonly runId: number | null;
   readonly ok: boolean;
   readonly detail: string;
 }
@@ -45,6 +50,10 @@ export function createGhRun(cwd?: string): GhRun {
     execFileSync('gh', args as string[], {
       encoding: 'utf8',
       timeout: GH_PROBE_TIMEOUT_MS,
+      // A failed-job log (`gh run view --log-failed`) for a full verify run
+      // is several MB; Node's 1 MiB default would throw ENOBUFS on exactly
+      // the read the land guard needs most.
+      maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd,
@@ -92,6 +101,7 @@ interface RawGhRun {
   readonly status?: unknown;
   readonly conclusion?: unknown;
   readonly createdAt?: unknown;
+  readonly databaseId?: unknown;
 }
 
 /** The latest run for ONE workflow file, optionally narrowed to `branch`
@@ -117,7 +127,7 @@ export function ciWorkflowStatus(
       '--limit',
       '1',
       '--json',
-      'status,conclusion,createdAt',
+      'status,conclusion,createdAt,databaseId',
       ...(branch ? ['--branch', branch] : []),
     ]);
   } catch {
@@ -126,6 +136,7 @@ export function ciWorkflowStatus(
       conclusion: null,
       ageLabel: null,
       createdAtMs: null,
+      runId: null,
       ok: true,
       detail: 'gh unavailable or not authenticated — run status unknown',
     };
@@ -139,6 +150,7 @@ export function ciWorkflowStatus(
       conclusion: null,
       ageLabel: null,
       createdAtMs: null,
+      runId: null,
       ok: true,
       detail: 'could not parse gh run list output',
     };
@@ -149,6 +161,7 @@ export function ciWorkflowStatus(
       conclusion: null,
       ageLabel: null,
       createdAtMs: null,
+      runId: null,
       ok: true,
       detail: 'no runs yet',
     };
@@ -160,10 +173,11 @@ export function ciWorkflowStatus(
   const ageLabel = createdAt ? formatRunAge(createdAt, nowMs) : null;
   const parsedMs = createdAt ? Date.parse(createdAt) : NaN;
   const createdAtMs = Number.isFinite(parsedMs) ? parsedMs : null;
+  const runId = typeof latest.databaseId === 'number' ? latest.databaseId : null;
   const ok = conclusion === null || !FAILING_CONCLUSIONS.has(conclusion);
   const statusLabel = conclusion ?? status ?? 'unknown';
   const detail = ageLabel ? `${statusLabel} (${ageLabel})` : statusLabel;
-  return { workflow, conclusion, ageLabel, createdAtMs, ok, detail };
+  return { workflow, conclusion, ageLabel, createdAtMs, runId, ok, detail };
 }
 
 /** One line per workflow file — the report `dashboard ci-status` prints. */

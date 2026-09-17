@@ -58,6 +58,7 @@ function runningStatus(workflow = 'ci.yml'): WorkflowRunStatus {
     conclusion: null,
     ageLabel: '10s ago',
     createdAtMs: NOW,
+    runId: null,
     ok: true,
     detail: 'in_progress (10s ago)',
   };
@@ -72,6 +73,7 @@ function concludedStatus(
     conclusion,
     ageLabel: '1m ago',
     createdAtMs: NOW,
+    runId: null,
     ok: conclusion === 'success',
     detail: `${conclusion} (1m ago)`,
   };

@@ -12,6 +12,8 @@ import {
   createOutOfBandLandGateCheck,
   type E2eLandGuard,
   createRealE2eLandGuard,
+  implicatedFilesFromFailedLog,
+  remedyFilesOf,
 } from '../../src/landing/execute.js';
 import { engineLockFileName, deriveFlyProjectId } from '../../src/flight/lock.js';
 
@@ -1096,5 +1098,195 @@ describe('createRealE2eLandGuard staleness (EVALUATION 2026-09-02 — its first 
       () => NOW,
     );
     expect(noGh('/repo', 'main').ok).toBe(true);
+  });
+});
+
+/**
+ * THE REMEDY ESCAPE (ADR 0008, amendment 2026-09-17). The lines below are
+ * the shape `gh run view --log-failed` really hands back — the job/step
+ * prefix, then vitest's coloured output — taken from the run that reddened
+ * `main` on dd1d4ec1 (a test asserting a full temp path the Windows runner
+ * spells two ways).
+ */
+const ESC = '';
+const FAILED_LOG = [
+  `verify (windows-latest)\tTest + coverage (>=80%)\t2026-09-17T06:15:13.9559228Z  ${ESC}[31m❯${ESC}[39m ${ESC}[30m${ESC}[43m node ${ESC}[49m${ESC}[39m packages/engine/test/adapters/worktree.test.ts ${ESC}[2m(${ESC}[22m${ESC}[2m48 tests${ESC}[22m${ESC}[2m | ${ESC}[22m${ESC}[31m1 failed${ESC}[39m${ESC}[2m)${ESC}[22m`,
+  `verify (windows-latest)\tTest + coverage (>=80%)\t2026-09-17T06:17:50.0931723Z ${ESC}[41m${ESC}[1m FAIL ${ESC}[22m${ESC}[49m ${ESC}[30m${ESC}[43m node ${ESC}[49m${ESC}[39m packages/engine/test/adapters/worktree.test.ts${ESC}[2m > ${ESC}[22mfastForwardWorktree${ESC}[2m > ${ESC}[22mreports ok:false gracefully when the lane has diverged`,
+  `verify (windows-latest)\tTest + coverage (>=80%)\t2026-09-17T06:17:50.0941707Z ${ESC}[31m${ESC}[1mAssertionError${ESC}[22m: expected 'cannot fast-forward' to contain 'RUNNER~1'${ESC}[39m`,
+  `verify (windows-latest)\tTest + coverage (>=80%)\t2026-09-17T06:17:50.0948701Z ${ESC}[36m ${ESC}[2m❯${ESC}[22m packages/engine/test/adapters/worktree.test.ts:${ESC}[2m769:28${ESC}[22m${ESC}[39m`,
+  `verify (windows-latest)\tTest + coverage (>=80%)\t2026-09-17T06:17:50.0950000Z ${ESC}[36m ${ESC}[2m❯${ESC}[22m packages/engine/src/adapters/worktree.ts:${ESC}[2m214:11${ESC}[22m${ESC}[39m`,
+].join('\n');
+
+describe('implicatedFilesFromFailedLog', () => {
+  it('names the test file from the FAIL header and every file a ❯ frame points at, once each, colour codes stripped', () => {
+    expect(implicatedFilesFromFailedLog(FAILED_LOG)).toEqual([
+      'packages/engine/test/adapters/worktree.test.ts',
+      'packages/engine/src/adapters/worktree.ts',
+    ]);
+  });
+
+  it('never mistakes the pool label for a file, and yields nothing for a log with no vitest failure in it', () => {
+    expect(implicatedFilesFromFailedLog('')).toEqual([]);
+    expect(
+      implicatedFilesFromFailedLog('build\tBuild\t2026-09-17T06:00:00Z error TS2322: x'),
+    ).toEqual([]);
+    expect(implicatedFilesFromFailedLog(' FAIL  node  something-without-a-path')).toEqual([]);
+  });
+});
+
+describe('remedyFilesOf', () => {
+  it('is the implicated files the landing actually changes, separators normalised', () => {
+    expect(
+      remedyFilesOf(
+        [String.raw`packages\engine\test\adapters\worktree.test.ts`, 'docs/x.md'],
+        [
+          'packages/engine/test/adapters/worktree.test.ts',
+          'packages/engine/src/adapters/worktree.ts',
+        ],
+      ),
+    ).toEqual(['packages/engine/test/adapters/worktree.test.ts']);
+  });
+
+  it('is empty when the landing touches none of them — or when nothing was implicated at all', () => {
+    expect(remedyFilesOf(['docs/x.md'], ['packages/a.ts'])).toEqual([]);
+    expect(remedyFilesOf(['packages/a.ts'], [])).toEqual([]);
+  });
+});
+
+describe("createRealE2eLandGuard — reading the red run's own failure", () => {
+  const NOW = Date.parse('2026-09-17T08:00:00Z');
+  const listing = (conclusion: string, databaseId?: number): string =>
+    JSON.stringify([
+      { status: 'completed', conclusion, createdAt: '2026-09-17T05:54:30Z', databaseId },
+    ]);
+
+  it("on a fresh red with a known run id, reads that run's failed log and names its files", () => {
+    const calls: string[][] = [];
+    const guard = createRealE2eLandGuard(
+      () => (args) => {
+        calls.push([...args]);
+        return args.includes('view') ? FAILED_LOG : listing('failure', 35187588300);
+      },
+      () => NOW,
+    );
+    const verdict = guard('/repo', 'main');
+    expect(verdict.ok).toBe(false);
+    expect(verdict.implicatedFiles).toEqual([
+      'packages/engine/test/adapters/worktree.test.ts',
+      'packages/engine/src/adapters/worktree.ts',
+    ]);
+    expect(calls[1]).toEqual(['run', 'view', '35187588300', '--log-failed']);
+  });
+
+  it('a green run never reads a log, and a red one without a run id names nothing', () => {
+    const calls: string[][] = [];
+    const green = createRealE2eLandGuard(
+      () => (args) => {
+        calls.push([...args]);
+        return listing('success', 1);
+      },
+      () => NOW,
+    );
+    expect(green('/repo', 'main').ok).toBe(true);
+    expect(calls).toHaveLength(1);
+
+    const noId = createRealE2eLandGuard(
+      () => () => listing('failure'),
+      () => NOW,
+    );
+    const verdict = noId('/repo', 'main');
+    expect(verdict.ok).toBe(false);
+    expect(verdict.implicatedFiles).toBeUndefined();
+  });
+
+  it('an unreadable log keeps the refusal with no files — the escape is earned by evidence only', () => {
+    const guard = createRealE2eLandGuard(
+      () => (args) => {
+        if (args.includes('view')) throw new Error('gh: log unavailable');
+        return listing('failure', 7);
+      },
+      () => NOW,
+    );
+    const verdict = guard('/repo', 'main');
+    expect(verdict.ok).toBe(false);
+    expect(verdict.implicatedFiles).toEqual([]);
+  });
+});
+
+describe('createLandingExecuteApi — the remedy escape end to end', () => {
+  it('lands a branch that touches a file the red run names, and leaves an e2e-land-remedy trail', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-remedy-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+    try {
+      setupBranchedRepo(repo); // the flight branch adds b.txt
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo, NODE_OK);
+      s.close();
+
+      const e2eLandGuard: E2eLandGuard = () => ({
+        ok: false,
+        detail: 'failure (5m ago)',
+        implicatedFiles: ['b.txt', 'packages/never-touched.ts'],
+      });
+      const result = await createLandingExecuteApi(
+        dbPath,
+        undefined,
+        undefined,
+        undefined,
+        e2eLandGuard,
+      )('p1');
+
+      expect(result?.reason).not.toBe('e2e-red');
+      expect(gitSync(repo, ['log', 'main', '--oneline'])).toContain('feat: second');
+
+      const s2 = openStore(dbPath);
+      const rows = s2.db
+        .prepare(`SELECT type, payload FROM events WHERE type LIKE 'e2e-land-%'`)
+        .all() as { type: string; payload: string }[];
+      s2.close();
+      expect(rows.map((r) => r.type)).toEqual(['e2e-land-remedy']);
+      expect(JSON.parse(rows[0]!.payload)).toEqual({
+        detail: 'failure (5m ago)',
+        files: ['b.txt'],
+      });
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('still refuses a branch that touches none of the files the red run names', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-noremedy-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+    try {
+      setupBranchedRepo(repo);
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo, NODE_OK);
+      s.close();
+
+      const e2eLandGuard: E2eLandGuard = () => ({
+        ok: false,
+        detail: 'failure (5m ago)',
+        implicatedFiles: ['packages/never-touched.ts'],
+      });
+      const result = await createLandingExecuteApi(
+        dbPath,
+        undefined,
+        undefined,
+        undefined,
+        e2eLandGuard,
+      )('p1');
+
+      expect(result?.ok).toBe(false);
+      expect(result?.reason).toBe('e2e-red');
+      expect(gitSync(repo, ['log', 'main', '--oneline'])).not.toContain('feat: second');
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
   });
 });
