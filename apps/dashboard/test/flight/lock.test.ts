@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -351,6 +351,92 @@ describe('isAnyFlightLockLive excludePid (board ap-mtm4qzty-1 slice (a): a fligh
         );
         expect(isAnyFlightLockLive(dir, target, process.pid)).toBe(true);
       });
+    });
+  });
+});
+
+// The lock is "the one durable signal that a 'flying' project really is
+// flying", so every clause that decides WHICH file counts, and every guard
+// that keeps a malformed directory from throwing, is load-bearing.
+describe('the lock scan guards, and its which-file-counts rules', () => {
+  function withTmpDir<T>(fn: (dir: string) => T): T {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-lock-guards-'));
+    try {
+      return fn(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('readFlightOwnerPid returns null when the lock path cannot be read', () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      // A DIRECTORY where the lock file should be: existsSync says yes, the
+      // read throws. Without the catch this propagates out of a status read.
+      mkdirSync(join(dir, engineLockFileName(deriveFlyProjectId(target))));
+      expect(readFlightOwnerPid(dir, target)).toBeNull();
+      expect(isFlightOwnerAlive(dir, target)).toBe(false);
+    });
+  });
+
+  it('isAnyFlightLockLive returns false when the lock directory cannot be listed', () => {
+    // Nothing to scan is not the same as "a flight is live" — this must
+    // fail CLOSED, or an unreadable directory would report every project as
+    // flying and block every launch.
+    expect(isAnyFlightLockLive(join(tmpdir(), 'ap-definitely-not-here-4d9f'), '/work/a')).toBe(
+      false,
+    );
+  });
+
+  it('ignores a live lock belonging to a DIFFERENT project', () => {
+    withTmpDir((dir) => {
+      const mine = join(dir, 'my-project');
+      const theirs = join(dir, 'their-project');
+      writeFileSync(
+        join(dir, engineLockFileName(deriveFlyProjectId(theirs))),
+        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+      );
+      // Their live flight must not read as mine — otherwise every project on
+      // the machine blocks every other one.
+      expect(isAnyFlightLockLive(dir, mine)).toBe(false);
+      expect(isAnyFlightLockLive(dir, theirs)).toBe(true);
+    });
+  });
+
+  it('ignores an instance-prefixed file that is not a .lock', () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      const projectId = deriveFlyProjectId(target);
+      // Same prefix, wrong suffix: the flight log sits beside the lock and is
+      // named the same way, so the extension is what separates them.
+      writeFileSync(
+        join(dir, `engine-${projectId}--lane1.log`),
+        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+      );
+      expect(isAnyFlightLockLive(dir, target)).toBe(false);
+    });
+  });
+
+  it('survives an unparseable lock file instead of throwing on it', () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      writeFileSync(join(dir, engineLockFileName(deriveFlyProjectId(target))), 'not json at all');
+      expect(isAnyFlightLockLive(dir, target)).toBe(false);
+    });
+  });
+
+  it('skips an entry it cannot read and keeps scanning the rest', () => {
+    withTmpDir((dir) => {
+      const target = join(dir, 'my-project');
+      const projectId = deriveFlyProjectId(target);
+      // An unreadable entry first, a genuinely live lock second: the scan must
+      // reach the second one rather than give up at the first.
+      mkdirSync(join(dir, `engine-${projectId}--aaa.lock`));
+      writeFileSync(
+        join(dir, `engine-${projectId}--bbb.lock`),
+        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+      );
+      expect(isAnyFlightLockLive(dir, target)).toBe(true);
     });
   });
 });

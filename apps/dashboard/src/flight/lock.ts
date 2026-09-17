@@ -108,12 +108,31 @@ export function readFlightOwnerPid(
   instanceId?: string,
 ): number | null {
   const lockPath = join(dbDir, engineLockFileName(deriveFlyProjectId(targetPath), instanceId));
+  // Stryker disable next-line ConditionalExpression: equivalent by
+  // construction, measured 2026-09-17 — a missing file makes readFileSync
+  // throw ENOENT one line later and the catch returns the same null. The
+  // guard buys not entering a try/catch for the common "no flight" case,
+  // which no assertion on the RESULT can observe.
   if (!existsSync(lockPath)) return null;
-  let raw: string;
+  // The catch deliberately does nothing. An unreadable lock leaves `raw`
+  // empty, parseLockInfo turns that into null, and the single null guard below
+  // answers for BOTH "could not read it" and "read it but it was not a lock".
+  // It used to `return null` here as well, which read as two decisions and was
+  // measured (2026-09-17) to be one: emptying the catch changed no result.
+  // The initial value only has to be something parseLockInfo rejects, so any
+  // non-JSON seed behaves identically — empty is simply the clearest way to
+  // say "nothing was read".
+  // Stryker disable next-line StringLiteral
+  let raw = '';
   try {
+    // Dropping the encoding is equivalent, measured 2026-09-17:
+    // readFileSync(path, '') returns a Buffer rather than throwing, and
+    // JSON.parse coerces it through toString to the identical object. It stays
+    // because a string is what this function's signature promises the parser.
+    // Stryker disable next-line StringLiteral
     raw = readFileSync(lockPath, 'utf8');
   } catch {
-    return null;
+    /* unreadable lock — the parse below answers for it */
   }
   const info = parseLockInfo(raw);
   if (info === null || !isProcessAlive(info.pid)) return null;
@@ -191,11 +210,19 @@ export function isAnyFlightLockLive(
     const isThisProject =
       entry === bareName || (entry.startsWith(instancePrefix) && entry.endsWith('.lock'));
     if (!isThisProject) continue;
-    let raw: string;
+    // Same shape as readFlightOwnerPid above: an unreadable entry leaves `raw`
+    // empty and the parse below skips it, so the catch needs no `continue` of
+    // its own. Measured against an unreadable entry before, after, and alone
+    // among readable ones — identical results either way. As above, the seed
+    // only has to be something parseLockInfo rejects.
+    // Stryker disable next-line StringLiteral
+    let raw = '';
     try {
+      // Equivalent for the same measured Buffer-coercion reason as above.
+      // Stryker disable next-line StringLiteral
       raw = readFileSync(join(dbDir, entry), 'utf8');
     } catch {
-      continue;
+      /* unreadable entry — the parse below skips it */
     }
     const info = parseLockInfo(raw);
     if (info !== null && info.pid !== excludePid && isProcessAlive(info.pid)) return true;
