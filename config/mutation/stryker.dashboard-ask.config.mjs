@@ -57,20 +57,17 @@ export default {
   // most are red while this debt is being cleared.
   cleanTempDir: 'always',
   concurrency: 1,
-  // symlinkNodeModules: true — the ONE config that needs it (2026-09-17).
-  // Every other config sets false, to dodge better-sqlite3 native-binding
-  // crashes in the sandbox. But ask/service.ts reaches control-execute.ts
-  // through architect-proposal.ts, and control-execute.ts imports openStore
-  // from @autopilot/store at RUNTIME — so without the real node_modules the
-  // import cannot resolve, the test file fails to load, and Stryker reports
-  // "No tests were found" and exits before testing a single mutant. This
-  // config crashed that way on every nightly, producing no report at all.
-  // Leaf-aliasing does not help here: the needed SEVERITIES/DIMENSIONS live in
-  // a pure types.ts, but openStore does not, and an ESM named import of a
-  // missing export is a hard error. Symlinking is safe at concurrency 1 — the
-  // native-binding trouble was a concurrency problem — and the suite never
-  // opens a database on this path anyway.
-  symlinkNodeModules: true,
+  // symlinkNodeModules: false — like every other config (2026-09-17, second
+  // attempt). ask/service.ts reaches control-execute.ts through
+  // architect-proposal.ts, and control-execute.ts imports openStore from
+  // @autopilot/store at RUNTIME, so a sandbox with no node_modules cannot
+  // load the test file and Stryker exits with "No tests were found" before
+  // testing a single mutant — the way this config crashed on every nightly.
+  // The first fix, `symlinkNodeModules: true`, ran on this Windows box and
+  // STILL produced "No tests were found" on the Linux runners (two sweeps the
+  // same day). The vitest config now resolves the store's source and its two
+  // native modules by alias instead — no symlink on any OS; see its header.
+  symlinkNodeModules: false,
   coverageAnalysis: 'perTest',
   // Static mutants are out of scope (2026-09-16). Stryker's own term for a
   // mutant "only executed during the loading of a file": a module-level

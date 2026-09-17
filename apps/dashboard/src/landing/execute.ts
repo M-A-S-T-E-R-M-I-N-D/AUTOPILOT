@@ -241,7 +241,7 @@ const ANSI_RE = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, 'g');
  *  At least one directory segment and a JS/TS extension, so a bare word
  *  like the pool label can never pass for a file. */
 const FAILED_FILE_RE =
-  /(?:\bFAIL\b|❯)\s+(?:\S+\s+)?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:[cm]?[jt]sx?))(?=[\s:>]|$)/g;
+  /(?:\bFAIL\b|❯)\s+(?:\S+\s+)?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:[cm]?[jt]sx?))(?=[\s:>]|$)|(?:^|[\s(])([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.[A-Za-z0-9]+)[:(]\d+/gm;
 
 /**
  * The files a failed CI run's own output names — the evidence behind the
@@ -257,7 +257,11 @@ const FAILED_FILE_RE =
 export function implicatedFilesFromFailedLog(log: string): readonly string[] {
   const files = new Set<string>();
   for (const match of log.replace(ANSI_RE, '').matchAll(FAILED_FILE_RE)) {
-    const file = match[1];
+    // Group 1: the vitest `FAIL` header. Group 2: any `path:line` or
+    // `path(line` reference — vitest's `❯` frames, tsc's diagnostics, and the
+    // repo's own scanners (`no-personal-paths FAILED: … path:line [rule]`),
+    // which is how a red caused by a scanner names the file that clears it.
+    const file = match[1] ?? match[2];
     if (file !== undefined) files.add(file);
   }
   return [...files];
