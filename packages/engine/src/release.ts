@@ -96,7 +96,18 @@ export function computeBump(
     ) {
       bump = 'patch';
       worthy += 1;
-    } else if (type !== null && PATCH_TYPES.has(type)) {
+    } else if (
+      // The same provable equivalence as the narrowing check above: at runtime
+      // `Set.has(null)` is already false, so dropping this changes nothing
+      // observable. It stays because TypeScript needs it to narrow
+      // `string | null` before `PATCH_TYPES.has`. Split across lines so the
+      // directive sits directly above the expression it disables — a
+      // `disable next-line` on the first line of a multi-line comment block
+      // targets the SECOND comment line, not the code after the block.
+      // Stryker disable next-line ConditionalExpression
+      type !== null &&
+      PATCH_TYPES.has(type)
+    ) {
       worthy += 1;
     }
   }
