@@ -838,6 +838,125 @@ describe('guardDenialDetailsFromEvent', () => {
     ).toEqual([{ kind: 'read-hygiene', target: 'generated/vendored output: dist/index.js.' }]);
   });
 
+  // The defensive guards on wire data. Every one of these is the difference
+  // between "the model sent something odd" and the dashboard rendering
+  // nonsense as a guard denial — the events rows this builds are what an
+  // operator reads to know what the guard blocked.
+  it('ignores a user event whose message content is not an array', () => {
+    expect(guardDenialDetailsFromEvent(user('a bare string'))).toEqual([]);
+    expect(guardDenialDetailsFromEvent(user({ not: 'an array' }))).toEqual([]);
+    expect(guardDenialDetailsFromEvent(user(null))).toEqual([]);
+  });
+
+  it('falls back to the event itself when message is absent or not an object', () => {
+    // A stream shape that puts content at the top level, not under message.
+    expect(
+      guardDenialDetailsFromEvent({
+        type: 'user',
+        content: [toolResult({ content: 'CONTAINMENT: blocked.' })],
+      }),
+    ).toEqual([{ kind: 'containment', target: 'blocked.' }]);
+    // A non-object message must not be read as a container.
+    expect(
+      guardDenialDetailsFromEvent({
+        type: 'user',
+        message: 'not an object',
+        content: [toolResult({ content: 'CONTAINMENT: blocked.' })],
+      }),
+    ).toEqual([{ kind: 'containment', target: 'blocked.' }]);
+  });
+
+  it('skips blocks that are null or not objects', () => {
+    expect(
+      guardDenialDetailsFromEvent(
+        user([null, 'a string block', 42, toolResult({ content: 'CONTAINMENT: blocked.' })]),
+      ),
+    ).toEqual([{ kind: 'containment', target: 'blocked.' }]);
+  });
+
+  it('skips a tool_result that is not an error, and a non-tool_result block', () => {
+    expect(
+      guardDenialDetailsFromEvent(
+        user([
+          toolResult({ is_error: false, content: 'CONTAINMENT: not actually an error.' }),
+          { type: 'text', text: 'CONTAINMENT: not a tool_result at all.' },
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it('skips an errored tool_result whose text is not a guard denial at all', () => {
+    expect(
+      guardDenialDetailsFromEvent(user([toolResult({ content: 'ENOENT: no such file' })])),
+    ).toEqual([]);
+  });
+
+  it('ignores a tool_result whose content is neither string nor array', () => {
+    expect(guardDenialDetailsFromEvent(user([toolResult({ content: { a: 1 } })])).length).toBe(0);
+    expect(guardDenialDetailsFromEvent(user([toolResult({ content: 42 })])).length).toBe(0);
+  });
+
+  it('strips the CONTAINMENT prefix by its own length, not the read-hygiene one', () => {
+    // "CONTAINMENT:" is 12 characters and "READ HYGIENE:" is 13. With a space
+    // after the colon the trim hides the difference, so the denial here has
+    // none: slicing by the wrong prefix eats the first real character of the
+    // path, and the operator is told a different file was blocked.
+    expect(
+      guardDenialDetailsFromEvent(user([toolResult({ content: 'CONTAINMENT:/etc/passwd' })])),
+    ).toEqual([{ kind: 'containment', target: '/etc/passwd' }]);
+  });
+
+  it('never applies the containment lead-in strip to a read-hygiene denial', () => {
+    // The lead-in strip drops everything before the first em-dash, and it is
+    // guarded on kind because only CONTAINMENT carries that lead-in. Applied
+    // to a read-hygiene denial that happens to contain an em-dash, it throws
+    // away the first half of the real reason.
+    expect(
+      guardDenialDetailsFromEvent(
+        user([
+          toolResult({
+            content:
+              'READ HYGIENE: vendored — dist/x.js. Consult the repo source or official docs.',
+          }),
+        ]),
+      ),
+    ).toEqual([{ kind: 'read-hygiene', target: 'vendored — dist/x.js.' }]);
+  });
+
+  it('skips a NON-tool_result block even when it carries is_error: true', () => {
+    // Both halves of the skip are needed. With the type half removed, any
+    // errored block at all would be read as a guard denial — a failed text
+    // block quoting a denial would be reported as though the guard had fired.
+    expect(
+      guardDenialDetailsFromEvent(
+        user([{ type: 'text', is_error: true, content: 'CONTAINMENT: quoted, not fired.' }]),
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps the whole prefix-stripped text when stripping would leave nothing', () => {
+    // The `trimmed.length > 0` fallback: a denial that is ONLY boilerplate
+    // trims to empty, and reporting an empty target would tell the operator
+    // nothing about what was blocked.
+    expect(
+      guardDenialDetailsFromEvent(
+        user([toolResult({ content: 'READ HYGIENE: Consult the repo source or official docs.' })]),
+      ),
+    ).toEqual([
+      { kind: 'read-hygiene', target: 'READ HYGIENE: Consult the repo source or official docs.' },
+    ]);
+  });
+
+  it('leaves a denial without the trailing boilerplate untouched', () => {
+    // The suffix strip is conditional; applied unconditionally it would chop
+    // real characters off the end of a denial that never carried boilerplate.
+    expect(
+      guardDenialDetailsFromEvent(
+        user([toolResult({ content: 'READ HYGIENE: vendored output: dist/x.js' })]),
+      ),
+    ).toEqual([{ kind: 'read-hygiene', target: 'vendored output: dist/x.js' }]);
+  });
+
   it('degrades to the prefix-stripped whole text when the containment shape has no em-dash lead-in', () => {
     expect(
       guardDenialDetailsFromEvent(user([toolResult({ content: 'CONTAINMENT: blocked.' })])),
