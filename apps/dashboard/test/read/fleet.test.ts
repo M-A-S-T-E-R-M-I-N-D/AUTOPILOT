@@ -1510,9 +1510,7 @@ describe('toCard surfaces each persisted-event anomaly, and invents none', () =>
     ],
     ['guard-verify-failed', { guardVerificationFailedEvents: [{ reason: 'hook missing' }] }],
   ] as const)('surfaces a %s anomaly when its rows are present', (kind, over) => {
-    const kinds = toCard(aggregate(over as Partial<ProjectAggregate>)).anomalies.map(
-      (a) => a.kind,
-    );
+    const kinds = toCard(aggregate(over as Partial<ProjectAggregate>)).anomalies.map((a) => a.kind);
     expect(kinds).toContain(kind);
   });
 });
