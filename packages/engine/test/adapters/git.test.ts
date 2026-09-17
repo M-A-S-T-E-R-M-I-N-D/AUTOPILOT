@@ -3,10 +3,17 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GitVcs, GitHeadReader } from '../../src/adapters/git.js';
+import {
+  GitVcs,
+  GitHeadReader,
+  describePushFailure,
+  parseCommitLogWithRenames,
+  parseHunkRanges,
+  parseNumstat,
+} from '../../src/adapters/git.js';
 
 function gitSync(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
@@ -1659,6 +1666,165 @@ describe('GitVcs — the push failure detail', () => {
       const result = await vcs.pushBranch(branch);
       expect(result.ok).toBe(false);
       expect(result.detail.trim().length).toBeGreaterThan(0);
+    }
+  });
+});
+
+/**
+ * THE PARSERS, FED DIRECTLY (mutation testing, 2026-09-17).
+ *
+ * Four pure parsers used to live inline in their git-calling methods, so the
+ * only way to reach them was through real git output — which is always
+ * well-formed, and so could never show which guard in a parser was load-
+ * bearing. Each is now a named export with its own tests on crafted input;
+ * the real-git tests above stay as the integration layer.
+ */
+
+describe('parseHunkRanges', () => {
+  it('a hunk header before any file header belongs to no file and is dropped, never keyed under null', () => {
+    expect(parseHunkRanges('@@ -1,2 +1,2 @@\n-a\n+b\n').size).toBe(0);
+  });
+
+  it('a multi-line hunk spans start..start+count-1 on the old side', () => {
+    const ranges = parseHunkRanges('--- a/f.txt\n+++ b/f.txt\n@@ -5,3 +5,4 @@\n');
+    expect(ranges.get('f.txt')).toEqual([{ start: 5, end: 7 }]);
+  });
+
+  it('a single-line hunk (no count) is that one line', () => {
+    const ranges = parseHunkRanges('--- a/f.txt\n+++ b/f.txt\n@@ -9 +9 @@\n');
+    expect(ranges.get('f.txt')).toEqual([{ start: 9, end: 9 }]);
+  });
+
+  it('a pure addition (old side /dev/null) is keyed under the new path ONLY — no phantom entry for the absent old path', () => {
+    const ranges = parseHunkRanges('--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1,3 @@\n');
+    expect([...ranges.keys()]).toEqual(['new.txt']);
+    expect(ranges.get('new.txt')).toEqual([{ start: 0, end: 1 }]);
+  });
+});
+
+describe('parseNumstat', () => {
+  it('reads one record per NUL-terminated entry and drops the trailing empty one', () => {
+    expect(parseNumstat('1\t2\ta.ts\0-\t-\tlogo.png\0')).toEqual([
+      { path: 'a.ts', insertions: 1, deletions: 2 },
+      { path: 'logo.png', insertions: 0, deletions: 0 },
+    ]);
+  });
+
+  it('keeps a tab inside a path — only the first two tabs are field separators', () => {
+    expect(parseNumstat('3\t0\tweird\tname.ts\0')).toEqual([
+      { path: 'weird\tname.ts', insertions: 3, deletions: 0 },
+    ]);
+  });
+
+  it('is empty for empty output', () => {
+    expect(parseNumstat('')).toEqual([]);
+  });
+});
+
+describe('describePushFailure', () => {
+  it('keeps the LAST three non-blank lines, joined with the separator, in order', () => {
+    const text = ['', 'one', '', 'two', 'three', 'four', 'five', ''].join('\n');
+    expect(describePushFailure(text)).toEqual({
+      ok: false,
+      nonFastForward: false,
+      detail: 'three · four · five',
+    });
+  });
+
+  it('never comes back empty — a silent failure still says it failed', () => {
+    expect(describePushFailure('').detail).toBe('push failed');
+    expect(describePushFailure('\n\n').detail).toBe('push failed');
+  });
+
+  it("names a non-fast-forward from any of git's wordings", () => {
+    expect(describePushFailure('! [rejected] main -> main (fetch first)').nonFastForward).toBe(
+      true,
+    );
+    expect(describePushFailure('error: failed to push some refs').nonFastForward).toBe(false);
+  });
+});
+
+describe('parseCommitLogWithRenames', () => {
+  const SEP = String.fromCharCode(0x1f);
+  const REC = String.fromCharCode(0x02);
+  /** One record exactly as `--format=<REC>%h%x1f%s --name-status` frames it. */
+  const record = (sha: string, subject: string, lines: readonly string[]): string =>
+    `${REC}${sha}${SEP}${subject}\n\n${lines.map((l) => `${l}\n`).join('')}`;
+
+  it('lists one path for an add/modify/delete and BOTH for a rename or copy, in order', () => {
+    const out = parseCommitLogWithRenames(
+      record('abc1234', 'feat: move', [
+        'M\ta.ts',
+        'R100\told.ts\tnew.ts',
+        'C75\tsrc.ts\tcopy.ts',
+        'D\tgone.ts',
+      ]),
+    );
+    expect(out).toEqual([
+      {
+        shortSha: 'abc1234',
+        subject: 'feat: move',
+        files: ['a.ts', 'old.ts', 'new.ts', 'src.ts', 'copy.ts', 'gone.ts'],
+      },
+    ]);
+  });
+
+  it('keeps every record after the leading separator and none before it — no phantom empty commit', () => {
+    const out = parseCommitLogWithRenames(
+      record('a1', 'first', ['M\tx']) + record('b2', 'second', []),
+    );
+    expect(out.map((c) => c.shortSha)).toEqual(['a1', 'b2']);
+    expect(out[1]?.files).toEqual([]);
+  });
+
+  it('a subject with a tab in it stays a subject, never a file', () => {
+    const out = parseCommitLogWithRenames(record('a1', 'fix: tab\there', ['M\tx.ts']));
+    expect(out[0]?.subject).toBe('fix: tab\there');
+    expect(out[0]?.files).toEqual(['x.ts']);
+  });
+
+  it('a header with no subject separator yields an empty subject, and a status with no path yields no file', () => {
+    const out = parseCommitLogWithRenames(`${REC}a1\n\nM\t\n`);
+    expect(out).toEqual([{ shortSha: 'a1', subject: '', files: [] }]);
+  });
+});
+
+describe('dirtyPaths on a path that is not a repository', () => {
+  it('degrades to [], the same as changedFiles and diffNumstat', async () => {
+    const missing = join(tmpdir(), `autopilot-git-no-such-repo-${process.pid}`);
+    expect(await new GitVcs(missing).dirtyPaths()).toEqual([]);
+  });
+});
+
+describe('tag — the message file lives in a temp dir that never outlives the call', () => {
+  it('leaves nothing behind in the OS temp dir', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'autopilot-git-msgfile-'));
+    const repo = join(scratch, 'repo');
+    const temp = join(scratch, 'tmp');
+    mkdirSync(repo);
+    mkdirSync(temp);
+    // Steer os.tmpdir() (TMPDIR on POSIX, TEMP/TMP on Windows) at a private
+    // directory so the assertion sees only this call's temp files, never a
+    // sibling worker's.
+    const keys = ['TMPDIR', 'TEMP', 'TMP'] as const;
+    const saved = keys.map((k) => [k, process.env[k]] as const);
+    for (const k of keys) process.env[k] = temp;
+    try {
+      initRepo(repo);
+      writeFileSync(join(repo, 'a.txt'), 'one');
+      gitSync(repo, ['add', '-A']);
+      gitSync(repo, ['commit', '-q', '-m', 'feat: first']);
+      // `tag` (like `notes`) writes its message through a temp file;
+      // `commitAll` passes its message inline and never touches one.
+      const result = await new GitVcs(repo).tag('v1.0.0', 'release v1.0.0');
+      expect(result.ok).toBe(true);
+      expect(readdirSync(temp)).toEqual([]);
+    } finally {
+      for (const [k, v] of saved) {
+        if (v === undefined) Reflect.deleteProperty(process.env, k);
+        else process.env[k] = v;
+      }
+      rmSync(scratch, { recursive: true, force: true });
     }
   });
 });

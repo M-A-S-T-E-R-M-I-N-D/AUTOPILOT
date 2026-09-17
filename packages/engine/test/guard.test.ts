@@ -1314,3 +1314,175 @@ describe('the containment guard answers in linear time', () => {
     expect(check('echo one && cd ; echo two').allowed).toBe(false);
   });
 });
+
+/**
+ * MUTATION DEBT CLEARED (2026-09-17). Forty-seven mutants survived in this
+ * file's subject — most of them a reason string that could be blanked, a
+ * regex anchor that could be dropped, or a payload-shape guard that no test
+ * had ever handed a malformed payload. Each block below pins one of those.
+ */
+
+describe('checkPreCommitSiblingOverlap — norm() strips only a LEADING ./', () => {
+  it('a `./` that is not the prefix is part of the path, not a prefix to drop', () => {
+    // `lib./x.ts` and `libx.ts` are different files; a prefix strip that ran
+    // anywhere in the string would fuse them.
+    const v = checkPreCommitSiblingOverlap(
+      ['lib./x.ts'],
+      [{ branch: 'fleet-3', primaryFile: 'libx.ts' }],
+    );
+    expect(v.allowed).toBe(true);
+  });
+
+  it('the denial reason reads exactly as written — the sibling, the file, and what to do instead', () => {
+    const v = checkPreCommitSiblingOverlap(
+      ['src/parser.ts'],
+      [{ branch: 'fleet-3', primaryFile: 'src/parser.ts' }],
+    );
+    expect(v.reason).toBe(
+      'PRE-COMMIT SIBLING SCAN: src/parser.ts is claimed right now by sibling fleet-3 — a fresh ' +
+        "re-check at commit time (not just this firing's starting prompt) found the overlap. Do " +
+        'not commit this file — reshape the unit to avoid it, or pick different work.',
+    );
+  });
+});
+
+describe('checkCommandContainment — the sed/awk script exemption finds its command word like grep does', () => {
+  it('skips a leading VAR=value assignment, with one or several spaces after it', () => {
+    expect(check("FOO=bar sed -i '/^<<<<<<</,/^>>>>>>>/d' notes.txt").allowed).toBe(true);
+    expect(check("FOO=bar  sed -i '/^<<<<<<</,/^>>>>>>>/d' notes.txt").allowed).toBe(true);
+  });
+
+  it('a sed word that is not the FIRST token of its segment is not a sed invocation', () => {
+    // `"" sed …` runs the empty command with `sed` as an argument; the
+    // quoted script is then an ordinary quoted token and is judged as a path.
+    expect(check(`"" sed -i '/^<<<<<<</,/^>>>>>>>/d'`).allowed).toBe(false);
+  });
+});
+
+describe('checkCommandContainment — a quoted UNC path must START the quoted text and carry a share', () => {
+  it('a UNC-shaped substring mid-quote is descriptive text, not a path argument', () => {
+    expect(check(String.raw`echo "see \\srv\share\x"`).allowed).toBe(true);
+  });
+
+  it('a bare host with no share separator after it is not a UNC path', () => {
+    expect(check(String.raw`echo "\\server"`).allowed).toBe(true);
+  });
+});
+
+describe('checkCommandContainment — destructive-git details', () => {
+  it('a self-revert of HEAD tolerates any run of whitespace before the ref', () => {
+    expect(check('git revert  HEAD').allowed).toBe(true);
+    expect(check('git revert --no-edit   HEAD').allowed).toBe(true);
+  });
+
+  it('the push --delete denial names the command it caught', () => {
+    expect(check('git push origin --delete main').reason).toContain('`git push --delete`');
+    expect(check('git push origin --delete main').reason).toContain('additive');
+  });
+});
+
+describe('checkCommandContainment — git help escape, anchored to the segment start', () => {
+  it('"git --help" mentioned as an ARGUMENT to another command is not a git invocation', () => {
+    expect(check('echo git --help').allowed).toBe(true);
+  });
+
+  it('is caught on a later line behind a bare LF, same as the destructive-git checks', () => {
+    const v = check('pnpm test\ngit log --help');
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain('browser');
+  });
+});
+
+describe('isGitCommitCommand — edge shapes', () => {
+  it('a bare "git " with no subcommand is not a commit (and does not throw)', () => {
+    expect(isGitCommitCommand('git ')).toBe(false);
+    expect(isGitCommitCommand('git   ')).toBe(false);
+  });
+
+  it('--dry-run at the very END of the command is still exempt', () => {
+    expect(isGitCommitCommand('git commit --dry-run')).toBe(false);
+  });
+
+  it('a commit on a later line behind a bare LF is still a commit', () => {
+    expect(isGitCommitCommand('pnpm test\ngit commit -m "feat: x"')).toBe(true);
+  });
+});
+
+describe('commitSignoffDenial — the reason, verbatim', () => {
+  it('says what was wrong, why it matters, and what to run instead', () => {
+    expect(commitSignoffDenial('git commit -m "fix: x\n\nSigned-off-by: A <a@example.com>"')).toBe(
+      'the commit message hand-writes a `Signed-off-by:` trailer. Git derives that trailer from ' +
+        'the repository identity when you pass `-s`; a hand-typed one carries whatever address the ' +
+        'message names, which has published a personal email into DCO trailers before. Remove the ' +
+        'line from the message and run `git commit -s` instead. If you were only reading a trailer ' +
+        'rather than writing one, run that in a separate call.',
+    );
+  });
+});
+
+describe('WebFetch guards — the reasons, verbatim', () => {
+  it('the literal-address denial names the target and why it is out of remit', () => {
+    expect(checkWebFetchTarget('http://127.0.0.1/').reason).toBe(
+      'WebFetch target http://127.0.0.1/ is a loopback/private-network address — never a ' +
+        "legitimate flight target (the dashboard's own API and the local network are outside the " +
+        "flight's remit)",
+    );
+  });
+
+  it('the rebinding denial names the target, the resolved address, and the attack it stops', async () => {
+    const verdict = await checkWebFetchDnsRebinding(
+      'https://attacker-controlled.example/',
+      resolvesTo([{ address: '10.0.0.5', family: 4 }]),
+    );
+    expect(verdict.reason).toBe(
+      'WebFetch target https://attacker-controlled.example/ resolves to 10.0.0.5, a ' +
+        'loopback/private-network address — DNS rebinding to a local/internal target is never a ' +
+        'legitimate flight fetch',
+    );
+  });
+});
+
+describe('hook payload parsing — only the named tool, only a string field', () => {
+  it('extractBashCommand ignores a command field on a non-Bash tool, a missing tool_input, and a non-string command', () => {
+    expect(
+      extractBashCommand(
+        JSON.stringify({ tool_name: 'Read', tool_input: { command: 'git status' } }),
+      ),
+    ).toBeNull();
+    expect(extractBashCommand(JSON.stringify({ tool_name: 'Bash' }))).toBeNull();
+    expect(
+      extractBashCommand(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 42 } })),
+    ).toBeNull();
+  });
+
+  it('extractWebFetchUrl ignores a url field on a non-WebFetch tool and a missing tool_input', () => {
+    expect(
+      extractWebFetchUrl(
+        JSON.stringify({ tool_name: 'Bash', tool_input: { url: 'https://x.example/' } }),
+      ),
+    ).toBeNull();
+    expect(extractWebFetchUrl(JSON.stringify({ tool_name: 'WebFetch' }))).toBeNull();
+  });
+
+  it('evaluateHookInput judges only a STRING url on WebFetch — a missing tool_input or a non-string url is no decision, whatever it would stringify to', () => {
+    expect(evaluateHookInput(JSON.stringify({ tool_name: 'WebFetch' }), ROOT)).toBeNull();
+    expect(
+      evaluateHookInput(
+        JSON.stringify({ tool_name: 'WebFetch', tool_input: { url: ['http://127.0.0.1/'] } }),
+        ROOT,
+      ),
+    ).toBeNull();
+  });
+
+  it('evaluateHookInput treats a doubled backslash INSIDE a relative file-tool path as a path, not a UNC prefix', () => {
+    expect(
+      evaluateHookInput(
+        JSON.stringify({
+          tool_name: 'Read',
+          tool_input: { file_path: String.raw`src\\parser.ts` },
+        }),
+        ROOT,
+      ),
+    ).toBeNull();
+  });
+});
