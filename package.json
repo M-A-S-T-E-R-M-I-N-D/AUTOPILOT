@@ -15,7 +15,7 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "build": "tsc -b",
-    "typecheck": "tsc -p packages/tokens/tsconfig.typecheck.json --noEmit && tsc -p packages/store/tsconfig.typecheck.json --noEmit && tsc -p packages/engine/tsconfig.typecheck.json --noEmit && tsc -p packages/onboarding/tsconfig.typecheck.json --noEmit && tsc -p packages/mcp/tsconfig.typecheck.json --noEmit && tsc -p apps/dashboard/tsconfig.typecheck.json --noEmit && tsc -p apps/dashboard/e2e/tsconfig.json --noEmit && tsc -p tsconfig.typecheck.json --noEmit",
+    "typecheck": "tsc -p packages/tokens/tsconfig.typecheck.json --noEmit && tsc -p packages/store/tsconfig.typecheck.json --noEmit && tsc -p packages/engine/tsconfig.typecheck.json --noEmit && tsc -p packages/onboarding/tsconfig.typecheck.json --noEmit && tsc -p packages/mcp/tsconfig.typecheck.json --noEmit && tsc -p packages/docs-links/tsconfig.typecheck.json --noEmit && tsc -p apps/dashboard/tsconfig.typecheck.json --noEmit && tsc -p apps/dashboard/e2e/tsconfig.json --noEmit && tsc -p tsconfig.typecheck.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -214,6 +214,7 @@
     }
   },
   "devDependencies": {
+    "@autopilot/docs-links": "workspace:*",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@eslint/js": "^10.0.1",
