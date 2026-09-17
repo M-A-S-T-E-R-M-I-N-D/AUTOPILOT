@@ -145,13 +145,19 @@ Operator, 2026-09-17: *"אנחנו לא מחפשים ליד, מחפשים פתר
 Clearing 347 survivors is necessary and is not the answer — it leaves the
 mechanism that let them accumulate exactly as it was.
 
-**A full sweep cannot be the feedback loop, at any speed.** Measured
-2026-09-17 on `stryker.store.config.mjs`: 56s cold, and **38s warm** with
-`--incremental` and zero source changes. The saving is real but bounded,
-because the sandbox build and dry run are fixed cost paid per config whatever
-the cache holds. Across 103 configs a perfectly warm sweep still costs about
-an hour before a single mutant runs. Incremental mode is worth having; it is
-not a strategy.
+**A full sweep cannot be the feedback loop.** Measured 2026-09-17 on
+`stryker.store.config.mjs`: **56s** originally, **38s** with a warm
+`--incremental` cache, and **27s cold** once `ignorePatterns` stopped the
+sandbox copying 1.4GB of runtime state no test reads.
+
+That last number corrects an earlier claim in this document. It said the
+per-config cost was "fixed" sandbox-build and dry-run overhead that no cache
+could remove. It was not fixed — it was unnecessary I/O, and deleting it beat
+the incremental cache outright. See "The sandbox was the bottleneck" below.
+
+Even so, 27s across 103 configs is most of an hour of CI before the mutants
+that matter to a given change get run. So the sweep gets smaller as well as
+faster.
 
 So the sweep gets smaller, not faster. `.github/workflows/mutation-pr.yml`
 runs on a pull request against **only the modules the change touches**,
@@ -171,6 +177,54 @@ change somewhere else entirely. Two gates, two different failure modes.
 
 **What this does not do** is clear the existing 347. Prevention and cleanup
 are separate jobs, and the section below is the cleanup.
+
+## The sandbox was the bottleneck
+
+Every Stryker config copies the repository into a sandbox. Not one of the 103
+set `ignorePatterns`, so every one of them copied **`.autopilot/` — 1.4GB of
+live SQLite database and backups** that no test reads. Once per config, on a
+7200 RPM platter.
+
+Worse, `cleanTempDir` deletes the sandbox only after a **successful** run, and
+most configs are red while this debt is open. Leftovers therefore accumulate —
+and because they live inside the repo, the next config copies *them* too. A
+single leftover was measured at **8.1GB**.
+
+Both are fixed on every config now: `ignorePatterns` for `.autopilot`,
+`.stryker-tmp*`, `reports`, `test-results` and `dist`, and
+`cleanTempDir: 'always'`. Measured effect, store config: 56s → 27s, and one
+broken config's startup 75s → 17s.
+
+## Six configs were testing nothing at all
+
+The nightly reported 97 JSON reports for 103 configs. The other six —
+`dashboard-ask`, `doc-freshness`, `lock`, `triage`, `verify-by`, `worktree` —
+were not slow or failing. They were **crashing before the first mutant**:
+
+> No tests were executed. Stryker will exit prematurely.
+
+The cause was the sandbox again. `symlinkNodeModules: false` (needed for
+better-sqlite3) means a workspace import like `@autopilot/engine` cannot
+resolve inside the sandbox unless the config aliases it to a leaf module.
+Four configs aliased nothing; `lock` aliased one of the **two** packages its
+module imports; `ask` reaches `@autopilot/store`'s `openStore` transitively,
+where leaf-aliasing cannot help, so it symlinks instead (safe at concurrency
+1 — the native-binding trouble was a concurrency problem).
+
+The failure mode is the part worth remembering: a crashing config produces no
+report, so it contributes nothing to the survivor count and **looks
+accounted-for while proving nothing**. Fixed, they report:
+
+| Config | Real score, first time it ever ran |
+|---|---:|
+| `dashboard-verify-by` | **100%** |
+| `dashboard-worktree` | **100%** |
+| `dashboard-triage` | **100%** |
+| `dashboard-ask` | 98.67% |
+| `dashboard-doc-freshness` | 96.72% |
+| `dashboard-lock` | 79.37% |
+
+Three were already perfect and nobody could know. One was at 79%.
 
 ## Working order
 
