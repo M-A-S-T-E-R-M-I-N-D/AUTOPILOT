@@ -38,11 +38,12 @@ Generated from every `packages/*/package.json` / `apps/*/package.json` — name,
 (wired into `pnpm verify` and CI) fails the build if this block drifts from the real graph.
 
 <!-- CONTAINER:DIAGRAM:START -->
-_Generated 2026-08-27T15:14:47.898Z by `pnpm architecture:update` from every `packages/*/package.json` / `apps/*/package.json` — name, description, and `@autopilot/*` dependencies — not a hand-drawn diagram that can drift from what actually depends on what._
+_Generated 2026-09-17T23:51:25.484Z by `pnpm architecture:update` from every `packages/*/package.json` / `apps/*/package.json` — name, description, and `@autopilot/*` dependencies — not a hand-drawn diagram that can drift from what actually depends on what._
 
 ```mermaid
 flowchart TD
   subgraph packages["packages/"]
+    docs_links["**docs-links**<br/>AUTOPILOT docs-links — Markdown local-link resolution shared by the CI link-check script and the docs reader panel."]
     engine["**engine**<br/>AUTOPILOT engine — the gated autonomous loop (orient → pick → gate → commit → report → pace)."]
     mcp["**mcp**<br/>AUTOPILOT retrieval-as-MCP — read-only index tools reusable by the dashboard and any harness."]
     onboarding["**onboarding**<br/>AUTOPILOT onboarding — lock a folder, back it up (MYTH/LEGACY), detect the gate, index it."]
@@ -65,6 +66,7 @@ flowchart TD
 | Package | Path | Responsibility |
 |---|---|---|
 | `@autopilot/dashboard` | `apps/dashboard` | AUTOPILOT dashboard — the localhost read-only web control panel. |
+| `@autopilot/docs-links` | `packages/docs-links` | AUTOPILOT docs-links — Markdown local-link resolution shared by the CI link-check script and the docs reader panel. |
 | `@autopilot/engine` | `packages/engine` | AUTOPILOT engine — the gated autonomous loop (orient → pick → gate → commit → report → pace). |
 | `@autopilot/mcp` | `packages/mcp` | AUTOPILOT retrieval-as-MCP — read-only index tools reusable by the dashboard and any harness. |
 | `@autopilot/onboarding` | `packages/onboarding` | AUTOPILOT onboarding — lock a folder, back it up (MYTH/LEGACY), detect the gate, index it. |
