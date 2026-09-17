@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.51.1] — 2026-09-17
+
+### Fixed
+
+- fix(dashboard): let a landing that carries the remedy through a red converged branch
+- fix(mutation): make the sandbox cheap, and six silent configs actually run
+- fix(scripts): pass windowsHide on the mutation selector's git spawn
+
 ## [0.51.0] — 2026-09-16
 
 ### Added
