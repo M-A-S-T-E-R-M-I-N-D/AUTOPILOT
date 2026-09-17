@@ -32,6 +32,17 @@ export default defineConfig({
       '@autopilot/onboarding': fileURLToPath(
         new URL('../../packages/onboarding/src/onboard/soul.ts', import.meta.url),
       ),
+      // lock.ts imports from TWO workspace packages, and only the first was
+      // aliased — so inside the sandbox (symlinkNodeModules: false) the second
+      // could not resolve, the test file failed to import, and Stryker reported
+      // "No tests were found" and exited before testing a single mutant. The
+      // config crashed that way on every nightly: it produced no report at all,
+      // so this module looked accounted-for while being mutation-tested not at
+      // all. Same leaf-module aliasing as above — instance-lock.ts defines
+      // parseLockInfo/isProcessAlive and imports only node:fs.
+      '@autopilot/engine': fileURLToPath(
+        new URL('../../packages/engine/src/adapters/instance-lock.ts', import.meta.url),
+      ),
     },
   },
   test: {

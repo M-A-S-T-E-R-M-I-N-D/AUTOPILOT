@@ -7,13 +7,13 @@ name: Mutation (changed modules)
 # touches, so a surviving mutant is caught by the change that introduced it
 # instead of by a sweep the next morning.
 #
-# Why a per-change gate rather than a faster sweep. The full sweep cannot be
-# the feedback loop at any speed: measured 2026-09-17, one small config with a
-# warm `--incremental` cache and zero source changes still costs ~38s, because
-# the sandbox build and dry run are fixed cost paid per config whatever the
-# cache holds. Across 103 configs that is an hour of CI before a single mutant
-# runs. A real change selects far fewer — measured on a 211-file diff from this
-# repo's own history: 4 configs. That is a gate a pull request can afford.
+# Why a per-change gate rather than only a faster sweep. Measured 2026-09-17 on
+# the store config: 56s originally, 38s with a warm `--incremental` cache, and
+# 27s cold once `ignorePatterns` stopped the sandbox copying 1.4GB of runtime
+# state no test reads. Even at 27s, 103 configs is most of an hour of CI before
+# the mutants that matter to a given change get run. A real change selects far
+# fewer — measured on a 211-file diff from this repo's own history: 4 configs.
+# That is a gate a pull request can afford.
 #
 # This is also the fix for HOW the debt accumulated: the nightly ran past its
 # job timeout every night from 2026-09-04 to 09-12 and ended `cancelled`, so

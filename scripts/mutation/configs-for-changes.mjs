@@ -16,11 +16,15 @@
  * over a week, and 347 survivors accumulated across 36 files unseen. Sharding
  * fixed the timeout; it did not fix the feedback loop.
  *
- * A full sweep cannot BE the feedback loop. Measured 2026-09-17: with a warm
- * `--incremental` cache and zero source changes, one small config still costs
- * ~38s — the sandbox build and dry run are fixed cost, paid per config whatever
- * the cache holds. Times 103 that is an hour of CI before a single mutant runs.
- * So the answer is not a faster sweep; it is a SMALLER one. A change touching
+ * A full sweep cannot BE the feedback loop. Measured 2026-09-17 on the store
+ * config: 56s originally, 38s with a warm `--incremental` cache, and **27s
+ * cold** once `ignorePatterns` stopped the sandbox copying 1.4GB of runtime
+ * state it never reads. (An earlier note here called that per-config cost
+ * "fixed"; it was not — it was unnecessary I/O, and ignoring it beat the
+ * incremental cache outright.) Even so, 27s times 103 configs is most of an
+ * hour of CI before a single mutant that matters to a given change runs.
+ *
+ * So the answer is a SMALLER sweep, not only a faster one. A change touching
  * two modules should test two configs, and it should do that on the pull
  * request, before the debt exists — which is what this script makes possible.
  *

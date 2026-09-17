@@ -32,6 +32,19 @@ export default {
     configFile: 'config/mutation/vitest.dashboard-narrator.config.ts',
   },
   mutate: ['apps/dashboard/src/shared/narrator.ts'],
+  // The sandbox is a COPY of the repo, and this repo carries ~1.4GB of runtime
+  // state (.autopilot: the live SQLite db and every backup) that no test reads,
+  // copied once PER CONFIG on a 7200 RPM platter across 103 configs. Stryker
+  // documents ignorePatterns for exactly this case: "too many (or too large)
+  // files are copied to the sandbox that are not needed to run the tests".
+  // .stryker-tmp* is listed because a leftover sandbox otherwise gets copied
+  // into the next one — 8.1GB was measured sitting in a single leftover
+  // (2026-09-17). Measured effect on one config: startup 75s -> 17s.
+  ignorePatterns: ['.autopilot', '.stryker-tmp*', 'reports', 'test-results', 'dist'],
+  // cleanTempDir defaults to deleting the sandbox only after a SUCCESSFUL run,
+  // so every red config leaves its entire sandbox on disk indefinitely — and
+  // most are red while this debt is being cleared.
+  cleanTempDir: 'always',
   concurrency: 1,
   symlinkNodeModules: false,
   coverageAnalysis: 'perTest',

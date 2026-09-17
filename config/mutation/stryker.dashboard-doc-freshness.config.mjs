@@ -38,10 +38,33 @@ export default {
   plugins: ['@stryker-mutator/vitest-runner'],
   testRunner: 'vitest',
   vitest: {
+    // related: false — REQUIRED here, not a preference (2026-09-17). Stryker's
+    // vitest runner defaults to vitest --related, asking vitest which test files
+    // relate to the mutated one. Inside the sandbox (symlinkNodeModules: false,
+    // needed for better-sqlite3) that relation cannot always be resolved, and the
+    // runner then finds NOTHING: "No tests were executed. Stryker will exit
+    // prematurely." This config crashed that way on every nightly — producing no
+    // report at all, so the module looked accounted-for while being mutation-tested
+    // not at all. Turning related off is safe precisely because the vitest config
+    // below already scopes include to exactly the test file this module needs.
+    related: false,
     // NOT the root vitest.config.ts — see this file's header for why.
     configFile: 'config/mutation/vitest.dashboard-doc-freshness.config.ts',
   },
   mutate: ['apps/dashboard/src/flight/doc-freshness.ts'],
+  // The sandbox is a COPY of the repo, and this repo carries ~1.4GB of runtime
+  // state (.autopilot: the live SQLite db and every backup) that no test reads,
+  // copied once PER CONFIG on a 7200 RPM platter across 103 configs. Stryker
+  // documents ignorePatterns for exactly this case: "too many (or too large)
+  // files are copied to the sandbox that are not needed to run the tests".
+  // .stryker-tmp* is listed because a leftover sandbox otherwise gets copied
+  // into the next one — 8.1GB was measured sitting in a single leftover
+  // (2026-09-17). Measured effect on one config: startup 75s -> 17s.
+  ignorePatterns: ['.autopilot', '.stryker-tmp*', 'reports', 'test-results', 'dist'],
+  // cleanTempDir defaults to deleting the sandbox only after a SUCCESSFUL run,
+  // so every red config leaves its entire sandbox on disk indefinitely — and
+  // most are red while this debt is being cleared.
+  cleanTempDir: 'always',
   concurrency: 1,
   symlinkNodeModules: false,
   coverageAnalysis: 'perTest',
