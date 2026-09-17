@@ -167,6 +167,25 @@ describe('groupedReleaseNotes', () => {
   it('returns an empty string when nothing qualifies, so callers can gate', () => {
     expect(groupedReleaseNotes(['docs: only', 'chore: noise'])).toBe('');
   });
+
+  it('matches the type only at the START of the subject', () => {
+    // Every section pattern is anchored. Unanchored, a subject merely
+    // MENTIONING another type would be filed under it — a docs commit about
+    // the feat workflow would appear in Added as though something shipped.
+    expect(
+      groupedReleaseNotes([
+        'docs: explain how feat: and fix: subjects are grouped',
+        'chore: tidy the perf: notes',
+      ]),
+    ).toBe('');
+  });
+
+  it('puts each entry of a section on its own line', () => {
+    // The joiner is the only thing separating two bullets. Emptied, the whole
+    // section collapses onto one line and the CHANGELOG stops being a list.
+    const notes = groupedReleaseNotes(['feat: one', 'feat: two']);
+    expect(notes.split('\n')).toEqual(['### Added', '', '- feat: one', '- feat: two']);
+  });
 });
 
 describe('buildReleaseTagMessage', () => {
@@ -192,6 +211,69 @@ describe('cutChangelogRelease', () => {
     );
     expect(cut).toContain('## [Unreleased]');
     expect(cut).toContain('## [0.1.0] — 2026-08-01');
+  });
+
+  // The "is the Unreleased section empty?" decision is the ONLY thing the body
+  // extraction feeds, so a test only discriminates if it makes that decision
+  // flip. Each fixture below is built to do exactly that.
+  it('reads the section to the end when no heading follows Unreleased', () => {
+    // No later heading, so the search returns -1 and the WHOLE remainder is the
+    // section. The body here is one non-whitespace character at the very end:
+    // slicing it off — which both the always-slice and the -1/+1 mutants do —
+    // leaves whitespace, so an already-written section would be treated as
+    // empty and seeded over. Content written by hand would be joined by
+    // generated notes it never asked for.
+    const tail = ['# Changelog', '', '## [Unreleased]', '', '  x'].join('\n');
+    const cut = cutChangelogRelease(tail, '0.2.0', '2026-09-04', ['feat: shine']);
+    expect(cut).toContain('## [0.2.0] — 2026-09-04');
+    expect(cut).not.toContain('### Added');
+    expect(cut).toContain('  x');
+  });
+
+  it('finds the next section only at a LINE start, never mid-line', () => {
+    // The search is anchored per line. Unanchored, an INDENTED "## " — prose
+    // quoting a heading, which this changelog does — is mistaken for the end of
+    // the Unreleased section. Everything before it here is whitespace, so the
+    // section would read as empty and get seeded with generated notes on top of
+    // the operator's own words.
+    const quoting = [
+      '# Changelog',
+      '',
+      '## [Unreleased]',
+      '',
+      '   ## looks like a heading but is indented',
+      '',
+      '## [0.1.0] — 2026-08-01',
+      '',
+    ].join('\n');
+    const cut = cutChangelogRelease(quoting, '0.2.0', '2026-09-04', ['feat: shine']);
+    expect(cut).not.toContain('### Added');
+    expect(cut).toContain('   ## looks like a heading but is indented');
+  });
+
+  it('cuts a bare heading when the section is empty AND no subjects were supplied', () => {
+    // Both halves of the seed guard have to hold. With the `subjects` half
+    // removed, this exact call — empty section, no subjects — reaches
+    // groupedReleaseNotes(undefined) and throws on a release that should
+    // simply produce an empty dated heading. Every other fixture supplies
+    // subjects, has a non-empty body, or both, so none of them reach it.
+    const empty = ['# Changelog', '', '## [Unreleased]', '', '## [0.1.0] — 2026-08-01', ''].join(
+      '\n',
+    );
+    const cut = cutChangelogRelease(empty, '0.2.0', '2026-09-04');
+    expect(cut).toContain('## [0.2.0] — 2026-09-04');
+    expect(cut).not.toContain('### Added');
+    expect(cut).toContain('## [0.1.0] — 2026-08-01');
+  });
+
+  it('writes a bare dated heading — with no trailing blank lines — when there is nothing to seed', () => {
+    // The seeded and unseeded headings differ only by the two newlines and the
+    // notes that follow. Always taking the seeded shape appends a blank run to
+    // every release that had nothing to seed.
+    const written = ['# Changelog', '', '## [Unreleased]', '', '- a note', ''].join('\n');
+    const cut = cutChangelogRelease(written, '0.2.0', '2026-09-04', ['feat: shine']);
+    expect(cut).toContain('## [0.2.0] — 2026-09-04\n\n- a note');
+    expect(cut).not.toContain('## [0.2.0] — 2026-09-04\n\n\n');
   });
 
   it('never seeds over hand-written Unreleased content — the human words win untouched', () => {
