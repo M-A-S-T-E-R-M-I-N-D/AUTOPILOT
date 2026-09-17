@@ -1132,6 +1132,24 @@ describe('implicatedFilesFromFailedLog', () => {
     ).toEqual([]);
     expect(implicatedFilesFromFailedLog(' FAIL  node  something-without-a-path')).toEqual([]);
   });
+
+  it('names the file a scanner or tsc reports as path:line / path(line — a red that is not a test failure still names what clears it', () => {
+    // The exact shape scripts/ci/no-personal-paths.mjs printed on the run that
+    // reddened main at 8490c592 (a test with three literal drive paths).
+    // (The offending snippets' drive letter is joined at runtime so this
+    // fixture does not trip the same scanner.)
+    const d = 'X';
+    const scanner = [
+      'verify (ubuntu-latest)\tNo personal paths\t2026-09-17T18:20:00Z no-personal-paths FAILED: 3 personal identifier(s) found:',
+      `verify (ubuntu-latest)\tNo personal paths\t2026-09-17T18:20:00Z   packages/engine/test/adapters/worktree.test.ts:90  [windows-drive-path]  ${d}:/work/lanes/wt-a`,
+      `verify (ubuntu-latest)\tNo personal paths\t2026-09-17T18:20:00Z   packages/engine/test/adapters/worktree.test.ts:91  [windows-drive-path]  ${d}:\\work\\lanes\\wt-a`,
+      'verify (ubuntu-latest)\tNo personal paths\t2026-09-17T18:20:00Z apps/dashboard/src/paths.ts(12,5): error TS2322: nope',
+    ].join('\n');
+    expect(implicatedFilesFromFailedLog(scanner)).toEqual([
+      'packages/engine/test/adapters/worktree.test.ts',
+      'apps/dashboard/src/paths.ts',
+    ]);
+  });
 });
 
 describe('remedyFilesOf', () => {

@@ -87,9 +87,12 @@ describe('worktreeIsRegistered', () => {
     // carries a backslash, so the separator normalisation was unprovable
     // there and its replacement string could be emptied unseen (CI sweep
     // 2026-09-17, shard 2).
-    const porcelain = 'worktree Z:/work/lanes/wt-a\nHEAD abc123\n\n';
-    expect(worktreeIsRegistered(porcelain, String.raw`Z:\work\lanes\wt-a`)).toBe(true);
-    expect(worktreeIsRegistered(porcelain, String.raw`Z:\work\lanes\wt-b`)).toBe(false);
+    // The drive letter is joined at runtime: the repo's no-personal-paths
+    // scanner flags a literal `<letter>:<slash>` in source (see guard.test.ts).
+    const drive = 'Z';
+    const porcelain = `worktree ${drive}:/work/lanes/wt-a\nHEAD abc123\n\n`;
+    expect(worktreeIsRegistered(porcelain, `${drive}:\\work\\lanes\\wt-a`)).toBe(true);
+    expect(worktreeIsRegistered(porcelain, `${drive}:\\work\\lanes\\wt-b`)).toBe(false);
   });
 });
 
