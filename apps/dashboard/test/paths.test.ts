@@ -38,6 +38,11 @@ describe('samePath', () => {
   it('is case-insensitive on win32 (NTFS)', () => {
     withPlatform('win32', () => {
       expect(samePath('/some/Repo/Project', '/some/repo/project')).toBe(true);
+      // Case-insensitive is not "anything goes": two different paths are
+      // still different. Without this the win32 arm is only ever asked a
+      // yes-question on a Linux runner, and an arm that always answers yes
+      // passes (CI sweep 2026-09-17, shard 5).
+      expect(samePath('/some/repo/project', '/some/repo/other')).toBe(false);
     });
   });
 
