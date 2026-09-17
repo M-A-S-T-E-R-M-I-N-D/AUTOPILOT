@@ -11,6 +11,7 @@ import { openBrowser } from '../browser.js';
 import { resolveDbPath } from '../read/config.js';
 import { readFleetFromStore } from '../read/source.js';
 import { readPipelineSpans } from '../read/pipeline-spans.js';
+import { gitLastTouchedAt } from '../flight/doc-freshness.js';
 import { spansToGraph } from '../read/pipeline-graph.js';
 import { renderPipelinePanel } from '../web/pipeline-panel.js';
 import {
@@ -685,6 +686,10 @@ const server = createServer({
   flightLog: (projectId) => readFlightLogForProject(dbPath, projectId),
   docsList: (projectId) => listProjectDocs(dbPath, projectId),
   docRead: (projectId, path) => readProjectDoc(dbPath, projectId, path),
+  docTouchedAt: (projectId, path) => {
+    const root = gatherProjectRoot(dbPath, projectId);
+    return root ? gitLastTouchedAt(root, path) : null;
+  },
   browseFolder: (path) => listBrowsableFolder(path),
   landing: (projectId) => readLandingInfo(dbPath, projectId),
   // Every LAND press goes through the job registry, never straight at the

@@ -625,6 +625,7 @@ main.project-mode { grid-template-columns: 1fr; }
    to carry (epic 0025: emoji reads cheap). */
 .docs-file-pinned { border-inline-start: 2px solid var(--color-accent); }
 .docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
+.docs-viewer-freshness { margin: 0 0 var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
 /* Reading typography. The body used to inherit --text-sm with no measure, no
    heading scale and no rhythm, so a rendered document came out as flat grey
    mass. A measure cap is the single highest-value line here: unbounded line
