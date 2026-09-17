@@ -99,7 +99,15 @@ export interface ContrastPair {
   readonly level: ContrastLevel;
 }
 
-function classifyContrast(ratio: number): ContrastLevel {
+/** Classifies one contrast ratio against WCAG's two AA floors. Exported so the
+ *  boundaries themselves are testable: both floors are INCLUSIVE — a ratio of
+ *  exactly 4.5:1 passes AA for normal text (SC 1.4.3) and exactly 3:1 passes
+ *  for large text and non-text UI components (SC 1.4.11). No real theme ever
+ *  lands on either number exactly, so reaching those boundaries through
+ *  `contrastMatrix` is not possible; that makes them untested, not
+ *  unimportant, since an off-by-one here silently reclassifies a passing pair
+ *  as failing. */
+export function classifyContrast(ratio: number): ContrastLevel {
   if (ratio >= 4.5) return 'text';
   if (ratio >= 3) return 'large';
   return 'fail';
@@ -113,6 +121,12 @@ function classifyContrast(ratio: number): ContrastLevel {
  *  a claim that all 153 combinations occur in the served CSS. */
 export function contrastMatrix(theme: Theme): ContrastPair[] {
   const pairs: ContrastPair[] = [];
+  // Stryker disable next-line EqualityOperator: `i < length` vs `i <= length`
+  // is equivalent by construction, measured 2026-09-17. On the extra pass
+  // (i === length) the INNER loop starts at j = length + 1, which already
+  // fails `j < length`, so it runs zero times and pushes no pair — the
+  // returned array is identical either way. No assertion on the result can
+  // observe the difference.
   for (let i = 0; i < COLOR_TOKENS.length; i++) {
     for (let j = i + 1; j < COLOR_TOKENS.length; j++) {
       const a = COLOR_TOKENS[i] as ColorToken;
