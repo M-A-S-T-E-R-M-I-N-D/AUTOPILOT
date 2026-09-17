@@ -36,6 +36,16 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['apps/dashboard/test/connection/config.test.ts'],
+    // config-windows-acl.test.ts added 2026-09-17. config.test.ts asserts the
+    // icacls ACL only under `if (process.platform === 'win32')`, by reading a
+    // real file — and mutation testing runs on ubuntu, where that branch never
+    // executes. Stryker therefore reported all of restrictToOwnerWindows as
+    // NoCoverage: 20 mutants inside a security control with nothing in CI able
+    // to kill one. The added file tests the same function with the platform and
+    // the subprocess mocked, so it runs everywhere.
+    include: [
+      'apps/dashboard/test/connection/config.test.ts',
+      'apps/dashboard/test/connection/config-windows-acl.test.ts',
+    ],
   },
 });
