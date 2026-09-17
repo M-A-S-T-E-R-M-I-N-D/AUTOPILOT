@@ -1451,3 +1451,68 @@ describe('buildFleetView recentFirings', () => {
     expect(view.recentFirings.map((f) => f.id)).toEqual(['f1', 'f2']);
   });
 });
+
+// toCard feeds eleven optional event arrays into detectAnomalies with a
+// `?? []` default each, and NOTHING asserted the anomalies that came out —
+// so all twenty of those mutants lived. The dangerous direction is `??` to
+// `&&`: when the field IS present, `rows && []` yields [] and every real
+// anomaly of that kind silently vanishes from the card. The other direction is
+// the default becoming a bogus one-element array, which manufactures a chip
+// for a project that recorded nothing.
+describe('toCard surfaces each persisted-event anomaly, and invents none', () => {
+  it('reports no event-derived anomaly for a project with none of the arrays set', () => {
+    const kinds = toCard(aggregate()).anomalies.map((a) => a.kind);
+    for (const kind of [
+      'orient-drag',
+      'family-runaway',
+      'intent-collision',
+      'near-miss-recurring',
+      'guard-denial',
+      'sync-back-refusal',
+      'land-gate-alarm',
+      'convergence-red',
+      'e2e-land-block',
+      'convergence-unverifiable',
+      'guard-verify-failed',
+    ]) {
+      expect(kinds).not.toContain(kind);
+    }
+  });
+
+  it.each([
+    [
+      'orient-drag',
+      {
+        orientLengths: [
+          { actionsBeforeFirstEdit: 40 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+          { actionsBeforeFirstEdit: 5 },
+        ],
+      },
+    ],
+    ['family-runaway', { familyRunaways: [{ family: 'fix(x)', spendUsd: 12, firings: 9 }] }],
+    [
+      'intent-collision',
+      { intentCollisions: [{ file: 'src/a.ts', sibling: 'fleet-2', intent: 'refactor' }] },
+    ],
+    ['near-miss-recurring', { nearMissRecurring: [{ nearMissClass: 'guardDenials', streak: 3 }] }],
+    ['guard-denial', { guardDenialEvents: [{ kind: 'containment', target: '/etc/passwd' }] }],
+    ['sync-back-refusal', { syncBackRefusalEvents: [{ details: 'conflict in x' }] }],
+    ['land-gate-alarm', { landGateAlarmEvents: [{ details: 'lint red' }] }],
+    ['convergence-red', { convergenceRedEvents: [{ check: 'typecheck', details: 'TS2345' }] }],
+    ['e2e-land-block', { e2eLandBlockEvents: [{ detail: 'main is red' }] }],
+    [
+      'convergence-unverifiable',
+      { convergenceUnverifiableEvents: [{ signature: 'abc', ms: 100, floorMs: 5000 }] },
+    ],
+    ['guard-verify-failed', { guardVerificationFailedEvents: [{ reason: 'hook missing' }] }],
+  ] as const)('surfaces a %s anomaly when its rows are present', (kind, over) => {
+    const kinds = toCard(aggregate(over as Partial<ProjectAggregate>)).anomalies.map(
+      (a) => a.kind,
+    );
+    expect(kinds).toContain(kind);
+  });
+});

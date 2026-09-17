@@ -3,7 +3,16 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -754,6 +763,11 @@ describe('fastForwardWorktree', () => {
     const result = await fastForwardWorktree(wtPath, base);
 
     expect(result.ok).toBe(false);
+    // The refusal names the lane and the ref it could not reach. An empty
+    // details string here is a lane silently launching stale with no clue why.
+    expect(result.details).toContain('cannot fast-forward');
+    expect(result.details).toContain(wtPath);
+    expect(result.details).toContain(base);
     expect(gitSync(wtPath, ['rev-parse', 'HEAD'])).toBe(before);
     expect(gitSync(wtPath, ['status', '--porcelain'])).toBe('');
 
@@ -790,5 +804,115 @@ describe('canonicalWorktreePath', () => {
   it('falls back to the input unchanged when nothing on the path resolves', () => {
     const ghost = join(tmpdir(), 'ap-canon-ghost-never-here', 'child', 'leaf');
     expect(canonicalWorktreePath(ghost)).toBe(ghost);
+  });
+});
+
+describe('parseWorktreeList — the porcelain is trimmed at every seam', () => {
+  // `git worktree list --porcelain` is line-oriented and the parser trims at
+  // three places: the raw line, the path after "worktree ", the ref after
+  // "branch ". Every fixture so far was git's own tidy output, where all three
+  // trims remove nothing — so all three could be deleted unseen.
+  it('accepts CRLF output without leaving a CR on the path or the branch', () => {
+    const out = 'worktree /w/a\r\nHEAD abc\r\nbranch refs/heads/x\r\n\r\n';
+    expect(parseWorktreeList(out)).toEqual([{ path: '/w/a', branch: 'refs/heads/x' }]);
+  });
+
+  it('accepts an indented line, which an untrimmed parser would not even recognise', () => {
+    const out = '  worktree /w/b\n  branch refs/heads/y\n';
+    expect(parseWorktreeList(out)).toEqual([{ path: '/w/b', branch: 'refs/heads/y' }]);
+  });
+
+  it('collapses extra spaces after the keyword instead of keeping them on the value', () => {
+    const out = 'worktree   /w/c\nbranch   refs/heads/z\n';
+    expect(parseWorktreeList(out)).toEqual([{ path: '/w/c', branch: 'refs/heads/z' }]);
+  });
+});
+
+describe('canonicalWorktreePath — an existing LINK resolves through, not around', () => {
+  it('follows a directory link to its target rather than rejoining the leaf onto the parent', () => {
+    // The first rung realpaths the whole path; the fallback realpaths the
+    // PARENT and rejoins the raw leaf. For a plain directory both agree, so
+    // the existing tests could not tell whether the first rung ran at all.
+    // A directory junction/symlink is where they part: the leaf itself is
+    // what needs resolving, and the fallback keeps it verbatim.
+    const scratch = mkdtempSync(join(tmpdir(), 'ap-canon-link-'));
+    try {
+      const real = join(scratch, 'real');
+      mkdirSync(real);
+      const link = join(scratch, 'link');
+      symlinkSync(real, link, 'junction');
+      expect(canonicalWorktreePath(link)).toBe(realpathSync.native(real));
+      expect(canonicalWorktreePath(link)).not.toBe(join(realpathSync.native(scratch), 'link'));
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('syncWorktreeBranch — a rerere-resolved merge whose COMMIT is rejected', () => {
+  // The rerere rung has two decisions after the merge stops: "are there
+  // unresolved paths?" and, once there are none, "did the commit succeed?".
+  // Every fixture answered the second with yes, so a sync that reached the
+  // commit and had it REFUSED — a pre-commit hook, a signoff policy — was
+  // never observed. Under the surviving mutants that sync is reported as a
+  // completed merge, with a conflict list invented from nothing and the
+  // escalation hook handed an empty one.
+  it('reports the failure, invents no conflict list, and never calls escalate', async () => {
+    const dir = scratchRepoDir('autopilot-worktree-rerere-hook-');
+    initRepo(dir);
+    const base = gitSync(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    const wtPath = join(dir, '..', 'wt-sync-rerere-hook');
+    await ensureWorktree(dir, wtPath, 'flight-work');
+    writeFileSync(join(wtPath, 'a.txt'), 'worktree version');
+    gitSync(wtPath, ['add', '-A']);
+    gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 worktree edit']);
+
+    writeFileSync(join(dir, 'a.txt'), 'operator version');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-3 operator edit']);
+
+    // Same shape as the rerere replay test: the first sync refuses but records
+    // the preimage; the operator resolves once by hand; the target is rewound
+    // so the identical conflict stands again with a resolution on file.
+    const first = await syncWorktreeBranch(dir, base, 'flight-work');
+    expect(first.ok).toBe(false);
+    try {
+      gitSync(dir, ['merge', 'flight-work']);
+    } catch {
+      /* expected: the merge stops on the conflict */
+    }
+    writeFileSync(join(dir, 'a.txt'), 'reconciled by operator');
+    gitSync(dir, ['add', 'a.txt']);
+    gitSync(dir, ['commit', '-q', '--no-edit']);
+    gitSync(dir, ['reset', '--hard', '-q', 'ORIG_HEAD']);
+
+    // Now the part no fixture had: the commit that would complete the replayed
+    // merge is refused by the target repo itself.
+    const hooks = join(dir, '.git', 'hooks');
+    mkdirSync(hooks, { recursive: true });
+    const hook = join(hooks, 'pre-commit');
+    writeFileSync(hook, '#!/bin/sh\nexit 1\n');
+    chmodSync(hook, 0o755);
+
+    const before = gitSync(dir, ['rev-parse', 'HEAD']);
+    let escalateCalls = 0;
+    const result = await syncWorktreeBranch(dir, base, 'flight-work', async () => {
+      escalateCalls += 1;
+      return { ok: false, details: 'the test never expects to be asked' };
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.details).toContain('failed');
+    // Zero unresolved paths means there is NO conflict context to report —
+    // not an empty list, which a caller would read as "conflicts: none".
+    expect('conflicts' in result).toBe(false);
+    // And with nothing unresolved there is nothing to escalate.
+    expect(escalateCalls).toBe(0);
+    // The refused merge was aborted, not left half-done on the target.
+    expect(gitSync(dir, ['rev-parse', 'HEAD'])).toBe(before);
+    expect(gitSync(dir, ['status', '--porcelain'])).toBe('');
+
+    rmSync(hook, { force: true });
+    await removeWorktree(dir, wtPath);
   });
 });
