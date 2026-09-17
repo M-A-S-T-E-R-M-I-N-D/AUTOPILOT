@@ -35,6 +35,16 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['apps/dashboard/test/flight/doc-freshness.test.ts'],
+    // doc-freshness-spawn.test.ts added 2026-09-17: doc-freshness.test.ts
+    // drives a REAL git repo, so it cannot observe the spawn OPTIONS, and the
+    // `windowsHide: true` on the git log call was unkillable through it. The
+    // added file mocks node:child_process to assert the argv and options
+    // directly. (The repo-wide spawn-windows-hide census cannot serve here:
+    // it walks the source tree from import.meta.url, which inside Stryker's
+    // sandbox finds no call sites at all and fails the dry run.)
+    include: [
+      'apps/dashboard/test/flight/doc-freshness.test.ts',
+      'apps/dashboard/test/flight/doc-freshness-spawn.test.ts',
+    ],
   },
 });

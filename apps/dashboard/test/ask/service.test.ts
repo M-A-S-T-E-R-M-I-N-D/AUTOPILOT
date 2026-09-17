@@ -322,6 +322,49 @@ describe('askProject', () => {
     expect(result.lowConfidence).toBeUndefined();
   });
 
+  it('an escalated answer carries the meta its invoke handed back', async () => {
+    // The escalated return spreads meta conditionally, and every escalation
+    // test returned a bare STRING — which takes the no-meta arm — so the arm
+    // that actually carries meta was never executed at all. Under a mutant
+    // collapsing it, a Deep answer would silently lose its model, duration and
+    // cost: the very line the operator reads to know what an answer cost.
+    const META_ESC = { model: 'claude-haiku-4-5-20251001', durationMs: 49298, costUsd: 0.745964 };
+    const escalate = vi.fn(() =>
+      Promise.resolve({ text: 'read src/cart.ts and found it', meta: META_ESC }),
+    );
+    const result = await askProject(
+      deps({ escalation: { invoke: escalate } }),
+      'p1',
+      'q?',
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.meta).toEqual(META_ESC);
+  });
+
+  it('an escalated answer whose invoke returns a bare string carries no meta key', async () => {
+    // The escalated result spreads meta conditionally. Every escalation test
+    // returned a bare string — which takes the same branch — so the OTHER arm
+    // of that spread was never observed, and a mutant collapsing it to {} on
+    // the meta-bearing side would have gone unnoticed.
+    const escalate = vi.fn(() => Promise.resolve<string | null>('read src/cart.ts and found it'));
+    const result = await askProject(
+      deps({ escalation: { invoke: escalate } }),
+      'p1',
+      'q?',
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.meta).toBeUndefined();
+    expect(Object.keys(result)).not.toContain('meta');
+  });
+
   it('omits lowConfidence on a deep:true forced escalation', async () => {
     const escalate = vi.fn(() => Promise.resolve<string | null>(NO_ANSWER));
     const result = await askProject(
@@ -349,6 +392,28 @@ describe('askProjectStream', () => {
     expect(chunks).toEqual(['The total ', 'is a reduce. [src/cart.ts]']);
     expect(result.ok).toBe(true);
     expect(result.answer).toContain('reduce');
+    expect(result.sources).toContain('src/cart.ts');
+  });
+
+  it('an escalation dep wired but deep:false does NOT escalate — the guard is AND, not OR', async () => {
+    // askProjectStream carries its own copy of `deep && deps.escalation`, and
+    // every stream test set at most one of the two, so none could tell `&&`
+    // from `||`. Under `||`, merely WIRING escalation would route every
+    // ordinary streamed question to the expensive tier — a silent quota
+    // multiplier with no visible symptom. (The non-streaming askProject has
+    // the same guard on its own line; this one is the stream's.)
+    const escalate = vi.fn(() => Promise.resolve<string | null>('should not be called'));
+    const chunks: string[] = [];
+
+    const result = await askProjectStream(
+      streamDeps({ escalation: { invoke: escalate } }),
+      'p1',
+      'how is the total computed?',
+      (text) => chunks.push(text),
+    );
+
+    expect(escalate).not.toHaveBeenCalled();
+    expect(chunks.length).toBeGreaterThan(0);
     expect(result.sources).toContain('src/cart.ts');
   });
 
