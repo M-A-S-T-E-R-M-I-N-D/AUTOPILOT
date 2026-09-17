@@ -146,8 +146,17 @@ const FLAGS_ONLY_RE = /^(?:\s+-{1,2}[A-Za-z][\w.-]*)*\s*$/;
  */
 function isSedAwkScriptArgument(command: string, index: number): boolean {
   const before = command.slice(0, index);
+  // Stryker disable next-line StringLiteral: `.split()` always yields >= 1
+  // element, so `.pop()` never returns undefined — the fallback is
+  // unreachable (same as precededByPatternOnlyFlag below).
   const segment = before.split(/\||&&|;/).pop() ?? '';
+  // Stryker disable next-line StringLiteral: the fallback only feeds
+  // `SCRIPT_FIRST_ARG_COMMANDS.has(...)` through `bin` below, and neither ''
+  // nor any placeholder text is a member — unobservable, same as the `token`
+  // fallback in precededByPatternOnlyFlag.
   const word = /^\s*(?:\S+=\S+\s+)*([^\s"'`]+)/.exec(segment)?.[1] ?? '';
+  // Stryker disable next-line StringLiteral: `.pop()` on a `.split()` result
+  // is never undefined (see `segment` above).
   const bin = word.split(/[\\/]/).pop() ?? '';
   if (!SCRIPT_FIRST_ARG_COMMANDS.has(bin.toLowerCase())) return false;
   const afterCommandWord = segment.slice(segment.lastIndexOf(word) + word.length);
@@ -279,6 +288,8 @@ const SHORT_FLAG_CLUSTER_RE = /\s-([A-Za-z]+)(?=\s|$)/g;
  *  Case-sensitive on purpose: `git branch -D` is not `git branch -d`. */
 function hasBundledFlags(rest: string, ...letters: readonly string[]): boolean {
   for (const match of rest.matchAll(SHORT_FLAG_CLUSTER_RE)) {
+    // Stryker disable next-line StringLiteral: the cluster group is not
+    // optional — every match has a group 1 — so the fallback is unreachable.
     const cluster = match[1] ?? '';
     if (letters.every((letter) => cluster.includes(letter))) return true;
   }
@@ -408,12 +419,20 @@ function stripGitGlobalOptions(afterGit: string): string {
 }
 
 /**
+ * Splits a shell command into the segments that run as separate commands:
+ * `&&`, `|`, `;`, and a line break (CRLF or bare LF). A `||` splits into an
+ * empty middle segment that every consumer skips, so a single `|` is all the
+ * pattern needs. Shared by every per-segment check below.
+ */
+const SEGMENT_SPLIT_RE = /&&|\||;|\r?\n/;
+
+/**
  * Decide whether a git invocation is one of the destructive operations the
  * SOUL forbids. Matched per pipeline segment (split on && / || / | / ; / newline)
  * so a flag on one command can't leak onto an unrelated earlier one.
  */
 function checkDestructiveGit(command: string): ContainmentVerdict {
-  for (const segment of command.split(/&&|\|+|;|\r?\n/)) {
+  for (const segment of command.split(SEGMENT_SPLIT_RE)) {
     // No trailing `$` here on purpose: `([\s\S]*)` already greedily consumes
     // to the true end of `segment` with nothing after it in the pattern to
     // backtrack for, so a `$` anchor can never change what gets captured —
@@ -503,11 +522,16 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
  * only produce false warnings.
  */
 export function isGitCommitCommand(command: string): boolean {
-  for (const segment of command.split(/&&|\|+|;|\r?\n/)) {
+  for (const segment of command.split(SEGMENT_SPLIT_RE)) {
     const gitMatch = /^\s*git\s([\s\S]*)/.exec(segment);
     if (!gitMatch) continue;
+    // Stryker disable next-line Regex,StringLiteral: the same line as in
+    // checkDestructiveGit, with the same reasoning — both anchors are
+    // redundant and `gitMatch[1]` is a mandatory capture.
     const m = /^\s*(\S+)([\s\S]*)/.exec(stripGitGlobalOptions(gitMatch[1] ?? ''));
     if (!m) continue;
+    // Stryker disable next-line StringLiteral: `m[2]` is a mandatory capture
+    // (possibly empty, never undefined), so the default is unreachable.
     const [, sub, rest = ''] = m;
     if (sub === 'commit' && !/\s--dry-run(?=\s|$)/.test(rest)) return true;
   }
@@ -661,11 +685,17 @@ const GIT_HELP_OPENS_BROWSER =
   "opens the local HTML docs in the operator's own default browser on Windows (git's `help.format` default) — a flight must never pop a GUI window on the operator's desktop";
 
 function checkGitHelpEscape(command: string): ContainmentVerdict {
-  for (const segment of command.split(/&&|\|+|;|\r?\n/)) {
+  for (const segment of command.split(SEGMENT_SPLIT_RE)) {
     const unquoted = stripQuoted(segment);
     const gitMatch = /^\s*git\s([\s\S]*)/.exec(unquoted);
     if (!gitMatch) continue;
+    // Stryker disable next-line StringLiteral: `gitMatch[1]` is a mandatory
+    // capture, so the fallback is unreachable.
     const afterGit = gitMatch[1] ?? '';
+    // Stryker disable next-line Regex,StringLiteral: `\s*` already runs from
+    // position 0 and `\S+` then takes the first word wherever it is, so the
+    // `^` anchor changes nothing; and the '' fallback (an all-whitespace
+    // remainder) only ever feeds `=== 'help'`, which no placeholder passes.
     const sub = /^\s*(\S+)/.exec(stripGitGlobalOptions(afterGit))?.[1] ?? '';
     if (sub === 'help' || GIT_HELP_FLAG_RE.test(afterGit)) {
       return { allowed: false, reason: `\`git help\` ${GIT_HELP_OPENS_BROWSER}` };
@@ -679,7 +709,7 @@ function checkProcessControl(command: string): ContainmentVerdict {
   // macOS/Linux/WSL2 a multi-line command uses plain `\n`, and PROCESS_KILL_RE
   // is `^`-anchored — without splitting the LF, a later-line `kill`/`pkill`
   // sits mid-string, never matches, and the SUICIDE GUARD is bypassed.
-  for (const segment of command.split(/&&|\|+|;|\r?\n/)) {
+  for (const segment of command.split(SEGMENT_SPLIT_RE)) {
     const unquoted = stripQuoted(segment);
     if (PROCESS_KILL_RE.test(unquoted)) {
       return {
@@ -810,6 +840,15 @@ function isLoopbackOrPrivateHost(host: string): boolean {
   return LOOPBACK_HOST_RE.test(host) || PRIVATE_IPV4_RE.test(host) || PRIVATE_IPV6_RE.test(host);
 }
 
+/** `new URL(url)`, or null when the text is not a URL at all. */
+function parseUrl(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Decide whether a WebFetch URL targets a loopback, private, or link-local
  * address. Fails open on an unparsable URL — the fetch itself will reject a
@@ -817,12 +856,8 @@ function isLoopbackOrPrivateHost(host: string): boolean {
  * syntax.
  */
 export function checkWebFetchTarget(url: string): ContainmentVerdict {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return { allowed: true, reason: null };
-  }
+  const parsed = parseUrl(url);
+  if (parsed === null) return { allowed: true, reason: null };
   if (isLoopbackOrPrivateHost(parsed.hostname)) {
     return {
       allowed: false,
@@ -864,15 +899,12 @@ export async function checkWebFetchDnsRebinding(
   url: string,
   resolveAddresses: DnsResolver,
 ): Promise<ContainmentVerdict> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return { allowed: true, reason: null };
-  }
+  const parsed = parseUrl(url);
+  if (parsed === null) return { allowed: true, reason: null };
+  const { hostname } = parsed;
   let addresses: readonly ResolvedAddress[];
   try {
-    addresses = await resolveAddresses(parsed.hostname);
+    addresses = await resolveAddresses(hostname);
   } catch {
     return { allowed: true, reason: null };
   }

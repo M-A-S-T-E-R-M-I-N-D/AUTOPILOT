@@ -100,7 +100,7 @@ function pushRange(out: Map<string, LineRange[]>, file: string, range: LineRange
  * file immediately following a modified/deleted one in the same diff would
  * inherit that file's stale old path and be mistaken for a rename of it.
  */
-function parseHunkRanges(stdout: string): ReadonlyMap<string, readonly LineRange[]> {
+export function parseHunkRanges(stdout: string): ReadonlyMap<string, readonly LineRange[]> {
   const out = new Map<string, LineRange[]>();
   let oldPath: string | null = null;
   let currentFile: string | null = null;
@@ -137,6 +137,48 @@ function parseHunkRanges(stdout: string): ReadonlyMap<string, readonly LineRange
     if (oldPath !== null && oldPath !== currentFile) pushRange(out, oldPath, range);
   }
   return out;
+}
+
+/**
+ * Parses `git diff --numstat --no-renames -z` output: one NUL-terminated
+ * `<insertions>\t<deletions>\t<path>` record per file, with `-` for both
+ * counts on binary content (read as 0 so no NaN poisons a sum downstream).
+ * The path is everything after the second tab — a tab inside a path stays in
+ * the path. The trailing NUL leaves one empty record, dropped here; every
+ * non-empty record carries a path (`--no-renames` keeps the framing to this
+ * one shape), so no second filter is needed.
+ */
+export function parseNumstat(stdout: string): readonly DiffFileStat[] {
+  return stdout
+    .split('\0')
+    .filter((record) => record.length > 0)
+    .map((record) => {
+      const [ins, del, ...pathParts] = record.split('\t');
+      return {
+        path: pathParts.join('\t'),
+        insertions: ins === '-' ? 0 : Number(ins),
+        deletions: del === '-' ? 0 : Number(del),
+      };
+    });
+}
+
+/**
+ * Turns a failed `git push`'s combined output into a {@link GitPushResult}.
+ * git words a rejected non-fast-forward several ways across versions
+ * ("non-fast-forward", "fetch first", "Updates were rejected"); any of them
+ * means the same thing to an operator, and all of them have the same remedy.
+ * The detail keeps the last three non-blank lines joined on one line — enough
+ * to read the reason, never enough to flood a landing record — and never
+ * comes back empty, so a push that failed silently still says it failed.
+ */
+export function describePushFailure(text: string): GitPushResult {
+  const nonFastForward =
+    /non-fast-forward|fetch first|Updates were rejected|behind its remote/i.test(text);
+  return {
+    ok: false,
+    nonFastForward,
+    detail: text.split('\n').filter(Boolean).slice(-3).join(' · ') || 'push failed',
+  };
 }
 
 /** Run git with an args array (never a shell string — no injection surface). */
@@ -190,13 +232,18 @@ function gitFailureReason(result: { readonly stdout: string; readonly stderr: st
  *  release) and hit `spawn ENAMETOOLONG` on Windows. The temp dir is removed
  *  once `run` settles either way, so a rejected git call never leaks it. */
 async function withMessageFile<T>(message: string, run: (file: string) => Promise<T>): Promise<T> {
+  // Stryker disable next-line StringLiteral: the directory is removed before
+  // this function returns, so its name is unobservable to any caller — the
+  // prefix exists for a human reading a temp listing mid-call, nothing else.
   const dir = mkdtempSync(join(tmpdir(), 'autopilot-git-msg-'));
   const file = join(dir, 'message.txt');
-  writeFileSync(file, message, 'utf8');
+  writeFileSync(file, message);
   try {
     return await run(file);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    // No `force`: the directory was created three lines up, so the one thing
+    // force could excuse — a missing path — cannot happen here.
+    rmSync(dir, { recursive: true });
   }
 }
 
@@ -301,6 +348,10 @@ export class GitVcs implements VcsPort {
       fromRef,
       toRef,
     ]);
+    // Stryker disable next-line ConditionalExpression: git writes every
+    // failure to stderr with an EMPTY stdout (the same fact isDirty relies
+    // on), so the fall-through parses '' into the same [] this early return
+    // yields — equivalent by construction, kept for the reader.
     if (exitCode !== 0) return [];
     return stdout.split('\0').filter((path) => path.length > 0);
   }
@@ -344,19 +395,11 @@ export class GitVcs implements VcsPort {
       fromRef,
       toRef,
     ]);
+    // Stryker disable next-line ConditionalExpression: same fact as
+    // changedFiles above — a failed diff leaves stdout empty, which
+    // parseNumstat reads as [] anyway.
     if (exitCode !== 0) return [];
-    return stdout
-      .split('\0')
-      .filter((record) => record.length > 0)
-      .map((record) => {
-        const [ins, del, ...pathParts] = record.split('\t');
-        return {
-          path: pathParts.join('\t'),
-          insertions: ins === '-' ? 0 : Number(ins),
-          deletions: del === '-' ? 0 : Number(del),
-        };
-      })
-      .filter((f) => f.path.length > 0);
+    return parseNumstat(stdout);
   }
 
   /**
@@ -458,7 +501,10 @@ export class GitVcs implements VcsPort {
     // commits after the merge before choking on it; `--abort` rewinds to the
     // pre-attempt HEAD so the retry below starts clean, not stacked on a
     // half-reverted range.
-    if (result.exitCode !== 0 && /is a merge but no -m option was given/.test(result.stderr)) {
+    // The message alone is the signal: git only ever prints it while
+    // refusing (non-zero exit), so testing the exit code as well adds no
+    // case a test could tell apart (measured 2026-09-17).
+    if (/is a merge but no -m option was given/.test(result.stderr)) {
       await git(this.repo, ['revert', '--abort']);
       if (sinceRef) {
         // A plain range walks the FULL graph (both merge parents), so a
@@ -499,6 +545,9 @@ export class GitVcs implements VcsPort {
    */
   async hasRemote(): Promise<boolean> {
     const { stdout, exitCode } = await git(this.repo, ['remote']);
+    // Stryker disable next-line ConditionalExpression, MethodExpression: the
+    // same shape as isDirty below — a failure leaves stdout empty, and `git
+    // remote` prints either nothing or real names, never whitespace alone.
     return exitCode === 0 && stdout.trim().length > 0;
   }
 
@@ -520,17 +569,7 @@ export class GitVcs implements VcsPort {
   async pushBranch(branch: string): Promise<GitPushResult> {
     const { stdout, stderr, exitCode } = await git(this.repo, ['push', 'origin', branch]);
     if (exitCode === 0) return { ok: true, nonFastForward: false, detail: 'pushed' };
-    const text = `${stdout}\n${stderr}`;
-    // git words this several ways across versions ("non-fast-forward",
-    // "fetch first", "Updates were rejected"); any of them means the same
-    // thing to an operator, and all of them have the same remedy.
-    const nonFastForward =
-      /non-fast-forward|fetch first|Updates were rejected|behind its remote/i.test(text);
-    return {
-      ok: false,
-      nonFastForward,
-      detail: text.trim().split('\n').filter(Boolean).slice(-3).join(' · ') || 'push failed',
-    };
+    return describePushFailure(`${stdout}\n${stderr}`);
   }
 
   async isDirty(): Promise<boolean> {
@@ -555,6 +594,9 @@ export class GitVcs implements VcsPort {
       '--porcelain',
       '--untracked-files=all',
     ]);
+    // Stryker disable next-line ConditionalExpression: same fact as
+    // changedFiles above — a failed status leaves stdout empty, and the
+    // parse below reads '' as [].
     if (exitCode !== 0) return [];
     return stdout
       .split('\n')
@@ -654,6 +696,9 @@ export class GitVcs implements VcsPort {
       base,
       ref,
     ]);
+    // Stryker disable next-line ConditionalExpression: same fact as
+    // changedFiles above — a failed diff leaves stdout empty, and
+    // parseHunkRanges('') is already an empty map.
     if (exitCode !== 0) return new Map();
     return parseHunkRanges(stdout);
   }
@@ -704,6 +749,9 @@ export class GitVcs implements VcsPort {
    * `parseCommitLogWithRenames` lists BOTH paths for a rename/copy so that
    * intersection still catches it.
    */
+  // Stryker disable next-line StringLiteral: `base..` with an empty right
+  // side already means `base..HEAD` to git, so an emptied default reaches the
+  // identical range — the literal is documentation, not behaviour.
   async commitsAhead(base: string, ref = 'HEAD'): Promise<readonly CommitWithFiles[]> {
     const { stdout, exitCode } = await git(this.repo, [
       'log',
@@ -1036,26 +1084,31 @@ function parseCommitLog(stdout: string): readonly CommitWithFiles[] {
  * rename's OLD path stays visible to a path-based intersection even though
  * git's own rename detection would otherwise report only the new one.
  */
-function parseCommitLogWithRenames(stdout: string): readonly CommitWithFiles[] {
-  return stdout
-    .split(RECORD_SEP)
-    .map((record) => {
-      const headerEnd = record.indexOf('\n');
-      const [shortSha, subject] = record.slice(0, headerEnd).split(SEP);
-      const files: string[] = [];
-      for (const line of record.slice(headerEnd + 1).split('\n')) {
-        if (line.length === 0) continue;
-        const [status, first, second] = line.split('\t');
-        if (status?.startsWith('R') || status?.startsWith('C')) {
-          if (first) files.push(first);
-          if (second) files.push(second);
-        } else if (first) {
-          files.push(first);
+export function parseCommitLogWithRenames(stdout: string): readonly CommitWithFiles[] {
+  return (
+    stdout
+      .split(RECORD_SEP)
+      // The empty segment `split` yields before the first record separator.
+      .filter((record) => record.length > 0)
+      .map((record) => {
+        // `split('\n')` always yields at least one element, so the header is
+        // never undefined — the tuple assertion says so instead of a runtime
+        // fallback no input can reach.
+        const [header, ...lines] = record.split('\n') as [string, ...string[]];
+        const [shortSha, subject = ''] = header.split(SEP) as [string, ...string[]];
+        const files: string[] = [];
+        for (const line of lines) {
+          // `<status>\t<path>` for an add/modify/delete, `<status>\t<old>\t<new>`
+          // for a rename/copy: every column after the status is a path worth
+          // listing, so the status itself never needs inspecting.
+          const [, ...paths] = line.split('\t');
+          for (const path of paths) {
+            if (path.length > 0) files.push(path);
+          }
         }
-      }
-      return { shortSha: shortSha ?? '', subject: subject ?? '', files };
-    })
-    .filter((c) => c.shortSha.length > 0);
+        return { shortSha, subject, files };
+      })
+  );
 }
 
 /**

@@ -29,6 +29,7 @@ function greenStatus(workflow = 'ci.yml'): WorkflowRunStatus {
     conclusion: 'success',
     ageLabel: '1m ago',
     createdAtMs: NOW,
+    runId: null,
     ok: true,
     detail: 'success (1m ago)',
   };
@@ -40,6 +41,7 @@ function redStatus(workflow = 'ci.yml'): WorkflowRunStatus {
     conclusion: 'failure',
     ageLabel: '1m ago',
     createdAtMs: NOW,
+    runId: null,
     ok: false,
     detail: 'failure (1m ago)',
   };
@@ -63,6 +65,7 @@ describe('decidePostPushVerdict', () => {
       conclusion: null,
       ageLabel: '30s ago',
       createdAtMs: NOW,
+      runId: null,
       ok: true,
       detail: 'in_progress (30s ago)',
     };
@@ -91,6 +94,7 @@ describe('decidePostPushVerdict', () => {
       conclusion: 'failure',
       ageLabel: null,
       createdAtMs: null,
+      runId: null,
       ok: false,
       detail: longDetail,
     };

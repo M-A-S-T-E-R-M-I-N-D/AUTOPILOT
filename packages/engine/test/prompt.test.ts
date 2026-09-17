@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildFiringPrompt,
+  fenceTitle,
   FIRING_PROMPT_VERSION,
   HARNESS_NAME,
   BOARD_ITEMS_OPEN,
@@ -1239,5 +1240,114 @@ describe('buildFiringPrompt', () => {
       '- docs/FAILURE-DOCTRINE.md is the won-battles ledger — read it when a failure feels familiar.',
       '',
     ]);
+  });
+});
+
+describe('buildFiringPrompt — the FLEET section, pinned whole (mutation debt cleared 2026-09-17)', () => {
+  const base = { soul: SOUL, firing: 1, retro: false, maxTurns: 10 };
+  const digest = '- CLAIMED by fleet-2: [t-1] Extract fleetJs';
+
+  it('a whitespace-only digest renders NO fleet section — byte-identical to a solo prompt', () => {
+    const blank = buildFiringPrompt({ ...base, fleet: '  \n\t \n' });
+    expect(blank).not.toContain('FLEET (parallel instances');
+    expect(blank).not.toContain(FLEET_ITEMS_OPEN);
+    expect(blank).toBe(buildFiringPrompt(base));
+  });
+
+  it('the digest is trimmed so it sits flush between the fence markers — no padding lines', () => {
+    const p = buildFiringPrompt({ ...base, fleet: `\n\n  ${digest}  \n\n` });
+    expect(p).toContain(`${FLEET_ITEMS_OPEN}\n${digest}\n${FLEET_ITEMS_CLOSE}`);
+  });
+
+  it('every line of sibling discipline after the fence is present verbatim, and the section ends on a blank line', () => {
+    // The prose IS the contract: a firing that loses one of these lines loses
+    // the rule it carries (declare-before-start, partition-bound self-initiated
+    // work, the machine budget). Pinned whole rather than sampled — sampling
+    // is how eighteen of these lines could each be blanked unseen.
+    const p = buildFiringPrompt({ ...base, fleet: digest });
+    const expected = [
+      FLEET_ITEMS_CLOSE,
+      'Do NOT start work a sibling has claimed or just committed. Never expand',
+      "scope into a sibling's area. Before any self-initiated fix, check this",
+      'list - if a sibling plausibly owns it, pick different work. A',
+      '"touching:" file list is a sibling\'s LIVE uncommitted work-in-progress —',
+      'treat those files as claimed too, even though no board task names them.',
+      'An "unlanded:" file list is a sibling\'s OWN already-committed work that',
+      "hasn't reached the base branch yet — invisible in its git status but just",
+      'as claimed: picking the same file means a collision at landing time, not',
+      'just wasted parallel effort.',
+      'An "intent:" line is a sibling\'s DECLARED claim for the unit it is working',
+      'RIGHT NOW — the strongest signal here; never touch the file it names.',
+      'Declare YOURS the same way BEFORE starting any unit: overwrite the',
+      'git-ignored .autopilot-intent file at your repo root with ONE line,',
+      '"<primary file> — <goal>", so siblings see your claim while you work.',
+      'That declare rule has NO size exception: a "two-line quick fix" is exactly',
+      'the unit class that three siblings once built in parallel — declare it or',
+      'leave it.',
+      'SELF-INITIATED units are bound by your PARTITION too: when this flight was',
+      'launched with a task scope, keep self-initiated fixes INSIDE the areas your',
+      "scoped tasks touch. A bug you spot in a sibling's area or anywhere outside",
+      'your partition: do NOT fix it yourself — report it via PROPOSALS instead',
+      'and let its owner (or the operator) take it. A reported bug is a',
+      'contribution; a duplicated fix is pure waste at merge time.',
+      'MACHINE BUDGET (absolute while siblings fly): do NOT run mutation /',
+      'Stryker suites (`pnpm run mutation*`, `stryker run`) or any other',
+      'multi-minute all-core job. Several instances running one at once starves',
+      'the machine and killed the dashboard mid-run. Verify with the gate and',
+      'targeted `vitest run <file>` instead; leave deep mutation runs to a',
+      'solo flight.',
+      '',
+      '',
+    ].join('\n');
+    expect(p).toContain(expected);
+  });
+});
+
+describe('fenceTitle', () => {
+  it('folds every line-break run into ONE space so a title can never smuggle a new line into the prompt', () => {
+    expect(fenceTitle('one\ntwo')).toBe('one two');
+    expect(fenceTitle('one\r\n\r\ntwo three')).toBe('one two three');
+  });
+
+  it('trims the padding a sloppy title carries', () => {
+    expect(fenceTitle('  padded  ')).toBe('padded');
+  });
+});
+
+describe('buildFiringPrompt — SLICE-RELAY ledger shape (mutation debt cleared 2026-09-17)', () => {
+  const base = { soul: SOUL, firing: 3, retro: false };
+
+  it('the ledger sits on its OWN line directly under the task header', () => {
+    const p = buildFiringPrompt({
+      ...base,
+      board: [
+        {
+          id: 'web-a1',
+          title: 'Big task',
+          shippedSlices: ['feat: first slice', 'fix: second slice'],
+        },
+      ],
+    });
+    const lines = p.split('\n');
+    const idx = lines.findIndex((l) => l === '- [web-a1] Big task');
+    expect(idx).toBeGreaterThan(-1);
+    expect(lines[idx + 1]).toBe('  ↻ prior slices shipped: feat: first slice | fix: second slice');
+  });
+
+  it('blank and whitespace-only slice subjects are dropped, never rendered as empty ledger cells', () => {
+    const p = buildFiringPrompt({
+      ...base,
+      board: [{ id: 'web-a1', title: 'A task', shippedSlices: ['feat: a', '   ', ''] }],
+    });
+    expect(p).toContain('\n  ↻ prior slices shipped: feat: a\n');
+  });
+
+  it('a runaway slice subject is cut at the same 200-char bound as a title', () => {
+    const p = buildFiringPrompt({
+      ...base,
+      board: [{ id: 'web-a1', title: 'A task', shippedSlices: ['x'.repeat(300)] }],
+    });
+    const ledger = p.split('\n').find((l) => l.includes('prior slices shipped'));
+    expect(ledger).toBe(`  ↻ prior slices shipped: ${'x'.repeat(200)}`);
   });
 });

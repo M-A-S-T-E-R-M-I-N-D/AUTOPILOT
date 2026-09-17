@@ -67,6 +67,7 @@ describe('ciWorkflowStatus', () => {
       conclusion: 'success',
       ageLabel: '1h ago',
       createdAtMs: Date.parse('2026-08-20T11:00:00Z'),
+      runId: null,
       ok: true,
       detail: 'success (1h ago)',
     });
@@ -166,7 +167,7 @@ describe('ciWorkflowStatus', () => {
         '--limit',
         '1',
         '--json',
-        'status,conclusion,createdAt',
+        'status,conclusion,createdAt,databaseId',
       ],
     ]);
   });
@@ -190,7 +191,7 @@ describe('ciWorkflowStatus', () => {
       '--limit',
       '1',
       '--json',
-      'status,conclusion,createdAt',
+      'status,conclusion,createdAt,databaseId',
       '--branch',
       'main',
     ]);
@@ -296,5 +297,46 @@ describe('createCiStatusApi', () => {
     expect(report.map((r) => r.workflow)).toEqual(
       expect.arrayContaining(['ci.yml', 'labels.yml', 'mutation.yml']),
     );
+  });
+});
+
+describe("ciWorkflowStatus — the run id (the e2e land guard reads that run's failed log by it)", () => {
+  it('carries the numeric databaseId gh reports', () => {
+    const status = ciWorkflowStatus(
+      'ci.yml',
+      (args) => {
+        expect(args).toContain('status,conclusion,createdAt,databaseId');
+        return JSON.stringify([
+          {
+            status: 'completed',
+            conclusion: 'failure',
+            createdAt: '2026-08-20T11:00:00Z',
+            databaseId: 35187588300,
+          },
+        ]);
+      },
+      NOW,
+    );
+    expect(status.runId).toBe(35187588300);
+    expect(status.ok).toBe(false);
+  });
+
+  it('is null when gh reports no id, or a non-numeric one', () => {
+    const without = ciWorkflowStatus(
+      'ci.yml',
+      () =>
+        JSON.stringify([
+          { status: 'completed', conclusion: 'failure', createdAt: '2026-08-20T11:00:00Z' },
+        ]),
+      NOW,
+    );
+    expect(without.runId).toBeNull();
+    const bogus = ciWorkflowStatus(
+      'ci.yml',
+      () => JSON.stringify([{ status: 'completed', conclusion: 'failure', databaseId: 'x' }]),
+      NOW,
+    );
+    expect(bogus.runId).toBeNull();
+    expect(ciWorkflowStatus('ci.yml', () => '[]', NOW).runId).toBeNull();
   });
 });

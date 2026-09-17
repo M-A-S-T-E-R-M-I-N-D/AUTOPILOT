@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   addDetachedWorktree,
   canonicalWorktreePath,
@@ -766,7 +766,10 @@ describe('fastForwardWorktree', () => {
     // The refusal names the lane and the ref it could not reach. An empty
     // details string here is a lane silently launching stale with no clue why.
     expect(result.details).toContain('cannot fast-forward');
-    expect(result.details).toContain(wtPath);
+    // The leaf name, not the full path: the adapter reports the lane's
+    // CANONICAL path, and on a GitHub Windows runner tmpdir() hands out the
+    // 8.3 short form (RUNNER~1) that git then spells out long (runneradmin).
+    expect(result.details).toContain(basename(wtPath));
     expect(result.details).toContain(base);
     expect(gitSync(wtPath, ['rev-parse', 'HEAD'])).toBe(before);
     expect(gitSync(wtPath, ['status', '--porcelain'])).toBe('');

@@ -22,7 +22,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { openStore, listProjects } from '@autopilot/store';
+import { openStore, listProjects, type Store } from '@autopilot/store';
 import {
   GateRunner,
   GitVcs,
@@ -62,6 +62,20 @@ function parseGateSpec(gateConfig: string | null): GateSpec | null {
     return typeof spec.ecosystem === 'string' ? spec : null;
   } catch {
     return null;
+  }
+}
+
+/** Best-effort audit row (`events` table, no firing) — telemetry can never
+ *  change a landing verdict, so a failed write is swallowed, not surfaced. */
+function recordLandingEvent(store: Store, projectId: string, type: string, payload: unknown): void {
+  try {
+    store.db
+      .prepare(
+        'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
+      )
+      .run(projectId, type, JSON.stringify(payload), Date.now());
+  } catch {
+    /* audit telemetry is best-effort — never fail a verdict over it */
   }
 }
 
@@ -117,6 +131,12 @@ export type OutOfBandLandGateCheck = (
 export interface E2eLandGuardResult {
   readonly ok: boolean;
   readonly detail: string;
+  /** On a fresh red: the repo-relative files that run's own failure names
+   *  (see {@link implicatedFilesFromFailedLog}) — what lets the landing
+   *  decide whether it carries the remedy (see {@link remedyFilesOf}).
+   *  Absent/empty when green, when the run id is unknown, or when the log
+   *  could not be read: the escape is only ever earned by evidence. */
+  readonly implicatedFiles?: readonly string[];
 }
 
 /** Pre-land converged-branch e2e guard (epic 0010 slice 4, operator decision
@@ -145,7 +165,8 @@ export function createRealE2eLandGuard(
 ): E2eLandGuard {
   return (rootPath, base) => {
     const nowMs = now();
-    const status = ciWorkflowStatus('ci.yml', (run ?? createGhRun)(rootPath), nowMs, base);
+    const gh = (run ?? createGhRun)(rootPath);
+    const status = ciWorkflowStatus('ci.yml', gh, nowMs, base);
     // STALENESS (EVALUATION 2026-09-02, caught on this guard's FIRST live
     // refusal): ci.yml's e2e job runs on PRs, and the fleet lands by direct
     // push — so `base` often has NO fresh run at all, and "the latest" can be
@@ -164,7 +185,18 @@ export function createRealE2eLandGuard(
         detail: `stale e2e verdict ignored (${status.detail}) — no fresh run exists for '${base}'; the pre-land daemon slice will close this`,
       };
     }
-    return { ok: status.ok, detail: status.detail };
+    if (status.ok || status.runId === null) return { ok: status.ok, detail: status.detail };
+    // A FRESH red with a known run: read which files that run's failure
+    // names, so the caller can tell a landing that carries the remedy from
+    // one that piles more work onto a broken branch (remedyFilesOf). An
+    // unreadable log yields no files, which keeps the refusal.
+    let log: string;
+    try {
+      log = gh(['run', 'view', String(status.runId), '--log-failed']);
+    } catch {
+      log = '';
+    }
+    return { ok: false, detail: status.detail, implicatedFiles: implicatedFilesFromFailedLog(log) };
   };
 }
 
@@ -197,6 +229,56 @@ const SNAPSHOT_DIR_MARKER = '.spec.ts-snapshots/';
  */
 export function landingCarriesBaselineFix(changedFiles: readonly string[]): boolean {
   return changedFiles.some((file) => file.replace(/\\/g, '/').includes(SNAPSHOT_DIR_MARKER));
+}
+
+/** Terminal colour/style codes — `gh run view --log-failed` hands back the
+ *  job's raw output, and vitest colours every failure header. */
+const ANSI_RE = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, 'g');
+
+/** A repo-relative source or test path as vitest prints one in a failure:
+ *  after `FAIL` (optionally preceded by the pool label, `node`/`jsdom`) in
+ *  the failed-tests summary, or after `❯` in a stack frame (`file:line:col`).
+ *  At least one directory segment and a JS/TS extension, so a bare word
+ *  like the pool label can never pass for a file. */
+const FAILED_FILE_RE =
+  /(?:\bFAIL\b|❯)\s+(?:\S+\s+)?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:[cm]?[jt]sx?))(?=[\s:>]|$)/g;
+
+/**
+ * The files a failed CI run's own output names — the evidence behind the
+ * second escape from a red converged branch (2026-09-17, ADR 0008): the
+ * worktree test that reddened `main` was fixed in the very branch the guard
+ * then refused to land, the same deadlock the baseline escape had already
+ * closed for rendered snapshots. Reads the `FAIL <file> > …` summary lines
+ * and the `❯ <file>:<line>:<col>` frames vitest prints, colour codes
+ * stripped, de-duplicated in order of first appearance. Anything that is
+ * not one of those shapes contributes nothing — a log with no vitest
+ * failure in it (a build error, a scanner) yields an empty list.
+ */
+export function implicatedFilesFromFailedLog(log: string): readonly string[] {
+  const files = new Set<string>();
+  for (const match of log.replace(ANSI_RE, '').matchAll(FAILED_FILE_RE)) {
+    const file = match[1];
+    if (file !== undefined) files.add(file);
+  }
+  return [...files];
+}
+
+/**
+ * Which of the red run's implicated files the pending landing actually
+ * changes — non-empty means the landing carries the remedy and may land
+ * into the red branch. Narrow on purpose, exactly like
+ * {@link landingCarriesBaselineFix}: the branch must touch a file the
+ * failure names; a branch that changes anything else still waits, so the
+ * guard keeps unrelated work off a broken branch. Paths compare with `/`
+ * separators either way, since `git diff --name-only` and vitest both print
+ * forward slashes but a caller on Windows may not.
+ */
+export function remedyFilesOf(
+  changedFiles: readonly string[],
+  implicatedFiles: readonly string[],
+): readonly string[] {
+  const changed = new Set(changedFiles.map((file) => file.replace(/\\/g, '/')));
+  return implicatedFiles.filter((file) => changed.has(file));
 }
 
 /** Build the LANDING execute API against the real store + real git/gate —
@@ -271,38 +353,36 @@ export function createLandingExecuteApi(
       }
 
       const e2eHealth = e2eLandGuard?.(project.root_path, base);
-      // A red converged branch normally refuses the land. The one exception
-      // is a branch that re-renders the very baselines the branch is red on
-      // — see landingCarriesBaselineFix for why refusing THAT is a deadlock
-      // rather than a safeguard. Failing to read the diff yields an empty
-      // list, which takes the refusal, so an unreadable repo never buys a
-      // landing it has not earned.
+      // A red converged branch normally refuses the land. Two exceptions,
+      // both the same shape — the pending landing IS the remedy: a branch
+      // that re-renders the very baselines the branch is red on
+      // (landingCarriesBaselineFix), or one that touches a file the red
+      // run's own failure names (remedyFilesOf) — see both for why refusing
+      // THOSE is a deadlock rather than a safeguard. Failing to read the diff
+      // yields an empty list, which takes the refusal, so an unreadable repo
+      // never buys a landing it has not earned.
       const pendingFiles = await vcs.changedFiles(base, 'HEAD').catch((): readonly string[] => []);
       const carriesBaselineFix = landingCarriesBaselineFix(pendingFiles);
-      if (e2eHealth && !e2eHealth.ok && !carriesBaselineFix) {
+      const remedyFiles = remedyFilesOf(pendingFiles, e2eHealth?.implicatedFiles ?? []);
+      if (e2eHealth && !e2eHealth.ok && !carriesBaselineFix && remedyFiles.length === 0) {
         // Alarm event, same best-effort/never-fail-the-refusal-over-it
         // posture as the 'landed' event write below — an audit trail entry,
         // not something that can itself block anything.
-        try {
-          store.db
-            .prepare(
-              'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
-            )
-            .run(
-              projectId,
-              'e2e-land-block',
-              JSON.stringify({ detail: e2eHealth.detail }),
-              Date.now(),
-            );
-        } catch {
-          /* alarm telemetry is best-effort — never fail the refusal over it */
-        }
+        recordLandingEvent(store, projectId, 'e2e-land-block', { detail: e2eHealth.detail });
         return {
           ok: false,
           reason: 'e2e-red',
           details: `converged branch '${base}' e2e is red — ${e2eHealth.detail}`,
           restarting: false,
         };
+      }
+      if (e2eHealth && !e2eHealth.ok && remedyFiles.length > 0) {
+        // The escape leaves the same kind of trail the refusal does, so a
+        // landing that went INTO a red branch is never invisible afterwards.
+        recordLandingEvent(store, projectId, 'e2e-land-remedy', {
+          detail: e2eHealth.detail,
+          files: remedyFiles,
+        });
       }
 
       const spec = parseGateSpec(project.gate_config);

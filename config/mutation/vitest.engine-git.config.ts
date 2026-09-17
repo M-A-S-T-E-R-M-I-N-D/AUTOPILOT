@@ -23,7 +23,10 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['packages/engine/test/adapters/git.test.ts'],
+    include: [
+      'packages/engine/test/adapters/git.test.ts',
+      'packages/engine/test/adapters/git-revert-sequence.test.ts',
+    ],
     // Real git subprocesses flake under the 5s default (see vitest.config.ts).
     testTimeout: 30_000,
   },

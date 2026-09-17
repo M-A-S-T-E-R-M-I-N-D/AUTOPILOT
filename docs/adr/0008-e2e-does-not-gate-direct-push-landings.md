@@ -116,6 +116,35 @@ SHIPPED (2026-09-02): an aggregated fleet-card anomaly chip for
 this" now rolls up on the fleet card instead of only being visible
 per-attempt.
 
+## Amendment (2026-09-17) — the remedy escape
+
+Option A has a failure mode of its own: it refuses to land INTO a red
+converged branch, so it also refuses the one landing that would clear the
+red. The first time (2026-09-15) the red was a visual baseline that only CI
+can re-render; `landingCarriesBaselineFix` opened a narrow escape for a
+landing that touches `.spec.ts-snapshots/`. The second time (2026-09-17) the
+red was a single test asserting a full temp path that GitHub's Windows
+runner spells two ways (the 8.3 short form `RUNNER~1` in `TEMP`, the long
+form once git canonicalises it); the fix was one line in that test, and the
+guard refused it. A guard whose refusal cannot be cleared by the fix has
+stopped guarding anything.
+
+The general form of the same escape: on a FRESH red, `createRealE2eLandGuard`
+reads that run's failed-job log (`gh run view <id> --log-failed` — one extra
+`gh` read, only on the red path) and `implicatedFilesFromFailedLog` collects
+the files vitest's own failure output names (`FAIL <file>` headers and
+`❯ <file>:<line>` frames). `remedyFilesOf` intersects those with the files
+the pending landing changes; a non-empty intersection lets the landing
+through, and persists an `e2e-land-remedy` events row (the mirror of
+`e2e-land-block`) naming the files, so a landing into a red branch is never
+invisible afterwards. Everything else still refuses: a branch that changes
+nothing the failure names waits exactly as before, an unreadable log or an
+unknown run id yields no escape, and the local gate still runs.
+
+The test-side lesson is recorded here because there is no other home for
+it: never assert a full `mkdtempSync` path inside a message an adapter
+produces — assert the leaf name, or compare against `realpathSync.native`.
+
 ## Related
 
 - `apps/dashboard/src/landing/execute.ts`, `packages/engine/src/landing.ts`,

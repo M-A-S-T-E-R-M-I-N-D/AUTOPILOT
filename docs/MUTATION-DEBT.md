@@ -100,7 +100,9 @@ the sweep's own figures for each config before the work.
 | Pointed at the module's own tests (instrument error, no test written) | `tokens-color` (22 of 26), `dashboard-narrator` |
 | Crashed on every nightly, testing nothing; fixed the sandbox import | `dashboard-verify-by`, `dashboard-worktree`, `dashboard-triage`, `dashboard-ask`, `dashboard-doc-freshness`, `dashboard-lock` |
 | Platform-dependent arms made provable on every OS | `dashboard-connection-config` (62.71%), `engine-gate`, `dashboard-paths` |
-| Real assertions on load-bearing code | `engine-github-sync`, `dashboard-runner`, `dashboard-spawn-flight`, `dashboard-completion`, `engine-release`, `engine-loop`, `engine-stream`, `dashboard-registry`, `onboarding-detectors`, `dashboard-fleet`, `engine-worktree`, `engine-landing`, `engine-remediating-gate`, `dashboard-live-firing`, `dashboard-flight-summary`, `engine-diff-size-gate`, `engine-ask`, `engine-auth`, `dashboard-service`, `dashboard-reconcile`, `dashboard-watchdog`, `dashboard-gate-commands`, `dashboard-anomalies`, `onboarding-soul`, `engine-guard-hook`, `engine-telemetry`, `dashboard-cli-probe` |
+| Real assertions on load-bearing code | `engine-github-sync`, `dashboard-runner`, `dashboard-spawn-flight`, `dashboard-completion`, `engine-release`, `engine-loop`, `engine-stream`, `dashboard-registry`, `onboarding-detectors`, `dashboard-fleet`, `engine-worktree`, `engine-landing`, `engine-remediating-gate`, `dashboard-live-firing`, `dashboard-flight-summary`, `engine-diff-size-gate`, `engine-ask`, `engine-auth`, `dashboard-service`, `dashboard-reconcile`, `dashboard-watchdog`, `dashboard-gate-commands`, `dashboard-anomalies`, `onboarding-soul`, `engine-guard-hook`, `engine-telemetry`, `dashboard-cli-probe`, `engine-firing`, `engine-claude-cli` |
+| Contract prose pinned whole instead of sampled | `engine-prompt` (36), `engine-guard` (47, with the hook-payload guards handed malformed payloads) |
+| Inline parsers made exports and fed crafted input; the subprocess seam spied on for the command sequence | `engine-git` (44) |
 
 Three patterns recurred often enough to name:
 
@@ -115,10 +117,32 @@ Three patterns recurred often enough to name:
 - **Mutant locations are ranges over the report's own source snapshot.** Read
   the column, and confirm a new test fails against the hand-applied mutant
   before trusting it — twice this session a passing test killed nothing.
+- **Prose that IS the contract gets pinned whole, not sampled.** The firing
+  prompt's FLEET section had eighteen lines of sibling discipline that could
+  each be blanked unseen, because the test sampled a few with `toContain`.
+  The same held for `finishLinePrompt` and four guard denial reasons. A
+  verbatim block is the honest assertion: changing the prose means changing
+  the test, which is the point of a versioned prompt.
+- **A parser that only ever sees well-formed output cannot show which of its
+  guards is load-bearing.** `git.ts` kept four parsers inline in the methods
+  that call git — numstat, unified-diff hunks, `--name-status` records, the
+  failed-push detail — so nothing but real git ever reached them, and real
+  git never emits the malformed shapes their guards handle. They are named
+  exports now, fed crafted input directly; the real-git tests stay as the
+  integration layer. One of them also lost a dead second filter and a
+  rename-status branch that produced the same result as the branch it
+  guarded.
+- **When the only observable is WHICH subprocess ran, spy on the seam, not
+  the tree.** A refused `git revert` is aborted before the error is thrown,
+  and a successful one is never retried with `-m 1` — neither leaves a trace
+  a later `git status` can see. `git-revert-sequence.test.ts` wraps
+  `execFile` pass-through (real git still runs) and asserts the argv
+  sequence instead.
 
-Still open, all genuine `Survived` needing precise assertions:
-`engine-guard` (47), `engine-git` (44), `engine-prompt` (36),
-`engine-firing` (29), `engine-claude-cli` (28).
+The last five — `engine-guard` (47), `engine-git` (44), `engine-prompt`
+(36), `engine-firing` (29), `engine-claude-cli` (28) — closed the same day.
+Nothing from the sweep's 439 is open; the nightly sweep is the confirmation
+across all 103 configs.
 
 ### A third category the inventory did not anticipate
 
