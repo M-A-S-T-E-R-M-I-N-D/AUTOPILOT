@@ -108,6 +108,113 @@ describe('detectGate — JS/TS', () => {
     expect(detectGate(s).spec.testImpacted).toBeUndefined();
   });
 
+  // The working-tree-scoped check is the guard against the silent-gate
+  // failure, so each clause of it earns its own case. An adopted
+  // `--changed`-with-no-ref runs zero tests and exits 0, which is how 15 of 19
+  // firings shipped through a test leg that never ran.
+  it('still refuses a padded script whose --changed is last', () => {
+    // Without the trim, a TRAILING space leaves an empty token after
+    // --changed. Empty is neither undefined nor a flag, so the script reads as
+    // "a ref was given" and gets adopted — the silent gate, restored by two
+    // characters of whitespace nobody would look at.
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({
+        scripts: { test: 'vitest run', 'test:impacted': '  vitest run --changed  ' },
+      }),
+    });
+    expect(detectGate(s).spec.testImpacted).toBeUndefined();
+  });
+
+  it('adopts a script that merely BEGINS with a flag and never says --changed', () => {
+    // -1 is the not-found sentinel. Stop treating it as such and the lookup
+    // runs anyway, reading token[0] as the "ref" — so any script leading with
+    // a flag (node options, a runner pool) is refused as working-tree-scoped
+    // when it never mentioned --changed at all.
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({
+        scripts: { test: 'vitest run', 'test:impacted': '--pool=forks vitest run' },
+      }),
+    });
+    expect(detectGate(s).spec.testImpacted?.label).toBe('pnpm run test:impacted');
+  });
+
+  it('adopts an ordinary impacted script with no --changed in it', () => {
+    // The refusal must be the exception. Inverted, every test:impacted script
+    // in every repo is rejected and the gate quietly loses its fast leg.
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({
+        scripts: { test: 'vitest run', 'test:impacted': 'vitest run --project unit' },
+      }),
+    });
+    expect(detectGate(s).spec.testImpacted?.label).toBe('pnpm run test:impacted');
+  });
+
+  it('refuses --changed even when it is the very first flag in the script', () => {
+    // The not-found sentinel is -1. Compared against any other number, a
+    // `--changed` sitting at that index reads as "absent" and gets adopted.
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({
+        scripts: { test: 'vitest run', 'test:impacted': 'vitest --changed' },
+      }),
+    });
+    expect(detectGate(s).spec.testImpacted).toBeUndefined();
+  });
+
+  it('refuses --changed followed by a flag separated by MORE than one space', () => {
+    // Splitting on a single whitespace character leaves empty tokens between
+    // runs of spaces, so the token after --changed reads as "" rather than the
+    // flag — and "" is neither undefined nor a flag, so the script is adopted.
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({
+        scripts: { test: 'vitest run', 'test:impacted': 'vitest run --changed  --silent' },
+      }),
+    });
+    expect(detectGate(s).spec.testImpacted).toBeUndefined();
+  });
+
+  it('adopts a normal impacted script, proving the refusal is not blanket', () => {
+    // The mirror of the cases above: with a real ref the script IS adopted, so
+    // a guard that always refused would be caught here.
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({
+        scripts: { test: 'vitest run', 'test:impacted': 'vitest run --changed origin/main' },
+      }),
+    });
+    expect(detectGate(s).spec.testImpacted?.label).toBe('pnpm run test:impacted');
+  });
+
+  it('collects every ci:* script as a gate extra, sorted and counted', () => {
+    // Nothing exercised the ci:* sweep at all: the whole block could have been
+    // deleted, and with it every repo-specific check that has no core kind —
+    // bundle-size budgets, secret and licence validators, generated-doc
+    // censuses. Sorted so the command order does not depend on key order.
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({
+        scripts: {
+          test: 'vitest run',
+          'ci:spdx': 'node scripts/ci/spdx.mjs',
+          'ci:bundle-size': 'node scripts/ci/bundle.mjs',
+          notci: 'noop',
+        },
+      }),
+    });
+    const d = detectGate(s);
+    expect(d.spec.ciExtras?.map((c) => c.label)).toEqual([
+      'pnpm run ci:bundle-size',
+      'pnpm run ci:spdx',
+    ]);
+    expect(d.candidates[0]?.evidence).toContain('scripts.ci:* (2)');
+  });
+
+  it('adds no ci extras when no script is named ci:*', () => {
+    const s = snap(['package.json', 'pnpm-lock.yaml'], {
+      'package.json': JSON.stringify({ scripts: { test: 'vitest run', cider: 'noop' } }),
+    });
+    const d = detectGate(s);
+    expect(d.spec.ciExtras).toBeUndefined();
+    expect(d.candidates[0]?.evidence.join(' ')).not.toContain('scripts.ci:*');
+  });
+
   it('leaves testImpacted absent when there is no test:impacted script', () => {
     const s = snap(['package.json', 'pnpm-lock.yaml'], {
       'package.json': JSON.stringify({ scripts: { test: 'vitest run' } }),

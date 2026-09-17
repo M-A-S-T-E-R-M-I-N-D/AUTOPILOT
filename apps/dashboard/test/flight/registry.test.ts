@@ -742,3 +742,95 @@ describe('FlightRunnerRegistry.adopt (RUNBOOK §4 — reattaching a flight this 
     expect(spawns).toEqual([{ folder: '/work/orphan' }]);
   });
 });
+
+// Every instanceId and folder crossing this registry is trimmed, and nothing
+// ever fed it a padded value — so all twelve of those trims could have been
+// deleted with the suite staying green. A padded id is not exotic: it arrives
+// from a form field, a JSON body, or a shell argument, and an untrimmed one
+// silently becomes a DIFFERENT key from the same id typed cleanly. Two views
+// of one flight, or a second flight launched beside a running one.
+describe('padded ids and folders are trimmed everywhere they are keyed', () => {
+  it('keys a flight by the trimmed instanceId, so a padded lookup finds it', () => {
+    const { deps, spawns } = makeDeps();
+    const registry = new FlightRunnerRegistry(deps);
+
+    registry.start({ folder: '/work/a', instanceId: '  fleet-2  ' });
+
+    expect(spawns).toHaveLength(1);
+    expect(registry.status('/work/a', 'fleet-2').running).toBe(true);
+    expect(registry.status('/work/a', '  fleet-2  ').running).toBe(true);
+    // And the id it REPORTS is the trimmed one, not the padded input.
+    expect(registry.status('/work/a', 'fleet-2')).toMatchObject({ instanceId: 'fleet-2' });
+  });
+
+  it('refuses a second start of the same instance when the id differs only by padding', () => {
+    const { deps, spawns } = makeDeps();
+    const registry = new FlightRunnerRegistry(deps);
+
+    registry.start({ folder: '/work/a', instanceId: 'fleet-2' });
+    const second = registry.start({ folder: '/work/a', instanceId: '  fleet-2  ' });
+
+    // Untrimmed these are two different keys, and the cap is bypassed: a
+    // second flight launches beside the running one on the same folder.
+    expect(second.started).toBe(false);
+    expect(spawns).toHaveLength(1);
+  });
+
+  it('treats a whitespace-only instanceId as no instance at all', () => {
+    const { deps } = makeDeps();
+    const registry = new FlightRunnerRegistry(deps);
+
+    registry.start({ folder: '/work/a', instanceId: '   ' });
+
+    expect(registry.status('/work/a').running).toBe(true);
+    expect(registry.status('/work/a')).toMatchObject({ instanceId: null });
+  });
+
+  it('adopts under the trimmed instanceId', () => {
+    const { deps } = makeDeps();
+    const registry = new FlightRunnerRegistry(deps);
+
+    registry.adopt('/work/orphan', fakeChild(9999), '  fleet-3  ');
+
+    expect(registry.status('/work/orphan', 'fleet-3')).toMatchObject({
+      instanceId: 'fleet-3',
+      running: true,
+    });
+  });
+
+  it('reports a QUEUED flight with its id and folder trimmed', () => {
+    const { deps } = makeDeps();
+    const registry = new FlightRunnerRegistry(deps, 1);
+
+    registry.start({ folder: '/work/a' });
+    const queued = registry.start({ folder: '  /work/b  ', instanceId: '  fleet-4  ' });
+    expect(queued.queued).toBe(true);
+    // The status the CALLER is handed back, which start() builds itself from
+    // the raw input rather than reading back out of the registry.
+    expect(queued.status).toMatchObject({ queued: true, instanceId: 'fleet-4' });
+
+    // Through status(), asked with the same padded id the caller had …
+    expect(registry.status('/work/b', '  fleet-4  ')).toMatchObject({
+      queued: true,
+      instanceId: 'fleet-4',
+    });
+    // … and through statusAll(), which builds the queued entries separately
+    // and so trims separately too.
+    expect(registry.statusAll()).toContainEqual(
+      expect.objectContaining({ folder: '/work/b', queued: true, instanceId: 'fleet-4' }),
+    );
+  });
+
+  it('reports a queued flight with a whitespace-only id as having none', () => {
+    const { deps } = makeDeps();
+    const registry = new FlightRunnerRegistry(deps, 1);
+
+    registry.start({ folder: '/work/a' });
+    registry.start({ folder: '/work/b', instanceId: '   ' });
+
+    expect(registry.status('/work/b')).toMatchObject({ queued: true, instanceId: null });
+    expect(registry.statusAll()).toContainEqual(
+      expect.objectContaining({ folder: '/work/b', queued: true, instanceId: null }),
+    );
+  });
+});

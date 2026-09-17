@@ -9,6 +9,7 @@ import {
   GateRunner,
   buildInvocation,
   lastLines,
+  classifyExecFailure,
   GATE_OUTPUT_TAIL_LINES,
   type GateCommandSpec,
   type GateExec,
@@ -18,6 +19,10 @@ describe('a red gate says why (the output tail, 2026-09-13)', () => {
   it('lastLines keeps the last n non-empty lines', () => {
     expect(lastLines('a\n\nb\r\nc\n', 2)).toBe('b\nc');
     expect(lastLines('', 5)).toBe('');
+    // Whitespace-only lines are dropped too, not merely empty ones. A tail is
+    // forty lines of budget for naming the failing test; blank indentation
+    // crowding it out is how a red gate goes back to saying nothing.
+    expect(lastLines('a\n   \n\t\nb', 2)).toBe('a\nb');
     expect(GATE_OUTPUT_TAIL_LINES).toBe(40);
   });
 
@@ -278,6 +283,30 @@ describe('GateRunner', () => {
     expect(result.details).toContain('typecheck failed');
   });
 
+  it('reports a real non-zero exit as the tool own verdict, not a crash', async () => {
+    // execFile rejects on ANY non-zero exit, so the handler has to tell "the
+    // tool ran and said no" from "the tool never ran". A numeric error.code is
+    // the first; anything else is the second. Producing no output at all also
+    // exercises the no-tail shape of that result.
+    const result = await new GateRunner({
+      cwd: process.cwd(),
+      commands: [{ bin: process.execPath, args: ['-e', 'process.exit(3)'], label: 'typecheck' }],
+    }).run();
+    expect(result.ok).toBe(false);
+    expect(result.crashed).toBeUndefined();
+    expect(result.details).toContain('typecheck failed (exit 3)');
+  });
+
+  it('names a crash with no known reason plainly, adding nothing after "crashed"', async () => {
+    // The reason is folded in only when there is one. Emitting something in
+    // its place puts invented text where the operator reads the cause.
+    const exec: GateExec = () => Promise.resolve({ code: 1, crashed: true });
+    const result = await new GateRunner({ cwd: '/repo', commands: [CMDS[0]!], exec }).run();
+    expect(result.details).toContain(
+      'typecheck failed (crashed) — gate could not verify the commit',
+    );
+  });
+
   it('a real execFile timeout is classified as crashReason "timeout", not ENOENT/unknown', async () => {
     // execFile's own `timeout` option kills the child and reports `killed: true`
     // with no numeric exit code — realExec must read that as a TIMEOUT, not a
@@ -536,5 +565,64 @@ describe('buildInvocation (cross-platform argv)', () => {
       bin: 'cmd.exe',
       args: ['/c', 'setup.exe.old'],
     });
+  });
+});
+
+// classifyExecFailure decides whether a red gate is a verdict on the COMMIT or
+// a verdict on the MACHINE — "the tool ran and said no" versus "the tool never
+// ran". Driven directly rather than through a real spawn, because the arms are
+// platform-dependent to reach: on Windows the gate goes through a cmd.exe shim,
+// so a missing binary comes back as shell exit code 1 and the string-code arm
+// cannot be produced locally at all. Testing it here makes every arm provable
+// on whatever machine happens to run the suite.
+describe('classifyExecFailure', () => {
+  it('reads a NUMERIC code as the tool own verdict, never a crash', () => {
+    expect(classifyExecFailure({ code: 3 }, '')).toEqual({ code: 3 });
+    expect(classifyExecFailure({ code: 3 }, 'boom')).toEqual({ code: 3, outputTail: 'boom' });
+  });
+
+  it('keeps exit code 0 numeric rather than falling through to the crash arm', () => {
+    // 0 is falsy, so a truthiness test here would call a clean exit a crash.
+    expect(classifyExecFailure({ code: 0 }, '')).toEqual({ code: 0 });
+  });
+
+  it('reads a STRING code as the crash reason it names', () => {
+    expect(classifyExecFailure({ code: 'ENOENT' }, '')).toEqual({
+      code: 1,
+      crashed: true,
+      crashReason: 'ENOENT',
+    });
+  });
+
+  it('prefers "timeout" over the raw code when execFile killed the child itself', () => {
+    // A timeout is the one crash cause the command chose for itself; blaming
+    // ETIMEDOUT-the-environment instead loses that distinction.
+    expect(classifyExecFailure({ code: 'ETIMEDOUT', killed: true }, '')).toEqual({
+      code: 1,
+      crashed: true,
+      crashReason: 'timeout',
+    });
+    // killed must be exactly true — a truthy-ish value is not the signal.
+    expect(classifyExecFailure({ code: 'ENOENT', killed: 'yes' }, '')).toMatchObject({
+      crashReason: 'ENOENT',
+    });
+  });
+
+  it('falls back to "unknown" only when the code is neither number nor string', () => {
+    expect(classifyExecFailure({}, '')).toMatchObject({ crashed: true, crashReason: 'unknown' });
+    expect(classifyExecFailure({ code: undefined }, '')).toMatchObject({
+      crashReason: 'unknown',
+    });
+  });
+
+  it('carries the output tail on a crash when there is one, and omits the key when there is not', () => {
+    expect(classifyExecFailure({ code: 'ENOENT' }, 'last line')).toEqual({
+      code: 1,
+      crashed: true,
+      crashReason: 'ENOENT',
+      outputTail: 'last line',
+    });
+    expect('outputTail' in classifyExecFailure({ code: 'ENOENT' }, '')).toBe(false);
+    expect('outputTail' in classifyExecFailure({ code: 7 }, '')).toBe(false);
   });
 });

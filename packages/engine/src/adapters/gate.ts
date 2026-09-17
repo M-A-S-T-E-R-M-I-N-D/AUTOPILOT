@@ -128,6 +128,37 @@ export function buildInvocation(
   return needsShim ? { bin: 'cmd.exe', args: ['/c', bin, ...args] } : { bin, args: [...args] };
 }
 
+/**
+ * Turn one `execFile` rejection into a gate result — the difference between
+ * "the tool ran and said no" and "the tool never ran", which decides whether a
+ * red gate is a verdict on the commit or a verdict on the machine.
+ *
+ * A real exit code is numeric. A spawn failure or a timeout carries a string or
+ * absent code (`'ENOENT'`, `'ETIMEDOUT'`): the tool never reached completion,
+ * so those are CRASHES rather than the tool's own answer. `killed` is set
+ * whenever execFile's own `timeout` option fired — the one crash cause this
+ * command chose for itself, as opposed to the environment or an unidentified
+ * one.
+ *
+ * Exported, and lifted out of the callback, because these arms are
+ * PLATFORM-DEPENDENT to reach through a real spawn: on Windows the gate runs
+ * through a cmd.exe shim, so a missing binary returns a shell exit code 1
+ * rather than ENOENT, and the string-code arm cannot be produced locally at all
+ * (measured 2026-09-17). Testing the classifier directly is what makes these
+ * arms provable on every platform instead of only on whichever one CI uses.
+ */
+export function classifyExecFailure(error: unknown, outputTail: string): CommandRun {
+  const raw = (error as { code?: unknown }).code;
+  if (typeof raw === 'number') {
+    return outputTail ? { code: raw, outputTail } : { code: raw };
+  }
+  const killed = (error as { killed?: unknown }).killed === true;
+  const crashReason = killed ? 'timeout' : typeof raw === 'string' ? raw : 'unknown';
+  return outputTail
+    ? { code: 1, crashed: true, crashReason, outputTail }
+    : { code: 1, crashed: true, crashReason };
+}
+
 /** Run one command with `execFile` (no shell string). Any spawn/exec failure ⇒ non-zero. */
 const realExec: GateExec = (cmd, cwd, timeoutMs) =>
   new Promise((resolve) => {
@@ -143,28 +174,11 @@ const realExec: GateExec = (cmd, cwd, timeoutMs) =>
           resolve({ code: 0 });
           return;
         }
-        const outputTail = lastLines(
-          `${String(stdout)}\n${String(stderr)}`,
-          GATE_OUTPUT_TAIL_LINES,
-        );
-        // A real exit code is numeric; a spawn failure (ENOENT) or timeout carries a
-        // string/undefined code (e.g. 'ENOENT', 'ETIMEDOUT') — the tool never ran to
-        // completion, so this is a CRASH, not the tool's own verdict.
-        const raw = (error as { code?: unknown }).code;
-        const isRealExitCode = typeof raw === 'number';
-        if (isRealExitCode) {
-          resolve(outputTail ? { code: raw, outputTail } : { code: raw });
-          return;
-        }
-        // `killed` is set whenever execFile's own `timeout` option fired (it
-        // kills the child on expiry) — the one crash cause this command itself
-        // chose, as opposed to the environment (ENOENT) or an unidentified one.
-        const killed = (error as { killed?: unknown }).killed === true;
-        const crashReason = killed ? 'timeout' : typeof raw === 'string' ? raw : 'unknown';
         resolve(
-          outputTail
-            ? { code: 1, crashed: true, crashReason, outputTail }
-            : { code: 1, crashed: true, crashReason },
+          classifyExecFailure(
+            error,
+            lastLines(`${String(stdout)}\n${String(stderr)}`, GATE_OUTPUT_TAIL_LINES),
+          ),
         );
       },
     );
@@ -215,6 +229,12 @@ export class GateRunner implements GatePort {
       // reporting side channel, not part of the decision.
       const notify = (event: GateProgressEvent): void => {
         try {
+          // Stryker disable next-line OptionalChaining: equivalent by
+          // construction, measured 2026-09-17. With no observer wired, calling
+          // it unconditionally throws a TypeError that this very catch
+          // swallows — so both forms emit no event and fail nothing, and no
+          // assertion on the gate can tell them apart. The `?.` stays because
+          // "there may be no observer" is the normal case, not an exception.
           this.opts.onProgress?.(event);
         } catch {
           /* observational only — a broken observer must not fail the gate */
