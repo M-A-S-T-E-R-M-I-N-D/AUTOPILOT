@@ -125,6 +125,8 @@ import {
 export type { ContributorIssueListPreviewApi };
 import { handleSocialIdentity, type SocialIdentityApi } from './social-identity.js';
 export type { SocialIdentityApi };
+import { handleCollaboration, type CollaborationApi } from './collaboration.js';
+export type { CollaborationApi };
 import { handleCiStatus } from './ci-status-route.js';
 import type { CiStatusApi } from '../control/ci-status.js';
 import { handleDonations } from './donations.js';
@@ -859,6 +861,12 @@ export interface ServerDeps extends RouteDeps {
    *  on this repo, so a panel can hide a maintainer verb from a non-owner —
    *  see `flight/social-pass.ts`'s `resolveSocialIdentity`. */
   readonly socialIdentity?: SocialIdentityApi;
+  /** The COLLABORATION panel's combined read (board web-mtpzqrxl-z7jgbu):
+   *  every open `roadmap` and `help wanted` issue, each carrying its
+   *  assignees — see `flight/collaboration.ts`'s
+   *  `fetchCollaborationSnapshot`. A building block ahead of its UI panel,
+   *  the same stance `reportFromHere` shipped with. */
+  readonly collaboration?: CollaborationApi;
   /** CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
    *  `gh run list` report `control/ci-status.ts`'s `ci-status` CLI command
    *  already prints, surfaced for the browser — see `createCiStatusApi`. */
@@ -3956,6 +3964,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/social-identity') {
       void handleSocialIdentity(req, res, deps.socialIdentity, headers);
+      return;
+    }
+
+    if (path === '/api/collaboration') {
+      void handleCollaboration(req, res, deps.collaboration, headers);
       return;
     }
 

@@ -112,6 +112,7 @@ import {
 import { createPublicityPreviewApi } from '../flight/publicity.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
+import { createCollaborationApi } from '../flight/collaboration.js';
 import { createCiStatusApi } from '../control/ci-status.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
@@ -827,6 +828,10 @@ const server = createServer({
   // call like publicity above; a panel reads `.role` to decide whether the
   // viewer sees a maintainer-only verb.
   socialIdentity: createSocialIdentityApi(),
+  // COLLABORATION panel's combined read (board web-mtpzqrxl-z7jgbu) — every
+  // open `roadmap` + `help wanted` issue with assignees; a building block
+  // ahead of its UI panel, same stance `reportFromHere` above shipped with.
+  collaboration: createCollaborationApi(),
   // CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
   // `gh run list` report `dashboard ci-status` already prints, surfaced for
   // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.

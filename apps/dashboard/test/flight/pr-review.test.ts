@@ -322,10 +322,18 @@ const BENIGN_FLIGHT = new Set([
   // COLLABORATION panel slice 2 (board web-mtpzqrxl-z7jgbu): fetchHelpWantedItems
   // only LISTS via `gh issue list --label "help wanted"`, and isHelpWantedItem
   // is a pure label classifier — no assign, label, or comment write exists,
-  // same class as roadmap-items.ts just above. The dashboard panel and server
-  // route that will render this list (with its assignee as claim state) are
-  // separate, later slices that will need their own markers once they ship.
+  // same class as roadmap-items.ts just above. The dashboard panel that will
+  // render this list (with its assignee as claim state) is a separate, later
+  // slice that will need its own marker once it ships.
   'help-wanted-items.ts',
+  // COLLABORATION panel server-route slice (board web-mtpzqrxl-z7jgbu):
+  // fetchCollaborationSnapshot only composes the two read-only LISTS above
+  // behind one call (Promise.all of fetchRoadmapItems + fetchHelpWantedItems)
+  // — no assign, label, or comment write of its own, same class as the two
+  // data sources it combines. The dashboard panel (and any "my-claims"
+  // filtering) that will render this snapshot is a separate, later slice
+  // that will need its own marker once it ships.
+  'collaboration.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
