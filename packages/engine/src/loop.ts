@@ -130,11 +130,19 @@ export async function runLoop(
     // Routed-budget lockstep (the run-3 death loop): an escalated model with
     // an unscaled budget dies mid-firing — when buildPrompt routes a model it
     // may also scale this one firing's budget; both overrides compose.
+    // Both `!== undefined` halves below are provably redundant, measured
+    // 2026-09-17 across every combination: they only differ from `true` when
+    // the prompt field IS undefined, and in that case the then-branch yields
+    // that same undefined, so the result is identical either way. They stay
+    // because they say out loud what the guard is FOR — "the prompt named one,
+    // and it differs from the flight's" — which the `!==` half alone does not.
     const routedModel =
+      // Stryker disable next-line ConditionalExpression
       prompt.primaryModel !== undefined && prompt.primaryModel !== config.primaryModel
         ? prompt.primaryModel
         : undefined;
     const routedBudget =
+      // Stryker disable next-line ConditionalExpression
       prompt.maxBudgetUsd !== undefined && prompt.maxBudgetUsd !== config.maxBudgetUsd
         ? prompt.maxBudgetUsd
         : undefined;

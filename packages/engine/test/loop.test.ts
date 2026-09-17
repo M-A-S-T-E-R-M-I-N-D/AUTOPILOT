@@ -302,6 +302,12 @@ describe('runLoop', () => {
       expect(firingConfig?.resilience.fallbackModel).toBe(
         DEFAULT_ENGINE_CONFIG.resilience.fallbackModel,
       );
+      // The budget rides through UNCHANGED when only a model is routed. Each
+      // override is spread conditionally, and an unconditional budget spread
+      // writes `maxBudgetUsd: undefined` over the flight-wide value — the
+      // firing then runs with no budget at all, which is the failure this
+      // lockstep was built to prevent, arriving from the other direction.
+      expect(firingConfig?.maxBudgetUsd).toBe(DEFAULT_ENGINE_CONFIG.maxBudgetUsd);
     });
 
     it('routes each firing independently across one flight', async () => {
@@ -345,6 +351,57 @@ describe('runLoop', () => {
       await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
       expect(h.firingConfigs[0]?.maxBudgetUsd).toBe(DEFAULT_ENGINE_CONFIG.maxBudgetUsd);
     });
+
+    it('scales the budget on its own, with no model routed alongside it', async () => {
+      // Every other budget test routes a model too, so the budget arm was
+      // never exercised by itself — and the composition is the whole point of
+      // the fix: an escalated model with an unscaled budget dies mid-firing,
+      // and the two overrides have to be independent to compose.
+      const h = harness([outcome()]);
+      h.setPromptBudget(17.5);
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]?.maxBudgetUsd).toBe(17.5);
+      expect(h.firingConfigs[0]?.primaryModel).toBe(DEFAULT_ENGINE_CONFIG.primaryModel);
+      expect(h.firingConfigs[0]?.resilience.primaryModel).toBe(
+        DEFAULT_ENGINE_CONFIG.resilience.primaryModel,
+      );
+    });
+
+    it('is a no-op when buildPrompt repeats the budget already configured', async () => {
+      const h = harness([outcome()]);
+      h.setPromptBudget(DEFAULT_ENGINE_CONFIG.maxBudgetUsd);
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]).toBe(DEFAULT_ENGINE_CONFIG);
+    });
+  });
+
+  describe('the unrouted firing gets the flight config ITSELF, not a copy of it', () => {
+    // Deep equality cannot see this: a rebuilt config spreads to something
+    // that toEqual()s the original, so every existing routing test passes
+    // whether the override branch ran or not. Identity is the only observable
+    // that distinguishes "nothing was routed" from "something was routed back
+    // to the value it already had" — which is exactly the distinction the two
+    // `!== config.*` halves of each guard exist to make.
+    it('passes the very same config object through when nothing is routed', async () => {
+      const h = harness([outcome()]);
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]).toBe(DEFAULT_ENGINE_CONFIG);
+    });
+
+    it('passes it through when the prompt names the model already configured', async () => {
+      const h = harness([outcome()]);
+      h.setPromptModel(DEFAULT_ENGINE_CONFIG.primaryModel);
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]).toBe(DEFAULT_ENGINE_CONFIG);
+    });
+
+    it('builds a NEW config — never mutating the flight-wide one — when it does route', async () => {
+      const h = harness([outcome()]);
+      h.setPromptModel('haiku');
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]).not.toBe(DEFAULT_ENGINE_CONFIG);
+      expect(DEFAULT_ENGINE_CONFIG.primaryModel).not.toBe('haiku');
+    });
   });
 
   describe('WARM SESSIONS (docs/epics/0009-warm-sessions.md)', () => {
@@ -355,6 +412,16 @@ describe('runLoop', () => {
     // every turn dearer than the ORIENT it saves. A session is now carried
     // forward ONLY out of a CHECKPOINTED firing, where the next firing must
     // continue a half-done unit and the context is the whole point.
+    it('omits the resumeSessionId KEY entirely rather than setting it undefined', async () => {
+      // FiringInput's `resumeSessionId?: string | null` accepts a missing key
+      // or an explicit null/string — not `undefined`. Asserting the VALUE is
+      // undefined cannot tell a missing key from a present one holding
+      // undefined, so the conditional spread was unkillable through it.
+      const h = harness([outcome()]);
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingInputs[0] && 'resumeSessionId' in h.firingInputs[0]).toBe(false);
+    });
+
     it('the first firing in a flight has no resumeSessionId (nothing to resume yet)', async () => {
       const h = harness([outcome()]);
       await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });

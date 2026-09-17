@@ -270,6 +270,12 @@ export function guardDenialDetailsFromEvent(
 
   const details: GuardDenialDetail[] = [];
   for (const block of content) {
+    // Stryker disable next-line ConditionalExpression: the `typeof` half is
+    // equivalent by construction, measured 2026-09-17. A primitive block that
+    // slips past it has no `type` property, so `b['type'] !== 'tool_result'`
+    // on the very next line skips it anyway — the guard reaches the same
+    // answer one step earlier. It stays because reading a property off an
+    // arbitrary primitive is exactly the sloppiness this parser avoids.
     if (block === null || typeof block !== 'object') continue;
     const b = block as Record<string, unknown>;
     if (b['type'] !== 'tool_result' || b['is_error'] !== true) continue;
