@@ -1074,6 +1074,24 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .contributor-claim-walkthrough { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
 .contributor-claim-walkthrough > summary { cursor: pointer; color: var(--color-text); }
 .contributor-claim-walkthrough ol { margin: var(--space-2) 0 0; padding-inline-start: var(--space-5); }
+/* The COLLABORATION panel (board web-mtpzqrxl-z7jgbu): the same surface,
+   title, and row idiom the Pool/Good-first-issues panels share — a fourth
+   list, not a new visual language. */
+.collaboration-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
+.collaboration-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+.collaboration-group-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
+.collaboration-group-title:first-of-type { margin-top: var(--space-2); }
+.collaboration-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
+.collaboration-item:first-of-type { border-top: none; }
+.collaboration-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.collaboration-number { font-family: var(--font-mono); color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.collaboration-number:hover, .collaboration-number:focus-visible { border-bottom-color: currentColor; }
+.collaboration-issue-title { margin: 0; font-size: var(--text-sm); }
+.collaboration-badge-claimed { color: var(--color-warning); border-color: var(--color-warning); }
+.collaboration-badge-open { color: var(--color-success); border-color: var(--color-success); }
+/* My-claims toggle: a real checkbox + label, keyboard-reachable like every
+   other control here — never a click-only div. */
+.collaboration-my-claims { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; font-size: var(--text-sm); cursor: pointer; }
 .pool-client-item:first-of-type { border-top: none; }
 .pool-client-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .pool-client-number { font-family: var(--font-mono); color: var(--color-text-muted); }
@@ -1883,7 +1901,8 @@ a.chip, .card-link { display: inline-flex; align-items: center; min-block-size: 
 }
 /* Body-level panels share main's inline edge: one left edge on every width. */
 body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel,
-body > .contributor-standing-panel, body > .publicity-panel, body > .fleet-wisdom, body > .ci-status-panel { margin-inline: var(--page-inline); }
+body > .contributor-standing-panel, body > .publicity-panel, body > .fleet-wisdom, body > .ci-status-panel,
+body > .collaboration-panel { margin-inline: var(--page-inline); }
 /* The CI-status panel arrived from a lane without the page inset every other
    body-level panel shares — it read a different width (operator, 2026-09-12). */
 body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel, body > .ci-status-panel { margin-block-start: var(--space-3); }

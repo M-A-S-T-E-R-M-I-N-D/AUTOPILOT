@@ -9,6 +9,7 @@ import { askSheetJs } from './ask-sheet.js';
 import { backlogJs } from './backlog.js';
 import { busyJs } from './busy.js';
 import { ciStatusJs } from './ci-status.js';
+import { collaborationJs } from './collaboration.js';
 import { connectJs } from './connect.js';
 import { contributorIssueListJs } from './contributor-issue-list.js';
 import { contributorStandingJs } from './contributor-standing.js';
@@ -56,6 +57,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   backlogJs,
   busyJs,
   ciStatusJs,
+  collaborationJs,
   connectJs,
   contributorIssueListJs,
   contributorStandingJs,
@@ -111,6 +113,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   backlog: backlogJs,
   busy: busyJs,
   'ci-status': ciStatusJs,
+  collaboration: collaborationJs,
   connect: connectJs,
   'contributor-issue-list': contributorIssueListJs,
   'contributor-standing': contributorStandingJs,

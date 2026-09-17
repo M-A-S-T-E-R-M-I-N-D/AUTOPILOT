@@ -52,6 +52,7 @@ import { askSheetJs } from '../../src/web/features/ask-sheet.js';
 import { backlogJs } from '../../src/web/features/backlog.js';
 import { busyJs } from '../../src/web/features/busy.js';
 import { ciStatusJs } from '../../src/web/features/ci-status.js';
+import { collaborationJs } from '../../src/web/features/collaboration.js';
 import { connectJs } from '../../src/web/features/connect.js';
 import { contributorIssueListJs } from '../../src/web/features/contributor-issue-list.js';
 import { contributorStandingJs } from '../../src/web/features/contributor-standing.js';
@@ -134,6 +135,7 @@ const ASK_SHEET_TS = featureTs('ask-sheet');
 const BACKLOG_TS = featureTs('backlog');
 const BUSY_TS = featureTs('busy');
 const CI_STATUS_TS = featureTs('ci-status');
+const COLLABORATION_TS = featureTs('collaboration');
 const SWITCHER_TS = featureTs('switcher');
 const CONNECT_TS = featureTs('connect');
 const CONTRIBUTOR_ISSUE_LIST_TS = featureTs('contributor-issue-list');
@@ -1400,6 +1402,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'backlog.ts': ['backlogJs'],
     'busy.ts': ['busyJs'],
     'ci-status.ts': ['ciStatusJs'],
+    'collaboration.ts': ['collaborationJs'],
     'connect.ts': ['connectJs'],
     'contributor-issue-list.ts': ['contributorIssueListJs'],
     'contributor-standing.ts': ['contributorStandingJs'],
@@ -1462,6 +1465,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const backlogSource = readFileSync(BACKLOG_TS, 'utf8');
     const busySource = readFileSync(BUSY_TS, 'utf8');
     const ciStatusSource = readFileSync(CI_STATUS_TS, 'utf8');
+    const collaborationSource = readFileSync(COLLABORATION_TS, 'utf8');
     const connectSource = readFileSync(CONNECT_TS, 'utf8');
     const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');
     const contributorStandingSource = readFileSync(CONTRIBUTOR_STANDING_TS, 'utf8');
@@ -1515,6 +1519,11 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const directCiStatusManifest = buildAssemblyManifest(ciStatusSource, CI_STATUS_TS, [
       'ciStatusJs',
     ]);
+    const directCollaborationManifest = buildAssemblyManifest(
+      collaborationSource,
+      COLLABORATION_TS,
+      ['collaborationJs'],
+    );
     const directConnectManifest = buildAssemblyManifest(connectSource, CONNECT_TS, ['connectJs']);
     const directContributorIssueListManifest = buildAssemblyManifest(
       contributorIssueListSource,
@@ -1635,6 +1644,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directBacklogManifest,
       directBusyManifest,
       directCiStatusManifest,
+      directCollaborationManifest,
       directConnectManifest,
       directContributorIssueListManifest,
       directContributorStandingManifest,
@@ -1937,7 +1947,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(result.diagnostics ?? []).toEqual([]);
   });
 
-  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, ci-status.ts, connect.ts, contributor-standing.ts, coordination.ts, discussions-triage.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, subject-nav.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
+  it('generates the real barrel for src/web/features/, importing activity-heatmap.ts, activity.ts, backlog.ts, ci-status.ts, collaboration.ts, connect.ts, contributor-standing.ts, coordination.ts, discussions-triage.ts, docs-viewer.ts, evolution.ts, firing-timeline.ts, flight-console.ts, flight-summary.ts, fly.ts, foundation.ts, issue-triage.ts, landing.ts, locale-data.ts, locale.ts, metrics.ts, mirror-pass.ts, notifications.ts, office-map.ts, pipeline.ts, pool-client.ts, pr-review.ts, process-health.ts, publicity.ts, release.ts, report-capture-client.ts, report-menu.ts, round-panel.ts, search.ts, subject-nav.ts, switcher.ts, tour.ts, and update.ts in that order with no shell.ts edit needed', () => {
     const source = generateFeatureModulesIndexSource(FEATURES_DIR);
 
     expect(source).toContain("import { activityHeatmapJs } from './activity-heatmap.js';");
@@ -1946,6 +1956,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { backlogJs } from './backlog.js';");
     expect(source).toContain("import { busyJs } from './busy.js';");
     expect(source).toContain("import { ciStatusJs } from './ci-status.js';");
+    expect(source).toContain("import { collaborationJs } from './collaboration.js';");
     expect(source).toContain("import { connectJs } from './connect.js';");
     expect(source).toContain(
       "import { contributorIssueListJs } from './contributor-issue-list.js';",
@@ -1992,7 +2003,8 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./activity.js'")).toBeLessThan(source.indexOf("'./ask-sheet.js'"));
     expect(source.indexOf("'./ask-sheet.js'")).toBeLessThan(source.indexOf("'./backlog.js'"));
     expect(source.indexOf("'./backlog.js'")).toBeLessThan(source.indexOf("'./ci-status.js'"));
-    expect(source.indexOf("'./ci-status.js'")).toBeLessThan(source.indexOf("'./connect.js'"));
+    expect(source.indexOf("'./ci-status.js'")).toBeLessThan(source.indexOf("'./collaboration.js'"));
+    expect(source.indexOf("'./collaboration.js'")).toBeLessThan(source.indexOf("'./connect.js'"));
     expect(source.indexOf("'./connect.js'")).toBeLessThan(
       source.indexOf("'./contributor-issue-list.js'"),
     );
@@ -2057,7 +2069,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, collaborationJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -2907,6 +2919,44 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
       await assembleFromManifest(manifest, 'ciStatusJs', resolvedBindings)
     ).trim();
     expect(reassembled).toBe(ciStatusJs());
+  });
+
+  /**
+   * collaborationJs's own reconstruction, from its real file under
+   * web/features/. It carries two real relative-import splices of its own
+   * (collaborationClaimStateLabel/isMyCollaborationClaim from
+   * ../collaboration-panel.js), resolved against web/features/ rather than
+   * SHELL_DIR, and no non-splice slots at all.
+   */
+  async function reconstructCollaborationJs(): Promise<string> {
+    const collaborationSource = readFileSync(COLLABORATION_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(collaborationSource, COLLABORATION_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        collaborationSource,
+        'collaborationJs',
+        resolvedBindings,
+        undefined,
+        COLLABORATION_TS,
+      )
+    ).trim();
+  }
+
+  it('collaborationJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/collaboration.ts', async () => {
+    expect(await reconstructCollaborationJs()).toBe(collaborationJs());
+  });
+
+  it('collaborationJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off collaboration.ts', async () => {
+    const collaborationSource = readFileSync(COLLABORATION_TS, 'utf8');
+    const manifest = buildAssemblyManifest(collaborationSource, COLLABORATION_TS, [
+      'collaborationJs',
+    ]);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'collaborationJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(collaborationJs());
   });
 
   /**
@@ -4215,6 +4265,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('backlogJs', await reconstructBacklogJs());
     nestedOutputs.set('busyJs', await reconstructBusyJs());
     nestedOutputs.set('ciStatusJs', await reconstructCiStatusJs());
+    nestedOutputs.set('collaborationJs', await reconstructCollaborationJs());
     nestedOutputs.set('connectJs', await reconstructConnectJs());
     nestedOutputs.set('contributorIssueListJs', await reconstructContributorIssueListJs());
     nestedOutputs.set('contributorStandingJs', await reconstructContributorStandingJs());

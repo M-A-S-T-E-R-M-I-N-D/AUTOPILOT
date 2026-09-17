@@ -1002,6 +1002,11 @@ const BENIGN_WEB = new Set([
   // `poolClaimDecisionLabel`, no HTML building, no I/O. The same class as
   // the other pure icon/label/badge text-math files above.
   'contributor-issue-list-panel.ts',
+  // collaboration-panel.ts: pure claim-state label formatting + the
+  // "my-claims" login-membership predicate for the COLLABORATION panel
+  // (board web-mtpzqrxl-z7jgbu) — no HTML building, no I/O, the same class
+  // as the other pure icon/label/badge text-math files above.
+  'collaboration-panel.ts',
 ]);
 
 /** `web/features/` files (epic 0002 "shell decomposition") — each is a
@@ -1108,6 +1113,15 @@ const BENIGN_WEB_FEATURES = new Set([
   // with target="_blank"/rel="noopener noreferrer", the same unvalidated
   // gh-URL-as-href pattern pool-client.ts's issue link below already uses.
   'contributor-issue-list.ts',
+  // collaboration.ts: GET /api/collaboration only — read-only, no execute
+  // pair (claiming an issue happens on GitHub itself, same as the
+  // contributor-issue-list.ts /claim walkthrough above). Renders each
+  // gh-returned issue url via `setAttribute` with
+  // target="_blank"/rel="noopener noreferrer", the same unvalidated
+  // gh-URL-as-href pattern contributor-issue-list.ts already uses; the
+  // viewer login for its "my-claims" filter rides the already-flagged
+  // socialIdentity() resolver, not a fetch of its own.
+  'collaboration.ts',
   // locale-data.ts: no fetch, no I/O — the non-English half of the
   // build-time STRINGS table (board ap-mtk2tgvh-0's BUNDLE DIET),
   // Object.assign'd into core's already-benign locale.ts data.

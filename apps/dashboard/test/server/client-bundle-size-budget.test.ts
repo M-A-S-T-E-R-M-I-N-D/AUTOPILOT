@@ -383,7 +383,16 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // fixProposalApproveDisabledReason/fixProposalDiscardTip spliced into
 // web/features/pr-review.ts, plus renderFixProposal and its Discard wiring —
 // measured 186.4KB (190840B).
-const CHUNK_RAW_BUDGET = 187 * 1024;
+// Then chunk raw 187→195KB (2026-09-18) for the COLLABORATION panel (board
+// web-mtpzqrxl-z7jgbu): web/features/collaboration.ts — GET /api/collaboration's
+// roadmap + help-wanted lists, per-item claim state, and the my-claims filter
+// over the viewer's own login — joins /panels.js as a deferred, self-init
+// panel (chunks.ts's DEFERRED_OPERATOR_FEATURES), the same shape
+// contributor-issue-list.ts already establishes. Measured 189.7KB (194246B)
+// against the old 191488B budget: 2758 bytes over. Gzip (58162B) stays under
+// CHUNK_GZIP_BUDGET untouched, so only the raw line moves; this bump leaves
+// ~5.3KB raw headroom, matching the size of recent panel-sized bumps here.
+const CHUNK_RAW_BUDGET = 195 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
