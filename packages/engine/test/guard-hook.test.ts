@@ -220,6 +220,10 @@ describe('guard-hook stdin/stdout shim', () => {
     expect(output).toContain('"permissionDecision":"deny"');
     expect(output).toContain('10.0.0.5');
     expect(exitCodes).toEqual([0]);
+    // `all: true` is load-bearing, not a preference: without it Node's lookup
+    // resolves ONE address as a bare string, the check's `.find` over it
+    // throws, and the deny is never written. Every address must be seen.
+    expect(lookupMock).toHaveBeenCalledWith('attacker-controlled.example', { all: true });
   });
 
   it('ALLOWS a WebFetch whose hostname resolves only to public addresses', async () => {

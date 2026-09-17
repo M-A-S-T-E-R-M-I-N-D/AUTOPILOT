@@ -245,7 +245,11 @@ export function liveFiringsOf(
   narratorLineOf: (activity: readonly LiveFiringActivity[]) => string,
   countTurnsOf: (activity: readonly LiveFiringActivity[]) => number,
 ): readonly LiveFiringResult[] {
-  if (p.status !== 'flying' || p.activity.length === 0) return [];
+  // Only the status half is a decision. An empty activity list would fall
+  // out of the lanes guard below with the same [] — measured 2026-09-17 —
+  // so the `|| p.activity.length === 0` that used to sit here said the same
+  // thing twice, and the second copy is gone.
+  if (p.status !== 'flying') return [];
   const landedIds = new Set(p.flightLog.map((f) => f.id));
   const seen = new Set<string>();
   const lanes: LiveFiringActivity[] = [];

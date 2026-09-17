@@ -48,3 +48,14 @@ describe('samePath', () => {
     });
   });
 });
+
+describe('samePath — the case rule is a PLATFORM rule, not a preference', () => {
+  it('compares case-sensitively off win32, so two paths differing only by case are different', () => {
+    // A ternary that always took the win32 arm would call these the same
+    // path on Linux, where they are two distinct directories.
+    withPlatform('linux', () => {
+      expect(samePath('/repo/Project', '/repo/project')).toBe(false);
+      expect(samePath('/repo/project', '/repo/project')).toBe(true);
+    });
+  });
+});

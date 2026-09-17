@@ -213,6 +213,64 @@ describe('toCard', () => {
     const card = toCard(aggregate({ activity: [act({ firingId: 'p1:firing-9' })] }));
     expect(card.liveFiring?.firingId).toBe('p1:firing-9');
   });
+
+  // liveFirings (the many-lanes read) had no test of its own — every
+  // clause below was unexercised through toCard.
+  it('reports no live lanes for a project that is not flying, whatever its activity says', () => {
+    const card = toCard(
+      aggregate({ status: 'registered', activity: [act({ firingId: 'p1:firing-9' })] }),
+    );
+    expect(card.liveFirings).toEqual([]);
+  });
+
+  it('carries the operator focus task onto every live lane', () => {
+    const card = toCard(
+      aggregate({
+        activity: [act({ firingId: 'p1:firing-9' })],
+        tasks: [
+          {
+            id: 't1',
+            title: 'Focus me',
+            body: null,
+            status: 'queued',
+            severity: 'high',
+            dimension: 'ux',
+            focus: true,
+            priority: null,
+            source: 'dashboard',
+            at: 1,
+            cumulativeCostUsd: 0,
+            firingCount: 0,
+            isRunaway: false,
+          },
+        ],
+      }),
+    );
+    expect(card.liveFirings[0]?.focusTask).toBe('Focus me');
+  });
+
+  it('counts each lane ONLY its own actions, and is not capped while another lane exists', () => {
+    // Two firings interleaved, newest first. Each lane's recentActions must
+    // be its own two rows — not all four — and capped means "this lane IS
+    // the whole window", which is false whenever a sibling shares it.
+    const card = toCard(
+      aggregate({
+        activity: [
+          act({ firingId: 'p1:firing-A', at: 4 }),
+          act({ firingId: 'p1:firing-B', at: 3 }),
+          act({ firingId: 'p1:firing-A', at: 2 }),
+          act({ firingId: 'p1:firing-B', at: 1 }),
+        ],
+      }),
+    );
+    expect(card.liveFirings).toHaveLength(2);
+    for (const lane of card.liveFirings) {
+      expect(lane.recentActions).toBe(2);
+      expect(lane.recentActionsCapped).toBe(false);
+    }
+    expect(card.liveFirings.find((l) => l.firingId === 'p1:firing-A')?.startedAt).toBe(2);
+    expect(card.liveFirings.find((l) => l.firingId === 'p1:firing-B')?.startedAt).toBe(1);
+  });
 });
 
 describe('activityPhase', () => {
@@ -462,6 +520,22 @@ describe('finishedFlightSummaries', () => {
       sha: 'abc1234',
       at: 5,
     });
+  });
+
+  // The headline falls through a ladder of reasons a firing ended with
+  // nothing committed. Every fixture died: null, so none of the rungs ran.
+  it.each([
+    ['turn-cap', 'died at the turn cap — nothing committed'],
+    ['timeout', 'timed out at the CLI wall-clock cap — nothing committed'],
+    ['error', 'errored mid-firing — nothing committed'],
+  ] as const)('headlines a firing that died of %s', (died, headline) => {
+    const [summary] = finishedFlightSummaries(
+      aggregate({
+        flightLog: [flight({ died, commitSubject: null, item: null, gateResult: 'no-commit' })],
+        tasks: [],
+      }),
+    );
+    expect(summary?.headline).toBe(headline);
   });
 
   it('carries realCostUsd through when the firing tracked it (cost semantics v3)', () => {

@@ -174,3 +174,30 @@ describe('generateStarterSoul', () => {
     expect(generateStarterSoul('photos', gate, triage, snapshot)).not.toContain('Detected issues');
   });
 });
+
+describe('generateStarterSoul — each proposal section is set off from the next by a blank line', () => {
+  it('ends the Suggested organization section with an empty line before the next heading', () => {
+    const snapshot = makeFsSnapshot({
+      files: ['a.md', 'b.md', 'c.png', 'd.jpg', 'e.json', 'f.csv'],
+      contents: {},
+    });
+    const soul = generateStarterSoul('stuff', detectGate(snapshot), triageFolder(snapshot));
+    // The last bullet, then a blank line, then a heading — not the bullet
+    // glued to the heading, and not an invented line between them.
+    expect(soul).toMatch(/into a [a-z]+\/ folder\.\n\n## /);
+  });
+
+  it('ends the Detected issues section with an empty line before the operating rules', () => {
+    const snapshot = makeFsSnapshot({
+      files: ['report.txt', 'report (1).txt', 'notes.md'],
+      contents: {},
+    });
+    const soul = generateStarterSoul(
+      'stuff',
+      detectGate(snapshot),
+      triageFolder(snapshot),
+      snapshot,
+    );
+    expect(soul).toMatch(/do not delete anything unasked\.\n\n## Operating rules/);
+  });
+});

@@ -109,3 +109,30 @@ describe('gateCommands', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('gateCommands — ciExtras carry their args, and an absent list adds nothing', () => {
+  it('adds no command at all when includeCiExtras is set but the spec has no ciExtras', () => {
+    // The `?? []` default is the whole difference between "no extras" and a
+    // manufactured one nobody declared.
+    const result = gateCommands(spec({ test: { bin: 'vitest', args: ['run'], label: 'test' } }), {
+      includeCiExtras: true,
+    });
+    expect(result.map((c) => c.label)).toEqual(['test']);
+  });
+
+  it("carries each extra's args through — a bin with its args dropped runs the wrong thing", () => {
+    const result = gateCommands(
+      spec({
+        test: { bin: 'vitest', args: ['run'], label: 'test' },
+        ciExtras: [
+          { bin: 'npm', args: ['run', 'ci:secret-scan'], label: 'npm run ci:secret-scan' },
+        ],
+      }),
+      { includeCiExtras: true },
+    );
+    expect(result.find((c) => c.label === 'npm run ci:secret-scan')?.args).toEqual([
+      'run',
+      'ci:secret-scan',
+    ]);
+  });
+});

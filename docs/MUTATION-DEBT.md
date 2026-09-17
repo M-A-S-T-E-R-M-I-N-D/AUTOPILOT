@@ -90,6 +90,36 @@ Top files, which carry 63% of the debt between them:
 | `packages/engine/src/guard.ts` | 93.9% | 93.25% | the survivor in the new bundled-flag helper is killed; 41 remain |
 | `packages/engine/src/adapters/git.ts` | 87.61% | **93.30%** | 60 → 42 survivors; **no-coverage 31 → 3** (`pushBranch`, `dirtyPaths`) |
 
+### Session tally — 2026-09-17
+
+Configs taken to 100% this session, by what it took. The mutant counts are
+the sweep's own figures for each config before the work.
+
+| How it was closed | Configs |
+|---|---|
+| Pointed at the module's own tests (instrument error, no test written) | `tokens-color` (22 of 26), `dashboard-narrator` |
+| Crashed on every nightly, testing nothing; fixed the sandbox import | `dashboard-verify-by`, `dashboard-worktree`, `dashboard-triage`, `dashboard-ask`, `dashboard-doc-freshness`, `dashboard-lock` |
+| Platform-dependent arms made provable on every OS | `dashboard-connection-config` (62.71%), `engine-gate`, `dashboard-paths` |
+| Real assertions on load-bearing code | `engine-github-sync`, `dashboard-runner`, `dashboard-spawn-flight`, `dashboard-completion`, `engine-release`, `engine-loop`, `engine-stream`, `dashboard-registry`, `onboarding-detectors`, `dashboard-fleet`, `engine-worktree`, `engine-landing`, `engine-remediating-gate`, `dashboard-live-firing`, `dashboard-flight-summary`, `engine-diff-size-gate`, `engine-ask`, `engine-auth`, `dashboard-service`, `dashboard-reconcile`, `dashboard-watchdog`, `dashboard-gate-commands`, `dashboard-anomalies`, `onboarding-soul`, `engine-guard-hook`, `engine-telemetry`, `dashboard-cli-probe` |
+
+Three patterns recurred often enough to name:
+
+- **A surviving mutant that points at redundant code is answered by deleting
+  the code.** `doc-freshness`, `lock`, `worktree` and `live-firing` each had a
+  guard that reached the same result one line later; the second copy is gone
+  rather than excused.
+- **JavaScript's `null + n === n` makes any single null check before an
+  addition unobservable.** `telemetry`'s null-safe sum went through two
+  spellings that each hid equivalent mutants behind that coercion before the
+  null decision was separated from the arithmetic outright.
+- **Mutant locations are ranges over the report's own source snapshot.** Read
+  the column, and confirm a new test fails against the hand-applied mutant
+  before trusting it — twice this session a passing test killed nothing.
+
+Still open, all genuine `Survived` needing precise assertions:
+`engine-guard` (47), `engine-git` (44), `engine-prompt` (36),
+`engine-firing` (29), `engine-claude-cli` (28).
+
 ### A third category the inventory did not anticipate
 
 Some survivors are **equivalent by construction**, and no assertion on the

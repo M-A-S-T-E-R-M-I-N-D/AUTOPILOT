@@ -857,3 +857,15 @@ describe('mergeEnvelopeFacts (FINISH-LINE EXTENSION accounting)', () => {
     expect(merged.durationMs).toBeNull();
   });
 });
+
+describe('mergeEnvelopeFacts — the null-safe sum, every arm', () => {
+  it.each([
+    [5, 7, 12],
+    [5, null, 5],
+    [null, 7, 7],
+    [null, null, null],
+  ])('costUsd %s + %s = %s', (a, b, want) => {
+    const merged = mergeEnvelopeFacts({ ...ENV, costUsd: a }, { ...ENV, costUsd: b });
+    expect(merged.costUsd).toBe(want);
+  });
+});

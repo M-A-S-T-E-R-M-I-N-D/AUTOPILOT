@@ -221,3 +221,46 @@ describe('watchdogTick (real DashboardControl + spawned process)', () => {
     expect(control.status().state).toBe('running');
   });
 });
+
+describe('runWatchdog — the first tick is immediate, and abort stops the clock', () => {
+  const stopped: StatusResult = { state: 'stopped', pid: null, port: null, url: null };
+  const control: WatchdogControl = {
+    status: () => stopped,
+    start: () => ({ state: 'running', pid: 1, port: 1, url: 'http://x' }) as const,
+  };
+
+  it('ticks once synchronously on start, before any interval has elapsed', async () => {
+    // Removing the immediate tick still yields three interval ticks inside
+    // the 35ms the existing test advances, so that test could not see it go.
+    // The point of the immediate tick is that a dead dashboard is restarted
+    // NOW, not one interval from now.
+    vi.useFakeTimers();
+    try {
+      const onTick = vi.fn();
+      const ac = new AbortController();
+      const run = runWatchdog(control, { intervalMs: 10, onTick }, ac.signal);
+      expect(onTick).toHaveBeenCalledTimes(1);
+      ac.abort();
+      await run;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops ticking once aborted — the interval is cleared, not orphaned', async () => {
+    vi.useFakeTimers();
+    try {
+      const onTick = vi.fn();
+      const ac = new AbortController();
+      const run = runWatchdog(control, { intervalMs: 10, onTick }, ac.signal);
+      await vi.advanceTimersByTimeAsync(25);
+      const before = onTick.mock.calls.length;
+      ac.abort();
+      await run;
+      await vi.advanceTimersByTimeAsync(100);
+      expect(onTick.mock.calls.length).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
