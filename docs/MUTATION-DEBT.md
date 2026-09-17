@@ -139,6 +139,39 @@ tests had killed almost nothing — when the run that included them had not
 finished. Always confirm the run printed its `All files` summary line
 before reading the report.
 
+## The long-term fix: a gate on the change, not a sweep on the clock
+
+Operator, 2026-09-17: *"אנחנו לא מחפשים ליד, מחפשים פתרון ארוך טווח מדהים."*
+Clearing 347 survivors is necessary and is not the answer — it leaves the
+mechanism that let them accumulate exactly as it was.
+
+**A full sweep cannot be the feedback loop, at any speed.** Measured
+2026-09-17 on `stryker.store.config.mjs`: 56s cold, and **38s warm** with
+`--incremental` and zero source changes. The saving is real but bounded,
+because the sandbox build and dry run are fixed cost paid per config whatever
+the cache holds. Across 103 configs a perfectly warm sweep still costs about
+an hour before a single mutant runs. Incremental mode is worth having; it is
+not a strategy.
+
+So the sweep gets smaller, not faster. `.github/workflows/mutation-pr.yml`
+runs on a pull request against **only the modules the change touches**,
+selected by `scripts/mutation/configs-for-changes.mjs` from each config's own
+`mutate` list. Measured against a real 211-file diff from this repo's history:
+**4 configs selected, not 103.** That is affordable on a PR, which is the
+whole point — a surviving mutant is caught by the change that introduced it.
+
+This is the direct fix for **how the debt accumulated**. The failure was never
+that the bar was too high; it was that nothing checked the bar for eight days
+while the nightly timed out and reported `cancelled`. A gate that runs on the
+change cannot silently fall behind — it is green on that PR or it is not.
+
+The nightly stays, and is not redundant. It catches precisely what a
+per-change gate structurally cannot: a mutant that survives because of a
+change somewhere else entirely. Two gates, two different failure modes.
+
+**What this does not do** is clear the existing 347. Prevention and cleanup
+are separate jobs, and the section below is the cleanup.
+
 ## Working order
 
 Largest first, since seven files carry two thirds of it. Per file: run its

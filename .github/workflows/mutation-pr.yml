@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
+# SPDX-License-Identifier: Apache-2.0
+name: Mutation (changed modules)
+
+# The PREVENTIVE half of mutation testing. `mutation.yml` is the nightly full
+# sweep; this runs on a pull request against ONLY the modules the change
+# touches, so a surviving mutant is caught by the change that introduced it
+# instead of by a sweep the next morning.
+#
+# Why a per-change gate rather than a faster sweep. The full sweep cannot be
+# the feedback loop at any speed: measured 2026-09-17, one small config with a
+# warm `--incremental` cache and zero source changes still costs ~38s, because
+# the sandbox build and dry run are fixed cost paid per config whatever the
+# cache holds. Across 103 configs that is an hour of CI before a single mutant
+# runs. A real change selects far fewer — measured on a 211-file diff from this
+# repo's own history: 4 configs. That is a gate a pull request can afford.
+#
+# This is also the fix for HOW the debt accumulated: the nightly ran past its
+# job timeout every night from 2026-09-04 to 09-12 and ended `cancelled`, so
+# 347 survivors piled up across 36 files with nothing reporting the shortfall.
+# A gate that runs on the change itself cannot silently fall behind by a week —
+# it is either green on that PR or it is not.
+#
+# The nightly sweep stays, and is not redundant: it catches what a per-change
+# gate structurally cannot, namely a mutant that survives because of a change
+# somewhere else entirely.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation-changed:
+    name: mutation testing (changed modules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # Actions are SHA-pinned per OpenSSF Scorecard "Pinned-Dependencies";
+      # Dependabot's github-actions ecosystem keeps these current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The selector diffs against the merge base, so it needs real history
+          # rather than the default single-commit checkout.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable Corepack + pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Select the configs this change touches
+        id: select
+        run: |
+          node scripts/mutation/configs-for-changes.mjs \
+            --base "origin/${{ github.base_ref }}" > selected-configs.txt
+          echo "count=$(wc -l < selected-configs.txt)" >> "$GITHUB_OUTPUT"
+
+      # A change touching no mutated module is the common case (docs, CSS,
+      # workflows) and is a PASS, not a skip to argue about later.
+      - name: Nothing to mutate
+        if: steps.select.outputs.count == '0'
+        run: echo "No mutated module changed — nothing for this gate to prove."
+
+      - name: Mutation testing (changed modules, 100% break threshold per config)
+        if: steps.select.outputs.count != '0'
+        # GITHUB_ACTIONS=false for the same reason mutation.yml sets it: the
+        # per-module vitest configs set no explicit `reporters`, so vitest
+        # auto-adds its 'github-actions' reporter under CI and writes a
+        # job-summary chunk on EVERY invocation, which across many configs
+        # blows past GitHub's 1024k step-summary cap and aborts the upload.
+        # Every selected config runs even after one fails, and the failures are
+        # summarised at the end. Letting `set -e` abort at the first red config
+        # would tell a PR that touched four modules about one of them, and the
+        # next run would surface the next — turning one review into four.
+        run: |
+          failed=""
+          while read -r config; do
+            [ -n "$config" ] || continue
+            echo "::group::$config"
+            if npx stryker run "$config"; then
+              echo "OK $config"
+            else
+              echo "::error::surviving mutants in $config"
+              failed="$failed $config"
+            fi
+            echo "::endgroup::"
+          done < selected-configs.txt
+          if [ -n "$failed" ]; then
+            echo "Configs with surviving mutants:"
+            for c in $failed; do echo "  $c"; done
+            exit 1
+          fi
+        env:
+          GITHUB_ACTIONS: false
+
+      # The JSON reports carry each survivor's file, line, mutator and
+      # before/after text — the only form in which "what is still surviving?"
+      # is answerable without scraping the log. `always()` because the
+      # interesting case is the FAILING run.
+      - name: Upload mutation reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-pr-reports
+          path: reports/mutation/*/mutation.json
+          retention-days: 14
+          if-no-files-found: ignore
