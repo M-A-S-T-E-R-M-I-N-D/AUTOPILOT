@@ -100,8 +100,9 @@
  * pattern — their `data-tip` hover text stays English, same as every other
  * `data-tip` in this table. The "Tasks" heading's text itself (not just an
  * `aria-label`) changes with state, so it gets two whole-text keys instead —
- * `tasks` for the normal case and `tasksFocusMode` for the "🎯 FOCUS MODE"
- * variant — `tasksSection()` picks the key matching `anyFocus` the same way
+ * `tasks` for the normal case and `tasksFocusMode` for the "FOCUS MODE"
+ * variant (the 🎯 glyph moved to a leading icon — epic 0025 — so the text
+ * itself carries no emoji) — `tasksSection()` picks the key matching `anyFocus` the same way
  * `detailSectionNode()`'s callers already pick a fixed key.
  * This slice tags the masthead Connect panel's "Report a bug" GitHub-issue
  * mini-form — the `#gh-issue-form`'s label, its title/body placeholders, and
@@ -980,7 +981,7 @@ const EN_STRINGS = {
   actMetaTip: 'Model and token usage billed for this step',
   actMetaAria: 'step cost: {name}',
   tasks: 'Tasks',
-  tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
+  tasksFocusMode: 'Tasks — FOCUS MODE',
   boardViewColumns: 'Columns',
   boardViewList: 'List',
   boardColQueued: 'Queued',
@@ -2300,7 +2301,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightSliceChipTip: 'חלק ממשימה מרובת הפעלות, עדיין פתוחה: {name}',
     flightSliceChipAria: 'פרוסה של {name}',
     tasks: 'משימות',
-    tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
+    tasksFocusMode: 'משימות — מצב מיקוד',
     boardViewColumns: 'עמודות',
     boardViewList: 'רשימה',
     boardColQueued: 'בתור',

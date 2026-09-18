@@ -166,6 +166,10 @@ describe('fleet card Details panel i18n (board web-msnsndki-dz3vn1)', () => {
         h.getAttribute('data-i18n') === 'tasks' || h.getAttribute('data-i18n') === 'tasksFocusMode',
     );
     expect(normalHeading?.getAttribute('data-i18n')).toBe('tasks');
+    // Epic 0025 (icon system): the non-focus heading carries no leading icon
+    // and its text stays the plain STRINGS.tasks value — no stray glyph.
+    expect(normalHeading?.querySelector('svg.icon')).toBeNull();
+    expect(normalHeading?.textContent).toBe(STRINGS.en.tasks);
 
     boot(stateWith({ tasks: [{ id: 't1', title: 'x', status: 'open', focus: true }] }));
     await vi.advanceTimersByTimeAsync(1);
@@ -175,6 +179,12 @@ describe('fleet card Details panel i18n (board web-msnsndki-dz3vn1)', () => {
         h.getAttribute('data-i18n') === 'tasks' || h.getAttribute('data-i18n') === 'tasksFocusMode',
     );
     expect(focusHeading?.getAttribute('data-i18n')).toBe('tasksFocusMode');
+    // Epic 0025 (icon system): the 🎯 glyph moved to a leading stroke icon —
+    // the heading text itself carries no emoji, and the icon survives the
+    // translateDom() sweep that just ran when the state re-fetched.
+    expect(focusHeading?.querySelector('svg.icon-target')).not.toBeNull();
+    expect(focusHeading?.textContent).toBe(STRINGS.en.tasksFocusMode);
+    expect(focusHeading?.textContent ?? '').not.toContain('🎯');
   });
 
   it('tags the Firing activity heatmap heading with its STRINGS key', async () => {

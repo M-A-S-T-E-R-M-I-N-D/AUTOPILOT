@@ -2410,7 +2410,14 @@ function tasksSection(c) {
   var tasks = c.tasks || [];
   var anyFocus = taskFocusActive(tasks);
   var wrap = el('article', 'card');
-  var head = el('h3', 'detail-h', anyFocus ? 'Tasks — 🎯 FOCUS MODE' : 'Tasks');
+  // Epic 0025 (icon system): the heading carries a leading target icon in
+  // focus mode instead of baking 🎯 into the STRINGS text — setSweptText()
+  // (locale.ts) already keeps a leading <svg class="icon"> child through
+  // every translateDom() sweep, so the icon survives a locale switch same
+  // as panelHeading()'s.
+  var head = el('h3', 'detail-h');
+  if (anyFocus) head.appendChild(iconEl('target'));
+  head.appendChild(document.createTextNode(anyFocus ? tr('tasksFocusMode') : tr('tasks')));
   head.setAttribute('data-i18n', anyFocus ? 'tasksFocusMode' : 'tasks');
   wrap.appendChild(head);
   var boardView = boardViewStored();
