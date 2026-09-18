@@ -2154,7 +2154,25 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 /* Padding steps up with the panel (operator, 2026-09-18: "squeezed against the
    panel edges"): --space-4 on a phone, --space-5 from tablet up, and the
    ladder itself keeps an inner gutter on both sides. */
-.onboarding { margin: 0 0 var(--space-4); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--shape-medium); background: var(--color-surface); box-shadow: var(--elevation-1, 0 1px 2px rgb(0 0 0 / 0.06)); }
+/* Inset by the page gutter, like main's own content — a rounded panel flush
+   against the rail and sidebar borders read as a glitch (operator,
+   2026-09-18: "I dislike the interaction of the round corners with the
+   borders without any gap"). main's top padding is the gap below. */
+.onboarding { margin: var(--space-3) var(--page-inline) 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--shape-medium); background: var(--color-surface); box-shadow: var(--elevation-1, 0 1px 2px rgb(0 0 0 / 0.06)); }
+/* MINIMIZED, NOT GONE: the head (title, badges) and one strip line stay. */
+.onboarding.is-collapsed { padding-block: var(--space-3); }
+.onboarding.is-collapsed .ob-tip, .onboarding.is-collapsed .ob-tour-link, .onboarding.is-collapsed .ob-snooze { display: none; }
+.ob-body[hidden] { display: none; }
+.ob-minimize { margin-inline-start: var(--space-1); inline-size: 2rem; block-size: 2rem; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-full); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.ob-minimize:hover, .ob-minimize:focus-visible { color: var(--color-text); border-color: var(--color-border); outline: none; }
+.ob-minimize .icon { transform: rotate(90deg); transition: transform var(--duration-fast, 150ms) ease; }
+.ob-minimize[aria-expanded='false'] .icon { transform: rotate(-90deg); }
+.ob-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: var(--space-2) 0 0; font-size: var(--text-sm); }
+.ob-strip[hidden] { display: none; }
+.ob-strip-social { font: inherit; font-size: var(--text-sm); font-weight: 600; padding: var(--space-1) var(--space-3); border: 1px solid var(--color-accent); border-radius: var(--shape-extra-small); background: transparent; color: var(--color-accent); cursor: pointer; }
+.ob-strip-social:hover, .ob-strip-social:focus-visible { background: var(--color-accent); color: var(--color-accent-text); }
+.ob-strip-social[hidden], .ob-strip-social-on[hidden] { display: none; }
+.ob-strip-social-on { color: var(--color-success); font-weight: 600; }
 @media (min-width: 48rem) { .onboarding { padding: var(--space-5) var(--space-6); } }
 .onboarding[hidden] { display: none; }
 .ob-complete { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)); font-size: var(--text-sm); }

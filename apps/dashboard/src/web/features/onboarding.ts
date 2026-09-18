@@ -176,14 +176,17 @@ function syncOnboarding(state) {
   // before that the contribution steps are not even being offered.
   if (obGithubConnected()) obAskContributions();
   obState = computeOnboarding(obSignals(obLastState));
-  // The ladder disappears once both ticks are earned — it has nothing left
-  // to nudge about, and a permanent checklist reads as clutter — and while
-  // snoozed. MY PROGRESS (obOpenProgress, below) overrides both: asked for
-  // by name, it shows every tick, the badges and the standing.
-  if (!obForced && (obState.complete || obSnoozed())) { panel.hidden = true; return; }
+  // MINIMIZED, NOT GONE (operator, 2026-09-18: "a minimized version that
+  // keeps your status at the top; if we exit or minimize it retains our rank
+  // or the decision to go social"). The panel never hides any more: a
+  // finished ladder, a snoozed one, or one the reader minimised collapses
+  // to its head — the title, the badges (the rank) — plus one line with the
+  // step count and the social state. MY PROGRESS (obOpenProgress) and the
+  // head's own button bring the steps back.
   panel.hidden = false;
   var doneNote = document.getElementById('ob-complete');
   if (doneNote) doneNote.hidden = !obState.complete;
+  obPaintCollapsed();
   obPaintProgress();
   obPaintSteps();
   obPaintBadges();
@@ -423,10 +426,9 @@ function obOpenSubject(subject) {
 }
 
 function obSnooze(forever) {
-  obForced = false;
   try { localStorage.setItem(OB_SNOOZE_KEY, forever ? OB_SNOOZE_FOREVER : obToday()); } catch (err) {}
-  var panel = document.getElementById('onboarding');
-  if (panel) panel.hidden = true;
+  // Later means minimised until then, not gone: the rank stays at the top.
+  obPaintCollapsed();
   snack(tr('obSnoozeDone'), 'info');
 }
 
@@ -436,6 +438,7 @@ function obSnooze(forever) {
 // not swallow a hand-over they asked for by pressing the button.
 function obFocusLadder() {
   try { localStorage.removeItem(OB_SNOOZE_KEY); } catch (err) {}
+  obSetCollapsed(false);
   syncOnboarding(obLastState);
   var panel = document.getElementById('onboarding');
   if (!panel || panel.hidden) return;
@@ -445,15 +448,65 @@ function obFocusLadder() {
   if (current && typeof current.focus === 'function') current.focus();
 }
 
+// THE COLLAPSED STATE. Remembered per browser (ap-ob-collapsed: 1 or
+// '0'); with nothing remembered, a finished ladder starts minimised and an
+// unfinished one open. A snooze collapses it for the day on top of that.
+var OB_COLLAPSED_KEY = 'ap-ob-collapsed';
+function obCollapsedPref() {
+  try { return localStorage.getItem(OB_COLLAPSED_KEY); } catch (err) { return null; }
+}
+function obSetCollapsed(collapsed) {
+  try { localStorage.setItem(OB_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (err) {}
+  obPaintCollapsed();
+}
+function obIsCollapsed() {
+  var pref = obCollapsedPref();
+  if (pref === '1') return true;
+  if (pref === '0') return false;
+  return !!(obState && obState.complete);
+}
+function obPaintCollapsed() {
+  var panel = document.getElementById('onboarding');
+  if (!panel || !obState) return;
+  var collapsed = obIsCollapsed() || obSnoozed();
+  panel.classList.toggle('is-collapsed', collapsed);
+  var body = document.getElementById('ob-body');
+  if (body) body.hidden = collapsed;
+  var strip = document.getElementById('ob-strip');
+  if (strip) strip.hidden = !collapsed;
+  var btn = document.getElementById('ob-minimize');
+  if (btn) {
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    btn.setAttribute('aria-label', tr(collapsed ? 'obExpand' : 'obMinimize'));
+  }
+  if (collapsed) obPaintStrip();
+}
+// The one line a minimised ladder keeps: how far along, and whether the
+// social half is open (GitHub connected) or one press away.
+function obPaintStrip() {
+  var text = document.getElementById('ob-strip-text');
+  if (text) {
+    var done = 0;
+    for (var i = 0; i < obState.steps.length; i++) if (obState.steps[i].done) done++;
+    text.textContent = obState.complete
+      ? tr('obStripDone', { total: obState.steps.length })
+      : tr('obProgress', { done: done, total: obState.steps.length });
+  }
+  var on = obGithubConnected();
+  var socialOn = document.getElementById('ob-strip-social-on');
+  if (socialOn) socialOn.hidden = !on;
+  var socialOff = document.getElementById('ob-strip-social');
+  if (socialOff) socialOff.hidden = on;
+}
+
 // MY PROGRESS (operator, 2026-09-18: "I don't know how I can open it again
 // for an overview, to check I really have everything and what my rank
-// is"). The more menu's entry brings the ladder back at any time — snoozed
-// or finished — with every tick, the badges and the standing, and puts
-// focus on its title. A snooze pressed afterwards puts it away again.
-var obForced = false;
+// is"). The more menu's entry expands the ladder at any time — snoozed,
+// minimised or finished — with every tick, the badges and the standing, and
+// puts focus on its title.
 function obOpenProgress() {
-  obForced = true;
   try { localStorage.removeItem(OB_SNOOZE_KEY); } catch (err) {}
+  obSetCollapsed(false);
   syncOnboarding(obLastState);
   var panel = document.getElementById('onboarding');
   if (!panel || panel.hidden) return;
@@ -470,6 +523,16 @@ function obOpenProgress() {
 function onboardingInit() {
   var progress = document.getElementById('progress-btn');
   if (progress) progress.addEventListener('click', obOpenProgress);
+  var minimize = document.getElementById('ob-minimize');
+  if (minimize) {
+    minimize.addEventListener('click', function () {
+      var collapsed = minimize.getAttribute('aria-expanded') === 'true';
+      if (!collapsed) { try { localStorage.removeItem(OB_SNOOZE_KEY); } catch (err) {} }
+      obSetCollapsed(collapsed);
+    });
+  }
+  var social = document.getElementById('ob-strip-social');
+  if (social) social.addEventListener('click', obOpenConnect);
   var later = document.getElementById('ob-snooze');
   if (later) later.addEventListener('click', function () { obSnooze(false); });
   // …and the way back: the ladder tells you what to DO, the tour tells you

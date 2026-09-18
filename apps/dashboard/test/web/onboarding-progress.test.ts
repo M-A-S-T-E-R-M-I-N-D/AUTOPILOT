@@ -108,14 +108,18 @@ describe('MY PROGRESS reopens the ladder', () => {
     }
   });
 
-  it('a FINISHED ladder is hidden by default, and comes back complete — every tick, the done note — on request', async () => {
+  it('a FINISHED ladder starts MINIMIZED — rank at the top, steps folded — and expands complete on request', async () => {
     localStorage.setItem('ap-ob-marks', JSON.stringify(ALL_MARKS));
     await boot([FLOWN_PROJECT]);
-    expect(panel().hidden).toBe(true);
+    expect(panel().hidden).toBe(false);
+    expect(panel().classList.contains('is-collapsed')).toBe(true);
+    expect((document.getElementById('ob-body') as HTMLElement).hidden).toBe(true);
 
     progressBtn().click();
 
     expect(panel().hidden).toBe(false);
+    expect(panel().classList.contains('is-collapsed')).toBe(false);
+    expect((document.getElementById('ob-body') as HTMLElement).hidden).toBe(false);
     const done = document.getElementById('ob-complete') as HTMLElement;
     expect(done.hidden).toBe(false);
     expect(done.textContent).toBe(STRINGS.en.obComplete);
@@ -125,24 +129,27 @@ describe('MY PROGRESS reopens the ladder', () => {
     expect(document.activeElement?.id).toBe('ob-title');
   });
 
-  it('a SNOOZED ladder comes back on request, the snooze is cleared, and "Remind me later" puts it away again', async () => {
+  it('a SNOOZED ladder is minimised, expands on request with the snooze cleared, and "Remind me later" minimises it again', async () => {
     localStorage.setItem('ap-ob-snooze', 'forever');
     await boot([]);
-    expect(panel().hidden).toBe(true);
+    expect(panel().hidden).toBe(false);
+    expect(panel().classList.contains('is-collapsed')).toBe(true);
 
     progressBtn().click();
 
-    expect(panel().hidden).toBe(false);
+    expect(panel().classList.contains('is-collapsed')).toBe(false);
     expect(localStorage.getItem('ap-ob-snooze')).toBeNull();
     expect((document.getElementById('ob-complete') as HTMLElement).hidden).toBe(true);
 
     (document.getElementById('ob-snooze') as HTMLButtonElement).click();
-    expect(panel().hidden).toBe(true);
+    expect(panel().hidden).toBe(false);
+    expect(panel().classList.contains('is-collapsed')).toBe(true);
   });
 
-  it('an unfinished, unsnoozed ladder still shows on its own — the entry changes nothing there', async () => {
+  it('an unfinished, unsnoozed ladder still shows open on its own — the entry changes nothing there', async () => {
     await boot([]);
     expect(panel().hidden).toBe(false);
+    expect(panel().classList.contains('is-collapsed')).toBe(false);
     expect((document.getElementById('ob-complete') as HTMLElement).hidden).toBe(true);
   });
 });

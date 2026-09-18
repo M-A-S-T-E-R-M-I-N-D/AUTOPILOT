@@ -4729,13 +4729,17 @@ ${contextRailHtml(project)}
       <div class="ob-badges" id="ob-badges" role="group" aria-label="Badges earned" data-i18n-aria="obBadgesAria"></div>
       <button type="button" class="ob-tour-link" id="ob-tour-link" data-i18n="obTourLink" data-i18n-tip="obTourLinkTip" data-tip="Opens the short tour: firing, slice, gate, flight">What do these words mean?</button>
       <button type="button" class="ob-snooze" id="ob-snooze" data-i18n="obSnooze">Remind me later</button>
+      <button type="button" class="ob-minimize" id="ob-minimize" aria-expanded="true" aria-controls="ob-body" aria-label="Minimize the checklist" data-i18n-aria="obMinimize" data-tip="Keeps your standing at the top; My progress, or this button, brings the steps back" data-i18n-tip="obMinimizeTip">${iconSvg('arrow-left')}</button>
     </div>
+    <p class="ob-strip" id="ob-strip" hidden><span class="ob-strip-text" id="ob-strip-text"></span><span class="ob-strip-social-on" id="ob-strip-social-on" hidden data-i18n="obSocialOn">GitHub connected — social unlocked</span><button type="button" class="ob-strip-social" id="ob-strip-social" hidden data-i18n="obSocialOff">Go social: connect GitHub</button></p>
+    <div class="ob-body" id="ob-body">
     <div class="ob-progress" id="ob-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="ob-title">
       <div class="ob-progress-fill" id="ob-progress-fill"></div>
     </div>
     <p class="ob-progress-label muted" id="ob-progress-label" role="status" aria-live="polite"></p>
     <p class="ob-complete" id="ob-complete" data-i18n="obComplete" hidden>Both ticks earned. Thank you — contributors are why this gets better.</p>
     <ol class="ob-steps" id="ob-steps"></ol>
+    </div>
   </section>
   <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>
     <form class="fly-form" id="fly-form">

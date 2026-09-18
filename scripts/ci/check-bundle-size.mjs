@@ -304,7 +304,9 @@ const CORE_GZIP_BUDGET = 77 * 1024;
 // against the old 191488B budget: 2758 bytes over. Gzip (58162B) stays under
 // CHUNK_GZIP_BUDGET untouched, so only the raw line moves; this bump leaves
 // ~5.3KB raw headroom, matching the size of recent panel-sized bumps here.
-const CHUNK_RAW_BUDGET = 198 * 1024;
+// Then panels raw 198→200KB (2026-09-18, same day) for the ladder's minimised
+// strip (rank, step count, the social state) — measured 199.5KB raw.
+const CHUNK_RAW_BUDGET = 200 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight

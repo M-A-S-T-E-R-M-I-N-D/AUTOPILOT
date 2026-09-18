@@ -2075,6 +2075,14 @@ const EN_STRINGS = {
   progressBtn: 'My progress',
   progressBtnTip:
     'Your getting-started ladder, badges and standing — at any time, snoozed or finished',
+  // MINIMIZED, NOT GONE (operator, 2026-09-18): the collapsed ladder's strip.
+  obMinimize: 'Minimize the checklist',
+  obExpand: 'Show the checklist',
+  obMinimizeTip:
+    'Keeps your standing at the top; My progress, or this button, brings the steps back',
+  obStripDone: 'All {total} steps done',
+  obSocialOn: 'GitHub connected — social unlocked',
+  obSocialOff: 'Go social: connect GitHub',
   obTourLinkTip: 'Opens the short tour: firing, slice, gate, flight',
   obBadgesAria: 'Badges earned',
   obWatermark: 'Built with AUTOPILOT',
@@ -3172,6 +3180,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     obTourLink: 'מה המילים האלה אומרות?',
     progressBtn: 'ההתקדמות שלי',
     progressBtnTip: 'סולם ההתחלה, התגים והדירוג שלכם — בכל עת, גם אחרי השהיה או סיום',
+    obMinimize: 'מזערו את רשימת הצעדים',
+    obExpand: 'הציגו את רשימת הצעדים',
+    obMinimizeTip: 'הדירוג שלכם נשאר למעלה; ההתקדמות שלי, או הכפתור הזה, מחזירים את הצעדים',
+    obStripDone: 'כל {total} הצעדים הושלמו',
+    obSocialOn: 'GitHub מחובר — החלק החברתי פתוח',
+    obSocialOff: 'לצאת לחברתי: חברו GitHub',
     obTourLinkTip: 'פותח את הסיור הקצר: הפעלה, פרוסה, שער, טיסה',
     obBadgesAria: 'תגים שהושגו',
     obWatermark: 'נבנה עם AUTOPILOT',
