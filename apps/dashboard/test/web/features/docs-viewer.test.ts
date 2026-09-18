@@ -97,4 +97,30 @@ describe('docsViewerJs', () => {
       expect(out).toContain('viewer.dataset.loadedPath !== openDoc[pid]');
     });
   });
+
+  describe('table of contents (epic 0023 slice 2)', () => {
+    it('builds it from the raw markdown text via the hoisted headingOf/headingSlug', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('function buildToc(content) {');
+      expect(out).toContain('headingOf(lines[i])');
+      expect(out).toContain('headingSlug(headings[j].text)');
+    });
+
+    it('skips a single-heading doc — a self-referential entry says nothing', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('if (headings.length < 2) return null;');
+    });
+
+    it('links each entry through the same data-doc-anchor mechanism the in-document parity links use', () => {
+      const out = docsViewerJs();
+      expect(out).toContain("a.setAttribute('data-doc-anchor', headingSlug(headings[j].text));");
+    });
+
+    it('inserts the ToC above the rendered body, never for the plain-text fallback branch', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(
+        /renderMarkdown\(body, data\.content[\s\S]*?body\.insertBefore\(toc, body\.firstChild\);/,
+      );
+    });
+  });
 });

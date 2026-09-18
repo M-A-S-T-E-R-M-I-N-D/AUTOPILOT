@@ -155,6 +155,30 @@ describe('the docs reader renders every construct of the parity slice', () => {
     expect(intro.querySelector('code')?.textContent).toBe('code');
   });
 
+  it("renders a table of contents from the doc's own headings, in order, and clicking an entry scrolls to it (epic 0023 slice 2)", async () => {
+    const body = await bootAndOpen();
+    const toc = body.querySelector('.docs-toc') as HTMLElement;
+    expect(toc, 'a two-heading doc gets a ToC').not.toBeNull();
+    expect(toc.getAttribute('aria-label')).toBe('Table of contents');
+    // Sits above the rendered content, not appended after it.
+    expect(body.firstElementChild).toBe(toc);
+
+    const entries = toc.querySelectorAll('.docs-toc-link');
+    expect(entries.length).toBe(2);
+    expect(entries[0]?.textContent).toBe('Guide');
+    expect(entries[0]?.getAttribute('data-doc-anchor')).toBe('guide');
+    expect(entries[0]?.closest('li')?.className).toBe('docs-toc-h1');
+    expect(entries[1]?.textContent).toBe('The Plan');
+    expect(entries[1]?.getAttribute('data-doc-anchor')).toBe('the-plan');
+    expect(entries[1]?.closest('li')?.className).toBe('docs-toc-h2');
+
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    (entries[1] as HTMLAnchorElement).click();
+    expect(scrolled).toHaveBeenCalled();
+    expect(location.hash).toBe('');
+  });
+
   it('links: external opens a new tab, an anchor scrolls inside this body, a relative path opens THAT document here, and the dangerous ones stay words', async () => {
     const body = await bootAndOpen();
     const external = body.querySelector('a[href="https://x.test/y"]') as HTMLAnchorElement;
@@ -219,7 +243,10 @@ describe('the docs reader renders every construct of the parity slice', () => {
     const nested = tasks[1]!.querySelector(':scope > ul > li')!;
     expect(nested.textContent).toContain('nested child');
     expect(nested.querySelector(':scope > ol > li')?.textContent).toContain('deeper ordered');
-    const top = body.querySelector('ul')!;
+    // :scope > ul, not a bare querySelector('ul') — the ToC (epic 0023 slice
+    // 2) prepends its own <ul> nested inside a <nav>, so a generic query
+    // would find that one first instead of the content's top-level list.
+    const top = body.querySelector(':scope > ul')!;
     expect(Array.from(top.children).map((li) => li.textContent?.trim().slice(0, 5))).toEqual([
       'open ',
       'done ',

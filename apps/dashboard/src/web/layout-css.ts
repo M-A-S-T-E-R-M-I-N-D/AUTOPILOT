@@ -640,6 +640,15 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-file-pinned { border-inline-start: 2px solid var(--color-accent); }
 .docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
 .docs-viewer-freshness { margin: 0 0 var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+/* Table of contents (epic 0023 slice 2) — a quiet reference block, not
+   another wall of accent color; indentation alone carries the hierarchy. */
+.docs-toc { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }
+.docs-toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; font-size: var(--text-xs); }
+.docs-toc-link { display: block; padding: 1px 0; color: var(--color-text-muted); text-decoration: none; cursor: pointer; }
+.docs-toc-link:hover, .docs-toc-link:focus-visible { color: var(--color-accent); text-decoration: underline; }
+.docs-toc-h2 .docs-toc-link { padding-inline-start: var(--space-3); }
+.docs-toc-h3 .docs-toc-link { padding-inline-start: var(--space-4); }
+.docs-toc-h4 .docs-toc-link, .docs-toc-h5 .docs-toc-link, .docs-toc-h6 .docs-toc-link { padding-inline-start: var(--space-5); }
 /* Reading typography. The body used to inherit --text-sm with no measure, no
    heading scale and no rhythm, so a rendered document came out as flat grey
    mass. A measure cap is the single highest-value line here: unbounded line
