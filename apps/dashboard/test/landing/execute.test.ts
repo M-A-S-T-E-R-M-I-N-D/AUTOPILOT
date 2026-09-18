@@ -1507,6 +1507,26 @@ describe('implicatedFilesFromFailedLog — the shapes beyond vitest (gap G)', ()
     const log = `${PREFIX}  ✘  1 [chromium] › e2e/visual.spec.ts:12:5 › fleet dark renders (3.2s)`;
     expect(implicatedFilesFromFailedLog(log)).toEqual(['e2e/visual.spec.ts']);
   });
+
+  it("reads the windows-latest runner's backslash spec paths and its plain `x` failure marker (run 35325023691 — the first refusal whose remedy was on the branch)", () => {
+    const log = [
+      `${PREFIX}  x   7 [chromium] › apps\\dashboard\\e2e\\dashboard.spec.ts:8:3 › dashboard boot smoke › the shell loads (1.2s)`,
+      `${PREFIX}  x  13 [chromium] › apps\\dashboard\\e2e\\project-page.spec.ts:23:3 › project page (/p/:id) › renders an honest not-found state (0.9s)`,
+    ].join('\n');
+    expect(implicatedFilesFromFailedLog(log)).toEqual([
+      'apps/dashboard/e2e/dashboard.spec.ts',
+      'apps/dashboard/e2e/project-page.spec.ts',
+    ]);
+  });
+
+  it("never implicates the PASSING tests the failed job's log also lists — a green spec clears nothing", () => {
+    const log = [
+      `${PREFIX}  ok  1 [chromium] › apps\\dashboard\\e2e\\anti-cls.spec.ts:24:1 › zero layout shift (1.4s)`,
+      `${PREFIX}  ok  3 [chromium] › apps/dashboard/e2e/command-palette.spec.ts:14:1 › Ctrl+K lands (487ms)`,
+      `${PREFIX}  x   7 [chromium] › apps\\dashboard\\e2e\\dashboard.spec.ts:8:3 › dashboard boot smoke › the shell loads (1.2s)`,
+    ].join('\n');
+    expect(implicatedFilesFromFailedLog(log)).toEqual(['apps/dashboard/e2e/dashboard.spec.ts']);
+  });
 });
 
 describe('remedyFilesOf — package-relative and absolute spellings match by suffix (gap G)', () => {

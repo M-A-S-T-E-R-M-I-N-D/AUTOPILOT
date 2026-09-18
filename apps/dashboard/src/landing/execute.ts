@@ -310,9 +310,26 @@ const FAILED_FILE_RE =
  * not one of those shapes contributes nothing — a log with no vitest
  * failure in it (a build error, a scanner) yields an empty list.
  */
+/** Playwright's list reporter prints every PASSING test as well (`ok 12
+ *  [chromium] › e2e/x.spec.ts:54:3 › …`), and `--log-failed` returns the
+ *  failed JOB's whole step log — so those lines name files that clear
+ *  nothing and are dropped before the path scan. */
+const PASSING_LINE_RE = /(?:^|\s)ok\s+\d+\s+\[/;
+
 export function implicatedFilesFromFailedLog(log: string): readonly string[] {
   const files = new Set<string>();
-  for (const match of log.replace(ANSI_RE, '').matchAll(FAILED_FILE_RE)) {
+  // Backslashes are normalised BEFORE the scan, not after: the windows-latest
+  // runner prints `apps\dashboard\e2e\dashboard.spec.ts:8:3`, which no
+  // forward-slash path group could match — the first live refusal of a
+  // landing that carried the exact spec fix (2026-09-18, run 35325023691)
+  // implicated nothing, and the remedy escape never got a chance.
+  const text = log
+    .replace(ANSI_RE, '')
+    .split('\n')
+    .filter((line) => !PASSING_LINE_RE.test(line))
+    .join('\n')
+    .replace(/\\/g, '/');
+  for (const match of text.matchAll(FAILED_FILE_RE)) {
     // Group 1: the vitest `FAIL` header. Group 2: any `path:line` or
     // `path(line` reference — vitest's `❯` frames, Playwright's `✘ … ›
     // e2e/x.spec.ts:12:5`, tsc's diagnostics, and the repo's own scanners
