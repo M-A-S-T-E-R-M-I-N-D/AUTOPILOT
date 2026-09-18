@@ -4498,6 +4498,40 @@ export function settingsMenuHtml(): string {
       ],
       'pref-terminal',
     ) +
+    // THE HUD ROWS, HERE TOO (operator, 2026-09-18): the terminal HUD bar's
+    // own scanlines/glow rows and a Shown/Hidden row for the bar itself, so
+    // a dismissed bar comes back from Settings without a full reset. Same
+    // data-pref names as the bar — applyPrefs keeps both copies pressed alike.
+    prefRowHtml(
+      'scanlines',
+      'terminalHudScanlines',
+      'Scanlines',
+      [
+        ['off', 'terminalHudScanlinesOff', 'Off'],
+        ['on', 'terminalHudScanlinesOn', 'On'],
+      ],
+      'pref-terminal',
+    ) +
+    prefRowHtml(
+      'glow',
+      'terminalHudGlow',
+      'Glow',
+      [
+        ['off', 'terminalHudGlowOff', 'Off'],
+        ['on', 'terminalHudGlowOn', 'On'],
+      ],
+      'pref-terminal',
+    ) +
+    prefRowHtml(
+      'hud',
+      'prefHud',
+      'HUD bar',
+      [
+        ['shown', 'prefHudShown', 'Shown'],
+        ['hidden', 'prefHudHidden', 'Hidden'],
+      ],
+      'pref-terminal',
+    ) +
     '<fieldset class="pref"><legend data-i18n="prefHue">Hue</legend><div class="pref-hue"><input type="range" id="pref-hue" min="0" max="359" step="1" value="0" aria-label="Rotate every colour of the design, in degrees; 0 is the theme as designed" data-i18n-aria="prefHueAria" /><output id="pref-hue-out" for="pref-hue">0°</output></div></fieldset>' +
     '<div class="connect-actions"><button type="button" class="connect-test" id="prefs-reset" data-i18n="prefsReset">Reset to defaults</button></div>' +
     '<p class="connect-hint" data-i18n="prefsHint">Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.</p>' +
@@ -4524,7 +4558,7 @@ export function terminalHudHtml(): string {
       ['off', 'terminalHudGlowOff', 'Off'],
       ['on', 'terminalHudGlowOn', 'On'],
     ]) +
-    '    <button type="button" class="terminal-hud-close" id="terminal-hud-close" aria-label="Dismiss the terminal HUD" data-i18n-aria="terminalHudDismiss" data-tip="Reset to defaults in Settings brings it back" data-i18n-tip="terminalHudDismissTip"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>\n' +
+    '    <button type="button" class="terminal-hud-close" id="terminal-hud-close" aria-label="Dismiss the terminal HUD" data-i18n-aria="terminalHudDismiss" data-tip="Settings › HUD bar › Shown brings it back (so does Reset to defaults)" data-i18n-tip="terminalHudDismissTip"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>\n' +
     '  </div>'
   );
 }

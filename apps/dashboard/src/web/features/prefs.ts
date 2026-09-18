@@ -10,9 +10,14 @@
  * the terminal theme — the phosphor tint, with one Reset. The terminal
  * theme also gets a floating HUD bar (`web/shell.ts`'s `terminalHudHtml()`)
  * offering scanlines and glow the same way — a choice-list preference each —
- * plus its own dismiss, which is a preference too (`hud`, boolean, false by
- * default): dismissing sets it, Reset clears it, exactly like every other
- * row here.
+ * plus its own dismiss, which is a preference too (`hud`: shown | hidden,
+ * shown by default): dismissing sets it, Reset clears it, exactly like
+ * every other row. Settings carries the SAME three terminal rows
+ * (scanlines, glow, HUD bar), so a dismissed bar comes back from there
+ * without a full reset (operator, 2026-09-18: "I can't bring this menu
+ * back simply after choosing, and it should appear in our Settings panel
+ * too"). A saved boolean `true` from before that change still reads as
+ * hidden.
  *
  * Every preference is an attribute on `<html>` (`data-text`, `data-font`,
  * `data-density`, `data-motion`, `data-phosphor`) that the stylesheet reads;
@@ -36,6 +41,7 @@ export const PREF_CHOICES: Readonly<Record<string, readonly string[]>> = {
   phosphor: ['green', 'amber', 'white'],
   scanlines: ['off', 'on'],
   glow: ['off', 'on'],
+  hud: ['shown', 'hidden'],
 };
 
 /** The preferences client — vanilla, external (keeps CSP script-src 'self'). */
@@ -75,7 +81,6 @@ function prefDefaults() {
   var out = {};
   for (var k in PREF_CHOICES) out[k] = PREF_CHOICES[k][0];
   out.hue = 0;
-  out.hud = false;
   return out;
 }
 function readPrefs() {
@@ -91,7 +96,8 @@ function readPrefs() {
   }
   var h = Number(saved.hue);
   if (Number.isInteger(h) && h >= 0 && h <= HUE_MAX) prefs.hue = h;
-  if (saved.hud === true) prefs.hud = true;
+  // Legacy shape (epic 0029 slice 3 stored a boolean): true meant dismissed.
+  if (saved.hud === true) prefs.hud = 'hidden';
   return prefs;
 }
 function writePrefs(prefs) {
@@ -119,11 +125,6 @@ function applyPrefs(prefs) {
   // The terminal HUD (epic 0029 slice 3): dismissible, resettable through
   // this same Reset — a preference like any other, just boolean rather than
   // a choice list, the same shape hue already established.
-  if (prefs.hud) {
-    if (html.getAttribute('data-hud') !== 'hidden') html.setAttribute('data-hud', 'hidden');
-  } else if (html.hasAttribute('data-hud')) {
-    html.removeAttribute('data-hud');
-  }
   var range = document.getElementById('pref-hue');
   if (range && range.value !== String(hue)) range.value = String(hue);
   var out = document.getElementById('pref-hue-out');
@@ -155,10 +156,7 @@ function resetPrefs() {
   applyPrefs(prefDefaults());
 }
 function dismissHud() {
-  var prefs = readPrefs();
-  prefs.hud = true;
-  writePrefs(prefs);
-  applyPrefs(prefs);
+  setPref('hud', 'hidden');
 }
 applyPrefs(readPrefs());
 // A theme or phosphor change swaps the base twins under a rotated hue — re-apply.
