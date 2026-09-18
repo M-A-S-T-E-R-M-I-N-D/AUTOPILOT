@@ -3025,10 +3025,10 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
 
   /**
    * contributorIssueListJs's own reconstruction, from its real file under
-   * web/features/. It carries one real relative-import splice of its own
-   * (contributorIssueTierBadge from ../contributor-issue-list-panel.js),
-   * resolved against web/features/ rather than SHELL_DIR, and no non-splice
-   * slots at all.
+   * web/features/. It carries two real relative-import splices of its own
+   * (contributorIssueTierBadge/contributorIssueTierIcon from
+   * ../contributor-issue-list-panel.js), resolved against web/features/
+   * rather than SHELL_DIR, and no non-splice slots at all.
    */
   async function reconstructContributorIssueListJs(): Promise<string> {
     const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');

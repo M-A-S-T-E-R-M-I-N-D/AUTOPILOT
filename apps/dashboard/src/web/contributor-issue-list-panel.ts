@@ -24,11 +24,24 @@
 /** The two tiers `flight/contributor-issue-list.ts`'s `planContributorIssueList`
  *  ever emits — anything else (should never happen) echoes back verbatim
  *  rather than throwing, the same unrecognized-value stance
- *  `poolClaimDecisionLabel` takes. */
+ *  `poolClaimDecisionLabel` takes. Epic 0025: plain text now — the tier's
+ *  glyph is a stroke icon beside it ({@link contributorIssueTierIcon}),
+ *  supplied to `tipChip`'s `iconName`, not baked into this string. */
 export function contributorIssueTierBadge(tier: string): string {
-  if (tier === 'good first issue') return '🌱 good first issue';
-  if (tier === 'help wanted') return '🙋 help wanted';
+  if (tier === 'good first issue') return 'good first issue';
+  if (tier === 'help wanted') return 'help wanted';
   return tier;
+}
+
+/** {@link contributorIssueTierBadge}'s companion icon name — a sprout for a
+ *  first-timer's issue (mirrors the panel's own heading icon), a handshake
+ *  for one that wants a hand. An unrecognized tier gets no icon (`tipChip`
+ *  falls back to plain text when `iconName` is falsy), the same
+ *  degrade-to-plain-label stance the badge text takes. */
+export function contributorIssueTierIcon(tier: string): string {
+  if (tier === 'good first issue') return 'sprout';
+  if (tier === 'help wanted') return 'handshake';
+  return '';
 }
 
 /**
