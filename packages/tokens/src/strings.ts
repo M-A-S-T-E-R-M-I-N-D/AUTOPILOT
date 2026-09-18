@@ -1378,6 +1378,9 @@ const EN_STRINGS = {
     'A flight refused to start because its containment guard could not be verified.',
   anomalyActionGuardVerifyFailed:
     'Check the hook settings file the guard is written to. The flight will not run unguarded.',
+  // THE DOCS READER (parity slice, 2026-09-18): an image is rendered as a link
+  // labelled by its alt text — this word marks it as one.
+  docsImage: 'image',
   // THE TERMINAL HUD (epic 0029 slice 3): a floating bar under the terminal theme.
   terminalHudAria: 'Terminal HUD',
   terminalHudLabel: 'Terminal HUD',
@@ -2663,6 +2666,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     anomalyWhatGuardVerifyFailed: 'טיסה סירבה להתחיל כי לא ניתן היה לאמת את שומר ההכלה שלה.',
     anomalyActionGuardVerifyFailed:
       'בדקו את קובץ הגדרות ה-hook שהשומר נכתב אליו. הטיסה לא תרוץ בלי שומר.',
+    docsImage: 'תמונה',
     terminalHudAria: 'תצוגת HUD של הטרמינל',
     terminalHudLabel: 'HUD של הטרמינל',
     terminalHudScanlines: 'קווי סריקה',

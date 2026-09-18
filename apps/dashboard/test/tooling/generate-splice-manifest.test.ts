@@ -1759,21 +1759,34 @@ describe('discoverFeatureModules against the real src/web/features directory —
     }
   });
 
-  it('search.ts carries eleven relative-import splices across three modules, resolved against its own directory', () => {
+  it('search.ts carries twenty-two relative-import splices across three modules, resolved against its own directory', () => {
     const searchSource = readFileSync(SEARCH_TS, 'utf8');
     const entries = findSpliceManifest(searchSource, SEARCH_TS);
+    // The docs reader's parity slice (2026-09-18) added eleven markdown
+    // helpers; every one is spliced, none retyped.
     expect(entries.map((e) => e.exportedName).sort()).toEqual([
       'applyAskStreamFrame',
+      'blockquoteText',
+      'classifyHref',
+      'fenceLang',
+      'headingOf',
+      'headingSlug',
+      'inlineTokens',
       'isBlockStart',
       'isFence',
       'isHeading',
+      'isHr',
       'isListItem',
       'isSvgStart',
       'isTableStart',
+      'listItemOf',
+      'resolveDocLink',
       'searchHitMeta',
       'searchProjectsSig',
       'splitSseFrames',
       'splitTableRow',
+      'tableAlignments',
+      'taskOf',
     ]);
     const modulePaths = new Map(entries.map((e) => [e.exportedName, e.modulePath]));
     expect(modulePaths.get('searchProjectsSig')).toBe('../search-history.js');
@@ -1785,6 +1798,21 @@ describe('discoverFeatureModules against the real src/web/features directory —
     expect(modulePaths.get('isSvgStart')).toBe('../markdown.js');
     expect(modulePaths.get('isTableStart')).toBe('../markdown.js');
     expect(modulePaths.get('isBlockStart')).toBe('../markdown.js');
+    for (const helper of [
+      'blockquoteText',
+      'isHr',
+      'headingOf',
+      'headingSlug',
+      'fenceLang',
+      'tableAlignments',
+      'listItemOf',
+      'taskOf',
+      'inlineTokens',
+      'resolveDocLink',
+      'classifyHref',
+    ]) {
+      expect(modulePaths.get(helper), helper).toBe('../markdown.js');
+    }
     expect(modulePaths.get('splitSseFrames')).toBe('../ask-stream.js');
     expect(modulePaths.get('applyAskStreamFrame')).toBe('../ask-stream.js');
     for (const entry of entries) {

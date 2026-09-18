@@ -661,6 +661,23 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-viewer-body pre { background: var(--color-surface-raised); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); overflow-x: auto; }
 .docs-viewer-body svg { max-width: 100%; height: auto; display: block; margin: var(--space-2) 0; }
 .docs-viewer-body svg [data-tip] { cursor: default; }
+/* THE PARITY SLICE (operator, 2026-09-18: "like MDVIEWER — tables, charts,
+   diagrams, styling, checkboxes"): quotes, rules, task lists, nested lists,
+   strikethrough, a language label on every fence, diagram source blocks,
+   and the two link kinds the reader resolves itself. */
+.docs-viewer-body blockquote { margin: var(--space-3) 0; padding: var(--space-1) var(--space-3); border-inline-start: 3px solid var(--color-border-strong, var(--color-border)); color: var(--color-text-muted); }
+.docs-viewer-body blockquote > :first-child { margin-top: 0; }
+.docs-viewer-body blockquote > :last-child { margin-bottom: 0; }
+.docs-viewer-body hr { border: 0; border-top: 1px solid var(--color-border); margin: var(--space-4) 0; }
+.docs-viewer-body li.task { list-style: none; margin-inline-start: calc(var(--space-4) * -1); }
+.docs-viewer-body li.task > input { margin: 0 var(--space-1) 0 0; vertical-align: -2px; accent-color: var(--color-accent); }
+.docs-viewer-body ul ul, .docs-viewer-body ul ol, .docs-viewer-body ol ul, .docs-viewer-body ol ol { margin: var(--space-1) 0; }
+.docs-viewer-body s { color: var(--color-text-muted); }
+.docs-viewer-body pre { position: relative; }
+.docs-viewer-body pre[data-lang]::before { content: attr(data-lang); position: absolute; inset-block-start: 4px; inset-inline-end: var(--space-2); font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.docs-viewer-body pre.docs-diagram { border-inline-start: 3px solid var(--color-accent); }
+.docs-viewer-body a.docs-link, .docs-viewer-body a.docs-anchor { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.docs-viewer-body h1[id], .docs-viewer-body h2[id], .docs-viewer-body h3[id], .docs-viewer-body h4[id], .docs-viewer-body h5[id], .docs-viewer-body h6[id] { scroll-margin-top: var(--space-3); }
 .console-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); }
 .console-details { padding: var(--space-3) var(--space-4); }
 .console-title { margin: 0; font-size: var(--text-base); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }

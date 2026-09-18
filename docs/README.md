@@ -55,6 +55,9 @@ script and verified by CI — edit the source, not the file.
 
 ## Community, governance, brand
 
+- [DEPENDENCY-POLICY.md](DEPENDENCY-POLICY.md) — cooldowns, the dated major-version ignores and
+  their lift conditions, how a Dependabot PR is merged, and the toolchain canary that runs on
+  every manifest or lockfile change.
 - [GOVERNANCE.md](GOVERNANCE.md) — the GitHub house taxonomy: labels, pools, priorities (the seed source for
   `pnpm dashboard:taxonomy-seed`). Project governance itself lives in
   [`.github/GOVERNANCE.md`](../.github/GOVERNANCE.md).

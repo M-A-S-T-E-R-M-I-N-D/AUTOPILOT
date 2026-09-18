@@ -148,7 +148,11 @@ import { gzipSync } from 'node:zlib';
 // terminal HUD rows in Settings, the ladder's MY PROGRESS entry, and the
 // pipeline label fitter. Measured 250.3KB raw / 75.1KB gzip core and
 // 197.7KB raw / 59.3KB gzip panels after `pnpm run build`.
-const CORE_RAW_BUDGET = 251 * 1024;
+// Then core raw 251→255KB / gzip 76→77KB (2026-09-18, same day) for the docs
+// reader's parity slice: eleven spliced markdown helpers (quotes, rules,
+// anchors, aligned tables, nested and task lists, strikethrough, self-
+// resolved links). Measured 253.8KB raw / 76.3KB gzip.
+const CORE_RAW_BUDGET = 255 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -159,7 +163,7 @@ const CORE_RAW_BUDGET = 251 * 1024;
 // growth as the raw note above — measured 72.6KB.
 // Then core gzip 73→74KB (2026-09-15), the same guided-walk prose growth as
 // the raw note above — measured 73.3KB.
-const CORE_GZIP_BUDGET = 76 * 1024;
+const CORE_GZIP_BUDGET = 77 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
