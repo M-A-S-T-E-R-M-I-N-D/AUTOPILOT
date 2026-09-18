@@ -386,6 +386,55 @@ describe('the post-flight LANDING card', () => {
       );
     });
   });
+
+  it('shows the vendored plane-landing icon, not a baked 🛬 glyph, while a landing job is running (epic 0025)', async () => {
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      // Checked before the plain '/api/landing' branch below — that
+      // substring also matches this job-polling endpoint.
+      if (url.includes('/api/landing/job')) {
+        return {
+          ok: true,
+          json: async () => ({
+            job: {
+              phase: 'gate',
+              startedAt: Date.now() - 5_000,
+              steps: [{ label: 'pnpm run test', state: 'running' }],
+              stepIndex: 2,
+              stepTotal: 4,
+            },
+          }),
+        } as unknown as Response;
+      }
+      if (url.includes('/api/landing')) {
+        return {
+          ok: true,
+          json: async () => ({
+            landing: {
+              branch: 'autopilot/flight',
+              base: 'main',
+              commits: [{ shortSha: 'a1b2c3d', subject: 'feat: x', files: ['a.ts'] }],
+              diffstat: { filesChanged: 1, insertions: 1, deletions: 0 },
+            },
+          }),
+        } as unknown as Response;
+      }
+      return { ok: true, json: async () => STATE } as unknown as Response;
+    });
+    new Function(clientJs())();
+
+    const resultEl = await waitFor(() => {
+      const found = document.querySelector('[data-land-result]');
+      expect(found).not.toBeNull();
+      expect(found?.querySelector('svg.icon-plane-landing')).not.toBeNull();
+      return found as HTMLElement;
+    });
+    expect(resultEl.textContent).toContain('Landing — ');
+    expect(resultEl.textContent).not.toContain('🛬');
+  });
 });
 
 describe('landingJobLine — the LAND button telling the truth while it works', () => {
@@ -412,6 +461,13 @@ describe('landingJobLine — the LAND button telling the truth while it works', 
     expect(landingJobLine(RUNNING_JOB, 1_000 + 12_000)?.text).toContain('12s');
   });
 
+  it('carries the vendored plane-landing icon name instead of baking a 🛬 glyph into the text (epic 0025)', () => {
+    const line = landingJobLine(RUNNING_JOB, 1_000 + 95_000);
+    expect(line?.icon).toBe('plane-landing');
+    expect(line?.text.startsWith('🛬')).toBe(false);
+    expect(line?.text).toContain('Landing — ');
+  });
+
   it('falls back to a starting line before any gate step has reported in', () => {
     const line = landingJobLine({ phase: 'gate', startedAt: 0, steps: [] }, 0);
     expect(line?.text).toContain('starting the gate');
@@ -432,6 +488,7 @@ describe('landingJobLine — the LAND button telling the truth while it works', 
     expect(line?.text).toContain('asked the flight to stop');
     expect(line?.busy).toBe(true);
     expect(line?.className).not.toContain('fail');
+    expect(line?.icon).toBeUndefined();
   });
 
   it('hands a finished job to the same verdict renderer the panel always used, and releases the button', () => {

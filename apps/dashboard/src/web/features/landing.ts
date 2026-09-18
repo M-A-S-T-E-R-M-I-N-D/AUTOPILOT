@@ -432,7 +432,9 @@ function landingPaintJob(pid) {
   // N of M, closed on finished — the one determinate ritual.
   ritualFollowLandingJob(pid, landingJobs[pid]);
   el2.className = line.className;
-  el2.textContent = line.text;
+  el2.textContent = '';
+  if (line.icon) el2.appendChild(iconEl(line.icon));
+  el2.appendChild(document.createTextNode(line.text));
   var btn = document.querySelector('[data-land-execute="' + pid + '"]');
   if (btn) {
     btn.disabled = line.busy;
