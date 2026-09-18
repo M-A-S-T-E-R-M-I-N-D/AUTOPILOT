@@ -7,8 +7,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   LANDING_CODE_MODULES,
+  LANDING_STAMP_FILE,
+  fileHashOf,
   fileMtimeOf,
   landingCodeIsStale,
+  readLandingStamp,
+  sha256Of,
   staleCodeNote,
 } from '../../src/landing/freshness.js';
 
@@ -90,6 +94,107 @@ describe('landingCodeIsStale — the boundaries', () => {
         fs({ 'src/gate-commands.ts': null, 'dist/gate-commands.js': T0 + 5 }),
       ),
     ).toEqual([]);
+  });
+});
+
+describe('landingCodeIsStale — with the build stamp (content beats mtimes)', () => {
+  const times = {
+    'src/gate-commands.ts': T0 + 5,
+    'dist/gate-commands.js': T0 - 10,
+  };
+
+  it('a source newer than its build by mtime but IDENTICAL in content to the stamp is fresh — a checkout only bumped the mtime', () => {
+    expect(landingCodeIsStale(ROOT, T0, fs(times), { 'gate-commands': 'h1' }, () => 'h1')).toEqual(
+      [],
+    );
+  });
+
+  it('a source whose content differs from the stamp is stale even when its mtime is OLDER than the build', () => {
+    expect(
+      landingCodeIsStale(
+        ROOT,
+        T0,
+        fs({ 'src/gate-commands.ts': T0 - 20, 'dist/gate-commands.js': T0 - 10 }),
+        { 'gate-commands': 'h1' },
+        () => 'h2',
+      ),
+    ).toEqual(['gate-commands']);
+  });
+
+  it('a module the stamp does not name falls back to the mtime rule', () => {
+    expect(landingCodeIsStale(ROOT, T0, fs(times), {}, () => 'h1')).toEqual(['gate-commands']);
+    expect(landingCodeIsStale(ROOT, T0, fs(times), null, () => 'h1')).toEqual(['gate-commands']);
+  });
+
+  it('a build newer than this server is stale whatever the stamp says — a restart is due', () => {
+    expect(
+      landingCodeIsStale(
+        ROOT,
+        T0,
+        fs({ 'src/gate-commands.ts': T0 - 20, 'dist/gate-commands.js': T0 + 5 }),
+        { 'gate-commands': 'h1' },
+        () => 'h1',
+      ),
+    ).toEqual(['gate-commands']);
+  });
+
+  it('an unreadable source hash is not evidence, even with a stamp and a newer mtime', () => {
+    expect(landingCodeIsStale(ROOT, T0, fs(times), { 'gate-commands': 'h1' }, () => null)).toEqual(
+      [],
+    );
+  });
+});
+
+describe('readLandingStamp and sha256Of — the stamp on disk', () => {
+  it('reads the module → hash map the build wrote, keeping only string hashes', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-stamp-'));
+    try {
+      const file = join(dir, LANDING_STAMP_FILE);
+      mkdirSync(join(file, '..'), { recursive: true });
+      writeFileSync(file, JSON.stringify({ 'landing/execute': 'abc', junk: 7 }));
+      expect(readLandingStamp(dir)).toEqual({ 'landing/execute': 'abc' });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('is null for a missing, malformed or non-object stamp — never a throw', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-stamp-'));
+    try {
+      expect(readLandingStamp(dir)).toBeNull();
+      const file = join(dir, LANDING_STAMP_FILE);
+      mkdirSync(join(file, '..'), { recursive: true });
+      writeFileSync(file, '{not json');
+      expect(readLandingStamp(dir)).toBeNull();
+      writeFileSync(file, '["a"]');
+      expect(readLandingStamp(dir)).toBeNull();
+      writeFileSync(file, '"x"');
+      expect(readLandingStamp(dir)).toBeNull();
+      // A literal `null` parses fine and is still not a stamp — judged, not
+      // rescued by a catch around the whole body.
+      writeFileSync(file, 'null');
+      expect(readLandingStamp(dir)).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('sha256Of is the plain hex digest the stamp script writes', () => {
+    expect(sha256Of('')).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    expect(sha256Of('a')).not.toBe(sha256Of('b'));
+  });
+
+  it("fileHashOf hashes a real file's bytes, and answers null (not a throw) for a missing path", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-hash-'));
+    try {
+      const file = join(dir, 'a.ts');
+      writeFileSync(file, 'export const a = 1;\n');
+      expect(fileHashOf(file)).toBe(sha256Of('export const a = 1;\n'));
+      expect(fileHashOf(file)).toMatch(/^[0-9a-f]{64}$/);
+      expect(fileHashOf(join(dir, 'missing.ts'))).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

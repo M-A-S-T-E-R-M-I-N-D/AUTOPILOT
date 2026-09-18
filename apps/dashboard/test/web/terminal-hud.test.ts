@@ -81,7 +81,7 @@ describe('the terminal HUD (epic 0029 slice 3)', () => {
     (document.getElementById('terminal-hud-close') as HTMLButtonElement).click();
 
     expect(html().getAttribute('data-hud')).toBe('hidden');
-    expect(JSON.parse(localStorage.getItem('ap-prefs') ?? '{}').hud).toBe(true);
+    expect(JSON.parse(localStorage.getItem('ap-prefs') ?? '{}').hud).toBe('hidden');
   });
 
   it('scanlines and glow toggle like any other preference and persist', () => {
@@ -148,6 +148,77 @@ describe('the terminal HUD (epic 0029 slice 3)', () => {
     ] as const) {
       expect(STRINGS.en[key]).toBeTruthy();
       expect(STRINGS.he[key]).not.toBe(STRINGS.en[key]);
+    }
+  });
+});
+
+describe('the HUD rows live in Settings too (operator, 2026-09-18)', () => {
+  it('the Settings popover carries scanlines, glow and a HUD-bar row, all terminal-only', () => {
+    const page = renderShell();
+    const settings = page.slice(
+      page.indexOf('id="settings-menu"'),
+      page.indexOf('id="foundation"'),
+    );
+    expect(settings).toContain('data-pref="scanlines" data-pref-value="on"');
+    expect(settings).toContain('data-pref="glow" data-pref-value="on"');
+    expect(settings).toContain('data-pref="hud" data-pref-value="shown"');
+    expect(settings).toContain('data-pref="hud" data-pref-value="hidden"');
+    expect(settings).toContain('<fieldset class="pref pref-terminal"><legend data-i18n="prefHud">');
+    expect(settings).toContain(
+      '<fieldset class="pref pref-terminal"><legend data-i18n="terminalHudScanlines">',
+    );
+    expect(settings).toContain(
+      '<fieldset class="pref pref-terminal"><legend data-i18n="terminalHudGlow">',
+    );
+  });
+
+  it('Settings › HUD bar › Shown brings a dismissed bar back without a full reset', () => {
+    localStorage.clear();
+    boot();
+    btn('scanlines', 'on').click();
+    (document.getElementById('terminal-hud-close') as HTMLButtonElement).click();
+    expect(html().getAttribute('data-hud')).toBe('hidden');
+    expect(btn('hud', 'hidden').getAttribute('aria-pressed')).toBe('true');
+
+    btn('hud', 'shown').click();
+
+    expect(html().hasAttribute('data-hud')).toBe(false);
+    const saved = JSON.parse(localStorage.getItem('ap-prefs') ?? '{}');
+    expect(saved.hud).toBe('shown');
+    // Nothing else was reset on the way.
+    expect(saved.scanlines).toBe('on');
+    expect(html().getAttribute('data-scanlines')).toBe('on');
+  });
+
+  it('the bar and Settings show the same scanlines/glow state — one preference, two rows', () => {
+    localStorage.clear();
+    boot();
+    const copies = document.querySelectorAll('[data-pref="scanlines"][data-pref-value="on"]');
+    expect(copies.length).toBe(2);
+    (copies[0] as HTMLButtonElement).click();
+    for (const copy of Array.from(copies)) expect(copy.getAttribute('aria-pressed')).toBe('true');
+    const offs = document.querySelectorAll('[data-pref="scanlines"][data-pref-value="off"]');
+    for (const off of Array.from(offs)) expect(off.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('a legacy boolean dismissal still reads as hidden, and the Settings row shows it', () => {
+    localStorage.setItem('ap-prefs', JSON.stringify({ hud: true }));
+    boot();
+    expect(html().getAttribute('data-hud')).toBe('hidden');
+    expect(btn('hud', 'hidden').getAttribute('aria-pressed')).toBe('true');
+    expect(btn('hud', 'shown').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('the dismiss tip names the way back, and every new word exists in both locales', () => {
+    expect(renderShell()).toContain(`data-tip="${STRINGS.en.terminalHudDismissTip}"`);
+    for (const key of [
+      'prefHud',
+      'prefHudShown',
+      'prefHudHidden',
+      'terminalHudDismissTip',
+    ] as const) {
+      expect(STRINGS.en[key], key).toBeTruthy();
+      expect(STRINGS.he[key], key).toBeTruthy();
     }
   });
 });

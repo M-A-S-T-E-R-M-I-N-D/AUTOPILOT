@@ -1326,6 +1326,61 @@ const EN_STRINGS = {
   prefsReset: 'Reset to defaults',
   prefsHint:
     'Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.',
+  // ANOMALY POPOVERS (operator, 2026-09-18: "every run has these odd chips
+  // and I don't know what they say or what I can do with them"): what a
+  // chip means and what to do, one pair per kind in web/anomaly.ts's
+  // ANOMALY_KINDS — anomaly-popover.test.ts walks the census.
+  anomalyPopEvidence: 'Why it fired:',
+  anomalyPopAction: 'What you can do:',
+  anomalyWhatCostSpike: 'The latest firing cost several times the recent average.',
+  anomalyActionCostSpike:
+    'Open its trace: a runaway read loop or a huge diff is the usual cause. Consider a tighter budget or a smaller task.',
+  anomalyWhatDeathCluster: 'Several of the last firings died (turn cap or error) without shipping.',
+  anomalyActionDeathCluster:
+    "Read the last death's tail. Repeated deaths on one task mean it is too big or its gate is unreachable: split it or fix the gate.",
+  anomalyWhatGateFailStreak: 'Consecutive firings were reverted by the gate.',
+  anomalyActionGateFailStreak:
+    'Run the gate by hand. A gate that is red on the branch itself reverts every firing until it is fixed.',
+  anomalyWhatOrientDrag:
+    'The latest firing read and searched far longer than usual before its first edit.',
+  anomalyActionOrientDrag:
+    'Check the task text: a vague task makes the agent wander. Name the files it should start from.',
+  anomalyWhatFamilyRunaway: 'One recurring task pattern keeps burning money under many task ids.',
+  anomalyActionFamilyRunaway:
+    'Retire or rewrite that family of tasks; no single id ever crossed the per-task cap, the family did.',
+  anomalyWhatIntentCollision:
+    'A firing shipped a file that a sibling lane had claimed as its intent.',
+  anomalyActionIntentCollision:
+    "Fewer lanes, or lanes on disjoint areas. Check the sync-back for a silent overwrite of the sibling's work.",
+  anomalyWhatNearMissRecurring: 'One near-miss class stayed nonzero across consecutive flights.',
+  anomalyActionNearMissRecurring:
+    'Open the near-miss ritual. A near-miss that recurs is an incident waiting for its day.',
+  anomalyWhatGuardDenial: 'The containment or read-hygiene guard blocked a tool call.',
+  anomalyActionGuardDenial:
+    'Read the denied target. A firing that tries to leave its folder is either mis-scoped or confused; the guard held.',
+  anomalyWhatSyncBackRefusal: "A lane's sync-back into the flight branch was refused.",
+  anomalyActionSyncBackRefusal:
+    'Merge the lane branch by hand after the round: its commits are not on the flight branch yet.',
+  anomalyWhatLandGateAlarm: 'The out-of-band land gate went red while a flight was running.',
+  anomalyActionLandGateAlarm:
+    'Do not land. Run the gate on a detached checkout and fix what is red first.',
+  anomalyWhatConvergenceRed: 'A convergence gate went red after a sync-back.',
+  anomalyActionConvergenceRed:
+    'The merged state is broken even though each lane was green. Fix it on the flight branch before landing.',
+  anomalyWhatE2eLandBlock: "A landing was refused because the converged branch's e2e is red.",
+  anomalyActionE2eLandBlock:
+    'Land the remedy: the branch that touches the failing spec or its snapshots clears the block. Otherwise wait for a green run.',
+  anomalyWhatConvergenceUnverifiable:
+    'A convergence gate reported green faster than it could have run.',
+  anomalyActionConvergenceUnverifiable:
+    'Treat it as no verdict. Run the gate by hand and check that the gate command really runs tests.',
+  anomalyWhatGuardVerifyFailed:
+    'A flight refused to start because its containment guard could not be verified.',
+  anomalyActionGuardVerifyFailed:
+    'Check the hook settings file the guard is written to. The flight will not run unguarded.',
+  // THE DOCS READER (parity slice, 2026-09-18): an image is rendered as a link
+  // labelled by its alt text — this word marks it as one.
+  docsImage: 'image',
   // THE TERMINAL HUD (epic 0029 slice 3): a floating bar under the terminal theme.
   terminalHudAria: 'Terminal HUD',
   terminalHudLabel: 'Terminal HUD',
@@ -1336,7 +1391,11 @@ const EN_STRINGS = {
   terminalHudGlowOff: 'Off',
   terminalHudGlowOn: 'On',
   terminalHudDismiss: 'Dismiss the terminal HUD',
-  terminalHudDismissTip: 'Reset to defaults in Settings brings it back',
+  terminalHudDismissTip: 'Settings › HUD bar › Shown brings it back (so does Reset to defaults)',
+  // Settings carries the same terminal rows (operator, 2026-09-18).
+  prefHud: 'HUD bar',
+  prefHudShown: 'Shown',
+  prefHudHidden: 'Hidden',
   // THE ASK SHEET (epic 0026 slice 3): the floating button and its sheet.
   askFab: 'Ask',
   askFabTip: 'Ask Architect or Genius about this page — opens beside it',
@@ -2012,6 +2071,10 @@ const EN_STRINGS = {
   tourToLadder: 'Start the checklist',
   tourToLadderTip: 'Closes the tour and takes you to the first thing to do',
   obTourLink: 'What do these words mean?',
+  // MY PROGRESS (operator, 2026-09-18): the more-menu entry that reopens the ladder.
+  progressBtn: 'My progress',
+  progressBtnTip:
+    'Your getting-started ladder, badges and standing — at any time, snoozed or finished',
   obTourLinkTip: 'Opens the short tour: firing, slice, gate, flight',
   obBadgesAria: 'Badges earned',
   obWatermark: 'Built with AUTOPILOT',
@@ -2559,6 +2622,51 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prefsReset: 'איפוס לברירת המחדל',
     prefsHint:
       'נשמר בדפדפן הזה בלבד. הטקסט גדל עד 125% והריווח מתרחב בלי אובדן; תנועה מופחתת נשמרת גם כשהמערכת לא מבקשת.',
+    anomalyPopEvidence: 'למה זה נדלק:',
+    anomalyPopAction: 'מה אפשר לעשות:',
+    anomalyWhatCostSpike: 'ההפעלה האחרונה עלתה פי כמה מהממוצע האחרון.',
+    anomalyActionCostSpike:
+      'פתחו את ה-trace שלה: לולאת קריאה שברחה או diff ענק הם הסיבה הרגילה. שקלו תקציב הדוק יותר או משימה קטנה יותר.',
+    anomalyWhatDeathCluster: 'כמה מההפעלות האחרונות מתו (תקרת תורות או שגיאה) בלי לשלוח.',
+    anomalyActionDeathCluster:
+      'קראו את סוף המוות האחרון. מיתות חוזרות על משימה אחת אומרות שהיא גדולה מדי או שהשער שלה לא ניתן להשגה: פצלו אותה או תקנו את השער.',
+    anomalyWhatGateFailStreak: 'הפעלות רצופות הוחזרו לאחור על ידי השער.',
+    anomalyActionGateFailStreak:
+      'הריצו את השער ידנית. שער אדום על הענף עצמו מחזיר לאחור כל הפעלה עד שיתוקן.',
+    anomalyWhatOrientDrag: 'ההפעלה האחרונה קראה וחיפשה הרבה יותר מהרגיל לפני העריכה הראשונה שלה.',
+    anomalyActionOrientDrag:
+      'בדקו את טקסט המשימה: משימה מעורפלת גורמת לסוכן לשוטט. ציינו את הקבצים שממנו כדאי להתחיל.',
+    anomalyWhatFamilyRunaway: 'דפוס משימה חוזר ממשיך לשרוף כסף תחת מזהי משימה רבים.',
+    anomalyActionFamilyRunaway:
+      'פרשו או כתבו מחדש את משפחת המשימות הזו; אף מזהה בודד לא חצה את התקרה למשימה, המשפחה כן.',
+    anomalyWhatIntentCollision: 'הפעלה שלחה קובץ שנתיב אח תבע ככוונה שלו.',
+    anomalyActionIntentCollision:
+      'פחות נתיבים, או נתיבים על אזורים נפרדים. בדקו ב-sync-back אם עבודת האח נדרסה בשקט.',
+    anomalyWhatNearMissRecurring: 'מחלקת כמעט-תקרית אחת נשארה לא-אפס לאורך טיסות רצופות.',
+    anomalyActionNearMissRecurring:
+      'פתחו את טקס הכמעט-תקריות. כמעט-תקרית שחוזרת היא תקרית שמחכה ליומה.',
+    anomalyWhatGuardDenial: 'שומר ההכלה או היגיינת-הקריאה חסם קריאת כלי.',
+    anomalyActionGuardDenial:
+      'קראו את היעד שנחסם. הפעלה שמנסה לצאת מהתיקייה שלה היא או מוגדרת לא נכון או מבולבלת; השומר החזיק.',
+    anomalyWhatSyncBackRefusal: 'ה-sync-back של נתיב לענף הטיסה נדחה.',
+    anomalyActionSyncBackRefusal:
+      'מזגו את ענף הנתיב ידנית אחרי הסבב: הקומיטים שלו עדיין לא על ענף הטיסה.',
+    anomalyWhatLandGateAlarm: 'שער הנחיתה החיצוני נעשה אדום בזמן שטיסה רצה.',
+    anomalyActionLandGateAlarm:
+      'אל תנחיתו. הריצו את השער על checkout מנותק ותקנו קודם את מה שאדום.',
+    anomalyWhatConvergenceRed: 'שער התכנסות נעשה אדום אחרי sync-back.',
+    anomalyActionConvergenceRed:
+      'המצב הממוזג שבור למרות שכל נתיב היה ירוק. תקנו על ענף הטיסה לפני הנחיתה.',
+    anomalyWhatE2eLandBlock: 'נחיתה נדחתה כי ה-e2e של הענף המתכנס אדום.',
+    anomalyActionE2eLandBlock:
+      'הנחיתו את התיקון: ענף שנוגע במפרט הנכשל או בצילומי הבסיס שלו מנקה את החסימה. אחרת חכו לריצה ירוקה.',
+    anomalyWhatConvergenceUnverifiable: 'שער התכנסות דיווח ירוק מהר יותר ממה שיכול היה לרוץ.',
+    anomalyActionConvergenceUnverifiable:
+      'התייחסו לזה כאל היעדר פסק דין. הריצו את השער ידנית ובדקו שפקודת השער באמת מריצה בדיקות.',
+    anomalyWhatGuardVerifyFailed: 'טיסה סירבה להתחיל כי לא ניתן היה לאמת את שומר ההכלה שלה.',
+    anomalyActionGuardVerifyFailed:
+      'בדקו את קובץ הגדרות ה-hook שהשומר נכתב אליו. הטיסה לא תרוץ בלי שומר.',
+    docsImage: 'תמונה',
     terminalHudAria: 'תצוגת HUD של הטרמינל',
     terminalHudLabel: 'HUD של הטרמינל',
     terminalHudScanlines: 'קווי סריקה',
@@ -2568,7 +2676,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     terminalHudGlowOff: 'כבוי',
     terminalHudGlowOn: 'פעיל',
     terminalHudDismiss: 'סגירת ה-HUD של הטרמינל',
-    terminalHudDismissTip: 'איפוס לברירת המחדל בהגדרות יחזיר אותו',
+    terminalHudDismissTip: 'הגדרות › סרגל HUD › מוצג יחזיר אותו (וגם איפוס לברירת המחדל)',
+    prefHud: 'סרגל HUD',
+    prefHudShown: 'מוצג',
+    prefHudHidden: 'מוסתר',
     askFab: 'שאל',
     askFabTip: 'שאלו את הארכיטקט או את הג׳ניוס על העמוד הזה — נפתח לצידו',
     askSheetTitle: 'שאל',
@@ -3059,6 +3170,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     tourToLadder: 'התחילו את הצ׳ק-ליסט',
     tourToLadderTip: 'סוגר את הסיור ולוקח אתכם לדבר הראשון שצריך לעשות',
     obTourLink: 'מה המילים האלה אומרות?',
+    progressBtn: 'ההתקדמות שלי',
+    progressBtnTip: 'סולם ההתחלה, התגים והדירוג שלכם — בכל עת, גם אחרי השהיה או סיום',
     obTourLinkTip: 'פותח את הסיור הקצר: הפעלה, פרוסה, שער, טיסה',
     obBadgesAria: 'תגים שהושגו',
     obWatermark: 'נבנה עם AUTOPILOT',

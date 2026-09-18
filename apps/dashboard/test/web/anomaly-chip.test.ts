@@ -87,7 +87,9 @@ describe('anomaly chips on the fleet card', () => {
     const chips = Array.from(document.querySelectorAll('.card-head-badges .chip-anomaly'));
     expect(chips.length).toBe(2);
     for (const chip of chips) {
-      expect(chip.getAttribute('tabindex')).toBe('0');
+      // Keyboard-reachable: a <summary> (the chip is a popover's summary since
+      // 2026-09-18) is natively focusable and needs no tabindex.
+      expect(chip.tagName === 'SUMMARY' || chip.getAttribute('tabindex') === '0').toBe(true);
       expect(chip.getAttribute('data-tip')).toBeTruthy();
       expect(chip.getAttribute('aria-label')).toBeTruthy();
     }

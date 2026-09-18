@@ -64,3 +64,60 @@ export function guardDenialChipMeta(guardDenials: number): AnomalyChipMeta {
       'guard blocked ' + guardDenials + ' tool call(s) this firing (containment / read-hygiene)',
   };
 }
+
+/** Every anomaly kind `read/anomalies.ts` can emit, in the order the labels
+ *  below list them. The popover word census (anomaly-popover.test.ts) walks
+ *  this list: every kind has a "what it means" and a "what you can do". */
+export const ANOMALY_KINDS: readonly string[] = [
+  'cost-spike',
+  'death-cluster',
+  'gate-fail-streak',
+  'orient-drag',
+  'family-runaway',
+  'intent-collision',
+  'near-miss-recurring',
+  'guard-denial',
+  'sync-back-refusal',
+  'land-gate-alarm',
+  'convergence-red',
+  'e2e-land-block',
+  'convergence-unverifiable',
+  'guard-verify-failed',
+];
+
+/** The chip label per kind — the rule's name, short enough for a chip.
+ *  Shared with the client via JSON.stringify, the same way TOUR_STEPS is. */
+export const ANOMALY_LABELS: Readonly<Record<string, string>> = {
+  'cost-spike': 'cost spike',
+  'death-cluster': 'death cluster',
+  'gate-fail-streak': 'gate fail streak',
+  'orient-drag': 'orient drag',
+  'family-runaway': 'family runaway',
+  'intent-collision': 'intent collision',
+  'near-miss-recurring': 'recurring near-miss',
+  'guard-denial': 'guard denial',
+  'sync-back-refusal': 'sync-back refused',
+  'land-gate-alarm': 'land gate alarm',
+  'convergence-red': 'convergence red',
+  'e2e-land-block': 'e2e land block',
+  'convergence-unverifiable': 'convergence unverifiable',
+  'guard-verify-failed': 'guard verify failed',
+};
+
+/** `cost-spike` → `CostSpike`: the STRINGS key suffix a kind's popover words
+ *  hang off. Pure string math, spliced into the client by `.toString()`. */
+export function anomalyKeySuffix(kind: string): string {
+  return kind
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+}
+
+/** The two STRINGS keys a kind's popover reads. */
+export function anomalyMeaningKeys(kind: string): {
+  readonly what: string;
+  readonly action: string;
+} {
+  const suffix = anomalyKeySuffix(kind);
+  return { what: 'anomalyWhat' + suffix, action: 'anomalyAction' + suffix };
+}

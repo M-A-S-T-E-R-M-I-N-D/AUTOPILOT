@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Operator directive, 2026-09-16: **everything green, everything at 100%.**
 
-`config/mutation/` holds 105 per-module Stryker configs (103 when this
-document was opened; two more on 2026-09-18, see below), each with
+`config/mutation/` holds 107 per-module Stryker configs (103 when this
+document was opened; four more on 2026-09-18, see below), each with
 `thresholds: { break: 100 }`. That is a real gate: one surviving mutant
 fails the nightly workflow. This document is the standing record of what
 still survives, why, and what is being done about it.
@@ -337,13 +337,16 @@ in `scripts/mutation/configs-for-changes.mjs`, each with a test in
 The inventory above was cleared file by file. The way it stays cleared is
 that a new zero-side-effect module never enters the tree without a config,
 so the per-change gate can select it on the PR that introduces it and the
-sweep never accumulates unseen debt in it. Two such modules landed on
-2026-09-18 with the landing-ritual hardening, both at 100% on first run:
+sweep never accumulates unseen debt in it. Four such modules were wired on
+2026-09-18 with the landing-ritual hardening and the cockpit fixes (one of
+them, `markdown.ts`, existed unwired before), each at 100% on first run:
 
 | Config | Module | What a survivor would mean |
 |---|---|---|
 | `dashboard-flight-end` | `apps/dashboard/src/flight/flight-end.ts` | a 2-lane round reads `flying=0` the moment its first lane lands |
 | `dashboard-landing-freshness` | `apps/dashboard/src/landing/freshness.ts` | a stale-guard refusal with no note saying "rebuild and restart" |
+| `dashboard-pipeline-label` | `apps/dashboard/src/web/pipeline-label.ts` | a full repo path painted across two pipeline lanes again |
+| `dashboard-markdown` | `apps/dashboard/src/web/markdown.ts` | a checklist without ticks, or a `javascript:` link that became clickable |
 
 The selector reports every changed source file that has no config as
 "uncovered" on stderr — that list is the standing to-do for the next

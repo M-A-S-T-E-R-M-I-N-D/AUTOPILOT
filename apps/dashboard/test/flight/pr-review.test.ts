@@ -874,6 +874,10 @@ const BENIGN_INBOX = new Set<string>([]);
  *  future `web/` file starts building HTML from untrusted content instead
  *  of pure display math. */
 const BENIGN_WEB = new Set([
+  // Pure label-fitting text math for the pipeline canvas (2026-09-18): no
+  // HTML, no I/O — pipeline-svg.ts escapes what it emits, this only decides
+  // where a path label is cut and which part is the leaf.
+  'pipeline-label.ts',
   // Pure label/item/confirm/result text for the KEEPER Discussions triage
   // panel (epic 0007 S8): no HTML building, no I/O — the same class as
   // issue-triage-panel.ts; the execute route lives under the flagged server.
@@ -1217,6 +1221,9 @@ const BENIGN_TOKENS = new Set([
  *  `scripts/github/` (real `gh` writes under the operator's identity), and
  *  the launcher `.cmd` files (shell the operator double-clicks). */
 const BENIGN_SCRIPTS = new Set([
+  // Build stamp (2026-09-18): hashes three source files it names itself and
+  // writes one JSON file under dist/ — never the tree, the store, or GitHub.
+  'build/stamp-landing-code.mjs',
   'architecture/generate-diagram.mjs',
   // Read-only merge-integrity audit over `chore: sync` merges (git plumbing
   // reads only — rev-parse/merge-base/diff/log); writes nothing to the tree,

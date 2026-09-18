@@ -141,6 +141,9 @@ import { statusPillMeta as sharedStatusPillMeta } from './status-pill.js';
 import {
   anomalyChipMeta as sharedAnomalyChipMeta,
   guardDenialChipMeta as sharedGuardDenialChipMeta,
+  anomalyKeySuffix as sharedAnomalyKeySuffix,
+  anomalyMeaningKeys as sharedAnomalyMeaningKeys,
+  ANOMALY_LABELS as SHARED_ANOMALY_LABELS,
 } from './anomaly.js';
 import {
   coreFeatureModulesJs,
@@ -1256,22 +1259,11 @@ ${sharedAnomalyChipMeta.toString()}
 // source via .toString(), not a hand-retyped copy. It can no longer drift
 // apart.
 ${sharedGuardDenialChipMeta.toString()}
-var ANOMALY_LABELS = {
-  'cost-spike': 'cost spike',
-  'death-cluster': 'death cluster',
-  'gate-fail-streak': 'gate fail streak',
-  'orient-drag': 'orient drag',
-  'family-runaway': 'family runaway',
-  'intent-collision': 'intent collision',
-  'near-miss-recurring': 'recurring near-miss',
-  'guard-denial': 'guard denial',
-  'sync-back-refusal': 'sync-back refused',
-  'land-gate-alarm': 'land gate alarm',
-  'convergence-red': 'convergence red',
-  'e2e-land-block': 'e2e land block',
-  'convergence-unverifiable': 'convergence unverifiable',
-  'guard-verify-failed': 'guard verify failed',
-};
+// ANOMALY_LABELS and the popover key math are generated FROM web/anomaly.ts
+// (JSON.stringify / .toString()), never a hand-retyped copy.
+var ANOMALY_LABELS = ${JSON.stringify(SHARED_ANOMALY_LABELS)};
+${sharedAnomalyKeySuffix.toString()}
+${sharedAnomalyMeaningKeys.toString()}
 // Epic 0025 slice 2 (icons, shell.ts lane): one of the 8 vendored stroke
 // icons per anomaly kind — several kinds share an icon (four ⚠ variants all
 // read triangle-alert; convergence-red/guard-verify-failed both read
@@ -1296,11 +1288,49 @@ var ANOMALY_ICONS = {
   'guard-verify-failed': 'octagon-x',
 };
 /** A needs-you chip for one detected anomaly (see read/anomalies.ts) — label
- *  names the rule, the hover/focus tip carries the evidence that fired it. */
+ *  names the rule, the hover/focus tip carries the evidence that fired it,
+ *  and a PRESS opens what it means and what to do (operator, 2026-09-18:
+ *  "every run has these odd chips and I don't know what they say or what
+ *  I can do with them"). A <details> gives the toggle, the keyboard and
+ *  the expanded/collapsed semantics for free; the summary IS the chip. */
 function anomalyChip(a) {
   var meta = anomalyChipMeta(a, ANOMALY_LABELS);
-  return tipChip(meta.label, meta.tip, meta.ariaLabel, 'chip-anomaly', ANOMALY_ICONS[a.kind] || 'triangle-alert');
+  var keys = anomalyMeaningKeys(a.kind);
+  var pop = document.createElement('details');
+  pop.className = 'chip-pop';
+  var summary = document.createElement('summary');
+  summary.className = 'chip chip-anomaly';
+  summary.appendChild(iconEl(ANOMALY_ICONS[a.kind] || 'triangle-alert'));
+  summary.appendChild(document.createTextNode(meta.label));
+  summary.setAttribute('data-tip', meta.tip);
+  summary.setAttribute('aria-label', meta.ariaLabel);
+  pop.appendChild(summary);
+  var body = el('div', 'chip-pop-body');
+  body.appendChild(el('p', 'chip-pop-what', tr(keys.what)));
+  var evidence = el('p', 'chip-pop-evidence');
+  evidence.appendChild(el('span', 'chip-pop-k', tr('anomalyPopEvidence')));
+  evidence.appendChild(document.createTextNode(' ' + meta.tip));
+  body.appendChild(evidence);
+  var action = el('p', 'chip-pop-action');
+  action.appendChild(el('span', 'chip-pop-k', tr('anomalyPopAction')));
+  action.appendChild(document.createTextNode(' ' + tr(keys.action)));
+  body.appendChild(action);
+  pop.appendChild(body);
+  return pop;
 }
+// One open popover at a time, and none after a click elsewhere or Escape —
+// the same close discipline the masthead popovers have.
+document.addEventListener('click', function (e) {
+  var open = document.querySelectorAll('details.chip-pop[open]');
+  for (var i = 0; i < open.length; i++) {
+    if (!open[i].contains(e.target)) open[i].open = false;
+  }
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  var open = document.querySelectorAll('details.chip-pop[open]');
+  for (var i = 0; i < open.length; i++) open[i].open = false;
+});
 // statTileAriaLabel is generated FROM web/stat-tiles.ts below (epic 0002
 // "shell decomposition", slice 2, seventy-ninth cut) — its real compiled
 // source via .toString(), not a hand-retyped copy. It can no longer drift
@@ -4498,6 +4528,40 @@ export function settingsMenuHtml(): string {
       ],
       'pref-terminal',
     ) +
+    // THE HUD ROWS, HERE TOO (operator, 2026-09-18): the terminal HUD bar's
+    // own scanlines/glow rows and a Shown/Hidden row for the bar itself, so
+    // a dismissed bar comes back from Settings without a full reset. Same
+    // data-pref names as the bar — applyPrefs keeps both copies pressed alike.
+    prefRowHtml(
+      'scanlines',
+      'terminalHudScanlines',
+      'Scanlines',
+      [
+        ['off', 'terminalHudScanlinesOff', 'Off'],
+        ['on', 'terminalHudScanlinesOn', 'On'],
+      ],
+      'pref-terminal',
+    ) +
+    prefRowHtml(
+      'glow',
+      'terminalHudGlow',
+      'Glow',
+      [
+        ['off', 'terminalHudGlowOff', 'Off'],
+        ['on', 'terminalHudGlowOn', 'On'],
+      ],
+      'pref-terminal',
+    ) +
+    prefRowHtml(
+      'hud',
+      'prefHud',
+      'HUD bar',
+      [
+        ['shown', 'prefHudShown', 'Shown'],
+        ['hidden', 'prefHudHidden', 'Hidden'],
+      ],
+      'pref-terminal',
+    ) +
     '<fieldset class="pref"><legend data-i18n="prefHue">Hue</legend><div class="pref-hue"><input type="range" id="pref-hue" min="0" max="359" step="1" value="0" aria-label="Rotate every colour of the design, in degrees; 0 is the theme as designed" data-i18n-aria="prefHueAria" /><output id="pref-hue-out" for="pref-hue">0°</output></div></fieldset>' +
     '<div class="connect-actions"><button type="button" class="connect-test" id="prefs-reset" data-i18n="prefsReset">Reset to defaults</button></div>' +
     '<p class="connect-hint" data-i18n="prefsHint">Saved in this browser only. Text resizes to 125% and spacing widens without loss; Reduce motion holds even when the system does not ask for it.</p>' +
@@ -4524,7 +4588,7 @@ export function terminalHudHtml(): string {
       ['off', 'terminalHudGlowOff', 'Off'],
       ['on', 'terminalHudGlowOn', 'On'],
     ]) +
-    '    <button type="button" class="terminal-hud-close" id="terminal-hud-close" aria-label="Dismiss the terminal HUD" data-i18n-aria="terminalHudDismiss" data-tip="Reset to defaults in Settings brings it back" data-i18n-tip="terminalHudDismissTip"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>\n' +
+    '    <button type="button" class="terminal-hud-close" id="terminal-hud-close" aria-label="Dismiss the terminal HUD" data-i18n-aria="terminalHudDismiss" data-tip="Settings › HUD bar › Shown brings it back (so does Reset to defaults)" data-i18n-tip="terminalHudDismissTip"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>\n' +
     '  </div>'
   );
 }
@@ -4644,6 +4708,7 @@ ${settingsMenuHtml()}
         <summary id="more-summary" aria-label="More: tour, docs, report from here" data-i18n-aria="moreNav" data-tip="Tour, the docs, report from here" data-i18n-tip="moreTip">${iconSvg('ellipsis')}</summary>
         <div class="connect-body more-body">
           <button type="button" class="more-item" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip">${iconSvg('compass')}<span data-i18n="tour">Tour</span></button>
+          <button type="button" class="more-item" id="progress-btn" data-tip="Your getting-started ladder, badges and standing — at any time, snoozed or finished" data-i18n-tip="progressBtnTip">${iconSvg('trophy')}<span data-i18n="progressBtn">My progress</span></button>
           <a class="more-item" id="docs-link" href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/main/docs/README.md" target="_blank" rel="noopener" data-tip="The documentation index on GitHub (opens a new tab)" data-i18n-tip="docsLinkTip">${iconSvg('book-open')}<span data-i18n="docsLink">Docs</span></a>
           <button type="button" class="more-item" id="report-btn" data-tip="Capture this page for an issue, a quick fix or a note — a preview first, always" data-i18n-tip="reportBtnTip">${iconSvg('flag')}<span data-i18n="reportBtn">Report from here</span></button>
         </div>
@@ -4669,6 +4734,7 @@ ${contextRailHtml(project)}
       <div class="ob-progress-fill" id="ob-progress-fill"></div>
     </div>
     <p class="ob-progress-label muted" id="ob-progress-label" role="status" aria-live="polite"></p>
+    <p class="ob-complete" id="ob-complete" data-i18n="obComplete" hidden>Both ticks earned. Thank you — contributors are why this gets better.</p>
     <ol class="ob-steps" id="ob-steps"></ol>
   </section>
   <section class="flightbar" id="flightbar" aria-label="Fly a folder" data-i18n-aria="flyFolder" data-subject="${project !== undefined ? 'fleet' : 'fly'}" hidden>

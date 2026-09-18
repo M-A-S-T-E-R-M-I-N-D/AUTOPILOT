@@ -218,7 +218,10 @@ function loadDoc(pid, path, viewer) {
         viewer.appendChild(freshness);
       }
       var body = el('div', 'docs-viewer-body');
-      if (/\\.md$/i.test(data.path)) renderMarkdown(body, data.content);
+      // The viewer hands the renderer its project and this document's path,
+      // so a relative link opens the linked document HERE and an in-document
+      // link scrolls within this body (the parity slice, 2026-09-18).
+      if (/\\.md$/i.test(data.path)) renderMarkdown(body, data.content, { pid: pid, basePath: data.path });
       else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
       viewer.appendChild(body);
       viewer.dataset.loadedPath = path;
@@ -232,6 +235,9 @@ function loadDoc(pid, path, viewer) {
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-doc-open]');
   if (!b) return;
+  // A rendered relative link is an <a href="#"> — its default would jump the
+  // page to the top and change the hash the subject router watches.
+  if (b.tagName === 'A') e.preventDefault();
   var pid = b.getAttribute('data-doc-pid');
   var path = b.getAttribute('data-doc-open');
   openDoc[pid] = path;
@@ -250,6 +256,19 @@ document.addEventListener('click', function (e) {
   }
   var viewer = document.querySelector('[data-docs-viewer="' + pid + '"]');
   if (viewer) loadDoc(pid, path, viewer);
+});
+// In-document links ("[see below](#heading)") scroll within the body they
+// sit in: heading ids are prefixed doc- (renderMarkdown), so they can
+// never collide with the page's own anchors, and the lookup stays inside
+// THIS viewer — two projects' readers may show the same document.
+document.addEventListener('click', function (e) {
+  var a = e.target && e.target.closest && e.target.closest('[data-doc-anchor]');
+  if (!a) return;
+  e.preventDefault();
+  var body = a.closest('.docs-viewer-body');
+  if (!body) return;
+  var target = body.querySelector('[id="doc-' + a.getAttribute('data-doc-anchor') + '"]');
+  if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' });
 });
 `.trim();
 }

@@ -535,6 +535,20 @@ main > * { min-width: 0; }
 .chip { font-size: var(--text-xs); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-2); text-decoration: none; display: inline-block; }
 .chip-proposed { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-anomaly { color: var(--color-needs-you); border-color: var(--color-needs-you); }
+/* THE CHIP POPOVER (operator, 2026-09-18): an anomaly chip is the summary of
+   a <details>; its body floats under the chip with what it means, why it
+   fired and what to do. Above the card it sits in, below every masthead
+   popover (z 30 < .connect-body's). */
+.chip-pop { display: inline-block; position: relative; }
+.chip-pop > summary { list-style: none; cursor: pointer; }
+.chip-pop > summary::-webkit-details-marker { display: none; }
+.chip-pop > summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.chip-pop[open] > summary { background: var(--color-surface-sunken); }
+.chip-pop-body { position: absolute; inset-block-start: calc(100% + 4px); inset-inline-start: 0; z-index: 30; min-inline-size: 18rem; max-inline-size: min(26rem, 80vw); padding: var(--space-3); background: var(--color-surface-raised); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--shape-small); box-shadow: var(--elevation-level-2); font-size: var(--text-sm); line-height: 1.5; text-align: start; white-space: normal; }
+.chip-pop-what { margin: 0 0 var(--space-2); font-weight: 600; }
+.chip-pop-evidence { margin: 0 0 var(--space-2); color: var(--color-text-muted); }
+.chip-pop-action { margin: 0; }
+.chip-pop-k { font-weight: 600; }
 .chip-runaway { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-inbox { color: var(--color-accent); border-color: var(--color-accent); }
 .chip-backlog { color: var(--color-needs-you); border-color: var(--color-needs-you); }
@@ -647,6 +661,23 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-viewer-body pre { background: var(--color-surface-raised); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); overflow-x: auto; }
 .docs-viewer-body svg { max-width: 100%; height: auto; display: block; margin: var(--space-2) 0; }
 .docs-viewer-body svg [data-tip] { cursor: default; }
+/* THE PARITY SLICE (operator, 2026-09-18: "like MDVIEWER — tables, charts,
+   diagrams, styling, checkboxes"): quotes, rules, task lists, nested lists,
+   strikethrough, a language label on every fence, diagram source blocks,
+   and the two link kinds the reader resolves itself. */
+.docs-viewer-body blockquote { margin: var(--space-3) 0; padding: var(--space-1) var(--space-3); border-inline-start: 3px solid var(--color-border-strong, var(--color-border)); color: var(--color-text-muted); }
+.docs-viewer-body blockquote > :first-child { margin-top: 0; }
+.docs-viewer-body blockquote > :last-child { margin-bottom: 0; }
+.docs-viewer-body hr { border: 0; border-top: 1px solid var(--color-border); margin: var(--space-4) 0; }
+.docs-viewer-body li.task { list-style: none; margin-inline-start: calc(var(--space-4) * -1); }
+.docs-viewer-body li.task > input { margin: 0 var(--space-1) 0 0; vertical-align: -2px; accent-color: var(--color-accent); }
+.docs-viewer-body ul ul, .docs-viewer-body ul ol, .docs-viewer-body ol ul, .docs-viewer-body ol ol { margin: var(--space-1) 0; }
+.docs-viewer-body s { color: var(--color-text-muted); }
+.docs-viewer-body pre { position: relative; }
+.docs-viewer-body pre[data-lang]::before { content: attr(data-lang); position: absolute; inset-block-start: 4px; inset-inline-end: var(--space-2); font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.docs-viewer-body pre.docs-diagram { border-inline-start: 3px solid var(--color-accent); }
+.docs-viewer-body a.docs-link, .docs-viewer-body a.docs-anchor { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.docs-viewer-body h1[id], .docs-viewer-body h2[id], .docs-viewer-body h3[id], .docs-viewer-body h4[id], .docs-viewer-body h5[id], .docs-viewer-body h6[id] { scroll-margin-top: var(--space-3); }
 .console-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); }
 .console-details { padding: var(--space-3) var(--space-4); }
 .console-title { margin: 0; font-size: var(--text-base); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
@@ -809,6 +840,10 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-node[data-connected='true'] rect { fill: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)); }
 .pipeline-node[data-selected='true'] rect { stroke: var(--color-accent); stroke-width: 2.5px; }
 .pipeline-node text { fill: var(--color-text); font-size: var(--text-xs); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+/* A path label is a muted head and an emphasised leaf (pipeline-label.ts):
+   the file name is what a reader scans for, the directories are context. */
+.pipeline-node text .pipeline-label-head { fill: var(--color-text-muted); }
+.pipeline-node text .pipeline-label-leaf { font-weight: 600; }
 .pipeline-edge { fill: none; stroke: var(--color-border); stroke-width: 1.5px; }
 .pipeline-edge[data-connected='true'] { stroke: var(--color-accent); stroke-width: 2px; }
 .release-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
@@ -1750,8 +1785,11 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 .tour-dialog.is-anchored { position: fixed; margin: 0; }
 /* The spotlight. A positioned ring — never a filter or clip-path on the page
    itself, so nothing under it reflows and a control cannot shift out from
-   under the pointer mid-tour. It sits ABOVE the backdrop so the thing being
-   explained is the one bright object on screen. */
+   under the pointer mid-tour. It lives INSIDE .tour-overlay (a stacking
+   context of its own), between the backdrop and the card: as a body
+   sibling its 9999px shadow painted over the whole overlay, card included,
+   whatever z-index the card carried (operator, 2026-09-18). Pinned by
+   tour-stacking.test.ts. */
 .tour-ring {
   position: fixed; inset-block-start: 0; inset-inline-start: 0; z-index: 51; pointer-events: none;
   border-radius: var(--shape-small); outline: 2px solid var(--color-accent); outline-offset: 3px;
@@ -1760,7 +1798,7 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 }
 .tour-ring[hidden] { display: none; }
 /* With the ring drawing its own backdrop, the overlay must not double it. */
-.tour-overlay:has(~ .tour-ring:not([hidden])) { background: transparent; }
+.tour-overlay:has(> .tour-ring:not([hidden])) { background: transparent; }
 .tour-dialog { z-index: 52; }
 .tour-step-count {
   margin-inline-start: var(--space-2); font-size: 0.6875rem; font-weight: 700;
@@ -2113,8 +2151,14 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
    steps. Deliberately NOT a card grid — one accent rail down the left, the
    current step lifted off the surface, everything already done receding.
    Hierarchy by weight and elevation, not by uniform boxes. */
+/* Padding steps up with the panel (operator, 2026-09-18: "squeezed against the
+   panel edges"): --space-4 on a phone, --space-5 from tablet up, and the
+   ladder itself keeps an inner gutter on both sides. */
 .onboarding { margin: 0 0 var(--space-4); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--shape-medium); background: var(--color-surface); box-shadow: var(--elevation-1, 0 1px 2px rgb(0 0 0 / 0.06)); }
+@media (min-width: 48rem) { .onboarding { padding: var(--space-5) var(--space-6); } }
 .onboarding[hidden] { display: none; }
+.ob-complete { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)); font-size: var(--text-sm); }
+.ob-complete[hidden] { display: none; }
 .ob-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); }
 .ob-title { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-lg); letter-spacing: 0.01em; }
 .ob-title .icon { color: var(--color-accent); flex: none; }
@@ -2138,13 +2182,13 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 
 /* Steps. The rail is the spine: done steps sit quietly against it, the
    current one steps forward off it. */
-.ob-steps { margin: var(--space-4) 0 0; padding: 0 0 0 var(--space-4); list-style: none; border-inline-start: 2px solid var(--color-border); }
+.ob-steps { margin: var(--space-4) var(--space-2) 0; padding: 0 0 0 var(--space-4); list-style: none; border-inline-start: 2px solid var(--color-border); }
 [dir="rtl"] .ob-steps { padding: 0 var(--space-4) 0 0; }
 .ob-level { margin-block: var(--space-3) var(--space-2); margin-inline-start: calc(var(--space-4) * -1 - 2px); padding-inline-start: calc(var(--space-4) - 2px); }
 .ob-level:first-child { margin-block-start: 0; }
 .ob-level-title { margin: 0; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); }
 .ob-level-note { margin: 2px 0 0; font-size: var(--text-sm); }
-.ob-step { position: relative; display: flex; gap: var(--space-3); margin-block: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); transition: background var(--duration-fast, 150ms) ease, transform var(--duration-fast, 150ms) ease; }
+.ob-step { position: relative; display: flex; gap: var(--space-3); margin-block: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--shape-small); transition: background var(--duration-fast, 150ms) ease, transform var(--duration-fast, 150ms) ease; }
 .ob-step-mark { flex: none; display: grid; place-items: center; inline-size: 2rem; block-size: 2rem; border-radius: var(--radius-full); border: 1px solid var(--color-border); color: var(--color-text-muted); background: var(--color-surface); }
 .ob-step-body { min-inline-size: 0; }
 .ob-step-title { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); font-weight: 600; }

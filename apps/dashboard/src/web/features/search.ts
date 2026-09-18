@@ -40,6 +40,17 @@ import {
   isSvgStart,
   isTableStart,
   isBlockStart,
+  blockquoteText,
+  isHr,
+  headingOf,
+  headingSlug,
+  fenceLang,
+  tableAlignments,
+  listItemOf,
+  taskOf,
+  inlineTokens,
+  resolveDocLink,
+  classifyHref,
 } from '../markdown.js';
 import { splitSseFrames, applyAskStreamFrame } from '../ask-stream.js';
 
@@ -117,33 +128,60 @@ function rememberSearchQuery(q) {
 // only so a doc can never smuggle a javascript:/data: href (web-msnsgcyq-
 // 36jf4u, PAPER's evidence-log entries gained a clickable "view previous
 // version" link that needs somewhere safe to render).
-function appendInline(parent, text) {
-  var re = /\`([^\`]+)\`|\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)|\\*\\*([^*]+)\\*\\*|__([^_]+)__|\\*([^*]+)\\*|_([^_]+)_/g;
-  var last = 0;
-  var m;
-  while ((m = re.exec(text))) {
-    if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
-    if (m[1] != null) parent.appendChild(el('code', null, m[1]));
-    else if (m[2] != null) {
-      var link = document.createElement('a');
-      link.href = m[3];
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.textContent = m[2];
-      parent.appendChild(link);
-    }
-    else if (m[4] != null) parent.appendChild(el('strong', null, m[4]));
-    else if (m[5] != null) parent.appendChild(el('strong', null, m[5]));
-    else if (m[6] != null) parent.appendChild(el('em', null, m[6]));
-    else parent.appendChild(el('em', null, m[7]));
-    last = re.lastIndex;
+function appendInline(parent, text, opts) {
+  var tokens = inlineTokens(text);
+  for (var t = 0; t < tokens.length; t++) {
+    var tok = tokens[t];
+    if (tok.type === 'text') parent.appendChild(document.createTextNode(tok.text));
+    else if (tok.type === 'code') parent.appendChild(el('code', null, tok.text));
+    else if (tok.type === 'strong') parent.appendChild(el('strong', null, tok.text));
+    else if (tok.type === 'em') parent.appendChild(el('em', null, tok.text));
+    else if (tok.type === 'strike') parent.appendChild(el('s', null, tok.text));
+    else parent.appendChild(inlineLink(tok, opts));
   }
-  if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
 }
-// splitTableRow/isFence/isHeading/isListItem/isSvgStart/isTableStart/
-// isBlockStart are generated FROM web/markdown.ts below (epic 0002 "shell
-// decomposition", slice 2) — their real compiled source via .toString(),
-// not a hand-retyped copy. They can no longer drift apart.
+// A link's destination decides what it becomes (classifyHref, web/markdown.ts):
+// http(s) opens a new tab; #anchor scrolls within THIS document; a relative
+// path opens that document in the same viewer (only where a viewer handed in
+// its project and path); anything else - javascript:, data:, a path that
+// climbs out of the repository - stays plain words. An image is a link
+// labelled by its alt text: the reader never fetches a remote image on the
+// page's behalf.
+function inlineLink(tok, opts) {
+  var base = opts && opts.basePath ? opts.basePath : '';
+  var where = classifyHref(tok.href, base);
+  var label = tok.type === 'image' ? (tok.text || tok.href) + ' (' + tr('docsImage') + ')' : tok.text;
+  if (where.kind === 'external') {
+    var ext = document.createElement('a');
+    ext.href = where.target;
+    ext.target = '_blank';
+    ext.rel = 'noopener noreferrer';
+    ext.textContent = label;
+    return ext;
+  }
+  if (where.kind === 'anchor') {
+    var anchor = document.createElement('a');
+    anchor.href = '#';
+    anchor.className = 'docs-anchor';
+    anchor.setAttribute('data-doc-anchor', where.target);
+    anchor.textContent = label;
+    return anchor;
+  }
+  if (where.kind === 'doc' && opts && opts.pid) {
+    var doc = document.createElement('a');
+    doc.href = '#';
+    doc.className = 'docs-link';
+    doc.setAttribute('data-doc-open', where.target);
+    doc.setAttribute('data-doc-pid', opts.pid);
+    doc.textContent = label;
+    return doc;
+  }
+  // Not a destination the reader will follow: the source stays visible as
+  // the author wrote it, so a javascript:/data: target or a climb out of
+  // the repository is never hidden behind a friendly label.
+  var open = tok.type === 'image' ? '![' : '[';
+  return document.createTextNode(open + tok.text + '](' + tok.href + ')');
+}
 ${splitTableRow.toString()}
 ${isFence.toString()}
 ${isHeading.toString()}
@@ -151,6 +189,19 @@ ${isListItem.toString()}
 ${isSvgStart.toString()}
 ${isTableStart.toString()}
 ${isBlockStart.toString()}
+// THE DOCS READER'S PARITY SLICE (2026-09-18) — every helper below is
+// generated FROM web/markdown.ts via .toString(), never hand-retyped.
+${blockquoteText.toString()}
+${isHr.toString()}
+${headingOf.toString()}
+${headingSlug.toString()}
+${fenceLang.toString()}
+${tableAlignments.toString()}
+${listItemOf.toString()}
+${taskOf.toString()}
+${inlineTokens.toString()}
+${resolveDocLink.toString()}
+${classifyHref.toString()}
 // The self-study PAPER's DATA:CHART blocks embed a raw <svg> per chart
 // (scripts/self-study/generate-data.mjs) so the doc reads as a real chart on
 // GitHub too — but this dashboard's Docs viewer parses Markdown into DOM
@@ -234,19 +285,26 @@ function renderChartSvg(raw) {
   return chart;
 }
 wireRoving('.docs-chart [data-tip]', '.docs-chart');
-function renderMarkdown(container, text) {
+function renderMarkdown(container, text, opts) {
   var lines = text.split('\\n');
   var i = 0;
   while (i < lines.length) {
     var line = lines[i];
     if (!line.trim()) { i++; continue; }
     if (isFence(line)) {
+      var lang = fenceLang(line);
       i++;
       var codeLines = [];
       while (i < lines.length && !isFence(lines[i])) { codeLines.push(lines[i]); i++; }
       i++; // skip the closing fence (if any)
       var pre = document.createElement('pre');
-      pre.appendChild(el('code', null, codeLines.join('\\n')));
+      // The info string rides on the block (a CSS label, a hook for a future
+      // highlighter). A mermaid fence is a DIAGRAM SOURCE block: readable as
+      // text, never executed - no diagram library ships (CSP script-src 'self',
+      // and the bundle budget), so the source is the honest rendering.
+      if (lang) pre.setAttribute('data-lang', lang);
+      if (lang === 'mermaid') pre.className = 'docs-diagram';
+      pre.appendChild(el('code', lang ? 'language-' + lang : null, codeLines.join('\\n')));
       container.appendChild(pre);
       continue;
     }
@@ -261,23 +319,44 @@ function renderMarkdown(container, text) {
       if (chart) container.appendChild(chart);
       continue;
     }
-    var heading = line.match(/^(#{1,6})\\s+(.*)$/);
+    if (isHr(line)) {
+      container.appendChild(document.createElement('hr'));
+      i++;
+      continue;
+    }
+    if (blockquoteText(line) !== null) {
+      var quoted = [];
+      while (i < lines.length && blockquoteText(lines[i]) !== null) {
+        quoted.push(blockquoteText(lines[i]));
+        i++;
+      }
+      var quote = document.createElement('blockquote');
+      renderMarkdown(quote, quoted.join('\\n'), opts);
+      container.appendChild(quote);
+      continue;
+    }
+    var heading = headingOf(line);
     if (heading) {
-      var h = document.createElement('h' + heading[1].length);
-      appendInline(h, heading[2]);
+      var h = document.createElement('h' + heading.level);
+      // Prefixed so a doc's "Fleet" heading can never shadow the page's own
+      // #fleet; in-document links resolve inside the viewer (docs-viewer.ts).
+      h.id = 'doc-' + headingSlug(heading.text);
+      appendInline(h, heading.text, opts);
       container.appendChild(h);
       i++;
       continue;
     }
     if (isTableStart(lines, i)) {
       var headCells = splitTableRow(line);
+      var aligns = tableAlignments(lines[i + 1]);
       i += 2; // header row + separator row
       var table = document.createElement('table');
       var thead = document.createElement('thead');
       var htr = document.createElement('tr');
       for (var c = 0; c < headCells.length; c++) {
         var th = document.createElement('th');
-        appendInline(th, headCells[c]);
+        if (aligns[c]) th.style.textAlign = aligns[c];
+        appendInline(th, headCells[c], opts);
         htr.appendChild(th);
       }
       thead.appendChild(htr);
@@ -285,13 +364,14 @@ function renderMarkdown(container, text) {
       var tbody = document.createElement('tbody');
       while (i < lines.length && lines[i].indexOf('|') !== -1 && lines[i].trim()) {
         var cells = splitTableRow(lines[i]);
-        var tr = document.createElement('tr');
+        var row = document.createElement('tr');
         for (var c2 = 0; c2 < cells.length; c2++) {
           var td = document.createElement('td');
-          appendInline(td, cells[c2]);
-          tr.appendChild(td);
+          if (aligns[c2]) td.style.textAlign = aligns[c2];
+          appendInline(td, cells[c2], opts);
+          row.appendChild(td);
         }
-        tbody.appendChild(tr);
+        tbody.appendChild(row);
         i++;
       }
       table.appendChild(tbody);
@@ -299,22 +379,46 @@ function renderMarkdown(container, text) {
       continue;
     }
     if (isListItem(line)) {
-      var ordered = /^\\s*\\d+\\./.test(line);
-      var listEl = document.createElement(ordered ? 'ol' : 'ul');
+      // Nested by indentation: a deeper item opens a list inside the item
+      // above it, a shallower one closes back to its level. A task item
+      // carries a real (disabled) checkbox, so a checklist reads as one.
+      var stack = [];
       while (i < lines.length && isListItem(lines[i])) {
-        var itemText = lines[i].replace(/^\\s*([-*]|\\d+\\.)\\s+/, '');
+        var item = listItemOf(lines[i]);
+        while (stack.length && item.indent < stack[stack.length - 1].indent) stack.pop();
+        if (!stack.length || item.indent > stack[stack.length - 1].indent) {
+          var listEl = document.createElement(item.ordered ? 'ol' : 'ul');
+          if (stack.length) {
+            var parentList = stack[stack.length - 1].el;
+            (parentList.lastElementChild || parentList).appendChild(listEl);
+          } else {
+            container.appendChild(listEl);
+          }
+          stack.push({ el: listEl, indent: item.indent });
+        }
         var li = document.createElement('li');
-        appendInline(li, itemText);
-        listEl.appendChild(li);
+        var task = taskOf(item.text);
+        if (task) {
+          li.className = 'task';
+          var box = document.createElement('input');
+          box.type = 'checkbox';
+          box.disabled = true;
+          box.checked = task.checked;
+          li.appendChild(box);
+          li.appendChild(document.createTextNode(' '));
+          appendInline(li, task.text, opts);
+        } else {
+          appendInline(li, item.text, opts);
+        }
+        stack[stack.length - 1].el.appendChild(li);
         i++;
       }
-      container.appendChild(listEl);
       continue;
     }
     var paraLines = [];
     while (i < lines.length && !isBlockStart(lines, i)) { paraLines.push(lines[i]); i++; }
     var p = document.createElement('p');
-    appendInline(p, paraLines.join('\\n'));
+    appendInline(p, paraLines.join('\\n'), opts);
     container.appendChild(p);
   }
 }

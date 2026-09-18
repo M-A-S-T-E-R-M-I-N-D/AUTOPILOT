@@ -271,7 +271,18 @@ import {
 // Then core raw 243→246KB (2026-09-15) for THE GUIDED WALK: nine stops of
 // prose replace four, and locale.ts splices the whole English table into
 // CORE — measured 244.4KB.
-const CORE_RAW_BUDGET = 246 * 1024;
+// Then core raw 246→251KB / gzip 74→76KB and panels raw 195→198KB / gzip
+// 58→60KB (2026-09-18) for five operator-reported cockpit fixes landing
+// together: the tour's ring-inside-overlay + reflow, the anomaly chip
+// popovers (what it means / what to do, 28 strings in two locales), the
+// terminal HUD rows in Settings, the ladder's MY PROGRESS entry, and the
+// pipeline label fitter. Measured 250.3KB raw / 75.1KB gzip core and
+// 197.7KB raw / 59.3KB gzip panels after `pnpm run build`.
+// Then core raw 251→255KB / gzip 76→77KB (2026-09-18, same day) for the docs
+// reader's parity slice: eleven spliced markdown helpers (quotes, rules,
+// anchors, aligned tables, nested and task lists, strikethrough, self-
+// resolved links). Measured 253.8KB raw / 76.3KB gzip.
+const CORE_RAW_BUDGET = 255 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -282,7 +293,7 @@ const CORE_RAW_BUDGET = 246 * 1024;
 // growth as the raw note above — measured 72.6KB.
 // Then core gzip 73→74KB (2026-09-15), the same guided-walk prose growth as
 // the raw note above — measured 73.3KB.
-const CORE_GZIP_BUDGET = 74 * 1024;
+const CORE_GZIP_BUDGET = 77 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -392,7 +403,7 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // against the old 191488B budget: 2758 bytes over. Gzip (58162B) stays under
 // CHUNK_GZIP_BUDGET untouched, so only the raw line moves; this bump leaves
 // ~5.3KB raw headroom, matching the size of recent panel-sized bumps here.
-const CHUNK_RAW_BUDGET = 195 * 1024;
+const CHUNK_RAW_BUDGET = 198 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -437,7 +448,7 @@ const CHUNK_RAW_BUDGET = 195 * 1024;
 // report-panel.ts's source). Measured 57.4KB (58796B) against the old
 // 58368B budget: 428 bytes over: raw (196260B) stays well under
 // CHUNK_RAW_BUDGET (199680B), so only the gzip line moves.
-const CHUNK_GZIP_BUDGET = 58 * 1024;
+const CHUNK_GZIP_BUDGET = 60 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([
