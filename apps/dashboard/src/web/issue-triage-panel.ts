@@ -50,14 +50,31 @@ export interface IssueTriagePlanLike {
  *  `planIssueTriage` emits (`dossier`: a `partner-application` issue,
  *  board web-mtq07kgf-2h6trk); anything else (should never happen) echoes
  *  back verbatim rather than throwing, so an unrecognized future decision
- *  kind degrades to a plain label instead of breaking the panel. */
+ *  kind degrades to a plain label instead of breaking the panel.
+ *  `accept`/`duplicate`/`skip` keep their ✓/⧉/⏭ mark — plain glyphs, not
+ *  emoji, the same "not the icon system's target" call `report-menu.ts`'s
+ *  ✓/✗ result line and `pr-review-panel.ts`'s ✓/✗ decision marks already
+ *  made. `dossier`/`needs-format` drop their baked-in 📋/📝 glyph (epic 0025):
+ *  {@link issueTriageDecisionIcon} names the stroke icon that replaces it,
+ *  appended by the DOM-building call site rather than this pure string. */
 export function issueTriageDecisionLabel(decision: string): string {
   if (decision === 'accept') return '✓ accept';
   if (decision === 'duplicate') return '⧉ duplicate';
   if (decision === 'skip') return '⏭ skip';
-  if (decision === 'dossier') return '📋 dossier → maintainer';
-  if (decision === 'needs-format') return '📝 needs the template';
+  if (decision === 'dossier') return 'dossier → maintainer';
+  if (decision === 'needs-format') return 'needs the template';
   return decision;
+}
+
+/** The leading stroke icon for a KEEPER triage decision badge (epic 0025,
+ *  continuing the `tipChip(..., iconName)` wiring `firing-timeline.ts`'s
+ *  auto-fixed/guard-denial chips already use) — `''` for `accept`/`duplicate`/
+ *  `skip`/any unrecognized decision, whose badge stays text-only exactly as
+ *  {@link issueTriageDecisionLabel} already renders it. */
+export function issueTriageDecisionIcon(decision: string): string {
+  if (decision === 'dossier') return 'clipboard-list';
+  if (decision === 'needs-format') return 'pen-line';
+  return '';
 }
 
 /** The KEEPER ISSUE TRIAGE EXECUTE button's `window.confirm()` message —

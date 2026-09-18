@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   issueTriageDecisionLabel,
+  issueTriageDecisionIcon,
   issueTriageConfirmMessage,
   issueTriageExecuteResult,
   issueTriageGuestNote,
@@ -31,12 +32,36 @@ describe('issueTriageDecisionLabel', () => {
     expect(issueTriageDecisionLabel('skip')).toBe('⏭ skip');
   });
 
-  it('labels a dossier decision', () => {
-    expect(issueTriageDecisionLabel('dossier')).toBe('📋 dossier → maintainer');
+  it('labels a dossier decision without a baked-in emoji (epic 0025: the icon system carries it instead)', () => {
+    expect(issueTriageDecisionLabel('dossier')).toBe('dossier → maintainer');
+  });
+
+  it('labels a needs-format decision without a baked-in emoji (epic 0025: the icon system carries it instead)', () => {
+    expect(issueTriageDecisionLabel('needs-format')).toBe('needs the template');
   });
 
   it('echoes back an unrecognized decision verbatim rather than throwing', () => {
     expect(issueTriageDecisionLabel('mystery')).toBe('mystery');
+  });
+});
+
+describe('issueTriageDecisionIcon', () => {
+  it('names the clipboard-list icon for a dossier decision', () => {
+    expect(issueTriageDecisionIcon('dossier')).toBe('clipboard-list');
+  });
+
+  it('names the pen-line icon for a needs-format decision', () => {
+    expect(issueTriageDecisionIcon('needs-format')).toBe('pen-line');
+  });
+
+  it('names no icon for accept/duplicate/skip — their badge stays text-only', () => {
+    expect(issueTriageDecisionIcon('accept')).toBe('');
+    expect(issueTriageDecisionIcon('duplicate')).toBe('');
+    expect(issueTriageDecisionIcon('skip')).toBe('');
+  });
+
+  it('names no icon for an unrecognized decision', () => {
+    expect(issueTriageDecisionIcon('mystery')).toBe('');
   });
 });
 
