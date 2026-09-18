@@ -289,7 +289,7 @@ function openReportMenu(x, y) {
   }, 'target');
   reportMenuAddItem(tr('reportCopyStylesLabel'), tr('reportCopyStylesTip'), function (it) {
     reportMenuCopy(reportMenuStylesOf(target, reportMenuSelectorOf(target) || 'element'), it);
-  });
+  }, 'palette');
   reportMenuAddItem(tr('reportCopyContextLabel'), tr('reportCopyContextTip'), function (it) {
     reportMenuCopy(reportMenuContextOf(target, window.__autopilotReportCapture), it);
   });
