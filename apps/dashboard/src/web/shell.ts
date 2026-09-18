@@ -4601,6 +4601,8 @@ ${versionMenuHtml()}
               <label for="gh-issue-title" class="visually-hidden" data-i18n="titleLabel">Title</label>
               <input type="text" id="gh-issue-title" name="title" placeholder="Title" data-i18n-placeholder="titlePlaceholder" autocomplete="off" required />
               <textarea id="gh-issue-body" name="body" placeholder="Details (optional)" data-i18n-placeholder="detailsOptionalPlaceholder" rows="3"></textarea>
+              <label for="gh-issue-action" data-i18n="reportActionPrompt">One click files a…</label>
+              <select id="gh-issue-action" name="action"></select>
               <button type="submit" data-i18n="openGithubIssue">Open GitHub issue</button>
               <p class="gh-issue-result" id="gh-issue-result" role="status" aria-live="polite"></p>
             </form>

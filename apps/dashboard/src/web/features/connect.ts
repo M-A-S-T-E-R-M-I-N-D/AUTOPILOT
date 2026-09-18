@@ -59,6 +59,7 @@ function connectInit() {
   var ghLtsEl = document.getElementById('gh-lts');
   var ghLtsCheckBtn = document.getElementById('gh-lts-check');
   var ghIssueForm = document.getElementById('gh-issue-form');
+  var ghIssueAction = document.getElementById('gh-issue-action');
   var ghIssueTitle = document.getElementById('gh-issue-title');
   var ghIssueBody = document.getElementById('gh-issue-body');
   var ghIssueResult = document.getElementById('gh-issue-result');
@@ -116,6 +117,100 @@ function connectInit() {
   ${githubIssueConfirmMessage.toString()}
   ${githubIssueExecuteResult.toString()}
   ${reportComposeStatusMeta.toString()}
+  // CONNECT/report-menu composer parity (board web-mtq70akb-rhsy6s): the
+  // right-click "Report from here" dialog offers all four REPORT_ACTIONS
+  // (flight/report-from-here.ts); this popover's form used to hardwire
+  // 'issue'. This select gives it the same four targets, built with JS (not
+  // static HTML) so 'quick-fix-pr'/'local-task' can be disabled here exactly
+  // the way report-menu.ts's own dialog disables them — a page with no
+  // project (document.body.dataset.project blank on the fleet index page)
+  // cannot carry a task-shaped action. reportActionLabel/reportConfirmMessage/
+  // reportExecuteResult below are called as BARE hoisted identifiers, not
+  // re-spliced — 'report-menu' (web/features/report-menu.ts) already splices
+  // report-panel.ts's real source into the same /panels.js concatenation
+  // (chunks.ts's DEFERRED_OPERATOR_FEATURES), and a second copy here would be
+  // bundle bytes on a budgeted chunk for no behavior, the same cross-module
+  // hoisting pr-review.ts's decisionItemHeadMeta split already relies on.
+  // Function declarations hoist for the WHOLE concatenated script, so this
+  // holds regardless of module order or whether the call is immediate
+  // (connectInit() populating the select below) or later (an event handler).
+  var GH_ISSUE_ACTION_VALUES = ['issue', 'quick-fix-pr', 'local-task', 'pool-offer'];
+  var GH_ISSUE_PROJECTLESS_ACTIONS = ['quick-fix-pr', 'local-task'];
+  function updateGhIssueSubmitLabel() {
+    if (!ghIssueBtn) return;
+    var action = ghIssueAction ? ghIssueAction.value : 'issue';
+    ghIssueBtn.textContent = action === 'issue' ? tr('openGithubIssue') : tr('reportExecute');
+  }
+  if (ghIssueAction) {
+    var ghIssueProjectId = document.body.dataset.project || '';
+    for (var apI = 0; apI < GH_ISSUE_ACTION_VALUES.length; apI++) {
+      var apAction = GH_ISSUE_ACTION_VALUES[apI];
+      var apOpt = document.createElement('option');
+      apOpt.value = apAction;
+      apOpt.textContent = reportActionLabel(apAction);
+      if (!ghIssueProjectId && GH_ISSUE_PROJECTLESS_ACTIONS.indexOf(apAction) !== -1) {
+        apOpt.disabled = true;
+        apOpt.textContent += ' — ' + tr('reportActionNeedsProject');
+      }
+      ghIssueAction.appendChild(apOpt);
+    }
+    ghIssueAction.addEventListener('change', updateGhIssueSubmitLabel);
+  }
+  // The non-'issue' targets reuse the SAME report-from-here ritual
+  // report-menu.ts's dialog runs — preview first (its own "always previewed"
+  // law: a rejected capture reports its reasoning rather than a bare error),
+  // confirm the real resolved plan, then execute — never a direct write with
+  // no plan behind it. There is no captured page element behind this
+  // popover, so the capture is synthetic: the CONNECT popover's own form is
+  // the "region", and title+body (what the operator typed, or what Compose
+  // wrote) is the description.
+  function reportFromHereSubmit(action, title, body) {
+    var reqBody = JSON.stringify({
+      regionId: 'connect-panel',
+      regionLabel: 'the CONNECT popover',
+      description: body.trim() ? title + '\\n\\n' + body.trim() : title,
+      moduleSources: ['web/features/connect.ts'],
+      hasScreenshot: false,
+      action: action,
+      projectId: document.body.dataset.project || '',
+    });
+    function fail(key) {
+      if (ghIssueResult) { ghIssueResult.className = 'gh-issue-result gh-issue-result-fail'; ghIssueResult.textContent = tr(key); }
+    }
+    fetch('/api/report-from-here', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: reqBody,
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var plan = data && data.plan;
+        if (!plan) { fail('reportPreviewUnavailable'); return; }
+        if (!plan.ok) {
+          var reasonText = plan.reasonKey ? tr(plan.reasonKey, plan.reasonArgs || {}) : plan.reasoning;
+          if (ghIssueResult) { ghIssueResult.className = 'gh-issue-result gh-issue-result-fail'; ghIssueResult.textContent = '\\u2717 ' + tr('reportNothingToFile', { reasoning: reasonText }); }
+          return;
+        }
+        if (!window.confirm(reportConfirmMessage(plan, tr))) return;
+        if (ghIssueResult) { ghIssueResult.className = 'gh-issue-result'; ghIssueResult.textContent = tr('ghIssueOpening'); }
+        ritualFetch('report', '/api/report-from-here/execute', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: reqBody,
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (execData) {
+            var result = reportExecuteResult(execData);
+            if (ghIssueResult) { ghIssueResult.className = result.className; ghIssueResult.textContent = result.text; }
+            if (result.className.indexOf('report-result-ok') !== -1) {
+              if (ghIssueTitle) ghIssueTitle.value = '';
+              if (ghIssueBody) ghIssueBody.value = '';
+            }
+          })
+          .catch(function () { fail('ghIssueRequestFailed'); });
+      })
+      .catch(function () { fail('reportPreviewUnavailable'); });
+  }
   function applyMode(mode) {
     var m = connectModeMeta(mode, tr);
     if (secretEl) { secretEl.hidden = !m.show; secretEl.placeholder = m.ph; if (!m.show) secretEl.value = ''; }
@@ -240,6 +335,13 @@ function connectInit() {
         if (ghIssueComposeStatus) { ghIssueComposeStatus.className = m.className; ghIssueComposeStatus.textContent = m.text; }
         if (m.title && ghIssueTitle) ghIssueTitle.value = m.title;
         if (m.body && ghIssueBody) ghIssueBody.value = m.body;
+        // Composer parity (board web-mtq70akb-rhsy6s): the raw response
+        // already carries a suggested action — report-menu.ts's dialog
+        // pre-selects it the same way, guarded by the same known-values check.
+        if (j && typeof j.action === 'string' && GH_ISSUE_ACTION_VALUES.indexOf(j.action) !== -1 && ghIssueAction) {
+          ghIssueAction.value = j.action;
+          updateGhIssueSubmitLabel();
+        }
       })
       .catch(function () {
         ghIssueComposeBtn.disabled = false;
@@ -250,8 +352,10 @@ function connectInit() {
     e.preventDefault();
     var title = ghIssueTitle ? ghIssueTitle.value.trim() : '';
     if (!title) return;
-    if (!window.confirm(githubIssueConfirmMessage(title, tr))) return;
     var body = ghIssueBody ? ghIssueBody.value : '';
+    var chosenAction = ghIssueAction ? ghIssueAction.value : 'issue';
+    if (chosenAction !== 'issue') { reportFromHereSubmit(chosenAction, title, body); return; }
+    if (!window.confirm(githubIssueConfirmMessage(title, tr))) return;
     if (ghIssueResult) { ghIssueResult.className = 'gh-issue-result'; ghIssueResult.textContent = tr('ghIssueOpening'); }
     ritualFetch('github-issue', '/api/github-issue/execute', {
       method: 'POST',
