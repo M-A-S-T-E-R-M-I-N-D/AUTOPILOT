@@ -79,6 +79,7 @@ function tourFocusable() {
 function closeTour() {
   if (!tourEl) return;
   tourEl.hidden = true;
+  tourRestoreDetails();
   tourEl.textContent = '';
   var ring = document.getElementById('tour-ring');
   if (ring) ring.hidden = true;
@@ -139,20 +140,48 @@ function tourAdvance(dir) {
 // Ring the target and bring it into view. The ring is a positioned box, not
 // a filter or a clip-path on the page — nothing about the underlying layout
 // moves, so a control cannot shift out from under the pointer mid-tour.
-function tourSpotlight(target) {
+// A stop inside a closed <details> popover (the masthead's "more" menu holds
+// #report-btn) has no box until that popover opens — so the walk opens it
+// for the stop and closes it again when it moves on. A popover the reader
+// opened themselves is left alone, and a <summary> never needs this.
+var tourOpenedDetails = null;
+function tourRevealTarget(target) {
+  var det = target && typeof target.closest === 'function' ? target.closest('details') : null;
+  if (det && det === tourOpenedDetails) return;
+  tourRestoreDetails();
+  if (!det || det.open || target.tagName === 'SUMMARY') return;
+  det.open = true;
+  tourOpenedDetails = det;
+}
+function tourRestoreDetails() {
+  if (!tourOpenedDetails) return;
+  tourOpenedDetails.open = false;
+  tourOpenedDetails = null;
+}
+function tourSpotlight(target, keepScroll) {
   var ring = document.getElementById('tour-ring');
   if (!ring) {
     ring = el('div', 'tour-ring');
     ring.id = 'tour-ring';
     ring.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(ring);
+    // INSIDE the overlay, never a body sibling (operator, 2026-09-18: "the
+    // panel with Next and Skip sits behind the dim"). The overlay is a
+    // stacking context of its own, so a sibling ring's 9999px shadow painted
+    // over everything in it — the card included, however high its z-index.
+    // As a child, ring (51) and card (52) are ordered against each other.
+    (tourEl || document.body).appendChild(ring);
   }
   if (!target || typeof target.getBoundingClientRect !== 'function') {
     ring.hidden = true;
     return null;
   }
-  if (typeof target.scrollIntoView === 'function') {
-    target.scrollIntoView({ block: 'center', inline: 'nearest' });
+  tourRevealTarget(target);
+  // INSTANT, not smooth: the page sets html { scroll-behavior: smooth }, so a
+  // default scrollIntoView starts an animation and the rect measured on the
+  // very next line is the PRE-scroll one — the ring landed wherever the
+  // target used to be (operator, 2026-09-18: "random elements get marked").
+  if (!keepScroll && typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
   }
   var r = target.getBoundingClientRect();
   // A target with no box cannot be spotlighted, and painting the ring anyway
@@ -177,7 +206,8 @@ function tourSpotlight(target) {
 }
 
 function paintTour() {
-  tourEl.textContent = '';
+  var staleCard = tourEl.querySelector('.tour-dialog');
+  if (staleCard) tourEl.removeChild(staleCard);
   var meta = tourStepMeta(tourStep);
   var keys = TOUR_STEP_KEYS[tourStep];
   // First/last are about what this PAGE can show, not the fixed array.
@@ -259,24 +289,55 @@ function paintTour() {
   // card's height depends on how long this stop's sentence wrapped. A
   // placement that would overflow flips to the opposite side rather than
   // sliding over the thing it is pointing at (WCAG 2.4.11).
-  var rect = tourSpotlight(tourTarget(meta.step));
-  if (rect) {
-    var card = dialog.getBoundingClientRect();
-    var at = anchorPosition(
-      rect,
-      { width: card.width, height: card.height },
-      { width: window.innerWidth, height: window.innerHeight },
-      meta.step.placement,
-    );
-    dialog.classList.add('is-anchored');
-    dialog.dataset.placement = at.placement;
-    dialog.style.insetInlineStart = at.x + 'px';
-    dialog.style.insetBlockStart = at.y + 'px';
-  }
+  tourPlace(dialog, meta.step, false);
 
   var focusable = tourFocusable();
   (focusable[focusable.length - 1] || skip).focus();
 }
+// Ring the target and put the card beside it. keepScroll leaves the page
+// where the reader has it — a reflow must never scroll them back.
+function tourPlace(dialog, step, keepScroll) {
+  var rect = tourSpotlight(tourTarget(step), keepScroll);
+  if (!rect) {
+    dialog.classList.remove('is-anchored');
+    delete dialog.dataset.placement;
+    dialog.style.insetInlineStart = '';
+    dialog.style.insetBlockStart = '';
+    return;
+  }
+  var card = dialog.getBoundingClientRect();
+  var at = anchorPosition(
+    rect,
+    { width: card.width, height: card.height },
+    { width: window.innerWidth, height: window.innerHeight },
+    step.placement,
+  );
+  dialog.classList.add('is-anchored');
+  dialog.dataset.placement = at.placement;
+  dialog.style.insetInlineStart = at.x + 'px';
+  dialog.style.insetBlockStart = at.y + 'px';
+}
+// THE RING FOLLOWS THE PAGE (operator, 2026-09-18: "random elements get
+// marked — the look and the sizes changed"). A ring is measured once, but
+// the page under it keeps moving: a resize reflows every panel and a scroll
+// shifts every rect. Re-measure on both, one frame at a time, without
+// rebuilding the card and without scrolling the reader back.
+var tourReflowPending = false;
+function tourReflow() {
+  if (!tourEl || tourEl.hidden || tourReflowPending) return;
+  tourReflowPending = true;
+  var frame = typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame
+    : function (fn) { setTimeout(fn, 16); };
+  frame(function () {
+    tourReflowPending = false;
+    if (!tourEl || tourEl.hidden) return;
+    var dialog = tourEl.querySelector('.tour-dialog');
+    if (dialog) tourPlace(dialog, TOUR_STEPS[tourStep], true);
+  });
+}
+window.addEventListener('resize', tourReflow);
+window.addEventListener('scroll', tourReflow, { passive: true });
 function openTour() {
   if (!tourEl) {
     tourEl = el('div', 'tour-overlay');

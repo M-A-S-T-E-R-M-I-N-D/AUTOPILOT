@@ -1750,8 +1750,11 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 .tour-dialog.is-anchored { position: fixed; margin: 0; }
 /* The spotlight. A positioned ring — never a filter or clip-path on the page
    itself, so nothing under it reflows and a control cannot shift out from
-   under the pointer mid-tour. It sits ABOVE the backdrop so the thing being
-   explained is the one bright object on screen. */
+   under the pointer mid-tour. It lives INSIDE .tour-overlay (a stacking
+   context of its own), between the backdrop and the card: as a body
+   sibling its 9999px shadow painted over the whole overlay, card included,
+   whatever z-index the card carried (operator, 2026-09-18). Pinned by
+   tour-stacking.test.ts. */
 .tour-ring {
   position: fixed; inset-block-start: 0; inset-inline-start: 0; z-index: 51; pointer-events: none;
   border-radius: var(--shape-small); outline: 2px solid var(--color-accent); outline-offset: 3px;
@@ -1760,7 +1763,7 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 }
 .tour-ring[hidden] { display: none; }
 /* With the ring drawing its own backdrop, the overlay must not double it. */
-.tour-overlay:has(~ .tour-ring:not([hidden])) { background: transparent; }
+.tour-overlay:has(> .tour-ring:not([hidden])) { background: transparent; }
 .tour-dialog { z-index: 52; }
 .tour-step-count {
   margin-inline-start: var(--space-2); font-size: 0.6875rem; font-weight: 700;
