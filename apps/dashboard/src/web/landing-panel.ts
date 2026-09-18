@@ -91,6 +91,10 @@ export interface LandingJobLine {
   /** True while the job still owns the button — a second press would only
    *  join the same job, so the UI says so instead of inviting the click. */
   readonly busy: boolean;
+  /** A leading vendored icon name (epic 0025) for the 'running' phase only —
+   *  the render site appends it before the text node instead of the old
+   *  baked-in 🛬 glyph. Absent for every other phase. */
+  readonly icon?: string;
 }
 
 /**
@@ -136,12 +140,9 @@ export function landingJobLine(
   return {
     className: 'landing-result landing-result-running',
     text:
-      '🛬 Landing — ' +
-      stepText +
-      ' (' +
-      elapsedText +
-      ') — nothing merges until the gate is green',
+      'Landing — ' + stepText + ' (' + elapsedText + ') — nothing merges until the gate is green',
     busy: true,
+    icon: 'plane-landing',
   };
 }
 

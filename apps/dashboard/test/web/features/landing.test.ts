@@ -74,6 +74,13 @@ describe('landingJs', () => {
     expect(landingJs()).toContain("fetch('/api/landing?project=' + encodeURIComponent(pid))");
   });
 
+  it("paints a running job's icon (epic 0025) as a leading element instead of textContent, so landingJobLine.icon never gets clobbered", () => {
+    const out = landingJs();
+    expect(out).toContain("el2.textContent = '';");
+    expect(out).toContain('if (line.icon) el2.appendChild(iconEl(line.icon));');
+    expect(out).toContain('el2.appendChild(document.createTextNode(line.text));');
+  });
+
   it('carries its own EXECUTE click handler, confirm-guarded', () => {
     const out = landingJs();
     expect(out).toContain(
