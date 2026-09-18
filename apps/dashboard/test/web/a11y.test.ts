@@ -1139,7 +1139,7 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     }) as unknown as typeof fetch;
 
     // Execute the real client bundle; releaseSection() fetches /api/release on
-    // demand and renders the actual "🚀 Cut release" button plus the optional
+    // demand and renders the actual "Cut release" button plus the optional
     // milestone-tag input beside it (web-msnshavs-z0obmh's m<N> reconciliation).
     new Function(clientJs())();
     await vi.waitFor(() => {

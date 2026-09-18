@@ -220,7 +220,8 @@ function renderReleaseBody(body, release, pid, identity) {
   var execBtn = document.createElement('button');
   execBtn.type = 'button';
   execBtn.className = 'release-execute';
-  execBtn.textContent = '🚀 Cut release v' + release.plan.version;
+  execBtn.appendChild(iconEl('rocket'));
+  execBtn.appendChild(document.createTextNode('Cut release v' + release.plan.version));
   execBtn.setAttribute('data-i18n-template', 'releaseExecuteTemplate');
   execBtn.setAttribute('data-i18n-args', JSON.stringify({ version: release.plan.version }));
   execBtn.setAttribute('data-release-execute', pid);
