@@ -75,6 +75,23 @@ the diff highlight fades on the compositor; nothing else moves.
    note, so the census is both server-checked and visibly (and audibly)
    painted.
 2. Search + ToC + "what links here".
+   **ToC landed 2026-09-18:** the viewer builds a table of contents from the
+   raw markdown's ATX headings and inserts it above the rendered body,
+   skipping a single-heading doc. **Search already covered:** the project's
+   full-text index (`readSearchFromStore`, `web/features/search.ts`) already
+   indexes every doc-ish path `listProjectDocs` serves — the epic's own ask
+   named this ("the existing project search index already holds docs/"), so
+   no second, doc-scoped search box is needed. **"What links here" landed
+   2026-09-18:** `project-detail.ts`'s `docLinksHere` queries every OTHER
+   indexed doc-ish path's content in one pass and resolves each through the
+   same `localLinkPaths` `brokenDocLinks` (slice 1) already relies on — no
+   second link resolver. `GET /api/file` carries the result as `linksHere`
+   (`null` on a missing dep or a thrown failure, the same degrade-on-failure
+   contract `touchedAt`/`brokenLinks` already set), and the viewer renders it
+   as a backlinks nav below the body, each entry wired through the SAME
+   `data-doc-open` attribute (and its one module-level click delegate) the
+   docs list and in-body links already use — opening a backlink is just
+   opening a doc, zero new event plumbing.
 3. The editor: guarded write endpoint, split preview, provenance line, tests for
    the allow-list (the security-sensitive path census must flag it).
 4. Live re-render on disk change with diff highlight.

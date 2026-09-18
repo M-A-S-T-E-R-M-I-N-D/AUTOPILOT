@@ -423,6 +423,9 @@ export type DocBrokenLinksApi = (
   path: string,
   content: string,
 ) => readonly string[];
+/** Every OTHER indexed doc-ish path that links to this one — the "what links
+ *  here" backlinks list (epic 0023 "the docs reader", slice 2). */
+export type DocLinksHereApi = (projectId: string, path: string) => readonly string[];
 
 /** Lists a filesystem path's subdirectories for the FLY-BAR "browse a
  *  brand-new folder" modal (board web-msrhr2d9-xxwa3a; injected, reads
@@ -760,6 +763,7 @@ export interface ServerDeps extends RouteDeps {
   readonly docRead?: DocReadApi;
   readonly docTouchedAt?: DocTouchedAtApi;
   readonly docBrokenLinks?: DocBrokenLinksApi;
+  readonly docLinksHere?: DocLinksHereApi;
   readonly browseFolder?: BrowseFolderApi;
   readonly landing?: LandingApi;
   readonly landingExecute?: LandingExecuteApi;
@@ -1187,6 +1191,7 @@ function handleDocs(
     read?: DocReadApi | undefined;
     touchedAt?: DocTouchedAtApi | undefined;
     brokenLinks?: DocBrokenLinksApi | undefined;
+    linksHere?: DocLinksHereApi | undefined;
   },
   headers: Record<string, string>,
   mode: 'list' | 'read',
@@ -1241,7 +1246,14 @@ function handleDocs(
     } catch {
       /* leave brokenLinks null */
     }
-    send(200, { path, content, touchedAt, brokenLinks });
+    // Same degrade-on-failure contract as touchedAt/brokenLinks above.
+    let linksHere: readonly string[] | null = null;
+    try {
+      linksHere = api.linksHere ? api.linksHere(project, path) : null;
+    } catch {
+      /* leave linksHere null */
+    }
+    send(200, { path, content, touchedAt, brokenLinks, linksHere });
   } catch {
     send(mode === 'list' ? 200 : 404, mode === 'list' ? { files: [] } : { error: 'read failed' });
   }
@@ -4070,6 +4082,7 @@ export function createServer(deps: ServerDeps = {}): Server {
           read: deps.docRead,
           touchedAt: deps.docTouchedAt,
           brokenLinks: deps.docBrokenLinks,
+          linksHere: deps.docLinksHere,
         },
         headers,
         'read',

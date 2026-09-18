@@ -123,4 +123,26 @@ describe('docsViewerJs', () => {
       );
     });
   });
+
+  describe('what links here (epic 0023 slice 2)', () => {
+    it('builds a backlinks nav wiring each entry through data-doc-open — no new click plumbing', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('function buildLinksHere(pid, linksHere) {');
+      expect(out).toMatch(
+        /a\.setAttribute\('data-doc-open', linksHere\[i\]\);[\s\S]*?a\.setAttribute\('data-doc-pid', pid\);/,
+      );
+    });
+
+    it('paints nothing when there are no backlinks', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('if (!linksHere || !linksHere.length) return null;');
+    });
+
+    it('appends the backlinks nav after the rendered body', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(
+        /viewer\.appendChild\(body\);[\s\S]*?buildLinksHere\(pid, data\.linksHere\);[\s\S]*?if \(linksHere\) viewer\.appendChild\(linksHere\);/,
+      );
+    });
+  });
 });

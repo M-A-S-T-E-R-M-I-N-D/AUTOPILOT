@@ -230,6 +230,34 @@ function buildToc(content) {
   nav.appendChild(list);
   return nav;
 }
+// "What links here" (epic 0023 "the docs reader" slice 2, "Findable... a
+// 'what links here' list from the link census"): every OTHER indexed doc the
+// server found linking to this one (project-detail.ts's docLinksHere), each
+// entry wired through the SAME data-doc-open attribute (and the module-level
+// click delegate below) the docs list buttons and in-body doc links already
+// use — opening a backlink is just opening a doc, zero new plumbing. No
+// entries (or a server that never supplied the dep) paints nothing, same as
+// buildToc's null-return-skips-the-nav contract.
+function buildLinksHere(pid, linksHere) {
+  if (!linksHere || !linksHere.length) return null;
+  var nav = el('nav', 'docs-linkshere');
+  nav.setAttribute('aria-label', 'What links here');
+  nav.appendChild(el('p', 'docs-linkshere-heading', 'What links here'));
+  var list = el('ul', 'docs-linkshere-list');
+  for (var i = 0; i < linksHere.length; i++) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#';
+    a.className = 'docs-linkshere-link';
+    a.textContent = linksHere[i];
+    a.setAttribute('data-doc-open', linksHere[i]);
+    a.setAttribute('data-doc-pid', pid);
+    li.appendChild(a);
+    list.appendChild(li);
+  }
+  nav.appendChild(list);
+  return nav;
+}
 // Paints each rendered doc/anchor link inside body whose resolved target
 // (data-doc-open, set by renderMarkdown/classifyHref) is in brokenLinks — the
 // server-checked "not in the project's index" census (epic 0023 slice 1).
@@ -288,6 +316,11 @@ function loadDoc(pid, path, viewer) {
       // paint the ones it found dead, matched by the same resolved path
       // renderMarkdown put in each doc link's data-doc-open.
       markDeadDocLinks(body, data.brokenLinks);
+      // "What links here" (epic 0023 "the docs reader" slice 2): rendered
+      // after the body, same as a wiki's backlinks footer — it answers "what
+      // else references this" only once the reader has read the page itself.
+      var linksHere = buildLinksHere(pid, data.linksHere);
+      if (linksHere) viewer.appendChild(linksHere);
       viewer.dataset.loadedPath = path;
     })
     .catch(function () {

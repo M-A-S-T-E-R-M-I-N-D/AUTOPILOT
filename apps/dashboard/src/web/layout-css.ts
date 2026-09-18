@@ -649,6 +649,14 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-toc-h2 .docs-toc-link { padding-inline-start: var(--space-3); }
 .docs-toc-h3 .docs-toc-link { padding-inline-start: var(--space-4); }
 .docs-toc-h4 .docs-toc-link, .docs-toc-h5 .docs-toc-link, .docs-toc-h6 .docs-toc-link { padding-inline-start: var(--space-5); }
+/* "What links here" backlinks (epic 0023 slice 2) — a footer, not a header:
+   it sits below the rendered body, the same quiet reference treatment as the
+   ToC above it. */
+.docs-linkshere { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }
+.docs-linkshere-heading { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted); }
+.docs-linkshere-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; font-size: var(--text-xs); font-family: var(--font-mono); }
+.docs-linkshere-link { display: block; padding: 1px 0; color: var(--color-text-muted); text-decoration: none; cursor: pointer; }
+.docs-linkshere-link:hover, .docs-linkshere-link:focus-visible { color: var(--color-accent); text-decoration: underline; }
 /* Reading typography. The body used to inherit --text-sm with no measure, no
    heading scale and no rhythm, so a rendered document came out as flat grey
    mass. A measure cap is the single highest-value line here: unbounded line

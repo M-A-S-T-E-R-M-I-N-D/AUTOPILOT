@@ -23,6 +23,7 @@ import {
   listProjectDocs,
   readProjectDoc,
   brokenDocLinks,
+  docLinksHere,
   readLandingInfo,
   readRoundInfo,
   readBacklogCandidates,
@@ -693,6 +694,7 @@ const server = createServer({
     return root ? gitLastTouchedAt(root, path) : null;
   },
   docBrokenLinks: (projectId, path, content) => brokenDocLinks(dbPath, projectId, path, content),
+  docLinksHere: (projectId, path) => docLinksHere(dbPath, projectId, path),
   browseFolder: (path) => listBrowsableFolder(path),
   landing: (projectId) => readLandingInfo(dbPath, projectId),
   // Every LAND press goes through the job registry, never straight at the
