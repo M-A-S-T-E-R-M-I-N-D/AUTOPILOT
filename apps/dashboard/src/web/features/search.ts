@@ -176,7 +176,11 @@ function inlineLink(tok, opts) {
     doc.textContent = label;
     return doc;
   }
-  return document.createTextNode(label);
+  // Not a destination the reader will follow: the source stays visible as
+  // the author wrote it, so a javascript:/data: target or a climb out of
+  // the repository is never hidden behind a friendly label.
+  var open = tok.type === 'image' ? '![' : '[';
+  return document.createTextNode(open + tok.text + '](' + tok.href + ')');
 }
 ${splitTableRow.toString()}
 ${isFence.toString()}
