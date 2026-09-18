@@ -1321,10 +1321,13 @@ describe('createLandingExecuteApi — the remedy escape end to end', () => {
  */
 
 describe('gate parity — a stored spec that predates ciExtras is refreshed at landing (gap A)', () => {
-  it('gateSpecNeedsRefresh is true exactly when the stored spec has no ciExtras field', () => {
+  it('gateSpecNeedsRefresh is true exactly when the stored spec lacks the ciExtras field or the install leg', () => {
+    const install = { bin: 'pnpm', args: ['install', '--frozen-lockfile'], label: 'i' };
     expect(gateSpecNeedsRefresh(null)).toBe(false);
     expect(gateSpecNeedsRefresh({ ecosystem: 'js' })).toBe(true);
-    expect(gateSpecNeedsRefresh({ ecosystem: 'js', ciExtras: [] })).toBe(false);
+    expect(gateSpecNeedsRefresh({ ecosystem: 'js', ciExtras: [] })).toBe(true);
+    expect(gateSpecNeedsRefresh({ ecosystem: 'js', install })).toBe(true);
+    expect(gateSpecNeedsRefresh({ ecosystem: 'js', ciExtras: [], install })).toBe(false);
   });
 
   it('mergeDetectedCiExtras folds in ONLY the detected extras — an operator-edited command list is never overwritten', () => {
@@ -1340,6 +1343,17 @@ describe('gate parity — a stored spec that predates ciExtras is refreshed at l
     expect(mergeDetectedCiExtras(stored, { ecosystem: 'js' })).toBe(stored);
   });
 
+  it('mergeDetectedCiExtras folds in the detected install leg too, and never replaces one the operator already has', () => {
+    const stored = JSON.parse(NODE_OK);
+    const install = { bin: 'pnpm', args: ['install', '--frozen-lockfile'], label: 'i' };
+    const gained = mergeDetectedCiExtras(stored, { ecosystem: 'js', install });
+    expect(gained.install).toEqual(install);
+    expect(gained.test).toEqual(stored.test);
+    const own = { bin: 'npm', args: ['ci'], label: 'mine' };
+    const kept = mergeDetectedCiExtras({ ...stored, install: own }, { ecosystem: 'js', install });
+    expect(kept.install).toEqual(own);
+  });
+
   it('runs the freshly detected ci:* extras in the landing gate, and persists them — detected once, never again', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-parity-'));
     const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
@@ -1353,6 +1367,10 @@ describe('gate parity — a stored spec that predates ciExtras is refreshed at l
 
       const detector = vi.fn(() => ({
         ...(JSON.parse(NODE_OK) as { ecosystem: string }),
+        // A lockfile-bearing repo detects an install leg too; without one the
+        // spec would keep asking (a snapshot read per landing, cheap next to
+        // the gate) — this fixture models the common case.
+        install: { bin: 'node', args: ['-e', 'process.exit(0)'], label: 'install' },
         ciExtras: [{ bin: 'node', args: ['-e', 'process.exit(1)'], label: 'ci:boom' }],
       }));
       const api = createLandingExecuteApi(

@@ -57,6 +57,46 @@ describe('jsDetector', () => {
     expect(d?.score).toBe(0);
   });
 
+  it('detects the install leg from the lockfile — pnpm frozen, yarn immutable, npm ci — and nothing without one', () => {
+    const pnpm = jsDetector.detect(
+      snap(['package.json', 'pnpm-lock.yaml'], { 'package.json': '{}' }),
+    );
+    expect(pnpm?.gate.install).toEqual({
+      bin: 'pnpm',
+      args: ['install', '--frozen-lockfile', '--prefer-offline'],
+      label: 'pnpm install --frozen-lockfile',
+    });
+    expect(pnpm?.evidence).toContain('lockfile.pnpm-lock.yaml');
+    const yarn = jsDetector.detect(snap(['package.json', 'yarn.lock'], { 'package.json': '{}' }));
+    expect(yarn?.gate.install).toEqual({
+      bin: 'yarn',
+      args: ['install', '--immutable'],
+      label: 'yarn install --immutable',
+    });
+    expect(yarn?.evidence).toContain('lockfile.yarn.lock');
+    const npm = jsDetector.detect(
+      snap(['package.json', 'package-lock.json'], { 'package.json': '{}' }),
+    );
+    expect(npm?.gate.install).toEqual({ bin: 'npm', args: ['ci'], label: 'npm ci' });
+    expect(npm?.evidence).toContain('lockfile.package-lock.json');
+    const bare = jsDetector.detect(snap(['package.json'], { 'package.json': '{}' }));
+    expect(bare?.gate.install).toBeUndefined();
+  });
+
+  it('the install leg never counts toward the detection score — it is hygiene, not evidence of what the repo checks', () => {
+    const withLock = jsDetector.detect(
+      snap(['package.json', 'pnpm-lock.yaml'], {
+        'package.json': JSON.stringify({ scripts: { test: 'vitest run' } }),
+      }),
+    );
+    const withoutLock = jsDetector.detect(
+      snap(['package.json'], {
+        'package.json': JSON.stringify({ scripts: { test: 'vitest run' } }),
+      }),
+    );
+    expect(withLock?.score).toBe(withoutLock?.score);
+  });
+
   it('prefers pnpm when both pnpm-lock.yaml and yarn.lock are present', () => {
     const d = jsDetector.detect(
       snap(['package.json', 'pnpm-lock.yaml', 'yarn.lock'], {

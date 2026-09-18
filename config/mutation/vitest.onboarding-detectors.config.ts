@@ -24,6 +24,13 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['packages/onboarding/test/gate/detect.test.ts'],
+    // The aggregate detectGate suite PLUS every per-detector unit suite: a
+    // mutant in one detector's own branch (the js install leg's lockfile
+    // names, 2026-09-19) is only observable where that detector is driven
+    // directly.
+    include: [
+      'packages/onboarding/test/gate/detect.test.ts',
+      'packages/onboarding/test/gate/detectors/*.test.ts',
+    ],
   },
 });

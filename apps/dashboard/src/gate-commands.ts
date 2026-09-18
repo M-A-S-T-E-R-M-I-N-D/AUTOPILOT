@@ -44,7 +44,9 @@ export function gateCommands(
   spec: GateSpec,
   options: GateCommandsOptions = {},
 ): GateShellCommand[] {
-  const kinds: (keyof GateSpec)[] = ['typecheck', 'lint', 'format', 'test', 'build'];
+  // `install` first and alone: every other leg judges the tree AGAINST its
+  // node_modules, so the sync must be done before any of them start.
+  const kinds: (keyof GateSpec)[] = ['install', 'typecheck', 'lint', 'format', 'test', 'build'];
   const commands: GateShellCommand[] = [];
   for (const kind of kinds) {
     const command = spec[kind] as GateCommand | undefined;

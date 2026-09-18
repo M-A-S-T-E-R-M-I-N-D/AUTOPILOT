@@ -7,6 +7,7 @@ import {
   safeJsonParse,
   packageScripts,
   scriptCommand,
+  installCommand,
   execCommand,
   directCommand,
 } from '../../src/gate/manifests.js';
@@ -61,6 +62,22 @@ describe('scriptCommand', () => {
       args: ['run', 'build'],
       label: 'pnpm run build',
     });
+  });
+});
+
+describe('installCommand', () => {
+  it('is the lockfile-respecting install of each package manager', () => {
+    expect(installCommand('pnpm')).toEqual({
+      bin: 'pnpm',
+      args: ['install', '--frozen-lockfile', '--prefer-offline'],
+      label: 'pnpm install --frozen-lockfile',
+    });
+    expect(installCommand('yarn')).toEqual({
+      bin: 'yarn',
+      args: ['install', '--immutable'],
+      label: 'yarn install --immutable',
+    });
+    expect(installCommand('npm')).toEqual({ bin: 'npm', args: ['ci'], label: 'npm ci' });
   });
 });
 

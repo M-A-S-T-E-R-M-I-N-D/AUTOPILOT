@@ -79,14 +79,24 @@ function parseGateSpec(gateConfig: string | null): GateSpec | null {
  * that wants parity, so it is the one that re-detects.
  */
 export function gateSpecNeedsRefresh(spec: GateSpec | null): boolean {
-  return spec !== null && spec.ciExtras === undefined;
+  // A repo without a lockfile never gains an install leg, so it re-detects on
+  // every landing: one filesystem snapshot, cheap next to the gate it guards.
+  return spec !== null && (spec.ciExtras === undefined || spec.install === undefined);
 }
 
 /** The stored spec with the freshly detected `ciExtras` folded in — nothing
  *  else moves, so an operator-edited command list is never overwritten by a
  *  re-detection that happens to disagree with it. */
 export function mergeDetectedCiExtras(stored: GateSpec, detected: GateSpec): GateSpec {
-  return detected.ciExtras === undefined ? stored : { ...stored, ciExtras: detected.ciExtras };
+  // The install leg (2026-09-19) rides the same refresh: a spec stored
+  // before it existed gains it, and nothing else moves.
+  const withInstall =
+    detected.install === undefined || stored.install !== undefined
+      ? stored
+      : { ...stored, install: detected.install };
+  return detected.ciExtras === undefined
+    ? withInstall
+    : { ...withInstall, ciExtras: detected.ciExtras };
 }
 
 /** Detects a folder's gate spec — injectable so tests never walk a real tree. */

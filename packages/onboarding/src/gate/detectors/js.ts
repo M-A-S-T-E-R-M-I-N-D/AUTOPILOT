@@ -7,6 +7,7 @@ import {
   packageScripts,
   scriptCommand,
   execCommand,
+  installCommand,
   type PackageManager,
 } from '../manifests.js';
 import type { FsSnapshot } from '../snapshot.js';
@@ -119,6 +120,14 @@ export const jsDetector: EcosystemDetector = {
 
     const detected = Object.keys(gate).length;
     const score = detected + (pkgText !== null ? 1 : 0);
+    // After the score: the install leg is environment hygiene, not evidence
+    // of what this repo checks, so it never tips a detection tie. Only with a
+    // lockfile — without one an install could rewrite the tree's own record.
+    const lockfile = ['pnpm-lock.yaml', 'yarn.lock', 'package-lock.json'].find((f) => snap.has(f));
+    if (lockfile !== undefined) {
+      gate.install = installCommand(pm);
+      evidence.push(`lockfile.${lockfile}`);
+    }
     return { gate, score, evidence };
   },
 };

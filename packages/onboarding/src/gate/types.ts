@@ -27,6 +27,15 @@ export interface GateCommand {
 /** The detected commands for a single ecosystem. Optional keys are ABSENT when
  *  undetected (exactOptionalPropertyTypes: never present-but-undefined). */
 export interface GateCommands {
+  /** Sync the checkout's dependencies to its lockfile before anything else
+   *  runs (`pnpm install --frozen-lockfile`, `yarn install --immutable`,
+   *  `npm ci`). Detected only when a lockfile exists. THE 2026-09-19
+   *  LESSON: a lane added a workspace dependency, the round landed the
+   *  lockfile, and the next gate went red on a pack step because the
+   *  checkout had never re-installed — the gate was judging a tree its
+   *  own node_modules did not match. A gate that installs first judges
+   *  the tree as CI sees it. Fast when nothing changed. */
+  readonly install?: GateCommand;
   readonly typecheck?: GateCommand;
   readonly test?: GateCommand;
   readonly build?: GateCommand;
