@@ -413,6 +413,16 @@ export type DocReadApi = (projectId: string, path: string) => string | null;
  *  no git history, or the project's root can't be resolved) — the Docs
  *  reader freshness badge (epic 0023 "the docs reader", slice 1). */
 export type DocTouchedAtApi = (projectId: string, path: string) => number | null;
+/** Resolved local-link targets inside a doc's content that are NOT in the
+ *  project's indexed doc list — the "dead link" census `computeDocDrift`'s
+ *  freshness sibling still owed (epic 0023 "the docs reader", slice 1: "a
+ *  dead link is painted as one"). `content`/`path` are the same pair `read`
+ *  just served, so a caller never re-fetches the document to check it. */
+export type DocBrokenLinksApi = (
+  projectId: string,
+  path: string,
+  content: string,
+) => readonly string[];
 
 /** Lists a filesystem path's subdirectories for the FLY-BAR "browse a
  *  brand-new folder" modal (board web-msrhr2d9-xxwa3a; injected, reads
@@ -749,6 +759,7 @@ export interface ServerDeps extends RouteDeps {
   readonly docsList?: DocsListApi;
   readonly docRead?: DocReadApi;
   readonly docTouchedAt?: DocTouchedAtApi;
+  readonly docBrokenLinks?: DocBrokenLinksApi;
   readonly browseFolder?: BrowseFolderApi;
   readonly landing?: LandingApi;
   readonly landingExecute?: LandingExecuteApi;
@@ -1175,6 +1186,7 @@ function handleDocs(
     list?: DocsListApi | undefined;
     read?: DocReadApi | undefined;
     touchedAt?: DocTouchedAtApi | undefined;
+    brokenLinks?: DocBrokenLinksApi | undefined;
   },
   headers: Record<string, string>,
   mode: 'list' | 'read',
@@ -1221,7 +1233,15 @@ function handleDocs(
     } catch {
       /* leave touchedAt null */
     }
-    send(200, { path, content, touchedAt });
+    // Same degrade-on-failure contract as touchedAt above: a link-check
+    // failure must never mask an otherwise-successful doc read.
+    let brokenLinks: readonly string[] | null = null;
+    try {
+      brokenLinks = api.brokenLinks ? api.brokenLinks(project, path, content) : null;
+    } catch {
+      /* leave brokenLinks null */
+    }
+    send(200, { path, content, touchedAt, brokenLinks });
   } catch {
     send(mode === 'list' ? 200 : 404, mode === 'list' ? { files: [] } : { error: 'read failed' });
   }
@@ -4045,7 +4065,12 @@ export function createServer(deps: ServerDeps = {}): Server {
       handleDocs(
         req,
         res,
-        { list: deps.docsList, read: deps.docRead, touchedAt: deps.docTouchedAt },
+        {
+          list: deps.docsList,
+          read: deps.docRead,
+          touchedAt: deps.docTouchedAt,
+          brokenLinks: deps.docBrokenLinks,
+        },
         headers,
         'read',
       );

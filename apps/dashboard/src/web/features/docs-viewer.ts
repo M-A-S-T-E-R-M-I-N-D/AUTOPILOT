@@ -194,6 +194,25 @@ function refreshDocsList(pid, list, viewer) {
       translateDom(document.documentElement.lang || 'en');
     });
 }
+// Paints each rendered doc/anchor link inside body whose resolved target
+// (data-doc-open, set by renderMarkdown/classifyHref) is in brokenLinks — the
+// server-checked "not in the project's index" census (epic 0023 slice 1).
+// English-only for now, deliberately: packages/tokens/src/strings.ts is a hot
+// shared file another fleet lane may still be mid-edit on, same reason the
+// docs list labels above stay untagged until a firing finds it clear.
+function markDeadDocLinks(body, brokenLinks) {
+  if (!brokenLinks || !brokenLinks.length) return;
+  var dead = {};
+  for (var i = 0; i < brokenLinks.length; i++) dead[brokenLinks[i]] = true;
+  var links = body.querySelectorAll('[data-doc-open]');
+  for (var j = 0; j < links.length; j++) {
+    var link = links[j];
+    if (!dead[link.getAttribute('data-doc-open')]) continue;
+    link.classList.add('docs-link-dead');
+    link.setAttribute('data-tip', 'Broken link — target not found in the index');
+    link.appendChild(el('span', 'sr-only', ' (broken link)'));
+  }
+}
 function loadDoc(pid, path, viewer) {
   viewer.replaceChildren(el('p', 'muted', 'Loading ' + path + '…'));
   viewer.dataset.loadedPath = '';
@@ -224,6 +243,12 @@ function loadDoc(pid, path, viewer) {
       if (/\\.md$/i.test(data.path)) renderMarkdown(body, data.content, { pid: pid, basePath: data.path });
       else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
       viewer.appendChild(body);
+      // Dead-link census (epic 0023 "the docs reader" slice 1: "every
+      // internal link is checked as it renders"): the server already
+      // resolved and checked every local link against the project's index —
+      // paint the ones it found dead, matched by the same resolved path
+      // renderMarkdown put in each doc link's data-doc-open.
+      markDeadDocLinks(body, data.brokenLinks);
       viewer.dataset.loadedPath = path;
     })
     .catch(function () {

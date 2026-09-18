@@ -25,6 +25,7 @@
     "start": "node dist/server/main.js"
   },
   "dependencies": {
+    "@autopilot/docs-links": "workspace:*",
     "@autopilot/engine": "workspace:*",
     "@autopilot/mcp": "workspace:*",
     "@autopilot/onboarding": "workspace:*",

@@ -11,7 +11,8 @@
     { "path": "../../packages/store" },
     { "path": "../../packages/onboarding" },
     { "path": "../../packages/engine" },
-    { "path": "../../packages/mcp" }
+    { "path": "../../packages/mcp" },
+    { "path": "../../packages/docs-links" }
   ],
   "include": ["src/**/*.ts"]
 }

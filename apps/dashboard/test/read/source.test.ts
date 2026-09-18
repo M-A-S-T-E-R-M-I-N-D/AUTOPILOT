@@ -15,6 +15,7 @@ import {
   readSearchFromStore,
   listProjectDocs,
   readProjectDoc,
+  brokenDocLinks,
   readLandingInfo,
   readRoundInfo,
   readBacklogCandidates,
@@ -1052,6 +1053,90 @@ describe('readProjectDoc', () => {
     const { dir, dbPath } = unmigratedDbPath('ap-dash-doc-bad-');
     try {
       expect(readProjectDoc(dbPath, 'p1', 'README.md')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('brokenDocLinks', () => {
+  it('returns [] when the DB file does not exist', () => {
+    expect(
+      brokenDocLinks(
+        join(tmpdir(), 'ap-dash-links-missing-9004', 'missing.db'),
+        'p1',
+        'README.md',
+        '[dead](docs/nope.md)',
+      ),
+    ).toEqual([]);
+  });
+
+  it('returns [] when the content has no local links', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-links-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+      expect(brokenDocLinks(dbPath, 'p1', 'README.md', 'no links here')).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  it('reports a resolved local link target NOT in the index, and skips an external/anchor one', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-links-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      new SqliteSearchStore(s).indexDocument('p1', 'README.md', '# readme', 'markdown');
+      s.close();
+
+      const content =
+        '[dead](missing.md) [ext](https://example.com) [anchor](#top) [root](../README.md)';
+      expect(brokenDocLinks(dbPath, 'p1', 'docs/guide.md', content)).toEqual(['docs/missing.md']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  it('omits a resolved local link target that IS in the index', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-links-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      const search = new SqliteSearchStore(s);
+      search.indexDocument('p1', 'docs/other.md', '# other', 'markdown');
+      s.close();
+
+      expect(brokenDocLinks(dbPath, 'p1', 'docs/guide.md', '[ok](other.md)')).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  it('dedupes a target repeated in the same document into one check, one report', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-links-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      expect(
+        brokenDocLinks(dbPath, 'p1', 'README.md', '[a](nope.md) and again [b](nope.md)'),
+      ).toEqual(['nope.md']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  it('degrades to [] when the store throws (unmigrated DB)', () => {
+    const { dir, dbPath } = unmigratedDbPath('ap-dash-links-bad-');
+    try {
+      expect(brokenDocLinks(dbPath, 'p1', 'README.md', '[dead](nope.md)')).toEqual([]);
     } finally {
       cleanupDir(dir);
     }

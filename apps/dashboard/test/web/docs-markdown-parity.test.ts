@@ -100,7 +100,7 @@ const DOC = [
 
 let fetchCalls: string[] = [];
 
-async function bootAndOpen(): Promise<HTMLElement> {
+async function bootAndOpen(brokenLinks: readonly string[] | null = null): Promise<HTMLElement> {
   document.open();
   document.write(renderShell());
   document.close();
@@ -111,7 +111,7 @@ async function bootAndOpen(): Promise<HTMLElement> {
     if (u.includes('/api/file')) {
       return {
         ok: true,
-        json: async () => ({ path: DOC_PATH, content: DOC, touchedAt: null }),
+        json: async () => ({ path: DOC_PATH, content: DOC, touchedAt: null, brokenLinks }),
       } as Response;
     }
     return { ok: true, json: async () => STATE } as Response;
@@ -187,6 +187,19 @@ describe('the docs reader renders every construct of the parity slice', () => {
     expect(body.querySelector('[data-doc-open="x.md"]')).toBeNull();
     expect(body.textContent).toContain('bad');
     expect(body.textContent).toContain('climb');
+  });
+
+  it('paints a doc link the server reports dead, and leaves a live one alone (epic 0023 slice 1: "a dead link is painted as one")', async () => {
+    const body = await bootAndOpen(['docs/other.md']);
+    const doc = body.querySelector('a.docs-link') as HTMLAnchorElement;
+    expect(doc.getAttribute('data-doc-open')).toBe('docs/other.md');
+    expect(doc.classList.contains('docs-link-dead')).toBe(true);
+    expect(doc.querySelector('.sr-only')?.textContent).toContain('broken link');
+
+    const live = await bootAndOpen([]);
+    const liveDoc = live.querySelector('a.docs-link') as HTMLAnchorElement;
+    expect(liveDoc.classList.contains('docs-link-dead')).toBe(false);
+    expect(liveDoc.querySelector('.sr-only')).toBeNull();
   });
 
   it('a multi-line blockquote, a rule, task checkboxes and nested lists', async () => {

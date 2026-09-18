@@ -677,6 +677,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-viewer-body pre[data-lang]::before { content: attr(data-lang); position: absolute; inset-block-start: 4px; inset-inline-end: var(--space-2); font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .docs-viewer-body pre.docs-diagram { border-inline-start: 3px solid var(--color-accent); }
 .docs-viewer-body a.docs-link, .docs-viewer-body a.docs-anchor { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.docs-viewer-body a.docs-link-dead { color: var(--color-warning); text-decoration-style: wavy; }
 .docs-viewer-body h1[id], .docs-viewer-body h2[id], .docs-viewer-body h3[id], .docs-viewer-body h4[id], .docs-viewer-body h5[id], .docs-viewer-body h6[id] { scroll-margin-top: var(--space-3); }
 .console-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); }
 .console-details { padding: var(--space-3) var(--space-4); }

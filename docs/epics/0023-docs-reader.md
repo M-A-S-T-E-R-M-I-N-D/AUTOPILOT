@@ -54,18 +54,26 @@ the diff highlight fades on the compositor; nothing else moves.
    `touchedAt` (epoch-ms of the doc's last real commit, via
    `doc-freshness.ts`'s `gitLastTouchedAt`, degrading to `null` on any
    failure), and the viewer paints a "Last updated" badge from it. The link-
-   check half (painting a dead internal link as one) is still open, but its
-   blocker is cleared: `check-links.mjs`'s local-link resolution
-   (`isLocalTarget`, target extraction, path resolution) now lives in
-   `@autopilot/docs-links` (2026-09-18) — a workspace package, so
+   check half's blocker was cleared the same day: `check-links.mjs`'s
+   local-link resolution (`isLocalTarget`, target extraction, path
+   resolution) now lives in `@autopilot/docs-links` — a workspace package, so
    `apps/dashboard/src` (whose `tsconfig.json` sets `rootDir: src`, ruling
    out a direct relative import of a repo-root script) can import it the same
    way it already imports `@autopilot/tokens`. `check-links.mjs` itself now
    calls into the shared package instead of carrying its own copy, verified
-   byte-identical behavior via the existing `check-links.test.ts` suite. What
-   remains: a server-side check (`GET /api/file` resolving each local link
-   against the project's indexed doc list, degrading to "unchecked" the same
-   way `touchedAt` degrades to `null`) and the viewer painting a dead one.
+   byte-identical behavior via the existing `check-links.test.ts` suite.
+   **Slice landed 2026-09-18:** the link-check half followed the same day —
+   `@autopilot/docs-links` gained `localLinkPaths` (every local link a doc
+   resolves to, `/`-separated so it compares against the git-style index
+   regardless of platform); `read/project-detail.ts`'s new `brokenDocLinks`
+   batches those resolved targets against the project's indexed paths in one
+   `IN (...)` query and degrades to `[]` on any failure, the same
+   never-fail-the-read contract `touchedAt` already set; `GET /api/file`
+   carries the result as `brokenLinks` (`null` when the dep is absent or
+   throws, mirroring `touchedAt`'s `null`); and the viewer marks a matching
+   `data-doc-open` link `.docs-link-dead` with an `sr-only` "(broken link)"
+   note, so the census is both server-checked and visibly (and audibly)
+   painted.
 2. Search + ToC + "what links here".
 3. The editor: guarded write endpoint, split preview, provenance line, tests for
    the allow-list (the security-sensitive path census must flag it).
