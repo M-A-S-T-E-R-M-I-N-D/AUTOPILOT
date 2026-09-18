@@ -181,7 +181,8 @@ describe('the KEEPER ISSUE TRIAGE panel i18n wiring (board web-msnsndki-dz3vn1)'
     await settle();
 
     const button = document.querySelector('.issue-triage-execute');
-    expect(button?.textContent).toBe('🗝️ Run KEEPER triage');
+    expect(button?.textContent).toBe('Run KEEPER triage');
+    expect(button?.querySelector('svg.icon-key-round')).not.toBeNull();
     expect(button?.getAttribute('data-i18n')).toBe('issueTriageExecute');
   });
 
