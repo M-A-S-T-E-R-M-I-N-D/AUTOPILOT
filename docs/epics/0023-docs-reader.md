@@ -97,6 +97,17 @@ the diff highlight fades on the compositor; nothing else moves.
 4. Live re-render on disk change with diff highlight.
 5. Hygiene: the archive/index moves from the 2026-09-12 audit
    (`docs/archive/README.md`), so the tree the reader shows is the tree we mean.
+   **Landed 2026-09-18:** the audit itself (commit 4d50c153) already moved
+   every superseded record under `docs/archive/` with its own index — the
+   remaining gap was the reader's own list, which still showed an archived
+   doc exactly like current doctrine. A row whose path starts with
+   `docs/archive/` now carries `.docs-file-archived` (a dashed, recessive
+   edge instead of the pin's solid accent) plus a visible "Archived" badge
+   that is real button content, so it reaches a screen reader as part of the
+   button's own accessible name with zero extra ARIA plumbing; the hover tip
+   and its `aria-describedby` sibling note "archived, kept for citations"
+   too. Opening the doc is unchanged — the real path still resolves through
+   `data-doc-open`.
 
 ## Related
 

@@ -638,6 +638,11 @@ main.project-mode { grid-template-columns: 1fr; }
 /* The pinned explainer earns a standing marker instead of the emoji it used
    to carry (epic 0025: emoji reads cheap). */
 .docs-file-pinned { border-inline-start: 2px solid var(--color-accent); }
+/* Superseded records (epic 0023 slice 5 "hygiene") read as kept-for-citations,
+   not current doctrine: a dashed edge and a quiet badge instead of the pin's
+   solid accent, echoing .ob-badge's unearned dashed state. */
+.docs-file-archived { opacity: 0.72; border-inline-start: 2px dashed var(--color-border); }
+.docs-file-archived-badge { flex: 0 0 auto; margin-inline-start: var(--space-2); padding: 0 var(--space-1); border: 1px dashed var(--color-border); border-radius: var(--radius-full); font-size: 0.6875rem; color: var(--color-text-muted); }
 .docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
 .docs-viewer-freshness { margin: 0 0 var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
 /* Table of contents (epic 0023 slice 2) — a quiet reference block, not
