@@ -123,8 +123,8 @@
 | Scope creep (the 999 topics) | `FEATURE-COVERAGE.md` tracks every feature to a milestone; nothing is forgotten, nothing is smuggled in unplanned. |
 | Quota exhaustion during the build | the v2.4 quota-safety (hibernation + weekly pacing) already handles it. |
 
-## Status (2026-09-14)
-M0–M3 **shipped** (`v0.6.0`–`v0.10.0` era, pre-genesis); **M4 complete** and **M5 in progress** at v0.48.1 —
+## Status (2026-09-17)
+M0–M3 **shipped** (`v0.6.0`–`v0.10.0` era, pre-genesis); **M4 complete** and **M5 in progress** at v0.51.1 —
 live flights, fleets of worktree lanes, RAG, the task board, live control (pause/stop, focus and labels
 steering), and the one-place approvals surface the Keeper queue now is (every item waiting on a human, one
 list, in the app shell); M6–M9 planned. Direction lives in `ROADMAP.md`. This document is the FOUNDING build order, kept verbatim below its

@@ -31,7 +31,7 @@ The differentiator is not "an agent that writes code". It is **the contract arou
 change**: what "verified" means here is written down, mechanically enforced, and
 measured in public.
 
-## 2. Where we actually are (2026-09-14, v0.49.0)
+## 2. Where we actually are (2026-09-18, v0.51.1)
 
 The old table said "M6–M9 planned". That was false for all four. Corrected:
 

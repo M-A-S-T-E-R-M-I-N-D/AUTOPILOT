@@ -100,8 +100,9 @@
  * pattern — their `data-tip` hover text stays English, same as every other
  * `data-tip` in this table. The "Tasks" heading's text itself (not just an
  * `aria-label`) changes with state, so it gets two whole-text keys instead —
- * `tasks` for the normal case and `tasksFocusMode` for the "🎯 FOCUS MODE"
- * variant — `tasksSection()` picks the key matching `anyFocus` the same way
+ * `tasks` for the normal case and `tasksFocusMode` for the "FOCUS MODE"
+ * variant (the 🎯 glyph moved to a leading icon — epic 0025 — so the text
+ * itself carries no emoji) — `tasksSection()` picks the key matching `anyFocus` the same way
  * `detailSectionNode()`'s callers already pick a fixed key.
  * This slice tags the masthead Connect panel's "Report a bug" GitHub-issue
  * mini-form — the `#gh-issue-form`'s label, its title/body placeholders, and
@@ -980,7 +981,7 @@ const EN_STRINGS = {
   actMetaTip: 'Model and token usage billed for this step',
   actMetaAria: 'step cost: {name}',
   tasks: 'Tasks',
-  tasksFocusMode: 'Tasks — 🎯 FOCUS MODE',
+  tasksFocusMode: 'Tasks — FOCUS MODE',
   boardViewColumns: 'Columns',
   boardViewList: 'List',
   boardColQueued: 'Queued',
@@ -1429,7 +1430,7 @@ const EN_STRINGS = {
   // states are painted via tr() since they're never a DOM attribute a sweep
   // can reach, the same shape issueTriageExecuting/issueTriageRequestFailed
   // follow for the KEEPER panel's own EXECUTE button.
-  releaseExecuteTemplate: '🚀 Cut release v{version}',
+  releaseExecuteTemplate: 'Cut release v{version}',
   releaseExecuting: 'Releasing…',
   releaseRequestFailed: '✗ Request failed — try again shortly.',
   tourFiringTitle: 'Firing',
@@ -1732,7 +1733,7 @@ const EN_STRINGS = {
   landingChecking: 'Checking for unmerged work…',
   landingUnavailable: 'Landing preview unavailable.',
   landingNothingToLand: 'Nothing to land — the branch is level with its base.',
-  landingExecuteButton: '🛬 Execute landing → {base}',
+  landingExecuteButton: 'Execute landing → {base}',
   landingRestarting:
     '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
   landingDebriefTitle: 'Flight debrief',
@@ -1802,7 +1803,7 @@ const EN_STRINGS = {
   issueTriageLoading: 'Checking open issues against the board…',
   issueTriageEmpty: 'No open issues to triage.',
   issueTriageUnavailable: 'Issue triage unavailable.',
-  issueTriageExecute: '🗝️ Run KEEPER triage',
+  issueTriageExecute: 'Run KEEPER triage',
   issueTriageExecuting: 'Triaging…',
   issueTriageRequestFailed: '✗ Request failed — try again shortly.',
   // web/features/issue-triage.ts (epic 0020 "the legible surface" slice 3,
@@ -2300,7 +2301,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightSliceChipTip: 'חלק ממשימה מרובת הפעלות, עדיין פתוחה: {name}',
     flightSliceChipAria: 'פרוסה של {name}',
     tasks: 'משימות',
-    tasksFocusMode: 'משימות — 🎯 מצב מיקוד',
+    tasksFocusMode: 'משימות — מצב מיקוד',
     boardViewColumns: 'עמודות',
     boardViewList: 'רשימה',
     boardColQueued: 'בתור',
@@ -2638,7 +2639,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     releaseMaturityBeta: 'בטא',
     releaseMaturityRc: 'מועמדת לשחרור',
     releaseMaturityStable: 'יציבה',
-    releaseExecuteTemplate: '🚀 הוצא מהדורה v{version}',
+    releaseExecuteTemplate: 'הוצא מהדורה v{version}',
     releaseExecuting: 'מוציא…',
     releaseRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     tourFiringTitle: 'הפעלה',
@@ -2876,7 +2877,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingChecking: 'בודק אם יש עבודה שלא מוזגה…',
     landingUnavailable: 'תצוגה מקדימה של הנחיתה אינה זמינה.',
     landingNothingToLand: 'אין מה להנחית — הענף כבר מיושר עם הבסיס.',
-    landingExecuteButton: '🛬 בצע נחיתה אל {base}',
+    landingExecuteButton: 'בצע נחיתה אל {base}',
     landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
     landingDebriefTitle: 'תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',
@@ -2923,7 +2924,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     issueTriageLoading: 'בודק issues פתוחים מול הלוח…',
     issueTriageEmpty: 'אין issues פתוחים לטריאז׳.',
     issueTriageUnavailable: 'טריאז׳ ה-issues אינו זמין.',
-    issueTriageExecute: '🗝️ בצע טריאז׳ KEEPER',
+    issueTriageExecute: 'בצע טריאז׳ KEEPER',
     issueTriageExecuting: 'מבצע טריאז׳…',
     issueTriageRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     issueTriageCommentsPosted: 'תגובות פורסמו:',

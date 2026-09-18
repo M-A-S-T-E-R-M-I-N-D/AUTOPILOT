@@ -19,6 +19,11 @@ import {
   githubIssueExecuteResult,
   reportComposeStatusMeta,
 } from '../../../src/web/connect-panel.js';
+import {
+  reportActionLabel,
+  reportConfirmMessage,
+  reportExecuteResult,
+} from '../../../src/web/report-panel.js';
 import { connectJs } from '../../../src/web/features/connect.js';
 
 describe('connectJs', () => {
@@ -96,6 +101,90 @@ describe('connectJs', () => {
 
     it('tips the Compose button explaining the raw-note-stays-local guarantee', () => {
       expect(connectJs()).toContain("setTip(ghIssueComposeBtn, 'reportComposeTip');");
+    });
+  });
+
+  describe('connect-panel composer parity (board web-mtq70akb-rhsy6s)', () => {
+    it('builds the #gh-issue-action select from the same four report-from-here targets the right-click dialog offers', () => {
+      const out = connectJs();
+      expect(out).toContain(
+        "var GH_ISSUE_ACTION_VALUES = ['issue', 'quick-fix-pr', 'local-task', 'pool-offer'];",
+      );
+      expect(out).toContain('apOpt.textContent = reportActionLabel(apAction);');
+      expect(out).toContain('ghIssueAction.appendChild(apOpt);');
+    });
+
+    it('disables the two project-scoped targets when the page has no project, the same guard report-menu.ts uses', () => {
+      const out = connectJs();
+      expect(out).toContain("var GH_ISSUE_PROJECTLESS_ACTIONS = ['quick-fix-pr', 'local-task'];");
+      expect(out).toContain("var ghIssueProjectId = document.body.dataset.project || '';");
+      expect(out).toContain(
+        'if (!ghIssueProjectId && GH_ISSUE_PROJECTLESS_ACTIONS.indexOf(apAction) !== -1) {',
+      );
+      expect(out).toContain('apOpt.disabled = true;');
+      expect(out).toContain("apOpt.textContent += ' — ' + tr('reportActionNeedsProject');");
+    });
+
+    it('never re-splices reportActionLabel/reportConfirmMessage/reportExecuteResult — calls them as bare identifiers hoisted from report-menu.ts', () => {
+      const out = connectJs();
+      expect(out).not.toContain(reportActionLabel.toString());
+      expect(out).not.toContain(reportConfirmMessage.toString());
+      expect(out).not.toContain(reportExecuteResult.toString());
+      expect(out).toContain('reportActionLabel(apAction)');
+      expect(out).toContain('reportConfirmMessage(plan, tr)');
+      expect(out).toContain('reportExecuteResult(execData)');
+    });
+
+    it('renames the submit button between "Open GitHub issue" and the generic Execute label as the target changes', () => {
+      const out = connectJs();
+      expect(out).toContain(
+        "ghIssueBtn.textContent = action === 'issue' ? tr('openGithubIssue') : tr('reportExecute');",
+      );
+      expect(out).toContain("ghIssueAction.addEventListener('change', updateGhIssueSubmitLabel);");
+    });
+
+    it("pre-selects the composer-suggested action, the same guard report-menu.ts's dialog uses", () => {
+      const out = connectJs();
+      expect(out).toContain(
+        "if (j && typeof j.action === 'string' && GH_ISSUE_ACTION_VALUES.indexOf(j.action) !== -1 && ghIssueAction) {",
+      );
+      expect(out).toContain('ghIssueAction.value = j.action;');
+      expect(out).toContain('updateGhIssueSubmitLabel();');
+    });
+
+    it('routes a non-issue target through the report-from-here ritual instead of the GitHub-issue endpoint', () => {
+      const out = connectJs();
+      expect(out).toContain(
+        "if (chosenAction !== 'issue') { reportFromHereSubmit(chosenAction, title, body); return; }",
+      );
+    });
+
+    it('always previews before executing — a rejected plan reports its reasoning and never reaches confirm/execute', () => {
+      const out = connectJs();
+      expect(out).toContain("fetch('/api/report-from-here', {");
+      expect(out).toContain('var plan = data && data.plan;');
+      expect(out).toContain("if (!plan) { fail('reportPreviewUnavailable'); return; }");
+      expect(out).toContain('if (!plan.ok) {');
+      expect(out).toContain("tr('reportNothingToFile', { reasoning: reasonText })");
+    });
+
+    it('confirms the real resolved plan, then executes through the report-from-here ritual — never a silent write', () => {
+      const out = connectJs();
+      expect(out).toContain('if (!window.confirm(reportConfirmMessage(plan, tr))) return;');
+      expect(out).toContain("ritualFetch('report', '/api/report-from-here/execute', {");
+    });
+
+    it('sends a synthetic capture — the CONNECT popover has no captured page element behind it', () => {
+      const out = connectJs();
+      expect(out).toContain("regionId: 'connect-panel',");
+      expect(out).toContain("regionLabel: 'the CONNECT popover',");
+      expect(out).toContain("moduleSources: ['web/features/connect.ts'],");
+      expect(out).toContain('hasScreenshot: false,');
+    });
+
+    it('clears the title/body fields only once the plan actually resolved successfully', () => {
+      const out = connectJs();
+      expect(out).toContain("if (result.className.indexOf('report-result-ok') !== -1) {");
     });
   });
 

@@ -214,7 +214,7 @@ describe('layout-css — mobile-first laws', () => {
     );
     expect(css).toContain('.plan-actions button:disabled { opacity: 0.5; cursor: default; }');
     expect(css).toMatch(
-      /body > \.fleet-wisdom, body > \.ci-status-panel \{ margin-inline: var\(--page-inline\); \}/,
+      /body > \.fleet-wisdom, body > \.ci-status-panel,\nbody > \.collaboration-panel \{ margin-inline: var\(--page-inline\); \}/,
     );
   });
 

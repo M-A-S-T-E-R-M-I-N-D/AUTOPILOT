@@ -322,10 +322,18 @@ const BENIGN_FLIGHT = new Set([
   // COLLABORATION panel slice 2 (board web-mtpzqrxl-z7jgbu): fetchHelpWantedItems
   // only LISTS via `gh issue list --label "help wanted"`, and isHelpWantedItem
   // is a pure label classifier — no assign, label, or comment write exists,
-  // same class as roadmap-items.ts just above. The dashboard panel and server
-  // route that will render this list (with its assignee as claim state) are
-  // separate, later slices that will need their own markers once they ship.
+  // same class as roadmap-items.ts just above. The dashboard panel that will
+  // render this list (with its assignee as claim state) is a separate, later
+  // slice that will need its own marker once it ships.
   'help-wanted-items.ts',
+  // COLLABORATION panel server-route slice (board web-mtpzqrxl-z7jgbu):
+  // fetchCollaborationSnapshot only composes the two read-only LISTS above
+  // behind one call (Promise.all of fetchRoadmapItems + fetchHelpWantedItems)
+  // — no assign, label, or comment write of its own, same class as the two
+  // data sources it combines. The dashboard panel (and any "my-claims"
+  // filtering) that will render this snapshot is a separate, later slice
+  // that will need its own marker once it ships.
+  'collaboration.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
@@ -994,6 +1002,11 @@ const BENIGN_WEB = new Set([
   // `poolClaimDecisionLabel`, no HTML building, no I/O. The same class as
   // the other pure icon/label/badge text-math files above.
   'contributor-issue-list-panel.ts',
+  // collaboration-panel.ts: pure claim-state label formatting + the
+  // "my-claims" login-membership predicate for the COLLABORATION panel
+  // (board web-mtpzqrxl-z7jgbu) — no HTML building, no I/O, the same class
+  // as the other pure icon/label/badge text-math files above.
+  'collaboration-panel.ts',
 ]);
 
 /** `web/features/` files (epic 0002 "shell decomposition") — each is a
@@ -1100,6 +1113,15 @@ const BENIGN_WEB_FEATURES = new Set([
   // with target="_blank"/rel="noopener noreferrer", the same unvalidated
   // gh-URL-as-href pattern pool-client.ts's issue link below already uses.
   'contributor-issue-list.ts',
+  // collaboration.ts: GET /api/collaboration only — read-only, no execute
+  // pair (claiming an issue happens on GitHub itself, same as the
+  // contributor-issue-list.ts /claim walkthrough above). Renders each
+  // gh-returned issue url via `setAttribute` with
+  // target="_blank"/rel="noopener noreferrer", the same unvalidated
+  // gh-URL-as-href pattern contributor-issue-list.ts already uses; the
+  // viewer login for its "my-claims" filter rides the already-flagged
+  // socialIdentity() resolver, not a fetch of its own.
+  'collaboration.ts',
   // locale-data.ts: no fetch, no I/O — the non-English half of the
   // build-time STRINGS table (board ap-mtk2tgvh-0's BUNDLE DIET),
   // Object.assign'd into core's already-benign locale.ts data.

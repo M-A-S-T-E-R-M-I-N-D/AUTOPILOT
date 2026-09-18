@@ -85,6 +85,8 @@ describe('masthead census (EPIC 0017 slice 1/5) — pins every existing control 
     expect(masthead).toContain('id="gh-issue-compose-status"');
     expect(masthead).toContain('id="gh-issue-title"');
     expect(masthead).toContain('id="gh-issue-body"');
+    expect(masthead).toContain('id="gh-issue-action"');
+    expect(masthead).toContain('data-i18n="reportActionPrompt"');
     expect(masthead).toContain('data-i18n="openGithubIssue"');
     expect(masthead).toContain('id="gh-issue-result"');
   });

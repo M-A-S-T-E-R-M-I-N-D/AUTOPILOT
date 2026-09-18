@@ -187,7 +187,8 @@ describe('"Next release" panel i18n (board web-msnsndki-dz3vn1)', () => {
     await settle();
 
     const execBtn = document.querySelector('.release-panel .release-execute');
-    expect(execBtn?.textContent).toBe('🚀 Cut release v1.3.0');
+    expect(execBtn?.textContent).toBe('Cut release v1.3.0');
+    expect(execBtn?.querySelector('svg.icon-rocket')).not.toBeNull();
     expect(execBtn?.getAttribute('data-i18n-template')).toBe('releaseExecuteTemplate');
     expect(JSON.parse(execBtn?.getAttribute('data-i18n-args') ?? '{}')).toEqual({
       version: '1.3.0',
@@ -290,7 +291,8 @@ describe('RELEASE EXECUTE button i18n (board web-msnsndki-dz3vn1)', () => {
     await settle();
 
     const button = document.querySelector('[data-release-execute]') as HTMLButtonElement;
-    expect(button.textContent).toBe('🚀 Cut release v1.3.0');
+    expect(button.textContent).toBe('Cut release v1.3.0');
+    expect(button.querySelector('svg.icon-rocket')).not.toBeNull();
   });
 
   it('renders the EXECUTE button label in Hebrew when the panel builds after a language switch', async () => {

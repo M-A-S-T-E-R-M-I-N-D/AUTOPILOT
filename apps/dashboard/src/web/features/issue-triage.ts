@@ -235,7 +235,8 @@ function renderIssueTriageBody(body, plans, pid, identity) {
   var execBtn = document.createElement('button');
   execBtn.type = 'button';
   execBtn.className = 'issue-triage-execute';
-  execBtn.textContent = '🗝️ Run KEEPER triage';
+  execBtn.appendChild(iconEl('key-round'));
+  execBtn.appendChild(document.createTextNode('Run KEEPER triage'));
   execBtn.setAttribute('data-i18n', 'issueTriageExecute');
   execBtn.setAttribute('data-issue-triage-execute', pid);
   // Disabled-with-reason law: an all-skip round has nothing to execute, so

@@ -17,8 +17,9 @@
  */
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { join, dirname, normalize, relative, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isLocalTarget, localLinkTargets, resolveLocalLinkPath } from '@autopilot/docs-links';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -32,8 +33,6 @@ const SKIP_DIRS = new Set([
   '.autopilot-worktrees',
   '.autopilot',
 ]);
-
-const LINK_RE = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 
 /** Every `.md` file under `dir`, recursively, skipping {@link SKIP_DIRS}. */
 function markdownFiles(dir) {
@@ -53,18 +52,14 @@ function markdownFiles(dir) {
  * A link target this scan can verify against the filesystem — repo-relative
  * paths only. Absolute URLs, protocol links and in-page anchors are not
  * git-verifiable, so they are deliberately out of scope rather than guessed.
- * Pure — no fs access — so it can be unit-tested directly against fixture
- * strings, same shape as validate-no-personal-paths.mjs's findPersonalPaths().
- * @param {string} target
- * @returns {boolean}
+ * Re-exported from `@autopilot/docs-links` (epic 0023 "the docs reader",
+ * extracted there so the dashboard's docs viewer can share the same rule
+ * instead of a second implementation) so this script's own contract —
+ * `apps/dashboard/test/tooling/check-links.test.ts`'s import path — never
+ * has to change.
+ * @type {(target: string) => boolean}
  */
-export function isLocalTarget(target) {
-  if (target.length === 0) return false;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return false; // http:, https:, mailto:, …
-  if (target.startsWith('#')) return false;
-  if (target.startsWith('//')) return false;
-  return true;
-}
+export { isLocalTarget };
 
 function main() {
   const broken = [];
@@ -72,14 +67,11 @@ function main() {
 
   for (const file of markdownFiles(ROOT)) {
     const text = readFileSync(file, 'utf8');
-    for (const match of text.matchAll(LINK_RE)) {
-      const raw = match[1];
-      if (!isLocalTarget(raw)) continue;
+    for (const raw of localLinkTargets(text)) {
       // An `#anchor` suffix names a heading inside the target, not a file.
-      const path = raw.split('#')[0];
-      if (path.length === 0) continue;
+      const resolved = resolveLocalLinkPath(file, raw);
+      if (resolved === null) continue;
       checked += 1;
-      const resolved = normalize(join(dirname(file), path));
       if (!existsSync(resolved)) {
         broken.push({ file: relative(ROOT, file), target: raw });
       }

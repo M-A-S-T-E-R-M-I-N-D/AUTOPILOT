@@ -50,6 +50,22 @@ the diff highlight fades on the compositor; nothing else moves.
 
 1. Freshness + link check on the rendered page (read-only; reuses
    `doc-freshness.ts` and `scripts/docs/check-links.mjs`'s resolver).
+   **Freshness half landed 2026-09-18:** `GET /api/file` now returns
+   `touchedAt` (epoch-ms of the doc's last real commit, via
+   `doc-freshness.ts`'s `gitLastTouchedAt`, degrading to `null` on any
+   failure), and the viewer paints a "Last updated" badge from it. The link-
+   check half (painting a dead internal link as one) is still open, but its
+   blocker is cleared: `check-links.mjs`'s local-link resolution
+   (`isLocalTarget`, target extraction, path resolution) now lives in
+   `@autopilot/docs-links` (2026-09-18) — a workspace package, so
+   `apps/dashboard/src` (whose `tsconfig.json` sets `rootDir: src`, ruling
+   out a direct relative import of a repo-root script) can import it the same
+   way it already imports `@autopilot/tokens`. `check-links.mjs` itself now
+   calls into the shared package instead of carrying its own copy, verified
+   byte-identical behavior via the existing `check-links.test.ts` suite. What
+   remains: a server-side check (`GET /api/file` resolving each local link
+   against the project's indexed doc list, degrading to "unchecked" the same
+   way `touchedAt` degrades to `null`) and the viewer painting a dead one.
 2. Search + ToC + "what links here".
 3. The editor: guarded write endpoint, split preview, provenance line, tests for
    the allow-list (the security-sensitive path census must flag it).

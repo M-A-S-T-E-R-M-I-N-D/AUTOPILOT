@@ -128,6 +128,9 @@ describe('the post-flight LANDING card', () => {
       'feat: add landing card',
     );
     expect(first.querySelector('.landing-commit-files')?.textContent).toBe('2 files');
+    const execBtn = document.querySelector('.landing-execute');
+    expect(execBtn?.querySelector('svg.icon-plane-landing')).not.toBeNull();
+    expect(execBtn?.textContent).toBe('Execute landing → main');
   });
 
   it('makes the branch, base, each commit sha, and each commit subject explain themselves on hover/focus', async () => {

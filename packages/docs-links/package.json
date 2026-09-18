@@ -1,0 +1,22 @@
+{
+  "name": "@autopilot/docs-links",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUTOPILOT docs-links — Markdown local-link resolution shared by the CI link-check script and the docs reader panel.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

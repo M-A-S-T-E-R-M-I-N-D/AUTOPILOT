@@ -125,6 +125,8 @@ import {
 export type { ContributorIssueListPreviewApi };
 import { handleSocialIdentity, type SocialIdentityApi } from './social-identity.js';
 export type { SocialIdentityApi };
+import { handleCollaboration, type CollaborationApi } from './collaboration.js';
+export type { CollaborationApi };
 import { handleCiStatus } from './ci-status-route.js';
 import type { CiStatusApi } from '../control/ci-status.js';
 import { handleDonations } from './donations.js';
@@ -407,6 +409,10 @@ export type FlightLogApi = (projectId: string) => readonly string[];
 export type DocsListApi = (projectId: string) => readonly string[];
 /** One indexed document's content, or null when it is not in the index. */
 export type DocReadApi = (projectId: string, path: string) => string | null;
+/** Epoch-ms of a doc's most recent commit, or null when unknown (untracked,
+ *  no git history, or the project's root can't be resolved) — the Docs
+ *  reader freshness badge (epic 0023 "the docs reader", slice 1). */
+export type DocTouchedAtApi = (projectId: string, path: string) => number | null;
 
 /** Lists a filesystem path's subdirectories for the FLY-BAR "browse a
  *  brand-new folder" modal (board web-msrhr2d9-xxwa3a; injected, reads
@@ -742,6 +748,7 @@ export interface ServerDeps extends RouteDeps {
   readonly flightLog?: FlightLogApi;
   readonly docsList?: DocsListApi;
   readonly docRead?: DocReadApi;
+  readonly docTouchedAt?: DocTouchedAtApi;
   readonly browseFolder?: BrowseFolderApi;
   readonly landing?: LandingApi;
   readonly landingExecute?: LandingExecuteApi;
@@ -859,6 +866,12 @@ export interface ServerDeps extends RouteDeps {
    *  on this repo, so a panel can hide a maintainer verb from a non-owner —
    *  see `flight/social-pass.ts`'s `resolveSocialIdentity`. */
   readonly socialIdentity?: SocialIdentityApi;
+  /** The COLLABORATION panel's combined read (board web-mtpzqrxl-z7jgbu):
+   *  every open `roadmap` and `help wanted` issue, each carrying its
+   *  assignees — see `flight/collaboration.ts`'s
+   *  `fetchCollaborationSnapshot`. A building block ahead of its UI panel,
+   *  the same stance `reportFromHere` shipped with. */
+  readonly collaboration?: CollaborationApi;
   /** CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
    *  `gh run list` report `control/ci-status.ts`'s `ci-status` CLI command
    *  already prints, surfaced for the browser — see `createCiStatusApi`. */
@@ -1158,7 +1171,11 @@ async function handleFleetLaunch(
 function handleDocs(
   req: IncomingMessage,
   res: ServerResponse,
-  api: { list?: DocsListApi | undefined; read?: DocReadApi | undefined },
+  api: {
+    list?: DocsListApi | undefined;
+    read?: DocReadApi | undefined;
+    touchedAt?: DocTouchedAtApi | undefined;
+  },
   headers: Record<string, string>,
   mode: 'list' | 'read',
 ): void {
@@ -1196,7 +1213,15 @@ function handleDocs(
       send(404, { error: 'not an indexed file' });
       return;
     }
-    send(200, { path, content });
+    // A touchedAt failure (e.g. a transient git error) must never mask an
+    // otherwise-successful doc read — degrade to null, same as a missing dep.
+    let touchedAt: number | null = null;
+    try {
+      touchedAt = api.touchedAt ? api.touchedAt(project, path) : null;
+    } catch {
+      /* leave touchedAt null */
+    }
+    send(200, { path, content, touchedAt });
   } catch {
     send(mode === 'list' ? 200 : 404, mode === 'list' ? { files: [] } : { error: 'read failed' });
   }
@@ -3959,6 +3984,11 @@ export function createServer(deps: ServerDeps = {}): Server {
       return;
     }
 
+    if (path === '/api/collaboration') {
+      void handleCollaboration(req, res, deps.collaboration, headers);
+      return;
+    }
+
     if (path === '/api/ci-status') {
       void handleCiStatus(req, res, deps.ciStatus, headers);
       return;
@@ -4012,7 +4042,13 @@ export function createServer(deps: ServerDeps = {}): Server {
     }
 
     if (path === '/api/file') {
-      handleDocs(req, res, { list: deps.docsList, read: deps.docRead }, headers, 'read');
+      handleDocs(
+        req,
+        res,
+        { list: deps.docsList, read: deps.docRead, touchedAt: deps.docTouchedAt },
+        headers,
+        'read',
+      );
       return;
     }
 

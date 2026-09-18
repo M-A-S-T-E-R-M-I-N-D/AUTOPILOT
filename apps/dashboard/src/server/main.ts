@@ -11,6 +11,7 @@ import { openBrowser } from '../browser.js';
 import { resolveDbPath } from '../read/config.js';
 import { readFleetFromStore } from '../read/source.js';
 import { readPipelineSpans } from '../read/pipeline-spans.js';
+import { gitLastTouchedAt } from '../flight/doc-freshness.js';
 import { spansToGraph } from '../read/pipeline-graph.js';
 import { renderPipelinePanel } from '../web/pipeline-panel.js';
 import {
@@ -112,6 +113,7 @@ import {
 import { createPublicityPreviewApi } from '../flight/publicity.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
+import { createCollaborationApi } from '../flight/collaboration.js';
 import { createCiStatusApi } from '../control/ci-status.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
@@ -685,6 +687,10 @@ const server = createServer({
   flightLog: (projectId) => readFlightLogForProject(dbPath, projectId),
   docsList: (projectId) => listProjectDocs(dbPath, projectId),
   docRead: (projectId, path) => readProjectDoc(dbPath, projectId, path),
+  docTouchedAt: (projectId, path) => {
+    const root = gatherProjectRoot(dbPath, projectId);
+    return root ? gitLastTouchedAt(root, path) : null;
+  },
   browseFolder: (path) => listBrowsableFolder(path),
   landing: (projectId) => readLandingInfo(dbPath, projectId),
   // Every LAND press goes through the job registry, never straight at the
@@ -827,6 +833,10 @@ const server = createServer({
   // call like publicity above; a panel reads `.role` to decide whether the
   // viewer sees a maintainer-only verb.
   socialIdentity: createSocialIdentityApi(),
+  // COLLABORATION panel's combined read (board web-mtpzqrxl-z7jgbu) — every
+  // open `roadmap` + `help wanted` issue with assignees; a building block
+  // ahead of its UI panel, same stance `reportFromHere` above shipped with.
+  collaboration: createCollaborationApi(),
   // CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
   // `gh run list` report `dashboard ci-status` already prints, surfaced for
   // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.

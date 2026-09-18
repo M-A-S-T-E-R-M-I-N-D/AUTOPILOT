@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-18 | [Processing `ap-mu3x3ejj-ci-red`: "CI RED after landing main → 9119cce: ci.yml — failure" — refuted](2026-09-18-verdict-ap-mu3x3ejj-ci-red-refuted.md) |
 | 2026-09-16 | [Processing `ap-mu1uhdt4-ci-red`: "CI RED after landing main → cd9d8ba: ci.yml — failure" — refuted](2026-09-16-verdict-ap-mu1uhdt4-ci-red-refuted.md) |
 | 2026-09-16 | [Processing VERDICT `ap-mtq4l4fu-4`: EPIC 0016 slice 1/6 already got its dedicated firings — refuted as open work](2026-09-16-verdict-ap-mtq4l4fu-4-epic-0016-slice-1-6-refuted.md) |
 | 2026-09-16 | [EPIC 0020 S8a (`ap-mtzrb9gy-2`): diff-approval UI shell confirmed shipped, gate-verified](2026-09-16-epic-0020-s8a-diff-approval-shell-confirmed-shipped.md) |

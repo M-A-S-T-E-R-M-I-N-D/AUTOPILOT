@@ -284,7 +284,16 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // fixProposalApproveDisabledReason/fixProposalDiscardTip spliced into
 // web/features/pr-review.ts, plus renderFixProposal and its Discard wiring —
 // measured 186.4KB (190840B).
-const CHUNK_RAW_BUDGET = 187 * 1024;
+// Then chunk raw 187→195KB (2026-09-18) for the COLLABORATION panel (board
+// web-mtpzqrxl-z7jgbu): web/features/collaboration.ts — GET /api/collaboration's
+// roadmap + help-wanted lists, per-item claim state, and the my-claims filter
+// over the viewer's own login — joins /panels.js as a deferred, self-init
+// panel (chunks.ts's DEFERRED_OPERATOR_FEATURES), the same shape
+// contributor-issue-list.ts already establishes. Measured 189.7KB (194246B)
+// against the old 191488B budget: 2758 bytes over. Gzip (58162B) stays under
+// CHUNK_GZIP_BUDGET untouched, so only the raw line moves; this bump leaves
+// ~5.3KB raw headroom, matching the size of recent panel-sized bumps here.
+const CHUNK_RAW_BUDGET = 195 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -296,7 +305,17 @@ const CHUNK_RAW_BUDGET = 187 * 1024;
 // half — measured 55.3KB.
 // Then chunk gzip 56→57KB (2026-09-16) for the same diff-approval UI shell
 // entry above — measured 56.1KB (57407B).
-const CHUNK_GZIP_BUDGET = 57 * 1024;
+// Then chunk gzip 57→58KB (2026-09-18) for connect-panel composer parity
+// (board web-mtq70akb-rhsy6s): web/features/connect.ts's CONNECT-popover
+// issue form gains the same four report-from-here targets (issue/quick-fix-
+// pr/local-task/pool-offer) report-menu.ts's right-click dialog already
+// offers, instead of hardwiring 'issue' — reportActionLabel/
+// reportConfirmMessage/reportExecuteResult are called as bare hoisted
+// identifiers off report-menu.ts's existing splice (no second copy of
+// report-panel.ts's source). Measured 57.4KB (58796B) against the old
+// 58368B budget: 428 bytes over; raw stays well under CHUNK_RAW_BUDGET, so
+// only the gzip line moves.
+const CHUNK_GZIP_BUDGET = 58 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

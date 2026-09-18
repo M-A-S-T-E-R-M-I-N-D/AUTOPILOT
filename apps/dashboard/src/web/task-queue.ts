@@ -21,7 +21,8 @@ export interface TaskQueueTask {
 }
 
 /** Whether any task is under the operator's WIP-limit-1 focus lock — drives
- *  the "🎯 FOCUS MODE" heading and dims every other row. */
+ *  the "FOCUS MODE" heading (with its leading target icon) and dims every
+ *  other row. */
 export function taskFocusActive(tasks: readonly TaskQueueTask[]): boolean {
   for (const t of tasks) {
     if (t.focus) return true;

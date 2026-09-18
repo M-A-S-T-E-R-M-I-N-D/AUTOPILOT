@@ -934,6 +934,40 @@ describe('createServer (live loopback)', () => {
     expect(noProject.status).toBe(400);
   });
 
+  it('GET /api/file includes the doc freshness timestamp when the dep provides one (epic 0023 slice 1)', async () => {
+    const base = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+      docTouchedAt: (pid, path) => (pid === 'p1' && path === 'README.md' ? 1700000000000 : null),
+    });
+    const file = await fetch(`${base}/api/file?project=p1&path=README.md`);
+    expect(await file.json()).toMatchObject({ path: 'README.md', touchedAt: 1700000000000 });
+  });
+
+  it('GET /api/file reports touchedAt null when the dep is absent, and degrades to null (never failing the read) when it throws', async () => {
+    const noDep = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+    });
+    const fileNoDep = await fetch(`${noDep}/api/file?project=p1&path=README.md`);
+    expect(await fileNoDep.json()).toMatchObject({ touchedAt: null });
+
+    const throwing = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+      docTouchedAt: () => {
+        throw new Error('git unavailable');
+      },
+    });
+    const fileThrows = await fetch(`${throwing}/api/file?project=p1&path=README.md`);
+    expect(fileThrows.status).toBe(200);
+    expect(await fileThrows.json()).toMatchObject({
+      path: 'README.md',
+      content: expect.stringContaining('Hello'),
+      touchedAt: null,
+    });
+  });
+
   it('GET /api/landing previews the LANDING card data for a known project', async () => {
     const base = await start({
       landing: async (pid) =>
