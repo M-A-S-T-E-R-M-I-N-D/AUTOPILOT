@@ -685,6 +685,19 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-viewer-body blockquote { margin: var(--space-3) 0; padding: var(--space-1) var(--space-3); border-inline-start: 3px solid var(--color-border-strong, var(--color-border)); color: var(--color-text-muted); }
 .docs-viewer-body blockquote > :first-child { margin-top: 0; }
 .docs-viewer-body blockquote > :last-child { margin-bottom: 0; }
+/* GitHub-style alert callouts ([!NOTE] etc., epic 0023 "the docs reader"):
+   same block shape as a blockquote, colored per kind via the theme's own
+   semantic tokens — never a hardcoded hex, so every theme (dark/light/
+   terminal) stays in gamut. */
+.docs-callout { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); border-inline-start: 3px solid var(--callout-color); border-radius: var(--shape-extra-small); background: color-mix(in oklab, var(--callout-color) 10%, var(--color-surface-raised)); }
+.docs-callout > :first-child { margin-top: 0; }
+.docs-callout > :last-child { margin-bottom: 0; }
+.docs-callout-label { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--callout-color); }
+.docs-callout-note { --callout-color: var(--color-info); }
+.docs-callout-tip { --callout-color: var(--color-success); }
+.docs-callout-important { --callout-color: var(--color-accent); }
+.docs-callout-warning { --callout-color: var(--color-warning); }
+.docs-callout-caution { --callout-color: var(--color-danger); }
 .docs-viewer-body hr { border: 0; border-top: 1px solid var(--color-border); margin: var(--space-4) 0; }
 .docs-viewer-body li.task { list-style: none; margin-inline-start: calc(var(--space-4) * -1); }
 .docs-viewer-body li.task > input { margin: 0 var(--space-1) 0 0; vertical-align: -2px; accent-color: var(--color-accent); }

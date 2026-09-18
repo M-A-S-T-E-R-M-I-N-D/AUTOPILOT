@@ -100,7 +100,10 @@ const DOC = [
 
 let fetchCalls: string[] = [];
 
-async function bootAndOpen(brokenLinks: readonly string[] | null = null): Promise<HTMLElement> {
+async function bootAndOpen(
+  brokenLinks: readonly string[] | null = null,
+  content: string = DOC,
+): Promise<HTMLElement> {
   document.open();
   document.write(renderShell());
   document.close();
@@ -111,7 +114,7 @@ async function bootAndOpen(brokenLinks: readonly string[] | null = null): Promis
     if (u.includes('/api/file')) {
       return {
         ok: true,
-        json: async () => ({ path: DOC_PATH, content: DOC, touchedAt: null, brokenLinks }),
+        json: async () => ({ path: DOC_PATH, content, touchedAt: null, brokenLinks }),
       } as Response;
     }
     return { ok: true, json: async () => STATE } as Response;
@@ -271,5 +274,72 @@ describe('the docs reader renders every construct of the parity slice', () => {
     expect(diagram.getAttribute('data-lang')).toBe('mermaid');
     expect(diagram.textContent).toBe('graph TD; A-->B;');
     expect(body.querySelector('script')).toBeNull();
+  });
+});
+
+const CALLOUT_DOC = [
+  '> [!NOTE]',
+  '> Useful info.',
+  '',
+  '> [!TIP]',
+  '> A helpful tip.',
+  '',
+  '> [!IMPORTANT]',
+  '> Cannot be missed.',
+  '',
+  '> [!WARNING]',
+  '> Be careful.',
+  '',
+  '> [!CAUTION]',
+  '> Real danger, with *emphasis*.',
+  '',
+  '> A plain quote, not a callout',
+].join('\n');
+
+describe('GitHub-style alert blockquotes render as labeled callouts (epic 0023 "the docs reader")', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('each of the five kinds gets its own class and label, in document order', async () => {
+    const body = await bootAndOpen(null, CALLOUT_DOC);
+    const callouts = Array.from(body.querySelectorAll('.docs-callout'));
+    expect(callouts.map((c) => c.className)).toEqual([
+      'docs-callout docs-callout-note',
+      'docs-callout docs-callout-tip',
+      'docs-callout docs-callout-important',
+      'docs-callout docs-callout-warning',
+      'docs-callout docs-callout-caution',
+    ]);
+    expect(callouts.map((c) => c.querySelector('.docs-callout-label')?.textContent)).toEqual([
+      'Note',
+      'Tip',
+      'Important',
+      'Warning',
+      'Caution',
+    ]);
+  });
+
+  it('renders the alert body as markdown, and never leaks the marker line itself', async () => {
+    const body = await bootAndOpen(null, CALLOUT_DOC);
+    const callouts = Array.from(body.querySelectorAll('.docs-callout'));
+    expect(callouts[0]?.textContent).toContain('Useful info.');
+    expect(callouts[4]?.querySelector('em')?.textContent).toBe('emphasis');
+    expect(body.textContent).not.toContain('[!NOTE]');
+    expect(body.textContent).not.toContain('[!CAUTION]');
+  });
+
+  it('a plain blockquote with no alert marker still renders as an ordinary blockquote', async () => {
+    const body = await bootAndOpen(null, CALLOUT_DOC);
+    const quote = body.querySelector('blockquote')!;
+    expect(quote).not.toBeNull();
+    expect(quote.textContent).toContain('A plain quote, not a callout');
+    expect(body.querySelectorAll('.docs-callout')).toHaveLength(5);
   });
 });
