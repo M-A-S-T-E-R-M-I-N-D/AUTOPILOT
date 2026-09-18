@@ -157,11 +157,18 @@ var prReviewPlansByNumber = {};
 // attribute its delegated handler listens for, a tip that doubles as the
 // aria-label, and disabled-with-reason. Four call sites shared this shape
 // verbatim, which is bundle bytes on a budgeted chunk for no behavior.
-function prPanelButton(cls, label, attr, number, tip, disabled) {
+// iconName (optional, epic 0025): a leading stroke icon instead of an emoji
+// glyph baked into the label — the label stays the button's own textContent.
+function prPanelButton(cls, label, attr, number, tip, disabled, iconName) {
   var b = document.createElement('button');
   b.type = 'button';
   b.className = cls;
-  b.textContent = label;
+  if (iconName) {
+    b.appendChild(iconEl(iconName));
+    b.appendChild(document.createTextNode(label));
+  } else {
+    b.textContent = label;
+  }
   b.setAttribute(attr, String(number));
   b.setAttribute('data-tip', tip);
   b.setAttribute('aria-label', tip);
@@ -360,15 +367,17 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
           'data-pr-rerun-checks', plan.pr.number,
           'Restart only the jobs that failed, not the whole matrix. For a flake — a real failure fails again.',
           false));
-        // The 🔧 Diagnose button (epic 0020 slice 8) — re-run is the right
+        // The Diagnose button (epic 0020 slice 8) — re-run is the right
         // answer to a flake and useless against a real defect. Read-only: it
         // never mutates anything, so it renders enabled beside a failed
         // check with no readiness gate of its own, and stays outside the
         // actions div so the guest role gate below never hides it either.
-        diagnoseBtn = prPanelButton('pr-review-update-branch', '🔧 Diagnose',
+        // The wrench stroke icon replaces the 🔧 glyph the label used to bake
+        // in (epic 0025 icon system).
+        diagnoseBtn = prPanelButton('pr-review-update-branch', 'Diagnose',
           'data-pr-diagnose', plan.pr.number,
           'Classifies the check as flake or defect — read-only.',
-          false);
+          false, 'wrench');
       }
       if (readiness.behindBase) {
         actions.appendChild(prPanelButton('pr-review-update-branch', '⟳ Update branch',
@@ -442,19 +451,21 @@ function loadPrReviewPanel() {
 }
 // Shared by every maintainer-verb click handler below (execute, merge,
 // re-run, update-branch, diagnose): re-enable the button with its original
-// label, and — when there is a result line to write — set its class/text.
+// contents, and — when there is a result line to write — set its class/text.
 // Folding this out saved real bundle bytes; it was duplicated at every call
-// site before.
-function prPanelRestore(b, originalText, resultEl, result) {
+// site before. Restores actual child NODES, not textContent: the Diagnose
+// button's leading icon (epic 0025) is a real SVG child, and textContent
+// would silently drop it on the first busy/restore round-trip.
+function prPanelRestore(b, originalNodes, resultEl, result) {
   b.disabled = false;
-  b.textContent = originalText;
+  b.replaceChildren.apply(b, originalNodes);
   if (resultEl && result) {
     resultEl.className = result.className;
     resultEl.textContent = result.text;
   }
 }
-function prPanelReportFailure(b, originalText, resultEl) {
-  prPanelRestore(b, originalText, resultEl, {
+function prPanelReportFailure(b, originalNodes, resultEl) {
+  prPanelRestore(b, originalNodes, resultEl, {
     className: 'pr-review-result pr-review-result-fail',
     text: tr('reportRequestFailed'),
   });
@@ -469,7 +480,7 @@ document.addEventListener('click', function (e) {
   var item = b.closest('.pr-review-item');
   var resultEl = item && item.querySelector('.pr-review-result');
   b.disabled = true;
-  var originalText = b.textContent;
+  var originalNodes = Array.prototype.slice.call(b.childNodes);
   b.textContent = tr('prReviewApplying');
   // expectedDecision pins the execute to the decision KIND the confirm
   // dialog above actually showed — the server re-derives fresh and REFUSES
@@ -492,7 +503,7 @@ document.addEventListener('click', function (e) {
     .then(function (r) {
       var result = prReviewExecuteResult(r.data, tr);
       if (result.className.indexOf('pr-review-result-fail') !== -1) {
-        prPanelRestore(b, originalText, resultEl, result);
+        prPanelRestore(b, originalNodes, resultEl, result);
         return;
       }
       // A clean apply changed the PR's state (comment posted, or merged) —
@@ -501,7 +512,7 @@ document.addEventListener('click', function (e) {
       loadPrReviewPanel();
     })
     .catch(function () {
-      prPanelReportFailure(b, originalText, resultEl);
+      prPanelReportFailure(b, originalNodes, resultEl);
     });
 });
 // The two maintainer verbs — merge and update-branch — are the same
@@ -519,7 +530,7 @@ function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor
     if (confirmFor && (!plan || !window.confirm(confirmFor(plan.pr)))) return;
     var item = b.closest('.pr-review-item');
     var resultEl = item && item.querySelector('.pr-review-result');
-    var originalText = b.textContent;
+    var originalNodes = Array.prototype.slice.call(b.childNodes);
     b.disabled = true;
     b.textContent = label;
     var req = bodyFor
@@ -544,11 +555,11 @@ function wirePrMaintainerAction(attr, label, url, confirmFor, bodyFor, formatFor
           loadPrReviewPanel();
           return;
         }
-        prPanelRestore(b, originalText, resultEl, result);
+        prPanelRestore(b, originalNodes, resultEl, result);
         if (afterFor) afterFor(data, item, number);
       })
       .catch(function () {
-        prPanelReportFailure(b, originalText, resultEl);
+        prPanelReportFailure(b, originalNodes, resultEl);
       });
   });
 }

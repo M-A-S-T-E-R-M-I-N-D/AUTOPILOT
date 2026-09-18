@@ -410,7 +410,9 @@ describe('the 🔧 Diagnose button — reads the failing check’s own verdict',
     await vi.waitFor(() => {
       expect(document.querySelector('[data-pr-diagnose]')).not.toBeNull();
     });
-    expect(document.querySelector('[data-pr-diagnose]')?.textContent).toBe('🔧 Diagnose');
+    const diagnoseBtn = document.querySelector('[data-pr-diagnose]');
+    expect(diagnoseBtn?.querySelector('svg.icon-wrench')).not.toBeNull();
+    expect(diagnoseBtn?.textContent).toBe('Diagnose');
   });
 
   it('fetches the diagnose route and renders the verdict without a confirm dialog or a re-poll', async () => {
@@ -433,7 +435,8 @@ describe('the 🔧 Diagnose button — reads the failing check’s own verdict',
     });
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(button.disabled).toBe(false);
-    expect(button.textContent).toBe('🔧 Diagnose');
+    expect(button.querySelector('svg.icon-wrench')).not.toBeNull();
+    expect(button.textContent).toBe('Diagnose');
     expect(document.querySelector('.pr-review-result')?.className).toContain(
       'pr-review-result-fail',
     );
