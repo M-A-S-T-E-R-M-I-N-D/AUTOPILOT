@@ -98,6 +98,7 @@ import {
 import { gateCommands } from './gate-commands.js';
 import { gateConvergedBranch } from './flight/convergence-gate.js';
 import { resolveDbPath } from './read/config.js';
+import { flightEndStatus } from './flight/flight-end.js';
 import { readConnectionConfig } from './connection/config.js';
 import { taskEconomicsFromRows } from './flight/triage-factors.js';
 import { runBoardTriage } from './flight/board-triage.js';
@@ -1787,12 +1788,17 @@ async function main(): Promise<void> {
     // is a live fact, not a history). Runs even on crash/SIGTERM via finally.
     // A pause honored above lands on 'paused' instead of 'registered' — that's
     // the whole point of Pause (hold until Resume), not just "stopped".
+    // N-WAY ROUNDS (2026-09-18): this flight may be ONE lane of a round. Its
+    // own lock is still on disk here (released below), so excluding its pid
+    // asks exactly "is a sibling still flying?" — if so the project stays
+    // 'flying' and the last lane out turns the light off (flight-end.ts).
     try {
+      const siblingLive = isAnyFlightLockLive(dirname(dbPath), target, process.pid);
       store.db
         .prepare(
           `UPDATE projects SET status = ?, pause_requested = 0, updated_at = ? WHERE root_path = ?`,
         )
-        .run(paused ? 'paused' : 'registered', now(), target);
+        .run(flightEndStatus({ paused, siblingLive }), now(), target);
     } catch {
       /* closing anyway */
     }

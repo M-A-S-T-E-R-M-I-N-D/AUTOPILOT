@@ -24,6 +24,9 @@ export default tseslint.config(
       // Local AUTOPILOT workspace (store DB + demo/flight sample repos, git-ignored).
       '.autopilot/**',
       '.autopilot-run/**',
+      // Stryker sandboxes (config/mutation/stryker.*.config.mjs's tempDirName)
+      // — copies of the tree that only exist mid-run, never lint targets.
+      '.stryker-tmp*/**',
       // Standalone target-repo fixtures under samples/ — each owns its
       // own eslint config and gate; not part of this monorepo's lint.
       'samples/**',

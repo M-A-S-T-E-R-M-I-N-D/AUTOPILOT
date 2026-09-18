@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Operator directive, 2026-09-16: **everything green, everything at 100%.**
 
-`config/mutation/` holds 103 per-module Stryker configs, each with
+`config/mutation/` holds 105 per-module Stryker configs (103 when this
+document was opened; two more on 2026-09-18, see below), each with
 `thresholds: { break: 100 }`. That is a real gate: one surviving mutant
 fails the nightly workflow. This document is the standing record of what
 still survives, why, and what is being done about it.
@@ -297,3 +298,54 @@ The CI workflow now uploads those JSON reports as artifacts, so a future
 run can be read directly instead of scraped out of 28,000 lines of
 sharded log — which is what answering "what is still surviving?" cost the
 first time.
+
+## 2026-09-18: 103 of 103 green — then every one of them red in one bump
+
+Sweep 35260929635 on main was the first fully green nightly: 103 configs,
+100% each. The next sweep (35325053242) reported **every mutant in every
+config alive** — score 0.0 across the board, all "survived", no errors.
+
+Nothing in the tested code had changed. What had changed was one merged
+dependabot group PR (#69) that moved `vitest` 4.1 → 5.0. Reproduced
+locally: the dry run is green, the mutant run kills nothing —
+`@stryker-mutator/vitest-runner` 10's mutant activation does not reach a
+vitest 5 worker, and its `vitest >=2.0.0` peer range is too loose for pnpm
+to object. Pinned back to `^4.1.11` (proof: `dashboard-paths` 13/13 killed
+again), `.github/dependabot.yml` now ignores vitest/@vitest/vite majors
+with the reason written next to the rule, and a green sweep is the
+evidence, not a passing CI job.
+
+The lesson is structural, not about vitest. The per-change gate selected
+**zero configs** for that PR — it changed `package.json` and the lockfile,
+and no config's `mutate` list names those — so the gate passed vacuously
+on the exact change that broke mutation testing itself. Two rules now live
+in `scripts/mutation/configs-for-changes.mjs`, each with a test in
+`apps/dashboard/test/tooling/configs-for-changes.test.ts`:
+
+- **A toolchain change runs a canary.** Anything under the manifest, the
+  lockfile, `config/mutation/`, `scripts/mutation/` or the mutation
+  workflows selects `stryker.dashboard-paths.config.mjs` — 13 mutants,
+  seconds to run, 100% since 2026-09-17. A canary that reports 0 killed
+  is the whole point.
+- **A changed mutation config selects itself.** `stryker.<name>` or the
+  `vitest.<name>` it points at names no mutated source file, so the
+  `mutate` match never saw them; a config edit could break its own config
+  and only the nightly would notice.
+
+## New pure modules are wired the day they are written
+
+The inventory above was cleared file by file. The way it stays cleared is
+that a new zero-side-effect module never enters the tree without a config,
+so the per-change gate can select it on the PR that introduces it and the
+sweep never accumulates unseen debt in it. Two such modules landed on
+2026-09-18 with the landing-ritual hardening, both at 100% on first run:
+
+| Config | Module | What a survivor would mean |
+|---|---|---|
+| `dashboard-flight-end` | `apps/dashboard/src/flight/flight-end.ts` | a 2-lane round reads `flying=0` the moment its first lane lands |
+| `dashboard-landing-freshness` | `apps/dashboard/src/landing/freshness.ts` | a stale-guard refusal with no note saying "rebuild and restart" |
+
+The selector reports every changed source file that has no config as
+"uncovered" on stderr — that list is the standing to-do for the next
+modules to wire, and it should be read on every PR, not only when red.
+
