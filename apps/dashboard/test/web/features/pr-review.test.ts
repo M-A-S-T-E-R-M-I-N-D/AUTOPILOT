@@ -80,8 +80,13 @@ describe('prReviewJs', () => {
     expect(out).toContain(awaitingApprovalChecksUrl.toString());
     expect(out).toContain('var approveChecksUrl = awaitingApprovalChecksUrl(plan.pr.url);');
     expect(out).toContain('if (awaitingApproval && approveChecksUrl) {');
+    // Epic 0025 (icon system): a leading lock-open stroke icon instead of a
+    // baked-in 🔓 glyph — the anchor is built empty, then the icon and the
+    // label text land as two separate DOM children.
+    expect(out).toContain("var approveLink = el('a', 'pr-review-approve-link');");
+    expect(out).toContain("approveLink.appendChild(iconEl('lock-open'));");
     expect(out).toContain(
-      "var approveLink = el('a', 'pr-review-approve-link', '🔓 Review & approve on GitHub');",
+      "approveLink.appendChild(document.createTextNode('Review & approve on GitHub'));",
     );
     expect(out).toContain("approveLink.setAttribute('href', approveChecksUrl);");
     expect(out).toContain("approveLink.setAttribute('target', '_blank');");

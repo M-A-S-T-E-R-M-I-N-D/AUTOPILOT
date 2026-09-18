@@ -349,7 +349,10 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
       // step here (board web-mto1tya3-57v8ig).
       var approveChecksUrl = awaitingApprovalChecksUrl(plan.pr.url);
       if (awaitingApproval && approveChecksUrl) {
-        var approveLink = el('a', 'pr-review-approve-link', '🔓 Review & approve on GitHub');
+        // Epic 0025 icon system: lock-open icon instead of a baked-in glyph.
+        var approveLink = el('a', 'pr-review-approve-link');
+        approveLink.appendChild(iconEl('lock-open'));
+        approveLink.appendChild(document.createTextNode('Review & approve on GitHub'));
         approveLink.setAttribute('href', approveChecksUrl);
         approveLink.setAttribute('target', '_blank');
         approveLink.setAttribute('rel', 'noopener noreferrer');
@@ -360,8 +363,8 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
         actions.appendChild(approveLink);
       }
       var readiness = humanMergeReadiness(plan.pr);
-      actions.appendChild(prPanelButton('pr-review-human-merge', '🤝 Merge as maintainer',
-        'data-pr-human-merge', plan.pr.number, readiness.reason, !readiness.ready));
+      actions.appendChild(prPanelButton('pr-review-human-merge', 'Merge as maintainer',
+        'data-pr-human-merge', plan.pr.number, readiness.reason, !readiness.ready, 'handshake'));
       if (readiness.hasFailedChecks) {
         actions.appendChild(prPanelButton('pr-review-update-branch', '↻ Re-run failed',
           'data-pr-rerun-checks', plan.pr.number,
