@@ -129,12 +129,21 @@ function refreshDocsList(pid, list, viewer) {
       }
       for (var i = 0; i < files.length; i++) {
         var isStanding = files[i] === STANDING_DOC_PATH;
+        // Superseded records (epic 0023 slice 5 "hygiene"): the 2026-09-12
+        // audit (commit 4d50c153) already moved these under docs/archive/
+        // and gave them their own index, but the reader's list still showed
+        // them exactly like current doctrine — "the tree the reader shows"
+        // was not yet "the tree we mean".
+        var isArchived = files[i].indexOf('docs/archive/') === 0;
         var li = document.createElement('li');
         var btn = document.createElement('button');
         var isOpenDoc = openDoc[pid] === files[i];
         btn.type = 'button';
         btn.className =
-          'docs-file' + (isOpenDoc ? ' on' : '') + (isStanding ? ' docs-file-pinned' : '');
+          'docs-file' +
+          (isOpenDoc ? ' on' : '') +
+          (isStanding ? ' docs-file-pinned' : '') +
+          (isArchived ? ' docs-file-archived' : '');
         // English-only label for now, deliberately: packages/tokens/src/
         // strings.ts is a hot shared file with another fleet lane's unlanded
         // work on it as of this slice (epic 0021 hit the identical
@@ -160,10 +169,15 @@ function refreshDocsList(pid, list, viewer) {
           if (cut >= 0) btn.appendChild(el('span', 'docs-file-dir', files[i].slice(0, cut + 1)));
           btn.appendChild(el('span', 'docs-file-name', files[i].slice(cut + 1)));
         }
+        // The badge is real button content — not an aria-only aside — so a
+        // sighted reader sees it and a screen reader picks it up as part of
+        // the button's own accessible name, with zero extra wiring.
+        if (isArchived) btn.appendChild(el('span', 'docs-file-archived-badge', 'Archived'));
         btn.setAttribute('data-doc-open', files[i]);
         btn.setAttribute('data-doc-pid', pid);
         btn.setAttribute('aria-pressed', String(isOpenDoc));
-        var docTip = docFileTip(files[i], isOpenDoc);
+        var docTip =
+          docFileTip(files[i], isOpenDoc) + (isArchived ? ' — archived, kept for citations' : '');
         btn.setAttribute('data-tip', docTip);
         // D1 ATTRIBUTE PAYLOAD (epic 0015, web-mtd1wmqc-v7h6cq): no
         // aria-label duplicating the tip — the button's own text (the
