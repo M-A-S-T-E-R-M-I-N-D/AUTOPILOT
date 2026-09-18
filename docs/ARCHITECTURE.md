@@ -38,7 +38,7 @@ Generated from every `packages/*/package.json` / `apps/*/package.json` — name,
 (wired into `pnpm verify` and CI) fails the build if this block drifts from the real graph.
 
 <!-- CONTAINER:DIAGRAM:START -->
-_Generated 2026-09-17T23:51:25.484Z by `pnpm architecture:update` from every `packages/*/package.json` / `apps/*/package.json` — name, description, and `@autopilot/*` dependencies — not a hand-drawn diagram that can drift from what actually depends on what._
+_Generated 2026-09-18T21:09:27.446Z by `pnpm architecture:update` from every `packages/*/package.json` / `apps/*/package.json` — name, description, and `@autopilot/*` dependencies — not a hand-drawn diagram that can drift from what actually depends on what._
 
 ```mermaid
 flowchart TD
@@ -53,6 +53,7 @@ flowchart TD
   subgraph apps["apps/"]
     dashboard["**dashboard**<br/>AUTOPILOT dashboard — the localhost read-only web control panel."]
   end
+  dashboard --> docs_links
   dashboard --> engine
   dashboard --> mcp
   dashboard --> onboarding
