@@ -403,7 +403,9 @@ const CORE_GZIP_BUDGET = 77 * 1024;
 // against the old 191488B budget: 2758 bytes over. Gzip (58162B) stays under
 // CHUNK_GZIP_BUDGET untouched, so only the raw line moves; this bump leaves
 // ~5.3KB raw headroom, matching the size of recent panel-sized bumps here.
-const CHUNK_RAW_BUDGET = 198 * 1024;
+// Then panels raw 198→200KB (2026-09-18, same day) for the ladder's minimised
+// strip (rank, step count, the social state) — measured 199.5KB raw.
+const CHUNK_RAW_BUDGET = 200 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
