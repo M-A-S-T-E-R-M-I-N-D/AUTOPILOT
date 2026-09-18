@@ -14,6 +14,19 @@ describe('gateCommands', () => {
     expect(gateCommands(spec({}))).toEqual([]);
   });
 
+  it('runs the install leg FIRST and sequentially, before any leg that reads node_modules', () => {
+    const spec: GateSpec = {
+      ecosystem: 'js',
+      install: { bin: 'pnpm', args: ['install', '--frozen-lockfile'], label: 'pnpm install' },
+      typecheck: { bin: 'pnpm', args: ['run', 'typecheck'], label: 'typecheck' },
+      test: { bin: 'pnpm', args: ['run', 'test'], label: 'test' },
+    };
+    const commands = gateCommands(spec, { includeCiExtras: true });
+    expect(commands.map((c) => c.label)).toEqual(['pnpm install', 'typecheck', 'test']);
+    expect(commands[0]?.parallel).toBeUndefined();
+    expect(PARALLEL_GATE_KINDS.has('install')).toBe(false);
+  });
+
   it('maps configured kinds in gate order: typecheck, lint, format, test, build', () => {
     const result = gateCommands(
       spec({

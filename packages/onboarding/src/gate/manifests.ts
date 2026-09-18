@@ -55,6 +55,23 @@ export function scriptCommand(pm: PackageManager, script: string): GateCommand {
     : { bin: pm, args: ['run', script], label: `${pm} run ${script}` };
 }
 
+/** Sync dependencies to the lockfile, refusing to rewrite it: the same
+ *  command CI runs before anything else. `--prefer-offline` keeps pnpm's
+ *  no-op fast on a checkout that is already in sync. */
+export function installCommand(pm: PackageManager): GateCommand {
+  if (pm === 'pnpm') {
+    return {
+      bin: 'pnpm',
+      args: ['install', '--frozen-lockfile', '--prefer-offline'],
+      label: 'pnpm install --frozen-lockfile',
+    };
+  }
+  if (pm === 'yarn') {
+    return { bin: 'yarn', args: ['install', '--immutable'], label: 'yarn install --immutable' };
+  }
+  return { bin: 'npm', args: ['ci'], label: 'npm ci' };
+}
+
 /** Run a tool binary through the package manager's exec (npx for npm). */
 export function execCommand(
   pm: PackageManager,

@@ -47,6 +47,7 @@ describe('detectGate — JS/TS', () => {
       'scripts.test',
       'scripts.build',
       'scripts.lint',
+      'lockfile.pnpm-lock.yaml',
     ]);
     expect(d.candidates[0]?.tier).toBe('high');
   });
