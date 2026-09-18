@@ -1729,7 +1729,7 @@ const EN_STRINGS = {
   reportCopyHtmlTip: 'Copies this element’s outerHTML markup.',
   reportCopySelectorLabel: 'Copy CSS selector',
   reportCopySelectorTip: 'Copies a rooted selector path to this element.',
-  reportCopyStylesLabel: '🎨 Copy computed styles',
+  reportCopyStylesLabel: 'Copy computed styles',
   reportCopyStylesTip: 'Copies this element’s computed CSS as a ready style block.',
   reportCopyContextLabel: '🧠 Copy smart context (JSON)',
   reportCopyContextTip:
@@ -2954,7 +2954,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     reportCopyHtmlTip: 'מעתיק את ה-outerHTML של האלמנט הזה.',
     reportCopySelectorLabel: 'העתק בורר CSS',
     reportCopySelectorTip: 'מעתיק נתיב בורר מוענק לאלמנט הזה.',
-    reportCopyStylesLabel: '🎨 העתק סגנונות מחושבים',
+    reportCopyStylesLabel: 'העתק סגנונות מחושבים',
     reportCopyStylesTip: 'מעתיק את ה-CSS המחושב של האלמנט הזה כבלוק סגנון מוכן.',
     reportCopyContextLabel: '🧠 העתק הקשר חכם (JSON)',
     reportCopyContextTip:
