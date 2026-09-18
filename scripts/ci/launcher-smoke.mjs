@@ -93,6 +93,14 @@ const MANIFEST = [
     ],
   },
   {
+    // The keep-alive twin for login items / user services: no build, exactly
+    // one `keepalive` invocation, never `watch` (which spawns flights).
+    file: 'KEEPALIVE-DASHBOARD.sh',
+    buildsFirst: false,
+    requiresDist: true,
+    nodeInvocations: [['apps/dashboard/dist/control/cli.js', 'keepalive']],
+  },
+  {
     // The PR #20 launcher — the one whose runtime bug (a literal `--`
     // forwarded to the CLI as a phantom project folder, observed spawning a
     // flight for a folder named `--`) motivated this whole smoke gate. It

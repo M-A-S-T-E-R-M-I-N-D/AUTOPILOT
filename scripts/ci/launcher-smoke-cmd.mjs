@@ -102,6 +102,17 @@ const MANIFEST = [
     nodeInvocations: [['status'], ['doctor']],
   },
   {
+    // The logon-task launcher (scripts/dashboard/autostart.mjs): no build,
+    // exactly one `keepalive` invocation, never `watch` — a stray `watch`
+    // here would fly every idle project at every logon.
+    file: 'KEEPALIVE-DASHBOARD.cmd',
+    buildsFirst: false,
+    requiresDist: true,
+    target: 'apps/dashboard/dist/control/cli.js',
+    targetType: 'cjs',
+    nodeInvocations: [['keepalive']],
+  },
+  {
     file: 'WATCH-DASHBOARD.cmd',
     buildsFirst: true,
     requiresDist: false,

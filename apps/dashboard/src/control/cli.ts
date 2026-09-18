@@ -244,6 +244,40 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'keepalive': {
+      // SURVIVING A REBOOT (2026-09-18: after a restart the dashboard stayed
+      // down until someone started it by hand). The
+      // server-lifecycle half of the RING-0 supervisor and nothing else: no
+      // flight spawning, no landing. `watch` owns those and would fly every
+      // idle project — the last thing an unattended logon task should do.
+      // `pnpm dashboard:autostart` registers exactly this command (via
+      // KEEPALIVE-DASHBOARD.cmd) in the user's Startup folder.
+      const keepaliveMs = Number(
+        process.env['AUTOPILOT_WATCHDOG_INTERVAL_MS'] ?? DEFAULT_WATCHDOG_INTERVAL_MS,
+      );
+      out(
+        `keepalive: checking every ${keepaliveMs}ms — starts the dashboard when it is not running, ` +
+          'nothing else. Ctrl+C to stop.',
+      );
+      const keepaliveAc = new AbortController();
+      const stopKeepalive = (): void => keepaliveAc.abort();
+      process.on('SIGINT', stopKeepalive);
+      process.on('SIGTERM', stopKeepalive);
+      await runWatchdog(
+        control,
+        {
+          intervalMs: keepaliveMs,
+          onTick: (r) => {
+            if (r.revived) out(`  ↻ started dashboard server → ${r.status.url}`);
+          },
+        },
+        keepaliveAc.signal,
+      );
+      process.off('SIGINT', stopKeepalive);
+      process.off('SIGTERM', stopKeepalive);
+      out('keepalive stopped.');
+      break;
+    }
     case 'watch': {
       const intervalMs = Number(
         process.env['AUTOPILOT_WATCHDOG_INTERVAL_MS'] ?? DEFAULT_WATCHDOG_INTERVAL_MS,
@@ -572,7 +606,7 @@ async function main(): Promise<void> {
     }
     default: {
       out(
-        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | vacuum | watch | fleet',
+        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | vacuum | keepalive | watch | fleet',
       );
       process.exitCode = 1;
     }

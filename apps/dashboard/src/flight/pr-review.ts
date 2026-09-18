@@ -796,6 +796,11 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // flagged.
   'flight/update-check',
   'web/features/update',
+  // The reboot-survival registrar (2026-09-18): writes a VBScript into the
+  // user's Startup folder. A PR that pointed that entry at
+  // `watch` (flights at every logon) or at anything outside the checkout
+  // is a change to what runs unattended on the operator's box — flagged.
+  'scripts/dashboard/autostart',
   // The report-from-here ritual: plans the exact `gh issue create` argv a
   // bug report / pool offer runs against the operator's GitHub AND ships the
   // apply layer that executes it (`executeReportCommands`) and writes board
