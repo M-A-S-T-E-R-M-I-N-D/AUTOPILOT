@@ -33,6 +33,7 @@
 import type { SpanGraph } from '../read/pipeline-graph.js';
 import type { CanvasLayout } from '../read/pipeline-canvas.js';
 import type { SelectionState } from '../read/pipeline-selection.js';
+import { fitLabel, labelBudget } from './pipeline-label.js';
 
 /**
  * Renders `canvas`'s geometry as SVG markup, labelled from `graph`'s nodes and flagged from
@@ -40,6 +41,19 @@ import type { SelectionState } from '../read/pipeline-selection.js';
  * `packages/engine/src/otlp.ts` — kept inline so the function stays `.toString()`-splice-safe,
  * the same raw-code trust `pipeline-graph.ts`'s `worstStatus` takes.
  */
+/** The label text of one node: a bare name stays plain text; a path (or
+ *  anything the cell cannot hold whole) is split into a muted head and
+ *  an emphasised leaf — see `pipeline-label.ts`. The full label always
+ *  rides in the node's <title>, so a cut never loses information. */
+function labelMarkup(label: string, cellWidth: number, esc: (v: string) => string): string {
+  const fitted = fitLabel(label, labelBudget(cellWidth));
+  if (fitted.head === '' && !fitted.truncated) return esc(fitted.leaf);
+  return (
+    `<tspan class="pipeline-label-head">${esc(fitted.head)}</tspan>` +
+    `<tspan class="pipeline-label-leaf">${esc(fitted.leaf)}</tspan>`
+  );
+}
+
 export function renderPipelineSvg(
   graph: SpanGraph,
   canvas: CanvasLayout,
@@ -78,7 +92,7 @@ export function renderPipelineSvg(
         `${flag('connected', selection.connectedIds.has(node.id))}>` +
         `<rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}"/>` +
         `<title>${esc(title)}</title>` +
-        `<text x="${rect.x + rect.width / 2}" y="${rect.y + rect.height / 2}">${esc(node.label)}</text></g>`
+        `<text x="${rect.x + rect.width / 2}" y="${rect.y + rect.height / 2}">${labelMarkup(node.label, rect.width, esc)}</text></g>`
       );
     })
     .join('');

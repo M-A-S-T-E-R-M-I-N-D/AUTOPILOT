@@ -53,6 +53,28 @@ describe('renderPipelineSvg', () => {
     expect(svg).toContain('viewBox="0 0 260 40" width="260" height="40"');
   });
 
+  it('fits a files-lens path label to its cell — muted head, emphasised leaf, the full path in the title (operator, 2026-09-18)', () => {
+    const files = graph([
+      {
+        id: 'f1',
+        traceId: 't1',
+        label: 'apps/dashboard/src/web/shell.ts',
+        spanCount: 3,
+        status: 1,
+      },
+      { id: 'f2', traceId: 't1', label: 'src/a.ts', spanCount: 1, status: 0 },
+    ]);
+    const svg = render(files);
+    expect(svg).toContain(
+      '<text x="60" y="20"><tspan class="pipeline-label-head">…/web/</tspan><tspan class="pipeline-label-leaf">shell.ts</tspan></text>',
+    );
+    expect(svg).toContain('<title>apps/dashboard/src/web/shell.ts — 3 spans, ok</title>');
+    // A short path is split the same way — it is not cut, but the leaf still leads.
+    expect(svg).toContain(
+      '<tspan class="pipeline-label-head">src/</tspan><tspan class="pipeline-label-leaf">a.ts</tspan>',
+    );
+  });
+
   it('renders each node as a rect at its canvas position with a centered label', () => {
     const svg = render(CHAIN);
     expect(svg).toContain('<rect x="0" y="0" width="120" height="40"/>');
@@ -91,13 +113,15 @@ describe('renderPipelineSvg', () => {
 
   it('escapes markup-significant characters in labels, titles, and ids', () => {
     const g = graph([
-      { id: 'a"<b>', traceId: 't1', label: '<join> & "quote"', spanCount: 2, status: 1 },
+      // Short enough to fit a 120-unit cell whole — this test is about escaping,
+      // not about the label fitter (pipeline-label.test.ts covers the cut).
+      { id: 'a"<b>', traceId: 't1', label: '<j> & "q"', spanCount: 2, status: 1 },
     ]);
     const svg = render(g);
     expect(svg).toContain('data-node-id="a&quot;&lt;b&gt;"');
-    expect(svg).toContain('<text x="60" y="20">&lt;join&gt; &amp; &quot;quote&quot;</text>');
-    expect(svg).toContain('<title>&lt;join&gt; &amp; &quot;quote&quot; — 2 spans, ok</title>');
-    expect(svg).not.toContain('<join>');
+    expect(svg).toContain('<text x="60" y="20">&lt;j&gt; &amp; &quot;q&quot;</text>');
+    expect(svg).toContain('<title>&lt;j&gt; &amp; &quot;q&quot; — 2 spans, ok</title>');
+    expect(svg).not.toContain('<j>');
   });
 
   it('draws edges under nodes so node rects always sit on top', () => {

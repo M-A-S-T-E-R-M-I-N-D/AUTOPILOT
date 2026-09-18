@@ -14,7 +14,7 @@
   },
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "build": "tsc -b",
+    "build": "tsc -b && node scripts/build/stamp-landing-code.mjs",
     "typecheck": "tsc -p packages/tokens/tsconfig.typecheck.json --noEmit && tsc -p packages/store/tsconfig.typecheck.json --noEmit && tsc -p packages/engine/tsconfig.typecheck.json --noEmit && tsc -p packages/onboarding/tsconfig.typecheck.json --noEmit && tsc -p packages/mcp/tsconfig.typecheck.json --noEmit && tsc -p packages/docs-links/tsconfig.typecheck.json --noEmit && tsc -p apps/dashboard/tsconfig.typecheck.json --noEmit && tsc -p apps/dashboard/e2e/tsconfig.json --noEmit && tsc -p tsconfig.typecheck.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

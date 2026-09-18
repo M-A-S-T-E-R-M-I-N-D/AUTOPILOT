@@ -809,6 +809,10 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-node[data-connected='true'] rect { fill: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)); }
 .pipeline-node[data-selected='true'] rect { stroke: var(--color-accent); stroke-width: 2.5px; }
 .pipeline-node text { fill: var(--color-text); font-size: var(--text-xs); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+/* A path label is a muted head and an emphasised leaf (pipeline-label.ts):
+   the file name is what a reader scans for, the directories are context. */
+.pipeline-node text .pipeline-label-head { fill: var(--color-text-muted); }
+.pipeline-node text .pipeline-label-leaf { font-weight: 600; }
 .pipeline-edge { fill: none; stroke: var(--color-border); stroke-width: 1.5px; }
 .pipeline-edge[data-connected='true'] { stroke: var(--color-accent); stroke-width: 2px; }
 .release-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
