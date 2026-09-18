@@ -87,7 +87,8 @@ describe('the "Contribute upstream" PR form is a closed-by-default disclosure', 
 
     const summary = details?.querySelector('summary.github-pr-summary');
     expect(summary).not.toBeNull();
-    expect(summary?.getAttribute('data-i18n')).toBe('githubPrSummary');
+    expect(summary?.querySelector('svg.icon-git-pull-request')).not.toBeNull();
+    expect(summary?.querySelector('[data-i18n="githubPrSummary"]')?.tagName).toBe('SPAN');
     expect(summary?.textContent).toBe(STRINGS.en.githubPrSummary);
   });
 
