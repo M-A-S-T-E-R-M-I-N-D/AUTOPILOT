@@ -975,7 +975,7 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     }) as unknown as typeof fetch;
 
     // Execute the real client bundle; landingSection() fetches /api/landing on
-    // demand and renders the actual "🛬 Execute landing" button/confirm flow.
+    // demand and renders the actual "Execute landing" button/confirm flow.
     new Function(clientJs())();
     await vi.waitFor(() => {
       expect(document.querySelector('[data-land-execute]')).not.toBeNull();

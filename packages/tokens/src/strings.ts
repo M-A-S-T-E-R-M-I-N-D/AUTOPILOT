@@ -1733,7 +1733,7 @@ const EN_STRINGS = {
   landingChecking: 'Checking for unmerged work…',
   landingUnavailable: 'Landing preview unavailable.',
   landingNothingToLand: 'Nothing to land — the branch is level with its base.',
-  landingExecuteButton: '🛬 Execute landing → {base}',
+  landingExecuteButton: 'Execute landing → {base}',
   landingRestarting:
     '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
   landingDebriefTitle: 'Flight debrief',
@@ -2877,7 +2877,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingChecking: 'בודק אם יש עבודה שלא מוזגה…',
     landingUnavailable: 'תצוגה מקדימה של הנחיתה אינה זמינה.',
     landingNothingToLand: 'אין מה להנחית — הענף כבר מיושר עם הבסיס.',
-    landingExecuteButton: '🛬 בצע נחיתה אל {base}',
+    landingExecuteButton: 'בצע נחיתה אל {base}',
     landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
     landingDebriefTitle: 'תחקיר טיסה',
     landingDebriefBestLabel: '🏆 הטובה ביותר: ',

@@ -374,7 +374,8 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
   var execBtn = document.createElement('button');
   execBtn.type = 'button';
   execBtn.className = 'landing-execute';
-  execBtn.textContent = tr('landingExecuteButton', { base: landing.base });
+  execBtn.appendChild(iconEl('plane-landing'));
+  execBtn.appendChild(document.createTextNode(tr('landingExecuteButton', { base: landing.base })));
   execBtn.setAttribute('data-land-execute', pid);
   var execTip = landingExecuteTip(landing.base);
   execBtn.setAttribute('data-tip', execTip);

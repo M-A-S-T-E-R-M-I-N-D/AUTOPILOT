@@ -30,8 +30,9 @@ describe('the LANDING panel reads its persistent on-screen text from STRINGS', (
   });
 
   it('translates the Execute button, keeping the live base branch name as a substitution', () => {
+    expect(out).toContain("execBtn.appendChild(iconEl('plane-landing'));");
     expect(out).toContain(
-      "execBtn.textContent = tr('landingExecuteButton', { base: landing.base });",
+      "execBtn.appendChild(document.createTextNode(tr('landingExecuteButton', { base: landing.base })));",
     );
     expect(out).not.toContain("'🛬 Execute landing → '");
   });
