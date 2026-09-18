@@ -14,7 +14,8 @@
       "@autopilot/engine": ["../../packages/engine/src/index.ts"],
       "@autopilot/tokens": ["../../packages/tokens/src/index.ts"],
       "@autopilot/onboarding": ["../../packages/onboarding/src/index.ts"],
-      "@autopilot/mcp": ["../../packages/mcp/src/index.ts"]
+      "@autopilot/mcp": ["../../packages/mcp/src/index.ts"],
+      "@autopilot/docs-links": ["../../packages/docs-links/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
