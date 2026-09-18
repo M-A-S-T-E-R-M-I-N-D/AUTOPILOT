@@ -170,7 +170,8 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     expect(menu).not.toBeNull();
     expect(menu!.getAttribute('role')).toBe('menu');
     const item = menu!.querySelector('[role="menuitem"]');
-    expect(item?.textContent).toBe('🚩 Report from here');
+    expect(item?.querySelector('svg.icon-flag')).not.toBeNull();
+    expect(item?.textContent).toBe('Report from here');
   });
 
   it('Escape closes the open menu', async () => {
@@ -619,7 +620,7 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     const menu = document.querySelector('.report-ctx-menu')!;
     const labels = menuItems().map((b) => b.textContent);
     expect(labels).toEqual([
-      '🚩 Report from here',
+      'Report from here',
       '📋 Copy text',
       '🧩 Copy element HTML',
       '🎯 Copy CSS selector',

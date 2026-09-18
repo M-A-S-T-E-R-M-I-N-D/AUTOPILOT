@@ -51,7 +51,7 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
   });
 
   it('translates the dialog title and the ✕ close control (label + tip)', () => {
-    expect(out).toContain("el('h2', 'report-dialog-title', tr('reportFromHereTitle'))");
+    expect(out).toContain("h.appendChild(document.createTextNode(tr('reportFromHereTitle')));");
     expect(out).toContain("closeBtn.setAttribute('aria-label', tr('close'));");
     expect(out).toContain("closeBtn.setAttribute('data-tip', tr('reportDialogCloseTip'));");
     expect(out).not.toContain("'Closes this dialog without filing anything.'");
@@ -138,7 +138,7 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
 describe('STRINGS carries the report dialog keys', () => {
   it('keeps the English byte-identical to the old literals', () => {
     expect(STRINGS.en.reportFromHere).toBe('Report from here');
-    expect(STRINGS.en.reportFromHereTitle).toBe('🚩 Report from here');
+    expect(STRINGS.en.reportFromHereTitle).toBe('Report from here');
     expect(STRINGS.en.reportDescLabel).toBe('What is wrong or missing here?');
     expect(STRINGS.en.reportActionPrompt).toBe('One click files a…');
     expect(STRINGS.en.reportComposeAi).toBe('Compose with AI');
@@ -157,11 +157,16 @@ describe('STRINGS carries the report dialog keys', () => {
     expect(STRINGS.en.reportCopyFailed).toBe('✗ Copy failed');
   });
 
-  it('keeps the 🚩 and ✗ glyphs literal in every locale, like ghIssueRequestFailed', () => {
+  it('keeps the ✗ glyph literal in every locale, like ghIssueRequestFailed', () => {
     for (const table of Object.values(STRINGS)) {
-      expect(table.reportFromHereTitle.startsWith('🚩 ')).toBe(true);
       expect(table.reportRequestFailed.startsWith('✗ ')).toBe(true);
       expect(table.reportCopyFailed.startsWith('✗ ')).toBe(true);
+    }
+  });
+
+  it('no longer bakes the 🚩 glyph into reportFromHereTitle in any locale — epic 0025 replaced it with the vendored flag icon', () => {
+    for (const table of Object.values(STRINGS)) {
+      expect(table.reportFromHereTitle.startsWith('🚩')).toBe(false);
     }
   });
 });

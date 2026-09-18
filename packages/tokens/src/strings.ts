@@ -1702,21 +1702,23 @@ const EN_STRINGS = {
     'Open a GitHub issue titled "{title}" against the upstream AUTOPILOT repo?\n\nThis runs a real `gh issue create` using your own authenticated gh. This cannot be undone by this dashboard.',
   ghIssueOpened: 'issue opened.',
   ghIssueOpenFailed: 'failed to open issue.',
-  // web/features/report-menu.ts — the right-click "🚩 Report from here"
+  // web/features/report-menu.ts — the right-click "Report from here"
   // menu + dialog, built fresh on every open so tr() at build time is the
-  // sweep. reportFromHereTitle carries the 🚩 glyph literally (the menu item
-  // and the dialog <h2> share it; the menu's aria-label is the plain
-  // reportFromHere). reportNothingToFile's {reasoning} is the server's own
-  // plan reasoning, slotted in as sent; reportRequestFailed keeps its ✗ mark
-  // literal like ghIssueRequestFailed's. The spliced report-panel.ts helpers
-  // (action labels, execute tip/result) stay English until they take an
-  // injected tr; reportConfirmMessage is the first of those four to move —
-  // reportConfirmExecute/reportConfirmEffectTask/reportConfirmEffectIssue/
-  // reportConfirmSuffix are its four clauses, same base/effect/suffix shape
-  // releaseConfirmMessage's keys use. plan.summary itself (server-composed)
-  // stays untranslated, the same server-message stance every prior slice took.
+  // sweep. reportFromHereTitle used to carry a 🚩 glyph literally (the menu
+  // item and the dialog <h2> share it); epic 0025 (icon system) replaced it
+  // with the vendored flag stroke icon at both call sites, so the string is
+  // plain text like reportFromHere (the menu's aria-label). reportNothingToFile's
+  // {reasoning} is the server's own plan reasoning, slotted in as sent;
+  // reportRequestFailed keeps its ✗ mark literal like ghIssueRequestFailed's.
+  // The spliced report-panel.ts helpers (action labels, execute tip/result)
+  // stay English until they take an injected tr; reportConfirmMessage is the
+  // first of those four to move — reportConfirmExecute/reportConfirmEffectTask/
+  // reportConfirmEffectIssue/reportConfirmSuffix are its four clauses, same
+  // base/effect/suffix shape releaseConfirmMessage's keys use. plan.summary
+  // itself (server-composed) stays untranslated, the same server-message
+  // stance every prior slice took.
   reportFromHere: 'Report from here',
-  reportFromHereTitle: '🚩 Report from here',
+  reportFromHereTitle: 'Report from here',
   // The five copy-toolkit menu items below the separator (label + hover tip
   // each) and the transient ✓/✗ result flashed on the clicked item — the
   // "English literals for the copy labels until their STRINGS keys exist"
@@ -2945,7 +2947,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     ghIssueOpened: 'ה-issue נפתח.',
     ghIssueOpenFailed: 'פתיחת ה-issue נכשלה.',
     reportFromHere: 'דיווח מכאן',
-    reportFromHereTitle: '🚩 דיווח מכאן',
+    reportFromHereTitle: 'דיווח מכאן',
     reportCopyTextLabel: '📋 העתק טקסט',
     reportCopyTextTip: 'מעתיק את הבחירה הנוכחית, או את מלוא הטקסט של האלמנט הזה.',
     reportCopyHtmlLabel: '🧩 העתק HTML של האלמנט',
