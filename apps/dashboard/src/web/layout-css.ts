@@ -535,6 +535,20 @@ main > * { min-width: 0; }
 .chip { font-size: var(--text-xs); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-2); text-decoration: none; display: inline-block; }
 .chip-proposed { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-anomaly { color: var(--color-needs-you); border-color: var(--color-needs-you); }
+/* THE CHIP POPOVER (operator, 2026-09-18): an anomaly chip is the summary of
+   a <details>; its body floats under the chip with what it means, why it
+   fired and what to do. Above the card it sits in, below every masthead
+   popover (z 30 < .connect-body's). */
+.chip-pop { display: inline-block; position: relative; }
+.chip-pop > summary { list-style: none; cursor: pointer; }
+.chip-pop > summary::-webkit-details-marker { display: none; }
+.chip-pop > summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.chip-pop[open] > summary { background: var(--color-surface-sunken); }
+.chip-pop-body { position: absolute; inset-block-start: calc(100% + 4px); inset-inline-start: 0; z-index: 30; min-inline-size: 18rem; max-inline-size: min(26rem, 80vw); padding: var(--space-3); background: var(--color-surface-raised); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--shape-small); box-shadow: var(--elevation-level-2); font-size: var(--text-sm); line-height: 1.5; text-align: start; white-space: normal; }
+.chip-pop-what { margin: 0 0 var(--space-2); font-weight: 600; }
+.chip-pop-evidence { margin: 0 0 var(--space-2); color: var(--color-text-muted); }
+.chip-pop-action { margin: 0; }
+.chip-pop-k { font-weight: 600; }
 .chip-runaway { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-inbox { color: var(--color-accent); border-color: var(--color-accent); }
 .chip-backlog { color: var(--color-needs-you); border-color: var(--color-needs-you); }
@@ -2120,8 +2134,14 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
    steps. Deliberately NOT a card grid — one accent rail down the left, the
    current step lifted off the surface, everything already done receding.
    Hierarchy by weight and elevation, not by uniform boxes. */
+/* Padding steps up with the panel (operator, 2026-09-18: "squeezed against the
+   panel edges"): --space-4 on a phone, --space-5 from tablet up, and the
+   ladder itself keeps an inner gutter on both sides. */
 .onboarding { margin: 0 0 var(--space-4); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--shape-medium); background: var(--color-surface); box-shadow: var(--elevation-1, 0 1px 2px rgb(0 0 0 / 0.06)); }
+@media (min-width: 48rem) { .onboarding { padding: var(--space-5) var(--space-6); } }
 .onboarding[hidden] { display: none; }
+.ob-complete { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)); font-size: var(--text-sm); }
+.ob-complete[hidden] { display: none; }
 .ob-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); }
 .ob-title { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-lg); letter-spacing: 0.01em; }
 .ob-title .icon { color: var(--color-accent); flex: none; }
@@ -2145,13 +2165,13 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 
 /* Steps. The rail is the spine: done steps sit quietly against it, the
    current one steps forward off it. */
-.ob-steps { margin: var(--space-4) 0 0; padding: 0 0 0 var(--space-4); list-style: none; border-inline-start: 2px solid var(--color-border); }
+.ob-steps { margin: var(--space-4) var(--space-2) 0; padding: 0 0 0 var(--space-4); list-style: none; border-inline-start: 2px solid var(--color-border); }
 [dir="rtl"] .ob-steps { padding: 0 var(--space-4) 0 0; }
 .ob-level { margin-block: var(--space-3) var(--space-2); margin-inline-start: calc(var(--space-4) * -1 - 2px); padding-inline-start: calc(var(--space-4) - 2px); }
 .ob-level:first-child { margin-block-start: 0; }
 .ob-level-title { margin: 0; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); }
 .ob-level-note { margin: 2px 0 0; font-size: var(--text-sm); }
-.ob-step { position: relative; display: flex; gap: var(--space-3); margin-block: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); transition: background var(--duration-fast, 150ms) ease, transform var(--duration-fast, 150ms) ease; }
+.ob-step { position: relative; display: flex; gap: var(--space-3); margin-block: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--shape-small); transition: background var(--duration-fast, 150ms) ease, transform var(--duration-fast, 150ms) ease; }
 .ob-step-mark { flex: none; display: grid; place-items: center; inline-size: 2rem; block-size: 2rem; border-radius: var(--radius-full); border: 1px solid var(--color-border); color: var(--color-text-muted); background: var(--color-surface); }
 .ob-step-body { min-inline-size: 0; }
 .ob-step-title { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); font-weight: 600; }

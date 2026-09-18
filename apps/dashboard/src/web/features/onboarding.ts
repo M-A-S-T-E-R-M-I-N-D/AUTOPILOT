@@ -176,10 +176,14 @@ function syncOnboarding(state) {
   // before that the contribution steps are not even being offered.
   if (obGithubConnected()) obAskContributions();
   obState = computeOnboarding(obSignals(obLastState));
-  // The ladder disappears for good once both ticks are earned — it has
-  // nothing left to say, and a permanent checklist reads as clutter.
-  if (obState.complete || obSnoozed()) { panel.hidden = true; return; }
+  // The ladder disappears once both ticks are earned — it has nothing left
+  // to nudge about, and a permanent checklist reads as clutter — and while
+  // snoozed. MY PROGRESS (obOpenProgress, below) overrides both: asked for
+  // by name, it shows every tick, the badges and the standing.
+  if (!obForced && (obState.complete || obSnoozed())) { panel.hidden = true; return; }
   panel.hidden = false;
+  var doneNote = document.getElementById('ob-complete');
+  if (doneNote) doneNote.hidden = !obState.complete;
   obPaintProgress();
   obPaintSteps();
   obPaintBadges();
@@ -419,6 +423,7 @@ function obOpenSubject(subject) {
 }
 
 function obSnooze(forever) {
+  obForced = false;
   try { localStorage.setItem(OB_SNOOZE_KEY, forever ? OB_SNOOZE_FOREVER : obToday()); } catch (err) {}
   var panel = document.getElementById('onboarding');
   if (panel) panel.hidden = true;
@@ -440,7 +445,31 @@ function obFocusLadder() {
   if (current && typeof current.focus === 'function') current.focus();
 }
 
+// MY PROGRESS (operator, 2026-09-18: "I don't know how I can open it again
+// for an overview, to check I really have everything and what my rank
+// is"). The more menu's entry brings the ladder back at any time — snoozed
+// or finished — with every tick, the badges and the standing, and puts
+// focus on its title. A snooze pressed afterwards puts it away again.
+var obForced = false;
+function obOpenProgress() {
+  obForced = true;
+  try { localStorage.removeItem(OB_SNOOZE_KEY); } catch (err) {}
+  syncOnboarding(obLastState);
+  var panel = document.getElementById('onboarding');
+  if (!panel || panel.hidden) return;
+  if (typeof panel.scrollIntoView === 'function') {
+    panel.scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
+  var title = document.getElementById('ob-title');
+  if (title && typeof title.focus === 'function') {
+    title.setAttribute('tabindex', '-1');
+    title.focus();
+  }
+}
+
 function onboardingInit() {
+  var progress = document.getElementById('progress-btn');
+  if (progress) progress.addEventListener('click', obOpenProgress);
   var later = document.getElementById('ob-snooze');
   if (later) later.addEventListener('click', function () { obSnooze(false); });
   // …and the way back: the ladder tells you what to DO, the tour tells you
