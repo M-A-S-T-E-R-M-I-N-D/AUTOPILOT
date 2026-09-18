@@ -1759,14 +1759,16 @@ describe('discoverFeatureModules against the real src/web/features directory —
     }
   });
 
-  it('search.ts carries twenty-two relative-import splices across three modules, resolved against its own directory', () => {
+  it('search.ts carries twenty-three relative-import splices across three modules, resolved against its own directory', () => {
     const searchSource = readFileSync(SEARCH_TS, 'utf8');
     const entries = findSpliceManifest(searchSource, SEARCH_TS);
     // The docs reader's parity slice (2026-09-18) added eleven markdown
-    // helpers; every one is spliced, none retyped.
+    // helpers, and the alert-callout slice a twelfth (calloutKind); every one
+    // is spliced, none retyped.
     expect(entries.map((e) => e.exportedName).sort()).toEqual([
       'applyAskStreamFrame',
       'blockquoteText',
+      'calloutKind',
       'classifyHref',
       'fenceLang',
       'headingOf',
@@ -1810,6 +1812,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
       'inlineTokens',
       'resolveDocLink',
       'classifyHref',
+      'calloutKind',
     ]) {
       expect(modulePaths.get(helper), helper).toBe('../markdown.js');
     }
@@ -3025,10 +3028,10 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
 
   /**
    * contributorIssueListJs's own reconstruction, from its real file under
-   * web/features/. It carries one real relative-import splice of its own
-   * (contributorIssueTierBadge from ../contributor-issue-list-panel.js),
-   * resolved against web/features/ rather than SHELL_DIR, and no non-splice
-   * slots at all.
+   * web/features/. It carries two real relative-import splices of its own
+   * (contributorIssueTierBadge/contributorIssueTierIcon from
+   * ../contributor-issue-list-panel.js), resolved against web/features/
+   * rather than SHELL_DIR, and no non-splice slots at all.
    */
   async function reconstructContributorIssueListJs(): Promise<string> {
     const contributorIssueListSource = readFileSync(CONTRIBUTOR_ISSUE_LIST_TS, 'utf8');

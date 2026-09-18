@@ -3714,8 +3714,7 @@ function renderProjectPage(state, pid) {
   var ghPr = el('section', 'github-pr');
   var ghPrDetails = document.createElement('details');
   ghPrDetails.className = 'github-pr-details';
-  var ghPrSummary = el('summary', 'github-pr-summary', '🔀 Contribute upstream');
-  ghPrSummary.setAttribute('data-i18n', 'githubPrSummary');
+  var ghPrSummary = panelHeading('summary', 'github-pr-summary', 'githubPrSummary', 'git-pull-request');
   ghPrDetails.appendChild(ghPrSummary);
   var ghPrForm = document.createElement('form');
   ghPrForm.className = 'gh-issue-form';

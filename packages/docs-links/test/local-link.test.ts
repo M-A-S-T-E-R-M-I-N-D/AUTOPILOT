@@ -16,6 +16,7 @@ import {
   extractLinkTargets,
   localLinkTargets,
   resolveLocalLinkPath,
+  localLinkPaths,
 } from '../src/local-link.js';
 
 describe('isLocalTarget', () => {
@@ -96,6 +97,23 @@ describe('resolveLocalLinkPath', () => {
 
   it('returns null when the target is only an anchor', () => {
     expect(resolveLocalLinkPath('README.md', '#top')).toBeNull();
+  });
+});
+
+describe('localLinkPaths', () => {
+  it('resolves every local link to a forward-slash repo-relative path, skipping non-local ones', () => {
+    const markdown =
+      'See [the plan](../PLAN.md) and [external](https://example.com), also [anchor](#top).';
+    expect(localLinkPaths(markdown, 'docs/epics/0023-docs-reader.md')).toEqual(['docs/PLAN.md']);
+  });
+
+  it('keeps a repeated target for each occurrence, in document order', () => {
+    const markdown = '[A](one.md) [B](two.md) [A again](one.md)';
+    expect(localLinkPaths(markdown, 'README.md')).toEqual(['one.md', 'two.md', 'one.md']);
+  });
+
+  it('returns an empty list when the markdown has no local links', () => {
+    expect(localLinkPaths('[ext](https://example.com)', 'README.md')).toEqual([]);
   });
 });
 

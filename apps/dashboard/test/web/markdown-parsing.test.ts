@@ -29,6 +29,7 @@ import {
   inlineTokens,
   resolveDocLink,
   classifyHref,
+  calloutKind,
 } from '../../src/web/markdown.js';
 
 describe('splitTableRow', () => {
@@ -421,5 +422,31 @@ describe('the new helpers — the boundaries the first mutation run exposed', ()
 
   it('classifyHref: only a leading http(s) is external — a scheme that merely contains one is text', () => {
     expect(classifyHref('mailto:https://x', 'docs/a.md')).toEqual({ kind: 'text' });
+  });
+});
+
+describe('calloutKind', () => {
+  it('reads all five GitHub alert kinds, case-insensitively', () => {
+    expect(calloutKind('[!NOTE]')).toBe('note');
+    expect(calloutKind('[!TIP]')).toBe('tip');
+    expect(calloutKind('[!IMPORTANT]')).toBe('important');
+    expect(calloutKind('[!WARNING]')).toBe('warning');
+    expect(calloutKind('[!CAUTION]')).toBe('caution');
+    expect(calloutKind('[!note]')).toBe('note');
+    expect(calloutKind('[!NoTe]')).toBe('note');
+  });
+
+  it('tolerates surrounding and trailing whitespace, nothing else on the line', () => {
+    expect(calloutKind('  [!NOTE]  ')).toBe('note');
+    expect(calloutKind('[!NOTE] ')).toBe('note');
+  });
+
+  it('is null for a marker that is not the WHOLE line, an unknown kind, or plain text', () => {
+    expect(calloutKind('[!NOTE] extra text')).toBeNull();
+    expect(calloutKind('prefix [!NOTE]')).toBeNull();
+    expect(calloutKind('[!BOGUS]')).toBeNull();
+    expect(calloutKind('plain quoted text')).toBeNull();
+    expect(calloutKind('')).toBeNull();
+    expect(calloutKind('[!]')).toBeNull();
   });
 });

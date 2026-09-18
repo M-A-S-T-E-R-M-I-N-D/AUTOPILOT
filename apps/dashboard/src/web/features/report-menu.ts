@@ -6,7 +6,7 @@
  * 2026-09-02"): the operator rejected the eight always-open
  * `reportFromHereSection` panels (formerly `web/features/report.ts`) as
  * clutter and asked for exactly one thing instead — right-click anywhere, a
- * small custom menu offers "📮 Report from here", and choosing it opens ONE
+ * small custom menu offers "Report from here", and choosing it opens ONE
  * hidden dialog with the capture already visible (element, owning region +
  * module sources, DOM/CSS snapshot, recent console errors) so the operator
  * only types a description and picks an action. Slice 1/2 shipped this
@@ -63,7 +63,7 @@
  * the dialog it opens. Without that guard, right-clicking to reach a native
  * "Paste"/"Undo" context menu inside ANY dashboard text field (the Fly bar's
  * folder path, the SOUL editor, this dialog's own description) would instead
- * summon "📮 Report from here", silently taking away editing capability the
+ * summon "Report from here", silently taking away editing capability the
  * operator already relies on — Shift+right-click already exists as the
  * documented escape hatch for the browser's native menu; editable surfaces
  * get that same behavior unconditionally, with no modifier required.
@@ -95,8 +95,10 @@ import { formatCapturedReportContext as sharedFormatCapturedReportContext } from
  *  (Paste/Undo/spellcheck) — see the header comment's editable-surface note. */
 const REPORT_MENU_EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable="true"]';
 
-/** The single right-click "📮 Report from here" menu + dialog — vanilla,
- *  external (keeps CSP script-src 'self'). */
+/** The single right-click "Report from here" menu + dialog — vanilla,
+ *  external (keeps CSP script-src 'self'). The menu item and the dialog
+ *  <h2> both lead with the vendored flag stroke icon (epic 0025 icon
+ *  system) instead of baking an emoji glyph into the label. */
 export function reportMenuJs(): string {
   return `
 var REPORT_MENU_EDITABLE_SELECTOR = ${JSON.stringify(REPORT_MENU_EDITABLE_SELECTOR)};
@@ -220,12 +222,20 @@ function closeReportMenu() {
   document.removeEventListener('keydown', reportMenuOnKeydown, true);
   document.removeEventListener('mousedown', reportMenuOnOutside, true);
 }
-function reportMenuAddItem(label, tip, onChoose) {
+// iconName (optional, epic 0025 icon system): a leading stroke icon instead
+// of an emoji glyph baked into the label — the label stays the item's own
+// textContent (see prPanelButton's identical convention in pr-review.ts).
+function reportMenuAddItem(label, tip, onChoose, iconName) {
   var item = document.createElement('button');
   item.type = 'button';
   item.className = 'report-ctx-menu-item';
   item.setAttribute('role', 'menuitem');
-  item.textContent = label;
+  if (iconName) {
+    item.appendChild(iconEl(iconName));
+    item.appendChild(document.createTextNode(label));
+  } else {
+    item.textContent = label;
+  }
   if (tip) item.setAttribute('data-tip', tip);
   item.addEventListener('click', function () { onChoose(item); });
   reportMenuEl.appendChild(item);
@@ -262,7 +272,7 @@ function openReportMenu(x, y) {
   var item = reportMenuAddItem(tr('reportFromHereTitle'), tr('reportFromHere'), function () {
     closeReportMenu();
     openReportDialog();
-  });
+  }, 'flag');
   var sep = document.createElement('div');
   sep.className = 'report-ctx-menu-sep';
   sep.setAttribute('role', 'separator');
@@ -270,13 +280,13 @@ function openReportMenu(x, y) {
   reportMenuAddItem(tr('reportCopyTextLabel'), tr('reportCopyTextTip'), function (it) {
     var sel = window.getSelection ? String(window.getSelection()) : '';
     reportMenuCopy(sel && sel.trim() ? sel : (target && (target.innerText || target.textContent) || '').trim(), it);
-  });
+  }, 'clipboard-list');
   reportMenuAddItem(tr('reportCopyHtmlLabel'), tr('reportCopyHtmlTip'), function (it) {
     reportMenuCopy(target ? target.outerHTML : '', it);
   });
   reportMenuAddItem(tr('reportCopySelectorLabel'), tr('reportCopySelectorTip'), function (it) {
     reportMenuCopy(reportMenuSelectorOf(target), it);
-  });
+  }, 'target');
   reportMenuAddItem(tr('reportCopyStylesLabel'), tr('reportCopyStylesTip'), function (it) {
     reportMenuCopy(reportMenuStylesOf(target, reportMenuSelectorOf(target) || 'element'), it);
   });
@@ -327,7 +337,9 @@ function paintReportDialog(pid, capture) {
   closeBtn.setAttribute('data-tip', tr('reportDialogCloseTip'));
   closeBtn.addEventListener('click', closeReportDialog);
   dialog.appendChild(closeBtn);
-  var h = el('h2', 'report-dialog-title', tr('reportFromHereTitle'));
+  var h = el('h2', 'report-dialog-title');
+  h.appendChild(iconEl('flag'));
+  h.appendChild(document.createTextNode(tr('reportFromHereTitle')));
   h.id = 'report-dialog-title';
   dialog.appendChild(h);
   var capturedEl = document.createElement('pre');

@@ -87,6 +87,9 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@autopilot/docs-links':
+        specifier: workspace:*
+        version: link:../../packages/docs-links
       '@autopilot/engine':
         specifier: workspace:*
         version: link:../../packages/engine

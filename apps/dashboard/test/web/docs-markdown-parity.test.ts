@@ -100,7 +100,10 @@ const DOC = [
 
 let fetchCalls: string[] = [];
 
-async function bootAndOpen(): Promise<HTMLElement> {
+async function bootAndOpen(
+  brokenLinks: readonly string[] | null = null,
+  content: string = DOC,
+): Promise<HTMLElement> {
   document.open();
   document.write(renderShell());
   document.close();
@@ -111,7 +114,7 @@ async function bootAndOpen(): Promise<HTMLElement> {
     if (u.includes('/api/file')) {
       return {
         ok: true,
-        json: async () => ({ path: DOC_PATH, content: DOC, touchedAt: null }),
+        json: async () => ({ path: DOC_PATH, content, touchedAt: null, brokenLinks }),
       } as Response;
     }
     return { ok: true, json: async () => STATE } as Response;
@@ -155,6 +158,30 @@ describe('the docs reader renders every construct of the parity slice', () => {
     expect(intro.querySelector('code')?.textContent).toBe('code');
   });
 
+  it("renders a table of contents from the doc's own headings, in order, and clicking an entry scrolls to it (epic 0023 slice 2)", async () => {
+    const body = await bootAndOpen();
+    const toc = body.querySelector('.docs-toc') as HTMLElement;
+    expect(toc, 'a two-heading doc gets a ToC').not.toBeNull();
+    expect(toc.getAttribute('aria-label')).toBe('Table of contents');
+    // Sits above the rendered content, not appended after it.
+    expect(body.firstElementChild).toBe(toc);
+
+    const entries = toc.querySelectorAll('.docs-toc-link');
+    expect(entries.length).toBe(2);
+    expect(entries[0]?.textContent).toBe('Guide');
+    expect(entries[0]?.getAttribute('data-doc-anchor')).toBe('guide');
+    expect(entries[0]?.closest('li')?.className).toBe('docs-toc-h1');
+    expect(entries[1]?.textContent).toBe('The Plan');
+    expect(entries[1]?.getAttribute('data-doc-anchor')).toBe('the-plan');
+    expect(entries[1]?.closest('li')?.className).toBe('docs-toc-h2');
+
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    (entries[1] as HTMLAnchorElement).click();
+    expect(scrolled).toHaveBeenCalled();
+    expect(location.hash).toBe('');
+  });
+
   it('links: external opens a new tab, an anchor scrolls inside this body, a relative path opens THAT document here, and the dangerous ones stay words', async () => {
     const body = await bootAndOpen();
     const external = body.querySelector('a[href="https://x.test/y"]') as HTMLAnchorElement;
@@ -189,6 +216,19 @@ describe('the docs reader renders every construct of the parity slice', () => {
     expect(body.textContent).toContain('climb');
   });
 
+  it('paints a doc link the server reports dead, and leaves a live one alone (epic 0023 slice 1: "a dead link is painted as one")', async () => {
+    const body = await bootAndOpen(['docs/other.md']);
+    const doc = body.querySelector('a.docs-link') as HTMLAnchorElement;
+    expect(doc.getAttribute('data-doc-open')).toBe('docs/other.md');
+    expect(doc.classList.contains('docs-link-dead')).toBe(true);
+    expect(doc.querySelector('.sr-only')?.textContent).toContain('broken link');
+
+    const live = await bootAndOpen([]);
+    const liveDoc = live.querySelector('a.docs-link') as HTMLAnchorElement;
+    expect(liveDoc.classList.contains('docs-link-dead')).toBe(false);
+    expect(liveDoc.querySelector('.sr-only')).toBeNull();
+  });
+
   it('a multi-line blockquote, a rule, task checkboxes and nested lists', async () => {
     const body = await bootAndOpen();
     const quote = body.querySelector('blockquote')!;
@@ -206,7 +246,10 @@ describe('the docs reader renders every construct of the parity slice', () => {
     const nested = tasks[1]!.querySelector(':scope > ul > li')!;
     expect(nested.textContent).toContain('nested child');
     expect(nested.querySelector(':scope > ol > li')?.textContent).toContain('deeper ordered');
-    const top = body.querySelector('ul')!;
+    // :scope > ul, not a bare querySelector('ul') — the ToC (epic 0023 slice
+    // 2) prepends its own <ul> nested inside a <nav>, so a generic query
+    // would find that one first instead of the content's top-level list.
+    const top = body.querySelector(':scope > ul')!;
     expect(Array.from(top.children).map((li) => li.textContent?.trim().slice(0, 5))).toEqual([
       'open ',
       'done ',
@@ -231,5 +274,72 @@ describe('the docs reader renders every construct of the parity slice', () => {
     expect(diagram.getAttribute('data-lang')).toBe('mermaid');
     expect(diagram.textContent).toBe('graph TD; A-->B;');
     expect(body.querySelector('script')).toBeNull();
+  });
+});
+
+const CALLOUT_DOC = [
+  '> [!NOTE]',
+  '> Useful info.',
+  '',
+  '> [!TIP]',
+  '> A helpful tip.',
+  '',
+  '> [!IMPORTANT]',
+  '> Cannot be missed.',
+  '',
+  '> [!WARNING]',
+  '> Be careful.',
+  '',
+  '> [!CAUTION]',
+  '> Real danger, with *emphasis*.',
+  '',
+  '> A plain quote, not a callout',
+].join('\n');
+
+describe('GitHub-style alert blockquotes render as labeled callouts (epic 0023 "the docs reader")', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('each of the five kinds gets its own class and label, in document order', async () => {
+    const body = await bootAndOpen(null, CALLOUT_DOC);
+    const callouts = Array.from(body.querySelectorAll('.docs-callout'));
+    expect(callouts.map((c) => c.className)).toEqual([
+      'docs-callout docs-callout-note',
+      'docs-callout docs-callout-tip',
+      'docs-callout docs-callout-important',
+      'docs-callout docs-callout-warning',
+      'docs-callout docs-callout-caution',
+    ]);
+    expect(callouts.map((c) => c.querySelector('.docs-callout-label')?.textContent)).toEqual([
+      'Note',
+      'Tip',
+      'Important',
+      'Warning',
+      'Caution',
+    ]);
+  });
+
+  it('renders the alert body as markdown, and never leaks the marker line itself', async () => {
+    const body = await bootAndOpen(null, CALLOUT_DOC);
+    const callouts = Array.from(body.querySelectorAll('.docs-callout'));
+    expect(callouts[0]?.textContent).toContain('Useful info.');
+    expect(callouts[4]?.querySelector('em')?.textContent).toBe('emphasis');
+    expect(body.textContent).not.toContain('[!NOTE]');
+    expect(body.textContent).not.toContain('[!CAUTION]');
+  });
+
+  it('a plain blockquote with no alert marker still renders as an ordinary blockquote', async () => {
+    const body = await bootAndOpen(null, CALLOUT_DOC);
+    const quote = body.querySelector('blockquote')!;
+    expect(quote).not.toBeNull();
+    expect(quote.textContent).toContain('A plain quote, not a callout');
+    expect(body.querySelectorAll('.docs-callout')).toHaveLength(5);
   });
 });

@@ -97,4 +97,52 @@ describe('docsViewerJs', () => {
       expect(out).toContain('viewer.dataset.loadedPath !== openDoc[pid]');
     });
   });
+
+  describe('table of contents (epic 0023 slice 2)', () => {
+    it('builds it from the raw markdown text via the hoisted headingOf/headingSlug', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('function buildToc(content) {');
+      expect(out).toContain('headingOf(lines[i])');
+      expect(out).toContain('headingSlug(headings[j].text)');
+    });
+
+    it('skips a single-heading doc — a self-referential entry says nothing', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('if (headings.length < 2) return null;');
+    });
+
+    it('links each entry through the same data-doc-anchor mechanism the in-document parity links use', () => {
+      const out = docsViewerJs();
+      expect(out).toContain("a.setAttribute('data-doc-anchor', headingSlug(headings[j].text));");
+    });
+
+    it('inserts the ToC above the rendered body, never for the plain-text fallback branch', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(
+        /renderMarkdown\(body, data\.content[\s\S]*?body\.insertBefore\(toc, body\.firstChild\);/,
+      );
+    });
+  });
+
+  describe('what links here (epic 0023 slice 2)', () => {
+    it('builds a backlinks nav wiring each entry through data-doc-open — no new click plumbing', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('function buildLinksHere(pid, linksHere) {');
+      expect(out).toMatch(
+        /a\.setAttribute\('data-doc-open', linksHere\[i\]\);[\s\S]*?a\.setAttribute\('data-doc-pid', pid\);/,
+      );
+    });
+
+    it('paints nothing when there are no backlinks', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('if (!linksHere || !linksHere.length) return null;');
+    });
+
+    it('appends the backlinks nav after the rendered body', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(
+        /viewer\.appendChild\(body\);[\s\S]*?buildLinksHere\(pid, data\.linksHere\);[\s\S]*?if \(linksHere\) viewer\.appendChild\(linksHere\);/,
+      );
+    });
+  });
 });

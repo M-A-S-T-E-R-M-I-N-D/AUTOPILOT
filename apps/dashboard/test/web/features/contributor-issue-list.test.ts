@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   contributorIssueTierBadge,
+  contributorIssueTierIcon,
   CLAIM_WALKTHROUGH_STEPS,
 } from '../../../src/web/contributor-issue-list-panel.js';
 import { contributorIssueListJs } from '../../../src/web/features/contributor-issue-list.js';
@@ -20,6 +21,7 @@ describe('contributorIssueListJs', () => {
   it('embeds contributor-issue-list-panel splice real compiled source via .toString()', () => {
     const out = contributorIssueListJs();
     expect(out).toContain(contributorIssueTierBadge.toString());
+    expect(out).toContain(contributorIssueTierIcon.toString());
   });
 
   it('embeds CLAIM_WALKTHROUGH_STEPS real value via JSON.stringify()', () => {

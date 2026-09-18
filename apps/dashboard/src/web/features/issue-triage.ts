@@ -58,6 +58,7 @@
  */
 import {
   issueTriageDecisionLabel,
+  issueTriageDecisionIcon,
   issueTriageConfirmMessage,
   issueTriageExecuteResult,
   issueTriageExecuteTip,
@@ -85,6 +86,11 @@ export function issueTriageJs(): string {
 // below — their real compiled source via .toString(), not a hand-retyped
 // copy. They can no longer drift apart.
 ${issueTriageDecisionLabel.toString()}
+// issueTriageDecisionIcon is generated FROM web/issue-triage-panel.ts below
+// (epic 0025, icon system) — its real compiled source via .toString(), not a
+// hand-retyped copy. It can no longer drift apart from
+// issueTriageDecisionLabel's own dossier/needs-format branches.
+${issueTriageDecisionIcon.toString()}
 ${issueTriageConfirmMessage.toString()}
 ${issueTriageExecuteResult.toString()}
 // issueTriageCommentLinks is generated FROM web/issue-triage-panel.ts below
@@ -162,7 +168,8 @@ function renderIssueTriageBody(body, plans, pid, identity) {
     issueNumberEl.setAttribute('data-tip', headMeta.numberTip);
     issueNumberEl.setAttribute('aria-label', headMeta.numberAriaLabel);
     head.appendChild(issueNumberEl);
-    head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass));
+    var badgeIcon = issueTriageDecisionIcon(plan.decision.decision);
+    head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass, badgeIcon));
     item.appendChild(head);
     item.appendChild(el('p', 'issue-triage-issue-title', plan.issue.title));
     // Real GitHub labels, rendered as chips (epic 0020 "the legible surface"

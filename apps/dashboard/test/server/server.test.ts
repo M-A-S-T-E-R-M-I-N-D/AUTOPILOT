@@ -968,6 +968,81 @@ describe('createServer (live loopback)', () => {
     });
   });
 
+  it('GET /api/file includes the dead-link census when the dep provides one (epic 0023 slice 1)', async () => {
+    const base = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+      docBrokenLinks: (pid, path, content) =>
+        pid === 'p1' && path === 'README.md' && content === '# Hello' ? ['docs/missing.md'] : [],
+    });
+    const file = await fetch(`${base}/api/file?project=p1&path=README.md`);
+    expect(await file.json()).toMatchObject({
+      path: 'README.md',
+      brokenLinks: ['docs/missing.md'],
+    });
+  });
+
+  it('GET /api/file reports brokenLinks null when the dep is absent, and degrades to null (never failing the read) when it throws', async () => {
+    const noDep = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+    });
+    const fileNoDep = await fetch(`${noDep}/api/file?project=p1&path=README.md`);
+    expect(await fileNoDep.json()).toMatchObject({ brokenLinks: null });
+
+    const throwing = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+      docBrokenLinks: () => {
+        throw new Error('index unavailable');
+      },
+    });
+    const fileThrows = await fetch(`${throwing}/api/file?project=p1&path=README.md`);
+    expect(fileThrows.status).toBe(200);
+    expect(await fileThrows.json()).toMatchObject({
+      path: 'README.md',
+      content: expect.stringContaining('Hello'),
+      brokenLinks: null,
+    });
+  });
+
+  it('GET /api/file includes the "what links here" backlinks when the dep provides them (epic 0023 slice 2)', async () => {
+    const base = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+      docLinksHere: (pid, path) => (pid === 'p1' && path === 'README.md' ? ['docs/guide.md'] : []),
+    });
+    const file = await fetch(`${base}/api/file?project=p1&path=README.md`);
+    expect(await file.json()).toMatchObject({
+      path: 'README.md',
+      linksHere: ['docs/guide.md'],
+    });
+  });
+
+  it('GET /api/file reports linksHere null when the dep is absent, and degrades to null (never failing the read) when it throws', async () => {
+    const noDep = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+    });
+    const fileNoDep = await fetch(`${noDep}/api/file?project=p1&path=README.md`);
+    expect(await fileNoDep.json()).toMatchObject({ linksHere: null });
+
+    const throwing = await start({
+      docsList: (pid) => (pid === 'p1' ? ['README.md'] : []),
+      docRead: (pid, path) => (pid === 'p1' && path === 'README.md' ? '# Hello' : null),
+      docLinksHere: () => {
+        throw new Error('index unavailable');
+      },
+    });
+    const fileThrows = await fetch(`${throwing}/api/file?project=p1&path=README.md`);
+    expect(fileThrows.status).toBe(200);
+    expect(await fileThrows.json()).toMatchObject({
+      path: 'README.md',
+      content: expect.stringContaining('Hello'),
+      linksHere: null,
+    });
+  });
+
   it('GET /api/landing previews the LANDING card data for a known project', async () => {
     const base = await start({
       landing: async (pid) =>

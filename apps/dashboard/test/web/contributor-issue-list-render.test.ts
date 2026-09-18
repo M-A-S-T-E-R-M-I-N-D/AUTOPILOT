@@ -74,9 +74,10 @@ describe('the contributor issue list panel', () => {
     await vi.waitFor(() => {
       expect(document.querySelector('.contributor-issue-list-badge')).not.toBeNull();
     });
-    expect(document.querySelector('.contributor-issue-list-badge')?.textContent).toBe(
-      '🌱 good first issue',
-    );
+    const badge = document.querySelector('.contributor-issue-list-badge');
+    // epic 0025: the tier's glyph is a stroke icon beside the words, not an emoji.
+    expect(badge?.textContent).toBe('good first issue');
+    expect(badge?.querySelector('svg.icon-sprout')).not.toBeNull();
     expect(document.querySelector('.contributor-issue-list-issue-title')?.textContent).toBe(
       'Keyboard nav is broken in the fleet table',
     );

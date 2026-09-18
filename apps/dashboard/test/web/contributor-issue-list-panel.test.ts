@@ -4,20 +4,35 @@
 import { describe, it, expect } from 'vitest';
 import {
   contributorIssueTierBadge,
+  contributorIssueTierIcon,
   CLAIM_WALKTHROUGH_STEPS,
 } from '../../src/web/contributor-issue-list-panel.js';
 
 describe('contributorIssueTierBadge', () => {
   it('badges a good-first-issue tier', () => {
-    expect(contributorIssueTierBadge('good first issue')).toBe('🌱 good first issue');
+    expect(contributorIssueTierBadge('good first issue')).toBe('good first issue');
   });
 
   it('badges a help-wanted tier', () => {
-    expect(contributorIssueTierBadge('help wanted')).toBe('🙋 help wanted');
+    expect(contributorIssueTierBadge('help wanted')).toBe('help wanted');
   });
 
   it('echoes back an unrecognized tier verbatim rather than throwing', () => {
     expect(contributorIssueTierBadge('bug')).toBe('bug');
+  });
+});
+
+describe('contributorIssueTierIcon', () => {
+  it('gives a good-first-issue tier the sprout icon', () => {
+    expect(contributorIssueTierIcon('good first issue')).toBe('sprout');
+  });
+
+  it('gives a help-wanted tier the handshake icon', () => {
+    expect(contributorIssueTierIcon('help wanted')).toBe('handshake');
+  });
+
+  it('gives an unrecognized tier no icon rather than throwing', () => {
+    expect(contributorIssueTierIcon('bug')).toBe('');
   });
 });
 

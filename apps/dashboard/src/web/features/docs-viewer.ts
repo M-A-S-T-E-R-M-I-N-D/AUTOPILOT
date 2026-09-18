@@ -194,6 +194,89 @@ function refreshDocsList(pid, list, viewer) {
       translateDom(document.documentElement.lang || 'en');
     });
 }
+// Table of contents (epic 0023 "the docs reader" slice 2, "Findable... a
+// table of contents per page"): every ATX heading in the RAW markdown text,
+// in document order, linking through the exact same data-doc-anchor
+// mechanism the parity slice's in-document links already use — so clicking
+// an entry scrolls this body to renderMarkdown's own doc-prefixed heading id
+// with zero new plumbing. headingOf/headingSlug are hoisted, bare, from
+// search.ts's splice (chunks.ts's verified docs-viewer to search edge, the
+// same one renderMarkdown itself already relies on: search is CORE,
+// docs-viewer is a project-page chunk, and core always finishes executing
+// before any deferred chunk starts). A single-heading doc gets no ToC — a
+// list whose only entry points at the page's own title says nothing.
+function buildToc(content) {
+  var lines = content.split('\\n');
+  var headings = [];
+  for (var i = 0; i < lines.length; i++) {
+    var h = headingOf(lines[i]);
+    if (h) headings.push(h);
+  }
+  if (headings.length < 2) return null;
+  var nav = el('nav', 'docs-toc');
+  nav.setAttribute('aria-label', 'Table of contents');
+  var list = el('ul', 'docs-toc-list');
+  for (var j = 0; j < headings.length; j++) {
+    var li = document.createElement('li');
+    li.className = 'docs-toc-h' + headings[j].level;
+    var a = document.createElement('a');
+    a.href = '#';
+    a.className = 'docs-toc-link';
+    a.setAttribute('data-doc-anchor', headingSlug(headings[j].text));
+    a.textContent = headings[j].text;
+    li.appendChild(a);
+    list.appendChild(li);
+  }
+  nav.appendChild(list);
+  return nav;
+}
+// "What links here" (epic 0023 "the docs reader" slice 2, "Findable... a
+// 'what links here' list from the link census"): every OTHER indexed doc the
+// server found linking to this one (project-detail.ts's docLinksHere), each
+// entry wired through the SAME data-doc-open attribute (and the module-level
+// click delegate below) the docs list buttons and in-body doc links already
+// use — opening a backlink is just opening a doc, zero new plumbing. No
+// entries (or a server that never supplied the dep) paints nothing, same as
+// buildToc's null-return-skips-the-nav contract.
+function buildLinksHere(pid, linksHere) {
+  if (!linksHere || !linksHere.length) return null;
+  var nav = el('nav', 'docs-linkshere');
+  nav.setAttribute('aria-label', 'What links here');
+  nav.appendChild(el('p', 'docs-linkshere-heading', 'What links here'));
+  var list = el('ul', 'docs-linkshere-list');
+  for (var i = 0; i < linksHere.length; i++) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#';
+    a.className = 'docs-linkshere-link';
+    a.textContent = linksHere[i];
+    a.setAttribute('data-doc-open', linksHere[i]);
+    a.setAttribute('data-doc-pid', pid);
+    li.appendChild(a);
+    list.appendChild(li);
+  }
+  nav.appendChild(list);
+  return nav;
+}
+// Paints each rendered doc/anchor link inside body whose resolved target
+// (data-doc-open, set by renderMarkdown/classifyHref) is in brokenLinks — the
+// server-checked "not in the project's index" census (epic 0023 slice 1).
+// English-only for now, deliberately: packages/tokens/src/strings.ts is a hot
+// shared file another fleet lane may still be mid-edit on, same reason the
+// docs list labels above stay untagged until a firing finds it clear.
+function markDeadDocLinks(body, brokenLinks) {
+  if (!brokenLinks || !brokenLinks.length) return;
+  var dead = {};
+  for (var i = 0; i < brokenLinks.length; i++) dead[brokenLinks[i]] = true;
+  var links = body.querySelectorAll('[data-doc-open]');
+  for (var j = 0; j < links.length; j++) {
+    var link = links[j];
+    if (!dead[link.getAttribute('data-doc-open')]) continue;
+    link.classList.add('docs-link-dead');
+    link.setAttribute('data-tip', 'Broken link — target not found in the index');
+    link.appendChild(el('span', 'sr-only', ' (broken link)'));
+  }
+}
 function loadDoc(pid, path, viewer) {
   viewer.replaceChildren(el('p', 'muted', 'Loading ' + path + '…'));
   viewer.dataset.loadedPath = '';
@@ -221,9 +304,23 @@ function loadDoc(pid, path, viewer) {
       // The viewer hands the renderer its project and this document's path,
       // so a relative link opens the linked document HERE and an in-document
       // link scrolls within this body (the parity slice, 2026-09-18).
-      if (/\\.md$/i.test(data.path)) renderMarkdown(body, data.content, { pid: pid, basePath: data.path });
-      else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
+      if (/\\.md$/i.test(data.path)) {
+        renderMarkdown(body, data.content, { pid: pid, basePath: data.path });
+        var toc = buildToc(data.content);
+        if (toc) body.insertBefore(toc, body.firstChild);
+      } else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
       viewer.appendChild(body);
+      // Dead-link census (epic 0023 "the docs reader" slice 1: "every
+      // internal link is checked as it renders"): the server already
+      // resolved and checked every local link against the project's index —
+      // paint the ones it found dead, matched by the same resolved path
+      // renderMarkdown put in each doc link's data-doc-open.
+      markDeadDocLinks(body, data.brokenLinks);
+      // "What links here" (epic 0023 "the docs reader" slice 2): rendered
+      // after the body, same as a wiki's backlinks footer — it answers "what
+      // else references this" only once the reader has read the page itself.
+      var linksHere = buildLinksHere(pid, data.linksHere);
+      if (linksHere) viewer.appendChild(linksHere);
       viewer.dataset.loadedPath = path;
     })
     .catch(function () {

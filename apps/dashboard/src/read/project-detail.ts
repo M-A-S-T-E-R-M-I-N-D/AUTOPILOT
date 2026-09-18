@@ -25,6 +25,7 @@ import {
   type Store,
   type SearchHit,
 } from '@autopilot/store';
+import { localLinkPaths } from '@autopilot/docs-links';
 import {
   GitVcs,
   planRelease,
@@ -531,6 +532,74 @@ export function readProjectDoc(dbPath: string, projectId: string, path: string):
     return new SqliteSearchStore(store).documentContent(projectId, path);
   } catch {
     return null;
+  } finally {
+    store?.close();
+  }
+}
+
+/** Resolved local links inside `content` (found at `path`) that are NOT among
+ *  the project's indexed files — the "dead link" census the Docs reader
+ *  panel paints (epic 0023 "the docs reader", slice 1, completing the
+ *  freshness half already landed alongside `docTouchedAt` above). One
+ *  batched `IN (...)` query rather than one store-open per link. Degrades to
+ *  an empty list (never a thrown read failure) the same way every other read
+ *  in this file does — the caller (server.ts's `handleDocs`) treats "checked,
+ *  found none" and "couldn't check" as the same harmless outcome, same as
+ *  `listProjectDocs`/`readProjectDoc` already do for their own failures. */
+export function brokenDocLinks(
+  dbPath: string,
+  projectId: string,
+  path: string,
+  content: string,
+): readonly string[] {
+  const targets = [...new Set(localLinkPaths(content, path))];
+  if (targets.length === 0 || !existsSync(dbPath)) return [];
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath, { readonly: true });
+    const placeholders = targets.map(() => '?').join(',');
+    const rows = store.db
+      .prepare(
+        `SELECT DISTINCT path FROM project_search WHERE project_id = ? AND path IN (${placeholders})`,
+      )
+      .all(projectId, ...targets) as { path: string }[];
+    const existing = new Set(rows.map((r) => r.path));
+    return targets.filter((target) => !existing.has(target));
+  } catch {
+    return [];
+  } finally {
+    store?.close();
+  }
+}
+
+/** Every OTHER indexed doc-ish path that links to `path` — the "what links
+ *  here" backlinks list `brokenDocLinks` above computes forward from a doc's
+ *  own content, this computes in reverse (epic 0023 "the docs reader",
+ *  slice 2: "a 'what links here' list from the link census"). One query
+ *  fetches every candidate doc's content, then each is resolved with the
+ *  same `localLinkPaths` `brokenDocLinks` already relies on — no second
+ *  resolver to drift. Degrades to [] on any failure, the same never-fail-
+ *  the-read contract every other function in this file follows. */
+export function docLinksHere(dbPath: string, projectId: string, path: string): readonly string[] {
+  if (!existsSync(dbPath)) return [];
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath, { readonly: true });
+    const rows = store.db
+      .prepare(
+        `SELECT path, content FROM project_search
+          WHERE project_id = ? AND path != ?
+            AND (path LIKE 'README%' OR path LIKE 'LICENSE%' OR path LIKE 'LICENSES/%'
+                 OR path LIKE 'docs/%' OR path LIKE '%.md')`,
+      )
+      .all(projectId, path) as { path: string; content: string }[];
+    const linkedFrom: string[] = [];
+    for (const row of rows) {
+      if (localLinkPaths(row.content, row.path).includes(path)) linkedFrom.push(row.path);
+    }
+    return linkedFrom.sort();
+  } catch {
+    return [];
   } finally {
     store?.close();
   }

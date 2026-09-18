@@ -12,9 +12,9 @@
  * `poolClientJs`. Read-only, like the KEEPER PR review and Pool panels — no
  * claim ACTION here (no `gh` write, no comment post) — so it polls on its
  * own timer independent of any flown project, the same self-init shape
- * `pool-client.ts` uses. `contributorIssueTierBadge` is generated FROM
- * `web/contributor-issue-list-panel.ts` below — its real compiled source via
- * `.toString()`, not a hand-retyped copy.
+ * `pool-client.ts` uses. `contributorIssueTierBadge`/`contributorIssueTierIcon`
+ * are generated FROM `web/contributor-issue-list-panel.ts` below — their real
+ * compiled source via `.toString()`, not a hand-retyped copy.
  *
  * Also renders slice 2 of 4, the "/claim walkthrough (fork-first
  * etiquette)": `CLAIM_WALKTHROUGH_STEPS` (below, spliced via
@@ -29,6 +29,7 @@
  */
 import {
   contributorIssueTierBadge,
+  contributorIssueTierIcon,
   CLAIM_WALKTHROUGH_STEPS,
 } from '../contributor-issue-list-panel.js';
 
@@ -40,10 +41,12 @@ export function contributorIssueListJs(): string {
 // good-first-issue/help-wanted issue for a visiting contributor. Read-only —
 // no claim action here — so the section stays hidden entirely when there is
 // nothing open to show, the same "hide rather than show an empty panel"
-// convention the Pool panel uses. contributorIssueTierBadge is generated
-// FROM web/contributor-issue-list-panel.ts below — its real compiled source
-// via .toString(), not a hand-retyped copy.
+// convention the Pool panel uses. contributorIssueTierBadge/
+// contributorIssueTierIcon are generated FROM
+// web/contributor-issue-list-panel.ts below — their real compiled source via
+// .toString(), not a hand-retyped copy.
 ${contributorIssueTierBadge.toString()}
+${contributorIssueTierIcon.toString()}
 // CONTRIBUTOR JOURNEY slice 2/4 — the "/claim walkthrough (fork-first
 // etiquette)" the board task names, condensed from .github/CONTRIBUTING.md.
 // CLAIM_WALKTHROUGH_STEPS is generated FROM
@@ -95,7 +98,8 @@ function renderContributorIssueListPanel(entries) {
     numberEl.setAttribute('aria-label', '#' + entry.number + ': ' + entry.title);
     head.appendChild(numberEl);
     var badge = contributorIssueTierBadge(entry.tier);
-    head.appendChild(tipChip(badge, badge, badge, 'contributor-issue-list-badge'));
+    var badgeIcon = contributorIssueTierIcon(entry.tier);
+    head.appendChild(tipChip(badge, badge, badge, 'contributor-issue-list-badge', badgeIcon));
     item.appendChild(head);
     item.appendChild(el('p', 'contributor-issue-list-issue-title', entry.title));
     section.appendChild(item);

@@ -233,3 +233,15 @@ export function classifyHref(href: string, basePath: string): HrefKind {
   const doc = resolveDocLink(basePath, href);
   return doc === null ? { kind: 'text' } : { kind: 'doc', target: doc };
 }
+
+/** GitHub's five Markdown alert kinds — https://github.blog/changelog/2023-12-14-new-markdown-extension-alerts-provide-attention-grabbing-callouts/ */
+export type CalloutKind = 'note' | 'tip' | 'important' | 'warning' | 'caution';
+
+/** `[!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]` as the
+ *  WHOLE first line of a blockquote (GitHub's alert syntax, case-insensitive
+ *  per its own spec) → the callout kind; null for anything else, including a
+ *  bracket that merely starts with one of these words. */
+export function calloutKind(line: string): CalloutKind | null {
+  const m = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i.exec(line.trim());
+  return m ? (m[1]!.toLowerCase() as CalloutKind) : null;
+}

@@ -170,7 +170,8 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     expect(menu).not.toBeNull();
     expect(menu!.getAttribute('role')).toBe('menu');
     const item = menu!.querySelector('[role="menuitem"]');
-    expect(item?.textContent).toBe('🚩 Report from here');
+    expect(item?.querySelector('svg.icon-flag')).not.toBeNull();
+    expect(item?.textContent).toBe('Report from here');
   });
 
   it('Escape closes the open menu', async () => {
@@ -617,15 +618,21 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     rightClick(target);
 
     const menu = document.querySelector('.report-ctx-menu')!;
-    const labels = menuItems().map((b) => b.textContent);
+    const items = menuItems();
+    const labels = items.map((b) => b.textContent);
     expect(labels).toEqual([
-      '🚩 Report from here',
-      '📋 Copy text',
+      'Report from here',
+      'Copy text',
       '🧩 Copy element HTML',
-      '🎯 Copy CSS selector',
+      'Copy CSS selector',
       '🎨 Copy computed styles',
       '🧠 Copy smart context (JSON)',
     ]);
+    // Copy text and Copy CSS selector lead with vendored icons (epic 0025)
+    // instead of a baked-in glyph — clipboard-list and target respectively,
+    // the same shapes icons.ts vendored for these exact glyphs.
+    expect(items[1]?.querySelector('svg.icon-clipboard-list')).not.toBeNull();
+    expect(items[3]?.querySelector('svg.icon-target')).not.toBeNull();
     expect(menu.querySelector('.report-ctx-menu-sep')?.getAttribute('role')).toBe('separator');
     // The breadcrumb orients the operator on WHAT was right-clicked.
     expect(menu.querySelector('.report-ctx-menu-head')?.textContent).toContain('div.card');

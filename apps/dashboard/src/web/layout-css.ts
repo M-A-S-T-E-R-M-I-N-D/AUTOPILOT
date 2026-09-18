@@ -640,6 +640,23 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-file-pinned { border-inline-start: 2px solid var(--color-accent); }
 .docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
 .docs-viewer-freshness { margin: 0 0 var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+/* Table of contents (epic 0023 slice 2) — a quiet reference block, not
+   another wall of accent color; indentation alone carries the hierarchy. */
+.docs-toc { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }
+.docs-toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; font-size: var(--text-xs); }
+.docs-toc-link { display: block; padding: 1px 0; color: var(--color-text-muted); text-decoration: none; cursor: pointer; }
+.docs-toc-link:hover, .docs-toc-link:focus-visible { color: var(--color-accent); text-decoration: underline; }
+.docs-toc-h2 .docs-toc-link { padding-inline-start: var(--space-3); }
+.docs-toc-h3 .docs-toc-link { padding-inline-start: var(--space-4); }
+.docs-toc-h4 .docs-toc-link, .docs-toc-h5 .docs-toc-link, .docs-toc-h6 .docs-toc-link { padding-inline-start: var(--space-5); }
+/* "What links here" backlinks (epic 0023 slice 2) — a footer, not a header:
+   it sits below the rendered body, the same quiet reference treatment as the
+   ToC above it. */
+.docs-linkshere { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }
+.docs-linkshere-heading { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted); }
+.docs-linkshere-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; font-size: var(--text-xs); font-family: var(--font-mono); }
+.docs-linkshere-link { display: block; padding: 1px 0; color: var(--color-text-muted); text-decoration: none; cursor: pointer; }
+.docs-linkshere-link:hover, .docs-linkshere-link:focus-visible { color: var(--color-accent); text-decoration: underline; }
 /* Reading typography. The body used to inherit --text-sm with no measure, no
    heading scale and no rhythm, so a rendered document came out as flat grey
    mass. A measure cap is the single highest-value line here: unbounded line
@@ -668,6 +685,19 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-viewer-body blockquote { margin: var(--space-3) 0; padding: var(--space-1) var(--space-3); border-inline-start: 3px solid var(--color-border-strong, var(--color-border)); color: var(--color-text-muted); }
 .docs-viewer-body blockquote > :first-child { margin-top: 0; }
 .docs-viewer-body blockquote > :last-child { margin-bottom: 0; }
+/* GitHub-style alert callouts ([!NOTE] etc., epic 0023 "the docs reader"):
+   same block shape as a blockquote, colored per kind via the theme's own
+   semantic tokens — never a hardcoded hex, so every theme (dark/light/
+   terminal) stays in gamut. */
+.docs-callout { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); border-inline-start: 3px solid var(--callout-color); border-radius: var(--shape-extra-small); background: color-mix(in oklab, var(--callout-color) 10%, var(--color-surface-raised)); }
+.docs-callout > :first-child { margin-top: 0; }
+.docs-callout > :last-child { margin-bottom: 0; }
+.docs-callout-label { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--callout-color); }
+.docs-callout-note { --callout-color: var(--color-info); }
+.docs-callout-tip { --callout-color: var(--color-success); }
+.docs-callout-important { --callout-color: var(--color-accent); }
+.docs-callout-warning { --callout-color: var(--color-warning); }
+.docs-callout-caution { --callout-color: var(--color-danger); }
 .docs-viewer-body hr { border: 0; border-top: 1px solid var(--color-border); margin: var(--space-4) 0; }
 .docs-viewer-body li.task { list-style: none; margin-inline-start: calc(var(--space-4) * -1); }
 .docs-viewer-body li.task > input { margin: 0 var(--space-1) 0 0; vertical-align: -2px; accent-color: var(--color-accent); }
@@ -677,6 +707,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-viewer-body pre[data-lang]::before { content: attr(data-lang); position: absolute; inset-block-start: 4px; inset-inline-end: var(--space-2); font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .docs-viewer-body pre.docs-diagram { border-inline-start: 3px solid var(--color-accent); }
 .docs-viewer-body a.docs-link, .docs-viewer-body a.docs-anchor { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.docs-viewer-body a.docs-link-dead { color: var(--color-warning); text-decoration-style: wavy; }
 .docs-viewer-body h1[id], .docs-viewer-body h2[id], .docs-viewer-body h3[id], .docs-viewer-body h4[id], .docs-viewer-body h5[id], .docs-viewer-body h6[id] { scroll-margin-top: var(--space-3); }
 .console-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); }
 .console-details { padding: var(--space-3) var(--space-4); }

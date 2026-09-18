@@ -16,7 +16,7 @@
  * server-side resolver can unit-test it directly against fixture strings.
  */
 
-import { dirname, join, normalize } from 'node:path';
+import { dirname, join, normalize, sep } from 'node:path';
 
 /** Every `[text](target)` — optionally followed by a `"title"` — inside `markdown`. */
 const LINK_RE = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
@@ -62,4 +62,20 @@ export function resolveLocalLinkPath(fromFile: string, target: string): string |
   const path = target.split('#')[0];
   if (path === undefined || path.length === 0) return null;
   return normalize(join(dirname(fromFile), path));
+}
+
+/** Every local link inside `markdown` (found at `fromFile`), resolved to the
+ *  repo-relative path it names — always `/`-separated, unlike
+ *  {@link resolveLocalLinkPath}'s platform-native separator, since this is
+ *  the form a caller compares against an index keyed by git-style paths (the
+ *  docs reader's search index, epic 0023 "the docs reader" slice 1: "every
+ *  internal link is checked as it renders"). Order matches the markdown; a
+ *  target repeated twice appears twice. */
+export function localLinkPaths(markdown: string, fromFile: string): readonly string[] {
+  const paths: string[] = [];
+  for (const target of localLinkTargets(markdown)) {
+    const resolved = resolveLocalLinkPath(fromFile, target);
+    if (resolved !== null) paths.push(resolved.split(sep).join('/'));
+  }
+  return paths;
 }

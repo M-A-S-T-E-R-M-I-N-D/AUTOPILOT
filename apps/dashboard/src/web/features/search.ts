@@ -16,7 +16,7 @@
  * relative-import splices of its own — `searchProjectsSig`/`searchHitMeta`
  * (search-history.js; `rememberedHistory` is spliced once, by fly.ts);
  * `splitTableRow`/`isFence`/`isHeading`/`isListItem`/`isSvgStart`/
- * `isTableStart`/`isBlockStart` (markdown.js); `splitSseFrames`/
+ * `isTableStart`/`isBlockStart`/`calloutKind` (markdown.js); `splitSseFrames`/
  * `applyAskStreamFrame` (ask-stream.js) — now resolved relative to this file
  * instead of `shell.ts`; a function's `.toString()` output is unaffected by
  * which local name imports it under, so this remains byte-for-byte the same
@@ -51,6 +51,7 @@ import {
   inlineTokens,
   resolveDocLink,
   classifyHref,
+  calloutKind,
 } from '../markdown.js';
 import { splitSseFrames, applyAskStreamFrame } from '../ask-stream.js';
 
@@ -202,6 +203,7 @@ ${taskOf.toString()}
 ${inlineTokens.toString()}
 ${resolveDocLink.toString()}
 ${classifyHref.toString()}
+${calloutKind.toString()}
 // The self-study PAPER's DATA:CHART blocks embed a raw <svg> per chart
 // (scripts/self-study/generate-data.mjs) so the doc reads as a real chart on
 // GitHub too — but this dashboard's Docs viewer parses Markdown into DOM
@@ -329,6 +331,19 @@ function renderMarkdown(container, text, opts) {
       while (i < lines.length && blockquoteText(lines[i]) !== null) {
         quoted.push(blockquoteText(lines[i]));
         i++;
+      }
+      // GitHub-style alert ([!NOTE]/[!TIP]/[!IMPORTANT]/[!WARNING]/[!CAUTION]
+      // as the blockquote's own first line, epic 0023 "the docs reader"):
+      // painted as a labeled callout instead of a plain quote — the marker
+      // line itself never reaches the rendered body.
+      var kind = quoted.length ? calloutKind(quoted[0]) : null;
+      if (kind) {
+        var callout = el('div', 'docs-callout docs-callout-' + kind);
+        var calloutLabels = { note: 'Note', tip: 'Tip', important: 'Important', warning: 'Warning', caution: 'Caution' };
+        callout.appendChild(el('p', 'docs-callout-label', calloutLabels[kind]));
+        renderMarkdown(callout, quoted.slice(1).join('\\n'), opts);
+        container.appendChild(callout);
+        continue;
       }
       var quote = document.createElement('blockquote');
       renderMarkdown(quote, quoted.join('\\n'), opts);

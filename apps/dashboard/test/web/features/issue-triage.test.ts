@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   issueTriageDecisionLabel,
+  issueTriageDecisionIcon,
   issueTriageConfirmMessage,
   issueTriageExecuteResult,
   issueTriageExecuteTip,
@@ -20,9 +21,10 @@ import {
 import { issueTriageJs } from '../../../src/web/features/issue-triage.js';
 
 describe('issueTriageJs', () => {
-  it('embeds issueTriageDecisionLabel/issueTriageConfirmMessage/issueTriageExecuteResult/issueTriageExecuteTip/issueTriageGuestNote/issueTriageCommentLinks real compiled source via .toString()', () => {
+  it('embeds issueTriageDecisionLabel/issueTriageDecisionIcon/issueTriageConfirmMessage/issueTriageExecuteResult/issueTriageExecuteTip/issueTriageGuestNote/issueTriageCommentLinks real compiled source via .toString()', () => {
     const out = issueTriageJs();
     expect(out).toContain(issueTriageDecisionLabel.toString());
+    expect(out).toContain(issueTriageDecisionIcon.toString());
     expect(out).toContain(issueTriageConfirmMessage.toString());
     expect(out).toContain(issueTriageExecuteResult.toString());
     expect(out).toContain(issueTriageExecuteTip.toString());

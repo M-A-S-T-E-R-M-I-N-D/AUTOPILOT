@@ -306,7 +306,12 @@ const CORE_GZIP_BUDGET = 77 * 1024;
 // ~5.3KB raw headroom, matching the size of recent panel-sized bumps here.
 // Then panels raw 198→200KB (2026-09-18, same day) for the ladder's minimised
 // strip (rank, step count, the social state) — measured 199.5KB raw.
-const CHUNK_RAW_BUDGET = 200 * 1024;
+// Then panels raw 200→201KB (2026-09-18, same day), epic 0025 icon system:
+// the KEEPER PR review panel's approve-link and maintainer-merge button trade
+// their baked-in 🔓/🤝 glyphs for lock-open/handshake stroke icons — measured
+// 200.0KB raw (204811B). Gzip (61268B) stays under CHUNK_GZIP_BUDGET
+// untouched, so only the raw line moves.
+const CHUNK_RAW_BUDGET = 201 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
