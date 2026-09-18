@@ -1723,7 +1723,7 @@ const EN_STRINGS = {
   // each) and the transient ✓/✗ result flashed on the clicked item — the
   // "English literals for the copy labels until their STRINGS keys exist"
   // stance report-menu.ts's own comment flagged as the next i18n-lane sweep.
-  reportCopyTextLabel: '📋 Copy text',
+  reportCopyTextLabel: 'Copy text',
   reportCopyTextTip: 'Copies the current selection, or this element’s full text.',
   reportCopyHtmlLabel: '🧩 Copy element HTML',
   reportCopyHtmlTip: 'Copies this element’s outerHTML markup.',
@@ -2948,7 +2948,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     ghIssueOpenFailed: 'פתיחת ה-issue נכשלה.',
     reportFromHere: 'דיווח מכאן',
     reportFromHereTitle: 'דיווח מכאן',
-    reportCopyTextLabel: '📋 העתק טקסט',
+    reportCopyTextLabel: 'העתק טקסט',
     reportCopyTextTip: 'מעתיק את הבחירה הנוכחית, או את מלוא הטקסט של האלמנט הזה.',
     reportCopyHtmlLabel: '🧩 העתק HTML של האלמנט',
     reportCopyHtmlTip: 'מעתיק את ה-outerHTML של האלמנט הזה.',

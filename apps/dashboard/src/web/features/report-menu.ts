@@ -280,7 +280,7 @@ function openReportMenu(x, y) {
   reportMenuAddItem(tr('reportCopyTextLabel'), tr('reportCopyTextTip'), function (it) {
     var sel = window.getSelection ? String(window.getSelection()) : '';
     reportMenuCopy(sel && sel.trim() ? sel : (target && (target.innerText || target.textContent) || '').trim(), it);
-  });
+  }, 'clipboard-list');
   reportMenuAddItem(tr('reportCopyHtmlLabel'), tr('reportCopyHtmlTip'), function (it) {
     reportMenuCopy(target ? target.outerHTML : '', it);
   });
