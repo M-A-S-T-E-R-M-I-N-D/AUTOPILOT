@@ -618,15 +618,20 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     rightClick(target);
 
     const menu = document.querySelector('.report-ctx-menu')!;
-    const labels = menuItems().map((b) => b.textContent);
+    const items = menuItems();
+    const labels = items.map((b) => b.textContent);
     expect(labels).toEqual([
       'Report from here',
       '📋 Copy text',
       '🧩 Copy element HTML',
-      '🎯 Copy CSS selector',
+      'Copy CSS selector',
       '🎨 Copy computed styles',
       '🧠 Copy smart context (JSON)',
     ]);
+    // Copy CSS selector leads with the vendored target icon (epic 0025)
+    // instead of a baked-in 🎯 glyph — the same target/focus icon its
+    // comment in icons.ts was vendored for.
+    expect(items[3]?.querySelector('svg.icon-target')).not.toBeNull();
     expect(menu.querySelector('.report-ctx-menu-sep')?.getAttribute('role')).toBe('separator');
     // The breadcrumb orients the operator on WHAT was right-clicked.
     expect(menu.querySelector('.report-ctx-menu-head')?.textContent).toContain('div.card');

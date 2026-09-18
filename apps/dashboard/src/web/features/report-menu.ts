@@ -286,7 +286,7 @@ function openReportMenu(x, y) {
   });
   reportMenuAddItem(tr('reportCopySelectorLabel'), tr('reportCopySelectorTip'), function (it) {
     reportMenuCopy(reportMenuSelectorOf(target), it);
-  });
+  }, 'target');
   reportMenuAddItem(tr('reportCopyStylesLabel'), tr('reportCopyStylesTip'), function (it) {
     reportMenuCopy(reportMenuStylesOf(target, reportMenuSelectorOf(target) || 'element'), it);
   });

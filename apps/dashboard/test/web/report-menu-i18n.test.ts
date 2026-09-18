@@ -150,7 +150,7 @@ describe('STRINGS carries the report dialog keys', () => {
     expect(STRINGS.en.reportRequestFailed).toBe('✗ Request failed — try again shortly.');
     expect(STRINGS.en.reportCopyTextLabel).toBe('📋 Copy text');
     expect(STRINGS.en.reportCopyHtmlLabel).toBe('🧩 Copy element HTML');
-    expect(STRINGS.en.reportCopySelectorLabel).toBe('🎯 Copy CSS selector');
+    expect(STRINGS.en.reportCopySelectorLabel).toBe('Copy CSS selector');
     expect(STRINGS.en.reportCopyStylesLabel).toBe('🎨 Copy computed styles');
     expect(STRINGS.en.reportCopyContextLabel).toBe('🧠 Copy smart context (JSON)');
     expect(STRINGS.en.reportCopied).toBe('✓ Copied');
@@ -167,6 +167,12 @@ describe('STRINGS carries the report dialog keys', () => {
   it('no longer bakes the 🚩 glyph into reportFromHereTitle in any locale — epic 0025 replaced it with the vendored flag icon', () => {
     for (const table of Object.values(STRINGS)) {
       expect(table.reportFromHereTitle.startsWith('🚩')).toBe(false);
+    }
+  });
+
+  it('no longer bakes the 🎯 glyph into reportCopySelectorLabel in any locale — epic 0025 replaced it with the vendored target icon', () => {
+    for (const table of Object.values(STRINGS)) {
+      expect(table.reportCopySelectorLabel.startsWith('🎯')).toBe(false);
     }
   });
 });
