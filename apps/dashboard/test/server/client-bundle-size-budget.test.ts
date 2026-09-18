@@ -427,7 +427,17 @@ const CHUNK_RAW_BUDGET = 195 * 1024;
 // half — measured 55.3KB.
 // Then chunk gzip 56→57KB (2026-09-16) for the same diff-approval UI shell
 // entry above — measured 56.1KB (57407B).
-const CHUNK_GZIP_BUDGET = 57 * 1024;
+// Then chunk gzip 57→58KB (2026-09-18) for connect-panel composer parity
+// (board web-mtq70akb-rhsy6s): web/features/connect.ts's CONNECT-popover
+// issue form gains the same four report-from-here targets (issue/quick-fix-
+// pr/local-task/pool-offer) report-menu.ts's right-click dialog already
+// offers, instead of hardwiring 'issue' — reportActionLabel/
+// reportConfirmMessage/reportExecuteResult are called as bare hoisted
+// identifiers off report-menu.ts's existing splice (no second copy of
+// report-panel.ts's source). Measured 57.4KB (58796B) against the old
+// 58368B budget: 428 bytes over: raw (196260B) stays well under
+// CHUNK_RAW_BUDGET (199680B), so only the gzip line moves.
+const CHUNK_GZIP_BUDGET = 58 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

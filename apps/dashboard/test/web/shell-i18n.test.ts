@@ -177,6 +177,9 @@ describe('renderShell masthead i18n wiring', () => {
     expect(html).toContain(
       'placeholder="Details (optional)" data-i18n-placeholder="detailsOptionalPlaceholder"',
     );
+    expect(html).toContain(
+      '<label for="gh-issue-action" data-i18n="reportActionPrompt">One click files a…</label>',
+    );
     expect(html).toContain('data-i18n="openGithubIssue">Open GitHub issue</button>');
   });
 
