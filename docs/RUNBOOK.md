@@ -31,6 +31,8 @@ Use the CLI, not raw `node`/`kill` — it owns the state file and does the stale
 | `pnpm dashboard:stop` / `STOP-DASHBOARD.cmd` / `./STOP-DASHBOARD.sh` | `SIGTERM` the recorded pid, clear the state file. |
 | `pnpm dashboard:restart` / `RESTART-DASHBOARD.cmd` / `./RESTART-DASHBOARD.sh` | Rebuild, then stop + start. |
 | `pnpm dashboard:watch` / `WATCH-DASHBOARD.cmd` / `./WATCH-DASHBOARD.sh` | Build, then run the RING-0 supervisor in the foreground; optional project, firing, and budget arguments pass through. |
+| `pnpm dashboard:keepalive` / `KEEPALIVE-DASHBOARD.cmd` / `./KEEPALIVE-DASHBOARD.sh` | The server-lifecycle watchdog and nothing else: every 15s, start the dashboard if it is not running. No build, no flights, no landings. Logs to `.autopilot/keepalive.log`. |
+| `pnpm dashboard:autostart` / `:off` / `:status` | Register, remove or show the Startup-folder entry that runs the keepalive hidden at your logon (Windows, no admin). Other platforms get the login-item recipe printed. |
 | `pnpm dashboard:doctor` | Node version, server-built, state-dir-writable checks. |
 | `pnpm dashboard:ci-status` | Latest `gh run list` result per `.github/workflows/*.yml` file — read-only CI-run babysitting, never retries/cancels. |
 | `pnpm dashboard:maintenance-sweep` | One read of the founder's routine sweep: dependabot's open PR backlog, doc-freshness drift, the next release's plan verdict, and the CI-run report together — read-only throughout. |
@@ -41,6 +43,28 @@ Use the CLI, not raw `node`/`kill` — it owns the state file and does the stale
 file exists but the pid is dead, it classifies as `stale` and deletes the state file on the spot.
 **If the dashboard was always started/stopped through this CLI, you never need the manual ritual
 below** — `stop` then `start` is enough.
+
+### Surviving a reboot
+
+The dashboard is a process you started; nothing brings it back after the machine
+restarts unless something is told to. On 2026-09-18, after a reboot, the dashboard
+stayed down until a hand start — every flight, landing and watch in between was
+simply not there.
+
+```
+pnpm dashboard:autostart          # once, on the machine that runs the dashboard
+pnpm dashboard:autostart:status   # is the logon task registered?
+pnpm dashboard:autostart:off      # take it back
+```
+
+`autostart` drops a two-line VBScript into your **Startup** folder (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`, no admin rights; Task Scheduler's
+logon trigger is denied without elevation) that runs `KEEPALIVE-DASHBOARD.cmd` in a hidden
+window, and starts it immediately. That launcher
+runs `dashboard keepalive`: the server-lifecycle watchdog only — it starts the server
+when it is not running and never spawns a flight. It is deliberately NOT
+`dashboard watch`, the RING-0 supervisor above, which would fly every idle project
+the moment you log in. `node scripts/dashboard/autostart.mjs --print-plan` shows every
+path and argument before anything is written.
 
 ### Reading the live worker card (the narrator line)
 
