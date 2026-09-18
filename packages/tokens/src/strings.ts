@@ -1430,7 +1430,7 @@ const EN_STRINGS = {
   // states are painted via tr() since they're never a DOM attribute a sweep
   // can reach, the same shape issueTriageExecuting/issueTriageRequestFailed
   // follow for the KEEPER panel's own EXECUTE button.
-  releaseExecuteTemplate: '🚀 Cut release v{version}',
+  releaseExecuteTemplate: 'Cut release v{version}',
   releaseExecuting: 'Releasing…',
   releaseRequestFailed: '✗ Request failed — try again shortly.',
   tourFiringTitle: 'Firing',
@@ -2639,7 +2639,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     releaseMaturityBeta: 'בטא',
     releaseMaturityRc: 'מועמדת לשחרור',
     releaseMaturityStable: 'יציבה',
-    releaseExecuteTemplate: '🚀 הוצא מהדורה v{version}',
+    releaseExecuteTemplate: 'הוצא מהדורה v{version}',
     releaseExecuting: 'מוציא…',
     releaseRequestFailed: '✗ הבקשה נכשלה — נסו שוב בעוד רגע.',
     tourFiringTitle: 'הפעלה',
