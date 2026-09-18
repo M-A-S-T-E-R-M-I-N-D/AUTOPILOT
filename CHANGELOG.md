@@ -6,6 +6,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.52.0] — 2026-09-18
+
+### Added
+
+- feat(dashboard): survive a reboot with a keepalive command, launchers and a Startup registrar
+- feat(dashboard): the ladder minimises instead of hiding, keeping rank and social state on top
+- feat(dashboard): the docs reader reaches MDVIEWER parity, and its parser is under the mutation gate
+- feat(dashboard): anomaly chips explain themselves, and MY PROGRESS reopens the ladder
+- feat(dashboard): the terminal HUD rows live in Settings too, and a dismissed bar comes back
+- feat(dashboard): the LANDING execute button drops its plane emoji for the vendored icon
+- feat(dashboard): the release execute button drops its rocket emoji for the vendored icon
+- feat(dashboard): the KEEPER triage button drops its key emoji for the vendored icon
+- feat(dashboard): the Tasks heading drops its FOCUS MODE emoji for the vendored target icon
+- feat(docs-viewer): paint a freshness badge on the rendered doc page
+- feat(dashboard): compose the COLLABORATION panel's combined read behind GET /api/collaboration
+
+### Fixed
+
+- fix(dashboard): a rejected link stays visible as its source, and the new files are triaged
+- fix(dashboard): pipeline labels fit their cell, and the freshness note compares content, not mtimes
+- fix(dashboard): the tour card sits above the dim, and the ring follows the page
+- fix(dashboard): the e2e-red remedy escape reads the windows runner's backslash spec paths
+- fix: pin vitest to 4.1, canary the mutation gate, and harden the landing ritual
+- fix(dashboard): sync real bundle-size budget with its mirrored test copy
+- fix(ci): keep drive-letter paths out of source, and let scanner reds name their remedy
+- fix(mutation): resolve the ask config's whole import chain by alias, on every OS
+
 ## [0.51.1] — 2026-09-17
 
 ### Fixed
