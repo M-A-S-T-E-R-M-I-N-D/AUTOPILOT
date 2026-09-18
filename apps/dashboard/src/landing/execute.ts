@@ -32,8 +32,10 @@ import {
   type GateProgressEvent,
   type LandingExecuteResult,
 } from '@autopilot/engine';
-import type { GateSpec } from '@autopilot/onboarding';
+import { detectGate, readFsSnapshot, type GateSpec } from '@autopilot/onboarding';
 import type { SelfRestartTrigger } from './self-restart.js';
+import { fileURLToPath } from 'node:url';
+import { landingCodeIsStale, staleCodeNote } from './freshness.js';
 import { samePath } from '../paths.js';
 import { gateCommands } from '../gate-commands.js';
 import { ciWorkflowStatus, createGhRun, type GhRun } from '../control/ci-status.js';
@@ -64,6 +66,49 @@ function parseGateSpec(gateConfig: string | null): GateSpec | null {
     return null;
   }
 }
+
+/**
+ * A stored gate spec that predates a detector field. `gate_config` is written
+ * ONCE, at onboarding, and never revisited — so when the detector learned to
+ * list a project's `ci:*` scripts as `ciExtras`, every project onboarded
+ * before that kept a spec without them, and the landing's PARITY GATE opt-in
+ * (`includeCiExtras: true`) had nothing to include: the ritual ran five
+ * commands and called it parity, while CI ran the scanners it had never seen
+ * (2026-09-18: a test with literal drive-letter paths landed green and
+ * reddened main on `no-personal-paths`). The landing is the one call site
+ * that wants parity, so it is the one that re-detects.
+ */
+export function gateSpecNeedsRefresh(spec: GateSpec | null): boolean {
+  return spec !== null && spec.ciExtras === undefined;
+}
+
+/** The stored spec with the freshly detected `ciExtras` folded in — nothing
+ *  else moves, so an operator-edited command list is never overwritten by a
+ *  re-detection that happens to disagree with it. */
+export function mergeDetectedCiExtras(stored: GateSpec, detected: GateSpec): GateSpec {
+  return detected.ciExtras === undefined ? stored : { ...stored, ciExtras: detected.ciExtras };
+}
+
+/** Detects a folder's gate spec — injectable so tests never walk a real tree. */
+export type GateSpecDetector = (rootPath: string) => GateSpec | null;
+
+const detectGateSpec: GateSpecDetector = (rootPath) => {
+  try {
+    return detectGate(readFsSnapshot(rootPath)).spec;
+  } catch {
+    return null;
+  }
+};
+
+/** `apps/dashboard`, whichever of `src/` or `dist/` this module runs from. */
+const DASHBOARD_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+
+/** The modules this landing's verdict depends on that are newer than the
+ *  build this server runs — see `landing/freshness.ts`. */
+export type StaleCodeCheck = () => readonly string[];
+
+const staleLandingCode: StaleCodeCheck = () =>
+  landingCodeIsStale(DASHBOARD_ROOT, Date.now() - process.uptime() * 1000);
 
 /** Best-effort audit row (`events` table, no firing) — telemetry can never
  *  change a landing verdict, so a failed write is swallowed, not surfaced. */
@@ -167,6 +212,17 @@ export function createRealE2eLandGuard(
     const nowMs = now();
     const gh = (run ?? createGhRun)(rootPath);
     const status = ciWorkflowStatus('ci.yml', gh, nowMs, base);
+    // A CANCELLED run is not a red one: ci.yml cancels the older run of a
+    // branch the moment a newer push arrives (`cancel-in-progress`), so the
+    // conclusion says "superseded", not "failed". The CI report still lists
+    // it as needing a look (`ciWorkflowStatus` is unchanged); the land guard
+    // treats it as the unknown it is — never block on unknown.
+    if (status.conclusion === 'cancelled') {
+      return {
+        ok: true,
+        detail: `cancelled run ignored (${status.detail}) — a superseded run is no verdict`,
+      };
+    }
     // STALENESS (EVALUATION 2026-09-02, caught on this guard's FIRST live
     // refusal): ci.yml's e2e job runs on PRs, and the fleet lands by direct
     // push — so `base` often has NO fresh run at all, and "the latest" can be
@@ -241,7 +297,7 @@ const ANSI_RE = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, 'g');
  *  At least one directory segment and a JS/TS extension, so a bare word
  *  like the pool label can never pass for a file. */
 const FAILED_FILE_RE =
-  /(?:\bFAIL\b|❯)\s+(?:\S+\s+)?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:[cm]?[jt]sx?))(?=[\s:>]|$)|(?:^|[\s(])([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.[A-Za-z0-9]+)[:(]\d+/gm;
+  /(?:\bFAIL\b|❯)\s+(?:\S+\s+)?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:[cm]?[jt]sx?))(?=[\s:>]|$)|(?:^|[\s(])([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.[A-Za-z0-9]+)[:(]\d+|\[warn\]\s+([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.[A-Za-z0-9]+)\s*$|(?:^|\s)(\/?(?:[A-Za-z]:)?[A-Za-z0-9_.@-]+(?:[\\/][A-Za-z0-9_.@-]+)+\.[A-Za-z0-9]+)\s*$/gm;
 
 /**
  * The files a failed CI run's own output names — the evidence behind the
@@ -254,15 +310,37 @@ const FAILED_FILE_RE =
  * not one of those shapes contributes nothing — a log with no vitest
  * failure in it (a build error, a scanner) yields an empty list.
  */
+/** Playwright's list reporter prints every PASSING test as well (`ok 12
+ *  [chromium] › e2e/x.spec.ts:54:3 › …`), and `--log-failed` returns the
+ *  failed JOB's whole step log — so those lines name files that clear
+ *  nothing and are dropped before the path scan. */
+const PASSING_LINE_RE = /(?:^|\s)ok\s+\d+\s+\[/;
+
 export function implicatedFilesFromFailedLog(log: string): readonly string[] {
   const files = new Set<string>();
-  for (const match of log.replace(ANSI_RE, '').matchAll(FAILED_FILE_RE)) {
+  // Backslashes are normalised BEFORE the scan, not after: the windows-latest
+  // runner prints `apps\dashboard\e2e\dashboard.spec.ts:8:3`, which no
+  // forward-slash path group could match — the first live refusal of a
+  // landing that carried the exact spec fix (2026-09-18, run 35325023691)
+  // implicated nothing, and the remedy escape never got a chance.
+  const text = log
+    .replace(ANSI_RE, '')
+    .split('\n')
+    .filter((line) => !PASSING_LINE_RE.test(line))
+    .join('\n')
+    .replace(/\\/g, '/');
+  for (const match of text.matchAll(FAILED_FILE_RE)) {
     // Group 1: the vitest `FAIL` header. Group 2: any `path:line` or
-    // `path(line` reference — vitest's `❯` frames, tsc's diagnostics, and the
-    // repo's own scanners (`no-personal-paths FAILED: … path:line [rule]`),
-    // which is how a red caused by a scanner names the file that clears it.
-    const file = match[1] ?? match[2];
-    if (file !== undefined) files.add(file);
+    // `path(line` reference — vitest's `❯` frames, Playwright's `✘ … ›
+    // e2e/x.spec.ts:12:5`, tsc's diagnostics, and the repo's own scanners
+    // (`no-personal-paths FAILED: … path:line [rule]`), which is how a red
+    // caused by a scanner names the file that clears it. Group 3: prettier's
+    // `[warn] path`. Group 4: a line that is nothing but a path — eslint
+    // prints the file (absolute on the runner) on its own line above its
+    // `line:col` rows. Paths that are relative to a package or absolute are
+    // matched by suffix in remedyFilesOf.
+    const file = match[1] ?? match[2] ?? match[3] ?? match[4];
+    if (file !== undefined) files.add(file.replace(/\\/g, '/'));
   }
   return [...files];
 }
@@ -281,8 +359,19 @@ export function remedyFilesOf(
   changedFiles: readonly string[],
   implicatedFiles: readonly string[],
 ): readonly string[] {
-  const changed = new Set(changedFiles.map((file) => file.replace(/\\/g, '/')));
-  return implicatedFiles.filter((file) => changed.has(file));
+  const implicated = implicatedFiles.map((file) => file.replace(/\\/g, '/'));
+  // A tool run from a package directory prints paths relative to IT
+  // (Playwright: `e2e/x.spec.ts`), and eslint prints the runner's absolute
+  // path — so a changed file counts when either spelling ends in the other
+  // at a path boundary. The result is the CHANGED (repo-relative) spelling:
+  // that is the file the audit row and the operator can act on.
+  return changedFiles
+    .map((file) => file.replace(/\\/g, '/'))
+    .filter((changed) =>
+      implicated.some(
+        (file) => file === changed || changed.endsWith(`/${file}`) || file.endsWith(`/${changed}`),
+      ),
+    );
 }
 
 /** Build the LANDING execute API against the real store + real git/gate —
@@ -324,6 +413,8 @@ export function createLandingExecuteApi(
   e2eLandGuard?: E2eLandGuard,
   onGateProgress?: LandingGateProgress,
   postPushWatch?: PostPushWatchTrigger,
+  detectGateFor: GateSpecDetector = detectGateSpec,
+  staleCode: StaleCodeCheck = staleLandingCode,
 ): LandingExecuteApi {
   return async (projectId) => {
     const store = openStore(dbPath);
@@ -352,6 +443,21 @@ export function createLandingExecuteApi(
           ok: false,
           reason: 'merge-failed',
           details: 'no discoverable base branch (main/master) to land onto',
+          restarting: false,
+        };
+      }
+
+      // A dirty tree cannot land, and `executeLanding` says so — AFTER the
+      // full gate has run for minutes against that same tree (2026-09-18: two
+      // test edits made while a landing was in flight cost the whole cycle).
+      // The same refusal, the same reason, one cheap status read earlier.
+      // The post-gate check stays: the gate itself can dirty the tree.
+      if (await vcs.isDirty()) {
+        return {
+          ok: false,
+          reason: 'merge-failed',
+          details:
+            'nothing to land: the working tree is dirty — commit or stash first (checked before the gate)',
           restarting: false,
         };
       }
@@ -389,7 +495,23 @@ export function createLandingExecuteApi(
         });
       }
 
-      const spec = parseGateSpec(project.gate_config);
+      let spec = parseGateSpec(project.gate_config);
+      if (spec !== null && gateSpecNeedsRefresh(spec)) {
+        const detected = detectGateFor(project.root_path);
+        if (detected !== null) {
+          spec = mergeDetectedCiExtras(spec, detected);
+          // Persist so the LANDING preview, the out-of-band check and the
+          // next landing all see the same command list — best-effort, the
+          // landing in hand runs the refreshed spec regardless.
+          try {
+            store.db
+              .prepare('UPDATE projects SET gate_config = ?, updated_at = ? WHERE id = ?')
+              .run(JSON.stringify(spec), Date.now(), projectId);
+          } catch {
+            /* the refreshed spec still gates this landing */
+          }
+        }
+      }
       const gate = new GateRunner({
         cwd: project.root_path,
         // PARITY GATE (board web-mtqtec7m-dhxd9h): a LANDING EXECUTE is the
@@ -401,7 +523,11 @@ export function createLandingExecuteApi(
           ? { onProgress: (event: GateProgressEvent) => onGateProgress(projectId, event) }
           : {}),
       });
-      const result = await executeLanding(gate, vcs, base);
+      const landed = await executeLanding(gate, vcs, base);
+      // Gap C (INSTRUCTIONS 2026-09-18): the stale-build note becomes part of
+      // the details HERE, before the `landed` audit row below is written, so
+      // the row and the reply the caller sees never disagree about the text.
+      const result = { ...landed, details: landed.details + staleCodeNote(staleCode()) };
       /** The push leg's own outcome — see the block below. `undefined`
        *  when the land never got as far as merging. */
       let push: { ok: boolean; detail: string } | undefined;
@@ -468,7 +594,11 @@ export function createLandingExecuteApi(
       const restarting =
         result.ok && !!selfRestart && samePath(project.root_path, selfRestart.root);
       if (restarting) selfRestart?.trigger();
-      return { ...result, restarting, ...(push ? { push } : {}) };
+      return {
+        ...result,
+        restarting,
+        ...(push ? { push } : {}),
+      };
     } finally {
       store.close();
     }

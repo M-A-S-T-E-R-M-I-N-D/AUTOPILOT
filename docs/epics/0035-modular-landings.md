@@ -191,3 +191,25 @@ claim rather than a hope.
 - [GitHub merge queue in 2026: how it works and handling flaky required checks](https://tenki.cloud/blog/github-merge-queue-setup) — `merge_group`, `gh-readonly-queue` refs, batch sizing, and the flakiness amplification that gates slice 4.
 - [Companies using merge queues](https://merge-queue.academy/introduction/companies-using-merge-queues/) — adoption and scale evidence.
 - [Uber: bypassing large diffs in SubmitQueue](https://www.uber.com/en-SA/blog/bypassing-large-diffs-in-submitqueue) — speculation at scale.
+
+## 10. Addenda from the 2026-09-17/18 landings (slice 2 lessons)
+
+Four facts the ritual learned the hard way, each now in code:
+
+- **Parity is only as good as the stored spec.** The landing's PARITY GATE
+  opt-in (`includeCiExtras`) had nothing to include for a project onboarded
+  before the detector listed `ci:*` scripts: `gate_config` is written once.
+  The landing now re-detects a spec that lacks `ciExtras`, runs the fresh
+  extras, and persists them (`gateSpecNeedsRefresh`, `mergeDetectedCiExtras`).
+- **Refuse the cheap thing first.** A dirty tree is refused before the gate,
+  not after eight minutes of it; the post-gate check stays because the gate
+  itself can dirty the tree.
+- **The guard runs where the server runs.** A landing that changes the guard
+  changes nothing about itself. The result now names any landing module whose
+  source is newer than the running build, or whose build is newer than the
+  process (`landing/freshness.ts`), so "rebuild and restart" is written on the
+  verdict instead of remembered.
+- **A cancelled run is no verdict.** `cancel-in-progress` marks the superseded
+  run `cancelled`; the land guard reads that as unknown (never block on
+  unknown) while the CI report still lists it as needing a look.
+

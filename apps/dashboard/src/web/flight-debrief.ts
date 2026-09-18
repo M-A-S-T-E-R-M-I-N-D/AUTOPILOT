@@ -53,8 +53,11 @@ export interface FlightDebrief<F> {
  * doesn't read as a failure. `best` is the cheapest SHIPPED firing (the
  * most cost-efficient win); `worst` is the priciest firing that did NOT
  * ship (the costliest dead end) — both `null` when the flight has none of
- * that kind. Returns `null` for an empty log rather than a digest of
- * zeroes — nothing to debrief yet.
+ * that kind. A firing whose cost is unknown (recorded as 0 — an
+ * envelope-less death, a resumed checkpoint) competes for neither: "🏆 Best
+ * $0.00" was the debrief crowning a firing whose spend nobody measured
+ * (operator, 2026-09-17). Returns `null` for an empty log rather than a
+ * digest of zeroes — nothing to debrief yet.
  */
 export function flightDebriefOf<F extends FlightDebriefEntry>(
   log: readonly F[],
@@ -83,8 +86,9 @@ export function flightDebriefOf<F extends FlightDebriefEntry>(
     totalDurationMs += f.durationMs || 0;
     guardDenials += f.guardDenials || 0;
     if (f.autoformatRescued) remediations++;
-    if (f.shipped && (!best || f.cost < best.cost)) best = f;
-    if (!f.shipped && (!worst || f.cost > worst.cost)) worst = f;
+    const costKnown = typeof f.cost === 'number' && f.cost > 0;
+    if (f.shipped && costKnown && (!best || f.cost < best.cost)) best = f;
+    if (!f.shipped && costKnown && (!worst || f.cost > worst.cost)) worst = f;
   }
   return {
     firings: log.length,

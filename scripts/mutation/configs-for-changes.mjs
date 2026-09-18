@@ -52,6 +52,28 @@ const asJson = argv.includes('--json');
 
 const CONFIG_DIR = 'config/mutation';
 
+/**
+ * Files whose change can break MUTANT ACTIVATION itself — the toolchain, not
+ * a mutated module. A dev-dependency bump that moved vitest 4→5 (PR #69,
+ * 2026-09-18) passed this gate with "0 configs selected", and then every
+ * mutant in all 103 configs SURVIVED the next sweep: the runner's activation
+ * never reached a vitest 5 worker, and nothing on the PR had run a single
+ * mutant to notice. So a toolchain change always runs one small, known-green
+ * canary — a canary that reports 0 killed is exactly the point.
+ */
+const TOOLCHAIN_RE =
+  /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc|vitest\.config\.[cm]?[jt]s|config\/mutation\/|scripts\/mutation\/|\.github\/workflows\/mutation)/;
+/** 13 mutants, seconds to run, 100% since 2026-09-17 — cheap to be wrong about. */
+const CANARY_CONFIG = `${CONFIG_DIR}/stryker.dashboard-paths.config.mjs`;
+
+/** A changed mutation config selects ITSELF: `stryker.<name>.config.mjs`, or
+ *  the `vitest.<name>.config.ts` it points at — neither names a mutated source
+ *  file, so the `mutate` match below never sees them. */
+function configForChangedConfigFile(file) {
+  const m = /^config\/mutation\/(?:stryker|vitest)\.([a-z0-9-]+)\.config\.(?:mjs|ts)$/.exec(file);
+  return m ? `${CONFIG_DIR}/stryker.${m[1]}.config.mjs` : null;
+}
+
 /** Every `stryker.*.config.mjs` with the source files it mutates. */
 async function loadConfigs() {
   const entries = [];
@@ -99,6 +121,20 @@ for (const config of configs) {
   if (hits.length === 0) continue;
   selected.push({ config: config.path, files: hits });
   for (const h of hits) covered.add(h);
+}
+const selectedPaths = new Set(selected.map((s) => s.config));
+const known = new Set(configs.map((c) => c.path));
+const select = (config, reason) => {
+  if (selectedPaths.has(config) || !known.has(config)) return;
+  selectedPaths.add(config);
+  selected.push({ config, files: [reason] });
+};
+for (const file of changed) {
+  const own = configForChangedConfigFile(file);
+  if (own) select(own, file);
+}
+if (changed.some((file) => TOOLCHAIN_RE.test(file))) {
+  select(CANARY_CONFIG, '(toolchain canary)');
 }
 
 // A changed source file with no config is not a failure — only 103 modules are

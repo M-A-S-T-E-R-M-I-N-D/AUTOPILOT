@@ -28,6 +28,10 @@ test.describe('dashboard boot smoke', () => {
       // The KEEPER CI-status panel (a round-3 lane): unserved by the fixtures, like its
       // siblings; the list is alphabetical, so it leads.
       '404 /api/ci-status',
+      // COLLABORATION panel self-init poll (round 2026-09-18, a357ed97): the
+      // hermetic fixture wires no collaboration read; the panel treats the
+      // 404 as "not configured", same class as the rest.
+      '404 /api/collaboration',
       '404 /api/connection',
       '404 /api/connection/gh',
       '404 /api/connection/gh-lts',

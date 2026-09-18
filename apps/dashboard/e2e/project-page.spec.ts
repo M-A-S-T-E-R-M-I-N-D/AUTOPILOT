@@ -49,6 +49,8 @@ test.describe('project page (/p/:id)', () => {
       // The KEEPER CI-status panel (a round-3 lane): unserved by the fixtures, like its
       // siblings; the list is alphabetical, so it leads.
       '404 /api/ci-status',
+      // COLLABORATION panel self-init poll — same class (see dashboard.spec.ts).
+      '404 /api/collaboration',
       '404 /api/connection',
       '404 /api/connection/gh',
       '404 /api/connection/gh-lts',

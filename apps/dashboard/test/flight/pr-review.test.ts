@@ -122,6 +122,12 @@ const BENIGN_FLIGHT_EXECUTE = new Set<string>([]);
  *  operator's approval gate. `guard-verify.ts` needs no entry — the broad
  *  `guard` substring marker already flags it. */
 const BENIGN_FLIGHT = new Set([
+  // Pure status arithmetic (2026-09-18): which of paused/flying/registered a
+  // project is left as when ONE of its lanes ends. No I/O — the UPDATE that
+  // writes it is fly.ts's own finally, and the lock probe it reads comes in
+  // as a boolean. Weakening it changes what the fleet card SHOWS during a
+  // round, never what any flight does.
+  'flight-end.ts',
   // Read-only `gh repo view --json nameWithOwner,url,isPrivate` plus a pure
   // decision about which watch/star/discussion affordances to SHOW (epic
   // 0007 slice 7). It resolves identity and renders; it never writes to

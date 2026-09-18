@@ -14,6 +14,8 @@ import {
   createRealE2eLandGuard,
   implicatedFilesFromFailedLog,
   remedyFilesOf,
+  gateSpecNeedsRefresh,
+  mergeDetectedCiExtras,
 } from '../../src/landing/execute.js';
 import { engineLockFileName, deriveFlyProjectId } from '../../src/flight/lock.js';
 
@@ -1306,5 +1308,244 @@ describe('createLandingExecuteApi — the remedy escape end to end', () => {
       cleanupDir(repo);
       cleanupDir(dbDir);
     }
+  });
+});
+
+/**
+ * THE 2026-09-18 GAPS (operator: "fix everything, so no such incident
+ * happens again"). Each block below pins one closed gap of that day's
+ * INSTRUCTIONS: A (gate parity — a stale stored spec is re-detected), B (a
+ * dirty tree is refused BEFORE the gate), C (a stale server build is named
+ * on the result), E (a cancelled run is no verdict), G (more failure shapes,
+ * and package-relative / absolute paths matched by suffix).
+ */
+
+describe('gate parity — a stored spec that predates ciExtras is refreshed at landing (gap A)', () => {
+  it('gateSpecNeedsRefresh is true exactly when the stored spec has no ciExtras field', () => {
+    expect(gateSpecNeedsRefresh(null)).toBe(false);
+    expect(gateSpecNeedsRefresh({ ecosystem: 'js' })).toBe(true);
+    expect(gateSpecNeedsRefresh({ ecosystem: 'js', ciExtras: [] })).toBe(false);
+  });
+
+  it('mergeDetectedCiExtras folds in ONLY the detected extras — an operator-edited command list is never overwritten', () => {
+    const stored = JSON.parse(NODE_OK);
+    const detected = {
+      ecosystem: 'js',
+      test: { bin: 'other', args: [], label: 'other' },
+      ciExtras: [{ bin: 'node', args: ['-e', 'process.exit(0)'], label: 'ci:x' }],
+    };
+    const merged = mergeDetectedCiExtras(stored, detected);
+    expect(merged.test).toEqual(stored.test);
+    expect(merged.ciExtras).toEqual(detected.ciExtras);
+    expect(mergeDetectedCiExtras(stored, { ecosystem: 'js' })).toBe(stored);
+  });
+
+  it('runs the freshly detected ci:* extras in the landing gate, and persists them — detected once, never again', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-parity-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+    try {
+      setupBranchedRepo(repo);
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo, NODE_OK); // stored WITHOUT ciExtras — an old onboarding
+      s.close();
+
+      const detector = vi.fn(() => ({
+        ...(JSON.parse(NODE_OK) as { ecosystem: string }),
+        ciExtras: [{ bin: 'node', args: ['-e', 'process.exit(1)'], label: 'ci:boom' }],
+      }));
+      const api = createLandingExecuteApi(
+        dbPath,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        detector,
+        () => [],
+      );
+
+      const result = await api('p1');
+      // The extra ran and was red — proof the parity gate now includes it.
+      expect(result?.reason).toBe('gate-red');
+      expect(result?.gate?.checks?.map((c) => c.label)).toContain('ci:boom');
+      expect(detector).toHaveBeenCalledWith(repo);
+
+      const s2 = openStore(dbPath);
+      const row = s2.db.prepare('SELECT gate_config FROM projects WHERE id = ?').get('p1') as {
+        gate_config: string;
+      };
+      s2.close();
+      expect(JSON.parse(row.gate_config).ciExtras?.[0]?.label).toBe('ci:boom');
+
+      // Second landing: the stored spec now carries ciExtras — no re-detection.
+      await api('p1');
+      expect(detector).toHaveBeenCalledTimes(1);
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+});
+
+describe('a dirty tree is refused BEFORE the gate (gap B)', () => {
+  it('names the dirty tree at once — the gate never runs, so the result carries no gate', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-dirty-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+    try {
+      setupBranchedRepo(repo);
+      writeFileSync(join(repo, 'wip.txt'), 'uncommitted');
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo, NODE_OK);
+      s.close();
+
+      const result = await createLandingExecuteApi(
+        dbPath,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        () => null,
+        () => [],
+      )('p1');
+      expect(result?.ok).toBe(false);
+      expect(result?.reason).toBe('merge-failed');
+      expect(result?.details).toContain('checked before the gate');
+      expect(result?.gate).toBeUndefined();
+      expect(gitSync(repo, ['log', 'main', '--oneline'])).not.toContain('feat: second');
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+});
+
+describe('a stale server build is named on the landing result (gap C)', () => {
+  it('appends the freshness note to details when landing code is newer than the running build, and nothing otherwise', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-stale-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+    try {
+      setupBranchedRepo(repo);
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo, NODE_OK);
+      s.close();
+
+      const stale = await createLandingExecuteApi(
+        dbPath,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        () => null,
+        () => ['landing/execute'],
+      )('p1');
+      expect(stale?.ok).toBe(true);
+      expect(stale?.details).toContain('landed autopilot/flight onto main');
+      expect(stale?.details).toContain('landing/execute code is newer than the build');
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+});
+
+describe('createRealE2eLandGuard — a cancelled run is no verdict (gap E)', () => {
+  it('reads a fresh CANCELLED run (superseded by a newer push) as unknown, never as red, and reads no log', () => {
+    const NOW = Date.parse('2026-09-18T09:00:00Z');
+    const calls: string[][] = [];
+    const guard = createRealE2eLandGuard(
+      () => (args) => {
+        calls.push([...args]);
+        return JSON.stringify([
+          {
+            status: 'completed',
+            conclusion: 'cancelled',
+            createdAt: '2026-09-18T08:50:00Z',
+            databaseId: 35260858221,
+          },
+        ]);
+      },
+      () => NOW,
+    );
+    const verdict = guard('/repo', 'main');
+    expect(verdict.ok).toBe(true);
+    expect(verdict.detail).toContain('cancelled run ignored');
+    expect(calls).toHaveLength(1);
+  });
+});
+
+describe('implicatedFilesFromFailedLog — the shapes beyond vitest (gap G)', () => {
+  const PREFIX = 'verify (ubuntu-latest)\tLint and format\t2026-09-18T08:00:00Z ';
+
+  it("reads prettier's [warn] path lines", () => {
+    expect(implicatedFilesFromFailedLog(`${PREFIX}[warn] apps/dashboard/src/web/shell.ts`)).toEqual(
+      ['apps/dashboard/src/web/shell.ts'],
+    );
+  });
+
+  it("reads eslint's file-on-its-own-line, even as the runner's absolute path", () => {
+    const log = [
+      `${PREFIX}/srv/ci/work/AUTOPILOT/AUTOPILOT/apps/dashboard/src/read/fleet.ts`,
+      `${PREFIX}  12:5  error  'x' is defined but never used  no-unused-vars`,
+    ].join('\n');
+    expect(implicatedFilesFromFailedLog(log)).toEqual([
+      '/srv/ci/work/AUTOPILOT/AUTOPILOT/apps/dashboard/src/read/fleet.ts',
+    ]);
+  });
+
+  it("reads Playwright's package-relative spec reference", () => {
+    const log = `${PREFIX}  ✘  1 [chromium] › e2e/visual.spec.ts:12:5 › fleet dark renders (3.2s)`;
+    expect(implicatedFilesFromFailedLog(log)).toEqual(['e2e/visual.spec.ts']);
+  });
+
+  it("reads the windows-latest runner's backslash spec paths and its plain `x` failure marker (run 35325023691 — the first refusal whose remedy was on the branch)", () => {
+    const log = [
+      `${PREFIX}  x   7 [chromium] › apps\\dashboard\\e2e\\dashboard.spec.ts:8:3 › dashboard boot smoke › the shell loads (1.2s)`,
+      `${PREFIX}  x  13 [chromium] › apps\\dashboard\\e2e\\project-page.spec.ts:23:3 › project page (/p/:id) › renders an honest not-found state (0.9s)`,
+    ].join('\n');
+    expect(implicatedFilesFromFailedLog(log)).toEqual([
+      'apps/dashboard/e2e/dashboard.spec.ts',
+      'apps/dashboard/e2e/project-page.spec.ts',
+    ]);
+  });
+
+  it("never implicates the PASSING tests the failed job's log also lists — a green spec clears nothing", () => {
+    const log = [
+      `${PREFIX}  ok  1 [chromium] › apps\\dashboard\\e2e\\anti-cls.spec.ts:24:1 › zero layout shift (1.4s)`,
+      `${PREFIX}  ok  3 [chromium] › apps/dashboard/e2e/command-palette.spec.ts:14:1 › Ctrl+K lands (487ms)`,
+      `${PREFIX}  x   7 [chromium] › apps\\dashboard\\e2e\\dashboard.spec.ts:8:3 › dashboard boot smoke › the shell loads (1.2s)`,
+    ].join('\n');
+    expect(implicatedFilesFromFailedLog(log)).toEqual(['apps/dashboard/e2e/dashboard.spec.ts']);
+  });
+});
+
+describe('remedyFilesOf — package-relative and absolute spellings match by suffix (gap G)', () => {
+  it('a Playwright spec named relative to apps/dashboard matches the repo-relative changed file', () => {
+    expect(
+      remedyFilesOf(['apps/dashboard/e2e/visual.spec.ts', 'docs/x.md'], ['e2e/visual.spec.ts']),
+    ).toEqual(['apps/dashboard/e2e/visual.spec.ts']);
+  });
+
+  it('an eslint absolute path from the runner matches the repo-relative changed file', () => {
+    expect(
+      remedyFilesOf(
+        ['apps/dashboard/src/read/fleet.ts'],
+        ['/srv/ci/work/AUTOPILOT/AUTOPILOT/apps/dashboard/src/read/fleet.ts'],
+      ),
+    ).toEqual(['apps/dashboard/src/read/fleet.ts']);
+  });
+
+  it('a mere shared basename is not a match — the boundary is a path separator', () => {
+    expect(remedyFilesOf(['apps/dashboard/src/x.ts'], ['packages/engine/src/x.ts'])).toEqual([]);
   });
 });

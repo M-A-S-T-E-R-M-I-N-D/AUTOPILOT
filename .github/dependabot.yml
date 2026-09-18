@@ -42,6 +42,19 @@ updates:
       # on all three OSes).
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
+      # vitest majors are gated on @stryker-mutator/vitest-runner's support:
+      # the runner's `vitest >=2.0.0` peer range is loose, so pnpm accepted
+      # vitest 5.0.0 (PR #69, 2026-09-18) — and every mutant in all 103
+      # configs then SURVIVED, because the runner's mutant activation does
+      # not reach a vitest 5 worker (reproduced locally: dry run green,
+      # 0 killed). vite rides with vitest. Lift these once the runner names
+      # the new major in its peer range (npm: @stryker-mutator/vitest-runner).
+      - dependency-name: vitest
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vitest/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: vite
+        update-types: ['version-update:semver-major']
     cooldown:
       default-days: 5
       semver-major-days: 14

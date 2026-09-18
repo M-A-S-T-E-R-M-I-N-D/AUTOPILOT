@@ -183,3 +183,37 @@ describe('flightDebriefNotableItems', () => {
     ]);
   });
 });
+
+describe('flightDebriefOf — an unknown cost competes for nothing', () => {
+  it('a shipped firing with no measured spend never becomes "best" — $0.00 is not a bargain, it is a blank', () => {
+    const d = flightDebriefOf(
+      [
+        { shipped: true, cost: 0, durationMs: 100, gateResult: null, died: null },
+        { shipped: true, cost: 1.5, durationMs: 100, gateResult: null, died: null },
+        { shipped: true, cost: 0.75, durationMs: 100, gateResult: null, died: null },
+      ],
+      verdictOf,
+    );
+    expect(d?.best?.cost).toBe(0.75);
+  });
+
+  it('a dead firing with no measured spend never becomes "worst" either', () => {
+    const d = flightDebriefOf(
+      [
+        { shipped: false, cost: 0, durationMs: 100, gateResult: 'reverted', died: null },
+        { shipped: false, cost: 2, durationMs: 100, gateResult: 'reverted', died: null },
+      ],
+      verdictOf,
+    );
+    expect(d?.worst?.cost).toBe(2);
+  });
+
+  it('when every shipped firing is unmeasured there is no best at all, rather than a fake one', () => {
+    const d = flightDebriefOf(
+      [{ shipped: true, cost: 0, durationMs: 100, gateResult: null, died: null }],
+      verdictOf,
+    );
+    expect(d?.best).toBeNull();
+    expect(d?.shipped).toBe(1);
+  });
+});
