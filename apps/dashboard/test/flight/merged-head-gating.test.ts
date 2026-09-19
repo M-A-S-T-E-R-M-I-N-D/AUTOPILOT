@@ -49,6 +49,11 @@ describe('merged-head gating (fly.ts census)', () => {
     );
   });
 
+  it('every flight gate step — the firing gate and both convergence gates — carries the thirty-minute ceiling', () => {
+    expect(flySource).toContain('const FLIGHT_GATE_STEP_TIMEOUT_MS = 30 * 60_000;');
+    expect(flySource.match(/timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,/g)).toHaveLength(3);
+  });
+
   it('a lane that cannot be fast-forwarded says so and persists the gap as a convergence alarm', () => {
     expect(flySource).toContain('⚠ convergence UNGATED:');
     expect(flySource).toMatch(

@@ -133,6 +133,26 @@ export async function gateConvergedBranch(
   // no-op, not a false "convergence passes" green.
   if (checks.length === 0) return;
 
+  if (result.crashed === true) {
+    // A gate that never reached a verdict — a step timed out under fleet
+    // load, a spawn error — is not a red: nobody judged the merge. The
+    // five-lane rung logged two "merge interaction" reds that were `pnpm run
+    // test` killed at the ten-minute mark. Say so, and persist it under a
+    // label that says so, so the alarm chip stays loud but honest.
+    const failed = checks.find((c) => !c.pass);
+    const ms = checks.reduce((sum, c) => sum + c.durationMs, 0);
+    deps.out(
+      `  ⚠ convergence UNJUDGED: '${targetBranch}' — the gate crashed before it could judge the merged head after this sync-back (${firstLine(result.details)}). ${mergeDetails}`,
+    );
+    deps.recordRed(
+      `${failed?.label ?? 'gate'} (crashed, no verdict)`,
+      mergeDetails,
+      ms,
+      failed?.outputTail,
+    );
+    return;
+  }
+
   if (result.ok) {
     const ms = checks.reduce((sum, c) => sum + c.durationMs, 0);
     const signature = convergenceCheckSignature(checks);
@@ -182,6 +202,13 @@ export async function gateConvergedBranch(
       (tail === undefined ? '' : `\n${indentedTail(tail)}`),
   );
   deps.recordRed(reason, mergeDetails, redMs, tail);
+}
+
+/** The gate's own one-line reason for a crash — its details' first line. */
+export function firstLine(details: string | undefined): string {
+  const text = details ?? 'no detail';
+  const newline = text.indexOf('\n');
+  return newline === -1 ? text : text.slice(0, newline);
 }
 
 /** The failing command's last lines, each indented under the alarm line

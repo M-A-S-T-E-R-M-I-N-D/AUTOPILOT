@@ -1490,3 +1490,49 @@ describe('demoteMetricsCompletion', () => {
     expect(p2Row.completion).toBe('complete'); // untouched
   });
 });
+
+describe('createTask dimension', () => {
+  it('files a task whose dimension is outside the allow-list WITHOUT the dimension, and says so', () => {
+    seedProject('p1');
+    const warnings: string[] = [];
+    expect(
+      createTask(
+        store,
+        { id: 'd1', projectId: 'p1', title: 'stranded work', dimension: 'process', createdAt: 1 },
+        (m) => warnings.push(m),
+      ),
+    ).toBe(true);
+    expect(warnings).toEqual([
+      "task dimension 'process' is not in the allow-list — filed without a dimension",
+    ]);
+    const row = store.db.prepare(`SELECT dimension FROM tasks WHERE id = 'd1'`).get() as {
+      dimension: string | null;
+    };
+    expect(row.dimension).toBeNull();
+  });
+
+  it('keeps an allow-listed dimension and stays quiet, and treats an absent one as none', () => {
+    seedProject('p1');
+    const warnings: string[] = [];
+    expect(
+      createTask(
+        store,
+        { id: 'd2', projectId: 'p1', title: 'a11y', dimension: 'ux', createdAt: 1 },
+        (m) => warnings.push(m),
+      ),
+    ).toBe(true);
+    expect(
+      createTask(store, { id: 'd3', projectId: 'p1', title: 'no bucket', createdAt: 1 }, (m) =>
+        warnings.push(m),
+      ),
+    ).toBe(true);
+    expect(warnings).toEqual([]);
+    const rows = store.db
+      .prepare(`SELECT id, dimension FROM tasks WHERE id IN ('d2','d3') ORDER BY id`)
+      .all() as { id: string; dimension: string | null }[];
+    expect(rows).toEqual([
+      { id: 'd2', dimension: 'ux' },
+      { id: 'd3', dimension: null },
+    ]);
+  });
+});

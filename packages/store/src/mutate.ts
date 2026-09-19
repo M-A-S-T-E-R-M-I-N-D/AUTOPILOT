@@ -8,6 +8,7 @@
  */
 
 import type { Store } from './db.js';
+import { DIMENSIONS, type Dimension } from './types.js';
 
 const REPLACEMENT_CHAR = '�';
 
@@ -330,6 +331,10 @@ export interface CreateTaskInput {
  * ingestion) funnels through, so stripping mojibake here guards all of them
  * at once; `warn`, if given, is called when stripping actually changed the title.
  */
+function isDimension(value: string | null | undefined): value is Dimension {
+  return value !== null && value !== undefined && (DIMENSIONS as readonly string[]).includes(value);
+}
+
 export function createTask(
   store: Store,
   input: CreateTaskInput,
@@ -339,6 +344,16 @@ export function createTask(
   const title = cleanedTitle.trim();
   if (title.length === 0) return false;
   if (stripped) warn?.(`stripped mojibake (U+FFFD) from task title: "${title}"`);
+  // A dimension outside the schema's allow-list used to fail the whole
+  // INSERT on its CHECK constraint — silently, as `false`, which one caller
+  // reported as "filed" for three weeks. The task is what matters; the
+  // bucket is dropped and said.
+  const dimension = isDimension(input.dimension) ? input.dimension : null;
+  if (input.dimension !== null && input.dimension !== undefined && dimension === null) {
+    warn?.(
+      `task dimension '${input.dimension}' is not in the allow-list — filed without a dimension`,
+    );
+  }
   try {
     const info = store.db
       .prepare(
@@ -352,7 +367,7 @@ export function createTask(
         input.body ?? null,
         input.status ?? 'queued',
         input.severity ?? null,
-        input.dimension ?? null,
+        dimension,
         input.source ?? 'dashboard',
         input.createdAt,
         input.createdAt,
