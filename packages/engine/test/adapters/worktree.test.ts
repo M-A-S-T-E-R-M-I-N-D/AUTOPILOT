@@ -20,6 +20,7 @@ import {
   canonicalWorktreePath,
   ensureWorktree,
   fastForwardWorktree,
+  parkAsideWorktreeHead,
   parseWorktreeList,
   removeWorktree,
   repoPrefixOf,
@@ -1211,5 +1212,108 @@ describe('the sync-back mutex — one sync-back at a time per checkout (the thre
       expect(existsSync(await lockPathOf(dir))).toBe(false);
       await removeWorktree(dir, wtPath);
     });
+  });
+});
+
+describe('parkAsideWorktreeHead — a parked head is kept under a rescue ref and the lane flies fresh', () => {
+  let dir: string;
+  let base: string;
+
+  beforeEach(() => {
+    dir = scratchRepoDir('autopilot-worktree-park-');
+    initRepo(dir);
+    base = gitSync(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  });
+
+  afterEach(() =>
+    rmSync(join(dir, '..'), { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }),
+  );
+
+  async function laneWithCheckpoint(name: string): Promise<{ wtPath: string; wip: string }> {
+    const wtPath = join(dir, '..', name);
+    await ensureWorktree(dir, wtPath, 'flight-work');
+    writeFileSync(join(wtPath, 'half.txt'), 'half done');
+    gitSync(wtPath, ['add', '-A']);
+    gitSync(wtPath, ['commit', '-q', '-m', 'wip(autopilot): checkpoint — firing 7 died mid-unit']);
+    const wip = gitSync(wtPath, ['rev-parse', 'HEAD']);
+    // The shared tip moved on meanwhile.
+    writeFileSync(join(dir, 'b.txt'), 'two');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-3 shipped elsewhere']);
+    return { wtPath, wip };
+  }
+
+  it('keeps the head under refs/autopilot/parked/<branch>/<sha8>, resets the lane onto the tip, and says so', async () => {
+    const { wtPath, wip } = await laneWithCheckpoint('wt-park');
+    const result = await parkAsideWorktreeHead(wtPath, 'flight-work', base);
+
+    const ref = `refs/autopilot/parked/flight-work/${wip.slice(0, 8)}`;
+    expect(result).toEqual({
+      ok: true,
+      details: `moved ${wip.slice(0, 8)} aside under ${ref} and reset '${wtPath}' onto '${base}'`,
+      rescueRef: ref,
+    });
+    expect(gitSync(dir, ['rev-parse', ref])).toBe(wip);
+    expect(gitSync(wtPath, ['rev-parse', 'HEAD'])).toBe(gitSync(dir, ['rev-parse', base]));
+    expect(gitSync(wtPath, ['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('flight-work');
+    expect(gitSync(wtPath, ['status', '--porcelain'])).toBe('');
+    expect(existsSync(join(wtPath, 'half.txt'))).toBe(false);
+    await removeWorktree(dir, wtPath);
+  });
+
+  it('refuses a dirty lane — nothing is touched', async () => {
+    const { wtPath, wip } = await laneWithCheckpoint('wt-park-dirty');
+    writeFileSync(join(wtPath, 'loose.txt'), 'uncommitted');
+    const result = await parkAsideWorktreeHead(wtPath, 'flight-work', base);
+    expect(result).toEqual({
+      ok: false,
+      details: `refusing to move aside: '${wtPath}' has uncommitted changes`,
+    });
+    expect(gitSync(wtPath, ['rev-parse', 'HEAD'])).toBe(wip);
+    expect(gitSync(dir, ['for-each-ref', 'refs/autopilot/parked'])).toBe('');
+    await removeWorktree(dir, wtPath);
+  });
+
+  it('cannot read a path that is not a checkout', async () => {
+    const nowhere = join(dir, 'nowhere');
+    expect(await parkAsideWorktreeHead(nowhere, 'flight-work', base)).toEqual({
+      ok: false,
+      details: `cannot read '${nowhere}'`,
+    });
+  });
+
+  it('cannot read HEAD of an unborn checkout', async () => {
+    const empty = join(dir, '..', 'empty');
+    mkdirSync(empty);
+    gitSync(empty, ['init', '-q']);
+    expect(await parkAsideWorktreeHead(empty, 'flight-work', base)).toEqual({
+      ok: false,
+      details: `cannot read HEAD of '${empty}'`,
+    });
+  });
+
+  it('reports a rescue ref it could not create (an invalid lane branch name)', async () => {
+    const { wtPath, wip } = await laneWithCheckpoint('wt-park-badref');
+    const result = await parkAsideWorktreeHead(wtPath, 'bad..name', base);
+    expect(result).toEqual({
+      ok: false,
+      details: `could not keep the parked head under refs/autopilot/parked/bad..name/${wip.slice(0, 8)}`,
+    });
+    expect(gitSync(wtPath, ['rev-parse', 'HEAD'])).toBe(wip);
+    await removeWorktree(dir, wtPath);
+  });
+
+  it('keeps the rescue ref even when the reset onto a missing target fails, and says both', async () => {
+    const { wtPath, wip } = await laneWithCheckpoint('wt-park-notarget');
+    const ref = `refs/autopilot/parked/flight-work/${wip.slice(0, 8)}`;
+    const result = await parkAsideWorktreeHead(wtPath, 'flight-work', 'no-such-branch');
+    expect(result).toEqual({
+      ok: false,
+      details: `kept the parked head under ${ref} but could not reset '${wtPath}' onto 'no-such-branch'`,
+      rescueRef: ref,
+    });
+    expect(gitSync(dir, ['rev-parse', ref])).toBe(wip);
+    expect(gitSync(wtPath, ['rev-parse', 'HEAD'])).toBe(wip);
+    await removeWorktree(dir, wtPath);
   });
 });

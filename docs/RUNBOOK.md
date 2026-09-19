@@ -636,15 +636,19 @@ every sync-back after it is withheld:
 ```
 
 The flight end files a `STRANDED SYNC-BACK` task in the inbox naming the
-lane branch, and the next launch of that lane prints `⏸ catch-up sync
-withheld` for as long as the same commit sits at its HEAD. To release it:
+lane branch and the rescue ref. At the lane's next launch the parked head
+is moved aside — kept under `refs/autopilot/parked/<lane branch>/<sha8>`,
+the lane branch reset onto the shared tip — and the lane flies fresh:
 
-1. In the lane worktree, commit or stash the leftovers (`git status`
-   shows them), then run the project's gate there by hand.
-2. Green: the next firing on that lane verifies the head and publishes
-   it — or merge the lane branch into the flight branch yourself.
-3. Red: `git revert` the parked commit on the lane branch (never a hard
-   reset in a shared checkout). A moved head is judged afresh at launch.
+```
+  🪺 parked head moved aside: moved 42f40654 aside under refs/autopilot/parked/autopilot/flight-worktree-fly-autopilot--fleet-2/42f40654 and reset '…' onto 'autopilot/flight' — this lane flies fresh; …
+```
+
+To pick the unit back up: `git for-each-ref refs/autopilot/parked` lists
+every kept head; `git checkout -b <name> <ref>` gives you the branch to
+finish and gate by hand, or to merge into the flight branch yourself. A
+lane that could not be moved aside (a dirty worktree) prints `⚠ parked
+head stays parked` and waits for you to commit or stash the leftovers.
 
 ## 13. Quick reference
 
