@@ -10,6 +10,7 @@ import {
   MIN_GREEN_HISTORY_SAMPLES,
   CONVERGENCE_FLOOR_RATIO,
   indentedTail,
+  firstLine,
 } from '../../src/flight/convergence-gate.js';
 
 function fakeGate(result: GateResult): GatePort {
@@ -217,6 +218,76 @@ describe('gateConvergedBranch', () => {
         '      AssertionError: expected 1 to be 2',
     );
     expect(deps.recordRed).toHaveBeenCalledWith('pnpm run test', 'fast-forwarded', 3, tail);
+  });
+
+  it('a gate that crashed is UNJUDGED, not red — logged with the crash reason, persisted under a label that says so', async () => {
+    const deps = fakeDeps();
+    const tail = ' ✓ still running…\n';
+    await gateConvergedBranch('autopilot/flight', 'fast-forwarded', {
+      gate: fakeGate({
+        ok: false,
+        crashed: true,
+        details:
+          'pnpm run test failed (crashed: timeout) — gate could not verify the commit\n ✓ still running…',
+        checks: [
+          { label: 'pnpm run typecheck', pass: true, durationMs: 100 },
+          { label: 'pnpm run test', pass: false, durationMs: 600000, outputTail: tail },
+        ],
+      }),
+      ...deps,
+    });
+    expect(deps.out.mock.calls[0]?.[0]).toBe(
+      "  ⚠ convergence UNJUDGED: 'autopilot/flight' — the gate crashed before it could judge the merged head after this sync-back " +
+        '(pnpm run test failed (crashed: timeout) — gate could not verify the commit). fast-forwarded',
+    );
+    expect(deps.recordRed).toHaveBeenCalledWith(
+      'pnpm run test (crashed, no verdict)',
+      'fast-forwarded',
+      600100,
+      tail,
+    );
+    expect(deps.recordGreen).not.toHaveBeenCalled();
+    expect(deps.recordUnverifiable).not.toHaveBeenCalled();
+  });
+
+  it('a crash with no failing check entry and no details still says so, generically', async () => {
+    const deps = fakeDeps();
+    await gateConvergedBranch('main', 'merge details', {
+      gate: fakeGate({
+        ok: false,
+        crashed: true,
+        checks: [{ label: 'typecheck', pass: true, durationMs: 7 }],
+      }),
+      ...deps,
+    });
+    expect(deps.out.mock.calls[0]?.[0]).toContain('(no detail). merge details');
+    expect(deps.recordRed).toHaveBeenCalledWith(
+      'gate (crashed, no verdict)',
+      'merge details',
+      7,
+      undefined,
+    );
+  });
+
+  it('a red that did not crash is still a red, whatever crashed is set to', async () => {
+    const deps = fakeDeps();
+    await gateConvergedBranch('main', 'merge details', {
+      gate: fakeGate({
+        ok: false,
+        crashed: false,
+        checks: [{ label: 'build', pass: false, durationMs: 3 }],
+      }),
+      ...deps,
+    });
+    expect(deps.out.mock.calls[0]?.[0]).toContain('CONVERGENCE RED');
+    expect(deps.recordRed).toHaveBeenCalledWith('build', 'merge details', 3, undefined);
+  });
+
+  it("firstLine takes the first line of a gate's details, or says there is none", () => {
+    expect(firstLine('one\ntwo')).toBe('one');
+    expect(firstLine('only')).toBe('only');
+    expect(firstLine(undefined)).toBe('no detail');
+    expect(firstLine('')).toBe('');
   });
 
   it('indentedTail indents every line and drops trailing blank lines only', () => {

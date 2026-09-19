@@ -61,30 +61,23 @@ describe('laneHeadAfterFiring — only a gate-judged head is ever published', ()
     expect(laneHeadAfterFiring(unverified, r)).toBe(unverified);
   });
 
-  it('a checkpoint is verified only by its own green telemetry gate', () => {
-    expect(
-      laneHeadAfterFiring(
-        unverified,
-        record({
-          gateResult: 'checkpointed',
-          headAdvanced: false,
-          gateChecks: [{ pass: true }, { pass: true }],
-        }),
-      ),
-    ).toEqual({ verified: true, reason: 'firing 109 checkpoint gate green' });
-    expect(
-      laneHeadAfterFiring(
-        FRESH_LANE,
-        record({ gateResult: 'checkpointed', gateChecks: [{ pass: true }, { pass: false }] }),
-      ),
-    ).toEqual({ verified: false, reason: 'firing 109 checkpointed without a green gate' });
-    // No telemetry gate at all is not evidence either.
-    expect(
-      laneHeadAfterFiring(FRESH_LANE, record({ gateResult: 'checkpointed', gateChecks: [] })),
-    ).toEqual({
+  it('a checkpoint is never published — green telemetry gate, red one, or none', () => {
+    const parked = {
       verified: false,
-      reason: 'firing 109 checkpointed without a green gate',
-    });
+      reason: 'firing 109 checkpointed: an unfinished unit is never published',
+    };
+    for (const gateChecks of [
+      [{ pass: true }, { pass: true }],
+      [{ pass: true }, { pass: false }],
+      [],
+    ]) {
+      expect(
+        laneHeadAfterFiring(
+          FRESH_LANE,
+          record({ gateResult: 'checkpointed', headAdvanced: false, gateChecks }),
+        ),
+      ).toEqual(parked);
+    }
   });
 
   it('a revert, a no-commit and a skipped firing keep the previous state — the same object', () => {
@@ -186,6 +179,12 @@ describe('fly.ts wiring (source census)', () => {
       /const finalSync: SyncWorktreeBranchResult = laneHead\.verified\n\s*\? await syncWorktreeBranch\(/,
     );
     expect(flySource).toContain('an unverified head is never published');
+  });
+
+  it("the stranded-work inbox task is filed with a value the schema accepts, and only the store's answer counts as filed", () => {
+    expect(flySource).not.toContain("dimension: 'process'");
+    expect(flySource).toMatch(/const filed = createTask\(\s*store,/);
+    expect(flySource).toContain('stranded-work task could NOT be filed');
   });
 
   it('the launch reads the persisted marker for this lane branch and judges the head it found', () => {

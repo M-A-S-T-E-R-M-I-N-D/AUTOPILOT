@@ -108,6 +108,18 @@ import {
   latestLaneHeadMarker,
   type LaneHeadVerification,
 } from './flight/lane-head.js';
+
+/**
+ * One gate STEP's ceiling inside a flight (the firing gate and both
+ * convergence gates). The engine's ten-minute default is a hung-command
+ * guard sized for one checkout; under five lanes the full suite alone
+ * takes fifteen to twenty-five minutes and was being killed at the mark —
+ * a timeout the convergence gate then read as a red merge interaction. A
+ * timeout is still a crash (UNJUDGED, never a verdict), it just has to be
+ * rarer than the load it is meant to survive; thirty minutes still ends a
+ * command that truly hangs.
+ */
+const FLIGHT_GATE_STEP_TIMEOUT_MS = 30 * 60_000;
 import { resolveDbPath } from './read/config.js';
 import { flightEndStatus } from './flight/flight-end.js';
 import { readConnectionConfig } from './connection/config.js';
@@ -684,6 +696,7 @@ async function main(): Promise<void> {
           // forwardLaneToMergedHead below.
           cwd: flightRoot,
           commands: [{ bin: typecheck.bin, args: [...typecheck.args], label: typecheck.label }],
+          timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,
           ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
         }).run();
       },
@@ -702,6 +715,7 @@ async function main(): Promise<void> {
           // (`ciExtras`) too — the one point where cadence pressure doesn't
           // apply (see the FULL gate comment above).
           commands: gateCommands(fullGateSpec(result.gate.spec), { includeCiExtras: true }),
+          timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,
           ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
         }).run(),
     });
@@ -979,6 +993,7 @@ async function main(): Promise<void> {
     const innerGate = new DynamicGate({
       cwd: flightRoot,
       commands: () => gateCommands(buildGateSpec()),
+      timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,
       ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
     });
     const formatFix = deriveFormatFixCommand(result.gate.spec.format);
@@ -1818,17 +1833,29 @@ async function main(): Promise<void> {
             const body = finalSync.conflicts?.length
               ? formatMergeEscalationContext(finalSync.conflicts)
               : null;
-            createTask(store, {
-              id: `ap-${now().toString(36)}-strand`,
-              projectId,
-              title: strandTitle.slice(0, 300),
-              body,
-              severity: 'high',
-              dimension: 'process',
-              source: 'self',
-              createdAt: now(),
-            });
-            out('  📮 stranded-work task filed to the operator inbox.');
+            // No `dimension`: the schema's allow-list has no bucket for a
+            // process finding, and its CHECK constraint silently rejected the
+            // 'process' this call passed for three weeks — the log said "filed"
+            // every time and no task ever existed (post-push-verdict.ts had
+            // already noted the trap). The store's answer is the only proof.
+            const filed = createTask(
+              store,
+              {
+                id: `ap-${now().toString(36)}-strand`,
+                projectId,
+                title: strandTitle.slice(0, 300),
+                body,
+                severity: 'high',
+                source: 'self',
+                createdAt: now(),
+              },
+              (message) => out(`  ⚠ ${message}`),
+            );
+            out(
+              filed
+                ? '  📮 stranded-work task filed to the operator inbox.'
+                : '  ⚠ stranded-work task could NOT be filed — the store refused the row; the refusal lives on in this log and the sync-back-refusal event.',
+            );
           }
         } catch {
           /* escalation is best-effort — never fail the flight over it */

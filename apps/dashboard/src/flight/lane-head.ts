@@ -17,8 +17,12 @@
  * So the lane carries one bit across its firings: is the tree at HEAD
  * something a gate has actually judged green? A green gate sets it. A
  * revert leaves it as it was (the tree is back to the last judged state). A
- * checkpoint sets it from the checkpoint's own telemetry gate. An
- * unverifiable firing that moved the head clears it — and while it is
+ * checkpoint clears it: an unfinished unit is never published, whatever
+ * its telemetry gate said (that gate runs the impacted tests, not the
+ * suite — the five-lane rung published two green-looking checkpoints and
+ * the full suite went red behind them); the firing that finishes the unit
+ * is the one that gets judged. An unverifiable firing that moved the head
+ * clears it too — and while it is
  * clear, no sync-back runs: not per firing, not at flight end, not at the
  * next launch's catch-up. The commits stay parked on the lane branch until
  * a later firing's green gate judges the whole tree above them, or the
@@ -60,17 +64,14 @@ export function laneHeadAfterFiring(
   switch (record.gateResult) {
     case 'passed':
       return { verified: true, reason: `firing ${record.firing} gate green` };
-    case 'checkpointed': {
-      // A checkpoint runs the same gate for telemetry; a green one judged
-      // the whole tree at HEAD, an absent or red one judged nothing usable.
-      const green = record.gateChecks.length > 0 && record.gateChecks.every((c) => c.pass);
-      return green
-        ? { verified: true, reason: `firing ${record.firing} checkpoint gate green` }
-        : {
-            verified: false,
-            reason: `firing ${record.firing} checkpointed without a green gate`,
-          };
-    }
+    case 'checkpointed':
+      // Half a unit, packed up so nothing is lost — and parked here until the
+      // firing that finishes it is judged. Its telemetry gate is not a verdict
+      // on the shared branch.
+      return {
+        verified: false,
+        reason: `firing ${record.firing} checkpointed: an unfinished unit is never published`,
+      };
     case 'unverifiable':
       // A crashed or refused gate on a commit that stayed in place: nobody
       // judged this head. Without a commit there is nothing new to distrust.

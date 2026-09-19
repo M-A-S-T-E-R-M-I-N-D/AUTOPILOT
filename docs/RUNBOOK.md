@@ -626,7 +626,9 @@ further (from two) after a near-idle probe still let a 4-lane round climb to
 Only a gate-judged lane head is ever published into the flight branch
 (`apps/dashboard/src/flight/lane-head.ts`). When a firing's gate could not
 judge its commit — most often a second file left uncommitted beside it —
-the lane log says so and every sync-back after it is withheld:
+or the firing died mid-unit and left a `wip(autopilot): checkpoint`
+commit (an unfinished unit, never published), the lane log says so and
+every sync-back after it is withheld:
 
 ```
   ⏸ sync-back withheld: firing 109 unverifiable: refused: uncommitted changes remain after the commit — … — parked on autopilot/flight-worktree-fly-autopilot--fleet-4 until a green firing verifies the head
