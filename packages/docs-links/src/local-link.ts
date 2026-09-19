@@ -18,8 +18,12 @@
 
 import { dirname, join, normalize, sep } from 'node:path';
 
-/** Every `[text](target)` — optionally followed by a `"title"` — inside `markdown`. */
-const LINK_RE = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+/** Every `[text](target)` — optionally followed by a `"title"` — inside
+ *  `markdown`. The text class excludes `[` as well as `]`: a nested bracket
+ *  never matched anyway (the scan stops at the first `]`), and letting the
+ *  class swallow `[` made every `[` restart a scan over the whole run —
+ *  polynomial on `[[[[…` (CodeQL js/polynomial-redos). */
+const LINK_RE = /\[[^[\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 
 /**
  * A link target this module can verify against the filesystem — repo-relative

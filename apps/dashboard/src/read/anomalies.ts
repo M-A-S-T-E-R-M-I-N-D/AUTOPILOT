@@ -322,9 +322,11 @@ export const CONVERGENCE_TAIL_LINES = 3;
 export const CONVERGENCE_TAIL_LINE_CHARS = 160;
 
 /** A test runner's or compiler's own failure markers: a `FAIL` word, a
- *  leading ×/✗, an `…Error:` (AssertionError:, TypeError:, Error:), or a
- *  line that starts with `error` (tsc's `error TS2322:`). */
-const FAILURE_LINE_RE = /\bFAIL\b|^[×✗]|\w*Error:|^error\b/;
+ *  leading ×/✗, an `Error:` anywhere (AssertionError:, TypeError:, Error:),
+ *  or a line that starts with `error` (tsc's `error TS2322:`). Plain
+ *  `Error:` on purpose: a `\w*` prefix matches nothing more and backtracks
+ *  polynomially on long runs of word characters (CodeQL js/polynomial-redos). */
+const FAILURE_LINE_RE = /\bFAIL\b|^[×✗]|Error:|^error\b/;
 
 /** What the chip quotes from a failing command's output: its failure-marked
  *  lines (the test or rule that broke), or its first non-empty line when
