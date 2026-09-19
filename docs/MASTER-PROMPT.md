@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 
 One document that a new pilot, a new maintainer and the pilot's own firing
 prompt all read from. Epic 0030 slice 2 (2026-09-13). The firing prompt in
-`packages/engine/src/prompt.ts` (firing-v15) is the _executable subset_ of this file: the
+`packages/engine/src/prompt.ts` (firing-v16) is the _executable subset_ of this file: the
 lines a model must read every firing. This file is the whole — the laws the
 code enforces whether or not the prompt says them, the surfaces, the rituals,
 the knobs, and the ledger of drift between what the prompt says and what the
 code does. Where the two disagree, this file wins and the prompt is
 regenerated from it (§9). firing-v14 (2026-09-13) was the first regeneration: it added
-"The guard will refuse" and "Numbers you are held to" (§4). firing-v15
+"The guard will refuse" and "Numbers you are held to" (§4). firing-v16
 (2026-09-13) added the reland-is-a-landing hard rule (§4, FAILURE-DOCTRINE
 row 30).
 
@@ -208,7 +208,8 @@ leaves the tree as found.
 **Environment**: `OTEL_EXPORTER_OTLP_ENDPOINT` (+ `_HEADERS`) — export on;
 `ANTHROPIC_API_KEY` is stripped in subscription mode so a stray key cannot
 bill you; `CLAUDE_CODE_OAUTH_TOKEN` for headless subscription;
-`AUTOPILOT_MAX_CONCURRENT_FLIGHTS`, `AUTOPILOT_CLI_TIMEOUT_MS`,
+`AUTOPILOT_MAX_CONCURRENT_FLIGHTS`, `AUTOPILOT_CLI_TIMEOUT_MS` (wall clock,
+90 min), `AUTOPILOT_CLI_IDLE_TIMEOUT_MS` (20 min without output),
 `AUTOPILOT_FLEET_GATE_SLOTS` (2), `AUTOPILOT_FLEET_TASK_SCOPE`,
 `AUTOPILOT_MODEL` / `_MECHANICAL_MODEL` / `_ESCALATED_MODEL`,
 `AUTOPILOT_OLLAMA_BASE_URL` / `_MODEL`, `AUTOPILOT_ATTRIBUTION=off`,

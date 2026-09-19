@@ -164,7 +164,7 @@ describe('buildFiringPrompt', () => {
   });
 
   it('exposes a stable version tag for telemetry', () => {
-    expect(FIRING_PROMPT_VERSION).toBe('firing-v15');
+    expect(FIRING_PROMPT_VERSION).toBe('firing-v16');
   });
 
   it('splices a pre-rendered REPO-MAP digest in verbatim ahead of ORIENT', () => {
@@ -338,8 +338,21 @@ describe('buildFiringPrompt', () => {
 
   it('states the turn budget + deliver-or-pack discipline when the caller knows the cap', () => {
     const p = buildFiringPrompt({ soul: SOUL, firing: 2, retro: false, maxTurns: 80 });
-    expect(p).toContain('## TURN BUDGET — the harness hard-stops you at 80 turns');
+    expect(p).toContain(
+      '## TURN BUDGET — the harness hard-stops you at 80 turns, and at a wall clock',
+    );
     expect(p).toMatch(/commit the verifiable slice EARLY/);
+    // The suite is the gate's job: a firing that runs it under fleet load is
+    // killed by the wall clock mid-unit (2026-09-19, 21 of 34 firings).
+    expect(p).toContain(
+      '- NEVER run the whole test suite yourself: under a fleet it takes twenty minutes and',
+    );
+    expect(p).toContain(
+      '  the wall clock ends you mid-unit. Run only the test files your change touches; the',
+    );
+    expect(p).toContain(
+      '  harness gate runs the full suite on your commit right after you finish.',
+    );
     // The pack-up move names the exact checkpoint prefix the RESUME CHECK looks for.
     expect(p).toContain('wip(autopilot): checkpoint');
     // No cap known → no section (and no invented number).
@@ -768,10 +781,13 @@ describe('buildFiringPrompt', () => {
       'violation the operator audits for — deviate only when it is genuinely warranted, and',
       'say so honestly.',
       '',
-      '## TURN BUDGET — the harness hard-stops you at 80 turns',
+      '## TURN BUDGET — the harness hard-stops you at 80 turns, and at a wall clock',
       'The stop is mid-action and unceremonious: uncommitted work and unwritten decisions',
       'are simply LOST. Deliver or pack — never let the cap catch you mid-unit:',
       '- Size the unit so you can COMMIT well before the cap; commit the verifiable slice EARLY.',
+      '- NEVER run the whole test suite yourself: under a fleet it takes twenty minutes and',
+      '  the wall clock ends you mid-unit. Run only the test files your change touches; the',
+      '  harness gate runs the full suite on your commit right after you finish.',
       '- If the unit grows anyway: STOP expanding, run the gate, commit what passes.',
       '- If green is out of reach in time: pack up — commit "wip(autopilot): checkpoint — <one',
       '  line: what is done, what remains, next step>" so the next firing RESUMES your work',
@@ -789,7 +805,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v15`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v16`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',
@@ -1112,7 +1128,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v15`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v16`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',

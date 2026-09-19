@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   totalBudgetExhausted,
   cliTimeoutMsFromEnv,
+  cliIdleTimeoutMsFromEnv,
   fleetGateSlotsFromEnv,
 } from '../../src/flight/budget.js';
 
@@ -59,5 +60,18 @@ describe('fleetGateSlotsFromEnv (OPERATOR-MACHINE MERCY 2 — cross-lane gate se
     expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: 'many' })).toBe(2);
     expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: '0' })).toBe(2);
     expect(fleetGateSlotsFromEnv({ AUTOPILOT_FLEET_GATE_SLOTS: '-3' })).toBe(2);
+  });
+});
+
+describe('cliIdleTimeoutMsFromEnv (the idle cap — operator/launcher tunable)', () => {
+  it('reads a positive integer number of milliseconds', () => {
+    expect(cliIdleTimeoutMsFromEnv({ AUTOPILOT_CLI_IDLE_TIMEOUT_MS: '600000' })).toBe(600_000);
+  });
+
+  it('keeps the driver default (undefined) when unset, empty, non-numeric, zero, negative or fractional', () => {
+    for (const value of [undefined, '', 'soon', '0', '-5', '1.5']) {
+      expect(cliIdleTimeoutMsFromEnv({ AUTOPILOT_CLI_IDLE_TIMEOUT_MS: value })).toBeUndefined();
+    }
+    expect(cliIdleTimeoutMsFromEnv({})).toBeUndefined();
   });
 });

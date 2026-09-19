@@ -167,6 +167,12 @@ export interface ClaudeCliOptions {
   readonly settingsPath?: string;
   /** Kill the child if it runs longer than this. Defaults to {@link DEFAULT_CLI_TIMEOUT_MS}. */
   readonly timeoutMs?: number;
+  /** Kill the streaming child when NOTHING has arrived on its stdout for
+   *  this long — a hung auth prompt, a wedged MCP server, a stalled tool —
+   *  long before the wall clock would. Defaults to
+   *  {@link DEFAULT_CLI_IDLE_TIMEOUT_MS}; a live agent streams events every
+   *  few seconds, so a healthy firing never trips it. */
+  readonly idleTimeoutMs?: number;
   /** ORPHAN SWEEP seam (board web-msu3sv1w-hfj87n) — defaults to the real
    *  cross-platform reap ({@link reapCliDescendants}); tests inject a spy
    *  instead of depending on a real taskkill/SIGKILL. */
@@ -231,12 +237,36 @@ export function reapCliDescendants(
 export const CLI_STDIN_PROMPT_THRESHOLD = 6000;
 
 /**
- * A hung `claude` child (e.g. a stalled auth prompt or a wedged MCP server)
- * would otherwise block a firing forever — long enough for a full xhigh-effort,
- * 120-turn firing to finish, short enough to guarantee eventual forward
- * progress. `timeoutMs` on {@link ClaudeCliOptions} overrides this per call.
+ * The wall-clock ceiling on one firing's `claude` child. It was 30 minutes,
+ * sized for a lone flight; under a fleet the same firing waits on gate
+ * slots and shares one disk, and on 2026-09-19 twenty-one of thirty-four
+ * firings were killed at exactly this mark mid-unit — every one a
+ * checkpoint nobody finished. Ninety minutes is the ceiling now; a HUNG
+ * child is caught much sooner by {@link DEFAULT_CLI_IDLE_TIMEOUT_MS}, so the
+ * wall clock only ever ends a firing that kept working the whole time.
+ * `timeoutMs` on {@link ClaudeCliOptions} overrides this per call.
  */
-export const DEFAULT_CLI_TIMEOUT_MS = 30 * 60 * 1000;
+export const DEFAULT_CLI_TIMEOUT_MS = 90 * 60 * 1000;
+
+/**
+ * How long the streaming child may stay SILENT (no stdout line at all)
+ * before it is judged hung and killed. A working agent emits stream events
+ * every few seconds; even a long gate command run through Bash streams
+ * its tool events. Twenty minutes tolerates one slow command under fleet
+ * load and still ends a stalled auth prompt or a wedged MCP server within
+ * the hour. `idleTimeoutMs` on {@link ClaudeCliOptions} overrides it.
+ */
+export const DEFAULT_CLI_IDLE_TIMEOUT_MS = 20 * 60 * 1000;
+
+/** What a killed child's response says instead of an empty stderr: which
+ *  cap ended it and after how long — the flight log's death line reads
+ *  this, so a cap death is never mistaken for a crash. */
+export function capDeathNote(cap: 'wall-clock' | 'idle', elapsedMs: number, capMs: number): string {
+  const minutes = (ms: number) => `${Math.round(ms / 60_000)} min`;
+  return cap === 'wall-clock'
+    ? `killed by the flight's wall-clock cap after ${minutes(elapsedMs)} (cap ${minutes(capMs)})`
+    : `killed by the flight's idle cap: no output for ${minutes(capMs)} (ran ${minutes(elapsedMs)})`;
+}
 
 /**
  * THIRD CAP surfacing (board web-mt1w1ime-pohh9d): true when an attempt was
@@ -479,15 +509,43 @@ export class StreamingClaudeCliModel implements ModelPort {
     );
     const env = resolveClaudeEnv(this.opts.auth ?? DEFAULT_AUTH, this.opts.env ?? process.env);
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
+    const idleTimeoutMs = this.opts.idleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS;
     const startedAt = Date.now();
     return new Promise((resolve) => {
+      // Both caps are OUR timers, not spawn's `timeout` option: a child we
+      // killed must be reported as a cap death on every platform, and on
+      // Windows a killed child closes with `code 1, signal null` — the
+      // signal-based inference below misread every such death as an
+      // ordinary crash (2026-09-19).
+      let capDeath: 'wall-clock' | 'idle' | null = null;
       const child = spawn(this.opts.binary ?? 'claude', args, {
         cwd: this.opts.repo,
         env,
         windowsHide: true,
-        timeout: timeoutMs,
         detached: true,
       });
+      // Whichever cap fires first disarms the other before it kills, so
+      // exactly one cap can ever be the cause.
+      const timers: { wallClock?: NodeJS.Timeout; idle?: NodeJS.Timeout } = {};
+      const disarm = (): void => {
+        clearTimeout(timers.wallClock);
+        clearTimeout(timers.idle);
+      };
+      const killFor = (cap: 'wall-clock' | 'idle'): void => {
+        disarm();
+        capDeath = cap;
+        try {
+          child.kill();
+        } catch {
+          // already gone — the close handler still runs
+        }
+      };
+      const armIdle = (): void => {
+        clearTimeout(timers.idle);
+        timers.idle = setTimeout(() => killFor('idle'), idleTimeoutMs);
+      };
+      timers.wallClock = setTimeout(() => killFor('wall-clock'), timeoutMs);
+      armIdle();
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
       if (prompt.length > CLI_STDIN_PROMPT_THRESHOLD) child.stdin?.end(prompt);
       let buffer = '';
@@ -528,6 +586,7 @@ export class StreamingClaudeCliModel implements ModelPort {
 
       child.stdout.setEncoding('utf8');
       child.stdout.on('data', (chunk: string) => {
+        armIdle();
         buffer += chunk;
         let nl = buffer.indexOf('\n');
         while (nl >= 0) {
@@ -541,6 +600,7 @@ export class StreamingClaudeCliModel implements ModelPort {
         stderr += chunk;
       });
       child.on('error', () => {
+        disarm();
         (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
         if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
         resolve({
@@ -553,6 +613,7 @@ export class StreamingClaudeCliModel implements ModelPort {
         });
       });
       child.on('close', (code, signal) => {
+        disarm();
         (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
         if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
         // Stryker disable next-line ConditionalExpression,EqualityOperator,MethodExpression:
@@ -566,7 +627,13 @@ export class StreamingClaudeCliModel implements ModelPort {
         // No result envelope: the only trace of WHY is the CLI's stderr, which
         // used to be dropped here — six of eight firings in the eight-lane
         // round ended `exit 1`, no envelope, and nothing anywhere said why.
-        const stdout = result ? JSON.stringify(result) : stderrTail(stderr);
+        const elapsedMs = Date.now() - startedAt;
+        // A cap death says so in its own words when the child left no stderr.
+        const deathText =
+          capDeath !== null && stderr.trim() === ''
+            ? capDeathNote(capDeath, elapsedMs, capDeath === 'idle' ? idleTimeoutMs : timeoutMs)
+            : stderrTail(stderr);
+        const stdout = result ? JSON.stringify(result) : deathText;
         const envelope = result ? parseModelEnvelope(stdout) : null;
         const partialUsage: PartialUsage | null =
           envelope === null && lastUsage !== null
@@ -579,7 +646,10 @@ export class StreamingClaudeCliModel implements ModelPort {
             : null;
         // A signal-killed child (timeout or otherwise) has no real exit code — do
         // not let the `code ?? 0` fallback below report that as a clean success.
-        const timedOut = isCliTimeoutDeath(signal !== null, Date.now() - startedAt, timeoutMs);
+        // Our own cap is the authority; the signal inference only still covers
+        // a kill by someone else that happened to land past the cap.
+        const timedOut =
+          capDeath !== null || isCliTimeoutDeath(signal !== null, elapsedMs, timeoutMs);
         resolve({
           stdout,
           exitCode: code ?? (signal ? 1 : 0),

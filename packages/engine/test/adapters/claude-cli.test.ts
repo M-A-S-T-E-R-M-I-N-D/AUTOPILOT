@@ -17,6 +17,8 @@ import {
   reapCliDescendants,
   stderrTail,
   DEATH_TAIL_CHARS,
+  DEFAULT_CLI_IDLE_TIMEOUT_MS,
+  capDeathNote,
 } from '../../src/adapters/claude-cli.js';
 import { DEFAULT_ENGINE_CONFIG } from '../../src/config.js';
 
@@ -346,11 +348,12 @@ describe('buildClaudeArgs — full argv shape', () => {
 });
 
 describe('DEFAULT_CLI_TIMEOUT_MS', () => {
-  it('is 30 minutes in milliseconds', () => {
-    // Compared against a hardcoded literal, not `30 * 60 * 1000` re-derived here —
+  it('is 90 minutes in milliseconds (a fleet firing waits on gate slots; the idle cap catches a hang)', () => {
+    // Compared against a hardcoded literal, not `90 * 60 * 1000` re-derived here —
     // a self-referential comparison would still pass even if the constant's own
     // arithmetic were mutated (both sides would carry the same mutated value).
-    expect(DEFAULT_CLI_TIMEOUT_MS).toBe(1_800_000);
+    expect(DEFAULT_CLI_TIMEOUT_MS).toBe(5_400_000);
+    expect(DEFAULT_CLI_IDLE_TIMEOUT_MS).toBe(1_200_000);
   });
 });
 
@@ -1115,6 +1118,171 @@ describe('StreamingClaudeCliModel', () => {
     expect(res.stdout).toBe('spawn claude ENOENT');
   });
 
+  describe('the caps are OUR timers (2026-09-19: a Windows kill closes with code 1 and no signal)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function killableChild(): FakeChild & { kill: ReturnType<typeof vi.fn> } {
+      const child = fakeChild() as FakeChild & { kill: ReturnType<typeof vi.fn> };
+      // Like Windows: the kill lands, the child closes with code 1 and no signal.
+      child.kill = vi.fn(() => {
+        queueMicrotask(() => child.emit('close', 1, null));
+        return true;
+      });
+      return child;
+    }
+
+    it('kills at the wall clock and reports a cap death with its own note, on any platform', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 60_000,
+        idleTimeoutMs: 600_000,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      // Activity every 10 s keeps the idle cap away; the wall clock still ends it.
+      for (let i = 0; i < 6; i += 1) {
+        await vi.advanceTimersByTimeAsync(10_000);
+        child.stdout.emit('data', '{"type":"system"}\n');
+      }
+      await vi.advanceTimersByTimeAsync(1);
+      const res = await promise;
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      expect(res.exitCode).toBe(1);
+      expect(res.envelope).toBeNull();
+      expect(res.timedOut).toBe(true);
+      expect(res.stdout).toBe("killed by the flight's wall-clock cap after 1 min (cap 1 min)");
+    });
+
+    it('kills a silent child at the idle cap long before the wall clock, and says which cap', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 3_600_000,
+        idleTimeoutMs: 120_000,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      await vi.advanceTimersByTimeAsync(100_000);
+      child.stdout.emit('data', '{"type":"system"}\n'); // output resets the idle clock
+      await vi.advanceTimersByTimeAsync(100_000);
+      expect(child.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(20_001);
+      const res = await promise;
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      expect(res.timedOut).toBe(true);
+      expect(res.stdout).toBe("killed by the flight's idle cap: no output for 2 min (ran 4 min)");
+    });
+
+    it('a child silent from its first second is killed by the idle cap — the initial timer is live', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 3_600_000,
+        idleTimeoutMs: 60_000,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      child.stderr.emit('data', '\n \n'); // whitespace only: still "nothing on stderr"
+      await vi.advanceTimersByTimeAsync(60_001);
+      const res = await promise;
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      expect(res.stdout).toBe("killed by the flight's idle cap: no output for 1 min (ran 1 min)");
+    });
+
+    it('the first cap to fire disarms the other — a child that lingers after the kill is not killed twice', async () => {
+      vi.useFakeTimers();
+      const child = fakeChild() as FakeChild & { kill: ReturnType<typeof vi.fn> };
+      child.kill = vi.fn(() => true); // the child ignores the kill for a while
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 60_000,
+        idleTimeoutMs: 90_000,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      await vi.advanceTimersByTimeAsync(120_000); // wall clock at 1 min; the idle cap would have fired at 1.5 min
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      child.emit('close', 1, null);
+      const res = await promise;
+      expect(res.stdout).toBe("killed by the flight's wall-clock cap after 2 min (cap 1 min)");
+    });
+
+    it('a spawn error disarms both caps — no kill ever follows it', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 1_000,
+        idleTimeoutMs: 500,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      child.emit('error', new Error('spawn claude ENOENT'));
+      const res = await promise;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(child.kill).not.toHaveBeenCalled();
+      expect(res.exitCode).toBe(1);
+    });
+
+    it('a cap death keeps the stderr the child did write instead of the note', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 1_000,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      child.stderr.emit('data', 'Error: stuck on auth\n');
+      await vi.advanceTimersByTimeAsync(1_001);
+      const res = await promise;
+      expect(res.timedOut).toBe(true);
+      expect(res.stdout).toBe('Error: stuck on auth');
+    });
+
+    it('a child that finishes clears both timers — no kill ever arrives', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 1_000,
+        idleTimeoutMs: 500,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      child.emit('close', 0, null);
+      const res = await promise;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(child.kill).not.toHaveBeenCalled();
+      expect(res.exitCode).toBe(0);
+      expect('timedOut' in res).toBe(false);
+    });
+
+    it('the defaults: ninety minutes of wall clock, twenty of silence', () => {
+      expect(DEFAULT_CLI_TIMEOUT_MS).toBe(90 * 60 * 1000);
+      expect(DEFAULT_CLI_IDLE_TIMEOUT_MS).toBe(20 * 60 * 1000);
+      expect(capDeathNote('wall-clock', 5_400_000, 5_400_000)).toBe(
+        "killed by the flight's wall-clock cap after 90 min (cap 90 min)",
+      );
+      expect(capDeathNote('idle', 2_700_000, 1_200_000)).toBe(
+        "killed by the flight's idle cap: no output for 20 min (ran 45 min)",
+      );
+    });
+  });
+
   it('keeps the stderr tail as stdout when the child closes without a result envelope — the reason it died', async () => {
     const child = fakeChild();
     spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
@@ -1211,7 +1379,7 @@ describe('StreamingClaudeCliModel', () => {
     expect(res.partialUsage).toBeNull();
   });
 
-  it('passes the default execution timeout through to spawn (a hung child must eventually be killed)', async () => {
+  it('never hands spawn a `timeout` — the caps are our own timers, so a kill is always attributed', async () => {
     const child = fakeChild();
     spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
 
@@ -1221,11 +1389,17 @@ describe('StreamingClaudeCliModel', () => {
     await promise;
 
     const options = spawnMock.mock.calls[0]?.[2] as Record<string, unknown> | undefined;
-    expect(options?.['timeout']).toBe(DEFAULT_CLI_TIMEOUT_MS);
+    expect(options?.['timeout']).toBeUndefined();
+    expect(options?.['detached']).toBe(true);
   });
 
-  it('passes a caller-supplied timeoutMs through to spawn', async () => {
-    const child = fakeChild();
+  it('a caller-supplied timeoutMs is the wall clock the adapter kills at', async () => {
+    vi.useFakeTimers();
+    const child = fakeChild() as FakeChild & { kill: ReturnType<typeof vi.fn> };
+    child.kill = vi.fn(() => {
+      queueMicrotask(() => child.emit('close', 1, null));
+      return true;
+    });
     spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
 
     const model = new StreamingClaudeCliModel({
@@ -1234,11 +1408,13 @@ describe('StreamingClaudeCliModel', () => {
       timeoutMs: 5000,
     });
     const promise = model.invoke('sonnet', 'p');
-    child.emit('close', 0);
-    await promise;
-
-    const options = spawnMock.mock.calls[0]?.[2] as Record<string, unknown> | undefined;
-    expect(options?.['timeout']).toBe(5000);
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(child.kill).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2);
+    const res = await promise;
+    expect(child.kill).toHaveBeenCalledTimes(1);
+    expect(res.timedOut).toBe(true);
+    vi.useRealTimers();
   });
 
   it('pipes an over-threshold prompt via stdin instead of argv (Windows cmdline ceiling)', async () => {

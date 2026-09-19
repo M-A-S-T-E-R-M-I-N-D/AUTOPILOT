@@ -40,6 +40,8 @@ import {
   SqliteFiringStore,
   SystemClock,
   StreamingClaudeCliModel,
+  DEFAULT_CLI_TIMEOUT_MS,
+  DEFAULT_CLI_IDLE_TIMEOUT_MS,
   GateRunner,
   DynamicGate,
   RemediatingGate,
@@ -133,6 +135,7 @@ import {
   totalBudgetExhausted,
   FLY_MAX_TURNS,
   cliTimeoutMsFromEnv,
+  cliIdleTimeoutMsFromEnv,
   fleetGateSlotsFromEnv,
 } from './flight/budget.js';
 import { subscriptionPriceUsdFromEnv, usagePoolDirsFromEnv } from './flight/usage-pool-config.js';
@@ -1084,6 +1087,10 @@ async function main(): Promise<void> {
     const otlpConfig = otlpConfigFromEnv(process.env);
     if (otlpConfig) out(`OTLP export: ${otlpConfig.endpoint}`);
     const cliTimeoutMs = cliTimeoutMsFromEnv(process.env);
+    const cliIdleTimeoutMs = cliIdleTimeoutMsFromEnv(process.env);
+    out(
+      `Per-firing caps: wall clock ${Math.round((cliTimeoutMs ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000)} min, idle ${Math.round((cliIdleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS) / 60_000)} min without output (AUTOPILOT_CLI_TIMEOUT_MS / AUTOPILOT_CLI_IDLE_TIMEOUT_MS).`,
+    );
     const loop: LoopDeps = {
       firing: {
         model: new StreamingClaudeCliModel({
@@ -1099,6 +1106,7 @@ async function main(): Promise<void> {
           // THIRD CAP (wall clock), launcher-tunable — see budget.ts's
           // cliTimeoutMsFromEnv; omitted key keeps the driver's own default.
           ...(cliTimeoutMs !== undefined ? { timeoutMs: cliTimeoutMs } : {}),
+          ...(cliIdleTimeoutMs !== undefined ? { idleTimeoutMs: cliIdleTimeoutMs } : {}),
         }),
         vcs,
         gate: feedbackGate,
