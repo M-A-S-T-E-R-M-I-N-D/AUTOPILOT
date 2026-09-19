@@ -38,3 +38,10 @@ docs/SELF-STUDY/EVIDENCE-LOG.md merge=union
 # already made. Code files stay OUT of union on purpose: interleaved code is
 # not self-healing — that class escalates to rerere or the resolution agent.
 docs/epics/*.md merge=union
+
+# The debrief index is GENERATED (scripts/docs/generate-debriefs-index.mjs)
+# and every lane that writes a debrief regenerates it with its own row —
+# the first conflict of the 2026-09-19 three-lane rung, and one the merge-
+# escalation agent gave up on. Union keeps every lane's row; the next
+# regeneration re-sorts the table, so ordering never needs a human.
+docs/debriefs/README.md merge=union

@@ -19,8 +19,9 @@
 
 import { execFile } from 'node:child_process';
 import { existsSync, realpathSync, rmSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { gatherMergeConflictContext, type MergeConflictSides } from './merge-conflict-context.js';
+import { FileInstanceLock, type AcquireLockResult } from './instance-lock.js';
 
 /**
  * OS-canonical form (symlinks resolved, Windows 8.3 short names expanded,
@@ -395,7 +396,151 @@ export type SyncWorktreeEscalationHook = (
  * firing/catch-up call site) falls through to the exact abort-and-refuse
  * floor this function has always had. The ladder only ever ADDS a rung.
  */
+/**
+ * ONE SYNC-BACK AT A TIME PER CHECKOUT (2026-09-19, the three-lane rung).
+ *
+ * Every lane syncs back into the SAME live checkout. Lane 3's merge hit a
+ * content conflict and sat mid-merge for minutes while the escalation agent
+ * worked on it; lane 1's flight-end sync-back arrived in that window, saw
+ * the checkout's conflict markers as "uncommitted changes", and refused —
+ * a refusal that can strand a lane's commits on its branch. The state was
+ * never wrong; two lanes were simply reading one checkout at once.
+ *
+ * So a sync-back takes a lockfile in the checkout's git common dir first
+ * (`FileInstanceLock`: atomic create, pid inside, a dead holder's lock is
+ * reclaimed) and a second lane WAITS for it — up to `waitMs`, long enough
+ * for a merge, a rerere replay and an escalation agent — instead of
+ * judging a tree another lane is in the middle of. Only a lock still held
+ * by a live process after the wait is a refusal.
+ *
+ * Two waits, because the callers differ: a per-firing or launch-time
+ * sync-back is best-effort and retried on the next firing, so it waits
+ * briefly (the default) rather than parking a whole lane behind another
+ * lane's escalation; the flight-end sync-back is the last chance before
+ * the lane's commits strand, so it opts into the long wait.
+ *
+ * A lock that cannot be taken for any reason other than "held" (a
+ * read-only `.git`, a Windows handle an indexer holds for a moment) is not
+ * a lane to wait for: the sync-back then runs unguarded, as it always did,
+ * and says so in its details. A sync-back never throws.
+ */
+export const SYNC_BACK_BRIEF_WAIT_MS = 2 * 60_000;
+export const SYNC_BACK_FLIGHT_END_WAIT_MS = 15 * 60_000;
+export const SYNC_BACK_POLL_MS = 2_000;
+
+export interface SyncBackLock {
+  acquire(): AcquireLockResult;
+  release(): void;
+}
+
+export interface SyncBackMutexOptions {
+  /** How long to wait for another lane's sync-back before refusing
+   *  (`SYNC_BACK_BRIEF_WAIT_MS` unless the caller is the flight end). */
+  readonly waitMs?: number;
+  /** How often to retry the lock while waiting. */
+  readonly pollMs?: number;
+  /** Injected for tests; defaults to a real timer. */
+  readonly sleep?: (ms: number) => Promise<void>;
+  /** Injected for tests; defaults to a FileInstanceLock on `syncBackLockPath`. */
+  readonly lock?: SyncBackLock;
+}
+
+export type SyncBackMutexOutcome<T> =
+  | { readonly acquired: true; readonly result: T }
+  | { readonly acquired: false; readonly holderPid?: number }
+  | { readonly acquired: false; readonly unavailable: string };
+
+type LockAttempt = AcquireLockResult | { readonly acquired: false; readonly unavailable: string };
+
+/** `acquire()` rethrows every error but "already exists"; none of those is
+ *  a lane to wait for, and a sync-back never throws, so it is reported. */
+function tryAcquire(lock: SyncBackLock): LockAttempt {
+  try {
+    return lock.acquire();
+  } catch (error) {
+    return {
+      acquired: false,
+      unavailable: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/** The lockfile every sync-back into `repo` takes: inside the git common
+ *  dir (`.git` for the main checkout, an absolute path from a linked
+ *  worktree), so every checkout of one repository shares it and it is
+ *  never a tracked file. `null` outside a repository: there is nothing to
+ *  lock, and the sync-back itself reports why. */
+export async function syncBackLockPath(repo: string): Promise<string | null> {
+  const common = await git(repo, ['rev-parse', '--git-common-dir']);
+  const dir = common.stdout.trim();
+  return dir === '' ? null : resolve(repo, dir, 'autopilot-sync-back.lock');
+}
+
+async function syncBackLock(
+  repo: string,
+  mutex: SyncBackMutexOptions,
+): Promise<SyncBackLock | null> {
+  if (mutex.lock !== undefined) return mutex.lock;
+  const path = await syncBackLockPath(repo);
+  return path === null ? null : new FileInstanceLock(path);
+}
+
+/** Runs `fn` holding `lock`, waiting up to `waitMs` for it in `pollMs`
+ *  steps; releases it whatever `fn` does. Answers `acquired: false` (with
+ *  the holder's pid when known) when the wait runs out, or `unavailable`
+ *  when the lock itself cannot be taken. */
+export async function withSyncBackMutex<T>(
+  lock: SyncBackLock,
+  options: SyncBackMutexOptions,
+  fn: () => Promise<T>,
+): Promise<SyncBackMutexOutcome<T>> {
+  const waitMs = options.waitMs ?? SYNC_BACK_BRIEF_WAIT_MS;
+  const pollMs = options.pollMs ?? SYNC_BACK_POLL_MS;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let waited = 0;
+  let attempt = tryAcquire(lock);
+  while (!attempt.acquired && !('unavailable' in attempt) && waited < waitMs) {
+    await sleep(pollMs);
+    waited += pollMs;
+    attempt = tryAcquire(lock);
+  }
+  // A denial carries the holder's pid only when known; an unavailable lock
+  // carries its reason — either way the attempt itself is the outcome.
+  if (!attempt.acquired) return { ...attempt, acquired: false };
+  try {
+    return { acquired: true, result: await fn() };
+  } finally {
+    lock.release();
+  }
+}
+
 export async function syncWorktreeBranch(
+  repo: string,
+  targetBranch: string,
+  worktreeBranch: string,
+  escalate?: SyncWorktreeEscalationHook,
+  mutex: SyncBackMutexOptions = {},
+): Promise<SyncWorktreeBranchResult> {
+  const unlocked = () => syncWorktreeBranchUnlocked(repo, targetBranch, worktreeBranch, escalate);
+  const lock = await syncBackLock(repo, mutex);
+  if (lock === null) return unlocked();
+  const outcome = await withSyncBackMutex(lock, mutex, unlocked);
+  if (outcome.acquired) return outcome.result;
+  if ('unavailable' in outcome) {
+    const result = await unlocked();
+    return {
+      ...result,
+      details: `sync-back lock unavailable (${outcome.unavailable}), ran unguarded; ${result.details}`,
+    };
+  }
+  const holder = outcome.holderPid === undefined ? '' : ` (pid ${outcome.holderPid})`;
+  return {
+    ok: false,
+    details: `refusing to sync: another sync-back into '${repo}' is still running${holder} after ${Math.round((mutex.waitMs ?? SYNC_BACK_BRIEF_WAIT_MS) / 1000)}s`,
+  };
+}
+
+async function syncWorktreeBranchUnlocked(
   repo: string,
   targetBranch: string,
   worktreeBranch: string,

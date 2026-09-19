@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import {
   addDetachedWorktree,
   canonicalWorktreePath,
@@ -24,6 +24,11 @@ import {
   removeWorktree,
   repoPrefixOf,
   syncWorktreeBranch,
+  withSyncBackMutex,
+  syncBackLockPath,
+  SYNC_BACK_BRIEF_WAIT_MS,
+  SYNC_BACK_FLIGHT_END_WAIT_MS,
+  SYNC_BACK_POLL_MS,
   worktreeIsRegistered,
 } from '../../src/adapters/worktree.js';
 import { realpathSync } from 'node:fs';
@@ -930,5 +935,281 @@ describe('syncWorktreeBranch — a rerere-resolved merge whose COMMIT is rejecte
 
     rmSync(hook, { force: true });
     await removeWorktree(dir, wtPath);
+  });
+});
+
+/** The mutex tests only ever ask a real repository, where the path is never null. */
+async function lockPathOf(repo: string): Promise<string> {
+  const path = await syncBackLockPath(repo);
+  if (path === null) throw new Error('not a repository: ' + repo);
+  return path;
+}
+
+describe('the sync-back mutex — one sync-back at a time per checkout (the three-lane rung, 2026-09-19)', () => {
+  function fakeLock(deniedTimes: number, holderPid?: number) {
+    let calls = 0;
+    let released = 0;
+    return {
+      lock: {
+        acquire: () => {
+          calls += 1;
+          if (calls <= deniedTimes) {
+            return holderPid === undefined ? { acquired: false } : { acquired: false, holderPid };
+          }
+          return { acquired: true };
+        },
+        release: () => {
+          released += 1;
+        },
+      },
+      calls: () => calls,
+      released: () => released,
+    };
+  }
+
+  it('waits for a held lock and runs once it is free, releasing afterwards', async () => {
+    const slept: number[] = [];
+    const f = fakeLock(3, 4242);
+    const outcome = await withSyncBackMutex(
+      f.lock,
+      { waitMs: 10_000, pollMs: 1_000, sleep: async (ms) => void slept.push(ms) },
+      async () => 'synced',
+    );
+    expect(outcome).toEqual({ acquired: true, result: 'synced' });
+    expect(slept).toEqual([1_000, 1_000, 1_000]);
+    expect(f.calls()).toBe(4);
+    expect(f.released()).toBe(1);
+  });
+
+  it('gives up after the wait, naming the holder, and never runs the body', async () => {
+    const f = fakeLock(Number.MAX_SAFE_INTEGER, 777);
+    let ran = false;
+    const outcome = await withSyncBackMutex(
+      f.lock,
+      { waitMs: 3_000, pollMs: 1_000, sleep: async () => {} },
+      async () => {
+        ran = true;
+        return 'never';
+      },
+    );
+    expect(outcome).toEqual({ acquired: false, holderPid: 777 });
+    expect(ran).toBe(false);
+    expect(f.released()).toBe(0);
+    // Exactly waitMs / pollMs retries after the first attempt — the boundary.
+    expect(f.calls()).toBe(4);
+  });
+
+  it('a lock with no readable holder is reported without a pid', async () => {
+    const f = fakeLock(Number.MAX_SAFE_INTEGER);
+    const outcome = await withSyncBackMutex(
+      f.lock,
+      { waitMs: 1_000, pollMs: 1_000, sleep: async () => {} },
+      async () => 'never',
+    );
+    expect(outcome).toStrictEqual({ acquired: false });
+  });
+
+  it('releases the lock even when the body throws', async () => {
+    const f = fakeLock(0);
+    await expect(
+      withSyncBackMutex(f.lock, { sleep: async () => {} }, async () => {
+        throw new Error('merge exploded');
+      }),
+    ).rejects.toThrow('merge exploded');
+    expect(f.released()).toBe(1);
+  });
+
+  it('the flight-end wait covers a merge, a rerere replay and an escalation agent; the default is brief', () => {
+    expect(SYNC_BACK_FLIGHT_END_WAIT_MS).toBe(15 * 60_000);
+    expect(SYNC_BACK_BRIEF_WAIT_MS).toBe(2 * 60_000);
+    expect(SYNC_BACK_POLL_MS).toBe(2_000);
+  });
+
+  it('a lock that throws on acquire is reported as unavailable — never thrown, never waited for', async () => {
+    let released = 0;
+    let ran = false;
+    const lock = {
+      acquire: () => {
+        throw new Error('EACCES: permission denied');
+      },
+      release: () => {
+        released += 1;
+      },
+    };
+    const slept: number[] = [];
+    const outcome = await withSyncBackMutex(
+      lock,
+      { waitMs: 10_000, pollMs: 1_000, sleep: async (ms) => void slept.push(ms) },
+      async () => {
+        ran = true;
+        return 'never';
+      },
+    );
+    expect(outcome).toStrictEqual({ acquired: false, unavailable: 'EACCES: permission denied' });
+    expect(slept).toEqual([]);
+    expect(ran).toBe(false);
+    expect(released).toBe(0);
+  });
+
+  it('a lock that starts throwing mid-wait stops the wait there, and a non-Error is stringified', async () => {
+    let calls = 0;
+    const lock = {
+      acquire: () => {
+        calls += 1;
+        if (calls === 1) return { acquired: false, holderPid: 5 };
+        throw 'EBUSY';
+      },
+      release: () => {},
+    };
+    const slept: number[] = [];
+    const outcome = await withSyncBackMutex(
+      lock,
+      { waitMs: 10_000, pollMs: 1_000, sleep: async (ms) => void slept.push(ms) },
+      async () => 'never',
+    );
+    expect(outcome).toStrictEqual({ acquired: false, unavailable: 'EBUSY' });
+    expect(slept).toEqual([1_000]);
+    expect(calls).toBe(2);
+  });
+
+  it('without options it polls every SYNC_BACK_POLL_MS for SYNC_BACK_WAIT_MS before giving up', async () => {
+    const slept: number[] = [];
+    const f = fakeLock(Number.MAX_SAFE_INTEGER, 9);
+    const outcome = await withSyncBackMutex(
+      f.lock,
+      { sleep: async (ms) => void slept.push(ms) },
+      async () => 'never',
+    );
+    expect(outcome).toEqual({ acquired: false, holderPid: 9 });
+    expect(slept.length).toBe(SYNC_BACK_BRIEF_WAIT_MS / SYNC_BACK_POLL_MS);
+    expect(new Set(slept)).toEqual(new Set([SYNC_BACK_POLL_MS]));
+    expect(f.calls()).toBe(SYNC_BACK_BRIEF_WAIT_MS / SYNC_BACK_POLL_MS + 1);
+  });
+
+  it('a sync-back refused by a lock with no readable holder says so without a pid', async () => {
+    const f = fakeLock(Number.MAX_SAFE_INTEGER);
+    const result = await syncWorktreeBranch('/no/such/repo', 'main', 'flight-work', undefined, {
+      waitMs: 1_000,
+      pollMs: 500,
+      sleep: async () => {},
+      lock: f.lock,
+    });
+    expect(result).toEqual({
+      ok: false,
+      details: "refusing to sync: another sync-back into '/no/such/repo' is still running after 1s",
+    });
+  });
+
+  describe('against a real checkout', () => {
+    let dir: string;
+    let base: string;
+
+    beforeEach(() => {
+      dir = scratchRepoDir('autopilot-worktree-mutex-');
+      initRepo(dir);
+      base = gitSync(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    });
+
+    afterEach(() =>
+      rmSync(join(dir, '..'), { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }),
+    );
+
+    it('keeps its lockfile inside the git common dir, never in the tree', async () => {
+      expect(await lockPathOf(dir)).toBe(resolve(dir, '.git', 'autopilot-sync-back.lock'));
+    });
+
+    it("a linked worktree shares the main checkout's lockfile — one mutex per repository", async () => {
+      const wtPath = join(dir, '..', 'wt-mutex-shared');
+      await ensureWorktree(dir, wtPath, 'flight-work');
+      const fromWorktree = await lockPathOf(wtPath);
+      expect(canonicalWorktreePath(fromWorktree)).toBe(
+        canonicalWorktreePath(await lockPathOf(dir)),
+      );
+      expect(fromWorktree.startsWith(canonicalWorktreePath(wtPath))).toBe(false);
+      await removeWorktree(dir, wtPath);
+    });
+
+    it('outside any repository there is no lock to take — the sync-back itself reports why', async () => {
+      const nowhere = join(dir, 'nowhere');
+      expect(await syncBackLockPath(nowhere)).toBeNull();
+      // ...and the sync-back neither invents a lock nor mentions one.
+      const result = await syncWorktreeBranch(nowhere, base, 'flight-work');
+      expect(result.ok).toBe(false);
+      expect(result.details).toContain('(detached)');
+      expect(result.details).not.toContain('lock');
+    });
+
+    it('a sync-back refuses, naming the live holder, when another sync-back still holds the lock after the wait', async () => {
+      const wtPath = join(dir, '..', 'wt-mutex');
+      await ensureWorktree(dir, wtPath, 'flight-work');
+      writeFileSync(join(wtPath, 'flown.txt'), 'shipped');
+      gitSync(wtPath, ['add', '-A']);
+      gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 flown']);
+      // Another lane's sync-back: a lock held by THIS live process.
+      writeFileSync(
+        await lockPathOf(dir),
+        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+      );
+
+      const startedAt = Date.now();
+      const result = await syncWorktreeBranch(dir, base, 'flight-work', undefined, {
+        waitMs: 1_000,
+        pollMs: 250,
+      });
+
+      // Real timer: four 250 ms polls really wait, they do not spin.
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(900);
+      expect(result).toEqual({
+        ok: false,
+        details: `refusing to sync: another sync-back into '${dir}' is still running (pid ${process.pid}) after 1s`,
+      });
+      expect(gitSync(dir, ['log', '-1', '--format=%s'])).toBe('feat: AP-1 first');
+      rmSync(await lockPathOf(dir), { force: true });
+      await removeWorktree(dir, wtPath);
+    });
+
+    it('a lock that cannot be taken at all lets the sync-back run unguarded, and says so', async () => {
+      const wtPath = join(dir, '..', 'wt-mutex-unavailable');
+      await ensureWorktree(dir, wtPath, 'flight-work');
+      writeFileSync(join(wtPath, 'flown.txt'), 'shipped');
+      gitSync(wtPath, ['add', '-A']);
+      gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 flown']);
+      const lock = {
+        acquire: () => {
+          throw new Error('EROFS: read-only file system');
+        },
+        release: () => {},
+      };
+
+      const result = await syncWorktreeBranch(dir, base, 'flight-work', undefined, { lock });
+
+      expect(result.ok).toBe(true);
+      expect(result.details).toMatch(
+        /^sync-back lock unavailable \(EROFS: read-only file system\), ran unguarded; /,
+      );
+      expect(gitSync(dir, ['log', '-1', '--format=%s'])).toBe('feat: AP-2 flown');
+      await removeWorktree(dir, wtPath);
+    });
+
+    it('a lock left by a dead process is reclaimed and the sync-back proceeds', async () => {
+      const wtPath = join(dir, '..', 'wt-mutex-stale');
+      await ensureWorktree(dir, wtPath, 'flight-work');
+      writeFileSync(join(wtPath, 'flown.txt'), 'shipped');
+      gitSync(wtPath, ['add', '-A']);
+      gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 flown']);
+      writeFileSync(
+        await lockPathOf(dir),
+        JSON.stringify({ pid: 2_147_483_646, startedAt: Date.now() - 60_000 }),
+      );
+
+      const result = await syncWorktreeBranch(dir, base, 'flight-work', undefined, {
+        waitMs: 100,
+        pollMs: 50,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(existsSync(await lockPathOf(dir))).toBe(false);
+      await removeWorktree(dir, wtPath);
+    });
   });
 });
