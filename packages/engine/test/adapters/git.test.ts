@@ -1178,6 +1178,18 @@ describe('GitVcs', () => {
     expect(result.details).not.toMatch(/failed \(exit \d+\): $/);
   });
 
+  it('preserves markdown ### headings in the tag body — git\'s comment-line cleanup treats a leading "#" as commentary regardless of what follows, so the release tag message (release.ts\'s buildReleaseTagMessage, "### Added"/"### Fixed"/"### Performance") must be tagged with --cleanup=whitespace or those headings vanish and the notes read as one flat bullet list (board web-mtongs56-uswvds)', async () => {
+    const message =
+      'Release v0.23.0 (minor) — 2026-09-01\n\n### Added\n\n- foo\n\n### Fixed\n\n- bar';
+
+    const result = await vcs.tag('v0.23.0', message);
+
+    expect(result.ok).toBe(true);
+    const body = gitSync(dir, ['for-each-ref', '--format=%(contents:body)', 'refs/tags/v0.23.0']);
+    expect(body).toContain('### Added');
+    expect(body).toContain('### Fixed');
+  });
+
   it('attaches a git-notes attestation to a commit', async () => {
     const head = await vcs.head();
 
