@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # LIVING REPO — the operator's full spec (SDD artifact)
 
-> **Build status (2026-09-13): PARTLY BUILT, read as a spec.** At v0.42.0 the
+> **Build status (2026-09-19): PARTLY BUILT, read as a spec.** At v0.52.0 the
 > GitHub page and the steward fleet exist — issue triage and the protocol gate,
 > the `/claim` contract, the mirror pass, the pool client, contributor standing,
 > the Foundation surface ([epic 0019](epics/0019-github-steward.md)) — while
