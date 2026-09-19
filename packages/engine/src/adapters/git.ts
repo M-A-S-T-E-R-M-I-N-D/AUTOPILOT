@@ -992,7 +992,15 @@ export class GitVcs implements VcsPort {
     }
 
     const create = await withMessageFile(message, (file) =>
-      git(this.repo, ['tag', '-a', name, '-F', file]),
+      // --cleanup=whitespace: git's default cleanup treats ANY line whose
+      // first character is the comment char as commentary and drops it
+      // whole, with no regard for what follows — a release note's markdown
+      // "### Added"/"### Fixed" headings (release.ts's groupedReleaseNotes)
+      // start with '#' too, so the default silently flattened them into one
+      // bullet list (board web-mtongs56-uswvds). whitespace mode still trims
+      // leading/trailing blank lines and collapses runs of blanks, it just
+      // stops treating a markdown heading as a comment.
+      git(this.repo, ['tag', '-a', name, '-F', file, '--cleanup=whitespace']),
     );
     if (create.exitCode !== 0) {
       return {
