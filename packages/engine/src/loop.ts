@@ -198,6 +198,14 @@ export async function runLoop(
         `guard denied ${outcome.guardDenials} tool call(s) this firing (containment / read-hygiene)`,
       );
     }
+    // A firing that ended without a result envelope died before it could
+    // say anything — the eight-lane round lost six of eight this way with
+    // no line in any log. The reason is whatever the CLI wrote to stderr.
+    if (outcome.record.isError === null) {
+      deps.log(
+        `firing ${outcome.record.firing} ended without a result envelope (exit ${outcome.record.exitCode}) — ${outcome.record.deathTail ?? 'nothing on stderr'}`,
+      );
+    }
     iterations++;
 
     if (await deps.stopRequested()) return { firings: iterations, stoppedBy: 'stop' };

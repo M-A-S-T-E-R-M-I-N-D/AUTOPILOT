@@ -891,6 +891,29 @@ describe('runFiring', () => {
     expect(out.record.attempts).toBe(2);
   });
 
+  it('records WHY an envelope-less firing died: the stderr tail the adapter kept as stdout', async () => {
+    const vcs = new FakeVcs({ heads: ['h0', 'h0'], last: null, existing: new Set() });
+    const run = async (resp: ModelResponse) => {
+      const model = new FakeModel([resp]);
+      return runFiring(
+        deps(model, vcs, new FakeGate(true), new FakeStore()),
+        DEFAULT_ENGINE_CONFIG,
+        {
+          ...baseInput,
+          state: INITIAL_RESILIENCE_STATE,
+        },
+      );
+    };
+    const died = await run({ stdout: 'Error: overloaded', exitCode: 1, envelope: null });
+    expect(died.record.isError).toBeNull();
+    expect(died.record.deathTail).toBe('Error: overloaded');
+    const silent = await run({ stdout: '', exitCode: 1, envelope: null });
+    expect(silent.record.deathTail).toBeNull();
+    const alive = await run(response({ stdout: 'noise on stdout' }));
+    expect(alive.record.isError).toBe(false);
+    expect(alive.record.deathTail).toBeNull();
+  });
+
   it('carries the full envelope facts into the record', async () => {
     const model = new FakeModel([
       response({

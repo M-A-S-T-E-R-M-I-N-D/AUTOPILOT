@@ -525,6 +525,23 @@ const CTX: FiringContext = {
 };
 
 describe('buildFiringRecord', () => {
+  it('carries the death tail of an envelope-less firing into the record, null when there was none', () => {
+    const iter = resolveIteration(parseMetricsLine(''), {
+      envelopeOk: false,
+      headAdvanced: false,
+      commit: null,
+    });
+    const died = buildFiringRecord(
+      CTX,
+      { ...ENV, isError: null, exitCode: 1, deathTail: 'Error: overloaded' },
+      iter,
+      120,
+    );
+    expect(died.deathTail).toBe('Error: overloaded');
+    expect(buildFiringRecord(CTX, ENV, iter, 120).deathTail).toBeNull();
+    expect(buildFiringRecord(CTX, { ...ENV, deathTail: '' }, iter, 120).deathTail).toBe('');
+  });
+
   it('assembles the record, computes testsDelta + shipped, and maps envelope facts', () => {
     const iter = resolveIteration(
       parseMetricsLine(
@@ -846,6 +863,18 @@ describe('mergeEnvelopeFacts (FINISH-LINE EXTENSION accounting)', () => {
     expect(merged.tokensIn).toBe(200);
     expect(merged.stopReason).toBe('end_turn'); // the extension ending IS the firing ending
     expect(merged.model).toBe('opus'); // final attempt
+  });
+
+  it('takes the death tail from the FINAL attempt, and never leaves it undefined', () => {
+    const withTail = mergeEnvelopeFacts(
+      { ...ENV, deathTail: 'first died' },
+      { ...ENV, deathTail: 'Error: last' },
+    );
+    expect(withTail.deathTail).toBe('Error: last');
+    expect(
+      mergeEnvelopeFacts({ ...ENV, deathTail: 'first died' }, { ...ENV }).deathTail,
+    ).toBeNull();
+    expect(mergeEnvelopeFacts({ ...ENV }, { ...ENV, deathTail: '' }).deathTail).toBe('');
   });
 
   it('null-safe sums: one side carries, both-null stays null (never a fabricated 0)', () => {

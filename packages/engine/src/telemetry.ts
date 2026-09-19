@@ -366,6 +366,10 @@ export interface EnvelopeFacts {
   readonly exitCode: number;
   readonly isError: boolean | null;
   readonly stopReason: string | null;
+  /** The model process's last stderr lines when it exited WITHOUT a result
+   *  envelope (`isError` null) — the reason a firing died, which used to
+   *  vanish. Null with an envelope or with nothing on stderr. */
+  readonly deathTail?: string | null;
   readonly numTurns: number | null;
   readonly durationMs: number | null;
   readonly costUsd: number | null;
@@ -475,6 +479,8 @@ export interface FiringRecord {
   readonly exitCode: number;
   readonly isError: boolean | null;
   readonly stopReason: string | null;
+  /** See {@link EnvelopeFacts.deathTail}: why an envelope-less firing died. */
+  readonly deathTail?: string | null;
   readonly maxTurnsHit: boolean;
   readonly numTurns: number | null;
   readonly durationMs: number | null;
@@ -634,6 +640,7 @@ export function mergeEnvelopeFacts(first: EnvelopeFacts, last: EnvelopeFacts): E
     exitCode: last.exitCode,
     isError: last.isError,
     stopReason: last.stopReason,
+    deathTail: last.deathTail ?? null,
     numTurns: add(first.numTurns, last.numTurns),
     durationMs: add(first.durationMs, last.durationMs),
     costUsd: add(first.costUsd, last.costUsd),
@@ -692,6 +699,7 @@ export function buildFiringRecord(
     exitCode: env.exitCode,
     isError: env.isError,
     stopReason: env.stopReason,
+    deathTail: env.deathTail ?? null,
     maxTurnsHit,
     numTurns: env.numTurns,
     durationMs: env.durationMs,
