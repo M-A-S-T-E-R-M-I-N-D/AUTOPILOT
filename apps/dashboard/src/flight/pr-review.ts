@@ -1015,6 +1015,11 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // hole the four-lane rung fell through: ungated code published. Same
   // defeat-a-safety-mechanism class as triage-factors.ts above.
   'flight/lane-head.ts',
+  // PREFLIGHT (2026-09-19): the go/no-go every launch path shares. It
+  // decides whether a flight starts at all; weakening it lets a flight
+  // launch into the exact states the lane ladder paid for (a dirty
+  // checkout, no identity, no CLI, a full disk) — a guard, so flagged.
+  'flight/preflight.ts',
   // Mints board tasks straight to 'queued' from INBOX files with NO
   // approval gate (by design — the operator authored the note), so widening
   // WHAT counts as a note widens unattended task creation.

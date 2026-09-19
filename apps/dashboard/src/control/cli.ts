@@ -27,6 +27,8 @@ import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
 import { deriveFlyProjectId, flightLogFileName } from '../flight/lock.js';
 import { resolveDbPath } from '../read/config.js';
 import { runFleetLaunch, parseFleetCliArgs } from '../flight/fleet-launch.js';
+import { evaluatePreflight, formatPreflight } from '../flight/preflight.js';
+import { gatherPreflightFacts } from '../flight/preflight-facts.js';
 import {
   openStore,
   listProjects,
@@ -170,6 +172,20 @@ async function main(): Promise<void> {
       // callers must not pay that latency (epic 0006 slice 1).
       for (const c of [...control.doctor(), ghDoctorCheck()]) {
         out(`[${c.ok ? 'ok' : '!!'}] ${c.name}: ${c.detail}`);
+      }
+      // `doctor <folder>` adds the flight PREFLIGHT for that target — the
+      // same go/no-go the Fly button and the fleet launcher apply, so a
+      // refused launch can be understood and fixed from the terminal.
+      const preflightFolder = process.argv[3];
+      if (preflightFolder !== undefined) {
+        const report = evaluatePreflight(
+          gatherPreflightFacts(resolve(preflightFolder), dirname(resolveDbPath()), {
+            repoRoot: resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..'),
+          }),
+        );
+        out(`preflight for ${resolve(preflightFolder)}:`);
+        for (const line of formatPreflight(report)) out(line);
+        if (!report.go) process.exitCode = 1;
       }
       break;
     }
@@ -591,10 +607,14 @@ async function main(): Promise<void> {
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify(body),
             });
-            const json = (await res.json().catch(() => ({}))) as { started?: boolean };
+            const json = (await res.json().catch(() => ({}))) as {
+              started?: boolean;
+              message?: string;
+            };
             return {
               status: res.status,
               ...(json.started !== undefined ? { started: json.started } : {}),
+              ...(json.message !== undefined ? { message: json.message } : {}),
             };
           },
           sleep: (ms) => new Promise((r) => setTimeout(r, ms)),

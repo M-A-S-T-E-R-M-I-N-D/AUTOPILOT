@@ -202,6 +202,11 @@ const BENIGN_FLIGHT = new Set([
   // gate commands run nor what gets persisted; both live in fly.ts's
   // already-flagged wiring that constructs and passes those deps in.
   'convergence-gate.ts',
+  // Read-only fact gathering for the preflight (git status/config/worktree
+  // list/for-each-ref, `claude --version`, statfs, lock files): it runs
+  // nothing that writes and decides nothing — the verdict lives in
+  // preflight.ts, which is flagged.
+  'preflight-facts.ts',
   // Read-only git-timestamp drift detection; proposing doc-update tasks is
   // the same advisory class the scripts/architecture --check scripts are
   // deliberately left unflagged for.

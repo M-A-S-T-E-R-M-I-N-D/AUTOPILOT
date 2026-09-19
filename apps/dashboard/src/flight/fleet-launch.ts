@@ -23,6 +23,7 @@
  */
 
 import { partitionBoardScopes } from './scope-partition.js';
+import { WIDE_FLEET_LANES } from './preflight.js';
 
 /** One lane's launch instruction: its identity, and the disjoint slice of the
  *  board reserved for it. An EMPTY scope is not "idle" — under
@@ -131,6 +132,9 @@ export interface FleetLaunchPostBody {
 export interface FleetLaunchPostResult {
   readonly status: number;
   readonly started?: boolean;
+  /** The dashboard's own words for a lane it did not start — a preflight
+   *  refusal names what to fix; without it a `409 not started` is mute. */
+  readonly message?: string;
 }
 
 /** {@link runFleetLaunch}'s injected seams — real callers wire the live store,
@@ -179,6 +183,11 @@ export async function runFleetLaunch(
     `fleet: ${args.laneCount} lane(s) over ${open.length} open task(s) — ` +
       `${args.firings} firing(s) each at $${args.budgetUsd}/firing`,
   ];
+  if (args.laneCount > WIDE_FLEET_LANES) {
+    lines.push(
+      `  advisory: ${args.laneCount} lanes on one disk — gates queue behind ${WIDE_FLEET_LANES} lanes and most firings need the long wall clock; expect fewer ships per lane`,
+    );
+  }
   let ok = true;
   let first = true;
   for (const lane of plan) {
@@ -199,9 +208,10 @@ export async function runFleetLaunch(
       ok = false;
       continue;
     }
+    const why = !result.started && result.message !== undefined ? ` — ${result.message}` : '';
     lines.push(
       `  ${name}: ${result.status} ${result.started ? 'started' : 'not started'} — ` +
-        `${lane.taskScope.length} task(s) reserved`,
+        `${lane.taskScope.length} task(s) reserved${why}`,
     );
   }
   return { ok, lines };

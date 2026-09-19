@@ -42,3 +42,23 @@ writeFileSync(out, `${JSON.stringify(stamp, null, 2)}\n`);
 process.stdout.write(
   `stamp-landing-code: ${Object.keys(stamp).length} module(s) -> ${LANDING_STAMP_FILE}\n`,
 );
+
+// The flight's hot path gets the same treatment (flight/preflight-facts.ts):
+// the preflight compares these hashes with the sources it finds, so a
+// flight never runs an engine older than the code beside it without saying so.
+const repoRoot = join(root, '..', '..');
+const { HOT_SOURCES, FLIGHT_STAMP_FILE } = await import(
+  pathToFileURL(join(root, 'dist', 'flight', 'preflight-facts.js')).href
+);
+const flightStamp = {};
+for (const source of HOT_SOURCES) {
+  flightStamp[source] = createHash('sha256')
+    .update(readFileSync(join(repoRoot, source)))
+    .digest('hex');
+}
+const flightOut = join(repoRoot, FLIGHT_STAMP_FILE);
+mkdirSync(dirname(flightOut), { recursive: true });
+writeFileSync(flightOut, `${JSON.stringify(flightStamp, null, 2)}\n`);
+process.stdout.write(
+  `stamp-flight-code: ${Object.keys(flightStamp).length} source(s) -> ${FLIGHT_STAMP_FILE}\n`,
+);

@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Operator directive, 2026-09-16: **everything green, everything at 100%.**
 
-`config/mutation/` holds 109 per-module Stryker configs (103 when this
-document was opened; four more on 2026-09-18 and two on 2026-09-19, see
+`config/mutation/` holds 110 per-module Stryker configs (103 when this
+document was opened; four more on 2026-09-18 and three on 2026-09-19, see
 below), each with
 `thresholds: { break: 100 }`. That is a real gate: one surviving mutant
 fails the nightly workflow. This document is the standing record of what
@@ -353,7 +353,7 @@ The selector reports every changed source file that has no config as
 "uncovered" on stderr — that list is the standing to-do for the next
 modules to wire, and it should be read on every PR, not only when red.
 
-## 2026-09-19: two more configs — `dashboard-convergence-gate`, `dashboard-lane-head`
+## 2026-09-19: three more configs — `dashboard-convergence-gate`, `dashboard-lane-head`, `dashboard-preflight`
 
 `apps/dashboard/src/flight/convergence-gate.ts` decides what a lane says
 about the merged branch after its sync-back: green, red, or demoted to
@@ -367,6 +367,13 @@ gate-judged lane head is ever published into the shared flight branch —
 the same rung synced back an `unverifiable` commit (its gate had refused
 to judge a commit with a second file left uncommitted beside it) and the
 flight branch's formatter check went red. A surviving mutant there is a
-publication rule that lies. 109 configs; the sweep discovers them by
-directory listing, so nothing else had to change.
+publication rule that lies.
+
+`apps/dashboard/src/flight/preflight.ts` is the go/no-go a flight gets
+before it spends a dollar — the gate that names, at takeoff, every
+precondition the lane ladder found the expensive way (a dirty checkout, a
+missing git identity, no `claude`, a full disk, a stale build, a wide
+fleet). A surviving mutant there is a preflight that lies. 110 configs;
+the sweep discovers them by directory listing, so nothing else had to
+change.
 

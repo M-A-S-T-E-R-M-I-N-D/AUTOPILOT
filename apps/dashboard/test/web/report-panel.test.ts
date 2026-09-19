@@ -38,10 +38,10 @@ const trHe = translatorFor('he');
 
 describe('reportActionLabel', () => {
   it('labels each of the four report actions', () => {
-    expect(reportActionLabel('issue')).toBe('🐛 bug issue');
-    expect(reportActionLabel('quick-fix-pr')).toBe('🔧 quick-fix PR');
-    expect(reportActionLabel('local-task')).toBe('📋 local task');
-    expect(reportActionLabel('pool-offer')).toBe('🤝 pool offer');
+    expect(reportActionLabel('issue')).toBe('bug issue');
+    expect(reportActionLabel('quick-fix-pr')).toBe('quick-fix PR');
+    expect(reportActionLabel('local-task')).toBe('local task');
+    expect(reportActionLabel('pool-offer')).toBe('pool offer');
   });
 
   it('echoes back an unrecognized action verbatim rather than throwing', () => {
