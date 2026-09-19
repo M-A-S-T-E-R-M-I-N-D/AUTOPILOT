@@ -184,6 +184,10 @@ describe('fly.ts wiring (source census)', () => {
   it("the stranded-work inbox task is filed with a value the schema accepts, and only the store's answer counts as filed", () => {
     expect(flySource).not.toContain("dimension: 'process'");
     expect(flySource).toMatch(/const filed = createTask\(\s*store,/);
+    // Inbox, not board: firings must never claim a strand task as work.
+    expect(flySource).toMatch(
+      /title: strandTitle\.slice\(0, 300\),\s*body,\s*(?:\/\/[^\n]*\n\s*)*status: 'needs_approval',/,
+    );
     expect(flySource).toContain('stranded-work task could NOT be filed');
   });
 

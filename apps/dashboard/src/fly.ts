@@ -1867,6 +1867,11 @@ async function main(): Promise<void> {
                 projectId,
                 title: strandTitle.slice(0, 300),
                 body,
+                // The operator's inbox, not the fleet's board: a queued strand
+                // task was claimed by the next rung's firings as work (eight
+                // lanes "shipping" verdicts on it), and no firing can resolve a
+                // parked head — only the operator can, from the rescue ref.
+                status: 'needs_approval',
                 severity: 'high',
                 source: 'self',
                 createdAt: now(),
