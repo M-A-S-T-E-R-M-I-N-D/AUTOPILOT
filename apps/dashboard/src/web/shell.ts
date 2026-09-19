@@ -4680,6 +4680,7 @@ ${versionMenuHtml()}
           </div>
         </div>
       </details>
+      <div class="masthead-icons">
       <details class="connect theme-menu" id="theme-menu" name="masthead-popover">
         <summary id="theme-menu-summary" aria-label="Theme" data-i18n-aria="themeNav" data-tip="Choose a color theme" data-i18n-tip="themeMenuTip">${iconSvg('palette')}</summary>
         <div class="connect-body"><div class="switch">${themeButtons()}</div></div>
@@ -4719,6 +4720,7 @@ ${settingsMenuHtml()}
           <button type="button" class="more-item" id="report-btn" data-tip="Capture this page for an issue, a quick fix or a note — a preview first, always" data-i18n-tip="reportBtnTip">${iconSvg('flag')}<span data-i18n="reportBtn">Report from here</span></button>
         </div>
       </details>
+      </div>
     </div>
   </header>
 ${subjectNavHtml(project)}
