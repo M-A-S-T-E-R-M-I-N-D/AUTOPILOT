@@ -188,7 +188,7 @@ describe('evaluatePreflight — the go/no-go before a flight spends a dollar', (
     const report = evaluatePreflight(
       facts({
         staleLocks: ['engine-fly-x.lock', 'engine-fly-x--fleet-2.lock'],
-        dirtyLanes: ['Z:/lanes/fleet-2', 'Z:/lanes/fleet-3'],
+        dirtyLanes: ['/lanes/fleet-2', '/lanes/fleet-3'],
         parkedHeads: 12,
       }),
     );
@@ -205,7 +205,7 @@ describe('evaluatePreflight — the go/no-go before a flight spends a dollar', (
       name: 'lanes-clean',
       ok: true,
       detail:
-        '2 lane worktree(s) carry uncommitted leftovers (Z:/lanes/fleet-2, Z:/lanes/fleet-3) — such a lane can neither be moved aside nor fast-forwarded and launches stale; `git -C <lane> stash` to clear',
+        '2 lane worktree(s) carry uncommitted leftovers (/lanes/fleet-2, /lanes/fleet-3) — such a lane can neither be moved aside nor fast-forwarded and launches stale; `git -C <lane> stash` to clear',
     });
     expect(check(report, 'parked-heads')).toEqual({
       level: 'info',
