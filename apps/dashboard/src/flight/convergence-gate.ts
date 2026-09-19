@@ -55,7 +55,15 @@ import { median } from '@autopilot/store';
 export interface ConvergenceGateDeps {
   readonly gate: GatePort;
   readonly out: (line: string) => void;
-  readonly recordRed: (check: string, mergeDetails: string, ms: number) => void;
+  /** Persist a red result. `outputTail` is the failing command's own last
+   *  lines when the gate captured them (`GateCheckResult.outputTail`) —
+   *  the test or rule that broke, not just the check's label. */
+  readonly recordRed: (
+    check: string,
+    mergeDetails: string,
+    ms: number,
+    outputTail?: string,
+  ) => void;
   /** Past durations (ms) of GREEN convergence runs sharing this exact check
    *  SIGNATURE — the population {@link convergencePlausibilityFloorMs} judges
    *  a new green against. Empty or short (cold start) falls back to a fixed
@@ -160,11 +168,28 @@ export async function gateConvergedBranch(
     return;
   }
 
-  const reason = checks.find((c) => !c.pass)?.label ?? 'gate';
+  // A red that names only its check made the operator rerun the whole suite
+  // to learn which test broke (four-lane rung, 2026-09-19): the failing
+  // command's own last lines travel with the alarm — into the flight log
+  // here and into the persisted event the anomaly chip reads.
+  const failed = checks.find((c) => !c.pass);
+  const reason = failed?.label ?? 'gate';
   const redMs = checks.reduce((sum, c) => sum + c.durationMs, 0);
+  const tail = failed?.outputTail;
   deps.out(
     `  ⛔ CONVERGENCE RED: '${targetBranch}' fails ${reason} AFTER this sync-back — ` +
-      `both sides were green alone, so this is a merge interaction. ${mergeDetails}`,
+      `both sides were green alone, so this is a merge interaction. ${mergeDetails}` +
+      (tail === undefined ? '' : `\n${indentedTail(tail)}`),
   );
-  deps.recordRed(reason, mergeDetails, redMs);
+  deps.recordRed(reason, mergeDetails, redMs, tail);
+}
+
+/** The failing command's last lines, each indented under the alarm line
+ *  so the flight log reads as one block. */
+export function indentedTail(tail: string): string {
+  return tail
+    .trimEnd()
+    .split('\n')
+    .map((line) => `      ${line}`)
+    .join('\n');
 }

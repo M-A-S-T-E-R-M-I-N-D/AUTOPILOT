@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 
 Operator directive, 2026-09-16: **everything green, everything at 100%.**
 
-`config/mutation/` holds 107 per-module Stryker configs (103 when this
-document was opened; four more on 2026-09-18, see below), each with
+`config/mutation/` holds 109 per-module Stryker configs (103 when this
+document was opened; four more on 2026-09-18 and two on 2026-09-19, see
+below), each with
 `thresholds: { break: 100 }`. That is a real gate: one surviving mutant
 fails the nightly workflow. This document is the standing record of what
 still survives, why, and what is being done about it.
@@ -351,4 +352,21 @@ them, `markdown.ts`, existed unwired before), each at 100% on first run:
 The selector reports every changed source file that has no config as
 "uncovered" on stderr — that list is the standing to-do for the next
 modules to wire, and it should be read on every PR, not only when red.
+
+## 2026-09-19: two more configs — `dashboard-convergence-gate`, `dashboard-lane-head`
+
+`apps/dashboard/src/flight/convergence-gate.ts` decides what a lane says
+about the merged branch after its sync-back: green, red, or demoted to
+UNVERIFIABLE. It gained the failing command's output tail on the red path
+(the four-lane rung's reds named `pnpm run test` and nothing else) and got
+its own config the same day, per the standing rule that a pure module under
+change carries its own 100% gate.
+
+`apps/dashboard/src/flight/lane-head.ts` is the rule that only a
+gate-judged lane head is ever published into the shared flight branch —
+the same rung synced back an `unverifiable` commit (its gate had refused
+to judge a commit with a second file left uncommitted beside it) and the
+flight branch's formatter check went red. A surviving mutant there is a
+publication rule that lies. 109 configs; the sweep discovers them by
+directory listing, so nothing else had to change.
 

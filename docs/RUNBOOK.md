@@ -621,6 +621,29 @@ own BE-RIGHT-BACK overlay — the three-idle-cores-per-lane ratio was tightened
 further (from two) after a near-idle probe still let a 4-lane round climb to
 ~100% CPU once its gates actually ran (board web-mtsvcibf-bh6asp).
 
+### A lane parked with an unverified head
+
+Only a gate-judged lane head is ever published into the flight branch
+(`apps/dashboard/src/flight/lane-head.ts`). When a firing's gate could not
+judge its commit — most often a second file left uncommitted beside it —
+the lane log says so and every sync-back after it is withheld:
+
+```
+  ⏸ sync-back withheld: firing 109 unverifiable: refused: uncommitted changes remain after the commit — … — parked on autopilot/flight-worktree-fly-autopilot--fleet-4 until a green firing verifies the head
+  ⚠ flight-end sync-back still refused: withheld: … — an unverified head is never published
+```
+
+The flight end files a `STRANDED SYNC-BACK` task in the inbox naming the
+lane branch, and the next launch of that lane prints `⏸ catch-up sync
+withheld` for as long as the same commit sits at its HEAD. To release it:
+
+1. In the lane worktree, commit or stash the leftovers (`git status`
+   shows them), then run the project's gate there by hand.
+2. Green: the next firing on that lane verifies the head and publishes
+   it — or merge the lane branch into the flight branch yourself.
+3. Red: `git revert` the parked commit on the lane branch (never a hard
+   reset in a shared checkout). A moved head is judged afresh at launch.
+
 ## 13. Quick reference
 
 | Symptom | Section |

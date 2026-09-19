@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
-import { detectAnomalies } from '../../src/read/anomalies.js';
+import {
+  detectAnomalies,
+  quotedFailure,
+  CONVERGENCE_TAIL_LINES,
+  CONVERGENCE_TAIL_LINE_CHARS,
+} from '../../src/read/anomalies.js';
 import type { FlightEntry } from '../../src/read/fleet.js';
 
 function flight(over: Partial<FlightEntry> = {}): FlightEntry {
@@ -542,6 +547,86 @@ describe('convergenceRedAlarms (via detectAnomalies)', () => {
   it('stays quiet with no persisted alarms (and when the param is omitted)', () => {
     expect(detectAnomalies([], [], [], [], [], [], [], [], [])).toEqual([]);
     expect(detectAnomalies([])).toEqual([]);
+  });
+
+  it('quotes the failing test from the persisted output tail — the failure-marked lines, not the summary', () => {
+    const tail =
+      ' ✓ |jsdom| apps/dashboard/test/web/ok.test.ts (6 tests)\n' +
+      ' FAIL  apps/dashboard/test/web/x.test.ts > paints > in Hebrew\n' +
+      'AssertionError: expected 1 to be 2\n' +
+      '      Tests  1 failed | 5217 passed (5218)\n';
+    const anomalies = detectAnomalies(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [{ check: 'pnpm run test', details: 'fast-forwarded', ms: 100, outputTail: tail }],
+    );
+    expect(anomalies[0]?.evidence).toBe(
+      'A convergence gate went red after a sync-back (pnpm run test) after 100ms: fast-forwarded — ' +
+        'FAIL  apps/dashboard/test/web/x.test.ts > paints > in Hebrew · AssertionError: expected 1 to be 2',
+    );
+  });
+
+  it("the aggregated chip quotes the LATEST alarm's failure too", () => {
+    const alarms = [
+      { check: 'build', details: 'latest', outputTail: 'error TS2322: bad\n' },
+      { check: 'build', details: 'older', outputTail: 'error TS9999: older\n' },
+    ];
+    expect(detectAnomalies([], [], [], [], [], [], [], [], alarms)[0]?.evidence).toBe(
+      '2 convergence-red alarms on record — latest (build): latest — error TS2322: bad',
+    );
+  });
+
+  it('an empty output tail adds nothing to the evidence', () => {
+    const anomalies = detectAnomalies(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [{ check: 'build', details: 'd', outputTail: '\n  \n' }],
+    );
+    expect(anomalies[0]?.evidence).toBe('A convergence gate went red after a sync-back (build): d');
+  });
+});
+
+describe('quotedFailure', () => {
+  it('falls back to the first non-empty line when nothing is failure-marked', () => {
+    expect(quotedFailure('\n  first line  \nsecond\n')).toBe('first line');
+  });
+
+  it('matches a leading × or ✗, a FAIL word, an …Error: and a leading error — never fail/errors inside a word', () => {
+    expect(quotedFailure('× broke\n✗ also\nfailure count 1\nprefail\n')).toBe('× broke · ✗ also');
+    expect(quotedFailure('x FAIL y\nTypeError: no\nok Error:\n')).toBe(
+      'x FAIL y · TypeError: no · ok Error:',
+    );
+    expect(quotedFailure('summary first\nerror TS2322: bad\nerrors: 0\n')).toBe(
+      'error TS2322: bad',
+    );
+    expect(quotedFailure('mid × not\n')).toBe('mid × not');
+  });
+
+  it('quotes at most CONVERGENCE_TAIL_LINES marked lines, each cut to CONVERGENCE_TAIL_LINE_CHARS', () => {
+    expect(CONVERGENCE_TAIL_LINES).toBe(3);
+    expect(CONVERGENCE_TAIL_LINE_CHARS).toBe(160);
+    const long = 'FAIL ' + 'a'.repeat(200);
+    const out = quotedFailure(['FAIL 1', 'FAIL 2', 'FAIL 3', 'FAIL 4', long].join('\n'));
+    expect(out).toBe('FAIL 1 · FAIL 2 · FAIL 3');
+    expect(quotedFailure(long)).toBe(long.slice(0, 160));
+    expect(quotedFailure(long).length).toBe(160);
+  });
+
+  it('is empty for an empty tail', () => {
+    expect(quotedFailure('')).toBe('');
+    expect(quotedFailure('\n\n')).toBe('');
   });
 });
 

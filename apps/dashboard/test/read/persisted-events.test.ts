@@ -246,6 +246,24 @@ describe('parseConvergenceRedEvents', () => {
     expect(parseConvergenceRedEvents(store, PROJECT_ID)).toEqual([]);
   });
 
+  it("surfaces the failing command's outputTail when the payload carries one as a string", () => {
+    insertEvent(
+      'convergence-red',
+      '{"check":"pnpm run test","merge":"fast-forwarded","outputTail":" FAIL  x.test.ts > a"}',
+      100,
+    );
+    expect(parseConvergenceRedEvents(store, PROJECT_ID)).toStrictEqual([
+      { check: 'pnpm run test', details: 'fast-forwarded', outputTail: ' FAIL  x.test.ts > a' },
+    ]);
+  });
+
+  it('ignores a non-string outputTail rather than surfacing it', () => {
+    insertEvent('convergence-red', '{"check":"c","merge":"m","outputTail":7}', 100);
+    expect(parseConvergenceRedEvents(store, PROJECT_ID)).toStrictEqual([
+      { check: 'c', details: 'm' },
+    ]);
+  });
+
   it('skips a malformed JSON payload', () => {
     insertEvent('convergence-red', 'not json', 100);
     expect(parseConvergenceRedEvents(store, PROJECT_ID)).toEqual([]);

@@ -9,6 +9,7 @@ import {
   CONVERGENCE_COLD_START_FLOOR_MS,
   MIN_GREEN_HISTORY_SAMPLES,
   CONVERGENCE_FLOOR_RATIO,
+  indentedTail,
 } from '../../src/flight/convergence-gate.js';
 
 function fakeGate(result: GateResult): GatePort {
@@ -17,7 +18,9 @@ function fakeGate(result: GateResult): GatePort {
 
 interface Deps {
   out: ReturnType<typeof vi.fn<(line: string) => void>>;
-  recordRed: ReturnType<typeof vi.fn<(check: string, mergeDetails: string, ms: number) => void>>;
+  recordRed: ReturnType<
+    typeof vi.fn<(check: string, mergeDetails: string, ms: number, outputTail?: string) => void>
+  >;
   pastGreenDurationsMs: ReturnType<typeof vi.fn<(signature: string) => readonly number[]>>;
   recordGreen: ReturnType<typeof vi.fn<(signature: string, ms: number) => void>>;
   recordUnverifiable: ReturnType<
@@ -126,6 +129,47 @@ describe('gateConvergedBranch', () => {
     expect(deps.recordGreen).toHaveBeenCalledWith('typecheck', 9500);
   });
 
+  it('a gate result with no checks field at all is the same silent no-op', async () => {
+    const deps = fakeDeps();
+    await gateConvergedBranch('main', 'merge details', { gate: fakeGate({ ok: true }), ...deps });
+    expect(deps.out).not.toHaveBeenCalled();
+    expect(deps.recordGreen).not.toHaveBeenCalled();
+    expect(deps.recordUnverifiable).not.toHaveBeenCalled();
+  });
+
+  it('a green that lands exactly on the floor is trusted — the floor is a strict below', async () => {
+    const deps = fakeDeps([]);
+    await gateConvergedBranch('main', 'merge details', {
+      gate: fakeGate({
+        ok: true,
+        checks: [{ label: 'typecheck', pass: true, durationMs: CONVERGENCE_COLD_START_FLOOR_MS }],
+      }),
+      ...deps,
+    });
+    expect(deps.recordGreen).toHaveBeenCalledWith('typecheck', CONVERGENCE_COLD_START_FLOOR_MS);
+    expect(deps.recordUnverifiable).not.toHaveBeenCalled();
+  });
+
+  it('the UNVERIFIABLE line says how fast, what floor, and where the floor came from — cold start and rolling median alike', async () => {
+    const cold = fakeDeps([]);
+    await gateConvergedBranch('main', 'merge details', {
+      gate: fakeGate({ ok: true, checks: [{ label: 'typecheck', pass: true, durationMs: 40 }] }),
+      ...cold,
+    });
+    expect(cold.out.mock.calls[0]?.[0]).toBe(
+      "  ⚠ convergence UNVERIFIABLE: 'main' reported 1 check(s) passing in 40ms — below the 250ms plausibility floor (cold-start default, not enough history yet) — too fast to trust the checks actually ran.",
+    );
+    const warm = fakeDeps([1000, 1000, 1000]);
+    await gateConvergedBranch('main', 'merge details', {
+      gate: fakeGate({ ok: true, checks: [{ label: 'typecheck', pass: true, durationMs: 50 }] }),
+      ...warm,
+    });
+    expect(warm.out.mock.calls[0]?.[0]).toBe(
+      "  ⚠ convergence UNVERIFIABLE: 'main' reported 1 check(s) passing in 50ms — below the 100ms plausibility floor (10% of the 1000ms median over 3 past green runs) — too fast to trust the checks actually ran.",
+    );
+    expect(warm.recordUnverifiable).toHaveBeenCalledWith('typecheck', 50, 100);
+  });
+
   it('surfaces CONVERGENCE RED and records telemetry naming the failing check', async () => {
     const deps = fakeDeps();
     await gateConvergedBranch('autopilot/flight', 'chore: sync lane into autopilot/flight', {
@@ -138,16 +182,46 @@ describe('gateConvergedBranch', () => {
       }),
       ...deps,
     });
-    expect(deps.out.mock.calls[0]?.[0]).toContain('CONVERGENCE RED');
-    expect(deps.out.mock.calls[0]?.[0]).toContain('build');
-    expect(deps.out.mock.calls[0]?.[0]).toContain('chore: sync lane into autopilot/flight');
+    expect(deps.out.mock.calls[0]?.[0]).toBe(
+      "  ⛔ CONVERGENCE RED: 'autopilot/flight' fails build AFTER this sync-back — " +
+        'both sides were green alone, so this is a merge interaction. chore: sync lane into autopilot/flight',
+    );
     expect(deps.recordRed).toHaveBeenCalledWith(
       'build',
       'chore: sync lane into autopilot/flight',
       3000,
+      undefined,
     );
     expect(deps.recordGreen).not.toHaveBeenCalled();
     expect(deps.recordUnverifiable).not.toHaveBeenCalled();
+  });
+
+  it("quotes the failing command's own last lines under the alarm and persists them — the test that broke, not just the check", async () => {
+    const deps = fakeDeps();
+    const tail =
+      ' FAIL  apps/dashboard/test/web/x.test.ts > paints > in Hebrew\nAssertionError: expected 1 to be 2\n\n';
+    await gateConvergedBranch('autopilot/flight', 'fast-forwarded', {
+      gate: fakeGate({
+        ok: false,
+        checks: [
+          { label: 'typecheck', pass: true, durationMs: 1 },
+          { label: 'pnpm run test', pass: false, durationMs: 2, outputTail: tail },
+        ],
+      }),
+      ...deps,
+    });
+    expect(deps.out.mock.calls[0]?.[0]).toBe(
+      "  ⛔ CONVERGENCE RED: 'autopilot/flight' fails pnpm run test AFTER this sync-back — " +
+        'both sides were green alone, so this is a merge interaction. fast-forwarded\n' +
+        '       FAIL  apps/dashboard/test/web/x.test.ts > paints > in Hebrew\n' +
+        '      AssertionError: expected 1 to be 2',
+    );
+    expect(deps.recordRed).toHaveBeenCalledWith('pnpm run test', 'fast-forwarded', 3, tail);
+  });
+
+  it('indentedTail indents every line and drops trailing blank lines only', () => {
+    expect(indentedTail('a\n b\n\n')).toBe('      a\n       b');
+    expect(indentedTail('\nx')).toBe('      \n      x');
   });
 
   it('falls back to a generic "gate" label when a red result carries no failing check entry', async () => {
@@ -156,6 +230,6 @@ describe('gateConvergedBranch', () => {
       gate: fakeGate({ ok: false, checks: [{ label: 'typecheck', pass: true, durationMs: 10 }] }),
       ...deps,
     });
-    expect(deps.recordRed).toHaveBeenCalledWith('gate', 'merge details', 10);
+    expect(deps.recordRed).toHaveBeenCalledWith('gate', 'merge details', 10, undefined);
   });
 });
