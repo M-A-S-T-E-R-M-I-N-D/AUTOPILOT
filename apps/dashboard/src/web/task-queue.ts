@@ -382,9 +382,7 @@ export function taskFocusTip(title: string, focused: boolean): string {
  *  one way. */
 export function taskUnpinTip(title: string): string {
   return (
-    'Release the operator pin from "' +
-    title +
-    '" — the next triage will rank it automatically'
+    'Release the operator pin from "' + title + '" — the next triage will rank it automatically'
   );
 }
 
