@@ -1271,6 +1271,41 @@ describe('StreamingClaudeCliModel', () => {
       expect('timedOut' in res).toBe(false);
     });
 
+    it('a child killed by a cap still reports the session id it streamed — the rescue needs it', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 60_000,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      child.stdout.emit('data', '{"type":"system","subtype":"init","session_id":"sess-42"}\n');
+      // A later event carrying none must never erase what the init named.
+      child.stdout.emit('data', '{"type":"stream_event"}\n');
+      await vi.advanceTimersByTimeAsync(60_001);
+      const res = await promise;
+      expect(res.envelope).toBeNull();
+      expect(res.timedOut).toBe(true);
+      expect(res.sessionId).toBe('sess-42');
+    });
+
+    it('a child that streamed nothing reports a null session id, never a stale one', async () => {
+      vi.useFakeTimers();
+      const child = killableChild();
+      spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+      const model = new StreamingClaudeCliModel({
+        repo: '/work/sbx',
+        config: DEFAULT_ENGINE_CONFIG,
+        timeoutMs: 1_000,
+      });
+      const promise = model.invoke('sonnet', 'p');
+      await vi.advanceTimersByTimeAsync(1_001);
+      const res = await promise;
+      expect(res.sessionId).toBeNull();
+    });
+
     it('the defaults: ninety minutes of wall clock, twenty of silence', () => {
       expect(DEFAULT_CLI_TIMEOUT_MS).toBe(90 * 60 * 1000);
       expect(DEFAULT_CLI_IDLE_TIMEOUT_MS).toBe(20 * 60 * 1000);

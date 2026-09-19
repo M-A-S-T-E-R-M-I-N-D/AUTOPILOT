@@ -1334,6 +1334,64 @@ describe('runFiring', () => {
       expect(out.record.shipped).toBe(true);
     });
 
+    it('a KILLED attempt (no envelope at all) is extended on the session id the WIRE carried', async () => {
+      const model = new FakeModel([
+        // Killed by a cap: no envelope, but the stream had already named the session.
+        {
+          stdout: "killed by the flight's wall-clock cap after 90 min (cap 90 min)",
+          exitCode: 1,
+          envelope: null,
+          sessionId: 'sess-wire',
+          timedOut: true,
+        },
+        response({
+          envelope: envelope({
+            result: 'packed up\nMETRICS:{"item":"AP-9","outcome":"shipped","sha":"abc"}',
+            sessionId: 'sess-wire',
+          }),
+        }),
+      ]);
+      const vcs = new FakeVcs({
+        heads: ['h0', 'h0', 'h1'],
+        last: { subject: 'feat: closed the unit', shortSha: 'abc' },
+        existing: new Set(['abc']),
+      });
+      vcs.dirtySequence = [true, false];
+
+      const out = await runFiring(
+        deps(model, vcs, new FakeGate(true), new FakeStore()),
+        DEFAULT_ENGINE_CONFIG,
+        { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+      );
+
+      expect(model.calls).toHaveLength(2); // the rescue ran — it used to be skipped entirely
+      expect(model.resumeIds[1]).toBe('sess-wire');
+      expect(model.prompts[1]).toContain('FINISH-LINE EXTENSION');
+      expect(out.record.extended).toBe(true);
+      expect(out.record.shipped).toBe(true);
+      expect(out.sessionId).toBe('sess-wire');
+      expect(vcs.checkpointMessages).toHaveLength(0);
+    });
+
+    it('an attempt that streamed no session id at all is NOT extended — nothing to resume', async () => {
+      const model = new FakeModel([
+        { stdout: 'died before it spoke', exitCode: 1, envelope: null, sessionId: null },
+      ]);
+      const vcs = new FakeVcs({ heads: ['h0', 'h0'], last: null, existing: new Set() });
+      vcs.dirtySequence = [true, true];
+
+      const out = await runFiring(
+        deps(model, vcs, new FakeGate(true), new FakeStore()),
+        DEFAULT_ENGINE_CONFIG,
+        { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+      );
+
+      expect(model.calls).toHaveLength(1);
+      expect(out.record.extended).toBeUndefined();
+      expect(out.sessionId).toBeNull();
+      expect(vcs.checkpointMessages).toHaveLength(1); // the checkpoint net still catches it
+    });
+
     it('a still-unclosed extension falls back to the checkpoint exactly as before', async () => {
       const model = new FakeModel([
         capDeathResponse(),

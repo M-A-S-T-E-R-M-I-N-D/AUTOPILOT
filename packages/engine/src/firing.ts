@@ -225,7 +225,10 @@ export async function runFiring(
   // CLI left no envelope); never loops (one extension, then the checkpoint
   // safety net below exactly as before).
   const firstResp = resp;
-  const ownSessionId = resp.envelope?.sessionId ?? null;
+  // The wire's session id, not just the envelope's: a KILLED attempt (a
+  // cap death, a crash) has no envelope, and gating the rescue on one is
+  // what made every wall-clock death skip it (2026-09-19, 22 firings).
+  const ownSessionId = resp.envelope?.sessionId ?? resp.sessionId ?? null;
   let extended = false;
   if (!headAdvanced && ownSessionId !== null && (await deps.vcs.isDirty())) {
     extended = true;
@@ -485,7 +488,7 @@ export async function runFiring(
     globalExhaust,
     bad,
     gateResult,
-    sessionId: resp.envelope?.sessionId ?? null,
+    sessionId: resp.envelope?.sessionId ?? resp.sessionId ?? null,
     guardDenials,
   };
 }

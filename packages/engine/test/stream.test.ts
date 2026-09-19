@@ -12,6 +12,7 @@ import {
   INITIAL_ORIENT_SPAN,
   guardDenialsFromEvent,
   guardDenialDetailsFromEvent,
+  sessionIdFromEvent,
 } from '../src/stream.js';
 
 describe('parseStreamLine', () => {
@@ -1026,5 +1027,22 @@ describe('guardDenialDetailsFromEvent', () => {
       toolResult({ content: 'READ HYGIENE: two.' }),
     ]);
     expect(guardDenialsFromEvent(event)).toBe(guardDenialDetailsFromEvent(event).length);
+  });
+});
+
+describe('sessionIdFromEvent — what makes a KILLED attempt resumable', () => {
+  it('reads the session id off any event that carries one', () => {
+    expect(sessionIdFromEvent({ type: 'system', subtype: 'init', session_id: 'abc-123' })).toBe(
+      'abc-123',
+    );
+    expect(sessionIdFromEvent({ type: 'assistant', session_id: 'abc-123' })).toBe('abc-123');
+  });
+
+  it('is null for an event without one, with an empty one, or with a non-string one', () => {
+    expect(sessionIdFromEvent({ type: 'system' })).toBeNull();
+    expect(sessionIdFromEvent({ session_id: '' })).toBeNull();
+    expect(sessionIdFromEvent({ session_id: 7 })).toBeNull();
+    expect(sessionIdFromEvent({ session_id: null })).toBeNull();
+    expect(sessionIdFromEvent({})).toBeNull();
   });
 });

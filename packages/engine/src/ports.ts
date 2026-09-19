@@ -59,6 +59,14 @@ export interface ModelResponse {
   readonly stdout: string;
   readonly exitCode: number;
   readonly envelope: ModelEnvelope | null;
+  /**
+   * The CLI session id seen ON THE WIRE, independent of the envelope —
+   * what makes a KILLED attempt (cap death, crash: no envelope at all)
+   * resumable, so `firing.ts`'s FINISH-LINE extension can still give it a
+   * bounded chance to commit or check point its work. Absent for a driver
+   * with no notion of sessions.
+   */
+  readonly sessionId?: string | null;
   /** Set only when {@link envelope} is null and at least one assistant event
    *  streamed before the abnormal exit — see {@link PartialUsage}. */
   readonly partialUsage?: PartialUsage | null;

@@ -34,6 +34,13 @@ export interface FiringPromptInput {
    */
   readonly maxTurns?: number;
   /**
+   * The harness's per-firing WALL-CLOCK ceiling in minutes, when the caller
+   * knows it. The turn cap alone left the agent blind to the other cap it
+   * actually died on — under a fleet, twenty-two firings in a day were
+   * killed by the clock mid-unit while their turn count was still legal.
+   */
+  readonly wallClockMin?: number;
+  /**
    * Repo-root-relative path to THIS project's own backlog file (onboarding's
    * {@link detectBacklogPath} — BACKLOG*.md / TODO.md, whatever the target
    * actually has), or undefined/null when it has none. Generalizes what used
@@ -103,7 +110,7 @@ export interface BoardTaskRef {
   readonly shippedSlices?: readonly string[];
 }
 
-export const FIRING_PROMPT_VERSION = 'firing-v16';
+export const FIRING_PROMPT_VERSION = 'firing-v17';
 
 /** The adapter that runs the agent — cited in commit provenance trailers (SOTA-MAP D1). */
 export const HARNESS_NAME = 'claude-cli';
@@ -141,7 +148,7 @@ function failureSection(lastFailure: string | undefined): string {
  * it mid-action, and everything uncommitted (and every unwritten decision) is
  * lost — observed live as firing 47's $3.84, 61-turn, zero-output death.
  */
-function turnBudgetSection(maxTurns: number | undefined): string {
+function turnBudgetSection(maxTurns: number | undefined, wallClockMin: number | undefined): string {
   if (
     // Stryker disable next-line ConditionalExpression: narrows `maxTurns` from
     // `number | undefined` to `number` for `Number.isFinite` below — TypeScript
@@ -154,7 +161,15 @@ function turnBudgetSection(maxTurns: number | undefined): string {
   )
     return '';
   return [
-    `## TURN BUDGET — the harness hard-stops you at ${maxTurns} turns, and at a wall clock`,
+    `## TURN BUDGET — the harness hard-stops you at ${maxTurns} turns${
+      // Stryker disable next-line ConditionalExpression: narrows
+      // `wallClockMin` for `Number.isFinite` exactly as the `maxTurns`
+      // guard above does — at runtime `=== undefined` always implies
+      // `!Number.isFinite(…)`. Provably equivalent, not killable.
+      wallClockMin === undefined || !Number.isFinite(wallClockMin) || wallClockMin <= 0
+        ? ', and at a wall clock'
+        : `, and again after ${wallClockMin} minutes of wall clock`
+    }`,
     'The stop is mid-action and unceremonious: uncommitted work and unwritten decisions',
     'are simply LOST. Deliver or pack — never let the cap catch you mid-unit:',
     '- Size the unit so you can COMMIT well before the cap; commit the verifiable slice EARLY.',
@@ -485,7 +500,7 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     ...(input.fleet && input.fleet.trim() !== '' ? [fleetSection(input.fleet)] : []),
     failureSection(input.lastFailure),
     boardSection(input.board, input.backlogPath),
-    turnBudgetSection(input.maxTurns),
+    turnBudgetSection(input.maxTurns, input.wallClockMin),
     '0. RESUME CHECK — if the LATEST commit subject starts with "wip(autopilot): checkpoint",',
     '   a previous firing ran out of budget/turns mid-unit and the engine packed its work up.',
     '   Your FIRST job is to FINISH that unit: complete it, make the gate pass, and commit',
