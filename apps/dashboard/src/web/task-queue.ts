@@ -373,6 +373,21 @@ export function taskFocusTip(title: string, focused: boolean): string {
   return (focused ? 'Release focus from' : 'Focus the autopilot on') + ' "' + title + '"';
 }
 
+/** The 🔓 unpin button's "Release the operator pin from ..." tip (shared as
+ *  both `data-tip` and `aria-label`) — shown only on a row the operator
+ *  explicitly reordered (`TaskEntry.pinned`), the UI affordance for
+ *  `/api/task/unpin` (server-side since v16, previously reachable only by a
+ *  direct API call). Unlike {@link taskFocusTip} this has no "on/off" split:
+ *  the button itself only renders while pinned, so its tip only ever reads
+ *  one way. */
+export function taskUnpinTip(title: string): string {
+  return (
+    'Release the operator pin from "' +
+    title +
+    '" — the next triage will rank it automatically'
+  );
+}
+
 /** The four terminal task-row action buttons {@link taskActionTip} covers —
  *  approve/reject a self-proposed task (`needs_approval` only) or mark an
  *  open task done/delete it. */
