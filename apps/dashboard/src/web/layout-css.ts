@@ -412,6 +412,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
    reasons are user/server text: plaintext bidi, never forced either way. */
 .fly-fit { order: 5; flex-basis: 100%; margin: var(--space-2) 0 0; padding-block-start: var(--space-2); border-top: 1px solid var(--color-border); }
 .fly-fit-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+.fly-fit-head-title { display: inline-flex; align-items: center; gap: var(--space-1); }
 .fly-fit-attention { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
 .fly-fit-attention button { font: inherit; font-size: var(--text-xs); min-block-size: 1.75rem; padding: 0 var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .fly-fit-attention button[aria-pressed="true"] { border-color: var(--color-success); color: var(--color-success); font-weight: 600; }
