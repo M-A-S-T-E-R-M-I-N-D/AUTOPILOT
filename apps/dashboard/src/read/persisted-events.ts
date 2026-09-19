@@ -263,6 +263,7 @@ interface RawConvergenceRed {
   readonly check?: unknown;
   readonly merge?: unknown;
   readonly ms?: unknown;
+  readonly outputTail?: unknown;
 }
 
 /**
@@ -281,8 +282,8 @@ interface RawConvergenceRed {
 export function parseConvergenceRedEvents(
   store: Store,
   projectId: string,
-): { check: string; details: string; ms?: number }[] {
-  const entries: { check: string; details: string; ms?: number }[] = [];
+): { check: string; details: string; ms?: number; outputTail?: string }[] {
+  const entries: { check: string; details: string; ms?: number; outputTail?: string }[] = [];
   for (const row of convergenceRedEvents(store.db, projectId)) {
     if (row.payload === null) continue;
     try {
@@ -292,6 +293,9 @@ export function parseConvergenceRedEvents(
           check: d.check,
           details: d.merge,
           ...(typeof d.ms === 'number' && Number.isFinite(d.ms) ? { ms: d.ms } : {}),
+          // The failing command's last lines, when the gate captured them
+          // (rows before 2026-09-19 have none).
+          ...(typeof d.outputTail === 'string' ? { outputTail: d.outputTail } : {}),
         });
       }
     } catch {

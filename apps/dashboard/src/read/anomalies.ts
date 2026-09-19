@@ -312,6 +312,36 @@ export interface ConvergenceRedLike {
   readonly check: string;
   readonly details: string;
   readonly ms?: number;
+  /** The failing command's own last lines, when the gate captured them. */
+  readonly outputTail?: string;
+}
+
+/** How many of the failing command's lines the chip quotes, and how long
+ *  each may be — a chip, not a log. */
+export const CONVERGENCE_TAIL_LINES = 3;
+export const CONVERGENCE_TAIL_LINE_CHARS = 160;
+
+/** A test runner's or compiler's own failure markers: a `FAIL` word, a
+ *  leading ×/✗, an `…Error:` (AssertionError:, TypeError:, Error:), or a
+ *  line that starts with `error` (tsc's `error TS2322:`). */
+const FAILURE_LINE_RE = /\bFAIL\b|^[×✗]|\w*Error:|^error\b/;
+
+/** What the chip quotes from a failing command's output: its failure-marked
+ *  lines (the test or rule that broke), or its first non-empty line when
+ *  nothing is marked — at most {@link CONVERGENCE_TAIL_LINES}, each cut to
+ *  {@link CONVERGENCE_TAIL_LINE_CHARS}, joined by ` · `. Empty for an empty
+ *  tail. */
+export function quotedFailure(outputTail: string): string {
+  const lines = outputTail
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  const marked = lines.filter((line) => FAILURE_LINE_RE.test(line));
+  const chosen = marked.length > 0 ? marked : lines.slice(0, 1);
+  return chosen
+    .slice(0, CONVERGENCE_TAIL_LINES)
+    .map((line) => line.slice(0, CONVERGENCE_TAIL_LINE_CHARS))
+    .join(' · ');
 }
 
 /** Convergence-red chip: like {@link landGateAlarms}, the detection itself
@@ -328,12 +358,14 @@ function convergenceRedAlarms(alarms: readonly ConvergenceRedLike[]): Anomaly[] 
   const latest = alarms[0] as ConvergenceRedLike;
   const single = alarms.length === 1;
   const durationSuffix = typeof latest.ms === 'number' ? ` after ${Math.round(latest.ms)}ms` : '';
+  const quoted = latest.outputTail === undefined ? '' : quotedFailure(latest.outputTail);
+  const failureSuffix = quoted === '' ? '' : ` — ${quoted}`;
   return [
     {
       kind: 'convergence-red',
       evidence: single
-        ? `A convergence gate went red after a sync-back (${latest.check})${durationSuffix}: ${latest.details}`
-        : `${alarms.length} convergence-red alarms on record — latest (${latest.check})${durationSuffix}: ${latest.details}`,
+        ? `A convergence gate went red after a sync-back (${latest.check})${durationSuffix}: ${latest.details}${failureSuffix}`
+        : `${alarms.length} convergence-red alarms on record — latest (${latest.check})${durationSuffix}: ${latest.details}${failureSuffix}`,
     },
   ];
 }

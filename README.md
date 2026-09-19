@@ -220,7 +220,11 @@ what is deliberately not started yet all live in **[`docs/ROADMAP.md`](docs/ROAD
 ## What it is bad at today
 
 - **It is a 0.x alpha**: APIs, schema and rituals change between releases.
-- **Quota-bound**: flights pace themselves against your subscription's limits.
+- **Quota-bound, and Pro stalls fast**: a 96-attempt, 3-day sample burned ~524M cache-read
+  tokens — ~5.5M/firing, in line with the per-firing average [RESEARCH-LIBRARY's cost
+  anatomy](docs/RESEARCH-LIBRARY.md) already measured. A Pro seat's quota refills slower than
+  that rate drains it; **Max is the realistic tier for a flight left running unattended**
+  overnight or over a weekend.
 - **Single-subject evidence**: the self-study measures AUTOPILOT flying *its own* repo; nothing
   here proves it performs the same on yours
   ([threats to validity](docs/SELF-STUDY/PAPER.md#6-threats-to-validity)).
@@ -262,7 +266,7 @@ release, then the board as columns, the Keeper, the plan editor, the docs reader
 
 ```bash
 pnpm run verify         # the full gate: typecheck · lint · format · test (≥80% cov) · build · secret/PII/SPDX scans
-pnpm run mutation       # optional, slow: 107 Stryker mutation-testing runs (nightly in CI as six shards)
+pnpm run mutation       # optional, slow: 109 Stryker mutation-testing runs (nightly in CI as six shards)
 pnpm dashboard:status   # running | stopped | stale (+ doctor checks)   · dashboard:stop to stop
 pnpm dashboard:watch    # RING-0 supervisor: owns start/revive/replace — observe, don't babysit
 ```

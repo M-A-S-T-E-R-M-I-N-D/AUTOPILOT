@@ -3961,7 +3961,14 @@ function setBrbVisible(visible) {
       brbEl.setAttribute('role', 'status');
       brbEl.setAttribute('aria-live', 'polite');
       var card = el('div', 'brb-card');
-      card.appendChild(el('span', 'brb-plane', '✈️'));
+      // Epic 0025 (icon system): reuses the landing panel's already-vendored
+      // plane-landing shape instead of baking in a literal ✈️ glyph — no new
+      // SVG data invented for this decorative reuse (law 1, "vendor only
+      // what is used"). '.brb-plane' still carries the bob animation/sizing;
+      // iconEl() adds its own 'icon icon-plane-landing' classes alongside it.
+      var brbPlane = iconEl('plane-landing');
+      brbPlane.classList.add('brb-plane');
+      card.appendChild(brbPlane);
       // i18n (board web-msnsndki-dz3vn1): built once, then only toggled via
       // hidden — no successful tick sweeps it while it shows, so tr() paints
       // the locale active at birth and the data-i18n tags let the language

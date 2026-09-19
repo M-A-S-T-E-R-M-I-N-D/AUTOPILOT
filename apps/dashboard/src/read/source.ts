@@ -384,6 +384,7 @@ export function mapTaskEntries(db: Store['db'], projectId: string): TaskEntry[] 
       dimension: t.dimension,
       focus: t.focus === 1,
       priority: t.priority,
+      pinned: t.priority_pinned === 1,
       source: t.source,
       at: t.created_at,
       cumulativeCostUsd: economics?.cumulativeCostUsd ?? 0,

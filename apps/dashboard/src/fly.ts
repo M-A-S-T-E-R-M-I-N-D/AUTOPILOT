@@ -82,6 +82,7 @@ import {
   type Activity,
   type ContainmentBreach,
   type SyncWorktreeEscalationHook,
+  type SyncWorktreeBranchResult,
 } from '@autopilot/engine';
 import {
   onboard,
@@ -98,6 +99,15 @@ import {
 } from '@autopilot/onboarding';
 import { gateCommands } from './gate-commands.js';
 import { gateConvergedBranch } from './flight/convergence-gate.js';
+import {
+  FRESH_LANE,
+  LANE_HEAD_UNVERIFIED_EVENT,
+  LANE_HEAD_VERIFIED_EVENT,
+  laneHeadAfterFiring,
+  laneHeadAtLaunch,
+  latestLaneHeadMarker,
+  type LaneHeadVerification,
+} from './flight/lane-head.js';
 import { resolveDbPath } from './read/config.js';
 import { flightEndStatus } from './flight/flight-end.js';
 import { readConnectionConfig } from './connection/config.js';
@@ -351,6 +361,43 @@ async function main(): Promise<void> {
     // run before the worktree exists.
     const worktreePlan = deriveWorktreePlan(target, projectId, instanceId);
     let flightRoot = target;
+    // ONLY A VERIFIED HEAD IS PUBLISHED (flight/lane-head.ts): the one bit
+    // every sync-back below consults — has a gate judged the tree at this
+    // lane's HEAD green? Moved by each firing's record, persisted on every
+    // real transition (keyed by the head's sha) so the next launch can tell
+    // a still-parked head from one the operator has since moved.
+    let laneHead: LaneHeadVerification = FRESH_LANE;
+    const recordLaneHead = (head: LaneHeadVerification, sha: string): void => {
+      try {
+        store.db
+          .prepare(
+            'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .run(
+            projectId,
+            null,
+            head.verified ? LANE_HEAD_VERIFIED_EVENT : LANE_HEAD_UNVERIFIED_EVENT,
+            JSON.stringify({ branch: worktreePlan.branch, sha, reason: head.reason }),
+            now(),
+          );
+      } catch {
+        // Telemetry is best-effort — never let it take the flight down.
+      }
+    };
+    const laneHeadMarkerRows = (): { type: string; payload: string | null }[] => {
+      try {
+        return store.db
+          .prepare(
+            'SELECT type, payload FROM events WHERE project_id = ? AND type IN (?, ?) ORDER BY id DESC LIMIT 100',
+          )
+          .all(projectId, LANE_HEAD_VERIFIED_EVENT, LANE_HEAD_UNVERIFIED_EVENT) as {
+          type: string;
+          payload: string | null;
+        }[];
+      } catch {
+        return [];
+      }
+    };
     // The linked worktree's OWN root — always what `git worktree list
     // --porcelain` (in target) reports back, regardless of `target` being a
     // repo root or a subfolder within one. Kept distinct from `flightRoot`
@@ -409,13 +456,26 @@ async function main(): Promise<void> {
         // live sibling; the forward-ff writes only this lane and never does.
         const sync = planLaunchSync(isAnyFlightLockLive(dirname(dbPath), target, process.pid));
         if (sync.skipped) out(`  ⚠ ${sync.skipped}`);
+        // What the previous flight left on this lane branch is trusted only
+        // if a gate judged it; a parked head stays parked while it is the
+        // same commit the marker named (flight/lane-head.ts).
+        laneHead = laneHeadAtLaunch(
+          latestLaneHeadMarker(laneHeadMarkerRows(), worktreePlan.branch),
+          await new GitVcs(worktreePlan.path).head(),
+        );
         if (sync.catchUp) {
           // Catch up target on any work a PRIOR flight left unsynced in this
           // same worktree branch (e.g. a mid-flight crash before its own
           // sync-back ran) before this flight's containment baseline is
           // snapshotted below — best-effort, never fails the flight.
-          const catchUp = await syncWorktreeBranch(target, targetBranch, worktreePlan.branch);
-          if (!catchUp.ok) out(`  ⚠ worktree catch-up sync skipped: ${catchUp.details}`);
+          if (laneHead.verified) {
+            const catchUp = await syncWorktreeBranch(target, targetBranch, worktreePlan.branch);
+            if (!catchUp.ok) out(`  ⚠ worktree catch-up sync skipped: ${catchUp.details}`);
+          } else {
+            out(
+              `  ⏸ catch-up sync withheld: ${laneHead.reason} — parked on ${worktreePlan.branch} until a green firing verifies the head`,
+            );
+          }
         }
         if (sync.forward) {
           // FORWARD-FF (the other half of lane freshness, 2026-09-03): the
@@ -514,7 +574,12 @@ async function main(): Promise<void> {
     // CONVERGENCE GATE telemetry (board web-mtbeu5d3-n09acx "CONVERGENCE FULL
     // GATE") — best-effort, same contract as every other events-table insert
     // in this file: never let a telemetry hiccup take the flight down.
-    const recordConvergenceRed = (check: string, mergeDetails: string, ms: number): void => {
+    const recordConvergenceRed = (
+      check: string,
+      mergeDetails: string,
+      ms: number,
+      outputTail?: string,
+    ): void => {
       try {
         store.db
           .prepare(
@@ -524,7 +589,13 @@ async function main(): Promise<void> {
             projectId,
             null,
             'convergence-red',
-            JSON.stringify({ branch: targetBranch, check, merge: mergeDetails, ms }),
+            JSON.stringify({
+              branch: targetBranch,
+              check,
+              merge: mergeDetails,
+              ms,
+              ...(outputTail === undefined ? {} : { outputTail }),
+            }),
             now(),
           );
       } catch {
@@ -609,7 +680,9 @@ async function main(): Promise<void> {
         const typecheck = result.gate.spec.typecheck;
         if (!typecheck?.bin) return Promise.resolve({ ok: true, checks: [] });
         return new GateRunner({
-          cwd: target,
+          // In THIS lane's worktree, never the live checkout — see
+          // forwardLaneToMergedHead below.
+          cwd: flightRoot,
           commands: [{ bin: typecheck.bin, args: [...typecheck.args], label: typecheck.label }],
           ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
         }).run();
@@ -620,10 +693,10 @@ async function main(): Promise<void> {
     // `fullGateSpec`, NOT `buildGateSpec()`: the latter runs `test` through
     // the per-firing impacted-tests schedule, which would silently regress
     // this "FULL" gate back to a diff-scoped test run most flights.
-    const fullConvergedGate: GatePort = {
+    const fullConvergedGateAt = (cwd: string): GatePort => ({
       run: () =>
         new GateRunner({
-          cwd: target,
+          cwd,
           // PARITY GATE (board web-mtqtec7m-dhxd9h): this is a landing/
           // convergence call site, so it opts into the CI-only extras
           // (`ciExtras`) too — the one point where cadence pressure doesn't
@@ -631,7 +704,48 @@ async function main(): Promise<void> {
           commands: gateCommands(fullGateSpec(result.gate.spec), { includeCiExtras: true }),
           ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
         }).run(),
+    });
+    // The merge-escalation agent validates its resolution where the merge is
+    // in progress — the live checkout — so that gate stays rooted in `target`.
+    const fullConvergedGate = fullConvergedGateAt(target);
+    // The verification of a merged head after a sync-back runs in THIS
+    // lane's private worktree — see forwardLaneToMergedHead just below.
+    const fullConvergedGateInLane = fullConvergedGateAt(flightRoot);
+    // THE MERGED HEAD IS GATED IN THIS LANE'S WORKTREE (four-lane rung,
+    // 2026-09-19). Both convergence gates used to run in the live checkout —
+    // the one tree every lane's sync-back rewrites. Two flight-end gates
+    // went red on `pnpm run test` while a sibling lane's merge and full gate
+    // rewrote that checkout under them; the same head passed the whole
+    // suite alone. So the lane worktree is fast-forwarded to the merged
+    // head first (a clean lane right after its own commit or sync-back is
+    // always a strict ancestor of it) and the gate runs there, where nothing
+    // else writes. A lane that cannot be fast-forwarded says so and persists
+    // the gap as a convergence alarm — never gating the wrong tree, never a
+    // shared one. The forward is also the lane's freshness for its next
+    // firing: it starts from the merged head instead of merging again.
+    const forwardLaneToMergedHead = async (mergeDetails: string): Promise<boolean> => {
+      const forward = await fastForwardWorktree(worktreePlan.path, targetBranch);
+      if (forward.ok) return true;
+      out(
+        `  ⚠ convergence UNGATED: this lane's worktree could not be fast-forwarded to the merged head (${forward.details}) — '${targetBranch}' was not verified after this sync-back`,
+      );
+      recordConvergenceRed(
+        'lane fast-forward (merged head not gated)',
+        mergeDetails,
+        0,
+        forward.details,
+      );
+      return false;
     };
+    const gateMergedHead = (mergeDetails: string, gate: GatePort): Promise<void> =>
+      gateConvergedBranch(targetBranch, mergeDetails, {
+        gate,
+        out,
+        recordRed: recordConvergenceRed,
+        pastGreenDurationsMs: pastConvergenceGreenDurationsMs,
+        recordGreen: recordConvergenceGreen,
+        recordUnverifiable: recordConvergenceUnverifiable,
+      });
     if (fleetTaskScope !== null) {
       out(
         `Fleet scope: ${fleetTaskScope.size} partitioned task(s) assigned to this instance ` +
@@ -1161,20 +1275,28 @@ async function main(): Promise<void> {
         // Best-effort: a sync hiccup leaves the work safely parked on the
         // worktree branch for the next attempt, never lost, never fatal.
         if (flightRoot !== target) {
+          const next = laneHeadAfterFiring(laneHead, outcome.record);
+          if (next !== laneHead) {
+            laneHead = next;
+            recordLaneHead(laneHead, await vcs.head());
+          }
+          if (!laneHead.verified) {
+            out(
+              `  ⏸ sync-back withheld: ${laneHead.reason} — parked on ${worktreePlan.branch} until a green firing verifies the head`,
+            );
+          }
+        }
+        if (flightRoot !== target && laneHead.verified) {
           const sync = await syncWorktreeBranch(target, targetBranch, worktreePlan.branch);
           if (sync.ok) {
+            // Forward the lane first (a sanctioned head move the guard baseline
+            // below must absorb), then gate the merged head there.
+            const gated = await forwardLaneToMergedHead(sync.details);
             guarded = snapshotGuardedHeads(
               headReader,
               guardedPathsFor(flightRoot, guardCandidates),
             );
-            await gateConvergedBranch(targetBranch, sync.details, {
-              gate: typecheckConvergedGate,
-              out,
-              recordRed: recordConvergenceRed,
-              pastGreenDurationsMs: pastConvergenceGreenDurationsMs,
-              recordGreen: recordConvergenceGreen,
-              recordUnverifiable: recordConvergenceUnverifiable,
-            });
+            if (gated) await gateMergedHead(sync.details, typecheckConvergedGate);
           } else {
             out(`  ⚠ worktree sync-back skipped: ${sync.details}`);
             flightSyncBackRefusals++;
@@ -1622,28 +1744,27 @@ async function main(): Promise<void> {
       // waits the long budget for a sibling lane's merge or escalation
       // (the per-firing and launch-time sync-backs above keep the brief
       // default — they are retried, this one is not).
-      const finalSync = await syncWorktreeBranch(
-        target,
-        targetBranch,
-        worktreePlan.branch,
-        escalate,
-        { waitMs: SYNC_BACK_FLIGHT_END_WAIT_MS },
-      );
+      // ONLY A VERIFIED HEAD IS PUBLISHED (flight/lane-head.ts): a head no
+      // gate judged takes the stranded-work path below instead — logged,
+      // persisted, an inbox task naming the branch — never the shared one.
+      const finalSync: SyncWorktreeBranchResult = laneHead.verified
+        ? await syncWorktreeBranch(target, targetBranch, worktreePlan.branch, escalate, {
+            waitMs: SYNC_BACK_FLIGHT_END_WAIT_MS,
+          })
+        : {
+            ok: false,
+            details: `withheld: ${laneHead.reason} — an unverified head is never published`,
+          };
       if (finalSync.ok) {
+        const gated = await forwardLaneToMergedHead(finalSync.details);
         guarded = snapshotGuardedHeads(headReader, guardedPathsFor(flightRoot, guardCandidates));
         out(`  🔁 flight-end sync-back: ${finalSync.details}`);
         // Last lane of the flight just landed on `targetBranch` — no more
         // per-firing cadence pressure, so this is the one sync-back that can
         // afford the FULL gate (board web-mtbeu5d3-n09acx). Same alarm-only
-        // contract as the per-firing typecheck above.
-        await gateConvergedBranch(targetBranch, finalSync.details, {
-          gate: fullConvergedGate,
-          out,
-          recordRed: recordConvergenceRed,
-          pastGreenDurationsMs: pastConvergenceGreenDurationsMs,
-          recordGreen: recordConvergenceGreen,
-          recordUnverifiable: recordConvergenceUnverifiable,
-        });
+        // contract as the per-firing typecheck above — run in this lane's
+        // worktree at the merged head, never in the live checkout.
+        if (gated) await gateMergedHead(finalSync.details, fullConvergedGateInLane);
       } else {
         out(`  ⚠ flight-end sync-back still refused: ${finalSync.details}`);
         flightSyncBackRefusals++;

@@ -42,7 +42,7 @@ describe('fly.ts wiring', () => {
     );
     // Each half sits behind its own flag; comment lines may precede the call.
     expect(flySource).toMatch(
-      /if \(sync\.catchUp\) \{\n(?:\s*\/\/[^\n]*\n)*\s*const catchUp = await syncWorktreeBranch\(target, targetBranch, worktreePlan\.branch\);/,
+      /if \(sync\.catchUp\) \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(laneHead\.verified\) \{\n\s*const catchUp = await syncWorktreeBranch\(target, targetBranch, worktreePlan\.branch\);/,
     );
     expect(flySource).toMatch(
       /if \(sync\.forward\) \{\n(?:\s*\/\/[^\n]*\n)*\s*const forward = await fastForwardWorktree\(worktreePlan\.path, targetBranch\);/,
@@ -57,7 +57,7 @@ describe('fly.ts wiring', () => {
     // so it waits for a sibling's merge or escalation; a per-firing or
     // launch-time sync-back is retried and must not park the lane.
     expect(flySource).toMatch(
-      /const finalSync = await syncWorktreeBranch\(\n\s*target,\n\s*targetBranch,\n\s*worktreePlan\.branch,\n\s*escalate,\n\s*\{ waitMs: SYNC_BACK_FLIGHT_END_WAIT_MS \},\n\s*\);/,
+      /const finalSync: SyncWorktreeBranchResult = laneHead\.verified\s*\? await syncWorktreeBranch\(\s*target,\s*targetBranch,\s*worktreePlan\.branch,\s*escalate,\s*\{\s*waitMs: SYNC_BACK_FLIGHT_END_WAIT_MS,?\s*\},?\s*\)/,
     );
     expect(flySource.match(/SYNC_BACK_FLIGHT_END_WAIT_MS/g)).toHaveLength(2);
   });

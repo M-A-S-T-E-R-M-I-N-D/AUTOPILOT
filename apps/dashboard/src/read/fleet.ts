@@ -132,6 +132,12 @@ export interface TaskEntry {
   readonly focus: boolean;
   /** Operator ordering (lower = sooner); null = unordered. */
   readonly priority: number | null;
+  /** The operator explicitly reordered this task (drag or ↑/↓), so takeoff
+   *  triage leaves its position alone instead of folding it back into the
+   *  model's own ranking (`priority_pinned`, `@autopilot/store`) — surfaced so
+   *  the UI can offer `/api/task/unpin` (release back to automatic ranking)
+   *  on the row that carries it. */
+  readonly pinned: boolean;
   /** 'dashboard' = human-created; 'self' = autopilot-PROPOSED (awaiting approval). */
   readonly source: string;
   readonly at: number;
