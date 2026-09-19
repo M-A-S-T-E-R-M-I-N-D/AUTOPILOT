@@ -70,7 +70,33 @@ body {
   background: var(--color-surface-raised); border-bottom: 1px solid var(--color-border);
   position: sticky; top: 0; z-index: 10;
 }
-.masthead-right { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+/* The controls SHARE the brand's row instead of being pushed under it
+   whole (operator catch on a phone, 2026-09-19: the masthead spent one
+   full row on the wordmark and the next on five near-identical dark
+   circles). A flex basis of 0 with min-width 0 lets this block take whatever
+   the brand leaves and wrap INSIDE itself, so Connect rides beside the
+   wordmark and only the icon cluster falls to a second row. */
+.masthead-right { display: flex; flex: 1 1 0; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+/* …and that cluster reads as ONE segmented control, not five floating
+   dots: the icon-only menus (every .connect after #connect) sit shoulder to
+   shoulder, sharing hairlines, with only the outer corners rounded. This is
+   the NARROW case, so it is the default (mobile-first — the md rule below
+   spaces them back into separate pills once there is room). */
+.masthead-right { gap: var(--space-2) 0; }
+.masthead-right > #connect { margin-inline-end: var(--space-2); }
+.masthead-right > .connect:not(#connect) > summary { border-radius: 0; margin-inline-start: -1px; }
+.masthead-right > .connect:not(#connect):first-of-type > summary { border-start-start-radius: var(--radius-full); border-end-start-radius: var(--radius-full); margin-inline-start: 0; }
+.masthead-right > .connect:not(#connect):last-of-type > summary { border-start-end-radius: var(--radius-full); border-end-end-radius: var(--radius-full); }
+/* An open or hovered cell lifts above its neighbours so its full border is
+   drawn, not clipped by the next cell's overlap. */
+.masthead-right > .connect:not(#connect) > summary:hover,
+.masthead-right > .connect:not(#connect) > summary:focus-visible,
+.masthead-right > .connect[open]:not(#connect) > summary { position: relative; z-index: 1; }
+@media (min-width: 48rem) {
+  .masthead-right { gap: var(--space-2); }
+  .masthead-right > #connect { margin-inline-end: 0; }
+  .masthead-right > .connect:not(#connect) > summary { border-radius: var(--radius-full); margin-inline-start: 0; }
+}
 .brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; letter-spacing: 0.02em; font-size: var(--text-lg); }
 .brand-mark { display: inline-flex; width: 22px; height: 22px; flex-shrink: 0; }
 .brand-mark svg { width: 100%; height: 100%; }
