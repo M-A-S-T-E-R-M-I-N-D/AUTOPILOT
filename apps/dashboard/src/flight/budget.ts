@@ -53,6 +53,17 @@ export function cliTimeoutMsFromEnv(env: Record<string, string | undefined>): nu
   return Number.isInteger(raw) && raw > 0 ? raw : undefined;
 }
 
+/** The idle cap's launcher override (`AUTOPILOT_CLI_IDLE_TIMEOUT_MS`): how
+ *  long a firing's CLI may emit nothing before it is judged hung. Same
+ *  contract as {@link cliTimeoutMsFromEnv}: unset or invalid keeps the
+ *  driver's own default. */
+export function cliIdleTimeoutMsFromEnv(
+  env: Record<string, string | undefined>,
+): number | undefined {
+  const raw = Number(env['AUTOPILOT_CLI_IDLE_TIMEOUT_MS']);
+  return Number.isInteger(raw) && raw > 0 ? raw : undefined;
+}
+
 /** Default cross-lane gate slot count — see `gate-semaphore.ts`'s doc comment
  *  for why 2 (not, say, 1): mirrors mercy 1's own `FLEET_GATE_WORKERS_DEFAULT`
  *  (spawn-flight.ts), the value calibrated against the incident that starved

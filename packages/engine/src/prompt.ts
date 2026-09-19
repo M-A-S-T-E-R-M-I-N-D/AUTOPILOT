@@ -103,7 +103,7 @@ export interface BoardTaskRef {
   readonly shippedSlices?: readonly string[];
 }
 
-export const FIRING_PROMPT_VERSION = 'firing-v15';
+export const FIRING_PROMPT_VERSION = 'firing-v16';
 
 /** The adapter that runs the agent — cited in commit provenance trailers (SOTA-MAP D1). */
 export const HARNESS_NAME = 'claude-cli';
@@ -154,10 +154,13 @@ function turnBudgetSection(maxTurns: number | undefined): string {
   )
     return '';
   return [
-    `## TURN BUDGET — the harness hard-stops you at ${maxTurns} turns`,
+    `## TURN BUDGET — the harness hard-stops you at ${maxTurns} turns, and at a wall clock`,
     'The stop is mid-action and unceremonious: uncommitted work and unwritten decisions',
     'are simply LOST. Deliver or pack — never let the cap catch you mid-unit:',
     '- Size the unit so you can COMMIT well before the cap; commit the verifiable slice EARLY.',
+    '- NEVER run the whole test suite yourself: under a fleet it takes twenty minutes and',
+    '  the wall clock ends you mid-unit. Run only the test files your change touches; the',
+    '  harness gate runs the full suite on your commit right after you finish.',
     '- If the unit grows anyway: STOP expanding, run the gate, commit what passes.',
     '- If green is out of reach in time: pack up — commit "wip(autopilot): checkpoint — <one',
     '  line: what is done, what remains, next step>" so the next firing RESUMES your work',
