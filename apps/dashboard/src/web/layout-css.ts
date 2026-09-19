@@ -65,8 +65,13 @@ body {
 .update-banner-later { font: inherit; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .update-banner-later:hover, .update-banner-later:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); }
 .masthead {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) var(--page-inline);
+  /* Two rows of 44px touch targets (the coarse-pointer floor) plus the old
+     8px padding and row gap put the sticky chrome at 113px on a phone — over
+     the two-row ceiling shell-mobile pins. The rows are distinct shapes, so
+     they can sit flush: 4px of block padding, no row gap, 97px total. The md
+     rule below restores the roomier spacing. */
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3);
+  padding: var(--space-1) var(--page-inline);
   background: var(--color-surface-raised); border-bottom: 1px solid var(--color-border);
   position: sticky; top: 0; z-index: 10;
 }
@@ -76,7 +81,7 @@ body {
    circles). A flex basis of 0 with min-width 0 lets this block take whatever
    the brand leaves and wrap INSIDE itself, so Connect rides beside the
    wordmark and only the icon cluster falls to a second row. */
-.masthead-right { display: flex; flex: 1 1 0; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.masthead-right { display: flex; flex: 1 1 0; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 var(--space-2); }
 /* …and that cluster is ONE segmented control, not five floating dots: the
    icon-only menus live in their own nowrap group so a wrap can never split
    them mid-cluster, and they sit shoulder to shoulder sharing hairlines with
