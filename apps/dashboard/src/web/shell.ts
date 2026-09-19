@@ -4781,7 +4781,7 @@ ${contextRailHtml(project)}
       </div>
       <div class="fly-fit" id="fly-fit" hidden>
         <div class="fly-fit-head">
-          <span data-i18n="luckyFitTitle">🍀 Work that fits you</span>
+          <span class="fly-fit-head-title">${iconSvg('sparkles')}<span data-i18n="luckyFitTitle">Work that fits you</span></span>
           <div class="fly-fit-attention" role="group" aria-label="How much attention you have" data-i18n-aria="luckyFitAttentionAria">
             <button type="button" data-fly-attention="evening" aria-pressed="true" data-i18n="luckyFitEvening">one evening</button>
             <button type="button" data-fly-attention="day" aria-pressed="false" data-i18n="luckyFitDay">a day</button>
