@@ -744,7 +744,7 @@ const EN_STRINGS = {
   prReviewTitle: 'KEEPER PR review',
   prReviewApply: 'Apply',
   prReviewFetchFailed:
-    '⚠ The open-PR list could not be read from gh — an outage, not a confirmed-empty queue; the next poll retries.',
+    'The open-PR list could not be read from gh — an outage, not a confirmed-empty queue; the next poll retries.',
   // web/pr-review-panel.ts's spliced helpers (board web-msnsndki-dz3vn1):
   // the confirm dialog, the EXECUTE tip, and the execute-result sentences —
   // each takes an injected tr() the same route flightProgressOf/the
@@ -2239,7 +2239,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     prReviewTitle: 'סקירת PR של KEEPER',
     prReviewApply: 'החל',
     prReviewFetchFailed:
-      '⚠ לא ניתן היה לקרוא את רשימת ה-PR הפתוחים מ-gh — זו תקלה, לא תור ריק מאומת; התשאול הבא ינסה שוב.',
+      'לא ניתן היה לקרוא את רשימת ה-PR הפתוחים מ-gh — זו תקלה, לא תור ריק מאומת; התשאול הבא ינסה שוב.',
     prReviewMergeLabel: 'מיזוג',
     prReviewRequestChangesLabel: 'בקשת שינויים',
     prReviewQueueForHumanLabel: 'העברה לבדיקה אנושית',

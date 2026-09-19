@@ -242,7 +242,13 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
   var title = panelHeading('h3', 'pr-review-title', 'prReviewTitle', 'key-round');
   section.appendChild(title);
   if (fetchFailed) {
-    var notice = el('p', 'pr-review-fetch-failed', '⚠ The open-PR list could not be read from gh — an outage, not a confirmed-empty queue; the next poll retries.');
+    // Epic 0025 icon system: a leading triangle-alert stroke icon instead of
+    // a baked-in ⚠ glyph — setSweptText() (features/locale.ts) keeps the
+    // icon in place across a locale switch since data-i18n stays on this
+    // same element.
+    var notice = el('p', 'pr-review-fetch-failed');
+    notice.appendChild(iconEl('triangle-alert'));
+    notice.appendChild(document.createTextNode('The open-PR list could not be read from gh — an outage, not a confirmed-empty queue; the next poll retries.'));
     notice.setAttribute('data-i18n', 'prReviewFetchFailed');
     section.appendChild(notice);
   }
