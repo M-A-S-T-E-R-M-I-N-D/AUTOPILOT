@@ -18,6 +18,7 @@ import {
   parseLockInfo,
   isProcessAlive,
   parseWorktreeList,
+  canonicalWorktreePath,
   DEFAULT_CLI_TIMEOUT_MS,
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
 } from '@autopilot/engine';
@@ -187,8 +188,12 @@ export function gatherPreflightFacts(
   const dirtyLanes: string[] = [];
   const worktrees = runGit(target, ['worktree', 'list', '--porcelain']);
   if (worktrees !== null) {
+    // git echoes each worktree in its OS-canonical spelling (symlinks
+    // resolved, Windows 8.3 names expanded); the target arrives as the
+    // caller typed it — compare both in canonical form (worktree.ts).
+    const main = canonicalWorktreePath(target);
     for (const entry of parseWorktreeList(worktrees)) {
-      if (entry.path === target.replace(/\\/g, '/')) continue;
+      if (canonicalWorktreePath(entry.path) === main) continue;
       if (!existsSync(entry.path)) continue;
       const laneStatus = runGit(entry.path, ['status', '--porcelain']);
       if (laneStatus !== null && countLines(laneStatus) > 0) dirtyLanes.push(entry.path);
