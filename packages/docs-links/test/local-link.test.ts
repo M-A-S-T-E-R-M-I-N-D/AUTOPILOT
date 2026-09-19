@@ -123,3 +123,17 @@ describe('localLinkPaths', () => {
 function normalizeForPlatform(posixPath: string): string {
   return posixPath.split('/').join(sep);
 }
+
+describe('extractLinkTargets stays linear on hostile input (CodeQL js/polynomial-redos)', () => {
+  it('scans runs of brackets and of `[](!` in bounded time and finds nothing in them', () => {
+    for (const hostile of ['['.repeat(20_000), '[](' + '[](!'.repeat(6_000)]) {
+      const startedAt = Date.now();
+      expect(extractLinkTargets(hostile)).toEqual([]);
+      expect(Date.now() - startedAt).toBeLessThan(200);
+    }
+  });
+
+  it('a `[` inside a target is not a link — the class that keeps the scan linear', () => {
+    expect(extractLinkTargets('[a](x[1].md) [b](y.md)')).toEqual(['y.md']);
+  });
+});

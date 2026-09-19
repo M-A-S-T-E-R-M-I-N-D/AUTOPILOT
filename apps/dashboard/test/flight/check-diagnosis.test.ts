@@ -251,6 +251,55 @@ describe('createCheckDiagnosisApi', () => {
     expect(outcome.reason).toContain('nothing to diagnose');
   });
 
+  it('refuses when the only failing job is (optional) — same non-gating convention as human-merge.ts', async () => {
+    const onlyOptionalFailing = {
+      ...RED,
+      checkRuns: [
+        { name: 'verify (ubuntu-latest)', state: 'pass' as const },
+        {
+          name: 'reuse lint (optional)',
+          state: 'fail' as const,
+          url: 'https://github.com/o/r/actions/runs/1/job/1',
+        },
+      ],
+    };
+    const outcome = await createCheckDiagnosisApi(
+      execReturning(onlyOptionalFailing, '', []),
+      mkdtempSync(join(tmpdir(), 'check-diagnosis-empty-')),
+    )(37);
+
+    expect(outcome.diagnosis).toBeUndefined();
+    expect(outcome.reason).toContain('nothing to diagnose');
+  });
+
+  it('diagnoses only the gating failure when an (optional) job fails alongside it', async () => {
+    const mixed = {
+      ...RED,
+      checkRuns: [
+        { name: 'verify (ubuntu-latest)', state: 'pass' as const },
+        {
+          name: 'reuse lint (optional)',
+          state: 'fail' as const,
+          url: 'https://github.com/o/r/actions/runs/1/job/1',
+        },
+        {
+          name: 'verify (windows-latest)',
+          state: 'fail' as const,
+          url: 'https://github.com/o/r/actions/runs/900/job/1',
+        },
+      ],
+    };
+    const calls: string[][] = [];
+    const outcome = await createCheckDiagnosisApi(
+      execReturning(mixed, 'FAIL apps/dashboard/test/web/a11y.test.ts', calls),
+      mkdtempSync(join(tmpdir(), 'check-diagnosis-empty-')),
+    )(37);
+
+    expect(outcome.diagnosis).toBeDefined();
+    const runViewCalls = calls.filter((c) => c[0] === 'gh' && c[1] === 'run' && c[2] === 'view');
+    expect(runViewCalls).toEqual([['gh', 'run', 'view', '900', '--log-failed']]);
+  });
+
   it('refuses when the red check is not an Actions run we can read a log from', async () => {
     const external = {
       ...RED,
