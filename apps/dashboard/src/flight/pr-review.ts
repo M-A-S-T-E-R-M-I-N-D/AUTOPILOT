@@ -987,7 +987,7 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // file in `apps/dashboard/src/flight/` (not just `*-execute.ts`, whose
   // narrower census famously missed report-from-here.ts above), so each file
   // there is either flagged here or allow-listed as benign WITH a written
-  // reason in that test's `BENIGN_FLIGHT` set. The fourteen below are the
+  // reason in that test's `BENIGN_FLIGHT` set. The entries below are the
   // census's triage of the previously unmarked files that DO carry
   // write/decide power with no security keyword in their paths. All
   // `.ts`-suffixed so `test/flight/*.test.ts` stays unflagged, same
@@ -1008,6 +1008,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // demotes regardless of model opinion) — weakening it is the same
   // defeat-a-safety-mechanism class as engine/src/adapters/fs-control.ts.
   'flight/triage-factors.ts',
+  // ONLY A VERIFIED HEAD IS PUBLISHED (2026-09-19): the one bit every
+  // sync-back consults before a lane's commits reach the shared flight
+  // branch and, from there, main. Weakening it — a red checkpoint read as
+  // green, an unverifiable commit read as verified — re-opens the exact
+  // hole the four-lane rung fell through: ungated code published. Same
+  // defeat-a-safety-mechanism class as triage-factors.ts above.
+  'flight/lane-head.ts',
   // Mints board tasks straight to 'queued' from INBOX files with NO
   // approval gate (by design — the operator authored the note), so widening
   // WHAT counts as a note widens unattended task creation.
