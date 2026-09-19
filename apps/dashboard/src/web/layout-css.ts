@@ -81,7 +81,7 @@ body {
    circles). A flex basis of 0 with min-width 0 lets this block take whatever
    the brand leaves and wrap INSIDE itself, so Connect rides beside the
    wordmark and only the icon cluster falls to a second row. */
-.masthead-right { display: flex; flex: 1 1 0; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.masthead-right { display: flex; flex: 1 1 0; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 var(--space-2); }
 /* …and that cluster is ONE segmented control, not five floating dots: the
    icon-only menus live in their own nowrap group so a wrap can never split
    them mid-cluster, and they sit shoulder to shoulder sharing hairlines with
