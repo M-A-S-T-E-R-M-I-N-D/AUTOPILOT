@@ -164,7 +164,7 @@ describe('buildFiringPrompt', () => {
   });
 
   it('exposes a stable version tag for telemetry', () => {
-    expect(FIRING_PROMPT_VERSION).toBe('firing-v16');
+    expect(FIRING_PROMPT_VERSION).toBe('firing-v17');
   });
 
   it('splices a pre-rendered REPO-MAP digest in verbatim ahead of ORIENT', () => {
@@ -341,6 +341,24 @@ describe('buildFiringPrompt', () => {
     expect(p).toContain(
       '## TURN BUDGET — the harness hard-stops you at 80 turns, and at a wall clock',
     );
+    // With the wall clock known, the agent is told the MINUTES it has, not just
+    // that a clock exists (2026-09-19: 22 firings died on an unseen one).
+    const timed = buildFiringPrompt({
+      soul: SOUL,
+      firing: 2,
+      retro: false,
+      maxTurns: 80,
+      wallClockMin: 90,
+    });
+    expect(timed).toContain(
+      '## TURN BUDGET — the harness hard-stops you at 80 turns, and again after 90 minutes of wall clock',
+    );
+    // An absent or nonsense wall clock never invents a number.
+    for (const wallClockMin of [0, -5, Number.NaN]) {
+      expect(
+        buildFiringPrompt({ soul: SOUL, firing: 2, retro: false, maxTurns: 80, wallClockMin }),
+      ).toContain('at 80 turns, and at a wall clock');
+    }
     expect(p).toMatch(/commit the verifiable slice EARLY/);
     // The suite is the gate's job: a firing that runs it under fleet load is
     // killed by the wall clock mid-unit (2026-09-19, 21 of 34 firings).
@@ -805,7 +823,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v16`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v17`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',
@@ -1128,7 +1146,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v16`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v17`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',

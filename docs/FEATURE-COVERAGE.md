@@ -211,7 +211,7 @@ change. **Section D was audited on 2026-09-09 (board web-mtndm5fc-2vloky), closi
 `flight/inbox-triage.ts` already does exactly what REACTIVITY §2's "via the Inbox" bullet specifies (a dropped note
 auto-triages into a real board task every firing) — the SAME live behavior §E already credits elsewhere in this
 very doc, an internal contradiction this pass closes; its stale `firing-v3` citation was also corrected to the
-live `firing-v16`. The other 8 rows (the grounded-Ask/RAG split, the injection-defense fence, retrieval-as-MCP,
+live `firing-v17`. The other 8 rows (the grounded-Ask/RAG split, the injection-defense fence, retrieval-as-MCP,
 inline control-channel tokens, the worktree task/handoff/status dispatch triad, the SSE live-view split, in-chat
 tool chips, and the activity map) were verified genuinely accurate against the live tree — no change. Every
 section (A–O) has now been re-audited against the live tree at least once; treat this matrix as current as of

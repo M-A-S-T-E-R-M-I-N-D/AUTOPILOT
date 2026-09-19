@@ -1254,6 +1254,8 @@ async function main(): Promise<void> {
             inbox: buildInboxDigest(inboxEntries),
             fleet,
             maxTurns: FLY_MAX_TURNS, // deliver-or-pack: the agent must SEE its ceiling
+            // …and the OTHER ceiling it actually dies on under a fleet.
+            wallClockMin: Math.round((cliTimeoutMs ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000),
             // ATTRIBUTION channel 1 (docs/ATTRIBUTION.md): every commit trailer
             // names the actually-running product version, gated by the same
             // AUTOPILOT_ATTRIBUTION=off lever every other channel already checks.

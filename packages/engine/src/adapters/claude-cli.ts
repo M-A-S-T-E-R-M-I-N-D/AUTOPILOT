@@ -13,6 +13,7 @@ import type { EngineConfig } from '../config.js';
 import { resolveClaudeEnv, DEFAULT_AUTH, type AuthConfig } from '../auth.js';
 import {
   parseStreamLine,
+  sessionIdFromEvent,
   activitiesFromEvent,
   isResultEvent,
   textDeltaFromEvent,
@@ -556,6 +557,9 @@ export class StreamingClaudeCliModel implements ModelPort {
       // `result` arrives) can still resolve real observed turns/tokens
       // instead of silently discarding them.
       let lastUsage: ReturnType<typeof usageFromEvent> = null;
+      // Kept from the wire so a killed attempt is still resumable — see
+      // ModelResponse.sessionId.
+      let streamSessionId: string | null = null;
       let assistantTurns = 0;
       let guardDenials = 0;
       const guardDenialDetails: GuardDenialDetail[] = [];
@@ -570,6 +574,8 @@ export class StreamingClaudeCliModel implements ModelPort {
           const delta = textDeltaFromEvent(event);
           if (delta !== null) this.opts.onText(delta);
         }
+        const sessionId = sessionIdFromEvent(event);
+        if (sessionId !== null) streamSessionId = sessionId;
         const usage = usageFromEvent(event);
         if (usage !== null) {
           assistantTurns += 1;
@@ -657,6 +663,7 @@ export class StreamingClaudeCliModel implements ModelPort {
           partialUsage,
           guardDenials,
           guardDenialDetails,
+          sessionId: envelope?.sessionId ?? streamSessionId,
           ...(timedOut ? { timedOut: true } : {}),
         });
       });

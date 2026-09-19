@@ -345,6 +345,23 @@ export function foldOrientSpan(span: OrientSpan, event: Record<string, unknown>)
  * exit (killed before the terminal `result` event) can still persist real
  * observed turns/tokens instead of a fabricated $0/0 row.
  */
+/**
+ * The CLI session id an NDJSON event carries (`session_id` — the init
+ * event and every message event in `stream-json` output have it).
+ *
+ * WHY THIS EXISTS (2026-09-19): the session id used to be read only off
+ * the final RESULT envelope, so an attempt killed before that envelope
+ * arrived had no session — and the FINISH-LINE extension, the one
+ * mechanism that lets a mid-unit firing pack its work up, is gated on
+ * having one. Twenty-two firings in a day were killed by the wall clock
+ * and every one of them skipped the rescue for want of an id that had
+ * been on the wire since the first event.
+ */
+export function sessionIdFromEvent(event: Record<string, unknown>): string | null {
+  const id = str(event['session_id']);
+  return id !== null && id.length > 0 ? id : null;
+}
+
 export function usageFromEvent(event: Record<string, unknown>): MessageUsage | null {
   if (event['type'] !== 'assistant') return null;
   const message = event['message'];
