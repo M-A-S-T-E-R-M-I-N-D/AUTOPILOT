@@ -654,6 +654,63 @@ async function syncWorktreeBranchUnlocked(
   return { ok: true, details: `merged '${worktreeBranch}' into '${targetBranch}'` };
 }
 
+export interface ParkAsideResult {
+  readonly ok: boolean;
+  readonly details: string;
+  /** Where the moved-aside head lives now — set as soon as the ref exists,
+   *  even when the reset after it failed. */
+  readonly rescueRef?: string;
+}
+
+/**
+ * Moves a lane's unpublished head aside so the lane can fly fresh (the
+ * seven-lane rung, 2026-09-19). A checkpoint left by a flight that ended
+ * mid-unit is never published (flight/lane-head.ts in the dashboard), and
+ * the next flight's firing did not finish it either — five lanes sat
+ * parked for a whole rung, each firing bailing at a dollar. So the head is
+ * kept under `refs/autopilot/parked/<lane branch>/<sha8>` (reachable,
+ * listed by `git for-each-ref refs/autopilot/parked`, named in the inbox
+ * task) and the lane branch is reset onto the shared tip. Only a CLEAN
+ * lane worktree is touched, and only after the rescue ref exists: nothing
+ * is ever lost, the lane simply stops carrying it.
+ */
+export async function parkAsideWorktreeHead(
+  worktreePath: string,
+  laneBranch: string,
+  targetBranch: string,
+): Promise<ParkAsideResult> {
+  const status = await git(worktreePath, ['status', '--porcelain']);
+  if (status.exitCode !== 0) return { ok: false, details: `cannot read '${worktreePath}'` };
+  // Porcelain output is empty for a clean tree and never whitespace-only.
+  if (status.stdout !== '') {
+    return {
+      ok: false,
+      details: `refusing to move aside: '${worktreePath}' has uncommitted changes`,
+    };
+  }
+  const head = await git(worktreePath, ['rev-parse', '--verify', 'HEAD']);
+  if (head.exitCode !== 0) return { ok: false, details: `cannot read HEAD of '${worktreePath}'` };
+  const sha = head.stdout.trim();
+  const rescueRef = `refs/autopilot/parked/${laneBranch}/${sha.slice(0, 8)}`;
+  const kept = await git(worktreePath, ['update-ref', rescueRef, sha]);
+  if (kept.exitCode !== 0) {
+    return { ok: false, details: `could not keep the parked head under ${rescueRef}` };
+  }
+  const reset = await git(worktreePath, ['reset', '--hard', targetBranch]);
+  if (reset.exitCode !== 0) {
+    return {
+      ok: false,
+      details: `kept the parked head under ${rescueRef} but could not reset '${worktreePath}' onto '${targetBranch}'`,
+      rescueRef,
+    };
+  }
+  return {
+    ok: true,
+    details: `moved ${sha.slice(0, 8)} aside under ${rescueRef} and reset '${worktreePath}' onto '${targetBranch}'`,
+    rescueRef,
+  };
+}
+
 export interface FastForwardWorktreeResult {
   readonly ok: boolean;
   readonly details: string;

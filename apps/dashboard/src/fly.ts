@@ -67,6 +67,7 @@ import {
   classifyNoop,
   ensureWorktree,
   fastForwardWorktree,
+  parkAsideWorktreeHead,
   repoPrefixOf,
   syncWorktreeBranch,
   SYNC_BACK_FLIGHT_END_WAIT_MS,
@@ -475,6 +476,27 @@ async function main(): Promise<void> {
           latestLaneHeadMarker(laneHeadMarkerRows(), worktreePlan.branch),
           await new GitVcs(worktreePlan.path).head(),
         );
+        if (!laneHead.verified) {
+          // A head parked by a PREVIOUS flight is a dead end for the lane: the
+          // seven-lane rung showed the next firing does not finish it (five
+          // lanes bailed at a dollar each). Keep it under a rescue ref, fly
+          // fresh from the tip; the inbox task filed at that flight's end names
+          // the branch and the ref, so the unit is one checkout away.
+          const aside = await parkAsideWorktreeHead(
+            worktreePlan.path,
+            worktreePlan.branch,
+            targetBranch,
+          );
+          if (aside.ok) {
+            out(
+              `  🪺 parked head moved aside: ${aside.details} — this lane flies fresh; the unfinished unit is kept under ${aside.rescueRef}`,
+            );
+            laneHead = FRESH_LANE;
+            recordLaneHead(laneHead, await new GitVcs(worktreePlan.path).head());
+          } else {
+            out(`  ⚠ parked head stays parked: ${aside.details}`);
+          }
+        }
         if (sync.catchUp) {
           // Catch up target on any work a PRIOR flight left unsynced in this
           // same worktree branch (e.g. a mid-flight crash before its own
@@ -1768,7 +1790,7 @@ async function main(): Promise<void> {
           })
         : {
             ok: false,
-            details: `withheld: ${laneHead.reason} — an unverified head is never published`,
+            details: `withheld: ${laneHead.reason} — an unverified head is never published; at its next launch this lane keeps it under refs/autopilot/parked/${worktreePlan.branch}/${(await vcs.head()).slice(0, 8)} and flies fresh`,
           };
       if (finalSync.ok) {
         const gated = await forwardLaneToMergedHead(finalSync.details);

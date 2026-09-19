@@ -187,6 +187,15 @@ describe('fly.ts wiring (source census)', () => {
     expect(flySource).toContain('stranded-work task could NOT be filed');
   });
 
+  it('a head parked by a previous flight is moved aside at launch and the lane flies fresh', () => {
+    expect(flySource).toMatch(
+      /if \(!laneHead\.verified\) \{\n(?:\s*\/\/[^\n]*\n)*\s*const aside = await parkAsideWorktreeHead\(\s*worktreePlan\.path,\s*worktreePlan\.branch,\s*targetBranch,?\s*\);/,
+    );
+    expect(flySource).toContain('parked head moved aside:');
+    expect(flySource).toContain('laneHead = FRESH_LANE;');
+    expect(flySource).toContain('refs/autopilot/parked/${worktreePlan.branch}/');
+  });
+
   it('the launch reads the persisted marker for this lane branch and judges the head it found', () => {
     expect(flySource).toMatch(
       /laneHead = laneHeadAtLaunch\(\s*latestLaneHeadMarker\(laneHeadMarkerRows\(\), worktreePlan\.branch\),\s*await new GitVcs\(worktreePlan\.path\)\.head\(\),?\s*\);/,
