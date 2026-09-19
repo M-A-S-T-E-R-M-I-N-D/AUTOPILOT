@@ -113,6 +113,8 @@ import {
   createReportFromHereExecuteApi,
 } from '../flight/report-from-here-execute.js';
 import { createPublicityPreviewApi } from '../flight/publicity.js';
+import { evaluatePreflight } from '../flight/preflight.js';
+import { gatherPreflightFacts } from '../flight/preflight-facts.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createCollaborationApi } from '../flight/collaboration.js';
@@ -259,6 +261,16 @@ const flightRegistry = new FlightRunnerRegistry(
     // and an absolute path passes through — so the "folder not found" message is
     // honest and points at a real path.
     resolveFolder: (folder) => resolve(process.cwd(), folder),
+    // PREFLIGHT: the go/no-go every launch path shares (flight/preflight.ts).
+    // The build-freshness fact compares the built flight this server ships
+    // against the engine sources beside it; a packaged install without
+    // sources simply reports nothing there.
+    preflight: (folder) =>
+      evaluatePreflight(
+        gatherPreflightFacts(folder, dirname(dbPath), {
+          repoRoot: resolve(dirname(flyEntry), '..', '..', '..'),
+        }),
+      ),
     now: Date.now,
     // Graceful PAUSE: the running flight is a separate process, so the request
     // (and its eventual honoring) round-trips through the shared store rather

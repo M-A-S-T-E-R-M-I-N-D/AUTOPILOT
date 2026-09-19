@@ -118,6 +118,45 @@ describe('FlightRunner', () => {
     expect(runner.status().running).toBe(false);
   });
 
+  it('PREFLIGHT: a report that is not GO refuses the flight with the blocking advice and never spawns', () => {
+    const seen: { folder: string; instanceId: string | undefined }[] = [];
+    const { deps, spawns } = makeDeps({
+      preflight: (folder, instanceId) => {
+        seen.push({ folder, instanceId });
+        return {
+          go: false,
+          checks: [
+            { level: 'info', name: 'claude-cli', ok: true, detail: 'claude 2.1' },
+            { level: 'block', name: 'target-clean', ok: false, detail: '2 changed path(s)' },
+          ],
+        };
+      },
+    });
+    const runner = new FlightRunner(deps);
+
+    const result = runner.start({ folder: '/work/sandbox', firings: 1, instanceId: ' fleet-2 ' });
+
+    expect(result.started).toBe(false);
+    expect(result.message).toBe('preflight refused: target-clean: 2 changed path(s)');
+    expect(seen).toEqual([{ folder: '/work/sandbox', instanceId: 'fleet-2' }]);
+    expect(spawns).toEqual([]);
+    expect(runner.status().running).toBe(false);
+  });
+
+  it('PREFLIGHT: a GO report lets the flight start; a plain flight passes no instance id', () => {
+    const seen: (string | undefined)[] = [];
+    const { deps, spawns } = makeDeps({
+      preflight: (_folder, instanceId) => {
+        seen.push(instanceId);
+        return { go: true, checks: [] };
+      },
+    });
+    const result = new FlightRunner(deps).start({ folder: '/work/sandbox', firings: 1 });
+    expect(result.started).toBe(true);
+    expect(seen).toEqual([undefined]);
+    expect(spawns).toHaveLength(1);
+  });
+
   it('resolves a relative folder to an absolute path (spawn, status, and message)', () => {
     const seen: string[] = [];
     const { deps, spawns } = makeDeps({

@@ -227,4 +227,50 @@ describe('runFleetLaunch', () => {
     expect(result.ok).toBe(true);
     expect(result.lines[1]).toContain('base: 409 not started — 0 task(s) reserved');
   });
+
+  it("prints the dashboard's own reason for a lane it refused — a preflight refusal names what to fix", async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({
+        status: 409,
+        started: false,
+        message: 'preflight refused: target-clean: 2 changed path(s)',
+      });
+    const result = await runFleetLaunch({ ...baseArgs, laneCount: 1 }, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    expect(result.lines[1]).toBe(
+      '  base: 409 not started — 0 task(s) reserved — preflight refused: target-clean: 2 changed path(s)',
+    );
+    // A started lane never carries a reason, even if the dashboard sent one.
+    postFly.mockResolvedValue({ status: 200, started: true, message: 'flying' });
+    const started = await runFleetLaunch({ ...baseArgs, laneCount: 1 }, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    expect(started.lines[1]).toBe('  base: 200 started — 0 task(s) reserved');
+  });
+
+  it('warns about a wide fleet before the first lane, at the boundary it does not', async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({ status: 200, started: true });
+    const wide = await runFleetLaunch({ ...baseArgs, laneCount: 5 }, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    expect(wide.lines[1]).toBe(
+      '  advisory: 5 lanes on one disk — gates queue behind 4 lanes and most firings need the long wall clock; expect fewer ships per lane',
+    );
+    const atBoundary = await runFleetLaunch({ ...baseArgs, laneCount: 4 }, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    expect(atBoundary.lines.some((l) => l.includes('advisory:'))).toBe(false);
+  });
 });

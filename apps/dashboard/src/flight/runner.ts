@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
+import { preflightRefusal, type PreflightReport } from './preflight.js';
+
 /**
  * The FlightRunner — the dashboard's "fly this folder" backing service. It owns a
  * single in-flight run (cautious MVP; multi-project parallelism is M7), spawns the
@@ -93,6 +95,12 @@ export interface FlightRunnerDeps {
   readonly folderExists: (folder: string) => boolean;
   /** Resolve the user's input to an absolute path (relative → against the cwd). */
   readonly resolveFolder?: (folder: string) => string;
+  /** PREFLIGHT (flight/preflight.ts): the go/no-go every launch path
+   *  shares — the Fly button, the fleet launcher, the fleet watchdog all
+   *  come through `start()`. A report that is not GO refuses the flight
+   *  with the blocking checks' advice as the message. Optional so the
+   *  demo runner and older callers keep their contract. */
+  readonly preflight?: (folder: string, instanceId?: string) => PreflightReport;
   readonly now: () => number;
   /**
    * Record a graceful-PAUSE request against `folder` (persisted — the running
@@ -376,6 +384,12 @@ export class FlightRunner {
     const folder = this.deps.resolveFolder ? this.deps.resolveFolder(raw) : raw;
     if (!this.deps.folderExists(folder)) {
       return { started: false, message: `folder not found: ${folder}`, status: IDLE };
+    }
+    if (this.deps.preflight) {
+      const report = this.deps.preflight(folder, input.instanceId?.trim() || undefined);
+      if (!report.go) {
+        return { started: false, message: preflightRefusal(report), status: IDLE };
+      }
     }
 
     const budgetUsd = clampBudget(input.budgetUsd);

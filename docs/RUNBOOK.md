@@ -85,6 +85,25 @@ board `web-msqgnkdw-s7zlmm`):
   function (embedded into the served bundle via `.toString()`), and
   `narrator-parity.test.ts` pins the two outputs together.
 
+### Preflight — why the Fly button (or a lane) refused
+
+Every launch — the Fly button, `dashboard fleet`, the fleet watchdog — first
+runs the flight PREFLIGHT (`apps/dashboard/src/flight/preflight.ts`). A
+refusal reads `preflight refused: <check>: <what to do>` and names one of:
+
+| check          | why it blocks                                                      | fix                                                        |
+| -------------- | ------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `target-clean` | changed or untracked paths in the live checkout — every sync-back into it would refuse | commit or stash them                                       |
+| `git-identity` | `user.name` / `user.email` unset — every commit the flight makes fails | `git config user.name …` / `git config user.email …`       |
+| `claude-cli`   | `claude` is not on the PATH                                        | install Claude Code and sign in once                       |
+| `disk-space`   | under 1 GiB free                                                   | free space; the gate, the snapshot and a lane need it      |
+
+Warnings let the flight go and say what to expect: a build older than
+its sources (`pnpm run build`), a lane worktree with leftovers
+(`git -C <lane> stash`), stale engine locks (reclaimed at launch), under
+5 GiB free, a fleet wider than four lanes. `pnpm dashboard:doctor <folder>`
+prints the whole report from the terminal, `[!!]` for blocking lines.
+
 ## 2. The stale-4317-server ritual (when the CLI can't see it)
 
 The gap: `DashboardControl` only knows about processes it started itself (tracked in
