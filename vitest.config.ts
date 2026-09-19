@@ -35,7 +35,15 @@ export default defineConfig({
     // a loaded machine or Windows CI — field-verified on a fresh Windows box
     // (4 different 5s timeouts across two runs, all green in isolation).
     // Inherited by every project below via `extends: true`.
-    testTimeout: 30_000,
+    //
+    // 120s since the six-lane rung (2026-09-19): with six lanes' gates and
+    // firings running the suite at once on the same disk, the real-git and
+    // real-store tests (land-watchdog, post-flight-sweeps doc-freshness)
+    // took longer than 30s and a lane's flight-end gate went red on three
+    // timeouts — the same tests are seconds on an idle machine. A loaded run
+    // is not a hung test; a genuinely hung one now costs two minutes to
+    // fail instead of half a minute, which hides nothing.
+    testTimeout: 120_000,
     // The same budget for HOOKS, which the line above does not cover — the
     // half-applied fix that bit on 2026-09-09: a Windows CI run reported
     // 9896/9898 passing and still failed, both losses being `beforeEach`
@@ -45,7 +53,7 @@ export default defineConfig({
     // setup cost of a real-git suite lives in its hooks, so raising only
     // the test budget left the flakier half at the default. A generous
     // budget hides nothing: a hook that genuinely hangs still fails, later.
-    hookTimeout: 30_000,
+    hookTimeout: 120_000,
     // Scrubs flight-runtime env vars so the gate behaves identically inside
     // and outside a fleet flight — see vitest.setup.ts for the field report.
     setupFiles: ['./vitest.setup.ts'],
