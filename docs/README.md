@@ -86,6 +86,8 @@ script and verified by CI — edit the source, not the file.
   [2026-09-03 sync-back conflict taxonomy](EVALUATION-2026-09-03-sync-conflict-taxonomy.md) ·
   four cockpit-baseline evaluations under [archive/](archive/).
 - [debriefs/](debriefs/) — one file per incident or verdict, dated; the raw record the doctrine docs distil.
+- [MUTATION-DEBT.md](MUTATION-DEBT.md) — the standing record behind the per-module Stryker configs and their
+  `break: 100` threshold: which mutants still survive, why, and the plan to clear each one.
 - [BACKLOG-999.md](BACKLOG-999.md) — the tracked backlog; [BACKLOG-999-ARCHIVE.md](BACKLOG-999-ARCHIVE.md) — full
   evidence for closed items.
 
