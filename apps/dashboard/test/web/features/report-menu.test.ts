@@ -468,7 +468,7 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     const status = document.querySelector('.report-compose-status')!;
     expect(status.className).toContain('report-compose-ok');
     expect(status.textContent).toBe(
-      'Composed — suggested action: 🔧 quick-fix PR. Review below, then Preview.',
+      'Composed — suggested action: quick-fix PR. Review below, then Preview.',
     );
   });
 
