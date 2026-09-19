@@ -151,4 +151,21 @@ describe('be-right-back overlay i18n (board web-msnsndki-dz3vn1)', () => {
     // The subtitle keeps its trailing ellipsis: the card is a waiting state.
     expect(STRINGS.he.brbSub.endsWith('…')).toBe(true);
   });
+
+  // Epic 0025 (icon system): the card used to bake a literal ✈️ glyph into
+  // a plain '.brb-plane' span — the one emoji this overlay still carried.
+  // It now reuses the vendored plane-landing shape (the landing panel
+  // already carries the same icon; epic 0025 law 1 is "vendor only what is
+  // used", so no new SVG data was invented for this decorative reuse).
+  it('paints the plane as the vendored icon, not a baked-in emoji glyph (epic 0025)', async () => {
+    await bootOffline();
+
+    const plane = overlay()?.querySelector('.brb-plane');
+    expect(plane).not.toBeNull();
+    expect(plane?.tagName.toLowerCase()).toBe('svg');
+    expect(plane?.classList.contains('icon')).toBe(true);
+    expect(plane?.classList.contains('icon-plane-landing')).toBe(true);
+    expect(plane?.getAttribute('aria-hidden')).toBe('true');
+    expect(plane?.textContent).not.toContain('✈️');
+  });
 });
