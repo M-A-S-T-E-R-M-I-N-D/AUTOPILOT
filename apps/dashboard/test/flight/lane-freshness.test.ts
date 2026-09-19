@@ -50,4 +50,15 @@ describe('fly.ts wiring', () => {
     // The old single guard that skipped both halves is gone.
     expect(flySource).not.toContain('sync-back skipped: another flight already holds a live lock');
   });
+
+  it('only the flight-end sync-back opts into the long sync-back wait; the retried ones keep the brief default', () => {
+    // One sync-back at a time per checkout (engine worktree.ts): the
+    // flight-end call is the last chance before a lane's commits strand,
+    // so it waits for a sibling's merge or escalation; a per-firing or
+    // launch-time sync-back is retried and must not park the lane.
+    expect(flySource).toMatch(
+      /const finalSync = await syncWorktreeBranch\(\n\s*target,\n\s*targetBranch,\n\s*worktreePlan\.branch,\n\s*escalate,\n\s*\{ waitMs: SYNC_BACK_FLIGHT_END_WAIT_MS \},\n\s*\);/,
+    );
+    expect(flySource.match(/SYNC_BACK_FLIGHT_END_WAIT_MS/g)).toHaveLength(2);
+  });
 });

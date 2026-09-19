@@ -69,6 +69,7 @@ import {
   fastForwardWorktree,
   repoPrefixOf,
   syncWorktreeBranch,
+  SYNC_BACK_FLIGHT_END_WAIT_MS,
   formatMergeEscalationContext,
   createGitMergeEscalationDeps,
   runMergeEscalationAgent,
@@ -1617,11 +1618,16 @@ async function main(): Promise<void> {
         out(`  ⚠ merge-escalation agent did not resolve the conflict (${outcome.kind}): ${reason}`);
         return { ok: false, details: reason };
       };
+      // The last sync-back before this lane's commits could strand: it alone
+      // waits the long budget for a sibling lane's merge or escalation
+      // (the per-firing and launch-time sync-backs above keep the brief
+      // default — they are retried, this one is not).
       const finalSync = await syncWorktreeBranch(
         target,
         targetBranch,
         worktreePlan.branch,
         escalate,
+        { waitMs: SYNC_BACK_FLIGHT_END_WAIT_MS },
       );
       if (finalSync.ok) {
         guarded = snapshotGuardedHeads(headReader, guardedPathsFor(flightRoot, guardCandidates));
