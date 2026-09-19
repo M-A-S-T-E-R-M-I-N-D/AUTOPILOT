@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 import {
   HOUSE_TAXONOMY_LABELS,
@@ -12,8 +14,16 @@ import {
   runTaxonomySeed,
   type TaxonomySeedAction,
 } from '../../src/flight/taxonomy-seed.js';
+import { PARTNER_APPLICATION_LABEL } from '../../src/flight/contributor-dossier.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
+
+// import.meta.url is an http: URL under jsdom, so resolve from cwd (same fix
+// contributor-standing-panel.test.ts uses for a repo-root file read).
+const PARTNER_APPLICATION_TEMPLATE = readFileSync(
+  join(process.cwd(), '.github/ISSUE_TEMPLATE/partner-application.yml'),
+  'utf8',
+);
 
 const MAINTAINER: SocialIdentity = {
   login: 'octocat',
@@ -255,5 +265,27 @@ describe('runTaxonomySeed', () => {
       HOUSE_TAXONOMY_LABELS.length + HOUSE_STARTER_MILESTONES.length,
     );
     expect(report.result?.failed).toEqual([]);
+  });
+});
+
+// Epic 0019 additive-only law (docs/FAILURE-DOCTRINE.md): every steward slice
+// ships a regression test over an existing neighboring flow it must never
+// silently break. taxonomy-seed.ts is the ONLY place the house label scheme
+// is authored; contributor-dossier.ts's PARTNER_APPLICATION_LABEL is the ONE
+// signal that routes a standing-application issue to the KEEPER dossier path
+// instead of issue-triage.ts's ordinary autonomous accept/duplicate/skip
+// verdict (contributor-dossier.ts:38-40). If the label name ever drifts
+// between the three places that hardcode it — this file's house taxonomy,
+// contributor-dossier.ts's routing constant, and the issue template that
+// applies the label at creation — a partner application would fall through
+// to the wrong path with no error, exactly what CONTRIBUTOR-STANDING.md
+// promises never happens.
+describe('HOUSE_TAXONOMY_LABELS × KEEPER dossier routing (regression, epic 0019 additive-only law)', () => {
+  it('seeds the exact label name contributor-dossier.ts routes standing applications on', () => {
+    expect(HOUSE_TAXONOMY_LABELS.map((label) => label.name)).toContain(PARTNER_APPLICATION_LABEL);
+  });
+
+  it('matches the label the issue template itself applies at creation', () => {
+    expect(PARTNER_APPLICATION_TEMPLATE).toContain(`labels: ['${PARTNER_APPLICATION_LABEL}']`);
   });
 });
