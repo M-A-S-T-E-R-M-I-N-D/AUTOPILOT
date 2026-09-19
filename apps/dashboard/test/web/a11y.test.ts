@@ -18,7 +18,10 @@ import axe from 'axe-core';
 // of this file while every other OS passed. Triple the budget for this file
 // only: a real hang still fails, a slow-but-honest axe pass stops reading as
 // a flake (FAILURE-DOCTRINE ledger — windows a11y flake row).
-vi.setConfig({ testTimeout: 90_000 });
+// The root budget (vitest.config.ts, 120s since the six-lane rung) — kept
+// explicit here because this file once raised the old 30s default on its
+// own; a file-level override must never sit BELOW the shared one again.
+vi.setConfig({ testTimeout: 120_000 });
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 import { renderPipelinePanel } from '../../src/web/pipeline-panel.js';

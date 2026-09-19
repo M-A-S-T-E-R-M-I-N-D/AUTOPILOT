@@ -143,12 +143,13 @@ describe('M2 DoD — onboard', () => {
 
     const projects = store.db.prepare('SELECT COUNT(*) AS c FROM projects').get() as { c: number };
     expect(projects.c).toBe(3);
-  }, 60000); // real git on 3 SEQUENTIAL repos — 3x the work of every other case
-  // in this file, so it needs 3x their budget: the 30s default (vitest.config.ts)
-  // already timed this out under fleet parallel-run load (board web-mtbui5hu-0ai168,
-  // observed: `pnpm run test` failed here once in 2 full runs with "Test timed out
-  // in 30000ms", then passed clean standalone via `detect-flaky` (4/4) — a resource-
-  // contention flake, not a logic bug).
+  }); // real git on 3 SEQUENTIAL repos — 3x the work of every other case
+  // in this file. No per-test budget here or anywhere in this file: the root
+  // config's 120s (vitest.config.ts, doctrine row 37) is the single source.
+  // The 30s/60s this file once carried undercut it — under eight lanes two
+  // cases still timed out at 30s while the shared budget already said 120s;
+  // the same contention flake board web-mtbui5hu-0ai168 saw at the old
+  // default (passes clean standalone, never a logic bug).
 
   it('re-locking a seen repo resumes state (no duplicate, empty index diff)', async () => {
     const dir = newRepo({ 'go.mod': 'module x', 'main.go': 'package main' });
@@ -164,7 +165,7 @@ describe('M2 DoD — onboard', () => {
 
     const projects = store.db.prepare('SELECT COUNT(*) AS c FROM projects').get() as { c: number };
     expect(projects.c).toBe(1); // never re-registered
-  }, 30000);
+  });
 
   it('derives name from basename(root) and slug via slugify when both are omitted', async () => {
     const dir = newRepo({ 'go.mod': 'module x', 'main.go': 'package main' });
@@ -178,7 +179,7 @@ describe('M2 DoD — onboard', () => {
     expect(proj.soul).toContain(`# SOUL — ${expectedName}`);
     expect(proj.slug).toBe(slugify(expectedName));
     expect(result.resumed).toBe(false);
-  }, 30000);
+  });
 
   it("a resumed project's SOUL-declared Backlog: line overrides re-detection", async () => {
     const dir = newRepo({ 'go.mod': 'module x', 'main.go': 'package main', 'PLAN.md': '' });
@@ -193,7 +194,7 @@ describe('M2 DoD — onboard', () => {
     const second = await onboard(deps(dir), { root: dir, name: 'svc' });
     expect(second.resumed).toBe(true);
     expect(second.backlogPath).toBe('PLAN.md');
-  }, 30000);
+  });
 
   it('resumes a project whose stored SOUL is NULL by falling back to re-detection', async () => {
     // A defensive path, not one the onboarding flow itself produces (register()
@@ -209,7 +210,7 @@ describe('M2 DoD — onboard', () => {
     const second = await onboard(deps(dir), { root: dir, name: 'svc' });
     expect(second.resumed).toBe(true);
     expect(second.backlogPath).toBe('BACKLOG.md'); // falls back to detection, does not throw
-  }, 30000);
+  });
 
   it('triages a non-code folder and seeds a TRIAGE-mode SOUL (Generic-folder competence, board web-msnioxgz-emkgca)', async () => {
     const dir = newRepo({ 'notes.md': '# hi', 'todo.md': 'buy milk', 'draft.md': '...' });
@@ -223,7 +224,7 @@ describe('M2 DoD — onboard', () => {
     };
     expect(proj.soul).toContain('Kind: docs folder (3 files, no code gate)');
     expect(proj.soul).toContain('- docs: 3');
-  }, 30000);
+  });
 
   it('never touches the repo before/after the MYTH/LEGACY snapshot (detect + index add no commits)', async () => {
     const dir = newRepo({ 'go.mod': 'module x', 'main.go': 'package main' });
@@ -236,5 +237,5 @@ describe('M2 DoD — onboard', () => {
     expect(gitSync(dir, ['rev-parse', 'HEAD'])).toBe(headBefore);
     expect(gitSync(dir, ['rev-list', '--count', 'HEAD'])).toBe('1');
     expect(gitSync(dir, ['rev-parse', `refs/tags/${MYTH_TAG}`])).toBe(headBefore);
-  }, 30000);
+  });
 });
