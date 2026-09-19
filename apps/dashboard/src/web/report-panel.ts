@@ -42,12 +42,14 @@ export type ReportPlanLike = ReportRejectedLike | ReportResolvedLike;
  *  `local-task`/`pool-offer` are the only values `REPORT_ACTIONS` admits;
  *  anything else (should never happen) echoes back verbatim rather than
  *  throwing, the same degrade-to-plain-label stance
- *  `prReviewDecisionLabel` takes. */
+ *  `prReviewDecisionLabel` takes. Plain text, no emoji (epic 0025): every
+ *  caller drops this into a `<option>` or an interpolated status string,
+ *  neither of which can host an icon element beside it. */
 export function reportActionLabel(action: string): string {
-  if (action === 'issue') return '🐛 bug issue';
-  if (action === 'quick-fix-pr') return '🔧 quick-fix PR';
-  if (action === 'local-task') return '📋 local task';
-  if (action === 'pool-offer') return '🤝 pool offer';
+  if (action === 'issue') return 'bug issue';
+  if (action === 'quick-fix-pr') return 'quick-fix PR';
+  if (action === 'local-task') return 'local task';
+  if (action === 'pool-offer') return 'pool offer';
   return action;
 }
 
