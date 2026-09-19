@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -109,10 +109,11 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
     git(repo, ['update-ref', 'refs/autopilot/parked/lane-a/abcd1234', 'HEAD']);
     git(repo, ['update-ref', 'refs/autopilot/parked/lane-b/ef012345', 'HEAD']);
     const facts = gatherPreflightFacts(repo, dbDir, noCli);
+    // git reports the lane in its OS-canonical spelling (macOS's /private
+    // symlink, Windows 8.3 names) — compare canonical forms, as worktree.ts does.
+    const canonical = (p: string) => realpathSync.native(p).replace(/\\/g, '/').toLowerCase();
     expect(facts.dirtyLanes).toHaveLength(1);
-    expect(facts.dirtyLanes[0]?.replace(/\\/g, '/').toLowerCase()).toBe(
-      laneDirty.replace(/\\/g, '/').toLowerCase(),
-    );
+    expect(canonical(facts.dirtyLanes[0] ?? '')).toBe(canonical(laneDirty));
     expect(facts.targetDirty).toBe(0);
     expect(facts.parkedHeads).toBe(2);
   });
