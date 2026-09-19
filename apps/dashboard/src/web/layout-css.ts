@@ -530,7 +530,7 @@ main > * { min-width: 0; }
    scale, currentColor everywhere — the three themes need no per-icon work. */
 .icon { display: inline-block; inline-size: 1em; block-size: 1em; vertical-align: -0.125em; flex: none; }
 .chip > .icon { margin-inline-end: 0.35em; }
-.task-focus-btn > .icon, .task-delete-btn > .icon { inline-size: 1.1em; block-size: 1.1em; vertical-align: middle; }
+.task-focus-btn > .icon, .task-delete-btn > .icon, .task-unpin-btn > .icon { inline-size: 1.1em; block-size: 1.1em; vertical-align: middle; }
 .task-drag-handle > .icon { vertical-align: middle; }
 .chip { font-size: var(--text-xs); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-2); text-decoration: none; display: inline-block; }
 .chip-proposed { color: var(--color-needs-you); border-color: var(--color-needs-you); }
@@ -1348,6 +1348,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-delete-btn:not(:disabled):hover, .task-delete-btn:not(:disabled):focus-visible { border-color: var(--color-sev-critical); color: var(--color-sev-critical); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .task-delete-btn:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .task-delete-btn:disabled { opacity: 0.6; cursor: default; }
+.task-unpin-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 0 5px; border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.task-unpin-btn:not(:disabled):hover, .task-unpin-btn:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.task-unpin-btn:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.task-unpin-btn:disabled { opacity: 0.6; cursor: default; }
 .task-add { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
 .task-add label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .task-add input { flex: 1; min-width: 120px; font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }

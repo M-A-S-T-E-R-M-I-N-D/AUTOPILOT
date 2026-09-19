@@ -29,6 +29,7 @@ import {
   taskTitleTip,
   taskMoveTip,
   taskFocusTip,
+  taskUnpinTip,
   taskActionTip,
   taskDimensionChip,
   taskSeverityChip,
@@ -462,6 +463,14 @@ describe('taskFocusTip', () => {
 
   it('reads "Release focus from ..." when already focused', () => {
     expect(taskFocusTip('Ship the thing', true)).toBe('Release focus from "Ship the thing"');
+  });
+});
+
+describe('taskUnpinTip', () => {
+  it('names the task and explains what releasing the pin does', () => {
+    expect(taskUnpinTip('Ship the thing')).toBe(
+      'Release the operator pin from "Ship the thing" — the next triage will rank it automatically',
+    );
   });
 });
 
