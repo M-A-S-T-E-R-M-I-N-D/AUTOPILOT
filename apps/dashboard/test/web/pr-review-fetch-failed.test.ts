@@ -60,6 +60,9 @@ describe('KEEPER PR review fetch-failed notice (PLATFORM 4/7)', () => {
     const notice = document.querySelector('.pr-review-fetch-failed');
     expect(notice?.textContent).toBe(STRINGS.en.prReviewFetchFailed);
     expect(notice?.getAttribute('data-i18n')).toBe('prReviewFetchFailed');
+    // Epic 0025 (icon system): a leading triangle-alert stroke icon instead
+    // of a baked-in ⚠ glyph.
+    expect(notice?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
     // No plans arrived, so no Apply buttons may render off an outage.
     expect(document.querySelector('.pr-review-execute')).toBeNull();
   });
@@ -78,8 +81,17 @@ describe('KEEPER PR review fetch-failed notice (PLATFORM 4/7)', () => {
 
     (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
 
-    expect(document.querySelector('.pr-review-fetch-failed')?.textContent).toBe(
-      STRINGS.he.prReviewFetchFailed,
-    );
+    const notice = document.querySelector('.pr-review-fetch-failed');
+    expect(notice?.textContent).toBe(STRINGS.he.prReviewFetchFailed);
+    // setSweptText() (features/locale.ts) keeps the leading icon in place
+    // across the locale sweep instead of wiping it with a full textContent
+    // overwrite.
+    expect(notice?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+  });
+
+  it('no longer bakes the ⚠ glyph into prReviewFetchFailed in any locale — epic 0025 replaced it with the vendored triangle-alert icon', () => {
+    for (const table of Object.values(STRINGS)) {
+      expect(table.prReviewFetchFailed.startsWith('⚠')).toBe(false);
+    }
   });
 });
