@@ -15,6 +15,8 @@ import {
   isCliTimeoutDeath,
   applyInvokeCaps,
   reapCliDescendants,
+  stderrTail,
+  DEATH_TAIL_CHARS,
 } from '../../src/adapters/claude-cli.js';
 import { DEFAULT_ENGINE_CONFIG } from '../../src/config.js';
 
@@ -1111,6 +1113,28 @@ describe('StreamingClaudeCliModel', () => {
     expect(res.exitCode).toBe(1);
     expect(res.envelope).toBeNull();
     expect(res.stdout).toBe('spawn claude ENOENT');
+  });
+
+  it('keeps the stderr tail as stdout when the child closes without a result envelope — the reason it died', async () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+    const model = new StreamingClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
+    const promise = model.invoke('sonnet', 'p');
+    child.stderr.emit('data', 'Error: overloaded, retry later\n\n');
+    child.emit('close', 1);
+
+    const res = await promise;
+    expect(res.exitCode).toBe(1);
+    expect(res.envelope).toBeNull();
+    expect(res.stdout).toBe('Error: overloaded, retry later');
+  });
+
+  it('stderrTail keeps only the last DEATH_TAIL_CHARS characters, trailing blank lines dropped', () => {
+    expect(DEATH_TAIL_CHARS).toBe(600);
+    expect(stderrTail('a'.repeat(100) + 'b'.repeat(600))).toBe('b'.repeat(600));
+    expect(stderrTail('short\n \n')).toBe('short');
+    expect(stderrTail('')).toBe('');
   });
 
   it('resolves exit code 0 as a fallback when close carries no code and no signal', async () => {

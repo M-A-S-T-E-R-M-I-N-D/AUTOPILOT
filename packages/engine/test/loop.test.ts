@@ -204,6 +204,30 @@ describe('runLoop', () => {
     expect(h.log.some((m) => m.includes('guard denied 3 tool call(s)'))).toBe(true);
   });
 
+  it('logs why a firing ended without a result envelope — the death tail, or that stderr was empty', async () => {
+    const h = harness([
+      outcome({
+        record: {
+          ...RECORD,
+          firing: 137,
+          isError: null,
+          exitCode: 1,
+          deathTail: 'Error: overloaded',
+        },
+      }),
+      outcome({ record: { ...RECORD, firing: 138, isError: null, exitCode: 0, deathTail: null } }),
+      outcome({ record: { ...RECORD, firing: 139, isError: false, exitCode: 0 } }),
+    ]);
+    await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 3 });
+    expect(h.log).toContain(
+      'firing 137 ended without a result envelope (exit 1) — Error: overloaded',
+    );
+    expect(h.log).toContain(
+      'firing 138 ended without a result envelope (exit 0) — nothing on stderr',
+    );
+    expect(h.log.filter((m) => m.includes('ended without a result envelope'))).toHaveLength(2);
+  });
+
   it('stays quiet about guard denials when a firing hit none', async () => {
     const h = harness([outcome({ guardDenials: 0 })]);
     await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });

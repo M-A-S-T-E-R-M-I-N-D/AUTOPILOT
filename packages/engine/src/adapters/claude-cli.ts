@@ -431,6 +431,17 @@ export interface StreamingClaudeCliOptions extends ClaudeCliOptions {
  * from the terminal `result` event. A drop-in ModelPort — the firing logic and
  * telemetry are identical; it just also sees what the agent did/said along the way.
  */
+/** How much of the CLI's stderr survives when it exits without a result
+ *  envelope — enough for the error line and its context, never a dump. */
+export const DEATH_TAIL_CHARS = 600;
+
+/** The last `DEATH_TAIL_CHARS` of a process's stderr, trailing blank lines
+ *  dropped — what a firing record and the flight log get to say about a
+ *  model process that died without an envelope. */
+export function stderrTail(stderr: string): string {
+  return stderr.trimEnd().slice(-DEATH_TAIL_CHARS);
+}
+
 export class StreamingClaudeCliModel implements ModelPort {
   constructor(private readonly opts: StreamingClaudeCliOptions) {}
 
@@ -533,7 +544,7 @@ export class StreamingClaudeCliModel implements ModelPort {
         (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
         if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
         resolve({
-          stdout: stderr,
+          stdout: stderrTail(stderr),
           exitCode: 1,
           envelope: null,
           partialUsage: null,
@@ -552,7 +563,10 @@ export class StreamingClaudeCliModel implements ModelPort {
         // This guard only skips redundant work; no observable output depends on
         // it. Provably equivalent, not killable.
         if (buffer.trim().length > 0) onLine(buffer);
-        const stdout = result ? JSON.stringify(result) : '';
+        // No result envelope: the only trace of WHY is the CLI's stderr, which
+        // used to be dropped here — six of eight firings in the eight-lane
+        // round ended `exit 1`, no envelope, and nothing anywhere said why.
+        const stdout = result ? JSON.stringify(result) : stderrTail(stderr);
         const envelope = result ? parseModelEnvelope(stdout) : null;
         const partialUsage: PartialUsage | null =
           envelope === null && lastUsage !== null

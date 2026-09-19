@@ -151,6 +151,9 @@ function envelopeFacts(resp: ModelResponse, modelTry: string): EnvelopeFacts {
     exitCode: resp.exitCode,
     isError: env ? env.isError : null,
     stopReason: env?.stopReason ?? null,
+    // Without an envelope, `resp.stdout` IS the CLI's stderr tail (the
+    // adapter keeps it exactly for this) — the reason the firing died.
+    deathTail: env === null && resp.stdout !== '' ? resp.stdout : null,
     numTurns: env?.numTurns ?? partial?.turnsObserved ?? null,
     durationMs: env?.durationMs ?? null,
     costUsd: env?.costUsd ?? null,
