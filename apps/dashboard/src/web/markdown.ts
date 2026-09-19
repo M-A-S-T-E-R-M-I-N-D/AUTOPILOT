@@ -242,6 +242,9 @@ export type CalloutKind = 'note' | 'tip' | 'important' | 'warning' | 'caution';
  *  per its own spec) → the callout kind; null for anything else, including a
  *  bracket that merely starts with one of these words. */
 export function calloutKind(line: string): CalloutKind | null {
-  const m = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i.exec(line.trim());
+  // The line is trimmed first, so the marker must END the string: a
+  // trailing whitespace class here was dead (the nightly sweep's one
+  // survivor, 2026-09-19) and would have let `[!NOTE]xyz` through.
+  const m = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i.exec(line.trim());
   return m ? (m[1]!.toLowerCase() as CalloutKind) : null;
 }

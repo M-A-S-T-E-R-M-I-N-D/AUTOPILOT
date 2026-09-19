@@ -443,6 +443,7 @@ describe('calloutKind', () => {
 
   it('is null for a marker that is not the WHOLE line, an unknown kind, or plain text', () => {
     expect(calloutKind('[!NOTE] extra text')).toBeNull();
+    expect(calloutKind('[!NOTE]xyz')).toBeNull(); // glued suffix, no space to stop on
     expect(calloutKind('prefix [!NOTE]')).toBeNull();
     expect(calloutKind('[!BOGUS]')).toBeNull();
     expect(calloutKind('plain quoted text')).toBeNull();

@@ -85,3 +85,4 @@ convention already use for an unbacked completion claim.
 | [0008](0008-e2e-does-not-gate-direct-push-landings.md) | E2E does not gate direct-push landings — deliberately, for now | Accepted |
 | [0009](0009-real-sandbox-tier-evaluation.md) | Real sandbox tier for flights on native Windows — an evaluation | Proposed |
 | [0010](0010-landing-guard-flight-tip-override.md) | Landing guard: let a flight tip's own fresh green CI run override a stale/red base verdict | Proposed |
+| [0011](0011-fix-commit-generation-strategy.md) | Fix-commit generation strategy for a `defect` diagnosis verdict (epic 0020 slice 8b) | Proposed |
