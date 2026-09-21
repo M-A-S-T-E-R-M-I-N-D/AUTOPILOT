@@ -92,7 +92,7 @@ the same; adds the regression test that failed first.
 
 Signed-off-by: Your Name <you@example.com>
 Model: claude-sonnet-5
-Firing-Prompt-Version: firing-v15
+Firing-Prompt-Version: firing-v17
 Assisted-by: AUTOPILOT v0.52.0 <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>
 Harness: claude-cli
 
