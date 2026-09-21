@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(dashboard): the phone masthead fits its two-row ceiling
+- fix(dashboard): zero the control row gap so the phone masthead clears its ceiling
+
 ## [0.52.0] — 2026-09-18
 
 ### Added
