@@ -6,6 +6,51 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Added
+
+- feat(dashboard): the PR review Diagnose button drops its wrench emoji for the vendored icon
+- feat(dashboard): the report-from-here menu drops its flag emoji for the vendored icon
+- feat(dashboard): the report menu's CSS-selector item drops its emoji for the vendored icon
+- feat(dashboard): the report menu's Copy text item drops its emoji for the vendored icon
+- feat(dashboard): the contributor issue list drops its tier-badge emoji for vendored icons
+- feat(dashboard): the docs reader checks local links and paints the dead ones (epic 0023 slice 1)
+- feat(dashboard): the "Contribute upstream" disclosure drops its emoji for the vendored icon
+- feat(dashboard): the docs reader grows a table of contents (epic 0023 slice 2)
+- feat(dashboard): the docs reader shows what links here (epic 0023 slice 2)
+- feat(dashboard): issue-triage dossier/needs-format badges drop their emoji for icons
+- feat(dashboard): the docs reader paints GitHub-style alert callouts
+- feat(dashboard): the KEEPER PR review panel drops its lock/handshake emoji for icons
+- feat(gate): every gate installs first, so a lane that adds a dependency cannot red the next landing
+- feat(dashboard): the docs reader marks archived records instead of current doctrine
+- feat(dashboard): the report menu's Copy computed styles item drops its emoji for the vendored icon
+- feat(dashboard): the landing panel's running line drops its baked plane emoji for the vendored icon
+- feat(dashboard): surface the operator pin on TaskEntry, add unpin tip/CSS
+- feat(dashboard): reportActionLabel drops its baked emoji for plain text
+- feat(github): mirror-pass — maintainer's priority label steers board priority
+- feat(dashboard): preflight — the go/no-go every launch path shares
+- feat(dashboard): the fly-fit "Work that fits you" head drops its emoji for the vendored icon
+- feat(dashboard): wire the pinned-task unpin button into the task board
+- feat(dashboard): wire the pinned-task unpin button into the task board
+
+### Fixed
+
+- fix(dashboard): the typecheck resolves docs-links from source, so a stale dist can never fake a red
+- fix(engine): one sync-back at a time per checkout, and the debrief index merges by union
+- fix(dashboard): verified heads only, merged heads gated in the lane, convergence red names the test
+- fix(dashboard): checkpoints never publish, crashed gates are unjudged, stranded tasks really file
+- fix(engine): a head parked by a previous flight is moved aside at launch, and the lane flies fresh
+- fix: linear regexes for the two CodeQL polynomial-redos alerts
+- fix(docs-links): the link target class excludes `[` — linear on the second redos witness
+- fix(dashboard): a stranded-work task goes to the inbox, not the board
+- fix(engine): a firing that dies without a result envelope says why
+- fix(engine): the per-firing caps are the adapter's own timers, sized for a fleet, and named
+- fix(dashboard): the preflight compares lane paths in canonical form
+- fix(engine): a killed firing can be rescued — the session id comes off the wire
+- fix(dashboard): the masthead shares one row on a phone, and its icons read as one control
+- fix(dashboard): the masthead icons move as one cluster, never split by a wrap
+- fix(dashboard): the phone masthead fits its two-row ceiling
+- fix(dashboard): zero the control row gap so the phone masthead clears its ceiling
+
 ## [0.52.0] — 2026-09-18
 
 ### Added
