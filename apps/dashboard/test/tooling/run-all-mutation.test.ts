@@ -12,7 +12,6 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  configWeights,
   discoverConfigs,
   formatFailureSummary,
   mutationFailureReason,
@@ -53,7 +52,7 @@ describe('parseShard / shardConfigFiles (the nightly sweep split across a CI mat
     expect(() => parseShard(['node', 'x', '--shard'])).toThrow(/--shard wants/);
   });
 
-  it('degrades to plain round-robin when nothing carries a weight', () => {
+  it('interleaves the discovery order so every shard gets a spread, and the shards partition the whole set', () => {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
     expect(shardConfigFiles(files, { index: 1, total: 3 })).toEqual(['a', 'd', 'g']);
     expect(shardConfigFiles(files, { index: 2, total: 3 })).toEqual(['b', 'e']);
@@ -170,89 +169,5 @@ describe('formatFailureSummary', () => {
     expect(formatFailureSummary(3, [{ file: 'a', reason: 'r' }])[0]).toBe(
       'run-all-mutation: 2/3 passed',
     );
-  });
-});
-
-/**
- * SHARDS BALANCED BY WORK, NOT BY HEADCOUNT (2026-09-21). Interleaving gave
- * each of the six CI jobs an equal NUMBER of configs and left the work two and
- * a half times apart: on the 2026-09-20 sweep the shards carried 2460, 2428,
- * 1922, 1810, 1620 and 967 mutants, so five jobs idled while one set the wall
- * clock. Source size predicts mutant count at r = 0.909 across all 110
- * configs, and unlike a checked-in census it is re-measured every run.
- */
-describe('configWeights', () => {
-  it('weighs a config by the size of the sources its mutate array names', () => {
-    const weights = configWeights([
-      { file: 'stryker.a.config.mjs', mutate: ['package.json'] },
-      { file: 'stryker.b.config.mjs', mutate: ['package.json', 'tsconfig.json'] },
-    ]);
-    expect(weights['stryker.a.config.mjs']).toBeGreaterThan(0);
-    expect(weights['stryker.b.config.mjs']).toBeGreaterThan(weights['stryker.a.config.mjs'] ?? 0);
-  });
-
-  it('gives a config with no mutate targets a weight of zero, not undefined', () => {
-    expect(configWeights([{ file: 'stryker.empty.config.mjs', mutate: [] }])).toEqual({
-      'stryker.empty.config.mjs': 0,
-    });
-  });
-
-  it('lets a target that is not a readable file weigh nothing instead of throwing', () => {
-    expect(
-      configWeights([{ file: 'stryker.gone.config.mjs', mutate: ['no/such/file.ts'] }]),
-    ).toEqual({ 'stryker.gone.config.mjs': 0 });
-  });
-
-  it('weighs every real config in the repo, so no shard packs on a guess', () => {
-    const weights = configWeights(discoverConfigs());
-    const values = Object.values(weights);
-    expect(values.length).toBeGreaterThan(100);
-    expect(values.every((bytes) => bytes > 0)).toBe(true);
-  });
-});
-
-describe('shardConfigFiles packs by weight', () => {
-  const files = ['heavy', 'medium', 'light', 'tiny'];
-  const weights: Record<string, number> = { heavy: 1000, medium: 400, light: 300, tiny: 10 };
-  const shards = (total: number): string[][] =>
-    Array.from({ length: total }, (_, i) => [
-      ...shardConfigFiles(files, { index: i + 1, total }, weights),
-    ]);
-
-  it('sends the heaviest config to one shard and the rest to the other', () => {
-    const [first = [], second = []] = shards(2);
-    expect(first).toEqual(['heavy']);
-    expect([...second].sort()).toEqual(['light', 'medium', 'tiny']);
-  });
-
-  it('keeps the shards a partition — every config once, none lost, none doubled', () => {
-    const all = shards(3).flat();
-    expect([...all].sort()).toEqual([...files].sort());
-  });
-
-  it('balances the load better than the headcount does', () => {
-    const load = shards(2).map((bucket) =>
-      bucket.reduce((sum, file) => sum + (weights[file] ?? 0), 0),
-    );
-    // 1000 vs 710, not 1400 vs 310 — which is what two-by-two would have given.
-    expect(Math.max(...load) / Math.min(...load)).toBeLessThan(1.5);
-  });
-
-  it('is deterministic, because the six CI jobs each compute their own shard', () => {
-    expect(shardConfigFiles(files, { index: 2, total: 3 }, weights)).toEqual(
-      shardConfigFiles([...files].reverse(), { index: 2, total: 3 }, weights),
-    );
-  });
-
-  it('treats an unweighted config as weightless rather than dropping it', () => {
-    const all = [1, 2].flatMap((index) =>
-      shardConfigFiles([...files, 'unknown'], { index, total: 2 }, weights),
-    );
-    expect(all).toContain('unknown');
-    expect(all).toHaveLength(5);
-  });
-
-  it('still hands back the whole list when there is no shard at all', () => {
-    expect(shardConfigFiles(files, null, weights)).toBe(files);
   });
 });

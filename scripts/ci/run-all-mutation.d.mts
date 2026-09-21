@@ -20,17 +20,9 @@ export interface MutationShard {
   readonly total: number;
 }
 export declare function parseShard(argv: readonly string[]): MutationShard | null;
-/** Config filename → total byte size of the sources its `mutate` names; the
- *  packing hint, read fresh from disk so it cannot drift. */
-export declare function configWeights(
-  configs: readonly DiscoveredMutationConfig[],
-  root?: string,
-): Record<string, number>;
-
 export declare function shardConfigFiles(
   files: readonly string[],
   shard: MutationShard | null,
-  weights?: Record<string, number>,
 ): readonly string[];
 
 /** A `stryker run` that ended badly, told apart by HOW it ended: a signal
