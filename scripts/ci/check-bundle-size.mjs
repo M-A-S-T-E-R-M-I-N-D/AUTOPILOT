@@ -152,7 +152,15 @@ import { gzipSync } from 'node:zlib';
 // reader's parity slice: eleven spliced markdown helpers (quotes, rules,
 // anchors, aligned tables, nested and task lists, strikethrough, self-
 // resolved links). Measured 253.8KB raw / 76.3KB gzip.
-const CORE_RAW_BUDGET = 255 * 1024;
+// Then core raw 255→256KB (2026-09-21) for the task board's unpin button
+// wiring — measured 255.3KB raw / 76.6KB gzip. This raise ALSO closes a
+// drift: the mirrored budget in
+// apps/dashboard/test/server/client-bundle-size-budget.test.ts had already
+// been raised to 256KB while this file stayed at 255KB, so the unit test
+// passed while the landing gate's own run of this script went red. A
+// census in that test now asserts the two files agree — the comment
+// asking to "keep the two in sync" was never enforced by anything.
+const CORE_RAW_BUDGET = 256 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

@@ -3,6 +3,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { gzipSync } from 'node:zlib';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   minifiedCoreJs,
   minifiedProjectJs,
@@ -475,5 +477,39 @@ describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)',
 
     expect(rawBytes).toBeLessThanOrEqual(rawBudget);
     expect(gzipBytes).toBeLessThanOrEqual(gzipBudget);
+  });
+});
+
+/**
+ * THE MIRROR IS REAL NOW (2026-09-21). This file and
+ * `scripts/ci/check-bundle-size.mjs` carry the same four budgets, and every
+ * comment in both asked whoever raised one to "keep the two in sync" — a
+ * request, enforced by nothing. They drifted: the core raw budget was raised
+ * to 256KB here and left at 255KB there, so this suite stayed green while the
+ * landing gate's own run of the script went red on the same bundle. A census
+ * is the only thing that makes a mirror hold.
+ */
+describe('the budgets mirror scripts/ci/check-bundle-size.mjs exactly', () => {
+  const script = readFileSync(
+    fileURLToPath(new URL('../../../../scripts/ci/check-bundle-size.mjs', import.meta.url)),
+    'utf8',
+  );
+
+  /** `const <NAME>_BUDGET = <n> * 1024;` → n, for the one declaration. */
+  function scriptBudget(name: string): number {
+    const match = new RegExp(`^const ${name} = (\\d+) \\* 1024;$`, 'm').exec(script);
+    if (match === null) throw new Error(`check-bundle-size.mjs has no ${name}`);
+    return Number(match[1]) * 1024;
+  }
+
+  it('declares the same core and chunk budgets the script enforces', () => {
+    expect(scriptBudget('CORE_RAW_BUDGET')).toBe(CORE_RAW_BUDGET);
+    expect(scriptBudget('CORE_GZIP_BUDGET')).toBe(CORE_GZIP_BUDGET);
+    expect(scriptBudget('CHUNK_RAW_BUDGET')).toBe(CHUNK_RAW_BUDGET);
+    expect(scriptBudget('CHUNK_GZIP_BUDGET')).toBe(CHUNK_GZIP_BUDGET);
+  });
+
+  it('reads a real declaration, not an accidental match — a missing name throws', () => {
+    expect(() => scriptBudget('NO_SUCH_BUDGET')).toThrow('check-bundle-size.mjs has no');
   });
 });
