@@ -282,7 +282,13 @@ import {
 // reader's parity slice: eleven spliced markdown helpers (quotes, rules,
 // anchors, aligned tables, nested and task lists, strikethrough, self-
 // resolved links). Measured 253.8KB raw / 76.3KB gzip.
-const CORE_RAW_BUDGET = 255 * 1024;
+// Then core raw 255→256KB (2026-09-21) for the task-queue unpin affordance
+// (board web-mtq70ae6-n2youy): /api/task/unpin existed server-side with no
+// UI caller — the row renderer now paints a 🔓 button on a pinned row, wired
+// to the existing route via taskUnpinTip. Measured 255.3KB raw (261442B)
+// against the old 261120B budget: 322 bytes over. Gzip (76.6KB / 78473B)
+// stays well under CORE_GZIP_BUDGET (77KB / 78848B).
+const CORE_RAW_BUDGET = 256 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

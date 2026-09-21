@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+### Added
+
+- feat(dashboard): wire the pinned-task unpin button into the task board
+
 ### Fixed
 
 - fix(dashboard): the phone masthead fits its two-row ceiling

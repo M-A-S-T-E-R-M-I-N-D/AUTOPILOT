@@ -42,6 +42,13 @@ const PROJECT = {
   tasks: [
     { id: 't1', title: 'Ship the thing', status: 'queued', source: 'operator' },
     { id: 't2', title: 'Investigate the flaky test', status: 'needs_approval', source: 'self' },
+    {
+      id: 't3',
+      title: 'Locked-in hotfix',
+      status: 'in_progress',
+      source: 'operator',
+      pinned: true,
+    },
   ],
 };
 
@@ -137,6 +144,34 @@ describe('task action buttons explain themselves on hover/focus', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/task/delete',
       expect.objectContaining({ body: JSON.stringify({ id: 't1' }) }),
+    );
+  });
+
+  it('gives the pinned row an unpin button with a data-tip matching its aria-label, absent elsewhere', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    const unpinBtn = document.querySelector('[data-task-unpin="t3"]');
+    expect(unpinBtn).toBeTruthy();
+    expect(unpinBtn?.getAttribute('data-tip')).toBe(
+      'Release the operator pin from "Locked-in hotfix" — the next triage will rank it automatically',
+    );
+    expect(unpinBtn?.getAttribute('data-tip')).toBe(unpinBtn?.getAttribute('aria-label'));
+    expect(document.querySelector('[data-task-unpin="t1"]')).toBeFalsy();
+  });
+
+  it('clicking the unpin button releases the pin via /api/task/unpin', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    const unpinBtn = document.querySelector('[data-task-unpin="t3"]') as HTMLButtonElement;
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockClear();
+
+    unpinBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/task/unpin',
+      expect.objectContaining({ body: JSON.stringify({ project: 'p1', ids: ['t3'] }) }),
     );
   });
 });
