@@ -30,7 +30,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - feat(dashboard): preflight — the go/no-go every launch path shares
 - feat(dashboard): the fly-fit "Work that fits you" head drops its emoji for the vendored icon
 - feat(dashboard): wire the pinned-task unpin button into the task board
-- feat(dashboard): wire the pinned-task unpin button into the task board
 
 ### Fixed
 
@@ -50,6 +49,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - fix(dashboard): the masthead icons move as one cluster, never split by a wrap
 - fix(dashboard): the phone masthead fits its two-row ceiling
 - fix(dashboard): zero the control row gap so the phone masthead clears its ceiling
+- fix(ci): raise the core raw bundle budget to 256kb and make the mirror a census
+- fix(ci): tell a killed mutation config apart from one with a survivor
 
 ## [0.52.0] — 2026-09-18
 

@@ -208,26 +208,89 @@ export function buildReleaseTagMessage(
  * heading with nothing under it. Hand-written Unreleased content always
  * wins untouched; the seed only ever fills silence.
  */
+function unreleasedSection(changelog: string): { insertAt: number; body: string } | null {
+  const match = UNRELEASED_HEADING.exec(changelog);
+  if (match === null) return null;
+  const insertAt = match.index + match[0].length;
+  const rest = changelog.slice(insertAt);
+  const nextHeading = rest.search(/^## /m);
+  return { insertAt, body: nextHeading === -1 ? rest : rest.slice(0, nextHeading) };
+}
+
+/** Whatever is accruing under `## [Unreleased]` right now — the text between
+ *  that heading and the next `## `. Null when the changelog has no Unreleased
+ *  heading at all, which {@link cutChangelogRelease} treats as malformed. */
+export function unreleasedBody(changelog: string): string | null {
+  return unreleasedSection(changelog)?.body ?? null;
+}
+
+/**
+ * The release-worthy subjects a hand-written `[Unreleased]` section never
+ * mentions.
+ *
+ * {@link cutChangelogRelease} seeds a section only when Unreleased is EMPTY,
+ * because hand-written content always wins untouched. That law has a hole the
+ * v0.22.0 empty-section lesson did not cover: a section written once and then
+ * left behind. Two bullets are not silence, so no seed fires — and the other
+ * ninety-seven commits would have shipped invisibly (caught by hand,
+ * 2026-09-21, one step before the cut).
+ *
+ * Release-worthy means exactly what {@link groupedReleaseNotes} publishes,
+ * asked of that function itself rather than re-encoding its three patterns
+ * here — the second copy of a rule is the one that drifts. A subject counts
+ * as covered when the body contains it verbatim, which is the form the
+ * generated bullets take.
+ */
+export function unreleasedGaps(body: string, subjects: readonly string[]): string[] {
+  return subjects.filter(
+    (subject) => groupedReleaseNotes([subject]) !== '' && !body.includes(subject),
+  );
+}
+
+/** The heading the commits nobody wrote about are filed under. Deliberately
+ *  NOT `### Added`/`### Fixed`: appending into groups the author already
+ *  opened would give the section two headings of the same name, and the
+ *  honest label for these lines is what they are — the rest of the release. */
+const CAUGHT_UP_HEADING = '### Also in this release';
+
 export function cutChangelogRelease(
   changelog: string,
   version: string,
   date: string,
   subjects?: readonly string[],
 ): string {
-  const match = UNRELEASED_HEADING.exec(changelog);
-  if (!match) {
+  const unreleased = unreleasedSection(changelog);
+  if (unreleased === null) {
     throw new Error('cutChangelogRelease: no "## [Unreleased]" heading found in the changelog');
   }
-  const insertAt = match.index + match[0].length;
+  const insertAt = unreleased.insertAt;
   const rest = changelog.slice(insertAt);
-  const nextHeading = rest.search(/^## /m);
-  const unreleasedBody = nextHeading === -1 ? rest : rest.slice(0, nextHeading);
-  const seed =
-    subjects !== undefined && unreleasedBody.trim() === '' ? groupedReleaseNotes(subjects) : '';
-  const section = seed
-    ? `\n\n## [${version}] — ${date}\n\n${seed}`
-    : `\n\n## [${version}] — ${date}`;
-  return changelog.slice(0, insertAt) + section + rest;
+  const head = `\n\n## [${version}] — ${date}`;
+  if (subjects === undefined) return changelog.slice(0, insertAt) + head + rest;
+
+  if (unreleased.body.trim() === '') {
+    const seed = groupedReleaseNotes(subjects);
+    return changelog.slice(0, insertAt) + (seed ? `${head}\n\n${seed}` : head) + rest;
+  }
+
+  // The section is not silent, so the seed stands down and every hand-written
+  // line survives untouched — but the commits it never mentions are appended
+  // under their own heading rather than shipping invisibly. Writing the
+  // section once and then letting the branch run on is how a release came one
+  // step away from publishing two bullets for ninety-nine commits
+  // (caught by hand, 2026-09-21).
+  const missing = unreleasedGaps(unreleased.body, subjects);
+  if (missing.length === 0) return changelog.slice(0, insertAt) + head + rest;
+  const caughtUp = `${CAUGHT_UP_HEADING}\n\n${missing.map((subject) => `- ${subject}`).join('\n')}`;
+  // The blank lines the section already ended with are put back after the
+  // appended block, so the next `## ` heading keeps exactly the separation it
+  // had — and a section with none (Unreleased last in the file) gains none.
+  const written = unreleased.body.trimEnd();
+  const body = `${written}
+
+${caughtUp}${unreleased.body.slice(written.length)}`;
+  const after = changelog.slice(insertAt + unreleased.body.length);
+  return changelog.slice(0, insertAt) + head + body + after;
 }
 
 /** A planned release: the bump that triggered it, the version it lands on, and the changelog already cut to match. */
