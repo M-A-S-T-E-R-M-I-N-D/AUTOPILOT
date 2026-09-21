@@ -24,3 +24,17 @@ export declare function shardConfigFiles(
   files: readonly string[],
   shard: MutationShard | null,
 ): readonly string[];
+
+/** A `stryker run` that ended badly, told apart by HOW it ended: a signal
+ *  (the process was killed, no score exists) reads differently from exit 1
+ *  (a mutant survived). */
+export declare function mutationFailureReason(error: unknown): string;
+
+export interface MutationFailure {
+  readonly file: string;
+  readonly reason: string;
+}
+export declare function formatFailureSummary(
+  total: number,
+  failures: readonly MutationFailure[],
+): string[];

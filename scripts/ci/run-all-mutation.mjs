@@ -117,6 +117,47 @@ function touchedFilesSince(ref) {
     .filter(Boolean);
 }
 
+/**
+ * Stryker exits 1 when a config lands below its break threshold — that is
+ * the ONE failure this sweep is designed to produce, and it means a mutant
+ * survived. Any other ending is infrastructure.
+ */
+const STRYKER_BREAK_EXIT = 1;
+
+/** Why a `stryker run` failed, in a phrase an operator can act on.
+ *
+ *  `execSync` throws an Error carrying `status` (the exit code) and
+ *  `signal`. A signal means something OUTSIDE the run killed the process —
+ *  the Linux OOM killer prints a bare `Killed` and nothing else — so no
+ *  mutation score was ever produced. That is the opposite diagnosis from a
+ *  surviving mutant, and it needs the opposite response: give the job more
+ *  headroom, not another test.
+ *
+ *  The runner used to swallow the error entirely and print only `FAILED`,
+ *  which made the two indistinguishable. A config that was SIGKILLed at
+ *  80 of 426 mutants read exactly like a config with a live survivor, and
+ *  telling them apart meant downloading and scrolling a six-shard log.
+ */
+export function mutationFailureReason(error) {
+  const signal = error?.signal ?? null;
+  if (signal !== null)
+    return `killed by ${signal} — the process died before scoring, so this is the environment (memory is the usual cause), not a surviving mutant`;
+  const status = error?.status ?? null;
+  if (status === STRYKER_BREAK_EXIT) return 'exit 1 — below the break threshold: a mutant survived';
+  if (typeof status === 'number') return `exit ${status} — stryker failed before it could score`;
+  return 'no exit code and no signal — stryker never ran';
+}
+
+/** The runner's closing lines: the tally, then every failure BY NAME with
+ *  its reason. The tally alone was never enough — `104/110 passed` does not
+ *  say which six, and the sweep prints tens of thousands of lines above it. */
+export function formatFailureSummary(total, failures) {
+  const lines = [`run-all-mutation: ${total - failures.length}/${total} passed`];
+  for (const { file, reason } of failures)
+    lines.push(`run-all-mutation: FAILED ${file} — ${reason}`);
+  return lines;
+}
+
 function main() {
   const configs = discoverConfigs();
   if (configs.length === 0) {
@@ -146,7 +187,7 @@ function main() {
     process.exit(0);
   }
 
-  let failed = 0;
+  const failures = [];
   for (const [i, cfg] of scoped.entries()) {
     console.log(`\n[${i + 1}/${scoped.length}] stryker run ${cfg}`);
     try {
@@ -155,14 +196,18 @@ function main() {
         cwd: ROOT,
         stdio: 'inherit',
       });
-    } catch {
-      failed += 1;
-      console.error(`run-all-mutation: FAILED — ${cfg} (continuing; summary at the end)`);
+    } catch (error) {
+      const reason = mutationFailureReason(error);
+      failures.push({ file: cfg, reason });
+      console.error(
+        `run-all-mutation: FAILED — ${cfg}: ${reason} (continuing; summary at the end)`,
+      );
     }
   }
 
-  console.log(`\nrun-all-mutation: ${scoped.length - failed}/${scoped.length} passed`);
-  if (failed > 0) process.exit(1);
+  console.log('');
+  for (const line of formatFailureSummary(scoped.length, failures)) console.log(line);
+  if (failures.length > 0) process.exit(1);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

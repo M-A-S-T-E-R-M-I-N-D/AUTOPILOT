@@ -13,6 +13,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   discoverConfigs,
+  formatFailureSummary,
+  mutationFailureReason,
   parseDiffRef,
   parseShard,
   selectConfigFiles,
@@ -93,5 +95,79 @@ describe('discoverConfigs', () => {
     expect(configs.length).toBeGreaterThanOrEqual(100);
     const found = configs.find((c) => c.file === 'stryker.dashboard-gate-schedule.config.mjs');
     expect(found?.mutate).toEqual(['apps/dashboard/src/flight/gate-schedule.ts']);
+  });
+});
+
+/**
+ * A FAILED CONFIG MUST SAY WHY (2026-09-21). The nightly sweep went red on a
+ * config that had been green at the same commit the day before. The log said
+ * only `FAILED — stryker.engine-claude-cli.config.mjs`, which is what it also
+ * says when a mutant survives, so the diagnosis cost a download of the whole
+ * six-shard log to find one bare `Killed` line: the process had been killed
+ * at 80 of 426 mutants and never scored anything. Those two endings call for
+ * opposite responses — write a test, or give the job headroom — and the
+ * runner used to print them identically.
+ */
+describe('mutationFailureReason', () => {
+  it('names the signal and says a killed process is the environment, not a survivor', () => {
+    const reason = mutationFailureReason({ status: null, signal: 'SIGKILL' });
+    expect(reason).toContain('SIGKILL');
+    expect(reason).toContain('not a surviving mutant');
+  });
+
+  it('reads exit 1 as the break threshold, which is the one failure the sweep is for', () => {
+    expect(mutationFailureReason({ status: 1, signal: null })).toBe(
+      'exit 1 — below the break threshold: a mutant survived',
+    );
+  });
+
+  it('reports any other exit code as stryker failing before it could score', () => {
+    expect(mutationFailureReason({ status: 127, signal: null })).toBe(
+      'exit 127 — stryker failed before it could score',
+    );
+  });
+
+  it('prefers the signal over the exit code when a throw carries both', () => {
+    expect(mutationFailureReason({ status: 137, signal: 'SIGKILL' })).toContain(
+      'killed by SIGKILL',
+    );
+  });
+
+  it('survives a throw that carries neither, rather than printing "undefined"', () => {
+    expect(mutationFailureReason(undefined)).toBe('no exit code and no signal — stryker never ran');
+    expect(mutationFailureReason({})).toBe('no exit code and no signal — stryker never ran');
+  });
+
+  it('treats exit code 0 as a real code, not as a missing one', () => {
+    expect(mutationFailureReason({ status: 0, signal: null })).toBe(
+      'exit 0 — stryker failed before it could score',
+    );
+  });
+});
+
+describe('formatFailureSummary', () => {
+  it('is the tally alone when every config passed', () => {
+    expect(formatFailureSummary(110, [])).toEqual(['run-all-mutation: 110/110 passed']);
+  });
+
+  it('names every failing config and its reason under the tally', () => {
+    const lines = formatFailureSummary(110, [
+      { file: 'stryker.engine-claude-cli.config.mjs', reason: 'killed by SIGKILL' },
+      { file: 'stryker.dashboard-markdown.config.mjs', reason: 'exit 1 — a mutant survived' },
+    ]);
+    expect(lines[0]).toBe('run-all-mutation: 108/110 passed');
+    expect(lines[1]).toBe(
+      'run-all-mutation: FAILED stryker.engine-claude-cli.config.mjs — killed by SIGKILL',
+    );
+    expect(lines[2]).toBe(
+      'run-all-mutation: FAILED stryker.dashboard-markdown.config.mjs — exit 1 — a mutant survived',
+    );
+    expect(lines).toHaveLength(3);
+  });
+
+  it('subtracts the failures from the total rather than reporting the total twice', () => {
+    expect(formatFailureSummary(3, [{ file: 'a', reason: 'r' }])[0]).toBe(
+      'run-all-mutation: 2/3 passed',
+    );
   });
 });

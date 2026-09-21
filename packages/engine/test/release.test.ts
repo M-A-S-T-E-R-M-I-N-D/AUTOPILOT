@@ -7,6 +7,8 @@ import {
   computeBump,
   bumpVersion,
   cutChangelogRelease,
+  unreleasedBody,
+  unreleasedGaps,
   groupedReleaseNotes,
   buildReleaseTagMessage,
   planRelease,
@@ -375,7 +377,10 @@ describe('planRelease', () => {
       ok: true,
       bump: 'patch',
       version: '0.12.4',
-      changelog: cutChangelogRelease(changelog, '0.12.4', '2026-08-12'),
+      changelog: cutChangelogRelease(changelog, '0.12.4', '2026-08-12', [
+        'fix: a bug',
+        'feat: a thing',
+      ]),
     });
   });
 
@@ -404,7 +409,7 @@ describe('planRelease', () => {
       ok: true,
       bump: 'major',
       version: '1.0.0',
-      changelog: cutChangelogRelease(changelog, '1.0.0', '2026-08-12'),
+      changelog: cutChangelogRelease(changelog, '1.0.0', '2026-08-12', ['feat!: breaking change']),
     });
   });
 });
@@ -778,5 +783,179 @@ describe('executeRelease', () => {
       ).rejects.toThrow(InvalidMilestoneTagError);
       expect(tagCalls).toHaveLength(0);
     }
+  });
+});
+
+/**
+ * A SECTION WRITTEN ONCE AND LEFT BEHIND (2026-09-21). `cutChangelogRelease`
+ * seeds a section only when Unreleased is EMPTY, because hand-written content
+ * always wins untouched — the v0.22.0 lesson. That law has a hole v0.22.0 did
+ * not cover: two bullets are not silence, so no seed fires, and a release came
+ * one step from publishing two lines for ninety-nine commits. The seed fills
+ * total silence; this fills partial silence.
+ */
+describe('unreleasedBody', () => {
+  it('returns the text between the Unreleased heading and the next section', () => {
+    const changelog = ['## [Unreleased]', '', '- a bullet', '', '## [0.1.0] — 2026-01-01', ''].join(
+      '\n',
+    );
+    expect(unreleasedBody(changelog)).toBe('\n\n- a bullet\n\n');
+  });
+
+  it('reads to the very end when no section follows Unreleased', () => {
+    expect(unreleasedBody('## [Unreleased]\n\n- only this\n')).toBe('\n\n- only this\n');
+  });
+
+  it('is an empty string, not null, for a section that exists but is empty', () => {
+    expect(unreleasedBody('## [Unreleased]\n\n## [0.1.0] — 2026-01-01\n')).toBe('\n\n');
+  });
+
+  it('is null when there is no Unreleased heading at all', () => {
+    expect(unreleasedBody('# Changelog\n\n## [0.1.0] — 2026-01-01\n')).toBeNull();
+  });
+});
+
+describe('unreleasedGaps', () => {
+  const body = '\n\n- feat: the one that was written down\n';
+
+  it('names the release-worthy subjects the body never mentions', () => {
+    expect(
+      unreleasedGaps(body, ['feat: the one that was written down', 'fix: the one that was not']),
+    ).toEqual(['fix: the one that was not']);
+  });
+
+  it('counts a subject as covered only when the body has it verbatim', () => {
+    expect(unreleasedGaps(body, ['feat: the one that was written'])).toEqual([]);
+    expect(unreleasedGaps(body, ['feat: written down but reworded'])).toEqual([
+      'feat: written down but reworded',
+    ]);
+  });
+
+  it('ignores subjects no release note would publish anyway (docs, chore, test)', () => {
+    expect(unreleasedGaps('', ['docs: a typo', 'chore: a dep', 'test: a case'])).toEqual([]);
+  });
+
+  it('treats perf as release-worthy, the same way the grouped notes do', () => {
+    expect(unreleasedGaps('', ['perf: faster'])).toEqual(['perf: faster']);
+  });
+
+  it('reports every release-worthy subject when the body is empty', () => {
+    expect(unreleasedGaps('', ['feat: a', 'fix: b'])).toEqual(['feat: a', 'fix: b']);
+  });
+
+  it('reports nothing when the body already mentions all of them', () => {
+    expect(unreleasedGaps('- feat: a\n- fix: b\n', ['feat: a', 'fix: b'])).toEqual([]);
+  });
+});
+
+describe('cutChangelogRelease completes a section that fell behind', () => {
+  const behind = [
+    '# Changelog',
+    '',
+    '## [Unreleased]',
+    '',
+    '### Added',
+    '',
+    '- feat: the one someone wrote down',
+    '',
+    '## [0.1.0] — 2026-01-01',
+    '',
+    '- the old release',
+    '',
+  ].join('\n');
+
+  it('appends the commits the section never mentions, under their own heading', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21', [
+      'feat: the one someone wrote down',
+      'fix: the one that arrived after',
+      'feat: and this one too',
+    ]);
+    expect(cut).toContain('### Also in this release');
+    expect(cut).toContain('- fix: the one that arrived after');
+    expect(cut).toContain('- feat: and this one too');
+  });
+
+  it('leaves every hand-written line exactly where it was', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21', ['fix: the one that arrived']);
+    expect(cut).toContain('### Added\n\n- feat: the one someone wrote down');
+    expect(cut.indexOf('### Added')).toBeLessThan(cut.indexOf('### Also in this release'));
+  });
+
+  it('keeps the caught-up block inside the NEW dated section, above the older one', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21', ['fix: arrived after']);
+    expect(cut.indexOf('## [0.2.0] — 2026-09-21')).toBeLessThan(
+      cut.indexOf('### Also in this release'),
+    );
+    expect(cut.indexOf('### Also in this release')).toBeLessThan(cut.indexOf('## [0.1.0]'));
+  });
+
+  it('adds nothing when the section already mentions every release-worthy commit', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21', [
+      'feat: the one someone wrote down',
+      'chore: not a release note',
+    ]);
+    expect(cut).not.toContain('### Also in this release');
+    expect(cut).toBe(cutChangelogRelease(behind, '0.2.0', '2026-09-21'));
+  });
+
+  it('still seeds — not "also in this release" — when the section is empty', () => {
+    const empty = ['# Changelog', '', '## [Unreleased]', '', '## [0.1.0] — 2026-01-01', ''].join(
+      '\n',
+    );
+    const cut = cutChangelogRelease(empty, '0.2.0', '2026-09-21', ['feat: a thing']);
+    // Exact, not `toContain`: the section that FOLLOWS Unreleased must appear
+    // exactly once. A cut that pasted the whole changelog back in place of
+    // its own head would still contain every fragment a looser assertion
+    // looks for.
+    expect(cut).toBe(
+      [
+        '# Changelog',
+        '',
+        '## [Unreleased]',
+        '',
+        '## [0.2.0] — 2026-09-21',
+        '',
+        '### Added',
+        '',
+        '- feat: a thing',
+        '',
+        '## [0.1.0] — 2026-01-01',
+        '',
+      ].join('\n'),
+    );
+    expect(cut).not.toContain('### Also in this release');
+  });
+
+  it('leaves a blank line between the hand-written body and the appended block', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21', ['fix: arrived after']);
+    expect(cut).toContain('- feat: the one someone wrote down\n\n### Also in this release');
+  });
+
+  it('separates the appended block from the section that follows', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21', ['fix: arrived after']);
+    expect(cut).toContain('- fix: arrived after\n\n## [0.1.0]');
+  });
+
+  it('touches nothing when no subjects are supplied at all', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21');
+    expect(cut).not.toContain('### Also in this release');
+    expect(cut).toContain('### Added\n\n- feat: the one someone wrote down');
+  });
+
+  it('puts each caught-up subject on its own line', () => {
+    const cut = cutChangelogRelease(behind, '0.2.0', '2026-09-21', ['fix: one', 'fix: two']);
+    expect(cut).toContain('- fix: one\n- fix: two');
+  });
+
+  it('carries the caught-up commits through planRelease, so a release can hide none', () => {
+    const plan = planRelease(
+      '0.1.0',
+      behind,
+      ['fix: arrived after the section was written'],
+      '2026-09-21',
+    );
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.changelog).toContain('- fix: arrived after the section was written');
   });
 });

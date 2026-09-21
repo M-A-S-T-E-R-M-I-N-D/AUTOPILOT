@@ -49,6 +49,12 @@ is the durable record so the discipline is repeatable (and enforced by CI).
 - Every milestone gets an entry with what was **Added / Changed / Fixed**, what
   was **Verified**, and what **Remains** (with a backlog cross-reference) — no
   overclaiming.
+- **The cut completes the section; it never trims it.** Hand-written lines
+  always survive untouched, and any `feat`/`fix`/`perf` commit the section
+  does not name verbatim is appended under `### Also in this release`. An
+  empty section is still seeded whole. Between them, a version can never
+  ship with commits it does not mention — write as much or as little as you
+  like, and the rest catches itself up.
 
 ## Git tags — the post-genesis reality
 
