@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.53.0] — 2026-09-21
+
 ### Added
 
 - feat(dashboard): the PR review Diagnose button drops its wrench emoji for the vendored icon
@@ -51,6 +53,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 - fix(dashboard): zero the control row gap so the phone masthead clears its ceiling
 - fix(ci): raise the core raw bundle budget to 256kb and make the mirror a census
 - fix(ci): tell a killed mutation config apart from one with a survivor
+
+### Also in this release
+
+- perf(ci): pack the mutation shards by work instead of by headcount
+- fix(release): count changes, not commits, in the generated release notes
+- feat(flight): reconcile GitHub-assigned issues into owned-work board tasks
+- fix(release): the cut completes a changelog section that fell behind
 
 ## [0.52.0] — 2026-09-18
 
