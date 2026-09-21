@@ -99,6 +99,7 @@ import {
   taskTitleTip as sharedTaskTitleTip,
   taskMoveTip as sharedTaskMoveTip,
   taskFocusTip as sharedTaskFocusTip,
+  taskUnpinTip as sharedTaskUnpinTip,
   taskActionTip as sharedTaskActionTip,
   taskDimensionChip as sharedTaskDimensionChip,
   taskSeverityChip as sharedTaskSeverityChip,
@@ -2386,6 +2387,7 @@ ${sharedTaskMoveTip.toString()}
 // 0002 "shell decomposition", slice 2) — their real compiled source via
 // .toString(), not a hand-retyped copy.
 ${sharedTaskFocusTip.toString()}
+${sharedTaskUnpinTip.toString()}
 ${sharedTaskActionTip.toString()}
 // taskDimensionChip/taskSeverityChip are generated FROM web/task-queue.ts
 // below (epic 0002 "shell decomposition") — their real compiled source via
@@ -2572,6 +2574,20 @@ function tasksSection(c) {
         focusBtn.setAttribute('data-tip', focusTip);
         focusBtn.setAttribute('aria-label', focusTip);
         li.appendChild(focusBtn);
+        // Unpin (🔓) — only on a row the operator explicitly reordered
+        // (t.pinned); releases the pin so the next triage ranks it
+        // automatically. /api/task/unpin has existed since v16 but until now
+        // was reachable only by a direct API call, never from this UI.
+        if (t.pinned) {
+          var unpinBtn = el('button', 'task-unpin-btn');
+          unpinBtn.appendChild(iconEl('lock-open'));
+          unpinBtn.setAttribute('type', 'button');
+          unpinBtn.setAttribute('data-task-unpin', t.id);
+          var unpinTip = taskUnpinTip(t.title);
+          unpinBtn.setAttribute('data-tip', unpinTip);
+          unpinBtn.setAttribute('aria-label', unpinTip);
+          li.appendChild(unpinBtn);
+        }
       }
       li.appendChild(statusPill('pill task-', t.status, TASK_STATUS_KEYS));
       // Title itself was the last silent element on the row — TaskEntry carries
@@ -3046,6 +3062,22 @@ document.addEventListener('click', function (e) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id: b.getAttribute('data-task-focus'), focus: next }),
+  })
+    .then(function () { refresh(); })
+    .catch(function () { b.disabled = false; });
+});
+// Unpin (🔓) — release the operator pin so the next takeoff triage folds the
+// task back into the model's own ranking; priority itself is left alone.
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-task-unpin]');
+  if (!b) return;
+  var pid = document.body.dataset.project || '';
+  if (!pid) return;
+  b.disabled = true;
+  fetch('/api/task/unpin', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid, ids: [b.getAttribute('data-task-unpin')] }),
   })
     .then(function () { refresh(); })
     .catch(function () { b.disabled = false; });
