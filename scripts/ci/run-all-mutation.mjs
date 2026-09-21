@@ -33,7 +33,7 @@
  *                  instead of running every config.
  */
 import { execFileSync, execSync } from 'node:child_process';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -100,72 +100,29 @@ export function parseShard(argv) {
 }
 
 /**
- * How heavy each config is expected to be, measured from disk: the total byte
- * size of the source files its `mutate` array names.
+ * The i-th of n interleaved slices of `files` (sorted discovery order, so
+ * every shard gets a spread of packages rather than one package's tail).
  *
- * Stryker's mutant count tracks source size closely — Pearson r = 0.909 over
- * all 110 configs, measured against a full sweep's own instrumentation counts
- * (2026-09-21). Bytes cost one `stat` each, are read fresh every run, and so
- * cannot drift the way a checked-in census of mutant counts would.
+ * WEIGHTING WAS TRIED AND MEASURED WORSE (2026-09-21). The six shards carry
+ * uneven mutant counts under this split — 2460, 2428, 1922, 1810, 1620 and
+ * 967 on the 2026-09-20 sweep — which looks like an obvious imbalance to
+ * fix. Source-file size predicts mutant count well (Pearson r = 0.909 over
+ * all 110 configs), so packing heaviest-into-lightest by byte size evened the
+ * mutant counts out. It also evened the BYTES to within a kilobyte across all
+ * six shards, and the sweep still ran 3, 4, 6, 9, 10 and 11 minutes: a worse
+ * spread than the 5-8 minutes interleaving produces, and the slowest shard no
+ * faster.
  *
- * A `mutate` entry that is not a readable file weighs nothing rather than
- * throwing: `--diff` mode already tolerates an unparseable `mutate` array, and
- * a weight is a hint for packing, never a correctness input.
+ * Mutant count is not runtime. What a mutant costs is a full run of that
+ * config's vitest suite, and suite speed varies far more between configs than
+ * mutant count varies with file size, so both proxies optimise the wrong
+ * quantity. Anyone revisiting this needs measured per-config RUNTIME, which
+ * means a census that has to be kept fresh — weigh that maintenance against
+ * the three minutes on the table before starting.
  */
-export function configWeights(configs, root = ROOT) {
-  const weights = {};
-  for (const { file, mutate } of configs) {
-    let bytes = 0;
-    for (const target of mutate) {
-      try {
-        bytes += statSync(join(root, target)).size;
-      } catch {
-        // not a readable file — contributes no weight
-      }
-    }
-    weights[file] = bytes;
-  }
-  return weights;
-}
-
-/**
- * The i-th of n shards, packed heaviest config into the lightest shard
- * (longest-processing-time-first, the classic greedy makespan heuristic).
- *
- * Interleaving balanced the COUNT of configs and left the WORK two and a half
- * times apart. Measured on the 2026-09-20 full sweep, the six shards carried
- * 2460, 2428, 1922, 1810, 1620 and 967 mutants: five jobs idled while one set
- * the wall clock. Packing by weight brings that spread to 1.62x and takes
- * about fifteen percent off the heaviest shard.
- *
- * Every shard computes this independently, in its own CI job, so the result
- * must depend only on the inputs: the sort is total (weight, then filename)
- * and the tie-breaks are fixed, which makes the six jobs agree on a partition
- * without talking to each other.
- *
- * `weights` is optional. Left out, every config weighs the same and the pack
- * degrades to plain round-robin — exactly the interleaving this replaced.
- */
-export function shardConfigFiles(files, shard, weights = {}) {
+export function shardConfigFiles(files, shard) {
   if (!shard) return files;
-  const heaviestFirst = [...files].sort((a, b) => {
-    const byWeight = (weights[b] ?? 0) - (weights[a] ?? 0);
-    if (byWeight !== 0) return byWeight;
-    return a < b ? -1 : a > b ? 1 : 0;
-  });
-  const buckets = Array.from({ length: shard.total }, () => []);
-  const load = new Array(shard.total).fill(0);
-  for (const file of heaviestFirst) {
-    let pick = 0;
-    for (let i = 1; i < shard.total; i += 1) {
-      const lighter = load[i] < load[pick];
-      const tiedButEmptier = load[i] === load[pick] && buckets[i].length < buckets[pick].length;
-      if (lighter || tiedButEmptier) pick = i;
-    }
-    buckets[pick].push(file);
-    load[pick] += weights[file] ?? 0;
-  }
-  return buckets[shard.index - 1];
+  return files.filter((_, i) => i % shard.total === shard.index - 1);
 }
 
 function touchedFilesSince(ref) {
@@ -232,7 +189,6 @@ function main() {
   const scoped = shardConfigFiles(
     selectConfigFiles(configs, diffRef, diffRef === null ? [] : touchedFilesSince(diffRef)),
     shard,
-    configWeights(configs),
   );
   if (shard)
     console.log(
