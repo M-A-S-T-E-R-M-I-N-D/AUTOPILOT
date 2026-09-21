@@ -832,6 +832,12 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // decide-and-execute class `flight/mirror-pass` above is flagged for,
   // ending in neither `-execute.ts` nor any security keyword.
   'flight/taxonomy-seed',
+  // The owned-work reconciler (EPIC 0033 slice 1, board web-mubk7ox9-z7cdu0):
+  // reads `gh issue list --assignee @me` and upserts/refocuses/releases
+  // claim-contract-marked board tasks from it — the same decide-and-apply
+  // class `flight/mirror-pass` above is flagged for, ending in neither
+  // `-execute.ts` nor any security keyword.
+  'flight/owned-work-reconcile',
   // Dispatches the ARCHITECT chat control tools' write/DESTRUCTIVE store
   // operations (tasks_create/set-status/reorder/delete, project_reset) and
   // owns their argument validation itself — server.ts leaves it only the

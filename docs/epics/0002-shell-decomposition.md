@@ -3225,6 +3225,59 @@ plus the full gate (typecheck/lint/format:check/9575 tests/build) pass.
 `ap-mtm4qzty-1`/`ap-mtq191kz-1`'s fly.ts-hardening is now fully closed —
 slices (a) through (d) all shipped, nothing further outstanding.
 
+Design pass on `ap-mtm2kspj-2` ("REGISTRY DERIVATION slice 3", `web-mteostss-7u5oaq`:
+assemble `shell.ts`'s `clientJs()` splice sequence via `assembleFromManifest`
+instead of hand-written splice lines), 2026-09-21: a design pass, not an
+implementation attempt — the same "attempted it, found a real blocker,
+deferred it precisely" shape `ap-mtlf58gi-1`'s own slice-2 verdict already
+used above. Verified against the live checkout: `clientJs()`/`coreClientJs()`/
+`projectClientJs()`/`panelsClientJs()` (`shell.ts:4410-4449`) are already thin
+compositions of same-file function calls — the actual hand-written splice
+sequence the task means lives inside `fleetJs()`'s own template-literal body,
+165 `${sharedXxx.toString()}` call sites at time of writing (`grep -c
+"toString()" shell.ts`), each already avoiding hand-retyped duplication by
+splicing a shared module's real compiled source rather than a copy — the
+manual part is only that each site is an explicit hand-written line rather
+than assembled programmatically from a manifest.
+
+The blocker is the same shape slice 2's own verdict found for
+`discoverFeatureModules`, one level further in: `assembleFromManifest`
+(`scripts/codemod/generate-splice-manifest.mjs:1104`) is `async` and lives in
+`scripts/codemod/` — dev tooling `apps/dashboard/package.json`'s `"files":
+["dist"]` never packages, so production `shell.ts` cannot import it at
+runtime the way this epic's own test suites do. Even setting packaging aside,
+`fleetJs()`/`clientJs()` are synchronous functions called on every HTTP
+render — an async assembler cannot sit in that call path without inventing a
+build-time cache. A real wiring therefore cannot be "`clientJs()` calls
+`assembleFromManifest`" as the task title literally reads; it has to run the
+assembly at CODEGEN/BUILD time and write the ASSEMBLED OUTPUT into a
+checked-in generated file — the same committed-artifact pattern
+`web/features/index.ts` already established for feature modules
+(`ap-mtm2kspj-1`, above), but applied here to a hand-authored file this very
+epic's 84+ historical cuts, and every concurrent fleet sibling's feature
+work, edit by hand every day. Regenerating it trades a human-editable file
+for a generated one, at the cost of every future panel/splice edit needing
+to change source config and rerun codegen instead of editing `shell.ts`
+directly — a workflow change substantial enough to need its own deliberate
+design/consensus pass, not a mechanical "wire it up."
+
+Separately, a value check: the byte-for-byte reconstruction suite already
+proves `assembleFromManifest` reproduces all seven of `shell.ts`'s discovered
+assembler functions exactly, off the manifest alone, including a real
+disk-round-trip. That test-level proof already gives the epic's drift-guard
+acceptance criterion (a stale/hand-desynced splice fails loudly) without
+`shell.ts` itself needing to change — regenerating the file's own body buys
+same-file-drift-safety `shell.ts` doesn't currently lack, at a real
+day-to-day editing-workflow cost every future decomposition cut in this epic
+would pay. Recommendation: `ap-mtm2kspj-2` stays open, re-scoped — actual
+codegen-writes-`shell.ts` wiring should wait for a deliberate build-vs-runtime
+design decision plus a concrete pain point (165 hand-written sites becoming
+costly to maintain by hand) rather than a mid-fleet attempt, the same
+"narrowed next slice, not a config toggle" call `ap-mtlf58gi-1` made for
+`chunks.ts`. No code changed this pass — `shell.ts`'s 165 splice sites and
+`scripts/codemod/generate-splice-manifest.mjs` remain exactly as they were;
+gate green (typecheck/lint/format:check/build; this is a docs-only change).
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),

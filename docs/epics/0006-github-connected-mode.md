@@ -210,3 +210,10 @@ Epic 0007 owns wiring that field in once its pool-claim flow lands.
 - GitHub guidance researched 2026-08: GitHub Apps + device flow for distributed
   tools; fine-grained PATs for personal scripts; `gh` as the official device-flow
   client. (docs.github.com — apps/oauth-apps + REST authentication.)
+- `docs/epics/0029-settings-and-the-masthead.md` (2026-09-13) later added the
+  login/switch/logout verbs to the same CONNECT popover GitHub section
+  (`connect-panel.ts`, `connection/gh-login.ts`, `POST
+  /api/connection/gh/{login,switch,logout}`) — this epic's slice 1 (presence/
+  auth/identity detection only) predates that addition; the "no token ever
+  persisted" constraint above still holds there too, by the same grep-provable
+  construction.

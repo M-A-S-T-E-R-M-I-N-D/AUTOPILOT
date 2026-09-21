@@ -156,15 +156,58 @@ const UNRELEASED_HEADING = /^## \[Unreleased\]$/m;
  * CHANGELOG section and the GitHub Release notes (`--notes-from-tag`) can
  * never tell two different stories.
  */
-export function groupedReleaseNotes(subjects: readonly string[]): string {
-  const sections: Array<[string, RegExp]> = [
+function releaseSections(): Array<[string, RegExp]> {
+  return [
     ['Added', /^feat[(!:]/],
     ['Fixed', /^fix[(!:]/],
     ['Performance', /^perf[(!:]/],
   ];
+}
+
+/**
+ * The changes a release actually made, from its raw commit subjects.
+ *
+ * A release note is a list of CHANGES, not of commits, and the two differ in
+ * two ways that both showed up in one release (2026-09-21):
+ *
+ * - **A subject can land twice.** The unpin button shipped, was reverted, and
+ *   shipped again, so its subject appears twice in the log — and appeared
+ *   twice in the generated notes, claiming one feature as two.
+ * - **A revert can cancel a commit outright.** `Revert "X"` leaves X in the
+ *   log, so notes built from subjects alone would announce a feature that was
+ *   taken back out before the release.
+ *
+ * So each subject is named once, and a revert cancels one landing of the
+ * commit it names: reverted-then-reapplied nets to one line, reverted-and-left
+ * nets to none. Types are exactly what {@link groupedReleaseNotes} publishes,
+ * read from the same section list so the two can never disagree.
+ */
+export function releaseWorthySubjects(subjects: readonly string[]): string[] {
+  const revertPattern = /^Revert "(.+)"$/;
+  const sections = releaseSections();
+  const landings = new Map<string, number>();
+  const reverts = new Map<string, number>();
+  for (const subject of subjects) {
+    const revertedSubject = revertPattern.exec(subject)?.[1];
+    if (revertedSubject === undefined) landings.set(subject, (landings.get(subject) ?? 0) + 1);
+    else reverts.set(revertedSubject, (reverts.get(revertedSubject) ?? 0) + 1);
+  }
+  const kept: string[] = [];
+  const seen = new Set<string>();
+  for (const subject of subjects) {
+    if (seen.has(subject)) continue;
+    if (!sections.some(([, pattern]) => pattern.test(subject))) continue;
+    seen.add(subject);
+    if ((landings.get(subject) ?? 0) > (reverts.get(subject) ?? 0)) kept.push(subject);
+  }
+  return kept;
+}
+
+export function groupedReleaseNotes(subjects: readonly string[]): string {
+  const worthy = releaseWorthySubjects(subjects);
   const parts: string[] = [];
-  for (const [title, pattern] of sections) {
-    const matched = subjects.filter((subject) => pattern.test(subject));
+  for (const [title, pattern] of releaseSections()) {
+    const matched = worthy.filter((subject) => pattern.test(subject));
     if (matched.length === 0) continue;
     parts.push(`### ${title}\n\n` + matched.map((subject) => `- ${subject}`).join('\n'));
   }
@@ -235,16 +278,14 @@ export function unreleasedBody(changelog: string): string | null {
  * ninety-seven commits would have shipped invisibly (caught by hand,
  * 2026-09-21, one step before the cut).
  *
- * Release-worthy means exactly what {@link groupedReleaseNotes} publishes,
- * asked of that function itself rather than re-encoding its three patterns
- * here — the second copy of a rule is the one that drifts. A subject counts
- * as covered when the body contains it verbatim, which is the form the
- * generated bullets take.
+ * Release-worthy means exactly what {@link releaseWorthySubjects} keeps, so
+ * a duplicate subject is asked about once and a reverted one is not asked
+ * about at all — the section is never told to mention a change the notes
+ * themselves leave out. A subject counts as covered when the body contains
+ * it verbatim, which is the form the generated bullets take.
  */
 export function unreleasedGaps(body: string, subjects: readonly string[]): string[] {
-  return subjects.filter(
-    (subject) => groupedReleaseNotes([subject]) !== '' && !body.includes(subject),
-  );
+  return releaseWorthySubjects(subjects).filter((subject) => !body.includes(subject));
 }
 
 /** The heading the commits nobody wrote about are filed under. Deliberately

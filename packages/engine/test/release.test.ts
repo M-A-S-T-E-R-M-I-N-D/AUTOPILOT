@@ -9,6 +9,7 @@ import {
   cutChangelogRelease,
   unreleasedBody,
   unreleasedGaps,
+  releaseWorthySubjects,
   groupedReleaseNotes,
   buildReleaseTagMessage,
   planRelease,
@@ -957,5 +958,97 @@ describe('cutChangelogRelease completes a section that fell behind', () => {
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(plan.changelog).toContain('- fix: arrived after the section was written');
+  });
+});
+
+/**
+ * A RELEASE NOTE IS A LIST OF CHANGES, NOT OF COMMITS (2026-09-21). Preparing
+ * v0.53.0, the generated tag body announced the pinned-task unpin button
+ * twice: it had shipped, been reverted, and shipped again, so its subject
+ * appeared twice in the log. The same blind spot reads the other way — a
+ * `Revert "X"` leaves X in the log, so notes built from raw subjects would
+ * announce a feature that was taken back out before the release.
+ */
+describe('releaseWorthySubjects', () => {
+  it('names a subject once even when it landed twice', () => {
+    expect(releaseWorthySubjects(['feat: the thing', 'feat: the thing'])).toEqual([
+      'feat: the thing',
+    ]);
+  });
+
+  it('nets a reverted-then-reapplied commit down to one line', () => {
+    expect(
+      releaseWorthySubjects(['feat: the thing', 'Revert "feat: the thing"', 'feat: the thing']),
+    ).toEqual(['feat: the thing']);
+  });
+
+  it('drops a commit that was reverted and never reapplied', () => {
+    expect(releaseWorthySubjects(['feat: the thing', 'Revert "feat: the thing"'])).toEqual([]);
+  });
+
+  it('keeps a commit whose landings outnumber its reverts', () => {
+    expect(
+      releaseWorthySubjects(['fix: flaky', 'fix: flaky', 'fix: flaky', 'Revert "fix: flaky"']),
+    ).toEqual(['fix: flaky']);
+  });
+
+  it('never emits the revert commit itself', () => {
+    expect(releaseWorthySubjects(['Revert "feat: gone"'])).toEqual([]);
+  });
+
+  it('keeps only the types a release note publishes', () => {
+    expect(
+      releaseWorthySubjects(['feat: a', 'fix: b', 'perf: c', 'docs: d', 'chore: e', 'test: f']),
+    ).toEqual(['feat: a', 'fix: b', 'perf: c']);
+  });
+
+  it('preserves the order the subjects arrived in', () => {
+    expect(releaseWorthySubjects(['fix: second', 'feat: first'])).toEqual([
+      'fix: second',
+      'feat: first',
+    ]);
+  });
+
+  it('is not fooled by a subject that ENDS by quoting a revert — the anchor is the start', () => {
+    // Unanchored at the start, this docs commit would cancel the feature it
+    // merely talks about, and the release would lose a line for it.
+    expect(releaseWorthySubjects(['feat: a', 'docs: on Revert "feat: a"'])).toEqual(['feat: a']);
+  });
+
+  it('is not fooled by a subject that only BEGINS like a revert — the anchor is the end', () => {
+    // `git revert` writes exactly `Revert "<subject>"`. Anything carrying a
+    // tail is someone else's sentence and must not cancel a shipped commit.
+    expect(releaseWorthySubjects(['feat: a', 'Revert "feat: a" (again)'])).toEqual(['feat: a']);
+  });
+
+  it('is empty for an empty commit list', () => {
+    expect(releaseWorthySubjects([])).toEqual([]);
+  });
+});
+
+describe('groupedReleaseNotes counts changes, not commits', () => {
+  it('lists a reverted-then-reapplied feature once, not twice', () => {
+    const notes = groupedReleaseNotes([
+      'feat: the unpin button',
+      'Revert "feat: the unpin button"',
+      'feat: the unpin button',
+    ]);
+    expect(notes).toBe('### Added\n\n- feat: the unpin button');
+  });
+
+  it('announces nothing for a feature that was reverted and left out', () => {
+    expect(groupedReleaseNotes(['feat: the unpin button', 'Revert "feat: the unpin button"'])).toBe(
+      '',
+    );
+  });
+});
+
+describe('unreleasedGaps agrees with the notes about what counts', () => {
+  it('asks about a twice-landed subject once', () => {
+    expect(unreleasedGaps('', ['feat: a', 'feat: a'])).toEqual(['feat: a']);
+  });
+
+  it('never asks the section to mention something the notes leave out', () => {
+    expect(unreleasedGaps('', ['feat: a', 'Revert "feat: a"'])).toEqual([]);
   });
 });
