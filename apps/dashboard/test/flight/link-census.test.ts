@@ -57,6 +57,12 @@ const NOT_YET_RENDERED = new Set<string>([
   // later slice of the same board item — the same core-first split
   // contributor-issue-list.ts is excused under, one slice behind.
   'help-wanted-items.ts',
+  // AssignedIssue (EPIC 0033 slice 1, board web-mubk7ox9-z7cdu0): the
+  // read+reconcile core that upserts board tasks from GitHub's own
+  // assignment state. The OWNED WORK board section and masthead count that
+  // would link each issue's `.url` are slice 2 of the same epic — the same
+  // core-first split contributor-issue-list.ts is excused under.
+  'owned-work-reconcile.ts',
 ]);
 
 /** Payloads painted by a web feature that does not share the flight module's
