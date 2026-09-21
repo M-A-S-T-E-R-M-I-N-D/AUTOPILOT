@@ -99,6 +99,24 @@ parallelism — and both are already recorded where lane concurrency work lives:
 Neither changes any of the four locks above or the acceptance criteria below;
 all six slices remain unchanged and live in production.
 
+Freshness check (2026-09-21): `fly.ts` gained roughly 30 commits since the
+2026-09-03 check above. The one that bears directly on this epic's own
+guarantee — "neither observing the other's work plan" — is `28db104d`
+(2026-09-14): the stale-claim sweep, the verify-by sweep, and the Lucky
+shortlist all now carry a self-target guard, closing a real cross-project
+leak where flying project B could surface or queue project A's own board
+tasks. The rest is same-folder N-way fleet-lane mechanics already tracked
+outside this doc: a shared lock-path builder for fly.ts's two ritual locks
+(`d11fa061`), a sync-back single-writer lock per checkout (`85b3b52d`),
+lock-liveness self-exclusion (`8779269e`), a cross-lane gate semaphore
+capping concurrent heavy gate runs per fleet, not flights per project
+(`a139989e`), and landing-ritual/mutation-gate hardening (`b7639d2f`) — all
+recorded in `docs/RESEARCH-LIBRARY.md` ("Fleet anti-duplication") and
+`docs/epics/0004-bash-containment-worktree.md`'s Post-completion evolution
+log, per the same scoping this doc's 2026-09-03 check already established.
+None of this changes the four locks above or the acceptance criteria below;
+all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
