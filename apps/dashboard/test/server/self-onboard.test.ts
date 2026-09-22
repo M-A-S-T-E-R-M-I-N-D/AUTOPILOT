@@ -117,4 +117,28 @@ describe('ensureSelfOnboarded', () => {
       store.close();
     }
   }, 30000);
+
+  it('re-indexes a doc landed after the root was already registered (not just at first boot)', async () => {
+    const repo = newRepo();
+    const dbPath = newDbPath();
+
+    const first = await ensureSelfOnboarded(dbPath, repo);
+    expect(first.projectId).toBeDefined();
+
+    mkdirSync(join(repo, 'docs'), { recursive: true });
+    writeFileSync(join(repo, 'docs', 'NEW.md'), '# a doc the fleet just landed\n');
+
+    await ensureSelfOnboarded(dbPath, repo);
+
+    const store: Store = openStore(dbPath);
+    migrate(store);
+    try {
+      const row = store.db
+        .prepare('SELECT COUNT(*) AS c FROM project_search WHERE project_id = ? AND path = ?')
+        .get(first.projectId, 'docs/NEW.md') as { c: number };
+      expect(row.c).toBe(1);
+    } finally {
+      store.close();
+    }
+  }, 30000);
 });
