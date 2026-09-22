@@ -5,12 +5,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { openStore, migrate, type Store } from '@autopilot/store';
+import { openStore, migrate, createTask, type Store } from '@autopilot/store';
 import {
   fetchAssignedIssues,
   planOwnedWorkReconcile,
   reconcileOwnedWork,
   listOwnedWorkTasks,
+  runOwnedWorkSweep,
   type OwnedWorkBoardTask,
 } from '../../src/flight/owned-work-reconcile.js';
 import { HUMAN_CLOSES_MARKER } from '../../src/flight/claim-contract.js';
@@ -400,6 +401,150 @@ describe('reconcileOwnedWork', () => {
       const result = await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
 
       expect(result.created).toBe(0);
+      expect(tasks(s, 'p1')).toHaveLength(0);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+});
+
+/**
+ * runOwnedWorkSweep — the takeoff cadence for slice 1 INGEST (docs/epics/
+ * 0033-owned-work.md §3 "a reconciler, not a webhook"): `fly.ts` runs it once
+ * per flight BEFORE the first board read, so a `/claim` made on GitHub since
+ * the last flight is already a focused, contract-marked task by the time the
+ * first firing's prompt is built. Same self-target guard the stale-claim
+ * sweep carries: `gh issue list --assignee @me` resolves THIS engine repo's
+ * remote from `process.cwd()`, so a flight over someone else's folder must
+ * never ingest this repo's assignments onto that project's board.
+ */
+describe('runOwnedWorkSweep', () => {
+  const ASSIGNED = [
+    { number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' },
+  ];
+
+  it('never reads GitHub when the flight target is not the engine repo', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-sweep-other-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const exec = execFor(ASSIGNED, 'octocat');
+
+      const result = await runOwnedWorkSweep(s, 'p1', () => 100, exec, '/some/other', '/engine');
+
+      expect(result).toBeNull();
+      expect(exec).not.toHaveBeenCalled();
+      expect(tasks(s, 'p1')).toHaveLength(0);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('ingests a GitHub-side claim as a focused task when the engine repo flies itself', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-sweep-self-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const exec = execFor(ASSIGNED, 'octocat');
+
+      const result = await runOwnedWorkSweep(s, 'p1', () => 100, exec, '/engine', '/engine');
+
+      expect(result?.created).toBe(1);
+      const rows = tasks(s, 'p1');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ id: 'github-6', focus: 1 });
+      expect(rows[0]?.body).toContain(HUMAN_CLOSES_MARKER);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('runs with no target given — the CLI-style call carries no self-target guard', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-sweep-notarget-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const exec = execFor(ASSIGNED, 'octocat');
+
+      const result = await runOwnedWorkSweep(s, 'p1', () => 100, exec);
+
+      expect(result?.created).toBe(1);
+      expect(tasks(s, 'p1')).toHaveLength(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('reads the board fresh, so a second takeoff over the same assignment changes nothing', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-sweep-repeat-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const exec = execFor(ASSIGNED, 'octocat');
+
+      await runOwnedWorkSweep(s, 'p1', () => 100, exec, '/engine', '/engine');
+      const second = await runOwnedWorkSweep(s, 'p1', () => 200, exec, '/engine', '/engine');
+
+      expect(second).toMatchObject({ created: 0, focused: 0, released: 0, commented: 0 });
+      expect(tasks(s, 'p1')).toHaveLength(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('refocuses an owned task a busy board would page off the default 30-row read', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-sweep-buried-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const exec = execFor(ASSIGNED, 'octocat');
+      await runOwnedWorkSweep(s, 'p1', () => 100, exec, '/engine', '/engine');
+      s.db.prepare('UPDATE tasks SET focus = 0 WHERE id = ?').run('github-6');
+      // Bury it: thirty newer ordinary tasks, every one ahead of it in the
+      // store's default work-order page, so a page-bound read never sees it
+      // and would plan it as NEW (a silent duplicate, never a refocus).
+      for (let i = 0; i < 30; i += 1) {
+        createTask(s, {
+          id: `self-${i}`,
+          projectId: 'p1',
+          title: `filler ${i}`,
+          createdAt: 1000 + i,
+        });
+      }
+
+      const result = await runOwnedWorkSweep(s, 'p1', () => 200, exec, '/engine', '/engine');
+
+      expect(result).toMatchObject({ created: 0, focused: 1, released: 0, commented: 0 });
+      expect(tasks(s, 'p1').find((t) => t.id === 'github-6')?.focus).toBe(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('never throws — a broken gh is a silent no-op', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-sweep-broken-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const exec: CliExec = vi.fn(async () => {
+        throw new Error('gh exploded');
+      });
+
+      const result = await runOwnedWorkSweep(s, 'p1', () => 100, exec, '/engine', '/engine');
+
+      expect(result).toBeNull();
       expect(tasks(s, 'p1')).toHaveLength(0);
       s.close();
     } finally {

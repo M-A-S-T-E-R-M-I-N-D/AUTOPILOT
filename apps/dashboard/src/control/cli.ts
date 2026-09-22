@@ -20,7 +20,11 @@ import {
   DEFAULT_WATCH_FLY_FIRINGS,
 } from './flight-watchdog.js';
 import { runTaxonomySeed } from '../flight/taxonomy-seed.js';
-import { reconcileOwnedWork, listOwnedWorkTasks } from '../flight/owned-work-reconcile.js';
+import {
+  reconcileOwnedWork,
+  listOwnedWorkTasks,
+  ownedWorkCandidates,
+} from '../flight/owned-work-reconcile.js';
 import { ghExec } from '../flight/gh-exec.js';
 import { fleetFlightWatchdogTick, type FleetFlightWatchdogControl } from './fleet-watchdog.js';
 import { landWatchdogTick, createLandWatchdogControl } from './land-watchdog.js';
@@ -255,7 +259,10 @@ async function main(): Promise<void> {
       const projectId = deriveFlyProjectId(target);
       const store = openStore(resolveDbPath());
       try {
-        const existingTasks = recentTasks(store.db, projectId);
+        // Unpaged `github-%` rows, not `recentTasks`'s 30-row page — the same
+        // candidate pool the takeoff sweep reads, for the same reason (see
+        // `ownedWorkCandidates`): a buried owned task must still refocus.
+        const existingTasks = ownedWorkCandidates(store, projectId);
         const result = await reconcileOwnedWork(ghExec, store, projectId, existingTasks);
         out(
           `[ok] owned-work-reconcile: ${result.created} created, ${result.focused} focused, ` +
