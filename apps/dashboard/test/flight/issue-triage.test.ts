@@ -19,6 +19,8 @@ import {
   applyIssueTriageTasks,
   issueTaskId,
   fetchOpenIssues,
+  fetchRepoOwner,
+  fetchRepoMilestones,
   executeIssueTriageCommands,
   runIssueTriageRitual,
 } from '../../src/flight/issue-triage.js';
@@ -61,6 +63,22 @@ function cleanupDir(dir: string): void {
 const templated = (text: string): string =>
   `### What happened?\n${text}\n\n### Steps to reproduce\n1. see above\n\n### Expected behavior\nIt works.\n`;
 const TEMPLATED_BODY = templated('');
+
+/** The milestones the classifier's house set assumes a seeder created. A
+ *  repo that has them gets a `--milestone` flag; one that does not gets no
+ *  flag at all rather than one that silently fails (2026-09-22). */
+const HOUSE_MILESTONES = ['Foundations', 'V1', 'Hardening'] as const;
+
+/** The `gh` verbs that CHANGE something on the tracker. A ritual that must not
+ *  write is proved by the absence of these, not by a call count: the read side
+ *  gains calls over time (the repo-owner read landed 2026-09-22) and a count
+ *  pinned to 1 fails for a reason that has nothing to do with writing. */
+function ghWrites(exec: CliExec): string[][] {
+  const calls = (exec as unknown as { mock: { calls: [string, string[]][] } }).mock.calls;
+  return calls
+    .map(([, args]) => args)
+    .filter((args) => args[1] === 'edit' || args[1] === 'comment' || args[1] === 'create');
+}
 
 describe('classifyIssueDimension', () => {
   it('picks the dimension whose keywords appear most in the text', () => {
@@ -176,6 +194,10 @@ describe('planIssueTriage', () => {
       },
       [{ id: 'web-other', title: 'Unrelated task about release tagging' }],
       ['Unrelated backlog line about billing'],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
     );
 
     expect(decision).toMatchObject({
@@ -201,6 +223,10 @@ describe('planIssueTriage', () => {
       },
       [],
       [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
     );
 
     expect(decision).toMatchObject({ decision: 'accept', milestone: 'Hardening' });
@@ -215,6 +241,10 @@ describe('planIssueTriage', () => {
       },
       [],
       [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
     );
 
     expect(decision).toMatchObject({ decision: 'accept', milestone: 'Foundations' });
@@ -392,7 +422,15 @@ describe('planIssueTriageCommands', () => {
   };
 
   it('plans an add-label edit (pool + area + priority) followed by a reasoning comment for an accepted issue', () => {
-    const decision = planIssueTriage(issue, [], []);
+    const decision = planIssueTriage(
+      issue,
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
+    );
 
     expect(planIssueTriageCommands(issue, decision)).toEqual([
       {
@@ -661,7 +699,7 @@ describe('fetchOpenIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,body,url,labels,assignees,author,createdAt',
+      'number,title,body,url,labels,assignees,author,createdAt,milestone',
     ]);
   });
 
@@ -799,6 +837,99 @@ describe('fetchOpenIssues', () => {
   });
 });
 
+describe('fetchRepoOwner', () => {
+  it('calls gh repo view with the expected argv', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":"octo/repo"}' });
+
+    await fetchRepoOwner(exec);
+
+    expect(exec).toHaveBeenCalledWith('gh', ['repo', 'view', '--json', 'nameWithOwner']);
+  });
+
+  it('reads the owner off a well-formed nameWithOwner', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":"M-A-S-T-E-R-M-I-N-D/AUTOPILOT"}' });
+
+    expect(await fetchRepoOwner(exec)).toBe('M-A-S-T-E-R-M-I-N-D');
+  });
+
+  it('is undefined on a non-zero exit', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
+
+    expect(await fetchRepoOwner(exec)).toBeUndefined();
+  });
+
+  it('is undefined on unparseable stdout', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: 'not json' });
+
+    expect(await fetchRepoOwner(exec)).toBeUndefined();
+  });
+
+  it('is undefined when the parsed payload has no nameWithOwner string', async () => {
+    const noField: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{}' });
+    const wrongType: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":42}' });
+    const notAnObject: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '"octo/repo"' });
+
+    expect(await fetchRepoOwner(noField)).toBeUndefined();
+    expect(await fetchRepoOwner(wrongType)).toBeUndefined();
+    expect(await fetchRepoOwner(notAnObject)).toBeUndefined();
+  });
+
+  it('is undefined when nameWithOwner is not <owner>/<repo>', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":"AUTOPILOT"}' });
+
+    expect(await fetchRepoOwner(exec)).toBeUndefined();
+  });
+});
+
+describe('fetchRepoMilestones', () => {
+  it('calls gh api milestones with the expected argv', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '' });
+
+    await fetchRepoMilestones(exec);
+
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'api',
+      'repos/{owner}/{repo}/milestones',
+      '--jq',
+      '.[].title',
+    ]);
+  });
+
+  it('splits the jq-emitted titles, one per line', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: 'Foundations\nV1\nHardening\n' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual(['Foundations', 'V1', 'Hardening']);
+  });
+
+  it('trims each title and drops blank lines', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '  Foundations  \n\nV1\n' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual(['Foundations', 'V1']);
+  });
+
+  it('returns an empty array when the repo has no milestones', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual([]);
+  });
+
+  it('returns an empty array on a non-zero exit', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual([]);
+  });
+});
+
 describe('executeIssueTriageCommands', () => {
   const issue = {
     number: 9,
@@ -807,7 +938,15 @@ describe('executeIssueTriageCommands', () => {
   };
 
   it('runs every planned command through exec, in order, and pairs each with its result', async () => {
-    const decision = planIssueTriage(issue, [], []);
+    const decision = planIssueTriage(
+      issue,
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
+    );
     const commands = planIssueTriageCommands(issue, decision);
     const exec: CliExec = vi
       .fn()
@@ -950,8 +1089,9 @@ describe('runIssueTriageRitual', () => {
       expect(result.plans.map((p) => p.decision.decision)).toEqual(['skip', 'skip']);
       expect(result.commandResults).toEqual([]);
       expect(result.tasksCreated).toBe(0);
-      // Only the read-side list call — no gh writes fired at all.
-      expect(exec).toHaveBeenCalledTimes(1);
+      // No gh writes fired at all — stated as the absence of writes, not as a
+      // call count the read side keeps outgrowing.
+      expect(ghWrites(exec)).toEqual([]);
       s.close();
     } finally {
       cleanupDir(dbDir);
@@ -973,7 +1113,7 @@ describe('runIssueTriageRitual', () => {
       expect(result.plans).toEqual([]);
       expect(result.commandResults).toEqual([]);
       expect(result.tasksCreated).toBe(0);
-      expect(exec).toHaveBeenCalledTimes(1);
+      expect(ghWrites(exec)).toEqual([]);
       s.close();
     } finally {
       cleanupDir(dbDir);

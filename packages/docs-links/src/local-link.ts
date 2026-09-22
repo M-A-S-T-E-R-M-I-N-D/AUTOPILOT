@@ -41,11 +41,114 @@ export function isLocalTarget(target: string): boolean {
   return true;
 }
 
+/**
+ * `markdown` with every fenced block and inline code span blanked out, so a
+ * link scan reads only prose.
+ *
+ * A link inside backticks is an EXAMPLE, not a link. A publicity draft
+ * explaining where to insert an entry in somebody else's README wrote "right
+ * before the `## [AutoPR](...)` heading", and the CI link check called `...` a
+ * broken relative link and reddened a landing (2026-09-22). The docs reader
+ * shares this module, so it was painting the same example as a dead link in
+ * the UI.
+ *
+ * Deliberately a scanner, not a regex: this file already carries a CodeQL
+ * polynomial-redos fix, and a hand-written pass over the characters is linear
+ * by construction rather than by argument. Blanked regions keep their length
+ * and every newline, so anything downstream that counts offsets or lines
+ * still lines up.
+ *
+ * A span may WRAP A LINE — the draft's did, which is how the first attempt at
+ * this still missed it — so the inline pass runs over the whole document and
+ * stops a span at a blank line, the way CommonMark ends one at a paragraph
+ * break. An unterminated fence blanks to the end of the document, matching a
+ * renderer. An unterminated inline run is left alone: a lone backtick in
+ * prose is a typo, not a code span, and swallowing the rest of the document
+ * would hide every real link behind it.
+ */
+export function withoutCode(markdown: string): string {
+  return blankInlineCode(blankFencedBlocks(markdown));
+}
+
+/** `markdown` with every fenced block blanked, newlines kept. */
+function blankFencedBlocks(markdown: string): string {
+  const fenceOf = (line: string): string | null => {
+    const match = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    return match === null ? null : (match[1] ?? null);
+  };
+  let open: string | null = null;
+  return markdown
+    .split('\n')
+    .map((line) => {
+      const fence = fenceOf(line);
+      if (open !== null) {
+        // Only a fence of the SAME character, at least as long, closes one.
+        if (fence !== null && fence[0] === open[0] && fence.length >= open.length) open = null;
+        return ' '.repeat(line.length);
+      }
+      if (fence !== null) {
+        open = fence;
+        return ' '.repeat(line.length);
+      }
+      return line;
+    })
+    .join('\n');
+}
+
+/** `text` with every inline code span blanked. A run of N backticks opens a
+ *  span that the next run of exactly N closes, searched no further than the
+ *  next blank line. */
+function blankInlineCode(text: string): string {
+  const paragraphEnd = (from: number): number => {
+    const at = text.indexOf('\n\n', from);
+    return at === -1 ? text.length : at;
+  };
+  const blanked = (slice: string): string => slice.replace(/[^\n]/g, ' ');
+
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] !== '`') {
+      out += text[i];
+      i += 1;
+      continue;
+    }
+    let afterOpen = i;
+    while (afterOpen < text.length && text[afterOpen] === '`') afterOpen += 1;
+    const ticks = afterOpen - i;
+    const closer = '`'.repeat(ticks);
+    const limit = paragraphEnd(afterOpen);
+    let search = afterOpen;
+    let found = -1;
+    while (search < limit) {
+      const at = text.indexOf(closer, search);
+      if (at === -1 || at >= limit) break;
+      let after = at + ticks;
+      // A LONGER run is not this span's closer.
+      if (after < text.length && text[after] === '`') {
+        while (after < text.length && text[after] === '`') after += 1;
+        search = after;
+        continue;
+      }
+      found = at;
+      break;
+    }
+    if (found === -1) {
+      out += text.slice(i, afterOpen);
+      i = afterOpen;
+      continue;
+    }
+    out += blanked(text.slice(i, found + ticks));
+    i = found + ticks;
+  }
+  return out;
+}
+
 /** Every raw link target found in `markdown`, in document order, unfiltered —
  *  callers narrow to git-verifiable ones with {@link isLocalTarget}. */
 export function extractLinkTargets(markdown: string): readonly string[] {
   const targets: string[] = [];
-  for (const match of markdown.matchAll(LINK_RE)) {
+  for (const match of withoutCode(markdown).matchAll(LINK_RE)) {
     const target = match[1];
     if (target !== undefined) targets.push(target);
   }

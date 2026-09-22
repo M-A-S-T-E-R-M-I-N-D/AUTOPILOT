@@ -10,6 +10,7 @@ import {
   fetchAssignedIssues,
   planOwnedWorkReconcile,
   reconcileOwnedWork,
+  listOwnedWorkTasks,
   type OwnedWorkBoardTask,
 } from '../../src/flight/owned-work-reconcile.js';
 import { HUMAN_CLOSES_MARKER } from '../../src/flight/claim-contract.js';
@@ -154,6 +155,64 @@ describe('planOwnedWorkReconcile', () => {
     ];
     const plan = planOwnedWorkReconcile([], existing, 'octocat', 'p1', 200);
     expect(plan.release).toEqual([]);
+  });
+});
+
+describe('listOwnedWorkTasks', () => {
+  it('returns [] for an empty board', () => {
+    expect(listOwnedWorkTasks([])).toEqual([]);
+  });
+
+  it('includes a contract-marked, focused task', () => {
+    const owned: OwnedWorkBoardTask = {
+      id: 'github-6',
+      body: `x\n${HUMAN_CLOSES_MARKER}`,
+      focus: 1,
+      status: 'queued',
+    };
+    expect(listOwnedWorkTasks([owned])).toEqual([owned]);
+  });
+
+  it('excludes a released (un-focused) contract-marked task', () => {
+    const released: OwnedWorkBoardTask = {
+      id: 'github-6',
+      body: `x\n${HUMAN_CLOSES_MARKER}`,
+      focus: 0,
+      status: 'queued',
+    };
+    expect(listOwnedWorkTasks([released])).toEqual([]);
+  });
+
+  it('excludes a focused task with no claim contract marker', () => {
+    const ordinary: OwnedWorkBoardTask = {
+      id: 'self-1',
+      body: 'ordinary task, no marker',
+      focus: 1,
+      status: 'queued',
+    };
+    expect(listOwnedWorkTasks([ordinary])).toEqual([]);
+  });
+
+  it('filters a mixed board down to only the owned tasks', () => {
+    const owned: OwnedWorkBoardTask = {
+      id: 'github-6',
+      body: `x\n${HUMAN_CLOSES_MARKER}`,
+      focus: 1,
+      status: 'queued',
+    };
+    const released: OwnedWorkBoardTask = {
+      id: 'github-7',
+      body: `x\n${HUMAN_CLOSES_MARKER}`,
+      focus: 0,
+      status: 'queued',
+    };
+    const ordinary: OwnedWorkBoardTask = {
+      id: 'self-1',
+      body: 'ordinary task, no marker',
+      focus: 1,
+      status: 'queued',
+    };
+    expect(listOwnedWorkTasks([owned, released, ordinary])).toEqual([owned]);
   });
 });
 

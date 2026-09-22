@@ -40,6 +40,18 @@ FINISH-LINE EXTENSION actually cheaper than a checkpoint hand-off?; (2) the
 fleet-home tile, still deferred until that table shows a non-empty extended
 group — wiring a tile for an always-empty group would be premature.
 
+**2026-09-19 fix widening the extended-group population (doctrine row 42):**
+FINISH-LINE EXTENSION was silently gated on the session id of the RESULT
+envelope — a killed attempt (wall-clock cap or crash) by definition never
+sends one, so of 46 firings in one day, 22 died mid-unit and every single one
+skipped the rescue, falling through to the checkpoint net instead of ever
+reaching `metrics.extended`. `sessionIdFromEvent` (`packages/engine/src/stream.ts`)
+now reads the session id off the first stream event and carries it on
+`ModelResponse.sessionId` (`firing.ts`'s `ownSessionId`), so a killed firing is
+resumable through the same bounded extension as a near-cap one. Item (1)'s
+"let extended firings accumulate" now has a materially larger population to
+draw from than before this fix.
+
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`
 in `packages/engine/src/adapters/claude-cli.ts`, via `buildClaudeArgs`) with no continuity from the

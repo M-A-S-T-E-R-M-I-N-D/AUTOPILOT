@@ -33,10 +33,18 @@ function cleanupDir(dir: string): void {
 
 /** A `CliExec` stub that answers `gh issue list` with `issues` and every
  *  other call (label edit, comment) with a bare success. */
+/** A repo that HAS the house milestones, so the ritual's `--milestone` flag
+ *  is exercised. A repo without them gets no flag at all rather than one
+ *  that silently fails, which is what this repo taught (2026-09-22). */
+const HOUSE_MILESTONES = 'Foundations\nV1\nHardening\n';
+
 function issuesExec(issues: readonly unknown[] = []): CliExec {
   return vi.fn(async (_bin, args) => {
     if (args[0] === 'issue' && args[1] === 'list') {
       return { code: 0, stdout: JSON.stringify(issues) };
+    }
+    if (args[0] === 'api' && String(args[1]).endsWith('/milestones')) {
+      return { code: 0, stdout: HOUSE_MILESTONES };
     }
     return { code: 0, stdout: '' };
   });
@@ -49,6 +57,17 @@ function issuesExec(issues: readonly unknown[] = []): CliExec {
 const templated = (text: string): string =>
   `### What happened?\n${text}\n\n### Steps to reproduce\n1. see above\n\n### Expected behavior\nIt works.\n`;
 const TEMPLATED_BODY = templated('');
+
+/** The `gh` verbs that CHANGE something on the tracker. A ritual that must not
+ *  write is proved by the absence of these, not by a call count: the read side
+ *  gains calls over time (the repo-owner read landed 2026-09-22) and a count
+ *  pinned to 1 fails for a reason that has nothing to do with writing. */
+function ghWrites(exec: CliExec): string[][] {
+  const calls = (exec as unknown as { mock: { calls: [string, string[]][] } }).mock.calls;
+  return calls
+    .map(([, args]) => args)
+    .filter((args) => args[1] === 'edit' || args[1] === 'comment' || args[1] === 'create');
+}
 
 describe('createIssueTriagePreviewApi', () => {
   it('returns null for an unknown project id', async () => {
@@ -102,8 +121,8 @@ describe('createIssueTriagePreviewApi', () => {
         decision: 'duplicate',
         matchedId: 'backlog:0',
       });
-      // Read-only: only the `issue list` read happened, no label/comment write.
-      expect(exec).toHaveBeenCalledTimes(1);
+      // Read-only: the preview reads (issue list, repo view) and writes nothing.
+      expect(ghWrites(exec)).toEqual([]);
 
       const verify = openStore(dbPath);
       const rows = verify.db.prepare('SELECT COUNT(*) AS n FROM tasks').get() as { n: number };
@@ -209,7 +228,9 @@ describe('createIssueTriageExecuteApi', () => {
       expect(result?.tasksCreated).toBe(1);
       // accept -> label edit + reasoning comment.
       expect(result?.commandResults).toHaveLength(2);
-      expect(exec).toHaveBeenNthCalledWith(2, 'gh', [
+      // By content, not by position: the read side may gain calls (it did,
+      // when the repo-owner read landed) without changing what is written.
+      expect(exec).toHaveBeenCalledWith('gh', [
         'issue',
         'edit',
         '9',

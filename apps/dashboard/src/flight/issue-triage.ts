@@ -81,6 +81,10 @@ export interface IncomingIssue {
    *  callers need not fabricate it; {@link fetchOpenIssues} always
    *  populates it. */
   readonly assignees?: readonly string[];
+  /** The milestone title already on the issue, when it has one. Read so a
+   *  milestone somebody chose is never replaced by a classified guess — the
+   *  same rule {@link handSetFamilyLabel} applies to `area:`/`priority:`. */
+  readonly milestone?: string;
   /** The issue author's GitHub login — used only by the `'dossier'` path
    *  (a partner-application issue) to look up the applicant's evidence; the
    *  ordinary accept/duplicate/skip classification never reads it. Optional,
@@ -120,11 +124,13 @@ export interface IssueTriageAccept {
   readonly area: AreaLabel;
   /** The house `priority:` label (S2), classified the same way. */
   readonly priority: PriorityLabel;
-  /** The house starter milestone (S2; docs/GOVERNANCE.md "Starter
-   *  milestones") classified the same way — a third axis from {@link area}/
-   *  {@link priority}: which maturity phase the issue belongs to, not where
-   *  it lands or how urgent it is. */
-  readonly milestone: MilestoneTitle;
+  /** The milestone this triage should SET (S2; docs/GOVERNANCE.md "Starter
+   *  milestones") — a third axis from {@link area}/{@link priority}: which
+   *  maturity phase the issue belongs to, not where it lands or how urgent
+   *  it is. Absent means "leave the milestone alone": either the issue
+   *  already carries one somebody chose, or the classified title is not a
+   *  milestone this repo has. See {@link milestoneToSet}. */
+  readonly milestone?: string;
   readonly reasoning: string;
 }
 
@@ -182,6 +188,53 @@ export const NEEDS_FORMAT_LABEL = 'status: needs-format';
 /** Epics are tracking issues with their own protocol (docs/epics) — never
  *  gated on the bug/feature templates. */
 const EPIC_LABEL = 'epic';
+
+/**
+ * Is this issue the maintainer's own?
+ *
+ * The template gate exists so a REPORTER hands a pilot enough to act on
+ * without guessing. The repo owner is the person who wrote that protocol
+ * and files seed and tracking issues deliberately, so gating those produces
+ * a bot publicly asking the maintainer to fill in a template on their own
+ * issue — noise on the tracker, and it makes a `good first issue` look
+ * unready to the newcomers it was opened for (caught on #5, 2026-09-22).
+ * Same reasoning as the epic exemption directly above.
+ *
+ * Logins compare case-insensitively: GitHub logins are, and `nameWithOwner`
+ * may report either case for the same account — the comparison
+ * `social-pass.ts` already makes to decide the viewer's role. An unknown
+ * owner or an unknown author exempts nothing, so an unresolved identity can
+ * only ever leave the gate ON.
+ */
+export function isMaintainerAuthored(
+  issue: Pick<IncomingIssue, 'author'>,
+  repoOwner: string | undefined,
+): boolean {
+  const author = issue.author;
+  if (author === undefined || author === '') return false;
+  if (repoOwner === undefined || repoOwner === '') return false;
+  return author.toLowerCase() === repoOwner.toLowerCase();
+}
+
+/** `gh`'s `milestone` field is an object with a `title` (or null when the
+ *  issue has none) — same defensive shape as {@link parseAuthorLogin}. */
+export function parseMilestoneTitle(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const title = (value as { title?: unknown }).title;
+  return typeof title === 'string' && title !== '' ? title : undefined;
+}
+
+/** The owner segment of a `gh repo view --json nameWithOwner` value —
+ *  `undefined` for anything that is not `<owner>/<repo>`, so a malformed
+ *  read degrades to "owner unknown" rather than to a wrong owner. */
+export function repoOwnerOf(nameWithOwner: string | undefined): string | undefined {
+  if (nameWithOwner === undefined) return undefined;
+  const [owner, repo] = nameWithOwner.split('/');
+  if (owner === undefined || owner === '' || repo === undefined || repo === '') {
+    return undefined;
+  }
+  return owner;
+}
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type IssueTemplateKind = 'bug' | 'feature';
@@ -519,6 +572,8 @@ export function planIssueTriage(
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
   now: number = Date.now(),
+  repoOwner?: string,
+  repoMilestones: readonly string[] = [],
 ): IssueTriageDecision {
   const labels = issue.labels ?? [];
   if (isPartnerApplicationIssue(labels)) {
@@ -623,7 +678,8 @@ export function planIssueTriage(
   // THE PROTOCOL GATE (after duplicate scoring, before boarding): a body
   // without the template's sections is not boarded — it is labeled and asked
   // ONCE; the next pass lifts the label by itself when the body conforms.
-  const gaps = labels.includes(EPIC_LABEL) ? null : issueTemplateGaps(issue);
+  const exemptFromTemplate = labels.includes(EPIC_LABEL) || isMaintainerAuthored(issue, repoOwner);
+  const gaps = exemptFromTemplate ? null : issueTemplateGaps(issue);
   if (gaps !== null) {
     const named = gaps.missing.map((heading) => `"${heading}"`).join(', ');
     if (labels.includes(NEEDS_FORMAT_LABEL)) {
@@ -646,20 +702,24 @@ export function planIssueTriage(
 
   const text = `${issue.title} ${issue.body}`;
   const dimension = classifyIssueDimension(text);
-  const area = classifyIssueArea(text);
-  const priority = classifyIssuePriority(text);
-  const milestone = classifyIssueMilestone(text);
+  // A single `area:`/`priority:` label already on the issue was put there by a
+  // person; the classifier only fills a family nobody has decided yet.
+  const area = handSetFamilyLabel(labels, 'area', AREA_LABELS) ?? classifyIssueArea(text);
+  const priority =
+    handSetFamilyLabel(labels, 'priority', PRIORITY_LABELS) ?? classifyIssuePriority(text);
+  const classifiedMilestone = classifyIssueMilestone(text);
+  const milestone = milestoneToSet(classifiedMilestone, issue.milestone, repoMilestones);
   return {
     decision: 'accept',
     ...(releasedFromHumansAfterDays !== undefined ? { releasedFromHumansAfterDays } : {}),
     dimension,
     area,
     priority,
-    milestone,
+    ...(milestone !== undefined ? { milestone } : {}),
     reasoning:
       `#${issue.number} "${issue.title}" doesn't match any open board task or backlog entry — ` +
-      `accepting it, labeling "pool: ${dimension}", "${area}", "${priority}", and setting ` +
-      `milestone "${milestone}".` +
+      `accepting it, labeling "pool: ${dimension}", "${area}", "${priority}"` +
+      (milestone === undefined ? '.' : `, and setting milestone "${milestone}".`) +
       (releasedFromHumansAfterDays === undefined
         ? ''
         : ` Reserved for a human contributor as "good first issue" but unclaimed for ` +
@@ -780,16 +840,15 @@ export function planIssueTriageCommands(
         decision.area,
         '--add-label',
         decision.priority,
-        '--milestone',
-        decision.milestone,
+        ...(decision.milestone === undefined ? [] : ['--milestone', decision.milestone]),
         ...openedLabels.flatMap((label) => ['--add-label', label]),
         ...supersededLabels.flatMap((label) => ['--remove-label', label]),
         ...liftedLabels.flatMap((label) => ['--remove-label', label]),
       ],
       details:
-        `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}" ` +
-        `and setting milestone "${decision.milestone}" per its classified ` +
-        'dimension/area/priority/milestone' +
+        `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}"` +
+        (decision.milestone === undefined ? '' : ` and setting milestone "${decision.milestone}"`) +
+        ' per its classified dimension/area/priority/milestone' +
         (supersededLabels.length > 0
           ? ` (replacing ${supersededLabels.map((l) => `"${l}"`).join(', ')})`
           : '') +
@@ -816,6 +875,60 @@ export function planIssueTriageCommands(
  * `skip`, so it never reaches here, and treating it as exclusive would let
  * a re-run strip a marker another pass depends on.
  */
+/**
+ * The label already on the issue from `family`, when there is exactly one.
+ *
+ * WHAT A HUMAN MARKED OUTRANKS THE CLASSIFIER (2026-09-22). The classifier is
+ * keyword counting, and keywords collide: issue #5 asks for a static-site
+ * sample and says "blocked on the static-site gate", so "gate" read as
+ * `area: flight-engine` and triage was about to replace the maintainer's
+ * correct `area: community` with it. The mirror pass already lets a
+ * maintainer's `priority:` label steer the board; this is the same rule one
+ * step earlier, at the point the label would be overwritten.
+ *
+ * Exactly one, deliberately. Two labels of one family is the contradiction
+ * `supersededFamilyLabels` exists to clear (found live on #21/#27/#28,
+ * 2026-09-09) and nobody sets it on purpose, so there the classifier still
+ * breaks the tie.
+ */
+/**
+ * The milestone a triage edit should SET, or `undefined` for "leave it alone".
+ *
+ * Two reasons to leave it alone, and both were live on issue #5 (2026-09-22):
+ * the issue already carries a milestone somebody chose, or the classified
+ * title is not one this repo has. The classifier picks from a fixed house set
+ * a seeder creates on a fresh repo; a repo that grew its own milestones
+ * instead got `--milestone V1` on every accepted issue, which did nothing and
+ * said nothing. A flag that cannot work is worse than no flag: it turns every
+ * edit into a partial failure nobody reads.
+ *
+ * `available` empty means the repo's milestones could not be read, and then
+ * nothing is set either — an unknown answer must not be treated as a yes.
+ */
+export function milestoneToSet(
+  classified: string,
+  existing: string | undefined,
+  available: readonly string[],
+): string | undefined {
+  if (existing !== undefined && existing !== '') return undefined;
+  return available.includes(classified) ? classified : undefined;
+}
+
+export function handSetFamilyLabel<T extends string>(
+  current: readonly string[],
+  family: string,
+  known: readonly T[],
+): T | undefined {
+  const prefix = `${family}: `;
+  const found = current.filter((label) => label.startsWith(prefix));
+  if (found.length !== 1) return undefined;
+  const only = found[0];
+  // A label outside the known set is a typo, or a family this classifier
+  // does not own; honouring it would put an unknown value on the board, so
+  // the classifier still answers and the stray label is left where it is.
+  return known.find((label) => label === only);
+}
+
 export function supersededFamilyLabels(
   current: readonly string[],
   chosen: readonly string[],
@@ -897,9 +1010,19 @@ export function planIssueTriageBatch(
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
   now: number = Date.now(),
+  repoOwner?: string,
+  repoMilestones: readonly string[] = [],
 ): readonly IssueTriagePlan[] {
   return issues.map((issue) => {
-    const decision = planIssueTriage(issue, boardTasks, backlogTitles, threshold, now);
+    const decision = planIssueTriage(
+      issue,
+      boardTasks,
+      backlogTitles,
+      threshold,
+      now,
+      repoOwner,
+      repoMilestones,
+    );
     const commands = planIssueTriageCommands(issue, decision);
     return { issue, decision, commands };
   });
@@ -944,6 +1067,7 @@ interface RawGithubIssue {
   readonly labels?: unknown;
   readonly assignees?: unknown;
   readonly author?: unknown;
+  readonly milestone?: unknown;
   readonly createdAt?: unknown;
 }
 
@@ -986,6 +1110,53 @@ export function parseAssignees(raw: unknown): readonly string[] {
 }
 
 /**
+ * The milestone titles this repo actually has, via `gh api repos/{owner}/
+ * {repo}/milestones`. Empty on any failure, which is the safe direction:
+ * the caller then emits no `--milestone` flag at all rather than one it
+ * cannot know is real.
+ *
+ * The classifier picks from a fixed HOUSE set (`Foundations`/`V1`/
+ * `Hardening`) that a fresh repo's seeder creates. A repo that grew its own
+ * milestones instead — this one has four, none of them house titles — got a
+ * `--milestone V1` on every accepted issue that silently did nothing, for as
+ * long as the ritual has existed (found by running it, 2026-09-22).
+ */
+export async function fetchRepoMilestones(exec: CliExec): Promise<readonly string[]> {
+  const { code, stdout } = await exec('gh', [
+    'api',
+    'repos/{owner}/{repo}/milestones',
+    '--jq',
+    '.[].title',
+  ]);
+  if (code !== 0) return [];
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+}
+
+/**
+ * The repo owner's login via `gh repo view --json nameWithOwner`, run
+ * through the injectable `exec`. Read-only, and `undefined` on a non-zero
+ * exit, unparseable stdout, or a payload without a `<owner>/<repo>` string
+ * — the same "skip, don't guess" degradation {@link fetchOpenIssues} and
+ * `pr-review.ts`'s `fetchViewerLogin` use. Unknown owner leaves the
+ * template gate on for everyone, which is the safe direction.
+ */
+export async function fetchRepoOwner(exec: CliExec): Promise<string | undefined> {
+  const { code, stdout } = await exec('gh', ['repo', 'view', '--json', 'nameWithOwner']);
+  if (code !== 0) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(stdout);
+    if (typeof parsed !== 'object' || parsed === null) return undefined;
+    const value = (parsed as { nameWithOwner?: unknown }).nameWithOwner;
+    return repoOwnerOf(typeof value === 'string' ? value : undefined);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Lists every open issue via `gh issue list --state open --json
  * number,title,body,url,labels,assignees,author`, run through the injectable
  * `exec` — the same `CliExec` shape `connection/cli-probe.ts` uses, so this
@@ -1003,7 +1174,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     '--state',
     'open',
     '--json',
-    'number,title,body,url,labels,assignees,author,createdAt',
+    'number,title,body,url,labels,assignees,author,createdAt,milestone',
   ]);
   if (code !== 0) return [];
 
@@ -1019,6 +1190,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     .filter((raw) => typeof raw.number === 'number' && typeof raw.title === 'string')
     .map((raw) => {
       const author = parseAuthorLogin(raw.author);
+      const milestone = parseMilestoneTitle(raw.milestone);
       return {
         number: raw.number as number,
         title: raw.title as string,
@@ -1028,6 +1200,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
         ...(typeof raw.url === 'string' ? { url: raw.url } : {}),
         ...(author !== undefined ? { author } : {}),
         ...(typeof raw.createdAt === 'string' ? { createdAt: raw.createdAt } : {}),
+        ...(milestone !== undefined ? { milestone } : {}),
       };
     });
 }
@@ -1103,7 +1276,19 @@ export async function runIssueTriageRitual(
   now: () => number = Date.now,
 ): Promise<IssueTriageRitualResult> {
   const issues = await fetchOpenIssues(exec);
-  const basePlans = planIssueTriageBatch(issues, boardTasks, backlogTitles, threshold, now());
+  const [repoOwner, repoMilestones] = await Promise.all([
+    fetchRepoOwner(exec),
+    fetchRepoMilestones(exec),
+  ]);
+  const basePlans = planIssueTriageBatch(
+    issues,
+    boardTasks,
+    backlogTitles,
+    threshold,
+    now(),
+    repoOwner,
+    repoMilestones,
+  );
 
   const plans: IssueTriagePlan[] = [];
   for (const plan of basePlans) {

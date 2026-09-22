@@ -20,6 +20,8 @@ import {
   DEFAULT_WATCH_FLY_FIRINGS,
 } from './flight-watchdog.js';
 import { runTaxonomySeed } from '../flight/taxonomy-seed.js';
+import { reconcileOwnedWork, listOwnedWorkTasks } from '../flight/owned-work-reconcile.js';
+import { ghExec } from '../flight/gh-exec.js';
 import { fleetFlightWatchdogTick, type FleetFlightWatchdogControl } from './fleet-watchdog.js';
 import { landWatchdogTick, createLandWatchdogControl } from './land-watchdog.js';
 import { createSpawnFlight } from '../flight/spawn-flight.js';
@@ -239,6 +241,35 @@ async function main(): Promise<void> {
           `on ${report.plan.identity?.nameWithOwner}`,
       );
       if (failed > 0) process.exitCode = 1;
+      break;
+    }
+    case 'owned-work-reconcile': {
+      // EPIC 0033 slice 1 INGEST's own follow-up (docs/epics/0033-owned-work.md
+      // §3, board web-mubk7ox9-z7cdu0): `owned-work-reconcile.ts` shipped as a
+      // correct, independently-testable unit with no caller anywhere in the
+      // tree — this gives it the same CLI-only entry point `taxonomy-seed` got
+      // at epic 0019 slice 1, before either ritual had a dashboard panel. The
+      // OWNED WORK board section and masthead count (slice 2's UI) stay a
+      // separate, larger follow-up.
+      const target = resolve(process.argv[3] ?? process.cwd());
+      const projectId = deriveFlyProjectId(target);
+      const store = openStore(resolveDbPath());
+      try {
+        const existingTasks = recentTasks(store.db, projectId);
+        const result = await reconcileOwnedWork(ghExec, store, projectId, existingTasks);
+        out(
+          `[ok] owned-work-reconcile: ${result.created} created, ${result.focused} focused, ` +
+            `${result.released} released`,
+        );
+        // slice 2 "SEE IT" (docs/epics/0033-owned-work.md §4)'s CLI-first
+        // glimpse — re-read rather than reuse `existingTasks`, which predates
+        // the writes above, so a task this same pass just created or
+        // released is counted correctly.
+        const ownedNow = listOwnedWorkTasks(recentTasks(store.db, projectId));
+        out(`[ok] owned-work: ${ownedNow.length} task(s) owned right now`);
+      } finally {
+        store.close();
+      }
       break;
     }
     case 'vacuum': {
@@ -626,7 +657,7 @@ async function main(): Promise<void> {
     }
     default: {
       out(
-        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | vacuum | keepalive | watch | fleet',
+        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | owned-work-reconcile | vacuum | keepalive | watch | fleet',
       );
       process.exitCode = 1;
     }
