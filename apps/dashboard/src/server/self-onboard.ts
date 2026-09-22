@@ -39,7 +39,11 @@ export interface SelfOnboardResult {
   readonly projectId?: string;
 }
 
-/** Registers `root` into the store at `dbPath`, unless it's already registered. */
+/** Registers `root` into the store at `dbPath`, unless it's already registered.
+ *  Either way, refreshes the search index — registration is one-time, but a doc
+ *  the fleet lands between dashboard restarts must not stay invisible to the
+ *  Docs reader forever (`refreshProjectIndex` is incremental, so this costs
+ *  nothing when nothing changed). */
 export async function ensureSelfOnboarded(
   dbPath: string,
   root: string,
@@ -49,7 +53,16 @@ export async function ensureSelfOnboarded(
   try {
     migrate(store);
     const projects = new SqliteProjectStore(store);
-    if (projects.findByRoot(root)) return { ran: false };
+    const existing = projects.findByRoot(root);
+    if (existing) {
+      await refreshProjectIndex(
+        new FsFileSource(root),
+        new SqliteIndexStore(store),
+        existing.id,
+        new SqliteSearchStore(store),
+      );
+      return { ran: false };
+    }
 
     const name = basename(root);
     const snapshot = readFsSnapshot(root);
