@@ -81,6 +81,10 @@ export interface IncomingIssue {
    *  callers need not fabricate it; {@link fetchOpenIssues} always
    *  populates it. */
   readonly assignees?: readonly string[];
+  /** The milestone title already on the issue, when it has one. Read so a
+   *  milestone somebody chose is never replaced by a classified guess — the
+   *  same rule {@link handSetFamilyLabel} applies to `area:`/`priority:`. */
+  readonly milestone?: string;
   /** The issue author's GitHub login — used only by the `'dossier'` path
    *  (a partner-application issue) to look up the applicant's evidence; the
    *  ordinary accept/duplicate/skip classification never reads it. Optional,
@@ -120,11 +124,13 @@ export interface IssueTriageAccept {
   readonly area: AreaLabel;
   /** The house `priority:` label (S2), classified the same way. */
   readonly priority: PriorityLabel;
-  /** The house starter milestone (S2; docs/GOVERNANCE.md "Starter
-   *  milestones") classified the same way — a third axis from {@link area}/
-   *  {@link priority}: which maturity phase the issue belongs to, not where
-   *  it lands or how urgent it is. */
-  readonly milestone: MilestoneTitle;
+  /** The milestone this triage should SET (S2; docs/GOVERNANCE.md "Starter
+   *  milestones") — a third axis from {@link area}/{@link priority}: which
+   *  maturity phase the issue belongs to, not where it lands or how urgent
+   *  it is. Absent means "leave the milestone alone": either the issue
+   *  already carries one somebody chose, or the classified title is not a
+   *  milestone this repo has. See {@link milestoneToSet}. */
+  readonly milestone?: string;
   readonly reasoning: string;
 }
 
@@ -208,6 +214,14 @@ export function isMaintainerAuthored(
   if (author === undefined || author === '') return false;
   if (repoOwner === undefined || repoOwner === '') return false;
   return author.toLowerCase() === repoOwner.toLowerCase();
+}
+
+/** `gh`'s `milestone` field is an object with a `title` (or null when the
+ *  issue has none) — same defensive shape as {@link parseAuthorLogin}. */
+export function parseMilestoneTitle(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const title = (value as { title?: unknown }).title;
+  return typeof title === 'string' && title !== '' ? title : undefined;
 }
 
 /** The owner segment of a `gh repo view --json nameWithOwner` value —
@@ -559,6 +573,7 @@ export function planIssueTriage(
   threshold: number = DUPLICATE_THRESHOLD,
   now: number = Date.now(),
   repoOwner?: string,
+  repoMilestones: readonly string[] = [],
 ): IssueTriageDecision {
   const labels = issue.labels ?? [];
   if (isPartnerApplicationIssue(labels)) {
@@ -692,18 +707,19 @@ export function planIssueTriage(
   const area = handSetFamilyLabel(labels, 'area', AREA_LABELS) ?? classifyIssueArea(text);
   const priority =
     handSetFamilyLabel(labels, 'priority', PRIORITY_LABELS) ?? classifyIssuePriority(text);
-  const milestone = classifyIssueMilestone(text);
+  const classifiedMilestone = classifyIssueMilestone(text);
+  const milestone = milestoneToSet(classifiedMilestone, issue.milestone, repoMilestones);
   return {
     decision: 'accept',
     ...(releasedFromHumansAfterDays !== undefined ? { releasedFromHumansAfterDays } : {}),
     dimension,
     area,
     priority,
-    milestone,
+    ...(milestone !== undefined ? { milestone } : {}),
     reasoning:
       `#${issue.number} "${issue.title}" doesn't match any open board task or backlog entry — ` +
-      `accepting it, labeling "pool: ${dimension}", "${area}", "${priority}", and setting ` +
-      `milestone "${milestone}".` +
+      `accepting it, labeling "pool: ${dimension}", "${area}", "${priority}"` +
+      (milestone === undefined ? '.' : `, and setting milestone "${milestone}".`) +
       (releasedFromHumansAfterDays === undefined
         ? ''
         : ` Reserved for a human contributor as "good first issue" but unclaimed for ` +
@@ -824,16 +840,15 @@ export function planIssueTriageCommands(
         decision.area,
         '--add-label',
         decision.priority,
-        '--milestone',
-        decision.milestone,
+        ...(decision.milestone === undefined ? [] : ['--milestone', decision.milestone]),
         ...openedLabels.flatMap((label) => ['--add-label', label]),
         ...supersededLabels.flatMap((label) => ['--remove-label', label]),
         ...liftedLabels.flatMap((label) => ['--remove-label', label]),
       ],
       details:
-        `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}" ` +
-        `and setting milestone "${decision.milestone}" per its classified ` +
-        'dimension/area/priority/milestone' +
+        `labeling #${issue.number} "${poolLabel}", "${decision.area}", "${decision.priority}"` +
+        (decision.milestone === undefined ? '' : ` and setting milestone "${decision.milestone}"`) +
+        ' per its classified dimension/area/priority/milestone' +
         (supersededLabels.length > 0
           ? ` (replacing ${supersededLabels.map((l) => `"${l}"`).join(', ')})`
           : '') +
@@ -876,6 +891,29 @@ export function planIssueTriageCommands(
  * 2026-09-09) and nobody sets it on purpose, so there the classifier still
  * breaks the tie.
  */
+/**
+ * The milestone a triage edit should SET, or `undefined` for "leave it alone".
+ *
+ * Two reasons to leave it alone, and both were live on issue #5 (2026-09-22):
+ * the issue already carries a milestone somebody chose, or the classified
+ * title is not one this repo has. The classifier picks from a fixed house set
+ * a seeder creates on a fresh repo; a repo that grew its own milestones
+ * instead got `--milestone V1` on every accepted issue, which did nothing and
+ * said nothing. A flag that cannot work is worse than no flag: it turns every
+ * edit into a partial failure nobody reads.
+ *
+ * `available` empty means the repo's milestones could not be read, and then
+ * nothing is set either — an unknown answer must not be treated as a yes.
+ */
+export function milestoneToSet(
+  classified: string,
+  existing: string | undefined,
+  available: readonly string[],
+): string | undefined {
+  if (existing !== undefined && existing !== '') return undefined;
+  return available.includes(classified) ? classified : undefined;
+}
+
 export function handSetFamilyLabel<T extends string>(
   current: readonly string[],
   family: string,
@@ -973,9 +1011,18 @@ export function planIssueTriageBatch(
   threshold: number = DUPLICATE_THRESHOLD,
   now: number = Date.now(),
   repoOwner?: string,
+  repoMilestones: readonly string[] = [],
 ): readonly IssueTriagePlan[] {
   return issues.map((issue) => {
-    const decision = planIssueTriage(issue, boardTasks, backlogTitles, threshold, now, repoOwner);
+    const decision = planIssueTriage(
+      issue,
+      boardTasks,
+      backlogTitles,
+      threshold,
+      now,
+      repoOwner,
+      repoMilestones,
+    );
     const commands = planIssueTriageCommands(issue, decision);
     return { issue, decision, commands };
   });
@@ -1020,6 +1067,7 @@ interface RawGithubIssue {
   readonly labels?: unknown;
   readonly assignees?: unknown;
   readonly author?: unknown;
+  readonly milestone?: unknown;
   readonly createdAt?: unknown;
 }
 
@@ -1062,6 +1110,32 @@ export function parseAssignees(raw: unknown): readonly string[] {
 }
 
 /**
+ * The milestone titles this repo actually has, via `gh api repos/{owner}/
+ * {repo}/milestones`. Empty on any failure, which is the safe direction:
+ * the caller then emits no `--milestone` flag at all rather than one it
+ * cannot know is real.
+ *
+ * The classifier picks from a fixed HOUSE set (`Foundations`/`V1`/
+ * `Hardening`) that a fresh repo's seeder creates. A repo that grew its own
+ * milestones instead — this one has four, none of them house titles — got a
+ * `--milestone V1` on every accepted issue that silently did nothing, for as
+ * long as the ritual has existed (found by running it, 2026-09-22).
+ */
+export async function fetchRepoMilestones(exec: CliExec): Promise<readonly string[]> {
+  const { code, stdout } = await exec('gh', [
+    'api',
+    'repos/{owner}/{repo}/milestones',
+    '--jq',
+    '.[].title',
+  ]);
+  if (code !== 0) return [];
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+}
+
+/**
  * The repo owner's login via `gh repo view --json nameWithOwner`, run
  * through the injectable `exec`. Read-only, and `undefined` on a non-zero
  * exit, unparseable stdout, or a payload without a `<owner>/<repo>` string
@@ -1100,7 +1174,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     '--state',
     'open',
     '--json',
-    'number,title,body,url,labels,assignees,author,createdAt',
+    'number,title,body,url,labels,assignees,author,createdAt,milestone',
   ]);
   if (code !== 0) return [];
 
@@ -1116,6 +1190,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     .filter((raw) => typeof raw.number === 'number' && typeof raw.title === 'string')
     .map((raw) => {
       const author = parseAuthorLogin(raw.author);
+      const milestone = parseMilestoneTitle(raw.milestone);
       return {
         number: raw.number as number,
         title: raw.title as string,
@@ -1125,6 +1200,7 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
         ...(typeof raw.url === 'string' ? { url: raw.url } : {}),
         ...(author !== undefined ? { author } : {}),
         ...(typeof raw.createdAt === 'string' ? { createdAt: raw.createdAt } : {}),
+        ...(milestone !== undefined ? { milestone } : {}),
       };
     });
 }
@@ -1200,7 +1276,10 @@ export async function runIssueTriageRitual(
   now: () => number = Date.now,
 ): Promise<IssueTriageRitualResult> {
   const issues = await fetchOpenIssues(exec);
-  const repoOwner = await fetchRepoOwner(exec);
+  const [repoOwner, repoMilestones] = await Promise.all([
+    fetchRepoOwner(exec),
+    fetchRepoMilestones(exec),
+  ]);
   const basePlans = planIssueTriageBatch(
     issues,
     boardTasks,
@@ -1208,6 +1287,7 @@ export async function runIssueTriageRitual(
     threshold,
     now(),
     repoOwner,
+    repoMilestones,
   );
 
   const plans: IssueTriagePlan[] = [];

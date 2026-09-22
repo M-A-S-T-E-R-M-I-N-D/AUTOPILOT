@@ -25,6 +25,8 @@ import {
   isMaintainerAuthored,
   repoOwnerOf,
   handSetFamilyLabel,
+  milestoneToSet,
+  parseMilestoneTitle,
   AGENT_OK_LABEL,
   NEEDS_FORMAT_LABEL,
   RESERVED_FOR_HUMANS_DAYS,
@@ -365,5 +367,101 @@ describe('triage keeps a hand-set area and priority', () => {
     if (decision.decision !== 'accept') return;
     expect(decision.area).toMatch(/^area: /);
     expect(decision.priority).toMatch(/^priority: /);
+  });
+});
+
+/**
+ * A FLAG THAT CANNOT WORK IS WORSE THAN NO FLAG (2026-09-22). The milestone
+ * classifier picks from a fixed house set — Foundations / V1 / Hardening —
+ * that a seeder creates on a fresh repo. This repo grew its own four
+ * milestones instead and has none of those titles, so every accepted issue
+ * carried `--milestone V1`, which did nothing and said nothing. Issue #5 also
+ * showed the other half: it already had a milestone a person chose on
+ * 2026-09-07, and the edit was about to replace it.
+ */
+describe('parseMilestoneTitle', () => {
+  it('reads the title off gh milestone object', () => {
+    expect(parseMilestoneTitle({ title: 'Foundation & community' })).toBe('Foundation & community');
+  });
+
+  it('is undefined for an issue with no milestone, or a payload without a title', () => {
+    expect(parseMilestoneTitle(null)).toBeUndefined();
+    expect(parseMilestoneTitle(undefined)).toBeUndefined();
+    expect(parseMilestoneTitle({})).toBeUndefined();
+    expect(parseMilestoneTitle({ title: '' })).toBeUndefined();
+    expect(parseMilestoneTitle('Foundations')).toBeUndefined();
+  });
+});
+
+describe('milestoneToSet', () => {
+  const REPO = ['Foundations', 'V1', 'Hardening'];
+
+  it('sets the classified milestone when the repo has it and the issue has none', () => {
+    expect(milestoneToSet('V1', undefined, REPO)).toBe('V1');
+  });
+
+  it('leaves a milestone somebody already chose alone', () => {
+    expect(milestoneToSet('V1', 'Foundation & community', REPO)).toBeUndefined();
+  });
+
+  it('sets nothing when the repo has no such milestone', () => {
+    expect(milestoneToSet('V1', undefined, ['Foundation & community'])).toBeUndefined();
+  });
+
+  it('sets nothing when the repo milestones could not be read', () => {
+    expect(milestoneToSet('V1', undefined, [])).toBeUndefined();
+  });
+
+  it('treats an empty existing title as no milestone at all', () => {
+    expect(milestoneToSet('V1', '', REPO)).toBe('V1');
+  });
+});
+
+describe('the triage edit omits a milestone it cannot set', () => {
+  const fresh = issue({
+    number: 90,
+    title: 'Fleet table loses focus',
+    labels: [],
+  });
+
+  it('emits no --milestone flag against a repo without the house milestones', () => {
+    const decision = planIssueTriage(fresh, [], [], undefined, NOW, undefined, [
+      'Foundation & community',
+    ]);
+    const args = planIssueTriageCommands(fresh, decision)
+      .filter((c) => c.args[1] === 'edit')
+      .flatMap((c) => c.args);
+    expect(args).not.toContain('--milestone');
+  });
+
+  it('says nothing about a milestone in the comment either, so the two agree', () => {
+    const decision = planIssueTriage(fresh, [], [], undefined, NOW, undefined, []);
+    expect(decision.reasoning).not.toContain('milestone');
+  });
+
+  it('emits the flag when the repo does have the milestone', () => {
+    const decision = planIssueTriage(fresh, [], [], undefined, NOW, undefined, [
+      'Foundations',
+      'V1',
+      'Hardening',
+    ]);
+    const args = planIssueTriageCommands(fresh, decision)
+      .filter((c) => c.args[1] === 'edit')
+      .flatMap((c) => c.args);
+    expect(args).toContain('--milestone');
+    expect(args).toContain('V1');
+  });
+
+  it('leaves the flag off when the issue already carries a milestone', () => {
+    const already = { ...fresh, milestone: 'Foundation & community' };
+    const decision = planIssueTriage(already, [], [], undefined, NOW, undefined, [
+      'Foundations',
+      'V1',
+      'Hardening',
+    ]);
+    const args = planIssueTriageCommands(already, decision)
+      .filter((c) => c.args[1] === 'edit')
+      .flatMap((c) => c.args);
+    expect(args).not.toContain('--milestone');
   });
 });

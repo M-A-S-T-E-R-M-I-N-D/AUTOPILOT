@@ -33,10 +33,18 @@ function cleanupDir(dir: string): void {
 
 /** A `CliExec` stub that answers `gh issue list` with `issues` and every
  *  other call (label edit, comment) with a bare success. */
+/** A repo that HAS the house milestones, so the ritual's `--milestone` flag
+ *  is exercised. A repo without them gets no flag at all rather than one
+ *  that silently fails, which is what this repo taught (2026-09-22). */
+const HOUSE_MILESTONES = 'Foundations\nV1\nHardening\n';
+
 function issuesExec(issues: readonly unknown[] = []): CliExec {
   return vi.fn(async (_bin, args) => {
     if (args[0] === 'issue' && args[1] === 'list') {
       return { code: 0, stdout: JSON.stringify(issues) };
+    }
+    if (args[0] === 'api' && String(args[1]).endsWith('/milestones')) {
+      return { code: 0, stdout: HOUSE_MILESTONES };
     }
     return { code: 0, stdout: '' };
   });

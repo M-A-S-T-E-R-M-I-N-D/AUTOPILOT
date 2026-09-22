@@ -62,6 +62,11 @@ const templated = (text: string): string =>
   `### What happened?\n${text}\n\n### Steps to reproduce\n1. see above\n\n### Expected behavior\nIt works.\n`;
 const TEMPLATED_BODY = templated('');
 
+/** The milestones the classifier's house set assumes a seeder created. A
+ *  repo that has them gets a `--milestone` flag; one that does not gets no
+ *  flag at all rather than one that silently fails (2026-09-22). */
+const HOUSE_MILESTONES = ['Foundations', 'V1', 'Hardening'] as const;
+
 /** The `gh` verbs that CHANGE something on the tracker. A ritual that must not
  *  write is proved by the absence of these, not by a call count: the read side
  *  gains calls over time (the repo-owner read landed 2026-09-22) and a count
@@ -187,6 +192,10 @@ describe('planIssueTriage', () => {
       },
       [{ id: 'web-other', title: 'Unrelated task about release tagging' }],
       ['Unrelated backlog line about billing'],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
     );
 
     expect(decision).toMatchObject({
@@ -212,6 +221,10 @@ describe('planIssueTriage', () => {
       },
       [],
       [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
     );
 
     expect(decision).toMatchObject({ decision: 'accept', milestone: 'Hardening' });
@@ -226,6 +239,10 @@ describe('planIssueTriage', () => {
       },
       [],
       [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
     );
 
     expect(decision).toMatchObject({ decision: 'accept', milestone: 'Foundations' });
@@ -403,7 +420,15 @@ describe('planIssueTriageCommands', () => {
   };
 
   it('plans an add-label edit (pool + area + priority) followed by a reasoning comment for an accepted issue', () => {
-    const decision = planIssueTriage(issue, [], []);
+    const decision = planIssueTriage(
+      issue,
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
+    );
 
     expect(planIssueTriageCommands(issue, decision)).toEqual([
       {
@@ -672,7 +697,7 @@ describe('fetchOpenIssues', () => {
       '--state',
       'open',
       '--json',
-      'number,title,body,url,labels,assignees,author,createdAt',
+      'number,title,body,url,labels,assignees,author,createdAt,milestone',
     ]);
   });
 
@@ -818,7 +843,15 @@ describe('executeIssueTriageCommands', () => {
   };
 
   it('runs every planned command through exec, in order, and pairs each with its result', async () => {
-    const decision = planIssueTriage(issue, [], []);
+    const decision = planIssueTriage(
+      issue,
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      HOUSE_MILESTONES,
+    );
     const commands = planIssueTriageCommands(issue, decision);
     const exec: CliExec = vi
       .fn()
