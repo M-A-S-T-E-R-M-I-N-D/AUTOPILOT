@@ -35,6 +35,7 @@ import {
   type ActivityEventRow,
 } from '@autopilot/store';
 import { classifyNoop, type NoopClass, type TaskProposal } from '@autopilot/engine';
+import { listOwnedWorkTasks } from '../flight/owned-work-reconcile.js';
 import {
   buildFleetView,
   type FleetView,
@@ -462,6 +463,7 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       activity: parseActivities(store, p.id),
       laneActivity: parseLaneActivities(store, p.id, now),
       tasks: mapTaskEntries(db, p.id),
+      ownedWorkCount: listOwnedWorkTasks(boardRows(db, p.id)).length,
       dora: doraSnapshot(db, p.id, now),
       gateParallel: gateParallelSavings(db, p.id),
       warmSessions: warmSessionSavings(db, p.id),
