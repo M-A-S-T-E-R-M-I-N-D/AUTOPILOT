@@ -11,7 +11,7 @@ endpoints (2026-08-16..17); canonical-lock, review ritual, and report-from-here
 remain open board slices; the contributor pool client (slice 6) shipped end to end —
 browse/claim/fly/deliver all landed; slice 7's publicity affordances have also
 shipped end to end — page upkeep continues as a live KEEPER duty, not a closeable
-deliverable (status refreshed 2026-08-28).
+deliverable (status refreshed 2026-09-22).
 
 Founder directive (2026-08-14, expanding epic 0006): the moment the infrastructure
 lands, there is exactly ONE canonical main version. **MASTERMIND is the sole manager of
@@ -732,7 +732,13 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    rename-sweep guard, which already proves the diff those paths came from
    was fetched, so the key is spread only when non-empty like
    `conflictingPaths`; paths run through the same `neutralizeAtMentions`
-   choke point, and the queue comment dedups like every other),
+   choke point, and the queue comment dedups like every other), the
+   owned-work-reconcile security marker (`flight/owned-work-reconcile` added
+   to `SECURITY_SENSITIVE_PATH_MARKERS` — EPIC 0033 slice 1's reconciler
+   reads `gh issue list --assignee @me` and upserts/refocuses/releases
+   claim-contract-marked board tasks from it, the same decide-and-apply class
+   `flight/mirror-pass` above is flagged for, ending in neither `-execute.ts`
+   nor any security keyword),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and

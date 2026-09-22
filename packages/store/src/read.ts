@@ -429,6 +429,48 @@ export function doneTasks(db: Db, projectId: string, limit = 50): TaskSummaryRow
     .all(projectId, clampTasksLimit(limit, 50)) as TaskSummaryRow[];
 }
 
+/**
+ * A project's tasks waiting on a human, oldest first — the operator's own
+ * queue.
+ *
+ * Separate from {@link recentTasks} for the same reason {@link doneTasks} is:
+ * that query's default limit sorts by severity and priority, and a
+ * `needs_approval` proposal carries neither, so on a busy board it is pushed
+ * off the page entirely. Measured on this repo (2026-09-22): 61 queued tasks
+ * against a 30-row page left all FOUR awaiting decisions invisible, one of
+ * them filed by that morning's own flight. A decision nobody can see is a
+ * decision that never gets made.
+ *
+ * Oldest first, deliberately: among things waiting on a person, the one that
+ * has waited longest is the one going stale.
+ */
+export function awaitingApprovalTasks(db: Db, projectId: string, limit = 50): TaskSummaryRow[] {
+  return db
+    .prepare(
+      `SELECT id, title, body, status, severity, dimension, focus, priority, priority_pinned, source, created_at, assignee FROM tasks
+        WHERE project_id = ? AND status = 'needs_approval'
+        ORDER BY created_at ASC
+        LIMIT ?`,
+    )
+    .all(projectId, clampTasksLimit(limit, 50)) as TaskSummaryRow[];
+}
+
+/**
+ * How many tasks are queued for `projectId`.
+ *
+ * Counted in SQL rather than by filtering a page. The lucky planner sized its
+ * lanes from `project.tasks`, which is {@link recentTasks}' thirty-row page,
+ * so a board of any real depth reported thirty no matter how deep it ran —
+ * measured here 30 against a true 61 (2026-09-22). The fleet launcher had the
+ * right number all along, which is how the two disagreed in the same UI.
+ */
+export function queuedTaskCount(db: Db, projectId: string): number {
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status = 'queued'`)
+    .get(projectId) as { n: number } | undefined;
+  return row?.n ?? 0;
+}
+
 /** Lifetime cumulative cost {@link taskEconomics} must clear to flag a task a "runaway". */
 export const RUNAWAY_COST_USD = 50;
 /** Lifetime firing count {@link taskEconomics} must clear to flag a task a "runaway". */
