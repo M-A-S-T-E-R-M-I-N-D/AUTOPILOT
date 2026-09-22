@@ -25,10 +25,12 @@
  *
  * {@link reconcileOwnedWork} composes fetch + plan with the actual
  * `createTask`/`setTaskFocus` writes, the same "pure core, then a ritual
- * that applies it" shape `issue-triage.ts`'s `runIssueTriageRitual` uses.
- * HTTP/cadence wiring (a preview/execute pair, the OWNED WORK section and
- * masthead count of slice 2) is deliberately deferred — this ships the
- * reconcile itself as a correct, independently-testable unit first.
+ * that applies it" shape `issue-triage.ts`'s `runIssueTriageRitual` uses, plus
+ * slice 2's one pickup comment ({@link ownedWorkPickupComment}) on each newly
+ * created task. HTTP/cadence wiring (a preview/execute pair) and the OWNED
+ * WORK board section and masthead count are deliberately deferred — this
+ * ships the reconcile itself, and the pickup comment it owes the issue, as a
+ * correct, independently-testable unit first.
  */
 
 import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@autopilot/store';
@@ -207,6 +209,24 @@ export function listOwnedWorkTasks(
   return tasks.filter((task) => task.focus !== 0 && isHumanClosedTask(task));
 }
 
+/**
+ * The one comment slice 2 "SEE IT" (docs/epics/0033-owned-work.md §4)
+ * requires when the pilot first turns a GitHub-side claim into a focused
+ * board task: "the issue gets exactly one comment when the pilot first picks
+ * it up. One." It is exactly one by construction, not by a separate dedupe
+ * check: {@link reconcileOwnedWork} only ever posts this from `plan.upserts`,
+ * and `planOwnedWorkReconcile` only ever puts an issue in `upserts` when it
+ * has no existing task at its {@link issueTaskId} — a second reconcile pass
+ * never sees the same issue there again (the no-spam law, docs/ATTRIBUTION.md
+ * §3, holds by the same idempotency that makes slice 1 safe to re-run).
+ */
+export function ownedWorkPickupComment(claimant: string): string {
+  return (
+    `Picked up — this issue is now a focused board task for @${claimant}. ` +
+    'The claim contract holds: only the claimant closes it.'
+  );
+}
+
 /** One {@link reconcileOwnedWork} pass's outcome — how many writes of each
  *  kind actually landed, for a caller to log/report. */
 export interface OwnedWorkReconcileResult {
@@ -214,6 +234,8 @@ export interface OwnedWorkReconcileResult {
   readonly created: number;
   readonly focused: number;
   readonly released: number;
+  /** How many newly-created tasks got their one pickup comment posted. */
+  readonly commented: number;
 }
 
 const EMPTY_PLAN: OwnedWorkReconcilePlan = { upserts: [], refocus: [], release: [] };
@@ -236,17 +258,29 @@ export async function reconcileOwnedWork(
 ): Promise<OwnedWorkReconcileResult> {
   const claimant = await fetchViewerLogin(exec);
   if (!claimant) {
-    return { plan: EMPTY_PLAN, created: 0, focused: 0, released: 0 };
+    return { plan: EMPTY_PLAN, created: 0, focused: 0, released: 0, commented: 0 };
   }
 
   const assigned = await fetchAssignedIssues(exec);
   const plan = planOwnedWorkReconcile(assigned, existingTasks, claimant, projectId, now());
 
   let created = 0;
+  let commented = 0;
   for (const input of plan.upserts) {
     if (createTask(store, input)) {
       created += 1;
       setTaskFocus(store, input.id, true, now());
+      const issueNumber = issueNumberFromTaskId(input.id);
+      if (issueNumber !== null) {
+        const { code } = await exec('gh', [
+          'issue',
+          'comment',
+          String(issueNumber),
+          '--body',
+          ownedWorkPickupComment(claimant),
+        ]);
+        if (code === 0) commented += 1;
+      }
     }
   }
 
@@ -260,5 +294,5 @@ export async function reconcileOwnedWork(
     if (setTaskFocus(store, id, false, now())) released += 1;
   }
 
-  return { plan, created, focused, released };
+  return { plan, created, focused, released, commented };
 }
