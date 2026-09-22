@@ -27,14 +27,18 @@
  * `createTask`/`setTaskFocus` writes, the same "pure core, then a ritual
  * that applies it" shape `issue-triage.ts`'s `runIssueTriageRitual` uses, plus
  * slice 2's one pickup comment ({@link ownedWorkPickupComment}) on each newly
- * created task. HTTP/cadence wiring (a preview/execute pair) and the OWNED
- * WORK board section and masthead count are deliberately deferred — this
- * ships the reconcile itself, and the pickup comment it owes the issue, as a
- * correct, independently-testable unit first.
+ * created task. {@link runOwnedWorkSweep} is the cadence the epic's design
+ * names ("a reconciler, not a webhook … rides the `gh` cadence the fleet
+ * already has"): `fly.ts` runs it once per flight at takeoff, before the
+ * first board read. An HTTP preview/execute pair and the OWNED WORK board
+ * section and masthead count are deliberately deferred — the reconcile, its
+ * pickup comment, and its takeoff cadence ship as correct, independently-
+ * testable units first.
  */
 
 import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
 import { issueTaskId } from './issue-triage.js';
 import { issueNumberFromTaskId } from './mirror-pass.js';
 import { claimContractBody, isHumanClosedTask } from './claim-contract.js';
@@ -113,6 +117,26 @@ export interface OwnedWorkBoardTask {
   readonly body: string | null;
   readonly focus: number;
   readonly status: string;
+}
+
+/**
+ * Every `github-<n>` task on `projectId`'s board, unpaged — the candidate
+ * pool {@link planOwnedWorkReconcile} decides against, read the way
+ * `mirror-pass-execute.ts`'s `mirrorPassTaskCandidates` reads its own. NOT
+ * `@autopilot/store`'s `recentTasks`: that is a 30-row work-order PAGE, and
+ * on a busy board (61 queued tasks measured on 2026-09-22) an un-focused
+ * owned task older than thirty newer rows falls off it — the plan then
+ * calls it NEW, `createTask` silently refuses the duplicate id, and the
+ * refocus the operator's still-live assignment deserves never happens. The
+ * reconcile only ever reads or writes issue-addressed rows, so scoping the
+ * read to them is exact, not a widening.
+ */
+export function ownedWorkCandidates(store: Store, projectId: string): OwnedWorkBoardTask[] {
+  return store.db
+    .prepare(
+      "SELECT id, body, focus, status FROM tasks WHERE project_id = ? AND id LIKE 'github-%'",
+    )
+    .all(projectId) as OwnedWorkBoardTask[];
 }
 
 /** A task in either of these statuses is settled — never re-focused by this
@@ -295,4 +319,44 @@ export async function reconcileOwnedWork(
   }
 
   return { plan, created, focused, released, commented };
+}
+
+/**
+ * TAKEOFF sweep — slice 1 INGEST's cadence (docs/epics/0033-owned-work.md
+ * §3: "the fleet already shells `gh` on a cadence … and this rides that").
+ * `fly.ts` runs it once per flight BEFORE its first board read, so a
+ * `/claim` made on GitHub since the last flight is already a focused,
+ * contract-marked task by the time the first firing's prompt is built —
+ * the epic's measured gap (#6 claimed on GitHub, board silent) closed with
+ * no manual step. Re-running is free by {@link planOwnedWorkReconcile}'s
+ * idempotency, so every flight simply asks GitHub "what is mine?" first.
+ *
+ * Same self-target guard `post-flight-sweeps.ts`'s `runStaleClaimSweep`
+ * carries, for the same reason: `gh issue list --assignee @me` resolves the
+ * repository from `process.cwd()` — THIS engine checkout — not from the
+ * flown folder, so a flight over someone else's project must never ingest
+ * this repo's assignments onto that project's board. Best-effort and
+ * network-bound like every takeoff self-heal: never fails the flight, never
+ * throws. Returns `null` when skipped or broken, so a caller can tell
+ * "nothing changed" (a zero result) from "did not run" (no answer at all).
+ */
+export async function runOwnedWorkSweep(
+  store: Store,
+  projectId: string,
+  now: () => number,
+  exec: CliExec = ghExec,
+  target?: string,
+  engineRepo: string = process.cwd(),
+): Promise<OwnedWorkReconcileResult | null> {
+  if (target !== undefined && target !== engineRepo) return null;
+  try {
+    // Read the board fresh here rather than taking a snapshot from the
+    // caller: takeoff runs after the straggler and stale-claim self-heals,
+    // and the plan must see their writes, not the pre-heal board.
+    const existingTasks = ownedWorkCandidates(store, projectId);
+    return await reconcileOwnedWork(exec, store, projectId, existingTasks, now);
+  } catch {
+    /* owned-work sweep is best-effort — never fail the flight over it */
+    return null;
+  }
 }
