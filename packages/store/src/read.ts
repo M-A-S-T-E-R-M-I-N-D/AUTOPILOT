@@ -455,6 +455,22 @@ export function awaitingApprovalTasks(db: Db, projectId: string, limit = 50): Ta
     .all(projectId, clampTasksLimit(limit, 50)) as TaskSummaryRow[];
 }
 
+/**
+ * How many tasks are queued for `projectId`.
+ *
+ * Counted in SQL rather than by filtering a page. The lucky planner sized its
+ * lanes from `project.tasks`, which is {@link recentTasks}' thirty-row page,
+ * so a board of any real depth reported thirty no matter how deep it ran —
+ * measured here 30 against a true 61 (2026-09-22). The fleet launcher had the
+ * right number all along, which is how the two disagreed in the same UI.
+ */
+export function queuedTaskCount(db: Db, projectId: string): number {
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status = 'queued'`)
+    .get(projectId) as { n: number } | undefined;
+  return row?.n ?? 0;
+}
+
 /** Lifetime cumulative cost {@link taskEconomics} must clear to flag a task a "runaway". */
 export const RUNAWAY_COST_USD = 50;
 /** Lifetime firing count {@link taskEconomics} must clear to flag a task a "runaway". */

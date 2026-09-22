@@ -7,6 +7,7 @@ import {
   recentTasks,
   doneTasks,
   awaitingApprovalTasks,
+  queuedTaskCount,
   listProjects,
   getIndexMeta,
   firingStats,
@@ -2065,5 +2066,47 @@ describe('awaitingApprovalTasks', () => {
   it('is empty when nothing is waiting', () => {
     insertTask('ap1', 'queued', 'high');
     expect(awaitingApprovalTasks(store.db, 'ap1')).toEqual([]);
+  });
+});
+
+/**
+ * THE PAGE IS NOT THE COUNT (2026-09-22). The Fly bar's lucky roll sized its
+ * lanes from `project.tasks`, which is `recentTasks`' thirty-row page, so a
+ * board of any real depth reported thirty however deep it ran — measured 30
+ * against a true 61. The fleet launcher had the right number all along, which
+ * is how two numbers in one interface disagreed.
+ */
+describe('queuedTaskCount', () => {
+  beforeEach(() => {
+    insertProject('qc1', 'qc-alpha', 'registered', 1);
+    insertProject('qc2', 'qc-beta', 'registered', 1);
+  });
+
+  it('counts past the page size a task list would stop at', () => {
+    for (let i = 0; i < 45; i += 1) insertTask('qc1', 'queued', 'high');
+    expect(recentTasks(store.db, 'qc1')).toHaveLength(30);
+    expect(queuedTaskCount(store.db, 'qc1')).toBe(45);
+  });
+
+  it('counts only queued work, not every open status', () => {
+    insertTask('qc1', 'queued', null);
+    insertTask('qc1', 'in_progress', null);
+    insertTask('qc1', 'needs_approval', null);
+    insertTask('qc1', 'done', null);
+    insertTask('qc1', 'deferred', null);
+    expect(queuedTaskCount(store.db, 'qc1')).toBe(1);
+  });
+
+  it('counts only that project', () => {
+    insertTask('qc1', 'queued', null);
+    insertTask('qc2', 'queued', null);
+    insertTask('qc2', 'queued', null);
+    expect(queuedTaskCount(store.db, 'qc1')).toBe(1);
+  });
+
+  it('is zero for a project with nothing queued, and for one that does not exist', () => {
+    insertTask('qc1', 'done', null);
+    expect(queuedTaskCount(store.db, 'qc1')).toBe(0);
+    expect(queuedTaskCount(store.db, 'no-such-project')).toBe(0);
   });
 });

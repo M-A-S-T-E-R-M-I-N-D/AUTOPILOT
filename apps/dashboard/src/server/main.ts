@@ -21,6 +21,7 @@ import {
   gatherProjectRoot,
   gatherLiveState,
   listProjectDocs,
+  projectQueuedTaskCount,
   readProjectDoc,
   brokenDocLinks,
   docLinksHere,
@@ -655,7 +656,10 @@ const server = createServer({
     const projectId = deriveFlyProjectId(target);
     const fleet = readFleetFromStore(dbPath, Date.now());
     const project = fleet.projects.find((p) => p.id === projectId);
-    const queuedTasks = project ? project.tasks.filter((t) => t.status === 'queued').length : 0;
+    // Counted in the store, never by filtering the board page: that page
+    // stops at thirty rows and the planner would size its lanes from the
+    // page depth instead of the board's (2026-09-22).
+    const queuedTasks = project ? projectQueuedTaskCount(dbPath, projectId) : 0;
     const flights = flightApi.statusAll?.() ?? [];
     const runningFlights = flights.filter((f) => f.running || f.queued).length;
     const probe: LuckyProbe = {
