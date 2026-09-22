@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-22 | [Processing VERDICT `ap-mu8cic4z-0`: the ADR 0011 fix-commit generation-strategy blocker still holds](2026-09-22-verdict-ap-mu8cic4z-0-epic-0020-s8b-s8c-still-blocked.md) |
 | 2026-09-19 | [Processing `ap-mu8jt1xg-ci-red`: "CI RED after landing main → 18c6cfa: ci.yml — failure" — refuted](2026-09-19-verdict-ap-mu8jt1xg-ci-red-refuted.md) |
 | 2026-09-19 | [Processing `ap-mu6rf2a8-ci-red`: "CI RED after landing main → cfec097: ci.yml — failure" — refuted](2026-09-19-verdict-ap-mu6rf2a8-ci-red-refuted.md) |
 | 2026-09-19 | [Processing VERDICT `ap-mu6lf6ve-4`: board→issues export ritual split confirmed](2026-09-19-verdict-ap-mu6lf6ve-4-board-issues-export-split-confirmed.md) |
