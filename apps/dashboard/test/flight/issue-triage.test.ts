@@ -19,6 +19,8 @@ import {
   applyIssueTriageTasks,
   issueTaskId,
   fetchOpenIssues,
+  fetchRepoOwner,
+  fetchRepoMilestones,
   executeIssueTriageCommands,
   runIssueTriageRitual,
 } from '../../src/flight/issue-triage.js';
@@ -832,6 +834,99 @@ describe('fetchOpenIssues', () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{"not":"an array"}' });
 
     expect(await fetchOpenIssues(exec)).toEqual([]);
+  });
+});
+
+describe('fetchRepoOwner', () => {
+  it('calls gh repo view with the expected argv', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":"octo/repo"}' });
+
+    await fetchRepoOwner(exec);
+
+    expect(exec).toHaveBeenCalledWith('gh', ['repo', 'view', '--json', 'nameWithOwner']);
+  });
+
+  it('reads the owner off a well-formed nameWithOwner', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":"M-A-S-T-E-R-M-I-N-D/AUTOPILOT"}' });
+
+    expect(await fetchRepoOwner(exec)).toBe('M-A-S-T-E-R-M-I-N-D');
+  });
+
+  it('is undefined on a non-zero exit', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
+
+    expect(await fetchRepoOwner(exec)).toBeUndefined();
+  });
+
+  it('is undefined on unparseable stdout', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: 'not json' });
+
+    expect(await fetchRepoOwner(exec)).toBeUndefined();
+  });
+
+  it('is undefined when the parsed payload has no nameWithOwner string', async () => {
+    const noField: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{}' });
+    const wrongType: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":42}' });
+    const notAnObject: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '"octo/repo"' });
+
+    expect(await fetchRepoOwner(noField)).toBeUndefined();
+    expect(await fetchRepoOwner(wrongType)).toBeUndefined();
+    expect(await fetchRepoOwner(notAnObject)).toBeUndefined();
+  });
+
+  it('is undefined when nameWithOwner is not <owner>/<repo>', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: '{"nameWithOwner":"AUTOPILOT"}' });
+
+    expect(await fetchRepoOwner(exec)).toBeUndefined();
+  });
+});
+
+describe('fetchRepoMilestones', () => {
+  it('calls gh api milestones with the expected argv', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '' });
+
+    await fetchRepoMilestones(exec);
+
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'api',
+      'repos/{owner}/{repo}/milestones',
+      '--jq',
+      '.[].title',
+    ]);
+  });
+
+  it('splits the jq-emitted titles, one per line', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValue({ code: 0, stdout: 'Foundations\nV1\nHardening\n' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual(['Foundations', 'V1', 'Hardening']);
+  });
+
+  it('trims each title and drops blank lines', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '  Foundations  \n\nV1\n' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual(['Foundations', 'V1']);
+  });
+
+  it('returns an empty array when the repo has no milestones', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual([]);
+  });
+
+  it('returns an empty array on a non-zero exit', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
+
+    expect(await fetchRepoMilestones(exec)).toEqual([]);
   });
 });
 
