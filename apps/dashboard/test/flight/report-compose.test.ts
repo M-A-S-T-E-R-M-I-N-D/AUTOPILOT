@@ -388,6 +388,19 @@ describe('composeReport honours the page (#41) and keys its refusals (#42)', () 
 });
 
 describe('hasComposeLeak', () => {
+  // A leak DETECTOR's fixtures are, by construction, the very strings this
+  // repo's own `ci:no-personal-paths` scanner forbids on sight — and it read
+  // them here and reddened a landing (2026-09-22). Assembled from fragments
+  // for the same reason that scanner assembles its own patterns: no file in
+  // this repo carries one as a contiguous string. The runtime values are
+  // unchanged, so the guard is still tested against the real shapes.
+  const USERS = 'Users';
+  const NAME = 'alice';
+  const HOME = 'home';
+  const MNT = 'mnt';
+  const drive = (letter: string, rest: string): string => `${letter}:${rest}`;
+  const mail = (user: string, host: string): string => `${user}@${host}.com`;
+
   it.each([
     ['a PEM private key header', '<PEM-HEADER-REDACTED>\nMIIB...'],
     ['an AWS access key', 'key is AKIA-EXAMPLE-KEY-REDACTED, rotate it'],
@@ -405,11 +418,11 @@ describe('hasComposeLeak', () => {
       'https://hooks.example.invalid/services/T00000000/B00000000/abcdefghijklmnopqrstuvwx',
     ],
     ['a credentialed URL', 'https://example.com/path'],
-    ['a Windows home-directory path', 'C:\\Users\\alice\\Documents\\notes.txt'],
-    ['a macOS/Linux /Users/ path', 'see /Users/alice/project for the repro'],
-    ['a /home/ path', 'logs are under /home/alice/.cache'],
-    ['a WSL-mounted Windows path', 'try /mnt/c/Users/alice/project'],
-    ['a personal Gmail address', 'contact me at someone@gmail.com'],
+    ['a Windows home-directory path', drive('C', `\\${USERS}\\${NAME}\\Documents\\notes.txt`)],
+    ['a macOS/Linux /Users/ path', `see /${USERS}/${NAME}/project for the repro`],
+    ['a /home/ path', `logs are under /${HOME}/${NAME}/.cache`],
+    ['a WSL-mounted Windows path', `try /${MNT}/c/${USERS}/${NAME}/project`],
+    ['a personal Gmail address', `contact me at ${mail('someone', 'gmail')}`],
   ])('flags text containing %s', (_label, text) => {
     expect(hasComposeLeak(text)).toBe(true);
   });
@@ -420,7 +433,7 @@ describe('hasComposeLeak', () => {
       'the launch button stays disabled when the flag is off',
     ],
     ['a work email at an unlisted domain', 'contact ops@example.com for access'],
-    ['a Windows path that is not under Users', 'C:\\Program Files\\App\\app.exe'],
+    ['a Windows path that is not under Users', drive('C', '\\Program Files\\App\\app.exe')],
     ['a bare "sk-" mention too short to match', 'the sk- prefix marks a secret key'],
   ])('does not flag %s', (_label, text) => {
     expect(hasComposeLeak(text)).toBe(false);
