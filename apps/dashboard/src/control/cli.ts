@@ -20,7 +20,7 @@ import {
   DEFAULT_WATCH_FLY_FIRINGS,
 } from './flight-watchdog.js';
 import { runTaxonomySeed } from '../flight/taxonomy-seed.js';
-import { reconcileOwnedWork } from '../flight/owned-work-reconcile.js';
+import { reconcileOwnedWork, listOwnedWorkTasks } from '../flight/owned-work-reconcile.js';
 import { ghExec } from '../flight/gh-exec.js';
 import { fleetFlightWatchdogTick, type FleetFlightWatchdogControl } from './fleet-watchdog.js';
 import { landWatchdogTick, createLandWatchdogControl } from './land-watchdog.js';
@@ -261,6 +261,12 @@ async function main(): Promise<void> {
           `[ok] owned-work-reconcile: ${result.created} created, ${result.focused} focused, ` +
             `${result.released} released`,
         );
+        // slice 2 "SEE IT" (docs/epics/0033-owned-work.md §4)'s CLI-first
+        // glimpse — re-read rather than reuse `existingTasks`, which predates
+        // the writes above, so a task this same pass just created or
+        // released is counted correctly.
+        const ownedNow = listOwnedWorkTasks(recentTasks(store.db, projectId));
+        out(`[ok] owned-work: ${ownedNow.length} task(s) owned right now`);
       } finally {
         store.close();
       }
