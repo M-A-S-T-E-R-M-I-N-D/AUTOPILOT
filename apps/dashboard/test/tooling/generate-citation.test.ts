@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   changelogVersionHeadingPattern,
   refreshModelCardEngineVersion,
+  refreshReadmeAssistedByVersion,
   refreshReadmeStatusVersion,
 } from '../../../../scripts/citation/generate-citation.mjs';
 
@@ -52,6 +53,63 @@ describe('refreshReadmeStatusVersion', () => {
 
     expect(() => refreshReadmeStatusVersion(withoutStatusLine, '0.19.0')).toThrow(
       /Current version/,
+    );
+  });
+});
+
+const README_EXAMPLE_COMMIT_FIXTURE = [
+  '```text',
+  'feat(checkout): apply stacked discount codes in a deterministic order',
+  '',
+  'Signed-off-by: Your Name <you@example.com>',
+  'Model: claude-sonnet-5',
+  'Firing-Prompt-Version: firing-v17',
+  'Assisted-by: AUTOPILOT v0.52.0 <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>',
+  'Harness: claude-cli',
+  '```',
+  '',
+].join('\n');
+
+describe('refreshReadmeAssistedByVersion', () => {
+  it("rewrites a stale example commit's Assisted-by version pin to the package version", () => {
+    // Arrange: the README's illustrative commit message pins a version, the
+    // one hand-maintained surface `generate-citation.mjs` never touched —
+    // package.json moved from 0.52.0 to 0.53.0 and this line was left behind.
+    const next = refreshReadmeAssistedByVersion(README_EXAMPLE_COMMIT_FIXTURE, '0.53.0');
+
+    // Assert: only the Assisted-by version moved; everything else is byte-identical.
+    expect(next).toContain(
+      'Assisted-by: AUTOPILOT v0.53.0 <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>',
+    );
+    expect(next).not.toContain('v0.52.0');
+    expect(next.replace('v0.53.0', 'v0.52.0')).toBe(README_EXAMPLE_COMMIT_FIXTURE);
+  });
+
+  it('is a no-op when the Assisted-by pin already names the package version', () => {
+    expect(refreshReadmeAssistedByVersion(README_EXAMPLE_COMMIT_FIXTURE, '0.52.0')).toBe(
+      README_EXAMPLE_COMMIT_FIXTURE,
+    );
+  });
+
+  it('accepts a version carrying semver build metadata verbatim', () => {
+    const next = refreshReadmeAssistedByVersion(README_EXAMPLE_COMMIT_FIXTURE, '1.2.3+build.5');
+
+    expect(next).toContain(
+      'Assisted-by: AUTOPILOT v1.2.3+build.5 <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>',
+    );
+  });
+
+  it('fails loudly when the Assisted-by line is missing instead of silently disarming the check', () => {
+    // Arrange: same fail-loud stance as `refreshReadmeStatusVersion` — an
+    // unchanged return would let `--check` pass forever on a README whose
+    // example commit no longer states a version at all.
+    const withoutAssistedBy = README_EXAMPLE_COMMIT_FIXTURE.replace(
+      'Assisted-by: AUTOPILOT v0.52.0 <https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT>\n',
+      '',
+    );
+
+    expect(() => refreshReadmeAssistedByVersion(withoutAssistedBy, '0.53.0')).toThrow(
+      /Assisted-by/,
     );
   });
 });
