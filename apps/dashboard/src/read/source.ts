@@ -24,6 +24,7 @@ import {
   recentActivityEvents,
   recentActivityEventsPerFiring,
   recentTasks,
+  awaitingApprovalTasks,
   doraSnapshot,
   gateParallelSavings,
   warmSessionSavings,
@@ -371,9 +372,30 @@ export function mapFlightEntries(
   }));
 }
 
+/**
+ * The board rows the dashboard renders: {@link recentTasks}' page, plus every
+ * task waiting on a human that the page would otherwise drop.
+ *
+ * `recentTasks` orders by severity then priority and stops at thirty. A
+ * `needs_approval` proposal carries neither, so on a busy board it falls off
+ * the end — measured here on 2026-09-22, 61 queued tasks left all four
+ * awaiting decisions off the payload, one of them filed by that morning's own
+ * flight. The operator's queue is exactly the part that must not be paged
+ * away, so it is unioned back in.
+ *
+ * `recentTasks` itself is untouched: the flight's pick order reads it
+ * directly and must keep seeing the board it always saw, since a proposal
+ * awaiting a person is not work a lane can take.
+ */
+function boardRows(db: Store['db'], projectId: string): ReturnType<typeof recentTasks> {
+  const page = recentTasks(db, projectId);
+  const shown = new Set(page.map((t) => t.id));
+  return [...page, ...awaitingApprovalTasks(db, projectId).filter((t) => !shown.has(t.id))];
+}
+
 export function mapTaskEntries(db: Store['db'], projectId: string): TaskEntry[] {
   const economicsById = new Map(taskEconomics(db, projectId).map((e) => [e.taskId, e]));
-  return recentTasks(db, projectId).map((t) => {
+  return boardRows(db, projectId).map((t) => {
     const economics = economicsById.get(t.id);
     return {
       id: t.id,

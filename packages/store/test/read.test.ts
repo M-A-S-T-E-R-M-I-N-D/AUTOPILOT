@@ -6,6 +6,7 @@ import { openStore, migrate, type Store } from '../src/index.js';
 import {
   recentTasks,
   doneTasks,
+  awaitingApprovalTasks,
   listProjects,
   getIndexMeta,
   firingStats,
@@ -2015,5 +2016,54 @@ describe('unverifiableCauseBreakdown', () => {
       total: 0,
       byCause: { 'no-checks': 0, timeout: 0, crash: 0, 'revert-failed': 0, unparsable: 0 },
     });
+  });
+});
+
+/**
+ * A DECISION NOBODY CAN SEE NEVER GETS MADE (2026-09-22). `recentTasks` pages
+ * at thirty, ordered by severity then priority, and a `needs_approval`
+ * proposal carries neither — so on a busy board it falls off the end.
+ * Measured live on this repo: 61 queued tasks left all FOUR awaiting
+ * decisions off the dashboard payload, one of them filed by that morning's
+ * own flight. Same reason `doneTasks` is a separate read.
+ */
+describe('awaitingApprovalTasks', () => {
+  function insertWaiting(projectId: string, id: string, createdAt: number): void {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'needs_approval', ?, ?)`,
+      )
+      .run(id, projectId, 'waiting', createdAt, createdAt);
+  }
+
+  beforeEach(() => {
+    insertProject('ap1', 'ap-alpha', 'registered', 1);
+    insertProject('ap2', 'ap-beta', 'registered', 1);
+  });
+
+  it('returns every task waiting on a human, oldest first', () => {
+    insertWaiting('ap1', 'later', 200);
+    insertWaiting('ap1', 'older', 100);
+    expect(awaitingApprovalTasks(store.db, 'ap1').map((t) => t.id)).toEqual(['older', 'later']);
+  });
+
+  it('returns only that project, and only that status', () => {
+    insertWaiting('ap1', 'mine', 1);
+    insertWaiting('ap2', 'theirs', 2);
+    insertTask('ap1', 'queued', 'high');
+    expect(awaitingApprovalTasks(store.db, 'ap1').map((t) => t.id)).toEqual(['mine']);
+  });
+
+  it('survives a board busy enough to page it out of recentTasks', () => {
+    for (let i = 0; i < 40; i += 1) insertTask('ap1', 'queued', 'high');
+    insertWaiting('ap1', 'waiting', 1);
+    expect(recentTasks(store.db, 'ap1').map((t) => t.id)).not.toContain('waiting');
+    expect(awaitingApprovalTasks(store.db, 'ap1').map((t) => t.id)).toEqual(['waiting']);
+  });
+
+  it('is empty when nothing is waiting', () => {
+    insertTask('ap1', 'queued', 'high');
+    expect(awaitingApprovalTasks(store.db, 'ap1')).toEqual([]);
   });
 });
