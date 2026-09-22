@@ -187,6 +187,26 @@ export function planOwnedWorkReconcile(
   return { upserts, refocus, release };
 }
 
+/**
+ * Every task that is owned work RIGHT NOW (docs/epics/0033-owned-work.md §2:
+ * "owned work gets focus and never gets auto-closed") — carries the claim
+ * contract marker ({@link isHumanClosedTask}) and is still focused. A task
+ * {@link planOwnedWorkReconcile}'s `release` un-focused keeps its contract
+ * marker (work already done against it stays visible, out of scope §12) but
+ * correctly drops out of this list, since it is no longer *owned*, only
+ * *once-claimed*.
+ *
+ * This is slice 2's ("SEE IT", §4) shared read — the OWNED WORK board
+ * section and the masthead count both reduce to this same filter. Wiring
+ * either is deliberately deferred, same as slice 1's own reconcile-before-UI
+ * rollout (see the `owned-work-reconcile` CLI case this feeds first).
+ */
+export function listOwnedWorkTasks(
+  tasks: readonly OwnedWorkBoardTask[],
+): readonly OwnedWorkBoardTask[] {
+  return tasks.filter((task) => task.focus !== 0 && isHumanClosedTask(task));
+}
+
 /** One {@link reconcileOwnedWork} pass's outcome — how many writes of each
  *  kind actually landed, for a caller to log/report. */
 export interface OwnedWorkReconcileResult {
