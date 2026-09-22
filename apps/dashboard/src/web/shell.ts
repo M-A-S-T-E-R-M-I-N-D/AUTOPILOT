@@ -915,11 +915,10 @@ function liveWorkerCard(c) {
   if (live.orientFixation) {
     var fixationMeta = orientFixationChipMeta(live.turnsSeen);
     var fixationChip = tipChip(
-      'no edit yet',
+      '⚠ no edit yet',
       fixationMeta.tip,
       fixationMeta.ariaLabel,
-      'chip-anomaly live-orient-fixation',
-      'triangle-alert'
+      'chip-anomaly live-orient-fixation'
     );
     // i18n (board web-msnsndki-dz3vn1): tip and aria-label are two distinct
     // sentences, so they need their own template pair (can't share one key
