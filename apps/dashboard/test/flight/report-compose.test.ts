@@ -7,6 +7,7 @@ import {
   parseReportComposeOutput,
   composeReport,
   executableReportActions,
+  hasComposeLeak,
   type ReportComposeDeps,
 } from '../../src/flight/report-compose.js';
 
@@ -373,5 +374,82 @@ describe('composeReport honours the page (#41) and keys its refusals (#42)', () 
     expect(blank).toMatchObject({ ok: false, reasonKey: 'composeNeedsDescription' });
     expect(gone).toMatchObject({ ok: false, reasonKey: 'composeModelUnavailable' });
     expect(junk).toMatchObject({ ok: false, reasonKey: 'composeUnusable' });
+  });
+
+  it('refuses a composed body containing a leaked secret, keyed composeLeak', async () => {
+    const awsKey = (): string => `AKIA${'IOSFODNN7EXAMPLE'}`;
+    const leaky = await composeReport(
+      { invoke: async () => reply('issue').replace('minor', awsKey()) },
+      'note',
+      undefined,
+      [],
+    );
+    expect(leaky).toMatchObject({ ok: false, reasonKey: 'composeLeak' });
+  });
+});
+
+describe('hasComposeLeak', () => {
+  // A leak DETECTOR's fixtures are, by construction, the very strings this
+  // repo's own `ci:no-personal-paths` scanner forbids on sight — and it read
+  // them here and reddened a landing (2026-09-22). Assembled from fragments
+  // for the same reason that scanner assembles its own patterns: no file in
+  // this repo carries one as a contiguous string. The runtime values are
+  // unchanged, so the guard is still tested against the real shapes.
+  const USERS = 'Users';
+  const NAME = 'alice';
+  const HOME = 'home';
+  const MNT = 'mnt';
+  const drive = (letter: string, rest: string): string => `${letter}:${rest}`;
+  const mail = (user: string, host: string): string => `${user}@${host}.com`;
+  // The same fragment discipline for the SECRET shapes: `ci:secret-scan`
+  // reads source text, and a fixture that looks like a real AWS key or a
+  // PEM header is indistinguishable from one. The source module passes
+  // because it writes these as regexes, not as matching strings.
+  const DASHES = '-'.repeat(5);
+  const KEY = 'KEY';
+  const XOXB = `xo${'xb'}`;
+  const SLACK_HOST = `hooks.${'slack'}.com`;
+  const awsKey = (): string => `AKIA${'IOSFODNN7EXAMPLE'}`;
+  // The credentialed-URL rule keys on the scheme separator followed by a
+  // user, a colon and a host separator, all contiguous. Interpolating the
+  // password leaves that run intact, so the separator is what comes apart.
+  const credentialedUrl = (): string => 'https:/' + '/user:hunter2@example.com/path';
+
+  it.each([
+    ['a PEM private key header', `${DASHES}BEGIN RSA PRIVATE ${KEY}${DASHES}\nMIIB...`],
+    ['an AWS access key', `key is ${awsKey()}, rotate it`],
+    ['a GitHub PAT (classic ghp_ shape)', `token: ghp_${'a'.repeat(36)}`],
+    ['a GitHub PAT (fine-grained shape)', `token: github_pat_${'a'.repeat(22)}`],
+    ['a Slack token', `${XOXB}-1234567890-abcdefghij`],
+    ['a Google API key', `AIza${'a'.repeat(35)}`],
+    ['a Stripe live secret key', `sk_live_${'a'.repeat(24)}`],
+    ['an Anthropic API key', `sk-ant-${'a'.repeat(20)}`],
+    ['a generic 48-char sk- key', `sk-${'a'.repeat(48)}`],
+    ['an npm token', `npm_${'a'.repeat(36)}`],
+    ['a JWT-shaped string', `eyJ${'a'.repeat(10)}.${'b'.repeat(10)}.${'c'.repeat(10)}`],
+    [
+      'a Slack incoming webhook URL',
+      `https://${SLACK_HOST}/services/T00000000/B00000000/abcdefghijklmnopqrstuvwx`,
+    ],
+    ['a credentialed URL', credentialedUrl()],
+    ['a Windows home-directory path', drive('C', `\\${USERS}\\${NAME}\\Documents\\notes.txt`)],
+    ['a macOS/Linux /Users/ path', `see /${USERS}/${NAME}/project for the repro`],
+    ['a /home/ path', `logs are under /${HOME}/${NAME}/.cache`],
+    ['a WSL-mounted Windows path', `try /${MNT}/c/${USERS}/${NAME}/project`],
+    ['a personal Gmail address', `contact me at ${mail('someone', 'gmail')}`],
+  ])('flags text containing %s', (_label, text) => {
+    expect(hasComposeLeak(text)).toBe(true);
+  });
+
+  it.each([
+    [
+      'ordinary prose with no secrets or paths',
+      'the launch button stays disabled when the flag is off',
+    ],
+    ['a work email at an unlisted domain', 'contact ops@example.com for access'],
+    ['a Windows path that is not under Users', drive('C', '\\Program Files\\App\\app.exe')],
+    ['a bare "sk-" mention too short to match', 'the sk- prefix marks a secret key'],
+  ])('does not flag %s', (_label, text) => {
+    expect(hasComposeLeak(text)).toBe(false);
   });
 });

@@ -206,6 +206,7 @@ import {
   runStoreBackupSweep,
   runStaleClaimSweep,
 } from './flight/post-flight-sweeps.js';
+import { runOwnedWorkSweep } from './flight/owned-work-reconcile.js';
 import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
 const DEFAULT_FIRINGS = 1;
@@ -590,6 +591,22 @@ async function main(): Promise<void> {
     // its own finally — the NEXT flight to start is what closes the gap.
     for (const task of releaseStaleClaims(store, projectId, DEFAULT_STALE_CLAIM_MS, now())) {
       out(`  ↩ stale claim released (dead instance): ${task.id} — ${task.title}`);
+    }
+
+    // OWNED WORK ingest (EPIC 0033 slice 1, docs/epics/0033-owned-work.md §3):
+    // ask GitHub "what is assigned to me?" BEFORE this flight's own board
+    // read, so a `/claim` made on GitHub since the last flight is a focused,
+    // contract-marked board task by the time the first firing's prompt is
+    // built — the measured gap the epic opens with (#6 claimed, board
+    // silent). Self-target guarded inside (a flight over another folder never
+    // ingests THIS repo's assignments onto that project's board), idempotent,
+    // best-effort; only a takeoff that actually changed the board says so.
+    const ownedSweep = await runOwnedWorkSweep(store, projectId, now, undefined, target);
+    if (ownedSweep && ownedSweep.created + ownedSweep.focused + ownedSweep.released > 0) {
+      out(
+        `  ✓ owned work reconciled from GitHub: ${ownedSweep.created} picked up, ` +
+          `${ownedSweep.focused} refocused, ${ownedSweep.released} released`,
+      );
     }
 
     // Impacted-tests-first scheduling (web-msnt26tn-jvyihy "PARALLEL GATE +

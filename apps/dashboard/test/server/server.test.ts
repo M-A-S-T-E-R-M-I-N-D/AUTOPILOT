@@ -242,6 +242,44 @@ describe('createServer (live loopback)', () => {
     expect(await res.json()).toMatchObject({ launched: true });
   });
 
+  it('GET /api/connection/login reports status without launching a login (GET stays read-only)', async () => {
+    let launched = false;
+    const base = await start({
+      connection: {
+        getStatus: () => Promise.resolve(FAKE_STATUS),
+        connect: () => Promise.reject(new Error('no')),
+        login: () => {
+          launched = true;
+          return Promise.resolve({ launched: true, message: 'terminal opened' });
+        },
+        test: noopTest,
+      },
+    });
+    const res = await fetch(`${base}/api/connection/login`);
+    expect(res.status).toBe(200);
+    expect(launched).toBe(false);
+    expect(await res.json()).toMatchObject({ mode: 'subscription', cliPresent: true, ready: true });
+  });
+
+  it('GET /api/connection/test reports status without running the probe (GET stays read-only)', async () => {
+    let tested = false;
+    const base = await start({
+      connection: {
+        getStatus: () => Promise.resolve(FAKE_STATUS),
+        connect: () => Promise.reject(new Error('no')),
+        login: noopLogin,
+        test: () => {
+          tested = true;
+          return Promise.resolve({ authenticated: true, detail: 'fable' });
+        },
+      },
+    });
+    const res = await fetch(`${base}/api/connection/test`);
+    expect(res.status).toBe(200);
+    expect(tested).toBe(false);
+    expect(await res.json()).toMatchObject({ mode: 'subscription', cliPresent: true, ready: true });
+  });
+
   it('POST /api/connection applies a choice when sent as application/json', async () => {
     let received: unknown = null;
     const base = await start({
