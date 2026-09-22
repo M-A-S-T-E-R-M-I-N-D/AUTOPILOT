@@ -39,6 +39,18 @@ folds the task ids into the EXECUTE confirm dialog (`web/landing-panel.ts`
 `landingHalfStepItems` / `landingExecuteConfirmMessage`), so an operator can knowingly
 land one where the daemon may not.
 
+Fleet-spawn preflight gate added 2026-09-19 (`docs/FAILURE-DOCTRINE.md` row 41): every
+path that spawns a flight — the Fly button, the fleet launcher, and this epic's fleet
+watchdog — now passes through `FlightRunner.start()`'s optional `preflight` dependency
+(`flight/preflight.ts` + `preflight-facts.ts`), which judges git-checkout cleanliness,
+git identity, `claude` on PATH, free disk, stale lane worktrees and lane-vs-disk width
+into a GO/no-go report before a queue slot is taken. A blocking check refuses the spawn
+with its advice as `start()`'s refusal message — surfaced by the watchdog exactly like
+any other `start()` refusal — a warning-only check still lets the flight fly. This adds
+a precondition INSIDE the reused `start()` primitive, the same shape as the existing
+`FLYABLE_STATUSES`/`canSpawnFlight` boundary; the acceptance criteria above (the fleet
+loop still ticks `listProjects()` and reuses `start()`/the registry as-is) are unchanged.
+
 The board's M7 PARALLEL PILOTS item (critical priority) names two halves: "FlightRunner
 becomes a per-project registry of concurrent detached flights" and "the ring-0 watchdog
 owns per-project spawning and revival." The first half shipped as
