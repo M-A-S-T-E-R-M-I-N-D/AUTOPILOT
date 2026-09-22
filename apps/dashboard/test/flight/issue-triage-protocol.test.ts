@@ -22,6 +22,9 @@ import {
   planIssueTriage,
   planIssueTriageCommands,
   issueTemplateGaps,
+  isMaintainerAuthored,
+  repoOwnerOf,
+  handSetFamilyLabel,
   AGENT_OK_LABEL,
   NEEDS_FORMAT_LABEL,
   RESERVED_FOR_HUMANS_DAYS,
@@ -204,5 +207,163 @@ describe('issue protocol gate', () => {
       NOW,
     );
     expect(decision.decision).toBe('skip');
+  });
+});
+
+/**
+ * THE GATE IS FOR REPORTERS, NOT FOR THE PERSON WHO WROTE IT (2026-09-22).
+ * Issue #5 — the planned static-site sample, filed by the repo owner as a
+ * `good first issue` for newcomers — was about to be labelled
+ * `status: needs-format` and answered with "Thanks for filing this… edit the
+ * description to add those sections". That is the maintainer being
+ * template-nagged in public by their own bot, on the very issue meant to look
+ * welcoming. Epics were already exempt for the same reason; the owner's own
+ * issues are the other half of it.
+ */
+describe('repoOwnerOf', () => {
+  it('takes the owner segment of a nameWithOwner', () => {
+    expect(repoOwnerOf('M-A-S-T-E-R-M-I-N-D/AUTOPILOT')).toBe('M-A-S-T-E-R-M-I-N-D');
+  });
+
+  it('is undefined for anything that is not owner/repo, so a bad read cannot name a wrong owner', () => {
+    expect(repoOwnerOf(undefined)).toBeUndefined();
+    expect(repoOwnerOf('')).toBeUndefined();
+    expect(repoOwnerOf('AUTOPILOT')).toBeUndefined();
+    expect(repoOwnerOf('/AUTOPILOT')).toBeUndefined();
+    expect(repoOwnerOf('owner/')).toBeUndefined();
+  });
+});
+
+describe('isMaintainerAuthored', () => {
+  it('matches the owner regardless of case, as GitHub logins do', () => {
+    expect(isMaintainerAuthored({ author: 'm-a-s-t-e-r-m-i-n-d' }, 'M-A-S-T-E-R-M-I-N-D')).toBe(
+      true,
+    );
+  });
+
+  it('does not match a different author', () => {
+    expect(isMaintainerAuthored({ author: 'gabibi555' }, 'M-A-S-T-E-R-M-I-N-D')).toBe(false);
+  });
+
+  it('exempts nobody when the author or the owner is unknown', () => {
+    expect(isMaintainerAuthored({}, 'M-A-S-T-E-R-M-I-N-D')).toBe(false);
+    expect(isMaintainerAuthored({ author: '' }, 'M-A-S-T-E-R-M-I-N-D')).toBe(false);
+    expect(isMaintainerAuthored({ author: 'M-A-S-T-E-R-M-I-N-D' }, undefined)).toBe(false);
+    expect(isMaintainerAuthored({ author: 'M-A-S-T-E-R-M-I-N-D' }, '')).toBe(false);
+  });
+});
+
+describe('the template gate skips the maintainer own issues', () => {
+  const offTemplate = issue({
+    number: 5,
+    title: 'Add the planned static-site sample (samples/static-site)',
+    body: '`samples/README.md` lists a static-site sample as Planned.',
+    labels: ['enhancement', 'help wanted'],
+    author: 'M-A-S-T-E-R-M-I-N-D',
+  });
+
+  it('boards an off-template issue the owner filed instead of asking them to fill a form', () => {
+    const decision = planIssueTriage(offTemplate, [], [], undefined, NOW, 'M-A-S-T-E-R-M-I-N-D');
+    expect(decision.decision).not.toBe('needs-format');
+  });
+
+  it('posts no label and no reply for it — the commands are what reach the tracker', () => {
+    const decision = planIssueTriage(offTemplate, [], [], undefined, NOW, 'M-A-S-T-E-R-M-I-N-D');
+    const commands = planIssueTriageCommands(offTemplate, decision);
+    const emitted = JSON.stringify(commands);
+    expect(emitted).not.toContain(NEEDS_FORMAT_LABEL);
+    expect(emitted).not.toContain('Thanks for filing this');
+  });
+
+  it('still gates the same body when somebody else filed it', () => {
+    const decision = planIssueTriage(
+      { ...offTemplate, author: 'gabibi555' },
+      [],
+      [],
+      undefined,
+      NOW,
+      'M-A-S-T-E-R-M-I-N-D',
+    );
+    expect(decision.decision).toBe('needs-format');
+  });
+
+  it('still gates it when the owner cannot be resolved — an unknown identity exempts nobody', () => {
+    const decision = planIssueTriage(offTemplate, [], [], undefined, NOW);
+    expect(decision.decision).toBe('needs-format');
+  });
+});
+
+/**
+ * WHAT A HUMAN MARKED OUTRANKS THE CLASSIFIER (2026-09-22). The area/priority
+ * classifier counts keywords, and keywords collide: issue #5 asks for a
+ * static-site sample and mentions "the static-site gate", so "gate" scored it
+ * `area: flight-engine` and the triage edit was about to remove the
+ * maintainer's correct `area: community` to make room. Two labels of one
+ * family is still a contradiction nobody sets on purpose, so the classifier
+ * keeps breaking that tie.
+ */
+describe('handSetFamilyLabel', () => {
+  const AREAS = ['area: dashboard', 'area: community', 'area: flight-engine'] as const;
+
+  it('returns the single label a person put in that family', () => {
+    expect(handSetFamilyLabel(['enhancement', 'area: community'], 'area', AREAS)).toBe(
+      'area: community',
+    );
+  });
+
+  it('returns nothing when the family is empty, so the classifier answers', () => {
+    expect(handSetFamilyLabel(['enhancement'], 'area', AREAS)).toBeUndefined();
+  });
+
+  it('returns nothing when the family already contradicts itself', () => {
+    expect(
+      handSetFamilyLabel(['area: community', 'area: dashboard'], 'area', AREAS),
+    ).toBeUndefined();
+  });
+
+  it('ignores a label outside the known set rather than putting it on the board', () => {
+    expect(handSetFamilyLabel(['area: nonsense'], 'area', AREAS)).toBeUndefined();
+  });
+
+  it('does not confuse one family with another', () => {
+    expect(handSetFamilyLabel(['priority: high'], 'area', AREAS)).toBeUndefined();
+  });
+});
+
+describe('triage keeps a hand-set area and priority', () => {
+  const sample = issue({
+    number: 5,
+    title: 'Add the planned static-site sample (samples/static-site)',
+    body:
+      '### Problem / motivation\n\nsamples/README lists it as planned, blocked on the ' +
+      'static-site gate.\n\n### Proposed solution\n\nAdd the sample.\n',
+    labels: ['enhancement', 'area: community', 'priority: medium'],
+  });
+
+  it('accepts with the labels already on the issue, not the ones it would have guessed', () => {
+    const decision = planIssueTriage(sample, [], [], undefined, NOW);
+    expect(decision).toMatchObject({
+      decision: 'accept',
+      area: 'area: community',
+      priority: 'priority: medium',
+    });
+  });
+
+  it('removes neither of them — nothing in the edit supersedes a human label', () => {
+    const decision = planIssueTriage(sample, [], [], undefined, NOW);
+    const args = planIssueTriageCommands(sample, decision)
+      .filter((c) => c.args[1] === 'edit')
+      .flatMap((c) => c.args);
+    expect(args).not.toContain('--remove-label');
+    expect(args).toContain('area: community');
+  });
+
+  it('still classifies a family nobody has decided', () => {
+    const unlabelled = { ...sample, labels: ['enhancement'] };
+    const decision = planIssueTriage(unlabelled, [], [], undefined, NOW);
+    expect(decision).toMatchObject({ decision: 'accept' });
+    if (decision.decision !== 'accept') return;
+    expect(decision.area).toMatch(/^area: /);
+    expect(decision.priority).toMatch(/^priority: /);
   });
 });

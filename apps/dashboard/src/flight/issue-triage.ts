@@ -182,6 +182,45 @@ export const NEEDS_FORMAT_LABEL = 'status: needs-format';
 /** Epics are tracking issues with their own protocol (docs/epics) — never
  *  gated on the bug/feature templates. */
 const EPIC_LABEL = 'epic';
+
+/**
+ * Is this issue the maintainer's own?
+ *
+ * The template gate exists so a REPORTER hands a pilot enough to act on
+ * without guessing. The repo owner is the person who wrote that protocol
+ * and files seed and tracking issues deliberately, so gating those produces
+ * a bot publicly asking the maintainer to fill in a template on their own
+ * issue — noise on the tracker, and it makes a `good first issue` look
+ * unready to the newcomers it was opened for (caught on #5, 2026-09-22).
+ * Same reasoning as the epic exemption directly above.
+ *
+ * Logins compare case-insensitively: GitHub logins are, and `nameWithOwner`
+ * may report either case for the same account — the comparison
+ * `social-pass.ts` already makes to decide the viewer's role. An unknown
+ * owner or an unknown author exempts nothing, so an unresolved identity can
+ * only ever leave the gate ON.
+ */
+export function isMaintainerAuthored(
+  issue: Pick<IncomingIssue, 'author'>,
+  repoOwner: string | undefined,
+): boolean {
+  const author = issue.author;
+  if (author === undefined || author === '') return false;
+  if (repoOwner === undefined || repoOwner === '') return false;
+  return author.toLowerCase() === repoOwner.toLowerCase();
+}
+
+/** The owner segment of a `gh repo view --json nameWithOwner` value —
+ *  `undefined` for anything that is not `<owner>/<repo>`, so a malformed
+ *  read degrades to "owner unknown" rather than to a wrong owner. */
+export function repoOwnerOf(nameWithOwner: string | undefined): string | undefined {
+  if (nameWithOwner === undefined) return undefined;
+  const [owner, repo] = nameWithOwner.split('/');
+  if (owner === undefined || owner === '' || repo === undefined || repo === '') {
+    return undefined;
+  }
+  return owner;
+}
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type IssueTemplateKind = 'bug' | 'feature';
@@ -519,6 +558,7 @@ export function planIssueTriage(
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
   now: number = Date.now(),
+  repoOwner?: string,
 ): IssueTriageDecision {
   const labels = issue.labels ?? [];
   if (isPartnerApplicationIssue(labels)) {
@@ -623,7 +663,8 @@ export function planIssueTriage(
   // THE PROTOCOL GATE (after duplicate scoring, before boarding): a body
   // without the template's sections is not boarded — it is labeled and asked
   // ONCE; the next pass lifts the label by itself when the body conforms.
-  const gaps = labels.includes(EPIC_LABEL) ? null : issueTemplateGaps(issue);
+  const exemptFromTemplate = labels.includes(EPIC_LABEL) || isMaintainerAuthored(issue, repoOwner);
+  const gaps = exemptFromTemplate ? null : issueTemplateGaps(issue);
   if (gaps !== null) {
     const named = gaps.missing.map((heading) => `"${heading}"`).join(', ');
     if (labels.includes(NEEDS_FORMAT_LABEL)) {
@@ -646,8 +687,11 @@ export function planIssueTriage(
 
   const text = `${issue.title} ${issue.body}`;
   const dimension = classifyIssueDimension(text);
-  const area = classifyIssueArea(text);
-  const priority = classifyIssuePriority(text);
+  // A single `area:`/`priority:` label already on the issue was put there by a
+  // person; the classifier only fills a family nobody has decided yet.
+  const area = handSetFamilyLabel(labels, 'area', AREA_LABELS) ?? classifyIssueArea(text);
+  const priority =
+    handSetFamilyLabel(labels, 'priority', PRIORITY_LABELS) ?? classifyIssuePriority(text);
   const milestone = classifyIssueMilestone(text);
   return {
     decision: 'accept',
@@ -816,6 +860,37 @@ export function planIssueTriageCommands(
  * `skip`, so it never reaches here, and treating it as exclusive would let
  * a re-run strip a marker another pass depends on.
  */
+/**
+ * The label already on the issue from `family`, when there is exactly one.
+ *
+ * WHAT A HUMAN MARKED OUTRANKS THE CLASSIFIER (2026-09-22). The classifier is
+ * keyword counting, and keywords collide: issue #5 asks for a static-site
+ * sample and says "blocked on the static-site gate", so "gate" read as
+ * `area: flight-engine` and triage was about to replace the maintainer's
+ * correct `area: community` with it. The mirror pass already lets a
+ * maintainer's `priority:` label steer the board; this is the same rule one
+ * step earlier, at the point the label would be overwritten.
+ *
+ * Exactly one, deliberately. Two labels of one family is the contradiction
+ * `supersededFamilyLabels` exists to clear (found live on #21/#27/#28,
+ * 2026-09-09) and nobody sets it on purpose, so there the classifier still
+ * breaks the tie.
+ */
+export function handSetFamilyLabel<T extends string>(
+  current: readonly string[],
+  family: string,
+  known: readonly T[],
+): T | undefined {
+  const prefix = `${family}: `;
+  const found = current.filter((label) => label.startsWith(prefix));
+  if (found.length !== 1) return undefined;
+  const only = found[0];
+  // A label outside the known set is a typo, or a family this classifier
+  // does not own; honouring it would put an unknown value on the board, so
+  // the classifier still answers and the stray label is left where it is.
+  return known.find((label) => label === only);
+}
+
 export function supersededFamilyLabels(
   current: readonly string[],
   chosen: readonly string[],
@@ -897,9 +972,10 @@ export function planIssueTriageBatch(
   backlogTitles: readonly string[],
   threshold: number = DUPLICATE_THRESHOLD,
   now: number = Date.now(),
+  repoOwner?: string,
 ): readonly IssueTriagePlan[] {
   return issues.map((issue) => {
-    const decision = planIssueTriage(issue, boardTasks, backlogTitles, threshold, now);
+    const decision = planIssueTriage(issue, boardTasks, backlogTitles, threshold, now, repoOwner);
     const commands = planIssueTriageCommands(issue, decision);
     return { issue, decision, commands };
   });
@@ -983,6 +1059,27 @@ export function parseAssignees(raw: unknown): readonly string[] {
         : undefined,
     )
     .filter((login): login is string => typeof login === 'string');
+}
+
+/**
+ * The repo owner's login via `gh repo view --json nameWithOwner`, run
+ * through the injectable `exec`. Read-only, and `undefined` on a non-zero
+ * exit, unparseable stdout, or a payload without a `<owner>/<repo>` string
+ * — the same "skip, don't guess" degradation {@link fetchOpenIssues} and
+ * `pr-review.ts`'s `fetchViewerLogin` use. Unknown owner leaves the
+ * template gate on for everyone, which is the safe direction.
+ */
+export async function fetchRepoOwner(exec: CliExec): Promise<string | undefined> {
+  const { code, stdout } = await exec('gh', ['repo', 'view', '--json', 'nameWithOwner']);
+  if (code !== 0) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(stdout);
+    if (typeof parsed !== 'object' || parsed === null) return undefined;
+    const value = (parsed as { nameWithOwner?: unknown }).nameWithOwner;
+    return repoOwnerOf(typeof value === 'string' ? value : undefined);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -1103,7 +1200,15 @@ export async function runIssueTriageRitual(
   now: () => number = Date.now,
 ): Promise<IssueTriageRitualResult> {
   const issues = await fetchOpenIssues(exec);
-  const basePlans = planIssueTriageBatch(issues, boardTasks, backlogTitles, threshold, now());
+  const repoOwner = await fetchRepoOwner(exec);
+  const basePlans = planIssueTriageBatch(
+    issues,
+    boardTasks,
+    backlogTitles,
+    threshold,
+    now(),
+    repoOwner,
+  );
 
   const plans: IssueTriagePlan[] = [];
   for (const plan of basePlans) {

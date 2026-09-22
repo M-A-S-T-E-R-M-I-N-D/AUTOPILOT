@@ -62,6 +62,17 @@ const templated = (text: string): string =>
   `### What happened?\n${text}\n\n### Steps to reproduce\n1. see above\n\n### Expected behavior\nIt works.\n`;
 const TEMPLATED_BODY = templated('');
 
+/** The `gh` verbs that CHANGE something on the tracker. A ritual that must not
+ *  write is proved by the absence of these, not by a call count: the read side
+ *  gains calls over time (the repo-owner read landed 2026-09-22) and a count
+ *  pinned to 1 fails for a reason that has nothing to do with writing. */
+function ghWrites(exec: CliExec): string[][] {
+  const calls = (exec as unknown as { mock: { calls: [string, string[]][] } }).mock.calls;
+  return calls
+    .map(([, args]) => args)
+    .filter((args) => args[1] === 'edit' || args[1] === 'comment' || args[1] === 'create');
+}
+
 describe('classifyIssueDimension', () => {
   it('picks the dimension whose keywords appear most in the text', () => {
     expect(classifyIssueDimension('Screen reader users cannot reach the aria-labeled button')).toBe(
@@ -950,8 +961,9 @@ describe('runIssueTriageRitual', () => {
       expect(result.plans.map((p) => p.decision.decision)).toEqual(['skip', 'skip']);
       expect(result.commandResults).toEqual([]);
       expect(result.tasksCreated).toBe(0);
-      // Only the read-side list call — no gh writes fired at all.
-      expect(exec).toHaveBeenCalledTimes(1);
+      // No gh writes fired at all — stated as the absence of writes, not as a
+      // call count the read side keeps outgrowing.
+      expect(ghWrites(exec)).toEqual([]);
       s.close();
     } finally {
       cleanupDir(dbDir);
@@ -973,7 +985,7 @@ describe('runIssueTriageRitual', () => {
       expect(result.plans).toEqual([]);
       expect(result.commandResults).toEqual([]);
       expect(result.tasksCreated).toBe(0);
-      expect(exec).toHaveBeenCalledTimes(1);
+      expect(ghWrites(exec)).toEqual([]);
       s.close();
     } finally {
       cleanupDir(dbDir);
