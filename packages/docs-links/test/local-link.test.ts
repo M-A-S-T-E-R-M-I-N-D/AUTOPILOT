@@ -17,6 +17,7 @@ import {
   localLinkTargets,
   resolveLocalLinkPath,
   localLinkPaths,
+  withoutCode,
 } from '../src/local-link.js';
 
 describe('isLocalTarget', () => {
@@ -135,5 +136,74 @@ describe('extractLinkTargets stays linear on hostile input (CodeQL js/polynomial
 
   it('a `[` inside a target is not a link — the class that keeps the scan linear', () => {
     expect(extractLinkTargets('[a](x[1].md) [b](y.md)')).toEqual(['y.md']);
+  });
+});
+
+/**
+ * A LINK INSIDE BACKTICKS IS AN EXAMPLE (2026-09-22). A publicity draft
+ * explained where to insert an entry in somebody else's README — "right
+ * before the `## [AutoPR](...)` heading" — and the CI link check called `...`
+ * a broken relative link and reddened a landing. The docs reader shares this
+ * module, so the same example was painted as a dead link in the UI. The span
+ * in that draft WRAPPED A LINE, which is how a first, line-by-line attempt at
+ * this still missed it.
+ */
+describe('withoutCode', () => {
+  it('blanks an inline code span but keeps the prose around it', () => {
+    const markdown = 'see `a code span` here';
+    const blanked = withoutCode(markdown);
+    expect(blanked).toHaveLength(markdown.length);
+    expect(blanked).not.toContain('`');
+    expect(blanked).not.toContain('code span');
+    expect(blanked.startsWith('see ')).toBe(true);
+    expect(blanked.endsWith(' here')).toBe(true);
+  });
+
+  it('blanks a span that wraps a line — the case that reddened the landing', () => {
+    const markdown =
+      'before `AutoG < AUTOPILOT <\nAutoPR` — drop it before the `## [AutoPR](...)` heading.';
+    expect(extractLinkTargets(markdown)).toEqual([]);
+  });
+
+  it('still finds a real link on the same line as a code span', () => {
+    expect(extractLinkTargets('`code` and [a doc](README.md) together')).toEqual(['README.md']);
+  });
+
+  it('blanks a fenced block, so an example link inside it is not a link', () => {
+    const markdown = '```md\n[not a link](nowhere.md)\n```\n[real](README.md)\n';
+    expect(extractLinkTargets(markdown)).toEqual(['README.md']);
+  });
+
+  it('closes a fence only on the same character and at least the same length', () => {
+    const markdown = '````\n[a](x.md)\n```\n[b](y.md)\n````\n[c](z.md)\n';
+    expect(extractLinkTargets(markdown)).toEqual(['z.md']);
+  });
+
+  it('treats an unterminated fence as running to the end, the way a renderer does', () => {
+    expect(extractLinkTargets('```\n[a](x.md)\n')).toEqual([]);
+  });
+
+  it('leaves a lone backtick alone rather than swallowing every link after it', () => {
+    expect(extractLinkTargets('a stray ` tick then [a doc](README.md)')).toEqual(['README.md']);
+  });
+
+  it('stops a span at a blank line, as a paragraph break does', () => {
+    expect(extractLinkTargets('open ` here\n\n[a doc](README.md)')).toEqual(['README.md']);
+  });
+
+  it('handles a double-backtick span containing a single backtick', () => {
+    expect(extractLinkTargets('``a ` b [x](y.md)`` then [z](w.md)')).toEqual(['w.md']);
+  });
+
+  it('keeps the document length and every newline, so offsets still line up', () => {
+    const markdown = 'a `b`\n```\nc\n```\nd\n';
+    const blanked = withoutCode(markdown);
+    expect(blanked).toHaveLength(markdown.length);
+    expect(blanked.split('\n')).toHaveLength(markdown.split('\n').length);
+  });
+
+  it('leaves a document with no code at all untouched', () => {
+    const markdown = '# Title\n\n[a doc](README.md)\n';
+    expect(withoutCode(markdown)).toBe(markdown);
   });
 });
