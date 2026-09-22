@@ -11,6 +11,7 @@ import * as storeModule from '@autopilot/store';
 import { openStore, migrate, SqliteSearchStore, type Store } from '@autopilot/store';
 import { readFleet, readFleetFromStore, FLIGHT_LOG_PAGE_SIZE } from '../../src/read/source.js';
 import { CHECKPOINT_SOUL_AMENDMENT_MARKER } from '../../src/flight/soul-mining.js';
+import { HUMAN_CLOSES_MARKER } from '../../src/flight/claim-contract.js';
 import {
   readSearchFromStore,
   listProjectDocs,
@@ -91,13 +92,14 @@ function task(
   status: string,
   focus: 0 | 1 = 0,
   s: Store = store,
+  body: string | null = null,
 ): void {
   s.db
     .prepare(
-      `INSERT INTO tasks (id, project_id, title, status, focus, source, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'self', ?, ?)`,
+      `INSERT INTO tasks (id, project_id, title, status, focus, source, body, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'self', ?, ?, ?)`,
     )
-    .run(id, projectId, title, status, focus, 100, 100);
+    .run(id, projectId, title, status, focus, body, 100, 100);
 }
 
 function activityEvent(
@@ -215,6 +217,16 @@ describe('readFleet', () => {
     const card = readFleet(store, 1).projects[0]!;
     expect(card.gate).toBe('js · pnpm test');
     expect(card.backedUp).toBe(true);
+  });
+
+  it('counts owned work — focused tasks carrying the claim contract marker (epic 0033 slice 2)', () => {
+    project('p1', 'alpha', 'flying');
+    task('t1', 'p1', 'Claimed issue', 'queued', 1, store, `#6\n${HUMAN_CLOSES_MARKER}`); // owned
+    task('t2', 'p1', 'Ordinary backlog', 'queued', 1, store); // focused, no contract
+    task('t3', 'p1', 'Released claim', 'queued', 0, store, `#7\n${HUMAN_CLOSES_MARKER}`); // un-focused
+
+    const card = readFleet(store, 1).projects[0]!;
+    expect(card.ownedWorkCount).toBe(1);
   });
 
   it('degrades to the bare ecosystem id on a real (un-nested) gate_config with no test command', () => {

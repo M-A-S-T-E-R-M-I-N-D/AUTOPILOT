@@ -397,6 +397,14 @@ export interface ProjectAggregate {
    *  every fixture and older read path that predates it still type-checks. */
   readonly laneActivity?: readonly ActivityEntry[];
   readonly tasks: readonly TaskEntry[];
+  /** How many of `tasks` are owned work RIGHT NOW — focused and carrying the
+   *  claim contract marker (epic 0033 slice 2 "SEE IT", board
+   *  web-mubk7ox9-z7cdu0; `flight/owned-work-reconcile.ts`'s
+   *  `listOwnedWorkTasks`). Data plane only — no masthead badge/board section
+   *  reads this yet; that UI is a separate, larger follow-up. Optional so
+   *  pre-existing fixtures that predate this field still type-check; a real
+   *  read always sets it explicitly. */
+  readonly ownedWorkCount?: number;
   /** DORA-for-agents snapshot (backlog web-msnsxudt-sfw78a), computed store-side
    *  (packages/store/src/dora.ts) from this project's own metrics/tasks rows —
    *  the per-project process-health tiles render this directly. */
