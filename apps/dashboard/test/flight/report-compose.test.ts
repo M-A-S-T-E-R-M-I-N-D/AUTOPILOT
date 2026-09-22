@@ -7,6 +7,7 @@ import {
   parseReportComposeOutput,
   composeReport,
   executableReportActions,
+  hasComposeLeak,
   type ReportComposeDeps,
 } from '../../src/flight/report-compose.js';
 
@@ -373,5 +374,55 @@ describe('composeReport honours the page (#41) and keys its refusals (#42)', () 
     expect(blank).toMatchObject({ ok: false, reasonKey: 'composeNeedsDescription' });
     expect(gone).toMatchObject({ ok: false, reasonKey: 'composeModelUnavailable' });
     expect(junk).toMatchObject({ ok: false, reasonKey: 'composeUnusable' });
+  });
+
+  it('refuses a composed body containing a leaked secret, keyed composeLeak', async () => {
+    const leaky = await composeReport(
+      { invoke: async () => reply('issue').replace('minor', 'AKIA-EXAMPLE-KEY-REDACTED') },
+      'note',
+      undefined,
+      [],
+    );
+    expect(leaky).toMatchObject({ ok: false, reasonKey: 'composeLeak' });
+  });
+});
+
+describe('hasComposeLeak', () => {
+  it.each([
+    ['a PEM private key header', '<PEM-HEADER-REDACTED>\nMIIB...'],
+    ['an AWS access key', 'key is AKIA-EXAMPLE-KEY-REDACTED, rotate it'],
+    ['a GitHub PAT (classic ghp_ shape)', `token: ghp_${'a'.repeat(36)}`],
+    ['a GitHub PAT (fine-grained shape)', `token: github_pat_${'a'.repeat(22)}`],
+    ['a Slack token', 'slack-token-REDACTED'],
+    ['a Google API key', `AIza${'a'.repeat(35)}`],
+    ['a Stripe live secret key', `sk_live_${'a'.repeat(24)}`],
+    ['an Anthropic API key', `sk-ant-${'a'.repeat(20)}`],
+    ['a generic 48-char sk- key', `sk-${'a'.repeat(48)}`],
+    ['an npm token', `npm_${'a'.repeat(36)}`],
+    ['a JWT-shaped string', `eyJ${'a'.repeat(10)}.${'b'.repeat(10)}.${'c'.repeat(10)}`],
+    [
+      'a Slack incoming webhook URL',
+      'https://hooks.example.invalid/services/T00000000/B00000000/abcdefghijklmnopqrstuvwx',
+    ],
+    ['a credentialed URL', 'https://example.com/path'],
+    ['a Windows home-directory path', 'C:\\Users\\alice\\Documents\\notes.txt'],
+    ['a macOS/Linux /Users/ path', 'see /Users/alice/project for the repro'],
+    ['a /home/ path', 'logs are under /home/alice/.cache'],
+    ['a WSL-mounted Windows path', 'try /mnt/c/Users/alice/project'],
+    ['a personal Gmail address', 'contact me at someone@gmail.com'],
+  ])('flags text containing %s', (_label, text) => {
+    expect(hasComposeLeak(text)).toBe(true);
+  });
+
+  it.each([
+    [
+      'ordinary prose with no secrets or paths',
+      'the launch button stays disabled when the flag is off',
+    ],
+    ['a work email at an unlisted domain', 'contact ops@example.com for access'],
+    ['a Windows path that is not under Users', 'C:\\Program Files\\App\\app.exe'],
+    ['a bare "sk-" mention too short to match', 'the sk- prefix marks a secret key'],
+  ])('does not flag %s', (_label, text) => {
+    expect(hasComposeLeak(text)).toBe(false);
   });
 });
