@@ -285,6 +285,29 @@ export function refreshModelCardEngineVersion(source, version) {
   return source.replace(MODEL_CARD_ENGINE_VERSION_PATTERN, `$1${version}$3`);
 }
 
+/** README.md's illustrative example commit message pins the tool's own
+ *  version in its `Assisted-by: AUTOPILOT vX.Y.Z <...>` trailer — the one
+ *  hand-maintained surface this generator never touched. `refreshReadmeStatusVersion`
+ *  keeps the Status line honest but left this pin to drift the same way it
+ *  did before that fix existed. */
+const README_ASSISTED_BY_VERSION_PATTERN = /(Assisted-by: AUTOPILOT v)([^\s<]+)(\s)/;
+
+/** Rewrites README.md's example commit's `Assisted-by: AUTOPILOT vX.Y.Z`
+ *  pin to `version`.
+ *
+ *  Same stance as `refreshReadmeStatusVersion`: throws when the anchor is
+ *  absent rather than let `--check` pass forever on a README whose example
+ *  commit no longer states a version at all. */
+export function refreshReadmeAssistedByVersion(source, version) {
+  if (!README_ASSISTED_BY_VERSION_PATTERN.test(source)) {
+    throw new Error(
+      'generate-citation: README.md example commit\'s "Assisted-by: AUTOPILOT vX.Y.Z" ' +
+        'line not found — restore it before regenerating',
+    );
+  }
+  return source.replace(README_ASSISTED_BY_VERSION_PATTERN, `$1${version}$3`);
+}
+
 function main() {
   const check = process.argv.includes('--check');
   const meta = loadMetadata();
@@ -292,7 +315,8 @@ function main() {
 
   const readmeSource = readFileSync(README_PATH, 'utf8');
   const readmeWithCiteBlock = replaceBlock(readmeSource, renderHowToCiteBlock(meta), README_PATH);
-  const nextReadme = refreshReadmeStatusVersion(readmeWithCiteBlock, meta.version);
+  const readmeWithStatusVersion = refreshReadmeStatusVersion(readmeWithCiteBlock, meta.version);
+  const nextReadme = refreshReadmeAssistedByVersion(readmeWithStatusVersion, meta.version);
   const currentCff = existsSync(CFF_PATH) ? readFileSync(CFF_PATH, 'utf8') : null;
 
   const paperSource = readFileSync(PAPER_PATH, 'utf8');
@@ -305,7 +329,12 @@ function main() {
     const stale = [];
     if (currentCff !== cffContent) stale.push('CITATION.cff');
     if (readmeWithCiteBlock !== readmeSource) stale.push('README.md "How to cite" section');
-    if (nextReadme !== readmeWithCiteBlock) stale.push('README.md Status "Current version" line');
+    if (readmeWithStatusVersion !== readmeWithCiteBlock) {
+      stale.push('README.md Status "Current version" line');
+    }
+    if (nextReadme !== readmeWithStatusVersion) {
+      stale.push('README.md example commit\'s "Assisted-by" version pin');
+    }
     if (nextPaper !== paperSource) stale.push('docs/SELF-STUDY/PAPER.md "How to cite" section');
     if (nextModelCard !== modelCardSource) {
       stale.push('docs/MODEL-CARD.md §6 "Engine/package version" pointer');
