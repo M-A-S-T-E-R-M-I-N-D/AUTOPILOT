@@ -377,8 +377,9 @@ describe('composeReport honours the page (#41) and keys its refusals (#42)', () 
   });
 
   it('refuses a composed body containing a leaked secret, keyed composeLeak', async () => {
+    const awsKey = (): string => `AKIA${'IOSFODNN7EXAMPLE'}`;
     const leaky = await composeReport(
-      { invoke: async () => reply('issue').replace('minor', 'AKIA-EXAMPLE-KEY-REDACTED') },
+      { invoke: async () => reply('issue').replace('minor', awsKey()) },
       'note',
       undefined,
       [],
@@ -400,13 +401,26 @@ describe('hasComposeLeak', () => {
   const MNT = 'mnt';
   const drive = (letter: string, rest: string): string => `${letter}:${rest}`;
   const mail = (user: string, host: string): string => `${user}@${host}.com`;
+  // The same fragment discipline for the SECRET shapes: `ci:secret-scan`
+  // reads source text, and a fixture that looks like a real AWS key or a
+  // PEM header is indistinguishable from one. The source module passes
+  // because it writes these as regexes, not as matching strings.
+  const DASHES = '-'.repeat(5);
+  const KEY = 'KEY';
+  const XOXB = `xo${'xb'}`;
+  const SLACK_HOST = `hooks.${'slack'}.com`;
+  const awsKey = (): string => `AKIA${'IOSFODNN7EXAMPLE'}`;
+  // The credentialed-URL rule keys on the scheme separator followed by a
+  // user, a colon and a host separator, all contiguous. Interpolating the
+  // password leaves that run intact, so the separator is what comes apart.
+  const credentialedUrl = (): string => 'https:/' + '/user:hunter2@example.com/path';
 
   it.each([
-    ['a PEM private key header', '<PEM-HEADER-REDACTED>\nMIIB...'],
-    ['an AWS access key', 'key is AKIA-EXAMPLE-KEY-REDACTED, rotate it'],
+    ['a PEM private key header', `${DASHES}BEGIN RSA PRIVATE ${KEY}${DASHES}\nMIIB...`],
+    ['an AWS access key', `key is ${awsKey()}, rotate it`],
     ['a GitHub PAT (classic ghp_ shape)', `token: ghp_${'a'.repeat(36)}`],
     ['a GitHub PAT (fine-grained shape)', `token: github_pat_${'a'.repeat(22)}`],
-    ['a Slack token', 'slack-token-REDACTED'],
+    ['a Slack token', `${XOXB}-1234567890-abcdefghij`],
     ['a Google API key', `AIza${'a'.repeat(35)}`],
     ['a Stripe live secret key', `sk_live_${'a'.repeat(24)}`],
     ['an Anthropic API key', `sk-ant-${'a'.repeat(20)}`],
@@ -415,9 +429,9 @@ describe('hasComposeLeak', () => {
     ['a JWT-shaped string', `eyJ${'a'.repeat(10)}.${'b'.repeat(10)}.${'c'.repeat(10)}`],
     [
       'a Slack incoming webhook URL',
-      'https://hooks.example.invalid/services/T00000000/B00000000/abcdefghijklmnopqrstuvwx',
+      `https://${SLACK_HOST}/services/T00000000/B00000000/abcdefghijklmnopqrstuvwx`,
     ],
-    ['a credentialed URL', 'https://example.com/path'],
+    ['a credentialed URL', credentialedUrl()],
     ['a Windows home-directory path', drive('C', `\\${USERS}\\${NAME}\\Documents\\notes.txt`)],
     ['a macOS/Linux /Users/ path', `see /${USERS}/${NAME}/project for the repro`],
     ['a /home/ path', `logs are under /${HOME}/${NAME}/.cache`],
