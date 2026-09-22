@@ -259,7 +259,7 @@ async function main(): Promise<void> {
         const result = await reconcileOwnedWork(ghExec, store, projectId, existingTasks);
         out(
           `[ok] owned-work-reconcile: ${result.created} created, ${result.focused} focused, ` +
-            `${result.released} released`,
+            `${result.released} released, ${result.commented} commented`,
         );
         // slice 2 "SEE IT" (docs/epics/0033-owned-work.md §4)'s CLI-first
         // glimpse — re-read rather than reuse `existingTasks`, which predates

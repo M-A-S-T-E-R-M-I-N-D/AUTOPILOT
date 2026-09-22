@@ -297,6 +297,94 @@ describe('reconcileOwnedWork', () => {
     }
   });
 
+  it('posts exactly one pickup comment when a task is newly created', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-work-comment-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+
+      const exec = execFor(
+        [{ number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' }],
+        'octocat',
+      );
+
+      const result = await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
+
+      expect(result.commented).toBe(1);
+      expect(exec).toHaveBeenCalledWith('gh', [
+        'issue',
+        'comment',
+        '6',
+        '--body',
+        expect.stringContaining('octocat'),
+      ]);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('does not repost the pickup comment on a second pass over the same assignment', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-work-comment-repeat-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+
+      const exec = execFor(
+        [{ number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' }],
+        'octocat',
+      );
+
+      await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
+      const existing = tasks(s, 'p1').map((t) => ({ ...t }));
+      const second = await reconcileOwnedWork(exec, s, 'p1', existing, () => 200);
+
+      expect(second.commented).toBe(0);
+      const commentCalls = vi
+        .mocked(exec)
+        .mock.calls.filter(([, args]) => args[0] === 'issue' && args[1] === 'comment');
+      expect(commentCalls).toHaveLength(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('does not post a pickup comment when only refocusing an existing task', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-work-comment-refocus-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+
+      const exec = execFor(
+        [{ number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' }],
+        'octocat',
+      );
+      await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
+
+      // The task lost focus some other way (e.g. a KEEPER pass) but GitHub
+      // still says the issue is assigned — this is a refocus, not a new pickup.
+      s.db.prepare('UPDATE tasks SET focus = 0 WHERE id = ?').run('github-6');
+      const existing = tasks(s, 'p1').map((t) => ({ ...t }));
+      expect(existing[0]?.focus).toBe(0);
+
+      const result = await reconcileOwnedWork(exec, s, 'p1', existing, () => 200);
+
+      expect(result.focused).toBe(1);
+      expect(result.commented).toBe(0);
+      const commentCalls = vi
+        .mocked(exec)
+        .mock.calls.filter(([, args]) => args[0] === 'issue' && args[1] === 'comment');
+      expect(commentCalls).toHaveLength(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
   it('plans and writes nothing when the viewer login cannot be resolved', async () => {
     const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-work-noauth-db-'));
     try {
