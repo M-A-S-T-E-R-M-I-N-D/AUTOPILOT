@@ -9,7 +9,12 @@ import type { Page } from '@playwright/test';
  *  their own subject instead of the tour dialog (which has its own dedicated
  *  axe-core coverage in test/web/a11y.test.ts). */
 export async function skipFirstRunTour(page: Page): Promise<void> {
-  await page.addInitScript(() => window.localStorage.setItem('ap-tour-seen', '1'));
+  await page.addInitScript(() => {
+    window.localStorage.setItem('ap-tour-seen', '1');
+    // the what's-new message (web/whats-new.ts) has its own jsdom and axe
+    // coverage; a returning profile would otherwise open it on every spec
+    window.localStorage.setItem('ap-motd-never', '1');
+  });
 }
 
 /** Same key `switcherJs()` (`apps/dashboard/src/web/shell.ts`) reads on load —

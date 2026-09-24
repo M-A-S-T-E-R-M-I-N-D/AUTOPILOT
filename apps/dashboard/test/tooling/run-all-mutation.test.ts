@@ -211,6 +211,17 @@ describe('mutationFailureReason', () => {
     expect(mutationFailureReason({})).toBe('no exit code and no signal — stryker never ran');
   });
 
+  it('reads exit 137 as a SIGKILL reported through a shell, not as stryker failing', () => {
+    // the 2026-09-23 nightly: `exit 137 — stryker failed before it could score`
+    const reason = mutationFailureReason({ status: 137, signal: null });
+    expect(reason).toContain('killed by SIGKILL');
+    expect(reason).toContain('not a surviving mutant');
+    expect(reason.startsWith('exit 137')).toBe(true);
+    expect(mutationFailureReason({ status: 136, signal: null })).toBe(
+      'exit 136 — stryker failed before it could score',
+    );
+  });
+
   it('treats exit code 0 as a real code, not as a missing one', () => {
     expect(mutationFailureReason({ status: 0, signal: null })).toBe(
       'exit 0 — stryker failed before it could score',

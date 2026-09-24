@@ -174,11 +174,18 @@ const STRYKER_BREAK_EXIT = 1;
  *  80 of 426 mutants read exactly like a config with a live survivor, and
  *  telling them apart meant downloading and scrolling a six-shard log.
  */
+const SIGKILL_EXIT = 137;
+
 export function mutationFailureReason(error) {
   const signal = error?.signal ?? null;
   if (signal !== null)
     return `killed by ${signal} — the process died before scoring, so this is the environment (memory is the usual cause), not a surviving mutant`;
   const status = error?.status ?? null;
+  // A shell reports a child killed by SIGKILL as exit 128 + 9. The 2026-09-23
+  // sweep printed exactly that as "failed before it could score", the very
+  // confusion this function exists to end.
+  if (status === SIGKILL_EXIT)
+    return `exit ${SIGKILL_EXIT} — killed by SIGKILL (128 + 9): the process died before scoring, so this is the environment (memory is the usual cause), not a surviving mutant`;
   if (status === STRYKER_BREAK_EXIT) return 'exit 1 — below the break threshold: a mutant survived';
   if (typeof status === 'number') return `exit ${status} — stryker failed before it could score`;
   return 'no exit code and no signal — stryker never ran';

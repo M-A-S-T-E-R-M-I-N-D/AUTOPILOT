@@ -9,6 +9,7 @@ import {
   minifiedCoreJs,
   minifiedProjectJs,
   minifiedPanelsJs,
+  minifiedWhatsNewJs,
 } from '../../src/server/client-bundle.js';
 
 /**
@@ -476,12 +477,18 @@ const CHUNK_RAW_BUDGET = 202 * 1024;
 // Then chunk gzip 60→61KB (2026-09-24) for the same claim-routing strings
 // — measured 60.2KB gzip.
 const CHUNK_GZIP_BUDGET = 61 * 1024;
+// THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
+// version message and its own English and Hebrew strings, so neither
+// full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
+const WHATS_NEW_RAW_BUDGET = 12 * 1024;
+const WHATS_NEW_GZIP_BUDGET = 5 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([
     ['/app.js (core)', minifiedCoreJs, CORE_RAW_BUDGET, CORE_GZIP_BUDGET],
     ['/project.js', minifiedProjectJs, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET],
     ['/panels.js', minifiedPanelsJs, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET],
+    ['/whats-new.js', minifiedWhatsNewJs, WHATS_NEW_RAW_BUDGET, WHATS_NEW_GZIP_BUDGET],
   ] as const)('%s stays within its raw and gzip budget', (_label, getJs, rawBudget, gzipBudget) => {
     const js = getJs();
     const rawBytes = Buffer.byteLength(js, 'utf8');

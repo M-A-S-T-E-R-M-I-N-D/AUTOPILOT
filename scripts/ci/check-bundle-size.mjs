@@ -353,6 +353,11 @@ const CHUNK_RAW_BUDGET = 202 * 1024;
 // Then chunk gzip 60→61KB (2026-09-24) for the same claim-routing strings
 // — measured 60.2KB gzip.
 const CHUNK_GZIP_BUDGET = 61 * 1024;
+// THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
+// version message and its own English and Hebrew strings, so neither
+// full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
+const WHATS_NEW_RAW_BUDGET = 12 * 1024;
+const WHATS_NEW_GZIP_BUDGET = 5 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;
@@ -408,7 +413,16 @@ async function main() {
     CHUNK_GZIP_BUDGET,
     errors,
   );
-  console.log(`combined: ${formatKb(core + project + panels)} raw across the three chunks`);
+  const whatsNew = measure(
+    '/whats-new.js',
+    bundleModule.minifiedWhatsNewJs(),
+    WHATS_NEW_RAW_BUDGET,
+    WHATS_NEW_GZIP_BUDGET,
+    errors,
+  );
+  console.log(
+    `combined: ${formatKb(core + project + panels + whatsNew)} raw across the four chunks`,
+  );
 
   if (errors.length > 0) {
     console.error(`check-bundle-size FAILED:`);

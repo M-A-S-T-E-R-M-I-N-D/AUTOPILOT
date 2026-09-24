@@ -121,6 +121,8 @@ describe('renderShell emits the right script tags per page', () => {
     expect(html).toMatch(/<script src="\/app\.js\?v=[a-z0-9]+"><\/script>/);
     expect(html).toMatch(/<script src="\/panels\.js\?v=[a-z0-9]+" defer><\/script>/);
     expect(html).not.toContain('/project.js');
+    expect(html).toMatch(/<script src="\/whats-new\.js\?v=[a-z0-9]+" defer><\/script>/);
+    expect(html.indexOf('/whats-new.js')).toBeGreaterThan(html.indexOf('/panels.js'));
   });
 
   it('project page: core + project(defer) + panels(defer), in that order', () => {
