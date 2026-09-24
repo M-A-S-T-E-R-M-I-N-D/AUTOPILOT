@@ -4069,9 +4069,9 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   /**
    * prReviewJs's own reconstruction, from its real file under web/features/.
    * It carries real relative-import splices of its own
-   * (prReviewDecisionLabel/prReviewConfirmMessage/prReviewExecuteResult/
-   * prReviewExecuteTip from ../pr-review-panel.js, decisionItemHeadMeta from
-   * ../decision-item.js), resolved against web/features/ rather than
+   * (prReviewDecisionLabel/prReviewDecisionIcon/prReviewConfirmMessage/
+   * prReviewExecuteResult/prReviewExecuteTip from ../pr-review-panel.js,
+   * decisionItemHeadMeta from ../decision-item.js), resolved against web/features/ rather than
    * SHELL_DIR, and no non-splice slots — like releaseJs, it composes the
    * panel's renderer functions (renderPrReviewPanel/loadPrReviewPanel) plus
    * its own EXECUTE click handler as one assembler, self-initializing at the

@@ -160,7 +160,12 @@ import { gzipSync } from 'node:zlib';
 // passed while the landing gate's own run of this script went red. A
 // census in that test now asserts the two files agree — the comment
 // asking to "keep the two in sync" was never enforced by anything.
-const CORE_RAW_BUDGET = 256 * 1024;
+// Then core raw 256->257KB (2026-09-24), epic 0025 icon system continuation
+// (board web-mtywp7zq-55f3o9): the KEEPER PR review panel's queue-for-human
+// badge drops its baked-in lock/purple-circle glyph for two new vendored
+// icons (lock, user) in web/icons.ts -- measured 262150B raw, 6 bytes over
+// the old 262144B budget.
+const CORE_RAW_BUDGET = 257 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

@@ -22,10 +22,14 @@
  * sentence takes the bundle's `tr()` as its last parameter — the injection
  * route `flightProgressOf`/the `connect-panel.ts` family took — because a
  * `.toString()`-spliced function can no more import a translator than a
- * formatter: only its own scope survives the splice. The ✓/✗/🟣/🔒 marks are
+ * formatter: only its own scope survives the splice. The ✓/✗ marks are
  * glyphs, not prose, so they stay literal in the code around each `tr()`
  * call (the same shape `githubIssueExecuteResult` already takes) rather than
- * living inside a STRINGS entry.
+ * living inside a STRINGS entry. The queue-for-human badge's 🟣/🔒 glyphs
+ * are gone (epic 0025 continuation, board web-mtywp7zq-55f3o9) —
+ * {@link prReviewDecisionIcon} names a vendored stroke icon instead, which
+ * the render site passes into `tipChip`'s own iconName parameter rather
+ * than baking a glyph into this module's returned text.
  */
 
 /** The STRINGS keys this module's helpers read (board web-msnsndki-dz3vn1).
@@ -175,10 +179,26 @@ export function prReviewDecisionLabel(
   if (decision === 'request-changes') return '✗ ' + tr('prReviewRequestChangesLabel');
   if (decision === 'queue-for-human') {
     return awaitingApproval
-      ? '🔒 ' + tr('prReviewAwaitingApprovalLabel')
-      : '🟣 ' + tr('prReviewQueueForHumanLabel');
+      ? tr('prReviewAwaitingApprovalLabel')
+      : tr('prReviewQueueForHumanLabel');
   }
   return decision;
+}
+
+/** The queue-for-human badge's leading stroke icon (epic 0025 continuation,
+ *  board web-mtywp7zq-55f3o9) — `lock` for the awaiting-approval variant,
+ *  `user` for the plain queue-for-human badge, `undefined` for merge/
+ *  request-changes (their ✓/✗ marks stay literal glyphs — see the module
+ *  note) and any unrecognized decision. The render site
+ *  (`features/pr-review.ts`) passes this into `tipChip`'s own iconName
+ *  parameter exactly like every other converted badge/button in this epic —
+ *  never baked into {@link prReviewDecisionLabel}'s returned text. */
+export function prReviewDecisionIcon(
+  decision: string,
+  awaitingApproval?: boolean,
+): string | undefined {
+  if (decision !== 'queue-for-human') return undefined;
+  return awaitingApproval ? 'lock' : 'user';
 }
 
 /** The GitHub "Checks" tab URL for a PR whose head is awaiting an

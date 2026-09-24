@@ -17,6 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   prReviewDecisionLabel,
+  prReviewDecisionIcon,
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
@@ -33,6 +34,7 @@ describe('prReviewJs', () => {
   it('embeds every pr-review-panel and decision-item splice real compiled source via .toString()', () => {
     const out = prReviewJs();
     expect(out).toContain(prReviewDecisionLabel.toString());
+    expect(out).toContain(prReviewDecisionIcon.toString());
     expect(out).toContain(prReviewConfirmMessage.toString());
     expect(out).toContain(prReviewExecuteResult.toString());
     expect(out).toContain(prReviewExecuteTip.toString());
@@ -72,6 +74,16 @@ describe('prReviewJs', () => {
     );
     expect(out).toContain(
       'var label = prReviewDecisionLabel(plan.decision.decision, tr, awaitingApproval);',
+    );
+  });
+
+  it("carries the queue-for-human badge's lock/user icon into the head chip, no baked-in emoji (epic 0025 continuation, board web-mtywp7zq-55f3o9)", () => {
+    const out = prReviewJs();
+    expect(out).toContain(
+      'var badgeIcon = prReviewDecisionIcon(plan.decision.decision, awaitingApproval);',
+    );
+    expect(out).toContain(
+      'tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass, badgeIcon)',
     );
   });
 

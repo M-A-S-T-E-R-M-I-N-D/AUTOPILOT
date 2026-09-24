@@ -409,6 +409,16 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['circle', { cx: '19', cy: '12', r: '1' }],
     ['circle', { cx: '5', cy: '12', r: '1' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the KEEPER PR review
+  // panel's queue-for-human decision badge drops its baked-in 🔒/🟣 glyphs.
+  lock: [
+    ['rect', { width: '18', height: '11', x: '3', y: '11', rx: '2', ry: '2' }],
+    ['path', { d: 'M7 11V7a5 5 0 0 1 10 0v4' }],
+  ],
+  user: [
+    ['path', { d: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' }],
+    ['circle', { cx: '12', cy: '7', r: '4' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
