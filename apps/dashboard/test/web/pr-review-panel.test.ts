@@ -23,6 +23,7 @@ import { describe, it, expect } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import {
   prReviewDecisionLabel,
+  prReviewDecisionIcon,
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
@@ -57,17 +58,17 @@ describe('prReviewDecisionLabel', () => {
   });
 
   it('labels a queue-for-human decision', () => {
-    expect(prReviewDecisionLabel('queue-for-human', trEn)).toBe('🟣 queue for human');
+    expect(prReviewDecisionLabel('queue-for-human', trEn)).toBe('queue for human');
   });
 
   it('labels a queue-for-human decision awaiting approval with a distinct badge', () => {
     expect(prReviewDecisionLabel('queue-for-human', trEn, true)).toBe(
-      '🔒 awaiting approval to run CI',
+      'awaiting approval to run CI',
     );
   });
 
   it('falls back to the generic queue-for-human badge when awaitingApproval is explicitly false', () => {
-    expect(prReviewDecisionLabel('queue-for-human', trEn, false)).toBe('🟣 queue for human');
+    expect(prReviewDecisionLabel('queue-for-human', trEn, false)).toBe('queue for human');
   });
 
   it('ignores awaitingApproval for merge/request-changes decisions', () => {
@@ -85,11 +86,31 @@ describe('prReviewDecisionLabel', () => {
       '✗ ' + STRINGS.he.prReviewRequestChangesLabel,
     );
     expect(prReviewDecisionLabel('queue-for-human', trHe)).toBe(
-      '🟣 ' + STRINGS.he.prReviewQueueForHumanLabel,
+      STRINGS.he.prReviewQueueForHumanLabel,
     );
     expect(prReviewDecisionLabel('queue-for-human', trHe, true)).toBe(
-      '🔒 ' + STRINGS.he.prReviewAwaitingApprovalLabel,
+      STRINGS.he.prReviewAwaitingApprovalLabel,
     );
+  });
+});
+
+describe('prReviewDecisionIcon', () => {
+  it('carries no icon for merge/request-changes — their ✓/✗ marks stay literal glyphs', () => {
+    expect(prReviewDecisionIcon('merge')).toBeUndefined();
+    expect(prReviewDecisionIcon('request-changes')).toBeUndefined();
+  });
+
+  it('carries no icon for an unrecognized decision', () => {
+    expect(prReviewDecisionIcon('mystery')).toBeUndefined();
+  });
+
+  it('is the user icon for the plain queue-for-human badge', () => {
+    expect(prReviewDecisionIcon('queue-for-human')).toBe('user');
+    expect(prReviewDecisionIcon('queue-for-human', false)).toBe('user');
+  });
+
+  it('is the lock icon for the awaiting-approval badge', () => {
+    expect(prReviewDecisionIcon('queue-for-human', true)).toBe('lock');
   });
 });
 

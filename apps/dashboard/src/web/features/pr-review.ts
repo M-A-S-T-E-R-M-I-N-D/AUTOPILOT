@@ -27,8 +27,8 @@
  * `discoverFeatureModules('web/features')` finds this file's `prReviewJs`
  * export the same way it already finds `release.ts`'s. This file carries
  * real relative-import splices of its own —
- * `prReviewDecisionLabel`/`prReviewConfirmMessage`/`prReviewExecuteResult`/
- * `prReviewExecuteTip` (from `web/pr-review-panel.ts`) and
+ * `prReviewDecisionLabel`/`prReviewDecisionIcon`/`prReviewConfirmMessage`/
+ * `prReviewExecuteResult`/`prReviewExecuteTip` (from `web/pr-review-panel.ts`) and
  * `decisionItemHeadMeta` (from `web/decision-item.ts`) — now resolved
  * relative to this file instead of `shell.ts`; a function's `.toString()`
  * output is unaffected by which local name imports it under, so this remains
@@ -60,6 +60,7 @@
  */
 import {
   prReviewDecisionLabel,
+  prReviewDecisionIcon,
   prReviewConfirmMessage,
   prReviewExecuteResult,
   prReviewExecuteTip,
@@ -100,6 +101,7 @@ export function prReviewJs(): string {
 // real compiled source via .toString(), not a hand-retyped copy. They can no
 // longer drift apart.
 ${prReviewDecisionLabel.toString()}
+${prReviewDecisionIcon.toString()}
 ${prReviewConfirmMessage.toString()}
 ${prReviewExecuteResult.toString()}
 ${prReviewExecuteTip.toString()}
@@ -276,6 +278,7 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
     prNumberEl.setAttribute('tabindex', i === 0 ? '0' : '-1');
     var awaitingApproval = !!(plan.pr.awaitingApprovalRunIds && plan.pr.awaitingApprovalRunIds.length > 0);
     var label = prReviewDecisionLabel(plan.decision.decision, tr, awaitingApproval);
+    var badgeIcon = prReviewDecisionIcon(plan.decision.decision, awaitingApproval);
     var headMeta = decisionItemHeadMeta(
       'GitHub PR',
       'pull request',
@@ -288,7 +291,7 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
     prNumberEl.setAttribute('data-tip', headMeta.numberTip);
     prNumberEl.setAttribute('aria-label', headMeta.numberAriaLabel);
     head.appendChild(prNumberEl);
-    head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass));
+    head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass, badgeIcon));
     item.appendChild(head);
     item.appendChild(el('p', 'pr-review-pr-title', plan.pr.title));
     // THE PIPELINE STRIP: the stages behind the one-word gate verdict, each

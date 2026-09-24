@@ -290,7 +290,13 @@ import {
 // to the existing route via taskUnpinTip. Measured 255.3KB raw (261442B)
 // against the old 261120B budget: 322 bytes over. Gzip (76.6KB / 78473B)
 // stays well under CORE_GZIP_BUDGET (77KB / 78848B).
-const CORE_RAW_BUDGET = 256 * 1024;
+// Then core raw 256→257KB (2026-09-24), epic 0025 icon system continuation
+// (board web-mtywp7zq-55f3o9): the KEEPER PR review panel's queue-for-human
+// decision badge drops its baked-in 🔒/🟣 glyph for two new vendored icons
+// (lock, user) in web/icons.ts, which lives in core same as every other
+// vendored shape. Measured 262150B raw against the old 262144B budget: 6
+// bytes over.
+const CORE_RAW_BUDGET = 257 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
