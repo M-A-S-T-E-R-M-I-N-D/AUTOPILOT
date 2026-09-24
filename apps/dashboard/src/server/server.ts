@@ -175,6 +175,7 @@ import type {
   MirrorPassExecuteReport,
   MirrorPassLandingNoteExecuteReport,
   MirrorPassStaleClaimExecuteReport,
+  MirrorPassPriorityFollowExecuteReport,
 } from '../flight/mirror-pass-execute.js';
 import type { MirrorPassPriorityFollowPlan } from '../flight/mirror-pass-priority.js';
 import type {
@@ -263,6 +264,12 @@ const MIRROR_PASS_STALE_CLAIM_EXECUTE_RATE_WINDOW_MS = 60_000;
 // call per drift finding, not just a read.
 const MIRROR_PASS_DRIFT_EXECUTE_RATE_LIMIT = 5;
 const MIRROR_PASS_DRIFT_EXECUTE_RATE_WINDOW_MS = 60_000;
+// Guards POST /api/mirror-pass/priority-follow/execute — same budgeted
+// stance as every other mirror-pass execute limiter above, even though this
+// derivation's own mutation never calls `gh`: a real store write per
+// finding, not just a read.
+const MIRROR_PASS_PRIORITY_FOLLOW_EXECUTE_RATE_LIMIT = 5;
+const MIRROR_PASS_PRIORITY_FOLLOW_EXECUTE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/report-from-here/execute — same heavier-than-a-quota-spend
 // reasoning as ISSUE_TRIAGE's limiter: a real `gh issue create` call or board
 // task creation per request, not just a read. The preview endpoint stays
@@ -665,6 +672,18 @@ export type MirrorPassPriorityFollowPreviewApi = (
   projectId: string,
 ) => Promise<readonly MirrorPassPriorityFollowPlan[] | null>;
 
+/** MIRROR PASS priority-follow EXECUTE (injected; the mutating counterpart
+ *  to {@link MirrorPassPriorityFollowPreviewApi} — same role gate as
+ *  {@link MirrorPassExecuteApi}, but never calls `gh`: the only mutation is
+ *  a store write through `@autopilot/store`'s pin-aware `setTaskPriority`) —
+ *  the fifth derivation's own execute path. See
+ *  `flight/mirror-pass-execute.ts`'s
+ *  `createMirrorPassPriorityFollowExecuteApi`. `null` means an unknown
+ *  project id. */
+export type MirrorPassPriorityFollowExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassPriorityFollowExecuteReport | null>;
+
 /** The mutating counterpart to {@link MirrorPassStaleClaimPreviewApi} —
  *  same role gate as {@link MirrorPassExecuteApi}) — derivation 4/4's
  *  execute path, VERDICT `ap-mtsg3nc0-3` slice (b), third installment. See
@@ -867,6 +886,12 @@ export interface ServerDeps extends RouteDeps {
    *  behind `GET /api/mirror-pass/priority-follow`. Same "mutating execute is
    *  a separate slice" stance as `mirrorPass` above. */
   readonly mirrorPassPriorityFollow?: MirrorPassPriorityFollowPreviewApi;
+  /** MIRROR PASS priority-follow EXECUTE — the mutating counterpart to
+   *  `mirrorPassPriorityFollow` above, behind `POST
+   *  /api/mirror-pass/priority-follow/execute`. Unlike the other four
+   *  derivations, never calls `gh` — the only mutation is a local store
+   *  write through `@autopilot/store`'s pin-aware `setTaskPriority`. */
+  readonly mirrorPassPriorityFollowExecute?: MirrorPassPriorityFollowExecuteApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -3172,6 +3197,74 @@ async function handleMirrorPassPriorityFollow(
 }
 
 /**
+ * The MIRROR PASS priority-follow EXECUTE endpoint (`POST
+ * /api/mirror-pass/priority-follow/execute`, body `{project}`) — the fifth
+ * derivation's mutating counterpart to {@link handleMirrorPassPriorityFollow}.
+ * Same shape as {@link handleMirrorPassLandingNoteExecute}: state-changing
+ * (writes the board's `priority`/`priority_pinned` columns), so CSRF-guarded
+ * JSON POST, separately rate-limited, role gating happens inside the
+ * injected `api` itself (a non-maintainer identity still gets a 200 with
+ * `skippedReason` set, never a 403). 404 only for an unknown project or an
+ * unwired API. Unlike every other mirror-pass execute endpoint, the mutation
+ * this one applies never touches GitHub — it is a local store write.
+ */
+async function handleMirrorPassPriorityFollowExecute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassPriorityFollowExecuteApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass priority-follow execute unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many mirror pass requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let project: string;
+  try {
+    project = String((JSON.parse(raw) as { project?: unknown }).project ?? '');
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    const result = await api(project);
+    if (!result) {
+      send(404, { error: 'unknown project' });
+      return;
+    }
+    send(200, result);
+  } catch (error) {
+    send(500, {
+      error: error instanceof Error ? error.message : 'mirror pass priority-follow execute failed',
+    });
+  }
+}
+
+/**
  * The MIRROR PASS stale-claim EXECUTE endpoint (`POST
  * /api/mirror-pass/stale-claims/execute`, body `{project}`) — derivation
  * 4/4's mutating counterpart to {@link handleMirrorPassStaleClaim}. Same
@@ -3763,6 +3856,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     MIRROR_PASS_DRIFT_EXECUTE_RATE_LIMIT,
     MIRROR_PASS_DRIFT_EXECUTE_RATE_WINDOW_MS,
   );
+  const mirrorPassPriorityFollowExecuteLimiter = createRateLimiter(
+    MIRROR_PASS_PRIORITY_FOLLOW_EXECUTE_RATE_LIMIT,
+    MIRROR_PASS_PRIORITY_FOLLOW_EXECUTE_RATE_WINDOW_MS,
+  );
   const reportFromHereLimiter = createRateLimiter(
     REPORT_FROM_HERE_RATE_LIMIT,
     REPORT_FROM_HERE_RATE_WINDOW_MS,
@@ -4039,6 +4136,17 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass/stale-claims') {
       void handleMirrorPassStaleClaim(req, res, deps.mirrorPassStaleClaim, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/priority-follow/execute') {
+      void handleMirrorPassPriorityFollowExecute(
+        req,
+        res,
+        deps.mirrorPassPriorityFollowExecute,
+        headers,
+        mirrorPassPriorityFollowExecuteLimiter,
+      );
       return;
     }
 

@@ -57,10 +57,31 @@
  * pin-aware setter) and the dashboard button remain their own follow-up
  * slices, same per-derivation split every other mirror-pass derivation above
  * already used.
+ *
+ * {@link createMirrorPassPriorityFollowExecuteApi} is that mutating execute
+ * path — the fifth derivation's own counterpart to
+ * {@link createMirrorPassExecuteApi}/{@link createMirrorPassLandingNoteExecuteApi}/
+ * {@link createMirrorPassDriftExecuteApi}/{@link createMirrorPassStaleClaimExecuteApi}
+ * above, unlike which it never calls `gh` at all — it steers the board FROM
+ * GitHub, so the only mutation is a store write through
+ * `@autopilot/store`'s pin-aware {@link setTaskPriority} (a second, separate
+ * read-write connection, same split {@link settleClaimedTasks} above uses).
+ * Same role gate as every other EXECUTE api in this file. The dashboard
+ * button for both the preview and this execute path remains its own
+ * follow-up UX-expression slice — the epic's own history shows that wiring
+ * (VERDICT `ap-mtsg3nc0-3` slice (c)) landing only once every derivation's
+ * execute path already existed, the same order this file follows here.
  */
 
 import { join } from 'node:path';
-import { openStore, listProjects, setTaskStatus, setTaskFocus, type Store } from '@autopilot/store';
+import {
+  openStore,
+  listProjects,
+  setTaskStatus,
+  setTaskFocus,
+  setTaskPriority,
+  type Store,
+} from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
@@ -106,6 +127,7 @@ import {
   fetchMirrorPassIssueLabels,
   type MirrorPassPriorityCandidate,
   type MirrorPassPriorityFollowPlan,
+  type MirrorPassPriorityFollowCommand,
 } from './mirror-pass-priority.js';
 
 /** One `github-<n>` task row as the `tasks` table stores it — just enough
@@ -872,6 +894,109 @@ export function createMirrorPassPriorityFollowPreviewApi(
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       const labelsByIssueNumber = await fetchMirrorPassIssueLabels(exec, tasks, issuesByNumber);
       return planMirrorPassPriorityFollowBatch(tasks, issuesByNumber, labelsByIssueNumber);
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** Applies every planned priority-follow command through
+ *  `@autopilot/store`'s pin-aware {@link setTaskPriority} — a separate
+ *  read-write connection, same "the read side stays readonly" split
+ *  {@link settleClaimedTasks} above uses. Keyed by `taskId` so the caller can
+ *  pair each plan back up with whether its own write actually landed. */
+function applyPriorityFollowCommands(
+  dbPath: string,
+  commands: readonly MirrorPassPriorityFollowCommand[],
+  now: number,
+): ReadonlyMap<string, boolean> {
+  const applied = new Map<string, boolean>();
+  if (commands.length === 0) return applied;
+  const store = openStore(dbPath);
+  try {
+    for (const command of commands) {
+      applied.set(command.taskId, setTaskPriority(store, command.taskId, command.priority, now));
+    }
+  } finally {
+    store.close();
+  }
+  return applied;
+}
+
+/** One priority-follow task's real outcome after
+ *  {@link createMirrorPassPriorityFollowExecuteApi} ran it — the {@link
+ *  MirrorPassPriorityFollowPlan} {@link planMirrorPassPriorityFollowBatch}
+ *  reached, paired with whether {@link setTaskPriority} actually changed a
+ *  row (`false` on a race where the task vanished between planning and
+ *  applying — never expected, but a store write is never assumed). */
+export interface MirrorPassPriorityFollowExecuteOutcome {
+  readonly plan: MirrorPassPriorityFollowPlan;
+  readonly applied: boolean;
+}
+
+/** The priority-follow EXECUTE ritual's full report — same `identity`/
+ *  `skippedReason` shape as {@link MirrorPassExecuteReport}, one derivation
+ *  over. */
+export interface MirrorPassPriorityFollowExecuteReport {
+  readonly identity: SocialIdentity | undefined;
+  readonly outcomes: readonly MirrorPassPriorityFollowExecuteOutcome[];
+  readonly skippedReason?: MirrorPassExecuteSkipReason;
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassPriorityFollowExecuteApi = (
+  projectId: string,
+) => Promise<MirrorPassPriorityFollowExecuteReport | null>;
+
+/**
+ * Build the MIRROR PASS priority-follow EXECUTE api against the real store +
+ * real `gh` — the fifth derivation's mutating counterpart to
+ * {@link createMirrorPassPriorityFollowPreviewApi} (EPIC 0019 S3, board
+ * `web-mtrh1hlh-62l41b`), law 2's GitHub-to-board direction actually applied.
+ * Same role gate as every other EXECUTE api in this file: resolves the
+ * acting identity first (epic law 1, "role honesty first") and returns a
+ * zero-mutation report the moment it is unresolved or not this repo's own
+ * maintainer. Unlike the other four derivations, this one never calls `gh` —
+ * the write is entirely local, `@autopilot/store`'s pin-aware
+ * {@link setTaskPriority} applied through a second, read-write connection
+ * (the read side above stays readonly, same split every other execute api in
+ * this file uses). Only a task {@link planMirrorPassPriorityFollowBatch}
+ * actually finds a finding for (a live `priority: <level>` label the board
+ * doesn't already match-and-pin) gets written.
+ */
+export function createMirrorPassPriorityFollowExecuteApi(
+  dbPath: string,
+  exec: CliExec = ghExec,
+  now: () => number = Date.now,
+): MirrorPassPriorityFollowExecuteApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const identity = await resolveSocialIdentity(exec);
+      if (identity === undefined || identity.role !== 'maintainer') {
+        return {
+          identity,
+          outcomes: [],
+          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
+        };
+      }
+      const tasks = mirrorPassPriorityCandidates(store, projectId);
+      const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
+      const labelsByIssueNumber = await fetchMirrorPassIssueLabels(exec, tasks, issuesByNumber);
+      const plans = planMirrorPassPriorityFollowBatch(tasks, issuesByNumber, labelsByIssueNumber);
+      const commands = plans
+        .map((plan) => plan.command)
+        .filter((command): command is MirrorPassPriorityFollowCommand => command !== null);
+      const appliedByTaskId = applyPriorityFollowCommands(dbPath, commands, now());
+      const outcomes: MirrorPassPriorityFollowExecuteOutcome[] = [];
+      for (const plan of plans) {
+        if (!plan.command) continue;
+        outcomes.push({ plan, applied: appliedByTaskId.get(plan.command.taskId) ?? false });
+      }
+      return { identity, outcomes };
     } finally {
       store.close();
     }

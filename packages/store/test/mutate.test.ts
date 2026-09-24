@@ -19,6 +19,7 @@ import {
   setTaskFocus,
   reorderTasks,
   unpinTasks,
+  setTaskPriority,
   reconcileShippedTasks,
   demoteMetricsCompletion,
   claimTask,
@@ -995,6 +996,25 @@ describe('createTask + setTaskStatus', () => {
     createTask(store, { id: 't-a', projectId: 'p1', title: 'A', createdAt: 1 });
     expect(unpinTasks(store, 'p1', ['ghost'], 9)).toBe(0);
     expect(unpinTasks(store, 'p1', ['t-a'], 9)).toBe(0);
+  });
+
+  it('setTaskPriority sets an explicit band value and pins it, without touching any other task', () => {
+    createTask(store, { id: 't-a', projectId: 'p1', title: 'A', createdAt: 1 });
+    createTask(store, { id: 't-b', projectId: 'p1', title: 'B', createdAt: 2 });
+
+    expect(setTaskPriority(store, 't-a', 100, 9)).toBe(true);
+
+    const rows = store.db
+      .prepare('SELECT id, priority, priority_pinned FROM tasks WHERE project_id = ? ORDER BY id')
+      .all('p1') as { id: string; priority: number | null; priority_pinned: number }[];
+    expect(rows).toEqual([
+      { id: 't-a', priority: 100, priority_pinned: 1 },
+      { id: 't-b', priority: null, priority_pinned: 0 },
+    ]);
+  });
+
+  it('setTaskPriority returns false for an unknown task id', () => {
+    expect(setTaskPriority(store, 'ghost', 100, 9)).toBe(false);
   });
 
   it('skips a sparse-array hole in orderedIds instead of updating an "undefined" id', () => {

@@ -24,6 +24,7 @@ import {
   createMirrorPassStaleClaimPreviewApi,
   createMirrorPassStaleClaimExecuteApi,
   createMirrorPassPriorityFollowPreviewApi,
+  createMirrorPassPriorityFollowExecuteApi,
 } from '../../src/flight/mirror-pass-execute.js';
 import { claimContractBody } from '../../src/flight/claim-contract.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
@@ -141,6 +142,49 @@ function issueViewAndLabelsExec(
   issues: Readonly<Record<number, { state: 'open' | 'closed'; labels?: readonly string[] }>>,
 ): CliExec {
   return vi.fn(async (_bin, args) => {
+    if (args[0] === 'issue' && args[1] === 'view') {
+      const number = Number(args[2]);
+      const entry = issues[number];
+      if (entry === undefined) return { code: 1, stdout: '' };
+      if (args[4] === 'labels') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({ labels: (entry.labels ?? []).map((name) => ({ name })) }),
+        };
+      }
+      return { code: 0, stdout: JSON.stringify({ number, state: entry.state.toUpperCase() }) };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+/** A `CliExec` stub answering identity resolution plus both `gh issue view
+ *  <n> --json number,state` and `--json labels` from `issues` — the exec
+ *  double `createMirrorPassPriorityFollowExecuteApi` needs, composing
+ *  `resolveSocialIdentity` with `createMirrorPassPriorityFollowPreviewApi`'s
+ *  own read side (never a mutating `gh` call — the only write this
+ *  derivation sends is local, through the store). */
+function identityIssueViewAndLabelsExec(
+  login: string,
+  ownerLogin: string,
+  issues: Readonly<Record<number, { state: 'open' | 'closed'; labels?: readonly string[] }>>,
+  calls: Array<readonly [string, readonly string[]]> = [],
+): CliExec {
+  return vi.fn(async (bin, args) => {
+    calls.push([bin, args]);
+    if (args[0] === 'api' && args[1] === 'user') {
+      return { code: 0, stdout: JSON.stringify({ login }) };
+    }
+    if (args[0] === 'repo' && args[1] === 'view') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: `${ownerLogin}/hello-world`,
+          url: `https://github.com/${ownerLogin}/hello-world`,
+          isPrivate: false,
+        }),
+      };
+    }
     if (args[0] === 'issue' && args[1] === 'view') {
       const number = Number(args[2]);
       const entry = issues[number];
@@ -2006,6 +2050,150 @@ describe('createMirrorPassPriorityFollowPreviewApi', () => {
       vi.mocked(openStore).mockClear();
       await createMirrorPassPriorityFollowPreviewApi(dbPath, issueViewAndLabelsExec({}))('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('createMirrorPassPriorityFollowExecuteApi', () => {
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-execute-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      const exec = identityIssueViewAndLabelsExec('octocat', 'octocat', {});
+      expect(await createMirrorPassPriorityFollowExecuteApi(dbPath, exec)('nope')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with identity-unresolved and writes nothing when gh cannot resolve who is acting', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-execute-unresolved-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-21', projectId: 'p1', title: 'Not yet steered', createdAt: 100 });
+      s.close();
+
+      const exec: CliExec = vi.fn(async () => ({ code: 1, stdout: '' }));
+      const report = await createMirrorPassPriorityFollowExecuteApi(dbPath, exec)('p1');
+
+      expect(report).toEqual({
+        identity: undefined,
+        outcomes: [],
+        skippedReason: 'identity-unresolved',
+      });
+      const s2 = openStore(dbPath, { readonly: true });
+      const row = s2.db
+        .prepare('SELECT priority, priority_pinned FROM tasks WHERE id = ?')
+        .get('github-21') as { priority: number | null; priority_pinned: number };
+      s2.close();
+      expect(row).toEqual({ priority: null, priority_pinned: 0 });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips with guest and writes nothing for a non-maintainer identity', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-execute-guest-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-21', projectId: 'p1', title: 'Not yet steered', createdAt: 100 });
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityIssueViewAndLabelsExec(
+        'a-contributor',
+        'octocat',
+        { 21: { state: 'open', labels: ['priority: high'] } },
+        calls,
+      );
+
+      const report = await createMirrorPassPriorityFollowExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBe('guest');
+      expect(report?.outcomes).toEqual([]);
+      // Role honesty: identity resolution ran, but the board read and any
+      // issue view never did.
+      expect(calls.some(([, args]) => args[0] === 'issue')).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('applies setTaskPriority for a maintainer identity when the label outranks the board', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-execute-applies-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-21', projectId: 'p1', title: 'Not yet steered', createdAt: 100 });
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityIssueViewAndLabelsExec(
+        'octocat',
+        'octocat',
+        { 21: { state: 'open', labels: ['priority: high'] } },
+        calls,
+      );
+
+      const report = await createMirrorPassPriorityFollowExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+      expect(report?.outcomes).toHaveLength(1);
+      expect(report?.outcomes[0]).toMatchObject({
+        applied: true,
+        plan: {
+          finding: { action: 'set-priority-from-label', taskId: 'github-21', priority: 100 },
+        },
+      });
+      // Never a `gh` mutation — this derivation's only write is local.
+      expect(calls.some(([, args]) => args.includes('close') || args.includes('comment'))).toBe(
+        false,
+      );
+
+      const s2 = openStore(dbPath, { readonly: true });
+      const row = s2.db
+        .prepare('SELECT priority, priority_pinned FROM tasks WHERE id = ?')
+        .get('github-21') as { priority: number | null; priority_pinned: number };
+      s2.close();
+      expect(row).toEqual({ priority: 100, priority_pinned: 1 });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('writes nothing once the board already matches the label and is pinned', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-execute-synced-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-22', projectId: 'p1', title: 'Already steered', createdAt: 100 });
+      setPriority(s, 'github-22', 100, true);
+      s.close();
+
+      const exec = identityIssueViewAndLabelsExec('octocat', 'octocat', {
+        22: { state: 'open', labels: ['priority: high'] },
+      });
+
+      const report = await createMirrorPassPriorityFollowExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.outcomes).toEqual([]);
     } finally {
       cleanupDir(dir);
     }
