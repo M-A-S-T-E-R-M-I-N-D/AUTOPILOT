@@ -236,6 +236,15 @@ describe('SOUL editor entry on the fleet card (board web-mswqemor-ab3jsu)', () =
     vi.restoreAllMocks();
   });
 
+  it('carries a pen-line stroke icon on its summary, no baked-in emoji', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const summary = document.querySelector('.soul-editor-summary');
+    expect(summary?.querySelector('svg.icon-pen-line')).not.toBeNull();
+    expect(summary?.textContent).toBe('view/edit SOUL');
+  });
+
   it('is always rendered, even with no live SOUL text, with an empty keyboard-reachable textarea', async () => {
     boot(stateWith({}));
     await vi.advanceTimersByTimeAsync(1);

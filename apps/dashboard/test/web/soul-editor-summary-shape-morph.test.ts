@@ -3,7 +3,7 @@
 
 /**
  * Cockpit MX redesign (epic 0005 slice 4, `docs/epics/0005-cockpit-redesign.md`):
- * the SOUL editor's own disclosure toggle (`.soul-editor-summary`, "✎ view/edit
+ * the SOUL editor's own disclosure toggle (`.soul-editor-summary`, "view/edit
  * SOUL") was the one SOUL-surface control left with only a `cursor: pointer` —
  * no hover, no transition, no shape morph, no elevation — while its sibling
  * `.soul-proposal-summary` (the ratify/dismiss proposal disclosure) and the
