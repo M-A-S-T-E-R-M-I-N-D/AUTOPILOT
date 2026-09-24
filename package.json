@@ -36,6 +36,7 @@
     "dashboard:ci-status": "node apps/dashboard/dist/control/cli.js ci-status",
     "dashboard:maintenance-sweep": "node apps/dashboard/dist/control/cli.js maintenance-sweep",
     "dashboard:taxonomy-seed": "node apps/dashboard/dist/control/cli.js taxonomy-seed",
+    "dashboard:owned-work-reconcile": "node apps/dashboard/dist/control/cli.js owned-work-reconcile",
     "dashboard:vacuum": "pnpm run build && node apps/dashboard/dist/control/cli.js vacuum",
     "dashboard:watch": "node apps/dashboard/dist/control/cli.js watch",
     "dashboard:keepalive": "node apps/dashboard/dist/control/cli.js keepalive",

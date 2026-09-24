@@ -99,6 +99,6 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0030](0030-lock-on-and-fire.md) | Lock on and fire — the selling first file, the real flow in pictures, the hierarchy behind it | Active |
 | [0031](0031-the-snackbar.md) | The snackbar — one place where an interaction says what happened | Active |
 | [0032](0032-the-onboarding-ladder.md) | The onboarding ladder — micro-tasks that perform themselves, and two ticks worth earning | Active |
-| [0033](0033-owned-work.md) | Owned work — from a public claim to a green, shipped contribution | Specified |
+| [0033](0033-owned-work.md) | Owned work — from a public claim to a green, shipped contribution | Active |
 | [0034](0034-the-machine-visible.md) | The machine, visible — the live answer, and the cockpit's motion language | Specified |
 | [0035](0035-modular-landings.md) | Modular landings — more than one runway, and a main that is always green | Specified |
