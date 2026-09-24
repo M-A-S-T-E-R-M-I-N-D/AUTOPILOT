@@ -41,6 +41,10 @@ export function formatVerdict(summary, testPath) {
     : `detect-flaky: stable — ${testPath} (${tally})`;
 }
 
+// Stryker disable all: `pnpmInvocation`, `runOnce` and `main` are all
+// process-shell glue — they spawn `vitest run` (via pnpm) and read argv/fs —
+// and can only be exercised by running the gate for real. The logic they
+// delegate to, `summarizeRuns` and `formatVerdict`, IS mutation-tested.
 /**
  * On Windows, `pnpm` is a `.cmd` shim that `execFileSync` cannot launch
  * directly (ENOENT) — route it through `cmd.exe /c` so PATHEXT resolves the
