@@ -328,6 +328,13 @@ const PUSH_FORCE_REFSPEC_RE = /\s\+\S/;
 const PUSH_DELETE_RE = /\s--delete(?=\s|$)/;
 const PUSH_REFSPEC_DELETE_RE = /\s:\S/;
 const HARD_RESET_RE = /\s--hard(?=\s|$)/;
+// `git commit --amend` rewrites the commit under HEAD. A lane's HEAD may
+// already be synced into the flight branch — on 2026-09-24 a firing amended a
+// commit the previous firing had shipped and sync-back had already merged, so
+// the rewritten copy merged in beside the original: the same change twice, a
+// second task's edit filed under the first task's message, and the firing
+// recorded as shipping nothing. A firing makes a new commit instead.
+const AMEND_RE = /\s--amend(?=\s|$)/;
 // `git revert` of anything but the flight's own most recent commit is a
 // history-hunting operation, not a self-correction — a specific SHA,
 // `HEAD~N`/`HEAD^`, a branch/tag name, or a range (`A..B`, which reverts the
@@ -489,6 +496,9 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
     // so the forward reference is safe.
     if (sub === 'revert' && !GIT_HELP_FLAG_RE.test(rest) && !isSelfRevertOfHead(rest)) {
       return { allowed: false, reason: `\`git revert\` ${REVERT_NOT_HEAD}` };
+    }
+    if (sub === 'commit' && AMEND_RE.test(rest)) {
+      return { allowed: false, reason: `\`git commit --amend\` is ${ADDITIVE_GIT_ONLY}` };
     }
     if (sub === 'rebase') {
       return { allowed: false, reason: `\`git rebase\` is ${ADDITIVE_GIT_ONLY}` };

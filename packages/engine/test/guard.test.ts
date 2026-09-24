@@ -369,6 +369,22 @@ describe('checkCommandContainment', () => {
     expect(check('git reset HEAD').allowed).toBe(true);
   });
 
+  it('denies `git commit --amend`, which rewrites a commit sync-back may already have merged', () => {
+    // 2026-09-24: firing 205 amended the commit firing 202 had shipped and
+    // sync-back had merged, so the rewritten copy merged in beside it
+    expect(check('git commit --amend --no-edit').allowed).toBe(false);
+    expect(check('git commit -s --amend -m "x"').allowed).toBe(false);
+    expect(check('git commit --amend').allowed).toBe(false);
+    expect(check('git -C . commit --amend').allowed).toBe(false);
+    expect(check('git add a.ts && git commit --amend --no-edit').allowed).toBe(false);
+    expect(check('git commit --amend --no-edit').reason).toContain('`git commit --amend`');
+    // a new commit, and a message that only mentions the word, stay allowed
+    expect(check('git commit -s -m "fix: x"').allowed).toBe(true);
+    expect(check('git commit -s -m "--amend-notes"').allowed).toBe(true);
+    expect(check('git commit -s -m fix--amend').allowed).toBe(true);
+    expect(check('git commit-tree HEAD^{tree}').allowed).toBe(true);
+  });
+
   it('denies `git rebase` outright', () => {
     expect(check('git rebase main').allowed).toBe(false);
     expect(check('git rebase -i HEAD~3').allowed).toBe(false);
