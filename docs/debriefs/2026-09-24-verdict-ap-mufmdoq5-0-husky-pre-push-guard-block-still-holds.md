@@ -18,9 +18,10 @@ attempt the underlying hook or any operator-only action.
 1. **`web-muffiwp9-hk2sri` (a `.husky/pre-push` hook) has never been added.**
    `.husky/` currently contains only `commit-msg` (`pnpm commitlint --edit
    "$1"`) and the husky `_` bootstrap directory — no `pre-push` file exists.
-   `git log --all --oneline -- .husky` shows exactly three commits, all from
-   repo genesis (`d14b11d5`, `f6a2829f`, `d881b750`) scaffolding the toolchain
-   and the initial hook set; nothing since has touched the directory. A
+   `git log --oneline -- .husky` shows one commit, repo genesis (`f6a2829f`),
+   scaffolding the toolchain and the initial hook set; nothing since has
+   touched the directory. (`--all` also lists two pre-rewrite copies of the
+   genesis commits that sit only on backup refs, not in this history.) A
    repo-wide search for `muffiwp9` returns zero hits — there is no in-tree
    trace of the task beyond this board entry.
 2. **The guard block is not merely documented — it is live and still fires.**
