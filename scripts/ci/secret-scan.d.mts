@@ -15,3 +15,5 @@ export interface SecretFinding {
 }
 
 export function findSecrets(text: string): SecretFinding[];
+export const EXCLUDED_FILES: Set<string>;
+export const BINARY_EXT: RegExp;
