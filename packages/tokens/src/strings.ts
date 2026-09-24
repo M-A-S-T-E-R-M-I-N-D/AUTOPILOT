@@ -1801,8 +1801,8 @@ const EN_STRINGS = {
   landingRestarting:
     '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
   landingDebriefTitle: 'Flight debrief',
-  landingDebriefBestLabel: '🏆 Best: ',
-  landingDebriefWorstLabel: '💀 Worst: ',
+  landingDebriefBestLabel: 'Best: ',
+  landingDebriefWorstLabel: 'Worst: ',
   // The panel's branch line (renderLandingBody()'s "branch → base" row above
   // the commit list). The panel is never swept after its fetch resolves, so
   // every one of these is painted via tr() at build time AND tagged: the
@@ -3018,8 +3018,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingExecuteButton: 'בצע נחיתה אל {base}',
     landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
     landingDebriefTitle: 'תחקיר טיסה',
-    landingDebriefBestLabel: '🏆 הטובה ביותר: ',
-    landingDebriefWorstLabel: '💀 הגרועה ביותר: ',
+    landingDebriefBestLabel: 'הטובה ביותר: ',
+    landingDebriefWorstLabel: 'הגרועה ביותר: ',
     landingBranchTip: 'הענף הפעיל כרגע',
     landingBranchAria: 'ענף: {name}',
     landingBranchArrowTip: 'כיוון המיזוג: מהענף אל הבסיס',

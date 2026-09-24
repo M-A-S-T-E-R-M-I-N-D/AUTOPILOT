@@ -43,6 +43,9 @@ export interface FileGateSemaphoreOptions {
   readonly dir: string;
   /** How many gates may hold a slot at once. */
   readonly slots: number;
+  /** Slot-file prefix, so two semaphores can share one directory. Defaults
+   *  to the original `gate-semaphore`. */
+  readonly name?: string;
   readonly isAlive?: (pid: number) => boolean;
   readonly pid?: number;
   readonly now?: () => number;
@@ -65,6 +68,7 @@ const NOOP_RELEASE = (): void => {};
 export class FileGateSemaphore implements GateSemaphorePort {
   private readonly dir: string;
   private readonly slots: number;
+  private readonly name: string;
   private readonly isAlive: (pid: number) => boolean;
   private readonly pid: number;
   private readonly now: () => number;
@@ -75,6 +79,7 @@ export class FileGateSemaphore implements GateSemaphorePort {
   constructor(opts: FileGateSemaphoreOptions) {
     this.dir = opts.dir;
     this.slots = opts.slots;
+    this.name = opts.name ?? 'gate-semaphore';
     this.isAlive = opts.isAlive ?? isProcessAlive;
     this.pid = opts.pid ?? process.pid;
     this.now = opts.now ?? Date.now;
@@ -119,7 +124,7 @@ export class FileGateSemaphore implements GateSemaphorePort {
   }
 
   private slotPath(index: number): string {
-    return join(this.dir, `gate-semaphore-slot-${index}.lock`);
+    return join(this.dir, `${this.name}-slot-${index}.lock`);
   }
 
   private tryClaim(path: string): boolean {
@@ -157,4 +162,32 @@ export class FileGateSemaphore implements GateSemaphorePort {
       return null;
     }
   }
+}
+
+/**
+ * Hold `outer` and then `inner` for the length of one gate, releasing in
+ * reverse. The flight-end FULL gate holds the single full-gate slot and one
+ * ordinary slot, so at most one full suite runs across the fleet while
+ * per-firing gates, which take only the ordinary slot, keep flowing. Every
+ * holder takes the two in the same order, so no two can deadlock.
+ */
+export function nestedSemaphore(
+  outer: GateSemaphorePort,
+  inner: GateSemaphorePort,
+): GateSemaphorePort {
+  return {
+    async acquire() {
+      const releaseOuter = await outer.acquire();
+      try {
+        const releaseInner = await inner.acquire();
+        return () => {
+          releaseInner();
+          releaseOuter();
+        };
+      } catch (error) {
+        releaseOuter();
+        throw error;
+      }
+    },
+  };
 }

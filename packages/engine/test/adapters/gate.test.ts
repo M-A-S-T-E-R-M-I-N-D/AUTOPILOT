@@ -10,6 +10,7 @@ import {
   buildInvocation,
   lastLines,
   classifyExecFailure,
+  environmentCrashReason,
   GATE_OUTPUT_TAIL_LINES,
   type GateCommandSpec,
   type GateExec,
@@ -575,7 +576,44 @@ describe('buildInvocation (cross-platform argv)', () => {
 // so a missing binary comes back as shell exit code 1 and the string-code arm
 // cannot be produced locally at all. Testing it here makes every arm provable
 // on whatever machine happens to run the suite.
+// 2026-09-24: two convergence gates went red on `pnpm run test` with only
+// vitest's worker-start errors in the output — two lanes' full suites on
+// one disk. That is a verdict on the machine, never on the commit.
+const WORKER_TIMEOUT_TAIL =
+  'Error: [vitest-pool]: Failed to start forks worker for test files x.test.ts.\n' +
+  'Caused by: Error: [vitest-pool-runner]: Timeout waiting for worker to respond\n';
+
+describe('environmentCrashReason', () => {
+  it('names worker-start timeouts as the machine, in every form vitest prints them', () => {
+    expect(environmentCrashReason(WORKER_TIMEOUT_TAIL)).toBe(
+      'test workers never started — the machine was too loaded to judge',
+    );
+    expect(environmentCrashReason('Failed to start threads worker for x')).not.toBeNull();
+    expect(environmentCrashReason('Timeout waiting for worker to respond')).not.toBeNull();
+  });
+
+  it('keeps the red when any test visibly failed beside the timeouts', () => {
+    for (const real of [' FAIL  a.test.ts > x', 'AssertionError: expected 1', '  × a > b']) {
+      expect(environmentCrashReason(WORKER_TIMEOUT_TAIL + real)).toBeNull();
+    }
+  });
+
+  it('is null for ordinary output', () => {
+    expect(environmentCrashReason('')).toBeNull();
+    expect(environmentCrashReason('Tests  3 passed')).toBeNull();
+  });
+});
+
 describe('classifyExecFailure', () => {
+  it('reads a non-zero exit with only worker-start errors as a crash of the machine', () => {
+    expect(classifyExecFailure({ code: 1 }, WORKER_TIMEOUT_TAIL)).toEqual({
+      code: 1,
+      crashed: true,
+      crashReason: 'test workers never started — the machine was too loaded to judge',
+      outputTail: WORKER_TIMEOUT_TAIL,
+    });
+  });
+
   it('reads a NUMERIC code as the tool own verdict, never a crash', () => {
     expect(classifyExecFailure({ code: 3 }, '')).toEqual({ code: 3 });
     expect(classifyExecFailure({ code: 3 }, 'boom')).toEqual({ code: 3, outputTail: 'boom' });
@@ -624,5 +662,37 @@ describe('classifyExecFailure', () => {
     });
     expect('outputTail' in classifyExecFailure({ code: 'ENOENT' }, '')).toBe(false);
     expect('outputTail' in classifyExecFailure({ code: 7 }, '')).toBe(false);
+  });
+});
+
+describe('GateRunner reports how long it queued for a slot (2026-09-25)', () => {
+  const ok: GateExec = async () => ({ code: 0 });
+  const cmd: GateCommandSpec = { bin: 'tsc', args: [], label: 'typecheck' };
+
+  it('reports the wait when a semaphore is wired, on green and on red', async () => {
+    const slowSlot = {
+      acquire: () => new Promise<() => void>((resolve) => setTimeout(() => resolve(() => {}), 30)),
+    };
+    const green = await new GateRunner({
+      cwd: '.',
+      commands: [cmd],
+      exec: ok,
+      semaphore: slowSlot,
+    }).run();
+    expect(green.ok).toBe(true);
+    expect(green.queuedMs).toBeGreaterThanOrEqual(25);
+    const red = await new GateRunner({
+      cwd: '.',
+      commands: [cmd],
+      exec: async () => ({ code: 2 }),
+      semaphore: slowSlot,
+    }).run();
+    expect(red.ok).toBe(false);
+    expect(red.queuedMs).toBeGreaterThanOrEqual(25);
+  });
+
+  it('reports no wait at all when it ran unslotted', async () => {
+    const result = await new GateRunner({ cwd: '.', commands: [cmd], exec: ok }).run();
+    expect(result).not.toHaveProperty('queuedMs');
   });
 });

@@ -649,6 +649,10 @@ const BENIGN_ASK = new Set([
  *  marker, so the census below only needs to triage its siblings — every one
  *  of which documents itself, in its own file header, as read-only/pure. */
 const BENIGN_READ = new Set([
+  // THE FLEET REPORT (2026-09-25): pure summaries over firing rows, and the
+  // read-only SELECTs that feed them. Neither writes nor decides anything.
+  'fleet-report.ts',
+  'fleet-report-source.ts',
   // Read-only facts for the what's-new message: the CHANGELOG section, the
   // round, GitHub counts via `gh api` GETs, CI via the cached run list. It
   // writes nothing and decides nothing.

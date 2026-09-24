@@ -41,7 +41,9 @@ describe('the LANDING panel reads its persistent on-screen text from STRINGS', (
     expect(out).toContain(
       "panelHeading('h4', 'flight-debrief-title', 'landingDebriefTitle', 'clipboard-list')",
     );
+    expect(out).toContain("bestLine.appendChild(iconEl('trophy'));");
     expect(out).toContain("el('span', 'flight-debrief-label', tr('landingDebriefBestLabel'))");
+    expect(out).toContain("worstLine.appendChild(iconEl('skull'));");
     expect(out).toContain("el('span', 'flight-debrief-label', tr('landingDebriefWorstLabel'))");
     expect(out).not.toContain("'📋 Flight debrief'");
     expect(out).not.toContain("'🏆 Best: '");

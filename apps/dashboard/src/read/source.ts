@@ -295,7 +295,7 @@ function parseGuardDenials(payload: string | null): number {
  * 'envelope-error'`) and would otherwise be misread as a generic error.
  * Defensive like parseGateChecks — malformed payload yields null, never throws.
  */
-function parseFiringDeath(payload: string | null): 'turn-cap' | 'timeout' | 'error' | null {
+export function parseFiringDeath(payload: string | null): 'turn-cap' | 'timeout' | 'error' | null {
   if (payload === null) return null;
   try {
     const record = JSON.parse(payload) as {
@@ -322,7 +322,10 @@ function parseFiringDeath(payload: string | null): 'turn-cap' | 'timeout' | 'err
  * Defensive like `parseFiringDeath`: a missing/malformed payload reads as no
  * proposals, i.e. 'silent' — never throws.
  */
-function parseNoopClass(gateResult: string | null, payload: string | null): NoopClass | null {
+export function parseNoopClass(
+  gateResult: string | null,
+  payload: string | null,
+): NoopClass | null {
   if (gateResult !== 'no-commit') return null;
   if (payload === null) return classifyNoop('no-commit', undefined);
   try {
