@@ -155,11 +155,12 @@ html[data-theme="terminal"][data-phosphor="white"] { --color-accent: oklch(0.93 
 .pref-hue output { min-inline-size: 4ch; text-align: end; font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-text-muted); }
 .pref-terminal { display: none; }
 html[data-theme="terminal"] .pref-terminal { display: block; }
-/* A phone masthead has two rows to give: the OTLP indicator (a diagnostic
-   chip) steps out below md so the settings gear fits; it returns from md. */
-.masthead-right .otlp-chip[hidden] { display: none; }
-.masthead-right .otlp-chip { display: none; }
-@media (min-width: 48rem) { .masthead-right .otlp-chip:not([hidden]) { display: inline-flex; } }
+/* EPIC 0017 slice 2: the OTLP chip lives inside the Connect popover body now
+   (folded in beside Claude/gh, not its own scattered masthead control), so
+   the phone-masthead-row budget this used to compete for no longer applies —
+   only the [hidden] override survives, since .chip's own display:inline-block
+   would otherwise win the cascade over the UA's [hidden]{display:none}. */
+.connect-body .otlp-chip[hidden] { display: none; }
 /* THE VERSION MENU (2026-09-13): the chip is the running version; the dot
    turns accent when a newer release exists. The popover reuses .connect's
    body and actions so the two masthead menus read as one family. */
