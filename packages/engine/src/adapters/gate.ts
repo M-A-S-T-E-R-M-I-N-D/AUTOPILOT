@@ -108,7 +108,12 @@ export interface GateProgressEvent {
   readonly durationMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+/** A step's wall-clock ceiling. 10 minutes was sized when the test leg took
+ *  ~140s; on 2026-09-24 the full suite measured 579s passing and then 613s on
+ *  the same commit, so a landing was refused as "crashed: timeout" with no
+ *  test failing. A timeout gives no verdict at all, so the ceiling sits well
+ *  above the slowest honest run: 20 minutes. */
+const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 
 /**
  * Resolve the real (bin, args) to spawn — argv-structured, never a shell string.

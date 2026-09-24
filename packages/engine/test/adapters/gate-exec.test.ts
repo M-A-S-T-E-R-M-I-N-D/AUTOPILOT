@@ -88,6 +88,6 @@ describe('GateRunner default execFile wiring (real exec, mocked node:child_proce
     await new GateRunner({ cwd: '/work/repo', commands: [cmd] }).run();
 
     const [, , options] = execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>];
-    expect(options['timeout']).toBe(10 * 60 * 1000);
+    expect(options['timeout']).toBe(20 * 60 * 1000);
   });
 });
