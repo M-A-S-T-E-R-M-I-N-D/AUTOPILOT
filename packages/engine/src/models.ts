@@ -89,8 +89,8 @@ export const MODEL_CATALOGUE: readonly CatalogueModel[] = [
     note: 'Deepest reasoning — the fallback the primary chain escalates to.',
   },
   {
-    id: 'claude-opus-5',
-    label: 'Opus 5',
+    id: 'claude-opus-5-5',
+    label: 'Opus 5.5',
     selector: 'pinned',
     family: 'opus',
     note: 'Pins today’s Opus exactly.',

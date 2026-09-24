@@ -16,6 +16,9 @@ import { describe, it, expect } from 'vitest';
 import {
   extractAdvertisedAliases,
   findUnknownFamilyAliases,
+  cataloguePinnedIds,
+  resolveAliasFromUsage,
+  findStalePins,
 } from '../../../../scripts/ci/check-model-freshness.mjs';
 
 /** A `claude --help` shape close enough to the real CLI's: the alias
@@ -91,5 +94,82 @@ describe('findUnknownFamilyAliases', () => {
 
   it('returns an empty list against an empty families catalogue plus no alias sentence', () => {
     expect(findUnknownFamilyAliases('Usage: claude [options]', [])).toEqual([]);
+  });
+});
+
+/**
+ * CASE 1 FINALLY HAS CODE BEHIND IT (2026-09-24). The header of this check
+ * promised two kinds of staleness for two weeks and implemented one. The day
+ * Opus 5.5 shipped, the catalogue still pinned `claude-opus-5`, the `opus`
+ * alias already resolved to `claude-opus-5-5`, and the check said OK. These
+ * are the pure halves of the fix; the paid probe itself stays unimported for
+ * the same reason `main()` does.
+ */
+describe('cataloguePinnedIds', () => {
+  const src = [
+    "const MODEL_FAMILIES: readonly ModelFamily[] = ['fable', 'opus'];",
+    'export const MODEL_CATALOGUE = [',
+    "  { id: 'fable', label: 'Fable (latest)', selector: 'alias', family: 'fable' },",
+    "  { id: 'claude-fable-5-1', label: 'Fable 5.1', selector: 'pinned', family: 'fable' },",
+    "  { id: 'opus', label: 'Opus (latest)', selector: 'alias', family: 'opus' },",
+    "  { id: 'claude-opus-5-5', label: 'Opus 5.5', selector: 'pinned', family: 'opus' },",
+    '];',
+  ].join('\n');
+
+  it('reads the pinned id per family and ignores the aliases', () => {
+    expect(cataloguePinnedIds(src)).toEqual({
+      fable: 'claude-fable-5-1',
+      opus: 'claude-opus-5-5',
+    });
+  });
+
+  it('is empty when nothing is pinned', () => {
+    expect(cataloguePinnedIds("[{ id: 'opus', selector: 'alias', family: 'opus' }]")).toEqual({});
+  });
+
+  it('reads the real catalogue and finds a pin for every family it declares', () => {
+    const pinned = cataloguePinnedIds();
+    expect(Object.keys(pinned).sort()).toEqual(['fable', 'haiku', 'opus', 'sonnet']);
+    expect(pinned['opus']).toBe('claude-opus-5-5');
+  });
+});
+
+describe('resolveAliasFromUsage', () => {
+  it('picks the id of the asked-for family, not the Haiku side-call the CLI bills on every run', () => {
+    const usage = { 'claude-haiku-4-5-20251001': {}, 'claude-opus-5-5': {} };
+    expect(resolveAliasFromUsage(usage, 'opus')).toBe('claude-opus-5-5');
+    expect(resolveAliasFromUsage(usage, 'haiku')).toBe('claude-haiku-4-5-20251001');
+  });
+
+  it('is null when the reply names nothing in that family, or is not a usage object at all', () => {
+    expect(resolveAliasFromUsage({ 'claude-haiku-4-5-20251001': {} }, 'opus')).toBeNull();
+    expect(resolveAliasFromUsage(undefined, 'opus')).toBeNull();
+    expect(resolveAliasFromUsage('claude-opus-5-5', 'opus')).toBeNull();
+  });
+});
+
+describe('findStalePins', () => {
+  it('names the pin and what the alias resolves to when they differ — the Opus 5.5 morning', () => {
+    const findings = findStalePins({ opus: 'claude-opus-5' }, { opus: 'claude-opus-5-5' });
+    expect(findings).toEqual([
+      "the catalogue pins 'claude-opus-5' for opus, but 'opus' resolves to 'claude-opus-5-5' today",
+    ]);
+  });
+
+  it('is silent when every pin is current', () => {
+    expect(
+      findStalePins(
+        { fable: 'claude-fable-5-1', opus: 'claude-opus-5-5' },
+        { fable: 'claude-fable-5-1', opus: 'claude-opus-5-5' },
+      ),
+    ).toEqual([]);
+  });
+
+  it('reports a family the probe could not resolve rather than passing it silently', () => {
+    const findings = findStalePins({ opus: 'claude-opus-5-5' }, { opus: null });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('could not resolve');
+    expect(findings[0]).toContain('claude-opus-5-5');
+    expect(findStalePins({ opus: 'claude-opus-5-5' }, {})).toHaveLength(1);
   });
 });
