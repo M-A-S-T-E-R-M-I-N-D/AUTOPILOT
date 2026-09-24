@@ -23,6 +23,8 @@ import {
   reconcileShippedTasks,
   demoteMetricsCompletion,
   claimTask,
+  isClaimableTitle,
+  isBlockedVerdictTitle,
   releaseTaskClaim,
   releaseInstanceClaims,
   releaseStaleClaims,
@@ -519,7 +521,9 @@ describe('APPROVED-VERDICT CASCADE (board web-mt5g8l1w-p2dddo)', () => {
     ]);
   });
 
-  it('does not cascade a "VERDICT blocked" proposal — approving it just queues normally', () => {
+  it('retires an approved "VERDICT blocked" proposal instead of queueing it, and leaves the named task parked', () => {
+    // 2026-09-24: queued blocked verdicts were re-flown round after round,
+    // each firing re-confirming a blocker only the operator can lift
     seedProject('p1');
     createTask(store, { id: 'web-aaa-1', projectId: 'p1', title: 'landing risk', createdAt: 1 });
     setTaskStatus(store, 'web-aaa-1', 'deferred', 1);
@@ -540,14 +544,36 @@ describe('APPROVED-VERDICT CASCADE (board web-mt5g8l1w-p2dddo)', () => {
           status: string;
         }
       ).status,
-    ).toBe('queued');
+    ).toBe('done'); // acknowledged, never queued as work
     expect(
       (
         store.db.prepare(`SELECT status FROM tasks WHERE id = 'web-aaa-1'`).get() as {
           status: string;
         }
       ).status,
-    ).toBe('deferred'); // untouched — only "close" cascades
+    ).toBe('deferred'); // untouched — only "close" cascades; the operator requeues it
+  });
+
+  it('still queues an approved "VERDICT split" or "VERDICT deprioritize" proposal', () => {
+    seedProject('p1');
+    for (const [id, title] of [
+      ['ap-verdict-1', 'VERDICT split web-aaa-1: two separate concerns'],
+      ['ap-verdict-2', 'VERDICT deprioritize web-aaa-1: low value now'],
+    ] as const) {
+      createTask(store, {
+        id,
+        projectId: 'p1',
+        title,
+        source: 'self',
+        status: 'needs_approval',
+        createdAt: 1,
+      });
+      expect(setTaskStatus(store, id, 'queued', 2)).toBe(true);
+      expect(
+        (store.db.prepare('SELECT status FROM tasks WHERE id = ?').get(id) as { status: string })
+          .status,
+      ).toBe('queued');
+    }
   });
 
   it('never resurrects a named task that is already done', () => {
@@ -1220,6 +1246,38 @@ describe('claimTask / releaseTaskClaim', () => {
       assignee: string | null;
     };
     expect(row).toEqual({ status: 'queued', assignee: null });
+  });
+
+  it('names the titles claimTask refuses, case-insensitively, as the SQL does', () => {
+    expect(isClaimableTitle('OPERATOR DECISION: pick a path')).toBe(false);
+    expect(isClaimableTitle('operator-only: upgrade node')).toBe(false);
+    expect(isClaimableTitle('VERDICT blocked web-aaa-1: waits on ADR 0011')).toBe(false);
+    expect(isClaimableTitle('verdict BLOCKED web-aaa-1: waits')).toBe(false);
+    expect(isClaimableTitle('VERDICT split web-aaa-1: two concerns')).toBe(true);
+    expect(isClaimableTitle('Document the OPERATOR DECISION flow')).toBe(true);
+    // a bare prefix, like the SQL LIKE it mirrors
+    expect(isClaimableTitle('VERDICT blockedness')).toBe(false);
+    expect(isBlockedVerdictTitle('VERDICT blocked x')).toBe(true);
+    expect(isBlockedVerdictTitle('VERDICT close x')).toBe(false);
+  });
+
+  it('refuses to claim a queued "VERDICT blocked" task, but still claims a "VERDICT split" one', () => {
+    // 2026-09-24: a blocked verdict approved before approval retired it sits
+    // queued, and a lane that claims it can only re-confirm the blocker
+    createTask(store, {
+      id: 't-vb',
+      projectId: 'p1',
+      title: 'VERDICT blocked web-aaa-1: waits on the ADR 0011 decision',
+      createdAt: 1,
+    });
+    createTask(store, {
+      id: 't-vs',
+      projectId: 'p1',
+      title: 'VERDICT split web-aaa-1: two separate concerns',
+      createdAt: 1,
+    });
+    expect(claimTask(store, 't-vb', 'instance-a', 5)).toBe(false);
+    expect(claimTask(store, 't-vs', 'instance-a', 5)).toBe(true);
   });
 
   it('still claims a task that merely MENTIONS an operator mid-title — only the OPERATOR prefix marks ownership', () => {

@@ -558,6 +558,26 @@ const VERDICT_TASK_ID_RE =
  *  decision rather than flagging something for a human to still resolve. */
 const VERDICT_CLOSE_KIND_RE = /^VERDICT close\b/i;
 
+/** A `VERDICT blocked ...` proposal: the named task waits on something only
+ *  a person can resolve. Approving it acknowledges that; it is never work. */
+// No `\b`: this mirrors claimTask's `LIKE 'VERDICT blocked%'` prefix exactly,
+// so the flight's pick and the claim gate never disagree about a title.
+const VERDICT_BLOCKED_KIND_RE = /^VERDICT blocked/i;
+
+/** True for a `VERDICT blocked ...` task: it waits on a person, so no lane
+ *  claims it and no firing's board shows it. */
+export function isBlockedVerdictTitle(title: string): boolean {
+  return VERDICT_BLOCKED_KIND_RE.test(title);
+}
+
+/** The titles {@link claimTask} refuses, as a predicate — so a flight can
+ *  pass over an unclaimable task to the next one instead of trying the top
+ *  row, being refused, and firing with no claim at all. Mirrors the SQL:
+ *  `LIKE` is case-insensitive for ASCII, and so are these. */
+export function isClaimableTitle(title: string): boolean {
+  return !/^OPERATOR/i.test(title) && !isBlockedVerdictTitle(title);
+}
+
 /**
  * Move a task to a new status (the board's state machine — values enforced by
  * the schema CHECK). Returns false for an unknown task or an invalid status.
@@ -580,11 +600,18 @@ const VERDICT_CLOSE_KIND_RE = /^VERDICT close\b/i;
  * queued as work) and cascades `done` onto every open task its title NAMES
  * ({@link VERDICT_TASK_ID_RE}), matching `flight/completion.ts`'s
  * `verdictDeferTargets` convention for what a verdict "names". The
- * `'approved'` evaluation label still records against the verdict task, and
- * the requested status stays `queued` for every non-`VERDICT close` proposal
- * (a `blocked`/`split`/`deprioritize` verdict, or an ordinary task) — this
- * only changes the one case where "approve" previously meant "queue a
- * decision as if it were a chore".
+ * `'approved'` evaluation label still records against the verdict task.
+ *
+ * APPROVED BLOCKED VERDICTS RETIRE TOO (2026-09-24): approving a `VERDICT
+ * blocked ...` proposal used to queue it as work. A blocked verdict names a
+ * task waiting on something only a person can resolve — an ADR decision, a
+ * baseline re-capture — so a firing that picks it can only re-check that
+ * the blocker still holds. The fleet did exactly that, over and over: seven
+ * of ten firings in one five-lane round re-confirmed unchanged blockers,
+ * one of them for the fourth time, each minting a fresh verdict to approve.
+ * Approving one now lands it on `done` as the operator's acknowledgement;
+ * the named tasks stay `deferred` (no cascade) until the operator requeues
+ * them. `split`/`deprioritize` verdicts, and ordinary tasks, still queue.
  */
 export function setTaskStatus(
   store: Store,
@@ -604,7 +631,8 @@ export function setTaskStatus(
         before.status === 'needs_approval' &&
         status === 'queued';
       const isVerdictClose = isApproval && VERDICT_CLOSE_KIND_RE.test(before!.title);
-      const finalStatus = isVerdictClose ? 'done' : status;
+      const isVerdictBlocked = isApproval && VERDICT_BLOCKED_KIND_RE.test(before!.title);
+      const finalStatus = isVerdictClose || isVerdictBlocked ? 'done' : status;
 
       const info = store.db
         .prepare(
@@ -665,6 +693,10 @@ export function setTaskStatus(
  * one chokepoint every lane must pass, so the ownership boundary lives here,
  * not in whichever status the task happens to hold today. Prefix-anchored on
  * purpose: a task merely MENTIONING the word mid-title stays claimable.
+ *
+ * `VERDICT blocked` tasks are refused the same way (2026-09-24): one
+ * approved before approval retired them still sits `queued`, and a firing
+ * that claims it can only re-confirm a blocker a person has to lift.
  */
 export function claimTask(
   store: Store,
@@ -681,7 +713,8 @@ export function claimTask(
         WHERE id = ?
           AND status IN ('queued', 'in_progress')
           AND (assignee IS NULL OR assignee = ?)
-          AND title NOT LIKE 'OPERATOR%'`,
+          AND title NOT LIKE 'OPERATOR%'
+          AND title NOT LIKE 'VERDICT blocked%'`,
     )
     .run(instanceKey, updatedAt, taskId, instanceKey);
   return info.changes > 0;

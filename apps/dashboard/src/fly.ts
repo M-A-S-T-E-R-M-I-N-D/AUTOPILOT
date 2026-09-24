@@ -24,6 +24,8 @@ import {
   setTaskStatus,
   reconcileShippedTasks,
   claimTask,
+  isClaimableTitle,
+  isBlockedVerdictTitle,
   releaseTaskClaim,
   releaseInstanceClaims,
   releaseStaleClaims,
@@ -1171,8 +1173,14 @@ async function main(): Promise<void> {
         // FLEET-AWARE FOCUS (web-mswpsozf-oxf17b): focused-first ordering so
         // the first free instance CLAIMS the operator's focus target instead
         // of claiming the topmost task while locked onto another.
+        // Only a task claimTask would accept: an OPERATOR or blocked-verdict
+        // row at the top used to be tried, refused, and leave the firing with
+        // no claim at all (2026-09-24).
         const topAvailable = orderClaimCandidatesFocusFirst(scopedCandidates).find(
-          (t) => (t.assignee === null || t.assignee === instanceKey) && !benchedTasks.has(t.id),
+          (t) =>
+            (t.assignee === null || t.assignee === instanceKey) &&
+            !benchedTasks.has(t.id) &&
+            isClaimableTitle(t.title),
         );
         claimedTaskId =
           topAvailable && claimTask(store, topAvailable.id, instanceKey, now())
@@ -1209,6 +1217,9 @@ async function main(): Promise<void> {
           fleetTaskScope,
         )
           .filter((t) => t.assignee === null || t.assignee === instanceKey)
+          // A blocked verdict waits on a person; on the board a firing would
+          // only re-confirm it (seven of ten firings did, 2026-09-24).
+          .filter((t) => !isBlockedVerdictTitle(t.title))
           .map((t) => ({
             id: t.id,
             // THE CLAIM CONTRACT (claim-contract.ts): a claimed issue's row
