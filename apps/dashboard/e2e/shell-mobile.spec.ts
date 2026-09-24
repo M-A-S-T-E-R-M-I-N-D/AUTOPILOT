@@ -97,6 +97,23 @@ test.describe('app shell — compact window', () => {
     expect(offenders).toEqual([]);
   });
 
+  // 2026-09-24: the what's-new button joined the Settings panel, which stacks
+  // its contents in a narrow column on a compact window; it rendered 18px
+  // wide and turned the floor check above red on main. Pinned by name so a
+  // layout change to that panel cannot squeeze it again unnoticed.
+  test("Settings' what's-new button keeps a thumb-sized target", async ({ page }) => {
+    await openFleet(page);
+    await page.locator('#settings-menu > summary').tap();
+    const button = page.locator('#settings-menu .wn-menu-btn');
+    await expect(button).toBeVisible();
+    const size = await button.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { width: r.width, height: r.height };
+    });
+    expect(size.width).toBeGreaterThanOrEqual(24);
+    expect(size.height).toBeGreaterThanOrEqual(24);
+  });
+
   test('a project page is six tabs — Board is one tap away and Overview leaves the page', async ({
     page,
   }) => {
