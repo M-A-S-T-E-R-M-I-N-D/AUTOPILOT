@@ -129,6 +129,16 @@ remainder.
   called complete.
 - Distributed/multi-machine fleets, remote workers.
 
+DOC-FRESHNESS re-check (2026-09-24): `control/cli.ts` moved again on 2026-09-22
+(`d137e8c5`, epic 0033 "owned work is ingested at takeoff") — its `watch <folder>`
+case now runs `runOwnedWorkSweep` at takeoff and its `owned-work-reconcile` CLI
+case reads `ownedWorkCandidates` instead of a paged `recentTasks`. Both edits are
+epic 0033's own reconcile ritual (`docs/epics/0033-owned-work.md`), not the
+watchdog: `flightWatchdogTick`/`landWatchdogTick`/`FLYABLE_STATUSES` and every
+acceptance criterion above are untouched, and the takeoff sweep runs BEFORE the
+watchdog's first tick, not inside it. Same "grown past this spec's scope, watchdog
+contract unchanged" shape as every post-completion note above; no drift here.
+
 ## Related
 
 - `docs/epics/0001-parallel-flights.md` — the concurrency substrate (registry, locks,

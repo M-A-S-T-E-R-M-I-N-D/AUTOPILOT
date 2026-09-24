@@ -21,7 +21,22 @@
  */
 
 import { openStore, type Store } from '@autopilot/store';
-import type { LandingExecuteApiResult } from './execute.js';
+import type { LandingExecuteApiResult, LandingPushResult } from './execute.js';
+
+/** Narrows an unknown payload field to a well-formed {@link LandingPushResult}
+ *  — a malformed or pre-push-leg row (written before this field existed)
+ *  degrades to "no push info" rather than surfacing garbage. */
+function parsePush(value: unknown): LandingPushResult | undefined {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { ok?: unknown }).ok === 'boolean' &&
+    typeof (value as { detail?: unknown }).detail === 'string'
+  ) {
+    return value as LandingPushResult;
+  }
+  return undefined;
+}
 
 /** How far back a landed row still counts as "the land you just pressed".
  *  Matches the job registry's own result TTL — past it, an old success is
@@ -49,13 +64,15 @@ export function readRecentLandingOutcome(
     if (!row) return null;
 
     let details = 'merged.';
+    let push: LandingPushResult | undefined;
     try {
-      const parsed = JSON.parse(row.payload) as { details?: unknown };
+      const parsed = JSON.parse(row.payload) as { details?: unknown; push?: unknown };
       if (typeof parsed.details === 'string') details = parsed.details;
+      push = parsePush(parsed.push);
     } catch {
       /* a malformed payload still proves the land happened — keep the default */
     }
-    return { ok: true, reason: 'landed', details, restarting: false };
+    return { ok: true, reason: 'landed', details, restarting: false, ...(push ? { push } : {}) };
   } catch {
     return null;
   } finally {

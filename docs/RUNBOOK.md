@@ -36,6 +36,7 @@ Use the CLI, not raw `node`/`kill` — it owns the state file and does the stale
 | `pnpm dashboard:doctor` | Node version, server-built, state-dir-writable checks. |
 | `pnpm dashboard:ci-status` | Latest `gh run list` result per `.github/workflows/*.yml` file — read-only CI-run babysitting, never retries/cancels. |
 | `pnpm dashboard:maintenance-sweep` | One read of the founder's routine sweep: dependabot's open PR backlog, doc-freshness drift, the next release's plan verdict, and the CI-run report together — read-only throughout. |
+| `pnpm dashboard:owned-work-reconcile [folder]` | Ask GitHub "what is assigned to me?" (`gh issue list --assignee @me`) and reconcile the answer onto the folder's board: every assigned issue becomes a focused, claim-contract-marked `github-<n>` task (one pickup comment on the issue, the first time only); an issue no longer assigned un-focuses its task, never deletes it. Idempotent — a second run changes nothing. Every flight runs the same pass at takeoff; this is the on-demand entry ([epic 0033 §3](epics/0033-owned-work.md)). Requires an authenticated `gh`; the current folder when none is given. |
 | `pnpm dashboard:vacuum` | Reclaim the FTS5 `project_search` index's freelist (`VACUUM` + `optimize`) on the SQLite store. Rewrites the whole store file, so run it only when no flight/dashboard is mid-transaction on the same store — never wired into `watch` or any automatic ritual. |
 
 `DashboardControl` (`apps/dashboard/src/control/control.ts`) already self-heals the ordinary case:

@@ -186,10 +186,64 @@ describe('createLandingExecuteApi', () => {
       s2.close();
       expect(rows).toHaveLength(1);
       expect(rows[0]?.project_id).toBe('p1');
-      expect(JSON.parse(rows[0]!.payload)).toEqual({ details: result?.details });
+      expect(JSON.parse(rows[0]!.payload)).toEqual({
+        details: result?.details,
+        push: result?.push,
+      });
     } finally {
       cleanupDir(repo);
       cleanupDir(dbDir);
+    }
+  });
+
+  it('persists the FAILED push leg in the `landed` events row too — a durable recovery after a restart must be able to see a rejected push (board web-mufftwd7-b2yuml)', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-push-reject-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+    const remote = mkdtempSync(join(tmpdir(), 'ap-dash-land-push-reject-remote-'));
+    try {
+      execFileSync('git', ['init', '-q', '--bare', remote], { windowsHide: true });
+      // Simulates GitHub push protection (GH013) rejecting the push server-side
+      // — the merge itself still succeeds locally, only the push leg fails.
+      writeFileSync(
+        join(remote, 'hooks', 'pre-receive'),
+        '#!/bin/sh\necho "GH013: Repository rule violations found for refs/heads/main" >&2\nexit 1\n',
+        { mode: 0o755 },
+      );
+
+      setupBranchedRepo(repo);
+      gitSync(repo, ['remote', 'add', 'origin', remote]);
+
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo, NODE_OK);
+      s.close();
+
+      const result = await createLandingExecuteApi(dbPath)('p1');
+      expect(result?.ok).toBe(true);
+      expect(result?.reason).toBe('landed');
+      // The merge succeeded locally regardless of what the remote decided —
+      // only the push leg reports the rejection.
+      expect(result?.push?.ok).toBe(false);
+      expect(result?.push?.detail).toContain('rejected');
+
+      const s2 = openStore(dbPath);
+      const rows = s2.db.prepare(`SELECT payload FROM events WHERE type = 'landed'`).all() as {
+        payload: string;
+      }[];
+      s2.close();
+      expect(rows).toHaveLength(1);
+      // The durable audit row must carry the SAME rejected push the caller
+      // saw — this is the row `readRecentLandingOutcome` rebuilds a result
+      // from after a restart, so a stale/missing `push` here is exactly how
+      // a GH013 rejection went invisible.
+      const payload = JSON.parse(rows[0]!.payload) as { push?: { ok: boolean; detail: string } };
+      expect(payload.push).toEqual(result?.push);
+      expect(payload.push?.ok).toBe(false);
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+      cleanupDir(remote);
     }
   });
 

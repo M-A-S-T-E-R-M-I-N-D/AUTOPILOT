@@ -5,7 +5,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0033. OWNED WORK — from a public claim to a green, shipped contribution
 
-Status: **Specified, not started.** Operator directive, 2026-09-17.
+Status: **Active** (operator directive 2026-09-17). Slice 1 INGEST shipped
+end to end — reconcile core, reverse edge, takeoff cadence, on-demand CLI
+(`pnpm dashboard:owned-work-reconcile`, `docs/RUNBOOK.md` §1) — see the
+SHIPPED note under §3. Slice 2 SEE IT is partially shipped (the one pickup
+comment, the fleet read's `ownedWorkCount`, the CLI's owned-now line); its
+OWNED WORK board section and masthead count are still open. Slices 3–8 not
+started.
 
 The operator claimed a public issue and asked the three questions that follow
 from it: *where do I see that the task is mine? how do I know the pilot can
@@ -104,6 +110,25 @@ idea to the issue being *released*.
 **Acceptance.** With #6 assigned on GitHub and nothing else changed, one pass
 makes #6 appear on the board as a focused, contract-marked task; a second pass
 changes nothing; `/unclaim` un-focuses it.
+
+**SHIPPED** — `apps/dashboard/src/flight/owned-work-reconcile.ts`:
+`fetchAssignedIssues` (the `gh issue list --assignee @me` read, defensive
+parse), `planOwnedWorkReconcile` (the pure core — upsert at `issueTaskId`,
+refocus, release), `reconcileOwnedWork` (the writes), `runOwnedWorkSweep`
+(the takeoff cadence `fly.ts` runs before its first board read, self-target
+guarded so a flight over another folder never ingests this repo's
+assignments), and the `owned-work-reconcile` case in `control/cli.ts`,
+wired as `pnpm dashboard:owned-work-reconcile` and documented in
+`docs/RUNBOOK.md`'s command table (UX-EXPRESSION: a docs-discoverable
+script, same as epic 0010's rituals). Covered by
+`apps/dashboard/test/flight/owned-work-reconcile.test.ts`. Two deliberate
+deviations from the text above, each with its reason in the module header:
+the reverse edge un-focuses a released task but **keeps** its contract marker
+(§12: the fleet must still never auto-close an issue it once saw claimed),
+and the read is scoped to the repo the engine runs in — the cross-repo
+`--search "assignee:@me"` widening is open, because `issueTaskId(number)`
+is content-addressed on the issue number alone and two repos' #6 would
+collide on one row; that needs a repo-qualified id first.
 
 ## 4. Slice 2 — SEE IT
 
