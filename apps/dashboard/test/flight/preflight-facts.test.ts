@@ -78,6 +78,25 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
     expect(facts.cli).toEqual({ found: false, version: null });
   });
 
+  it('without an override, reads the REAL configured auth mode from connection.json beside the store', () => {
+    writeFileSync(
+      join(dbDir, 'connection.json'),
+      JSON.stringify({ mode: 'api-key', apiKey: 'sk-ant-fake' }),
+    );
+    const facts = gatherPreflightFacts(repo, dbDir, noCli);
+    // Secret-free: the key value itself never appears in the description.
+    expect(facts.authDescription).toBe('Anthropic API key');
+  });
+
+  it('an explicit authDescription override still wins over connection.json', () => {
+    writeFileSync(
+      join(dbDir, 'connection.json'),
+      JSON.stringify({ mode: 'api-key', apiKey: 'sk-ant-fake' }),
+    );
+    const facts = gatherPreflightFacts(repo, dbDir, { ...noCli, authDescription: 'API key' });
+    expect(facts.authDescription).toBe('API key');
+  });
+
   it('counts changed and untracked paths, and a blank identity reads as missing', () => {
     writeFileSync(join(repo, 'a.txt'), 'changed');
     writeFileSync(join(repo, 'new.txt'), 'untracked');

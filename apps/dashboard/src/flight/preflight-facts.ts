@@ -19,11 +19,13 @@ import {
   isProcessAlive,
   parseWorktreeList,
   canonicalWorktreePath,
+  describeAuth,
   DEFAULT_CLI_TIMEOUT_MS,
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
 } from '@autopilot/engine';
 import { cliTimeoutMsFromEnv, cliIdleTimeoutMsFromEnv } from './budget.js';
 import { sha256Of } from '../landing/freshness.js';
+import { readConnectionConfig } from '../connection/config.js';
 import type { PreflightFacts } from './preflight.js';
 
 /** Runs `git` in `cwd`; null on any failure (not a repo, git missing). */
@@ -93,6 +95,9 @@ export interface GatherOptions {
   /** The repository the dashboard itself runs from (for build freshness);
    *  omitted means "unknown", which reports null rather than guessing. */
   readonly repoRoot?: string;
+  /** Overrides the auth description instead of reading `connection.json`
+   *  beside the store (`dbDir`) — tests inject this rather than writing a
+   *  real config file. */
   readonly authDescription?: string;
   readonly laneCount?: number;
   readonly env?: NodeJS.ProcessEnv;
@@ -214,7 +219,13 @@ export function gatherPreflightFacts(
     dirtyLanes,
     parkedHeads,
     cli: { found: version !== null, version },
-    authDescription: opts.authDescription ?? 'Claude subscription (Claude Code login)',
+    // `dbDir` is the same directory main.ts and cli.ts each derive their
+    // connection.json path from (dirname(dbPath)) — reading the REAL
+    // configured mode here means every caller gets an honest answer without
+    // having to thread its own connection config through (BUG: this used to
+    // hardcode the subscription description regardless of mode).
+    authDescription:
+      opts.authDescription ?? describeAuth(readConnectionConfig(join(dbDir, 'connection.json'))),
     caps: {
       wallClockMin: Math.round((cliTimeoutMsFromEnv(env) ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000),
       idleMin: Math.round((cliIdleTimeoutMsFromEnv(env) ?? DEFAULT_CLI_IDLE_TIMEOUT_MS) / 60_000),
