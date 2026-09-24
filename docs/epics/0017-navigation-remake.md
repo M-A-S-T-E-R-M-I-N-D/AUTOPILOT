@@ -5,21 +5,29 @@ SPDX-License-Identifier: Apache-2.0
 
 # Epic 0017 — Navigation remake: minimal, visual, memorable
 
-Status: Done (2026-09-14). All five slices shipped across v0.45.0–v0.48.1 (the
-masthead census, the icon cluster and its popover laws, the command palette, the
-subject and context rails of epic 0021; the overflow menu — Tour, the docs and
-Report from here behind one ellipsis — as the last slice). Tracking issue #27
-closed by its claimants.
+Status: Active — corrected 2026-09-24 (a prior "Done" claim, 2026-09-14, was
+wrong; see below). Four of five slices shipped across v0.45.0–v0.48.1: the
+masthead census, the icon cluster and its popover laws, the command palette,
+the subject and context rails of epic 0021, and the overflow menu (Tour, the
+docs, Report from here behind one ellipsis — epic 0017 slice 3, also tracked
+as epic 0029 slice 4). Tracking issue #27 was closed by its claimants on that
+basis.
 
-**Status:** ACTIVE (operator directive 2026-09-06). Slices 1 and 4 shipped —
-`ae2c2419` (census) + `a0bdbc0f` (icon cluster), and the command palette
-landed as epic 0021 slice 7 (`242ec633`: a `<dialog>` combobox over a
-listbox, ⌘K, items read from the page itself). Slice 5 (deep-page side
-rail) is superseded by 0021's subject rail (`c97e82d2`) and its planned
-context rail (0021 slice 6). Slices 2 (status-pill consolidation) and 3
-(overflow menu absorbing tour/LTS/report/docs) remain, waiting for
-`shell.ts` commit velocity to drop (same-file collision discipline). See the
-dependency audit's refresh below for the measured state as of 2026-09-07.
+**Slice 2 (status-pill consolidation) was never built.** `git log --all` has
+no commit implementing "Claude ∙ gh ∙ OTLP folded into one traffic-light
+pill" — `shell.ts` still renders the OTLP indicator (`#otlp-chip`) and the
+Claude/gh Connect popover (`#connect`) as two separate masthead controls, not
+one pill. Epic 0029's GitHub-connection work (login/switch/logout inside the
+existing Connect popover) is a related but different feature, not this
+slice's one-pill design. The board still carries the literal task
+(`web-mtq019qd-u6pa1v`, "EPIC 0017 2/5: status-pill consolidation"), unclaimed
+on every branch as of this correction — that is the live signal to trust over
+either status line above it.
+
+Slice 5 (deep-page side rail) is superseded by 0021's subject rail
+(`c97e82d2`) and its planned context rail (0021 slice 6). See the dependency
+audit's refresh below for the measured state as of 2026-09-07 — still the
+last real audit of what blocks slice 2.
 
 ## The complaint (accurate)
 
