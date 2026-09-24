@@ -93,6 +93,74 @@ describe('readRecentLandingOutcome', () => {
     expect(readRecentLandingOutcome(dbPath, 'p1', now)).toBeNull();
   });
 
+  it('surfaces a failed push leg recorded in the payload — losing this after a restart hid a GH013 rejection behind a plain green "landed" (board web-mufftwd7-b2yuml)', () => {
+    const now = 1_000_000;
+    const dbPath = storeWithEvent(
+      'landed',
+      'p1',
+      JSON.stringify({
+        details: 'landed autopilot/flight onto main',
+        push: { ok: false, detail: 'push failed: GH013: Repository rule violations found' },
+      }),
+      now - 1_000,
+    );
+
+    expect(readRecentLandingOutcome(dbPath, 'p1', now)).toEqual({
+      ok: true,
+      reason: 'landed',
+      details: 'landed autopilot/flight onto main',
+      restarting: false,
+      push: { ok: false, detail: 'push failed: GH013: Repository rule violations found' },
+    });
+  });
+
+  it('surfaces a successful push leg the same way', () => {
+    const now = 1_000_000;
+    const dbPath = storeWithEvent(
+      'landed',
+      'p1',
+      JSON.stringify({
+        details: 'landed autopilot/flight onto main',
+        push: { ok: true, detail: 'pushed main to origin' },
+      }),
+      now - 1_000,
+    );
+
+    expect(readRecentLandingOutcome(dbPath, 'p1', now)?.push).toEqual({
+      ok: true,
+      detail: 'pushed main to origin',
+    });
+  });
+
+  it('omits push when the payload predates the push leg being recorded — an old row is not a lie, just quieter', () => {
+    const now = 1_000_000;
+    const dbPath = storeWithEvent(
+      'landed',
+      'p1',
+      JSON.stringify({ details: 'landed autopilot/flight onto main' }),
+      now - 1_000,
+    );
+
+    expect(readRecentLandingOutcome(dbPath, 'p1', now)).toEqual({
+      ok: true,
+      reason: 'landed',
+      details: 'landed autopilot/flight onto main',
+      restarting: false,
+    });
+  });
+
+  it('ignores a malformed push shape in the payload rather than surfacing garbage', () => {
+    const now = 1_000_000;
+    const dbPath = storeWithEvent(
+      'landed',
+      'p1',
+      JSON.stringify({ details: 'x', push: { detail: 'no ok field' } }),
+      now,
+    );
+
+    expect(readRecentLandingOutcome(dbPath, 'p1', now)?.push).toBeUndefined();
+  });
+
   it('still reports the land when its payload is malformed — the row itself is the proof', () => {
     const now = 1_000_000;
     const dbPath = storeWithEvent('landed', 'p1', 'not json at all', now);
