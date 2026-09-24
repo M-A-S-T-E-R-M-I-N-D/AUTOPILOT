@@ -121,6 +121,31 @@ export interface MirrorPassTaskCandidate {
 export interface MirrorPassIssueState {
   readonly number: number;
   readonly state: 'open' | 'closed';
+  /** GitHub logins assigned to the issue. Read so the one case #40's rule
+   *  must not block can be told apart: the assignee closing their own
+   *  issue through the board. Absent = not fetched (pure callers). */
+  readonly assignees?: readonly string[];
+}
+
+/**
+ * THE ASSIGNEE'S OWN WORD (2026-09-24). #40 says the pass never closes on a
+ * claim it did not verify, and verification means a gate-verified firing
+ * shipped under the task's OWN id. An epic never has that: its slices land
+ * under their own ids. So the maintainer's own finished epic — assigned to
+ * them on GitHub, its doc marked Done, its board task marked done by them
+ * — was going to be left open with an "unverified" note, by their own
+ * automation. When the person GitHub lists as the assignee is the person
+ * running the pass, and they marked the board task done, that IS the
+ * verification: the claim contract already makes the close theirs to give.
+ * Nobody else's word counts here, and a recorded landing commit that has
+ * vanished still notes rather than closes.
+ */
+export interface MirrorPassCloseByAssigneeFinding {
+  readonly action: 'close-by-assignee';
+  readonly taskId: string;
+  readonly issueNumber: number;
+  readonly assignee: string;
+  readonly comment: string;
 }
 
 export interface MirrorPassCloseFinding {
@@ -166,6 +191,7 @@ export interface MirrorPassSettleFinding {
 
 export type MirrorPassFinding =
   | MirrorPassCloseFinding
+  | MirrorPassCloseByAssigneeFinding
   | MirrorPassReopenFinding
   | MirrorPassSettleFinding
   | MirrorPassUnverifiedFinding;
@@ -183,9 +209,17 @@ export type MirrorPassFinding =
  * longer says done (reopened, deferred, whatever) but GitHub already closed
  * it — reopened rather than left standing as a stale false-close.
  */
+/** Is `login` one of the issue's assignees? Logins compare case-insensitively,
+ *  the same way `social-pass.ts` decides the viewer's role. */
+export function isAssignedTo(issue: MirrorPassIssueState, login: string | undefined): boolean {
+  if (login === undefined || login === '') return false;
+  return (issue.assignees ?? []).some((a) => a.toLowerCase() === login.toLowerCase());
+}
+
 export function planMirrorPassReconcile(
   task: MirrorPassTaskCandidate,
   issue: MirrorPassIssueState | undefined,
+  actingLogin?: string,
 ): MirrorPassFinding | null {
   const issueNumber = issueNumberFromTaskId(task.id);
   if (issueNumber === null || !issue) return null;
@@ -195,6 +229,19 @@ export function planMirrorPassReconcile(
     // checked when the caller assessed them — that a gate-verified firing
     // shipped the task, and that the recorded landing commit still exists.
     const shaMissing = task.landedSha !== null && task.landedShaExists === false;
+    if (task.doneVerified === false && !shaMissing && isAssignedTo(issue, actingLogin)) {
+      return {
+        action: 'close-by-assignee',
+        taskId: task.id,
+        issueNumber,
+        assignee: actingLogin as string,
+        comment:
+          `Closing — this issue's assignee @${actingLogin} marked its AUTOPILOT board task done. ` +
+          "No gate-verified landing is recorded under this task's own id (an epic's slices land " +
+          "under their own), so this closes on the assignee's word, which the claim contract makes " +
+          'theirs to give.',
+      };
+    }
     if (task.doneVerified === false || shaMissing) {
       const why =
         task.doneVerified === false
@@ -282,11 +329,17 @@ export function planMirrorPassCommands(finding: MirrorPassFinding): readonly Mir
           args: ['issue', 'close', issueRef],
           details: `closing #${finding.issueNumber} — board task ${finding.taskId} landed`,
         }
-      : {
-          command: 'gh',
-          args: ['issue', 'reopen', issueRef],
-          details: `reopening #${finding.issueNumber} — board task ${finding.taskId} is not done`,
-        };
+      : finding.action === 'close-by-assignee'
+        ? {
+            command: 'gh',
+            args: ['issue', 'close', issueRef],
+            details: `closing #${finding.issueNumber} — its assignee @${finding.assignee} marked board task ${finding.taskId} done`,
+          }
+        : {
+            command: 'gh',
+            args: ['issue', 'reopen', issueRef],
+            details: `reopening #${finding.issueNumber} — board task ${finding.taskId} is not done`,
+          };
   return [comment, stateChange];
 }
 
@@ -341,11 +394,12 @@ export interface MirrorPassPlan {
 export function planMirrorPassBatch(
   tasks: readonly MirrorPassTaskCandidate[],
   issuesByNumber: ReadonlyMap<number, MirrorPassIssueState>,
+  actingLogin?: string,
 ): readonly MirrorPassPlan[] {
   return tasks.map((task) => {
     const issueNumber = issueNumberFromTaskId(task.id);
     const issue = issueNumber === null ? undefined : issuesByNumber.get(issueNumber);
-    const finding = planMirrorPassReconcile(task, issue);
+    const finding = planMirrorPassReconcile(task, issue, actingLogin);
     const commands = finding ? planMirrorPassCommands(finding) : [];
     return { task, finding, commands };
   });
@@ -355,6 +409,7 @@ export function planMirrorPassBatch(
  *  it — untrusted process output, parsed defensively rather than trusted as
  *  already shaped like {@link MirrorPassIssueState}. */
 interface RawGithubIssueState {
+  readonly assignees?: unknown;
   readonly number?: unknown;
   readonly state?: unknown;
 }
@@ -378,7 +433,7 @@ export async function fetchIssueState(
     'view',
     String(issueNumber),
     '--json',
-    'number,state',
+    'number,state,assignees',
   ]);
   if (code !== 0) return null;
 
@@ -393,7 +448,14 @@ export async function fetchIssueState(
   if (typeof raw.number !== 'number' || typeof raw.state !== 'string') return null;
   const state = raw.state.toUpperCase();
   if (state !== 'OPEN' && state !== 'CLOSED') return null;
-  return { number: raw.number, state: state === 'OPEN' ? 'open' : 'closed' };
+  const assignees = Array.isArray(raw.assignees)
+    ? raw.assignees
+        .map((a) =>
+          typeof a === 'object' && a !== null ? (a as { login?: unknown }).login : undefined,
+        )
+        .filter((login): login is string => typeof login === 'string' && login !== '')
+    : [];
+  return { number: raw.number, state: state === 'OPEN' ? 'open' : 'closed', assignees };
 }
 
 /**

@@ -245,10 +245,11 @@ async function planReconcileForProject(
   store: Store,
   projectId: string,
   rootPath: string,
+  actingLogin?: string,
 ): Promise<readonly MirrorPassPlan[]> {
   const tasks = await assessLandedShas(exec, rootPath, mirrorPassTaskCandidates(store, projectId));
   const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
-  return dropAlreadyNoted(exec, planMirrorPassBatch(tasks, issuesByNumber));
+  return dropAlreadyNoted(exec, planMirrorPassBatch(tasks, issuesByNumber, actingLogin));
 }
 
 /** THE CLAIM CONTRACT's settlement (claim-contract.ts): the claimant closed
@@ -289,7 +290,16 @@ export function createMirrorPassPreviewApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      return await planReconcileForProject(exec, store, projectId, project.root_path);
+      // The preview must show the same plan the execute would run, so it
+      // resolves the acting identity the same way (read-only: two gh reads).
+      const identity = await resolveSocialIdentity(exec);
+      return await planReconcileForProject(
+        exec,
+        store,
+        projectId,
+        project.root_path,
+        identity?.login,
+      );
     } finally {
       store.close();
     }
@@ -360,7 +370,13 @@ export function createMirrorPassExecuteApi(
           skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
         };
       }
-      const plans = await planReconcileForProject(exec, store, projectId, project.root_path);
+      const plans = await planReconcileForProject(
+        exec,
+        store,
+        projectId,
+        project.root_path,
+        identity.login,
+      );
       const outcomes: MirrorPassExecuteOutcome[] = [];
       for (const plan of plans) {
         if (plan.commands.length === 0) continue;

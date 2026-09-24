@@ -462,16 +462,23 @@ describe('createMirrorPassPreviewApi', () => {
       expect(plans).toHaveLength(1);
       expect(plans?.[0]?.finding).toBeNull();
       expect(plans?.[0]?.commands).toHaveLength(0);
-      // Read-only: the `issue view` read and the #40 `git cat-file` existence
-      // check happened — no comment/close/reopen write.
-      expect(exec).toHaveBeenCalledTimes(2);
+      // Read-only: the #40 `git cat-file` existence check and the `issue view`
+      // read happened, in that order — and no comment/close/reopen write.
+      // Stated as the absence of writes rather than as a call count: the
+      // read side gained the acting-identity reads (2026-09-24) and a count
+      // pinned to 2 fails for a reason that has nothing to do with writing.
       const calls = (exec as ReturnType<typeof vi.fn>).mock.calls as Array<
         [string, readonly string[]]
       >;
-      expect(calls.map((c) => [c[0], c[1][0], c[1][1]])).toEqual([
-        ['git', '-C', dir],
-        ['gh', 'issue', 'view'],
-      ]);
+      const shape = calls.map((c) => [c[0], c[1][0], c[1][1]]);
+      const gitIdx = shape.findIndex((c) => c[0] === 'git' && c[1] === '-C' && c[2] === dir);
+      const viewIdx = shape.findIndex((c) => c[0] === 'gh' && c[1] === 'issue' && c[2] === 'view');
+      expect(gitIdx).toBeGreaterThanOrEqual(0);
+      expect(viewIdx).toBeGreaterThan(gitIdx);
+      const writes = shape.filter(
+        (c) => c[0] === 'gh' && ['comment', 'close', 'reopen', 'edit'].includes(String(c[2])),
+      );
+      expect(writes).toEqual([]);
     } finally {
       cleanupDir(dir);
     }
