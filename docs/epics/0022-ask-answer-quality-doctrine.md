@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 > Renumbered 0022 on 2026-09-13. Born as 0021 on 2026-09-09; two days later the app-shell epic took the same number and became the operator-facing 0021 (issue #49, the release notes, every commit message), so this doctrine moved to the next free number. Code and tests reference it by path.
 
-Status: Done — all 4 doctrine pieces / 3 slices shipped: citations (`56752134`),
-`lowConfidence` signal (`920e8081`), and the escalation-offer UI + `en`/`he`
-strings (this commit).
+Status: Done — all 4 doctrine pieces shipped, plus transparency metadata. Citations
+(`56752134`), `lowConfidence` signal (`920e8081`), escalation-offer UI + `en`/`he`
+strings, and answer-transparency metadata tracking model, duration, and cost
+(`2d096134`). Live-state context fixed (`bd56b267`).
 
 Board task: `web-mtt5qwjp-xns6ps` ("ASK/ARCHITECT answer-quality doctrine (SOTA
 in-app answers): grounded file:line citations in every answer, honest
@@ -74,6 +75,17 @@ a committed fact instead of something every future firing re-derives from
    `askLowConfidenceOffer`/`askLowConfidenceOfferTip` carry both `en` and `he`
    entries, and the offer button is tagged `data-i18n`/`data-i18n-tip` the
    same established way as every other Ask panel string.
+5. **Answer transparency: who, how long, what it cost.** The operator (2026-09-13)
+   asked for "a smarter model, and the chat study's transparency": every answer
+   should surface the model identifier, response latency, and cost. Shipped
+   (`2d096134`): the `AskMeta` interface (`apps/dashboard/src/ask/service.ts`)
+   captures `model`, `durationMs`, and `costUsd`; `AskInvokeOutcome` extends
+   the plain-text contract to optionally carry `meta` alongside `text`;
+   `AskResult` passes it through so the UI can surface it under each answer.
+   The envelope is model-dependent — an `invoke` dependency without a driver
+   may leave `durationMs` and `costUsd` null; the invoker ensures model
+   identity is always present. This is injection-safe (model-supplied data
+   never participates; all fields are primitives).
 
 ## Constraints
 
@@ -111,6 +123,9 @@ a committed fact instead of something every future firing re-derives from
 3. The escalation-offer UI + its `en`/`he` strings. Shipped — `search.ts`'s
    `renderOffer()`, `ask-stream.ts`'s `lowConfidence` passthrough, and the
    `askLowConfidenceOffer`/`askLowConfidenceOfferTip` string pair.
+4. Answer transparency (model, duration, cost). Shipped, `2d096134` — `AskMeta`
+   interface, `AskInvokeOutcome` contract, and `AskResult.meta` field carry
+   model/duration/cost through the entire chain.
 
 ## Related
 
@@ -118,7 +133,12 @@ a committed fact instead of something every future firing re-derives from
 - `docs/epics/0012-agentic-ask-escalation.md` — the escalation tier this
   doctrine's signal feeds into; its Out of scope section is the precedent for
   excluding a model-judged auto-trigger here too.
+- Commits:
+  - `56752134` (citations)
+  - `920e8081` (lowConfidence signal)
+  - `2d096134` (answer transparency: AskMeta)
+  - `bd56b267` (live-state context grounding)
 - `apps/dashboard/src/ask/service.ts`, `apps/dashboard/src/server/ask.ts`,
   `packages/engine/src/ask.ts` — the doctrine's implementation.
 - `apps/dashboard/src/web/features/locale.ts`,
-  `packages/tokens/src/strings.ts` — the i18n foundation piece 4 reuses.
+  `packages/tokens/src/strings.ts` — the i18n foundation.
