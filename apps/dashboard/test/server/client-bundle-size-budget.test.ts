@@ -424,7 +424,11 @@ const CORE_GZIP_BUDGET = 77 * 1024;
 // their baked-in 🔓/🤝 glyphs for lock-open/handshake stroke icons — measured
 // 200.0KB raw (204811B). Gzip (61268B) stays under CHUNK_GZIP_BUDGET
 // untouched, so only the raw line moves.
-const CHUNK_RAW_BUDGET = 201 * 1024;
+// Then panels raw 201→202KB (2026-09-24) for claim routing by repository:
+// the pool panel locks its project picker to the registered checkout of
+// the issue's own repository, with two new strings and their STRINGS.he
+// in panels — measured 201.5KB raw (206360B).
+const CHUNK_RAW_BUDGET = 202 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -469,7 +473,9 @@ const CHUNK_RAW_BUDGET = 201 * 1024;
 // report-panel.ts's source). Measured 57.4KB (58796B) against the old
 // 58368B budget: 428 bytes over: raw (196260B) stays well under
 // CHUNK_RAW_BUDGET (199680B), so only the gzip line moves.
-const CHUNK_GZIP_BUDGET = 60 * 1024;
+// Then chunk gzip 60→61KB (2026-09-24) for the same claim-routing strings
+// — measured 60.2KB gzip.
+const CHUNK_GZIP_BUDGET = 61 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([

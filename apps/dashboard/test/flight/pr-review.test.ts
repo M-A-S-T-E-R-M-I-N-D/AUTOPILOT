@@ -207,6 +207,10 @@ const BENIGN_FLIGHT = new Set([
   // nothing that writes and decides nothing — the verdict lives in
   // preflight.ts, which is flagged.
   'preflight-facts.ts',
+  // Read-only: reads each project's git `origin` and routes a claimed
+  // issue's task to the checkout of its repository. It writes nothing; the
+  // queueing lives in pool-client.ts.
+  'project-repo.ts',
   // Read-only git-timestamp drift detection; proposing doc-update tasks is
   // the same advisory class the scripts/architecture --check scripts are
   // deliberately left unflagged for.

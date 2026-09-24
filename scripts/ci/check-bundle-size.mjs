@@ -324,7 +324,11 @@ const CORE_GZIP_BUDGET = 77 * 1024;
 // their baked-in 🔓/🤝 glyphs for lock-open/handshake stroke icons — measured
 // 200.0KB raw (204811B). Gzip (61268B) stays under CHUNK_GZIP_BUDGET
 // untouched, so only the raw line moves.
-const CHUNK_RAW_BUDGET = 201 * 1024;
+// Then panels raw 201→202KB (2026-09-24) for claim routing by repository:
+// the pool panel locks its project picker to the registered checkout of
+// the issue's own repository, with two new strings and their STRINGS.he
+// in panels — measured 201.5KB raw (206360B).
+const CHUNK_RAW_BUDGET = 202 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -346,7 +350,9 @@ const CHUNK_RAW_BUDGET = 201 * 1024;
 // report-panel.ts's source). Measured 57.4KB (58796B) against the old
 // 58368B budget: 428 bytes over; raw stays well under CHUNK_RAW_BUDGET, so
 // only the gzip line moves.
-const CHUNK_GZIP_BUDGET = 60 * 1024;
+// Then chunk gzip 60→61KB (2026-09-24) for the same claim-routing strings
+// — measured 60.2KB gzip.
+const CHUNK_GZIP_BUDGET = 61 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;
