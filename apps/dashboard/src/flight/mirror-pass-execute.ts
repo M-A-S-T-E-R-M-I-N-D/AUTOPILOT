@@ -47,6 +47,16 @@
  * `/mirror-pass/stale-claims/execute` — and `web/features/mirror-pass.ts`
  * now wires all four into a dashboard button (reconcile, drift, landing-note,
  * and stale-claim), closing the last of this epic's UX-expression gaps.
+ *
+ * {@link createMirrorPassPriorityFollowPreviewApi} wires a fifth derivation —
+ * `mirror-pass-priority.ts`'s own priority-follow planner, the GitHub-to-board
+ * half of law 2 ("issue labeled by the maintainer ⇒ board priority follows")
+ * — into a runnable, read-only preview: the "pure planner had nothing calling
+ * it" gap that file's own docstring named as deliberately out of scope. Its
+ * mutating execute path (applying the planned priority through the store's
+ * pin-aware setter) and the dashboard button remain their own follow-up
+ * slices, same per-derivation split every other mirror-pass derivation above
+ * already used.
  */
 
 import { join } from 'node:path';
@@ -91,6 +101,12 @@ import {
   type MirrorPassCommand,
   type MirrorPassCommandOutcome,
 } from './mirror-pass.js';
+import {
+  planMirrorPassPriorityFollowBatch,
+  fetchMirrorPassIssueLabels,
+  type MirrorPassPriorityCandidate,
+  type MirrorPassPriorityFollowPlan,
+} from './mirror-pass-priority.js';
 
 /** One `github-<n>` task row as the `tasks` table stores it — just enough
  *  to build a {@link MirrorPassTaskCandidate}; validated defensively same as
@@ -779,6 +795,83 @@ export function createMirrorPassStaleClaimExecuteApi(
         });
       }
       return { identity, outcomes };
+    } finally {
+      store.close();
+    }
+  };
+}
+
+/** One `github-<n>` task row as the `tasks` table stores it, extended with
+ *  the priority-follow derivation's own two columns — just enough to build a
+ *  {@link MirrorPassPriorityCandidate}. */
+interface RawGithubPriorityTaskRow extends RawGithubTaskRow {
+  readonly priority: number | null;
+  readonly priority_pinned: number;
+}
+
+/** Read-only: every `github-<n>` task on `projectId`'s board with its live
+ *  priority/pin state — the candidate pool `mirror-pass-priority.ts`'s {@link
+ *  planMirrorPassPriorityFollowBatch} reconciles against the issue's own
+ *  `priority: <level>` label. `landedSha` is always `null` here — unlike
+ *  {@link mirrorPassTaskCandidates}'s own candidates for the other four
+ *  derivations, the priority-follow planner never reads it, so nothing is
+ *  fetched to fill it in.
+ */
+function mirrorPassPriorityCandidates(
+  store: Store,
+  projectId: string,
+): readonly MirrorPassPriorityCandidate[] {
+  const rows = store.db
+    .prepare(
+      "SELECT id, status, body, priority, priority_pinned FROM tasks WHERE project_id = ? AND id LIKE 'github-%'",
+    )
+    .all(projectId) as RawGithubPriorityTaskRow[];
+  return rows
+    .filter(
+      (row): row is RawGithubPriorityTaskRow & { status: MirrorPassTaskCandidate['status'] } =>
+        TASK_STATUSES.has(row.status as MirrorPassTaskCandidate['status']),
+    )
+    .map((row) => ({
+      id: row.id,
+      status: row.status,
+      landedSha: null,
+      priority: row.priority,
+      priorityPinned: row.priority_pinned === 1,
+    }));
+}
+
+/** `null` means the project id is unknown — same convention as
+ *  {@link MirrorPassPreviewApi}. */
+export type MirrorPassPriorityFollowPreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassPriorityFollowPlan[] | null>;
+
+/**
+ * Build the MIRROR PASS priority-follow preview API against the real store +
+ * real `gh` — the GitHub-to-board half of EPIC 0019 S3 (board
+ * `web-mtrh1hlh-62l41b`), "issue labeled by the maintainer ⇒ board priority
+ * follows" (law 2). Same production wiring as {@link
+ * createMirrorPassPreviewApi}, composing `mirror-pass-priority.ts`'s {@link
+ * planMirrorPassPriorityFollowBatch} instead of {@link planMirrorPassBatch}.
+ * Read-only: fetches every `github-<n>` task's live issue state and labels
+ * and never writes to the board or calls a mutating `gh` command — applying
+ * the planned priority through the store's pin-aware setter is its own
+ * follow-up execute slice, same per-derivation split every other mirror-pass
+ * derivation above already used.
+ */
+export function createMirrorPassPriorityFollowPreviewApi(
+  dbPath: string,
+  exec: CliExec = ghExec,
+): MirrorPassPriorityFollowPreviewApi {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    try {
+      const project = listProjects(store.db).find((p) => p.id === projectId);
+      if (!project) return null;
+      const tasks = mirrorPassPriorityCandidates(store, projectId);
+      const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
+      const labelsByIssueNumber = await fetchMirrorPassIssueLabels(exec, tasks, issuesByNumber);
+      return planMirrorPassPriorityFollowBatch(tasks, issuesByNumber, labelsByIssueNumber);
     } finally {
       store.close();
     }

@@ -176,6 +176,7 @@ import type {
   MirrorPassLandingNoteExecuteReport,
   MirrorPassStaleClaimExecuteReport,
 } from '../flight/mirror-pass-execute.js';
+import type { MirrorPassPriorityFollowPlan } from '../flight/mirror-pass-priority.js';
 import type {
   HumanMergeResult,
   UpdateBranchResult,
@@ -654,6 +655,16 @@ export type MirrorPassStaleClaimPreviewApi = (
   projectId: string,
 ) => Promise<readonly MirrorPassStaleClaimPlan[] | null>;
 
+/** MIRROR PASS priority-follow preview (injected; reads only, shells to `gh
+ *  issue view` on demand) — the GitHub-to-board half of EPIC 0019 S3 law 2
+ *  (board `web-mtrh1hlh-62l41b`), "issue labeled by the maintainer ⇒ board
+ *  priority follows" — see `flight/mirror-pass-execute.ts`'s
+ *  `createMirrorPassPriorityFollowPreviewApi`. `null` means an unknown
+ *  project id. */
+export type MirrorPassPriorityFollowPreviewApi = (
+  projectId: string,
+) => Promise<readonly MirrorPassPriorityFollowPlan[] | null>;
+
 /** The mutating counterpart to {@link MirrorPassStaleClaimPreviewApi} —
  *  same role gate as {@link MirrorPassExecuteApi}) — derivation 4/4's
  *  execute path, VERDICT `ap-mtsg3nc0-3` slice (b), third installment. See
@@ -851,6 +862,11 @@ export interface ServerDeps extends RouteDeps {
    *  above, behind `POST /api/mirror-pass/stale-claims/execute`. All four
    *  derivations' execute paths are now wired. */
   readonly mirrorPassStaleClaimExecute?: MirrorPassStaleClaimExecuteApi;
+  /** MIRROR PASS priority-follow preview (EPIC 0019 S3, board
+   *  `web-mtrh1hlh-62l41b`, law 2's GitHub-to-board direction) — read-only,
+   *  behind `GET /api/mirror-pass/priority-follow`. Same "mutating execute is
+   *  a separate slice" stance as `mirrorPass` above. */
+  readonly mirrorPassPriorityFollow?: MirrorPassPriorityFollowPreviewApi;
   /** Pool client (epic 0007, "PLATFORM 6/7"): browse the canonical pool's
    *  open issues and claim one for the caller's own gh identity. */
   readonly poolClient?: PoolClientApi;
@@ -3121,6 +3137,41 @@ async function handleMirrorPassStaleClaim(
 }
 
 /**
+ * The MIRROR PASS priority-follow preview endpoint (`GET
+ * /api/mirror-pass/priority-follow?project=`) — law 2's GitHub-to-board
+ * direction: a maintainer's `priority: <level>` label on the issue that the
+ * board's own priority hasn't followed yet. Same on-demand, degrade-to-null
+ * shape as {@link handleMirrorPass}.
+ */
+async function handleMirrorPassPriorityFollow(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: MirrorPassPriorityFollowPreviewApi | undefined,
+  headers: Record<string, string>,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'mirror pass priority-follow preview unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'GET') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const project = url.searchParams.get('project') ?? '';
+  if (project.length === 0) {
+    send(400, { error: 'a project id is required' });
+    return;
+  }
+  try {
+    send(200, { priorityFollow: await api(project) });
+  } catch {
+    send(200, { priorityFollow: null });
+  }
+}
+
+/**
  * The MIRROR PASS stale-claim EXECUTE endpoint (`POST
  * /api/mirror-pass/stale-claims/execute`, body `{project}`) — derivation
  * 4/4's mutating counterpart to {@link handleMirrorPassStaleClaim}. Same
@@ -3988,6 +4039,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/mirror-pass/stale-claims') {
       void handleMirrorPassStaleClaim(req, res, deps.mirrorPassStaleClaim, headers);
+      return;
+    }
+
+    if (path === '/api/mirror-pass/priority-follow') {
+      void handleMirrorPassPriorityFollow(req, res, deps.mirrorPassPriorityFollow, headers);
       return;
     }
 

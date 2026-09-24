@@ -104,6 +104,7 @@ import {
   createMirrorPassDriftExecuteApi,
   createMirrorPassStaleClaimPreviewApi,
   createMirrorPassStaleClaimExecuteApi,
+  createMirrorPassPriorityFollowPreviewApi,
 } from '../flight/mirror-pass-execute.js';
 import {
   createPoolClientPreviewApi,
@@ -826,6 +827,10 @@ const server = createServer({
   // derivation 4/4 only): the mutating counterpart to the preview above. All
   // four derivations' execute paths are now wired.
   mirrorPassStaleClaimExecute: createMirrorPassStaleClaimExecuteApi(dbPath),
+  // MIRROR PASS priority-follow preview: read-only — law 2's GitHub-to-board
+  // direction, a maintainer's priority: <level> label the board hasn't
+  // followed yet. Its execute path is its own follow-up slice.
+  mirrorPassPriorityFollow: createMirrorPassPriorityFollowPreviewApi(dbPath),
   // Pool client (epic 0007, "PLATFORM 6/7"): browse stays project-agnostic,
   // own-gh-identity shape as KEEPER REVIEW above — a co-pilot browses pool
   // issues for themselves, not on behalf of a stored project. Claiming can
