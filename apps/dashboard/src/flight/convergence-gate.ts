@@ -182,7 +182,7 @@ export async function gateConvergedBranch(
     // one is not.
     deps.out(
       `  ✓ convergence: '${targetBranch}' passes ${checks.length} check(s) after sync-back ` +
-        `(${Math.round(ms)}ms)`,
+        `(${Math.round(ms)}ms${result.queuedMs === undefined ? '' : `, queued ${Math.round(result.queuedMs / 1000)}s`})`,
     );
     deps.recordGreen(signature, ms);
     return;
@@ -198,10 +198,23 @@ export async function gateConvergedBranch(
   const tail = failed?.outputTail;
   deps.out(
     `  ⛔ CONVERGENCE RED: '${targetBranch}' fails ${reason} AFTER this sync-back — ` +
-      `both sides were green alone, so this is a merge interaction. ${mergeDetails}` +
+      `${redDiagnosis(mergeDetails)} ${mergeDetails}` +
       (tail === undefined ? '' : `\n${indentedTail(tail)}`),
   );
   deps.recordRed(reason, mergeDetails, redMs, tail);
+}
+
+/**
+ * What a convergence red can honestly be said to mean. Every one of the
+ * fourteen reds recorded 2026-09-22..24 was on a FAST-FORWARD — no merge ran
+ * at all — yet each said "both sides were green alone, so this is a merge
+ * interaction". A fast-forwarded head is the lane's own commit, failing a
+ * check its per-firing gate does not run (the full suite, the `ci:*` set).
+ */
+export function redDiagnosis(mergeDetails: string): string {
+  return mergeDetails.startsWith('fast-forwarded')
+    ? "no merge ran: this lane's own commit fails a check its per-firing gate does not run."
+    : 'a merge produced this head: either side, or the two together, broke this check.';
 }
 
 /** The gate's own one-line reason for a crash — its details' first line. */

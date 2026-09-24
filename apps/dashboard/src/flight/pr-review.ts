@@ -1021,6 +1021,10 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // hole the four-lane rung fell through: ungated code published. Same
   // defeat-a-safety-mechanism class as triage-factors.ts above.
   'flight/lane-head.ts',
+  // A CONVERGENCE RED IS THE FLEET'S NEXT TASK (2026-09-25): mints a
+  // queued, high-severity board task with no approval gate. Widening what
+  // it files steers every lane's next pick.
+  'flight/convergence-red-task.ts',
   // PREFLIGHT (2026-09-19): the go/no-go every launch path shares. It
   // decides whether a flight starts at all; weakening it lets a flight
   // launch into the exact states the lane ladder paid for (a dirty

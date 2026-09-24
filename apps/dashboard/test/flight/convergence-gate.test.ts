@@ -185,7 +185,7 @@ describe('gateConvergedBranch', () => {
     });
     expect(deps.out.mock.calls[0]?.[0]).toBe(
       "  ⛔ CONVERGENCE RED: 'autopilot/flight' fails build AFTER this sync-back — " +
-        'both sides were green alone, so this is a merge interaction. chore: sync lane into autopilot/flight',
+        'a merge produced this head: either side, or the two together, broke this check. chore: sync lane into autopilot/flight',
     );
     expect(deps.recordRed).toHaveBeenCalledWith(
       'build',
@@ -213,7 +213,7 @@ describe('gateConvergedBranch', () => {
     });
     expect(deps.out.mock.calls[0]?.[0]).toBe(
       "  ⛔ CONVERGENCE RED: 'autopilot/flight' fails pnpm run test AFTER this sync-back — " +
-        'both sides were green alone, so this is a merge interaction. fast-forwarded\n' +
+        "no merge ran: this lane's own commit fails a check its per-firing gate does not run. fast-forwarded\n" +
         '       FAIL  apps/dashboard/test/web/x.test.ts > paints > in Hebrew\n' +
         '      AssertionError: expected 1 to be 2',
     );

@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname, join, basename } from 'node:path';
+import { fileConvergenceRedTask } from './flight/convergence-red-task.js';
 import {
   openStore,
   migrate,
@@ -63,6 +64,7 @@ import {
   guardHookScriptPath,
   FileInstanceLock,
   FileGateSemaphore,
+  nestedSemaphore,
   CliDescendantRegistry,
   reapCliDescendants,
   SqlitePacer,
@@ -125,6 +127,11 @@ import {
  * command that truly hangs.
  */
 const FLIGHT_GATE_STEP_TIMEOUT_MS = 30 * 60_000;
+
+/** How long a flight-end full gate waits for the fleet's one full-gate slot
+ *  before running anyway. Five lanes' full gates at ~8 minutes each queue
+ *  for up to ~32 minutes behind one another; this leaves room over that. */
+const FULL_GATE_MAX_WAIT_MS = 45 * 60_000;
 import { resolveDbPath } from './read/config.js';
 import { flightEndStatus } from './flight/flight-end.js';
 import { readConnectionConfig } from './connection/config.js';
@@ -281,6 +288,24 @@ async function main(): Promise<void> {
   // the machine to themselves" carve-out mercy 1 already makes.
   const gateSemaphore = instanceId
     ? new FileGateSemaphore({ dir: dirname(dbPath), slots: fleetGateSlotsFromEnv(process.env) })
+    : undefined;
+  // ONE FULL SUITE AT A TIME ACROSS THE FLEET (2026-09-25). The flight-end
+  // full gates used the same two ordinary slots, and those fail open after
+  // eight minutes — shorter than a full gate — so a queued lane gave up and
+  // ran beside the one it waited for. Two full vitest runs on one disk
+  // starved each other's workers, and both convergence gates went red with
+  // no test failing. A full gate now also holds a single full-gate slot,
+  // waited on for as long as a queue of full gates can take.
+  const fullGateSemaphore = gateSemaphore
+    ? nestedSemaphore(
+        new FileGateSemaphore({
+          dir: dirname(dbPath),
+          name: 'full-gate',
+          slots: 1,
+          maxWaitMs: FULL_GATE_MAX_WAIT_MS,
+        }),
+        gateSemaphore,
+      )
     : undefined;
 
   // Per-project single-instance guard: FlightRunner already refuses a second
@@ -657,6 +682,17 @@ async function main(): Promise<void> {
       } catch {
         // Telemetry is best-effort — never let it take the flight down.
       }
+      // A real red is the fleet's next task — flight/convergence-red-task.ts.
+      try {
+        const filed = fileConvergenceRedTask(
+          store,
+          { projectId, targetBranch, check, mergeDetails, outputTail, now: now() },
+          (message) => out(`  ⚠ ${message}`),
+        );
+        if (filed === 'filed') out(`  📋 filed for the fleet: ${check} must pass before landing`);
+      } catch {
+        // Filing rides on top of the alarm — never fail the flight over it.
+      }
     };
     // GATE HONESTY (board web-mtq6zxl0-178q9e): the rolling-median history a
     // green convergence run is judged against — see convergence-gate.ts's
@@ -760,7 +796,7 @@ async function main(): Promise<void> {
           // apply (see the FULL gate comment above).
           commands: gateCommands(fullGateSpec(result.gate.spec), { includeCiExtras: true }),
           timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,
-          ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
+          ...(fullGateSemaphore ? { semaphore: fullGateSemaphore } : {}),
         }).run(),
     });
     // The merge-escalation agent validates its resolution where the merge is
