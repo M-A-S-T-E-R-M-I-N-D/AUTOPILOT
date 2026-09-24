@@ -253,6 +253,16 @@ describe('LANDING panel commit-row + debrief best/worst i18n (board web-msnsndki
     expect(worst.getAttribute('data-i18n-name')).toBe(worst.textContent);
   });
 
+  it('the best/worst lines carry a leading stroke icon instead of a baked-in emoji', async () => {
+    await openLanding();
+    const bestLine = document.querySelector('.flight-debrief-best') as HTMLElement;
+    const worstLine = document.querySelector('.flight-debrief-worst') as HTMLElement;
+    expect(bestLine.querySelector('svg.icon-trophy')).not.toBeNull();
+    expect(worstLine.querySelector('svg.icon-skull')).not.toBeNull();
+    expect(bestLine.textContent ?? '').not.toContain('🏆');
+    expect(worstLine.textContent ?? '').not.toContain('💀');
+  });
+
   it('switching to Hebrew flips every tip and aria-label in place, with no re-render', async () => {
     await openLanding();
     const before = nodes();

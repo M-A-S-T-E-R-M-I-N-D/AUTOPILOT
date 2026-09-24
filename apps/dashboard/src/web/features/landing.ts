@@ -205,6 +205,7 @@ function flightDebriefSection(flightLog, tasks) {
   if (digest.best) {
     var bestText = flightHeadlineOf(digest.best, taskById) + ' — ' + fmtCost(digest.best.cost);
     var bestLine = el('p', 'flight-debrief-best');
+    bestLine.appendChild(iconEl('trophy'));
     bestLine.appendChild(el('span', 'flight-debrief-label', tr('landingDebriefBestLabel')));
     // i18n (board web-msnsndki-dz3vn1): tr() at build time + sweep tags —
     // the headline/cost text is a live value the aria wraps in {name}.
@@ -221,6 +222,7 @@ function flightDebriefSection(flightLog, tasks) {
   if (digest.worst) {
     var worstText = flightHeadlineOf(digest.worst, taskById) + ' — ' + fmtCost(digest.worst.cost);
     var worstLine = el('p', 'flight-debrief-worst');
+    worstLine.appendChild(iconEl('skull'));
     worstLine.appendChild(el('span', 'flight-debrief-label', tr('landingDebriefWorstLabel')));
     var worstVal = el('span', null, worstText);
     worstVal.setAttribute('tabindex', '0');

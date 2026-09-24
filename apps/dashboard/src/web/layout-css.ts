@@ -804,6 +804,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .flight-debrief-ship { color: var(--color-success); border-color: var(--color-success); }
 .flight-debrief-death { color: var(--color-sev-critical); border-color: var(--color-sev-critical); }
 .flight-debrief-best, .flight-debrief-worst { margin: 0 0 var(--space-1); font-size: var(--text-sm); }
+.flight-debrief-best > .icon, .flight-debrief-worst > .icon { margin-inline-end: var(--space-2); }
 .flight-debrief-label { font-weight: 600; }
 .flight-debrief-notable { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
 .landing-overlaps { list-style: none; margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); border: 1px solid var(--color-sev-medium); border-radius: var(--shape-extra-small); background: color-mix(in srgb, var(--color-sev-medium) 12%, transparent); }
