@@ -23,6 +23,7 @@ import {
   createMirrorPassDriftExecuteApi,
   createMirrorPassStaleClaimPreviewApi,
   createMirrorPassStaleClaimExecuteApi,
+  createMirrorPassPriorityFollowPreviewApi,
 } from '../../src/flight/mirror-pass-execute.js';
 import { claimContractBody } from '../../src/flight/claim-contract.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
@@ -124,6 +125,30 @@ function issueViewAndCommentsExec(
         return {
           code: 0,
           stdout: JSON.stringify({ comments: (entry.comments ?? []).map((body) => ({ body })) }),
+        };
+      }
+      return { code: 0, stdout: JSON.stringify({ number, state: entry.state.toUpperCase() }) };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+/** A `CliExec` stub answering both `gh issue view <n> --json number,state`
+ *  and `gh issue view <n> --json labels` from `issues` (issue number ->
+ *  `{state, labels}`) — the two reads
+ *  `createMirrorPassPriorityFollowPreviewApi` composes. */
+function issueViewAndLabelsExec(
+  issues: Readonly<Record<number, { state: 'open' | 'closed'; labels?: readonly string[] }>>,
+): CliExec {
+  return vi.fn(async (_bin, args) => {
+    if (args[0] === 'issue' && args[1] === 'view') {
+      const number = Number(args[2]);
+      const entry = issues[number];
+      if (entry === undefined) return { code: 1, stdout: '' };
+      if (args[4] === 'labels') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({ labels: (entry.labels ?? []).map((name) => ({ name })) }),
         };
       }
       return { code: 0, stdout: JSON.stringify({ number, state: entry.state.toUpperCase() }) };
@@ -1862,6 +1887,125 @@ describe('#40 — unverified claims are noted, never closed on', () => {
       expect(calls.some((c) => c[1] === 'issue' && (c[2] === 'comment' || c[2] === 'close'))).toBe(
         false,
       );
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+/** Sets a task's priority band + pin state directly via raw SQL — the same
+ *  "helper functions reach past the public mutate API for test setup" stance
+ *  {@link project}/{@link shipSha} already take, since `@autopilot/store`
+ *  exposes no "create a task at priority X" constructor. */
+function setPriority(s: Store, taskId: string, priority: number | null, pinned: boolean): void {
+  s.db
+    .prepare('UPDATE tasks SET priority = ?, priority_pinned = ? WHERE id = ?')
+    .run(priority, pinned ? 1 : 0, taskId);
+}
+
+describe('createMirrorPassPriorityFollowPreviewApi', () => {
+  it('returns null for an unknown project id', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      expect(
+        await createMirrorPassPriorityFollowPreviewApi(dbPath, issueViewAndLabelsExec({}))('nope'),
+      ).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it("plans a set-priority-from-label when the maintainer's live label outranks the board", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-fires-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-21', projectId: 'p1', title: 'Not yet steered', createdAt: 100 });
+      s.close();
+
+      const plans = await createMirrorPassPriorityFollowPreviewApi(
+        dbPath,
+        issueViewAndLabelsExec({ 21: { state: 'open', labels: ['priority: high'] } }),
+      )('p1');
+
+      expect(plans).toHaveLength(1);
+      expect(plans?.[0]?.finding).toMatchObject({
+        action: 'set-priority-from-label',
+        taskId: 'github-21',
+        issueNumber: 21,
+        label: 'priority: high',
+        priority: 100,
+      });
+      expect(plans?.[0]?.command).toMatchObject({ kind: 'set-task-priority', priority: 100 });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('finds nothing once the board already matches the label and is pinned', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-synced-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-22', projectId: 'p1', title: 'Already steered', createdAt: 100 });
+      setPriority(s, 'github-22', 100, true);
+      s.close();
+
+      const plans = await createMirrorPassPriorityFollowPreviewApi(
+        dbPath,
+        issueViewAndLabelsExec({ 22: { state: 'open', labels: ['priority: high'] } }),
+      )('p1');
+
+      expect(plans?.[0]?.finding).toBeNull();
+      expect(plans?.[0]?.command).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('never fetches labels for a task that already landed (done) — nothing left to steer', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-done-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-23', projectId: 'p1', title: 'Landed already', createdAt: 100 });
+      setTaskStatus(s, 'github-23', 'done', 200);
+      s.close();
+
+      const exec = issueViewAndLabelsExec({ 23: { state: 'closed', labels: ['priority: high'] } });
+      const plans = await createMirrorPassPriorityFollowPreviewApi(dbPath, exec)('p1');
+
+      expect(plans?.[0]?.finding).toBeNull();
+      // Read-only, and no labels fetch needed once a task has landed.
+      expect(exec).toHaveBeenCalledTimes(1);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('opens the store read-only — a preview never writes', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-priority-readonly-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      vi.mocked(openStore).mockClear();
+      await createMirrorPassPriorityFollowPreviewApi(dbPath, issueViewAndLabelsExec({}))('p1');
+      expect(openStore).toHaveBeenLastCalledWith(dbPath, { readonly: true });
     } finally {
       cleanupDir(dir);
     }

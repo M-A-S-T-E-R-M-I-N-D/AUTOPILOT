@@ -2759,6 +2759,69 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('GET /api/mirror-pass/priority-follow previews the priority-follow finding for a known project', async () => {
+    const plans = [
+      {
+        task: {
+          id: 'github-9',
+          status: 'queued' as const,
+          landedSha: null,
+          priority: null,
+          priorityPinned: false,
+        },
+        finding: {
+          action: 'set-priority-from-label' as const,
+          taskId: 'github-9',
+          issueNumber: 9,
+          label: 'priority: high',
+          priority: 100,
+        },
+        command: {
+          kind: 'set-task-priority' as const,
+          taskId: 'github-9',
+          priority: 100,
+          details: 'pinning github-9 to priority 100',
+        },
+      },
+    ];
+    const base = await start({
+      mirrorPassPriorityFollow: async (pid) => (pid === 'p1' ? plans : null),
+    });
+    const res = await fetch(`${base}/api/mirror-pass/priority-follow?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ priorityFollow: plans });
+
+    const unknown = await fetch(`${base}/api/mirror-pass/priority-follow?project=nope`);
+    expect(await unknown.json()).toEqual({ priorityFollow: null });
+
+    const noProject = await fetch(`${base}/api/mirror-pass/priority-follow`);
+    expect(noProject.status).toBe(400);
+  });
+
+  it('degrades /api/mirror-pass/priority-follow to { priorityFollow: null } instead of crashing when the read throws', async () => {
+    const base = await start({
+      mirrorPassPriorityFollow: () => {
+        throw new Error('gh unavailable');
+      },
+    });
+    const res = await fetch(`${base}/api/mirror-pass/priority-follow?project=p1`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ priorityFollow: null });
+  });
+
+  it('404s /api/mirror-pass/priority-follow when no API is injected', async () => {
+    const base = await start();
+    expect((await fetch(`${base}/api/mirror-pass/priority-follow?project=p1`)).status).toBe(404);
+  });
+
+  it('405s /api/mirror-pass/priority-follow for a non-GET method', async () => {
+    const base = await start({ mirrorPassPriorityFollow: async () => [] });
+    const res = await fetch(`${base}/api/mirror-pass/priority-follow?project=p1`, {
+      method: 'POST',
+    });
+    expect(res.status).toBe(405);
+  });
+
   it('POST /api/issue-triage/execute runs the ritual for a known project (CSRF-guarded)', async () => {
     const seen: string[] = [];
     const base = await start({
