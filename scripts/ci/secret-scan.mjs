@@ -45,13 +45,13 @@ const RULES = [
 // Exclude only the hand-audited scanner files by exact path (they contain these
 // patterns as detection rules). A prefix exclusion would silently exempt any
 // future file dropped under scripts/ci/ — an allow-list scans new files by default.
-const EXCLUDED_FILES = new Set([
+export const EXCLUDED_FILES = new Set([
   'scripts/ci/secret-scan.mjs',
   'scripts/ci/validate-no-personal-paths.mjs',
   'scripts/ci/validate-configs.mjs',
   'scripts/ci/validate-spdx-headers.mjs',
 ]);
-const BINARY_EXT = /\.(png|jpe?g|gif|ico|woff2?|ttf|eot|pdf|zip|gz|tgz|db|wasm|node)$/i;
+export const BINARY_EXT = /\.(png|jpe?g|gif|ico|woff2?|ttf|eot|pdf|zip|gz|tgz|db|wasm|node)$/i;
 
 /** @returns {string[]} repo-relative tracked file paths */
 function listTrackedFiles() {

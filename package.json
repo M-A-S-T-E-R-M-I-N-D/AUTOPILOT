@@ -63,6 +63,7 @@
     "codemod:split-regions": "node scripts/codemod/split-top-level-regions.mjs",
     "codemod:splice-manifest": "node scripts/codemod/generate-splice-manifest.mjs",
     "ci:secret-scan": "node scripts/ci/secret-scan.mjs",
+    "ci:secret-scan-history": "node scripts/ci/secret-scan-history.mjs",
     "i18n:untagged": "node scripts/i18n/find-untagged-strings.mjs",
     "i18n:rtl": "node scripts/i18n/find-rtl-hazards.mjs",
     "ci:no-personal-paths": "node scripts/ci/validate-no-personal-paths.mjs",

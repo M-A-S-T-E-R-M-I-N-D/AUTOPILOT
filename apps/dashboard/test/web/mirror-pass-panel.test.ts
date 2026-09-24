@@ -7,6 +7,7 @@ import {
   mirrorPassLandingNoteItems,
   mirrorPassStaleClaimItems,
   mirrorPassDriftItems,
+  mirrorPassPriorityFollowItems,
   mirrorPassItems,
   mirrorPassCanExecute,
   mirrorPassExecuteResultMessage,
@@ -14,6 +15,7 @@ import {
   mirrorPassDriftExecuteResultMessage,
   mirrorPassCanExecuteLandingNote,
   mirrorPassCanExecuteStaleClaim,
+  mirrorPassCanExecutePriorityFollow,
 } from '../../src/web/mirror-pass-panel.js';
 
 describe('mirrorPassReconcileItems / mirrorPassLandingNoteItems / mirrorPassStaleClaimItems', () => {
@@ -96,14 +98,33 @@ describe('mirrorPassDriftItems', () => {
   });
 });
 
+describe('mirrorPassPriorityFollowItems', () => {
+  it('drops plans with no finding — already pinned to that band', () => {
+    expect(mirrorPassPriorityFollowItems([{ finding: null }])).toEqual([]);
+  });
+
+  it('renders an actionable finding as "#<n> — <taskId> will be pinned to follow \\"<label>\\""', () => {
+    const items = mirrorPassPriorityFollowItems([
+      { finding: { taskId: 'github-42', issueNumber: 42, label: 'priority: high' } },
+    ]);
+    expect(items).toEqual([{ text: '#42 — github-42 will be pinned to follow "priority: high"' }]);
+  });
+});
+
 describe('mirrorPassItems', () => {
   it('is empty when every preview is null (nothing loaded) or clean', () => {
     expect(
-      mirrorPassItems({ reconcile: null, landingNote: null, drift: null, staleClaims: null }),
+      mirrorPassItems({
+        reconcile: null,
+        landingNote: null,
+        drift: null,
+        staleClaims: null,
+        priorityFollow: null,
+      }),
     ).toEqual([]);
   });
 
-  it('composes every derivation in reconcile → landing-note → drift → stale-claim order', () => {
+  it('composes every derivation in reconcile → landing-note → drift → stale-claim → priority-follow order', () => {
     const items = mirrorPassItems({
       reconcile: [{ finding: { issueNumber: 1, comment: 'reconcile note' } }],
       landingNote: [{ finding: { issueNumber: 2, comment: 'landing-note note' } }],
@@ -113,12 +134,16 @@ describe('mirrorPassItems', () => {
         linkDrift: null,
       },
       staleClaims: [{ finding: { issueNumber: 3, comment: 'stale-claim note' } }],
+      priorityFollow: [
+        { finding: { taskId: 'github-4', issueNumber: 4, label: 'priority: critical' } },
+      ],
     });
     expect(items.map((i) => i.text)).toEqual([
       '#1 — reconcile note',
       '#2 — landing-note note',
       'README.md claims v1, but the tree is actually at v2',
       '#3 — stale-claim note',
+      '#4 — github-4 will be pinned to follow "priority: critical"',
     ]);
   });
 
@@ -273,6 +298,35 @@ describe('mirrorPassCanExecuteStaleClaim', () => {
     expect(mirrorPassCanExecuteStaleClaim({ role: 'maintainer' }, [])).toBe(false);
     expect(mirrorPassCanExecuteStaleClaim({ role: 'maintainer' }, null)).toBe(false);
     expect(mirrorPassCanExecuteStaleClaim({ role: 'maintainer' }, [{ finding: null }])).toBe(false);
+  });
+});
+
+describe('mirrorPassCanExecutePriorityFollow', () => {
+  const onePriorityFollow = [
+    { finding: { taskId: 'github-7', issueNumber: 7, label: 'priority: high' } },
+  ];
+
+  it('hides the priority-follow button for a confirmed non-maintainer, even with a real finding', () => {
+    expect(mirrorPassCanExecutePriorityFollow({ role: 'user' }, onePriorityFollow)).toBe(false);
+  });
+
+  it('shows the priority-follow button for a confirmed maintainer with a real finding', () => {
+    expect(mirrorPassCanExecutePriorityFollow({ role: 'maintainer' }, onePriorityFollow)).toBe(
+      true,
+    );
+  });
+
+  it('shows the priority-follow button when identity is unresolved — not a known guest', () => {
+    expect(mirrorPassCanExecutePriorityFollow(undefined, onePriorityFollow)).toBe(true);
+    expect(mirrorPassCanExecutePriorityFollow(null, onePriorityFollow)).toBe(true);
+  });
+
+  it('hides the priority-follow button when there is nothing to follow, even for the maintainer', () => {
+    expect(mirrorPassCanExecutePriorityFollow({ role: 'maintainer' }, [])).toBe(false);
+    expect(mirrorPassCanExecutePriorityFollow({ role: 'maintainer' }, null)).toBe(false);
+    expect(mirrorPassCanExecutePriorityFollow({ role: 'maintainer' }, [{ finding: null }])).toBe(
+      false,
+    );
   });
 });
 

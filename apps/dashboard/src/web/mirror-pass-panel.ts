@@ -53,6 +53,23 @@
  * shares reconcile's exact shape too, so it also reuses
  * {@link mirrorPassExecuteResultMessage}.
  *
+ * {@link mirrorPassPriorityFollowItems} and {@link
+ * mirrorPassCanExecutePriorityFollow} close a fifth UX-expression gap, this
+ * one from law 2's OTHER direction (`flight/mirror-pass-priority.ts`, "issue
+ * labeled/milestoned by the maintainer ⇒ board priority follows"):
+ * `GET /api/mirror-pass/priority-follow` and its mutating counterpart `POST
+ * /api/mirror-pass/priority-follow/execute` (`flight/mirror-pass-execute.ts`'s
+ * `createMirrorPassPriorityFollowPreviewApi`/`...ExecuteApi`) shipped wired
+ * end-to-end server-side with zero dashboard trigger. Same role gate as every
+ * other derivation, gated on at least one priority-follow finding. Unlike the
+ * other four, this finding carries no server-built `comment` sentence (the
+ * planner's own `details` string is written for a git-command audit trail,
+ * not a UI reader), so {@link mirrorPassPriorityFollowItems} builds its own
+ * line straight from `taskId`/`issueNumber`/`label`. Its execute report
+ * shares reconcile's exact shape (`{identity, outcomes, skippedReason?}`, no
+ * `duplicates` — the write is a local store pin, never a `gh` call), so it
+ * reuses {@link mirrorPassExecuteResultMessage} too.
+ *
  * `web/shell.ts` embeds this module's real compiled source into the
  * generated `/app.js` text via `.toString()` — see `fleetJs()` — instead of
  * hand-retyping it, so the two copies can no longer drift apart. Each
@@ -170,21 +187,57 @@ export function mirrorPassDriftItems(drift: MirrorPassDriftLike | null): readonl
   return items;
 }
 
+/** One `GET /api/mirror-pass/priority-follow` entry's finding — the
+ *  GitHub-to-board direction (law 2's other half), duck-typed against
+ *  `flight/mirror-pass-priority.ts`'s `MirrorPassPriorityFollowFinding`, same
+ *  "no server-side type import" stance as the rest of this file. Carries no
+ *  pre-written `comment` (unlike {@link MirrorPassIssueFindingLike}), so
+ *  {@link mirrorPassPriorityFollowItems} builds its own sentence. */
+export interface MirrorPassPriorityFollowFindingLike {
+  readonly taskId: string;
+  readonly issueNumber: number;
+  readonly label: string;
+}
+
+/** One `GET /api/mirror-pass/priority-follow` entry — `finding` is `null`
+ *  when that task's priority already matches (and is pinned to) its issue's
+ *  label. */
+export interface MirrorPassPriorityFollowPlanLike {
+  readonly finding: MirrorPassPriorityFollowFindingLike | null;
+}
+
+/** Every actionable priority-follow finding (a maintainer's live `priority:
+ *  <level>` label the board hasn't pinned to yet), `#<n> — <taskId> follows
+ *  "<label>"`. Plans with no finding (already pinned to that band) are
+ *  dropped, same filter shape {@link mirrorPassReconcileItems} uses. */
+export function mirrorPassPriorityFollowItems(
+  plans: readonly MirrorPassPriorityFollowPlanLike[],
+): readonly MirrorPassItem[] {
+  return plans
+    .filter((p): p is { finding: MirrorPassPriorityFollowFindingLike } => p.finding !== null)
+    .map((p) => ({
+      text: `#${p.finding.issueNumber} — ${p.finding.taskId} will be pinned to follow "${p.finding.label}"`,
+    }));
+}
+
 /** The whole panel's combined finding list — every derivation's items, in a
- *  fixed reconcile → landing-note → drift → stale-claim order, so the panel
- *  never needs to know about four separate lists. Any preview that failed
- *  to load (`null`) contributes nothing rather than throwing. */
+ *  fixed reconcile → landing-note → drift → stale-claim → priority-follow
+ *  order, so the panel never needs to know about five separate lists. Any
+ *  preview that failed to load (`null`) contributes nothing rather than
+ *  throwing. */
 export function mirrorPassItems(previews: {
   readonly reconcile: readonly MirrorPassFindingPlanLike[] | null;
   readonly landingNote: readonly MirrorPassLandingNotePlanLike[] | null;
   readonly drift: MirrorPassDriftLike | null;
   readonly staleClaims: readonly MirrorPassStaleClaimPlanLike[] | null;
+  readonly priorityFollow?: readonly MirrorPassPriorityFollowPlanLike[] | null;
 }): readonly MirrorPassItem[] {
   return [
     ...mirrorPassReconcileItems(previews.reconcile ?? []),
     ...mirrorPassLandingNoteItems(previews.landingNote ?? []),
     ...mirrorPassDriftItems(previews.drift),
     ...mirrorPassStaleClaimItems(previews.staleClaims ?? []),
+    ...mirrorPassPriorityFollowItems(previews.priorityFollow ?? []),
   ];
 }
 
@@ -243,6 +296,19 @@ export function mirrorPassCanExecuteStaleClaim(
 ): boolean {
   if (identity && identity.role !== 'maintainer') return false;
   return mirrorPassStaleClaimItems(staleClaims ?? []).length > 0;
+}
+
+/** Whether the panel may show its priority-follow EXECUTE button — same role
+ *  gate as {@link mirrorPassCanExecute} (a confirmed non-maintainer never
+ *  gets it, an unresolved identity is not a known guest so it still does),
+ *  gated on at least one priority-follow finding rather than a reconcile
+ *  one. */
+export function mirrorPassCanExecutePriorityFollow(
+  identity: MirrorPassIdentityLike | null | undefined,
+  priorityFollow: readonly MirrorPassPriorityFollowPlanLike[] | null,
+): boolean {
+  if (identity && identity.role !== 'maintainer') return false;
+  return mirrorPassPriorityFollowItems(priorityFollow ?? []).length > 0;
 }
 
 /** One reconciled task's real outcome, as {@link createMirrorPassExecuteApi}

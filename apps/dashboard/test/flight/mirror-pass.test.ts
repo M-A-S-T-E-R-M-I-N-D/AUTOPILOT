@@ -42,6 +42,7 @@ import {
   type MirrorPassClaimedIssue,
   type MirrorPassFinding,
   type MirrorPassStaleClaimFinding,
+  isAssignedTo,
 } from '../../src/flight/mirror-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { STALE_TASK_DAYS } from '../../src/web/task-queue.js';
@@ -258,8 +259,14 @@ describe('fetchIssueState', () => {
       stdout: JSON.stringify({ number: 42, state: 'OPEN' }),
     }));
 
-    expect(await fetchIssueState(exec, 42)).toEqual({ number: 42, state: 'open' });
-    expect(exec).toHaveBeenCalledWith('gh', ['issue', 'view', '42', '--json', 'number,state']);
+    expect(await fetchIssueState(exec, 42)).toEqual({ number: 42, state: 'open', assignees: [] });
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'issue',
+      'view',
+      '42',
+      '--json',
+      'number,state,assignees',
+    ]);
   });
 
   it('parses a closed issue', async () => {
@@ -268,7 +275,7 @@ describe('fetchIssueState', () => {
       stdout: JSON.stringify({ number: 7, state: 'CLOSED' }),
     }));
 
-    expect(await fetchIssueState(exec, 7)).toEqual({ number: 7, state: 'closed' });
+    expect(await fetchIssueState(exec, 7)).toEqual({ number: 7, state: 'closed', assignees: [] });
   });
 
   it('returns null on a non-zero exit', async () => {
@@ -309,8 +316,8 @@ describe('fetchMirrorPassIssueStates', () => {
     const states = await fetchMirrorPassIssueStates(exec, tasks);
 
     expect(exec).toHaveBeenCalledTimes(2);
-    expect(states.get(1)).toEqual({ number: 1, state: 'open' });
-    expect(states.get(2)).toEqual({ number: 2, state: 'closed' });
+    expect(states.get(1)).toEqual({ number: 1, state: 'open', assignees: [] });
+    expect(states.get(2)).toEqual({ number: 2, state: 'closed', assignees: [] });
   });
 
   it('omits an issue whose fetch failed rather than inserting a placeholder', async () => {
@@ -1242,5 +1249,120 @@ describe('#40 — the reconcile never closes on a claim it did not verify', () =
     const commands = planMirrorPassCommands(finding);
     expect(commands.map((c) => c.args.slice(0, 2))).toEqual([['issue', 'comment']]);
     expect(commands[0]?.args[4]).toContain(UNVERIFIED_NOTE_MARKER);
+  });
+});
+
+/**
+ * THE ASSIGNEE'S OWN WORD (2026-09-24). #40 verification means a gate-verified
+ * firing shipped under the task's OWN id, and an epic never has that — its
+ * slices land under their own ids. The maintainer's finished epic (#27:
+ * assigned to them on GitHub, doc marked Done, board task marked done by
+ * them) was going to be left open with an "unverified" note by their own
+ * automation. When GitHub's assignee is the person running the pass, their
+ * done mark is the verification. Nobody else's is.
+ */
+describe('isAssignedTo', () => {
+  const issue = { number: 27, state: 'open' as const, assignees: ['M-A-S-T-E-R-M-I-N-D'] };
+
+  it('matches an assignee regardless of case, as GitHub logins do', () => {
+    expect(isAssignedTo(issue, 'm-a-s-t-e-r-m-i-n-d')).toBe(true);
+  });
+
+  it('is false for someone else, for no login, and for an issue with no assignees fetched', () => {
+    expect(isAssignedTo(issue, 'gabibi555')).toBe(false);
+    expect(isAssignedTo(issue, undefined)).toBe(false);
+    expect(isAssignedTo(issue, '')).toBe(false);
+    expect(isAssignedTo({ number: 27, state: 'open' }, 'M-A-S-T-E-R-M-I-N-D')).toBe(false);
+  });
+});
+
+describe('the assignee running the pass closes their own done issue', () => {
+  const done = { id: 'github-27', status: 'done' as const, landedSha: null, doneVerified: false };
+  const mine = { number: 27, state: 'open' as const, assignees: ['M-A-S-T-E-R-M-I-N-D'] };
+
+  it('closes with a note naming the assignee when the acting login is assigned', () => {
+    const finding = planMirrorPassReconcile(done, mine, 'M-A-S-T-E-R-M-I-N-D');
+    expect(finding).toMatchObject({
+      action: 'close-by-assignee',
+      taskId: 'github-27',
+      issueNumber: 27,
+      assignee: 'M-A-S-T-E-R-M-I-N-D',
+    });
+    expect(finding?.comment).toContain('@M-A-S-T-E-R-M-I-N-D');
+    expect(finding?.comment).toContain('marked its AUTOPILOT board task done');
+  });
+
+  it('still only notes when the acting login is not an assignee — #40 holds for everyone else', () => {
+    expect(planMirrorPassReconcile(done, mine, 'gabibi555')).toMatchObject({
+      action: 'note-unverified',
+    });
+    expect(planMirrorPassReconcile(done, mine)).toMatchObject({ action: 'note-unverified' });
+  });
+
+  it('still only notes when the assignees were never fetched', () => {
+    expect(
+      planMirrorPassReconcile(done, { number: 27, state: 'open' }, 'M-A-S-T-E-R-M-I-N-D'),
+    ).toMatchObject({ action: 'note-unverified' });
+  });
+
+  it('still only notes when the recorded landing commit has vanished, even for the assignee', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, landedSha: 'abc1234', doneVerified: true, landedShaExists: false },
+      mine,
+      'M-A-S-T-E-R-M-I-N-D',
+    );
+    expect(finding).toMatchObject({ action: 'note-unverified' });
+  });
+
+  it('does not change a verified close — that path already closes on its own evidence', () => {
+    const finding = planMirrorPassReconcile(
+      { ...done, landedSha: 'abc1234', doneVerified: true },
+      mine,
+      'M-A-S-T-E-R-M-I-N-D',
+    );
+    expect(finding).toMatchObject({ action: 'close-with-landing-note' });
+  });
+
+  it('plans a comment then a close, the same shape as a landing-note close', () => {
+    const finding = planMirrorPassReconcile(done, mine, 'M-A-S-T-E-R-M-I-N-D');
+    const verbs = planMirrorPassCommands(finding as MirrorPassFinding).map((c) => c.args[1]);
+    expect(verbs).toEqual(['comment', 'close']);
+  });
+
+  it('threads the acting login through the batch planner', () => {
+    const plans = planMirrorPassBatch([done], new Map([[27, mine]]), 'M-A-S-T-E-R-M-I-N-D');
+    expect(plans[0]?.finding).toMatchObject({ action: 'close-by-assignee' });
+    const without = planMirrorPassBatch([done], new Map([[27, mine]]));
+    expect(without[0]?.finding).toMatchObject({ action: 'note-unverified' });
+  });
+});
+
+describe('fetchIssueState reads the assignees', () => {
+  it('maps assignee logins off the gh payload and asks for them in --json', async () => {
+    const calls: string[][] = [];
+    const exec = async (_bin: string, args: readonly string[]) => {
+      calls.push([...args]);
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          number: 27,
+          state: 'OPEN',
+          assignees: [{ login: 'M-A-S-T-E-R-M-I-N-D' }, { login: '' }, 'junk', null],
+        }),
+      };
+    };
+    const state = await fetchIssueState(exec, 27);
+    expect(state).toEqual({ number: 27, state: 'open', assignees: ['M-A-S-T-E-R-M-I-N-D'] });
+    expect(calls[0]?.[calls[0].length - 1]).toBe('number,state,assignees');
+  });
+
+  it('degrades to no assignees when the field is missing or not a list', async () => {
+    const exec = async () => ({ code: 0, stdout: JSON.stringify({ number: 5, state: 'CLOSED' }) });
+    expect(await fetchIssueState(exec, 5)).toEqual({ number: 5, state: 'closed', assignees: [] });
+    const odd = async () => ({
+      code: 0,
+      stdout: JSON.stringify({ number: 5, state: 'OPEN', assignees: 'nope' }),
+    });
+    expect(await fetchIssueState(odd, 5)).toEqual({ number: 5, state: 'open', assignees: [] });
   });
 });

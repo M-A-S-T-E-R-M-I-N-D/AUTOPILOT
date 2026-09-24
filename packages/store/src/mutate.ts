@@ -517,6 +517,31 @@ export function unpinTasks(
   return tx();
 }
 
+/**
+ * Set one task's priority to an explicit band value and pin it — the
+ * GitHub-to-board direction of epic 0019 law 2 ("the maintainer's label
+ * outranks triage"), `flight/mirror-pass-priority.ts`'s
+ * `planMirrorPassPriorityFollowCommand` result applied for real. Unlike
+ * {@link reorderTasks} (which derives `priority` from an id's position in an
+ * operator-supplied list), this sets an absolute value for exactly one task
+ * without touching any other task's priority — a maintainer's live label
+ * names a band directly, it does not reorder the whole board. Always pins
+ * (`priority_pinned = 1`): the label is a steering input the model must
+ * leave alone on the next takeoff, same as an operator's own reorder.
+ * Returns `false` when `taskId` does not exist.
+ */
+export function setTaskPriority(
+  store: Store,
+  taskId: string,
+  priority: number,
+  updatedAt: number,
+): boolean {
+  const info = store.db
+    .prepare('UPDATE tasks SET priority = ?, priority_pinned = 1, updated_at = ? WHERE id = ?')
+    .run(priority, updatedAt, taskId);
+  return info.changes > 0;
+}
+
 /** Every task-id shape the board mints (`web-<ts36>-<rand>`, `ap-<ts36>-<n>`,
  *  `inbox-<slug>`, `github-<issue#>`) — mirrors the dashboard's own
  *  `VERDICT_TASK_ID_RE` (flight/completion.ts, which defers these same ids
