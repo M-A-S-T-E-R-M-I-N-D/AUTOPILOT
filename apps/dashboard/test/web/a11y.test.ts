@@ -523,6 +523,10 @@ describe('dashboard accessibility (axe-core, WCAG A/AA)', () => {
   });
 
   it('the pool client panel with a claimable issue and its project picker is axe-clean', async () => {
+    const stateAllCheckouts = {
+      ...SAMPLE_STATE,
+      projects: SAMPLE_STATE.projects.map((p) => ({ ...p, githubRepo: 'example/repo' })),
+    };
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/api/pool-client')) {
@@ -543,7 +547,9 @@ describe('dashboard accessibility (axe-core, WCAG A/AA)', () => {
           }),
         };
       }
-      return { ok: true, json: async () => SAMPLE_STATE };
+      // every sample project is a checkout of the issue's repository, so the
+      // picker offers them all as choices (routing by repository, 2026-09-24)
+      return { ok: true, json: async () => stateAllCheckouts };
     }) as unknown as typeof fetch;
 
     // Execute the real client bundle; loadPoolClientPanel() fetches
@@ -570,7 +576,13 @@ describe('dashboard accessibility (axe-core, WCAG A/AA)', () => {
     // poolClaimFlyResult and web/shell.ts's click handler.
     const stateWithRootPath = {
       ...SAMPLE_STATE,
-      projects: [{ ...SAMPLE_STATE.projects[0], rootPath: '/repo/checkout-web' }],
+      projects: [
+        {
+          ...SAMPLE_STATE.projects[0],
+          rootPath: '/repo/checkout-web',
+          githubRepo: 'example/repo',
+        },
+      ],
     };
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -608,7 +620,8 @@ describe('dashboard accessibility (axe-core, WCAG A/AA)', () => {
     new Function(clientJs())();
     await vi.waitFor(() => {
       const select = document.querySelector('.pool-client-project') as HTMLSelectElement | null;
-      expect(select?.options.length).toBe(2);
+      // routed by repository: the one connected project, selected and locked
+      expect(select?.options.length).toBe(1);
     });
     (document.querySelector('.pool-client-project') as HTMLSelectElement).value = 'p1';
     vi.spyOn(window, 'confirm').mockReturnValue(true);

@@ -45,6 +45,7 @@ const PROJECT = {
   // `FolderOption`) reads — the pool panel's project list comes from the
   // same live fleet state, so a real project always carries it too.
   rootPath: '/repo/dashboard',
+  githubRepo: 'example/repo',
 };
 
 const STATE = {
@@ -100,7 +101,10 @@ function boot(flyResponse: unknown = { started: true, message: 'Flying Dashboard
 async function claimAgainstProjectP1(): Promise<void> {
   await vi.waitFor(() => {
     const select = document.querySelector('.pool-client-project') as HTMLSelectElement | null;
-    expect(select?.options.length).toBe(2); // 'No local task' + PROJECT
+    // routed by repository: the one connected project, selected and locked
+    expect(select?.options.length).toBe(1);
+    expect(select?.value).toBe('p1');
+    expect(select?.disabled).toBe(true);
   });
   const select = document.querySelector('.pool-client-project') as HTMLSelectElement;
   select.value = 'p1';

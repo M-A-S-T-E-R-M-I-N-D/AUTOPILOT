@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * THE KEEPER PR REVIEW PANEL'S MAINTAINER CONTROLS GET A STROKE ICON INSTEAD
- * OF A BAKED-IN EMOJI (epic 0025, icon system). Executes the ACTUAL client
- * bundle (`clientJs()`), the same real-bundle convention
+ * THE KEEPER PR REVIEW PANEL'S MAINTAINER CONTROLS AND QUEUE-FOR-HUMAN BADGE
+ * GET A STROKE ICON INSTEAD OF A BAKED-IN EMOJI (epic 0025, icon system;
+ * board web-mtywp7zq-55f3o9). Executes the ACTUAL client bundle
+ * (`clientJs()`), the same real-bundle convention
  * `issue-triage-decision-icon.test.ts` uses for its sibling KEEPER panel.
  */
 
@@ -79,5 +80,44 @@ describe('the KEEPER PR review panel maintainer controls', () => {
     const button = document.querySelector('.pr-review-human-merge');
     expect(button?.querySelector('svg.icon-handshake')).not.toBeNull();
     expect(button?.textContent).toBe('Merge as maintainer');
+  });
+
+  it('the awaiting-approval decision badge carries a lock stroke icon, no baked-in emoji', async () => {
+    boot();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-badge')).not.toBeNull();
+    });
+    const badge = document.querySelector('.pr-review-badge');
+    expect(badge?.querySelector('svg.icon-lock')).not.toBeNull();
+    expect(badge?.textContent).toBe('awaiting approval to run CI');
+  });
+
+  it('the plain queue-for-human decision badge carries a user stroke icon, no baked-in emoji', async () => {
+    const plan = {
+      ...PLAN,
+      pr: { ...PLAN.pr, awaitingApprovalRunIds: [] },
+    };
+    document.open();
+    document.write(renderShell());
+    document.close();
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/social-identity')) {
+        return { ok: true, json: async () => ({ identity: null }) } as unknown as Response;
+      }
+      if (url.startsWith('/api/pr-review')) {
+        return { ok: true, json: async () => ({ plans: [plan] }) } as unknown as Response;
+      }
+      return { ok: true, json: async () => STATE } as unknown as Response;
+    }) as unknown as typeof fetch;
+    new Function(clientJs())();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-badge')).not.toBeNull();
+    });
+    const badge = document.querySelector('.pr-review-badge');
+    expect(badge?.querySelector('svg.icon-user')).not.toBeNull();
+    expect(badge?.textContent).toBe('queue for human');
   });
 });

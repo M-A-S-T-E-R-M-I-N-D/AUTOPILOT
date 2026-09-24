@@ -101,6 +101,187 @@ describe('parseModelEnvelope', () => {
     expect(parseModelEnvelope('[1,2,3]')).toBeNull();
   });
 
+  /**
+   * THE FIRST ENTRY IS NOT THE MODEL THAT FLEW (2026-09-24). The CLI lists a
+   * Haiku side-call first whenever it runs one, and both the model name and
+   * all four token counts used to be read off that first entry: 101 firings
+   * that flew on Sonnet or Fable were recorded as Haiku carrying $222 of
+   * cost, with a few hundred side-call tokens standing in for the real run.
+   * Cost was always right — it comes from the envelope's own total.
+   */
+  it('names the entry that wrote the most as the model that flew, not the first one listed', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        total_cost_usd: 2.5,
+        modelUsage: {
+          'claude-haiku-4-5-20251001': { inputTokens: 30, outputTokens: 12 },
+          'claude-sonnet-5': { inputTokens: 4000, outputTokens: 900 },
+        },
+      }),
+    );
+    expect(env?.modelUsed).toBe('claude-sonnet-5');
+  });
+
+  it('sums the tokens across every entry — the firing consumed all of them', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        modelUsage: {
+          'claude-haiku-4-5-20251001': {
+            inputTokens: 30,
+            outputTokens: 12,
+            cacheReadInputTokens: 5,
+            cacheCreationInputTokens: 1,
+          },
+          'claude-sonnet-5': {
+            inputTokens: 4000,
+            outputTokens: 900,
+            cacheReadInputTokens: 70000,
+            cacheCreationInputTokens: 300,
+          },
+        },
+      }),
+    );
+    expect(env).toMatchObject({
+      tokensIn: 4030,
+      tokensOut: 912,
+      cacheRead: 70005,
+      cacheCreate: 301,
+    });
+  });
+
+  it('breaks an output tie on input, so a read-heavy entry outranks one that wrote the same', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        modelUsage: {
+          'claude-haiku-4-5-20251001': { inputTokens: 10, outputTokens: 50 },
+          'claude-sonnet-5': { inputTokens: 5000, outputTokens: 50 },
+        },
+      }),
+    );
+    expect(env?.modelUsed).toBe('claude-sonnet-5');
+  });
+
+  it('keeps the first entry when it genuinely wrote the most', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        modelUsage: {
+          'claude-sonnet-5': { inputTokens: 4000, outputTokens: 900 },
+          'claude-haiku-4-5-20251001': { inputTokens: 30, outputTokens: 12 },
+        },
+      }),
+    );
+    expect(env?.modelUsed).toBe('claude-sonnet-5');
+  });
+
+  it('falls back to the first key when no entry carries tokens, and reports null tokens, not zero', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        modelUsage: { 'claude-sonnet-5': {}, 'claude-haiku-4-5-20251001': {} },
+      }),
+    );
+    expect(env).toMatchObject({
+      modelUsed: 'claude-sonnet-5',
+      tokensIn: null,
+      tokensOut: null,
+      cacheRead: null,
+      cacheCreate: null,
+    });
+  });
+
+  it('never picks a non-object entry, and never lets one poison the sums', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        modelUsage: {
+          'claude-haiku-4-5-20251001': 'junk',
+          'claude-sonnet-5': { inputTokens: 100, outputTokens: 20 },
+        },
+      }),
+    );
+    expect(env).toMatchObject({ modelUsed: 'claude-sonnet-5', tokensIn: 100, tokensOut: 20 });
+  });
+
+  it('treats a missing token field on one entry as absent, not as zero, when summing', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        modelUsage: {
+          'claude-haiku-4-5-20251001': { outputTokens: 5 },
+          'claude-sonnet-5': { inputTokens: 100, outputTokens: 20, cacheReadInputTokens: 9 },
+        },
+      }),
+    );
+    expect(env).toMatchObject({ tokensIn: 100, tokensOut: 25, cacheRead: 9, cacheCreate: null });
+  });
+
+  const pick = (modelUsage: Record<string, unknown>): string | null | undefined =>
+    parseModelEnvelope(JSON.stringify({ result: 'ok', modelUsage }))?.modelUsed;
+
+  it('ranks by output first: more writing beats more reading', () => {
+    expect(
+      pick({
+        a: { inputTokens: 5000, outputTokens: 10 },
+        b: { inputTokens: 100, outputTokens: 900 },
+      }),
+    ).toBe('b');
+  });
+
+  it('ranks by output even when the heavier writer is listed first and read less', () => {
+    expect(
+      pick({
+        a: { inputTokens: 100, outputTokens: 900 },
+        b: { inputTokens: 5000, outputTokens: 10 },
+      }),
+    ).toBe('a');
+  });
+
+  it('with no output anywhere, an entry reporting zero input outranks one reporting nothing', () => {
+    expect(pick({ a: {}, b: { inputTokens: 0 } })).toBe('b');
+  });
+
+  it('ranks even tiny outputs — one written token beats none', () => {
+    expect(pick({ a: { outputTokens: 0 }, b: { outputTokens: 1 } })).toBe('b');
+  });
+
+  it('an entry that reports output, even zero, outranks one that reports none', () => {
+    expect(pick({ a: { inputTokens: 10 }, b: { inputTokens: 5, outputTokens: 0 } })).toBe('b');
+  });
+
+  it('on an output tie, reported input — even zero — outranks missing input', () => {
+    expect(pick({ a: { outputTokens: 5 }, b: { inputTokens: 0, outputTokens: 5 } })).toBe('b');
+  });
+
+  it('on an output tie, a later entry with less input does not displace an earlier one', () => {
+    expect(
+      pick({
+        a: { inputTokens: 5000, outputTokens: 50 },
+        b: { inputTokens: 10, outputTokens: 50 },
+      }),
+    ).toBe('a');
+  });
+
+  it('skips a null entry instead of reading fields off it', () => {
+    expect(pick({ a: null, b: { inputTokens: 1, outputTokens: 1 } })).toBe('b');
+  });
+
+  it('with output missing everywhere, the entry with the most input still wins', () => {
+    const env = parseModelEnvelope(
+      JSON.stringify({
+        result: 'ok',
+        modelUsage: {
+          'claude-haiku-4-5-20251001': { inputTokens: 10 },
+          'claude-sonnet-5': { inputTokens: 500 },
+        },
+      }),
+    );
+    expect(env?.modelUsed).toBe('claude-sonnet-5');
+  });
+
   it('tolerates a missing/empty modelUsage', () => {
     const env = parseModelEnvelope(JSON.stringify({ result: 'ok', is_error: false }));
     expect(env?.modelUsed).toBeNull();

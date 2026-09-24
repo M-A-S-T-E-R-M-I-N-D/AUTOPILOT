@@ -55,6 +55,7 @@
  * issue).
  */
 
+import type { ClaimRoute } from './project-repo.js';
 import {
   createTask,
   setTaskFocus,
@@ -594,6 +595,9 @@ export function planPoolIssueTask(
  *  actually got queued for it. */
 export interface ClaimAndQueuePoolIssueResult extends ClaimPoolIssueResult {
   readonly taskQueued: boolean;
+  /** Where the local task was routed, or why it was not queued: the project
+   *  must be a local checkout of the issue's own repository (project-repo.ts). */
+  readonly route?: ClaimRoute;
   /** True when the queued task was also FOCUSED — the claimant's own
    *  pilot now delivers slices against it first (operator, 2026-09-12:
    *  "אם גביבי בחר להתמקד במשהו הטיס שלו חייב להמשיך לדלבר"). */
@@ -619,6 +623,19 @@ export async function claimAndQueuePoolIssueTask(
   now: () => number = Date.now,
 ): Promise<ClaimAndQueuePoolIssueResult> {
   const result = await claimPoolIssue(issueNumber, exec);
+  return queueClaimedPoolIssueTask(result, projectId, store, now);
+}
+
+/** The second half of {@link claimAndQueuePoolIssueTask} on its own, so a
+ *  caller can decide WHERE the task goes after the claim has resolved the
+ *  issue (and its repository) — the pool execute API routes by repository in
+ *  between. */
+export function queueClaimedPoolIssueTask(
+  result: ClaimPoolIssueResult,
+  projectId: string,
+  store: Store,
+  now: () => number = Date.now,
+): ClaimAndQueuePoolIssueResult {
   if (result.issue === undefined) return { ...result, taskQueued: false, focused: false };
 
   const input = planPoolIssueTask(result.issue, result.decision, projectId, now());

@@ -55,6 +55,17 @@ export default {
   // most are red while this debt is being cleared.
   cleanTempDir: 'always',
   concurrency: 1,
+  // KILLED AT THE SAME MUTANT TWICE (2026-09-21 and 2026-09-24): the nightly
+  // sweep's runner for this config died with a bare `Killed` / exit 137 at
+  // 78-80 of ~401 mutants both times — the OS out-of-memory killer, not a
+  // timeout, and at the same position, so a specific mutant makes the test
+  // process allocate without bound faster than Stryker's per-mutant timeout
+  // can fire. Capping the runner's heap turns that into a JavaScript
+  // out-of-memory inside the worker, which Stryker records as a runtime
+  // error for that one mutant and restarts the runner, instead of the OS
+  // taking down the whole run with no score at all. 2 GiB is ample for this
+  // file's 133-test suite and well under the runner's 16 GiB.
+  testRunnerNodeArgs: ['--max-old-space-size=2048'],
   symlinkNodeModules: false,
   coverageAnalysis: 'perTest',
   // Static mutants are out of scope (2026-09-16). Stryker's own term for a

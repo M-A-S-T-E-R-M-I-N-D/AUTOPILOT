@@ -115,24 +115,51 @@ var poolClientEntriesByNumber = {};
 // any in-flight Claiming…/result text elsewhere in the panel), rather than
 // re-rendering the whole panel and losing that state on every fleet tick.
 var lastPoolClientProjects = [];
+// THE TASK GOES WHERE THE ISSUE LIVES (2026-09-24): each claim row offers
+// only the projects whose git origin IS the issue's repository — the server
+// refuses any other anyway. One such project is selected and locked (a fact,
+// not a choice); none says so; several are the only choices shown.
+function poolIssueRepo(url) {
+  // Plain splitting, no regex: this client code lives inside a template
+  // string, where a regex's backslashes are eaten before the browser runs it.
+  var parts = String(url || '').split('/');
+  if (parts.length < 5 || String(parts[2]).toLowerCase() !== 'github.com') return '';
+  return (parts[3] + '/' + parts[4]).toLowerCase();
+}
 function refreshPoolClientProjectOptions() {
   var selects = document.querySelectorAll('.pool-client-project');
   for (var i = 0; i < selects.length; i++) {
     var sel = selects[i];
     var current = sel.value;
-    sel.replaceChildren();
-    var noneOpt = document.createElement('option');
-    noneOpt.value = '';
-    noneOpt.textContent = tr('poolNoLocalTask');
-    sel.appendChild(noneOpt);
+    var repo = sel.getAttribute('data-repo') || '';
+    var matches = [];
     for (var j = 0; j < lastPoolClientProjects.length; j++) {
       var proj = lastPoolClientProjects[j];
+      if (repo && proj.githubRepo && String(proj.githubRepo).toLowerCase() === repo) matches.push(proj);
+    }
+    sel.replaceChildren();
+    if (matches.length !== 1) {
+      var noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = matches.length === 0
+        ? tr('poolNoLocalCheckout').replace('{repo}', repo || '?')
+        : tr('poolNoLocalTask');
+      sel.appendChild(noneOpt);
+    }
+    for (var k = 0; k < matches.length; k++) {
       var opt = document.createElement('option');
-      opt.value = proj.id;
-      opt.textContent = proj.name;
+      opt.value = matches[k].id;
+      opt.textContent = matches[k].name;
       sel.appendChild(opt);
     }
-    sel.value = current;
+    if (matches.length === 1) {
+      sel.value = matches[0].id;
+      sel.disabled = true;
+      sel.setAttribute('data-tip', tr('poolRoutedByRepo').replace('{repo}', repo));
+    } else {
+      sel.disabled = matches.length === 0;
+      sel.value = current;
+    }
   }
 }
 function syncPoolClientProjects(projects) {
@@ -199,6 +226,7 @@ function renderPoolClientPanel(entries) {
     if (entry.decision.decision === 'claim' || entry.decision.decision === 'contest') {
       var projectSelect = document.createElement('select');
       projectSelect.className = 'pool-client-project';
+      projectSelect.setAttribute('data-repo', poolIssueRepo(entry.issue.url));
       projectSelect.setAttribute('aria-label', tr('poolProjectSelectAria'));
       projectSelect.setAttribute('data-tip', tr('poolProjectSelectTip'));
       actions.appendChild(projectSelect);

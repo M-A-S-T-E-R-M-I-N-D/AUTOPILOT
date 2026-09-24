@@ -35,11 +35,12 @@ import { openStore, listProjects, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchViewerLogin } from './pr-review.js';
+import { projectRepoOf, repoFromIssueUrl, routeClaimToProject } from './project-repo.js';
 import {
   fetchPoolIssues,
   planPoolBrowseBatch,
   claimPoolIssue,
-  claimAndQueuePoolIssueTask,
+  queueClaimedPoolIssueTask,
   type PoolBrowseEntry,
   type ClaimAndQueuePoolIssueResult,
 } from './pool-client.js';
@@ -97,11 +98,26 @@ export function createPoolClientExecuteApi(
     const store = openStore(dbPath);
     try {
       const knownProjectId = resolveKnownProjectId(store, projectId);
-      if (knownProjectId === undefined) {
-        const result = await claimPoolIssue(issueNumber, exec);
+      const result = await claimPoolIssue(issueNumber, exec);
+      if (knownProjectId === undefined || result.issue === undefined) {
         return { ...result, taskQueued: false, focused: false };
       }
-      return await claimAndQueuePoolIssueTask(issueNumber, knownProjectId, exec, store);
+      // THE TASK GOES WHERE THE ISSUE LIVES (2026-09-24): the claim itself is
+      // on GitHub and stands either way, but the local board task is queued
+      // only on a project that is a checkout of the issue's own repository.
+      // A request for any other project is refused and says why — never
+      // quietly redirected, because the request itself was wrong.
+      const projects = listProjects(store.db).map((p) => ({
+        id: p.id,
+        repo: projectRepoOf(p.root_path),
+      }));
+      const route = routeClaimToProject(
+        repoFromIssueUrl(result.issue.url),
+        projects,
+        knownProjectId,
+      );
+      if (!route.ok) return { ...result, taskQueued: false, focused: false, route };
+      return { ...queueClaimedPoolIssueTask(result, route.projectId, store), route };
     } finally {
       store.close();
     }

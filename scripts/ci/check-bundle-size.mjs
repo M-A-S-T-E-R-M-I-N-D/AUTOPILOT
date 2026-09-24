@@ -160,7 +160,12 @@ import { gzipSync } from 'node:zlib';
 // passed while the landing gate's own run of this script went red. A
 // census in that test now asserts the two files agree — the comment
 // asking to "keep the two in sync" was never enforced by anything.
-const CORE_RAW_BUDGET = 256 * 1024;
+// Then core raw 256->257KB (2026-09-24), epic 0025 icon system continuation
+// (board web-mtywp7zq-55f3o9): the KEEPER PR review panel's queue-for-human
+// badge drops its baked-in lock/purple-circle glyph for two new vendored
+// icons (lock, user) in web/icons.ts -- measured 262150B raw, 6 bytes over
+// the old 262144B budget.
+const CORE_RAW_BUDGET = 257 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -319,7 +324,11 @@ const CORE_GZIP_BUDGET = 77 * 1024;
 // their baked-in 🔓/🤝 glyphs for lock-open/handshake stroke icons — measured
 // 200.0KB raw (204811B). Gzip (61268B) stays under CHUNK_GZIP_BUDGET
 // untouched, so only the raw line moves.
-const CHUNK_RAW_BUDGET = 201 * 1024;
+// Then panels raw 201→202KB (2026-09-24) for claim routing by repository:
+// the pool panel locks its project picker to the registered checkout of
+// the issue's own repository, with two new strings and their STRINGS.he
+// in panels — measured 201.5KB raw (206360B).
+const CHUNK_RAW_BUDGET = 202 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -341,7 +350,9 @@ const CHUNK_RAW_BUDGET = 201 * 1024;
 // report-panel.ts's source). Measured 57.4KB (58796B) against the old
 // 58368B budget: 428 bytes over; raw stays well under CHUNK_RAW_BUDGET, so
 // only the gzip line moves.
-const CHUNK_GZIP_BUDGET = 60 * 1024;
+// Then chunk gzip 60→61KB (2026-09-24) for the same claim-routing strings
+// — measured 60.2KB gzip.
+const CHUNK_GZIP_BUDGET = 61 * 1024;
 
 function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;

@@ -8,6 +8,7 @@
  * view — the read-only dashboard must never crash the way in.
  */
 
+import { projectRepoOf } from '../flight/project-repo.js';
 import { existsSync } from 'node:fs';
 import {
   openStore,
@@ -430,6 +431,7 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       slug: p.slug,
       name: p.name,
       rootPath: p.root_path,
+      githubRepo: projectRepoOf(p.root_path),
       status: p.status,
       createdAt: p.created_at,
       fileCount: meta?.file_count ?? 0,

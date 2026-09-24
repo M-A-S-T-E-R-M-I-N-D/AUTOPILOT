@@ -39,6 +39,16 @@ function strOrNum(v: unknown): string | null {
   return null;
 }
 
+/** `acc + next`, treating a missing side as absent rather than zero: a
+ *  null accumulator takes the first real number, a null `next` leaves the
+ *  accumulator alone, and both-null stays null — so an envelope whose
+ *  entries carry no token fields at all still reports null, not 0. */
+function sumOrKeep(acc: number | null, next: number | null): number | null {
+  // One expression, not two guards: `acc + null` coerces to `acc` in JS, so a
+  // separate `acc === null` branch was unobservable to any test.
+  return next === null ? acc : (acc ?? 0) + next;
+}
+
 function numOrNull(v: unknown): number | null {
   // Stryker disable next-line ConditionalExpression: same redundancy as
   // strOrNum above — `Number.isFinite` alone already implies `typeof v ===
@@ -49,7 +59,14 @@ function numOrNull(v: unknown): number | null {
 /**
  * Parse the `claude -p --output-format json` envelope into the facts the agent
  * cannot fake. Pure and unit-tested; the impure spawn lives in {@link ClaudeCliModel}.
- * Tokens come from the first `modelUsage` entry (the model actually billed).
+ * Tokens are SUMMED across every `modelUsage` entry, and `modelUsed` is the
+ * entry that produced the most output. Both used to come from the FIRST
+ * entry, described as "the model actually billed" — but the CLI lists a
+ * Haiku side-call first whenever it runs one, so 101 firings that flew on
+ * Sonnet or Fable were recorded as Haiku carrying $222 of cost, with the
+ * side-call's few hundred tokens standing in for the real run's (found in
+ * an evaluation over 193 firings, 2026-09-24). Cost was always right: it
+ * comes from the envelope's own total, not from any one entry.
  * Also lifts `session_id` (docs/epics/0009-warm-sessions.md) — the CLI already
  * returns it in every envelope; nothing resumes it yet, but the fact is no
  * longer thrown away before a future firing can persist and reuse it.
@@ -88,23 +105,39 @@ export function parseModelEnvelope(stdout: string): ModelEnvelope | null {
 
   const mu = o['modelUsage'];
   if (mu !== null && typeof mu === 'object') {
-    const first = Object.entries(mu as Record<string, unknown>)[0];
+    const entries = Object.entries(mu as Record<string, unknown>);
+    const first = entries[0];
     if (first) {
+      // The first key is the fallback only: when no entry carries tokens
+      // there is nothing to rank by, and a single-entry envelope reads
+      // exactly as it always did.
       modelUsed = first[0];
-      const usage = first[1];
-      // Stryker disable next-line ConditionalExpression: for every value a
-      // JSON parse can produce, member access on a non-null/undefined
-      // primitive (string/number/boolean) safely yields `undefined` rather
-      // than throwing — the SAME outcome `numOrNull` gives for a value it
-      // never had to fetch. Forcing this clause to `true` for a primitive
-      // `usage` is observably identical to skipping the block. Provably
-      // equivalent, not killable.
-      if (usage !== null && typeof usage === 'object') {
+      let bestOut = -1;
+      let bestIn = -1;
+      for (const [id, usage] of entries) {
+        // Only null needs skipping: a primitive entry reads every token field
+        // as undefined, which ranks and sums exactly like skipping it would.
+        if (usage === null) continue;
         const u = usage as Record<string, unknown>;
-        tokensIn = numOrNull(u['inputTokens']);
-        tokensOut = numOrNull(u['outputTokens']);
-        cacheRead = numOrNull(u['cacheReadInputTokens']);
-        cacheCreate = numOrNull(u['cacheCreationInputTokens']);
+        const inTok = numOrNull(u['inputTokens']);
+        const outTok = numOrNull(u['outputTokens']);
+        const read = numOrNull(u['cacheReadInputTokens']);
+        const create = numOrNull(u['cacheCreationInputTokens']);
+        tokensIn = sumOrKeep(tokensIn, inTok);
+        tokensOut = sumOrKeep(tokensOut, outTok);
+        cacheRead = sumOrKeep(cacheRead, read);
+        cacheCreate = sumOrKeep(cacheCreate, create);
+        // The model that did the work is the one that wrote the most; a
+        // side-call that only read (title, summary) never outranks it. Ties
+        // on output fall to input, so a lone read-heavy entry still wins
+        // over one that reports nothing.
+        const o2 = outTok ?? -1;
+        const i2 = inTok ?? -1;
+        if (o2 > bestOut || (o2 === bestOut && i2 > bestIn)) {
+          bestOut = o2;
+          bestIn = i2;
+          modelUsed = id;
+        }
       }
     }
   }

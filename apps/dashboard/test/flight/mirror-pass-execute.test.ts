@@ -71,6 +71,13 @@ function issueViewExec(states: Readonly<Record<number, 'open' | 'closed'>>): Cli
   });
 }
 
+/** One `states` entry for {@link identityAndIssueViewExec} — a bare state
+ *  for the common case, or a state paired with `assignees` (GitHub logins)
+ *  when a test needs `fetchIssueState`'s `assignees` field populated (the
+ *  close-by-assignee finding's `isAssignedTo` check). */
+type IssueViewFixture =
+  'open' | 'closed' | { state: 'open' | 'closed'; assignees?: readonly string[] };
+
 /** A `CliExec` stub answering identity resolution (`gh api user` as
  *  `login`, `gh repo view` as owned by `ownerLogin`) plus `gh issue view <n>
  *  --json number,state` from `states`, and a bare success for every other
@@ -82,7 +89,7 @@ function issueViewExec(states: Readonly<Record<number, 'open' | 'closed'>>): Cli
 function identityAndIssueViewExec(
   login: string,
   ownerLogin: string,
-  states: Readonly<Record<number, 'open' | 'closed'>>,
+  states: Readonly<Record<number, IssueViewFixture>>,
   calls: Array<readonly [string, readonly string[]]> = [],
 ): CliExec {
   return vi.fn(async (bin, args) => {
@@ -102,9 +109,18 @@ function identityAndIssueViewExec(
     }
     if (args[0] === 'issue' && args[1] === 'view') {
       const number = Number(args[2]);
-      const state = states[number];
-      if (state === undefined) return { code: 1, stdout: '' };
-      return { code: 0, stdout: JSON.stringify({ number, state: state.toUpperCase() }) };
+      const entry = states[number];
+      if (entry === undefined) return { code: 1, stdout: '' };
+      const state = typeof entry === 'string' ? entry : entry.state;
+      const assignees = typeof entry === 'string' ? undefined : entry.assignees;
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          number,
+          state: state.toUpperCase(),
+          ...(assignees ? { assignees: assignees.map((login) => ({ login })) } : {}),
+        }),
+      };
     }
     return { code: 0, stdout: '' };
   });
@@ -671,6 +687,91 @@ describe('createMirrorPassExecuteApi', () => {
         { command: expect.objectContaining({ args: ['issue', 'close', '42'] }), ok: true },
       ]);
       expect(calls).toContainEqual(['gh', ['issue', 'close', '42']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it("closes on the assignee's own word when the maintainer running the pass is the issue's assignee", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-close-assignee-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-42',
+        projectId: 'p1',
+        title: 'Fix the fleet table keyboard nav',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-42', 'done', 200);
+      // No shipSha call: an epic's slices land under their own ids, so this
+      // task's own id never gets a gate-verified metrics row — doneVerified
+      // is false, exactly the case #40's rule would otherwise leave open.
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewExec(
+        'octocat',
+        'octocat',
+        { 42: { state: 'open', assignees: ['octocat'] } },
+        calls,
+      );
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+      expect(report?.outcomes).toHaveLength(1);
+      expect(report?.outcomes[0]?.plan.finding).toMatchObject({
+        action: 'close-by-assignee',
+        issueNumber: 42,
+        assignee: 'octocat',
+      });
+      expect(report?.outcomes[0]?.commandOutcomes).toEqual([
+        {
+          command: expect.objectContaining({
+            args: ['issue', 'comment', '42', '--body', expect.any(String)],
+          }),
+          ok: true,
+        },
+        { command: expect.objectContaining({ args: ['issue', 'close', '42'] }), ok: true },
+      ]);
+      expect(calls).toContainEqual(['gh', ['issue', 'close', '42']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it("only notes — never closes — when the acting maintainer is not the issue's assignee", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-execute-close-assignee-mismatch-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, {
+        id: 'github-42',
+        projectId: 'p1',
+        title: 'Fix the fleet table keyboard nav',
+        createdAt: 100,
+      });
+      setTaskStatus(s, 'github-42', 'done', 200);
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndIssueViewExec(
+        'octocat',
+        'octocat',
+        { 42: { state: 'open', assignees: ['someone-else'] } },
+        calls,
+      );
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.outcomes[0]?.plan.finding).toMatchObject({ action: 'note-unverified' });
+      expect(calls.some(([, args]) => args[0] === 'issue' && args[1] === 'close')).toBe(false);
     } finally {
       cleanupDir(dir);
     }

@@ -47,6 +47,12 @@ const QUOTED_ENTRY_RE = /'([^']+)'/g;
  *  depended on this array, only `--diff` mode does, and an unparseable array
  *  there just means that one config never matches a diff). */
 export function discoverConfigs(dir = MUTATION_DIR) {
+  // Stryker disable next-line MethodExpression: `.sort()` guards against a
+  // filesystem whose readdir order is not lexical. Every filesystem this
+  // runs on already returns names sorted, so removing the call is
+  // observably identical here — provably equivalent on this platform, kept
+  // for the ones where it is not. The `.filter` beside it IS observable
+  // and has a decoy-directory test.
   const files = readdirSync(dir)
     .filter((f) => f.startsWith('stryker.') && f.endsWith('.config.mjs'))
     .sort();
@@ -88,10 +94,17 @@ export function selectConfigFiles(configs, diffRef, touchedFiles) {
 export function parseShard(argv) {
   const idx = argv.indexOf('--shard');
   if (idx === -1) return null;
+  // Stryker disable next-line StringLiteral: the `?? ''` fallback only feeds
+  // the regex, and every string that is not `<digits>/<digits>` fails it the
+  // same way — a missing value and any placeholder both throw the same
+  // error, so no test can tell them apart here. The message below carries
+  // its own fallback, and THAT one is observable.
   const m = /^(\d+)\/(\d+)$/.exec(argv[idx + 1] ?? '');
   const index = m ? Number(m[1]) : NaN;
   const total = m ? Number(m[2]) : NaN;
-  if (!m || index < 1 || total < 1 || index > total) {
+  // `1 ≤ index ≤ total` already implies `total ≥ 1`; a separate `total < 1`
+  // clause was a check no input could reach on its own.
+  if (!m || index < 1 || index > total) {
     throw new Error(
       `run-all-mutation: --shard wants <i>/<n> with 1 ≤ i ≤ n, got '${argv[idx + 1] ?? ''}'`,
     );
@@ -125,6 +138,9 @@ export function shardConfigFiles(files, shard) {
   return files.filter((_, i) => i % shard.total === shard.index - 1);
 }
 
+// Stryker disable all: `touchedFilesSince` shells out to `git diff`, and the
+// only way to test it is to run it against a real history. It is three lines
+// of glue with no branch; the logic it feeds (`selectConfigFiles`) is tested.
 function touchedFilesSince(ref) {
   return execFileSync('git', ['diff', '--name-only', ref], {
     windowsHide: true,
@@ -135,6 +151,7 @@ function touchedFilesSince(ref) {
     .map((line) => line.trim())
     .filter(Boolean);
 }
+// Stryker restore all
 
 /**
  * Stryker exits 1 when a config lands below its break threshold — that is
@@ -177,6 +194,10 @@ export function formatFailureSummary(total, failures) {
   return lines;
 }
 
+// Stryker disable all: `main` is the process shell — it spawns `npx stryker`
+// per config and calls `process.exit`. Every decision it makes is delegated
+// to an exported function above, each of which IS mutation-tested; what is
+// left here can only be exercised by running the whole sweep.
 function main() {
   const configs = discoverConfigs();
   if (configs.length === 0) {
