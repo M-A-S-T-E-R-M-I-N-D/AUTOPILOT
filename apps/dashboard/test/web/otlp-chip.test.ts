@@ -62,4 +62,18 @@ describe('the OTLP export status chip', () => {
     expect(chip?.getAttribute('data-tip')).toBeTruthy();
     expect(chip?.getAttribute('aria-label')).toBeTruthy();
   });
+
+  // EPIC 0017 slice 2 (board web-mtq019qd-u6pa1v): "Claude/gh/OTLP into ONE
+  // traffic-light pill with detail popover" — Claude and gh already share
+  // the Connect popover; the OTLP chip was the last of the three left
+  // scattered in the masthead as its own separate control. It now lives
+  // inside the Connect popover body instead, so opening ONE pill reveals
+  // all three, not three chips competing for masthead real estate.
+  it('lives inside the Connect popover body, not as its own scattered masthead chip', () => {
+    boot(STATE);
+
+    const connect = document.getElementById('connect');
+    const chip = document.getElementById('otlp-chip');
+    expect(connect?.contains(chip)).toBe(true);
+  });
 });

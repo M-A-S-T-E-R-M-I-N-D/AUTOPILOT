@@ -137,7 +137,7 @@ const WHATS_NEW_CSS = `
 .wn-foot a { color: var(--color-accent); font-size: var(--text-sm); }
 .wn-close { font: inherit; cursor: pointer; padding: var(--space-1) var(--space-4); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .wn-close:focus-visible, .wn-foot input:focus-visible, .wn-foot a:focus-visible, .wn-dialog summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-.wn-menu-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: none; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: var(--space-1) var(--space-2); color: var(--color-text); }
+.wn-menu-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: none; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: var(--space-1) var(--space-2); color: var(--color-text); white-space: nowrap; min-inline-size: 44px; min-block-size: 44px; flex: 0 0 auto; }
 `;
 
 /** The chunk's logic. A constant, not the function's return template, so the
@@ -380,7 +380,9 @@ function addMenuItem() {
   var btn = el('button', 'connect-test wn-menu-btn', wt('menu'));
   btn.type = 'button';
   btn.addEventListener('click', openWhatsNew);
-  body.appendChild(btn);
+  var row = el('div', 'connect-actions wn-menu-row');
+  row.appendChild(btn);
+  body.appendChild(row);
   if (typeof MutationObserver === 'function') {
     new MutationObserver(function () { btn.textContent = wt('menu'); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });

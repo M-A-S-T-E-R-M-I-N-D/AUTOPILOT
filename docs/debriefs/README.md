@@ -12,6 +12,9 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-24 | [Processing VERDICT `ap-mufmdoq5-0`: the `.husky/pre-push` guard block still holds](2026-09-24-verdict-ap-mufmdoq5-0-husky-pre-push-guard-block-still-holds.md) |
+| 2026-09-24 | [Processing VERDICT `ap-mu3u8hz7-4`: epic 0020 slice 8's fix-commit blocker — reconfirmed, no drift](2026-09-24-verdict-ap-mu3u8hz7-4-epic-0020-s8-blocked-no-drift.md) |
+| 2026-09-24 | [Processing VERDICT `ap-mu3u8hz6-1`: ADR 0010's landing-guard override is still Proposed — the block holds](2026-09-24-verdict-ap-mu3u8hz6-1-adr-0010-still-proposed.md) |
 | 2026-09-22 | [Processing VERDICT `ap-mu8cic4z-0`: the ADR 0011 fix-commit generation-strategy blocker still holds](2026-09-22-verdict-ap-mu8cic4z-0-epic-0020-s8b-s8c-still-blocked.md) |
 | 2026-09-19 | [Processing `ap-mu8jt1xg-ci-red`: "CI RED after landing main → 18c6cfa: ci.yml — failure" — refuted](2026-09-19-verdict-ap-mu8jt1xg-ci-red-refuted.md) |
 | 2026-09-19 | [Processing `ap-mu6rf2a8-ci-red`: "CI RED after landing main → cfec097: ci.yml — failure" — refuted](2026-09-19-verdict-ap-mu6rf2a8-ci-red-refuted.md) |

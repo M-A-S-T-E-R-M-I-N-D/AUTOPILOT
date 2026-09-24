@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   poolClaimDecisionLabel,
+  poolClaimDecisionIcon,
   poolClaimConfirmMessage,
   poolClaimExecuteResult,
   poolClaimExecuteTip,
@@ -25,9 +26,18 @@ describe('poolClientJs', () => {
   it('embeds every pool-client-panel splice real compiled source via .toString()', () => {
     const out = poolClientJs();
     expect(out).toContain(poolClaimDecisionLabel.toString());
+    expect(out).toContain(poolClaimDecisionIcon.toString());
     expect(out).toContain(poolClaimConfirmMessage.toString());
     expect(out).toContain(poolClaimExecuteResult.toString());
     expect(out).toContain(poolClaimExecuteTip.toString());
+  });
+
+  it("passes the contest badge's flag icon into tipChip alongside its label", () => {
+    const out = poolClientJs();
+    expect(out).toContain('var badgeIcon = poolClaimDecisionIcon(entry.decision.decision);');
+    expect(out).toContain(
+      'tipChip(label, entry.decision.reasoning, entry.decision.reasoning, badgeClass, badgeIcon)',
+    );
   });
 
   it('declares refreshPoolClientProjectOptions, syncPoolClientProjects, renderPoolClientPanel, and loadPoolClientPanel', () => {

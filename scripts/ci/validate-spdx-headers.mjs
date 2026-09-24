@@ -28,6 +28,10 @@ export function hasSpdxHeader(text) {
   return head.includes('SPDX-License-Identifier');
 }
 
+// Stryker disable all: `listFiles` shells out to `git ls-files` and `main`
+// reads every tracked file from disk — both can only be exercised by
+// running the gate for real. The logic they delegate to, `hasSpdxHeader`,
+// IS mutation-tested.
 /** @returns {string[]} */
 function listFiles() {
   const out = execFileSync(

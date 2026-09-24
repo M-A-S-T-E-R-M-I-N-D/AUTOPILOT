@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   poolClaimDecisionLabel,
+  poolClaimDecisionIcon,
   poolClaimLedgerText,
   poolClaimConfirmMessage,
   poolClaimExecuteResult,
@@ -30,6 +31,18 @@ describe('poolClaimDecisionLabel', () => {
 
   it('echoes back an unrecognized decision verbatim rather than throwing', () => {
     expect(poolClaimDecisionLabel('mystery')).toBe('mystery');
+  });
+});
+
+describe('poolClaimDecisionIcon', () => {
+  it('gives the contest badge the flag icon (epic 0025: the baked-in ⚑ glyph is gone)', () => {
+    expect(poolClaimDecisionIcon('contest')).toBe('flag');
+  });
+
+  it('leaves claim, skip, and an unrecognized decision iconless — their marks stay literal', () => {
+    expect(poolClaimDecisionIcon('claim')).toBeUndefined();
+    expect(poolClaimDecisionIcon('skip')).toBeUndefined();
+    expect(poolClaimDecisionIcon('mystery')).toBeUndefined();
   });
 });
 
@@ -187,7 +200,7 @@ describe('the claims ledger on the panel (#27 was claimed twice without a word o
   };
 
   it('labels a contest decision as held, with the claim-anyway question', () => {
-    expect(poolClaimDecisionLabel('contest')).toBe('⚑ held — claim anyway?');
+    expect(poolClaimDecisionLabel('contest')).toBe('held — claim anyway?');
   });
 
   it('paints who holds the issue, since when, and when it releases', () => {

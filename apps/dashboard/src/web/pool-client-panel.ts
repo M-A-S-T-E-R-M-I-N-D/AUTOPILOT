@@ -38,12 +38,27 @@ export interface PoolClaimDecisionLike {
 /** Maps a pool claim decision kind to its badge text. `claim`/`skip` are the
  *  only values `flight/pool-client.ts`'s `planClaimPoolIssue` emits; anything
  *  else (should never happen) echoes back verbatim rather than throwing, the
- *  same unrecognized-value stance `prReviewDecisionLabel` takes. */
+ *  same unrecognized-value stance `prReviewDecisionLabel` takes. The `✓` mark
+ *  stays a literal glyph (not emoji — see `pr-review-panel.ts`'s module
+ *  note); `contest`'s baked-in `⚑` was an actual emoji offender (named
+ *  verbatim in epic 0025's own ask) and is dropped here — its icon now rides
+ *  {@link poolClaimDecisionIcon} instead, same split `prReviewDecisionLabel`/
+ *  `prReviewDecisionIcon` already established. */
 export function poolClaimDecisionLabel(decision: string): string {
   if (decision === 'claim') return '✓ claimable';
-  if (decision === 'contest') return '⚑ held — claim anyway?';
+  if (decision === 'contest') return 'held — claim anyway?';
   if (decision === 'skip') return '— already claimed';
   return decision;
+}
+
+/** The contest badge's leading stroke icon (epic 0025 continuation) —
+ *  `flag` for `contest` (the closest vendored shape to the `⚑` glyph it
+ *  replaces), `undefined` for `claim`/`skip`/any unrecognized decision (the
+ *  `✓` mark and the plain `—` stay literal, no icon). The render site
+ *  (`features/pool-client.ts`) passes this into `tipChip`'s own iconName
+ *  parameter — never baked into {@link poolClaimDecisionLabel}'s text. */
+export function poolClaimDecisionIcon(decision: string): string | undefined {
+  return decision === 'contest' ? 'flag' : undefined;
 }
 
 /** One measured claim as `GET /api/pool-client`'s `entries[].claims[]`
