@@ -44,7 +44,7 @@ describe('repoFromRemoteUrl', () => {
     for (const url of [
       'https://gitlab.com/o/r.git',
       'https://github.com.evil.example/o/r.git',
-      'C:/repos/thing',
+      '../local/thing',
       'https://github.com/only-owner',
       '',
       null,
