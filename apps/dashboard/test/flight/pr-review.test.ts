@@ -649,6 +649,10 @@ const BENIGN_ASK = new Set([
  *  marker, so the census below only needs to triage its siblings — every one
  *  of which documents itself, in its own file header, as read-only/pure. */
 const BENIGN_READ = new Set([
+  // Read-only facts for the what's-new message: the CHANGELOG section, the
+  // round, GitHub counts via `gh api` GETs, CI via the cached run list. It
+  // writes nothing and decides nothing.
+  'whats-new.ts',
   // D4 pipeline view read-models (epic 0015): pure graph/geometry/selection
   // derivations over stored firing records — no store writes, no I/O of
   // their own (verified: no writeFileSync/INSERT/UPDATE/DELETE).
@@ -883,6 +887,10 @@ const BENIGN_INBOX = new Set<string>([]);
  *  future `web/` file starts building HTML from untrusted content instead
  *  of pure display math. */
 const BENIGN_WEB = new Set([
+  // The what's-new chunk: builds its dialog with createElement/textContent
+  // only (changelog text is never parsed as markup — pinned by
+  // whats-new-client.test.ts) and writes only its own localStorage keys.
+  'whats-new.ts',
   // Pure label-fitting text math for the pipeline canvas (2026-09-18): no
   // HTML, no I/O — pipeline-svg.ts escapes what it emits, this only decides
   // where a path label is cut and which part is the leaf.
