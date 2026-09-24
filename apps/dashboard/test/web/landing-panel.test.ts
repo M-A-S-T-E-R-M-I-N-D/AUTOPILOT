@@ -484,11 +484,16 @@ describe('landingJobLine — the LAND button telling the truth while it works', 
       },
       30_000,
     );
-    expect(line?.text).toContain('⏳ Queued');
+    expect(line?.text).toContain('Queued');
     expect(line?.text).toContain('asked the flight to stop');
     expect(line?.busy).toBe(true);
     expect(line?.className).not.toContain('fail');
-    expect(line?.icon).toBeUndefined();
+  });
+
+  it('carries the vendored clock icon name instead of baking a ⏳ glyph into the text (epic 0025)', () => {
+    const line = landingJobLine({ phase: 'waiting-for-flight', startedAt: 0, steps: [] }, 30_000);
+    expect(line?.icon).toBe('clock');
+    expect(line?.text.startsWith('⏳')).toBe(false);
   });
 
   it('hands a finished job to the same verdict renderer the panel always used, and releases the button', () => {

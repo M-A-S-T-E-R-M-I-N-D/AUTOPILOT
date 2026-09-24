@@ -91,9 +91,9 @@ export interface LandingJobLine {
   /** True while the job still owns the button — a second press would only
    *  join the same job, so the UI says so instead of inviting the click. */
   readonly busy: boolean;
-  /** A leading vendored icon name (epic 0025) for the 'running' phase only —
-   *  the render site appends it before the text node instead of the old
-   *  baked-in 🛬 glyph. Absent for every other phase. */
+  /** A leading vendored icon name (epic 0025) for the 'running' and
+   *  'waiting-for-flight' phases — the render site appends it before the text
+   *  node instead of the old baked-in 🛬/⏳ glyphs. Absent for 'finished'. */
   readonly icon?: string;
 }
 
@@ -126,12 +126,13 @@ export function landingJobLine(
     return {
       className: 'landing-result landing-result-waiting',
       text:
-        '⏳ Queued — ' +
+        'Queued — ' +
         (job.note || 'waiting for the running flight to finish, then landing automatically') +
         ' (' +
         elapsedText +
         ')',
       busy: true,
+      icon: 'clock',
     };
   }
   const running = (job.steps || []).find((s) => s.state === 'running');
