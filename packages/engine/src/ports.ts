@@ -156,6 +156,9 @@ export interface GateResult {
    * evidence the commit is bad, and must not be treated like a real failure.
    */
   readonly crashed?: boolean;
+  /** Milliseconds this gate waited for a cross-lane slot before running —
+   *  absent when it ran unslotted (a solo flight, a landing). */
+  readonly queuedMs?: number;
 }
 
 /** The per-project verifier of record — typecheck + test + build (detected at M2). */

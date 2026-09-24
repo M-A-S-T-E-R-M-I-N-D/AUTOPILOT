@@ -133,6 +133,33 @@ export function buildInvocation(
   return needsShim ? { bin: 'cmd.exe', args: ['/c', bin, ...args] } : { bin, args: [...args] };
 }
 
+/** The lines vitest prints when its test workers never came up — every one
+ *  seen on this machine (2026-09-24 convergence reds) was two lanes' full
+ *  suites starting at once on one disk. */
+const WORKER_START_SIGNATURES = [
+  'Failed to start forks worker',
+  'Failed to start threads worker',
+  'Timeout waiting for worker to respond',
+] as const;
+
+/** Any of these in the same output means a test really ran and failed. */
+const REAL_FAILURE_SIGNATURES = ['FAIL ', 'AssertionError', '×'] as const;
+
+/**
+ * A test command that exited non-zero because its workers never started is
+ * a verdict on the machine, not on the commit. On 2026-09-24 two convergence
+ * gates went red on `pnpm run test` with nothing but vitest's "failed to start
+ * forks worker ... timeout waiting for worker to respond" in the output: two
+ * lanes had started the full suite at once on one disk. A red there reverts
+ * good work at the per-firing gate and raises a false alarm at convergence.
+ * Only when no test visibly failed beside it — a real failure keeps the red.
+ */
+export function environmentCrashReason(outputTail: string): string | null {
+  if (!WORKER_START_SIGNATURES.some((s) => outputTail.includes(s))) return null;
+  if (REAL_FAILURE_SIGNATURES.some((s) => outputTail.includes(s))) return null;
+  return 'test workers never started — the machine was too loaded to judge';
+}
+
 /**
  * Turn one `execFile` rejection into a gate result — the difference between
  * "the tool ran and said no" and "the tool never ran", which decides whether a
@@ -155,6 +182,9 @@ export function buildInvocation(
 export function classifyExecFailure(error: unknown, outputTail: string): CommandRun {
   const raw = (error as { code?: unknown }).code;
   if (typeof raw === 'number') {
+    const environment = environmentCrashReason(outputTail);
+    if (environment !== null)
+      return { code: raw, crashed: true, crashReason: environment, outputTail };
     return outputTail ? { code: raw, outputTail } : { code: raw };
   }
   const killed = (error as { killed?: unknown }).killed === true;
@@ -238,7 +268,11 @@ export class GateRunner implements GatePort {
       return { ok: true, details: 'no gate commands configured', checks: [] };
     }
 
+    const queuedAt = Date.now();
     const release = await this.opts.semaphore?.acquire();
+    // How long this gate waited for a slot — the number that says whether a
+    // fleet has more lanes than its gates can serve (2026-09-25).
+    const queued = this.opts.semaphore ? { queuedMs: Date.now() - queuedAt } : {};
     try {
       const checks: GateCheckResult[] = [];
       // Never let an observer's own failure change a gate verdict — this is a
@@ -307,11 +341,12 @@ export class GateRunner implements GatePort {
             details,
             checks,
             ...(failed.crashed ? { crashed: true } : {}),
+            ...queued,
           };
         }
         i = next;
       }
-      return { ok: true, details: `${commands.length} gate command(s) passed`, checks };
+      return { ok: true, details: `${commands.length} gate command(s) passed`, checks, ...queued };
     } finally {
       release?.();
     }

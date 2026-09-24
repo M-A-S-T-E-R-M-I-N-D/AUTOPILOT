@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileGateSemaphore } from '../../src/adapters/gate-semaphore.js';
+import { FileGateSemaphore, nestedSemaphore } from '../../src/adapters/gate-semaphore.js';
 
 describe('FileGateSemaphore', () => {
   let dir: string;
@@ -149,5 +149,82 @@ describe('FileGateSemaphore', () => {
     const releaseB = await bAcquire;
     expect(bWon).toBe(true);
     releaseB();
+  });
+});
+
+describe('a named semaphore and a nested pair (2026-09-25, one full suite at a time)', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-sem-named-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('keeps its slot files apart from the default semaphore in the same directory', async () => {
+    const plain = new FileGateSemaphore({ dir, slots: 1 });
+    const full = new FileGateSemaphore({ dir, slots: 1, name: 'full-gate' });
+    const releasePlain = await plain.acquire();
+    const releaseFull = await full.acquire();
+    expect(readdirSync(dir).sort()).toEqual([
+      'full-gate-slot-0.lock',
+      'gate-semaphore-slot-0.lock',
+    ]);
+    releaseFull();
+    releasePlain();
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('takes the outer slot, then the inner one, and gives them back in reverse', async () => {
+    const order: string[] = [];
+    const port = (name: string) => ({
+      acquire: async () => {
+        order.push(`take ${name}`);
+        return () => order.push(`give ${name}`);
+      },
+    });
+    const release = await nestedSemaphore(port('full'), port('ordinary')).acquire();
+    release();
+    expect(order).toEqual(['take full', 'take ordinary', 'give ordinary', 'give full']);
+  });
+
+  it('gives the outer slot back when the inner one cannot be taken', async () => {
+    let outerHeld = false;
+    const outer = {
+      acquire: async () => {
+        outerHeld = true;
+        return () => {
+          outerHeld = false;
+        };
+      },
+    };
+    const inner = {
+      acquire: async (): Promise<() => void> => {
+        throw new Error('disk full');
+      },
+    };
+    await expect(nestedSemaphore(outer, inner).acquire()).rejects.toThrow('disk full');
+    expect(outerHeld).toBe(false);
+  });
+
+  it('holds a second full gate back until the first one is done', async () => {
+    const full = () =>
+      nestedSemaphore(
+        new FileGateSemaphore({ dir, slots: 1, name: 'full-gate', pollIntervalMs: 5 }),
+        new FileGateSemaphore({ dir, slots: 2, pollIntervalMs: 5 }),
+      );
+    const releaseFirst = await full().acquire();
+    let secondIn = false;
+    const second = full()
+      .acquire()
+      .then((release) => {
+        secondIn = true;
+        return release;
+      });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(secondIn).toBe(false);
+    releaseFirst();
+    (await second)();
+    expect(secondIn).toBe(true);
   });
 });
