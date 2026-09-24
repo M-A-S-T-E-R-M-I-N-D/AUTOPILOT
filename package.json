@@ -197,7 +197,6 @@
     "mutation:ci-validate-spdx-headers": "stryker run config/mutation/stryker.ci-validate-spdx-headers.config.mjs",
     "mutation:ci-check-conflict-markers": "stryker run config/mutation/stryker.ci-check-conflict-markers.config.mjs",
     "mutation:ci-detect-flaky": "stryker run config/mutation/stryker.ci-detect-flaky.config.mjs",
-    "mutation:ci-quarantine-report": "stryker run config/mutation/stryker.ci-quarantine-report.config.mjs",
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run build && pnpm run ci:secret-scan && pnpm run ci:no-personal-paths && pnpm run ci:conflict-markers && pnpm run ci:validate-configs && pnpm run ci:spdx && pnpm run ci:bundle-size && pnpm run ci:npx-smoke-test && pnpm run ci:dependency-audit && pnpm run ci:architecture && pnpm run ci:citation && pnpm run ci:doc-links && pnpm run ci:data-model && pnpm run ci:contrast-matrix && pnpm run ci:threat-model && pnpm run ci:donate && pnpm run ci:quarantine-report",
     "clean": "tsc -b --clean",
     "prepare": "husky || true",
