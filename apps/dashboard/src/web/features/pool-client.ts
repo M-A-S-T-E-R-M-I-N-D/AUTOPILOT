@@ -29,8 +29,9 @@
  * second piece of module-level state unique to this panel: the operator's
  * own registered projects, kept in sync from the live fleet state so the
  * "fly locally" project picker can render before the panel's own poll ever
- * fires. `poolClaimDecisionLabel`/`poolClaimConfirmMessage`/
- * `poolClaimExecuteResult`/`poolClaimExecuteTip` are generated FROM
+ * fires. `poolClaimDecisionLabel`/`poolClaimDecisionIcon`/
+ * `poolClaimConfirmMessage`/`poolClaimExecuteResult`/`poolClaimExecuteTip`
+ * are generated FROM
  * `web/pool-client-panel.ts` below — their real compiled source via
  * `.toString()`, not a hand-retyped copy — now resolved relative to this
  * file instead of `shell.ts`. `el`/`tipChip` stay inline in `fleetJs()` —
@@ -68,6 +69,7 @@
  */
 import {
   poolClaimDecisionLabel,
+  poolClaimDecisionIcon,
   poolClaimLedgerText,
   poolClaimConfirmMessage,
   poolClaimExecuteResult,
@@ -94,6 +96,7 @@ export function poolClientJs(): string {
 // source via .toString(), not a hand-retyped copy. They can no longer drift
 // apart.
 ${poolClaimDecisionLabel.toString()}
+${poolClaimDecisionIcon.toString()}
 ${poolClaimLedgerText.toString()}
 ${poolClaimConfirmMessage.toString()}
 ${poolClaimExecuteResult.toString()}
@@ -209,11 +212,14 @@ function renderPoolClientPanel(entries) {
     // issue. wireRoving() below moves it.
     issueNumberEl.setAttribute('tabindex', i === 0 ? '0' : '-1');
     var label = poolClaimDecisionLabel(entry.decision.decision);
+    var badgeIcon = poolClaimDecisionIcon(entry.decision.decision);
     issueNumberEl.setAttribute('data-tip', entry.decision.reasoning);
     issueNumberEl.setAttribute('aria-label', '#' + entry.issue.number + ': ' + entry.decision.reasoning);
     head.appendChild(issueNumberEl);
     var badgeClass = 'pool-client-badge-' + entry.decision.decision;
-    head.appendChild(tipChip(label, entry.decision.reasoning, entry.decision.reasoning, badgeClass));
+    head.appendChild(
+      tipChip(label, entry.decision.reasoning, entry.decision.reasoning, badgeClass, badgeIcon),
+    );
     item.appendChild(head);
     item.appendChild(el('p', 'pool-client-issue-title', entry.issue.title));
     // THE CLAIMS LEDGER (claim-ledger.ts): who holds it, since when, when it
