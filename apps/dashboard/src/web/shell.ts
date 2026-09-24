@@ -36,6 +36,7 @@ import {
 } from '../shared/live-firing.js';
 import { OFFICE_TIPS } from './office-map.js';
 import { PRODUCT_VERSION } from '../info.js';
+import { whatsNewClientJs, whatsNewCss } from './whats-new.js';
 import { ICON_SHAPES, iconSvg } from './icons.js';
 import {
   fmtBytes as sharedFmtBytes,
@@ -4448,6 +4449,13 @@ export function panelsClientJs(): string {
   return deferredFeatureModulesJs();
 }
 
+/** The `/whats-new.js` chunk — the once-per-version message (web/whats-new.ts).
+ *  Deliberately outside `clientJs()`: it opens a dialog on load, which the
+ *  jsdom suites that evaluate the whole client must not get. */
+export function whatsNewChunkJs(): string {
+  return whatsNewClientJs(PRODUCT_VERSION);
+}
+
 /**
  * A short content hash of the served bundle. Appended to the /app.js and
  * /tokens.css URLs so ANY code change produces a new URL the browser cannot have
@@ -4456,7 +4464,7 @@ export function panelsClientJs(): string {
  * shell is served no-store anyway).
  */
 export function assetVersion(): string {
-  const s = `${clientJs()}\n${layoutCss()}\n${fontFaceCss()}`;
+  const s = `${clientJs()}\n${whatsNewChunkJs()}\n${layoutCss()}\n${whatsNewCss()}\n${fontFaceCss()}`;
   let h = 5381;
   for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
   return h.toString(36);
@@ -4890,6 +4898,7 @@ ${terminalHudHtml()}
       : ''
   }
   <script src="/panels.js?v=${v}" defer></script>
+  <script src="/whats-new.js?v=${v}" defer></script>
 </body>
 </html>
 `;

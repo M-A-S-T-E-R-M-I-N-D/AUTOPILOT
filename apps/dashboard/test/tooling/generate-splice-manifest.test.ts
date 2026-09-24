@@ -2197,6 +2197,12 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     // The context rail's aside (epic 0021 slice 6): the same server-helper
     // shape as subjectNavHtml — fleet page only, hidden until the client fills it.
     'contextRailHtml',
+    // THE WHAT'S NEW CHUNK (2026-09-24): whatsNewChunkJs() calls it with the
+    // build's version to assemble /whats-new.js — served-chunk assembly like
+    // the chunk composers above, never part of clientJs().
+    'whatsNewClientJs',
+    // Its stylesheet, appended to /tokens.css and hashed into assetVersion().
+    'whatsNewCss',
   ]);
 
   it('accounts for every relative-import binding: either discovered as a splice, or a known non-splice exception', () => {

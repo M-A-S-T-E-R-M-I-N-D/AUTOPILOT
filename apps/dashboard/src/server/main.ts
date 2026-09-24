@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { existsSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync, cpSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { cpus, freemem, homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -121,7 +121,9 @@ import { gatherPreflightFacts } from '../flight/preflight-facts.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createCollaborationApi } from '../flight/collaboration.js';
-import { createCiStatusApi } from '../control/ci-status.js';
+import { createCiStatusApi, createGhRun } from '../control/ci-status.js';
+import { createWhatsNewApi, githubPulse } from '../read/whats-new.js';
+import { projectRepoOf } from '../flight/project-repo.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
 import { isAnyFlightLockLive } from '../flight/lock.js';
@@ -871,6 +873,18 @@ const server = createServer({
   // `gh run list` report `dashboard ci-status` already prints, surfaced for
   // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.
   ciStatus: createCiStatusApi(),
+  // WHAT'S NEW (operator, 2026-09-24): this checkout's CHANGELOG section for
+  // the running version, its current round, and its GitHub repository.
+  whatsNew: createWhatsNewApi({
+    version: PRODUCT_VERSION,
+    readChangelog: () => readFileSync(join(process.cwd(), 'CHANGELOG.md'), 'utf8'),
+    round: () => readRoundInfo(dbPath, deriveFlyProjectId(process.cwd())),
+    github: () => {
+      const repo = projectRepoOf(process.cwd(), Date.now());
+      return repo === null ? null : githubPulse(repo, createGhRun(process.cwd()));
+    },
+    ciStatus: createCiStatusApi(),
+  }),
   // Foundation donation addresses (FOUNDATION 1/3, board web-mtq0rsit-ywz1m7)
   // — reads docs/donations.json once that file exists; degrades to an empty
   // list (masthead heart + panel stay hidden) until it does.

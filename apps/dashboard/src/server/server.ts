@@ -128,6 +128,8 @@ export type { SocialIdentityApi };
 import { handleCollaboration, type CollaborationApi } from './collaboration.js';
 export type { CollaborationApi };
 import { handleCiStatus } from './ci-status-route.js';
+import { handleWhatsNew } from './whats-new-route.js';
+import type { WhatsNewApi } from '../read/whats-new.js';
 import type { CiStatusApi } from '../control/ci-status.js';
 import { handleDonations } from './donations.js';
 import type { DonationsPreviewApi } from '../flight/donations.js';
@@ -932,6 +934,9 @@ export interface ServerDeps extends RouteDeps {
    *  `gh run list` report `control/ci-status.ts`'s `ci-status` CLI command
    *  already prints, surfaced for the browser — see `createCiStatusApi`. */
   readonly ciStatus?: CiStatusApi;
+  /** WHAT'S NEW (operator, 2026-09-24): the facts behind the once-per-
+   *  version message — see `read/whats-new.ts`. */
+  readonly whatsNew?: WhatsNewApi;
   /** Foundation donation addresses (FOUNDATION 1/3, board
    *  web-mtq0rsit-ywz1m7): chain-tagged BTC/EVM/SOL addresses, hidden until
    *  `docs/donations.json` carries a verified entry — see
@@ -4182,6 +4187,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/collaboration') {
       void handleCollaboration(req, res, deps.collaboration, headers);
+      return;
+    }
+
+    if (path === '/api/whats-new') {
+      void handleWhatsNew(req, res, deps.whatsNew, headers);
       return;
     }
 

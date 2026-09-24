@@ -4,7 +4,13 @@
 import { stylesheet } from '@autopilot/tokens';
 import { renderShell } from '../web/shell.js';
 import { layoutCss } from '../web/layout-css.js';
-import { minifiedCoreJs, minifiedProjectJs, minifiedPanelsJs } from './client-bundle.js';
+import { whatsNewCss } from '../web/whats-new.js';
+import {
+  minifiedCoreJs,
+  minifiedProjectJs,
+  minifiedPanelsJs,
+  minifiedWhatsNewJs,
+} from './client-bundle.js';
 import { PRODUCT_VERSION } from '../info.js';
 import { buildFleetView, type FleetView } from '../read/fleet.js';
 import { faviconSvg, renderFaviconIco, renderIconPng, webManifest } from '../assets/brandmark.js';
@@ -57,7 +63,7 @@ export function handleRoute(path: string, deps: RouteDeps = {}): RouteResponse {
       return {
         status: 200,
         contentType: 'text/css; charset=utf-8',
-        body: `${fontFaceCss()}\n${stylesheet()}\n${layoutCss()}\n`,
+        body: `${fontFaceCss()}\n${stylesheet()}\n${layoutCss()}\n${whatsNewCss()}\n`,
       };
     case '/app.js':
       return {
@@ -76,6 +82,12 @@ export function handleRoute(path: string, deps: RouteDeps = {}): RouteResponse {
         status: 200,
         contentType: 'text/javascript; charset=utf-8',
         body: minifiedPanelsJs(),
+      };
+    case '/whats-new.js':
+      return {
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: minifiedWhatsNewJs(),
       };
     case '/favicon.svg':
       return { status: 200, contentType: 'image/svg+xml; charset=utf-8', body: faviconSvg() };

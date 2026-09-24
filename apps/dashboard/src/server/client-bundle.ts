@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { transformSync } from 'esbuild';
-import { clientJs, coreClientJs, projectClientJs, panelsClientJs } from '../web/shell.js';
+import {
+  clientJs,
+  coreClientJs,
+  projectClientJs,
+  panelsClientJs,
+  whatsNewChunkJs,
+} from '../web/shell.js';
 
 const cache = new Map<string, string>();
 
@@ -50,6 +56,11 @@ export function minifiedProjectJs(): string {
 
 export function minifiedPanelsJs(): string {
   return minified('panels', panelsClientJs);
+}
+
+/** `/whats-new.js` — the once-per-version message, every page, defer. */
+export function minifiedWhatsNewJs(): string {
+  return minified('whats-new', whatsNewChunkJs);
 }
 
 /** The FULL bundle (every chunk, one script) — kept for the bundle-wide
