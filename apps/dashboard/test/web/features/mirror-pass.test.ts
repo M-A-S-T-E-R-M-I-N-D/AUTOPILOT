@@ -15,6 +15,7 @@ import {
   mirrorPassLandingNoteItems,
   mirrorPassStaleClaimItems,
   mirrorPassDriftItems,
+  mirrorPassPriorityFollowItems,
   mirrorPassItems,
   mirrorPassCanExecute,
   mirrorPassExecuteResultMessage,
@@ -22,16 +23,18 @@ import {
   mirrorPassDriftExecuteResultMessage,
   mirrorPassCanExecuteLandingNote,
   mirrorPassCanExecuteStaleClaim,
+  mirrorPassCanExecutePriorityFollow,
 } from '../../../src/web/mirror-pass-panel.js';
 import { mirrorPassJs } from '../../../src/web/features/mirror-pass.js';
 
 describe('mirrorPassJs', () => {
-  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage/mirrorPassCanExecuteDrift/mirrorPassDriftExecuteResultMessage/mirrorPassCanExecuteLandingNote/mirrorPassCanExecuteStaleClaim real compiled source via .toString()', () => {
+  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassPriorityFollowItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage/mirrorPassCanExecuteDrift/mirrorPassDriftExecuteResultMessage/mirrorPassCanExecuteLandingNote/mirrorPassCanExecuteStaleClaim/mirrorPassCanExecutePriorityFollow real compiled source via .toString()', () => {
     const out = mirrorPassJs();
     expect(out).toContain(mirrorPassReconcileItems.toString());
     expect(out).toContain(mirrorPassLandingNoteItems.toString());
     expect(out).toContain(mirrorPassStaleClaimItems.toString());
     expect(out).toContain(mirrorPassDriftItems.toString());
+    expect(out).toContain(mirrorPassPriorityFollowItems.toString());
     expect(out).toContain(mirrorPassItems.toString());
     expect(out).toContain(mirrorPassCanExecute.toString());
     expect(out).toContain(mirrorPassExecuteResultMessage.toString());
@@ -39,18 +42,19 @@ describe('mirrorPassJs', () => {
     expect(out).toContain(mirrorPassDriftExecuteResultMessage.toString());
     expect(out).toContain(mirrorPassCanExecuteLandingNote.toString());
     expect(out).toContain(mirrorPassCanExecuteStaleClaim.toString());
+    expect(out).toContain(mirrorPassCanExecutePriorityFollow.toString());
   });
 
   it('declares mirrorPassSection, renderMirrorPassBody, and loadMirrorPassBody', () => {
     const out = mirrorPassJs();
     expect(out).toContain('function mirrorPassSection(pid) {');
     expect(out).toContain(
-      'function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, canExecuteStaleClaim, pid) {',
+      'function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, canExecuteStaleClaim, canExecutePriorityFollow, pid) {',
     );
     expect(out).toContain('function loadMirrorPassBody(body, pid) {');
   });
 
-  it('fetches identity alongside the four previews via the shared socialIdentity() core helper', () => {
+  it('fetches identity alongside the five previews via the shared socialIdentity() core helper', () => {
     const out = mirrorPassJs();
     expect(out).toContain('socialIdentity(),');
     expect(out).toContain('mirrorPassCanExecute(identity, reconcile)');
@@ -121,7 +125,7 @@ describe('mirrorPassJs', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-drift-execute]')");
     expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/drift/execute'");
-    expect(out.match(/body: JSON\.stringify\(\{ project: pid \}\),/g)?.length).toBe(4);
+    expect(out.match(/body: JSON\.stringify\(\{ project: pid \}\),/g)?.length).toBe(5);
   });
 
   it('gates the landing-note button on mirrorPassCanExecuteLandingNote, independent of the other two', () => {
@@ -159,7 +163,7 @@ describe('mirrorPassJs', () => {
     expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/landing-note/execute'");
     expect(
       out.match(/var result = mirrorPassExecuteResultMessage\(r\.status, r\.data\);/g)?.length,
-    ).toBe(3);
+    ).toBe(4);
   });
 
   it('gates the stale-claim button on mirrorPassCanExecuteStaleClaim, independent of the other three', () => {
@@ -195,5 +199,44 @@ describe('mirrorPassJs', () => {
     const out = mirrorPassJs();
     expect(out).toContain("e.target.closest('[data-mirror-pass-stale-claim-execute]')");
     expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/stale-claims/execute'");
+  });
+
+  it('gates the priority-follow button on mirrorPassCanExecutePriorityFollow, independent of the other four', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain('if (canExecutePriorityFollow) {');
+    expect(out).toContain('mirrorPassCanExecutePriorityFollow(identity, priorityFollow)');
+  });
+
+  it('tags the priority-follow button data-i18n and points it at the project id', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain(
+      "priorityFollowBtn.setAttribute('data-i18n', 'mirrorPassPriorityFollowExecute');",
+    );
+    expect(out).toContain(
+      "priorityFollowBtn.setAttribute('data-mirror-pass-priority-follow-execute', pid);",
+    );
+  });
+
+  it('tags the priority-follow tip/aria with one shared key and paints the confirm + transient states via tr()', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain(
+      "priorityFollowBtn.setAttribute('data-i18n-tip', 'mirrorPassPriorityFollowExecuteTip');",
+    );
+    expect(out).toContain(
+      "priorityFollowBtn.setAttribute('data-i18n-aria', 'mirrorPassPriorityFollowExecuteTip');",
+    );
+    expect(out).toContain("window.confirm(tr('mirrorPassPriorityFollowExecuteConfirm'))");
+    expect(out).toContain("b.textContent = tr('mirrorPassPriorityFollowExecuting');");
+    expect(out).toContain("resultEl.textContent = tr('mirrorPassPriorityFollowRequestFailed');");
+  });
+
+  it('fetches /api/mirror-pass/priority-follow and posts to its execute endpoint with the project id on click, reusing mirrorPassExecuteResultMessage', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("fetch(base + '/priority-follow' + qs)");
+    expect(out).toContain("e.target.closest('[data-mirror-pass-priority-follow-execute]')");
+    expect(out).toContain("ritualFetch('mirror-pass', '/api/mirror-pass/priority-follow/execute'");
+    expect(
+      out.match(/var result = mirrorPassExecuteResultMessage\(r\.status, r\.data\);/g)?.length,
+    ).toBe(4);
   });
 });
