@@ -6,6 +6,48 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.54.0] — 2026-09-24
+
+### Added
+
+- feat(dashboard): fold the OTLP chip into the Connect popover (epic 0017 slice 2)
+- feat(dashboard): the pool client's held badge drops its baked-in flag emoji
+- feat(dashboard): every new version opens once with what is new in it
+- feat(pool): a claimed issue's task goes to the project that is its checkout
+- feat(dashboard): the KEEPER PR review queue-for-human badge drops its baked-in emoji for icons
+- feat(mirror-pass): the assignee running the pass closes their own done issue
+- feat(mirror-pass): wire the priority-follow derivation into the dashboard panel (epic 0019 S3)
+- feat(mirror-pass): wire the priority-follow planner's mutating execute path (epic 0019 S3)
+- feat(ci): scan the pushed commit range for secrets, not just HEAD
+- feat(mirror-pass): wire the priority-follow planner into a read-only preview (epic 0019 S3)
+- feat(cli): owned-work reconcile becomes a docs-discoverable script (epic 0033 slice 1)
+- feat(models): pin opus 5.5, and make the freshness check keep its own promise
+- feat(flight): owned work is ingested at takeoff, before the first board read (epic 0033)
+- feat(flight): owned work posts its one pickup comment (epic 0033 slice 2)
+- feat(dashboard): owned work gets a live count on the fleet read (epic 0033 slice 2)
+- feat(flight): owned work gets a live count, CLI-first (epic 0033 slice 2)
+- feat(flight): give owned-work-reconcile a CLI entry point
+
+### Fixed
+
+- fix(store): a blocked verdict waits for the operator instead of being re-flown
+- fix(dashboard): the what's-new settings button keeps its size on a phone
+- fix(guard): a firing never amends a commit sync-back may already have merged
+- fix(ci): a mutation config that exits 137 is named as killed, not as stryker failing
+- fix(gate): a gate step gets twenty minutes, not ten, before it is called a crash
+- fix(gate): a gate step never waits on stdin
+- fix(engine): the firing record names the model that flew, and counts all its tokens
+- fix(ci): wire ci:secret-scan-history into CI, fixing the red gate
+- fix(preflight): report the REAL configured auth mode, not a hardcoded default
+- fix(landing): carry a rejected push through a dashboard restart
+- fix(dashboard): size the lucky roll from the board, not from one page of it
+- fix(release): generate-citation.mjs also bumps README's example commit Assisted-by pin
+- fix(dashboard): re-index the self project's docs on every boot, not just the first
+- fix(dashboard): a decision waiting on the operator can no longer be paged away
+- fix(docs-links): a link inside backticks is an example, not a link
+- fix(github): never send a milestone the repo does not have, or one a person chose
+- fix(github): keeper stops overruling the person who writes its rules
+
 ## [0.53.0] — 2026-09-21
 
 ### Added
