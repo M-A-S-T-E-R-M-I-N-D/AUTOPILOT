@@ -104,6 +104,11 @@ export function scanPatch(patchText) {
 
 /** @returns {{ localRef: string, localSha: string, remoteRef: string, remoteSha: string }[]} */
 function readRefUpdates() {
+  // A terminal is a human, not a pre-push hook: reading it would block
+  // waiting for someone to type ref updates. The gate closes stdin before
+  // a step runs, so there the read returns at once; this guard is for
+  // the person who runs the script by hand and wonders why it hangs.
+  if (process.stdin.isTTY) return [];
   /** @type {string} */
   let raw;
   try {

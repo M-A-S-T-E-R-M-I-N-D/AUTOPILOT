@@ -47,6 +47,42 @@ describe('GateRunner default execFile wiring (real exec, mocked node:child_proce
     });
   });
 
+  /**
+   * A STEP NEVER WAITS ON STDIN (2026-09-24). `execFile` hands the child a
+   * pipe for stdin and never closes it. The fleet's pushed-range secret scan
+   * reads ref updates from stdin the way a pre-push hook is fed them, so as a
+   * gate step it blocked until the thirty-minute step timeout and was reported
+   * as crashed with no verdict — on every lane, twice per flight. The gate now
+   * ends the child's stdin the moment it is spawned, so every step sees EOF.
+   */
+  it("ends the child's stdin right after spawning, so a step that reads it gets EOF at once", async () => {
+    const end = vi.fn();
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      cb(null);
+      return { stdin: { end } };
+    });
+    const cmd: GateCommandSpec = { bin: 'node', args: ['scripts/reads-stdin.mjs'], label: 'scan' };
+    await new GateRunner({ cwd: '/work/repo', commands: [cmd] }).run();
+    expect(end).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reject a step whose child has no stdin handle', async () => {
+    // The callback fires on a later tick, as the real execFile's does. With a
+    // synchronous callback the promise has already resolved when stdin is
+    // touched, and a throw there is swallowed — which is how a `stdin.end()`
+    // without the optional chain survived the first mutation run.
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      setImmediate(() => cb(null));
+      return {};
+    });
+    const cmd: GateCommandSpec = { bin: 'tsc', args: ['-b'], label: 'typecheck' };
+    await expect(
+      new GateRunner({ cwd: '/work/repo', commands: [cmd] }).run(),
+    ).resolves.toBeDefined();
+  });
+
   it('falls back to the default timeout when none is given', async () => {
     const cmd: GateCommandSpec = { bin: 'tsc', args: ['-b'], label: 'typecheck' };
     await new GateRunner({ cwd: '/work/repo', commands: [cmd] }).run();

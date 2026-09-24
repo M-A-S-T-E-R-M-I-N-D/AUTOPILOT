@@ -159,11 +159,21 @@ export function classifyExecFailure(error: unknown, outputTail: string): Command
     : { code: 1, crashed: true, crashReason };
 }
 
-/** Run one command with `execFile` (no shell string). Any spawn/exec failure ⇒ non-zero. */
+/** Run one command with `execFile` (no shell string). Any spawn/exec failure ⇒ non-zero.
+ *
+ *  A STEP NEVER WAITS ON STDIN (2026-09-24). `execFile` hands the child a
+ *  pipe for stdin and never closes it, so a step that reads stdin blocks
+ *  until the step timeout and is reported as crashed with no verdict. The
+ *  first such step was the pushed-range secret scan, which reads ref
+ *  updates the way a pre-push hook is fed them: every lane's convergence
+ *  gate sat on it for the full thirty minutes, twice per flight, and a
+ *  six-firing flight took over an hour. Ending stdin right after spawn
+ *  gives every step EOF at once — a gate command has no operator to type
+ *  at it, so there is nothing to wait for. */
 const realExec: GateExec = (cmd, cwd, timeoutMs) =>
   new Promise((resolve) => {
     const inv = buildInvocation(cmd.bin, cmd.args, process.platform);
-    execFile(
+    const child = execFile(
       inv.bin,
       inv.args,
       // 64 MiB: a full vitest run's output must never itself become a crash
@@ -182,6 +192,7 @@ const realExec: GateExec = (cmd, cwd, timeoutMs) =>
         );
       },
     );
+    child.stdin?.end();
   });
 
 /** Group leading run of `commands` starting at `start` that share the same
