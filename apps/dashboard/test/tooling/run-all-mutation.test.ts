@@ -11,6 +11,9 @@
  * this file's discovery logic.
  */
 import { describe, it, expect } from 'vitest';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import {
   discoverConfigs,
   formatFailureSummary,
@@ -52,6 +55,40 @@ describe('parseShard / shardConfigFiles (the nightly sweep split across a CI mat
     expect(() => parseShard(['node', 'x', '--shard'])).toThrow(/--shard wants/);
   });
 
+  // THE BOUNDS ARE INCLUSIVE ON BOTH ENDS (2026-09-24): the first real run of
+  // the config that mutates this file found `<` → `<=` and `>` → `>=` alive,
+  // because no test stood exactly on 1 or exactly on n.
+  it('accepts the first shard, the last shard, and a single-shard sweep', () => {
+    expect(parseShard(['node', 'x', '--shard', '1/6'])).toEqual({ index: 1, total: 6 });
+    expect(parseShard(['node', 'x', '--shard', '6/6'])).toEqual({ index: 6, total: 6 });
+    expect(parseShard(['node', 'x', '--shard', '1/1'])).toEqual({ index: 1, total: 1 });
+  });
+
+  it('reads multi-digit values on both sides of the slash', () => {
+    expect(parseShard(['node', 'x', '--shard', '12/20'])).toEqual({ index: 12, total: 20 });
+    expect(parseShard(['node', 'x', '--shard', '2/12'])).toEqual({ index: 2, total: 12 });
+  });
+
+  it('refuses anything before or after the <i>/<n>, not just a malformed middle', () => {
+    expect(() => parseShard(['node', 'x', '--shard', 'x2/6'])).toThrow(/--shard wants/);
+    expect(() => parseShard(['node', 'x', '--shard', '2/6x'])).toThrow(/--shard wants/);
+  });
+
+  it('refuses a shard past the end and a zero total', () => {
+    expect(() => parseShard(['node', 'x', '--shard', '2/1'])).toThrow(/--shard wants/);
+    expect(() => parseShard(['node', 'x', '--shard', '6/0'])).toThrow(/--shard wants/);
+  });
+
+  it('names the value it refused, verbatim, and says what it wanted instead', () => {
+    expect(() => parseShard(['node', 'x', '--shard', 'a/b'])).toThrow(
+      "run-all-mutation: --shard wants <i>/<n> with 1 ≤ i ≤ n, got 'a/b'",
+    );
+    // a missing value is reported as the empty string, not as the flag before it
+    expect(() => parseShard(['node', 'x', '--shard'])).toThrow(
+      "run-all-mutation: --shard wants <i>/<n> with 1 ≤ i ≤ n, got ''",
+    );
+  });
+
   it('interleaves the discovery order so every shard gets a spread, and the shards partition the whole set', () => {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
     expect(shardConfigFiles(files, { index: 1, total: 3 })).toEqual(['a', 'd', 'g']);
@@ -90,6 +127,42 @@ describe('selectConfigFiles', () => {
 });
 
 describe('discoverConfigs', () => {
+  /**
+   * THE REAL DIRECTORY CANNOT PROVE THE FILTER (2026-09-24). Every file under
+   * config/mutation/ that starts with `stryker.` also ends with `.config.mjs`,
+   * so a filter loosened to `true`, to `||`, or to an empty prefix returned the
+   * same set and survived the first real run of the config that mutates this
+   * file. A directory of decoys is what makes the filter observable.
+   */
+  it('keeps only stryker.*.config.mjs, in lexical order, against a directory of decoys', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-discover-'));
+    try {
+      const write = (name: string, body = "export default { mutate: ['src/x.ts'] };\n"): void =>
+        writeFileSync(join(dir, name), body);
+      // created out of lexical order, with one decoy per way the filter can loosen
+      write('stryker.zeta.config.mjs');
+      write('vitest.alpha.config.ts', 'export default {};\n'); // right suffix family, wrong prefix
+      write('other.beta.config.mjs'); // exact right suffix, wrong prefix
+      write('stryker.alpha.config.mjs');
+      write('stryker.notes.md', '# not a config\n'); // right prefix, wrong suffix
+      write('shim.thing.ts', 'export {};\n'); // neither
+      write('stryker.mid.config.mjs');
+      write('stryker.nomut.config.mjs', 'export default {};\n'); // no mutate array at all
+      expect(discoverConfigs(dir).map((c) => c.file)).toEqual([
+        'stryker.alpha.config.mjs',
+        'stryker.mid.config.mjs',
+        'stryker.nomut.config.mjs',
+        'stryker.zeta.config.mjs',
+      ]);
+      // still discovered, with nothing a diff could ever match
+      expect(
+        discoverConfigs(dir).find((c) => c.file === 'stryker.nomut.config.mjs')?.mutate,
+      ).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('finds the repo-wide Stryker config set with parsed mutate targets', () => {
     const configs = discoverConfigs();
     expect(configs.length).toBeGreaterThanOrEqual(100);
