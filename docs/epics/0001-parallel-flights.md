@@ -117,6 +117,17 @@ log, per the same scoping this doc's 2026-09-03 check already established.
 None of this changes the four locks above or the acceptance criteria below;
 all six slices remain unchanged and live in production.
 
+Freshness check (2026-09-24): `fly.ts` gained one commit since the 2026-09-21
+check above — `d137e8c5`, wiring `runOwnedWorkSweep` (epic 0033 slice 1) into
+takeoff, right after the straggler and stale-claim self-heals and before the
+first board read. It bears directly on this epic's own guarantee — "neither
+observing the other's work plan" — the same way the stale-claim sweep did in
+the 2026-09-21 check: it carries the identical self-target guard, since `gh`
+resolves the repo from the engine checkout and a flight over another folder
+must never ingest THIS repo's own claim-command comments onto that project's
+board. None of this changes the four locks above or the acceptance criteria
+below; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
