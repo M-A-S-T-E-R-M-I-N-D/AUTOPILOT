@@ -167,7 +167,7 @@ describe('ciWorkflowStatus', () => {
         '--limit',
         '1',
         '--json',
-        'status,conclusion,createdAt,databaseId',
+        'status,conclusion,createdAt,databaseId,headSha',
       ],
     ]);
   });
@@ -191,7 +191,7 @@ describe('ciWorkflowStatus', () => {
       '--limit',
       '1',
       '--json',
-      'status,conclusion,createdAt,databaseId',
+      'status,conclusion,createdAt,databaseId,headSha',
       '--branch',
       'main',
     ]);
@@ -305,7 +305,7 @@ describe("ciWorkflowStatus — the run id (the e2e land guard reads that run's f
     const status = ciWorkflowStatus(
       'ci.yml',
       (args) => {
-        expect(args).toContain('status,conclusion,createdAt,databaseId');
+        expect(args).toContain('status,conclusion,createdAt,databaseId,headSha');
         return JSON.stringify([
           {
             status: 'completed',
@@ -338,5 +338,22 @@ describe("ciWorkflowStatus — the run id (the e2e land guard reads that run's f
     );
     expect(bogus.runId).toBeNull();
     expect(ciWorkflowStatus('ci.yml', () => '[]', NOW).runId).toBeNull();
+  });
+});
+
+describe('ciWorkflowStatus reports the commit a run built (2026-09-25)', () => {
+  it('carries headSha when gh reports one, and leaves it out when gh does not', () => {
+    const withSha = ciWorkflowStatus(
+      'ci.yml',
+      () => JSON.stringify([{ status: 'completed', conclusion: 'success', headSha: 'abc1234def' }]),
+      NOW,
+    );
+    expect(withSha.headSha).toBe('abc1234def');
+    const without = ciWorkflowStatus(
+      'ci.yml',
+      () => JSON.stringify([{ status: 'completed', conclusion: 'success', headSha: '' }]),
+      NOW,
+    );
+    expect(without).not.toHaveProperty('headSha');
   });
 });
