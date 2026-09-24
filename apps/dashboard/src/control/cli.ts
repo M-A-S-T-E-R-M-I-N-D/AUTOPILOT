@@ -32,6 +32,8 @@ import { createSpawnFlight } from '../flight/spawn-flight.js';
 import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
 import { deriveFlyProjectId, flightLogFileName } from '../flight/lock.js';
 import { resolveDbPath } from '../read/config.js';
+import { renderFleetReport } from '../read/fleet-report.js';
+import { readReportFirings, readReportConvergence } from '../read/fleet-report-source.js';
 import { runFleetLaunch, parseFleetCliArgs } from '../flight/fleet-launch.js';
 import { evaluatePreflight, formatPreflight } from '../flight/preflight.js';
 import { gatherPreflightFacts } from '../flight/preflight-facts.js';
@@ -274,6 +276,27 @@ async function main(): Promise<void> {
         // released is counted correctly.
         const ownedNow = listOwnedWorkTasks(recentTasks(store.db, projectId));
         out(`[ok] owned-work: ${ownedNow.length} task(s) owned right now`);
+      } finally {
+        store.close();
+      }
+      break;
+    }
+    case 'fleet-report': {
+      // THE FLEET REPORT (2026-09-25): one repeatable evaluation of a
+      // folder's recent firings and convergence verdicts — read-only.
+      const target = resolve(process.argv[3] ?? process.cwd());
+      const asked = Number(process.argv[4]);
+      const days = Number.isFinite(asked) && asked > 0 ? asked : 7;
+      const projectId = deriveFlyProjectId(target);
+      const since = Date.now() - days * 24 * 60 * 60 * 1000;
+      const store = openStore(resolveDbPath(), { readonly: true });
+      try {
+        const lines = renderFleetReport(
+          readReportFirings(store.db, projectId, since),
+          readReportConvergence(store.db, projectId, since),
+          `${projectId}, last ${days} day(s)`,
+        );
+        for (const line of lines) out(line);
       } finally {
         store.close();
       }
@@ -664,7 +687,7 @@ async function main(): Promise<void> {
     }
     default: {
       out(
-        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | owned-work-reconcile | vacuum | keepalive | watch | fleet',
+        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | owned-work-reconcile | fleet-report | vacuum | keepalive | watch | fleet',
       );
       process.exitCode = 1;
     }

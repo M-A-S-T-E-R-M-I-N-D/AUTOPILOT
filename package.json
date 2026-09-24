@@ -37,6 +37,7 @@
     "dashboard:maintenance-sweep": "node apps/dashboard/dist/control/cli.js maintenance-sweep",
     "dashboard:taxonomy-seed": "node apps/dashboard/dist/control/cli.js taxonomy-seed",
     "dashboard:owned-work-reconcile": "node apps/dashboard/dist/control/cli.js owned-work-reconcile",
+    "dashboard:fleet-report": "node apps/dashboard/dist/control/cli.js fleet-report",
     "dashboard:vacuum": "pnpm run build && node apps/dashboard/dist/control/cli.js vacuum",
     "dashboard:watch": "node apps/dashboard/dist/control/cli.js watch",
     "dashboard:keepalive": "node apps/dashboard/dist/control/cli.js keepalive",
