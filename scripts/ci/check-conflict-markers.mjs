@@ -37,6 +37,9 @@ const END_RE = /^>{7} /;
 const MID_RE = /^={7}$/;
 const BINARY_EXT = /\.(png|jpe?g|gif|ico|woff2?|ttf|eot|pdf|zip|gz|tgz|db|wasm|node)$/i;
 
+// Stryker disable all: `listTrackedFiles` shells out to `git ls-files` — it
+// can only be exercised by running the gate for real. The logic it feeds,
+// `findConflictMarkers`, IS mutation-tested.
 /** @returns {string[]} */
 function listTrackedFiles() {
   const out = execFileSync(
@@ -46,6 +49,7 @@ function listTrackedFiles() {
   );
   return out.split(NUL).filter(Boolean);
 }
+// Stryker restore all
 
 /**
  * Scan one file's text for unresolved conflict markers. Pure — no fs/git
@@ -72,6 +76,9 @@ export function findConflictMarkers(text) {
   return [...starts, ...mids, ...ends].sort((a, b) => a.line - b.line);
 }
 
+// Stryker disable all: `main` is the process shell — it reads every tracked
+// file from disk and can only be exercised by running the gate for real. The
+// logic it delegates to, `findConflictMarkers`, IS mutation-tested.
 function main() {
   const files = listTrackedFiles();
   /** @type {{ file: string, line: number, marker: string }[]} */
