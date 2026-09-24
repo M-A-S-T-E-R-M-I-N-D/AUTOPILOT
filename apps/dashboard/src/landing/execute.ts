@@ -141,13 +141,25 @@ function recordLandingEvent(store: Store, projectId: string, type: string, paylo
  *  decision 09-02, "option A" of ADR 0008 — see {@link E2eLandGuard}). */
 export type LandingExecuteApiReason = LandingExecuteResult['reason'] | 'flight-running' | 'e2e-red';
 
+/** One `git push` attempt's outcome as the LANDING panel and the durable
+ *  history record ({@link readRecentLandingOutcome}) both see it — see THE
+ *  PUSH LEG below for why this exists as its own row rather than folding
+ *  into the merge's own `ok`. */
+export interface LandingPushResult {
+  readonly ok: boolean;
+  readonly detail: string;
+}
+
 /** A `LandingExecuteResult` plus whether this attempt fired the self-restart
  *  trigger — the CSRF-guarded endpoint passes this straight through so the
  *  LANDING panel can show a "rebuilding…" affordance instead of going quiet
- *  mid-swap. `false` on every path that isn't a self-hosted green land. */
+ *  mid-swap. `false` on every path that isn't a self-hosted green land.
+ *  `push` is present only once a green land has attempted (or skipped, for a
+ *  remote-less repo) its push leg — see THE PUSH LEG below. */
 export type LandingExecuteApiResult = Omit<LandingExecuteResult, 'reason'> & {
   readonly reason: LandingExecuteApiReason;
   readonly restarting: boolean;
+  readonly push?: LandingPushResult;
 };
 
 /** One LANDING EXECUTE attempt for a project, or `null` when the project id
@@ -540,23 +552,8 @@ export function createLandingExecuteApi(
       const result = { ...landed, details: landed.details + staleCodeNote(staleCode()) };
       /** The push leg's own outcome — see the block below. `undefined`
        *  when the land never got as far as merging. */
-      let push: { ok: boolean; detail: string } | undefined;
+      let push: LandingPushResult | undefined;
       if (result.ok) {
-        // Notifications channel flight-landed event (board web-msnsndlk-exw3t9):
-        // persist one `landed` events row per green gate-then-merge, same
-        // events-are-the-audit-trail contract as 'guard-denial' in fly.ts —
-        // this is the ONE code path both the manual EXECUTE button and the
-        // automatic land-watchdog go through, so a single write here covers
-        // both triggers. Best-effort — never fail a real land over telemetry.
-        try {
-          store.db
-            .prepare(
-              'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
-            )
-            .run(projectId, 'landed', JSON.stringify({ details: result.details }), Date.now());
-        } catch {
-          /* landed telemetry is best-effort — never fail the land over it */
-        }
         // THE PUSH LEG (FAILURE-DOCTRINE row 8, closed 2026-09-09). Until
         // now this ritual merged into `base` LOCALLY and stopped: an
         // operator clicked "Execute landing → main", watched the full gate
@@ -571,6 +568,14 @@ export function createLandingExecuteApi(
         // because a silent push failure is exactly what left GitHub a day
         // stale. A non-fast-forward is named separately since it has a
         // specific remedy the generic failure text cannot offer.
+        //
+        // Runs BEFORE the audit row below is written (board web-mufftwd7-b2yuml,
+        // 2026-09-24): `readRecentLandingOutcome` rebuilds a landing's result
+        // from that SAME row after this process restarts — the exact moment a
+        // self-hosted green land triggers — so an audit row written before the
+        // push even attempted could never carry a GH013 rejection through a
+        // restart. The operator's reconnecting page would see a plain green
+        // "landed" while GitHub sat behind, unaware.
         try {
           if (await vcs.hasRemote()) {
             const pushed = await vcs.pushBranch(base);
@@ -590,6 +595,28 @@ export function createLandingExecuteApi(
             ok: false,
             detail: `push failed: ${error instanceof Error ? error.message : String(error)}`,
           };
+        }
+        // Notifications channel flight-landed event (board web-msnsndlk-exw3t9):
+        // persist one `landed` events row per green gate-then-merge, same
+        // events-are-the-audit-trail contract as 'guard-denial' in fly.ts —
+        // this is the ONE code path both the manual EXECUTE button and the
+        // automatic land-watchdog go through, so a single write here covers
+        // both triggers. Best-effort — never fail a real land over telemetry.
+        // Carries `push` so the durable record ({@link readRecentLandingOutcome})
+        // can answer "did it reach GitHub?" even after this process is gone.
+        try {
+          store.db
+            .prepare(
+              'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
+            )
+            .run(
+              projectId,
+              'landed',
+              JSON.stringify({ details: result.details, push }),
+              Date.now(),
+            );
+        } catch {
+          /* landed telemetry is best-effort — never fail the land over it */
         }
         // POST-PUSH VERDICT RITUAL slice 3: fire-and-forget, never awaited —
         // a hung or slow watch must never make EXECUTE itself hang. `head()`
