@@ -109,6 +109,7 @@ describe('tracksLatest', () => {
     expect(tracksLatest('fable')).toBe(true);
     expect(tracksLatest('opus')).toBe(true);
     expect(tracksLatest('claude-fable-5-1')).toBe(false);
+    expect(tracksLatest('claude-opus-5-5')).toBe(false);
     expect(tracksLatest('claude-opus-5')).toBe(false);
   });
 

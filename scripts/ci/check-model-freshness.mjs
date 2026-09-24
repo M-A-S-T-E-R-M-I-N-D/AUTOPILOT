@@ -17,13 +17,24 @@
  *      alias for a family nobody has written down — so the fleet keeps
  *      flying the old set forever and nothing says a word.
  *
- * This check asks the installed Claude CLI what it will actually accept
- * and compares that to the catalogue. It is INFORMATIONAL by default:
- * a model launch must never turn into a red build for us. `--strict`
- * makes it fail, for a maintainer who wants the reminder to block.
+ * Case 2 is answered from the CLI's `--help` text, which names the family
+ * aliases and costs nothing. Case 1 cannot be: nothing free says which
+ * concrete version an alias resolves to today, so it is answered only
+ * behind `--probe`, which makes ONE real one-word call per family through
+ * the installed CLI and reads the model id off the reply. That spends
+ * real money (an Opus call is the dear one), so it is opt-in for a
+ * maintainer the day a model launches, never part of the gate. Without
+ * `--probe` the check SAYS it did not look, rather than implying it did:
+ * for two weeks this header promised case 1 while the code only ever did
+ * case 2, and the pinned Opus went stale the day Opus 5.5 shipped with
+ * the check reporting OK (2026-09-24).
+ *
+ * It is INFORMATIONAL by default: a model launch must never turn into a
+ * red build for us. `--strict` makes it fail, for a maintainer who wants
+ * the reminder to block.
  *
  * Usage:
- *   node scripts/ci/check-model-freshness.mjs [--strict]
+ *   node scripts/ci/check-model-freshness.mjs [--strict] [--probe]
  */
 
 import { execFileSync } from 'node:child_process';
@@ -32,6 +43,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const STRICT = process.argv.includes('--strict');
+const PROBE = process.argv.includes('--probe');
 const CATALOGUE_SRC = fileURLToPath(
   new URL('../../packages/engine/src/models.ts', import.meta.url),
 );
@@ -43,6 +55,81 @@ const CATALOGUE_SRC = fileURLToPath(
 function catalogueIds() {
   const src = readFileSync(CATALOGUE_SRC, 'utf8');
   return [...src.matchAll(/^\s*id:\s*'([^']+)'/gm)].map((m) => m[1]);
+}
+
+/** The catalogue's PINNED id per family, read the same source-level way.
+ *  Each entry is one `{ ... }` object literal carrying id, selector and
+ *  family; a pinned one is the version the picker offers by name. */
+export function cataloguePinnedIds(src = readFileSync(CATALOGUE_SRC, 'utf8')) {
+  const pinned = {};
+  for (const block of src.matchAll(/\{[^{}]*\}/g)) {
+    const text = block[0];
+    if (!/selector:\s*'pinned'/.test(text)) continue;
+    const id = text.match(/id:\s*'([^']+)'/)?.[1];
+    const family = text.match(/family:\s*'([^']+)'/)?.[1];
+    if (id !== undefined && family !== undefined) pinned[family] = id;
+  }
+  return pinned;
+}
+
+/**
+ * What a family alias resolves to RIGHT NOW: one real one-word call
+ * through the installed CLI, reading the concrete id off the reply's
+ * `modelUsage`. The CLI also bills a Haiku side-call on every run, so the
+ * id is picked by family, not taken blindly. `null` when the call fails
+ * or names nothing in that family.
+ */
+export function resolveAliasFromUsage(modelUsage, family) {
+  if (!modelUsage || typeof modelUsage !== 'object') return null;
+  const hit = Object.keys(modelUsage).find((id) => id.includes(`-${family}-`));
+  return hit ?? null;
+}
+
+function probeAlias(family) {
+  try {
+    const out = execFileSync(
+      'claude',
+      [
+        '-p',
+        'Reply with exactly the single word: ok',
+        '--model',
+        family,
+        '--max-turns',
+        '1',
+        '--output-format',
+        'json',
+      ],
+      {
+        windowsHide: true,
+        encoding: 'utf8',
+        timeout: 120_000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      },
+    );
+    let parsed = JSON.parse(out);
+    if (Array.isArray(parsed)) parsed = parsed[parsed.length - 1];
+    return resolveAliasFromUsage(parsed?.modelUsage, family);
+  } catch {
+    return null;
+  }
+}
+
+/** Case 1's finding logic, pure: pinned id per family vs what the alias
+ *  resolved to. A family the probe could not resolve is reported as such,
+ *  never silently passed. */
+export function findStalePins(pinned, resolved) {
+  const findings = [];
+  for (const [family, id] of Object.entries(pinned)) {
+    const now = resolved[family];
+    if (now === null || now === undefined) {
+      findings.push(`could not resolve what '${family}' points at today (pinned: ${id})`);
+    } else if (now !== id) {
+      findings.push(
+        `the catalogue pins '${id}' for ${family}, but '${family}' resolves to '${now}' today`,
+      );
+    }
+  }
+  return findings;
 }
 
 function catalogueFamilies() {
@@ -111,9 +198,23 @@ function main() {
     );
   }
 
+  const pinned = cataloguePinnedIds();
+  if (PROBE) {
+    const resolved = {};
+    for (const family of Object.keys(pinned)) resolved[family] = probeAlias(family);
+    findings.push(...findStalePins(pinned, resolved));
+  }
+
   if (findings.length === 0) {
     console.log(`model-freshness OK: catalogue covers every alias the CLI advertises.`);
     console.log(`  families: ${families.join(', ')} · ${ids.length} catalogued model(s).`);
+    console.log(
+      PROBE
+        ? `  pins verified live: ${Object.entries(pinned)
+            .map(([f, id]) => `${f}→${id}`)
+            .join(', ')}.`
+        : '  pinned versions NOT checked (needs a paid call per family): run with --probe after a model launch.',
+    );
     return;
   }
 

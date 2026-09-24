@@ -59,6 +59,21 @@ blocker for us. That trade is never worth it.
 
 ## Keeping up: `pnpm ci:model-freshness`
 
+Two kinds of staleness, checked two different ways. A whole new **family**
+the catalogue never heard of is read for free off the CLI's `--help` text
+and runs on every gate. A **pinned version** that is no longer what its
+alias resolves to cannot be read for free — nothing but a real call says
+what `opus` points at today — so that half runs only behind `--probe`:
+
+```sh
+node scripts/ci/check-model-freshness.mjs --probe   # one one-word call per family; the Opus one costs real money
+```
+
+Run it the day a model launches. Without `--probe` the check says plainly
+that the pins were not looked at, rather than reporting OK — which is what
+it did for two weeks while the pinned Opus fell a version behind
+(2026-09-24, the day Opus 5.5 shipped).
+
 Asks the installed CLI what aliases it advertises and compares them to the
 catalogue. **Informational by default** — a model launch must never turn
 into a red build here. `--strict` makes it fail for a maintainer who wants
