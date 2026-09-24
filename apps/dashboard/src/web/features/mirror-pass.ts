@@ -53,6 +53,15 @@
  * reconcile's exact shape too, so it also reuses
  * `mirrorPassExecuteResultMessage`.
  *
+ * A fifth, independent "Follow GitHub priority label(s)" button closes law
+ * 2's OTHER direction — `flight/mirror-pass-priority.ts`'s priority-follow
+ * planner, wired end-to-end server-side (`GET /api/mirror-pass/priority-follow`,
+ * `POST .../priority-follow/execute`) with zero dashboard trigger. Gated on
+ * `mirrorPassCanExecutePriorityFollow` (at least one priority-follow
+ * finding); its execute report shares reconcile's exact shape too (the write
+ * is a local store pin, never a `gh` call), so it also reuses
+ * `mirrorPassExecuteResultMessage`.
+ *
  * `web/shell.ts`'s `clientJs()` calls this indirectly through
  * `featureModulesJs()`, so its return value — not its compiled source — is
  * what lands in the served `/app.js` text; `discoverFeatureModules('web/
@@ -90,6 +99,7 @@ import {
   mirrorPassLandingNoteItems,
   mirrorPassStaleClaimItems,
   mirrorPassDriftItems,
+  mirrorPassPriorityFollowItems,
   mirrorPassItems,
   mirrorPassCanExecute,
   mirrorPassExecuteResultMessage,
@@ -97,23 +107,26 @@ import {
   mirrorPassDriftExecuteResultMessage,
   mirrorPassCanExecuteLandingNote,
   mirrorPassCanExecuteStaleClaim,
+  mirrorPassCanExecutePriorityFollow,
 } from '../mirror-pass-panel.js';
 
 /** The Mirror pass panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function mirrorPassJs(): string {
   return `
-// The eleven functions below are generated FROM web/mirror-pass-panel.ts
-// (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slices (c) and (c) v2) — their real
-// compiled source via .toString(), not a hand-retyped copy. It can no
-// longer drift apart. mirrorPassItems calls all four of the finding
-// formatters, so every one of them must be spliced in too (issue-triage.ts's
-// mirrorPassJs-equivalent splices all six of its own helpers for the same
-// reason) — a lone mirrorPassItems.toString() throws ReferenceError the
-// moment it runs, since its callees would not exist in this generated scope.
+// The thirteen functions below are generated FROM web/mirror-pass-panel.ts
+// (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slices (c) and (c) v2, board
+// web-mtrh1hlh-62l41b's priority-follow slice) — their real compiled source
+// via .toString(), not a hand-retyped copy. It can no longer drift apart.
+// mirrorPassItems calls all five of the finding formatters, so every one of
+// them must be spliced in too (issue-triage.ts's mirrorPassJs-equivalent
+// splices all six of its own helpers for the same reason) — a lone
+// mirrorPassItems.toString() throws ReferenceError the moment it runs, since
+// its callees would not exist in this generated scope.
 ${mirrorPassReconcileItems.toString()}
 ${mirrorPassLandingNoteItems.toString()}
 ${mirrorPassStaleClaimItems.toString()}
 ${mirrorPassDriftItems.toString()}
+${mirrorPassPriorityFollowItems.toString()}
 ${mirrorPassItems.toString()}
 ${mirrorPassCanExecute.toString()}
 ${mirrorPassExecuteResultMessage.toString()}
@@ -121,7 +134,8 @@ ${mirrorPassCanExecuteDrift.toString()}
 ${mirrorPassDriftExecuteResultMessage.toString()}
 ${mirrorPassCanExecuteLandingNote.toString()}
 ${mirrorPassCanExecuteStaleClaim.toString()}
-function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, canExecuteStaleClaim, pid) {
+${mirrorPassCanExecutePriorityFollow.toString()}
+function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, canExecuteStaleClaim, canExecutePriorityFollow, pid) {
   body.replaceChildren();
   items = items || [];
   if (!items.length) {
@@ -136,7 +150,7 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
     list.appendChild(el('li', 'mirror-pass-item', items[i].text));
   }
   body.appendChild(list);
-  if (canExecute || canExecuteDrift || canExecuteLandingNote || canExecuteStaleClaim) {
+  if (canExecute || canExecuteDrift || canExecuteLandingNote || canExecuteStaleClaim || canExecutePriorityFollow) {
     var actions = el('div', 'mirror-pass-actions');
     if (canExecute) {
       var runBtn = el('button', 'mirror-pass-execute', 'Run mirror pass');
@@ -193,6 +207,19 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
       staleClaimBtn.setAttribute('data-i18n-aria', 'mirrorPassStaleClaimExecuteTip');
       actions.appendChild(staleClaimBtn);
     }
+    if (canExecutePriorityFollow) {
+      var priorityFollowBtn = el('button', 'mirror-pass-execute', 'Follow GitHub priority label(s)');
+      priorityFollowBtn.type = 'button';
+      priorityFollowBtn.setAttribute('data-i18n', 'mirrorPassPriorityFollowExecute');
+      priorityFollowBtn.setAttribute('data-mirror-pass-priority-follow-execute', pid);
+      var priorityFollowTip =
+        'Pins every board task above to the priority band its maintainer-set GitHub label already carries.';
+      priorityFollowBtn.setAttribute('data-tip', priorityFollowTip);
+      priorityFollowBtn.setAttribute('data-i18n-tip', 'mirrorPassPriorityFollowExecuteTip');
+      priorityFollowBtn.setAttribute('aria-label', priorityFollowTip);
+      priorityFollowBtn.setAttribute('data-i18n-aria', 'mirrorPassPriorityFollowExecuteTip');
+      actions.appendChild(priorityFollowBtn);
+    }
     body.appendChild(actions);
     var resultEl = el('div', 'mirror-pass-result');
     resultEl.setAttribute('role', 'status');
@@ -209,6 +236,7 @@ function loadMirrorPassBody(body, pid) {
     fetch(base + '/landing-note' + qs).then(function (r) { return r.ok ? r.json() : { landingNote: null }; }),
     fetch(base + '/drift' + qs).then(function (r) { return r.ok ? r.json() : { drift: null }; }),
     fetch(base + '/stale-claims' + qs).then(function (r) { return r.ok ? r.json() : { staleClaims: null }; }),
+    fetch(base + '/priority-follow' + qs).then(function (r) { return r.ok ? r.json() : { priorityFollow: null }; }),
     socialIdentity(),
   ])
     .then(function (results) {
@@ -217,13 +245,15 @@ function loadMirrorPassBody(body, pid) {
       var landingNote = results[1] && results[1].landingNote;
       var drift = results[2] && results[2].drift;
       var staleClaims = results[3] && results[3].staleClaims;
+      var priorityFollow = results[4] && results[4].priorityFollow;
       var items = mirrorPassItems({
         reconcile: reconcile,
         landingNote: landingNote,
         drift: drift,
         staleClaims: staleClaims,
+        priorityFollow: priorityFollow,
       });
-      var identity = results[4] && results[4].identity;
+      var identity = results[5] && results[5].identity;
       renderMirrorPassBody(
         body,
         items,
@@ -231,6 +261,7 @@ function loadMirrorPassBody(body, pid) {
         mirrorPassCanExecuteDrift(identity, drift),
         mirrorPassCanExecuteLandingNote(identity, landingNote),
         mirrorPassCanExecuteStaleClaim(identity, staleClaims),
+        mirrorPassCanExecutePriorityFollow(identity, priorityFollow),
         pid,
       );
     })
@@ -419,6 +450,47 @@ document.addEventListener('click', function (e) {
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassStaleClaimRequestFailed');
+      }
+    });
+});
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-mirror-pass-priority-follow-execute]');
+  if (!b || b.disabled) return;
+  var pid = b.getAttribute('data-mirror-pass-priority-follow-execute');
+  if (!window.confirm(tr('mirrorPassPriorityFollowExecuteConfirm'))) return;
+  var body = b.closest('.mirror-pass-body');
+  var resultEl = body && body.querySelector('.mirror-pass-result');
+  b.disabled = true;
+  var originalText = b.textContent;
+  b.textContent = tr('mirrorPassPriorityFollowExecuting');
+  ritualFetch('mirror-pass', '/api/mirror-pass/priority-follow/execute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid }),
+  })
+    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+    .then(function (r) {
+      var result = mirrorPassExecuteResultMessage(r.status, r.data);
+      if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
+        b.disabled = false;
+        b.textContent = originalText;
+        if (resultEl) {
+          resultEl.className = result.className;
+          resultEl.textContent = result.text;
+        }
+        return;
+      }
+      // Same "success re-fetches" convention every other execute button
+      // above uses — a clean run pinned real board priorities, so reload the
+      // panel rather than leave the stale priority-follow findings on screen.
+      loadMirrorPassBody(body, pid);
+    })
+    .catch(function () {
+      b.disabled = false;
+      b.textContent = originalText;
+      if (resultEl) {
+        resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
+        resultEl.textContent = tr('mirrorPassPriorityFollowRequestFailed');
       }
     });
 });

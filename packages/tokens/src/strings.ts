@@ -1947,6 +1947,18 @@ const EN_STRINGS = {
     'Free the stale claim(s) above now? This unassigns every claimed pool issue whose assignee has gone quiet past the reap threshold.',
   mirrorPassStaleClaimExecuting: 'Freeing…',
   mirrorPassStaleClaimRequestFailed: 'Mirror pass stale-claim request failed.',
+  // Its "Follow GitHub priority label(s)" EXECUTE button (the fifth
+  // derivation's own execute path, law 2's GitHub-to-board direction) — same
+  // i18n shape as mirrorPassExecute above: idle label rides data-i18n, the
+  // tip doubles as the accessible name, and the confirm/in-flight/failure
+  // states are painted via tr() at click time.
+  mirrorPassPriorityFollowExecute: 'Follow GitHub priority label(s)',
+  mirrorPassPriorityFollowExecuteTip:
+    'Pins every board task above to the priority band its maintainer-set GitHub label already carries.',
+  mirrorPassPriorityFollowExecuteConfirm:
+    'Follow the GitHub priority label(s) above now? This pins every listed task to the priority band its issue label already carries.',
+  mirrorPassPriorityFollowExecuting: 'Pinning…',
+  mirrorPassPriorityFollowRequestFailed: 'Mirror pass priority-follow request failed.',
   // web/features/process-health.ts (board web-msnsndki-dz3vn1): the project
   // page's three process-health stat-tile panel titles. "DORA" is an acronym
   // (DevOps Research and Assessment) and stays Latin in every locale.
@@ -3089,6 +3101,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לשחרר את התביעות הישנות שלמעלה עכשיו? זה מבטל שיוך לכל issue תבוע שהאחראי עליו שקט מעבר לסף הקצירה.',
     mirrorPassStaleClaimExecuting: 'משחרר…',
     mirrorPassStaleClaimRequestFailed: 'בקשת שחרור התביעות הישנות של מעבר השיקוף נכשלה.',
+    mirrorPassPriorityFollowExecute: 'עקוב אחרי תוויות עדיפות מ-GitHub',
+    mirrorPassPriorityFollowExecuteTip:
+      'מנעץ כל משימה שלמעלה לרמת העדיפות שתווית ה-GitHub שקבע האחראי כבר נושאת.',
+    mirrorPassPriorityFollowExecuteConfirm:
+      'לעקוב אחרי תוויות העדיפות שלמעלה עכשיו? זה מנעץ כל משימה רשומה לרמת העדיפות שתווית ה-issue שלה כבר נושאת.',
+    mirrorPassPriorityFollowExecuting: 'מנעץ…',
+    mirrorPassPriorityFollowRequestFailed: 'בקשת מעקב-העדיפות של מעבר השיקוף נכשלה.',
     doraTitle: 'בריאות התהליך (DORA)',
     gateParallelTitle: 'חיסכון משער מקבילי',
     warmSessionsTitle: 'מפגשים חמים',
