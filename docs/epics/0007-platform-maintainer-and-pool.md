@@ -11,7 +11,7 @@ endpoints (2026-08-16..17); canonical-lock, review ritual, and report-from-here
 remain open board slices; the contributor pool client (slice 6) shipped end to end —
 browse/claim/fly/deliver all landed; slice 7's publicity affordances have also
 shipped end to end — page upkeep continues as a live KEEPER duty, not a closeable
-deliverable (status refreshed 2026-09-22).
+deliverable (status refreshed 2026-09-25).
 
 Founder directive (2026-08-14, expanding epic 0006): the moment the infrastructure
 lands, there is exactly ONE canonical main version. **MASTERMIND is the sole manager of
@@ -855,9 +855,15 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    work either way it lands first) now have an HTTP/UI path: execute takes
    an optional `project` id, and the panel grew a per-issue project `<select>`
    (populated from the live fleet, patched in place as fleet state arrives
-   so an early panel paint never leaves it stuck empty) — picking a project
-   before claiming also queues the local task there; leaving it unset claims
-   on GitHub only, same as before. Covered by
+   so an early panel paint never leaves it stuck empty) — a claimed issue's
+   task can only go to a project whose git origin matches the GitHub repository
+   the issue lives in; `flight/project-repo.ts` reads and caches each project's
+   origin URL from git, one match locks the picker automatically (with a tip
+   explaining why), zero matches says there is no local checkout of that
+   repository, and several matches offer only those choices. The server enforces
+   the same rule: a task for a project not a checkout of the issue's repository
+   is refused with the reason, never quietly redirected. Leaving the project
+   unset claims on GitHub only, same as before. Covered by
    `test/flight/pool-client-execute.test.ts`,
    `test/web/pool-client-panel.test.ts`, and an axe-clean check in
    `test/web/a11y.test.ts`. The PR-delivery leg referencing the issue also
