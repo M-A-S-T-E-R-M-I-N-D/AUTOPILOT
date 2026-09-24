@@ -50,7 +50,11 @@ for flying untrusted targets, or on a shared machine, or unattended.
    additional read-hygiene denial (generated/vendored paths waste context, not a
    security control). The same hook also denies destructive git — force-push,
    `reset --hard`, `rebase`, `branch -D`, checking out/switching to `main`, `clean -f`,
-   `filter-branch` — the SOUL's "additive git only" rule, previously prompt-only and
+   `filter-branch`, and a `git revert` of anything but a bare `HEAD` (shipped
+   2026-09-06, after a live flight's nine-deep revert cascade destroyed
+   already-landed work reacting to a stale red-main verdict — see
+   `docs/debriefs/2026-09-06-red-main-revert-cascade.md` and THREAT-MODEL.md's T12)
+   — the SOUL's "additive git only" rule, previously prompt-only and
    now enforced here too. It also denies a `git commit` that hand-writes its own
    `Signed-off-by:` trailer (`commitSignoffDenial`, shipped 2026-09-05) — `git commit -s`
    derives that trailer from the repository identity, and a hand-typed one can name
