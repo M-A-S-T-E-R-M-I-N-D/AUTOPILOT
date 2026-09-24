@@ -1293,6 +1293,9 @@ const EN_STRINGS = {
   // rebuilt fresh on every 30s poll or click, so tr() at build time is the
   // sweep, the same reasoning report-menu.ts's keys followed.
   poolNoLocalTask: 'No local task',
+  poolNoLocalCheckout: 'No local checkout of {repo}',
+  poolRoutedByRepo:
+    'Routed automatically: this is the registered project whose git origin is {repo}.',
   poolProjectSelectAria: 'Local project to queue a board task on (optional)',
   poolProjectSelectTip:
     'Also queue a local board task on this project when claiming — leave unset to only claim on GitHub.',
@@ -2612,6 +2615,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'לאנשים: שמור לבני אדם, הצי עוקף אותם. תבעו אחד ב-GitHub עם ‎/claim; ההדרכה למטה.',
     ciStatusTitle: 'מצב CI',
     poolNoLocalTask: 'ללא משימה מקומית',
+    poolNoLocalCheckout: 'אין עותק מקומי של {repo}',
+    poolRoutedByRepo: 'ניתוב אוטומטי: זה הפרויקט הרשום שה-origin שלו ב-git הוא {repo}.',
     poolProjectSelectAria: 'פרויקט מקומי להוספת משימת לוח (אופציונלי)',
     poolProjectSelectTip:
       'מוסיף גם משימת לוח מקומית לפרויקט הזה בעת התביעה — השאירו ללא בחירה כדי לתבוע רק ב-GitHub.',

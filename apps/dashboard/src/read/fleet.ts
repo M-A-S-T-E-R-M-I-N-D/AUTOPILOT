@@ -318,6 +318,10 @@ export interface ProjectAggregate {
    *  fixtures/read paths that predate this field still type-check; a real
    *  read always sets it explicitly. */
   readonly rootPath?: string;
+  /** `owner/repo` this project's git origin points at, or null when it is not
+   *  connected to GitHub. Tasks route by it: a claimed issue's board task goes
+   *  only to a project that is a checkout of the issue's repository. */
+  readonly githubRepo?: string | null;
   readonly status: ProjectStatus;
   readonly createdAt: number;
   readonly fileCount: number;

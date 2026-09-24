@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
@@ -26,13 +27,22 @@ function execFor(issues: unknown[], viewerLogin: string | undefined): CliExec {
   });
 }
 
-function project(s: Store, id: string): void {
+function project(s: Store, id: string, root: string = '/tmp/' + id): void {
   s.db
     .prepare(
       `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
        VALUES (?, ?, ?, ?, 'flying', NULL, ?, ?)`,
     )
-    .run(id, id, id, '/tmp/' + id, 100, 100);
+    .run(id, id, id, root, 100, 100);
+}
+
+/** A real git checkout whose origin is `remote` — routing reads the project's
+ *  actual git remote, so the fixture has to have one. */
+function checkoutOf(remote: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'ap-pool-checkout-'));
+  execFileSync('git', ['init', '-q', dir], { windowsHide: true });
+  execFileSync('git', ['-C', dir, 'remote', 'add', 'origin', remote], { windowsHide: true });
+  return dir;
 }
 
 function tasks(s: Store, projectId: string): { id: string; source: string }[] {
@@ -136,11 +146,11 @@ describe('createPoolClientExecuteApi', () => {
       expect(result.taskQueued).toBe(false);
     }));
 
-  it('also queues a local board task when a known project id is given', async () =>
+  it('also queues a local board task on a project that is a checkout of the issue repository', async () =>
     withTempDb(async (dbPath) => {
       const s = openStore(dbPath);
       migrate(s);
-      project(s, 'p1');
+      project(s, 'p1', checkoutOf('https://github.com/example/repo.git'));
       s.close();
 
       const exec = execFor(
@@ -165,6 +175,36 @@ describe('createPoolClientExecuteApi', () => {
       const s2 = openStore(dbPath, { readonly: true });
       try {
         expect(tasks(s2, 'p1')).toEqual([{ id: 'github-42', source: 'github' }]);
+      } finally {
+        s2.close();
+      }
+    }));
+
+  it('claims on GitHub but refuses to queue the task on a project that is a checkout of another repository', async () =>
+    withTempDb(async (dbPath) => {
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'calc', checkoutOf('https://github.com/someone/calculator.git'));
+      s.close();
+      const exec = execFor(
+        [
+          {
+            number: 42,
+            title: 'Keyboard nav is broken',
+            url: 'https://github.com/example/repo/issues/42',
+            labels: [{ name: 'pool: accessibility' }],
+            assignees: [],
+          },
+        ],
+        'octocat',
+      );
+      const result = await createPoolClientExecuteApi(dbPath, exec)(42, 'calc');
+      expect(result.decision.decision).toBe('claim');
+      expect(result.taskQueued).toBe(false);
+      expect(result.route).toMatchObject({ ok: false, reason: 'not-connected' });
+      const s2 = openStore(dbPath, { readonly: true });
+      try {
+        expect(tasks(s2, 'calc')).toEqual([]);
       } finally {
         s2.close();
       }

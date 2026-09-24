@@ -28,7 +28,9 @@ describe('the Pool client panel reads its per-entry static text from STRINGS', (
   const out = poolClientJs();
 
   it('translates the "No local task" option', () => {
-    expect(out).toContain("noneOpt.textContent = tr('poolNoLocalTask');");
+    expect(out).toContain("tr('poolNoLocalTask')");
+    expect(out).toContain("tr('poolNoLocalCheckout')");
+    expect(out).toContain("tr('poolRoutedByRepo')");
     expect(out).not.toContain("'No local task'");
   });
 
@@ -163,7 +165,11 @@ describe('the Pool client panel paints in the active locale (live, full bundle)'
       expect(document.querySelector('.pool-client-project')).not.toBeNull();
     });
     const select = document.querySelector('.pool-client-project') as HTMLSelectElement;
-    expect(select.options[0]?.textContent).toBe(STRINGS.he.poolNoLocalTask);
+    // p1 is not a checkout of example/repo, so the row says so — in Hebrew
+    expect(select.options[0]?.textContent).toBe(
+      STRINGS.he.poolNoLocalCheckout.replace('{repo}', 'example/repo'),
+    );
+    expect(select.disabled).toBe(true);
     expect(select.getAttribute('aria-label')).toBe(STRINGS.he.poolProjectSelectAria);
     const claimBtn = document.querySelector('.pool-client-execute') as HTMLButtonElement;
     expect(claimBtn.textContent).toBe(STRINGS.he.poolClaim);
