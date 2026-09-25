@@ -189,9 +189,10 @@ The first question anyone should ask an agent that edits code.
 ## It builds itself — and you can audit the claim
 
 Most of this repository's commits were shipped by AUTOPILOT's own fleets. The same screen, at
-three points in its own history, each frame taken from the README that shipped at that version:
+five points in its own history, each earlier frame taken from the README that shipped at that
+version, and today's in the terminal theme with every effect on:
 
-![The fleet home at v0.21.0, v0.42.0 and today, side by side](docs/screens/evolution.png)
+![The fleet home at v0.10.0, v0.21.0, v0.42.0, v0.49.0 and today in the terminal theme, side by side](docs/screens/evolution.png)
 
 ```bash
 git log --format=%B | grep -c "Firing-Prompt-Version"   # commits carrying the fleet's trailer

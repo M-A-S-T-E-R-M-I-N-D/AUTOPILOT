@@ -39,6 +39,9 @@ const MINUTE = 60_000;
 const OUT = process.argv[2] || join(ROOT, 'docs', 'screens');
 const FOLDER = '~/src/checkout-web';
 const VIEWPORT = { width: 1440, height: 1030 };
+/** Every frame is a returning operator's view: the getting-started guide
+ *  hidden, so the page shows the product rather than the checklist. */
+const RETURNING_OPERATOR = { 'ap-ob-snooze': 'forever' };
 
 const idleFlight = {
   running: false,
@@ -138,17 +141,26 @@ const luckyRoll = {
 
 /**
  * @param {import('@playwright/test').Browser} browser
- * @param {{ theme: 'dark' | 'light', path?: string, flight?: object, stageProgress?: boolean }} opts
+ * @param {{ theme: 'dark' | 'light' | 'terminal', path?: string, flight?: object, stageProgress?: boolean, prefs?: object, storage?: Record<string, string> }} opts
  */
-async function open(browser, { theme, path = '/', flight = idleFlight, stageProgress = false }) {
+async function open(
+  browser,
+  { theme, path = '/', flight = idleFlight, stageProgress = false, prefs = null, storage = RETURNING_OPERATOR },
+) {
   const context = await browser.newContext({
     viewport: VIEWPORT,
     deviceScaleFactor: 2,
-    colorScheme: theme,
+    colorScheme: theme === 'light' ? 'light' : 'dark',
     locale: 'en-US',
   });
   const page = await context.newPage();
   await page.addInitScript((t) => localStorage.setItem('ap-theme', t), theme);
+  if (prefs) {
+    await page.addInitScript((p) => localStorage.setItem('ap-prefs', p), JSON.stringify(prefs));
+  }
+  await page.addInitScript((entries) => {
+    for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v);
+  }, storage);
   await page.clock.install({ time: NOW + 2 * MINUTE });
   await page.route(
     (u) => u.pathname === '/api/fly',
@@ -189,7 +201,11 @@ async function settle(page, ms = 300) {
   await page.clock.runFor(ms);
 }
 
-const browser = await chromium.launch();
+// AP_CAPTURE_CHANNEL=msedge (or chrome) uses an installed browser when
+// Playwright's own build is not downloaded on this machine.
+const browser = await chromium.launch(
+  process.env.AP_CAPTURE_CHANNEL ? { channel: process.env.AP_CAPTURE_CHANNEL } : {},
+);
 try {
   // 1 + 2 — lock on, then the Lucky roll.
   let { context, page } = await open(browser, { theme: 'dark' });
@@ -236,6 +252,17 @@ try {
     console.log('wrote', file);
     await context.close();
   }
+  // The terminal theme with every effect on — scanlines, glow, the HUD bar,
+  // green phosphor — the look the evolution strip ends on (2026-09-25).
+  ({ context, page } = await open(browser, {
+    theme: 'terminal',
+    prefs: { scanlines: 'on', glow: 'on', hud: 'shown', phosphor: 'green' },
+  }));
+  await page.locator('.project-card, .card').first().waitFor();
+  await page.clock.runFor(2000);
+  await page.screenshot({ path: join(OUT, 'fleet-terminal.png') });
+  console.log('wrote fleet-terminal.png');
+  await context.close();
   ({ context, page } = await open(browser, { theme: 'dark', path: '/p/demo-checkout-web' }));
   await page.clock.runFor(2000);
   await page.screenshot({ path: join(OUT, 'project-dark.png') });

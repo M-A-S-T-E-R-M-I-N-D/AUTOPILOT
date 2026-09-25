@@ -7,6 +7,8 @@
  * `docs/screens/fleet-dark.png` that shipped at that version, read straight
  * out of git (`git show <sha>:<path>`), or a committed frame for an era that
  * predates those files — so the strip cannot drift from what was true at the time.
+ * The last column is today's `docs/screens/fleet-terminal.png`, the terminal
+ * theme with every effect on, retaken by `scripts/docs/capture-screens.mjs`.
  *
  * The first column predates the public repository. Its frame was taken by
  * checking the MYTH backup tag out into a worktree, installing and building
@@ -62,10 +64,17 @@ const FRAMES = [
     caption: 'The app shell: subjects on a rail, a context rail beside the page, the board as columns, ⌘K.',
   },
   {
-    sha: 'HEAD',
+    sha: '0822cff6',
+    version: 'v0.49.0',
+    date: '2026-09-14',
+    caption: 'The fleet home ranked by its one verb: the Fly bar first, an icon cluster, settings and hue.',
+  },
+  {
+    file: 'docs/screens/fleet-terminal.png',
     version: 'today',
     date: '',
-    caption: 'The fleet home ranked by its one verb: the Fly bar first, an icon cluster, settings and hue.',
+    caption:
+      'The terminal theme with every effect on: scanlines, glow, the HUD bar. Five lanes fly at once, every red names its cause, and each new version opens with what changed.',
   },
 ];
 
@@ -112,8 +121,13 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   span { font-size: 13px; color: #9fb3c8; }
 </style></head><body><main>${cards}</main></body></html>`;
 
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1648, height: 900 }, deviceScaleFactor: 1.25 });
+const browser = await chromium.launch(
+  process.env.AP_CAPTURE_CHANNEL ? { channel: process.env.AP_CAPTURE_CHANNEL } : {},
+);
+const page = await browser.newPage({
+  viewport: { width: 48 + frames.length * 400, height: 900 },
+  deviceScaleFactor: 1.25,
+});
 await page.setContent(html);
 await page.waitForTimeout(400);
 const box = await page.locator('main').boundingBox();
