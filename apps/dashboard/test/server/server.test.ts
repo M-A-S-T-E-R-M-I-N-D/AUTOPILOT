@@ -4164,6 +4164,47 @@ describe('createServer (live loopback)', () => {
     expect(streamRes.status).toBe(429);
   });
 
+  // Epic 0024 (board web-mtywp7wk-tkdwhi): the plan reads with the outcomes of its last run.
+  it("GET /api/plan carries the project's last gate run beside the plan, null when none", async () => {
+    const run = {
+      firingId: 'p1:firing-9',
+      at: 900,
+      checks: [{ label: 'pnpm test', pass: false, durationMs: 1200 }],
+    };
+    const stored = { ecosystem: 'js', test: { bin: 'pnpm', args: ['test'], label: 'pnpm test' } };
+    const asked: string[] = [];
+    const base = await start({
+      plan: {
+        read: (project) =>
+          project === 'p1' ? JSON.stringify(stored) : project === 'p2' ? null : undefined,
+        publish: () => false,
+        lastGate: (project) => {
+          asked.push(project);
+          return project === 'p1' ? run : null;
+        },
+      },
+    });
+    const p1 = await (await fetch(`${base}/api/plan?project=p1`)).json();
+    expect(p1).toEqual({ ok: true, spec: stored, gate: run });
+    const p2 = await (await fetch(`${base}/api/plan?project=p2`)).json();
+    expect(p2).toEqual({ ok: true, spec: null, gate: null });
+    // An unknown project is refused before any run is read.
+    expect((await fetch(`${base}/api/plan?project=ghost`)).status).toBe(404);
+    expect(asked).toEqual(['p1', 'p2']);
+  });
+
+  it('GET /api/plan answers gate: null, never a missing field, when no run reader is wired', async () => {
+    const stored = { ecosystem: 'js', test: { bin: 'pnpm', args: ['test'], label: 'pnpm test' } };
+    const base = await start({
+      plan: { read: () => JSON.stringify(stored), publish: () => false },
+    });
+    expect(await (await fetch(`${base}/api/plan?project=p1`)).json()).toEqual({
+      ok: true,
+      spec: stored,
+      gate: null,
+    });
+  });
+
   it('GET /api/plan reads the stored flight plan; POST /api/plan/publish validates and writes it', async () => {
     const published: unknown[] = [];
     const stored = { ecosystem: 'js', test: { bin: 'pnpm', args: ['test'], label: 'pnpm test' } };

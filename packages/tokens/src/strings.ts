@@ -1258,6 +1258,12 @@ const EN_STRINGS = {
   planEditorDiscard: 'Discard draft',
   planEditorUndo: 'Undo',
   planEditorRedo: 'Redo',
+  planEditorOutcomePass: 'passed',
+  planEditorOutcomeFail: 'failed',
+  planEditorOutcomeNone: 'not run',
+  planEditorLastRun: 'Last gate run {ago}: {passed}/{total} passed.',
+  planEditorLastRunFailed: 'Failed: {labels}',
+  planEditorNoRun: 'No gate run yet.',
   soulRatifyConfirm:
     'Replace the live SOUL prompt with the proposed text?\n\nYou can undo this afterward with un-ratify.',
   soulUnratifyConfirm:
@@ -2593,6 +2599,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     planEditorDiscard: 'בטל טיוטה',
     planEditorUndo: 'בטל',
     planEditorRedo: 'בצע שוב',
+    planEditorOutcomePass: 'עבר',
+    planEditorOutcomeFail: 'נכשל',
+    planEditorOutcomeNone: 'לא רץ',
+    planEditorLastRun: 'ריצת שער אחרונה ({ago}): {passed} מתוך {total} עברו.',
+    planEditorLastRunFailed: 'נכשלו: {labels}',
+    planEditorNoRun: 'אין עדיין ריצת שער.',
     soulRatifyConfirm:
       'להחליף את הנחיית ה-SOUL החיה בטקסט המוצע?\n\nניתן לבטל זאת לאחר מכן באמצעות ביטול-אישור.',
     soulUnratifyConfirm:

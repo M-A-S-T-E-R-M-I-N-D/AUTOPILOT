@@ -144,7 +144,7 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     typecheck: { bin: 'pnpm', args: ['run', 'typecheck'], label: 'pnpm run typecheck' },
     test: { bin: 'pnpm', args: ['run', 'test'], label: 'pnpm run test' },
   };
-  function bootWithPlan(planStatus = 200): void {
+  function bootWithPlan(planStatus = 200, gate: unknown = null): void {
     document.open();
     document.write(renderShell('p1'));
     document.close();
@@ -157,7 +157,7 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
         return {
           ok: planStatus === 200,
           status: planStatus,
-          json: async () => ({ ok: true, spec: SPEC }),
+          json: async () => ({ ok: true, spec: SPEC, gate }),
         } as unknown as Response;
       }
       return { ok: true, json: async () => STATE } as unknown as Response;
@@ -290,6 +290,60 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     expect(cmd().value).toBe('pnpm run test');
     undoBtn().click();
     expect(cmd().value).toBe('pnpm run test -- --coverage');
+  });
+
+  // Epic 0024 (board web-mtywp7wk-tkdwhi): "the gate as a readable plan with outcomes".
+  it('reads as the gate it is: each step carries its last-run outcome, one line tallies the run', async () => {
+    bootWithPlan(200, {
+      firingId: 'p1:firing-9',
+      at: Date.now() - 5 * 60 * 1000,
+      checks: [
+        { label: 'pnpm run typecheck', pass: true, durationMs: 4200 },
+        { label: 'pnpm run test', pass: false, durationMs: 3000 },
+        { label: 'pnpm run test', pass: false, durationMs: 61000 },
+        { label: 'ci:doc-links', pass: false, durationMs: 200 },
+        { label: 'ci:spdx', pass: true, durationMs: null },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(1);
+    const outcome = (kind: string) =>
+      step(kind).querySelector('.plan-step-outcome') as HTMLElement | null;
+    expect(outcome('typecheck')?.getAttribute('data-outcome')).toBe('pass');
+    expect(outcome('typecheck')?.textContent).toBe(`${STRINGS.en['planEditorOutcomePass']} · 4s`);
+    // The re-run's verdict and duration are the step's outcome, and the step reads as failed.
+    expect(outcome('test')?.getAttribute('data-outcome')).toBe('fail');
+    expect(outcome('test')?.textContent).toBe(`${STRINGS.en['planEditorOutcomeFail']} · 1m 1s`);
+    expect(step('test').classList.contains('plan-step-failed')).toBe(true);
+    expect(step('typecheck').classList.contains('plan-step-failed')).toBe(false);
+    // An off step claims no outcome.
+    expect(outcome('lint')).toBeNull();
+    // The whole run, ci checks included, at a glance — and what failed, by name.
+    const lines = Array.from(document.querySelectorAll('.plan-last-run p')).map(
+      (p) => p.textContent,
+    );
+    expect(lines).toEqual([
+      'Last gate run 5m ago: 2/4 passed.',
+      'Failed: pnpm run test, ci:doc-links',
+    ]);
+
+    // A draft that changes the command has not run yet — and says so, until it is undone.
+    step('typecheck').click();
+    const cmd = document.querySelector('[data-plan-command="typecheck"]') as HTMLInputElement;
+    cmd.value = 'tsc -b';
+    cmd.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(outcome('typecheck')?.getAttribute('data-outcome')).toBe('none');
+    expect(outcome('typecheck')?.textContent).toBe(STRINGS.en['planEditorOutcomeNone']);
+    (document.querySelector('[data-plan-undo]') as HTMLElement).click();
+    expect(outcome('typecheck')?.getAttribute('data-outcome')).toBe('pass');
+  });
+
+  it('says plainly when no gate run is recorded yet, and draws no outcomes', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(document.querySelector('.plan-last-run')?.textContent).toBe(
+      STRINGS.en['planEditorNoRun'],
+    );
+    expect(document.querySelector('.plan-step-outcome')).toBeNull();
   });
 
   it('leads the Plan subject: the editor comes before the observed pipeline', async () => {

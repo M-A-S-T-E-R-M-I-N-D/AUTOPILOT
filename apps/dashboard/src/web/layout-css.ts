@@ -2190,6 +2190,16 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .plan-status { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
 .plan-status-draft { color: var(--color-needs-you); }
 .plan-actions { display: flex; gap: var(--space-2); }
+/* THE PLAN WITH ITS OUTCOMES (epic 0024): one line tallies the last recorded
+   gate run and names what failed; each step says what that run did with it,
+   in words — color only reinforces, and a failed step's border says so too. */
+.plan-last-run { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+.plan-last-run p { margin: 0; }
+.plan-last-run-failed { color: var(--color-sev-critical); }
+.plan-step-outcome { font-size: var(--text-xs); color: var(--color-text-muted); }
+.plan-step-outcome[data-outcome="pass"] { color: var(--color-success); }
+.plan-step-outcome[data-outcome="fail"] { color: var(--color-sev-critical); font-weight: 600; }
+.plan-step-failed { border-color: var(--color-sev-critical); }
 /* BIDI LAWS (RTL audit, 2026-09-12): user content keeps its own direction —
    an English issue title inside a Hebrew page reads left-to-right, is
    ellipsised at its own end and keeps its number first; code, commands and

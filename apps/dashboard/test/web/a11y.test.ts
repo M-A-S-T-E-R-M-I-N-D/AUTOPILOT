@@ -1312,4 +1312,40 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     const found = await violations();
     expect(found.map((v) => v.id)).toEqual([]);
   });
+
+  it('the FLIGHT PLAN with its last-run outcomes — passed, failed, and the run tally — is axe-clean', async () => {
+    // Epic 0024 (board web-mtywp7wk-tkdwhi): the outcome chips, the failed step's border and
+    // the tally lines exist only once /api/plan carries a gate run, so scan them there.
+    const spec = {
+      ecosystem: 'js',
+      typecheck: { bin: 'pnpm', args: ['run', 'typecheck'], label: 'pnpm run typecheck' },
+      test: { bin: 'pnpm', args: ['run', 'test'], label: 'pnpm run test' },
+    };
+    const gate = {
+      firingId: 'p1:firing-9',
+      at: Date.now() - 60_000,
+      checks: [
+        { label: 'pnpm run typecheck', pass: true, durationMs: 4200 },
+        { label: 'pnpm run test', pass: false, durationMs: 9000 },
+      ],
+    };
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/plan')) {
+        return { ok: true, json: async () => ({ ok: true, spec, gate }) };
+      }
+      return { ok: true, json: async () => SAMPLE_STATE };
+    }) as unknown as typeof fetch;
+
+    new Function(clientJs())();
+    await vi.waitFor(() => {
+      expect(document.querySelector('.plan-step-outcome[data-outcome="fail"]')).not.toBeNull();
+    });
+    expect(document.querySelector('.plan-step-outcome[data-outcome="pass"]')).not.toBeNull();
+    expect(document.querySelector('.plan-step-failed')).not.toBeNull();
+    expect(document.querySelector('.plan-last-run-failed')).not.toBeNull();
+
+    const found = await violations();
+    expect(found.map((v) => v.id)).toEqual([]);
+  });
 });

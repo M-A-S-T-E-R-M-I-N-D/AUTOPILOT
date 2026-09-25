@@ -130,6 +130,7 @@ export type { CollaborationApi };
 import { handleCiStatus } from './ci-status-route.js';
 import { handleWhatsNew } from './whats-new-route.js';
 import type { WhatsNewApi } from '../read/whats-new.js';
+import type { GateRun } from '../read/mutate.js';
 import type { CiStatusApi } from '../control/ci-status.js';
 import { handleDonations } from './donations.js';
 import type { DonationsPreviewApi } from '../flight/donations.js';
@@ -769,6 +770,9 @@ export interface TasksApi {
 export interface PlanApi {
   read(project: string): string | null | undefined;
   publish(project: string, spec: GateSpec): boolean;
+  /** The project's last recorded gate run — the plan's outcomes (epic 0024);
+   *  null when none is recorded. Optional: without it the plan reads bare. */
+  lastGate?(project: string): GateRun | null;
 }
 
 export interface ServerDeps extends RouteDeps {
@@ -1504,7 +1508,8 @@ function pipelineChoice<T extends string>(
  * `autopilot.item` continuation edges appear (epic 0015 D4, web-mtdc6wq3-5wuc6i).
  */
 /** `GET /api/plan?project=<id>` — the stored flight plan as JSON (`spec`
- *  null when the project has none). */
+ *  null when the project has none), with `gate`: the last recorded gate
+ *  run's per-command outcomes, or null. */
 function handlePlanRead(
   req: IncomingMessage,
   res: ServerResponse,
@@ -1531,15 +1536,14 @@ function handlePlanRead(
     send(404, { error: 'unknown project' });
     return;
   }
-  if (stored === null) {
-    send(200, { ok: true, spec: null });
-    return;
-  }
+  const gate = api.lastGate?.(project) ?? null;
+  let spec: unknown;
   try {
-    send(200, { ok: true, spec: JSON.parse(stored) as unknown });
+    spec = stored === null ? null : (JSON.parse(stored) as unknown);
   } catch {
-    send(200, { ok: true, spec: null });
+    spec = null;
   }
+  send(200, { ok: true, spec, gate });
 }
 
 /** `POST /api/plan/publish` `{project, spec}` — validate the edited plan

@@ -9,6 +9,8 @@ import {
   parseCommandLine,
   planStepsFromSpec,
   planSpecFromSteps,
+  planStepOutcome,
+  gateRunTally,
 } from '../../src/web/plan-editor.js';
 import { validateGateSpec } from '../../src/plan-guard.js';
 
@@ -77,6 +79,64 @@ describe('the flight plan editor — pure half', () => {
     const verdict = validateGateSpec(spec);
     expect(verdict.ok).toBe(true);
     if (verdict.ok) expect(verdict.spec).toEqual(SPEC);
+  });
+});
+
+// Epic 0024 (board web-mtywp7wk-tkdwhi): "the gate as a readable plan with outcomes" — each
+// step shows what the last recorded gate run said about it.
+describe('the flight plan editor — outcomes from the last gate run', () => {
+  const pass = (label: string, durationMs = 1000) => ({ label, pass: true, durationMs });
+  const fail = (label: string, durationMs = 1000) => ({ label, pass: false, durationMs });
+
+  it('matches a step to the check the gate recorded under its label', () => {
+    const steps = planStepsFromSpec(SPEC);
+    const checks = [pass('pnpm run typecheck', 4200), fail('tests', 9000)];
+    expect(planStepOutcome(steps[0]!, checks)).toEqual(pass('pnpm run typecheck', 4200));
+    expect(planStepOutcome(steps[3]!, checks)).toEqual(fail('tests', 9000));
+  });
+
+  it('has no outcome for a step that is off, or one the run never recorded', () => {
+    const steps = planStepsFromSpec(SPEC);
+    const checks = [pass('pnpm run lint')];
+    // lint is off in this plan: a check under the same label is not its outcome.
+    expect(planStepOutcome(steps[1]!, checks)).toBeNull();
+    // a draft that renames typecheck's command has not run yet.
+    expect(planStepOutcome({ ...steps[0]!, label: 'tsc -b' }, [pass('pnpm run typecheck')])).toBe(
+      null,
+    );
+    expect(planStepOutcome(steps[0]!, [])).toBeNull();
+  });
+
+  it('gives a draft step no outcome once it differs from the published step', () => {
+    const published = planStepsFromSpec(SPEC)[0]!;
+    const checks = [pass('pnpm run typecheck')];
+    expect(planStepOutcome(published, checks, published)).toEqual(pass('pnpm run typecheck'));
+    // Same label, new command: the gate ran the old one.
+    const edited = { ...published, command: 'tsc -b' };
+    expect(planStepOutcome(edited, checks, published)).toBeNull();
+    // Turned on in the draft only: never ran.
+    const lint = planStepsFromSpec(SPEC)[1]!;
+    const lintOn = { ...lint, enabled: true, command: 'pnpm run lint', label: 'pnpm run lint' };
+    expect(planStepOutcome(lintOn, [pass('pnpm run lint')], lint)).toBeNull();
+  });
+
+  it('takes the last verdict when a remediated gate re-ran a label', () => {
+    const steps = planStepsFromSpec(SPEC);
+    const checks = [fail('tests', 3000), pass('pnpm run typecheck'), pass('tests', 8000)];
+    expect(planStepOutcome(steps[3]!, checks)).toEqual(pass('tests', 8000));
+  });
+
+  it('tallies the run by final verdict per label and names what failed, in order', () => {
+    expect(gateRunTally([])).toEqual({ total: 0, passed: 0, failed: [] });
+    expect(
+      gateRunTally([
+        fail('pnpm run format'),
+        pass('pnpm run typecheck'),
+        pass('pnpm run format'),
+        fail('ci:doc-links'),
+        fail('ci:spdx'),
+      ]),
+    ).toEqual({ total: 4, passed: 2, failed: ['ci:doc-links', 'ci:spdx'] });
   });
 });
 

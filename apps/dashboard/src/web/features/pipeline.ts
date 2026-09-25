@@ -100,6 +100,8 @@ import {
   parseCommandLine,
   planStepsFromSpec,
   planSpecFromSteps,
+  planStepOutcome,
+  gateRunTally,
 } from '../plan-editor.js';
 import {
   pipelineApiUrl,
@@ -126,6 +128,8 @@ ${planDraftKey.toString()}
 ${parseCommandLine.toString()}
 ${planStepsFromSpec.toString()}
 ${planSpecFromSteps.toString()}
+${planStepOutcome.toString()}
+${gateRunTally.toString()}
 // PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline SVG is a camera.
 // Wheel or pinch zooms about the pointer, a drag on the background pans, a
 // node press never pans (it selects), double-click or 0 fits, +/- and the
@@ -264,6 +268,47 @@ function pipelineSwitchGroup(cls, label, labelI18nKey, options, state, key, onCh
 // builder converged on — so a half-typed command never reaches a landing.
 // Discard returns to the published plan. Read-only wherever /api/plan is not
 // served (visitors, the e2e fixtures).
+// OUTCOMES (epic 0024, "the gate as a readable plan with outcomes"): /api/plan
+// also sends the last recorded gate run; each enabled step says what it did
+// there, in words with its duration (color only reinforces), and one line
+// above the chain tallies the whole run — install and the ci:* checks too —
+// naming whatever failed. A draft step whose command was renamed has not run
+// yet and says so.
+function planOutcomeNode(outcome) {
+  var key = outcome ? (outcome.pass ? 'planEditorOutcomePass' : 'planEditorOutcomeFail') : 'planEditorOutcomeNone';
+  var out = el('span', 'plan-step-outcome');
+  out.setAttribute('data-outcome', outcome ? (outcome.pass ? 'pass' : 'fail') : 'none');
+  var word = el('span', null, tr(key));
+  word.setAttribute('data-i18n', key);
+  out.appendChild(word);
+  if (outcome && typeof outcome.durationMs === 'number') {
+    out.appendChild(document.createTextNode(' · ' + (outcome.durationMs < 500 ? '<1s' : fmtDuration(outcome.durationMs))));
+  }
+  return out;
+}
+function planLastRunNode(gate) {
+  var wrap = el('div', 'plan-last-run');
+  if (!gate) {
+    var none = el('p', null, tr('planEditorNoRun'));
+    none.setAttribute('data-i18n', 'planEditorNoRun');
+    wrap.appendChild(none);
+    return wrap;
+  }
+  var tally = gateRunTally(gate.checks);
+  var args = { ago: fmtAgo(gate.at), passed: tally.passed, total: tally.total };
+  var line = el('p', null, tr('planEditorLastRun', args));
+  line.setAttribute('data-i18n-template', 'planEditorLastRun');
+  line.setAttribute('data-i18n-args', JSON.stringify(args));
+  wrap.appendChild(line);
+  if (tally.failed.length > 0) {
+    var failedArgs = { labels: tally.failed.join(', ') };
+    var failed = el('p', 'plan-last-run-failed', tr('planEditorLastRunFailed', failedArgs));
+    failed.setAttribute('data-i18n-template', 'planEditorLastRunFailed');
+    failed.setAttribute('data-i18n-args', JSON.stringify(failedArgs));
+    wrap.appendChild(failed);
+  }
+  return wrap;
+}
 function planEditorSection(pid) {
   var wrap = el('section', 'plan-editor');
   var title = panelHeading('h3', 'plan-editor-title', 'planEditorTitle', 'pen-line');
@@ -271,7 +316,7 @@ function planEditorSection(pid) {
   var body = el('div', 'plan-editor-body');
   body.appendChild(el('p', 'muted', tr('planEditorLoading')));
   wrap.appendChild(body);
-  var state = { published: null, draft: null, selected: 'typecheck', note: '', past: [], future: [] };
+  var state = { published: null, draft: null, selected: 'typecheck', note: '', past: [], future: [], gate: null };
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
   // Snapshot-based history (the React Flow / tldraw idiom): every edit pushes
   // the draft it replaced; undo pops it back and parks the current one for
@@ -311,13 +356,17 @@ function planEditorSection(pid) {
   function render() {
     body.replaceChildren();
     var steps = planStepsFromSpec(state.draft);
+    var live = planStepsFromSpec(state.published);
+    body.appendChild(planLastRunNode(state.gate));
     var chain = el('div', 'plan-chain');
     var selected = null;
     steps.forEach(function (s, i) {
       if (i > 0) { var arrow = el('span', 'plan-arrow', '→'); arrow.setAttribute('aria-hidden', 'true'); chain.appendChild(arrow); }
       var isSel = s.kind === state.selected;
       if (isSel) selected = s;
-      var node = el('button', 'plan-step' + (s.enabled ? '' : ' plan-step-off') + (isSel ? ' plan-step-selected' : ''));
+      var outcome = state.gate && s.enabled ? planStepOutcome(s, state.gate.checks, live[i]) : null;
+      var failed = !!(outcome && !outcome.pass);
+      var node = el('button', 'plan-step' + (s.enabled ? '' : ' plan-step-off') + (failed ? ' plan-step-failed' : '') + (isSel ? ' plan-step-selected' : ''));
       node.type = 'button';
       node.setAttribute('data-plan-step', s.kind);
       node.setAttribute('aria-pressed', String(isSel));
@@ -325,6 +374,7 @@ function planEditorSection(pid) {
       var off = el('span', 'plan-step-label', s.enabled ? s.command : tr('planEditorStepOff'));
       if (!s.enabled) off.setAttribute('data-i18n', 'planEditorStepOff');
       node.appendChild(off);
+      if (state.gate && s.enabled) node.appendChild(planOutcomeNode(outcome));
       chain.appendChild(node);
     });
     body.appendChild(chain);
@@ -433,6 +483,7 @@ function planEditorSection(pid) {
       if (!data || !data.ok || !data.spec) { body.replaceChildren(el('p', 'muted', tr('planEditorUnavailable'))); return; }
       state.published = data.spec;
       state.draft = clone(data.spec);
+      state.gate = data.gate && Array.isArray(data.gate.checks) && typeof data.gate.at === 'number' ? data.gate : null;
       try {
         var saved = localStorage.getItem(planDraftKey(pid));
         if (saved) { var parsed = JSON.parse(saved); if (parsed && typeof parsed === 'object') state.draft = parsed; }
