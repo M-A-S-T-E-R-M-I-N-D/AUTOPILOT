@@ -75,19 +75,31 @@ export const CLAIM_RELEASE_RE =
  * Comments are walked oldest-first: a claim sentence opens (or renews) that
  * login's claim, a release sentence closes it, and any later comment by a
  * live claimant refreshes their activity. Assignees without a claim comment
- * are claims of unknown date. Ordered oldest claim first, unknown dates
- * first (an assignee with no comment was almost certainly there earliest).
+ * are claims of unknown date. A login last released stays released even if
+ * it is still in `assignees` — the reaper's release note lands before its
+ * paired `--remove-assignee` call, so a failed unassign must not resurrect
+ * the claim it just ended. Ordered oldest claim first, unknown dates first
+ * (an assignee with no comment was almost certainly there earliest).
  */
 export function claimLedger(
   assignees: readonly string[],
   comments: readonly IssueCommentLike[],
 ): readonly PoolClaim[] {
   const live = new Map<string, PoolClaim>();
+  // Logins whose most recent comment event was a release, not yet reopened
+  // by a later claim. GitHub's own assignee list can still name one of
+  // these — the reaper posts its release note before the paired
+  // `--remove-assignee` call, so a failed unassign leaves them assigned —
+  // and the release note must win: it is the durable, deliberate half of
+  // the claim, the raw assignee list is just what the API call happened to
+  // manage.
+  const released = new Set<string>();
   const ordered = [...comments].sort((a, b) => a.createdAt - b.createdAt);
   for (const comment of ordered) {
     const claim = CLAIM_COMMENT_RE.exec(comment.body);
     if (claim) {
       const login = claim[2] as string;
+      released.delete(login);
       live.set(login, {
         login,
         claimedAt: comment.createdAt,
@@ -99,13 +111,16 @@ export function claimLedger(
     }
     const release = CLAIM_RELEASE_RE.exec(comment.body);
     if (release) {
-      live.delete(release[1] as string);
+      const login = release[1] as string;
+      live.delete(login);
+      released.add(login);
       continue;
     }
     const own = live.get(comment.author);
     if (own) live.set(comment.author, { ...own, lastActivityAt: comment.createdAt });
   }
   for (const login of assignees) {
+    if (released.has(login)) continue;
     const known = live.get(login);
     live.set(
       login,
