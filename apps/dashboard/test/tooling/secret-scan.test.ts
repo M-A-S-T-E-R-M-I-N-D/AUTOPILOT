@@ -220,5 +220,21 @@ describe('findSecrets', () => {
       expect(finding?.rule).toBe('url-embedded-credentials');
       expect(finding?.match).toBe('*******');
     });
+
+    it('still fully masks a match sitting exactly on the reveal threshold', () => {
+      // Scheme separator, one-char user, colon, TWO-char password, '@': 8
+      // characters — the boundary itself. Below it (7, above) and above it
+      // (32, above) are both covered, but only a value landing ON the
+      // threshold tells `<=` apart from `<`: with `<` the 8-character secret
+      // would take the prefix/suffix path and come back unredacted (4 + 0
+      // masked + 4 = every character revealed), which is the one regression
+      // the redaction exists to prevent. The shape is deliberately not
+      // spelled out here either — secret-scan.mjs scans this comment too
+      // (it caught the first draft of this very test).
+      const line = 'postgres:' + '//a:bc@localhost/db';
+      const [finding] = findSecrets(line);
+      expect(finding?.rule).toBe('url-embedded-credentials');
+      expect(finding?.match).toBe('********');
+    });
   });
 });
