@@ -44,7 +44,11 @@ export const SCOREBOARD_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
  *  family's newest model, so a launch reaches a tier without a code change. */
 export const TIER_CANDIDATES: Readonly<Record<ModelTier, readonly string[]>> = {
   escalated: ['fable', 'opus'],
-  default: ['sonnet', 'opus'],
+  // Fable joins the default tier (2026-09-26): the escalated tier's thresholds
+  // are strict enough that it never came up once the scoreboard went live, so
+  // Fable was never measured and "is Opus 5.5 as good as Fable?" had no answer.
+  // Here all three meet the same ordinary work; the rule picks after 15 each.
+  default: ['sonnet', 'opus', 'fable'],
   mechanical: ['haiku', 'sonnet'],
 };
 
