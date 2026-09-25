@@ -688,7 +688,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-viewer-edit-btn[aria-pressed="true"] { color: var(--color-accent); border-color: var(--color-accent); }
 .docs-editor-panes { display: flex; flex-direction: column; gap: var(--space-3); }
 .docs-editor-textarea, .docs-editor-preview { min-height: 16rem; max-height: 32rem; }
-.docs-editor-textarea { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.6; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: inherit; resize: vertical; }
+.docs-editor-textarea { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.6; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: inherit; }
 .docs-editor-textarea:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -1px; }
 .docs-editor-preview { overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
 .docs-editor-actions { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
@@ -899,6 +899,17 @@ main.project-mode { grid-template-columns: 1fr; }
 .pipeline-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .pipeline-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0 0 var(--space-3); }
 .pipeline-panel { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-3); }
+/* The sidebar holds the drill-in toggle above the tree (epic 0024); the tree
+   opens on the latest firing and the earlier lanes wait [hidden] — which
+   .pipeline-lane's own display:flex would otherwise override. */
+.pipeline-sidebar { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.pipeline-lane[hidden] { display: none; }
+/* The drill-in is the same disclosure row as .firing-toggle: muted at rest,
+   the shape-morph lift on hover/focus, accent-bordered while open. */
+.pipeline-lanes-toggle { display: flex; align-items: center; width: 100%; text-align: start; padding: 3px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); cursor: pointer; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.pipeline-lanes-toggle:hover, .pipeline-lanes-toggle:focus-visible { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.pipeline-lanes-toggle:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.pipeline-lanes-toggle[aria-expanded="true"] { border-color: var(--color-accent); color: var(--color-text); }
 .pipeline-tree { flex: none; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); max-block-size: 70vh; overflow: auto; overscroll-behavior: contain; }
 .pipeline-lane { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .pipeline-lane-label { color: var(--color-text-muted); font-size: var(--text-xs); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2105,7 +2116,7 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
      the width to sit on one line under the folder. */
   main { padding: var(--space-5) var(--page-inline); gap: var(--space-4); }
   .pipeline-panel { flex-direction: row; align-items: flex-start; }
-  .pipeline-tree { flex: 0 1 32%; min-width: 12em; }
+  .pipeline-sidebar { flex: 0 1 32%; min-width: 12em; }
   /* The docs reader goes two-pane from md: the file rail beside the document
      rather than stacked above it, so the index stops competing with the thing
      being read. The heading spans both columns. Below md it stays stacked —

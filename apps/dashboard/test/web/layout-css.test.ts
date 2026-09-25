@@ -75,6 +75,18 @@ describe('layoutCss — pipeline canvas/tree status and selection styling', () =
     expect(css).toMatch(/\.pipeline-item\[data-connected='true'\]\s*\{/);
   });
 
+  it('really hides a collapsed lane — .pipeline-lane display:flex would beat the UA [hidden] rule', () => {
+    expect(css).toMatch(/\.pipeline-lane\s*\{[^}]*display:\s*flex/);
+    expect(css).toContain('.pipeline-lane[hidden] { display: none; }');
+  });
+
+  it('styles the drill-in toggle with a designed hover/focus and open state (epic 0024)', () => {
+    expect(css).toMatch(/\.pipeline-lanes-toggle:hover, \.pipeline-lanes-toggle:focus-visible \{/);
+    expect(css).toMatch(
+      /\.pipeline-lanes-toggle\[aria-expanded="true"\] \{[^}]*var\(--color-accent\)/,
+    );
+  });
+
   it('gives canvas nodes a real fill/stroke instead of SVG rect defaults', () => {
     expect(css).toMatch(/\.pipeline-node rect\s*\{[^}]*fill:\s*var\(--color-/);
     expect(css).toMatch(/\.pipeline-node rect\s*\{[^}]*stroke:\s*var\(--color-/);
