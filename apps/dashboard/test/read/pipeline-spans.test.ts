@@ -56,6 +56,7 @@ const BASE_RECORD: FiringRecord = {
   pickedRank: null,
   deviationReason: null,
   commitSubject: 'feat(engine): OTLP export for firing records',
+  instanceId: null,
 };
 
 describe('firingPayloadSpan', () => {

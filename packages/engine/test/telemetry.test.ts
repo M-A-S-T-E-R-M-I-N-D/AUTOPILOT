@@ -522,6 +522,7 @@ const CTX: FiringContext = {
   guardDenialDetails: [],
   subscriptionPriceUsd: null,
   machineWide30dListPriceUsd: null,
+  instanceId: null,
 };
 
 describe('buildFiringRecord', () => {

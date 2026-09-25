@@ -64,6 +64,7 @@ const BASE_RECORD: FiringRecord = {
   pickedRank: null,
   deviationReason: null,
   commitSubject: 'feat(engine): OTLP export for firing records',
+  instanceId: null,
 };
 
 function attr(attributes: readonly OtlpKeyValue[], key: string): OtlpKeyValue | undefined {

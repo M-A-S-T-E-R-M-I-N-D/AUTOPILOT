@@ -466,6 +466,7 @@ export async function runFiring(
     guardDenialDetails,
     subscriptionPriceUsd: config.subscriptionPriceUsd,
     machineWide30dListPriceUsd: input.machineWide30dListPriceUsd,
+    instanceId: config.instanceId,
   };
   // Task proposals ride the same persisted record (events payload) so the
   // flight harness can surface them on the operator's board for APPROVAL.
