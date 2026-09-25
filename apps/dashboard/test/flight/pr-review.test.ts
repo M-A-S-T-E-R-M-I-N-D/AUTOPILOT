@@ -1475,6 +1475,12 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/mirror-pass.ts'])).toBe(true);
   });
 
+  it('flags the board→issues export planner — it decides which board tasks become public GitHub issues and plans the gh issue create/edit argv, yet ends in neither "-execute.ts" nor any security keyword', () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/board-issue-export.ts'])).toBe(
+      true,
+    );
+  });
+
   it('flags the engine package modules that perform the real git merge/tag writes behind the landing and release EXECUTE endpoints, even without a security-keyword path', () => {
     expect(touchesSecuritySensitivePath(['packages/engine/src/landing.ts'])).toBe(true);
     expect(touchesSecuritySensitivePath(['packages/engine/src/release.ts'])).toBe(true);
