@@ -1657,7 +1657,13 @@ function renderFleetWisdom(state) {
 // entry point itself must always be findable.
 function soulEditorPanel(projectId, soulText) {
   var details = el('details', 'soul-editor');
-  var summary = el('summary', 'soul-editor-summary', '✎ view/edit SOUL');
+  var summary = el('summary', 'soul-editor-summary');
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): a leading pencil icon
+  // replaces the baked-in ✎ glyph — setSweptText() (features/locale.ts) keeps
+  // this icon in place across a locale switch instead of overwriting the
+  // whole element's textContent.
+  summary.appendChild(iconEl('pencil'));
+  summary.appendChild(document.createTextNode('view/edit SOUL'));
   summary.setAttribute('data-i18n', 'soulEditorSummary');
   details.appendChild(summary);
   var form = document.createElement('form');

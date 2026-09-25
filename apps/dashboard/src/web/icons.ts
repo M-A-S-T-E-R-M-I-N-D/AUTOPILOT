@@ -419,6 +419,17 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' }],
     ['circle', { cx: '12', cy: '7', r: '4' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the SOUL editor
+  // summary drops its baked-in ✎ glyph.
+  pencil: [
+    [
+      'path',
+      {
+        d: 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z',
+      },
+    ],
+    ['path', { d: 'm15 5 4 4' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

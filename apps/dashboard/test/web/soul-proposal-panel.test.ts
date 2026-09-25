@@ -330,6 +330,7 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('.soul-editor-summary')?.getAttribute('data-i18n')).toBe(
       'soulEditorSummary',
     );
+    expect(document.querySelector('.soul-editor-summary svg.icon-pencil')).not.toBeNull();
     const label = document.querySelector('.soul-editor-form label');
     expect(label?.getAttribute('data-i18n')).toBe('soulEditorLabel');
     const submit = document.querySelector('.soul-editor-form button[type="submit"]');
@@ -366,6 +367,9 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('.soul-editor-summary')?.textContent).toBe(
       STRINGS.he.soulEditorSummary,
     );
+    // setSweptText() (features/locale.ts) must keep the leading pencil icon
+    // as the element's first child, replacing only the trailing text node.
+    expect(document.querySelector('.soul-editor-summary svg.icon-pencil')).not.toBeNull();
   });
 
   it('switching to Hebrew translates the SOUL proposal panel and un-ratify chip', async () => {
