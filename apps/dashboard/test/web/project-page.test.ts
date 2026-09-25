@@ -335,6 +335,70 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     expect(focused('[data-plan-step="lint"]')).toBe(true);
   });
 
+  // Epic 0024 (board web-mtywp7wk-tkdwhi, "arrow keys move selection"): the chain was five
+  // Tab stops and a keyboard user reached the step's fields only past all of them. It is
+  // now the WAI-ARIA tabs pattern: one Tab stop, arrows select, the fields are its panel.
+  it('moves the selected step with the arrow keys, Home and End — one Tab stop, the fields its panel', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    const focused = (selector: string) => document.activeElement?.matches(selector) ?? false;
+    const key = (k: string) =>
+      (document.activeElement as HTMLElement).dispatchEvent(
+        new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }),
+      );
+    const selectedKind = () =>
+      document
+        .querySelector('[data-plan-step][aria-selected="true"]')
+        ?.getAttribute('data-plan-step');
+
+    const chain = document.querySelector('.plan-chain') as HTMLElement;
+    expect(chain.getAttribute('role')).toBe('tablist');
+    const title = document.getElementById(chain.getAttribute('aria-labelledby') ?? '');
+    expect(title?.textContent).toBe(STRINGS.en['planEditorTitle']);
+    const tabs = Array.from(document.querySelectorAll('[data-plan-step]'));
+    expect(tabs.map((t) => t.getAttribute('role'))).toEqual(Array(5).fill('tab'));
+    expect(tabs.some((t) => t.hasAttribute('aria-pressed'))).toBe(false);
+    expect(tabs.map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1', '-1']);
+    expect(selectedKind()).toBe('typecheck');
+    const panel = document.getElementById(step('typecheck').getAttribute('aria-controls') ?? '');
+    expect(panel?.getAttribute('role')).toBe('tabpanel');
+    expect(panel?.getAttribute('aria-labelledby')).toBe(step('typecheck').id);
+    expect(panel?.querySelector('[data-plan-command="typecheck"]')).not.toBeNull();
+
+    // Right moves the selection and the focus together; the panel follows.
+    step('typecheck').focus();
+    key('ArrowRight');
+    expect(selectedKind()).toBe('lint');
+    expect(focused('[data-plan-step="lint"]')).toBe(true);
+    expect(step('lint').getAttribute('tabindex')).toBe('0');
+    expect(step('typecheck').getAttribute('tabindex')).toBe('-1');
+    expect(document.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(
+      step('lint').id,
+    );
+    expect(document.querySelector('[data-plan-enabled="lint"]')).not.toBeNull();
+
+    // End and Home jump to the ends; Right from the last and Left from the first wrap.
+    key('End');
+    expect(focused('[data-plan-step="build"]')).toBe(true);
+    key('ArrowRight');
+    expect(focused('[data-plan-step="typecheck"]')).toBe(true);
+    key('ArrowLeft');
+    expect(focused('[data-plan-step="build"]')).toBe(true);
+    key('Home');
+    expect(selectedKind()).toBe('typecheck');
+    expect(focused('[data-plan-step="typecheck"]')).toBe(true);
+
+    // Moving the selection is not an edit: no draft, nothing to undo.
+    expect(window.localStorage.getItem('ap-plan-draft:p1')).toBeNull();
+    expect((document.querySelector('[data-plan-undo]') as HTMLButtonElement).disabled).toBe(true);
+
+    // Right to left (Hebrew), the chain draws mirrored: Left is the next step.
+    document.documentElement.dir = 'rtl';
+    key('ArrowLeft');
+    expect(focused('[data-plan-step="lint"]')).toBe(true);
+    document.documentElement.dir = 'ltr';
+  });
+
   it('never pulls focus into the editor when the redraw started elsewhere', async () => {
     bootWithPlan();
     await vi.advanceTimersByTimeAsync(1);

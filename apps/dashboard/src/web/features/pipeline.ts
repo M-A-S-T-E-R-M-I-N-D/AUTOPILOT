@@ -101,6 +101,7 @@ import {
   planStepsFromSpec,
   planSpecFromSteps,
   planStepOutcome,
+  planStepMove,
   gateRunTally,
 } from '../plan-editor.js';
 import {
@@ -129,6 +130,7 @@ ${parseCommandLine.toString()}
 ${planStepsFromSpec.toString()}
 ${planSpecFromSteps.toString()}
 ${planStepOutcome.toString()}
+${planStepMove.toString()}
 ${gateRunTally.toString()}
 // PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline SVG is a camera.
 // Wheel or pinch zooms about the pointer, a drag on the background pans, a
@@ -312,6 +314,7 @@ function planLastRunNode(gate) {
 function planEditorSection(pid) {
   var wrap = el('section', 'plan-editor');
   var title = panelHeading('h3', 'plan-editor-title', 'planEditorTitle', 'pen-line');
+  title.id = 'plan-editor-heading';
   wrap.appendChild(title);
   var body = el('div', 'plan-editor-body');
   body.appendChild(el('p', 'muted', tr('planEditorLoading')));
@@ -384,6 +387,8 @@ function planEditorSection(pid) {
     var live = planStepsFromSpec(state.published);
     body.appendChild(planLastRunNode(state.gate));
     var chain = el('div', 'plan-chain');
+    chain.setAttribute('role', 'tablist');
+    chain.setAttribute('aria-labelledby', 'plan-editor-heading');
     var selected = null;
     steps.forEach(function (s, i) {
       if (i > 0) { var arrow = el('span', 'plan-arrow', '→'); arrow.setAttribute('aria-hidden', 'true'); chain.appendChild(arrow); }
@@ -393,8 +398,12 @@ function planEditorSection(pid) {
       var failed = !!(outcome && !outcome.pass);
       var node = el('button', 'plan-step' + (s.enabled ? '' : ' plan-step-off') + (failed ? ' plan-step-failed' : '') + (isSel ? ' plan-step-selected' : ''));
       node.type = 'button';
+      node.id = 'plan-step-tab-' + s.kind;
       node.setAttribute('data-plan-step', s.kind);
-      node.setAttribute('aria-pressed', String(isSel));
+      node.setAttribute('role', 'tab');
+      node.setAttribute('aria-selected', String(isSel));
+      node.setAttribute('aria-controls', 'plan-step-panel');
+      node.setAttribute('tabindex', isSel ? '0' : '-1');
       node.appendChild(el('span', 'plan-step-kind', s.kind));
       var off = el('span', 'plan-step-label', s.enabled ? s.command : tr('planEditorStepOff'));
       if (!s.enabled) off.setAttribute('data-i18n', 'planEditorStepOff');
@@ -405,6 +414,9 @@ function planEditorSection(pid) {
     body.appendChild(chain);
     if (selected) {
       var props = el('div', 'plan-props');
+      props.id = 'plan-step-panel';
+      props.setAttribute('role', 'tabpanel');
+      props.setAttribute('aria-labelledby', 'plan-step-tab-' + selected.kind);
       var enabled = document.createElement('input');
       enabled.type = 'checkbox';
       enabled.checked = selected.enabled;
@@ -494,6 +506,21 @@ function planEditorSection(pid) {
     var k = String(e.key || '').toLowerCase();
     if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
     else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
+  });
+  // ARROW KEYS (epic 0024): the chain is the WAI-ARIA tabs pattern with
+  // automatic activation — one Tab stop, the arrows and Home/End move the
+  // selection and the focus together, the fields below are its panel.
+  // Selection is never history, so moving it touches no draft.
+  body.addEventListener('keydown', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-plan-step]') : null;
+    if (!t || e.ctrlKey || e.metaKey || e.altKey) return;
+    var next = planStepMove(planStepKinds(), t.getAttribute('data-plan-step'), e.key, document.documentElement.dir === 'rtl');
+    if (!next) return;
+    e.preventDefault();
+    state.selected = next;
+    render();
+    var tab = body.querySelector('#plan-step-tab-' + next);
+    if (tab) tab.focus();
   });
   body.addEventListener('change', function (e) {
     var t = e.target;
