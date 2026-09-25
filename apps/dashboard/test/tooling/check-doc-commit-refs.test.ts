@@ -47,6 +47,17 @@ describe('findShaCitations', () => {
     ]);
   });
 
+  it('collects every citation on a single line, in document order — a second SHA must not hide behind the first', () => {
+    // A refactor from `matchAll` to a single `match`/`exec` would keep every
+    // other fixture green (each has at most one span per line) while silently
+    // dropping the second citation — and main() would then never ask git
+    // whether that second SHA is reachable at all.
+    expect(findShaCitations('reverted in `aaaaaaa`, relanded as `bbbbbbb` the same day.')).toEqual([
+      { line: 1, sha: 'aaaaaaa' },
+      { line: 1, sha: 'bbbbbbb' },
+    ]);
+  });
+
   it('does not flag a bare unquoted hex word in prose — a URL fragment or article slug, not a citation (the false positive this scanner is deliberately narrow to avoid)', () => {
     const text = 'See the writeup ending in 71923df63d01 for background.';
     expect(findShaCitations(text)).toEqual([]);

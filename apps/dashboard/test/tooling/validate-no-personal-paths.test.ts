@@ -86,6 +86,17 @@ describe('findPersonalPaths', () => {
     expect(other[0]!.rule).toBe('personal-email');
   });
 
+  it("exempts the operator's declared public identity in any letter case, since the rule's `i` flag matches it in any case", () => {
+    // Without the `toLowerCase()` in the exemption, a capitalised mention of
+    // the one sanctioned address (a heading, a shouted attribution) would be
+    // flagged as a leak while the lowercase spelling passed — the exemption
+    // must be exactly as case-insensitive as the rule that feeds it. Pinned
+    // here because the whole suite otherwise only ever spells it in lowercase.
+    expect(findPersonalPaths('Maintainer: INTJ MASTERMIND <INTJMSTRMND@' + 'Gmail.com>')).toEqual(
+      [],
+    );
+  });
+
   it("exempts the repo's placeholder operator home in its escaped double-backslash form", () => {
     // A JS string literal that embeds an escaped Windows path reads, on disk,
     // as a *doubled* backslash before each segment — exactly the shape

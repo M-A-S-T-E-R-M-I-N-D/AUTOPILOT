@@ -279,6 +279,20 @@ describe('createUpdateBranchApi — the way out of the one blocked state that ha
 
     expect((await createUpdateBranchApi(broken)(34)).updated).toBe(false);
   });
+
+  it('reports honestly — and pushes nothing — when the initial gh view call itself fails', async () => {
+    const calls: string[][] = [];
+    const unreachable: CliExec = async (bin, args) => {
+      calls.push([bin, ...args]);
+      return { code: 1, stdout: '' };
+    };
+
+    const result = await createUpdateBranchApi(unreachable)(34);
+
+    expect(result.updated).toBe(false);
+    expect(result.reason).toBe('Could not read #34 from gh (exit 1).');
+    expect(calls.some((c) => c[2] === 'update-branch')).toBe(false);
+  });
 });
 
 /**
@@ -365,5 +379,40 @@ describe('createRerunChecksApi — restarts only what failed', () => {
       args[0] === 'run' ? { code: 1, stdout: '' } : base(bin, args);
 
     expect((await createRerunChecksApi(refusing)(33)).rerun).toBe(false);
+  });
+
+  it('reports a partial success when gh restarts some runs but refuses others', async () => {
+    const MIXED: PrReviewCandidate = {
+      ...GREEN,
+      checkRuns: [
+        { name: 'verify (ubuntu-latest)', state: 'pass' },
+        {
+          name: 'verify (macos-latest)',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/900/job/1',
+        },
+        {
+          name: 'verify (windows-latest)',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/901/job/2',
+        },
+        {
+          name: 'e2e',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/902/job/3',
+        },
+      ],
+    };
+    const calls: string[][] = [];
+    const base = execReturningRaw(MIXED, calls);
+    const partial: CliExec = async (bin, args) =>
+      args[0] === 'run' && args[2] === '902' ? { code: 1, stdout: '' } : base(bin, args);
+
+    const result = await createRerunChecksApi(partial)(33);
+
+    expect(result.rerun).toBe(true);
+    expect(result.runs).toBe(2);
+    expect(result.reason).toContain('Re-running the failed jobs in 2 runs');
+    expect(result.reason).toContain('(1 refused)');
   });
 });

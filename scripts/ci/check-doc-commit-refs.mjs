@@ -68,7 +68,20 @@ export function findShaCitations(text) {
   /** @type {{ line: number, sha: string }[]} */
   const citations = [];
   const lines = text.split('\n');
+  // Stryker disable next-line EqualityOperator: the `<=` bound runs one extra
+  // iteration over `lines[lines.length]`, which the `?? ''` below turns into
+  // an empty line SHA_CITATION_RE cannot match (it needs a backtick and seven
+  // hex characters) — no citation, no observable change. Its sibling `>=`
+  // mutant behaves exactly like the `if (false)` ConditionalExpression mutant
+  // on this same line (zero iterations, no citations), which
+  // check-doc-commit-refs.test.ts's positive fixtures DO kill, so nothing is
+  // lost by disabling the operator. Same loop, same proof as secret-scan.mjs.
   for (let i = 0; i < lines.length; i++) {
+    // Stryker disable next-line StringLiteral: the `''` fallback only exists
+    // to satisfy noUncheckedIndexedAccess — every index the loop above reaches
+    // is in bounds, so the fallback is never evaluated and no test can cover
+    // a mutant sitting on it. The `??` -> `&&` LogicalOperator mutant on this
+    // line stays live and IS killed (it blanks every line, so nothing matches).
     const line = lines[i] ?? '';
     for (const m of line.matchAll(SHA_CITATION_RE)) {
       citations.push({ line: i + 1, sha: m[1] });
@@ -77,6 +90,14 @@ export function findShaCitations(text) {
   return citations;
 }
 
+// Stryker disable all: everything from here to the end of the file is the
+// gate's process shell — `listTrackedMarkdown` shells out to `git ls-files`,
+// `isReachableFromHead` to `git merge-base`, and `main` reads every tracked
+// doc from disk and calls `process.exit` — so it can only be exercised by
+// running the gate for real. The logic it delegates to, `findShaCitations`,
+// IS mutation-tested (config/mutation/stryker.ci-check-doc-commit-refs.config.mjs).
+// (The `isMain` entry line at the bottom of the file is covered by this same
+// directive: a mutant on it could only fire `main()` during a test import.)
 /** @returns {string[]} */
 function listTrackedMarkdown() {
   const out = execFileSync(
