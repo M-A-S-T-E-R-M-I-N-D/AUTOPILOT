@@ -91,6 +91,15 @@ describe('fileConvergenceRedTask', () => {
     expect(tasks()).toHaveLength(2);
   });
 
+  it('files a different failing check filed in the SAME millisecond as its own task', () => {
+    // Two fleet flights (or two checks in one gate run) can both call this
+    // with the identical `now` — the id must not collide just because the
+    // millisecond does.
+    expect(fileConvergenceRedTask(store, RED)).toBe('filed');
+    expect(fileConvergenceRedTask(store, { ...RED, check: 'pnpm run test' })).toBe('filed');
+    expect(tasks()).toHaveLength(2);
+  });
+
   it('files nothing for a crash or an ungated lane — no firing can fix those in code', () => {
     expect(
       fileConvergenceRedTask(store, { ...RED, check: 'pnpm run test (crashed, no verdict)' }),
