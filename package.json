@@ -25,7 +25,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:impacted": "vitest run --changed HEAD~1 && pnpm run test:registry-guards",
-    "test:registry-guards": "vitest run apps/dashboard/test/flight/pr-review.test.ts apps/dashboard/test/tooling/generate-splice-manifest.test.ts apps/dashboard/test/tooling/chunks.test.ts apps/dashboard/test/server/client-bundle-size-budget.test.ts",
+    "test:registry-guards": "node scripts/ci/run-repo-census-tests.mjs",
     "e2e": "pnpm run build && playwright test --config=apps/dashboard/e2e/playwright.config.ts",
     "dashboard": "pnpm run build && node apps/dashboard/dist/server/main.js",
     "dashboard:start": "pnpm run build && node apps/dashboard/dist/control/cli.js start",
