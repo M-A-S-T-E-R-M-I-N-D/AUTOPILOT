@@ -98,7 +98,10 @@ const REPORT_MENU_EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable
 /** The single right-click "Report from here" menu + dialog — vanilla,
  *  external (keeps CSP script-src 'self'). The menu item and the dialog
  *  <h2> both lead with the vendored flag stroke icon (epic 0025 icon
- *  system) instead of baking an emoji glyph into the label. */
+ *  system) instead of baking an emoji glyph into the label; the copy-
+ *  toolkit items below the separator each carry their own vendored icon
+ *  the same way, down to the last two (puzzle/brain, epic 0025
+ *  continuation). */
 export function reportMenuJs(): string {
   return `
 var REPORT_MENU_EDITABLE_SELECTOR = ${JSON.stringify(REPORT_MENU_EDITABLE_SELECTOR)};
@@ -283,7 +286,7 @@ function openReportMenu(x, y) {
   }, 'clipboard-list');
   reportMenuAddItem(tr('reportCopyHtmlLabel'), tr('reportCopyHtmlTip'), function (it) {
     reportMenuCopy(target ? target.outerHTML : '', it);
-  });
+  }, 'puzzle');
   reportMenuAddItem(tr('reportCopySelectorLabel'), tr('reportCopySelectorTip'), function (it) {
     reportMenuCopy(reportMenuSelectorOf(target), it);
   }, 'target');
@@ -292,7 +295,7 @@ function openReportMenu(x, y) {
   }, 'palette');
   reportMenuAddItem(tr('reportCopyContextLabel'), tr('reportCopyContextTip'), function (it) {
     reportMenuCopy(reportMenuContextOf(target, window.__autopilotReportCapture), it);
-  });
+  }, 'brain');
   document.body.appendChild(reportMenuEl);
   var vw = window.innerWidth, vh = window.innerHeight;
   var rect = reportMenuEl.getBoundingClientRect();

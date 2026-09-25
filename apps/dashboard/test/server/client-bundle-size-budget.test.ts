@@ -297,7 +297,12 @@ import {
 // (lock, user) in web/icons.ts, which lives in core same as every other
 // vendored shape. Measured 262150B raw against the old 262144B budget: 6
 // bytes over.
-const CORE_RAW_BUDGET = 257 * 1024;
+// Then core raw 257→258KB (2026-09-25), epic 0025 icon system continuation
+// (board web-mtywp7zq-55f3o9): the report menu's last two copy-toolkit
+// items ("Copy element HTML" / "Copy smart context") drop their baked-in
+// 🧩/🧠 glyphs for two new vendored icons (puzzle, brain) in web/icons.ts.
+// Measured 263429B raw against the old 263168B budget: 261 bytes over.
+const CORE_RAW_BUDGET = 258 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -308,7 +313,10 @@ const CORE_RAW_BUDGET = 257 * 1024;
 // growth as the raw note above — measured 72.6KB.
 // Then core gzip 73→74KB (2026-09-15), the same guided-walk prose growth as
 // the raw note above — measured 73.3KB.
-const CORE_GZIP_BUDGET = 77 * 1024;
+// Then core gzip 77→78KB (2026-09-25), the same report-menu puzzle/brain
+// icon slice as the raw note above — measured 78936B against the old
+// 78848B budget: 88 bytes over.
+const CORE_GZIP_BUDGET = 78 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
