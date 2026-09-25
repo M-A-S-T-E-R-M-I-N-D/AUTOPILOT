@@ -158,3 +158,18 @@ describe('renderFleetReport', () => {
     expect(lines[1]).toContain('per ship   $2.00');
   });
 });
+
+describe('renderFleetReport parked lanes (2026-09-25)', () => {
+  it('lists lanes whose commits never reached the flight branch, and says none otherwise', () => {
+    const parked = renderFleetReport([], [], 'w', [
+      { branch: 'autopilot/flight-worktree-p--fleet-4', commits: 3 },
+      { branch: 'autopilot/flight-worktree-p--fleet-2', commits: 0 },
+    ]).join('\n');
+    expect(parked).toContain('commits parked on a lane, not on the flight branch');
+    expect(parked).toContain('  3 on autopilot/flight-worktree-p--fleet-4');
+    expect(parked).not.toContain('fleet-2');
+    expect(renderFleetReport([], [], 'w').join('\n')).toContain(
+      'commits parked on a lane, not on the flight branch\n  none',
+    );
+  });
+});

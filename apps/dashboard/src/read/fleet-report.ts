@@ -169,11 +169,21 @@ function grouped(
   );
 }
 
-/** The whole report as printable lines. */
+/** A lane branch holding commits the flight branch does not have. */
+export interface ParkedLane {
+  readonly branch: string;
+  readonly commits: number;
+}
+
+/** The whole report as printable lines. `parked` lists lanes whose commits
+ *  never reached the flight branch — work a firing record calls shipped
+ *  that no landing can carry (2026-09-25: a whole flight of one lane's
+ *  work sat parked behind an aborted sync-back). */
 export function renderFleetReport(
   firings: readonly ReportFiring[],
   convergence: readonly ReportConvergence[],
   window: string,
+  parked: readonly ParkedLane[] = [],
 ): string[] {
   const lines = [`fleet report — ${window}`, summaryLine('all', summarizeFirings(firings))];
   const section = (title: string, key: (f: ReportFiring) => string): void => {
@@ -194,5 +204,9 @@ export function renderFleetReport(
   if (c.medianQueuedSeconds !== null) {
     lines.push(`  median wait for a gate slot: ${Math.round(c.medianQueuedSeconds)}s`);
   }
+  const stuck = parked.filter((p) => p.commits > 0);
+  lines.push('', 'commits parked on a lane, not on the flight branch');
+  if (stuck.length === 0) lines.push('  none');
+  for (const p of stuck) lines.push(`  ${String(p.commits).padStart(3)} on ${p.branch}`);
   return lines;
 }

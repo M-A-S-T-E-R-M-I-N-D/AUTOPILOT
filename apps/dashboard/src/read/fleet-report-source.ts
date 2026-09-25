@@ -13,7 +13,8 @@ import type { Store } from '@autopilot/store';
 
 type Db = Store['db'];
 import { parseFiringDeath, parseNoopClass } from './source.js';
-import type { ReportConvergence, ReportFiring } from './fleet-report.js';
+import { execFileSync } from 'node:child_process';
+import type { ParkedLane, ReportConvergence, ReportFiring } from './fleet-report.js';
 
 interface FiringRow {
   readonly firing_id: string;
@@ -95,4 +96,45 @@ export function readReportConvergence(
 /** `%` and `_` in a project id are literal, not LIKE wildcards. */
 function likeEscape(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/**
+ * Every lane branch of `projectId` in the repository at `repoPath`, with
+ * the number of its commits the flight branch does not have. Read-only git;
+ * an empty list when the repository or the flight branch cannot be read.
+ */
+export function readParkedLanes(
+  repoPath: string,
+  projectId: string,
+  flightBranch = 'autopilot/flight',
+): ParkedLane[] {
+  const git = (args: readonly string[]): string =>
+    execFileSync('git', ['-C', repoPath, ...args], { encoding: 'utf8', windowsHide: true });
+  try {
+    const branches = git([
+      'for-each-ref',
+      '--format=%(refname:short)',
+      `refs/heads/autopilot/flight-worktree-${projectId}`,
+      `refs/heads/autopilot/flight-worktree-${projectId}--*`,
+    ])
+      .split('\n')
+      .map((b) => b.trim())
+      .filter((b) => b !== '');
+    return branches.map((branch) => ({
+      branch,
+      commits: Number(
+        git([
+          'rev-list',
+          '--count',
+          '--no-merges',
+          // a commit brought over by hand as a copy is not parked work
+          '--cherry-pick',
+          '--right-only',
+          `${flightBranch}...${branch}`,
+        ]).trim(),
+      ),
+    }));
+  } catch {
+    return [];
+  }
 }

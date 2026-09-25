@@ -1240,6 +1240,13 @@ async function main(): Promise<void> {
             ? topAvailable.id
             : null;
         claimedTaskFocus = claimedTaskId !== null && topAvailable?.focus === 1;
+        // Which task this firing holds, in the lane's own log (2026-09-25: two
+        // lanes built one task at once and the logs could not say who claimed it).
+        out(
+          claimedTaskId !== null && topAvailable
+            ? `  ⚑ claimed ${claimedTaskId}: ${topAvailable.title.slice(0, 120)}`
+            : '  ⚑ claimed nothing: no open task this lane may take',
+        );
         // SLICE-RELAY DUP fix 1 (RESEARCH-LIBRARY): a board claim is a CODE
         // event, not an agent-initiated one, so the prompt's "declare before
         // starting" doctrine never actually fires for it — the incident that

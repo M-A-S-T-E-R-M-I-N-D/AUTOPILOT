@@ -33,7 +33,11 @@ import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
 import { deriveFlyProjectId, flightLogFileName } from '../flight/lock.js';
 import { resolveDbPath } from '../read/config.js';
 import { renderFleetReport } from '../read/fleet-report.js';
-import { readReportFirings, readReportConvergence } from '../read/fleet-report-source.js';
+import {
+  readReportFirings,
+  readReportConvergence,
+  readParkedLanes,
+} from '../read/fleet-report-source.js';
 import { runFleetLaunch, parseFleetCliArgs } from '../flight/fleet-launch.js';
 import { evaluatePreflight, formatPreflight } from '../flight/preflight.js';
 import { gatherPreflightFacts } from '../flight/preflight-facts.js';
@@ -295,6 +299,7 @@ async function main(): Promise<void> {
           readReportFirings(store.db, projectId, since),
           readReportConvergence(store.db, projectId, since),
           `${projectId}, last ${days} day(s)`,
+          readParkedLanes(target, projectId),
         );
         for (const line of lines) out(line);
       } finally {
