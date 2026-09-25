@@ -197,6 +197,30 @@ describe('flightProgressOf', () => {
     expect(result?.pct).toBe(100);
   });
 
+  it("clamps the displayed spend to the lane's own total instead of showing a fleet's pooled spend past it (ap-muh80db4-0)", () => {
+    // The total-spend twin of the firings-done clamp above: `spentSoFar`
+    // sums every firing in the ONE shared project flight log, so once
+    // sibling lanes land firings inside this lane's session window the
+    // spend clause read "$15.00 of $10 total" for a $10 lane — a figure
+    // this lane alone can never reach, since the runner stops once what is
+    // left can't fund another per-firing budget (`flight/budget.ts`).
+    const result = flightProgressOf(
+      { totalBudgetUsd: 10 },
+      [
+        { cost: 5, durationMs: 1000 },
+        { cost: 5, durationMs: 1000 },
+        { cost: 5, durationMs: 1000 },
+      ],
+      null,
+      fmtCost,
+      fmtDuration,
+      enTr,
+    );
+
+    expect(result?.pct).toBe(100);
+    expect(result?.progressBit).toBe('$10.00 of $10 total');
+  });
+
   it('prefers the total-budget target over a firing count when both are set', () => {
     const result = flightProgressOf(
       { totalBudgetUsd: 10, firings: 4 },
