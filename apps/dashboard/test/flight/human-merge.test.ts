@@ -359,6 +359,17 @@ describe('createRerunChecksApi — restarts only what failed', () => {
     expect(calls.some((c) => c[2] === 'rerun')).toBe(false);
   });
 
+  it('refuses — and re-runs nothing — for a PR that is not in the open list', async () => {
+    const calls: string[][] = [];
+    const rerun = createRerunChecksApi(execReturningRaw(GREEN, calls));
+
+    const result = await rerun(999);
+
+    expect(result.rerun).toBe(false);
+    expect(result.reason).toContain('no longer open');
+    expect(calls.some((c) => c[0] === 'run')).toBe(false);
+  });
+
   it('refuses when the red check is not an Actions run we can restart', async () => {
     const external = {
       ...GREEN,
