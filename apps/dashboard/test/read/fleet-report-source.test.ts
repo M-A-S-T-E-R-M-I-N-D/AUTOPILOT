@@ -113,4 +113,17 @@ describe('readReportConvergence', () => {
       { verdict: 'red', check: null, merge: null },
     ]);
   });
+
+  it("reads a fleet lane's own convergence verdicts too — a lane records its gate under its own project id, same as a firing", () => {
+    event(
+      'convergence-red',
+      { check: 'pnpm run test', merge: 'fast-forwarded x' },
+      150,
+      'fly-a--fleet-2',
+    );
+    event('convergence-red', { check: 'x', merge: 'y' }, 150, 'fly_a--fleet-2'); // `_` is not a wildcard
+    expect(readReportConvergence(store.db, 'fly-a', 100)).toEqual([
+      { verdict: 'red', check: 'pnpm run test', merge: 'fast-forwarded x' },
+    ]);
+  });
 });
