@@ -676,20 +676,6 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-file-archived-badge { flex: 0 0 auto; margin-inline-start: var(--space-2); padding: 0 var(--space-1); border: 1px dashed var(--color-border); border-radius: var(--radius-full); font-size: 0.6875rem; color: var(--color-text-muted); }
 .docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
 .docs-viewer-freshness { margin: 0 0 var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
-/* The editor entry point (epic 0023 slice 3, law 2 "edit in place"): the
-   path heading and the Edit button share one row, the button pulled to the
-   row's far end so it never competes with the mono-face path for attention. */
-.docs-viewer-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
-.docs-viewer-head .docs-viewer-path { margin-block-end: 0; }
-/* The editor itself: a single column by default, a split pane from lg (the
-   epic's own "a split pane at lg, a toggle below it" — the toggle is simply
-   the viewport, since a phone-width draft is read top-to-bottom already). */
-.docs-editor-panes { display: flex; flex-direction: column; gap: var(--space-3); margin: 0 0 var(--space-2); }
-.docs-editor-textarea { inline-size: 100%; min-block-size: 18rem; padding: var(--space-2) var(--space-3); font: inherit; font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.5; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--shape-small); resize: vertical; }
-.docs-editor-textarea:focus-visible { outline: none; border-color: var(--color-accent); }
-.docs-editor-preview { border: 1px solid var(--color-border); border-radius: var(--shape-small); padding: var(--space-2) var(--space-3); }
-.docs-editor-status { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); min-block-size: 1.2em; }
-.docs-editor-actions { display: flex; gap: var(--space-2); }
 /* Table of contents (epic 0023 slice 2) — a quiet reference block, not
    another wall of accent color; indentation alone carries the hierarchy. */
 .docs-toc { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }
@@ -1333,11 +1319,11 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    button — grey, square, theme-blind. They share the task row's button
    design: bordered, quiet, the M3 shape morph on hover and press, dimmed
    when disabled; Publish carries the accent when it has something to publish. */
-.board-view-toggle, .plan-actions button, .docs-edit-btn, .docs-editor-actions button { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard), color var(--duration-short2) var(--easing-standard); }
-.board-view-toggle:not(:disabled):hover, .board-view-toggle:not(:disabled):focus-visible, .plan-actions button:not(:disabled):hover, .plan-actions button:not(:disabled):focus-visible, .docs-edit-btn:not(:disabled):hover, .docs-edit-btn:not(:disabled):focus-visible, .docs-editor-actions button:not(:disabled):hover, .docs-editor-actions button:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
-.board-view-toggle:not(:disabled):active, .plan-actions button:not(:disabled):active, .docs-edit-btn:not(:disabled):active, .docs-editor-actions button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
-.plan-actions button:disabled, .docs-editor-actions button:disabled { opacity: 0.5; cursor: default; }
-.plan-publish:not(:disabled), .docs-editor-save:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
+.board-view-toggle, .plan-actions button { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard), color var(--duration-short2) var(--easing-standard); }
+.board-view-toggle:not(:disabled):hover, .board-view-toggle:not(:disabled):focus-visible, .plan-actions button:not(:disabled):hover, .plan-actions button:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.board-view-toggle:not(:disabled):active, .plan-actions button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.plan-actions button:disabled { opacity: 0.5; cursor: default; }
+.plan-publish:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
 .board-column-count { font-variant-numeric: tabular-nums; }
@@ -2116,12 +2102,6 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 }
 @media (min-width: 64rem) {
   .subject-empty { display: none; }
-  /* The editor's split pane (epic 0023 slice 3, design direction: "The
-     editor is a split pane at lg, a toggle below it"): textarea and preview
-     side by side from lg; below lg they stack, source above rendering. */
-  .docs-editor-panes { flex-direction: row; align-items: stretch; }
-  .docs-editor-textarea, .docs-editor-preview { flex: 1 1 0; min-inline-size: 0; }
-  .docs-editor-preview { overflow-y: auto; }
 }
 /* CONTEXT RAIL (epic 0021 slice 6): from xl the fleet page gains M3's
    supporting pane — the lanes in flight and the Keeper queue stay beside

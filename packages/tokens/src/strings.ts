@@ -782,14 +782,6 @@ const EN_STRINGS = {
   docsTitle: 'Docs',
   docsEmpty: 'No indexed documents yet.',
   docsUnavailable: 'Docs unavailable.',
-  // web/features/docs-viewer.ts's split-preview editor (epic 0023 "the docs
-  // reader" slice 3, board web-mtywp7to-rbebh4): the Edit/Save/Cancel
-  // buttons and the save-in-flight/failure status text.
-  docsEdit: 'Edit',
-  docsEditSave: 'Save',
-  docsEditCancel: 'Cancel',
-  docsEditSaving: 'Saving…',
-  docsEditSaveFailed: 'Not saved',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
@@ -2286,11 +2278,6 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     docsTitle: 'מסמכים',
     docsEmpty: 'עדיין אין מסמכים באינדקס.',
     docsUnavailable: 'המסמכים אינם זמינים.',
-    docsEdit: 'עריכה',
-    docsEditSave: 'שמירה',
-    docsEditCancel: 'ביטול',
-    docsEditSaving: 'שומר…',
-    docsEditSaveFailed: 'לא נשמר',
     roundTitle: 'הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
