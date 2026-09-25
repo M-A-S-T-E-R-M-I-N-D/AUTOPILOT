@@ -353,7 +353,32 @@ function planEditorSection(pid) {
     label.appendChild(control);
     return label;
   }
+  // FOCUS ACROSS A REDRAW (epic 0024): render() rebuilds the body, and the
+  // rebuild dropped keyboard focus to <body> on every edit. The focused control
+  // is found again in the new drawing by its data-plan-* hook; one that came
+  // back disabled (Undo at the start of history) hands focus to the selected
+  // step. Focus that was outside the editor stays where it is.
+  var focusHooks = ['data-plan-step', 'data-plan-enabled', 'data-plan-command', 'data-plan-label', 'data-plan-publish', 'data-plan-undo', 'data-plan-redo', 'data-plan-discard'];
+  function focusedHook() {
+    var active = document.activeElement;
+    if (!active || !body.contains(active)) return null;
+    for (var i = 0; i < focusHooks.length; i++) {
+      if (active.hasAttribute(focusHooks[i])) return [focusHooks[i], active.getAttribute(focusHooks[i])];
+    }
+    return null;
+  }
+  function refocus(hook) {
+    if (!hook) return;
+    var found = null;
+    var nodes = body.querySelectorAll('[' + hook[0] + ']');
+    for (var i = 0; i < nodes.length && !found; i++) {
+      if (nodes[i].getAttribute(hook[0]) === hook[1]) found = nodes[i];
+    }
+    if (!found || found.disabled) found = body.querySelector('.plan-step-selected');
+    if (found) found.focus();
+  }
   function render() {
+    var hook = focusedHook();
     body.replaceChildren();
     var steps = planStepsFromSpec(state.draft);
     var live = planStepsFromSpec(state.published);
@@ -430,6 +455,7 @@ function planEditorSection(pid) {
     discard.disabled = !isDirty;
     actions.appendChild(discard);
     body.appendChild(actions);
+    refocus(hook);
   }
   function applyEdit(kind, patch) {
     var steps = planStepsFromSpec(state.draft).map(function (s) {

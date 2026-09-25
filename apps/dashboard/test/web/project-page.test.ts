@@ -292,6 +292,59 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     expect(cmd().value).toBe('pnpm run test -- --coverage');
   });
 
+  // Epic 0024 (board web-mtywp7wk-tkdwhi): every edit redraws the editor, and the redraw
+  // dropped keyboard focus to <body> — a keyboard user lost their place on each keystroke.
+  it('keeps keyboard focus on the same control across a redraw, or on the selected step when it went disabled', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    const focused = (selector: string) => document.activeElement?.matches(selector) ?? false;
+
+    // Enter/Space on a step selects it — focus stays on that step.
+    step('test').focus();
+    step('test').click();
+    expect(focused('[data-plan-step="test"]')).toBe(true);
+
+    // Toggling a step on from its checkbox — focus stays on the checkbox.
+    step('lint').click();
+    const on = document.querySelector('[data-plan-enabled="lint"]') as HTMLInputElement;
+    on.focus();
+    on.checked = true;
+    on.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(focused('[data-plan-enabled="lint"]')).toBe(true);
+
+    // Committing a command (Enter) — focus stays in the field; Ctrl+Z there keeps it too.
+    const cmd = document.querySelector('[data-plan-command="lint"]') as HTMLInputElement;
+    cmd.focus();
+    cmd.value = 'pnpm run lint --fix';
+    cmd.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(focused('[data-plan-command="lint"]')).toBe(true);
+    (document.activeElement as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }),
+    );
+    expect((document.querySelector('[data-plan-command="lint"]') as HTMLInputElement).value).toBe(
+      'pnpm run lint',
+    );
+    expect(focused('[data-plan-command="lint"]')).toBe(true);
+
+    // Undo walks history back to the published plan, which disables Undo itself:
+    // focus lands on the selected step, never on <body>.
+    const undoBtn = document.querySelector('[data-plan-undo]') as HTMLButtonElement;
+    undoBtn.focus();
+    undoBtn.click();
+    expect((document.querySelector('[data-plan-undo]') as HTMLButtonElement).disabled).toBe(true);
+    expect(focused('[data-plan-step="lint"]')).toBe(true);
+  });
+
+  it('never pulls focus into the editor when the redraw started elsewhere', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    outside.focus();
+    step('test').click();
+    expect(document.activeElement).toBe(outside);
+  });
+
   // Epic 0024 (board web-mtywp7wk-tkdwhi): "the gate as a readable plan with outcomes".
   it('reads as the gate it is: each step carries its last-run outcome, one line tallies the run', async () => {
     bootWithPlan(200, {
