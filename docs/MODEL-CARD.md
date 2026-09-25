@@ -103,13 +103,13 @@ hand-maintained._
 | Pointer | Value |
 |---|---|
 | Engine/package version | `0.54.0` (`package.json`) |
-| Firing-Prompt-Version (current) | `firing-v12` |
+| Firing-Prompt-Version (current) | `firing-v17` |
 | Evaluation data | `docs/SELF-STUDY/PAPER.md` §4 `DATA:SUMMARY` — regenerate with `pnpm self-study:update` |
 | Prompt-version regression gate | `pnpm self-study:gate` (§2) — pass/fail against the pinned suite before bumping `Firing-Prompt-Version` |
 | Containment posture | `docs/FLIGHT-CONTAINMENT.md` — detection (done) + CLI prevention (done) + OS sandbox
   (platform-gated, not native Windows) |
 | Verification boundary (🟢 autonomous vs. 🟣 human-required) | `docs/MASTER-PLAN.md` §17 |
-| This card last reviewed against the above | 2026-09-03 |
+| This card last reviewed against the above | 2026-09-25 |
 
 ## 7. AI-Use Disclosure
 
