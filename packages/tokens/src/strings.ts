@@ -1799,7 +1799,7 @@ const EN_STRINGS = {
   landingNothingToLand: 'Nothing to land — the branch is level with its base.',
   landingExecuteButton: 'Execute landing → {base}',
   landingRestarting:
-    '🔄 Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
+    'Landed — rebuilding & restarting the dashboard… this page reconnects automatically.',
   landingDebriefTitle: 'Flight debrief',
   landingDebriefBestLabel: 'Best: ',
   landingDebriefWorstLabel: 'Worst: ',
@@ -3016,7 +3016,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     landingUnavailable: 'תצוגה מקדימה של הנחיתה אינה זמינה.',
     landingNothingToLand: 'אין מה להנחית — הענף כבר מיושר עם הבסיס.',
     landingExecuteButton: 'בצע נחיתה אל {base}',
-    landingRestarting: '🔄 נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
+    landingRestarting: 'נחת — בונה ומפעיל מחדש את לוח הבקרה… הדף הזה יתחבר מחדש אוטומטית.',
     landingDebriefTitle: 'תחקיר טיסה',
     landingDebriefBestLabel: 'הטובה ביותר: ',
     landingDebriefWorstLabel: 'הגרועה ביותר: ',
