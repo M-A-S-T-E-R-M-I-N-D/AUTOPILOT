@@ -260,14 +260,15 @@ export async function runFiring(
   // The leftovers go into a named stash, kept and recoverable, and the gate
   // judges the commit on its own. A commit that needed them goes red and is
   // reverted, which is the honest verdict on a commit that cannot stand alone.
-  let leftoversStashed = false;
+  // Whether the stash worked is read from the tree itself just below: a tree
+  // still dirty afterwards takes the old refusal.
   if (headAdvanced && deps.vcs.stashLeftovers && (await deps.vcs.isDirty())) {
     try {
-      leftoversStashed = await deps.vcs.stashLeftovers(
+      await deps.vcs.stashLeftovers(
         `autopilot firing ${input.firing}: changes left beside its commit`,
       );
     } catch {
-      leftoversStashed = false;
+      /* a failed stash leaves the tree dirty, and the refusal below applies */
     }
   }
   if (headAdvanced && (await deps.vcs.isDirty())) {
