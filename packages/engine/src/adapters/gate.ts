@@ -145,55 +145,19 @@ const WORKER_START_SIGNATURES = [
 /** Any of these in the same output means a test really ran and failed. */
 const REAL_FAILURE_SIGNATURES = ['FAIL ', 'AssertionError', '×'] as const;
 
-/** Vitest's exact phrasing when a `beforeEach`/`afterEach` hook blows its time
- *  budget — distinct from an assertion failing inside the test body itself.
- *  Measured 2026-09-25 (`docs/debriefs/2026-09-25-verdict-ap-mug77xzl-convred-
- *  blocked-reland.md`): a `git.test.ts` fixture hook timed out under six-lane
- *  disk contention while the test body never got to assert anything, yet the
- *  containing file still printed its own `FAIL ` line — so REAL_FAILURE_
- *  SIGNATURES above can never gate this case (it would always find `FAIL `
- *  for the very file whose hook timed out). Judged separately below instead. */
-const HOOK_TIMEOUT_SIGNATURE = 'Hook timed out in';
-
-/** Number of non-overlapping occurrences of `needle` in `haystack`. */
-function countOccurrences(haystack: string, needle: string): number {
-  return haystack.split(needle).length - 1;
-}
-
 /**
- * A test command that exited non-zero because its workers never started, or
- * because exactly one isolated test hook timed out with nothing else visibly
- * failing, is a verdict on the machine, not on the commit.
- *
- * On 2026-09-24 two convergence gates went red on `pnpm run test` with
- * nothing but vitest's "failed to start forks worker ... timeout waiting for
- * worker to respond" in the output: two lanes had started the full suite at
- * once on one disk. A red there reverts good work at the per-firing gate and
- * raises a false alarm at convergence. Only when no test visibly failed
- * beside it — a real failure keeps the red.
- *
- * On 2026-09-25 the same contention showed up as a single `beforeEach` hook
- * timeout on an unrelated git fixture instead of a worker-start failure, and
- * reverted a docs-only commit. That shape is judged on whether anything
- * actually asserted and failed (`AssertionError`) rather than on whether
- * `FAIL `/`×` appear, since the timed-out file legitimately prints those for
- * itself. Deliberately narrow: exactly one hook-timeout mention, and no
- * AssertionError anywhere — two simultaneous hook timeouts, or a timeout
- * alongside a real assertion failure, both keep the red rather than risk
- * masking a genuine hang.
+ * A test command that exited non-zero because its workers never started is
+ * a verdict on the machine, not on the commit. On 2026-09-24 two convergence
+ * gates went red on `pnpm run test` with nothing but vitest's "failed to start
+ * forks worker ... timeout waiting for worker to respond" in the output: two
+ * lanes had started the full suite at once on one disk. A red there reverts
+ * good work at the per-firing gate and raises a false alarm at convergence.
+ * Only when no test visibly failed beside it — a real failure keeps the red.
  */
 export function environmentCrashReason(outputTail: string): string | null {
-  if (WORKER_START_SIGNATURES.some((s) => outputTail.includes(s))) {
-    if (REAL_FAILURE_SIGNATURES.some((s) => outputTail.includes(s))) return null;
-    return 'test workers never started — the machine was too loaded to judge';
-  }
-  if (
-    countOccurrences(outputTail, HOOK_TIMEOUT_SIGNATURE) === 1 &&
-    !outputTail.includes('AssertionError')
-  ) {
-    return 'an isolated test hook timed out — the machine was too loaded to judge';
-  }
-  return null;
+  if (!WORKER_START_SIGNATURES.some((s) => outputTail.includes(s))) return null;
+  if (REAL_FAILURE_SIGNATURES.some((s) => outputTail.includes(s))) return null;
+  return 'test workers never started — the machine was too loaded to judge';
 }
 
 /**
