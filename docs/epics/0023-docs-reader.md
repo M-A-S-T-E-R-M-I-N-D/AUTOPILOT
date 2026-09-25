@@ -105,8 +105,26 @@ the diff highlight fades on the compositor; nothing else moves.
    and `server.ts`'s `handleDocsWrite` wires `POST /api/docs/write` as a
    CSRF-guarded, separately rate-limited JSON POST, resolving the acting
    author server-side via the existing `socialIdentity` read (never trusted
-   from the request body). Still missing: the split-preview editor UI — no
-   user-facing expression exists yet, so this slice stays open.
+   from the request body).
+   **Slice landed 2026-09-25:** the split-preview editor UI itself —
+   `web/features/docs-viewer.ts`'s `loadDoc` now adds an Edit button beside
+   the open doc's path; clicking it (`renderDocsEditor`) swaps the read view
+   for a textarea seeded with the real content plus, for a `.md` path, a
+   live preview pane rendered through the exact same `renderMarkdown`
+   pipeline the read view uses (law 2's "one Markdown pipeline for both,
+   never two renderers that drift"), updated on a short debounce as the
+   operator types. Save POSTs to the guarded endpoint above and, on success,
+   reloads the doc from the server rather than trusting the draft — the
+   fresh freshness badge and any updated broken-link/backlink census come
+   along for free. A refused save (outside the allow-list, binary content)
+   shows the server's own reason inline and leaves the draft in place.
+   Cancel simply reloads the doc, discarding the draft with no separate
+   state to keep in sync with the read view's own. The split pane is CSS
+   only (`.docs-editor-panes`, row from `lg`, stacked below it, per the
+   epic's own design direction) — entering/leaving edit mode never touches
+   `openDoc`/`viewer.dataset.loadedPath`, so a `renderProjectPage()` tick
+   mid-edit (epic 0018 "the reader is sacred") leaves the editor exactly as
+   the operator left it.
 4. Live re-render on disk change with diff highlight.
 5. Hygiene: the archive/index moves from the 2026-09-12 audit
    (`docs/archive/README.md`), so the tree the reader shows is the tree we mean.

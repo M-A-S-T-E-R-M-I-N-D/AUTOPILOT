@@ -56,9 +56,10 @@ describe('docsViewerJs', () => {
     expect(out).toContain("empty.setAttribute('data-i18n', 'docsEmpty');");
     expect(out).toContain("unavailable.setAttribute('data-i18n', 'docsUnavailable');");
     // One sweep per tagged-DOM creation site: the panel's own title (fresh
-    // mount only), the empty state, and the fetch-failure state.
+    // mount only), the empty state, the fetch-failure state, the loaded
+    // doc's Edit button (epic 0023 slice 3), and the editor's Save/Cancel.
     expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
-      3,
+      5,
     );
   });
 

@@ -299,7 +299,12 @@ function loadDoc(pid, path, viewer) {
     .then(function (data) {
       if (!viewer.isConnected) return; // re-rendered while loading — stale paint
       viewer.replaceChildren();
-      viewer.appendChild(el('h4', 'docs-viewer-path', data.path));
+      // The path heading and the Edit button share one row (epic 0023 slice
+      // 3) — built here, not with the button appended after the fact, so
+      // there is exactly one place that owns this row's DOM shape.
+      var head = el('div', 'docs-viewer-head');
+      head.appendChild(el('h4', 'docs-viewer-path', data.path));
+      viewer.appendChild(head);
       // Freshness (epic 0023 "the docs reader" slice 1): the doc's last real
       // commit, reused from flight/doc-freshness.ts's gitLastTouchedAt —
       // never a guess, and absent entirely for an untracked path or a
@@ -335,12 +340,120 @@ function loadDoc(pid, path, viewer) {
       // else references this" only once the reader has read the page itself.
       var linksHere = buildLinksHere(pid, data.linksHere);
       if (linksHere) viewer.appendChild(linksHere);
+      // The editor entry point (epic 0023 slice 3, board web-mtywp7to-rbebh4):
+      // the guarded POST /api/docs/write endpoint and its pure allow-list
+      // planner (flight/docs-write.ts) landed with no caller — this button
+      // is that caller. Bound directly (not event-delegated) because it is
+      // rebuilt fresh on every loadDoc() call and already has pid/path/
+      // data.content closed over, the same one-listener-per-fresh-node shape
+      // docsSection's OWN direct binds use for its per-instance nodes.
+      var editBtn = el('button', 'docs-edit-btn', tr('docsEdit'));
+      editBtn.type = 'button';
+      editBtn.setAttribute('data-i18n', 'docsEdit');
+      editBtn.addEventListener('click', function () {
+        renderDocsEditor(pid, path, viewer, data.content);
+      });
+      head.appendChild(editBtn);
+      translateDom(document.documentElement.lang || 'en');
       viewer.dataset.loadedPath = path;
     })
     .catch(function () {
       viewer.replaceChildren(el('p', 'muted', 'Could not load ' + path + '.'));
       viewer.dataset.loadedPath = '';
     });
+}
+// The editor itself (epic 0023 "the docs reader" slice 3, law 2 "edit in
+// place"): a split pane from lg (textarea + the SAME renderMarkdown pipeline
+// the read view uses, so the two never drift — law 2's own "never two
+// renderers"), a single pane below it. Only markdown gets a live preview; a
+// non-.md allow-listed file (README.md/CHANGELOG.md can be either) still
+// gets the plain textarea, matching loadDoc's own read-view fallback split.
+// Entering/leaving edit mode never touches openDoc/viewer.dataset.loadedPath
+// — the viewer's identity as "path is loaded" is unchanged, so a
+// renderProjectPage() tick mid-edit (epic 0018 "the reader is sacred")
+// leaves the editor exactly as the operator left it instead of tearing it
+// down to re-fetch a doc that is, from the tick's point of view, still open.
+function renderDocsEditor(pid, path, viewer, content) {
+  viewer.replaceChildren();
+  var wrap = el('div', 'docs-editor');
+  wrap.appendChild(el('h4', 'docs-viewer-path', path));
+  var panes = el('div', 'docs-editor-panes');
+  var textarea = document.createElement('textarea');
+  textarea.className = 'docs-editor-textarea';
+  textarea.value = content;
+  textarea.setAttribute('aria-label', 'Edit ' + path);
+  panes.appendChild(textarea);
+  var isMd = /\\.md$/i.test(path);
+  var preview = null;
+  if (isMd) {
+    preview = el('div', 'docs-editor-preview docs-viewer-body');
+    preview.setAttribute('role', 'region');
+    preview.setAttribute('aria-label', 'Preview of ' + path);
+    renderMarkdown(preview, content, { pid: pid, basePath: path });
+    panes.appendChild(preview);
+  }
+  wrap.appendChild(panes);
+  var status = el('p', 'docs-editor-status');
+  status.setAttribute('role', 'status');
+  wrap.appendChild(status);
+  var actions = el('div', 'docs-editor-actions');
+  var saveBtn = el('button', 'docs-editor-save', tr('docsEditSave'));
+  saveBtn.type = 'button';
+  saveBtn.setAttribute('data-i18n', 'docsEditSave');
+  actions.appendChild(saveBtn);
+  var cancelBtn = el('button', 'docs-editor-cancel', tr('docsEditCancel'));
+  cancelBtn.type = 'button';
+  cancelBtn.setAttribute('data-i18n', 'docsEditCancel');
+  actions.appendChild(cancelBtn);
+  wrap.appendChild(actions);
+  viewer.appendChild(wrap);
+  translateDom(document.documentElement.lang || 'en');
+  // Re-renders the SAME preview pane on a short debounce — a fresh
+  // renderMarkdown() call per keystroke is wasted work on a long document,
+  // and this pane's only reader is the operator mid-type, not a screen
+  // reader that needs every intermediate state announced.
+  var previewTimer = null;
+  if (preview) {
+    textarea.addEventListener('input', function () {
+      if (previewTimer) clearTimeout(previewTimer);
+      previewTimer = setTimeout(function () {
+        preview.replaceChildren();
+        renderMarkdown(preview, textarea.value, { pid: pid, basePath: path });
+      }, 150);
+    });
+  }
+  // Cancel discards the draft by simply reloading the doc from the server —
+  // no separate "discard" state to keep in sync with the read view's own.
+  cancelBtn.addEventListener('click', function () { loadDoc(pid, path, viewer); });
+  saveBtn.addEventListener('click', function () {
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    status.textContent = tr('docsEditSaving');
+    fetch('/api/docs/write', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: pid, path: path, content: textarea.value }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, data: j }; }); })
+      .then(function (res) {
+        if (!viewer.isConnected) return;
+        // A real save — the next mirror pass and the freshness badge both
+        // pick up the provenance line the server just appended, so the read
+        // view is reloaded from the server rather than painted from the
+        // draft the operator typed.
+        if (res.status === 200 && res.data && res.data.ok) { loadDoc(pid, path, viewer); return; }
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        var why = res.data && (res.data.reason || res.data.error);
+        status.textContent = tr('docsEditSaveFailed') + (why ? ' — ' + why : '');
+      })
+      .catch(function () {
+        if (!viewer.isConnected) return;
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        status.textContent = tr('docsEditSaveFailed');
+      });
+  });
 }
 // Docs reader (event-delegated): open an indexed document in the viewer.
 document.addEventListener('click', function (e) {
