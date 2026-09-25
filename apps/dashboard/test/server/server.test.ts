@@ -4386,6 +4386,109 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(404);
   });
 
+  it('POST /api/docs/write saves a doc, resolving the author server-side (CSRF-guarded)', async () => {
+    const saved: unknown[] = [];
+    const base = await start({
+      docsWrite: (project, path, content, author, page) => {
+        saved.push([project, path, content, author, page]);
+        return Promise.resolve({ ok: true, path });
+      },
+      socialIdentity: () =>
+        Promise.resolve({ login: 'octocat', nameWithOwner: 'octocat/hello', role: 'maintainer' }),
+    });
+    const res = await fetch(`${base}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', path: 'docs/foo.md', content: '# Foo\n' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, path: 'docs/foo.md' });
+    expect(saved[0]).toEqual(['p1', 'docs/foo.md', '# Foo\n', 'octocat', 'docs-reader']);
+
+    const bad = await fetch(`${base}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: 'path=x',
+    });
+    expect(bad.status).toBe(415);
+  });
+
+  it('POST /api/docs/write falls back to a generic author when identity does not resolve', async () => {
+    const saved: unknown[] = [];
+    const base = await start({
+      docsWrite: (project, path, content, author) => {
+        saved.push(author);
+        return Promise.resolve({ ok: true, path });
+      },
+      socialIdentity: () => Promise.resolve(undefined),
+    });
+    const res = await fetch(`${base}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', path: 'README.md', content: 'hi' }),
+    });
+    expect(res.status).toBe(200);
+    expect(saved[0]).toBe('the operator');
+  });
+
+  it('POST /api/docs/write surfaces a planner refusal as 400 without a 500', async () => {
+    const base = await start({
+      docsWrite: () => Promise.resolve({ ok: false, reason: 'outside the allow-list' }),
+    });
+    const res = await fetch(`${base}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', path: 'etc/passwd', content: 'x' }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, reason: 'outside the allow-list' });
+  });
+
+  it('POST /api/docs/write 400s on a missing path and 404s on an unknown project', async () => {
+    const blank = await start({ docsWrite: () => Promise.resolve(null) });
+    const blankRes = await fetch(`${blank}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', path: '', content: 'x' }),
+    });
+    expect(blankRes.status).toBe(400);
+
+    const unknown = await start({ docsWrite: () => Promise.resolve(null) });
+    const unknownRes = await fetch(`${unknown}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'ghost', path: 'docs/x.md', content: 'x' }),
+    });
+    expect(unknownRes.status).toBe(404);
+  });
+
+  it('POST /api/docs/write 400s on oversized content without calling the API', async () => {
+    let called = false;
+    const base = await start({
+      docsWrite: () => {
+        called = true;
+        return Promise.resolve({ ok: true, path: 'docs/x.md' });
+      },
+    });
+    const res = await fetch(`${base}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', path: 'docs/x.md', content: 'x'.repeat(500_001) }),
+    });
+    expect(res.status).toBe(400);
+    expect(called).toBe(false);
+  });
+
+  it('404s /api/docs/write when no docs-write API is wired', async () => {
+    const base = await start();
+    const res = await fetch(`${base}/api/docs/write`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1', path: 'docs/x.md', content: 'hi' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
   it('POST /api/task/reorder 400s on an oversized ids array without applying it', async () => {
     let called = false;
     const base = await start({

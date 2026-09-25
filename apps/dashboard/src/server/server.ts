@@ -155,6 +155,7 @@ import {
   type UpdateStrategy,
 } from '../flight/update-check.js';
 import type { InboxAddResult } from '../inbox/add.js';
+import type { DocsWriteApiResult, DocsWriteApiRejection } from '../docs/write.js';
 import type { PrReviewPlan } from '../flight/pr-review.js';
 import {
   isPrReviewDecisionKind,
@@ -216,6 +217,13 @@ const MAX_INBOX_MESSAGE_CHARS = 4000;
 // not a short message — generous, but still bounded against the same
 // unbounded-prompt-amplification concern as MAX_INBOX_MESSAGE_CHARS.
 const MAX_SOUL_TEXT_CHARS = 20000;
+// A saved doc page is a whole document (this repo's own docs/ run well past
+// MAX_BODY_BYTES' 64KB default — several already exceed 200KB), so the write
+// endpoint reads its body against a dedicated, larger ceiling; the content
+// itself is still capped against the same amplification concern every other
+// free-form field above guards against.
+const MAX_DOCS_WRITE_BODY_BYTES = 512 * 1024;
+const MAX_DOCS_WRITE_CONTENT_CHARS = 500_000;
 // Guards POST /api/fly, /api/fly/stop, and /api/fly/pause (ap-msjbcx9w-3
 // sibling — the runner already refuses a second concurrent flight, but a
 // start/stop/pause hammer loop still burns CPU on every rejected attempt).
@@ -234,6 +242,11 @@ const LANDING_RATE_WINDOW_MS = 60_000;
 // request, not just a read.
 const RELEASE_RATE_LIMIT = 5;
 const RELEASE_RATE_WINDOW_MS = 60_000;
+// Guards POST /api/docs/write (epic 0023 slice 3) — same heavier-than-a-
+// quota-spend reasoning as RELEASE's limiter: a real file write to disk per
+// request, not just a read.
+const DOCS_WRITE_RATE_LIMIT = 10;
+const DOCS_WRITE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/pr-review/execute — same heavier-than-a-quota-spend
 // reasoning as RELEASE's limiter: a real `gh` review/merge call per request,
 // not just a read.
@@ -436,6 +449,17 @@ export type DocBrokenLinksApi = (
 /** Every OTHER indexed doc-ish path that links to this one — the "what links
  *  here" backlinks list (epic 0023 "the docs reader", slice 2). */
 export type DocLinksHereApi = (projectId: string, path: string) => readonly string[];
+/** The docs editor's save (epic 0023 "the docs reader", slice 3): validates +
+ *  writes a real file through `docs/write.ts`'s `createDocsWriteApi`. `null`
+ *  for an unknown project id (→ 404); `ok:false` for an allow-list/binary
+ *  refusal `planDocsWrite` decided (→ 400). */
+export type DocsWriteApi = (
+  projectId: string,
+  path: string,
+  content: string,
+  author: string,
+  page: string,
+) => Promise<DocsWriteApiResult | DocsWriteApiRejection | null>;
 
 /** Lists a filesystem path's subdirectories for the FLY-BAR "browse a
  *  brand-new folder" modal (board web-msrhr2d9-xxwa3a; injected, reads
@@ -796,6 +820,7 @@ export interface ServerDeps extends RouteDeps {
   readonly docTouchedAt?: DocTouchedAtApi;
   readonly docBrokenLinks?: DocBrokenLinksApi;
   readonly docLinksHere?: DocLinksHereApi;
+  readonly docsWrite?: DocsWriteApi;
   readonly browseFolder?: BrowseFolderApi;
   readonly landing?: LandingApi;
   readonly landingExecute?: LandingExecuteApi;
@@ -3705,6 +3730,86 @@ async function handleInboxAdd(
 }
 
 /**
+ * The docs editor's save (`POST /api/docs/write` `{project,path,content}`,
+ * epic 0023 "the docs reader" slice 3, board web-mtywp7to-rbebh4): the
+ * guarded endpoint `flight/docs-write.ts`'s pure `planDocsWrite` and
+ * `docs/write.ts`'s `createDocsWriteApi` were built for. State-changing
+ * write (a real file on disk), so it is a CSRF-guarded JSON POST like every
+ * other write here, separately rate-limited (a real file write is heavier
+ * than a quota spend, same reasoning RELEASE's limiter documents). The
+ * acting author is resolved server-side via `identity` — never trusted from
+ * the request body, per `flight/docs-write.ts`'s own contract — and
+ * degrades to a generic label on a fully-local project where no GitHub
+ * identity resolves (`social-identity.ts`'s documented common case). No UI
+ * calls this yet — the split-preview editor is its own follow-up slice;
+ * this is the guarded surface it will call.
+ */
+async function handleDocsWrite(
+  req: IncomingMessage,
+  res: ServerResponse,
+  api: DocsWriteApi | undefined,
+  identity: SocialIdentityApi | undefined,
+  headers: Record<string, string>,
+  limiter: RateLimiter,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
+  if (!api) {
+    send(404, { error: 'docs write unavailable' });
+    return;
+  }
+  if ((req.method ?? 'GET') !== 'POST') {
+    send(405, { error: 'method not allowed' });
+    return;
+  }
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
+  if (!limiter.allow(clientKey(req), Date.now())) {
+    send(429, { error: 'Too many docs-write requests — slow down and try again shortly.' });
+    return;
+  }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_DOCS_WRITE_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
+  let project: string;
+  let path: string;
+  let content: string;
+  try {
+    const body = JSON.parse(raw) as { project?: unknown; path?: unknown; content?: unknown };
+    project = String(body.project ?? '');
+    path = String(body.path ?? '');
+    content = String(body.content ?? '');
+  } catch {
+    send(400, { error: 'invalid JSON' });
+    return;
+  }
+  if (project.length === 0 || path.length === 0) {
+    send(400, { error: 'a project id and a file path are required' });
+    return;
+  }
+  if (content.length > MAX_DOCS_WRITE_CONTENT_CHARS) {
+    send(400, { error: `content must be ${MAX_DOCS_WRITE_CONTENT_CHARS} characters or fewer` });
+    return;
+  }
+  try {
+    const author = (await identity?.())?.login ?? 'the operator';
+    const result = await api(project, path, content, author, 'docs-reader');
+    if (!result) {
+      send(404, { error: 'unknown project' });
+      return;
+    }
+    send(result.ok ? 200 : 400, result);
+  } catch (error) {
+    send(500, { ok: false, error: error instanceof Error ? error.message : 'docs write failed' });
+  }
+}
+
+/**
  * Task-board endpoints (`POST /api/task/create` `{project,title,severity?,dimension?}`,
  * `POST /api/task/status` `{id,status}`). State-changing writes → CSRF-guarded
  * JSON POSTs; invalid values are refused by the store's CHECK constraints and
@@ -3885,6 +3990,7 @@ export function createServer(deps: ServerDeps = {}): Server {
   const githubPrLimiter = createRateLimiter(GITHUB_PR_RATE_LIMIT, GITHUB_PR_RATE_WINDOW_MS);
   const ghLtsLimiter = createRateLimiter(GH_LTS_RATE_LIMIT, GH_LTS_RATE_WINDOW_MS);
   const controlLimiter = createRateLimiter(CONTROL_RATE_LIMIT, CONTROL_RATE_WINDOW_MS);
+  const docsWriteLimiter = createRateLimiter(DOCS_WRITE_RATE_LIMIT, DOCS_WRITE_RATE_WINDOW_MS);
   return createHttpServer((req, res) => {
     const headers = securityHeaders();
 
@@ -4260,6 +4366,18 @@ export function createServer(deps: ServerDeps = {}): Server {
         },
         headers,
         'read',
+      );
+      return;
+    }
+
+    if (path === '/api/docs/write') {
+      void handleDocsWrite(
+        req,
+        res,
+        deps.docsWrite,
+        deps.socialIdentity,
+        headers,
+        docsWriteLimiter,
       );
       return;
     }

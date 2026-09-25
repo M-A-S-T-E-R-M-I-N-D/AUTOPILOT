@@ -10,12 +10,11 @@
  * {@link planDocsWrite} validates a caller-supplied repo-relative path
  * against the allow-list, refuses any traversal/absolute-path/binary-content
  * attempt, and appends the provenance line to the saved content. It has no
- * I/O and is never called from anywhere yet: the guarded `POST` endpoint
- * (CSRF, rate-limited, confirm-before-write, matching `release/execute.ts`'s
- * write-to-disk discipline) and the split-preview editor UI are their own
- * follow-up slices — the same isolated-pure-planner-before-wiring shape
- * `flight/social-pass.ts` and `flight/mirror-pass-priority.ts` already used
- * for their own first slices.
+ * I/O of its own. `docs/write.ts`'s `createDocsWriteApi` turns a validated
+ * plan into a real file write, and `server.ts`'s `handleDocsWrite` is the
+ * guarded `POST /api/docs/write` endpoint (CSRF, rate-limited) around that —
+ * the split-preview editor UI that calls it is the only piece still missing,
+ * its own follow-up slice.
  *
  * The allow-list is deliberately a fixed root set, not a caller-supplied
  * glob or regex: a regex allow-list is itself a thing a hostile or buggy
