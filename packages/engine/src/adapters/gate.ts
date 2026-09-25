@@ -145,6 +145,21 @@ const WORKER_START_SIGNATURES = [
 /** Any of these in the same output means a test really ran and failed. */
 const REAL_FAILURE_SIGNATURES = ['FAIL ', 'AssertionError', '×'] as const;
 
+/** vitest's timeout errors. On 2026-09-25 a firing's gate reverted it because
+ *  one test's setup step — initialising a scratch git repository — timed out
+ *  after two minutes while four lanes loaded the disk: no assertion failed. */
+const TIMEOUT_SIGNATURES = ['Hook timed out in', 'Test timed out in'] as const;
+
+/** Any of these beside a timeout means code really misbehaved. */
+const REAL_ERROR_SIGNATURES = [
+  'AssertionError',
+  'TypeError',
+  'ReferenceError',
+  'SyntaxError',
+  'RangeError',
+  'Expected',
+] as const;
+
 /**
  * A test command that exited non-zero because its workers never started is
  * a verdict on the machine, not on the commit. On 2026-09-24 two convergence
@@ -155,9 +170,19 @@ const REAL_FAILURE_SIGNATURES = ['FAIL ', 'AssertionError', '×'] as const;
  * Only when no test visibly failed beside it — a real failure keeps the red.
  */
 export function environmentCrashReason(outputTail: string): string | null {
-  if (!WORKER_START_SIGNATURES.some((s) => outputTail.includes(s))) return null;
-  if (REAL_FAILURE_SIGNATURES.some((s) => outputTail.includes(s))) return null;
-  return 'test workers never started — the machine was too loaded to judge';
+  if (
+    WORKER_START_SIGNATURES.some((s) => outputTail.includes(s)) &&
+    !REAL_FAILURE_SIGNATURES.some((s) => outputTail.includes(s))
+  ) {
+    return 'test workers never started — the machine was too loaded to judge';
+  }
+  if (
+    TIMEOUT_SIGNATURES.some((s) => outputTail.includes(s)) &&
+    !REAL_ERROR_SIGNATURES.some((s) => outputTail.includes(s))
+  ) {
+    return 'tests only timed out, none failed an assertion — the machine was too loaded to judge';
+  }
+  return null;
 }
 
 /**

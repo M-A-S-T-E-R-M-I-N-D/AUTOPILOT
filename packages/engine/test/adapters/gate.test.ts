@@ -598,6 +598,31 @@ describe('environmentCrashReason', () => {
     }
   });
 
+  it('names a run whose only failures are timeouts as the machine (2026-09-25, a git-init hook under load)', () => {
+    const hookTimeout = [
+      ' FAIL  |node| packages/engine/test/adapters/git.test.ts > GitVcs > attaches a note',
+      'Error: Hook timed out in 120000ms.',
+    ].join('\n');
+    expect(environmentCrashReason(hookTimeout)).toBe(
+      'tests only timed out, none failed an assertion — the machine was too loaded to judge',
+    );
+    expect(environmentCrashReason('Error: Test timed out in 5000ms.')).not.toBeNull();
+  });
+
+  it('keeps the red when a timeout sits beside a real error', () => {
+    for (const real of [
+      'AssertionError: expected 1 to be 2',
+      'TypeError: x is not a function',
+      'ReferenceError: y is not defined',
+      'SyntaxError: bad',
+      'RangeError: too big',
+      ['- Expected', '+ Received'].join('\n'),
+    ]) {
+      const tail = ['Error: Hook timed out in 120000ms.', real].join('\n');
+      expect(environmentCrashReason(tail), real).toBeNull();
+    }
+  });
+
   it('is null for ordinary output', () => {
     expect(environmentCrashReason('')).toBeNull();
     expect(environmentCrashReason('Tests  3 passed')).toBeNull();
