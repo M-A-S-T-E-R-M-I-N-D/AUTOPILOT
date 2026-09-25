@@ -89,7 +89,13 @@ export interface SessionFlightData {
  *  transform rewrites it to a reference that doesn't survive `.toString()`
  *  extraction. `tr` rides the same route (board web-msnsndki-dz3vn1): the
  *  two clauses are `{spent}`/`{total}`/`{done}`/`{count}`/`{eta}` templates
- *  in STRINGS, so each locale's grammar decides where the numbers land. */
+ *  in STRINGS, so each locale's grammar decides where the numbers land.
+ *  Both displayed numerators are clamped to their own target: a lane alone
+ *  never passes its firing count, nor spends past a total whose remainder
+ *  can't fund another firing (`flight/budget.ts`), so any overshoot is
+ *  sibling lanes' firings pooled in the one shared project flight log
+ *  (ap-muh80db4-0). This note lives up here, outside the body, because
+ *  `.toString()` ships the body into `/app.js` against its size budget. */
 export function flightProgressOf(
   s: FlightProgressTarget,
   sessionFirings: readonly SessionFiring[],
@@ -106,8 +112,9 @@ export function flightProgressOf(
   let progressBit = '';
   if (s.totalBudgetUsd) {
     pct = Math.min(100, Math.round((spentSoFar / s.totalBudgetUsd) * 100));
+    // Clamped like pct: spend past this lane's total is siblings' (see below).
     progressBit = tr('flightProgressSpentOfTotal', {
-      spent: fmtCost(spentSoFar),
+      spent: fmtCost(Math.min(spentSoFar, s.totalBudgetUsd)),
       total: s.totalBudgetUsd,
     });
   } else if (s.firings) {
