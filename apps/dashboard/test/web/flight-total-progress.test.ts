@@ -207,6 +207,50 @@ describe('the fly bar TOTAL flight progress bar', () => {
     expect(label?.textContent).toContain('2 / 4 firing(s)');
   });
 
+  it("counts, prices and paces only its own lane's firings when fleet siblings share the project log (ap-muh80dbj-2)", async () => {
+    // A fleet lane flies the same folder as its siblings (PARALLEL UNLOCK C),
+    // so the project's flight log holds every lane's landed firings. Before
+    // the lane scoping, the bar pooled all six: "4 / 4 firing(s)" only
+    // because the done figure was clamped to the plan, with the siblings'
+    // $20 folded into the spend beside it.
+    const lane = {
+      running: true,
+      folder: '/repo',
+      firings: 4,
+      totalBudgetUsd: null,
+      startedAt: NOW - 65_000,
+      pid: 123,
+      paused: false,
+      queued: false,
+      initiatedBy: null,
+      instanceId: 'fleet-2',
+    };
+    mockFetch(
+      { ...lane, maxTurnsPerFiring: 120, minBudgetUsd: 0.5, flights: [lane] },
+      fleetStateWith({
+        flightLog: [
+          { id: 'p1--fleet-2:firing-1', at: NOW - 60_000, cost: 1, durationMs: 40_000 },
+          { id: 'p1--fleet-3:firing-2', at: NOW - 55_000, cost: 5, durationMs: 200_000 },
+          { id: 'p1--fleet-4:firing-3', at: NOW - 50_000, cost: 5, durationMs: 200_000 },
+          { id: 'p1:firing-4', at: NOW - 45_000, cost: 5, durationMs: 200_000 },
+          { id: 'p1--fleet-5:firing-5', at: NOW - 40_000, cost: 5, durationMs: 200_000 },
+          { id: 'p1--fleet-2:firing-6', at: NOW - 30_000, cost: 1, durationMs: 20_000 },
+        ],
+      }),
+    );
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const bar = document.getElementById('fly-progress-bar');
+    const label = document.getElementById('fly-progress-label');
+    // 2 of this lane's 4 firings landed = 50%
+    expect(bar?.getAttribute('aria-valuenow')).toBe('50');
+    expect(label?.textContent).toContain('2 / 4 firing(s)');
+    expect(label?.textContent).toContain('$2.00 so far');
+    // remaining 2 firings * this lane's own 30s avg = 60s = 1m 0s
+    expect(label?.textContent).toContain('ETA ~1m 0s');
+  });
+
   it('hides the total bar (ambiguous) when more than one flight is live at once', async () => {
     mockFetch(
       {

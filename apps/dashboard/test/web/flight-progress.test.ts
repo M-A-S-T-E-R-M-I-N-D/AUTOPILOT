@@ -104,37 +104,6 @@ describe('flightProgressOf', () => {
     expect(result?.etaBit).toBe(' · finishing up');
   });
 
-  it("clamps the firings-done count to the target instead of overcounting a fleet's shared flight log (web-mufoniqd-4gkft2)", () => {
-    // A fleet lane's flight-log read comes off the ONE shared project every
-    // lane of the same folder flies against (PARALLEL UNLOCK C) — once
-    // several lanes have landed firings inside this lane's own session
-    // window, `sessionFirings.length` legitimately exceeds THIS lane's own
-    // `firings` plan. Reported live: the fly bar's base flight card showed
-    // "6 / 2 firing(s)" for a 2-firing lane. A real solo flight can never
-    // land more firings than its own target (the runner stops itself at
-    // `firings`), so an overshoot here is proof the count includes siblings,
-    // not evidence of 300% progress — the label should read as fully done
-    // ("2 / 2"), never past its own target.
-    const result = flightProgressOf(
-      { firings: 2 },
-      [
-        { cost: 1, durationMs: 30_000 },
-        { cost: 1, durationMs: 30_000 },
-        { cost: 1, durationMs: 30_000 },
-        { cost: 1, durationMs: 30_000 },
-        { cost: 1, durationMs: 30_000 },
-        { cost: 1, durationMs: 30_000 },
-      ],
-      null,
-      fmtCost,
-      fmtDuration,
-      enTr,
-    );
-
-    expect(result?.pct).toBe(100);
-    expect(result?.progressBit).toBe('2 / 2 firing(s) · $6.00 so far');
-  });
-
   it('omits the ETA clause when no average duration is known from either source', () => {
     const result = flightProgressOf(
       { firings: 4 },
@@ -277,5 +246,74 @@ describe('sessionFlightDataFor', () => {
 
     expect(result.sessionFirings).toEqual([]);
     expect(result.historicalAvgDurationMs).toBeNull();
+  });
+
+  // ap-muh80dbj-2: every lane of a same-folder fleet (PARALLEL UNLOCK C)
+  // lands its firings in the ONE shared project flight log, so the session
+  // window alone pooled siblings' firings into this lane's count, spend and
+  // pace. The engine's firingIdOf already names the lane in every id —
+  // `<project>--<instanceId>:firing-<n>`, or `<project>:firing-<n>` for the
+  // unnamed base flight — so the lane's own firings are exactly the ones
+  // carrying its key.
+  const pooledFleetLog = [
+    { id: 'p1--fleet-2:firing-7', at: 100, cost: 1, durationMs: 10_000 },
+    { id: 'p1--fleet-3:firing-8', at: 110, cost: 5, durationMs: 90_000 },
+    { id: 'p1:firing-9', at: 120, cost: 7, durationMs: 70_000 },
+    { id: 'p1--fleet-20:firing-10', at: 130, cost: 5, durationMs: 90_000 },
+    { id: 'p1--fleet-2:firing-11', at: 140, cost: 1, durationMs: 30_000 },
+  ];
+
+  it("keeps only a fleet lane's own firings out of the shared project flight log", () => {
+    const result = sessionFlightDataFor(
+      [{ id: 'p1', status: 'flying', flightLog: pooledFleetLog }],
+      100,
+      averageFiringDurationMs,
+      'fleet-2',
+    );
+
+    // fleet-20 shares fleet-2's leading characters but is a different lane.
+    expect(result.sessionFirings).toEqual([
+      { id: 'p1--fleet-2:firing-7', at: 100, cost: 1, durationMs: 10_000 },
+      { id: 'p1--fleet-2:firing-11', at: 140, cost: 1, durationMs: 30_000 },
+    ]);
+    // The pre-session fallback stays the project's full history.
+    expect(result.historicalAvgDurationMs).toBe(58_000);
+  });
+
+  it("keeps only the unnamed base flight's firings when it flies no instance id", () => {
+    const result = sessionFlightDataFor(
+      [{ id: 'p1', status: 'flying', flightLog: pooledFleetLog }],
+      100,
+      averageFiringDurationMs,
+      null,
+    );
+
+    expect(result.sessionFirings).toEqual([
+      { id: 'p1:firing-9', at: 120, cost: 7, durationMs: 70_000 },
+    ]);
+  });
+
+  it('still applies the session window to a lane-scoped read', () => {
+    const result = sessionFlightDataFor(
+      [{ id: 'p1', status: 'flying', flightLog: pooledFleetLog }],
+      120,
+      averageFiringDurationMs,
+      'fleet-2',
+    );
+
+    expect(result.sessionFirings).toEqual([
+      { id: 'p1--fleet-2:firing-11', at: 140, cost: 1, durationMs: 30_000 },
+    ]);
+  });
+
+  it('keeps an entry that carries no firing id, since it names no lane to rule it out', () => {
+    const result = sessionFlightDataFor(
+      [{ id: 'p1', status: 'flying', flightLog: [{ at: 100, cost: 2 }] }],
+      0,
+      averageFiringDurationMs,
+      'fleet-2',
+    );
+
+    expect(result.sessionFirings).toEqual([{ at: 100, cost: 2 }]);
   });
 });
