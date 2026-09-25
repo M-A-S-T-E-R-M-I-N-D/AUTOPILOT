@@ -165,12 +165,7 @@ import { gzipSync } from 'node:zlib';
 // badge drops its baked-in lock/purple-circle glyph for two new vendored
 // icons (lock, user) in web/icons.ts -- measured 262150B raw, 6 bytes over
 // the old 262144B budget.
-// Then core raw 257->258KB (2026-09-25), epic 0025 icon system continuation
-// (board web-mtywp7zq-55f3o9): the report menu's last two copy-toolkit items
-// drop their baked-in puzzle-piece/brain glyphs for two new vendored icons
-// (puzzle, brain) in web/icons.ts -- measured 263429B raw, 261 bytes over
-// the old 263168B budget.
-const CORE_RAW_BUDGET = 258 * 1024;
+const CORE_RAW_BUDGET = 257 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -181,10 +176,7 @@ const CORE_RAW_BUDGET = 258 * 1024;
 // growth as the raw note above — measured 72.6KB.
 // Then core gzip 73→74KB (2026-09-15), the same guided-walk prose growth as
 // the raw note above — measured 73.3KB.
-// Then core gzip 77→78KB (2026-09-25), the same report-menu puzzle/brain
-// icon slice as the raw note above — measured 78936B, 88 bytes over the old
-// 78848B budget.
-const CORE_GZIP_BUDGET = 78 * 1024;
+const CORE_GZIP_BUDGET = 77 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the

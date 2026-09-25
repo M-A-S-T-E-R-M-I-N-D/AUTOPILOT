@@ -117,15 +117,6 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
     expect(out).not.toContain("'Copies the current selection");
   });
 
-  it('leads the last two copy-toolkit items with their vendored icon instead of a baked-in glyph', () => {
-    expect(out).toMatch(
-      /reportMenuCopy\(target \? target\.outerHTML : '', it\);\s*\}, 'puzzle'\);/,
-    );
-    expect(out).toMatch(
-      /reportMenuCopy\(reportMenuContextOf\(target, window\.__autopilotReportCapture\), it\);\s*\}, 'brain'\);/,
-    );
-  });
-
   it('translates the ✓/✗ copy result flashed on the clicked item', () => {
     expect(out).toContain("itemEl.textContent = ok ? tr('reportCopied') : tr('reportCopyFailed');");
     expect(out).not.toContain("'\\u2713 Copied'");
@@ -158,10 +149,10 @@ describe('STRINGS carries the report dialog keys', () => {
     expect(STRINGS.en.reportNothingToFile).toBe('Nothing to file — {reasoning}');
     expect(STRINGS.en.reportRequestFailed).toBe('✗ Request failed — try again shortly.');
     expect(STRINGS.en.reportCopyTextLabel).toBe('Copy text');
-    expect(STRINGS.en.reportCopyHtmlLabel).toBe('Copy element HTML');
+    expect(STRINGS.en.reportCopyHtmlLabel).toBe('🧩 Copy element HTML');
     expect(STRINGS.en.reportCopySelectorLabel).toBe('Copy CSS selector');
     expect(STRINGS.en.reportCopyStylesLabel).toBe('Copy computed styles');
-    expect(STRINGS.en.reportCopyContextLabel).toBe('Copy smart context (JSON)');
+    expect(STRINGS.en.reportCopyContextLabel).toBe('🧠 Copy smart context (JSON)');
     expect(STRINGS.en.reportCopied).toBe('✓ Copied');
     expect(STRINGS.en.reportCopyFailed).toBe('✗ Copy failed');
   });
@@ -194,18 +185,6 @@ describe('STRINGS carries the report dialog keys', () => {
   it('no longer bakes the 🎨 glyph into reportCopyStylesLabel in any locale — epic 0025 replaced it with the vendored palette icon', () => {
     for (const table of Object.values(STRINGS)) {
       expect(table.reportCopyStylesLabel.startsWith('🎨')).toBe(false);
-    }
-  });
-
-  it('no longer bakes the 🧩 glyph into reportCopyHtmlLabel in any locale — epic 0025 replaced it with the vendored puzzle icon', () => {
-    for (const table of Object.values(STRINGS)) {
-      expect(table.reportCopyHtmlLabel.startsWith('🧩')).toBe(false);
-    }
-  });
-
-  it('no longer bakes the 🧠 glyph into reportCopyContextLabel in any locale — epic 0025 replaced it with the vendored brain icon', () => {
-    for (const table of Object.values(STRINGS)) {
-      expect(table.reportCopyContextLabel.startsWith('🧠')).toBe(false);
     }
   });
 });
