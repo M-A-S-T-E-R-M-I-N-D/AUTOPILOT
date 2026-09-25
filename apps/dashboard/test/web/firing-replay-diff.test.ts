@@ -13,12 +13,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
-// Each test boots the whole client and steps a replay: 1.7–6.3s on a dev box,
+// Each test boots the whole client and steps a replay: 1.4–2.1s on a dev box,
 // 30s+ on a loaded windows-latest runner (CI run 34697734760 turned main red
 // on the default timeout). The work is real, not a wait, so the budget stays.
-// The shell is assembled and the ~200KB client compiled once per file; what
-// remains per test is executing that client against a fresh document, which
-// is the boot's true cost (~3s each here).
+// The shell is assembled and the ~1MB client compiled once per file (both
+// well under 50ms); what remains per test is executing that client against a
+// fresh document. Measured phase by phase with a real clock (fake timers also
+// fake `performance.now` and `process.hrtime`, so time it BEFORE faking):
+// document.write + CLIENT() ≈ 80ms, then EVERY interaction below — first
+// render, firing toggle, replay start, diff toggle, each Next — costs
+// 130–280ms, because each state change re-runs renderProjectPage, which
+// replaceChildren()s the page and rebuilds its ~110KB of DOM in jsdom.
+// Nothing here awaits a timer or the network: timers are faked, fetch is
+// mocked, every step settles on one advanceTimersByTimeAsync(1) — so the
+// only variable is runner CPU, and a starved windows-latest runner needs
+// the 120s budget, not a different wait.
 vi.setConfig({ testTimeout: 120_000 });
 const SHELL_HTML = renderShell('p1');
 const CLIENT = new Function(clientJs());
