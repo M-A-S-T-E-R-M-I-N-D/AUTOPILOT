@@ -585,6 +585,29 @@ describe('harvestProposals', () => {
     expect(taskTitles()).toEqual(['Dup me']);
     expect(existingTitles.has('dup me')).toBe(true);
   });
+
+  it('warns when a proposal dropped an out-of-enum severity/dimension tag, and stays silent when it did not', () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      const outcome = outcomeWithProposals([
+        proposal('Tag was dropped', { invalidTags: true }),
+        proposal('Tag was fine', { invalidTags: false }),
+      ]);
+
+      const total = harvestProposals(store, 'p1', outcome, new Set(), 0);
+
+      expect(total).toBe(2);
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining('dropped an out-of-enum severity/dimension tag'),
+      );
+      const warnCalls = writeSpy.mock.calls.filter(([line]) =>
+        String(line).includes('dropped an out-of-enum severity/dimension tag'),
+      );
+      expect(warnCalls).toHaveLength(1);
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
 });
 
 describe('activityTrail', () => {
