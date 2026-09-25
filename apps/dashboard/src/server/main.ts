@@ -73,6 +73,7 @@ import { createGithubSyncExecuteApi } from '../github/execute.js';
 import { createGithubIssueExecuteApi } from '../github/issue-execute.js';
 import { createGithubPrExecuteApi } from '../github/pr-execute.js';
 import { createInboxAddApi } from '../inbox/add.js';
+import { createDocsWriteApi } from '../docs/write.js';
 import {
   fetchOpenPrCandidateReport,
   annotateAlreadyApplied,
@@ -715,6 +716,7 @@ const server = createServer({
   },
   docBrokenLinks: (projectId, path, content) => brokenDocLinks(dbPath, projectId, path, content),
   docLinksHere: (projectId, path) => docLinksHere(dbPath, projectId, path),
+  docsWrite: createDocsWriteApi(dbPath),
   browseFolder: (path) => listBrowsableFolder(path),
   landing: (projectId) => readLandingInfo(dbPath, projectId),
   // Every LAND press goes through the job registry, never straight at the

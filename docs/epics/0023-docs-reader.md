@@ -99,9 +99,14 @@ the diff highlight fades on the compositor; nothing else moves.
    the `docs/`/`README.md`/`CHANGELOG.md` allow-list (refusing traversal,
    absolute paths, and binary content) and appends the who/when/which-page
    provenance line; `pr-review.ts`'s security-sensitive path census now flags
-   it. Still missing: the guarded `POST` endpoint (CSRF, rate-limited,
-   confirm-before-write) that actually calls it, and the split-preview editor
-   UI — no user-facing expression exists yet, so this slice stays open.
+   it. **Guarded endpoint landed 2026-09-25:** `docs/write.ts`'s
+   `createDocsWriteApi` turns a validated plan into a real project-scoped file
+   write (same `projectId` → `root_path` store lookup `inbox/add.ts` uses),
+   and `server.ts`'s `handleDocsWrite` wires `POST /api/docs/write` as a
+   CSRF-guarded, separately rate-limited JSON POST, resolving the acting
+   author server-side via the existing `socialIdentity` read (never trusted
+   from the request body). Still missing: the split-preview editor UI — no
+   user-facing expression exists yet, so this slice stays open.
 4. Live re-render on disk change with diff highlight.
 5. Hygiene: the archive/index moves from the 2026-09-12 audit
    (`docs/archive/README.md`), so the tree the reader shows is the tree we mean.
