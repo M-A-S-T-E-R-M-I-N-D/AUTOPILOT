@@ -15,6 +15,7 @@ import {
   fileConvergenceRedTask,
   convergenceRedTaskTitle,
   isFixableConvergenceRed,
+  closeResolvedConvergenceRedTasks,
 } from '../../src/flight/convergence-red-task.js';
 
 let dir: string;
@@ -122,5 +123,37 @@ describe('isFixableConvergenceRed', () => {
     expect(isFixableConvergenceRed('pnpm run ci:secret-scan-history')).toBe(true);
     expect(isFixableConvergenceRed('pnpm run test (crashed, no verdict)')).toBe(false);
     expect(isFixableConvergenceRed('lane fast-forward (merged head not gated)')).toBe(false);
+  });
+});
+
+describe('closeResolvedConvergenceRedTasks', () => {
+  it('closes the open task for a check that passes again, and only that one', () => {
+    fileConvergenceRedTask(store, RED);
+    fileConvergenceRedTask(store, { ...RED, check: 'pnpm run test', now: RED.now + 1 });
+    const closed = closeResolvedConvergenceRedTasks(store, {
+      projectId: 'p1',
+      targetBranch: 'autopilot/flight',
+      passedChecks: ['pnpm run typecheck', 'pnpm run test'],
+      now: RED.now + 2,
+    });
+    expect(closed).toBe(1);
+    const status = (title: string): string | undefined =>
+      tasks().find((t) => t.title === title)?.status;
+    expect(status(convergenceRedTaskTitle('pnpm run test', 'autopilot/flight'))).toBe('done');
+    expect(status(convergenceRedTaskTitle(RED.check, 'autopilot/flight'))).toBe('queued');
+  });
+
+  it('leaves a task for another branch, and closes nothing twice', () => {
+    fileConvergenceRedTask(store, RED);
+    const on = (targetBranch: string): number =>
+      closeResolvedConvergenceRedTasks(store, {
+        projectId: 'p1',
+        targetBranch,
+        passedChecks: [RED.check],
+        now: RED.now + 5,
+      });
+    expect(on('main')).toBe(0);
+    expect(on('autopilot/flight')).toBe(1);
+    expect(on('autopilot/flight')).toBe(0);
   });
 });

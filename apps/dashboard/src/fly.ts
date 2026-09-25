@@ -14,7 +14,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname, join, basename } from 'node:path';
-import { fileConvergenceRedTask } from './flight/convergence-red-task.js';
+import {
+  fileConvergenceRedTask,
+  closeResolvedConvergenceRedTasks,
+} from './flight/convergence-red-task.js';
 import {
   openStore,
   migrate,
@@ -714,6 +717,20 @@ async function main(): Promise<void> {
           );
       } catch {
         // Telemetry is best-effort — never let it take the flight down.
+      }
+      // A check that passes again closes its repair task — see
+      // flight/convergence-red-task.ts. The signature is the passed labels.
+      try {
+        const closed = closeResolvedConvergenceRedTasks(store, {
+          projectId,
+          targetBranch,
+          passedChecks: signature.split('+'),
+          now: now(),
+        });
+        if (closed > 0)
+          out(`  ✓ closed ${closed} convergence-red task(s) whose check passes again`);
+      } catch {
+        // Closing rides on top of the telemetry — never fail the flight over it.
       }
     };
     const pastConvergenceGreenDurationsMs = (signature: string): number[] => {
