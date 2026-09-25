@@ -10,6 +10,7 @@ import {
   planStepsFromSpec,
   planSpecFromSteps,
   planStepOutcome,
+  planStepMove,
   gateRunTally,
 } from '../../src/web/plan-editor.js';
 import { validateGateSpec } from '../../src/plan-guard.js';
@@ -26,6 +27,26 @@ describe('the flight plan editor — pure half', () => {
     expect(planStepKinds()).toEqual(['typecheck', 'lint', 'format', 'test', 'build']);
     expect(planApiUrl('a b')).toBe('/api/plan?project=a%20b');
     expect(planDraftKey('p1')).toBe('ap-plan-draft:p1');
+  });
+
+  // Epic 0024 (board web-mtywp7wk-tkdwhi): the chain is a tablist; these are its keys.
+  it('moves the selected step by the tabs-pattern keys, wrapping, mirrored right-to-left', () => {
+    const kinds = planStepKinds();
+    expect(planStepMove(kinds, 'typecheck', 'ArrowRight', false)).toBe('lint');
+    expect(planStepMove(kinds, 'lint', 'ArrowLeft', false)).toBe('typecheck');
+    expect(planStepMove(kinds, 'build', 'ArrowRight', false)).toBe('typecheck');
+    expect(planStepMove(kinds, 'typecheck', 'ArrowLeft', false)).toBe('build');
+    expect(planStepMove(kinds, 'test', 'Home', false)).toBe('typecheck');
+    expect(planStepMove(kinds, 'test', 'End', false)).toBe('build');
+    // Under dir=rtl the chain draws right to left, so the arrows swap; Home/End do not.
+    expect(planStepMove(kinds, 'typecheck', 'ArrowLeft', true)).toBe('lint');
+    expect(planStepMove(kinds, 'typecheck', 'ArrowRight', true)).toBe('build');
+    expect(planStepMove(kinds, 'test', 'Home', true)).toBe('typecheck');
+    // Any other key, or a step the chain does not hold, moves nothing.
+    expect(planStepMove(kinds, 'test', 'ArrowDown', false)).toBeNull();
+    expect(planStepMove(kinds, 'test', 'Enter', false)).toBeNull();
+    expect(planStepMove(kinds, 'deploy', 'ArrowRight', false)).toBeNull();
+    expect(planStepMove([], 'test', 'Home', false)).toBeNull();
   });
 
   it('splits a command line on whitespace, never through a shell', () => {

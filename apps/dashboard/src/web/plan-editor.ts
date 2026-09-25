@@ -30,6 +30,26 @@ export function planStepKinds(): string[] {
   return ['typecheck', 'lint', 'format', 'test', 'build'];
 }
 
+/** The step a key moves the chain's selection to — the WAI-ARIA tabs
+ *  pattern's keys (epic 0024): Left/Right one step, wrapping at the ends,
+ *  Home/End to the ends. A right-to-left page draws the chain mirrored, so
+ *  its arrows swap. Null for any other key or a step the chain lacks. */
+export function planStepMove(
+  kinds: readonly string[],
+  current: string,
+  key: string,
+  rtl: boolean,
+): string | null {
+  const i = kinds.indexOf(current);
+  if (i < 0) return null;
+  const last = kinds.length - 1;
+  if (key === 'Home') return kinds[0]!;
+  if (key === 'End') return kinds[last]!;
+  if (key === (rtl ? 'ArrowLeft' : 'ArrowRight')) return kinds[i === last ? 0 : i + 1]!;
+  if (key === (rtl ? 'ArrowRight' : 'ArrowLeft')) return kinds[i === 0 ? last : i - 1]!;
+  return null;
+}
+
 export function planApiUrl(projectId: string): string {
   return '/api/plan?project=' + encodeURIComponent(projectId);
 }
