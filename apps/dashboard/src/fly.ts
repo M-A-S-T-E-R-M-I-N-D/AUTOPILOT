@@ -289,7 +289,13 @@ async function main(): Promise<void> {
   // above) caps how many lanes may run one AT ONCE, queueing the rest. Solo
   // flights (no instanceId) skip it entirely — same "never capped, they have
   // the machine to themselves" carve-out mercy 1 already makes.
-  const gateSemaphore = instanceId
+  // A FLEET'S BASE LANE IS A FLEET MEMBER TOO (2026-09-25). It flies with no
+  // instanceId, so it skipped the cross-lane gate slots entirely and gated
+  // unqueued beside four slotted lanes — the heaviest lane, in the round whose
+  // first-wave typecheck/format took four to nine minutes. It does carry the
+  // launcher's partitioned task scope, like every lane.
+  const inFleet = instanceId !== undefined || fleetTaskScope !== null;
+  const gateSemaphore = inFleet
     ? new FileGateSemaphore({ dir: dirname(dbPath), slots: fleetGateSlotsFromEnv(process.env) })
     : undefined;
   // ONE FULL SUITE AT A TIME ACROSS THE FLEET (2026-09-25). The flight-end
@@ -651,7 +657,7 @@ async function main(): Promise<void> {
     // started (web-mtb8i2ol-obncos: the frozen version never re-fires the
     // backstop inside a flight once its first decision picked the fast path).
     const buildGateSpec = (): GateSpec =>
-      perFiringGateSpec(result.gate.spec, firingStats(store.db, projectId).firings);
+      perFiringGateSpec(result.gate.spec, firingStats(store.db, projectId).firings, inFleet);
     const commands = perFiringGateCommands(buildGateSpec());
     out(`Gate: ${commands.map((c) => c.label).join(' · ') || '(none detected)'}`);
 
