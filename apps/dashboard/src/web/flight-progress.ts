@@ -112,8 +112,16 @@ export function flightProgressOf(
     });
   } else if (s.firings) {
     pct = Math.min(100, Math.round((firingsCompleted / s.firings) * 100));
+    // Clamped like pct above: a fleet lane's flight-log read comes off the
+    // ONE shared project every lane of the same folder flies against
+    // (PARALLEL UNLOCK C, `flight/registry.ts`), so `firingsCompleted` can
+    // legitimately include siblings' landed firings inside this lane's own
+    // session window. A real solo flight can never land more firings than
+    // its own target (the runner stops itself at `s.firings`), so an
+    // overshoot here is proof of shared-log crosstalk, not 300% progress —
+    // the fly bar previously showed "6 / 2 firing(s)" for a 2-firing lane.
     progressBit = tr('flightProgressFiringsSoFar', {
-      done: firingsCompleted,
+      done: Math.min(firingsCompleted, s.firings),
       count: s.firings,
       spent: fmtCost(spentSoFar),
     });

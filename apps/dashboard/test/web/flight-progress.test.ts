@@ -104,6 +104,37 @@ describe('flightProgressOf', () => {
     expect(result?.etaBit).toBe(' · finishing up');
   });
 
+  it("clamps the firings-done count to the target instead of overcounting a fleet's shared flight log (web-mufoniqd-4gkft2)", () => {
+    // A fleet lane's flight-log read comes off the ONE shared project every
+    // lane of the same folder flies against (PARALLEL UNLOCK C) — once
+    // several lanes have landed firings inside this lane's own session
+    // window, `sessionFirings.length` legitimately exceeds THIS lane's own
+    // `firings` plan. Reported live: the fly bar's base flight card showed
+    // "6 / 2 firing(s)" for a 2-firing lane. A real solo flight can never
+    // land more firings than its own target (the runner stops itself at
+    // `firings`), so an overshoot here is proof the count includes siblings,
+    // not evidence of 300% progress — the label should read as fully done
+    // ("2 / 2"), never past its own target.
+    const result = flightProgressOf(
+      { firings: 2 },
+      [
+        { cost: 1, durationMs: 30_000 },
+        { cost: 1, durationMs: 30_000 },
+        { cost: 1, durationMs: 30_000 },
+        { cost: 1, durationMs: 30_000 },
+        { cost: 1, durationMs: 30_000 },
+        { cost: 1, durationMs: 30_000 },
+      ],
+      null,
+      fmtCost,
+      fmtDuration,
+      enTr,
+    );
+
+    expect(result?.pct).toBe(100);
+    expect(result?.progressBit).toBe('2 / 2 firing(s) · $6.00 so far');
+  });
+
   it('omits the ETA clause when no average duration is known from either source', () => {
     const result = flightProgressOf(
       { firings: 4 },
