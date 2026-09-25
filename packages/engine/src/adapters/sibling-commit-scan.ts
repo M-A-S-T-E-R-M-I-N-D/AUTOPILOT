@@ -23,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseWorktreeList } from './worktree.js';
-import type { SiblingPrimaryClaim } from '../guard.js';
+import type { SiblingNewFile, SiblingPrimaryClaim } from '../guard.js';
 
 const INTENT_FILE_NAME = '.autopilot-intent';
 
@@ -80,6 +80,18 @@ function declaredPrimaryFile(worktreePath: string): string | null {
  * commit, only a confirmed overlap does.
  */
 export function gatherSiblingPrimaryClaims(ownWorktreePath: string): SiblingPrimaryClaim[] {
+  const claims: SiblingPrimaryClaim[] = [];
+  for (const sibling of siblingWorktrees(ownWorktreePath)) {
+    const primaryFile = declaredPrimaryFile(sibling.path);
+    if (primaryFile === null) continue;
+    claims.push({ branch: sibling.branch, primaryFile });
+  }
+  return claims;
+}
+
+/** Every OTHER flight lane's worktree, own excluded by canonical path; an
+ *  empty list on any git error. */
+function siblingWorktrees(ownWorktreePath: string): { branch: string; path: string }[] {
   let porcelain: string;
   try {
     porcelain = execFileSync('git', ['-C', ownWorktreePath, 'worktree', 'list', '--porcelain'], {
@@ -90,16 +102,63 @@ export function gatherSiblingPrimaryClaims(ownWorktreePath: string): SiblingPrim
     return [];
   }
   const own = norm(canonicalPath(ownWorktreePath));
-  const claims: SiblingPrimaryClaim[] = [];
+  const siblings: { branch: string; path: string }[] = [];
   for (const entry of parseWorktreeList(porcelain)) {
     if (entry.branch === undefined) continue;
     if (!entry.branch.startsWith('refs/heads/autopilot/flight-worktree-')) continue;
     if (norm(canonicalPath(entry.path)) === own) continue;
-    const primaryFile = declaredPrimaryFile(entry.path);
-    if (primaryFile === null) continue;
-    claims.push({ branch: entry.branch.replace(/^refs\/heads\//, ''), primaryFile });
+    siblings.push({ branch: entry.branch.replace(/^refs\/heads\//, ''), path: entry.path });
   }
-  return claims;
+  return siblings;
+}
+
+function gitLines(worktreePath: string, args: readonly string[]): string[] {
+  try {
+    return execFileSync('git', ['-C', worktreePath, ...args], {
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+      .split('\n')
+      .map((l) => l.replace(/\r$/, ''))
+      .filter((l) => l.trim() !== '');
+  } catch {
+    return [];
+  }
+}
+
+/** The branch lanes sync back into. */
+const FLIGHT_BRANCH = 'autopilot/flight';
+
+/**
+ * Every file a sibling lane is CREATING right now: untracked or staged as
+ * added in its worktree, or added by a commit on its lane that the flight
+ * branch does not have yet. Read fresh at commit time, like the claims
+ * above; fails to an empty list, so a broken read never blocks a commit.
+ */
+export function gatherSiblingNewFiles(ownWorktreePath: string): SiblingNewFile[] {
+  const files: SiblingNewFile[] = [];
+  for (const sibling of siblingWorktrees(ownWorktreePath)) {
+    const inWorktree = gitLines(sibling.path, ['status', '--porcelain=v1', '--untracked-files=all'])
+      .filter((l) => l.startsWith('??') || l.startsWith('A'))
+      .map((l) => l.slice(3).trim());
+    const onLane = gitLines(sibling.path, [
+      'diff',
+      '--name-only',
+      '--diff-filter=A',
+      `${FLIGHT_BRANCH}...HEAD`,
+    ]);
+    for (const path of new Set([...inWorktree, ...onLane])) {
+      if (path !== '' && path !== INTENT_FILE_NAME) files.push({ branch: sibling.branch, path });
+    }
+  }
+  return files;
+}
+
+/** The files the commit about to happen ADDS (new paths, not edits). */
+export function gatherStagedAddedFiles(worktreePath: string): string[] {
+  return gitLines(worktreePath, ['diff', '--cached', '--name-only', '--diff-filter=A']).map((l) =>
+    l.trim(),
+  );
 }
 
 /**

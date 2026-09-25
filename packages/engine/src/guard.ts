@@ -641,6 +641,41 @@ export function checkPreCommitSiblingOverlap(
   return { allowed: true, reason: null };
 }
 
+/** A file a sibling lane is creating right now: untracked or staged in its
+ *  worktree, or committed on its lane but not yet synced to the flight. */
+export interface SiblingNewFile {
+  readonly branch: string;
+  readonly path: string;
+}
+
+/**
+ * TWO LANES NEVER CREATE THE SAME FILE (2026-09-25). Two lanes each added
+ * the same Stryker config within seven minutes; the second lane's sync-back
+ * hit an add/add conflict, aborted, and every later commit on that lane sat
+ * stranded for a whole flight. The intent check above sees only a sibling's
+ * one declared primary file, and neither lane had declared this one. A file
+ * this commit ADDS that a sibling is adding too is a certain conflict, so
+ * the commit is refused and the agent told whose it is.
+ */
+export function checkPreCommitSiblingNewFiles(
+  stagedAdded: readonly string[],
+  siblingNewFiles: readonly SiblingNewFile[],
+): ContainmentVerdict {
+  const staged = new Set(stagedAdded.map(norm));
+  for (const file of siblingNewFiles) {
+    if (staged.has(norm(file.path))) {
+      return {
+        allowed: false,
+        reason:
+          `PRE-COMMIT SIBLING SCAN: sibling ${file.branch} is creating ${file.path} too — two lanes ` +
+          'adding the same file cannot both merge, and the second sync-back would strand this ' +
+          "lane's work. Leave that file to the sibling and pick different work.",
+      };
+    }
+  }
+  return { allowed: true, reason: null };
+}
+
 // SUICIDE GUARD, BACKSTOP layer (web-msp5g6nf-owl9jp; root-caused: a firing ran
 // the dashboard's own stop command live and killed the host process that was
 // running it, taking the flight down too). The PRIMARY defense now lives IN

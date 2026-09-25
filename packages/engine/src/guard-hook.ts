@@ -30,6 +30,7 @@ import { lookup } from 'node:dns/promises';
 import {
   buildDenyDecision,
   checkPreCommitSiblingOverlap,
+  checkPreCommitSiblingNewFiles,
   checkWebFetchDnsRebinding,
   evaluateHookInput,
   extractBashCommand,
@@ -38,6 +39,8 @@ import {
 } from './guard.js';
 import {
   gatherSiblingPrimaryClaims,
+  gatherSiblingNewFiles,
+  gatherStagedAddedFiles,
   gatherStagedFiles,
   isMergeCommit,
 } from './adapters/sibling-commit-scan.js';
@@ -88,10 +91,18 @@ async function handleStdinEnd(): Promise<void> {
 
   const command = extractBashCommand(raw);
   if (command !== null && isGitCommitCommand(command) && !isMergeCommit(targetRoot)) {
-    const verdict = checkPreCommitSiblingOverlap(
+    const claimVerdict = checkPreCommitSiblingOverlap(
       gatherStagedFiles(targetRoot),
       gatherSiblingPrimaryClaims(targetRoot),
     );
+    // Only when the claim check passed: two lanes adding the same file
+    // (2026-09-25) is the second way a commit can strand a lane.
+    const verdict = claimVerdict.allowed
+      ? checkPreCommitSiblingNewFiles(
+          gatherStagedAddedFiles(targetRoot),
+          gatherSiblingNewFiles(targetRoot),
+        )
+      : claimVerdict;
     if (!verdict.allowed) {
       // Stryker disable next-line StringLiteral: checkPreCommitSiblingOverlap's
       // only `allowed: false` return site always sets an explicit non-null

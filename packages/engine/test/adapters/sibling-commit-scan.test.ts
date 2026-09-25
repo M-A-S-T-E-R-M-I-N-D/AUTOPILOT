@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { ensureWorktree } from '../../src/adapters/worktree.js';
 import {
   gatherSiblingPrimaryClaims,
+  gatherSiblingNewFiles,
+  gatherStagedAddedFiles,
   gatherStagedFiles,
   isMergeCommit,
 } from '../../src/adapters/sibling-commit-scan.js';
@@ -173,5 +175,67 @@ describe('isMergeCommit', () => {
     const notARepo = join(scratch, 'not-a-repo');
     mkdirSync(notARepo);
     expect(isMergeCommit(notARepo)).toBe(false);
+  });
+});
+
+describe('gatherSiblingNewFiles / gatherStagedAddedFiles (2026-09-25)', () => {
+  let scratch: string;
+  let target: string;
+
+  beforeEach(() => {
+    scratch = mkdtempSync(join(tmpdir(), 'autopilot-sibling-new-'));
+    target = join(scratch, 'target-repo');
+    mkdirSync(target);
+    initRepo(target);
+    gitSync(target, ['branch', 'autopilot/flight']);
+  });
+
+  afterEach(() => {
+    rmSync(scratch, { recursive: true, force: true });
+  });
+
+  it("reads a sibling's untracked, staged and unsynced new files, and never its own", async () => {
+    const branch = 'autopilot/flight-worktree-p--fleet-2';
+    const sibling = join(scratch, '.autopilot-worktrees', 'p--fleet-2');
+    const self = join(scratch, '.autopilot-worktrees', 'p--fleet-3');
+    mkdirSync(join(scratch, '.autopilot-worktrees'), { recursive: true });
+    expect((await ensureWorktree(target, sibling, branch)).ok).toBe(true);
+    expect((await ensureWorktree(target, self, 'autopilot/flight-worktree-p--fleet-3')).ok).toBe(
+      true,
+    );
+    // committed on the sibling's lane, not yet on the flight branch
+    writeFileSync(join(sibling, 'committed.mjs'), 'x');
+    gitSync(sibling, ['add', 'committed.mjs']);
+    gitSync(sibling, ['commit', '-q', '-m', 'test: add']);
+    // staged but uncommitted, and untracked in a new folder
+    writeFileSync(join(sibling, 'staged.mjs'), 'x');
+    gitSync(sibling, ['add', 'staged.mjs']);
+    mkdirSync(join(sibling, 'config', 'mutation'), { recursive: true });
+    writeFileSync(join(sibling, 'config', 'mutation', 'new.mjs'), 'x');
+    // an edit to a tracked file is not a new file, and the intent file is metadata
+    writeFileSync(join(sibling, 'a.txt'), 'changed');
+    writeFileSync(join(sibling, '.autopilot-intent'), 'x.ts — y\n');
+    writeFileSync(join(self, 'mine.mjs'), 'x');
+
+    const found = gatherSiblingNewFiles(self)
+      .map((f) => `${f.branch} ${f.path}`)
+      .sort();
+    expect(found).toEqual([
+      `${branch} committed.mjs`,
+      `${branch} config/mutation/new.mjs`,
+      `${branch} staged.mjs`,
+    ]);
+  });
+
+  it('lists only the files a commit adds, not the ones it edits', () => {
+    writeFileSync(join(target, 'a.txt'), 'edited');
+    writeFileSync(join(target, 'b.txt'), 'new');
+    gitSync(target, ['add', '-A']);
+    expect(gatherStagedAddedFiles(target)).toEqual(['b.txt']);
+  });
+
+  it('fails to empty lists outside a repository', () => {
+    expect(gatherSiblingNewFiles(scratch)).toEqual([]);
+    expect(gatherStagedAddedFiles(scratch)).toEqual([]);
   });
 });
