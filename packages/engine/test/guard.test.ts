@@ -7,6 +7,7 @@ import {
   buildDenyDecision,
   checkCommandContainment,
   checkPreCommitSiblingOverlap,
+  checkPreCommitSiblingNewFiles,
   checkWebFetchDnsRebinding,
   checkWebFetchTarget,
   evaluateHookInput,
@@ -1500,5 +1501,31 @@ describe('hook payload parsing — only the named tool, only a string field', ()
         ROOT,
       ),
     ).toBeNull();
+  });
+});
+
+describe('checkPreCommitSiblingNewFiles (2026-09-25, two lanes adding one file)', () => {
+  const sibling = { branch: 'autopilot/flight-worktree-p--fleet-2', path: 'config/mutation/x.mjs' };
+
+  it('refuses a commit that adds a file a sibling is adding, and names the sibling', () => {
+    const v = checkPreCommitSiblingNewFiles(['config/mutation/x.mjs'], [sibling]);
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain('autopilot/flight-worktree-p--fleet-2');
+    expect(v.reason).toContain('config/mutation/x.mjs');
+  });
+
+  it('compares paths the way the other checks do: slashes and case', () => {
+    expect(checkPreCommitSiblingNewFiles(['CONFIG\\Mutation\\X.mjs'], [sibling]).allowed).toBe(
+      false,
+    );
+  });
+
+  it('allows every other added file, and a commit that adds nothing', () => {
+    expect(checkPreCommitSiblingNewFiles(['config/mutation/y.mjs'], [sibling])).toEqual({
+      allowed: true,
+      reason: null,
+    });
+    expect(checkPreCommitSiblingNewFiles([], [sibling]).allowed).toBe(true);
+    expect(checkPreCommitSiblingNewFiles(['config/mutation/x.mjs'], []).allowed).toBe(true);
   });
 });

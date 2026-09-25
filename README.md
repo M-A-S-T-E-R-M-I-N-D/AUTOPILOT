@@ -189,9 +189,10 @@ The first question anyone should ask an agent that edits code.
 ## It builds itself — and you can audit the claim
 
 Most of this repository's commits were shipped by AUTOPILOT's own fleets. The same screen, at
-three points in its own history, each frame taken from the README that shipped at that version:
+five points in its own history, each earlier frame taken from the README that shipped at that
+version, and today's in the terminal theme with every effect on:
 
-![The fleet home at v0.21.0, v0.42.0 and today, side by side](docs/screens/evolution.png)
+![The fleet home at v0.10.0, v0.21.0, v0.42.0, v0.49.0 and today in the terminal theme, side by side](docs/screens/evolution.png)
 
 ```bash
 git log --format=%B | grep -c "Firing-Prompt-Version"   # commits carrying the fleet's trailer
@@ -266,7 +267,7 @@ release, then the board as columns, the Keeper, the plan editor, the docs reader
 
 ```bash
 pnpm run verify         # the full gate: typecheck · lint · format · test (≥80% cov) · build · secret/PII/SPDX scans
-pnpm run mutation       # optional, slow: 116 Stryker mutation-testing runs (nightly in CI as six shards)
+pnpm run mutation       # optional, slow: 118 Stryker mutation-testing runs (nightly in CI as six shards)
 pnpm dashboard:status   # running | stopped | stale (+ doctor checks)   · dashboard:stop to stop
 pnpm dashboard:watch    # RING-0 supervisor: owns start/revive/replace — observe, don't babysit
 ```

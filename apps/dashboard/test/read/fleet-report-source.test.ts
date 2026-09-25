@@ -10,7 +10,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, createTask, type Store } from '@autopilot/store';
-import { readReportFirings, readReportConvergence } from '../../src/read/fleet-report-source.js';
+import {
+  readReportFirings,
+  readReportConvergence,
+  readParkedLanes,
+} from '../../src/read/fleet-report-source.js';
+import { execFileSync } from 'node:child_process';
 
 let dir: string;
 let store: Store;
@@ -125,5 +130,33 @@ describe('readReportConvergence', () => {
     expect(readReportConvergence(store.db, 'fly-a', 100)).toEqual([
       { verdict: 'red', check: 'pnpm run test', merge: 'fast-forwarded x' },
     ]);
+  });
+});
+
+describe('readParkedLanes', () => {
+  it("counts each lane's commits the flight branch lacks, for this project's lanes only", () => {
+    const repo = join(dir, 'repo');
+    const git = (...args: string[]): string =>
+      execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', windowsHide: true });
+    execFileSync('git', ['init', '-q', repo], { windowsHide: true });
+    git('config', 'user.email', 't@example.com');
+    git('config', 'user.name', 'T');
+    git('config', 'commit.gpgsign', 'false');
+    git('commit', '-q', '--allow-empty', '-m', 'base');
+    git('branch', 'autopilot/flight');
+    for (const lane of ['fly-a--fleet-2', 'fly-a', 'fly-ab--fleet-2']) {
+      git('branch', `autopilot/flight-worktree-${lane}`);
+    }
+    git('checkout', '-q', 'autopilot/flight-worktree-fly-a--fleet-2');
+    git('commit', '-q', '--allow-empty', '-m', 'parked one');
+    git('commit', '-q', '--allow-empty', '-m', 'parked two');
+    expect(readParkedLanes(repo, 'fly-a')).toEqual([
+      { branch: 'autopilot/flight-worktree-fly-a', commits: 0 },
+      { branch: 'autopilot/flight-worktree-fly-a--fleet-2', commits: 2 },
+    ]);
+  });
+
+  it('is empty when the folder is not a repository', () => {
+    expect(readParkedLanes(dir, 'fly-a')).toEqual([]);
   });
 });

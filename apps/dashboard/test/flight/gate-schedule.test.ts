@@ -81,4 +81,14 @@ describe('perFiringGateSpec', () => {
   it('leaves lint and other non-test commands untouched', () => {
     expect(perFiringGateSpec(DETECTED, 1).lint).toBe(LINT);
   });
+
+  it('in a fleet, takes the impacted path even when a full run would be due — the flight-end gate runs the full suite', () => {
+    expect(perFiringGateSpec(DETECTED, 0, true).test).toBe(IMPACTED);
+    expect(perFiringGateSpec(DETECTED, 5, true).test).toBe(IMPACTED);
+  });
+
+  it('in a fleet without an impacted command, still runs the full one', () => {
+    const { testImpacted: _omit, ...noImpacted } = DETECTED;
+    expect(perFiringGateSpec(noImpacted, 0, true).test).toBe(FULL);
+  });
 });

@@ -48,8 +48,21 @@ export function selectTestCommand(
  * weights" (board web-mtbeu5d3-n09acx "CONVERGENCE FULL GATE",
  * `convergence-gate.ts`'s doc comment).
  */
-export function perFiringGateSpec(detected: GateSpec, priorFiringCount: number): GateSpec {
-  const scheduledTest = selectTestCommand(detected, priorFiringCount);
+export function perFiringGateSpec(
+  detected: GateSpec,
+  priorFiringCount: number,
+  inFleet = false,
+): GateSpec {
+  // IN A FLEET THE FULL SUITE RUNS AT THE FLIGHT END, NOT AT THE FIRING
+  // (2026-09-25). A five-lane round spent 4 of its 10 per-firing gates on the
+  // full suite, 11 to 20 minutes each on one disk, while every lane's
+  // flight-end convergence gate runs that same full suite anyway (and the
+  // landing runs it again). The backstop stays for a solo flight, which has
+  // no flight-end gate after every couple of firings.
+  const scheduledTest =
+    inFleet && detected.testImpacted
+      ? detected.testImpacted
+      : selectTestCommand(detected, priorFiringCount);
   return { ...detected, ...(scheduledTest ? { test: scheduledTest } : {}) };
 }
 

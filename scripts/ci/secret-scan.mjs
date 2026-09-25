@@ -53,6 +53,10 @@ export const EXCLUDED_FILES = new Set([
 ]);
 export const BINARY_EXT = /\.(png|jpe?g|gif|ico|woff2?|ttf|eot|pdf|zip|gz|tgz|db|wasm|node)$/i;
 
+// Stryker disable all: `listTrackedFiles` shells out to `git ls-files` — it
+// can only be exercised by running the gate for real. The logic it feeds,
+// `findSecrets` (and its `redact` helper), IS mutation-tested
+// (config/mutation/stryker.ci-secret-scan.config.mjs).
 /** @returns {string[]} repo-relative tracked file paths */
 function listTrackedFiles() {
   const out = execFileSync(
@@ -62,6 +66,7 @@ function listTrackedFiles() {
   );
   return out.split(NUL).filter(Boolean);
 }
+// Stryker restore all
 
 /**
  * Redact a matched secret to a safe evidence fingerprint — enough to confirm
@@ -86,7 +91,19 @@ export function findSecrets(text) {
   /** @type {{ line: number, rule: string, match: string }[]} */
   const findings = [];
   const lines = text.split('\n');
+  // Stryker disable next-line EqualityOperator: the `<=` bound runs one extra
+  // iteration over `lines[lines.length]`, which the `?? ''` below turns into
+  // an empty line no RULES entry can match (every rule needs at least one
+  // character) — no finding, no observable change. Its sibling `>=` mutant
+  // behaves exactly like the `if (false)` ConditionalExpression mutant on
+  // this same line (zero iterations, no findings), which secret-scan.test.ts's
+  // positive fixtures DO kill, so nothing is lost by disabling the operator.
   for (let i = 0; i < lines.length; i++) {
+    // Stryker disable next-line StringLiteral: the `''` fallback only exists
+    // to satisfy noUncheckedIndexedAccess — every index the loop above reaches
+    // is in bounds, so the fallback is never evaluated and no test can cover
+    // a mutant sitting on it. The `??` -> `&&` LogicalOperator mutant on this
+    // line stays live and IS killed (it blanks every line, so nothing matches).
     const line = lines[i] ?? '';
     for (const rule of RULES) {
       const m = rule.re.exec(line);
@@ -98,6 +115,10 @@ export function findSecrets(text) {
   return findings;
 }
 
+// Stryker disable all: `main` is the process shell — it reads every tracked
+// file from disk and calls `process.exit`, so it can only be exercised by
+// running the gate for real. The logic it delegates to, `findSecrets`, IS
+// mutation-tested.
 function main() {
   const files = listTrackedFiles();
   /** @type {{ file: string, line: number, rule: string, match: string }[]} */
