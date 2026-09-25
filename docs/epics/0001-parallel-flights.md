@@ -128,6 +128,22 @@ must never ingest THIS repo's own claim-command comments onto that project's
 board. None of this changes the four locks above or the acceptance criteria
 below; all six slices remain unchanged and live in production.
 
+Freshness check (2026-09-26): `fly.ts` gained eleven commits since the 2026-09-24
+check above — a wave of fleet-lane concurrency refinements and model-routing
+enhancements. The changes span: model benchmarking and per-tier model assignment
+(`flight/model-scoreboard.ts` integration, `routeTaskModel`), instanceId
+plumbing into firing records for session isolation (`cf65e8e1`), full-gate
+concurrency capping and staggered scheduling for fleet-wide load fairness
+(`598cfe2b`, `1d8d93f4`), convergence-red auto-close (`c095fa74`), and per-firing
+gate parity refinements (`76cb14dc`, `d0b985c9`). All changes are same-folder
+N-way fleet-lane mechanics (scheduling, load fairness, model routing) — they
+do not alter the cross-project isolation this epic guarantees nor the four
+locks above. The model-routing layer (`flight/model-routing.ts`, 
+`flight/model-scoreboard.ts`) is new internal machinery not visible in the
+firing prompt or acceptance criteria. None of this changes the four locks above
+or the acceptance criteria below; all six slices remain unchanged and live in
+production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
