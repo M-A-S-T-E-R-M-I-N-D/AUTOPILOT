@@ -1041,6 +1041,10 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // queued, high-severity board task with no approval gate. Widening what
   // it files steers every lane's next pick.
   'flight/convergence-red-task.ts',
+  // THE MODEL SCOREBOARD (2026-09-25): decides which model every firing
+  // flies on, from recorded outcomes. Skewing it staffs a tier with the
+  // wrong model for every lane.
+  'flight/model-scoreboard.ts',
   // PREFLIGHT (2026-09-19): the go/no-go every launch path shares. It
   // decides whether a flight starts at all; weakening it lets a flight
   // launch into the exact states the lane ladder paid for (a dirty

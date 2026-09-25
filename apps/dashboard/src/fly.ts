@@ -18,6 +18,7 @@ import {
   fileConvergenceRedTask,
   closeResolvedConvergenceRedTasks,
 } from './flight/convergence-red-task.js';
+import { routeTaskModel } from './flight/model-scoreboard.js';
 import {
   openStore,
   migrate,
@@ -1333,11 +1334,32 @@ async function main(): Promise<void> {
           const sliceStreak =
             taskEconomicsFromRows(taskMetricsRows).get(topAvailable.id)?.sliceStreak ?? 0;
           const tier = classifyTaskModelTier({ title: topAvailable.title, sliceStreak });
-          routedModel = escalationTripped
-            ? undefined
-            : resolvePrimaryModelForTier(tier, process.env, topAvailable.id);
-          if (routedModel !== undefined && routedModel !== config.primaryModel) {
-            out(`  🧭 model routing: ${tier} → ${routedModel} — ${topAvailable.title}`);
+          // THE MODEL SCOREBOARD (2026-09-25): the tier's model comes from the
+          // fleet's own benchmark — flight/model-scoreboard.ts. The fixed
+          // split stays as the fallback if the scoreboard cannot be read.
+          let routingReason = '';
+          if (escalationTripped) {
+            routedModel = undefined;
+          } else {
+            try {
+              const choice = routeTaskModel(
+                store,
+                projectId,
+                tier,
+                topAvailable.id,
+                process.env,
+                now(),
+              );
+              routedModel = choice.model;
+              routingReason = ` (${choice.phase}: ${choice.reason})`;
+            } catch {
+              routedModel = resolvePrimaryModelForTier(tier, process.env, topAvailable.id);
+            }
+          }
+          if (routedModel !== undefined) {
+            out(
+              `  🧭 model routing: ${tier} → ${routedModel}${routingReason} — ${topAvailable.title.slice(0, 100)}`,
+            );
           }
         }
         lastFiringEscalated =
