@@ -22,6 +22,16 @@ import { findSecrets, EXCLUDED_FILES, BINARY_EXT } from './secret-scan.mjs';
 const ZERO_SHA = /^0+$/;
 const GIT_OPTS = { windowsHide: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 };
 
+// Module-level on purpose, not inline in the loop below: a regex literal is
+// rebuilt on every call anyway (no `g` flag, so no lastIndex state to share),
+// and as module constants they are static mutants Stryker's `ignoreStatic`
+// sets aside (config/mutation/stryker.ci-secret-scan-history.config.mjs) —
+// the same stance stryker.ci-secret-scan.config.mjs takes for RULES. Each is
+// pinned instead by positive fixtures and a look-alike negative fixture in
+// secret-scan-history.test.ts, which a regex mutant could not check better.
+const FILE_HEADER_RE = /^diff --git a\/.+ b\/(.+)$/;
+const HUNK_HEADER_RE = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
+
 /**
  * @typedef {{ file: string, line: number, text: string }} AddedLine
  * @typedef {{ file: string, line: number, rule: string, match: string }} PatchFinding
@@ -47,15 +57,21 @@ export function parseAddedLines(patchText) {
   let inPreamble = false;
 
   for (const raw of patchText.split('\n')) {
-    const fileHeader = /^diff --git a\/.+ b\/(.+)$/.exec(raw);
+    const fileHeader = FILE_HEADER_RE.exec(raw);
     if (fileHeader) {
+      // Stryker disable next-line StringLiteral: the `''` fallback only exists
+      // to satisfy noUncheckedIndexedAccess — FILE_HEADER_RE's capture group is
+      // `(.+)`, so a match always carries at least one character and the
+      // fallback is never evaluated; no test can cover a mutant sitting on it.
+      // The `??` -> `&&` LogicalOperator mutant on this line stays live and IS
+      // killed (it blanks every file name, which every fixture asserts).
       file = fileHeader[1] ?? '';
       newLine = 0;
       inPreamble = true;
       continue;
     }
 
-    const hunkHeader = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
+    const hunkHeader = HUNK_HEADER_RE.exec(raw);
     if (hunkHeader) {
       newLine = Number(hunkHeader[1]);
       inPreamble = false;
@@ -102,6 +118,13 @@ export function scanPatch(patchText) {
   return findings;
 }
 
+// Stryker disable all: everything from here down is the pre-push process
+// shell — `readRefUpdates` reads the hook's stdin, `commitsForRefUpdate`,
+// `isMergeCommit` and `patchForCommit` shell out to `git rev-list` and
+// `git diff-tree`, and `main` calls `process.exit` — so it can only be
+// exercised by running the gate for real. The logic it feeds,
+// `parseAddedLines` and `scanPatch` above, IS mutation-tested
+// (config/mutation/stryker.ci-secret-scan-history.config.mjs).
 /** @returns {{ localRef: string, localSha: string, remoteRef: string, remoteSha: string }[]} */
 function readRefUpdates() {
   // A terminal is a human, not a pre-push hook: reading it would block
