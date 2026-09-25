@@ -200,6 +200,7 @@
     "mutation:ci-quarantine-report": "stryker run config/mutation/stryker.ci-quarantine-report.config.mjs",
     "mutation:ci-license-check": "stryker run config/mutation/stryker.ci-license-check.config.mjs",
     "mutation:ci-secret-scan": "stryker run config/mutation/stryker.ci-secret-scan.config.mjs",
+    "mutation:ci-secret-scan-history": "stryker run config/mutation/stryker.ci-secret-scan-history.config.mjs",
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run build && pnpm run ci:secret-scan && pnpm run ci:no-personal-paths && pnpm run ci:conflict-markers && pnpm run ci:validate-configs && pnpm run ci:spdx && pnpm run ci:bundle-size && pnpm run ci:npx-smoke-test && pnpm run ci:dependency-audit && pnpm run ci:architecture && pnpm run ci:citation && pnpm run ci:doc-links && pnpm run ci:data-model && pnpm run ci:contrast-matrix && pnpm run ci:threat-model && pnpm run ci:donate && pnpm run ci:quarantine-report",
     "clean": "tsc -b --clean",
     "prepare": "husky || true",
