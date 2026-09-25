@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-25 | [Processing VERDICT `ap-muh6hfu0-0`: MODEL-CARD.md doc-freshness proposal closed — no staleness remains](2026-09-25-verdict-ap-muh6hfu0-0-model-card-docfresh-closed.md) |
 | 2026-09-25 | [Processing `ap-mug9i8fq-strand`: "STRANDED SYNC-BACK … fleet-3 … firing 232 … refused: uncommitted changes remain after the commit" — already rescued](2026-09-25-verdict-ap-mug9i8fq-strand-already-rescued.md) |
 | 2026-09-25 | [Processing `ap-mug7lyxz-strand`: "STRANDED SYNC-BACK … fleet-4 … merge of 'autopilot/flight-worktree-fly-autopilot--fleet-4' into 'autopilot/flight' failed (exit 1): Auto-merging config/mutation/stryker.ci-quarantine-report.config.mjs CONFLICT (add/add)" — already rescued](2026-09-25-verdict-ap-mug7lyxz-strand-already-rescued.md) |
 | 2026-09-25 | [Reland: `ap-mug77xzl-convred` stays blocked — its first debrief was reverted by a gate flake, not by anything wrong with it](2026-09-25-verdict-ap-mug77xzl-convred-blocked-reland.md) |
