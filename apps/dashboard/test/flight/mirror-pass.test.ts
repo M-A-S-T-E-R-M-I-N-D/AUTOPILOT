@@ -46,6 +46,7 @@ import {
 } from '../../src/flight/mirror-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { STALE_TASK_DAYS } from '../../src/web/task-queue.js';
+import { claimLedger } from '../../src/flight/claim-ledger.js';
 
 describe('issueNumberFromTaskId', () => {
   it('parses the github-<n> task id convention', () => {
@@ -942,6 +943,35 @@ describe('planMirrorPassStaleClaimReaper', () => {
     );
 
     expect(finding).toMatchObject({ action: 'reap-stale-claim', quietDays: 3 });
+  });
+});
+
+describe("the reaper's release comment vs the claims ledger", () => {
+  // The reaper's own comment (mirror-pass.ts:994) says its verb "is what
+  // the claims ledger (claim-ledger.ts) reads back as the release" — but
+  // every existing test on either side only checks hand-typed strings that
+  // MIMIC the other side's wording, never the real producer's output fed
+  // through the real consumer. This proves the actual contract for a
+  // comment-only claim (no assignment to race against): claimLedger()
+  // really does drop it when handed the exact comment
+  // planMirrorPassStaleClaimReaper produces.
+  it('releases a comment-only claim once the real reaper comment is replayed through claimLedger', () => {
+    const finding = planMirrorPassStaleClaimReaper(claimedIssue({ assigned: false }), NOW);
+    expect(finding?.comment).toMatch(/^Releasing @someone/);
+
+    const claims = claimLedger(
+      [],
+      [
+        {
+          author: 'someone',
+          body: 'Claimed by someone via the pool client.',
+          createdAt: NOW - DAY_MS,
+        },
+        { author: 'bot', body: finding?.comment as string, createdAt: NOW },
+      ],
+    );
+
+    expect(claims).toEqual([]);
   });
 });
 
