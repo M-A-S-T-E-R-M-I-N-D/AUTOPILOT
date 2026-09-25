@@ -49,6 +49,12 @@ const EXACT_ALLOWED = new Set([
 /** @param {string} id @returns {boolean} */
 export function isAllowedLicenseId(id) {
   const trimmed = id.trim();
+  // Stryker disable next-line ConditionalExpression,StringLiteral: EXACT_ALLOWED
+  // never holds the empty string, so skipping this guard (`if (false)`) or
+  // comparing against some other literal both fall through to the identical
+  // `has('') -> false` below — the guard only spares a Set lookup, it never
+  // changes observable output. Its `if (true)` / `!==` / `return true`
+  // mutants ARE killed by license-check.test.ts.
   if (trimmed === '') return false;
   return EXACT_ALLOWED.has(trimmed);
 }
@@ -65,6 +71,11 @@ export function isAllowedLicenseExpression(license) {
   if (/ OR /i.test(stripped)) {
     return stripped.split(/ OR /i).some((term) => isAllowedLicenseId(term));
   }
+  // Stryker disable next-line ConditionalExpression: with no ` AND ` in the
+  // string, `split` yields the whole string as its only term and `every`
+  // degenerates to exactly the bare-id lookup below — taking this branch
+  // unconditionally (`if (true)`) is unobservable. The `if (false)` mutant
+  // IS killed by license-check.test.ts's AND cases.
   if (/ AND /i.test(stripped)) {
     return stripped.split(/ AND /i).every((term) => isAllowedLicenseId(term));
   }
@@ -91,6 +102,12 @@ export function findLicenseViolations(licensesJson) {
   }
   return violations;
 }
+
+// Stryker disable all: everything below is the process shell — it launches
+// `pnpm licenses list --json` through the platform's shim, parses its output
+// and calls `process.exit`, the same stance the other five ci/ configs take
+// for their own impure glue. The logic it delegates to — the three allowlist
+// functions above — IS mutation-tested.
 
 /** On Windows, `pnpm` is a `.cmd` shim that `execFileSync` cannot launch
  *  directly (ENOENT) — same fix `scripts/ci/dependency-audit.mjs` applies. */

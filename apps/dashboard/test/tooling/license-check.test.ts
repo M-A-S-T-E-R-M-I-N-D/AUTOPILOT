@@ -37,6 +37,11 @@ describe('isAllowedLicenseId', () => {
     expect(isAllowedLicenseId('MIT-0')).toBe(true);
   });
 
+  it('trims surrounding whitespace before the exact match', () => {
+    expect(isAllowedLicenseId(' MIT ')).toBe(true);
+    expect(isAllowedLicenseId('\tISC\n')).toBe(true);
+  });
+
   it.each(['GPL-3.0', 'AGPL-3.0', 'SSPL-1.0', 'UNLICENSED', ''])('rejects %s', (id) => {
     expect(isAllowedLicenseId(id)).toBe(false);
   });
@@ -84,6 +89,19 @@ describe('isAllowedLicenseExpression', () => {
     expect(isAllowedLicenseExpression('(MIT AND GPL-3.0)')).toBe(false);
     expect(isAllowedLicenseExpression('(MIT AND Apache-2.0)')).toBe(true);
   });
+
+  it('trims whitespace around the whole expression before stripping the wrapping parens', () => {
+    // Without the outer trim the leading space would shield the `(` from the
+    // anchored strip, and the first AND term would read `(MIT` — not on the list.
+    expect(isAllowedLicenseExpression(' (MIT AND Apache-2.0) ')).toBe(true);
+  });
+
+  it('strips parens only as the wrapping pair, never a stray one inside the id', () => {
+    // `MIT(` and `)MIT` are not `MIT`: an unanchored strip would turn a
+    // malformed license field into an allowed id.
+    expect(isAllowedLicenseExpression('MIT(')).toBe(false);
+    expect(isAllowedLicenseExpression(')MIT')).toBe(false);
+  });
 });
 
 describe('findLicenseViolations', () => {
@@ -115,6 +133,15 @@ describe('findLicenseViolations', () => {
     };
     expect(findLicenseViolations(licensesJson)).toEqual([
       { license: 'UNKNOWN', name: 'mystery-pkg', versions: ['0.0.1'] },
+    ]);
+  });
+
+  it('reports a package with no versions field with an empty versions list', () => {
+    const licensesJson = {
+      'GPL-2.0': [{ name: 'versionless-pkg', license: 'GPL-2.0' }],
+    };
+    expect(findLicenseViolations(licensesJson)).toEqual([
+      { license: 'GPL-2.0', name: 'versionless-pkg', versions: [] },
     ]);
   });
 
