@@ -962,7 +962,11 @@ describe("the reaper's release comment vs the claims ledger", () => {
     const claims = claimLedger(
       [],
       [
-        { author: 'someone', body: 'Claimed by someone via the pool client.', createdAt: NOW - DAY_MS },
+        {
+          author: 'someone',
+          body: 'Claimed by someone via the pool client.',
+          createdAt: NOW - DAY_MS,
+        },
         { author: 'bot', body: finding?.comment as string, createdAt: NOW },
       ],
     );
