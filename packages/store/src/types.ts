@@ -156,6 +156,11 @@ export interface MetricRow {
   self_reported: 0 | 1;
   model: string | null;
   cost_usd: number;
+  /** True when this firing's envelope never arrived (killed mid-unit) so
+   *  `cost_usd` is a coerced placeholder, not a real $0 — always computed,
+   *  same non-nullable shape as `completion_missing` (M23, board
+   *  web-mty1azf9-2we84o). */
+  cost_unknown: 0 | 1;
   /** List-price cost adjusted for subscription/usage-pool pricing; null when
    *  unconfigured or predating M19 (cost semantics v3, epic 0013). */
   real_cost_usd: number | null;

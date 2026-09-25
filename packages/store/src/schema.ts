@@ -413,6 +413,23 @@ INSERT INTO firing_seq (project_id, n)
   SELECT project_id, COUNT(*) FROM metrics GROUP BY project_id;
 `;
 
+// v23: TELEMETRY honesty (board web-mty1azf9-2we84o) — a firing killed mid-
+// unit (wall-clock/idle cap, checkpoint death) never receives a result
+// envelope, so `FiringRecord.costUsd` is genuinely unknown, not zero
+// (`packages/engine/src/firing.ts`'s `envelopeFacts` already keeps that
+// distinction: "Cost is never invented from tokens — it stays null"). But
+// `cost_usd` itself is `NOT NULL DEFAULT 0` (M1) so the store adapter has
+// always had to coerce that null to a literal 0 to write the row at all —
+// indistinguishable, once persisted, from a firing that really did cost
+// nothing. A 2026-09-12 round's checkpointed firings recorded exactly that:
+// real spend that happened, shown and summed as $0.00. `cost_unknown`
+// (ALWAYS computed, same non-nullable boolean shape as v21's
+// `completion_missing`) lets a reader tell the two apart without touching
+// `cost_usd`'s own meaning or its NOT NULL contract.
+const M23_METRICS_COST_UNKNOWN = `
+ALTER TABLE metrics ADD COLUMN cost_unknown INTEGER NOT NULL DEFAULT 0 CHECK (cost_unknown IN (0,1));
+`;
+
 /**
  * Guards the exact failure mode FLEET INTENT CLAIMS reseed exists to catch:
  * two fleet siblings independently author a migration and both pick the same
@@ -474,6 +491,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 20, name: 'fleet_wisdom', up: M20_FLEET_WISDOM },
   { version: 21, name: 'metrics_completion_missing', up: M21_METRICS_COMPLETION_MISSING },
   { version: 22, name: 'firing_seq', up: M22_FIRING_SEQ },
+  { version: 23, name: 'metrics_cost_unknown', up: M23_METRICS_COST_UNKNOWN },
 ];
 
 validateMigrations(MIGRATIONS);

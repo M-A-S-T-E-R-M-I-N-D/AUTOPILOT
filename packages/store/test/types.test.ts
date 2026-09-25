@@ -44,9 +44,9 @@ describe('domain enums', () => {
 });
 
 describe('MetricRow', () => {
-  it('has every column the metrics table migrations add (v1 through v21)', () => {
+  it('has every column the metrics table migrations add (v1 through v23)', () => {
     // A compile-time regression check: this object literal names every column
-    // `schema.ts`'s M1/M2/M6/M7/M9/M11/M15/M18/M19/M21 migrations add to
+    // `schema.ts`'s M1/M2/M6/M7/M9/M11/M15/M18/M19/M21/M23 migrations add to
     // `metrics`. If MetricRow is missing one, `tsc` rejects this literal as
     // specifying an unknown property — MetricRow drifted from the live schema
     // once before (unused by any reader, so nothing else caught it).
@@ -65,6 +65,7 @@ describe('MetricRow', () => {
       self_reported: 0,
       model: null,
       cost_usd: 0,
+      cost_unknown: 0,
       real_cost_usd: null,
       input_tokens: 0,
       output_tokens: 0,

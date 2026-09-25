@@ -54,12 +54,12 @@ export class SqliteFiringStore implements StorePort {
       .prepare(
         `INSERT INTO metrics
            (project_id, firing_id, item, kind, sha, head_before, head_after, shipped, self_reported, model,
-            cost_usd, real_cost_usd, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+            cost_usd, cost_unknown, real_cost_usd, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
             turns, duration_ms, gate_result, head_advanced, sha_verified, commit_subject,
             completion, completion_missing, test_first, picked_rank, deviation_reason, resumed, extended, created_at)
          VALUES
            (@project_id, @firing_id, @item, @kind, @sha, @head_before, @head_after, @shipped, @self_reported, @model,
-            @cost_usd, @real_cost_usd, @input_tokens, @output_tokens, @cache_read_tokens, @cache_write_tokens,
+            @cost_usd, @cost_unknown, @real_cost_usd, @input_tokens, @output_tokens, @cache_read_tokens, @cache_write_tokens,
             @turns, @duration_ms, @gate_result, @head_advanced, @sha_verified, @commit_subject,
             @completion, @completion_missing, @test_first, @picked_rank, @deviation_reason, @resumed, @extended, @created_at)`,
       )
@@ -75,6 +75,9 @@ export class SqliteFiringStore implements StorePort {
         self_reported: record.iterMetrics === 'ok' ? 1 : 0,
         model: record.model,
         cost_usd: record.costUsd ?? 0,
+        // The envelope never arrived (killed mid-unit) — cost_usd above is a
+        // coerced placeholder, not a real $0 (board web-mty1azf9-2we84o).
+        cost_unknown: record.costUsd === null ? 1 : 0,
         real_cost_usd: record.realCostUsd,
         input_tokens: record.tokensIn ?? 0,
         output_tokens: record.tokensOut ?? 0,
