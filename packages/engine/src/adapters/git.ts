@@ -572,6 +572,17 @@ export class GitVcs implements VcsPort {
     return describePushFailure(`${stdout}\n${stderr}`);
   }
 
+  async stashLeftovers(message: string): Promise<boolean> {
+    const { exitCode } = await git(this.repo, [
+      'stash',
+      'push',
+      '--include-untracked',
+      '-m',
+      message,
+    ]);
+    return exitCode === 0 && !(await this.isDirty());
+  }
+
   async isDirty(): Promise<boolean> {
     const { stdout, exitCode } = await git(this.repo, ['status', '--porcelain']);
     // Stryker disable next-line ConditionalExpression, MethodExpression:

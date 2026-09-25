@@ -41,6 +41,21 @@ describe('GitVcs', () => {
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  it('sets edits and untracked files aside in a named stash, leaving the last commit clean (2026-09-25)', async () => {
+    writeFileSync(join(dir, 'a.txt'), 'edited');
+    writeFileSync(join(dir, 'stray.txt'), 'untracked');
+    expect(await vcs.isDirty()).toBe(true);
+    expect(await vcs.stashLeftovers('autopilot firing 7: changes left beside its commit')).toBe(
+      true,
+    );
+    expect(await vcs.isDirty()).toBe(false);
+    expect(gitSync(dir, ['stash', 'list'])).toContain(
+      'autopilot firing 7: changes left beside its commit',
+    );
+    // nothing to set aside is still a clean tree
+    expect(await vcs.stashLeftovers('empty')).toBe(true);
+  });
+
   it('reads HEAD and the last commit', async () => {
     expect(await vcs.head()).toMatch(/^[0-9a-f]{40}$/);
     const last = await vcs.lastCommit();
