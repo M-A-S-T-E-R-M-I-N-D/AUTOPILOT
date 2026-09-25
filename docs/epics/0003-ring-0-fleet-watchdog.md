@@ -51,6 +51,12 @@ a precondition INSIDE the reused `start()` primitive, the same shape as the exis
 `FLYABLE_STATUSES`/`canSpawnFlight` boundary; the acceptance criteria above (the fleet
 loop still ticks `listProjects()` and reuses `start()`/the registry as-is) are unchanged.
 
+Fleet-reporting infrastructure added 2026-09-26 (fleet-report command): `control/cli.ts` now
+carries a new read-only `fleet-report` command for querying fleet convergence and model
+routing telemetry. This is a reporting-only addition that does not touch
+`flightWatchdogTick`/`landWatchdogTick`, spawn logic, or the watchdog contract; same
+"grown past scope, contract unchanged" shape the four prior evolution notes use.
+
 The board's M7 PARALLEL PILOTS item (critical priority) names two halves: "FlightRunner
 becomes a per-project registry of concurrent detached flights" and "the ring-0 watchdog
 owns per-project spawning and revival." The first half shipped as
