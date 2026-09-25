@@ -1254,6 +1254,8 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     });
     expect(document.querySelectorAll('.pipeline-node')).toHaveLength(3);
     expect(document.querySelector('.pipeline-edge')).not.toBeNull();
+    // Collapsed to the latest firing by default: the drill-in toggle is in the scan.
+    expect(document.querySelector('.pipeline-lanes-toggle[aria-expanded="false"]')).not.toBeNull();
 
     const found = await violations();
     expect(found.map((v) => v.id)).toEqual([]);
@@ -1288,6 +1290,12 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     await vi.waitFor(() => {
       expect(document.querySelectorAll('.pipeline-item')).toHaveLength(3);
     });
+
+    // s1 sits in the earlier firing's lane, which the tree opens collapsed (epic 0024) —
+    // drill in first, so the scan also covers the expanded disclosure state.
+    const toggle = document.querySelector('.pipeline-lanes-toggle') as HTMLButtonElement;
+    toggle.click();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
     const item = document.querySelector('.pipeline-item[data-node-id="s1"]') as HTMLElement;
     item.click();

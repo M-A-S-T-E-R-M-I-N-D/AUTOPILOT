@@ -446,8 +446,29 @@ function pipelineSection(pid) {
   var wrap = el('section', 'pipeline-section');
   var title = panelHeading('h3', 'pipeline-title', 'pipelineViewTitle', 'wrench');
   wrap.appendChild(title);
-  var state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null };
+  var state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null, lanesExpanded: false };
   var body = el('div', 'pipeline-body');
+  // SPAN TREE DRILL-IN (epic 0024) — the server renders the tree collapsed to
+  // the latest firing: earlier lanes arrive [hidden] and flagged data-earlier,
+  // behind a .pipeline-lanes-toggle that carries both of its labels. Flipping
+  // it is local (no fetch) and rides state, so a refetch re-applies it.
+  // Collapsing never strands the roving Tab stop inside a hidden lane.
+  function setLanesExpanded(expanded) {
+    var toggle = body.querySelector('.pipeline-lanes-toggle');
+    if (!toggle) return;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.textContent = toggle.getAttribute(expanded ? 'data-hide-label' : 'data-show-label');
+    var earlier = body.querySelectorAll('.pipeline-lane[data-earlier]');
+    for (var i = 0; i < earlier.length; i++) {
+      if (expanded) earlier[i].removeAttribute('hidden');
+      else earlier[i].setAttribute('hidden', '');
+    }
+    if (expanded || body.querySelector('.pipeline-lane:not([hidden]) .pipeline-item[tabindex="0"]')) return;
+    var stop = body.querySelector('.pipeline-item[tabindex="0"]');
+    if (stop) stop.setAttribute('tabindex', '-1');
+    var first = body.querySelector('.pipeline-lane:not([hidden]) .pipeline-item');
+    if (first) first.setAttribute('tabindex', '0');
+  }
   function load() {
     // The rendered tree stays up while the next one is fetched (2026-09-12):
     // replacing it with "Loading…" first blanked the view for a full round
@@ -467,6 +488,7 @@ function pipelineSection(pid) {
         // Same-origin server-rendered markup, escaped at the renderer — see module header.
         body.innerHTML = data.html;
         body.removeAttribute('aria-busy');
+        if (state.lanesExpanded) setLanesExpanded(true);
         wirePlanCanvas(body, state);
       })
       .catch(function () {
@@ -517,7 +539,7 @@ function pipelineSection(pid) {
   // of buildPipelineTree's lanes — up/down move a lane at the same item index, left/right move
   // an item in the current lane, clamped at grid edges (no wrap), same as the pure model.
   function nextSelection(direction) {
-    var laneEls = Array.prototype.slice.call(body.querySelectorAll('.pipeline-lane'));
+    var laneEls = Array.prototype.slice.call(body.querySelectorAll('.pipeline-lane:not([hidden])'));
     var lanes = [];
     var laneIndex = -1;
     var itemIndex = -1;
@@ -551,6 +573,12 @@ function pipelineSection(pid) {
     return targetItems[Math.min(itemIndex, targetItems.length - 1)];
   }
   body.addEventListener('click', function (e) {
+    var toggle = e.target && e.target.closest && e.target.closest('.pipeline-lanes-toggle');
+    if (toggle) {
+      state.lanesExpanded = toggle.getAttribute('aria-expanded') !== 'true';
+      setLanesExpanded(state.lanesExpanded);
+      return;
+    }
     var item = e.target && e.target.closest && e.target.closest('.pipeline-item');
     if (item && item.dataset.nodeId) selectNode(item.dataset.nodeId);
   });
