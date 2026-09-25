@@ -1471,6 +1471,16 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // hand automation the exact power the queue-for-human rule exists to
   // withhold — with no "guard"/"auth"/"security" keyword in its path.
   'flight/human-merge',
+  // The docs reader's editor, write half (epic 0023 slice 3, board
+  // web-mtywp7to-rbebh4): decides which repo-relative paths the operator's
+  // in-app doc edits may ever land on (an allow-list under `docs/`,
+  // `README.md`, `CHANGELOG.md`) and refuses anything outside it or carrying
+  // binary content — the one guard standing between a future write endpoint
+  // and an arbitrary-file-write. A PR that widened the allow-list, weakened
+  // the traversal check, or dropped the binary refusal would reopen exactly
+  // the write-anywhere hole this planner exists to close, with no
+  // "guard"/"auth"/"security" keyword in its path.
+  'flight/docs-write',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {

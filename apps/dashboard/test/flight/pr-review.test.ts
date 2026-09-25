@@ -1905,6 +1905,10 @@ describe('touchesSecuritySensitivePath', () => {
     ).toEqual([]);
   });
 
+  it('flags the docs editor write planner that decides which repo-relative paths an in-app doc edit may land on (the allow-list under docs/, README.md, CHANGELOG.md), even without a security-keyword path', () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/docs-write.ts'])).toBe(true);
+  });
+
   it("keeps pace with new flight/*-execute.ts files automatically: every execute-wiring file in the flight directory is either flagged or explicitly allow-listed as benign, so a future ritual's write wiring can never silently slip past this ritual the way control-execute.ts did", () => {
     const executeFiles = readdirSync(FLIGHT_SRC_DIR).filter((name) => name.endsWith('-execute.ts'));
     expect(executeFiles.length).toBeGreaterThan(0);
