@@ -308,7 +308,12 @@ const CORE_RAW_BUDGET = 257 * 1024;
 // growth as the raw note above — measured 72.6KB.
 // Then core gzip 73→74KB (2026-09-15), the same guided-walk prose growth as
 // the raw note above — measured 73.3KB.
-const CORE_GZIP_BUDGET = 77 * 1024;
+// Then core gzip 77→78KB (2026-09-26), epic 0024 (board web-mtywp7wk-tkdwhi):
+// the flight plan reads with its last gate run's outcomes — six English
+// STRINGS keys, which ride core like every English string. Paid first by
+// trimming their prose; measured 78860B gzip against the old 78848B budget,
+// 12 bytes over. Raw untouched.
+const CORE_GZIP_BUDGET = 78 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
