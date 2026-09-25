@@ -86,6 +86,18 @@ a committed fact instead of something every future firing re-derives from
    may leave `durationMs` and `costUsd` null; the invoker ensures model
    identity is always present. This is injection-safe (model-supplied data
    never participates; all fields are primitives).
+6. **Live-state context grounding.** Shipped (`bd56b267`): the `gatherLiveState`
+   retrieval source (`apps/dashboard/src/ask/service.ts`) is always included
+   in the answer prompt to provide machine-verifiable context beyond flight and
+   board telemetry. It now reports the project's root file-system path
+   (`root_path`), its live current branch (read on-demand via `GitVcs`, not a
+   stale stored value), and the linked flight worktree path when one exists
+   (via `deriveWorktreePlan` and `existsSync`). This grounds questions like
+   "what is the path of calc-story?" in reality rather than falling through to
+   `NO_SOURCES_ANSWER`. The liveState field became async (the branch read shells
+   out to `git`), so `AskRetrievalDeps.liveState` now accepts a Promise; all
+   callers (`gatherGroundedSources`, `askProject`, `askProjectStream`) await
+   it — a backward-compatible widening since sync mocks still satisfy the type.
 
 ## Constraints
 
@@ -126,6 +138,11 @@ a committed fact instead of something every future firing re-derives from
 4. Answer transparency (model, duration, cost). Shipped, `2d096134` — `AskMeta`
    interface, `AskInvokeOutcome` contract, and `AskResult.meta` field carry
    model/duration/cost through the entire chain.
+5. Live-state context grounding (project path, branch, worktree). Shipped,
+   `bd56b267` — `gatherLiveState` includes root path, live-read current branch,
+   and linked worktree path so the model can answer location/project-state
+   questions instead of hitting `NO_SOURCES_ANSWER`; async-await pattern for
+   the branch read via `GitVcs`.
 
 ## Related
 
