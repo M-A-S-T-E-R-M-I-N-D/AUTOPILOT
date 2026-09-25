@@ -61,7 +61,9 @@ export function fileConvergenceRedTask(
   const filed = createTask(
     store,
     {
-      id: `ap-${input.now.toString(36)}-convred`,
+      // Random nonce, not just `now`: two reds filed in the same millisecond
+      // (two checks, two projects' flights) must not collide on this id.
+      id: `ap-${input.now.toString(36)}-${Math.random().toString(36).slice(2, 8)}-convred`,
       projectId: input.projectId,
       title,
       body: tail ? `${input.mergeDetails}\n\n${tail}` : input.mergeDetails,
