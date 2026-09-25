@@ -602,6 +602,31 @@ describe('environmentCrashReason', () => {
     expect(environmentCrashReason('')).toBeNull();
     expect(environmentCrashReason('Tests  3 passed')).toBeNull();
   });
+
+  // 2026-09-25: a `git.test.ts` beforeEach hook timed out under six-lane disk
+  // contention and reverted a docs-only commit — the same machine-fault shape
+  // as the worker-start case above, but the FAIL/× signatures can't gate it
+  // since the timed-out file legitimately prints its own FAIL line.
+  const HOOK_TIMEOUT_TAIL =
+    "FAIL  |node| packages/engine/test/adapters/git.test.ts > GitVcs > returns ''\n" +
+    '      for showPatch on an invalid ref rather than throwing\n' +
+    'Error: Hook timed out in 120000ms.\n';
+
+  it('names a single isolated hook timeout as the machine, despite its own FAIL line', () => {
+    expect(environmentCrashReason(HOOK_TIMEOUT_TAIL)).toBe(
+      'an isolated test hook timed out — the machine was too loaded to judge',
+    );
+  });
+
+  it('keeps the red when a real AssertionError sits alongside the hook timeout', () => {
+    expect(
+      environmentCrashReason(HOOK_TIMEOUT_TAIL + 'AssertionError: expected 1 to be 2'),
+    ).toBeNull();
+  });
+
+  it('keeps the red when more than one hook timed out — not the narrow isolated case', () => {
+    expect(environmentCrashReason(HOOK_TIMEOUT_TAIL + HOOK_TIMEOUT_TAIL)).toBeNull();
+  });
 });
 
 describe('classifyExecFailure', () => {
