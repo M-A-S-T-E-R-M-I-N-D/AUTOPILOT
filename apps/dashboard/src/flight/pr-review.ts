@@ -771,6 +771,22 @@ export interface PrReviewCandidate {
  * `scripts/` RECURSIVELY, so a future script — say a new `gh`-writing tool
  * landing outside `scripts/github/` — can no longer silently slip past this
  * ritual unmarked either.
+ *
+ * The scripts/ tree censused, one workspace package the sweep above never
+ * named was `@autopilot/docs-links` (`packages/docs-links/src/`) — it did not
+ * exist yet when `@autopilot/tokens` closed the `packages/` sweep (2026-09-03)
+ * and was only created later (2026-09-18), so no earlier slice could have
+ * caught it. Both its files are pure: `local-link.ts`'s own header states "no
+ * fs access", and its Markdown link-scanning functions (`extractLinkTargets`,
+ * `localLinkTargets`, `resolveLocalLinkPath`, `localLinkPaths`) only parse and
+ * resolve strings against each other, never against the real filesystem —
+ * the CI link-check script and the docs reader panel that call them own the
+ * actual disk reads. `index.ts` is the same re-export-barrel class every
+ * other package's flat `index.ts` already stays unflagged for. `pr-
+ * review.test.ts`'s coverage guard now sweeps `packages/docs-links/src` the
+ * same way it already does every other workspace package, so a future file
+ * there — say one that starts reading link targets off disk to auto-fix them
+ * — can no longer silently slip past this ritual unmarked either.
  */
 const SECURITY_SENSITIVE_PATH_MARKERS = [
   'guard',

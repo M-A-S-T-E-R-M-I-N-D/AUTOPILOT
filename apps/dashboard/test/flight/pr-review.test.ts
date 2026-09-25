@@ -106,6 +106,10 @@ const WEB_FEATURES_SRC_DIR = fileURLToPath(new URL('../../src/web/features', imp
 
 const TOKENS_SRC_DIR = fileURLToPath(new URL('../../../../packages/tokens/src', import.meta.url));
 
+const DOCS_LINKS_SRC_DIR = fileURLToPath(
+  new URL('../../../../packages/docs-links/src', import.meta.url),
+);
+
 const SCRIPTS_DIR = fileURLToPath(new URL('../../../../scripts', import.meta.url));
 
 /** `flight/*-execute.ts` files with no write/decide power of their own —
@@ -1222,6 +1226,15 @@ const BENIGN_TOKENS = new Set([
   'themes.ts',
 ]);
 
+/** `@autopilot/docs-links` (`packages/docs-links/src/`): Markdown local-link
+ *  resolution shared by the CI link-check script and the docs reader panel.
+ *  Both files are pure — `local-link.ts`'s own header states "no fs access",
+ *  and its exported functions only parse and resolve strings against each
+ *  other, never the real filesystem — and `index.ts` is a re-export barrel,
+ *  the same no-write-power class every other package's flat `index.ts`
+ *  already stays unflagged for. */
+const BENIGN_DOCS_LINKS = new Set(['index.ts', 'local-link.ts']);
+
 /** `scripts/` files (paths relative to `scripts/`, `/`-separated) with no
  *  write/decide power that reaches past the operator's own explicit action,
  *  so the recursive scripts-tree census below leaves them unflagged. Classes,
@@ -2190,6 +2203,23 @@ describe('touchesSecuritySensitivePath', () => {
     expect(
       untriaged,
       `untriaged files under packages/tokens/src/ — for EACH: add a marker if it writes/decides anything, or add it to BENIGN_TOKENS with why not`,
+    ).toEqual([]);
+  });
+
+  it('keeps pace with packages/docs-links/src/ files automatically: every file in the Markdown local-link package is either flagged or explicitly allow-listed as benign, so a future file there that starts reading link targets off disk can never silently slip past this ritual unmarked', () => {
+    const docsLinksSrcFiles = readdirSync(DOCS_LINKS_SRC_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .map((entry) => entry.name);
+    expect(docsLinksSrcFiles.length).toBeGreaterThan(0);
+
+    const untriaged = docsLinksSrcFiles.filter(
+      (file) =>
+        !BENIGN_DOCS_LINKS.has(file) &&
+        !touchesSecuritySensitivePath([`packages/docs-links/src/${file}`]),
+    );
+    expect(
+      untriaged,
+      `untriaged files under packages/docs-links/src/ — for EACH: add a marker if it writes/decides anything, or add it to BENIGN_DOCS_LINKS with why not`,
     ).toEqual([]);
   });
 
