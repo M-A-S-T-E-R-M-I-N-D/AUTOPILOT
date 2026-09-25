@@ -267,7 +267,7 @@ release, then the board as columns, the Keeper, the plan editor, the docs reader
 
 ```bash
 pnpm run verify         # the full gate: typecheck · lint · format · test (≥80% cov) · build · secret/PII/SPDX scans
-pnpm run mutation       # optional, slow: 121 Stryker mutation-testing runs (nightly in CI as six shards)
+pnpm run mutation       # optional, slow: 122 Stryker mutation-testing runs (nightly in CI as six shards)
 pnpm dashboard:status   # running | stopped | stale (+ doctor checks)   · dashboard:stop to stop
 pnpm dashboard:watch    # RING-0 supervisor: owns start/revive/replace — observe, don't babysit
 ```

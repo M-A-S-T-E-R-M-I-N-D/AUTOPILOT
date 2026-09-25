@@ -88,6 +88,10 @@ export function isTransientAuditFailure(output) {
   return findTransientAuditMarker(output) !== null;
 }
 
+// Stryker disable all: `pnpmInvocation` and `runAuditOnce` are process-shell
+// glue — they spawn `pnpm audit` and can only be exercised by running the gate
+// for real. The logic they feed, `findTransientAuditMarker` and
+// `runAuditWithRetry`, IS mutation-tested.
 /** On Windows, `pnpm` is a `.cmd` shim that `execFileSync` cannot launch
  *  directly (ENOENT) — route it through `cmd.exe /c`, same fix
  *  `scripts/ci/detect-flaky.mjs`'s `pnpmInvocation` already applies.
@@ -114,6 +118,7 @@ function runAuditOnce() {
     };
   }
 }
+// Stryker restore all
 
 /**
  * @param {{
@@ -169,10 +174,13 @@ export async function runAuditWithRetry({
     );
     await sleep(delay);
   }
-  /* c8 ignore next -- loop always returns before falling through */
+  // Reached only when maxAttempts < 1: no audit ran, so the gate fails closed.
   return { exitCode: 1, attempts: maxAttempts };
 }
 
+// Stryker disable all: `main` is the process shell — it wires the real
+// `pnpm audit` runner and timer into `runAuditWithRetry` and calls
+// `process.exit`, so it can only be exercised by running the gate for real.
 async function main() {
   const { exitCode } = await runAuditWithRetry({
     runOnce: runAuditOnce,
@@ -183,3 +191,4 @@ async function main() {
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) main();
+// Stryker restore all
