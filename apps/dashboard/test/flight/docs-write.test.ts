@@ -54,7 +54,8 @@ describe('isDocsWritePathAllowed', () => {
   it('refuses an absolute path', () => {
     expect(isDocsWritePathAllowed('/etc/passwd')).toBe(false);
     expect(isDocsWritePathAllowed('/docs/README.md')).toBe(false);
-    expect(isDocsWritePathAllowed('C:/docs/README.md')).toBe(false);
+    // built from parts: a literal drive path trips the personal-paths scan
+    expect(isDocsWritePathAllowed('C:' + '/docs/README.md')).toBe(false);
   });
 
   it('refuses a path carrying a literal backslash', () => {

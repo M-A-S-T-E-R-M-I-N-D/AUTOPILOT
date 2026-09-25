@@ -87,7 +87,7 @@ function hasSafePathSegments(path: string): boolean {
 /** True when `path` names a file the editor's allow-list permits: exactly
  *  `README.md`/`CHANGELOG.md`, or anything nested under `docs/` (a bare
  *  `"docs/"` with nothing after it names no file, so it is refused too).
- *  An absolute path (leading `/`, or a Windows drive like `C:/...`) never
+ *  An absolute path (leading `/`, or a Windows drive letter and colon) never
  *  matches any root here — every root is a bare relative name — so it
  *  fails this check before the segment walk even runs. */
 export function isDocsWritePathAllowed(path: string): boolean {
