@@ -11,6 +11,7 @@ import {
   planOwnedWorkReconcile,
   reconcileOwnedWork,
   listOwnedWorkTasks,
+  ownedWorkCandidates,
   runOwnedWorkSweep,
   type OwnedWorkBoardTask,
 } from '../../src/flight/owned-work-reconcile.js';
@@ -214,6 +215,87 @@ describe('listOwnedWorkTasks', () => {
       status: 'queued',
     };
     expect(listOwnedWorkTasks([owned, released, ordinary])).toEqual([owned]);
+  });
+});
+
+/**
+ * ownedWorkCandidates — the candidate pool every reconcile decides against.
+ * Task ids are a GLOBAL primary key and `setTaskFocus` is addressed by id
+ * alone, so the `project_id` scope here is the only thing keeping one
+ * project's reconcile from focusing or releasing another project's owned
+ * task. Unpaged and status-blind on purpose: a settled row must stay in the
+ * pool so the plan skips it rather than re-creating (and re-commenting) it.
+ */
+describe('ownedWorkCandidates', () => {
+  it("returns only the given project's issue-addressed rows — another project's github task and this project's non-issue rows are never candidates", () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-cands-scope-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      project(s, 'p2');
+      const contract = `x\n${HUMAN_CLOSES_MARKER}`;
+      createTask(s, {
+        id: 'github-6',
+        projectId: 'p1',
+        title: 'mine',
+        body: contract,
+        createdAt: 1,
+      });
+      // Contract-marked and focused like owned work, but not issue-addressed:
+      // the id prefix decides, never the marker.
+      createTask(s, { id: 'web-abc', projectId: 'p1', title: 'web', body: contract, createdAt: 2 });
+      createTask(s, { id: 'self-1', projectId: 'p1', title: 'self', createdAt: 3 });
+      createTask(s, {
+        id: 'github-7',
+        projectId: 'p2',
+        title: 'theirs',
+        body: contract,
+        createdAt: 4,
+      });
+      s.db
+        .prepare("UPDATE tasks SET focus = 1 WHERE id IN ('github-6', 'web-abc', 'github-7')")
+        .run();
+
+      expect(ownedWorkCandidates(s, 'p1')).toEqual([
+        { id: 'github-6', body: contract, focus: 1, status: 'queued' },
+      ]);
+      expect(ownedWorkCandidates(s, 'p2')).toEqual([
+        { id: 'github-7', body: contract, focus: 1, status: 'queued' },
+      ]);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('reads unpaged and status-blind — every issue-addressed row comes back past the 30-row page, settled ones included', () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-cands-unpaged-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      const total = 35;
+      for (let i = 0; i < total; i += 1) {
+        createTask(s, {
+          id: `github-${i}`,
+          projectId: 'p1',
+          title: `issue ${i}`,
+          createdAt: 1000 + i,
+        });
+      }
+      s.db.prepare("UPDATE tasks SET status = 'done' WHERE id = 'github-0'").run();
+      s.db.prepare("UPDATE tasks SET status = 'deferred' WHERE id = 'github-1'").run();
+
+      const candidates = ownedWorkCandidates(s, 'p1');
+
+      expect(candidates).toHaveLength(total);
+      expect(candidates.find((t) => t.id === 'github-0')?.status).toBe('done');
+      expect(candidates.find((t) => t.id === 'github-1')?.status).toBe('deferred');
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
   });
 });
 
@@ -526,6 +608,47 @@ describe('runOwnedWorkSweep', () => {
 
       expect(result).toMatchObject({ created: 0, focused: 1, released: 0, commented: 0 });
       expect(tasks(s, 'p1').find((t) => t.id === 'github-6')?.focus).toBe(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it("leaves another project's owned task focused — a flight over one project never releases what a different project's board owns", async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-sweep-other-project-db-'));
+    try {
+      const s = openStore(join(dbDir, 'a.db'));
+      migrate(s);
+      project(s, 'p1');
+      project(s, 'p2');
+      // p2's takeoff ingests the claim: a focused, contract-marked github-6
+      // on p2's board.
+      await runOwnedWorkSweep(
+        s,
+        'p2',
+        () => 100,
+        execFor(ASSIGNED, 'octocat'),
+        '/engine',
+        '/engine',
+      );
+      expect(tasks(s, 'p2').find((t) => t.id === 'github-6')?.focus).toBe(1);
+
+      // p1's takeoff sees NO assignment. Task ids are a global primary key
+      // and setTaskFocus is addressed by id alone, so were p2's row to leak
+      // into p1's candidate pool the plan would call it released and
+      // un-focus p2's owned work from under p2.
+      const result = await runOwnedWorkSweep(
+        s,
+        'p1',
+        () => 200,
+        execFor([], 'octocat'),
+        '/engine',
+        '/engine',
+      );
+
+      expect(result).toMatchObject({ created: 0, focused: 0, released: 0, commented: 0 });
+      expect(tasks(s, 'p1')).toHaveLength(0);
+      expect(tasks(s, 'p2').find((t) => t.id === 'github-6')?.focus).toBe(1);
       s.close();
     } finally {
       cleanupDir(dbDir);
