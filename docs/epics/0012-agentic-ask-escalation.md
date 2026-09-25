@@ -118,7 +118,9 @@ tool)"* and *"Ask (read-only) — tools = Read/Glob/Grep"* at capability tier
   signal — the same reasoning applies here. v1 ships only the two deterministic triggers
   in Acceptance criteria (empty sources, or the operator's own toggle); a fuzzier
   self-assessed trigger is a future slice if the deterministic one proves too narrow in
-  practice.
+  practice. (Epic 0022's `lowConfidence` signal honored this boundary: it signals when
+  sources exist but don't answer—NOT an automatic re-escalation, just an affordance for
+  the operator to click Deep manually, consistent with this epic's exclusion.)
 - Feeding escalation-discovered content back into the persistent index (see Constraints).
 - Any write capability, ever, under any trigger — see Constraints; that is epic 0011's
   territory, explicitly.
@@ -169,6 +171,12 @@ tool)"* and *"Ask (read-only) — tools = Read/Glob/Grep"* at capability tier
   live-activity rendering this epic implements.
 - `docs/epics/0011-architect-chat-v2.md` Out of scope — reserved this task ID and set the
   READ-ONLY condition this spec formalizes.
+- `docs/epics/0022-ask-answer-quality-doctrine.md` — Epic 0022 honors this epic's
+  Out-of-scope decision: its `lowConfidence` signal (920e8081, 2026-09-09) does NOT
+  auto-escalate on model-judged insufficiency; it only offers the operator a manual
+  button to escalate, maintaining the boundary this epic established. The two epics
+  compose: 0012 provides the escalation tier, 0022 adds UX affordances for when to
+  consider using it.
 - `docs/THREAT-MODEL.md` §2 (`"Ask your project"` row) — the row this epic's slice 1
   extends with the escalated tier's own entry.
 - `docs/RESEARCH-LIBRARY.md` "The 7→10 ramp — scale evaluation + the slice-relay
@@ -176,7 +184,10 @@ tool)"* and *"Ask (read-only) — tools = Read/Glob/Grep"* at capability tier
   repeat of; "Silent model downgrade" — the reasoning behind excluding a model-judged
   auto-escalation trigger from v1.
 - `apps/dashboard/src/ask/service.ts`, `apps/dashboard/src/server/main.ts:166-174` — the
-  tier-1 implementation this epic extends, byte-identical when Deep is off.
+  tier-1 implementation this epic extends, byte-identical when Deep is off. Recent
+  enhancements (2026-09-09 through 2026-09-14): lowConfidence signal (920e8081),
+  answer-transparency metadata (2d096134), and live-state context grounding (bd56b267)
+  are orthogonal to the escalation mechanism itself — see epic 0022 for those details.
 - `packages/engine/src/adapters/claude-cli.ts:280-297` (`buildClaudeArgs`,
   `allowedTools`/`disallowedTools`) and `packages/engine/src/guard.ts`
   (`buildFlightSettings`) — the existing mechanisms this epic composes, not reinvents.
