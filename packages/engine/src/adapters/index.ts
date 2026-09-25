@@ -13,6 +13,7 @@ export * from './ollama.js';
 export * from './gate.js';
 export * from './dynamic-gate.js';
 export * from './remediating-gate.js';
+export * from './retry-loaded-gate.js';
 export * from './instance-lock.js';
 export * from './gate-semaphore.js';
 export * from './cli-pid-registry.js';

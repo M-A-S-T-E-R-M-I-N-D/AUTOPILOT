@@ -150,6 +150,8 @@ describe('renderFleetReport', () => {
     expect(text).toContain('by outcome');
     expect(text).toContain('by lane');
     expect(text).toContain('by model');
+    expect(text).toContain('by model and work');
+    expect(text).toContain('claude-sonnet-5 · product');
     expect(text).toContain('fleet-2');
     expect(text).toContain("green 1  red on a lane's own commit 1  red on a merge 0  no verdict 0");
     expect(text).toContain('  1× pnpm run ci:x');

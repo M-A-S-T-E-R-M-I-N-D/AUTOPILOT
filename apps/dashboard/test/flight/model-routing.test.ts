@@ -8,6 +8,10 @@ import {
   budgetMultiplierForModel,
   classifyTaskModelTier,
   resolvePrimaryModelForTier,
+  escalationBucket,
+  isDefaultOpusArm,
+  ESCALATION_SPLIT,
+  DEFAULT_OPUS_ONE_IN,
   SLICE_STREAK_ESCALATION_THRESHOLD,
 } from '../../src/flight/model-routing.js';
 
@@ -146,5 +150,59 @@ describe('modelFamily / isModelSubstitution (silent-downgrade detection)', () =>
 
   it('treats a missing served id as no evidence (a death before the envelope)', () => {
     expect(isModelSubstitution('fable', '')).toBe(false);
+  });
+});
+
+describe('the model benchmark: Opus 5.5 against Fable 5.1 and Sonnet 5 (2026-09-25)', () => {
+  const env = {} as NodeJS.ProcessEnv;
+  const ids = Array.from({ length: 400 }, (_, i) => `web-task-${i}`);
+
+  it('splits escalated tasks between Fable and Opus, about half each, stably per task', () => {
+    const models = ids.map((id) => resolvePrimaryModelForTier('escalated', env, id));
+    for (const [i, id] of ids.entries()) {
+      expect(resolvePrimaryModelForTier('escalated', env, id)).toBe(models[i]);
+      expect(ESCALATION_SPLIT).toContain(models[i]);
+    }
+    const opus = models.filter((m) => m === 'opus').length;
+    expect(opus).toBeGreaterThan(150);
+    expect(opus).toBeLessThan(250);
+  });
+
+  it('sends about one default-tier task in four to Opus, the rest to Sonnet', () => {
+    const models = ids.map((id) => resolvePrimaryModelForTier('default', env, id));
+    expect(new Set(models)).toEqual(new Set(['sonnet', 'opus']));
+    const opus = models.filter((m) => m === 'opus').length;
+    expect(opus).toBeGreaterThan(400 / DEFAULT_OPUS_ONE_IN - 45);
+    expect(opus).toBeLessThan(400 / DEFAULT_OPUS_ONE_IN + 45);
+    for (const id of ids) {
+      expect(resolvePrimaryModelForTier('default', env, id)).toBe(
+        isDefaultOpusArm(id) ? 'opus' : 'sonnet',
+      );
+    }
+  });
+
+  it('keeps the old single model for a caller that names no task', () => {
+    expect(resolvePrimaryModelForTier('escalated', env)).toBe('fable');
+    expect(resolvePrimaryModelForTier('default', env)).toBe('sonnet');
+  });
+
+  it('lets an override pin one model for a whole tier', () => {
+    const pinned = {
+      AUTOPILOT_ESCALATED_MODEL: 'opus',
+      AUTOPILOT_DEFAULT_MODEL: 'sonnet',
+    } as NodeJS.ProcessEnv;
+    for (const id of ids.slice(0, 40)) {
+      expect(resolvePrimaryModelForTier('escalated', pinned, id)).toBe('opus');
+      expect(resolvePrimaryModelForTier('default', pinned, id)).toBe('sonnet');
+    }
+  });
+
+  it('leaves the mechanical tier on Haiku', () => {
+    expect(resolvePrimaryModelForTier('mechanical', env, 'x')).toBe('haiku');
+  });
+
+  it('buckets by FNV-1a: fixed answers for fixed ids', () => {
+    expect(escalationBucket('')).toBe(1);
+    expect([escalationBucket('a'), escalationBucket('b')]).toEqual([0, 1]);
   });
 });

@@ -24,9 +24,13 @@ describe('the LANDING panel reads its persistent on-screen text from STRINGS', (
     expect(out).toContain("el('p', 'muted', tr('landingChecking'))");
     expect(out).toContain("el('p', 'muted', tr('landingUnavailable'))");
     expect(out).toContain("el('p', 'muted', tr('landingNothingToLand'))");
-    expect(out).toContain("'muted landing-restarting', tr('landingRestarting')");
+    expect(out).toContain("restartingEl.appendChild(iconEl('refresh-cw'));");
+    expect(out).toContain(
+      "restartingEl.appendChild(document.createTextNode(tr('landingRestarting')));",
+    );
     expect(out).not.toContain("'🛬 Landing'");
     expect(out).not.toContain("'Checking for unmerged work…'");
+    expect(out).not.toContain("'🔄 Landed — rebuilding");
   });
 
   it('translates the Execute button, keeping the live base branch name as a substitution', () => {

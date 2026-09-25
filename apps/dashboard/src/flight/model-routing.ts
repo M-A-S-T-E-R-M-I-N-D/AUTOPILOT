@@ -75,16 +75,65 @@ export function classifyTaskModelTier(signals: ModelRoutingSignals): ModelTier {
  *  existing flight-wide operator lever) always wins outright — routing is a
  *  DEFAULT, not a lock-out. `AUTOPILOT_MECHANICAL_MODEL` reuses `triage.ts`'s
  *  own env var so an operator tunes the cheap tier in exactly one place. */
-export function resolvePrimaryModelForTier(tier: ModelTier, env: NodeJS.ProcessEnv): string {
+/**
+ * THE MODEL BENCHMARK (operator, 2026-09-25): Opus 5.5 shipped, reported
+ * close to Fable at about half its price (1.7x sonnet against 3.5x). Our
+ * own flights decide, not its reputation. A task is assigned to an arm by
+ * a stable hash of its id, so it keeps its model across slices and the
+ * arms see the same mix of work:
+ *   - escalated tier: Fable 5.1 and Opus 5.5, half each;
+ *   - default tier: Sonnet 5 three quarters, Opus 5.5 one quarter.
+ * `dashboard:fleet-report` compares the arms by model. The rule agreed
+ * with the operator: once each arm has 15 firings or more, Opus takes the
+ * tier if its ship rate is within 5 points and its cost per ship is lower.
+ * The env overrides still pin one model for a tier.
+ */
+export const ESCALATION_SPLIT: readonly [string, string] = ['fable', 'opus'];
+
+/** One default-tier task in this many goes to Opus 5.5. */
+export const DEFAULT_OPUS_ONE_IN = 4;
+
+/** FNV-1a of a task id — the same task always hashes the same. */
+export function taskHash(taskId: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < taskId.length; i += 1) {
+    h ^= taskId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+/** A task's side of the escalation split: the hash's lowest bit. */
+export function escalationBucket(taskId: string): 0 | 1 {
+  return (taskHash(taskId) & 1) as 0 | 1;
+}
+
+/** Whether a default-tier task is in the Opus arm — higher bits than the
+ *  escalation split, so the two assignments do not move together. */
+export function isDefaultOpusArm(taskId: string): boolean {
+  return (taskHash(taskId) >>> 1) % DEFAULT_OPUS_ONE_IN === 0;
+}
+
+export function resolvePrimaryModelForTier(
+  tier: ModelTier,
+  env: NodeJS.ProcessEnv,
+  taskId?: string,
+): string {
   const override = env['AUTOPILOT_MODEL'];
   if (override) return override;
   switch (tier) {
     case 'mechanical':
       return resolveMechanicalModel(env);
     case 'escalated':
-      return env['AUTOPILOT_ESCALATED_MODEL'] ?? 'fable';
+      return (
+        env['AUTOPILOT_ESCALATED_MODEL'] ??
+        (taskId === undefined ? ESCALATION_SPLIT[0] : ESCALATION_SPLIT[escalationBucket(taskId)])
+      );
     case 'default':
-      return 'sonnet';
+      return (
+        env['AUTOPILOT_DEFAULT_MODEL'] ??
+        (taskId !== undefined && isDefaultOpusArm(taskId) ? 'opus' : 'sonnet')
+      );
   }
 }
 

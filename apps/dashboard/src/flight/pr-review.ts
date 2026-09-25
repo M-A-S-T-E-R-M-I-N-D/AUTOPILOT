@@ -1109,6 +1109,9 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // class as engine/src/adapters/gate.ts above.
   'engine/src/adapters/dynamic-gate.ts',
   'engine/src/adapters/remediating-gate.ts',
+  // Re-runs a gate that crashed from load (2026-09-25). Widening what counts
+  // as a load crash would let a real red be retried until a flaky green.
+  'engine/src/adapters/retry-loaded-gate.ts',
   'engine/src/adapters/claude-cli.ts',
   'engine/src/adapters/ollama.ts',
   'engine/src/adapters/worktree.ts',

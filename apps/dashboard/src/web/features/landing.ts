@@ -489,7 +489,9 @@ function landingSection(pid, flightLog, tasks) {
   wrap.appendChild(panelHeading('h3', 'landing-title', 'landingTitle', 'plane-landing'));
   var body = el('div', 'landing-body');
   if (landingRestarting[pid]) {
-    var restartingEl = el('p', 'muted landing-restarting', tr('landingRestarting'));
+    var restartingEl = el('p', 'muted landing-restarting');
+    restartingEl.appendChild(iconEl('refresh-cw'));
+    restartingEl.appendChild(document.createTextNode(tr('landingRestarting')));
     restartingEl.setAttribute('role', 'status');
     restartingEl.setAttribute('aria-live', 'polite');
     body.appendChild(restartingEl);
