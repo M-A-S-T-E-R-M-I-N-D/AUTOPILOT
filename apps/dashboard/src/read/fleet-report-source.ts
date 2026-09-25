@@ -67,11 +67,15 @@ export function readReportConvergence(
   const rows = db
     .prepare(
       `SELECT type, payload FROM events
-        WHERE project_id = ? AND type IN ('convergence-green', 'convergence-red')
+        WHERE (project_id = ? OR project_id LIKE ? ESCAPE '\\')
+          AND type IN ('convergence-green', 'convergence-red')
           AND created_at >= ?
         ORDER BY created_at, id`,
     )
-    .all(baseProjectId, sinceMs) as { type: string; payload: string | null }[];
+    .all(baseProjectId, `${likeEscape(baseProjectId)}--fleet-%`, sinceMs) as {
+    type: string;
+    payload: string | null;
+  }[];
   return rows.map((r) => {
     let p: { check?: unknown; merge?: unknown; queuedMs?: unknown } = {};
     try {

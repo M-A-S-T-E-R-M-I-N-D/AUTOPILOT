@@ -32,6 +32,7 @@ import {
   isRitualPolicyGreenApprovalBody,
   summarizePrCheckRuns,
 } from '../../src/flight/pr-review.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { PrReviewCandidate } from '../../src/flight/pr-review.js';
 
@@ -1902,6 +1903,10 @@ describe('touchesSecuritySensitivePath', () => {
       untriaged,
       `untriaged files under packages/onboarding/src/ — for EACH: add a marker if it writes/decides anything, or add it to BENIGN_ONBOARDING_ROOT with why not`,
     ).toEqual([]);
+  });
+
+  it('flags the docs editor write planner that decides which repo-relative paths an in-app doc edit may land on (the allow-list under docs/, README.md, CHANGELOG.md), even without a security-keyword path', () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/docs-write.ts'])).toBe(true);
   });
 
   it("keeps pace with new flight/*-execute.ts files automatically: every execute-wiring file in the flight directory is either flagged or explicitly allow-listed as benign, so a future ritual's write wiring can never silently slip past this ritual the way control-execute.ts did", () => {
@@ -4486,6 +4491,31 @@ describe('prHasHoldLabel', () => {
     expect(prHasHoldLabel(candidate({ labels: ['bug', 'enhancement', 'good-first-firing'] }))).toBe(
       false,
     );
+  });
+
+  // EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): a steward
+  // slice's own taxonomy is a neighboring flow's real input, not just its
+  // own contract — taxonomy-seed.ts's HOUSE_TAXONOMY_LABELS stamps
+  // `status: blocked` onto owned repos, and this asserts it actually trips
+  // the auto-merge hold guard the way a human-applied `blocked` label does
+  // (normalizeLabel folds "status: blocked" to the "status-blocked" token
+  // sequence, which prHasHoldLabel's endsWith('-blocked') branch catches).
+  // Reading the real HOUSE_TAXONOMY_LABELS constant, rather than a
+  // hand-typed string, means renaming or dropping that label in
+  // taxonomy-seed.ts breaks this test instead of silently unwiring the
+  // guard. Every other house label is confirmed to NOT read as a hold —
+  // the steward's own priority/area/epic/community taxonomy must never
+  // accidentally freeze auto-merge.
+  it('the steward-stamped "status: blocked" label trips the auto-merge hold guard; every other house label does not', () => {
+    const statusBlocked = HOUSE_TAXONOMY_LABELS.find((label) => label.name === 'status: blocked');
+    expect(statusBlocked).toBeDefined();
+    expect(prHasHoldLabel(candidate({ labels: [statusBlocked!.name] }))).toBe(true);
+
+    const nonHoldLabels = HOUSE_TAXONOMY_LABELS.filter((label) => label.name !== 'status: blocked');
+    expect(nonHoldLabels.length).toBeGreaterThan(0);
+    for (const label of nonHoldLabels) {
+      expect(prHasHoldLabel(candidate({ labels: [label.name] }))).toBe(false);
+    }
   });
 });
 

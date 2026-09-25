@@ -31,6 +31,10 @@ export interface WorkflowRunStatus {
    *  to read that run's failed-job log (`gh run view <id> --log-failed`) and
    *  learn which files the failure itself names. */
   readonly runId: number | null;
+  /** The commit the run built (`gh run list --json headSha`), when gh
+   *  reported one. Lets a caller tell the run for ITS commit from the
+   *  previous commit's run that is still the latest one listed. */
+  readonly headSha?: string;
   readonly ok: boolean;
   readonly detail: string;
 }
@@ -102,6 +106,7 @@ interface RawGhRun {
   readonly conclusion?: unknown;
   readonly createdAt?: unknown;
   readonly databaseId?: unknown;
+  readonly headSha?: unknown;
 }
 
 /** The latest run for ONE workflow file, optionally narrowed to `branch`
@@ -127,7 +132,7 @@ export function ciWorkflowStatus(
       '--limit',
       '1',
       '--json',
-      'status,conclusion,createdAt,databaseId',
+      'status,conclusion,createdAt,databaseId,headSha',
       ...(branch ? ['--branch', branch] : []),
     ]);
   } catch {
@@ -174,10 +179,21 @@ export function ciWorkflowStatus(
   const parsedMs = createdAt ? Date.parse(createdAt) : NaN;
   const createdAtMs = Number.isFinite(parsedMs) ? parsedMs : null;
   const runId = typeof latest.databaseId === 'number' ? latest.databaseId : null;
+  const headSha =
+    typeof latest.headSha === 'string' && latest.headSha !== '' ? latest.headSha : null;
   const ok = conclusion === null || !FAILING_CONCLUSIONS.has(conclusion);
   const statusLabel = conclusion ?? status ?? 'unknown';
   const detail = ageLabel ? `${statusLabel} (${ageLabel})` : statusLabel;
-  return { workflow, conclusion, ageLabel, createdAtMs, runId, ok, detail };
+  return {
+    workflow,
+    conclusion,
+    ageLabel,
+    createdAtMs,
+    runId,
+    ok,
+    detail,
+    ...(headSha === null ? {} : { headSha }),
+  };
 }
 
 /** One line per workflow file — the report `dashboard ci-status` prints. */

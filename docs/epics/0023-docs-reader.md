@@ -94,6 +94,14 @@ the diff highlight fades on the compositor; nothing else moves.
    opening a doc, zero new event plumbing.
 3. The editor: guarded write endpoint, split preview, provenance line, tests for
    the allow-list (the security-sensitive path census must flag it).
+   **Allow-list planner landed 2026-09-25:** `flight/docs-write.ts` ships the
+   pure decision half — `planDocsWrite` validates a repo-relative path against
+   the `docs/`/`README.md`/`CHANGELOG.md` allow-list (refusing traversal,
+   absolute paths, and binary content) and appends the who/when/which-page
+   provenance line; `pr-review.ts`'s security-sensitive path census now flags
+   it. Still missing: the guarded `POST` endpoint (CSRF, rate-limited,
+   confirm-before-write) that actually calls it, and the split-preview editor
+   UI — no user-facing expression exists yet, so this slice stays open.
 4. Live re-render on disk change with diff highlight.
 5. Hygiene: the archive/index moves from the 2026-09-12 audit
    (`docs/archive/README.md`), so the tree the reader shows is the tree we mean.

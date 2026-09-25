@@ -79,7 +79,7 @@ export async function watchPostPushCi(
   const deadline = now() + options.timeoutMs;
   for (;;) {
     const status = await checkStatus();
-    if (status.conclusion !== null) {
+    if (status.conclusion !== null && isRunFor(status, context.sha)) {
       return { kind: 'concluded', verdict: decidePostPushVerdict(status, context, now()) };
     }
     if (now() >= deadline) {
@@ -87,6 +87,22 @@ export async function watchPostPushCi(
     }
     await sleep(options.pollIntervalMs);
   }
+}
+
+/**
+ * Whether a run is the one for `sha`. Right after a push, the latest run
+ * listed is often still the PREVIOUS commit's, already concluded: on
+ * 2026-09-24 a landing's watch read the prior commit's red e2e run as its
+ * own, filed "CI RED after landing main → 4b47e76", and two firings went
+ * to a red that did not exist — 4b47e76's own run was green. A run that
+ * names another commit is not yet this landing's verdict, so the watch
+ * keeps polling. A run that names no commit (an older gh) is taken as
+ * before. Short and full SHAs compare by prefix, either way round.
+ */
+export function isRunFor(status: Pick<WorkflowRunStatus, 'headSha'>, sha: string): boolean {
+  const head = status.headSha;
+  if (head === undefined || sha === '') return true;
+  return head.startsWith(sha) || sha.startsWith(head);
 }
 
 /** Fire-and-forget hook `landing/execute.ts` invokes after a green land —

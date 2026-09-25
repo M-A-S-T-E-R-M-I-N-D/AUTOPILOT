@@ -17,6 +17,7 @@ import type { WorkflowRunStatus } from '../../src/control/ci-status.js';
 import type { PostPushVerdictContext } from '../../src/control/post-push-verdict.js';
 import {
   watchPostPushCi,
+  isRunFor,
   createPostPushWatchTrigger,
   DEFAULT_POST_PUSH_WATCH_OPTIONS,
 } from '../../src/control/post-push-watch.js';
@@ -94,6 +95,42 @@ function fakeClock(startMs: number) {
 }
 
 describe('watchPostPushCi', () => {
+  it("keeps polling past the PREVIOUS commit's concluded run until its own run concludes", async () => {
+    // 2026-09-24: the prior commit's red run was still the latest one listed
+    // right after the push, and was read as this landing's verdict
+    const clock = fakeClock(NOW);
+    const own = CONTEXT.sha;
+    const checkStatus = vi
+      .fn()
+      .mockResolvedValueOnce({ ...concludedStatus('failure'), headSha: 'f00dfeedbeef' })
+      .mockResolvedValueOnce({ ...runningStatus(), headSha: own })
+      .mockResolvedValueOnce({ ...concludedStatus('success'), headSha: own });
+    const outcome = await watchPostPushCi(
+      CONTEXT,
+      checkStatus,
+      { pollIntervalMs: 1000, timeoutMs: 10_000 },
+      clock.sleep,
+      clock.now,
+    );
+    expect(outcome).toMatchObject({ kind: 'concluded', verdict: { kind: 'recorded' } });
+    expect(checkStatus).toHaveBeenCalledTimes(3);
+  });
+
+  it("times out rather than judging by another commit's run", async () => {
+    const clock = fakeClock(NOW);
+    const checkStatus = vi
+      .fn()
+      .mockResolvedValue({ ...concludedStatus('failure'), headSha: 'f00dfeedbeef' });
+    const outcome = await watchPostPushCi(
+      CONTEXT,
+      checkStatus,
+      { pollIntervalMs: 1000, timeoutMs: 3000 },
+      clock.sleep,
+      clock.now,
+    );
+    expect(outcome).toEqual({ kind: 'timed-out', workflow: 'ci.yml' });
+  });
+
   it('returns concluded on the very first check when CI already finished green', async () => {
     const clock = fakeClock(NOW);
     const checkStatus = vi.fn().mockResolvedValue(concludedStatus('success'));
@@ -395,5 +432,15 @@ describe('createPostPushWatchTrigger — fly escalation mode (board web-mtpbmazh
     } finally {
       cleanupDir(dir);
     }
+  });
+});
+
+describe('isRunFor', () => {
+  it('matches short and full SHAs either way round, and takes a run that names no commit', () => {
+    expect(isRunFor({ headSha: '4b47e76365f48ee0' }, '4b47e76')).toBe(true);
+    expect(isRunFor({ headSha: '4b47e76' }, '4b47e76365f48ee0')).toBe(true);
+    expect(isRunFor({ headSha: 'fb2f9db8aaaa' }, '4b47e76')).toBe(false);
+    expect(isRunFor({}, '4b47e76')).toBe(true);
+    expect(isRunFor({ headSha: 'fb2f9db8' }, '')).toBe(true);
   });
 });
