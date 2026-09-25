@@ -80,6 +80,22 @@ describe('intent-claims entry point', () => {
     };
     expect(detectIntentCollisions(['docs/README.md'], [claim])).toEqual([]);
   });
+
+  it('matches a collision across path separator and case differences, and strips a leading "./"', () => {
+    // A claim declared with a Windows-style separator and mixed case must
+    // still catch a shipped file git reports with forward slashes and a
+    // different case — the same comparablePath() normalization
+    // readSiblingIntentClaims relies on for cross-worktree comparisons, but
+    // never exercised at the detectIntentCollisions boundary itself.
+    const claim = {
+      branch: 'fleet-2',
+      intent: 'src\\Parser.TS — fix quoting',
+      primaryFile: 'src\\Parser.TS',
+    };
+    expect(detectIntentCollisions(['./src/parser.ts'], [claim])).toEqual([
+      { file: './src/parser.ts', claim },
+    ]);
+  });
 });
 
 describe('likelyPrimaryPathFromTitle', () => {
