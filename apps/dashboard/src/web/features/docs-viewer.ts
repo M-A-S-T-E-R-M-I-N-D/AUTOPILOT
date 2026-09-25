@@ -60,6 +60,11 @@ export function docsViewerJs(): string {
 // the same DOM-only Markdown engine the ask answer uses. Content comes from the
 // search INDEX (never the filesystem) — root-jailed by construction.
 var openDoc = {}; // project id -> currently open doc path (survives SSE re-renders)
+// docsRawContent holds the last-loaded RAW markdown text per project (epic
+// 0023 "the docs reader" slice 3, the editor): the read view only ever gets
+// the rendered DOM, so the editor needs its own copy of the source text to
+// seed the textarea without a second fetch.
+var docsRawContent = {};
 // docsPanelCache holds the mounted wrap/list/viewer nodes per project (epic
 // 0018 "calm cockpit", STABILITY LAW "the reader is sacred"). shell.ts's
 // renderProjectPage() tears down and rebuilds the whole project page on
@@ -299,7 +304,17 @@ function loadDoc(pid, path, viewer) {
     .then(function (data) {
       if (!viewer.isConnected) return; // re-rendered while loading — stale paint
       viewer.replaceChildren();
-      viewer.appendChild(el('h4', 'docs-viewer-path', data.path));
+      var isMd = /\\.md$/i.test(data.path);
+      docsRawContent[pid] = data.content;
+      var headRow = el('div', 'docs-viewer-headrow');
+      headRow.appendChild(el('h4', 'docs-viewer-path', data.path));
+      // The split-preview editor (epic 0023 "the docs reader" slice 3): only
+      // offered for Markdown — the split preview IS a Markdown feature, and
+      // every writable root (docs/, README.md, CHANGELOG.md) is Markdown.
+      // The server's allow-list (flight/docs-write.ts) is the real gate; a
+      // save attempt outside it still refuses with a readable reason.
+      if (isMd) headRow.appendChild(buildEditToggle(pid, data.path));
+      viewer.appendChild(headRow);
       // Freshness (epic 0023 "the docs reader" slice 1): the doc's last real
       // commit, reused from flight/doc-freshness.ts's gitLastTouchedAt —
       // never a guess, and absent entirely for an untracked path or a
@@ -314,16 +329,17 @@ function loadDoc(pid, path, viewer) {
         freshness.appendChild(freshTime);
         viewer.appendChild(freshness);
       }
+      var readView = el('div', 'docs-viewer-readview');
       var body = el('div', 'docs-viewer-body');
       // The viewer hands the renderer its project and this document's path,
       // so a relative link opens the linked document HERE and an in-document
       // link scrolls within this body (the parity slice, 2026-09-18).
-      if (/\\.md$/i.test(data.path)) {
+      if (isMd) {
         renderMarkdown(body, data.content, { pid: pid, basePath: data.path });
         var toc = buildToc(data.content);
         if (toc) body.insertBefore(toc, body.firstChild);
       } else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
-      viewer.appendChild(body);
+      readView.appendChild(body);
       // Dead-link census (epic 0023 "the docs reader" slice 1: "every
       // internal link is checked as it renders"): the server already
       // resolved and checked every local link against the project's index —
@@ -334,7 +350,8 @@ function loadDoc(pid, path, viewer) {
       // after the body, same as a wiki's backlinks footer — it answers "what
       // else references this" only once the reader has read the page itself.
       var linksHere = buildLinksHere(pid, data.linksHere);
-      if (linksHere) viewer.appendChild(linksHere);
+      if (linksHere) readView.appendChild(linksHere);
+      viewer.appendChild(readView);
       viewer.dataset.loadedPath = path;
     })
     .catch(function () {
@@ -342,6 +359,152 @@ function loadDoc(pid, path, viewer) {
       viewer.dataset.loadedPath = '';
     });
 }
+// The split-preview editor (epic 0023 "the docs reader" slice 3, board
+// web-mtywp7to-rbebh4): the guarded POST /api/docs/write endpoint
+// (docs/write.ts + flight/docs-write.ts) landed with no caller — this is
+// that caller. buildEditToggle is the pencil-icon button loadDoc plants
+// beside the path heading; the editor itself is built lazily on first click
+// (buildDocsEditor) rather than kept mounted for every doc, since most reads
+// never open it.
+function buildEditToggle(pid, path) {
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'docs-viewer-edit-btn';
+  btn.setAttribute('data-doc-edit-toggle', '');
+  btn.setAttribute('data-doc-edit-pid', pid);
+  btn.setAttribute('aria-pressed', 'false');
+  btn.appendChild(iconEl('pencil'));
+  var label = el('span', null, tr('docsEditToggle'));
+  label.setAttribute('data-i18n', 'docsEditToggle');
+  btn.appendChild(label);
+  btn.setAttribute('aria-label', tr('docsEditToggle') + ': ' + path);
+  return btn;
+}
+// Re-renders the editor's live preview through the SAME renderMarkdown
+// pipeline the read view uses (the epic's own law: "one Markdown pipeline
+// for both, never two renderers that drift") — replaceChildren first since
+// renderMarkdown only ever appends, never clears.
+function updateEditorPreview(pid, path, previewEl, text) {
+  previewEl.replaceChildren();
+  if (/\\.md$/i.test(path)) {
+    renderMarkdown(previewEl, text, { pid: pid, basePath: path });
+  } else {
+    var pre = document.createElement('pre');
+    pre.appendChild(el('code', null, text));
+    previewEl.appendChild(pre);
+  }
+}
+function buildDocsEditor(pid, path, content) {
+  var wrap = el('div', 'docs-editor');
+  var panes = el('div', 'docs-editor-panes');
+  var textarea = document.createElement('textarea');
+  textarea.className = 'docs-editor-textarea';
+  textarea.value = content;
+  textarea.spellcheck = false;
+  textarea.setAttribute('aria-label', 'Edit ' + path);
+  var preview = el('div', 'docs-editor-preview docs-viewer-body');
+  preview.setAttribute('aria-label', 'Live preview of ' + path);
+  panes.appendChild(textarea);
+  panes.appendChild(preview);
+  wrap.appendChild(panes);
+  var actions = el('div', 'docs-editor-actions');
+  var saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'docs-editor-save';
+  saveBtn.setAttribute('data-doc-edit-save', '');
+  saveBtn.setAttribute('data-doc-edit-pid', pid);
+  saveBtn.setAttribute('data-doc-edit-path', path);
+  var saveLabel = el('span', null, tr('docsEditSave'));
+  saveLabel.setAttribute('data-i18n', 'docsEditSave');
+  saveBtn.appendChild(saveLabel);
+  var cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'docs-editor-cancel';
+  cancelBtn.setAttribute('data-doc-edit-cancel', '');
+  cancelBtn.setAttribute('data-doc-edit-pid', pid);
+  var cancelLabel = el('span', null, tr('docsEditCancel'));
+  cancelLabel.setAttribute('data-i18n', 'docsEditCancel');
+  cancelBtn.appendChild(cancelLabel);
+  actions.appendChild(saveBtn);
+  actions.appendChild(cancelBtn);
+  var result = el('p', 'docs-editor-result');
+  result.setAttribute('data-doc-edit-result', pid);
+  actions.appendChild(result);
+  wrap.appendChild(actions);
+  updateEditorPreview(pid, path, preview, content);
+  textarea.addEventListener('input', function () {
+    updateEditorPreview(pid, path, preview, textarea.value);
+  });
+  return wrap;
+}
+function closeDocsEditor(pid) {
+  var viewer = document.querySelector('[data-docs-viewer="' + pid + '"]');
+  if (!viewer) return;
+  var editor = viewer.querySelector('.docs-editor');
+  if (editor) editor.remove();
+  var readView = viewer.querySelector('.docs-viewer-readview');
+  if (readView) readView.hidden = false;
+  var toggle = viewer.querySelector('[data-doc-edit-toggle]');
+  if (toggle) toggle.setAttribute('aria-pressed', 'false');
+}
+// Edit/Cancel (event-delegated, one listener for both since they share the
+// same open/close state machine): Edit swaps the read view for the editor;
+// Cancel (or Edit again, defensively) swaps back without saving anything.
+document.addEventListener('click', function (e) {
+  var cancel = e.target && e.target.closest && e.target.closest('[data-doc-edit-cancel]');
+  var toggle = !cancel && e.target && e.target.closest && e.target.closest('[data-doc-edit-toggle]');
+  var b = cancel || toggle;
+  if (!b) return;
+  var pid = b.getAttribute('data-doc-edit-pid');
+  var viewer = document.querySelector('[data-docs-viewer="' + pid + '"]');
+  if (!viewer) return;
+  if (cancel || viewer.querySelector('.docs-editor')) {
+    closeDocsEditor(pid);
+    return;
+  }
+  var path = openDoc[pid];
+  if (!path) return;
+  var readView = viewer.querySelector('.docs-viewer-readview');
+  if (readView) readView.hidden = true;
+  viewer.appendChild(buildDocsEditor(pid, path, docsRawContent[pid] || ''));
+  b.setAttribute('aria-pressed', 'true');
+});
+// Save (epic 0023 slice 3): POST /api/docs/write, then reload the doc from
+// disk on success so the reader shows exactly what was persisted — including
+// the provenance line the server appends — the same
+// success-refetches-reality convention pool-client/pr-review execute already
+// use, rather than trusting the in-memory textarea value as the new truth.
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-doc-edit-save]');
+  if (!b) return;
+  var pid = b.getAttribute('data-doc-edit-pid');
+  var path = b.getAttribute('data-doc-edit-path');
+  var viewer = document.querySelector('[data-docs-viewer="' + pid + '"]');
+  if (!viewer) return;
+  var textarea = viewer.querySelector('.docs-editor-textarea');
+  var result = viewer.querySelector('[data-doc-edit-result="' + pid + '"]');
+  if (!textarea) return;
+  b.disabled = true;
+  fetch('/api/docs/write', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid, path: path, content: textarea.value }),
+  })
+    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+    .then(function (res) {
+      b.disabled = false;
+      if (res.ok && res.data && res.data.ok) {
+        closeDocsEditor(pid);
+        loadDoc(pid, path, viewer);
+      } else if (result) {
+        result.textContent = '✗ ' + ((res.data && res.data.reason) || 'Save failed.');
+      }
+    })
+    .catch(function () {
+      b.disabled = false;
+      if (result) result.textContent = '✗ Save failed — network error.';
+    });
+});
 // Docs reader (event-delegated): open an indexed document in the viewer.
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-doc-open]');

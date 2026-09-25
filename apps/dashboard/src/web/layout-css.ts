@@ -674,8 +674,40 @@ main.project-mode { grid-template-columns: 1fr; }
    solid accent, echoing .ob-badge's unearned dashed state. */
 .docs-file-archived { opacity: 0.72; border-inline-start: 2px dashed var(--color-border); }
 .docs-file-archived-badge { flex: 0 0 auto; margin-inline-start: var(--space-2); padding: 0 var(--space-1); border: 1px dashed var(--color-border); border-radius: var(--radius-full); font-size: 0.6875rem; color: var(--color-text-muted); }
+.docs-viewer-headrow { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .docs-viewer-path { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
 .docs-viewer-freshness { margin: 0 0 var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+/* The split-preview editor's own toggle/actions (epic 0023 slice 3) reuse the
+   SOUL ratify/dismiss shape-morph language (radius grows on hover, flattens
+   on press) instead of a flat default button, per the design-quality law that
+   every interactive control needs a designed hover/focus/active state. */
+.docs-viewer-edit-btn { display: inline-flex; align-items: center; gap: var(--space-1); flex: 0 0 auto; font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.docs-viewer-edit-btn .icon { width: 0.875rem; height: 0.875rem; }
+.docs-viewer-edit-btn:hover, .docs-viewer-edit-btn:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.docs-viewer-edit-btn:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.docs-viewer-edit-btn[aria-pressed="true"] { color: var(--color-accent); border-color: var(--color-accent); }
+.docs-editor-panes { display: flex; flex-direction: column; gap: var(--space-3); }
+.docs-editor-textarea, .docs-editor-preview { min-height: 16rem; max-height: 32rem; }
+.docs-editor-textarea { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.6; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: inherit; resize: vertical; }
+.docs-editor-textarea:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -1px; }
+.docs-editor-preview { overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+.docs-editor-actions { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.docs-editor-save, .docs-editor-cancel { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); background: transparent; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.docs-editor-save { border: 1px solid var(--color-accent); color: var(--color-accent); }
+.docs-editor-cancel { border: 1px solid var(--color-border); color: var(--color-text-muted); }
+.docs-editor-save:not(:disabled):hover, .docs-editor-save:not(:disabled):focus-visible { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.docs-editor-cancel:hover, .docs-editor-cancel:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.docs-editor-save:active, .docs-editor-cancel:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.docs-editor-save:disabled { opacity: 0.6; cursor: default; }
+.docs-editor-result { margin: 0; font-size: var(--text-xs); color: var(--color-warning); }
+.docs-editor-result:empty { display: none; }
+/* Split pane from lg up (the epic's own "a split pane at lg"); a single
+   scrollable column below it — both the source and the preview stay fully
+   usable stacked, just not side by side. */
+@media (min-width: 64rem) {
+  .docs-editor-panes { flex-direction: row; }
+  .docs-editor-textarea, .docs-editor-preview { flex: 1 1 50%; min-width: 0; }
+}
 /* Table of contents (epic 0023 slice 2) — a quiet reference block, not
    another wall of accent color; indentation alone carries the hierarchy. */
 .docs-toc { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); background: var(--color-surface-raised); }

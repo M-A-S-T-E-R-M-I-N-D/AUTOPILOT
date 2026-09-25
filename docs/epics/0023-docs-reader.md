@@ -105,8 +105,17 @@ the diff highlight fades on the compositor; nothing else moves.
    and `server.ts`'s `handleDocsWrite` wires `POST /api/docs/write` as a
    CSRF-guarded, separately rate-limited JSON POST, resolving the acting
    author server-side via the existing `socialIdentity` read (never trusted
-   from the request body). Still missing: the split-preview editor UI — no
-   user-facing expression exists yet, so this slice stays open.
+   from the request body). **Split-preview editor landed 2026-09-25:**
+   `web/features/docs-viewer.ts` grew the user-facing expression — a pencil
+   icon toggle beside a Markdown doc's path heading (Markdown-only: the split
+   preview is a Markdown feature, and every writable root is Markdown) swaps
+   the read view for a textarea/preview pane pair, re-rendering the SAME
+   `renderMarkdown` pipeline the reader itself uses on every keystroke (the
+   epic's own law: one pipeline for both). Save posts to the endpoint above
+   and reloads the doc from disk on success, so the reader shows exactly what
+   was persisted (including the server's provenance line); a refused save
+   (allow-list, binary content) shows the server's reason in place rather
+   than failing silently. Slice complete.
 4. Live re-render on disk change with diff highlight.
 5. Hygiene: the archive/index moves from the 2026-09-12 audit
    (`docs/archive/README.md`), so the tree the reader shows is the tree we mean.

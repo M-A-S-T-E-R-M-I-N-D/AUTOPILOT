@@ -13,8 +13,8 @@
  * I/O of its own. `docs/write.ts`'s `createDocsWriteApi` turns a validated
  * plan into a real file write, and `server.ts`'s `handleDocsWrite` is the
  * guarded `POST /api/docs/write` endpoint (CSRF, rate-limited) around that —
- * the split-preview editor UI that calls it is the only piece still missing,
- * its own follow-up slice.
+ * and `web/features/docs-viewer.ts`'s split-preview editor is the UI that
+ * calls it, completing this slice.
  *
  * The allow-list is deliberately a fixed root set, not a caller-supplied
  * glob or regex: a regex allow-list is itself a thing a hostile or buggy

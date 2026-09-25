@@ -3740,9 +3740,9 @@ async function handleInboxAdd(
  * acting author is resolved server-side via `identity` — never trusted from
  * the request body, per `flight/docs-write.ts`'s own contract — and
  * degrades to a generic label on a fully-local project where no GitHub
- * identity resolves (`social-identity.ts`'s documented common case). No UI
- * calls this yet — the split-preview editor is its own follow-up slice;
- * this is the guarded surface it will call.
+ * identity resolves (`social-identity.ts`'s documented common case). The
+ * split-preview editor (`web/features/docs-viewer.ts`'s Edit toggle) is the
+ * caller this guarded surface was built for.
  */
 async function handleDocsWrite(
   req: IncomingMessage,

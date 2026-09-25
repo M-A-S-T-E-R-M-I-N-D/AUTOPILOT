@@ -782,6 +782,14 @@ const EN_STRINGS = {
   docsTitle: 'Docs',
   docsEmpty: 'No indexed documents yet.',
   docsUnavailable: 'Docs unavailable.',
+  // web/features/docs-viewer.ts (epic 0023 "the docs reader" slice 3): the
+  // split-preview editor's own static text — the edit toggle beside the path
+  // heading, and its Save/Cancel buttons. The dynamic result line ("✗
+  // <reason>" on a refused save) stays English-only, the same convention
+  // every other execute-result line in this codebase already follows.
+  docsEditToggle: 'Edit',
+  docsEditSave: 'Save',
+  docsEditCancel: 'Cancel',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
@@ -2278,6 +2286,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     docsTitle: 'מסמכים',
     docsEmpty: 'עדיין אין מסמכים באינדקס.',
     docsUnavailable: 'המסמכים אינם זמינים.',
+    docsEditToggle: 'עריכה',
+    docsEditSave: 'שמירה',
+    docsEditCancel: 'ביטול',
     roundTitle: 'הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
