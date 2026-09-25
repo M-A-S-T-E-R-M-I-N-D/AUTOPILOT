@@ -184,6 +184,14 @@ class FakeVcs implements VcsPort {
   dirtyPaths(): Promise<readonly string[]> {
     return Promise.resolve([]);
   }
+  stashMessages: string[] = [];
+  /** Own field so a test can remove it (a VcsPort without the capability). */
+  stashLeftovers?: (message: string) => Promise<boolean> = (message) => {
+    this.stashMessages.push(message);
+    this.dirty = false;
+    this.dirtySequence = null;
+    return Promise.resolve(true);
+  };
   commitPaths(): Promise<boolean> {
     return Promise.reject(new Error('FakeVcs.commitPaths is not exercised by firing.test.ts'));
   }
@@ -482,6 +490,43 @@ describe('runFiring', () => {
     expect(store.records).toHaveLength(1); // the loop's outer while(...) never sees a rejection
   });
 
+  it('sets leftovers aside in a named stash and gates the commit on its own (2026-09-25)', async () => {
+    const model = new FakeModel([shippedResponse('AP-5', 'mno')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-5', shortSha: 'mno' },
+      existing: new Set(['mno']),
+    });
+    vcs.dirty = true;
+    const gate = new FakeGate(true);
+    const out = await runFiring(deps(model, vcs, gate, new FakeStore()), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+    expect(vcs.stashMessages).toHaveLength(1);
+    expect(vcs.stashMessages[0]).toContain('changes left beside its commit');
+    expect(gate.runs).toBe(1);
+    expect(out.gateResult).toBe('passed');
+  });
+
+  it('still refuses when the leftovers cannot be set aside', async () => {
+    const model = new FakeModel([shippedResponse('AP-5', 'mno')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-5', shortSha: 'mno' },
+      existing: new Set(['mno']),
+    });
+    vcs.dirty = true;
+    vcs.stashLeftovers = () => Promise.reject(new Error('stash failed'));
+    const gate = new FakeGate(true);
+    const out = await runFiring(deps(model, vcs, gate, new FakeStore()), DEFAULT_ENGINE_CONFIG, {
+      ...baseInput,
+      state: INITIAL_RESILIENCE_STATE,
+    });
+    expect(gate.runs).toBe(0);
+    expect(out.gateResult).toBe('unverifiable');
+  });
+
   it('refuses to certify a commit when uncommitted changes remain after it (GATE HOLE 2: the gate would judge the working tree, not the commit)', async () => {
     const model = new FakeModel([shippedResponse('AP-5', 'mno')]);
     const vcs = new FakeVcs({
@@ -489,6 +534,7 @@ describe('runFiring', () => {
       last: { subject: 'feat: AP-5', shortSha: 'mno' },
       existing: new Set(['mno']),
     });
+    delete vcs.stashLeftovers; // a VcsPort without the capability
     vcs.dirty = true; // a stray uncommitted fix riding along with the commit
     const gate = new FakeGate(true); // would pass — but on the CONTAMINATED tree
     const store = new FakeStore();

@@ -33,6 +33,8 @@ import {
   unratifySoulAmendment,
   ratifyFleetWisdomAmendment,
   dismissFleetWisdomProposal,
+  recentFirings,
+  type FiringLogRow,
   type Store,
 } from '@autopilot/store';
 
@@ -414,6 +416,80 @@ export function readProjectGateConfigInStore(
     return row === undefined ? undefined : row.gate_config;
   } catch {
     return undefined;
+  } finally {
+    store?.close();
+  }
+}
+
+/** One command's verdict in a recorded gate run — `durationMs` null when the
+ *  record carries no usable number, never a fabricated zero. */
+export interface GateRunCheck {
+  readonly label: string;
+  readonly pass: boolean;
+  readonly durationMs: number | null;
+}
+
+/** The flight plan's outcomes (epic 0024, "the gate as a readable plan with
+ *  outcomes"): the newest firing that ran its gate, and what each command said. */
+export interface GateRun {
+  readonly firingId: string;
+  readonly at: number;
+  readonly checks: readonly GateRunCheck[];
+}
+
+/** How far back the plan looks for a firing that ran its gate — a noop or a
+ *  firing that died before committing records no checks at all. */
+const GATE_RUN_LOOKBACK = 20;
+
+interface RawGateRunCheck {
+  readonly label?: unknown;
+  readonly pass?: unknown;
+  readonly durationMs?: unknown;
+}
+
+function parseGateRunChecks(payload: string | null): GateRunCheck[] {
+  if (payload === null) return [];
+  try {
+    const record = JSON.parse(payload) as { gateChecks?: unknown };
+    if (!Array.isArray(record.gateChecks)) return [];
+    const checks: GateRunCheck[] = [];
+    for (const entry of record.gateChecks as RawGateRunCheck[]) {
+      if (typeof entry?.label !== 'string' || typeof entry.pass !== 'boolean') continue;
+      const ms = entry.durationMs;
+      checks.push({
+        label: entry.label,
+        pass: entry.pass,
+        durationMs: typeof ms === 'number' && Number.isFinite(ms) && ms >= 0 ? ms : null,
+      });
+    }
+    return checks;
+  } catch {
+    return [];
+  }
+}
+
+/** The newest of `rows` (newest first, as `recentFirings` returns them) whose
+ *  firing record carries gate checks, or null when none does. */
+export function lastGateRun(
+  rows: readonly Pick<FiringLogRow, 'firing_id' | 'created_at' | 'payload'>[],
+): GateRun | null {
+  for (const row of rows) {
+    const checks = parseGateRunChecks(row.payload);
+    if (checks.length > 0) return { firingId: row.firing_id, at: row.created_at, checks };
+  }
+  return null;
+}
+
+/** A project's last recorded gate run (open/read/close; null when there is
+ *  none, the project is unknown, or the store cannot be read). */
+export function readLastGateRunInStore(dbPath: string, projectId: string): GateRun | null {
+  if (!existsSync(dbPath)) return null;
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath, { readonly: true });
+    return lastGateRun(recentFirings(store.db, projectId, GATE_RUN_LOOKBACK));
+  } catch {
+    return null;
   } finally {
     store?.close();
   }

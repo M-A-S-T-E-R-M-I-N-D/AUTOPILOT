@@ -60,11 +60,18 @@ export type FlightProgressTranslator = (
  *  shape {@link sessionFlightDataFor} filters into {@link SessionFiring}s. */
 export interface FlightLogFiring extends SessionFiring {
   readonly at: number;
+  /** The firing's `firing_id` — the engine's `firingIdOf` shape,
+   *  `<project>--<instanceId>:firing-<n>` for a named fleet lane and
+   *  `<project>:firing-<n>` for the unnamed base flight — which is what
+   *  names the lane that landed it. */
+  readonly id?: string;
 }
 
 /** The project fields {@link sessionFlightDataFor} reads to find the
- *  currently-flying project and its full firing history. */
+ *  currently-flying project, its full firing history, and (via `id`) which
+ *  of those firings belong to one lane. */
 export interface FlyingProject {
+  readonly id?: string;
   readonly status: string;
   readonly flightLog?: readonly FlightLogFiring[];
 }
@@ -89,7 +96,13 @@ export interface SessionFlightData {
  *  transform rewrites it to a reference that doesn't survive `.toString()`
  *  extraction. `tr` rides the same route (board web-msnsndki-dz3vn1): the
  *  two clauses are `{spent}`/`{total}`/`{done}`/`{count}`/`{eta}` templates
- *  in STRINGS, so each locale's grammar decides where the numbers land. */
+ *  in STRINGS, so each locale's grammar decides where the numbers land.
+ *  Both displayed numerators are clamped to their own target: a lane alone
+ *  never passes its firing count, nor spends past a total whose remainder
+ *  can't fund another firing (`flight/budget.ts`), so any overshoot is
+ *  sibling lanes' firings pooled in the one shared project flight log
+ *  (ap-muh80db4-0). This note lives up here, outside the body, because
+ *  `.toString()` ships the body into `/app.js` against its size budget. */
 export function flightProgressOf(
   s: FlightProgressTarget,
   sessionFirings: readonly SessionFiring[],
@@ -106,22 +119,17 @@ export function flightProgressOf(
   let progressBit = '';
   if (s.totalBudgetUsd) {
     pct = Math.min(100, Math.round((spentSoFar / s.totalBudgetUsd) * 100));
+    // Clamped like pct: spend past this lane's total is siblings' (see below).
     progressBit = tr('flightProgressSpentOfTotal', {
-      spent: fmtCost(spentSoFar),
+      spent: fmtCost(Math.min(spentSoFar, s.totalBudgetUsd)),
       total: s.totalBudgetUsd,
     });
   } else if (s.firings) {
     pct = Math.min(100, Math.round((firingsCompleted / s.firings) * 100));
-    // Clamped like pct above: a fleet lane's flight-log read comes off the
-    // ONE shared project every lane of the same folder flies against
-    // (PARALLEL UNLOCK C, `flight/registry.ts`), so `firingsCompleted` can
-    // legitimately include siblings' landed firings inside this lane's own
-    // session window. A real solo flight can never land more firings than
-    // its own target (the runner stops itself at `s.firings`), so an
-    // overshoot here is proof of shared-log crosstalk, not 300% progress —
-    // the fly bar previously showed "6 / 2 firing(s)" for a 2-firing lane.
+    // Unclamped: sessionFirings holds only this lane's own firings (see
+    // sessionFlightDataFor), and the runner stops itself at `s.firings`.
     progressBit = tr('flightProgressFiringsSoFar', {
-      done: Math.min(firingsCompleted, s.firings),
+      done: firingsCompleted,
       count: s.firings,
       spent: fmtCost(spentSoFar),
     });
@@ -161,9 +169,17 @@ export function flightProgressOf(
  * own firings have landed since it started (`sessionFirings`), and the
  * fallback average duration from the project's full history
  * (`historicalAvgDurationMs`) for use before any firing has landed this
- * session. At most one flight runs at a time (FlightRunner), so the flying
- * project in the shared fleet snapshot IS the one this status describes — no
- * folder-to-project lookup needed.
+ * session. The fly bar only shows a total for exactly one running flight,
+ * so the flying project in the shared fleet snapshot IS the one this status
+ * describes — no folder-to-project lookup needed.
+ * That project's flight log is shared by every lane of a same-folder fleet
+ * (PARALLEL UNLOCK C), so the session window alone would pool siblings'
+ * firings into this lane's count, spend and pace (ap-muh80dbj-2). The
+ * lane's own firings are the ones whose id carries its `firingIdOf` key —
+ * `<project>--<instanceId>` for a named lane, the bare `<project>` for the
+ * base flight — followed by `:firing-`, which keeps `fleet-2` from matching
+ * `fleet-20`. An entry with no id, or a project with none, names no lane, so
+ * it is kept as before.
  * Takes `averageFiringDurationMs` via injection (mirrors this module's own
  * fmtCost/fmtDuration params) rather than importing it from
  * `shared/live-firing.ts`, same reason every shared module in this epic
@@ -173,10 +189,17 @@ export function sessionFlightDataFor(
   projects: readonly FlyingProject[],
   startedAt: number,
   averageFiringDurationMs: (flightLog: readonly FlightLogFiring[]) => number | null,
+  instanceId?: string | null,
 ): SessionFlightData {
   const flying = projects.find((p) => p.status === 'flying') || null;
   const flightLog = flying ? flying.flightLog || [] : [];
-  const sessionFirings = flightLog.filter((f) => f.at >= startedAt);
+  const lanePrefix =
+    flying && flying.id
+      ? (instanceId ? flying.id + '--' + instanceId : flying.id) + ':firing-'
+      : '';
+  const sessionFirings = flightLog.filter(
+    (f) => f.at >= startedAt && (!lanePrefix || !f.id || f.id.startsWith(lanePrefix)),
+  );
   const historicalAvgDurationMs = flying ? averageFiringDurationMs(flightLog) : null;
   return { sessionFirings, historicalAvgDurationMs };
 }

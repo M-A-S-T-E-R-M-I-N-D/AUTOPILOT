@@ -253,6 +253,24 @@ export async function runFiring(
   let gateChecks: readonly GateCheckResult[] = [];
   let checkpointError: string | null = null;
   let gateError: string | null = null;
+  // LEFTOVERS ARE SET ASIDE, NOT A REASON TO SKIP THE GATE (2026-09-25). A
+  // firing that committed and left other changes beside the commit used to
+  // stay unverified — and an unverified head is never published, so the
+  // commit sat parked on its lane (two doc-freshness firings in two rounds).
+  // The leftovers go into a named stash, kept and recoverable, and the gate
+  // judges the commit on its own. A commit that needed them goes red and is
+  // reverted, which is the honest verdict on a commit that cannot stand alone.
+  // Whether the stash worked is read from the tree itself just below: a tree
+  // still dirty afterwards takes the old refusal.
+  if (headAdvanced && deps.vcs.stashLeftovers && (await deps.vcs.isDirty())) {
+    try {
+      await deps.vcs.stashLeftovers(
+        `autopilot firing ${input.firing}: changes left beside its commit`,
+      );
+    } catch {
+      /* a failed stash leaves the tree dirty, and the refusal below applies */
+    }
+  }
   if (headAdvanced && (await deps.vcs.isDirty())) {
     // GATE HOLE (board web-mtb8i2i8-8l9zut): the gate runs the project's
     // commands against the WORKING TREE, not the commit — if uncommitted
@@ -466,6 +484,7 @@ export async function runFiring(
     guardDenialDetails,
     subscriptionPriceUsd: config.subscriptionPriceUsd,
     machineWide30dListPriceUsd: input.machineWide30dListPriceUsd,
+    instanceId: config.instanceId,
   };
   // Task proposals ride the same persisted record (events payload) so the
   // flight harness can surface them on the operator's board for APPROVAL.

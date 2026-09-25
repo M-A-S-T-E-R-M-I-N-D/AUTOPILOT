@@ -140,8 +140,11 @@ describe('docsViewerJs', () => {
 
     it('appends the backlinks nav after the rendered body', () => {
       const out = docsViewerJs();
+      // The read view is wrapped in its own container (epic 0023 slice 3, the
+      // editor): readView, not the bare viewer, is what body/linksHere append
+      // into now — the editor swaps in as readView's sibling instead.
       expect(out).toMatch(
-        /viewer\.appendChild\(body\);[\s\S]*?buildLinksHere\(pid, data\.linksHere\);[\s\S]*?if \(linksHere\) viewer\.appendChild\(linksHere\);/,
+        /readView\.appendChild\(body\);[\s\S]*?buildLinksHere\(pid, data\.linksHere\);[\s\S]*?if \(linksHere\) readView\.appendChild\(linksHere\);/,
       );
     });
   });

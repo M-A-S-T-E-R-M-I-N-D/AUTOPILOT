@@ -854,6 +854,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // class `flight/mirror-pass` above is flagged for, ending in neither
   // `-execute.ts` nor any security keyword.
   'flight/owned-work-reconcile',
+  // The board→issues export planner (board ap-mu7ktjpc-1, slice 2/3 of
+  // web-mtpzqrw8-dsy6a9): decides which shareable board tasks become a new
+  // public `gh issue create` or an in-place `gh issue edit`, and plans that
+  // argv — the same decide-and-eventually-execute class `flight/mirror-pass`
+  // above is flagged for, ending in neither `-execute.ts` nor any security
+  // keyword.
+  'flight/board-issue-export',
   // Dispatches the ARCHITECT chat control tools' write/DESTRUCTIVE store
   // operations (tasks_create/set-status/reorder/delete, project_reset) and
   // owns their argument validation itself — server.ts leaves it only the
@@ -1041,6 +1048,10 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // queued, high-severity board task with no approval gate. Widening what
   // it files steers every lane's next pick.
   'flight/convergence-red-task.ts',
+  // THE MODEL SCOREBOARD (2026-09-25): decides which model every firing
+  // flies on, from recorded outcomes. Skewing it staffs a tier with the
+  // wrong model for every lane.
+  'flight/model-scoreboard.ts',
   // PREFLIGHT (2026-09-19): the go/no-go every launch path shares. It
   // decides whether a flight starts at all; weakening it lets a flight
   // launch into the exact states the lane ladder paid for (a dirty

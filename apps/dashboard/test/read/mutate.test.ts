@@ -32,6 +32,8 @@ import {
   setTaskFocusInStore,
   reorderTasksInStore,
   unpinTasksInStore,
+  lastGateRun,
+  readLastGateRunInStore,
 } from '../../src/read/mutate.js';
 import { readFleetFromStore } from '../../src/read/source.js';
 
@@ -1104,6 +1106,102 @@ describe('unpinTasksInStore', () => {
     const { dir, dbPath } = unmigratedDbPath('ap-dash-unpin-bad-');
     try {
       expect(unpinTasksInStore(dbPath, 'p1', ['t1'], 1)).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+// Epic 0024 (board web-mtywp7wk-tkdwhi): the flight plan reads as the gate it is, with the
+// outcomes its last recorded run produced.
+describe('lastGateRun — the flight plan outcomes', () => {
+  const row = (firingId: string, createdAt: number, payload: unknown) => ({
+    firing_id: firingId,
+    created_at: createdAt,
+    payload: typeof payload === 'string' ? payload : JSON.stringify(payload),
+  });
+
+  it('returns the newest firing that recorded gate checks, skipping ones that ran none', () => {
+    const run = lastGateRun([
+      row('f3', 300, { gateChecks: [] }), // a noop: the gate never ran
+      { firing_id: 'f2b', created_at: 250, payload: null },
+      row('f2', 200, {
+        gateChecks: [
+          { label: 'pnpm run typecheck', pass: true, durationMs: 4200 },
+          { label: 'pnpm run test', pass: false, durationMs: 9000, outputTail: 'FAIL x' },
+        ],
+      }),
+      row('f1', 100, { gateChecks: [{ label: 'pnpm run typecheck', pass: true, durationMs: 1 }] }),
+    ]);
+    expect(run).toEqual({
+      firingId: 'f2',
+      at: 200,
+      checks: [
+        { label: 'pnpm run typecheck', pass: true, durationMs: 4200 },
+        { label: 'pnpm run test', pass: false, durationMs: 9000 },
+      ],
+    });
+  });
+
+  it('keeps a check with no usable duration, drops a malformed one, and survives bad JSON', () => {
+    const run = lastGateRun([
+      row('f2', 200, 'not-json{{'),
+      row('f1', 100, {
+        gateChecks: [
+          { label: 'pnpm run lint', pass: true },
+          { label: 'pnpm run build', pass: 'yes', durationMs: 5 },
+          null,
+        ],
+      }),
+    ]);
+    expect(run).toEqual({
+      firingId: 'f1',
+      at: 100,
+      checks: [{ label: 'pnpm run lint', pass: true, durationMs: null }],
+    });
+    expect(lastGateRun([])).toBeNull();
+    expect(lastGateRun([row('f1', 1, { gateChecks: 'none' })])).toBeNull();
+  });
+
+  it('reads the store: the newest run for the project, null for a missing or unmigrated DB', () => {
+    expect(readLastGateRunInStore(join(tmpdir(), 'nope', 'missing.db'), 'p1')).toBeNull();
+    const bad = unmigratedDbPath('ap-dash-gate-run-bad-');
+    try {
+      expect(readLastGateRunInStore(bad.dbPath, 'p1')).toBeNull();
+    } finally {
+      cleanupDir(bad.dir);
+    }
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-gate-run-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'alpha', 'flying', null, s);
+      project('p2', 'beta', 'flying', null, s);
+      firing('p1', 'p1:firing-1', 'AP-1', 1, 100, s);
+      firing('p2', 'p2:firing-1', 'AP-1', 1, 200, s);
+      const ev = s.db.prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, 'firing', ?, ?)`,
+      );
+      ev.run(
+        'p1',
+        'p1:firing-1',
+        JSON.stringify({ gateChecks: [{ label: 'tests', pass: true, durationMs: 7 }] }),
+        100,
+      );
+      ev.run(
+        'p2',
+        'p2:firing-1',
+        JSON.stringify({ gateChecks: [{ label: 'other', pass: false, durationMs: 1 }] }),
+        200,
+      );
+      s.close();
+      expect(readLastGateRunInStore(dbPath, 'p1')).toEqual({
+        firingId: 'p1:firing-1',
+        at: 100,
+        checks: [{ label: 'tests', pass: true, durationMs: 7 }],
+      });
+      expect(readLastGateRunInStore(dbPath, 'p3')).toBeNull();
     } finally {
       cleanupDir(dir);
     }

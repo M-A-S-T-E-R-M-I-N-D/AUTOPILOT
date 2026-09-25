@@ -62,6 +62,7 @@ const BASE_RECORD: FiringRecord = {
   pickedRank: null,
   deviationReason: null,
   commitSubject: 'feat(engine): OTLP export for firing records',
+  instanceId: null,
 };
 
 /** Real, engine-shaped single-span traces — one per firing, as `toOtlpResourceSpans` produces today. */

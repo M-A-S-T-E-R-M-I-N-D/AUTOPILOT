@@ -77,7 +77,7 @@ function snack(text, kind, action) {
   close.type = 'button';
   close.className = 'snack-close';
   close.setAttribute('aria-label', tr('snackDismiss'));
-  close.textContent = '✕';
+  close.appendChild(iconEl('x'));
   close.addEventListener('click', function () { snackDismiss(node); });
   node.appendChild(close);
   var ms = kind === 'err' ? SNACK_ERROR_TIMEOUT_MS : SNACK_TIMEOUT_MS;

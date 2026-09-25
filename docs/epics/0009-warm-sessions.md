@@ -40,7 +40,7 @@ FINISH-LINE EXTENSION actually cheaper than a checkpoint hand-off?; (2) the
 fleet-home tile, still deferred until that table shows a non-empty extended
 group — wiring a tile for an always-empty group would be premature.
 
-**2026-09-19 fix widening the extended-group population (doctrine row 42):**
+**2026-09-19 fixes supporting fleet operation (doctrine row 42):**
 FINISH-LINE EXTENSION was silently gated on the session id of the RESULT
 envelope — a killed attempt (wall-clock cap or crash) by definition never
 sends one, so of 46 firings in one day, 22 died mid-unit and every single one
@@ -48,9 +48,21 @@ skipped the rescue, falling through to the checkpoint net instead of ever
 reaching `metrics.extended`. `sessionIdFromEvent` (`packages/engine/src/stream.ts`)
 now reads the session id off the first stream event and carries it on
 `ModelResponse.sessionId` (`firing.ts`'s `ownSessionId`), so a killed firing is
-resumable through the same bounded extension as a near-cap one. Item (1)'s
-"let extended firings accumulate" now has a materially larger population to
-draw from than before this fix.
+resumable through the same bounded extension as a near-cap one. A paired timeout
+tuning (`DEFAULT_CLI_TIMEOUT_MS`: 30→90 min, new `DEFAULT_CLI_IDLE_TIMEOUT_MS`:
+20 min) accommodates fleet contention (gate slot waits, shared disk I/O) while
+still ending true hangs faster. Item (1)'s "let extended firings accumulate"
+now has a materially larger population to draw from than before these fixes.
+
+**2026-09-24 model-ranking fix:**
+`parseModelEnvelope` ranked the model carrying the most output tokens (not the
+first entry) — Haiku side-calls by the CLI's own sorting put side-step reads
+before main-run tokens, so 101 resumed firings misattributed their cost (they
+flew Sonnet/Fable but logged as Haiku, with the side-call's few hundred tokens
+standing in for the real run's; found in telemetry over 193 firings). This fix
+ensures the firing record carries the name and full token count of the model
+that actually did the work, directly bearing on the "measurable win" verdict's
+accuracy: per-firing and per-turn cost deltas now compare the correct model.
 
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`

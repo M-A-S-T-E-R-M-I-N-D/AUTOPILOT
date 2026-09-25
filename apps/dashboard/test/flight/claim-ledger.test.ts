@@ -111,6 +111,17 @@ describe('claimLedger', () => {
     expect(claims).toEqual([]);
   });
 
+  it('a release note ends the claim even when the paired --remove-assignee call failed and the login is still assigned', () => {
+    const claims = claimLedger(
+      ['b'],
+      [
+        comment('b', 'Claimed by b via the pool client.', T0),
+        comment('bot', 'Unassigning @b — quiet for 14 days on this claim.', T0 + 20 * DAY),
+      ],
+    );
+    expect(claims).toEqual([]);
+  });
+
   it('re-claiming after a release opens a fresh claim', () => {
     const claims = claimLedger(
       [],

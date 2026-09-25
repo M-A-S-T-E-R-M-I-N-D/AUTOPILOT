@@ -782,6 +782,14 @@ const EN_STRINGS = {
   docsTitle: 'Docs',
   docsEmpty: 'No indexed documents yet.',
   docsUnavailable: 'Docs unavailable.',
+  // web/features/docs-viewer.ts (epic 0023 "the docs reader" slice 3): the
+  // split-preview editor's own static text — the edit toggle beside the path
+  // heading, and its Save/Cancel buttons. The dynamic result line ("✗
+  // <reason>" on a refused save) stays English-only, the same convention
+  // every other execute-result line in this codebase already follows.
+  docsEditToggle: 'Edit',
+  docsEditSave: 'Save',
+  docsEditCancel: 'Cancel',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
@@ -1250,6 +1258,12 @@ const EN_STRINGS = {
   planEditorDiscard: 'Discard draft',
   planEditorUndo: 'Undo',
   planEditorRedo: 'Redo',
+  planEditorOutcomePass: 'passed',
+  planEditorOutcomeFail: 'failed',
+  planEditorOutcomeNone: 'not run',
+  planEditorLastRun: 'Last gate run {ago}: {passed}/{total} passed.',
+  planEditorLastRunFailed: 'Failed: {labels}',
+  planEditorNoRun: 'No gate run yet.',
   soulRatifyConfirm:
     'Replace the live SOUL prompt with the proposed text?\n\nYou can undo this afterward with un-ratify.',
   soulUnratifyConfirm:
@@ -2278,6 +2292,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     docsTitle: 'מסמכים',
     docsEmpty: 'עדיין אין מסמכים באינדקס.',
     docsUnavailable: 'המסמכים אינם זמינים.',
+    docsEditToggle: 'עריכה',
+    docsEditSave: 'שמירה',
+    docsEditCancel: 'ביטול',
     roundTitle: 'הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
@@ -2582,6 +2599,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     planEditorDiscard: 'בטל טיוטה',
     planEditorUndo: 'בטל',
     planEditorRedo: 'בצע שוב',
+    planEditorOutcomePass: 'עבר',
+    planEditorOutcomeFail: 'נכשל',
+    planEditorOutcomeNone: 'לא רץ',
+    planEditorLastRun: 'ריצת שער אחרונה ({ago}): {passed} מתוך {total} עברו.',
+    planEditorLastRunFailed: 'נכשלו: {labels}',
+    planEditorNoRun: 'אין עדיין ריצת שער.',
     soulRatifyConfirm:
       'להחליף את הנחיית ה-SOUL החיה בטקסט המוצע?\n\nניתן לבטל זאת לאחר מכן באמצעות ביטול-אישור.',
     soulUnratifyConfirm:

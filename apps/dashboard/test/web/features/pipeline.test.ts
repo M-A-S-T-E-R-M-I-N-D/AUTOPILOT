@@ -45,7 +45,7 @@ describe('pipelineJs (the PIPELINE VIEW panel client)', () => {
   it('defaults to the server defaults and sends lens/mode/layout on every fetch', () => {
     const js = pipelineJs();
     expect(js).toContain(
-      "state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null }",
+      "state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null, lanesExpanded: false }",
     );
     expect(js).toContain(
       "pipelineApiUrl(pid) + '&lens=' + state.lens + '&mode=' + state.mode + '&layout=' + state.layout",
@@ -199,13 +199,86 @@ describe('pipeline selection interaction (real DOM)', () => {
     vi.restoreAllMocks();
   });
 
-  it('starts with nothing selected — the first item is the only Tab stop, none aria-selected', async () => {
+  function lanesToggle(): HTMLButtonElement {
+    return document.querySelector('.pipeline-lanes-toggle') as HTMLButtonElement;
+  }
+
+  function laneById(traceId: string): HTMLElement {
+    return document.querySelector(`.pipeline-lane[data-trace-id="${traceId}"]`) as HTMLElement;
+  }
+
+  it('starts with nothing selected — the latest firing is the only Tab stop, none aria-selected', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(itemById('s1').getAttribute('tabindex')).toBe('0');
+    expect(itemById('s3').getAttribute('tabindex')).toBe('0');
+    expect(itemById('s1').getAttribute('tabindex')).toBe('-1');
     expect(itemById('s2').getAttribute('tabindex')).toBe('-1');
     for (const item of items()) expect(item.getAttribute('aria-selected')).toBe('false');
+  });
+
+  // Epic 0024 (board web-mtywp7wk-tkdwhi): the tree opens on the latest firing; the earlier
+  // ones are one disclosure away, and that drill-in is local — no refetch.
+  it('the lanes toggle drills into the earlier firings and back, in place', async () => {
+    const { calls } = boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const pipelineCallsBefore = calls.filter((c) => c.startsWith('/api/pipeline')).length;
+
+    expect(laneById('t1').hidden).toBe(true);
+    expect(laneById('t2').hidden).toBe(false);
+    expect(lanesToggle().getAttribute('aria-expanded')).toBe('false');
+    expect(lanesToggle().textContent).toBe('Show 1 earlier firing');
+
+    lanesToggle().click();
+    expect(laneById('t1').hidden).toBe(false);
+    expect(lanesToggle().getAttribute('aria-expanded')).toBe('true');
+    expect(lanesToggle().textContent).toBe('Hide earlier firings');
+
+    lanesToggle().click();
+    expect(laneById('t1').hidden).toBe(true);
+    expect(lanesToggle().getAttribute('aria-expanded')).toBe('false');
+    expect(lanesToggle().textContent).toBe('Show 1 earlier firing');
+
+    expect(calls.filter((c) => c.startsWith('/api/pipeline')).length).toBe(pipelineCallsBefore);
+  });
+
+  it('arrow keys never walk into a collapsed lane', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    itemById('s3').click();
+    itemById('s3').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    expect(itemById('s3').getAttribute('aria-selected')).toBe('true');
+    expect(itemById('s1').getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('collapsing moves the Tab stop out of the lane it hides', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    lanesToggle().click();
+    itemById('s1').click();
+    expect(itemById('s1').getAttribute('tabindex')).toBe('0');
+
+    lanesToggle().click();
+    expect(itemById('s1').getAttribute('tabindex')).toBe('-1');
+    expect(itemById('s3').getAttribute('tabindex')).toBe('0');
+    expect(document.querySelectorAll('.pipeline-item[tabindex="0"]')).toHaveLength(1);
+  });
+
+  it('an expanded tree stays expanded across a mode/layout refetch', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    lanesToggle().click();
+    const compactButton = Array.from(
+      document.querySelectorAll('.pipeline-layout-switch button'),
+    ).find((b) => b.textContent === 'Compact') as HTMLButtonElement;
+    compactButton.click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(laneById('t1').hidden).toBe(false);
+    expect(lanesToggle().getAttribute('aria-expanded')).toBe('true');
   });
 
   it('clicking a tree item selects it in place — no refetch', async () => {
@@ -236,10 +309,11 @@ describe('pipeline selection interaction (real DOM)', () => {
   it('ArrowRight/ArrowLeft move within a lane, clamped at its edges', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
+    lanesToggle().click(); // drill into the earlier firing's lane (t1)
 
     // Nothing is explicitly selected yet — the first arrow press just activates the
-    // already-focused default (lane 0's first item), same as moveTreeSelection's "start
-    // somewhere sane" rule for a fresh Tab.
+    // first visible lane's first item, same as moveTreeSelection's "start somewhere
+    // sane" rule for a fresh Tab.
     itemById('s1').dispatchEvent(
       new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
     );
@@ -270,6 +344,7 @@ describe('pipeline selection interaction (real DOM)', () => {
   it('ArrowDown/ArrowUp move a lane, clamping the item index to the target lane length', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
+    lanesToggle().click(); // both lanes visible
 
     // Select s2 (lane t1, item index 1), then ArrowDown into lane t2, which has only one item.
     itemById('s2').click();

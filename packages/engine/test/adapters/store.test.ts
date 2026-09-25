@@ -58,6 +58,7 @@ function record(over: Partial<FiringRecord> = {}): FiringRecord {
     pickedRank: null,
     deviationReason: null,
     commitSubject: 'feat: ship AP-1',
+    instanceId: null,
     ...over,
   };
 }
@@ -152,6 +153,36 @@ describe('SqliteFiringStore', () => {
 
     expect(sink.firingCount()).toBe(1);
     store.close();
+  });
+
+  it('attributes a firing to its originating fleet lane via the persisted record (board ap-muh80dbi-1)', () => {
+    const store = openStore(':memory:');
+    migrate(store);
+    const pid = seedProject(store);
+    // firing_id already scopes the instance for write-time uniqueness (see the
+    // 3-way fleet crash test above), but until now nothing carried the raw
+    // instanceId back out as its own readable field on the ingested record —
+    // a reader had to parse `<project>--<instanceId>:firing-<n>` by hand.
+    new SqliteFiringStore(store, pid, () => 1, 'fleet-2').recordFiring(
+      record({ instanceId: 'fleet-2' }),
+    );
+
+    const event = store.db.prepare('SELECT payload FROM events WHERE project_id = ?').get(pid) as {
+      payload: string;
+    };
+    expect(JSON.parse(event.payload)).toMatchObject({ instanceId: 'fleet-2' });
+  });
+
+  it('records instanceId as null for a solo (unnamed) flight', () => {
+    const store = openStore(':memory:');
+    migrate(store);
+    const pid = seedProject(store);
+    new SqliteFiringStore(store, pid, () => 1).recordFiring(record({ instanceId: null }));
+
+    const event = store.db.prepare('SELECT payload FROM events WHERE project_id = ?').get(pid) as {
+      payload: string;
+    };
+    expect(JSON.parse(event.payload)).toMatchObject({ instanceId: null });
   });
 
   it('coerces an out-of-domain commit kind to null (respects the CHECK constraint)', () => {

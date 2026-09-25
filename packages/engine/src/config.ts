@@ -52,6 +52,15 @@ export interface EngineConfig {
    * no scan runs, the pool denominator stays `null`.
    */
   readonly usagePoolDirs: readonly string[];
+  /**
+   * PARALLEL UNLOCK C's same-folder fleet instance identity
+   * (`spawn-flight.ts`'s `AUTOPILOT_FLIGHT_INSTANCE_ID`, read by `fly.ts`),
+   * threaded through so every firing's record can be attributed to its
+   * originating lane instead of only being recoverable by parsing
+   * `firingIdOf`'s `<project>--<instanceId>:firing-<n>` id. `null` for every
+   * solo (unnamed) flight — the overwhelming majority of firings today.
+   */
+  readonly instanceId: string | null;
 }
 
 /** Tools a flying autopilot may use (ported from the proven v2.4 args). */
@@ -128,4 +137,5 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   },
   subscriptionPriceUsd: null,
   usagePoolDirs: [],
+  instanceId: null,
 };

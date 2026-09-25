@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Status: Proposed (🟣 operator decision — this record proposes a matching rule,
 it does not implement one; the last change to this same guard, ADR 0008's
-2026-09-02 amendment, went through an explicit operator pick before code)
+2026-09-02 amendment, went through an explicit operator pick before code;
+context updated 2026-09-26, see "Update" below)
 
 ## Context
 
@@ -145,6 +146,33 @@ wrongly ALLOWING a landing base's own CI says is red — the opposite failure
 mode from today's guard, and arguably a worse one to get wrong quietly,
 which is why this ADR proposes the design for operator sign-off rather than
 shipping the override as a self-initiated fix.
+
+## Update (2026-09-26) — the guard moved on, the decision did not
+
+Still Proposed: nothing here is an operator decision on this record. Two
+commits made after it was written change what it asks the operator to
+decide, and the line references in Context predate both.
+
+1. **Most of the reported cost already has a narrower fix.** ADR 0008's
+   2026-09-17 amendment (`2608dbcd`) added the remedy escape: on a fresh red,
+   the guard reads the red run's failed-job log, and a landing that changes a
+   file the failure names goes through, recording an `e2e-land-remedy` event.
+   A fresh red no longer refuses unconditionally, as Context says it does.
+   Option A would still cover the case the escape misses: a tip whose fix
+   touches none of the files the failure names, such as a config or a
+   dependency pin. Option A would admit that tip on the evidence of its own
+   green run rather than on file overlap.
+2. **Step 1 of the recommendation is built.** `control/ci-status.ts` now asks
+   `gh run list` for `headSha` and reports it on `WorkflowRunStatus` as an
+   optional field (`709b7aa6`). That commit added it for the post-push watch,
+   whose `isRunFor` (`control/post-push-watch.ts`) already matches a run to a
+   commit, comparing short and full SHAs by prefix. Steps 2-4 remain, all in
+   `landing/execute.ts` and its tests. None has started: the guard has no
+   head-branch lookup and no override path.
+
+The open question is now narrower. Is the gap the remedy escape leaves worth
+a second, SHA-matched way into a red branch? If not, this record can be
+retired and ADR 0008's escape stands as the answer.
 
 ## Related
 

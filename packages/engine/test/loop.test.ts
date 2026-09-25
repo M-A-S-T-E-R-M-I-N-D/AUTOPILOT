@@ -58,6 +58,7 @@ const RECORD: FiringRecord = {
   pickedRank: null,
   deviationReason: null,
   commitSubject: null,
+  instanceId: null,
 };
 
 function outcome(over: Partial<FiringOutcome> = {}): FiringOutcome {

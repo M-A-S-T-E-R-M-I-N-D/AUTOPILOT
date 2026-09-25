@@ -176,7 +176,10 @@ const CORE_RAW_BUDGET = 257 * 1024;
 // growth as the raw note above — measured 72.6KB.
 // Then core gzip 73→74KB (2026-09-15), the same guided-walk prose growth as
 // the raw note above — measured 73.3KB.
-const CORE_GZIP_BUDGET = 77 * 1024;
+// Then core gzip 77→78KB (2026-09-26) for epic 0024's flight plan outcomes:
+// six English STRINGS keys, prose trimmed first — measured 78860B, 12 bytes
+// over the old line. See the mirrored budget test for the full note.
+const CORE_GZIP_BUDGET = 78 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the

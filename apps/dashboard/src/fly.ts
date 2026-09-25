@@ -18,6 +18,7 @@ import {
   fileConvergenceRedTask,
   closeResolvedConvergenceRedTasks,
 } from './flight/convergence-red-task.js';
+import { routeTaskModel } from './flight/model-scoreboard.js';
 import {
   openStore,
   migrate,
@@ -657,8 +658,24 @@ async function main(): Promise<void> {
     // freezing whichever schedule slot happened to be true when the flight
     // started (web-mtb8i2ol-obncos: the frozen version never re-fires the
     // backstop inside a flight once its first decision picked the fast path).
-    const buildGateSpec = (): GateSpec =>
-      perFiringGateSpec(result.gate.spec, firingStats(store.db, projectId).firings, inFleet);
+    // AN UNVERIFIED HEAD IS JUDGED WHOLE (2026-09-26). The per-firing gate
+    // tests only what the latest commit touched, so a green firing built on
+    // a commit no gate had judged 'verified' the lane head — and sync-back
+    // published both. A firing that died at the turn cap left a docs-editor
+    // commit its crashed gate never judged; the next firing's green carried
+    // it to the flight branch, and the landing's full suite refused it.
+    // While the lane head is unverified, the firing's gate runs the full
+    // test suite, so its green really covers every commit it would publish.
+    const buildGateSpec = (): GateSpec => {
+      const scheduled = perFiringGateSpec(
+        result.gate.spec,
+        firingStats(store.db, projectId).firings,
+        inFleet,
+      );
+      return !laneHead.verified && result.gate.spec.test
+        ? { ...scheduled, test: result.gate.spec.test }
+        : scheduled;
+    };
     const commands = perFiringGateCommands(buildGateSpec());
     out(`Gate: ${commands.map((c) => c.label).join(' · ') || '(none detected)'}`);
 
@@ -886,6 +903,7 @@ async function main(): Promise<void> {
       maxTurns: FLY_MAX_TURNS,
       subscriptionPriceUsd: subscriptionPriceUsdFromEnv(process.env),
       usagePoolDirs: usagePoolDirsFromEnv(process.env),
+      instanceId: instanceId ?? null,
     };
 
     // Record each tool the agent uses (live activity timeline) into the events log,
@@ -1332,11 +1350,33 @@ async function main(): Promise<void> {
           const sliceStreak =
             taskEconomicsFromRows(taskMetricsRows).get(topAvailable.id)?.sliceStreak ?? 0;
           const tier = classifyTaskModelTier({ title: topAvailable.title, sliceStreak });
-          routedModel = escalationTripped
-            ? undefined
-            : resolvePrimaryModelForTier(tier, process.env, topAvailable.id);
-          if (routedModel !== undefined && routedModel !== config.primaryModel) {
-            out(`  🧭 model routing: ${tier} → ${routedModel} — ${topAvailable.title}`);
+          // THE MODEL SCOREBOARD (2026-09-25): the tier's model comes from the
+          // fleet's own benchmark — flight/model-scoreboard.ts. The fixed
+          // split stays as the fallback if the scoreboard cannot be read.
+          let routingReason = '';
+          if (escalationTripped) {
+            routedModel = undefined;
+          } else {
+            try {
+              const choice = routeTaskModel(
+                store,
+                projectId,
+                tier,
+                topAvailable.id,
+                process.env,
+                now(),
+                instanceId ?? 'base',
+              );
+              routedModel = choice.model;
+              routingReason = ` (${choice.phase}: ${choice.reason})`;
+            } catch {
+              routedModel = resolvePrimaryModelForTier(tier, process.env, topAvailable.id);
+            }
+          }
+          if (routedModel !== undefined) {
+            out(
+              `  🧭 model routing: ${tier} → ${routedModel}${routingReason} — ${topAvailable.title.slice(0, 100)}`,
+            );
           }
         }
         lastFiringEscalated =

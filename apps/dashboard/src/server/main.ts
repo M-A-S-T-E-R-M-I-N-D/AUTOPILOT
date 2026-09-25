@@ -52,6 +52,7 @@ import {
   reorderTasksInStore,
   unpinTasksInStore,
   readProjectGateConfigInStore,
+  readLastGateRunInStore,
   setProjectGateConfigInStore,
   ensureStoreMigrated,
   requestFlightPauseInStore,
@@ -739,11 +740,13 @@ const server = createServer({
   // at the root — span source → graph model → panel markup. The handler has
   // already narrowed every query field to the chain's own unions.
   // THE FLIGHT PLAN (epic 0021 slice 3, second cut): read the stored gate
-  // spec; publish a validated edit. The next landing/firing runs it.
+  // spec; publish a validated edit. The next landing/firing runs it. Its
+  // outcomes (epic 0024): the last recorded gate run, read beside the plan.
   plan: {
     read: (project) => readProjectGateConfigInStore(dbPath, project),
     publish: (project, spec) =>
       setProjectGateConfigInStore(dbPath, project, JSON.stringify(spec), Date.now()),
+    lastGate: (project) => readLastGateRunInStore(dbPath, project),
   },
   pipelinePanel: (projectId, query) => {
     const spans = readPipelineSpans(dbPath, projectId);

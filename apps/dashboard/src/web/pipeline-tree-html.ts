@@ -88,10 +88,20 @@ export function renderPipelineTreeHtml(
     );
   };
 
-  const focusId = selection.selectedId ?? lanes[0]!.items[0]!.id;
+  // Collapsed to the latest firing (epic 0024, board web-mtywp7wk-tkdwhi — the operator's
+  // "endless" tree): lanes arrive oldest first, so every lane before the last renders `hidden`
+  // behind a disclosure toggle. A selection in an earlier lane opens the tree expanded instead,
+  // so the selected item is never hidden. The default Tab stop moves to the latest lane for the
+  // same reason: a roving stop inside a hidden lane is no stop at all.
+  const latest = lanes.length - 1;
+  const selectedLane = lanes.findIndex((lane) =>
+    lane.items.some((item) => item.id === selection.selectedId),
+  );
+  const collapsed = latest > 0 && (selectedLane === -1 || selectedLane === latest);
+  const focusId = selection.selectedId ?? lanes[latest]!.items[0]!.id;
 
   const laneMarkup = lanes
-    .map((lane) => {
+    .map((lane, laneIndex) => {
       const itemMarkup = lane.items
         .map((item) => {
           const status = statusName(item.status);
@@ -106,14 +116,28 @@ export function renderPipelineTreeHtml(
         .join('');
       const shortLabel = laneShortLabel(lane);
       const laneName = `Lane ${shortLabel} — ${plural(lane.items.length, 'node')}`;
+      const earlier = laneIndex < latest;
       return (
         `<div class="pipeline-lane" role="group" aria-label="${esc(laneName)}"` +
-        ` data-trace-id="${esc(lane.traceId)}">` +
+        ` data-trace-id="${esc(lane.traceId)}"${flag('earlier', earlier)}` +
+        `${earlier && collapsed ? ' hidden' : ''}>` +
         `<span class="pipeline-lane-label" aria-hidden="true">${esc(shortLabel)}</span>` +
         `${itemMarkup}</div>`
       );
     })
     .join('');
+
+  // The drill-in is a disclosure button BESIDE the tree, never inside it: a `role="tree"` owns
+  // groups and treeitems only. Both labels ride data attributes so the client flips the text
+  // without owning any copy; `aria-expanded` carries the state to assistive tech.
+  const showLabel = `Show ${plural(latest, 'earlier firing')}`;
+  const hideLabel = 'Hide earlier firings';
+  const toggle =
+    latest === 0
+      ? ''
+      : `<button type="button" class="pipeline-lanes-toggle" aria-expanded="${!collapsed}"` +
+        ` data-show-label="${esc(showLabel)}" data-hide-label="${esc(hideLabel)}">` +
+        `${esc(collapsed ? showLabel : hideLabel)}</button>`;
 
   const total = lanes.reduce((sum, lane) => sum + lane.items.length, 0);
   const label = `Pipeline lanes: ${plural(lanes.length, 'lane')}, ${plural(total, 'node')}`;
@@ -122,6 +146,8 @@ export function renderPipelineTreeHtml(
   // sole discovered module (the splice-manifest regression guard) — same shape as
   // `renderPipelineSvg`'s final return.
   return (
-    `<div class="pipeline-tree" role="tree" aria-label="${esc(label)}">` + `${laneMarkup}</div>`
+    `<div class="pipeline-sidebar">${toggle}` +
+    `<div class="pipeline-tree" role="tree" aria-label="${esc(label)}">` +
+    `${laneMarkup}</div></div>`
   );
 }

@@ -51,12 +51,71 @@ describe('renderPipelineTreeHtml', () => {
   it('renders each lane as a labelled role="group" with a visible label hidden from the a11y tree', () => {
     const html = render(TWO_LANES);
     expect(html).toContain(
-      '<div class="pipeline-lane" role="group" aria-label="Lane t1 — 2 nodes" data-trace-id="t1">',
+      '<div class="pipeline-lane" role="group" aria-label="Lane t1 — 2 nodes" data-trace-id="t1" data-earlier="true" hidden>',
     );
     expect(html).toContain(
       '<div class="pipeline-lane" role="group" aria-label="Lane t2 — 1 node" data-trace-id="t2">',
     );
     expect(html).toContain('<span class="pipeline-lane-label" aria-hidden="true">t1</span>');
+  });
+
+  // Epic 0024 (board web-mtywp7wk-tkdwhi): the tree was "endless" — one lane per firing the
+  // project ever recorded. It now opens on the latest firing alone, and the earlier ones sit
+  // behind a disclosure the operator drills into.
+  describe('collapsed to the latest firing, with drill-in', () => {
+    const THREE_LANES = graph([
+      { id: 'a', traceId: 't1', label: 'plan', spanCount: 1, status: 1 },
+      { id: 'b', traceId: 't2', label: 'build', spanCount: 1, status: 1 },
+      { id: 'c', traceId: 't3', label: 'ship', spanCount: 1, status: 1 },
+    ]);
+
+    it('hides every lane but the latest and flags the hidden ones as earlier', () => {
+      const html = render(THREE_LANES);
+      expect(html.match(/data-earlier="true" hidden>/g)).toHaveLength(2);
+      expect(html).toContain('data-trace-id="t3">');
+      expect(html).not.toContain('data-trace-id="t3" data-earlier');
+    });
+
+    it('puts a disclosure toggle before the tree that counts the firings it hides', () => {
+      const html = render(THREE_LANES);
+      const toggle =
+        '<button type="button" class="pipeline-lanes-toggle" aria-expanded="false"' +
+        ' data-show-label="Show 2 earlier firings" data-hide-label="Hide earlier firings">' +
+        'Show 2 earlier firings</button>';
+      expect(
+        html.startsWith(`<div class="pipeline-sidebar">${toggle}<div class="pipeline-tree"`),
+      ).toBe(true);
+      // The button is a sibling of the tree, never inside it: a tree owns groups and treeitems only.
+      expect(html.indexOf(toggle)).toBeLessThan(html.indexOf('role="tree"'));
+      expect(html.endsWith('</div></div></div>')).toBe(true);
+    });
+
+    it('says "firing" for one hidden lane', () => {
+      expect(render(TWO_LANES)).toContain('>Show 1 earlier firing</button>');
+    });
+
+    it('renders no toggle and hides nothing when there is only one firing', () => {
+      const html = render(
+        graph([{ id: 'a', traceId: 't1', label: 'plan', spanCount: 1, status: 1 }]),
+      );
+      expect(html).not.toContain('pipeline-lanes-toggle');
+      expect(html).not.toContain(' hidden');
+      expect(html).not.toContain('data-earlier');
+    });
+
+    it('opens expanded when the selection sits in an earlier lane, so the selected item is visible', () => {
+      const html = render(THREE_LANES, 'a');
+      expect(html).not.toContain(' hidden');
+      expect(html.match(/data-earlier="true"/g)).toHaveLength(2);
+      expect(html).toContain('aria-expanded="true"');
+      expect(html).toContain('>Hide earlier firings</button>');
+    });
+
+    it('stays collapsed when the selection is in the latest lane', () => {
+      const html = render(THREE_LANES, 'c');
+      expect(html.match(/ hidden>/g)).toHaveLength(2);
+      expect(html).toContain('aria-expanded="false"');
+    });
   });
 
   it('renders each item as a treeitem named with the canvas title string shape', () => {
@@ -112,9 +171,10 @@ describe('renderPipelineTreeHtml', () => {
     expect(html).not.toContain('data-node-id="s3" data-status="ok" data-connected');
   });
 
-  it('roves tabindex to the first item when nothing is selected, and sets no selection flags', () => {
+  it('roves tabindex to the latest firing when nothing is selected, and sets no selection flags', () => {
+    // The latest lane is the only one visible by default — a Tab stop in a hidden lane is no stop.
     const html = render(TWO_LANES);
-    expect(html).toContain('aria-selected="false" tabindex="0" aria-label="plan — 1 span, unset"');
+    expect(html).toContain('aria-selected="false" tabindex="0" aria-label="review — 3 spans, ok"');
     expect(html.match(/tabindex="0"/g)).toHaveLength(1);
     expect(html).not.toContain('aria-selected="true"');
     expect(html).not.toContain('data-connected');

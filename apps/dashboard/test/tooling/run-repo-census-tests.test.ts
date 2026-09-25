@@ -61,7 +61,18 @@ describe('censusTestFiles', () => {
       write('packages/b/test/plain.test.ts', "import { x } from '../src/x.js';");
       write('packages/b/test/node_modules/dep/reads.test.ts', "readFileSync('README.md')");
       write('packages/b/test/reads.spec.ts', "readFileSync('README.md')");
-      expect(censusTestFiles(root)).toEqual([...ALWAYS, 'apps/a/test/deep/reads.test.ts'].sort());
+      // Proves the 'packages' root actually contributes (not just 'apps'):
+      // without it, a config bug that dropped 'packages' from the scanned
+      // roots would pass every assertion above unnoticed.
+      write('packages/b/test/reads.test.ts', "readFileSync(join(ROOT, 'config'))");
+      // Proves only the package's test/ subtree is scanned, not the package
+      // root: without it, a config bug that scanned 'apps/a' instead of
+      // 'apps/a/test' would still find every fixture above by walking one
+      // level higher and hitting the same test/ folder on the way down.
+      write('apps/a/other.test.ts', "readFileSync(join(ROOT, 'README.md'))");
+      expect(censusTestFiles(root)).toEqual(
+        [...ALWAYS, 'apps/a/test/deep/reads.test.ts', 'packages/b/test/reads.test.ts'].sort(),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

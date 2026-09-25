@@ -72,7 +72,19 @@ export function censusTestFiles(root = ROOT) {
   });
   const found = roots
     .flatMap(testFilesUnder)
+    // Stryker disable next-line StringLiteral: readFileSync's `'utf8'` vs a
+    // Buffer is unobservable through isRepoReadingTest — RegExp#test coerces
+    // its argument with ToString, and Buffer#toString() also defaults to
+    // utf8, so `RE.test(buf)` and `RE.test(buf.toString('utf8'))` agree on
+    // every fixture (proven with a throwaway probe, deleted before commit).
     .filter((path) => isRepoReadingTest(readFileSync(path, 'utf8')))
+    // Stryker disable next-line StringLiteral: this runs on ubuntu-latest
+    // (see .github/workflows/mutation.yml), where node:path never emits
+    // `\` — `.split('\\')` always returns a single-element array, so the
+    // `.join('/')` separator has nothing to join and is unreachable (proven:
+    // 'a/b'.split('\\').join('') === 'a/b'.split('\\').join('/')). The
+    // `split('\\')` argument itself stays live and is killed by every
+    // exact-path assertion in run-repo-census-tests.test.ts.
     .map((path) => relative(root, path).split('\\').join('/'));
   return [...new Set([...ALWAYS, ...found])].sort();
 }

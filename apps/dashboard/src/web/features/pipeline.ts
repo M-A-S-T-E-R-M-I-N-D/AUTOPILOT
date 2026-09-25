@@ -100,6 +100,8 @@ import {
   parseCommandLine,
   planStepsFromSpec,
   planSpecFromSteps,
+  planStepOutcome,
+  gateRunTally,
 } from '../plan-editor.js';
 import {
   pipelineApiUrl,
@@ -126,6 +128,8 @@ ${planDraftKey.toString()}
 ${parseCommandLine.toString()}
 ${planStepsFromSpec.toString()}
 ${planSpecFromSteps.toString()}
+${planStepOutcome.toString()}
+${gateRunTally.toString()}
 // PLAN CANVAS (epic 0021 slice 3, first cut): the pipeline SVG is a camera.
 // Wheel or pinch zooms about the pointer, a drag on the background pans, a
 // node press never pans (it selects), double-click or 0 fits, +/- and the
@@ -264,6 +268,47 @@ function pipelineSwitchGroup(cls, label, labelI18nKey, options, state, key, onCh
 // builder converged on — so a half-typed command never reaches a landing.
 // Discard returns to the published plan. Read-only wherever /api/plan is not
 // served (visitors, the e2e fixtures).
+// OUTCOMES (epic 0024, "the gate as a readable plan with outcomes"): /api/plan
+// also sends the last recorded gate run; each enabled step says what it did
+// there, in words with its duration (color only reinforces), and one line
+// above the chain tallies the whole run — install and the ci:* checks too —
+// naming whatever failed. A draft step whose command was renamed has not run
+// yet and says so.
+function planOutcomeNode(outcome) {
+  var key = outcome ? (outcome.pass ? 'planEditorOutcomePass' : 'planEditorOutcomeFail') : 'planEditorOutcomeNone';
+  var out = el('span', 'plan-step-outcome');
+  out.setAttribute('data-outcome', outcome ? (outcome.pass ? 'pass' : 'fail') : 'none');
+  var word = el('span', null, tr(key));
+  word.setAttribute('data-i18n', key);
+  out.appendChild(word);
+  if (outcome && typeof outcome.durationMs === 'number') {
+    out.appendChild(document.createTextNode(' · ' + (outcome.durationMs < 500 ? '<1s' : fmtDuration(outcome.durationMs))));
+  }
+  return out;
+}
+function planLastRunNode(gate) {
+  var wrap = el('div', 'plan-last-run');
+  if (!gate) {
+    var none = el('p', null, tr('planEditorNoRun'));
+    none.setAttribute('data-i18n', 'planEditorNoRun');
+    wrap.appendChild(none);
+    return wrap;
+  }
+  var tally = gateRunTally(gate.checks);
+  var args = { ago: fmtAgo(gate.at), passed: tally.passed, total: tally.total };
+  var line = el('p', null, tr('planEditorLastRun', args));
+  line.setAttribute('data-i18n-template', 'planEditorLastRun');
+  line.setAttribute('data-i18n-args', JSON.stringify(args));
+  wrap.appendChild(line);
+  if (tally.failed.length > 0) {
+    var failedArgs = { labels: tally.failed.join(', ') };
+    var failed = el('p', 'plan-last-run-failed', tr('planEditorLastRunFailed', failedArgs));
+    failed.setAttribute('data-i18n-template', 'planEditorLastRunFailed');
+    failed.setAttribute('data-i18n-args', JSON.stringify(failedArgs));
+    wrap.appendChild(failed);
+  }
+  return wrap;
+}
 function planEditorSection(pid) {
   var wrap = el('section', 'plan-editor');
   var title = panelHeading('h3', 'plan-editor-title', 'planEditorTitle', 'pen-line');
@@ -271,7 +316,7 @@ function planEditorSection(pid) {
   var body = el('div', 'plan-editor-body');
   body.appendChild(el('p', 'muted', tr('planEditorLoading')));
   wrap.appendChild(body);
-  var state = { published: null, draft: null, selected: 'typecheck', note: '', past: [], future: [] };
+  var state = { published: null, draft: null, selected: 'typecheck', note: '', past: [], future: [], gate: null };
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
   // Snapshot-based history (the React Flow / tldraw idiom): every edit pushes
   // the draft it replaced; undo pops it back and parks the current one for
@@ -311,13 +356,17 @@ function planEditorSection(pid) {
   function render() {
     body.replaceChildren();
     var steps = planStepsFromSpec(state.draft);
+    var live = planStepsFromSpec(state.published);
+    body.appendChild(planLastRunNode(state.gate));
     var chain = el('div', 'plan-chain');
     var selected = null;
     steps.forEach(function (s, i) {
       if (i > 0) { var arrow = el('span', 'plan-arrow', '→'); arrow.setAttribute('aria-hidden', 'true'); chain.appendChild(arrow); }
       var isSel = s.kind === state.selected;
       if (isSel) selected = s;
-      var node = el('button', 'plan-step' + (s.enabled ? '' : ' plan-step-off') + (isSel ? ' plan-step-selected' : ''));
+      var outcome = state.gate && s.enabled ? planStepOutcome(s, state.gate.checks, live[i]) : null;
+      var failed = !!(outcome && !outcome.pass);
+      var node = el('button', 'plan-step' + (s.enabled ? '' : ' plan-step-off') + (failed ? ' plan-step-failed' : '') + (isSel ? ' plan-step-selected' : ''));
       node.type = 'button';
       node.setAttribute('data-plan-step', s.kind);
       node.setAttribute('aria-pressed', String(isSel));
@@ -325,6 +374,7 @@ function planEditorSection(pid) {
       var off = el('span', 'plan-step-label', s.enabled ? s.command : tr('planEditorStepOff'));
       if (!s.enabled) off.setAttribute('data-i18n', 'planEditorStepOff');
       node.appendChild(off);
+      if (state.gate && s.enabled) node.appendChild(planOutcomeNode(outcome));
       chain.appendChild(node);
     });
     body.appendChild(chain);
@@ -433,6 +483,7 @@ function planEditorSection(pid) {
       if (!data || !data.ok || !data.spec) { body.replaceChildren(el('p', 'muted', tr('planEditorUnavailable'))); return; }
       state.published = data.spec;
       state.draft = clone(data.spec);
+      state.gate = data.gate && Array.isArray(data.gate.checks) && typeof data.gate.at === 'number' ? data.gate : null;
       try {
         var saved = localStorage.getItem(planDraftKey(pid));
         if (saved) { var parsed = JSON.parse(saved); if (parsed && typeof parsed === 'object') state.draft = parsed; }
@@ -446,8 +497,29 @@ function pipelineSection(pid) {
   var wrap = el('section', 'pipeline-section');
   var title = panelHeading('h3', 'pipeline-title', 'pipelineViewTitle', 'wrench');
   wrap.appendChild(title);
-  var state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null };
+  var state = { lens: 'fleet', mode: 'grouped', layout: 'layered', selectedId: null, lanesExpanded: false };
   var body = el('div', 'pipeline-body');
+  // SPAN TREE DRILL-IN (epic 0024) — the server renders the tree collapsed to
+  // the latest firing: earlier lanes arrive [hidden] and flagged data-earlier,
+  // behind a .pipeline-lanes-toggle that carries both of its labels. Flipping
+  // it is local (no fetch) and rides state, so a refetch re-applies it.
+  // Collapsing never strands the roving Tab stop inside a hidden lane.
+  function setLanesExpanded(expanded) {
+    var toggle = body.querySelector('.pipeline-lanes-toggle');
+    if (!toggle) return;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.textContent = toggle.getAttribute(expanded ? 'data-hide-label' : 'data-show-label');
+    var earlier = body.querySelectorAll('.pipeline-lane[data-earlier]');
+    for (var i = 0; i < earlier.length; i++) {
+      if (expanded) earlier[i].removeAttribute('hidden');
+      else earlier[i].setAttribute('hidden', '');
+    }
+    if (expanded || body.querySelector('.pipeline-lane:not([hidden]) .pipeline-item[tabindex="0"]')) return;
+    var stop = body.querySelector('.pipeline-item[tabindex="0"]');
+    if (stop) stop.setAttribute('tabindex', '-1');
+    var first = body.querySelector('.pipeline-lane:not([hidden]) .pipeline-item');
+    if (first) first.setAttribute('tabindex', '0');
+  }
   function load() {
     // The rendered tree stays up while the next one is fetched (2026-09-12):
     // replacing it with "Loading…" first blanked the view for a full round
@@ -467,6 +539,7 @@ function pipelineSection(pid) {
         // Same-origin server-rendered markup, escaped at the renderer — see module header.
         body.innerHTML = data.html;
         body.removeAttribute('aria-busy');
+        if (state.lanesExpanded) setLanesExpanded(true);
         wirePlanCanvas(body, state);
       })
       .catch(function () {
@@ -517,7 +590,7 @@ function pipelineSection(pid) {
   // of buildPipelineTree's lanes — up/down move a lane at the same item index, left/right move
   // an item in the current lane, clamped at grid edges (no wrap), same as the pure model.
   function nextSelection(direction) {
-    var laneEls = Array.prototype.slice.call(body.querySelectorAll('.pipeline-lane'));
+    var laneEls = Array.prototype.slice.call(body.querySelectorAll('.pipeline-lane:not([hidden])'));
     var lanes = [];
     var laneIndex = -1;
     var itemIndex = -1;
@@ -551,6 +624,12 @@ function pipelineSection(pid) {
     return targetItems[Math.min(itemIndex, targetItems.length - 1)];
   }
   body.addEventListener('click', function (e) {
+    var toggle = e.target && e.target.closest && e.target.closest('.pipeline-lanes-toggle');
+    if (toggle) {
+      state.lanesExpanded = toggle.getAttribute('aria-expanded') !== 'true';
+      setLanesExpanded(state.lanesExpanded);
+      return;
+    }
     var item = e.target && e.target.closest && e.target.closest('.pipeline-item');
     if (item && item.dataset.nodeId) selectNode(item.dataset.nodeId);
   });

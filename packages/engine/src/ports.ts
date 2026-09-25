@@ -226,6 +226,14 @@ export interface VcsPort {
    */
   diffNumstat?(fromRef: string, toRef: string): Promise<readonly DiffFileStat[]>;
   /**
+   * Set aside every uncommitted change — tracked edits and untracked files —
+   * in a named stash (`git stash push --include-untracked -m <message>`),
+   * leaving the tree at the last commit. Resolves true when the tree is
+   * clean afterwards. Optional: without it, a firing that leaves changes
+   * beside its commit stays unverified, as it always did.
+   */
+  stashLeftovers?(message: string): Promise<boolean>;
+  /**
    * Additively revert commit(s) via `git revert` (never `reset --hard`). With
    * no `sinceRef`, reverts only HEAD (RemediatingGate's own autoformat
    * commit). With `sinceRef`, reverts the FULL range `sinceRef..HEAD` — a

@@ -70,6 +70,7 @@ function record(over: Partial<FiringRecord> = {}): FiringRecord {
     pickedRank: null,
     deviationReason: null,
     commitSubject: 'feat: ship AP-1',
+    instanceId: null,
     ...over,
   };
 }

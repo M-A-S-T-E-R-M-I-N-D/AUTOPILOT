@@ -62,6 +62,60 @@ export function planStepsFromSpec(spec: unknown): PlanStep[] {
   });
 }
 
+/** One command's verdict from the last recorded gate run (`GET /api/plan`'s
+ *  `gate.checks`). The gate records every command under its label;
+ *  `durationMs` is null when the record carries no usable number. */
+export interface PlanGateCheck {
+  readonly label: string;
+  readonly pass: boolean;
+  readonly durationMs: number | null;
+}
+
+/** The last gate run's outcome for `step`, or null when the step is off or
+ *  no check carries its label. Given the `published` step of the same kind,
+ *  a draft whose command or label differs from it has not run yet, and says
+ *  so. A remediated gate re-runs from scratch and records a label twice (the
+ *  fail, then the re-run), so the LAST match is the run's verdict. */
+export function planStepOutcome(
+  step: PlanStep,
+  checks: readonly PlanGateCheck[],
+  published?: PlanStep | null,
+): PlanGateCheck | null {
+  if (!step.enabled) return null;
+  if (
+    published &&
+    (!published.enabled || published.command !== step.command || published.label !== step.label)
+  ) {
+    return null;
+  }
+  const list = checks || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i] && list[i]!.label === step.label) return list[i]!;
+  }
+  return null;
+}
+
+/** The whole run at a glance: how many distinct commands it ran, how many
+ *  passed, and which failed (first-seen order) — each judged by its final
+ *  verdict, for the same re-run reason as {@link planStepOutcome}. */
+export function gateRunTally(checks: readonly PlanGateCheck[]): {
+  total: number;
+  passed: number;
+  failed: string[];
+} {
+  const order: string[] = [];
+  const verdict: Record<string, boolean> = Object.create(null) as Record<string, boolean>;
+  (checks || []).forEach(function (check) {
+    if (!check || typeof check.label !== 'string') return;
+    if (!Object.prototype.hasOwnProperty.call(verdict, check.label)) order.push(check.label);
+    verdict[check.label] = !!check.pass;
+  });
+  const failed = order.filter(function (label) {
+    return !verdict[label];
+  });
+  return { total: order.length, passed: order.length - failed.length, failed: failed };
+}
+
 /** The chain back into a spec: every non-step field of `base` (ecosystem,
  *  ciExtras, testImpacted) is kept as it was; an enabled step with a
  *  command becomes its `{bin, args, label}`; a disabled or empty one is

@@ -33,6 +33,7 @@ import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
 import { deriveFlyProjectId, flightLogFileName } from '../flight/lock.js';
 import { resolveDbPath } from '../read/config.js';
 import { renderFleetReport } from '../read/fleet-report.js';
+import { readRoutedFirings, renderScoreboard } from '../flight/model-scoreboard.js';
 import {
   readReportFirings,
   readReportConvergence,
@@ -302,6 +303,10 @@ async function main(): Promise<void> {
           readParkedLanes(target, projectId),
         );
         for (const line of lines) out(line);
+        out('');
+        for (const line of renderScoreboard(readRoutedFirings(store, projectId, Date.now()))) {
+          out(line);
+        }
       } finally {
         store.close();
       }
