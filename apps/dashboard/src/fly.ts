@@ -886,6 +886,7 @@ async function main(): Promise<void> {
       maxTurns: FLY_MAX_TURNS,
       subscriptionPriceUsd: subscriptionPriceUsdFromEnv(process.env),
       usagePoolDirs: usagePoolDirsFromEnv(process.env),
+      instanceId: instanceId ?? null,
     };
 
     // Record each tool the agent uses (live activity timeline) into the events log,

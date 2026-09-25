@@ -463,6 +463,13 @@ export interface FiringContext {
    * flight). `null` when unconfigured or the pool was entirely unreadable.
    */
   readonly machineWide30dListPriceUsd: number | null;
+  /**
+   * PARALLEL UNLOCK C's same-folder fleet instance identity
+   * (`config.ts`'s `EngineConfig.instanceId`), threaded through so
+   * `buildFiringRecord` can carry it onto {@link FiringRecord.instanceId}.
+   * `null` for every solo (unnamed) flight.
+   */
+  readonly instanceId: string | null;
 }
 
 export interface FiringRecord {
@@ -615,6 +622,15 @@ export interface FiringRecord {
    * was distinguishable from a generic error. Absent for every ordinary firing.
    */
   readonly timedOut?: boolean;
+  /**
+   * The fleet lane that ran this firing — see {@link FiringContext.instanceId}.
+   * `null` for every solo (unnamed) flight, which is most firings today.
+   * Persisted onto the `events` log's full JSON payload (the store's
+   * `firing_id` already embeds it for write-time uniqueness, via
+   * `firingIdOf`, but never carried it back out as its own readable field
+   * until now).
+   */
+  readonly instanceId: string | null;
 }
 
 /**
@@ -740,6 +756,7 @@ export function buildFiringRecord(
     pickedRank: iter.pickedRank,
     deviationReason: iter.deviationReason,
     commitSubject,
+    instanceId: ctx.instanceId,
   };
 }
 
