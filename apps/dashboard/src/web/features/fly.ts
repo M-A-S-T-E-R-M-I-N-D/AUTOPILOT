@@ -642,7 +642,8 @@ ${sessionFlightDataFor.toString()}
       return;
     }
     var projects = (lastFleetState && lastFleetState.projects) || [];
-    var sessionData = sessionFlightDataFor(projects, s.startedAt, averageFiringDurationMs);
+    // s.instanceId scopes the shared project log to this lane's own firings.
+    var sessionData = sessionFlightDataFor(projects, s.startedAt, averageFiringDurationMs, s.instanceId);
     // i18n (board web-msnsndki-dz3vn1): the spend/ETA clauses are composed
     // inside the spliced flightProgressOf, so the bundle's tr() rides in as
     // its sixth param — the same injection route fmtCost/fmtDuration take —
