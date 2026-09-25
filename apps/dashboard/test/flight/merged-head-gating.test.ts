@@ -43,9 +43,14 @@ describe('merged-head gating (fly.ts census)', () => {
     expect(flySource).toMatch(
       /const gated = await forwardLaneToMergedHead\(sync\.details\);\n\s*guarded = snapshotGuardedHeads\([\s\S]*?\);\n\s*if \(gated\) await gateMergedHead\(sync\.details, typecheckConvergedGate\);/,
     );
-    // Flight-end: forward, re-snapshot, announce, then the FULL gate in the lane.
+    // Flight-end: forward, re-snapshot, announce, then the gate in the lane —
+    // the light one while a sibling still flies, the FULL one for the last
+    // lane (2026-09-25: one full gate per fleet).
     expect(flySource).toMatch(
-      /const gated = await forwardLaneToMergedHead\(finalSync\.details\);\n\s*guarded = snapshotGuardedHeads\([\s\S]*?\);\n\s*out\(` {2}🔁 flight-end sync-back: \$\{finalSync\.details\}`\);[\s\S]*?if \(gated\) await gateMergedHead\(finalSync\.details, fullConvergedGateInLane\);/,
+      /const gated = await forwardLaneToMergedHead\(finalSync\.details\);\n\s*guarded = snapshotGuardedHeads\([\s\S]*?\);\n\s*out\(` {2}🔁 flight-end sync-back: \$\{finalSync\.details\}`\);[\s\S]*?if \(gated && siblingsStillFlying\) \{[\s\S]*?await gateMergedHead\(finalSync\.details, typecheckConvergedGate\);\n\s*\} else if \(gated\) \{\n\s*await gateMergedHead\(finalSync\.details, fullConvergedGateInLane\);/,
+    );
+    expect(flySource).toContain(
+      'inFleet && isAnyFlightLockLive(dirname(dbPath), target, process.pid);',
     );
   });
 

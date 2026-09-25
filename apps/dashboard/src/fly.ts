@@ -1905,7 +1905,22 @@ async function main(): Promise<void> {
         // afford the FULL gate (board web-mtbeu5d3-n09acx). Same alarm-only
         // contract as the per-firing typecheck above — run in this lane's
         // worktree at the merged head, never in the live checkout.
-        if (gated) await gateMergedHead(finalSync.details, fullConvergedGateInLane);
+        // ONE FULL GATE PER FLEET, BY THE LAST LANE (2026-09-25). Every lane
+        // used to run the full suite here, five per round at 7 to 20 minutes
+        // each, on the disk its siblings were still firing on — two of five
+        // crashed from load in one round, and the landing runs that gate
+        // again anyway. A lane that finishes while a sibling still flies
+        // checks the merged head the light way and leaves the full gate to
+        // the last lane, which judges the final head. Two lanes ending at
+        // once may both skip it; the landing's full gate still stands.
+        const siblingsStillFlying =
+          inFleet && isAnyFlightLockLive(dirname(dbPath), target, process.pid);
+        if (gated && siblingsStillFlying) {
+          out('  ↪ full gate left to the last lane still flying — this head gets the light check');
+          await gateMergedHead(finalSync.details, typecheckConvergedGate);
+        } else if (gated) {
+          await gateMergedHead(finalSync.details, fullConvergedGateInLane);
+        }
       } else {
         out(`  ⚠ flight-end sync-back still refused: ${finalSync.details}`);
         flightSyncBackRefusals++;
