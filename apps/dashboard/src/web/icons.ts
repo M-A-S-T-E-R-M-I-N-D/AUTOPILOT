@@ -430,6 +430,12 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ],
     ['path', { d: 'm15 5 4 4' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the snackbar's close
+  // button drops its baked-in ✕ glyph.
+  x: [
+    ['path', { d: 'M18 6 6 18' }],
+    ['path', { d: 'm6 6 12 12' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

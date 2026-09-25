@@ -88,6 +88,10 @@ describe('the snackbar', () => {
     expect(node.querySelector('.snack-close')?.getAttribute('aria-label')).toBe(
       STRINGS.en.snackDismiss,
     );
+    // Epic 0025 (icon system): the close button carries a stroke icon, not a
+    // baked-in ✕ glyph.
+    expect(node.querySelector('.snack-close svg.icon-x')).not.toBeNull();
+    expect(node.querySelector('.snack-close')?.textContent).toBe('');
     // The host is a fixed overlay that only its snacks can be clicked through.
     const css = layoutCss();
     expect(css).toContain('.snackbar-host { position: fixed;');
