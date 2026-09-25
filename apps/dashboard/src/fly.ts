@@ -104,7 +104,7 @@ import {
   type OnboardDeps,
   type GateSpec,
 } from '@autopilot/onboarding';
-import { gateCommands } from './gate-commands.js';
+import { gateCommands, perFiringGateCommands } from './gate-commands.js';
 import { gateConvergedBranch } from './flight/convergence-gate.js';
 import {
   FRESH_LANE,
@@ -649,7 +649,7 @@ async function main(): Promise<void> {
     // backstop inside a flight once its first decision picked the fast path).
     const buildGateSpec = (): GateSpec =>
       perFiringGateSpec(result.gate.spec, firingStats(store.db, projectId).firings);
-    const commands = gateCommands(buildGateSpec());
+    const commands = perFiringGateCommands(buildGateSpec());
     out(`Gate: ${commands.map((c) => c.label).join(' · ') || '(none detected)'}`);
 
     // CONVERGENCE GATE telemetry (board web-mtbeu5d3-n09acx "CONVERGENCE FULL
@@ -1072,7 +1072,7 @@ async function main(): Promise<void> {
 
     const innerGate = new DynamicGate({
       cwd: flightRoot,
-      commands: () => gateCommands(buildGateSpec()),
+      commands: () => perFiringGateCommands(buildGateSpec()),
       timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,
       ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
     });

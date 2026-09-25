@@ -3,7 +3,12 @@
 
 import { describe, it, expect } from 'vitest';
 import type { GateSpec } from '@autopilot/onboarding';
-import { gateCommands, PARALLEL_GATE_KINDS } from '../src/gate-commands.js';
+import {
+  gateCommands,
+  perFiringGateCommands,
+  PARALLEL_GATE_KINDS,
+  SLOW_CI_EXTRAS,
+} from '../src/gate-commands.js';
 
 function spec(overrides: Partial<GateSpec>): GateSpec {
   return { ecosystem: 'js', ...overrides };
@@ -147,5 +152,30 @@ describe('gateCommands — ciExtras carry their args, and an absent list adds no
       'run',
       'ci:secret-scan',
     ]);
+  });
+});
+
+describe('perFiringGateCommands (2026-09-25)', () => {
+  const extras = [
+    { bin: 'pnpm', args: ['run', 'ci:doc-commit-refs'], label: 'pnpm run ci:doc-commit-refs' },
+    { bin: 'pnpm', args: ['run', 'ci:npx-smoke-test'], label: 'pnpm run ci:npx-smoke-test' },
+    { bin: 'pnpm', args: ['run', 'ci:no-personal-paths'], label: 'pnpm run ci:no-personal-paths' },
+  ];
+
+  it('runs every fast ci check at the firing, in order, and leaves the slow ones to the full gates', () => {
+    const result = perFiringGateCommands(
+      spec({ test: { bin: 'vitest', args: ['run'], label: 'test' }, ciExtras: extras }),
+    );
+    expect(result.map((c) => c.label)).toEqual([
+      'test',
+      'pnpm run ci:doc-commit-refs',
+      'pnpm run ci:no-personal-paths',
+    ]);
+    expect(SLOW_CI_EXTRAS).toEqual(['ci:npx-smoke-test']);
+  });
+
+  it('leaves the full gates untouched: they still run every ci check', () => {
+    const result = gateCommands(spec({ ciExtras: extras }), { includeCiExtras: true });
+    expect(result.map((c) => c.label)).toContain('pnpm run ci:npx-smoke-test');
   });
 });
