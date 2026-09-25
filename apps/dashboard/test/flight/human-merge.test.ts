@@ -279,6 +279,20 @@ describe('createUpdateBranchApi — the way out of the one blocked state that ha
 
     expect((await createUpdateBranchApi(broken)(34)).updated).toBe(false);
   });
+
+  it('reports honestly — and pushes nothing — when the initial gh view call itself fails', async () => {
+    const calls: string[][] = [];
+    const unreachable: CliExec = async (bin, args) => {
+      calls.push([bin, ...args]);
+      return { code: 1, stdout: '' };
+    };
+
+    const result = await createUpdateBranchApi(unreachable)(34);
+
+    expect(result.updated).toBe(false);
+    expect(result.reason).toBe('Could not read #34 from gh (exit 1).');
+    expect(calls.some((c) => c[2] === 'update-branch')).toBe(false);
+  });
 });
 
 /**
