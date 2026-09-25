@@ -436,7 +436,13 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `packages/tokens/src` closed the sweep with zero new markers — a
    directory-wide grep for fs/fetch/exec/spawn/process found nothing but a
    regex `.exec()` call, every file being pure computation over constant
-   palette/type/space/theme/locale data. Each package got its own
+   palette/type/space/theme/locale data. `packages/docs-links/src` (Markdown
+   local-link resolution shared by the CI link-check script and the docs
+   reader panel) also closed the sweep with zero new markers — both
+   `local-link.ts` and the `index.ts` re-export barrel are pure, with no
+   fs/fetch/exec/spawn/process usage, and `local-link.ts`'s own header states
+   "no fs access", the same pure-computation class `store/src/search.ts` and
+   `packages/tokens/src` files already earn. Each package got its own
    `readdirSync`-enumerated "keeps pace automatically" guard the same shape
    as the `apps/dashboard/src` ones, so `apps/dashboard/src/` AND every
    `packages/*/src` workspace package are now both fully censused — a future
