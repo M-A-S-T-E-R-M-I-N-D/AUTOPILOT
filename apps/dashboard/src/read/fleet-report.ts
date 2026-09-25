@@ -194,6 +194,9 @@ export function renderFleetReport(
   section('outcome', firingOutcome);
   section('lane', (f) => laneOf(f.firingId));
   section('model', (f) => f.model ?? 'unrecorded');
+  // THE MODEL BENCHMARK (2026-09-25): arms compared on the same kind of work,
+  // so a model is not credited for the easier tasks it happened to draw.
+  section('model and work', (f) => `${f.model ?? 'unrecorded'} · ${taskClass(f.title, f.subject)}`);
   const c = summarizeConvergence(convergence);
   lines.push(
     '',

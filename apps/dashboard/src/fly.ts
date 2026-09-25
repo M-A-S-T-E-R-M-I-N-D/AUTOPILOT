@@ -67,6 +67,7 @@ import {
   guardHookScriptPath,
   FileInstanceLock,
   FileGateSemaphore,
+  RetryLoadedGate,
   nestedSemaphore,
   CliDescendantRegistry,
   reapCliDescendants,
@@ -1093,11 +1094,17 @@ async function main(): Promise<void> {
       recentFocus: tallyRecentFocusDirs(recentCommitsForMap),
     });
 
-    const innerGate = new DynamicGate({
-      cwd: flightRoot,
-      commands: () => perFiringGateCommands(buildGateSpec()),
-      timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,
-      ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
+    // A gate that crashed from load runs once more before the head is left
+    // unverified — see adapters/retry-loaded-gate.ts (2026-09-25).
+    const innerGate = new RetryLoadedGate({
+      inner: new DynamicGate({
+        cwd: flightRoot,
+        commands: () => perFiringGateCommands(buildGateSpec()),
+        timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,
+        ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
+      }),
+      onRetry: () =>
+        out('  ↻ the gate crashed from load, not from the work — running it once more'),
     });
     const formatFix = deriveFormatFixCommand(result.gate.spec.format);
     const gate = formatFix
@@ -1327,7 +1334,7 @@ async function main(): Promise<void> {
           const tier = classifyTaskModelTier({ title: topAvailable.title, sliceStreak });
           routedModel = escalationTripped
             ? undefined
-            : resolvePrimaryModelForTier(tier, process.env);
+            : resolvePrimaryModelForTier(tier, process.env, topAvailable.id);
           if (routedModel !== undefined && routedModel !== config.primaryModel) {
             out(`  🧭 model routing: ${tier} → ${routedModel} — ${topAvailable.title}`);
           }
