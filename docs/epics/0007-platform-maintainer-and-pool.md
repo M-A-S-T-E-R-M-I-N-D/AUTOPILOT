@@ -745,6 +745,13 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    claim-contract-marked board tasks from it, the same decide-and-apply class
    `flight/mirror-pass` above is flagged for, ending in neither `-execute.ts`
    nor any security keyword),
+   the board-issue-export security marker (`flight/board-issue-export` added
+   to `SECURITY_SENSITIVE_PATH_MARKERS` — web-mtpzqrw8-dsy6a9 slice 2/3
+   (`planBoardIssueExport` / `planBoardIssueExportCommands`) plans public
+   GitHub issues for shareable board tasks — decides per-task whether to file
+   a new help-wanted issue, refresh an existing one, or skip; turns decisions
+   into exact `gh` argv; the same decide-and-apply class `flight/issue-triage`
+   is flagged for, ending in neither `-execute.ts` nor any security keyword),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
