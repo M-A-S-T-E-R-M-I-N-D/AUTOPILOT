@@ -15,7 +15,7 @@
  * neither is filed.
  */
 
-import { createTask, type Store } from '@autopilot/store';
+import { createTask, setTaskStatus, type Store } from '@autopilot/store';
 
 export interface ConvergenceRedTaskInput {
   readonly projectId: string;
@@ -74,4 +74,33 @@ export function fileConvergenceRedTask(
     warn,
   );
   return filed ? 'filed' : 'refused';
+}
+
+/**
+ * A RED THAT HAS GONE GREEN CLOSES ITS TASK (2026-09-25). A repair task stayed
+ * queued after its check passed again — the fix landed another way — and the
+ * next lane to pick it spent a firing finding nothing left to repair. Every
+ * open task for a check a later convergence gate on the same branch passed is
+ * closed. Returns how many were closed.
+ */
+export function closeResolvedConvergenceRedTasks(
+  store: Store,
+  input: {
+    readonly projectId: string;
+    readonly targetBranch: string;
+    readonly passedChecks: readonly string[];
+    readonly now: number;
+  },
+): number {
+  const open = store.db.prepare(
+    `SELECT id FROM tasks WHERE project_id = ? AND title = ? AND status IN ('queued', 'in_progress')`,
+  );
+  let closed = 0;
+  for (const check of input.passedChecks) {
+    const title = convergenceRedTaskTitle(check, input.targetBranch);
+    for (const row of open.all(input.projectId, title) as { id: string }[]) {
+      if (setTaskStatus(store, row.id, 'done', input.now)) closed += 1;
+    }
+  }
+  return closed;
 }

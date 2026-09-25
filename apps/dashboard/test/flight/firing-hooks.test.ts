@@ -23,6 +23,7 @@ import {
   runMutationScopeAdvisory,
 } from '../../src/flight/firing-hooks.js';
 import type { MutationConfig } from '../../src/flight/mutation-scope.js';
+import { claimContractBody } from '../../src/flight/claim-contract.js';
 
 function proposal(title: string, overrides: Partial<TaskProposal> = {}): TaskProposal {
   return {
@@ -466,6 +467,45 @@ describe('markTaskDoneIfShipped', () => {
     );
     expect(result).toBeUndefined();
     expect(taskStatus('web-a')).toBe('done');
+  });
+
+  it('never closes a claimed issue task even on a "complete" tag — the claim contract demotes it (operator directive 2026-09-12)', async () => {
+    createTask(store, {
+      id: 'web-a',
+      projectId: 'p1',
+      title: 'Flaky retry test',
+      body: claimContractBody(42, 'https://github.com/example/repo/issues/42', {
+        claimant: 'somehuman',
+      }),
+      createdAt: 1,
+    });
+    const result = await markTaskDoneIfShipped(
+      store,
+      'p1',
+      outcomeWithRecord({ shipped: true, item: 'web-a', completion: 'complete', sha: 'abc123' }),
+      fakeVcs(),
+    );
+    expect(result).toContain('COMPLETION DEMOTED');
+    expect(result).toContain('claim contract');
+    expect(taskStatus('web-a')).toBe('queued');
+  });
+
+  it('leaves a claimed issue task open on a "slice" tag with no demotion messaging', async () => {
+    createTask(store, {
+      id: 'web-a',
+      projectId: 'p1',
+      title: 'Flaky retry test',
+      body: claimContractBody(42, undefined, { claimant: 'somehuman' }),
+      createdAt: 1,
+    });
+    const result = await markTaskDoneIfShipped(
+      store,
+      'p1',
+      outcomeWithRecord({ shipped: true, item: 'web-a', completion: 'slice', sha: 'abc123' }),
+      fakeVcs(),
+    );
+    expect(result).toBeUndefined();
+    expect(taskStatus('web-a')).toBe('queued');
   });
 });
 
