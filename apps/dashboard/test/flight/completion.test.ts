@@ -92,6 +92,17 @@ describe('verdictDeferTargets (generalized — investigation of 2026-08-21)', ()
     ).toEqual(['web-aaa111-bbb222', 'web-ccc333-ddd444', 'web-eee555-fff666', 'web-ggg777-hhh888']);
   });
 
+  it('defers the named task for a "VERDICT confirm blocked" re-confirmation too (ap-muhhlmdm-0)', () => {
+    // A firing that re-verifies an already-filed blocked verdict still holds
+    // mints "VERDICT confirm blocked ..." rather than a fresh plain
+    // "VERDICT blocked ..." — it must defer the named task exactly the same.
+    expect(
+      verdictDeferTargets([
+        { title: 'VERDICT confirm blocked web-ccc333-ddd444: still operator-only' },
+      ]),
+    ).toEqual(['web-ccc333-ddd444']);
+  });
+
   it('ignores split/deprioritize verdicts and non-verdict proposals', () => {
     expect(
       verdictDeferTargets([
@@ -190,6 +201,21 @@ describe('verdictBlockerCleared (VERDICT AUTO-RECONCILE part a, web-mtettjx9-57a
   it('stays blocked while the named lane is still flying', () => {
     expect(
       verdictBlockerCleared('VERDICT blocked web-abc123-x: fleet-3 owns pr-review.ts', state),
+    ).toBe(false);
+  });
+
+  it('clears a "VERDICT confirm blocked" re-confirmation the same as a plain one (ap-muhhlmdm-0)', () => {
+    expect(
+      verdictBlockerCleared('VERDICT confirm blocked web-abc123-x: fleet-3 owns pr-review.ts', {
+        liveLanes: [],
+        gateGreen: false,
+      }),
+    ).toBe(true);
+    expect(
+      verdictBlockerCleared(
+        'VERDICT confirm blocked web-abc123-x: fleet-3 owns pr-review.ts',
+        state,
+      ),
     ).toBe(false);
   });
 
