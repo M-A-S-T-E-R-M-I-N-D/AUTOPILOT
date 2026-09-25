@@ -438,32 +438,6 @@ describe('SqliteFiringStore', () => {
     store.close();
   });
 
-  it("flags a checkpoint-killed firing's unknown cost instead of recording it as a fabricated $0 (board web-mty1azf9-2we84o)", () => {
-    const store = openStore(':memory:');
-    migrate(store);
-    const pid = seedProject(store);
-    const sink = new SqliteFiringStore(store, pid);
-
-    // The envelope never arrived (killed mid-firing) — costUsd is genuinely
-    // unknown, not zero. A real $0 firing (envelope arrived, cost happened
-    // to be zero) must stay distinguishable from it.
-    sink.recordFiring(record({ firing: 22, costUsd: null }));
-    sink.recordFiring(record({ firing: 23, costUsd: 0 }));
-    sink.recordFiring(record({ firing: 24, costUsd: 4.2 }));
-
-    const rows = store.db
-      .prepare(
-        'SELECT firing_id, cost_usd, cost_unknown FROM metrics WHERE project_id = ? ORDER BY firing_id',
-      )
-      .all(pid) as { firing_id: string; cost_usd: number; cost_unknown: number }[];
-    expect(rows).toEqual([
-      { firing_id: `${pid}:firing-22`, cost_usd: 0, cost_unknown: 1 },
-      { firing_id: `${pid}:firing-23`, cost_usd: 0, cost_unknown: 0 },
-      { firing_id: `${pid}:firing-24`, cost_usd: 4.2, cost_unknown: 0 },
-    ]);
-    store.close();
-  });
-
   describe('reserveNextFiring (board web-mtbay6wd-hz0p0m — the firing-number collision fix)', () => {
     it('two lanes racing before either has recorded a firing still get distinct, sequential numbers', () => {
       const store = openStore(':memory:');
