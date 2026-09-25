@@ -18,6 +18,7 @@ import {
   chooseModel,
   routeTaskModel,
   readRoutedFirings,
+  laneOfFiring,
   renderScoreboard,
   tierOverride,
   MIN_ARM_FIRINGS,
@@ -170,7 +171,7 @@ describe('the store side: decisions recorded, firings matched', () => {
       .run(id, item, shipped, model, at);
   }
 
-  it('records each decision, and matches a firing to the latest decision for its task before it', () => {
+  it("records each decision, and matches each firing to its lane's latest decision before it", () => {
     const now = 10 * 24 * 60 * 60 * 1000;
     const first = routeTaskModel(store, 'p1', 'escalated', 't-1', {}, now);
     expect(TIER_CANDIDATES.escalated).toContain(first.model);
@@ -181,7 +182,48 @@ describe('the store side: decisions recorded, firings matched', () => {
     expect(readRoutedFirings(store, 'p1', now + 50)).toEqual([
       { tier: 'escalated', modelId: 'claude-opus-5-5', shipped: true, costUsd: 2 },
       { tier: 'default', modelId: 'claude-sonnet-5', shipped: false, costUsd: 2 },
+      // the same lane's next firing flew under that lane's latest decision
+      { tier: 'default', modelId: 'claude-sonnet-5', shipped: true, costUsd: 2 },
     ]);
+  });
+
+  it("matches a firing to its own lane's latest decision, even when it reports another task (2026-09-26)", () => {
+    const now = 10 * 24 * 60 * 60 * 1000;
+    routeTaskModel(
+      store,
+      'p1',
+      'default',
+      't-1',
+      { AUTOPILOT_DEFAULT_MODEL: 'opus' },
+      now,
+      'fleet-2',
+    );
+    routeTaskModel(
+      store,
+      'p1',
+      'escalated',
+      't-2',
+      { AUTOPILOT_ESCALATED_MODEL: 'fable' },
+      now + 1,
+      'base',
+    );
+    // fleet-2 reported a different task than it was routed for; base reported none
+    firing('p1--fleet-2:firing-5', 't-other', 'claude-opus-5-5', 1, now + 10);
+    store.db
+      .prepare(
+        `INSERT INTO metrics (project_id, firing_id, item, kind, sha, shipped, gate_result, cost_usd, model, created_at)
+         VALUES ('p1', 'p1:firing-6', NULL, 'feat', NULL, 0, 'no-commit', 1, 'claude-fable-5-1', ?)`,
+      )
+      .run(now + 20);
+    expect(readRoutedFirings(store, 'p1', now + 30)).toEqual([
+      { tier: 'default', modelId: 'claude-opus-5-5', shipped: true, costUsd: 2 },
+      { tier: 'escalated', modelId: 'claude-fable-5-1', shipped: false, costUsd: 1 },
+    ]);
+  });
+
+  it('reads the lane off a firing id', () => {
+    expect(laneOfFiring('fly-autopilot:firing-9')).toBe('base');
+    expect(laneOfFiring('fly-autopilot--fleet-3:firing-9')).toBe('fleet-3');
   });
 
   it('prints a scoreboard for every tier', () => {

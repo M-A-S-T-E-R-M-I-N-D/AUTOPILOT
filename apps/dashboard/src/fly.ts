@@ -658,8 +658,24 @@ async function main(): Promise<void> {
     // freezing whichever schedule slot happened to be true when the flight
     // started (web-mtb8i2ol-obncos: the frozen version never re-fires the
     // backstop inside a flight once its first decision picked the fast path).
-    const buildGateSpec = (): GateSpec =>
-      perFiringGateSpec(result.gate.spec, firingStats(store.db, projectId).firings, inFleet);
+    // AN UNVERIFIED HEAD IS JUDGED WHOLE (2026-09-26). The per-firing gate
+    // tests only what the latest commit touched, so a green firing built on
+    // a commit no gate had judged 'verified' the lane head — and sync-back
+    // published both. A firing that died at the turn cap left a docs-editor
+    // commit its crashed gate never judged; the next firing's green carried
+    // it to the flight branch, and the landing's full suite refused it.
+    // While the lane head is unverified, the firing's gate runs the full
+    // test suite, so its green really covers every commit it would publish.
+    const buildGateSpec = (): GateSpec => {
+      const scheduled = perFiringGateSpec(
+        result.gate.spec,
+        firingStats(store.db, projectId).firings,
+        inFleet,
+      );
+      return !laneHead.verified && result.gate.spec.test
+        ? { ...scheduled, test: result.gate.spec.test }
+        : scheduled;
+    };
     const commands = perFiringGateCommands(buildGateSpec());
     out(`Gate: ${commands.map((c) => c.label).join(' · ') || '(none detected)'}`);
 
@@ -1349,6 +1365,7 @@ async function main(): Promise<void> {
                 topAvailable.id,
                 process.env,
                 now(),
+                instanceId ?? 'base',
               );
               routedModel = choice.model;
               routingReason = ` (${choice.phase}: ${choice.reason})`;

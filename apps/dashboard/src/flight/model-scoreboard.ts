@@ -155,7 +155,12 @@ export function chooseModel(
 export function recordModelRoute(
   store: Store,
   projectId: string,
-  route: { readonly taskId: string; readonly tier: ModelTier; readonly model: string },
+  route: {
+    readonly taskId: string;
+    readonly tier: ModelTier;
+    readonly model: string;
+    readonly lane?: string;
+  },
   now: number,
 ): void {
   store.db
@@ -170,6 +175,25 @@ export function recordModelRoute(
  * task at or before it — the rows the scoreboard counts. Firings with no
  * recorded decision (before the scoreboard existed) are left out.
  */
+/** The lane a firing flew in, from its id: `base`, or the `fleet-N` suffix. */
+export function laneOfFiring(firingId: string): string {
+  const head = firingId.split(':', 1)[0] ?? '';
+  const at = head.indexOf('--');
+  return at === -1 ? 'base' : head.slice(at + 2);
+}
+
+/** A routing decision stays the one a lane's firing flew under for this long. */
+const ROUTE_MATCH_WINDOW_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Every firing in the window matched to the routing decision it flew under —
+ * the rows the scoreboard counts. A firing is matched to the latest decision
+ * its OWN LANE recorded before it (2026-09-26: matching by the task a firing
+ * reported missed two of five Opus firings in one round, because a firing
+ * does not always report the task it was routed for). Decisions recorded
+ * before lanes were named fall back to the task id. Firings with no decision
+ * (before the scoreboard existed) are left out.
+ */
 export function readRoutedFirings(store: Store, projectId: string, now: number): RoutedFiring[] {
   const since = now - SCOREBOARD_WINDOW_MS;
   const routes = store.db
@@ -179,36 +203,49 @@ export function readRoutedFirings(store: Store, projectId: string, now: number):
         ORDER BY created_at`,
     )
     .all(projectId, since) as { payload: string; at: number }[];
+  const byLane = new Map<string, { tier: ModelTier; at: number }[]>();
   const byTask = new Map<string, { tier: ModelTier; at: number }[]>();
   for (const r of routes) {
     try {
-      const p = JSON.parse(r.payload) as { taskId?: unknown; tier?: unknown };
-      if (typeof p.taskId !== 'string' || typeof p.tier !== 'string') continue;
-      byTask.set(p.taskId, [
-        ...(byTask.get(p.taskId) ?? []),
-        { tier: p.tier as ModelTier, at: r.at },
-      ]);
+      const p = JSON.parse(r.payload) as { taskId?: unknown; tier?: unknown; lane?: unknown };
+      if (typeof p.tier !== 'string') continue;
+      const decision = { tier: p.tier as ModelTier, at: r.at };
+      if (typeof p.lane === 'string') {
+        byLane.set(p.lane, [...(byLane.get(p.lane) ?? []), decision]);
+      } else if (typeof p.taskId === 'string') {
+        byTask.set(p.taskId, [...(byTask.get(p.taskId) ?? []), decision]);
+      }
     } catch {
       /* a malformed row is skipped */
     }
   }
   const rows = store.db
     .prepare(
-      `SELECT item, model, shipped, cost_usd AS costUsd, created_at AS at FROM metrics
-        WHERE project_id = ? AND created_at >= ? AND item IS NOT NULL AND model IS NOT NULL
+      `SELECT firing_id AS firingId, item, model, shipped, cost_usd AS costUsd, created_at AS at
+         FROM metrics
+        WHERE project_id = ? AND created_at >= ? AND model IS NOT NULL
         ORDER BY created_at, id`,
     )
     .all(projectId, since) as {
-    item: string;
+    firingId: string;
+    item: string | null;
     model: string;
     shipped: number;
     costUsd: number;
     at: number;
   }[];
+  const latestBefore = (
+    list: readonly { tier: ModelTier; at: number }[] | undefined,
+    at: number,
+  ): { tier: ModelTier; at: number } | undefined => {
+    const before = (list ?? []).filter((d) => d.at <= at && at - d.at <= ROUTE_MATCH_WINDOW_MS);
+    return before[before.length - 1];
+  };
   const out: RoutedFiring[] = [];
   for (const row of rows) {
-    const decisions = (byTask.get(row.item) ?? []).filter((d) => d.at <= row.at);
-    const decision = decisions[decisions.length - 1];
+    const decision =
+      latestBefore(byLane.get(laneOfFiring(row.firingId)), row.at) ??
+      (row.item === null ? undefined : latestBefore(byTask.get(row.item), row.at));
     if (!decision) continue;
     out.push({
       tier: decision.tier,
@@ -243,6 +280,7 @@ export function routeTaskModel(
   taskId: string,
   env: NodeJS.ProcessEnv,
   now: number,
+  lane = 'base',
 ): ModelChoice {
   const pinned = tierOverride(tier, env);
   const choice: ModelChoice =
@@ -253,7 +291,7 @@ export function routeTaskModel(
           taskId,
           tierStats(readRoutedFirings(store, projectId, now), tier, TIER_CANDIDATES[tier]),
         );
-  recordModelRoute(store, projectId, { taskId, tier, model: choice.model }, now);
+  recordModelRoute(store, projectId, { taskId, tier, model: choice.model, lane }, now);
   return choice;
 }
 

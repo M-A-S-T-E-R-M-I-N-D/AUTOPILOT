@@ -54,6 +54,12 @@ describe('merged-head gating (fly.ts census)', () => {
     );
   });
 
+  it('a firing on an unverified lane head runs the full test suite, so its green covers every commit it publishes (2026-09-26)', () => {
+    expect(flySource).toMatch(
+      /return !laneHead\.verified && result\.gate\.spec\.test\s*\?\s*\{ \.\.\.scheduled, test: result\.gate\.spec\.test \}\s*:\s*scheduled;/,
+    );
+  });
+
   it('every flight gate step — the firing gate and both convergence gates — carries the thirty-minute ceiling', () => {
     expect(flySource).toContain('const FLIGHT_GATE_STEP_TIMEOUT_MS = 30 * 60_000;');
     expect(flySource.match(/timeoutMs: FLIGHT_GATE_STEP_TIMEOUT_MS,/g)).toHaveLength(3);
