@@ -55,11 +55,24 @@ for flying untrusted targets, or on a shared machine, or unattended.
    already-landed work reacting to a stale red-main verdict — see
    `docs/debriefs/2026-09-06-red-main-revert-cascade.md` and THREAT-MODEL.md's T12)
    — the SOUL's "additive git only" rule, previously prompt-only and
-   now enforced here too. It also denies a `git commit` that hand-writes its own
+   now enforced here too. `git commit --amend` joined that list on 2026-09-24
+   (`AMEND_RE`, FAILURE-DOCTRINE row 53): sync-back may already have merged a lane's
+   HEAD into the flight branch, so an amended copy merges in beside the original, the
+   same change twice with a second task's edit filed under the first task's message. A
+   firing makes a new commit instead. It also denies a `git commit` that hand-writes its own
    `Signed-off-by:` trailer (`commitSignoffDenial`, shipped 2026-09-05) — `git commit -s`
    derives that trailer from the repository identity, and a hand-typed one can name
    whichever address the agent sees in context, which has published a personal email
-   into a DCO trailer before. CLI-arg scoped — the user's own settings files are never
+   into a DCO trailer before. At every `git commit` the hook also re-reads sibling
+   lanes (`adapters/sibling-commit-scan.ts`), because the FLEET digest in the firing's
+   prompt is already stale by then: it refuses a staged file a sibling's live
+   `.autopilot-intent` names (`checkPreCommitSiblingOverlap`) and, since 2026-09-25
+   (FAILURE-DOCTRINE row 61), a file the commit adds that a sibling is creating too,
+   untracked or staged in its worktree or committed on its lane but not yet synced
+   (`checkPreCommitSiblingNewFiles`). Two lanes adding one file is a certain add/add
+   conflict: the second sync-back aborts and strands that lane's later commits. This
+   is collision control, not containment; it rides the same hook because the commit is
+   the last moment to catch it. CLI-arg scoped — the user's own settings files are never
    touched. Verified against the compiled hook over a real subprocess, including the
    exact observed escape shape.
    _Honest scope:_ a textual guard — it blocks the observed escape class (absolute-path
