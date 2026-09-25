@@ -60,6 +60,11 @@ export function summarizeQuarantine(entries) {
   return [`quarantine-report: ${entries.length} test(s) quarantined:`, ...lines].join('\n');
 }
 
+// Stryker disable all: `main` is the process shell — it reads the real
+// quarantine file from disk and calls `process.exit`, the same stance the
+// other four ci/ configs take for their own impure glue. The logic it
+// delegates to, `validateQuarantineList`/`summarizeQuarantine`, IS
+// mutation-tested.
 function main() {
   /** @type {unknown} */
   let data;
