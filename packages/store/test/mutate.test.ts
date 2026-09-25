@@ -554,6 +554,34 @@ describe('APPROVED-VERDICT CASCADE (board web-mt5g8l1w-p2dddo)', () => {
     ).toBe('deferred'); // untouched — only "close" cascades; the operator requeues it
   });
 
+  it('retires an approved "VERDICT confirm blocked" meta-verdict the same way (ap-muhhlmdm-0)', () => {
+    // A re-confirmation of an already-filed blocked verdict must still
+    // retire on approval instead of queueing — otherwise the fleet burns a
+    // firing re-confirming the same blocker every round, the exact waste
+    // the 2026-09-24 fix above ended for the plain "VERDICT blocked" form.
+    seedProject('p1');
+    createTask(store, { id: 'web-aaa-1', projectId: 'p1', title: 'landing risk', createdAt: 1 });
+    setTaskStatus(store, 'web-aaa-1', 'deferred', 1);
+    createTask(store, {
+      id: 'ap-verdict-2',
+      projectId: 'p1',
+      title: 'VERDICT confirm blocked web-aaa-1: still waits on the operator',
+      source: 'self',
+      status: 'needs_approval',
+      createdAt: 1,
+    });
+
+    expect(setTaskStatus(store, 'ap-verdict-2', 'queued', 2)).toBe(true);
+
+    expect(
+      (
+        store.db.prepare(`SELECT status FROM tasks WHERE id = 'ap-verdict-2'`).get() as {
+          status: string;
+        }
+      ).status,
+    ).toBe('done');
+  });
+
   it('still queues an approved "VERDICT split" or "VERDICT deprioritize" proposal', () => {
     seedProject('p1');
     for (const [id, title] of [
@@ -1259,6 +1287,10 @@ describe('claimTask / releaseTaskClaim', () => {
     expect(isClaimableTitle('VERDICT blockedness')).toBe(false);
     expect(isBlockedVerdictTitle('VERDICT blocked x')).toBe(true);
     expect(isBlockedVerdictTitle('VERDICT close x')).toBe(false);
+    // ap-muhhlmdm-0: a re-confirmation of a prior blocked verdict — must be
+    // treated as a blocked verdict too, not a fresh claimable task
+    expect(isClaimableTitle('VERDICT confirm blocked web-aaa-1: still waits')).toBe(false);
+    expect(isBlockedVerdictTitle('VERDICT confirm blocked web-aaa-1: still waits')).toBe(true);
   });
 
   it('refuses to claim a queued "VERDICT blocked" task, but still claims a "VERDICT split" one', () => {
@@ -1278,6 +1310,16 @@ describe('claimTask / releaseTaskClaim', () => {
     });
     expect(claimTask(store, 't-vb', 'instance-a', 5)).toBe(false);
     expect(claimTask(store, 't-vs', 'instance-a', 5)).toBe(true);
+  });
+
+  it('refuses to claim a "VERDICT confirm blocked" meta-verdict the same as a plain one (ap-muhhlmdm-0)', () => {
+    createTask(store, {
+      id: 't-vcb',
+      projectId: 'p1',
+      title: 'VERDICT confirm blocked web-aaa-1: still waits on the operator',
+      createdAt: 1,
+    });
+    expect(claimTask(store, 't-vcb', 'instance-a', 5)).toBe(false);
   });
 
   it('still claims a task that merely MENTIONS an operator mid-title — only the OPERATOR prefix marks ownership', () => {
