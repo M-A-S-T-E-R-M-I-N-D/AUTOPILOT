@@ -87,6 +87,15 @@ describe('layoutCss — pipeline canvas/tree status and selection styling', () =
     );
   });
 
+  // Epic 0024: the plan chain's one Tab stop is the selected step, whose border is already
+  // the accent — a focus style that only recolors the border (and drops the outline) is invisible.
+  it('rings a focused plan step outside its border, never suppressing the outline', () => {
+    expect(css).toContain(
+      '.plan-step:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }',
+    );
+    expect(css).not.toMatch(/\.plan-step:focus-visible[^{]*\{[^}]*outline:\s*none/);
+  });
+
   it('gives canvas nodes a real fill/stroke instead of SVG rect defaults', () => {
     expect(css).toMatch(/\.pipeline-node rect\s*\{[^}]*fill:\s*var\(--color-/);
     expect(css).toMatch(/\.pipeline-node rect\s*\{[^}]*stroke:\s*var\(--color-/);

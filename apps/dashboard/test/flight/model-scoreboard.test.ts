@@ -234,6 +234,7 @@ describe('the store side: decisions recorded, firings matched', () => {
     const text = lines.join('\n');
     expect(text).toContain('escalated: leader opus');
     expect(text).toContain('default: exploring');
+    expect(TIER_CANDIDATES.default).toEqual(['sonnet', 'opus', 'fable']);
     expect(text).toContain('claude-opus-5-5');
     expect(text).toContain('not served yet');
   });

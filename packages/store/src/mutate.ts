@@ -558,11 +558,15 @@ const VERDICT_TASK_ID_RE =
  *  decision rather than flagging something for a human to still resolve. */
 const VERDICT_CLOSE_KIND_RE = /^VERDICT close\b/i;
 
-/** A `VERDICT blocked ...` proposal: the named task waits on something only
- *  a person can resolve. Approving it acknowledges that; it is never work. */
-// No `\b`: this mirrors claimTask's `LIKE 'VERDICT blocked%'` prefix exactly,
-// so the flight's pick and the claim gate never disagree about a title.
-const VERDICT_BLOCKED_KIND_RE = /^VERDICT blocked/i;
+/** A `VERDICT blocked ...` proposal, or a re-confirmation of one (`VERDICT
+ *  confirm blocked ...` — minted when a firing re-verifies a blocker still
+ *  holds instead of re-filing a fresh plain `VERDICT blocked`, board
+ *  ap-muhhlmdm-0): the named task waits on something only a person can
+ *  resolve. Approving either form acknowledges that; neither is ever work.
+ *  No `\b`: this mirrors claimTask's `LIKE 'VERDICT blocked%'` /
+ *  `LIKE 'VERDICT confirm blocked%'` prefixes exactly, so the flight's pick
+ *  and the claim gate never disagree about a title. */
+const VERDICT_BLOCKED_KIND_RE = /^VERDICT (?:confirm )?blocked/i;
 
 /** True for a `VERDICT blocked ...` task: it waits on a person, so no lane
  *  claims it and no firing's board shows it. */
@@ -696,7 +700,10 @@ export function setTaskStatus(
  *
  * `VERDICT blocked` tasks are refused the same way (2026-09-24): one
  * approved before approval retired them still sits `queued`, and a firing
- * that claims it can only re-confirm a blocker a person has to lift.
+ * that claims it can only re-confirm a blocker a person has to lift. A
+ * `VERDICT confirm blocked` re-confirmation (ap-muhhlmdm-0) is refused
+ * identically — it is the same "nothing but a person can do" content, just
+ * minted on a later firing that re-checked the same blocker.
  */
 export function claimTask(
   store: Store,
@@ -714,7 +721,8 @@ export function claimTask(
           AND status IN ('queued', 'in_progress')
           AND (assignee IS NULL OR assignee = ?)
           AND title NOT LIKE 'OPERATOR%'
-          AND title NOT LIKE 'VERDICT blocked%'`,
+          AND title NOT LIKE 'VERDICT blocked%'
+          AND title NOT LIKE 'VERDICT confirm blocked%'`,
     )
     .run(instanceKey, updatedAt, taskId, instanceKey);
   return info.changes > 0;

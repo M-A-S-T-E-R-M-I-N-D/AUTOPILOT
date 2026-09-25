@@ -2179,8 +2179,11 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .plan-chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--space-1); margin-block-end: var(--space-3); }
 .plan-arrow { align-self: center; color: var(--color-text-muted); }
 .plan-step { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-inline-size: 7rem; max-inline-size: 16rem; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); color: var(--color-text); font: inherit; text-align: start; cursor: pointer; }
-.plan-step:hover, .plan-step:focus-visible { border-color: var(--color-accent); outline: none; }
+.plan-step:hover { border-color: var(--color-accent); }
 .plan-step-selected { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent) inset; }
+/* The chain is a tablist (epic 0024): its one Tab stop IS the selected step,
+   whose border is already the accent — so focus draws its own ring outside it. */
+.plan-step:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .plan-step-off { opacity: 0.6; border-style: dashed; }
 .plan-step-kind { font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .plan-step-label { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-inline-size: 100%; }

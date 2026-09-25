@@ -47,7 +47,7 @@ export function verdictDeferTarget(
  *  — the caller only flips tasks whose exact id is currently open. */
 const VERDICT_TASK_ID_RE =
   /(?:web|ap)-[a-z0-9]+-[a-z0-9]+|inbox-[a-z0-9]+(?:-[a-z0-9]+)*|github-[0-9]+/g;
-const VERDICT_DEFER_KIND_RE = /^VERDICT (close|blocked)\b/i;
+const VERDICT_DEFER_KIND_RE = /^VERDICT (close|(?:confirm )?blocked)\b/i;
 
 /**
  * Generalized defer (investigation, 2026-08-21 — the claimed-task-only
@@ -112,7 +112,7 @@ export interface VerdictBlockerState {
   readonly gateGreen: boolean;
 }
 
-const VERDICT_BLOCKED_RE = /^VERDICT blocked\b/i;
+const VERDICT_BLOCKED_RE = /^VERDICT (?:confirm )?blocked\b/i;
 const LANE_TOKEN_RE = /fleet-\d+/gi;
 const GATE_MENTION_RE = /\bgate\b/i;
 

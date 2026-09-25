@@ -1344,6 +1344,9 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     expect(document.querySelector('.plan-step-outcome[data-outcome="pass"]')).not.toBeNull();
     expect(document.querySelector('.plan-step-failed')).not.toBeNull();
     expect(document.querySelector('.plan-last-run-failed')).not.toBeNull();
+    // The chain is a tablist with its panel (epic 0024), so the scan covers those roles too.
+    expect(document.querySelectorAll('.plan-chain[role="tablist"] [role="tab"]')).toHaveLength(5);
+    expect(document.querySelector('[role="tabpanel"]#plan-step-panel')).not.toBeNull();
 
     const found = await violations();
     expect(found.map((v) => v.id)).toEqual([]);
