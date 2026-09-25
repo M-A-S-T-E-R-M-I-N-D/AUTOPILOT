@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-25 | [Reland: `ap-mug77xzl-convred` stays blocked — its first debrief was reverted by a gate flake, not by anything wrong with it](2026-09-25-verdict-ap-mug77xzl-convred-blocked-reland.md) |
 | 2026-09-25 | [Processing `ap-mufya90c-ci-red`: "CI RED after landing main → 4b47e76: ci.yml — failure" — refuted](2026-09-25-verdict-ap-mufya90c-ci-red-refuted.md) |
 | 2026-09-24 | [Processing VERDICT `ap-mufmdoq5-0`: the `.husky/pre-push` guard block still holds](2026-09-24-verdict-ap-mufmdoq5-0-husky-pre-push-guard-block-still-holds.md) |
 | 2026-09-24 | [Processing VERDICT `ap-mu3u8hz7-4`: epic 0020 slice 8's fix-commit blocker — reconfirmed, no drift](2026-09-24-verdict-ap-mu3u8hz7-4-epic-0020-s8-blocked-no-drift.md) |
