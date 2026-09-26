@@ -283,7 +283,7 @@ function openReportMenu(x, y) {
   }, 'clipboard-list');
   reportMenuAddItem(tr('reportCopyHtmlLabel'), tr('reportCopyHtmlTip'), function (it) {
     reportMenuCopy(target ? target.outerHTML : '', it);
-  }, 'puzzle');
+  });
   reportMenuAddItem(tr('reportCopySelectorLabel'), tr('reportCopySelectorTip'), function (it) {
     reportMenuCopy(reportMenuSelectorOf(target), it);
   }, 'target');
@@ -292,7 +292,7 @@ function openReportMenu(x, y) {
   }, 'palette');
   reportMenuAddItem(tr('reportCopyContextLabel'), tr('reportCopyContextTip'), function (it) {
     reportMenuCopy(reportMenuContextOf(target, window.__autopilotReportCapture), it);
-  }, 'brain');
+  });
   document.body.appendChild(reportMenuEl);
   var vw = window.innerWidth, vh = window.innerHeight;
   var rect = reportMenuEl.getBoundingClientRect();

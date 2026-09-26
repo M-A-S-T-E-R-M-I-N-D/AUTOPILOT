@@ -67,10 +67,9 @@ propagation, and the filled style does not match the nav.
    into a locale value (`packages/tokens`), so the same test now walks every
    locale's STRINGS and pins the emoji-bearing keys to an exact, shrink-only
    list. The lucky roll's snackbar sentence and refusal line dropped their
-   🍀 in both locales; the report menu's Copy element HTML (🧩 → `puzzle`)
-   and Copy smart context (🧠 → `brain`) labels picked up their two vendored
-   shapes the same day, no bundle budget raise needed — `STRINGS_EMOJI_REMAINING`
-   is now empty.
+   🍀 in both locales; the report menu's Copy element HTML (🧩) and Copy
+   smart context (🧠) labels are what the list still names — they need two
+   more vendored shapes and a core bundle budget raise.
    Docs/screenshots refresh is still open.
 
 ## Related

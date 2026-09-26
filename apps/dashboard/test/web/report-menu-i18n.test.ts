@@ -149,10 +149,10 @@ describe('STRINGS carries the report dialog keys', () => {
     expect(STRINGS.en.reportNothingToFile).toBe('Nothing to file — {reasoning}');
     expect(STRINGS.en.reportRequestFailed).toBe('✗ Request failed — try again shortly.');
     expect(STRINGS.en.reportCopyTextLabel).toBe('Copy text');
-    expect(STRINGS.en.reportCopyHtmlLabel).toBe('Copy element HTML');
+    expect(STRINGS.en.reportCopyHtmlLabel).toBe('🧩 Copy element HTML');
     expect(STRINGS.en.reportCopySelectorLabel).toBe('Copy CSS selector');
     expect(STRINGS.en.reportCopyStylesLabel).toBe('Copy computed styles');
-    expect(STRINGS.en.reportCopyContextLabel).toBe('Copy smart context (JSON)');
+    expect(STRINGS.en.reportCopyContextLabel).toBe('🧠 Copy smart context (JSON)');
     expect(STRINGS.en.reportCopied).toBe('✓ Copied');
     expect(STRINGS.en.reportCopyFailed).toBe('✗ Copy failed');
   });
@@ -285,11 +285,9 @@ describe('the Report-from-here dialog paints in the active locale (live, full bu
     expect(copyTextItem.textContent).toBe(STRINGS.he.reportCopyTextLabel);
     expect(copyTextItem.getAttribute('data-tip')).toBe(STRINGS.he.reportCopyTextTip);
     expect(items[2]!.textContent).toBe(STRINGS.he.reportCopyHtmlLabel);
-    expect(items[2]!.querySelector('svg.icon-puzzle')).not.toBeNull();
     expect(items[3]!.textContent).toBe(STRINGS.he.reportCopySelectorLabel);
     expect(items[4]!.textContent).toBe(STRINGS.he.reportCopyStylesLabel);
     expect(items[5]!.textContent).toBe(STRINGS.he.reportCopyContextLabel);
-    expect(items[5]!.querySelector('svg.icon-brain')).not.toBeNull();
 
     copyTextItem.click();
     await vi.advanceTimersByTimeAsync(1);
