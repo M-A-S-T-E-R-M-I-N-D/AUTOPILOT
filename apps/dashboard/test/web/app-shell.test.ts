@@ -340,6 +340,28 @@ describe('renderShell — every section belongs to a subject', () => {
     }
   });
 
+  it('keeps ONE global rail on every page: the same five places, a project page included (2026-09-27)', () => {
+    // Benchmark was unreachable from inside a project: the project page
+    // swapped the whole rail for its own tabs. NN/g's global-navigation rule
+    // and M3's rail both say the top-level places stay put on every screen.
+    const railOf = (page: string): string[] => {
+      const nav = page.slice(page.indexOf('id="subject-nav"'), page.indexOf('</nav>'));
+      return [...nav.matchAll(/data-(?:subject|global)-link="([a-z]+)"/g)].map((m) => m[1]!);
+    };
+    const places = ['fleet', 'fly', 'keeper', 'community', 'benchmark'];
+    expect(railOf(html)).toEqual(places);
+    expect(railOf(renderShell('demo'))).toEqual(places);
+    // On a project page they lead to the fleet page's places, and Fleet is
+    // marked as where the project lives.
+    const project = renderShell('demo');
+    expect(project).toContain('href="/#benchmark-panel" data-global-link="benchmark"');
+    expect(project).toMatch(/href="\/" data-global-link="fleet" aria-current="true"/);
+    // The project's own subjects are its tab row, not the rail.
+    const tabs = project.slice(project.indexOf('id="project-tabs"'));
+    expect(tabs.slice(0, tabs.indexOf('</nav>'))).toContain('data-subject-link="board"');
+    expect(html).not.toContain('id="project-tabs"');
+  });
+
   it('a project page has six subjects (0018 tabs) and is marked as tabs at every width', () => {
     const project = renderShell('demo');
     expect(html).toContain('data-i18n="subjectFleet"');

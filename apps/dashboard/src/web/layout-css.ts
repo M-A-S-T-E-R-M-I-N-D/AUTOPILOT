@@ -2148,6 +2148,21 @@ body > [data-subject] { scroll-margin-block-start: 5rem; }
 .subject-link[aria-current="page"] { color: var(--color-accent); }
 .subject-link[aria-current="page"] svg { stroke-width: 2.25; }
 .subject-link[data-empty="true"] { opacity: 0.55; }
+/* ONE GLOBAL NAV (2026-09-27): on a project page the rail keeps the fleet's
+   places and marks Fleet as where the project lives; the project's own
+   subjects are a tab row at the top of its content (M3 tabs as the
+   secondary layer under a navigation rail; Primer's repository tabs). */
+.subject-link[aria-current="true"] { color: var(--color-accent); }
+.project-tabs { display: flex; gap: var(--space-1); margin: var(--space-2) var(--page-inline) var(--space-3); border-block-end: 1px solid var(--color-border); overflow-x: auto; scrollbar-width: none; }
+.project-tabs::-webkit-scrollbar { display: none; }
+.project-tab { position: relative; display: inline-flex; flex: none; align-items: center; gap: var(--space-2); min-block-size: 2.75rem; padding: var(--space-2) var(--space-3); margin-block-end: -1px; border-block-end: 2px solid transparent; color: var(--color-text-muted); font-size: var(--text-sm); font-weight: 600; text-decoration: none; white-space: nowrap; transition: color var(--duration-short2) var(--easing-standard), border-color var(--duration-short2) var(--easing-standard); }
+.project-tab svg { inline-size: 1.125rem; block-size: 1.125rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.project-tab:hover, .project-tab:focus-visible { color: var(--color-text); outline: none; background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.project-tab:focus-visible { box-shadow: 0 0 0 2px var(--color-accent) inset; }
+.project-tab[aria-current="page"] { color: var(--color-accent); border-block-end-color: var(--color-accent); }
+.project-tab[data-empty="true"] { opacity: 0.55; }
+.project-tab .subject-badge { position: static; margin-inline-start: var(--space-1); }
+body[data-focus="on"] .project-tabs { display: none; }
 .subject-empty { margin: var(--space-6) var(--page-inline); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
 body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
 /* One subject at a time — below lg on the fleet page, at every width on a
