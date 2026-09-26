@@ -89,12 +89,53 @@ describe('docsViewerJs', () => {
 
     it('tracks which doc is actually loaded in the viewer', () => {
       const out = docsViewerJs();
-      expect(out).toContain('viewer.dataset.loadedPath = path;');
+      expect(out).toContain('viewer.dataset.loadedPath = data.path;');
     });
 
     it('skips reloading the viewer when the open doc is already the one loaded', () => {
       const out = docsViewerJs();
       expect(out).toContain('viewer.dataset.loadedPath !== openDoc[pid]');
+    });
+  });
+
+  describe('live re-render on disk change (epic 0023 slice 4)', () => {
+    it('checks the already-loaded open doc for a live change instead of doing nothing', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(
+        /if \(openDoc\[pid\] && viewer\.dataset\.loadedPath !== openDoc\[pid\]\) \{[\s\S]*?\} else if \(openDoc\[pid\]\) \{\s*checkDocLive\(pid, openDoc\[pid\], viewer\);/,
+      );
+    });
+
+    it('skips the check entirely while the split-preview editor is open', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(
+        /function checkDocLive\(pid, path, viewer\) \{\s*if \(viewer\.querySelector\('\.docs-editor'\)\) return;/,
+      );
+    });
+
+    it('repaints only when the fetched content actually differs from the cached copy', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('if (data.content === docsRawContent[pid]) return;');
+    });
+
+    it('preserves scroll position across a live repaint', () => {
+      const out = docsViewerJs();
+      expect(out).toMatch(
+        /var scrollTop = oldBody \? oldBody\.scrollTop : 0;[\s\S]*?paintDoc\(pid, viewer, data\);[\s\S]*?newBody\.scrollTop = scrollTop;/,
+      );
+    });
+
+    it('flashes the diff highlight and cleans it up even under reduced motion', () => {
+      const out = docsViewerJs();
+      expect(out).toContain("var flash = el('div', 'docs-viewer-diff-flash');");
+      expect(out).toContain("flash.addEventListener('animationend', remove);");
+      expect(out).toContain('setTimeout(remove, 2200);');
+    });
+
+    it('shares one paint routine between the initial load and the live refresh', () => {
+      const out = docsViewerJs();
+      expect(out).toContain('function paintDoc(pid, viewer, data) {');
+      expect(out).toContain('paintDoc(pid, viewer, data);');
     });
   });
 

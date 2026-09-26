@@ -201,8 +201,14 @@ function refreshDocsList(pid, list, viewer) {
       // The reader is sacred (epic 0018): only (re)load the open doc when
       // it isn't already the one sitting in the viewer — reloading an
       // unchanged doc on every tick is exactly the flash-and-scroll-reset
-      // this cache exists to stop.
-      if (openDoc[pid] && viewer.dataset.loadedPath !== openDoc[pid]) loadDoc(pid, openDoc[pid], viewer);
+      // this cache exists to stop. When it IS already loaded, epic 0023
+      // slice 4 still wants to know whether the file changed on disk since —
+      // that check runs quietly instead of a full reload.
+      if (openDoc[pid] && viewer.dataset.loadedPath !== openDoc[pid]) {
+        loadDoc(pid, openDoc[pid], viewer);
+      } else if (openDoc[pid]) {
+        checkDocLive(pid, openDoc[pid], viewer);
+      }
     })
     .catch(function () {
       if (!list.isConnected) return;
@@ -303,61 +309,111 @@ function loadDoc(pid, path, viewer) {
     .then(function (r) { if (!r.ok) throw new Error('nope'); return r.json(); })
     .then(function (data) {
       if (!viewer.isConnected) return; // re-rendered while loading — stale paint
-      viewer.replaceChildren();
-      var isMd = /\\.md$/i.test(data.path);
-      docsRawContent[pid] = data.content;
-      var headRow = el('div', 'docs-viewer-headrow');
-      headRow.appendChild(el('h4', 'docs-viewer-path', data.path));
-      // The split-preview editor (epic 0023 "the docs reader" slice 3): only
-      // offered for Markdown — the split preview IS a Markdown feature, and
-      // every writable root (docs/, README.md, CHANGELOG.md) is Markdown.
-      // The server's allow-list (flight/docs-write.ts) is the real gate; a
-      // save attempt outside it still refuses with a readable reason.
-      if (isMd) headRow.appendChild(buildEditToggle(pid, data.path));
-      viewer.appendChild(headRow);
-      // Freshness (epic 0023 "the docs reader" slice 1): the doc's last real
-      // commit, reused from flight/doc-freshness.ts's gitLastTouchedAt —
-      // never a guess, and absent entirely for an untracked path or a
-      // project whose root can't be resolved (server degrades to null).
-      if (data.touchedAt) {
-        var freshness = el('p', 'docs-viewer-freshness');
-        var freshTime = document.createElement('time');
-        var freshIso = new Date(data.touchedAt).toISOString();
-        freshTime.setAttribute('datetime', freshIso);
-        freshTime.textContent = freshIso.slice(0, 10);
-        freshness.appendChild(document.createTextNode('Last updated '));
-        freshness.appendChild(freshTime);
-        viewer.appendChild(freshness);
-      }
-      var readView = el('div', 'docs-viewer-readview');
-      var body = el('div', 'docs-viewer-body');
-      // The viewer hands the renderer its project and this document's path,
-      // so a relative link opens the linked document HERE and an in-document
-      // link scrolls within this body (the parity slice, 2026-09-18).
-      if (isMd) {
-        renderMarkdown(body, data.content, { pid: pid, basePath: data.path });
-        var toc = buildToc(data.content);
-        if (toc) body.insertBefore(toc, body.firstChild);
-      } else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
-      readView.appendChild(body);
-      // Dead-link census (epic 0023 "the docs reader" slice 1: "every
-      // internal link is checked as it renders"): the server already
-      // resolved and checked every local link against the project's index —
-      // paint the ones it found dead, matched by the same resolved path
-      // renderMarkdown put in each doc link's data-doc-open.
-      markDeadDocLinks(body, data.brokenLinks);
-      // "What links here" (epic 0023 "the docs reader" slice 2): rendered
-      // after the body, same as a wiki's backlinks footer — it answers "what
-      // else references this" only once the reader has read the page itself.
-      var linksHere = buildLinksHere(pid, data.linksHere);
-      if (linksHere) readView.appendChild(linksHere);
-      viewer.appendChild(readView);
-      viewer.dataset.loadedPath = path;
+      paintDoc(pid, viewer, data);
     })
     .catch(function () {
       viewer.replaceChildren(el('p', 'muted', 'Could not load ' + path + '.'));
       viewer.dataset.loadedPath = '';
     });
+}
+// Paints a /api/file response into viewer from scratch — split out of loadDoc
+// (epic 0023 "the docs reader" slice 4) so checkDocLive below can repaint an
+// already-open doc without loadDoc's own "Loading…" placeholder flash, which
+// would be exactly the disruption epic law #1 ("Live") rules out.
+function paintDoc(pid, viewer, data) {
+  viewer.replaceChildren();
+  var isMd = /\\.md$/i.test(data.path);
+  docsRawContent[pid] = data.content;
+  var headRow = el('div', 'docs-viewer-headrow');
+  headRow.appendChild(el('h4', 'docs-viewer-path', data.path));
+  // The split-preview editor (epic 0023 "the docs reader" slice 3): only
+  // offered for Markdown — the split preview IS a Markdown feature, and
+  // every writable root (docs/, README.md, CHANGELOG.md) is Markdown.
+  // The server's allow-list (flight/docs-write.ts) is the real gate; a
+  // save attempt outside it still refuses with a readable reason.
+  if (isMd) headRow.appendChild(buildEditToggle(pid, data.path));
+  viewer.appendChild(headRow);
+  // Freshness (epic 0023 "the docs reader" slice 1): the doc's last real
+  // commit, reused from flight/doc-freshness.ts's gitLastTouchedAt —
+  // never a guess, and absent entirely for an untracked path or a
+  // project whose root can't be resolved (server degrades to null).
+  if (data.touchedAt) {
+    var freshness = el('p', 'docs-viewer-freshness');
+    var freshTime = document.createElement('time');
+    var freshIso = new Date(data.touchedAt).toISOString();
+    freshTime.setAttribute('datetime', freshIso);
+    freshTime.textContent = freshIso.slice(0, 10);
+    freshness.appendChild(document.createTextNode('Last updated '));
+    freshness.appendChild(freshTime);
+    viewer.appendChild(freshness);
+  }
+  var readView = el('div', 'docs-viewer-readview');
+  var body = el('div', 'docs-viewer-body');
+  // The viewer hands the renderer its project and this document's path,
+  // so a relative link opens the linked document HERE and an in-document
+  // link scrolls within this body (the parity slice, 2026-09-18).
+  if (isMd) {
+    renderMarkdown(body, data.content, { pid: pid, basePath: data.path });
+    var toc = buildToc(data.content);
+    if (toc) body.insertBefore(toc, body.firstChild);
+  } else { var pre = document.createElement('pre'); pre.appendChild(el('code', null, data.content)); body.appendChild(pre); }
+  readView.appendChild(body);
+  // Dead-link census (epic 0023 "the docs reader" slice 1: "every
+  // internal link is checked as it renders"): the server already
+  // resolved and checked every local link against the project's index —
+  // paint the ones it found dead, matched by the same resolved path
+  // renderMarkdown put in each doc link's data-doc-open.
+  markDeadDocLinks(body, data.brokenLinks);
+  // "What links here" (epic 0023 "the docs reader" slice 2): rendered
+  // after the body, same as a wiki's backlinks footer — it answers "what
+  // else references this" only once the reader has read the page itself.
+  var linksHere = buildLinksHere(pid, data.linksHere);
+  if (linksHere) readView.appendChild(linksHere);
+  viewer.appendChild(readView);
+  viewer.dataset.loadedPath = data.path;
+}
+// Live re-render on disk change (epic 0023 "the docs reader" slice 4, law
+// #1 "Live": "the page re-renders as the file changes on disk... through the
+// same SSE tick the rest of the cockpit uses; a changed page keeps the
+// reader's scroll position and marks the diff for a few seconds"). Called
+// from refreshDocsList's own per-tick pass whenever the open doc is already
+// the one loaded (the ONLY case that used to do nothing): re-fetches it and
+// repaints only if the content actually differs, restoring scroll and
+// flashing the change rather than a silent identical repaint.
+// Skipped while the editor is open — overwriting a textarea mid-draft with
+// the server's own copy would silently discard the operator's unsaved edit.
+function checkDocLive(pid, path, viewer) {
+  if (viewer.querySelector('.docs-editor')) return;
+  fetch('/api/file?project=' + encodeURIComponent(pid) + '&path=' + encodeURIComponent(path))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      // The panel may have moved on (doc closed, another opened, re-mounted)
+      // while this request was in flight — never paint over a stale target.
+      if (!data || !viewer.isConnected || viewer.dataset.loadedPath !== path) return;
+      if (data.content === docsRawContent[pid]) return; // unchanged — nothing to do
+      var oldBody = viewer.querySelector('.docs-viewer-body');
+      var scrollTop = oldBody ? oldBody.scrollTop : 0;
+      paintDoc(pid, viewer, data);
+      var newBody = viewer.querySelector('.docs-viewer-body');
+      if (!newBody) return;
+      newBody.scrollTop = scrollTop;
+      flashDocChanged(newBody);
+    })
+    .catch(function () {}); // a transient failure just skips this tick's check
+}
+// The diff highlight (epic 0023 slice 4 design direction: "the diff
+// highlight fades on the compositor; nothing else moves"): an absolutely
+// positioned overlay that fades its own opacity via a CSS animation. The
+// setTimeout is a reduced-motion fallback — layout-css.ts's global
+// prefers-reduced-motion block strips the animation entirely, which would
+// otherwise leave this overlay dimming the doc forever with no animationend
+// to clean it up.
+function flashDocChanged(body) {
+  var flash = el('div', 'docs-viewer-diff-flash');
+  body.insertBefore(flash, body.firstChild);
+  var remove = function () { if (flash.parentNode) flash.remove(); };
+  flash.addEventListener('animationend', remove);
+  setTimeout(remove, 2200);
 }
 // The split-preview editor (epic 0023 "the docs reader" slice 3, board
 // web-mtywp7to-rbebh4): the guarded POST /api/docs/write endpoint
