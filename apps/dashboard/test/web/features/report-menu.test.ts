@@ -236,6 +236,10 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     );
     expect(document.activeElement).toBe(document.getElementById('report-dialog-desc'));
     expect(document.querySelector('.report-dialog-overlay')?.hasAttribute('hidden')).toBe(false);
+    // Epic 0025 (icon system): the close button carries a stroke icon, not a
+    // baked-in ✕ glyph — aria-label already carries the accessible name.
+    expect(document.querySelector('.report-dialog-close svg.icon-x')).not.toBeNull();
+    expect(document.querySelector('.report-dialog-close')?.textContent).toBe('');
   });
 
   it('Escape closes the dialog and restores focus to the element that had it', async () => {

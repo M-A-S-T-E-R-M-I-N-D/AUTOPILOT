@@ -106,6 +106,40 @@ describe('judgeHumanMerge — the four things re-verified before a merge', () =>
     const behind = { ...GREEN, behindBase: true as const };
     expect(judgeHumanMerge(behind, 'abc123').reason).toContain('behind base');
   });
+
+  it('does not read a live PR that reports no head SHA as "moved" — absence is not movement', () => {
+    const { headRefOid: _head, ...noHead } = GREEN;
+
+    const verdict = judgeHumanMerge(noHead, 'abc123');
+
+    expect(verdict.allow).toBe(true);
+    expect(verdict.reason).not.toContain('head moved');
+  });
+
+  it('excludes an optional job whatever its case — "(Optional)" does not gate either', () => {
+    const shouting = {
+      ...GREEN,
+      checkRuns: [
+        { name: 'verify (ubuntu-latest)', state: 'pass' as const },
+        { name: 'reuse lint (Optional)', state: 'fail' as const },
+      ],
+    };
+
+    expect(judgeHumanMerge(shouting, 'abc123').allow).toBe(true);
+  });
+
+  it('names the red check before it mentions mergeability — the reason the operator can act on first', () => {
+    const redAndConflicting = {
+      ...GREEN,
+      mergeable: false,
+      checkRuns: [{ name: 'verify (windows-latest)', state: 'fail' as const }],
+    };
+
+    const verdict = judgeHumanMerge(redAndConflicting, 'abc123');
+
+    expect(verdict.reason).toContain('verify (windows-latest) (fail)');
+    expect(verdict.reason).not.toContain('conflicting');
+  });
 });
 
 function execReturning(candidates: readonly PrReviewCandidate[], calls: string[][]): CliExec {
@@ -207,6 +241,42 @@ describe('createHumanMergeApi — only a click can cause a merge', () => {
     expect(result.merged).toBe(false);
     expect(result.reason).toContain('exit 1');
   });
+
+  it('echoes the live PR on a refusal so the panel re-renders from facts, not from the stale card', async () => {
+    const calls: string[][] = [];
+    const merge = createHumanMergeApi(execReturning([GREEN], calls));
+
+    const result = await merge(33, 'a-different-sha');
+
+    expect(result.merged).toBe(false);
+    expect(result.pr?.number).toBe(33);
+    expect(result.pr?.headRefOid).toBe('abc123');
+    expect(result.code).toBeUndefined();
+  });
+
+  it('carries no PR at all when the number is not in the open list — nothing to re-render', async () => {
+    const calls: string[][] = [];
+    const merge = createHumanMergeApi(execReturning([GREEN], calls));
+
+    const result = await merge(999, undefined);
+
+    expect(result.pr).toBeUndefined();
+    expect('pr' in result).toBe(false);
+  });
+
+  it('reports the gh exit code and the live PR alongside a successful merge', async () => {
+    const calls: string[][] = [];
+    const merge = createHumanMergeApi(execReturning([GREEN], calls));
+
+    const result = await merge(33, 'abc123');
+
+    expect(result).toMatchObject({
+      merged: true,
+      code: 0,
+      reason: '#33 squash-merged and its branch deleted.',
+    });
+    expect(result.pr?.number).toBe(33);
+  });
 });
 
 /**
@@ -293,6 +363,16 @@ describe('createUpdateBranchApi — the way out of the one blocked state that ha
     expect(result.reason).toBe('Could not read #34 from gh (exit 1).');
     expect(calls.some((c) => c[2] === 'update-branch')).toBe(false);
   });
+
+  it('proceeds when gh omits maintainerCanModify — only an explicit false is a refusal', async () => {
+    const calls: string[][] = [];
+    const update = createUpdateBranchApi(viewExec({ state: 'OPEN' }, calls));
+
+    const result = await update(34);
+
+    expect(result.updated).toBe(true);
+    expect(calls.some((c) => c[2] === 'update-branch')).toBe(true);
+  });
 });
 
 /**
@@ -314,6 +394,11 @@ describe('runIdFromCheckUrl', () => {
   it('returns null for an external status link or no url at all', () => {
     expect(runIdFromCheckUrl('https://vercel.com/x/deployments/abc')).toBeNull();
     expect(runIdFromCheckUrl(undefined)).toBeNull();
+  });
+
+  it('reads a run url with no job suffix, and rejects a non-numeric run segment', () => {
+    expect(runIdFromCheckUrl('https://github.com/o/r/actions/runs/777')).toBe('777');
+    expect(runIdFromCheckUrl('https://github.com/o/r/actions/runs/latest/job/1')).toBeNull();
   });
 });
 
@@ -425,5 +510,52 @@ describe('createRerunChecksApi — restarts only what failed', () => {
     expect(result.runs).toBe(2);
     expect(result.reason).toContain('Re-running the failed jobs in 2 runs');
     expect(result.reason).toContain('(1 refused)');
+  });
+
+  it('leaves an (optional) red alone even when it links a real Actions run — the exclusion the panel shares', async () => {
+    // humanMergeReadiness hides the re-run button for an optional-only red;
+    // this endpoint must refuse the same red, or the two disagree and the
+    // button appears for a red the server then declines to act on.
+    const optionalOnly: PrReviewCandidate = {
+      ...GREEN,
+      checkRuns: [
+        { name: 'verify (ubuntu-latest)', state: 'pass' },
+        {
+          name: 'reuse lint (optional)',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/900/job/9',
+        },
+      ],
+    };
+    const calls: string[][] = [];
+
+    const result = await createRerunChecksApi(execReturningRaw(optionalOnly, calls))(33);
+
+    expect(result.rerun).toBe(false);
+    expect(result.reason).toContain('nothing to re-run');
+    expect(calls.some((c) => c[2] === 'rerun')).toBe(false);
+  });
+
+  it('re-runs only the Actions run when the other red is an external status', async () => {
+    const mixedSources: PrReviewCandidate = {
+      ...GREEN,
+      checkRuns: [
+        {
+          name: 'verify (macos-latest)',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/900/job/1',
+        },
+        { name: 'vercel', state: 'fail', url: 'https://vercel.com/x/deployments/abc' },
+      ],
+    };
+    const calls: string[][] = [];
+
+    const result = await createRerunChecksApi(execReturningRaw(mixedSources, calls))(33);
+
+    expect(result.rerun).toBe(true);
+    expect(result.runs).toBe(1);
+    expect(result.reason).not.toContain('refused');
+    const reruns = calls.filter((c) => c[1] === 'run' && c[2] === 'rerun');
+    expect(reruns).toEqual([['gh', 'run', 'rerun', '900', '--failed']]);
   });
 });

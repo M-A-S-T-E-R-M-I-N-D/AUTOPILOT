@@ -11,9 +11,14 @@ import {
   planPrReviewBatch,
   resolvePrReviewAutoMergePolicy,
   prHasHoldLabel,
+  prTouchedPathsTruncated,
+  prTargetsCanonicalBase,
+  diffContainsBinaryContent,
   HOLD_LABEL_MARKERS,
+  CANONICAL_BASE_BRANCH,
   MAX_AUTO_MERGE_CHANGED_LINES,
   MAX_PR_LIST_CANDIDATES,
+  MAX_PR_LIST_FILES,
   fetchOpenPrCandidates,
   fetchOpenPrCandidateReport,
   assessPrAlreadyApplied,
@@ -4120,6 +4125,51 @@ describe('parseGitApplyConflictPaths', () => {
   });
 });
 
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): the binary
+// verdict is pinned DIRECTLY on the exported content judgment, not only
+// through assessPrDiff's spawn-skipping above — a future edit that loses the
+// column-0 anchor, the whole-line `\s*$` tail, or git's own casing must trip
+// a test even when the assessPrDiff fixtures still happen to agree.
+describe('diffContainsBinaryContent', () => {
+  it('is false for an empty diff and for an ordinary text diff', () => {
+    expect(diffContainsBinaryContent('')).toBe(false);
+    expect(
+      diffContainsBinaryContent(
+        'diff --git a/x.md b/x.md\n--- a/x.md\n+++ b/x.md\n@@ -1 +1 @@\n-old\n+new\n',
+      ),
+    ).toBe(false);
+  });
+
+  it('recognizes both marker shapes git writes, anywhere in a multi-file diff', () => {
+    expect(diffContainsBinaryContent('Binary files a/logo.png and b/logo.png differ')).toBe(true);
+    expect(diffContainsBinaryContent('GIT binary patch')).toBe(true);
+    expect(
+      diffContainsBinaryContent(
+        'diff --git a/x.md b/x.md\n+text\ndiff --git a/x.bin b/x.bin\nGIT binary patch\nliteral 8\n',
+      ),
+    ).toBe(true);
+  });
+
+  it('tolerates trailing whitespace and CRLF line endings on the marker line', () => {
+    expect(diffContainsBinaryContent('GIT binary patch  \nliteral 8\n')).toBe(true);
+    expect(
+      diffContainsBinaryContent('diff --git a/x b/x\r\nBinary files a/x and b/x differ\r\n'),
+    ).toBe(true);
+  });
+
+  it('never trips on a diff BODY line quoting a marker — +, -, and context lines all start off column 0', () => {
+    expect(diffContainsBinaryContent('+Binary files a/x and b/x differ\n')).toBe(false);
+    expect(diffContainsBinaryContent('-GIT binary patch\n')).toBe(false);
+    expect(diffContainsBinaryContent(' GIT binary patch\n')).toBe(false);
+  });
+
+  it("never trips on a near-miss spelling — the marker must be the whole line, in git's own casing", () => {
+    expect(diffContainsBinaryContent('git binary patch\n')).toBe(false);
+    expect(diffContainsBinaryContent('GIT binary patches\n')).toBe(false);
+    expect(diffContainsBinaryContent('Binary files a/x and b/x differ in size\n')).toBe(false);
+  });
+});
+
 describe('assessPrDiff conflicting-path detection', () => {
   it('skips the forward apply check when checkConflictPaths is not requested', async () => {
     const exec: CliExec = vi.fn(async (bin) => ({
@@ -4571,6 +4621,90 @@ describe('prHasHoldLabel', () => {
     for (const label of nonHoldLabels) {
       expect(prHasHoldLabel(candidate({ labels: [label.name] }))).toBe(false);
     }
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): the two other
+// narrowing-only guards the auto-merge ritual exports are pinned DIRECTLY
+// here, not only through planPrReview's tier ordering — a future refactor
+// that loosens one (a `>=` turned `>` at gh's files cap, a case-fold or
+// trim on the base name) must trip a test even if planPrReview's ordering
+// still happens to queue the same fixtures for some other reason.
+describe('prTouchedPathsTruncated', () => {
+  const atCap = Array.from({ length: MAX_PR_LIST_FILES }, (_, i) => `docs/note-${i}.md`);
+
+  it("pins gh's files-list cap at 100 — the count `gh pr list --json files` actually stops at", () => {
+    expect(MAX_PR_LIST_FILES).toBe(100);
+  });
+
+  it('is truncated when the confirmed changed-file total exceeds the enumerated paths, and complete when it matches', () => {
+    expect(
+      prTouchedPathsTruncated(candidate({ touchedPaths: ['a.md', 'b.md'], changedFiles: 3 })),
+    ).toBe(true);
+    expect(
+      prTouchedPathsTruncated(candidate({ touchedPaths: ['a.md', 'b.md'], changedFiles: 2 })),
+    ).toBe(false);
+  });
+
+  it('is NOT truncated when the confirmed total is smaller than the enumerated list — the guard asks only whether gh hid paths, never whether its totals agree', () => {
+    expect(
+      prTouchedPathsTruncated(candidate({ touchedPaths: ['a.md', 'b.md'], changedFiles: 1 })),
+    ).toBe(false);
+    expect(prTouchedPathsTruncated(candidate({ touchedPaths: [], changedFiles: 0 }))).toBe(false);
+  });
+
+  it('with no confirmed total, an enumerated list UNDER the cap is complete — gh only truncates at the cap', () => {
+    expect(prTouchedPathsTruncated(candidate({ touchedPaths: ['a.md'] }))).toBe(false);
+    expect(prTouchedPathsTruncated(candidate({ touchedPaths: atCap.slice(0, -1) }))).toBe(false);
+  });
+
+  it('with no confirmed total, an enumerated list AT or past the cap counts as truncated', () => {
+    expect(prTouchedPathsTruncated(candidate({ touchedPaths: atCap }))).toBe(true);
+    expect(prTouchedPathsTruncated(candidate({ touchedPaths: [...atCap, 'docs/extra.md'] }))).toBe(
+      true,
+    );
+  });
+
+  it('treats a fractional, NaN, or negative total as unconfirmed — at the cap it fails closed toward truncated, under the cap it stays complete', () => {
+    for (const garbage of [1.5, Number.NaN, -1]) {
+      expect(
+        prTouchedPathsTruncated(candidate({ touchedPaths: atCap, changedFiles: garbage })),
+      ).toBe(true);
+      expect(
+        prTouchedPathsTruncated(candidate({ touchedPaths: ['a.md'], changedFiles: garbage })),
+      ).toBe(false);
+    }
+  });
+});
+
+describe('prTargetsCanonicalBase', () => {
+  it("pins the canonical base to main — the repo's actual default branch", () => {
+    expect(CANONICAL_BASE_BRANCH).toBe('main');
+  });
+
+  it('is true only for a base gh confirmed as exactly main', () => {
+    expect(prTargetsCanonicalBase(candidate({ baseRefName: 'main' }))).toBe(true);
+    expect(prTargetsCanonicalBase(candidate({ baseRefName: CANONICAL_BASE_BRANCH }))).toBe(true);
+  });
+
+  it('never widens by case-folding or trimming — Main, MAIN, and a padded main are not the canonical branch', () => {
+    for (const near of ['Main', 'MAIN', ' main', 'main ', 'main\n']) {
+      expect(prTargetsCanonicalBase(candidate({ baseRefName: near }))).toBe(false);
+    }
+  });
+
+  it('never widens to a ref-qualified, remote-qualified, or prefix-sharing spelling of main', () => {
+    for (const qualified of ['refs/heads/main', 'origin/main', 'main-2', 'maintenance']) {
+      expect(prTargetsCanonicalBase(candidate({ baseRefName: qualified }))).toBe(false);
+    }
+  });
+
+  it('fails closed on an empty or absent base — the merge path needs a positive verdict, never the absence of a negative one', () => {
+    expect(prTargetsCanonicalBase(candidate({ baseRefName: '' }))).toBe(false);
+    // exactOptionalPropertyTypes forbids an explicit `undefined` override, so
+    // the absent-base candidate is built by dropping the fixture's key.
+    const { baseRefName: _base, ...baseless } = candidate();
+    expect(prTargetsCanonicalBase(baseless)).toBe(false);
   });
 });
 

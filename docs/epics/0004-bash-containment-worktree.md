@@ -111,6 +111,68 @@ otherwise-good work; `90bc1bbe` restored it. The worktree-confinement mechanism
 itself is unchanged — this narrows WHICH directory inside the worktree counts as
 `flightRoot` for a nested target, nothing about the isolation boundary.
 
+Post-completion evolution, continued (2026-09-07 through 2026-09-26). Fleets of up to eight
+lanes now fly one project at once, and the `fly.ts` changes below all come from running that way.
+Where an item amends an earlier claim in this doc, it names that claim.
+
+- **Slice 3's fallback is no longer unconditional.** Slice 3 says a flight "falls back to flying
+  `target` directly if worktree setup ever fails". Since `8779269e` it refuses to start instead
+  when another live flight holds this project's engine lock (`isAnyFlightLockLive`, which skips
+  the flight's own pid). Without a worktree, two flights would run Bash and git in one shared
+  checkout. That is the hazard behind
+  `docs/debriefs/2026-09-07-hard-reset-destroys-uncommitted-work-live.md`, where a concurrent
+  `git reset --hard` discarded another firing's uncommitted edits. `fa17aeb3` put the same
+  sibling-lock guard around the launch-time catch-up and forward fast-forward. `b1edc4f4` then
+  split that guard in two (`flight/lane-freshness.ts`'s `planLaunchSync`). Only the catch-up
+  writes the shared primary checkout, so only the catch-up yields to a live sibling. The forward
+  fast-forward writes nothing but the lane, so it always runs: in a staggered round, every lane
+  after the first had been launching stale.
+- **One sync-back at a time per checkout** (`85b3b52d`, `docs/FAILURE-DOCTRINE.md` row 31).
+  `syncWorktreeBranch` takes `autopilot-sync-back.lock` in the git common dir before it looks at
+  the tree, so a second lane waits instead of reading the first lane's in-progress conflict
+  markers as "uncommitted changes" and refusing. The flight-end sync-back waits up to 15 minutes
+  (`SYNC_BACK_FLIGHT_END_WAIT_MS`) because it is the last chance before a lane's commits strand.
+  The per-firing and launch-time sync-backs are retried later, so they wait 2 minutes. A lock that
+  cannot be taken at all is reported and the sync-back runs unguarded. A sync-back still never
+  throws, which is the contract `fly.ts` relies on.
+- **Only a verified head is published** (`68a7fd06`, `2b518566`, `90534f69`; doctrine rows 34 and
+  38). Slice 3 says each firing's commits are synced onto `target` right after that firing
+  completes. Now that holds only while `flight/lane-head.ts` says a gate has judged the lane's
+  HEAD green. An unverifiable commit or a checkpoint clears that bit, and the per-firing,
+  flight-end and launch catch-up sync-backs all withhold the head until a green firing sets it
+  again. While the bit is clear, the firing gate runs the full test suite rather than the
+  impacted tests (`9be43036`). A head still parked at the next launch is kept under
+  `refs/autopilot/parked/<lane branch>/<sha8>` by `parkAsideWorktreeHead`. The lane branch is then
+  reset onto the shared tip, but only for a clean lane and only after that rescue ref exists, so
+  nothing is lost and the lane flies fresh.
+- **The convergence gate moved into the lane, and the fleet runs one full gate** (amends the
+  2026-08-27 paragraph). The merged head is no longer gated in `target`, the one tree every lane's
+  sync-back rewrites. The lane worktree is fast-forwarded to the merged head and the gate runs
+  there (`68a7fd06`, doctrine row 32). Only the merge-escalation agent still validates in the live
+  checkout, because an in-progress merge exists nowhere else. Per-firing sync-backs are still
+  typecheck-only. At flight end, a solo flight or the last lane still flying runs the full gate,
+  while a lane that ends while a sibling still flies gets the typecheck check (`1d8d93f4`). A
+  flight-end full gate also holds one fleet-wide full-gate slot (`d0b985c9`). The gate is still
+  alarm-only and never blocks or reverts a merge, but its verdicts are stricter now. A green that
+  finishes far faster than its own history is demoted to UNVERIFIABLE (`d08a9be1`). A crashed
+  gate is logged as UNJUDGED, not red (`2b518566`, row 35). A red with a verdict files one
+  high-severity board task per failing check (`d0b985c9`), and a later passing gate closes those
+  tasks (`c095fa74`).
+- **A stranded sync-back gets one more rung, and its task really files** (amends the 2026-09-02
+  paragraph). Before the flight-end sync-back strands, a conflict that survives union merge and
+  rerere replay gets one attempt from the merge-escalation agent. The agent is capped at 15 turns
+  and $3, and its resolution is validated by the full gate (engine wiring `c94472df`). This runs
+  only at the flight-end call site. The `STRANDED SYNC-BACK` task now carries each conflicted
+  file's base, ours and theirs content as its body (`4fc1c0f6`). For three weeks that task never
+  existed at all: it passed `dimension: 'process'`, which the tasks table's CHECK constraint
+  rejects, while the log still said "filed". `2b518566` fixed that (doctrine row 36). The task now
+  waits as `needs_approval` in the operator's inbox instead of queued on the board, where
+  firings kept claiming it as work (`7b9bbd90`).
+
+The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
+guarded path, and both the per-firing and the flight-end sync-back re-snapshot the guard baseline
+after a sanctioned head move.
+
 `docs/FLIGHT-CONTAINMENT.md` and `docs/EVALUATION-2026-08.md` §3.5 name the one honest
 hole left in the containment ladder (SOTA-MAP A4): Bash is not jailed. The PreToolUse
 path guard is a textual filter, not a hard boundary, and the OS-level Bash sandbox is
