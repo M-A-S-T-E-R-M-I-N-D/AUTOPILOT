@@ -15,6 +15,7 @@ import {
   aliasOf,
   tierStats,
   leaderOf,
+  wilsonLower,
   chooseModel,
   routeTaskModel,
   readRoutedFirings,
@@ -86,11 +87,35 @@ describe('tierStats', () => {
   });
 });
 
-describe('leaderOf — the operator rule', () => {
-  it('prefers the cheaper model when its ship rate is within 5 points of the best', () => {
+describe('wilsonLower', () => {
+  it('matches the published Wilson bounds, and is harsher on thin evidence', () => {
+    expect(wilsonLower(16, 16)).toBeCloseTo(0.806, 3);
+    expect(wilsonLower(39, 42)).toBeCloseTo(0.81, 3);
+    expect(wilsonLower(22, 24)).toBeCloseTo(0.742, 3);
+    expect(wilsonLower(0, 0)).toBe(0);
+    // The same rate on more firings is credibly higher.
+    expect(wilsonLower(90, 100)).toBeGreaterThan(wilsonLower(9, 10));
+  });
+});
+
+describe('leaderOf — the operator rule, on evidence', () => {
+  it('prefers the cheaper model when its credible ship rate is within 5 points of the best', () => {
     const stats = new Map([
-      ['fable', arm('claude-fable-5-1', 20, 18, 90)], // 90%, $5.00
-      ['opus', arm('claude-opus-5-5', 20, 17, 51)], // 85%, $3.00
+      ['fable', arm('claude-fable-5-1', 100, 90, 450)], // 90%, $5.00
+      ['opus', arm('claude-opus-5-5', 100, 86, 258)], // 86%, $3.00
+    ]);
+    expect(leaderOf(stats)).toBe('opus');
+  });
+
+  it('does not let a thin perfect record outrank a long near-perfect one (2026-09-26)', () => {
+    // The day's default tier: Fable 16 of 16 at $6.28, Opus 39 of 42 at
+    // $3.41, Sonnet 22 of 24 at $2.81. Raw rates put Opus seven points
+    // behind; the evidence puts it level with Fable, and Sonnet's 24
+    // firings do not yet show it within five.
+    const stats = new Map([
+      ['sonnet', arm('claude-sonnet-5', 24, 22, 61.82)],
+      ['opus', arm('claude-opus-5-5', 42, 39, 132.99)],
+      ['fable', arm('claude-fable-5-1', 16, 16, 100.48)],
     ]);
     expect(leaderOf(stats)).toBe('opus');
   });
@@ -111,7 +136,7 @@ describe('chooseModel', () => {
   ]);
   const measured = new Map([
     ['sonnet', arm('claude-sonnet-5', 40, 28, 90)], // 70%, $3.21
-    ['opus', arm('claude-opus-5-5', 20, 14, 35)], // 70%, $2.50
+    ['opus', arm('claude-opus-5-5', 40, 28, 70)], // 70%, $2.50
   ]);
   const ids = Array.from({ length: 300 }, (_, i) => `web-task-${i}`);
 
