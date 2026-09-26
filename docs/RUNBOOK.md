@@ -671,7 +671,44 @@ finish and gate by hand, or to merge into the flight branch yourself. A
 lane that could not be moved aside (a dirty worktree) prints `⚠ parked
 head stays parked` and waits for you to commit or stash the leftovers.
 
-## 13. Quick reference
+## 13. Social flight weave-in (`AUTOPILOT_SOCIAL_FLIGHT`)
+
+Off by default. Epic 0016 (`docs/epics/0016-github-social-flight.md`) weaves a GitHub social
+pass into an ordinary flight; the toggle is the environment variable read by `fly.ts` at two
+points and decided inside `apps/dashboard/src/flight/social-flight-pass.ts`:
+
+- `AUTOPILOT_SOCIAL_FLIGHT=start` — one pass at takeoff, right before the first firing.
+- `AUTOPILOT_SOCIAL_FLIGHT=end` — one pass with the other end-of-flight sweeps.
+- `AUTOPILOT_SOCIAL_FLIGHT=full` — both (and, once wired, the between-firings pass).
+- Unset, empty, or any other value — `off`. The parser fails closed: a misspelling never turns
+  a pass ON, because an unrecognized value must never be read as permission to speak on GitHub.
+
+**What a pass does today (read-only):** resolves the acting identity (`gh api user` + `gh repo
+view` — the repo owner flies as `maintainer`, anyone else as `user`), inventories its own
+submissions and every open thread, and runs the protocol engine's budget/dedup/role gate over
+the pass's candidate actions. No candidate source is wired yet (deriving candidates from
+mirror-pass findings is its own slice), so the verdict is empty and **nothing is posted** — the
+execute half is deliberately unwired until there is something real to say. Every run prints one
+flight-log line, with the caps visible per epic law 4:
+
+```
+  🗣 social pass (start) as @you [maintainer] on you/repo — 12 own submission(s), 7 open thread(s); caps ≤1 new issue(s), ≤3 comment(s); 0 candidate(s): 0 allowed, 0 queued, 0 duplicate, 0 refused (read-only pass — nothing posted).
+```
+
+**Why it did not run** (the toggle was on, but the log shows a skip instead):
+
+- `skipped: the flown folder is not this engine checkout` — `gh` runs in the engine's own
+  checkout, so a flight over some other folder would speak for THIS repository; the same
+  self-target guard the stale-claim and doc-freshness sweeps carry (§7). Expected, not a fault.
+- `skipped: gh is not connected or not authenticated for this repo` — the identity read came
+  back empty (no `gh`, not logged in, or not a GitHub repo). Connect `gh` (`gh auth login`, or
+  the dashboard's connect screen) and fly again; the pass never guesses at its own identity.
+- No line at all — the toggle is `off` for that phase (e.g. `start` prints nothing at the end).
+
+The pass is best-effort: a `gh` hiccup is logged as a skip and never fails the flight. Not yet
+built: the between-firings (`interval`) hook and the fly-bar toggle in the dashboard.
+
+## 14. Quick reference
 
 | Symptom | Section |
 |---|---|
@@ -687,4 +724,5 @@ head stays parked` and waits for you to commit or stash the leftovers.
 | You want a flight's raw stdout/stderr, or a 🛡️/🔧 chip appeared on a firing | §11 |
 | The Detected-backlog panel proposes a task is already done | §11 |
 | You want to launch an N-way same-folder fleet without lanes colliding on files | §12 |
+| You turned on the GitHub social pass and want to know what it did, or why it skipped | §13 |
 | Anything else | `pnpm dashboard:doctor`, then check `.autopilot-run/dashboard.log` / `.autopilot/flight.log` |

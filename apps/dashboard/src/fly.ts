@@ -221,6 +221,7 @@ import {
   runStaleClaimSweep,
 } from './flight/post-flight-sweeps.js';
 import { runOwnedWorkSweep } from './flight/owned-work-reconcile.js';
+import { runSocialFlightPass } from './flight/social-flight-pass.js';
 import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
 const DEFAULT_FIRINGS = 1;
@@ -1754,6 +1755,15 @@ async function main(): Promise<void> {
       out('  ⇅ takeoff triage skipped (model call failed)');
     }
 
+    // SOCIAL FLIGHT weave-in, start phase (epic 0016 slice 3/6, board
+    // web-mtpzzx7v-72q2dv): behind AUTOPILOT_SOCIAL_FLIGHT=start|full, self-
+    // target guarded, refusing cleanly when gh is not connected — all decided
+    // inside flight/social-flight-pass.ts; unset, it never reaches GitHub.
+    // Read-only in this slice (no candidate source is wired yet) and
+    // best-effort: never fatal to the flight. The end phase runs with the
+    // other end-of-flight sweeps below.
+    await runSocialFlightPass('start', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
+
     const summary = await runLoop(loop, config, { maxIterations: firings });
 
     // Reconciliation safety net: `onFiringComplete` (markTaskDoneIfShipped) already
@@ -2106,6 +2116,9 @@ async function main(): Promise<void> {
     await runClosedTaskAuditSweep(store, projectId, vcs, now);
 
     await runStaleClaimSweep(now, undefined, target);
+
+    // SOCIAL FLIGHT weave-in, end phase — the start phase's twin (see above).
+    await runSocialFlightPass('end', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
 
     runSoulMiningSweep(store, projectId, now);
 

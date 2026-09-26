@@ -27,6 +27,7 @@ import {
   runVerifyBySweep,
   runStaleClaimSweep,
 } from '../../src/flight/post-flight-sweeps.js';
+import { runSocialFlightPass } from '../../src/flight/social-flight-pass.js';
 
 const NOW = Date.parse('2026-09-14T12:00:00.000Z');
 const now = (): number => NOW;
@@ -98,6 +99,22 @@ describe('a flight over a foreign folder never proposes this repository’s own 
     // Not one `gh` call — a claim release is a real write against this
     // repository's pool, and the maintainer is exactly who flies other folders.
     expect(exec).not.toHaveBeenCalled();
+  });
+
+  it('the social flight pass touches no GitHub command when the target is not the engine checkout', async () => {
+    const exec = vi.fn(async () => ({ code: 0, stdout: '{}' }));
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    // Toggle fully ON — the guard, not the toggle, is what stops it.
+    const outcome = await runSocialFlightPass('start', 'full', {
+      exec,
+      target: '/some/other/folder',
+      engineRepo: '/the/engine/repo',
+    });
+    expect(outcome).toMatchObject({ ran: false, reason: 'foreign-target' });
+    // Not one `gh` call — `ghExec` runs in THIS checkout, so even the
+    // identity read would resolve this repository's voice, not the flown one's.
+    expect(exec).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
   it('the lucky roll offers no shortlist for a foreign target — the pool is this repository’s own', () => {
