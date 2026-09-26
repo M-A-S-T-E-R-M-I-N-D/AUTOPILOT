@@ -171,6 +171,36 @@ describe('createIssueTriagePreviewApi', () => {
     expect(() => createIssueTriagePreviewApi('/tmp/unused.db')).not.toThrow();
   });
 
+  it('previews the milestone the execute path will actually set, not silence about it', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-milestone-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-milestone-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo);
+      s.close();
+
+      const exec = issuesExec([
+        {
+          number: 9,
+          title: 'Keyboard nav is broken in the fleet table',
+          body: templated('aria issue'),
+        },
+      ]);
+
+      const plans = await createIssueTriagePreviewApi(dbPath, exec)('p1');
+
+      expect(plans?.[0]?.decision).toMatchObject({ decision: 'accept', milestone: 'V1' });
+      const edit = plans?.[0]?.commands.find((c) => c.args[1] === 'edit');
+      expect(edit?.args).toContain('--milestone');
+      expect(edit?.args).toContain('V1');
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
   it('opens the store read-only — a preview never writes', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-readonly-'));
     try {

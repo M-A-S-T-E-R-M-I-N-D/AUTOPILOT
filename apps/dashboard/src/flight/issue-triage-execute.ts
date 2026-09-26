@@ -33,6 +33,7 @@ import { ghExec } from './gh-exec.js';
 import { parseBacklogTitles } from './backlog.js';
 import {
   fetchOpenIssues,
+  fetchRepoMilestones,
   fetchRepoOwner,
   planIssueTriageBatch,
   runIssueTriageRitual,
@@ -88,7 +89,10 @@ export function createIssueTriagePreviewApi(
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
       const issues = await fetchOpenIssues(exec);
-      const repoOwner = await fetchRepoOwner(exec);
+      const [repoOwner, repoMilestones] = await Promise.all([
+        fetchRepoOwner(exec),
+        fetchRepoMilestones(exec),
+      ]);
       const boardTasks = openBoardTitles(store, projectId);
       const backlogTitles = readProjectBacklogTitles(project.root_path);
       return planIssueTriageBatch(
@@ -98,6 +102,7 @@ export function createIssueTriagePreviewApi(
         undefined,
         undefined,
         repoOwner,
+        repoMilestones,
       );
     } finally {
       store.close();
