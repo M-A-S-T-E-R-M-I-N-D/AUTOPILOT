@@ -19,6 +19,7 @@ import {
   closeResolvedConvergenceRedTasks,
 } from './flight/convergence-red-task.js';
 import { QUOTA_REST_MS, recordModelDrained, routeTaskModel } from './flight/model-scoreboard.js';
+import { ROUND_START_SLACK_MS, gitIn, writeRoundEvaluation } from './flight/round-evaluation.js';
 import {
   openStore,
   migrate,
@@ -2036,6 +2037,22 @@ async function main(): Promise<void> {
           await gateMergedHead(finalSync.details, typecheckConvergedGate);
         } else if (gated) {
           await gateMergedHead(finalSync.details, fullConvergedGateInLane);
+        }
+        // THE ROUND EVALUATES ITSELF (2026-09-27): the lane that ends the
+        // round writes its evaluation — an event always, a docs section
+        // committed with the round when the project wants it
+        // (flight/round-evaluation.ts). Siblings still flying means the
+        // round is not over, so only the last lane writes it.
+        if (!siblingsStillFlying) {
+          writeRoundEvaluation({
+            store,
+            projectId,
+            target,
+            startedAt: flightStartTs - ROUND_START_SLACK_MS,
+            endedAt: now(),
+            git: gitIn(target),
+            out,
+          });
         }
       } else {
         out(`  ⚠ flight-end sync-back still refused: ${finalSync.details}`);

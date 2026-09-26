@@ -1057,6 +1057,10 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // flies on, from recorded outcomes. Skewing it staffs a tier with the
   // wrong model for every lane.
   'flight/model-scoreboard.ts',
+  // THE ROUND EVALUATES ITSELF (2026-09-27): writes into the repo's docs
+  // and commits on the flight branch from inside the flight — a change to
+  // what it writes, or to its clean-checkout check, lands in history.
+  'flight/round-evaluation.ts',
   // PREFLIGHT (2026-09-19): the go/no-go every launch path shares. It
   // decides whether a flight starts at all; weakening it lets a flight
   // launch into the exact states the lane ladder paid for (a dirty

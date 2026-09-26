@@ -89,6 +89,8 @@ script and verified by CI — edit the source, not the file.
   [2026-08-30 the stranded sync-back](EVALUATION-2026-08-30-stranded-syncback.md) ·
   [2026-09-03 sync-back conflict taxonomy](EVALUATION-2026-09-03-sync-conflict-taxonomy.md) ·
   four cockpit-baseline evaluations under [archive/](archive/).
+- [evaluations/README.md](evaluations/README.md) — every round, evaluated by the fleet itself when its last
+  lane ends and committed with the round: outcomes, cost, convergence, the model scoreboard.
 - [debriefs/](debriefs/) — one file per incident or verdict, dated; the raw record the doctrine docs distil.
 - [MUTATION-DEBT.md](MUTATION-DEBT.md) — the standing record behind the per-module Stryker configs and their
   `break: 100` threshold: which mutants still survive, why, and the plan to clear each one.
