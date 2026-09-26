@@ -1702,6 +1702,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .diff-toggle[aria-expanded="true"] { border-color: var(--color-accent); color: var(--color-text); }
 .firing-diff { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding: var(--space-2); border-inline-start: 2px solid var(--color-border); background: var(--color-surface-raised); font-family: var(--font-mono); font-size: var(--text-xs); overflow-x: auto; white-space: pre; }
 .firing-diff-empty { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); }
+.firing-review { margin-block: 0 var(--space-2); font-size: var(--text-xs); }
+.firing-review-head { margin-block: 0 var(--space-1); margin-inline-start: var(--space-3); }
+.firing-review ul { list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.firing-review li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); overflow-wrap: anywhere; }
 /* Designed loading state (COCKPIT 5/6): the "Loading full trace…"/"Loading
    diff…" indicators shipped as bare .muted text with no rule — an undesigned
    loading state that read like any other muted caption. They now share their

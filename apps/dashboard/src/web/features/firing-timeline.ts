@@ -148,6 +148,39 @@ ${diffToggleTip.toString()}
 // controls.
 ${clampReplayStep.toString()}
 ${replayNav.toString()}
+// The commit-time independent review (docs/BACKLOG-999.md C5, board
+// ap-mui7mo5i-1) that FlightEntry.review carries: one summary line — model
+// and finding count, "no findings", or why it was skipped — as a template
+// the locale sweep repaints, then the findings as a list the summary names.
+// The findings are the reviewer's own words: textContent only, no key.
+function firingReviewNode(r, id) {
+  var box = el('div', 'firing-review');
+  var reviewed = r.status === 'reviewed';
+  var n = reviewed ? r.findings.length : 0;
+  var key = !reviewed ? 'reviewSkipped' : n ? 'reviewFindings' : 'reviewClean';
+  var args = reviewed ? { model: r.model, n: n } : { reason: r.reason };
+  var summary = el('p', 'muted firing-review-head', tr(key, args));
+  summary.id = id;
+  summary.setAttribute('data-i18n-template', key);
+  summary.setAttribute('data-i18n-args', JSON.stringify(args));
+  summary.setAttribute('tabindex', '0');
+  summary.setAttribute('data-tip', tr('reviewTip'));
+  summary.setAttribute('data-i18n-tip', 'reviewTip');
+  box.appendChild(summary);
+  if (!n) return box;
+  var list = el('ul', 'firing-detail');
+  list.setAttribute('aria-labelledby', id);
+  for (var j = 0; j < n; j++) {
+    var finding = r.findings[j];
+    var item = el('li');
+    item.appendChild(el('span', 'chip sev-' + finding.severity, finding.severity));
+    if (finding.file) item.appendChild(el('code', null, finding.file));
+    item.appendChild(document.createTextNode(' ' + finding.problem));
+    list.appendChild(item);
+  }
+  box.appendChild(list);
+  return box;
+}
 // The "who did what, when, in which firing" view — one expandable row per
 // firing, newest first, joined against the flight log for its headline.
 function firingTimelineSection(c) {
@@ -274,6 +307,7 @@ function firingTimelineSection(c) {
     headlineDesc.id = headlineDescId;
     wrap.appendChild(headlineDesc);
     if (isOpen) {
+      if (f && f.review) wrap.appendChild(firingReviewNode(f.review, 'firing-review-' + c.id + '-' + i));
       var cacheKey = c.id + ':' + g.firingId;
       var fullTrace = firingActivityExtra[cacheKey];
       // An EMPTY fetched trace must not shadow the entries already in state:
