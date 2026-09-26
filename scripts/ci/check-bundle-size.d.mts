@@ -10,8 +10,10 @@
 
 export const CORE_RAW_BUDGET: number;
 export const CORE_GZIP_BUDGET: number;
-export const CHUNK_RAW_BUDGET: number;
-export const CHUNK_GZIP_BUDGET: number;
+export const PROJECT_RAW_BUDGET: number;
+export const PROJECT_GZIP_BUDGET: number;
+export const PANELS_RAW_BUDGET: number;
+export const PANELS_GZIP_BUDGET: number;
 export const WHATS_NEW_RAW_BUDGET: number;
 export const WHATS_NEW_GZIP_BUDGET: number;
 export const BENCHMARK_RAW_BUDGET: number;

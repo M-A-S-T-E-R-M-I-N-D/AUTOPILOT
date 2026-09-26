@@ -2,21 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * ADR 0012 slice 2a: the per-chunk English placement generator
+ * ADR 0012 slice 2: the per-chunk English placement generator
  * (`web/english-heads.ts`) and the census over the real served chunks. The
- * census holds the ADR's fallback contract before any byte moves (slice 2b):
- * the heads cover `STRINGS.en` exactly once, and no chunk references a key
- * whose English would only arrive in a later chunk — or in one its page
- * never loads (`/project.js` is absent from the home page).
+ * census reads the English each served chunk actually carries (core's
+ * narrowed `STRINGS.en`, the `/project.js` and `/panels.js` heads) and holds
+ * the ADR's fallback contract over it: the three cover `STRINGS.en` exactly
+ * once, and no chunk references a key whose English only arrives in a later
+ * chunk — or in one its page never loads (`/project.js` is absent from the
+ * home page).
  */
 
 import { describe, it, expect } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import {
   englishHeadJs,
-  englishTable,
+  headWithEnglish,
+  narrowCoreEnglish,
+  placeComposedEnglish,
   placeEnglish,
   quotedWords,
+  replaceSplice,
   withoutSplice,
   type ChunkSources,
 } from '../../src/web/english-heads.js';
@@ -93,32 +98,98 @@ describe('englishHeadJs', () => {
   });
 });
 
+describe('narrowCoreEnglish / headWithEnglish', () => {
+  const FULL = JSON.stringify(STRINGS.en);
+
+  it("narrows core's one whole STRINGS.en splice to the given keys", () => {
+    const served = narrowCoreEnglish(`let STRINGS = { en: ${FULL} };`, ['startOver']);
+    expect(served).toBe(
+      `let STRINGS = { en: {"startOver":${JSON.stringify(STRINGS.en.startOver)}} };`,
+    );
+  });
+
+  it('throws when core no longer carries the whole table — a reshaped splice must not ship whole', () => {
+    expect(() => narrowCoreEnglish('let STRINGS = { en: {} };', ['startOver'])).toThrow(
+      /exactly one splice/,
+    );
+  });
+
+  it("keeps `$&`-style patterns in the replacement literal (String.replace would read $' as the tail)", () => {
+    expect(replaceSplice('a-b', '-', "$'")).toBe("a$'b");
+  });
+
+  it('puts the head before the chunk, never after it', () => {
+    expect(headWithEnglish('selfInit();', ['startOver'])).toBe(
+      `${englishHeadJs(['startOver'])}\nselfInit();`,
+    );
+  });
+});
+
+/**
+ * The English one served chunk carries, read off the line that starts with
+ * `prefix` and ends with `suffix`. JSON.stringify never emits a raw newline,
+ * so the table is always that whole line.
+ */
+function servedEnglish(chunk: string, prefix: string, suffix: string): Record<string, string> {
+  const line = chunk.split('\n').find((l) => l.startsWith(prefix)) ?? '';
+  expect(line.endsWith(suffix), `a line ${prefix}…${suffix}`).toBe(true);
+  return JSON.parse(line.slice(prefix.length, line.length - suffix.length)) as Record<
+    string,
+    string
+  >;
+}
+
 describe('census over the served chunks (ADR 0012 fallback contract)', () => {
-  const sources: ChunkSources = {
-    core: withoutSplice(coreClientJs(), JSON.stringify(STRINGS.en)),
+  const served = {
+    core: coreClientJs(),
     project: projectClientJs(),
-    panels: withoutSplice(panelsClientJs(), localeDataJs()),
+    panels: panelsClientJs(),
     whatsNew: whatsNewChunkJs(),
   };
   const keys = Object.keys(STRINGS.en);
-  const placement = placeEnglish(sources);
+  const english = {
+    core: servedEnglish(served.core, 'let STRINGS = { en: ', ' };'),
+    project: servedEnglish(served.project, 'Object.assign(STRINGS.en, ', ');'),
+    panels: servedEnglish(served.panels, 'Object.assign(STRINGS.en, ', ');'),
+  };
+  const coreKeys = Object.keys(english.core);
+  const projectKeys = Object.keys(english.project);
+  const panelsKeys = Object.keys(english.panels);
 
   it('every English key is word-shaped, so the literal scan can see it', () => {
     expect(keys.filter((k) => !/^\w+$/.test(k))).toEqual([]);
   });
 
+  it('each deferred head is its chunk’s first line, before any module self-inits', () => {
+    expect(served.project.startsWith('Object.assign(STRINGS.en, ')).toBe(true);
+    expect(served.panels.startsWith('Object.assign(STRINGS.en, ')).toBe(true);
+  });
+
   it('the core subset and the two heads cover STRINGS.en exactly once', () => {
-    const all = [...placement.core, ...placement.project, ...placement.panels];
+    const all = [...coreKeys, ...projectKeys, ...panelsKeys];
     expect(all.length).toBe(keys.length);
     expect([...all].sort()).toEqual([...keys].sort());
   });
 
-  it('assembled in load order, the core subset and the heads rebuild STRINGS.en', () => {
-    const rebuilt = new Function(
-      `let STRINGS = { en: ${JSON.stringify(englishTable(placement.core))} };\n` +
-        `${englishHeadJs(placement.project)}\n${englishHeadJs(placement.panels)}\nreturn STRINGS.en;`,
-    )();
-    expect(rebuilt).toEqual(STRINGS.en);
+  it('assembled in load order, the served tables rebuild STRINGS.en', () => {
+    expect({ ...english.core, ...english.project, ...english.panels }).toEqual(STRINGS.en);
+  });
+
+  it('serves exactly the placement scanned from the composed chunks', () => {
+    // Undo the byte move to get the chunks as their modules compose them:
+    // the whole table back into core, the heads off the deferred chunks.
+    const composed: ChunkSources = {
+      core: replaceSplice(served.core, JSON.stringify(english.core), JSON.stringify(STRINGS.en)),
+      project: served.project.slice(served.project.indexOf('\n') + 1),
+      panels: served.panels.slice(served.panels.indexOf('\n') + 1),
+      whatsNew: served.whatsNew,
+    };
+    expect(placeComposedEnglish(composed)).toEqual({
+      core: coreKeys,
+      project: projectKeys,
+      panels: panelsKeys,
+    });
+    expect(composed.panels).toContain(localeDataJs());
   });
 
   it('no chunk calls tr() on a key whose English lives later, or in a chunk its page lacks', () => {
@@ -126,27 +197,27 @@ describe('census over the served chunks (ADR 0012 fallback contract)', () => {
     // from quotedWords(): the placement's own scan would pass by construction,
     // while a call its scan failed to see shows up here.
     const own = (list: readonly string[]) => new Set(list);
-    const core = own(placement.core);
-    const onProjectPages = own([...placement.core, ...placement.project]);
-    const onEveryPage = own([...placement.core, ...placement.panels]);
+    const core = own(coreKeys);
+    const onProjectPages = own([...coreKeys, ...projectKeys]);
+    const onEveryPage = own([...coreKeys, ...panelsKeys]);
     const misses = (chunk: string, reachable: ReadonlySet<string>) =>
       trCallKeys(chunk).filter((k) => !reachable.has(k));
-    expect(trCallKeys(sources.core)).toContain('startOverConfirm');
-    expect(trCallKeys(sources.panels)).toContain('connectLoginTip');
-    expect(misses(sources.core, core)).toEqual([]);
-    expect(misses(sources.project, onProjectPages)).toEqual([]);
-    expect(misses(sources.panels, onEveryPage)).toEqual([]);
-    expect(misses(sources.whatsNew, onEveryPage)).toEqual([]);
+    expect(trCallKeys(served.core)).toContain('startOverConfirm');
+    expect(trCallKeys(served.panels)).toContain('connectLoginTip');
+    expect(misses(served.core, core)).toEqual([]);
+    expect(misses(served.project, onProjectPages)).toEqual([]);
+    expect(misses(served.panels, onEveryPage)).toEqual([]);
+    expect(misses(served.whatsNew, onEveryPage)).toEqual([]);
   });
 
-  it('the splices really are left out: core keeps a minority, and both heads carry English', () => {
-    expect(placement.core.length).toBeLessThan(keys.length / 2);
-    expect(placement.project.length).toBeGreaterThan(0);
-    expect(placement.panels.length).toBeGreaterThan(0);
+  it('the bytes really moved: core keeps a minority, and both heads carry English', () => {
+    expect(coreKeys.length).toBeLessThan(keys.length / 2);
+    expect(projectKeys.length).toBeGreaterThan(0);
+    expect(panelsKeys.length).toBeGreaterThan(0);
     // Witnesses: a fleet-card confirm core calls, a project-page panel title,
     // and a key only the server renders.
-    expect(placement.core).toContain('startOverConfirm');
-    expect(placement.project).toContain('coordinationTitle');
-    expect(placement.panels).toContain('skipToFleet');
+    expect(coreKeys).toContain('startOverConfirm');
+    expect(projectKeys).toContain('coordinationTitle');
+    expect(panelsKeys).toContain('skipToFleet');
   });
 });

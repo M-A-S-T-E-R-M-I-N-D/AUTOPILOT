@@ -199,7 +199,12 @@ import { gzipSync } from 'node:zlib';
 // listener, Enter/Space on the keydown handler, two STRINGS.en keys) --
 // measured 268844B raw against the old 268288B line, 556 bytes over. Two KB
 // again, for the margin the entries above keep.
-const CORE_RAW_BUDGET = 264 * 1024;
+// Then core raw 264->226KB (2026-09-26), ADR 0012 slice 2b, the first time
+// this line moves DOWN: English travels with its first caller. Core keeps
+// only the 349 STRINGS.en keys core references; the rest head /project.js
+// and /panels.js (web/english-heads.ts) -- measured 229068B raw, down from
+// 268829B. About two KB of margin, as the entries above keep.
+const CORE_RAW_BUDGET = 226 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -220,7 +225,9 @@ const CORE_RAW_BUDGET = 264 * 1024;
 // raw entry above — measured 80512B, 384 bytes UNDER the old 80896B line,
 // bumped for the reason the 260KB raw entry gives: a margin that thin goes
 // red the moment a sibling lane's core growth merges beside it.
-const CORE_GZIP_BUDGET = 80 * 1024;
+// Then core gzip 80->67KB (2026-09-26), the same ADR 0012 byte move as the
+// raw entry above -- measured 67222B, down from 80502B.
+const CORE_GZIP_BUDGET = 67 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -382,7 +389,15 @@ const CORE_GZIP_BUDGET = 80 * 1024;
 // three keys' Hebrew translations ride the same deferred STRINGS.he splice
 // — measured 207933B raw against the old 207872B budget, 61 bytes over.
 // Gzip (62142B) stays under CHUNK_GZIP_BUDGET untouched.
-const CHUNK_RAW_BUDGET = 204 * 1024;
+// Then SPLIT (2026-09-26), ADR 0012 slice 2b: the shared CHUNK_RAW_BUDGET
+// becomes one line per chunk. English moved out of core: the 191 keys only
+// project code references head /project.js, and the other 478 (with the
+// keys only the server renders) head /panels.js. One shared line raised to
+// fit /panels.js would hand /project.js ~115KB of slack nobody asked for.
+// Measured 118263B raw for /project.js (was 107507B) and 237238B for
+// /panels.js (was 208177B); each line sits about two KB above.
+const PROJECT_RAW_BUDGET = 118 * 1024;
+const PANELS_RAW_BUDGET = 234 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -406,7 +421,11 @@ const CHUNK_RAW_BUDGET = 204 * 1024;
 // only the gzip line moves.
 // Then chunk gzip 60→61KB (2026-09-24) for the same claim-routing strings
 // — measured 60.2KB gzip.
-const CHUNK_GZIP_BUDGET = 61 * 1024;
+// Then SPLIT (2026-09-26), the same ADR 0012 byte move as the raw lines
+// above: measured 31521B gzip for /project.js (was 28433B) and 72310B for
+// /panels.js (was 62209B).
+const PROJECT_GZIP_BUDGET = 32 * 1024;
+const PANELS_GZIP_BUDGET = 72 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
@@ -424,8 +443,10 @@ const BENCHMARK_GZIP_BUDGET = 6 * 1024;
 export {
   CORE_RAW_BUDGET,
   CORE_GZIP_BUDGET,
-  CHUNK_RAW_BUDGET,
-  CHUNK_GZIP_BUDGET,
+  PROJECT_RAW_BUDGET,
+  PROJECT_GZIP_BUDGET,
+  PANELS_RAW_BUDGET,
+  PANELS_GZIP_BUDGET,
   WHATS_NEW_RAW_BUDGET,
   WHATS_NEW_GZIP_BUDGET,
   BENCHMARK_RAW_BUDGET,
@@ -472,15 +493,15 @@ export function checkBundleSize(bundle) {
   const project = measure(
     '/project.js',
     bundle.minifiedProjectJs(),
-    CHUNK_RAW_BUDGET,
-    CHUNK_GZIP_BUDGET,
+    PROJECT_RAW_BUDGET,
+    PROJECT_GZIP_BUDGET,
     errors,
   );
   const panels = measure(
     '/panels.js',
     bundle.minifiedPanelsJs(),
-    CHUNK_RAW_BUDGET,
-    CHUNK_GZIP_BUDGET,
+    PANELS_RAW_BUDGET,
+    PANELS_GZIP_BUDGET,
     errors,
   );
   const whatsNew = measure(

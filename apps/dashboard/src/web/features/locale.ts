@@ -122,6 +122,11 @@
  * executes (by the first fleet tick per the established defer contract), the
  * same graceful-degradation shape `renderFleet`'s `typeof`-guarded deferred
  * calls already use elsewhere in this split.
+ *
+ * ADR 0012 narrows that further: this function still splices the whole of
+ * `STRINGS.en`, but `shell.ts`'s `coreClientJs()` serves only the entries
+ * core references (`web/english-heads.ts`), and `/project.js` and
+ * `/panels.js` each open by widening `STRINGS.en` in place with the rest.
  */
 import { LOCALE_NAMES, RTL_LOCALES, STRINGS } from '@autopilot/tokens';
 

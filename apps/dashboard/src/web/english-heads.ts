@@ -30,11 +30,14 @@
  *   server renders (the client needs their English solely to repaint after
  *   a Hebrew → English switch, and panels rides every page).
  *
- * Slice 2a moves no bytes: nothing serves these heads yet. Slice 2b wires
- * them into `coreClientJs()`/`projectClientJs()`/`panelsClientJs()` with the
- * split budgets; `test/web/english-heads.test.ts` is the census both share.
+ * Slice 2b serves them: `shell.ts`'s chunk composers run the chunks as their
+ * modules compose them through `narrowCoreEnglish()` (core's `STRINGS.en`
+ * splice cut to the core subset) and `headWithEnglish()` (the two deferred
+ * chunks' heads). `test/web/english-heads.test.ts` is the census over the
+ * served result.
  */
 import { STRINGS } from '@autopilot/tokens';
+import { localeDataJs } from './features/locale-data.js';
 
 /** Each served chunk's text, spliced English tables already left out. */
 export interface ChunkSources {
@@ -59,16 +62,23 @@ export function quotedWords(source: string): ReadonlySet<string> {
 }
 
 /**
- * `text` with its one copy of `splice` left out. Throws when `splice` is
- * missing or repeated: a table that changed shape would otherwise stay in
- * the scanned text and silently claim every key for its chunk.
+ * `text` with its one copy of `splice` swapped for `replacement`, by slicing
+ * rather than `String.replace()`, whose replacement string would read
+ * `$&`-style patterns out of the English. Throws when `splice` is missing or
+ * repeated: a table that changed shape would otherwise stay in the scanned
+ * text and silently claim every key for its chunk.
  */
-export function withoutSplice(text: string, splice: string): string {
+export function replaceSplice(text: string, splice: string, replacement: string): string {
   const at = text.indexOf(splice);
   if (at < 0 || text.indexOf(splice, at + 1) >= 0) {
     throw new Error(`english-heads: expected exactly one splice of ${splice.length} chars`);
   }
-  return text.slice(0, at) + text.slice(at + splice.length);
+  return text.slice(0, at) + replacement + text.slice(at + splice.length);
+}
+
+/** `text` with its one copy of `splice` left out (see `replaceSplice()`). */
+export function withoutSplice(text: string, splice: string): string {
+  return replaceSplice(text, splice, '');
 }
 
 /** ADR 0012's placement invariant over the given chunk texts. */
@@ -102,4 +112,36 @@ export function englishTable(keys: readonly string[]): Record<string, string> {
  */
 export function englishHeadJs(keys: readonly string[]): string {
   return `Object.assign(STRINGS.en, ${JSON.stringify(englishTable(keys))});`;
+}
+
+/** The whole of `STRINGS.en` as `features/locale.ts` splices it into core. */
+function fullEnglishSplice(): string {
+  return JSON.stringify(STRINGS.en);
+}
+
+/**
+ * The placement over the chunks as their modules compose them: core's whole
+ * `STRINGS.en` splice and `/panels.js`'s non-English `locale-data.ts` splice
+ * are left out first, since each spells every key.
+ */
+export function placeComposedEnglish(composed: ChunkSources): EnglishPlacement {
+  return placeEnglish({
+    ...composed,
+    core: withoutSplice(composed.core, fullEnglishSplice()),
+    panels: withoutSplice(composed.panels, localeDataJs()),
+  });
+}
+
+/** Core as served: its whole `STRINGS.en` splice narrowed to `keys`. */
+export function narrowCoreEnglish(core: string, keys: readonly string[]): string {
+  return replaceSplice(core, fullEnglishSplice(), JSON.stringify(englishTable(keys)));
+}
+
+/**
+ * `/project.js` or `/panels.js` as served: headed with the English for
+ * `keys`. `/whats-new.js` gets no head; every key it names resolves from
+ * core or the panels head, which both run before it.
+ */
+export function headWithEnglish(chunk: string, keys: readonly string[]): string {
+  return `${englishHeadJs(keys)}\n${chunk}`;
 }

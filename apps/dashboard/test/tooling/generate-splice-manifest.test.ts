@@ -38,12 +38,18 @@ import {
   versionMenuHtml,
   settingsMenuHtml,
   terminalHudHtml,
+  whatsNewChunkJs,
 } from '../../src/web/shell.js';
 import {
   FEATURE_JS_BY_NAME,
   PROJECT_PAGE_FEATURES,
   DEFERRED_OPERATOR_FEATURES,
 } from '../../src/web/chunks.js';
+import {
+  headWithEnglish,
+  narrowCoreEnglish,
+  placeComposedEnglish,
+} from '../../src/web/english-heads.js';
 import { switcherJs } from '../../src/web/features/switcher.js';
 import { activityHeatmapJs } from '../../src/web/features/activity-heatmap.js';
 import { activityJs } from '../../src/web/features/activity.js';
@@ -918,10 +924,12 @@ export function assembler(): string {
     // to web/features/switcher.ts, web/features/connect.ts,
     // web/features/fly.ts, and web/features/search.ts (epic 0002's first
     // four real extractions); shell.ts still calls all four, just via an
-    // import instead of a local declaration.
+    // import instead of a local declaration. composedCoreJs replaced
+    // coreClientJs here in ADR 0012 slice 2b: coreClientJs now narrows that
+    // composed text's English rather than returning a template itself.
     const original = readFileSync(SHELL_TS, 'utf8');
     const discovered = discoverAssemblyFunctionNames(original, SHELL_TS);
-    expect(discovered).toEqual(['fleetJs', 'clientJs', 'coreClientJs', 'renderShell']);
+    expect(discovered).toEqual(['fleetJs', 'clientJs', 'composedCoreJs', 'renderShell']);
   });
 
   it('every function discovered in the real shell.ts is captured by captureAssemblySegments without throwing', () => {
@@ -1260,7 +1268,9 @@ describe('discoverFeatureModules + buildFeatureModulesManifest against the real 
   // ground truth instead of only ever exercising it against hand-written
   // fixtures.
   const original = readFileSync(SHELL_TS, 'utf8');
-  const KNOWN_FUNCTIONS = ['fleetJs', 'clientJs', 'coreClientJs', 'renderShell'];
+  // composedCoreJs, the template assembler behind coreClientJs since ADR 0012
+  // slice 2b, is module-private, so the exported set is three.
+  const KNOWN_FUNCTIONS = ['fleetJs', 'clientJs', 'renderShell'];
 
   it('discovers shell.ts in src/web/ with its full known function list — alongside the two substitution-free assemblers (layout-css.ts, tabs.ts) that became visible once discovery admitted NoSubstitutionTemplateLiteral returns', () => {
     const modules = discoverFeatureModules(SHELL_DIR);
@@ -2209,6 +2219,13 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     // stylesheet, hashed into assetVersion() the same way — never clientJs().
     'benchmarkClientJs',
     'benchmarkCss',
+    // ADR 0012 slice 2b (2026-09-26): the chunk composers pass the composed
+    // chunks through these pure transforms (core's STRINGS.en narrowed, the
+    // deferred chunks headed) — served-chunk assembly, never a splice.
+    'headWithEnglish',
+    'narrowCoreEnglish',
+    'placeComposedEnglish',
+    'EnglishPlacement',
   ]);
 
   it('accounts for every relative-import binding: either discovered as a splice, or a known non-splice exception', () => {
@@ -2603,7 +2620,8 @@ export function assembled(): string {
  * membership data (imported constants, not the composed functions — the
  * reconstruction stays manifest-driven, never comparing clientJs to
  * itself). Requires `nestedOutputs` to already hold every feature fn's
- * output and `fleetJs`.
+ * output and `fleetJs`. ADR 0012's English split then runs over those
+ * reconstructed chunks through the same pure transforms the composers use.
  */
 function setChunkComposerOutputs(nestedOutputs: Map<string, string>): void {
   const chunkJoin = (names: readonly string[]): string =>
@@ -2611,15 +2629,19 @@ function setChunkComposerOutputs(nestedOutputs: Map<string, string>): void {
       .map((n) => nestedOutputs.get((FEATURE_JS_BY_NAME[n] as () => string).name) as string)
       .join('\n');
   const deferred = new Set([...PROJECT_PAGE_FEATURES, ...DEFERRED_OPERATOR_FEATURES]);
-  nestedOutputs.set(
-    'coreClientJs',
-    [
+  const composed = {
+    core: [
       nestedOutputs.get('fleetJs'),
       chunkJoin(Object.keys(FEATURE_JS_BY_NAME).filter((n) => !deferred.has(n))),
     ].join('\n'),
-  );
-  nestedOutputs.set('projectClientJs', chunkJoin(PROJECT_PAGE_FEATURES));
-  nestedOutputs.set('panelsClientJs', chunkJoin(DEFERRED_OPERATOR_FEATURES));
+    project: chunkJoin(PROJECT_PAGE_FEATURES),
+    panels: chunkJoin(DEFERRED_OPERATOR_FEATURES),
+    whatsNew: whatsNewChunkJs(),
+  };
+  const placement = placeComposedEnglish(composed);
+  nestedOutputs.set('coreClientJs', narrowCoreEnglish(composed.core, placement.core));
+  nestedOutputs.set('projectClientJs', headWithEnglish(composed.project, placement.project));
+  nestedOutputs.set('panelsClientJs', headWithEnglish(composed.panels, placement.panels));
 }
 
 describe("reconstructing shell.ts's one remaining bundle-composing function byte-for-byte from segments + slots", () => {
