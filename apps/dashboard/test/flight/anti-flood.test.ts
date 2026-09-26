@@ -278,6 +278,137 @@ describe('withAntiFlood — the wrapper every posting path inherits', () => {
   });
 });
 
+/**
+ * A fake `gh` that pages a thread the way GitHub really does: the issue
+ * comments endpoint lists OLDEST first (ascending id), honours `per_page`
+ * (default 30) and `page`, and takes no sort or direction. The fake above
+ * hands back the whole thread whatever the query says, which is exactly
+ * why a guard reading the thread's HEAD instead of its tail passed.
+ */
+function pagedExec(thread: readonly ThreadMessage[], calls: string[][]): CliExec {
+  return async (bin, args) => {
+    calls.push([bin, ...args]);
+    if (bin === 'gh' && args[0] === 'api' && args[1] === 'user') {
+      return { code: 0, stdout: JSON.stringify({ login: 'M-A-S-T-E-R-M-I-N-D' }) };
+    }
+    if (bin === 'gh' && args[0] === 'api' && String(args[1]).includes('/comments')) {
+      const query = new URLSearchParams(String(args[1]).split('?')[1] ?? '');
+      const perPage = Number(query.get('per_page') ?? 30);
+      const page = Number(query.get('page') ?? 1);
+      const slice = thread.slice((page - 1) * perPage, page * perPage);
+      return {
+        code: 0,
+        stdout: JSON.stringify(
+          slice.map((m) => ({ id: m.id, user: { login: m.author }, body: m.body })),
+        ),
+      };
+    }
+    return { code: 0, stdout: '' };
+  };
+}
+
+/** `count` alternating contributor/maintainer-free chatter, ids 1..count. */
+function chatter(count: number, from = 1): ThreadMessage[] {
+  return Array.from({ length: count }, (_, i) =>
+    msg(from + i, i % 2 === 0 ? 'gabibi555' : 'quiet-one', `contributor note number ${from + i}`),
+  );
+}
+
+/**
+ * EPIC 0019 additive-only law — the flood guard every steward write passes
+ * through (gh-exec.ts). GitHub lists an issue's comments oldest-first, so a
+ * read of `?per_page=20` is the thread's FIRST twenty messages, not its
+ * last: on any thread past twenty comments the guard judged a stale head —
+ * missing a fresh duplicate, or folding a new reply into an old comment
+ * nobody scrolls back to (the message-eating failure its own docstring
+ * ranks worse than the flood).
+ */
+describe('withAntiFlood — judges the thread’s real tail on a long thread (regression)', () => {
+  it('posts normally when our old consecutive pair sits far above the real tail', async () => {
+    const calls: string[][] = [];
+    const thread = [
+      ...chatter(18),
+      msg(19, 'M-A-S-T-E-R-M-I-N-D', 'First maintainer note about the sweep and its scope.'),
+      msg(20, 'M-A-S-T-E-R-M-I-N-D', 'Second maintainer note adding the label rationale.'),
+      ...chatter(10, 21),
+    ];
+    const exec = withAntiFlood(pagedExec(thread, calls));
+
+    await exec('gh', ['issue', 'comment', '16', '--body', UNRELATED]);
+
+    expect(calls.some((c) => c.includes('PATCH'))).toBe(false);
+    expect(calls.some((c) => c[1] === 'issue' && c[2] === 'comment')).toBe(true);
+  });
+
+  it('suppresses a retry of a message posted below the first twenty comments', async () => {
+    const calls: string[][] = [];
+    const notes: string[] = [];
+    const thread = [
+      ...chatter(24),
+      msg(25, 'M-A-S-T-E-R-M-I-N-D', APPROVAL_ORIGINAL),
+      ...chatter(5, 26),
+    ];
+    const exec = withAntiFlood(pagedExec(thread, calls), { onVerdict: (n) => notes.push(n) });
+
+    const run = await exec('gh', ['pr', 'comment', '33', '--body', APPROVAL_RETRY]);
+
+    expect(run.code).toBe(0);
+    expect(calls.some((c) => c[1] === 'pr' && c[2] === 'comment')).toBe(false);
+    expect(notes[0]).toContain('duplicate of comment 25');
+  });
+
+  it('folds into the real last comment when the tail pair spans a page boundary', async () => {
+    const calls: string[][] = [];
+    const thread = [
+      ...chatter(99),
+      msg(100, 'M-A-S-T-E-R-M-I-N-D', 'First maintainer note about the sweep and its scope.'),
+      msg(101, 'M-A-S-T-E-R-M-I-N-D', 'Second maintainer note adding the label rationale.'),
+    ];
+    const exec = withAntiFlood(pagedExec(thread, calls), {
+      now: () => new Date('2026-09-09T00:00:00Z'),
+    });
+
+    await exec('gh', ['issue', 'comment', '16', '--body', UNRELATED]);
+
+    const patch = calls.find((c) => c.includes('PATCH'));
+    expect(patch?.join(' ')).toContain('issues/comments/101');
+    expect(calls.some((c) => c[1] === 'issue' && c[2] === 'comment')).toBe(false);
+  });
+
+  it('fails open rather than judge a thread too long to reach the tail of', async () => {
+    const calls: string[][] = [];
+    const thread = [
+      ...chatter(1_500),
+      msg(1_501, 'M-A-S-T-E-R-M-I-N-D', 'First maintainer note about the sweep and its scope.'),
+      msg(1_502, 'M-A-S-T-E-R-M-I-N-D', 'Second maintainer note adding the label rationale.'),
+    ];
+    const exec = withAntiFlood(pagedExec(thread, calls));
+
+    await exec('gh', ['issue', 'comment', '16', '--body', UNRELATED]);
+
+    expect(calls.some((c) => c.includes('PATCH'))).toBe(false);
+    expect(calls.some((c) => c[1] === 'issue' && c[2] === 'comment')).toBe(true);
+    expect(calls.filter((c) => String(c[2]).includes('/comments')).length).toBeLessThanOrEqual(10);
+  });
+
+  it('fails open when a thread page is not a list', async () => {
+    const calls: string[][] = [];
+    const odd: CliExec = async (bin, args) => {
+      calls.push([bin, ...args]);
+      if (args[0] === 'api' && args[1] === 'user') {
+        return { code: 0, stdout: JSON.stringify({ login: 'M-A-S-T-E-R-M-I-N-D' }) };
+      }
+      if (args[0] === 'api') return { code: 0, stdout: JSON.stringify({ message: 'Moved' }) };
+      return { code: 0, stdout: '' };
+    };
+    const exec = withAntiFlood(odd);
+
+    await exec('gh', ['issue', 'comment', '16', '--body', UNRELATED]);
+
+    expect(calls.some((c) => c[1] === 'issue' && c[2] === 'comment')).toBe(true);
+  });
+});
+
 describe('the guard is wired, not merely written', () => {
   it('is exported from the flight surface the executors import', async () => {
     const mod = await import('../../src/flight/anti-flood.js');

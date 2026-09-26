@@ -59,10 +59,19 @@ export const CONSECUTIVE_CEILING = 2;
  *  overlap to mean anything, so they always pass. */
 export const MIN_COMPARE_LENGTH = 40;
 
-/** How many of a thread's most recent messages the guard reads. A flood
- *  is a tail phenomenon; re-reading a 200-comment epic on every post
- *  would cost more than it saves. */
+/** How many of a thread's most recent messages the guard judges. A flood
+ *  is a tail phenomenon; comparing against a 200-comment epic's whole
+ *  history on every post would cost more than it saves. */
 export const THREAD_TAIL_WINDOW = 20;
+
+/** Comments per page the thread read asks for — GitHub's maximum, so a
+ *  thread under a hundred comments still costs exactly one call. */
+export const THREAD_PAGE_SIZE = 100;
+
+/** Pages read before the guard stops looking for a thread's tail and fails
+ *  open. Ten pages is a thousand comments — past that, no tail is judged
+ *  rather than a wrong one. */
+export const THREAD_MAX_PAGES = 10;
 
 /** One existing message on a thread, as the guard needs to see it. */
 export interface ThreadMessage {
@@ -213,16 +222,36 @@ async function resolveIdentity(exec: CliExec): Promise<string> {
   return user.login;
 }
 
+type RawComment = { id: number; user?: { login?: string }; body?: string };
+
+/**
+ * The thread's last {@link THREAD_TAIL_WINDOW} messages, oldest first.
+ *
+ * GitHub lists an issue's comments OLDEST first (ascending id) and this
+ * endpoint takes no sort or direction, so a single `?per_page=20` read is
+ * the thread's head, not its tail. Judging that head missed a fresh
+ * duplicate on any thread past twenty comments, and could fold a new reply
+ * into an old comment far up the thread where nobody reads it. So the read
+ * pages forward until a short page marks the end, keeping only the window.
+ */
 async function readThreadTail(
   exec: CliExec,
   repo: string,
   target: string,
 ): Promise<readonly ThreadMessage[]> {
-  const raw = (await ghJson(
-    exec,
-    `repos/${repo}/issues/${target}/comments?per_page=${THREAD_TAIL_WINDOW}`,
-  )) as readonly { id: number; user?: { login?: string }; body?: string }[];
-  return raw.map((c) => ({ id: c.id, author: c.user?.login ?? '', body: c.body ?? '' }));
+  let tail: readonly RawComment[] = [];
+  for (let page = 1; page <= THREAD_MAX_PAGES; page += 1) {
+    const raw = await ghJson(
+      exec,
+      `repos/${repo}/issues/${target}/comments?per_page=${THREAD_PAGE_SIZE}&page=${page}`,
+    );
+    if (!Array.isArray(raw)) throw new Error(`gh api comments page ${page} was not a list`);
+    tail = [...tail, ...(raw as readonly RawComment[])].slice(-THREAD_TAIL_WINDOW);
+    if (raw.length < THREAD_PAGE_SIZE) {
+      return tail.map((c) => ({ id: c.id, author: c.user?.login ?? '', body: c.body ?? '' }));
+    }
+  }
+  throw new Error(`thread ${target} runs past ${THREAD_MAX_PAGES} pages; its tail is unread`);
 }
 
 /**
