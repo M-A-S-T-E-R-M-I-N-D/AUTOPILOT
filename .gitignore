@@ -58,6 +58,11 @@ Thumbs.db
 # derived-from-.autopilot/ artifact (see docs/SELF-STUDY/DATASHEET.md)
 docs/SELF-STUDY/dataset/
 
+# README demo frame sequence — `node scripts/docs/record-demo-frames.mjs` writes
+# PNG frames + frames.json here for the (pending) GIF encoder; regenerated from
+# the populated fixture per build, never source (board web-mtnd3yeq-oyprf0)
+docs/screens/demo-frames/
+
 # Logs
 *.log
 npm-debug.log*
