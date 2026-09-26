@@ -23,6 +23,7 @@ export * from './telemetry.js';
 export * from './usage-pool.js';
 export * from './otlp.js';
 export * from './firing.js';
+export * from './commit-review.js';
 export * from './loop.js';
 export * from './landing.js';
 export * from './release.js';

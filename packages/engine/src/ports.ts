@@ -299,7 +299,7 @@ export type CommitReview =
 /**
  * Commit-time independent review — an optional firing capability: without
  * one, the firing simply isn't reviewed. The shipped implementation is
- * `firing.ts`'s `ModelCommitReviewer`.
+ * `commit-review.ts`'s `ModelCommitReviewer`.
  */
 export interface CommitReviewPort {
   review(request: CommitReviewRequest): Promise<CommitReview>;

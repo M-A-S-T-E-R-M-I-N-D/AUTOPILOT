@@ -15,13 +15,8 @@
  */
 
 import { hibernateMinutes, type ResilienceState } from './resilience.js';
-import {
-  runFiring,
-  describeCommitReview,
-  type FiringDeps,
-  type FiringInput,
-  type FiringOutcome,
-} from './firing.js';
+import { runFiring, type FiringDeps, type FiringInput, type FiringOutcome } from './firing.js';
+import { describeCommitReview } from './commit-review.js';
 import type { EngineConfig } from './config.js';
 
 export interface LoopDeps {
