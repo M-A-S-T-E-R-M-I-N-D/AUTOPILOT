@@ -2457,6 +2457,7 @@ function boardViewToggleLabel(btn, view) {
 // each key its own <kbd> and keeps the joiners as text between them.
 var BOARD_KEYS = [
   ['j/k', 'boardKeysMove', 'move'],
+  ['Enter', 'boardKeysOpen', 'open'],
   ['x', 'boardKeysSelect', 'select'],
   ['Shift+j/k', 'boardKeysExtend', 'extend'],
   ['Ctrl+A', 'boardKeysSelectAll', 'select all'],
@@ -2476,6 +2477,9 @@ var BOARD_KEYS = [
 // line) so a change from the keyboard, the pointer or a rebuild converges
 // on one truth. Bulk actions over the set are the epic's slice 4.
 var boardSelected = {};
+// The rows whose read-only detail is open (epic 0026, Enter), by task id —
+// kept here for the same rebuild reason as boardSelected.
+var boardOpen = {};
 function syncBoardSelection(list) {
   var boxes = list.querySelectorAll('[data-task-select]');
   var n = 0;
@@ -2712,6 +2716,12 @@ function tasksSection(c) {
       // audit v2 follow-up: every panel drills down).
       var titleEl = el('span', 'task-title', t.title);
       titleEl.setAttribute('tabindex', '0');
+      // The title is the row's disclosure button (epic 0026, Enter): it
+      // opens the read-only detail built at the end of the row, below.
+      var detailId = 'task-detail-' + t.id;
+      titleEl.setAttribute('role', 'button');
+      titleEl.setAttribute('aria-expanded', String(!!boardOpen[t.id]));
+      titleEl.setAttribute('aria-controls', detailId);
       var titleTipMeta = taskTitleTip(t.at, t.priority, fmtAgo, t.body);
       titleEl.setAttribute('data-tip', titleTipMeta.tip);
       // D1 ATTRIBUTE PAYLOAD (epic 0015): the title's own text already gives
@@ -2879,6 +2889,21 @@ function tasksSection(c) {
         delBtn.setAttribute('aria-label', delTip);
         li.appendChild(delBtn);
       }
+      // The row's read-only detail (epic 0026, Enter): the WHOLE body the
+      // title tip cuts at 240 characters, then the id and age — its own line
+      // under the row, hidden until the title opens it.
+      var detail = el('div', 'task-detail');
+      detail.id = detailId;
+      detail.hidden = !boardOpen[t.id];
+      var bodyText = t.body && String(t.body).trim();
+      var bodyEl = el('p', bodyText ? 'task-detail-body' : 'task-detail-body muted', bodyText || tr('taskDetailEmpty'));
+      if (!bodyText) bodyEl.setAttribute('data-i18n', 'taskDetailEmpty');
+      detail.appendChild(bodyEl);
+      var detailMeta = el('p', 'task-detail-meta muted');
+      detailMeta.appendChild(el('code', null, t.id));
+      detailMeta.appendChild(document.createTextNode(' · ' + taskTitleTip(t.at, t.priority, fmtAgo).tip));
+      detail.appendChild(detailMeta);
+      li.appendChild(detail);
       // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): a
       // heavily-tagged task row can carry the status pill, the title, and
       // several informational chips at once (source/severity/dimension/burn/
@@ -3033,9 +3058,11 @@ wireRoving('.task [tabindex]', '.task');
 // and checks both the row it leaves and the row it lands on, so walking a run
 // with Shift held selects the run. It only ever adds — walking back keeps the
 // run; x unticks one row, Escape clears the lot. At either end of the list it
-// does nothing, as j/k does. Enter and the detail pane the epic doc also lists
-// are separable follow-up slices.
-var BOARD_ACTION_KEYS = { a: '[data-task-approve]', d: '[data-task-done]', x: '[data-task-select]' };
+// does nothing, as j/k does. Enter presses the row's title, which opens its
+// read-only detail (the click listener below) — from anywhere in the row but
+// one of its buttons, which answer Enter natively; Space does it on the title
+// alone, as a button's Space does. The lg split pane stays a follow-up slice.
+var BOARD_ACTION_KEYS = { a: '[data-task-approve]', d: '[data-task-done]', x: '[data-task-select]', Enter: '.task-title', ' ': '.task-title' };
 document.addEventListener('keydown', function (e) {
   var takeAll = e.key === 'a' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
   var extend = e.shiftKey && (e.key === 'J' || e.key === 'K');
@@ -3062,6 +3089,7 @@ document.addEventListener('keydown', function (e) {
     return;
   }
   if (BOARD_ACTION_KEYS[e.key]) {
+    if (e.key === 'Enter' ? e.target.closest('button') : e.key === ' ' && e.target.className !== 'task-title') return;
     var actionBtn = row.querySelector(BOARD_ACTION_KEYS[e.key]);
     if (!actionBtn || actionBtn.disabled) return;
     e.preventDefault();
@@ -3092,6 +3120,25 @@ document.addEventListener('change', function (e) {
   else delete boardSelected[id];
   var list = box.closest('.tasks');
   if (list) syncBoardSelection(list);
+});
+// A row's detail (epic 0026): its title is the disclosure button — a click,
+// or Enter/Space pressing it above, flips the detail it controls and records
+// the row in boardOpen for the next rebuild. The flip claims its click, as
+// the keydown above claims its key, so a second listener cannot flip it
+// back; boardOpen is then read off what the detail shows, the same way
+// syncBoardSelection() reads the set off the boxes.
+document.addEventListener('click', function (e) {
+  var title = e.target && e.target.closest && e.target.closest('.task-title');
+  var detail = title && document.getElementById(title.getAttribute('aria-controls'));
+  if (!detail) return;
+  if (!e.defaultPrevented) {
+    e.preventDefault();
+    detail.hidden = !detail.hidden;
+    title.setAttribute('aria-expanded', String(!detail.hidden));
+  }
+  var id = title.closest('.task').getAttribute('data-task-id');
+  if (detail.hidden) delete boardOpen[id];
+  else boardOpen[id] = true;
 });
 // Task-board actions (event-delegated: they survive live re-renders).
 document.addEventListener('click', function (e) {

@@ -365,7 +365,7 @@ describe('task row select-all (epic 0026 slice 1)', () => {
 
     const legend = document.querySelector('.board-keys') as HTMLElement;
     const keys = [...legend.querySelectorAll('kbd')].map((k) => k.textContent);
-    expect(keys).toEqual(['j', 'k', 'x', 'Shift', 'j', 'k', 'Ctrl', 'A', 'a', 'd', 'Esc']);
+    expect(keys).toEqual(['j', 'k', 'Enter', 'x', 'Shift', 'j', 'k', 'Ctrl', 'A', 'a', 'd', 'Esc']);
     // Ctrl and A are one chord, joined by +; j and k are alternatives, joined by /.
     expect(legend.textContent).toContain('Ctrl+A ' + STRINGS.en.boardKeysSelectAll);
     expect(legend.textContent).toContain('j/k ' + STRINGS.en.boardKeysMove);
