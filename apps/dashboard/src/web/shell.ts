@@ -3630,7 +3630,12 @@ function renderProjectPage(state, pid) {
   // Mirror pass: read-only board↔GitHub reconciliation findings (EPIC 0019
   // S3, VERDICT ap-mtsg3nc0-3 slice (c)) — sits right after KEEPER issue
   // triage, the other project-scoped GitHub-governance preview panel.
-  var mirrorPassEl = cachedPanel(pid, 'mirror-pass', dataKey, function () { return mirrorPassSection(pid); });
+  // Its per-project gate (epic 0019 S3) reads the project's own origin repo
+  // off the fleet state, so the panel can say up front when this checkout is
+  // not the repository gh acts on — and that repo rides the cache key, so a
+  // repointed origin rebuilds the verdict instead of serving the stale one.
+  var mirrorPassKey = dataKey + ':' + (c.githubRepo || '');
+  var mirrorPassEl = cachedPanel(pid, 'mirror-pass', mirrorPassKey, function () { return mirrorPassSection(pid, c.githubRepo); });
   mirrorPassEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'mirror-pass');
   fleet.appendChild(subj(mirrorPassEl, 'keeper'));
   // KEEPER Discussions triage (epic 0007 S8, board web-mtlsiac0-v8rksh): the
