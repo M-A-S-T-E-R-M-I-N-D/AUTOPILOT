@@ -33,6 +33,15 @@ describe('findSecrets', () => {
     ]);
   });
 
+  it('detects an ASCII-armored PGP private key block, whose header ends in BLOCK', () => {
+    // `gpg --armor --export-secret-keys` — one flag away from the public
+    // export docs/SIGNING-KEY.asc is made with.
+    const line = '-----BEGIN' + ' PGP PRIVATE KEY BLOCK-----';
+    expect(findSecrets(line)).toEqual([
+      expect.objectContaining({ line: 1, rule: 'private-key-block' }),
+    ]);
+  });
+
   it('detects an AWS access key id', () => {
     const line = 'AKIA' + 'ABCDEFGHIJKLMNOP';
     expect(findSecrets(line)).toEqual([

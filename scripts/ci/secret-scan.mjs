@@ -18,7 +18,10 @@ const NUL = String.fromCharCode(0);
 
 /** @type {{ id: string, re: RegExp }[]} */
 const RULES = [
-  { id: 'private-key-block', re: /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY-----/ },
+  // `(?: BLOCK)?` covers OpenPGP's armor header (RFC 9580 §6.2), which ends in
+  // "PRIVATE KEY BLOCK" rather than "PRIVATE KEY" — `gpg --export-secret-keys`
+  // is one flag from the public export docs/SIGNING-KEY.asc ships as.
+  { id: 'private-key-block', re: /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY(?: BLOCK)?-----/ },
   { id: 'aws-access-key-id', re: /\bAKIA[0-9A-Z]{16}\b/ },
   { id: 'github-token', re: /\bgh[posru]_[A-Za-z0-9]{36,}\b/ },
   { id: 'github-fine-grained-pat', re: /\bgithub_pat_[A-Za-z0-9_]{22,}\b/ },
