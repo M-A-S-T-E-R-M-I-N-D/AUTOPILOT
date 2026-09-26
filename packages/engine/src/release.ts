@@ -408,14 +408,18 @@ export class InvalidMilestoneTagError extends Error {
 }
 
 /** Minimal VCS capability `executeRelease` needs — implemented by `GitVcs`'s
- *  `commitPaths` + `tag` + `notes` methods (adapters/git.ts). `commitPaths`,
- *  not `commitAll`: the release commit must stay scoped to the paths
- *  `ReleaseWriter.paths()` reports, the same "RITUAL SWEEP fix" scoped-commit
- *  primitive `flight/self-study.ts` and `adapters/remediating-gate.ts`
- *  already rely on for the identical reason. */
+ *  `commitPaths` + `tag` + `verifyTag` + `notes` methods (adapters/git.ts).
+ *  `commitPaths`, not `commitAll`: the release commit must stay scoped to the
+ *  paths `ReleaseWriter.paths()` reports, the same "RITUAL SWEEP fix"
+ *  scoped-commit primitive `flight/self-study.ts` and
+ *  `adapters/remediating-gate.ts` already rely on for the identical reason.
+ *  `verifyTag` reports whether an existing tag carries a signature that
+ *  verifies (`ok`) and by which key, or why not (`details`) — it never
+ *  throws, since an unsigned tag is a fact to report, not a failure. */
 export interface Releasable {
   commitPaths(paths: readonly string[], message: string): Promise<boolean>;
   tag(name: string, message: string): Promise<TagOutcome>;
+  verifyTag(name: string): Promise<TagOutcome>;
   notes(commitish: string, message: string): Promise<TagOutcome>;
 }
 
@@ -479,6 +483,8 @@ export interface ReleaseExecuteResult {
   readonly attestation?: TagOutcome;
   /** Outcome of creating the paired `m<N>` milestone tag at the same commit as `v<semver>` — present only when the caller passed a `milestoneTag` AND the version tag was actually created. Same non-fatal-degradation stance as `attestation`: a milestone tag failure (e.g. it already exists) never flips the overall `ok`/`reason`, since the release itself already succeeded. */
   readonly milestoneTag?: TagOutcome;
+  /** What `git verify-tag` says about the `v<semver>` tag just created (board web-mtq0rtub-jxpptv, FOUNDATION 3/3 — the ritual verifies the signature, it never assumes one): `ok` names the signing key's fingerprint, otherwise `details` says why not — most often that the tag is simply unsigned because `tag.gpgSign` is off. Present only when the tag was actually created; same non-fatal stance as `attestation`, since a release is a release whether or not the operator's key was on this machine. */
+  readonly signature?: TagOutcome;
 }
 
 /**
@@ -492,7 +498,10 @@ export interface ReleaseExecuteResult {
  * caller sees the real version/bump either way, not just on full success. The
  * `git notes` attestation is attempted only once the tag exists, and its
  * outcome rides along under `attestation` without affecting the overall
- * `ok`/`reason` — the release itself already succeeded by that point. A
+ * `ok`/`reason` — the release itself already succeeded by that point. So
+ * does the tag's signature check (`vcs.verifyTag`, under `signature`): git
+ * signs the tag itself when the operator has `tag.gpgSign` on, and the
+ * ritual's job is to verify and report, never to guess. A
  * caller-supplied `milestoneTag` (`docs/RELEASING.md`'s `m<N>` — a human
  * call, since only a human knows whether this release actually completes a
  * milestone's DoD) is tagged at the same HEAD right alongside it, and rides
@@ -538,6 +547,8 @@ export async function executeRelease(
     };
   }
 
+  const signature = await vcs.verifyTag(`v${plan.version}`);
+
   const attestation = await vcs.notes(
     'HEAD',
     buildReleaseAttestation(plan.version, plan.bump, date, subjects),
@@ -555,5 +566,6 @@ export async function executeRelease(
     bump: plan.bump,
     attestation,
     ...(milestoneTagOutcome !== undefined ? { milestoneTag: milestoneTagOutcome } : {}),
+    signature,
   };
 }

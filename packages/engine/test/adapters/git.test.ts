@@ -13,6 +13,7 @@ import {
   parseCommitLogWithRenames,
   parseHunkRanges,
   parseNumstat,
+  readTagSignature,
 } from '../../src/adapters/git.js';
 
 function gitSync(repo: string, args: string[]): string {
@@ -1205,6 +1206,25 @@ describe('GitVcs', () => {
     expect(body).toContain('### Fixed');
   });
 
+  it("verifyTag reports an annotated tag that carries no signature as not signed — honestly and without throwing, the release ritual's `signature` leg (board web-mtq0rtub-jxpptv, FOUNDATION 3/3)", async () => {
+    await vcs.tag('v0.13.0', 'release v0.13.0');
+
+    const result = await vcs.verifyTag('v0.13.0');
+
+    expect(result).toEqual({
+      ok: false,
+      details: "tag 'v0.13.0' is not signed (git config tag.gpgSign true signs the next one)",
+    });
+  });
+
+  it('verifyTag reports failure without throwing when the tag does not exist', async () => {
+    const result = await vcs.verifyTag('v9.9.9');
+
+    expect(result.ok).toBe(false);
+    expect(result.details).toContain('git verify-tag failed');
+    expect(result.details).toContain('not found');
+  });
+
   it('attaches a git-notes attestation to a commit', async () => {
     const head = await vcs.head();
 
@@ -1768,6 +1788,100 @@ describe('describePushFailure', () => {
       true,
     );
     expect(describePushFailure('error: failed to push some refs').nonFastForward).toBe(false);
+  });
+});
+
+describe('readTagSignature', () => {
+  const PRIMARY = '1234567890ABCDEF1234567890ABCDEF12345678';
+  const SUBKEY = 'FEDCBA0987654321FEDCBA0987654321FEDCBA09';
+  /** gpg `--status-fd` lines (GnuPG doc/DETAILS) for one good signature, as
+   *  `git verify-tag --raw` relays them on stderr. VALIDSIG's fields:
+   *  fingerprint, date, timestamp, expiry, version, reserved, pubkey algo,
+   *  hash algo, class, primary-key fingerprint. */
+  const good = (hashAlgo: string, primary = PRIMARY): string =>
+    [
+      '[GNUPG:] NEWSIG',
+      `[GNUPG:] KEY_CONSIDERED ${PRIMARY} 0`,
+      '[GNUPG:] SIG_ID abcdef 2026-09-26 1758844800',
+      '[GNUPG:] GOODSIG 1234567890ABCDEF Operator <op@example.invalid>',
+      `[GNUPG:] VALIDSIG ${SUBKEY} 2026-09-26 1758844800 0 4 0 22 ${hashAlgo} 00${primary ? ` ${primary}` : ''}`,
+      '[GNUPG:] TRUST_ULTIMATE 0 pgp',
+      '',
+    ].join('\n');
+
+  it("names the primary key's fingerprint for one good signature — the one to compare with the independently published fingerprint", () => {
+    expect(readTagSignature('v1.0.0', 0, good('8'))).toEqual({
+      ok: true,
+      details: `tag 'v1.0.0' is signed by ${PRIMARY}`,
+    });
+  });
+
+  it('falls back to the signing fingerprint when VALIDSIG carries no primary-key fingerprint', () => {
+    expect(readTagSignature('v1.0.0', 0, good('8', '')).details).toBe(
+      `tag 'v1.0.0' is signed by ${SUBKEY}`,
+    );
+  });
+
+  it('refuses a good signature made over a weak hash — the same line ci:donate draws for DONATE.asc', () => {
+    expect(readTagSignature('v1.0.0', 0, good('2'))).toEqual({
+      ok: false,
+      details: "tag 'v1.0.0' is signed over SHA-1 — sign it over SHA-256 or stronger",
+    });
+    expect(readTagSignature('v1.0.0', 0, good('1')).details).toContain('MD5');
+    expect(readTagSignature('v1.0.0', 0, good('3')).details).toContain('RIPEMD-160');
+  });
+
+  it('reads git\'s "no signature found" as an unsigned tag, and says how to sign the next one', () => {
+    expect(readTagSignature('v1.0.0', 1, 'error: no signature found\n')).toEqual({
+      ok: false,
+      details: "tag 'v1.0.0' is not signed (git config tag.gpgSign true signs the next one)",
+    });
+  });
+
+  it('names the missing public key when the signature was made by a key this machine does not hold', () => {
+    const raw = [
+      '[GNUPG:] NEWSIG',
+      `[GNUPG:] ERRSIG 1234567890ABCDEF 22 8 00 1758844800 9 ${PRIMARY}`,
+      '[GNUPG:] NO_PUBKEY 1234567890ABCDEF',
+      '',
+    ].join('\n');
+
+    expect(readTagSignature('v1.0.0', 1, raw)).toEqual({
+      ok: false,
+      details:
+        "tag 'v1.0.0' is signed by a key this machine does not hold (gpg: NO_PUBKEY 1234567890ABCDEF)",
+    });
+  });
+
+  it('reports the gpg verdict for a signature that does not verify', () => {
+    const raw = '[GNUPG:] NEWSIG\n[GNUPG:] BADSIG 1234567890ABCDEF Operator <op@example.invalid>\n';
+
+    expect(readTagSignature('v1.0.0', 1, raw)).toEqual({
+      ok: false,
+      details: "tag 'v1.0.0' has a signature that does not verify (gpg reported BADSIG)",
+    });
+    expect(readTagSignature('v1.0.0', 1, '[GNUPG:] REVKEYSIG X Y\n').details).toContain(
+      'REVKEYSIG',
+    );
+  });
+
+  it('treats a verified signature with no gpg status lines (an ssh signature) as signed, quoting the verifier', () => {
+    const raw = 'Good "git" signature for op@example.invalid with ED25519 key SHA256:abc\n';
+
+    expect(readTagSignature('v1.0.0', 0, raw)).toEqual({
+      ok: true,
+      details:
+        'tag \'v1.0.0\' is signed (Good "git" signature for op@example.invalid with ED25519 key SHA256:abc)',
+    });
+    expect(readTagSignature('v1.0.0', 0, '').details).toBe("tag 'v1.0.0' is signed");
+  });
+
+  it('never passes a non-zero exit, even when every status line looks good, and keeps the reason', () => {
+    const result = readTagSignature('v1.0.0', 1, "error: tag 'v1.0.0' not found.\n");
+
+    expect(result.ok).toBe(false);
+    expect(result.details).toBe("git verify-tag failed (exit 1): error: tag 'v1.0.0' not found.");
+    expect(readTagSignature('v1.0.0', 128, good('8')).ok).toBe(false);
   });
 });
 

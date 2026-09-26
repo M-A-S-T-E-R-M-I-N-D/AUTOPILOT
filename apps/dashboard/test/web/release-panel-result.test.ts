@@ -102,6 +102,37 @@ describe('releaseExecuteResult', () => {
     expect(result.className).toBe('release-result release-result-ok');
   });
 
+  it("appends the signature note when the release tag's signature verified (board web-mtq0rtub-jxpptv, FOUNDATION 3/3)", () => {
+    const result = releaseExecuteResult({
+      ok: true,
+      details: 'released v1.3.0 (minor)',
+      signature: {
+        ok: true,
+        details: "tag 'v1.3.0' is signed by 1234567890ABCDEF1234567890ABCDEF12345678",
+      },
+    });
+
+    expect(result.text).toBe(
+      "✓ Released — released v1.3.0 (minor) tag 'v1.3.0' is signed by 1234567890ABCDEF1234567890ABCDEF12345678.",
+    );
+  });
+
+  it('appends a non-fatal note when the release tag is not signed or its signature does not verify', () => {
+    const result = releaseExecuteResult({
+      ok: true,
+      details: 'released v1.3.0 (minor)',
+      signature: {
+        ok: false,
+        details: "tag 'v1.3.0' is not signed (git config tag.gpgSign true signs the next one)",
+      },
+    });
+
+    expect(result.text).toBe(
+      "✓ Released — released v1.3.0 (minor) (note: tag signature unverified — tag 'v1.3.0' is not signed (git config tag.gpgSign true signs the next one))",
+    );
+    expect(result.className).toBe('release-result release-result-ok');
+  });
+
   it('renders a failure message from details', () => {
     const result = releaseExecuteResult({
       ok: false,
