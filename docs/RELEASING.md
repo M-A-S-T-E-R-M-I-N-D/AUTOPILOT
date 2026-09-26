@@ -90,8 +90,14 @@ can check that the tag they build from is the one the operator cut.
   (`signature` on `POST /api/release/execute`) — "signed by <fingerprint>",
   or an honest "tag signature unverified" note naming why (not signed, key
   not held, bad/expired/revoked, or a signature over MD5, SHA-1 or
-  RIPEMD-160 — the same hashes `ci:donate` refuses). The verdict never
-  fails the release: the commit and tag already exist.
+  RIPEMD-160 — the same hashes `ci:donate` refuses). Once
+  `docs/SIGNING-KEY.asc` is published, the ritual also holds the signer to
+  it: it lists the file's one key with `gpg --show-keys` (importing
+  nothing) and a tag signed by any other key — or signed, but not with
+  OpenPGP — is reported "signed by <fingerprint>, not by the key published
+  as docs/SIGNING-KEY.asc"; the same key reads "signed by <fingerprint>,
+  the key published as docs/SIGNING-KEY.asc". The verdict never fails the
+  release: the commit and tag already exist.
 - **Readers** verify the same way, and compare the fingerprint with the one
   published through an independent channel before trusting it:
 
