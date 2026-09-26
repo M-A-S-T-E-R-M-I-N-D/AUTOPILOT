@@ -1408,16 +1408,6 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-detail { flex: 1 1 100%; margin: 0 0 var(--space-1); padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border); }
 .task-detail-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-detail-meta { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
-/* The view header's Status filter (epic 0026 slice 2): Material 3 filter
-   chips over native checkboxes — a wrapping row led by its legend (floated,
-   so it lays out as a row item), each chip a 2rem target with the accent wash
-   the selected rows wear once checked; the note under it counts what shows. */
-.board-filter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-inline-size: 0; margin: 0 0 var(--space-2); padding: 0; border: 0; }
-.board-filter legend { float: inline-start; padding: 0; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
-.board-filter-option { display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: 2rem; padding-inline: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); font-size: var(--text-xs); cursor: pointer; }
-.board-filter-option input { margin: 0; accent-color: var(--color-accent); cursor: pointer; }
-.board-filter-option:has(input:checked) { background: color-mix(in srgb, var(--color-accent) 14%, transparent); border-color: var(--color-accent); }
-.board-filter-note { margin: 0 0 var(--space-2); font-size: var(--text-xs); }
 @media (min-width: 48rem) {
   [data-board-view="columns"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   [data-board-view="columns"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; max-block-size: 72vh; overflow: auto; overscroll-behavior: contain; }

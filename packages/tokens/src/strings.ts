@@ -1042,13 +1042,6 @@ const EN_STRINGS = {
   boardSelected: '{n} selected — Esc clears',
   // A row's read-only detail (epic 0026, Enter) when its task has no body.
   taskDetailEmpty: 'No description.',
-  // The view header's Status filter (epic 0026 slice 2): the fieldset's
-  // legend (each box is labelled by its status word, the taskStatus* keys),
-  // the note a filtered board shows — reordering posts the order the list
-  // shows, so a filtered list gives it up — and the button that clears it.
-  boardFilterStatus: 'Status',
-  boardFilterShowing: 'Showing {n} of {total} — clear the filter to reorder',
-  boardFilterClear: 'Clear filter',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2494,9 +2487,6 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskSelectAria: 'בחירה: {name}',
     boardSelected: '{n} נבחרו — Esc מנקה',
     taskDetailEmpty: 'אין תיאור.',
-    boardFilterStatus: 'סטטוס',
-    boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',
-    boardFilterClear: 'ניקוי המסנן',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

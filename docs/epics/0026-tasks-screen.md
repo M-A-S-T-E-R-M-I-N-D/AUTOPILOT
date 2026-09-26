@@ -30,16 +30,8 @@ view — grouping by status, severity or source, and a filter on each — in the
 query string (`?group=severity&status=queued,done`), since the hash already
 belongs to in-page anchors; it matches tasks against the filters and splits
 them into groups in board-column or reds-first order, never dropping a task
-whose value it does not know. Its first wiring shipped the same day: the Tasks
-card opens with a Status filter — a fieldset of native checkboxes worn as
-Material 3 filter chips, each labelled by its status pill's word. A box
-rewrites the query string in place and rebuilds the list, keeping focus;
-the column heads count what shows; a "Showing n of m" line with a Clear
-button says what is hidden. A filtered list offers no drag or ↑/↓, since
-reordering posts the order the list shows. A hand-typed severity or source
-filter already applies. Still open in slice 2: severity and source boxes,
-the grouping control and counts on its group heads, display options, the
-Focus grouping.
+whose value it does not know. Still open in slice 2: the view header in the
+Tasks card, counts on its group heads, display options, the Focus grouping.
 
 ## The ask
 

@@ -209,13 +209,7 @@ import { gzipSync } from 'node:zlib';
 // suffix, labelKey + 'Tip') that 2b had sent to the /panels.js head, where
 // core's first render can miss them. They come back -- measured 234731B
 // raw, and /panels.js drops from 237238B to 233224B.
-// Then core raw 231->236KB (2026-09-26), epic 0026 slice 2's first wiring:
-// the Tasks card reads its view from the query string -- five task-view.ts
-// functions embedded (2039B unminified), the Status filter fieldset, the
-// "Showing n of m" note with Clear, and their two listeners -- measured
-// 239672B raw against the old 236544B line, 3128 bytes over. About two KB of
-// margin, as the entries above keep.
-const CORE_RAW_BUDGET = 236 * 1024;
+const CORE_RAW_BUDGET = 231 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -240,10 +234,7 @@ const CORE_RAW_BUDGET = 236 * 1024;
 // raw entry above -- measured 67222B, down from 80502B.
 // Then core gzip 67->69KB (2026-09-26), the same slice 2c keys as the raw
 // entry above -- measured 69324B, and /panels.js drops from 72310B to 70864B.
-// Then core gzip 69->70KB (2026-09-26), the same epic 0026 view-header slice
-// as the raw entry above -- measured 70838B against the old 70656B line, 182
-// bytes over.
-const CORE_GZIP_BUDGET = 70 * 1024;
+const CORE_GZIP_BUDGET = 69 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
