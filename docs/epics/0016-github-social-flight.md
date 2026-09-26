@@ -84,6 +84,14 @@ Per pass, mechanically derived — no guesses:
    section in the debrief (what was said/filed/closed, caps consumed).
 6. **tests**: protocol red-team — duplicate-issue temptation fixture, cap
    overflow, role-confusion, answer-for-a-human refusal.
+   _Shipped so far:_ all four fixtures pin the pure protocol engine
+   (`flight/social-pass.ts`'s `planSocialProtocol`): the duplicate-issue
+   temptation (laws 1–2), cap overflow (law 4), role confusion (law 5) and,
+   with the engine's own `askedOf`-vs-acting-login refusal, answer-for-a-human
+   (law 5's second half — a comment whose question was asked of some other
+   human is refused, never posted, its drafted reply left for the human
+   queue; an unknown acting login refuses every addressed question).
+   _Still open:_ red-teaming the I/O half once a candidate source exists.
 
 ## Non-goals
 

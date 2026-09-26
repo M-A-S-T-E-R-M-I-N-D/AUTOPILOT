@@ -30,8 +30,10 @@
  *   4. the pass itself — the read-only inventories ({@link
  *      fetchOwnSubmissions}, {@link fetchOpenThreads}) and the protocol
  *      engine ({@link planSocialProtocol}) over the candidates this call was
- *      handed, with the caps printed in the flight log (epic law 4, "caps
- *      visible in the flight log").
+ *      handed — the resolved login handed along, so a question asked of
+ *      some other human is refused rather than answered in their place
+ *      (epic law 5's second half) — with the caps printed in the flight log
+ *      (epic law 4, "caps visible in the flight log").
  *
  * READ-ONLY BY CONSTRUCTION in this slice: no caller supplies candidates yet
  * (deriving them from mirror-pass findings is its own slice), so
@@ -177,12 +179,15 @@ export async function runSocialFlightPass(
       fetchOwnSubmissions(exec, identity.login),
       fetchOpenThreads(exec),
     ]);
+    // The resolved login rides along so the engine can tell a question asked
+    // of THIS identity from one asked of someone else (law 5's second half).
     const verdict = planSocialProtocol(
       candidates,
       caps,
       ownSubmissions,
       identity.role,
       openThreads,
+      identity.login,
     );
     out(
       `  🗣 social pass (${phase}) as @${identity.login} [${identity.role}] on ` +

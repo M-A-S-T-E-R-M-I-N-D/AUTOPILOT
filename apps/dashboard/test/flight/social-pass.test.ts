@@ -810,6 +810,129 @@ describe('planSocialProtocol', () => {
     expect(verdict.allowed).toEqual([candidates[1]]);
     expect(verdict.queued).toEqual([]);
   });
+
+  // Epic law 5's second half — "never answer FOR a human where a human was
+  // asked" — the slice-6 red-team's answer-for-a-human refusal fixture.
+  it('refuses a comment that would answer a question asked of another human, even as maintainer (law 5, second half)', () => {
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'comment',
+        reasoning: 'answer in place of alice',
+        askedOf: 'alice',
+        issueNumber: 7,
+        body: 'a drafted reply the human queue keeps',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      [],
+      'maintainer',
+      [],
+      'octocat',
+    );
+
+    expect(verdict.refused).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+    expect(verdict.queued).toEqual([]);
+  });
+
+  it('admits a comment whose question was asked of the acting identity itself, ignoring case and a leading @', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'asked of me', askedOf: '@OctoCat', issueNumber: 7, body: 'x' },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      [],
+      'user',
+      [],
+      'octocat',
+    );
+
+    expect(verdict.allowed).toEqual(candidates);
+    expect(verdict.refused).toEqual([]);
+  });
+
+  it('refuses a candidate asked of a human when the acting login is unknown (fail-closed)', () => {
+    const candidates: SocialCandidateAction[] = [
+      {
+        kind: 'comment',
+        reasoning: 'no login to compare',
+        askedOf: 'octocat',
+        issueNumber: 7,
+        body: 'x',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      [],
+      'maintainer',
+    );
+
+    expect(verdict.refused).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
+  });
+
+  it('never refuses a candidate that answers no one in particular, whatever the login', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'general reply', issueNumber: 7, body: 'x' },
+      {
+        kind: 'comment',
+        reasoning: 'blank askedOf is no one',
+        askedOf: '  ',
+        issueNumber: 8,
+        body: 'x',
+      },
+      {
+        kind: 'new-issue',
+        reasoning: 'a filing',
+        title: 'A fresh finding about the docs links',
+        body: 'x',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      [],
+      'user',
+      [],
+      'someone-else',
+    );
+
+    expect(verdict.refused).toEqual([]);
+    expect(verdict.allowed).toEqual(candidates);
+  });
+
+  it('does not count an answer-for-a-human refusal against the comment cap', () => {
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'comment', reasoning: 'for alice', askedOf: 'alice', issueNumber: 7, body: 'x' },
+      {
+        kind: 'comment',
+        reasoning: 'general reply that should still fit the cap',
+        issueNumber: 8,
+        body: 'x',
+      },
+    ];
+
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 1 },
+      [],
+      'maintainer',
+      [],
+      'octocat',
+    );
+
+    expect(verdict.refused).toEqual([candidates[0]]);
+    expect(verdict.allowed).toEqual([candidates[1]]);
+    expect(verdict.queued).toEqual([]);
+  });
 });
 
 describe("resolveSocialIdentity — the viewer's tier rides the identity (#45)", () => {
