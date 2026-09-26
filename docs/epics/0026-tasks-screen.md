@@ -22,14 +22,9 @@ disclosure button (`aria-expanded`, `aria-controls`), and Enter from anywhere
 in the row but its own buttons, Space on the title, or a click opens a
 read-only detail on its own line under the row — the task's whole body (the
 hover tip stops at 240 characters), its id and its age. Open rows survive the
-per-tick rebuild. The legend names it as `Enter` open. The detail then gained
-the task's slices and cost history: a "Firings: N · $X in all" line from the
-store's lifetime tally, then one line per firing the loaded flight log still
-holds, newest first — the flight log's verdict dot, how it ended, the commit
-subject, cost, wall time, age and short sha — and, when the tally is larger
-than that page of the log, a line counting the earlier firings it cannot
-show. Still open in slice 1: the detail as a split pane beside the list from
-`lg`, and the rest of its contents (provenance, the claim).
+per-tick rebuild. The legend names it as `Enter` open. Still open in slice 1:
+the detail as a split pane beside the list from `lg`, and the rest of its
+contents (provenance, slices, cost history, the claim).
 
 ## The ask
 

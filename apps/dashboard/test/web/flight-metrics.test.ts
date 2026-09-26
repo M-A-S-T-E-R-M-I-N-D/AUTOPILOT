@@ -15,7 +15,6 @@ import {
   flightVerdictOf,
   taskMap,
   taskBurnOf,
-  taskFiringHistoryOf,
   taskBudgetSignalOf,
   taskDimensionBudgetSignalOf,
   fleetCacheShareOf,
@@ -140,84 +139,6 @@ describe('taskBurnOf', () => {
   it('returns all-zero burn for null/undefined log', () => {
     expect(taskBurnOf('t4', null)).toEqual({ slices: 0, cost: 0, wallMs: 0 });
     expect(taskBurnOf('t4', undefined)).toEqual({ slices: 0, cost: 0, wallMs: 0 });
-  });
-});
-
-describe('taskFiringHistoryOf', () => {
-  const firing = (item: string, over: Record<string, unknown> = {}) => ({
-    item,
-    at: 1000,
-    sha: null,
-    commitSubject: null,
-    cost: 0,
-    durationMs: 0,
-    shipped: false,
-    gateResult: null,
-    died: null,
-    ...over,
-  });
-
-  it('lists the task’s own firings in log order, each with its verdict, short sha, subject, cost and time', () => {
-    const log = [
-      firing('t1', {
-        at: 3000,
-        sha: 'abcdef0123456',
-        commitSubject: 'feat: the second slice',
-        cost: 1.25,
-        durationMs: 90000,
-        shipped: true,
-      }),
-      firing('other', { cost: 99 }),
-      firing('t1', { at: 1000, cost: 0.5, durationMs: 30000, gateResult: 'reverted' }),
-    ];
-
-    const history = taskFiringHistoryOf({ id: 't1', firingCount: 2, cumulativeCostUsd: 1.75 }, log);
-
-    expect(history.firings).toEqual([
-      {
-        at: 3000,
-        verdict: 'shipped',
-        sha: 'abcdef0',
-        subject: 'feat: the second slice',
-        cost: 1.25,
-        durationMs: 90000,
-      },
-      { at: 1000, verdict: 'reverted', sha: null, subject: null, cost: 0.5, durationMs: 30000 },
-    ]);
-    expect(history.total).toBe(2);
-    expect(history.cost).toBe(1.75);
-    expect(history.earlier).toBe(0);
-  });
-
-  it('heads the list with the lifetime tally and counts the firings older than the loaded log', () => {
-    const history = taskFiringHistoryOf({ id: 't1', firingCount: 7, cumulativeCostUsd: 12.4 }, [
-      firing('t1', { cost: 2 }),
-    ]);
-
-    expect(history.total).toBe(7);
-    expect(history.cost).toBe(12.4);
-    expect(history.firings).toHaveLength(1);
-    expect(history.earlier).toBe(6);
-  });
-
-  it('falls back to the loaded log when the lifetime tally is missing or trails it', () => {
-    const log = [firing('t1', { cost: 1 }), firing('t1', { cost: 0.25 })];
-
-    for (const task of [{ id: 't1' }, { id: 't1', firingCount: 1, cumulativeCostUsd: 1 }]) {
-      const history = taskFiringHistoryOf(task, log);
-      expect(history.total).toBe(2);
-      expect(history.cost).toBe(1.25);
-      expect(history.earlier).toBe(0);
-    }
-  });
-
-  it('is empty for a task no firing claimed, or with no log at all', () => {
-    const none = { total: 0, cost: 0, firings: [], earlier: 0 };
-    expect(taskFiringHistoryOf({ id: 't2' }, [firing('other')])).toEqual(none);
-    expect(taskFiringHistoryOf({ id: 't2', firingCount: 0, cumulativeCostUsd: 0 }, null)).toEqual(
-      none,
-    );
-    expect(taskFiringHistoryOf({ id: 't2' }, undefined)).toEqual(none);
   });
 });
 
