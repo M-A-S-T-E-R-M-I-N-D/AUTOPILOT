@@ -61,10 +61,7 @@ address file lands.
    than MD5, SHA-1 or RIPEMD-160. It reads `docs/SIGNING-KEY.asc` the moment
    it lands, before any address does: anything but one ASCII-armored public
    key block fails, and a private key block fails by name — that key is
-   exposed, not misfiled. The dashboard's funding panel holds the same line
-   in any checkout, gated or not: it shows an address only while
-   `docs/DONATE.asc` signs exactly the text of `docs/donations.json`, and
-   stays hidden otherwise. The check proves only that the committed key
+   exposed, not misfiled. The check proves only that the committed key
    signed; compare its fingerprint with the independently published one
    before you trust it — [`docs/DONATE.md`](DONATE.md#verify-before-you-trust)
    walks a donor through exactly that.

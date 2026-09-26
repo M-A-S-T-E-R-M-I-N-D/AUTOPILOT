@@ -5,9 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   parseDonationEntries,
   createDonationsPreviewApi,
-  extractClearsignedText,
   DONATIONS_FILE_PATH,
-  SIGNED_DONATIONS_FILE_PATH,
   type DonationsReader,
 } from '../../src/flight/donations.js';
 
@@ -65,151 +63,15 @@ describe('parseDonationEntries', () => {
   });
 });
 
-const DONATIONS_JSON = `[\n  { "chain": "btc", "address": "bc1qexampleaddress" }\n]\n`;
-
-// Structure-only stand-in: the dashboard checks the cleartext framing, not
-// the cryptography (ci:donate runs gpg), so the packet is placeholder base64.
-const SIGNATURE_BLOCK = [
-  '-----BEGIN PGP SIGNATURE-----',
-  '',
-  'iHUEARYKAB0WIQRmaXh0dXJlLW9ubHktbm90LWEta2V5AAoJEA==',
-  '=AbCd',
-  '-----END PGP SIGNATURE-----',
-].join('\n');
-
-/** Frames `text` the way `gpg --clearsign` does: dash-escapes lines starting
- *  with "-" or "From ", and drops the file's final line break. */
-function clearsign(text: string, hashHeader = 'Hash: SHA256'): string {
-  const escaped = text
-    .replace(/\n$/, '')
-    .split('\n')
-    .map((line) => (line.startsWith('-') || line.startsWith('From ') ? `- ${line}` : line))
-    .join('\n');
-  return ['-----BEGIN PGP SIGNED MESSAGE-----', hashHeader, '', escaped, SIGNATURE_BLOCK, ''].join(
-    '\n',
-  );
-}
-
-/** A reader serving `files` by path and throwing ENOENT for anything else. */
-function readerOf(files: Record<string, string>): DonationsReader {
-  return vi.fn((path: string) => {
-    const text = files[path];
-    if (text === undefined) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-    return text;
-  });
-}
-
-describe('extractClearsignedText', () => {
-  it('returns the signed text of a well-formed cleartext-signed message', () => {
-    expect(extractClearsignedText(clearsign(DONATIONS_JSON))).toBe(DONATIONS_JSON.trimEnd());
-  });
-
-  it('reverses dash-escaping', () => {
-    const text = '-----BEGIN PGP SIGNATURE-----\nFrom the operator\n-- plain';
-
-    expect(extractClearsignedText(clearsign(text))).toBe(text);
-  });
-
-  it('reads CRLF line endings the same as LF', () => {
-    const armored = clearsign(DONATIONS_JSON).replace(/\n/g, '\r\n');
-
-    expect(extractClearsignedText(armored)).toBe(DONATIONS_JSON.trimEnd());
-  });
-
-  it('refuses unsigned text placed before the BEGIN line or after the END line', () => {
-    expect(extractClearsignedText(`send here instead\n${clearsign(DONATIONS_JSON)}`)).toBeNull();
-    expect(extractClearsignedText(`${clearsign(DONATIONS_JSON)}send here instead\n`)).toBeNull();
-  });
-
-  it('refuses a cleartext armor header other than Hash', () => {
-    expect(extractClearsignedText(clearsign(DONATIONS_JSON, 'Comment: trust me'))).toBeNull();
-  });
-
-  it('accepts a message with no Hash header, which RFC 9580 leaves optional', () => {
-    const armored = clearsign(DONATIONS_JSON).replace('Hash: SHA256\n', '');
-
-    expect(extractClearsignedText(armored)).toBe(DONATIONS_JSON.trimEnd());
-  });
-
-  it('refuses a message with no blank line after the armor headers', () => {
-    const armored = clearsign(DONATIONS_JSON).replace('Hash: SHA256\n\n', 'Hash: SHA256\n');
-
-    expect(extractClearsignedText(armored)).toBeNull();
-  });
-
-  it('refuses a line starting with "-" that is not dash-escaped', () => {
-    const armored = clearsign(DONATIONS_JSON).replace('[', '-[');
-
-    expect(extractClearsignedText(armored)).toBeNull();
-  });
-
-  it('refuses a message with no signature block, or one with no signature data', () => {
-    const unsigned = clearsign(DONATIONS_JSON).split(SIGNATURE_BLOCK)[0] ?? '';
-    const empty = clearsign(DONATIONS_JSON)
-      .replace('iHUEARYKAB0WIQRmaXh0dXJlLW9ubHktbm90LWEta2V5AAoJEA==\n', '')
-      .replace('=AbCd\n', '');
-
-    expect(extractClearsignedText(unsigned)).toBeNull();
-    expect(extractClearsignedText(empty)).toBeNull();
-  });
-
-  it('refuses a signature block carrying another armor line', () => {
-    const armored = clearsign(DONATIONS_JSON).replace('=AbCd', '-----BEGIN PGP SIGNATURE-----');
-
-    expect(extractClearsignedText(armored)).toBeNull();
-  });
-});
-
 describe('createDonationsPreviewApi', () => {
-  it('serves the addresses when docs/DONATE.asc clearsigns exactly docs/donations.json', async () => {
-    const readFile = readerOf({
-      [DONATIONS_FILE_PATH]: DONATIONS_JSON,
-      [SIGNED_DONATIONS_FILE_PATH]: clearsign(DONATIONS_JSON),
-    });
+  it('reads DONATIONS_FILE_PATH by default and parses its JSON', async () => {
+    const readFile: DonationsReader = vi
+      .fn()
+      .mockReturnValue(JSON.stringify([{ chain: 'btc', address: 'bc1qexampleaddress' }]));
     const api = createDonationsPreviewApi(readFile);
 
     expect(await api()).toEqual([{ chain: 'btc', address: 'bc1qexampleaddress' }]);
     expect(readFile).toHaveBeenCalledWith(DONATIONS_FILE_PATH);
-    expect(readFile).toHaveBeenCalledWith(SIGNED_DONATIONS_FILE_PATH);
-  });
-
-  it('ignores the trailing whitespace and line endings an OpenPGP text signature ignores', async () => {
-    const api = createDonationsPreviewApi(
-      readerOf({
-        [DONATIONS_FILE_PATH]: DONATIONS_JSON.replace(/\n/g, ' \r\n'),
-        [SIGNED_DONATIONS_FILE_PATH]: clearsign(DONATIONS_JSON),
-      }),
-    );
-
-    expect(await api()).toEqual([{ chain: 'btc', address: 'bc1qexampleaddress' }]);
-  });
-
-  it('serves nothing when docs/donations.json has no clearsigned copy beside it', async () => {
-    const api = createDonationsPreviewApi(readerOf({ [DONATIONS_FILE_PATH]: DONATIONS_JSON }));
-
-    expect(await api()).toEqual([]);
-  });
-
-  it('serves nothing when an address was edited after the file was signed', async () => {
-    const api = createDonationsPreviewApi(
-      readerOf({
-        [DONATIONS_FILE_PATH]: DONATIONS_JSON.replace('bc1qexample', 'bc1qattacker'),
-        [SIGNED_DONATIONS_FILE_PATH]: clearsign(DONATIONS_JSON),
-      }),
-    );
-
-    expect(await api()).toEqual([]);
-  });
-
-  it('serves nothing when docs/DONATE.asc is not a cleartext-signed message', async () => {
-    const api = createDonationsPreviewApi(
-      readerOf({
-        [DONATIONS_FILE_PATH]: DONATIONS_JSON,
-        [SIGNED_DONATIONS_FILE_PATH]: DONATIONS_JSON,
-      }),
-    );
-
-    expect(await api()).toEqual([]);
   });
 
   it('degrades to an empty list when the file does not exist (the pre-verification default)', async () => {
@@ -222,37 +84,25 @@ describe('createDonationsPreviewApi', () => {
   });
 
   it('degrades to an empty list on invalid JSON instead of throwing', async () => {
-    const api = createDonationsPreviewApi(
-      readerOf({
-        [DONATIONS_FILE_PATH]: 'not json{{{',
-        [SIGNED_DONATIONS_FILE_PATH]: clearsign('not json{{{'),
-      }),
-    );
+    const readFile: DonationsReader = vi.fn().mockReturnValue('not json{{{');
+    const api = createDonationsPreviewApi(readFile);
 
     expect(await api()).toEqual([]);
   });
 
   it('degrades to an empty list when the JSON parses but is not an array', async () => {
-    const notArray = JSON.stringify({ oops: true });
-    const api = createDonationsPreviewApi(
-      readerOf({
-        [DONATIONS_FILE_PATH]: notArray,
-        [SIGNED_DONATIONS_FILE_PATH]: clearsign(notArray),
-      }),
-    );
+    const readFile: DonationsReader = vi.fn().mockReturnValue(JSON.stringify({ oops: true }));
+    const api = createDonationsPreviewApi(readFile);
 
     expect(await api()).toEqual([]);
   });
 
-  it('accepts custom paths for the address file and its clearsigned copy', async () => {
-    const readFile = readerOf({
-      'config/donations.json': DONATIONS_JSON,
-      'config/DONATE.asc': clearsign(DONATIONS_JSON),
-    });
-    const api = createDonationsPreviewApi(readFile, 'config/donations.json', 'config/DONATE.asc');
+  it('accepts a custom path for the injectable reader', async () => {
+    const readFile: DonationsReader = vi.fn().mockReturnValue('[]');
+    const api = createDonationsPreviewApi(readFile, 'config/donations.json');
 
-    expect(await api()).toEqual([{ chain: 'btc', address: 'bc1qexampleaddress' }]);
+    await api();
+
     expect(readFile).toHaveBeenCalledWith('config/donations.json');
-    expect(readFile).toHaveBeenCalledWith('config/DONATE.asc');
   });
 });

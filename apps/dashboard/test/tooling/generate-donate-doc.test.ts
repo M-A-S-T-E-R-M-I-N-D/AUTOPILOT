@@ -18,7 +18,6 @@ import {
   verifySigningKey,
   type GpgResult,
 } from '../../../../scripts/donations/generate-donate-doc.mjs';
-import { extractClearsignedText as dashboardExtractClearsignedText } from '../../src/flight/donations.js';
 
 const BTC_ENTRY = { chain: 'btc', address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' } as const;
 const EVM_ENTRY = {
@@ -183,32 +182,6 @@ describe('extractClearsignedText', () => {
       .replace('=AbCd\n', '');
 
     expect(extractClearsignedText(armored)).toBeNull();
-  });
-
-  // The dashboard's GET /api/donations reads DONATE.asc with its own copy of
-  // this parser (the script imports only what the built dist already had,
-  // since the gate tests before it builds). Both surfaces must reach the same
-  // verdict on every framing, or the panel could show what ci:donate refused.
-  it("reaches the dashboard reader's verdict on every framing", () => {
-    const framings = [
-      clearsign(DONATIONS_JSON),
-      clearsign('-----BEGIN PGP SIGNATURE-----\nFrom the operator\n-- plain'),
-      clearsign(DONATIONS_JSON).replace(/\n/g, '\r\n'),
-      `send here instead\n${clearsign(DONATIONS_JSON)}`,
-      `${clearsign(DONATIONS_JSON)}send here instead\n`,
-      clearsign(DONATIONS_JSON, 'Comment: trust me'),
-      clearsign(DONATIONS_JSON).replace('Hash: SHA256\n', ''),
-      clearsign(DONATIONS_JSON).replace('Hash: SHA256\n\n', 'Hash: SHA256\n'),
-      clearsign(DONATIONS_JSON).replace('[', '-['),
-      clearsign(DONATIONS_JSON).split('-----BEGIN PGP SIGNATURE-----')[0] ?? '',
-      clearsign(DONATIONS_JSON).replace('=AbCd', '-----BEGIN PGP SIGNATURE-----'),
-      DONATIONS_JSON,
-      '',
-    ];
-
-    for (const armored of framings) {
-      expect(extractClearsignedText(armored)).toBe(dashboardExtractClearsignedText(armored));
-    }
   });
 });
 
