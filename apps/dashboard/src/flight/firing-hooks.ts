@@ -20,7 +20,6 @@ import {
   demoteMetricsCompletion,
   isAutoApprovable,
   isAutoApproveOn,
-  recordAutoApproved,
   reconcileShippedTasks,
   type ReconciledTask,
   type Store,
@@ -293,7 +292,8 @@ export function harvestProposals(
         dimension: p.dimension,
         source: p.fromBacklog ? 'backlog' : 'self',
         // Flights skip a needs_approval task until the operator approves it.
-        status: auto ? 'queued' : 'needs_approval',
+        // createTask applies the project's auto mode (store auto-approve.ts).
+        status: 'needs_approval',
         createdAt: Date.now(),
       },
       (message) => out(`    ⚠ ${message}`),
@@ -302,7 +302,6 @@ export function harvestProposals(
       existingTitles.add(title.toLowerCase());
       proposed += 1;
       if (auto) {
-        recordAutoApproved(store, projectId, id, title, Date.now());
         out(`  ✦ proposed task, into the pool on auto mode: ${title}`);
       } else {
         out(`  ✦ proposed task (awaiting your approval on the dashboard): ${title}`);

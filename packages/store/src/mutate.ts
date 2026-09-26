@@ -9,6 +9,7 @@
 
 import type { Store } from './db.js';
 import { DIMENSIONS, type Dimension } from './types.js';
+import { isAutoApprovable, isAutoApproveOn, recordAutoApproved } from './auto-approve.js';
 
 const REPLACEMENT_CHAR = '�';
 
@@ -335,6 +336,16 @@ function isDimension(value: string | null | undefined): value is Dimension {
   return value !== null && value !== undefined && (DIMENSIONS as readonly string[]).includes(value);
 }
 
+/** Whether this project's auto mode takes a proposal with this title into
+ *  the pool. An unreadable setting keeps the proposal waiting. */
+function autoApprovesHere(store: Store, projectId: string, title: string): boolean {
+  try {
+    return isAutoApproveOn(store, projectId) && isAutoApprovable(title);
+  } catch {
+    return false;
+  }
+}
+
 export function createTask(
   store: Store,
   input: CreateTaskInput,
@@ -354,6 +365,13 @@ export function createTask(
       `task dimension '${input.dimension}' is not in the allow-list — filed without a dimension`,
     );
   }
+  // AUTO MODE at the one chokepoint (2026-09-27): every proposal, from a
+  // firing, a post-flight sweep or anything added later, asks for
+  // 'needs_approval' here, so this is where the project's auto mode applies
+  // — and the titles only a person decides keep waiting (auto-approve.ts).
+  const requested = input.status ?? 'queued';
+  const autoApproved =
+    requested === 'needs_approval' && autoApprovesHere(store, input.projectId, title);
   try {
     const info = store.db
       .prepare(
@@ -365,13 +383,16 @@ export function createTask(
         input.projectId,
         title,
         input.body ?? null,
-        input.status ?? 'queued',
+        autoApproved ? 'queued' : requested,
         input.severity ?? null,
         dimension,
         input.source ?? 'dashboard',
         input.createdAt,
         input.createdAt,
       );
+    if (info.changes > 0 && autoApproved) {
+      recordAutoApproved(store, input.projectId, input.id, title, input.createdAt);
+    }
     return info.changes > 0;
   } catch {
     return false; // missing project (FK), duplicate id, or CHECK-rejected value
