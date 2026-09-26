@@ -85,7 +85,6 @@ export const PROJECT_PAGE_FEATURES: readonly string[] = [
   'process-health',
   'release',
   'round-panel',
-  'versions',
 ];
 
 /** Self-initializing operator panels nothing in core calls unguarded —
