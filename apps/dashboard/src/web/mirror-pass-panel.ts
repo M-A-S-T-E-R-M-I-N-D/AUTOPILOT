@@ -350,6 +350,12 @@ export function mirrorPassExecuteResultMessage(
       text: 'Not run — could not resolve your GitHub identity.',
     };
   }
+  if (data.skippedReason === 'repo-mismatch') {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — this project's origin is not the GitHub repo gh is acting on.",
+    };
+  }
   const applied = data.outcomes?.length ?? 0;
   return {
     className: 'mirror-pass-result mirror-pass-result-ok',
@@ -392,6 +398,12 @@ export function mirrorPassDriftExecuteResultMessage(
     return {
       className: 'mirror-pass-result mirror-pass-result-fail',
       text: 'Not run — could not resolve your GitHub identity.',
+    };
+  }
+  if (data.skippedReason === 'repo-mismatch') {
+    return {
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — this project's origin is not the GitHub repo gh is acting on.",
     };
   }
   const filed = data.outcomes?.length ?? 0;

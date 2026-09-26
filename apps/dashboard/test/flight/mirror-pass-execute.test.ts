@@ -2307,3 +2307,119 @@ describe('createMirrorPassPriorityFollowExecuteApi', () => {
     }
   });
 });
+
+/** Wraps `inner` so `git -C <dir> remote get-url origin` answers
+ *  `originUrl` — the project checkout's own remote, which epic 0019 S3's
+ *  per-project gate compares against the repository `gh repo view` resolved.
+ *  Every other call reaches `inner` untouched. */
+function withOrigin(inner: CliExec, originUrl: string): CliExec {
+  return vi.fn(async (bin, args) => {
+    if (bin === 'git' && args[2] === 'remote' && args[3] === 'get-url' && args[4] === 'origin') {
+      return { code: 0, stdout: `${originUrl}\n` };
+    }
+    return inner(bin, args);
+  });
+}
+
+describe('epic 0019 S3 per project — a checkout of another repo is never mirrored through gh', () => {
+  /** One board carrying work for every execute derivation: a landed task
+   *  whose issue is still open (reconcile) and an unsteered one whose issue
+   *  carries a priority label (priority-follow). */
+  function seedBoard(dir: string): string {
+    const dbPath = join(dir, 'a.db');
+    const s = openStore(dbPath);
+    migrate(s);
+    project(s, 'p1', dir);
+    createTask(s, { id: 'github-42', projectId: 'p1', title: 'Landed', createdAt: 100 });
+    setTaskStatus(s, 'github-42', 'done', 200);
+    shipSha(s, 'p1', 'firing-1', 'github-42', 'abc1234');
+    createTask(s, { id: 'github-21', projectId: 'p1', title: 'Not yet steered', createdAt: 100 });
+    s.close();
+    return dbPath;
+  }
+
+  const EXECUTE_APIS = [
+    ['reconcile', createMirrorPassExecuteApi],
+    ['landing-note', createMirrorPassLandingNoteExecuteApi],
+    ['drift', createMirrorPassDriftExecuteApi],
+    ['stale-claim', createMirrorPassStaleClaimExecuteApi],
+    ['priority-follow', createMirrorPassPriorityFollowExecuteApi],
+  ] as const;
+
+  it.each(EXECUTE_APIS)(
+    '%s skips with repo-mismatch and sends no issue call when origin is a different repo',
+    async (_name, createApi) => {
+      const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-repo-mismatch-'));
+      try {
+        const dbPath = seedBoard(dir);
+        const calls: Array<readonly [string, readonly string[]]> = [];
+        const exec = withOrigin(
+          identityIssueViewAndLabelsExec(
+            'octocat',
+            'octocat',
+            { 42: { state: 'open' }, 21: { state: 'open', labels: ['priority: high'] } },
+            calls,
+          ),
+          'https://github.com/someone-else/their-project.git',
+        );
+
+        const report = await createApi(dbPath, exec)('p1');
+
+        expect(report?.skippedReason).toBe('repo-mismatch');
+        expect(report?.outcomes).toEqual([]);
+        // The maintainer of octocat/hello-world is still that repo's
+        // maintainer — but this project is not that repo, so not one issue
+        // is read, closed, commented on or filed through gh's context.
+        expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+        expect(calls.some(([, args]) => args[0] === 'issue')).toBe(false);
+
+        const s2 = openStore(dbPath, { readonly: true });
+        const row = s2.db
+          .prepare('SELECT priority, priority_pinned FROM tasks WHERE id = ?')
+          .get('github-21') as { priority: number | null; priority_pinned: number };
+        s2.close();
+        expect(row).toEqual({ priority: null, priority_pinned: 0 });
+      } finally {
+        cleanupDir(dir);
+      }
+    },
+  );
+
+  it("mirrors as before when origin is gh's own repo, in any URL form or letter case", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-repo-match-'));
+    try {
+      const dbPath = seedBoard(dir);
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = withOrigin(
+        identityAndIssueViewExec('octocat', 'octocat', { 42: 'open' }, calls),
+        'git@github.com:OctoCat/Hello-World.git',
+      );
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(calls).toContainEqual(['gh', ['issue', 'close', '42']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('keeps the single-context behavior when the project has no GitHub origin to compare', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-repo-unknown-'));
+    try {
+      const dbPath = seedBoard(dir);
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = withOrigin(
+        identityAndIssueViewExec('octocat', 'octocat', { 42: 'open' }, calls),
+        'https://gitlab.com/octocat/hello-world.git',
+      );
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(calls).toContainEqual(['gh', ['issue', 'close', '42']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});

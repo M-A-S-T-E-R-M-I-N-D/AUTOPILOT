@@ -207,6 +207,13 @@ describe('mirrorPassExecuteResultMessage', () => {
     });
   });
 
+  it('reports the repo-mismatch skip reason, never as already in sync', () => {
+    expect(mirrorPassExecuteResultMessage(200, { skippedReason: 'repo-mismatch' })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — this project's origin is not the GitHub repo gh is acting on.",
+    });
+  });
+
   it('reports a clean run with real outcomes as ok', () => {
     expect(mirrorPassExecuteResultMessage(200, { outcomes: [{}, {}] })).toEqual({
       className: 'mirror-pass-result mirror-pass-result-ok',
@@ -355,6 +362,13 @@ describe('mirrorPassDriftExecuteResultMessage', () => {
     ).toEqual({
       className: 'mirror-pass-result mirror-pass-result-fail',
       text: 'Not run — could not resolve your GitHub identity.',
+    });
+  });
+
+  it('reports the repo-mismatch skip reason, never as nothing to file', () => {
+    expect(mirrorPassDriftExecuteResultMessage(200, { skippedReason: 'repo-mismatch' })).toEqual({
+      className: 'mirror-pass-result mirror-pass-result-fail',
+      text: "Not run — this project's origin is not the GitHub repo gh is acting on.",
     });
   });
 
