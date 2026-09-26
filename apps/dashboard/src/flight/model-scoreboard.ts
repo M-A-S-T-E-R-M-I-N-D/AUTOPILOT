@@ -19,7 +19,8 @@
  *     the candidates by a stable hash, so every arm gets data on the same
  *     mix of work.
  *   - EXPLOIT once all have: the LEADER is the cheapest per shipped commit
- *     among the candidates whose ship rate is within
+ *     among the candidates whose credible ship rate (the lower end of its
+ *     95% Wilson interval, {@link wilsonLower}) is within
  *     {@link SHIP_RATE_TOLERANCE} of the best. It takes the tier; one task in
  *     {@link WATCH_ONE_IN} still goes to another candidate, so a model that
  *     improves or degrades is seen.
@@ -115,11 +116,41 @@ function costPerShip(s: ArmStats): number {
   return s.shipped === 0 ? Number.POSITIVE_INFINITY : s.costUsd / s.shipped;
 }
 
-/** The leader among fully measured candidates, by the operator's rule. */
+/** z for a two-sided 95% interval. */
+const Z95 = 1.96;
+
+/**
+ * The lower end of the 95% Wilson score interval for an arm's ship rate —
+ * the rate the evidence credibly supports. Wilson, "Probable inference, the
+ * law of succession, and statistical inference", JASA 22 (1927); the
+ * interval Agresti & Coull (1998) and Brown, Cai & DasGupta (2001)
+ * recommend over the plain normal one at small n and rates near 100%,
+ * which is exactly where a thin arm sits.
+ */
+export function wilsonLower(shipped: number, firings: number): number {
+  if (firings === 0) return 0;
+  const p = shipped / firings;
+  const z2 = Z95 * Z95;
+  const denom = 1 + z2 / firings;
+  const centre = p + z2 / (2 * firings);
+  const margin = Z95 * Math.sqrt((p * (1 - p)) / firings + z2 / (4 * firings * firings));
+  return Math.max(0, (centre - margin) / denom);
+}
+
+/**
+ * The leader among fully measured candidates, by the operator's rule —
+ * judged on evidence, not on raw rates (2026-09-26). The raw rule let a
+ * 16-for-16 Fable push Opus (39 of 42) out of the default tier: seven
+ * points apart on paper, indistinguishable in fact, at twice the price.
+ * Each arm's quality is now the lower end of its 95% Wilson interval; the
+ * arms within {@link SHIP_RATE_TOLERANCE} of the best such bound are
+ * eligible, and the cheapest per shipped commit among them leads.
+ */
 export function leaderOf(stats: ReadonlyMap<string, ArmStats>): string {
   const arms = [...stats.entries()];
-  const best = Math.max(...arms.map(([, s]) => shipRate(s)));
-  const eligible = arms.filter(([, s]) => shipRate(s) >= best - SHIP_RATE_TOLERANCE);
+  const credible = (s: ArmStats): number => wilsonLower(s.shipped, s.firings);
+  const best = Math.max(...arms.map(([, s]) => credible(s)));
+  const eligible = arms.filter(([, s]) => credible(s) >= best - SHIP_RATE_TOLERANCE);
   eligible.sort((a, b) => costPerShip(a[1]) - costPerShip(b[1]) || a[0].localeCompare(b[0]));
   return eligible[0]![0];
 }

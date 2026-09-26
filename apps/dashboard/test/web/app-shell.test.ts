@@ -128,6 +128,30 @@ describe('layout-css — mobile-first laws', () => {
     expect(coarse).toContain('font-size: max(1rem, var(--text-sm))');
   });
 
+  it('spaces every row of controls: a flex or grid actions/buttons/controls/toolbar/row container always sets a gap (2026-09-26)', () => {
+    // The operator found two ritual buttons touching: eight such rows laid
+    // controls out as flex with no gap, so every button beyond the first
+    // sat flush against its neighbour. A row of controls without a gap now
+    // fails here instead of reaching the screen.
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+      sel: m[1]!,
+      body: m[2]!,
+    }));
+    const rowClass =
+      /\.([a-z0-9]+(?:-[a-z0-9]+)*-(?:actions|buttons|btns|controls|toolbar|row))(?![a-z0-9-])/g;
+    const names = new Set(rules.flatMap((r) => [...r.sel.matchAll(rowClass)].map((m) => m[1]!)));
+    expect(names.size).toBeGreaterThan(10);
+    const unspaced = [...names].filter((name) => {
+      const own = rules.filter((r) => new RegExp(`\\.${name}(?![a-z0-9-])`).test(r.sel));
+      const body = own.map((r) => r.body).join(';');
+      return (
+        /display:\s*(inline-)?(flex|grid)/.test(body) &&
+        !/(^|[;\s])(column-|row-)?gap\s*:/.test(body)
+      );
+    });
+    expect(unspaced).toEqual([]);
+  });
+
   it('styles the good-first-issues panel — it had no rules at all before epic 0021', () => {
     expect(css).toMatch(
       /\.contributor-issue-list-panel \{[^}]*background: var\(--color-surface-raised\)/,

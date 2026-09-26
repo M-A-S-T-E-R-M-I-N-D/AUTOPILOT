@@ -43,7 +43,7 @@ export const BENCHMARK_STRINGS = {
     empty: 'No firings recorded yet — fly something and it appears here.',
     scoreboard: 'Who flies which work',
     scoreboardNote:
-      'Each tier explores until every model has {min} firings in it; then the cheapest per shipped commit, among models within {tol} points of the best ship rate, leads — and one task in {watch} keeps watching the others.',
+      'Each tier explores until every model has {min} firings in it; then the cheapest per shipped commit, among models whose ship rate is credibly within {tol} points of the best (the low end of a 95% interval, so a short lucky run cannot win), leads — and one task in {watch} keeps watching the others.',
     tier_escalated: 'Hard tasks',
     tier_default: 'Ordinary work',
     tier_mechanical: 'Mechanical chores',
@@ -80,7 +80,7 @@ export const BENCHMARK_STRINGS = {
     empty: 'עוד אין הפעלות רשומות — הטיסו משהו והוא יופיע כאן.',
     scoreboard: 'מי מטיס איזו עבודה',
     scoreboardNote:
-      'כל רמה חוקרת עד שלכל מודל יש בה {min} הפעלות; אז מוביל הזול ביותר לקומיט שנשלח, מבין המודלים שבטווח {tol} נקודות משיעור השליחה הטוב ביותר — ומשימה אחת מכל {watch} ממשיכה לבדוק את האחרים.',
+      'כל רמה חוקרת עד שלכל מודל יש בה {min} הפעלות; אז מוביל הזול ביותר לקומיט שנשלח, מבין המודלים ששיעור השליחה שלהם בטווח {tol} נקודות מהטוב ביותר גם בהערכה זהירה (הקצה התחתון של רווח סמך 95%, כך שרצף מזל קצר לא מנצח) — ומשימה אחת מכל {watch} ממשיכה לבדוק את האחרים.',
     tier_escalated: 'משימות קשות',
     tier_default: 'עבודה רגילה',
     tier_mechanical: 'מטלות מכניות',
