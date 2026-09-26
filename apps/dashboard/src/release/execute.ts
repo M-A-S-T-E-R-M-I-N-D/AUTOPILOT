@@ -9,7 +9,8 @@
  * (`package.json`'s version, `CHANGELOG.md`'s text, the commits since the
  * last release tag) and hands off to the engine's `executeRelease`: plan →
  * write `package.json` + `CHANGELOG.md` → `git commit --signoff` → annotated
- * `git tag`. Refuses (`reason: 'no-op'`) up front, touching nothing, when
+ * `git tag` → `git verify-tag` (the `signature` sub-result, `docs/RELEASING.md`
+ * "Signed tags"). Refuses (`reason: 'no-op'`) up front, touching nothing, when
  * there is no prior tag to diff against or no release-worthy commit since it
  * — the same "nothing to do" stance `planRelease` itself takes.
  *

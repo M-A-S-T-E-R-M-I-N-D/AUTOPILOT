@@ -16,7 +16,7 @@
  * hand-retyping it, so the two copies can no longer drift apart.
  */
 
-/** The optional attestation/milestone-tag sub-results `POST
+/** The optional attestation/milestone-tag/signature sub-results `POST
  *  /api/release/execute` may return alongside the release itself. */
 export interface ReleaseExecuteSubResult {
   readonly ok: boolean;
@@ -24,7 +24,9 @@ export interface ReleaseExecuteSubResult {
 }
 
 /** The shape `releaseExecuteResult` reads off `POST /api/release/execute`'s
- *  JSON response. */
+ *  JSON response. `signature` is what `git verify-tag` said about the new
+ *  tag (board web-mtq0rtub-jxpptv, FOUNDATION 3/3): the signing key's
+ *  fingerprint when it verified, else why not — usually just "not signed". */
 export interface ReleaseExecuteResponse {
   readonly ok: boolean;
   readonly details?: string;
@@ -32,6 +34,7 @@ export interface ReleaseExecuteResponse {
   readonly attestation?: ReleaseExecuteSubResult;
   readonly milestoneTag?: ReleaseExecuteSubResult;
   readonly ghRelease?: ReleaseExecuteSubResult;
+  readonly signature?: ReleaseExecuteSubResult;
 }
 
 /** The `.release-result` element's class + message text for one `POST
@@ -42,9 +45,10 @@ export interface ReleaseExecuteResult {
 }
 
 /** Formats the RELEASE EXECUTE result — on success: "✓ Released — <details>"
- *  plus a non-fatal note when the attestation failed to attach and/or a
- *  milestone-tag note (attached or failed); on failure: "✗ <details or
- *  error>". */
+ *  plus a non-fatal note when the attestation failed to attach, a
+ *  milestone-tag note (attached or failed), a GitHub Release note, and the
+ *  tag-signature verdict (signed by whom, or an unverified note); on
+ *  failure: "✗ <details or error>". */
 export function releaseExecuteResult(
   data: ReleaseExecuteResponse | null | undefined,
 ): ReleaseExecuteResult {
@@ -73,6 +77,12 @@ export function releaseExecuteResult(
       ? ' ' + ghRelease.details + '.'
       : ' (note: GitHub Release not published — ' + ghRelease.details + ')'
     : '';
+  const signature = data!.signature;
+  const signatureNote = signature
+    ? signature.ok
+      ? ' ' + signature.details + '.'
+      : ' (note: tag signature unverified — ' + signature.details + ')'
+    : '';
   return {
     className,
     text:
@@ -80,7 +90,8 @@ export function releaseExecuteResult(
       (data!.details || 'tagged.') +
       attestationNote +
       milestoneNote +
-      ghReleaseNote,
+      ghReleaseNote +
+      signatureNote,
   };
 }
 

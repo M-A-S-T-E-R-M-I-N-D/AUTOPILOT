@@ -221,6 +221,86 @@ function gitFailureReason(result: { readonly stdout: string; readonly stderr: st
   return result.stderr.trim() || result.stdout.trim();
 }
 
+/** gpg status keywords (GnuPG doc/DETAILS) for a signature that is not good.
+ *  `git verify-tag` already exits non-zero on each of them; the keyword is
+ *  kept only so the reason a reader sees names gpg's actual verdict. */
+const REFUSED_SIGNATURE_STATUS = ['BADSIG', 'ERRSIG', 'EXPSIG', 'EXPKEYSIG', 'REVKEYSIG'];
+/** RFC 9580 §9.5 hash algorithm ids too weak to bind a release — the same
+ *  three `scripts/donations/generate-donate-doc.mjs` refuses on DONATE.asc. */
+const WEAK_HASH_ALGORITHMS: Record<string, string> = {
+  '1': 'MD5',
+  '2': 'SHA-1',
+  '3': 'RIPEMD-160',
+};
+const GPG_STATUS_PREFIX = '[GNUPG:] ';
+
+/**
+ * Reads the outcome of `git verify-tag --raw <name>` (board
+ * web-mtq0rtub-jxpptv, FOUNDATION 3/3 — the release ritual verifies the tag
+ * it just made, it never assumes). `--raw` relays gpg's `--status-fd` lines
+ * on stderr in place of the human-readable text, and an unsigned tag is
+ * `error: no signature found` with exit 1 (verified against git 2.46).
+ * Passes only a zero exit — git itself exits non-zero for a bad, expired,
+ * revoked or unknown-key signature — and then still refuses a signature made
+ * over MD5, SHA-1 or RIPEMD-160, the same line `ci:donate` draws. Names the
+ * primary key's fingerprint (VALIDSIG's last field) so the operator can
+ * compare it with the one published through an independent channel; a
+ * verified signature that carries no gpg status (an ssh signature) quotes
+ * the verifier's first line instead.
+ */
+export function readTagSignature(
+  name: string,
+  exitCode: number,
+  rawStatus: string,
+): CreateTagResult {
+  const lines = rawStatus.split(/\r?\n/);
+  const records = lines
+    .filter((line) => line.startsWith(GPG_STATUS_PREFIX))
+    .map((line) => line.slice(GPG_STATUS_PREFIX.length).split(' '));
+
+  if (exitCode !== 0) {
+    if (rawStatus.includes('no signature found')) {
+      return {
+        ok: false,
+        details: `tag '${name}' is not signed (git config tag.gpgSign true signs the next one)`,
+      };
+    }
+    const missingKey = records.find(([keyword]) => keyword === 'NO_PUBKEY');
+    if (missingKey) {
+      return {
+        ok: false,
+        details: `tag '${name}' is signed by a key this machine does not hold (gpg: NO_PUBKEY ${missingKey[1] ?? '?'})`,
+      };
+    }
+    const refused = records.find(([keyword]) => REFUSED_SIGNATURE_STATUS.includes(keyword ?? ''));
+    if (refused) {
+      return {
+        ok: false,
+        details: `tag '${name}' has a signature that does not verify (gpg reported ${refused[0]})`,
+      };
+    }
+    return { ok: false, details: `git verify-tag failed (exit ${exitCode}): ${rawStatus.trim()}` };
+  }
+
+  const valid = records.find(([keyword]) => keyword === 'VALIDSIG');
+  if (!valid) {
+    const firstLine = lines.find((line) => line.trim() !== '')?.trim();
+    return {
+      ok: true,
+      details: `tag '${name}' is signed${firstLine ? ` (${firstLine})` : ''}`,
+    };
+  }
+  const weakHash = WEAK_HASH_ALGORITHMS[valid[8] ?? ''];
+  if (weakHash) {
+    return {
+      ok: false,
+      details: `tag '${name}' is signed over ${weakHash} — sign it over SHA-256 or stronger`,
+    };
+  }
+  const signer = valid[10] || valid[1] || 'an unnamed key';
+  return { ok: true, details: `tag '${name}' is signed by ${signer}` };
+}
+
 /** Runs `run` with `message` written to a throwaway temp file, passing that
  *  file's path through instead of the message text itself — `git tag -F
  *  <file>`/`git notes add -F <file>` read the message from disk instead of
@@ -1021,6 +1101,22 @@ export class GitVcs implements VcsPort {
     }
 
     return { ok: true, details: `created annotated tag '${name}' at HEAD` };
+  }
+
+  /**
+   * Verifies the signature on an existing tag (`git verify-tag --raw`) and
+   * reports it, never throws — board web-mtq0rtub-jxpptv, FOUNDATION 3/3,
+   * `docs/RELEASING.md`'s "Signed tags". `release.ts`'s `executeRelease`
+   * calls this on the `v<semver>` tag it just created, so the RELEASE panel
+   * says whether the tag is signed and by which key. Signing needs no code
+   * of its own: `tag` above runs `git tag -a`, which git signs whenever
+   * `tag.gpgSign` is true and `user.signingkey` names the operator's key —
+   * so an unsigned tag here is a configuration fact, reported as one. See
+   * {@link readTagSignature} for exactly what passes.
+   */
+  async verifyTag(name: string): Promise<CreateTagResult> {
+    const verify = await git(this.repo, ['verify-tag', '--raw', name]);
+    return readTagSignature(name, verify.exitCode, verify.stderr);
   }
 
   /**

@@ -169,6 +169,13 @@ describe('createReleaseExecuteApi', () => {
         version: '1.0.1',
         bump: 'patch',
         attestation: { ok: true, details: "attached a note to 'HEAD'" },
+        // The test repo signs nothing (commit.gpgsign false, no tag.gpgSign),
+        // so the ritual's verify leg reports the tag as unsigned — honestly,
+        // and without failing the release (board web-mtq0rtub-jxpptv).
+        signature: {
+          ok: false,
+          details: "tag 'v1.0.1' is not signed (git config tag.gpgSign true signs the next one)",
+        },
       });
 
       const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
@@ -222,6 +229,10 @@ describe('createReleaseExecuteApi', () => {
         version: '1.0.1',
         bump: 'patch',
         attestation: { ok: true, details: "attached a note to 'HEAD'" },
+        signature: {
+          ok: false,
+          details: "tag 'v1.0.1' is not signed (git config tag.gpgSign true signs the next one)",
+        },
       });
 
       const lastSubject = gitSync(repo, ['log', '-1', '--format=%s']);

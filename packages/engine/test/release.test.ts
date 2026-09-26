@@ -435,21 +435,26 @@ function fakeWriter(): { writer: ReleaseWriter; versions: string[]; changelogs: 
   };
 }
 
+const UNSIGNED: TagOutcome = { ok: false, details: 'tag is not signed' };
+
 function fakeVcs(
   tagResult: TagOutcome,
   notesResult: TagOutcome = { ok: true, details: 'attached a note' },
   milestoneTagResult: TagOutcome = tagResult,
+  verifyTagResult: TagOutcome = UNSIGNED,
 ): {
   vcs: Releasable;
   commitCalls: string[];
   commitPathsCalls: Array<readonly string[]>;
   tagCalls: Array<[string, string]>;
   notesCalls: Array<[string, string]>;
+  verifyTagCalls: string[];
 } {
   const commitCalls: string[] = [];
   const commitPathsCalls: Array<readonly string[]> = [];
   const tagCalls: Array<[string, string]> = [];
   const notesCalls: Array<[string, string]> = [];
+  const verifyTagCalls: string[] = [];
   return {
     vcs: {
       commitPaths: (paths, message) => {
@@ -469,11 +474,16 @@ function fakeVcs(
         notesCalls.push([commitish, message]);
         return Promise.resolve(notesResult);
       },
+      verifyTag: (name) => {
+        verifyTagCalls.push(name);
+        return Promise.resolve(verifyTagResult);
+      },
     },
     commitCalls,
     commitPathsCalls,
     tagCalls,
     notesCalls,
+    verifyTagCalls,
   };
 }
 
@@ -528,6 +538,7 @@ describe('executeRelease', () => {
       version: '0.12.4',
       bump: 'patch',
       attestation: { ok: true, details: 'attached a note' },
+      signature: UNSIGNED,
     });
     expect(versions).toEqual(['0.12.4']);
     expect(changelogs).toEqual([
@@ -568,7 +579,7 @@ describe('executeRelease', () => {
 
   it('writes and commits BEFORE tagging, so a tag failure still reports the real version/bump', async () => {
     const { writer } = fakeWriter();
-    const { vcs, commitCalls, notesCalls } = fakeVcs({
+    const { vcs, commitCalls, notesCalls, verifyTagCalls } = fakeVcs({
       ok: false,
       details: "tag 'v0.12.4' already exists",
     });
@@ -593,6 +604,60 @@ describe('executeRelease', () => {
     expect(commitCalls).toEqual(['chore(release): v0.12.4']);
     // no tag means nothing to attest to yet
     expect(notesCalls).toHaveLength(0);
+    // ...and no signature to verify either — the key must be absent, not
+    // merely `undefined`, same as `milestoneTag` below.
+    expect(verifyTagCalls).toHaveLength(0);
+    expect(result).not.toHaveProperty('signature');
+  });
+
+  it("verifies the new version tag's signature and reports it under `signature` (board web-mtq0rtub-jxpptv, FOUNDATION 3/3 — the ritual verifies, it never assumes)", async () => {
+    const { writer } = fakeWriter();
+    const { vcs, verifyTagCalls } = fakeVcs(
+      { ok: true, details: 'created' },
+      undefined,
+      undefined,
+      { ok: true, details: "tag 'v0.12.4' is signed by 1234567890ABCDEF1234567890ABCDEF12345678" },
+    );
+
+    const result = await executeRelease(
+      '0.12.3',
+      changelog,
+      ['feat: a thing'],
+      '2026-08-12',
+      writer,
+      vcs,
+    );
+
+    expect(verifyTagCalls).toEqual(['v0.12.4']);
+    expect(result.ok).toBe(true);
+    expect(result.signature).toEqual({
+      ok: true,
+      details: "tag 'v0.12.4' is signed by 1234567890ABCDEF1234567890ABCDEF12345678",
+    });
+  });
+
+  it('an unsigned or unverifiable tag rides along as a non-fatal `signature` note — the release itself already succeeded', async () => {
+    const { writer } = fakeWriter();
+    const { vcs } = fakeVcs({ ok: true, details: 'created' }, undefined, undefined, {
+      ok: false,
+      details: "tag 'v0.12.4' is not signed (git config tag.gpgSign true signs the next one)",
+    });
+
+    const result = await executeRelease(
+      '0.12.3',
+      changelog,
+      ['feat: a thing'],
+      '2026-08-12',
+      writer,
+      vcs,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.reason).toBe('released');
+    expect(result.signature).toEqual({
+      ok: false,
+      details: "tag 'v0.12.4' is not signed (git config tag.gpgSign true signs the next one)",
+    });
   });
 
   it('pluralizes the attestation commit count for more than one subject', async () => {
