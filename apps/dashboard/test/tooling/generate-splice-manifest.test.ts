@@ -1267,6 +1267,8 @@ describe('discoverFeatureModules + buildFeatureModulesManifest against the real 
     const byFile = new Map(modules.map((m) => [m.filePath, m.functionNames]));
     expect(byFile.get(SHELL_TS)).toEqual(KNOWN_FUNCTIONS);
     expect([...byFile.keys()].map((p) => path.basename(p)).sort()).toEqual([
+      // ADR 0012's englishHeadJs: a per-chunk STRINGS.en head is served JS too.
+      'english-heads.ts',
       'layout-css.ts',
       'shell.ts',
       'tabs.ts',
@@ -1279,7 +1281,7 @@ describe('discoverFeatureModules + buildFeatureModulesManifest against the real 
     expect(manifest.directoryPath).toBe(SHELL_DIR);
     const shellEntry = manifest.modules.find((m) => path.basename(m.sourceFile) === 'shell.ts');
     expect(shellEntry).toEqual(directManifest);
-    expect(manifest.modules).toHaveLength(3);
+    expect(manifest.modules).toHaveLength(4);
   });
 });
 
