@@ -19,7 +19,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import {
   planIssueTriage,
@@ -30,11 +30,16 @@ import {
   handSetFamilyLabel,
   milestoneToSet,
   parseMilestoneTitle,
+  needsFormatReply,
+  fetchOpenIssues,
   AGENT_OK_LABEL,
   NEEDS_FORMAT_LABEL,
   RESERVED_FOR_HUMANS_DAYS,
+  TEMPLATE_FILES,
   type IncomingIssue,
 } from '../../src/flight/issue-triage.js';
+import { titleMatchScore } from '../../src/read/reconcile.js';
+import type { CliExec } from '../../src/connection/cli-probe.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse('2026-09-12T12:00:00Z');
@@ -503,5 +508,220 @@ describe('the triage edit omits a milestone it cannot set', () => {
       .filter((c) => c.args[1] === 'edit')
       .flatMap((c) => c.args);
     expect(args).not.toContain('--milestone');
+  });
+});
+
+/**
+ * EPIC 0019 ADDITIVE-ONLY LAW (board web-mtsylqbd-q2rg8k): every steward slice
+ * ships regression tests over the EXISTING neighboring flows. The KEEPER
+ * triage edges below were live behavior that no suite exercised — measured by
+ * line coverage across every test that imports this module — so a later slice
+ * could have changed any of them without a test going red. Each block pins
+ * the contract as shipped; none changes it.
+ */
+describe('the accept edit clears a contradicting family sibling', () => {
+  // Two `priority:` labels is the contradiction found live on #21/#27/#28
+  // (2026-09-09). Since the hand-set rule (2026-09-22) a SINGLE label wins
+  // outright, so this is now the only road into the superseding path — and
+  // nothing walked it: the classifier breaks the tie and the loser leaves in
+  // the SAME `gh issue edit` that adds the winner, never a second call.
+  const contradicting = issue({ labels: ['priority: high', 'priority: low'] });
+
+  it('lets the classifier break the tie instead of honouring either label', () => {
+    const decision = planIssueTriage(contradicting, [], [], undefined, NOW);
+    expect(decision.decision).toBe('accept');
+    if (decision.decision !== 'accept') return;
+    expect(decision.priority).toMatch(/^priority: /);
+  });
+
+  it('removes every sibling the chosen priority supersedes in the same edit, and says so', () => {
+    const decision = planIssueTriage(contradicting, [], [], undefined, NOW);
+    if (decision.decision !== 'accept') throw new Error('expected accept');
+    const edit = planIssueTriageCommands(contradicting, decision).find(
+      (c) => c.args[1] === 'edit',
+    )!;
+    const removed = edit.args.flatMap((arg, i) =>
+      arg === '--remove-label' ? [edit.args[i + 1]] : [],
+    );
+    const superseded = ['priority: high', 'priority: low'].filter(
+      (label) => label !== decision.priority,
+    );
+    expect(removed).toEqual(superseded);
+    expect(removed).not.toContain(decision.priority);
+    expect(edit.args).toContain(decision.priority);
+    expect(edit.details).toContain('replacing');
+    for (const label of superseded) expect(edit.details).toContain(`"${label}"`);
+  });
+
+  it('leaves labels of other families alone — only the chosen families are exclusive', () => {
+    const mixed = issue({ labels: ['priority: high', 'priority: low', 'enhancement', 'epic'] });
+    const decision = planIssueTriage(mixed, [], [], undefined, NOW);
+    if (decision.decision !== 'accept') throw new Error('expected accept');
+    const edit = planIssueTriageCommands(mixed, decision).find((c) => c.args[1] === 'edit')!;
+    const removed = edit.args.flatMap((arg, i) =>
+      arg === '--remove-label' ? [edit.args[i + 1]] : [],
+    );
+    expect(removed).not.toContain('enhancement');
+    expect(removed).not.toContain('epic');
+  });
+});
+
+describe('an unreadable createdAt keeps the human reservation', () => {
+  // The expiry is the ONLY thing that hands a good-first-issue to the fleet,
+  // and it reads the age off `gh`'s createdAt. A value that does not parse
+  // must read as "age unknown" — the reservation — never as "very old".
+  it('skips a good-first-issue whose age cannot be parsed, without inventing an age', () => {
+    const decision = planIssueTriage(
+      issue({ labels: ['good first issue'], createdAt: 'a fortnight ago' }),
+      [],
+      [],
+      undefined,
+      NOW,
+    );
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('good first issue');
+    expect(decision.reasoning).not.toContain('Unclaimed for');
+  });
+
+  it('states the age when it can be read, so the two skips differ only by what is known', () => {
+    const decision = planIssueTriage(
+      issue({ labels: ['good first issue'], createdAt: daysAgo(3) }),
+      [],
+      [],
+      undefined,
+      NOW,
+    );
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain(`Unclaimed for 3 of the ${RESERVED_FOR_HUMANS_DAYS} days`);
+  });
+});
+
+describe('the template a heading-less body is held to', () => {
+  // With no template heading to go by, the kind comes from a feature-ish
+  // label, then from the title's own verbs, and only then defaults to a bug.
+  const bare = (extra: Partial<IncomingIssue>): IncomingIssue =>
+    issue({ body: 'please', labels: [], ...extra });
+
+  it('an enhancement label asks for the feature template', () => {
+    expect(issueTemplateGaps(bare({ labels: ['enhancement'] }))).toEqual({
+      kind: 'feature',
+      missing: ['Problem / motivation', 'Proposed solution'],
+    });
+  });
+
+  it('a title that asks to add or support something asks for the feature template', () => {
+    expect(issueTemplateGaps(bare({ title: 'Support dark mode in the fleet table' }))?.kind).toBe(
+      'feature',
+    );
+    expect(issueTemplateGaps(bare({ title: 'Add a CSV export' }))?.kind).toBe('feature');
+  });
+
+  it('anything else is held to the bug template', () => {
+    expect(issueTemplateGaps(bare({ title: 'Fleet table crashes on ArrowDown' }))).toEqual({
+      kind: 'bug',
+      missing: ['What happened?', 'Steps to reproduce', 'Expected behavior'],
+    });
+  });
+
+  it('the one reply for a feature request names its own template file and sections', () => {
+    const off = bare({ title: 'Add a CSV export' });
+    const decision = planIssueTriage(off, [], [], undefined, NOW);
+    expect(decision).toMatchObject({ decision: 'needs-format', kind: 'feature' });
+    if (decision.decision !== 'needs-format') throw new Error('expected needs-format');
+    const reply = needsFormatReply(decision);
+    expect(reply).toContain('Feature request');
+    expect(reply).toContain(TEMPLATE_FILES.feature);
+    expect(reply).toContain('"Problem / motivation"');
+    expect(reply).toContain('"Proposed solution"');
+    expect(reply).toContain(NEEDS_FORMAT_LABEL);
+    expect(reply).not.toContain('Bug report');
+    expect(reply).not.toContain(TEMPLATE_FILES.bug);
+  });
+});
+
+describe('duplicate scoring keeps the strongest overlap, whichever order candidates arrive in', () => {
+  const incoming = issue({});
+  const weaker = { id: 'web-weak', title: 'Keyboard nav in the fleet table' };
+  const stronger = { id: 'web-strong', title: incoming.title };
+
+  it('uses a weaker candidate that still clears the threshold, so order alone decides', () => {
+    const score = titleMatchScore(incoming.title, weaker.title);
+    expect(score).toBeGreaterThanOrEqual(0.5);
+    expect(score).toBeLessThan(1);
+  });
+
+  it.each([
+    ['weaker first', [weaker, stronger]],
+    ['stronger first', [stronger, weaker]],
+  ])('%s: the exact match wins', (_order, candidates) => {
+    const decision = planIssueTriage(incoming, candidates, [], undefined, NOW);
+    expect(decision).toMatchObject({
+      decision: 'duplicate',
+      matchedId: 'web-strong',
+      matchedTitle: incoming.title,
+      score: 1,
+    });
+  });
+});
+
+describe('fetchOpenIssues carries the expiry and steering fields only when gh shaped them', () => {
+  // The reserved-for-humans expiry and the milestone rule both read fields
+  // this parser adds; the parse suite pinned url/labels/assignees/author but
+  // never a string createdAt or a milestone object, so nothing proved the
+  // planner ever SEES the age or the milestone a person chose.
+  it('keeps a string createdAt and a milestone title, and drops the malformed shapes', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 9,
+          title: 'Dated',
+          createdAt: '2026-09-01T00:00:00Z',
+          milestone: { title: 'Foundation & community', number: 2 },
+        },
+        { number: 10, title: 'Numeric date', createdAt: 1756684800000, milestone: null },
+        { number: 11, title: 'Bare', author: { login: 42 } },
+      ]),
+    });
+
+    const issues = await fetchOpenIssues(exec);
+
+    expect(issues[0]).toMatchObject({
+      createdAt: '2026-09-01T00:00:00Z',
+      milestone: 'Foundation & community',
+    });
+    expect(issues[1]).not.toHaveProperty('createdAt');
+    expect(issues[1]).not.toHaveProperty('milestone');
+    expect(issues[2]).not.toHaveProperty('author');
+  });
+
+  it('so a parsed age releases an expired reservation and a missing one keeps it', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 9,
+          title: 'Old',
+          body: CONFORMANT_BUG,
+          labels: [{ name: 'good first issue' }],
+          createdAt: daysAgo(20),
+        },
+        {
+          number: 10,
+          title: 'Undated',
+          body: CONFORMANT_BUG,
+          labels: [{ name: 'good first issue' }],
+          createdAt: 20,
+        },
+      ]),
+    });
+
+    const [old, undated] = await fetchOpenIssues(exec);
+
+    expect(planIssueTriage(old!, [], [], undefined, NOW)).toMatchObject({
+      decision: 'accept',
+      releasedFromHumansAfterDays: 20,
+    });
+    expect(planIssueTriage(undated!, [], [], undefined, NOW).decision).toBe('skip');
   });
 });
