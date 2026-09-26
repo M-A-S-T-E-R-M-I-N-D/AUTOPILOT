@@ -15,6 +15,8 @@
  * the record. Requires `pnpm run build` first — reads the compiled dist
  * output, the same code path the server serves.
  */
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 // Baseline after the esbuild minify pass was ~103KB raw / ~30KB gzip for the
@@ -374,12 +376,28 @@ const CHUNK_GZIP_BUDGET = 61 * 1024;
 const WHATS_NEW_RAW_BUDGET = 12 * 1024;
 const WHATS_NEW_GZIP_BUDGET = 5 * 1024;
 
-function formatKb(bytes) {
+// Exported as a list, not per declaration, so every budget above stays a bare
+// `const <NAME>_BUDGET = <n> * 1024;` line — the exact shape the mirror
+// census in apps/dashboard/test/server/client-bundle-size-budget.test.ts reads.
+export {
+  CORE_RAW_BUDGET,
+  CORE_GZIP_BUDGET,
+  CHUNK_RAW_BUDGET,
+  CHUNK_GZIP_BUDGET,
+  WHATS_NEW_RAW_BUDGET,
+  WHATS_NEW_GZIP_BUDGET,
+};
+
+/** `bytes` in KB to one decimal — the unit every budget line prints in. */
+export function formatKb(bytes) {
   return `${(bytes / 1024).toFixed(1)}KB`;
 }
 
-function measure(name, js, rawBudget, gzipBudget, errors) {
-  const rawBytes = Buffer.byteLength(js, 'utf8');
+/** Measures one chunk: pushes one message onto `errors` per budget it
+ *  exceeds (a size equal to its budget passes), logs its size line and
+ *  returns its raw byte count. */
+export function measure(name, js, rawBudget, gzipBudget, errors) {
+  const rawBytes = Buffer.byteLength(js);
   const gzipBytes = gzipSync(js).length;
   if (rawBytes > rawBudget) {
     errors.push(`${name} raw ${formatKb(rawBytes)} exceeds budget ${formatKb(rawBudget)}`);
@@ -394,6 +412,58 @@ function measure(name, js, rawBudget, gzipBudget, errors) {
   return rawBytes;
 }
 
+/** Measures the four served chunks against their budgets, prints the report
+ *  and returns the exit code: 1 when any budget is exceeded, else 0.
+ *  `bundle` is the compiled client-bundle module (or a stand-in with the same
+ *  four `minified*Js()` functions). */
+export function checkBundleSize(bundle) {
+  const errors = [];
+  const core = measure(
+    '/app.js (core)',
+    bundle.minifiedCoreJs(),
+    CORE_RAW_BUDGET,
+    CORE_GZIP_BUDGET,
+    errors,
+  );
+  const project = measure(
+    '/project.js',
+    bundle.minifiedProjectJs(),
+    CHUNK_RAW_BUDGET,
+    CHUNK_GZIP_BUDGET,
+    errors,
+  );
+  const panels = measure(
+    '/panels.js',
+    bundle.minifiedPanelsJs(),
+    CHUNK_RAW_BUDGET,
+    CHUNK_GZIP_BUDGET,
+    errors,
+  );
+  const whatsNew = measure(
+    '/whats-new.js',
+    bundle.minifiedWhatsNewJs(),
+    WHATS_NEW_RAW_BUDGET,
+    WHATS_NEW_GZIP_BUDGET,
+    errors,
+  );
+  console.log(
+    `combined: ${formatKb(core + project + panels + whatsNew)} raw across the four chunks`,
+  );
+
+  if (errors.length > 0) {
+    console.error(`check-bundle-size FAILED:`);
+    for (const e of errors) console.error(`  - ${e}`);
+    return 1;
+  }
+
+  console.log('check-bundle-size OK');
+  return 0;
+}
+
+// Stryker disable all: `main` imports the real dist output and exits the
+// process — exercised only by running the gate for real. The check it runs,
+// `checkBundleSize`, IS mutation-tested
+// (config/mutation/stryker.ci-check-bundle-size.config.mjs).
 async function main() {
   let bundleModule;
   try {
@@ -406,46 +476,12 @@ async function main() {
     return;
   }
 
-  const errors = [];
-  const core = measure(
-    '/app.js (core)',
-    bundleModule.minifiedCoreJs(),
-    CORE_RAW_BUDGET,
-    CORE_GZIP_BUDGET,
-    errors,
-  );
-  const project = measure(
-    '/project.js',
-    bundleModule.minifiedProjectJs(),
-    CHUNK_RAW_BUDGET,
-    CHUNK_GZIP_BUDGET,
-    errors,
-  );
-  const panels = measure(
-    '/panels.js',
-    bundleModule.minifiedPanelsJs(),
-    CHUNK_RAW_BUDGET,
-    CHUNK_GZIP_BUDGET,
-    errors,
-  );
-  const whatsNew = measure(
-    '/whats-new.js',
-    bundleModule.minifiedWhatsNewJs(),
-    WHATS_NEW_RAW_BUDGET,
-    WHATS_NEW_GZIP_BUDGET,
-    errors,
-  );
-  console.log(
-    `combined: ${formatKb(core + project + panels + whatsNew)} raw across the four chunks`,
-  );
-
-  if (errors.length > 0) {
-    console.error(`check-bundle-size FAILED:`);
-    for (const e of errors) console.error(`  - ${e}`);
-    process.exit(1);
-  }
-
-  console.log('check-bundle-size OK');
+  const exitCode = checkBundleSize(bundleModule);
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
-main();
+// Run only as the entry point, so the test file can import the helpers above
+// without needing a build.
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
+// Stryker restore all
