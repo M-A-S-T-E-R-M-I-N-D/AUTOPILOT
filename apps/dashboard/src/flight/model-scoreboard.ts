@@ -134,7 +134,14 @@ export function chooseModel(
   const hash = taskHash(`${tier}:${taskId}`);
   const thin = candidates.filter((alias) => stats.get(alias)!.firings < MIN_ARM_FIRINGS);
   if (thin.length > 0) {
-    const model = candidates[hash % candidates.length]!;
+    // THE THINNEST ARM GOES FIRST (2026-09-26). Assigning by a hash of the
+    // task id left Fable at 4 firings in the default tier while Sonnet and
+    // Opus passed 20: the board recycles a small set of tasks, so a few ids
+    // decided the whole split. Exploration now gives each decision to the
+    // candidate with the fewest firings in the tier; the hash only breaks ties.
+    const fewest = Math.min(...candidates.map((a) => stats.get(a)!.firings));
+    const behind = candidates.filter((a) => stats.get(a)!.firings === fewest);
+    const model = behind[hash % behind.length]!;
     return {
       model,
       phase: 'explore',
