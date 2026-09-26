@@ -332,7 +332,7 @@ function paintReportDialog(pid, capture) {
   var closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'report-dialog-close';
-  closeBtn.textContent = '✕';
+  closeBtn.appendChild(iconEl('x'));
   closeBtn.setAttribute('aria-label', tr('close'));
   closeBtn.setAttribute('data-tip', tr('reportDialogCloseTip'));
   closeBtn.addEventListener('click', closeReportDialog);
