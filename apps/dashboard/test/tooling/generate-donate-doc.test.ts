@@ -81,6 +81,29 @@ describe('renderDoc', () => {
   it('is idempotent — rendering the same entries twice produces byte-identical output', () => {
     expect(renderDoc([BTC_ENTRY])).toBe(renderDoc([BTC_ENTRY]));
   });
+
+  it('tells the reader the addresses ship clearsigned and how to verify them, published or not', () => {
+    for (const doc of [renderDoc([]), renderDoc([BTC_ENTRY, EVM_ENTRY])]) {
+      expect(doc).toContain('## Verify before you trust');
+      expect(doc).toContain('gpg --import docs/SIGNING-KEY.asc');
+      expect(doc).toContain('gpg --verify docs/DONATE.asc');
+      expect(doc).toContain('independent channel');
+      expect(doc).toContain('do not send');
+    }
+  });
+
+  it('names the same key as the one that signs release tags, linking the RELEASING.md leg', () => {
+    expect(renderDoc([])).toContain('(RELEASING.md#signed-tags--the-qubes-pattern-foundation-33)');
+  });
+
+  it('puts the verify step between the addresses and the before-you-send warnings', () => {
+    const doc = renderDoc([BTC_ENTRY]);
+
+    expect(doc.indexOf('## Addresses')).toBeLessThan(doc.indexOf('## Verify before you trust'));
+    expect(doc.indexOf('## Verify before you trust')).toBeLessThan(
+      doc.indexOf('## Before you send'),
+    );
+  });
 });
 
 const DONATIONS_JSON = `[\n  { "chain": "btc", "address": "${BTC_ENTRY.address}" }\n]\n`;

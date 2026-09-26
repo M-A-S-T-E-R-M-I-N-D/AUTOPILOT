@@ -13,8 +13,19 @@ See [`docs/FOUNDATION.md`](FOUNDATION.md) for what the Foundation is, what fundi
 
 **No addresses have been published yet.** Per `docs/FOUNDATION.md`'s custody promise, addresses are published only after offline seed generation, a steel backup, and test-verified receipt on every chain — never before. Check back, or watch [`docs/FOUNDATION.md`](FOUNDATION.md) for the announcement.
 
+## Verify before you trust
+
+Addresses are published only as a PGP-clearsigned file ([transparency commitment 2](FOUNDATION.md#transparency-commitments)): `docs/DONATE.asc` is the `gpg --clearsign` of `docs/donations.json`, made with the operator's key, whose public half is `docs/SIGNING-KEY.asc` — the same key that signs [release tags](RELEASING.md#signed-tags--the-qubes-pattern-foundation-33). `pnpm run ci:donate` holds this page, the address file and its signature together on every commit, but a check that lives in the repository can only prove the committed key signed — the reader's half is yours:
+
+```sh
+gpg --import docs/SIGNING-KEY.asc
+gpg --verify docs/DONATE.asc
+```
+
+Then compare the fingerprint gpg names with the one published through an independent channel before you trust it. No `docs/DONATE.asc`, a bad signature, an unfamiliar fingerprint, or an address on this page that the signed file does not carry: do not send.
+
 ## Before you send
 
 - Match the network exactly — an address that looks right on the wrong chain is usually unrecoverable.
-- These are the ONLY addresses this project publishes; anything you see elsewhere claiming to be AUTOPILOT's is not verified by us.
+- These are the ONLY addresses this project publishes, and only while `docs/DONATE.asc` verifies (above); anything you see elsewhere claiming to be AUTOPILOT's is not verified by us.
 - Donations carry no promise of return, reward, or tax deductibility until a formal entity exists (see [transparency commitments](FOUNDATION.md#transparency-commitments)).
