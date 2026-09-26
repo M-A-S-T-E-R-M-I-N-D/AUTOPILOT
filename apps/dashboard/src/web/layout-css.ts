@@ -880,7 +880,7 @@ main.project-mode { grid-template-columns: 1fr; }
    actually expands or collapses (report-landing-1ufcu6l), same bug class as
    .update-banner/.tour-overlay/.browse-overlay/.brb-overlay above. */
 .landing-commit-nested[hidden] { display: none; }
-.landing-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
+.landing-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-3); }
 .landing-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .landing-execute:disabled { opacity: 0.6; cursor: default; }
 /* pre-line: a red gate's details now carry the failing command's last lines. */
@@ -981,7 +981,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .release-maturity label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .release-maturity-select { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
 .release-maturity-hint { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
-.release-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
+.release-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-3); }
 .release-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .release-execute:disabled { opacity: 0.6; cursor: default; }
 .release-result { margin-top: var(--space-2); font-size: var(--text-sm); text-align: end; }
@@ -1077,7 +1077,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .issue-triage-badge-accept { color: var(--color-success); border-color: var(--color-success); }
 .issue-triage-badge-duplicate { color: var(--color-text-muted); border-color: var(--color-border); }
 .issue-triage-badge-skip { color: var(--color-text-muted); border-color: var(--color-border); opacity: 0.7; }
-.issue-triage-actions { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
+.issue-triage-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-2); }
 .issue-triage-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .issue-triage-execute:disabled { opacity: 0.6; cursor: default; }
 /* Panel execute CTAs (COCKPIT 4/6): the landing/release/PR-review/issue-triage
@@ -1096,7 +1096,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .issue-triage-result-fail { color: var(--color-sev-critical); }
 .issue-triage-comment-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
 .issue-triage-comment-link:hover, .issue-triage-comment-link:focus-visible { border-bottom-color: currentColor; }
-.mirror-pass-actions { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
+.mirror-pass-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-2); }
 .mirror-pass-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .mirror-pass-execute:disabled { opacity: 0.6; cursor: default; }
 .mirror-pass-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
@@ -1108,7 +1108,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .discussions-triage-list { display: flex; flex-direction: column; }
 .discussions-triage-item { padding: var(--space-2) 0; border-top: 1px solid var(--color-border); font-size: var(--text-sm); }
 .discussions-triage-item:first-of-type { border-top: none; }
-.discussions-triage-actions { display: flex; justify-content: flex-end; margin-top: var(--space-2); }
+.discussions-triage-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-2); }
 .discussions-triage-execute { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .discussions-triage-execute:disabled { opacity: 0.6; cursor: default; }
 .discussions-triage-result { margin-top: var(--space-1); font-size: var(--text-sm); text-align: end; }
@@ -1491,7 +1491,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .inbox-add textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .inbox-add button { font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .inbox-add button:disabled { opacity: 0.6; cursor: default; }
-.card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-top: var(--space-1); }
+.card-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-1); }
 .card-remove { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .card-remove:not(:disabled):hover, .card-remove:not(:disabled):focus-visible { color: var(--color-accent-text); background: var(--color-sev-high); border-color: var(--color-sev-high); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .card-remove:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
@@ -1517,7 +1517,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-dismiss-btn:not(:disabled):hover, .soul-dismiss-btn:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .soul-ratify-btn:not(:disabled):active, .soul-dismiss-btn:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .soul-ratify-btn:disabled, .soul-dismiss-btn:disabled { opacity: 0.6; cursor: default; }
-.soul-unratify-row { width: 100%; display: flex; justify-content: flex-end; margin-bottom: var(--space-2); }
+.soul-unratify-row { width: 100%; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-bottom: var(--space-2); }
 .soul-unratify-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .soul-unratify-btn:not(:disabled):hover, .soul-unratify-btn:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .soul-unratify-btn:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
@@ -1899,7 +1899,7 @@ html[data-theme="terminal"][data-glow="on"] .brand, html[data-theme="terminal"][
 .ritual-step-label { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
 .ritual-warning { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .ritual-warning:empty { display: none; }
-.ritual-actions { display: flex; justify-content: flex-end; }
+.ritual-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
 .ritual-minimize { font: inherit; font-size: var(--text-sm); cursor: pointer; min-block-size: 2.25rem; padding: var(--space-1) var(--space-4); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .ritual-minimize:hover, .ritual-minimize:focus-visible { border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .ritual-minimize:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
