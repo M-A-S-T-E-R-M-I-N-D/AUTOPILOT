@@ -220,13 +220,14 @@ export interface LandingOverlapItem {
 }
 
 /** The LANDING card's overlap-warning rows — `[]` when `overlaps` is empty,
- *  same "nothing to render" convention every other LANDING list follows. */
+ *  same "nothing to render" convention every other LANDING list follows.
+ *  The text carries no baked-in ⚠ glyph (epic 0025): the render site leads
+ *  each row with the vendored triangle-alert icon instead. */
 export function landingOverlapItems(
   overlaps: readonly LandingOverlapLike[],
 ): readonly LandingOverlapItem[] {
   return overlaps.map((o) => ({
     text:
-      '⚠ ' +
       o.branch +
       ' also touches ' +
       o.files.length +
@@ -265,7 +266,9 @@ export interface LandingHalfStepItem {
  *  empty, the same "nothing to render" convention {@link landingOverlapItems}
  *  follows. The row names the task, who holds it, and how many of its shipped
  *  slices (and their files) sit in this diff; the tip carries the task title,
- *  the slice SHAs, and the file list. */
+ *  the slice SHAs, and the file list. Like the overlap rows, the text carries
+ *  no baked-in ⚠ glyph (epic 0025) — the render site leads with the vendored
+ *  triangle-alert icon. */
 export function landingHalfStepItems(
   halfSteps: readonly LandingHalfStepLike[],
 ): readonly LandingHalfStepItem[] {
@@ -274,7 +277,6 @@ export function landingHalfStepItems(
     const files = h.files.length;
     return {
       text:
-        '⚠ ' +
         h.taskId +
         ' is still in progress' +
         (h.assignee ? ' on ' + h.assignee : '') +
@@ -371,7 +373,9 @@ export interface LandingWorktreeAheadLike {
  * the worktree branch for days (the motivating incident: 144 commits,
  * invisible on this exact card since it previously only ever read the
  * checked-out branch, never the worktree). `null` when nothing is stranded
- * — in sync, or this project has never flown with worktree isolation.
+ * — in sync, or this project has never flown with worktree isolation. No
+ * baked-in ⚠ glyph (epic 0025): the render site leads the line with the
+ * vendored triangle-alert icon instead.
  */
 export function landingWorktreeDivergence(
   worktreeAhead: readonly LandingWorktreeAheadLike[],
@@ -379,7 +383,7 @@ export function landingWorktreeDivergence(
   if (worktreeAhead.length === 0) return null;
   const n = worktreeAhead.length;
   return (
-    `⚠ ${n} commit${n === 1 ? '' : 's'} stranded on the flight worktree, ` +
+    `${n} commit${n === 1 ? '' : 's'} stranded on the flight worktree, ` +
     `not yet synced back to this checkout — sync-back may be refusing ` +
     `(check for uncommitted changes here).`
   );

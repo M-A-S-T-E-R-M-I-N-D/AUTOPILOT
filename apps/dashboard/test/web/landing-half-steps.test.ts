@@ -31,8 +31,10 @@ describe('landingHalfStepItems', () => {
         files: ['src/a.ts', 'src/b.ts', 'test/a.test.ts'],
       },
     ]);
+    // No baked-in ⚠ glyph (epic 0025) — the render site leads the row with
+    // the vendored triangle-alert icon instead.
     expect(row?.text).toBe(
-      '⚠ web-abc123 is still in progress on fleet-2 — 2 shipped slices (3 files) in this diff: landing now ships a half-step',
+      'web-abc123 is still in progress on fleet-2 — 2 shipped slices (3 files) in this diff: landing now ships a half-step',
     );
     expect(row?.tip).toBe(
       'EPIC 9 slice 3: the thing — a1b2c3d, e5f6a7b — src/a.ts, src/b.ts, test/a.test.ts',
@@ -50,7 +52,7 @@ describe('landingHalfStepItems', () => {
       },
     ]);
     expect(row?.text).toBe(
-      '⚠ web-solo is still in progress — 1 shipped slice (1 file) in this diff: landing now ships a half-step',
+      'web-solo is still in progress — 1 shipped slice (1 file) in this diff: landing now ships a half-step',
     );
     expect(row?.text).not.toContain(' on ');
     expect(row?.tip).toBe('operator-moved — 1234567 — README.md');
@@ -203,6 +205,9 @@ describe('the LANDING card renders the lane half-step guard', () => {
     expect(row?.getAttribute('tabindex')).toBe('0');
     expect(row?.getAttribute('data-tip')).toContain('EPIC 9 slice 3: the thing');
     expect(row?.getAttribute('aria-label')).toContain('web-abc123');
+    // Epic 0025 icon system: the vendored triangle-alert icon leads the row.
+    expect(row?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+    expect(row?.textContent).not.toContain('⚠');
     // The alert role lives on the wrapper, never on the <ul> — an <li> whose
     // parent has lost its list role trips axe's listitem rule.
     const wrap = document.querySelector('.landing-half-steps');

@@ -257,7 +257,11 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
   // for 2 days, invisible here (web-msvbzahx-uiemjb, follow-up of a81221f).
   var worktreeWarning = landing ? landingWorktreeDivergence(landing.worktreeAhead || []) : null;
   if (worktreeWarning) {
-    var worktreeEl = el('p', 'landing-worktree-divergence', worktreeWarning);
+    // Epic 0025 icon system: the vendored triangle-alert stroke icon leads
+    // the line instead of a ⚠ glyph baked into landingWorktreeDivergence.
+    var worktreeEl = el('p', 'landing-worktree-divergence');
+    worktreeEl.appendChild(iconEl('triangle-alert'));
+    worktreeEl.appendChild(document.createTextNode(worktreeWarning));
     worktreeEl.setAttribute('role', 'alert');
     body.appendChild(worktreeEl);
   }
@@ -306,7 +310,10 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
     overlapList.setAttribute('role', 'alert');
     for (var oi = 0; oi < overlapItems.length; oi++) {
       var overlapItem = overlapItems[oi];
-      var overlapLi = el('li', 'landing-overlap', overlapItem.text);
+      // Epic 0025: a leading triangle-alert icon, not a baked-in ⚠ glyph.
+      var overlapLi = el('li', 'landing-overlap');
+      overlapLi.appendChild(iconEl('triangle-alert'));
+      overlapLi.appendChild(document.createTextNode(overlapItem.text));
       // D1 TAB-STOP ROVING: one stop for the whole overlap list.
       overlapLi.setAttribute('tabindex', oi === 0 ? '0' : '-1');
       overlapLi.setAttribute('data-tip', overlapItem.tip);
@@ -333,7 +340,9 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
     var halfStepList = el('ul', 'landing-overlaps landing-half-step-list');
     for (var hi = 0; hi < halfStepItems.length; hi++) {
       var halfStepItem = halfStepItems[hi];
-      var halfStepLi = el('li', 'landing-overlap landing-half-step', halfStepItem.text);
+      var halfStepLi = el('li', 'landing-overlap landing-half-step');
+      halfStepLi.appendChild(iconEl('triangle-alert'));
+      halfStepLi.appendChild(document.createTextNode(halfStepItem.text));
       // D1 TAB-STOP ROVING: one stop for the whole half-step list — the
       // <ul> carries .landing-overlaps, so wireRoving's existing group
       // selector below already covers it.
