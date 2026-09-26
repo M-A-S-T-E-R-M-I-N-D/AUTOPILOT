@@ -71,13 +71,17 @@ describe('inboxTaskTitle', () => {
 
 describe('inboxTaskId', () => {
   it('is a content-addressed, slugified id prefixed with inbox-', () => {
-    expect(inboxTaskId('2026-08-12T00-00-00-000Z-dashboard.md')).toBe(
-      'inbox-2026-08-12t00-00-00-000z-dashboard-md',
+    expect(inboxTaskId('2026-08-12T00-00-00-000Z-dashboard.md')).toMatch(
+      /^inbox-2026-08-12t00-00-00-000z-dashboard-md-[0-9a-f]{8}$/,
     );
   });
 
   it('is stable for the same filename', () => {
     expect(inboxTaskId('note.md')).toBe(inboxTaskId('note.md'));
+  });
+
+  it('differs for distinct filenames that slugify to the same string', () => {
+    expect(inboxTaskId('Note One.md')).not.toBe(inboxTaskId('note_one.md'));
   });
 });
 
@@ -144,6 +148,52 @@ describe('triageInboxEntries', () => {
       cleanupDir(dbDir);
     }
   });
+
+  it(
+    'triages two distinct notes whose filenames slugify to the same id, instead of ' +
+      "silently dropping the second one's task while still archiving its file " +
+      '(slugify() is lossy: "Note One.md" and "note_one.md" both collapse to ' +
+      '"note-one-md", so id-only content-addressing mislabels the second note as a ' +
+      'duplicate of the first and permanently loses its content)',
+    () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-triage-collide-repo-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-triage-collide-db-'));
+      try {
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+
+        const inboxDir = join(repo, 'INBOX');
+        mkdirSync(inboxDir, { recursive: true });
+        writeFileSync(join(inboxDir, 'Note One.md'), 'first note\n', 'utf8');
+        writeFileSync(join(inboxDir, 'note_one.md'), 'second note\n', 'utf8');
+
+        triageInboxEntries(
+          s,
+          'p1',
+          repo,
+          [
+            { name: 'Note One.md', content: 'first note\n' },
+            { name: 'note_one.md', content: 'second note\n' },
+          ],
+          () => 100,
+        );
+
+        expect(tasks(s, 'p1')).toHaveLength(2);
+        expect(taskBody(s, 'p1', inboxTaskId('Note One.md'))).toBe('first note\n');
+        expect(taskBody(s, 'p1', inboxTaskId('note_one.md'))).toBe('second note\n');
+        expect(readdirSync(join(inboxDir, '.triaged')).sort()).toEqual([
+          'Note One.md',
+          'note_one.md',
+        ]);
+        s.close();
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    },
+  );
 
   it('never triages the same note twice, even if called again with the same entry', () => {
     const repo = mkdtempSync(join(tmpdir(), 'ap-dash-triage-repeat-repo-'));
