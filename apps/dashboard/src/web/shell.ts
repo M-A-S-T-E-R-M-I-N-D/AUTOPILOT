@@ -51,6 +51,7 @@ import {
   flightVerdictOf as sharedFlightVerdictOf,
   taskMap as sharedTaskMap,
   taskBurnOf as sharedTaskBurnOf,
+  taskFiringHistoryOf as sharedTaskFiringHistoryOf,
   taskBudgetSignalOf as sharedTaskBudgetSignalOf,
   taskDimensionBudgetSignalOf as sharedTaskDimensionBudgetSignalOf,
   fleetCacheShareOf as sharedFleetCacheShareOf,
@@ -443,6 +444,7 @@ function flightGroupRow(c, entry, taskById) {
 // hand-retyped copy. They can no longer drift apart.
 ${sharedTaskMap.toString()}
 ${sharedTaskBurnOf.toString()}
+${sharedTaskFiringHistoryOf.toString()}
 ${sharedTaskBudgetSignalOf.toString()}
 // taskDimensionBudgetSignalOf is generated FROM web/flight-metrics.ts below
 // (ADAPTIVE TASK BUDGET breadth fallback, board web-msnt26wf-wnv3w7) — its
@@ -2903,6 +2905,39 @@ function tasksSection(c) {
       detailMeta.appendChild(el('code', null, t.id));
       detailMeta.appendChild(document.createTextNode(' · ' + taskTitleTip(t.at, t.priority, fmtAgo).tip));
       detail.appendChild(detailMeta);
+      // Its slices and cost history: the lifetime tally, then every firing
+      // the loaded flight log still holds for it, newest first — each with
+      // how it ended, its commit, cost, wall time and age.
+      var firingHistory = taskFiringHistoryOf(t, c.flightLog);
+      if (firingHistory.total) {
+        var firingArgs = { n: firingHistory.total, cost: fmtCost(firingHistory.cost) };
+        var firingsHead = el('p', 'task-detail-meta', tr('taskDetailFirings', firingArgs));
+        firingsHead.setAttribute('data-i18n-template', 'taskDetailFirings');
+        firingsHead.setAttribute('data-i18n-args', JSON.stringify(firingArgs));
+        detail.appendChild(firingsHead);
+        var firingList = el('ol', 'task-detail-firings');
+        for (var fi = 0; fi < firingHistory.firings.length; fi++) {
+          var fr = firingHistory.firings[fi];
+          var frLi = el('li', null);
+          var frDot = el('span', 'flight-dot flight-' + fr.verdict.split(' ')[0], '');
+          frDot.setAttribute('aria-hidden', 'true');
+          frLi.appendChild(frDot);
+          var frParts = [fr.verdict, fr.subject, fmtCost(fr.cost), fr.durationMs ? fmtDuration(fr.durationMs) : '', fmtAgo(fr.at)];
+          frLi.appendChild(document.createTextNode(frParts.filter(Boolean).join(' · ')));
+          if (fr.sha) {
+            frLi.appendChild(document.createTextNode(' · '));
+            frLi.appendChild(el('code', null, fr.sha));
+          }
+          firingList.appendChild(frLi);
+        }
+        if (firingHistory.firings.length) detail.appendChild(firingList);
+        if (firingHistory.earlier) {
+          var earlierEl = el('p', 'task-detail-meta muted', tr('taskDetailFiringsEarlier', { n: firingHistory.earlier }));
+          earlierEl.setAttribute('data-i18n-template', 'taskDetailFiringsEarlier');
+          earlierEl.setAttribute('data-i18n-args', JSON.stringify({ n: firingHistory.earlier }));
+          detail.appendChild(earlierEl);
+        }
+      }
       li.appendChild(detail);
       // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): a
       // heavily-tagged task row can carry the status pill, the title, and

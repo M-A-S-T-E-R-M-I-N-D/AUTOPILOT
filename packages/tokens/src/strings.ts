@@ -1025,6 +1025,10 @@ const EN_STRINGS = {
   boardSelected: '{n} selected — Esc clears',
   // A row's read-only detail (epic 0026, Enter) when its task has no body.
   taskDetailEmpty: 'No description.',
+  // The detail's firing history: the lifetime tally over the list, and the
+  // note for the firings older than the flight log the page has loaded.
+  taskDetailFirings: 'Firings: {n} · {cost} in all',
+  taskDetailFiringsEarlier: '{n} earlier, past the loaded flight log',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2464,6 +2468,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskSelectAria: 'בחירה: {name}',
     boardSelected: '{n} נבחרו — Esc מנקה',
     taskDetailEmpty: 'אין תיאור.',
+    taskDetailFirings: 'הפעלות: {n} · {cost} בסך הכול',
+    taskDetailFiringsEarlier: '{n} קודמות, מעבר ליומן הטיסות שנטען',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

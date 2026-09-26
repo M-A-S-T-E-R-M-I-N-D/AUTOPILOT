@@ -96,6 +96,68 @@ export function taskBurnOf(
   return { slices, cost, wallMs };
 }
 
+/** A flight-log entry's fields {@link taskFiringHistoryOf} lists in a task row's detail. */
+export interface TaskFiringLogEntry extends TaskBurnLogEntry, FlightVerdictEntry {
+  readonly at: number;
+  readonly sha: string | null;
+  readonly commitSubject?: string | null;
+}
+
+/** One firing that claimed a task, as the task row's detail lists it. */
+export interface TaskFiring {
+  readonly at: number;
+  readonly verdict: string;
+  /** The 7-character short sha, or null for a firing that committed nothing. */
+  readonly sha: string | null;
+  readonly subject: string | null;
+  readonly cost: number;
+  readonly durationMs: number;
+}
+
+/** A task's firing history: the lifetime tally, the firings the loaded log
+ *  still holds, and how many older ones fall outside it. */
+export interface TaskFiringHistory {
+  readonly total: number;
+  readonly cost: number;
+  readonly firings: readonly TaskFiring[];
+  readonly earlier: number;
+}
+
+/** The task's slices and cost history for its row detail (epic 0026). The
+ *  client's flight log is only the project's latest page of firings, so the
+ *  head reads the store's lifetime tally (`TaskEntry.firingCount` /
+ *  `cumulativeCostUsd`) and `earlier` counts what the list cannot show. A
+ *  tally that is missing or trails the log (an older server, a fixture)
+ *  falls back to the log's own count and sum, so it never shrinks the list. */
+export function taskFiringHistoryOf(
+  task: {
+    readonly id: string;
+    readonly firingCount?: number | null;
+    readonly cumulativeCostUsd?: number | null;
+  },
+  log: readonly TaskFiringLogEntry[] | null | undefined,
+): TaskFiringHistory {
+  const firings: TaskFiring[] = [];
+  let logCost = 0;
+  for (const entry of log || []) {
+    if (entry.item !== task.id) continue;
+    logCost += entry.cost || 0;
+    firings.push({
+      at: entry.at,
+      verdict: flightVerdictOf(entry),
+      sha: entry.sha ? entry.sha.slice(0, 7) : null,
+      subject: entry.commitSubject || null,
+      cost: entry.cost || 0,
+      durationMs: entry.durationMs || 0,
+    });
+  }
+  const lifetime = task.firingCount || 0;
+  const useLifetime = lifetime > 0 && lifetime >= firings.length;
+  const total = useLifetime ? lifetime : firings.length;
+  const cost = useLifetime ? task.cumulativeCostUsd || 0 : logCost;
+  return { total, cost, firings, earlier: total - firings.length };
+}
+
 /** A flight-log entry's fields {@link taskBudgetSignalOf} reads to detect
  *  under-budgeted work on a task. */
 export interface TaskBudgetLogEntry {

@@ -199,7 +199,12 @@ import { gzipSync } from 'node:zlib';
 // listener, Enter/Space on the keydown handler, two STRINGS.en keys) --
 // measured 268844B raw against the old 268288B line, 556 bytes over. Two KB
 // again, for the margin the entries above keep.
-const CORE_RAW_BUDGET = 264 * 1024;
+// Then core raw 264->266KB (2026-09-26), the same epic's detail contents: the
+// open row lists the task's firings under its lifetime tally
+// (taskFiringHistoryOf, spliced from web/flight-metrics.ts; two STRINGS.en
+// keys) -- measured 270442B raw against the old 270336B line, 106 bytes over.
+// Gzip (80999B) stays 921 bytes under its line, so it is left alone.
+const CORE_RAW_BUDGET = 266 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

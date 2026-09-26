@@ -38,7 +38,29 @@ function task(id: string, title: string, status: string, body?: string) {
   };
 }
 
-function makeState() {
+function firing(item: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id: `f-${item}-${String(overrides['at'] ?? 1)}`,
+    item,
+    kind: 'feat',
+    sha: null,
+    shipped: false,
+    gateResult: null,
+    cost: 0,
+    tokensIn: 1,
+    tokensOut: 1,
+    turns: 1,
+    durationMs: null,
+    commitSubject: null,
+    completion: 'slice',
+    failedCheck: null,
+    died: null,
+    at: 1,
+    ...overrides,
+  };
+}
+
+function makeState(flightLog: unknown[] = [], lifetime: Record<string, unknown> = {}) {
   return {
     generatedAt: 1,
     totals: {
@@ -73,10 +95,10 @@ function makeState() {
         openFindings: 0,
         gauge: { critical: 0, high: 0, medium: 0, low: 0 },
         lastActivityAt: null,
-        flightLog: [],
+        flightLog,
         activity: [],
         tasks: [
-          task('t1', 'Wire up the retry queue', 'queued', LONG_BODY),
+          { ...task('t1', 'Wire up the retry queue', 'queued', LONG_BODY), ...lifetime },
           task('t2', 'Rename the webhook payload', 'needs_approval'),
           task('t3', 'Old cleanup task', 'done'),
         ],
@@ -254,5 +276,64 @@ describe('task row detail (epic 0026 slice 1: Enter)', () => {
 
     (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
     expect(label.textContent).toBe(STRINGS.he.boardKeysOpen);
+  });
+
+  it('lists the task’s firings newest first under its lifetime tally, and counts the older ones', async () => {
+    const log = [
+      firing('t1', {
+        at: 3,
+        sha: 'abcdef0123456',
+        shipped: true,
+        gateResult: 'passed',
+        commitSubject: 'feat: the retry queue persists its attempts',
+        cost: 1.25,
+        durationMs: 90000,
+      }),
+      firing('t2', { at: 2, cost: 9 }),
+      firing('t1', { at: 1, gateResult: 'reverted', cost: 0.5 }),
+    ];
+    await boot(makeState(log, { firingCount: 5, cumulativeCostUsd: 4.5 }));
+
+    titleOf('t1').click();
+
+    const detail = detailOf('t1');
+    const head = detail.querySelector('[data-i18n-template="taskDetailFirings"]') as HTMLElement;
+    expect(head.textContent).toBe(
+      STRINGS.en.taskDetailFirings.replace('{n}', '5').replace('{cost}', '$4.50'),
+    );
+    const rows = [...detail.querySelectorAll('.task-detail-firings li')] as HTMLElement[];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.textContent).toMatch(
+      /^shipped · feat: the retry queue persists its attempts · \$1\.25 · 1m 30s · .+ · abcdef0$/,
+    );
+    expect(rows[0]!.querySelector('code')?.textContent).toBe('abcdef0');
+    const dot = rows[0]!.querySelector('.flight-dot') as HTMLElement;
+    expect(dot.classList.contains('flight-shipped')).toBe(true);
+    expect(dot.getAttribute('aria-hidden')).toBe('true');
+    // No commit, no sha; no wall time recorded, no "0s".
+    expect(rows[1]!.textContent).toMatch(/^reverted · \$0\.50 · [^·]+$/);
+    expect(rows[1]!.querySelector('code')).toBeNull();
+    // The task's own id stays the detail's first code element.
+    expect(detail.querySelector('code')?.textContent).toBe('t1');
+
+    const earlier = detail.querySelector(
+      '[data-i18n-template="taskDetailFiringsEarlier"]',
+    ) as HTMLElement;
+    expect(earlier.textContent).toBe(STRINGS.en.taskDetailFiringsEarlier.replace('{n}', '3'));
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    expect(head.textContent).toBe(
+      STRINGS.he.taskDetailFirings.replace('{n}', '5').replace('{cost}', '$4.50'),
+    );
+    expect(earlier.textContent).toBe(STRINGS.he.taskDetailFiringsEarlier.replace('{n}', '3'));
+  });
+
+  it('a task no firing claimed shows no firing history at all', async () => {
+    await boot(makeState([firing('t2', { cost: 1 })]));
+
+    titleOf('t1').click();
+
+    expect(detailOf('t1').querySelector('.task-detail-firings')).toBeNull();
+    expect(detailOf('t1').querySelector('[data-i18n-template^="taskDetailFirings"]')).toBeNull();
   });
 });

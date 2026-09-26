@@ -692,6 +692,8 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
       projects: [
         {
           ...SAMPLE_STATE.projects[0],
+          // Both firings claim t1, so its open detail below lists them.
+          flightLog: SAMPLE_STATE.projects[0]!.flightLog.map((f) => ({ ...f, item: 't1' })),
           tasks: [
             {
               id: 't1',
@@ -700,6 +702,8 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
               severity: 'high',
               dimension: 'reliability',
               focus: true,
+              firingCount: 3,
+              cumulativeCostUsd: 1.2,
             },
             {
               id: 't2',
@@ -745,9 +749,14 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
 
     // The same board with a row's read-only detail OPEN (epic 0026, Enter):
     // the title as an expanded disclosure button and the detail it controls
-    // must scan clean too, not only their collapsed rest state.
+    // must scan clean too, not only their collapsed rest state — with its
+    // firing history (the list and the "earlier" line) rendered.
     (document.querySelector('.task[data-task-id="t1"] .task-title') as HTMLElement).click();
     expect((document.getElementById('task-detail-t1') as HTMLElement).hidden).toBe(false);
+    expect(document.querySelectorAll('#task-detail-t1 .task-detail-firings li')).toHaveLength(2);
+    expect(
+      document.querySelector('#task-detail-t1 [data-i18n-template="taskDetailFiringsEarlier"]'),
+    ).not.toBeNull();
     const foundOpen = await violations();
     expect(foundOpen.map((v) => v.id)).toEqual([]);
   });
