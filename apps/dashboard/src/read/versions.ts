@@ -15,10 +15,14 @@
  * branch actually held, which is what a restore would bring back. A lane's own
  * commits reach the branch through its merge and appear as that one entry.
  *
- * Read-only by construction: every question asked of git is a `log`. Pure
- * except {@link gitReaderFor}, which runs git; a missing ref, a folder that is
- * not a repository, or any git failure reads as "no such version", never an
- * error.
+ * {@link readVersionDiff} (slice 3) says what changed between two versions:
+ * one row per file with its added and removed line counts, for the screen to
+ * show before anything is restored.
+ *
+ * Read-only by construction: every question asked of git is a `log` or a
+ * plumbing `diff-tree`. Pure except {@link gitReaderFor}, which runs git; a
+ * missing ref, a folder that is not a repository, or any git failure reads as
+ * "no such version" (or no diff), never an error.
  */
 import { execFileSync } from 'node:child_process';
 import { FLIGHT_BRANCH, LEGACY_TAG, MYTH_TAG } from '@autopilot/onboarding';
@@ -42,15 +46,34 @@ export interface VersionsTimeline {
   readonly truncated: boolean;
 }
 
+export interface VersionDiffFile {
+  readonly path: string;
+  /** Lines added and removed; null for a binary file, which has no lines. */
+  readonly added: number | null;
+  readonly removed: number | null;
+}
+
+export interface VersionDiff {
+  /** Changed files in the order git lists them (its tree order), at most the cap. */
+  readonly files: readonly VersionDiffFile[];
+  /** Counted over every changed file, including any past the cap. */
+  readonly totals: { readonly files: number; readonly added: number; readonly removed: number };
+  /** True when more files changed than the cap returned. */
+  readonly truncated: boolean;
+}
+
 /** Runs one git command against the repository; null when git fails. */
 export type GitRead = (args: readonly string[]) => string | null;
 
 export const DEFAULT_MAX_FLIGHT_VERSIONS = 50;
+export const DEFAULT_MAX_DIFF_FILES = 200;
 
 /** Unit separator between fields: a commit subject never contains one. */
 const FIELD_SEP = '\x1f';
 const LOG_FORMAT = '--format=%H%x1f%cI%x1f%s';
 const SHA_PATTERN = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+/** `added<TAB>removed<TAB>path`; a binary file counts `-` for both. */
+const NUMSTAT_RECORD = /^(\d+|-)\t(\d+|-)\t(.+)$/s;
 const GIT_TIMEOUT_MS = 5000;
 const GIT_MAX_BUFFER = 4 * 1024 * 1024;
 
@@ -101,6 +124,53 @@ export function readVersions(
   ]);
   const all = out === null ? [] : parseVersionLog(out, 'flight');
   return { myth, legacy, flight: all.slice(0, cap), truncated: all.length > cap };
+}
+
+/** A full SHA-1 or SHA-256 commit id, lowercase — the only revision the diff accepts. */
+export function isCommitSha(value: string): boolean {
+  return SHA_PATTERN.test(value);
+}
+
+/** One file per NUL-terminated `--numstat -z` record; anything else is skipped. */
+export function parseDiffNumstat(stdout: string): VersionDiffFile[] {
+  const files: VersionDiffFile[] = [];
+  for (const record of stdout.split('\0')) {
+    const match = NUMSTAT_RECORD.exec(record);
+    if (match === null) continue;
+    const [, added, removed, path] = match;
+    files.push({
+      path: path!,
+      added: added === '-' ? null : Number(added),
+      removed: removed === '-' ? null : Number(removed),
+    });
+  }
+  return files;
+}
+
+/**
+ * What changed from version `from` to version `to`, or null when either is not
+ * a full commit id or git cannot read the diff. Only a full commit id ever
+ * reaches git, so no option or ref name can ride in on a query parameter.
+ * `diff-tree` is plumbing: the repository's diff drivers, text conversions
+ * and rename settings do not change what it prints.
+ */
+export function readVersionDiff(
+  git: GitRead,
+  from: string,
+  to: string,
+  maxFiles: number = DEFAULT_MAX_DIFF_FILES,
+): VersionDiff | null {
+  if (!isCommitSha(from) || !isCommitSha(to)) return null;
+  const cap = Number.isInteger(maxFiles) && maxFiles > 0 ? maxFiles : DEFAULT_MAX_DIFF_FILES;
+  const out = git(['diff-tree', '-r', '--no-renames', '--numstat', '-z', from, to, '--']);
+  if (out === null) return null;
+  const all = parseDiffNumstat(out);
+  const totals = {
+    files: all.length,
+    added: all.reduce((sum, f) => sum + (f.added ?? 0), 0),
+    removed: all.reduce((sum, f) => sum + (f.removed ?? 0), 0),
+  };
+  return { files: all.slice(0, cap), totals, truncated: all.length > cap };
 }
 
 /** A {@link GitRead} bound to one folder: bounded, windowless, stderr discarded. */

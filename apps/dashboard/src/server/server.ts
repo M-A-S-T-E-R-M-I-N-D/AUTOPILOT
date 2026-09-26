@@ -130,7 +130,12 @@ export type { CollaborationApi };
 import { handleCiStatus } from './ci-status-route.js';
 import { handleWhatsNew } from './whats-new-route.js';
 import { handleBenchmark, type BenchmarkApi } from './benchmark-route.js';
-import { handleVersions, type VersionsApi } from './versions-route.js';
+import {
+  handleVersionDiff,
+  handleVersions,
+  type VersionDiffApi,
+  type VersionsApi,
+} from './versions-route.js';
 import type { WhatsNewApi } from '../read/whats-new.js';
 import type { GateRun } from '../read/mutate.js';
 import type { CiStatusApi } from '../control/ci-status.js';
@@ -974,6 +979,9 @@ export interface ServerDeps extends RouteDeps {
   /** THE VERSIONS SCREEN (board ap-mui2h3s1-1): one project's MYTH, LEGACY
    *  and flight log — see `read/versions.ts`. */
   readonly versions?: VersionsApi;
+  /** The Versions screen's diff (ap-mui2h3s1-1, slice 3): the files changed
+   *  between two of a project's versions — see `readVersionDiff`. */
+  readonly versionDiff?: VersionDiffApi;
   /** Foundation donation addresses (FOUNDATION 1/3, board
    *  web-mtq0rsit-ywz1m7): chain-tagged BTC/EVM/SOL addresses, hidden until
    *  `docs/donations.json` carries a verified entry — see
@@ -4315,6 +4323,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/versions') {
       void handleVersions(req, res, deps.versions, headers);
+      return;
+    }
+
+    if (path === '/api/versions/diff') {
+      void handleVersionDiff(req, res, deps.versionDiff, headers);
       return;
     }
 
