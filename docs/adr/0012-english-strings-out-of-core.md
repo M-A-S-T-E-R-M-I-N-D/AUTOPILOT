@@ -198,7 +198,7 @@ Test surface:
    `__proto__` also misses) and echoes `String(key)` on a miss.
 2. **Generated per-chunk English heads.** Includes the census, the moved and
    split budgets, and the `coreClientJs()`/`localeJs()` test opt-in. This is
-   the only slice that moves bytes. It ships in two parts (board
+   the only slice that moves bytes. It ships in three parts (board
    `ap-muhvlma6-1`):
    - **2a, shipped: the generator and the census, no bytes moved.**
      `web/english-heads.ts` places each key with the reference scan above.
@@ -207,9 +207,23 @@ Test surface:
      `test/web/english-heads.test.ts` asserts the census's first two clauses
      over the served chunks. At 1018 keys the scan places 349 in core, 191 in
      the project head and 478 in the panels head.
-   - **2b: the byte move.** Serve the core subset and the two heads from the
-     chunk composers. Move and split the budgets, and add the test opt-in.
-     Add the census's third clause (the non-literal `tr()` key domains).
+   - **2b, shipped: the byte move.** `shell.ts`'s chunk composers pass the
+     composed chunks through `narrowCoreEnglish()` and `headWithEnglish()`,
+     with the placement scanned once per process. The census now reads the
+     English each served chunk actually carries. Measured minified, core went
+     from 268829 B raw / 80502 B gzip to 229068 / 67222, `/project.js` from
+     107507 / 28433 to 118263 / 31521, and `/panels.js` from 208177 / 62209
+     to 237238 / 72310. Home pages ship 10700 B raw / 3179 B gzip less in
+     total, and project pages come out at +56 B raw / −91 B gzip. The core budget moved
+     down to 226KB / 67KB, and the shared chunk line split into
+     `PROJECT_*` (118KB / 32KB) and `PANELS_*` (234KB / 72KB). No test
+     needed the opt-in. The five `coreClientJs()` suites only exercise
+     keys core references, and `localeJs()` still returns the whole table,
+     since the narrowing happens in the composer.
+   - **2c: the census's third clause.** Every non-literal `tr(…)` call site
+     in `web/` names its key domain as a literal array in the same module,
+     and the server-supplied key unions resolve in the chunk that consumes
+     them.
 
 ## Related
 

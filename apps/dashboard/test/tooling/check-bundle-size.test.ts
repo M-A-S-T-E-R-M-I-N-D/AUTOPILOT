@@ -16,10 +16,12 @@ import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import {
-  CHUNK_GZIP_BUDGET,
-  CHUNK_RAW_BUDGET,
   CORE_GZIP_BUDGET,
   CORE_RAW_BUDGET,
+  PANELS_GZIP_BUDGET,
+  PANELS_RAW_BUDGET,
+  PROJECT_GZIP_BUDGET,
+  PROJECT_RAW_BUDGET,
   WHATS_NEW_GZIP_BUDGET,
   WHATS_NEW_RAW_BUDGET,
   BENCHMARK_GZIP_BUDGET,
@@ -158,8 +160,8 @@ describe('checkBundleSize', () => {
       `${name}: ${kb(js.length)} raw (budget ${kb(raw)}), ${kb(gzipBytes(js))} gzip (budget ${kb(gzip)})`;
     expect(log.mock.calls).toEqual([
       [line('/app.js (core)', chunks.core, CORE_RAW_BUDGET, CORE_GZIP_BUDGET)],
-      [line('/project.js', chunks.project, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET)],
-      [line('/panels.js', chunks.panels, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET)],
+      [line('/project.js', chunks.project, PROJECT_RAW_BUDGET, PROJECT_GZIP_BUDGET)],
+      [line('/panels.js', chunks.panels, PANELS_RAW_BUDGET, PANELS_GZIP_BUDGET)],
       [line('/whats-new.js', chunks.whatsNew, WHATS_NEW_RAW_BUDGET, WHATS_NEW_GZIP_BUDGET)],
       [line('/benchmark.js', chunks.benchmark, BENCHMARK_RAW_BUDGET, BENCHMARK_GZIP_BUDGET)],
       // 1024 + 2048 + 3072 + 512 + 256 = 6912 bytes — every other +/- mix differs.
@@ -173,8 +175,8 @@ describe('checkBundleSize', () => {
     const result = checkBundleSize(
       bundle({
         core: 'a'.repeat(CORE_RAW_BUDGET),
-        project: 'a'.repeat(CHUNK_RAW_BUDGET),
-        panels: 'a'.repeat(CHUNK_RAW_BUDGET),
+        project: 'a'.repeat(PROJECT_RAW_BUDGET),
+        panels: 'a'.repeat(PANELS_RAW_BUDGET),
         whatsNew: 'a'.repeat(WHATS_NEW_RAW_BUDGET),
         benchmark: 'a'.repeat(BENCHMARK_RAW_BUDGET),
       }),
@@ -185,8 +187,8 @@ describe('checkBundleSize', () => {
 
   it.each([
     ['core', '/app.js (core)', CORE_RAW_BUDGET],
-    ['project', '/project.js', CHUNK_RAW_BUDGET],
-    ['panels', '/panels.js', CHUNK_RAW_BUDGET],
+    ['project', '/project.js', PROJECT_RAW_BUDGET],
+    ['panels', '/panels.js', PANELS_RAW_BUDGET],
     ['whatsNew', '/whats-new.js', WHATS_NEW_RAW_BUDGET],
     ['benchmark', '/benchmark.js', BENCHMARK_RAW_BUDGET],
   ] as const)(
@@ -203,8 +205,8 @@ describe('checkBundleSize', () => {
 
   it.each([
     ['core', '/app.js (core)', CORE_GZIP_BUDGET],
-    ['project', '/project.js', CHUNK_GZIP_BUDGET],
-    ['panels', '/panels.js', CHUNK_GZIP_BUDGET],
+    ['project', '/project.js', PROJECT_GZIP_BUDGET],
+    ['panels', '/panels.js', PANELS_GZIP_BUDGET],
     ['whatsNew', '/whats-new.js', WHATS_NEW_GZIP_BUDGET],
     ['benchmark', '/benchmark.js', BENCHMARK_GZIP_BUDGET],
   ] as const)(

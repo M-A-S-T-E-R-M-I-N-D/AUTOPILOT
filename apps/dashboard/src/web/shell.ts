@@ -153,6 +153,12 @@ import {
   projectFeatureModulesJs,
   deferredFeatureModulesJs,
 } from './chunks.js';
+import {
+  headWithEnglish,
+  narrowCoreEnglish,
+  placeComposedEnglish,
+  type EnglishPlacement,
+} from './english-heads.js';
 import { layoutCss } from './layout-css.js';
 import { REPORT_REGION_ATTR } from './report-capture.js';
 import {
@@ -4692,19 +4698,43 @@ export function clientJs(): string {
  * validating the whole is exactly as strong as before. The chunk composers
  * below are the transport split only — together they carry byte-for-byte the
  * same module set (the chunk test asserts that).
+ *
+ * ADR 0012 option B: English travels with its first caller. Core keeps only
+ * the `STRINGS.en` entries core (or project code shared with a later
+ * every-page chunk) references; `/project.js` and `/panels.js` each open
+ * with an `Object.assign(STRINGS.en, …)` head carrying the rest
+ * (`web/english-heads.ts`). The placement is scanned from the composed
+ * chunks once per process — the same premise `server/client-bundle.ts`'s
+ * minify cache rests on: the source never changes within a process.
  */
-export function coreClientJs(): string {
+let placementMemo: EnglishPlacement | undefined;
+
+function englishPlacement(): EnglishPlacement {
+  placementMemo ??= placeComposedEnglish({
+    core: composedCoreJs(),
+    project: projectFeatureModulesJs(),
+    panels: deferredFeatureModulesJs(),
+    whatsNew: whatsNewChunkJs(),
+  });
+  return placementMemo;
+}
+
+function composedCoreJs(): string {
   return `${fleetJs()}\n${coreFeatureModulesJs()}`;
+}
+
+export function coreClientJs(): string {
+  return narrowCoreEnglish(composedCoreJs(), englishPlacement().core);
 }
 
 /** The `/project.js` chunk — renderProjectPage's panels, `/p/<id>` pages only. */
 export function projectClientJs(): string {
-  return projectFeatureModulesJs();
+  return headWithEnglish(projectFeatureModulesJs(), englishPlacement().project);
 }
 
 /** The `/panels.js` chunk — self-init operator panels, every page, defer. */
 export function panelsClientJs(): string {
-  return deferredFeatureModulesJs();
+  return headWithEnglish(deferredFeatureModulesJs(), englishPlacement().panels);
 }
 
 /** The `/whats-new.js` chunk — the once-per-version message (web/whats-new.ts).
