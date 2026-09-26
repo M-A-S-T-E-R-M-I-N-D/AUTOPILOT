@@ -106,8 +106,15 @@ export interface ReportTaskPlan {
 /** The STRINGS key behind each rejection (#42, reported by @gabibi555:
  *  server-composed prose reached the UI untranslated). The English
  *  `reasoning` stays for logs and the API; the client renders
- *  `tr(reasonKey, reasonArgs)` in the operator's own language. */
-export type ReportReasonKey = 'reportNeedsRegion' | 'reportNeedsDescription' | 'reportNeedsProject';
+ *  `tr(reasonKey, reasonArgs)` in the operator's own language. A literal
+ *  array, not a bare union: ADR 0012's census reads it at runtime to prove
+ *  every key resolves in the client chunk that renders it. */
+export const REPORT_REASON_KEYS = [
+  'reportNeedsRegion',
+  'reportNeedsDescription',
+  'reportNeedsProject',
+] as const;
+export type ReportReasonKey = (typeof REPORT_REASON_KEYS)[number];
 
 /** An invalid capture plans nothing — the reasoning says why, in English
  *  for the log and by key for the screen. */

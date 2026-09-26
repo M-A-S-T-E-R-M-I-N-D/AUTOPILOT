@@ -54,7 +54,9 @@ Where the 1005 English keys are referenced:
 The scan over-approximates: a key that happens to spell an unrelated literal
 in core counts as a core reference. That errs toward keeping English in core,
 which costs bytes but is never unsafe. It could miss only keys composed at
-runtime, and it found none in the client chunks. The two
+runtime, and it found none in the client chunks. (Slice 2c's census proved
+that wrong: core composes keys from four stems and one suffix. See slice 2c
+below.) The two
 `data-i18n="' + key` concatenations (`web/shell.ts`, `web/shell-html.ts`)
 are server-side renderers whose keys are literals at their call sites.
 
@@ -160,7 +162,8 @@ Adopt **B**, with this fallback contract:
      no duplicates.
    - Every non-literal `tr(…)` call site in `web/` names its key domain as a
      literal array in the same module. The server-supplied key unions must
-     resolve in the chunk that consumes them.
+     resolve in the chunk that consumes them. (Slice 2c shipped this clause
+     in a different form, below.)
 
 ## Consequences
 
@@ -220,10 +223,35 @@ Test surface:
      needed the opt-in. The five `coreClientJs()` suites only exercise
      keys core references, and `localeJs()` still returns the whole table,
      since the narrowing happens in the composer.
-   - **2c: the census's third clause.** Every non-literal `tr(…)` call site
-     in `web/` names its key domain as a literal array in the same module,
-     and the server-supplied key unions resolve in the chunk that consumes
-     them.
+   - **2c, shipped: the census's third clause.** A key held in a variable
+     is safe when some client literal spells it. English lands no later than
+     the chunk holding that literal, whose head runs before any of its code.
+     So the clause guards the two ways a key escapes the scan:
+     - **Composed keys.** No `tr()` call composes its key inline. Every
+       camelCase stem or suffix a chunk joins to a runtime value is a family
+       that `web/english-heads.ts` declares (`COMPOSED_KEY_STEMS`,
+       `COMPOSED_KEY_SUFFIX`), and each family resolves in full in every
+       chunk that composes it. The generator now counts a family member as
+       referenced wherever its stem is spelled, and a `…Tip` key wherever
+       its base key is.
+     - **Server-supplied keys.** `REPORT_REASON_KEYS` and
+       `REPORT_COMPOSE_REASON_KEYS` are literal arrays, and each key
+       resolves in every chunk that renders a `reasonKey`.
+
+     A literal array at each of the ~35 variable-key call sites was not
+     needed. Those sites draw their keys from literals and maps in client
+     code, which the scan already reads.
+
+     The census caught a 2b regression. 2b had sent 44 keys from the
+     families core composes to the `/panels.js` head: the status-pill tips
+     (`labelKey + 'Tip'`), the anomaly popover's words
+     (`'anomalyWhat' + suffix`) and the orient-fixation templates. The Tip
+     rule also covers `searchTip` and `askTip`, whose base keys core spells.
+     The fleet card's first render could echo a raw key as a tip. All 44
+     keys are back in core. Measured minified, core is 234731 B raw /
+     69324 B gzip (core budget 231KB / 69KB), and `/panels.js` drops to
+     233224 / 70864. The reader's blind spot is a lower-case one-word stem
+     (`'task' + …` reads as a CSS class).
 
 ## Related
 
