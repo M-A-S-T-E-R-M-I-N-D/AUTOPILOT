@@ -1307,7 +1307,7 @@ const EN_STRINGS = {
   poolAudience:
     'For AUTOPILOT fleets: claim an issue here and your own pilot flies it, on your tokens. People claim on GitHub with /claim.',
   contributorIssueListAudience:
-    'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below.',
+    'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below. A good first issue nobody claims within 14 days opens to the fleet (agent-ok) — /claim still takes it back.',
   ciStatusTitle: 'CI status',
   // web/features/pool-client.ts's per-entry text (board web-msnsndki-dz3vn1):
   // rebuilt fresh on every 30s poll or click, so tr() at build time is the
@@ -2647,7 +2647,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     poolAudience:
       'לציי AUTOPILOT: תבעו כאן issue והטייס שלכם מטיס אותו, על הטוקנים שלכם. אנשים תובעים ב-GitHub עם ‎/claim.',
     contributorIssueListAudience:
-      'לאנשים: שמור לבני אדם, הצי עוקף אותם. תבעו אחד ב-GitHub עם ‎/claim; ההדרכה למטה.',
+      'לאנשים: שמור לבני אדם, הצי עוקף אותם. תבעו אחד ב-GitHub עם ‎/claim; ההדרכה למטה. good first issue שאיש לא תבע תוך 14 ימים נפתח לצי (agent-ok) — ‎/claim עדיין מחזיר אותו אליכם.',
     ciStatusTitle: 'מצב CI',
     poolNoLocalTask: 'ללא משימה מקומית',
     poolNoLocalCheckout: 'אין עותק מקומי של {repo}',
