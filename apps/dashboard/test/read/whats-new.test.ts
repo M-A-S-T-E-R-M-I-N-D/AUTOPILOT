@@ -59,6 +59,11 @@ describe('parseChangelogItem', () => {
       scope: null,
       text: 'breaking',
     });
+    expect(parseChangelogItem('feat(api)!: remove the old field')).toEqual({
+      kind: 'feat',
+      scope: 'api',
+      text: 'remove the old field',
+    });
   });
 
   it('keeps any other bullet whole rather than guessing a kind', () => {
