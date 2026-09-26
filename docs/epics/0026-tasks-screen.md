@@ -36,10 +36,12 @@ Material 3 filter chips, each labelled by its status pill's word. A box
 rewrites the query string in place and rebuilds the list, keeping focus;
 the column heads count what shows; a "Showing n of m" line with a Clear
 button says what is hidden. A filtered list offers no drag or ↑/↓, since
-reordering posts the order the list shows. A hand-typed severity or source
-filter already applies. Still open in slice 2: severity and source boxes,
-the grouping control and counts on its group heads, display options, the
-Focus grouping.
+reordering posts the order the list shows. A Severity filter followed it the
+same day: a second fieldset of the same chips, reds first (critical, high,
+medium, low) and an "unrated" box for the tasks that carry none, writing
+`?severity=`. A hand-typed source filter already applies. Still open in slice
+2: the source boxes, the grouping control and counts on its group heads,
+display options, the Focus grouping.
 
 ## The ask
 
