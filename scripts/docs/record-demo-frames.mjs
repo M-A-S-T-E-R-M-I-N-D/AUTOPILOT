@@ -11,6 +11,14 @@
  * contract: every frame the same pixel size (asserted before the manifest is
  * written), each with its own hold time, in order.
  *
+ * It also assembles the frames into `demo.png`: one looping animated PNG, with
+ * no new dependency. APNG (W3C PNG Third Edition, Recommendation 2025-06-24,
+ * §11.3.6: acTL · fcTL · fdAT) needs no encoder. Each frame's compressed IDAT
+ * stream is carried over byte for byte: frame 0's as the default image, every
+ * later one's as an fdAT. The loop is lossless and every current browser plays
+ * it wherever a PNG may appear. The operator can watch the real loop before
+ * approving the gif encoder, or take the APNG instead of it.
+ *
  *   pnpm run build
  *   node scripts/docs/record-demo-frames.mjs [outDir]
  *
@@ -27,6 +35,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { crc32 } from 'node:zlib';
 import { BASE, FOLDER, open, runningFlight, settle } from './demo-scene.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +49,10 @@ const FIXTURE_BOOT_MS = 30_000;
 export const VIEWPORT = { width: 1280, height: 800 };
 /** The manifest the encoder reads, written beside the frames. */
 export const MANIFEST = 'frames.json';
+/** The assembled loop (an APNG), written beside the frames it is made of. */
+export const ANIMATION = 'demo.png';
+/** fcTL's delay_num is 2 bytes; each hold is written as holdMs / 1000 s. */
+export const MAX_HOLD_MS = 0xffff;
 /** README animation budget: past this a hero loop stops being glanceable. */
 export const MAX_TOTAL_MS = 12_000;
 
@@ -127,6 +140,113 @@ export function assertUniformFrames(sizes) {
     );
   }
   return { width: first.width, height: first.height };
+}
+
+/**
+ * A PNG's chunks, in order. Throws on anything the APNG assembler would carry
+ * over corrupt: no signature, a chunk running past the end, a CRC mismatch, or
+ * no IEND.
+ * @param {Uint8Array} bytes
+ * @returns {{ type: string, data: Buffer }[]}
+ */
+export function readChunks(bytes) {
+  const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  if (buf.length < 8 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    throw new Error('not a PNG (no signature)');
+  }
+  const chunks = [];
+  let offset = 8;
+  while (offset + 12 <= buf.length) {
+    const length = buf.readUInt32BE(offset);
+    const end = offset + 12 + length;
+    if (end > buf.length) throw new Error(`chunk at byte ${offset} runs past the end`);
+    const type = buf.toString('latin1', offset + 4, offset + 8);
+    if (crc32(buf.subarray(offset + 4, end - 4)) !== buf.readUInt32BE(end - 4)) {
+      throw new Error(`${type} chunk at byte ${offset} fails its CRC`);
+    }
+    chunks.push({ type, data: buf.subarray(offset + 8, end - 4) });
+    if (type === 'IEND') return chunks;
+    offset = end;
+  }
+  throw new Error('PNG ends without an IEND chunk');
+}
+
+/** One chunk: length, type, data, and the CRC over type + data. */
+function pngChunk(type, data) {
+  const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+  const out = Buffer.alloc(body.length + 8);
+  out.writeUInt32BE(data.length, 0);
+  body.copy(out, 4);
+  out.writeUInt32BE(crc32(body), body.length + 4);
+  return out;
+}
+
+/**
+ * What a frame contributes to the loop: its IHDR (which must match frame 0's)
+ * and its IDAT chunks' data joined into one compressed stream. Ancillary chunks
+ * are dropped; Chromium's screenshots carry none. An indexed-colour frame is
+ * refused: it brings its own PLTE, and an APNG has one.
+ */
+function frameImage(bytes, file) {
+  const chunks = readChunks(bytes);
+  if (chunks[0]?.type !== 'IHDR') throw new Error(`${file}: IHDR is not the first chunk`);
+  if (chunks.some((c) => c.type === 'PLTE')) {
+    throw new Error(`${file}: indexed-colour frames (PLTE) cannot share one animation`);
+  }
+  const idat = chunks.filter((c) => c.type === 'IDAT').map((c) => c.data);
+  if (idat.length === 0) throw new Error(`${file}: no IDAT chunk`);
+  return { ihdr: chunks[0].data, data: Buffer.concat(idat) };
+}
+
+/** fcTL: the whole canvas, shown `holdMs`, then replaced (not blended) by the next. */
+function frameControl(sequence, ihdr, holdMs) {
+  const data = Buffer.alloc(26);
+  data.writeUInt32BE(sequence, 0);
+  ihdr.copy(data, 4, 0, 8); // width, height
+  // x_offset, y_offset stay 0; dispose_op NONE (0), blend_op SOURCE (0).
+  data.writeUInt16BE(holdMs, 20);
+  data.writeUInt16BE(1000, 22);
+  return pngChunk('fcTL', data);
+}
+
+/**
+ * The frames, in order, as one APNG. Throws rather than write a loop a browser
+ * would misplay: no frames, a hold that is not a whole number of milliseconds
+ * in 1..MAX_HOLD_MS, or a frame whose IHDR (size, depth, colour type) differs
+ * from the first.
+ * @param {readonly { file: string, bytes: Uint8Array, holdMs: number }[]} frames
+ * @param {{ plays?: number }} [options] `plays` 0 (the default) loops forever.
+ */
+export function assembleApng(frames, { plays = 0 } = {}) {
+  if (frames.length === 0) throw new Error('no frames to animate');
+  const images = frames.map(({ file, bytes, holdMs }) => {
+    if (!Number.isInteger(holdMs) || holdMs < 1 || holdMs > MAX_HOLD_MS) {
+      throw new Error(`${file}: holdMs must be a whole number in 1..${MAX_HOLD_MS}, got ${holdMs}`);
+    }
+    return { file, holdMs, ...frameImage(bytes, file) };
+  });
+  const [first] = images;
+  const odd = images.find((image) => !image.ihdr.equals(first.ihdr));
+  if (odd) {
+    throw new Error(`${odd.file}'s IHDR differs from ${first.file}'s — every frame must match`);
+  }
+  const animationControl = Buffer.alloc(8);
+  animationControl.writeUInt32BE(images.length, 0);
+  animationControl.writeUInt32BE(plays, 4);
+  const parts = [PNG_SIGNATURE, pngChunk('IHDR', first.ihdr), pngChunk('acTL', animationControl)];
+  let sequence = 0;
+  for (const [index, image] of images.entries()) {
+    parts.push(frameControl(sequence++, first.ihdr, image.holdMs));
+    if (index === 0) {
+      parts.push(pngChunk('IDAT', image.data));
+    } else {
+      const sequenced = Buffer.alloc(4);
+      sequenced.writeUInt32BE(sequence++, 0);
+      parts.push(pngChunk('fdAT', Buffer.concat([sequenced, image.data])));
+    }
+  }
+  parts.push(pngChunk('IEND', Buffer.alloc(0)));
+  return Buffer.concat(parts);
 }
 
 /** @typedef {{ browser: import('@playwright/test').Browser, context: import('@playwright/test').BrowserContext, page: import('@playwright/test').Page }} Scene */
@@ -252,6 +372,11 @@ async function record(browser, out) {
     MANIFEST,
     `— ${manifest.frames.length} frames, ${manifest.totalMs}ms, ${size.width}×${size.height}`,
   );
+  const apng = assembleApng(
+    manifest.frames.map((frame) => ({ ...frame, bytes: readFileSync(join(out, frame.file)) })),
+  );
+  writeFileSync(join(out, ANIMATION), apng);
+  console.log('wrote', ANIMATION, `— looping APNG, ${Math.round(apng.length / 1024)} KiB`);
 }
 
 async function main() {

@@ -46,7 +46,11 @@ the attention you have (an evening, a day, a week).
    Lucky · Fire story as a uniform-size PNG frame sequence plus a `frames.json`
    hold-time manifest under the git-ignored `docs/screens/demo-frames/` — the
    input contract for the README-top GIF, whose pure-JS encoder devDependency
-   awaits the operator's supply-chain approval.
+   awaits the operator's supply-chain approval. The same run also assembles
+   the frames into one lossless, looping animated PNG (`demo.png` in the same
+   git-ignored folder; W3C PNG Third Edition's APNG chunks, node:zlib only).
+   The operator can watch the real loop before approving the encoder, or take
+   the APNG instead of it; the README top is still unchanged.
 2. **Shipped 2026-09-13 — the master prompt.** `docs/MASTER-PROMPT.md`: one document that states
    the product's promise, its laws (honest telemetry, additive git, gate before
    commit, one unit per firing, claim contracts), its surfaces (fleet, project,
