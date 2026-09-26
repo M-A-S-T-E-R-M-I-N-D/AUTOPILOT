@@ -87,16 +87,11 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
   });
 });
 
-/** `<locale>.<key>` for every STRINGS value the sweep has not reached yet —
- *  the report menu's Copy element HTML (🧩) and Copy smart context (🧠)
- *  items, whose conversion needs two more vendored shapes. Sorted; it may
- *  only shrink. */
-const STRINGS_EMOJI_REMAINING = [
-  'en.reportCopyContextLabel',
-  'en.reportCopyHtmlLabel',
-  'he.reportCopyContextLabel',
-  'he.reportCopyHtmlLabel',
-];
+/** `<locale>.<key>` for every STRINGS value the sweep has not reached yet.
+ *  Sorted; it may only shrink. Empty since the report menu's Copy element
+ *  HTML (🧩 → `puzzle`) and Copy smart context (🧠 → `brain`) items picked up
+ *  their two vendored shapes. */
+const STRINGS_EMOJI_REMAINING: string[] = [];
 
 function emojiBearingStringKeys(): string[] {
   return Object.entries(STRINGS)
