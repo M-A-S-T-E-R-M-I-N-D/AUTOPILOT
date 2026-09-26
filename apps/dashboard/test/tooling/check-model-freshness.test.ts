@@ -16,6 +16,8 @@ import { describe, it, expect } from 'vitest';
 import {
   extractAdvertisedAliases,
   findUnknownFamilyAliases,
+  catalogueIds,
+  catalogueFamilies,
   cataloguePinnedIds,
   resolveAliasFromUsage,
   findStalePins,
@@ -97,6 +99,50 @@ describe('findUnknownFamilyAliases', () => {
   });
 });
 
+describe('catalogueIds', () => {
+  it('reads every line-leading id at any indentation and spacing, and nothing else', () => {
+    const src = [
+      'export const MODEL_CATALOGUE = [',
+      '  {',
+      "    id: 'fable',",
+      "    label: 'Fable (latest)',",
+      '  },',
+      '  {',
+      "id:'claude-fable-5-1',",
+      '  },',
+      "  // the old pin id: 'claude-opus-5' went stale the day Opus 5.5 shipped",
+      '];',
+    ].join('\n');
+    expect(catalogueIds(src)).toEqual(['fable', 'claude-fable-5-1']);
+  });
+
+  it('reads the real catalogue', () => {
+    expect(catalogueIds()).toEqual(expect.arrayContaining(['opus', 'claude-opus-5-5']));
+  });
+});
+
+describe('catalogueFamilies', () => {
+  it('reads the declared family list', () => {
+    const src = "export const MODEL_FAMILIES: readonly ModelFamily[] = ['fable', 'opus', 'nova'];";
+    expect(catalogueFamilies(src)).toEqual(['fable', 'opus', 'nova']);
+  });
+
+  it('reads a declaration written without spaces', () => {
+    expect(catalogueFamilies("MODEL_FAMILIES:readonly ModelFamily[]=['fable']")).toEqual(['fable']);
+  });
+
+  it('is empty when the declaration is missing, which makes every advertised alias a finding', () => {
+    const families = catalogueFamilies('export const MODELS = [];');
+    expect(families).toEqual([]);
+    const text = helpText("Provide an alias for the latest model (e.g. 'fable' or 'opus')");
+    expect(findUnknownFamilyAliases(text, families)).toEqual(['fable', 'opus']);
+  });
+
+  it('reads the real catalogue', () => {
+    expect(catalogueFamilies()).toEqual(['fable', 'opus', 'sonnet', 'haiku']);
+  });
+});
+
 /**
  * CASE 1 FINALLY HAS CODE BEHIND IT (2026-09-24). The header of this check
  * promised two kinds of staleness for two weeks and implemented one. The day
@@ -127,6 +173,17 @@ describe('cataloguePinnedIds', () => {
     expect(cataloguePinnedIds("[{ id: 'opus', selector: 'alias', family: 'opus' }]")).toEqual({});
   });
 
+  it('reads a pinned entry written without spaces', () => {
+    expect(
+      cataloguePinnedIds("[{ id:'claude-nova-1', selector:'pinned', family:'nova' }]"),
+    ).toStrictEqual({ nova: 'claude-nova-1' });
+  });
+
+  it('skips a pinned entry missing its id or its family instead of recording undefined', () => {
+    expect(cataloguePinnedIds("[{ selector: 'pinned', family: 'opus' }]")).toStrictEqual({});
+    expect(cataloguePinnedIds("[{ id: 'claude-opus-5-5', selector: 'pinned' }]")).toStrictEqual({});
+  });
+
   it('reads the real catalogue and finds a pin for every family it declares', () => {
     const pinned = cataloguePinnedIds();
     expect(Object.keys(pinned).sort()).toEqual(['fable', 'haiku', 'opus', 'sonnet']);
@@ -144,6 +201,7 @@ describe('resolveAliasFromUsage', () => {
   it('is null when the reply names nothing in that family, or is not a usage object at all', () => {
     expect(resolveAliasFromUsage({ 'claude-haiku-4-5-20251001': {} }, 'opus')).toBeNull();
     expect(resolveAliasFromUsage(undefined, 'opus')).toBeNull();
+    expect(resolveAliasFromUsage(null, 'opus')).toBeNull();
     expect(resolveAliasFromUsage('claude-opus-5-5', 'opus')).toBeNull();
   });
 });
@@ -166,10 +224,8 @@ describe('findStalePins', () => {
   });
 
   it('reports a family the probe could not resolve rather than passing it silently', () => {
-    const findings = findStalePins({ opus: 'claude-opus-5-5' }, { opus: null });
-    expect(findings).toHaveLength(1);
-    expect(findings[0]).toContain('could not resolve');
-    expect(findings[0]).toContain('claude-opus-5-5');
-    expect(findStalePins({ opus: 'claude-opus-5-5' }, {})).toHaveLength(1);
+    const unresolved = ["could not resolve what 'opus' points at today (pinned: claude-opus-5-5)"];
+    expect(findStalePins({ opus: 'claude-opus-5-5' }, { opus: null })).toEqual(unresolved);
+    expect(findStalePins({ opus: 'claude-opus-5-5' }, {})).toEqual(unresolved);
   });
 });

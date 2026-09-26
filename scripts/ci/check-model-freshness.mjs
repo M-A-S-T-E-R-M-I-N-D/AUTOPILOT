@@ -52,8 +52,7 @@ const CATALOGUE_SRC = fileURLToPath(
  *  script stays dependency-free and runs on an unbuilt tree, the same
  *  constraint `check-doc-commit-refs` and the threat-model generator's
  *  render half already work under. */
-function catalogueIds() {
-  const src = readFileSync(CATALOGUE_SRC, 'utf8');
+export function catalogueIds(src = readFileSync(CATALOGUE_SRC, 'utf8')) {
   return [...src.matchAll(/^\s*id:\s*'([^']+)'/gm)].map((m) => m[1]);
 }
 
@@ -80,11 +79,15 @@ export function cataloguePinnedIds(src = readFileSync(CATALOGUE_SRC, 'utf8')) {
  * or names nothing in that family.
  */
 export function resolveAliasFromUsage(modelUsage, family) {
-  if (!modelUsage || typeof modelUsage !== 'object') return null;
+  if (modelUsage === null || typeof modelUsage !== 'object') return null;
   const hit = Object.keys(modelUsage).find((id) => id.includes(`-${family}-`));
   return hit ?? null;
 }
 
+// Stryker disable all: `probeAlias` is process-shell glue — it spends a real
+// paid CLI call and can only be exercised by running `--probe` for real. The
+// logic it feeds, `resolveAliasFromUsage` and `findStalePins`, IS
+// mutation-tested.
 function probeAlias(family) {
   try {
     const out = execFileSync(
@@ -113,6 +116,7 @@ function probeAlias(family) {
     return null;
   }
 }
+// Stryker restore all
 
 /** Case 1's finding logic, pure: pinned id per family vs what the alias
  *  resolved to. A family the probe could not resolve is reported as such,
@@ -132,13 +136,18 @@ export function findStalePins(pinned, resolved) {
   return findings;
 }
 
-function catalogueFamilies() {
-  const src = readFileSync(CATALOGUE_SRC, 'utf8');
+/** The catalogue's family list, read the same source-level way as the ids.
+ *  Empty when the `MODEL_FAMILIES` declaration cannot be found, which makes
+ *  every advertised alias a finding: loud, never a silent pass. */
+export function catalogueFamilies(src = readFileSync(CATALOGUE_SRC, 'utf8')) {
   const match = src.match(/MODEL_FAMILIES:\s*readonly ModelFamily\[\]\s*=\s*\[([^\]]+)\]/);
   if (!match) return [];
   return [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
 }
 
+// Stryker disable all: `cliModelHelp` shells out to the installed `claude`
+// CLI, so it can only be exercised by running the gate for real. The parsing
+// it feeds, `extractAdvertisedAliases`, IS mutation-tested.
 /** What the installed CLI advertises. Absent CLI is not a failure — a
  *  contributor without Claude installed still gets a green build. */
 function cliModelHelp() {
@@ -152,6 +161,7 @@ function cliModelHelp() {
     return null;
   }
 }
+// Stryker restore all
 
 /**
  * Extracts the alias words the CLI's help text advertises, scoped to the
@@ -165,6 +175,9 @@ function cliModelHelp() {
  * exact matching logic the live check runs, without shelling out.
  */
 export function extractAdvertisedAliases(helpText) {
+  // Stryker disable next-line StringLiteral: the `''` fallback only feeds the
+  // quoted-word regex below, and any replacement string without a quoted word
+  // in it yields the same empty list.
   const sentence = helpText.match(/alias for the latest model[^)]*\)/i)?.[0] ?? '';
   return [...new Set([...sentence.matchAll(/'([a-z][a-z0-9]{2,11})'/g)].map((m) => m[1]))];
 }
@@ -178,6 +191,9 @@ export function findUnknownFamilyAliases(helpText, families) {
   return extractAdvertisedAliases(helpText).filter((word) => !families.includes(word));
 }
 
+// Stryker disable all: `main` is the process shell — it asks the real CLI,
+// optionally spends the paid probe, prints the report and sets
+// `process.exitCode`, so it can only be exercised by running the gate for real.
 function main() {
   const ids = catalogueIds();
   const families = catalogueFamilies();
@@ -229,3 +245,4 @@ function main() {
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) main();
+// Stryker restore all
