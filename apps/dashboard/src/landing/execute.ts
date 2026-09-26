@@ -204,6 +204,10 @@ export interface E2eLandGuardResult {
    *  Absent/empty when green, when the run id is unknown, or when the log
    *  could not be read: the escape is only ever earned by evidence. */
   readonly implicatedFiles?: readonly string[];
+  /** On a fresh red: true when every failure in that run is a screenshot
+   *  mismatch (see {@link isVisualOnlyFailure}) — what lets a landing that
+   *  changes the rendered UI clear it (see {@link landingTouchesRenderedUi}). */
+  readonly visualOnly?: boolean;
 }
 
 /** Pre-land converged-branch e2e guard (epic 0010 slice 4, operator decision
@@ -274,7 +278,12 @@ export function createRealE2eLandGuard(
     } catch {
       log = '';
     }
-    return { ok: false, detail: status.detail, implicatedFiles: implicatedFilesFromFailedLog(log) };
+    return {
+      ok: false,
+      detail: status.detail,
+      implicatedFiles: implicatedFilesFromFailedLog(log),
+      visualOnly: isVisualOnlyFailure(log),
+    };
   };
 }
 
@@ -307,6 +316,40 @@ const SNAPSHOT_DIR_MARKER = '.spec.ts-snapshots/';
  */
 export function landingCarriesBaselineFix(changedFiles: readonly string[]): boolean {
   return changedFiles.some((file) => file.replace(/\\/g, '/').includes(SNAPSHOT_DIR_MARKER));
+}
+
+/**
+ * THE THIRD ESCAPE (2026-09-26): a red made only of screenshot mismatches
+ * has exactly two remedies — new baselines, or a change to the UI that
+ * renders them. The baseline escape above covers the first. The second was
+ * missing: a spacing fix grew every fleet screenshot by 16px, the
+ * follow-up that took the height back out changed only the stylesheet,
+ * and a screenshot failure names only its spec file — so the guard refused
+ * the one commit that could clear it, the same deadlock as before.
+ *
+ * As narrow as the others: every failure in the red run must be a
+ * screenshot mismatch, and the landing must change the rendered UI (the
+ * dashboard's web sources or the token package). A red with any other
+ * kind of failure, or a landing that touches neither, still waits.
+ */
+const RENDERED_UI_DIRS = ['apps/dashboard/src/web/', 'packages/tokens/src/'];
+
+export function landingTouchesRenderedUi(changedFiles: readonly string[]): boolean {
+  return changedFiles.some((file) => {
+    const f = file.replace(/\\/g, '/');
+    return RENDERED_UI_DIRS.some((dir) => f.startsWith(dir));
+  });
+}
+
+/** Whether every failure a Playwright run reports is a screenshot
+ * mismatch: at least one `toHaveScreenshot` failure, and no `Error:` line
+ * of any other kind. An unreadable or empty log is not visual-only. */
+export function isVisualOnlyFailure(log: string): boolean {
+  const errors = log
+    .split('\n')
+    .filter((line) => /\bError: /.test(line))
+    .map((line) => line.replace(ANSI_RE, ''));
+  return errors.length > 0 && errors.every((line) => line.includes('toHaveScreenshot'));
 }
 
 /** Terminal colour/style codes — `gh run view --log-failed` hands back the
@@ -494,7 +537,9 @@ export function createLandingExecuteApi(
       // yields an empty list, which takes the refusal, so an unreadable repo
       // never buys a landing it has not earned.
       const pendingFiles = await vcs.changedFiles(base, 'HEAD').catch((): readonly string[] => []);
-      const carriesBaselineFix = landingCarriesBaselineFix(pendingFiles);
+      const carriesBaselineFix =
+        landingCarriesBaselineFix(pendingFiles) ||
+        (e2eHealth?.visualOnly === true && landingTouchesRenderedUi(pendingFiles));
       const remedyFiles = remedyFilesOf(pendingFiles, e2eHealth?.implicatedFiles ?? []);
       if (e2eHealth && !e2eHealth.ok && !carriesBaselineFix && remedyFiles.length === 0) {
         // Alarm event, same best-effort/never-fail-the-refusal-over-it
