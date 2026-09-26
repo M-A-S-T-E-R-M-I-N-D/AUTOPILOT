@@ -147,6 +147,21 @@ mean" from six words on a board card.
    `apps/dashboard/test/landing/execute.test.ts`'s "e2e land guard" suite and
    `apps/dashboard/test/read/anomalies.test.ts`'s `e2eLandBlocks` suite.
 
+Freshness check (2026-09-26): `ci-status.ts` gained two commits since slice 2/4
+above were written. 2026-09-17 (ADR 0008's "remedy escape" amendment) added
+`WorkflowRunStatus.runId` (the run's `databaseId`) so `E2eLandGuard` can read a
+fresh red run's failed-job log and let through a landing whose own changes fix
+the files that failure names, instead of staying permanently refused — a real
+extension of slice 4's behavior this doc didn't previously describe. 2026-09-25
+added `WorkflowRunStatus.headSha` so a caller can tell a run for its OWN commit
+from the previous commit's run still listed as "latest" right after a push;
+the consumer is `post-push-watch.ts` (board web-mtpbmay4-94ii65, the POST-PUSH
+VERDICT RITUAL) — separate machinery outside this epic's own slices, not a
+scope change here. Neither commit changes slice 2's own description (still
+never throws, still flags only a genuinely failing conclusion): both are
+additive fields on the same read-only `gh run list` call. Slices 2-4 remain
+shipped and unchanged in scope.
+
 ## Related
 
 - `.github/dependabot.yml`, `apps/dashboard/src/flight/doc-freshness.ts`
