@@ -70,6 +70,11 @@
  * user-typed `{title}` in one sentence, so `subs` may also be a substitution
  * map (`tr('githubPrConfirm', { name, title })`) — every `{key}` occurrence
  * in the template gets replaced by its matching map entry.
+ * A key no table holds echoes back as the key itself (ADR 0012's miss rule)
+ * — never `undefined`, never a `TypeError` from substituting into nothing —
+ * since a server-supplied key (`reasonKey`) can name a string this bundle
+ * lacks, and an echoed key is a visible, greppable bug where a blank
+ * `confirm()` would ask the operator to approve an action it does not name.
  *
  * Applying a locale sets BOTH `lang` (screen readers/spellcheck) and `dir`
  * (layout) on `<html>` — Hebrew (i18n foundation, board web-msnsndki-dz3vn1,
@@ -210,10 +215,17 @@ function translateDom(l) {
     if (tpl) el.setAttribute('data-tip', fillTemplate(tpl, el, table));
   });
 }
+function ownText(table, key) {
+  // Only a real string entry counts: a server-supplied key can spell an
+  // inherited member ('constructor', '__proto__') that is no string at all.
+  const text = table && table[key];
+  return typeof text === 'string' ? text : '';
+}
 function tr(key, subs) {
+  // ADR 0012 miss rule: active locale, then English, then the key itself —
+  // never undefined, never a throw, with or without subs.
   const l = document.documentElement.lang || 'en';
-  const table = STRINGS[l] || STRINGS.en;
-  const text = table[key] || STRINGS.en[key];
+  const text = ownText(STRINGS[l], key) || ownText(STRINGS.en, key) || String(key);
   if (subs == null) return text;
   if (typeof subs === 'string') return substituteName(text, subs);
   return substituteMap(text, subs);

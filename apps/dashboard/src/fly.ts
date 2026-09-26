@@ -86,6 +86,10 @@ import {
   createGitMergeEscalationDeps,
   runMergeEscalationAgent,
   ClaudeCliModel,
+  ModelCommitReviewer,
+  resolveCommitReviewModel,
+  TOOL_LESS_ALLOWED_TOOLS,
+  TOOL_LESS_DISALLOWED_TOOLS,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -1200,6 +1204,34 @@ async function main(): Promise<void> {
     // (below), where the interval social pass asks whether another firing is
     // still to come (the loop keeps its own iteration count private).
     let firingsCompletedThisFlight = 0;
+    // Commit-time independent review (BACKLOG-999 C5): one tool-less call on a
+    // cheap model per gate-passed firing, non-blocking — see commit-review.ts.
+    const reviewModel = resolveCommitReviewModel(process.env);
+    out(
+      reviewModel === null
+        ? 'Commit review: off (AUTOPILOT_REVIEW_MODEL=off)'
+        : `Commit review: ${reviewModel}, non-blocking (AUTOPILOT_REVIEW_MODEL)`,
+    );
+    const reviewer =
+      reviewModel === null
+        ? undefined
+        : new ModelCommitReviewer({
+            model: new ClaudeCliModel({
+              repo: flightRoot,
+              config: {
+                ...DEFAULT_ENGINE_CONFIG,
+                primaryModel: reviewModel,
+                maxTurns: 2,
+                maxBudgetUsd: 0.5,
+                allowedTools: TOOL_LESS_ALLOWED_TOOLS,
+                disallowedTools: TOOL_LESS_DISALLOWED_TOOLS,
+              },
+              auth,
+              pidRegistry,
+            }),
+            modelName: reviewModel,
+            diffText: (from, to) => vcs.diffText(from, to),
+          });
     const loop: LoopDeps = {
       firing: {
         model: new StreamingClaudeCliModel({
@@ -1221,6 +1253,7 @@ async function main(): Promise<void> {
         gate: feedbackGate,
         store: sink,
         clock: new SystemClock(),
+        ...(reviewer ? { reviewer } : {}),
       },
       stopRequested: () => Promise.resolve(shouldStop()),
       loadState: () => Promise.resolve(INITIAL_RESILIENCE_STATE),

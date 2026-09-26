@@ -742,6 +742,14 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     expect(document.querySelectorAll('.timeline-strip rect')).toHaveLength(2);
     const found = await violations();
     expect(found.map((v) => v.id)).toEqual([]);
+
+    // The same board with a row's read-only detail OPEN (epic 0026, Enter):
+    // the title as an expanded disclosure button and the detail it controls
+    // must scan clean too, not only their collapsed rest state.
+    (document.querySelector('.task[data-task-id="t1"] .task-title') as HTMLElement).click();
+    expect((document.getElementById('task-detail-t1') as HTMLElement).hidden).toBe(false);
+    const foundOpen = await violations();
+    expect(foundOpen.map((v) => v.id)).toEqual([]);
   });
 
   it('the ADAPTIVE TASK BUDGET risk chip on the project page task board is axe-clean', async () => {

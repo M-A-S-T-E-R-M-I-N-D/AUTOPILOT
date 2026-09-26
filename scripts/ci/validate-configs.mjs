@@ -81,17 +81,21 @@ export function findUnpinnedActions(text) {
 
 /**
  * JSONC → JSON for check #1: strips block and line comments and trailing
- * commas. A `//` preceded by `:` or a quote is left alone so URLs inside
- * string values (`"$schema": "https://..."`) survive. Pure — exported so it
- * can be unit-tested directly against fixture strings.
+ * commas. Each pass matches a whole string literal FIRST and hands it back
+ * untouched, so comment and comma syntax inside a string value — a tsconfig
+ * "include" glob, a "paths" key, a "$schema" URL — stays data (board
+ * ap-muhsnbbf-0: the old comment-first regexes cut every "src/**" glob down
+ * to "src*.ts"). An unterminated string or block comment is left in place so
+ * JSON.parse reports it. Pure — exported so it can be unit-tested directly
+ * against fixture strings.
  * @param {string} src
  * @returns {string}
  */
 export function stripJsonComments(src) {
-  let out = src.replace(/\/\*[\s\S]*?\*\//g, '');
-  out = out.replace(/(^|[^:"'])\/\/[^\n\r]*/g, '$1');
-  out = out.replace(/,(\s*[}\]])/g, '$1');
-  return out;
+  const keepStringsOnly = (/** @type {string} */ _match, /** @type {string | undefined} */ str) =>
+    str ?? '';
+  const out = src.replace(/("(?:[^"\\]|\\.)*"?)|\/\/[^\n\r]*|\/\*[\s\S]*?\*\//g, keepStringsOnly);
+  return out.replace(/("(?:[^"\\]|\\.)*"?)|,(?=\s*[}\]])/g, keepStringsOnly);
 }
 
 // Stryker disable all: `parseConfig` reads a real file off disk — it can only

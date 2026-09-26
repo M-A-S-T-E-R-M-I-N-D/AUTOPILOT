@@ -605,6 +605,25 @@ export class GitVcs implements VcsPort {
   }
 
   /**
+   * The unified diff between two refs — what the commit-time reviewer reads
+   * (`firing.ts`, docs/BACKLOG-999.md C5). `--no-color`/`--no-ext-diff`
+   * keep a user's git config from dressing the text up. Degrades to `''` on
+   * an unborn-HEAD `''` ref or any git failure (including a diff too big for
+   * the runner's buffer), and the reviewer skips an empty diff.
+   */
+  async diffText(fromRef: string, toRef: string): Promise<string> {
+    if (fromRef === '' || toRef === '') return '';
+    const { stdout, exitCode } = await git(this.repo, [
+      'diff',
+      '--no-color',
+      '--no-ext-diff',
+      fromRef,
+      toRef,
+    ]);
+    return exitCode === 0 ? stdout : '';
+  }
+
+  /**
    * True when `path` is committed at HEAD — the EPIC SPEC convention's
    * existence check (`apps/dashboard/src/flight/epic-spec.ts`): a task title
    * can link a spec file, but only a file actually in the tree at HEAD

@@ -9,6 +9,7 @@
  * orchestration fully testable with fakes.
  */
 
+import type { Severity } from '@autopilot/store';
 import type { FiringRecord, GateCheckResult } from './telemetry.js';
 import type { GuardDenialDetail } from './stream.js';
 
@@ -265,6 +266,43 @@ export interface VcsPort {
    * hold no changes.
    */
   commitPaths(paths: readonly string[], message: string): Promise<boolean>;
+}
+
+/** The diff a firing left, identified by the refs `firing.ts` already holds. */
+export interface CommitReviewRequest {
+  readonly headBefore: string;
+  readonly headAfter: string;
+  readonly subject: string | null;
+}
+
+export interface CommitReviewFinding {
+  readonly severity: Severity;
+  readonly file: string | null;
+  readonly problem: string;
+}
+
+/**
+ * What the commit-time review (docs/BACKLOG-999.md C5) left on the firing
+ * record. `skipped` always says why, so an absent verdict is never mistaken
+ * for a clean one.
+ */
+export type CommitReview =
+  | {
+      readonly status: 'reviewed';
+      readonly model: string;
+      /** The review call's own spend — kept apart from the firing's cost. */
+      readonly costUsd: number | null;
+      readonly findings: readonly CommitReviewFinding[];
+    }
+  | { readonly status: 'skipped'; readonly reason: string };
+
+/**
+ * Commit-time independent review — an optional firing capability: without
+ * one, the firing simply isn't reviewed. The shipped implementation is
+ * `firing.ts`'s `ModelCommitReviewer`.
+ */
+export interface CommitReviewPort {
+  review(request: CommitReviewRequest): Promise<CommitReview>;
 }
 
 /** Persistence boundary — the SQLite adapter implements this. */

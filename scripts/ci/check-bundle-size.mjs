@@ -193,7 +193,13 @@ import { gzipSync } from 'node:zlib';
 // three STRINGS.en keys) -- measured 266956B raw against the old 266240B
 // line, 716 bytes over. Two KB, not one: a 261KB line would leave 308
 // bytes, the same thin margin the entry above refused.
-const CORE_RAW_BUDGET = 262 * 1024;
+// Then core raw 262->264KB (2026-09-26), the same epic's Enter: the task
+// title becomes the row's disclosure button and opens a read-only detail
+// under the row -- the whole body, the id and age (boardOpen, one click
+// listener, Enter/Space on the keydown handler, two STRINGS.en keys) --
+// measured 268844B raw against the old 268288B line, 556 bytes over. Two KB
+// again, for the margin the entries above keep.
+const CORE_RAW_BUDGET = 264 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -210,7 +216,11 @@ const CORE_RAW_BUDGET = 262 * 1024;
 // Then core gzip 78→79KB (2026-09-26), the same epic 0026 row-selection
 // slice as the raw entry above — measured 79902B against the old 79872B
 // line, 30 bytes over.
-const CORE_GZIP_BUDGET = 79 * 1024;
+// Then core gzip 79→80KB (2026-09-26), the same epic 0026 Enter slice as the
+// raw entry above — measured 80512B, 384 bytes UNDER the old 80896B line,
+// bumped for the reason the 260KB raw entry gives: a margin that thin goes
+// red the moment a sibling lane's core growth merges beside it.
+const CORE_GZIP_BUDGET = 80 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the

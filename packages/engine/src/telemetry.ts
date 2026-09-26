@@ -16,6 +16,7 @@ import { SEVERITIES, DIMENSIONS, type Severity, type Dimension } from '@autopilo
 import type { StartedOn } from './resilience.js';
 import { computeRealCostUsd } from './usage-pool.js';
 import type { GuardDenialDetail } from './stream.js';
+import type { CommitReview } from './ports.js';
 
 // ---- self-report parsing ----------------------------------------------------
 
@@ -622,6 +623,13 @@ export interface FiringRecord {
    * was distinguishable from a generic error. Absent for every ordinary firing.
    */
   readonly timedOut?: boolean;
+  /**
+   * The commit-time independent review of a gate-PASSED firing's diff
+   * (`firing.ts`, docs/BACKLOG-999.md C5) — findings, or why the
+   * review was skipped. Non-blocking: it never changed {@link gateResult}.
+   * Absent when the firing did not pass the gate or ran without a reviewer.
+   */
+  readonly review?: CommitReview;
   /**
    * The fleet lane that ran this firing — see {@link FiringContext.instanceId}.
    * `null` for every solo (unnamed) flight, which is most firings today.

@@ -158,6 +158,59 @@ describe('stripJsonComments', () => {
     expect(stripJsonComments('{"a": [1, 2,], "b": 1,\n}')).toBe('{"a": [1, 2], "b": 1\n}');
   });
 
+  // Board ap-muhsnbbf-0: comment and trailing-comma syntax INSIDE a string is
+  // data, not syntax. Every tsconfig in this repo carries "src/**/*.ts", whose
+  // `/**/` the old regex pass silently stripped to "src*.ts".
+  it('leaves a glob string holding /**/ intact (every tsconfig "include" in this repo)', () => {
+    const src = '{"include": ["src/**/*.ts", "test/**/*.ts"]}';
+    expect(stripJsonComments(src)).toBe(src);
+  });
+
+  it('does not open a block comment at a /* inside a string when a real comment follows', () => {
+    const src = '{"paths": {"@x/*": ["./src/*"]}, /* note */ "a": 1}';
+    expect(JSON.parse(stripJsonComments(src))).toEqual({ paths: { '@x/*': ['./src/*'] }, a: 1 });
+  });
+
+  it('leaves a // inside a string alone even when no : or quote precedes it', () => {
+    const src = '{"pattern": "a//b", "c": 1}';
+    expect(stripJsonComments(src)).toBe(src);
+  });
+
+  it('keeps a comma before } or ] that sits inside a string', () => {
+    const src = '{"a": "x,]", "b": "y, }"}';
+    expect(stripJsonComments(src)).toBe(src);
+  });
+
+  it('treats an escaped quote as part of the string, not its end', () => {
+    const src = '{"a": "say \\"/*\\"\\n and \\\\", /* gone */ "b": "//"}';
+    expect(JSON.parse(stripJsonComments(src))).toEqual({ a: 'say "/*"\n and \\', b: '//' });
+  });
+
+  it('leaves an unterminated string verbatim, comment syntax and all', () => {
+    expect(stripJsonComments('{"a": "/* x */')).toBe('{"a": "/* x */');
+  });
+
+  it('drops a trailing comma that a comment separates from its closing bracket', () => {
+    expect(stripJsonComments('[1, /* last */\n]')).toBe('[1 \n]');
+    expect(stripJsonComments('{"a": 1, // last\n}')).toBe('{"a": 1 \n}');
+  });
+
+  it('keeps a comma that a comment separates from the next value', () => {
+    expect(stripJsonComments('[1, /* next */ 2]')).toBe('[1,  2]');
+  });
+
+  it('leaves an unterminated block comment in place so JSON.parse reports it', () => {
+    expect(stripJsonComments('{"a": 1} /* open')).toBe('{"a": 1} /* open');
+  });
+
+  it('strips a line comment ended by a CR, keeping the CR', () => {
+    expect(stripJsonComments('{"a": 1 // note\r\n}')).toBe('{"a": 1 \r\n}');
+  });
+
+  it('keeps a lone / that opens no comment', () => {
+    expect(stripJsonComments('{"a": 1} /')).toBe('{"a": 1} /');
+  });
+
   it('turns a real tsconfig-style JSONC document into parseable JSON', () => {
     const src = [
       '{',

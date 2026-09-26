@@ -2423,3 +2423,90 @@ describe('epic 0019 S3 per project — a checkout of another repo is never mirro
     }
   });
 });
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): the drift execute
+// fixtures above only ever fired the VERSION half of derivation 3/4, and the
+// per-project gate only ever saw git ANSWER for origin. These pin the counts
+// and link findings flowing through the same social-protocol gate as one `gh
+// issue create` each, and a checkout git cannot answer for at all (no repo,
+// no origin remote) keeping the single-context behavior the gate's docstring
+// promises — never a refusal, never a throw.
+describe('EPIC 0019 additive-only law — the drift execute files every derivation-3/4 half', () => {
+  it('files the counts drift and the link drift as one issue each when the README makes no version claim', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-drift-execute-counts-links-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+      mkdirSync(join(dir, 'docs'));
+      writeFileSync(
+        join(dir, 'README.md'),
+        '# Hello\n\nBuilt on 3 open-source projects.\n\n' +
+          'See [the guide](docs/guide.md) and [the table](docs/THIRD-PARTY-LICENSES.md).\n',
+      );
+      writeFileSync(
+        join(dir, 'docs', 'THIRD-PARTY-LICENSES.md'),
+        '| Package | Version | License |\n| --- | --- | --- |\n' +
+          '| a | 1.0.0 | MIT |\n| b | 2.0.0 | ISC |\n',
+      );
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const exec = identityAndSocialListsExec('octocat', 'octocat', [], [], calls);
+
+      const report = await createMirrorPassDriftExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.duplicates).toEqual([]);
+      expect(report?.outcomes.map((o) => o.finding.action)).toEqual([
+        'file-counts-drift-issue',
+        'file-broken-link-issue',
+      ]);
+      expect(report?.outcomes[0]?.finding).toMatchObject({ claimedCount: 3, actualCount: 2 });
+      expect(report?.outcomes[1]?.finding).toMatchObject({ brokenLinks: ['docs/guide.md'] });
+      expect(report?.outcomes.every((o) => o.commandOutcome.ok)).toBe(true);
+      const created = calls
+        .filter(([, args]) => args[0] === 'issue' && args[1] === 'create')
+        .map(([, args]) => args[args.indexOf('--title') + 1]);
+      expect(created).toEqual([
+        'README.md claims 3 packages, tree has 2',
+        'README.md has 1 broken internal link',
+      ]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('keeps the single-context behavior when git cannot answer for origin at all', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-origin-unreadable-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      createTask(s, { id: 'github-42', projectId: 'p1', title: 'Landed', createdAt: 100 });
+      setTaskStatus(s, 'github-42', 'done', 200);
+      shipSha(s, 'p1', 'firing-1', 'github-42', 'abc1234');
+      s.close();
+
+      const calls: Array<readonly [string, readonly string[]]> = [];
+      const inner = identityAndIssueViewExec('octocat', 'octocat', { 42: 'open' }, calls);
+      const exec: CliExec = vi.fn(async (bin, args) => {
+        if (bin === 'git' && args[2] === 'remote' && args[3] === 'get-url') {
+          return { code: 128, stdout: '' };
+        }
+        return inner(bin, args);
+      });
+
+      const report = await createMirrorPassExecuteApi(dbPath, exec)('p1');
+
+      expect(report?.skippedReason).toBeUndefined();
+      expect(report?.identity).toMatchObject({ login: 'octocat', role: 'maintainer' });
+      expect(calls).toContainEqual(['gh', ['issue', 'close', '42']]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});

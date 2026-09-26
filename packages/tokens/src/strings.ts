@@ -1011,7 +1011,9 @@ const EN_STRINGS = {
   // The board's keyboard legend (shell.ts's boardKeysHint(), epic 0026): one
   // label per key group — the <kbd> keys themselves are not translated.
   boardKeysMove: 'move',
+  boardKeysOpen: 'open',
   boardKeysSelect: 'select',
+  boardKeysExtend: 'extend',
   boardKeysSelectAll: 'select all',
   boardKeysApprove: 'approve',
   boardKeysDone: 'done',
@@ -1021,6 +1023,8 @@ const EN_STRINGS = {
   // under the legend counts the set through {n} riding data-i18n-args.
   taskSelectAria: 'Select: {name}',
   boardSelected: '{n} selected — Esc clears',
+  // A row's read-only detail (epic 0026, Enter) when its task has no body.
+  taskDetailEmpty: 'No description.',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -1177,7 +1181,7 @@ const EN_STRINGS = {
   // Fly bar raises through it.
   snackDismiss: 'Dismiss this notice',
   luckyRolled:
-    '🍀 Rolled {lanes} lane(s) × {firings} firing(s) at ${budget} each — press Fire to take off.',
+    'Rolled {lanes} lane(s) × {firings} firing(s) at ${budget} each — press Fire to take off.',
   luckyWhyTitle: 'Why this size',
   luckyHandToPilot: 'Hand to the pilot',
   luckyHandToPilotTip:
@@ -1611,10 +1615,10 @@ const EN_STRINGS = {
     'Probes this machine (CPU, RAM, cores) and the board, then fills Lanes/Firings/$ with a launch sized to what the computer can carry right now. Filling only — Fire stays your click.',
   luckyNoAnswer: 'Lucky roll failed — no answer from the server.',
   luckyDashboardDown: 'Lucky roll failed — is the dashboard up?',
-  luckyNotNow: '🍀 Not now: {reason}',
+  luckyNotNow: 'Not now: {reason}',
   luckyNoPlan: 'no plan',
   luckyPlanReady: 'plan ready',
-  luckyPressFlyIt: '🍀 {reason} — press Fire to launch.',
+  luckyPressFlyIt: '{reason} — press Fire to launch.',
   luckyFitTitle: 'Work that fits you',
   luckyFitAttentionAria: 'How much attention you have',
   luckyFitEvening: 'one evening',
@@ -2450,13 +2454,16 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskReject: '✗ דחה',
     taskDone: '✓ בוצע',
     boardKeysMove: 'מעבר',
+    boardKeysOpen: 'פתיחה',
     boardKeysSelect: 'בחירה',
+    boardKeysExtend: 'הרחבה',
     boardKeysSelectAll: 'בחירת הכול',
     boardKeysApprove: 'אישור',
     boardKeysDone: 'בוצע',
     boardKeysLeave: 'יציאה',
     taskSelectAria: 'בחירה: {name}',
     boardSelected: '{n} נבחרו — Esc מנקה',
+    taskDetailEmpty: 'אין תיאור.',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
@@ -2555,7 +2562,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     ciRunning: 'רץ',
     snackDismiss: 'סגירת ההודעה',
     luckyRolled:
-      '🍀 הוגרלו {lanes} נתיב/ים × {firings} הפעלות ב-${budget} כל אחת — לחצו על "שגר!" כדי להמריא.',
+      'הוגרלו {lanes} נתיב/ים × {firings} הפעלות ב-${budget} כל אחת — לחצו על "שגר!" כדי להמריא.',
     luckyWhyTitle: 'למה הגודל הזה',
     luckyHandToPilot: 'העבירו לטייס',
     luckyHandToPilotTip:
@@ -2929,10 +2936,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'בודק את המחשב הזה (מעבד, זיכרון, ליבות) ואת הלוח, ואז ממלא נתיבים/הפעלות/$ בשיגור בגודל שהמחשב יכול לשאת כרגע. מילוי בלבד — "שגר!" נשאר הלחיצה שלכם.',
     luckyNoAnswer: 'הגרלת המזל נכשלה — אין תשובה מהשרת.',
     luckyDashboardDown: 'הגרלת המזל נכשלה — האם לוח הבקרה פועל?',
-    luckyNotNow: '🍀 לא עכשיו: {reason}',
+    luckyNotNow: 'לא עכשיו: {reason}',
     luckyNoPlan: 'אין תוכנית',
     luckyPlanReady: 'התוכנית מוכנה',
-    luckyPressFlyIt: '🍀 {reason} — לחצו על "שגר!" כדי להמריא.',
+    luckyPressFlyIt: '{reason} — לחצו על "שגר!" כדי להמריא.',
     luckyFitTitle: 'עבודה שמתאימה לכם',
     luckyFitAttentionAria: 'כמה קשב יש לכם',
     luckyFitEvening: 'ערב אחד',

@@ -677,6 +677,10 @@ const BENIGN_READ = new Set([
   // The benchmark page's data: SELECTs over metrics, firing events and the
   // scoreboard's routing events, on a read-only connection. No writes.
   'benchmark.ts',
+  // The Versions screen's timeline (ap-mui2h3s1-1): MYTH/LEGACY tags and the
+  // flight log since LEGACY, read with `git log` only. It restores nothing;
+  // the additive restore is a later slice that will need its own marker.
+  'versions.ts',
   // D4 pipeline view read-models (epic 0015): pure graph/geometry/selection
   // derivations over stored firing records — no store writes, no I/O of
   // their own (verified: no writeFileSync/INSERT/UPDATE/DELETE).
@@ -2385,6 +2389,11 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['docs/donations.json'])).toBe(true);
     expect(touchesSecuritySensitivePath(['docs/DONATE.md'])).toBe(true);
     expect(touchesSecuritySensitivePath(['.github/FUNDING.yml'])).toBe(true);
+  });
+
+  it('flags docs/DONATE.asc — the clearsigned copy of the address file that ci:donate requires to sign exactly docs/donations.json: a PR that swapped an address would re-sign it here, and a donor checking `gpg --verify` trusts this file, so it queues for a human beside the data it signs', () => {
+    expect(touchesSecuritySensitivePath(['docs/DONATE.asc'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['docs/donate.asc'])).toBe(true);
   });
 
   it('keeps the donation markers path-anchored: prose that only discusses donations, and the already-benign read-only docs/donations.json parser, stay unflagged', () => {

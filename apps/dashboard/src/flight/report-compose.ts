@@ -289,7 +289,7 @@ export function parseReportComposeOutput(text: string): ReportComposeOutput | nu
  * narrower username-bearing home-directory shapes are checked.
  */
 const COMPOSE_LEAK_RULES: readonly RegExp[] = [
-  /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY-----/,
+  /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY(?: BLOCK)?-----/,
   /\bAKIA[0-9A-Z]{16}\b/,
   /\bgh[posru]_[A-Za-z0-9]{36,}\b/,
   /\bgithub_pat_[A-Za-z0-9_]{22,}\b/,

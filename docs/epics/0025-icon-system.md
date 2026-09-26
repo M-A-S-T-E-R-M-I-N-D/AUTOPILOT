@@ -63,6 +63,13 @@ propagation, and the filled style does not match the nav.
    `docs/THIRD-PARTY-LICENSES.md` (now with a "Copied into the product"
    section) and `docs/README.md` to naming Lucide and linking
    `LICENSES/ISC.txt`, and no credit surface may claim nothing is vendored.
+   **STRINGS census 2026-09-26:** the web/ scan could not see a glyph baked
+   into a locale value (`packages/tokens`), so the same test now walks every
+   locale's STRINGS and pins the emoji-bearing keys to an exact, shrink-only
+   list. The lucky roll's snackbar sentence and refusal line dropped their
+   🍀 in both locales; the report menu's Copy element HTML (🧩) and Copy
+   smart context (🧠) labels are what the list still names — they need two
+   more vendored shapes and a core bundle budget raise.
    Docs/screenshots refresh is still open.
 
 ## Related

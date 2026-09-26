@@ -13,7 +13,18 @@ key legend under the column heads that names them. Row selection followed the
 same day: every row leads with a checkbox, `x` toggles the one under the
 cursor, an "N selected" status line counts the set, and Escape clears it
 before it leaves. Ctrl/Cmd-A takes every row in the cursor's list, named in
-the legend as `Ctrl+A`. The set is what slice 4's bulk actions will act on.
+the legend as `Ctrl+A`. Shift+`j`/`k` extends: it moves like `j`/`k` and checks
+the row it leaves and the row it lands on, so a run walked with Shift held is
+selected; it only adds, and walking back keeps the run. That closes Linear's
+five selection keys. The set is what slice 4's bulk actions will act on.
+Enter closed the slice's key list the same day: the title is the row's
+disclosure button (`aria-expanded`, `aria-controls`), and Enter from anywhere
+in the row but its own buttons, Space on the title, or a click opens a
+read-only detail on its own line under the row — the task's whole body (the
+hover tip stops at 240 characters), its id and its age. Open rows survive the
+per-tick rebuild. The legend names it as `Enter` open. Still open in slice 1:
+the detail as a split pane beside the list from `lg`, and the rest of its
+contents (provenance, slices, cost history, the claim).
 
 ## The ask
 
