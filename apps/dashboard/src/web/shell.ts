@@ -144,6 +144,7 @@ import { statusPillMeta as sharedStatusPillMeta } from './status-pill.js';
 import {
   anomalyChipMeta as sharedAnomalyChipMeta,
   guardDenialChipMeta as sharedGuardDenialChipMeta,
+  commitReviewChipMeta as sharedCommitReviewChipMeta,
   anomalyKeySuffix as sharedAnomalyKeySuffix,
   anomalyMeaningKeys as sharedAnomalyMeaningKeys,
   ANOMALY_LABELS as SHARED_ANOMALY_LABELS,
@@ -153,6 +154,12 @@ import {
   projectFeatureModulesJs,
   deferredFeatureModulesJs,
 } from './chunks.js';
+import {
+  headWithEnglish,
+  narrowCoreEnglish,
+  placeComposedEnglish,
+  type EnglishPlacement,
+} from './english-heads.js';
 import { layoutCss } from './layout-css.js';
 import { REPORT_REGION_ATTR } from './report-capture.js';
 import {
@@ -1262,6 +1269,8 @@ ${sharedAnomalyChipMeta.toString()}
 // source via .toString(), not a hand-retyped copy. It can no longer drift
 // apart.
 ${sharedGuardDenialChipMeta.toString()}
+// commitReviewChipMeta: the same generated-from-web/anomaly.ts shape.
+${sharedCommitReviewChipMeta.toString()}
 // ANOMALY_LABELS and the popover key math are generated FROM web/anomaly.ts
 // (JSON.stringify / .toString()), never a hand-retyped copy.
 var ANOMALY_LABELS = ${JSON.stringify(SHARED_ANOMALY_LABELS)};
@@ -2132,6 +2141,26 @@ function flightLogNode(c) {
       logGuardChip.setAttribute('data-i18n-aria-template', 'flightGuardChipAria');
       logGuardChip.setAttribute('data-i18n-args', JSON.stringify({ n: f.guardDenials }));
       head.appendChild(logGuardChip);
+    }
+    // The commit-time review (docs/BACKLOG-999.md §L C5, board ap-mui3cjp9-3):
+    // a chip only when the reviewer flagged something; its tip leads with the
+    // most severe finding. Text, tip and aria-label all wrap live values, so
+    // they ride the template sweeps with {n} and {top} from the args map, the
+    // guard chip's shape above.
+    var logReviewMeta = commitReviewChipMeta(f.review);
+    if (logReviewMeta) {
+      var logReviewChip = tipChip(
+        logReviewMeta.label,
+        logReviewMeta.tip,
+        logReviewMeta.ariaLabel,
+        'flight-review-chip',
+        'search',
+      );
+      logReviewChip.setAttribute('data-i18n-template', 'flightReviewChip');
+      logReviewChip.setAttribute('data-i18n-tip-template', 'flightReviewChipTip');
+      logReviewChip.setAttribute('data-i18n-aria-template', 'flightReviewChipAria');
+      logReviewChip.setAttribute('data-i18n-args', JSON.stringify(logReviewMeta.args));
+      head.appendChild(logReviewChip);
     }
     if (f.sha) {
       var logShaEl = el('span', 'flight-sha', logMeta.shaText);
@@ -4692,19 +4721,43 @@ export function clientJs(): string {
  * validating the whole is exactly as strong as before. The chunk composers
  * below are the transport split only — together they carry byte-for-byte the
  * same module set (the chunk test asserts that).
+ *
+ * ADR 0012 option B: English travels with its first caller. Core keeps only
+ * the `STRINGS.en` entries core (or project code shared with a later
+ * every-page chunk) references; `/project.js` and `/panels.js` each open
+ * with an `Object.assign(STRINGS.en, …)` head carrying the rest
+ * (`web/english-heads.ts`). The placement is scanned from the composed
+ * chunks once per process — the same premise `server/client-bundle.ts`'s
+ * minify cache rests on: the source never changes within a process.
  */
-export function coreClientJs(): string {
+let placementMemo: EnglishPlacement | undefined;
+
+function englishPlacement(): EnglishPlacement {
+  placementMemo ??= placeComposedEnglish({
+    core: composedCoreJs(),
+    project: projectFeatureModulesJs(),
+    panels: deferredFeatureModulesJs(),
+    whatsNew: whatsNewChunkJs(),
+  });
+  return placementMemo;
+}
+
+function composedCoreJs(): string {
   return `${fleetJs()}\n${coreFeatureModulesJs()}`;
+}
+
+export function coreClientJs(): string {
+  return narrowCoreEnglish(composedCoreJs(), englishPlacement().core);
 }
 
 /** The `/project.js` chunk — renderProjectPage's panels, `/p/<id>` pages only. */
 export function projectClientJs(): string {
-  return projectFeatureModulesJs();
+  return headWithEnglish(projectFeatureModulesJs(), englishPlacement().project);
 }
 
 /** The `/panels.js` chunk — self-init operator panels, every page, defer. */
 export function panelsClientJs(): string {
-  return deferredFeatureModulesJs();
+  return headWithEnglish(deferredFeatureModulesJs(), englishPlacement().panels);
 }
 
 /** The `/whats-new.js` chunk — the once-per-version message (web/whats-new.ts).

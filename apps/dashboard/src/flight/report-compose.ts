@@ -326,9 +326,15 @@ export interface ReportComposeDeps {
   readonly invoke: (prompt: string) => Promise<string | null>;
 }
 
-/** The STRINGS key behind each compose refusal (#42). */
-export type ReportComposeReasonKey =
-  'composeNeedsDescription' | 'composeModelUnavailable' | 'composeUnusable' | 'composeLeak';
+/** The STRINGS key behind each compose refusal (#42), as a literal array
+ *  ADR 0012's census reads (see `REPORT_REASON_KEYS`). */
+export const REPORT_COMPOSE_REASON_KEYS = [
+  'composeNeedsDescription',
+  'composeModelUnavailable',
+  'composeUnusable',
+  'composeLeak',
+] as const;
+export type ReportComposeReasonKey = (typeof REPORT_COMPOSE_REASON_KEYS)[number];
 
 export type ReportComposeResult =
   | ({

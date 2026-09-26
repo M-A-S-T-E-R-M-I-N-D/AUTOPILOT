@@ -24,7 +24,14 @@ read-only detail on its own line under the row — the task's whole body (the
 hover tip stops at 240 characters), its id and its age. Open rows survive the
 per-tick rebuild. The legend names it as `Enter` open. Still open in slice 1:
 the detail as a split pane beside the list from `lg`, and the rest of its
-contents (provenance, slices, cost history, the claim).
+contents (provenance, slices, cost history, the claim). Slice 2's pure half
+shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
+view — grouping by status, severity or source, and a filter on each — in the
+query string (`?group=severity&status=queued,done`), since the hash already
+belongs to in-page anchors; it matches tasks against the filters and splits
+them into groups in board-column or reds-first order, never dropping a task
+whose value it does not know. Still open in slice 2: the view header in the
+Tasks card, counts on its group heads, display options, the Focus grouping.
 
 ## The ask
 

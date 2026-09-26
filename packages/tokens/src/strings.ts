@@ -925,6 +925,14 @@ const EN_STRINGS = {
   traceLoading: 'Loading full trace…',
   diffLoading: 'Loading diff…',
   diffEmpty: 'No diff available for this firing.',
+  // The same drill-down's commit-time review summary (docs/BACKLOG-999.md
+  // C5): {model}/{n}/{reason} ride data-i18n-args; the findings under it are
+  // the reviewer's own words and carry no key.
+  reviewFindings: 'Commit review ({model}): {n} finding(s)',
+  reviewClean: 'Commit review ({model}): no findings',
+  reviewSkipped: 'Commit review skipped: {reason}',
+  reviewTip:
+    'A fresh model read this diff after the gate passed. Advisory: it never reverts a commit.',
   // The same trace row's own hover tips on its composed count ("3 actions")
   // and started-ago ("2m ago") fields — the labels are
   // firingTimelineRowMeta()'s composed strings and stay as-is, only their
@@ -983,6 +991,15 @@ const EN_STRINGS = {
   flightGuardChipTip:
     'The containment/read-hygiene guard denied {n} tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
   flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
+  // The commit-review chip (commitReviewChipMeta in web/anomaly.ts, board
+  // ap-mui3cjp9-3) on a flight log row whose independent diff review flagged
+  // something. {n} is the finding count and {top} the most severe finding
+  // (reviewer text, never translated), both from data-i18n-args; the English
+  // is byte-identical to what the meta paints.
+  flightReviewChip: '{n} flagged',
+  flightReviewChipTip:
+    "An independent reviewer read this firing's diff after the gate passed and flagged {n} possible problem(s) — advisory only, the gate verdict stands. Most severe: {top}",
+  flightReviewChipAria: "commit review flagged {n} possible problem(s) in this firing's diff",
   // The per-firing trace row's step-cost line (shell.ts's actRow(), rendered
   // only in the reasoning drill-down — features/firing-timeline.ts). The tip
   // is fixed text, swept as [data-i18n-tip]; the aria prefix wraps the live
@@ -2421,6 +2438,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     traceLoading: 'טוען את העקבה המלאה…',
     diffLoading: 'טוען את ההבדלים…',
     diffEmpty: 'אין הבדלים זמינים להפעלה הזו.',
+    reviewFindings: 'סקירת קומיט ({model}): {n} ממצאים',
+    reviewClean: 'סקירת קומיט ({model}): אין ממצאים',
+    reviewSkipped: 'סקירת הקומיט דולגה: {reason}',
+    reviewTip: 'מודל חדש קרא את ההבדלים אחרי שהשער עבר. מייעץ בלבד: הוא לא מבטל קומיט.',
     firingCountTip: 'קריאות כלים ופעילות שנרשמו להפעלה הזו',
     firingStartedTip: 'מתי ההפעלה הזו התחילה',
     autoFixed: 'תוקן אוטומטית',
@@ -2487,6 +2508,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightGuardChipTip:
       'שומר ההכלה/היגיינת הקריאה דחה {n} קריאות כלים במהלך ההפעלה הזו — היא ניסתה לחרוג מהגבול שלה ונעצרה.',
     flightGuardChipAria: 'השומר חסם {n} קריאות כלים בהפעלה הזו (הכלה / היגיינת קריאה)',
+    flightReviewChip: '{n} סומנו',
+    flightReviewChipTip:
+      'סוקר בלתי תלוי קרא את השינויים של ההפעלה הזו אחרי שהשער עבר וסימן {n} בעיות אפשריות — לידיעה בלבד, פסק הדין של השער נשאר בתוקף. החמורה ביותר: {top}',
+    flightReviewChipAria: 'סקירת הקומיט סימנה {n} בעיות אפשריות בשינויים של ההפעלה הזו',
     actMetaTip: 'המודל וכמות הטוקנים שחויבו על הצעד הזה',
     actMetaAria: 'עלות הצעד: {name}',
     liveProbableTask: 'כנראה עובדת על: {name}',

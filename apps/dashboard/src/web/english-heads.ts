@@ -15,9 +15,11 @@
  * and would claim all of them — which is what `withoutSplice()` is for. A
  * key that happens to spell an unrelated literal counts too, which only keeps
  * English earlier than it needs to be. The scan's one blind spot runs the
- * other way: a key composed at runtime (`tr('x' + y)`) is invisible and would
- * fall to the `/panels.js` head. ADR 0012 found none; slice 2b's census
- * clause for non-literal `tr()` call sites is what keeps it that way.
+ * other way: a key composed at runtime (`'anomalyWhat' + suffix`) is
+ * invisible and would fall to the `/panels.js` head, where core can miss it.
+ * ADR 0012 missed the ones that exist. `COMPOSED_KEY_STEMS` and
+ * `COMPOSED_KEY_SUFFIX` now declare them, and the census's third clause
+ * (slice 2c) fails on any composition they do not name.
  *
  * Placement follows the execution order `/app.js` (parser-blocking), then
  * `/project.js`, `/panels.js`, `/whats-new.js` (all `defer`, document order):
@@ -30,11 +32,14 @@
  *   server renders (the client needs their English solely to repaint after
  *   a Hebrew → English switch, and panels rides every page).
  *
- * Slice 2a moves no bytes: nothing serves these heads yet. Slice 2b wires
- * them into `coreClientJs()`/`projectClientJs()`/`panelsClientJs()` with the
- * split budgets; `test/web/english-heads.test.ts` is the census both share.
+ * Slice 2b serves them: `shell.ts`'s chunk composers run the chunks as their
+ * modules compose them through `narrowCoreEnglish()` (core's `STRINGS.en`
+ * splice cut to the core subset) and `headWithEnglish()` (the two deferred
+ * chunks' heads). `test/web/english-heads.test.ts` is the census over the
+ * served result.
  */
 import { STRINGS } from '@autopilot/tokens';
+import { localeDataJs } from './features/locale-data.js';
 
 /** Each served chunk's text, spliced English tables already left out. */
 export interface ChunkSources {
@@ -51,6 +56,26 @@ export interface EnglishPlacement {
   readonly panels: readonly string[];
 }
 
+/**
+ * Key stems code joins to a runtime value, so no literal spells a member:
+ * `anomaly.ts` builds `'anomalyWhat' + suffix`, and `shell.ts` builds
+ * `'orientFixationTip' + fixationKey`. A member counts as referenced by
+ * every chunk that spells its stem.
+ */
+export const COMPOSED_KEY_STEMS: readonly string[] = [
+  'anomalyWhat',
+  'anomalyAction',
+  'orientFixationTip',
+  'orientFixationAria',
+];
+
+/**
+ * The one suffix code appends at runtime: `status-pill.ts` builds
+ * `labelKey + 'Tip'`. A `…Tip` key counts as referenced wherever its base
+ * key is.
+ */
+export const COMPOSED_KEY_SUFFIX = 'Tip';
+
 const QUOTED_WORD = /(['"`])(\w+)\1/g;
 
 /** Every whole quoted word-literal in `source`. */
@@ -59,16 +84,41 @@ export function quotedWords(source: string): ReadonlySet<string> {
 }
 
 /**
- * `text` with its one copy of `splice` left out. Throws when `splice` is
- * missing or repeated: a table that changed shape would otherwise stay in
- * the scanned text and silently claim every key for its chunk.
+ * `text` with its one copy of `splice` swapped for `replacement`, by slicing
+ * rather than `String.replace()`, whose replacement string would read
+ * `$&`-style patterns out of the English. Throws when `splice` is missing or
+ * repeated: a table that changed shape would otherwise stay in the scanned
+ * text and silently claim every key for its chunk.
  */
-export function withoutSplice(text: string, splice: string): string {
+export function replaceSplice(text: string, splice: string, replacement: string): string {
   const at = text.indexOf(splice);
   if (at < 0 || text.indexOf(splice, at + 1) >= 0) {
     throw new Error(`english-heads: expected exactly one splice of ${splice.length} chars`);
   }
-  return text.slice(0, at) + text.slice(at + splice.length);
+  return text.slice(0, at) + replacement + text.slice(at + splice.length);
+}
+
+/** `text` with its one copy of `splice` left out (see `replaceSplice()`). */
+export function withoutSplice(text: string, splice: string): string {
+  return replaceSplice(text, splice, '');
+}
+
+/**
+ * Whether a chunk whose quoted words are `words` references `key`: it spells
+ * the key itself, the stem of the composed family the key belongs to, or,
+ * for a `…Tip` key, its base key.
+ */
+function references(words: ReadonlySet<string>, key: string): boolean {
+  if (words.has(key)) return true;
+  if (COMPOSED_KEY_STEMS.some((s) => key !== s && key.startsWith(s) && words.has(s))) return true;
+  const base = key.slice(0, -COMPOSED_KEY_SUFFIX.length);
+  return key.endsWith(COMPOSED_KEY_SUFFIX) && base !== '' && words.has(base);
+}
+
+/** The keys a chunk references, by `references()`. */
+function referencedKeys(source: string, keys: readonly string[]): ReadonlySet<string> {
+  const words = quotedWords(source);
+  return new Set(keys.filter((k) => references(words, k)));
 }
 
 /** ADR 0012's placement invariant over the given chunk texts. */
@@ -76,10 +126,10 @@ export function placeEnglish(
   sources: ChunkSources,
   keys: readonly string[] = Object.keys(STRINGS.en),
 ): EnglishPlacement {
-  const inCore = quotedWords(sources.core);
-  const inProject = quotedWords(sources.project);
-  const inPanels = quotedWords(sources.panels);
-  const inWhatsNew = quotedWords(sources.whatsNew);
+  const inCore = referencedKeys(sources.core, keys);
+  const inProject = referencedKeys(sources.project, keys);
+  const inPanels = referencedKeys(sources.panels, keys);
+  const inWhatsNew = referencedKeys(sources.whatsNew, keys);
   const everyPageLater = (k: string): boolean => inPanels.has(k) || inWhatsNew.has(k);
   const core = keys.filter((k) => inCore.has(k) || (inProject.has(k) && everyPageLater(k)));
   const coreSet = new Set(core);
@@ -102,4 +152,36 @@ export function englishTable(keys: readonly string[]): Record<string, string> {
  */
 export function englishHeadJs(keys: readonly string[]): string {
   return `Object.assign(STRINGS.en, ${JSON.stringify(englishTable(keys))});`;
+}
+
+/** The whole of `STRINGS.en` as `features/locale.ts` splices it into core. */
+function fullEnglishSplice(): string {
+  return JSON.stringify(STRINGS.en);
+}
+
+/**
+ * The placement over the chunks as their modules compose them: core's whole
+ * `STRINGS.en` splice and `/panels.js`'s non-English `locale-data.ts` splice
+ * are left out first, since each spells every key.
+ */
+export function placeComposedEnglish(composed: ChunkSources): EnglishPlacement {
+  return placeEnglish({
+    ...composed,
+    core: withoutSplice(composed.core, fullEnglishSplice()),
+    panels: withoutSplice(composed.panels, localeDataJs()),
+  });
+}
+
+/** Core as served: its whole `STRINGS.en` splice narrowed to `keys`. */
+export function narrowCoreEnglish(core: string, keys: readonly string[]): string {
+  return replaceSplice(core, fullEnglishSplice(), JSON.stringify(englishTable(keys)));
+}
+
+/**
+ * `/project.js` or `/panels.js` as served: headed with the English for
+ * `keys`. `/whats-new.js` gets no head; every key it names resolves from
+ * core or the panels head, which both run before it.
+ */
+export function headWithEnglish(chunk: string, keys: readonly string[]): string {
+  return `${englishHeadJs(keys)}\n${chunk}`;
 }

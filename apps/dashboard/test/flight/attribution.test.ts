@@ -15,6 +15,7 @@ import {
   withAttribution,
   parseConversationPost,
   conversationSignature,
+  stripConversationSignature,
   attributionEnabled,
   AUTOPILOT_REPO_URL,
 } from '../../src/flight/attribution.js';
@@ -27,6 +28,31 @@ describe('conversationSignature — the doc’s own example format', () => {
     expect(signature).toBe(
       `— ✈️ AUTOPILOT agent, on behalf of @gabibi555 · [what is this?](${AUTOPILOT_REPO_URL})`,
     );
+  });
+});
+
+describe('stripConversationSignature — what a signed message says', () => {
+  it('drops the full signature and keeps the message', () => {
+    const signed = `Rebased onto main.\n\n${conversationSignature('gabibi555')}`;
+    expect(stripConversationSignature(signed).trim()).toBe('Rebased onto main.');
+  });
+
+  it('drops the compressed form a thread may fall back to', () => {
+    expect(stripConversationSignature('Rebased onto main.\n— ✈️').trim()).toBe(
+      'Rebased onto main.',
+    );
+  });
+
+  it('keeps a folded Update block that sits below the signature', () => {
+    const folded = `Note.\n\n${conversationSignature('gabibi555')}\n\n**Update (2026-09-09):**\n\nMore.`;
+    const stripped = stripConversationSignature(folded);
+    expect(stripped).not.toContain('AUTOPILOT agent');
+    expect(stripped).toContain('Note.');
+    expect(stripped).toContain('More.');
+  });
+
+  it('leaves an unsigned body exactly as it was', () => {
+    expect(stripConversationSignature('Plain reply — no footer.')).toBe('Plain reply — no footer.');
   });
 });
 

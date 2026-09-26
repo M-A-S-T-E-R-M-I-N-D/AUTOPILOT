@@ -452,7 +452,9 @@ describe('createRerunChecksApi — restarts only what failed', () => {
 
     expect(result.rerun).toBe(false);
     expect(result.reason).toContain('no longer open');
-    expect(calls.some((c) => c[0] === 'run')).toBe(false);
+    // calls rows are [bin, ...args], so c[0] is always 'gh' — the
+    // subcommand sits at c[1].
+    expect(calls.some((c) => c[1] === 'run')).toBe(false);
   });
 
   it('refuses when the red check is not an Actions run we can restart', async () => {
@@ -557,5 +559,226 @@ describe('createRerunChecksApi — restarts only what failed', () => {
     expect(result.reason).not.toContain('refused');
     const reruns = calls.filter((c) => c[1] === 'run' && c[2] === 'rerun');
     expect(reruns).toEqual([['gh', 'run', 'rerun', '900', '--failed']]);
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): the maintainer's
+// merge, update-branch and re-run verbs are the neighboring flow every new
+// steward slice sits beside. These pin the edges the tests above leave open:
+// which refusal wins when several apply, what counts as "reported", and the
+// exact wording and argv the panel and gh see.
+describe('human merge verbs — refusal order, reported checks and exact argv (regression, epic 0019 additive-only law)', () => {
+  it('reports a moved head before a red check — the stale card is the first thing to fix', () => {
+    const movedAndRed = {
+      ...GREEN,
+      checkRuns: [{ name: 'verify (windows-latest)', state: 'fail' as const }],
+    };
+
+    const verdict = judgeHumanMerge(movedAndRed, 'stale-sha');
+
+    expect(verdict.allow).toBe(false);
+    expect(verdict.reason).toContain('head moved');
+    expect(verdict.reason).not.toContain('Not every check has passed');
+  });
+
+  it('refuses when only optional checks reported — an optional pass is not a green to merge on', () => {
+    const optionalOnly = {
+      ...GREEN,
+      checkRuns: [{ name: 'reuse lint (optional)', state: 'pass' as const }],
+    };
+
+    expect(judgeHumanMerge(optionalOnly, 'abc123')).toEqual({
+      allow: false,
+      reason: 'No gating check has reported on this head — there is no green to merge on.',
+    });
+  });
+
+  it('refuses a PR whose check list is absent, the same as an empty one', () => {
+    const { checkRuns: _checks, ...noChecks } = GREEN;
+
+    expect(judgeHumanMerge(noChecks, 'abc123').reason).toContain('no green');
+  });
+
+  it('names every gating check that has not passed, in order with its state, and leaves out passes and optional jobs', () => {
+    const mixed = {
+      ...GREEN,
+      checkRuns: [
+        { name: 'verify (ubuntu-latest)', state: 'pass' as const },
+        { name: 'verify (windows-latest)', state: 'fail' as const },
+        { name: 'e2e', state: 'queued' as const },
+        { name: 'reuse lint (optional)', state: 'fail' as const },
+        { name: 'docs', state: 'skipped' as const },
+      ],
+    };
+
+    expect(judgeHumanMerge(mixed, 'abc123').reason).toBe(
+      'Not every check has passed: verify (windows-latest) (fail), e2e (queued), docs (skipped).',
+    );
+  });
+
+  it('reports a conflict before a stale base — updating the branch cannot clear a conflict', () => {
+    const conflictingAndBehind = { ...GREEN, mergeable: false, behindBase: true as const };
+
+    const reason = judgeHumanMerge(conflictingAndBehind, 'abc123').reason;
+
+    expect(reason).toContain('conflicting');
+    expect(reason).not.toContain('behind base');
+  });
+
+  it('re-reads the open PRs from gh on every click instead of reusing an earlier read', async () => {
+    const calls: string[][] = [];
+    const merge = createHumanMergeApi(execReturning([GREEN], calls));
+
+    await merge(999, undefined);
+    await merge(999, undefined);
+
+    expect(calls.filter((c) => c[1] === 'pr' && c[2] === 'list')).toHaveLength(2);
+  });
+
+  it('carries the gh exit code and the live PR when gh refuses the merge', async () => {
+    const calls: string[][] = [];
+    const base = execReturning([GREEN], calls);
+    const refusing: CliExec = async (bin, args) =>
+      args[1] === 'merge' ? { code: 2, stdout: '' } : base(bin, args);
+
+    const result = await createHumanMergeApi(refusing)(33, 'abc123');
+
+    expect(result).toMatchObject({
+      merged: false,
+      code: 2,
+      reason: 'gh refused the merge (exit 2) — check the PR on GitHub for why.',
+    });
+    expect(result.pr?.number).toBe(33);
+  });
+
+  it('reads the PR with exactly the two fields it judges, then updates that PR number', async () => {
+    const calls: string[][] = [];
+    const exec: CliExec = async (bin, args) => {
+      calls.push([bin, ...args]);
+      return args[1] === 'view'
+        ? { code: 0, stdout: JSON.stringify({ state: 'OPEN', maintainerCanModify: true }) }
+        : { code: 0, stdout: '' };
+    };
+
+    const result = await createUpdateBranchApi(exec)(34);
+
+    expect(calls).toEqual([
+      ['gh', 'pr', 'view', '34', '--json', 'state,maintainerCanModify'],
+      ['gh', 'pr', 'update-branch', '34'],
+    ]);
+    expect(result).toEqual({
+      updated: true,
+      reason: "#34's branch updated from base — every check is re-running on the new head.",
+      code: 0,
+    });
+  });
+
+  it('names the PR in a not-open refusal and carries the exit code of a refused update', async () => {
+    const closed: CliExec = async (_bin, args) =>
+      args[1] === 'view'
+        ? { code: 0, stdout: JSON.stringify({ state: 'CLOSED' }) }
+        : { code: 0, stdout: '' };
+    const refused: CliExec = async (_bin, args) =>
+      args[1] === 'view'
+        ? { code: 0, stdout: JSON.stringify({ state: 'OPEN', maintainerCanModify: true }) }
+        : { code: 1, stdout: '' };
+
+    expect(await createUpdateBranchApi(closed)(34)).toEqual({
+      updated: false,
+      reason: '#34 is not open — nothing to update.',
+    });
+    expect(await createUpdateBranchApi(refused)(34)).toMatchObject({ updated: false, code: 1 });
+  });
+
+  it('does not re-run a check that is still running or queued — only a finished failure is re-runnable', async () => {
+    const pending: PrReviewCandidate = {
+      ...GREEN,
+      checkRuns: [
+        {
+          name: 'verify (ubuntu-latest)',
+          state: 'running',
+          url: 'https://github.com/o/r/actions/runs/900/job/1',
+        },
+        {
+          name: 'e2e',
+          state: 'queued',
+          url: 'https://github.com/o/r/actions/runs/901/job/2',
+        },
+      ],
+    };
+    const calls: string[][] = [];
+
+    const result = await createRerunChecksApi(execReturningRaw(pending, calls))(33);
+
+    expect(result).toEqual({
+      rerun: false,
+      reason: 'No gating check is failing — there is nothing to re-run.',
+    });
+    expect(calls.some((c) => c[1] === 'run')).toBe(false);
+  });
+
+  it('treats a failing check with no log link at all as not re-runnable from here', async () => {
+    const unlinked = {
+      ...GREEN,
+      checkRuns: [{ name: 'verify (ubuntu-latest)', state: 'fail' as const }],
+    };
+    const calls: string[][] = [];
+
+    const result = await createRerunChecksApi(execReturningRaw(unlinked, calls))(33);
+
+    expect(result.rerun).toBe(false);
+    expect(result.reason).toContain('cannot be re-run from here');
+    expect(calls.some((c) => c[1] === 'run')).toBe(false);
+  });
+
+  it('words one run in the singular, whether gh restarts it or refuses it', async () => {
+    const oneRun: PrReviewCandidate = {
+      ...GREEN,
+      checkRuns: [
+        {
+          name: 'verify (macos-latest)',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/900/job/1',
+        },
+      ],
+    };
+    const base = execReturningRaw(oneRun, []);
+    const refusing: CliExec = async (bin, args) =>
+      args[0] === 'run' ? { code: 1, stdout: '' } : base(bin, args);
+
+    expect(await createRerunChecksApi(base)(33)).toEqual({
+      rerun: true,
+      runs: 1,
+      reason: 'Re-running the failed jobs in 1 run — the checks strip updates as they report.',
+    });
+    expect(await createRerunChecksApi(refusing)(33)).toEqual({
+      rerun: false,
+      reason: 'gh refused to re-run the run — it may still be in progress.',
+    });
+  });
+
+  it('words several refused runs as every run', async () => {
+    const twoRuns: PrReviewCandidate = {
+      ...GREEN,
+      checkRuns: [
+        {
+          name: 'verify (macos-latest)',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/900/job/1',
+        },
+        {
+          name: 'verify (windows-latest)',
+          state: 'fail',
+          url: 'https://github.com/o/r/actions/runs/901/job/2',
+        },
+      ],
+    };
+    const base = execReturningRaw(twoRuns, []);
+    const refusing: CliExec = async (bin, args) =>
+      args[0] === 'run' ? { code: 1, stdout: '' } : base(bin, args);
+
+    expect((await createRerunChecksApi(refusing)(33)).reason).toBe(
+      'gh refused to re-run every run — it may still be in progress.',
+    );
   });
 });

@@ -61,7 +61,10 @@ are" to "credit where it is due, in the form each medium expects".
    now. `flight/anti-flood.ts` inspects every `gh issue|pr comment` argv
    before it runs — a >=90%-similar message from this identity already on
    the thread is a clean no-op (PR #33 received the same approval twice
-   because a retry fired after the first had landed), and a post that
+   because a retry fired after the first had landed) — judged on what the
+   two messages say, the `— ✈️` signature stripped from both, since the
+   guard runs before signing and a footer alone once sank a short retry
+   below the ratio — and a post that
    would be the third consecutive message is EDITED onto the tail as a
    dated `**Update:**` block instead. `flight/gh-exec.ts` is the one
    guarded exec every posting path defaults to, census-pinned so a new

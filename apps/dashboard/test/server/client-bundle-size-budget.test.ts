@@ -330,7 +330,17 @@ import {
 // listener, Enter/Space on the keydown handler, two STRINGS.en keys) —
 // measured 268844B raw against the old 268288B line, 556 bytes over. Two KB
 // again, for the margin the entries above keep.
-const CORE_RAW_BUDGET = 264 * 1024;
+// Then core raw 264→226KB (2026-09-26), ADR 0012 slice 2b, the first time
+// this line moves DOWN: English travels with its first caller. Core keeps
+// only the 349 STRINGS.en keys core references; the rest head /project.js
+// and /panels.js (web/english-heads.ts) — measured 229068B raw, down from
+// 268829B. About two KB of margin, as the entries above keep.
+// Then core raw 226→231KB (2026-09-26), ADR 0012 slice 2c: the census found
+// 44 keys from the families core composes at runtime ('anomalyWhat' +
+// suffix, labelKey + 'Tip') that 2b had sent to the /panels.js head, where
+// core's first render can miss them. They come back — measured 234731B
+// raw, and /panels.js drops from 237238B to 233224B.
+const CORE_RAW_BUDGET = 231 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -353,7 +363,11 @@ const CORE_RAW_BUDGET = 264 * 1024;
 // raw entry above — measured 80512B, 384 bytes UNDER the old 80896B line,
 // bumped for the reason the 260KB raw entry gives: a margin that thin goes
 // red the moment a sibling lane's core growth merges beside it.
-const CORE_GZIP_BUDGET = 80 * 1024;
+// Then core gzip 80→67KB (2026-09-26), the same ADR 0012 byte move as the
+// raw entry above — measured 67222B, down from 80502B.
+// Then core gzip 67→69KB (2026-09-26), the same slice 2c keys as the raw
+// entry above — measured 69324B, and /panels.js drops from 72310B to 70864B.
+const CORE_GZIP_BUDGET = 69 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -484,7 +498,15 @@ const CORE_GZIP_BUDGET = 80 * 1024;
 // three keys' Hebrew translations ride the same deferred STRINGS.he splice
 // — measured 207933B raw against the old 207872B budget, 61 bytes over.
 // Gzip (62142B) stays under CHUNK_GZIP_BUDGET untouched.
-const CHUNK_RAW_BUDGET = 204 * 1024;
+// Then SPLIT (2026-09-26), ADR 0012 slice 2b: the shared CHUNK_RAW_BUDGET
+// becomes one line per chunk. English moved out of core: the 191 keys only
+// project code references head /project.js, and the other 478 (with the
+// keys only the server renders) head /panels.js. One shared line raised to
+// fit /panels.js would hand /project.js ~115KB of slack nobody asked for.
+// Measured 118263B raw for /project.js (was 107507B) and 237238B for
+// /panels.js (was 208177B); each line sits about two KB above.
+const PROJECT_RAW_BUDGET = 118 * 1024;
+const PANELS_RAW_BUDGET = 234 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
@@ -531,7 +553,11 @@ const CHUNK_RAW_BUDGET = 204 * 1024;
 // CHUNK_RAW_BUDGET (199680B), so only the gzip line moves.
 // Then chunk gzip 60→61KB (2026-09-24) for the same claim-routing strings
 // — measured 60.2KB gzip.
-const CHUNK_GZIP_BUDGET = 61 * 1024;
+// Then SPLIT (2026-09-26), the same ADR 0012 byte move as the raw lines
+// above: measured 31521B gzip for /project.js (was 28433B) and 72310B for
+// /panels.js (was 62209B).
+const PROJECT_GZIP_BUDGET = 32 * 1024;
+const PANELS_GZIP_BUDGET = 72 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
@@ -546,8 +572,8 @@ const BENCHMARK_GZIP_BUDGET = 6 * 1024;
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([
     ['/app.js (core)', minifiedCoreJs, CORE_RAW_BUDGET, CORE_GZIP_BUDGET],
-    ['/project.js', minifiedProjectJs, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET],
-    ['/panels.js', minifiedPanelsJs, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET],
+    ['/project.js', minifiedProjectJs, PROJECT_RAW_BUDGET, PROJECT_GZIP_BUDGET],
+    ['/panels.js', minifiedPanelsJs, PANELS_RAW_BUDGET, PANELS_GZIP_BUDGET],
     ['/whats-new.js', minifiedWhatsNewJs, WHATS_NEW_RAW_BUDGET, WHATS_NEW_GZIP_BUDGET],
     ['/benchmark.js', minifiedBenchmarkJs, BENCHMARK_RAW_BUDGET, BENCHMARK_GZIP_BUDGET],
   ] as const)('%s stays within its raw and gzip budget', (_label, getJs, rawBudget, gzipBudget) => {
@@ -585,8 +611,10 @@ describe('the budgets mirror scripts/ci/check-bundle-size.mjs exactly', () => {
   it('declares the same core and chunk budgets the script enforces', () => {
     expect(scriptBudget('CORE_RAW_BUDGET')).toBe(CORE_RAW_BUDGET);
     expect(scriptBudget('CORE_GZIP_BUDGET')).toBe(CORE_GZIP_BUDGET);
-    expect(scriptBudget('CHUNK_RAW_BUDGET')).toBe(CHUNK_RAW_BUDGET);
-    expect(scriptBudget('CHUNK_GZIP_BUDGET')).toBe(CHUNK_GZIP_BUDGET);
+    expect(scriptBudget('PROJECT_RAW_BUDGET')).toBe(PROJECT_RAW_BUDGET);
+    expect(scriptBudget('PROJECT_GZIP_BUDGET')).toBe(PROJECT_GZIP_BUDGET);
+    expect(scriptBudget('PANELS_RAW_BUDGET')).toBe(PANELS_RAW_BUDGET);
+    expect(scriptBudget('PANELS_GZIP_BUDGET')).toBe(PANELS_GZIP_BUDGET);
   });
 
   it('reads a real declaration, not an accidental match — a missing name throws', () => {
