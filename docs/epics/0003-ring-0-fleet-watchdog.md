@@ -57,6 +57,13 @@ routing telemetry. This is a reporting-only addition that does not touch
 `flightWatchdogTick`/`landWatchdogTick`, spawn logic, or the watchdog contract; same
 "grown past scope, contract unchanged" shape the four prior evolution notes use.
 
+Auto-mode command added 2026-09-26 (auto-mode command): `control/cli.ts` also gained a
+per-project `auto-mode on|off|status [folder]` command (`packages/store/src/auto-approve.ts`)
+letting an operator opt a project's firings into filing proposals `queued` instead of
+`needs_approval`. This is a task-approval-flow addition that does not touch
+`flightWatchdogTick`/`landWatchdogTick`, spawn logic, or the watchdog contract; same
+"grown past scope, contract unchanged" shape the evolution notes above use.
+
 The board's M7 PARALLEL PILOTS item (critical priority) names two halves: "FlightRunner
 becomes a per-project registry of concurrent detached flights" and "the ring-0 watchdog
 owns per-project spawning and revival." The first half shipped as
