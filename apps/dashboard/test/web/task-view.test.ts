@@ -11,11 +11,16 @@ import { describe, it, expect } from 'vitest';
 import { SEVERITIES, TASK_SOURCES, TASK_STATUSES } from '@autopilot/store';
 import {
   groupTasksForView,
+  parseTaskDisplay,
   parseTaskView,
+  taskDisplayProperties,
+  taskDisplaySearch,
+  taskDisplayShows,
   taskMatchesView,
   taskViewKey,
   taskViewSearch,
   taskViewValues,
+  type TaskDisplayState,
   type TaskViewGroup,
   type TaskViewState,
   type TaskViewTask,
@@ -178,6 +183,59 @@ describe('groupTasksForView', () => {
   });
 });
 
+describe('display options', () => {
+  const SHOW_ALL: TaskDisplayState = { hide: [] };
+
+  it("lists the row's informational properties in row order, never its warnings", () => {
+    expect(taskDisplayProperties()).toEqual(['source', 'severity', 'dimension', 'cost']);
+  });
+
+  it('shows every property from an empty or foreign query', () => {
+    expect(parseTaskDisplay('')).toEqual(SHOW_ALL);
+    expect(parseTaskDisplay('?group=status&status=done')).toEqual(SHOW_ALL);
+  });
+
+  it('reads ?hide= in any case, repeated or comma-separated, into row order', () => {
+    expect(parseTaskDisplay('?hide=COST&hide=source, cost').hide).toEqual(['source', 'cost']);
+    expect(parseTaskDisplay('hide=dimension').hide).toEqual(['dimension']);
+  });
+
+  it('drops a property it does not know, and never hides a warning', () => {
+    expect(parseTaskDisplay('?hide=runaway,budget,severity,').hide).toEqual(['severity']);
+  });
+
+  it('writes nothing when every property shows, so the plain board keeps its plain URL', () => {
+    expect(taskDisplaySearch(SHOW_ALL, '')).toBe('');
+    expect(taskDisplaySearch(SHOW_ALL, '?hide=cost')).toBe('');
+  });
+
+  it('writes ?hide= with literal commas beside the view filters, keeping every other parameter', () => {
+    const display: TaskDisplayState = { hide: ['severity', 'cost'] };
+    expect(taskDisplaySearch(display, '?group=source&status=queued,done&tab=runtime')).toBe(
+      '?group=source&status=queued,done&tab=runtime&hide=severity,cost',
+    );
+  });
+
+  it('leaves the view filters alone, and the view writer leaves ?hide= alone', () => {
+    const search = taskDisplaySearch({ hide: ['dimension'] }, '?severity=high');
+    expect(parseTaskView(search).severity).toEqual(['high']);
+    const refiltered = taskViewSearch({ ...PLAIN, status: ['queued'] }, search);
+    expect(parseTaskDisplay(refiltered).hide).toEqual(['dimension']);
+  });
+
+  it('round-trips through parseTaskDisplay', () => {
+    const display: TaskDisplayState = { hide: ['source', 'dimension'] };
+    expect(parseTaskDisplay(taskDisplaySearch(display, '?tab=runtime'))).toEqual(display);
+  });
+
+  it('shows a property unless the display hides it', () => {
+    const display: TaskDisplayState = { hide: ['cost'] };
+    expect(taskDisplayShows(display, 'cost')).toBe(false);
+    expect(taskDisplayShows(display, 'severity')).toBe(true);
+    expect(taskDisplayProperties().every((p) => taskDisplayShows(SHOW_ALL, p))).toBe(true);
+  });
+});
+
 describe('embedding via .toString()', () => {
   it('runs from its own source alone, the way shell.ts embeds client helpers', () => {
     const fns = [
@@ -187,6 +245,10 @@ describe('embedding via .toString()', () => {
       taskViewSearch,
       taskMatchesView,
       groupTasksForView,
+      taskDisplayProperties,
+      parseTaskDisplay,
+      taskDisplaySearch,
+      taskDisplayShows,
     ];
     const source = fns.map((fn) => fn.toString()).join('\n');
     const names = fns.map((fn) => fn.name).join(', ');
@@ -195,6 +257,9 @@ describe('embedding via .toString()', () => {
       taskViewSearch: typeof taskViewSearch;
       taskMatchesView: typeof taskMatchesView;
       groupTasksForView: typeof groupTasksForView;
+      parseTaskDisplay: typeof parseTaskDisplay;
+      taskDisplaySearch: typeof taskDisplaySearch;
+      taskDisplayShows: typeof taskDisplayShows;
     };
     const view = embedded.parseTaskView('?group=status&severity=critical');
     expect(embedded.taskViewSearch(view, '')).toBe('?group=status&severity=critical');
@@ -203,5 +268,8 @@ describe('embedding via .toString()', () => {
       'in_progress',
       'done',
     ]);
+    const display = embedded.parseTaskDisplay('?hide=cost,source');
+    expect(embedded.taskDisplaySearch(display, '')).toBe('?hide=source,cost');
+    expect(embedded.taskDisplayShows(display, 'severity')).toBe(true);
   });
 });

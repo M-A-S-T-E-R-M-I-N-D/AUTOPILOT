@@ -97,14 +97,14 @@ const shownIds = () =>
     row.getAttribute('data-task-id'),
   );
 
-function box(value: string): HTMLInputElement {
-  const found = document.querySelector(`[data-task-filter="status"][value="${value}"]`);
-  if (!(found instanceof HTMLInputElement)) throw new Error(`no status box for ${value}`);
+function box(value: string, property = 'status'): HTMLInputElement {
+  const found = document.querySelector(`[data-task-filter="${property}"][value="${value}"]`);
+  if (!(found instanceof HTMLInputElement)) throw new Error(`no ${property} box for ${value}`);
   return found;
 }
 
-async function tick(value: string): Promise<void> {
-  box(value).click();
+async function tick(value: string, property = 'status'): Promise<void> {
+  box(value, property).click();
   await vi.advanceTimersByTimeAsync(1);
 }
 
@@ -217,11 +217,11 @@ describe('task view filter (epic 0026 slice 2: the Status filter in the URL)', (
     expect(counts).toEqual(['2', '0', '1']);
   });
 
-  it('Clear drops every filter — a hand-typed severity too — and keeps the other parameters', async () => {
+  it('Clear drops every filter — severity too — and keeps the other parameters', async () => {
     await boot('?keep=1&severity=high&status=queued');
 
-    // No box for severity yet, but the URL's filter still applies.
     expect(shownIds()).toEqual(['t1']);
+    expect(box('high', 'severity').checked).toBe(true);
     const clear = note()?.querySelector('button[data-task-filter-clear]') as HTMLButtonElement;
     expect(clear.textContent).toBe(STRINGS.en.boardFilterClear);
     clear.click();
@@ -250,5 +250,83 @@ describe('task view filter (epic 0026 slice 2: the Status filter in the URL)', (
     expect(box('queued').closest('label')?.textContent).toBe(STRINGS.he.taskStatusQueued);
     expect(note()?.textContent).toContain(showing('he', 2, 4));
     expect(note()?.querySelector('button')?.textContent).toBe(STRINGS.he.boardFilterClear);
+  });
+});
+
+describe('task view filter (epic 0026 slice 2: the Severity filter beside Status)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    history.replaceState(null, '', '/');
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const severityFieldset = () =>
+    document.querySelector('[data-task-filter="severity"]')?.closest('fieldset') ?? null;
+
+  it('a labelled Severity fieldset follows Status, one box per severity, reds first', async () => {
+    await boot();
+
+    const fieldsets = Array.from(document.querySelectorAll('fieldset.board-filter'));
+    const severity = severityFieldset() as HTMLFieldSetElement;
+    expect(fieldsets).toHaveLength(2);
+    expect(fieldsets.indexOf(severity)).toBe(1);
+    const legend = severity.querySelector('legend') as HTMLElement;
+    expect(legend.textContent).toBe(STRINGS.en.boardFilterSeverity);
+    expect(legend.getAttribute('data-i18n')).toBe('boardFilterSeverity');
+    const boxes = Array.from(severity.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    expect(boxes.map((b) => b.getAttribute('data-task-filter'))).toEqual(Array(5).fill('severity'));
+    expect(boxes.map((b) => b.value)).toEqual(['critical', 'high', 'medium', 'low', 'none']);
+    expect(boxes.some((b) => b.checked)).toBe(false);
+    expect(box('high', 'severity').closest('label')?.textContent).toBe(STRINGS.en.taskSeverityHigh);
+    // A task with no severity is filed under its own word, not left out.
+    expect(box('none', 'severity').closest('label')?.textContent).toBe(STRINGS.en.taskSeverityNone);
+  });
+
+  it('ticking a severity writes ?severity= and narrows the list, with Status on top', async () => {
+    await boot();
+
+    await tick('high', 'severity');
+    expect(location.search).toBe('?severity=high');
+    expect(shownIds()).toEqual(['t1', 't4']);
+    expect(note()?.textContent).toContain(showing('en', 2, 4));
+
+    await tick('queued');
+    expect(location.search).toBe('?severity=high&status=queued');
+    expect(shownIds()).toEqual(['t1']);
+    expect(box('high', 'severity').checked).toBe(true);
+  });
+
+  it('the unrated box keeps the tasks that carry no severity', async () => {
+    await boot('?severity=none');
+
+    expect(shownIds()).toEqual(['t2', 't3']);
+    expect(box('none', 'severity').checked).toBe(true);
+  });
+
+  it('keyboard focus stays on the severity box it toggled through the rebuild', async () => {
+    await boot();
+
+    box('low', 'severity').focus();
+    await tick('low', 'severity');
+
+    expect(document.activeElement).toBe(box('low', 'severity'));
+    expect(box('low', 'severity').checked).toBe(true);
+  });
+
+  it('the Severity legend and its box labels follow a locale switch', async () => {
+    await boot();
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    expect(severityFieldset()?.querySelector('legend')?.textContent).toBe(
+      STRINGS.he.boardFilterSeverity,
+    );
+    expect(box('critical', 'severity').closest('label')?.textContent).toBe(
+      STRINGS.he.taskSeverityCritical,
+    );
   });
 });

@@ -1049,6 +1049,14 @@ const EN_STRINGS = {
   boardFilterStatus: 'Status',
   boardFilterShowing: 'Showing {n} of {total} — clear the filter to reorder',
   boardFilterClear: 'Clear filter',
+  // Its Severity filter beside Status: the legend and one word per severity,
+  // reds first; "unrated" files the tasks that carry none.
+  boardFilterSeverity: 'Severity',
+  taskSeverityCritical: 'critical',
+  taskSeverityHigh: 'high',
+  taskSeverityMedium: 'medium',
+  taskSeverityLow: 'low',
+  taskSeverityNone: 'unrated',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2497,6 +2505,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardFilterStatus: 'סטטוס',
     boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',
     boardFilterClear: 'ניקוי המסנן',
+    boardFilterSeverity: 'חומרה',
+    taskSeverityCritical: 'קריטית',
+    taskSeverityHigh: 'גבוהה',
+    taskSeverityMedium: 'בינונית',
+    taskSeverityLow: 'נמוכה',
+    taskSeverityNone: 'ללא דירוג',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

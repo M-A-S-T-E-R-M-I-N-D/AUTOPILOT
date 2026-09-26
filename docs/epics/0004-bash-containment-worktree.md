@@ -169,6 +169,23 @@ Where an item amends an earlier claim in this doc, it names that claim.
   waits as `needs_approval` in the operator's inbox instead of queued on the board, where
   firings kept claiming it as work (`7b9bbd90`).
 
+Later on 2026-09-26, `fly.ts` gained two new processes that run beside each firing. Neither one
+opens a path into `target`:
+
+- **The commit reviewer runs in `flightRoot` with no tools** (`20b38b05`). Once a firing's commit
+  passes the gate, one `ClaudeCliModel` call reviews that commit's diff. It is rooted at
+  `flightRoot`, like the firing's own model. Its tool lists are `TOOL_LESS_ALLOWED_TOOLS` (empty)
+  and `TOOL_LESS_DISALLOWED_TOOLS` (`*`), so it cannot run Bash at all. The diff reaches it as text
+  from `vcs.diffText`, and `vcs` is the firing-scoped `GitVcs` that already points at `flightRoot`.
+- **The social pass reads GitHub from the engine's own checkout** (`bb0ec555`, `6ebc66ef`).
+  Behind `AUTOPILOT_SOCIAL_FLIGHT`, `runSocialFlightPass` runs at takeoff, between firings and at
+  flight end. It runs `gh` in `process.cwd()`, not in `flightRoot`, and skips itself unless
+  `target` is that same checkout. Like onboarding and backup (see Out of scope), it runs outside
+  the firing's Bash, and in this slice it only reads.
+
+`3feca27b` (a drained model rests for an hour) changes model routing only. It touches neither
+the worktree nor the sync-back.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and both the per-firing and the flight-end sync-back re-snapshot the guard baseline
 after a sanctioned head move.

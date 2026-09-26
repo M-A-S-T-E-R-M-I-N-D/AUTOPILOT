@@ -14,9 +14,11 @@
  * {@link taskViewValues} rather than a module const, and why
  * {@link taskMatchesView}/{@link groupTasksForView} need {@link taskViewKey}
  * and {@link taskViewValues} embedded beside them. The Tasks card's Status
- * filter is the first caller; {@link groupTasksForView} waits for the
+ * and Severity filters are the callers; {@link groupTasksForView} waits for the
  * grouping control and is not embedded yet. Display options (show/hide row
- * properties) are not modelled yet.
+ * properties, `?hide=cost,dimension`) are modelled at the bottom, apart from
+ * {@link TaskViewState}: filters narrow the list, display options change what a
+ * row shows (Linear's split). No caller embeds them yet.
  */
 
 /** The three task properties the view header groups and filters by. */
@@ -158,4 +160,59 @@ export function groupTasksForView<T extends TaskViewTask>(
     if (members.length) groups.push({ key, tasks: members });
   }
   return groups;
+}
+
+/** A row property the display options show or hide. */
+export type TaskDisplayProperty = 'source' | 'severity' | 'dimension' | 'cost';
+
+/** A tasks-screen display: the row properties it hides, in
+ *  {@link taskDisplayProperties} order. Every other property shows. */
+export interface TaskDisplayState {
+  readonly hide: readonly TaskDisplayProperty[];
+}
+
+/**
+ * The row properties the display options cover, in the order the Tasks row
+ * draws them: its source chip (proposed, inbox, backlog), severity, dimension
+ * and cost (the burn chip). The row's warnings — runaway, budget risk — are
+ * not options: a hidden alarm is a missed alarm.
+ */
+export function taskDisplayProperties(): readonly TaskDisplayProperty[] {
+  return ['source', 'severity', 'dimension', 'cost'];
+}
+
+/**
+ * Reads the display out of `location.search`, as {@link parseTaskView} reads
+ * the view: `?hide=` may be comma-separated, repeated or in any case, and an
+ * unknown property is dropped. The URL lists what is hidden, not what shows,
+ * so a property added later shows on every link written before it.
+ */
+export function parseTaskDisplay(search: string): TaskDisplayState {
+  const asked = new URLSearchParams(search)
+    .getAll('hide')
+    .join(',')
+    .split(',')
+    .map((value) => value.trim().toLowerCase());
+  return { hide: taskDisplayProperties().filter((property) => asked.includes(property)) };
+}
+
+/**
+ * The `location.search` value that addresses `display`, written over `search`
+ * like {@link taskViewSearch}: every other parameter survives, a display that
+ * shows everything removes `hide`, and commas stay literal.
+ */
+export function taskDisplaySearch(display: TaskDisplayState, search: string): string {
+  const params = new URLSearchParams(search);
+  if (display.hide.length) params.set('hide', display.hide.join(','));
+  else params.delete('hide');
+  const query = params.toString().replace(/%2C/gi, ',');
+  return query ? '?' + query : '';
+}
+
+/** Whether a row under `display` shows `property`. */
+export function taskDisplayShows(
+  display: TaskDisplayState,
+  property: TaskDisplayProperty,
+): boolean {
+  return !display.hide.includes(property);
 }
