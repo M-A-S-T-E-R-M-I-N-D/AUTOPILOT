@@ -17,7 +17,10 @@
  *    missing sections; once the body conforms the label comes off in the
  *    same edit that accepts it. Epics and partner applications are exempt.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import {
   planIssueTriage,
   planIssueTriageCommands,
@@ -109,6 +112,43 @@ describe('reserved-for-humans expiry', () => {
     expect(
       planIssueTriage(issue({ labels: ['good first issue'] }), [], [], undefined, NOW).decision,
     ).toBe('skip');
+  });
+});
+
+/**
+ * THE WINDOW IS STATED WHERE PEOPLE READ IT (board web-mtxewht0-488yie). The
+ * expiry above shipped and is enforced, yet every surface a contributor
+ * actually reads — the identity law in CONTRIBUTOR-STANDING.md, the claim
+ * protocol in CONTRIBUTING.md, the contributor issue list's audience line in
+ * both locales — went on promising an indefinite reservation ("the fleet
+ * steps around these"). A rule the product enforces but its own words
+ * contradict reads as a broken promise the first time KEEPER boards a
+ * three-week-old good first issue. So the number those surfaces state is
+ * pinned to the constant: change one and this names the others.
+ */
+describe('the reservation window is stated where people read it', () => {
+  const stated = `${RESERVED_FOR_HUMANS_DAYS} days`;
+  // import.meta.url is an http: URL under jsdom, so resolve from cwd (the
+  // same fix contributor-standing-panel.test.ts uses).
+  const doc = (rel: string): string => readFileSync(join(process.cwd(), rel), 'utf8');
+
+  it('in the identity law contributors and their fleets read', () => {
+    const standing = doc('.github/CONTRIBUTOR-STANDING.md');
+    expect(standing).toContain(stated);
+    expect(standing).toContain(`\`${AGENT_OK_LABEL}\``);
+  });
+
+  it('in the claim protocol of CONTRIBUTING.md', () => {
+    const contributing = doc('.github/CONTRIBUTING.md');
+    expect(contributing).toContain(stated);
+    expect(contributing).toContain(`\`${AGENT_OK_LABEL}\``);
+  });
+
+  it('in the contributor issue list audience line, in every locale', () => {
+    expect(STRINGS.en.contributorIssueListAudience).toContain(stated);
+    expect(STRINGS.en.contributorIssueListAudience).toContain(AGENT_OK_LABEL);
+    expect(STRINGS.he.contributorIssueListAudience).toContain(`${RESERVED_FOR_HUMANS_DAYS} ימים`);
+    expect(STRINGS.he.contributorIssueListAudience).toContain(AGENT_OK_LABEL);
   });
 });
 

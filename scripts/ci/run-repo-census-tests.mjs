@@ -42,6 +42,10 @@ const REPO_PATH_RE = /['"`/](?:README\.md|CHANGELOG\.md|docs|config|\.github)(?:
 /** True for a test source that reads the repository by path: it reads the
  *  filesystem, and it names a repository path somewhere in the file. */
 export function isRepoReadingTest(source) {
+  // A test that lists the tracked sources itself (`git ls-files`) scans the
+  // whole repository — the windowsHide census missed a new script this way
+  // (2026-09-26): no change to a scanned file ever selects it.
+  if (FS_READ_RE.test(source) && source.includes("'ls-files'")) return true;
   return FS_READ_RE.test(source) && REPO_PATH_RE.test(source);
 }
 

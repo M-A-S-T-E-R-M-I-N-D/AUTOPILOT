@@ -10,183 +10,22 @@
  *   node apps/dashboard/dist/e2e-server-populated.js &
  *   node scripts/docs/capture-screens.mjs
  *
- * What is real and what is staged, so the README never overclaims:
- * - The page, the client bundle, the fleet and the project are the fixture's
- *   own (`apps/dashboard/src/e2e-server-populated.ts`), rendered by the real
- *   server with the browser clock frozen at the fixture's instant.
- * - The fixture wires neither the flight API nor the Lucky roll, so the three
- *   Fly-bar frames answer `/api/fly` and `/api/lucky` from the hand-authored
- *   payloads below, shaped exactly like `flight/runner.ts`'s FlightStatus and
- *   `server/server.ts`'s LuckyResponse; the running frame also prepends one
- *   completed firing to the flying project's log so the progress line reads
- *   one of four. The folder is a neutral `~/src/checkout-web`, never a real
- *   operator path.
+ * The scene — what is real, what is staged, and the payloads that stage it —
+ * lives in `demo-scene.mjs`, shared with `record-demo-frames.mjs` so the
+ * stills and the demo's frame sequence tell one story from one source.
  */
 
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { FOLDER, open, runningFlight, settle } from './demo-scene.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const require = createRequire(join(ROOT, 'apps', 'dashboard', 'package.json'));
 const { chromium } = require('@playwright/test');
 
-const BASE = 'http://127.0.0.1:4320';
-/** Must equal the fixture's fixed NOW and playwright.config.ts's POPULATED_NOW. */
-const NOW = Date.parse('2026-09-01T12:00:00.000Z');
-const MINUTE = 60_000;
 const OUT = process.argv[2] || join(ROOT, 'docs', 'screens');
-const FOLDER = '~/src/checkout-web';
-const VIEWPORT = { width: 1440, height: 1030 };
-/** Every frame is a returning operator's view: the getting-started guide
- *  hidden, so the page shows the product rather than the checklist. */
-const RETURNING_OPERATOR = { 'ap-ob-snooze': 'forever' };
-
-const idleFlight = {
-  running: false,
-  folder: null,
-  firings: null,
-  totalBudgetUsd: null,
-  startedAt: null,
-  pid: null,
-  paused: false,
-  queued: false,
-  maxTurnsPerFiring: 40,
-  flights: [],
-};
-const liveFlight = {
-  folder: FOLDER,
-  firings: 4,
-  running: true,
-  queued: false,
-  totalBudgetUsd: null,
-  initiatedBy: 'dashboard',
-  startedAt: NOW - 3 * MINUTE,
-  pid: 31337,
-};
-const runningFlight = {
-  ...idleFlight,
-  running: true,
-  folder: FOLDER,
-  firings: 4,
-  startedAt: NOW - 3 * MINUTE,
-  pid: 31337,
-  flights: [liveFlight],
-};
-const shippedFiring = {
-  id: 'firing-live-0',
-  item: 'task-1',
-  kind: 'feature',
-  sha: '7f3e9c1',
-  shipped: true,
-  gateResult: 'passed',
-  cost: 2.14,
-  tokensIn: 41_000,
-  tokensOut: 9_000,
-  turns: 22,
-  commitSubject: 'feat: apply stacked discount codes in a deterministic order',
-  completion: 'complete',
-  failedCheck: null,
-  died: null,
-  at: NOW - 1 * MINUTE,
-  durationMs: 2 * MINUTE,
-};
-const luckyRoll = {
-  probe: { cpuLoadPct: 23, logicalCores: 12, freeRamGb: 19.4, queuedTasks: 7, runningFlights: 0 },
-  plan: {
-    ok: true,
-    lanes: 2,
-    firings: 4,
-    budgetUsd: 10,
-    reasoning: [
-      'CPU: 23% load on 12 cores leaves ~9.2 idle → 3 lane(s) at 3 cores each',
-      'RAM: 19.4 GB free minus 4 GB reserved → 10 lane(s) at 1.5 GB each',
-      'board: 7 queued task(s) → 3 lane(s) at ≥2 tasks each',
-      'rolled: 2 lane(s) × 4 firing(s) at $10/firing (cap 8 lanes)',
-    ],
-  },
-  fit: {
-    attention: 'evening',
-    considered: 14,
-    shortlist: [
-      {
-        number: 48,
-        title: 'Stacked discount codes apply in the wrong order',
-        url: 'https://github.com/example/checkout-web/issues/48',
-        source: 'pool',
-        fit: 0.91,
-        reasoning:
-          'good first issue + help wanted; touches src/checkout.ts, flown here twice; sized for one evening',
-      },
-      {
-        number: 51,
-        title: 'Cart totals drift by a cent on mixed-currency lines',
-        url: 'https://github.com/example/checkout-web/issues/51',
-        source: 'pool',
-        fit: 0.84,
-        reasoning: 'help wanted; two firings of history on src/cart.ts; nobody assigned',
-      },
-      {
-        number: 37,
-        title: 'Document the checkout webhook retry policy',
-        url: 'https://github.com/example/checkout-web/issues/37',
-        source: 'people',
-        fit: 0.72,
-        reasoning: 'docs only; unassigned for 9 days; fits an evening with room to spare',
-      },
-    ],
-  },
-};
-
-/**
- * @param {import('@playwright/test').Browser} browser
- * @param {{ theme: 'dark' | 'light' | 'terminal', path?: string, flight?: object, stageProgress?: boolean, prefs?: object, storage?: Record<string, string> }} opts
- */
-async function open(
-  browser,
-  { theme, path = '/', flight = idleFlight, stageProgress = false, prefs = null, storage = RETURNING_OPERATOR },
-) {
-  const context = await browser.newContext({
-    viewport: VIEWPORT,
-    deviceScaleFactor: 2,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
-    locale: 'en-US',
-  });
-  const page = await context.newPage();
-  await page.addInitScript((t) => localStorage.setItem('ap-theme', t), theme);
-  if (prefs) {
-    await page.addInitScript((p) => localStorage.setItem('ap-prefs', p), JSON.stringify(prefs));
-  }
-  await page.addInitScript((entries) => {
-    for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v);
-  }, storage);
-  await page.clock.install({ time: NOW + 2 * MINUTE });
-  await page.route(
-    (u) => u.pathname === '/api/fly',
-    (route) => route.fulfill({ json: flight }),
-  );
-  await page.route(
-    (u) => u.pathname === '/api/lucky',
-    (route) => route.fulfill({ json: luckyRoll }),
-  );
-  if (stageProgress) {
-    await page.route(
-      (u) => u.pathname === '/api/state',
-      async (route) => {
-        const state = await (await route.fetch()).json();
-        const projects = state.projects.map((p) =>
-          p.status === 'flying' ? { ...p, flightLog: [shippedFiring, ...(p.flightLog || [])] } : p,
-        );
-        await route.fulfill({ json: { ...state, projects } });
-      },
-    );
-  }
-  await page.goto(BASE + path);
-  await page.clock.runFor(3000);
-  await page.evaluate('document.fonts.ready');
-  return { context, page };
-}
 
 /** Frames an element exactly (its own padding is the margin). */
 async function clip(page, selector, file) {
@@ -194,11 +33,6 @@ async function clip(page, selector, file) {
   if (!box) throw new Error(`nothing to frame at ${selector}`);
   await page.screenshot({ path: file, clip: box });
   console.log('wrote', file, `${Math.round(box.width)}×${Math.round(box.height)}`);
-}
-
-async function settle(page, ms = 300) {
-  await page.mouse.move(5, 5);
-  await page.clock.runFor(ms);
 }
 
 // AP_CAPTURE_CHANNEL=msedge (or chrome) uses an installed browser when

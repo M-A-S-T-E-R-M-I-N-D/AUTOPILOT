@@ -46,12 +46,14 @@ function commit(file: string, body: string, message: string): void {
   git(['commit', '-q', '--no-verify', '-m', message]);
 }
 
-/** Runs the guard and returns its exit code + combined output. */
-function runGuard(range: string): { code: number; output: string } {
+/** Runs the guard and returns its exit code + combined output. Omitting
+ *  `range` exercises the script's own default (HEAD~50..HEAD). */
+function runGuard(range?: string): { code: number; output: string } {
+  const args = range === undefined ? [SCRIPT] : [SCRIPT, range];
   try {
     return {
       code: 0,
-      output: execFileSync(process.execPath, [SCRIPT, range], { cwd: repo, encoding: 'utf8' }),
+      output: execFileSync(process.execPath, args, { cwd: repo, encoding: 'utf8' }),
     };
   } catch (error) {
     const e = error as { status?: number; stdout?: string; stderr?: string };
@@ -151,4 +153,26 @@ describe('check-merge-integrity', () => {
 
     expect(runGuard('HEAD~1..HEAD').code).toBe(0);
   });
+
+  it('uses its own HEAD~50..HEAD default when no range argument is given', () => {
+    // A -s ours merge that discarded real work, then buried outside the
+    // default 50-commit window by enough padding commits. The default
+    // pins BOTH the "50" and the "HEAD~..HEAD" shape: a narrower or wider
+    // window, or a malformed one, would either still catch this merge or
+    // error on a bad revision — either way this test would fail.
+    // (55 padding commits on a slow disk need more than vitest's 5s default.)
+    git(['checkout', '-q', '-b', 'lane']);
+    commit('lane-only.txt', 'work nobody else has\n', 'feat: lane work');
+    git(['checkout', '-q', 'main']);
+    commit('main.txt', 'main work\n', 'feat: main work');
+    git(['merge', '-q', '-s', 'ours', '--no-edit', '-m', 'chore: absorb lane', 'lane']);
+    for (let i = 0; i < 55; i += 1) {
+      commit(`pad-${i}.txt`, `pad ${i}\n`, `chore: pad ${i}`);
+    }
+
+    const { code, output } = runGuard();
+
+    expect(code).toBe(0);
+    expect(output).toContain('merge integrity OK');
+  }, 20000);
 });
