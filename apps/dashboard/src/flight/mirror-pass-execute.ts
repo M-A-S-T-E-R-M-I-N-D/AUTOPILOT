@@ -86,6 +86,7 @@ import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
 import { isHumanClosedTask } from './claim-contract.js';
+import { repoFromRemoteUrl, sameRepo } from './project-repo.js';
 import {
   resolveSocialIdentity,
   fetchOwnSubmissions,
@@ -318,9 +319,52 @@ export interface MirrorPassExecuteOutcome {
 /** Why {@link createMirrorPassExecuteApi} sent zero `gh` mutations this
  *  call — epic 0019 law 1, role honesty: `'identity-unresolved'` when `gh`
  *  itself could not resolve who is acting, `'guest'` when it resolved to
- *  someone other than this repo's own maintainer. Same two reasons, same
- *  names, as `taxonomy-seed.ts`'s `TaxonomySeedSkipReason`. */
-export type MirrorPassExecuteSkipReason = 'identity-unresolved' | 'guest';
+ *  someone other than this repo's own maintainer (same two reasons, same
+ *  names, as `taxonomy-seed.ts`'s `TaxonomySeedSkipReason`). S3's "per
+ *  project" adds `'repo-mismatch'`: the project's own `origin` names a
+ *  different GitHub repository than the one `gh` acts on, so every issue
+ *  the pass would read, close, comment on or file would land in a repository
+ *  this project is not. */
+export type MirrorPassExecuteSkipReason = 'identity-unresolved' | 'guest' | 'repo-mismatch';
+
+/** The `owner/repo` the checkout at `rootPath` names as its `origin`, asked
+ *  through the injectable `exec` the same way {@link assessLandedShas} asks
+ *  git. Null when git cannot answer or the origin is not a GitHub URL. */
+async function fetchProjectRepo(exec: CliExec, rootPath: string): Promise<string | null> {
+  const { code, stdout } = await exec('git', ['-C', rootPath, 'remote', 'get-url', 'origin']);
+  return code === 0 ? repoFromRemoteUrl(stdout) : null;
+}
+
+/** {@link gateMirrorPassExecute}'s verdict: a maintainer identity cleared to
+ *  write, or the reason every EXECUTE api returns a zero-mutation report. */
+type MirrorPassExecuteGate =
+  | { readonly identity: SocialIdentity; readonly skippedReason?: undefined }
+  | {
+      readonly identity: SocialIdentity | undefined;
+      readonly skippedReason: MirrorPassExecuteSkipReason;
+    };
+
+/**
+ * Every EXECUTE api's gate, run before a single board or issue read: law 1's
+ * role honesty, then S3's per-project check — the project's `origin` must be
+ * the repository `gh` resolved, since every `gh issue` call here acts on
+ * that one. A project with no GitHub origin to compare keeps the
+ * single-context behavior every derivation had before this gate; only a
+ * known mismatch refuses.
+ */
+async function gateMirrorPassExecute(
+  exec: CliExec,
+  rootPath: string,
+): Promise<MirrorPassExecuteGate> {
+  const identity = await resolveSocialIdentity(exec);
+  if (identity === undefined) return { identity, skippedReason: 'identity-unresolved' };
+  if (identity.role !== 'maintainer') return { identity, skippedReason: 'guest' };
+  const projectRepo = await fetchProjectRepo(exec, rootPath);
+  if (projectRepo !== null && !sameRepo(projectRepo, identity.nameWithOwner)) {
+    return { identity, skippedReason: 'repo-mismatch' };
+  }
+  return { identity };
+}
 
 /** The reconcile EXECUTE ritual's full report: the identity it resolved
  *  (`undefined` when resolution itself failed), every task whose plan
@@ -362,14 +406,11 @@ export function createMirrorPassExecuteApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const identity = await resolveSocialIdentity(exec);
-      if (identity === undefined || identity.role !== 'maintainer') {
-        return {
-          identity,
-          outcomes: [],
-          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
-        };
+      const gate = await gateMirrorPassExecute(exec, project.root_path);
+      if (gate.skippedReason !== undefined) {
+        return { identity: gate.identity, outcomes: [], skippedReason: gate.skippedReason };
       }
+      const { identity } = gate;
       const plans = await planReconcileForProject(
         exec,
         store,
@@ -478,14 +519,11 @@ export function createMirrorPassLandingNoteExecuteApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const identity = await resolveSocialIdentity(exec);
-      if (identity === undefined || identity.role !== 'maintainer') {
-        return {
-          identity,
-          outcomes: [],
-          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
-        };
+      const gate = await gateMirrorPassExecute(exec, project.root_path);
+      if (gate.skippedReason !== undefined) {
+        return { identity: gate.identity, outcomes: [], skippedReason: gate.skippedReason };
       }
+      const { identity } = gate;
       const tasks = mirrorPassTaskCandidates(store, projectId);
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
@@ -629,15 +667,16 @@ export function createMirrorPassDriftExecuteApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const identity = await resolveSocialIdentity(exec);
-      if (identity === undefined || identity.role !== 'maintainer') {
+      const gate = await gateMirrorPassExecute(exec, project.root_path);
+      if (gate.skippedReason !== undefined) {
         return {
-          identity,
+          identity: gate.identity,
           outcomes: [],
           duplicates: [],
-          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
+          skippedReason: gate.skippedReason,
         };
       }
+      const { identity } = gate;
       const root = project.root_path;
       const readmePath = join(root, 'README.md');
       const findings: Array<{
@@ -808,14 +847,11 @@ export function createMirrorPassStaleClaimExecuteApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const identity = await resolveSocialIdentity(exec);
-      if (identity === undefined || identity.role !== 'maintainer') {
-        return {
-          identity,
-          outcomes: [],
-          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
-        };
+      const gate = await gateMirrorPassExecute(exec, project.root_path);
+      if (gate.skippedReason !== undefined) {
+        return { identity: gate.identity, outcomes: [], skippedReason: gate.skippedReason };
       }
+      const { identity } = gate;
       const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
       // One entry per CLAIM (claims ledger): a comment-only claimant and a
       // contested issue's second holder each get their own quiet clock.
@@ -991,14 +1027,11 @@ export function createMirrorPassPriorityFollowExecuteApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const identity = await resolveSocialIdentity(exec);
-      if (identity === undefined || identity.role !== 'maintainer') {
-        return {
-          identity,
-          outcomes: [],
-          skippedReason: identity === undefined ? 'identity-unresolved' : 'guest',
-        };
+      const gate = await gateMirrorPassExecute(exec, project.root_path);
+      if (gate.skippedReason !== undefined) {
+        return { identity: gate.identity, outcomes: [], skippedReason: gate.skippedReason };
       }
+      const { identity } = gate;
       const tasks = mirrorPassPriorityCandidates(store, projectId);
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       const labelsByIssueNumber = await fetchMirrorPassIssueLabels(exec, tasks, issuesByNumber);
