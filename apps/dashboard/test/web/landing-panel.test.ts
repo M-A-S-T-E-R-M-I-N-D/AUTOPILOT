@@ -35,6 +35,12 @@ describe('landingWorktreeDivergence (web-msvbzahx-uiemjb)', () => {
   it('returns null when nothing is stranded', () => {
     expect(landingWorktreeDivergence([])).toBeNull();
   });
+
+  it('no longer bakes a ⚠ glyph into the text — epic 0025 renders the vendored triangle-alert icon instead', () => {
+    const text = landingWorktreeDivergence([{ sha: 'a1b2c3d' }]);
+    expect(text).not.toContain('⚠');
+    expect(text?.startsWith('1 commit stranded')).toBe(true);
+  });
 });
 
 const PROJECT = {
@@ -207,6 +213,11 @@ describe('the post-flight LANDING card', () => {
     expect(warning?.getAttribute('tabindex')).toBe('0');
     expect(warning?.getAttribute('data-tip')).toBe('shared.txt');
     expect(document.querySelector('.landing-overlaps')?.getAttribute('role')).toBe('alert');
+    // Epic 0025 icon system: a leading vendored triangle-alert stroke icon
+    // instead of the ⚠ glyph landingOverlapItems used to bake into the text.
+    expect(warning?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+    expect(warning?.textContent).not.toContain('⚠');
+    expect(warning?.getAttribute('aria-label')).not.toContain('⚠');
   });
 
   it('renders no overlap warning when overlaps is empty or absent', async () => {

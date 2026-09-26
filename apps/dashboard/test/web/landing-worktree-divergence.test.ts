@@ -92,6 +92,10 @@ describe('LANDING card worktree-divergence warning (web-msvbzahx-uiemjb)', () =>
     });
     expect(warning.textContent).toContain('2 commits stranded on the flight worktree');
     expect(warning.getAttribute('role')).toBe('alert');
+    // Epic 0025 icon system: a leading vendored triangle-alert stroke icon
+    // instead of the ⚠ glyph landingWorktreeDivergence used to bake in.
+    expect(warning.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+    expect(warning.textContent).not.toContain('⚠');
   });
 
   it('renders the warning even when the checkout is level with base (nothing else to land) — the motivating blind spot', async () => {
