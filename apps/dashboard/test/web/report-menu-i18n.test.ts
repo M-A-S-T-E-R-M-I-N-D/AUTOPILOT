@@ -149,10 +149,10 @@ describe('STRINGS carries the report dialog keys', () => {
     expect(STRINGS.en.reportNothingToFile).toBe('Nothing to file — {reasoning}');
     expect(STRINGS.en.reportRequestFailed).toBe('✗ Request failed — try again shortly.');
     expect(STRINGS.en.reportCopyTextLabel).toBe('Copy text');
-    expect(STRINGS.en.reportCopyHtmlLabel).toBe('🧩 Copy element HTML');
+    expect(STRINGS.en.reportCopyHtmlLabel).toBe('Copy element HTML');
     expect(STRINGS.en.reportCopySelectorLabel).toBe('Copy CSS selector');
     expect(STRINGS.en.reportCopyStylesLabel).toBe('Copy computed styles');
-    expect(STRINGS.en.reportCopyContextLabel).toBe('🧠 Copy smart context (JSON)');
+    expect(STRINGS.en.reportCopyContextLabel).toBe('Copy smart context (JSON)');
     expect(STRINGS.en.reportCopied).toBe('✓ Copied');
     expect(STRINGS.en.reportCopyFailed).toBe('✗ Copy failed');
   });
@@ -186,6 +186,27 @@ describe('STRINGS carries the report dialog keys', () => {
     for (const table of Object.values(STRINGS)) {
       expect(table.reportCopyStylesLabel.startsWith('🎨')).toBe(false);
     }
+  });
+
+  it('no longer bakes the 🧩 or 🧠 glyph into the Copy HTML / Copy context labels in any locale — epic 0025 replaced them with the vendored code-xml and braces icons', () => {
+    for (const table of Object.values(STRINGS)) {
+      expect(table.reportCopyHtmlLabel).not.toContain('🧩');
+      expect(table.reportCopyContextLabel).not.toContain('🧠');
+      expect(table.reportCopyHtmlLabel).toBe(table.reportCopyHtmlLabel.trim());
+      expect(table.reportCopyContextLabel).toBe(table.reportCopyContextLabel.trim());
+    }
+  });
+
+  it('hands reportMenuAddItem the code-xml and braces icons for those two items', () => {
+    const out = reportMenuJs();
+    // `[^}]*` keeps each match inside its own item's handler body, so a later
+    // item's icon can never satisfy it.
+    expect(out).toMatch(
+      /reportMenuAddItem\(tr\('reportCopyHtmlLabel'\), tr\('reportCopyHtmlTip'\), function \(it\) \{[^}]*\}, 'code-xml'\);/,
+    );
+    expect(out).toMatch(
+      /reportMenuAddItem\(tr\('reportCopyContextLabel'\), tr\('reportCopyContextTip'\), function \(it\) \{[^}]*\}, 'braces'\);/,
+    );
   });
 });
 
