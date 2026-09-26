@@ -935,6 +935,10 @@ const BENIGN_WEB = new Set([
   // HTML, no I/O — pipeline-svg.ts escapes what it emits, this only decides
   // where a path label is cut and which part is the leaf.
   'pipeline-label.ts',
+  // ADR 0012's English placement (2026-09-26): scans our own chunk text for
+  // quoted key literals and emits the STRINGS.en heads as JSON.stringify'd
+  // data — no HTML, no I/O, only our own bundled strings.
+  'english-heads.ts',
   // Pure label/item/confirm/result text for the KEEPER Discussions triage
   // panel (epic 0007 S8): no HTML building, no I/O — the same class as
   // issue-triage-panel.ts; the execute route lives under the flagged server.
