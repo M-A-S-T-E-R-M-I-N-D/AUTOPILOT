@@ -729,7 +729,14 @@ main.project-mode { grid-template-columns: 1fr; }
    heading scale and no rhythm, so a rendered document came out as flat grey
    mass. A measure cap is the single highest-value line here: unbounded line
    length is what made long docs unreadable in a wide panel. */
-.docs-viewer-body { max-height: 32rem; overflow-y: auto; font-size: var(--text-sm); line-height: 1.65; }
+.docs-viewer-body { position: relative; max-height: 32rem; overflow-y: auto; font-size: var(--text-sm); line-height: 1.65; }
+/* The live-refresh diff highlight (epic 0023 slice 4): an overlay, not a
+   background-color transition, so the only animated property is opacity
+   (compositor-friendly) — this file's global prefers-reduced-motion block
+   strips this like every other animation, and docs-viewer.ts's
+   flashDocChanged() carries its own timer fallback for that case. */
+.docs-viewer-diff-flash { position: absolute; inset: 0; background: var(--color-accent); pointer-events: none; animation: docs-diff-flash 2s ease-out forwards; }
+@keyframes docs-diff-flash { from { opacity: 0.16; } to { opacity: 0; } }
 .docs-viewer-body > * { max-inline-size: 72ch; }
 .docs-viewer-body > :first-child { margin-top: 0; }
 .docs-viewer-body h1, .docs-viewer-body h2, .docs-viewer-body h3,
