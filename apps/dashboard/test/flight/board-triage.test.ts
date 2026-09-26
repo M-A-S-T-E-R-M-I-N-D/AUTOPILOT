@@ -17,12 +17,18 @@ import type * as AutopilotEngine from '@autopilot/engine';
 import {
   DEFAULT_ENGINE_CONFIG,
   DEFAULT_AUTH,
+  TOOL_LESS_ALLOWED_TOOLS,
+  TOOL_LESS_DISALLOWED_TOOLS,
   CliDescendantRegistry,
   type ModelResponse,
 } from '@autopilot/engine';
 import { runBoardTriage, type BoardTriageDeps } from '../../src/flight/board-triage.js';
 
 const invokeMock = vi.fn<(model: string, prompt: string) => Promise<ModelResponse>>();
+
+/** Which adapter board-triage.ts built and with what options — the local vs
+ *  cloud routing decision is otherwise invisible behind the one shared fake. */
+const constructed: { adapter: 'cloud' | 'ollama'; options: unknown }[] = [];
 
 // board-triage.ts constructs its own ClaudeCliModel/OllamaModel internally
 // (never injected) — a real one would spawn a CLI subprocess, so both are
@@ -34,7 +40,19 @@ vi.mock('@autopilot/engine', async (importOriginal) => {
       return invokeMock(model, prompt);
     }
   }
-  return { ...actual, ClaudeCliModel: FakeModel, OllamaModel: FakeModel };
+  class FakeCliModel extends FakeModel {
+    constructor(options: unknown) {
+      super();
+      constructed.push({ adapter: 'cloud', options });
+    }
+  }
+  class FakeOllamaModel extends FakeModel {
+    constructor(options: unknown) {
+      super();
+      constructed.push({ adapter: 'ollama', options });
+    }
+  }
+  return { ...actual, ClaudeCliModel: FakeCliModel, OllamaModel: FakeOllamaModel };
 });
 
 function project(s: Store, id: string, rootPath: string): void {
@@ -94,6 +112,7 @@ describe('runBoardTriage', () => {
     migrate(store);
     project(store, 'p1', dir);
     invokeMock.mockReset();
+    constructed.length = 0;
     deps = {
       store,
       projectId: 'p1',
@@ -106,6 +125,7 @@ describe('runBoardTriage', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     store.db.close();
     rmSync(dir, { recursive: true, force: true });
   });
@@ -197,5 +217,156 @@ describe('runBoardTriage', () => {
     } finally {
       writeSpy.mockRestore();
     }
+  });
+
+  const rankable = triageEnvelope('TRIAGE:["b","a"]');
+  const rankableEnvelope = rankable.envelope as NonNullable<ModelResponse['envelope']>;
+  it.each([
+    ['an error envelope, even one carrying a TRIAGE line', { ...rankableEnvelope, isError: true }],
+    ['no envelope at all (the CLI died before writing one)', null],
+    ['a success envelope whose result is null', { ...rankableEnvelope, result: null }],
+  ])(
+    'never applies a ranking from %s — the order stays and the skip is logged',
+    async (_, envelope) => {
+      createTask(store, { id: 'a', projectId: 'p1', title: 'Task A', createdAt: 1000 });
+      createTask(store, { id: 'b', projectId: 'p1', title: 'Task B', createdAt: 2000 });
+      invokeMock.mockResolvedValue({ ...rankable, envelope });
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      const before = orderedIds(store, 'p1');
+
+      try {
+        await runBoardTriage(deps, 'takeoff');
+        expect(orderedIds(store, 'p1')).toEqual(before);
+        expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('board triage skipped'));
+      } finally {
+        writeSpy.mockRestore();
+      }
+    },
+  );
+
+  it('never hands a proposal still awaiting approval to the model: only queued tasks are triaged', async () => {
+    createTask(store, { id: 'a', projectId: 'p1', title: 'Task A', createdAt: 1000 });
+    createTask(store, { id: 'b', projectId: 'p1', title: 'Task B', createdAt: 1000 });
+    createTask(store, {
+      id: 'p',
+      projectId: 'p1',
+      title: 'Proposal awaiting approval',
+      status: 'needs_approval',
+      createdAt: 1000,
+    });
+    invokeMock.mockResolvedValue(triageEnvelope('TRIAGE:["b","a"]'));
+
+    await runBoardTriage(deps, 'takeoff');
+
+    const [, prompt] = invokeMock.mock.calls[0] ?? [];
+    expect(prompt).toContain('Task A');
+    expect(prompt).not.toContain('Proposal awaiting approval');
+  });
+
+  it('records the model-free factors of every open task, pinned ones included, before a model call that fails', async () => {
+    const threeDaysMs = 3 * 86_400_000;
+    deps = { ...deps, now: () => 1000 + threeDaysMs };
+    createTask(store, { id: 'c', projectId: 'p1', title: 'Pinned task', createdAt: 1000 });
+    createTask(store, { id: 'a', projectId: 'p1', title: 'Task A', createdAt: 1000 });
+    createTask(store, { id: 'r', projectId: 'p1', title: 'Runaway task', createdAt: 1000 });
+    reorderTasks(store, 'p1', ['c'], 999, true);
+    seedRunawayStreak(store, 'p1', 'r');
+    invokeMock.mockRejectedValue(new Error('triage CLI spawn failed'));
+    const before = orderedIds(store, 'p1');
+
+    // Callers wrap runBoardTriage in try/catch; the throw itself is expected.
+    await expect(runBoardTriage(deps, 'takeoff')).rejects.toThrow('triage CLI spawn failed');
+
+    const rows = store.db
+      .prepare("SELECT payload, created_at AS createdAt FROM events WHERE type = 'triage-factors'")
+      .all() as { payload: string; createdAt: number }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.createdAt).toBe(1000 + threeDaysMs);
+    const factors = JSON.parse(rows[0]?.payload ?? '[]') as { taskId: string }[];
+    const byId = [...factors].sort((x, y) => x.taskId.localeCompare(y.taskId));
+    expect(byId).toEqual([
+      { taskId: 'a', stalenessDays: 3, cumulativeCostUsd: 0, firingCount: 0, isRunaway: false },
+      { taskId: 'c', stalenessDays: 3, cumulativeCostUsd: 0, firingCount: 0, isRunaway: false },
+      { taskId: 'r', stalenessDays: 3, cumulativeCostUsd: 55, firingCount: 11, isRunaway: true },
+    ]);
+    expect(orderedIds(store, 'p1')).toEqual(before);
+  });
+
+  describe('model routing: local Ollama offload vs the cloud CLI', () => {
+    const localModel = DEFAULT_ENGINE_CONFIG.routing.localModel;
+
+    function seedTwoQueued(): void {
+      createTask(store, { id: 'a', projectId: 'p1', title: 'Task A', createdAt: 1000 });
+      createTask(store, { id: 'b', projectId: 'p1', title: 'Task B', createdAt: 1000 });
+      invokeMock.mockResolvedValue(triageEnvelope('TRIAGE:["b","a"]'));
+    }
+
+    it('runs a tool-less, two-turn, half-dollar cloud call on the mechanical model by default', async () => {
+      vi.stubEnv('AUTOPILOT_MECHANICAL_MODEL', undefined);
+      seedTwoQueued();
+
+      await runBoardTriage(deps, 'takeoff');
+
+      expect(constructed).toHaveLength(1);
+      expect(constructed[0]?.adapter).toBe('cloud');
+      expect(constructed[0]?.options).toMatchObject({
+        repo: dir,
+        auth: DEFAULT_AUTH,
+        config: {
+          primaryModel: 'haiku',
+          fallbackModel: 'sonnet',
+          maxTurns: 2,
+          maxBudgetUsd: 0.5,
+          allowedTools: TOOL_LESS_ALLOWED_TOOLS,
+          disallowedTools: TOOL_LESS_DISALLOWED_TOOLS,
+        },
+      });
+      expect(invokeMock.mock.calls[0]?.[0]).toBe('haiku');
+      expect(orderedIds(store, 'p1')).toEqual(['b', 'a']);
+    });
+
+    it("offloads to Ollama at the operator's base URL, invoking their real tag rather than the tier sentinel", async () => {
+      vi.stubEnv('AUTOPILOT_MECHANICAL_MODEL', localModel);
+      vi.stubEnv('AUTOPILOT_OLLAMA_MODEL', 'qwen2.5:3b');
+      vi.stubEnv('AUTOPILOT_OLLAMA_BASE_URL', 'http://gpu-box.lan:11434');
+      seedTwoQueued();
+
+      await runBoardTriage(deps, 'takeoff');
+
+      expect(constructed).toEqual([
+        { adapter: 'ollama', options: { baseUrl: 'http://gpu-box.lan:11434' } },
+      ]);
+      expect(invokeMock.mock.calls[0]?.[0]).toBe('qwen2.5:3b');
+      expect(orderedIds(store, 'p1')).toEqual(['b', 'a']);
+    });
+
+    it('leaves Ollama on its own default base URL and the default pullable tag when neither is configured', async () => {
+      vi.stubEnv('AUTOPILOT_MECHANICAL_MODEL', localModel);
+      vi.stubEnv('AUTOPILOT_OLLAMA_MODEL', undefined);
+      vi.stubEnv('AUTOPILOT_OLLAMA_BASE_URL', undefined);
+      seedTwoQueued();
+
+      await runBoardTriage(deps, 'takeoff');
+
+      expect(constructed).toEqual([{ adapter: 'ollama', options: {} }]);
+      // triage.ts's DEFAULT_OLLAMA_MODEL_TAG — a pullable tag, never the sentinel.
+      expect(invokeMock.mock.calls[0]?.[0]).toBe('llama3.2');
+    });
+
+    it("reads the local tier from the flight's own routing config, not the engine default", async () => {
+      deps = {
+        ...deps,
+        config: {
+          ...DEFAULT_ENGINE_CONFIG,
+          routing: { ...DEFAULT_ENGINE_CONFIG.routing, localModel: 'gpu-box-local' },
+        },
+      };
+      vi.stubEnv('AUTOPILOT_MECHANICAL_MODEL', 'gpu-box-local');
+      seedTwoQueued();
+
+      await runBoardTriage(deps, 'takeoff');
+
+      expect(constructed.map((c) => c.adapter)).toEqual(['ollama']);
+    });
   });
 });
