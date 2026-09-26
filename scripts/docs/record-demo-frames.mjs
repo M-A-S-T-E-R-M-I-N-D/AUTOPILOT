@@ -204,7 +204,7 @@ async function ensureFixture() {
   if (!existsSync(FIXTURE_SERVER)) {
     throw new Error(`${FIXTURE_SERVER} is missing — run \`pnpm run build\` first`);
   }
-  const child = spawn(process.execPath, [FIXTURE_SERVER], { stdio: 'ignore' });
+  const child = spawn(process.execPath, [FIXTURE_SERVER], { stdio: 'ignore', windowsHide: true });
   const deadline = Date.now() + FIXTURE_BOOT_MS;
   while (!(await healthy())) {
     if (child.exitCode !== null) {

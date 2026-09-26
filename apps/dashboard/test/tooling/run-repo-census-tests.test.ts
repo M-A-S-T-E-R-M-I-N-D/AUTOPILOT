@@ -25,6 +25,7 @@ describe('isRepoReadingTest', () => {
       "readdirSync(join(root, 'docs'))",
       "existsSync(join(ROOT, '.github', 'workflows', 'ci.yml'))",
       'readFileSync(`${ROOT}/docs/RUNBOOK.md`)',
+      "execFileSync('git', ['ls-files', '-z']); readFileSync(join(REPO_ROOT, file))",
     ]) {
       expect(isRepoReadingTest(source), source).toBe(true);
     }
@@ -45,6 +46,8 @@ describe('censusTestFiles', () => {
   it('finds the README count test that four convergence reds proved invisible to --changed', () => {
     const files = censusTestFiles();
     expect(files).toContain('apps/dashboard/test/flight/ci-workflow-gate.test.ts');
+    // the whole-repository windowsHide census (2026-09-26)
+    expect(files).toContain('apps/dashboard/test/flight/spawn-windows-hide.test.ts');
     for (const always of ALWAYS) expect(files).toContain(always);
     expect([...files].sort()).toEqual(files);
     expect(new Set(files).size).toBe(files.length);
