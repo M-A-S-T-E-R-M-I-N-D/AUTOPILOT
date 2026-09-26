@@ -39,9 +39,14 @@ button says what is hidden. A filtered list offers no drag or ↑/↓, since
 reordering posts the order the list shows. A Severity filter followed it the
 same day: a second fieldset of the same chips, reds first (critical, high,
 medium, low) and an "unrated" box for the tasks that carry none, writing
-`?severity=`. A hand-typed source filter already applies. Still open in slice
-2: the source boxes, the grouping control and counts on its group heads,
-display options, the Focus grouping.
+`?severity=`. A hand-typed source filter already applies. The display options'
+pure half followed, not yet wired: `?hide=` names the row properties a view
+hides — source, severity, dimension, cost; never the runaway or budget-risk
+warnings — kept apart from the filters, since filters narrow the list and
+display options change what a row shows. The URL lists what is hidden, not
+what shows, so a property added later shows on every older link. Still open in
+slice 2: the source boxes, the grouping control and counts on its group heads,
+the display options' control, the Focus grouping.
 
 ## The ask
 
