@@ -317,7 +317,13 @@ import {
 // bytes UNDER, bumped anyway: a margin that thin turns the merged landing
 // gate red the moment a sibling's slice adds a dozen bytes beside it, which
 // is exactly how 494e16cc died. Gzip (79482B, 77.6KB) stays under the line.
-const CORE_RAW_BUDGET = 260 * 1024;
+// Then core raw 260→262KB (2026-09-26), the same epic's row selection: a
+// leading checkbox per row, the x key on the cursor, the "N selected" status
+// line, a two-stage Escape (boardSelected/syncBoardSelection in shell.ts,
+// three STRINGS.en keys) — measured 266956B raw against the old 266240B
+// line, 716 bytes over. Two KB, not one: a 261KB line would leave 308
+// bytes, the same thin margin the entry above refused.
+const CORE_RAW_BUDGET = 262 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -333,7 +339,10 @@ const CORE_RAW_BUDGET = 260 * 1024;
 // STRINGS keys, which ride core like every English string. Paid first by
 // trimming their prose; measured 78860B gzip against the old 78848B budget,
 // 12 bytes over. Raw untouched.
-const CORE_GZIP_BUDGET = 78 * 1024;
+// Then core gzip 78→79KB (2026-09-26), the same epic 0026 row-selection
+// slice as the raw entry above — measured 79902B against the old 79872B
+// line, 30 bytes over.
+const CORE_GZIP_BUDGET = 79 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -460,7 +469,11 @@ const CORE_GZIP_BUDGET = 78 * 1024;
 // rides /panels.js regardless of which chunk the switches' own code is
 // served from — measured 207315B raw against the old 206848B budget, 467
 // bytes over.
-const CHUNK_RAW_BUDGET = 203 * 1024;
+// Then panels raw 203→204KB (2026-09-26), epic 0026's row selection: the
+// three keys' Hebrew translations ride the same deferred STRINGS.he splice
+// — measured 207933B raw against the old 207872B budget, 61 bytes over.
+// Gzip (62142B) stays under CHUNK_GZIP_BUDGET untouched.
+const CHUNK_RAW_BUDGET = 204 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb

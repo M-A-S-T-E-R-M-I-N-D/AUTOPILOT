@@ -187,7 +187,13 @@ import { gzipSync } from 'node:zlib';
 // bytes UNDER, bumped anyway: a margin that thin turns the merged landing
 // gate red the moment a sibling's slice adds a dozen bytes beside it, which
 // is exactly how 494e16cc died. Gzip (79482B, 77.6KB) stays under the line.
-const CORE_RAW_BUDGET = 260 * 1024;
+// Then core raw 260->262KB (2026-09-26), the same epic's row selection: a
+// leading checkbox per row, the x key on the cursor, the "N selected" status
+// line, a two-stage Escape (boardSelected/syncBoardSelection in shell.ts,
+// three STRINGS.en keys) -- measured 266956B raw against the old 266240B
+// line, 716 bytes over. Two KB, not one: a 261KB line would leave 308
+// bytes, the same thin margin the entry above refused.
+const CORE_RAW_BUDGET = 262 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -201,7 +207,10 @@ const CORE_RAW_BUDGET = 260 * 1024;
 // Then core gzip 77→78KB (2026-09-26) for epic 0024's flight plan outcomes:
 // six English STRINGS keys, prose trimmed first — measured 78860B, 12 bytes
 // over the old line. See the mirrored budget test for the full note.
-const CORE_GZIP_BUDGET = 78 * 1024;
+// Then core gzip 78→79KB (2026-09-26), the same epic 0026 row-selection
+// slice as the raw entry above — measured 79902B against the old 79872B
+// line, 30 bytes over.
+const CORE_GZIP_BUDGET = 79 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -359,7 +368,11 @@ const CORE_GZIP_BUDGET = 78 * 1024;
 // rides /panels.js regardless of which chunk the switches' own code is
 // served from — measured 207315B raw against the old 206848B budget, 467
 // bytes over.
-const CHUNK_RAW_BUDGET = 203 * 1024;
+// Then panels raw 203→204KB (2026-09-26), epic 0026's row selection: the
+// three keys' Hebrew translations ride the same deferred STRINGS.he splice
+// — measured 207933B raw against the old 207872B budget, 61 bytes over.
+// Gzip (62142B) stays under CHUNK_GZIP_BUDGET untouched.
+const CHUNK_RAW_BUDGET = 204 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight

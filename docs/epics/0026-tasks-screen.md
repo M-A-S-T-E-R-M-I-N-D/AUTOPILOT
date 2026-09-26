@@ -9,7 +9,10 @@ Status: Draft (2026-09-13). Board tasks seeded 2026-09-12 under this number.
 First cut of the column card shipped 2026-09-13 (title on its own line, controls
 as a strip). Slice 1's keyboard half shipped 2026-09-26: the `j`/`k` cursor
 with Escape, then `a` approve / `d` done on the row under it and the one-line
-key legend under the column heads that names them.
+key legend under the column heads that names them. Row selection followed the
+same day: every row leads with a checkbox, `x` toggles the one under the
+cursor, an "N selected" status line counts the set, and Escape clears it
+before it leaves. The set is what slice 4's bulk actions will act on.
 
 ## The ask
 

@@ -1385,6 +1385,16 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .board-keys { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
 .board-keys kbd { font: inherit; font-family: var(--font-mono); padding: 0 var(--space-1); border: 1px solid var(--color-border); border-block-end-width: 2px; border-radius: var(--shape-extra-small); background: var(--color-surface-raised); color: var(--color-text); }
 @media (pointer: coarse) { .board-keys { display: none; } }
+/* ROW SELECTION (epic 0026): the leading checkbox in every row's selection
+   slot, the accent wash on a selected row (a border in the columns view,
+   where rows are cards; the focus lock's wash is lighter and carries its
+   own start bar, so the two read apart), and the "N selected" status line
+   — a live region that stays in the tree while blank, so its next count is
+   announced, and gives up its margin meanwhile. */
+.task-select { margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+.task-selected { background: color-mix(in srgb, var(--color-accent) 14%, transparent); border-color: var(--color-accent); border-radius: var(--shape-extra-small); }
+.board-selection { margin: 0 0 var(--space-2); font-size: var(--text-xs); font-weight: 600; color: var(--color-accent); }
+.board-selection:empty { margin: 0; }
 @media (min-width: 48rem) {
   [data-board-view="columns"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   [data-board-view="columns"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; max-block-size: 72vh; overflow: auto; overscroll-behavior: contain; }
@@ -1422,6 +1432,12 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 @media (min-width: 64rem) and (hover: hover) {
   .task-move { opacity: 0; transition: opacity var(--duration-short2) var(--easing-standard); }
   .task:hover .task-move, .task:focus-within .task-move { opacity: 1; }
+  /* The selection box follows the same desktop-density rule (Linear's
+     leading slot): faint at rest, full on hover and focus-within, always
+     once checked, and on EVERY row while any set exists so the set reads
+     at a glance. Touch keeps it solid — there is no hover to reveal it. */
+  .task-select { opacity: 0.35; transition: opacity var(--duration-short2) var(--easing-standard); }
+  .task:hover .task-select, .task:focus-within .task-select, .task-select:checked, .tasks[data-selecting] .task-select { opacity: 1; }
 }
 .task-focus-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 0 5px; border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; filter: grayscale(1); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .task-focus-btn.on { filter: none; border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 15%, transparent); }
