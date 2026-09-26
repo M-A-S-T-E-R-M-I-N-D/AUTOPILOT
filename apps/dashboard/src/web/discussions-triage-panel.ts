@@ -145,9 +145,10 @@ export function discussionsTriageConfirmMessage(
  *  `flight/discussions-triage-execute.ts`'s `DiscussionsTriageExecuteReport`.
  *  `replyResult`/`labelResult` carry only the `code` field this panel reads —
  *  duck-typed, same "no server-side type import" stance the rest of this
- *  file takes. */
+ *  file takes. A `null` `replyResult` is a reply the ritual held back
+ *  unposted because its pool label could not be resolved. */
 export interface DiscussionsTriageOutcomeLike {
-  readonly replyResult: { readonly code: number };
+  readonly replyResult: { readonly code: number } | null;
   readonly labelResult: { readonly code: number } | null;
 }
 
@@ -164,7 +165,9 @@ export interface DiscussionsTriageExecuteReportLike {
  *  `mirrorPassExecuteResultMessage` gives its own result line. A reply that
  *  fails to post is reported by count (mirroring
  *  `issueTriageExecuteResult`'s "N of M gh command(s) failed" shape) since
- *  `runDiscussionTriageRitual` never stops the batch at the first failure. */
+ *  `runDiscussionTriageRitual` never stops the batch at the first failure;
+ *  a reply held back for a missing pool label is counted the same way,
+ *  never folded into the "Replied to N" success line. */
 export function discussionsTriageExecuteResultMessage(
   status: number,
   data: DiscussionsTriageExecuteReportLike | null,
@@ -188,7 +191,10 @@ export function discussionsTriageExecuteResultMessage(
     };
   }
   const outcomes = data.outcomes ?? [];
-  const failedReplies = outcomes.filter((o) => o.replyResult.code !== 0).length;
+  const failedReplies = outcomes.filter(
+    (o) => o.replyResult !== null && o.replyResult.code !== 0,
+  ).length;
+  const heldBack = outcomes.filter((o) => o.replyResult === null).length;
   if (failedReplies > 0) {
     return {
       className: 'discussions-triage-result discussions-triage-result-fail',
@@ -200,6 +206,19 @@ export function discussionsTriageExecuteResultMessage(
         ' repl' +
         (outcomes.length === 1 ? 'y' : 'ies') +
         ' failed to post.',
+    };
+  }
+  if (heldBack > 0) {
+    return {
+      className: 'discussions-triage-result discussions-triage-result-fail',
+      text:
+        '✗ ' +
+        heldBack +
+        ' of ' +
+        outcomes.length +
+        ' repl' +
+        (outcomes.length === 1 ? 'y' : 'ies') +
+        ' held back — pool label not found; sync .github/labels.json, then re-run.',
     };
   }
   return {

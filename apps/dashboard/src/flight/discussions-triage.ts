@@ -476,25 +476,22 @@ export interface DiscussionLabelPostResult {
  * marker this file's header comment flagged as still missing: without it, a
  * re-run's {@link planDiscussionTriage} has no `labels` signal to recognize
  * an already-handled discussion, and would draft a duplicate reply every
- * pass. Two `gh api graphql` spends: {@link fetchDiscussionLabelId} resolves
- * the label's opaque node ID first, then `addLabelsToLabelable` applies it —
- * that ID is inlined into the mutation string (JSON-escaped, never
- * string-concatenated raw) rather than passed as a `$labelIds` variable,
- * since `gh api graphql`'s `-f`/`-F` flags carry only scalar values (a raw
- * string, or `-F`'s bool/null/int/placeholder set), neither able to express
- * a GraphQL `[ID!]!` list. Returns `null` without spending the mutation call
- * at all when the label lookup itself fails — nothing to apply an ID for,
- * the same short-circuit-on-missing-prerequisite shape {@link
- * fetchOpenDiscussions} uses for its own read failures.
+ * pass. Takes the label's opaque node ID already resolved by {@link
+ * fetchDiscussionLabelId} — {@link runDiscussionTriageRitual} resolves it
+ * BEFORE posting the reply, so a missing label holds the reply back instead
+ * of leaving it posted but unmarked (board ap-muiiryjd-0). One `gh api
+ * graphql` spend, `addLabelsToLabelable`, with that ID inlined into the
+ * mutation string (JSON-escaped, never string-concatenated raw) rather than
+ * passed as a `$labelIds` variable, since `gh api graphql`'s `-f`/`-F` flags
+ * carry only scalar values (a raw string, or `-F`'s
+ * bool/null/int/placeholder set), neither able to express a GraphQL
+ * `[ID!]!` list.
  */
 export async function applyDiscussionPoolLabel(
   exec: CliExec,
   discussion: Pick<IncomingDiscussion, 'id' | 'number'>,
-  dimension: Dimension,
-): Promise<DiscussionLabelPostResult | null> {
-  const labelId = await fetchDiscussionLabelId(exec, `${POOL_LABEL_PREFIX}${dimension}`);
-  if (labelId === null) return null;
-
+  labelId: string,
+): Promise<DiscussionLabelPostResult> {
   const mutation =
     'mutation($labelableId: ID!) { addLabelsToLabelable(input: ' +
     `{labelableId: $labelableId, labelIds: [${JSON.stringify(labelId)}]}) { clientMutationId } }`;
@@ -509,15 +506,24 @@ export async function applyDiscussionPoolLabel(
   return { discussionNumber: discussion.number, code, stdout };
 }
 
-/** One accepted discussion's full ritual outcome — the reply post's result
- *  always present, the label result `null` whenever {@link
- *  runDiscussionTriageRitual} skipped labeling: a failed post ({@link
- *  DiscussionReplyPostResult.code} non-zero) never gets one, since labeling
- *  it would falsely mark a never-delivered reply as handled. */
+/** Why {@link runDiscussionTriageRitual} held an accepted reply back
+ *  unposted: `'pool-label-unresolved'` when {@link fetchDiscussionLabelId}
+ *  could not resolve the discussion's `pool: *` label (missing on the repo,
+ *  or the lookup itself failed) — posting anyway would leave a reply with no
+ *  idempotency marker, which the next execute would post a second time. */
+export type DiscussionRitualSkipReason = 'pool-label-unresolved';
+
+/** One accepted discussion's full ritual outcome. `replyResult` is `null`
+ *  only when the reply was never posted — `skippedReason` then says why.
+ *  The label result is `null` whenever {@link runDiscussionTriageRitual}
+ *  skipped labeling: a held-back reply, or a failed post ({@link
+ *  DiscussionReplyPostResult.code} non-zero), since labeling it would
+ *  falsely mark a never-delivered reply as handled. */
 export interface DiscussionRitualOutcome {
   readonly discussionNumber: number;
-  readonly replyResult: DiscussionReplyPostResult;
+  readonly replyResult: DiscussionReplyPostResult | null;
   readonly labelResult: DiscussionLabelPostResult | null;
+  readonly skippedReason?: DiscussionRitualSkipReason;
 }
 
 /** One {@link runDiscussionTriageRitual} pass's full outcome — every open
@@ -533,7 +539,10 @@ export interface DiscussionTriageRitualResult {
  * The whole KEEPER Discussions ritual as one composed pass: {@link
  * fetchOpenDiscussions} the open discussions, {@link
  * planDiscussionTriageBatch} a decision + reply draft for each, then for
- * every `'accept'`ed plan {@link postDiscussionReply} first and, only on a
+ * every `'accept'`ed plan {@link fetchDiscussionLabelId} its pool label
+ * first — an unresolvable one holds the reply back unposted (board
+ * ap-muiiryjd-0: a reply that landed without its label was re-posted by
+ * every later execute) — then {@link postDiscussionReply} and, only on a
  * successful post (`code === 0`), {@link applyDiscussionPoolLabel} to mark it
  * handled — mirroring `issue-triage.ts`'s {@link runIssueTriageRitual} as the
  * single entrypoint a confirm-guarded HTTP handler will call once that wiring
@@ -557,12 +566,27 @@ export async function runDiscussionTriageRitual(
   for (const plan of plans) {
     if (plan.decision.decision !== 'accept' || plan.draft === null) continue;
 
+    const discussionNumber = plan.discussion.number;
+    const labelId = await fetchDiscussionLabelId(
+      exec,
+      `${POOL_LABEL_PREFIX}${plan.decision.dimension}`,
+    );
+    if (labelId === null) {
+      outcomes.push({
+        discussionNumber,
+        replyResult: null,
+        labelResult: null,
+        skippedReason: 'pool-label-unresolved',
+      });
+      continue;
+    }
+
     const replyResult = await postDiscussionReply(exec, plan.draft);
     const labelResult =
       replyResult.code === 0
-        ? await applyDiscussionPoolLabel(exec, plan.discussion, plan.decision.dimension)
+        ? await applyDiscussionPoolLabel(exec, plan.discussion, labelId)
         : null;
-    outcomes.push({ discussionNumber: plan.discussion.number, replyResult, labelResult });
+    outcomes.push({ discussionNumber, replyResult, labelResult });
   }
 
   return { plans, outcomes };

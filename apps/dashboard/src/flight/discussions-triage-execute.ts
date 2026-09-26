@@ -68,7 +68,8 @@ export type DiscussionsTriagePreviewApi = () => Promise<DiscussionsTriagePreview
  * signed reply draft for each, never posting a comment or applying a label.
  * Short-circuits before spending the discussions read when no identity
  * resolves — nothing could be drafted without a login to sign it, the same
- * skip-on-missing-prerequisite shape `applyDiscussionPoolLabel` takes.
+ * skip-on-missing-prerequisite shape `runDiscussionTriageRitual` takes when
+ * a pool label will not resolve.
  */
 export function createDiscussionsTriagePreviewApi(
   exec: CliExec = ghExec,
