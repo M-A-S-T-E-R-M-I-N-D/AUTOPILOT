@@ -249,7 +249,7 @@ describe('runSocialFlightPass — the read-only pass', () => {
     expect(log).toContain('nothing posted');
   });
 
-  it('routes handed-in candidates through the protocol engine — role, dedup and caps — and still posts nothing', async () => {
+  it('routes handed-in candidates through the protocol engine — role, who was asked, dedup and caps — and still posts nothing', async () => {
     const calls: Array<readonly string[]> = [];
     // A guest (not the repo owner) flying as themselves.
     const exec = execFor(connectedGh('guest', 'octocat'), calls);
@@ -264,6 +264,17 @@ describe('runSocialFlightPass — the read-only pass', () => {
         title: 'Another fresh finding entirely',
         body: 'x',
       },
+      // Law 5's second half: the pass passes the resolved login to the
+      // engine, so a question asked of the OWNER is not the guest's to answer
+      // while one asked of the guest themselves is.
+      {
+        kind: 'comment',
+        reasoning: 'asked of the owner',
+        askedOf: 'octocat',
+        issueNumber: 4,
+        body: 'x',
+      },
+      { kind: 'comment', reasoning: 'asked of me', askedOf: 'guest', issueNumber: 4, body: 'x' },
     ];
 
     const outcome = await runSocialFlightPass('start', 'start', {
@@ -277,9 +288,9 @@ describe('runSocialFlightPass — the read-only pass', () => {
       ran: true,
       identity: { login: 'guest', role: 'user' },
       verdict: {
-        refused: [candidates[0]],
+        refused: [candidates[0], candidates[4]],
         duplicate: [candidates[1]],
-        allowed: [candidates[2]],
+        allowed: [candidates[2], candidates[5]],
         queued: [candidates[3]],
       },
     });

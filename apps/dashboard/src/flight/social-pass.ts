@@ -17,7 +17,10 @@
  * `'maintainer'`, acting with maintainer verbs; otherwise `'user'`, acting
  * only as themselves. Every later slice (mirror-pass core, weave-in,
  * standalone, tests) reads this one verdict rather than re-deriving role
- * from scratch.
+ * from scratch. The law's second half — "never answer FOR a human where a
+ * human was asked" — is the protocol engine's: a `'comment'` candidate
+ * whose question was addressed to someone other than the acting login is
+ * refused, never posted, its drafted reply left for the human queue.
  *
  * Own-submissions inventory ({@link fetchOwnSubmissions}) is the "know what
  * is already ours" law (2): issues and PRs authored by the resolved login,
@@ -305,6 +308,18 @@ export interface SocialCandidateAction {
    *  verbs by waiting for the next pass. Omitted (or `false`) for anything
    *  any role may say — most candidates. */
   readonly requiresMaintainer?: boolean;
+  /** The login the question this `'comment'` candidate would answer was
+   *  explicitly addressed to — an @-mention, a "can you confirm, <assignee>?"
+   *  — when it was addressed to someone in particular (epic law 5's second
+   *  half, "never answer FOR a human where a human was asked"). The protocol
+   *  engine refuses the candidate outright unless that someone IS the acting
+   *  identity (compared like GitHub compares logins: case-insensitively, a
+   *  leading `@` ignored) — the drafted `body` stays on the refused candidate
+   *  for the human queue, but the pass never posts it. Omitted, or blank,
+   *  for a reply to no one in particular — most comments. A `'new-issue'`
+   *  candidate answers no question and never needs this; the engine still
+   *  honours it if set, on the safe side. */
+  readonly askedOf?: string;
   /** The exact text to post — a `'new-issue'` candidate's issue body, or a
    *  `'comment'` candidate's comment body. Deliberately separate from
    *  {@link reasoning}: `reasoning` is this candidate's own internal
@@ -336,9 +351,11 @@ export interface SocialProtocolCaps {
  *  already submitted — by this identity, or already open from anyone else —
  *  and must never proceed at all — never dropped silently, never forced
  *  through, but also never re-said; `refused` actions demanded maintainer
- *  verbs the acting identity's role does not hold (epic law 5) — never
- *  allowed, never queued, since no amount of waiting earns a role the
- *  identity does not have. */
+ *  verbs the acting identity's role does not hold, or would answer a
+ *  question that was asked of some other human (epic law 5, both halves) —
+ *  never allowed, never queued, since no amount of waiting earns a role the
+ *  identity does not have or makes someone else's question its own to
+ *  answer. */
 export interface SocialProtocolVerdict {
   readonly allowed: readonly SocialCandidateAction[];
   readonly queued: readonly SocialCandidateAction[];
@@ -370,12 +387,37 @@ function isDuplicateOfExistingIssue(
   );
 }
 
+/** GitHub logins compare case-insensitively (the same rule
+ *  {@link resolveSocialIdentity} decides role by), and a login lifted from an
+ *  @-mention may still carry its `@`. */
+function normalizeLogin(login: string): string {
+  return login.trim().replace(/^@/, '').toLowerCase();
+}
+
+/** True when `candidate` would answer a question that was asked of someone
+ *  in particular who is not the acting `login` — epic law 5's second half.
+ *  A blank {@link SocialCandidateAction.askedOf} means no one in particular,
+ *  so it never refuses; an unknown `login` (no resolved identity to compare
+ *  against) refuses any addressed question, since the engine cannot prove
+ *  the question was ours to answer and must fail closed. */
+function isAskedOfSomeoneElse(
+  candidate: SocialCandidateAction,
+  login: string | undefined,
+): boolean {
+  const askedOf = candidate.askedOf === undefined ? '' : normalizeLogin(candidate.askedOf);
+  if (askedOf === '') return false;
+  return login === undefined || askedOf !== normalizeLogin(login);
+}
+
 /** Admits `candidates` into `allowed` in order, per kind, up to `caps`' cap
  *  for that kind — first-come-first-admitted within a pass, matching the
  *  order the caller proposed them in. A candidate marked
  *  {@link SocialCandidateAction.requiresMaintainer} is refused outright when
- *  `role` isn't `'maintainer'` (epic law 5, "role honesty") before either
- *  the duplicate or cap check runs — a role mismatch is a boundary, not a
+ *  `role` isn't `'maintainer'` (epic law 5, "role honesty"), and so is one
+ *  whose {@link SocialCandidateAction.askedOf} names a human other than the
+ *  acting `login` (law 5's second half, "never answer FOR a human where a
+ *  human was asked") — both before either the duplicate or cap check runs,
+ *  since a role mismatch or someone else's question is a boundary, not a
  *  budget question. A `'new-issue'` candidate that duplicates an issue title
  *  drawn from `ownSubmissions` OR `openThreads` (epic law 1, "search before
  *  you speak"; law 2, "know what is already ours") is diverted to
@@ -383,16 +425,19 @@ function isDuplicateOfExistingIssue(
  *  consumes budget, since it was never going to be said. Both default to
  *  empty for callers with nothing to dedup against yet; `role` defaults to
  *  the least-privileged `'user'` so a caller that forgets to pass it never
- *  accidentally admits a maintainer-only candidate. Pure: no I/O, no
- *  randomness, so a cap-overflow, a duplicate-issue temptation, and a
- *  role-confusion scenario are all deterministically reproducible in a
- *  test, the epic's own slice 6 red-team requirements. */
+ *  accidentally admits a maintainer-only candidate, and `login` defaults to
+ *  unknown, which refuses every addressed question for the same reason.
+ *  Pure: no I/O, no randomness, so a cap-overflow, a duplicate-issue
+ *  temptation, a role-confusion and an answer-for-a-human scenario are all
+ *  deterministically reproducible in a test, the epic's own slice 6
+ *  red-team requirements. */
 export function planSocialProtocol(
   candidates: readonly SocialCandidateAction[],
   caps: SocialProtocolCaps,
   ownSubmissions: readonly SocialSubmission[] = [],
   role: SocialRole = 'user',
   openThreads: readonly SocialSubmission[] = [],
+  login?: string,
 ): SocialProtocolVerdict {
   const existingIssueTitles = [...ownSubmissions, ...openThreads]
     .filter((submission) => submission.kind === 'issue')
@@ -405,7 +450,10 @@ export function planSocialProtocol(
   let newIssueCount = 0;
   let commentCount = 0;
   for (const candidate of candidates) {
-    if (candidate.requiresMaintainer === true && role !== 'maintainer') {
+    if (
+      (candidate.requiresMaintainer === true && role !== 'maintainer') ||
+      isAskedOfSomeoneElse(candidate, login)
+    ) {
       refused.push(candidate);
       continue;
     }

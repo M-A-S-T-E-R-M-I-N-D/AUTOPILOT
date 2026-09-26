@@ -689,7 +689,9 @@ points and decided inside `apps/dashboard/src/flight/social-flight-pass.ts`:
 **What a pass does today (read-only):** resolves the acting identity (`gh api user` + `gh repo
 view` — the repo owner flies as `maintainer`, anyone else as `user`), inventories its own
 submissions and every open thread, and runs the protocol engine's budget/dedup/role gate over
-the pass's candidate actions. No candidate source is wired yet (deriving candidates from
+the pass's candidate actions — a comment that would answer a question asked of some other
+human is refused outright, never posted in their place. No candidate source is wired yet
+(deriving candidates from
 mirror-pass findings is its own slice), so the verdict is empty and **nothing is posted** — the
 execute half is deliberately unwired until there is something real to say. Every run prints one
 flight-log line, with the caps visible per epic law 4:
