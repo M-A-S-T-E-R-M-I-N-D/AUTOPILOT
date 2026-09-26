@@ -15,12 +15,21 @@
  * `translateDom()`'s template sweeps with `{n}` and `{top}` from a
  * `data-i18n-args` map — the guard-denial chip's shape
  * (`flight-guard-chip-i18n.test.ts`). Drives the REAL client bundle in jsdom
- * against a mocked /api/state.
+ * against a mocked /api/state, and scans the rendered page with axe-core in
+ * both locales so the chip's expression is proven accessible, not assumed.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import axe from 'axe-core';
 import { STRINGS, type StringKey } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+
+// The a11y suite's options (a11y.test.ts): WCAG A/AA, contrast off since
+// jsdom paints no pixels to measure.
+const AXE_OPTIONS: axe.RunOptions = {
+  runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+  rules: { 'color-contrast': { enabled: false } },
+};
 
 function row(id: string, at: number, review: unknown): Record<string, unknown> {
   return {
@@ -50,6 +59,9 @@ const PROJECT = {
   fileCount: 2,
   totalBytes: 100,
   languages: [],
+  // What read/fleet.ts serves for a project with no detected language; left
+  // out, the card's language chip renders empty and the axe scans flag it.
+  primaryLanguage: 'unknown',
   topDirs: [],
   hotFiles: [],
   gate: null,
@@ -171,6 +183,27 @@ function expectChipHebrew(chip: HTMLElement, n: number, top: string): void {
   expect(chip.getAttribute('aria-label')).toBe(fill(he('flightReviewChipAria'), n, top));
 }
 
+/**
+ * A whole-page axe scan that cannot pass vacuously: both chips must be on the
+ * page, and both must show up among the nodes axe PASSED for
+ * `aria-prohibited-attr` — the rule an aria-label on a role-less span trips.
+ * No violations with the chips absent from that list would mean axe never
+ * judged them, not that they are clean.
+ */
+async function expectAxeCleanWithChips(): Promise<void> {
+  reviewChips();
+
+  vi.useRealTimers();
+  const results = await axe.run(document, AXE_OPTIONS);
+  expect(results.violations.map((v) => v.id)).toEqual([]);
+
+  const judged = results.passes
+    .filter((r) => r.id === 'aria-prohibited-attr')
+    .flatMap((r) => r.nodes.map((n) => String(n.target)))
+    .filter((t) => t.includes('.flight-review-chip'));
+  expect(judged).toHaveLength(2);
+}
+
 describe('commit-review chip on the flight log row (board ap-mui3cjp9-3)', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -219,5 +252,20 @@ describe('commit-review chip on the flight log row (board ap-mui3cjp9-3)', () =>
     const [two, one] = reviewChips();
     expectChipEnglish(two as HTMLElement, 2, TWO_TOP);
     expectChipEnglish(one as HTMLElement, 1, ONE_TOP);
+  });
+
+  it('the flight log carrying review chips is axe-clean', async () => {
+    await render();
+
+    await expectAxeCleanWithChips();
+  });
+
+  it('the review chips stay axe-clean once Hebrew rewrites their labels', async () => {
+    await render();
+    clickLocale('he');
+    const [two] = reviewChips();
+    expectChipHebrew(two as HTMLElement, 2, TWO_TOP);
+
+    await expectAxeCleanWithChips();
   });
 });
