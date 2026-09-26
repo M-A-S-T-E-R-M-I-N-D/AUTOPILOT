@@ -77,6 +77,26 @@ describe('planDiscussionTriage', () => {
 
     expect(decision).toMatchObject({ decision: 'accept', dimension: 'information' });
   });
+
+  it('checks locked, then answered, then the pool label — the first blocking state names the skip', () => {
+    const lockedFirst = planDiscussionTriage(
+      discussion({ locked: true, isAnswered: true, labels: ['pool: ux'] }),
+    );
+    const answeredNext = planDiscussionTriage(
+      discussion({ isAnswered: true, labels: ['pool: ux'] }),
+    );
+
+    expect(lockedFirst.reasoning).toContain('locked');
+    expect(lockedFirst.reasoning).not.toContain('chosen answer');
+    expect(answeredNext.reasoning).toContain('chosen answer');
+    expect(answeredNext.reasoning).not.toContain('pool: ux');
+  });
+
+  it('only a label starting with the exact "pool: " prefix marks a discussion handled', () => {
+    const decision = planDiscussionTriage(discussion({ labels: ['no pool: ux', 'pool:ux'] }));
+
+    expect(decision.decision).toBe('accept');
+  });
 });
 
 describe('draftDiscussionReply', () => {
@@ -292,6 +312,45 @@ describe('fetchOpenDiscussions', () => {
       expect(await fetchOpenDiscussions(exec)).toEqual([]);
     }
   });
+
+  it('confirms nothing when the repository or its discussions connection comes back null', async () => {
+    for (const data of [{ repository: null }, { repository: { discussions: null } }]) {
+      const exec: CliExec = vi
+        .fn()
+        .mockResolvedValue({ code: 0, stdout: JSON.stringify({ data }) });
+      expect(await fetchOpenDiscussions(exec)).toEqual([]);
+    }
+  });
+
+  it('drops null nodes and reads a non-string body or non-object labels as empty', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify({
+        data: {
+          repository: {
+            discussions: {
+              nodes: [null, { id: 'D_1', number: 1, title: 'odd', body: 42, labels: 'pool: ux' }],
+            },
+          },
+        },
+      }),
+    });
+
+    const discussions = await fetchOpenDiscussions(exec);
+
+    expect(discussions).toEqual([
+      {
+        id: 'D_1',
+        number: 1,
+        title: 'odd',
+        body: '',
+        category: '',
+        isAnswered: false,
+        locked: false,
+        labels: [],
+      },
+    ]);
+  });
 });
 
 describe('postDiscussionReply', () => {
@@ -452,6 +511,21 @@ describe('applyDiscussionPoolLabel', () => {
 
     expect(result).toEqual({ discussionNumber: 9, code: 1, stdout: 'GraphQL error' });
   });
+
+  it('JSON-escapes the looked-up label id into the mutation, never splicing it in raw', async () => {
+    const hostileId = 'LA_"]}) { x } #\\';
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql(hostileId) })
+      .mockResolvedValueOnce({ code: 0, stdout: '{}' });
+
+    await applyDiscussionPoolLabel(exec, { id: 'D_kwDOA1b2c84AXyZw', number: 9 }, 'ux');
+
+    const [, args] = vi.mocked(exec).mock.calls[1] as [string, readonly string[]];
+    const query = args[args.length - 1] ?? '';
+    expect(query).toContain(`labelIds: [${JSON.stringify(hostileId)}]`);
+    expect(query).not.toContain(`labelIds: ["${hostileId}"]`);
+  });
 });
 
 describe('runDiscussionTriageRitual', () => {
@@ -503,6 +577,65 @@ describe('runDiscussionTriageRitual', () => {
       {
         discussionNumber: 9,
         replyResult: { discussionNumber: 9, code: 1, stdout: 'GraphQL error' },
+        labelResult: null,
+      },
+    ]);
+  });
+
+  it('keeps going after one discussion fails to post — the next accepted one still posts and labels', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: discussionsGraphql([
+          openDiscussionNode(),
+          openDiscussionNode({ id: 'D_skip', number: 10, locked: true }),
+          openDiscussionNode({
+            id: 'D_next',
+            number: 11,
+            title: 'What is this project about?',
+            body: 'Just curious.',
+          }),
+        ]),
+      })
+      .mockResolvedValueOnce({ code: 1, stdout: 'GraphQL error' })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) })
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_info') })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(exec).toHaveBeenCalledTimes(5);
+    expect(result.plans.map((plan) => plan.decision.decision)).toEqual([
+      'accept',
+      'skip',
+      'accept',
+    ]);
+    expect(result.outcomes.map((o) => [o.discussionNumber, o.labelResult?.code ?? null])).toEqual([
+      [9, null],
+      [11, 0],
+    ]);
+    const calls = vi.mocked(exec).mock.calls as [string, readonly string[]][];
+    expect(calls[2]?.[1]).toContain('discussionId=D_next');
+    expect(calls[2]?.[1].join(' ')).toContain('@gabibi555');
+    expect(calls[3]?.[1]).toContain('label=pool: information');
+    expect(calls[4]?.[1]).toContain('labelableId=D_next');
+  });
+
+  it('keeps a landed reply but leaves it unlabeled when the pool label does not exist yet', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: discussionsGraphql([openDiscussionNode()]) })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) })
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql(null) });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(exec).toHaveBeenCalledTimes(3);
+    expect(result.outcomes).toEqual([
+      {
+        discussionNumber: 9,
+        replyResult: { discussionNumber: 9, code: 0, stdout: expect.any(String) },
         labelResult: null,
       },
     ]);
