@@ -207,6 +207,7 @@
     "mutation:ci-dependency-audit": "stryker run config/mutation/stryker.ci-dependency-audit.config.mjs",
     "mutation:ci-check-model-freshness": "stryker run config/mutation/stryker.ci-check-model-freshness.config.mjs",
     "mutation:ci-check-merge-integrity": "stryker run config/mutation/stryker.ci-check-merge-integrity.config.mjs",
+    "mutation:ci-audit-board-flood": "stryker run config/mutation/stryker.ci-audit-board-flood.config.mjs",
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run build && pnpm run ci:secret-scan && pnpm run ci:no-personal-paths && pnpm run ci:conflict-markers && pnpm run ci:validate-configs && pnpm run ci:spdx && pnpm run ci:bundle-size && pnpm run ci:npx-smoke-test && pnpm run ci:dependency-audit && pnpm run ci:architecture && pnpm run ci:citation && pnpm run ci:doc-links && pnpm run ci:data-model && pnpm run ci:contrast-matrix && pnpm run ci:threat-model && pnpm run ci:donate && pnpm run ci:quarantine-report",
     "clean": "tsc -b --clean",
     "prepare": "husky || true",

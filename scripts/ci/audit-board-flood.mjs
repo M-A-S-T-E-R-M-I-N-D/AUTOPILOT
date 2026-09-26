@@ -60,6 +60,10 @@ function argValue(flag) {
   return i === -1 ? undefined : process.argv[i + 1];
 }
 
+// Stryker disable all: `gh` shells out to the real `gh api` CLI against a
+// live repo — it can only be exercised by running the gate for real. The
+// logic its callers delegate to, `normalize`/`similarity`/`auditThread`,
+// IS mutation-tested.
 function gh(path) {
   const out = execFileSync('gh', ['api', path, '--paginate'], {
     windowsHide: true,
@@ -69,6 +73,7 @@ function gh(path) {
   // --paginate concatenates JSON arrays as `][` at page seams.
   return JSON.parse(out.replace(/\]\s*\[/g, ','));
 }
+// Stryker restore all
 
 /** Collapses the noise two retries of the same text differ by — smart
  *  punctuation swapped for ASCII, whitespace runs, case — so a retry that
@@ -101,6 +106,9 @@ export function similarity(a, b) {
 /** Every message on one thread — issue comments and PR reviews alike —
  *  flattened into one timeline, because a review and a comment posted
  *  seconds apart flood a reader's page just the same. */
+// Stryker disable all: `threadMessages` shells out to `gh` via `gh()` — it
+// can only be exercised by running the gate for real. The logic it
+// delegates to, `auditThread`, IS mutation-tested.
 function threadMessages(number, isPr) {
   const comments = gh(`repos/${REPO}/issues/${number}/comments`).map((c) => ({
     kind: 'comment',
@@ -124,6 +132,7 @@ function threadMessages(number, isPr) {
     : [];
   return [...comments, ...reviews].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
+// Stryker restore all
 
 export function auditThread(thread, messages) {
   const findings = [];
@@ -187,6 +196,9 @@ export function auditThread(thread, messages) {
   return findings;
 }
 
+// Stryker disable all: `main` is the process shell — it reads the real
+// board off GitHub and can only be exercised by running the gate for real.
+// The logic it delegates to, `auditThread`, IS mutation-tested.
 function main() {
   const issues = gh(`repos/${REPO}/issues?state=all&per_page=100`);
   const findings = [];

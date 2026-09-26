@@ -67,6 +67,24 @@ describe('auditThread — NEAR-DUPLICATE', () => {
     );
   });
 
+  it(`flags a same-author pair at EXACTLY the ${DUPLICATE_RATIO} ratio boundary — the bound is inclusive`, () => {
+    // 19 shared words plus one word unique to each side: similarity =
+    // 18 / (19 + 19 - 18) = 18/20 = 0.9 exactly, pinning `>=` against a
+    // `>` mutant that would let this exact boundary case through unflagged.
+    const shared =
+      'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo';
+    const a = `${shared} sierra`;
+    const b = `${shared} tango`;
+    expect(similarity(normalize(a), normalize(b))).toBe(DUPLICATE_RATIO);
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00Z', a),
+      msg(2, 'bot', '2026-09-09T10:00:16Z', b),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ kind: 'NEAR-DUPLICATE', author: 'bot' }),
+    );
+  });
+
   it('does not flag the same near-identical text from two DIFFERENT authors', () => {
     // A guard that only checks text similarity would call this a duplicate;
     // two people independently saying the same thing is not a flood.
@@ -85,6 +103,20 @@ describe('auditThread — NEAR-DUPLICATE', () => {
       msg(2, 'bot', '2026-09-09T11:00:00Z', short),
     ]);
     expect(findings.filter((f) => f.kind === 'NEAR-DUPLICATE')).toEqual([]);
+  });
+
+  it('flags an identical pair at EXACTLY the compare-length floor — the floor is inclusive', () => {
+    // Pins the `<` skip-guard against a `<=` mutant: at exactly
+    // MIN_COMPARE_LENGTH characters, the pair must still be compared.
+    const atFloor = 'x'.repeat(MIN_COMPARE_LENGTH);
+    expect(normalize(atFloor).length).toBe(MIN_COMPARE_LENGTH);
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00Z', atFloor),
+      msg(2, 'bot', '2026-09-09T11:00:00Z', atFloor),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ kind: 'NEAR-DUPLICATE', author: 'bot' }),
+    );
   });
 
   it('does not flag a genuine same-author follow-up well below the duplicate ratio', () => {
@@ -125,6 +157,19 @@ describe('auditThread — CONSECUTIVE-RUN', () => {
       msg(2, 'bot', '2026-09-09T10:05:00Z', 'two'),
     ]);
     expect(findings.filter((f) => f.kind === 'CONSECUTIVE-RUN')).toEqual([]);
+  });
+
+  it('fires only ONCE for a run that keeps going past the tipping point, not once per extra message', () => {
+    // Pins the `===` tipping check against a `>=` mutant: a run of 4 must
+    // still report a single CONSECUTIVE-RUN finding, not one at length 3
+    // AND another at length 4.
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00Z', 'one'),
+      msg(2, 'bot', '2026-09-09T10:05:00Z', 'two'),
+      msg(3, 'bot', '2026-09-09T10:10:00Z', 'three'),
+      msg(4, 'bot', '2026-09-09T10:15:00Z', 'four'),
+    ]);
+    expect(findings.filter((f) => f.kind === 'CONSECUTIVE-RUN')).toHaveLength(1);
   });
 
   it('does not flag a run broken up by another author speaking in between', () => {
