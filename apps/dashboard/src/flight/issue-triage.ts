@@ -430,21 +430,34 @@ const AREA_KEYWORDS: Record<AreaLabel, readonly string[]> = {
 
 /**
  * Deterministic area classifier: the `area:` label whose keywords appear most
- * in `text` (case-insensitive substring counts), ties broken by
- * {@link AREA_LABELS}' declared order. Falls back to `'area: dashboard'` —
- * the most general user-facing surface — when nothing matches, so every
- * accepted issue gets exactly one area label rather than none, mirroring
- * {@link classifyIssueDimension}'s fallback shape.
+ * in `title` (case-insensitive substring counts); `body` counts only to break
+ * a tie between those, or to decide alone when the title trips nothing. Any
+ * remaining tie goes to {@link AREA_LABELS}' declared order. Falls back to
+ * `'area: dashboard'` — the most general user-facing surface — when nothing
+ * matches, so every accepted issue gets exactly one area label rather than
+ * none, mirroring {@link classifyIssueDimension}'s fallback shape.
+ *
+ * THE TITLE NAMES THE SUBJECT; THE BODY ONLY SUPPORTS IT (board
+ * web-mtwtdhni-ktevyr). Scoring title and body as one text labeled #43 (a
+ * pool/contributor panel report) and #44 (a lucky-probe proposal) `area:
+ * i18n`: each body mentioned the reporter's "Hebrew RTL locale" in passing,
+ * and that one phrase trips four i18n keywords at once, outvoting the one
+ * keyword each title actually named.
  */
-export function classifyIssueArea(text: string): AreaLabel {
-  const lower = text.toLowerCase();
+export function classifyIssueArea(title: string, body = ''): AreaLabel {
+  const lowerTitle = title.toLowerCase();
+  const lowerBody = body.toLowerCase();
   let best: AreaLabel = 'area: dashboard';
-  let bestScore = 0;
+  let bestTitle = 0;
+  let bestBody = 0;
   for (const area of AREA_LABELS) {
-    const score = AREA_KEYWORDS[area].filter((keyword) => lower.includes(keyword)).length;
-    if (score > bestScore) {
-      bestScore = score;
+    const keywords = AREA_KEYWORDS[area];
+    const titleScore = keywords.filter((keyword) => lowerTitle.includes(keyword)).length;
+    const bodyScore = keywords.filter((keyword) => lowerBody.includes(keyword)).length;
+    if (titleScore > bestTitle || (titleScore === bestTitle && bodyScore > bestBody)) {
       best = area;
+      bestTitle = titleScore;
+      bestBody = bodyScore;
     }
   }
   return best;
@@ -704,7 +717,8 @@ export function planIssueTriage(
   const dimension = classifyIssueDimension(text);
   // A single `area:`/`priority:` label already on the issue was put there by a
   // person; the classifier only fills a family nobody has decided yet.
-  const area = handSetFamilyLabel(labels, 'area', AREA_LABELS) ?? classifyIssueArea(text);
+  const area =
+    handSetFamilyLabel(labels, 'area', AREA_LABELS) ?? classifyIssueArea(issue.title, issue.body);
   const priority =
     handSetFamilyLabel(labels, 'priority', PRIORITY_LABELS) ?? classifyIssuePriority(text);
   const classifiedMilestone = classifyIssueMilestone(text);

@@ -117,6 +117,70 @@ describe('classifyIssueArea', () => {
   });
 });
 
+/**
+ * KEEPER labeled #43 and #44 `area: i18n` (board web-mtwtdhni-ktevyr); the
+ * maintainer re-labeled them dashboard/community and dashboard/flight-engine.
+ * Neither report is about translation: each body MENTIONS the reporter's
+ * Hebrew RTL locale in passing, and that one phrase trips four i18n keywords
+ * at once ('hebrew', 'rtl', 'locale', plus a quoted `area: i18n`), outvoting
+ * the one or two keywords the title actually names. Bodies are condensed
+ * from the real issues, keeping every phrase that scored.
+ */
+describe('planIssueTriage area — a passing locale mention in the body is not the subject', () => {
+  const accept = (title: string, body: string) => {
+    const decision = planIssueTriage({ number: 43, title, body: templated(body) }, [], []);
+    if (decision.decision !== 'accept') {
+      throw new Error(`expected accept, got ${decision.decision}`);
+    }
+    return decision;
+  };
+
+  it('#43: a pool/contributor panel report lands where its title points, not in i18n', () => {
+    const decision = accept(
+      'Pool and Good-first-issue panels never say who each list is for — same issue appears ' +
+        'in both, claim walkthrough sits under the wrong one',
+      'The pool lists issues for other instances to claim; the contributor list is for humans.\n' +
+        'Defect 4 — the walkthrough is untranslated English in an RTL UI, inside an otherwise ' +
+        "fully Hebrew panel. A live instance of #16's shape (i18n: literals at render sites).\n" +
+        'Environment: Windows 11, Node v24.13.0, Hebrew (RTL) locale',
+    );
+
+    expect(decision.area).not.toBe('area: i18n');
+    // The two areas the maintainer set by hand; the classifier picks one.
+    expect(['area: dashboard', 'area: community']).toContain(decision.area);
+  });
+
+  it('#44: a lucky-probe work-matching proposal lands in flight-engine, not i18n', () => {
+    const decision = accept(
+      'Match work to the operator, not just the machine: extend the lucky probe from sizing a ' +
+        'flight to proposing which work fits',
+      'The fit is derivable from labels KEEPER already applies: `area: i18n` against an ' +
+        'operator running the dashboard in Hebrew RTL is a strong match. Propose a ranked ' +
+        'shortlist; 4 prior firings averaged $3.03, the pool panel sits one over.\n' +
+        '#16 fit 0.9 — area: i18n matches your RTL locale',
+    );
+
+    expect(decision.area).toBe('area: flight-engine');
+  });
+
+  it('a real i18n report still lands in i18n when its title also names the dashboard', () => {
+    // The title ties i18n with dashboard; the body, all translation work, breaks the tie.
+    const decision = accept(
+      'i18n: most user-facing dashboard text is hard-coded English',
+      'Literals at render sites skip tr(), so a Hebrew locale sees English strings. Every ' +
+        'one needs a translation key and an RTL check.',
+    );
+
+    expect(decision.area).toBe('area: i18n');
+  });
+
+  it('a silent title leaves the body to decide, as before', () => {
+    expect(
+      classifyIssueArea('Something is off', 'The worktree sync-back aborted the landing'),
+    ).toBe('area: flight-engine');
+  });
+});
+
 describe('classifyIssuePriority', () => {
   it('picks the priority whose keywords appear most in the text', () => {
     expect(classifyIssuePriority('This causes data loss and is a critical safety issue')).toBe(
