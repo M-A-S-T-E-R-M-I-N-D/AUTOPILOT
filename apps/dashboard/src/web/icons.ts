@@ -436,6 +436,18 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M18 6 6 18' }],
     ['path', { d: 'm6 6 12 12' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the report menu's
+  // Copy element HTML (🧩) and Copy smart context (🧠) items — the last
+  // emoji baked into a STRINGS value.
+  'code-xml': [
+    ['path', { d: 'm18 16 4-4-4-4' }],
+    ['path', { d: 'm6 8-4 4 4 4' }],
+    ['path', { d: 'm14.5 4-5 16' }],
+  ],
+  braces: [
+    ['path', { d: 'M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1' }],
+    ['path', { d: 'M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

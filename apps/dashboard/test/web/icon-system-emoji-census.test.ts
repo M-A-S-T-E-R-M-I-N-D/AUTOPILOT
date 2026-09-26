@@ -24,9 +24,10 @@
  * in `packages/tokens`, and `tr()` paints it into the same chrome (the lucky
  * roll's 🍀 snackbar sentence and refusal line did exactly that after the
  * lucky button itself became an SVG). The second census walks every locale's
- * values and pins the keys still carrying one to an exact list — law 5's
- * "the count goes to zero across the slices": a new emoji-bearing value
- * fails outright, and a swept key must leave the list in the same commit.
+ * values too. It began as a shrink-only list of the keys still carrying one;
+ * the report menu's Copy element HTML (🧩) and Copy smart context (🧠)
+ * labels were the last, swept to the vendored code-xml and braces icons, so
+ * it now pins zero — law 5's "the test pins zero", for STRINGS as for web/.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -87,17 +88,6 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
   });
 });
 
-/** `<locale>.<key>` for every STRINGS value the sweep has not reached yet —
- *  the report menu's Copy element HTML (🧩) and Copy smart context (🧠)
- *  items, whose conversion needs two more vendored shapes. Sorted; it may
- *  only shrink. */
-const STRINGS_EMOJI_REMAINING = [
-  'en.reportCopyContextLabel',
-  'en.reportCopyHtmlLabel',
-  'he.reportCopyContextLabel',
-  'he.reportCopyHtmlLabel',
-];
-
 function emojiBearingStringKeys(): string[] {
   return Object.entries(STRINGS)
     .flatMap(([locale, table]) =>
@@ -115,8 +105,8 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
     expect(Object.keys(STRINGS)).toEqual(expect.arrayContaining(['en', 'he']));
   });
 
-  it('bakes no emoji into a locale value beyond the census list still to sweep', () => {
-    expect(emojiBearingStringKeys()).toEqual(STRINGS_EMOJI_REMAINING);
+  it('bakes no emoji glyph into any locale value', () => {
+    expect(emojiBearingStringKeys()).toEqual([]);
   });
 
   it('the lucky roll speaks without its old baked-in clover in either locale', () => {
