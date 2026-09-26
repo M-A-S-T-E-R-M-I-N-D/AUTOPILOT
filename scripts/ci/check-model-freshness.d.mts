@@ -12,6 +12,14 @@ export function extractAdvertisedAliases(helpText: string): string[];
 
 export function findUnknownFamilyAliases(helpText: string, families: readonly string[]): string[];
 
+/** Every line-leading catalogue id, read from the source text (the real
+ *  catalogue when `src` is omitted). */
+export function catalogueIds(src?: string): string[];
+
+/** The declared `MODEL_FAMILIES` list, read from the source text (the real
+ *  catalogue when `src` is omitted); empty when the declaration is missing. */
+export function catalogueFamilies(src?: string): string[];
+
 /** The catalogue's pinned id per family, read from the source text (the real
  *  catalogue when `src` is omitted). */
 export function cataloguePinnedIds(src?: string): Record<string, string>;
