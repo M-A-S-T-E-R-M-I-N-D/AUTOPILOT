@@ -198,12 +198,24 @@ Test surface:
    `__proto__` also misses) and echoes `String(key)` on a miss.
 2. **Generated per-chunk English heads.** Includes the census, the moved and
    split budgets, and the `coreClientJs()`/`localeJs()` test opt-in. This is
-   the only slice that moves bytes.
+   the only slice that moves bytes. It ships in two parts (board
+   `ap-muhvlma6-1`):
+   - **2a, shipped: the generator and the census, no bytes moved.**
+     `web/english-heads.ts` places each key with the reference scan above.
+     A key project code shares with `/panels.js` or `/whats-new.js` stays in
+     core, because `/project.js` never loads on the home page.
+     `test/web/english-heads.test.ts` asserts the census's first two clauses
+     over the served chunks. At 1018 keys the scan places 349 in core, 191 in
+     the project head and 478 in the panels head.
+   - **2b: the byte move.** Serve the core subset and the two heads from the
+     chunk composers. Move and split the budgets, and add the test opt-in.
+     Add the census's third clause (the non-literal `tr()` key domains).
 
 ## Related
 
 - `apps/dashboard/src/web/features/locale.ts`, `locale-data.ts`,
   `web/chunks.ts` (chunk map and defer contract),
+  `web/english-heads.ts` (the placement generator),
   `server/client-bundle.ts` (the measured minify).
 - `scripts/ci/check-bundle-size.mjs` and
   `apps/dashboard/test/server/client-bundle-size-budget.test.ts`: the budget

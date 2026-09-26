@@ -34,6 +34,7 @@ import {
   isTestPath,
   executePrReviewCommands,
   remediateDanglingApproval,
+  remediateStalePolicyGreenApprovals,
   isRitualPolicyGreenApprovalBody,
   summarizePrCheckRuns,
 } from '../../src/flight/pr-review.js';
@@ -446,6 +447,14 @@ const BENIGN_ENGINE_SRC = new Set([
   // exact-path marker below) is what turns a failing verdict into a real
   // revert decision; this module only computes the verdict.
   'diff-size-gate.ts',
+  // commit-review.ts: the commit-time review (BACKLOG-999 C5) — prompt text,
+  // reply parsing, and one call through an injected, tool-less ModelPort. It
+  // is advisory by construction: its result only rides FiringRecord.review
+  // and one flight-log line, it can never change the gate verdict or revert
+  // anything, and a throwing reviewer becomes a recorded skip. WHEN it runs
+  // is decided in firing.ts, and the process that makes the call is
+  // adapters/claude-cli.ts — both already flagged by their own markers.
+  'commit-review.ts',
   'info.ts',
   'index.ts',
   'inbox.ts',
@@ -927,6 +936,10 @@ const BENIGN_WEB = new Set([
   // HTML, no I/O — pipeline-svg.ts escapes what it emits, this only decides
   // where a path label is cut and which part is the leaf.
   'pipeline-label.ts',
+  // ADR 0012's English placement (2026-09-26): scans our own chunk text for
+  // quoted key literals and emits the STRINGS.en heads as JSON.stringify'd
+  // data — no HTML, no I/O, only our own bundled strings.
+  'english-heads.ts',
   // Pure label/item/confirm/result text for the KEEPER Discussions triage
   // panel (epic 0007 S8): no HTML building, no I/O — the same class as
   // issue-triage-panel.ts; the execute route lives under the flagged server.
@@ -6136,6 +6149,118 @@ describe('remediateDanglingApproval', () => {
     const nonArrayResult = await remediateDanglingApproval(pr, decision, results, notArray);
     expect(nonArrayResult).toHaveLength(2);
     expect(notArray).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * The cross-run twin of remediateDanglingApproval: a CRASHED earlier run
+ * posted a policy-green approval and never got to merge, or a later pass
+ * simply no longer judges the PR merge-worthy (a new commit landed, gate
+ * flipped red). Either way the approval stands over bytes the ritual would
+ * no longer vouch for, and it must not keep satisfying branch protection
+ * while THIS pass posts only a comment.
+ */
+describe('remediateStalePolicyGreenApprovals', () => {
+  it('returns [] and lists nothing when the fresh decision IS a merge — a merge posts its own fresh approval, so no earlier one needs sweeping', async () => {
+    const pr = candidate();
+    const decision = planPrReview(pr);
+    expect(decision.decision).toBe('merge');
+    const exec: CliExec = vi.fn();
+
+    expect(await remediateStalePolicyGreenApprovals(pr, decision, exec)).toEqual([]);
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it("dismisses the ritual's own stale policy-green approval when a fresh pass no longer decides merge", async () => {
+    const pr = candidate({ gateStatus: 'fail' });
+    const decision = planPrReview(pr);
+    expect(decision.decision).toBe('request-changes');
+    // The exact body an earlier pass's merge decision posted for this PR.
+    const staleBody = planPrReview(candidate()).reasoning;
+    const reviews = JSON.stringify([{ id: 7, state: 'APPROVED', body: staleBody }]);
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: reviews })
+      .mockResolvedValue({ code: 0, stdout: '{}' });
+
+    const remediation = await remediateStalePolicyGreenApprovals(pr, decision, exec);
+
+    expect(exec).toHaveBeenNthCalledWith(1, 'gh', [
+      'api',
+      'repos/{owner}/{repo}/pulls/12/reviews?per_page=100',
+    ]);
+    expect(exec).toHaveBeenNthCalledWith(2, 'gh', [
+      'api',
+      '--method',
+      'PUT',
+      'repos/{owner}/{repo}/pulls/12/reviews/7/dismissals',
+      '-f',
+      expect.stringMatching(/^message=/),
+    ]);
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(remediation).toHaveLength(2);
+    expect(remediation.every((entry) => entry.code === 0)).toBe(true);
+  });
+
+  it("dismisses only the ritual's own matching APPROVED reviews — never someone else's, a non-APPROVED state, or a non-integer id", async () => {
+    const pr = candidate({ gateStatus: 'fail' });
+    const decision = planPrReview(pr);
+    const staleBody = planPrReview(candidate()).reasoning;
+    const reviews = JSON.stringify([
+      { id: 1, state: 'APPROVED', body: staleBody },
+      { id: 2, state: 'APPROVED', body: "someone else's approval" },
+      { id: 3, state: 'CHANGES_REQUESTED', body: staleBody },
+      { id: 4, state: 'APPROVED', body: staleBody },
+      { id: 'nan', state: 'APPROVED', body: staleBody },
+    ]);
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: reviews })
+      .mockResolvedValue({ code: 0, stdout: '{}' });
+
+    const remediation = await remediateStalePolicyGreenApprovals(pr, decision, exec);
+
+    expect(exec).toHaveBeenNthCalledWith(2, 'gh', [
+      'api',
+      '--method',
+      'PUT',
+      'repos/{owner}/{repo}/pulls/12/reviews/1/dismissals',
+      '-f',
+      expect.stringMatching(/^message=/),
+    ]);
+    expect(exec).toHaveBeenNthCalledWith(3, 'gh', [
+      'api',
+      '--method',
+      'PUT',
+      'repos/{owner}/{repo}/pulls/12/reviews/4/dismissals',
+      '-f',
+      expect.stringMatching(/^message=/),
+    ]);
+    expect(exec).toHaveBeenCalledTimes(3);
+    expect(remediation).toHaveLength(3);
+  });
+
+  it('returns [] outright when the list succeeds but nothing stale is found — no dismissal call is planned', async () => {
+    const pr = candidate({ gateStatus: 'fail' });
+    const decision = planPrReview(pr);
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '[]' });
+
+    expect(await remediateStalePolicyGreenApprovals(pr, decision, exec)).toEqual([]);
+    expect(exec).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails soft — returns [] — when the review list cannot be fetched or parsed, or is not an array', async () => {
+    const pr = candidate({ gateStatus: 'fail' });
+    const decision = planPrReview(pr);
+
+    const failing: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
+    expect(await remediateStalePolicyGreenApprovals(pr, decision, failing)).toEqual([]);
+
+    const garbage: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: 'not json' });
+    expect(await remediateStalePolicyGreenApprovals(pr, decision, garbage)).toEqual([]);
+
+    const notArray: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: JSON.stringify({}) });
+    expect(await remediateStalePolicyGreenApprovals(pr, decision, notArray)).toEqual([]);
   });
 });
 

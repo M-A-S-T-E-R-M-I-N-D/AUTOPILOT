@@ -126,6 +126,7 @@ import { createCollaborationApi } from '../flight/collaboration.js';
 import { createCiStatusApi, createGhRun } from '../control/ci-status.js';
 import { createWhatsNewApi, githubPulse } from '../read/whats-new.js';
 import { readBenchmarkAt } from '../read/benchmark.js';
+import { gitReaderFor, readVersions } from '../read/versions.js';
 import { projectRepoOf } from '../flight/project-repo.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
@@ -881,6 +882,12 @@ const server = createServer({
   ciStatus: createCiStatusApi(),
   // THE BENCHMARK (operator, 2026-09-26): every model the fleet has flown.
   benchmark: () => readBenchmarkAt(dbPath, Date.now()),
+  // THE VERSIONS SCREEN (board ap-mui2h3s1-1): the project's MYTH, LEGACY and
+  // flight log, read from its own repository's refs. An unknown project is null.
+  versions: (projectId) => {
+    const root = gatherProjectRoot(dbPath, projectId);
+    return root === null ? null : readVersions(gitReaderFor(root));
+  },
   // WHAT'S NEW (operator, 2026-09-24): this checkout's CHANGELOG section for
   // the running version, its current round, and its GitHub repository.
   whatsNew: createWhatsNewApi({

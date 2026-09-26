@@ -24,7 +24,7 @@ const SECRET_FILENAME_PATTERNS: readonly RegExp[] = [
  * scripts/ci/secret-scan.mjs, to keep false positives near zero.
  */
 const SECRET_CONTENT_PATTERNS: readonly RegExp[] = [
-  /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY-----/,
+  /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY(?: BLOCK)?-----/,
   /\bAKIA[0-9A-Z]{16}\b/,
   /\bgh[posru]_[A-Za-z0-9]{36,}\b/,
   /\bgithub_pat_[A-Za-z0-9_]{22,}\b/,

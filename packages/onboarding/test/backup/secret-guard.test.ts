@@ -333,6 +333,18 @@ describe('scanForSecrets', () => {
       expect(scanForSecrets(dir)).toEqual(['generic-pem.md']);
     });
 
+    // `gpg --export-secret-keys --armor` closes its header with " BLOCK", so a
+    // PEM-only pattern walks straight past an exported OpenPGP secret key —
+    // the same gap the CI scanner and the report-compose leak guard closed.
+    it('flags an OpenPGP private key block (the armor header ends in BLOCK)', () => {
+      writeFileSync(
+        join(dir, 'exported.txt'),
+        ['-----BEGIN PGP PRIVATE ', 'KEY BLOCK-----\n\nlQcYBF...\n'].join(''),
+      );
+
+      expect(scanForSecrets(dir)).toEqual(['exported.txt']);
+    });
+
     it('flags content matching a classic GitHub token pattern', () => {
       writeFileSync(join(dir, 'gh-token.md'), `token: ghp_${'A'.repeat(36)}`);
 

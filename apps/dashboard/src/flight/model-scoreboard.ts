@@ -297,13 +297,78 @@ export function routeTaskModel(
   const choice: ModelChoice =
     pinned !== undefined
       ? { model: pinned, phase: 'exploit', reason: 'pinned by the operator' }
-      : chooseModel(
-          tier,
-          taskId,
-          tierStats(readRoutedFirings(store, projectId, now), tier, TIER_CANDIDATES[tier]),
-        );
+      : chooseAvailableModel(store, projectId, tier, taskId, now);
   recordModelRoute(store, projectId, { taskId, tier, model: choice.model, lane }, now);
   return choice;
+}
+
+/**
+ * QUOTA REST (2026-09-26): a model whose subscription window ran dry
+ * rests for an hour. Round 18 showed the cost of not knowing: exploration
+ * sent three lanes to Fable, each Fable attempt hit its quota, each lane
+ * re-ran on Opus, and the old per-lane breaker then dropped the rest of
+ * those lanes to the flight default (Sonnet) instead of the tier's leader.
+ * One lane's substitution now rests the model for every lane, and routing
+ * keeps choosing among the models that can still be served.
+ */
+export const QUOTA_REST_MS = 60 * 60 * 1000;
+
+const DRAINED_EVENT = 'model-drained';
+
+/** Record that `alias` was asked for and not served — its quota ran dry. */
+export function recordModelDrained(
+  store: Store,
+  projectId: string,
+  alias: string,
+  now: number,
+): void {
+  store.db
+    .prepare(
+      'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
+    )
+    .run(projectId, DRAINED_EVENT, JSON.stringify({ model: aliasOf(alias) ?? alias }), now);
+}
+
+/** Aliases resting after a quota substitution. The subscription is the
+ *  operator's, not the project's, so a drain anywhere rests the model everywhere. */
+export function drainedAliases(store: Store, now: number): Set<string> {
+  const rows = store.db
+    .prepare('SELECT payload FROM events WHERE type = ? AND created_at >= ?')
+    .all(DRAINED_EVENT, now - QUOTA_REST_MS) as { payload: string }[];
+  const out = new Set<string>();
+  for (const r of rows) {
+    try {
+      const model = (JSON.parse(r.payload) as { model?: unknown }).model;
+      if (typeof model === 'string') out.add(model);
+    } catch {
+      // A malformed row rests nothing.
+    }
+  }
+  return out;
+}
+
+/** {@link chooseModel} over the tier's candidates that are not resting.
+ *  When every candidate rests, all of them stay in: something must fly. */
+function chooseAvailableModel(
+  store: Store,
+  projectId: string,
+  tier: ModelTier,
+  taskId: string,
+  now: number,
+): ModelChoice {
+  const drained = drainedAliases(store, now);
+  const all = TIER_CANDIDATES[tier];
+  const available = all.filter((alias) => !drained.has(alias));
+  const candidates = available.length > 0 ? available : all;
+  const resting = all.filter((alias) => !candidates.includes(alias));
+  const choice = chooseModel(
+    tier,
+    taskId,
+    tierStats(readRoutedFirings(store, projectId, now), tier, candidates),
+  );
+  return resting.length === 0
+    ? choice
+    : { ...choice, reason: `${choice.reason}; resting after a quota hit: ${resting.join(', ')}` };
 }
 
 /** The scoreboard as printable lines, one block per tier. */

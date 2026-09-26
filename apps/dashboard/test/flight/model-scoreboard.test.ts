@@ -21,6 +21,9 @@ import {
   laneOfFiring,
   renderScoreboard,
   tierOverride,
+  recordModelDrained,
+  drainedAliases,
+  QUOTA_REST_MS,
   MIN_ARM_FIRINGS,
   TIER_CANDIDATES,
   type RoutedFiring,
@@ -180,6 +183,50 @@ describe('the store side: decisions recorded, firings matched', () => {
       )
       .run(id, item, shipped, model, at);
   }
+
+  it('routes around a model resting after a quota hit, for an hour, in every project (2026-09-26)', () => {
+    const now = 10 * 24 * 60 * 60 * 1000;
+    routeTaskModel(
+      store,
+      'p1',
+      'escalated',
+      't-0',
+      { AUTOPILOT_ESCALATED_MODEL: 'opus' },
+      now - 20,
+    );
+    firing('p1:firing-0', 't-0', 'claude-opus-5-5', 1, now - 10);
+    // Fable is the thinnest escalated arm, so exploration would pick it…
+    expect(routeTaskModel(store, 'p1', 'escalated', 't-1', {}, now).model).toBe('fable');
+    // …until a lane asked for it and was served Opus: its quota ran dry.
+    recordModelDrained(store, 'p1', 'fable', now + 1);
+    expect(drainedAliases(store, now + 2)).toEqual(new Set(['fable']));
+    const rested = routeTaskModel(store, 'p1', 'escalated', 't-1', {}, now + 2, 'fleet-2');
+    expect(rested.model).toBe('opus');
+    expect(rested.reason).toContain('resting after a quota hit: fable');
+    // The subscription is the operator's: another project rests it too.
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+         VALUES ('p2', 'p2', 'p2', '/tmp/p2', 'flying', NULL, 1, 1)`,
+      )
+      .run();
+    expect(routeTaskModel(store, 'p2', 'escalated', 't-9', {}, now + 3).model).toBe('opus');
+    // After the rest, Fable is back in the running.
+    expect(drainedAliases(store, now + 1 + QUOTA_REST_MS + 1)).toEqual(new Set());
+    expect(
+      routeTaskModel(store, 'p1', 'escalated', 't-1', {}, now + 1 + QUOTA_REST_MS + 1).model,
+    ).toBe('fable');
+  });
+
+  it('keeps every candidate when all of them rest — something must fly', () => {
+    const now = 10 * 24 * 60 * 60 * 1000;
+    recordModelDrained(store, 'p1', 'fable', now);
+    recordModelDrained(store, 'p1', 'claude-opus-5-5', now);
+    expect(drainedAliases(store, now)).toEqual(new Set(['fable', 'opus']));
+    const choice = routeTaskModel(store, 'p1', 'escalated', 't-1', {}, now);
+    expect(TIER_CANDIDATES.escalated).toContain(choice.model);
+    expect(choice.reason).not.toContain('resting');
+  });
 
   it("records each decision, and matches each firing to its lane's latest decision before it", () => {
     const now = 10 * 24 * 60 * 60 * 1000;

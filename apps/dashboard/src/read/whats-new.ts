@@ -34,6 +34,26 @@ export interface ChangelogRelease {
   readonly groups: readonly ChangelogGroup[];
 }
 
+/**
+ * The Conventional Commit types this project's own `commitlint.config.js`
+ * `type-enum` accepts (its `wip` checkpoint type excluded — a WIP commit
+ * never reaches a released CHANGELOG section). Any other lowercase word
+ * before a colon is prose ("note: …", "todo: …"), not a commit subject.
+ */
+const KNOWN_KINDS: ReadonlySet<string> = new Set([
+  'feat',
+  'fix',
+  'refactor',
+  'docs',
+  'test',
+  'chore',
+  'perf',
+  'ci',
+  'build',
+  'revert',
+  'style',
+]);
+
 /** Splits `feat(dashboard): the thing` into kind, scope and text. */
 export function parseChangelogItem(line: string): ChangelogItem {
   const colon = line.indexOf(': ');
@@ -43,8 +63,9 @@ export function parseChangelogItem(line: string): ChangelogItem {
     const kind = open === -1 ? head : head.slice(0, open);
     const bareHead = head.endsWith('!') ? head.slice(0, -1) : head;
     const scope = open !== -1 && bareHead.endsWith(')') ? bareHead.slice(open + 1, -1) : null;
-    if (/^[a-z]+!?$/.test(kind) && (open === -1 || scope !== null)) {
-      return { kind: kind.replace('!', ''), scope, text: line.slice(colon + 2) };
+    const bareKind = kind.endsWith('!') ? kind.slice(0, -1) : kind;
+    if (KNOWN_KINDS.has(bareKind) && (open === -1 || scope !== null)) {
+      return { kind: bareKind, scope, text: line.slice(colon + 2) };
     }
   }
   return { kind: null, scope: null, text: line };

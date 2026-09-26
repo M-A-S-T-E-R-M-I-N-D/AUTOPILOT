@@ -71,6 +71,38 @@ describe('parseChangelogItem', () => {
       expect(parseChangelogItem(line)).toEqual({ kind: null, scope: null, text: line });
     }
   });
+
+  it('rejects a lowercase word that is not a real Conventional Commit type', () => {
+    // commitlint.config.js's type-enum is the source of truth for what counts.
+    // A prose bullet that happens to start "word: " must not be misread as a
+    // commit subject just because the word is lowercase.
+    for (const line of ['note: an update', 'warning: careful', 'todo: circle back']) {
+      expect(parseChangelogItem(line)).toEqual({ kind: null, scope: null, text: line });
+    }
+  });
+
+  it('accepts every type-enum from commitlint.config.js, with and without a scope', () => {
+    for (const kind of [
+      'feat',
+      'fix',
+      'refactor',
+      'docs',
+      'test',
+      'chore',
+      'perf',
+      'ci',
+      'build',
+      'revert',
+      'style',
+    ]) {
+      expect(parseChangelogItem(`${kind}: plain`)).toEqual({ kind, scope: null, text: 'plain' });
+      expect(parseChangelogItem(`${kind}(scope): plain`)).toEqual({
+        kind,
+        scope: 'scope',
+        text: 'plain',
+      });
+    }
+  });
 });
 
 describe('changelogRelease', () => {

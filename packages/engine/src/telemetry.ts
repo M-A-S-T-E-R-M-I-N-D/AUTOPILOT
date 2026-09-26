@@ -625,7 +625,7 @@ export interface FiringRecord {
   readonly timedOut?: boolean;
   /**
    * The commit-time independent review of a gate-PASSED firing's diff
-   * (`firing.ts`, docs/BACKLOG-999.md C5) — findings, or why the
+   * (`commit-review.ts`, docs/BACKLOG-999.md C5) — findings, or why the
    * review was skipped. Non-blocking: it never changed {@link gateResult}.
    * Absent when the firing did not pass the gate or ran without a reviewer.
    */
