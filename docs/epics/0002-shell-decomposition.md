@@ -3278,6 +3278,29 @@ costly to maintain by hand) rather than a mid-fleet attempt, the same
 `scripts/codemod/generate-splice-manifest.mjs` remain exactly as they were;
 gate green (typecheck/lint/format:check/build; this is a docs-only change).
 
+Freshness check (2026-09-26): `web/shell.ts` is at 4,916 lines and
+`web/features/` holds 45 discoverable modules (`web/features/index.ts`'s
+barrel carries exactly 45 imports, so barrel and folder still agree) — up
+from the 3,696-line/30-module snapshot the entry above recorded (2026-09-04).
+At least 14 of the 45 modules are new since then and never named anywhere
+else in this doc — `ask-sheet.ts`, `busy.ts`, `ci-status.ts`,
+`collaboration.ts`, `contributor-issue-list.ts`, `contributor-standing.ts`,
+`foundation.ts`, `locale-data.ts`, `mirror-pass.ts`, `onboarding.ts`,
+`popovers.ts`, `prefs.ts`, `snackbar.ts`, `subject-nav.ts` — while every
+module this doc's own progress log names by its whole-region-move cut
+(`issue-triage.ts`, `backlog.ts`, `process-health.ts`, `evolution.ts`,
+`landing.ts`, `release.ts`, `activity.ts`, `flight-summary.ts`,
+`pr-review.ts`, `publicity.ts`, `tour.ts`, `flight-console.ts`,
+`docs-viewer.ts`, `round-panel.ts`) is still present — no decomposition
+regression. `git log` counts 116 commits touching `shell.ts` since the last
+snapshot, most recently `db712e5c` (2026-09-26); the module count growing
+faster than the file (30→45, +50%, vs. 3,696→4,916 lines, +33%) matches
+ongoing feature work landing straight into new `web/features/` modules
+rather than piling into `shell.ts` first. This chronicle cannot narrate 116
+routine feature landings one by one and isn't trying to — this pass only
+confirms the drift is volume, not regression. No code changed this pass;
+gate green (typecheck/lint/format:check/build; docs-only change).
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
