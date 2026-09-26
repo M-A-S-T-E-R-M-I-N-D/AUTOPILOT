@@ -178,6 +178,41 @@ describe('planReportFromHere — bug issue', () => {
     expect(plan.commands[0]!.args).not.toContain('priority: high');
     expect(plan.commands[0]!.args.filter((a) => a === '--label')).toHaveLength(1);
   });
+
+  // The fleet's own filed issues must pass the same `issueTemplateGaps`
+  // protocol gate `issue-triage.ts` applies to everyone (operator
+  // 2026-09-12) — a plain description gets the repo's bug-template
+  // sections grafted on as a deterministic safety net.
+  describe('the issue-protocol template safety net', () => {
+    it('wraps a plain description in the bug template sections', () => {
+      const plan = planReportFromHere(capture(), 'issue', 'p1', 1);
+      if (!plan.ok || plan.action !== 'issue') throw new Error('expected an issue plan');
+      expect(plan.body).toContain('### What happened?');
+      expect(plan.body).toContain('The launch button stays disabled after a flight lands.');
+      expect(plan.body).toContain('### Steps to reproduce');
+      expect(plan.body).toContain('1. Open the dashboard\'s "Fly bar" region.');
+      expect(plan.body).toContain('### Expected behavior');
+    });
+
+    it('passes an already-templated description through untouched, never double-wrapping it', () => {
+      const templated = [
+        '### What happened?',
+        'The launch button stays disabled after a flight lands.',
+        '### Steps to reproduce',
+        '1. Land a flight.',
+        '2. Watch the launch button.',
+        '### Expected behavior',
+        'It re-enables once the flight lands.',
+      ].join('\n');
+      const plan = planReportFromHere(capture({ description: templated }), 'issue', 'p1', 1);
+      if (!plan.ok || plan.action !== 'issue') throw new Error('expected an issue plan');
+      expect(plan.body.startsWith(templated)).toBe(true);
+      // The deterministic safety net's own reproduction boilerplate must
+      // never be grafted on top of a description that already has one.
+      expect(plan.body).not.toContain('Compare what it shows with the description above');
+      expect(plan.body.match(/### What happened\?/g) ?? []).toHaveLength(1);
+    });
+  });
 });
 
 describe('planReportFromHere — pool offer', () => {

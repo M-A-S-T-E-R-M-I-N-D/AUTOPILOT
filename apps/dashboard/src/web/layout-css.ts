@@ -834,7 +834,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .flight-summary-ago { font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 .landing-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .landing-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
-.landing-restarting > .icon { margin-inline-end: var(--space-2); }
+.landing-restarting > .icon, .landing-worktree-divergence > .icon, .landing-overlap > .icon { margin-inline-end: var(--space-2); }
 .landing-branch { margin: 0 0 var(--space-2); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .landing-branch-name, .landing-base-name { font-weight: 600; }
 .landing-branch-arrow { color: var(--color-text-muted); padding: 0 var(--space-1); }

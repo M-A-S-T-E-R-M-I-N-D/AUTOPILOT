@@ -1278,6 +1278,11 @@ const BENIGN_SCRIPTS = new Set([
   'codemod/split-top-level-regions.d.mts',
   'codemod/split-top-level-regions.mjs',
   'data-model/generate-doc.mjs',
+  // generate-doc.mjs's store loader plus its .d.mts stub: runs this
+  // checkout's own `tsc -b packages/store` (writes only that package's
+  // dist/) before importing the build — never the tree, the store, or GitHub.
+  'data-model/fresh-store.d.mts',
+  'data-model/fresh-store.mjs',
   // .d.mts declaration stub for the sibling .mjs — types only, no runtime,
   // the same class as every other codemod/i18n .d.mts already listed here.
   'docs/check-links.d.mts',
@@ -1295,6 +1300,8 @@ const BENIGN_SCRIPTS = new Set([
   // Playwright open()/settle() helpers, extracted from capture-screens.mjs) —
   // pure data and browser-driving helpers; imports no Playwright, writes
   // nothing, reads nothing but the loopback fixture its callers point it at.
+  // Plus its .d.mts stub (payload declarations for demo-scene.test.ts).
+  'docs/demo-scene.d.mts',
   'docs/demo-scene.mjs',
   // Writes docs/debriefs/README.md from the debrief files' own headings —
   // the same generate-a-committed-doc-from-the-tree class as

@@ -36,12 +36,18 @@ import {
 } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DASHBOARD_DIR = 'apps/dashboard';
 const WORKSPACE_GLOBS = ['packages', 'apps'];
+
+// Stryker disable all: `bin` and `discoverWorkspacePackages` are process glue
+// — the platform's shim names and a read of every workspace package.json off
+// disk — exercised only by running the smoke test for real. The pure helpers
+// between the disable blocks below ARE mutation-tested
+// (config/mutation/stryker.ci-npx-smoke-test.config.mjs).
 
 // On win32, npm/pnpm/npx resolve to `.cmd` shims, which `execFileSync` can't
 // exec directly (EINVAL) without going through a shell.
@@ -63,9 +69,10 @@ function discoverWorkspacePackages() {
   }
   return map;
 }
+// Stryker restore all
 
 /** BFS the `workspace:*` dependency closure starting from `rootName`, dashboard included. */
-function workspaceClosure(rootName, packages) {
+export function workspaceClosure(rootName, packages) {
   const closure = new Set();
   const queue = [rootName];
   while (queue.length > 0) {
@@ -81,10 +88,12 @@ function workspaceClosure(rootName, packages) {
   return closure;
 }
 
-function tarballName(entry) {
+export function tarballName(entry) {
   return `${entry.pkg.name.replace('@', '').replace('/', '-')}-${entry.version}.tgz`;
 }
 
+// Stryker disable all: `assertDistBuilt` and `packAll` check dist/ on disk and
+// shell out to `pnpm pack` — exercised only by running the smoke test for real.
 function assertDistBuilt(entry) {
   const distDir = join(repoRoot, entry.dir, 'dist');
   if (!existsSync(distDir)) {
@@ -111,14 +120,24 @@ function packAll(packages, closureNames, destDir) {
     if (!existsSync(expected)) throw new Error(`pnpm pack did not produce ${expected}`);
   }
 }
+// Stryker restore all
 
-/** The files npm packs whatever the "files" allowlist says: the manifest and
+/** Every packed file must ship the compiled dist output only — no leaking
+ *  `src/`. Returns the paths that break that rule. The exception is the set
+ *  of files npm packs whatever the "files" allowlist says: the manifest and
  *  the package's own README and LICENSE (npm's documented always-included
  *  set). A package README landed in every workspace package on 2026-09-13;
- *  a tarball carrying it is npm being npm, not `src/` leaking. */
-const ALWAYS_PACKED = /^(package\.json|README(\.[a-z]+)?|LICEN[CS]E(\.[a-z]+)?)$/i;
+ *  a tarball carrying it is npm being npm, not `src/` leaking. The pattern
+ *  lives inside the function so Stryker can mutate it (a module-level
+ *  constant is built once at import, a static mutant `ignoreStatic` skips). */
+export function packedFileOffenders(paths) {
+  const alwaysPacked = /^(package\.json|README(\.[a-z]+)?|LICEN[CS]E(\.[a-z]+)?)$/i;
+  return paths.filter((p) => !alwaysPacked.test(p) && !p.startsWith('dist/'));
+}
 
-/** Every packed file must ship the compiled dist output only — no leaking `src/`. */
+// Stryker disable all: `assertFilesAllowlist` shells out to `pnpm pack
+// --dry-run` — exercised only by running the smoke test for real. The rule
+// it applies, `packedFileOffenders`, IS mutation-tested.
 function assertFilesAllowlist(dashboardEntry) {
   assertDistBuilt(dashboardEntry);
   const json = execFileSync(bin('pnpm'), [...PACK_ARGS, '--json', '--dry-run'], {
@@ -128,22 +147,18 @@ function assertFilesAllowlist(dashboardEntry) {
     ...shellOpts,
   });
   const { files } = JSON.parse(json);
-  const offenders = files
-    .map((f) => f.path)
-    .filter((p) => !ALWAYS_PACKED.test(p) && !p.startsWith('dist/'));
+  const offenders = packedFileOffenders(files.map((f) => f.path));
   if (offenders.length > 0) {
     throw new Error(`tarball ships files outside the dist/ allowlist: ${offenders.join(', ')}`);
   }
 }
+// Stryker restore all
 
 /** The shebang must be `#!/usr/bin/env node` + a bare LF — a CRLF line ending
  *  makes the byte after `node` a literal `\r`, which the OS loader treats as
- *  part of the interpreter name and refuses to exec. */
-function assertBinShebangIsLf(dashboardEntry) {
-  const [binRelPath] = Object.values(dashboardEntry.pkg.bin ?? {});
-  if (!binRelPath) throw new Error(`${dashboardEntry.pkg.name}: package.json has no "bin" entry`);
-  const binPath = join(repoRoot, dashboardEntry.dir, binRelPath);
-  const raw = readFileSync(binPath);
+ *  part of the interpreter name and refuses to exec. `raw` is the bin file's
+ *  bytes; `binRelPath` only names it in the error. */
+export function assertShebangIsLf(raw, binRelPath) {
   const firstLineEnd = raw.indexOf(0x0a); // '\n'
   if (firstLineEnd <= 0) throw new Error(`${binRelPath}: no newline found`);
   const firstLine = raw.subarray(0, firstLineEnd).toString('utf8');
@@ -153,10 +168,19 @@ function assertBinShebangIsLf(dashboardEntry) {
   if (raw[firstLineEnd - 1] === 0x0d) {
     throw new Error(`${binRelPath}: shebang line ends in CRLF, not LF`);
   }
-  return binRelPath;
 }
 
-function buildScratchManifest(packages, dashboardEntry, closureNames, packDir) {
+// Stryker disable all: `assertBinShebangIsLf` reads the real bin file off
+// disk. The check it applies, `assertShebangIsLf`, IS mutation-tested.
+function assertBinShebangIsLf(dashboardEntry) {
+  const [binRelPath] = Object.values(dashboardEntry.pkg.bin ?? {});
+  if (!binRelPath) throw new Error(`${dashboardEntry.pkg.name}: package.json has no "bin" entry`);
+  assertShebangIsLf(readFileSync(join(repoRoot, dashboardEntry.dir, binRelPath)), binRelPath);
+  return binRelPath;
+}
+// Stryker restore all
+
+export function buildScratchManifest(packages, dashboardEntry, closureNames, packDir) {
   const overrides = {};
   for (const name of closureNames) {
     if (name === dashboardEntry.pkg.name) continue;
@@ -174,6 +198,12 @@ function buildScratchManifest(packages, dashboardEntry, closureNames, packDir) {
   };
 }
 
+// Stryker disable all: everything from here down is the process shell — it
+// runs the installed bin through `npx`, binds a real port, boots and kills a
+// real dashboard and deletes a scratch dir, so it can only be exercised by
+// running the smoke test for real. The logic it delegates to
+// (`workspaceClosure`, `tarballName`, `packedFileOffenders`,
+// `assertShebangIsLf`, `buildScratchManifest`) IS mutation-tested.
 function runSmokeInvocation(installDir, binName) {
   const stdout = execFileSync(bin('npx'), ['--no-install', binName, 'status'], {
     windowsHide: true,
@@ -362,7 +392,13 @@ async function main() {
   console.log('npx-smoke-test OK');
 }
 
-main().catch((err) => {
-  console.error(`npx-smoke-test FAILED: ${err instanceof Error ? err.message : String(err)}`);
-  process.exit(1);
-});
+// Run only as the entry point, so the test file can import the helpers above
+// without packing and booting anything.
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((err) => {
+    console.error(`npx-smoke-test FAILED: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  });
+}
+// Stryker restore all

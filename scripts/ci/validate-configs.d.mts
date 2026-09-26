@@ -14,3 +14,5 @@ export interface UnpinnedActionFinding {
 }
 
 export function findUnpinnedActions(text: string): UnpinnedActionFinding[];
+
+export function stripJsonComments(src: string): string;
