@@ -36,15 +36,16 @@ propagation, and the filled style does not match the nav.
 3. **Theme-native.** `currentColor` everywhere; size from the type scale
    (`1em` inline, `1.25rem` in buttons, `1.5rem` in the rail); the three themes
    need no per-icon work.
-4. **Credits.** `LICENSES/ISC-lucide.txt` (the complete upstream text),
-   `THANKS.md` gains a Lucide line, `docs/README.md`'s credits section names it,
-   and REUSE stays green (`reuse lint` in CI).
+4. **Credits.** `LICENSES/ISC.txt` (the complete upstream text — REUSE names
+   licence files by SPDX id), `THANKS.md` gains a Lucide line, `docs/README.md`
+   names it (on its THIRD-PARTY-LICENSES entry — the index has no separate
+   credits section), and REUSE stays green (`reuse lint` in CI).
 5. **No emoji in chrome.** A census test lists every emoji-bearing render site;
    the count goes to zero across the slices and the test pins zero.
 
 ## Slices
 
-1. `icons.ts` + `LICENSES/ISC-lucide.txt` + THANKS; the subject nav and the
+1. `icons.ts` + `LICENSES/ISC.txt` + THANKS; the subject nav and the
    board's focus/burn/inbox/backlog chips first (the most visible).
 2. Panel headings and execute buttons (pool, PR review, triage, mirror pass,
    release, landing). **Hub landed 2026-09-13:** 32 more shapes vendored and
@@ -57,8 +58,12 @@ propagation, and the filled style does not match the nav.
    (`apps/dashboard/test/web/icon-system-emoji-census.test.ts`) reads every
    `.ts` file under `src/web/` from disk, strips comments, and pins the raw
    emoji count at zero — ✓/✗/⚠ stay as the design's deliberate literal-glyph
-   exception (see the test's own doc comment). Docs/screenshots refresh is
-   still open.
+   exception (see the test's own doc comment). **Law 4 pinned 2026-09-26:**
+   `apps/dashboard/test/tooling/icon-system-credits.test.ts` holds THANKS.md,
+   `docs/THIRD-PARTY-LICENSES.md` (now with a "Copied into the product"
+   section) and `docs/README.md` to naming Lucide and linking
+   `LICENSES/ISC.txt`, and no credit surface may claim nothing is vendored.
+   Docs/screenshots refresh is still open.
 
 ## Related
 

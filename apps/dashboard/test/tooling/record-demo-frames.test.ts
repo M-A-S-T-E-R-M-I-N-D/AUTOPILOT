@@ -102,8 +102,24 @@ describe('buildManifest', () => {
     expect(() => buildManifest([{ id: 'a', holdMs: Number.NaN }], size)).toThrow(/positive/);
   });
 
+  it('refuses a hold a GIF cannot store: not a whole number of centiseconds', () => {
+    expect(() => buildManifest([{ id: 'a', holdMs: 185 }], size)).toThrow(
+      /beat a: .*whole number of centiseconds.*got 185/,
+    );
+    expect(() => buildManifest([{ id: 'a', holdMs: 180.5 }], size)).toThrow(
+      /whole number of centiseconds/,
+    );
+  });
+
+  it('refuses a 10ms hold, which Chromium and Firefox play as 100ms, and keeps 20ms', () => {
+    expect(() => buildManifest([{ id: 'a', holdMs: 10 }], size)).toThrow(
+      /beat a: .*plays as 100ms/,
+    );
+    expect(buildManifest([{ id: 'a', holdMs: 20 }], size).totalMs).toBe(20);
+  });
+
   it('refuses a loop over the README budget', () => {
-    const beats = [{ id: 'a', holdMs: MAX_TOTAL_MS + 1 }];
+    const beats = [{ id: 'a', holdMs: MAX_TOTAL_MS + 10 }]; // one centisecond over
     expect(() => buildManifest(beats, size)).toThrow(/README budget/);
   });
 });

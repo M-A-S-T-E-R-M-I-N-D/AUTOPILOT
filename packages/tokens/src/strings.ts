@@ -1006,6 +1006,12 @@ const EN_STRINGS = {
   taskApprove: '✓ approve',
   taskReject: '✗ reject',
   taskDone: '✓ done',
+  // The board's keyboard legend (shell.ts's boardKeysHint(), epic 0026): one
+  // label per key group — the <kbd> keys themselves are not translated.
+  boardKeysMove: 'move',
+  boardKeysApprove: 'approve',
+  boardKeysDone: 'done',
+  boardKeysLeave: 'leave',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2432,6 +2438,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskApprove: '✓ אשר',
     taskReject: '✗ דחה',
     taskDone: '✓ בוצע',
+    boardKeysMove: 'מעבר',
+    boardKeysApprove: 'אישור',
+    boardKeysDone: 'בוצע',
+    boardKeysLeave: 'יציאה',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

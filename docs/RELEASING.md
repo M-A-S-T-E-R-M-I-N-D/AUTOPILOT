@@ -73,6 +73,33 @@ If a doc references a pre-genesis tag or SHA, that is a citation into archived
 history a public clone cannot resolve — the changelog section for that era is
 the readable substitute.
 
+### Signed tags — the Qubes pattern (FOUNDATION 3/3)
+
+`docs/FOUNDATION.md`'s transparency commitment 2 signs the donation address
+file with the operator's key; the same key signs release tags, so a reader
+can check that the tag they build from is the one the operator cut.
+
+- **Signing** needs no ritual code: the RELEASE panel creates `v<semver>`
+  with `git tag -a`, which git signs whenever the operator's checkout has
+  `tag.gpgSign` set to `true` and `user.signingkey` naming the key published
+  as `docs/SIGNING-KEY.asc` (`git tag` documents `-s`/`tag.gpgSign`). Until
+  that key exists on the machine cutting releases, tags are unsigned — and
+  say so.
+- **Verifying** is the ritual's job: right after the tag lands, the ritual
+  runs `git verify-tag` on it and the RELEASE panel reports the verdict
+  (`signature` on `POST /api/release/execute`) — "signed by <fingerprint>",
+  or an honest "tag signature unverified" note naming why (not signed, key
+  not held, bad/expired/revoked, or a signature over MD5, SHA-1 or
+  RIPEMD-160 — the same hashes `ci:donate` refuses). The verdict never
+  fails the release: the commit and tag already exist.
+- **Readers** verify the same way, and compare the fingerprint with the one
+  published through an independent channel before trusting it:
+
+  ```sh
+  gpg --import docs/SIGNING-KEY.asc
+  git verify-tag v<semver>
+  ```
+
 ## Git notes
 
 Each release commit carries a **`git notes add`** attestation — the version,

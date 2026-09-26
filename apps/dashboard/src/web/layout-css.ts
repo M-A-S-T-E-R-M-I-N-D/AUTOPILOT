@@ -1378,6 +1378,13 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
 .board-column-count { font-variant-numeric: tabular-nums; }
+/* The board's keyboard legend (epic 0026): the j/k cursor and a/d row actions
+   named in one muted line above the rows. Keys wear the same mono cap the
+   palette button's ⌘K does; a coarse primary pointer has no keys to press, so
+   the line steps aside there. */
+.board-keys { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+.board-keys kbd { font: inherit; font-family: var(--font-mono); padding: 0 var(--space-1); border: 1px solid var(--color-border); border-block-end-width: 2px; border-radius: var(--shape-extra-small); background: var(--color-surface-raised); color: var(--color-text); }
+@media (pointer: coarse) { .board-keys { display: none; } }
 @media (min-width: 48rem) {
   [data-board-view="columns"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   [data-board-view="columns"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; max-block-size: 72vh; overflow: auto; overscroll-behavior: contain; }

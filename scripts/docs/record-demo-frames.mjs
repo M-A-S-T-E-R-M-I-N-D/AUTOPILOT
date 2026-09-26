@@ -10,7 +10,8 @@
  * encoder devDependency (docs/adr/0013-readme-demo-gif-encoder.md names the
  * candidate and its review); until then this output IS that encoder's input
  * contract: every frame the same pixel size (asserted before the manifest is
- * written), each with its own hold time, in order.
+ * written), each with its own hold time in whole centiseconds (a GIF's delay
+ * unit, so it needs no rounding), in order.
  *
  * It also assembles the frames into `demo.png`: one looping animated PNG, with
  * no new dependency. APNG (W3C PNG Third Edition, Recommendation 2025-06-24,
@@ -61,6 +62,14 @@ export const ANIMATION = 'demo.png';
 export const MAX_HOLD_MS = 0xffff;
 /** README animation budget: past this a hero loop stops being glanceable. */
 export const MAX_TOTAL_MS = 12_000;
+/** A GIF stores each frame's delay in centiseconds; a hold between them would be rounded. */
+const GIF_DELAY_UNIT_MS = 10;
+/**
+ * The shortest hold that plays as written. Chromium and Firefox play any frame
+ * delay of 10ms or less as 100ms, in a GIF and an APNG alike
+ * (DeferredImageDecoder::FrameDurationAtIndex; FrameTimeout::FromRawMilliseconds).
+ */
+const MIN_HOLD_MS = 20;
 
 /**
  * The demo's beats, in order: one frame each, held `holdMs` before the next.
@@ -90,8 +99,9 @@ export function frameFile(index) {
 /**
  * The encoder's input contract: which file to show for how long, in order,
  * plus the one size every frame has. Throws rather than write a manifest an
- * encoder would misread: no beats, a duplicate beat id, a non-positive hold,
- * or a loop longer than the README budget.
+ * encoder would misread: no beats, a duplicate beat id, a non-positive hold, a
+ * hold a GIF cannot store or a browser would not play as written, or a loop
+ * longer than the README budget.
  * @param {readonly { id: string, holdMs: number }[]} beats
  * @param {{ width: number, height: number }} size
  */
@@ -103,6 +113,18 @@ export function buildManifest(beats, size) {
     seen.add(beat.id);
     if (!Number.isFinite(beat.holdMs) || beat.holdMs <= 0) {
       throw new Error(`beat ${beat.id}: holdMs must be a positive number, got ${beat.holdMs}`);
+    }
+    if (!Number.isInteger(beat.holdMs / GIF_DELAY_UNIT_MS)) {
+      throw new Error(
+        `beat ${beat.id}: holdMs must be a whole number of centiseconds, the unit a GIF` +
+          ` stores, got ${beat.holdMs}`,
+      );
+    }
+    if (beat.holdMs < MIN_HOLD_MS) {
+      throw new Error(
+        `beat ${beat.id}: holdMs ${beat.holdMs} plays as 100ms — browsers clamp any delay` +
+          ` of 10ms or less; hold at least ${MIN_HOLD_MS}ms`,
+      );
     }
     return { file: frameFile(index), beat: beat.id, holdMs: beat.holdMs };
   });

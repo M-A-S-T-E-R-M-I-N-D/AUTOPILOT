@@ -60,6 +60,7 @@ address file lands.
    report exactly one good signature by that key, made over a hash other
    than MD5, SHA-1 or RIPEMD-160. The check proves only that the committed
    key signed; compare its fingerprint with the independently published one
-   before you trust it.
+   before you trust it — [`docs/DONATE.md`](DONATE.md#verify-before-you-trust)
+   walks a donor through exactly that.
 3. Custody upgrades (BTC multisig, EVM Safe) announced before, not after.
 4. Spending reported in the changelog like everything else this project does.

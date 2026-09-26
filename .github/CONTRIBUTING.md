@@ -158,5 +158,10 @@ access) always queue for the human. For what exists and what's in motion, read
 
 ## Reporting bugs / requesting features
 
-Use the issue templates. For **security vulnerabilities**, do **not** open a
-public issue — follow [`SECURITY.md`](SECURITY.md).
+Use the issue templates — they are the protocol, not a suggestion. An issue
+whose description drops the template's sections (the API and the edit pencil
+both allow it) is not boarded: KEEPER labels it `status: needs-format` and posts
+one reply naming the template and the missing sections. Edit the description to
+add them and the label comes off on KEEPER's next pass — nothing else is needed
+from you. For **security vulnerabilities**, do **not** open a public issue —
+follow [`SECURITY.md`](SECURITY.md).

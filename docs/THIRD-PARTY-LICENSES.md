@@ -7,9 +7,25 @@ SPDX-License-Identifier: Apache-2.0
 
 Every npm package this repository depends on (production and development),
 with its declared license — regenerated with `pnpm licenses list --json`
-(this file) whenever the dependency set changes. AUTOPILOT vendors none of
-them; they are installed from the public registry by `pnpm install`. See
-[`THANKS.md`](../THANKS.md) for the humans behind them.
+(this file) whenever the dependency set changes. AUTOPILOT copies no npm
+package into its own tree; they are installed from the public registry by
+`pnpm install`. See [`THANKS.md`](../THANKS.md) for the humans behind them.
+
+## Copied into the product
+
+Two kinds of third-party work ship inside AUTOPILOT's own tree rather than
+through `pnpm install`, each with its complete upstream license text:
+
+- **Lucide** icons (ISC; the icons Lucide derived from Feather also carry
+  Feather's MIT notice) — only the shapes in use, copied as data into
+  `apps/dashboard/src/web/icons.ts`; license at
+  [`LICENSES/ISC.txt`](../LICENSES/ISC.txt).
+- **Inter** and **Roboto** typefaces (SIL OFL-1.1) — latin-subset variable
+  fonts self-hosted from `apps/dashboard/src/assets/font-data.ts`; license at
+  [`LICENSES/OFL-1.1.txt`](../LICENSES/OFL-1.1.txt), with each family's
+  upstream notice beside the font data (`OFL-inter.txt`, `OFL-roboto.txt`).
+
+## npm packages
 
 | package | version(s) | license |
 | --- | --- | --- |

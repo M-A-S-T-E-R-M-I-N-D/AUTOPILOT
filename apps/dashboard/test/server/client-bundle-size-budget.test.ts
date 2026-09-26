@@ -303,7 +303,21 @@ import {
 // switch tips, which ship in localeJs()'s STRINGS.en splice like every prior
 // i18n slice here — measured 263401B raw against the old 263168B budget,
 // 233 bytes over.
-const CORE_RAW_BUDGET = 258 * 1024;
+// Then core raw 258→259KB (2026-09-26), epic 0026 the tasks screen slice 1
+// (board web-mtywp82m-zodn7z): the j/k row-to-row keyboard cursor over the
+// task list (one document-delegated keydown handler in shell.ts's client
+// script). This is a RELAND: the first landing (494e16cc) shipped the code
+// without this bump, the landing gate's run of check-bundle-size went red,
+// and it was reverted (a451d167) — measured 264271B raw against the old
+// 264192B budget, 79 bytes over. Gzip (77.3KB) stays under CORE_GZIP_BUDGET.
+// Then core raw 259→260KB (2026-09-26), the same epic's next slice: a/d row
+// actions on the keyboard cursor plus the one-line key legend under the
+// board's column heads (four STRINGS.en keys, boardKeysHint(), the widened
+// keydown handler) — measured 265203B raw against the old 265216B line, 13
+// bytes UNDER, bumped anyway: a margin that thin turns the merged landing
+// gate red the moment a sibling's slice adds a dozen bytes beside it, which
+// is exactly how 494e16cc died. Gzip (79482B, 77.6KB) stays under the line.
+const CORE_RAW_BUDGET = 260 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

@@ -267,6 +267,14 @@ describe('issue protocol gate', () => {
  * welcoming. Epics were already exempt for the same reason; the owner's own
  * issues are the other half of it.
  */
+describe('the protocol gate is stated where reporters read it', () => {
+  it('in the reporting section of CONTRIBUTING.md — the label, and that one reply names the template', () => {
+    const contributing = readFileSync(join(process.cwd(), '.github/CONTRIBUTING.md'), 'utf8');
+    expect(contributing).toContain(`\`${NEEDS_FORMAT_LABEL}\``);
+    expect(contributing).toContain('one reply');
+  });
+});
+
 describe('repoOwnerOf', () => {
   it('takes the owner segment of a nameWithOwner', () => {
     expect(repoOwnerOf('M-A-S-T-E-R-M-I-N-D/AUTOPILOT')).toBe('M-A-S-T-E-R-M-I-N-D');
