@@ -5,11 +5,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { openStore, migrate, type Store } from '@autopilot/store';
+import { openStore, migrate, setTaskFocus, type Store } from '@autopilot/store';
 import {
   poolDimension,
   isPoolIssue,
   isClaimedPoolIssue,
+  parsePoolComments,
   fetchPoolIssues,
   planClaimPoolIssue,
   planClaimPoolIssueCommands,
@@ -18,6 +19,7 @@ import {
   planPoolBrowseBatch,
   planPoolIssueTask,
   claimAndQueuePoolIssueTask,
+  queueClaimedPoolIssueTask,
   type PoolIssue,
 } from '../../src/flight/pool-client.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
@@ -46,6 +48,14 @@ function tasks(
     source: string;
     dimension: string | null;
   }[];
+}
+
+/** The task's `focus` flag as the store holds it (1 = focused), or
+ *  `undefined` when no such task row exists. */
+function taskFocus(s: Store, taskId: string): number | undefined {
+  const row = s.db.prepare('SELECT focus FROM tasks WHERE id = ?').get(taskId) as
+    { focus: number } | undefined;
+  return row?.focus;
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -93,6 +103,75 @@ describe('isClaimedPoolIssue', () => {
 
   it('is true once the issue carries an assignee', () => {
     expect(isClaimedPoolIssue({ ...base, assignees: ['octocat'] })).toBe(true);
+  });
+});
+
+describe('parsePoolComments', () => {
+  // Regression cover for the claim flow's untrusted-input boundary (epic 0019
+  // additive-only law): a comment the ledger cannot date or attribute is
+  // DROPPED, never guessed at — a guessed claim would either block a real
+  // claimant ("someone holds this") or hand a stale-claim release to the
+  // wrong login. Each malformed shape is exercised on its own so a future
+  // loosening of any one check trips exactly one assertion.
+  const CLAIM_BODY = 'Claimed by gabibi555 via the pool client.\n\n— ✈️ AUTOPILOT agent';
+
+  it('returns an empty list when the comments field is not an array', () => {
+    expect(parsePoolComments(undefined)).toEqual([]);
+    expect(parsePoolComments(null)).toEqual([]);
+    expect(parsePoolComments('Claimed by gabibi555 via the pool client.')).toEqual([]);
+    expect(parsePoolComments({ author: { login: 'gabibi555' }, body: CLAIM_BODY })).toEqual([]);
+  });
+
+  it('keeps a well-formed comment with its author, parsed timestamp and body', () => {
+    const parsed = parsePoolComments([
+      { author: { login: 'gabibi555' }, createdAt: '2026-09-11T14:23:10Z', body: CLAIM_BODY },
+    ]);
+
+    expect(parsed).toEqual([
+      { author: 'gabibi555', createdAt: Date.parse('2026-09-11T14:23:10Z'), body: CLAIM_BODY },
+    ]);
+  });
+
+  it('drops a comment whose author login is missing or not a string', () => {
+    const parsed = parsePoolComments([
+      { createdAt: '2026-09-11T14:23:10Z', body: CLAIM_BODY },
+      { author: {}, createdAt: '2026-09-11T14:23:10Z', body: CLAIM_BODY },
+      { author: { login: 42 }, createdAt: '2026-09-11T14:23:10Z', body: CLAIM_BODY },
+      { author: null, createdAt: '2026-09-11T14:23:10Z', body: CLAIM_BODY },
+    ]);
+
+    expect(parsed).toEqual([]);
+  });
+
+  it('drops a comment whose createdAt is absent, non-string or unparseable', () => {
+    const parsed = parsePoolComments([
+      { author: { login: 'gabibi555' }, body: CLAIM_BODY },
+      { author: { login: 'gabibi555' }, createdAt: 1757600590000, body: CLAIM_BODY },
+      { author: { login: 'gabibi555' }, createdAt: 'yesterday', body: CLAIM_BODY },
+    ]);
+
+    expect(parsed).toEqual([]);
+  });
+
+  it('drops a comment whose body is not a string', () => {
+    const parsed = parsePoolComments([
+      { author: { login: 'gabibi555' }, createdAt: '2026-09-11T14:23:10Z' },
+      { author: { login: 'gabibi555' }, createdAt: '2026-09-11T14:23:10Z', body: null },
+      { author: { login: 'gabibi555' }, createdAt: '2026-09-11T14:23:10Z', body: ['x'] },
+    ]);
+
+    expect(parsed).toEqual([]);
+  });
+
+  it('drops only the malformed entries, keeping the well-formed ones around them in order', () => {
+    const parsed = parsePoolComments([
+      { author: { login: 'first' }, createdAt: '2026-09-10T08:00:00Z', body: 'one' },
+      null,
+      { author: { login: 'ghost' }, createdAt: 'not a date', body: 'two' },
+      { author: { login: 'second' }, createdAt: '2026-09-11T08:00:00Z', body: 'three' },
+    ]);
+
+    expect(parsed.map((c) => c.author)).toEqual(['first', 'second']);
   });
 });
 
@@ -183,6 +262,38 @@ describe('fetchPoolIssues', () => {
       },
     ]);
     expect(isClaimedPoolIssue(issues[0] as PoolIssue)).toBe(true);
+  });
+
+  it('never counts a claim-shaped comment it cannot attribute — an authorless claim leaves the issue unclaimed', async () => {
+    // The #27 fix above made a comment-only claim count. Its untrusted
+    // boundary must hold in the other direction too: a comment carrying the
+    // exact claim sentence but no author login (a deleted GitHub account
+    // returns `author: null`) is dropped, so the issue stays claimable
+    // instead of being held by nobody forever.
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 27,
+          title: 'Navigation remake',
+          url: 'https://github.com/example/repo/issues/27',
+          labels: [{ name: 'pool: information' }],
+          assignees: [],
+          comments: [
+            {
+              author: null,
+              createdAt: '2026-09-11T14:23:10Z',
+              body: 'Claimed by gabibi555 via the pool client.\n\n— ✈️ AUTOPILOT agent',
+            },
+          ],
+        },
+      ]),
+    });
+
+    const issues = await fetchPoolIssues(exec);
+
+    expect(issues[0]?.claims).toEqual([]);
+    expect(isClaimedPoolIssue(issues[0] as PoolIssue)).toBe(false);
   });
 
   it('parses assignee logins, dropping malformed entries', async () => {
@@ -765,6 +876,93 @@ describe('claimAndQueuePoolIssueTask', () => {
 
       expect(result.decision.decision).toBe('skip');
       expect(result.taskQueued).toBe(false);
+      expect(tasks(s, 'p1')).toHaveLength(0);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  // Regression cover for the claim flow's FOCUS contract (epic 0019
+  // additive-only law): a claim is not just a board row — the queued task is
+  // focused so the claimant's own pilot works it first (WIP-limit-1). Nothing
+  // asserted that before, so dropping the setTaskFocus call would have gone
+  // unnoticed by the suite.
+  const POOL_ISSUE_42 = {
+    number: 42,
+    title: 'Keyboard nav is broken in the fleet table',
+    url: 'https://github.com/example/repo/issues/42',
+    labels: [{ name: 'pool: accessibility' }],
+    assignees: [],
+  };
+
+  it("focuses the queued task so the claimant's own pilot works it first", async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-pool-client-focus-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      const exec = execFor([POOL_ISSUE_42], 'octocat');
+
+      const result = await claimAndQueuePoolIssueTask(42, 'p1', exec, s, () => 100);
+
+      expect(result.taskQueued).toBe(true);
+      expect(result.focused).toBe(true);
+      expect(taskFocus(s, 'github-42')).toBe(1);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('does not re-focus a task the operator un-focused when the same claim repeats', async () => {
+    // A repeat claim dedupes to no new row — and must not quietly override the
+    // operator's steering either: focus is theirs to set, so an un-focused
+    // task stays un-focused across the repeat.
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-pool-client-refocus-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      const exec = execFor([POOL_ISSUE_42], 'octocat');
+      await claimAndQueuePoolIssueTask(42, 'p1', exec, s, () => 100);
+      expect(setTaskFocus(s, 'github-42', false, 150)).toBe(true);
+
+      const second = await claimAndQueuePoolIssueTask(42, 'p1', exec, s, () => 200);
+
+      expect(second.taskQueued).toBe(false);
+      expect(second.focused).toBe(false);
+      expect(taskFocus(s, 'github-42')).toBe(0);
+      s.close();
+    } finally {
+      cleanupDir(dbDir);
+    }
+  });
+});
+
+describe('queueClaimedPoolIssueTask', () => {
+  it('passes the claim result through with taskQueued and focused both false when no issue resolved', () => {
+    // The execute API routes by repository between the claim and the queue,
+    // so this half must stand alone: a claim that resolved no pool issue has
+    // nothing to queue and nothing to focus, and its own fields (decision,
+    // command results) ride through unchanged for the caller's report.
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-pool-client-queue-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      const claim = {
+        decision: { decision: 'skip' as const, reasoning: '#404 is not in the open pool.' },
+        commandResults: [],
+        issue: undefined,
+      };
+
+      const result = queueClaimedPoolIssueTask(claim, 'p1', s, () => 100);
+
+      expect(result).toEqual({ ...claim, taskQueued: false, focused: false });
       expect(tasks(s, 'p1')).toHaveLength(0);
       s.close();
     } finally {

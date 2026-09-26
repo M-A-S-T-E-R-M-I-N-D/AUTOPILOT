@@ -86,12 +86,12 @@
  * reading source. Each option in `pipelineSwitchGroup`'s `options` array now
  * carries a `tip` alongside its `label`/`i18nKey`, applied as `data-tip` on
  * the button the same way `showTip` already reads every other tip in the
- * app. English literal only for now, the same stance `features/report-menu.ts`'s
- * copy-toolkit labels took ("the i18n lane's sweep is the ritual that
- * upgrades them") — `@autopilot/tokens`'s `strings.ts` was mid-edit by a
- * fleet sibling when this slice landed, so wiring `data-i18n-tip` +
- * `STRINGS` keys for these six tips is the tracked follow-up rather than
- * this same-firing fix waiting on that file.
+ * app. Each option also carries a `tipI18nKey`, applied as `data-i18n-tip`
+ * the same way every other tip in the app resolves through `translateDom()` —
+ * the six tips shipped English-literal-only while `@autopilot/tokens`'s
+ * `strings.ts` was mid-edit by a fleet sibling; that sibling's edit landed,
+ * so this follow-up now wires the six `STRINGS` keys (`pipelineLensFleetTip`
+ * etc.) instead of leaving the tips stranded outside a locale switch.
  */
 import {
   planStepKinds,
@@ -247,6 +247,7 @@ function pipelineSwitchGroup(cls, label, labelI18nKey, options, state, key, onCh
     b.textContent = opt.label;
     b.setAttribute('data-i18n', opt.i18nKey);
     b.setAttribute('data-tip', opt.tip);
+    b.setAttribute('data-i18n-tip', opt.tipI18nKey);
     b.dataset.value = opt.value;
     b.setAttribute('aria-pressed', String(opt.value === state[key]));
     b.addEventListener('click', function () {
@@ -698,16 +699,16 @@ function pipelineSection(pid) {
   });
   var controls = el('div', 'pipeline-controls');
   controls.appendChild(pipelineSwitchGroup('pipeline-lens-switch', 'Pipeline lens', 'pipelineLensLabel', [
-    { value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet', tip: 'Every recorded trace across the fleet.' },
-    { value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles', tip: 'Only files touched by gate-passed firings.' },
+    { value: 'fleet', label: 'Fleet', i18nKey: 'pipelineLensFleet', tip: 'Every recorded trace across the fleet.', tipI18nKey: 'pipelineLensFleetTip' },
+    { value: 'file', label: 'Files', i18nKey: 'pipelineLensFiles', tip: 'Only files touched by gate-passed firings.', tipI18nKey: 'pipelineLensFilesTip' },
   ], state, 'lens', load));
   controls.appendChild(pipelineSwitchGroup('pipeline-mode-switch', 'Pipeline node grouping', 'pipelineModeLabel', [
-    { value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped', tip: 'Folds each trace or file into a single node.' },
-    { value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat', tip: 'One node per individual span.' },
+    { value: 'grouped', label: 'Grouped', i18nKey: 'pipelineModeGrouped', tip: 'Folds each trace or file into a single node.', tipI18nKey: 'pipelineModeGroupedTip' },
+    { value: 'flat', label: 'Flat', i18nKey: 'pipelineModeFlat', tip: 'One node per individual span.', tipI18nKey: 'pipelineModeFlatTip' },
   ], state, 'mode', load));
   controls.appendChild(pipelineSwitchGroup('pipeline-layout-switch', 'Pipeline canvas layout', 'pipelineLayoutLabel', [
-    { value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered', tip: 'Gives every trace its own row.' },
-    { value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact', tip: 'Merges connected traces and grids single-span ones.' },
+    { value: 'layered', label: 'Layered', i18nKey: 'pipelineLayoutLayered', tip: 'Gives every trace its own row.', tipI18nKey: 'pipelineLayoutLayeredTip' },
+    { value: 'compact', label: 'Compact', i18nKey: 'pipelineLayoutCompact', tip: 'Merges connected traces and grids single-span ones.', tipI18nKey: 'pipelineLayoutCompactTip' },
   ], state, 'layout', load));
   wrap.appendChild(controls);
   wrap.appendChild(body);

@@ -104,6 +104,14 @@ describe('findTransientAuditMarker — registry-outage corpus (must flag, with e
     expect(match?.evidence).toContain('ECONNRESET');
     expect(match?.evidence.length).toBeLessThanOrEqual(160);
   });
+
+  it('quotes a line of exactly 160 characters verbatim — clipping starts one character past it', () => {
+    const atLimit = `ECONNRESET ${'x'.repeat(160 - 'ECONNRESET '.length)}`;
+    const overLimit = `${atLimit}y`;
+
+    expect(findTransientAuditMarker(atLimit)?.evidence).toBe(atLimit);
+    expect(findTransientAuditMarker(overLimit)?.evidence).toBe(`${atLimit.slice(0, 159)}…`);
+  });
 });
 
 describe('findTransientAuditMarker — negative corpus: legit reds it must NOT flag', () => {
@@ -172,6 +180,55 @@ describe('runAuditWithRetry', () => {
     expect(result).toEqual({ exitCode: 0, attempts: 1 });
     expect(runOnce).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('a clean run logs the trimmed audit output, then the OK verdict', async () => {
+    const log = vi.fn();
+
+    await runAuditWithRetry({
+      runOnce: () => ({ status: 0, output: '\n  No known vulnerabilities found  \n' }),
+      sleep: vi.fn().mockResolvedValue(undefined),
+      log,
+    });
+
+    expect(log.mock.calls).toEqual([
+      ['No known vulnerabilities found'],
+      ['dependency-audit OK: no high+ severity production vulnerabilities'],
+    ]);
+  });
+
+  it('a real finding prints the trimmed report, then the FAILED verdict', async () => {
+    const report = vulnerabilityReport('high', 'Prototype Pollution', 'lodash');
+    const error = vi.fn();
+
+    await runAuditWithRetry({
+      runOnce: () => ({ status: 1, output: `\n${report}\n` }),
+      sleep: vi.fn().mockResolvedValue(undefined),
+      log: vi.fn(),
+      warn: vi.fn(),
+      error,
+    });
+
+    expect(error.mock.calls).toEqual([
+      [report],
+      ['dependency-audit FAILED: pnpm audit reported a high+ severity issue'],
+    ]);
+  });
+
+  it('a zero-attempt budget never reports green — no audit ran, so it fails closed', async () => {
+    const runOnce = vi.fn();
+
+    const result = await runAuditWithRetry({
+      runOnce,
+      sleep: vi.fn().mockResolvedValue(undefined),
+      maxAttempts: 0,
+      log: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    });
+
+    expect(result).toEqual({ exitCode: 1, attempts: 0 });
+    expect(runOnce).not.toHaveBeenCalled();
   });
 
   it('fails immediately without retrying when a real vulnerability is reported', async () => {
@@ -245,6 +302,46 @@ describe('runAuditWithRetry', () => {
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('matched "etimedout"'));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('ETIMEDOUT contacting registry'));
+  });
+
+  it('the retry warning counts the attempt against the default four-attempt budget and names the delay', async () => {
+    const runOnce = vi
+      .fn()
+      .mockReturnValueOnce({ status: 1, output: 'ETIMEDOUT contacting registry' })
+      .mockReturnValueOnce({ status: 0, output: 'no known vulnerabilities' });
+    const warn = vi.fn();
+
+    await runAuditWithRetry({
+      runOnce,
+      sleep: vi.fn().mockResolvedValue(undefined),
+      baseDelayMs: 100,
+      log: vi.fn(),
+      warn,
+    });
+
+    expect(warn.mock.calls).toEqual([
+      [
+        'dependency-audit: attempt 1/4 looked like a transient registry error ' +
+          '(matched "etimedout" in: ETIMEDOUT contacting registry), retrying in 100ms...',
+      ],
+    ]);
+  });
+
+  it('the downgrade prints the trimmed outage output before its warning', async () => {
+    const outage =
+      ' ERR_PNPM_AUDIT_BAD_RESPONSE  The audit endpoint responded with 502: Bad Gateway';
+    const warn = vi.fn();
+
+    await runAuditWithRetry({
+      runOnce: () => ({ status: 1, output: `${outage}\n` }),
+      sleep: vi.fn().mockResolvedValue(undefined),
+      maxAttempts: 1,
+      log: vi.fn(),
+      warn,
+    });
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0]).toEqual([outage.trim()]);
   });
 
   it('downgrades to a warning (exit 0) instead of failing CI when every attempt is transient', async () => {

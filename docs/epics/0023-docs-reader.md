@@ -117,6 +117,19 @@ the diff highlight fades on the compositor; nothing else moves.
    (allow-list, binary content) shows the server's reason in place rather
    than failing silently. Slice complete.
 4. Live re-render on disk change with diff highlight.
+   **Landed 2026-09-26:** `refreshDocsList`'s per-tick pass (`web/features/
+   docs-viewer.ts`) used to do nothing at all once the open doc was already
+   loaded — the exact case a doc changing on disk while the operator reads it
+   needs. `checkDocLive` now re-fetches that doc on every tick and repaints
+   only when the content actually differs from the cached copy (`paintDoc`,
+   split out of `loadDoc` so both the initial load and a live refresh share
+   one render path), restoring the reader's scroll position and painting a
+   `docs-viewer-diff-flash` overlay that fades its own opacity via a CSS
+   animation — the design direction's "fades on the compositor; nothing else
+   moves" — with a `setTimeout` fallback so `prefers-reduced-motion: reduce`
+   (which strips the animation) still clears the overlay. Skipped while the
+   split-preview editor is open: overwriting a textarea mid-draft with the
+   server's copy would silently discard an unsaved edit. Slice complete.
 5. Hygiene: the archive/index moves from the 2026-09-12 audit
    (`docs/archive/README.md`), so the tree the reader shows is the tree we mean.
    **Landed 2026-09-18:** the audit itself (commit 4d50c153) already moved

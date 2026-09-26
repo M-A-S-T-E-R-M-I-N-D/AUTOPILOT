@@ -165,7 +165,13 @@ import { gzipSync } from 'node:zlib';
 // badge drops its baked-in lock/purple-circle glyph for two new vendored
 // icons (lock, user) in web/icons.ts -- measured 262150B raw, 6 bytes over
 // the old 262144B budget.
-const CORE_RAW_BUDGET = 257 * 1024;
+// Then core raw 257->258KB (2026-09-26), epic 0024's pipeline switch tips
+// follow-up (board web-mtywp7wk-tkdwhi, report-element-mb528l): six new
+// STRINGS.en keys (pipelineLensFleetTip etc.) for the six lens/mode/layout
+// switch tips, which ship in localeJs()'s STRINGS.en splice like every prior
+// i18n slice here -- measured 263401B raw against the old 263168B budget,
+// 233 bytes over.
+const CORE_RAW_BUDGET = 258 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -331,7 +337,13 @@ const CORE_GZIP_BUDGET = 78 * 1024;
 // the pool panel locks its project picker to the registered checkout of
 // the issue's own repository, with two new strings and their STRINGS.he
 // in panels — measured 201.5KB raw (206360B).
-const CHUNK_RAW_BUDGET = 202 * 1024;
+// Then panels raw 202→203KB (2026-09-26), the same epic 0024 pipeline
+// switch tips follow-up as the core entry above: the six tips' Hebrew
+// translations ship via locale-data.ts's deferred STRINGS.he splice, which
+// rides /panels.js regardless of which chunk the switches' own code is
+// served from — measured 207315B raw against the old 206848B budget, 467
+// bytes over.
+const CHUNK_RAW_BUDGET = 203 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight

@@ -89,6 +89,17 @@ describe('pipelineJs (the PIPELINE VIEW panel client)', () => {
     expect(js).toContain("tip: 'Merges connected traces and grids single-span ones.'");
   });
 
+  it('tags each switch tip for i18n via data-i18n-tip (epic 0024, follow-up to report-element-mb528l)', () => {
+    const js = pipelineJs();
+    expect(js).toContain("b.setAttribute('data-i18n-tip', opt.tipI18nKey)");
+    expect(js).toContain("tipI18nKey: 'pipelineLensFleetTip'");
+    expect(js).toContain("tipI18nKey: 'pipelineLensFilesTip'");
+    expect(js).toContain("tipI18nKey: 'pipelineModeGroupedTip'");
+    expect(js).toContain("tipI18nKey: 'pipelineModeFlatTip'");
+    expect(js).toContain("tipI18nKey: 'pipelineLayoutLayeredTip'");
+    expect(js).toContain("tipI18nKey: 'pipelineLayoutCompactTip'");
+  });
+
   it('exposes the lens switch — filesTouched flows from the engine, so file is a real option', () => {
     const js = pipelineJs();
     expect(js).toContain('pipeline-lens-switch');
@@ -425,9 +436,10 @@ describe('pipeline selection interaction (real DOM)', () => {
       (b) => b.textContent === 'Files',
     )!;
     expect(filesButton.getAttribute('data-tip')).toBe('Only files touched by gate-passed firings.');
+    expect(filesButton.getAttribute('data-i18n-tip')).toBe('pipelineLensFilesTip');
   });
 
-  it('a switch tip stays English literal across a locale switch — no data-i18n-tip yet (tracked follow-up)', async () => {
+  it('a switch tip translates on a locale switch, same as its label (epic 0024, follow-up to report-element-mb528l)', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
 
@@ -436,8 +448,10 @@ describe('pipeline selection interaction (real DOM)', () => {
     const filesButton = Array.from(document.querySelectorAll('.pipeline-lens-switch button')).find(
       (b) => b.getAttribute('data-i18n') === 'pipelineLensFiles',
     )!;
-    expect(filesButton.getAttribute('data-tip')).toBe('Only files touched by gate-passed firings.');
-    expect(filesButton.hasAttribute('data-i18n-tip')).toBe(false);
+    expect(filesButton.getAttribute('data-tip')).toBe(STRINGS.he.pipelineLensFilesTip);
+    expect(filesButton.getAttribute('data-tip')).not.toBe(
+      'Only files touched by gate-passed firings.',
+    );
   });
 
   it('switching to Hebrew translates the panel title and the lens switch group/buttons', async () => {

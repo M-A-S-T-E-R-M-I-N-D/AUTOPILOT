@@ -12,10 +12,13 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-26 | [VERDICT close `web-mtywp7to-rbebh4`: epic 0023 (the docs reader) — all 5 slices verified landed](2026-09-26-verdict-web-mtywp7to-rbebh4-epic-0023-docs-reader-closed.md) |
 | 2026-09-26 | [Processing `ap-muhfpue7-ne4oua-convred`: "CONVERGENCE RED: pnpm run test fails on autopilot/flight" — evidence points to stale, self-close expected](2026-09-26-verdict-ap-muhfpue7-ne4oua-convred-likely-stale.md) |
 | 2026-09-26 | [Processing `ap-muhcwgc6-strand`: "STRANDED SYNC-BACK … fleet-2 … firing 275 unverifiable: refused: uncommitted changes remain after the commit" — already rescued](2026-09-26-verdict-ap-muhcwgc6-strand-already-rescued.md) |
 | 2026-09-26 | [Processing `ap-muh96uf3-strand`: "STRANDED SYNC-BACK … firing 268 unverifiable: pnpm run test:impacted failed (crashed: test workers never start…)" — already rescued](2026-09-26-verdict-ap-muh96uf3-strand-already-rescued.md) |
 | 2026-09-26 | [Processing VERDICT `ap-muh0m83x-0`: epic 0007 doc-freshness proposal closed — for a different reason than stated, and the doc has drifted again since](2026-09-26-verdict-ap-muh0m83x-0-epic-0007-docfresh-closed.md) |
+| 2026-09-26 | [Debrief: `489fb8eb` (cost_unknown, board `web-mty1azf9-2we84o`) landed then reverted — root cause, plus a stale-`dist` trap that will bite a careless reland](2026-09-26-cost-unknown-revert-root-cause-stale-dist-trap.md) |
+| 2026-09-26 | [Processing board priorities (firing 307): both ranked tasks blocked on fleet-6's live `packages/store/src/schema.ts` claim](2026-09-26-board-priorities-both-blocked-on-fleet6-schema-claim.md) |
 | 2026-09-25 | [Processing VERDICT `ap-muh6hfu0-0`: MODEL-CARD.md doc-freshness proposal closed — no staleness remains](2026-09-25-verdict-ap-muh6hfu0-0-model-card-docfresh-closed.md) |
 | 2026-09-25 | [Processing `ap-mug9i8fq-strand`: "STRANDED SYNC-BACK … fleet-3 … firing 232 … refused: uncommitted changes remain after the commit" — already rescued](2026-09-25-verdict-ap-mug9i8fq-strand-already-rescued.md) |
 | 2026-09-25 | [Processing `ap-mug7lyxz-strand`: "STRANDED SYNC-BACK … fleet-4 … merge of 'autopilot/flight-worktree-fly-autopilot--fleet-4' into 'autopilot/flight' failed (exit 1): Auto-merging config/mutation/stryker.ci-quarantine-report.config.mjs CONFLICT (add/add)" — already rescued](2026-09-25-verdict-ap-mug7lyxz-strand-already-rescued.md) |
