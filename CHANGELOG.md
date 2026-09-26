@@ -6,6 +6,121 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.55.0] — 2026-09-26
+
+### Added
+
+- feat(dashboard): reland the tasks screen's URL Status filter (epic 0026 slice 2)
+- feat(dashboard): the report menu's last two copy items drop their baked-in emoji
+- feat(versions): say what changed between two versions of a locked repo
+- feat(dashboard): the benchmark is a place in the app, beside Fleet and Community
+- feat(dashboard): the tasks screen's view state reads and writes the URL (epic 0026 slice 2)
+- feat(dashboard): a drilled-open firing shows its commit-time review
+- feat(dashboard): a flight log row shows what the commit-time review flagged
+- feat(dashboard): each flight-log row carries its firing's commit-time review
+- feat(i18n): generate the per-chunk English placement for ADR 0012
+- feat(versions): serve a project's version timeline from the dashboard API
+- feat(dashboard): the tasks screen's Enter opens a row's read-only detail
+- feat(engine): a gate-passed firing gets one non-blocking review of its diff
+- feat(dashboard): the lucky roll drops its baked-in clover; the emoji census reads STRINGS
+- feat(versions): read a locked repo's MYTH, LEGACY and flight log
+- feat(dashboard): the tasks screen's Shift+j/k extends the row selection
+- feat(flight): auto mode lets proposals enter the pool without the approve click
+- feat(dashboard): a benchmark page compares every model the fleet has flown
+- feat(release): the ritual holds the tag's signer to the published signing key
+- feat(dashboard): the tasks screen's Ctrl+A takes every row, named in the key legend
+- feat(flight): the social protocol refuses to answer a question asked of another human
+- feat(dashboard): the tasks screen's x row selection with a live "N selected" count
+- feat(donations): ci:donate gates the signing key on landing and names a leaked private key block
+- feat(flight): weave the interval social pass between firings behind AUTOPILOT_SOCIAL_FLIGHT=full
+- feat(dashboard): the tasks screen's a/d row actions and a keyboard legend that names them
+- feat(flight): weave the social pass into fly.ts start/end behind AUTOPILOT_SOCIAL_FLIGHT
+- feat(release): the ritual verifies the new tag's signature and says who signed it
+- feat(dashboard): reland the tasks screen's j/k row navigation with its bundle budget bump
+- feat(donations): ci:donate checks DONATE.asc's signature with gpg
+- feat(donations): ci:donate refuses an address file without its clearsigned twin
+- feat(docs): the demo recorder also writes a lossless animated PNG, no new dependency
+- feat(dashboard): the report-from-here dialog's close button drops its baked-in emoji for icons
+- feat(dashboard): the landing panel's warning rows drop their baked-in emoji for icons
+- feat(docs): record the README demo as a frame sequence from the shared staged scene
+- feat(mirror-pass): the panel says up front when the project is a checkout of another repo
+- feat(dashboard): the pipeline view's switch tips translate on a locale switch
+- feat(docs-reader): the open doc live re-renders on a disk change (epic 0023 slice 4)
+- feat(flight): the default tier benchmarks fable 5.1 beside sonnet 5 and opus 5.5
+- feat(dashboard): the flight plan's steps move with the arrow keys
+- feat(dashboard): the flight plan reads with its last gate run's outcomes
+- feat(flight): plan the board-to-issues export as a pure decision core
+- feat(dashboard): the span tree opens on the latest firing, earlier ones a drill-in away
+- feat(flight): the fleet benchmarks its models and staffs each tier from the result
+- feat(dashboard): the snackbar's close button drops its baked-in emoji for icons
+- feat(docs-reader): split-preview editor UI for epic 0023 slice 3
+- feat(engine): plumb spawn-flight's instanceId into the ingested firing record
+- feat(flight): benchmark Opus 5.5 against Fable 5.1 and Sonnet 5 in our own flights
+- feat(dashboard): the landing panel's rebuild-restart line drops its baked-in emoji for icons
+- feat(dashboard): the SOUL editor summary drops its baked-in emoji for the vendored icon
+- feat(docs-reader): wire the guarded POST /api/docs/write endpoint
+- feat(dashboard): the fleet report shows work parked on a lane, and each firing logs its claim
+- feat(docs-reader): the editor's write allow-list ships as a pure planner
+- feat(dashboard): a fleet report judges every round the same way
+- feat(dashboard): the flight debrief best/worst lines drop their baked-in trophy/skull emoji
+- feat(dashboard): the landing panel's queued-wait line drops its baked-in clock glyph
+
+### Fixed
+
+- fix(landing): a screenshot-only red lets through the UI change that clears it
+- fix(dashboard): project cards space their actions across, not down
+- fix(flight): the scoreboard judges ship rate on evidence, not on raw rates
+- fix(dashboard): every row of controls keeps a gap between its buttons
+- fix(flight): reland — the flood guard reads the thread of the repo the post lands on
+- fix(i18n): core ships the English for keys it composes at runtime (ADR 0012 slice 2c)
+- fix(flight): the flood guard compares a retry to our signed message without the signature
+- fix(flight): the anti-flood guard judges a long thread's real tail, not its first twenty comments
+- fix(flight): a model whose quota ran dry rests for an hour instead of stopping routing
+- fix(dashboard): parseChangelogItem only accepts real Conventional Commit types
+- fix(onboarding): the backup secret guard catches an OpenPGP secret key
+- fix(ci): validate-configs keeps comment and comma syntax inside JSON strings
+- fix(i18n): tr() echoes the key on a miss instead of undefined or a TypeError
+- fix(report): the compose leak guard catches a leaked OpenPGP secret key
+- fix(flight): a PR touching docs/DONATE.asc queues for a human
+- fix(dashboard): parse scoped breaking-change bullets in What's New
+- fix(keeper): seed the status: needs-format label the issue protocol gate applies
+- fix(docs): the demo manifest refuses holds a GIF cannot store or a browser would not play
+- fix(flight): benchmark exploration sends each decision to the thinnest model first
+- fix(data-model): the doc generator rebuilds the store before it reads the schema
+- fix(docs): the demo's staged firing carries the fixture's firingIdOf key; the bar reads 1 of 4
+- fix(triage): the area classifier lets the title decide, not a body's passing locale mention
+- fix(gate): the per-firing gate also runs tests that scan the repository with git ls-files
+- fix(community): contributor copy stops promising an indefinite good-first-issue reservation
+- fix(mirror-pass): execute refuses a project whose origin is another repo
+- fix(keeper): issue-triage preview shows the milestone execute will set
+- fix(store): a "VERDICT confirm blocked" re-confirmation now counts as blocked too
+- fix(dashboard): the flight plan editor keeps keyboard focus across its redraw
+- fix(flight): an unjudged lane head gets the full suite, and the scoreboard matches by lane
+- fix(dashboard): the fly bar counts only its own lane's firings
+- fix(dashboard): clamp the fly bar's budget-mode spend to its own lane's total
+- fix(engine): a firing's leftovers are set aside, and its commit is gated on its own
+- fix(flight): a release note ends a claim even if the paired unassign fails
+- fix(gate): a gate that crashed from load runs once more before the work is left unverified
+- fix(gate): a test run whose only failures are timeouts is the machine, not the commit
+- fix(guard): a firing never commits a new file a sibling lane is creating
+- fix(flight): a convergence-red task closes itself once its check passes again
+- fix(dashboard): clamp the fly bar's firings-done count to its own lane's plan
+- fix(gate): the per-firing gate runs the fast ci checks where the commit is made
+- fix(docs-reader): the write allow-list's drive-path example carries no drive path
+- fix(gate): every per-firing gate runs the tests that read the repository by path
+- fix(dashboard): fleet report was blind to a lane's own convergence verdicts
+- fix(flight): a convergence red filed in the same millisecond keeps its own id
+- fix(control): a landing's CI verdict comes from its own commit's run
+- fix(flight): one full suite at a time, and a convergence red says what it is and gets fixed
+- fix(gate): a test run whose workers never started is the machine, not the commit
+
+### Performance
+
+- perf(i18n): each chunk serves the English its own code calls (ADR 0012 slice 2b)
+- perf(docs): the demo loop draws only what changed; demo.png shrinks to a third
+- perf(flight): one full convergence gate per fleet, run by the last lane
+- perf(flight): in a fleet the full suite runs at the flight end, and the base lane queues for gates
+
 ## [0.54.0] — 2026-09-24
 
 ### Added
