@@ -11,8 +11,11 @@ import {
   renderAsciiQr,
   extractClearsignedText,
   findSignedAddressFileProblem,
+  findSigningKeyProblem,
+  readImportStatus,
   readSignatureStatus,
   verifySignedAddressFile,
+  verifySigningKey,
   type GpgResult,
 } from '../../../../scripts/donations/generate-donate-doc.mjs';
 
@@ -220,6 +223,68 @@ describe('findSignedAddressFileProblem', () => {
   });
 });
 
+// Structure-only stand-in for `gpg --armor --export`: the framing is what
+// findSigningKeyProblem reads, so the packet is placeholder base64.
+const PUBLIC_KEY_BLOCK = [
+  '-----BEGIN PGP PUBLIC KEY BLOCK-----',
+  'Comment: fixture only, not a key',
+  '',
+  'mDMEZ0lyMBYJKwYBBAHaRw8BAQdAZml4dHVyZS1vbmx5LW5vdC1hLWtleQ==',
+  '=AbCd',
+  '-----END PGP PUBLIC KEY BLOCK-----',
+  '',
+].join('\n');
+
+// Built by concatenation so this file's own text never carries the armor
+// header ci:secret-scan refuses (see secret-scan.test.ts for the same trick).
+const PRIVATE_KEY_BLOCK = PUBLIC_KEY_BLOCK.replaceAll('PUBLIC', 'PRIV' + 'ATE');
+
+describe('findSigningKeyProblem', () => {
+  it('passes when no key file exists yet', () => {
+    expect(findSigningKeyProblem(null)).toBeNull();
+  });
+
+  it('passes exactly one ASCII-armored public key block', () => {
+    expect(findSigningKeyProblem(PUBLIC_KEY_BLOCK)).toBeNull();
+  });
+
+  it('reads CRLF line endings the same as LF', () => {
+    expect(findSigningKeyProblem(PUBLIC_KEY_BLOCK.replace(/\n/g, '\r\n'))).toBeNull();
+  });
+
+  it('refuses a PRIVATE key block by name and says the key is exposed, not misfiled', () => {
+    const problem = findSigningKeyProblem(PRIVATE_KEY_BLOCK);
+
+    expect(problem).toMatch(/PRIVATE key block/);
+    expect(problem).toMatch(/exposed/);
+    expect(problem).toMatch(/revoke/);
+  });
+
+  it('refuses a private key block even when a public one is beside it', () => {
+    expect(findSigningKeyProblem(PUBLIC_KEY_BLOCK + PRIVATE_KEY_BLOCK)).toMatch(
+      /PRIVATE key block/,
+    );
+  });
+
+  it('refuses text before the block a reader would take for part of the key', () => {
+    expect(findSigningKeyProblem(`Fingerprint: see the announcement\n${PUBLIC_KEY_BLOCK}`)).toMatch(
+      /exactly one ASCII-armored PGP public key block/,
+    );
+  });
+
+  it('refuses text after the block', () => {
+    expect(findSigningKeyProblem(`${PUBLIC_KEY_BLOCK}trailer\n`)).toMatch(/exactly one/);
+  });
+
+  it('refuses two public key blocks in one file', () => {
+    expect(findSigningKeyProblem(PUBLIC_KEY_BLOCK + PUBLIC_KEY_BLOCK)).toMatch(/exactly one/);
+  });
+
+  it('refuses a file that is not armored at all', () => {
+    expect(findSigningKeyProblem(DONATIONS_JSON)).toMatch(/exactly one/);
+  });
+});
+
 // Status lines as real `gpg --status-fd 1` printed them (GnuPG 2.4.5, a
 // throwaway ed25519 key): the key import, then the verify of a clearsigned file.
 const FPR = '9E05D3EBFF4B5F130755EF3711F8334136D581E3';
@@ -332,27 +397,88 @@ describe('readSignatureStatus', () => {
   });
 });
 
+describe('readImportStatus', () => {
+  it('returns the fingerprint of the one key gpg imported', () => {
+    expect(readImportStatus(IMPORT_STATUS)).toEqual({ fingerprint: FPR });
+  });
+
+  it('refuses a key file gpg imported no key from', () => {
+    expect(readImportStatus('[GNUPG:] IMPORT_RES 0 0 0')).toMatchObject({
+      problem: expect.stringMatching(/exactly one key; gpg imported 0/),
+    });
+  });
+
+  it('refuses a key file holding more than one key', () => {
+    const two = `${IMPORT_STATUS}\n[GNUPG:] IMPORT_OK 1 ${OTHER_FPR}`;
+
+    expect(readImportStatus(two)).toMatchObject({
+      problem: expect.stringMatching(/exactly one key; gpg imported 2/),
+    });
+  });
+});
+
+const tempKeyDir = (): { dir: string; keyPath: string; signedPath: string } => {
+  const dir = mkdtempSync(join(tmpdir(), 'donate-verify-test-'));
+  const keyPath = join(dir, 'SIGNING-KEY.asc');
+  writeFileSync(keyPath, '-----BEGIN PGP PUBLIC KEY BLOCK-----\n');
+  return { dir, keyPath, signedPath: join(dir, 'DONATE.asc') };
+};
+
+/** A stand-in for spawnSync: answers each gpg call from `results` in order
+ *  and records the argv it was given. */
+const fakeGpg = (...results: GpgResult[]) => {
+  const calls: { command: string; args: readonly string[] }[] = [];
+  const run = (command: string, args: readonly string[]): GpgResult => {
+    calls.push({ command, args });
+    const next = results[calls.length - 1];
+    if (next === undefined) throw new Error('unexpected gpg call');
+    return next;
+  };
+  return { run, calls };
+};
+
+describe('verifySigningKey', () => {
+  it('names GnuPG when gpg cannot be started', () => {
+    const { dir, keyPath } = tempKeyDir();
+    const missing = Object.assign(new Error('spawnSync gpg ENOENT'), { code: 'ENOENT' });
+    const gpg = fakeGpg({ status: null, stdout: '', error: missing });
+
+    expect(verifySigningKey(keyPath, gpg.run)).toMatchObject({
+      problem: expect.stringMatching(/GnuPG/),
+    });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('refuses a key file gpg imports no key from', () => {
+    const { dir, keyPath } = tempKeyDir();
+    const gpg = fakeGpg({ status: 2, stdout: '[GNUPG:] IMPORT_RES 0 0 0' });
+
+    expect(verifySigningKey(keyPath, gpg.run)).toMatchObject({
+      problem: expect.stringMatching(/exactly one key/),
+    });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('names the one imported key after a single import into a throwaway homedir', () => {
+    const { dir, keyPath } = tempKeyDir();
+    const gpg = fakeGpg({ status: 2, stdout: `${IMPORT_STATUS}\n[GNUPG:] FAILURE gpg-exit 2` });
+
+    const result = verifySigningKey(keyPath, gpg.run);
+
+    expect(result).toEqual({ fingerprint: FPR });
+    expect(gpg.calls).toHaveLength(1);
+    const [importCall] = gpg.calls;
+    const home = importCall?.args[importCall.args.indexOf('--homedir') + 1] ?? '';
+    expect(importCall?.command).toBe('gpg');
+    expect(importCall?.args).toEqual(expect.arrayContaining(['--batch', '--no-autostart']));
+    expect(importCall?.args.slice(-2)).toEqual(['--import', keyPath]);
+    expect(home).toContain(tmpdir());
+    expect(existsSync(home)).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
 describe('verifySignedAddressFile', () => {
-  const tempKeyDir = (): { dir: string; keyPath: string; signedPath: string } => {
-    const dir = mkdtempSync(join(tmpdir(), 'donate-verify-test-'));
-    const keyPath = join(dir, 'SIGNING-KEY.asc');
-    writeFileSync(keyPath, '-----BEGIN PGP PUBLIC KEY BLOCK-----\n');
-    return { dir, keyPath, signedPath: join(dir, 'DONATE.asc') };
-  };
-
-  /** A stand-in for spawnSync: answers each gpg call from `results` in order
-   *  and records the argv it was given. */
-  const fakeGpg = (...results: GpgResult[]) => {
-    const calls: { command: string; args: readonly string[] }[] = [];
-    const run = (command: string, args: readonly string[]): GpgResult => {
-      calls.push({ command, args });
-      const next = results[calls.length - 1];
-      if (next === undefined) throw new Error('unexpected gpg call');
-      return next;
-    };
-    return { run, calls };
-  };
-
   it('refuses without running gpg when docs/SIGNING-KEY.asc is missing', () => {
     const { dir, signedPath } = tempKeyDir();
     const gpg = fakeGpg();

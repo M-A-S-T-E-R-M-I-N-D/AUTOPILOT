@@ -58,8 +58,11 @@ address file lands.
    `pnpm run ci:donate` fails if either address file lands without the other,
    if the signed text differs from the committed file, or if GnuPG does not
    report exactly one good signature by that key, made over a hash other
-   than MD5, SHA-1 or RIPEMD-160. The check proves only that the committed
-   key signed; compare its fingerprint with the independently published one
+   than MD5, SHA-1 or RIPEMD-160. It reads `docs/SIGNING-KEY.asc` the moment
+   it lands, before any address does: anything but one ASCII-armored public
+   key block fails, and a private key block fails by name — that key is
+   exposed, not misfiled. The check proves only that the committed key
+   signed; compare its fingerprint with the independently published one
    before you trust it — [`docs/DONATE.md`](DONATE.md#verify-before-you-trust)
    walks a donor through exactly that.
 3. Custody upgrades (BTC multisig, EVM Safe) announced before, not after.
