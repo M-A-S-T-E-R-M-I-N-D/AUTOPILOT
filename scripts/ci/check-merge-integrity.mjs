@@ -100,9 +100,15 @@ function main() {
   const findings = [];
 
   for (const { sha, parents } of merges) {
+    // A merge commit always has 2+ parents by git's own definition (`git log
+    // --merges` only lists commits with multiple parents) — this guard is
+    // unreachable defense-in-depth, so a mutant that drops it is equivalent:
+    // no real merge from mergeCommits() can trigger the difference.
+    // Stryker disable next-line ConditionalExpression
+    if (parents.length < 2) continue;
     // Cheap pre-filter: only a merge whose tree is exactly its first
     // parent's took nothing from the other side.
-    if (parents.length < 2 || !treeIdenticalTo(sha, parents[0])) continue;
+    if (!treeIdenticalTo(sha, parents[0])) continue;
 
     for (let i = 1; i < parents.length; i += 1) {
       const parent = parents[i];
