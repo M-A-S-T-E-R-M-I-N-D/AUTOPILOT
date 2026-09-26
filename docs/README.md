@@ -67,7 +67,9 @@ script and verified by CI — edit the source, not the file.
 - [PUBLICITY-DRAFTS.md](PUBLICITY-DRAFTS.md) — awesome-list submission drafts, written for the operator to
   review and submit by hand. Nothing in it has been sent.
 - [BRAND.md](BRAND.md) — the goggles mark: construction, variants, theme-bound hex, don'ts.
-- [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) — the licenses of what the product ships.
+- [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) — the licenses of what the product ships: every npm package,
+  plus the Lucide icons ([ISC](../LICENSES/ISC.txt)) and the Inter and Roboto typefaces
+  ([OFL-1.1](../LICENSES/OFL-1.1.txt)) copied into the tree. The people behind them: [THANKS.md](../THANKS.md).
 - [MODEL-CARD.md](MODEL-CARD.md) — the engine's model card and evaluation card, versioned per engine version.
 
 ## Self-study and evidence

@@ -9,8 +9,10 @@ AUTOPILOT flies on the work of people who never heard of it. Every dependency
 below is someone's nights and weekends, someone's decade of maintenance,
 someone's patient issue triage for strangers. This file is the project's
 standing gratitude — and its promise to consume that work fairly: licenses
-honored, nothing vendored or stripped, the full inventory kept public and
-regenerated in [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md)
+honored, nothing stripped, the little copied into the product itself (the
+typefaces and icons below) shipped with its complete license text, and the
+full inventory kept public and regenerated in
+[`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md)
 (487 packages at last count; zero copyleft-strong, zero unknown — audited).
 
 ## The pillars
@@ -49,10 +51,11 @@ regenerated in [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md)
 
 ## The letters themselves
 
-- **[Inter](https://rsms.me/inter/)** by **Rasmus Andersson** (SIL OFL-1.1 — license included at
-  [`LICENSES/OFL-1.1.txt`](LICENSES/OFL-1.1.txt)) and **[Roboto](https://fonts.google.com/specimen/Roboto)** by
-  **Christian Robertson** (Apache-2.0) — the only two typefaces the dashboard ships, self-hosted as woff2 so no
-  visitor is ever tracked by a font CDN. Every word you read in AUTOPILOT is their craft.
+- **[Inter](https://rsms.me/inter/)** by **Rasmus Andersson** and **[Roboto](https://fonts.google.com/specimen/Roboto)**
+  by **Christian Robertson** (both SIL OFL-1.1 — license included at [`LICENSES/OFL-1.1.txt`](LICENSES/OFL-1.1.txt),
+  each family's upstream notice beside its font data in `apps/dashboard/src/assets/`) — the only two typefaces the
+  dashboard ships, self-hosted as woff2 so no visitor is ever tracked by a font CDN. Every word you read in
+  AUTOPILOT is their craft.
 
 ## The icons
 
