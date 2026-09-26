@@ -2453,10 +2453,57 @@ function boardViewToggleLabel(btn, view) {
 // (setSweptText swaps text content, and the keys are not translated).
 var BOARD_KEYS = [
   ['j', 'k', 'boardKeysMove', 'move'],
+  ['x', null, 'boardKeysSelect', 'select'],
   ['a', null, 'boardKeysApprove', 'approve'],
   ['d', null, 'boardKeysDone', 'done'],
   ['Esc', null, 'boardKeysLeave', 'leave'],
 ];
+// ROW SELECTION (epic 0026 "the tasks screen" slice 1, the Linear/M3 half
+// of "keyboard selection"): every row leads with a real checkbox — native
+// Space/click toggle, native checked semantics for assistive tech, no ARIA
+// gymnastics on a list item — and the x key presses the one under the keyboard
+// cursor. The set lives here, keyed by task id, because renderProjectPage
+// rebuilds the whole list on every changed tick: a fresh row reads its box
+// back from this map. syncBoardSelection() derives everything visible from
+// the boxes themselves (the .task-selected rows, the list's data-selecting
+// flag that surfaces every box while a set exists, the "N selected" status
+// line) so a change from the keyboard, the pointer or a rebuild converges
+// on one truth. Bulk actions over the set are the epic's slice 4.
+var boardSelected = {};
+function syncBoardSelection(list) {
+  var boxes = list.querySelectorAll('[data-task-select]');
+  var n = 0;
+  for (var i = 0; i < boxes.length; i++) {
+    var box = boxes[i];
+    if (box.checked) n++;
+    var row = box.closest('.task');
+    if (row) row.classList.toggle('task-selected', box.checked);
+  }
+  if (n) list.setAttribute('data-selecting', 'true');
+  else list.removeAttribute('data-selecting');
+  var line = list.parentElement && list.parentElement.querySelector('.board-selection');
+  if (!line) return;
+  // The status line is a live region: it carries the template tag only
+  // while it has a count, or the next translateDom() sweep would paint
+  // "0 selected" over the blank line every tick.
+  if (n) {
+    line.setAttribute('data-i18n-template', 'boardSelected');
+    line.setAttribute('data-i18n-args', JSON.stringify({ n: n }));
+    line.textContent = tr('boardSelected', { n: n });
+  } else {
+    line.removeAttribute('data-i18n-template');
+    line.removeAttribute('data-i18n-args');
+    line.textContent = '';
+  }
+}
+function clearBoardSelection(list) {
+  var boxes = list.querySelectorAll('[data-task-select]');
+  for (var i = 0; i < boxes.length; i++) {
+    boxes[i].checked = false;
+    delete boardSelected[boxes[i].getAttribute('data-task-select')];
+  }
+  syncBoardSelection(list);
+}
 function boardKeysHint() {
   var p = el('p', 'board-keys muted');
   for (var i = 0; i < BOARD_KEYS.length; i++) {
@@ -2529,6 +2576,11 @@ function tasksSection(c) {
     }
     wrap.appendChild(columns);
     wrap.appendChild(boardKeysHint());
+    // "N selected" (epic 0026 row selection): role=status so a screen reader
+    // hears the count move; blank — and, via CSS, zero-height — with no set.
+    var selectionLine = el('p', 'board-selection');
+    selectionLine.setAttribute('role', 'status');
+    wrap.appendChild(selectionLine);
     var ul = el('ul', 'tasks');
     // Announcements for keyboard reorder (research: live region, GitHub pattern).
     var live = el('p', 'sr-only');
@@ -2567,6 +2619,19 @@ function tasksSection(c) {
       var li = el('li', 'task' + (t.focus ? ' task-focused' : anyFocus ? ' task-dimmed' : ''));
       li.setAttribute('data-task-id', t.id);
       li.setAttribute('data-task-status', t.status);
+      // The leading selection checkbox (epic 0026 row selection, above):
+      // first in DOM order so it is the row's leading element for the eye,
+      // the Tab order and a screen reader alike. Its accessible name is the
+      // task's title behind a {name} template, so a locale switch repaints
+      // it in place. Checked state reads back from boardSelected on rebuild.
+      var selectBox = el('input', 'task-select');
+      selectBox.type = 'checkbox';
+      selectBox.setAttribute('data-task-select', t.id);
+      selectBox.checked = !!boardSelected[t.id];
+      selectBox.setAttribute('aria-label', tr('taskSelectAria', t.title));
+      selectBox.setAttribute('data-i18n-aria-template', 'taskSelectAria');
+      selectBox.setAttribute('data-i18n-name', t.title);
+      li.appendChild(selectBox);
       if (isWorkable) {
         openIdx++;
         // Pointer drag reorder — the primary interaction for sighted mouse/touch
@@ -2815,6 +2880,7 @@ function tasksSection(c) {
       ul.appendChild(li);
     }
     wrap.appendChild(ul);
+    syncBoardSelection(ul);
     if (closedTotal > closedVisible) {
       var historyBtn = document.createElement('button');
       historyBtn.type = 'button';
@@ -2939,18 +3005,25 @@ wireRoving('.task [tabindex]', '.task');
 // shares the button's fetch, disable-while-pending and refresh path exactly,
 // and is a no-op on a row that has no such button (a done row; 'a' on a
 // queued one). Single-letter keys stay WCAG 2.1.4-clean because they only
-// fire with focus inside a task row. Multi-select (x), Enter, and the detail
-// pane the epic doc also lists are separable follow-up slices.
-var BOARD_ACTION_KEYS = { a: '[data-task-approve]', d: '[data-task-done]' };
+// fire with focus inside a task row. x toggles the row's selection box
+// (boardSelected, above) the same press-the-row's-own-control way; Escape
+// is two-stage like a search field's — with a set, the first press clears
+// it and keeps the cursor where it is, the next one leaves. Enter and the
+// detail pane the epic doc also lists are separable follow-up slices.
+var BOARD_ACTION_KEYS = { a: '[data-task-approve]', d: '[data-task-done]', x: '[data-task-select]' };
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'j' && e.key !== 'k' && e.key !== 'Escape' && !BOARD_ACTION_KEYS[e.key]) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // A handler that ran before this one already claimed the key: a toggle
+  // (x) pressed twice in one keystroke would undo itself.
+  if (e.defaultPrevented) return;
   var row = e.target && e.target.closest && e.target.closest('.task');
   if (!row) return;
   var list = row.closest('.tasks');
   if (!list) return;
   if (e.key === 'Escape') {
     e.preventDefault();
+    if (list.hasAttribute('data-selecting')) { clearBoardSelection(list); return; }
     if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
     return;
   }
@@ -2969,6 +3042,18 @@ document.addEventListener('keydown', function (e) {
   e.preventDefault();
   var title = rows[next].querySelector('.task-title');
   if (title) title.focus();
+});
+// Row selection (epic 0026): the checkbox is the one source — the x key
+// presses it, the pointer clicks it — and this records the row into
+// boardSelected and repaints the set. Delegated like the actions below.
+document.addEventListener('change', function (e) {
+  var box = e.target && e.target.closest && e.target.closest('[data-task-select]');
+  if (!box) return;
+  var id = box.getAttribute('data-task-select');
+  if (box.checked) boardSelected[id] = true;
+  else delete boardSelected[id];
+  var list = box.closest('.tasks');
+  if (list) syncBoardSelection(list);
 });
 // Task-board actions (event-delegated: they survive live re-renders).
 document.addEventListener('click', function (e) {
