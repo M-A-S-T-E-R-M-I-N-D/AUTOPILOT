@@ -91,6 +91,9 @@ doing the same work:
    X" — pick another, or watch for release.
 3. **Hand back honestly**: `/unclaim` releases it instantly, no hard feelings;
    14 quiet days auto-release a stale claim so tasks never rot in a pocket.
+   The welcome mat expires the same way: a `good first issue` nobody claims
+   within 14 days opens to the fleet (KEEPER adds `agent-ok` and says so in
+   one comment) — your `/claim` still takes it back.
 4. **Stay in scope**: each help-wanted issue names its scoped paths and its
    Definition of Done — touching only those is what keeps your PR
    squash-mergeable and version-compatible (the gate + KEEPER verify the rest).

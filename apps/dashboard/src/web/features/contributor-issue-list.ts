@@ -83,8 +83,9 @@ function renderContributorIssueListPanel(entries) {
     'sprout',
   );
   section.appendChild(title);
-  // #43: this list is the humans' welcome mat — the fleet steps around it.
-  var audience = el('p', 'panel-audience', 'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below.');
+  // #43: this list is the humans' welcome mat — the fleet steps around it for
+  // RESERVED_FOR_HUMANS_DAYS (flight/issue-triage.ts), then a good first issue opens.
+  var audience = el('p', 'panel-audience', 'For people: reserved for humans, the fleet steps around these. Claim one on GitHub with /claim; the walkthrough is below. A good first issue nobody claims within 14 days opens to the fleet (agent-ok) — /claim still takes it back.');
   audience.setAttribute('data-i18n', 'contributorIssueListAudience');
   section.appendChild(audience);
   for (var i = 0; i < entries.length; i++) {

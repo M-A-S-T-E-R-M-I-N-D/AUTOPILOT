@@ -12,6 +12,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import { AGENT_OK_LABEL, RESERVED_FOR_HUMANS_DAYS } from '../../src/flight/issue-triage.js';
 
 function bootWithEntries(entries: unknown): void {
   document.open();
@@ -81,6 +82,24 @@ describe('the contributor issue list panel', () => {
     expect(document.querySelector('.contributor-issue-list-issue-title')?.textContent).toBe(
       'Keyboard nav is broken in the fleet table',
     );
+  });
+
+  it('tells people the reservation window the triage actually enforces, not an indefinite one', async () => {
+    bootWithEntries([ENTRY]);
+
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('#contributor-issue-list-panel .panel-audience'),
+      ).not.toBeNull();
+    });
+    // board web-mtxewht0-488yie: the copy used to promise "the fleet steps
+    // around these" with no end — while issue-triage.ts had been opening an
+    // unclaimed good first issue after RESERVED_FOR_HUMANS_DAYS all along.
+    const audience = document.querySelector('#contributor-issue-list-panel .panel-audience');
+    expect(audience?.getAttribute('data-i18n')).toBe('contributorIssueListAudience');
+    expect(audience?.textContent).toContain(`${RESERVED_FOR_HUMANS_DAYS} days`);
+    expect(audience?.textContent).toContain(AGENT_OK_LABEL);
+    expect(audience?.textContent).toContain('/claim');
   });
 
   it('renders the /claim walkthrough as a real, keyboard-operable <details> disclosure alongside the list', async () => {

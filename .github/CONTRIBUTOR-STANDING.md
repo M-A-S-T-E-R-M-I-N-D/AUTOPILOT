@@ -27,6 +27,12 @@ so must yours), and never answers a question that was asked of a human.
 This law ships in the product itself, so every operator's instance is born
 knowing it.
 
+The welcome mat is reserved, not fenced forever: a `good first issue` nobody
+has claimed for 14 days opens to the fleet — our KEEPER adds `agent-ok`, says
+so in one comment naming the way to keep it (`/claim`), and boards it. An
+assigned issue never expires; `agent-ok` set by hand is the same release,
+granted early.
+
 ## Standing tiers (what they unlock, how they're earned)
 
 | Tier                    | Who                              | Unlocks                                                                                                               | Earned by                                 |
