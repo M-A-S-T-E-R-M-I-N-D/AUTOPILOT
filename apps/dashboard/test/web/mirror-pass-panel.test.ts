@@ -16,6 +16,7 @@ import {
   mirrorPassCanExecuteLandingNote,
   mirrorPassCanExecuteStaleClaim,
   mirrorPassCanExecutePriorityFollow,
+  mirrorPassRepoMismatch,
 } from '../../src/web/mirror-pass-panel.js';
 
 describe('mirrorPassReconcileItems / mirrorPassLandingNoteItems / mirrorPassStaleClaimItems', () => {
@@ -401,6 +402,47 @@ describe('mirrorPassDriftExecuteResultMessage', () => {
     ).toEqual({
       className: 'mirror-pass-result mirror-pass-result-ok',
       text: 'Filed 1 issue(s). (1 duplicate(s) skipped)',
+    });
+  });
+});
+
+describe('mirrorPassRepoMismatch (epic 0019 S3 per project, on the client)', () => {
+  const MAINTAINER = { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' };
+
+  it('names both repositories when the project is a checkout of a different repo than gh acts on', () => {
+    expect(
+      mirrorPassRepoMismatch(MAINTAINER, { githubRepo: 'someone-else/their-project' }),
+    ).toEqual({
+      projectRepo: 'someone-else/their-project',
+      ghRepo: 'octocat/hello-world',
+    });
+  });
+
+  it('returns null when the two names match, comparing case-insensitively like GitHub does', () => {
+    expect(mirrorPassRepoMismatch(MAINTAINER, { githubRepo: 'octocat/hello-world' })).toBeNull();
+    expect(mirrorPassRepoMismatch(MAINTAINER, { githubRepo: 'OctoCat/Hello-World' })).toBeNull();
+  });
+
+  it('returns null when the project has no GitHub origin to compare — the single-context behavior stays', () => {
+    expect(mirrorPassRepoMismatch(MAINTAINER, { githubRepo: null })).toBeNull();
+    expect(mirrorPassRepoMismatch(MAINTAINER, {})).toBeNull();
+    expect(mirrorPassRepoMismatch(MAINTAINER, null)).toBeNull();
+    expect(mirrorPassRepoMismatch(MAINTAINER, undefined)).toBeNull();
+  });
+
+  it('returns null when identity is unresolved — an unknown answer is never treated as a mismatch', () => {
+    expect(mirrorPassRepoMismatch(null, { githubRepo: 'someone-else/their-project' })).toBeNull();
+    expect(
+      mirrorPassRepoMismatch(undefined, { githubRepo: 'someone-else/their-project' }),
+    ).toBeNull();
+    expect(mirrorPassRepoMismatch({}, { githubRepo: 'someone-else/their-project' })).toBeNull();
+  });
+
+  it('is a role-blind fact — a guest of another repo gets the same answer as its maintainer', () => {
+    const guest = { login: 'a-contributor', nameWithOwner: 'octocat/hello-world', role: 'user' };
+    expect(mirrorPassRepoMismatch(guest, { githubRepo: 'someone-else/their-project' })).toEqual({
+      projectRepo: 'someone-else/their-project',
+      ghRepo: 'octocat/hello-world',
     });
   });
 });

@@ -62,6 +62,16 @@
  * is a local store pin, never a `gh` call), so it also reuses
  * `mirrorPassExecuteResultMessage`.
  *
+ * Epic 0019 S3 "per project" (`mirror-pass-panel.ts`'s
+ * `mirrorPassRepoMismatch`): `loadMirrorPassBody` resolves identity FIRST and
+ * asks whether this project's own origin (`mirrorPassSection`'s `githubRepo`,
+ * the fleet state's, carried on the body as `data-github-repo` so every
+ * post-execute reload asks the same question) is even the repository `gh`
+ * acts on — before a single preview fetch. A known mismatch renders
+ * `renderMirrorPassRepoMismatch`'s one line instead of the wrong
+ * repository's issues and the execute buttons that could only ever come back
+ * "Not run — repo-mismatch"; the previews are never requested for it.
+ *
  * `web/shell.ts`'s `clientJs()` calls this indirectly through
  * `featureModulesJs()`, so its return value — not its compiled source — is
  * what lands in the served `/app.js` text; `discoverFeatureModules('web/
@@ -108,15 +118,17 @@ import {
   mirrorPassCanExecuteLandingNote,
   mirrorPassCanExecuteStaleClaim,
   mirrorPassCanExecutePriorityFollow,
+  mirrorPassRepoMismatch,
 } from '../mirror-pass-panel.js';
 
 /** The Mirror pass panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function mirrorPassJs(): string {
   return `
-// The thirteen functions below are generated FROM web/mirror-pass-panel.ts
+// The fourteen functions below are generated FROM web/mirror-pass-panel.ts
 // (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slices (c) and (c) v2, board
-// web-mtrh1hlh-62l41b's priority-follow slice) — their real compiled source
-// via .toString(), not a hand-retyped copy. It can no longer drift apart.
+// web-mtrh1hlh-62l41b's priority-follow and per-project slices) — their real
+// compiled source via .toString(), not a hand-retyped copy. It can no longer
+// drift apart.
 // mirrorPassItems calls all five of the finding formatters, so every one of
 // them must be spliced in too (issue-triage.ts's mirrorPassJs-equivalent
 // splices all six of its own helpers for the same reason) — a lone
@@ -135,6 +147,7 @@ ${mirrorPassDriftExecuteResultMessage.toString()}
 ${mirrorPassCanExecuteLandingNote.toString()}
 ${mirrorPassCanExecuteStaleClaim.toString()}
 ${mirrorPassCanExecutePriorityFollow.toString()}
+${mirrorPassRepoMismatch.toString()}
 function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, canExecuteStaleClaim, canExecutePriorityFollow, pid) {
   body.replaceChildren();
   items = items || [];
@@ -228,19 +241,50 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
   }
   translateDom(document.documentElement.lang || 'en');
 }
+function renderMirrorPassRepoMismatch(body, mismatch) {
+  body.replaceChildren();
+  // Epic 0019 S3 "per project": both names are live GitHub facts, so the line
+  // is a two-value template — data-i18n-template plus a data-i18n-args map
+  // let translateDom() re-fill it in place on a locale switch, never a fixed
+  // [data-i18n] tag that would paint the raw template over the names (the
+  // same shape firing-timeline.ts's replay position label takes).
+  var args = { projectRepo: mismatch.projectRepo, ghRepo: mismatch.ghRepo };
+  var msg = el('p', 'muted mirror-pass-repo-mismatch', tr('mirrorPassRepoMismatch', args));
+  msg.setAttribute('data-i18n-template', 'mirrorPassRepoMismatch');
+  msg.setAttribute('data-i18n-args', JSON.stringify(args));
+  body.appendChild(msg);
+  translateDom(document.documentElement.lang || 'en');
+}
 function loadMirrorPassBody(body, pid) {
   var base = '/api/mirror-pass';
   var qs = '?project=' + encodeURIComponent(pid);
-  Promise.all([
-    fetch(base + qs).then(function (r) { return r.ok ? r.json() : { mirrorPass: null }; }),
-    fetch(base + '/landing-note' + qs).then(function (r) { return r.ok ? r.json() : { landingNote: null }; }),
-    fetch(base + '/drift' + qs).then(function (r) { return r.ok ? r.json() : { drift: null }; }),
-    fetch(base + '/stale-claims' + qs).then(function (r) { return r.ok ? r.json() : { staleClaims: null }; }),
-    fetch(base + '/priority-follow' + qs).then(function (r) { return r.ok ? r.json() : { priorityFollow: null }; }),
-    socialIdentity(),
-  ])
-    .then(function (results) {
+  var project = { githubRepo: body.getAttribute('data-github-repo') || null };
+  // Epic 0019 S3 "per project": gh acts on ONE repository, and every preview
+  // below reads that repository's issues — so identity resolves FIRST and
+  // mirrorPassRepoMismatch decides whether this project is even that
+  // repository before a single preview is fetched, the same gate-before-any-
+  // read order flight/mirror-pass-execute.ts's execute gate keeps. A known
+  // mismatch is said up front; the wrong repository's issues never load.
+  socialIdentity()
+    .then(function (identityRes) {
+      var identity = identityRes && identityRes.identity;
+      var mismatch = mirrorPassRepoMismatch(identity, project);
+      if (mismatch) return { identity: identity, mismatch: mismatch, previews: null };
+      return Promise.all([
+        fetch(base + qs).then(function (r) { return r.ok ? r.json() : { mirrorPass: null }; }),
+        fetch(base + '/landing-note' + qs).then(function (r) { return r.ok ? r.json() : { landingNote: null }; }),
+        fetch(base + '/drift' + qs).then(function (r) { return r.ok ? r.json() : { drift: null }; }),
+        fetch(base + '/stale-claims' + qs).then(function (r) { return r.ok ? r.json() : { staleClaims: null }; }),
+        fetch(base + '/priority-follow' + qs).then(function (r) { return r.ok ? r.json() : { priorityFollow: null }; }),
+      ]).then(function (previews) { return { identity: identity, mismatch: null, previews: previews }; });
+    })
+    .then(function (loaded) {
       if (!body.isConnected) return;
+      if (loaded.mismatch) {
+        renderMirrorPassRepoMismatch(body, loaded.mismatch);
+        return;
+      }
+      var results = loaded.previews;
       var reconcile = results[0] && results[0].mirrorPass;
       var landingNote = results[1] && results[1].landingNote;
       var drift = results[2] && results[2].drift;
@@ -253,7 +297,7 @@ function loadMirrorPassBody(body, pid) {
         staleClaims: staleClaims,
         priorityFollow: priorityFollow,
       });
-      var identity = results[5] && results[5].identity;
+      var identity = loaded.identity;
       renderMirrorPassBody(
         body,
         items,
@@ -273,11 +317,15 @@ function loadMirrorPassBody(body, pid) {
       translateDom(document.documentElement.lang || 'en');
     });
 }
-function mirrorPassSection(pid) {
+function mirrorPassSection(pid, githubRepo) {
   var wrap = el('section', 'mirror-pass-panel');
   var title = panelHeading('h3', 'mirror-pass-title', 'mirrorPassTitle', 'repeat');
   wrap.appendChild(title);
   var body = el('div', 'mirror-pass-body');
+  // The project's own origin repo (the fleet state's githubRepo, empty when
+  // it is not a GitHub checkout) rides the body, so the initial load here
+  // and every post-execute reload ask the same per-project question.
+  body.setAttribute('data-github-repo', githubRepo || '');
   var loadingMsg = el('p', 'muted', 'Checking the board against GitHub…');
   loadingMsg.setAttribute('data-i18n', 'mirrorPassLoading');
   body.appendChild(loadingMsg);

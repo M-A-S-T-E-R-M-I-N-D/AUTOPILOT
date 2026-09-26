@@ -24,11 +24,12 @@ import {
   mirrorPassCanExecuteLandingNote,
   mirrorPassCanExecuteStaleClaim,
   mirrorPassCanExecutePriorityFollow,
+  mirrorPassRepoMismatch,
 } from '../../../src/web/mirror-pass-panel.js';
 import { mirrorPassJs } from '../../../src/web/features/mirror-pass.js';
 
 describe('mirrorPassJs', () => {
-  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassPriorityFollowItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage/mirrorPassCanExecuteDrift/mirrorPassDriftExecuteResultMessage/mirrorPassCanExecuteLandingNote/mirrorPassCanExecuteStaleClaim/mirrorPassCanExecutePriorityFollow real compiled source via .toString()', () => {
+  it('embeds mirrorPassReconcileItems/mirrorPassLandingNoteItems/mirrorPassStaleClaimItems/mirrorPassDriftItems/mirrorPassPriorityFollowItems/mirrorPassItems/mirrorPassCanExecute/mirrorPassExecuteResultMessage/mirrorPassCanExecuteDrift/mirrorPassDriftExecuteResultMessage/mirrorPassCanExecuteLandingNote/mirrorPassCanExecuteStaleClaim/mirrorPassCanExecutePriorityFollow/mirrorPassRepoMismatch real compiled source via .toString()', () => {
     const out = mirrorPassJs();
     expect(out).toContain(mirrorPassReconcileItems.toString());
     expect(out).toContain(mirrorPassLandingNoteItems.toString());
@@ -43,21 +44,42 @@ describe('mirrorPassJs', () => {
     expect(out).toContain(mirrorPassCanExecuteLandingNote.toString());
     expect(out).toContain(mirrorPassCanExecuteStaleClaim.toString());
     expect(out).toContain(mirrorPassCanExecutePriorityFollow.toString());
+    expect(out).toContain(mirrorPassRepoMismatch.toString());
   });
 
-  it('declares mirrorPassSection, renderMirrorPassBody, and loadMirrorPassBody', () => {
+  it('declares mirrorPassSection, renderMirrorPassBody, renderMirrorPassRepoMismatch, and loadMirrorPassBody', () => {
     const out = mirrorPassJs();
-    expect(out).toContain('function mirrorPassSection(pid) {');
+    expect(out).toContain('function mirrorPassSection(pid, githubRepo) {');
     expect(out).toContain(
       'function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecuteLandingNote, canExecuteStaleClaim, canExecutePriorityFollow, pid) {',
     );
+    expect(out).toContain('function renderMirrorPassRepoMismatch(body, mismatch) {');
     expect(out).toContain('function loadMirrorPassBody(body, pid) {');
   });
 
-  it('fetches identity alongside the five previews via the shared socialIdentity() core helper', () => {
+  it('resolves identity through the shared socialIdentity() core helper BEFORE the five previews, and asks mirrorPassRepoMismatch first (epic 0019 S3 per project)', () => {
     const out = mirrorPassJs();
-    expect(out).toContain('socialIdentity(),');
+    // The call sites, not the spliced helper's own declaration text.
+    const identityAt = out.indexOf('socialIdentity()');
+    const mismatchAt = out.indexOf('var mismatch = mirrorPassRepoMismatch(identity, project);');
+    const previewsAt = out.indexOf('fetch(base + qs)');
+    expect(identityAt).toBeGreaterThan(-1);
+    expect(mismatchAt).toBeGreaterThan(identityAt);
+    expect(previewsAt).toBeGreaterThan(mismatchAt);
     expect(out).toContain('mirrorPassCanExecute(identity, reconcile)');
+  });
+
+  it("carries the project's own origin repo on the panel body so every reload asks the same per-project question", () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("body.setAttribute('data-github-repo', githubRepo || '');");
+    expect(out).toContain("githubRepo: body.getAttribute('data-github-repo') || null");
+  });
+
+  it('renders the repo-mismatch line as a two-value i18n template the locale sweep can re-fill in place', () => {
+    const out = mirrorPassJs();
+    expect(out).toContain("msg.setAttribute('data-i18n-template', 'mirrorPassRepoMismatch');");
+    expect(out).toContain("msg.setAttribute('data-i18n-args', JSON.stringify(args));");
+    expect(out).toContain("tr('mirrorPassRepoMismatch', args)");
   });
 
   it('gates the execute button on mirrorPassCanExecute, not a hand-rolled role check', () => {
@@ -96,7 +118,7 @@ describe('mirrorPassJs', () => {
   it('sweeps freshly built DOM after every async render (board web-msnsndki-dz3vn1)', () => {
     const out = mirrorPassJs();
     expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
-      3,
+      4,
     );
   });
 

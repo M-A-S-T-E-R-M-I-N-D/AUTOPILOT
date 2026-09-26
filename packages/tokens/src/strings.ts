@@ -1905,6 +1905,14 @@ const EN_STRINGS = {
   mirrorPassLoading: 'Checking the board against GitHub…',
   mirrorPassEmpty: 'Board and GitHub agree — nothing to reconcile.',
   mirrorPassUnavailable: 'Mirror pass unavailable.',
+  // Its per-project gate on the client (EPIC 0019 S3 "per project"): the gh
+  // CLI acts on ONE repository, and a project whose git origin is a different
+  // one has nothing to mirror through it. A two-value template — {projectRepo}
+  // and {ghRepo} ride data-i18n-args, translateDom()'s map twin of tr()'s own
+  // — never a fixed data-i18n tag: both names are live GitHub facts the sweep
+  // must re-fill, not overwrite.
+  mirrorPassRepoMismatch:
+    'Not compared — this project is a checkout of {projectRepo}, but gh is acting on {ghRepo}.',
   // Its "Run mirror pass" EXECUTE button (board web-msnsndki-dz3vn1): the
   // idle label rides a plain data-i18n tag (the button carried that tag from
   // its first render, but no key existed here — so it never translated); its
@@ -3105,6 +3113,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     mirrorPassLoading: 'בודק את הלוח מול GitHub…',
     mirrorPassEmpty: 'הלוח וGitHub תואמים — אין מה לתאם.',
     mirrorPassUnavailable: 'מעבר השיקוף אינו זמין.',
+    mirrorPassRepoMismatch:
+      'לא הושווה — הפרויקט הזה הוא עותק של {projectRepo}, אבל gh פועל על {ghRepo}.',
     mirrorPassExecute: 'הרץ מעבר שיקוף',
     mirrorPassExecuteTip:
       'מחיל כל ממצא תיאום שלמעלה — סוגר או פותח מחדש issues ומפרסם תגובות דרך gh.',

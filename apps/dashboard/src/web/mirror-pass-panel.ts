@@ -70,6 +70,20 @@
  * `duplicates` — the write is a local store pin, never a `gh` call), so it
  * reuses {@link mirrorPassExecuteResultMessage} too.
  *
+ * {@link mirrorPassRepoMismatch} is epic 0019 S3's "per project" half on the
+ * client: the `gh` CLI acts on ONE repository (`identity.nameWithOwner`) and
+ * every preview above reads that repository's issues, while a project is a
+ * checkout of whatever its git origin names (the fleet state's `githubRepo`,
+ * `read/fleet.ts`). `flight/mirror-pass-execute.ts`'s execute gate already
+ * refuses a known mismatch — but the panel still fetched all four gh-reading
+ * previews for such a project, listed the WRONG repository's issues as if
+ * they were this project's findings, and showed execute buttons that could
+ * only ever come back "Not run". `web/features/mirror-pass.ts` now asks this
+ * first — right after identity resolves, before a single preview fetch — and
+ * says so up front instead. Only a KNOWN mismatch counts: the same two
+ * "nothing to compare" outs the server gate keeps (no GitHub origin,
+ * unresolved identity) keep the single-context behavior.
+ *
  * `web/shell.ts` embeds this module's real compiled source into the
  * generated `/app.js` text via `.toString()` — see `fleetJs()` — instead of
  * hand-retyping it, so the two copies can no longer drift apart. Each
@@ -309,6 +323,54 @@ export function mirrorPassCanExecutePriorityFollow(
 ): boolean {
   if (identity && identity.role !== 'maintainer') return false;
   return mirrorPassPriorityFollowItems(priorityFollow ?? []).length > 0;
+}
+
+/** Duck-typed subset of the fleet state's project row the per-project check
+ *  reads — `githubRepo` is the `owner/repo` its git origin points at
+ *  (`read/fleet.ts`'s `ProjectAggregate.githubRepo`), null or absent when it
+ *  is not a GitHub checkout. */
+export interface MirrorPassProjectLike {
+  readonly githubRepo?: string | null;
+}
+
+/** Duck-typed subset of `flight/social-pass.ts`'s `SocialIdentity` the
+ *  per-project check reads — `nameWithOwner` is the one repository the `gh`
+ *  CLI acts on. Optional so an unresolved identity (`{}`/null) reads as
+ *  "unknown", never as a mismatch. */
+export interface MirrorPassRepoIdentityLike {
+  readonly nameWithOwner?: string | null;
+}
+
+/** Both names, when the panel must say they differ — the project's own
+ *  origin and the repository `gh` acts on, as given (never lowercased: the
+ *  line quotes them back to the operator). */
+export interface MirrorPassRepoMismatch {
+  readonly projectRepo: string;
+  readonly ghRepo: string;
+}
+
+/**
+ * Epic 0019 S3 "per project", on the client: whether `project` is a checkout
+ * of a DIFFERENT repository than the one `gh` (and so every mirror-pass
+ * preview) acts on. Both names when they are both known and differ; `null`
+ * otherwise — an unresolved identity or a project with no GitHub origin has
+ * nothing to compare, and keeps the single-context behavior, the same two
+ * outs `flight/mirror-pass-execute.ts`'s `gateMirrorPassExecute` keeps
+ * server-side. GitHub names compare case-insensitively (`flight/project-repo.ts`'s
+ * `sameRepo`, restated here rather than imported: this function is
+ * `.toString()`-spliced into the served bundle, where an import would not
+ * exist). Role-blind — a guest of another repo gets the same fact as its
+ * maintainer; the role gates above decide what to do about it.
+ */
+export function mirrorPassRepoMismatch(
+  identity: MirrorPassRepoIdentityLike | null | undefined,
+  project: MirrorPassProjectLike | null | undefined,
+): MirrorPassRepoMismatch | null {
+  const ghRepo = identity && identity.nameWithOwner;
+  const projectRepo = project && project.githubRepo;
+  if (!ghRepo || !projectRepo) return null;
+  if (ghRepo.toLowerCase() === projectRepo.toLowerCase()) return null;
+  return { projectRepo, ghRepo };
 }
 
 /** One reconciled task's real outcome, as {@link createMirrorPassExecuteApi}
