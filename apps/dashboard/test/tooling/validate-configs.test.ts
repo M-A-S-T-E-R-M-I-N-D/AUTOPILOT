@@ -2,17 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Coverage for the pure findUnpinnedActions() check of
- * scripts/ci/validate-configs.mjs (check #8, OpenSSF Scorecard
- * "Pinned-Dependencies"), the CI gate that fails a run if a
- * `.github/workflows/*.yml` step floats on a mutable tag/branch instead of a
- * full commit SHA. `main()` itself stays unimported — it shells out to
- * `git ls-files` and reads the whole tree, same stance
+ * Coverage for the pure helpers of scripts/ci/validate-configs.mjs:
+ * findUnpinnedActions() (check #8, OpenSSF Scorecard "Pinned-Dependencies"),
+ * the CI gate that fails a run if a `.github/workflows/*.yml` step floats on a
+ * mutable tag/branch instead of a full commit SHA, and stripJsonComments()
+ * (check #1's JSONC → JSON pass). `main()` itself stays unimported — it
+ * shells out to `git ls-files` and reads the whole tree, same stance
  * apps/dashboard/test/tooling/secret-scan.test.ts takes for its sibling
- * script.
+ * script. Both helpers are mutation-tested
+ * (config/mutation/stryker.ci-validate-configs.config.mjs).
  */
 import { describe, it, expect } from 'vitest';
-import { findUnpinnedActions } from '../../../../scripts/ci/validate-configs.mjs';
+import {
+  findUnpinnedActions,
+  stripJsonComments,
+} from '../../../../scripts/ci/validate-configs.mjs';
 
 describe('findUnpinnedActions', () => {
   it('returns no findings for text with no uses: steps at all', () => {
@@ -85,5 +89,89 @@ describe('findUnpinnedActions', () => {
         reason: 'is not pinned to a full commit SHA (found "main")',
       },
     ]);
+  });
+
+  // The boundary cases below each pin one piece of the `uses:` line regex;
+  // every one was a surviving hand-planted mutant before it existed.
+
+  it('flags a uses: line that follows the step\'s "- name:" line (the dash is optional)', () => {
+    // The shape most of .github/workflows/ci.yml's own steps use — a checker
+    // that required `- uses:` would skip every one of them.
+    const text = ['      - name: Setup Node', '        uses: actions/setup-node@v7'].join('\n');
+    expect(findUnpinnedActions(text)).toEqual([
+      { ref: 'actions/setup-node@v7', reason: 'is not pinned to a full commit SHA (found "v7")' },
+    ]);
+  });
+
+  it('does NOT flag a commented-out step (uses: must start the line)', () => {
+    expect(findUnpinnedActions('      # - uses: actions/checkout@v7')).toEqual([]);
+  });
+
+  it('flags a bare, unindented uses: line (leading whitespace is optional)', () => {
+    expect(findUnpinnedActions('uses: actions/checkout@v7')).toEqual([
+      { ref: 'actions/checkout@v7', reason: 'is not pinned to a full commit SHA (found "v7")' },
+    ]);
+  });
+
+  it('captures the ref past extra whitespace after uses:', () => {
+    expect(findUnpinnedActions('      - uses:   actions/checkout@v7')).toEqual([
+      { ref: 'actions/checkout@v7', reason: 'is not pinned to a full commit SHA (found "v7")' },
+    ]);
+  });
+
+  it('still judges the ref after an @ at index 0 rather than calling it missing', () => {
+    // `at < 0` is the exact boundary: an @ at position 0 IS an @ref.
+    expect(findUnpinnedActions('      - uses: @main')).toEqual([
+      { ref: '@main', reason: 'is not pinned to a full commit SHA (found "main")' },
+    ]);
+  });
+});
+
+describe('stripJsonComments', () => {
+  it('returns comment-free JSON unchanged', () => {
+    const src = '{\n  "a": [1, 2],\n  "b": { "c": true }\n}';
+    expect(stripJsonComments(src)).toBe(src);
+  });
+
+  it('strips a multi-line block comment with spaces and text inside it', () => {
+    expect(stripJsonComments('{/* first line\n   second line */"a": 1}')).toBe('{"a": 1}');
+  });
+
+  it('strips two block comments without swallowing the JSON between them', () => {
+    expect(stripJsonComments('/* a */{"k": 1}/* b */')).toBe('{"k": 1}');
+  });
+
+  it('strips a trailing line comment to end of line, keeping the character before it', () => {
+    expect(stripJsonComments('{\n  "a": 1 // note\n}')).toBe('{\n  "a": 1 \n}');
+  });
+
+  it('strips a line comment at the very start of the text', () => {
+    expect(stripJsonComments('// header\n{"a": 1}')).toBe('\n{"a": 1}');
+  });
+
+  it('leaves a // inside a URL string value alone', () => {
+    const src = '{"$schema": "https://json.schemastore.org/tsconfig"}';
+    expect(stripJsonComments(src)).toBe(src);
+  });
+
+  it('drops trailing commas before } and ], with or without whitespace between', () => {
+    expect(stripJsonComments('{"a": [1, 2,], "b": 1,\n}')).toBe('{"a": [1, 2], "b": 1\n}');
+  });
+
+  it('turns a real tsconfig-style JSONC document into parseable JSON', () => {
+    const src = [
+      '{',
+      '  // Shared compiler options.',
+      '  "compilerOptions": {',
+      '    "strict": true, /* never relax */',
+      '    "outDir": "./dist",',
+      '  },',
+      '  "references": [{ "path": "./packages/a" },],',
+      '}',
+    ].join('\n');
+    expect(JSON.parse(stripJsonComments(src))).toEqual({
+      compilerOptions: { strict: true, outDir: './dist' },
+      references: [{ path: './packages/a' }],
+    });
   });
 });

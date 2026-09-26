@@ -79,22 +79,34 @@ export function findUnpinnedActions(text) {
   return findings;
 }
 
-/** @param {string} src */
-function stripJsonComments(src) {
-  // Remove /* */ and // comments and trailing commas (JSONC → JSON).
+/**
+ * JSONC → JSON for check #1: strips block and line comments and trailing
+ * commas. A `//` preceded by `:` or a quote is left alone so URLs inside
+ * string values (`"$schema": "https://..."`) survive. Pure — exported so it
+ * can be unit-tested directly against fixture strings.
+ * @param {string} src
+ * @returns {string}
+ */
+export function stripJsonComments(src) {
   let out = src.replace(/\/\*[\s\S]*?\*\//g, '');
   out = out.replace(/(^|[^:"'])\/\/[^\n\r]*/g, '$1');
   out = out.replace(/,(\s*[}\]])/g, '$1');
   return out;
 }
 
+// Stryker disable all: `parseConfig` reads a real file off disk — it can only
+// be exercised by running the gate for real. The logic it delegates to,
+// `stripJsonComments`, IS mutation-tested.
 /** @param {string} file @returns {unknown} */
 function parseConfig(file) {
   const raw = readFileSync(file, 'utf8');
   const jsonc = /tsconfig.*\.json$|\.jsonc$/.test(file);
   return JSON.parse(jsonc ? stripJsonComments(raw) : raw);
 }
+// Stryker restore all
 
+// Stryker disable all: `listTrackedFiles` shells out to `git ls-files` — it
+// can only be exercised by running the gate for real.
 /** @returns {string[]} */
 function listTrackedFiles() {
   const out = execFileSync(
@@ -104,7 +116,12 @@ function listTrackedFiles() {
   );
   return out.split(NUL).filter(Boolean);
 }
+// Stryker restore all
 
+// Stryker disable all: `main` is the process shell — it reads every tracked
+// config, the store schema and the CI workflows off disk and can only be
+// exercised by running the gate for real. The logic it delegates to,
+// `findUnpinnedActions` and `stripJsonComments`, IS mutation-tested.
 function main() {
   const files = listTrackedFiles();
   /** @type {string[]} */
@@ -298,6 +315,7 @@ function main() {
 
   console.log(`validate-configs OK: ${jsonFiles.length} JSON config(s) valid`);
 }
+// Stryker restore all
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) main();
