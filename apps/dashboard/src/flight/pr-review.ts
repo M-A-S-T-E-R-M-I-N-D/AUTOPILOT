@@ -1462,6 +1462,11 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'docs/donations.json',
   'docs/donate.md',
   '.github/funding.yml',
+  // The clearsigned copy of the address file (`docs/DONATE.asc`), which
+  // `ci:donate` requires to sign exactly `docs/donations.json` and a donor's
+  // `gpg --verify` trusts. An address-swapping PR must re-sign it, so it
+  // queues for a human beside the data it signs.
+  'docs/donate.asc',
   // Epic 0019 "GitHub Steward" slice 1's taxonomy seeder (board
   // web-mtrh1hjq-760dic): plans AND executes real `gh label create
   // --force`/`gh api .../milestones` writes against a repo's own

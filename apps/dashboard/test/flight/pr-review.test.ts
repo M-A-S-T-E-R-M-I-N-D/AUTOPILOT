@@ -2387,6 +2387,11 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['.github/FUNDING.yml'])).toBe(true);
   });
 
+  it('flags docs/DONATE.asc — the clearsigned copy of the address file that ci:donate requires to sign exactly docs/donations.json: a PR that swapped an address would re-sign it here, and a donor checking `gpg --verify` trusts this file, so it queues for a human beside the data it signs', () => {
+    expect(touchesSecuritySensitivePath(['docs/DONATE.asc'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['docs/donate.asc'])).toBe(true);
+  });
+
   it('keeps the donation markers path-anchored: prose that only discusses donations, and the already-benign read-only docs/donations.json parser, stay unflagged', () => {
     expect(touchesSecuritySensitivePath(['docs/FOUNDATION.md'])).toBe(false);
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/donations.ts'])).toBe(false);
