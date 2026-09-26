@@ -5,10 +5,12 @@
  * The Social Flight's weave-in pass (epic 0016 "The GitHub Social Flight",
  * slice 3/6 — board web-mtpzzx7v-72q2dv): the I/O half of what
  * `social-flight-trigger.ts` decides purely. `fly.ts` calls
- * {@link runSocialFlightPass} at its start and end phases; the interval
- * phase (between firings) lives inside the engine loop's per-firing hook
- * and is a follow-up slice, as is the fly-bar toggle. Everything the epic's
- * own slice wording asks of the weave-in is decided here, in this order:
+ * {@link runSocialFlightPass} at all three phases — start (takeoff),
+ * interval (from the engine loop's per-firing hook, between firings only:
+ * `isBetweenFirings` keeps it off the last planned firing, where the end
+ * pass speaks) and end (with the end-of-flight sweeps); the fly-bar toggle
+ * is a follow-up slice. Everything the epic's own slice wording asks of the
+ * weave-in is decided here, in this order:
  *
  *   1. the toggle — `AUTOPILOT_SOCIAL_FLIGHT=off|start|end|full`, parsed
  *      fail-closed by {@link parseSocialFlightToggle} and gated per phase by

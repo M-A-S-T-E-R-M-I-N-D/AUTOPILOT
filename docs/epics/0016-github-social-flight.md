@@ -71,12 +71,13 @@ Per pass, mechanically derived — no guesses:
    `AUTOPILOT_SOCIAL_FLIGHT=off|start|end|full`; dashboard toggle in the fly
    bar; refuses cleanly when gh is not connected.
    _Shipped so far:_ the pure toggle (`flight/social-flight-trigger.ts`) and
-   the start/end hooks (`flight/social-flight-pass.ts`, called from `fly.ts`
-   at takeoff and with the end-of-flight sweeps) — self-target guarded,
-   refusing cleanly when gh is not connected, read-only with the caps in the
-   flight log (RUNBOOK §13). _Still open:_ the interval hook (inside the
-   engine loop's per-firing hook), the fly-bar toggle, and a candidate source
-   (mirror-pass findings) before the execute half is wired.
+   all three hooks (`flight/social-flight-pass.ts`, called from `fly.ts` at
+   takeoff, from the engine loop's per-firing hook between firings — never
+   after the last planned one, where the end pass speaks — and with the
+   end-of-flight sweeps) — self-target guarded, refusing cleanly when gh is
+   not connected, read-only with the caps in the flight log (RUNBOOK §13).
+   _Still open:_ the fly-bar toggle, and a candidate source (mirror-pass
+   findings) before the execute half is wired.
 4. **standalone**: "Fly GitHub" as a target choice in the fly bar (no code
    tree edits at all in this mode).
 5. **observability**: every social action in the flight log + a SOCIAL

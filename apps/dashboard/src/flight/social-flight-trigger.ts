@@ -7,14 +7,16 @@
  * `docs/epics/0016-github-social-flight.md`'s own wording, "fly.ts hooks
  * (start/interval/end) behind `AUTOPILOT_SOCIAL_FLIGHT=off|start|end|full`".
  *
- * This slice ships only the pure decision the toggle makes — parsing the raw
- * env var ({@link parseSocialFlightToggle}) and deciding, per call site,
+ * This module ships the pure decisions the toggle makes — parsing the raw
+ * env var ({@link parseSocialFlightToggle}), deciding, per call site,
  * whether a given flight phase should run the pass ({@link
- * shouldRunSocialFlight}). Wiring these into `fly.ts`'s actual start/
- * interval/end call sites and the dashboard toggle UI in the fly bar are
- * their own follow-up slices — this module has no I/O and is never called
- * from anywhere yet, matching how `social-pass.ts`'s own laws each shipped
- * as an isolated, unwired pure planner before later slices wired them in.
+ * shouldRunSocialFlight}), and, for the `'interval'` phase alone, whether
+ * the firing just completed is actually BETWEEN firings ({@link
+ * isBetweenFirings}). `social-flight-pass.ts` runs the I/O half over these
+ * verdicts and `fly.ts` calls it at all three phases; the dashboard toggle
+ * UI in the fly bar is its own follow-up slice. This module has no I/O,
+ * matching how `social-pass.ts`'s own laws each shipped as an isolated pure
+ * planner before later slices wired them in.
  *
  * The toggle has four values but three phases: `'full'` runs the pass at
  * every phase including `'interval'`, but `'interval'` is not itself a
@@ -59,4 +61,17 @@ export function shouldRunSocialFlight(
   if (toggle === 'off') return false;
   if (toggle === 'full') return true;
   return toggle === phase;
+}
+
+/** Decides whether the firing just completed (`firingsCompleted` of the
+ *  flight's `plannedFirings`) still has another firing after it — the
+ *  `'interval'` phase's own gate, on top of {@link shouldRunSocialFlight}.
+ *  The epic's wording is "a social pass at start, BETWEEN firings, or at
+ *  flight-end": after the last planned firing the end phase speaks, so
+ *  running the interval pass there too would say the same thing twice back
+ *  to back under `'full'`. A one-firing flight has no "between" at all.
+ *  Pure, no I/O; `false` too when `firingsCompleted` somehow exceeds the
+ *  plan, since a negative gap is not a gap. */
+export function isBetweenFirings(firingsCompleted: number, plannedFirings: number): boolean {
+  return firingsCompleted < plannedFirings;
 }

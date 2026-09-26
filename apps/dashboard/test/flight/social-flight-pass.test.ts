@@ -6,7 +6,8 @@
  * web-mtpzzx7v-72q2dv): the toggle gate, the self-target guard, the clean
  * refusal when gh is not connected, and the read-only pass that composes
  * the identity/inventory reads with the pure protocol engine — plus a pin
- * on fly.ts's two call sites, so the wiring cannot be dropped silently.
+ * on fly.ts's three call sites (start, interval, end), so the wiring cannot
+ * be dropped silently.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -287,14 +288,22 @@ describe('runSocialFlightPass — the read-only pass', () => {
   });
 });
 
-describe('fly.ts weaves the pass in at its start and end phases', () => {
-  it('calls runSocialFlightPass for both phases from the raw env toggle, self-target guarded', () => {
+describe('fly.ts weaves the pass in at its start, interval and end phases', () => {
+  it('calls runSocialFlightPass for all three phases from the raw env toggle, self-target guarded', () => {
     const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
     expect(fly).toContain(
       "runSocialFlightPass('start', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
     );
     expect(fly).toContain(
+      "runSocialFlightPass('interval', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
+    );
+    expect(fly).toContain(
       "runSocialFlightPass('end', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
     );
+  });
+
+  it('gates the interval call on isBetweenFirings, so the last firing never doubles with the end pass', () => {
+    const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
+    expect(fly).toContain('if (isBetweenFirings(firingsCompletedThisFlight, firings))');
   });
 });
