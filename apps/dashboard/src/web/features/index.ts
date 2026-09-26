@@ -48,6 +48,7 @@ import { subjectNavJs } from './subject-nav.js';
 import { switcherJs } from './switcher.js';
 import { tourJs } from './tour.js';
 import { updateJs } from './update.js';
+import { versionsJs } from './versions.js';
 
 /** Every discovered feature module's assembler function, in directory order. */
 export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
@@ -96,6 +97,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   switcherJs,
   tourJs,
   updateJs,
+  versionsJs,
 ];
 
 /** Every discovered feature module's assembled output, joined in directory order. */
@@ -152,4 +154,5 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   switcher: switcherJs,
   tour: tourJs,
   update: updateJs,
+  versions: versionsJs,
 };
