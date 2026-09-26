@@ -14,13 +14,16 @@ export const CHUNK_RAW_BUDGET: number;
 export const CHUNK_GZIP_BUDGET: number;
 export const WHATS_NEW_RAW_BUDGET: number;
 export const WHATS_NEW_GZIP_BUDGET: number;
+export const BENCHMARK_RAW_BUDGET: number;
+export const BENCHMARK_GZIP_BUDGET: number;
 
-/** The four chunk builders of the compiled client-bundle module. */
+/** The five chunk builders of the compiled client-bundle module. */
 export interface ClientBundle {
   minifiedCoreJs(): string;
   minifiedProjectJs(): string;
   minifiedPanelsJs(): string;
   minifiedWhatsNewJs(): string;
+  minifiedBenchmarkJs(): string;
 }
 
 export function formatKb(bytes: number): string;

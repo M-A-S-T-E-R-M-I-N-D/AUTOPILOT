@@ -129,6 +129,7 @@ import { handleCollaboration, type CollaborationApi } from './collaboration.js';
 export type { CollaborationApi };
 import { handleCiStatus } from './ci-status-route.js';
 import { handleWhatsNew } from './whats-new-route.js';
+import { handleBenchmark, type BenchmarkApi } from './benchmark-route.js';
 import type { WhatsNewApi } from '../read/whats-new.js';
 import type { GateRun } from '../read/mutate.js';
 import type { CiStatusApi } from '../control/ci-status.js';
@@ -966,6 +967,9 @@ export interface ServerDeps extends RouteDeps {
   /** WHAT'S NEW (operator, 2026-09-24): the facts behind the once-per-
    *  version message — see `read/whats-new.ts`. */
   readonly whatsNew?: WhatsNewApi;
+  /** THE BENCHMARK (operator, 2026-09-26): every model the fleet has flown,
+   *  measured on its own firings — see `read/benchmark.ts`. */
+  readonly benchmark?: BenchmarkApi;
   /** Foundation donation addresses (FOUNDATION 1/3, board
    *  web-mtq0rsit-ywz1m7): chain-tagged BTC/EVM/SOL addresses, hidden until
    *  `docs/donations.json` carries a verified entry — see
@@ -4297,6 +4301,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/collaboration') {
       void handleCollaboration(req, res, deps.collaboration, headers);
+      return;
+    }
+
+    if (path === '/api/benchmark') {
+      void handleBenchmark(req, res, deps.benchmark, headers);
       return;
     }
 

@@ -22,6 +22,8 @@ import {
   CORE_RAW_BUDGET,
   WHATS_NEW_GZIP_BUDGET,
   WHATS_NEW_RAW_BUDGET,
+  BENCHMARK_GZIP_BUDGET,
+  BENCHMARK_RAW_BUDGET,
   checkBundleSize,
   formatKb,
   measure,
@@ -52,12 +54,14 @@ function bundle(chunks: {
   project?: string;
   panels?: string;
   whatsNew?: string;
+  benchmark?: string;
 }): ClientBundle {
   return {
     minifiedCoreJs: () => chunks.core ?? 'x',
     minifiedProjectJs: () => chunks.project ?? 'x',
     minifiedPanelsJs: () => chunks.panels ?? 'x',
     minifiedWhatsNewJs: () => chunks.whatsNew ?? 'x',
+    minifiedBenchmarkJs: () => chunks.benchmark ?? 'x',
   };
 }
 
@@ -141,12 +145,13 @@ describe('measure', () => {
 });
 
 describe('checkBundleSize', () => {
-  it('returns 0 and prints the four size lines, the total and OK when every chunk fits', () => {
+  it('returns 0 and prints the five size lines, the total and OK when every chunk fits', () => {
     const chunks = {
       core: 'a'.repeat(1024),
       project: 'b'.repeat(2048),
       panels: 'c'.repeat(3072),
       whatsNew: 'd'.repeat(512),
+      benchmark: 'e'.repeat(256),
     };
     expect(checkBundleSize(bundle(chunks))).toBe(0);
     const line = (name: string, js: string, raw: number, gzip: number) =>
@@ -156,8 +161,9 @@ describe('checkBundleSize', () => {
       [line('/project.js', chunks.project, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET)],
       [line('/panels.js', chunks.panels, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET)],
       [line('/whats-new.js', chunks.whatsNew, WHATS_NEW_RAW_BUDGET, WHATS_NEW_GZIP_BUDGET)],
-      // 1024 + 2048 + 3072 + 512 = 6656 bytes — every other +/- mix differs.
-      ['combined: 6.5KB raw across the four chunks'],
+      [line('/benchmark.js', chunks.benchmark, BENCHMARK_RAW_BUDGET, BENCHMARK_GZIP_BUDGET)],
+      // 1024 + 2048 + 3072 + 512 + 256 = 6912 bytes — every other +/- mix differs.
+      ['combined: 6.8KB raw across the five chunks'],
       ['check-bundle-size OK'],
     ]);
     expect(error).not.toHaveBeenCalled();
@@ -170,6 +176,7 @@ describe('checkBundleSize', () => {
         project: 'a'.repeat(CHUNK_RAW_BUDGET),
         panels: 'a'.repeat(CHUNK_RAW_BUDGET),
         whatsNew: 'a'.repeat(WHATS_NEW_RAW_BUDGET),
+        benchmark: 'a'.repeat(BENCHMARK_RAW_BUDGET),
       }),
     );
     expect(result).toBe(0);
@@ -181,6 +188,7 @@ describe('checkBundleSize', () => {
     ['project', '/project.js', CHUNK_RAW_BUDGET],
     ['panels', '/panels.js', CHUNK_RAW_BUDGET],
     ['whatsNew', '/whats-new.js', WHATS_NEW_RAW_BUDGET],
+    ['benchmark', '/benchmark.js', BENCHMARK_RAW_BUDGET],
   ] as const)(
     'fails with exit 1 when %s is one byte over its raw budget',
     (chunk, name, rawBudget) => {
@@ -198,6 +206,7 @@ describe('checkBundleSize', () => {
     ['project', '/project.js', CHUNK_GZIP_BUDGET],
     ['panels', '/panels.js', CHUNK_GZIP_BUDGET],
     ['whatsNew', '/whats-new.js', WHATS_NEW_GZIP_BUDGET],
+    ['benchmark', '/benchmark.js', BENCHMARK_GZIP_BUDGET],
   ] as const)(
     'fails with exit 1 when %s is over its gzip budget but under its raw one',
     (chunk, name, gzipBudget) => {

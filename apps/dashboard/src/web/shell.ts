@@ -37,6 +37,7 @@ import {
 import { OFFICE_TIPS } from './office-map.js';
 import { PRODUCT_VERSION } from '../info.js';
 import { whatsNewClientJs, whatsNewCss } from './whats-new.js';
+import { benchmarkClientJs, benchmarkCss } from './benchmark-page.js';
 import { ICON_SHAPES, iconSvg } from './icons.js';
 import {
   fmtBytes as sharedFmtBytes,
@@ -4660,7 +4661,7 @@ export function whatsNewChunkJs(): string {
  * shell is served no-store anyway).
  */
 export function assetVersion(): string {
-  const s = `${clientJs()}\n${whatsNewChunkJs()}\n${layoutCss()}\n${whatsNewCss()}\n${fontFaceCss()}`;
+  const s = `${clientJs()}\n${whatsNewChunkJs()}\n${benchmarkClientJs()}\n${layoutCss()}\n${whatsNewCss()}\n${benchmarkCss()}\n${fontFaceCss()}`;
   let h = 5381;
   for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
   return h.toString(36);
@@ -4953,6 +4954,7 @@ ${settingsMenuHtml()}
           <button type="button" class="more-item" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip">${iconSvg('compass')}<span data-i18n="tour">Tour</span></button>
           <button type="button" class="more-item" id="progress-btn" data-tip="Your getting-started ladder, badges and standing — at any time, snoozed or finished" data-i18n-tip="progressBtnTip">${iconSvg('trophy')}<span data-i18n="progressBtn">My progress</span></button>
           <a class="more-item" id="docs-link" href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/main/docs/README.md" target="_blank" rel="noopener" data-tip="The documentation index on GitHub (opens a new tab)" data-i18n-tip="docsLinkTip">${iconSvg('book-open')}<span data-i18n="docsLink">Docs</span></a>
+          <a class="more-item" id="benchmark-link" href="/benchmark" data-tip="Every model the fleet has flown, compared on its own firings" data-i18n-tip="benchmarkLinkTip">${iconSvg('chart-line')}<span data-i18n="benchmarkLink">Benchmark</span></a>
           <button type="button" class="more-item" id="report-btn" data-tip="Capture this page for an issue, a quick fix or a note — a preview first, always" data-i18n-tip="reportBtnTip">${iconSvg('flag')}<span data-i18n="reportBtn">Report from here</span></button>
         </div>
       </details>

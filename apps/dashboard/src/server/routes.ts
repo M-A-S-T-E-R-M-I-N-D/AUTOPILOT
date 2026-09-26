@@ -5,11 +5,14 @@ import { stylesheet } from '@autopilot/tokens';
 import { renderShell } from '../web/shell.js';
 import { layoutCss } from '../web/layout-css.js';
 import { whatsNewCss } from '../web/whats-new.js';
+import { benchmarkCss, renderBenchmarkPage } from '../web/benchmark-page.js';
+import { assetVersion } from '../web/shell.js';
 import {
   minifiedCoreJs,
   minifiedProjectJs,
   minifiedPanelsJs,
   minifiedWhatsNewJs,
+  minifiedBenchmarkJs,
 } from './client-bundle.js';
 import { PRODUCT_VERSION } from '../info.js';
 import { buildFleetView, type FleetView } from '../read/fleet.js';
@@ -63,7 +66,7 @@ export function handleRoute(path: string, deps: RouteDeps = {}): RouteResponse {
       return {
         status: 200,
         contentType: 'text/css; charset=utf-8',
-        body: `${fontFaceCss()}\n${stylesheet()}\n${layoutCss()}\n${whatsNewCss()}\n`,
+        body: `${fontFaceCss()}\n${stylesheet()}\n${layoutCss()}\n${whatsNewCss()}\n${benchmarkCss()}\n`,
       };
     case '/app.js':
       return {
@@ -88,6 +91,18 @@ export function handleRoute(path: string, deps: RouteDeps = {}): RouteResponse {
         status: 200,
         contentType: 'text/javascript; charset=utf-8',
         body: minifiedWhatsNewJs(),
+      };
+    case '/benchmark':
+      return {
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: renderBenchmarkPage(assetVersion()),
+      };
+    case '/benchmark.js':
+      return {
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: minifiedBenchmarkJs(),
       };
     case '/favicon.svg':
       return { status: 200, contentType: 'image/svg+xml; charset=utf-8', body: faviconSvg() };
