@@ -13,11 +13,13 @@
  *
  * It also assembles the frames into `demo.png`: one looping animated PNG, with
  * no new dependency. APNG (W3C PNG Third Edition, Recommendation 2025-06-24,
- * §11.3.6: acTL · fcTL · fdAT) needs no encoder. Each frame's compressed IDAT
- * stream is carried over byte for byte: frame 0's as the default image, every
- * later one's as an fdAT. The loop is lossless and every current browser plays
- * it wherever a PNG may appear. The operator can watch the real loop before
- * approving the gif encoder, or take the APNG instead of it.
+ * §11.3.6: acTL · fcTL · fdAT) needs no encoder, only node:zlib. Frame 0 is
+ * the default image, whole; every later frame is an fdAT holding just the box
+ * that changed, its unchanged pixels transparent, drawn over the frame before.
+ * The loop is lossless, about a third the size of the frames it is made of,
+ * and every current browser plays it wherever a PNG may appear. The operator
+ * can watch the real loop before approving the gif encoder, or take the APNG
+ * instead of it.
  *
  *   pnpm run build
  *   node scripts/docs/record-demo-frames.mjs [outDir]
@@ -35,7 +37,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { crc32 } from 'node:zlib';
+import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { BASE, FOLDER, open, runningFlight, settle } from './demo-scene.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -181,38 +183,146 @@ function pngChunk(type, data) {
   return out;
 }
 
+/** Bytes per pixel: the frames are 8-bit RGB, the loop 8-bit RGBA. */
+const RGB = 3;
+const RGBA = 4;
+/** fcTL blend_op: frame 0 replaces the canvas, every later frame is drawn over it. */
+const BLEND_SOURCE = 0;
+const BLEND_OVER = 1;
+/** A frame identical to the one before still holds its time, as one transparent pixel. */
+const UNCHANGED = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
+
+/** PNG's Paeth predictor (§9.4): whichever of a, b, c is nearest a + b − c. */
+function paeth(a, b, c) {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  return pb <= pc ? b : c;
+}
+
+/** §9.2's five filter types, each a predictor over left (a), up (b) and up-left (c). */
+const PREDICTORS = [
+  () => 0,
+  (a) => a,
+  (a, b) => b,
+  (a, b) => (a + b) >> 1,
+  paeth,
+];
+
 /**
- * What a frame contributes to the loop: its IHDR (which must match frame 0's)
- * and its IDAT chunks' data joined into one compressed stream. Ancillary chunks
- * are dropped; Chromium's screenshots carry none. An indexed-colour frame is
- * refused: it brings its own PLTE, and an APNG has one.
+ * An inflated IDAT stream of 8-bit RGB scanlines, unfiltered into row-major
+ * pixels. Throws on a stream of the wrong length or an unknown filter type.
  */
-function frameImage(bytes, file) {
+function unfilter(raw, width, height, file) {
+  const stride = width * RGB;
+  if (raw.length !== (stride + 1) * height) {
+    throw new Error(`${file}: image data is ${raw.length} bytes, expected ${(stride + 1) * height}`);
+  }
+  const pixels = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y++) {
+    const predict = PREDICTORS[raw[y * (stride + 1)]];
+    if (!predict) throw new Error(`${file}: row ${y} has unknown filter type ${raw[y * (stride + 1)]}`);
+    const line = y * (stride + 1) + 1;
+    const row = y * stride;
+    for (let i = 0; i < stride; i++) {
+      const a = i >= RGB ? pixels[row + i - RGB] : 0;
+      const b = y > 0 ? pixels[row - stride + i] : 0;
+      const c = i >= RGB && y > 0 ? pixels[row - stride + i - RGB] : 0;
+      pixels[row + i] = raw[line + i] + predict(a, b, c); // a Uint8Array stores it mod 256
+    }
+  }
+  return pixels;
+}
+
+/**
+ * A frame's IHDR (which must match frame 0's) and its pixels. Only what
+ * Chromium's screenshots are decodes: 8-bit truecolour, not interlaced. An
+ * indexed frame brings its own palette; an alpha channel would blend wrongly
+ * over the frame before. Ancillary chunks are dropped; the screenshots carry none.
+ */
+function decodeFrame(bytes, file) {
   const chunks = readChunks(bytes);
   if (chunks[0]?.type !== 'IHDR') throw new Error(`${file}: IHDR is not the first chunk`);
-  if (chunks.some((c) => c.type === 'PLTE')) {
-    throw new Error(`${file}: indexed-colour frames (PLTE) cannot share one animation`);
+  const ihdr = chunks[0].data;
+  const [depth, colourType, , , interlace] = ihdr.subarray(8, 13);
+  if (depth !== 8 || colourType !== 2 || interlace !== 0) {
+    throw new Error(
+      `${file}: only 8-bit truecolour, non-interlaced frames animate` +
+        ` (bit depth ${depth}, colour type ${colourType}, interlace ${interlace})`,
+    );
   }
   const idat = chunks.filter((c) => c.type === 'IDAT').map((c) => c.data);
   if (idat.length === 0) throw new Error(`${file}: no IDAT chunk`);
-  return { ihdr: chunks[0].data, data: Buffer.concat(idat) };
+  const width = ihdr.readUInt32BE(0);
+  const height = ihdr.readUInt32BE(4);
+  return { ihdr, width, height, pixels: unfilter(inflateSync(Buffer.concat(idat)), width, height, file) };
 }
 
-/** fcTL: the whole canvas, shown `holdMs`, then replaced (not blended) by the next. */
-function frameControl(sequence, ihdr, holdMs) {
+function samePixel(prev, next, i) {
+  return prev[i] === next[i] && prev[i + 1] === next[i + 1] && prev[i + 2] === next[i + 2];
+}
+
+/** The smallest box holding every pixel that differs between two frames, or null. */
+function changedRegion(prev, next, width, height) {
+  let left = width;
+  let top = -1;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (samePixel(prev, next, (y * width + x) * RGB)) continue;
+      if (top < 0) top = y;
+      bottom = y;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+    }
+  }
+  return top < 0 ? null : { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
+}
+
+/**
+ * The region of `next` as RGBA scanlines, filter None (on the recorded frames
+ * it deflates smaller than the min-sum-of-differences choice). A pixel is
+ * opaque where it differs from `prev` (every pixel when there is none) and
+ * transparent black where it matches, so drawn OVER the frame before it
+ * leaves that pixel as it was: each frame composites back exactly.
+ */
+function deltaRows(prev, next, width, region) {
+  const stride = region.width * RGBA + 1;
+  const rows = Buffer.alloc(stride * region.height); // zeroed: filter None, transparent black
+  for (let y = 0; y < region.height; y++) {
+    for (let x = 0; x < region.width; x++) {
+      const i = ((region.y + y) * width + region.x + x) * RGB;
+      if (prev && samePixel(prev, next, i)) continue;
+      const o = y * stride + 1 + x * RGBA;
+      next.copy(rows, o, i, i + RGB);
+      rows[o + 3] = 0xff;
+    }
+  }
+  return rows;
+}
+
+/** fcTL: `region` of the canvas, shown `holdMs`, left in place (dispose_op NONE) for the next. */
+function frameControl(sequence, region, holdMs, blend) {
   const data = Buffer.alloc(26);
   data.writeUInt32BE(sequence, 0);
-  ihdr.copy(data, 4, 0, 8); // width, height
-  // x_offset, y_offset stay 0; dispose_op NONE (0), blend_op SOURCE (0).
+  data.writeUInt32BE(region.width, 4);
+  data.writeUInt32BE(region.height, 8);
+  data.writeUInt32BE(region.x, 12);
+  data.writeUInt32BE(region.y, 16);
   data.writeUInt16BE(holdMs, 20);
   data.writeUInt16BE(1000, 22);
+  data[25] = blend; // data[24], dispose_op, stays NONE (0)
   return pngChunk('fcTL', data);
 }
 
 /**
- * The frames, in order, as one APNG. Throws rather than write a loop a browser
+ * The frames, in order, as one lossless APNG: frame 0 whole, every later
+ * frame only the box that changed. Throws rather than write a loop a browser
  * would misplay: no frames, a hold that is not a whole number of milliseconds
- * in 1..MAX_HOLD_MS, or a frame whose IHDR (size, depth, colour type) differs
+ * in 1..MAX_HOLD_MS, a frame it cannot decode, or a frame whose IHDR differs
  * from the first.
  * @param {readonly { file: string, bytes: Uint8Array, holdMs: number }[]} frames
  * @param {{ plays?: number }} [options] `plays` 0 (the default) loops forever.
@@ -223,26 +333,34 @@ export function assembleApng(frames, { plays = 0 } = {}) {
     if (!Number.isInteger(holdMs) || holdMs < 1 || holdMs > MAX_HOLD_MS) {
       throw new Error(`${file}: holdMs must be a whole number in 1..${MAX_HOLD_MS}, got ${holdMs}`);
     }
-    return { file, holdMs, ...frameImage(bytes, file) };
+    return { file, holdMs, ...decodeFrame(bytes, file) };
   });
   const [first] = images;
   const odd = images.find((image) => !image.ihdr.equals(first.ihdr));
   if (odd) {
     throw new Error(`${odd.file}'s IHDR differs from ${first.file}'s — every frame must match`);
   }
+  const { width, height } = first;
+  const ihdr = Buffer.from(first.ihdr);
+  ihdr[9] = 6; // truecolour with alpha: a later frame's unchanged pixels are transparent
   const animationControl = Buffer.alloc(8);
   animationControl.writeUInt32BE(images.length, 0);
   animationControl.writeUInt32BE(plays, 4);
-  const parts = [PNG_SIGNATURE, pngChunk('IHDR', first.ihdr), pngChunk('acTL', animationControl)];
+  const parts = [PNG_SIGNATURE, pngChunk('IHDR', ihdr), pngChunk('acTL', animationControl)];
   let sequence = 0;
   for (const [index, image] of images.entries()) {
-    parts.push(frameControl(sequence++, first.ihdr, image.holdMs));
+    const prev = index === 0 ? null : images[index - 1].pixels;
+    const region = prev
+      ? (changedRegion(prev, image.pixels, width, height) ?? UNCHANGED)
+      : { x: 0, y: 0, width, height };
+    const data = deflateSync(deltaRows(prev, image.pixels, width, region), { level: 9 });
+    parts.push(frameControl(sequence++, region, image.holdMs, prev ? BLEND_OVER : BLEND_SOURCE));
     if (index === 0) {
-      parts.push(pngChunk('IDAT', image.data));
+      parts.push(pngChunk('IDAT', data));
     } else {
       const sequenced = Buffer.alloc(4);
       sequenced.writeUInt32BE(sequence++, 0);
-      parts.push(pngChunk('fdAT', Buffer.concat([sequenced, image.data])));
+      parts.push(pngChunk('fdAT', Buffer.concat([sequenced, data])));
     }
   }
   parts.push(pngChunk('IEND', Buffer.alloc(0)));

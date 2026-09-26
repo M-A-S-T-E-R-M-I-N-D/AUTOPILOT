@@ -49,6 +49,8 @@ the attention you have (an evening, a day, a week).
    awaits the operator's supply-chain approval. The same run also assembles
    the frames into one lossless, looping animated PNG (`demo.png` in the same
    git-ignored folder; W3C PNG Third Edition's APNG chunks, node:zlib only).
+   Every frame after the first carries only the box that changed, drawn over
+   the one before, so the loop is 274 KiB against its seven frames' 856 KiB.
    The operator can watch the real loop before approving the encoder, or take
    the APNG instead of it; the README top is still unchanged.
 2. **Shipped 2026-09-13 — the master prompt.** `docs/MASTER-PROMPT.md`: one document that states
