@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { VcsPort, CommitRef, DiffFileStat } from '../ports.js';
@@ -181,15 +181,18 @@ export function describePushFailure(text: string): GitPushResult {
   };
 }
 
-/** Run git with an args array (never a shell string — no injection surface). */
-function git(
-  repo: string,
+/** Run a program with an args array (never a shell string — no injection
+ *  surface), resolving with its output and exit code rather than rejecting:
+ *  a spawn failure (the program is not on PATH) reads as exit 1 with empty
+ *  output, so every caller decides for itself what a failure means. */
+function run(
+  file: string,
   args: readonly string[],
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
     execFile(
-      'git',
-      ['-C', repo, ...args],
+      file,
+      args,
       // Stryker disable next-line BooleanLiteral: windowsHide only affects
       // whether a console window flashes on Windows — invisible to stdout,
       // stderr, or the exit code this wrapper actually observes.
@@ -213,6 +216,14 @@ function git(
   });
 }
 
+/** Run git in `repo` — see {@link run}. */
+function git(
+  repo: string,
+  args: readonly string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return run('git', ['-C', repo, ...args]);
+}
+
 /** Every failure-path git command in this file writes its real reason to
  *  stderr (verified — see `docs/` git wrapper audit, board web-mss2y67i-3lmwzi)
  *  with an EMPTY stdout; a hook can still print to stdout instead, so stderr
@@ -234,6 +245,109 @@ const WEAK_HASH_ALGORITHMS: Record<string, string> = {
 };
 const GPG_STATUS_PREFIX = '[GNUPG:] ';
 
+/** Repo-relative path of the operator's published signing key —
+ *  `docs/FOUNDATION.md`'s transparency commitment 2, the file `ci:donate`
+ *  gates the moment it lands. `docs/RELEASING.md` promises the same key
+ *  signs release tags; {@link GitVcs.verifyTag} holds each tag to it. */
+export const PUBLISHED_SIGNING_KEY_PATH = 'docs/SIGNING-KEY.asc';
+
+/** What `docs/SIGNING-KEY.asc` publishes, as gpg reads it: the one key's
+ *  primary fingerprint, or why gpg could not name exactly one. */
+export type PublishedSigningKey = { readonly fingerprint: string } | { readonly problem: string };
+
+/**
+ * Reads `gpg --with-colons --show-keys docs/SIGNING-KEY.asc` (GnuPG
+ * doc/DETAILS, "Format of the colon listings"): exactly one `pub` record,
+ * whose primary fingerprint is the `fpr` record that follows it — a subkey's
+ * `fpr` comes after its `sub`, so the first one after `pub` is the primary's.
+ * On a non-zero exit the reason is gpg's last stderr line: a fresh homedir's
+ * "keybox created" notices come first, the actual error last (verified
+ * against gpg 2.4). A `program` that is not on PATH produces no output at
+ * all, and is then named so the operator knows which binary to look for.
+ */
+export function readSigningKeyListing(
+  exitCode: number,
+  stdout: string,
+  stderr: string,
+  program = 'gpg',
+): PublishedSigningKey {
+  if (exitCode !== 0) {
+    const lastLine = stderr
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== '')
+      .at(-1);
+    const reason = lastLine?.trim() || `no output — is ${program} on PATH?`;
+    return {
+      problem: `gpg could not list ${PUBLISHED_SIGNING_KEY_PATH} (exit ${exitCode}: ${reason})`,
+    };
+  }
+  const records = stdout.split(/\r?\n/).map((line) => line.split(':'));
+  const primaries = records.filter(([type]) => type === 'pub').length;
+  if (primaries !== 1) {
+    return {
+      problem: `${PUBLISHED_SIGNING_KEY_PATH} must hold exactly one key; gpg listed ${primaries}`,
+    };
+  }
+  const afterPub = records.slice(records.findIndex(([type]) => type === 'pub') + 1);
+  const fingerprint = afterPub.find(([type]) => type === 'fpr')?.[9];
+  if (!fingerprint) {
+    return { problem: `gpg listed no fingerprint for ${PUBLISHED_SIGNING_KEY_PATH}` };
+  }
+  return { fingerprint };
+}
+
+/**
+ * The key `docs/SIGNING-KEY.asc` publishes in `repo` — undefined while none
+ * is published. `--show-keys` lists what the file holds without importing it
+ * into any keyring, in the same default homedir the `git verify-tag` beside
+ * it just used, and with the same binary: git resolves its verifier through
+ * `gpg.program` (plain `gpg` when unset), so a checkout pointing that at a
+ * versioned or wrapped gpg gets git's verdict and this listing from one
+ * program. The file is what the operator committed, so its one key is the
+ * one the ritual holds a tag's signer to ({@link readTagSignature}).
+ */
+export async function readPublishedSigningKey(
+  repo: string,
+): Promise<PublishedSigningKey | undefined> {
+  const keyPath = join(repo, PUBLISHED_SIGNING_KEY_PATH);
+  if (!existsSync(keyPath)) return undefined;
+  const configured = await git(repo, ['config', '--get', 'gpg.program']);
+  const program = (configured.exitCode === 0 && configured.stdout.trim()) || 'gpg';
+  const listing = await run(program, [
+    '--batch',
+    '--no-autostart',
+    '--with-colons',
+    '--show-keys',
+    keyPath,
+  ]);
+  return readSigningKeyListing(listing.exitCode, listing.stdout, listing.stderr, program);
+}
+
+/** Holds a verified OpenPGP signer to the published key, when one is
+ *  published: the same key passes and is named as the published one; any
+ *  other key, or a key file gpg could not read, refuses with both facts. */
+function holdSignerToPublishedKey(
+  name: string,
+  signer: string,
+  published: PublishedSigningKey | undefined,
+): CreateTagResult {
+  const signedBy = `tag '${name}' is signed by ${signer}`;
+  if (published === undefined) return { ok: true, details: signedBy };
+  if ('problem' in published) {
+    return {
+      ok: false,
+      details: `${signedBy}, but ${published.problem} — so it cannot be held to the published key`,
+    };
+  }
+  if (published.fingerprint.toUpperCase() !== signer.toUpperCase()) {
+    return {
+      ok: false,
+      details: `${signedBy}, not by the key published as ${PUBLISHED_SIGNING_KEY_PATH} (${published.fingerprint})`,
+    };
+  }
+  return { ok: true, details: `${signedBy}, the key published as ${PUBLISHED_SIGNING_KEY_PATH}` };
+}
+
 /**
  * Reads the outcome of `git verify-tag --raw <name>` (board
  * web-mtq0rtub-jxpptv, FOUNDATION 3/3 — the release ritual verifies the tag
@@ -246,12 +360,18 @@ const GPG_STATUS_PREFIX = '[GNUPG:] ';
  * primary key's fingerprint (VALIDSIG's last field) so the operator can
  * compare it with the one published through an independent channel; a
  * verified signature that carries no gpg status (an ssh signature) quotes
- * the verifier's first line instead.
+ * the verifier's first line instead. Given the `published` key
+ * ({@link readPublishedSigningKey}), a good signature must also be THAT
+ * key's: `docs/RELEASING.md` promises the key that signs the address file
+ * signs the tags, and a promise nothing checks is a hope — any other key,
+ * a non-OpenPGP signature, or a key file gpg could not read refuses, naming
+ * what it found.
  */
 export function readTagSignature(
   name: string,
   exitCode: number,
   rawStatus: string,
+  published?: PublishedSigningKey,
 ): CreateTagResult {
   const lines = rawStatus.split(/\r?\n/);
   const records = lines
@@ -285,9 +405,11 @@ export function readTagSignature(
   const valid = records.find(([keyword]) => keyword === 'VALIDSIG');
   if (!valid) {
     const firstLine = lines.find((line) => line.trim() !== '')?.trim();
+    const signed = `tag '${name}' is signed${firstLine ? ` (${firstLine})` : ''}`;
+    if (published === undefined) return { ok: true, details: signed };
     return {
-      ok: true,
-      details: `tag '${name}' is signed${firstLine ? ` (${firstLine})` : ''}`,
+      ok: false,
+      details: `${signed}, but not with OpenPGP, so not by the key published as ${PUBLISHED_SIGNING_KEY_PATH}`,
     };
   }
   const weakHash = WEAK_HASH_ALGORITHMS[valid[8] ?? ''];
@@ -298,7 +420,7 @@ export function readTagSignature(
     };
   }
   const signer = valid[10] || valid[1] || 'an unnamed key';
-  return { ok: true, details: `tag '${name}' is signed by ${signer}` };
+  return holdSignerToPublishedKey(name, signer, published);
 }
 
 /** Runs `run` with `message` written to a throwaway temp file, passing that
@@ -1111,12 +1233,16 @@ export class GitVcs implements VcsPort {
    * says whether the tag is signed and by which key. Signing needs no code
    * of its own: `tag` above runs `git tag -a`, which git signs whenever
    * `tag.gpgSign` is true and `user.signingkey` names the operator's key —
-   * so an unsigned tag here is a configuration fact, reported as one. See
-   * {@link readTagSignature} for exactly what passes.
+   * so an unsigned tag here is a configuration fact, reported as one. Once
+   * `docs/SIGNING-KEY.asc` is published, a verified signature is also held
+   * to that key ({@link readPublishedSigningKey}, read only when there is a
+   * verified signature to hold). See {@link readTagSignature} for exactly
+   * what passes.
    */
   async verifyTag(name: string): Promise<CreateTagResult> {
     const verify = await git(this.repo, ['verify-tag', '--raw', name]);
-    return readTagSignature(name, verify.exitCode, verify.stderr);
+    const published = verify.exitCode === 0 ? await readPublishedSigningKey(this.repo) : undefined;
+    return readTagSignature(name, verify.exitCode, verify.stderr, published);
   }
 
   /**

@@ -674,19 +674,24 @@ head stays parked` and waits for you to commit or stash the leftovers.
 ## 13. Social flight weave-in (`AUTOPILOT_SOCIAL_FLIGHT`)
 
 Off by default. Epic 0016 (`docs/epics/0016-github-social-flight.md`) weaves a GitHub social
-pass into an ordinary flight; the toggle is the environment variable read by `fly.ts` at two
+pass into an ordinary flight; the toggle is the environment variable read by `fly.ts` at three
 points and decided inside `apps/dashboard/src/flight/social-flight-pass.ts`:
 
 - `AUTOPILOT_SOCIAL_FLIGHT=start` — one pass at takeoff, right before the first firing.
 - `AUTOPILOT_SOCIAL_FLIGHT=end` — one pass with the other end-of-flight sweeps.
-- `AUTOPILOT_SOCIAL_FLIGHT=full` — both (and, once wired, the between-firings pass).
+- `AUTOPILOT_SOCIAL_FLIGHT=full` — all three: takeoff, one `interval` pass between every two
+  firings (after each firing that still has another planned one after it — never after the
+  last, where the end pass speaks instead), and the end-of-flight pass. There is no toggle
+  value for "only between firings"; `interval` runs under `full` alone.
 - Unset, empty, or any other value — `off`. The parser fails closed: a misspelling never turns
   a pass ON, because an unrecognized value must never be read as permission to speak on GitHub.
 
 **What a pass does today (read-only):** resolves the acting identity (`gh api user` + `gh repo
 view` — the repo owner flies as `maintainer`, anyone else as `user`), inventories its own
 submissions and every open thread, and runs the protocol engine's budget/dedup/role gate over
-the pass's candidate actions. No candidate source is wired yet (deriving candidates from
+the pass's candidate actions — a comment that would answer a question asked of some other
+human is refused outright, never posted in their place. No candidate source is wired yet
+(deriving candidates from
 mirror-pass findings is its own slice), so the verdict is empty and **nothing is posted** — the
 execute half is deliberately unwired until there is something real to say. Every run prints one
 flight-log line, with the caps visible per epic law 4:
@@ -703,10 +708,13 @@ flight-log line, with the caps visible per epic law 4:
 - `skipped: gh is not connected or not authenticated for this repo` — the identity read came
   back empty (no `gh`, not logged in, or not a GitHub repo). Connect `gh` (`gh auth login`, or
   the dashboard's connect screen) and fly again; the pass never guesses at its own identity.
-- No line at all — the toggle is `off` for that phase (e.g. `start` prints nothing at the end).
+- No line at all — the toggle is `off` for that phase (e.g. `start` prints nothing at the end,
+  and only `full` ever prints an `interval` line).
 
-The pass is best-effort: a `gh` hiccup is logged as a skip and never fails the flight. Not yet
-built: the between-firings (`interval`) hook and the fly-bar toggle in the dashboard.
+The pass is best-effort: a `gh` hiccup is logged as a skip and never fails the flight. A flight
+that stops early (pause, budget, STOP) may print one `interval` line right before its `end`
+line — both are reads, so nothing is said twice on GitHub. Not yet built: the fly-bar toggle in
+the dashboard.
 
 ## 14. Quick reference
 

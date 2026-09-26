@@ -41,7 +41,8 @@ export function parseChangelogItem(line: string): ChangelogItem {
     const head = line.slice(0, colon);
     const open = head.indexOf('(');
     const kind = open === -1 ? head : head.slice(0, open);
-    const scope = open !== -1 && head.endsWith(')') ? head.slice(open + 1, -1) : null;
+    const bareHead = head.endsWith('!') ? head.slice(0, -1) : head;
+    const scope = open !== -1 && bareHead.endsWith(')') ? bareHead.slice(open + 1, -1) : null;
     if (/^[a-z]+!?$/.test(kind) && (open === -1 || scope !== null)) {
       return { kind: kind.replace('!', ''), scope, text: line.slice(colon + 2) };
     }

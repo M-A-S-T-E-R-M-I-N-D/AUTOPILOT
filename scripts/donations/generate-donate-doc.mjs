@@ -41,6 +41,15 @@
  * rendered whether or not an address is published yet: the reader's half of
  * the Qubes pattern is a promise about HOW addresses ship, not a fact about
  * one address.
+ *
+ * `--check` also reads docs/SIGNING-KEY.asc the moment it lands. The Qubes
+ * pattern publishes the key first, then its fingerprint through an
+ * independent channel, then what it signs — so the key is gated before any
+ * address is: anything but one ASCII-armored PUBLIC key block fails, a
+ * PRIVATE key block (`--export-secret-keys`, one flag from `--export`) fails
+ * by name as an exposure rather than a misfiling, and gpg must import exactly
+ * one key from it. The OK line then echoes that key's fingerprint — one more
+ * channel a reader can compare against.
  */
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -62,6 +71,8 @@ const SIGNING_KEY_PATH = join(repoRoot, 'docs', 'SIGNING-KEY.asc');
 const CLEARSIGN_BEGIN = '-----BEGIN PGP SIGNED MESSAGE-----';
 const SIGNATURE_BEGIN = '-----BEGIN PGP SIGNATURE-----';
 const SIGNATURE_END = '-----END PGP SIGNATURE-----';
+const PUBLIC_KEY_BEGIN = '-----BEGIN PGP PUBLIC KEY BLOCK-----';
+const PUBLIC_KEY_END = '-----END PGP PUBLIC KEY BLOCK-----';
 const HASH_HEADER = /^Hash: [A-Za-z0-9-]+(?:, ?[A-Za-z0-9-]+)*$/;
 const BASE64_LINE = /^[A-Za-z0-9+/]+={0,2}$/;
 
@@ -201,12 +212,62 @@ export function findSignedAddressFileProblem(donationsRaw, signedRaw) {
   return null;
 }
 
+/**
+ * Checks docs/SIGNING-KEY.asc's text (null when absent) before gpg sees it:
+ * exactly one ASCII-armored PGP PUBLIC key block and nothing else. A PRIVATE
+ * key block is named as such because its fix is not "commit the right file"
+ * — the secret half has left the machine that made it.
+ * @param {string | null} keyRaw
+ * @returns {string | null} what is wrong, or null when the file is acceptable
+ */
+export function findSigningKeyProblem(keyRaw) {
+  if (keyRaw === null) return null;
+  if (keyRaw.includes('PRIVATE KEY BLOCK')) {
+    return (
+      'docs/SIGNING-KEY.asc holds a PGP PRIVATE key block — the secret half. Do not commit ' +
+      'it: treat the key as exposed and revoke it, then publish only the public half ' +
+      '(`gpg --armor --export <fingerprint>`).'
+    );
+  }
+  const lines = keyRaw.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+  const isOneBlock =
+    lines[0] === PUBLIC_KEY_BEGIN &&
+    lines.at(-1) === PUBLIC_KEY_END &&
+    !lines.slice(1, -1).some((line) => line.startsWith('-----'));
+  if (!isOneBlock) {
+    return (
+      'docs/SIGNING-KEY.asc must be exactly one ASCII-armored PGP public key block ' +
+      '(`gpg --armor --export <fingerprint>`), with nothing before or after it.'
+    );
+  }
+  return null;
+}
+
 /** Splits gpg `--status-fd` output into [keyword, ...arguments] records. */
 function statusRecords(status) {
   return status
     .split(/\r?\n/)
     .filter((line) => line.startsWith('[GNUPG:] '))
     .map((line) => line.slice('[GNUPG:] '.length).split(' '));
+}
+
+/**
+ * The one key gpg imported from docs/SIGNING-KEY.asc, read from the status
+ * output of `gpg --import` — or why there was not exactly one. Counts the
+ * IMPORT_OK lines rather than trusting the exit code: gpg 2.4 on Windows
+ * imports the key, then exits 2 because it cannot reach the agent
+ * --no-autostart keeps from starting.
+ * @param {string} importStatus
+ * @returns {{ fingerprint: string } | { problem: string }}
+ */
+export function readImportStatus(importStatus) {
+  const keys = statusRecords(importStatus).filter(([keyword]) => keyword === 'IMPORT_OK');
+  if (keys.length !== 1) {
+    return {
+      problem: `docs/SIGNING-KEY.asc must hold exactly one key; gpg imported ${keys.length}.`,
+    };
+  }
+  return { fingerprint: keys[0][2] };
 }
 
 /**
@@ -219,13 +280,9 @@ function statusRecords(status) {
  * @returns {{ fingerprint: string } | { problem: string }}
  */
 export function readSignatureStatus(importStatus, verifyStatus, verifyExit) {
-  const keys = statusRecords(importStatus).filter(([keyword]) => keyword === 'IMPORT_OK');
-  if (keys.length !== 1) {
-    return {
-      problem: `docs/SIGNING-KEY.asc must hold exactly one key; gpg imported ${keys.length}.`,
-    };
-  }
-  const keyFingerprint = keys[0][2];
+  const key = readImportStatus(importStatus);
+  if ('problem' in key) return key;
+  const keyFingerprint = key.fingerprint;
 
   const records = statusRecords(verifyStatus);
   const refused = records.find(([keyword]) => REFUSED_SIGNATURE_STATUS.includes(keyword));
@@ -255,10 +312,51 @@ export function readSignatureStatus(importStatus, verifyStatus, verifyExit) {
 }
 
 /**
- * Verifies docs/DONATE.asc with gpg against docs/SIGNING-KEY.asc alone. The
- * homedir is a fresh temporary directory, so no key or trust setting of the
- * machine running the check can vouch for the signature, and --no-autostart
- * keeps gpg from starting an agent that would outlive the check.
+ * Runs `check` with a gpg bound to a fresh temporary homedir, deleted
+ * afterwards. No key or trust setting of the machine running the check can
+ * vouch for anything, and --no-autostart keeps gpg from starting an agent
+ * that would outlive the check.
+ * @template T
+ * @param {typeof spawnSync} run
+ * @param {(gpg: (args: string[]) => ReturnType<typeof spawnSync>) => T} check
+ * @returns {T}
+ */
+function inThrowawayHomedir(run, check) {
+  const home = mkdtempSync(join(tmpdir(), 'autopilot-donate-gpg-'));
+  try {
+    return check((args) =>
+      run('gpg', ['--homedir', home, '--batch', '--no-autostart', '--status-fd', '1', ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+      }),
+    );
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Imports docs/SIGNING-KEY.asc on its own — the gate for the key landing
+ * before any address does. Passes exactly one key and names its fingerprint.
+ * @param {string} keyPath
+ * @param {typeof spawnSync} [run]
+ * @returns {{ fingerprint: string } | { problem: string }}
+ */
+export function verifySigningKey(keyPath, run = spawnSync) {
+  return inThrowawayHomedir(run, (gpg) => {
+    const imported = gpg(['--import', keyPath]);
+    if (imported.error) {
+      return {
+        problem: `gpg could not run (${imported.error.message}); install GnuPG to verify docs/SIGNING-KEY.asc.`,
+      };
+    }
+    return readImportStatus(imported.stdout);
+  });
+}
+
+/**
+ * Verifies docs/DONATE.asc with gpg against docs/SIGNING-KEY.asc alone, in a
+ * throwaway homedir holding only that key.
  * @param {string} signedPath
  * @param {string} keyPath
  * @param {typeof spawnSync} [run]
@@ -272,30 +370,20 @@ export function verifySignedAddressFile(signedPath, keyPath, run = spawnSync) {
         'signature is checked against.',
     };
   }
-  const home = mkdtempSync(join(tmpdir(), 'autopilot-donate-gpg-'));
-  try {
-    const gpg = (args) =>
-      run('gpg', ['--homedir', home, '--batch', '--no-autostart', '--status-fd', '1', ...args], {
-        encoding: 'utf8',
-        windowsHide: true,
-      });
+  return inThrowawayHomedir(run, (gpg) => {
     const imported = gpg(['--import', keyPath]);
     if (imported.error) {
       return {
         problem: `gpg could not run (${imported.error.message}); install GnuPG to verify docs/DONATE.asc.`,
       };
     }
-    // No exit-code check here: gpg 2.4 on Windows imports the key, then exits
-    // 2 because it cannot reach the agent --no-autostart keeps from starting.
-    // readSignatureStatus counts the IMPORT_OK lines instead.
+    // No exit-code check here — readImportStatus counts the IMPORT_OK lines.
     const verified = gpg(['--verify', signedPath]);
     if (verified.error) {
       return { problem: `gpg could not run (${verified.error.message}).` };
     }
     return readSignatureStatus(imported.stdout, verified.stdout, verified.status);
-  } finally {
-    rmSync(home, { recursive: true, force: true });
-  }
+  });
 }
 
 /** Renders an address as a Markdown-portable QR code using Unicode
@@ -408,22 +496,45 @@ export function renderDoc(entries) {
   return sections.join('\n');
 }
 
+/**
+ * The signing leg of --check: refuses a bad key file, an address file without
+ * its clearsigned twin, or a signature gpg does not vouch for; otherwise says
+ * what the tree holds, for the OK line.
+ * @returns {{ problem: string } | { note: string }}
+ */
+function checkSigning() {
+  const keyRaw = readIfPresent(SIGNING_KEY_PATH);
+  const keyProblem = findSigningKeyProblem(keyRaw);
+  if (keyProblem !== null) return { problem: keyProblem };
+
+  const signedRaw = readIfPresent(SIGNED_PATH);
+  const pairProblem = findSignedAddressFileProblem(readIfPresent(DONATIONS_PATH), signedRaw);
+  if (pairProblem !== null) return { problem: pairProblem };
+
+  if (signedRaw !== null) {
+    const signature = verifySignedAddressFile(SIGNED_PATH, SIGNING_KEY_PATH);
+    if ('problem' in signature) return signature;
+    return { note: ` docs/DONATE.asc is signed by ${signature.fingerprint}.` };
+  }
+  if (keyRaw !== null) {
+    const key = verifySigningKey(SIGNING_KEY_PATH);
+    if ('problem' in key) return key;
+    return {
+      note: ` docs/SIGNING-KEY.asc holds key ${key.fingerprint}; no address file is published yet.`,
+    };
+  }
+  return { note: '' };
+}
+
 function main() {
   const check = process.argv.includes('--check');
   const entries = readEntries();
   const next = renderDoc(entries);
 
   if (check) {
-    const signedRaw = readIfPresent(SIGNED_PATH);
-    const signingProblem = findSignedAddressFileProblem(readIfPresent(DONATIONS_PATH), signedRaw);
-    if (signingProblem !== null) {
-      console.error(`donate-check FAILED: ${signingProblem}`);
-      process.exit(1);
-    }
-    const signature =
-      signedRaw === null ? null : verifySignedAddressFile(SIGNED_PATH, SIGNING_KEY_PATH);
-    if (signature !== null && 'problem' in signature) {
-      console.error(`donate-check FAILED: ${signature.problem}`);
+    const signing = checkSigning();
+    if ('problem' in signing) {
+      console.error(`donate-check FAILED: ${signing.problem}`);
       process.exit(1);
     }
     const current = (() => {
@@ -442,8 +553,7 @@ function main() {
     }
     console.log(
       `donate-check OK: docs/DONATE.md matches docs/donations.json (${entries.length} ` +
-        'address(es)).' +
-        (signature === null ? '' : ` docs/DONATE.asc is signed by ${signature.fingerprint}.`),
+        `address(es)).${signing.note}`,
     );
     return;
   }

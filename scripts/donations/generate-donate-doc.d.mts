@@ -15,6 +15,7 @@ export declare function findSignedAddressFileProblem(
   donationsRaw: string | null,
   signedRaw: string | null,
 ): string | null;
+export declare function findSigningKeyProblem(keyRaw: string | null): string | null;
 
 export type SignatureCheck = { readonly fingerprint: string } | { readonly problem: string };
 
@@ -25,10 +26,15 @@ export interface GpgResult {
   readonly error?: Error;
 }
 
+export declare function readImportStatus(importStatus: string): SignatureCheck;
 export declare function readSignatureStatus(
   importStatus: string,
   verifyStatus: string,
   verifyExit: number | null,
+): SignatureCheck;
+export declare function verifySigningKey(
+  keyPath: string,
+  run?: (command: string, args: readonly string[], options: object) => GpgResult,
 ): SignatureCheck;
 export declare function verifySignedAddressFile(
   signedPath: string,

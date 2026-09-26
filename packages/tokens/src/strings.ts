@@ -1009,9 +1009,16 @@ const EN_STRINGS = {
   // The board's keyboard legend (shell.ts's boardKeysHint(), epic 0026): one
   // label per key group — the <kbd> keys themselves are not translated.
   boardKeysMove: 'move',
+  boardKeysSelect: 'select',
+  boardKeysSelectAll: 'select all',
   boardKeysApprove: 'approve',
   boardKeysDone: 'done',
   boardKeysLeave: 'leave',
+  // Row selection (epic 0026): the leading checkbox's accessible name wraps
+  // the task title in {name} (data-i18n-aria-template); the status line
+  // under the legend counts the set through {n} riding data-i18n-args.
+  taskSelectAria: 'Select: {name}',
+  boardSelected: '{n} selected — Esc clears',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2439,9 +2446,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskReject: '✗ דחה',
     taskDone: '✓ בוצע',
     boardKeysMove: 'מעבר',
+    boardKeysSelect: 'בחירה',
+    boardKeysSelectAll: 'בחירת הכול',
     boardKeysApprove: 'אישור',
     boardKeysDone: 'בוצע',
     boardKeysLeave: 'יציאה',
+    taskSelectAria: 'בחירה: {name}',
+    boardSelected: '{n} נבחרו — Esc מנקה',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

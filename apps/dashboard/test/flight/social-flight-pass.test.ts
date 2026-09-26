@@ -6,7 +6,8 @@
  * web-mtpzzx7v-72q2dv): the toggle gate, the self-target guard, the clean
  * refusal when gh is not connected, and the read-only pass that composes
  * the identity/inventory reads with the pure protocol engine — plus a pin
- * on fly.ts's two call sites, so the wiring cannot be dropped silently.
+ * on fly.ts's three call sites (start, interval, end), so the wiring cannot
+ * be dropped silently.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -248,7 +249,7 @@ describe('runSocialFlightPass — the read-only pass', () => {
     expect(log).toContain('nothing posted');
   });
 
-  it('routes handed-in candidates through the protocol engine — role, dedup and caps — and still posts nothing', async () => {
+  it('routes handed-in candidates through the protocol engine — role, who was asked, dedup and caps — and still posts nothing', async () => {
     const calls: Array<readonly string[]> = [];
     // A guest (not the repo owner) flying as themselves.
     const exec = execFor(connectedGh('guest', 'octocat'), calls);
@@ -263,6 +264,17 @@ describe('runSocialFlightPass — the read-only pass', () => {
         title: 'Another fresh finding entirely',
         body: 'x',
       },
+      // Law 5's second half: the pass passes the resolved login to the
+      // engine, so a question asked of the OWNER is not the guest's to answer
+      // while one asked of the guest themselves is.
+      {
+        kind: 'comment',
+        reasoning: 'asked of the owner',
+        askedOf: 'octocat',
+        issueNumber: 4,
+        body: 'x',
+      },
+      { kind: 'comment', reasoning: 'asked of me', askedOf: 'guest', issueNumber: 4, body: 'x' },
     ];
 
     const outcome = await runSocialFlightPass('start', 'start', {
@@ -276,9 +288,9 @@ describe('runSocialFlightPass — the read-only pass', () => {
       ran: true,
       identity: { login: 'guest', role: 'user' },
       verdict: {
-        refused: [candidates[0]],
+        refused: [candidates[0], candidates[4]],
         duplicate: [candidates[1]],
-        allowed: [candidates[2]],
+        allowed: [candidates[2], candidates[5]],
         queued: [candidates[3]],
       },
     });
@@ -287,14 +299,22 @@ describe('runSocialFlightPass — the read-only pass', () => {
   });
 });
 
-describe('fly.ts weaves the pass in at its start and end phases', () => {
-  it('calls runSocialFlightPass for both phases from the raw env toggle, self-target guarded', () => {
+describe('fly.ts weaves the pass in at its start, interval and end phases', () => {
+  it('calls runSocialFlightPass for all three phases from the raw env toggle, self-target guarded', () => {
     const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
     expect(fly).toContain(
       "runSocialFlightPass('start', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
     );
     expect(fly).toContain(
+      "runSocialFlightPass('interval', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
+    );
+    expect(fly).toContain(
       "runSocialFlightPass('end', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
     );
+  });
+
+  it('gates the interval call on isBetweenFirings, so the last firing never doubles with the end pass', () => {
+    const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
+    expect(fly).toContain('if (isBetweenFirings(firingsCompletedThisFlight, firings))');
   });
 });

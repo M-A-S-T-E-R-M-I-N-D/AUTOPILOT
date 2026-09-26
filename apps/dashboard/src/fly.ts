@@ -222,6 +222,7 @@ import {
 } from './flight/post-flight-sweeps.js';
 import { runOwnedWorkSweep } from './flight/owned-work-reconcile.js';
 import { runSocialFlightPass } from './flight/social-flight-pass.js';
+import { isBetweenFirings } from './flight/social-flight-trigger.js';
 import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
 const DEFAULT_FIRINGS = 1;
@@ -1195,6 +1196,10 @@ async function main(): Promise<void> {
     out(
       `Per-firing caps: wall clock ${Math.round((cliTimeoutMs ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000)} min, idle ${Math.round((cliIdleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS) / 60_000)} min without output (AUTOPILOT_CLI_TIMEOUT_MS / AUTOPILOT_CLI_IDLE_TIMEOUT_MS).`,
     );
+    // Firings this flight has completed so far — counted in onFiringComplete
+    // (below), where the interval social pass asks whether another firing is
+    // still to come (the loop keeps its own iteration count private).
+    let firingsCompletedThisFlight = 0;
     const loop: LoopDeps = {
       firing: {
         model: new StreamingClaudeCliModel({
@@ -1725,6 +1730,20 @@ async function main(): Promise<void> {
               ? `\nIts recorded exploration trail (RESUME from here — do not re-read it all):\n${trail}`
               : '');
         }
+        // SOCIAL FLIGHT weave-in, interval phase (epic 0016 slice 3/6): the
+        // between-firings twin of the start/end passes below — only under
+        // AUTOPILOT_SOCIAL_FLIGHT=full (decided in flight/social-flight-
+        // trigger.ts), and only while another planned firing is still to
+        // fly: after the last one the end pass speaks with the end-of-flight
+        // sweeps, so `full` never says the same thing twice back to back at
+        // the tail. Read-only, self-target guarded, best-effort — never
+        // fatal to the flight, like its twins. A flight stopped early (pause,
+        // budget, STOP) may still run one interval pass right before its end
+        // pass; both are reads, so the cost is one extra flight-log line.
+        firingsCompletedThisFlight += 1;
+        if (isBetweenFirings(firingsCompletedThisFlight, firings)) {
+          await runSocialFlightPass('interval', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
+        }
       },
     };
 
@@ -1760,7 +1779,8 @@ async function main(): Promise<void> {
     // target guarded, refusing cleanly when gh is not connected — all decided
     // inside flight/social-flight-pass.ts; unset, it never reaches GitHub.
     // Read-only in this slice (no candidate source is wired yet) and
-    // best-effort: never fatal to the flight. The end phase runs with the
+    // best-effort: never fatal to the flight. The interval phase runs from
+    // onFiringComplete (above, between firings); the end phase runs with the
     // other end-of-flight sweeps below.
     await runSocialFlightPass('start', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
 

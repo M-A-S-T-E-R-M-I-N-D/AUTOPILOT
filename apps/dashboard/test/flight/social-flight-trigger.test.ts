@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  isBetweenFirings,
   parseSocialFlightToggle,
   shouldRunSocialFlight,
 } from '../../src/flight/social-flight-trigger.js';
@@ -65,5 +66,24 @@ describe('shouldRunSocialFlight', () => {
     expect(shouldRunSocialFlight('start', 'interval')).toBe(false);
     expect(shouldRunSocialFlight('end', 'interval')).toBe(false);
     expect(shouldRunSocialFlight('off', 'interval')).toBe(false);
+  });
+});
+
+describe('isBetweenFirings — the interval phase is BETWEEN firings, never after the last', () => {
+  it('is true after every firing that still has another planned one after it', () => {
+    expect(isBetweenFirings(1, 3)).toBe(true);
+    expect(isBetweenFirings(2, 3)).toBe(true);
+  });
+
+  it('is false after the last planned firing — the end phase speaks there instead', () => {
+    expect(isBetweenFirings(3, 3)).toBe(false);
+  });
+
+  it('is false for a one-firing flight, which has no "between" at all', () => {
+    expect(isBetweenFirings(1, 1)).toBe(false);
+  });
+
+  it('is false, never a negative gap, when completed somehow exceeds planned', () => {
+    expect(isBetweenFirings(4, 3)).toBe(false);
   });
 });

@@ -251,6 +251,22 @@ describe('claimLedger', () => {
     expect(claims.map((c) => c.login)).toEqual(['early', 'late']);
   });
 
+  it('puts every undated assignee ahead of every dated claim, keeping the assignee order among them', () => {
+    const claims = claimLedger(
+      ['quiet-z', 'dated-b', 'quiet-a'],
+      [
+        comment('dated-b', 'Claimed by dated-b via the pool client.', T0 + 2 * DAY),
+        comment('dated-a', 'Claimed by dated-a via the pool client.', T0),
+      ],
+    );
+    expect(claims.map((c) => [c.login, c.claimedAt])).toEqual([
+      ['quiet-z', null],
+      ['quiet-a', null],
+      ['dated-a', T0],
+      ['dated-b', T0 + 2 * DAY],
+    ]);
+  });
+
   it('an empty issue — no assignees, no comments — is simply free', () => {
     expect(claimLedger([], [])).toEqual([]);
   });

@@ -5,10 +5,12 @@
  * The Social Flight's weave-in pass (epic 0016 "The GitHub Social Flight",
  * slice 3/6 — board web-mtpzzx7v-72q2dv): the I/O half of what
  * `social-flight-trigger.ts` decides purely. `fly.ts` calls
- * {@link runSocialFlightPass} at its start and end phases; the interval
- * phase (between firings) lives inside the engine loop's per-firing hook
- * and is a follow-up slice, as is the fly-bar toggle. Everything the epic's
- * own slice wording asks of the weave-in is decided here, in this order:
+ * {@link runSocialFlightPass} at all three phases — start (takeoff),
+ * interval (from the engine loop's per-firing hook, between firings only:
+ * `isBetweenFirings` keeps it off the last planned firing, where the end
+ * pass speaks) and end (with the end-of-flight sweeps); the fly-bar toggle
+ * is a follow-up slice. Everything the epic's own slice wording asks of the
+ * weave-in is decided here, in this order:
  *
  *   1. the toggle — `AUTOPILOT_SOCIAL_FLIGHT=off|start|end|full`, parsed
  *      fail-closed by {@link parseSocialFlightToggle} and gated per phase by
@@ -28,8 +30,10 @@
  *   4. the pass itself — the read-only inventories ({@link
  *      fetchOwnSubmissions}, {@link fetchOpenThreads}) and the protocol
  *      engine ({@link planSocialProtocol}) over the candidates this call was
- *      handed, with the caps printed in the flight log (epic law 4, "caps
- *      visible in the flight log").
+ *      handed — the resolved login handed along, so a question asked of
+ *      some other human is refused rather than answered in their place
+ *      (epic law 5's second half) — with the caps printed in the flight log
+ *      (epic law 4, "caps visible in the flight log").
  *
  * READ-ONLY BY CONSTRUCTION in this slice: no caller supplies candidates yet
  * (deriving them from mirror-pass findings is its own slice), so
@@ -175,12 +179,15 @@ export async function runSocialFlightPass(
       fetchOwnSubmissions(exec, identity.login),
       fetchOpenThreads(exec),
     ]);
+    // The resolved login rides along so the engine can tell a question asked
+    // of THIS identity from one asked of someone else (law 5's second half).
     const verdict = planSocialProtocol(
       candidates,
       caps,
       ownSubmissions,
       identity.role,
       openThreads,
+      identity.login,
     );
     out(
       `  🗣 social pass (${phase}) as @${identity.login} [${identity.role}] on ` +
