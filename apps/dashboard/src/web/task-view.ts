@@ -9,14 +9,14 @@
  * queued,in_progress`), not the hash — `features/subject-nav.ts` already owns
  * `location.hash` for in-page anchors — and `/p/<id>` keeps serving one page.
  *
- * Pure and DOM-free. Nothing calls this yet (zero bundle bytes, zero page
- * change): wiring the view header into `shell.ts`'s Tasks card is the next
- * slice, the same split `tab-route.ts` made. When it is wired, embed the
- * functions via `.toString()` like `task-queue.ts`'s — which is why every
- * vocabulary sits inside {@link taskViewValues} rather than a module const,
- * and why {@link taskMatchesView}/{@link groupTasksForView} need
- * {@link taskViewKey} and {@link taskViewValues} embedded beside them.
- * Display options (show/hide row properties) are not modelled yet.
+ * Pure and DOM-free. `shell.ts` embeds these via `.toString()` like
+ * `task-queue.ts`'s — which is why every vocabulary sits inside
+ * {@link taskViewValues} rather than a module const, and why
+ * {@link taskMatchesView}/{@link groupTasksForView} need {@link taskViewKey}
+ * and {@link taskViewValues} embedded beside them. The Tasks card's Status
+ * filter is the first caller; {@link groupTasksForView} waits for the
+ * grouping control and is not embedded yet. Display options (show/hide row
+ * properties) are not modelled yet.
  */
 
 /** The three task properties the view header groups and filters by. */

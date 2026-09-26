@@ -109,6 +109,13 @@ import {
   QUEUE_FORECAST_WINDOW,
 } from './task-queue.js';
 import {
+  taskViewValues as sharedTaskViewValues,
+  taskViewKey as sharedTaskViewKey,
+  parseTaskView as sharedParseTaskView,
+  taskViewSearch as sharedTaskViewSearch,
+  taskMatchesView as sharedTaskMatchesView,
+} from './task-view.js';
+import {
   flightLogDisplayRows as sharedFlightLogDisplayRows,
   flightDetailLine as sharedFlightDetailLine,
   flightGroupSummary as sharedFlightGroupSummary,
@@ -2397,6 +2404,12 @@ ${sharedTaskQueueCounts.toString()}
 // "shell decomposition", slice 2) — its real compiled source via
 // .toString(), not a hand-retyped copy. It can no longer drift apart.
 ${sharedTaskHistoryMoreMeta.toString()}
+// The view functions are generated FROM web/task-view.ts via .toString().
+${sharedTaskViewValues.toString()}
+${sharedTaskViewKey.toString()}
+${sharedParseTaskView.toString()}
+${sharedTaskViewSearch.toString()}
+${sharedTaskMatchesView.toString()}
 // taskBurnLabel/taskRunawayTip are generated FROM web/task-queue.ts below
 // (epic 0002 "shell decomposition", slice 2) — their real compiled source
 // via .toString(), not a hand-retyped copy. It can no longer drift apart.
@@ -2570,9 +2583,71 @@ function boardKeysHint() {
   }
   return p;
 }
+// THE VIEW HEADER (epic 0026 slice 2): the view lives in the query string
+// (web/task-view.ts), so a filtered board survives a reload and a shared
+// link. A Status box rewrites it in place (replaceState) and rebuilds the
+// list, keeping focus via boardFilterFocus. A hand-typed severity or source
+// filter applies too; their boxes come later.
+var boardFilterFocus = null;
+function boardFilterFieldset(view) {
+  var fs = el('fieldset', 'board-filter');
+  var legend = el('legend', null, tr('boardFilterStatus'));
+  legend.setAttribute('data-i18n', 'boardFilterStatus');
+  fs.appendChild(legend);
+  var values = taskViewValues('status');
+  var refocus = null;
+  for (var i = 0; i < values.length; i++) {
+    var option = el('label', 'board-filter-option');
+    var box = el('input');
+    box.type = 'checkbox';
+    box.value = values[i];
+    box.setAttribute('data-task-filter', 'status');
+    box.checked = view.status.indexOf(values[i]) >= 0;
+    option.appendChild(box);
+    var word = el('span', null, tr(TASK_STATUS_KEYS[values[i]]));
+    word.setAttribute('data-i18n', TASK_STATUS_KEYS[values[i]]);
+    option.appendChild(word);
+    fs.appendChild(option);
+    if (boardFilterFocus === 'status:' + values[i]) refocus = box;
+  }
+  if (refocus) {
+    boardFilterFocus = null;
+    setTimeout(function () { refocus.focus(); }, 0); // once the card is attached
+  }
+  return fs;
+}
+// "Showing n of m" (a status line) and the Clear button.
+function boardFilterNote(shown, total) {
+  var p = el('p', 'board-filter-note muted');
+  var args = { n: shown, total: total };
+  var count = el('span', null, tr('boardFilterShowing', args));
+  count.setAttribute('role', 'status');
+  count.setAttribute('data-i18n-template', 'boardFilterShowing');
+  count.setAttribute('data-i18n-args', JSON.stringify(args));
+  p.appendChild(count);
+  p.appendChild(document.createTextNode(' '));
+  var clear = el('button', 'board-filter-clear', tr('boardFilterClear'));
+  clear.type = 'button';
+  clear.setAttribute('data-task-filter-clear', '');
+  clear.setAttribute('data-i18n', 'boardFilterClear');
+  p.appendChild(clear);
+  return p;
+}
+function setTaskView(view) {
+  history.replaceState(history.state, '', location.pathname + taskViewSearch(view, location.search) + location.hash);
+  rerenderSoon();
+}
 function tasksSection(c) {
   var tasks = c.tasks || [];
   var anyFocus = taskFocusActive(tasks);
+  // Rows, column counts and the auto view read what the URL's view shows.
+  var view = parseTaskView(location.search);
+  var filtered = view.status.length + view.severity.length + view.source.length > 0;
+  var shown = tasks;
+  if (filtered) {
+    shown = [];
+    for (var si = 0; si < tasks.length; si++) if (taskMatchesView(tasks[si], view)) shown.push(tasks[si]);
+  }
   var wrap = el('article', 'card');
   // Epic 0025 (icon system): the heading carries a leading target icon in
   // focus mode instead of baking 🎯 into the STRINGS text — setSweptText()
@@ -2585,7 +2660,7 @@ function tasksSection(c) {
   head.setAttribute('data-i18n', anyFocus ? 'tasksFocusMode' : 'tasks');
   wrap.appendChild(head);
   var boardView = boardViewStored();
-  if (boardView === 'auto' && boardFlowGroups(tasks) < 2) boardView = 'list';
+  if (boardView === 'auto' && boardFlowGroups(shown) < 2) boardView = 'list';
   wrap.setAttribute('data-board-view', boardView);
   var viewToggle = el('button', 'board-view-toggle');
   viewToggle.type = 'button';
@@ -2606,9 +2681,11 @@ function tasksSection(c) {
     emptyNote.setAttribute('data-i18n', 'tasksEmpty');
     wrap.appendChild(emptyNote);
   } else {
+    wrap.appendChild(boardFilterFieldset(view));
+    if (filtered) wrap.appendChild(boardFilterNote(shown.length, tasks.length));
     var colCounts = { queued: 0, active: 0, done: 0 };
-    for (var ci = 0; ci < tasks.length; ci++) {
-      var cs = tasks[ci].status;
+    for (var ci = 0; ci < shown.length; ci++) {
+      var cs = shown[ci].status;
       if (cs === 'queued') colCounts.queued++;
       else if (cs === 'in_progress' || cs === 'needs_approval') colCounts.active++;
       else colCounts.done++;
@@ -2640,13 +2717,15 @@ function tasksSection(c) {
     // Closed (done/deferred) history is capped to a chunk; the open queue
     // above it is never truncated — recentTasks() already sorts open before
     // closed, so closed rows are the contiguous tail of the tasks array.
-    var queueCounts = taskQueueCounts(tasks, openTaskHistory[c.id], TASK_HISTORY_CHUNK);
+    var queueCounts = taskQueueCounts(shown, openTaskHistory[c.id], TASK_HISTORY_CHUNK);
     var openCount = queueCounts.openCount;
     var closedTotal = queueCounts.closedTotal;
     var closedVisible = queueCounts.closedVisible;
     // QUEUE FORECAST (board web-msnsxugi-99uxhx): at the recent completion
     // pace, when does the open queue drain — an extrapolation that says so.
-    var forecast = queueForecastMeta(openCount, c.flightLog || [], fmtCost);
+    // The whole queue, whatever the view shows.
+    var queueOpen = filtered ? taskQueueCounts(tasks, openTaskHistory[c.id], TASK_HISTORY_CHUNK).openCount : openCount;
+    var forecast = queueForecastMeta(queueOpen, c.flightLog || [], fmtCost);
     if (forecast) {
       var forecastEl = el('p', 'queue-forecast muted', forecast.text);
       forecastEl.setAttribute('tabindex', '0');
@@ -2655,8 +2734,8 @@ function tasksSection(c) {
       wrap.appendChild(forecastEl);
     }
     var closedIdx = 0;
-    for (var i = 0; i < tasks.length; i++) {
-      var t = tasks[i];
+    for (var i = 0; i < shown.length; i++) {
+      var t = shown[i];
       var isOpen = t.status !== 'done' && t.status !== 'deferred';
       if (!isOpen) {
         closedIdx++;
@@ -2681,8 +2760,9 @@ function tasksSection(c) {
       selectBox.setAttribute('data-i18n-aria-template', 'taskSelectAria');
       selectBox.setAttribute('data-i18n-name', t.title);
       li.appendChild(selectBox);
-      if (isWorkable) {
-        openIdx++;
+      if (isWorkable) openIdx++;
+      // Reorder posts the order the list shows, so a filtered list offers none.
+      if (isWorkable && !filtered) {
         // Pointer drag reorder — the primary interaction for sighted mouse/touch
         // users; feeds the SAME /api/task/reorder as the ↑/↓ buttons below,
         // which stay the accessible primary for keyboard/screen-reader users.
@@ -2715,6 +2795,8 @@ function tasksSection(c) {
         down.setAttribute('aria-label', downTip);
         li.appendChild(up);
         li.appendChild(down);
+      }
+      if (isWorkable) {
         // Focus toggle — the operator's WIP-limit-1 lock.
         var focusBtn = el('button', 'task-focus-btn' + (t.focus ? ' on' : ''));
         focusBtn.appendChild(iconEl('target'));
@@ -3150,6 +3232,27 @@ document.addEventListener('change', function (e) {
   else delete boardSelected[id];
   var list = box.closest('.tasks');
   if (list) syncBoardSelection(list);
+});
+// A filter box sets its property to the checked boxes beside it.
+document.addEventListener('change', function (e) {
+  var box = e.target && e.target.closest && e.target.closest('[data-task-filter]');
+  var fieldset = box && box.closest('.board-filter');
+  if (!fieldset) return;
+  var property = box.getAttribute('data-task-filter');
+  var boxes = fieldset.querySelectorAll('[data-task-filter="' + property + '"]');
+  var values = [];
+  for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) values.push(boxes[i].value);
+  var view = parseTaskView(location.search);
+  var next = { group: view.group, status: view.status, severity: view.severity, source: view.source };
+  next[property] = values;
+  boardFilterFocus = property + ':' + box.value;
+  setTaskView(next);
+});
+// Clear drops every filter; focus goes to the first box, as the button goes.
+document.addEventListener('click', function (e) {
+  if (!(e.target && e.target.closest && e.target.closest('[data-task-filter-clear]'))) return;
+  boardFilterFocus = 'status:' + taskViewValues('status')[0];
+  setTaskView({ group: parseTaskView(location.search).group, status: [], severity: [], source: [] });
 });
 // A row's detail (epic 0026): its title is the disclosure button — a click,
 // or Enter/Space pressing it above, flips the detail it controls and records
