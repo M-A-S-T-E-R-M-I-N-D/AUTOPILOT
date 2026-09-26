@@ -151,6 +151,45 @@ describe('fetchExistingMilestoneTitles', () => {
   });
 });
 
+/**
+ * EPIC 0019 additive-only law — the edge branches the first tests walked
+ * past. Each pins how an existing-state read degrades ONE malformed entry of
+ * a `gh` payload without losing its well-formed siblings, or fails closed to
+ * an empty set on a payload of the wrong shape (taxonomy-seed.ts: "never
+ * blocks planning"); none of them changes a contract.
+ */
+describe('taxonomy-seed existing-state reads — malformed gh payload edge branches (regression, epic 0019 additive-only law)', () => {
+  it('fetchExistingLabelNames skips null, non-object and non-string-name entries, keeping the rest', async () => {
+    const exec = execFor({
+      'label list': {
+        code: 0,
+        stdout: JSON.stringify([null, 'stray', 7, { name: 3 }, { name: 'ok' }]),
+      },
+    });
+
+    expect(await fetchExistingLabelNames(exec)).toEqual(new Set(['ok']));
+  });
+
+  it('fetchExistingMilestoneTitles fails closed to an empty set when the payload is not an array', async () => {
+    const exec = execFor({
+      milestones: { code: 0, stdout: JSON.stringify({ message: 'Not Found' }) },
+    });
+
+    expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set());
+  });
+
+  it('fetchExistingMilestoneTitles skips null, non-object and title-less entries, keeping the rest', async () => {
+    const exec = execFor({
+      milestones: {
+        code: 0,
+        stdout: JSON.stringify([null, 'stray', { number: 1 }, { title: 2 }, { title: 'V1' }]),
+      },
+    });
+
+    expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set(['V1']));
+  });
+});
+
 describe('executeTaxonomySeed', () => {
   it('applies a create-label action via gh label create --force', async () => {
     const exec = execFor({ 'label create': { code: 0, stdout: '' } });

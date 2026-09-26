@@ -185,6 +185,113 @@ describe('fetchContributorFacts', () => {
   });
 });
 
+/**
+ * EPIC 0019 additive-only law — the edge branches the first tests walked
+ * past. Each pins how the KEEPER dossier degrades ONE malformed field of a
+ * `gh` payload to its explicit unknown/zero while the well-formed siblings
+ * still land in the dossier (contributor-dossier.ts: "a partial dossier is
+ * still more evidence than none"); none of them changes a contract.
+ */
+describe('KEEPER dossier reads — malformed gh payload edge branches (regression, epic 0019 additive-only law)', () => {
+  const nowMs = Date.parse('2026-09-26T00:00:00Z');
+
+  function execWith(userPayload: unknown, prListPayload: unknown): CliExec {
+    return vi.fn(async (_bin, args) => {
+      if (args[0] === 'api') return { code: 0, stdout: JSON.stringify(userPayload) };
+      if (args[0] === 'pr' && args[1] === 'list') {
+        return { code: 0, stdout: JSON.stringify(prListPayload) };
+      }
+      return { code: 1, stdout: '' };
+    });
+  }
+
+  it('renders followers as unknown while still reporting a known public-repo count', () => {
+    const facts: ContributorFacts = {
+      login: 'partial',
+      accountCreatedAt: null,
+      publicRepos: 7,
+      followers: null,
+      mergedPrCount: 0,
+      mergedPrTitles: [],
+      dcoCleanCount: 0,
+      dcoTotalChecked: 0,
+    };
+
+    expect(formatContributorDossier(facts, nowMs)).toContain(
+      'public repos: 7 · followers: unknown',
+    );
+  });
+
+  it('degrades each wrong-typed account field to null on its own, never the whole lookup', async () => {
+    const exec = execWith({ created_at: 1700000000, public_repos: '5', followers: 9 }, []);
+
+    const facts = await fetchContributorFacts('typed', exec);
+
+    expect(facts.accountCreatedAt).toBeNull();
+    expect(facts.publicRepos).toBeNull();
+    expect(facts.followers).toBe(9);
+  });
+
+  it('counts zero merged PRs when the pr list payload is an object, not an array', async () => {
+    const exec = execWith({}, { message: 'unexpected shape' });
+
+    const facts = await fetchContributorFacts('shaped', exec);
+
+    expect(facts.mergedPrCount).toBe(0);
+    expect(facts.mergedPrTitles).toEqual([]);
+    expect(facts.dcoTotalChecked).toBe(0);
+  });
+
+  it('skips a merged PR entry with a non-string title, its commits included', async () => {
+    const exec = execWith({}, [
+      { title: 42, commits: [{ messageBody: 'Signed-off-by: A <a@example.com>' }] },
+      { commits: [{ messageBody: 'Signed-off-by: A <a@example.com>' }] },
+      { title: 'Real', commits: [] },
+    ]);
+
+    const facts = await fetchContributorFacts('untitled', exec);
+
+    expect(facts.mergedPrCount).toBe(1);
+    expect(facts.mergedPrTitles).toEqual(['Real']);
+    expect(facts.dcoCleanCount).toBe(0);
+    expect(facts.dcoTotalChecked).toBe(0);
+  });
+
+  it('counts a merged PR whose commits field is missing or not an array, with zero DCO-checkable commits', async () => {
+    const exec = execWith({}, [
+      { title: 'No commits field' },
+      { title: 'String commits', commits: 'nope' },
+    ]);
+
+    const facts = await fetchContributorFacts('shapeless', exec);
+
+    expect(facts.mergedPrCount).toBe(2);
+    expect(facts.mergedPrTitles).toEqual(['No commits field', 'String commits']);
+    expect(facts.dcoCleanCount).toBe(0);
+    expect(facts.dcoTotalChecked).toBe(0);
+  });
+
+  it('skips null and non-object commit entries; a non-string messageBody counts as checked but unsigned', async () => {
+    const exec = execWith({}, [
+      {
+        title: 'Mixed',
+        commits: [
+          null,
+          'stray',
+          { messageBody: 7 },
+          { messageBody: 'Signed-off-by: A <a@example.com>' },
+          {},
+        ],
+      },
+    ]);
+
+    const facts = await fetchContributorFacts('mixed', exec);
+
+    expect(facts.dcoTotalChecked).toBe(3);
+    expect(facts.dcoCleanCount).toBe(1);
+  });
+});
+
 describe('planContributorDossierCommands', () => {
   it('plans a dossier-posted label edit followed by the dossier comment', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '[]' });
