@@ -229,6 +229,29 @@ describe('runLoop', () => {
     expect(h.log.filter((m) => m.includes('ended without a result envelope'))).toHaveLength(2);
   });
 
+  it('logs the commit-time review (C5) of a firing that carried one, and nothing for one that did not', async () => {
+    const h = harness([
+      outcome({
+        record: {
+          ...RECORD,
+          firing: 140,
+          review: {
+            status: 'reviewed',
+            model: 'haiku',
+            costUsd: 0.01,
+            findings: [{ severity: 'high', file: 'src/a.ts', problem: 'inverted guard' }],
+          },
+        },
+      }),
+      outcome({ record: { ...RECORD, firing: 141 } }),
+    ]);
+    await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 2 });
+    expect(h.log).toContain(
+      'firing 140 commit review (haiku): 1 finding — top: [high] src/a.ts: inverted guard',
+    );
+    expect(h.log.filter((m) => m.includes('commit review'))).toHaveLength(1);
+  });
+
   it('stays quiet about guard denials when a firing hit none', async () => {
     const h = harness([outcome({ guardDenials: 0 })]);
     await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });

@@ -1405,6 +1405,21 @@ describe('GitVcs — the guard clauses the record depends on', () => {
     });
   });
 
+  describe('diffText', () => {
+    it('is the unified diff between two refs — the commit reviewer reads this', async () => {
+      const diff = await vcs.diffText(first, second);
+      expect(diff).toContain('diff --git a/a.txt b/a.txt');
+      expect(diff).toContain('+three');
+      expect(diff).toContain('b/b.txt');
+    });
+
+    it('degrades to empty on an unborn-HEAD ref or a ref git rejects', async () => {
+      expect(await vcs.diffText('', second)).toBe('');
+      expect(await vcs.diffText(first, '')).toBe('');
+      expect(await vcs.diffText(first, 'no-such-ref')).toBe('');
+    });
+  });
+
   describe('diffNumstat', () => {
     it('counts insertions and deletions per file', async () => {
       const stats = await vcs.diffNumstat(first, second);

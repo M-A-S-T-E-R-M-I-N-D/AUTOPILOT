@@ -312,6 +312,14 @@ machine):
 Point `AUTOPILOT_MECHANICAL_MODEL` at any cloud model instead (or leave it unset for `haiku`) and
 mechanical substeps stay on the cloud CLI at that model — local offload is opt-in, never a default.
 
+**Commit-time review** (BACKLOG-999 C5): once a firing's commit passes the gate, one tool-less
+call on a cheap model reads that firing's diff with a single instruction: find problems. It does
+not block anything. A finding never reverts or holds the commit. It is recorded on the firing
+(`review` in the firing's event payload) and printed as one flight-log line, e.g.
+`firing 140 commit review (haiku): 1 finding — top: [high] src/a.ts: inverted guard`.
+`AUTOPILOT_REVIEW_MODEL` picks the model (default `haiku`), and `AUTOPILOT_REVIEW_MODEL=off` turns
+the pass off. The flight prints which one it is running when it starts.
+
 ## 7. Self-mined ritual proposals (CLOSED-TASK AUDIT / DOC-FRESHNESS)
 
 Not a failure mode — the intended behavior, written down so a `CLOSED-TASK AUDIT:` or
