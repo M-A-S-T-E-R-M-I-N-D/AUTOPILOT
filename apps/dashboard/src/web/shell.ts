@@ -2451,16 +2451,18 @@ function boardViewToggleLabel(btn, view) {
 // on the document keydown below are invisible until someone already knows
 // them — this one line names them where the rows start. Each label is its
 // own [data-i18n] span so the <kbd> keys survive the translateDom() sweep
-// (setSweptText swaps text content, and the keys are not translated). A
-// fifth field is the joiner between the two keys: '/' for alternatives
-// (j or k), '+' for a chord (Ctrl and A together).
+// (setSweptText swaps text content, and the keys are not translated). The
+// first field spells the keys with their joiners: '/' between alternatives
+// (j or k), '+' within a chord (Ctrl and A together); boardKeysHint() gives
+// each key its own <kbd> and keeps the joiners as text between them.
 var BOARD_KEYS = [
-  ['j', 'k', 'boardKeysMove', 'move'],
-  ['x', null, 'boardKeysSelect', 'select'],
-  ['Ctrl', 'A', 'boardKeysSelectAll', 'select all', '+'],
-  ['a', null, 'boardKeysApprove', 'approve'],
-  ['d', null, 'boardKeysDone', 'done'],
-  ['Esc', null, 'boardKeysLeave', 'leave'],
+  ['j/k', 'boardKeysMove', 'move'],
+  ['x', 'boardKeysSelect', 'select'],
+  ['Shift+j/k', 'boardKeysExtend', 'extend'],
+  ['Ctrl+A', 'boardKeysSelectAll', 'select all'],
+  ['a', 'boardKeysApprove', 'approve'],
+  ['d', 'boardKeysDone', 'done'],
+  ['Esc', 'boardKeysLeave', 'leave'],
 ];
 // ROW SELECTION (epic 0026 "the tasks screen" slice 1, the Linear/M3 half
 // of "keyboard selection"): every row leads with a real checkbox — native
@@ -2508,25 +2510,28 @@ function syncBoardSelection(list) {
 // second hand on the map.
 function setBoardSelection(list, checked) {
   var boxes = list.querySelectorAll('[data-task-select]');
-  for (var i = 0; i < boxes.length; i++) {
-    if (boxes[i].checked === checked) continue;
-    boxes[i].checked = checked;
-    boxes[i].dispatchEvent(new Event('change', { bubbles: true }));
-  }
+  for (var i = 0; i < boxes.length; i++) setBoardBox(boxes[i], checked);
+}
+// One box, the same way: Shift+j/k checks the row it leaves and the row it
+// lands on through here.
+function setBoardBox(box, checked) {
+  if (!box || box.checked === checked) return;
+  box.checked = checked;
+  box.dispatchEvent(new Event('change', { bubbles: true }));
 }
 function boardKeysHint() {
   var p = el('p', 'board-keys muted');
   for (var i = 0; i < BOARD_KEYS.length; i++) {
     var k = BOARD_KEYS[i];
     if (i) p.appendChild(document.createTextNode(' · '));
-    p.appendChild(el('kbd', null, k[0]));
-    if (k[1]) {
-      p.appendChild(document.createTextNode(k[4] || '/'));
-      p.appendChild(el('kbd', null, k[1]));
+    // 'Shift+j/k' splits to Shift, +, j, /, k: keys at even places, joiners between.
+    var parts = k[0].split(/([+/])/);
+    for (var n = 0; n < parts.length; n++) {
+      p.appendChild(n % 2 ? document.createTextNode(parts[n]) : el('kbd', null, parts[n]));
     }
     p.appendChild(document.createTextNode(' '));
-    var label = el('span', null, k[3]);
-    label.setAttribute('data-i18n', k[2]);
+    var label = el('span', null, k[2]);
+    label.setAttribute('data-i18n', k[1]);
     p.appendChild(label);
   }
   return p;
@@ -3024,13 +3029,18 @@ wireRoving('.task [tabindex]', '.task');
 // browser's own select-all, and nowhere else — a text field elsewhere on the
 // page keeps the native chord. No text field lives inside a row (the boxes,
 // the title, the chips and the buttons are its only stops), so the row test
-// alone is the guard. Enter and the detail pane the epic doc also lists are
-// separable follow-up slices.
+// alone is the guard. Shift+j/k (Linear's "Shift extends") moves like j/k
+// and checks both the row it leaves and the row it lands on, so walking a run
+// with Shift held selects the run. It only ever adds — walking back keeps the
+// run; x unticks one row, Escape clears the lot. At either end of the list it
+// does nothing, as j/k does. Enter and the detail pane the epic doc also lists
+// are separable follow-up slices.
 var BOARD_ACTION_KEYS = { a: '[data-task-approve]', d: '[data-task-done]', x: '[data-task-select]' };
 document.addEventListener('keydown', function (e) {
   var takeAll = e.key === 'a' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+  var extend = e.shiftKey && (e.key === 'J' || e.key === 'K');
   if (!takeAll) {
-    if (e.key !== 'j' && e.key !== 'k' && e.key !== 'Escape' && !BOARD_ACTION_KEYS[e.key]) return;
+    if (e.key !== 'j' && e.key !== 'k' && !extend && e.key !== 'Escape' && !BOARD_ACTION_KEYS[e.key]) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
   }
   // A handler that ran before this one already claimed the key: a toggle
@@ -3061,9 +3071,13 @@ document.addEventListener('keydown', function (e) {
   var rows = Array.prototype.slice.call(list.querySelectorAll('.task'));
   var idx = rows.indexOf(row);
   if (idx < 0) return;
-  var next = idx + (e.key === 'j' ? 1 : -1);
+  var next = idx + (e.key === 'j' || e.key === 'J' ? 1 : -1);
   if (next < 0 || next >= rows.length) return;
   e.preventDefault();
+  if (extend) {
+    setBoardBox(row.querySelector('[data-task-select]'), true);
+    setBoardBox(rows[next].querySelector('[data-task-select]'), true);
+  }
   var title = rows[next].querySelector('.task-title');
   if (title) title.focus();
 });

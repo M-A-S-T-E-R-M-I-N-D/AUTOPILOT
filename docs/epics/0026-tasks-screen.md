@@ -13,7 +13,10 @@ key legend under the column heads that names them. Row selection followed the
 same day: every row leads with a checkbox, `x` toggles the one under the
 cursor, an "N selected" status line counts the set, and Escape clears it
 before it leaves. Ctrl/Cmd-A takes every row in the cursor's list, named in
-the legend as `Ctrl+A`. The set is what slice 4's bulk actions will act on.
+the legend as `Ctrl+A`. Shift+`j`/`k` extends: it moves like `j`/`k` and checks
+the row it leaves and the row it lands on, so a run walked with Shift held is
+selected; it only adds, and walking back keeps the run. That closes Linear's
+five selection keys. The set is what slice 4's bulk actions will act on.
 
 ## The ask
 
