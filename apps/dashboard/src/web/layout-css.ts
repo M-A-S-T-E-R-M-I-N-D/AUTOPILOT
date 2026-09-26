@@ -637,6 +637,18 @@ main.project-mode { grid-template-columns: 1fr; }
 .gate-parallel-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); overflow: hidden; }
 .gate-parallel-title { margin: 0; padding: var(--space-3) var(--space-4) 0; font-size: var(--text-base); }
 .gate-parallel-panel .stat-tiles { border-bottom: none; }
+/* HEALTH (board ap-mui2h3rw-0): the Data tab's anomaly list — each entry
+   marked by the needs-you rule down its inline-start edge, the evidence in
+   muted text under what it means, the proposed fix last. */
+.health-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); padding: 0 var(--space-4) var(--space-3); }
+.health-title { margin: 0; padding: var(--space-3) 0 var(--space-2); font-size: var(--text-base); }
+.health-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.health-item { border-inline-start: 3px solid var(--color-needs-you); padding-inline-start: var(--space-3); }
+.health-item-title { margin: 0 0 var(--space-1); font-size: var(--text-sm); color: var(--color-needs-you); }
+.health-item-title > .icon { margin-inline-end: 0.35em; }
+.health-what, .health-evidence, .health-fix, .health-clear { margin: 0 0 var(--space-1); font-size: var(--text-sm); }
+.health-evidence { color: var(--color-text-muted); overflow-wrap: anywhere; }
+.health-k { font-weight: 600; }
 .evolution-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); overflow: hidden; }
 .evolution-title { margin: 0; padding: var(--space-3) var(--space-4) 0; font-size: var(--text-base); }
 .evolution-panel .stat-tiles { border-bottom: none; }
