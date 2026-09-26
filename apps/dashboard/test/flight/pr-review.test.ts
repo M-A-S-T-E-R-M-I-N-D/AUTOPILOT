@@ -1295,6 +1295,8 @@ const BENIGN_SCRIPTS = new Set([
   // Playwright open()/settle() helpers, extracted from capture-screens.mjs) —
   // pure data and browser-driving helpers; imports no Playwright, writes
   // nothing, reads nothing but the loopback fixture its callers point it at.
+  // Plus its .d.mts stub (payload declarations for demo-scene.test.ts).
+  'docs/demo-scene.d.mts',
   'docs/demo-scene.mjs',
   // Writes docs/debriefs/README.md from the debrief files' own headings —
   // the same generate-a-committed-doc-from-the-tree class as

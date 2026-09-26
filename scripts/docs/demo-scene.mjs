@@ -16,8 +16,11 @@
  *   below, shaped exactly like `flight/runner.ts`'s FlightStatus and
  *   `server/server.ts`'s LuckyResponse; the running frame also prepends one
  *   completed firing to the flying project's log so the progress line reads
- *   one of four. The folder is a neutral `~/src/checkout-web`, never a real
- *   operator path.
+ *   one of four — its id carries the fixture project's `firingIdOf` key
+ *   (`<project>:firing-<n>`), because the fly bar's lane filter
+ *   (`web/flight-progress.ts`'s sessionFlightDataFor) keeps only a flight's
+ *   own firings and a bare id would leave the bar at zero of four. The folder
+ *   is a neutral `~/src/checkout-web`, never a real operator path.
  *
  * Imports nothing from Playwright: every function here takes the Browser or
  * Page its caller launched, so a unit test can import the payloads without a
@@ -30,10 +33,15 @@ export const BASE = 'http://127.0.0.1:4320';
 export const NOW = Date.parse('2026-09-01T12:00:00.000Z');
 export const MINUTE = 60_000;
 export const FOLDER = '~/src/checkout-web';
+/** Must equal the id of the fixture's `status: 'flying'` project — the card
+ *  the staged firing is prepended to, and the key its id must carry. */
+export const FLYING_PROJECT_ID = 'demo-checkout-web';
 /** The stills' framing: the README's frames are captured at 1440×1030 @2×. */
 export const STILL_VIEWPORT = { width: 1440, height: 1030 };
-/** Every frame is a returning operator's view: the getting-started guide
- *  hidden, so the page shows the product rather than the checklist. */
+/** Every frame is a returning operator's view: the getting-started ladder
+ *  snoozed for good, which collapses it to its head — the panel never hides
+ *  (`web/features/onboarding.ts`) — so the page shows the product rather
+ *  than the checklist's steps. */
 export const RETURNING_OPERATOR = { 'ap-ob-snooze': 'forever' };
 
 export const idleFlight = {
@@ -68,7 +76,7 @@ export const runningFlight = {
   flights: [liveFlight],
 };
 export const shippedFiring = {
-  id: 'firing-live-0',
+  id: `${FLYING_PROJECT_ID}:firing-1`,
   item: 'task-1',
   kind: 'feature',
   sha: '7f3e9c1',
