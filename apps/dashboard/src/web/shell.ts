@@ -2445,6 +2445,35 @@ function boardViewToggleLabel(btn, view) {
   btn.setAttribute('data-i18n', key);
   btn.setAttribute('aria-pressed', String(effective === 'columns'));
 }
+// Keyboard legend under the column heads (epic 0026 "the tasks screen",
+// board web-mtywp82m-zodn7z): the j/k cursor and the a/d row actions wired
+// on the document keydown below are invisible until someone already knows
+// them — this one line names them where the rows start. Each label is its
+// own [data-i18n] span so the <kbd> keys survive the translateDom() sweep
+// (setSweptText swaps text content, and the keys are not translated).
+var BOARD_KEYS = [
+  ['j', 'k', 'boardKeysMove', 'move'],
+  ['a', null, 'boardKeysApprove', 'approve'],
+  ['d', null, 'boardKeysDone', 'done'],
+  ['Esc', null, 'boardKeysLeave', 'leave'],
+];
+function boardKeysHint() {
+  var p = el('p', 'board-keys muted');
+  for (var i = 0; i < BOARD_KEYS.length; i++) {
+    var k = BOARD_KEYS[i];
+    if (i) p.appendChild(document.createTextNode(' · '));
+    p.appendChild(el('kbd', null, k[0]));
+    if (k[1]) {
+      p.appendChild(document.createTextNode('/'));
+      p.appendChild(el('kbd', null, k[1]));
+    }
+    p.appendChild(document.createTextNode(' '));
+    var label = el('span', null, k[3]);
+    label.setAttribute('data-i18n', k[2]);
+    p.appendChild(label);
+  }
+  return p;
+}
 function tasksSection(c) {
   var tasks = c.tasks || [];
   var anyFocus = taskFocusActive(tasks);
@@ -2499,6 +2528,7 @@ function tasksSection(c) {
       columns.appendChild(colEl);
     }
     wrap.appendChild(columns);
+    wrap.appendChild(boardKeysHint());
     var ul = el('ul', 'tasks');
     // Announcements for keyboard reorder (research: live region, GitHub pattern).
     var live = el('p', 'sr-only');
@@ -2904,11 +2934,16 @@ wireRoving('.task [tabindex]', '.task');
 // focusable (D1 ATTRIBUTE PAYLOAD, above) regardless of which row's control
 // last had focus. j/k (not only Arrow keys) mirrors the keeper queue's own
 // keydown convention (features/subject-nav.ts's keeperQueueKeydown).
-// Escape blurs back out. Multi-select (x), Enter, and the detail pane the
-// epic doc also lists are separable follow-up slices — this ships only the
-// single-cursor move+clear half.
+// Escape blurs back out. a/d act on the row under the cursor (the epic's
+// "a approve, d done"): each presses the row's OWN button, so the keystroke
+// shares the button's fetch, disable-while-pending and refresh path exactly,
+// and is a no-op on a row that has no such button (a done row; 'a' on a
+// queued one). Single-letter keys stay WCAG 2.1.4-clean because they only
+// fire with focus inside a task row. Multi-select (x), Enter, and the detail
+// pane the epic doc also lists are separable follow-up slices.
+var BOARD_ACTION_KEYS = { a: '[data-task-approve]', d: '[data-task-done]' };
 document.addEventListener('keydown', function (e) {
-  if (e.key !== 'j' && e.key !== 'k' && e.key !== 'Escape') return;
+  if (e.key !== 'j' && e.key !== 'k' && e.key !== 'Escape' && !BOARD_ACTION_KEYS[e.key]) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   var row = e.target && e.target.closest && e.target.closest('.task');
   if (!row) return;
@@ -2917,6 +2952,13 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
     e.preventDefault();
     if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+    return;
+  }
+  if (BOARD_ACTION_KEYS[e.key]) {
+    var actionBtn = row.querySelector(BOARD_ACTION_KEYS[e.key]);
+    if (!actionBtn || actionBtn.disabled) return;
+    e.preventDefault();
+    actionBtn.click();
     return;
   }
   var rows = Array.prototype.slice.call(list.querySelectorAll('.task'));
