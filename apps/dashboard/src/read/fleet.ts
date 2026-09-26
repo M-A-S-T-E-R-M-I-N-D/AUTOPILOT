@@ -14,6 +14,7 @@ import type {
   WarmSessionSavings,
   OrientLength,
 } from '@autopilot/store';
+import type { CommitReview } from '@autopilot/engine';
 import {
   detectAnomalies,
   type Anomaly,
@@ -226,6 +227,13 @@ export interface FlightEntry {
    *  final model attempt hit — 0/absent for a clean firing or one that
    *  predates this field. See {@link parseGuardDenials} (read/source.ts). */
   readonly guardDenials?: number;
+  /** The commit-time independent review of this firing's diff (docs/BACKLOG-999.md
+   *  C5) — its findings, or why it was skipped. Null when the review never ran
+   *  (the firing did not pass the gate, the pass was off, or the record
+   *  predates it). Advisory only: it never changed {@link gateResult}. See
+   *  {@link parseCommitReviewRecord} (read/source.ts). Optional for the same
+   *  pre-existing-fixture reason as the fields above. */
+  readonly review?: CommitReview | null;
   /** The model that ran this firing (e.g. `"claude-sonnet-5"`) — optional for
    *  the same pre-existing-fixture reason as the cache-token/duration fields
    *  above; null when the firing predates this being tracked. */

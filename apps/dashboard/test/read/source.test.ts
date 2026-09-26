@@ -550,6 +550,27 @@ describe('readFleet', () => {
     expect(card.flightLog[1]?.guardDenials).toBe(0);
   });
 
+  it('carries the commit-time review from the firing record onto its flight-log row (BACKLOG C5)', () => {
+    project('p1', 'alpha', 'flying');
+    firing('p1', 'p1:firing-1', 'AP-1', 1, 100, store, 'passed');
+    firing('p1', 'p1:firing-2', 'AP-2', 1, 200, store, 'passed');
+    const review = {
+      status: 'reviewed',
+      model: 'haiku',
+      costUsd: 0.003,
+      findings: [{ severity: 'high', file: 'src/a.ts', problem: 'the new branch is never tested' }],
+    };
+    const ev = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, 'firing', ?, ?)`,
+    );
+    ev.run('p1', 'p1:firing-1', JSON.stringify({ item: 'AP-1', review }), 100);
+    ev.run('p1', 'p1:firing-2', JSON.stringify({ item: 'AP-2' }), 200);
+
+    const byId = new Map(readFleet(store, 1).projects[0]!.flightLog.map((f) => [f.id, f]));
+    expect(byId.get('p1:firing-1')?.review).toEqual(review);
+    expect(byId.get('p1:firing-2')?.review).toBeNull();
+  });
+
   it('builds the activity timeline (newest-first) from recorded activity events', () => {
     project('p1', 'alpha', 'flying');
     const ev = store.db.prepare(

@@ -31,11 +31,19 @@ import {
   warmSessionSavings,
   orientLengths,
   taskEconomics,
+  SEVERITIES,
+  type Severity,
   type Store,
   type ProjectIndexMetaRow,
   type ActivityEventRow,
 } from '@autopilot/store';
-import { classifyNoop, type NoopClass, type TaskProposal } from '@autopilot/engine';
+import {
+  classifyNoop,
+  type CommitReview,
+  type CommitReviewFinding,
+  type NoopClass,
+  type TaskProposal,
+} from '@autopilot/engine';
 import { listOwnedWorkTasks } from '../flight/owned-work-reconcile.js';
 import {
   buildFleetView,
@@ -339,6 +347,49 @@ export function parseNoopClass(
   }
 }
 
+function toReviewFinding(entry: unknown): CommitReviewFinding | null {
+  if (typeof entry !== 'object' || entry === null) return null;
+  const { severity, file, problem } = entry as Record<string, unknown>;
+  if (!(SEVERITIES as readonly unknown[]).includes(severity)) return null;
+  if (typeof problem !== 'string' || problem.trim() === '') return null;
+  return {
+    severity: severity as Severity,
+    file: typeof file === 'string' && file.trim() !== '' ? file : null,
+    problem,
+  };
+}
+
+/**
+ * The commit-time independent review (docs/BACKLOG-999.md C5) from the full
+ * firing record (events.payload) — `FiringRecord.review`, which `metrics` has
+ * no column for. Re-checked rather than trusted, like the parsers above: a
+ * malformed finding is dropped and the rest kept (the engine's own
+ * `parseCommitReview` stance), while a review missing its status, model,
+ * findings list or skip reason reads as null — an unreadable review must
+ * never pass for a clean one.
+ */
+export function parseCommitReviewRecord(payload: string | null): CommitReview | null {
+  if (payload === null) return null;
+  let raw: unknown;
+  try {
+    raw = (JSON.parse(payload) as { review?: unknown } | null)?.review;
+  } catch {
+    return null;
+  }
+  if (typeof raw !== 'object' || raw === null) return null;
+  const { status, reason, model, costUsd, findings } = raw as Record<string, unknown>;
+  if (status === 'skipped') {
+    return typeof reason === 'string' ? { status, reason } : null;
+  }
+  if (status !== 'reviewed' || typeof model !== 'string' || !Array.isArray(findings)) return null;
+  return {
+    status,
+    model,
+    costUsd: numOrNull(costUsd),
+    findings: findings.map(toReviewFinding).filter((f): f is CommitReviewFinding => f !== null),
+  };
+}
+
 export function mapFlightEntries(
   db: Store['db'],
   projectId: string,
@@ -373,6 +424,7 @@ export function mapFlightEntries(
     // then failed the gate would wrongly carry a death explanation too.
     died: f.shipped === 1 || f.gate_result === 'reverted' ? null : parseFiringDeath(f.payload),
     noopClass: parseNoopClass(f.gate_result, f.payload),
+    review: parseCommitReviewRecord(f.payload),
     at: f.created_at,
   }));
 }
