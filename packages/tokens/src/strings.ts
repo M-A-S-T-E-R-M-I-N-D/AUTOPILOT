@@ -1011,6 +1011,7 @@ const EN_STRINGS = {
   // The board's keyboard legend (shell.ts's boardKeysHint(), epic 0026): one
   // label per key group — the <kbd> keys themselves are not translated.
   boardKeysMove: 'move',
+  boardKeysOpen: 'open',
   boardKeysSelect: 'select',
   boardKeysExtend: 'extend',
   boardKeysSelectAll: 'select all',
@@ -1022,6 +1023,8 @@ const EN_STRINGS = {
   // under the legend counts the set through {n} riding data-i18n-args.
   taskSelectAria: 'Select: {name}',
   boardSelected: '{n} selected — Esc clears',
+  // A row's read-only detail (epic 0026, Enter) when its task has no body.
+  taskDetailEmpty: 'No description.',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2451,6 +2454,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskReject: '✗ דחה',
     taskDone: '✓ בוצע',
     boardKeysMove: 'מעבר',
+    boardKeysOpen: 'פתיחה',
     boardKeysSelect: 'בחירה',
     boardKeysExtend: 'הרחבה',
     boardKeysSelectAll: 'בחירת הכול',
@@ -2459,6 +2463,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardKeysLeave: 'יציאה',
     taskSelectAria: 'בחירה: {name}',
     boardSelected: '{n} נבחרו — Esc מנקה',
+    taskDetailEmpty: 'אין תיאור.',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

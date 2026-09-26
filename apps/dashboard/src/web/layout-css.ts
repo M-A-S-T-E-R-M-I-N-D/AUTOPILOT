@@ -1395,6 +1395,15 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-selected { background: color-mix(in srgb, var(--color-accent) 14%, transparent); border-color: var(--color-accent); border-radius: var(--shape-extra-small); }
 .board-selection { margin: 0 0 var(--space-2); font-size: var(--text-xs); font-weight: 600; color: var(--color-accent); }
 .board-selection:empty { margin: 0; }
+/* A row's read-only detail (epic 0026, Enter): the title is its disclosure
+   button, so it takes the pointer and weighs in while open; the detail takes
+   its own full line under the row's strip, the body as prose (an INBOX note
+   keeps its line breaks), the id and age muted beneath. */
+.task-title[role="button"] { cursor: pointer; }
+.task-title[aria-expanded="true"] { font-weight: 600; }
+.task-detail { flex: 1 1 100%; margin: 0 0 var(--space-1); padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border); }
+.task-detail-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.task-detail-meta { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
 @media (min-width: 48rem) {
   [data-board-view="columns"] .board-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   [data-board-view="columns"] .tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: var(--space-2); align-items: start; max-block-size: 72vh; overflow: auto; overscroll-behavior: contain; }
