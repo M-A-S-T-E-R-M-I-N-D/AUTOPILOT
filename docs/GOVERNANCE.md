@@ -31,7 +31,7 @@ first" (inherited from epic 0016 law 5).
 
 ## The label scheme
 
-Four groups, an `epic` marker, and a community set — 18 labels total.
+Four groups, an `epic` marker, and a community set — 19 labels total.
 Idempotent: every seed run re-applies every label via
 `gh label create --force`, so a repeat run (or a run against an
 already-seeded repo) is cheap and harmless.
@@ -40,7 +40,7 @@ already-seeded repo) is cheap and harmless.
 | --- | --- |
 | **priority** | `priority: critical`, `priority: high`, `priority: medium`, `priority: low` |
 | **area** | `area: dashboard`, `area: flight-engine`, `area: foundation`, `area: ci`, `area: i18n`, `area: community` |
-| **status** | `status: awaiting-human`, `status: blocked` |
+| **status** | `status: awaiting-human`, `status: blocked`, `status: needs-format` (the issue protocol gate — KEEPER puts it on an issue filed off the template and lifts it once the body conforms) |
 | **epic** | `epic` — multi-slice initiative with its own doc under `docs/epics/` |
 | **community** | `claimed`, `declined`, `roadmap`, `agent-ok`, `partner-application` |
 

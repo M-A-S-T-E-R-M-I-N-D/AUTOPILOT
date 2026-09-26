@@ -15,6 +15,7 @@ import {
   type TaxonomySeedAction,
 } from '../../src/flight/taxonomy-seed.js';
 import { PARTNER_APPLICATION_LABEL } from '../../src/flight/contributor-dossier.js';
+import { AGENT_OK_LABEL, NEEDS_FORMAT_LABEL } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
 
@@ -326,5 +327,34 @@ describe('HOUSE_TAXONOMY_LABELS × KEEPER dossier routing (regression, epic 0019
 
   it('matches the label the issue template itself applies at creation', () => {
     expect(PARTNER_APPLICATION_TEMPLATE).toContain(`labels: ['${PARTNER_APPLICATION_LABEL}']`);
+  });
+});
+
+// Same law, the second seam over the same constant: the issue protocol gate
+// (issue-triage.ts, operator directive 2026-09-12) puts `status: needs-format`
+// on an off-template issue with `gh issue edit --add-label`, and `gh` resolves
+// a label NAME against the repo's live label list before it edits anything —
+// an unseeded name fails the whole edit ("'status: needs-format' not found"),
+// so the gate's label and its ONE reply never reached an issue (board
+// web-mtxey8h4-6z9g5o). Every label issue-triage.ts adds on its own
+// initiative is therefore authored here; GitHub's stock `duplicate` is the
+// one it relies on a fresh repo to already carry.
+describe('HOUSE_TAXONOMY_LABELS × KEEPER issue protocol gate (regression, epic 0019 additive-only law)', () => {
+  const names = HOUSE_TAXONOMY_LABELS.map((label) => label.name);
+
+  it('seeds every label the triage ritual adds on its own initiative', () => {
+    expect(names).toContain(AGENT_OK_LABEL);
+    expect(names).toContain(NEEDS_FORMAT_LABEL);
+  });
+
+  it('files the protocol label under the status group, after its siblings', () => {
+    const statusGroup = names.filter((name) => name.startsWith('status: '));
+    expect(statusGroup).toEqual(['status: awaiting-human', 'status: blocked', NEEDS_FORMAT_LABEL]);
+  });
+
+  it('is named, and counted, in the governance doc this constant transcribes', () => {
+    const governance = readFileSync(join(process.cwd(), 'docs/GOVERNANCE.md'), 'utf8');
+    expect(governance).toContain(`\`${NEEDS_FORMAT_LABEL}\``);
+    expect(governance).toContain(`${HOUSE_TAXONOMY_LABELS.length} labels total`);
   });
 });
