@@ -164,6 +164,20 @@ describe('discussionsTriageExecuteResultMessage', () => {
     });
   });
 
+  it('reports a reply held back for a missing pool label as a fail, never as replied', () => {
+    expect(
+      discussionsTriageExecuteResultMessage(200, {
+        outcomes: [
+          { replyResult: { code: 0 }, labelResult: { code: 0 } },
+          { replyResult: null, labelResult: null },
+        ],
+      }),
+    ).toEqual({
+      className: 'discussions-triage-result discussions-triage-result-fail',
+      text: '✗ 1 of 2 replies held back — pool label not found; sync .github/labels.json, then re-run.',
+    });
+  });
+
   it('uses singular grammar for a single failed reply', () => {
     expect(
       discussionsTriageExecuteResultMessage(200, {
