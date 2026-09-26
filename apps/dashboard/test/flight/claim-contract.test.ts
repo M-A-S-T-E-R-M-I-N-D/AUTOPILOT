@@ -19,7 +19,12 @@ import {
   claimContractBody,
   isHumanClosedTask,
 } from '../../src/flight/claim-contract.js';
-import { planPoolIssueTask, claimAndQueuePoolIssueTask } from '../../src/flight/pool-client.js';
+import {
+  planPoolIssueTask,
+  planClaimPoolIssue,
+  claimAndQueuePoolIssueTask,
+} from '../../src/flight/pool-client.js';
+import { claimLedger, CLAIM_WINDOW_DAYS } from '../../src/flight/claim-ledger.js';
 import { markTaskDoneIfShipped } from '../../src/flight/firing-hooks.js';
 import { planMirrorPassReconcile, planMirrorPassCommands } from '../../src/flight/mirror-pass.js';
 
@@ -88,6 +93,43 @@ describe('the marker', () => {
   });
 });
 
+describe('the holder line', () => {
+  const MARKER_LINE = `${HUMAN_CLOSES_MARKER} — deliver a slice per firing; this task closes only when its claimant closes the issue.`;
+
+  it('names the claimant on its own line, between the issue line and an untouched marker line', () => {
+    const body = claimContractBody(42, POOL_ISSUE.url, { claimant: 'octocat' });
+    expect(body.split('\n')).toEqual([
+      `Claimed from the pool: #42 ${POOL_ISSUE.url}`,
+      'claimed by @octocat',
+      MARKER_LINE,
+    ]);
+    expect(isHumanClosedTask({ body })).toBe(true);
+  });
+
+  it('names every holder a contested claim rides over, in order, and still reads as the contract', () => {
+    const body = claimContractBody(42, undefined, {
+      claimant: 'octocat',
+      contestedWith: ['gabibi555', 'M-A-S-T-E-R-M-I-N-D'],
+    });
+    expect(body.split('\n')).toEqual([
+      'Claimed from the pool: #42',
+      'claimed by @octocat — contested with @gabibi555, @M-A-S-T-E-R-M-I-N-D (both solutions get compared)',
+      MARKER_LINE,
+    ]);
+    expect(isHumanClosedTask({ body })).toBe(true);
+  });
+
+  it('an empty contest list reads exactly like an uncontested claim', () => {
+    expect(claimContractBody(42, undefined, { claimant: 'octocat', contestedWith: [] })).toBe(
+      claimContractBody(42, undefined, { claimant: 'octocat' }),
+    );
+  });
+
+  it('with no holder the body is just the issue line and the marker line', () => {
+    expect(claimContractBody(42).split('\n')).toEqual(['Claimed from the pool: #42', MARKER_LINE]);
+  });
+});
+
 describe('the claim path', () => {
   it('plans the claimed issue as a task that carries the contract', () => {
     const input = planPoolIssueTask(
@@ -125,6 +167,43 @@ describe('the claim path', () => {
     store.close();
   });
 
+  describe('from the claims ledger', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const T0 = Date.UTC(2026, 8, 1);
+    const heldBy = (login: string) => ({
+      number: 42,
+      title: 'Keyboard nav is broken',
+      url: POOL_ISSUE.url,
+      labels: ['pool: accessibility'],
+      assignees: [],
+      claims: claimLedger(
+        [],
+        [{ author: login, createdAt: T0, body: `Claimed by ${login} via the pool client.` }],
+      ),
+    });
+
+    it('a claim over a live holder is a contest, and the task body names whom it rides over', () => {
+      const issue = heldBy('gabibi555');
+      const decision = planClaimPoolIssue(issue, 'octocat', T0 + DAY);
+      expect(decision.decision).toBe('contest');
+      const body = planPoolIssueTask(issue, decision, 'p1', 100)?.body ?? null;
+      expect(body).toContain(
+        'claimed by @octocat — contested with @gabibi555 (both solutions get compared)',
+      );
+      expect(isHumanClosedTask({ body })).toBe(true);
+    });
+
+    it('a claim over a stale holder releases it, and the task body names no contest', () => {
+      const issue = heldBy('gabibi555');
+      const decision = planClaimPoolIssue(issue, 'octocat', T0 + CLAIM_WINDOW_DAYS * DAY);
+      expect(decision.decision).toBe('claim');
+      const body = planPoolIssueTask(issue, decision, 'p1', 100)?.body ?? null;
+      expect(body).toContain('claimed by @octocat');
+      expect(body).not.toContain('contested');
+      expect(isHumanClosedTask({ body })).toBe(true);
+    });
+  });
+
   it('the prompt note tells the agent to slice, not to finish', () => {
     expect(CLAIMED_TASK_PROMPT_NOTE).toMatch(/slice/);
     expect(CLAIMED_TASK_PROMPT_NOTE).toMatch(/claimant closes/);
@@ -155,6 +234,25 @@ describe("the firing's done-hook", () => {
     expect(note).toContain('COMPLETION DEMOTED');
     expect(note).toContain('claim contract');
     expect(taskRow(store, 'github-42').status).toBe('queued');
+  });
+
+  it('demotes a "complete" on a contested claim too — the contest clause never hides the marker', async () => {
+    createTask(store, {
+      id: 'github-43',
+      projectId: 'p1',
+      title: 'Screen reader skips the fly bar',
+      body: claimContractBody(43, undefined, { claimant: 'octocat', contestedWith: ['gabibi555'] }),
+      source: 'github',
+      createdAt: 1,
+    });
+    const note = await markTaskDoneIfShipped(
+      store,
+      'p1',
+      outcomeWithRecord({ shipped: true, item: 'github-43', completion: 'complete', sha: 'abc' }),
+      vcs,
+    );
+    expect(note).toContain('COMPLETION DEMOTED');
+    expect(taskRow(store, 'github-43').status).toBe('queued');
   });
 
   it('lets a slice through and keeps the task open', async () => {
