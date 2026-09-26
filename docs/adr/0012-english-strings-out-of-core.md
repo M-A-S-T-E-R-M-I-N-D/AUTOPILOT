@@ -193,7 +193,9 @@ Test surface:
 
 1. **`tr()` miss rule.** Test-first: the `undefined` and `TypeError` above
    are the red tests. It stands alone, is tiny, and is a latent bug whether
-   or not B lands.
+   or not B lands. Shipped (board `ap-muhvlma5-0`): `tr()` reads only real
+   string entries (`ownText()`, so a key spelling `constructor` or
+   `__proto__` also misses) and echoes `String(key)` on a miss.
 2. **Generated per-chunk English heads.** Includes the census, the moved and
    split budgets, and the `coreClientJs()`/`localeJs()` test opt-in. This is
    the only slice that moves bytes.
