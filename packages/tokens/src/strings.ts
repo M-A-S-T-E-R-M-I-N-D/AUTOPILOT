@@ -983,6 +983,15 @@ const EN_STRINGS = {
   flightGuardChipTip:
     'The containment/read-hygiene guard denied {n} tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
   flightGuardChipAria: 'guard blocked {n} tool call(s) this firing (containment / read-hygiene)',
+  // The commit-review chip (commitReviewChipMeta in web/anomaly.ts, board
+  // ap-mui3cjp9-3) on a flight log row whose independent diff review flagged
+  // something. {n} is the finding count and {top} the most severe finding
+  // (reviewer text, never translated), both from data-i18n-args; the English
+  // is byte-identical to what the meta paints.
+  flightReviewChip: '{n} flagged',
+  flightReviewChipTip:
+    "An independent reviewer read this firing's diff after the gate passed and flagged {n} possible problem(s) — advisory only, the gate verdict stands. Most severe: {top}",
+  flightReviewChipAria: "commit review flagged {n} possible problem(s) in this firing's diff",
   // The per-firing trace row's step-cost line (shell.ts's actRow(), rendered
   // only in the reasoning drill-down — features/firing-timeline.ts). The tip
   // is fixed text, swept as [data-i18n-tip]; the aria prefix wraps the live
@@ -2487,6 +2496,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightGuardChipTip:
       'שומר ההכלה/היגיינת הקריאה דחה {n} קריאות כלים במהלך ההפעלה הזו — היא ניסתה לחרוג מהגבול שלה ונעצרה.',
     flightGuardChipAria: 'השומר חסם {n} קריאות כלים בהפעלה הזו (הכלה / היגיינת קריאה)',
+    flightReviewChip: '{n} סומנו',
+    flightReviewChipTip:
+      'סוקר בלתי תלוי קרא את השינויים של ההפעלה הזו אחרי שהשער עבר וסימן {n} בעיות אפשריות — לידיעה בלבד, פסק הדין של השער נשאר בתוקף. החמורה ביותר: {top}',
+    flightReviewChipAria: 'סקירת הקומיט סימנה {n} בעיות אפשריות בשינויים של ההפעלה הזו',
     actMetaTip: 'המודל וכמות הטוקנים שחויבו על הצעד הזה',
     actMetaAria: 'עלות הצעד: {name}',
     liveProbableTask: 'כנראה עובדת על: {name}',

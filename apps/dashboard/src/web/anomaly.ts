@@ -6,7 +6,8 @@
  * card's needs-you anomaly chips (`read/anomalies.ts`'s cost-spike/
  * death-cluster/gate-fail-streak detections) and the guard-denial chip a
  * firing carries when the containment/read-hygiene guard blocked a tool
- * call — client-only (no server counterpart beyond the `Anomaly` shape
+ * call, plus the commit-review chip for a firing whose diff review flagged
+ * something — client-only (no server counterpart beyond the `Anomaly` shape
  * itself), so it lives in `web/` rather than `shared/`, the same reason
  * `flight-map.ts`'s `fnodeTip` does (epic 0002 "shell decomposition",
  * slice 2: feature-module split of `shell.ts`).
@@ -62,6 +63,49 @@ export function guardDenialChipMeta(guardDenials: number): AnomalyChipMeta {
       ' tool call(s) during this firing — it tried to step outside its boundary and was stopped.',
     ariaLabel:
       'guard blocked ' + guardDenials + ' tool call(s) this firing (containment / read-hygiene)',
+  };
+}
+
+/** A firing's commit-time review as the flight log row carries it —
+ *  `FlightEntry.review` (read/fleet.ts), narrowed to what the chip reads. */
+export interface ReviewChipInput {
+  readonly status: string;
+  readonly findings?: readonly {
+    readonly severity: string;
+    readonly file: string | null;
+    readonly problem: string;
+  }[];
+}
+
+/** The review chip's triple plus the live values its i18n templates wrap. */
+export interface ReviewChipMeta extends AnomalyChipMeta {
+  readonly args: { readonly n: number; readonly top: string };
+}
+
+/** The commit-review chip (docs/BACKLOG-999.md §L C5) for a firing whose
+ *  independent diff review flagged something, or null when there is nothing
+ *  to show — a clean review, a skipped one, or a firing never reviewed. The
+ *  tip leads with the most severe finding, which the engine sorts first. The
+ *  review is advisory (it never changed the gate verdict), and the tip says
+ *  so. The finding text is model output: callers only ever put it in
+ *  attributes and textContent, never markup. */
+export function commitReviewChipMeta(
+  review: ReviewChipInput | null | undefined,
+): ReviewChipMeta | null {
+  if (!review || review.status !== 'reviewed' || !review.findings) return null;
+  const [first] = review.findings;
+  if (!first) return null;
+  const n = review.findings.length;
+  const top = '[' + first.severity + '] ' + (first.file ? first.file + ': ' : '') + first.problem;
+  return {
+    label: n + ' flagged',
+    tip:
+      "An independent reviewer read this firing's diff after the gate passed and flagged " +
+      n +
+      ' possible problem(s) — advisory only, the gate verdict stands. Most severe: ' +
+      top,
+    ariaLabel: 'commit review flagged ' + n + " possible problem(s) in this firing's diff",
+    args: { n, top },
   };
 }
 

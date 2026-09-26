@@ -15,7 +15,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { anomalyChipMeta, guardDenialChipMeta } from '../../src/web/anomaly.js';
+import type { CommitReview } from '@autopilot/engine';
+import {
+  anomalyChipMeta,
+  commitReviewChipMeta,
+  guardDenialChipMeta,
+} from '../../src/web/anomaly.js';
 
 const LABELS = {
   'cost-spike': '⚠ cost spike',
@@ -75,5 +80,48 @@ describe('guardDenialChipMeta', () => {
     expect(meta.ariaLabel).toBe(
       'guard blocked 4 tool call(s) this firing (containment / read-hygiene)',
     );
+  });
+});
+
+describe('commitReviewChipMeta', () => {
+  it('builds the triple and the template args from the most severe finding, file first', () => {
+    const meta = commitReviewChipMeta({
+      status: 'reviewed',
+      findings: [
+        { severity: 'high', file: 'src/a.ts', problem: 'The retry loop never ends.' },
+        { severity: 'low', file: null, problem: 'A test name overclaims.' },
+      ],
+    });
+
+    expect(meta).toEqual({
+      label: '2 flagged',
+      tip:
+        "An independent reviewer read this firing's diff after the gate passed and flagged 2 possible problem(s) — advisory only, the gate verdict stands. Most severe: " +
+        '[high] src/a.ts: The retry loop never ends.',
+      ariaLabel: "commit review flagged 2 possible problem(s) in this firing's diff",
+      args: { n: 2, top: '[high] src/a.ts: The retry loop never ends.' },
+    });
+  });
+
+  it('leaves the file out of the top finding when the reviewer named none', () => {
+    const meta = commitReviewChipMeta({
+      status: 'reviewed',
+      findings: [{ severity: 'medium', file: null, problem: 'The subject hides a rename.' }],
+    });
+
+    expect(meta?.label).toBe('1 flagged');
+    expect(meta?.args).toEqual({ n: 1, top: '[medium] The subject hides a rename.' });
+  });
+
+  it('gives no chip for a clean review, a skipped one, or a firing with none', () => {
+    // Typed as the engine's own CommitReview, so both real variants pin the
+    // meta's input shape.
+    const clean: CommitReview = { status: 'reviewed', model: 'haiku', costUsd: 0, findings: [] };
+    const skipped: CommitReview = { status: 'skipped', reason: 'no diff text to review' };
+
+    expect(commitReviewChipMeta(clean)).toBeNull();
+    expect(commitReviewChipMeta(skipped)).toBeNull();
+    expect(commitReviewChipMeta(null)).toBeNull();
+    expect(commitReviewChipMeta(undefined)).toBeNull();
   });
 });

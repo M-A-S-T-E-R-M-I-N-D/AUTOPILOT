@@ -1577,6 +1577,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .flight-slice-chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-accent); border-color: var(--color-accent); }
 .flight-autoformat-chip { flex: none; }
 .flight-guard-chip { flex: none; }
+.flight-review-chip { flex: none; }
 .flight-group .flight-item { font-weight: 600; }
 .flight-group-members { list-style: none; margin-block: 2px var(--space-2); margin-inline: var(--space-4) 0; padding-inline-start: var(--space-3); display: flex; flex-direction: column; gap: 2px; border-inline-start: 2px solid var(--color-border); }
 .flight-group-member { display: flex; align-items: center; gap: var(--space-2); padding: 2px var(--space-2); font-size: var(--text-xs); }
