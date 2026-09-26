@@ -2893,41 +2893,6 @@ function tasksSection(c) {
 // module-level index — wireRoving() re-derives the group's items fresh on
 // every key/focus event rather than caching them.
 wireRoving('.task [tabindex]', '.task');
-// j/k row-to-row navigation (epic 0026 "the tasks screen" slice 1, board
-// web-mtywp82m-zodn7z) — the Linear/Gmail-style single-selection cursor the
-// epic's row-anatomy spec calls for, orthogonal to wireRoving above (that
-// group moves the Tab stop WITHIN one row's own pill/title/chips via
-// Left/Right/Home/End; this one jumps focus BETWEEN rows). It lands on the
-// destination row's title span rather than adding a second, competing
-// roving-tabindex layer on the list item itself — every row already carries
-// exactly one wireRoving Tab stop, and the title is unconditionally
-// focusable (D1 ATTRIBUTE PAYLOAD, above) regardless of which row's control
-// last had focus. j/k (not only Arrow keys) mirrors the keeper queue's own
-// keydown convention (features/subject-nav.ts's keeperQueueKeydown).
-// Escape blurs back out. Multi-select (x), Enter, and the detail pane the
-// epic doc also lists are separable follow-up slices — this ships only the
-// single-cursor move+clear half.
-document.addEventListener('keydown', function (e) {
-  if (e.key !== 'j' && e.key !== 'k' && e.key !== 'Escape') return;
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  var row = e.target && e.target.closest && e.target.closest('.task');
-  if (!row) return;
-  var list = row.closest('.tasks');
-  if (!list) return;
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
-    return;
-  }
-  var rows = Array.prototype.slice.call(list.querySelectorAll('.task'));
-  var idx = rows.indexOf(row);
-  if (idx < 0) return;
-  var next = idx + (e.key === 'j' ? 1 : -1);
-  if (next < 0 || next >= rows.length) return;
-  e.preventDefault();
-  var title = rows[next].querySelector('.task-title');
-  if (title) title.focus();
-});
 // Task-board actions (event-delegated: they survive live re-renders).
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-task-done]');
