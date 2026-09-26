@@ -627,18 +627,19 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     expect(labels).toEqual([
       'Report from here',
       'Copy text',
-      '🧩 Copy element HTML',
+      'Copy element HTML',
       'Copy CSS selector',
       'Copy computed styles',
-      '🧠 Copy smart context (JSON)',
+      'Copy smart context (JSON)',
     ]);
-    // Copy text, Copy CSS selector and Copy computed styles lead with
-    // vendored icons (epic 0025) instead of a baked-in glyph — clipboard-list,
-    // target and palette respectively, the same shapes icons.ts vendored for
-    // these exact glyphs.
+    // Every copy item leads with a vendored icon (epic 0025) instead of a
+    // baked-in glyph — clipboard-list, code-xml, target, palette and braces,
+    // the shapes icons.ts vendored for 📋, 🧩, 🎯, 🎨 and 🧠.
     expect(items[1]?.querySelector('svg.icon-clipboard-list')).not.toBeNull();
+    expect(items[2]?.querySelector('svg.icon-code-xml')).not.toBeNull();
     expect(items[3]?.querySelector('svg.icon-target')).not.toBeNull();
     expect(items[4]?.querySelector('svg.icon-palette')).not.toBeNull();
+    expect(items[5]?.querySelector('svg.icon-braces')).not.toBeNull();
     expect(menu.querySelector('.report-ctx-menu-sep')?.getAttribute('role')).toBe('separator');
     // The breadcrumb orients the operator on WHAT was right-clicked.
     expect(menu.querySelector('.report-ctx-menu-head')?.textContent).toContain('div.card');

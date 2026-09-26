@@ -140,6 +140,7 @@ waiting for flight-end. None of these change the four locks above, the acceptanc
 criteria, or the cross-project guarantee — all are same-folder N-way fleet
 mechanics already tracked in `docs/RESEARCH-LIBRARY.md` — and all six slices
 remain unchanged and live in production.
+
 Freshness check (2026-09-26): `fly.ts` gained eleven commits since the 2026-09-24
 check above — a wave of fleet-lane concurrency refinements and model-routing
 enhancements. The changes span: model benchmarking and per-tier model assignment
@@ -155,6 +156,37 @@ locks above. The model-routing layer (`flight/model-routing.ts`,
 firing prompt or acceptance criteria. None of this changes the four locks above
 or the acceptance criteria below; all six slices remain unchanged and live in
 production.
+
+Freshness check (2026-09-26, afternoon): `fly.ts` gained five commits since the
+check above. Two bear on this epic's own guarantees, and both keep them:
+
+- The social pass (epic 0016 slice 3) now runs from `fly.ts` at takeoff and with
+  the end-of-flight sweeps (`bb0ec555`), and between firings under
+  `AUTOPILOT_SOCIAL_FLIGHT=full` (`6ebc66ef`). It calls `gh` from the engine's
+  own checkout, so a flight over another folder would read, and later speak on,
+  THIS repository's threads. `flight/social-flight-pass.ts` refuses a foreign
+  target before any `gh` call (`'foreign-target'`). That is the same self-target
+  guard the stale-claim sweep and the owned-work sweep carry (the 2026-09-21 and
+  2026-09-24 checks above), and
+  `apps/dashboard/test/flight/cross-project-leak.test.ts` pins it.
+- Quota rest (`3feca27b`): when a requested model is substituted because its
+  quota ran dry, the flight records a `model-drained` event, and for an hour
+  `flight/model-scoreboard.ts`'s `drainedAliases` leaves that model out of
+  routing. That read is deliberately not filtered by project, because the
+  subscription is the operator's: a drain seen by project A's flight also rests
+  the model for project B's flight. This is the "Subscription quota is shared"
+  constraint above and slice 5's fairness at work. Only quota state crosses
+  projects. No board, SOUL or backlog row does, so "neither observing the other's
+  work plan" still holds.
+
+The other three are per-project or same-folder lane mechanics. `9be43036` runs
+the full test suite while a lane head is unverified, and matches the model
+scoreboard to a firing by its lane (`instanceId`). `20b38b05` adds a
+non-blocking commit-time review (`docs/BACKLOG-999.md` C5): one tool-less model
+call per gate-passed firing, over that firing's own diff. It never changes the
+gate verdict, so the per-project gate → sha → HEAD chain in the constraints
+below is unchanged. None of this changes the four locks above or the acceptance
+criteria below; all six slices remain unchanged and live in production.
 
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with

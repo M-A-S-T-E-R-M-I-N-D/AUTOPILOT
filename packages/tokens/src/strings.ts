@@ -1042,6 +1042,13 @@ const EN_STRINGS = {
   boardSelected: '{n} selected — Esc clears',
   // A row's read-only detail (epic 0026, Enter) when its task has no body.
   taskDetailEmpty: 'No description.',
+  // The view header's Status filter (epic 0026 slice 2): the fieldset's
+  // legend (each box is labelled by its status word, the taskStatus* keys),
+  // the note a filtered board shows — reordering posts the order the list
+  // shows, so a filtered list gives it up — and the button that clears it.
+  boardFilterStatus: 'Status',
+  boardFilterShowing: 'Showing {n} of {total} — clear the filter to reorder',
+  boardFilterClear: 'Clear filter',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -1786,13 +1793,13 @@ const EN_STRINGS = {
   // stance report-menu.ts's own comment flagged as the next i18n-lane sweep.
   reportCopyTextLabel: 'Copy text',
   reportCopyTextTip: 'Copies the current selection, or this element’s full text.',
-  reportCopyHtmlLabel: '🧩 Copy element HTML',
+  reportCopyHtmlLabel: 'Copy element HTML',
   reportCopyHtmlTip: 'Copies this element’s outerHTML markup.',
   reportCopySelectorLabel: 'Copy CSS selector',
   reportCopySelectorTip: 'Copies a rooted selector path to this element.',
   reportCopyStylesLabel: 'Copy computed styles',
   reportCopyStylesTip: 'Copies this element’s computed CSS as a ready style block.',
-  reportCopyContextLabel: '🧠 Copy smart context (JSON)',
+  reportCopyContextLabel: 'Copy smart context (JSON)',
   reportCopyContextTip:
     'Copies selector, geometry, data attributes, and the source modules that own this region — everything a bug report or an AI needs.',
   reportCopied: '✓ Copied',
@@ -2487,6 +2494,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskSelectAria: 'בחירה: {name}',
     boardSelected: '{n} נבחרו — Esc מנקה',
     taskDetailEmpty: 'אין תיאור.',
+    boardFilterStatus: 'סטטוס',
+    boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',
+    boardFilterClear: 'ניקוי המסנן',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
@@ -3071,13 +3081,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     reportFromHereTitle: 'דיווח מכאן',
     reportCopyTextLabel: 'העתק טקסט',
     reportCopyTextTip: 'מעתיק את הבחירה הנוכחית, או את מלוא הטקסט של האלמנט הזה.',
-    reportCopyHtmlLabel: '🧩 העתק HTML של האלמנט',
+    reportCopyHtmlLabel: 'העתק HTML של האלמנט',
     reportCopyHtmlTip: 'מעתיק את ה-outerHTML של האלמנט הזה.',
     reportCopySelectorLabel: 'העתק בורר CSS',
     reportCopySelectorTip: 'מעתיק נתיב בורר מוענק לאלמנט הזה.',
     reportCopyStylesLabel: 'העתק סגנונות מחושבים',
     reportCopyStylesTip: 'מעתיק את ה-CSS המחושב של האלמנט הזה כבלוק סגנון מוכן.',
-    reportCopyContextLabel: '🧠 העתק הקשר חכם (JSON)',
+    reportCopyContextLabel: 'העתק הקשר חכם (JSON)',
     reportCopyContextTip:
       'מעתיק בורר, גיאומטריה, מאפייני נתונים, ומודולי המקור הבעלים של האזור הזה — כל מה שדוח באג או AI צריכים.',
     reportCopied: '✓ הועתק',

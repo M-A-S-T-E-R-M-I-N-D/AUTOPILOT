@@ -687,8 +687,9 @@ const BENIGN_READ = new Set([
   // scoreboard's routing events, on a read-only connection. No writes.
   'benchmark.ts',
   // The Versions screen's timeline (ap-mui2h3s1-1): MYTH/LEGACY tags and the
-  // flight log since LEGACY, read with `git log` only. It restores nothing;
-  // the additive restore is a later slice that will need its own marker.
+  // flight log since LEGACY, read with `git log`, and the diff between two
+  // versions, read with plumbing `git diff-tree`. It restores nothing; the
+  // additive restore is a later slice that will need its own marker.
   'versions.ts',
   // D4 pipeline view read-models (epic 0015): pure graph/geometry/selection
   // derivations over stored firing records — no store writes, no I/O of
@@ -988,7 +989,8 @@ const BENIGN_WEB = new Set([
   'tabs.ts',
   // Pure location.search view-state math for the tasks screen (epic 0026
   // slice 2): parse/write a grouping and filters, match and group task
-  // entries — DOM-free, no HTML, no I/O, not yet spliced into the bundle.
+  // entries — DOM-free, no HTML, no I/O; shell.ts splices it in via
+  // .toString() for the Tasks card's view header.
   'task-view.ts',
   // Pure geometry/percent/bucketing math for gauges, sparklines, the
   // heatmap, timeline, office map, and tooltip positioning — no dynamic
