@@ -1245,6 +1245,13 @@ var TASK_STATUS_KEYS = {
   needs_approval: 'taskStatusNeedsApproval',
   deferred: 'taskStatusDeferred',
 };
+var TASK_SEVERITY_KEYS = {
+  critical: 'taskSeverityCritical',
+  high: 'taskSeverityHigh',
+  medium: 'taskSeverityMedium',
+  low: 'taskSeverityLow',
+  none: 'taskSeverityNone',
+};
 // statusPillMeta is generated FROM web/status-pill.ts below (epic 0002 "shell
 // decomposition", slice 2, seventy-fourth cut) — its real compiled source via
 // .toString(), not a hand-retyped copy. It can no longer drift apart.
@@ -2585,33 +2592,33 @@ function boardKeysHint() {
 }
 // THE VIEW HEADER (epic 0026 slice 2): the view lives in the query string
 // (web/task-view.ts), so a filtered board survives a reload and a shared
-// link. A Status box rewrites it in place (replaceState) and rebuilds the
-// list, keeping focus via boardFilterFocus. A hand-typed severity or source
-// filter applies too; their boxes come later.
+// link. A Status or Severity box rewrites it in place (replaceState) and
+// rebuilds the list, keeping focus via boardFilterFocus. A hand-typed source
+// filter applies too; its boxes come later.
 var boardFilterFocus = null;
-function boardFilterFieldset(view) {
+function boardFilterFieldset(view, property, legendKey, wordKeys) {
   var fs = el('fieldset', 'board-filter');
-  var legend = el('legend', null, tr('boardFilterStatus'));
-  legend.setAttribute('data-i18n', 'boardFilterStatus');
+  var legend = el('legend', null, tr(legendKey));
+  legend.setAttribute('data-i18n', legendKey);
   fs.appendChild(legend);
-  var values = taskViewValues('status');
+  var values = taskViewValues(property);
   var refocus = null;
   for (var i = 0; i < values.length; i++) {
     var option = el('label', 'board-filter-option');
     var box = el('input');
     box.type = 'checkbox';
     box.value = values[i];
-    box.setAttribute('data-task-filter', 'status');
-    box.checked = view.status.indexOf(values[i]) >= 0;
+    box.setAttribute('data-task-filter', property);
+    box.checked = view[property].indexOf(values[i]) >= 0;
     option.appendChild(box);
     // The key goes through a variable: english-heads.test.ts refuses a tr()
     // call that composes its key inline, where no literal spells it.
-    var wordKey = TASK_STATUS_KEYS[values[i]];
+    var wordKey = wordKeys[values[i]];
     var word = el('span', null, tr(wordKey));
     word.setAttribute('data-i18n', wordKey);
     option.appendChild(word);
     fs.appendChild(option);
-    if (boardFilterFocus === 'status:' + values[i]) refocus = box;
+    if (boardFilterFocus === property + ':' + values[i]) refocus = box;
   }
   if (refocus) {
     boardFilterFocus = null;
@@ -2684,7 +2691,8 @@ function tasksSection(c) {
     emptyNote.setAttribute('data-i18n', 'tasksEmpty');
     wrap.appendChild(emptyNote);
   } else {
-    wrap.appendChild(boardFilterFieldset(view));
+    wrap.appendChild(boardFilterFieldset(view, 'status', 'boardFilterStatus', TASK_STATUS_KEYS));
+    wrap.appendChild(boardFilterFieldset(view, 'severity', 'boardFilterSeverity', TASK_SEVERITY_KEYS));
     if (filtered) wrap.appendChild(boardFilterNote(shown.length, tasks.length));
     var colCounts = { queued: 0, active: 0, done: 0 };
     for (var ci = 0; ci < shown.length; ci++) {

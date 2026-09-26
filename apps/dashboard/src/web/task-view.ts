@@ -14,7 +14,7 @@
  * {@link taskViewValues} rather than a module const, and why
  * {@link taskMatchesView}/{@link groupTasksForView} need {@link taskViewKey}
  * and {@link taskViewValues} embedded beside them. The Tasks card's Status
- * filter is the first caller; {@link groupTasksForView} waits for the
+ * and Severity filters are the callers; {@link groupTasksForView} waits for the
  * grouping control and is not embedded yet. Display options (show/hide row
  * properties) are not modelled yet.
  */
