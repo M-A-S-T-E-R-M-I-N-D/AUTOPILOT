@@ -14,11 +14,29 @@
  * what's committed and fails without writing if it differs (the
  * `ci:data-model` gate, wired into `pnpm verify`); with no flag it writes
  * the refreshed doc in place (`pnpm data-model:update`).
+ *
+ * The schema is read from `packages/store/dist/`, rebuilt first by
+ * `fresh-store.mjs` — a static import of that build once let a stale one
+ * write (and `--check` pass) a doc missing its newest migration.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
+import { importFreshStore } from './fresh-store.mjs';
+
+const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
+const DOC_PATH = join(repoRoot, 'docs', 'DATA-MODEL.md');
+
+let storeModule;
+try {
+  storeModule = await importFreshStore(repoRoot);
+} catch (err) {
+  console.error(
+    `generate-doc FAILED: packages/store did not build, so its schema cannot be read — ${err instanceof Error ? err.message : String(err)}`,
+  );
+  process.exit(1);
+}
+const {
   CORE_TABLES,
   INDEX_TABLES,
   SEARCH_TABLES,
@@ -27,10 +45,7 @@ import {
   MIGRATIONS,
   migrate,
   openStore,
-} from '../../packages/store/dist/index.js';
-
-const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
-const DOC_PATH = join(repoRoot, 'docs', 'DATA-MODEL.md');
+} = storeModule;
 
 /** Created inline by `packages/store/src/migrate.ts` — not exported, since
  * it is runner infrastructure rather than an application table, but it is
