@@ -144,6 +144,7 @@ import { statusPillMeta as sharedStatusPillMeta } from './status-pill.js';
 import {
   anomalyChipMeta as sharedAnomalyChipMeta,
   guardDenialChipMeta as sharedGuardDenialChipMeta,
+  commitReviewChipMeta as sharedCommitReviewChipMeta,
   anomalyKeySuffix as sharedAnomalyKeySuffix,
   anomalyMeaningKeys as sharedAnomalyMeaningKeys,
   ANOMALY_LABELS as SHARED_ANOMALY_LABELS,
@@ -1262,6 +1263,8 @@ ${sharedAnomalyChipMeta.toString()}
 // source via .toString(), not a hand-retyped copy. It can no longer drift
 // apart.
 ${sharedGuardDenialChipMeta.toString()}
+// commitReviewChipMeta: the same generated-from-web/anomaly.ts shape.
+${sharedCommitReviewChipMeta.toString()}
 // ANOMALY_LABELS and the popover key math are generated FROM web/anomaly.ts
 // (JSON.stringify / .toString()), never a hand-retyped copy.
 var ANOMALY_LABELS = ${JSON.stringify(SHARED_ANOMALY_LABELS)};
@@ -2132,6 +2135,26 @@ function flightLogNode(c) {
       logGuardChip.setAttribute('data-i18n-aria-template', 'flightGuardChipAria');
       logGuardChip.setAttribute('data-i18n-args', JSON.stringify({ n: f.guardDenials }));
       head.appendChild(logGuardChip);
+    }
+    // The commit-time review (docs/BACKLOG-999.md §L C5, board ap-mui3cjp9-3):
+    // a chip only when the reviewer flagged something; its tip leads with the
+    // most severe finding. Text, tip and aria-label all wrap live values, so
+    // they ride the template sweeps with {n} and {top} from the args map, the
+    // guard chip's shape above.
+    var logReviewMeta = commitReviewChipMeta(f.review);
+    if (logReviewMeta) {
+      var logReviewChip = tipChip(
+        logReviewMeta.label,
+        logReviewMeta.tip,
+        logReviewMeta.ariaLabel,
+        'flight-review-chip',
+        'search',
+      );
+      logReviewChip.setAttribute('data-i18n-template', 'flightReviewChip');
+      logReviewChip.setAttribute('data-i18n-tip-template', 'flightReviewChipTip');
+      logReviewChip.setAttribute('data-i18n-aria-template', 'flightReviewChipAria');
+      logReviewChip.setAttribute('data-i18n-args', JSON.stringify(logReviewMeta.args));
+      head.appendChild(logReviewChip);
     }
     if (f.sha) {
       var logShaEl = el('span', 'flight-sha', logMeta.shaText);
