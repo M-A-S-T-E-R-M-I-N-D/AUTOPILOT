@@ -483,7 +483,7 @@ export interface ReleaseExecuteResult {
   readonly attestation?: TagOutcome;
   /** Outcome of creating the paired `m<N>` milestone tag at the same commit as `v<semver>` — present only when the caller passed a `milestoneTag` AND the version tag was actually created. Same non-fatal-degradation stance as `attestation`: a milestone tag failure (e.g. it already exists) never flips the overall `ok`/`reason`, since the release itself already succeeded. */
   readonly milestoneTag?: TagOutcome;
-  /** What `git verify-tag` says about the `v<semver>` tag just created (board web-mtq0rtub-jxpptv, FOUNDATION 3/3 — the ritual verifies the signature, it never assumes one): `ok` names the signing key's fingerprint, otherwise `details` says why not — most often that the tag is simply unsigned because `tag.gpgSign` is off. Present only when the tag was actually created; same non-fatal stance as `attestation`, since a release is a release whether or not the operator's key was on this machine. */
+  /** What `git verify-tag` says about the `v<semver>` tag just created (board web-mtq0rtub-jxpptv, FOUNDATION 3/3 — the ritual verifies the signature, it never assumes one): `ok` names the signing key's fingerprint — and, once `docs/SIGNING-KEY.asc` is published, that it IS that key; a tag signed by any other key is `ok: false` — otherwise `details` says why not — most often that the tag is simply unsigned because `tag.gpgSign` is off. Present only when the tag was actually created; same non-fatal stance as `attestation`, since a release is a release whether or not the operator's key was on this machine. */
   readonly signature?: TagOutcome;
 }
 

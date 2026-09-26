@@ -2,17 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   GitVcs,
   GitHeadReader,
+  PUBLISHED_SIGNING_KEY_PATH,
   describePushFailure,
   parseCommitLogWithRenames,
   parseHunkRanges,
   parseNumstat,
+  readPublishedSigningKey,
+  readSigningKeyListing,
   readTagSignature,
 } from '../../src/adapters/git.js';
 
@@ -25,6 +28,38 @@ function initRepo(dir: string): void {
   gitSync(dir, ['config', 'user.email', 'test@autopilot.dev']);
   gitSync(dir, ['config', 'user.name', 'Test']);
   gitSync(dir, ['config', 'commit.gpgsign', 'false']);
+}
+
+/** `gpg --armor --export` of a throwaway ed25519 key generated for this
+ *  suite alone (uid "AUTOPILOT test fixture <fixture@example.invalid>";
+ *  its secret half was never kept) — a real public key, so gpg lists a
+ *  real fingerprint from it. Public keys are public; this one signs
+ *  nothing anyone will ever verify. */
+const FIXTURE_PUBLIC_KEY = [
+  '-----BEGIN PGP PUBLIC KEY BLOCK-----',
+  '',
+  'mDMEard3lhYJKwYBBAHaRw8BAQdAXJm55St1oDL11OFFo8xwUIN7ot/C947lj1a3',
+  'NTWnuzi0MEFVVE9QSUxPVCB0ZXN0IGZpeHR1cmUgPGZpeHR1cmVAZXhhbXBsZS5p',
+  'bnZhbGlkPoiTBBMWCgA7FiEE66aFwJ3StuZubxniA5dLCc11vAIFAmq3d5YCGwMF',
+  'CwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQA5dLCc11vAKQjgEAhX/CGvx1',
+  '990FeIwj2gEClf7epXe0Jv66qK8BUCts0iQBAOyzLrA2BAPknw+TNUN+AFsEBMXg',
+  'DM9a/XyvyuUyOdYM',
+  '=uEVT',
+  '-----END PGP PUBLIC KEY BLOCK-----',
+  '',
+].join('\n');
+const FIXTURE_FINGERPRINT = 'EBA685C09DD2B6E66E6F19E203974B09CD75BC02';
+
+/** Whether a gpg is on PATH — the real-gpg suites below skip without one,
+ *  the same way the real-git suites need a git. */
+const hasGpg =
+  spawnSync('gpg', ['--version'], { encoding: 'utf8', windowsHide: true }).status === 0;
+
+/** Publishes `docs/SIGNING-KEY.asc` in a test repo (untracked is enough — the
+ *  ritual reads the file, not the index). */
+function publishSigningKey(repo: string, armored: string): void {
+  mkdirSync(join(repo, 'docs'), { recursive: true });
+  writeFileSync(join(repo, PUBLISHED_SIGNING_KEY_PATH), armored);
 }
 
 describe('GitVcs', () => {
@@ -1225,6 +1260,18 @@ describe('GitVcs', () => {
     expect(result.details).toContain('not found');
   });
 
+  it('verifyTag still reports an unsigned tag as not signed once docs/SIGNING-KEY.asc is published — there is no signer to hold to the key', async () => {
+    publishSigningKey(dir, FIXTURE_PUBLIC_KEY);
+    await vcs.tag('v0.13.0', 'release v0.13.0');
+
+    const result = await vcs.verifyTag('v0.13.0');
+
+    expect(result).toEqual({
+      ok: false,
+      details: "tag 'v0.13.0' is not signed (git config tag.gpgSign true signs the next one)",
+    });
+  });
+
   it('attaches a git-notes attestation to a commit', async () => {
     const head = await vcs.head();
 
@@ -1882,6 +1929,177 @@ describe('readTagSignature', () => {
     expect(result.ok).toBe(false);
     expect(result.details).toBe("git verify-tag failed (exit 1): error: tag 'v1.0.0' not found.");
     expect(readTagSignature('v1.0.0', 128, good('8')).ok).toBe(false);
+  });
+
+  describe('held to the key published as docs/SIGNING-KEY.asc (the same-key promise docs/RELEASING.md makes)', () => {
+    const OTHER = 'AAAA1111BBBB2222CCCC3333DDDD4444EEEE5555';
+
+    it('passes a good signature by the published key, and says it is that key', () => {
+      expect(readTagSignature('v1.0.0', 0, good('8'), { fingerprint: PRIMARY })).toEqual({
+        ok: true,
+        details: `tag 'v1.0.0' is signed by ${PRIMARY}, the key published as docs/SIGNING-KEY.asc`,
+      });
+    });
+
+    it('compares fingerprints case-insensitively — gpg prints upper-case hex, a hand-typed file may not', () => {
+      const lower = { fingerprint: PRIMARY.toLowerCase() };
+
+      expect(readTagSignature('v1.0.0', 0, good('8'), lower).ok).toBe(true);
+    });
+
+    it('refuses a good signature by any other key, naming both fingerprints', () => {
+      expect(readTagSignature('v1.0.0', 0, good('8'), { fingerprint: OTHER })).toEqual({
+        ok: false,
+        details: `tag 'v1.0.0' is signed by ${PRIMARY}, not by the key published as docs/SIGNING-KEY.asc (${OTHER})`,
+      });
+    });
+
+    it('refuses a signature it cannot hold to the key because gpg could not read the key file, keeping the reason', () => {
+      const result = readTagSignature('v1.0.0', 0, good('8'), {
+        problem:
+          'gpg could not list docs/SIGNING-KEY.asc (exit 2: gpg: no valid OpenPGP data found.)',
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        details: `tag 'v1.0.0' is signed by ${PRIMARY}, but gpg could not list docs/SIGNING-KEY.asc (exit 2: gpg: no valid OpenPGP data found.) — so it cannot be held to the published key`,
+      });
+    });
+
+    it('refuses a verified non-OpenPGP (ssh) signature once a PGP key is published — that key did not make it', () => {
+      const raw = 'Good "git" signature for op@example.invalid with ED25519 key SHA256:abc\n';
+
+      expect(readTagSignature('v1.0.0', 0, raw, { fingerprint: PRIMARY })).toEqual({
+        ok: false,
+        details:
+          'tag \'v1.0.0\' is signed (Good "git" signature for op@example.invalid with ED25519 key SHA256:abc), but not with OpenPGP, so not by the key published as docs/SIGNING-KEY.asc',
+      });
+    });
+
+    it('keeps the earlier verdicts — unsigned, weak hash, bad signature — unchanged by the published key', () => {
+      const published = { fingerprint: PRIMARY };
+
+      expect(readTagSignature('v1.0.0', 1, 'error: no signature found\n', published).details).toBe(
+        "tag 'v1.0.0' is not signed (git config tag.gpgSign true signs the next one)",
+      );
+      expect(readTagSignature('v1.0.0', 0, good('2'), published).details).toContain('SHA-1');
+      expect(readTagSignature('v1.0.0', 1, '[GNUPG:] BADSIG X Y\n', published).details).toContain(
+        'BADSIG',
+      );
+    });
+  });
+});
+
+describe('readSigningKeyListing', () => {
+  /** `gpg --with-colons --show-keys docs/SIGNING-KEY.asc` for the fixture
+   *  key above, as gpg 2.4 printed it (GnuPG doc/DETAILS, "Format of the
+   *  colon listings": field 10 of an `fpr` record is the fingerprint). */
+  const ONE_KEY = [
+    'pub:-:255:22:03974B09CD75BC02:1790408598:::-:::scSC:::::ed25519:::0:',
+    `fpr:::::::::${FIXTURE_FINGERPRINT}:`,
+    'uid:-::::1790408598::56DE509F8DAC8DACB2C2134C26335F4E62380DFD::AUTOPILOT test fixture <fixture@example.invalid>::::::::::0:',
+    '',
+  ].join('\n');
+
+  it("names the one key's primary fingerprint", () => {
+    expect(readSigningKeyListing(0, ONE_KEY, '')).toEqual({ fingerprint: FIXTURE_FINGERPRINT });
+  });
+
+  it("takes the primary key's fingerprint, not a subkey's, when the key carries subkeys", () => {
+    const withSubkey =
+      ONE_KEY +
+      'sub:-:255:22:1111222233334444:1790408598::::::s:::::ed25519::\n' +
+      'fpr:::::::::0000111122223333444455556666777788889999:\n';
+
+    expect(readSigningKeyListing(0, withSubkey, '')).toEqual({
+      fingerprint: FIXTURE_FINGERPRINT,
+    });
+  });
+
+  it('refuses a file that lists two keys — one key signs, one fingerprint is published', () => {
+    const twoKeys = ONE_KEY + ONE_KEY.replace(FIXTURE_FINGERPRINT, 'FFFF'.repeat(10));
+
+    expect(readSigningKeyListing(0, twoKeys, '')).toEqual({
+      problem: 'docs/SIGNING-KEY.asc must hold exactly one key; gpg listed 2',
+    });
+  });
+
+  it('refuses an empty listing (gpg found nothing to list) the same way', () => {
+    expect(readSigningKeyListing(0, '', '')).toEqual({
+      problem: 'docs/SIGNING-KEY.asc must hold exactly one key; gpg listed 0',
+    });
+  });
+
+  it('refuses a key record that carries no fingerprint', () => {
+    expect(readSigningKeyListing(0, ONE_KEY.split('\n')[0] + '\n', '')).toEqual({
+      problem: 'gpg listed no fingerprint for docs/SIGNING-KEY.asc',
+    });
+  });
+
+  it("quotes gpg's last stderr line on a non-zero exit — the keybox-created noise comes first, the reason last", () => {
+    const stderr = "gpg: keybox '/tmp/x/pubring.kbx' created\ngpg: no valid OpenPGP data found.\n";
+
+    expect(readSigningKeyListing(2, '', stderr)).toEqual({
+      problem:
+        'gpg could not list docs/SIGNING-KEY.asc (exit 2: gpg: no valid OpenPGP data found.)',
+    });
+  });
+
+  it('names the configured program when it produced nothing — the reason is that binary, not a bare gpg', () => {
+    expect(readSigningKeyListing(1, '', '', 'gpg2')).toEqual({
+      problem: 'gpg could not list docs/SIGNING-KEY.asc (exit 1: no output — is gpg2 on PATH?)',
+    });
+  });
+
+  it('says so when gpg produced nothing at all — a gpg that is not on PATH looks like this', () => {
+    expect(readSigningKeyListing(1, '', '')).toEqual({
+      problem: 'gpg could not list docs/SIGNING-KEY.asc (exit 1: no output — is gpg on PATH?)',
+    });
+  });
+});
+
+describe('readPublishedSigningKey', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-signing-key-'));
+  });
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('is undefined while no docs/SIGNING-KEY.asc is published — the ritual then only names the signer', async () => {
+    expect(await readPublishedSigningKey(dir)).toBeUndefined();
+  });
+
+  it("runs the gpg git itself is configured with (`gpg.program`), so git's verdict and this one come from one binary", async () => {
+    initRepo(dir);
+    gitSync(dir, ['config', 'gpg.program', 'autopilot-no-such-gpg']);
+    publishSigningKey(dir, FIXTURE_PUBLIC_KEY);
+
+    expect(await readPublishedSigningKey(dir)).toEqual({
+      problem:
+        'gpg could not list docs/SIGNING-KEY.asc (exit 1: no output — is autopilot-no-such-gpg on PATH?)',
+    });
+  });
+
+  it.skipIf(!hasGpg)(
+    "reads the published key's fingerprint with the real gpg, importing nothing",
+    async () => {
+      publishSigningKey(dir, FIXTURE_PUBLIC_KEY);
+
+      expect(await readPublishedSigningKey(dir)).toEqual({ fingerprint: FIXTURE_FINGERPRINT });
+    },
+  );
+
+  it.skipIf(!hasGpg)('reports a file gpg cannot read as a problem, never throws', async () => {
+    publishSigningKey(dir, 'not a key\n');
+
+    const result = await readPublishedSigningKey(dir);
+
+    expect(result).toHaveProperty('problem');
+    expect((result as { problem: string }).problem).toMatch(
+      /^gpg could not list docs\/SIGNING-KEY\.asc \(exit \d+: /,
+    );
   });
 });
 
