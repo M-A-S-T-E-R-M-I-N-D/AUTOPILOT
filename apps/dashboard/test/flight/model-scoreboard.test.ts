@@ -112,12 +112,22 @@ describe('chooseModel', () => {
   ]);
   const ids = Array.from({ length: 300 }, (_, i) => `web-task-${i}`);
 
-  it('explores while any candidate is thin: tasks spread across every candidate, stably', () => {
+  it('explores while any candidate is thin, sending every decision to the thinnest candidate (2026-09-26)', () => {
     const picks = ids.map((id) => chooseModel('default', id, thin));
-    expect(new Set(picks.map((p) => p.model))).toEqual(new Set(['sonnet', 'opus']));
+    expect(new Set(picks.map((p) => p.model))).toEqual(new Set(['opus']));
     expect(picks.every((p) => p.phase === 'explore')).toBe(true);
     expect(picks[0]!.reason).toContain(`opus 3/${MIN_ARM_FIRINGS}`);
-    expect(chooseModel('default', ids[7]!, thin)).toEqual(picks[7]);
+  });
+
+  it('breaks a tie between equally thin candidates by the task hash, stably', () => {
+    const tied = new Map([
+      ['sonnet', arm('claude-sonnet-5', 2, 2, 4)],
+      ['opus', arm('claude-opus-5-5', 2, 2, 4)],
+      ['fable', arm('claude-fable-5-1', 9, 9, 40)],
+    ]);
+    const picks = ids.map((id) => chooseModel('default', id, tied).model);
+    expect(new Set(picks)).toEqual(new Set(['sonnet', 'opus']));
+    expect(chooseModel('default', ids[7]!, tied).model).toBe(picks[7]);
   });
 
   it('exploits once all are measured: the leader takes most tasks, the other is still watched', () => {

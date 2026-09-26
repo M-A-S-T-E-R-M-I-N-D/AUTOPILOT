@@ -7,7 +7,8 @@
  * `capture-screens.mjs` shoots its stills from (board web-mtnd3yeq-oyprf0,
  * slice 1/2: the recording half). The encoding half — the animated GIF at the
  * README top — waits on the operator's supply-chain approval of a pure-JS gif
- * encoder devDependency; until then this output IS that encoder's input
+ * encoder devDependency (docs/adr/0013-readme-demo-gif-encoder.md names the
+ * candidate and its review); until then this output IS that encoder's input
  * contract: every frame the same pixel size (asserted before the manifest is
  * written), each with its own hold time, in order.
  *
@@ -19,7 +20,10 @@
  * The loop is lossless, about a third the size of the frames it is made of,
  * and every current browser plays it wherever a PNG may appear. The operator
  * can watch the real loop before approving the gif encoder, or take the APNG
- * instead of it.
+ * instead of it — but on GitHub only a `.gif` gets a play/pause control, so an
+ * APNG at the README top must sit in a <picture> whose
+ * `(prefers-reduced-motion: reduce)` source is a still
+ * (apps/dashboard/test/assets/readme-motion.test.ts holds README.md to that).
  *
  *   pnpm run build
  *   node scripts/docs/record-demo-frames.mjs [outDir]
@@ -171,6 +175,20 @@ export function readChunks(bytes) {
     offset = end;
   }
   throw new Error('PNG ends without an IEND chunk');
+}
+
+/**
+ * True when the PNG animates: an acTL chunk before its first IDAT, the only
+ * place §5.6 (Table 7) allows it; a stream with acTL later is no animation.
+ * Throws on bytes that are not a PNG rather than call them still.
+ * @param {Uint8Array} bytes
+ */
+export function isAnimatedPng(bytes) {
+  for (const { type } of readChunks(bytes)) {
+    if (type === 'acTL') return true;
+    if (type === 'IDAT') return false;
+  }
+  return false;
 }
 
 /** One chunk: length, type, data, and the CRC over type + data. */

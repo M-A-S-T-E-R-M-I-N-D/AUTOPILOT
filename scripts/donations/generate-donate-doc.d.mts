@@ -10,3 +10,28 @@ export interface DonationEntryLike {
 export declare function renderAsciiQr(address: string): string;
 export declare function renderEntry(entry: DonationEntryLike): string;
 export declare function renderDoc(entries: readonly DonationEntryLike[]): string;
+export declare function extractClearsignedText(armored: string): string | null;
+export declare function findSignedAddressFileProblem(
+  donationsRaw: string | null,
+  signedRaw: string | null,
+): string | null;
+
+export type SignatureCheck = { readonly fingerprint: string } | { readonly problem: string };
+
+/** The part of a `spawnSync(..., { encoding: 'utf8' })` result the check reads. */
+export interface GpgResult {
+  readonly status: number | null;
+  readonly stdout: string;
+  readonly error?: Error;
+}
+
+export declare function readSignatureStatus(
+  importStatus: string,
+  verifyStatus: string,
+  verifyExit: number | null,
+): SignatureCheck;
+export declare function verifySignedAddressFile(
+  signedPath: string,
+  keyPath: string,
+  run?: (command: string, args: readonly string[], options: object) => GpgResult,
+): SignatureCheck;

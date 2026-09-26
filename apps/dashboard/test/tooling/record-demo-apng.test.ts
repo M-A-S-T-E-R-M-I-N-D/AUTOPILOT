@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import {
   MAX_HOLD_MS,
   assembleApng,
+  isAnimatedPng,
   readChunks,
 } from '../../../../scripts/docs/record-demo-frames.mjs';
 
@@ -298,6 +299,33 @@ describe('assembleApng', () => {
       const set = [{ file: 'frame-000.png', bytes: png(1, 1, image(1, 1, RED)), holdMs }];
       expect(() => assembleApng(set)).toThrow(/holdMs must be a whole number/);
     }
+  });
+});
+
+describe('isAnimatedPng', () => {
+  const tiny = png(1, 1, image(1, 1, RED));
+  const loop = assembleApng([
+    { file: 'frame-000.png', bytes: tiny, holdMs: 100 },
+    { file: 'frame-001.png', bytes: png(1, 1, image(1, 1, BLUE)), holdMs: 100 },
+  ]);
+
+  it('is true for the loop assembleApng writes, false for one of its frames', () => {
+    expect(isAnimatedPng(loop)).toBe(true);
+    expect(isAnimatedPng(tiny)).toBe(false);
+  });
+
+  it('is false when acTL comes after the first IDAT, where §5.6 does not allow it', () => {
+    const late = Buffer.concat([
+      tiny.subarray(0, -12), // everything before IEND
+      pngChunk('acTL', Buffer.alloc(8)),
+      pngChunk('IEND', Buffer.alloc(0)),
+    ]);
+    expect(readChunks(late).map((c) => c.type)).toEqual(['IHDR', 'IDAT', 'acTL', 'IEND']);
+    expect(isAnimatedPng(late)).toBe(false);
+  });
+
+  it('refuses bytes that are not a PNG rather than call them still', () => {
+    expect(() => isAnimatedPng(Buffer.from('GIF89a'))).toThrow(/not a PNG/);
   });
 });
 
