@@ -417,6 +417,12 @@ describe('hasComposeLeak', () => {
 
   it.each([
     ['a PEM private key header', `${DASHES}BEGIN RSA PRIVATE ${KEY}${DASHES}\nMIIB...`],
+    // `gpg --export-secret-keys --armor` closes its header with " BLOCK", so
+    // a PEM-only pattern walks straight past a leaked OpenPGP secret key.
+    [
+      'an OpenPGP private key block header',
+      `${DASHES}BEGIN PGP PRIVATE ${KEY} BLOCK${DASHES}\n\nlQcYBF...`,
+    ],
     ['an AWS access key', `key is ${awsKey()}, rotate it`],
     ['a GitHub PAT (classic ghp_ shape)', `token: ghp_${'a'.repeat(36)}`],
     ['a GitHub PAT (fine-grained shape)', `token: github_pat_${'a'.repeat(22)}`],
