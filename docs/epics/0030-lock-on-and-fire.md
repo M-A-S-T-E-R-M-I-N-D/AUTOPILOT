@@ -40,7 +40,13 @@ the attention you have (an evening, a day, a week).
    launch button now reads **Fire** in both locales (`flyIt`), and the three
    shell frames were retaken on the same build. The retake is one command,
    `node scripts/docs/capture-screens.mjs`, whose header says exactly what is
-   staged and what is real.
+   staged and what is real. _2026-09-26:_ the staged scene moved to
+   `scripts/docs/demo-scene.mjs`, shared with `node scripts/docs/record-demo-frames.mjs`
+   (board `web-mtnd3yeq-oyprf0`, slice 1/2), which records the same Lock on ·
+   Lucky · Fire story as a uniform-size PNG frame sequence plus a `frames.json`
+   hold-time manifest under the git-ignored `docs/screens/demo-frames/` — the
+   input contract for the README-top GIF, whose pure-JS encoder devDependency
+   awaits the operator's supply-chain approval.
 2. **Shipped 2026-09-13 — the master prompt.** `docs/MASTER-PROMPT.md`: one document that states
    the product's promise, its laws (honest telemetry, additive git, gate before
    commit, one unit per firing, claim contracts), its surfaces (fleet, project,

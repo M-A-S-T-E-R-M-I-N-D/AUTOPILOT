@@ -1291,11 +1291,23 @@ const BENIGN_SCRIPTS = new Set([
   // own history (git show of past docs/screens frames) — reads git, writes one
   // PNG, touches nothing else.
   'docs/compose-evolution.mjs',
+  // The staged scene the two README generators share (payloads + the
+  // Playwright open()/settle() helpers, extracted from capture-screens.mjs) —
+  // pure data and browser-driving helpers; imports no Playwright, writes
+  // nothing, reads nothing but the loopback fixture its callers point it at.
+  'docs/demo-scene.mjs',
   // Writes docs/debriefs/README.md from the debrief files' own headings —
   // the same generate-a-committed-doc-from-the-tree class as
   // data-model/generate-doc.mjs; reads the docs folder, writes one index
   // file, touches no store and no GitHub.
   'docs/generate-debriefs-index.mjs',
+  // Doc GENERATOR (board web-mtnd3yeq-oyprf0 slice 1/2): records the README
+  // demo's frame sequence from the populated e2e fixture into the git-ignored
+  // docs/screens/demo-frames/ — writes PNGs + one JSON manifest there, boots
+  // and stops the loopback fixture it reads, never the store, git, or GitHub.
+  // Same class as docs/capture-screens.mjs above. Plus its .d.mts stub.
+  'docs/record-demo-frames.d.mts',
+  'docs/record-demo-frames.mjs',
   // Renders docs/DONATE.md from docs/donations.json via the SAME parser
   // flight/donations.ts gives GET /api/donations — same generate-a-committed
   // -doc-from-data class as data-model/generate-doc.mjs and
