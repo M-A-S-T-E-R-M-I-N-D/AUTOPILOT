@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-27 | [Processing VERDICT `ap-mtt2bjp8-1`: AUTOFORMAT single-writer redesign still needs its own slice — reconfirmed, unchanged since 2026-09-10](2026-09-27-verdict-ap-mtt2bjp8-1-autoformat-single-writer-redesign-reconfirmed.md) |
 | 2026-09-26 | [VERDICT close `web-mtywp7to-rbebh4`: epic 0023 (the docs reader) — all 5 slices verified landed](2026-09-26-verdict-web-mtywp7to-rbebh4-epic-0023-docs-reader-closed.md) |
 | 2026-09-26 | [Processing `ap-muhrb48e-h25dyx-convred`: "CONVERGENCE RED: pnpm run test fails on autopilot/flight" — root cause identified and already fixed at HEAD, closing](2026-09-26-verdict-ap-muhrb48e-h25dyx-convred-closed.md) |
 | 2026-09-26 | [Processing `ap-muhfpue7-ne4oua-convred`: "CONVERGENCE RED: pnpm run test fails on autopilot/flight" — evidence points to stale, self-close expected](2026-09-26-verdict-ap-muhfpue7-ne4oua-convred-likely-stale.md) |
