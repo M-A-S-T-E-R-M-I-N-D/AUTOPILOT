@@ -154,6 +154,35 @@ describe('runBoardTriage', () => {
     }
   });
 
+  it('exempts a pinned runaway from the demotion log while still logging an unpinned one (board-triage.ts:177)', async () => {
+    createTask(store, { id: 'r', projectId: 'p1', title: 'Pinned runaway', createdAt: 1000 });
+    createTask(store, { id: 'a', projectId: 'p1', title: 'Task A', createdAt: 1000 });
+    createTask(store, { id: 'b', projectId: 'p1', title: 'Task B', createdAt: 1000 });
+    createTask(store, { id: 's', projectId: 'p1', title: 'Unpinned runaway', createdAt: 1000 });
+    // The operator pinned 'r' — applyOperatorPins exempts a pinned runaway
+    // from demotion (triage-factors.ts:204-206); the log line must agree.
+    reorderTasks(store, 'p1', ['r'], 999, true);
+    seedRunawayStreak(store, 'p1', 'r');
+    seedRunawayStreak(store, 'p1', 's');
+    invokeMock.mockResolvedValue(triageEnvelope('TRIAGE:["s","b","a"]'));
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    try {
+      await runBoardTriage(deps, 'post-flight');
+      // Pinned 'r' leads untouched; the unpinned remainder keeps the
+      // model's order with the unpinned runaway 's' sunk to the tail.
+      expect(orderedIds(store, 'p1')).toEqual(['r', 'b', 'a', 's']);
+      expect(writeSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('runaway task demoted for operator review: r'),
+      );
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining('runaway task demoted for operator review: s'),
+      );
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
   it('leaves the order untouched and logs a skip when the model reply has no usable TRIAGE line', async () => {
     createTask(store, { id: 'a', projectId: 'p1', title: 'Task A', createdAt: 1000 });
     createTask(store, { id: 'b', projectId: 'p1', title: 'Task B', createdAt: 2000 });
