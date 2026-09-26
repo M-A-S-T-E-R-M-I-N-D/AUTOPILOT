@@ -149,6 +149,111 @@ describe('claimLedger', () => {
     );
     expect(claims).toEqual([]);
   });
+
+  /**
+   * EPIC 0019 additive-only law — the edge branches the first tests walked
+   * past. Each pins behavior the pool client, the panel and the flight-end
+   * reaper already rely on; none of them changes a contract.
+   */
+  it('a second claim sentence by the SAME login renews their one claim instead of duplicating it', () => {
+    const claims = claimLedger(
+      [],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('a', 'Also claimed by a via the pool client (contested).', T0 + DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      {
+        login: 'a',
+        claimedAt: T0 + DAY,
+        assigned: false,
+        lastActivityAt: T0 + DAY,
+        contested: true,
+      },
+    ]);
+  });
+
+  it('keys a relayed claim on the login it NAMES, not on who posted it — the named login keeps it alive, the relay does not', () => {
+    const claims = claimLedger(
+      [],
+      [
+        comment('autopilot-bot', 'Claimed by gabibi555 via the pool client.', T0),
+        comment('autopilot-bot', 'Flight 12 started on this issue.', T0 + DAY),
+        comment('gabibi555', 'Progress note: first slice is up.', T0 + 2 * DAY),
+        comment('autopilot-bot', 'Flight 12 ended.', T0 + 3 * DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      {
+        login: 'gabibi555',
+        claimedAt: T0,
+        assigned: false,
+        lastActivityAt: T0 + 2 * DAY,
+        contested: false,
+      },
+    ]);
+  });
+
+  it("a released login's later plain comment does not resurrect the claim — only a fresh claim sentence reopens it", () => {
+    const claims = claimLedger(
+      ['a'],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('bot', "Releasing @a's claim — quiet for 15 days.", T0 + 20 * DAY),
+        comment('a', 'Sorry, got pulled away — back on it now.', T0 + 21 * DAY),
+      ],
+    );
+    expect(claims).toEqual([]);
+  });
+
+  it('a release note ends an undated assignee-only claim too — the note beats the raw assignee list even with no claim sentence before it', () => {
+    const claims = claimLedger(
+      ['silent', 'octocat'],
+      [
+        comment('octocat', 'Claimed by octocat via the pool client.', T0),
+        comment('maintainer', 'Unassigning @silent — you were added by mistake.', T0 + DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      { login: 'octocat', claimedAt: T0, assigned: true, lastActivityAt: T0, contested: false },
+    ]);
+  });
+
+  it('a release for one login leaves every other live claim untouched', () => {
+    const claims = claimLedger(
+      [],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('b', 'Also claimed by b via the pool client (contested).', T0 + DAY),
+        comment('bot', "Releasing @a's claim — quiet for 15 days.", T0 + 16 * DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      {
+        login: 'b',
+        claimedAt: T0 + DAY,
+        assigned: false,
+        lastActivityAt: T0 + DAY,
+        contested: true,
+      },
+    ]);
+  });
+
+  it('orders dated claims oldest-first no matter how the assignee list orders them', () => {
+    const claims = claimLedger(
+      ['late', 'early'],
+      [
+        comment('late', 'Claimed by late via the pool client.', T0 + 5 * DAY),
+        comment('early', 'Claimed by early via the pool client.', T0),
+      ],
+    );
+    expect(claims.map((c) => c.login)).toEqual(['early', 'late']);
+  });
+
+  it('an empty issue — no assignees, no comments — is simply free', () => {
+    expect(claimLedger([], [])).toEqual([]);
+  });
 });
 
 describe('the sentences', () => {
@@ -201,6 +306,40 @@ describe('claimStanding', () => {
     expect(claimStandings([claim, { ...claim, login: 'b' }], T0).map((s) => s.claim.login)).toEqual(
       ['a', 'b'],
     );
+  });
+
+  it('clamps a future-dated activity (clock skew between gh and the host) to zero quiet days, never negative and never stale', () => {
+    const s = claimStanding(claim, T0 - 3 * DAY);
+    expect(s.quietDays).toBe(0);
+    expect(s.stale).toBe(false);
+    expect(s.releasesAt).toBe(T0 + CLAIM_WINDOW_DAYS * DAY);
+  });
+
+  it('floors partial days — 13 days and 23 hours of quiet is 13 quiet days, still live', () => {
+    const s = claimStanding(claim, T0 + 13 * DAY + 23 * 60 * 60 * 1000);
+    expect(s.quietDays).toBe(13);
+    expect(s.stale).toBe(false);
+  });
+
+  it('honors a caller-supplied window, and claimStandings threads it through to every claim', () => {
+    const two = claimStanding(claim, T0 + 3 * DAY, 2);
+    expect(two).toEqual({ claim, quietDays: 3, releasesAt: T0 + 2 * DAY, stale: true });
+
+    const all = claimStandings([claim, { ...claim, login: 'b' }], T0 + 3 * DAY, 2);
+    expect(all.map((s) => [s.claim.login, s.stale, s.releasesAt])).toEqual([
+      ['a', true, T0 + 2 * DAY],
+      ['b', true, T0 + 2 * DAY],
+    ]);
+  });
+
+  it('an undated claim stays undated under any window', () => {
+    const undated = { ...claim, claimedAt: null, lastActivityAt: null };
+    expect(claimStandings([undated], T0 + 100 * DAY, 1)[0]).toEqual({
+      claim: undated,
+      quietDays: null,
+      releasesAt: null,
+      stale: false,
+    });
   });
 
   it('the window is the shared 14-day convention', () => {
