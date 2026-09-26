@@ -53,7 +53,12 @@ propagation, and the filled style does not match the nav.
    conversions (STRINGS drop the emoji in both locales, tests pin the new
    text) are lane work, file-disjoint by feature module.
 3. Status pills and the live-worker cards; the office map's markers.
-4. The emoji census test pins zero; docs and screenshots refreshed.
+4. **Landed 2026-09-26:** the emoji census test
+   (`apps/dashboard/test/web/icon-system-emoji-census.test.ts`) reads every
+   `.ts` file under `src/web/` from disk, strips comments, and pins the raw
+   emoji count at zero — ✓/✗/⚠ stay as the design's deliberate literal-glyph
+   exception (see the test's own doc comment). Docs/screenshots refresh is
+   still open.
 
 ## Related
 
