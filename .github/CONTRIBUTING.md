@@ -77,6 +77,29 @@ pnpm run verify   # typecheck + lint + format + test+coverage + build + CI valid
 An automated request-changes is not a rejection — fix the named reason and
 push; the ritual re-triages on every update.
 
+## Changing `packages/store`'s schema
+
+`docs/DATA-MODEL.md` is generated from `packages/store/src/schema.ts`'s
+`MIGRATIONS`, applied to a fresh in-memory database and introspected — never
+hand-edit it. After appending a migration:
+
+1. Add the new `M<N>_...` SQL block and its `MIGRATIONS` entry (append-only,
+   contiguous version numbers — `validateMigrations` rejects a gap or a
+   fleet-collision duplicate).
+2. Run `pnpm data-model:update`. It rebuilds `packages/store` before reading
+   its schema (`scripts/data-model/fresh-store.mjs`), so this step is safe
+   even straight after editing `schema.ts` — no separate manual build first.
+3. Confirm the regenerated `docs/DATA-MODEL.md` actually shows your new
+   column/migration (`git diff docs/DATA-MODEL.md`), not just a timestamp
+   bump — the doc can otherwise look "updated" while still describing the
+   old schema.
+4. Run `pnpm run ci:data-model` to match what CI checks.
+
+See
+[`docs/debriefs/2026-09-26-cost-unknown-revert-root-cause-stale-dist-trap.md`](../docs/debriefs/2026-09-26-cost-unknown-revert-root-cause-stale-dist-trap.md)
+for the incident (a migration landed, reverted for a stale `docs/DATA-MODEL.md`)
+this order exists to prevent.
+
 ## Claiming work — the shared-task protocol
 
 Direction lives in [`docs/ROADMAP.md`](../docs/ROADMAP.md); the live menu is the
