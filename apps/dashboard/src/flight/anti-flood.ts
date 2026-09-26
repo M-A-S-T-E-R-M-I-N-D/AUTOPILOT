@@ -95,9 +95,6 @@ export interface OutgoingComment {
   readonly body: string;
   /** Index of the body inside the original argv, so a fold can rewrite it. */
   readonly bodyIndex: number;
-  /** `OWNER/REPO` the post names with `--repo`/`-R`; absent when gh will
-   *  infer the repo itself from the working directory or `GH_REPO`. */
-  readonly repo?: string;
 }
 
 /**
@@ -190,34 +187,11 @@ export function foldCommentBody(existing: string, addition: string, at: Date): s
   return `${existing.trimEnd()}\n\n**Update (${stamp}):**\n\n${addition.trim()}`;
 }
 
-/** `OWNER/REPO` — the only `--repo` form the guard can read a thread for.
- *  gh also takes `HOST/OWNER/REPO`, which the guard's own `gh api` reads
- *  would send to the wrong host, and a `.`/`..` name would walk the API path
- *  somewhere else entirely. */
-const PLAIN_REPO = /^[A-Za-z0-9][A-Za-z0-9-]*\/(?!\.+$)[A-Za-z0-9._-]+$/;
-
-/** gh's own placeholder, filled from the working directory's repo or
- *  `GH_REPO` — the same resolution `gh issue comment N` uses for the post
- *  itself, so a post that names no repo is judged against its own thread. */
-const GH_RESOLVED_REPO = '{owner}/{repo}';
-
-/** The repo named by the flag at `args[i]` (`--repo X`, `--repo=X`, `-R X`,
- *  `-RX`), or `undefined` when `args[i]` is not a repo flag. */
-function repoFlagValue(args: readonly string[], i: number): string | undefined {
-  const arg = args[i] ?? '';
-  if (arg === '--repo' || arg === '-R') return args[i + 1] ?? '';
-  if (arg.startsWith('--repo=')) return arg.slice('--repo='.length);
-  if (arg.startsWith('-R')) return arg.slice(2).replace(/^=/, '');
-  return undefined;
-}
-
 /** `gh issue comment N --body X` / `gh pr comment N --body X` — the two
  *  argv shapes every posting path in the fleet builds. Returns null for
  *  anything else, including `gh pr review`, whose verdict argv this guard
  *  deliberately leaves alone (a review carries state, not just text; a
- *  suppressed approval would strand a PR unapproved) — and for a post whose
- *  `--repo` the guard cannot address, which runs unjudged rather than being
- *  judged against some other repo's thread. */
+ *  suppressed approval would strand a PR unapproved). */
 export function parseCommentPost(bin: string, args: readonly string[]): OutgoingComment | null {
   if (bin !== 'gh') return null;
   if (args[0] !== 'issue' && args[0] !== 'pr') return null;
@@ -227,30 +201,23 @@ export function parseCommentPost(bin: string, args: readonly string[]): Outgoing
   const target = args[2];
   const body = args[bodyIndex + 1];
   if (!target || target.startsWith('-') || body === undefined) return null;
-
-  let repo: string | undefined;
-  for (let i = 3; i < args.length; i += 1) {
-    if (i === bodyIndex + 1) continue; // the body's text is never a flag
-    const named = repoFlagValue(args, i);
-    if (named === undefined) continue;
-    if (!PLAIN_REPO.test(named)) return null;
-    repo = named;
-    if (args[i] === '--repo' || args[i] === '-R') i += 1; // its value is not a flag either
-  }
-  return { target, body, bodyIndex, ...(repo === undefined ? {} : { repo }) };
+  return { target, body, bodyIndex };
 }
 
 /** Options {@link withAntiFlood} takes — all injectable so the guard is
- *  testable without a real `gh`, and `now` stays overridable for
- *  frozen-clock tests. There is deliberately no repo option: the thread is
- *  always the one the post itself lands on (see {@link withAntiFlood}). */
+ *  testable without a real `gh`, and `repo`/`now` stay overridable for
+ *  fork-local runs and frozen-clock tests. */
 export interface AntiFloodOptions {
+  /** `owner/name`. Default matches the canonical repo. */
+  readonly repo?: string;
   /** Clock for the fold stamp. */
   readonly now?: () => Date;
   /** Called with a one-line note whenever the guard acts, so a run's log
    *  says why a post did not appear. */
   readonly onVerdict?: (note: string) => void;
 }
+
+const DEFAULT_REPO = 'M-A-S-T-E-R-M-I-N-D/AUTOPILOT';
 
 async function ghJson(exec: CliExec, path: string): Promise<unknown> {
   const { code, stdout } = await exec('gh', ['api', path]);
@@ -301,22 +268,15 @@ async function readThreadTail(
  * against the thread first. Everything that is not a comment post — every
  * label, every task, every git call — passes through untouched and
  * un-inspected, so wrapping an exec is safe everywhere.
- *
- * The thread read (and any fold edit) targets the repo the post names with
- * `--repo`, else gh's `{owner}/{repo}` placeholder — resolved by gh through
- * this same exec exactly the way the post resolves its own repo. A fixed
- * repo here once judged every steward post on another project against the
- * canonical repo's same-numbered issue, and could fold by PATCHing a
- * comment there.
  */
 export function withAntiFlood(exec: CliExec, options: AntiFloodOptions = {}): CliExec {
+  const repo = options.repo ?? DEFAULT_REPO;
   const now = options.now ?? (() => new Date());
   const note = options.onVerdict ?? (() => {});
 
   return async (bin: string, args: readonly string[]): Promise<CliRun> => {
     const post = parseCommentPost(bin, args);
     if (!post) return exec(bin, args);
-    const repo = post.repo ?? GH_RESOLVED_REPO;
 
     let verdict: FloodVerdict;
     let messages: readonly ThreadMessage[];
