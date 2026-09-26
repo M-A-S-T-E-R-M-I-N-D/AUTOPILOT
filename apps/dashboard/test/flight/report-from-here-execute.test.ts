@@ -6,12 +6,58 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
+import type * as AutopilotStore from '@autopilot/store';
 import {
   createReportFromHerePreviewApi,
   createReportFromHereExecuteApi,
 } from '../../src/flight/report-from-here-execute.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { ReportRegionCapture } from '../../src/flight/report-from-here.js';
+
+vi.mock('@autopilot/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof AutopilotStore>();
+  return { ...actual, openStore: vi.fn(actual.openStore) };
+});
+
+/** The store the execute api opened on its most recent call — read back
+ *  through the pass-through mock so a test can ask whether it was closed. */
+function lastOpenedStore(): Store {
+  const opened = vi.mocked(openStore).mock.results.at(-1);
+  if (!opened || opened.type !== 'return') throw new Error('openStore was never called');
+  return opened.value as Store;
+}
+
+/** A migrated scratch db holding one project, `p1` — the fixture every
+ *  task-shaped execute test starts from. */
+function seededDb(dir: string): string {
+  const dbPath = join(dir, 'a.db');
+  const s = openStore(dbPath);
+  migrate(s);
+  project(s, 'p1', dir);
+  s.close();
+  return dbPath;
+}
+
+interface TaskRow {
+  readonly id: string;
+  readonly project_id: string;
+  readonly title: string;
+  readonly status: string;
+  readonly source: string;
+  readonly focus: number;
+  readonly created_at: number;
+}
+
+function taskRows(dbPath: string): TaskRow[] {
+  const s = openStore(dbPath);
+  try {
+    return s.db
+      .prepare('SELECT id, project_id, title, status, source, focus, created_at FROM tasks')
+      .all() as TaskRow[];
+  } finally {
+    s.close();
+  }
+}
 
 function project(s: Store, id: string, rootPath: string): void {
   s.db
@@ -47,6 +93,21 @@ describe('createReportFromHerePreviewApi', () => {
   it('plans a reasoned rejection for a blank description instead of throwing', () => {
     const plan = createReportFromHerePreviewApi()({ ...capture, description: '' }, 'issue', '');
     expect(plan).toMatchObject({ ok: false });
+  });
+
+  it("stamps the wall clock as a task plan's createdAt — the one input the pure core cannot supply", () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(1_760_000_000_000);
+      const plan = createReportFromHerePreviewApi()(capture, 'local-task', 'p1');
+      expect(plan).toMatchObject({
+        ok: true,
+        action: 'local-task',
+        taskInput: { projectId: 'p1', createdAt: 1_760_000_000_000 },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -123,5 +184,142 @@ describe('createReportFromHereExecuteApi', () => {
 
   it('defaults to the real CLI exec when none is injected', () => {
     expect(() => createReportFromHereExecuteApi('/tmp/unused.db')).not.toThrow();
+  });
+
+  it('opens the store read-write and closes it after the ritual — it creates board tasks', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-report-from-here-rw-'));
+    try {
+      const dbPath = seededDb(dir);
+      vi.mocked(openStore).mockClear();
+      await createReportFromHereExecuteApi(dbPath, okExec())(capture, 'local-task', 'p1');
+      expect(openStore).toHaveBeenCalledTimes(1);
+      expect(openStore).toHaveBeenLastCalledWith(dbPath);
+      expect(lastOpenedStore().db.open).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('still closes the store when the gh exec throws mid-ritual, and surfaces the failure', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-report-from-here-throw-'));
+    try {
+      const exec: CliExec = vi.fn(async () => {
+        throw new Error('gh vanished mid-call');
+      });
+      vi.mocked(openStore).mockClear();
+      await expect(
+        createReportFromHereExecuteApi(join(dir, 'a.db'), exec)(capture, 'issue', ''),
+      ).rejects.toThrow('gh vanished mid-call');
+      expect(lastOpenedStore().db.open).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('mints one task, not two, when the same capture is executed twice across separate store opens', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-report-from-here-retry-'));
+    try {
+      const dbPath = seededDb(dir);
+      const api = createReportFromHereExecuteApi(dbPath, okExec());
+      const first = await api(capture, 'local-task', 'p1');
+      const retry = await api(capture, 'local-task', 'p1');
+      expect(first.taskCreated).toBe(true);
+      expect(retry.taskCreated).toBe(false);
+      expect(taskRows(dbPath)).toHaveLength(1);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('lands a quick-fix-pr report as a queued, focused dashboard task stamped with the wall clock', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-report-from-here-quickfix-'));
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(1_760_000_000_000);
+      const dbPath = seededDb(dir);
+      const exec = okExec();
+      const result = await createReportFromHereExecuteApi(dbPath, exec)(
+        capture,
+        'quick-fix-pr',
+        'p1',
+      );
+      expect(result).toMatchObject({ taskCreated: true, commandResults: [] });
+      expect(exec).not.toHaveBeenCalled();
+
+      const rows = taskRows(dbPath);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        project_id: 'p1',
+        status: 'queued',
+        source: 'dashboard',
+        focus: 1,
+        created_at: 1_760_000_000_000,
+      });
+      expect(rows[0]?.title.startsWith('QUICK-FIX (deliver as PR): ')).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      cleanupDir(dir);
+    }
+  });
+
+  it('files a pool offer through gh under its pool label and creates no board task', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-report-from-here-pool-'));
+    try {
+      const dbPath = seededDb(dir);
+      const exec = okExec();
+      const result = await createReportFromHereExecuteApi(dbPath, exec)(
+        capture,
+        'pool-offer',
+        'p1',
+      );
+      expect(result.taskCreated).toBe(false);
+      expect(result.commandResults).toHaveLength(1);
+      const args = vi.mocked(exec).mock.calls[0]?.[1] ?? [];
+      expect(args.slice(0, 2)).toEqual(['issue', 'create']);
+      const label = args[args.indexOf('--label') + 1] ?? '';
+      expect(label.startsWith('pool: ')).toBe(true);
+      expect(taskRows(dbPath)).toHaveLength(0);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('reports a failed gh issue create honestly instead of throwing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-report-from-here-ghfail-'));
+    try {
+      const exec: CliExec = vi.fn(async () => ({ code: 1, stdout: '' }));
+      const result = await createReportFromHereExecuteApi(join(dir, 'a.db'), exec)(
+        capture,
+        'issue',
+        '',
+      );
+      expect(result.plan).toMatchObject({ ok: true, action: 'issue' });
+      expect(result.commandResults.map((r) => r.code)).toEqual([1]);
+      expect(result.taskCreated).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('applies nothing for a rejected capture — no gh call, no task', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-report-from-here-rejected-'));
+    try {
+      const dbPath = seededDb(dir);
+      const exec = okExec();
+      const result = await createReportFromHereExecuteApi(dbPath, exec)(
+        { ...capture, description: '   ' },
+        'local-task',
+        'p1',
+      );
+      expect(result).toMatchObject({
+        plan: { ok: false, reasonKey: 'reportNeedsDescription' },
+        commandResults: [],
+        taskCreated: false,
+      });
+      expect(exec).not.toHaveBeenCalled();
+      expect(taskRows(dbPath)).toHaveLength(0);
+    } finally {
+      cleanupDir(dir);
+    }
   });
 });
