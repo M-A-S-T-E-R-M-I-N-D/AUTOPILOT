@@ -102,6 +102,7 @@ import {
   escapeAttr,
   subjectNavHtml,
   contextRailHtml,
+  benchmarkSubjectHtml,
 } from '../../src/web/shell-html.js';
 import { gogglesMarkInlineSvg } from '../../src/assets/goggles-mark.js';
 
@@ -2219,6 +2220,8 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     // stylesheet, hashed into assetVersion() the same way — never clientJs().
     'benchmarkClientJs',
     'benchmarkCss',
+    // …and the benchmark subject's section helper, fleet page only.
+    'benchmarkSubjectHtml',
     // ADR 0012 slice 2b (2026-09-26): the chunk composers pass the composed
     // chunks through these pure transforms (core's STRINGS.en narrowed, the
     // deferred chunks headed) — served-chunk assembly, never a splice.
@@ -4594,6 +4597,16 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
       // the floating terminal HUD (epic 0029 slice 3): the same same-file
       // exported-helper call-slot shape as settingsMenuHtml/versionMenuHtml.
       return terminalHudHtml();
+    }
+    if (exprText === 'benchmarkSubjectHtml(project)') {
+      // THE BENCHMARK subject's section (2026-09-26), fleet page only.
+      return benchmarkSubjectHtml(project);
+    }
+    if (exprText.includes('/benchmark.js')) {
+      // its chunk's script tag, fleet page only — the /project.js shape.
+      return project === undefined
+        ? `\n  <script src="/benchmark.js?v=${assetVersion()}" defer></script>`
+        : '';
     }
     if (exprText === 'contextRailHtml(project)') {
       // the context rail's aside (epic 0021 slice 6), fleet page only.

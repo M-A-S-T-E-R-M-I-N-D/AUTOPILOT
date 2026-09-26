@@ -1232,6 +1232,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 /* The COLLABORATION panel (board web-mtpzqrxl-z7jgbu): the same surface,
    title, and row idiom the Pool/Good-first-issues panels share — a fourth
    list, not a new visual language. */
+/* THE BENCHMARK subject (2026-09-26): a bare container — the benchmark
+   chunk draws its own cards inside. */
+.benchmark-panel { margin-block: var(--space-3); }
+.benchmark-panel .bm-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
 .collaboration-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
 .collaboration-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .collaboration-group-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
@@ -2102,7 +2106,7 @@ a.chip, .card-link { display: inline-flex; align-items: center; min-block-size: 
 /* Body-level panels share main's inline edge: one left edge on every width. */
 body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel,
 body > .contributor-standing-panel, body > .publicity-panel, body > .fleet-wisdom, body > .ci-status-panel,
-body > .collaboration-panel { margin-inline: var(--page-inline); }
+body > .collaboration-panel, body > .benchmark-panel { margin-inline: var(--page-inline); }
 /* The CI-status panel arrived from a lane without the page inset every other
    body-level panel shares — it read a different width (operator, 2026-09-12). */
 body > .pr-review-panel, body > .pool-client-panel, body > .contributor-issue-list-panel, body > .ci-status-panel { margin-block-start: var(--space-3); }

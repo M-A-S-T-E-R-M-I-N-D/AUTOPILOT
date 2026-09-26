@@ -6,11 +6,14 @@
  * fleet has flown, compared on its own firings, for the community before
  * 1.0 and for every provider that flies later.
  *
- * A page of its own, not a rail subject: a rail item changes every shell
- * screenshot baseline and the rail census at once, so it is reached from the
- * masthead's More menu until it is promoted with a baseline refresh. Its
+ * A subject of the dashboard itself (operator, 2026-09-26: "part of the
+ * software, not a link to another page"): the fleet page's rail has a
+ * Benchmark place, `#benchmark-panel`, and this chunk draws into it. The
+ * same chunk still serves `/benchmark` on its own, as a permalink. Its
  * script, `/benchmark.js`, ships nothing into the core or panels chunks —
  * both sit at their byte budgets — and carries its own English and Hebrew.
+ * Inside the dashboard it reads nothing until the screen is on screen, and
+ * it follows the dashboard's live language instead of its own.
  * Its styles ride `/tokens.css`: the dashboard's CSP blocks inline styles,
  * so chart colours are classes, never `style` or `fill="var(...)"`.
  *
@@ -113,14 +116,14 @@ const BENCHMARK_CSS = `
 main.bm-page { max-width: 1200px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-6); display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: none; gap: var(--space-5); color: var(--color-text); }
 .bm-page > * { grid-column: 1 / -1; grid-row: auto; min-width: 0; }
 .bm-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
-.bm-head h1 { margin: 0; font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.4rem); letter-spacing: -0.02em; }
+.bm-title { margin: 0; font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.4rem); letter-spacing: -0.02em; }
 .bm-sub, .bm-note, .bm-updated { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
 .bm-back { color: var(--color-accent); font-size: var(--text-sm); }
 .bm-card { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); }
-.bm-card h2 { margin: 0; font-size: var(--text-lg, 1.1rem); }
+.bm-card-title { margin: 0; font-size: var(--text-lg, 1.1rem); }
 .bm-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
 .bm-tier { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--shape-small); padding: var(--space-3); display: grid; gap: var(--space-2); }
-.bm-tier h3 { margin: 0; font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); display: flex; justify-content: space-between; gap: var(--space-2); }
+.bm-tier-title { margin: 0; font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); display: flex; justify-content: space-between; gap: var(--space-2); }
 .bm-phase { font-weight: 700; letter-spacing: 0; text-transform: none; }
 .bm-phase.is-led { color: var(--color-success); }
 .bm-arm { display: grid; grid-template-columns: 5.5rem 1fr auto; gap: var(--space-2); align-items: center; font-size: var(--text-sm); }
@@ -196,11 +199,19 @@ export function renderBenchmarkPage(assetVersion: string): string {
 
 const CHUNK_BODY = `
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-var theme = lsGet('ap-theme');
-if (theme) document.documentElement.setAttribute('data-theme', theme);
-var locale = lsGet('ap-locale') === 'he' ? 'he' : 'en';
-document.documentElement.lang = locale;
-document.documentElement.dir = locale === 'he' ? 'rtl' : 'ltr';
+var EMBED = document.getElementById('benchmark-panel');
+var HL = EMBED ? 1 : 0;
+function hn(level) { return 'h' + (level + HL); }
+if (!EMBED) {
+  var theme = lsGet('ap-theme');
+  if (theme) document.documentElement.setAttribute('data-theme', theme);
+  var saved = lsGet('ap-locale') === 'he' ? 'he' : 'en';
+  document.documentElement.lang = saved;
+  document.documentElement.dir = saved === 'he' ? 'rtl' : 'ltr';
+}
+var locale = 'en';
+function syncLocale() { locale = document.documentElement.lang === 'he' ? 'he' : 'en'; }
+syncLocale();
 var SVGNS = 'http://www.w3.org/2000/svg';
 function t(key, subs) {
   var s = BM[locale][key] || BM.en[key] || key;
@@ -255,7 +266,7 @@ function axes(svg, w, h, pad, xMax, yMax, xLabel, yLabel, xFmt, yFmt) {
 }
 function card(titleKey, noteText) {
   var c = el('section', 'bm-card');
-  c.appendChild(el('h2', null, t(titleKey)));
+  c.appendChild(el(hn(2), 'bm-card-title', t(titleKey)));
   if (noteText) c.appendChild(el('p', 'bm-note', noteText));
   return c;
 }
@@ -265,7 +276,7 @@ function tiersCard(data) {
   for (var i = 0; i < data.tiers.length; i++) {
     var tier = data.tiers[i];
     var box = el('div', 'bm-tier');
-    var h = el('h3', null, t('tier_' + tier.tier));
+    var h = el(hn(3), 'bm-tier-title', t('tier_' + tier.tier));
     var phase = el('span', 'bm-phase' + (tier.leader ? ' is-led' : ''), tier.leader ? tier.leader + ' ' + t('leads') : t('exploring'));
     h.appendChild(phase);
     box.appendChild(h);
@@ -400,14 +411,16 @@ function tableCard(data) {
 function header(data) {
   var h = el('header', 'bm-head');
   var left = el('div');
-  var h1 = el('h1', null, t('title'));
+  var h1 = el(hn(1), 'bm-title', t('title'));
   left.appendChild(h1);
   left.appendChild(el('p', 'bm-sub', t('subtitle', { days: data ? data.windowDays : 90 })));
   if (data) left.appendChild(el('p', 'bm-updated', t('updated', { time: new Date(data.generatedAt).toLocaleTimeString(locale) })));
   h.appendChild(left);
-  var back = el('a', 'bm-back', t('back'));
-  back.href = '/';
-  h.appendChild(back);
+  if (!EMBED) {
+    var back = el('a', 'bm-back', t('back'));
+    back.href = '/';
+    h.appendChild(back);
+  }
   return h;
 }
 function paint(data) {
@@ -424,16 +437,43 @@ function paint(data) {
   root.appendChild(charts);
   root.appendChild(tableCard(data));
 }
+var lastData = null;
+var requested = false;
 function load() {
+  requested = true;
   return fetch('/api/benchmark', { headers: { Accept: 'application/json' } })
     .then(function (r) { return r.ok ? r.json() : null; })
     .catch(function () { return null; })
-    .then(paint);
+    .then(function (d) { lastData = d; paint(d); });
+}
+// Inside the dashboard the screen reads nothing until it is on screen: a
+// subject the operator never opens costs no request.
+function onScreen() {
+  if (!EMBED) return true;
+  if (document.hidden) return false;
+  var r = EMBED.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < (window.innerHeight || 0);
 }
 window.__apBenchmarkLoad = load;
-document.title = 'AUTOPILOT — ' + t('title');
-load();
-setInterval(load, 60000);
+if (EMBED) {
+  EMBED.hidden = false;
+  new MutationObserver(function () {
+    var was = locale;
+    syncLocale();
+    if (was !== locale && requested) paint(lastData);
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+  if (typeof IntersectionObserver === 'function') {
+    new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) if (entries[i].isIntersecting && !requested) load();
+    }).observe(EMBED);
+  } else {
+    load();
+  }
+} else {
+  document.title = 'AUTOPILOT — ' + t('title');
+  load();
+}
+setInterval(function () { if (requested && onScreen()) load(); }, 60000);
 `;
 
 /** The `/benchmark.js` chunk. Built by concatenation, not a template, so the

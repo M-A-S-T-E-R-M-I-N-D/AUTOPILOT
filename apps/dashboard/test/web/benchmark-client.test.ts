@@ -213,6 +213,65 @@ describe('the benchmark page', () => {
   });
 });
 
+describe('the benchmark subject inside the dashboard (2026-09-26)', () => {
+  function mountInShell(): void {
+    document.body.innerHTML =
+      '<h1>Fleet</h1><section class="benchmark-panel" id="benchmark-panel" data-subject="benchmark" hidden><div class="bm-page" id="benchmark"></div></section>';
+  }
+
+  it('reads nothing until the screen is on screen, then draws in place', async () => {
+    mountInShell();
+    let seen: ((entries: { isIntersecting: boolean }[]) => void) | undefined;
+    (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver = class {
+      constructor(cb: (entries: { isIntersecting: boolean }[]) => void) {
+        seen = cb;
+      }
+      observe(): void {}
+    };
+    try {
+      boot();
+      expect(document.getElementById('benchmark-panel')!.hidden).toBe(false);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      seen!([{ isIntersecting: true }]);
+      await painted();
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      // Scrolling past it again does not read twice.
+      seen!([{ isIntersecting: true }]);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (globalThis as unknown as { IntersectionObserver?: unknown }).IntersectionObserver;
+    }
+  });
+
+  it("sits under the page's own heading, with no way back to a page it never left", async () => {
+    mountInShell();
+    boot();
+    await painted();
+    expect(document.querySelectorAll('h1')).toHaveLength(1);
+    expect(document.querySelector('h2.bm-title')!.textContent).toBe(BENCHMARK_STRINGS.en.title);
+    expect(document.querySelector('h3.bm-card-title')).not.toBeNull();
+    expect(document.querySelector('.bm-back')).toBeNull();
+  });
+
+  it("leaves the dashboard's theme, direction and title alone, and follows its language live", async () => {
+    mountInShell();
+    localStorage.setItem('ap-theme', 'terminal');
+    localStorage.setItem('ap-locale', 'he');
+    document.documentElement.lang = 'en';
+    document.title = 'AUTOPILOT — dashboard';
+    boot();
+    await painted();
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+    expect(document.title).toBe('AUTOPILOT — dashboard');
+    expect(document.querySelector('.bm-title')!.textContent).toBe(BENCHMARK_STRINGS.en.title);
+    document.documentElement.lang = 'he';
+    await vi.waitFor(() =>
+      expect(document.querySelector('.bm-title')!.textContent).toBe(BENCHMARK_STRINGS.he.title),
+    );
+    document.documentElement.lang = 'en';
+  });
+});
+
 describe('benchmark — strings', () => {
   it('carries the same keys in English and Hebrew, and every Hebrew line is translated', () => {
     expect(Object.keys(BENCHMARK_STRINGS.he).sort()).toEqual(
