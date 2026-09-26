@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openStore, migrate, createTask, type Store } from '@autopilot/store';
+import { openStore, migrate, createTask, setAutoApprove, type Store } from '@autopilot/store';
 import {
   MAX_PROPOSALS,
   firingIdOf,
@@ -545,6 +545,48 @@ describe('harvestProposals', () => {
         }
       ).status,
     ).toBe('needs_approval');
+  });
+
+  it('on auto mode, queues a proposal at once and leaves the ones only a person decides waiting', () => {
+    setAutoApprove(store, 'p1', true, 1);
+    const outcome = outcomeWithProposals([
+      proposal('Add a widget'),
+      proposal('OPERATOR: upgrade node'),
+      proposal('VERDICT blocked ap-1 waits on ADR 0010'),
+      proposal('VERDICT close ap-2'),
+    ]);
+
+    expect(harvestProposals(store, 'p1', outcome, new Set(), 0)).toBe(4);
+
+    const status = (title: string): string =>
+      (
+        store.db.prepare('SELECT status FROM tasks WHERE title = ?').get(title) as {
+          status: string;
+        }
+      ).status;
+    expect(status('Add a widget')).toBe('queued');
+    expect(status('OPERATOR: upgrade node')).toBe('needs_approval');
+    expect(status('VERDICT blocked ap-1 waits on ADR 0010')).toBe('needs_approval');
+    expect(status('VERDICT close ap-2')).toBe('needs_approval');
+    const audit = store.db
+      .prepare("SELECT payload FROM events WHERE type = 'task-auto-approved'")
+      .all() as { payload: string }[];
+    expect(audit.map((r) => (JSON.parse(r.payload) as { title: string }).title)).toEqual([
+      'Add a widget',
+    ]);
+    // Never the operator's own approval label.
+    expect(
+      store.db.prepare("SELECT COUNT(*) c FROM events WHERE type = 'evaluation-label'").get(),
+    ).toEqual({ c: 0 });
+  });
+
+  it('with auto mode turned off again, proposals wait for the operator', () => {
+    setAutoApprove(store, 'p1', true, 1);
+    setAutoApprove(store, 'p1', false, 2);
+    harvestProposals(store, 'p1', outcomeWithProposals([proposal('Add a widget')]), new Set(), 0);
+    expect(store.db.prepare('SELECT status FROM tasks').get()).toEqual({
+      status: 'needs_approval',
+    });
   });
 
   it('skips a proposal whose title already exists, case-insensitively', () => {

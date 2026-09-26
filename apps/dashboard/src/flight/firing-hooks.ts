@@ -18,6 +18,9 @@ import {
   setTaskStatus,
   createTask,
   demoteMetricsCompletion,
+  isAutoApprovable,
+  isAutoApproveOn,
+  recordAutoApproved,
   reconcileShippedTasks,
   type ReconciledTask,
   type Store,
@@ -255,6 +258,12 @@ export async function runMutationScopeAdvisory(
  * from an open docs/BACKLOG-999.md item) is sourced 'backlog'; everything
  * else is 'self' (freshly mined). `proposedSoFar` carries the running total
  * across firings so the flight-wide MAX_PROPOSALS cap holds; returns the new total.
+ *
+ * AUTO MODE (operator, 2026-09-26): when the project has it on
+ * (@autopilot/store's `auto-approve.ts`), a proposal enters the pool as
+ * 'queued' at once — except the titles only a person decides (OPERATOR,
+ * VERDICT blocked, VERDICT close), which still wait for the ✓. Read per
+ * firing, so turning it on or off mid-flight takes effect at the next one.
  */
 export function harvestProposals(
   store: Store,
@@ -264,6 +273,7 @@ export function harvestProposals(
   proposedSoFar: number,
 ): number {
   let proposed = proposedSoFar;
+  const autoMode = isAutoApproveOn(store, projectId);
   for (const p of outcome.record.proposals ?? []) {
     if (proposed >= MAX_PROPOSALS) break;
     const title = p.title.trim();
@@ -271,16 +281,19 @@ export function harvestProposals(
     // parseProposalsLine already schema-validates severity/dimension against
     // the store's canonical enums (fail-loud: invalidTags flags a dropped tag
     // instead of losing it silently) — trust the already-validated values here.
+    const auto = autoMode && isAutoApprovable(title);
+    const id = `ap-${Date.now().toString(36)}-${proposed}`;
     const created = createTask(
       store,
       {
-        id: `ap-${Date.now().toString(36)}-${proposed}`,
+        id,
         projectId,
         title,
         severity: p.severity,
         dimension: p.dimension,
         source: p.fromBacklog ? 'backlog' : 'self',
-        status: 'needs_approval', // flights skip it until the operator approves
+        // Flights skip a needs_approval task until the operator approves it.
+        status: auto ? 'queued' : 'needs_approval',
         createdAt: Date.now(),
       },
       (message) => out(`    ⚠ ${message}`),
@@ -288,7 +301,12 @@ export function harvestProposals(
     if (created) {
       existingTitles.add(title.toLowerCase());
       proposed += 1;
-      out(`  ✦ proposed task (awaiting your approval on the dashboard): ${title}`);
+      if (auto) {
+        recordAutoApproved(store, projectId, id, title, Date.now());
+        out(`  ✦ proposed task, into the pool on auto mode: ${title}`);
+      } else {
+        out(`  ✦ proposed task (awaiting your approval on the dashboard): ${title}`);
+      }
       if (p.invalidTags) {
         out(`    ⚠ dropped an out-of-enum severity/dimension tag on this proposal`);
       }

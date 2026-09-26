@@ -14,6 +14,7 @@ export * from './warm-sessions.js';
 export * from './orient.js';
 export * from './search.js';
 export * from './mutate.js';
+export * from './auto-approve.js';
 export * from './rank.js';
 export * from './vector.js';
 export * from './snapshot.js';

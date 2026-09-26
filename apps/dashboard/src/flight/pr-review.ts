@@ -886,6 +886,11 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // that overwrite live text) — a PR could weaken any of these without ever
   // touching the wrapper file the existing 'read/mutate.ts' marker flags.
   'store/src/mutate.ts',
+  // AUTO MODE (2026-09-26): decides which agent proposals enter the pool
+  // without the operator's approval, and which titles (OPERATOR, VERDICT
+  // blocked/close) must always wait for a person. Weakening
+  // isAutoApprovable would let a firing queue work only a human may start.
+  'store/src/auto-approve.ts',
   // Opens the one writable SQLite connection every package shares:
   // resolveStorePath's NUL-byte guard, the foreign_keys=ON pragma the
   // schema's CHECK constraints rely on, and the busy-retry hardening
