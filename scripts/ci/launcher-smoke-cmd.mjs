@@ -27,28 +27,38 @@
  * `RECORD_FILE` env var — capturing the real Windows argument-quoting
  * behavior (e.g. `WATCH-DASHBOARD.cmd`'s `"%~1" %2 %3` forwarding an absent
  * first argument as a literal empty string, not as an omitted one).
+ *
+ * The decisions — which files count as launchers, whether the manifest still
+ * covers them, which scenarios each launcher gets, how a record file reads
+ * and whether a run passed — are exported pure helpers, mutation-tested by
+ * config/mutation/stryker.ci-launcher-smoke-cmd.config.mjs. The `cmd.exe`
+ * runs themselves only execute when this file is the entry point.
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, dirname, join } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 /** Same marker shape as `SECURITY_SENSITIVE_PATH_MARKERS` in pr-review.ts:
- *  `setup.cmd` verbatim, or any `*-dashboard.cmd` (case-insensitive). A newly
- *  added launcher fails LOUDLY here (manifest mismatch) instead of silently
- *  never running through this smoke test. */
-function discoverCmdLaunchers() {
-  const isLauncher = (name) =>
-    name.toLowerCase() === 'setup.cmd' || name.toLowerCase().endsWith('-dashboard.cmd');
+ *  `setup.cmd` verbatim, or any `*-dashboard.cmd` (case-insensitive). */
+export function isCmdLauncher(name) {
+  return name.toLowerCase() === 'setup.cmd' || name.toLowerCase().endsWith('-dashboard.cmd');
+}
+
+/** Scanned in the root and scripts/launchers/, so a newly added launcher
+ *  fails LOUDLY here (manifest mismatch) instead of silently never running
+ *  through this smoke test. `root` defaults to this repo; the test points it
+ *  at a scratch tree. */
+export function discoverCmdLaunchers(root = repoRoot) {
   const dirs = ['.', 'scripts/launchers'];
   const found = [];
   for (const dir of dirs) {
-    const abs = join(repoRoot, dir);
+    const abs = join(root, dir);
     for (const name of readdirSync(abs)) {
-      if (isLauncher(name)) found.push(dir === '.' ? name : `${dir}/${name}`);
+      if (isCmdLauncher(name)) found.push(dir === '.' ? name : `${dir}/${name}`);
     }
   }
   return found.sort();
@@ -60,7 +70,7 @@ function discoverCmdLaunchers() {
  *  is pointed at; `nodeInvocations` is one entry per separate `node` call the
  *  launcher makes, each the argv the recorder should see AFTER the script
  *  path (so `['status']`, not `['cli.js', 'status']`). */
-const MANIFEST = [
+export const MANIFEST = [
   {
     file: 'SETUP.cmd',
     buildsFirst: false,
@@ -140,6 +150,28 @@ const MANIFEST = [
   },
 ];
 
+/** `discovered` is the sorted list `discoverCmdLaunchers` returns; the
+ *  manifest must name exactly those files, no more and no fewer. */
+export function assertManifestCovers(discovered, manifest) {
+  const known = manifest.map((e) => e.file).sort();
+  assert(
+    JSON.stringify(discovered) === JSON.stringify(known),
+    `launcher-smoke-cmd's manifest is out of date — discovered [${discovered.join(', ')}] but the manifest covers [${known.join(', ')}]. Add the new launcher to MANIFEST in scripts/ci/launcher-smoke-cmd.mjs.`,
+  );
+}
+
+/** Every launcher gets its happy path plus its one relevant guard branch:
+ *  build failure short-circuit for a builder, "not built yet" for a
+ *  dist-requiring launcher. A builder never gets the "not built yet" run. */
+export function scenariosFor(entry) {
+  const happy = { simulateBuildFailure: false, includeDist: true };
+  if (entry.buildsFirst) return [happy, { simulateBuildFailure: true, includeDist: true }];
+  if (entry.requiresDist) return [happy, { simulateBuildFailure: false, includeDist: false }];
+  return [happy];
+}
+
+// Stryker disable all: the pnpm stub and the node recorders only matter under
+// a real `cmd.exe` run — exercised by running the gate for real.
 const PNPM_STUB = (recordFile) =>
   `@echo off\r\necho %* >> "${recordFile}"\r\nif exist "${recordFile}.fail" exit /b 1\r\nexit /b 0\r\n`;
 
@@ -155,22 +187,23 @@ const ESM_RECORDER =
   'import {appendFileSync,existsSync} from "node:fs";const r=process.env.RECORD_FILE;' +
   'appendFileSync(r, process.argv.slice(2).join(" ")+"\\n");' +
   'if(existsSync(r+".fail"))process.exit(1);';
+// Stryker restore all
 
 /** Splits into one entry per recorded line, WITHOUT `.filter(Boolean)`: an
  *  empty string is a valid, meaningful invocation here (e.g. SETUP.cmd's
  *  no-arg call, or WATCH-DASHBOARD.cmd's `"%~1"` forwarding an absent first
  *  argument as a literal empty string) — filtering falsy lines would drop
- *  those real invocations instead of just trailing whitespace. */
-function readRecord(recordFile) {
+ *  those real invocations instead of just trailing whitespace. A stub that
+ *  never ran wrote no file, which reads as no calls. */
+export function readRecord(recordFile) {
   try {
-    const raw = readFileSync(recordFile, 'utf8');
-    if (raw === '') return [];
     // Each line is LF-terminated (recorder/stub always appends a trailing
     // `\n`); drop the one empty element `split` leaves after that final
     // terminator, and strip a `\r` some Windows batch commands print before
     // it (unlike the recorder's own line endings, `echo` in a `.cmd` stub is
-    // CRLF).
-    return raw
+    // CRLF). An empty file splits to `['']`, which that same slice drops, so
+    // it reads as no calls without a special case.
+    return readFileSync(recordFile, 'utf8')
       .split('\n')
       .slice(0, -1)
       .map((line) => line.replace(/\r$/, ''));
@@ -179,19 +212,18 @@ function readRecord(recordFile) {
   }
 }
 
-/** Runs one manifest entry's happy path plus its one relevant guard branch
- *  (build failure short-circuit for a builder, "not built yet" for a
- *  dist-requiring launcher) — each in its own disposable scratch dir. */
+// Stryker disable all: `smokeTestLauncher` and `runScenario` shell out to
+// `cmd.exe` in a scratch copy — exercised only by running the gate for real.
+// The plan they follow (`scenariosFor`) and the verdict they apply
+// (`checkScenario`) ARE mutation-tested.
+/** Runs every scenario `scenariosFor` plans for one manifest entry, each in
+ *  its own disposable scratch dir. */
 function smokeTestLauncher(entry) {
-  runScenario(entry, { simulateBuildFailure: false, includeDist: true });
-  if (entry.buildsFirst) {
-    runScenario(entry, { simulateBuildFailure: true, includeDist: true });
-  } else if (entry.requiresDist) {
-    runScenario(entry, { simulateBuildFailure: false, includeDist: false });
-  }
+  for (const scenario of scenariosFor(entry)) runScenario(entry, scenario);
 }
 
-function runScenario(entry, { simulateBuildFailure, includeDist }) {
+function runScenario(entry, scenario) {
+  const { simulateBuildFailure, includeDist } = scenario;
   const scratch = mkdtempSync(join(tmpdir(), 'autopilot-launcher-smoke-cmd-'));
   try {
     const scriptCopy = join(scratch, entry.file);
@@ -233,66 +265,78 @@ function runScenario(entry, { simulateBuildFailure, includeDist }) {
       output = `${err.stdout ?? ''}${err.stderr ?? ''}`;
     }
 
-    const nodeCalls = readRecord(nodeRecord);
-    const pnpmCalls = readRecord(pnpmRecord);
-
-    if (simulateBuildFailure) {
-      assert(exitCode === 1, `${entry.file}: expected exit 1 on a failed build, got ${exitCode}`);
-      assert(
-        nodeCalls.length === 0,
-        `${entry.file}: a failed \`pnpm run build\` must short-circuit before ever invoking node, saw: ${nodeCalls.join(' | ')}`,
-      );
-      assert(
-        /BUILD FAILED/.test(output),
-        `${entry.file}: a failed build must print a "BUILD FAILED" notice, got: ${output}`,
-      );
-      return;
-    }
-
-    if (entry.requiresDist && !includeDist) {
-      assert(
-        exitCode === 0,
-        `${entry.file}: missing ${entry.target} must exit 0 gracefully (nothing to do yet), got ${exitCode}`,
-      );
-      assert(
-        nodeCalls.length === 0,
-        `${entry.file}: missing ${entry.target} must never invoke node, saw: ${nodeCalls.join(' | ')}`,
-      );
-      return;
-    }
-
-    assert(
-      exitCode === 0,
-      `${entry.file}: expected a clean exit 0, got ${exitCode}. Output: ${output}`,
-    );
-    assert(
-      nodeCalls.length === entry.nodeInvocations.length,
-      `${entry.file}: expected ${entry.nodeInvocations.length} node invocation(s), saw ${nodeCalls.length}: ${nodeCalls.join(' | ')}`,
-    );
-    entry.nodeInvocations.forEach((expected, i) => {
-      const expectedLine = expected.join(' ');
-      assert(
-        nodeCalls[i] === expectedLine,
-        `${entry.file}: node invocation #${i + 1} expected "${expectedLine}", got "${nodeCalls[i]}"`,
-      );
+    checkScenario(entry, scenario, {
+      exitCode,
+      output,
+      nodeCalls: readRecord(nodeRecord),
+      pnpmCalls: readRecord(pnpmRecord),
     });
-    if (entry.buildsFirst) {
-      assert(
-        // `.trim()` here only: cmd.exe's `echo %*` in the pnpm stub appends
-        // a trailing space before the CRLF this platform's `call pnpm run
-        // build` doesn't itself write anywhere else, unrelated to the
-        // meaningful trailing space in a node invocation line above.
-        pnpmCalls.some((c) => c.trim() === 'run build'),
-        `${entry.file}: expected \`pnpm run build\` before launching, saw: ${pnpmCalls.join(' | ')}`,
-      );
-    } else {
-      assert(
-        pnpmCalls.length === 0,
-        `${entry.file}: does not build, but pnpm was invoked: ${pnpmCalls.join(' | ')}`,
-      );
-    }
   } finally {
     rmSync(scratch, { recursive: true, force: true });
+  }
+}
+// Stryker restore all
+
+/** The verdict on one scenario's run: `run` is the launcher's exit code, its
+ *  combined output and the calls the recorder and the pnpm stub wrote. Throws
+ *  naming the first broken expectation. */
+export function checkScenario(entry, { simulateBuildFailure, includeDist }, run) {
+  const { exitCode, output, nodeCalls, pnpmCalls } = run;
+
+  if (simulateBuildFailure) {
+    assert(exitCode === 1, `${entry.file}: expected exit 1 on a failed build, got ${exitCode}`);
+    assert(
+      nodeCalls.length === 0,
+      `${entry.file}: a failed \`pnpm run build\` must short-circuit before ever invoking node, saw: ${nodeCalls.join(' | ')}`,
+    );
+    assert(
+      /BUILD FAILED/.test(output),
+      `${entry.file}: a failed build must print a "BUILD FAILED" notice, got: ${output}`,
+    );
+    return;
+  }
+
+  if (entry.requiresDist && !includeDist) {
+    assert(
+      exitCode === 0,
+      `${entry.file}: missing ${entry.target} must exit 0 gracefully (nothing to do yet), got ${exitCode}`,
+    );
+    assert(
+      nodeCalls.length === 0,
+      `${entry.file}: missing ${entry.target} must never invoke node, saw: ${nodeCalls.join(' | ')}`,
+    );
+    return;
+  }
+
+  assert(
+    exitCode === 0,
+    `${entry.file}: expected a clean exit 0, got ${exitCode}. Output: ${output}`,
+  );
+  assert(
+    nodeCalls.length === entry.nodeInvocations.length,
+    `${entry.file}: expected ${entry.nodeInvocations.length} node invocation(s), saw ${nodeCalls.length}: ${nodeCalls.join(' | ')}`,
+  );
+  entry.nodeInvocations.forEach((expected, i) => {
+    const expectedLine = expected.join(' ');
+    assert(
+      nodeCalls[i] === expectedLine,
+      `${entry.file}: node invocation #${i + 1} expected "${expectedLine}", got "${nodeCalls[i]}"`,
+    );
+  });
+  if (entry.buildsFirst) {
+    assert(
+      // `.trim()` here only: cmd.exe's `echo %*` in the pnpm stub appends
+      // a trailing space before the CRLF this platform's `call pnpm run
+      // build` doesn't itself write anywhere else, unrelated to the
+      // meaningful trailing space in a node invocation line above.
+      pnpmCalls.some((c) => c.trim() === 'run build'),
+      `${entry.file}: expected \`pnpm run build\` before launching, saw: ${pnpmCalls.join(' | ')}`,
+    );
+  } else {
+    assert(
+      pnpmCalls.length === 0,
+      `${entry.file}: does not build, but pnpm was invoked: ${pnpmCalls.join(' | ')}`,
+    );
   }
 }
 
@@ -300,18 +344,15 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+// Stryker disable all: `main` runs every launcher for real and exits the
+// process — exercised only by running the gate for real.
 function main() {
   if (process.platform !== 'win32') {
     console.log('launcher-smoke-cmd: skipped — cmd.exe launchers only run on Windows');
     return;
   }
 
-  const discovered = discoverCmdLaunchers();
-  const known = MANIFEST.map((e) => e.file).sort();
-  assert(
-    JSON.stringify(discovered) === JSON.stringify(known),
-    `launcher-smoke-cmd's manifest is out of date — discovered [${discovered.join(', ')}] but the manifest covers [${known.join(', ')}]. Add the new launcher to MANIFEST in scripts/ci/launcher-smoke-cmd.mjs.`,
-  );
+  assertManifestCovers(discoverCmdLaunchers(), MANIFEST);
 
   for (const entry of MANIFEST) {
     smokeTestLauncher(entry);
@@ -320,9 +361,15 @@ function main() {
   console.log('launcher-smoke-cmd OK');
 }
 
-try {
-  main();
-} catch (err) {
-  console.error(`launcher-smoke-cmd FAILED: ${err instanceof Error ? err.message : String(err)}`);
-  process.exit(1);
+// Run only as the entry point, so the test file can import the helpers above
+// without running a single launcher.
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  try {
+    main();
+  } catch (err) {
+    console.error(`launcher-smoke-cmd FAILED: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
 }
+// Stryker restore all
