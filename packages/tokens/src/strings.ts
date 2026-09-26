@@ -1012,6 +1012,7 @@ const EN_STRINGS = {
   // label per key group — the <kbd> keys themselves are not translated.
   boardKeysMove: 'move',
   boardKeysSelect: 'select',
+  boardKeysExtend: 'extend',
   boardKeysSelectAll: 'select all',
   boardKeysApprove: 'approve',
   boardKeysDone: 'done',
@@ -2451,6 +2452,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskDone: '✓ בוצע',
     boardKeysMove: 'מעבר',
     boardKeysSelect: 'בחירה',
+    boardKeysExtend: 'הרחבה',
     boardKeysSelectAll: 'בחירת הכול',
     boardKeysApprove: 'אישור',
     boardKeysDone: 'בוצע',

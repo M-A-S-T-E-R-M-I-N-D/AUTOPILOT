@@ -365,7 +365,7 @@ describe('task row select-all (epic 0026 slice 1)', () => {
 
     const legend = document.querySelector('.board-keys') as HTMLElement;
     const keys = [...legend.querySelectorAll('kbd')].map((k) => k.textContent);
-    expect(keys).toEqual(['j', 'k', 'x', 'Ctrl', 'A', 'a', 'd', 'Esc']);
+    expect(keys).toEqual(['j', 'k', 'x', 'Shift', 'j', 'k', 'Ctrl', 'A', 'a', 'd', 'Esc']);
     // Ctrl and A are one chord, joined by +; j and k are alternatives, joined by /.
     expect(legend.textContent).toContain('Ctrl+A ' + STRINGS.en.boardKeysSelectAll);
     expect(legend.textContent).toContain('j/k ' + STRINGS.en.boardKeysMove);
@@ -375,5 +375,135 @@ describe('task row select-all (epic 0026 slice 1)', () => {
     (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
     expect(label.textContent).toBe(STRINGS.he.boardKeysSelectAll);
     expect(legend.textContent).toContain('Ctrl+A ' + STRINGS.he.boardKeysSelectAll);
+  });
+});
+
+// Linear's "Shift extends" (the epic doc's field notes), the last of its five
+// selection keys: Shift+j/k moves the cursor like j/k and checks both the row
+// it leaves and the row it lands on, so holding Shift and walking a run of
+// rows selects the run. Extending only ever adds — walking back over the run
+// keeps it; x unticks a single row, Escape clears the lot.
+describe('task row shift-extend (epic 0026 slice 1)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const checked = () => ['t1', 't2', 't3'].filter((id) => boxOf(id).checked);
+
+  it('Shift+J checks the row it leaves and the row it lands on, then moves there', async () => {
+    await boot();
+
+    titleOf('t1').focus();
+    const notCancelled = press(titleOf('t1'), 'J', { shiftKey: true });
+
+    expect(notCancelled).toBe(false);
+    expect(checked()).toEqual(['t1', 't2']);
+    expect(rowOf('t1').classList.contains('task-selected')).toBe(true);
+    expect(rowOf('t2').classList.contains('task-selected')).toBe(true);
+    expect(document.activeElement).toBe(titleOf('t2'));
+    expect(list().getAttribute('data-selecting')).toBe('true');
+    expect(line().textContent).toBe(STRINGS.en.boardSelected.replace('{n}', '2'));
+  });
+
+  it('Shift+K extends upward the same way', async () => {
+    await boot();
+
+    titleOf('t3').focus();
+    press(titleOf('t3'), 'K', { shiftKey: true });
+
+    expect(checked()).toEqual(['t2', 't3']);
+    expect(document.activeElement).toBe(titleOf('t2'));
+  });
+
+  it('walking a run selects the run, and walking back keeps it', async () => {
+    await boot();
+
+    titleOf('t1').focus();
+    press(titleOf('t1'), 'J', { shiftKey: true });
+    press(titleOf('t2'), 'J', { shiftKey: true });
+    expect(checked()).toEqual(['t1', 't2', 't3']);
+    expect(document.activeElement).toBe(titleOf('t3'));
+
+    press(titleOf('t3'), 'K', { shiftKey: true });
+
+    expect(checked()).toEqual(['t1', 't2', 't3']);
+    expect(document.activeElement).toBe(titleOf('t2'));
+    expect(line().textContent).toBe(STRINGS.en.boardSelected.replace('{n}', '3'));
+  });
+
+  it('adds to a set made by x without toggling a row already in it', async () => {
+    await boot();
+
+    titleOf('t2').focus();
+    press(titleOf('t2'), 'x');
+    press(titleOf('t2'), 'J', { shiftKey: true });
+
+    expect(checked()).toEqual(['t2', 't3']);
+    expect(line().textContent).toBe(STRINGS.en.boardSelected.replace('{n}', '2'));
+  });
+
+  it('at the edge of the list it neither moves nor selects, and leaves the key alone', async () => {
+    await boot();
+
+    titleOf('t3').focus();
+    const notCancelled = press(titleOf('t3'), 'J', { shiftKey: true });
+
+    expect(notCancelled).toBe(true);
+    expect(checked()).toEqual([]);
+    expect(document.activeElement).toBe(titleOf('t3'));
+    expect(line().textContent).toBe('');
+  });
+
+  it('an extended set survives a rebuild, and Escape clears it', async () => {
+    const state = await boot();
+
+    titleOf('t1').focus();
+    press(titleOf('t1'), 'J', { shiftKey: true });
+    state.totals.firings = 2;
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(checked()).toEqual(['t1', 't2']);
+
+    titleOf('t2').focus();
+    press(titleOf('t2'), 'Escape');
+
+    expect(checked()).toEqual([]);
+    expect(line().textContent).toBe('');
+    expect(document.activeElement).toBe(titleOf('t2'));
+  });
+
+  it('with Ctrl, Cmd or Alt added, or typed in the add-task field, it does nothing', async () => {
+    await boot();
+
+    titleOf('t1').focus();
+    const withCtrl = press(titleOf('t1'), 'J', { shiftKey: true, ctrlKey: true });
+    const withMeta = press(titleOf('t1'), 'J', { shiftKey: true, metaKey: true });
+    const withAlt = press(titleOf('t1'), 'J', { shiftKey: true, altKey: true });
+    const input = document.getElementById('task-new-title') as HTMLInputElement;
+    input.focus();
+    const inField = press(input, 'J', { shiftKey: true });
+
+    expect([withCtrl, withMeta, withAlt, inField]).toEqual([true, true, true, true]);
+    expect(checked()).toEqual([]);
+    expect(line().textContent).toBe('');
+  });
+
+  it('the legend names it as Shift+j/k beside x, translated like its neighbours', async () => {
+    await boot();
+
+    const legend = document.querySelector('.board-keys') as HTMLElement;
+    // Shift and j/k are one chord (+); j and k are alternatives (/).
+    expect(legend.textContent).toContain('x ' + STRINGS.en.boardKeysSelect + ' · Shift+j/k ');
+    expect(legend.textContent).toContain('Shift+j/k ' + STRINGS.en.boardKeysExtend);
+    const label = legend.querySelector('[data-i18n="boardKeysExtend"]') as HTMLElement;
+    expect(label.textContent).toBe(STRINGS.en.boardKeysExtend);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    expect(label.textContent).toBe(STRINGS.he.boardKeysExtend);
+    expect(legend.textContent).toContain('Shift+j/k ' + STRINGS.he.boardKeysExtend);
   });
 });

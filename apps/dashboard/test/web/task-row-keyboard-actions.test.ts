@@ -205,11 +205,12 @@ describe('the board keyboard legend (epic 0026)', () => {
     const legend = document.querySelector('.board-keys');
     expect(legend).not.toBeNull();
     const keys = [...(legend as Element).querySelectorAll('kbd')].map((k) => k.textContent);
-    expect(keys).toEqual(['j', 'k', 'x', 'Ctrl', 'A', 'a', 'd', 'Esc']);
+    expect(keys).toEqual(['j', 'k', 'x', 'Shift', 'j', 'k', 'Ctrl', 'A', 'a', 'd', 'Esc']);
     const labels = [...(legend as Element).querySelectorAll('[data-i18n]')];
     expect(labels.map((l) => l.getAttribute('data-i18n'))).toEqual([
       'boardKeysMove',
       'boardKeysSelect',
+      'boardKeysExtend',
       'boardKeysSelectAll',
       'boardKeysApprove',
       'boardKeysDone',
@@ -218,6 +219,7 @@ describe('the board keyboard legend (epic 0026)', () => {
     expect(labels.map((l) => l.textContent)).toEqual([
       STRINGS.en.boardKeysMove,
       STRINGS.en.boardKeysSelect,
+      STRINGS.en.boardKeysExtend,
       STRINGS.en.boardKeysSelectAll,
       STRINGS.en.boardKeysApprove,
       STRINGS.en.boardKeysDone,
@@ -239,6 +241,7 @@ describe('the board keyboard legend (epic 0026)', () => {
     expect(labels).toEqual([
       STRINGS.he.boardKeysMove,
       STRINGS.he.boardKeysSelect,
+      STRINGS.he.boardKeysExtend,
       STRINGS.he.boardKeysSelectAll,
       STRINGS.he.boardKeysApprove,
       STRINGS.he.boardKeysDone,
@@ -248,6 +251,9 @@ describe('the board keyboard legend (epic 0026)', () => {
       'j',
       'k',
       'x',
+      'Shift',
+      'j',
+      'k',
       'Ctrl',
       'A',
       'a',
