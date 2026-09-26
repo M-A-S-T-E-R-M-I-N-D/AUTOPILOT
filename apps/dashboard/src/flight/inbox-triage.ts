@@ -15,6 +15,7 @@
  */
 
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { createTask, type Store } from '@autopilot/store';
 import { slugify } from '@autopilot/onboarding';
@@ -61,11 +62,26 @@ export function inboxTaskTitle(entry: InboxEntry): string {
   return (firstLine ?? entry.name).slice(0, INBOX_TASK_TITLE_CHARS);
 }
 
-/** Content-addressed by filename (not random) so re-triaging after a failed
- *  archive can never mint a second task for the same note — createTask's
- *  duplicate-PK path just returns false and the retry is harmless. */
+/** Bytes of the filename hash appended to the id — enough to make two distinct
+ *  filenames practically never collide, short enough to stay readable. */
+const ID_HASH_CHARS = 8;
+
+/**
+ * Content-addressed by filename (not random) so re-triaging after a failed
+ * archive can never mint a second task for the same note — createTask's
+ * duplicate-PK path just returns false and the retry is harmless.
+ *
+ * slugify() alone is lossy (lowercased, punctuation collapsed to '-'), so
+ * two DIFFERENT filenames — "Note One.md" and "note_one.md" — can slugify
+ * to the identical string. Id-only content-addressing would then mislabel
+ * the second note as a duplicate of the first: createTask silently returns
+ * false, but the file still gets archived, permanently losing that note's
+ * content. The trailing hash of the exact (unslugified) name keeps ids
+ * stable per filename while keeping distinct filenames distinct.
+ */
 export function inboxTaskId(name: string): string {
-  return `inbox-${slugify(name)}`;
+  const hash = createHash('sha256').update(name).digest('hex').slice(0, ID_HASH_CHARS);
+  return `inbox-${slugify(name)}-${hash}`;
 }
 
 /**
