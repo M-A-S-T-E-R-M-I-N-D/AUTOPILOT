@@ -18,7 +18,7 @@ import {
   fileConvergenceRedTask,
   closeResolvedConvergenceRedTasks,
 } from './flight/convergence-red-task.js';
-import { routeTaskModel } from './flight/model-scoreboard.js';
+import { QUOTA_REST_MS, recordModelDrained, routeTaskModel } from './flight/model-scoreboard.js';
 import {
   openStore,
   migrate,
@@ -1590,14 +1590,20 @@ async function main(): Promise<void> {
         // escalated budget for a model we did NOT choose. Trip the breaker on
         // the FIRST substitution; waiting for two no-ships misses it entirely
         // because a substituted firing often still ships.
+        //
+        // QUOTA REST (2026-09-26): the substitution no longer turns routing
+        // off for the rest of the flight — that sent this lane's remaining
+        // firings to the flight default even where the scoreboard's leader
+        // was still served. It rests the drained model instead, for every
+        // lane (flight/model-scoreboard.ts's QUOTA_REST_MS), and routing
+        // keeps choosing among the models that can still be served.
         if (
-          lastFiringEscalated &&
-          isModelSubstitution(lastRequestedModel, outcome.record.model ?? '') &&
-          !escalationTripped
+          lastRequestedModel !== '' &&
+          isModelSubstitution(lastRequestedModel, outcome.record.model ?? '')
         ) {
-          escalationTripped = true;
+          recordModelDrained(store, projectId, lastRequestedModel, now());
           out(
-            `  ⚡ escalation breaker TRIPPED — requested ${lastRequestedModel}, served ${outcome.record.model}: the premium window is drained; default model for the rest of this flight`,
+            `  ⚡ ${lastRequestedModel} drained — requested it, served ${outcome.record.model}: resting it for every lane for ${QUOTA_REST_MS / 60_000} min, routing among the rest`,
           );
         }
         if (lastFiringEscalated) {
