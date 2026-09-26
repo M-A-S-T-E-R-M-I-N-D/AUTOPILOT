@@ -13,6 +13,8 @@ import {
   type E2eLandGuard,
   createRealE2eLandGuard,
   implicatedFilesFromFailedLog,
+  isVisualOnlyFailure,
+  landingTouchesRenderedUi,
   remedyFilesOf,
   gateSpecNeedsRefresh,
   mergeDetectedCiExtras,
@@ -587,6 +589,80 @@ describe('createLandingExecuteApi', () => {
         expect(result?.reason).not.toBe('e2e-red');
         const mainLog = gitSync(repo, ['log', 'main', '--oneline']);
         expect(mainLog).toContain('adopt the CI-rendered baselines');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('LETS THROUGH a rendered-UI change into a red made only of screenshot mismatches (2026-09-26)', async () => {
+      // The third escape: a spacing fix grew every fleet screenshot 16px, and
+      // the stylesheet change that took it back out was refused — a
+      // screenshot failure names only its spec file, so neither older escape
+      // recognised the one commit that could clear the red.
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-e2eui-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const webDir = join(repo, 'apps/dashboard/src/web');
+        mkdirSync(webDir, { recursive: true });
+        writeFileSync(join(webDir, 'layout-css.ts'), 'export const css = "gap";\n');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'fix(dashboard): space across, not down']);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const visualRed: E2eLandGuard = vi.fn(() => ({
+          ok: false,
+          detail: 'failure (5m ago)',
+          visualOnly: true,
+        }));
+        const letThrough = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          visualRed,
+        )('p1');
+        expect(letThrough?.reason).not.toBe('e2e-red');
+        expect(gitSync(repo, ['log', 'main', '--oneline'])).toContain('space across, not down');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
+    it('keeps refusing a rendered-UI change when the red is not only screenshots', async () => {
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-land-e2eui2-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-land-db-'));
+      try {
+        setupBranchedRepo(repo);
+        const webDir = join(repo, 'apps/dashboard/src/web');
+        mkdirSync(webDir, { recursive: true });
+        writeFileSync(join(webDir, 'layout-css.ts'), 'export const css = "gap";\n');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'fix(dashboard): space across, not down']);
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo, NODE_OK);
+        s.close();
+
+        const result = await createLandingExecuteApi(
+          dbPath,
+          undefined,
+          undefined,
+          undefined,
+          vi.fn(() => ({
+            ok: false,
+            detail: 'failure (5m ago)',
+            visualOnly: false,
+          })) as E2eLandGuard,
+        )('p1');
+        expect(result?.reason).toBe('e2e-red');
       } finally {
         cleanupDir(repo);
         cleanupDir(dbDir);
@@ -1172,6 +1248,26 @@ const FAILED_LOG = [
   `verify (windows-latest)\tTest + coverage (>=80%)\t2026-09-17T06:17:50.0948701Z ${ESC}[36m ${ESC}[2m❯${ESC}[22m packages/engine/test/adapters/worktree.test.ts:${ESC}[2m769:28${ESC}[22m${ESC}[39m`,
   `verify (windows-latest)\tTest + coverage (>=80%)\t2026-09-17T06:17:50.0950000Z ${ESC}[36m ${ESC}[2m❯${ESC}[22m packages/engine/src/adapters/worktree.ts:${ESC}[2m214:11${ESC}[22m${ESC}[39m`,
 ].join('\n');
+
+describe('isVisualOnlyFailure and landingTouchesRenderedUi — the third escape', () => {
+  const SHOT =
+    'e2e\tRun\t2026-09-26T15:00:00Z     Error: expect(page).toHaveScreenshot(expected) failed';
+  it('is visual-only when every error is a screenshot mismatch, and never on an empty log', () => {
+    expect(
+      isVisualOnlyFailure(`${SHOT}\n${SHOT}\n##[error]Process completed with exit code 1.`),
+    ).toBe(true);
+    expect(isVisualOnlyFailure('')).toBe(false);
+    expect(isVisualOnlyFailure(`${SHOT}\n    Error: expect(locator).toBeVisible() failed`)).toBe(
+      false,
+    );
+  });
+
+  it('counts only the dashboard web sources and the token package as the rendered UI', () => {
+    expect(landingTouchesRenderedUi(['apps/dashboard/src/web/layout-css.ts'])).toBe(true);
+    expect(landingTouchesRenderedUi(['packages\\tokens\\src\\strings.ts'])).toBe(true);
+    expect(landingTouchesRenderedUi(['apps/dashboard/src/fly.ts', 'README.md'])).toBe(false);
+  });
+});
 
 describe('implicatedFilesFromFailedLog', () => {
   it('names the test file from the FAIL header and every file a ❯ frame points at, once each, colour codes stripped', () => {
