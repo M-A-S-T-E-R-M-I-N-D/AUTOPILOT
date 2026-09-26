@@ -60,7 +60,10 @@ the attention you have (an evening, a day, a week).
    `<picture>`'s `media` does survive the sanitizer, so an APNG hero needs a
    `(prefers-reduced-motion: reduce)` source that swaps in a still;
    `apps/dashboard/test/assets/readme-motion.test.ts` holds every animated PNG
-   README.md embeds to exactly that.
+   README.md embeds to exactly that. The encoder review the approval waits
+   on is [ADR 0013](../adr/0013-readme-demo-gif-encoder.md) (Proposed):
+   `gifenc` 1.0.3, pinned exactly. The frames hold about 2,000 colours each,
+   so the GIF has to be quantized.
 2. **Shipped 2026-09-13 — the master prompt.** `docs/MASTER-PROMPT.md`: one document that states
    the product's promise, its laws (honest telemetry, additive git, gate before
    commit, one unit per firing, claim contracts), its surfaces (fleet, project,

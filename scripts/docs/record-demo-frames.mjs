@@ -7,7 +7,8 @@
  * `capture-screens.mjs` shoots its stills from (board web-mtnd3yeq-oyprf0,
  * slice 1/2: the recording half). The encoding half — the animated GIF at the
  * README top — waits on the operator's supply-chain approval of a pure-JS gif
- * encoder devDependency; until then this output IS that encoder's input
+ * encoder devDependency (docs/adr/0013-readme-demo-gif-encoder.md names the
+ * candidate and its review); until then this output IS that encoder's input
  * contract: every frame the same pixel size (asserted before the manifest is
  * written), each with its own hold time, in order.
  *
