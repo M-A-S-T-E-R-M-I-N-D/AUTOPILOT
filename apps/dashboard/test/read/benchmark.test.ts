@@ -157,4 +157,19 @@ describe('readBenchmark', () => {
     expect(b.rule.minFirings).toBe(15);
     expect(b.windowDays).toBe(90);
   });
+
+  it('reads one project when asked — the view from inside it (2026-09-27)', () => {
+    const now = 200 * 24 * 60 * 60 * 1000;
+    const insert = store.db.prepare(
+      `INSERT INTO metrics (project_id, firing_id, item, kind, sha, shipped, gate_result, cost_usd, duration_ms, turns, model, created_at)
+       VALUES (?, ?, 't', 'feat', NULL, 1, 'passed', 2, 600000, 20, ?, ?)`,
+    );
+    insert.run('p1', 'p1:firing-1', 'claude-opus-5-5', now - 500);
+    insert.run('p2', 'p2:firing-1', 'claude-sonnet-5', now - 400);
+    const p2 = readBenchmark(store, now, 'p2');
+    expect(p2.scope).toEqual({ projectId: 'p2', name: 'p2' });
+    expect(p2.models.map((m) => m.modelId)).toEqual(['claude-sonnet-5']);
+    expect(readBenchmark(store, now).scope).toBeNull();
+    expect(readBenchmark(store, now, 'nope').models).toEqual([]);
+  });
 });

@@ -272,6 +272,46 @@ describe('the benchmark subject inside the dashboard (2026-09-26)', () => {
   });
 });
 
+describe('the benchmark from inside a project (2026-09-27)', () => {
+  it('reads that project first, and one switch shows the whole fleet', async () => {
+    history.replaceState(null, '', '/?project=fly-autopilot#benchmark-panel');
+    document.body.innerHTML =
+      '<section class="benchmark-panel" id="benchmark-panel" data-subject="benchmark" hidden><div class="bm-page" id="benchmark"></div></section>';
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ...PAYLOAD, scope: { projectId: 'fly-autopilot', name: 'AUTOPILOT' } }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      boot();
+      await painted();
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/benchmark?project=fly-autopilot',
+        expect.any(Object),
+      );
+      const [mine, all] = [...document.querySelectorAll('.bm-scope-btn')] as HTMLButtonElement[];
+      expect(mine!.textContent).toBe('This project: AUTOPILOT');
+      expect(mine!.getAttribute('aria-pressed')).toBe('true');
+      all!.click();
+      await vi.waitFor(() =>
+        expect(fetchMock).toHaveBeenLastCalledWith('/api/benchmark', expect.any(Object)),
+      );
+      expect(location.search).toBe('');
+      expect(location.hash).toBe('#benchmark-panel');
+    } finally {
+      history.replaceState(null, '', '/');
+    }
+  });
+
+  it('shows no switch on the fleet page — there is only one view there', async () => {
+    document.body.innerHTML =
+      '<section class="benchmark-panel" id="benchmark-panel" data-subject="benchmark" hidden><div class="bm-page" id="benchmark"></div></section>';
+    boot();
+    await painted();
+    expect(document.querySelector('.bm-scope')).toBeNull();
+  });
+});
+
 describe('benchmark — strings', () => {
   it('carries the same keys in English and Hebrew, and every Hebrew line is translated', () => {
     expect(Object.keys(BENCHMARK_STRINGS.he).sort()).toEqual(

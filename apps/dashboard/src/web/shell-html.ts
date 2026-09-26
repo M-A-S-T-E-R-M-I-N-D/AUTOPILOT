@@ -255,7 +255,7 @@ export function subjectNavHtml(project?: string): string {
           ),
           globalLink(
             'benchmark',
-            '/#benchmark-panel',
+            '/?project=' + escapeAttr(encodeURIComponent(project)) + '#benchmark-panel',
             'subjectBenchmark',
             'Benchmark',
             SUBJECT_ICON.benchmark,

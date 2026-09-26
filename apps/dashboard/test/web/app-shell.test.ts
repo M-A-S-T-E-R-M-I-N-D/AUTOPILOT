@@ -354,7 +354,7 @@ describe('renderShell — every section belongs to a subject', () => {
     // On a project page they lead to the fleet page's places, and Fleet is
     // marked as where the project lives.
     const project = renderShell('demo');
-    expect(project).toContain('href="/#benchmark-panel" data-global-link="benchmark"');
+    expect(project).toContain('href="/?project=demo#benchmark-panel" data-global-link="benchmark"');
     expect(project).toMatch(/href="\/" data-global-link="fleet" aria-current="true"/);
     // The project's own subjects are its tab row, not the rail.
     const tabs = project.slice(project.indexOf('id="project-tabs"'));

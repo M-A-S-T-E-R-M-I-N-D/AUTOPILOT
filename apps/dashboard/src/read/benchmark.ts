@@ -77,6 +77,8 @@ export interface BenchmarkTier {
 
 export interface BenchmarkPayload {
   readonly generatedAt: number;
+  /** `null` for the whole fleet; the project it was read for otherwise. */
+  readonly scope: { readonly projectId: string; readonly name: string } | null;
   readonly windowDays: number;
   readonly models: readonly BenchmarkModel[];
   readonly points: readonly BenchmarkPoint[];
@@ -170,17 +172,23 @@ export function scoreboardTiers(routed: readonly RoutedFiring[]): BenchmarkTier[
 /** How far back the page reads. */
 export const BENCHMARK_WINDOW_DAYS = 90;
 
-/** Every firing with a served model in the window, across every project. */
-export function readBenchmarkFirings(store: Store, since: number): BenchmarkFiring[] {
+/** Every firing with a served model in the window — across every project,
+ *  or one project's when `projectId` is given (the view from inside it). */
+export function readBenchmarkFirings(
+  store: Store,
+  since: number,
+  projectId?: string,
+): BenchmarkFiring[] {
   const rows = store.db
     .prepare(
       `SELECT m.model, m.shipped, m.gate_result, m.cost_usd, m.duration_ms, m.turns, m.created_at, e.payload
          FROM metrics m
          LEFT JOIN events e ON e.firing_id = m.firing_id AND e.type = 'firing'
         WHERE m.created_at >= ? AND m.model IS NOT NULL AND m.model != ''
+          AND (? IS NULL OR m.project_id = ?)
         ORDER BY m.created_at, m.id`,
     )
-    .all(since) as {
+    .all(since, projectId ?? null, projectId ?? null) as {
     model: string;
     shipped: number;
     gate_result: string | null;
@@ -201,13 +209,19 @@ export function readBenchmarkFirings(store: Store, since: number): BenchmarkFiri
   }));
 }
 
-/** The whole page's data. */
-export function readBenchmark(store: Store, now: number): BenchmarkPayload {
+/** The whole page's data — the fleet's, or one project's (THE ARENA, stage
+ *  1: the benchmark opened from inside a project shows that project first).
+ *  An unknown project id reads as an empty project, never as the fleet. */
+export function readBenchmark(store: Store, now: number, projectId?: string): BenchmarkPayload {
   const since = now - BENCHMARK_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  const firings = readBenchmarkFirings(store, since);
-  const routed = listProjects(store.db).flatMap((p) => readRoutedFirings(store, p.id, now));
+  const firings = readBenchmarkFirings(store, since, projectId);
+  const projects = listProjects(store.db).filter(
+    (p) => projectId === undefined || p.id === projectId,
+  );
+  const routed = projects.flatMap((p) => readRoutedFirings(store, p.id, now));
   return {
     generatedAt: now,
+    scope: projectId === undefined ? null : { projectId, name: projects[0]?.name ?? projectId },
     windowDays: BENCHMARK_WINDOW_DAYS,
     models: summarizeModels(firings),
     points: firingPoints(firings),
@@ -222,11 +236,11 @@ export function readBenchmark(store: Store, now: number): BenchmarkPayload {
 
 /** The page's data from the dashboard's database, opened read-only for the
  *  one read. A dashboard with no database yet has flown nothing. */
-export function readBenchmarkAt(dbPath: string, now: number): BenchmarkPayload {
+export function readBenchmarkAt(dbPath: string, now: number, projectId?: string): BenchmarkPayload {
   if (!existsSync(dbPath)) return readBenchmarkEmpty(now);
   const store = openStore(dbPath, { readonly: true });
   try {
-    return readBenchmark(store, now);
+    return readBenchmark(store, now, projectId);
   } finally {
     store.close();
   }
@@ -236,6 +250,7 @@ export function readBenchmarkAt(dbPath: string, now: number): BenchmarkPayload {
 export function readBenchmarkEmpty(now: number): BenchmarkPayload {
   return {
     generatedAt: now,
+    scope: null,
     windowDays: BENCHMARK_WINDOW_DAYS,
     models: [],
     points: [],

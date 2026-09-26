@@ -881,7 +881,7 @@ const server = createServer({
   // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.
   ciStatus: createCiStatusApi(),
   // THE BENCHMARK (operator, 2026-09-26): every model the fleet has flown.
-  benchmark: () => readBenchmarkAt(dbPath, Date.now()),
+  benchmark: (projectId) => readBenchmarkAt(dbPath, Date.now(), projectId),
   // THE VERSIONS SCREEN (board ap-mui2h3s1-1): the project's MYTH, LEGACY and
   // flight log, read from its own repository's refs. An unknown project is null.
   versions: (projectId) => {
