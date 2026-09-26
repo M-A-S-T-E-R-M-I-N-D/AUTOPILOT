@@ -19,11 +19,20 @@
  * `pool-client-panel.ts`, `issue-triage-panel.ts`) and ⚠ (a leading glyph on
  * text lines that predates the icon sweep in a few render sites). None of
  * the three renders as a multi-color pictograph the way an emoji does.
+ *
+ * The web/ scan cannot see a glyph baked into a locale VALUE: STRINGS lives
+ * in `packages/tokens`, and `tr()` paints it into the same chrome (the lucky
+ * roll's 🍀 snackbar sentence and refusal line did exactly that after the
+ * lucky button itself became an SVG). The second census walks every locale's
+ * values and pins the keys still carrying one to an exact list — law 5's
+ * "the count goes to zero across the slices": a new emoji-bearing value
+ * fails outright, and a swept key must leave the list in the same commit.
  */
 
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { STRINGS } from '@autopilot/tokens';
 
 // vitest's root is the repo root, and under jsdom import.meta.url is an
 // http: URL (not file:), so resolve from cwd instead (handler-status-lines-i18n.test.ts).
@@ -75,5 +84,47 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
       }
     }
     expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+});
+
+/** `<locale>.<key>` for every STRINGS value the sweep has not reached yet —
+ *  the report menu's Copy element HTML (🧩) and Copy smart context (🧠)
+ *  items, whose conversion needs two more vendored shapes. Sorted; it may
+ *  only shrink. */
+const STRINGS_EMOJI_REMAINING = [
+  'en.reportCopyContextLabel',
+  'en.reportCopyHtmlLabel',
+  'he.reportCopyContextLabel',
+  'he.reportCopyHtmlLabel',
+];
+
+function emojiBearingStringKeys(): string[] {
+  return Object.entries(STRINGS)
+    .flatMap(([locale, table]) =>
+      Object.entries(table)
+        .filter(([, value]) =>
+          [...value.matchAll(EMOJI_PATTERN)].some((match) => !ALLOWED_GLYPHS.has(match[0])),
+        )
+        .map(([key]) => `${locale}.${key}`),
+    )
+    .sort();
+}
+
+describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => {
+  it('reads every locale table, not just the default one', () => {
+    expect(Object.keys(STRINGS)).toEqual(expect.arrayContaining(['en', 'he']));
+  });
+
+  it('bakes no emoji into a locale value beyond the census list still to sweep', () => {
+    expect(emojiBearingStringKeys()).toEqual(STRINGS_EMOJI_REMAINING);
+  });
+
+  it('the lucky roll speaks without its old baked-in clover in either locale', () => {
+    for (const table of Object.values(STRINGS)) {
+      for (const key of ['luckyRolled', 'luckyNotNow', 'luckyPressFlyIt'] as const) {
+        expect(table[key]).not.toContain('🍀');
+        expect(table[key]).toBe(table[key].trim());
+      }
+    }
   });
 });
