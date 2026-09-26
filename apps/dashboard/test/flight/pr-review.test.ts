@@ -986,6 +986,10 @@ const BENIGN_WEB = new Set([
   // 0015 D2.13) — DOM-free, no I/O, not yet spliced into the served bundle.
   'tab-route.ts',
   'tabs.ts',
+  // Pure location.search view-state math for the tasks screen (epic 0026
+  // slice 2): parse/write a grouping and filters, match and group task
+  // entries — DOM-free, no HTML, no I/O, not yet spliced into the bundle.
+  'task-view.ts',
   // Pure geometry/percent/bucketing math for gauges, sparklines, the
   // heatmap, timeline, office map, and tooltip positioning — no dynamic
   // text, no I/O.
