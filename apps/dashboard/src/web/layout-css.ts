@@ -892,6 +892,16 @@ main.project-mode { grid-template-columns: 1fr; }
 .round-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .round-line { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
 .round-stats { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
+.versions-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
+.versions-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+.version-list, .version-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.version-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); font-size: var(--text-sm); }
+.version-row .diff-toggle { margin: 0; }
+.version-diff { flex-basis: 100%; padding-inline-start: var(--space-4); border-inline-start: 2px solid var(--color-border); }
+.version-diff p { margin: 0 0 var(--space-1); }
+.version-file { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-xs); }
+.version-file code, .version-sha { font-family: var(--font-mono); word-break: break-all; }
+.version-legacy, .version-myth { border-color: var(--color-accent); }
 .backlog-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .backlog-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .backlog-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
