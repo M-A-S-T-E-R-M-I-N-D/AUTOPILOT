@@ -308,13 +308,20 @@ const BENIGN_FLIGHT = new Set([
   // `gh issue list` read and the dashboard panel that renders this list are
   // separate, later slices that will need their own markers once they ship.
   'contributor-issue-list.ts',
-  // SOCIAL FLIGHT weave-in 3/6 (board web-mtpzzx23-n1kqv0's follow-on
-  // slice): parseSocialFlightToggle/shouldRunSocialFlight are pure functions
-  // over an env-var string and a phase enum — no I/O, no gh call, and not
-  // imported from fly.ts or anywhere else yet. The fly.ts hook wiring that
-  // will actually call the social pass at a phase is a follow-up slice that
-  // will need its own marker once it ships one.
+  // SOCIAL FLIGHT weave-in 3/6 (board web-mtpzzx7v-72q2dv):
+  // parseSocialFlightToggle/shouldRunSocialFlight are pure functions over an
+  // env-var string and a phase enum — no I/O, no gh call. Their only caller
+  // is social-flight-pass.ts below, which owns the I/O.
   'social-flight-trigger.ts',
+  // SOCIAL FLIGHT weave-in 3/6, the I/O half (board web-mtpzzx7v-72q2dv):
+  // runSocialFlightPass gates on the toggle, refuses a foreign target and a
+  // disconnected gh, then composes the three READ-ONLY resolves social-
+  // pass.ts is benign for (`gh api user`, `gh repo view`, `gh issue|pr list`)
+  // with the pure planSocialProtocol over caller-INJECTED candidates — and
+  // fly.ts injects none yet. It never calls executeSocialCommands: the
+  // execute wiring (once a candidate source exists) is a follow-up slice
+  // that will need its own marker once it ships one.
+  'social-flight-pass.ts',
   // discussions-triage.ts needs no entry any more: once it grew reply-posting
   // and labeling (board web-mtlsiac0-v8rksh's later slices) it earned the
   // `flight/discussions-triage` marker, which also covers its `-execute`
