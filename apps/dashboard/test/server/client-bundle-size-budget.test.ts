@@ -10,6 +10,7 @@ import {
   minifiedProjectJs,
   minifiedPanelsJs,
   minifiedWhatsNewJs,
+  minifiedBenchmarkJs,
 } from '../../src/server/client-bundle.js';
 
 /**
@@ -526,6 +527,11 @@ const CHUNK_GZIP_BUDGET = 61 * 1024;
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
 const WHATS_NEW_RAW_BUDGET = 12 * 1024;
 const WHATS_NEW_GZIP_BUDGET = 5 * 1024;
+// THE BENCHMARK CHUNK (2026-09-26): /benchmark.js draws the benchmark
+// page, and only that page loads it. Measured 9.7KB raw / 4.0KB gzip at
+// introduction.
+const BENCHMARK_RAW_BUDGET = 14 * 1024;
+const BENCHMARK_GZIP_BUDGET = 6 * 1024;
 
 describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)', () => {
   it.each([
@@ -533,6 +539,7 @@ describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)',
     ['/project.js', minifiedProjectJs, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET],
     ['/panels.js', minifiedPanelsJs, CHUNK_RAW_BUDGET, CHUNK_GZIP_BUDGET],
     ['/whats-new.js', minifiedWhatsNewJs, WHATS_NEW_RAW_BUDGET, WHATS_NEW_GZIP_BUDGET],
+    ['/benchmark.js', minifiedBenchmarkJs, BENCHMARK_RAW_BUDGET, BENCHMARK_GZIP_BUDGET],
   ] as const)('%s stays within its raw and gzip budget', (_label, getJs, rawBudget, gzipBudget) => {
     const js = getJs();
     const rawBytes = Buffer.byteLength(js, 'utf8');

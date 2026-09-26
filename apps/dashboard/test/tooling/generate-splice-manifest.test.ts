@@ -2203,6 +2203,10 @@ describe('cross-checking the manifest against every relative import shell.ts dec
     'whatsNewClientJs',
     // Its stylesheet, appended to /tokens.css and hashed into assetVersion().
     'whatsNewCss',
+    // THE BENCHMARK PAGE (2026-09-26): its /benchmark.js chunk and its
+    // stylesheet, hashed into assetVersion() the same way — never clientJs().
+    'benchmarkClientJs',
+    'benchmarkCss',
   ]);
 
   it('accounts for every relative-import binding: either discovered as a splice, or a known non-splice exception', () => {

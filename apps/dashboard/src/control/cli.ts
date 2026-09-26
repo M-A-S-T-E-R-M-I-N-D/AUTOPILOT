@@ -47,6 +47,8 @@ import {
   listProjects,
   recentTasks,
   vacuumStore,
+  isAutoApproveOn,
+  setAutoApprove,
   type ProjectRow,
 } from '@autopilot/store';
 import type { ControlConfig, StatusResult } from './types.js';
@@ -281,6 +283,34 @@ async function main(): Promise<void> {
         // released is counted correctly.
         const ownedNow = listOwnedWorkTasks(recentTasks(store.db, projectId));
         out(`[ok] owned-work: ${ownedNow.length} task(s) owned right now`);
+      } finally {
+        store.close();
+      }
+      break;
+    }
+    case 'auto-mode': {
+      // AUTO MODE (operator, 2026-09-26): `auto-mode on|off|status [folder]` —
+      // whether that folder's agent proposals enter the pool without the ✓.
+      const action = process.argv[3] ?? 'status';
+      if (action !== 'on' && action !== 'off' && action !== 'status') {
+        out('usage: dashboard auto-mode on | off | status [folder]');
+        process.exitCode = 1;
+        break;
+      }
+      const target = resolve(process.argv[4] ?? process.cwd());
+      const projectId = deriveFlyProjectId(target);
+      const store = openStore(resolveDbPath());
+      try {
+        if (action !== 'status' && !setAutoApprove(store, projectId, action === 'on', Date.now())) {
+          out(`auto mode: no project ${projectId} — fly or onboard ${target} first`);
+          process.exitCode = 1;
+          break;
+        }
+        out(
+          isAutoApproveOn(store, projectId)
+            ? `auto mode is ON for ${projectId}: proposals enter the pool on their own (OPERATOR and VERDICT blocked/close still wait for you)`
+            : `auto mode is OFF for ${projectId}: every proposal waits for your approval`,
+        );
       } finally {
         store.close();
       }
@@ -697,7 +727,7 @@ async function main(): Promise<void> {
     }
     default: {
       out(
-        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | owned-work-reconcile | fleet-report | vacuum | keepalive | watch | fleet',
+        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | owned-work-reconcile | fleet-report | auto-mode | vacuum | keepalive | watch | fleet',
       );
       process.exitCode = 1;
     }

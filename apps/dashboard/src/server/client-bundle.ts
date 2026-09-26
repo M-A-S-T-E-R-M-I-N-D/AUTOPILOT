@@ -9,6 +9,7 @@ import {
   panelsClientJs,
   whatsNewChunkJs,
 } from '../web/shell.js';
+import { benchmarkClientJs } from '../web/benchmark-page.js';
 
 const cache = new Map<string, string>();
 
@@ -61,6 +62,11 @@ export function minifiedPanelsJs(): string {
 /** `/whats-new.js` — the once-per-version message, every page, defer. */
 export function minifiedWhatsNewJs(): string {
   return minified('whats-new', whatsNewChunkJs);
+}
+
+/** `/benchmark.js` — the benchmark page's own script, that page only. */
+export function minifiedBenchmarkJs(): string {
+  return minified('benchmark', benchmarkClientJs);
 }
 
 /** The FULL bundle (every chunk, one script) — kept for the bundle-wide

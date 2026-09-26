@@ -674,6 +674,9 @@ const BENIGN_READ = new Set([
   // round, GitHub counts via `gh api` GETs, CI via the cached run list. It
   // writes nothing and decides nothing.
   'whats-new.ts',
+  // The benchmark page's data: SELECTs over metrics, firing events and the
+  // scoreboard's routing events, on a read-only connection. No writes.
+  'benchmark.ts',
   // D4 pipeline view read-models (epic 0015): pure graph/geometry/selection
   // derivations over stored firing records — no store writes, no I/O of
   // their own (verified: no writeFileSync/INSERT/UPDATE/DELETE).
@@ -912,6 +915,10 @@ const BENIGN_WEB = new Set([
   // only (changelog text is never parsed as markup — pinned by
   // whats-new-client.test.ts) and writes only its own localStorage keys.
   'whats-new.ts',
+  // The benchmark page: its document interpolates only the asset hash, and
+  // its chunk draws with createElement/textContent only (model names never
+  // parsed as markup — pinned by benchmark-client.test.ts). Writes nothing.
+  'benchmark-page.ts',
   // Pure label-fitting text math for the pipeline canvas (2026-09-18): no
   // HTML, no I/O — pipeline-svg.ts escapes what it emits, this only decides
   // where a path label is cut and which part is the leaf.

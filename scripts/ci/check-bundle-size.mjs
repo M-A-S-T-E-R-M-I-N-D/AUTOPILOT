@@ -402,6 +402,11 @@ const CHUNK_GZIP_BUDGET = 61 * 1024;
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
 const WHATS_NEW_RAW_BUDGET = 12 * 1024;
 const WHATS_NEW_GZIP_BUDGET = 5 * 1024;
+// THE BENCHMARK CHUNK (2026-09-26): /benchmark.js draws the benchmark
+// page, and only that page loads it. Measured 9.7KB raw / 4.0KB gzip at
+// introduction.
+const BENCHMARK_RAW_BUDGET = 14 * 1024;
+const BENCHMARK_GZIP_BUDGET = 6 * 1024;
 
 // Exported as a list, not per declaration, so every budget above stays a bare
 // `const <NAME>_BUDGET = <n> * 1024;` line — the exact shape the mirror
@@ -413,6 +418,8 @@ export {
   CHUNK_GZIP_BUDGET,
   WHATS_NEW_RAW_BUDGET,
   WHATS_NEW_GZIP_BUDGET,
+  BENCHMARK_RAW_BUDGET,
+  BENCHMARK_GZIP_BUDGET,
 };
 
 /** `bytes` in KB to one decimal — the unit every budget line prints in. */
@@ -439,10 +446,10 @@ export function measure(name, js, rawBudget, gzipBudget, errors) {
   return rawBytes;
 }
 
-/** Measures the four served chunks against their budgets, prints the report
+/** Measures the five served chunks against their budgets, prints the report
  *  and returns the exit code: 1 when any budget is exceeded, else 0.
  *  `bundle` is the compiled client-bundle module (or a stand-in with the same
- *  four `minified*Js()` functions). */
+ *  five `minified*Js()` functions). */
 export function checkBundleSize(bundle) {
   const errors = [];
   const core = measure(
@@ -473,8 +480,15 @@ export function checkBundleSize(bundle) {
     WHATS_NEW_GZIP_BUDGET,
     errors,
   );
+  const benchmark = measure(
+    '/benchmark.js',
+    bundle.minifiedBenchmarkJs(),
+    BENCHMARK_RAW_BUDGET,
+    BENCHMARK_GZIP_BUDGET,
+    errors,
+  );
   console.log(
-    `combined: ${formatKb(core + project + panels + whatsNew)} raw across the four chunks`,
+    `combined: ${formatKb(core + project + panels + whatsNew + benchmark)} raw across the five chunks`,
   );
 
   if (errors.length > 0) {
