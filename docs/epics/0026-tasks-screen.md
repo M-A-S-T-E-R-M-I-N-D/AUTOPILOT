@@ -12,7 +12,8 @@ with Escape, then `a` approve / `d` done on the row under it and the one-line
 key legend under the column heads that names them. Row selection followed the
 same day: every row leads with a checkbox, `x` toggles the one under the
 cursor, an "N selected" status line counts the set, and Escape clears it
-before it leaves. The set is what slice 4's bulk actions will act on.
+before it leaves. Ctrl/Cmd-A takes every row in the cursor's list, named in
+the legend as `Ctrl+A`. The set is what slice 4's bulk actions will act on.
 
 ## The ask
 
