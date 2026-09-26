@@ -53,8 +53,13 @@ address file lands.
    satoshi.
 2. Addresses published only as a PGP-clearsigned file, with the signing key's
    fingerprint verifiable through an independent channel. `docs/DONATE.asc`
-   is the `gpg --clearsign` of `docs/donations.json`; `pnpm run ci:donate`
-   fails if either lands without the other or the signed text differs from
-   the committed file.
+   is the `gpg --clearsign` of `docs/donations.json`, and
+   `docs/SIGNING-KEY.asc` is the one public key that signs it.
+   `pnpm run ci:donate` fails if either address file lands without the other,
+   if the signed text differs from the committed file, or if GnuPG does not
+   report exactly one good signature by that key, made over a hash other
+   than MD5, SHA-1 or RIPEMD-160. The check proves only that the committed
+   key signed; compare its fingerprint with the independently published one
+   before you trust it.
 3. Custody upgrades (BTC multisig, EVM Safe) announced before, not after.
 4. Spending reported in the changelog like everything else this project does.

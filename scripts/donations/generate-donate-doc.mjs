@@ -32,11 +32,15 @@
  * PGP-clearsigned file, so docs/donations.json and docs/DONATE.asc (its
  * `gpg --clearsign`) must land together and the signed text must be the
  * committed file's text. An address edited after signing, or either file
- * alone, fails the gate. This checks the framing and the binding only —
- * verifying the signature itself against the operator's pinned fingerprint
- * waits on that fingerprint being published.
+ * alone, fails the gate. The signature itself is then checked with gpg
+ * against docs/SIGNING-KEY.asc, the operator's public key, so editing the
+ * signed text to match an edited address file fails too. Readers check that
+ * key's fingerprint through an independent channel; the gate only proves the
+ * committed key made the signature.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import qrcode from 'qrcode-generator';
@@ -49,12 +53,20 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DOC_PATH = join(repoRoot, 'docs', 'DONATE.md');
 const DONATIONS_PATH = join(repoRoot, DONATIONS_FILE_PATH);
 const SIGNED_PATH = join(repoRoot, 'docs', 'DONATE.asc');
+const SIGNING_KEY_PATH = join(repoRoot, 'docs', 'SIGNING-KEY.asc');
 
 const CLEARSIGN_BEGIN = '-----BEGIN PGP SIGNED MESSAGE-----';
 const SIGNATURE_BEGIN = '-----BEGIN PGP SIGNATURE-----';
 const SIGNATURE_END = '-----END PGP SIGNATURE-----';
 const HASH_HEADER = /^Hash: [A-Za-z0-9-]+(?:, ?[A-Za-z0-9-]+)*$/;
 const BASE64_LINE = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** gpg status keywords (GnuPG doc/DETAILS) for a signature that is not good.
+ *  gpg can exit 0 for a signature by an expired or revoked key, so the exit
+ *  code alone could pass one. */
+const REFUSED_SIGNATURE_STATUS = ['BADSIG', 'ERRSIG', 'EXPSIG', 'EXPKEYSIG', 'REVKEYSIG'];
+/** RFC 9580 §9.5 hash algorithm ids too weak to bind an address. */
+const WEAK_HASH_ALGORITHMS = { 1: 'MD5', 2: 'SHA-1', 3: 'RIPEMD-160' };
 
 /** @type {Record<import('../../apps/dashboard/dist/flight/donations.js').DonationChain, string>} */
 const CHAIN_NAMES = {
@@ -185,6 +197,103 @@ export function findSignedAddressFileProblem(donationsRaw, signedRaw) {
   return null;
 }
 
+/** Splits gpg `--status-fd` output into [keyword, ...arguments] records. */
+function statusRecords(status) {
+  return status
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('[GNUPG:] '))
+    .map((line) => line.slice('[GNUPG:] '.length).split(' '));
+}
+
+/**
+ * Reads gpg's status output from importing docs/SIGNING-KEY.asc into an empty
+ * homedir and then verifying docs/DONATE.asc there. Passes exactly one good
+ * signature, made by the one imported key over a collision-resistant hash.
+ * @param {string} importStatus
+ * @param {string} verifyStatus
+ * @param {number | null} verifyExit
+ * @returns {{ fingerprint: string } | { problem: string }}
+ */
+export function readSignatureStatus(importStatus, verifyStatus, verifyExit) {
+  const keys = statusRecords(importStatus).filter(([keyword]) => keyword === 'IMPORT_OK');
+  if (keys.length !== 1) {
+    return {
+      problem: `docs/SIGNING-KEY.asc must hold exactly one key; gpg imported ${keys.length}.`,
+    };
+  }
+  const keyFingerprint = keys[0][2];
+
+  const records = statusRecords(verifyStatus);
+  const refused = records.find(([keyword]) => REFUSED_SIGNATURE_STATUS.includes(keyword));
+  if (refused) {
+    return { problem: `docs/DONATE.asc's signature is not good (gpg reported ${refused[0]}).` };
+  }
+  if (verifyExit !== 0) {
+    return { problem: `gpg --verify docs/DONATE.asc exited ${verifyExit}.` };
+  }
+  const count = (keyword) => records.filter(([k]) => k === keyword).length;
+  const valid = records.find(([keyword]) => keyword === 'VALIDSIG');
+  if (count('NEWSIG') !== 1 || count('GOODSIG') !== 1 || count('VALIDSIG') !== 1 || !valid) {
+    return { problem: 'docs/DONATE.asc must carry exactly one signature, and it must be good.' };
+  }
+
+  const weakHash = WEAK_HASH_ALGORITHMS[valid[8]];
+  if (weakHash) {
+    return { problem: `docs/DONATE.asc is signed over ${weakHash}; clearsign it with SHA-256.` };
+  }
+  const signer = valid[10] ?? valid[1];
+  if (signer !== keyFingerprint) {
+    return {
+      problem: `docs/DONATE.asc is signed by ${signer}, not by docs/SIGNING-KEY.asc (${keyFingerprint}).`,
+    };
+  }
+  return { fingerprint: signer };
+}
+
+/**
+ * Verifies docs/DONATE.asc with gpg against docs/SIGNING-KEY.asc alone. The
+ * homedir is a fresh temporary directory, so no key or trust setting of the
+ * machine running the check can vouch for the signature, and --no-autostart
+ * keeps gpg from starting an agent that would outlive the check.
+ * @param {string} signedPath
+ * @param {string} keyPath
+ * @param {typeof spawnSync} [run]
+ * @returns {{ fingerprint: string } | { problem: string }}
+ */
+export function verifySignedAddressFile(signedPath, keyPath, run = spawnSync) {
+  if (readIfPresent(keyPath) === null) {
+    return {
+      problem:
+        'docs/DONATE.asc is published without docs/SIGNING-KEY.asc, the public key its ' +
+        'signature is checked against.',
+    };
+  }
+  const home = mkdtempSync(join(tmpdir(), 'autopilot-donate-gpg-'));
+  try {
+    const gpg = (args) =>
+      run('gpg', ['--homedir', home, '--batch', '--no-autostart', '--status-fd', '1', ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+      });
+    const imported = gpg(['--import', keyPath]);
+    if (imported.error) {
+      return {
+        problem: `gpg could not run (${imported.error.message}); install GnuPG to verify docs/DONATE.asc.`,
+      };
+    }
+    // No exit-code check here: gpg 2.4 on Windows imports the key, then exits
+    // 2 because it cannot reach the agent --no-autostart keeps from starting.
+    // readSignatureStatus counts the IMPORT_OK lines instead.
+    const verified = gpg(['--verify', signedPath]);
+    if (verified.error) {
+      return { problem: `gpg could not run (${verified.error.message}).` };
+    }
+    return readSignatureStatus(imported.stdout, verified.stdout, verified.status);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
 /** Renders an address as a Markdown-portable QR code using Unicode
  *  half-block characters — no image file, no third-party QR service. */
 export function renderAsciiQr(address) {
@@ -280,12 +389,16 @@ function main() {
   const next = renderDoc(entries);
 
   if (check) {
-    const signingProblem = findSignedAddressFileProblem(
-      readIfPresent(DONATIONS_PATH),
-      readIfPresent(SIGNED_PATH),
-    );
+    const signedRaw = readIfPresent(SIGNED_PATH);
+    const signingProblem = findSignedAddressFileProblem(readIfPresent(DONATIONS_PATH), signedRaw);
     if (signingProblem !== null) {
       console.error(`donate-check FAILED: ${signingProblem}`);
+      process.exit(1);
+    }
+    const signature =
+      signedRaw === null ? null : verifySignedAddressFile(SIGNED_PATH, SIGNING_KEY_PATH);
+    if (signature !== null && 'problem' in signature) {
+      console.error(`donate-check FAILED: ${signature.problem}`);
       process.exit(1);
     }
     const current = (() => {
@@ -304,7 +417,8 @@ function main() {
     }
     console.log(
       `donate-check OK: docs/DONATE.md matches docs/donations.json (${entries.length} ` +
-        'address(es)).',
+        'address(es)).' +
+        (signature === null ? '' : ` docs/DONATE.asc is signed by ${signature.fingerprint}.`),
     );
     return;
   }
