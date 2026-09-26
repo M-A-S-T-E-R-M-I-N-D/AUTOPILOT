@@ -19,7 +19,10 @@
  * The loop is lossless, about a third the size of the frames it is made of,
  * and every current browser plays it wherever a PNG may appear. The operator
  * can watch the real loop before approving the gif encoder, or take the APNG
- * instead of it.
+ * instead of it — but on GitHub only a `.gif` gets a play/pause control, so an
+ * APNG at the README top must sit in a <picture> whose
+ * `(prefers-reduced-motion: reduce)` source is a still
+ * (apps/dashboard/test/assets/readme-motion.test.ts holds README.md to that).
  *
  *   pnpm run build
  *   node scripts/docs/record-demo-frames.mjs [outDir]
@@ -171,6 +174,20 @@ export function readChunks(bytes) {
     offset = end;
   }
   throw new Error('PNG ends without an IEND chunk');
+}
+
+/**
+ * True when the PNG animates: an acTL chunk before its first IDAT, the only
+ * place §5.6 (Table 7) allows it; a stream with acTL later is no animation.
+ * Throws on bytes that are not a PNG rather than call them still.
+ * @param {Uint8Array} bytes
+ */
+export function isAnimatedPng(bytes) {
+  for (const { type } of readChunks(bytes)) {
+    if (type === 'acTL') return true;
+    if (type === 'IDAT') return false;
+  }
+  return false;
 }
 
 /** One chunk: length, type, data, and the CRC over type + data. */
