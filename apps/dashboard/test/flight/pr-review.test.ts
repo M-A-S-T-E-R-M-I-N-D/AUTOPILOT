@@ -446,6 +446,14 @@ const BENIGN_ENGINE_SRC = new Set([
   // exact-path marker below) is what turns a failing verdict into a real
   // revert decision; this module only computes the verdict.
   'diff-size-gate.ts',
+  // commit-review.ts: the commit-time review (BACKLOG-999 C5) — prompt text,
+  // reply parsing, and one call through an injected, tool-less ModelPort. It
+  // is advisory by construction: its result only rides FiringRecord.review
+  // and one flight-log line, it can never change the gate verdict or revert
+  // anything, and a throwing reviewer becomes a recorded skip. WHEN it runs
+  // is decided in firing.ts, and the process that makes the call is
+  // adapters/claude-cli.ts — both already flagged by their own markers.
+  'commit-review.ts',
   'info.ts',
   'index.ts',
   'inbox.ts',

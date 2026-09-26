@@ -11,7 +11,7 @@ import {
   ModelCommitReviewer,
   MAX_REVIEW_DIFF_CHARS,
   MAX_REVIEW_FINDINGS,
-} from '../src/firing.js';
+} from '../src/commit-review.js';
 import type { CommitReviewPort, ModelEnvelope, ModelPort, ModelResponse } from '../src/ports.js';
 
 function envelope(over: Partial<ModelEnvelope> = {}): ModelEnvelope {
