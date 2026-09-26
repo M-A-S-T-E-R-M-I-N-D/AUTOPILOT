@@ -989,7 +989,8 @@ const BENIGN_WEB = new Set([
   'tabs.ts',
   // Pure location.search view-state math for the tasks screen (epic 0026
   // slice 2): parse/write a grouping and filters, match and group task
-  // entries — DOM-free, no HTML, no I/O, not yet spliced into the bundle.
+  // entries — DOM-free, no HTML, no I/O; shell.ts splices it in via
+  // .toString() for the Tasks card's view header.
   'task-view.ts',
   // Pure geometry/percent/bucketing math for gauges, sparklines, the
   // heatmap, timeline, office map, and tooltip positioning — no dynamic

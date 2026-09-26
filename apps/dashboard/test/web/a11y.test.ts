@@ -750,6 +750,25 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     expect((document.getElementById('task-detail-t1') as HTMLElement).hidden).toBe(false);
     const foundOpen = await violations();
     expect(foundOpen.map((v) => v.id)).toEqual([]);
+
+    // And FILTERED (epic 0026 slice 2, the view header): a checked Status
+    // chip, the "Showing n of m" status line and its Clear button.
+    const url = location.pathname + location.search;
+    try {
+      (
+        document.querySelector(
+          '[data-task-filter="status"][value="in_progress"]',
+        ) as HTMLInputElement
+      ).click();
+      await vi.waitFor(() => {
+        expect(document.querySelectorAll('.task')).toHaveLength(1);
+      });
+      expect(document.querySelector('.board-filter-note [data-task-filter-clear]')).not.toBeNull();
+      const foundFiltered = await violations();
+      expect(foundFiltered.map((v) => v.id)).toEqual([]);
+    } finally {
+      history.replaceState(null, '', url);
+    }
   });
 
   it('the ADAPTIVE TASK BUDGET risk chip on the project page task board is axe-clean', async () => {

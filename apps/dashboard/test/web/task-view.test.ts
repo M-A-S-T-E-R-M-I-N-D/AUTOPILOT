@@ -3,8 +3,8 @@
 
 /**
  * Epic 0026 slice 2 (the tasks screen's view header), its pure half — direct
- * unit coverage for `web/task-view.ts`'s URL view state, before any client
- * wiring exists (see the module header for why nothing calls it yet).
+ * unit coverage for `web/task-view.ts`'s URL view state. The client wiring
+ * (the Tasks card's Status filter) is covered by task-view-filter.test.ts.
  */
 
 import { describe, it, expect } from 'vitest';
