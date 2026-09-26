@@ -925,6 +925,14 @@ const EN_STRINGS = {
   traceLoading: 'Loading full trace…',
   diffLoading: 'Loading diff…',
   diffEmpty: 'No diff available for this firing.',
+  // The same drill-down's commit-time review summary (docs/BACKLOG-999.md
+  // C5): {model}/{n}/{reason} ride data-i18n-args; the findings under it are
+  // the reviewer's own words and carry no key.
+  reviewFindings: 'Commit review ({model}): {n} finding(s)',
+  reviewClean: 'Commit review ({model}): no findings',
+  reviewSkipped: 'Commit review skipped: {reason}',
+  reviewTip:
+    'A fresh model read this diff after the gate passed. Advisory: it never reverts a commit.',
   // The same trace row's own hover tips on its composed count ("3 actions")
   // and started-ago ("2m ago") fields — the labels are
   // firingTimelineRowMeta()'s composed strings and stay as-is, only their
@@ -2421,6 +2429,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     traceLoading: 'טוען את העקבה המלאה…',
     diffLoading: 'טוען את ההבדלים…',
     diffEmpty: 'אין הבדלים זמינים להפעלה הזו.',
+    reviewFindings: 'סקירת קומיט ({model}): {n} ממצאים',
+    reviewClean: 'סקירת קומיט ({model}): אין ממצאים',
+    reviewSkipped: 'סקירת הקומיט דולגה: {reason}',
+    reviewTip: 'מודל חדש קרא את ההבדלים אחרי שהשער עבר. מייעץ בלבד: הוא לא מבטל קומיט.',
     firingCountTip: 'קריאות כלים ופעילות שנרשמו להפעלה הזו',
     firingStartedTip: 'מתי ההפעלה הזו התחילה',
     autoFixed: 'תוקן אוטומטית',
