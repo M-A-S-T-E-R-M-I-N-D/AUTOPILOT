@@ -93,6 +93,16 @@ export const HOUSE_TAXONOMY_LABELS: readonly TaxonomyLabel[] = [
     description: 'Cannot proceed — blocker named in a comment',
   },
   {
+    // The issue protocol gate's label (issue-triage.ts, NEEDS_FORMAT_LABEL):
+    // `gh issue edit --add-label` resolves the NAME against the repo's live
+    // labels and fails the whole edit on an unknown one, so the gate could
+    // not fire until this seeded it (board web-mtxey8h4-6z9g5o).
+    name: 'status: needs-format',
+    color: 'fef2c0',
+    description:
+      'Filed off the issue template — KEEPER named the missing sections; lifts once the body conforms',
+  },
+  {
     name: 'epic',
     color: '3e1046',
     description: 'Multi-slice initiative with its own doc under docs/epics/',
@@ -263,7 +273,7 @@ async function applyOne(exec: CliExec, action: TaxonomySeedAction): Promise<bool
 
 /** Applies a plan's actions in order, one `gh` call each — never throws; a
  *  failed action lands in `failed` rather than aborting the rest (a
- *  transient failure on label #3 must not skip labels #4-18). */
+ *  transient failure on label #3 must not skip labels #4-19). */
 export async function executeTaxonomySeed(
   exec: CliExec,
   plan: TaxonomySeedPlan,
