@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi } from 'vitest';
-import { createPrReviewExecuteApi } from '../../src/flight/pr-review-execute.js';
+import {
+  createPrReviewExecuteApi,
+  isPrReviewDecisionKind,
+  type PrReviewDecisionKind,
+} from '../../src/flight/pr-review-execute.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function openPrListStdout(overrides: Record<string, unknown> = {}): string {
@@ -709,7 +713,184 @@ describe('createPrReviewExecuteApi', () => {
     expect(result?.results).toHaveLength(2);
   });
 
+  it('still posts the review when the review probe returns unparseable output', async () => {
+    // The probe's other outage shape: `gh api` exits 0 but its stdout is not
+    // JSON (a truncated page, a warning printed on stdout). Same fail-toward-
+    // posting stance as an exit-code failure — an unreadable probe must never
+    // withhold the honest request-changes verdict.
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: openPrListStdout({ statusCheckRollup: [{ conclusion: 'FAILURE' }] }),
+      })
+      .mockResolvedValueOnce({ code: 1, stdout: '' }) // gh pr diff fails ⇒ necessity not assessed
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // approval sweep finds nothing to dismiss
+      .mockResolvedValueOnce({ code: 0, stdout: 'not json' }) // review probe: unparseable
+      .mockResolvedValueOnce({ code: 0, stdout: 'requested changes' });
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12);
+
+    expect(result?.decision).toMatchObject({ decision: 'request-changes' });
+    expect(result?.results).toHaveLength(1);
+    expect(exec).toHaveBeenNthCalledWith(5, 'gh', [
+      'pr',
+      'review',
+      '12',
+      '--request-changes',
+      '--body',
+      result?.decision.reasoning,
+    ]);
+  });
+
+  it('still posts the review when the review probe returns a non-array envelope', async () => {
+    // Distinct from the unparseable case: the JSON parses, but it is gh's
+    // own `{"message": "..."}` error envelope rather than a reviews array.
+    // That shape is rejected the same way — never read as "no reviews stand"
+    // AND never as a standing duplicate — so the fresh verdict still posts.
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: openPrListStdout({ statusCheckRollup: [{ conclusion: 'FAILURE' }] }),
+      })
+      .mockResolvedValueOnce({ code: 1, stdout: '' }) // gh pr diff fails ⇒ necessity not assessed
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // approval sweep finds nothing to dismiss
+      .mockResolvedValueOnce({ code: 0, stdout: '{"message":"Not Found"}' }) // review probe: not an array
+      .mockResolvedValueOnce({ code: 0, stdout: 'requested changes' });
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12);
+
+    expect(result?.decision).toMatchObject({ decision: 'request-changes' });
+    expect(result?.results).toHaveLength(1);
+    expect(exec).toHaveBeenNthCalledWith(5, 'gh', [
+      'pr',
+      'review',
+      '12',
+      '--request-changes',
+      '--body',
+      result?.decision.reasoning,
+    ]);
+    expect(exec).toHaveBeenCalledTimes(5); // list + diff + sweep + probe + the review write
+  });
+
+  it('skips malformed entries of the reviews array and still finds the standing verbatim review behind them', async () => {
+    // Untrusted process output: a reviews page may carry a null, a scalar or
+    // a review with no body. The matcher must step over each without
+    // throwing — an uncaught TypeError here would surface as a 500 with the
+    // verdict unposted — and still recognize the verbatim CHANGES_REQUESTED
+    // review that follows them, so the execute reports the honest no-op.
+    const reasoning =
+      '#12 "Fix flaky sparkline test" — the gate failed; ' +
+      "an agent's judgment never substitutes for it.";
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: openPrListStdout({ statusCheckRollup: [{ conclusion: 'FAILURE' }] }),
+      })
+      .mockResolvedValueOnce({ code: 1, stdout: '' }) // gh pr diff fails ⇒ necessity not assessed
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }) // approval sweep finds nothing to dismiss
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: JSON.stringify([
+          null,
+          42,
+          'CHANGES_REQUESTED',
+          { state: 'CHANGES_REQUESTED' },
+          { state: 'CHANGES_REQUESTED', body: reasoning },
+        ]),
+      });
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12);
+
+    expect(result?.decision).toMatchObject({ decision: 'request-changes' });
+    expect(result?.results).toHaveLength(1);
+    expect(result?.results[0]?.command.details).toContain('nothing re-posted');
+    expect(exec).toHaveBeenCalledTimes(4); // list + diff + sweep + probe — no gh write ran
+  });
+
+  it('spends the fuller assessment when the fresh PR carries no head SHA to compare the previewed one against', async () => {
+    // The superseded-head guard is narrowing-only: a fetch that cannot
+    // confirm the fresh head (gh reported no headRefOid) behaves as
+    // not-asserted and runs the assessment as before — it never reads
+    // "unknown" as "moved". The planner then queues the headless PR for a
+    // human on its own (no pinned merge is possible), with no stale flag.
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: openPrListStdout({ headRefOid: undefined }) })
+      .mockResolvedValueOnce({ code: 0, stdout: 'diff --git a/x b/x\n' }) // gh pr diff succeeds ⇒ rename sweep confirmed empty
+      .mockResolvedValueOnce({ code: 1, stdout: '' }) // git apply --reverse --check fails ⇒ not already applied
+      .mockResolvedValueOnce({ code: 0, stdout: '[]' }); // approval sweep finds nothing to dismiss
+    const api = createPrReviewExecuteApi(exec);
+
+    const result = await api(12, undefined, '0123456789abcdef0123456789abcdef01234567');
+
+    expect(result?.staleDecision).toBeUndefined();
+    expect(result?.decision).toMatchObject({ decision: 'queue-for-human' });
+    expect(result?.decision.reasoning).toContain('no reviewed head SHA');
+    expect(result?.results).toEqual([]);
+    // The assessment ran (the diff fetch is call 2) and the guard did not
+    // bail after the list alone the way a moved head makes it.
+    expect(exec).toHaveBeenNthCalledWith(2, 'gh', ['pr', 'diff', '12']);
+    expect(exec).toHaveBeenCalledTimes(4); // list + diff + reverse check + sweep
+  });
+
   it('defaults to the real CLI exec when none is injected', () => {
     expect(() => createPrReviewExecuteApi()).not.toThrow();
+  });
+});
+
+describe('isPrReviewDecisionKind', () => {
+  // The wire boundary `server.ts` 400s on: a present-but-garbage
+  // expectedDecision must never be silently dropped (an unpinned execute by
+  // typo), and an expectation can only STOP an execute, so nothing is lost
+  // by matching strictly. server.test.ts walks four garbage shapes through
+  // the route; this pins the validator's own contract — exact-match, and
+  // exactly the kinds planPrReview can reach.
+  const DECISION_KINDS = [
+    'merge',
+    'request-changes',
+    'queue-for-human',
+  ] as const satisfies readonly PrReviewDecisionKind[];
+
+  it('accepts exactly the three decision kinds planPrReview can reach', () => {
+    // Compile-time half of the pin: a fourth kind added to PrReviewDecision's
+    // union without a matching validator update fails typecheck here, before
+    // a legitimate caller could be 400ed for sending it.
+    type MissingKind = Exclude<PrReviewDecisionKind, (typeof DECISION_KINDS)[number]>;
+    const everyKindListed: [MissingKind] extends [never] ? true : false = true;
+    expect(everyKindListed).toBe(true);
+
+    for (const kind of DECISION_KINDS) {
+      expect(isPrReviewDecisionKind(kind)).toBe(true);
+    }
+  });
+
+  it('rejects every near-miss a typo, a re-cased or a padded client could send', () => {
+    for (const value of [
+      'Merge',
+      'MERGE',
+      ' merge',
+      'merge ',
+      'approve',
+      'request_changes',
+      'requestChanges',
+      'queue for human',
+      'queue-for-human ',
+      '',
+      undefined,
+      null,
+      42,
+      true,
+      {},
+      ['merge'],
+      { decision: 'merge' },
+    ]) {
+      expect(isPrReviewDecisionKind(value)).toBe(false);
+    }
   });
 });
