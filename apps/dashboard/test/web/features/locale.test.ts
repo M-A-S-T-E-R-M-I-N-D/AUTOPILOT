@@ -189,8 +189,9 @@ describe('localeJs', () => {
   it('tr looks up a single string key in the current document language, falling back to English', () => {
     expect(localeJs()).toContain('function tr(key, subs) {');
     expect(localeJs()).toContain("const l = document.documentElement.lang || 'en';");
-    expect(localeJs()).toContain('const table = STRINGS[l] || STRINGS.en;');
-    expect(localeJs()).toContain('const text = table[key] || STRINGS.en[key];');
+    expect(localeJs()).toContain(
+      'const text = ownText(STRINGS[l], key) || ownText(STRINGS.en, key) || String(key);',
+    );
   });
 
   it('tr substitutes a bare-string subs argument as the {name} placeholder shorthand, since a confirm dialog has no DOM node to carry data-i18n-name', () => {
@@ -204,6 +205,62 @@ describe('localeJs', () => {
     expect(localeJs()).toContain('return substituteMap(text, subs);');
     const { substituteMap } = new Function(`${localeJs()}\nreturn { substituteMap };`)();
     expect(substituteMap('{a} and {b}, {a} again', { a: 1, b: 'two' })).toBe('1 and two, 1 again');
+  });
+
+  describe('tr() miss rule (ADR 0012 slice 1): active locale, then English, then the key itself', () => {
+    const load = () => new Function(`${localeJs()}\nreturn { tr, STRINGS };`)();
+
+    it('returns the key itself for a key no table holds — a blank or "undefined" confirm() would ask the operator to approve an action it does not name', () => {
+      const { tr } = load();
+      expect(tr('noSuchKey')).toBe('noSuchKey');
+    });
+
+    it('echoes the key rather than throwing when a missing key carries a bare-string {name} substitution', () => {
+      const { tr } = load();
+      expect(() => tr('noSuchKey', 'x')).not.toThrow();
+      expect(tr('noSuchKey', 'x')).toBe('noSuchKey');
+    });
+
+    it('echoes the key rather than throwing when a missing key carries a substitution map', () => {
+      const { tr } = load();
+      expect(tr('noSuchKey', { name: 'x', n: 2 })).toBe('noSuchKey');
+    });
+
+    it('never mistakes an inherited Object.prototype member for an entry — a server-supplied reasonKey can spell anything', () => {
+      const { tr } = load();
+      expect(tr('toString')).toBe('toString');
+      expect(tr('constructor', 'x')).toBe('constructor');
+      expect(tr('__proto__', { a: 1 })).toBe('__proto__');
+    });
+
+    it('always returns a string, even for a missing key argument', () => {
+      const { tr } = load();
+      expect(typeof tr(undefined)).toBe('string');
+      expect(typeof tr(undefined, 'x')).toBe('string');
+    });
+
+    it('prefers the active locale’s entry, falls back to English for a key that locale lacks, then to the key', () => {
+      const { tr, STRINGS: live } = load();
+      // Widen in place, the way the deferred locale-data chunk does.
+      live.he = { search: 'חיפוש' };
+      const html = document.documentElement;
+      const prior = html.lang;
+      html.lang = 'he';
+      try {
+        expect(tr('search')).toBe('חיפוש');
+        expect(tr('ask')).toBe(STRINGS.en.ask);
+        expect(tr('noSuchKey', 'x')).toBe('noSuchKey');
+      } finally {
+        html.lang = prior;
+      }
+    });
+
+    it('still substitutes a template the table does hold', () => {
+      const { tr } = load();
+      expect(tr('taskDeleteConfirm', 'Ada')).toBe(
+        STRINGS.en.taskDeleteConfirm.split('{name}').join('Ada'),
+      );
+    });
   });
 
   it('is trimmed — no leading/trailing whitespace', () => {
