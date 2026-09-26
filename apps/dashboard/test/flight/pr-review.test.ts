@@ -677,6 +677,10 @@ const BENIGN_READ = new Set([
   // The benchmark page's data: SELECTs over metrics, firing events and the
   // scoreboard's routing events, on a read-only connection. No writes.
   'benchmark.ts',
+  // The Versions screen's timeline (ap-mui2h3s1-1): MYTH/LEGACY tags and the
+  // flight log since LEGACY, read with `git log` only. It restores nothing;
+  // the additive restore is a later slice that will need its own marker.
+  'versions.ts',
   // D4 pipeline view read-models (epic 0015): pure graph/geometry/selection
   // derivations over stored firing records — no store writes, no I/O of
   // their own (verified: no writeFileSync/INSERT/UPDATE/DELETE).
