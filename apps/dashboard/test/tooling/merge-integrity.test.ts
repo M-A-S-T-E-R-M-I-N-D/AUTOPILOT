@@ -160,15 +160,31 @@ describe('check-merge-integrity', () => {
     // pins BOTH the "50" and the "HEAD~..HEAD" shape: a narrower or wider
     // window, or a malformed one, would either still catch this merge or
     // error on a bad revision — either way this test would fail.
-    // (55 padding commits on a slow disk need more than vitest's 5s default.)
+    // The 55 padding commits go in through ONE `git fast-import` stream:
+    // committing them one by one spawned ~110 git processes and timed out
+    // at 20s on a loaded Windows CI runner (main, 2026-09-26).
     git(['checkout', '-q', '-b', 'lane']);
     commit('lane-only.txt', 'work nobody else has\n', 'feat: lane work');
     git(['checkout', '-q', 'main']);
     commit('main.txt', 'main work\n', 'feat: main work');
     git(['merge', '-q', '-s', 'ours', '--no-edit', '-m', 'chore: absorb lane', 'lane']);
-    for (let i = 0; i < 55; i += 1) {
-      commit(`pad-${i}.txt`, `pad ${i}\n`, `chore: pad ${i}`);
-    }
+    const stream = Array.from({ length: 55 }, (_, i) => {
+      const message = `chore: pad ${i}\n`;
+      const content = `pad ${i}\n`;
+      return [
+        'commit refs/heads/main',
+        `committer t <t@example.invalid> ${1_700_000_000 + i} +0000`,
+        `data ${Buffer.byteLength(message)}`,
+        message.slice(0, -1),
+        ...(i === 0 ? ['from refs/heads/main^0'] : []),
+        `M 100644 inline pad-${i}.txt`,
+        `data ${Buffer.byteLength(content)}`,
+        content.slice(0, -1),
+        '',
+      ].join('\n');
+    }).join('');
+    execFileSync('git', ['fast-import', '--quiet', '--force'], { cwd: repo, input: stream });
+    git(['reset', '-q', '--hard', 'main']);
 
     const { code, output } = runGuard();
 
