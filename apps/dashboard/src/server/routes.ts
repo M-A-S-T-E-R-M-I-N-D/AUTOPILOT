@@ -6,7 +6,6 @@ import { renderShell } from '../web/shell.js';
 import { layoutCss } from '../web/layout-css.js';
 import { whatsNewCss } from '../web/whats-new.js';
 import { benchmarkCss, renderBenchmarkPage } from '../web/benchmark-page.js';
-import { assetVersion } from '../web/shell.js';
 import {
   minifiedCoreJs,
   minifiedProjectJs,
@@ -96,7 +95,7 @@ export function handleRoute(path: string, deps: RouteDeps = {}): RouteResponse {
       return {
         status: 200,
         contentType: 'text/html; charset=utf-8',
-        body: renderBenchmarkPage(assetVersion()),
+        body: renderBenchmarkPage(),
       };
     case '/benchmark.js':
       return {

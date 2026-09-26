@@ -33,6 +33,7 @@ import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
 import { deriveFlyProjectId, flightLogFileName } from '../flight/lock.js';
 import { resolveDbPath } from '../read/config.js';
 import { renderFleetReport } from '../read/fleet-report.js';
+import { isEvaluationDocsOn, setEvaluationDocs } from '../flight/round-evaluation.js';
 import { readRoutedFirings, renderScoreboard } from '../flight/model-scoreboard.js';
 import {
   readReportFirings,
@@ -310,6 +311,38 @@ async function main(): Promise<void> {
           isAutoApproveOn(store, projectId)
             ? `auto mode is ON for ${projectId}: proposals enter the pool on their own (OPERATOR and VERDICT blocked/close still wait for you)`
             : `auto mode is OFF for ${projectId}: every proposal waits for your approval`,
+        );
+      } finally {
+        store.close();
+      }
+      break;
+    }
+    case 'evaluation-docs': {
+      // THE ROUND EVALUATES ITSELF (2026-09-27): `evaluation-docs on|off|status
+      // [folder]` — whether each round's evaluation is also committed to
+      // docs/evaluations/ with the round (flight/round-evaluation.ts).
+      const action = process.argv[3] ?? 'status';
+      if (action !== 'on' && action !== 'off' && action !== 'status') {
+        out('usage: dashboard evaluation-docs on | off | status [folder]');
+        process.exitCode = 1;
+        break;
+      }
+      const target = resolve(process.argv[4] ?? process.cwd());
+      const projectId = deriveFlyProjectId(target);
+      const store = openStore(resolveDbPath());
+      try {
+        if (
+          action !== 'status' &&
+          !setEvaluationDocs(store, projectId, action === 'on', Date.now())
+        ) {
+          out(`evaluation docs: no project ${projectId} — fly or onboard ${target} first`);
+          process.exitCode = 1;
+          break;
+        }
+        out(
+          isEvaluationDocsOn(store, projectId)
+            ? `evaluation docs are ON for ${projectId}: each round's evaluation is committed to docs/evaluations/ with the round`
+            : `evaluation docs are OFF for ${projectId}: rounds are evaluated into the dashboard only`,
         );
       } finally {
         store.close();
@@ -727,7 +760,7 @@ async function main(): Promise<void> {
     }
     default: {
       out(
-        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | owned-work-reconcile | fleet-report | auto-mode | vacuum | keepalive | watch | fleet',
+        'usage: dashboard start | stop | status | restart | doctor | ci-status | maintenance-sweep | taxonomy-seed | owned-work-reconcile | fleet-report | auto-mode | evaluation-docs | vacuum | keepalive | watch | fleet',
       );
       process.exitCode = 1;
     }

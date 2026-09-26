@@ -123,7 +123,11 @@ test.describe('app shell — compact window', () => {
     await page.goto(`${POPULATED_BASE_URL}/p/demo-checkout-web`);
     await page.clock.runFor(3000);
     await expect(page.locator('main#fleet')).toHaveClass(/project-mode/);
-    await expect(page.locator('#subject-nav [data-subject-link]')).toHaveCount(6);
+    // ONE GLOBAL NAV (2026-09-27): the bottom bar keeps the five global
+    // places, Benchmark among them; the project's six are its tab row.
+    await expect(page.locator('#project-tabs [data-subject-link]')).toHaveCount(6);
+    await expect(page.locator('#subject-nav [data-global-link]')).toHaveCount(5);
+    await expect(page.locator('#subject-nav [data-global-link="benchmark"]')).toBeVisible();
     // The project card paints after the fixture's first state fetch lands in
     // REAL time; under the CI runner's parallel load that once outran the
     // default 5s (passed on retry), so the first sighting gets a real budget.

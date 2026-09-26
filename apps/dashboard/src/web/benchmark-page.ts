@@ -8,8 +8,9 @@
  *
  * A subject of the dashboard itself (operator, 2026-09-26: "part of the
  * software, not a link to another page"): the fleet page's rail has a
- * Benchmark place, `#benchmark-panel`, and this chunk draws into it. The
- * same chunk still serves `/benchmark` on its own, as a permalink. Its
+ * Benchmark place, `#benchmark-panel`, on every page (the global rail), and
+ * this chunk draws into it — opened from inside a project, that project's
+ * view first. `/benchmark` forwards there, so there is one benchmark. Its
  * script, `/benchmark.js`, ships nothing into the core or panels chunks —
  * both sit at their byte budgets — and carries its own English and Hebrew.
  * Inside the dashboard it reads nothing until the screen is on screen, and
@@ -27,10 +28,6 @@
  *   - the leaderboard table.
  * It refreshes itself every minute.
  */
-
-import { PRODUCT_VERSION } from '../info.js';
-import { PRELOAD_FONT_PATHS } from '../assets/fonts.js';
-import { DEFAULT_THEME } from '@autopilot/tokens';
 
 export const BENCHMARK_STRINGS = {
   en: {
@@ -70,6 +67,9 @@ export const BENCHMARK_STRINGS = {
     colDied: 'Died',
     colTotal: 'Spent',
     updated: 'updated {time}',
+    scopeLabel: 'Show',
+    scopeProject: 'This project: {name}',
+    scopeAll: 'All projects',
   },
   he: {
     title: 'בנצ׳מרק',
@@ -106,6 +106,9 @@ export const BENCHMARK_STRINGS = {
     colDied: 'מתו',
     colTotal: 'הוצאה',
     updated: 'עודכן {time}',
+    scopeLabel: 'הצגה',
+    scopeProject: 'הפרויקט הזה: {name}',
+    scopeAll: 'כל הפרויקטים',
   },
 } as const;
 
@@ -119,6 +122,10 @@ main.bm-page { max-width: 1200px; margin: 0 auto; padding: var(--space-5) var(--
 .bm-title { margin: 0; font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.4rem); letter-spacing: -0.02em; }
 .bm-sub, .bm-note, .bm-updated { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
 .bm-back { color: var(--color-accent); font-size: var(--text-sm); }
+.bm-scope { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); padding: 2px; border: 1px solid var(--color-border); border-radius: var(--radius-full); background: var(--color-surface); }
+.bm-scope-btn { font: inherit; font-size: var(--text-sm); font-weight: 600; min-block-size: 2.25rem; padding: var(--space-1) var(--space-3); border: 0; border-radius: var(--radius-full); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.bm-scope-btn:hover, .bm-scope-btn:focus-visible { color: var(--color-text); outline: none; box-shadow: 0 0 0 2px var(--color-accent) inset; }
+.bm-scope-btn[aria-pressed="true"] { background: var(--color-accent); color: var(--color-accent-text); }
 .bm-card { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); }
 .bm-card-title { margin: 0; font-size: var(--text-lg, 1.1rem); }
 .bm-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
@@ -161,36 +168,23 @@ export function benchmarkCss(): string {
   return BENCHMARK_CSS;
 }
 
-/** The page's HTML: the shell's head, one mount point. Built by joining
- *  lines, not a template, so the splice discovery does not take it for a
- *  client-visible splice (the only value it interpolates is the asset hash). */
-export function renderBenchmarkPage(assetVersion: string): string {
-  const v = assetVersion;
-  const preloads = PRELOAD_FONT_PATHS.map(
-    (p) =>
-      '  <link rel="preload" href="' +
-      p +
-      '" as="font" type="font/woff2" crossorigin="anonymous" />',
-  );
+/** `/benchmark` (2026-09-27): ONE benchmark, the one inside the dashboard.
+ *  The address stays a stable way in — bookmarks, docs, links from outside —
+ *  and forwards to the Benchmark subject, so no second copy of the screen
+ *  drifts from the first. A meta refresh, not script: it works under the
+ *  dashboard's CSP and with scripting off, and the link is there for a
+ *  reader whose browser does not follow it. */
+export function renderBenchmarkPage(): string {
   return [
     '<!doctype html>',
-    '<html lang="en" data-theme="' + DEFAULT_THEME + '">',
+    '<html lang="en">',
     '<head>',
     '  <meta charset="utf-8" />',
-    '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
+    '  <meta http-equiv="refresh" content="0; url=/#benchmark-panel" />',
     '  <title>AUTOPILOT — benchmark</title>',
-    '  <link rel="icon" href="/favicon.ico" sizes="any" />',
-    '  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />',
-    '  <link rel="manifest" href="/manifest.webmanifest" />',
-    '  <meta name="theme-color" content="#0a0d12" />',
-    ...preloads,
-    '  <link rel="stylesheet" href="/tokens.css?v=' + v + '" />',
     '</head>',
-    '<body data-page="benchmark">',
-    '  <main id="benchmark" class="bm-page" data-version="' + PRODUCT_VERSION + '">',
-    '    <p class="bm-sub">Loading…</p>',
-    '  </main>',
-    '  <script src="/benchmark.js?v=' + v + '" defer></script>',
+    '<body>',
+    '  <p><a href="/#benchmark-panel">Open the benchmark</a></p>',
     '</body>',
     '</html>',
     '',
@@ -416,12 +410,46 @@ function header(data) {
   left.appendChild(el('p', 'bm-sub', t('subtitle', { days: data ? data.windowDays : 90 })));
   if (data) left.appendChild(el('p', 'bm-updated', t('updated', { time: new Date(data.generatedAt).toLocaleTimeString(locale) })));
   h.appendChild(left);
+  if (openedFor) h.appendChild(scopeSwitch(data));
   if (!EMBED) {
     var back = el('a', 'bm-back', t('back'));
     back.href = '/';
     h.appendChild(back);
   }
   return h;
+}
+// THE ARENA, stage 1 (2026-09-27): opened from inside a project, the screen
+// shows that project first, with one switch to the whole fleet and back.
+function scopeFromUrl() {
+  try {
+    var p = new URLSearchParams(location.search).get('project');
+    return p && /^[A-Za-z0-9._-]{1,200}$/.test(p) ? p : null;
+  } catch (e) { return null; }
+}
+var openedFor = scopeFromUrl();
+var scope = openedFor;
+function scopeSwitch(data) {
+  var box = el('div', 'bm-scope');
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', t('scopeLabel'));
+  var name = data && data.scope ? data.scope.name : openedFor;
+  [[openedFor, t('scopeProject', { name: name })], [null, t('scopeAll')]].forEach(function (opt) {
+    var b = el('button', 'bm-scope-btn', opt[1]);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(scope === opt[0]));
+    b.addEventListener('click', function () {
+      if (scope === opt[0]) return;
+      scope = opt[0];
+      try {
+        var u = new URL(location.href);
+        if (scope) u.searchParams.set('project', scope); else u.searchParams.delete('project');
+        history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+      } catch (e) { /* the view still switches */ }
+      load();
+    });
+    box.appendChild(b);
+  });
+  return box;
 }
 function paint(data) {
   var root = document.getElementById('benchmark');
@@ -439,12 +467,15 @@ function paint(data) {
 }
 var lastData = null;
 var requested = false;
+var jumpPending = false;
+function takeJump() { if (jumpPending && EMBED) EMBED.scrollIntoView({ block: 'start' }); }
 function load() {
   requested = true;
-  return fetch('/api/benchmark', { headers: { Accept: 'application/json' } })
+  var url = '/api/benchmark' + (scope ? '?project=' + encodeURIComponent(scope) : '');
+  return fetch(url, { headers: { Accept: 'application/json' } })
     .then(function (r) { return r.ok ? r.json() : null; })
     .catch(function () { return null; })
-    .then(function (d) { lastData = d; paint(d); });
+    .then(function (d) { lastData = d; paint(d); requestAnimationFrame(takeJump); });
 }
 // Inside the dashboard the screen reads nothing until it is on screen: a
 // subject the operator never opens costs no request.
@@ -457,6 +488,26 @@ function onScreen() {
 window.__apBenchmarkLoad = load;
 if (EMBED) {
   EMBED.hidden = false;
+  // The section was hidden while the browser took the #benchmark-panel jump
+  // (arriving from a project's rail, or from /benchmark), so the page stayed
+  // at its top on a desktop that stacks every place. Take the jump now.
+  // The fleet's own panels keep filling in above it after that, so the jump
+  // stays pending — retaken after each paint — until the operator scrolls or
+  // types, or a few seconds have passed.
+  if (location.hash === '#benchmark-panel' && typeof EMBED.scrollIntoView === 'function') {
+    jumpPending = true;
+    var grow = typeof ResizeObserver === 'function' ? new ResizeObserver(takeJump) : null;
+    if (grow) grow.observe(document.body);
+    var settle = function () {
+      jumpPending = false;
+      if (grow) grow.disconnect();
+    };
+    ['wheel', 'touchstart', 'keydown'].forEach(function (ev) {
+      window.addEventListener(ev, settle, { once: true, passive: true });
+    });
+    setTimeout(settle, 5000);
+    requestAnimationFrame(takeJump);
+  }
   new MutationObserver(function () {
     var was = locale;
     syncLocale();

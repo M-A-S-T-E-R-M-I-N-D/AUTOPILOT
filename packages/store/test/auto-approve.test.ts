@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, type Store } from '../src/db.js';
 import { migrate } from '../src/migrate.js';
+import { createTask } from '../src/mutate.js';
 import {
   AUTO_APPROVED_EVENT,
   isAutoApprovable,
@@ -69,6 +70,41 @@ describe('auto mode', () => {
       )
       .run();
     expect(isAutoApproveOn(store, 'p1')).toBe(false);
+  });
+
+  it('applies at createTask, so every proposer is covered — a post-flight sweep as much as a firing (2026-09-27)', () => {
+    const status = (id: string): string =>
+      (store.db.prepare('SELECT status FROM tasks WHERE id = ?').get(id) as { status: string })
+        .status;
+    const propose = (id: string, title: string): boolean =>
+      createTask(store, {
+        id,
+        projectId: 'p1',
+        title,
+        source: 'self',
+        status: 'needs_approval',
+        createdAt: 5,
+      });
+    expect(propose('off-1', 'DOC-FRESHNESS: docs/x.md may be stale')).toBe(true);
+    expect(status('off-1')).toBe('needs_approval');
+
+    setAutoApprove(store, 'p1', true, 10);
+    expect(propose('docfresh-1', 'DOC-FRESHNESS: docs/x.md may be stale')).toBe(true);
+    expect(propose('verdict-1', 'VERDICT close ap-1')).toBe(true);
+    expect(status('docfresh-1')).toBe('queued');
+    expect(status('verdict-1')).toBe('needs_approval');
+    const audit = store.db
+      .prepare('SELECT payload FROM events WHERE type = ?')
+      .all(AUTO_APPROVED_EVENT) as { payload: string }[];
+    expect(audit.map((r) => (JSON.parse(r.payload) as { taskId: string }).taskId)).toEqual([
+      'docfresh-1',
+    ]);
+    // A task the operator files is queued already and is never "auto-approved".
+    createTask(store, { id: 'mine-1', projectId: 'p1', title: 'my own task', createdAt: 6 });
+    expect(status('mine-1')).toBe('queued');
+    expect(
+      store.db.prepare('SELECT COUNT(*) c FROM events WHERE type = ?').get(AUTO_APPROVED_EVENT),
+    ).toEqual({ c: 1 });
   });
 
   it('records each auto-approval for the audit trail, not as an operator label', () => {

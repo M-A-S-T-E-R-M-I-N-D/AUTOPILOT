@@ -12,7 +12,15 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson } from './http-util.js';
 import type { BenchmarkPayload } from '../read/benchmark.js';
 
-export type BenchmarkApi = () => BenchmarkPayload | Promise<BenchmarkPayload>;
+/** `projectId` narrows the read to one project; omitted, the whole fleet. */
+export type BenchmarkApi = (projectId?: string) => BenchmarkPayload | Promise<BenchmarkPayload>;
+
+/** The `?project=` a request asks for — a plain id, or none. Anything that
+ *  is not a short plain id is ignored rather than passed to the store. */
+export function benchmarkScopeOf(url: string | undefined): string | undefined {
+  const raw = new URL(url ?? '/', 'http://localhost').searchParams.get('project');
+  return raw !== null && /^[A-Za-z0-9._-]{1,200}$/.test(raw) ? raw : undefined;
+}
 
 export async function handleBenchmark(
   req: IncomingMessage,
@@ -30,7 +38,7 @@ export async function handleBenchmark(
     return;
   }
   try {
-    send(200, await api());
+    send(200, await api(benchmarkScopeOf(req.url)));
   } catch {
     send(503, { error: 'benchmark read failed' });
   }

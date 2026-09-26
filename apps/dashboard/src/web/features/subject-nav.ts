@@ -46,7 +46,9 @@ function subjectIsStacked() {
   return typeof window.matchMedia === 'function' && window.matchMedia(SUBJECT_STACKED_MQ).matches;
 }
 function subjectLinks() {
-  return Array.prototype.slice.call(document.querySelectorAll('#subject-nav [data-subject-link]'));
+  // A project page's subjects live in its tab row; its rail holds the global
+  // places (data-global-link), which are links to the fleet page, not subjects.
+  return Array.prototype.slice.call(document.querySelectorAll('#subject-nav [data-subject-link], #project-tabs [data-subject-link]'));
 }
 /** The page's subjects are whatever its nav offers — four on the fleet page,
  *  six on a project page — never a list this module has to know. */
@@ -425,14 +427,17 @@ function bootSubjectNav() {
   if (!nav) return;
   // From here on the stylesheet may hide the inactive subjects (below lg).
   if (document.body.dataset.nav !== 'on') document.body.dataset.nav = 'on';
-  nav.addEventListener('click', function (e) {
+  function onSubjectClick(e) {
     var a = e.target && e.target.closest ? e.target.closest('[data-subject-link]') : null;
     if (!a) return;
     var name = a.dataset.subjectLink;
     if (subjectIsStacked()) { showSubject(name); return; } // the anchor jump is the navigation
     e.preventDefault();
     showSubject(name);
-  });
+  }
+  nav.addEventListener('click', onSubjectClick);
+  var tabs = document.getElementById('project-tabs');
+  if (tabs) tabs.addEventListener('click', onSubjectClick);
   // A deep link (#pool-client-panel from a GitHub comment) lands on the
   // subject that owns it — the legible-surface doctrine applied to the shell.
   var fromHash = subjectFromLocation();
@@ -545,6 +550,11 @@ function paletteCollect() {
   subjectLinks().forEach(function (a) {
     var name = (a.textContent || '').trim();
     items.push({ label: paletteText('paletteGoTo', name), run: function () { a.click(); } });
+  });
+  // The global places a project page's rail leads to — Benchmark among them.
+  Array.prototype.forEach.call(document.querySelectorAll('#subject-nav [data-global-link]'), function (a) {
+    var name = (a.textContent || '').trim();
+    if (name) items.push({ label: paletteText('paletteGoTo', name), run: function () { location.href = a.getAttribute('href'); } });
   });
   Array.prototype.forEach.call(document.querySelectorAll('a.card-link[href^="/p/"]'), function (a) {
     var name = (a.textContent || '').trim();

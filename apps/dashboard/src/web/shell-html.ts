@@ -95,6 +95,59 @@ function subjectLink(
   );
 }
 
+/** One GLOBAL destination (2026-09-27): the same five places on every
+ *  page. On the fleet page they ARE its subjects (`subjectLink`); on a
+ *  project page they lead back to the fleet page's places, so they carry
+ *  `data-global-link`, never `data-subject-link` — the project's own
+ *  subjects live in its tab row. */
+function globalLink(
+  name: string,
+  href: string,
+  key: string,
+  label: string,
+  icon: string,
+  here: boolean,
+): string {
+  return (
+    '    <a class="subject-link" href="' +
+    href +
+    '" data-global-link="' +
+    name +
+    '"' +
+    (here ? ' aria-current="true"' : '') +
+    '><svg viewBox="0 0 24 24" aria-hidden="true">' +
+    icon +
+    '</svg><span data-i18n="' +
+    key +
+    '">' +
+    label +
+    '</span></a>\n'
+  );
+}
+
+/** One tab in a project's own row: a project subject, icon and label. */
+function projectTab(
+  name: string,
+  key: string,
+  label: string,
+  icon: string,
+  current: boolean,
+): string {
+  return (
+    '    <a class="project-tab" href="#fleet" data-subject-link="' +
+    name +
+    '"' +
+    (current ? ' aria-current="page"' : '') +
+    '><svg viewBox="0 0 24 24" aria-hidden="true">' +
+    icon +
+    '</svg><span data-i18n="' +
+    key +
+    '">' +
+    label +
+    '</span></a>\n'
+  );
+}
+
 const SUBJECT_ICON = {
   fleet:
     '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -177,14 +230,49 @@ export function subjectNavHtml(project?: string): string {
             false,
           ),
         ]
-      : [
-          subjectLink('fleet', '#fleet', 'subjectOverview', 'Overview', SUBJECT_ICON.fleet, true),
-          subjectLink('board', '#fleet', 'subjectBoard', 'Board', SUBJECT_ICON.board, false),
-          subjectLink('keeper', '#fleet', 'subjectKeeper', 'Keeper', SUBJECT_ICON.keeper, false),
-          subjectLink('plan', '#fleet', 'subjectPlan', 'Plan', SUBJECT_ICON.plan, false),
-          subjectLink('docs', '#fleet', 'subjectDocs', 'Docs', SUBJECT_ICON.docs, false),
-          subjectLink('data', '#fleet', 'subjectData', 'Data', SUBJECT_ICON.data, false),
+      : // ONE GLOBAL NAV (2026-09-27, NN/g global navigation, M3 navigation
+        // rail, Primer's app header): a project page keeps the same five
+        // places in the rail — Benchmark was unreachable from inside a
+        // project — and moves the project's own subjects to a tab row.
+        [
+          globalLink('fleet', '/', 'subjectFleet', 'Fleet', SUBJECT_ICON.fleet, true),
+          globalLink('fly', '/#flightbar', 'subjectFly', 'Fly', SUBJECT_ICON.fly, false),
+          globalLink(
+            'keeper',
+            '/#pool-client-panel',
+            'subjectKeeper',
+            'Keeper',
+            SUBJECT_ICON.keeper,
+            false,
+          ),
+          globalLink(
+            'community',
+            '/#contributor-issue-list-panel',
+            'subjectCommunity',
+            'Community',
+            SUBJECT_ICON.community,
+            false,
+          ),
+          globalLink(
+            'benchmark',
+            '/?project=' + escapeAttr(encodeURIComponent(project)) + '#benchmark-panel',
+            'subjectBenchmark',
+            'Benchmark',
+            SUBJECT_ICON.benchmark,
+            false,
+          ),
         ];
+  const projectTabs =
+    project === undefined
+      ? ''
+      : '  <nav class="project-tabs" id="project-tabs" aria-label="Project sections" data-i18n-aria="projectTabs">\n' +
+        projectTab('fleet', 'subjectOverview', 'Overview', SUBJECT_ICON.fleet, true) +
+        projectTab('board', 'subjectBoard', 'Board', SUBJECT_ICON.board, false) +
+        projectTab('keeper', 'subjectKeeper', 'Keeper', SUBJECT_ICON.keeper, false) +
+        projectTab('plan', 'subjectPlan', 'Plan', SUBJECT_ICON.plan, false) +
+        projectTab('docs', 'subjectDocs', 'Docs', SUBJECT_ICON.docs, false) +
+        projectTab('data', 'subjectData', 'Data', SUBJECT_ICON.data, false) +
+        '  </nav>\n';
   // FOCUS MODE (slice 8) rides the nav as its last item — a button, not a
   // place — and its exit pill sits outside the nav so it survives the nav
   // leaving the page. Never persisted: a reload is always the way home.
@@ -195,6 +283,7 @@ export function subjectNavHtml(project?: string): string {
     links.join('') +
     focusToggle +
     '  </nav>\n' +
+    projectTabs +
     '  <button type="button" class="focus-exit" id="focus-exit" hidden><span data-i18n="focusExit">Exit focus</span></button>\n' +
     '  <p class="subject-empty" id="subject-empty" role="status" data-i18n="subjectEmpty" hidden>Nothing here yet — this area fills as the fleet works.</p>'
   );
