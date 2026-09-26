@@ -2450,10 +2450,13 @@ function boardViewToggleLabel(btn, view) {
 // on the document keydown below are invisible until someone already knows
 // them — this one line names them where the rows start. Each label is its
 // own [data-i18n] span so the <kbd> keys survive the translateDom() sweep
-// (setSweptText swaps text content, and the keys are not translated).
+// (setSweptText swaps text content, and the keys are not translated). A
+// fifth field is the joiner between the two keys: '/' for alternatives
+// (j or k), '+' for a chord (Ctrl and A together).
 var BOARD_KEYS = [
   ['j', 'k', 'boardKeysMove', 'move'],
   ['x', null, 'boardKeysSelect', 'select'],
+  ['Ctrl', 'A', 'boardKeysSelectAll', 'select all', '+'],
   ['a', null, 'boardKeysApprove', 'approve'],
   ['d', null, 'boardKeysDone', 'done'],
   ['Esc', null, 'boardKeysLeave', 'leave'],
@@ -2496,13 +2499,19 @@ function syncBoardSelection(list) {
     line.textContent = '';
   }
 }
-function clearBoardSelection(list) {
+// Every box in the list at once — Escape clears (false), Ctrl/Cmd-A takes
+// all (true). Each box that actually changes fires its own change event,
+// exactly as a click would, so the delegated change listener below stays
+// the ONE writer of boardSelected: a whole-list gesture reaches the set the
+// next rebuild reads by the same path a single press does, never by a
+// second hand on the map.
+function setBoardSelection(list, checked) {
   var boxes = list.querySelectorAll('[data-task-select]');
   for (var i = 0; i < boxes.length; i++) {
-    boxes[i].checked = false;
-    delete boardSelected[boxes[i].getAttribute('data-task-select')];
+    if (boxes[i].checked === checked) continue;
+    boxes[i].checked = checked;
+    boxes[i].dispatchEvent(new Event('change', { bubbles: true }));
   }
-  syncBoardSelection(list);
 }
 function boardKeysHint() {
   var p = el('p', 'board-keys muted');
@@ -2511,7 +2520,7 @@ function boardKeysHint() {
     if (i) p.appendChild(document.createTextNode(' · '));
     p.appendChild(el('kbd', null, k[0]));
     if (k[1]) {
-      p.appendChild(document.createTextNode('/'));
+      p.appendChild(document.createTextNode(k[4] || '/'));
       p.appendChild(el('kbd', null, k[1]));
     }
     p.appendChild(document.createTextNode(' '));
@@ -3008,12 +3017,21 @@ wireRoving('.task [tabindex]', '.task');
 // fire with focus inside a task row. x toggles the row's selection box
 // (boardSelected, above) the same press-the-row's-own-control way; Escape
 // is two-stage like a search field's — with a set, the first press clears
-// it and keeps the cursor where it is, the next one leaves. Enter and the
-// detail pane the epic doc also lists are separable follow-up slices.
+// it and keeps the cursor where it is, the next one leaves. Ctrl/Cmd-A
+// (Linear's "takes all") is the one modifier chord the board claims: with
+// the cursor in a row it checks every box in that row's list and stops the
+// browser's own select-all, and nowhere else — a text field elsewhere on the
+// page keeps the native chord. No text field lives inside a row (the boxes,
+// the title, the chips and the buttons are its only stops), so the row test
+// alone is the guard. Enter and the detail pane the epic doc also lists are
+// separable follow-up slices.
 var BOARD_ACTION_KEYS = { a: '[data-task-approve]', d: '[data-task-done]', x: '[data-task-select]' };
 document.addEventListener('keydown', function (e) {
-  if (e.key !== 'j' && e.key !== 'k' && e.key !== 'Escape' && !BOARD_ACTION_KEYS[e.key]) return;
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  var takeAll = e.key === 'a' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+  if (!takeAll) {
+    if (e.key !== 'j' && e.key !== 'k' && e.key !== 'Escape' && !BOARD_ACTION_KEYS[e.key]) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+  }
   // A handler that ran before this one already claimed the key: a toggle
   // (x) pressed twice in one keystroke would undo itself.
   if (e.defaultPrevented) return;
@@ -3021,9 +3039,14 @@ document.addEventListener('keydown', function (e) {
   if (!row) return;
   var list = row.closest('.tasks');
   if (!list) return;
+  if (takeAll) {
+    e.preventDefault();
+    setBoardSelection(list, true);
+    return;
+  }
   if (e.key === 'Escape') {
     e.preventDefault();
-    if (list.hasAttribute('data-selecting')) { clearBoardSelection(list); return; }
+    if (list.hasAttribute('data-selecting')) { setBoardSelection(list, false); return; }
     if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
     return;
   }

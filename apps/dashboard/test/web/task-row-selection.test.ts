@@ -5,8 +5,9 @@
  * EPIC 0026 "the tasks screen" slice 1 (board web-mtywp82m-zodn7z): row
  * selection — the Linear/M3 half of "keyboard selection" that
  * task-row-keyboard-selection.test.ts's j/k cursor left open. Every row leads
- * with a real checkbox; `x` presses the one under the cursor, the pointer
- * clicks it, and either path converges on one truth: the .task-selected
+ * with a real checkbox; `x` presses the one under the cursor, Ctrl/Cmd-A
+ * takes every one in the cursor's list (the second describe below), the
+ * pointer clicks it, and every path converges on one truth: the .task-selected
  * rows, the list's data-selecting flag, the "N selected" status line. The
  * set lives outside the DOM (shell.ts's boardSelected) because a changed
  * tick rebuilds the whole list. Escape is two-stage: clear the set, then
@@ -263,5 +264,116 @@ describe('task row selection (epic 0026 slice 1)', () => {
     expect(boxOf('t1').getAttribute('aria-label')).toBe(
       STRINGS.he.taskSelectAria.replace('{name}', 'Wire up the retry queue'),
     );
+  });
+});
+
+// Linear's "Cmd/Ctrl-A takes all" (the epic doc's field notes): with the
+// cursor anywhere in the list, the chord checks every row's box at once and
+// the status line counts the whole set. It is the one modifier chord the
+// board claims, and only with focus inside a row — a text field elsewhere on
+// the page keeps the browser's own select-all.
+describe('task row select-all (epic 0026 slice 1)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('Ctrl+A with the cursor in the list checks every row and counts the whole set', async () => {
+    await boot();
+
+    titleOf('t2').focus();
+    const notCancelled = press(titleOf('t2'), 'a', { ctrlKey: true });
+
+    expect(notCancelled).toBe(false);
+    for (const id of ['t1', 't2', 't3']) {
+      expect(boxOf(id).checked).toBe(true);
+      expect(rowOf(id).classList.contains('task-selected')).toBe(true);
+    }
+    expect(list().getAttribute('data-selecting')).toBe('true');
+    expect(line().textContent).toBe(STRINGS.en.boardSelected.replace('{n}', '3'));
+    expect(line().getAttribute('data-i18n-args')).toBe(JSON.stringify({ n: 3 }));
+    // The cursor stays where it was: taking all is not a move.
+    expect(document.activeElement).toBe(titleOf('t2'));
+  });
+
+  it('Cmd+A takes all the same way on a Mac keyboard', async () => {
+    await boot();
+
+    titleOf('t1').focus();
+    const notCancelled = press(titleOf('t1'), 'a', { metaKey: true });
+
+    expect(notCancelled).toBe(false);
+    expect(['t1', 't2', 't3'].every((id) => boxOf(id).checked)).toBe(true);
+    expect(line().textContent).toBe(STRINGS.en.boardSelected.replace('{n}', '3'));
+  });
+
+  it('takes all over a partial set without toggling it, and the set survives a rebuild', async () => {
+    const state = await boot();
+
+    boxOf('t2').click();
+    titleOf('t3').focus();
+    press(titleOf('t3'), 'a', { ctrlKey: true });
+    expect(line().textContent).toBe(STRINGS.en.boardSelected.replace('{n}', '3'));
+
+    state.totals.firings = 2;
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(['t1', 't2', 't3'].map((id) => [id, boxOf(id).checked])).toEqual([
+      ['t1', true],
+      ['t2', true],
+      ['t3', true],
+    ]);
+    expect(line().textContent).toBe(STRINGS.en.boardSelected.replace('{n}', '3'));
+  });
+
+  it('Escape after taking all clears the whole set and keeps the cursor', async () => {
+    await boot();
+
+    titleOf('t1').focus();
+    press(titleOf('t1'), 'a', { ctrlKey: true });
+    press(titleOf('t1'), 'Escape');
+
+    expect(['t1', 't2', 't3'].some((id) => boxOf(id).checked)).toBe(false);
+    expect(list().hasAttribute('data-selecting')).toBe(false);
+    expect(line().textContent).toBe('');
+    expect(document.activeElement).toBe(titleOf('t1'));
+  });
+
+  it('outside a row, or with Shift or Alt added, the chord is left to the browser', async () => {
+    await boot();
+
+    const input = document.getElementById('task-new-title') as HTMLInputElement;
+    input.focus();
+    const inField = press(input, 'a', { ctrlKey: true });
+    titleOf('t1').focus();
+    const withShift = press(titleOf('t1'), 'A', { ctrlKey: true, shiftKey: true });
+    const withAlt = press(titleOf('t1'), 'a', { ctrlKey: true, altKey: true });
+
+    expect(inField).toBe(true);
+    expect(withShift).toBe(true);
+    expect(withAlt).toBe(true);
+    expect(['t1', 't2', 't3'].some((id) => boxOf(id).checked)).toBe(false);
+    expect(line().textContent).toBe('');
+  });
+
+  it('the legend names the chord as Ctrl+A beside x, translated like its neighbours', async () => {
+    await boot();
+
+    const legend = document.querySelector('.board-keys') as HTMLElement;
+    const keys = [...legend.querySelectorAll('kbd')].map((k) => k.textContent);
+    expect(keys).toEqual(['j', 'k', 'x', 'Ctrl', 'A', 'a', 'd', 'Esc']);
+    // Ctrl and A are one chord, joined by +; j and k are alternatives, joined by /.
+    expect(legend.textContent).toContain('Ctrl+A ' + STRINGS.en.boardKeysSelectAll);
+    expect(legend.textContent).toContain('j/k ' + STRINGS.en.boardKeysMove);
+    const label = legend.querySelector('[data-i18n="boardKeysSelectAll"]') as HTMLElement;
+    expect(label.textContent).toBe(STRINGS.en.boardKeysSelectAll);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    expect(label.textContent).toBe(STRINGS.he.boardKeysSelectAll);
+    expect(legend.textContent).toContain('Ctrl+A ' + STRINGS.he.boardKeysSelectAll);
   });
 });
