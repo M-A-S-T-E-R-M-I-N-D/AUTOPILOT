@@ -26,6 +26,15 @@
  * `--check` (wired into `pnpm verify` as `ci:donate`) fails without writing
  * if docs/DONATE.md differs from what's committed; no flag writes it
  * (`pnpm donate:update`).
+ *
+ * `--check` also holds FOUNDATION.md's transparency commitment 2 (board
+ * web-mtq0rtub-jxpptv, FOUNDATION 3/3): addresses ship only as a
+ * PGP-clearsigned file, so docs/donations.json and docs/DONATE.asc (its
+ * `gpg --clearsign`) must land together and the signed text must be the
+ * committed file's text. An address edited after signing, or either file
+ * alone, fails the gate. This checks the framing and the binding only —
+ * verifying the signature itself against the operator's pinned fingerprint
+ * waits on that fingerprint being published.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -39,6 +48,13 @@ import {
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DOC_PATH = join(repoRoot, 'docs', 'DONATE.md');
 const DONATIONS_PATH = join(repoRoot, DONATIONS_FILE_PATH);
+const SIGNED_PATH = join(repoRoot, 'docs', 'DONATE.asc');
+
+const CLEARSIGN_BEGIN = '-----BEGIN PGP SIGNED MESSAGE-----';
+const SIGNATURE_BEGIN = '-----BEGIN PGP SIGNATURE-----';
+const SIGNATURE_END = '-----END PGP SIGNATURE-----';
+const HASH_HEADER = /^Hash: [A-Za-z0-9-]+(?:, ?[A-Za-z0-9-]+)*$/;
+const BASE64_LINE = /^[A-Za-z0-9+/]+={0,2}$/;
 
 /** @type {Record<import('../../apps/dashboard/dist/flight/donations.js').DonationChain, string>} */
 const CHAIN_NAMES = {
@@ -83,6 +99,90 @@ function readEntries() {
   } catch {
     return [];
   }
+}
+
+/** Reads a file, mapping only "does not exist" to null — any other read
+ *  error fails the check rather than passing it as "not published". */
+function readIfPresent(path) {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT') return null;
+    throw err;
+  }
+}
+
+/**
+ * Returns the signed text of an RFC 9580 §7 cleartext-signed message, or null
+ * unless `armored` is exactly one well-formed message. Refuses anything before
+ * the BEGIN line or after the END line (unsigned text a reader would take for
+ * signed), any cleartext armor header but Hash, and any text line starting
+ * with "-" that is not dash-escaped.
+ * @param {string} armored
+ * @returns {string | null}
+ */
+export function extractClearsignedText(armored) {
+  const lines = armored.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+  if (lines[0] !== CLEARSIGN_BEGIN || lines.at(-1) !== SIGNATURE_END) return null;
+
+  const blank = lines.indexOf('');
+  if (blank === -1 || !lines.slice(1, blank).every((line) => HASH_HEADER.test(line))) return null;
+
+  const sigStart = lines.indexOf(SIGNATURE_BEGIN, blank);
+  if (sigStart === -1) return null;
+  const sigBody = lines.slice(sigStart + 1, -1);
+  if (sigBody.some((line) => line.startsWith('-')) || !sigBody.some((l) => BASE64_LINE.test(l))) {
+    return null;
+  }
+
+  const text = [];
+  for (const line of lines.slice(blank + 1, sigStart)) {
+    if (line.startsWith('- ')) text.push(line.slice(2));
+    else if (line.startsWith('-')) return null;
+    else text.push(line);
+  }
+  return text.join('\n');
+}
+
+/** The text an OpenPGP text signature actually covers: line endings and
+ *  trailing spaces/tabs don't count, nor does the final line break. */
+function canonicalText(text) {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/, ''))
+    .join('\n')
+    .replace(/\n+$/, '');
+}
+
+/**
+ * Checks docs/donations.json against docs/DONATE.asc (each null when absent).
+ * @param {string | null} donationsRaw
+ * @param {string | null} signedRaw
+ * @returns {string | null} what is wrong, or null when the pair is consistent
+ */
+export function findSignedAddressFileProblem(donationsRaw, signedRaw) {
+  if (donationsRaw === null && signedRaw === null) return null;
+  if (signedRaw === null) {
+    return (
+      'docs/donations.json is published without docs/DONATE.asc — addresses ship only as a ' +
+      'PGP-clearsigned file (docs/FOUNDATION.md, transparency commitment 2).'
+    );
+  }
+  if (donationsRaw === null) {
+    return 'docs/DONATE.asc exists without docs/donations.json — it signs addresses nobody publishes.';
+  }
+  const signed = extractClearsignedText(signedRaw);
+  if (signed === null) {
+    return 'docs/DONATE.asc is not a single well-formed PGP cleartext-signed message.';
+  }
+  if (canonicalText(signed) !== canonicalText(donationsRaw)) {
+    return (
+      'docs/DONATE.asc signs different text than docs/donations.json — clearsign the committed ' +
+      'file again.'
+    );
+  }
+  return null;
 }
 
 /** Renders an address as a Markdown-portable QR code using Unicode
@@ -180,6 +280,14 @@ function main() {
   const next = renderDoc(entries);
 
   if (check) {
+    const signingProblem = findSignedAddressFileProblem(
+      readIfPresent(DONATIONS_PATH),
+      readIfPresent(SIGNED_PATH),
+    );
+    if (signingProblem !== null) {
+      console.error(`donate-check FAILED: ${signingProblem}`);
+      process.exit(1);
+    }
     const current = (() => {
       try {
         return readFileSync(DOC_PATH, 'utf8');

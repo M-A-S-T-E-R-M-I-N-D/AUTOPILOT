@@ -10,3 +10,8 @@ export interface DonationEntryLike {
 export declare function renderAsciiQr(address: string): string;
 export declare function renderEntry(entry: DonationEntryLike): string;
 export declare function renderDoc(entries: readonly DonationEntryLike[]): string;
+export declare function extractClearsignedText(armored: string): string | null;
+export declare function findSignedAddressFileProblem(
+  donationsRaw: string | null,
+  signedRaw: string | null,
+): string | null;

@@ -52,6 +52,9 @@ address file lands.
 1. A public donations ledger (date · asset · amount · txid) from the first
    satoshi.
 2. Addresses published only as a PGP-clearsigned file, with the signing key's
-   fingerprint verifiable through an independent channel.
+   fingerprint verifiable through an independent channel. `docs/DONATE.asc`
+   is the `gpg --clearsign` of `docs/donations.json`; `pnpm run ci:donate`
+   fails if either lands without the other or the signed text differs from
+   the committed file.
 3. Custody upgrades (BTC multisig, EVM Safe) announced before, not after.
 4. Spending reported in the changelog like everything else this project does.

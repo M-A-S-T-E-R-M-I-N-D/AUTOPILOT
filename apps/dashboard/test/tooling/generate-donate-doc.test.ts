@@ -6,6 +6,8 @@ import {
   renderDoc,
   renderEntry,
   renderAsciiQr,
+  extractClearsignedText,
+  findSignedAddressFileProblem,
 } from '../../../../scripts/donations/generate-donate-doc.mjs';
 
 const BTC_ENTRY = { chain: 'btc', address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' } as const;
@@ -72,5 +74,119 @@ describe('renderDoc', () => {
 
   it('is idempotent — rendering the same entries twice produces byte-identical output', () => {
     expect(renderDoc([BTC_ENTRY])).toBe(renderDoc([BTC_ENTRY]));
+  });
+});
+
+const DONATIONS_JSON = `[\n  { "chain": "btc", "address": "${BTC_ENTRY.address}" }\n]\n`;
+
+// Structure-only stand-in: these tests pin the cleartext framing, not the
+// cryptography, so the signature packet is placeholder base64.
+const SIGNATURE_BLOCK = [
+  '-----BEGIN PGP SIGNATURE-----',
+  '',
+  'iHUEARYKAB0WIQRmaXh0dXJlLW9ubHktbm90LWEta2V5AAoJEA==',
+  '=AbCd',
+  '-----END PGP SIGNATURE-----',
+].join('\n');
+
+/** Frames `text` the way `gpg --clearsign` does: dash-escapes lines starting
+ *  with "-" or "From ", and drops the file's final line break (the break
+ *  before the signature block is not part of the signed text). */
+function clearsign(text: string, hashHeader = 'Hash: SHA256'): string {
+  const escaped = text
+    .replace(/\n$/, '')
+    .split('\n')
+    .map((line) => (line.startsWith('-') || line.startsWith('From ') ? `- ${line}` : line))
+    .join('\n');
+  return ['-----BEGIN PGP SIGNED MESSAGE-----', hashHeader, '', escaped, SIGNATURE_BLOCK, ''].join(
+    '\n',
+  );
+}
+
+describe('extractClearsignedText', () => {
+  it('returns the signed text of a well-formed cleartext-signed message', () => {
+    expect(extractClearsignedText(clearsign(DONATIONS_JSON))).toBe(DONATIONS_JSON.trimEnd());
+  });
+
+  it('reverses dash-escaping', () => {
+    const text = '-----BEGIN PGP SIGNATURE-----\nFrom the operator\n-- plain';
+
+    expect(extractClearsignedText(clearsign(text))).toBe(text);
+  });
+
+  it('reads CRLF line endings the same as LF', () => {
+    const armored = clearsign(DONATIONS_JSON).replace(/\n/g, '\r\n');
+
+    expect(extractClearsignedText(armored)).toBe(DONATIONS_JSON.trimEnd());
+  });
+
+  it('refuses unsigned text placed before the signed block', () => {
+    expect(extractClearsignedText(`send here instead\n${clearsign(DONATIONS_JSON)}`)).toBeNull();
+  });
+
+  it('refuses unsigned text placed after the signature block', () => {
+    expect(extractClearsignedText(`${clearsign(DONATIONS_JSON)}send here instead\n`)).toBeNull();
+  });
+
+  it('refuses a cleartext armor header other than Hash', () => {
+    expect(extractClearsignedText(clearsign(DONATIONS_JSON, 'Comment: trust me'))).toBeNull();
+  });
+
+  it('refuses a line starting with "-" that is not dash-escaped', () => {
+    const armored = clearsign(DONATIONS_JSON).replace('[', '-[');
+
+    expect(extractClearsignedText(armored)).toBeNull();
+  });
+
+  it('refuses a message with no signature block', () => {
+    const armored = clearsign(DONATIONS_JSON).split('-----BEGIN PGP SIGNATURE-----')[0] ?? '';
+
+    expect(extractClearsignedText(armored)).toBeNull();
+  });
+
+  it('refuses a signature block with no signature data', () => {
+    const armored = clearsign(DONATIONS_JSON)
+      .replace('iHUEARYKAB0WIQRmaXh0dXJlLW9ubHktbm90LWEta2V5AAoJEA==\n', '')
+      .replace('=AbCd\n', '');
+
+    expect(extractClearsignedText(armored)).toBeNull();
+  });
+});
+
+describe('findSignedAddressFileProblem', () => {
+  it('passes when neither the address file nor its signature exists yet', () => {
+    expect(findSignedAddressFileProblem(null, null)).toBeNull();
+  });
+
+  it('fails an address file published without its clearsigned copy', () => {
+    expect(findSignedAddressFileProblem(DONATIONS_JSON, null)).toMatch(/without docs\/DONATE\.asc/);
+  });
+
+  it('fails a clearsigned copy with no address file beside it', () => {
+    expect(findSignedAddressFileProblem(null, clearsign(DONATIONS_JSON))).toMatch(
+      /without docs\/donations\.json/,
+    );
+  });
+
+  it('passes when DONATE.asc signs exactly the committed address file', () => {
+    expect(findSignedAddressFileProblem(DONATIONS_JSON, clearsign(DONATIONS_JSON))).toBeNull();
+  });
+
+  it('ignores the trailing whitespace and line endings OpenPGP text signatures ignore', () => {
+    const committed = DONATIONS_JSON.replace(/\n/g, ' \r\n');
+
+    expect(findSignedAddressFileProblem(committed, clearsign(DONATIONS_JSON))).toBeNull();
+  });
+
+  it('fails an address file edited after it was signed', () => {
+    const edited = DONATIONS_JSON.replace('bc1qxy2', 'bc1qzz2');
+
+    expect(findSignedAddressFileProblem(edited, clearsign(DONATIONS_JSON))).toMatch(
+      /signs different text/,
+    );
+  });
+
+  it('fails a DONATE.asc that is not a well-formed cleartext-signed message', () => {
+    expect(findSignedAddressFileProblem(DONATIONS_JSON, DONATIONS_JSON)).toMatch(/not a single/);
   });
 });
