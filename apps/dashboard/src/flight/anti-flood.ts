@@ -43,6 +43,7 @@
  */
 
 import type { CliExec, CliRun } from '../connection/cli-probe.js';
+import { stripConversationSignature } from './attribution.js';
 
 /** Word-overlap at or above which two same-author messages are the same
  *  message. 0.9 catches a retry that only differs by shell-mangled
@@ -136,19 +137,27 @@ export function commentSimilarity(a: string, b: string): number {
  * The whole decision, pure: given a thread's recent messages (oldest
  * first), who we are, and what we are about to say — post it, suppress it
  * as a duplicate, or fold it into our own tail message.
+ *
+ * Both sides are compared without the attribution signature. `gh-exec.ts`
+ * signs INSIDE this guard, so the body judged here is unsigned while every
+ * message of ours already on the thread ends in the ~ten-word `— ✈️` footer
+ * — enough extra words to sink a short retry below the duplicate ratio.
  */
 export function judgeOutgoingComment(
   messages: readonly ThreadMessage[],
   identity: string,
   body: string,
 ): FloodVerdict {
-  const normalized = normalizeCommentText(body);
+  const normalized = normalizeCommentText(stripConversationSignature(body));
   if (normalized.length < MIN_COMPARE_LENGTH) return { action: 'pass' };
 
   let best: { id: number; ratio: number } | null = null;
   for (const message of messages) {
     if (message.author !== identity) continue;
-    const ratio = commentSimilarity(normalized, normalizeCommentText(message.body));
+    const ratio = commentSimilarity(
+      normalized,
+      normalizeCommentText(stripConversationSignature(message.body)),
+    );
     if (ratio >= FLOOD_DUPLICATE_RATIO && (!best || ratio > best.ratio)) {
       best = { id: message.id, ratio };
     }
