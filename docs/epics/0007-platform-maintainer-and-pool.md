@@ -143,7 +143,15 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    scored as a duplicate OF ITSELF on the next pass; genuine duplicates now
    get the `duplicate` label so later passes recognize them. Covered by
    `test/flight/issue-triage.test.ts`, `issue-triage-execute.test.ts`, and
-   `test/web/issue-triage-panel.test.ts`.
+   `test/web/issue-triage-panel.test.ts`. Refined 2026-09-26 (board
+   web-mtwtdhni-ktevyr): `classifyIssueArea` now scores `title` and `body`
+   separately instead of as one text — the title's keyword hits pick the
+   area, body hits only break a tie between those or decide when the title
+   trips nothing — after KEEPER labeled #43/#44 `area: i18n` off a body's
+   passing "Hebrew (RTL) locale" mention (four i18n keywords at once)
+   outvoting the single keyword each title actually named; the maintainer
+   had re-labeled both dashboard/community and dashboard/flight-engine.
+   Dimension/priority/milestone classification are unchanged.
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
