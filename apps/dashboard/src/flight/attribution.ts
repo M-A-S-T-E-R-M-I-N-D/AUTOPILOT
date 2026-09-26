@@ -52,13 +52,28 @@ export function attributionEnabled(): boolean {
   return process.env['AUTOPILOT_ATTRIBUTION'] !== 'off';
 }
 
+/** How every signature opens, full or compressed (ATTRIBUTION.md §3) — the
+ *  one mark that says a body is already signed. */
+export const SIGNATURE_MARK = '— ✈️';
+
 /** The compact signature ATTRIBUTION.md §3 prescribes for a conversational
  *  post — a comment or a review, once per message. */
 export function conversationSignature(operatorHandle: string): string {
   return (
-    `— ✈️ AUTOPILOT agent, on behalf of @${operatorHandle} · ` +
+    `${SIGNATURE_MARK} AUTOPILOT agent, on behalf of @${operatorHandle} · ` +
     `[what is this?](${AUTOPILOT_REPO_URL})`
   );
+}
+
+/** A body with every signature line dropped — what the message SAYS, for a
+ *  reader comparing two messages (the flood guard) rather than posting one.
+ *  Line-wise, so a folded message whose signature sits above its dated
+ *  Update block loses the signature and keeps both halves. */
+export function stripConversationSignature(body: string): string {
+  return body
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith(SIGNATURE_MARK))
+    .join('\n');
 }
 
 /** One outgoing conversational post — the argv shapes §3 covers. */
@@ -121,7 +136,7 @@ export function withAttribution(exec: CliExec, options: AttributionOptions = {})
     const post = parseConversationPost(bin, args);
     if (!post) return exec(bin, args);
     if (!attributionEnabled()) return exec(bin, args);
-    if (post.body.includes('— ✈️')) return exec(bin, args);
+    if (post.body.includes(SIGNATURE_MARK)) return exec(bin, args);
 
     const operatorHandle = await resolveOperatorHandle(exec);
     if (!operatorHandle) {

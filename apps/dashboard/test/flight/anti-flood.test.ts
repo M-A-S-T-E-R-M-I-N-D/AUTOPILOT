@@ -25,6 +25,7 @@ import {
   FLOOD_DUPLICATE_RATIO,
   type ThreadMessage,
 } from '../../src/flight/anti-flood.js';
+import { conversationSignature, withAttribution } from '../../src/flight/attribution.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 /** PR #33's first approval, as posted. */
@@ -406,6 +407,65 @@ describe('withAntiFlood — judges the thread’s real tail on a long thread (re
     await exec('gh', ['issue', 'comment', '16', '--body', UNRELATED]);
 
     expect(calls.some((c) => c[1] === 'issue' && c[2] === 'comment')).toBe(true);
+  });
+});
+
+/**
+ * A fake `gh` whose thread GROWS: every comment that reaches it is appended
+ * with exactly the body it received, so a second post is judged against
+ * what the first one really left on GitHub — the signed text, not the
+ * caller's.
+ */
+function liveThreadExec(thread: ThreadMessage[], calls: string[][]): CliExec {
+  const base = fakeExec(thread, calls);
+  return async (bin, args) => {
+    const post = parseCommentPost(bin, args);
+    if (!post) return base(bin, args);
+    calls.push([bin, ...args]);
+    thread.push(msg(thread.length + 1, 'M-A-S-T-E-R-M-I-N-D', post.body));
+    return { code: 0, stdout: '' };
+  };
+}
+
+/**
+ * EPIC 0019 additive-only law — the flood guard against its real neighbour.
+ * `gh-exec.ts` composes `withAntiFlood(withAttribution(exec))`, so the guard
+ * judges the caller's UNSIGNED body while every message of ours already on
+ * the thread ends in the ~ten-word `— ✈️ AUTOPILOT agent…` signature. Word
+ * overlap then drops below the duplicate ratio for any message shorter than
+ * about eighty words, and PR #33's retry — the incident the guard exists
+ * for — posted a second time.
+ */
+describe('withAntiFlood — a retry of our own signed message (regression)', () => {
+  it('suppresses the PR #33 retry against the signed original on the thread', () => {
+    const signed = `${APPROVAL_ORIGINAL}\n\n${conversationSignature('M-A-S-T-E-R-M-I-N-D')}`;
+    const verdict = judgeOutgoingComment(
+      [msg(1, 'gabibi555', 'thanks!'), msg(2, 'M-A-S-T-E-R-M-I-N-D', signed)],
+      'M-A-S-T-E-R-M-I-N-D',
+      APPROVAL_RETRY,
+    );
+    expect(verdict.action).toBe('suppress');
+  });
+
+  it('posts once through the real wrapper order, however many times the caller retries', async () => {
+    vi.stubEnv('AUTOPILOT_ATTRIBUTION', 'on');
+    try {
+      const calls: string[][] = [];
+      const thread: ThreadMessage[] = [msg(1, 'gabibi555', 'thanks!')];
+      const exec = withAntiFlood(withAttribution(liveThreadExec(thread, calls)));
+
+      await exec('gh', ['pr', 'comment', '33', '--body', APPROVAL_ORIGINAL]);
+      const retry = await exec('gh', ['pr', 'comment', '33', '--body', APPROVAL_RETRY]);
+      await exec('gh', ['pr', 'comment', '33', '--body', UNRELATED]);
+
+      const posts = calls.filter((c) => c[1] === 'pr' && c[2] === 'comment');
+      expect(retry.stdout).toContain('duplicate of 2');
+      expect(posts).toHaveLength(2);
+      expect(posts[0]?.at(-1)).toContain('— ✈️ AUTOPILOT agent');
+      expect(posts[1]?.at(-1)).toContain(UNRELATED);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
