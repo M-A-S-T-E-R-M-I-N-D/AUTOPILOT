@@ -21,7 +21,7 @@ import { subjectNavJs } from '../../src/web/features/subject-nav.js';
 import { DEFERRED_OPERATOR_FEATURES, PROJECT_PAGE_FEATURES } from '../../src/web/chunks.js';
 
 const css = layoutCss();
-const SUBJECTS = ['fleet', 'fly', 'keeper', 'community'] as const;
+const SUBJECTS = ['fleet', 'fly', 'keeper', 'community', 'benchmark'] as const;
 const SUBJECT_KEYS = [
   'subjectNav',
   'subjectFleet',
@@ -33,6 +33,8 @@ const SUBJECT_KEYS = [
   'subjectFly',
   'subjectKeeper',
   'subjectCommunity',
+  'subjectBenchmark',
+  'benchmarkPanel',
   'subjectEmpty',
   'focusMode',
   'focusModeTip',
@@ -214,7 +216,7 @@ describe('layout-css — mobile-first laws', () => {
     );
     expect(css).toContain('.plan-actions button:disabled { opacity: 0.5; cursor: default; }');
     expect(css).toMatch(
-      /body > \.fleet-wisdom, body > \.ci-status-panel,\nbody > \.collaboration-panel \{ margin-inline: var\(--page-inline\); \}/,
+      /body > \.fleet-wisdom, body > \.ci-status-panel,\nbody > \.collaboration-panel, body > \.benchmark-panel \{ margin-inline: var\(--page-inline\); \}/,
     );
   });
 
@@ -283,6 +285,7 @@ describe('renderShell — every section belongs to a subject', () => {
       'contributor-issue-list-panel': 'community',
       'publicity-panel': 'community',
       'contributor-standing-panel': 'community',
+      'benchmark-panel': 'benchmark',
     };
     for (const [id, subject] of Object.entries(owned)) {
       const tag = tagFor(html, id);
@@ -307,7 +310,7 @@ describe('renderShell — every section belongs to a subject', () => {
 
   it('points every nav anchor at a section its own subject owns (no dead ends)', () => {
     const links = [...html.matchAll(/href="#([^"]+)" data-subject-link="([a-z]+)"/g)];
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(5);
     for (const [, id, subject] of links) {
       expect(tagFor(html, id!), `#${id} for ${subject}`).toContain(`data-subject="${subject}"`);
     }

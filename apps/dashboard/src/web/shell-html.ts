@@ -107,12 +107,14 @@ const SUBJECT_ICON = {
     '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',
   plan: '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
   docs: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  benchmark:
+    '<path d="M3 3v18h18"/><circle cx="8" cy="14" r="1.5"/><circle cx="12" cy="9" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="19" cy="6" r="1.5"/>',
   data: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
 } as const;
 
 /**
  * The app shell's subject nav (epic 0021): the places a page has. The fleet
- * page has four (Fleet · Fly · Keeper · Community); a project page has six
+ * page has five (Fleet · Fly · Keeper · Community · Benchmark); a project page has six
  * (Overview · Board · Keeper · Plan · Docs · Data — 0018's tabs, one at a
  * time at every width). The first link is current on first paint; the
  * deferred `subject-nav` module takes it from there. Every href is a real
@@ -128,6 +130,17 @@ export function contextRailHtml(project?: string): string {
     '  <aside class="context-rail" id="context-rail" aria-label="Context: lanes in flight and the Keeper queue" data-i18n-aria="contextRail" hidden>' +
     '<p class="context-rail-empty" data-i18n="contextRailEmpty" hidden>Nothing in flight and nothing waiting on you.</p>' +
     '</aside>\n'
+  );
+}
+
+/** THE BENCHMARK subject's section (2026-09-26), on the fleet page only:
+ *  a bare mount the `/benchmark.js` chunk (web/benchmark-page.ts) fills once
+ *  the screen is on screen. Hidden until that chunk runs. */
+export function benchmarkSubjectHtml(project?: string): string {
+  if (project !== undefined) return '';
+  return (
+    '  <section class="benchmark-panel" id="benchmark-panel" aria-label="Model benchmark" data-i18n-aria="benchmarkPanel" data-subject="benchmark" hidden>' +
+    '<div class="bm-page" id="benchmark"></div></section>\n'
   );
 }
 
@@ -151,6 +164,16 @@ export function subjectNavHtml(project?: string): string {
             'subjectCommunity',
             'Community',
             SUBJECT_ICON.community,
+            false,
+          ),
+          // THE BENCHMARK (operator, 2026-09-26): every model the fleet has
+          // flown, as a place in the app — web/benchmark-page.ts draws it.
+          subjectLink(
+            'benchmark',
+            '#benchmark-panel',
+            'subjectBenchmark',
+            'Benchmark',
+            SUBJECT_ICON.benchmark,
             false,
           ),
         ]

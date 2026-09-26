@@ -168,6 +168,7 @@ import {
   escapeAttr,
   subjectNavHtml,
   contextRailHtml,
+  benchmarkSubjectHtml,
 } from './shell-html.js';
 import { ACT_ICON_SHAPES, actIconShapes as sharedActIconShapes } from './activity-icon.js';
 import { tipPosition as sharedTipPosition } from './tip-position.js';
@@ -5068,7 +5069,7 @@ ${settingsMenuHtml()}
           <button type="button" class="more-item" id="tour-btn" aria-haspopup="dialog" data-tip="A short guided tour: firing, slice, gate, flight" data-i18n-tip="tourTip">${iconSvg('compass')}<span data-i18n="tour">Tour</span></button>
           <button type="button" class="more-item" id="progress-btn" data-tip="Your getting-started ladder, badges and standing — at any time, snoozed or finished" data-i18n-tip="progressBtnTip">${iconSvg('trophy')}<span data-i18n="progressBtn">My progress</span></button>
           <a class="more-item" id="docs-link" href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/main/docs/README.md" target="_blank" rel="noopener" data-tip="The documentation index on GitHub (opens a new tab)" data-i18n-tip="docsLinkTip">${iconSvg('book-open')}<span data-i18n="docsLink">Docs</span></a>
-          <a class="more-item" id="benchmark-link" href="/benchmark" data-tip="Every model the fleet has flown, compared on its own firings" data-i18n-tip="benchmarkLinkTip">${iconSvg('chart-line')}<span data-i18n="benchmarkLink">Benchmark</span></a>
+          <a class="more-item" id="benchmark-link" href="/#benchmark-panel" data-tip="Every model the fleet has flown, compared on its own firings" data-i18n-tip="benchmarkLinkTip">${iconSvg('chart-line')}<span data-i18n="benchmarkLink">Benchmark</span></a>
           <button type="button" class="more-item" id="report-btn" data-tip="Capture this page for an issue, a quick fix or a note — a preview first, always" data-i18n-tip="reportBtnTip">${iconSvg('flag')}<span data-i18n="reportBtn">Report from here</span></button>
         </div>
       </details>
@@ -5188,7 +5189,7 @@ ${contextRailHtml(project)}
   <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
   <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
   <section class="collaboration-panel" id="collaboration-panel" aria-label="Collaboration" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
-  <div class="snackbar-host" id="snackbar-host" aria-live="polite" aria-atomic="false"></div>
+${benchmarkSubjectHtml(project)}  <div class="snackbar-host" id="snackbar-host" aria-live="polite" aria-atomic="false"></div>
   <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
   <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
     <div class="ask-sheet-head">
@@ -5210,7 +5211,12 @@ ${terminalHudHtml()}
       : ''
   }
   <script src="/panels.js?v=${v}" defer></script>
-  <script src="/whats-new.js?v=${v}" defer></script>
+  <script src="/whats-new.js?v=${v}" defer></script>${
+    project === undefined
+      ? `
+  <script src="/benchmark.js?v=${v}" defer></script>`
+      : ''
+  }
 </body>
 </html>
 `;
