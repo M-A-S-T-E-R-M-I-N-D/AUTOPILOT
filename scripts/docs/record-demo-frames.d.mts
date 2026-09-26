@@ -53,6 +53,7 @@ export function buildManifest(beats: readonly Beat[], size: FrameSize): Manifest
 export function pngSize(bytes: Uint8Array): FrameSize;
 export function assertUniformFrames(sizes: readonly (FrameSize & { file: string })[]): FrameSize;
 export function readChunks(bytes: Uint8Array): PngChunk[];
+export function isAnimatedPng(bytes: Uint8Array): boolean;
 export function assembleApng(
   frames: readonly AnimationFrame[],
   options?: { plays?: number },
