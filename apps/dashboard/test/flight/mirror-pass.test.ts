@@ -1396,3 +1396,162 @@ describe('fetchIssueState reads the assignees', () => {
     expect(await fetchIssueState(odd, 5)).toEqual({ number: 5, state: 'open', assignees: [] });
   });
 });
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): the mirror pass is
+// the steward's issues⇄board mirror (S3), and its `gh issue view` readers are
+// the trust boundary every derivation composes on. These pin the malformed-
+// payload branches the readers already refuse — a bare JSON scalar, a wrongly
+// typed number/state, a state gh never emits for an issue, a missing
+// timestamp, a non-list assignees/comments field — so a later steward slice
+// can never loosen one without a red test. A refused payload is a null/empty
+// read, never a throw and never a guess.
+describe('EPIC 0019 additive-only law — the gh issue readers refuse a malformed payload', () => {
+  const UPDATED_AT = '2026-09-06T00:00:00Z';
+  const scalarPayloads: Array<[string, string]> = [
+    ['a JSON null', 'null'],
+    ['a JSON string', JSON.stringify('42')],
+    ['a JSON number', '42'],
+  ];
+  const mistyped: Array<[string, Record<string, unknown>]> = [
+    ['number is a string', { number: '42', state: 'OPEN', updatedAt: UPDATED_AT }],
+    ['state is a number', { number: 42, state: 7, updatedAt: UPDATED_AT }],
+    ['number is absent', { state: 'OPEN', updatedAt: UPDATED_AT }],
+    ['state is not OPEN or CLOSED', { number: 42, state: 'MERGED', updatedAt: UPDATED_AT }],
+  ];
+  const rawExec = (stdout: string) => makeExec(() => ({ code: 0, stdout }));
+  const payloadExec = (payload: unknown) =>
+    makeExec(() => ({ code: 0, stdout: JSON.stringify(payload) }));
+
+  describe('fetchIssueState', () => {
+    it.each(scalarPayloads)('returns null when gh emits %s', async (_label, stdout) => {
+      expect(await fetchIssueState(rawExec(stdout), 42)).toBeNull();
+    });
+
+    it.each(mistyped)('returns null when the %s', async (_label, payload) => {
+      expect(await fetchIssueState(payloadExec(payload), 42)).toBeNull();
+    });
+  });
+
+  describe('fetchIssueComments', () => {
+    it.each(scalarPayloads)('returns no comments when gh emits %s', async (_label, stdout) => {
+      expect(await fetchIssueComments(rawExec(stdout), 42)).toEqual([]);
+    });
+  });
+
+  describe('fetchClaimedIssueActivity', () => {
+    it.each(scalarPayloads)('returns null when gh emits %s', async (_label, stdout) => {
+      expect(await fetchClaimedIssueActivity(rawExec(stdout), 42)).toBeNull();
+    });
+
+    it.each(mistyped)('returns null when the %s', async (_label, payload) => {
+      expect(await fetchClaimedIssueActivity(payloadExec(payload), 42)).toBeNull();
+    });
+
+    it('returns null when updatedAt is absent, not only when it is unparseable', async () => {
+      const noTimestamp = payloadExec({ number: 42, state: 'OPEN', assignees: [] });
+      expect(await fetchClaimedIssueActivity(noTimestamp, 42)).toBeNull();
+    });
+
+    it('degrades non-list assignees and comments to an unassigned issue on the updatedAt clock', async () => {
+      const issue = await fetchClaimedIssueActivity(
+        payloadExec({
+          number: 42,
+          state: 'CLOSED',
+          assignees: 'nope',
+          comments: 'nope',
+          updatedAt: UPDATED_AT,
+        }),
+        42,
+      );
+
+      expect(issue).toEqual({
+        number: 42,
+        state: 'closed',
+        assignee: null,
+        lastActivityAt: Date.parse(UPDATED_AT),
+      });
+    });
+  });
+
+  describe('fetchClaimedIssueClaims', () => {
+    it.each(scalarPayloads)('returns no claims when gh emits %s', async (_label, stdout) => {
+      expect(await fetchClaimedIssueClaims(rawExec(stdout), 42)).toEqual([]);
+    });
+
+    it.each(mistyped)('returns no claims when the %s', async (_label, payload) => {
+      expect(await fetchClaimedIssueClaims(payloadExec(payload), 42)).toEqual([]);
+    });
+
+    it('returns no claims when updatedAt is absent or unparseable', async () => {
+      const base = { number: 42, state: 'OPEN', assignees: [{ login: 'someone' }], comments: [] };
+      expect(await fetchClaimedIssueClaims(payloadExec(base), 42)).toEqual([]);
+      const unparseable = payloadExec({ ...base, updatedAt: 'not a date' });
+      expect(await fetchClaimedIssueClaims(unparseable, 42)).toEqual([]);
+    });
+
+    it('still reads a comment-only claim on a closed issue when assignees is not a list', async () => {
+      const claims = await fetchClaimedIssueClaims(
+        payloadExec({
+          number: 27,
+          state: 'CLOSED',
+          assignees: 'nope',
+          comments: [
+            {
+              author: { login: 'gabibi555' },
+              createdAt: '2026-09-11T14:23:10Z',
+              body: 'Claimed by gabibi555 via the pool client.',
+            },
+          ],
+          updatedAt: '2026-09-12T00:00:00Z',
+        }),
+        27,
+      );
+
+      expect(claims).toEqual([
+        {
+          number: 27,
+          state: 'closed',
+          assignee: 'gabibi555',
+          lastActivityAt: Date.parse('2026-09-11T14:23:10Z'),
+          assigned: false,
+        },
+      ]);
+    });
+  });
+});
+
+// The two pure-planner edges no earlier fixture reached: a landing-note batch
+// whose task is not a github-<n> issue at all (nothing to look up, nothing to
+// note), and a link-drift finding with exactly one dead link — the singular
+// title and body a maintainer reads first when the issue is filed.
+describe('EPIC 0019 additive-only law — two pure-planner edges no fixture reached', () => {
+  it('planMirrorPassLandingNoteBatch leaves a non-github task alone without consulting the lookups', () => {
+    const webTask = task({ id: 'web-abc123', landedSha: 'sha1' });
+    const issuesByNumber = new Map<number, MirrorPassIssueState>();
+    const commentsByIssueNumber = new Map<number, readonly string[]>();
+    const issuesGet = vi.spyOn(issuesByNumber, 'get');
+    const commentsGet = vi.spyOn(commentsByIssueNumber, 'get');
+
+    const plans = planMirrorPassLandingNoteBatch([webTask], issuesByNumber, commentsByIssueNumber);
+
+    expect(plans).toEqual([{ task: webTask, finding: null, command: null }]);
+    expect(issuesGet).not.toHaveBeenCalled();
+    expect(commentsGet).not.toHaveBeenCalled();
+  });
+
+  it('planMirrorPassLinkDriftCommand speaks in the singular for exactly one dead link', () => {
+    const command = planMirrorPassLinkDriftCommand({
+      action: 'file-broken-link-issue',
+      source: 'README.md',
+      brokenLinks: ['docs/gone.md'],
+    });
+
+    const title = command.args[command.args.indexOf('--title') + 1];
+    const body = command.args[command.args.indexOf('--body') + 1];
+    expect(title).toBe('README.md has 1 broken internal link');
+    expect(body).toContain('found 1 internal link in **README.md**');
+    expect(body).toContain('follow the link above');
+    expect(`${title}\n${body}`).not.toContain('links');
+    expect(command.details).toBe('filing a broken-link finding: 1 dead link(s) in README.md');
+  });
+});
