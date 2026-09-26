@@ -7,11 +7,20 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
+import type * as AutopilotStore from '@autopilot/store';
 import {
   createPoolClientPreviewApi,
   createPoolClientExecuteApi,
 } from '../../src/flight/pool-client-execute.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
+
+// The execute API opens the store itself; wrapping `openStore` lets a test see
+// WHEN it was opened (only once a project id is passed) and that it was closed
+// again on every exit path — the same wrapper issue-triage-execute.test.ts uses.
+vi.mock('@autopilot/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof AutopilotStore>();
+  return { ...actual, openStore: vi.fn(actual.openStore) };
+});
 
 function execFor(issues: unknown[], viewerLogin: string | undefined): CliExec {
   return vi.fn(async (bin, args) => {
@@ -43,6 +52,35 @@ function checkoutOf(remote: string): string {
   execFileSync('git', ['init', '-q', dir], { windowsHide: true });
   execFileSync('git', ['-C', dir, 'remote', 'add', 'origin', remote], { windowsHide: true });
   return dir;
+}
+
+/** A real git checkout that has NO origin remote — a fresh local `git init`
+ *  nobody has pushed anywhere yet, so routing cannot tie it to any issue. */
+function checkoutWithoutOrigin(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'ap-pool-local-'));
+  execFileSync('git', ['init', '-q', dir], { windowsHide: true });
+  return dir;
+}
+
+/** One open, unassigned pool issue on example/repo — the claimable shape
+ *  every execute-path edge below starts from. */
+function pooledIssue(number: number = 42): unknown {
+  return {
+    number,
+    title: 'Keyboard nav is broken',
+    url: `https://github.com/example/repo/issues/${number}`,
+    labels: [{ name: 'pool: accessibility' }],
+    assignees: [],
+  };
+}
+
+/** The Store the API under test opened last — read through the `openStore`
+ *  wrapper above, so a test can assert it was closed again. */
+function lastOpenedStore(): Store {
+  const results = vi.mocked(openStore).mock.results;
+  const last = results[results.length - 1];
+  if (last === undefined || last.type !== 'return') throw new Error('openStore was never called');
+  return last.value as Store;
 }
 
 function tasks(s: Store, projectId: string): { id: string; source: string }[] {
@@ -239,5 +277,147 @@ describe('createPoolClientExecuteApi', () => {
   it('defaults to the real CLI exec when none is injected', async () =>
     withTempDb(async (dbPath) => {
       expect(() => createPoolClientExecuteApi(dbPath)).not.toThrow();
+    }));
+
+  // EPIC 0019 additive-only law: the claim flow's execute wiring keeps its
+  // existing contracts — a plain claim never opens the store, every branch
+  // that does open it closes it again, a skip never becomes a board task, and
+  // the claim contract's FOCUS rides through the HTTP wiring unchanged.
+
+  it('never opens the store for a plain claim — only a project id pays for it', async () =>
+    withTempDb(async (dbPath) => {
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', checkoutOf('https://github.com/example/repo.git'));
+      s.close();
+      const api = createPoolClientExecuteApi(dbPath, execFor([pooledIssue()], 'octocat'));
+
+      vi.mocked(openStore).mockClear();
+      await api(42);
+      expect(openStore).not.toHaveBeenCalled();
+
+      await api(42, 'p1');
+      expect(openStore).toHaveBeenCalledTimes(1);
+      expect(openStore).toHaveBeenLastCalledWith(dbPath);
+      expect(lastOpenedStore().db.open).toBe(false);
+    }));
+
+  it('closes the store and plans no route when a known project is given but the issue left the open pool', async () =>
+    withTempDb(async (dbPath) => {
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', checkoutOf('https://github.com/example/repo.git'));
+      s.close();
+      const api = createPoolClientExecuteApi(dbPath, execFor([], 'octocat'));
+
+      vi.mocked(openStore).mockClear();
+      const result = await api(404, 'p1');
+
+      expect(result.decision.decision).toBe('skip');
+      expect(result.issue).toBeUndefined();
+      expect(result.commandResults).toEqual([]);
+      expect(result).toMatchObject({ taskQueued: false, focused: false });
+      expect(result.route).toBeUndefined();
+      expect(lastOpenedStore().db.open).toBe(false);
+      const s2 = openStore(dbPath, { readonly: true });
+      try {
+        expect(tasks(s2, 'p1')).toEqual([]);
+      } finally {
+        s2.close();
+      }
+    }));
+
+  it('queues nothing on a connected project when the viewer identity cannot be resolved — a skip is never a task', async () =>
+    withTempDb(async (dbPath) => {
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', checkoutOf('https://github.com/example/repo.git'));
+      s.close();
+      const api = createPoolClientExecuteApi(dbPath, execFor([pooledIssue()], undefined));
+
+      const result = await api(42, 'p1');
+
+      expect(result.decision.decision).toBe('skip');
+      expect(result.commandResults).toEqual([]);
+      expect(result).toMatchObject({ taskQueued: false, focused: false });
+      expect(result.route).toEqual({ ok: true, projectId: 'p1' });
+      const s2 = openStore(dbPath, { readonly: true });
+      try {
+        expect(tasks(s2, 'p1')).toEqual([]);
+      } finally {
+        s2.close();
+      }
+    }));
+
+  it('claims on GitHub but refuses a registered project whose checkout has no origin remote, naming it', async () =>
+    withTempDb(async (dbPath) => {
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'local', checkoutWithoutOrigin());
+      s.close();
+      const api = createPoolClientExecuteApi(dbPath, execFor([pooledIssue()], 'octocat'));
+
+      const result = await api(42, 'local');
+
+      expect(result.decision.decision).toBe('claim');
+      expect(result.commandResults).toHaveLength(2);
+      expect(result).toMatchObject({ taskQueued: false, focused: false });
+      expect(result.route).toEqual({
+        ok: false,
+        reason: 'not-connected',
+        detail: expect.stringContaining('"local"'),
+        candidates: [],
+      });
+      expect(result.route).toMatchObject({ detail: expect.stringContaining('example/repo') });
+      const s2 = openStore(dbPath, { readonly: true });
+      try {
+        expect(tasks(s2, 'local')).toEqual([]);
+      } finally {
+        s2.close();
+      }
+    }));
+
+  it('focuses the task it queues and reports the route it took — the claim contract rides the HTTP wiring', async () =>
+    withTempDb(async (dbPath) => {
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', checkoutOf('https://github.com/example/repo.git'));
+      s.close();
+      const api = createPoolClientExecuteApi(dbPath, execFor([pooledIssue()], 'octocat'));
+
+      const result = await api(42, 'p1');
+
+      expect(result).toMatchObject({
+        taskQueued: true,
+        focused: true,
+        route: { ok: true, projectId: 'p1' },
+      });
+      const s2 = openStore(dbPath, { readonly: true });
+      try {
+        const row = s2.db.prepare('SELECT focus FROM tasks WHERE id = ?').get('github-42') as {
+          focus: number;
+        };
+        expect(row.focus).toBe(1);
+      } finally {
+        s2.close();
+      }
+    }));
+
+  it('closes the store even when the claim itself throws', async () =>
+    withTempDb(async (dbPath) => {
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', checkoutOf('https://github.com/example/repo.git'));
+      s.close();
+      const exec: CliExec = vi.fn(async () => {
+        throw new Error('gh exploded');
+      });
+      const api = createPoolClientExecuteApi(dbPath, exec);
+
+      vi.mocked(openStore).mockClear();
+      await expect(api(42, 'p1')).rejects.toThrow('gh exploded');
+
+      expect(openStore).toHaveBeenCalledTimes(1);
+      expect(lastOpenedStore().db.open).toBe(false);
     }));
 });
