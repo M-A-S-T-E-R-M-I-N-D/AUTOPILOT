@@ -7,6 +7,7 @@
  * through source.test.ts's readFleet integration tests (which assert the
  * assembled FleetView, not each parser's own defensive-decode contract:
  * the limit clamps, the malformed-entry skip, and the try/catch degrade).
+ * parseCommitReviewRecord joined them with its own tests from the start.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -15,6 +16,7 @@ import {
   parseTopDirs,
   parseHotFiles,
   parseActivityRows,
+  parseCommitReviewRecord,
 } from '../../src/read/source.js';
 import type { ProjectIndexMetaRow } from '@autopilot/store';
 
@@ -272,5 +274,83 @@ describe('parseActivityRows', () => {
       { firing_id: null, payload: JSON.stringify({ tool: 'Bash' }), created_at: 100 },
     ]);
     expect(result[0]).toMatchObject({ firingId: null });
+  });
+});
+
+describe('parseCommitReviewRecord', () => {
+  const record = (review: unknown): string => JSON.stringify({ item: 'AP-1', review });
+
+  it('reads a reviewed firing: model, the review call cost, and every finding in order', () => {
+    const review = {
+      status: 'reviewed',
+      model: 'claude-haiku-4-5',
+      costUsd: 0.004,
+      findings: [
+        { severity: 'high', file: 'src/a.ts', problem: 'the error path swallows the exit code' },
+        { severity: 'low', file: null, problem: 'the subject names a file the diff never touches' },
+      ],
+    };
+    expect(parseCommitReviewRecord(record(review))).toEqual(review);
+  });
+
+  it('keeps a clean review (no findings) apart from an absent one', () => {
+    expect(
+      parseCommitReviewRecord(
+        record({ status: 'reviewed', model: 'haiku', costUsd: null, findings: [] }),
+      ),
+    ).toEqual({ status: 'reviewed', model: 'haiku', costUsd: null, findings: [] });
+  });
+
+  it('reads a skipped review with the reason it gave', () => {
+    expect(
+      parseCommitReviewRecord(record({ status: 'skipped', reason: 'no diff text to review' })),
+    ).toEqual({ status: 'skipped', reason: 'no diff text to review' });
+  });
+
+  it('drops a malformed finding and keeps the rest, the same stance the engine parser takes', () => {
+    const parsed = parseCommitReviewRecord(
+      record({
+        status: 'reviewed',
+        model: 'haiku',
+        costUsd: 0.001,
+        findings: [
+          { severity: 'catastrophic', file: 'a.ts', problem: 'not a severity' },
+          { severity: 'medium', file: 'b.ts' },
+          { severity: 'low', file: 'c.ts', problem: '   ' },
+          'not an object',
+          null,
+          { severity: 'medium', file: 7, problem: 'a non-string file reads as no file' },
+        ],
+      }),
+    );
+    expect(parsed).toEqual({
+      status: 'reviewed',
+      model: 'haiku',
+      costUsd: 0.001,
+      findings: [{ severity: 'medium', file: null, problem: 'a non-string file reads as no file' }],
+    });
+  });
+
+  it('reads a non-numeric review cost as unknown, never a fabricated 0', () => {
+    const parsed = parseCommitReviewRecord(
+      record({ status: 'reviewed', model: 'haiku', costUsd: 'free', findings: [] }),
+    );
+    expect(parsed).toMatchObject({ status: 'reviewed', costUsd: null });
+  });
+
+  it('yields null for a firing the review never ran on, or a record it cannot read', () => {
+    expect(parseCommitReviewRecord(null)).toBeNull();
+    expect(parseCommitReviewRecord('not valid json {{{')).toBeNull();
+    expect(parseCommitReviewRecord(JSON.stringify({ item: 'AP-1' }))).toBeNull();
+    expect(parseCommitReviewRecord('null')).toBeNull();
+    expect(parseCommitReviewRecord(record('reviewed'))).toBeNull();
+    expect(parseCommitReviewRecord(record({ status: 'pending' }))).toBeNull();
+    expect(parseCommitReviewRecord(record({ status: 'skipped' }))).toBeNull();
+    expect(
+      parseCommitReviewRecord(record({ status: 'reviewed', costUsd: 0, findings: [] })),
+    ).toBeNull();
+    expect(
+      parseCommitReviewRecord(record({ status: 'reviewed', model: 'haiku', costUsd: 0 })),
+    ).toBeNull();
   });
 });
