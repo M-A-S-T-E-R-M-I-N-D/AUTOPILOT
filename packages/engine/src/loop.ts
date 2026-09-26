@@ -15,7 +15,13 @@
  */
 
 import { hibernateMinutes, type ResilienceState } from './resilience.js';
-import { runFiring, type FiringDeps, type FiringInput, type FiringOutcome } from './firing.js';
+import {
+  runFiring,
+  describeCommitReview,
+  type FiringDeps,
+  type FiringInput,
+  type FiringOutcome,
+} from './firing.js';
 import type { EngineConfig } from './config.js';
 
 export interface LoopDeps {
@@ -197,6 +203,11 @@ export async function runLoop(
       deps.log(
         `guard denied ${outcome.guardDenials} tool call(s) this firing (containment / read-hygiene)`,
       );
+    }
+    // Commit-time review (docs/BACKLOG-999.md C5): non-blocking, so the log
+    // line is where a finding gets seen at all during the flight.
+    if (outcome.record.review) {
+      deps.log(`firing ${outcome.record.firing} ${describeCommitReview(outcome.record.review)}`);
     }
     // A firing that ended without a result envelope died before it could
     // say anything — the eight-lane round lost six of eight this way with

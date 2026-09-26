@@ -26,6 +26,7 @@ import type {
   ClockPort,
 } from '../src/ports.js';
 import type { FiringRecord } from '../src/telemetry.js';
+import type { CommitReviewPort, CommitReviewRequest } from '../src/ports.js';
 
 function envelope(over: Partial<ModelEnvelope> = {}): ModelEnvelope {
   return {
@@ -410,6 +411,93 @@ describe('runFiring', () => {
     expect(vcs.revertCalls).toBe(0);
     expect(out.gateResult).toBe('passed');
     expect(out.record.gateChecks[0]).toMatchObject({ label: 'diff-size', pass: true });
+  });
+
+  describe('COMMIT-TIME REVIEW (BACKLOG-999 C5)', () => {
+    const FINDINGS = [{ severity: 'high' as const, file: 'src/a.ts', problem: 'inverted guard' }];
+    const INPUT: FiringInput = { ...baseInput, state: INITIAL_RESILIENCE_STATE };
+    function recordingReviewer(): CommitReviewPort & { requests: CommitReviewRequest[] } {
+      const requests: CommitReviewRequest[] = [];
+      return {
+        requests,
+        review: (request) => {
+          requests.push(request);
+          return Promise.resolve({
+            status: 'reviewed',
+            model: 'haiku',
+            costUsd: 0,
+            findings: FINDINGS,
+          });
+        },
+      };
+    }
+    function shippedVcs(): FakeVcs {
+      return new FakeVcs({
+        heads: ['h0', 'h1'],
+        last: { subject: 'feat: AP-1', shortSha: 'abc' },
+        existing: new Set(['abc']),
+      });
+    }
+    /** A shipping firing's ports; `reviewer` omitted means none is wired. */
+    function shippingDeps(vcs: FakeVcs, gateOk: boolean, reviewer?: CommitReviewPort): FiringDeps {
+      const model = new FakeModel([shippedResponse()]);
+      const base = deps(model, vcs, new FakeGate(gateOk), new FakeStore());
+      return reviewer ? { ...base, reviewer } : base;
+    }
+
+    it('reviews a gate-passed commit and records the findings without touching the verdict', async () => {
+      const reviewer = recordingReviewer();
+      const vcs = shippedVcs();
+      const out = await runFiring(shippingDeps(vcs, true, reviewer), DEFAULT_ENGINE_CONFIG, INPUT);
+
+      expect(reviewer.requests).toEqual([
+        { headBefore: 'h0', headAfter: 'h1', subject: 'feat: AP-1' },
+      ]);
+      // Non-blocking: a high-severity finding still lands the commit.
+      expect(out.gateResult).toBe('passed');
+      expect(vcs.revertCalls).toBe(0);
+      expect(out.record.shipped).toBe(true);
+      expect(out.record.review).toEqual({
+        status: 'reviewed',
+        model: 'haiku',
+        costUsd: 0,
+        findings: FINDINGS,
+      });
+    });
+
+    it('never reviews reverted work, and a firing with no reviewer carries no review field', async () => {
+      const reviewer = recordingReviewer();
+      const reverted = await runFiring(
+        shippingDeps(shippedVcs(), false, reviewer),
+        DEFAULT_ENGINE_CONFIG,
+        INPUT,
+      );
+      expect(reverted.gateResult).toBe('reverted');
+      expect(reviewer.requests).toEqual([]);
+      expect(reverted.record.review).toBeUndefined();
+
+      const unreviewed = await runFiring(
+        shippingDeps(shippedVcs(), true),
+        DEFAULT_ENGINE_CONFIG,
+        INPUT,
+      );
+      expect(unreviewed.gateResult).toBe('passed');
+      expect(unreviewed.record.review).toBeUndefined();
+    });
+
+    it('a reviewer that throws is recorded as a skip — the firing still passes', async () => {
+      const reviewer: CommitReviewPort = { review: () => Promise.reject(new Error('cli gone')) };
+      const out = await runFiring(
+        shippingDeps(shippedVcs(), true, reviewer),
+        DEFAULT_ENGINE_CONFIG,
+        INPUT,
+      );
+      expect(out.gateResult).toBe('passed');
+      expect(out.record.review).toEqual({
+        status: 'skipped',
+        reason: 'the reviewer failed: cli gone',
+      });
+    });
   });
 
   it('additively reverts a commit that fails the gate', async () => {
