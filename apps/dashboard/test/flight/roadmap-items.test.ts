@@ -22,6 +22,10 @@ describe('isRoadmapItem', () => {
   it('is false for an empty label list', () => {
     expect(isRoadmapItem([])).toBe(false);
   });
+
+  it('matches the seeded spelling exactly — unlike the GitHub-default help wanted label, roadmap is ours', () => {
+    expect(isRoadmapItem(['Roadmap', 'roadmap: v2', ' roadmap'])).toBe(false);
+  });
 });
 
 describe('fetchRoadmapItems', () => {
@@ -158,5 +162,51 @@ describe('fetchRoadmapItems', () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{"not":"an array"}' });
 
     expect(await fetchRoadmapItems(exec)).toEqual([]);
+  });
+
+  it('skips null and non-object rows instead of throwing, keeping the valid neighbor', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        null,
+        4,
+        'row',
+        {
+          number: 16,
+          title: 'Still listed',
+          url: 'https://github.com/example/repo/issues/16',
+          labels: [{ name: 'roadmap' }],
+        },
+      ]),
+    });
+
+    const items = await fetchRoadmapItems(exec);
+
+    expect(items.map((item) => item.number)).toEqual([16]);
+  });
+
+  it('reads a non-array assignees field as unclaimed rather than dropping the issue', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 17,
+          title: 'Assignees as a string',
+          url: 'https://github.com/example/repo/issues/17',
+          labels: [{ name: 'roadmap' }],
+          assignees: 'octocat',
+        },
+      ]),
+    });
+
+    expect(await fetchRoadmapItems(exec)).toEqual<RoadmapItem[]>([
+      {
+        number: 17,
+        title: 'Assignees as a string',
+        url: 'https://github.com/example/repo/issues/17',
+        labels: ['roadmap'],
+        assignees: [],
+      },
+    ]);
   });
 });

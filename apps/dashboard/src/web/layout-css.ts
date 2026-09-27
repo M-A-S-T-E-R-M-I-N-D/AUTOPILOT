@@ -1018,6 +1018,12 @@ main.project-mode { grid-template-columns: 1fr; }
 .pr-review-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .pr-review-number { font-family: var(--font-mono); color: var(--color-text-muted); }
 .pr-review-pr-title { margin: 0; font-size: var(--text-sm); }
+.pr-review-labels { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.pr-review-labels li { padding: 0 var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); font-size: var(--text-xs); color: var(--color-text-muted); }
+.pr-review-diffstat { margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+summary.pr-review-diffstat { cursor: pointer; }
+.pr-review-files ul { margin: var(--space-1) 0 0; padding-inline-start: var(--space-4); font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; unicode-bidi: plaintext; }
+.pr-review-files p { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
 .landing-result-warn { color: var(--color-needs-you); }
 .contributor-standing-tier-you { color: var(--color-accent); font-weight: 600; }
 .pr-review-number-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
@@ -1540,6 +1546,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-proposal-summary { font-size: var(--text-xs); color: var(--color-needs-you); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .soul-proposal-summary:hover, .soul-proposal-summary:focus-visible { background: var(--color-surface-raised); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .soul-proposal-summary:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.soul-proposal-summary > .icon, .soul-review-btn > .icon { margin-inline-end: 0.35em; }
 .soul-proposal-text { white-space: pre-wrap; word-break: break-word; font-size: var(--text-xs); max-height: 16rem; overflow: auto; margin: var(--space-2) 0; }
 .soul-proposal-row { display: flex; gap: var(--space-2); }
 .soul-ratify-btn, .soul-dismiss-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); background: transparent; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }

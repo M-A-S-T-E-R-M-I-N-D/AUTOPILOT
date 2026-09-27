@@ -69,6 +69,8 @@ import {
   formatCheckDuration,
   prCheckRunTip,
   prCheckSummary,
+  prDiffStat,
+  prUnlistedFilesNote,
   awaitingApprovalChecksUrl,
   humanMergeReadiness,
   humanMergeConfirmMessage,
@@ -117,6 +119,9 @@ ${prCheckStateGlyph.toString()}
 ${formatCheckDuration.toString()}
 ${prCheckRunTip.toString()}
 ${prCheckSummary.toString()}
+// What the PR touches (board ap-mujmnnqt-1), same .toString() splice.
+${prDiffStat.toString()}
+${prUnlistedFilesNote.toString()}
 // GitHub's own Checks-tab URL for a PR stuck in action_required, same
 // .toString() splice (board web-mto1tya3-57v8ig) — turns the badge's
 // tooltip-only command into a real link to GitHub's own approve control.
@@ -294,6 +299,33 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
     head.appendChild(tipChip(headMeta.badgeText, headMeta.badgeTip, headMeta.badgeAriaLabel, headMeta.badgeClass, badgeIcon));
     item.appendChild(head);
     item.appendChild(el('p', 'pr-review-pr-title', plan.pr.title));
+    // WHAT THE PR TOUCHES (board ap-mujmnnqt-1): its labels, GitHub's own
+    // "+N −M · N files", and every path behind a native <details> — keyboard-
+    // operable with no script of its own. gh already sent all of it; the card
+    // dropped it here. textContent only: a path or label is PR-author text.
+    // Classless <li>/<ul>/<p> children, styled by descendant selector: every
+    // class string is bytes on the budgeted panels chunk.
+    var prLabels = plan.pr.labels || [];
+    if (prLabels.length) {
+      var labelList = el('ul', 'pr-review-labels');
+      labelList.setAttribute('aria-label', 'Labels');
+      prLabels.forEach(function (name) { labelList.appendChild(el('li', '', name)); });
+      item.appendChild(labelList);
+    }
+    var diffStat = prDiffStat(plan.pr);
+    var paths = plan.pr.touchedPaths || [];
+    if (paths.length) {
+      var files = el('details', 'pr-review-files');
+      files.appendChild(el('summary', 'pr-review-diffstat', diffStat || 'Files'));
+      var fileList = el('ul');
+      paths.forEach(function (path) { fileList.appendChild(el('li', '', path)); });
+      files.appendChild(fileList);
+      var unlisted = prUnlistedFilesNote(plan.pr);
+      if (unlisted) files.appendChild(el('p', 'muted', unlisted));
+      item.appendChild(files);
+    } else if (diffStat) {
+      item.appendChild(el('p', 'pr-review-diffstat', diffStat));
+    }
     // THE PIPELINE STRIP: the stages behind the one-word gate verdict, each
     // its own deep link, each carrying its own elapsed time, running ones
     // animated. The rollup was always fetched and always discarded at this

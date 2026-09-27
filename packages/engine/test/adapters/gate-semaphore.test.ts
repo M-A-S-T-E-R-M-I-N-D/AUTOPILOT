@@ -2,7 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import {
+  mkdtempSync,
+  openSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileGateSemaphore, nestedSemaphore } from '../../src/adapters/gate-semaphore.js';
@@ -70,6 +78,46 @@ describe('FileGateSemaphore', () => {
     await waiter.acquire();
     expect(polls).toBeGreaterThanOrEqual(2);
     expect(readdirSync(dir)).toHaveLength(2); // the freed slot + the still-held one
+  });
+
+  it('waits out a slot file Windows reports as EPERM mid-deletion, instead of crashing the flight (2026-09-27)', async () => {
+    // Round 28: a lane died on an unhandled EPERM from this open — another
+    // lane was deleting that slot file at the same instant.
+    let calls = 0;
+    const sem = new FileGateSemaphore({
+      dir,
+      slots: 1,
+      pid: 444,
+      isAlive: () => true,
+      pollIntervalMs: 1,
+      sleep: async () => {},
+      openExclusive: (path) => {
+        calls += 1;
+        if (calls <= 2) {
+          throw Object.assign(new Error(`EPERM: operation not permitted, open '${path}'`), {
+            code: 'EPERM',
+          });
+        }
+        return openSync(path, 'wx');
+      },
+    });
+    const release = await sem.acquire();
+    expect(calls).toBeGreaterThanOrEqual(3);
+    expect(readdirSync(dir)).toEqual(['gate-semaphore-slot-0.lock']);
+    release();
+  });
+
+  it('still throws an error that is not a slot in flux', async () => {
+    const sem = new FileGateSemaphore({
+      dir,
+      slots: 1,
+      pid: 445,
+      isAlive: () => true,
+      openExclusive: () => {
+        throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
+      },
+    });
+    await expect(sem.acquire()).rejects.toThrow('ENOSPC');
   });
 
   it('reclaims a slot left by a dead lane instead of waiting for it', async () => {

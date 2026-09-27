@@ -4,7 +4,7 @@
 /**
  * The fleet page's two SOUL-loop review buttons that were still raw English
  * `el()` text nodes (board web-msnsndki-dz3vn1; `pnpm i18n:untagged` listed
- * all three): the card head's "◐ SOUL unreviewed" badge-button
+ * all three): the card head's "SOUL unreviewed" badge-button
  * (`soulReviewBtn()`), and the FLEET WISDOM banner's ✓ ratify / ✗ dismiss
  * pair (`fleetWisdomPanel()`).
  *
@@ -98,13 +98,16 @@ describe('SOUL-unreviewed badge + fleet-wisdom ratify/dismiss i18n (board web-ms
     vi.restoreAllMocks();
   });
 
-  it('tags the ◐ SOUL unreviewed badge-button with soulUnreviewed', async () => {
+  it('tags the SOUL unreviewed badge-button with soulUnreviewed', async () => {
     await boot(stateWith({}));
 
     const btn = document.querySelector('button[data-soul-review="p1"]');
-    expect(btn?.textContent).toBe('◐ SOUL unreviewed');
+    expect(btn?.textContent).toBe('SOUL unreviewed');
     expect(btn?.getAttribute('data-i18n')).toBe('soulUnreviewed');
     expect(btn?.textContent).toBe(STRINGS.en.soulUnreviewed);
+    // Epic 0025: the baked ◐ became the vendored dna icon (the evolution
+    // panel's own mark), decorative beside the label that names the state.
+    expect(btn?.querySelector('svg.icon-dna')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('tags the fleet-wisdom ✓ ratify / ✗ dismiss buttons with the shared soulRatify / soulDismiss keys', async () => {
@@ -124,6 +127,8 @@ describe('SOUL-unreviewed badge + fleet-wisdom ratify/dismiss i18n (board web-ms
 
     const btn = document.querySelector('button[data-soul-review="p1"]');
     expect(btn?.textContent).toBe(STRINGS.he.soulUnreviewed);
+    // setSweptText() (features/locale.ts) swaps only the trailing text node.
+    expect(btn?.firstElementChild?.getAttribute('class')).toBe('icon icon-dna');
     const descId = btn?.getAttribute('aria-describedby');
     expect(descId).toBeTruthy();
     expect(document.getElementById(descId as string)?.textContent).toBe(
@@ -158,8 +163,11 @@ describe('SOUL-unreviewed badge + fleet-wisdom ratify/dismiss i18n (board web-ms
     expect(ratify?.textContent).toBe(STRINGS.he.soulRatify);
   });
 
-  it('keeps the Hebrew badge label marked like its English twin and naming SOUL', () => {
-    expect(STRINGS.he.soulUnreviewed.startsWith('◐ ')).toBe(true);
+  it('keeps the Hebrew badge label glyph-free like its English twin and naming SOUL', () => {
+    for (const table of [STRINGS.en, STRINGS.he]) {
+      expect(table.soulUnreviewed).not.toMatch(/[■-◿]/);
+      expect(table.soulUnreviewed).toBe(table.soulUnreviewed.trim());
+    }
     expect(STRINGS.he.soulUnreviewed).toContain('SOUL');
     expect(STRINGS.he.soulUnreviewed).not.toBe(STRINGS.en.soulUnreviewed);
   });

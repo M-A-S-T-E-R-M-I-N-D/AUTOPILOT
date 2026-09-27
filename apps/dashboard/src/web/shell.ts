@@ -1485,13 +1485,18 @@ function cardHead(c) {
 // the operator's one-click way to say "I've read it" (POST handler below).
 function soulReviewBtn(projectId) {
   var tip = "This project's starter SOUL prompt was auto-generated and has not been reviewed by you yet — click to mark it reviewed";
-  var btn = el('button', 'soul-review-btn', '◐ SOUL unreviewed');
+  var btn = el('button', 'soul-review-btn');
+  // Epic 0025 (board web-mtywp7zq-55f3o9): the evolution panel's dna icon
+  // replaces the baked-in ◐ glyph, as on the proposal summaries below —
+  // setSweptText() (features/locale.ts) keeps it across a locale switch.
+  btn.appendChild(iconEl('dna'));
+  btn.appendChild(document.createTextNode('SOUL unreviewed'));
   btn.setAttribute('type', 'button');
   btn.setAttribute('data-i18n', 'soulUnreviewed');
   btn.setAttribute('data-soul-review', projectId);
   btn.setAttribute('data-tip', tip);
   // D1 ATTRIBUTE PAYLOAD (epic 0015, board web-mtd1wmqc-v7h6cq): the button's
-  // own "◐ SOUL unreviewed" text already gives it a short accessible name —
+  // own "SOUL unreviewed" text already gives it a short accessible name —
   // an aria-label here would override that name with the full tip sentence
   // AND duplicate data-tip verbatim. The tip instead rides aria-describedby
   // into a visually-hidden sibling span, appended AFTER the button (not
@@ -1607,7 +1612,9 @@ function cardActions(c) {
 // way until opened, with zero focus-trap/modal complexity.
 function soulProposalPanel(projectId, proposedText) {
   var details = el('details', 'soul-proposal');
-  var summaryEl = el('summary', 'soul-proposal-summary', '◇ SOUL proposal pending — review');
+  var summaryEl = el('summary', 'soul-proposal-summary');
+  summaryEl.appendChild(iconEl('dna'));
+  summaryEl.appendChild(document.createTextNode('SOUL proposal pending — review'));
   summaryEl.setAttribute('data-i18n', 'soulProposalSummary');
   details.appendChild(summaryEl);
   details.appendChild(el('pre', 'soul-proposal-text', proposedText));
@@ -1658,9 +1665,11 @@ function soulUnratifyChip(projectId) {
 function fleetWisdomPanel(proposedText, wisdomKind) {
   var details = el('details', 'soul-proposal fleet-wisdom-panel');
   var summaryText = wisdomKind
-    ? '◆ Fleet wisdom proposal pending (' + wisdomKind + ') — review'
-    : '◆ Fleet wisdom proposal pending — review';
-  var summaryEl = el('summary', 'soul-proposal-summary', summaryText);
+    ? 'Fleet wisdom proposal pending (' + wisdomKind + ') — review'
+    : 'Fleet wisdom proposal pending — review';
+  var summaryEl = el('summary', 'soul-proposal-summary');
+  summaryEl.appendChild(iconEl('dna'));
+  summaryEl.appendChild(document.createTextNode(summaryText));
   details.appendChild(summaryEl);
   details.appendChild(el('pre', 'soul-proposal-text fleet-wisdom-text', proposedText));
   var row = el('div', 'soul-proposal-row');
@@ -3487,7 +3496,7 @@ document.addEventListener('click', function (e) {
     .then(function () { refresh(); })
     .catch(function () { b.disabled = false; });
 });
-// Ratify a project's SOUL (◐ SOUL unreviewed) — SOUL evolution loop, B5.
+// Ratify a project's SOUL (the "SOUL unreviewed" badge) — SOUL evolution loop, B5.
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-soul-review]');
   if (!b) return;

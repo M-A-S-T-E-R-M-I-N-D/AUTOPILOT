@@ -150,10 +150,20 @@ export async function findClosedTaskAuditFindings(
   return findings;
 }
 
+const CLOSED_TASK_AUDIT_ID_PREFIX = 'closedaudit-';
+
 /** The board id the audit proposes a finding under — keyed on the task alone,
  *  so an unresolved finding is never re-proposed flight after flight. */
 export function closedTaskAuditId(taskId: string): string {
-  return `closedaudit-${taskId}`;
+  return `${CLOSED_TASK_AUDIT_ID_PREFIX}${taskId}`;
+}
+
+/** The task id an audit proposal names ({@link closedTaskAuditId}'s inverse),
+ *  or null for an id that is not an audit proposal. */
+export function auditedTaskId(auditId: string): string | null {
+  return auditId.startsWith(CLOSED_TASK_AUDIT_ID_PREFIX)
+    ? auditId.slice(CLOSED_TASK_AUDIT_ID_PREFIX.length) || null
+    : null;
 }
 
 /**
@@ -161,7 +171,7 @@ export function closedTaskAuditId(taskId: string): string {
  * task each one names was re-audited just now (a DONE candidate that still
  * carries a clause) and produced no finding, so the drift it reported no
  * longer holds — it reversed, or the lookup that reported it had failed. An
- * audit whose task was NOT re-audited (out of the done window, reopened, its
+ * audit whose task was NOT re-audited (not among `candidates`: reopened, its
  * clause edited away) is never returned: no fresh evidence either way.
  */
 export function findStaleClosedTaskAuditIds(

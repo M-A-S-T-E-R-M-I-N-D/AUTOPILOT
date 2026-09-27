@@ -69,10 +69,12 @@ interface RawRoadmapItem {
  * `issue-triage.ts`'s `fetchOpenIssues` and `pool-client.ts`'s
  * `fetchPoolIssues` use. Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing — an empty roadmap is a
- * valid outcome, and a flaky `gh` call shouldn't crash the read. Entries
- * missing a numeric `number`, string `title`, or string `url` are dropped
- * rather than passed through malformed, the same defensive shape
- * `pool-client.ts`'s `fetchPoolIssues` uses.
+ * valid outcome, and a flaky `gh` call shouldn't crash the read. Rows that
+ * are not objects (a `null` included) and entries missing a numeric
+ * `number`, string `title`, or string `url` are dropped rather than passed
+ * through malformed — a single bad row must not throw, because
+ * `collaboration.ts` composes this read with `help-wanted-items.ts`'s and a
+ * throw there would blank both panels.
  */
 export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
   const { code, stdout } = await exec('gh', [
@@ -95,7 +97,8 @@ export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
   }
   if (!Array.isArray(parsed)) return [];
 
-  return (parsed as RawRoadmapItem[])
+  return (parsed as unknown[])
+    .filter((raw): raw is RawRoadmapItem => typeof raw === 'object' && raw !== null)
     .filter(
       (raw) =>
         typeof raw.number === 'number' &&

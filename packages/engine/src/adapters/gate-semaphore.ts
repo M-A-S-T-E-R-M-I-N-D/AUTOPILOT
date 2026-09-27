@@ -54,7 +54,20 @@ export interface FileGateSemaphoreOptions {
   readonly pollIntervalMs?: number;
   /** Give up waiting and run unslotted past this — see the FAIL OPEN note above. */
   readonly maxWaitMs?: number;
+  /** Opens a slot file exclusively (`wx`), returning its descriptor. Injectable
+   *  so a test can reproduce what Windows does to a file mid-deletion. */
+  readonly openExclusive?: (path: string) => number;
 }
+
+/**
+ * Errors that mean "this slot file is in flux", not "the gate is broken"
+ * (2026-09-27): EEXIST is a held slot, and on Windows a slot file another
+ * lane is deleting at that instant opens as EPERM (or EACCES/EBUSY). A lane
+ * crashed on exactly that — an unhandled EPERM from this open killed the
+ * whole flight mid-round. Every one of them is a busy slot, retried on the
+ * next poll; a persistent one ends in the FAIL OPEN wait like any other.
+ */
+const SLOT_IN_FLUX = new Set(['EEXIST', 'EPERM', 'EACCES', 'EBUSY']);
 
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
 // Below GateRunner's own DEFAULT_TIMEOUT_MS (10 min) — a caller that fails
@@ -75,6 +88,7 @@ export class FileGateSemaphore implements GateSemaphorePort {
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly pollIntervalMs: number;
   private readonly maxWaitMs: number;
+  private readonly openExclusive: (path: string) => number;
 
   constructor(opts: FileGateSemaphoreOptions) {
     this.dir = opts.dir;
@@ -86,6 +100,7 @@ export class FileGateSemaphore implements GateSemaphorePort {
     this.sleep = opts.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.pollIntervalMs = opts.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.maxWaitMs = opts.maxWaitMs ?? DEFAULT_MAX_WAIT_MS;
+    this.openExclusive = opts.openExclusive ?? ((path) => openSync(path, 'wx'));
   }
 
   async acquire(): Promise<() => void> {
@@ -141,7 +156,7 @@ export class FileGateSemaphore implements GateSemaphorePort {
 
   private tryCreate(path: string): boolean {
     try {
-      const fd = openSync(path, 'wx');
+      const fd = this.openExclusive(path);
       try {
         writeSync(fd, JSON.stringify({ pid: this.pid, startedAt: this.now() }));
       } finally {
@@ -149,7 +164,7 @@ export class FileGateSemaphore implements GateSemaphorePort {
       }
       return true;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+      if (SLOT_IN_FLUX.has((error as NodeJS.ErrnoException).code ?? '')) return false;
       throw error;
     }
   }

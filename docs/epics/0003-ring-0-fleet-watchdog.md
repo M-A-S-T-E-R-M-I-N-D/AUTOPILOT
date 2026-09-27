@@ -64,6 +64,15 @@ letting an operator opt a project's firings into filing proposals `queued` inste
 `flightWatchdogTick`/`landWatchdogTick`, spawn logic, or the watchdog contract; same
 "grown past scope, contract unchanged" shape the evolution notes above use.
 
+Model-routing and round-evaluation infrastructure added 2026-09-27 (model-scoreboard and
+round-evaluation commands): `control/cli.ts` expanded with reporting and evaluation
+capabilities that bench-mark fleet model routing across concurrent firings and expose
+per-round evaluation data. Both features use the existing `flightWatchdogTick` cadence
+to expose aggregate fleet visibility but do not alter spawn, revival, or landing logic.
+Same "grown past scope, contract unchanged" shape — `flightWatchdogTick`/
+`landWatchdogTick`/`FLYABLE_STATUSES` remain untouched, and the watchdog contract
+recorded in the acceptance criteria above is unchanged.
+
 The board's M7 PARALLEL PILOTS item (critical priority) names two halves: "FlightRunner
 becomes a per-project registry of concurrent detached flights" and "the ring-0 watchdog
 owns per-project spawning and revival." The first half shipped as

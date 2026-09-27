@@ -98,8 +98,11 @@ describe('FLEET WISDOM banner (board web-msnt26xe-pc4pzp)', () => {
 
     const summary = document.querySelector('.fleet-wisdom-panel .soul-proposal-summary');
     expect(summary?.textContent).toBe(
-      '◆ Fleet wisdom proposal pending (recurring checkpoint pattern) — review',
+      'Fleet wisdom proposal pending (recurring checkpoint pattern) — review',
     );
+    // Epic 0025: the baked ◆ became the vendored dna icon, like the
+    // project-scoped SOUL proposal it mirrors.
+    expect(summary?.querySelector('svg.icon-dna')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('falls back to the generic summary when the proposal carries no registered marker', async () => {
@@ -107,7 +110,8 @@ describe('FLEET WISDOM banner (board web-msnt26xe-pc4pzp)', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const summary = document.querySelector('.fleet-wisdom-panel .soul-proposal-summary');
-    expect(summary?.textContent).toBe('◆ Fleet wisdom proposal pending — review');
+    expect(summary?.textContent).toBe('Fleet wisdom proposal pending — review');
+    expect(summary?.querySelector('svg.icon-dna')).not.toBeNull();
   });
 
   it('the pending-wisdom panel, with its learning kind named, is axe-clean', async () => {
