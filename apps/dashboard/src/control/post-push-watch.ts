@@ -56,12 +56,14 @@ export interface PostPushWatchOptions {
   readonly timeoutMs: number;
 }
 
-/** Default cadence: check every 30s, give up after 20 minutes — long enough
- *  for a normal CI run to conclude, short enough that a watch doesn't linger
- *  forever if the workflow never reports back. */
+/** Default cadence: check every 30s, give up after 45 minutes. It was 20,
+ *  and the last twelve ci.yml runs on main took 12 to 21 minutes: a third of
+ *  landings timed out, and a timed-out watch decided nothing at all
+ *  (2026-09-27). 45 covers the slowest run with room for the queue, and a
+ *  watch still cannot linger forever. */
 export const DEFAULT_POST_PUSH_WATCH_OPTIONS: PostPushWatchOptions = {
   pollIntervalMs: 30_000,
-  timeoutMs: 20 * 60_000,
+  timeoutMs: 45 * 60_000,
 };
 
 /**
@@ -117,6 +119,51 @@ export type PostPushWatchTrigger = (
   sha: string,
 ) => void;
 
+/** The watch's outcome as a `post-push-watch` event: the commit, whether a
+ *  run concluded, and the verdict it reached. */
+function recordWatchOutcome(
+  store: Parameters<typeof syncCodeScanningTasks>[0],
+  projectId: string,
+  sha: string,
+  outcome: PostPushWatchOutcome,
+): void {
+  try {
+    store.db
+      .prepare(
+        'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
+      )
+      .run(
+        projectId,
+        'post-push-watch',
+        JSON.stringify({
+          sha,
+          outcome: outcome.kind,
+          verdict: outcome.kind === 'concluded' ? outcome.verdict.kind : null,
+        }),
+        Date.now(),
+      );
+  } catch {
+    /* the record is best-effort — never fail the watch over it */
+  }
+}
+
+/** Mirror the repository's open code-scanning alerts onto the board.
+ *  Best-effort: a missing repo or an unreadable API page files nothing. */
+function syncCodeScanningAlerts(
+  store: Parameters<typeof syncCodeScanningTasks>[0],
+  projectId: string,
+  rootPath: string,
+  gh: GhRun,
+): void {
+  try {
+    const repo = projectRepoOf(rootPath);
+    if (repo === null) return;
+    syncCodeScanningTasks(store, projectId, readOpenCodeScanningAlerts(gh, repo), Date.now());
+  } catch {
+    /* the scanner's page is advisory to the watch — never fail it */
+  }
+}
+
 /**
  * Builds the real {@link PostPushWatchTrigger} (slice 3): watches `ci.yml`
  * on `branch` against `rootPath` (`ciWorkflowStatus`, the same read the
@@ -137,23 +184,6 @@ export type PostPushWatchTrigger = (
  * (`DEFAULT_WATCH_FLY_FIRINGS`, matching `dashboard watch`'s own default)
  * scoped to the just-filed task via `AUTOPILOT_FLEET_TASK_SCOPE`.
  */
-/** Mirror the repository's open code-scanning alerts onto the board.
- *  Best-effort: a missing repo or an unreadable API page files nothing. */
-function syncCodeScanningAlerts(
-  store: Parameters<typeof syncCodeScanningTasks>[0],
-  projectId: string,
-  rootPath: string,
-  gh: GhRun,
-): void {
-  try {
-    const repo = projectRepoOf(rootPath);
-    if (repo === null) return;
-    syncCodeScanningTasks(store, projectId, readOpenCodeScanningAlerts(gh, repo), Date.now());
-  } catch {
-    /* the scanner's page is advisory to the watch — never fail it */
-  }
-}
-
 export function createPostPushWatchTrigger(
   dbPath: string,
   run?: (rootPath: string) => GhRun,
@@ -166,12 +196,17 @@ export function createPostPushWatchTrigger(
         const outcome = await watchPostPushCi({ projectId, branch, sha }, () =>
           ciWorkflowStatus('ci.yml', (run ?? createGhRun)(rootPath), Date.now(), branch),
         );
-        if (outcome.kind !== 'concluded') return;
         const store = openStore(dbPath);
         try {
+          // A WATCH IS NEVER SILENT (2026-09-27): its outcome is an event, so
+          // "did the watch run, and what did it see?" has an answer. A timed-
+          // out watch used to leave no trace and decide nothing.
+          recordWatchOutcome(store, projectId, sha, outcome);
           // CODE-SCANNING ALERTS REACH THE BOARD (2026-09-27): an alert never
-          // fails a run, so the verdict above cannot see one; read them here.
+          // fails a run, so the verdict cannot see one — and the alerts are
+          // read whatever the run came to, a timed-out watch included.
           syncCodeScanningAlerts(store, projectId, rootPath, (run ?? createGhRun)(rootPath));
+          if (outcome.kind !== 'concluded') return;
           const taskFiled = filePostPushVerdictTask(store, outcome.verdict);
           if (spawnFlight && outcome.verdict.kind === 'remediate') {
             const projectStatus =

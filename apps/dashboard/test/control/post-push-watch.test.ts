@@ -184,10 +184,12 @@ describe('watchPostPushCi', () => {
     expect(checkStatus).toHaveBeenCalledTimes(4);
   });
 
-  it('exposes sane production defaults: poll every 30s, give up after 20 minutes', () => {
+  it('exposes sane production defaults: poll every 30s, give up after 45 minutes (2026-09-27)', () => {
+    // 20 minutes timed out a third of landings: main's ci.yml runs took 12
+    // to 21 minutes, and a timed-out watch decided nothing.
     expect(DEFAULT_POST_PUSH_WATCH_OPTIONS).toEqual({
       pollIntervalMs: 30_000,
-      timeoutMs: 20 * 60_000,
+      timeoutMs: 45 * 60_000,
     });
   });
 });
@@ -250,6 +252,37 @@ describe('createPostPushWatchTrigger (slice 3 — starting a watch from a real g
       const tasks = recentTasks(s2.db, 'p1', 10);
       s2.close();
       expect(tasks).toHaveLength(0);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('leaves a post-push-watch record of what it saw, green or red (2026-09-27)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-record-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      s.close();
+
+      createPostPushWatchTrigger(dbPath, ghRunReporting('success'))(
+        'p1',
+        '/repo',
+        'main',
+        'abc1234',
+      );
+
+      await vi.waitFor(() => {
+        const s2 = openStore(dbPath);
+        const rows = s2.db
+          .prepare("SELECT payload FROM events WHERE type = 'post-push-watch'")
+          .all() as { payload: string }[];
+        s2.close();
+        expect(rows.map((r) => JSON.parse(r.payload) as unknown)).toEqual([
+          { sha: 'abc1234', outcome: 'concluded', verdict: 'recorded' },
+        ]);
+      });
     } finally {
       cleanupDir(dir);
     }
