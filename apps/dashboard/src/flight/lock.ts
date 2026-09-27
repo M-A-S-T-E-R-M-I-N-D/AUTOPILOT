@@ -229,3 +229,44 @@ export function isAnyFlightLockLive(
   }
   return false;
 }
+
+/**
+ * The pids behind this project's live flight locks, `excludePid` left out —
+ * {@link isAnyFlightLockLive} with names, for the round's last-lane-out
+ * election (flight/round-evaluation.ts), which has to tell a sibling still
+ * firing from one that is only finishing up.
+ */
+export function liveFlightLockPids(
+  dbDir: string,
+  targetPath: string,
+  excludePid?: number,
+): number[] {
+  const projectId = deriveFlyProjectId(targetPath);
+  let entries: string[];
+  try {
+    entries = readdirSync(dbDir);
+  } catch {
+    return [];
+  }
+  const bareName = engineLockFileName(projectId);
+  const instancePrefix = `engine-${projectId}--`;
+  const pids: number[] = [];
+  for (const entry of entries) {
+    if (entry !== bareName && !(entry.startsWith(instancePrefix) && entry.endsWith('.lock'))) {
+      continue;
+    }
+    const info = parseLockInfo(readLockOrEmpty(join(dbDir, entry)));
+    if (info !== null && info.pid !== excludePid && isProcessAlive(info.pid)) pids.push(info.pid);
+  }
+  return pids;
+}
+
+/** A lock file's text, or '' when it cannot be read — which parseLockInfo
+ *  rejects, so an unreadable entry names no one. */
+function readLockOrEmpty(path: string): string {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return '';
+  }
+}

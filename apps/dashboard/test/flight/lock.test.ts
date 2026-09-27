@@ -14,6 +14,7 @@ import {
   readFlightOwnerPid,
   isFlightOwnerAlive,
   isAnyFlightLockLive,
+  liveFlightLockPids,
 } from '../../src/flight/lock.js';
 
 describe('engineLockFileName', () => {
@@ -438,5 +439,27 @@ describe('the lock scan guards, and its which-file-counts rules', () => {
       );
       expect(isAnyFlightLockLive(dir, target)).toBe(true);
     });
+  });
+});
+
+describe('liveFlightLockPids — who still holds a lock, by name (2026-09-27)', () => {
+  it('names every live lock of the project, the base lane and its fleet lanes, but not the caller or the dead', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-lock-pids-'));
+    try {
+      const target = join(dir, 'my-project');
+      const id = deriveFlyProjectId(target);
+      const write = (name: string, pid: number): void =>
+        writeFileSync(join(dir, name), JSON.stringify({ pid, startedAt: Date.now() }));
+      write(engineLockFileName(id), process.pid);
+      write(engineLockFileName(id, 'fleet-2'), process.ppid);
+      write(engineLockFileName(id, 'fleet-3'), 999_999_999); // no such process
+      write(engineLockFileName('fly-other-project'), process.ppid);
+      writeFileSync(join(dir, engineLockFileName(id, 'fleet-4')), 'not json');
+      expect(liveFlightLockPids(dir, target).sort()).toEqual([process.pid, process.ppid].sort());
+      expect(liveFlightLockPids(dir, target, process.pid)).toEqual([process.ppid]);
+      expect(liveFlightLockPids(join(dir, 'missing'), target)).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
