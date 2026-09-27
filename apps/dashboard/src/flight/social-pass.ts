@@ -26,11 +26,14 @@
  * is already ours" law (2): issues and PRs authored by the resolved login,
  * across all states — one of the two evidence sources {@link
  * planSocialProtocol} dedups `'new-issue'` candidates against below.
- * Comment-level inventory (the finer-grained half `ownComments` already
- * gives `pr-review.ts` for its own PRs) is a follow-up slice: `gh` has no
- * single "list my comments across the repo" read the way it has `issue list
- * --author`/`pr list --author`, and synthesizing one (paging every
- * issue/PR's comment list) is real scope of its own, not "core".
+ * Comment-level inventory is a follow-up slice, and nothing else in the
+ * flight keeps one either: what `pr-review.ts` reads of its own activity is
+ * review-level (its standing changes-requested review body,
+ * `ownRequestChangesBody`), not comment-level — its old `ownComments` list
+ * was dropped once nothing read it. `gh` has no single "list my comments
+ * across the repo" read the way it has `issue list --author`/`pr list
+ * --author`, and synthesizing one (paging every issue/PR's comment list) is
+ * real scope of its own, not "core".
  *
  * Open-threads inventory ({@link fetchOpenThreads}) is the slice's other
  * named inventory: every currently open issue and PR in the repo, by
