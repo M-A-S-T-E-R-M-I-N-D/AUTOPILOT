@@ -6,8 +6,10 @@ import {
   parseDonationEntries,
   createDonationsPreviewApi,
   extractClearsignedText,
+  isPublicKeyFile,
   DONATIONS_FILE_PATH,
   SIGNED_DONATIONS_FILE_PATH,
+  SIGNING_KEY_FILE_PATH,
   type DonationsReader,
 } from '../../src/flight/donations.js';
 
@@ -100,6 +102,22 @@ function withBareDashLine(armored: string): string {
   return `${armored.slice(0, at)}-${armored.slice(at)}`;
 }
 
+// Structure-only stand-in for `gpg --armor --export`: the framing is what
+// isPublicKeyFile reads, so the packet is placeholder base64.
+const PUBLIC_KEY_BLOCK = [
+  '-----BEGIN PGP PUBLIC KEY BLOCK-----',
+  'Comment: fixture only, not a key',
+  '',
+  'mDMEZ0lyMBYJKwYBBAHaRw8BAQdAZml4dHVyZS1vbmx5LW5vdC1hLWtleQ==',
+  '=AbCd',
+  '-----END PGP PUBLIC KEY BLOCK-----',
+  '',
+].join('\n');
+
+// Built by concatenation so this file's own text never carries the armor
+// header ci:secret-scan refuses (see secret-scan.test.ts for the same trick).
+const PRIVATE_KEY_BLOCK = PUBLIC_KEY_BLOCK.replaceAll('PUBLIC', 'PRIV' + 'ATE');
+
 /** A reader serving `files` by path and throwing ENOENT for anything else. */
 function readerOf(files: Record<string, string>): DonationsReader {
   return vi.fn((path: string) => {
@@ -108,6 +126,46 @@ function readerOf(files: Record<string, string>): DonationsReader {
     return text;
   });
 }
+
+/** The three published files, each overridable, for the cases that break one. */
+function publishedFiles(overrides: Record<string, string | undefined> = {}): DonationsReader {
+  const files: Record<string, string | undefined> = {
+    [DONATIONS_FILE_PATH]: DONATIONS_JSON,
+    [SIGNED_DONATIONS_FILE_PATH]: clearsign(DONATIONS_JSON),
+    [SIGNING_KEY_FILE_PATH]: PUBLIC_KEY_BLOCK,
+    ...overrides,
+  };
+  const present = Object.entries(files).filter(
+    (entry): entry is [string, string] => entry[1] !== undefined,
+  );
+  return readerOf(Object.fromEntries(present));
+}
+
+describe('isPublicKeyFile', () => {
+  it('accepts exactly one ASCII-armored public key block', () => {
+    expect(isPublicKeyFile(PUBLIC_KEY_BLOCK)).toBe(true);
+  });
+
+  it('reads CRLF line endings the same as LF', () => {
+    expect(isPublicKeyFile(PUBLIC_KEY_BLOCK.replace(/\n/g, '\r\n'))).toBe(true);
+  });
+
+  it('refuses a private key block, alone or beside a public one', () => {
+    expect(isPublicKeyFile(PRIVATE_KEY_BLOCK)).toBe(false);
+    expect(isPublicKeyFile(PUBLIC_KEY_BLOCK + PRIVATE_KEY_BLOCK)).toBe(false);
+  });
+
+  it('refuses text before or after the block, and two blocks in one file', () => {
+    expect(isPublicKeyFile(`Fingerprint: see the announcement\n${PUBLIC_KEY_BLOCK}`)).toBe(false);
+    expect(isPublicKeyFile(`${PUBLIC_KEY_BLOCK}trailer\n`)).toBe(false);
+    expect(isPublicKeyFile(PUBLIC_KEY_BLOCK + PUBLIC_KEY_BLOCK)).toBe(false);
+  });
+
+  it('refuses a file that is not armored at all', () => {
+    expect(isPublicKeyFile(DONATIONS_JSON)).toBe(false);
+    expect(isPublicKeyFile('')).toBe(false);
+  });
+});
 
 describe('extractClearsignedText', () => {
   it('returns the signed text of a well-formed cleartext-signed message', () => {
@@ -172,39 +230,35 @@ describe('extractClearsignedText', () => {
 
 describe('createDonationsPreviewApi', () => {
   it('serves the addresses when docs/DONATE.asc clearsigns exactly docs/donations.json', async () => {
-    const readFile = readerOf({
-      [DONATIONS_FILE_PATH]: DONATIONS_JSON,
-      [SIGNED_DONATIONS_FILE_PATH]: clearsign(DONATIONS_JSON),
-    });
+    const readFile = publishedFiles();
     const api = createDonationsPreviewApi(readFile);
 
     expect(await api()).toEqual([{ chain: 'btc', address: 'bc1qexampleaddress' }]);
     expect(readFile).toHaveBeenCalledWith(DONATIONS_FILE_PATH);
     expect(readFile).toHaveBeenCalledWith(SIGNED_DONATIONS_FILE_PATH);
+    expect(readFile).toHaveBeenCalledWith(SIGNING_KEY_FILE_PATH);
   });
 
   it('ignores the trailing whitespace and line endings an OpenPGP text signature ignores', async () => {
     const api = createDonationsPreviewApi(
-      readerOf({
-        [DONATIONS_FILE_PATH]: DONATIONS_JSON.replace(/\n/g, ' \r\n'),
-        [SIGNED_DONATIONS_FILE_PATH]: clearsign(DONATIONS_JSON),
-      }),
+      publishedFiles({ [DONATIONS_FILE_PATH]: DONATIONS_JSON.replace(/\n/g, ' \r\n') }),
     );
 
     expect(await api()).toEqual([{ chain: 'btc', address: 'bc1qexampleaddress' }]);
   });
 
   it('serves nothing when docs/donations.json has no clearsigned copy beside it', async () => {
-    const api = createDonationsPreviewApi(readerOf({ [DONATIONS_FILE_PATH]: DONATIONS_JSON }));
+    const api = createDonationsPreviewApi(
+      publishedFiles({ [SIGNED_DONATIONS_FILE_PATH]: undefined }),
+    );
 
     expect(await api()).toEqual([]);
   });
 
   it('serves nothing when an address was edited after the file was signed', async () => {
     const api = createDonationsPreviewApi(
-      readerOf({
+      publishedFiles({
         [DONATIONS_FILE_PATH]: DONATIONS_JSON.replace('bc1qexample', 'bc1qattacker'),
-        [SIGNED_DONATIONS_FILE_PATH]: clearsign(DONATIONS_JSON),
       }),
     );
 
@@ -213,10 +267,32 @@ describe('createDonationsPreviewApi', () => {
 
   it('serves nothing when docs/DONATE.asc is not a cleartext-signed message', async () => {
     const api = createDonationsPreviewApi(
-      readerOf({
-        [DONATIONS_FILE_PATH]: DONATIONS_JSON,
-        [SIGNED_DONATIONS_FILE_PATH]: DONATIONS_JSON,
-      }),
+      publishedFiles({ [SIGNED_DONATIONS_FILE_PATH]: DONATIONS_JSON }),
+    );
+
+    expect(await api()).toEqual([]);
+  });
+
+  // Transparency commitment 2's second half: the signing key's fingerprint
+  // must be checkable, and with no published key nothing can check it. The
+  // same pair ci:donate refuses (verifySignedAddressFile), held here too.
+  it('serves nothing when docs/SIGNING-KEY.asc, the key a donor verifies with, is absent', async () => {
+    const api = createDonationsPreviewApi(publishedFiles({ [SIGNING_KEY_FILE_PATH]: undefined }));
+
+    expect(await api()).toEqual([]);
+  });
+
+  it('serves nothing when docs/SIGNING-KEY.asc holds a private key block — that key is exposed', async () => {
+    const api = createDonationsPreviewApi(
+      publishedFiles({ [SIGNING_KEY_FILE_PATH]: PRIVATE_KEY_BLOCK }),
+    );
+
+    expect(await api()).toEqual([]);
+  });
+
+  it('serves nothing when docs/SIGNING-KEY.asc is not one public key block', async () => {
+    const api = createDonationsPreviewApi(
+      publishedFiles({ [SIGNING_KEY_FILE_PATH]: `${PUBLIC_KEY_BLOCK}${PUBLIC_KEY_BLOCK}` }),
     );
 
     expect(await api()).toEqual([]);
@@ -233,7 +309,7 @@ describe('createDonationsPreviewApi', () => {
 
   it('degrades to an empty list on invalid JSON instead of throwing', async () => {
     const api = createDonationsPreviewApi(
-      readerOf({
+      publishedFiles({
         [DONATIONS_FILE_PATH]: 'not json{{{',
         [SIGNED_DONATIONS_FILE_PATH]: clearsign('not json{{{'),
       }),
@@ -245,7 +321,7 @@ describe('createDonationsPreviewApi', () => {
   it('degrades to an empty list when the JSON parses but is not an array', async () => {
     const notArray = JSON.stringify({ oops: true });
     const api = createDonationsPreviewApi(
-      readerOf({
+      publishedFiles({
         [DONATIONS_FILE_PATH]: notArray,
         [SIGNED_DONATIONS_FILE_PATH]: clearsign(notArray),
       }),
@@ -254,15 +330,22 @@ describe('createDonationsPreviewApi', () => {
     expect(await api()).toEqual([]);
   });
 
-  it('accepts custom paths for the address file and its clearsigned copy', async () => {
+  it('accepts custom paths for the address file, its clearsigned copy and the signing key', async () => {
     const readFile = readerOf({
       'config/donations.json': DONATIONS_JSON,
       'config/DONATE.asc': clearsign(DONATIONS_JSON),
+      'config/SIGNING-KEY.asc': PUBLIC_KEY_BLOCK,
     });
-    const api = createDonationsPreviewApi(readFile, 'config/donations.json', 'config/DONATE.asc');
+    const api = createDonationsPreviewApi(
+      readFile,
+      'config/donations.json',
+      'config/DONATE.asc',
+      'config/SIGNING-KEY.asc',
+    );
 
     expect(await api()).toEqual([{ chain: 'btc', address: 'bc1qexampleaddress' }]);
     expect(readFile).toHaveBeenCalledWith('config/donations.json');
     expect(readFile).toHaveBeenCalledWith('config/DONATE.asc');
+    expect(readFile).toHaveBeenCalledWith('config/SIGNING-KEY.asc');
   });
 });
