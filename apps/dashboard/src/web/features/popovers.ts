@@ -14,9 +14,7 @@
  *    all; Escape closes them and returns focus to the summary that was open.
  * 2. A CHOICE CLOSES — picking a theme or a language closes its popover.
  *    Settings stay open: its rows are several choices in a row, and a
- *    pointer elsewhere or Escape still ends it. Focus that was on the choice
- *    returns to the summary (the WAI-ARIA menu-button pattern), never to
- *    <body> (epic 0017 addendum, 2026-09-27).
+ *    pointer elsewhere or Escape still ends it.
  * 3. HOVER OPENS, CLICK PINS — only on devices that can hover
  *    (`(hover: hover)`): entering a closed popover opens it as a temporary
  *    (`data-hover`) menu and leaving closes it after a short grace; a click
@@ -71,14 +69,7 @@ function popoverInit() {
     var choice = t.closest('[data-theme-btn], [data-lang-btn], .more-item');
     if (!choice) return;
     var d = choice.closest(POPOVER_SELECTOR);
-    if (!d) return;
-    // Focus on the chosen button would be stranded inside a closed panel
-    // (the browser drops it to <body>); hand it back to the summary. Focus
-    // that already moved on — a dialog the choice opened — stays put.
-    var hadFocus = d.contains(document.activeElement);
-    popoverClose(d);
-    var s = hadFocus ? d.querySelector('summary') : null;
-    if (s) { try { s.focus({ preventScroll: true }); } catch (x) {} }
+    if (d) popoverClose(d);
   });
   // Law 3 — hover opens, click pins.
   popoverAll().forEach(function (d) {
