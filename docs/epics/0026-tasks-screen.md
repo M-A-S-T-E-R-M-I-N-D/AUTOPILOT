@@ -100,14 +100,7 @@ leads with each action they can take and how many rows it reaches ("Approve
 selected (2)"), read off the rows the list shows. Running one sends the plan's
 requests one at a time; delete asks once for the whole set, a snack says how
 many went through and names a failure as an error, and the board redraws. The
-"N selected" line names the gesture: Ctrl+K acts on them. Slice 3's button
-and sheet shipped 2026-09-13 (`web/features/ask-sheet.ts`); its selection
-context followed 2026-09-27: the rows checked on the board ride the Ask
-request's view context by title (`web/ask-selection.ts` names up to five and
-counts the rest), and a line above the sheet's composer says what the
-question is about — the one selected task by title, or how many — following
-the boxes while the sheet stays open. The persona stays per page load, as
-epic 0011 requires; slice 3's "remembers which persona was open" yields to it.
+"N selected" line names the gesture: Ctrl+K acts on them.
 
 ## The ask
 

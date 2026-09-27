@@ -1856,9 +1856,6 @@ main:focus { outline: none; }
    form moves into the foot while the sheet is open, answers stack above it. */
 .ask-sheet-foot { padding: var(--space-3) var(--space-4); border-block-start: 1px solid var(--color-border); background: var(--color-surface-raised); }
 .ask-sheet-foot:empty { display: none; }
-/* The board selection the question carries, one line over the composer; a long title ellipsizes. */
-.ask-sheet-about { margin: 0 0 var(--space-2); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ask-sheet-about[hidden] { display: none; }
 /* The moved section drops its card chrome inside the sheet: the sheet is the surface. */
 .ask-sheet-body > .searchbar { margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent; }
 @media (min-width: 64rem) {

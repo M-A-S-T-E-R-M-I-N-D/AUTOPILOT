@@ -1584,10 +1584,6 @@ const EN_STRINGS = {
   askFabTip: 'Ask Architect or Genius about this page — opens beside it',
   askSheetTitle: 'Ask',
   askSheetClose: 'Close',
-  // The line above the composer naming the board selection the question
-  // carries as context ("about this task").
-  askSheetAboutOne: 'About the selected task: {title}',
-  askSheetAboutMany: 'About the {n} selected tasks',
   // #16 (gabibi555, first slice): the fleet totals, the project card stats
   // and the project page's back link.
   tileProjects: 'projects',
@@ -3031,8 +3027,6 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     askFabTip: 'שאלו את הארכיטקט או את הג׳ניוס על העמוד הזה — נפתח לצידו',
     askSheetTitle: 'שאל',
     askSheetClose: 'סגור',
-    askSheetAboutOne: 'על המשימה שנבחרה: {title}',
-    askSheetAboutMany: 'על {n} המשימות שנבחרו',
     tileProjects: 'פרויקטים',
     tileProjectsTip: 'פרויקטים נפרדים ש-AUTOPILOT עוקב אחריהם',
     tileFlying: 'בטיסה',

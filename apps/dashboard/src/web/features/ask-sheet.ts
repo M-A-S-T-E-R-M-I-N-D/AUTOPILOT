@@ -20,13 +20,6 @@
  * (`ap-ask-sheet`) so a reload keeps the sheet where you left it. Every DOM
  * write is guarded (epic 0018 law 3).
  *
- * It carries the board's selection as context ("about this task"): the
- * rows checked on the tasks screen ride the Ask request's view context
- * (web/ask-selection.ts, read in search.ts), and a line above the composer
- * says what the question will be about — the one selected task by title, or
- * how many. The board's syncBoardSelection() refreshes it on every change to
- * the set, so it follows the boxes while the sheet stays open.
- *
  * Core chunk: the button must be there on every page, and the shell renders
  * the button and the empty sheet server-side so nothing pops in.
  */
@@ -54,27 +47,6 @@ function askSheetIsOpen() {
   var n = askSheetNodes();
   return !!(n.sheet && !n.sheet.hidden);
 }
-// The about line: the board selection this sheet's question carries. It
-// wears its template tag only while it has words, as the board's "N
-// selected" line does, or a locale sweep would paint a blank line over.
-function askSheetAboutSync() {
-  var line = document.getElementById('ask-sheet-about');
-  if (!line || typeof boardSelectedTitles !== 'function') return;
-  var titles = boardSelectedTitles();
-  var key = titles.length === 1 ? 'askSheetAboutOne' : titles.length > 1 ? 'askSheetAboutMany' : '';
-  var subs = titles.length === 1 ? { title: titles[0] } : { n: titles.length };
-  var args = JSON.stringify(subs);
-  var text = key ? tr(key, subs) : '';
-  if (key) {
-    if (line.getAttribute('data-i18n-template') !== key) line.setAttribute('data-i18n-template', key);
-    if (line.getAttribute('data-i18n-args') !== args) line.setAttribute('data-i18n-args', args);
-  } else {
-    if (line.hasAttribute('data-i18n-template')) line.removeAttribute('data-i18n-template');
-    if (line.hasAttribute('data-i18n-args')) line.removeAttribute('data-i18n-args');
-  }
-  if (line.textContent !== text) line.textContent = text;
-  if (line.hidden !== !key) line.hidden = !key;
-}
 function askSheetOpen() {
   var n = askSheetNodes();
   if (!n.fab || !n.sheet || !n.body || !n.bar) return;
@@ -89,7 +61,6 @@ function askSheetOpen() {
   // The composer goes to the foot — a chat reads bottom-up: the question
   // box stays put, answers stack above it and the newest scrolls into view.
   if (n.foot && n.form) n.foot.appendChild(n.form);
-  askSheetAboutSync();
   if (typeof MutationObserver === 'function') {
     askSheetObserver = new MutationObserver(function () { n.body.scrollTop = n.body.scrollHeight; });
     askSheetObserver.observe(n.body, { childList: true, subtree: true, characterData: true });
