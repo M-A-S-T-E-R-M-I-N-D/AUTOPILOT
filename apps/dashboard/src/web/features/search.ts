@@ -828,6 +828,11 @@ ${applyAskStreamFrame.toString()}
       var focusedTitleEl = document.querySelector('.task-focused .task-title');
       if (focusedTitleEl && focusedTitleEl.textContent) view += ', focused task: ' + focusedTitleEl.textContent;
     }
+    // The board's selection (epic 0026 slice 3, "about this task"): the rows
+    // the operator checked ride along by title, the set the Ask sheet's
+    // about line names above the composer (web/ask-selection.ts).
+    var selectedText = selectedTasksViewText(boardSelectedTitles(), ASK_SELECTION_TITLE_CAP);
+    if (selectedText) view += ', ' + selectedText;
     // Third (final) slice: what the operator actually DID this session —
     // operatorActionLog is hoisted from fleetJs()'s output (see fly.ts's
     // launch/stop/pause handlers), same cross-module reference el() relies on.

@@ -194,6 +194,10 @@ import {
   recordOperatorAction as sharedRecordOperatorAction,
   operatorActionsViewText as sharedOperatorActionsViewText,
 } from './operator-actions.js';
+import {
+  ASK_SELECTION_TITLE_CAP,
+  selectedTasksViewText as sharedSelectedTasksViewText,
+} from './ask-selection.js';
 const REFRESH_MS = 3000;
 
 /**
@@ -216,6 +220,10 @@ var operatorActionLog = [];
 var OPERATOR_ACTION_LOG_CAP = ${JSON.stringify(OPERATOR_ACTION_LOG_CAP)};
 ${sharedRecordOperatorAction.toString()}
 ${sharedOperatorActionsViewText.toString()}
+// The board selection's Ask view-context suffix (epic 0026 slice 3), from
+// web/ask-selection.ts the same way.
+var ASK_SELECTION_TITLE_CAP = ${JSON.stringify(ASK_SELECTION_TITLE_CAP)};
+${sharedSelectedTasksViewText.toString()}
 function el(tag, cls, text) {
   var e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -2590,6 +2598,9 @@ function syncBoardSelection(list) {
   }
   if (n) list.setAttribute('data-selecting', 'true');
   else list.removeAttribute('data-selecting');
+  // The open Ask sheet says what it is about (web/features/ask-sheet.ts):
+  // every path that changes the set, a rebuild included, converges here.
+  if (typeof askSheetAboutSync === 'function') askSheetAboutSync();
   var line = list.parentElement && list.parentElement.querySelector('.board-selection');
   if (!line) return;
   // The status line is a live region: it carries the template tag only
@@ -2604,6 +2615,19 @@ function syncBoardSelection(list) {
     line.removeAttribute('data-i18n-args');
     line.textContent = '';
   }
+}
+// The checked rows' titles, in board order — the selection Ask carries as
+// context (epic 0026 slice 3). Read off the boxes the lists show, so it
+// names exactly the rows the "N selected" line counts.
+function boardSelectedTitles() {
+  var boxes = document.querySelectorAll('.tasks [data-task-select]');
+  var titles = [];
+  for (var i = 0; i < boxes.length; i++) {
+    var row = boxes[i].checked && boxes[i].closest('.task');
+    var title = row && row.querySelector('.task-title');
+    if (title && title.textContent) titles.push(title.textContent);
+  }
+  return titles;
 }
 // Every box in the list at once — Escape clears (false), Ctrl/Cmd-A takes
 // all (true). Each box that actually changes fires its own change event,
@@ -5554,7 +5578,7 @@ ${benchmarkSubjectHtml(project)}  <div class="snackbar-host" id="snackbar-host" 
       <button type="button" class="ask-sheet-close" id="ask-sheet-close" aria-label="Close" data-i18n-aria="askSheetClose"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="ask-sheet-body" id="ask-sheet-body"></div>
-    <div class="ask-sheet-foot" id="ask-sheet-foot"></div>
+    <div class="ask-sheet-foot" id="ask-sheet-foot"><p class="ask-sheet-about muted" id="ask-sheet-about" hidden></p></div>
   </aside>
 ${terminalHudHtml()}
   <footer class="watermark">

@@ -232,7 +232,11 @@ import { gzipSync } from 'node:zlib';
 // taskProvenanceOf embedded from web/task-queue.ts, the line with its issue
 // link and ten English keys -- measured 249269B raw against the old 248832B
 // line, 437 bytes over.
-const CORE_RAW_BUDGET = 245 * 1024;
+// Then core raw 245->247KB (2026-09-27), epic 0026 slice 3's selection
+// context: selectedTasksViewText embedded from web/ask-selection.ts,
+// boardSelectedTitles, the Ask sheet's about line and two English keys --
+// measured 251390B raw against the old 250880B line, 510 bytes over.
+const CORE_RAW_BUDGET = 247 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -269,7 +273,10 @@ const CORE_RAW_BUDGET = 245 * 1024;
 // Then core gzip 72->73KB (2026-09-27), the same provenance line as the raw
 // entry above -- measured 73702B, 26 bytes UNDER the old 73728B line, bumped
 // because a margin that thin goes red on the next sibling's core growth.
-const CORE_GZIP_BUDGET = 73 * 1024;
+// Then core gzip 73->74KB (2026-09-27), the same selection-context slice as
+// the raw entry above -- measured 74341B, 411 bytes UNDER the old 74752B
+// line, bumped for the thin-margin reason the entries above give.
+const CORE_GZIP_BUDGET = 74 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
