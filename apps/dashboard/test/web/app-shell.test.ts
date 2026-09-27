@@ -767,6 +767,28 @@ describe('subject-nav client — switching subjects', () => {
     expect(document.body.dataset['subject']).toBe('keeper');
   });
 
+  it('a deep link to a project panel the first state tick renders lands once it renders, then lets go', () => {
+    // An anomaly chip links to /p/<id>#health: the Health list is built by
+    // renderProjectPage on the first state tick, after this module boots.
+    document.open();
+    document.write(renderShell('demo'));
+    document.close();
+    window.location.hash = '#health';
+    boot();
+    expect(document.body.dataset['subject']).toBe('fleet');
+    const health = document.createElement('section');
+    health.id = 'health';
+    health.dataset['subject'] = 'data';
+    (document.getElementById('fleet') as HTMLElement).append(health);
+    document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
+    expect(document.body.dataset['subject']).toBe('data');
+    expect(health.hasAttribute('data-subject-inactive')).toBe(false);
+    // Landed once: the next tab the reader picks is not pulled back to it.
+    tap('board');
+    document.dispatchEvent(new CustomEvent('ap:subjects-changed'));
+    expect(document.body.dataset['subject']).toBe('board');
+  });
+
   it('says "nothing here yet" for a subject whose sections are all hidden, never on the fleet', () => {
     boot();
     // Every keeper section is server-rendered hidden until a poll fills it.

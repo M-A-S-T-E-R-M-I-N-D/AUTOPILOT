@@ -121,6 +121,28 @@ describe('the project Health section', () => {
     expect(heading?.textContent).toBe(STRINGS.en.healthTitle);
   });
 
+  it('carries the #health anchor every anomaly chip links to', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(panel()?.id).toBe('health');
+    expect(document.querySelectorAll('#health')).toHaveLength(1);
+  });
+
+  it('a /p/<id>#health link opens the project on its Data tab, even though the list renders after boot', async () => {
+    history.replaceState(null, '', '/p/p1#health');
+    try {
+      boot();
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(panel()).not.toBeNull();
+      expect(document.body.dataset['subject']).toBe('data');
+      expect(panel()?.hasAttribute('data-subject-inactive')).toBe(false);
+    } finally {
+      history.replaceState(null, '', '/');
+    }
+  });
+
   it('lists every detected anomaly with its evidence, meaning and proposed fix', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);

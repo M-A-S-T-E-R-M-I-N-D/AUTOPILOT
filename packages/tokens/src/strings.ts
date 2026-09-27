@@ -1467,6 +1467,9 @@ const EN_STRINGS = {
   // ANOMALY_KINDS — anomaly-popover.test.ts walks the census.
   anomalyPopEvidence: 'Why it fired:',
   anomalyPopAction: 'What you can do:',
+  // The popover's last line: the project's Health list (#health, board
+  // ap-mui2h3rw-0), where every issue sits with its proposed fix.
+  anomalyPopHealth: 'See every issue and its fix on Health',
   anomalyWhatCostSpike: 'The latest firing cost several times the recent average.',
   anomalyActionCostSpike:
     'Open its trace: a runaway read loop or a huge diff is the usual cause. Consider a tighter budget or a smaller task.',
@@ -2890,6 +2893,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'נשמר בדפדפן הזה בלבד. הטקסט גדל עד 125% והריווח מתרחב בלי אובדן; תנועה מופחתת נשמרת גם כשהמערכת לא מבקשת.',
     anomalyPopEvidence: 'למה זה נדלק:',
     anomalyPopAction: 'מה אפשר לעשות:',
+    anomalyPopHealth: 'כל הבעיות והתיקונים שלהן ברשימת הבריאות',
     anomalyWhatCostSpike: 'ההפעלה האחרונה עלתה פי כמה מהממוצע האחרון.',
     anomalyActionCostSpike:
       'פתחו את ה-trace שלה: לולאת קריאה שברחה או diff ענק הם הסיבה הרגילה. שקלו תקציב הדוק יותר או משימה קטנה יותר.',

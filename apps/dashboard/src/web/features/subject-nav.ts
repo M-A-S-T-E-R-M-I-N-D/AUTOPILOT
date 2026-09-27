@@ -429,6 +429,16 @@ function subjectFromLocation() {
   var hash = (location.hash || '').slice(1);
   return hash ? subjectOfId(hash) : '';
 }
+/** Lands on the fragment's section: its subject, then the section itself.
+ *  False while no rendered section owns the fragment. */
+function landOnFragment() {
+  var s = subjectFromLocation();
+  if (!s) return false;
+  showSubject(s);
+  var target = document.getElementById(location.hash.slice(1));
+  if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView();
+  return true;
+}
 function bootSubjectNav() {
   var nav = document.getElementById('subject-nav');
   if (!nav) return;
@@ -447,24 +457,25 @@ function bootSubjectNav() {
   if (tabs) tabs.addEventListener('click', onSubjectClick);
   // A deep link (#pool-client-panel from a GitHub comment) lands on the
   // subject that owns it — the legible-surface doctrine applied to the shell.
-  var fromHash = subjectFromLocation();
   var stored = '';
   try { stored = localStorage.getItem(SUBJECT_KEY) || ''; } catch (e) { /* private mode */ }
   subjectStored = stored || null;
   layoutContextRail();
-  showSubject(fromHash || stored || 'fleet');
-  if (fromHash) {
-    var target = document.getElementById(location.hash.slice(1));
-    if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView();
-  }
+  var landed = landOnFragment();
+  if (!landed) showSubject(stored || 'fleet');
+  // A project page's panels arrive with the first state tick, after this
+  // boot: a fragment naming one (#health, from an anomaly chip) waits for
+  // it — once, so the next tab the reader picks stays picked.
+  var fragmentPending = !landed && !!location.hash;
   window.addEventListener('hashchange', function () {
-    var s = subjectFromLocation();
-    if (s) showSubject(s);
+    fragmentPending = false;
+    landOnFragment();
   });
   // renderProjectPage rebuilds main#fleet's sections on every render and
   // announces it; the active subject's inactive marks are re-applied to
   // the new nodes (guarded, so an identical render writes nothing).
   document.addEventListener('ap:subjects-changed', function () {
+    if (fragmentPending && landOnFragment()) { fragmentPending = false; return; }
     showSubject(document.body.dataset.subject || 'fleet');
   });
   if (typeof window.matchMedia === 'function') {
