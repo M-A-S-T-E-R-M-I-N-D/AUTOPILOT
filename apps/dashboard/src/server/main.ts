@@ -65,7 +65,7 @@ import {
   type SelfRestart,
 } from '../landing/execute.js';
 import { createLandingJobRegistry } from '../landing/job.js';
-import { createPostPushWatchTrigger } from '../control/post-push-watch.js';
+import { createPostPushWatchTrigger, resumeUnfinishedWatches } from '../control/post-push-watch.js';
 import { readRecentLandingOutcome } from '../landing/history.js';
 import { createBuildRunner, createSelfRestartTrigger } from '../landing/self-restart.js';
 import { waitForHealth } from '../ready.js';
@@ -498,6 +498,7 @@ const flightApi = createFlightApi(flightRegistry);
 // the progress hook closes over the binding and reads it at call time — by
 // then both are constructed, and a stray early call would simply find
 // `undefined` and report nothing rather than throw.
+const postPushWatch = createPostPushWatchTrigger(dbPath, undefined, spawnFlightReal);
 const landingExecuteApi = createLandingExecuteApi(
   dbPath,
   selfRestart,
@@ -515,8 +516,12 @@ const landingExecuteApi = createLandingExecuteApi(
   // watchdog alike) gets it, same as every other hook above. `spawnFlightReal`
   // enables the 'fly' escalation mode (board web-mtpbmazh-3en467) — a no-op
   // unless the operator sets AUTOPILOT_CI_REMEDIATION=fly.
-  createPostPushWatchTrigger(dbPath, undefined, spawnFlightReal),
+  postPushWatch,
 );
+// A WATCH SURVIVES THE RESTART IT CAUSES (2026-09-27): a landing that
+// changes the dashboard restarts it seconds after the push, so this process
+// resumes every post-push watch the previous one died holding.
+resumeUnfinishedWatches(dbPath, postPushWatch);
 const landingJobs = createLandingJobRegistry({
   execute: landingExecuteApi,
   // The registry speaks project ids; the flight registry and the pause
