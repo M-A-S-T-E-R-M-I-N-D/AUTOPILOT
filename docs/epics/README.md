@@ -102,3 +102,4 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0033](0033-owned-work.md) | Owned work — from a public claim to a green, shipped contribution | Active |
 | [0034](0034-the-machine-visible.md) | The machine, visible — the live answer, and the cockpit's motion language | Specified |
 | [0035](0035-modular-landings.md) | Modular landings — more than one runway, and a main that is always green | Specified |
+| [0036](0036-provider-parity.md) | Provider parity — more than one engine behind the same invoke port | Draft |
