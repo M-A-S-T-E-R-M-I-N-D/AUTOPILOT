@@ -24,7 +24,7 @@
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
-import { reapCliDescendants, isCliTimeoutDeath, DEFAULT_CLI_TIMEOUT_MS } from './claude-cli.js';
+import { reapCliDescendants, DEFAULT_CLI_TIMEOUT_MS } from './claude-cli.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -170,10 +170,6 @@ export interface CodexCliOptions {
    *  it. Structurally typed — any `CliDescendantRegistry` satisfies this
    *  without an import cycle, same as `ClaudeCliOptions.pidRegistry`. */
   readonly pidRegistry?: { track: (pid: number) => void; untrack: (pid: number) => void };
-  /** ORPHAN SWEEP seam (board web-msu3sv1w-hfj87n), same as
-   *  `ClaudeCliOptions.reapDescendants`: defaults to the real cross-platform
-   *  {@link reapCliDescendants}; tests inject a spy to prove the reap runs. */
-  readonly reapDescendants?: (pid: number | undefined, platform?: NodeJS.Platform) => void;
 }
 
 /**
@@ -188,13 +184,9 @@ export interface CodexCliOptions {
  * yet. It DOES carry `ClaudeCliModel`/`GeminiCliModel`'s crash-path
  * {@link CodexCliOptions.pidRegistry} tracking (containment parity, board
  * ap-mt2ukjg5-2), added ahead of this adapter's routing wiring so a lane
- * flown on it is never a containment regression from day one. Its settle
- * path matches `ClaudeCliModel.execOnce`'s too: the reap goes through the
- * injectable {@link CodexCliOptions.reapDescendants} seam, and a kill by the
- * wall-clock cap comes back `timedOut` (THIRD CAP) instead of reading as an
- * ordinary crash. Never rejects — a spawn failure (binary missing) reports
- * the same "no envelope" shape {@link parseCodexExecOutput} already gives an
- * abnormal exit.
+ * flown on it is never a containment regression from day one. Never rejects —
+ * a spawn failure (binary missing) reports the same "no envelope" shape
+ * {@link parseCodexExecOutput} already gives an abnormal exit.
  */
 export class CodexCliModel implements ModelPort {
   constructor(private readonly opts: CodexCliOptions) {}
@@ -217,7 +209,6 @@ export class CodexCliModel implements ModelPort {
     args.push(prompt);
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
-    const startedAt = Date.now();
     const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
       cwd: this.opts.repo,
       env: this.opts.env ?? process.env,
@@ -234,7 +225,7 @@ export class CodexCliModel implements ModelPort {
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
         (err, stdout) => {
-          (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
+          reapCliDescendants(child.pid);
           if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
           // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
           // real exit code (e.g. a non-zero `codex exec` run); any other error
@@ -245,12 +236,7 @@ export class CodexCliModel implements ModelPort {
               : err
                 ? 1
                 : 0;
-          const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
-          const timedOut = isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
-          resolve({
-            ...parseCodexExecOutput(stdout ?? '', exitCode, model),
-            ...(timedOut ? { timedOut: true } : {}),
-          });
+          resolve(parseCodexExecOutput(stdout ?? '', exitCode, model));
         },
       );
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);

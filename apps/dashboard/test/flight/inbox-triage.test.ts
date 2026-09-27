@@ -7,12 +7,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync, existsSync 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openStore, migrate, type Store } from '@autopilot/store';
-import {
-  inboxTaskTitle,
-  inboxTaskId,
-  inboxTaskNote,
-  triageInboxEntries,
-} from '../../src/flight/inbox-triage.js';
+import { inboxTaskTitle, inboxTaskId, triageInboxEntries } from '../../src/flight/inbox-triage.js';
 
 function gitSync(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
@@ -87,19 +82,6 @@ describe('inboxTaskTitle', () => {
   it('truncates a long first line', () => {
     const long = 'x'.repeat(500);
     expect(inboxTaskTitle({ name: 'note.md', content: long }).length).toBe(200);
-  });
-});
-
-describe('inboxTaskNote', () => {
-  it("hands an inbox task's body to the board row: the note outlives its triage firing", () => {
-    const body = '# OPERATOR DIRECTIVE\n\nthe laws themselves';
-    expect(inboxTaskNote({ source: 'inbox', body })).toBe(body);
-  });
-
-  it('shows no note for any other source — only the operator wrote an inbox note', () => {
-    expect(inboxTaskNote({ source: 'github', body: 'an issue body anyone can write' })).toBeNull();
-    expect(inboxTaskNote({ source: 'self', body: 'a proposal' })).toBeNull();
-    expect(inboxTaskNote({ source: 'inbox', body: null })).toBeNull();
   });
 });
 

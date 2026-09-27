@@ -276,57 +276,6 @@ describe('guard-hook stdin/stdout shim', () => {
   });
 });
 
-/** A Gemini CLI `BeforeTool` hook payload (epic 0036, gemini-guard.ts). */
-function geminiPayload(toolName: string, toolInput: unknown): string {
-  return JSON.stringify({
-    hook_event_name: 'BeforeTool',
-    tool_name: toolName,
-    tool_input: toolInput,
-  });
-}
-
-describe('guard-hook as the Gemini CLI BeforeTool hook', () => {
-  it("prints Gemini's deny shape, not Claude's, for an escaping shell command", async () => {
-    const { output, exitCodes } = await runGuardHook('/work/sbx', [
-      geminiPayload('run_shell_command', { command: 'cat /etc/passwd' }),
-    ]);
-    const decision = JSON.parse(output) as { decision: string; reason: string };
-    expect(decision.decision).toBe('deny');
-    expect(decision.reason).toContain('/work/sbx');
-    expect(output).not.toContain('permissionDecision');
-    expect(exitCodes).toEqual([0]);
-  });
-
-  it('prints nothing for an in-bounds shell command or a tool the guard does not judge', async () => {
-    for (const payload of [
-      geminiPayload('run_shell_command', { command: 'pnpm test' }),
-      geminiPayload('save_memory', { fact: 'x' }),
-    ]) {
-      const { output, exitCodes } = await runGuardHook('/work/sbx', [payload]);
-      expect(output).toBe('');
-      expect(exitCodes).toEqual([0]);
-    }
-  });
-
-  it('prints ONE deny for a call whose second translated payload escapes', async () => {
-    const { output } = await runGuardHook('/work/sbx', [
-      geminiPayload('read_many_files', { include: ['src/a.ts', '/etc/passwd', '/etc/shadow'] }),
-    ]);
-    const decision = JSON.parse(output) as { decision: string; reason: string };
-    expect(decision.reason).toContain('/etc/passwd');
-    expect(decision.reason).not.toContain('/etc/shadow');
-  });
-
-  it('runs the DNS-rebinding check on a web_fetch URL too', async () => {
-    lookupMock.mockResolvedValueOnce([{ address: '10.0.0.5', family: 4 }]);
-    const { output } = await runGuardHook('/work/sbx', [
-      geminiPayload('web_fetch', { prompt: 'summarize https://rebind.example/x' }),
-    ]);
-    expect(lookupMock).toHaveBeenCalledWith('rebind.example', { all: true });
-    expect((JSON.parse(output) as { reason: string }).reason).toContain('10.0.0.5');
-  });
-});
-
 function gitSync(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
 }

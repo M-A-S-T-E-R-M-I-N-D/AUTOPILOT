@@ -5,9 +5,9 @@
  * license-check (board web-mtluaot4-g7kjuu): an allowlist gate over `pnpm
  * licenses list --json` so a new dependency under a copyleft license
  * (GPL/AGPL/SSPL) or an unrecognized/missing license can never land
- * silently. Default-deny: only an SPDX id (or an "OR" expression containing
- * one) explicitly on the allowlist passes — anything else, including a
- * license this list has never seen before, fails closed. That default-deny
+ * silently. Default-deny: only an SPDX id explicitly on the allowlist (or an
+ * SPDX expression satisfiable with such ids alone) passes — anything else,
+ * including a license this list has never seen before, fails closed. That default-deny
  * shape doubles as the drift check: a brand-new disallowed license shows up
  * as a failure the moment it enters the lockfile, with no separate baseline
  * file to keep in sync.
@@ -59,27 +59,93 @@ export function isAllowedLicenseId(id) {
   return EXACT_ALLOWED.has(trimmed);
 }
 
+/** An SPDX expression token: a parenthesis, or a run of anything else. */
+const LICENSE_TOKEN_RE = /[()]|[^\s()]+/g;
+const LICENSE_OPERATORS = new Set(['AND', 'OR', 'WITH']);
+
+/**
+ * @typedef {{ readonly tokens: readonly string[], pos: number }} LicenseCursor
+ * Each parse step below returns whether its span is allowed, or `null` when
+ * the span is malformed.
+ */
+
+/** @param {LicenseCursor} cursor @returns {string} */
+function peekOperator(cursor) {
+  return (cursor.tokens[cursor.pos] ?? '').toUpperCase();
+}
+
+/** @param {string | undefined} token @returns {token is string} */
+function isIdToken(token) {
+  return (
+    token !== undefined &&
+    token !== '(' &&
+    token !== ')' &&
+    !LICENSE_OPERATORS.has(token.toUpperCase())
+  );
+}
+
+/** or-expression := and-expression ("OR" and-expression)*
+ *  @param {LicenseCursor} cursor @returns {boolean | null} */
+function parseOrExpression(cursor) {
+  let allowed = parseAndExpression(cursor);
+  while (allowed !== null && peekOperator(cursor) === 'OR') {
+    cursor.pos += 1;
+    const next = parseAndExpression(cursor);
+    allowed = next === null ? null : allowed || next;
+  }
+  return allowed;
+}
+
+/** and-expression := term ("AND" term)*
+ *  @param {LicenseCursor} cursor @returns {boolean | null} */
+function parseAndExpression(cursor) {
+  let allowed = parseLicenseTerm(cursor);
+  while (allowed !== null && peekOperator(cursor) === 'AND') {
+    cursor.pos += 1;
+    const next = parseLicenseTerm(cursor);
+    allowed = next === null ? null : allowed && next;
+  }
+  return allowed;
+}
+
+/** term := "(" or-expression ")" | id ["WITH" exception-id]
+ *  @param {LicenseCursor} cursor @returns {boolean | null} */
+function parseLicenseTerm(cursor) {
+  const token = cursor.tokens[cursor.pos];
+  if (token === '(') {
+    cursor.pos += 1;
+    const inner = parseOrExpression(cursor);
+    if (inner === null || cursor.tokens[cursor.pos] !== ')') return null;
+    cursor.pos += 1;
+    return inner;
+  }
+  if (!isIdToken(token)) return null;
+  cursor.pos += 1;
+  if (peekOperator(cursor) !== 'WITH') return isAllowedLicenseId(token);
+  const exception = cursor.tokens[cursor.pos + 1];
+  if (!isIdToken(exception)) return null;
+  cursor.pos += 2;
+  return isAllowedLicenseId(`${token} WITH ${exception}`);
+}
+
 /**
  * A license field can be a bare SPDX id or an SPDX boolean expression, e.g.
  * `(MIT OR Apache-2.0)` for a dual-licensed package. `OR` passes if ANY
  * alternative is allowed (a consumer may pick the permissive one); `AND`
  * passes only if EVERY term is allowed, since all terms apply at once.
+ * Parentheses group and `AND` binds tighter than `OR`, as in the SPDX
+ * grammar — so `GPL-3.0-only AND (MIT OR Apache-2.0)` still demands the GPL
+ * term and fails. Splitting on `OR` first once let the parenthesised `MIT`
+ * pass that whole expression. A `WITH` term is looked up whole, so an
+ * unreviewed exception fails closed, and so does anything malformed (an
+ * unbalanced parenthesis, a dangling or doubled operator, two ids with no
+ * operator between them): it is not a license this list has reviewed.
  * @param {string} license @returns {boolean}
  */
 export function isAllowedLicenseExpression(license) {
-  const stripped = license.trim().replace(/^\(|\)$/g, '');
-  if (/ OR /i.test(stripped)) {
-    return stripped.split(/ OR /i).some((term) => isAllowedLicenseId(term));
-  }
-  // Stryker disable next-line ConditionalExpression: with no ` AND ` in the
-  // string, `split` yields the whole string as its only term and `every`
-  // degenerates to exactly the bare-id lookup below — taking this branch
-  // unconditionally (`if (true)`) is unobservable. The `if (false)` mutant
-  // IS killed by license-check.test.ts's AND cases.
-  if (/ AND /i.test(stripped)) {
-    return stripped.split(/ AND /i).every((term) => isAllowedLicenseId(term));
-  }
-  return isAllowedLicenseId(stripped);
+  const cursor = { tokens: license.match(LICENSE_TOKEN_RE) ?? [], pos: 0 };
+  const allowed = parseOrExpression(cursor);
+  return allowed === true && cursor.pos === cursor.tokens.length;
 }
 
 /**
@@ -143,8 +209,8 @@ function main() {
     console.error(`  - ${violation.name}@${violation.versions.join(',')}: ${violation.license}`);
   }
   console.error(
-    'Allowed: MIT*, ISC, BSD*, Apache-2.0, MPL-2.0, CC0*, 0BSD, BlueOak*, Python-2.0, CC-BY-4.0 ' +
-      '(or an SPDX OR-expression containing one of these).',
+    `Allowed: ${[...EXACT_ALLOWED].join(', ')} ` +
+      '(or an SPDX expression satisfiable with these alone).',
   );
   process.exit(1);
 }

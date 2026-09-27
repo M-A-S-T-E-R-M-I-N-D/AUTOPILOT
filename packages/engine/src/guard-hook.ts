@@ -24,11 +24,6 @@
  *   resolves to a loopback/private address at request time needs a real DNS
  *   lookup to catch — `checkWebFetchDnsRebinding` runs here, behind the real
  *   `dns.promises.lookup`, only after the literal check has already passed.
- *
- * The Gemini CLI runs this same script as its `BeforeTool` hook (epic 0036,
- * gemini-guard.ts). A Gemini payload is judged as the Claude tool calls it
- * amounts to, through every check above, and its deny goes back in Gemini's
- * own `decision`/`reason` shape.
  */
 
 import { lookup } from 'node:dns/promises';
@@ -49,7 +44,6 @@ import {
   gatherStagedFiles,
   isMergeCommit,
 } from './adapters/sibling-commit-scan.js';
-import { geminiToClaudeHookPayloads, toGeminiDenyDecision } from './gemini-guard.js';
 
 const targetRoot = process.argv[2] ?? '';
 
@@ -67,28 +61,14 @@ async function handleStdinEnd(): Promise<void> {
     process.exit(0); // misconfigured — fail open, audit backstops
     return;
   }
-  const geminiPayloads = geminiToClaudeHookPayloads(raw);
-  if (geminiPayloads === null) {
-    const decision = await decide(raw);
-    if (decision !== null) process.stdout.write(decision);
-  } else {
-    for (const payload of geminiPayloads) {
-      const decision = await decide(payload);
-      if (decision !== null) {
-        process.stdout.write(toGeminiDenyDecision(decision));
-        break;
-      }
-    }
+  const decision = evaluateHookInput(raw, targetRoot);
+  if (decision !== null) {
+    process.stdout.write(decision);
+    process.exit(0);
+    return;
   }
-  process.exit(0);
-}
 
-/** The deny JSON for one Claude-shaped PreToolUse payload, or null for no decision. */
-async function decide(payload: string): Promise<string | null> {
-  const decision = evaluateHookInput(payload, targetRoot);
-  if (decision !== null) return decision;
-
-  const webFetchUrl = extractWebFetchUrl(payload);
+  const webFetchUrl = extractWebFetchUrl(raw);
   // Stryker disable next-line ConditionalExpression: equivalent by
   // construction, measured 2026-09-17. Handing null to the rebinding check
   // makes its own `new URL(null)` throw inside its try, and it returns
@@ -103,11 +83,13 @@ async function decide(payload: string): Promise<string | null> {
       // Stryker disable next-line StringLiteral: unreachable — every deny the
       // rebinding check returns carries its reason (the resolved address and
       // why it is off-limits); the fallback is defensive typing only.
-      return buildDenyDecision(verdict.reason ?? 'blocked');
+      process.stdout.write(buildDenyDecision(verdict.reason ?? 'blocked'));
+      process.exit(0);
+      return;
     }
   }
 
-  const command = extractBashCommand(payload);
+  const command = extractBashCommand(raw);
   if (command !== null && isGitCommitCommand(command) && !isMergeCommit(targetRoot)) {
     const claimVerdict = checkPreCommitSiblingOverlap(
       gatherStagedFiles(targetRoot),
@@ -127,9 +109,11 @@ async function decide(payload: string): Promise<string | null> {
       // `reason` string — having just failed `verdict.allowed`, `verdict.reason`
       // can never be null here, so the `?? 'blocked'` fallback is unreachable.
       // Provably equivalent, not killable.
-      return buildDenyDecision(verdict.reason ?? 'blocked');
+      process.stdout.write(buildDenyDecision(verdict.reason ?? 'blocked'));
+      process.exit(0);
+      return;
     }
   }
 
-  return null;
+  process.exit(0);
 }

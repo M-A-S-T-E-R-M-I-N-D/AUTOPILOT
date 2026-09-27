@@ -108,14 +108,6 @@ export interface BoardTaskRef {
    * no shipped slices yet.
    */
   readonly shippedSlices?: readonly string[];
-  /**
-   * The task's own text beyond its title, rendered under its row — for a note
-   * the caller trusts enough to show (apps/dashboard's fly.ts: an INBOX note,
-   * whose file is archived out of every later digest the firing it was
-   * triaged in, so without this the board row is all that survives of it).
-   * Undefined/null/blank renders no extra line.
-   */
-  readonly note?: string | null;
 }
 
 export const FIRING_PROMPT_VERSION = 'firing-v17';
@@ -342,44 +334,19 @@ export function fenceTitle(title: string): string {
  *  long-running multi-slice task. */
 const SHIPPED_SLICES_SHOWN = 5;
 
-/** Bound a task's note the way the INBOX digest bounds a fresh one
- *  (inbox.ts's INBOX_ENTRY_CHARS): the row keeps showing what the digest
- *  showed once. */
-const BOARD_NOTE_CHARS = 1000;
-
-/**
- * A task's note as quoted lines under its row. Every line is prefixed, so no
- * line of the note can start a line of the prompt (a forged "## Hard rules"
- * stays inside the quote), and defanged, so none can spell the fence's own
- * close marker. Blank lines are dropped; indentation is kept.
- */
-function noteLines(note: string | null | undefined): readonly string[] {
-  const text = (note ?? '').trim();
-  if (text === '') return [];
-  const quoted = text
-    .slice(0, BOARD_NOTE_CHARS)
-    .split(TITLE_LINE_BREAKS_RE)
-    .filter((line) => line.trim() !== '')
-    .map((line) => `    │ ${defangFenceMarkers(line.trimEnd())}`);
-  const cut =
-    text.length > BOARD_NOTE_CHARS ? [`    │ … (note cut at ${BOARD_NOTE_CHARS} characters)`] : [];
-  return ['  ✎ note:', ...quoted, ...cut];
-}
-
 function taskLine(t: BoardTaskRef): string {
   const tags = [t.severity, t.dimension].filter((x): x is string => typeof x === 'string');
   const tag = tags.length > 0 ? ` (${tags.join('/')})` : '';
   const header = `- [${t.id}]${tag} ${fenceTitle(t.title).slice(0, BOARD_TITLE_CHARS)}`;
-  const note = noteLines(t.note);
   const slices = (t.shippedSlices ?? []).filter((s) => s.trim() !== '');
-  if (slices.length === 0) return [header, ...note].join('\n');
+  if (slices.length === 0) return header;
   // Commit subjects are prior-firing-authored text embedded verbatim into the
   // NEXT firing's prompt — the same injection surface as a task title, so they
   // get the identical fenceTitle() treatment (line-break strip + marker defang).
   const shown = slices
     .slice(-SHIPPED_SLICES_SHOWN)
     .map((s) => fenceTitle(s).slice(0, BOARD_TITLE_CHARS));
-  return [header, ...note, `  ↻ prior slices shipped: ${shown.join(' | ')}`].join('\n');
+  return [header, `  ↻ prior slices shipped: ${shown.join(' | ')}`].join('\n');
 }
 
 /** The titles-are-data note placed just above every fenced task-list block

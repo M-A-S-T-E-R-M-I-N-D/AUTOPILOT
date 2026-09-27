@@ -1147,16 +1147,7 @@ export interface FlightSettings {
   };
 }
 
-export const GUARD_TIMEOUT_S = 20;
-
-/**
- * The guard hook's command line, `node "<script>" "<targetRoot>"` with forward
- * slashes so every shell reads it the same. Shared by the `--settings` payload
- * below and Gemini's (`gemini-guard.ts`), so both CLIs run one guard.
- */
-export function guardHookCommand(targetRoot: string, guardScriptPath: string): string {
-  return `node "${guardScriptPath.replace(/\\/g, '/')}" "${targetRoot.replace(/\\/g, '/')}"`;
-}
+const GUARD_TIMEOUT_S = 20;
 
 /**
  * Build the settings object a flight passes via `--settings`: PreToolUse hooks
@@ -1169,7 +1160,7 @@ export function guardHookCommand(targetRoot: string, guardScriptPath: string): s
 export function buildFlightSettings(targetRoot: string, guardScriptPath: string): FlightSettings {
   const guardCommand = {
     type: 'command' as const,
-    command: guardHookCommand(targetRoot, guardScriptPath),
+    command: `node "${guardScriptPath.replace(/\\/g, '/')}" "${targetRoot.replace(/\\/g, '/')}"`,
     timeout: GUARD_TIMEOUT_S,
   };
   return {

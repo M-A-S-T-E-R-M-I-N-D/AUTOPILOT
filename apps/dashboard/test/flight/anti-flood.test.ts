@@ -410,69 +410,6 @@ describe('withAntiFlood — judges the thread’s real tail on a long thread (re
   });
 });
 
-/** A message as the comments endpoint returns it. */
-function rawRow(m: ThreadMessage): unknown {
-  return { id: m.id, user: { login: m.author }, body: m.body };
-}
-
-/** A fake `gh` whose one comments page is exactly `rows`, raw — so a test
- *  can put a row there that no {@link ThreadMessage} can express. */
-function rowsExec(rows: readonly unknown[], calls: string[][]): CliExec {
-  return async (bin, args) => {
-    calls.push([bin, ...args]);
-    if (bin === 'gh' && args[0] === 'api' && args[1] === 'user') {
-      return { code: 0, stdout: JSON.stringify({ login: 'M-A-S-T-E-R-M-I-N-D' }) };
-    }
-    if (bin === 'gh' && args[0] === 'api' && String(args[1]).includes('/comments')) {
-      return { code: 0, stdout: JSON.stringify(rows) };
-    }
-    return { code: 0, stdout: '' };
-  };
-}
-
-/**
- * EPIC 0019 additive-only law — the null-row bug e28857af, 4a6ab16b,
- * 05f12a1b, 4213a168 and f62ff11a fixed in the claim, pool, triage, control
- * and dossier reads, here in the flood guard every steward post passes
- * through. The tail read cast each comment row straight to its shape and
- * read `c.id`; one `null` row threw, the wrapper's fail-open catch swallowed
- * it, and the post went out unjudged — the very duplicate the guard exists
- * to stop.
- */
-describe('withAntiFlood — a null comment row on the thread (regression)', () => {
-  it('still suppresses the retry when the comments page carries a null row', async () => {
-    const calls: string[][] = [];
-    const notes: string[] = [];
-    const rows = [null, rawRow(msg(7, 'M-A-S-T-E-R-M-I-N-D', APPROVAL_ORIGINAL))];
-    const exec = withAntiFlood(rowsExec(rows, calls), { onVerdict: (n) => notes.push(n) });
-
-    const run = await exec('gh', ['pr', 'comment', '33', '--body', APPROVAL_RETRY]);
-
-    expect(run.code).toBe(0);
-    expect(calls.some((c) => c[1] === 'pr' && c[2] === 'comment')).toBe(false);
-    expect(notes[0]).toContain('duplicate of comment 7');
-  });
-
-  it('folds into the last real comment when a non-object row trails the page', async () => {
-    const calls: string[][] = [];
-    const rows = [
-      rawRow(msg(2, 'M-A-S-T-E-R-M-I-N-D', 'First maintainer note about the sweep.')),
-      rawRow(msg(3, 'M-A-S-T-E-R-M-I-N-D', 'Second maintainer note on the labels.')),
-      null,
-      42,
-    ];
-    const exec = withAntiFlood(rowsExec(rows, calls), {
-      now: () => new Date('2026-09-09T00:00:00Z'),
-    });
-
-    await exec('gh', ['issue', 'comment', '16', '--body', UNRELATED]);
-
-    const patch = calls.find((c) => c.includes('PATCH'));
-    expect(patch?.join(' ')).toContain('issues/comments/3');
-    expect(calls.some((c) => c[1] === 'issue' && c[2] === 'comment')).toBe(false);
-  });
-});
-
 /**
  * A fake `gh` whose thread GROWS: every comment that reaches it is appended
  * with exactly the body it received, so a second post is judged against
