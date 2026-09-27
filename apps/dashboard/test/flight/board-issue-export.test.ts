@@ -53,7 +53,13 @@ describe('exportMarker / parseExportMarker', () => {
   });
 
   it('keeps the marker an HTML comment so GitHub never renders it', () => {
-    expect(exportMarker('ap-abc123-1')).toMatch(/^<!-- .* -->$/);
+    // Asserted piece by piece, not with an HTML-comment regex: CodeQL's
+    // js/bad-tag-filter reads one as a tag filter that misses multi-line
+    // comments (2026-09-27). The single line is itself the property here.
+    const marker = exportMarker('ap-abc123-1');
+    expect(marker.startsWith('<!-- ')).toBe(true);
+    expect(marker.endsWith(' -->')).toBe(true);
+    expect(marker).not.toContain('\n');
   });
 
   it('reads only a marker on the final line — marker-shaped text quoted mid-body names nothing', () => {

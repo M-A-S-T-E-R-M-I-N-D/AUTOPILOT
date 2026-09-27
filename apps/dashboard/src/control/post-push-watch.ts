@@ -40,6 +40,8 @@ import {
 import { DEFAULT_WATCH_FLY_FIRINGS } from './flight-watchdog.js';
 import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
 import type { FlightRunnerDeps } from '../flight/runner.js';
+import { projectRepoOf } from '../flight/project-repo.js';
+import { readOpenCodeScanningAlerts, syncCodeScanningTasks } from './code-scanning-tasks.js';
 
 export type PostPushWatchOutcome =
   | { readonly kind: 'concluded'; readonly verdict: PostPushVerdictResult }
@@ -135,6 +137,23 @@ export type PostPushWatchTrigger = (
  * (`DEFAULT_WATCH_FLY_FIRINGS`, matching `dashboard watch`'s own default)
  * scoped to the just-filed task via `AUTOPILOT_FLEET_TASK_SCOPE`.
  */
+/** Mirror the repository's open code-scanning alerts onto the board.
+ *  Best-effort: a missing repo or an unreadable API page files nothing. */
+function syncCodeScanningAlerts(
+  store: Parameters<typeof syncCodeScanningTasks>[0],
+  projectId: string,
+  rootPath: string,
+  gh: GhRun,
+): void {
+  try {
+    const repo = projectRepoOf(rootPath);
+    if (repo === null) return;
+    syncCodeScanningTasks(store, projectId, readOpenCodeScanningAlerts(gh, repo), Date.now());
+  } catch {
+    /* the scanner's page is advisory to the watch — never fail it */
+  }
+}
+
 export function createPostPushWatchTrigger(
   dbPath: string,
   run?: (rootPath: string) => GhRun,
@@ -150,6 +169,9 @@ export function createPostPushWatchTrigger(
         if (outcome.kind !== 'concluded') return;
         const store = openStore(dbPath);
         try {
+          // CODE-SCANNING ALERTS REACH THE BOARD (2026-09-27): an alert never
+          // fails a run, so the verdict above cannot see one; read them here.
+          syncCodeScanningAlerts(store, projectId, rootPath, (run ?? createGhRun)(rootPath));
           const taskFiled = filePostPushVerdictTask(store, outcome.verdict);
           if (spawnFlight && outcome.verdict.kind === 'remediate') {
             const projectStatus =
