@@ -1252,6 +1252,16 @@ var TASK_SEVERITY_KEYS = {
   low: 'taskSeverityLow',
   none: 'taskSeverityNone',
 };
+var TASK_SOURCE_KEYS = {
+  inbox: 'taskSourceInbox',
+  repo: 'taskSourceRepo',
+  backlog: 'taskSourceBacklog',
+  chat: 'taskSourceChat',
+  dashboard: 'taskSourceDashboard',
+  self: 'taskSourceSelf',
+  github: 'taskSourceGithub',
+  none: 'taskSourceNone',
+};
 // statusPillMeta is generated FROM web/status-pill.ts below (epic 0002 "shell
 // decomposition", slice 2, seventy-fourth cut) — its real compiled source via
 // .toString(), not a hand-retyped copy. It can no longer drift apart.
@@ -2592,9 +2602,8 @@ function boardKeysHint() {
 }
 // THE VIEW HEADER (epic 0026 slice 2): the view lives in the query string
 // (web/task-view.ts), so a filtered board survives a reload and a shared
-// link. A Status or Severity box rewrites it in place (replaceState) and
-// rebuilds the list, keeping focus via boardFilterFocus. A hand-typed source
-// filter applies too; its boxes come later.
+// link. A Status, Severity or Source box rewrites it in place (replaceState)
+// and rebuilds the list, keeping focus via boardFilterFocus.
 var boardFilterFocus = null;
 function boardFilterFieldset(view, property, legendKey, wordKeys) {
   var fs = el('fieldset', 'board-filter');
@@ -2693,6 +2702,7 @@ function tasksSection(c) {
   } else {
     wrap.appendChild(boardFilterFieldset(view, 'status', 'boardFilterStatus', TASK_STATUS_KEYS));
     wrap.appendChild(boardFilterFieldset(view, 'severity', 'boardFilterSeverity', TASK_SEVERITY_KEYS));
+    wrap.appendChild(boardFilterFieldset(view, 'source', 'boardFilterSource', TASK_SOURCE_KEYS));
     if (filtered) wrap.appendChild(boardFilterNote(shown.length, tasks.length));
     var colCounts = { queued: 0, active: 0, done: 0 };
     for (var ci = 0; ci < shown.length; ci++) {
