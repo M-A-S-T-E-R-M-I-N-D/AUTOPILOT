@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 # 0036. Provider parity — more than one engine behind the same invoke port
 
 Status: In progress — research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
-values in `auth.ts`) landed the same day. `ModelPort` now has three live implementations
-(`ClaudeCliModel`/`StreamingClaudeCliModel`, `OllamaModel`, and `CodexCliModel`) — Bedrock/Vertex
+values in `auth.ts`) landed the same day. `ModelPort` now has four live implementations
+(`ClaudeCliModel`/`StreamingClaudeCliModel`, `OllamaModel`, `CodexCliModel`, and `GeminiCliModel`) — Bedrock/Vertex
 need none, since both route through the same `claude` CLI (see row below). The Codex adapter
 landed whole on 2026-09-27: `packages/engine/src/adapters/codex-cli.ts`'s `parseCodexExecOutput`
 reads `codex exec --json` stdout into a `ModelResponse` (fixture-tested, `costUsd` always `null`),
@@ -15,10 +15,19 @@ and `CodexCliModel` spawns it (`exec --json --model <model> --sandbox workspace-
 <id>] <prompt>`, verified against openai/codex's own docs and `codex-rs/exec/src/cli.rs`).
 Not yet flown on a real lane — no routing/config wiring, no CLI-level resume-retry-on-failure, no
 idle-timeout hardening (`ClaudeCliModel`'s equivalents were all added after real incidents this
-adapter has no flight history to have hit yet). The Gemini adapter's pure half landed the same day:
-`packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini -p
---output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`); its
-spawn (`GeminiCliModel`) is the next slice. The Copilot CLI adapter remains unstarted.
+adapter has no flight history to have hit yet). The Gemini adapter landed whole the same day:
+`packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini --prompt …
+--output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`), and
+`GeminiCliModel` spawns it (`--model <model> --output-format json --approval-mode yolo [--skip-trust]
+[--resume <id>] [--prompt <prompt>]`, verified against google-gemini/gemini-cli's
+`packages/cli/src/config/config.ts`). Two traps shaped it: the positional prompt runs
+*interactive*, so the prompt rides on `--prompt` (or on stdin alone past the Windows command-line
+threshold, as `ClaudeCliModel` does); and headless mode turns every "ask the user" policy decision
+into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (unsandboxed) lets the
+agent edit files and run the gate. Folder trust is on by default and headless mode exits
+(`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
+a folder also loads its `.gemini/settings.json` and MCP servers. It carries the same gaps as Codex
+(no routing, no resume-retry, no idle timeout). The Copilot CLI adapter remains unstarted.
 
 `docs/ROADMAP.md` §3 (M14, "not started") names the gap directly: AUTOPILOT flies one engine — the
 Claude Code CLI on a personal subscription — and that is both its best property and its largest
@@ -132,7 +141,7 @@ disconnected reference doc that can drift out of sync with it.
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
 | OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it |
-| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed) | Yes — full loop | **None** — token counts only, no price | **Parse shipped** — `parseGeminiJsonOutput` (`packages/engine/src/adapters/gemini-cli.ts`); spawn not yet built, so no lane flies on it |
+| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed) | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | Clean stdout XOR usage stats, not both | Not started |
 
 ## Acceptance criteria

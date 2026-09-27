@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * The pure parse half of a ModelPort over the Google Gemini CLI (epic 0036,
+ * A ModelPort over the Google Gemini CLI (epic 0036,
  * docs/epics/0036-provider-parity.md), split like `claude-cli.ts` and
- * `codex-cli.ts`: {@link parseGeminiJsonOutput} is fixture-tested here, and the
- * spawn that feeds it `gemini -p --output-format json` output is a later slice.
+ * `codex-cli.ts` into a pure parse ({@link parseGeminiJsonOutput},
+ * fixture-tested) and the impure spawn ({@link GeminiCliModel}) that feeds it
+ * `gemini --prompt … --output-format json` output.
  *
  * The wire format is `JsonOutput` in google-gemini/gemini-cli
  * `packages/core/src/output/types.ts`, written by `JsonFormatter` as ONE
@@ -25,7 +26,13 @@
  *   are not the agent turns and wall clock those fields mean, so they are `null`.
  */
 
-import type { ModelEnvelope, ModelResponse } from '../ports.js';
+import { execFile, type ExecFileOptions } from 'node:child_process';
+import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
+import {
+  reapCliDescendants,
+  CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_TIMEOUT_MS,
+} from './claude-cli.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -156,4 +163,114 @@ export function parseGeminiJsonOutput(
     sessionId,
   };
   return { stdout, exitCode, envelope, sessionId };
+}
+
+export interface GeminiCliOptions {
+  readonly repo: string;
+  /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
+  readonly binary?: string;
+  /**
+   * Base environment for the child (defaults to `process.env`). Gemini's own auth
+   * (`GEMINI_API_KEY`, Vertex AI env, or the cached Google login) passes through
+   * unchanged: `auth.ts`'s `AuthMode` routing is for the `claude` binary only.
+   */
+  readonly env?: NodeJS.ProcessEnv;
+  /** Kill the child if it runs longer than this. Defaults to `claude-cli.ts`'s
+   *  {@link DEFAULT_CLI_TIMEOUT_MS}, the wall-clock cap every CLI-spawning
+   *  ModelPort in this repo shares. */
+  readonly timeoutMs?: number;
+  /**
+   * `--approval-mode` for the run. Defaults to `yolo`: headless mode cannot ask,
+   * so under `default` every tool that needs a confirmation (file edits, shell)
+   * is refused, and under `auto_edit` the shell still is, so the agent could not
+   * run the gate or commit. `yolo` is the only mode that gives the full agentic
+   * loop the parity matrix credits this adapter with. It is not sandboxed.
+   */
+  readonly approvalMode?: 'default' | 'auto_edit' | 'yolo' | 'plan';
+  /**
+   * Pass `--skip-trust` to trust `repo` for this one session. Off by default. The
+   * CLI's folder trust is on by default, and headless mode exits with
+   * `FatalUntrustedWorkspaceError` in an untrusted folder instead of asking.
+   * Trusting a folder also loads its `.gemini/settings.json`, `.env`, and MCP
+   * servers, so that stays the caller's decision (or the operator's own
+   * `trustedFolders.json`), never a silent default here.
+   */
+  readonly trustWorkspace?: boolean;
+}
+
+/**
+ * ModelPort over the local Google Gemini CLI (epic 0036): spawns `gemini --model
+ * <model> --output-format json --approval-mode <mode> [--skip-trust] [--resume
+ * <session>] [--prompt <prompt>]` and parses its output via
+ * {@link parseGeminiJsonOutput}, stderr included, since a fatal error goes there.
+ *
+ * Flags follow google-gemini/gemini-cli `packages/cli/src/config/config.ts`: the
+ * positional prompt runs INTERACTIVE, so the prompt rides on `--prompt`, and
+ * `--resume` takes the session UUID the JSON output carries. The CLI appends piped
+ * stdin to the prompt (`gemini.tsx`), so a prompt over
+ * {@link CLI_STDIN_PROMPT_THRESHOLD} goes on stdin alone, dodging the Windows
+ * command-line ceiling the way `ClaudeCliModel` does. The CLI reads stdin whenever
+ * it is not a TTY, so it is always closed: an argv prompt gets an empty stdin, not
+ * the CLI's 500 ms wait for input that never comes (`readStdin.ts`).
+ *
+ * Transport mirrors `CodexCliModel`'s: buffered `execFile`, `detached: true`
+ * plus {@link reapCliDescendants} (ORPHAN SWEEP), no idle timeout, no streaming, no
+ * resume-retry-on-failure. Never rejects: a spawn failure resolves the same "no
+ * envelope" shape an abnormal exit gets.
+ */
+export class GeminiCliModel implements ModelPort {
+  constructor(private readonly opts: GeminiCliOptions) {}
+
+  invoke(model: string, prompt: string, resumeSessionId?: string): Promise<ModelResponse> {
+    const pipePrompt = prompt.length > CLI_STDIN_PROMPT_THRESHOLD;
+    const args = [
+      '--model',
+      model,
+      '--output-format',
+      'json',
+      '--approval-mode',
+      this.opts.approvalMode ?? 'yolo',
+    ];
+    if (this.opts.trustWorkspace === true) args.push('--skip-trust');
+    if (resumeSessionId !== undefined && resumeSessionId.length > 0) {
+      args.push('--resume', resumeSessionId);
+    }
+    if (!pipePrompt) args.push('--prompt', prompt);
+
+    const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
+      cwd: this.opts.repo,
+      env: this.opts.env ?? process.env,
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+      timeout: this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS,
+      detached: true,
+      encoding: 'utf8',
+    };
+    return new Promise((resolve) => {
+      const child = execFile(
+        this.opts.binary ?? 'gemini',
+        args,
+        // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
+        execOpts as ExecFileOptions & { encoding: 'utf8' },
+        (err, stdout, stderr) => {
+          reapCliDescendants(child.pid);
+          // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
+          // real exit code; a spawn failure or timeout kill has none, so it reads as 1.
+          const exitCode =
+            err && typeof (err as { code?: unknown }).code === 'number'
+              ? (err as { code: number }).code
+              : err
+                ? 1
+                : 0;
+          resolve(parseGeminiJsonOutput(stdout ?? '', exitCode, model, stderr ?? ''));
+        },
+      );
+      // A CLI that exits before reading its stdin (bad flag, untrusted folder)
+      // breaks the pipe; unheard, that EPIPE would crash the host rather than
+      // reach the callback above, which already reports the exit.
+      child.stdin?.on('error', () => undefined);
+      if (pipePrompt) child.stdin?.end(prompt);
+      else child.stdin?.end();
+    });
+  }
 }
