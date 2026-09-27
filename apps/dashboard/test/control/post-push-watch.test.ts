@@ -20,6 +20,8 @@ import {
   isRunFor,
   createPostPushWatchTrigger,
   DEFAULT_POST_PUSH_WATCH_OPTIONS,
+  resumeUnfinishedWatches,
+  unfinishedWatches,
 } from '../../src/control/post-push-watch.js';
 
 /** `tasks.project_id` is a real FK against `projects(id)` (enforced —
@@ -475,5 +477,69 @@ describe('isRunFor', () => {
     expect(isRunFor({ headSha: 'fb2f9db8aaaa' }, '4b47e76')).toBe(false);
     expect(isRunFor({}, '4b47e76')).toBe(true);
     expect(isRunFor({ headSha: 'fb2f9db8' }, '')).toBe(true);
+  });
+});
+
+describe('a watch survives the restart its landing causes (2026-09-27)', () => {
+  function seed(dbPath: string, rows: [string, Record<string, unknown>, number][]): void {
+    const s = openStore(dbPath);
+    migrate(s);
+    project(s, 'p1');
+    const insert = s.db.prepare(
+      "INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES ('p1', NULL, ?, ?, ?)",
+    );
+    for (const [type, payload, at] of rows) insert.run(type, JSON.stringify(payload), at);
+    s.close();
+  }
+
+  it('resumes only the watches started in the last hour that recorded no outcome, once per commit', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-resume-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const now = NOW;
+      const started = (sha: string, at: number): [string, Record<string, unknown>, number] => [
+        'post-push-watch-started',
+        { rootPath: '/repo', branch: 'main', sha },
+        at,
+      ];
+      seed(dbPath, [
+        started('died-young', now - 10 * 60_000), // the landing restarted the dashboard
+        started('died-young', now - 9 * 60_000), // a second start for the same commit
+        started('finished', now - 30 * 60_000),
+        [
+          'post-push-watch',
+          { sha: 'finished', outcome: 'concluded', verdict: 'recorded' },
+          now - 5 * 60_000,
+        ],
+        started('too-old', now - 2 * 60 * 60_000),
+      ]);
+      const trigger = vi.fn();
+      expect(resumeUnfinishedWatches(dbPath, trigger, now)).toBe(1);
+      expect(trigger).toHaveBeenCalledWith('p1', '/repo', 'main', 'died-young');
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('records the start the moment it is triggered, so the next process can find it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-started-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      seed(dbPath, []);
+      // A gh that never concludes: the watch keeps polling, as it would
+      // when the process is killed mid-watch.
+      createPostPushWatchTrigger(
+        dbPath,
+        () => () => JSON.stringify([{ status: 'in_progress', conclusion: '' }]),
+      )('p1', '/repo', 'main', 'abc1234');
+      const s = openStore(dbPath);
+      const pending = unfinishedWatches(s.db, Date.now());
+      s.close();
+      expect(pending).toEqual([
+        { projectId: 'p1', rootPath: '/repo', branch: 'main', sha: 'abc1234' },
+      ]);
+    } finally {
+      cleanupDir(dir);
+    }
   });
 });

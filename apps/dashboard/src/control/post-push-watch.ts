@@ -119,6 +119,118 @@ export type PostPushWatchTrigger = (
   sha: string,
 ) => void;
 
+/**
+ * A WATCH SURVIVES THE RESTART IT CAUSES (2026-09-27). A landing that
+ * changes the dashboard's own code restarts the dashboard seconds after it
+ * pushes, and the watch lived only in the old process: on nearly every
+ * landing it died four seconds old, before its first read of CI. The start
+ * is now an event, and the next process resumes every watch started within
+ * the last {@link RESUME_WINDOW_MS} that recorded no outcome.
+ */
+const WATCH_STARTED_EVENT = 'post-push-watch-started';
+const WATCH_OUTCOME_EVENT = 'post-push-watch';
+/** How far back a restarted dashboard looks for watches to resume. */
+export const RESUME_WINDOW_MS = 60 * 60_000;
+
+function recordWatchStarted(
+  dbPath: string,
+  projectId: string,
+  rootPath: string,
+  branch: string,
+  sha: string,
+): void {
+  try {
+    const store = openStore(dbPath);
+    try {
+      store.db
+        .prepare(
+          'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
+        )
+        .run(projectId, WATCH_STARTED_EVENT, JSON.stringify({ rootPath, branch, sha }), Date.now());
+    } finally {
+      store.close();
+    }
+  } catch {
+    /* best-effort — the watch itself still runs */
+  }
+}
+
+/** The watches started in the window that recorded no outcome, oldest
+ *  first — one per commit. */
+export function unfinishedWatches(
+  db: ReturnType<typeof openStore>['db'],
+  now: number,
+): { projectId: string; rootPath: string; branch: string; sha: string }[] {
+  const started = db
+    .prepare(
+      'SELECT project_id, payload FROM events WHERE type = ? AND created_at >= ? ORDER BY created_at',
+    )
+    .all(WATCH_STARTED_EVENT, now - RESUME_WINDOW_MS) as { project_id: string; payload: string }[];
+  const finished = new Set(
+    (
+      db
+        .prepare('SELECT payload FROM events WHERE type = ? AND created_at >= ?')
+        .all(WATCH_OUTCOME_EVENT, now - RESUME_WINDOW_MS) as { payload: string }[]
+    ).map((r) => {
+      try {
+        return String((JSON.parse(r.payload) as { sha?: unknown }).sha);
+      } catch {
+        return '';
+      }
+    }),
+  );
+  const out = new Map<
+    string,
+    { projectId: string; rootPath: string; branch: string; sha: string }
+  >();
+  for (const r of started) {
+    try {
+      const p = JSON.parse(r.payload) as { rootPath?: unknown; branch?: unknown; sha?: unknown };
+      if (
+        typeof p.rootPath !== 'string' ||
+        typeof p.branch !== 'string' ||
+        typeof p.sha !== 'string'
+      )
+        continue;
+      if (finished.has(p.sha)) continue;
+      out.set(p.sha, {
+        projectId: r.project_id,
+        rootPath: p.rootPath,
+        branch: p.branch,
+        sha: p.sha,
+      });
+    } catch {
+      // a malformed row starts nothing
+    }
+  }
+  return [...out.values()];
+}
+
+/** Resume, on a fresh dashboard, every watch the last one died holding. */
+export function resumeUnfinishedWatches(
+  dbPath: string,
+  trigger: PostPushWatchTrigger,
+  now: number = Date.now(),
+): number {
+  const pending = readUnfinishedWatches(dbPath, now);
+  for (const w of pending) trigger(w.projectId, w.rootPath, w.branch, w.sha);
+  return pending.length;
+}
+
+/** {@link unfinishedWatches} from a store path; none when it cannot be read. */
+function readUnfinishedWatches(dbPath: string, now: number): ReturnType<typeof unfinishedWatches> {
+  try {
+    const store = openStore(dbPath);
+    try {
+      return unfinishedWatches(store.db, now);
+    } finally {
+      store.close();
+    }
+  } catch {
+    return [];
+  }
+}
+
 /** The watch's outcome as a `post-push-watch` event: the commit, whether a
  *  run concluded, and the verdict it reached. */
 function recordWatchOutcome(
@@ -191,6 +303,7 @@ export function createPostPushWatchTrigger(
   budgetUsd: number = DEFAULT_BUDGET_USD,
 ): PostPushWatchTrigger {
   return (projectId, rootPath, branch, sha) => {
+    recordWatchStarted(dbPath, projectId, rootPath, branch, sha);
     void (async () => {
       try {
         const outcome = await watchPostPushCi({ projectId, branch, sha }, () =>
