@@ -302,19 +302,6 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M13 6h3a2 2 0 0 1 2 2v7' }],
     ['line', { x1: '6', x2: '6', y1: '9', y2: '21' }],
   ],
-  'notebook-pen': [
-    ['path', { d: 'M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4' }],
-    ['path', { d: 'M2 6h4' }],
-    ['path', { d: 'M2 10h4' }],
-    ['path', { d: 'M2 14h4' }],
-    ['path', { d: 'M2 18h4' }],
-    [
-      'path',
-      {
-        d: 'M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z',
-      },
-    ],
-  ],
   clock: [
     ['circle', { cx: '12', cy: '12', r: '10' }],
     ['path', { d: 'M12 6v6l4 2' }],
@@ -391,11 +378,6 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
   'lock-open': [
     ['rect', { width: '18', height: '11', x: '3', y: '11', rx: '2', ry: '2' }],
     ['path', { d: 'M7 11V7a5 5 0 0 1 9.9-1' }],
-  ],
-  'clipboard-check': [
-    ['rect', { width: '8', height: '4', x: '8', y: '2', rx: '1', ry: '1' }],
-    ['path', { d: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2' }],
-    ['path', { d: 'm9 14 2 2 4-4' }],
   ],
   // … the back link (epic 0031 fix): a directional icon that mirrors under
   // dir=rtl, instead of an arrow character baked into the words.
