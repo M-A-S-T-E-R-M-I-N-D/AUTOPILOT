@@ -13,6 +13,9 @@ import {
 const FAKE_KEY = 'sk-ant-test-not-a-real-key';
 const FAKE_TOKEN = 'oauth-test-not-a-real-token';
 const FAKE_BASE_URL = 'https://compat.example.test/anthropic';
+const FAKE_AWS_REGION = 'us-east-1';
+const FAKE_GCP_PROJECT = 'test-project-not-real';
+const FAKE_GCP_REGION = 'us-east5';
 
 describe('resolveClaudeEnv', () => {
   it('subscription mode STRIPS a stray API key + oauth token (so neither overrides /login)', () => {
@@ -86,6 +89,84 @@ describe('resolveClaudeEnv', () => {
       ],
     ).toBeUndefined();
   });
+
+  it('bedrock mode sets CLAUDE_CODE_USE_BEDROCK and AWS_REGION, and clears the key/oauth/endpoint/vertex vars', () => {
+    const auth: AuthConfig = { mode: 'bedrock', awsRegion: FAKE_AWS_REGION };
+    const env = resolveClaudeEnv(auth, {
+      ANTHROPIC_API_KEY: FAKE_KEY,
+      ANTHROPIC_BASE_URL: FAKE_BASE_URL,
+      CLAUDE_CODE_USE_VERTEX: '1',
+      ANTHROPIC_VERTEX_PROJECT_ID: FAKE_GCP_PROJECT,
+    });
+    expect(env['CLAUDE_CODE_USE_BEDROCK']).toBe('1');
+    expect(env['AWS_REGION']).toBe(FAKE_AWS_REGION);
+    expect(env['ANTHROPIC_API_KEY']).toBeUndefined();
+    expect(env['ANTHROPIC_BASE_URL']).toBeUndefined();
+    expect(env['CLAUDE_CODE_USE_VERTEX']).toBeUndefined();
+    expect(env['ANTHROPIC_VERTEX_PROJECT_ID']).toBeUndefined();
+  });
+
+  it('bedrock mode with no awsRegion still enables Bedrock, leaving AWS_REGION unset (the CLI/AWS chain picks the region)', () => {
+    const env = resolveClaudeEnv({ mode: 'bedrock' }, {});
+    expect(env['CLAUDE_CODE_USE_BEDROCK']).toBe('1');
+    expect('AWS_REGION' in env).toBe(false);
+  });
+
+  it('bedrock mode never inherits a stray AWS_REGION from a prior run when this config sets none', () => {
+    const env = resolveClaudeEnv({ mode: 'bedrock' }, { AWS_REGION: 'eu-west-1' });
+    expect('AWS_REGION' in env).toBe(false);
+  });
+
+  it('vertex mode sets CLAUDE_CODE_USE_VERTEX, ANTHROPIC_VERTEX_PROJECT_ID and CLOUD_ML_REGION, and clears the key/oauth/endpoint/bedrock vars', () => {
+    const auth: AuthConfig = {
+      mode: 'vertex',
+      gcpProjectId: FAKE_GCP_PROJECT,
+      gcpRegion: FAKE_GCP_REGION,
+    };
+    const env = resolveClaudeEnv(auth, {
+      ANTHROPIC_API_KEY: FAKE_KEY,
+      ANTHROPIC_BASE_URL: FAKE_BASE_URL,
+      CLAUDE_CODE_USE_BEDROCK: '1',
+      AWS_REGION: FAKE_AWS_REGION,
+    });
+    expect(env['CLAUDE_CODE_USE_VERTEX']).toBe('1');
+    expect(env['ANTHROPIC_VERTEX_PROJECT_ID']).toBe(FAKE_GCP_PROJECT);
+    expect(env['CLOUD_ML_REGION']).toBe(FAKE_GCP_REGION);
+    expect(env['ANTHROPIC_API_KEY']).toBeUndefined();
+    expect(env['ANTHROPIC_BASE_URL']).toBeUndefined();
+    expect(env['CLAUDE_CODE_USE_BEDROCK']).toBeUndefined();
+    expect(env['AWS_REGION']).toBeUndefined();
+  });
+
+  it('vertex mode with no gcpProjectId activates NOTHING — CLOUD_ML_REGION rides in beside an enable flag pointed at no project is worse than not enabling at all', () => {
+    const env = resolveClaudeEnv({ mode: 'vertex', gcpRegion: FAKE_GCP_REGION }, {});
+    expect('CLAUDE_CODE_USE_VERTEX' in env).toBe(false);
+    expect('CLOUD_ML_REGION' in env).toBe(false);
+    expect('ANTHROPIC_VERTEX_PROJECT_ID' in env).toBe(false);
+  });
+
+  it('vertex mode with a project but no gcpRegion still enables Vertex, leaving CLOUD_ML_REGION unset (the CLI falls back to us-east5)', () => {
+    const env = resolveClaudeEnv({ mode: 'vertex', gcpProjectId: FAKE_GCP_PROJECT }, {});
+    expect(env['CLAUDE_CODE_USE_VERTEX']).toBe('1');
+    expect(env['ANTHROPIC_VERTEX_PROJECT_ID']).toBe(FAKE_GCP_PROJECT);
+    expect('CLOUD_ML_REGION' in env).toBe(false);
+  });
+
+  it('subscription mode strips a stray Bedrock/Vertex enable flag left over from a prior run', () => {
+    const base = {
+      CLAUDE_CODE_USE_BEDROCK: '1',
+      AWS_REGION: FAKE_AWS_REGION,
+      CLAUDE_CODE_USE_VERTEX: '1',
+      ANTHROPIC_VERTEX_PROJECT_ID: FAKE_GCP_PROJECT,
+      CLOUD_ML_REGION: FAKE_GCP_REGION,
+    };
+    const env = resolveClaudeEnv(DEFAULT_AUTH, base);
+    expect('CLAUDE_CODE_USE_BEDROCK' in env).toBe(false);
+    expect('AWS_REGION' in env).toBe(false);
+    expect('CLAUDE_CODE_USE_VERTEX' in env).toBe(false);
+    expect('ANTHROPIC_VERTEX_PROJECT_ID' in env).toBe(false);
+    expect('CLOUD_ML_REGION' in env).toBe(false);
+  });
 });
 
 describe('isAuthReady', () => {
@@ -106,6 +187,17 @@ describe('isAuthReady', () => {
     expect(isAuthReady({ mode: 'endpoint' })).toBe(false);
     expect(isAuthReady({ mode: 'endpoint', baseUrl: '' })).toBe(false);
     expect(isAuthReady({ mode: 'endpoint', baseUrl: FAKE_BASE_URL })).toBe(true);
+  });
+
+  it('is always ready for bedrock (AWS credentials resolve from the ambient SDK chain, outside this config)', () => {
+    expect(isAuthReady({ mode: 'bedrock' })).toBe(true);
+    expect(isAuthReady({ mode: 'bedrock', awsRegion: FAKE_AWS_REGION })).toBe(true);
+  });
+
+  it('vertex mode needs a non-empty gcpProjectId, but not a gcpRegion (the CLI falls back to us-east5)', () => {
+    expect(isAuthReady({ mode: 'vertex' })).toBe(false);
+    expect(isAuthReady({ mode: 'vertex', gcpProjectId: '' })).toBe(false);
+    expect(isAuthReady({ mode: 'vertex', gcpProjectId: FAKE_GCP_PROJECT })).toBe(true);
   });
 });
 
@@ -137,6 +229,20 @@ describe('describeAuth', () => {
 
   it('describes endpoint mode with no base URL set yet without throwing', () => {
     expect(describeAuth({ mode: 'endpoint' })).toBe('Custom endpoint (not configured)');
+  });
+
+  it('describes bedrock mode with and without a region set', () => {
+    expect(describeAuth({ mode: 'bedrock', awsRegion: FAKE_AWS_REGION })).toBe(
+      `Amazon Bedrock (${FAKE_AWS_REGION})`,
+    );
+    expect(describeAuth({ mode: 'bedrock' })).toBe('Amazon Bedrock');
+  });
+
+  it('describes vertex mode with the project but never the region-unrelated secrets', () => {
+    expect(describeAuth({ mode: 'vertex', gcpProjectId: FAKE_GCP_PROJECT })).toBe(
+      `Google Vertex AI (project: ${FAKE_GCP_PROJECT})`,
+    );
+    expect(describeAuth({ mode: 'vertex' })).toBe('Google Vertex AI (project: not configured)');
   });
 });
 
