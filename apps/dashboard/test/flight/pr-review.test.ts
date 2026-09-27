@@ -2839,7 +2839,7 @@ describe('fetchOpenPrCandidates', () => {
       '--limit',
       String(MAX_PR_LIST_CANDIDATES),
       '--json',
-      'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews,url',
+      'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,reviews,url',
     ]);
   });
 
@@ -4142,7 +4142,7 @@ describe('planPrReview deleted-test-file guard (the first deterministic "genuine
     expect(planPrReview(candidate()).decision).toBe('merge');
   });
 
-  it('flows through annotateAlreadyApplied into a queue-for-human plan, and the queue comment dedups like every other', async () => {
+  it('flows through annotateAlreadyApplied into a queue-for-human plan that posts nothing', async () => {
     const diff =
       'diff --git a/packages/engine/test/x.test.ts b/packages/engine/test/x.test.ts\n' +
       'deleted file mode 100644\n' +
@@ -4157,9 +4157,7 @@ describe('planPrReview deleted-test-file guard (the first deterministic "genuine
     const decision = planPrReview(annotated!);
     expect(decision.decision).toBe('queue-for-human');
     expect(decision.reasoning).toContain('packages/engine/test/x.test.ts');
-    expect(
-      planPrReviewCommands({ ...annotated!, ownComments: [decision.reasoning] }, decision),
-    ).toEqual([]);
+    expect(planPrReviewCommands(annotated!, decision)).toEqual([]);
   });
 
   it('neutralizes an @-leading deleted test path in the posted reasoning without weakening the guard', () => {
@@ -5403,7 +5401,7 @@ describe('fetchOpenPrCandidates viewer-authored detection', () => {
     expect(exec).toHaveBeenCalledTimes(1);
   });
 
-  it('spends the gh api user lookup off an authored comment alone — no PR author and no changes-requested review, just a comment with a readable author login', async () => {
+  it('spends no gh api user lookup off an authored comment alone — PR comments are not consulted, so a comment never pays for the viewer read', async () => {
     const exec: CliExec = vi.fn(async (_cmd: string, args: readonly string[]) => {
       if (args[0] === 'pr') {
         return {
@@ -5414,7 +5412,7 @@ describe('fetchOpenPrCandidates viewer-authored detection', () => {
               title: 'No author, no reviews, one comment',
               mergeable: 'MERGEABLE',
               files: [],
-              comments: [{ author: { login: 'someone' }, body: 'a comment' }],
+              comments: [{ author: { login: 'mastermind' }, body: 'a comment' }],
             },
           ]),
         };
@@ -5425,8 +5423,8 @@ describe('fetchOpenPrCandidates viewer-authored detection', () => {
     const prs = await fetchOpenPrCandidates(exec);
 
     expect(prs[0]).not.toHaveProperty('viewerIsAuthor');
-    expect(exec).toHaveBeenCalledTimes(2);
-    expect(exec).toHaveBeenCalledWith('gh', ['api', 'user']);
+    expect(prs[0]).not.toHaveProperty('ownComments');
+    expect(exec).toHaveBeenCalledTimes(1);
   });
 
   it('leaves viewerIsAuthor absent when gh api user fails — ownership stays not-assessed and can only narrow', async () => {
@@ -6399,106 +6397,6 @@ describe('planPrReview @-mention neutralization (posted verdicts never ping from
     const decision = planPrReview(candidate({ title: `ping @${ZWSP}octocat` }));
     expect(decision.reasoning).toContain(`@${ZWSP}octocat`);
     expect(decision.reasoning).not.toContain(`@${ZWSP}${ZWSP}`);
-  });
-});
-
-describe('planPrReviewCommands queue-for-human idempotency (re-runs mint nothing twice)', () => {
-  // A security-touching PR: planPrReview queues it for a human on every pass
-  // while it waits on MASTERMIND — exactly the shape that was collecting one
-  // identical comment per pass.
-  const queued: PrReviewCandidate = {
-    number: 88,
-    title: 'touches a guarded path',
-    gateStatus: 'pass',
-    mergeable: true,
-    touchedPaths: ['apps/dashboard/src/server/server.ts'],
-  };
-
-  it('plans NO command when the ritual already posted this exact verdict comment on the PR', () => {
-    const decision = planPrReview(queued);
-    expect(decision.decision).toBe('queue-for-human');
-    const commands = planPrReviewCommands(
-      { ...queued, ownComments: [decision.reasoning] },
-      decision,
-    );
-    expect(commands).toEqual([]);
-  });
-
-  it('plans nothing for a queued PR regardless of what earlier passes said', () => {
-    // The comment-dedup this once guarded is moot: there is no comment to
-    // dedup. Kept as a case because prior-comment state must not resurrect
-    // one.
-    const decision = planPrReview(queued);
-
-    expect(
-      planPrReviewCommands(
-        { ...queued, ownComments: ['an earlier pass posted a different verdict'] },
-        decision,
-      ),
-    ).toEqual([]);
-  });
-
-  it('never suppresses a request-changes decision — the dedup is comment-only, review verdicts always post', () => {
-    const redGate: PrReviewCandidate = {
-      number: 89,
-      title: 'plain change, red gate',
-      gateStatus: 'fail',
-      mergeable: true,
-      touchedPaths: ['apps/dashboard/src/web/sparkline.ts'],
-    };
-    const decision = planPrReview(redGate);
-    expect(decision.decision).toBe('request-changes');
-    const commands = planPrReviewCommands(
-      { ...redGate, ownComments: [decision.reasoning] },
-      decision,
-    );
-    expect(commands).toHaveLength(1);
-  });
-});
-
-describe('fetchOpenPrCandidates own-comment capture (queue-for-human dedup wiring)', () => {
-  const row = {
-    number: 5,
-    title: 'x',
-    author: { login: 'someone' },
-    mergeable: 'MERGEABLE',
-    baseRefName: 'main',
-    headRefOid: 'abc123',
-    statusCheckRollup: [],
-    files: [{ path: 'a.ts' }],
-  };
-
-  const execFor =
-    (comments: unknown): CliExec =>
-    async (command, args) => {
-      if (command === 'gh' && args[0] === 'api') return { code: 0, stdout: '{"login":"Keeper"}' };
-      return { code: 0, stdout: JSON.stringify([{ ...row, comments }]) };
-    };
-
-  it("captures the viewer's own comment bodies (case-insensitive login match), dropping others' and empty bodies", async () => {
-    const [pr] = await fetchOpenPrCandidates(
-      execFor([
-        { author: { login: 'keeper' }, body: 'prior verdict' },
-        { author: { login: 'someone' }, body: 'not ours' },
-        { author: { login: 'KEEPER' }, body: '' },
-        { author: {}, body: 'authorless — not provably ours' },
-      ]),
-    );
-    expect(pr?.ownComments).toEqual(['prior verdict']);
-  });
-
-  it('leaves ownComments absent when the viewer authored no comments — absent behaves as an empty list', async () => {
-    const [pr] = await fetchOpenPrCandidates(
-      execFor([{ author: { login: 'someone' }, body: 'not ours' }]),
-    );
-    expect(pr).toBeDefined();
-    expect('ownComments' in (pr ?? {})).toBe(false);
-  });
-
-  it('leaves ownComments absent on garbage comments payloads rather than judging them', async () => {
-    const [pr] = await fetchOpenPrCandidates(execFor('not an array'));
-    expect(pr).toBeDefined();
-    expect('ownComments' in (pr ?? {})).toBe(false);
   });
 });
 

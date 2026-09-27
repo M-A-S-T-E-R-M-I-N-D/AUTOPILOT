@@ -231,10 +231,6 @@ const EXCUSED: Readonly<Record<string, string>> = {
   'pr-review.ts#PrReviewCandidate#labels':
     'the PR card does not show a PR’s labels; a hold label reaches the reasoning only as "carries a ' +
     'hold label", never by name — tracked UX gap, not a decision-only field',
-  'pr-review.ts#PrReviewCandidate#ownComments':
-    'dead input, not a display gap: fetchOpenPrCandidates still fetches the ritual’s own PR comments, ' +
-    'but nothing consults them since a queue-for-human stopped posting (planPrReviewCommands plans ' +
-    'no command for one, so there is no comment left to dedup) — tracked for removal from the fetch',
   'pool-client.ts#PoolIssue#labels':
     'the panel does not yet show a pool issue’s labels — tracked UX gap, not a decision-only field',
   'pool-client.ts#PoolIssue#assignees':
@@ -537,8 +533,9 @@ const IN_PAINTED_TEXT: Readonly<Record<string, TextFold>> = {
  *  against BEHAVIOR like `IN_PAINTED_TEXT`: the honesty case runs the real
  *  planner with the field present and absent and requires the two outputs
  *  to differ, so a field nothing consults any more cannot shelter here
- *  (that is how `PrReviewCandidate.ownComments` landed in `EXCUSED` as
- *  dead). Remove an entry the day the renderer reads the field. */
+ *  (that is how the dead `PrReviewCandidate.ownComments` was caught, then
+ *  removed from the fetch). Remove an entry the day the renderer reads the
+ *  field. */
 interface DecisionRead {
   readonly outputs: () => { readonly withField: unknown; readonly withoutField: unknown };
   readonly why: string;
