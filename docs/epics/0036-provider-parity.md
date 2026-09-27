@@ -6,10 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 # 0036. Provider parity — more than one engine behind the same invoke port
 
 Status: In progress — research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
-values in `auth.ts`) landed the same day. `ModelPort` still has exactly two live implementations
-(`ClaudeCliModel`/`StreamingClaudeCliModel` and `OllamaModel`) — Bedrock/Vertex need none, since
-both route through the same `claude` CLI (see row below). No new agentic-CLI adapter (Codex, Gemini,
-Copilot) exists yet.
+values in `auth.ts`) landed the same day. Bedrock/Vertex need no adapter, since both route through
+the same `claude` CLI (see row below). The second slice added the first agentic non-Claude adapter,
+`CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`), but no flight or lane selects it yet.
+Gemini and Copilot have no adapter yet.
 
 `docs/ROADMAP.md` §3 (M14, "not started") names the gap directly: AUTOPILOT flies one engine — the
 Claude Code CLI on a personal subscription — and that is both its best property and its largest
@@ -110,7 +110,7 @@ disconnected reference doc that can drift out of sync with it.
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
-| OpenAI Codex CLI | Yes — `codex exec resume` | Yes — full loop | **None** — token counts only, no price | Not started |
+| OpenAI Codex CLI (`CodexCliModel`) | Yes — `codex exec resume` (argv built; resume-accepted signal unverified) | Yes — full loop | **None** — token counts only, `costUsd: null` | **Adapter shipped** (`packages/engine/src/adapters/codex-cli.ts`), not yet wired to a lane |
 | Google Gemini CLI | Partial — resume works, session ID not in JSON output (upstream gap) | Yes — full loop | Yes — usage stats in JSON | Not started |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | Clean stdout XOR usage stats, not both | Not started |
 
