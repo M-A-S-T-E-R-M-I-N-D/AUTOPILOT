@@ -104,6 +104,15 @@ describe('invalidSpdxTags — the REUSE red that sat on main (2026-09-27)', () =
     expect(invalidSpdxTags(text)).toEqual([{ line: 4, expression: "MIT';" }]);
   });
 
+  it("reads a tag before either HTML comment end, --> and --!>, and before C's */", () => {
+    const text = [
+      '<!-- SPDX-License-Identifier: MIT -->',
+      '<!-- SPDX-License-Identifier: MIT --!>',
+      '/* SPDX-License-Identifier: MIT */',
+    ].join('\n');
+    expect(invalidSpdxTags(text)).toEqual([]);
+  });
+
   it('flags an empty expression', () => {
     expect(invalidSpdxTags('// SPDX-License-Identifier:')).toEqual([{ line: 1, expression: '' }]);
   });
