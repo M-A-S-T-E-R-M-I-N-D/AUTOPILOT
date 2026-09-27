@@ -11,20 +11,22 @@
  * a whole small display payload where SOME field never reaches the panel
  * that already renders its siblings.
  *
- * This is a first, deliberately bounded slice of the census, not the full
- * sweep the epic describes. `PAYLOAD_INTERFACES` below is a CURATED list,
- * not a disk diff — unlike `link-census.test.ts`'s fully automatic scan,
- * most `flight/*.ts` payload interfaces (`PrReviewCandidate`,
- * `IssueTriageDossier`, every `MirrorPass*Finding`) mix real display fields
- * with fields documented as decision-only / reasoning-only (see e.g.
- * `PrReviewCandidate.viewerIsAuthor`'s own doc comment: "the check can only
- * narrow toward queue-for-human, never force a merge") — a blind "every
- * field must render" sweep would misfire on every one of those. The
- * interfaces below were hand-verified to carry ONLY display fields (no
- * field exists purely to steer a policy decision), so the check below is
- * sound without per-field editorializing. Extending `PAYLOAD_INTERFACES` to
- * `PrReviewCandidate` and friends is real follow-up work, not scope creep
- * this slice skipped by accident.
+ * This is a deliberately bounded census, not the full sweep the epic
+ * describes. `PAYLOAD_INTERFACES` below is a CURATED list, not a disk diff —
+ * unlike `link-census.test.ts`'s fully automatic scan, most `flight/*.ts`
+ * payload interfaces (`PrReviewCandidate`, every `MirrorPass*Finding`) mix
+ * real display fields with fields documented as decision-only /
+ * reasoning-only (see e.g. `PrReviewCandidate.viewerIsAuthor`'s own doc
+ * comment: "the check can only narrow toward queue-for-human, never force a
+ * merge") — a blind "every field must render" sweep would misfire on every
+ * one of those. Every field of a censused interface is adjudicated: read off
+ * its receiver, or listed in `DERIVED` (reaches the panel through a wrapper
+ * field), `IN_REASONING` (folded into the `reasoning` text the panel paints —
+ * checked against the real planner's output, not the source text) or
+ * `EXCUSED` (a tracked gap). The `IssueTriageDecision` variants (slice c of
+ * the split below) are the first censused through that adjudication;
+ * `PrReviewCandidate` and the `MirrorPass*Finding` payloads are real
+ * follow-up work, not scope creep this census skipped by accident.
  *
  * A read counts only when it is taken off a name the renderer binds THIS
  * payload to (`check.url`, not the PR's own `plan.pr.url`), in code rather
@@ -39,6 +41,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { planIssueTriage, type IssueTriageDecision } from '../../src/flight/issue-triage.js';
 
 const FLIGHT_DIR = fileURLToPath(new URL('../../src/flight/', import.meta.url));
 const FEATURES_DIR = fileURLToPath(new URL('../../src/web/features/', import.meta.url));
@@ -119,6 +122,21 @@ const PAYLOAD_INTERFACES: readonly PayloadInterface[] = [
   // the pipeline strip through, and every one of its fields is display-only
   // by its own doc comment.
   { file: 'pr-review.ts', interfaceName: 'PrCheckRun', receivers: ['check', 'c'] },
+  // Every `IssueTriageDecision` variant (`IssueTriageDossier` and its four
+  // siblings). The panel reads `decision` (badge, icon, counts) and
+  // `reasoning` off `plan.decision`; each variant's other fields are
+  // adjudicated one by one in `IN_REASONING` / `EXCUSED` below.
+  ...[
+    'IssueTriageDuplicate',
+    'IssueTriageAccept',
+    'IssueTriageSkip',
+    'IssueTriageDossier',
+    'IssueTriageNeedsFormat',
+  ].map((interfaceName) => ({
+    file: 'issue-triage.ts',
+    interfaceName,
+    receivers: ['plan.decision', 'p.decision'],
+  })),
 ];
 
 /** `${file}#${interfaceName}#${field}` -> why this one field is excused
@@ -130,6 +148,9 @@ const EXCUSED: Readonly<Record<string, string>> = {
     'the panel does not yet show a pool issue’s labels — tracked UX gap, not a decision-only field',
   'pool-client.ts#PoolIssue#assignees':
     'the panel does not yet show who a pool issue is assigned to — tracked UX gap, not a decision-only field',
+  'issue-triage.ts#IssueTriageDuplicate#matchedId':
+    'the preview names the matched task only by title (inside reasoning), never by id — tracked UX gap: ' +
+    'a duplicate does not yet link to the board task or backlog entry it matched',
 };
 
 /** A field that reaches the panel only through a same-named field of a
@@ -155,6 +176,111 @@ const DERIVED: Readonly<Record<string, DerivedRead>> = {
   },
 };
 
+/** A field the flight module folds into the payload's own `reasoning` text,
+ *  which the panel paints — so it reaches the browser as prose, never as a
+ *  raw read. */
+interface ReasoningFold {
+  /** The text(s) `reasoning` must contain for the field's `value`. */
+  readonly shown: (value: unknown) => readonly string[];
+  readonly why: string;
+}
+
+const AS_TEXT = (value: unknown): readonly string[] => [String(value)];
+
+/** `${file}#${interfaceName}#${field}` -> how the field shows up in
+ *  `reasoning`. Unlike the other lists this is checked against BEHAVIOR:
+ *  the honesty case runs the real planner and looks for `shown(value)` in the
+ *  reasoning it wrote, so a reasoning template that stops mentioning a field
+ *  turns the census red. Remove an entry the day the renderer reads the raw
+ *  field. */
+const IN_REASONING: Readonly<Record<string, ReasoningFold>> = {
+  'issue-triage.ts#IssueTriageDuplicate#matchedTitle': {
+    shown: (value) => [`"${String(value)}"`],
+    why: 'the reasoning quotes the existing title the issue overlaps',
+  },
+  'issue-triage.ts#IssueTriageDuplicate#score': {
+    shown: (value) => [`${Math.round(Number(value) * 100)}%`],
+    why: 'the reasoning states the overlap as a whole percentage',
+  },
+  'issue-triage.ts#IssueTriageAccept#releasedFromHumansAfterDays': {
+    shown: (value) => [`unclaimed for ${String(value)} days`],
+    why: 'the reasoning says how long the good-first-issue reservation sat unclaimed',
+  },
+  'issue-triage.ts#IssueTriageAccept#dimension': {
+    shown: (value) => [`"pool: ${String(value)}"`],
+    why: 'the reasoning names the pool label it will set',
+  },
+  'issue-triage.ts#IssueTriageAccept#area': {
+    shown: AS_TEXT,
+    why: 'the reasoning names the area label it will set',
+  },
+  'issue-triage.ts#IssueTriageAccept#priority': {
+    shown: AS_TEXT,
+    why: 'the reasoning names the priority label it will set',
+  },
+  'issue-triage.ts#IssueTriageAccept#milestone': {
+    shown: (value) => [`milestone "${String(value)}"`],
+    why: 'the reasoning names the milestone it will set',
+  },
+  'issue-triage.ts#IssueTriageNeedsFormat#kind': {
+    shown: (value) => [`the ${String(value)} template`],
+    why: 'the reasoning names which template the body was filed off',
+  },
+  'issue-triage.ts#IssueTriageNeedsFormat#missing': {
+    shown: (value) => (value as readonly string[]).map((heading) => `"${heading}"`),
+    why: 'the reasoning quotes every missing template section',
+  },
+};
+
+const TRIAGE_NOW = Date.parse('2026-09-27T00:00:00Z');
+const DAY_MS = 86_400_000;
+const CONFORMING_BUG_BODY =
+  '### What happened?\nx\n### Steps to reproduce\nx\n### Expected behavior\nx';
+
+/** One real `planIssueTriage` decision per `IssueTriageDecision` variant,
+ *  each built so every optional field of its interface is present — the
+ *  fixtures `IN_REASONING`'s honesty case reads the folded values from. */
+function triageDecisionsByInterface(): Readonly<Record<string, IssueTriageDecision>> {
+  const accept = planIssueTriage(
+    {
+      number: 7,
+      title: 'Crash when the security scanner reads a symlink',
+      body: CONFORMING_BUG_BODY,
+      labels: ['good first issue'],
+      createdAt: new Date(TRIAGE_NOW - 20 * DAY_MS).toISOString(),
+    },
+    [],
+    [],
+    undefined,
+    TRIAGE_NOW,
+    undefined,
+    ['Foundations', 'V1', 'Hardening'],
+  );
+  const duplicate = planIssueTriage(
+    { number: 8, title: 'Keyboard nav is broken in the fleet table', body: '' },
+    [{ id: 'web-abc', title: 'Keyboard nav is broken in the fleet table view' }],
+    [],
+  );
+  const needsFormat = planIssueTriage({ number: 9, title: 'Crash on startup', body: '' }, [], []);
+  const dossier = planIssueTriage(
+    { number: 10, title: 'Partner application', body: '', labels: ['partner-application'] },
+    [],
+    [],
+  );
+  const skip = planIssueTriage(
+    { number: 11, title: 'Taken', body: '', assignees: ['octocat'] },
+    [],
+    [],
+  );
+  return {
+    IssueTriageAccept: accept,
+    IssueTriageDuplicate: duplicate,
+    IssueTriageNeedsFormat: needsFormat,
+    IssueTriageDossier: dossier,
+    IssueTriageSkip: skip,
+  };
+}
+
 function censusSources(file: string): { readonly flight: string; readonly renderer: string } {
   return {
     flight: readFileSync(`${FLIGHT_DIR}${file}`, 'utf8'),
@@ -164,7 +290,7 @@ function censusSources(file: string): { readonly flight: string; readonly render
 
 /** Top-level `readonly field: ...` / `readonly field?: ...` names declared
  *  directly on `interfaceName` in `source` — one level, no descent into
- *  nested object-literal types (neither censused interface has one). */
+ *  nested object-literal types (no censused interface has one). */
 function interfaceFields(source: string, interfaceName: string): readonly string[] {
   const pattern = new RegExp(`export interface ${interfaceName}[^{]*\\{([\\s\\S]*?)\\n\\}`);
   const match = pattern.exec(source);
@@ -236,7 +362,7 @@ describe('payload census — every field of a censused display payload reaches i
       const { flight, renderer } = censusSources(file);
       for (const field of interfaceFields(flight, interfaceName)) {
         const key = `${file}#${interfaceName}#${field}`;
-        if (key in EXCUSED) continue;
+        if (key in EXCUSED || key in IN_REASONING) continue;
         const derived = DERIVED[key];
         const readers = derived === undefined ? receivers : derived.receivers;
         if (!fieldIsRead(renderer, readers, field)) {
@@ -271,6 +397,7 @@ describe('payload census — every field of a censused display payload reaches i
     for (const [key, derived] of Object.entries(DERIVED)) {
       expect(derived.why.length, key).toBeGreaterThan(0);
       expect(key in EXCUSED, `${key}: both excused and derived`).toBe(false);
+      expect(key in IN_REASONING, `${key}: both derived and folded into reasoning`).toBe(false);
       const { entry, field } = censusedKey(key);
       const { flight, renderer } = censusSources(entry.file);
       expect(interfaceFields(flight, entry.interfaceName), key).toContain(field);
@@ -282,6 +409,43 @@ describe('payload census — every field of a censused display payload reaches i
         fieldIsRead(renderer, entry.receivers, field),
         `${key}: web/features/${entry.file} now reads the raw field — remove the derived entry`,
       ).toBe(false);
+    }
+  });
+
+  it('builds one real triage decision per censused IssueTriageDecision variant', () => {
+    const decisions = triageDecisionsByInterface();
+    expect(decisions['IssueTriageAccept']?.decision).toBe('accept');
+    expect(decisions['IssueTriageDuplicate']?.decision).toBe('duplicate');
+    expect(decisions['IssueTriageNeedsFormat']?.decision).toBe('needs-format');
+    expect(decisions['IssueTriageDossier']?.decision).toBe('dossier');
+    expect(decisions['IssueTriageSkip']?.decision).toBe('skip');
+  });
+
+  it('keeps the reasoning-fold list honest — the real planner still writes each field into reasoning', () => {
+    const decisions = triageDecisionsByInterface();
+    for (const [key, fold] of Object.entries(IN_REASONING)) {
+      expect(fold.why.length, key).toBeGreaterThan(0);
+      expect(key in EXCUSED, `${key}: both excused and folded into reasoning`).toBe(false);
+      const { entry, field } = censusedKey(key);
+      const { flight, renderer } = censusSources(entry.file);
+      expect(interfaceFields(flight, entry.interfaceName), key).toContain(field);
+      expect(
+        fieldIsRead(renderer, entry.receivers, field),
+        `${key}: web/features/${entry.file} now reads the raw field — remove the reasoning-fold entry`,
+      ).toBe(false);
+      const decision = decisions[entry.interfaceName] as unknown as
+        Readonly<Record<string, unknown>> | undefined;
+      expect(decision, `${key}: no fixture decision for ${entry.interfaceName}`).toBeDefined();
+      expect(decision, `${key}: the fixture decision does not carry ${field}`).toHaveProperty(
+        field,
+      );
+      const reasoning = String(decision?.['reasoning']);
+      for (const text of fold.shown(decision?.[field])) {
+        expect(
+          reasoning,
+          `${key}: the planner's reasoning no longer shows ${field} — it no longer reaches the panel`,
+        ).toContain(text);
+      }
     }
   });
 });
