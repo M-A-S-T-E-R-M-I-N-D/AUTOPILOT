@@ -412,7 +412,14 @@ const CORE_GZIP_BUDGET = 70 * 1024;
 // fit /panels.js would hand /project.js ~115KB of slack nobody asked for.
 // Measured 118263B raw for /project.js (was 107507B) and 237238B for
 // /panels.js (was 208177B); each line sits about two KB above.
-const PROJECT_RAW_BUDGET = 118 * 1024;
+// Then project raw 118→122KB (2026-09-27), the VERSIONS panel (board
+// ap-mui2h3s1-1, slice 4): MASTER-PLAN §5.5's Versions screen gets its first
+// expression — MYTH, LEGACY and the flight log with a "What changed"
+// disclosure per version. The panel's code (3.3KB minified) and its fifteen
+// English keys (0.7KB) both ride /project.js. Measured 123854B raw against
+// the old 120832B budget, the Data tab's Health section (8502d83e) having
+// landed first: 3022 bytes over.
+const PROJECT_RAW_BUDGET = 122 * 1024;
 const PANELS_RAW_BUDGET = 234 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
@@ -440,7 +447,9 @@ const PANELS_RAW_BUDGET = 234 * 1024;
 // Then SPLIT (2026-09-26), the same ADR 0012 byte move as the raw lines
 // above: measured 31521B gzip for /project.js (was 28433B) and 72310B for
 // /panels.js (was 62209B).
-const PROJECT_GZIP_BUDGET = 32 * 1024;
+// Then project gzip 32→33KB (2026-09-27) for the same VERSIONS panel as the
+// raw line above — measured 33142B gzip.
+const PROJECT_GZIP_BUDGET = 33 * 1024;
 const PANELS_GZIP_BUDGET = 72 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither

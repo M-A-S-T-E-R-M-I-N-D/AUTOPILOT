@@ -3986,6 +3986,9 @@ function renderProjectPage(state, pid) {
   var flightConsoleEl = cachedPanel(pid, 'console', '', function () { return flightConsoleSection(pid); });
   flightConsoleEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'flight-console');
   fleet.appendChild(subj(flightConsoleEl, 'fleet'));
+  // HEALTH (board ap-mui2h3rw-0): what went wrong and the proposed fix lead
+  // the Data tab, ahead of the charts.
+  fleet.appendChild(subj(healthSection(c), 'data'));
   var heatmap = contributionHeatmap(c);
   if (heatmap) fleet.appendChild(subj(heatmap, 'data'));
   var evalTrend = evaluationTrendPanel(c);
@@ -4071,6 +4074,9 @@ function renderProjectPage(state, pid) {
   var releaseEl = cachedPanel(pid, 'release', dataKey, function () { return releaseSection(pid); });
   releaseEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'release');
   fleet.appendChild(subj(releaseEl, 'fleet'));
+  // Versions (board ap-mui2h3s1-1): MYTH, LEGACY and the flight log, each with
+  // what it changed. A landed firing is a new version, so it rides dataKey.
+  fleet.appendChild(subj(cachedPanel(pid, 'versions', dataKey, function () { return versionsSection(pid); }), 'data'));
   // Start over: a DECLARED telemetry reset (fresh 0/0 round) — the project,
   // its tasks, its index, and its git backups are untouched.
   var so = el('section', 'start-over');
