@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { openStore, migrate, type Store } from '@autopilot/store';
-import type { GitVcs } from '@autopilot/engine';
+import { GitVcs } from '@autopilot/engine';
 import {
   runFamilyRunawaySweep,
   runFleetWisdomSweep,
@@ -770,6 +770,19 @@ describe('runClosedTaskAuditSweep', () => {
     const title = auditTitle('t4');
     expect(title.slice(0, BOARD_TITLE_CHARS)).toContain(`lost its UI/Docs expression: "${clause}"`);
     expect(extractDeliverable(title)).toBe(clause);
+  });
+
+  it('proposes nothing when git cannot answer the lookup, rather than calling the clause drifted', async () => {
+    seedDoneTask('t5', 'add a tooltip DELIVERABLE: adds a tooltip to the button');
+    const scratch = mkdtempSync(join(tmpdir(), 'autopilot-closedaudit-norepo-'));
+    try {
+      const notARepo = new GitVcs(join(scratch, 'does-not-exist'));
+      await runClosedTaskAuditSweep(store, 'p1', notARepo, () => 12345);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+
+    expect(closedAuditTasks()).toEqual([]);
   });
 
   it('is best-effort — a query failure never throws', async () => {

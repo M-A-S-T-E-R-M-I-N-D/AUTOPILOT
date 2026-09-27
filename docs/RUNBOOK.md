@@ -365,7 +365,11 @@ flipped back to open — reopen = a fresh-id task, and only through your explici
   simply stops finding it.
 
 Both sweeps are best-effort: a crash prints `sweep skipped (best-effort, non-fatal)` in the
-flight log and never fails the flight.
+flight log and never fails the flight. A `git grep` that git could not run at all (a non-repo
+path, an unreadable object) is such a crash, never a "keyword absent": the CLOSED-TASK AUDIT
+proposes nothing that flight rather than calling every closed clause drifted. A
+deliverable-drift finding whose clause words `git grep -i` still finds at HEAD is stale (today's
+tree would not produce it), so discard it.
 
 **MIRROR PASS previews (epic 0019 S3, on demand — not a per-flight sweep):** three read-only
 endpoints let you ask what the issues⇄board mirror WOULD do for one project before any execute
