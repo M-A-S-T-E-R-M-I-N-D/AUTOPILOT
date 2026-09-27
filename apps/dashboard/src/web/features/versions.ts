@@ -123,19 +123,32 @@ function versionRestoreClick(pid, row, btn) {
       snack(tr('versionsRestoreFailed'), 'err');
     });
 }
+// Every row's buttons are named "<own label> <short sha>" by labelling each
+// with itself then the row's sha, so a button list reads "Restore ddddddd",
+// not four bare "Restore"s. The name follows the live label (Restoring…,
+// Hide changes, a locale switch) with no aria text of its own to keep in sync.
+// Ids carry the kind: MYTH and LEGACY can share one commit.
+function versionNamedBy(btn, id, shaEl) {
+  btn.id = id;
+  btn.setAttribute('aria-labelledby', id + ' ' + shaEl.id);
+}
 function versionItem(pid, row) {
   var li = el('li', 'version-row');
+  var rowId = row.kind + '-' + row.sha;
   var kindKey = VERSION_KIND_KEY[row.kind];
   var kind = el('span', 'chip version-kind version-' + row.kind, tr(kindKey));
   kind.setAttribute('data-i18n', kindKey);
   li.appendChild(kind);
-  li.appendChild(el('code', 'version-sha', row.sha.slice(0, 7)));
+  var shaEl = el('code', 'version-sha', row.sha.slice(0, 7));
+  shaEl.id = 'version-sha-' + rowId;
+  li.appendChild(shaEl);
   li.appendChild(el('span', 'version-subject', row.subject));
   var at = Date.parse(row.committedAt);
   if (!isNaN(at)) li.appendChild(el('span', 'muted', fmtAgo(at)));
   var restoreBtn = el('button', 'version-restore-btn', tr('versionsRestore'));
   restoreBtn.type = 'button';
   restoreBtn.setAttribute('data-i18n', 'versionsRestore');
+  versionNamedBy(restoreBtn, 'version-restore-' + rowId, shaEl);
   restoreBtn.addEventListener('click', function () { versionRestoreClick(pid, row, restoreBtn); });
   li.appendChild(restoreBtn);
   if (!row.diffFrom) return li;
@@ -145,6 +158,7 @@ function versionItem(pid, row) {
   var btn = el('button', 'diff-toggle', tr('versionsShowChanges'));
   btn.type = 'button';
   btn.setAttribute('data-i18n', 'versionsShowChanges');
+  versionNamedBy(btn, 'version-toggle-' + rowId, shaEl);
   btn.setAttribute('aria-expanded', 'false');
   btn.setAttribute('aria-controls', out.id);
   btn.addEventListener('click', function () { toggleVersionDiff(pid, row, btn, out); });
