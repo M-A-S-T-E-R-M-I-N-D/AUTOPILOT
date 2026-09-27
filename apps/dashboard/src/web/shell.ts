@@ -3986,6 +3986,9 @@ function renderProjectPage(state, pid) {
   var flightConsoleEl = cachedPanel(pid, 'console', '', function () { return flightConsoleSection(pid); });
   flightConsoleEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'flight-console');
   fleet.appendChild(subj(flightConsoleEl, 'fleet'));
+  // HEALTH (board ap-mui2h3rw-0): what went wrong and the proposed fix lead
+  // the Data tab, ahead of the charts.
+  fleet.appendChild(subj(healthSection(c), 'data'));
   var heatmap = contributionHeatmap(c);
   if (heatmap) fleet.appendChild(subj(heatmap, 'data'));
   var evalTrend = evaluationTrendPanel(c);

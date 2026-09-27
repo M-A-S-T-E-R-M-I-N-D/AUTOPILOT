@@ -42,6 +42,10 @@
  * `fmtDuration`, called by name inside these sections, hoist the same way from
  * `fleetJs()`'s own top-level declarations.
  *
+ * `healthSection(c)` (board ap-mui2h3rw-0) joined the cluster later: the
+ * Data tab's list of every detected anomaly with its proposed fix, built
+ * from the anomaly vocabulary core already carries for the card's chips.
+ *
  * i18n (board web-msnsndki-dz3vn1): each panel's `h3` title carries its
  * English default AND a `data-i18n` tag, then rides the page-level
  * `translateDom()` sweep that follows every `renderProjectPage()` tick — all
@@ -129,6 +133,50 @@ function warmSessionsSection(c) {
   // moves it.
   seedRoving(grid, '.stat-tile');
   wrap.appendChild(grid);
+  return wrap;
+}
+// HEALTH (board ap-mui2h3rw-0, slice 1 of MASTER-PLAN §7 "Anomalies /
+// Health"): every anomaly the detectors flagged for this project
+// (read/anomalies.ts, already on the card as chips) in one list, each with
+// the evidence that fired it, what it means and the proposed fix — the chip
+// popover's own words (ANOMALY_LABELS, anomalyMeaningKeys and ANOMALY_ICONS
+// live in core). Always rendered: a healthy project says so. The evidence is
+// server text, so it only ever goes in via textContent.
+function healthKeyed(tag, cls, key) {
+  var n = el(tag, cls, tr(key));
+  n.setAttribute('data-i18n', key);
+  return n;
+}
+function healthSection(c) {
+  var list = c.anomalies || [];
+  var wrap = el('section', 'health-panel');
+  wrap.appendChild(panelHeading('h3', 'health-title', 'healthTitle', 'activity'));
+  if (!list.length) {
+    wrap.appendChild(healthKeyed('p', 'health-clear muted', 'healthClear'));
+    return wrap;
+  }
+  var ul = el('ul', 'health-list');
+  for (var i = 0; i < list.length; i++) {
+    var a = list[i];
+    var keys = anomalyMeaningKeys(a.kind);
+    var li = el('li', 'health-item');
+    var title = el('h4', 'health-item-title');
+    title.appendChild(iconEl(ANOMALY_ICONS[a.kind] || 'triangle-alert'));
+    title.appendChild(document.createTextNode(ANOMALY_LABELS[a.kind] || a.kind));
+    li.appendChild(title);
+    li.appendChild(healthKeyed('p', 'health-what', keys.what));
+    var evidence = el('p', 'health-evidence');
+    evidence.appendChild(healthKeyed('span', 'health-k', 'anomalyPopEvidence'));
+    evidence.appendChild(document.createTextNode(' ' + a.evidence));
+    li.appendChild(evidence);
+    var fix = el('p', 'health-fix');
+    fix.appendChild(healthKeyed('span', 'health-k', 'anomalyPopAction'));
+    fix.appendChild(document.createTextNode(' '));
+    fix.appendChild(healthKeyed('span', null, keys.action));
+    li.appendChild(fix);
+    ul.appendChild(li);
+  }
+  wrap.appendChild(ul);
   return wrap;
 }
 `.trim();
