@@ -325,7 +325,7 @@ the pass off. The flight prints which one it is running when it starts.
 Not a failure mode — the intended behavior, written down so a `CLOSED-TASK AUDIT:` or
 `DOC-FRESHNESS:` task appearing in your approval queue reads as a decision waiting for you, not as
 the autopilot inventing work. Once per flight, after the firings finish, two drift sweeps run.
-Neither ever changes anything on its own: each finding becomes a NEW proposal task
+Neither ever changes your work on its own: each finding becomes a NEW proposal task
 (`source: 'self'`, `status: 'needs_approval'`) that sits in the dashboard's approval queue until
 you approve or discard it.
 
@@ -362,14 +362,17 @@ flipped back to open — reopen = a fresh-id task, and only through your explici
 - **Discard** it if the drift is intentional (e.g. the deliverable was deliberately removed or
   renamed in a later design). The proposal id is keyed on the audited task alone, so a discarded
   or still-pending finding is NOT re-proposed every flight; if the drift is later fixed, the audit
-  simply stops finding it.
+  stops finding it and moves its own proposal to `deferred` (only one nobody has acted on: still
+  awaiting approval, or queued by auto mode, and not claimed by a lane). It does this once per
+  proposal; if you re-queue one, it stays queued.
 
 Both sweeps are best-effort: a crash prints `sweep skipped (best-effort, non-fatal)` in the
 flight log and never fails the flight. A `git grep` that git could not run at all (a non-repo
 path, an unreadable object) is such a crash, never a "keyword absent": the CLOSED-TASK AUDIT
 proposes nothing that flight rather than calling every closed clause drifted. A
 deliverable-drift finding whose clause words `git grep -i` still finds at HEAD is stale (today's
-tree would not produce it), so discard it.
+tree would not produce it). The next flight defers it on its own unless you approved it; discard
+an approved one yourself.
 
 **MIRROR PASS previews (epic 0019 S3, on demand — not a per-flight sweep):** three read-only
 endpoints let you ask what the issues⇄board mirror WOULD do for one project before any execute

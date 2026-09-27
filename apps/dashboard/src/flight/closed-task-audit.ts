@@ -149,3 +149,31 @@ export async function findClosedTaskAuditFindings(
   }
   return findings;
 }
+
+/** The board id the audit proposes a finding under — keyed on the task alone,
+ *  so an unresolved finding is never re-proposed flight after flight. */
+export function closedTaskAuditId(taskId: string): string {
+  return `closedaudit-${taskId}`;
+}
+
+/**
+ * The open audit proposals this sweep's own evidence now contradicts: the
+ * task each one names was re-audited just now (a DONE candidate that still
+ * carries a clause) and produced no finding, so the drift it reported no
+ * longer holds — it reversed, or the lookup that reported it had failed. An
+ * audit whose task was NOT re-audited (out of the done window, reopened, its
+ * clause edited away) is never returned: no fresh evidence either way.
+ */
+export function findStaleClosedTaskAuditIds(
+  openAuditIds: readonly string[],
+  candidates: readonly ClosedTaskAuditCandidate[],
+  findings: readonly ClosedTaskAuditFinding[],
+): readonly string[] {
+  const stillDrifting = new Set(findings.map((f) => f.taskId));
+  const backedAgain = new Set(
+    candidates
+      .filter((c) => extractDeliverable(c.title) && !stillDrifting.has(c.id))
+      .map((c) => closedTaskAuditId(c.id)),
+  );
+  return openAuditIds.filter((id) => backedAgain.has(id));
+}
