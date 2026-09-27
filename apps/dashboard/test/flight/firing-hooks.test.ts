@@ -490,6 +490,85 @@ describe('markTaskDoneIfShipped', () => {
     expect(taskStatus('web-a')).toBe('queued');
   });
 
+  // recentTasks pages 30 rows, open work sorted by severity, so a
+  // severity-less task sits past 30 high-severity ones. The firing's own
+  // "complete" metrics row is what the straggler reconcile reads afterwards.
+  function crowdPastTheBoardPage(item: string): void {
+    for (let i = 0; i < 30; i++) {
+      createTask(store, {
+        id: `web-crowd-${i}`,
+        projectId: 'p1',
+        title: `Urgent ${i}`,
+        severity: 'high',
+        createdAt: 2,
+      });
+    }
+    store.db
+      .prepare(
+        `INSERT INTO metrics (project_id, firing_id, item, shipped, completion, sha, created_at)
+         VALUES ('p1', 'p1-f1', ?, 1, 'complete', 'abc123', 3)`,
+      )
+      .run(item);
+  }
+
+  it('verifies a DELIVERABLE claim on a task past the 30-row board page, so the straggler reconcile cannot close it unverified', async () => {
+    createTask(store, {
+      id: 'web-a',
+      projectId: 'p1',
+      title: 'DELIVERABLE: adds retry backoff to the sync worker',
+      createdAt: 1,
+    });
+    crowdPastTheBoardPage('web-a');
+
+    const result = await markTaskDoneIfShipped(
+      store,
+      'p1',
+      outcomeWithRecord({ shipped: true, item: 'web-a', completion: 'complete', sha: 'abc123' }),
+      fakeVcs({ patch: 'diff --git a/src/unrelated.ts\n+ totally unrelated change' }),
+    );
+    reconcileMidFlightStragglers(store, 'p1', 9);
+
+    expect(result).toContain('DELIVERABLE verifier found no trace of the claim');
+    expect(taskStatus('web-a')).toBe('queued');
+  });
+
+  it('holds the claim contract on a claimed issue task past the 30-row board page', async () => {
+    createTask(store, {
+      id: 'web-a',
+      projectId: 'p1',
+      title: 'Flaky retry test',
+      body: claimContractBody(42, undefined, { claimant: 'somehuman' }),
+      createdAt: 1,
+    });
+    crowdPastTheBoardPage('web-a');
+
+    const result = await markTaskDoneIfShipped(
+      store,
+      'p1',
+      outcomeWithRecord({ shipped: true, item: 'web-a', completion: 'complete', sha: 'abc123' }),
+      fakeVcs(),
+    );
+    reconcileMidFlightStragglers(store, 'p1', 9);
+
+    expect(result).toContain('claim contract');
+    expect(taskStatus('web-a')).toBe('queued');
+  });
+
+  it('closes a backed claim on a task past the 30-row board page', async () => {
+    createTask(store, { id: 'web-a', projectId: 'p1', title: 'Fix the flaky test', createdAt: 1 });
+    crowdPastTheBoardPage('web-a');
+
+    const result = await markTaskDoneIfShipped(
+      store,
+      'p1',
+      outcomeWithRecord({ shipped: true, item: 'web-a', completion: 'complete', sha: 'abc123' }),
+      fakeVcs(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(taskStatus('web-a')).toBe('done');
+  });
+
   it('leaves a claimed issue task open on a "slice" tag with no demotion messaging', async () => {
     createTask(store, {
       id: 'web-a',
