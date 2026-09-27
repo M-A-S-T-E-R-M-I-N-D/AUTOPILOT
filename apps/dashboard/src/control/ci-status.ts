@@ -173,7 +173,16 @@ export function ciWorkflowStatus(
   }
   const latest = parsed[0] as RawGhRun;
   const status = typeof latest.status === 'string' ? latest.status : null;
-  const conclusion = typeof latest.conclusion === 'string' ? latest.conclusion : null;
+  // A run has a conclusion only once it is completed. `gh` reports an
+  // in-progress run's conclusion as "" — a string — and taking that as a
+  // conclusion made the post-push watch declare a verdict the moment CI
+  // started, reading green before a single job had finished (2026-09-27).
+  const conclusion =
+    (status === null || status === 'completed') &&
+    typeof latest.conclusion === 'string' &&
+    latest.conclusion !== ''
+      ? latest.conclusion
+      : null;
   const createdAt = typeof latest.createdAt === 'string' ? latest.createdAt : null;
   const ageLabel = createdAt ? formatRunAge(createdAt, nowMs) : null;
   const parsedMs = createdAt ? Date.parse(createdAt) : NaN;
