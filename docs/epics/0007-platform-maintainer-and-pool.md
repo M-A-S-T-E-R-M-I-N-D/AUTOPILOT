@@ -11,7 +11,9 @@ endpoints (2026-08-16..17); canonical-lock, review ritual, and report-from-here
 remain open board slices; the contributor pool client (slice 6) shipped end to end —
 browse/claim/fly/deliver all landed; slice 7's publicity affordances have also
 shipped end to end — page upkeep continues as a live KEEPER duty, not a closeable
-deliverable (status refreshed 2026-09-25).
+deliverable (status refreshed 2026-09-27 — null-gh-row hardening completed across
+all four list readers: issue-triage, owned-work-reconcile, contributor-issue-list,
+and pr-review via commit 05f12a1b).
 
 Founder directive (2026-08-14, expanding epic 0006): the moment the infrastructure
 lands, there is exactly ONE canonical main version. **MASTERMIND is the sole manager of
