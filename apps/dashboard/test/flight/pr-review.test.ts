@@ -2443,6 +2443,11 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['docs/donate.asc'])).toBe(true);
   });
 
+  it("flags docs/SIGNING-KEY.asc — the one public key ci:donate holds DONATE.asc to and the release ritual holds a new tag's signer to: a PR that swapped it alone would re-anchor both checks to an attacker's key before any address or tag changes, so it queues for a human beside the file it vouches for", () => {
+    expect(touchesSecuritySensitivePath(['docs/SIGNING-KEY.asc'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['docs/signing-key.asc'])).toBe(true);
+  });
+
   it('keeps the donation markers path-anchored: prose that only discusses donations, and the already-benign read-only docs/donations.json parser, stay unflagged', () => {
     expect(touchesSecuritySensitivePath(['docs/FOUNDATION.md'])).toBe(false);
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/donations.ts'])).toBe(false);

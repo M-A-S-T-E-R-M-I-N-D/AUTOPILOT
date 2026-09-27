@@ -1471,6 +1471,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // `gpg --verify` trusts. An address-swapping PR must re-sign it, so it
   // queues for a human beside the data it signs.
   'docs/donate.asc',
+  // The one public key both signature checks hold their signer to
+  // (`docs/SIGNING-KEY.asc`): `ci:donate` refuses a DONATE.asc it did not
+  // sign, and the release ritual names a tag signed by any other key. A PR
+  // that swapped it alone re-anchors both to an attacker's key before any
+  // address or tag changes, so it queues for a human like the file it vouches
+  // for.
+  'docs/signing-key.asc',
   // Epic 0019 "GitHub Steward" slice 1's taxonomy seeder (board
   // web-mtrh1hjq-760dic): plans AND executes real `gh label create
   // --force`/`gh api .../milestones` writes against a repo's own
