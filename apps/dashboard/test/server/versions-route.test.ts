@@ -8,9 +8,15 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import { handleVersionDiff, handleVersions } from '../../src/server/versions-route.js';
+import {
+  handleVersionDiff,
+  handleVersionRestore,
+  handleVersions,
+} from '../../src/server/versions-route.js';
 import { createServer } from '../../src/server/server.js';
 import type { VersionDiff, VersionsTimeline } from '../../src/read/versions.js';
+import type { RestoreOutcome } from '../../src/flight/version-restore.js';
+import { createRateLimiter } from '../../src/server/rate-limit.js';
 
 function fakeResponse(): { writeHead: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> } {
   return { writeHead: vi.fn(), end: vi.fn() };
@@ -215,6 +221,61 @@ describe('handleVersionDiff', () => {
   });
 });
 
+const RESTORED: RestoreOutcome = {
+  ok: true,
+  branch: 'autopilot/restore/bbbbbbb-1',
+  sha: SHA_B,
+  reason: null,
+};
+
+describe('handleVersionRestore', () => {
+  const limiter = () => createRateLimiter(5, 60_000);
+
+  it('is 404 when the dashboard has no restore capability', async () => {
+    const res = fakeResponse();
+    await handleVersionRestore(
+      { method: 'POST', url: '/api/versions/restore', headers: {} } as never,
+      res as never,
+      undefined,
+      {},
+      limiter(),
+    );
+    expect(res.writeHead).toHaveBeenCalledWith(404, expect.any(Object));
+  });
+
+  it('is state-changing: a non-POST never reaches the writer', async () => {
+    const api = vi.fn(() => RESTORED);
+    const res = fakeResponse();
+    await handleVersionRestore(
+      { method: 'GET', url: '/api/versions/restore', headers: {} } as never,
+      res as never,
+      api,
+      {},
+      limiter(),
+    );
+    expect(res.writeHead).toHaveBeenCalledWith(405, expect.any(Object));
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('is a CSRF guard: a non-JSON content-type never reaches the writer', async () => {
+    const api = vi.fn(() => RESTORED);
+    const res = fakeResponse();
+    await handleVersionRestore(
+      {
+        method: 'POST',
+        url: '/api/versions/restore',
+        headers: { 'content-type': 'text/plain' },
+      } as never,
+      res as never,
+      api,
+      {},
+      limiter(),
+    );
+    expect(res.writeHead).toHaveBeenCalledWith(415, expect.any(Object));
+    expect(api).not.toHaveBeenCalled();
+  });
+});
+
 describe('the /api/versions route', () => {
   let server: Server | null = null;
 
@@ -226,14 +287,76 @@ describe('the /api/versions route', () => {
   async function start(
     versions?: (projectId: string) => VersionsTimeline | null,
     versionDiff?: (projectId: string, from: string, to: string) => VersionDiff | null,
+    versionRestore?: (projectId: string, sha: string) => RestoreOutcome | null,
   ): Promise<string> {
     server = createServer({
       ...(versions ? { versions } : {}),
       ...(versionDiff ? { versionDiff } : {}),
+      ...(versionRestore ? { versionRestore } : {}),
     });
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
     return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   }
+
+  async function post(
+    base: string,
+    body: unknown,
+    contentType = 'application/json',
+  ): Promise<Response> {
+    return fetch(`${base}/api/versions/restore`, {
+      method: 'POST',
+      headers: { 'content-type': contentType },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('restores (200) when the writer creates a new branch', async () => {
+    const base = await start(undefined, undefined, (pid, sha) =>
+      pid === 'p1' && sha === SHA_B ? RESTORED : null,
+    );
+    const res = await post(base, { project: 'p1', sha: SHA_B });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ restore: RESTORED });
+  });
+
+  it('reports a refused restore as 409, not a crash', async () => {
+    const base = await start(undefined, undefined, () => ({
+      ok: false,
+      branch: null,
+      sha: null,
+      reason: 'no such version in this repository',
+    }));
+    const res = await post(base, { project: 'p1', sha: SHA_B });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      restore: { ok: false, branch: null, sha: null, reason: 'no such version in this repository' },
+    });
+  });
+
+  it('404s for an unknown project', async () => {
+    const base = await start(undefined, undefined, () => null);
+    const res = await post(base, { project: 'nope', sha: SHA_B });
+    expect(res.status).toBe(404);
+  });
+
+  it('400s a sha that is not a full commit id, before the writer ever runs', async () => {
+    const api = vi.fn(() => RESTORED);
+    const base = await start(undefined, undefined, api);
+    const res = await post(base, { project: 'p1', sha: 'HEAD' });
+    expect(res.status).toBe(400);
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-JSON content-type (CSRF guard)', async () => {
+    const base = await start(undefined, undefined, () => RESTORED);
+    const res = await post(base, { project: 'p1', sha: SHA_B }, 'text/plain');
+    expect(res.status).toBe(415);
+  });
+
+  it('404s when no restore capability is injected', async () => {
+    const base = await start();
+    expect((await post(base, { project: 'p1', sha: SHA_B })).status).toBe(404);
+  });
 
   it('reaches the injected diff reader at /api/versions/diff', async () => {
     const base = await start(undefined, (pid, from, to) =>
