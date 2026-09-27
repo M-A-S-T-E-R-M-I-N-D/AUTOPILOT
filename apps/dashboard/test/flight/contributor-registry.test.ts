@@ -134,6 +134,57 @@ describe('parseContributorRegistry', () => {
   });
 });
 
+/**
+ * EPIC 0019 additive-only law — the registry is ONE table. A table after it
+ * (a revoked list, a tier glossary) is not standing, and reading it as rows
+ * would grant a tier the registry itself no longer records.
+ */
+describe('parseContributorRegistry — the registry ends with its own table (regression, epic 0019 additive-only law)', () => {
+  it('does not read a revoked-standing table after the registry as live standing', () => {
+    const markdown = `${REAL_REGISTRY_TABLE}
+## Revoked
+
+| Handle | Tier | Revoked | Reason |
+| --- | --- | --- | --- |
+| @former | Active partner | 2026-09-20 | standing withdrawn on the application issue |
+`;
+
+    const registry = parseContributorRegistry(markdown);
+
+    expect(registry).toEqual(parseContributorRegistry(REAL_REGISTRY_TABLE));
+    expect(tierForLogin('former', registry)).toBe(DEFAULT_STANDING_TIER);
+  });
+
+  it('stops at the blank line that ends the table, even when the next table follows at once', () => {
+    const markdown = `
+| Handle | Tier | Since | Evidence |
+| --- | --- | --- | --- |
+| @kept | Active partner | 2026-01-01 | evidence |
+
+| Example | Maintainer | 2026-01-01 | a glossary row, not a person |
+`;
+
+    expect(parseContributorRegistry(markdown)).toEqual([
+      { login: 'kept', tier: 'Active partner', since: '2026-01-01', evidence: 'evidence' },
+    ]);
+  });
+
+  it('keeps reading past a malformed row inside the table — only a non-table line ends it', () => {
+    const markdown = `
+| Handle | Tier | Since | Evidence |
+| --- | --- | --- | --- |
+| @first | Active partner | 2026-01-01 | evidence |
+| @broken | Tier |
+| @second | Maintainer-delegate | 2026-02-01 | evidence |
+`;
+
+    expect(parseContributorRegistry(markdown).map((entry) => entry.login)).toEqual([
+      'first',
+      'second',
+    ]);
+  });
+});
+
 describe('loadContributorRegistry', () => {
   it('reads CONTRIBUTOR_REGISTRY_FILE_PATH by default and parses its table', () => {
     const readFile: ContributorRegistryReader = vi.fn().mockReturnValue(REAL_REGISTRY_TABLE);
