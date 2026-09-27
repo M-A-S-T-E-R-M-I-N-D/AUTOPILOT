@@ -162,6 +162,14 @@ export interface CodexCliOptions {
    * one capability the parity matrix above credits this adapter with.
    */
   readonly sandbox?: 'read-only' | 'workspace-write' | 'danger-full-access';
+  /** ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2), containment
+   *  parity with `ClaudeCliModel`/`GeminiCliModel` before this adapter is
+   *  wired into routing (epic 0036): persists the child's pid for the
+   *  duration of the invocation so a crash-path sweep can still reap it if
+   *  THIS process dies before the normal settle callback (below) untracks
+   *  it. Structurally typed — any `CliDescendantRegistry` satisfies this
+   *  without an import cycle, same as `ClaudeCliOptions.pidRegistry`. */
+  readonly pidRegistry?: { track: (pid: number) => void; untrack: (pid: number) => void };
 }
 
 /**
@@ -173,8 +181,12 @@ export interface CodexCliOptions {
  * web-msu3sv1w-hfj87n) — but skips its idle-timeout, streaming, and CLI-level
  * resume-retry-on-failure hardening: those were added to the Claude driver
  * incrementally after real incidents this adapter has no flight history to have hit
- * yet. Never rejects — a spawn failure (binary missing) reports the same "no envelope"
- * shape {@link parseCodexExecOutput} already gives an abnormal exit.
+ * yet. It DOES carry `ClaudeCliModel`/`GeminiCliModel`'s crash-path
+ * {@link CodexCliOptions.pidRegistry} tracking (containment parity, board
+ * ap-mt2ukjg5-2), added ahead of this adapter's routing wiring so a lane
+ * flown on it is never a containment regression from day one. Never rejects —
+ * a spawn failure (binary missing) reports the same "no envelope" shape
+ * {@link parseCodexExecOutput} already gives an abnormal exit.
  */
 export class CodexCliModel implements ModelPort {
   constructor(private readonly opts: CodexCliOptions) {}
@@ -214,6 +226,7 @@ export class CodexCliModel implements ModelPort {
         execOpts as ExecFileOptions & { encoding: 'utf8' },
         (err, stdout) => {
           reapCliDescendants(child.pid);
+          if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
           // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
           // real exit code (e.g. a non-zero `codex exec` run); any other error
           // (spawn failure, timeout kill) has none, so it reads as 1.
@@ -226,6 +239,7 @@ export class CodexCliModel implements ModelPort {
           resolve(parseCodexExecOutput(stdout ?? '', exitCode, model));
         },
       );
+      if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
     });
   }
 }
