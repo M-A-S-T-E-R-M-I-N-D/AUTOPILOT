@@ -212,25 +212,12 @@ const PAYLOAD_INTERFACES: readonly PayloadInterface[] = [
   },
 ];
 
-const PR_CARD_SIZE_GAP =
-  'the PR card shows no diff size (GitHub’s own +N −M, N files); only an over-cap line total or a ' +
-  'truncated-list mismatch ever reaches the reasoning — tracked UX gap, not a decision-only field';
-
 /** `${file}#${interfaceName}#${field}` -> why this one field is excused
  *  from the "every field reaches the renderer" rule — a genuine tracked
  *  gap, never a silent carve-out (same discipline as `link-census.test.ts`'s
  *  `NOT_YET_RENDERED`). Remove an entry the day its panel ships the field,
  *  or — for a dead input — the day the flight module stops declaring it. */
 const EXCUSED: Readonly<Record<string, string>> = {
-  'pr-review.ts#PrReviewCandidate#touchedPaths':
-    'the PR card never lists the files a PR touches — a security-hard queue does not even name the ' +
-    'guarded path it hit — tracked UX gap, not a decision-only field',
-  'pr-review.ts#PrReviewCandidate#additions': PR_CARD_SIZE_GAP,
-  'pr-review.ts#PrReviewCandidate#deletions': PR_CARD_SIZE_GAP,
-  'pr-review.ts#PrReviewCandidate#changedFiles': PR_CARD_SIZE_GAP,
-  'pr-review.ts#PrReviewCandidate#labels':
-    'the PR card does not show a PR’s labels; a hold label reaches the reasoning only as "carries a ' +
-    'hold label", never by name — tracked UX gap, not a decision-only field',
   'pool-client.ts#PoolIssue#labels':
     'the panel does not yet show a pool issue’s labels — tracked UX gap, not a decision-only field',
   'pool-client.ts#PoolIssue#assignees':

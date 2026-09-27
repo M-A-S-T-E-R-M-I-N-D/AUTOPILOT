@@ -22,6 +22,8 @@ import {
   prReviewExecuteResult,
   prReviewExecuteTip,
   prReviewGuestNote,
+  prDiffStat,
+  prUnlistedFilesNote,
   awaitingApprovalChecksUrl,
   fixProposalDiffLines,
   fixProposalApproveDisabledReason,
@@ -39,6 +41,8 @@ describe('prReviewJs', () => {
     expect(out).toContain(prReviewExecuteResult.toString());
     expect(out).toContain(prReviewExecuteTip.toString());
     expect(out).toContain(prReviewGuestNote.toString());
+    expect(out).toContain(prDiffStat.toString());
+    expect(out).toContain(prUnlistedFilesNote.toString());
     expect(out).toContain(decisionItemHeadMeta.toString());
   });
 

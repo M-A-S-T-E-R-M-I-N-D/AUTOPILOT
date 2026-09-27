@@ -1018,6 +1018,12 @@ main.project-mode { grid-template-columns: 1fr; }
 .pr-review-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .pr-review-number { font-family: var(--font-mono); color: var(--color-text-muted); }
 .pr-review-pr-title { margin: 0; font-size: var(--text-sm); }
+.pr-review-labels { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.pr-review-labels li { padding: 0 var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); font-size: var(--text-xs); color: var(--color-text-muted); }
+.pr-review-diffstat { margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+summary.pr-review-diffstat { cursor: pointer; }
+.pr-review-files ul { margin: var(--space-1) 0 0; padding-inline-start: var(--space-4); font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; unicode-bidi: plaintext; }
+.pr-review-files p { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
 .landing-result-warn { color: var(--color-needs-you); }
 .contributor-standing-tier-you { color: var(--color-accent); font-weight: 600; }
 .pr-review-number-link { color: var(--color-accent); text-decoration: none; border-bottom: 1px solid transparent; }
