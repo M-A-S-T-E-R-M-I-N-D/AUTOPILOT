@@ -93,4 +93,17 @@ describe('detectLanguage', () => {
   it('resolves a nested repo-relative path the same as a bare filename', () => {
     expect(detectLanguage('src/deep/nested/module.go')).toBe('go');
   });
+
+  it('treats a leading dot as a hidden-file marker, not an extension', () => {
+    // '.ts'.lastIndexOf('.') is 0, not -1 — the old `dot === -1` guard let
+    // this fall through to slice(1) = 'ts' and misclassify a hidden
+    // dotfile as TypeScript. folder-triage.ts's categorize() already
+    // treats a leading dot as "no extension" for the same reason.
+    expect(detectLanguage('.ts')).toBe('other');
+    expect(detectLanguage('.gitignore')).toBe('other');
+  });
+
+  it('treats a leading dot on a nested hidden file the same way', () => {
+    expect(detectLanguage('src/deep/.ts')).toBe('other');
+  });
 });
