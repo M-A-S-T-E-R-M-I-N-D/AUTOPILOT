@@ -351,7 +351,11 @@ import {
 // the filters' shared chip builder, its listener and five English keys —
 // measured 242804B raw against the old 241664B line, 1140 bytes over. About
 // two KB of margin, as the entries above keep.
-const CORE_RAW_BUDGET = 239 * 1024;
+// Then core raw 239→241KB (2026-09-27), the same slice's grouping: the Group
+// radios over the same chip builder, groupTasksForView embedded, a counted
+// head per group, its listener and five English keys — measured 245153B raw
+// against the old 244736B line, 417 bytes over. Gzip (70.7KB) stays under.
+const CORE_RAW_BUDGET = 241 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

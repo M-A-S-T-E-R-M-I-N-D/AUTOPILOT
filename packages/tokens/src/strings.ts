@@ -1115,6 +1115,13 @@ const EN_STRINGS = {
   boardDisplaySeverity: 'severity',
   boardDisplayDimension: 'dimension',
   boardDisplayCost: 'cost',
+  // Its grouping beside Show (?group=): the legend and one word per way the
+  // list splits into counted groups, or none for the flat list.
+  boardGroup: 'Group',
+  boardGroupNone: 'none',
+  boardGroupStatus: 'status',
+  boardGroupSeverity: 'severity',
+  boardGroupSource: 'source',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2621,6 +2628,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardDisplaySeverity: 'חומרה',
     boardDisplayDimension: 'ממד',
     boardDisplayCost: 'עלות',
+    boardGroup: 'קיבוץ',
+    boardGroupNone: 'ללא',
+    boardGroupStatus: 'סטטוס',
+    boardGroupSeverity: 'חומרה',
+    boardGroupSource: 'מקור',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
