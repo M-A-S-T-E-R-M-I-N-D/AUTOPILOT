@@ -354,6 +354,37 @@ describe('fetchPoolIssues', () => {
     ]);
   });
 
+  it('skips a null or non-object row instead of throwing, keeping the pool issues around it', async () => {
+    // Regression cover for the claim flow (epic 0019 additive-only law): the
+    // read promises "[] rather than throwing" on bad gh output, yet a single
+    // `null` row reached `raw.number` and threw a TypeError — so every caller
+    // (browse, claim, the sweeps) lost the WHOLE pool over one bad row.
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 1,
+          title: 'Before',
+          url: 'https://github.com/example/repo/issues/1',
+          labels: [{ name: 'pool: ux' }],
+        },
+        null,
+        7,
+        'pool: ux',
+        {
+          number: 2,
+          title: 'After',
+          url: 'https://github.com/example/repo/issues/2',
+          labels: [{ name: 'pool: data' }],
+        },
+      ]),
+    });
+
+    const issues = await fetchPoolIssues(exec);
+
+    expect(issues.map((issue) => issue.number)).toEqual([1, 2]);
+  });
+
   it('returns an empty array on a non-zero exit', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
 
@@ -619,6 +650,28 @@ describe('claimPoolIssue', () => {
       '--body',
       expect.stringContaining('octocat'),
     ]);
+  });
+
+  it('still claims the requested issue when the pool list carries a null row', async () => {
+    const exec = execFor(
+      [
+        null,
+        {
+          number: 7,
+          title: 'Fix the thing',
+          url: 'https://github.com/example/repo/issues/7',
+          labels: [{ name: 'pool: ux' }],
+          assignees: [],
+        },
+      ],
+      'octocat',
+    );
+
+    const result = await claimPoolIssue(7, exec);
+
+    expect(result.decision.decision).toBe('claim');
+    expect(result.issue?.number).toBe(7);
+    expect(exec).toHaveBeenCalledWith('gh', ['issue', 'edit', '7', '--add-assignee', 'octocat']);
   });
 
   it('skips with no commands when the issue number is not in the open pool', async () => {
