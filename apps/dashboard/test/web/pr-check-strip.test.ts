@@ -18,11 +18,14 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import axe from 'axe-core';
 import {
   prCheckStateGlyph,
   formatCheckDuration,
   prCheckRunTip,
   prCheckSummary,
+  prDiffStat,
+  prUnlistedFilesNote,
   humanMergeReadiness,
 } from '../../src/web/pr-review-panel.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
@@ -200,6 +203,162 @@ describe('the rendered card links out and shows its stages', () => {
     expect(document.querySelector('.pr-review-number')?.tagName).toBe('SPAN');
     expect(document.querySelector('.pr-review-number-link')).toBeNull();
     expect(document.querySelector('.pr-review-checks')).toBeNull();
+  });
+});
+
+/**
+ * WHAT THE PR TOUCHES (board ap-mujmnnqt-1): gh already sends the diff's
+ * line totals, its file count, every file path and every label — and the
+ * card discarded all of it at the client boundary. A reviewer had to open
+ * GitHub to learn whether #33 was a one-liner or a 40-file rewrite.
+ */
+describe('prDiffStat — GitHub’s own +N −M · N files shape', () => {
+  it('reads the three gh totals the way GitHub’s own PR header does', () => {
+    expect(
+      prDiffStat({ number: 1, title: 'x', additions: 120, deletions: 34, changedFiles: 5 }),
+    ).toBe('+120 −34 · 5 files');
+  });
+
+  it('says “file”, not “files”, for a one-file PR', () => {
+    expect(prDiffStat({ number: 1, title: 'x', additions: 1, deletions: 0, changedFiles: 1 })).toBe(
+      '+1 −0 · 1 file',
+    );
+  });
+
+  it('leaves out a total gh did not confirm instead of painting it as 0', () => {
+    expect(prDiffStat({ number: 1, title: 'x', changedFiles: 3 })).toBe('3 files');
+    expect(prDiffStat({ number: 1, title: 'x', additions: 7, deletions: 2 })).toBe('+7 −2');
+    expect(prDiffStat({ number: 1, title: 'x' })).toBe('');
+  });
+});
+
+describe('prUnlistedFilesNote — gh lists at most 100 paths, and the card says so', () => {
+  it('names how many files the enumerated list is missing', () => {
+    expect(
+      prUnlistedFilesNote({ number: 1, title: 'x', changedFiles: 112, touchedPaths: ['a', 'b'] }),
+    ).toBe('…and 110 more gh did not list.');
+  });
+
+  it('stays silent when the list is complete or the total is unknown', () => {
+    expect(
+      prUnlistedFilesNote({ number: 1, title: 'x', changedFiles: 1, touchedPaths: ['a'] }),
+    ).toBe('');
+    expect(prUnlistedFilesNote({ number: 1, title: 'x', touchedPaths: ['a'] })).toBe('');
+  });
+});
+
+describe('the rendered card shows what the PR touches', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const TOUCHING = {
+    pr: {
+      number: 40,
+      title: 'fix(engine): tighten the diff gate',
+      additions: 120,
+      deletions: 34,
+      changedFiles: 3,
+      touchedPaths: ['packages/engine/src/diff-size-gate.ts', 'packages/engine/test/a.test.ts'],
+      labels: ['security', 'do-not-merge'],
+    },
+    decision: { decision: 'queue-for-human', reasoning: 'Carries a hold label.' },
+  };
+
+  it('puts the diff size on a native, keyboard-operable disclosure that lists every path', async () => {
+    bootWithPlans([TOUCHING]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-files')).not.toBeNull();
+    });
+    const files = document.querySelector('.pr-review-files') as HTMLDetailsElement;
+    expect(files.tagName).toBe('DETAILS');
+    expect(files.open).toBe(false);
+    expect(files.querySelector('summary')?.textContent).toBe('+120 −34 · 3 files');
+    const paths = [...files.querySelectorAll('.pr-review-files li')].map((li) => li.textContent);
+    expect(paths).toEqual([
+      'packages/engine/src/diff-size-gate.ts',
+      'packages/engine/test/a.test.ts',
+    ]);
+    expect(files.querySelector('.pr-review-files p')?.textContent).toBe(
+      '…and 1 more gh did not list.',
+    );
+  });
+
+  it('shows every label by name as a labelled list', async () => {
+    bootWithPlans([TOUCHING]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-labels')).not.toBeNull();
+    });
+    const list = document.querySelector('.pr-review-labels') as HTMLElement;
+    expect(list.tagName).toBe('UL');
+    expect(list.getAttribute('aria-label')).toBe('Labels');
+    expect([...list.querySelectorAll('li')].map((l) => l.textContent)).toEqual([
+      'security',
+      'do-not-merge',
+    ]);
+  });
+
+  it('is axe-clean with the file list open', async () => {
+    bootWithPlans([TOUCHING]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-files')).not.toBeNull();
+    });
+    (document.querySelector('.pr-review-files') as HTMLDetailsElement).open = true;
+    const panel = document.getElementById('pr-review-panel') as HTMLElement;
+    // The a11y suite's options (a11y.test.ts): WCAG A/AA, contrast off since
+    // jsdom paints no pixels to measure.
+    const results = await axe.run(panel, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+      rules: { 'color-contrast': { enabled: false } },
+    });
+    expect(results.violations.map((v) => v.id + ': ' + v.help)).toEqual([]);
+    // Not vacuous: the new list and disclosure were among the nodes axe checked.
+    const passed = results.passes.flatMap((p) => p.nodes.map((n) => n.target.join(' ')));
+    expect(passed.some((t) => t.includes('pr-review-labels'))).toBe(true);
+    expect(passed).toContain('.pr-review-diffstat');
+    expect(passed).toContain('.pr-review-files > ul > li:nth-child(1)');
+  });
+
+  it('keeps a hostile path or label as inert text, never markup', async () => {
+    bootWithPlans([
+      {
+        ...TOUCHING,
+        pr: {
+          ...TOUCHING.pr,
+          touchedPaths: ['<img src=x onerror=alert(1)>.ts'],
+          labels: ['<b>x</b>'],
+        },
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-files li')).not.toBeNull();
+    });
+    expect(document.querySelector('.pr-review-files img')).toBeNull();
+    expect(document.querySelector('.pr-review-labels b')).toBeNull();
+    expect(document.querySelector('.pr-review-files li')?.textContent).toBe(
+      '<img src=x onerror=alert(1)>.ts',
+    );
+  });
+
+  it('shows the size alone when gh listed no paths, and nothing at all when gh sent nothing', async () => {
+    bootWithPlans([
+      { ...TOUCHING, pr: { number: 41, title: 'Size only', additions: 2, deletions: 1 } },
+      { ...TOUCHING, pr: { number: 42, title: 'Bare' } },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('.pr-review-item')).toHaveLength(2);
+    });
+    const [sizeOnly, bare] = [...document.querySelectorAll('.pr-review-item')];
+    expect(sizeOnly?.querySelector('.pr-review-files')).toBeNull();
+    expect(sizeOnly?.querySelector('.pr-review-diffstat')?.textContent).toBe('+2 −1');
+    expect(bare?.querySelector('.pr-review-diffstat')).toBeNull();
+    expect(bare?.querySelector('.pr-review-labels')).toBeNull();
   });
 });
 

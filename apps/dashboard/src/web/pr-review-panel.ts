@@ -67,6 +67,34 @@ export interface PrReviewCandidateLike {
   readonly mergeable?: boolean;
   readonly behindBase?: boolean;
   readonly mergeStateUnknown?: boolean;
+  readonly touchedPaths?: readonly string[];
+  readonly additions?: number;
+  readonly deletions?: number;
+  readonly changedFiles?: number;
+  readonly labels?: readonly string[];
+}
+
+/** The card's diff-size line (board ap-mujmnnqt-1) in GitHub's own PR-header
+ *  shape — `+120 −34 · 5 files` — from gh's reported totals. A total gh did
+ *  not confirm is left out rather than painted as 0: "not reported" and
+ *  "empty" are different facts. Empty when gh confirmed none of the three. */
+export function prDiffStat(pr: PrReviewCandidateLike): string {
+  const lines: string[] = [];
+  if (pr.additions !== undefined) lines.push('+' + pr.additions);
+  if (pr.deletions !== undefined) lines.push('−' + pr.deletions);
+  const size = lines.join(' ');
+  if (pr.changedFiles === undefined) return size;
+  const files = pr.changedFiles + (pr.changedFiles === 1 ? ' file' : ' files');
+  return size ? size + ' · ' + files : files;
+}
+
+/** The note under the card's file list when gh enumerated fewer paths than
+ *  its own changed-file total — `gh pr list --json files` stops at 100, so a
+ *  wide PR's list is a truncated view, and a list that silently ends reads
+ *  as the whole diff. Empty when the list is complete or the total unknown. */
+export function prUnlistedFilesNote(pr: PrReviewCandidateLike): string {
+  const unlisted = (pr.changedFiles || 0) - (pr.touchedPaths || []).length;
+  return unlisted > 0 ? '…and ' + unlisted + ' more gh did not list.' : '';
 }
 
 /** One check run as the panel shows it — `flight/pr-review.ts`'s

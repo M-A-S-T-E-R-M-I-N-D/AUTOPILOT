@@ -450,8 +450,15 @@ const CORE_GZIP_BUDGET = 72 * 1024;
 // Measured 239413B raw against the 239616B line: 203 bytes under, the
 // next-change-of-any-kind-goes-red margin, so the line moves to about two KB
 // above. Gzip (72706B) stays under PANELS_GZIP_BUDGET untouched.
+// Then panels raw 236→237KB (2026-09-27), the KEEPER PR card's "what the PR
+// touches" (board ap-mujmnnqt-1): labels, GitHub's own "+N −M · N files" and
+// the touched-file list, all already fetched by gh and dropped at the client
+// boundary. Paid the tripwire first — classless children styled by
+// descendant selector and forEach loops (-75B). Measured 241711B raw against
+// the 241664B line: 47 bytes over. Gzip (73396B) stays under
+// PANELS_GZIP_BUDGET untouched.
 const PROJECT_RAW_BUDGET = 124 * 1024;
-const PANELS_RAW_BUDGET = 236 * 1024;
+const PANELS_RAW_BUDGET = 237 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
