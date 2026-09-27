@@ -1332,11 +1332,12 @@ var ANOMALY_ICONS = {
 };
 /** A needs-you chip for one detected anomaly (see read/anomalies.ts) — label
  *  names the rule, the hover/focus tip carries the evidence that fired it,
- *  and a PRESS opens what it means and what to do (operator, 2026-09-18:
+ *  and a PRESS opens what it means, what to do and the way to the project's
+ *  Health list (operator, 2026-09-18:
  *  "every run has these odd chips and I don't know what they say or what
  *  I can do with them"). A <details> gives the toggle, the keyboard and
  *  the expanded/collapsed semantics for free; the summary IS the chip. */
-function anomalyChip(a) {
+function anomalyChip(a, pid) {
   var meta = anomalyChipMeta(a, ANOMALY_LABELS);
   var keys = anomalyMeaningKeys(a.kind);
   var pop = document.createElement('details');
@@ -1358,6 +1359,11 @@ function anomalyChip(a) {
   action.appendChild(el('span', 'chip-pop-k', tr('anomalyPopAction')));
   action.appendChild(document.createTextNode(' ' + tr(keys.action)));
   body.appendChild(action);
+  // The project's Health list (board ap-mui2h3rw-0) holds every issue with
+  // its fix; from any chip it is one press away.
+  var more = el('a', 'chip-pop-more', tr('anomalyPopHealth'));
+  more.href = '/p/' + encodeURIComponent(pid) + '#health';
+  body.appendChild(more);
   pop.appendChild(body);
   return pop;
 }
@@ -1462,7 +1468,7 @@ function cardHead(c) {
   var badges = el('div', 'card-head-badges');
   badges.appendChild(statusPill('pill pill-', c.status, PROJECT_STATUS_KEYS));
   if (c.anomalies) {
-    for (var ai = 0; ai < c.anomalies.length; ai++) badges.appendChild(anomalyChip(c.anomalies[ai]));
+    for (var ai = 0; ai < c.anomalies.length; ai++) badges.appendChild(anomalyChip(c.anomalies[ai], c.id));
   }
   if (c.soulReviewed === false) badges.appendChild(soulReviewBtn(c.id));
   head.appendChild(badges);

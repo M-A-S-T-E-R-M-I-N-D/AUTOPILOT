@@ -579,6 +579,7 @@ main > * { min-width: 0; }
 .chip-pop-what { margin: 0 0 var(--space-2); font-weight: 600; }
 .chip-pop-evidence { margin: 0 0 var(--space-2); color: var(--color-text-muted); }
 .chip-pop-action { margin: 0; }
+.chip-pop-more { display: inline-block; min-block-size: 1.5rem; margin-block-start: var(--space-2); font-weight: 600; }
 .chip-pop-k { font-weight: 600; }
 .chip-runaway { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-inbox { color: var(--color-accent); border-color: var(--color-accent); }

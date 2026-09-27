@@ -193,6 +193,9 @@ function healthSection(c) {
   var list = c.anomalies || [];
   var findings = openFindings(c);
   var wrap = el('section', 'health-panel');
+  // Every anomaly chip's popover links here (/p/<id>#health); the subject
+  // nav lands the link on the Data tab once this renders.
+  wrap.id = 'health';
   wrap.appendChild(panelHeading('h3', 'health-title', 'healthTitle', 'activity'));
   if (!list.length && !findings.length) {
     wrap.appendChild(healthKeyed('p', 'health-clear muted', 'healthClear'));
