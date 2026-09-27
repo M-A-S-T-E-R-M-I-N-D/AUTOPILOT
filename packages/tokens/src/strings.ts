@@ -1080,6 +1080,16 @@ const EN_STRINGS = {
   boardBulkFailed: '{failed} of {n} did not go through — the board shows what changed',
   // A row's read-only detail (epic 0026, Enter) when its task has no body.
   taskDetailEmpty: 'No description.',
+  // The detail's history (epic 0026 slice 1): the lifetime firings and cost
+  // on the task, the list of the newest ones with the slice or complete each
+  // reported, and how many older ones the list leaves to the flight log.
+  taskHistoryNone: 'No firing has worked this task yet.',
+  taskHistoryOne: '1 firing worked it · {cost}',
+  taskHistoryMany: '{n} firings worked it · {cost}',
+  taskHistoryList: 'Firings on this task',
+  taskHistorySlice: 'slice',
+  taskHistoryComplete: 'complete',
+  taskHistoryOlder: '{n} older in the flight log',
   // The view header's Status filter (epic 0026 slice 2): the fieldset's
   // legend (each box is labelled by its status word, the taskStatus* keys),
   // the note a filtered board shows — reordering posts the order the list
@@ -2608,6 +2618,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardBulkSent: 'עודכנו {n} מהמשימות הנבחרות',
     boardBulkFailed: '{failed} מתוך {n} לא עברו — הלוח מראה מה השתנה',
     taskDetailEmpty: 'אין תיאור.',
+    taskHistoryNone: 'אף הפעלה עוד לא עבדה על המשימה הזו.',
+    taskHistoryOne: 'הפעלה אחת עבדה עליה · {cost}',
+    taskHistoryMany: '{n} הפעלות עבדו עליה · {cost}',
+    taskHistoryList: 'הפעלות על המשימה הזו',
+    taskHistorySlice: 'פרוסה',
+    taskHistoryComplete: 'הושלמה',
+    taskHistoryOlder: 'עוד {n} ישנות יותר ביומן הטיסות',
     boardFilterStatus: 'סטטוס',
     boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',
     boardFilterClear: 'ניקוי המסנן',

@@ -22,9 +22,16 @@ disclosure button (`aria-expanded`, `aria-controls`), and Enter from anywhere
 in the row but its own buttons, Space on the title, or a click opens a
 read-only detail on its own line under the row — the task's whole body (the
 hover tip stops at 240 characters), its id and its age. Open rows survive the
-per-tick rebuild. The legend names it as `Enter` open. Still open in slice 1:
-the detail as a split pane beside the list from `lg`, and the rest of its
-contents (provenance, slices, cost history, the claim). Slice 2's pure half
+per-tick rebuild. The legend names it as `Enter` open. The detail's slices and
+cost history followed 2026-09-27: under the id it counts the firings that
+worked the task and what they cost (the store's lifetime tally, or the loaded
+flight log's when that is larger), then lists the newest five the log holds,
+newest first — how each ended, the slice or complete it reported, its commit's
+subject and short sha, its cost and age — and says how many older ones the
+flight log keeps. A firing that left no commit names none, since HEAD's
+subject is then someone else's. A task no firing has worked says so. Still
+open in slice 1: the detail as a split pane beside the list from `lg`, and the
+rest of its contents (provenance, the claim). Slice 2's pure half
 shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
 view — grouping by status, severity or source, and a filter on each — in the
 query string (`?group=severity&status=queued,done`), since the hash already

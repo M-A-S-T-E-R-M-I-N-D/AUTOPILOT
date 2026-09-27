@@ -1431,6 +1431,9 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-detail { flex: 1 1 100%; margin: 0 0 var(--space-1); padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border); }
 .task-detail-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-detail-meta { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
+.task-history { list-style: none; margin: var(--space-1) 0 0; padding: 0; font-size: var(--text-xs); }
+.task-history-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); }
+.task-history-subject { overflow-wrap: anywhere; }
 /* The view header's Status, Severity and Source filters (epic 0026 slice 2): Material 3 filter
    chips over native checkboxes — a wrapping row led by its legend (floated,
    so it lays out as a row item), each chip a 2rem target with the accent wash
