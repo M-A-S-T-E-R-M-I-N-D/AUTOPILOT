@@ -14,7 +14,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  recentTasks,
   setTaskStatus,
   createTask,
   demoteMetricsCompletion,
@@ -49,6 +48,28 @@ const INBOX_MAX_FILES = 10;
 
 export function out(line: string): void {
   process.stdout.write(`${line}\n`);
+}
+
+interface OpenTask {
+  readonly id: string;
+  readonly title: string;
+  readonly body: string | null;
+}
+
+/**
+ * The still-open task a firing's METRICS "item" names, looked up by id. Not
+ * through `recentTasks`: that is a 30-row page, open work sorted by severity
+ * then priority, so on a busy board a low or untagged task sits past it. Such
+ * a task skipped every close check below, and the straggler reconcile right
+ * after (`reconcileShippedTasks`, which reads the metrics row with no page)
+ * then closed it on the unchecked "complete" anyway.
+ */
+function openTaskById(store: Store, projectId: string, id: string): OpenTask | undefined {
+  return store.db
+    .prepare(
+      "SELECT id, title, body FROM tasks WHERE project_id = ? AND id = ? AND status IN ('queued','in_progress')",
+    )
+    .get(projectId, id) as OpenTask | undefined;
 }
 
 /**
@@ -108,9 +129,7 @@ export async function markTaskDoneIfShipped(
 ): Promise<string | undefined> {
   const { shipped, item, completion, sha } = outcome.record;
   if (!shipped || !item) return undefined;
-  const task = recentTasks(store.db, projectId).find(
-    (t) => t.id === item && (t.status === 'queued' || t.status === 'in_progress'),
-  );
+  const task = openTaskById(store, projectId, item);
   if (!task) return undefined;
   if (isHumanClosedTask(task)) {
     // THE CLAIM CONTRACT (claim-contract.ts): a claimed issue's task closes

@@ -882,6 +882,17 @@ describe('fetchOpenIssues', () => {
     expect(issues).toEqual([{ number: 1, title: 'Valid', body: '', labels: [], assignees: [] }]);
   });
 
+  it('skips a null or non-object row instead of throwing away every issue around it', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([null, { number: 1, title: 'Valid' }, 'nope', 7]),
+    });
+
+    const issues = await fetchOpenIssues(exec);
+
+    expect(issues).toEqual([{ number: 1, title: 'Valid', body: '', labels: [], assignees: [] }]);
+  });
+
   it('returns an empty array on a non-zero exit', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
 

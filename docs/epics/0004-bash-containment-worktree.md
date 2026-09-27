@@ -201,18 +201,23 @@ which calls the self-study ritual the only other write a self-hosted flight make
   itself, not in `flightRoot` and not through the firing's Bash. It skips the commit when `target`'s
   checkout is dirty. It does not take `autopilot-sync-back.lock`, and no flight gate runs on the
   commit.
-- **No re-snapshot follows that commit.** The self-study commit re-baselines the guard, and so does
-  every successful sync-back. The evaluation commit does not, so the flight's final containment
-  check sees `target`'s HEAD moved. With worktree isolation active, `classifyBreaches` files every
-  such movement as operator activity, so the flight logs "guarded HEAD moved outside this flight's
-  worktree (operator activity, not a breach)" and ends normally. In the fallback that flies
-  `target` directly, `target` is not a guarded path, so nothing is reported. Either way the commit
-  is never a breach, but in the isolated case the log calls the engine's own commit operator
-  activity.
+- **A re-snapshot now follows that commit** (`c50d7932`, 2026-09-27, board `ap-mujbi75g-0`). This
+  paragraph originally shipped without one: the self-study commit re-baselined the guard, and so
+  did every successful sync-back, but the evaluation commit did not, so the flight's final
+  containment check saw `target`'s HEAD moved. `fly.ts` now calls `checkContainment()` immediately
+  before `endRound`, settling any earlier movement into `breaches` so a genuine hard breach still
+  surfaces. Once `endRound` returns `'evaluated'` (this lane won the claim and committed), it
+  re-snapshots the guard the same way the self-study ritual does; when another lane won instead
+  (`roundEnd !== 'evaluated'`), `target`'s HEAD never moved here, so no re-snapshot is needed. With
+  worktree isolation active this closes the gap: `classifyBreaches` no longer has a sanctioned
+  evaluation commit to file as operator activity, because the baseline has already moved past it.
+  In the fallback that flies `target` directly, `target` was never a guarded path, so none of this
+  ever applied there.
 
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
-guarded path, and both the per-firing and the flight-end sync-back re-snapshot the guard baseline
-after a sanctioned head move.
+guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
+commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
+sanctioned head move.
 
 `docs/FLIGHT-CONTAINMENT.md` and `docs/EVALUATION-2026-08.md` §3.5 name the one honest
 hole left in the containment ladder (SOTA-MAP A4): Bash is not jailed. The PreToolUse

@@ -1178,8 +1178,9 @@ export async function fetchRepoOwner(exec: CliExec): Promise<string | undefined>
  * never labels, comments, or closes anything, only lists. Returns `[]` on a
  * non-zero exit or unparseable/non-array stdout rather than throwing — a
  * triage sweep finding nothing to review is a valid outcome, and a flaky
- * `gh` call shouldn't crash the ritual. Entries missing a numeric `number`
- * or string `title` are dropped rather than passed through malformed.
+ * `gh` call shouldn't crash the ritual. A non-object row (a `null`) and
+ * entries missing a numeric `number` or string `title` are dropped rather
+ * than passed through malformed.
  */
 export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
   const { code, stdout } = await exec('gh', [
@@ -1200,7 +1201,8 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
   }
   if (!Array.isArray(parsed)) return [];
 
-  return (parsed as RawGithubIssue[])
+  return (parsed as unknown[])
+    .filter((raw): raw is RawGithubIssue => typeof raw === 'object' && raw !== null)
     .filter((raw) => typeof raw.number === 'number' && typeof raw.title === 'string')
     .map((raw) => {
       const author = parseAuthorLogin(raw.author);

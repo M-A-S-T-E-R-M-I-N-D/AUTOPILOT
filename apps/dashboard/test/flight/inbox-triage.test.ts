@@ -59,6 +59,22 @@ describe('inboxTaskTitle', () => {
     ).toBe('ship faster please');
   });
 
+  it("drops a markdown heading's leading # marker, so the board title is the heading text", () => {
+    expect(
+      inboxTaskTitle({
+        name: 'keeper-stale-card-display.md',
+        content: '# OPERATOR ADDENDUM — fold into the KEEPER task\n\nbody',
+      }),
+    ).toBe('OPERATOR ADDENDUM — fold into the KEEPER task');
+    expect(inboxTaskTitle({ name: 'note.md', content: '###   ship faster' })).toBe('ship faster');
+  });
+
+  it('keeps a leading # that is not a heading marker (no space after it)', () => {
+    expect(inboxTaskTitle({ name: 'note.md', content: '#42 is flaky again' })).toBe(
+      '#42 is flaky again',
+    );
+  });
+
   it('falls back to the filename when the note is blank', () => {
     expect(inboxTaskTitle({ name: 'note.md', content: '\n \n' })).toBe('note.md');
   });

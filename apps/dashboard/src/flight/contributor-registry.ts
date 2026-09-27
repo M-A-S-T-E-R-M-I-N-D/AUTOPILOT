@@ -69,10 +69,13 @@ const SEPARATOR_ROW_PATTERN = /^[\s|:-]+$/;
  * Parses a markdown table's rows into {@link ContributorRegistryEntry}
  * values. Anchors on the `Handle | Tier | Since | Evidence` header (case-
  * insensitively, on the first cell) so a stray unrelated table earlier in
- * the same file is skipped rather than misread as data; the separator row
- * (`| --- | --- | ... |`) is dropped on sight regardless. Any row that
- * isn't exactly 4 cells, or whose handle/tier cell is empty, is dropped —
- * a single malformed line must never take down the whole registry read.
+ * the same file is skipped rather than misread as data, and stops at the
+ * first non-table line after it — a blank line ends a markdown table, so a
+ * table further down (a revoked list, a glossary) is never read as standing
+ * the registry does not record. The separator row (`| --- | --- | ... |`) is
+ * dropped on sight regardless. Any row that isn't exactly 4 cells, or whose
+ * handle/tier cell is empty, is dropped — a single malformed line must never
+ * take down the whole registry read.
  * Exported for direct unit testing independent of the file read itself.
  */
 export function parseContributorRegistry(markdown: string): readonly ContributorRegistryEntry[] {
@@ -80,7 +83,10 @@ export function parseContributorRegistry(markdown: string): readonly Contributor
   let sawHeader = false;
   for (const line of markdown.split(/\r?\n/)) {
     const match = TABLE_ROW_PATTERN.exec(line);
-    if (!match) continue;
+    if (!match) {
+      if (sawHeader) break;
+      continue;
+    }
     const rowContent = match[1] ?? '';
     if (SEPARATOR_ROW_PATTERN.test(rowContent)) continue;
     const cells = rowContent.split('|').map((cell) => cell.trim());

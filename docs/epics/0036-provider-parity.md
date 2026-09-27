@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 # 0036. Provider parity — more than one engine behind the same invoke port
 
 Status: In progress — research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
-values in `auth.ts`) landed the same day. `ModelPort` now has three live implementations
-(`ClaudeCliModel`/`StreamingClaudeCliModel`, `OllamaModel`, and `CodexCliModel`) — Bedrock/Vertex
+values in `auth.ts`) landed the same day. `ModelPort` now has four live implementations
+(`ClaudeCliModel`/`StreamingClaudeCliModel`, `OllamaModel`, `CodexCliModel`, and `GeminiCliModel`) — Bedrock/Vertex
 need none, since both route through the same `claude` CLI (see row below). The Codex adapter
 landed whole on 2026-09-27: `packages/engine/src/adapters/codex-cli.ts`'s `parseCodexExecOutput`
 reads `codex exec --json` stdout into a `ModelResponse` (fixture-tested, `costUsd` always `null`),
@@ -15,10 +15,21 @@ and `CodexCliModel` spawns it (`exec --json --model <model> --sandbox workspace-
 <id>] <prompt>`, verified against openai/codex's own docs and `codex-rs/exec/src/cli.rs`).
 Not yet flown on a real lane — no routing/config wiring, no CLI-level resume-retry-on-failure, no
 idle-timeout hardening (`ClaudeCliModel`'s equivalents were all added after real incidents this
-adapter has no flight history to have hit yet). The Gemini adapter's pure half landed the same day:
-`packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini -p
---output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`); its
-spawn (`GeminiCliModel`) is the next slice. The Copilot CLI adapter remains unstarted.
+adapter has no flight history to have hit yet). The Gemini adapter landed whole the same day:
+`packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini --prompt …
+--output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`), and
+`GeminiCliModel` spawns it (`--model <model> --output-format json --approval-mode yolo [--skip-trust]
+[--resume <id>] [--prompt <prompt>]`, verified against google-gemini/gemini-cli's
+`packages/cli/src/config/config.ts`). Two traps shaped it: the positional prompt runs
+*interactive*, so the prompt rides on `--prompt` (or on stdin alone past the Windows command-line
+threshold, as `ClaudeCliModel` does); and headless mode turns every "ask the user" policy decision
+into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (unsandboxed) lets the
+agent edit files and run the gate. Folder trust is on by default and headless mode exits
+(`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
+a folder also loads its `.gemini/settings.json` and MCP servers. It carries the same gaps as Codex
+(no routing, no resume-retry, no idle timeout). The Copilot CLI adapter remains unstarted and, per the
+2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
+sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 
 `docs/ROADMAP.md` §3 (M14, "not started") names the gap directly: AUTOPILOT flies one engine — the
 Claude Code CLI on a personal subscription — and that is both its best property and its largest
@@ -107,11 +118,31 @@ first and falls back to stderr. Tokens follow the CLI's own `convertToStreamStat
 **5. GitHub Copilot CLI** — non-interactive mode (`-p`) exists, but by default mixes model output
 with UI chrome (Braille spinner glyphs) and tool-execution annotations on stdout
 ([github.blog](https://github.blog/ai-and-ml/github-copilot/github-copilot-cli-for-beginners-interactive-v-non-interactive-mode/)).
-The `-s`/`--silent` flag strips that down to a clean agent-response-only stdout — but **drops usage
-statistics in the process**. **Parity gap:** unlike `claude -p --output-format json` (clean AND
-carries usage in the same call), a `CopilotCliModel` faces a real choice between parseable stdout and
-any usage numbers at all; it cannot have both from one invocation the way Claude CLI can. Session
-resume: `copilot --resume <SESSION-ID>`.
+The `-s`/`--silent` flag strips that down to a clean agent-response-only stdout — but drops usage
+statistics in the process. **Re-checked 2026-09-27:** GitHub's own programmatic reference
+([docs.github.com/copilot/.../cli-programmatic-reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-programmatic-reference))
+now documents `--output-format=FORMAT` (`text`, the default, or `json` — "the CLI emits JSONL, one
+JSON object per line"), which reads as the same clean-AND-parseable shape `claude -p --output-format
+json` already gives, closing the `-s`-vs-stats tradeoff the previous note above described. **New
+blocker in its place:** unlike `codex-cli.ts` and `gemini-cli.ts`, whose wire formats this epic
+verified against openai/codex's and google-gemini/gemini-cli's own OPEN-SOURCE repos, `github/copilot-cli`
+ships as a closed-source binary via the `@github/copilot` npm package — no public source tree exists
+to read the JSONL event schema from. Neither GitHub's docs nor the open feature request asking for a
+session id in non-interactive output
+([github/copilot-cli#807](https://github.com/github/copilot-cli/issues/807), closed, no maintainer
+example posted) shows one verbatim example line of `--output-format=json` output: no confirmed field
+names for the event type, session id, per-model token usage, or error shape. A community tool that
+reads Copilot CLI's on-disk session state (`~/.copilot/session-state/<id>/events.jsonl`, a DIFFERENT
+mechanism from `--output-format=json` stdout) documents fields there
+(`data.modelMetrics.<model>.usage.{inputTokens,outputTokens,cacheReadTokens,cacheWriteTokens}` — see
+[ccusage.com/guide/copilot](https://ccusage.com/guide/copilot/)), but that is a different surface and
+does not stand in for the stdout schema `CopilotCliModel` would actually parse. Per this epic's own
+citation discipline (verify against source before implementing, never guess a wire format), **the
+Copilot adapter cannot be built fixture-tested the way Codex/Gemini were until a future firing
+captures one real `copilot -p ... --output-format=json` run** (needs an authenticated `copilot login`
+this repo does not have configured) and commits its actual output as the fixture. Session resume:
+`copilot --resume <SESSION-ID>` (confirmed working, per GitHub's own docs) — separately from the
+output-schema question above.
 
 **6. Local models via Ollama, promoted to a real lane** — `OllamaModel` already exists but is wired
 only for the dashboard's single-turn triage substep (`apps/dashboard/src/fly.ts`'s
@@ -132,8 +163,8 @@ disconnected reference doc that can drift out of sync with it.
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
 | OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it |
-| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed) | Yes — full loop | **None** — token counts only, no price | **Parse shipped** — `parseGeminiJsonOutput` (`packages/engine/src/adapters/gemini-cli.ts`); spawn not yet built, so no lane flies on it |
-| GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | Clean stdout XOR usage stats, not both | Not started |
+| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed) | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
+| GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 
 ## Acceptance criteria
 
