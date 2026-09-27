@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { openStore, migrate, createTask, type Store } from '@autopilot/store';
+import { openStore, migrate, createTask, setTaskStatus, type Store } from '@autopilot/store';
 import type * as AutopilotStore from '@autopilot/store';
 import {
   createIssueTriagePreviewApi,
@@ -29,6 +29,19 @@ function project(s: Store, id: string, rootPath: string): void {
 
 function cleanupDir(dir: string): void {
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+}
+
+/** The store the api opened on its most recent call — read back through the
+ *  pass-through mock so a test can ask whether it was closed. */
+function lastOpenedStore(): Store {
+  const opened = vi.mocked(openStore).mock.results.at(-1);
+  if (!opened || opened.type !== 'return') throw new Error('openStore was never called');
+  return opened.value as Store;
+}
+
+/** A `CliExec` whose every call rejects — `gh` vanishing mid-ritual. */
+function throwingExec(): CliExec {
+  return vi.fn().mockRejectedValue(new Error('gh vanished mid-call'));
 }
 
 /** A `CliExec` stub that answers `gh issue list` with `issues` and every
@@ -217,6 +230,109 @@ describe('createIssueTriagePreviewApi', () => {
       cleanupDir(dir);
     }
   });
+
+  it('never dedups against a done or deferred task — closed work is not live work an issue could duplicate', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-closed-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-closed-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo);
+      createTask(s, {
+        id: 'web-done',
+        projectId: 'p1',
+        title: 'Keyboard nav is broken in the fleet table',
+        createdAt: 100,
+      });
+      createTask(s, {
+        id: 'web-deferred',
+        projectId: 'p1',
+        title: 'Screen reader skips the fleet table headers',
+        createdAt: 100,
+      });
+      expect(setTaskStatus(s, 'web-done', 'done', 200)).toBe(true);
+      expect(setTaskStatus(s, 'web-deferred', 'deferred', 200)).toBe(true);
+      s.close();
+
+      const exec = issuesExec([
+        { number: 9, title: 'Keyboard nav is broken in the fleet table', body: TEMPLATED_BODY },
+        { number: 10, title: 'Screen reader skips the fleet table headers', body: TEMPLATED_BODY },
+      ]);
+
+      const plans = await createIssueTriagePreviewApi(dbPath, exec)('p1');
+
+      expect(plans?.map((p) => p.decision.decision)).toEqual(['accept', 'accept']);
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
+  it("never dedups against another project's open tasks — the board read is scoped to the triaged project", async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-scope-'));
+    const otherRepo = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-scope-other-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-scope-db-'));
+    try {
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo);
+      project(s, 'p2', otherRepo);
+      createTask(s, {
+        id: 'web-other',
+        projectId: 'p2',
+        title: 'Keyboard nav is broken in the fleet table',
+        createdAt: 100,
+      });
+      s.close();
+
+      const exec = issuesExec([
+        { number: 9, title: 'Keyboard nav is broken in the fleet table', body: TEMPLATED_BODY },
+      ]);
+
+      const plans = await createIssueTriagePreviewApi(dbPath, exec)('p1');
+
+      expect(plans?.[0]?.decision.decision).toBe('accept');
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(otherRepo);
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('closes the store on the unknown-project null return', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-close-null-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      expect(await createIssueTriagePreviewApi(dbPath, issuesExec())('nope')).toBeNull();
+      expect(lastOpenedStore().db.open).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('closes the store and surfaces the error when the gh read rejects', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-preview-close-throw-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      await expect(createIssueTriagePreviewApi(dbPath, throwingExec())('p1')).rejects.toThrow(
+        'gh vanished mid-call',
+      );
+      expect(lastOpenedStore().db.open).toBe(false);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
 });
 
 describe('createIssueTriageExecuteApi', () => {
@@ -305,6 +421,67 @@ describe('createIssueTriageExecuteApi', () => {
       vi.mocked(openStore).mockClear();
       await createIssueTriageExecuteApi(dbPath, issuesExec())('p1');
       expect(openStore).toHaveBeenLastCalledWith(dbPath);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('dedups against the open board and the backlog file before creating anything — a duplicate issue earns no board task', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-execute-dedup-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-execute-dedup-db-'));
+    try {
+      writeFileSync(join(repo, 'BACKLOG.md'), '- [ ] Add Hebrew RTL support\n');
+
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', repo);
+      createTask(s, {
+        id: 'web-abc',
+        projectId: 'p1',
+        title: 'Already tracked dashboard crash',
+        createdAt: 100,
+      });
+      s.close();
+
+      const exec = issuesExec([
+        { number: 10, title: 'Already tracked dashboard crash', body: TEMPLATED_BODY },
+        { number: 11, title: 'Add Hebrew RTL support', body: TEMPLATED_BODY },
+      ]);
+
+      const result = await createIssueTriageExecuteApi(dbPath, exec)('p1');
+
+      expect(result?.plans.map((p) => p.decision)).toEqual([
+        expect.objectContaining({ decision: 'duplicate', matchedId: 'web-abc' }),
+        expect.objectContaining({ decision: 'duplicate', matchedId: 'backlog:0' }),
+      ]);
+      expect(result?.tasksCreated).toBe(0);
+
+      const verify = openStore(dbPath);
+      const rows = verify.db.prepare('SELECT id FROM tasks WHERE project_id = ?').all('p1') as {
+        id: string;
+      }[];
+      expect(rows).toEqual([{ id: 'web-abc' }]);
+      verify.close();
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
+  it('closes the store and surfaces the error when the ritual rejects', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-execute-close-throw-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+
+      await expect(createIssueTriageExecuteApi(dbPath, throwingExec())('p1')).rejects.toThrow(
+        'gh vanished mid-call',
+      );
+      expect(lastOpenedStore().db.open).toBe(false);
     } finally {
       cleanupDir(dir);
     }
