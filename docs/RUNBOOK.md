@@ -333,7 +333,8 @@ you approve or discard it.
 false-close class. The ship-time DELIVERABLE verifier only proves a "complete" claim true against
 that one commit's patch; code drifts after a task closes, and a later refactor can delete the very
 thing the claim pointed at. This sweep re-checks the project's 50 most-recently-closed done tasks
-that carry a `DELIVERABLE:` clause against the CURRENT committed tree, and flags two drift classes:
+that carry a `DELIVERABLE:` clause against the CURRENT committed tree, plus any older done task that
+an audit proposal it may still defer names (see below), and flags two drift classes:
 
 | Finding | What it means |
 |---|---|

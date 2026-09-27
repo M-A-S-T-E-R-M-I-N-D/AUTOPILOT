@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   auditClosedTaskDeliverable,
   auditClosedTaskUxExpression,
+  auditedTaskId,
   closedTaskAuditId,
   findClosedTaskAuditFindings,
   findStaleClosedTaskAuditIds,
@@ -237,7 +238,7 @@ describe('findStaleClosedTaskAuditIds', () => {
   });
 
   it('keeps an open audit whose task this sweep never re-audited', () => {
-    // Out of the done window, or reopened: no fresh evidence either way.
+    // Not a candidate this sweep (reopened, say): no fresh evidence either way.
     expect(findStaleClosedTaskAuditIds(['closedaudit-t-9'], [tooltip], [])).toEqual([]);
   });
 
@@ -248,5 +249,17 @@ describe('findStaleClosedTaskAuditIds', () => {
 
   it('names the same id the sweep files a finding under', () => {
     expect(closedTaskAuditId('web-abc')).toBe('closedaudit-web-abc');
+  });
+});
+
+describe('auditedTaskId', () => {
+  it('reads back the task id an audit id names', () => {
+    expect(auditedTaskId(closedTaskAuditId('web-mss50iak-g176g8'))).toBe('web-mss50iak-g176g8');
+  });
+
+  it('is null for an id that is not an audit proposal, or names no task', () => {
+    expect(auditedTaskId('docfresh-readme-1')).toBeNull();
+    expect(auditedTaskId('web-closedaudit-x')).toBeNull();
+    expect(auditedTaskId('closedaudit-')).toBeNull();
   });
 });
