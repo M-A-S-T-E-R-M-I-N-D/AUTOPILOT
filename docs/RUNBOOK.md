@@ -563,16 +563,18 @@ there hits the dashboard, not a collector).
 The headless-surfacing sweep (board `web-msnqqjmd-9bx0wd`) closed a recurring gap:
 signals the engine already captured but no dashboard surface ever showed. Each got a
 small, on-demand expression on the project page — none of them polls, none of them acts
-on its own. Where they live and what a signal means:
+on its own. Where they live and what a signal means (each label leads with a
+stroke icon from the vendored Lucide set — epic 0025 — named in brackets below;
+the words, not the icon, are what the doc and the screen reader go by):
 
-**🖥️ Flight console** — a collapsed panel; expanding it fetches
+**Flight console** [monitor] — a collapsed panel; expanding it fetches
 `GET /api/flightlog?project=<id>`, a read-only tail of this project's flight process
 stdout+stderr. The endpoint existed with zero UI consumers before the sweep; it is
 scoped per project, so two concurrently flying folders never share one interleaved,
 unattributable log. Nothing is fetched until the first expand, and a failed fetch
 allows a retry on the next one.
 
-**🔍 Detected backlog** — the end-of-flight reconciliation sweep scores every open
+**Detected backlog** [search] — the end-of-flight reconciliation sweep scores every open
 board task's title against recent commit subjects and changed-file paths, catching work
 shipped in an interactive session that never emitted a METRICS line (so its task never
 flipped to done). This panel (`GET /api/backlog?project=<id>`) is where those candidates
@@ -581,13 +583,13 @@ marked done without an explicit click — and a candidate matched only by shared
 paths gets no confirm button at all (that signal once produced 27 false confirm-done
 proposals in a single screen), so it renders as an annotation.
 
-**🛡️ N blocked** — on a flight-log row and its per-firing trace: the
+**N blocked** [shield] — on a flight-log row and its per-firing trace: the
 containment/read-hygiene guard denied N tool calls during that firing — it tried to
 step outside its boundary and was stopped. The firing still ran to completion; a
 non-zero chip on a shipped firing is a near-miss worth a look. (§5 covers the worse
 case where something actually landed outside the target.)
 
-**🔧 auto-fixed** — same two surfaces: the gate failed a formatting check, mechanical
+**auto-fixed** [wrench] — same two surfaces: the gate failed a formatting check, mechanical
 remediation fixed it automatically, and the firing shipped clean instead of reverting.
 
 Every chip is keyboard-focusable and carries its full explanation as both tooltip and
@@ -641,7 +643,8 @@ non-2xx the dashboard itself answered is still an exit-0 run — that's an
 honest per-lane refusal, not a launcher failure).
 
 The Fly bar has an in-app counterpart for the sizing decision the CLI leaves to
-you: the **🍀 "I'm feeling lucky"** button (`GET /api/lucky`, rolled by
+you: the icon-only clover button beside **Fire**, named "I'm feeling lucky"
+for screen readers (`GET /api/lucky`, rolled by
 `flight/lucky-plan.ts`). It probes this machine — CPU load from a two-sample
 `os.cpus()` delta (Windows has no loadavg), free RAM, logical cores — plus the
 flight registry and the target folder's board, then fills Lanes/Firings/$ with
@@ -749,7 +752,7 @@ the dashboard.
 | A PR on the canonical repo got merged / bounced / held automatically | §8 |
 | You want to check whether a GitHub Actions workflow is red or stuck | §9 |
 | You want flight spans in your OTel collector, or wonder why the OTLP chip is showing | §10 |
-| You want a flight's raw stdout/stderr, or a 🛡️/🔧 chip appeared on a firing | §11 |
+| You want a flight's raw stdout/stderr, or an "N blocked" / "auto-fixed" chip appeared on a firing | §11 |
 | The Detected-backlog panel proposes a task is already done | §11 |
 | You want to launch an N-way same-folder fleet without lanes colliding on files | §12 |
 | You turned on the GitHub social pass and want to know what it did, or why it skipped | §13 |
