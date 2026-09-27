@@ -32,11 +32,18 @@ export interface LandingExecuteResponse {
 export interface LandingExecuteResult {
   readonly className: string;
   readonly text: string;
+  /** A leading vendored icon name (epic 0025) for the amber not-pushed line —
+   *  the render site appends it before the text node instead of the old
+   *  baked-in ⚠ glyph. Absent on the ✓/✗ lines, whose marks are the census's
+   *  deliberate typographic exception. */
+  readonly icon?: string;
 }
 
 /** Formats the LANDING EXECUTE result — on success: "✓ Landed — <details>"
  *  (falling back to "merged." when the response carries no details); on
- *  failure: "✗ <details or error>" (falling back to "landing failed."). */
+ *  failure: "✗ <details or error>" (falling back to "landing failed."); on a
+ *  land whose push leg failed: "Landed locally, but NOT pushed — <detail>"
+ *  led by the triangle-alert icon. */
 export function landingExecuteResult(
   data: LandingExecuteResponse | null | undefined,
 ): LandingExecuteResult {
@@ -57,7 +64,8 @@ export function landingExecuteResult(
   if (push && !push.ok) {
     return {
       className: 'landing-result landing-result-warn',
-      text: '⚠ Landed locally, but NOT pushed — ' + push.detail,
+      text: 'Landed locally, but NOT pushed — ' + push.detail,
+      icon: 'triangle-alert',
     };
   }
   return {
@@ -93,7 +101,9 @@ export interface LandingJobLine {
   readonly busy: boolean;
   /** A leading vendored icon name (epic 0025) for the 'running' and
    *  'waiting-for-flight' phases — the render site appends it before the text
-   *  node instead of the old baked-in 🛬/⏳ glyphs. Absent for 'finished'. */
+   *  node instead of the old baked-in 🛬/⏳ glyphs. A 'finished' job carries
+   *  whatever {@link landingExecuteResult} gave its verdict (the not-pushed
+   *  line's triangle-alert), and none on a plain ✓/✗ verdict. */
   readonly icon?: string;
 }
 
@@ -119,8 +129,7 @@ export function landingJobLine(
     elapsed >= 60 ? Math.floor(elapsed / 60) + 'm' + (elapsed % 60) + 's' : elapsed + 's';
 
   if (job.phase === 'finished') {
-    const result = landingExecuteResult(job.result);
-    return { className: result.className, text: result.text, busy: false };
+    return { ...landingExecuteResult(job.result), busy: false };
   }
   if (job.phase === 'waiting-for-flight') {
     return {

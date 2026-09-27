@@ -71,8 +71,11 @@ propagation, and the filled style does not match the nav.
    menu's Copy element HTML (🧩) and Copy smart context (🧠) labels, the
    last two, lead with the vendored `code-xml` and `braces` icons instead;
    the list is gone and the test pins zero. Core stayed inside its budget
-   (230.6KB of 231KB raw), so no raise was needed.
-   Docs/screenshots refresh is still open.
+   (230.6KB of 231KB raw), so no raise was needed. **Last painted ⚠
+   2026-09-27:** the landing panel's amber "Landed locally, but NOT pushed"
+   line leads with `triangle-alert` like its overlap/half-step rows; ⚠
+   survives only in the LAND confirm dialog's native text, where no SVG can
+   render. Docs/screenshots refresh is still open.
 
 ## Related
 
