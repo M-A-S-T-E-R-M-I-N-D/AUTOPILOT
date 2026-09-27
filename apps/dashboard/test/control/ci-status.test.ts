@@ -124,6 +124,35 @@ describe('ciWorkflowStatus', () => {
     expect(status.detail).toBe('in_progress (1m ago)');
   });
 
+  it('reads the empty conclusion gh really reports for a running run as NO conclusion (2026-09-27)', () => {
+    // gh sends conclusion "" — not null — until a run completes. Taking the
+    // empty string as a conclusion let the post-push watch declare green the
+    // moment CI started, three seconds in, while the jobs had not run.
+    for (const status of ['queued', 'in_progress', 'waiting']) {
+      const read = ciWorkflowStatus(
+        'ci.yml',
+        () =>
+          JSON.stringify([
+            { status, conclusion: '', createdAt: '2026-08-20T11:59:00Z', headSha: 'abc1234' },
+          ]),
+        NOW,
+      );
+      expect(read.conclusion, status).toBeNull();
+      expect(read.detail).toBe(`${status} (1m ago)`);
+    }
+    // …and a completed run keeps its conclusion.
+    const done = ciWorkflowStatus(
+      'ci.yml',
+      () =>
+        JSON.stringify([
+          { status: 'completed', conclusion: 'failure', createdAt: '2026-08-20T11:59:00Z' },
+        ]),
+      NOW,
+    );
+    expect(done.conclusion).toBe('failure');
+    expect(done.ok).toBe(false);
+  });
+
   it('degrades to an unknown line when gh is unavailable — never throws', () => {
     const status = ciWorkflowStatus(
       'ci.yml',
