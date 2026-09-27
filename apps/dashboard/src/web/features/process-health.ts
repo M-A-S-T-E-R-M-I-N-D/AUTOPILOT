@@ -44,7 +44,10 @@
  *
  * `healthSection(c)` (board ap-mui2h3rw-0) joined the cluster later: the
  * Data tab's list of every detected anomaly with its proposed fix, built
- * from the anomaly vocabulary core already carries for the card's chips.
+ * from the anomaly vocabulary core already carries for the card's chips —
+ * slice 2 folds in the project's own open, severity-tagged findings (the
+ * same rows the findings gauge counts) alongside them, reusing the Tasks
+ * board's severity chip instead of a second badge design.
  *
  * i18n (board web-msnsndki-dz3vn1): each panel's `h3` title carries its
  * English default AND a `data-i18n` tag, then rides the page-level
@@ -147,11 +150,51 @@ function healthKeyed(tag, cls, key) {
   n.setAttribute('data-i18n', key);
   return n;
 }
+// SECURITY FINDINGS (board ap-mui2h3rw-0, slice 2 of MASTER-PLAN §7): the
+// same open, severity-tagged tasks the fleet card's findings gauge already
+// counts (openSeverityGauge, packages/store/src/read.ts — same three
+// "still open" statuses) joins the health list, reds first, instead of only
+// ever showing as a bare count. A finding's own title/body already ARE its
+// evidence and proposed fix (REPORT_COMPOSE_TASKS' {title, body, severity}
+// shape, flight/report-compose-tasks.ts) — this only lists them. Reuses the
+// Tasks board's own severity chip (taskSeverityChip/tipChip, hoisted here
+// from web/task-queue.ts by fleetJs() below) instead of inventing a second
+// severity badge.
+var OPEN_FINDING_STATUSES = { queued: true, in_progress: true, needs_approval: true };
+var SEVERITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
+function openFindings(c) {
+  var tasks = c.tasks || [];
+  var open = [];
+  for (var i = 0; i < tasks.length; i++) {
+    var t = tasks[i];
+    if (t.severity && OPEN_FINDING_STATUSES[t.status]) open.push(t);
+  }
+  open.sort(function (a, b) {
+    var r = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+    return r !== 0 ? r : b.at - a.at;
+  });
+  return open;
+}
+function findingItem(t) {
+  var li = el('li', 'health-item health-finding');
+  var title = el('h4', 'health-item-title');
+  var sevChip = taskSeverityChip(t.severity);
+  title.appendChild(tipChip(sevChip[0], sevChip[1], sevChip[2], sevChip[3]));
+  title.appendChild(document.createTextNode(' ' + t.title));
+  li.appendChild(title);
+  if (t.body) {
+    var body = el('p', 'health-what');
+    body.appendChild(document.createTextNode(t.body));
+    li.appendChild(body);
+  }
+  return li;
+}
 function healthSection(c) {
   var list = c.anomalies || [];
+  var findings = openFindings(c);
   var wrap = el('section', 'health-panel');
   wrap.appendChild(panelHeading('h3', 'health-title', 'healthTitle', 'activity'));
-  if (!list.length) {
+  if (!list.length && !findings.length) {
     wrap.appendChild(healthKeyed('p', 'health-clear muted', 'healthClear'));
     return wrap;
   }
@@ -176,6 +219,7 @@ function healthSection(c) {
     li.appendChild(fix);
     ul.appendChild(li);
   }
+  for (var j = 0; j < findings.length; j++) ul.appendChild(findingItem(findings[j]));
   wrap.appendChild(ul);
   return wrap;
 }
