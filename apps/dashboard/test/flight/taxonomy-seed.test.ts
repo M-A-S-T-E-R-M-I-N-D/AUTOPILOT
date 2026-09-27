@@ -14,7 +14,10 @@ import {
   runTaxonomySeed,
   type TaxonomySeedAction,
 } from '../../src/flight/taxonomy-seed.js';
-import { PARTNER_APPLICATION_LABEL } from '../../src/flight/contributor-dossier.js';
+import {
+  DOSSIER_POSTED_LABEL,
+  PARTNER_APPLICATION_LABEL,
+} from '../../src/flight/contributor-dossier.js';
 import { AGENT_OK_LABEL, NEEDS_FORMAT_LABEL } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
@@ -327,6 +330,27 @@ describe('HOUSE_TAXONOMY_LABELS × KEEPER dossier routing (regression, epic 0019
 
   it('matches the label the issue template itself applies at creation', () => {
     expect(PARTNER_APPLICATION_TEMPLATE).toContain(`labels: ['${PARTNER_APPLICATION_LABEL}']`);
+  });
+
+  // The dossier ritual's idempotency marker: planContributorDossierCommands
+  // runs `gh issue edit --add-label dossier-posted` before the comment, and
+  // issue-triage.ts skips an application that already carries it. `gh` fails
+  // that edit on an unseeded name, and executeIssueTriageCommands still runs
+  // the comment after it — so the marker never landed, and every later KEEPER
+  // pass re-decided 'dossier' and re-posted, with only the anti-flood guard
+  // standing between the applicant's issue and a repeat dossier.
+  it('seeds the label the dossier ritual marks a posted dossier with', () => {
+    expect(HOUSE_TAXONOMY_LABELS.map((label) => label.name)).toContain(DOSSIER_POSTED_LABEL);
+  });
+
+  it('files the marker in the community set, right after the application label it answers', () => {
+    const names = HOUSE_TAXONOMY_LABELS.map((label) => label.name);
+    expect(names.indexOf(DOSSIER_POSTED_LABEL)).toBe(names.indexOf(PARTNER_APPLICATION_LABEL) + 1);
+  });
+
+  it('is named in the governance doc this constant transcribes', () => {
+    const governance = readFileSync(join(process.cwd(), 'docs/GOVERNANCE.md'), 'utf8');
+    expect(governance).toContain(`\`${DOSSIER_POSTED_LABEL}\``);
   });
 });
 

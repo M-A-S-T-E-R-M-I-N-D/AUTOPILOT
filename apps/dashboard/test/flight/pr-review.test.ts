@@ -995,7 +995,8 @@ const BENIGN_WEB = new Set([
   // Pure bulk-action planning for the tasks screen's selection (epic 0026
   // slice 4): which selected rows an action reaches and the request each
   // row's OWN button already posts — no new write path, no fetch, no DOM,
-  // no HTML. Not yet spliced into the served bundle.
+  // no HTML. features/subject-nav.ts splices it in via .toString() for the
+  // command palette's bulk actions.
   'task-bulk.ts',
   // Pure geometry/percent/bucketing math for gauges, sparklines, the
   // heatmap, timeline, office map, and tooltip positioning — no dynamic
@@ -1167,9 +1168,13 @@ const BENIGN_WEB_FEATURES = new Set([
   // contributor-standing.ts already stay unflagged for.
   'ci-status.ts',
   'contributor-standing.ts',
-  // subject-nav.ts (epic 0021 app shell): no fetch at all — toggles
-  // `<body data-subject>` and the nav's aria state from clicks, the URL
-  // hash and localStorage; never writes anywhere but the DOM.
+  // subject-nav.ts (epic 0021 app shell): toggles `<body data-subject>` and
+  // the nav's aria state from clicks, the URL hash and localStorage. Its one
+  // fetch is the command palette's bulk actions on the tasks board's
+  // selection (epic 0026 slice 4): POST /api/task/status and
+  // /api/task/delete, the requests each row's own button already sends from
+  // shell.ts, planned by web/task-bulk.ts — no endpoint of its own, delete
+  // confirm-gated, labels and snacks from STRINGS via textContent.
   'subject-nav.ts',
   // prefs.ts (epic 0029 slice 1): no fetch at all — reads/writes one
   // localStorage key and toggles data attributes on <html>; never writes
@@ -2436,6 +2441,11 @@ describe('touchesSecuritySensitivePath', () => {
   it('flags docs/DONATE.asc — the clearsigned copy of the address file that ci:donate requires to sign exactly docs/donations.json: a PR that swapped an address would re-sign it here, and a donor checking `gpg --verify` trusts this file, so it queues for a human beside the data it signs', () => {
     expect(touchesSecuritySensitivePath(['docs/DONATE.asc'])).toBe(true);
     expect(touchesSecuritySensitivePath(['docs/donate.asc'])).toBe(true);
+  });
+
+  it("flags docs/SIGNING-KEY.asc — the one public key ci:donate holds DONATE.asc to and the release ritual holds a new tag's signer to: a PR that swapped it alone would re-anchor both checks to an attacker's key before any address or tag changes, so it queues for a human beside the file it vouches for", () => {
+    expect(touchesSecuritySensitivePath(['docs/SIGNING-KEY.asc'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['docs/signing-key.asc'])).toBe(true);
   });
 
   it('keeps the donation markers path-anchored: prose that only discusses donations, and the already-benign read-only docs/donations.json parser, stay unflagged', () => {

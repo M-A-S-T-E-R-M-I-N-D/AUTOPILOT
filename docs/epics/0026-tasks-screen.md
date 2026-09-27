@@ -59,8 +59,13 @@ and plans the request that button already posts — no bulk endpoint, no new
 write path — and a test pins both against the rendered rows for every status.
 It acts only on the rows the list shows (the "N selected" count is the count it
 reaches), names the selected rows it skips, asks first only for delete, and
-lists the actions a selection can take with their counts for the palette. Still
-open in slice 4: the palette entries and sending the requests.
+lists the actions a selection can take with their counts for the palette. Its
+wiring closed slice 4 the same day: with rows checked, the command palette
+leads with each action they can take and how many rows it reaches ("Approve
+selected (2)"), read off the rows the list shows. Running one sends the plan's
+requests one at a time; delete asks once for the whole set, a snack says how
+many went through and names a failure as an error, and the board redraws. The
+"N selected" line names the gesture: Ctrl+K acts on them.
 
 ## The ask
 

@@ -163,6 +163,57 @@ describe('detectAnomalies', () => {
     });
   });
 
+  describe('ship-rate-drop', () => {
+    /** `recent` then `baseline` firings, newest first; the first `recentShipped`
+     *  and `baselineShipped` of each ship, the rest end in a no-commit. */
+    function shipLog(
+      recent: number,
+      recentShipped: number,
+      baseline: number,
+      baselineShipped: number,
+    ): FlightEntry[] {
+      const run = (n: number, shipped: number) =>
+        Array.from({ length: n }, (_, i) =>
+          i < shipped ? flight() : flight({ shipped: false, gateResult: 'no-commit' }),
+        );
+      return [...run(recent, recentShipped), ...run(baseline, baselineShipped)];
+    }
+    const fired = (log: FlightEntry[]) =>
+      detectAnomalies(log).some((a) => a.kind === 'ship-rate-drop');
+
+    it('fires when the last five firings ship far less often than the ten before them', () => {
+      expect(detectAnomalies(shipLog(5, 1, 10, 8))).toContainEqual({
+        kind: 'ship-rate-drop',
+        evidence: 'Shipped 1 of the last 5 firings vs 8 of the 10 before them.',
+      });
+    });
+
+    it('fires when the recent rate falls to exactly half the baseline', () => {
+      expect(fired(shipLog(5, 2, 10, 8))).toBe(true);
+    });
+
+    it('does not fire when the recent rate stays above half the baseline', () => {
+      expect(fired(shipLog(5, 3, 10, 8))).toBe(false);
+    });
+
+    it('does not fire without a full baseline behind the recent window', () => {
+      expect(fired(shipLog(5, 0, 9, 9))).toBe(false);
+    });
+
+    it('does not fire when the baseline itself was below half — nothing to regress from', () => {
+      expect(fired(shipLog(5, 0, 10, 4))).toBe(false);
+    });
+
+    it('fires at a baseline of exactly half once nothing recent ships', () => {
+      expect(fired(shipLog(5, 0, 10, 5))).toBe(true);
+    });
+
+    it('judges only the fifteen newest firings, ignoring older history', () => {
+      const log = [...shipLog(5, 0, 10, 4), ...Array.from({ length: 5 }, () => flight())];
+      expect(fired(log)).toBe(false);
+    });
+  });
+
   it('can report more than one anomaly at once', () => {
     const log = [
       flight({ cost: 5, shipped: false, gateResult: 'reverted' }),

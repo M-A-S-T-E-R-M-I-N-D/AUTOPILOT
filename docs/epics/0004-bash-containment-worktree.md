@@ -186,6 +186,30 @@ opens a path into `target`:
 `3feca27b` (a drained model rests for an hour) changes model routing only. It touches neither
 the worktree nor the sync-back.
 
+On 2026-09-27, `fly.ts` gained one more write into `target`. This amends the 2026-08-16 paragraph,
+which calls the self-study ritual the only other write a self-hosted flight makes there.
+
+- **The lane that ends a round commits its evaluation into `target`** (`f1175bd0`, `09d36fc7`).
+  After the flight-end sync-back, every lane calls `endRound` (`flight/round-evaluation.ts`),
+  whatever its sync-back came to. Each lane records a `lane-ending` event first. A lane may end the
+  round only when every live sibling lock belongs to a lane that has recorded the same, and one
+  `INSERT ... WHERE NOT EXISTS` claim picks a single winner. The winner waits up to 15 minutes
+  (`ROUND_END_WAIT_MS`) for the other flight locks to go, then evaluates anyway. It always writes a
+  `round-evaluation` event. When the project has evaluation docs on
+  (`dashboard evaluation-docs on`, off by default), it also appends a section to
+  `docs/evaluations/ROUNDS-YYYY-MM.md` and commits it on `target`'s checked-out branch. The engine process runs that `git` in `target`
+  itself, not in `flightRoot` and not through the firing's Bash. It skips the commit when `target`'s
+  checkout is dirty. It does not take `autopilot-sync-back.lock`, and no flight gate runs on the
+  commit.
+- **No re-snapshot follows that commit.** The self-study commit re-baselines the guard, and so does
+  every successful sync-back. The evaluation commit does not, so the flight's final containment
+  check sees `target`'s HEAD moved. With worktree isolation active, `classifyBreaches` files every
+  such movement as operator activity, so the flight logs "guarded HEAD moved outside this flight's
+  worktree (operator activity, not a breach)" and ends normally. In the fallback that flies
+  `target` directly, `target` is not a guarded path, so nothing is reported. Either way the commit
+  is never a breach, but in the isolated case the log calls the engine's own commit operator
+  activity.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and both the per-firing and the flight-end sync-back re-snapshot the guard baseline
 after a sanctioned head move.

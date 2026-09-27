@@ -28,6 +28,51 @@ export function hasSpdxHeader(text) {
   return head.includes('SPDX-License-Identifier');
 }
 
+/** One licence tag `reuse lint` would reject: a line number and what it read. */
+/** @typedef {{ line: number, expression: string }} InvalidSpdxTag */
+
+// REUSE-IgnoreStart — the tag this check looks for, as data.
+const TAG = 'SPDX-License-Identifier:';
+// REUSE-IgnoreEnd
+const LICENCE_ID = String.raw`[A-Za-z0-9][A-Za-z0-9.+-]*`;
+const VALID_EXPRESSION = new RegExp(
+  String.raw`^\(?${LICENCE_ID}(?:\s+(?:AND|OR|WITH)\s+\(?${LICENCE_ID}\)?)*\)?$`,
+);
+
+/**
+ * THE REUSE RED THAT SAT ON MAIN (2026-09-27): a test asserting on a header
+ * wrote the tag as a string literal, `reuse lint` read the quote and bracket
+ * after it as part of this file's licence expression, and the repository
+ * stopped being REUSE-compliant. The CI job that says so is optional and
+ * nothing local ran it, so it stayed red for two days. This is that check,
+ * in the gate every firing and landing runs: every licence tag outside a
+ * `REUSE-IgnoreStart`/`REUSE-IgnoreEnd` block must carry a valid SPDX
+ * expression (identifiers joined by AND, OR or WITH), comment closers aside.
+ * Pure, like {@link hasSpdxHeader}.
+ * @param {string} text
+ * @returns {InvalidSpdxTag[]}
+ */
+export function invalidSpdxTags(text) {
+  /** @type {InvalidSpdxTag[]} */
+  const found = [];
+  let ignoring = false;
+  text.split('\n').forEach((raw, index) => {
+    if (raw.includes('REUSE-IgnoreStart')) ignoring = true;
+    if (raw.includes('REUSE-IgnoreEnd')) {
+      ignoring = false;
+      return;
+    }
+    const at = raw.indexOf(TAG);
+    if (ignoring || at === -1) return;
+    const expression = raw
+      .slice(at + TAG.length)
+      .replace(/\s*(?:\*\/|-->)\s*$/, '')
+      .trim();
+    if (!VALID_EXPRESSION.test(expression)) found.push({ line: index + 1, expression });
+  });
+  return found;
+}
+
 // Stryker disable all: `listFiles` shells out to `git ls-files` and `main`
 // reads every tracked file from disk — both can only be exercised by
 // running the gate for real. The logic they delegate to, `hasSpdxHeader`,
@@ -43,18 +88,33 @@ function listFiles() {
 }
 
 function main() {
-  const files = listFiles().filter((f) => SOURCE_EXT.test(f));
+  const tracked = listFiles();
+  const files = tracked.filter((f) => SOURCE_EXT.test(f));
   /** @type {string[]} */
   const missing = [];
+  /** @type {string[]} */
+  const invalid = [];
 
-  for (const file of files) {
+  for (const file of tracked) {
     let text;
     try {
       text = readFileSync(file, 'utf8');
     } catch {
       continue;
     }
-    if (!hasSpdxHeader(text)) missing.push(file);
+    if (text.includes(NUL)) continue; // binary
+    if (SOURCE_EXT.test(file) && !hasSpdxHeader(text)) missing.push(file);
+    for (const tag of invalidSpdxTags(text)) {
+      invalid.push(`${file}:${tag.line}  "${tag.expression}"`);
+    }
+  }
+
+  if (invalid.length > 0) {
+    console.error(
+      `spdx-headers FAILED: ${invalid.length} licence tag(s) reuse lint would reject — wrap SPDX text that is data in REUSE-IgnoreStart / REUSE-IgnoreEnd:`,
+    );
+    for (const i of invalid) console.error(`  ${i}`);
+    process.exit(1);
   }
 
   if (missing.length > 0) {

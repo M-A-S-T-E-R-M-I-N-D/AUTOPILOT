@@ -143,6 +143,26 @@ describe('the project Health section', () => {
     );
   });
 
+  it('lists a ship-rate regression with its own words and a chart icon', async () => {
+    const drop = {
+      kind: 'ship-rate-drop',
+      evidence: 'Shipped 1 of the last 5 firings vs 8 of the 10 before them.',
+    };
+    boot({ ...PROJECT, anomalies: [drop] });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const item = panel()?.querySelector('.health-item');
+    expect(item?.querySelector('.health-item-title')?.textContent).toBe('ship rate drop');
+    expect(item?.querySelector('.health-item-title svg.icon-chart-line')).not.toBeNull();
+    expect(item?.querySelector('.health-what')?.textContent).toBe(
+      STRINGS.en.anomalyWhatShipRateDrop,
+    );
+    expect(item?.querySelector('.health-evidence')?.textContent).toContain(drop.evidence);
+    expect(item?.querySelector('.health-fix')?.textContent).toContain(
+      STRINGS.en.anomalyActionShipRateDrop,
+    );
+  });
+
   it('tags the translatable words so a language switch repaints them', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);

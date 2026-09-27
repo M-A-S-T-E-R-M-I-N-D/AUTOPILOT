@@ -1066,7 +1066,18 @@ const EN_STRINGS = {
   // the task title in {name} (data-i18n-aria-template); the status line
   // under the legend counts the set through {n} riding data-i18n-args.
   taskSelectAria: 'Select: {name}',
-  boardSelected: '{n} selected — Esc clears',
+  boardSelected: '{n} selected — Ctrl+K acts on them, Esc clears',
+  // Bulk actions on the selection (epic 0026 slice 4): the command palette's
+  // entries, {n} the rows each reaches; the one confirm before a delete; the
+  // snack once every request has an answer.
+  boardBulkApprove: 'Approve selected ({n})',
+  boardBulkReject: 'Reject selected ({n})',
+  boardBulkDone: 'Mark selected done ({n})',
+  boardBulkDelete: 'Delete selected ({n})',
+  boardBulkDeleteConfirm:
+    'Delete the selected tasks ({n})?\n\nThis removes them from the board entirely.',
+  boardBulkSent: 'Updated {n} of the selected tasks',
+  boardBulkFailed: '{failed} of {n} did not go through — the board shows what changed',
   // A row's read-only detail (epic 0026, Enter) when its task has no body.
   taskDetailEmpty: 'No description.',
   // The view header's Status filter (epic 0026 slice 2): the fieldset's
@@ -1465,6 +1476,9 @@ const EN_STRINGS = {
   anomalyWhatGateFailStreak: 'Consecutive firings were reverted by the gate.',
   anomalyActionGateFailStreak:
     'Run the gate by hand. A gate that is red on the branch itself reverts every firing until it is fixed.',
+  anomalyWhatShipRateDrop: 'The recent firings ship far less often than the ones before them.',
+  anomalyActionShipRateDrop:
+    'Read why each recent firing did not ship (reverted, died or no commit) and fix the common cause: a red gate check, a task too big for one firing, or a stale board item.',
   anomalyWhatOrientDrag:
     'The latest firing read and searched far longer than usual before its first edit.',
   anomalyActionOrientDrag:
@@ -2575,7 +2589,14 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardKeysDone: 'בוצע',
     boardKeysLeave: 'יציאה',
     taskSelectAria: 'בחירה: {name}',
-    boardSelected: '{n} נבחרו — Esc מנקה',
+    boardSelected: '{n} נבחרו — Ctrl+K לפעולות, Esc מנקה',
+    boardBulkApprove: 'אישור הנבחרות ({n})',
+    boardBulkReject: 'דחיית הנבחרות ({n})',
+    boardBulkDone: 'סימון הנבחרות כבוצעו ({n})',
+    boardBulkDelete: 'מחיקת הנבחרות ({n})',
+    boardBulkDeleteConfirm: 'למחוק את המשימות הנבחרות ({n})?\n\nפעולה זו מסירה אותן מהלוח לחלוטין.',
+    boardBulkSent: 'עודכנו {n} מהמשימות הנבחרות',
+    boardBulkFailed: '{failed} מתוך {n} לא עברו — הלוח מראה מה השתנה',
     taskDetailEmpty: 'אין תיאור.',
     boardFilterStatus: 'סטטוס',
     boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',
@@ -2878,6 +2899,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     anomalyWhatGateFailStreak: 'הפעלות רצופות הוחזרו לאחור על ידי השער.',
     anomalyActionGateFailStreak:
       'הריצו את השער ידנית. שער אדום על הענף עצמו מחזיר לאחור כל הפעלה עד שיתוקן.',
+    anomalyWhatShipRateDrop: 'ההפעלות האחרונות שולחות הרבה פחות מאלו שלפניהן.',
+    anomalyActionShipRateDrop:
+      'קראו למה כל הפעלה אחרונה לא שלחה (הוחזרה לאחור, מתה או בלי קומיט) ותקנו את הסיבה המשותפת: בדיקת שער אדומה, משימה גדולה מדי להפעלה אחת, או פריט לוח שהתיישן.',
     anomalyWhatOrientDrag: 'ההפעלה האחרונה קראה וחיפשה הרבה יותר מהרגיל לפני העריכה הראשונה שלה.',
     anomalyActionOrientDrag:
       'בדקו את טקסט המשימה: משימה מעורפלת גורמת לסוכן לשוטט. ציינו את הקבצים שממנו כדאי להתחיל.',

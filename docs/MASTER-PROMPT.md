@@ -189,7 +189,7 @@ on every page and answers at the top tier with model · time · cost.
 | Stop at total | $30 (total mode)         | the flight stops when the next firing cannot be funded                    |
 | $ / firing    | $10 (min $0.50, no cap)  | per-firing spend cap; the operator's call                                 |
 | Lanes         | 1 (1–8)                  | a partitioned fleet round instead of a single flight                      |
-| 🍀 Lucky      | —                        | fills lanes/firings/$ from CPU, RAM, cores and the board; lists the work that fits one evening / a day / a week; never launches |
+| Lucky (clover icon) | —                  | fills lanes/firings/$ from CPU, RAM, cores and the board; lists the work that fits one evening / a day / a week; never launches |
 | Fire          | —                        | launches; Pause and Stop appear while flying                              |
 
 Lucky's constants: 8 lanes max, $10/firing, refuse above 85 % CPU, 1.5 GB per

@@ -43,7 +43,11 @@ describe('icon system credits (epic 0025 law 4)', () => {
 
   it('declares ISC and both upstream holders in the SPDX header of the vendored icon data', () => {
     const header = read('apps', 'dashboard', 'src', 'web', 'icons.ts').split('\n', 5).join('\n');
+    // REUSE-IgnoreStart — the expected header text below is DATA the test
+    // checks for; left bare, `reuse lint` reads it as this file's own licence
+    // tag and fails the whole repository on the quote and bracket after it.
     expect(header).toContain('SPDX-License-Identifier: Apache-2.0 AND ISC');
+    // REUSE-IgnoreEnd
     expect(header).toContain('Lucide Icons and Contributors');
     expect(header).toContain('Cole Bemis');
   });

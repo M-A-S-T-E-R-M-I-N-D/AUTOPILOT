@@ -136,6 +136,16 @@ function clearsign(text: string, hashHeader = 'Hash: SHA256'): string {
   );
 }
 
+/** The armour with ONE bare "-" put in front of its first "[": a body line
+ *  that starts with "-" without being dash-escaped — the single malformation
+ *  these cases need. Spliced by index rather than String.replace, which reads
+ *  as an incomplete escape (CodeQL js/incomplete-sanitization, 2026-09-27):
+ *  this corrupts exactly one line on purpose, and says so. */
+function withBareDashLine(armored: string): string {
+  const at = armored.indexOf('[');
+  return `${armored.slice(0, at)}-${armored.slice(at)}`;
+}
+
 describe('extractClearsignedText', () => {
   it('returns the signed text of a well-formed cleartext-signed message', () => {
     expect(extractClearsignedText(clearsign(DONATIONS_JSON))).toBe(DONATIONS_JSON.trimEnd());
@@ -166,7 +176,7 @@ describe('extractClearsignedText', () => {
   });
 
   it('refuses a line starting with "-" that is not dash-escaped', () => {
-    const armored = clearsign(DONATIONS_JSON).replace('[', '-[');
+    const armored = withBareDashLine(clearsign(DONATIONS_JSON));
 
     expect(extractClearsignedText(armored)).toBeNull();
   });
@@ -199,7 +209,7 @@ describe('extractClearsignedText', () => {
       clearsign(DONATIONS_JSON, 'Comment: trust me'),
       clearsign(DONATIONS_JSON).replace('Hash: SHA256\n', ''),
       clearsign(DONATIONS_JSON).replace('Hash: SHA256\n\n', 'Hash: SHA256\n'),
-      clearsign(DONATIONS_JSON).replace('[', '-['),
+      withBareDashLine(clearsign(DONATIONS_JSON)),
       clearsign(DONATIONS_JSON).split('-----BEGIN PGP SIGNATURE-----')[0] ?? '',
       clearsign(DONATIONS_JSON).replace('=AbCd', '-----BEGIN PGP SIGNATURE-----'),
       DONATIONS_JSON,
