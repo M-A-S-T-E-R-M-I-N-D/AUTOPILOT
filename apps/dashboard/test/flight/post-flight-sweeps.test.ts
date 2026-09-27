@@ -868,6 +868,51 @@ describe('runClosedTaskAuditSweep', () => {
     expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t10', status: 'needs_approval' }]);
   });
 
+  /**
+   * doneTasks reads only the 50 most-recently-closed tasks. On a busy board
+   * the task an old audit names drops out of that window, so it was never
+   * re-audited and its proposal could never be deferred, even with its
+   * clause backed again (closedaudit-web-mss50iak-g176g8 sat on the board
+   * that way). Seeded at updated_at 2, these crowd the older tasks out.
+   */
+  const DONE_WINDOW = 50;
+  function crowdDoneWindow(): void {
+    const insert = store.db.prepare(
+      `INSERT INTO tasks (id, project_id, title, status, source, created_at, updated_at)
+       VALUES (?, 'p1', 'recent work without a clause', 'done', 'self', 2, 2)`,
+    );
+    for (let i = 0; i < DONE_WINDOW; i++) insert.run(`recent-${i}`);
+  }
+
+  it('re-audits the task an open proposal names after it leaves the done window', async () => {
+    seedDoneTask('t13', TOOLTIP_TASK);
+    seedOpenAudit('t13', 'needs_approval');
+    seedDoneTask('t14', 'add a gauge DELIVERABLE: adds a zorblax gauge to the cockpit header');
+    seedOpenAudit('t14', 'needs_approval');
+    crowdDoneWindow();
+
+    await runClosedTaskAuditSweep(store, 'p1', backedVcs(), () => 12345);
+
+    expect(closedAuditTasks().sort((a, b) => a.id.localeCompare(b.id))).toEqual([
+      { id: 'closedaudit-t13', status: 'deferred' },
+      { id: 'closedaudit-t14', status: 'needs_approval' },
+    ]);
+  });
+
+  it('leaves the proposal of a task reopened since, with no fresh evidence either way', async () => {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, status, source, created_at, updated_at)
+         VALUES ('t15', 'p1', ?, 'queued', 'self', 1, 1)`,
+      )
+      .run(TOOLTIP_TASK);
+    seedOpenAudit('t15', 'needs_approval');
+
+    await runClosedTaskAuditSweep(store, 'p1', backedVcs(), () => 12345);
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t15', status: 'needs_approval' }]);
+  });
+
   it('defers nothing when git cannot answer the lookup', async () => {
     seedDoneTask('t11', TOOLTIP_TASK);
     seedOpenAudit('t11', 'needs_approval');
