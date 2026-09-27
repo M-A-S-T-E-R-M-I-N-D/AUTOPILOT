@@ -9,9 +9,30 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ICON_SHAPES, ICON_NAMES, iconSvg } from '../../src/web/icons.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+
+// vitest's root is the repo root, and under jsdom import.meta.url is an
+// http: URL (not file:), so resolve from cwd (icon-system-emoji-census.test.ts).
+const SRC_DIR = join(process.cwd(), 'apps/dashboard/src');
+
+/** Every dashboard source file but the icon data itself, comments stripped —
+ *  a doc comment naming an icon is not a render site. */
+function sourceOutsideIconData(): string {
+  return readdirSync(SRC_DIR, { recursive: true })
+    .map((f) => String(f))
+    .filter((f) => f.endsWith('.ts') && !f.endsWith('icons.ts'))
+    .map((f) =>
+      readFileSync(join(SRC_DIR, f), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('//'))
+        .join('\n'),
+    )
+    .join('\n');
+}
 
 describe('the vendored icon set', () => {
   it('names every icon the board uses and each carries at least one shape', () => {
@@ -38,6 +59,20 @@ describe('the vendored icon set', () => {
         for (const v of Object.values(attrs)) expect(typeof v).toBe('string');
       }
     }
+  });
+
+  it('vendors only what is used (law 1): every shape is named by a render site', () => {
+    // ICON_SHAPES rides the core bundle as JSON, so a shape nothing draws is
+    // shipped weight on every page load. A name counts once it appears as a
+    // quoted literal anywhere in src/ — iconEl('x'), iconSvg('x'), a
+    // panelHeading argument, or an `icon: 'x'` field in a data table. It is a
+    // floor, not an exact count: a common word ('search', 'clock') can also
+    // match a non-icon literal, but a name nothing quotes at all is dead.
+    const source = sourceOutsideIconData();
+    const unused = ICON_NAMES.filter(
+      (name) => !["'", '"', '`'].some((q) => source.includes(q + name + q)),
+    );
+    expect(unused).toEqual([]);
   });
 
   it('the complete upstream licence travels with the vendored data', () => {

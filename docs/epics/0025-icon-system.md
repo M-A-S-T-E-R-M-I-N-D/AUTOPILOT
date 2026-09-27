@@ -80,8 +80,13 @@ propagation, and the filled style does not match the nav.
    backlog, N blocked, auto-fixed and lucky surfaces by the 🖥️/🔍/🛡️/🔧/🍀
    they dropped; they now give the STRINGS label and the Lucide icon name,
    pinned by `apps/dashboard/test/tooling/icon-system-docs.test.ts` (dated
-   epics, ADRs, debriefs and changelogs stay as written). The screenshots
-   refresh (`docs/screens/`) is still open.
+   epics, ADRs, debriefs and changelogs stay as written). **Law 1 pinned
+   2026-09-27:** `notebook-pen` and `clipboard-check`, vendored by the slice
+   2 hub for headings that ended up drawing other shapes, rode the core
+   bundle's `ICON_SHAPES` JSON with no render site; both are dropped, and
+   `apps/dashboard/test/web/icons.test.ts` now fails for any vendored name
+   no `src/` file quotes outside the icon data. The screenshots refresh
+   (`docs/screens/`) is still open.
 
 ## Related
 
