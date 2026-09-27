@@ -103,14 +103,27 @@ export function similarity(a, b) {
   return shared / (setA.size + setB.size - shared);
 }
 
+/** A `gh api` page's rows that can be read at all. A row that is not an
+ *  object (a `null`) carries no message and no thread, so it is skipped:
+ *  reading it once threw a TypeError that killed the whole board audit. */
+function readableRows(page) {
+  return page.filter((row) => typeof row === 'object' && row !== null);
+}
+
+/** The threads a board listing (`gh api repos/…/issues`) names — one per
+ *  issue or PR row, `isPr` when GitHub marked the row a pull request. */
+export function boardThreads(issues) {
+  return readableRows(issues).map((issue) => ({
+    number: issue.number,
+    isPr: Boolean(issue.pull_request),
+  }));
+}
+
 /** Every message on one thread — issue comments and PR reviews alike —
  *  flattened into one timeline, because a review and a comment posted
  *  seconds apart flood a reader's page just the same. */
-// Stryker disable all: `threadMessages` shells out to `gh` via `gh()` — it
-// can only be exercised by running the gate for real. The logic it
-// delegates to, `auditThread`, IS mutation-tested.
-function threadMessages(number, isPr) {
-  const comments = gh(`repos/${REPO}/issues/${number}/comments`).map((c) => ({
+export function threadTimeline(comments, reviews) {
+  const fromComments = readableRows(comments).map((c) => ({
     kind: 'comment',
     id: c.id,
     author: c.user?.login ?? '?',
@@ -118,19 +131,27 @@ function threadMessages(number, isPr) {
     body: c.body ?? '',
     url: c.html_url,
   }));
-  const reviews = isPr
-    ? gh(`repos/${REPO}/pulls/${number}/reviews`)
-        .filter((r) => (r.body ?? '').trim().length > 0)
-        .map((r) => ({
-          kind: `review:${r.state}`,
-          id: r.id,
-          author: r.user?.login ?? '?',
-          at: r.submitted_at,
-          body: r.body ?? '',
-          url: r.html_url,
-        }))
-    : [];
-  return [...comments, ...reviews].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const fromReviews = readableRows(reviews)
+    .filter((r) => (r.body ?? '').trim().length > 0)
+    .map((r) => ({
+      kind: `review:${r.state}`,
+      id: r.id,
+      author: r.user?.login ?? '?',
+      at: r.submitted_at,
+      body: r.body ?? '',
+      url: r.html_url,
+    }));
+  return [...fromComments, ...fromReviews].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
+// Stryker disable all: `threadMessages` shells out to `gh` via `gh()` — it
+// can only be exercised by running the gate for real. The logic it
+// delegates to, `threadTimeline`, IS mutation-tested.
+function threadMessages(number, isPr) {
+  return threadTimeline(
+    gh(`repos/${REPO}/issues/${number}/comments`),
+    isPr ? gh(`repos/${REPO}/pulls/${number}/reviews`) : [],
+  );
 }
 // Stryker restore all
 
@@ -198,25 +219,24 @@ export function auditThread(thread, messages) {
 
 // Stryker disable all: `main` is the process shell — it reads the real
 // board off GitHub and can only be exercised by running the gate for real.
-// The logic it delegates to, `auditThread`, IS mutation-tested.
+// The logic it delegates to, `boardThreads` and `auditThread`, IS
+// mutation-tested.
 function main() {
-  const issues = gh(`repos/${REPO}/issues?state=all&per_page=100`);
+  const threads = boardThreads(gh(`repos/${REPO}/issues?state=all&per_page=100`));
   const findings = [];
-  for (const issue of issues) {
-    const messages = threadMessages(issue.number, Boolean(issue.pull_request));
+  for (const { number, isPr } of threads) {
+    const messages = threadMessages(number, isPr);
     if (messages.length < 2) continue;
-    findings.push(
-      ...auditThread(`${issue.pull_request ? 'PR' : 'issue'} #${issue.number}`, messages),
-    );
+    findings.push(...auditThread(`${isPr ? 'PR' : 'issue'} #${number}`, messages));
   }
 
   if (AS_JSON) {
     console.log(JSON.stringify({ repo: REPO, findings }, null, 2));
   } else if (findings.length === 0) {
-    console.log(`✓ no board flood found across ${issues.length} threads in ${REPO}`);
+    console.log(`✓ no board flood found across ${threads.length} threads in ${REPO}`);
   } else {
     console.log(
-      `✗ ${findings.length} flood finding(s) across ${issues.length} threads in ${REPO}\n`,
+      `✗ ${findings.length} flood finding(s) across ${threads.length} threads in ${REPO}\n`,
     );
     for (const f of findings) {
       console.log(`  ${f.kind}  ${f.thread}  @${f.author}`);

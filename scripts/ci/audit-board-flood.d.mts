@@ -32,6 +32,18 @@ export const CONSECUTIVE_CEILING: number;
 export const MIN_COMPARE_LENGTH: number;
 export const SNIPPET_LENGTH: number;
 
+export interface FloodBoardThread {
+  number: number;
+  isPr: boolean;
+}
+
 export function normalize(body: string): string;
 export function similarity(a: string, b: string): number;
+/** `issues` is one `gh api repos/…/issues` page — untrusted process output. */
+export function boardThreads(issues: readonly unknown[]): FloodBoardThread[];
+/** `comments` and `reviews` are `gh api` pages — untrusted process output. */
+export function threadTimeline(
+  comments: readonly unknown[],
+  reviews: readonly unknown[],
+): FloodThreadMessage[];
 export function auditThread(thread: string, messages: FloodThreadMessage[]): FloodFinding[];
