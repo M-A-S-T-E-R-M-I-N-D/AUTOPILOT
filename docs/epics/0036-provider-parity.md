@@ -30,7 +30,11 @@ into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (uns
 agent edit files and run the gate. Folder trust is on by default and headless mode exits
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
 a folder also loads its `.gemini/settings.json` and MCP servers. It carries the same gaps as Codex
-(no routing, no resume-retry, no idle timeout). The Copilot CLI adapter remains unstarted and, per the
+(no routing, no resume-retry, no idle timeout). Its settle path matches `ClaudeCliModel.execOnce`'s:
+the orphan-sweep reap runs through an injectable `reapDescendants` seam its tests assert on, and a
+wall-clock-cap kill comes back `timedOut` (THIRD CAP) rather than reading as an ordinary crash.
+Still missing before a lane flies on it: the tool-level path guard `ClaudeCliModel` gets from its
+`--settings` PreToolUse hook — under `yolo` nothing stops the agent writing outside its worktree. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 
