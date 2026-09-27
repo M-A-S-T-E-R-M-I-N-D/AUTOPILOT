@@ -3,8 +3,16 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
-import { parseCodexExecOutput, CodexCliModel } from '../../src/adapters/codex-cli.js';
-import { DEFAULT_CLI_TIMEOUT_MS } from '../../src/adapters/claude-cli.js';
+import { EventEmitter } from 'node:events';
+import {
+  parseCodexExecOutput,
+  CodexCliModel,
+  isCodexResumeFailure,
+} from '../../src/adapters/codex-cli.js';
+import {
+  CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_TIMEOUT_MS,
+} from '../../src/adapters/claude-cli.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
@@ -272,7 +280,30 @@ describe('parseCodexExecOutput', () => {
   });
 });
 
+describe('isCodexResumeFailure', () => {
+  const failed = { envelope: null, exitCode: 1, sessionId: null };
+
+  it('fires only for a resume that died before thread.started, which is where `codex exec resume` fails a stale id', () => {
+    expect(isCodexResumeFailure(THREAD.thread_id, failed)).toBe(true);
+  });
+
+  it('never fires without a resume, on a clean exit, or once the wire has named a thread', () => {
+    expect(isCodexResumeFailure(undefined, failed)).toBe(false);
+    expect(isCodexResumeFailure('', failed)).toBe(false);
+    expect(isCodexResumeFailure(THREAD.thread_id, { ...failed, exitCode: 0 })).toBe(false);
+    expect(isCodexResumeFailure(THREAD.thread_id, { ...failed, sessionId: THREAD.thread_id })).toBe(
+      false,
+    );
+  });
+
+  it('never fires on a wall-clock kill: a cold retry would only double the time the cap already spent', () => {
+    expect(isCodexResumeFailure(THREAD.thread_id, { ...failed, timedOut: true })).toBe(false);
+  });
+});
+
 describe('CodexCliModel', () => {
+  let stdinEnd: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     execFileMock.mockReset();
     // ORPHAN SWEEP (claude-cli.ts's reapCliDescendants, reused here): an
@@ -280,6 +311,7 @@ describe('CodexCliModel', () => {
     // same as claude-cli.test.ts's ClaudeCliModel suite.
     spawnMock.mockReset();
     spawnMock.mockReturnValue({ on: vi.fn() } as never);
+    stdinEnd = vi.fn();
   });
 
   function mockExecFileResult(
@@ -289,9 +321,82 @@ describe('CodexCliModel', () => {
     execFileMock.mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1] as ExecFileCallback;
       queueMicrotask(() => cb(error, stdout, ''));
-      return { pid: 4321 };
+      return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
     });
   }
+
+  function spawnedArgs(): string[] {
+    return (execFileMock.mock.calls[0] as [string, string[]])[1];
+  }
+
+  it('closes stdin empty for an argv prompt: with a prompt given, `codex exec` still reads a piped stdin to EOF to append it, so an open pipe would hang the run to the cap', async () => {
+    mockExecFileResult(null, '');
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+
+    expect(spawnedArgs()[spawnedArgs().length - 1]).toBe('do it');
+    expect(stdinEnd).toHaveBeenCalledTimes(1);
+    expect(stdinEnd).toHaveBeenCalledWith();
+  });
+
+  it('pipes an over-threshold prompt on stdin behind "-" instead of argv (the Windows command-line ceiling)', async () => {
+    mockExecFileResult(null, '');
+    const long = 'x'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', long);
+
+    const args = spawnedArgs();
+    expect(args).not.toContain(long);
+    expect(args[args.length - 1]).toBe('-');
+    expect(stdinEnd).toHaveBeenCalledWith(long);
+  });
+
+  it('keeps a prompt exactly at the threshold on argv', async () => {
+    mockExecFileResult(null, '');
+    const atLimit = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD);
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', atLimit);
+
+    expect(spawnedArgs()[spawnedArgs().length - 1]).toBe(atLimit);
+    expect(stdinEnd).toHaveBeenCalledWith();
+  });
+
+  it('pipes an over-threshold resume prompt too: "resume <id> -", since resume reads stdin only for "-"', async () => {
+    mockExecFileResult(null, '');
+    const long = 'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', long, THREAD.thread_id);
+
+    expect(spawnedArgs().slice(-3)).toEqual(['resume', THREAD.thread_id, '-']);
+    expect(stdinEnd).toHaveBeenCalledWith(long);
+  });
+
+  it('pipes a prompt that starts with "-", which clap would read as a flag (or "-" itself as a stdin read)', async () => {
+    mockExecFileResult(null, '');
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', '- fix the build');
+
+    expect(spawnedArgs()).not.toContain('- fix the build');
+    expect(spawnedArgs()[spawnedArgs().length - 1]).toBe('-');
+    expect(stdinEnd).toHaveBeenCalledWith('- fix the build');
+  });
+
+  it('swallows a stdin pipe error (EPIPE: the CLI exited before reading) instead of crashing the host', async () => {
+    const stdin = Object.assign(new EventEmitter(), { end: stdinEnd });
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      queueMicrotask(() => cb(Object.assign(new Error('exit 55'), { code: 55 }), '', ''));
+      return { pid: 4321, stdin };
+    });
+
+    const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+      'gpt-5-codex',
+      'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1),
+    );
+
+    expect(() => stdin.emit('error', new Error('write EPIPE'))).not.toThrow();
+    expect(res.exitCode).toBe(55);
+  });
 
   it('resolves the parsed envelope from a clean run', async () => {
     const stdout = jsonl(
@@ -475,6 +580,114 @@ describe('CodexCliModel', () => {
     expect(reapDescendants).toHaveBeenCalledWith(undefined);
   });
 
+  describe('resume fallback and resumed telemetry (epic 0009 parity with ClaudeCliModel)', () => {
+    const COLD_THREAD = {
+      type: 'thread.started',
+      thread_id: '0199a213-81c0-7800-8aa1-cccccccccccc',
+    };
+    const DONE = [completed({ input_tokens: 4, output_tokens: 2 }), agentMessage('item_0', 'done')];
+
+    /** One execFile outcome per spawn, in order; the last repeats. */
+    function mockExecFileRuns(
+      ...runs: readonly (readonly [(Error & { code?: unknown }) | null, string])[]
+    ): void {
+      let calls = 0;
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1] as ExecFileCallback;
+        const run = runs[Math.min(calls, runs.length - 1)];
+        calls += 1;
+        queueMicrotask(() => cb(run?.[0] ?? null, run?.[1] ?? '', ''));
+        return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+      });
+    }
+
+    const exit1 = (): Error & { code: number } => Object.assign(new Error('exit 1'), { code: 1 });
+
+    it('retries once, cold, when `codex exec resume` rejects the session id before starting a thread', async () => {
+      mockExecFileRuns([exit1(), ''], [null, jsonl(COLD_THREAD, ...DONE)]);
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+        'gpt-5-codex',
+        'continue',
+        THREAD.thread_id,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(2);
+      const [, retryArgs] = execFileMock.mock.calls[1] as [string, string[]];
+      expect(retryArgs).not.toContain('resume');
+      expect(retryArgs[retryArgs.length - 1]).toBe('continue');
+      expect(res.resumed).toBe(false);
+      expect(res.sessionId).toBe(COLD_THREAD.thread_id);
+      expect(res.envelope?.result).toBe('done');
+    });
+
+    it('reports resumed: true when the wire names the thread it was asked to resume', async () => {
+      mockExecFileRuns([null, jsonl(THREAD, ...DONE)]);
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+        'gpt-5-codex',
+        'continue',
+        THREAD.thread_id,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.resumed).toBe(true);
+    });
+
+    it('reports resumed: false when the wire names a different thread: a session name Codex could not find starts a fresh one silently', async () => {
+      mockExecFileRuns([null, jsonl(COLD_THREAD, ...DONE)]);
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+        'gpt-5-codex',
+        'continue',
+        'nightly-lane',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.resumed).toBe(false);
+    });
+
+    it('never retries a resumed run that died mid-turn: the thread it named proves the resume took', async () => {
+      mockExecFileRuns([exit1(), jsonl(THREAD, TURN_STARTED)]);
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+        'gpt-5-codex',
+        'continue',
+        THREAD.thread_id,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.envelope).toBeNull();
+      expect(res.resumed).toBe(true);
+    });
+
+    it('never retries a failed turn on a resumed thread: that is a model failure, not a resume failure', async () => {
+      mockExecFileRuns([
+        exit1(),
+        jsonl(THREAD, { type: 'turn.failed', error: { message: 'quota' } }),
+      ]);
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+        'gpt-5-codex',
+        'continue',
+        THREAD.thread_id,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.envelope).toMatchObject({ isError: true, result: 'quota' });
+      expect(res.resumed).toBe(true);
+    });
+
+    it('leaves resumed off for a cold spawn, and never retries a cold spawn that failed', async () => {
+      mockExecFileRuns([exit1(), '']);
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect('resumed' in res).toBe(false);
+    });
+  });
+
   describe('THIRD CAP — timedOut on the response (the wall-clock cap, not any kill)', () => {
     afterEach(() => {
       vi.useRealTimers();
@@ -526,6 +739,21 @@ describe('CodexCliModel', () => {
 
       expect(res.exitCode).toBe(1);
       expect('timedOut' in res).toBe(false);
+    });
+
+    it('a resume killed AT the cap before naming a thread is not retried cold, and claims no resume either way', async () => {
+      vi.useFakeTimers();
+      mockExecFileAfter(5000, Object.assign(new Error('killed'), { killed: true }));
+
+      const res = await new CodexCliModel({ repo: '/work/sbx', timeoutMs: 5000 }).invoke(
+        'gpt-5-codex',
+        'continue',
+        THREAD.thread_id,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.timedOut).toBe(true);
+      expect('resumed' in res).toBe(false);
     });
 
     it('signal-killed well UNDER the cap (an unrelated external kill) → the key stays off', async () => {
