@@ -39,6 +39,10 @@ const FS_READ_RE = /\b(?:readFileSync|readdirSync|existsSync)\(/;
  *  string literal, often in a constant far from the read that uses it. */
 const REPO_PATH_RE = /['"`/](?:README\.md|CHANGELOG\.md|docs|config|\.github)(?:['"`/\\]|$)/m;
 
+/** Git's `config` subcommand opening an argv array — `gitSync(dir, ['config',
+ *  'user.email', …])`, the setup of every real-git suite. It names no path. */
+const GIT_CONFIG_ARGV_RE = /\[\s*(['"`])config\1/g;
+
 /** True for a test source that reads the repository by path: it reads the
  *  filesystem, and it names a repository path somewhere in the file. */
 export function isRepoReadingTest(source) {
@@ -46,7 +50,11 @@ export function isRepoReadingTest(source) {
   // whole repository — the windowsHide census missed a new script this way
   // (2026-09-26): no change to a scanned file ever selects it.
   if (FS_READ_RE.test(source) && source.includes("'ls-files'")) return true;
-  return FS_READ_RE.test(source) && REPO_PATH_RE.test(source);
+  // A `git config` argv is not the config/ directory (2026-09-28). Read as
+  // one, it put five real-git suites that read no repository path into every
+  // per-firing gate, and under fleet load their timeouts crashed the gate.
+  const paths = source.replace(GIT_CONFIG_ARGV_RE, '[');
+  return FS_READ_RE.test(source) && REPO_PATH_RE.test(paths);
 }
 
 function testFilesUnder(dir) {
