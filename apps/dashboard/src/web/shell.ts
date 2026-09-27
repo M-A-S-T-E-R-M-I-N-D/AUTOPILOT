@@ -114,6 +114,10 @@ import {
   parseTaskView as sharedParseTaskView,
   taskViewSearch as sharedTaskViewSearch,
   taskMatchesView as sharedTaskMatchesView,
+  taskDisplayProperties as sharedTaskDisplayProperties,
+  parseTaskDisplay as sharedParseTaskDisplay,
+  taskDisplaySearch as sharedTaskDisplaySearch,
+  taskDisplayShows as sharedTaskDisplayShows,
 } from './task-view.js';
 import {
   flightLogDisplayRows as sharedFlightLogDisplayRows,
@@ -2428,6 +2432,10 @@ ${sharedTaskViewKey.toString()}
 ${sharedParseTaskView.toString()}
 ${sharedTaskViewSearch.toString()}
 ${sharedTaskMatchesView.toString()}
+${sharedTaskDisplayProperties.toString()}
+${sharedParseTaskDisplay.toString()}
+${sharedTaskDisplaySearch.toString()}
+${sharedTaskDisplayShows.toString()}
 // taskBurnLabel/taskRunawayTip are generated FROM web/task-queue.ts below
 // (epic 0002 "shell decomposition", slice 2) — their real compiled source
 // via .toString(), not a hand-retyped copy. It can no longer drift apart.
@@ -2607,19 +2615,33 @@ function boardKeysHint() {
 // and rebuilds the list, keeping focus via boardFilterFocus.
 var boardFilterFocus = null;
 function boardFilterFieldset(view, property, legendKey, wordKeys) {
-  var fs = el('fieldset', 'board-filter');
+  return boardChipFieldset('board-filter', legendKey, 'data-task-filter', property, taskViewValues(property), view[property], wordKeys);
+}
+// The display options (?hide=) after the filters: a box per row property,
+// ticked while the row shows it. Filters narrow the list; these change what
+// a row shows, so they are their own fieldset and never count as a filter.
+var BOARD_DISPLAY_KEYS = { source: 'boardDisplaySource', severity: 'boardDisplaySeverity', dimension: 'boardDisplayDimension', cost: 'boardDisplayCost' };
+function boardDisplayFieldset(display) {
+  var props = taskDisplayProperties();
+  var shown = [];
+  for (var i = 0; i < props.length; i++) if (taskDisplayShows(display, props[i])) shown.push(props[i]);
+  return boardChipFieldset('board-display', 'boardDisplayShow', 'data-task-display', 'show', props, shown, BOARD_DISPLAY_KEYS);
+}
+// One fieldset of chip-styled native checkboxes: a box per value, each
+// carrying attr=key, ticked when checked lists its value.
+function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys) {
+  var fs = el('fieldset', cls);
   var legend = el('legend', null, tr(legendKey));
   legend.setAttribute('data-i18n', legendKey);
   fs.appendChild(legend);
-  var values = taskViewValues(property);
   var refocus = null;
   for (var i = 0; i < values.length; i++) {
     var option = el('label', 'board-filter-option');
     var box = el('input');
     box.type = 'checkbox';
     box.value = values[i];
-    box.setAttribute('data-task-filter', property);
-    box.checked = view[property].indexOf(values[i]) >= 0;
+    box.setAttribute(attr, key);
+    box.checked = checked.indexOf(values[i]) >= 0;
     option.appendChild(box);
     // The key goes through a variable: english-heads.test.ts refuses a tr()
     // call that composes its key inline, where no literal spells it.
@@ -2628,7 +2650,7 @@ function boardFilterFieldset(view, property, legendKey, wordKeys) {
     word.setAttribute('data-i18n', wordKey);
     option.appendChild(word);
     fs.appendChild(option);
-    if (boardFilterFocus === property + ':' + values[i]) refocus = box;
+    if (boardFilterFocus === key + ':' + values[i]) refocus = box;
   }
   if (refocus) {
     boardFilterFocus = null;
@@ -2663,6 +2685,12 @@ function tasksSection(c) {
   // Rows, column counts and the auto view read what the URL's view shows.
   var view = parseTaskView(location.search);
   var filtered = view.status.length + view.severity.length + view.source.length > 0;
+  // What each row draws reads the URL's display options (?hide=).
+  var display = parseTaskDisplay(location.search);
+  var showSource = taskDisplayShows(display, 'source');
+  var showSeverity = taskDisplayShows(display, 'severity');
+  var showDimension = taskDisplayShows(display, 'dimension');
+  var showCost = taskDisplayShows(display, 'cost');
   var shown = tasks;
   if (filtered) {
     shown = [];
@@ -2704,6 +2732,7 @@ function tasksSection(c) {
     wrap.appendChild(boardFilterFieldset(view, 'status', 'boardFilterStatus', TASK_STATUS_KEYS));
     wrap.appendChild(boardFilterFieldset(view, 'severity', 'boardFilterSeverity', TASK_SEVERITY_KEYS));
     wrap.appendChild(boardFilterFieldset(view, 'source', 'boardFilterSource', TASK_SOURCE_KEYS));
+    wrap.appendChild(boardDisplayFieldset(display));
     if (filtered) wrap.appendChild(boardFilterNote(shown.length, tasks.length));
     var colCounts = { queued: 0, active: 0, done: 0 };
     for (var ci = 0; ci < shown.length; ci++) {
@@ -2868,7 +2897,7 @@ function tasksSection(c) {
       var titleDesc = el('span', 'sr-only', titleTipMeta.tip);
       titleDesc.id = titleDescId;
       li.appendChild(titleDesc);
-      if (t.source === 'self') {
+      if (showSource && t.source === 'self') {
         li.appendChild(
           tipChip(
             'proposed',
@@ -2879,7 +2908,7 @@ function tasksSection(c) {
           ),
         );
       }
-      if (t.source === 'inbox') {
+      if (showSource && t.source === 'inbox') {
         li.appendChild(
           tipChip(
             'inbox',
@@ -2890,7 +2919,7 @@ function tasksSection(c) {
           ),
         );
       }
-      if (t.source === 'backlog') {
+      if (showSource && t.source === 'backlog') {
         li.appendChild(
           tipChip(
             'backlog',
@@ -2901,16 +2930,16 @@ function tasksSection(c) {
           ),
         );
       }
-      if (t.severity) {
+      if (showSeverity && t.severity) {
         var sevChip = taskSeverityChip(t.severity);
         li.appendChild(tipChip(sevChip[0], sevChip[1], sevChip[2], sevChip[3]));
       }
-      if (t.dimension) {
+      if (showDimension && t.dimension) {
         var dimChip = taskDimensionChip(String(t.dimension));
         li.appendChild(tipChip(dimChip[0], dimChip[1], dimChip[2]));
       }
       var burn = taskBurnOf(t.id, c.flightLog);
-      if (burn.slices > 0) {
+      if (showCost && burn.slices > 0) {
         var burnLabel = taskBurnLabel(burn, fmtCost, fmtDuration);
         // D1 ATTRIBUTE PAYLOAD (epic 0015, measured 08-28: 3,925 chars/row):
         // aria-label carries the same short text the chip already shows, not
@@ -3269,6 +3298,19 @@ document.addEventListener('change', function (e) {
   next[property] = values;
   boardFilterFocus = property + ':' + box.value;
   setTaskView(next);
+});
+// A display box hides the row properties left unticked beside it (?hide=),
+// written over the query string like the filters but never through them.
+document.addEventListener('change', function (e) {
+  var box = e.target && e.target.closest && e.target.closest('[data-task-display]');
+  var fieldset = box && box.closest('.board-display');
+  if (!fieldset) return;
+  var boxes = fieldset.querySelectorAll('[data-task-display]');
+  var hide = [];
+  for (var i = 0; i < boxes.length; i++) if (!boxes[i].checked) hide.push(boxes[i].value);
+  boardFilterFocus = 'show:' + box.value;
+  history.replaceState(history.state, '', location.pathname + taskDisplaySearch({ hide: hide }, location.search) + location.hash);
+  rerenderSoon();
 });
 // Clear drops every filter; focus goes to the first box, as the button goes.
 document.addEventListener('click', function (e) {

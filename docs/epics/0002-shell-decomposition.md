@@ -3301,6 +3301,26 @@ routine feature landings one by one and isn't trying to — this pass only
 confirms the drift is volume, not regression. No code changed this pass;
 gate green (typecheck/lint/format:check/build; docs-only change).
 
+Freshness check (2026-09-27): `web/shell.ts` is at 5,354 lines and
+`web/features/` holds 46 discoverable modules (`web/features/index.ts`'s
+barrel carries exactly 46 imports, so barrel and folder still agree) — up
+from the 4,916-line/45-module snapshot the entry above recorded
+(2026-09-26). Exactly one new module landed since then: `versions.ts`; every
+module this doc's own progress log names by its whole-region-move cut
+(`issue-triage.ts`, `backlog.ts`, `process-health.ts`, `evolution.ts`,
+`landing.ts`, `release.ts`, `activity.ts`, `flight-summary.ts`,
+`pr-review.ts`, `publicity.ts`, `tour.ts`, `flight-console.ts`,
+`docs-viewer.ts`, `round-panel.ts`, `office-map.ts`) is still present — no
+decomposition regression. `git log` counts 18 commits touching `shell.ts`
+since the last snapshot, most recently `1b2f4d2d` (2026-09-27); the line
+count growing faster than the module count this time (4,916→5,354, +8.9%,
+vs. 45→46, +2.2%) is the mirror image of the 2026-09-26 check's own
+observation — most of this window's ~18 commits are ordinary feature/i18n/
+a11y edits to already-extracted files (`firing-timeline.ts`, `locale.ts`,
+`process-health.ts`, `report-menu.ts`, `subject-nav.ts`) plus routine growth
+inside `shell.ts` itself, not new whole-region moves. No code changed this
+pass; gate green (typecheck/lint/format:check/build; docs-only change).
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),

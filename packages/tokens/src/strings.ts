@@ -810,6 +810,15 @@ const EN_STRINGS = {
   versionsDiffTotal: 'Files changed: {files} · +{added} −{removed}',
   versionsDiffTruncated: 'Showing the first {count} files.',
   versionsBinary: 'binary',
+  // Restore (board ap-mui2h3s1-1 slice 6): the one-click additive restore
+  // button on every version row, wired to POST /api/versions/restore
+  // (flight/version-restore.ts) — a new branch, never a moved ref.
+  versionsRestore: 'Restore',
+  versionsRestoring: 'Restoring…',
+  versionsRestoreConfirm:
+    'Restore version {sha}? This creates a new branch at that commit — MYTH, LEGACY and the flight log all stay exactly where they are.',
+  versionsRestoreSuccess: 'Restored — created branch {branch}.',
+  versionsRestoreFailed: 'Restore failed. Try again shortly.',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
@@ -1087,6 +1096,14 @@ const EN_STRINGS = {
   taskSourceSelf: 'proposed',
   taskSourceGithub: 'GitHub',
   taskSourceNone: 'no source',
+  // Its display options after the filters (?hide=): the legend and one word
+  // per row property a box shows or hides. Filters narrow the list; these
+  // change what a row shows.
+  boardDisplayShow: 'Show',
+  boardDisplaySource: 'source',
+  boardDisplaySeverity: 'severity',
+  boardDisplayDimension: 'dimension',
+  boardDisplayCost: 'cost',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2416,6 +2433,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     versionsDiffTotal: 'קבצים שהשתנו: {files} · +{added} −{removed}',
     versionsDiffTruncated: 'מוצגים {count} הקבצים הראשונים בלבד.',
     versionsBinary: 'בינארי',
+    versionsRestore: 'שחזור',
+    versionsRestoring: 'משחזר…',
+    versionsRestoreConfirm:
+      'לשחזר את הגרסה {sha}? הפעולה יוצרת ענף חדש באותו קומיט — MYTH, LEGACY ויומן הטיסה נשארים בדיוק במקומם.',
+    versionsRestoreSuccess: 'השחזור הצליח — נוצר הענף {branch}.',
+    versionsRestoreFailed: 'השחזור נכשל. נסו שוב בעוד רגע.',
     roundTitle: 'הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
@@ -2572,6 +2595,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskSourceSelf: 'הוצעה',
     taskSourceGithub: 'GitHub',
     taskSourceNone: 'ללא מקור',
+    boardDisplayShow: 'הצגה',
+    boardDisplaySource: 'מקור',
+    boardDisplaySeverity: 'חומרה',
+    boardDisplayDimension: 'ממד',
+    boardDisplayCost: 'עלות',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

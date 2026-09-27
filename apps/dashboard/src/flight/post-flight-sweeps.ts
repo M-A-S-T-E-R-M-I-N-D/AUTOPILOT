@@ -22,6 +22,7 @@ import {
   proposeFleetWisdomAmendment,
   createSnapshot,
   pruneSnapshots,
+  AUTO_APPROVED_EVENT,
   type Store,
 } from '@autopilot/store';
 import type { GitVcs } from '@autopilot/engine';
@@ -43,7 +44,11 @@ import {
   docFreshnessTaskId,
   findStaleDocFreshnessProposalIds,
 } from './doc-freshness.js';
-import { findClosedTaskAuditFindings } from './closed-task-audit.js';
+import {
+  closedTaskAuditId,
+  findClosedTaskAuditFindings,
+  findStaleClosedTaskAuditIds,
+} from './closed-task-audit.js';
 import {
   mineSoulAmendment,
   pruneSoulAmendment,
@@ -317,6 +322,10 @@ export function runDocFreshnessSweep(
   }
 }
 
+/** The `events` row the closed-task audit writes when it defers its own
+ *  proposal — so it defers each one at most once. */
+const CLOSED_AUDIT_DEFERRED_EVENT = 'closed-task-audit-deferred';
+
 /**
  * CLOSED-TASK AUDIT ritual (web-msu74pog-w4hjgq): the VERIFY DIET false-close
  * class — `markTaskDoneIfShipped`'s DELIVERABLE verifier only proves a
@@ -333,7 +342,8 @@ export function runDocFreshnessSweep(
  * 'needs_approval') — the audit never reopens the original task itself, the
  * operator decides. The id is keyed on the task alone (not a timestamp) so an
  * unresolved finding isn't re-proposed every flight; once the original task
- * is fixed (or the drift somehow reverses), the audit simply stops finding it.
+ * is fixed (or the drift somehow reverses), the audit stops finding it and
+ * defers its own untouched proposal, which would otherwise sit open forever.
  * The title quotes the drifted clause BEFORE re-quoting the original title:
  * a firing sees board titles cut at the prompt's BOARD_TITLE_CHARS (200,
  * packages/engine/src/prompt.ts), and an operator title's DELIVERABLE clause
@@ -348,14 +358,15 @@ export async function runClosedTaskAuditSweep(
   now: () => number,
 ): Promise<void> {
   try {
-    const findings = await findClosedTaskAuditFindings(doneTasks(store.db, projectId), vcs);
+    const candidates = doneTasks(store.db, projectId);
+    const findings = await findClosedTaskAuditFindings(candidates, vcs);
     for (const finding of findings) {
       const drift =
         finding.reason === 'ux-expression-drift'
           ? 'lost its UI/Docs expression'
           : 'no longer checks out';
       const created = createTask(store, {
-        id: `closedaudit-${finding.taskId}`,
+        id: closedTaskAuditId(finding.taskId),
         projectId,
         title: `CLOSED-TASK AUDIT: "${finding.taskId}" DELIVERABLE ${drift}: "${finding.deliverable}" — re-verify: ${finding.title}`,
         source: 'self',
@@ -366,6 +377,49 @@ export async function runClosedTaskAuditSweep(
         out(
           `  🔍 closed-task drift proposed (awaiting your approval): ${finding.taskId} — "${finding.deliverable}"`,
         );
+      }
+    }
+
+    // Prune counterpart (same contract as the doc-freshness and verify-by
+    // sweeps above): once a re-audit finds a clause backed again, its old
+    // proposal is deferred, never deleted. Only rows no person has acted
+    // on: 'needs_approval', or 'queued' by auto mode (a task-auto-approved
+    // event, never the operator's ✓), unclaimed by any lane, and never
+    // deferred by this sweep before (an operator who re-queues one has
+    // overruled it). A lookup git can't answer throws out of
+    // findClosedTaskAuditFindings above, so a failed sweep defers nothing.
+    const openAuditIds = store.db
+      .prepare(
+        `SELECT t.id FROM tasks t
+          WHERE t.project_id = ? AND t.id LIKE 'closedaudit-%' AND t.assignee IS NULL
+            AND (t.status = 'needs_approval'
+                 OR (t.status = 'queued' AND EXISTS (
+                       SELECT 1 FROM events e
+                        WHERE e.project_id = t.project_id AND e.type = ?
+                          AND json_valid(e.payload)
+                          AND json_extract(e.payload, '$.taskId') = t.id)))
+            AND NOT EXISTS (
+                  SELECT 1 FROM events d
+                   WHERE d.project_id = t.project_id AND d.type = ?
+                     AND json_valid(d.payload)
+                     AND json_extract(d.payload, '$.taskId') = t.id)`,
+      )
+      .all(projectId, AUTO_APPROVED_EVENT, CLOSED_AUDIT_DEFERRED_EVENT) as { id: string }[];
+    const recordDeferral = store.db.prepare(
+      'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
+    );
+    const deferOnce = store.db.transaction((taskId: string): boolean => {
+      if (!setTaskStatus(store, taskId, 'deferred', now())) return false;
+      recordDeferral.run(projectId, CLOSED_AUDIT_DEFERRED_EVENT, JSON.stringify({ taskId }), now());
+      return true;
+    });
+    for (const staleId of findStaleClosedTaskAuditIds(
+      openAuditIds.map((r) => r.id),
+      candidates,
+      findings,
+    )) {
+      if (deferOnce(staleId)) {
+        out(`  🧹 stale closed-task audit auto-deferred (clause checks out again): ${staleId}`);
       }
     }
   } catch {

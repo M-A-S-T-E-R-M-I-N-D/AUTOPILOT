@@ -395,8 +395,15 @@ describe('GitVcs', () => {
     expect(await missing.lastCommit()).toBeNull();
     expect(await missing.commitInFiringRange('abc', 'h0', 'h1')).toBe(false);
     expect(await missing.fileExists('a.txt')).toBe(false);
-    expect(await missing.containsText('one')).toBe(false);
-    expect(await missing.filesContainingText('one')).toEqual([]);
+  });
+
+  it('refuses to answer a text lookup git could not run, instead of reporting no match', async () => {
+    // The CLOSED-TASK AUDIT reads "no match" as "this DELIVERABLE drifted",
+    // so a git error (exit 128 here) read as a no-match turns every closed
+    // clause into a false drift proposal on the board.
+    const missing = new GitVcs(join(dir, 'does-not-exist'));
+    await expect(missing.containsText('one')).rejects.toThrow(/git grep failed/);
+    await expect(missing.filesContainingText('one')).rejects.toThrow(/git grep failed/);
   });
 
   it('commitPaths commits ONLY the given paths, leaving unrelated WIP untouched (the ritual-sweep fix)', async () => {

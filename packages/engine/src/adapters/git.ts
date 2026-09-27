@@ -232,6 +232,18 @@ function gitFailureReason(result: { readonly stdout: string; readonly stderr: st
   return result.stderr.trim() || result.stdout.trim();
 }
 
+/** `git grep` exits 1 for a clean no-match; 0 is a match, and anything else
+ *  (128: not a repo, an unreadable object) means git could not search. */
+const GIT_GREP_NO_MATCH = 1;
+
+function gitGrepFailure(result: {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+}): Error {
+  return new Error(`git grep failed (exit ${result.exitCode}): ${gitFailureReason(result)}`);
+}
+
 /** gpg status keywords (GnuPG doc/DETAILS) for a signature that is not good.
  *  `git verify-tag` already exits non-zero on each of them; the keyword is
  *  kept only so the reason a reader sees names gpg's actual verdict. */
@@ -644,11 +656,14 @@ export class GitVcs implements VcsPort {
    * delete or rename away the very thing it pointed at with nothing catching
    * the drift. `--fixed-strings` avoids treating the pattern as a regex (the
    * caller always passes plain alphanumeric keywords, but there's no reason
-   * to trust that at this layer). Degrades to false on a non-repo path or a
-   * genuine no-match, same as `fileExists`.
+   * to trust that at this layer). False only on a genuine no-match; a grep
+   * git could not run at all (a non-repo path, an unreadable object) throws
+   * instead, unlike `fileExists`: the audit reads false as "this closed
+   * DELIVERABLE drifted", so a git error read as a no-match files a false
+   * drift proposal for every closed clause.
    */
   async containsText(pattern: string): Promise<boolean> {
-    const { exitCode } = await git(this.repo, [
+    const result = await git(this.repo, [
       'grep',
       '--quiet',
       '--ignore-case',
@@ -657,7 +672,9 @@ export class GitVcs implements VcsPort {
       pattern,
       'HEAD',
     ]);
-    return exitCode === 0;
+    if (result.exitCode === 0) return true;
+    if (result.exitCode === GIT_GREP_NO_MATCH) return false;
+    throw gitGrepFailure(result);
   }
 
   /**
@@ -669,12 +686,11 @@ export class GitVcs implements VcsPort {
    * actual UI panel was ripped out would otherwise pass `containsText`
    * undetected. Each `git grep --name-only` line is `<ref>:<path>`; the
    * fixed `HEAD:` prefix is stripped rather than split generically since a
-   * path can itself legally contain a colon. Degrades to `[]` on a
-   * non-repo path or a genuine no-match, same as `containsText` degrades to
-   * `false`.
+   * path can itself legally contain a colon. `[]` only on a genuine
+   * no-match; a grep git could not run throws, same as `containsText`.
    */
   async filesContainingText(pattern: string): Promise<readonly string[]> {
-    const { stdout, exitCode } = await git(this.repo, [
+    const result = await git(this.repo, [
       'grep',
       '--ignore-case',
       '--fixed-strings',
@@ -683,17 +699,14 @@ export class GitVcs implements VcsPort {
       pattern,
       'HEAD',
     ]);
-    // Stryker disable next-line ConditionalExpression: a non-repo path or a
-    // genuine no-match writes to stderr with an EMPTY stdout, and the
-    // filter/map pipeline below already reduces an empty stdout to `[]` on
-    // its own — skipping this early return reaches the identical result.
-    if (exitCode !== 0) return [];
+    if (result.exitCode === GIT_GREP_NO_MATCH) return [];
+    if (result.exitCode !== 0) throw gitGrepFailure(result);
     // No `.trim()`: `--name-only` output is always LF-separated bare paths
     // with no leading/trailing whitespace (verified — same property already
     // established for parseCommitLog below) — only the filter is needed, to
     // drop the trailing empty segment `split('\n')` always yields after the
     // last real line.
-    return stdout
+    return result.stdout
       .split('\n')
       .filter((line) => line.length > 0)
       .map((line) => line.slice('HEAD:'.length));

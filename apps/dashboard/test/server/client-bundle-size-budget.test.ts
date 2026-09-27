@@ -346,7 +346,12 @@ import {
 // "Showing n of m" note with Clear, and their two listeners — measured
 // 239672B raw against the old 236544B line, 3128 bytes over. About two KB of
 // margin, as the entries above keep.
-const CORE_RAW_BUDGET = 236 * 1024;
+// Then core raw 236→239KB (2026-09-27), the same slice's display options:
+// four more task-view.ts functions embedded (?hide=), the Show fieldset over
+// the filters' shared chip builder, its listener and five English keys —
+// measured 242804B raw against the old 241664B line, 1140 bytes over. About
+// two KB of margin, as the entries above keep.
+const CORE_RAW_BUDGET = 239 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -376,7 +381,10 @@ const CORE_RAW_BUDGET = 236 * 1024;
 // Then core gzip 69→70KB (2026-09-26), the same epic 0026 view-header slice
 // as the raw entry above — measured 70838B against the old 70656B line, 182
 // bytes over.
-const CORE_GZIP_BUDGET = 70 * 1024;
+// Then core gzip 70→71KB (2026-09-27), the same display-options entry as
+// the raw one above — measured 71699B against the old 71680B line, 19 bytes
+// over.
+const CORE_GZIP_BUDGET = 71 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -521,7 +529,12 @@ const CORE_GZIP_BUDGET = 70 * 1024;
 // English keys (0.7KB) both ride /project.js. Measured 123854B raw against
 // the old 120832B budget, the Data tab's Health section (8502d83e) having
 // landed first: 3022 bytes over.
-const PROJECT_RAW_BUDGET = 122 * 1024;
+// Then project raw 122→124KB (2026-09-27), the VERSIONS panel's restore
+// button (board ap-mui2h3s1-1, slice 6): wires the slice 5 backend (`POST
+// /api/versions/restore`) to a Restore button on every row, confirm +
+// snack, plus its five English keys. Measured 126045B raw against the old
+// 124928B budget: 1117 bytes over.
+const PROJECT_RAW_BUDGET = 124 * 1024;
 const PANELS_RAW_BUDGET = 234 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
@@ -574,7 +587,9 @@ const PANELS_RAW_BUDGET = 234 * 1024;
 // /panels.js (was 62209B).
 // Then project gzip 32→33KB (2026-09-27) for the same VERSIONS panel as the
 // raw line above — measured 33142B gzip.
-const PROJECT_GZIP_BUDGET = 33 * 1024;
+// Then project gzip 33→34KB (2026-09-27) for the same restore button as the
+// raw line above — measured 33867B gzip against the old 33792B budget.
+const PROJECT_GZIP_BUDGET = 34 * 1024;
 const PANELS_GZIP_BUDGET = 72 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
