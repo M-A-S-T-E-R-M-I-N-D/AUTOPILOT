@@ -151,8 +151,12 @@ export function roundHeadline(s: RoundSummary): string {
 
 /** The evaluation commit's header — short enough for commitlint's 100. */
 export function roundCommitHeader(s: RoundSummary): string {
+  // A date, never a clock time: the commit log is public, and a wall-clock
+  // time is session detail the commitlint rule no-operator-private-context
+  // flags. The evaluation document itself keeps the times — it is the record.
+  const day = new Date(s.endedAt).toISOString().slice(0, 10);
   const per = s.costPerShipUsd === null ? 'no ship' : `$${s.costPerShipUsd.toFixed(2)} per ship`;
-  return `docs(evaluation): round ending ${isoMinute(s.endedAt)} UTC, ${s.shipped}/${s.firings} shipped, ${per}`;
+  return `docs(evaluation): a round of ${s.firings} firings on ${day}, ${s.shipped} shipped, ${per}`;
 }
 
 /** One round as a markdown section: headline, then the report and the

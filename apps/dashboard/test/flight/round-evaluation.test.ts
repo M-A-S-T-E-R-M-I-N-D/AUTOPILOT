@@ -59,9 +59,11 @@ describe('the round section', () => {
   it('files each month in its own document, and keeps the commit header under 100', () => {
     expect(evaluationDocPath(SUMMARY.endedAt)).toBe('docs/evaluations/ROUNDS-2026-09.md');
     expect(roundCommitHeader(SUMMARY)).toBe(
-      'docs(evaluation): round ending 2026-09-27 03:45 UTC, 9/10 shipped, $2.18 per ship',
+      'docs(evaluation): a round of 10 firings on 2026-09-27, 9 shipped, $2.18 per ship',
     );
     expect(roundCommitHeader(SUMMARY).length).toBeLessThanOrEqual(100);
+    // No clock time: commitlint's no-operator-private-context flags one.
+    expect(roundCommitHeader(SUMMARY)).not.toMatch(/d{1,2}:d{2}/);
     expect(roundHeadline({ ...SUMMARY, shipped: 0, costPerShipUsd: null })).toContain('- per ship');
   });
 
@@ -175,7 +177,7 @@ describe('writing a round', () => {
     run();
     const log = git(['log', '-1', '--format=%s%n%b']);
     expect(log).toContain(
-      'docs(evaluation): round ending 2026-09-27 03:45 UTC, 1/2 shipped, $4.00 per ship',
+      'docs(evaluation): a round of 2 firings on 2026-09-27, 1 shipped, $4.00 per ship',
     );
     expect(log).toContain('Signed-off-by:');
     const doc = readFileSync(join(repo, 'docs/evaluations/ROUNDS-2026-09.md'), 'utf8');
