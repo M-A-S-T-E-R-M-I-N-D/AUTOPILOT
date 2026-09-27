@@ -94,6 +94,39 @@ themes, or capabilities — and it reads like a settings page, not a cockpit.
   silently drop one.
 - Visual baselines refresh once, deliberately, with the redesign commit.
 
+## Behavior laws (addendum, 2026-09-27)
+
+The census above pins FUNCTIONS, not interaction. That gap let the theme and
+language popovers ship stacking open on each other mid-epic (operator catch,
+2026-09-07; fixed at `8cf536c2`). A UI slice carries behavior acceptance, not
+only markup presence. Every masthead popover obeys these laws, and a new
+popover that breaks one fails its pin:
+
+1. **Exclusivity** — at most one masthead popover is open. Every masthead
+   `<details>` carries `name="masthead-popover"`: the native
+   exclusive-accordion contract, so the browser closes the others on open
+   with no script, keyboard included. A disclosure nested inside a popover
+   (the GitHub report form) stays out of the group.
+   Pins: `masthead-icon-cluster.test.ts` (every masthead `<details>` has the
+   name), `popovers.test.ts`, and `e2e/masthead-popovers.spec.ts`, which
+   opens one popover and then another, by keyboard and by pointer, in a real
+   browser.
+2. **Escape closes** — Escape closes the open popover wherever focus is
+   (`web/features/popovers.ts`, law 1). Pins: `popovers.test.ts`, the e2e.
+3. **Focus returns to the summary** — when a popover closes while focus is
+   inside it, by Escape or by a choice (theme, language, an overflow item),
+   focus goes back to the summary that opened it. It never drops to
+   `<body>` on a hidden button. This follows the WAI-ARIA menu-button
+   pattern. Focus that has already moved on, for example into a dialog the
+   choice opened, stays where it is. The choice path was a real gap until
+   this addendum: in a real browser, choosing a theme by keyboard left focus
+   on `<body>`. Pins: `popovers.test.ts`, the e2e.
+4. **Content-sized pill-row panels** — a popover holding a single short
+   pill row (theme, language) is `width: max-content` from md up, so the row
+   fills its panel instead of drifting at the start of the 320px
+   connect-panel box. Pin: the e2e measures no trailing gap after the last
+   pill, in either writing direction.
+
 ## Slices
 
 1. Census test first (the safety net), then the icon cluster + popovers.
