@@ -12,8 +12,10 @@
  * actual client bundle (`renderShell()` + `clientJs()` behind a mocked
  * `fetch`, the same real-bundle convention `pool-client-link.test.ts` /
  * `pr-check-strip.test.ts` / `publicity-roving-tabindex.test.ts` already use)
- * and, for every field `payload-census.test.ts` censuses across all three
- * `PAYLOAD_INTERFACES` entries, renders the panel twice with ONLY that field
+ * and, for every field `payload-census.test.ts` censuses across its first
+ * three `PAYLOAD_INTERFACES` entries (`PoolIssue`, `PublicityAffordance`,
+ * `PrCheckRun` — the `IssueTriageDecision` variants added later are not
+ * render-diffed yet), renders the panel twice with ONLY that field
  * varied and asserts the rendered DOM differs. It also covers the fields a
  * source-text match structurally cannot verify — `elapsedMs`'s formatted
  * duration, `claims`' derived ledger text, `dormant`'s element-shape switch —
