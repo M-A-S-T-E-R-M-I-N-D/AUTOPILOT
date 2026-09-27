@@ -1,8 +1,31 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
-import { parseGeminiJsonOutput } from '../../src/adapters/gemini-cli.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { execFile, spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { parseGeminiJsonOutput, GeminiCliModel } from '../../src/adapters/gemini-cli.js';
+import {
+  CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_TIMEOUT_MS,
+} from '../../src/adapters/claude-cli.js';
+
+vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
+
+// execFile's overload set is driven through its untyped vi.fn() surface, the
+// same approach as codex-cli.test.ts and claude-cli.test.ts.
+const execFileMock = vi.mocked(execFile) as unknown as {
+  mockReset(): void;
+  mockImplementation(impl: (...args: unknown[]) => unknown): void;
+  mock: { calls: unknown[][] };
+};
+const spawnMock = vi.mocked(spawn);
+
+type ExecFileCallback = (
+  error: (Error & { code?: unknown }) | null,
+  stdout: string | null,
+  stderr: string | null,
+) => void;
 
 const SESSION = '5c1d2a8e-3f4b-4e9a-9b7c-0d6e1f2a3b4c';
 
@@ -286,5 +309,192 @@ describe('parseGeminiJsonOutput', () => {
   it('reports no model when none was requested and stats name none', () => {
     const response = parseGeminiJsonOutput(pretty({ response: 'x' }), 0, '');
     expect(response.envelope?.modelUsed).toBeNull();
+  });
+});
+
+describe('GeminiCliModel', () => {
+  let stdinEnd: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    execFileMock.mockReset();
+    // reapCliDescendants (claude-cli.ts) spawns taskkill on win32; an on-able
+    // stub keeps it inert under this mock, as in codex-cli.test.ts.
+    spawnMock.mockReset();
+    spawnMock.mockReturnValue({ on: vi.fn() } as never);
+    stdinEnd = vi.fn();
+  });
+
+  function mockExecFileResult(
+    error: (Error & { code?: unknown }) | null,
+    stdout: string | null,
+    stderr: string | null = '',
+  ): void {
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      queueMicrotask(() => cb(error, stdout, stderr));
+      return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+    });
+  }
+
+  function spawnedArgs(): string[] {
+    return (execFileMock.mock.calls[0] as [string, string[]])[1];
+  }
+
+  it('resolves the parsed envelope from a clean run', async () => {
+    const stdout = pretty({
+      session_id: SESSION,
+      response: 'done',
+      stats: stats({ 'gemini-2.5-pro': modelMetrics({ input: 10, candidates: 3 }) }),
+    });
+    mockExecFileResult(null, stdout);
+
+    const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(res).toEqual(parseGeminiJsonOutput(stdout, 0, 'gemini-2.5-pro'));
+    expect(res.sessionId).toBe(SESSION);
+  });
+
+  it('spawns the default "gemini" binary headless with JSON output, the model, yolo approval, and the prompt last', async () => {
+    mockExecFileResult(null, '');
+
+    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(execFileMock.mock.calls).toHaveLength(1);
+    const [binary, args, options] = execFileMock.mock.calls[0] as [
+      string,
+      string[],
+      Record<string, unknown>,
+    ];
+    expect(binary).toBe('gemini');
+    expect(args[args.indexOf('--model') + 1]).toBe('gemini-2.5-pro');
+    expect(args[args.indexOf('--output-format') + 1]).toBe('json');
+    expect(args[args.indexOf('--approval-mode') + 1]).toBe('yolo');
+    expect(args).not.toContain('--resume');
+    expect(args).not.toContain('--skip-trust');
+    expect(args.slice(-2)).toEqual(['--prompt', 'do it']);
+    expect(options).toMatchObject({
+      cwd: '/work/sbx',
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+      timeout: DEFAULT_CLI_TIMEOUT_MS,
+      detached: true,
+      encoding: 'utf8',
+    });
+  });
+
+  it('closes stdin empty for an argv prompt, so the CLI never waits on piped input', async () => {
+    mockExecFileResult(null, '');
+
+    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(stdinEnd).toHaveBeenCalledTimes(1);
+    expect(stdinEnd).toHaveBeenCalledWith();
+  });
+
+  it('pipes an over-threshold prompt on stdin instead of argv (the Windows command-line ceiling)', async () => {
+    mockExecFileResult(null, '');
+    const long = 'x'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
+
+    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', long);
+
+    const args = spawnedArgs();
+    expect(args).not.toContain('--prompt');
+    expect(args).not.toContain(long);
+    expect(stdinEnd).toHaveBeenCalledWith(long);
+  });
+
+  it('swallows a stdin pipe error (EPIPE: the CLI exited before reading) instead of crashing the host', async () => {
+    const stdin = Object.assign(new EventEmitter(), { end: stdinEnd });
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      queueMicrotask(() => cb(Object.assign(new Error('exit 55'), { code: 55 }), '', ''));
+      return { pid: 4321, stdin };
+    });
+
+    const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+      'gemini-2.5-pro',
+      'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1),
+    );
+
+    expect(() => stdin.emit('error', new Error('write EPIPE'))).not.toThrow();
+    expect(res.exitCode).toBe(55);
+  });
+
+  it('keeps a prompt exactly at the threshold on argv', async () => {
+    mockExecFileResult(null, '');
+    const atLimit = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD);
+
+    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', atLimit);
+
+    expect(spawnedArgs().slice(-2)).toEqual(['--prompt', atLimit]);
+  });
+
+  it('passes "--resume <id>" when a session id is given, and omits it for an empty one', async () => {
+    mockExecFileResult(null, '');
+    const model = new GeminiCliModel({ repo: '/work/sbx' });
+
+    await model.invoke('gemini-2.5-pro', 'continue', SESSION);
+    const resumed = spawnedArgs();
+    expect(resumed[resumed.indexOf('--resume') + 1]).toBe(SESSION);
+    expect(resumed.slice(-2)).toEqual(['--prompt', 'continue']);
+
+    execFileMock.mockReset();
+    mockExecFileResult(null, '');
+    await model.invoke('gemini-2.5-pro', 'do it', '');
+    expect(spawnedArgs()).not.toContain('--resume');
+  });
+
+  it('honors a caller-supplied binary, approval mode, workspace trust, env, and timeout', async () => {
+    mockExecFileResult(null, '');
+    const env = { PATH: '/opt/bin' };
+
+    await new GeminiCliModel({
+      repo: '/work/sbx',
+      binary: '/opt/gemini',
+      approvalMode: 'auto_edit',
+      trustWorkspace: true,
+      env,
+      timeoutMs: 5000,
+    }).invoke('gemini-2.5-pro', 'do it');
+
+    const [binary, args, options] = execFileMock.mock.calls[0] as [
+      string,
+      string[],
+      Record<string, unknown>,
+    ];
+    expect(binary).toBe('/opt/gemini');
+    expect(args[args.indexOf('--approval-mode') + 1]).toBe('auto_edit');
+    expect(args).toContain('--skip-trust');
+    expect(options['env']).toBe(env);
+    expect(options['timeout']).toBe(5000);
+  });
+
+  it('reads a fatal error object off stderr and keeps the numeric exit code', async () => {
+    const stderr = `[ERROR] ${pretty({
+      session_id: SESSION,
+      error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns', code: 53 },
+    })}\n`;
+    mockExecFileResult(Object.assign(new Error('exit 53'), { code: 53 }), '', stderr);
+
+    const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(res).toEqual(parseGeminiJsonOutput('', 53, 'gemini-2.5-pro', stderr));
+    expect(res.exitCode).toBe(53);
+    expect(res.envelope).toMatchObject({ isError: true, result: 'Reached max session turns' });
+  });
+
+  it('never rejects on a spawn failure (binary missing) — resolves a no-envelope response instead', async () => {
+    mockExecFileResult(
+      Object.assign(new Error('spawn gemini ENOENT'), { code: 'ENOENT' }),
+      null,
+      null,
+    );
+
+    const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(res.exitCode).toBe(1);
+    expect(res.envelope).toBeNull();
+    expect(res.sessionId).toBeNull();
+    expect(res.stdout).toBe('');
   });
 });
