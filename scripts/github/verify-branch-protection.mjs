@@ -62,6 +62,26 @@ export function matches(desired, live) {
   return normalized !== undefined && normalized !== null;
 }
 
+/**
+ * Every desired key the live protection does not match, each paired with the
+ * unwrapped live value the DRIFT line reports (`null` when the key is absent).
+ * `live` is `gh api` output, so untrusted: valid JSON that is not an object
+ * (a `null`, an array, a bare value) reads as a branch with no locks set.
+ * Every lock then reports DRIFT and the check exits 1, where a `null` used to
+ * throw a TypeError before a single DRIFT line.
+ * @param {Record<string, unknown>} protection
+ * @param {unknown} live
+ * @returns {{ key: string, desired: unknown, live: unknown }[]}
+ */
+export function findDrift(protection, live) {
+  const record = /** @type {Record<string, unknown>} */ (
+    live !== null && typeof live === 'object' && !Array.isArray(live) ? live : {}
+  );
+  return Object.entries(protection)
+    .filter(([key, desired]) => !matches(desired, record[key]))
+    .map(([key, desired]) => ({ key, desired, live: normalize(record[key]) ?? null }));
+}
+
 function main() {
   const { branch, ...protection } = loadConfig();
   if (typeof branch !== 'string' || branch === '') {
@@ -84,16 +104,13 @@ function main() {
     throw error;
   }
 
-  const live = /** @type {Record<string, unknown>} */ (JSON.parse(stdout));
-  const drifted = Object.entries(protection).filter(
-    ([key, desired]) => !matches(desired, live[key]),
-  );
+  const drifted = findDrift(protection, JSON.parse(stdout));
 
   if (drifted.length > 0) {
-    for (const [key, desired] of drifted) {
+    for (const { key, desired, live } of drifted) {
       console.error(
         `gh:verify-branch-protection DRIFT: "${key}" desired ${JSON.stringify(desired)}, ` +
-          `live ${JSON.stringify(normalize(live[key]) ?? null)}`,
+          `live ${JSON.stringify(live)}`,
       );
     }
     process.exit(1);

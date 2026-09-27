@@ -10,3 +10,7 @@
 
 export function normalize(value: unknown): unknown;
 export function matches(desired: unknown, live: unknown): boolean;
+export function findDrift(
+  protection: Record<string, unknown>,
+  live: unknown,
+): { key: string; desired: unknown; live: unknown }[];
