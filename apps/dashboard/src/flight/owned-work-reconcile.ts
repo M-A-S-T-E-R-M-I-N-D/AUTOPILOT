@@ -70,9 +70,9 @@ const OWNED_WORK_TITLE_CHARS = 200;
  * same `CliExec` shape every other fetcher in this directory uses
  * (`contributor-issue-list.ts`'s `fetchContributorFacingIssues`,
  * `issue-triage.ts`'s `fetchOpenIssues`). Returns `[]` on a non-zero exit or
- * unparseable/non-array stdout rather than throwing. Entries missing a
- * numeric `number`, string `title`, or string `url` are dropped rather than
- * passed through malformed.
+ * unparseable/non-array stdout rather than throwing. A non-object row (a
+ * `null`) and entries missing a numeric `number`, string `title`, or string
+ * `url` are dropped rather than passed through malformed.
  */
 export async function fetchAssignedIssues(exec: CliExec): Promise<AssignedIssue[]> {
   const { code, stdout } = await exec('gh', [
@@ -95,7 +95,8 @@ export async function fetchAssignedIssues(exec: CliExec): Promise<AssignedIssue[
   }
   if (!Array.isArray(parsed)) return [];
 
-  return (parsed as RawAssignedIssue[])
+  return (parsed as unknown[])
+    .filter((raw): raw is RawAssignedIssue => typeof raw === 'object' && raw !== null)
     .filter(
       (raw) =>
         typeof raw.number === 'number' &&
