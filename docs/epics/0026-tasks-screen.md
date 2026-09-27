@@ -43,13 +43,16 @@ medium, low) and an "unrated" box for the tasks that carry none, writing
 of the same chips, one per way a task reaches the board (inbox, repo, backlog,
 chat, dashboard, "proposed" — a self-proposed task, the word its row's chip
 already shows — GitHub) and a "no source" box, writing `?source=`. The display options'
-pure half followed, not yet wired: `?hide=` names the row properties a view
+pure half followed: `?hide=` names the row properties a view
 hides — source, severity, dimension, cost; never the runaway or budget-risk
 warnings — kept apart from the filters, since filters narrow the list and
 display options change what a row shows. The URL lists what is hidden, not
-what shows, so a property added later shows on every older link. Still open in
-slice 2: the grouping control and counts on its group heads, the display
-options' control, the Focus grouping. Slice 4's pure half shipped
+what shows, so a property added later shows on every older link. Its control
+shipped the same day: a "Show" fieldset after the three filters, one box per
+property, ticked while rows show it. Unticking one writes `?hide=` and drops
+that chip from every row; it hides no row, shows no "Showing n of m" note,
+keeps the reorder controls, and Clear leaves it alone. Still open in slice 2:
+the grouping control and counts on its group heads, the Focus grouping. Slice 4's pure half shipped
 2026-09-27, not yet wired: `web/task-bulk.ts` plans approve, reject, done and
 delete over the selection. Each reaches exactly the rows that draw that button
 and plans the request that button already posts — no bulk endpoint, no new
