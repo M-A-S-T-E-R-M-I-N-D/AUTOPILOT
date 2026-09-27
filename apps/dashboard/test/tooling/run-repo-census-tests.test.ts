@@ -26,6 +26,9 @@ describe('isRepoReadingTest', () => {
       "existsSync(join(ROOT, '.github', 'workflows', 'ci.yml'))",
       'readFileSync(`${ROOT}/docs/RUNBOOK.md`)',
       "execFileSync('git', ['ls-files', '-z']); readFileSync(join(REPO_ROOT, file))",
+      "existsSync(join(ROOT, 'config', 'stryker.conf.json'))",
+      // a real-git suite that ALSO reads the repository still counts
+      "gitSync(dir, ['config', 'user.name', 'T']); readdirSync(join(ROOT, 'config/mutation'))",
     ]) {
       expect(isRepoReadingTest(source), source).toBe(true);
     }
@@ -40,6 +43,24 @@ describe('isRepoReadingTest', () => {
       expect(isRepoReadingTest(source), source).toBe(false);
     }
   });
+
+  // Firing 535's gate crashed on real-git suites that timed out under fleet
+  // load. They rode every per-firing gate only because their repo setup runs
+  // `git config`, whose argv `['config', …]` read as the repository's config/.
+  it('reads git config argv as a git subcommand, not the config/ directory', () => {
+    for (const source of [
+      [
+        "gitSync(dir, ['config', 'user.email', 't@example.com']);",
+        "gitSync(dir, ['config', 'user.name', 'T']);",
+        "gitSync(dir, ['config', 'commit.gpgsign', 'false']);",
+        "writeFileSync(join(dir, 'a.txt'), 'a'); readFileSync(join(dir, 'a.txt'));",
+      ].join('\n'),
+      'execFileSync(\'git\', ["config", "core.autocrlf", "false"]); existsSync(dir);',
+      "git([\n  'config',\n  'rerere.enabled',\n  'true',\n]);\nreaddirSync(dir);",
+    ]) {
+      expect(isRepoReadingTest(source), source).toBe(false);
+    }
+  });
 });
 
 describe('censusTestFiles', () => {
@@ -49,6 +70,8 @@ describe('censusTestFiles', () => {
     // the whole-repository windowsHide census (2026-09-26)
     expect(files).toContain('apps/dashboard/test/flight/spawn-windows-hide.test.ts');
     for (const always of ALWAYS) expect(files).toContain(always);
+    // the real-git suite that timed out in firing 535's gate reads no repo path
+    expect(files).not.toContain('packages/onboarding/test/backup/ritual.test.ts');
     expect([...files].sort()).toEqual(files);
     expect(new Set(files).size).toBe(files.length);
   });

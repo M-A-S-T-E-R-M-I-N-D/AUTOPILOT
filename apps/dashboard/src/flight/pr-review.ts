@@ -1040,6 +1040,11 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // queued, high-severity board task with no approval gate. Widening what
   // it files steers every lane's next pick.
   'flight/convergence-red-task.ts',
+  // STRANDED-WORK TASKS CLOSE THEMSELVES (2026-09-27): closes the operator's
+  // stranded-work inbox tasks from inside the flight. Widening what counts as
+  // landed closes a strand whose commits are still parked, and the operator
+  // never hears of them again.
+  'flight/strand-tasks.ts',
   // THE MODEL SCOREBOARD (2026-09-25): decides which model every firing
   // flies on, from recorded outcomes. Skewing it staffs a tier with the
   // wrong model for every lane.

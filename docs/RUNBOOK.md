@@ -695,6 +695,18 @@ finish and gate by hand, or to merge into the flight branch yourself. A
 lane that could not be moved aside (a dirty worktree) prints `⚠ parked
 head stays parked` and waits for you to commit or stash the leftovers.
 
+The task names the head it stranded (`… parked on <lane branch> at
+<sha12> — …`), and you do not close it yourself. Once that head is on the
+flight branch, whether a later sync-back or your own merge put it there,
+the next flight's start closes the task (`flight/strand-tasks.ts`):
+
+```
+  ✓ stranded-work task done (its head has landed): ap-…-strand — STRANDED SYNC-BACK: …
+```
+
+A task filed before heads were recorded names none and stays open until
+you close it.
+
 ## 13. Social flight weave-in (`AUTOPILOT_SOCIAL_FLIGHT`)
 
 Off by default. Epic 0016 (`docs/epics/0016-github-social-flight.md`) weaves a GitHub social

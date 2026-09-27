@@ -20,6 +20,7 @@ import {
 } from './flight/convergence-red-task.js';
 import { QUOTA_REST_MS, recordModelDrained, routeTaskModel } from './flight/model-scoreboard.js';
 import { ROUND_START_SLACK_MS, endRound, gitIn } from './flight/round-evaluation.js';
+import { closeLandedStrandTasks, strandTaskTitle } from './flight/strand-tasks.js';
 import {
   openStore,
   migrate,
@@ -625,6 +626,26 @@ async function main(): Promise<void> {
     // now so this flight's firings never waste a pick on already-done work.
     for (const task of reconcileShippedTasks(store, projectId, now())) {
       out(`  ✓ board task done (straggler from a prior flight): ${task.id} — ${task.title}`);
+    }
+    // Same self-heal for the stranded-work inbox task (flight/strand-tasks.ts):
+    // once the head it names is on the flight branch nothing is parked any
+    // more, and an open one would outrank every real task on the board.
+    if (targetBranch !== '') {
+      const landedOnFlightBranch = (head: string): boolean => {
+        try {
+          execFileSync('git', ['merge-base', '--is-ancestor', head, targetBranch], {
+            cwd: target,
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      for (const task of closeLandedStrandTasks(store, projectId, landedOnFlightBranch, now())) {
+        out(`  ✓ stranded-work task done (its head has landed): ${task.id} — ${task.title}`);
+      }
     }
 
     // FLEET STALE-CLAIM REAPER: a crashed instance (SIGKILL, power loss) skips
@@ -2073,7 +2094,13 @@ async function main(): Promise<void> {
         // and the refusal. Deduped on the branch name: a second flight over
         // the same stranded branch must not stack a second identical task.
         try {
-          const strandTitle = `STRANDED SYNC-BACK: flight ended with its commits parked on ${worktreePlan.branch} — ${finalSync.details}`;
+          // Named by the head it strands, so the next flight's self-heal
+          // can close it once that head lands (flight/strand-tasks.ts).
+          const strandTitle = strandTaskTitle(
+            worktreePlan.branch,
+            await vcs.head(),
+            finalSync.details,
+          );
           const open = store.db
             .prepare(
               "SELECT COUNT(*) c FROM tasks WHERE project_id = ? AND status IN ('queued','in_progress','needs_approval') AND title LIKE ?",
