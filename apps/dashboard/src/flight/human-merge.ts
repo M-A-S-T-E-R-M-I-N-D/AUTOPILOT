@@ -144,12 +144,21 @@ export function createUpdateBranchApi(exec: CliExec = ghExec): UpdateBranchApi {
     if (viewCode !== 0) {
       return { updated: false, reason: `Could not read #${number} from gh (exit ${viewCode}).` };
     }
-    let view: { state?: unknown; maintainerCanModify?: unknown };
+    const unreadable: UpdateBranchResult = {
+      updated: false,
+      reason: `gh returned an unreadable response for #${number}.`,
+    };
+    let parsed: unknown;
     try {
-      view = JSON.parse(stdout) as typeof view;
+      parsed = JSON.parse(stdout);
     } catch {
-      return { updated: false, reason: `gh returned an unreadable response for #${number}.` };
+      return unreadable;
     }
+    // Valid JSON that is not a PR object is just as unreadable: `null` threw
+    // at `view.state` and reached the route as a raw TypeError, and an array
+    // or a bare value was misreported as a PR that is not open.
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return unreadable;
+    const view = parsed as { state?: unknown; maintainerCanModify?: unknown };
     if (view.state !== 'OPEN') {
       return { updated: false, reason: `#${number} is not open — nothing to update.` };
     }
