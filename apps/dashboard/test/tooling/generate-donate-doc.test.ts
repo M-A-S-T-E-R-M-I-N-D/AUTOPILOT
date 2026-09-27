@@ -18,7 +18,10 @@ import {
   verifySigningKey,
   type GpgResult,
 } from '../../../../scripts/donations/generate-donate-doc.mjs';
-import { extractClearsignedText as dashboardExtractClearsignedText } from '../../src/flight/donations.js';
+import {
+  extractClearsignedText as dashboardExtractClearsignedText,
+  isPublicKeyFile as dashboardIsPublicKeyFile,
+} from '../../src/flight/donations.js';
 
 const BTC_ENTRY = { chain: 'btc', address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' } as const;
 const EVM_ENTRY = {
@@ -319,6 +322,27 @@ describe('findSigningKeyProblem', () => {
 
   it('refuses a file that is not armored at all', () => {
     expect(findSigningKeyProblem(DONATIONS_JSON)).toMatch(/exactly one/);
+  });
+
+  // GET /api/donations holds the key file to the same rule with its own copy
+  // (isPublicKeyFile), for the reason extractClearsignedText's twin above
+  // gives: the panel must never show an address beside a key ci:donate refused.
+  it("reaches the dashboard reader's verdict on every key file", () => {
+    const keyFiles = [
+      PUBLIC_KEY_BLOCK,
+      PUBLIC_KEY_BLOCK.replace(/\n/g, '\r\n'),
+      PRIVATE_KEY_BLOCK,
+      PUBLIC_KEY_BLOCK + PRIVATE_KEY_BLOCK,
+      `Fingerprint: see the announcement\n${PUBLIC_KEY_BLOCK}`,
+      `${PUBLIC_KEY_BLOCK}trailer\n`,
+      PUBLIC_KEY_BLOCK + PUBLIC_KEY_BLOCK,
+      DONATIONS_JSON,
+      '',
+    ];
+
+    for (const keyFile of keyFiles) {
+      expect(findSigningKeyProblem(keyFile) === null).toBe(dashboardIsPublicKeyFile(keyFile));
+    }
   });
 });
 

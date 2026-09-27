@@ -13,7 +13,8 @@
  * contract `flight/publicity.ts`'s `fetchRepoIdentity` uses for an unresolved
  * GitHub identity. FOUNDATION 3/3 (board web-mtq0rtub-jxpptv) adds the
  * clearsigned twin `docs/DONATE.asc`: no address is served unless that file
- * signs exactly the address file's text. The read itself takes an injectable
+ * signs exactly the address file's text and `docs/SIGNING-KEY.asc` holds the
+ * one public key it is checked against. The read itself takes an injectable
  * `DonationsReader` (mirrors `CliExec`'s injection shape) so tests never
  * touch the real filesystem.
  */
@@ -74,9 +75,16 @@ export const DONATIONS_FILE_PATH = join('docs', 'donations.json');
  *  commitment 2 publishes addresses only as this clearsigned file. */
 export const SIGNED_DONATIONS_FILE_PATH = join('docs', 'DONATE.asc');
 
+/** The operator's public key that signs {@link SIGNED_DONATIONS_FILE_PATH}
+ *  (FOUNDATION 3/3): the key whose fingerprint a donor compares with the
+ *  independently published one before trusting an address. */
+export const SIGNING_KEY_FILE_PATH = join('docs', 'SIGNING-KEY.asc');
+
 const CLEARSIGN_BEGIN = '-----BEGIN PGP SIGNED MESSAGE-----';
 const SIGNATURE_BEGIN = '-----BEGIN PGP SIGNATURE-----';
 const SIGNATURE_END = '-----END PGP SIGNATURE-----';
+const PUBLIC_KEY_BEGIN = '-----BEGIN PGP PUBLIC KEY BLOCK-----';
+const PUBLIC_KEY_END = '-----END PGP PUBLIC KEY BLOCK-----';
 const HASH_HEADER = /^Hash: [A-Za-z0-9-]+(?:, ?[A-Za-z0-9-]+)*$/;
 const BASE64_LINE = /^[A-Za-z0-9+/]+={0,2}$/;
 
@@ -112,6 +120,24 @@ export function extractClearsignedText(armored: string): string | null {
   return text.join('\n');
 }
 
+/**
+ * Whether `raw` is exactly one ASCII-armored PGP PUBLIC key block and nothing
+ * else — the rule `ci:donate`'s `findSigningKeyProblem`
+ * (scripts/donations/generate-donate-doc.mjs) applies to
+ * {@link SIGNING_KEY_FILE_PATH}; `generate-donate-doc.test.ts` holds the two
+ * to one verdict. A PRIVATE key block anywhere in the file fails: that key
+ * has left the machine that made it, so nothing it signed is trusted.
+ */
+export function isPublicKeyFile(raw: string): boolean {
+  if (raw.includes('PRIVATE KEY BLOCK')) return false;
+  const lines = raw.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+  return (
+    lines[0] === PUBLIC_KEY_BEGIN &&
+    lines.at(-1) === PUBLIC_KEY_END &&
+    !lines.slice(1, -1).some((line) => line.startsWith('-----'))
+  );
+}
+
 /** The text an OpenPGP text signature actually covers: line endings and
  *  trailing spaces/tabs don't count, nor does the final line break. */
 function canonicalText(text: string): string {
@@ -127,10 +153,12 @@ export type DonationsPreviewApi = () => Promise<readonly DonationEntry[]>;
 
 /**
  * Builds the `GET /api/donations` read. It serves an address only while
- * `signedPath` clearsigns exactly the address file's text — the dashboard
- * half of transparency commitment 2, so an address edited after signing, or
- * an address file with no signed copy beside it, never reaches the panel
- * even in a checkout `ci:donate` has not gated. It checks the framing and the
+ * `signedPath` clearsigns exactly the address file's text and `keyPath`
+ * holds the one public key a donor verifies that signature with — the
+ * dashboard half of transparency commitment 2, so an address edited after
+ * signing, an address file with no signed copy beside it, or a signature with
+ * no published key (or an exposed private one) never reaches the panel even
+ * in a checkout `ci:donate` has not gated. It checks the framing and the
  * text, not the cryptography: `ci:donate` runs gpg on every landing, and a
  * donor runs it themselves (`docs/DONATE.md#verify-before-you-trust`). A
  * missing or unreadable file, a mismatch, or invalid/non-array JSON all
@@ -142,16 +170,20 @@ export function createDonationsPreviewApi(
   readFile: DonationsReader = realReadFile,
   path: string = DONATIONS_FILE_PATH,
   signedPath: string = SIGNED_DONATIONS_FILE_PATH,
+  keyPath: string = SIGNING_KEY_FILE_PATH,
 ): DonationsPreviewApi {
   return async () => {
     let raw: string;
     let signed: string | null;
+    let hasPublicKey: boolean;
     try {
       raw = readFile(path);
       signed = extractClearsignedText(readFile(signedPath));
+      hasPublicKey = isPublicKeyFile(readFile(keyPath));
     } catch {
       return [];
     }
+    if (!hasPublicKey) return [];
     if (signed === null || canonicalText(signed) !== canonicalText(raw)) return [];
     try {
       return parseDonationEntries(JSON.parse(raw));

@@ -63,8 +63,9 @@ address file lands.
    key block fails, and a private key block fails by name — that key is
    exposed, not misfiled. The dashboard's funding panel holds the same line
    in any checkout, gated or not: it shows an address only while
-   `docs/DONATE.asc` signs exactly the text of `docs/donations.json`, and
-   stays hidden otherwise. The check proves only that the committed key
+   `docs/DONATE.asc` signs exactly the text of `docs/donations.json` and
+   `docs/SIGNING-KEY.asc` holds one public key block, and stays hidden
+   otherwise. The check proves only that the committed key
    signed; compare its fingerprint with the independently published one
    before you trust it — [`docs/DONATE.md`](DONATE.md#verify-before-you-trust)
    walks a donor through exactly that.
