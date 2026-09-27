@@ -201,11 +201,13 @@ jobs:
           REMOTE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: echo "refs/heads/ci $LOCAL_SHA refs/heads/ci $REMOTE_SHA" | pnpm run ci:secret-scan-history
 
+  # REQUIRED since 2026-09-27: as an optional job it sat red on main for two
+  # days unnoticed — a continue-on-error failure leaves the run green, so the
+  # post-push watch never saw it. Its local twin is ci:spdx's invalidSpdxTags.
   reuse-lint:
-    name: reuse lint (optional)
+    name: reuse lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -219,7 +221,7 @@ jobs:
       - name: Install reuse
         run: pip install reuse==6.2.0
 
-      - name: REUSE Specification compliance (informational)
+      - name: REUSE Specification compliance
         run: reuse lint
 
   doc-commit-refs:

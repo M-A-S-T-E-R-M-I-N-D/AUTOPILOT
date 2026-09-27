@@ -72,8 +72,10 @@ describe('the round section', () => {
   it("creates the month once with the repo's OWN licence header, then appends", () => {
     const root = mkdtempSync(join(tmpdir(), 'ap-round-doc-'));
     try {
+      // REUSE-IgnoreStart — another repo's header, as fixture data.
       const theirs =
         '<!--\nSPDX-FileCopyrightText: 2026 Someone Else\nSPDX-License-Identifier: MIT\n-->';
+      // REUSE-IgnoreEnd
       mkdirSync(join(root, 'docs'), { recursive: true });
       writeFileSync(join(root, 'docs/README.md'), `${theirs}\n\n# Their docs\n`);
       const rel = appendRoundSection(root, SUMMARY.endedAt, '## one\n');

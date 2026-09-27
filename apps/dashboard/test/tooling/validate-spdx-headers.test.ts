@@ -9,7 +9,11 @@
  * apps/dashboard/test/tooling/secret-scan.test.ts takes for its sibling script.
  */
 import { describe, it, expect } from 'vitest';
-import { hasSpdxHeader, HEADER_SCAN_LINES } from '../../../../scripts/ci/validate-spdx-headers.mjs';
+import {
+  hasSpdxHeader,
+  invalidSpdxTags,
+  HEADER_SCAN_LINES,
+} from '../../../../scripts/ci/validate-spdx-headers.mjs';
 
 describe('hasSpdxHeader', () => {
   // REUSE-IgnoreStart — the SPDX strings below are TEST FIXTURES fed to
@@ -65,4 +69,43 @@ describe('hasSpdxHeader', () => {
     );
     expect(hasSpdxHeader(text)).toBe(false);
   });
+});
+
+describe('invalidSpdxTags — the REUSE red that sat on main (2026-09-27)', () => {
+  // REUSE-IgnoreStart — every licence tag in this block is a FIXTURE.
+  it('passes real headers in every comment style, including compound expressions', () => {
+    const text = [
+      '// SPDX-License-Identifier: Apache-2.0',
+      '/* SPDX-License-Identifier: Apache-2.0 AND ISC */',
+      '<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->',
+      '# SPDX-License-Identifier: GPL-2.0-or-later WITH Classpath-exception-2.0',
+      'SPDX-License-Identifier: (MIT OR Apache-2.0)',
+    ].join('\n');
+    expect(invalidSpdxTags(text)).toEqual([]);
+  });
+
+  it('flags the tag written as a string literal in a test — the exact shape that failed reuse lint', () => {
+    const text = [
+      '// SPDX-License-Identifier: Apache-2.0',
+      "    expect(header).toContain('SPDX-License-Identifier: Apache-2.0 AND ISC');",
+    ].join('\n');
+    expect(invalidSpdxTags(text)).toEqual([{ line: 2, expression: "Apache-2.0 AND ISC');" }]);
+  });
+
+  it('skips everything inside a REUSE ignore block, and resumes after it', () => {
+    const text = [
+      // The markers are assembled, not written out: a literal end marker
+      // here would close THIS file's ignore block, for reuse lint too.
+      `// REUSE-Ignore${'Start'}`,
+      "const tag = 'SPDX-License-Identifier:';",
+      `// REUSE-Ignore${'End'}`,
+      "const again = 'SPDX-License-Identifier: MIT';",
+    ].join('\n');
+    expect(invalidSpdxTags(text)).toEqual([{ line: 4, expression: "MIT';" }]);
+  });
+
+  it('flags an empty expression', () => {
+    expect(invalidSpdxTags('// SPDX-License-Identifier:')).toEqual([{ line: 1, expression: '' }]);
+  });
+  // REUSE-IgnoreEnd
 });

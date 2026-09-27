@@ -2711,7 +2711,8 @@ const TERMINAL_NON_PASS_STATES: ReadonlySet<unknown> = new Set(['FAILURE', 'ERRO
  *  run on a head where none may exist. */
 function deriveGateStatus(checks: readonly RawPrCheck[]): GateStatus {
   // Checks named "(optional)" are the canonical repo's convention for
-  // informational, continue-on-error jobs (ci.yml's "reuse lint (optional)")
+  // informational, continue-on-error jobs (ci.yml's REUSE job carried the
+  // name until 2026-09-27, when it became required)
   // — their check run still concludes FAILURE (verified live on PR #3), so
   // counting them would hold every PR at request-changes forever on a job
   // the workflow itself deems non-gating. Only non-optional checks gate;

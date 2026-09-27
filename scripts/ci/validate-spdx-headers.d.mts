@@ -11,3 +11,11 @@
 export const HEADER_SCAN_LINES: number;
 
 export function hasSpdxHeader(text: string): boolean;
+
+/** One licence tag `reuse lint` would reject: its line and what it read. */
+export interface InvalidSpdxTag {
+  readonly line: number;
+  readonly expression: string;
+}
+
+export function invalidSpdxTags(text: string): InvalidSpdxTag[];
