@@ -342,6 +342,54 @@ export function taskTitleTip(
   return { tip };
 }
 
+/** {@link taskProvenanceOf}'s result: the STRINGS key of the sentence saying
+ *  how the task reached the board, and for a GitHub task its issue number and
+ *  the issue's URL — each null when unknown. */
+export interface TaskProvenance {
+  readonly key: string;
+  readonly issue: number | null;
+  readonly url: string | null;
+}
+
+/**
+ * A task row detail's provenance line (epic 0026 slice 1): which sentence
+ * says how the task reached the board. A task accepted from a GitHub issue
+ * carries the issue in its id, `github-<n>` (`issueTaskId` in
+ * `flight/issue-triage.ts`), and that issue lives in the project's own
+ * repository (`githubRepo`, `owner/repo` from its git origin), so the number
+ * becomes a link — only when the repo reads as a plain `owner/repo`, since it
+ * is spliced into an href. An unknown source falls back to "not recorded"
+ * rather than an untranslated word. The key table and the patterns are inline:
+ * this function is embedded into the client bundle via .toString() (see
+ * web/shell.ts), so an outside identifier would be a ReferenceError there.
+ */
+export function taskProvenanceOf(
+  source: string | null | undefined,
+  id: string,
+  githubRepo?: string | null,
+): TaskProvenance {
+  const keys: Record<string, string> = {
+    inbox: 'taskFromInbox',
+    repo: 'taskFromRepo',
+    backlog: 'taskFromBacklog',
+    chat: 'taskFromChat',
+    dashboard: 'taskFromDashboard',
+    self: 'taskFromSelf',
+    github: 'taskFromGithub',
+  };
+  const key =
+    (source && Object.prototype.hasOwnProperty.call(keys, source) && keys[source]) ||
+    'taskFromNone';
+  const match = source === 'github' ? /^github-(\d+)$/.exec(id) : null;
+  if (!match) return { key, issue: null, url: null };
+  const issue = Number(match[1]);
+  const url =
+    githubRepo && /^[\w.-]+\/[\w.-]+$/.test(githubRepo)
+      ? 'https://github.com/' + githubRepo + '/issues/' + issue
+      : null;
+  return { key: 'taskFromGithubIssue', issue, url };
+}
+
 /** The ↑/↓ reorder buttons' "Move ... earlier/later (position X of Y)" tip
  *  (shared as both `data-tip` and `aria-label`) — `openIdx`/`openCount` come
  *  from {@link taskQueueCounts} and the row's own 1-based position among
