@@ -200,7 +200,11 @@ export async function fetchContributorFacts(
     if (code === 0) {
       const parsed = JSON.parse(stdout) as unknown;
       if (Array.isArray(parsed)) {
-        for (const raw of parsed as readonly RawMergedPr[]) {
+        // A null or non-object row is skipped like an untitled one — reading
+        // `.title` off it would throw into the catch below and silently drop
+        // every row after it, undercounting the applicant's history.
+        for (const raw of parsed as readonly (RawMergedPr | null)[]) {
+          if (typeof raw !== 'object' || raw === null) continue;
           if (typeof raw.title !== 'string') continue;
           mergedPrCount += 1;
           mergedPrTitles.push(raw.title);

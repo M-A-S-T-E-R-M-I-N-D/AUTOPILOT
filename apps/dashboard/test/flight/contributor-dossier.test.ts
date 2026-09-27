@@ -290,6 +290,23 @@ describe('KEEPER dossier reads — malformed gh payload edge branches (regressio
     expect(facts.dcoTotalChecked).toBe(3);
     expect(facts.dcoCleanCount).toBe(1);
   });
+
+  it('skips a null or non-object merged PR row without losing the rows after it', async () => {
+    const signed = { messageBody: 'Signed-off-by: A <a@example.com>' };
+    const exec = execWith({}, [
+      { title: 'First', commits: [signed] },
+      null,
+      'stray',
+      { title: 'Second', commits: [signed] },
+    ]);
+
+    const facts = await fetchContributorFacts('holey', exec);
+
+    expect(facts.mergedPrCount).toBe(2);
+    expect(facts.mergedPrTitles).toEqual(['First', 'Second']);
+    expect(facts.dcoCleanCount).toBe(2);
+    expect(facts.dcoTotalChecked).toBe(2);
+  });
 });
 
 describe('planContributorDossierCommands', () => {
