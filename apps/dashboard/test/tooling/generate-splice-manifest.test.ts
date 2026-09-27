@@ -95,7 +95,6 @@ import { snackbarJs } from '../../src/web/features/snackbar.js';
 import { subjectNavJs } from '../../src/web/features/subject-nav.js';
 import { tourJs } from '../../src/web/features/tour.js';
 import { updateJs } from '../../src/web/features/update.js';
-import { versionsJs } from '../../src/web/features/versions.js';
 import { PRELOAD_FONT_PATHS } from '../../src/assets/fonts.js';
 import {
   themeButtons,
@@ -182,7 +181,6 @@ const SNACKBAR_TS = featureTs('snackbar');
 const SUBJECT_NAV_TS = featureTs('subject-nav');
 const TOUR_TS = featureTs('tour');
 const UPDATE_TS = featureTs('update');
-const VERSIONS_TS = featureTs('versions');
 
 const FIXTURE = `import { helperA as sharedHelperA } from './helper-a.js';
 import { CONST_B } from './const-b.js';
@@ -1456,7 +1454,6 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'switcher.ts': ['switcherJs'],
     'tour.ts': ['tourJs'],
     'update.ts': ['updateJs'],
-    'versions.ts': ['versionsJs'],
   };
 
   it('discovers every web/features module by name, with no shell.ts edit and no index renumbering needed when a new module is inserted', () => {
@@ -1652,10 +1649,6 @@ describe('discoverFeatureModules against the real src/web/features directory —
     const directTourManifest = buildAssemblyManifest(tourSource, TOUR_TS, ['tourJs']);
     const updateSource = readFileSync(UPDATE_TS, 'utf8');
     const directUpdateManifest = buildAssemblyManifest(updateSource, UPDATE_TS, ['updateJs']);
-    const versionsSource = readFileSync(VERSIONS_TS, 'utf8');
-    const directVersionsManifest = buildAssemblyManifest(versionsSource, VERSIONS_TS, [
-      'versionsJs',
-    ]);
     expect(manifest.directoryPath).toBe(FEATURES_DIR);
     expect(manifest.modules).toEqual([
       directActivityHeatmapManifest,
@@ -1703,7 +1696,6 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directSwitcherManifest,
       directTourManifest,
       directUpdateManifest,
-      directVersionsManifest,
     ]);
   });
 
@@ -2049,7 +2041,6 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source).toContain("import { switcherJs } from './switcher.js';");
     expect(source).toContain("import { tourJs } from './tour.js';");
     expect(source).toContain("import { updateJs } from './update.js';");
-    expect(source).toContain("import { versionsJs } from './versions.js';");
     expect(source.indexOf("'./activity-heatmap.js'")).toBeLessThan(
       source.indexOf("'./activity.js'"),
     );
@@ -2121,9 +2112,8 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./subject-nav.js'")).toBeLessThan(source.indexOf("'./switcher.js'"));
     expect(source.indexOf("'./switcher.js'")).toBeLessThan(source.indexOf("'./tour.js'"));
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
-    expect(source.indexOf("'./update.js'")).toBeLessThan(source.indexOf("'./versions.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, collaborationJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs, versionsJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, collaborationJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -3617,28 +3607,6 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     expect(reassembled).toBe(roundPanelJs());
   });
 
-  /** versionsJs's own reconstruction, from its real file under web/features/
-   *  — roundPanelJs's shape: one relative-import splice (versionRows from
-   *  ../versions-panel.js), resolved against web/features/, no other slots. */
-  async function reconstructVersionsJs(): Promise<string> {
-    const versionsSource = readFileSync(VERSIONS_TS, 'utf8');
-    const spliceEntries = findSpliceManifest(versionsSource, VERSIONS_TS);
-    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
-    return (
-      await assembleFunctionFromManifest(
-        versionsSource,
-        'versionsJs',
-        resolvedBindings,
-        undefined,
-        VERSIONS_TS,
-      )
-    ).trim();
-  }
-
-  it('versionsJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/versions.ts', async () => {
-    expect(await reconstructVersionsJs()).toBe(versionsJs());
-  });
-
   /**
    * processHealthJs's own reconstruction, from its real file under
    * web/features/. Like roundPanelJs, it carries real relative-import splices
@@ -4403,7 +4371,6 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('subjectNavJs', await reconstructSubjectNavJs());
     nestedOutputs.set('tourJs', await reconstructTourJs());
     nestedOutputs.set('updateJs', await reconstructUpdateJs());
-    nestedOutputs.set('versionsJs', await reconstructVersionsJs());
     // featureModulesJs() (web/features/index.ts, generated) is
     // `FEATURE_MODULE_FUNCTIONS.map((fn) => fn()).join('\n')` — the same join,
     // over the same already-reconstructed outputs, in the same directory

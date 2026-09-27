@@ -792,24 +792,6 @@ const EN_STRINGS = {
   docsEditToggle: 'Edit',
   docsEditSave: 'Save',
   docsEditCancel: 'Cancel',
-  // web/features/versions.ts (board ap-mui2h3s1-1): the VERSIONS panel — the
-  // locked repo's MYTH, LEGACY and flight log, and what each version changed.
-  versionsTitle: 'Versions',
-  versionsLoading: 'Loading versions…',
-  versionsUnavailable: 'Versions unavailable.',
-  versionsNotLocked:
-    'Not locked yet. Locking records MYTH (the original) and LEGACY (the lock-on baseline), and the flight log starts there.',
-  versionsTruncated: 'Showing the newest {count} flight versions.',
-  versionsMyth: 'MYTH · original',
-  versionsLegacy: 'LEGACY · lock-on',
-  versionsFlight: 'Flight',
-  versionsShowChanges: 'What changed',
-  versionsHideChanges: 'Hide changes',
-  versionsDiffUnavailable: 'Changes unavailable.',
-  versionsDiffEmpty: 'No files changed.',
-  versionsDiffTotal: 'Files changed: {files} · +{added} −{removed}',
-  versionsDiffTruncated: 'Showing the first {count} files.',
-  versionsBinary: 'binary',
   // web/features/round-panel.ts (board web-msnsndki-dz3vn1): the CURRENT
   // ROUND panel's own literal text — title, loading/unavailable states, and
   // the "no release tags yet" fallback.
@@ -2383,22 +2365,6 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     docsEditToggle: 'עריכה',
     docsEditSave: 'שמירה',
     docsEditCancel: 'ביטול',
-    versionsTitle: 'גרסאות',
-    versionsLoading: 'טוען גרסאות…',
-    versionsUnavailable: 'הגרסאות אינן זמינות.',
-    versionsNotLocked:
-      'הפרויקט עדיין לא נעול. הנעילה רושמת את MYTH (המקור) ואת LEGACY (בסיס הנעילה), ויומן הטיסה מתחיל משם.',
-    versionsTruncated: 'מוצגות {count} גרסאות הטיסה החדשות ביותר.',
-    versionsMyth: 'MYTH · המקור',
-    versionsLegacy: 'LEGACY · נעילה',
-    versionsFlight: 'טיסה',
-    versionsShowChanges: 'מה השתנה',
-    versionsHideChanges: 'הסתרת השינויים',
-    versionsDiffUnavailable: 'השינויים אינם זמינים.',
-    versionsDiffEmpty: 'אף קובץ לא השתנה.',
-    versionsDiffTotal: 'קבצים שהשתנו: {files} · +{added} −{removed}',
-    versionsDiffTruncated: 'מוצגים {count} הקבצים הראשונים בלבד.',
-    versionsBinary: 'בינארי',
     roundTitle: 'הסבב הזה',
     roundLoading: 'טוען סיכומי סבב…',
     roundUnavailable: 'סיכומי הסבב אינם זמינים.',
