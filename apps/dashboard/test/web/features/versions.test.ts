@@ -14,7 +14,12 @@ import axe from 'axe-core';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../../src/web/shell.js';
 import { versionsJs } from '../../../src/web/features/versions.js';
-import { versionRows, type VersionRowTimeline } from '../../../src/web/versions-panel.js';
+import {
+  versionRows,
+  versionRestoreConfirmMessage,
+  versionRestoreResultMessage,
+  type VersionRowTimeline,
+} from '../../../src/web/versions-panel.js';
 
 vi.setConfig({ testTimeout: 120_000 });
 
@@ -76,9 +81,73 @@ describe('versionRows', () => {
   });
 });
 
+/** A minimal `tr(key, subs)` over the real English table — the pure
+ *  message-composing functions below are tested against real STRINGS text,
+ *  not a stand-in, so a copy/paste slip in either the key or its
+ *  `{placeholder}` would fail here rather than only in the served bundle. */
+function trEn(key: string, subs?: Readonly<Record<string, string | number>>): string {
+  let text: string = (STRINGS.en as Record<string, string>)[key] ?? key;
+  if (subs) for (const [k, v] of Object.entries(subs)) text = text.replace(`{${k}}`, String(v));
+  return text;
+}
+
+describe('versionRestoreConfirmMessage', () => {
+  it('names the short sha', () => {
+    expect(versionRestoreConfirmMessage({ sha: sha('a') }, trEn)).toBe(
+      trEn('versionsRestoreConfirm', { sha: 'aaaaaaa' }),
+    );
+  });
+});
+
+describe('versionRestoreResultMessage', () => {
+  it('names the new branch on a clean restore', () => {
+    const result = versionRestoreResultMessage(
+      { restore: { ok: true, branch: 'autopilot/restore/x', sha: sha('a'), reason: null } },
+      trEn,
+    );
+    expect(result).toEqual({
+      ok: true,
+      text: trEn('versionsRestoreSuccess', { branch: 'autopilot/restore/x' }),
+    });
+  });
+
+  it('relays the refusal reason restoreVersion gives for a 409', () => {
+    const result = versionRestoreResultMessage(
+      {
+        restore: {
+          ok: false,
+          branch: null,
+          sha: null,
+          reason: 'no such version in this repository',
+        },
+      },
+      trEn,
+    );
+    expect(result).toEqual({ ok: false, text: 'no such version in this repository' });
+  });
+
+  it('relays the route error when the restore endpoint was never reached', () => {
+    const result = versionRestoreResultMessage({ error: 'a project id is required' }, trEn);
+    expect(result).toEqual({ ok: false, text: 'a project id is required' });
+  });
+
+  it('falls back to a generic failure for a missing or empty body', () => {
+    expect(versionRestoreResultMessage(null, trEn)).toEqual({
+      ok: false,
+      text: trEn('versionsRestoreFailed'),
+    });
+    expect(versionRestoreResultMessage({}, trEn)).toEqual({
+      ok: false,
+      text: trEn('versionsRestoreFailed'),
+    });
+  });
+});
+
 describe('versionsJs', () => {
-  it('embeds versionRows real compiled source via .toString()', () => {
+  it('embeds versionRows/versionRestoreConfirmMessage/versionRestoreResultMessage real compiled source via .toString()', () => {
     expect(versionsJs()).toContain(versionRows.toString());
+    expect(versionsJs()).toContain(versionRestoreConfirmMessage.toString());
+    expect(versionsJs()).toContain(versionRestoreResultMessage.toString());
   });
 });
 
@@ -129,21 +198,34 @@ interface Routes {
   versions?: unknown;
   versionsOk?: boolean;
   diffs?: Array<{ ok: boolean; diff?: unknown }>;
+  restores?: unknown[];
 }
+
+/** Every `{project, sha}` body a restore POST sent, in order. */
+const restoreRequests: Array<{ project: string; sha: string }> = [];
 
 /** Boots the real bundle on project p1; returns every URL it fetched. */
 function boot(routes: Routes): string[] {
   const urls: string[] = [];
   const diffs = [...(routes.diffs ?? [])];
+  const restores = [...(routes.restores ?? [])];
+  restoreRequests.length = 0;
   document.open();
   document.write(renderShell('p1'));
   document.close();
-  globalThis.fetch = vi.fn(async (input: unknown) => {
+  globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
     const url = String(input);
     urls.push(url);
     if (url.startsWith('/api/versions/diff')) {
       const next = diffs.shift() ?? { ok: false };
       return { ok: next.ok, json: async () => ({ diff: next.diff ?? null }) };
+    }
+    if (url.startsWith('/api/versions/restore')) {
+      restoreRequests.push(JSON.parse(String(init?.body ?? '{}')));
+      const body = restores.shift() ?? {
+        restore: { ok: true, branch: 'autopilot/restore/x', sha: null, reason: null },
+      };
+      return { ok: true, json: async () => body };
     }
     if (url.startsWith('/api/versions')) {
       return {
@@ -165,11 +247,33 @@ function firstToggle(): HTMLButtonElement {
   return panel().querySelector('.version-row .diff-toggle') as HTMLButtonElement;
 }
 
+function restoreButtons(): HTMLButtonElement[] {
+  return [...panel().querySelectorAll('.version-restore-btn')] as HTMLButtonElement[];
+}
+
+function snackTexts(): string[] {
+  const host = document.getElementById('snackbar-host') as HTMLElement;
+  return [...host.querySelectorAll('.snack')].map(
+    (n) => n.querySelector('.snack-text')?.textContent ?? '',
+  );
+}
+
+function snackKinds(): string[] {
+  const host = document.getElementById('snackbar-host') as HTMLElement;
+  return [...host.querySelectorAll('.snack')].map(
+    (n) => n.className.match(/snack-(ok|err)/)?.[1] ?? '',
+  );
+}
+
 describe('the VERSIONS panel in the served bundle', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    // applyLocale() persists the switch to localStorage (ADR 0012); without
+    // clearing it here, the Hebrew tests below leak the locale into every
+    // later boot() in this file, since the client reads it back on load.
+    localStorage.clear();
   });
 
   it('draws MYTH, LEGACY and the flight log newest first in the Data tab', async () => {
@@ -288,6 +392,129 @@ describe('the VERSIONS panel in the served bundle', () => {
     expect(panel().querySelector('.version-kind')?.textContent).toBe(STRINGS.he.versionsFlight);
     expect(firstToggle().textContent).toBe(STRINGS.he.versionsHideChanges);
     expect(panel().querySelector('.version-diff p')?.textContent).toBe('קבצים שהשתנו: 2 · +3 −1');
+  });
+
+  it('offers Restore on every row, including MYTH, the oldest', async () => {
+    boot({ versions: TIMELINE });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const buttons = restoreButtons();
+    expect(buttons).toHaveLength(4);
+    expect(buttons.every((b) => b.textContent === 'Restore')).toBe(true);
+    // MYTH has no diff-toggle (nothing older to compare it with) but still
+    // gets its own Restore button — the restore floor applies to every row.
+    const mythRow = [...panel().querySelectorAll('.version-row')].find((r) =>
+      r.querySelector('.version-kind')?.textContent?.includes('MYTH'),
+    ) as HTMLElement;
+    expect(mythRow.querySelector('.diff-toggle')).toBeNull();
+    expect(mythRow.querySelector('.version-restore-btn')).not.toBeNull();
+  });
+
+  it('does nothing when the restore confirm is declined', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const urls = boot({ versions: TIMELINE });
+    await vi.advanceTimersByTimeAsync(1);
+
+    restoreButtons()[0]!.click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(urls.filter((u) => u.startsWith('/api/versions/restore'))).toHaveLength(0);
+    expect(snackTexts()).toEqual([]);
+  });
+
+  it('confirms, POSTs {project, sha}, and snacks the new branch on a clean restore', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const urls = boot({
+      versions: TIMELINE,
+      restores: [
+        {
+          restore: {
+            ok: true,
+            branch: 'autopilot/restore/dddddd0-123',
+            sha: TIMELINE.flight[0]!.sha,
+            reason: null,
+          },
+        },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const btn = restoreButtons()[0]!;
+    btn.click();
+    expect(window.confirm).toHaveBeenCalledWith(
+      `Restore version ${TIMELINE.flight[0]!.sha.slice(0, 7)}? This creates a new branch at that commit — MYTH, LEGACY and the flight log all stay exactly where they are.`,
+    );
+    expect(btn.disabled).toBe(true);
+    expect(btn.textContent).toBe('Restoring…');
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(urls.filter((u) => u.startsWith('/api/versions/restore'))).toEqual([
+      '/api/versions/restore',
+    ]);
+    expect(restoreRequests).toEqual([{ project: 'p1', sha: TIMELINE.flight[0]!.sha }]);
+    expect(btn.disabled).toBe(false);
+    expect(btn.textContent).toBe('Restore');
+    expect(snackTexts()).toEqual(['Restored — created branch autopilot/restore/dddddd0-123.']);
+    expect(snackKinds()).toEqual(['ok']);
+  });
+
+  it('snacks the server refusal reason for a 409 restore, and re-enables the button', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    boot({
+      versions: TIMELINE,
+      restores: [
+        {
+          restore: {
+            ok: false,
+            branch: null,
+            sha: null,
+            reason: 'no such version in this repository',
+          },
+        },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const btn = restoreButtons()[0]!;
+    btn.click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(btn.disabled).toBe(false);
+    expect(snackTexts()).toEqual(['no such version in this repository']);
+    expect(snackKinds()).toEqual(['err']);
+  });
+
+  it('snacks a generic failure when the restore request itself fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    boot({ versions: TIMELINE });
+    await vi.advanceTimersByTimeAsync(1);
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error('offline');
+    }) as unknown as typeof fetch;
+
+    const btn = restoreButtons()[0]!;
+    btn.click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(btn.disabled).toBe(false);
+    expect(btn.textContent).toBe('Restore');
+    expect(snackTexts()).toEqual(['Restore failed. Try again shortly.']);
+    expect(snackKinds()).toEqual(['err']);
+  });
+
+  it('translates the Restore button and confirm text into Hebrew', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    boot({ versions: TIMELINE });
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    const btn = restoreButtons()[0]!;
+    expect(btn.textContent).toBe(STRINGS.he.versionsRestore);
+    btn.click();
+    expect(window.confirm).toHaveBeenCalledWith(
+      STRINGS.he.versionsRestoreConfirm.replace('{sha}', TIMELINE.flight[0]!.sha.slice(0, 7)),
+    );
   });
 
   it('is axe-clean in the Data tab with a diff open', async () => {

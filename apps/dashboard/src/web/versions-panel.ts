@@ -54,3 +54,62 @@ export function versionRows(timeline: VersionRowTimeline): VersionRow[] {
     return { ...version, diffFrom };
   });
 }
+
+/** The bundle's `tr(key, subs)`, injected into the two message-composing
+ *  helpers below the same way `pr-review-panel.ts`'s `PrReviewPanelTranslator`
+ *  is — see this file's own module note for why the row model stays pure. */
+export type VersionsPanelTranslator = (
+  key: string,
+  subs?: Readonly<Record<string, string | number>>,
+) => string;
+
+/** `POST /api/versions/restore`'s outcome, `flight/version-restore.ts`'s
+ *  `RestoreOutcome` as `server/versions-route.ts` answers it: `restore` on a
+ *  200/409, `error` on every other status (400/404/413/415/429/503). */
+export interface VersionRestoreResponse {
+  readonly restore?: {
+    readonly ok: boolean;
+    readonly branch: string | null;
+    readonly sha: string | null;
+    readonly reason: string | null;
+  };
+  readonly error?: string;
+}
+
+/** The restore button's snack text for one `POST /api/versions/restore`
+ *  response — `ok` picks the snack's kind ('ok' vs 'err'), the same split
+ *  `prReviewExecuteResult`'s className does for its own result line. */
+export interface VersionRestoreResult {
+  readonly ok: boolean;
+  readonly text: string;
+}
+
+/** The one-click restore's confirm dialog (board ap-mui2h3s1-1, slice 6):
+ *  names the short sha so the operator confirms which version, not just that
+ *  something will happen — the same "name what will run" rule
+ *  `prReviewConfirmMessage`/`landingExecuteConfirmMessage` already follow. */
+export function versionRestoreConfirmMessage(
+  row: Pick<VersionRow, 'sha'>,
+  tr: VersionsPanelTranslator,
+): string {
+  return tr('versionsRestoreConfirm', { sha: row.sha.slice(0, 7) });
+}
+
+/** Formats the restore snack: a clean restore names the new branch (the
+ *  operator's own next step is checking it out), a refused one relays
+ *  `restoreVersion`'s own `reason` — already operator-facing prose
+ *  ("not a full commit id", "no such version in this repository") — or the
+ *  route's `error` for a request the restore endpoint never even reached.
+ *  Never both `restore` and `error`, but a missing/malformed body (an
+ *  upstream proxy's own error page, say) still gets a sentence instead of
+ *  a blank snack. */
+export function versionRestoreResultMessage(
+  data: VersionRestoreResponse | null | undefined,
+  tr: VersionsPanelTranslator,
+): VersionRestoreResult {
+  if (data?.restore?.ok) {
+    return { ok: true, text: tr('versionsRestoreSuccess', { branch: data.restore.branch ?? '' }) };
+  }
+  const reason = data?.restore?.reason || data?.error || tr('versionsRestoreFailed');
+  return { ok: false, text: reason };
+}
