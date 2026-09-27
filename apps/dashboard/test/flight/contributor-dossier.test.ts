@@ -257,6 +257,22 @@ describe('KEEPER dossier reads — malformed gh payload edge branches (regressio
     expect(facts.dcoTotalChecked).toBe(0);
   });
 
+  it('skips a null or non-object merged PR row without losing the rows after it', async () => {
+    const exec = execWith({}, [
+      null,
+      'stray',
+      { title: 'After the null', commits: [{ messageBody: 'Signed-off-by: A <a@example.com>' }] },
+      { title: 'Last', commits: [{ messageBody: 'no trailer' }] },
+    ]);
+
+    const facts = await fetchContributorFacts('nullrow', exec);
+
+    expect(facts.mergedPrCount).toBe(2);
+    expect(facts.mergedPrTitles).toEqual(['After the null', 'Last']);
+    expect(facts.dcoCleanCount).toBe(1);
+    expect(facts.dcoTotalChecked).toBe(2);
+  });
+
   it('counts a merged PR whose commits field is missing or not an array, with zero DCO-checkable commits', async () => {
     const exec = execWith({}, [
       { title: 'No commits field' },
@@ -289,23 +305,6 @@ describe('KEEPER dossier reads — malformed gh payload edge branches (regressio
 
     expect(facts.dcoTotalChecked).toBe(3);
     expect(facts.dcoCleanCount).toBe(1);
-  });
-
-  it('skips a null or non-object merged PR row without losing the rows after it', async () => {
-    const signed = { messageBody: 'Signed-off-by: A <a@example.com>' };
-    const exec = execWith({}, [
-      { title: 'First', commits: [signed] },
-      null,
-      'stray',
-      { title: 'Second', commits: [signed] },
-    ]);
-
-    const facts = await fetchContributorFacts('holey', exec);
-
-    expect(facts.mergedPrCount).toBe(2);
-    expect(facts.mergedPrTitles).toEqual(['First', 'Second']);
-    expect(facts.dcoCleanCount).toBe(2);
-    expect(facts.dcoTotalChecked).toBe(2);
   });
 });
 
