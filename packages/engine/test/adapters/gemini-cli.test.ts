@@ -497,4 +497,51 @@ describe('GeminiCliModel', () => {
     expect(res.sessionId).toBeNull();
     expect(res.stdout).toBe('');
   });
+
+  it('ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2): tracks the child pid on spawn, untracks it once settled', async () => {
+    mockExecFileResult(null, '');
+    const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
+
+    await new GeminiCliModel({ repo: '/work/sbx', pidRegistry }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(pidRegistry.track).toHaveBeenCalledWith(4321);
+    expect(pidRegistry.untrack).toHaveBeenCalledWith(4321);
+  });
+
+  it('untracks the child pid on an error exit too', async () => {
+    mockExecFileResult(Object.assign(new Error('exit 55'), { code: 55 }), '', '');
+    const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
+
+    await new GeminiCliModel({ repo: '/work/sbx', pidRegistry }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(pidRegistry.untrack).toHaveBeenCalledWith(4321);
+  });
+
+  it('never touches the pid registry when none was configured', async () => {
+    mockExecFileResult(null, '');
+
+    await expect(
+      new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it'),
+    ).resolves.toBeDefined();
+  });
+
+  it('neither tracks nor untracks a child that never got a pid — there is nothing to hand the registry', async () => {
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      queueMicrotask(() =>
+        cb(Object.assign(new Error('spawn gemini ENOENT'), { code: 'ENOENT' }), '', ''),
+      );
+      return {}; // spawn failed before a pid existed
+    });
+    const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
+
+    const res = await new GeminiCliModel({ repo: '/work/sbx', pidRegistry }).invoke(
+      'gemini-2.5-pro',
+      'do it',
+    );
+
+    expect(res.exitCode).toBe(1);
+    expect(pidRegistry.track).not.toHaveBeenCalled();
+    expect(pidRegistry.untrack).not.toHaveBeenCalled();
+  });
 });

@@ -196,6 +196,14 @@ export interface GeminiCliOptions {
    * `trustedFolders.json`), never a silent default here.
    */
   readonly trustWorkspace?: boolean;
+  /** ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2), containment
+   *  parity with `ClaudeCliModel` before this adapter is wired into routing
+   *  (epic 0036): persists the child's pid for the duration of the
+   *  invocation so a crash-path sweep can still reap it if THIS process dies
+   *  before the normal settle callback (below) untracks it. Structurally
+   *  typed — any `CliDescendantRegistry` satisfies this without an import
+   *  cycle, same as `ClaudeCliOptions.pidRegistry`. */
+  readonly pidRegistry?: { track: (pid: number) => void; untrack: (pid: number) => void };
 }
 
 /**
@@ -215,8 +223,12 @@ export interface GeminiCliOptions {
  *
  * Transport mirrors `CodexCliModel`'s: buffered `execFile`, `detached: true`
  * plus {@link reapCliDescendants} (ORPHAN SWEEP), no idle timeout, no streaming, no
- * resume-retry-on-failure. Never rejects: a spawn failure resolves the same "no
- * envelope" shape an abnormal exit gets.
+ * resume-retry-on-failure — but DOES carry `ClaudeCliModel`'s crash-path
+ * {@link GeminiCliOptions.pidRegistry} tracking (containment parity, board
+ * ap-mt2ukjg5-2), added ahead of this adapter's routing wiring so a lane
+ * flown on it is never a containment regression from day one. Never
+ * rejects: a spawn failure resolves the same "no envelope" shape an
+ * abnormal exit gets.
  */
 export class GeminiCliModel implements ModelPort {
   constructor(private readonly opts: GeminiCliOptions) {}
@@ -254,6 +266,7 @@ export class GeminiCliModel implements ModelPort {
         execOpts as ExecFileOptions & { encoding: 'utf8' },
         (err, stdout, stderr) => {
           reapCliDescendants(child.pid);
+          if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
           // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
           // real exit code; a spawn failure or timeout kill has none, so it reads as 1.
           const exitCode =
@@ -265,6 +278,7 @@ export class GeminiCliModel implements ModelPort {
           resolve(parseGeminiJsonOutput(stdout ?? '', exitCode, model, stderr ?? ''));
         },
       );
+      if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
       // A CLI that exits before reading its stdin (bad flag, untrusted folder)
       // breaks the pipe; unheard, that EPIPE would crash the host rather than
       // reach the callback above, which already reports the exit.
