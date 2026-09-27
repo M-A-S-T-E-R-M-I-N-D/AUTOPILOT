@@ -66,13 +66,14 @@ export const PR_SEARCH_ARGS: readonly string[] = [
   'number,state',
 ];
 
-/** How many rows a `gh search … --json` answer holds, or 0 for anything
- *  that is not a JSON array of objects. */
-function rows(stdout: string | undefined): readonly { state?: string }[] {
+/** The rows a `gh search … --json` answer holds, or none for anything that
+ *  is not a JSON array. A row that is not an object (a `null`, a number)
+ *  still counts, with its `state` reading as absent. */
+function rows(stdout: string | undefined): readonly ({ state?: string } | null)[] {
   if (stdout === undefined) return [];
   try {
     const parsed: unknown = JSON.parse(stdout);
-    return Array.isArray(parsed) ? (parsed as { state?: string }[]) : [];
+    return Array.isArray(parsed) ? (parsed as ({ state?: string } | null)[]) : [];
   } catch {
     return [];
   }
@@ -94,6 +95,6 @@ export function readContributions(
   return {
     hasIssue: rows(issuesStdout).length > 0,
     hasPr: prRows.length > 0,
-    hasMergedPr: prRows.some((row) => String(row.state ?? '').toLowerCase() === 'merged'),
+    hasMergedPr: prRows.some((row) => String(row?.state ?? '').toLowerCase() === 'merged'),
   };
 }

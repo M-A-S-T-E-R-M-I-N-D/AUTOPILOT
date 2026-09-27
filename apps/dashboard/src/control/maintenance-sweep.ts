@@ -70,11 +70,13 @@ export function dependabotPrBacklog(run: GhRun = defaultGhRun): DependabotBacklo
     return { ok: true, detail: 'could not parse gh pr list output' };
   }
   if (!Array.isArray(parsed)) return { ok: true, detail: 'could not parse gh pr list output' };
-  const prs = parsed as readonly RawDependabotPr[];
+  // A null row is still a row: it counts toward the backlog and prints as
+  // `#?`, the same as a row whose number gh left unreadable.
+  const prs = parsed as readonly (RawDependabotPr | null)[];
   if (prs.length === 0) return { ok: true, detail: 'no open dependabot PRs' };
   const numbers = prs
     .slice(0, 3)
-    .map((p) => (typeof p.number === 'number' ? `#${p.number}` : '#?'))
+    .map((p) => (typeof p?.number === 'number' ? `#${p.number}` : '#?'))
     .join(', ');
   const more = prs.length > 3 ? ` (+${prs.length - 3} more)` : '';
   return { ok: false, detail: `${prs.length} open PR(s) waiting for a look: ${numbers}${more}` };

@@ -177,6 +177,19 @@ describe('ciWorkflowStatus', () => {
     expect(status.detail).toContain('could not parse');
   });
 
+  it('reads a null latest row as an unknown run instead of throwing', () => {
+    const status = ciWorkflowStatus('ci.yml', () => JSON.stringify([null]), NOW);
+    expect(status).toEqual({
+      workflow: 'ci.yml',
+      conclusion: null,
+      ageLabel: null,
+      createdAtMs: null,
+      runId: null,
+      ok: true,
+      detail: 'unknown',
+    });
+  });
+
   it('runs the exact read-only gh run list command, never a mutating one', () => {
     const calls: string[][] = [];
     ciWorkflowStatus(

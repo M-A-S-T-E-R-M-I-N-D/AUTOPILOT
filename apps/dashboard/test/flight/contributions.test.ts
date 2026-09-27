@@ -58,6 +58,17 @@ describe('readContributions', () => {
     expect(readContributions('[1,2,3]', '[1]')).toMatchObject({ hasIssue: true, hasPr: true });
   });
 
+  it('reads a null row as a row with no state, never as a throw', () => {
+    // Same stance as the bare non-objects above: the row counts, its state
+    // reads as absent, and the merged PR beside it is still seen.
+    const prs = `[null,{"number":68,"state":"merged"}]`;
+    expect(readContributions('[null]', prs)).toEqual({
+      hasIssue: true,
+      hasPr: true,
+      hasMergedPr: true,
+    });
+  });
+
   it('reads an empty result as no contribution, not as a failure', () => {
     expect(readContributions('[]', '[]')).toEqual(NO_CONTRIBUTIONS);
   });

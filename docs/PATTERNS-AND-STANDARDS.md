@@ -59,6 +59,10 @@
 - **CLDR plural rules** + **ICU MessageFormat**-style interpolation; all UI strings in a catalog, canonical locale total,
   others fall back — the proven internal i18n model, carried.
 - Multilingual model set for Ollama (he/en/zh/ja/ru/es/…), enable/disable, per-task choice.
+- **[`docs/TRANSLATION-DOCTRINE.md`](TRANSLATION-DOCTRINE.md) is binding** for every task that adds
+  or edits a non-English string (UI `STRINGS`, the issue composer's report language, docs
+  translations): native phrasing over literal mapping, load-bearing grammar, authoritative sources
+  over vibes, no invented words, a read-aloud review pass, and RTL-as-grammar.
 
 ## 7. Data & persistence
 - **SQLite** (embedded, zero-config, queryable) for telemetry, tasks, projects, versions index; **append-only event log**

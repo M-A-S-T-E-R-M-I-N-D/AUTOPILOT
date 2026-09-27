@@ -100,6 +100,15 @@ See
 for the incident (a migration landed, reverted for a stale `docs/DATA-MODEL.md`)
 this order exists to prevent.
 
+## Translating or editing a UI string
+
+Adding or editing a non-English string (`packages/tokens/src/strings.ts`, the issue composer's
+report language, docs translations) is bound by
+[`docs/TRANSLATION-DOCTRINE.md`](../docs/TRANSLATION-DOCTRINE.md) — native phrasing beats literal
+mapping, grammar is load-bearing, consult the language's normative authority rather than guessing,
+never invent a word, and read every added string aloud as a native user would meet it before
+calling the slice done. Cite any source consulted for a coined term in the commit body.
+
 ## Claiming work — the shared-task protocol
 
 Direction lives in [`docs/ROADMAP.md`](../docs/ROADMAP.md); the live menu is the

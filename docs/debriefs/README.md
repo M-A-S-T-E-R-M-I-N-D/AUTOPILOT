@@ -13,6 +13,7 @@ hand-edited.
 | Date | Debrief |
 | --- | --- |
 | 2026-09-27 | [Processing `ap-mujcc5sc-strand`: "STRANDED SYNC-BACK … fleet-3 … refusing to sync: the primary checkout has uncommitted changes" — already rescued](2026-09-27-verdict-ap-mujcc5sc-strand-already-rescued.md) |
+| 2026-09-27 | [Processing VERDICT `ap-muj0m9jm-0`: the 134 reverts come down to one missing change, which is already tracked — split refuted](2026-09-27-verdict-ap-muj0m9jm-0-reland-storm-victims-split-refuted.md) |
 | 2026-09-27 | [Processing VERDICT `ap-mtui8t6l-0`: the payload census still takes any `.field` as a read, split confirmed with two live false negatives](2026-09-27-verdict-ap-mtui8t6l-0-payload-census-split-confirmed.md) |
 | 2026-09-27 | [Processing VERDICT `ap-mtt2bjp8-1`: AUTOFORMAT single-writer redesign still needs its own slice — reconfirmed, unchanged since 2026-09-10](2026-09-27-verdict-ap-mtt2bjp8-1-autoformat-single-writer-redesign-reconfirmed.md) |
 | 2026-09-27 | [Processing CLOSED-TASK AUDIT `closedaudit-web-mtd1wyte-ssntzi`: D1 TAB-STOP ROVING is still live, and the tab stops it cut stay cut](2026-09-27-closedaudit-web-mtd1wyte-ssntzi-roving-still-live.md) |

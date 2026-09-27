@@ -35,8 +35,14 @@ in-flight task names the flight instance holding its board claim (the store's
 `assignee`, which `claimTask` sets and sibling lanes pass over) or says no
 flight has claimed it. A task awaiting approval, done or deferred cannot be
 claimed and draws no line; a done task's assignee is who finished it, not a
-lease. Still open in slice 1: the detail as a split pane beside the list from
-`lg`, and its provenance. Slice 2's pure half
+lease. Its provenance followed the same day: right under the id line, one
+sentence says how the task reached the board — triaged from INBOX/, lifted
+from the backlog, filed from the dashboard, proposed by the autopilot, and so
+on for every source the store knows — and it stays when `?hide=source` drops
+the row's chip. A task accepted from a GitHub issue names it (its id is
+`github-<n>`) and, on a project whose origin is on GitHub, links it there.
+Still open in slice 1: the detail as a split pane beside the list from `lg`.
+Slice 2's pure half
 shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
 view — grouping by status, severity or source, and a filter on each — in the
 query string (`?group=severity&status=queued,done`), since the hash already
@@ -72,7 +78,16 @@ board order inside. The heads are list items but not rows, so `j`/`k`, `x`,
 Ctrl+A and the bulk actions pass over them. The columns are a status grouping
 of their own, so a grouped view is a list and offers no columns toggle; it
 offers no drag or ↑/↓ either, since its order is not the board's. Filters and
-Clear keep the grouping. Still open in slice 2: the Focus grouping. Slice 4's pure half shipped
+Clear keep the grouping. The Focus grouping closed the radios 2026-09-27: a
+fifth radio, "focus" (`?group=focus`), puts what to work first at the top —
+the task under the operator's focus lock (the flight works it before anything;
+triage never outranks it), then the proposals awaiting approval (only the
+operator can release them), then the open queue's reds (critical or high),
+then the rest of the open queue, then deferred, then done, board order inside
+each. A group that is one status wears that status's word. The lucky-fit
+scorer (`flight/lucky-fit.ts`) ranks GitHub pool issues against the operator's
+attention, not board rows, so it scores no board task yet; Focus reads the
+signals the flight's own order already rests on. Slice 4's pure half shipped
 2026-09-27, not yet wired: `web/task-bulk.ts` plans approve, reject, done and
 delete over the selection. Each reaches exactly the rows that draw that button
 and plans the request that button already posts — no bulk endpoint, no new

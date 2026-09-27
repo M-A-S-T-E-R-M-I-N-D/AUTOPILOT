@@ -45,7 +45,11 @@ const EXTENSION_MAP: Readonly<Record<string, Language>> = {
 };
 
 export function detectLanguage(path: string): Language {
-  const dot = path.lastIndexOf('.');
-  if (dot === -1) return 'other';
-  return EXTENSION_MAP[path.slice(dot + 1).toLowerCase()] ?? 'other';
+  const slash = path.lastIndexOf('/');
+  const base = path.slice(slash + 1);
+  const dot = base.lastIndexOf('.');
+  // A leading dot (`.gitignore`) is a hidden-file marker, not an extension —
+  // same convention as folder-triage.ts's categorize().
+  if (dot <= 0) return 'other';
+  return EXTENSION_MAP[base.slice(dot + 1).toLowerCase()] ?? 'other';
 }

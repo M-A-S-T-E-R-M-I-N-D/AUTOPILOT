@@ -405,7 +405,15 @@ export class ClaudeCliModel implements ModelPort {
         },
       );
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
-      if (prompt.length > CLI_STDIN_PROMPT_THRESHOLD) child.stdin?.end(prompt);
+      if (prompt.length > CLI_STDIN_PROMPT_THRESHOLD) {
+        // A child that has already exited (or closed its end of the pipe)
+        // turns this write into an EPIPE — an unlistened 'error' event on a
+        // Node stream throws and crashes the whole flight. The execFile
+        // callback above already reports the real outcome via `err`/exit
+        // code, so there is nothing more to do here than stop it propagating.
+        child.stdin?.on('error', () => {});
+        child.stdin?.end(prompt);
+      }
     });
   }
 }
@@ -581,7 +589,12 @@ export class StreamingClaudeCliModel implements ModelPort {
       timers.wallClock = setTimeout(() => killFor('wall-clock'), timeoutMs);
       armIdle();
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
-      if (prompt.length > CLI_STDIN_PROMPT_THRESHOLD) child.stdin?.end(prompt);
+      if (prompt.length > CLI_STDIN_PROMPT_THRESHOLD) {
+        // Same EPIPE guard as ClaudeCliModel.execOnce above — the child's own
+        // `close` handler below already reports the real outcome.
+        child.stdin?.on('error', () => {});
+        child.stdin?.end(prompt);
+      }
       let buffer = '';
       let result: Record<string, unknown> | null = null;
       let stderr = '';

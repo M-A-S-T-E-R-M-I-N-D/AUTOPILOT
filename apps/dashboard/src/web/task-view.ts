@@ -13,7 +13,8 @@
  * `task-queue.ts`'s — which is why every vocabulary sits inside
  * {@link taskViewValues} rather than a module const, and why
  * {@link taskMatchesView}/{@link groupTasksForView} need {@link taskViewKey}
- * and {@link taskViewValues} embedded beside them. The Tasks card's Status,
+ * and {@link taskViewValues} (and the Focus pair, {@link taskFocusKey} and
+ * {@link taskFocusValues}) embedded beside them. The Tasks card's Status,
  * Severity and Source filters are the callers, and its Group radios call
  * {@link groupTasksForView} to draw a counted head over each group. Display options (show/hide row
  * properties, `?hide=cost,dimension`) are modelled at the bottom, apart from
@@ -24,8 +25,9 @@
 /** The three task properties the view header groups and filters by. */
 export type TaskViewProperty = 'status' | 'severity' | 'source';
 
-/** A view's grouping: one of the properties, or a flat list. */
-export type TaskGroupBy = 'none' | TaskViewProperty;
+/** A view's grouping: one of the properties, the Focus order
+ *  ({@link taskFocusKey}), or a flat list. Focus groups but never filters. */
+export type TaskGroupBy = 'none' | TaskViewProperty | 'focus';
 
 /** A tasks-screen view. Each filter lists the values it keeps, in
  *  {@link taskViewValues} order; an empty list filters nothing. */
@@ -41,6 +43,8 @@ export interface TaskViewTask {
   readonly status: string;
   readonly severity?: string | null;
   readonly source?: string | null;
+  /** The operator's WIP-limit-1 focus lock — the Focus grouping reads it. */
+  readonly focus?: unknown;
 }
 
 /** One group of {@link groupTasksForView}'s result: its key (a
@@ -79,6 +83,27 @@ export function taskViewKey(task: TaskViewTask, property: TaskViewProperty): str
 }
 
 /**
+ * The Focus grouping's groups, what to work first at the top: the task under
+ * the operator's focus lock (the flight works it before anything — triage
+ * never outranks it), the proposals only the operator can release, the open
+ * queue's reds, the rest of the open queue, then what waits and what is done.
+ * A group that is one status keeps that status's key, so its head wears the
+ * status word.
+ */
+export function taskFocusValues(): readonly string[] {
+  return ['focused', 'needs_approval', 'urgent', 'next', 'deferred', 'done'];
+}
+
+/** The Focus group `task` falls in: an open (queued or in-flight) task is
+ *  `focused` under the lock, `urgent` when rated critical or high, else
+ *  `next`; any other task is filed by its status, a stale focus flag or not. */
+export function taskFocusKey(task: TaskViewTask): string {
+  if (task.status !== 'queued' && task.status !== 'in_progress') return task.status;
+  if (task.focus) return 'focused';
+  return task.severity === 'critical' || task.severity === 'high' ? 'urgent' : 'next';
+}
+
+/**
  * Reads a view out of `location.search`. Stale-safe like `tabIdFromHash`: an
  * unknown group reads as `none`, unknown filter values are dropped, and a
  * filter may be comma-separated, repeated (`?status=done&status=queued`) or
@@ -97,7 +122,10 @@ export function parseTaskView(search: string): TaskViewState {
   };
   const group = (params.get('group') || '').trim().toLowerCase();
   return {
-    group: group === 'status' || group === 'severity' || group === 'source' ? group : 'none',
+    group:
+      group === 'status' || group === 'severity' || group === 'source' || group === 'focus'
+        ? group
+        : 'none',
     status: kept('status'),
     severity: kept('severity'),
     source: kept('source'),
@@ -137,10 +165,11 @@ export function taskMatchesView(task: TaskViewTask, view: TaskViewState): boolea
 
 /**
  * Splits `tasks` into the view's groups: known values first in
- * {@link taskViewValues} order, then any value the vocabulary does not know
- * yet in first-seen order (a new status never makes a task vanish). Empty
- * groups are left out; tasks keep their board order inside each group. A flat
- * view (`none`) is one group keyed `all`, or no group for no tasks.
+ * {@link taskViewValues} (or {@link taskFocusValues}) order, then any value
+ * the vocabulary does not know yet in first-seen order (a new status never
+ * makes a task vanish). Empty groups are left out; tasks keep their board
+ * order inside each group. A flat view (`none`) is one group keyed `all`, or
+ * no group for no tasks.
  */
 export function groupTasksForView<T extends TaskViewTask>(
   tasks: readonly T[],
@@ -148,9 +177,11 @@ export function groupTasksForView<T extends TaskViewTask>(
 ): TaskViewGroup<T>[] {
   if (group === 'none') return tasks.length ? [{ key: 'all', tasks: tasks.slice() }] : [];
   const buckets = new Map<string, T[]>();
-  for (const key of taskViewValues(group)) buckets.set(key, []);
+  for (const key of group === 'focus' ? taskFocusValues() : taskViewValues(group)) {
+    buckets.set(key, []);
+  }
   for (const task of tasks) {
-    const key = taskViewKey(task, group);
+    const key = group === 'focus' ? taskFocusKey(task) : taskViewKey(task, group);
     const bucket = buckets.get(key);
     if (bucket) bucket.push(task);
     else buckets.set(key, [task]);

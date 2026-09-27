@@ -58,6 +58,24 @@ describe('detectIssues', () => {
     );
   });
 
+  it('flags a Windows Explorer " - Copy" duplicate against its canonical file', () => {
+    // Explorer names an in-folder copy `report - Copy.txt`; the generic
+    // `[-_ ]copy` marker alone strips only " Copy" and looks for `report -.txt`.
+    const snapshot = makeFsSnapshot({
+      files: ['docs/report.txt', 'docs/report - Copy.txt'],
+      contents: {},
+    });
+    expect(detectIssues(snapshot)).toEqual([
+      {
+        kind: 'likely-duplicate',
+        description:
+          '1 likely-duplicate file(s) found (e.g. "report - Copy.txt") — review before deleting.',
+        suggestion:
+          'Move the likely-duplicate file(s) into a _duplicates/ folder for review — do not delete anything unasked.',
+      },
+    ]);
+  });
+
   it('scopes canonical matching to the same directory', () => {
     const snapshot = makeFsSnapshot({
       files: ['a/report.txt', 'b/report (1).txt'],

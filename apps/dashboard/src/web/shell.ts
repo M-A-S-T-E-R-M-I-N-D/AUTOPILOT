@@ -100,6 +100,7 @@ import {
   taskStalenessTip as sharedTaskStalenessTip,
   STALE_TASK_DAYS,
   taskTitleTip as sharedTaskTitleTip,
+  taskProvenanceOf as sharedTaskProvenanceOf,
   taskMoveTip as sharedTaskMoveTip,
   taskFocusTip as sharedTaskFocusTip,
   taskUnpinTip as sharedTaskUnpinTip,
@@ -112,6 +113,8 @@ import {
 import {
   taskViewValues as sharedTaskViewValues,
   taskViewKey as sharedTaskViewKey,
+  taskFocusValues as sharedTaskFocusValues,
+  taskFocusKey as sharedTaskFocusKey,
   parseTaskView as sharedParseTaskView,
   taskViewSearch as sharedTaskViewSearch,
   taskMatchesView as sharedTaskMatchesView,
@@ -2451,6 +2454,8 @@ ${sharedTaskHistoryMoreMeta.toString()}
 // The view functions are generated FROM web/task-view.ts via .toString().
 ${sharedTaskViewValues.toString()}
 ${sharedTaskViewKey.toString()}
+${sharedTaskFocusValues.toString()}
+${sharedTaskFocusKey.toString()}
 ${sharedParseTaskView.toString()}
 ${sharedTaskViewSearch.toString()}
 ${sharedTaskMatchesView.toString()}
@@ -2481,7 +2486,9 @@ var STALE_TASK_DAYS = ${STALE_TASK_DAYS};
 // taskTitleTip/taskMoveTip are generated FROM web/task-queue.ts below (epic
 // 0002 "shell decomposition", slice 2) — their real compiled source via
 // .toString(), not a hand-retyped copy. It can no longer drift apart.
+// taskProvenanceOf joins them for the row detail's provenance (epic 0026).
 ${sharedTaskTitleTip.toString()}
+${sharedTaskProvenanceOf.toString()}
 ${sharedTaskMoveTip.toString()}
 // taskFocusTip/taskActionTip are generated FROM web/task-queue.ts below (epic
 // 0002 "shell decomposition", slice 2) — their real compiled source via
@@ -2652,14 +2659,23 @@ function boardDisplayFieldset(display) {
 }
 // The grouping (?group=) between the filters and Show: one native radio group,
 // so arrow keys move the choice and the fieldset is a single Tab stop.
-var BOARD_GROUP_KEYS = { none: 'boardGroupNone', status: 'boardGroupStatus', severity: 'boardGroupSeverity', source: 'boardGroupSource' };
+var BOARD_GROUP_KEYS = { none: 'boardGroupNone', status: 'boardGroupStatus', severity: 'boardGroupSeverity', source: 'boardGroupSource', focus: 'boardGroupFocus' };
 function boardGroupFieldset(view) {
-  return boardChipFieldset('board-group', 'boardGroup', 'data-task-group', 'group', ['none', 'status', 'severity', 'source'], [view.group], BOARD_GROUP_KEYS, true);
+  return boardChipFieldset('board-group', 'boardGroup', 'data-task-group', 'group', ['none', 'status', 'severity', 'source', 'focus'], [view.group], BOARD_GROUP_KEYS, true);
 }
 // A group's head in the list (epic 0026): a list item that is not a .task
 // row, so j/k, x, Ctrl+A and the bulk actions pass over it; its heading is
-// the group's word and how many tasks the view holds in it.
-var BOARD_GROUP_WORDS = { status: TASK_STATUS_KEYS, severity: TASK_SEVERITY_KEYS, source: TASK_SOURCE_KEYS };
+// the group's word and how many tasks the view holds in it. A Focus group
+// that is one status wears that status's word.
+var TASK_FOCUS_KEYS = {
+  focused: 'taskFocusFocused',
+  needs_approval: 'taskStatusNeedsApproval',
+  urgent: 'taskFocusUrgent',
+  next: 'taskFocusNext',
+  deferred: 'taskStatusDeferred',
+  done: 'taskStatusDone',
+};
+var BOARD_GROUP_WORDS = { status: TASK_STATUS_KEYS, severity: TASK_SEVERITY_KEYS, source: TASK_SOURCE_KEYS, focus: TASK_FOCUS_KEYS };
 function boardGroupHead(group, key, count) {
   var li = el('li', 'task-group');
   var h = el('h4', 'task-group-head');
@@ -2766,6 +2782,27 @@ function taskClaimLine(t) {
   if (t.status !== 'queued' && t.status !== 'in_progress') return null;
   if (t.claimedBy) return taskHistoryText('p', 'task-detail-meta task-detail-claim', 'taskClaimBy', { who: String(t.claimedBy) });
   return taskHistoryText('p', 'task-detail-meta task-detail-claim muted', 'taskClaimNone');
+}
+// A row detail's provenance (epic 0026 slice 1): how the task reached the
+// board, in a sentence the row's one-word source chip only hints at — and it
+// stays when ?hide=source drops that chip. A GitHub task names its issue and,
+// on a project whose origin is on GitHub, links it. The sentence and the link
+// are sibling nodes, since the translateDom() sweep rewrites a tagged node's
+// whole text.
+function taskProvenanceLine(t, githubRepo) {
+  var from = taskProvenanceOf(t.source, t.id, githubRepo);
+  var line = el('p', 'task-detail-meta task-detail-provenance');
+  var args = from.issue === null ? undefined : { n: from.issue };
+  line.appendChild(taskHistoryText('span', null, from.key, args));
+  if (from.url) {
+    line.appendChild(document.createTextNode(' '));
+    var link = taskHistoryText('a', null, 'taskFromGithubOpen', args);
+    link.setAttribute('href', from.url);
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+    line.appendChild(link);
+  }
+  return line;
 }
 // "Showing n of m" (a status line) and the Clear button.
 function boardFilterNote(shown, total) {
@@ -3187,9 +3224,9 @@ function tasksSection(c) {
         li.appendChild(delBtn);
       }
       // The row's read-only detail (epic 0026, Enter): the WHOLE body the
-      // title tip cuts at 240 characters, then the id and age, its claim,
-      // then the firings that worked it — its own line under the row, hidden
-      // until the title opens it.
+      // title tip cuts at 240 characters, then the id and age, where it came
+      // from, its claim, then the firings that worked it — its own line under
+      // the row, hidden until the title opens it.
       var detail = el('div', 'task-detail');
       detail.id = detailId;
       detail.hidden = !boardOpen[t.id];
@@ -3201,6 +3238,7 @@ function tasksSection(c) {
       detailMeta.appendChild(el('code', null, t.id));
       detailMeta.appendChild(document.createTextNode(' · ' + taskTitleTip(t.at, t.priority, fmtAgo).tip));
       detail.appendChild(detailMeta);
+      detail.appendChild(taskProvenanceLine(t, c.githubRepo));
       var claimLine = taskClaimLine(t);
       if (claimLine) detail.appendChild(claimLine);
       detail.appendChild(taskHistorySection(t, c.flightLog));
