@@ -5,9 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0036. Provider parity — more than one engine behind the same invoke port
 
-Status: Draft — research-only slice landed 2026-09-27 (this file). No adapter code yet;
-`ModelPort` still has exactly two live implementations (`ClaudeCliModel`/`StreamingClaudeCliModel`
-and `OllamaModel`).
+Status: In progress — research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
+values in `auth.ts`) landed the same day. `ModelPort` still has exactly two live implementations
+(`ClaudeCliModel`/`StreamingClaudeCliModel` and `OllamaModel`) — Bedrock/Vertex need none, since
+both route through the same `claude` CLI (see row below). No new agentic-CLI adapter (Codex, Gemini,
+Copilot) exists yet.
 
 `docs/ROADMAP.md` §3 (M14, "not started") names the gap directly: AUTOPILOT flies one engine — the
 Claude Code CLI on a personal subscription — and that is both its best property and its largest
@@ -106,8 +108,8 @@ disconnected reference doc that can drift out of sync with it.
 | --- | --- | --- | --- | --- |
 | Claude Code CLI (`ClaudeCliModel`/streaming) | Yes — `--resume`, envelope carries `session_id` | Yes — full loop | Real, from CLI envelope | **Shipped** |
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
-| Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | Not started — `auth.ts` mode only |
-| Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | Not started — `auth.ts` mode only |
+| Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
+| Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
 | OpenAI Codex CLI | Yes — `codex exec resume` | Yes — full loop | **None** — token counts only, no price | Not started |
 | Google Gemini CLI | Partial — resume works, session ID not in JSON output (upstream gap) | Yes — full loop | Yes — usage stats in JSON | Not started |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | Clean stdout XOR usage stats, not both | Not started |
