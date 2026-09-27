@@ -132,10 +132,8 @@ import { handleWhatsNew } from './whats-new-route.js';
 import { handleBenchmark, type BenchmarkApi } from './benchmark-route.js';
 import {
   handleVersionDiff,
-  handleVersionRestore,
   handleVersions,
   type VersionDiffApi,
-  type VersionRestoreApi,
   type VersionsApi,
 } from './versions-route.js';
 import type { WhatsNewApi } from '../read/whats-new.js';
@@ -252,11 +250,6 @@ const LANDING_RATE_WINDOW_MS = 60_000;
 // request, not just a read.
 const RELEASE_RATE_LIMIT = 5;
 const RELEASE_RATE_WINDOW_MS = 60_000;
-// Guards POST /api/versions/restore — a real `git branch` write per request
-// against the project's own repository, not just a read; same
-// heavier-than-a-quota-spend reasoning as LANDING/RELEASE's limiters.
-const VERSION_RESTORE_RATE_LIMIT = 5;
-const VERSION_RESTORE_RATE_WINDOW_MS = 60_000;
 // Guards POST /api/docs/write (epic 0023 slice 3) — same heavier-than-a-
 // quota-spend reasoning as RELEASE's limiter: a real file write to disk per
 // request, not just a read.
@@ -989,10 +982,6 @@ export interface ServerDeps extends RouteDeps {
   /** The Versions screen's diff (ap-mui2h3s1-1, slice 3): the files changed
    *  between two of a project's versions — see `readVersionDiff`. */
   readonly versionDiff?: VersionDiffApi;
-  /** The Versions screen's one-click additive restore (ap-mui2h3s1-1, slice
-   *  5): creates a new branch at a chosen version, never touching an
-   *  existing ref — see `flight/version-restore.ts`'s `restoreVersion`. */
-  readonly versionRestore?: VersionRestoreApi;
   /** Foundation donation addresses (FOUNDATION 1/3, board
    *  web-mtq0rsit-ywz1m7): chain-tagged BTC/EVM/SOL addresses, hidden until
    *  `docs/donations.json` carries a verified entry — see
@@ -3971,10 +3960,6 @@ export function createServer(deps: ServerDeps = {}): Server {
   const sampleLimiter = createRateLimiter(SAMPLE_RATE_LIMIT, SAMPLE_RATE_WINDOW_MS);
   const landingLimiter = createRateLimiter(LANDING_RATE_LIMIT, LANDING_RATE_WINDOW_MS);
   const releaseLimiter = createRateLimiter(RELEASE_RATE_LIMIT, RELEASE_RATE_WINDOW_MS);
-  const versionRestoreLimiter = createRateLimiter(
-    VERSION_RESTORE_RATE_LIMIT,
-    VERSION_RESTORE_RATE_WINDOW_MS,
-  );
   const prReviewLimiter = createRateLimiter(PR_REVIEW_RATE_LIMIT, PR_REVIEW_RATE_WINDOW_MS);
   const poolClientLimiter = createRateLimiter(POOL_CLIENT_RATE_LIMIT, POOL_CLIENT_RATE_WINDOW_MS);
   const issueTriageLimiter = createRateLimiter(
@@ -4343,11 +4328,6 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/versions/diff') {
       void handleVersionDiff(req, res, deps.versionDiff, headers);
-      return;
-    }
-
-    if (path === '/api/versions/restore') {
-      void handleVersionRestore(req, res, deps.versionRestore, headers, versionRestoreLimiter);
       return;
     }
 

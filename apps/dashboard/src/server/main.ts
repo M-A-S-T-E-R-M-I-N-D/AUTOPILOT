@@ -127,7 +127,6 @@ import { createCiStatusApi, createGhRun } from '../control/ci-status.js';
 import { createWhatsNewApi, githubPulse } from '../read/whats-new.js';
 import { readBenchmarkAt } from '../read/benchmark.js';
 import { gitReaderFor, readVersionDiff, readVersions } from '../read/versions.js';
-import { gitRunnerFor, restoreVersion } from '../flight/version-restore.js';
 import { projectRepoOf } from '../flight/project-repo.js';
 import { createDonationsPreviewApi } from '../flight/donations.js';
 import { createUpdateCheckApi, createUpdateExecuteApi } from '../flight/update-check.js';
@@ -893,12 +892,6 @@ const server = createServer({
   versionDiff: (projectId, from, to) => {
     const root = gatherProjectRoot(dbPath, projectId);
     return root === null ? null : readVersionDiff(gitReaderFor(root), from, to);
-  },
-  // ...and the one-click additive restore (slice 5): a new branch at the
-  // chosen version, never touching an existing ref.
-  versionRestore: (projectId, sha) => {
-    const root = gatherProjectRoot(dbPath, projectId);
-    return root === null ? null : restoreVersion(gitRunnerFor(root), sha);
   },
   // WHAT'S NEW (operator, 2026-09-24): this checkout's CHANGELOG section for
   // the running version, its current round, and its GitHub repository.
