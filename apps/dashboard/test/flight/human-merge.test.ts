@@ -350,6 +350,25 @@ describe('createUpdateBranchApi — the way out of the one blocked state that ha
     expect((await createUpdateBranchApi(broken)(34)).updated).toBe(false);
   });
 
+  it.each(['null', '[]', '7'])(
+    'refuses as unreadable — and pushes nothing — when gh view parses to %s, not a PR object',
+    async (stdout) => {
+      const calls: string[][] = [];
+      const odd: CliExec = async (bin, args) => {
+        calls.push([bin, ...args]);
+        return args[1] === 'view' ? { code: 0, stdout } : { code: 0, stdout: '' };
+      };
+
+      const result = await createUpdateBranchApi(odd)(34);
+
+      expect(result).toEqual({
+        updated: false,
+        reason: 'gh returned an unreadable response for #34.',
+      });
+      expect(calls.some((c) => c[2] === 'update-branch')).toBe(false);
+    },
+  );
+
   it('reports honestly — and pushes nothing — when the initial gh view call itself fails', async () => {
     const calls: string[][] = [];
     const unreachable: CliExec = async (bin, args) => {
