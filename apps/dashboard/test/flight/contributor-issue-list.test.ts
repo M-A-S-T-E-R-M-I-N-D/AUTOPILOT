@@ -186,6 +186,29 @@ describe('fetchContributorFacingIssues', () => {
     ]);
   });
 
+  it('skips a null or non-object row instead of throwing away every issue around it', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        null,
+        { number: 1, title: 'Valid', url: 'https://github.com/example/repo/issues/1' },
+        'nope',
+      ]),
+    });
+
+    const issues = await fetchContributorFacingIssues(exec);
+
+    expect(issues).toEqual([
+      {
+        number: 1,
+        title: 'Valid',
+        url: 'https://github.com/example/repo/issues/1',
+        labels: [],
+        assignees: [],
+      },
+    ]);
+  });
+
   it('returns an empty list on a non-zero exit code', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
 

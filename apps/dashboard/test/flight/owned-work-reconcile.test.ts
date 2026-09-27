@@ -93,6 +93,21 @@ describe('fetchAssignedIssues', () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]?.number).toBe(6);
   });
+
+  it('skips a null or non-object row instead of throwing away every assigned issue', async () => {
+    const exec = execFor(
+      [
+        null,
+        { number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' },
+        'nope',
+      ],
+      'octocat',
+    );
+    const issues = await fetchAssignedIssues(exec);
+    expect(issues).toEqual([
+      { number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' },
+    ]);
+  });
 });
 
 describe('planOwnedWorkReconcile', () => {

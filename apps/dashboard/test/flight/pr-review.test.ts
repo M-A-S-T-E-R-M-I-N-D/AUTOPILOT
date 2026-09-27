@@ -6597,6 +6597,28 @@ describe('fetchOpenPrCandidateReport', () => {
     expect(report.candidates[0]?.touchedPaths).toEqual(['docs/README.md']);
   });
 
+  it('skips a null or non-object row instead of rejecting the whole open-PR read', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        null,
+        {
+          number: 7,
+          title: 'docs: fix typo',
+          mergeable: 'MERGEABLE',
+          statusCheckRollup: [{ conclusion: 'SUCCESS' }],
+          files: [{ path: 'docs/README.md' }],
+        },
+        'nope',
+      ]),
+    });
+
+    const report = await fetchOpenPrCandidateReport(exec);
+
+    expect(report.fetchFailed).toBeUndefined();
+    expect(report.candidates.map((c) => c.number)).toEqual([7]);
+  });
+
   it('keeps fetchOpenPrCandidates returning a bare [] on failure — the execute miss path probes that case itself', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 1, stdout: '' });
 

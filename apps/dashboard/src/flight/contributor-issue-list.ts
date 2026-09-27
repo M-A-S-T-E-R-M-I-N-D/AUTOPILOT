@@ -111,8 +111,9 @@ interface RawContributorFacingIssue {
  * {@link planContributorIssueList} classifies client-side, the same
  * fetch-then-classify split `fetchPoolIssues` already uses. Read-only.
  * Returns `[]` on a non-zero exit or unparseable/non-array stdout rather
- * than throwing. Entries missing a numeric `number`, string `title`, or
- * string `url` are dropped rather than passed through malformed.
+ * than throwing. A non-object row (a `null`) and entries missing a numeric
+ * `number`, string `title`, or string `url` are dropped rather than passed
+ * through malformed.
  */
 export async function fetchContributorFacingIssues(
   exec: CliExec,
@@ -135,7 +136,8 @@ export async function fetchContributorFacingIssues(
   }
   if (!Array.isArray(parsed)) return [];
 
-  return (parsed as RawContributorFacingIssue[])
+  return (parsed as unknown[])
+    .filter((raw): raw is RawContributorFacingIssue => typeof raw === 'object' && raw !== null)
     .filter(
       (raw) =>
         typeof raw.number === 'number' &&

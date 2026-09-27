@@ -2759,8 +2759,8 @@ export const MAX_PR_LIST_CANDIDATES = 100;
  * Because `pr-review-execute.ts` re-derives through this same fetch, a
  * draft's number 404s at execute time too, the same convention as an
  * already-merged PR. Only the literal `true` excludes — defensive parsing
- * fails toward reviewing, never toward a silent skip. Entries missing a
- * numeric `number` or string `title` are
+ * fails toward reviewing, never toward a silent skip. A non-object row (a
+ * `null`) and entries missing a numeric `number` or string `title` are
  * dropped rather than passed through malformed; a `mergeable` value other
  * than the literal string `"MERGEABLE"` is treated as not mergeable (the
  * same fail-closed stance `gh`'s own `"UNKNOWN"`/`"CONFLICTING"` values
@@ -2815,7 +2815,8 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
   }
   if (!Array.isArray(parsed)) return { candidates: [], fetchFailed: true };
 
-  const rows = (parsed as RawPr[])
+  const rows = (parsed as unknown[])
+    .filter((raw): raw is RawPr => typeof raw === 'object' && raw !== null)
     .filter((raw) => typeof raw.number === 'number' && typeof raw.title === 'string')
     .filter((raw) => raw.isDraft !== true);
 
