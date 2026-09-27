@@ -1066,7 +1066,18 @@ const EN_STRINGS = {
   // the task title in {name} (data-i18n-aria-template); the status line
   // under the legend counts the set through {n} riding data-i18n-args.
   taskSelectAria: 'Select: {name}',
-  boardSelected: '{n} selected — Esc clears',
+  boardSelected: '{n} selected — Ctrl+K acts on them, Esc clears',
+  // Bulk actions on the selection (epic 0026 slice 4): the command palette's
+  // entries, {n} the rows each reaches; the one confirm before a delete; the
+  // snack once every request has an answer.
+  boardBulkApprove: 'Approve selected ({n})',
+  boardBulkReject: 'Reject selected ({n})',
+  boardBulkDone: 'Mark selected done ({n})',
+  boardBulkDelete: 'Delete selected ({n})',
+  boardBulkDeleteConfirm:
+    'Delete the selected tasks ({n})?\n\nThis removes them from the board entirely.',
+  boardBulkSent: 'Updated {n} of the selected tasks',
+  boardBulkFailed: '{failed} of {n} did not go through — the board shows what changed',
   // A row's read-only detail (epic 0026, Enter) when its task has no body.
   taskDetailEmpty: 'No description.',
   // The view header's Status filter (epic 0026 slice 2): the fieldset's
@@ -2575,7 +2586,14 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardKeysDone: 'בוצע',
     boardKeysLeave: 'יציאה',
     taskSelectAria: 'בחירה: {name}',
-    boardSelected: '{n} נבחרו — Esc מנקה',
+    boardSelected: '{n} נבחרו — Ctrl+K לפעולות, Esc מנקה',
+    boardBulkApprove: 'אישור הנבחרות ({n})',
+    boardBulkReject: 'דחיית הנבחרות ({n})',
+    boardBulkDone: 'סימון הנבחרות כבוצעו ({n})',
+    boardBulkDelete: 'מחיקת הנבחרות ({n})',
+    boardBulkDeleteConfirm: 'למחוק את המשימות הנבחרות ({n})?\n\nפעולה זו מסירה אותן מהלוח לחלוטין.',
+    boardBulkSent: 'עודכנו {n} מהמשימות הנבחרות',
+    boardBulkFailed: '{failed} מתוך {n} לא עברו — הלוח מראה מה השתנה',
     taskDetailEmpty: 'אין תיאור.',
     boardFilterStatus: 'סטטוס',
     boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',

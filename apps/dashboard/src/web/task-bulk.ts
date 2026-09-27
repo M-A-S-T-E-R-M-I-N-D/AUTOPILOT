@@ -25,7 +25,8 @@
  * Pure and DOM-free, written to be embedded via `.toString()` like
  * `task-view.ts`: no module consts, and {@link planTaskBulk} needs
  * {@link taskBulkReaches} embedded beside it ({@link taskBulkChoices} needs
- * both, and {@link taskBulkActions}). No caller embeds it yet.
+ * both, and {@link taskBulkActions}). The command palette
+ * (`features/subject-nav.ts`) embeds all four and sends the plan.
  */
 
 /** A bulk action — one of the row's own buttons. */

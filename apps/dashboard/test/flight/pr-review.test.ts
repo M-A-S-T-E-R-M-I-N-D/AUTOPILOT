@@ -995,7 +995,8 @@ const BENIGN_WEB = new Set([
   // Pure bulk-action planning for the tasks screen's selection (epic 0026
   // slice 4): which selected rows an action reaches and the request each
   // row's OWN button already posts — no new write path, no fetch, no DOM,
-  // no HTML. Not yet spliced into the served bundle.
+  // no HTML. features/subject-nav.ts splices it in via .toString() for the
+  // command palette's bulk actions.
   'task-bulk.ts',
   // Pure geometry/percent/bucketing math for gauges, sparklines, the
   // heatmap, timeline, office map, and tooltip positioning — no dynamic
@@ -1167,9 +1168,13 @@ const BENIGN_WEB_FEATURES = new Set([
   // contributor-standing.ts already stay unflagged for.
   'ci-status.ts',
   'contributor-standing.ts',
-  // subject-nav.ts (epic 0021 app shell): no fetch at all — toggles
-  // `<body data-subject>` and the nav's aria state from clicks, the URL
-  // hash and localStorage; never writes anywhere but the DOM.
+  // subject-nav.ts (epic 0021 app shell): toggles `<body data-subject>` and
+  // the nav's aria state from clicks, the URL hash and localStorage. Its one
+  // fetch is the command palette's bulk actions on the tasks board's
+  // selection (epic 0026 slice 4): POST /api/task/status and
+  // /api/task/delete, the requests each row's own button already sends from
+  // shell.ts, planned by web/task-bulk.ts — no endpoint of its own, delete
+  // confirm-gated, labels and snacks from STRINGS via textContent.
   'subject-nav.ts',
   // prefs.ts (epic 0029 slice 1): no fetch at all — reads/writes one
   // localStorage key and toggles data attributes on <html>; never writes

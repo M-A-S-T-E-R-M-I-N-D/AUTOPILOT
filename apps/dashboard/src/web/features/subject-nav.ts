@@ -25,7 +25,14 @@
  * and so is the localStorage write, so the "hidden"-attribute observer
  * below cannot become a repaint loop under the fleet's poll ticks (epic
  * 0018 law 3).
+ *
+ * The palette also acts on the tasks board's selection (epic 0026 slice 4):
+ * `web/task-bulk.ts` decides which checked rows each action reaches, and a
+ * bulk action sends each of them the request that row's own button posts
+ * (shell.ts) — the module's one write, through no endpoint of its own.
  */
+
+import { planTaskBulk, taskBulkActions, taskBulkChoices, taskBulkReaches } from '../task-bulk.js';
 
 /** The subject-nav client — vanilla, external (keeps CSP script-src 'self'). */
 export function subjectNavJs(): string {
@@ -545,8 +552,50 @@ function paletteText(key, name) {
   if (typeof tr === 'function') return name === undefined ? tr(key) : tr(key, { name: name });
   return name === undefined ? key : key + ' ' + name;
 }
+// THE SELECTION (epic 0026 slice 4): with rows checked on the tasks board,
+// the palette leads with what they can take, read off the rows the list
+// shows. Running one sends each reached row its own button's request, one at
+// a time; only delete asks first, once for the set. A snack says how it went.
+${taskBulkActions.toString()}
+${taskBulkReaches.toString()}
+${planTaskBulk.toString()}
+${taskBulkChoices.toString()}
+var PALETTE_BULK_KEYS = { approve: 'boardBulkApprove', reject: 'boardBulkReject', done: 'boardBulkDone', delete: 'boardBulkDelete' };
+function paletteBulkItems() {
+  var list = document.querySelector('.tasks[data-selecting]');
+  if (!list) return [];
+  var rows = [];
+  var selected = [];
+  Array.prototype.forEach.call(list.querySelectorAll('.task[data-task-id]'), function (row) {
+    var id = row.getAttribute('data-task-id');
+    rows.push({ id: id, status: row.getAttribute('data-task-status') });
+    var box = row.querySelector('[data-task-select]');
+    if (box && box.checked) selected.push(id);
+  });
+  return taskBulkChoices(rows, selected).map(function (choice) {
+    var key = PALETTE_BULK_KEYS[choice.action];
+    return { label: tr(key, { n: choice.count }), run: function () { paletteBulkRun(planTaskBulk(rows, selected, choice.action)); } };
+  });
+}
+function paletteBulkRun(plan) {
+  var n = plan.requests.length;
+  if (plan.confirm && !window.confirm(tr('boardBulkDeleteConfirm', { n: n }))) return;
+  var failed = 0;
+  var sent = Promise.resolve();
+  plan.requests.forEach(function (req) {
+    sent = sent.then(function () {
+      return fetch(req.path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(req.body) })
+        .then(function (res) { if (!res.ok) failed++; }, function () { failed++; });
+    });
+  });
+  sent.then(function () {
+    if (failed) snack(tr('boardBulkFailed', { failed: failed, n: n }), 'err');
+    else snack(tr('boardBulkSent', { n: n }), 'ok');
+    refresh();
+  });
+}
 function paletteCollect() {
-  var items = [];
+  var items = paletteBulkItems();
   subjectLinks().forEach(function (a) {
     var name = (a.textContent || '').trim();
     items.push({ label: paletteText('paletteGoTo', name), run: function () { a.click(); } });
