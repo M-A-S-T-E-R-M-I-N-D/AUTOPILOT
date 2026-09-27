@@ -1126,6 +1126,9 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // priced tokens locally would slip past. Its spawn slice will carry Codex's
   // sandbox argv, the same tool-permission boundary as claude-cli.ts above.
   'engine/src/adapters/codex-cli.ts',
+  // The Gemini CLI driver (epic 0036), flagged for the same reason as Codex:
+  // its parse decides whether a run failed and holds `costUsd` at null.
+  'engine/src/adapters/gemini-cli.ts',
   'engine/src/adapters/worktree.ts',
   // Rung 4's decision core (docs/EVALUATION-2026-09-03-sync-conflict-
   // taxonomy.md): drives an agent-resolved sync-back conflict through
