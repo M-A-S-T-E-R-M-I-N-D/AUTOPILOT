@@ -732,16 +732,18 @@ const EN_STRINGS = {
   soulEditorSubmit: 'Propose edit',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
-  soulProposalSummary: '◇ SOUL proposal pending — review',
+  soulProposalSummary: 'SOUL proposal pending — review',
   soulRatify: '✓ ratify',
   soulDismiss: '✗ dismiss',
   soulUnratify: '↺ un-ratify',
-  // The card head's "◐ SOUL unreviewed" badge-button (shell.ts's
+  // The card head's "SOUL unreviewed" badge-button (shell.ts's
   // soulReviewBtn(), board web-msnsndki-dz3vn1). Its aria-describedby tip
   // stays the English sentence for now — only the visible label rides the
   // [data-i18n] sweep. The fleet-wisdom banner's ✓ ratify / ✗ dismiss pair
-  // reuses soulRatify / soulDismiss above rather than minting twins.
-  soulUnreviewed: '◐ SOUL unreviewed',
+  // reuses soulRatify / soulDismiss above rather than minting twins. Epic
+  // 0025: this label and soulProposalSummary lead with the dna icon, not a
+  // baked ◐/◇ glyph.
+  soulUnreviewed: 'SOUL unreviewed',
   startOver: '↺ Start over',
   prReviewTitle: 'KEEPER PR review',
   prReviewApply: 'Apply',
@@ -2419,11 +2421,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulEditorSubmit: 'הצע עריכה',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
-    soulProposalSummary: '◇ הצעת SOUL ממתינה — יש לסקור',
+    soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
     soulRatify: '✓ אשרר',
     soulDismiss: '✗ בטל',
     soulUnratify: '↺ בטל אשרור',
-    soulUnreviewed: '◐ SOUL לא נסקר',
+    soulUnreviewed: 'SOUL לא נסקר',
     startOver: '↺ התחל מחדש',
     prReviewTitle: 'סקירת PR של KEEPER',
     prReviewApply: 'החל',

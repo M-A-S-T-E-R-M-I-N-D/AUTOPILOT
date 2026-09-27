@@ -1540,6 +1540,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-proposal-summary { font-size: var(--text-xs); color: var(--color-needs-you); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .soul-proposal-summary:hover, .soul-proposal-summary:focus-visible { background: var(--color-surface-raised); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .soul-proposal-summary:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.soul-proposal-summary > .icon, .soul-review-btn > .icon { margin-inline-end: 0.35em; }
 .soul-proposal-text { white-space: pre-wrap; word-break: break-word; font-size: var(--text-xs); max-height: 16rem; overflow: auto; margin: var(--space-2) 0; }
 .soul-proposal-row { display: flex; gap: var(--space-2); }
 .soul-ratify-btn, .soul-dismiss-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); background: transparent; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }

@@ -101,6 +101,23 @@ function emojiBearingStringKeys(): string[] {
     .sort();
 }
 
+/** Geometric Shapes (U+25A0–U+25FF) sit outside EMOJI_PATTERN, yet the SOUL
+ *  cards used ◇/◐/◆ exactly as the epic's ✦/⚑ were used — a glyph standing in
+ *  for an icon — until they took the vendored dna icon (2026-09-27). This
+ *  list may only shrink; the "▶ Step through" replay toggle is what is left. */
+const GEOMETRIC_GLYPH = /[■-◿]/u;
+const GEOMETRIC_GLYPH_KEYS_LEFT = ['en.replayStart', 'he.replayStart'];
+
+function geometricGlyphStringKeys(): string[] {
+  return Object.entries(STRINGS)
+    .flatMap(([locale, table]) =>
+      Object.entries(table)
+        .filter(([, value]) => GEOMETRIC_GLYPH.test(value))
+        .map(([key]) => `${locale}.${key}`),
+    )
+    .sort();
+}
+
 describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => {
   it('reads every locale table, not just the default one', () => {
     expect(Object.keys(STRINGS)).toEqual(expect.arrayContaining(['en', 'he']));
@@ -108,6 +125,10 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
 
   it('bakes no emoji glyph into any locale value', () => {
     expect(emojiBearingStringKeys()).toEqual([]);
+  });
+
+  it('leads with a Geometric Shapes glyph-icon only where the shrink-only list says', () => {
+    expect(geometricGlyphStringKeys()).toEqual(GEOMETRIC_GLYPH_KEYS_LEFT);
   });
 
   it('the lucky roll speaks without its old baked-in clover in either locale', () => {

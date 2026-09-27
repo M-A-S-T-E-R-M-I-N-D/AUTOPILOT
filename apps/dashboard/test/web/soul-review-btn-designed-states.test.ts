@@ -3,7 +3,7 @@
 
 /**
  * Cockpit MX redesign (epic 0005 slice 4, `docs/epics/0005-cockpit-redesign.md`):
- * the "◐ SOUL unreviewed" badge-button (`.soul-review-btn`, shell.ts) shares
+ * the "SOUL unreviewed" badge-button (`.soul-review-btn`, shell.ts) shares
  * the needs-you outline-chip look with `.soul-ratify-btn` but was left out of
  * the SOUL-surface designed-states pass (`soul-designed-states.test.ts`) — it
  * shipped with base + :disabled styling only: no transition, no hover wash, no

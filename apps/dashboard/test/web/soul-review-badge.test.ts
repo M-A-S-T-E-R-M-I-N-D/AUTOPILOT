@@ -84,7 +84,8 @@ describe('SOUL-unreviewed badge on the fleet card', () => {
     expect(btn?.tagName).toBe('BUTTON');
     expect(btn?.getAttribute('data-soul-review')).toBe('p1');
     expect(btn?.getAttribute('data-tip')).toBeTruthy();
-    expect(btn?.textContent).toBe('◐ SOUL unreviewed');
+    expect(btn?.textContent).toBe('SOUL unreviewed');
+    expect(btn?.querySelector('svg.icon-dna')).not.toBeNull();
   });
 
   it('does not duplicate the tip into aria-label — the badge keeps its own short name and rides the full explanation via aria-describedby', async () => {
