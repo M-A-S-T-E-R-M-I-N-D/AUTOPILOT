@@ -1134,6 +1134,11 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'engine/src/adapters/retry-loaded-gate.ts',
   'engine/src/adapters/claude-cli.ts',
   'engine/src/adapters/ollama.ts',
+  // The Codex CLI driver (epic 0036). Its parse decides whether a turn passed
+  // and holds `costUsd` at null; a PR that read a failed turn as a pass or
+  // priced tokens locally would slip past. Its spawn slice will carry Codex's
+  // sandbox argv, the same tool-permission boundary as claude-cli.ts above.
+  'engine/src/adapters/codex-cli.ts',
   'engine/src/adapters/worktree.ts',
   // Rung 4's decision core (docs/EVALUATION-2026-09-03-sync-conflict-
   // taxonomy.md): drives an agent-resolved sync-back conflict through
