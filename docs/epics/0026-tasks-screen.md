@@ -78,7 +78,16 @@ board order inside. The heads are list items but not rows, so `j`/`k`, `x`,
 Ctrl+A and the bulk actions pass over them. The columns are a status grouping
 of their own, so a grouped view is a list and offers no columns toggle; it
 offers no drag or ↑/↓ either, since its order is not the board's. Filters and
-Clear keep the grouping. Still open in slice 2: the Focus grouping. Slice 4's pure half shipped
+Clear keep the grouping. The Focus grouping closed the radios 2026-09-27: a
+fifth radio, "focus" (`?group=focus`), puts what to work first at the top —
+the task under the operator's focus lock (the flight works it before anything;
+triage never outranks it), then the proposals awaiting approval (only the
+operator can release them), then the open queue's reds (critical or high),
+then the rest of the open queue, then deferred, then done, board order inside
+each. A group that is one status wears that status's word. The lucky-fit
+scorer (`flight/lucky-fit.ts`) ranks GitHub pool issues against the operator's
+attention, not board rows, so it scores no board task yet; Focus reads the
+signals the flight's own order already rests on. Slice 4's pure half shipped
 2026-09-27, not yet wired: `web/task-bulk.ts` plans approve, reject, done and
 delete over the selection. Each reaches exactly the rows that draw that button
 and plans the request that button already posts — no bulk endpoint, no new

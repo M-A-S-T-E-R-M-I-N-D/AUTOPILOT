@@ -14,8 +14,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
-function task(id: string, status: string, severity: string | null, source: string) {
-  return { id, title: 'Task ' + id, status, severity, source, focus: false, priority: null, at: 1 };
+function task(id: string, status: string, severity: string | null, source: string, focus = false) {
+  return { id, title: 'Task ' + id, status, severity, source, focus, priority: null, at: 1 };
 }
 
 // Board order g1..g4. By severity: high (g1, g3), low (g4), unrated (g2).
@@ -135,17 +135,18 @@ describe('task view grouping (epic 0026 slice 2: the Group control over ?group=)
     expect(legend.textContent).toBe(STRINGS.en.boardGroup);
     expect(legend.getAttribute('data-i18n')).toBe('boardGroup');
     const radios = Array.from(fieldset.querySelectorAll<HTMLInputElement>('input'));
-    expect(radios.map((r) => r.type)).toEqual(Array(4).fill('radio'));
-    expect(radios.map((r) => r.value)).toEqual(['none', 'status', 'severity', 'source']);
+    expect(radios.map((r) => r.type)).toEqual(Array(5).fill('radio'));
+    expect(radios.map((r) => r.value)).toEqual(['none', 'status', 'severity', 'source', 'focus']);
     // One native radio group: arrow keys move within it, one Tab stop.
     expect(new Set(radios.map((r) => r.name)).size).toBe(1);
     expect(radio('none').name).not.toBe('');
-    expect(radios.map((r) => r.checked)).toEqual([true, false, false, false]);
+    expect(radios.map((r) => r.checked)).toEqual([true, false, false, false, false]);
     expect(radios.some((r) => r.hasAttribute('data-task-filter'))).toBe(false);
     expect(radio('none').closest('label')?.textContent).toBe(STRINGS.en.boardGroupNone);
     expect(radio('status').closest('label')?.textContent).toBe(STRINGS.en.boardGroupStatus);
     expect(radio('severity').closest('label')?.textContent).toBe(STRINGS.en.boardGroupSeverity);
     expect(radio('source').closest('label')?.textContent).toBe(STRINGS.en.boardGroupSource);
+    expect(radio('focus').closest('label')?.textContent).toBe(STRINGS.en.boardGroupFocus);
     // The plain board draws no group head.
     expect(listed()).toEqual(['g1', 'g2', 'g3', 'g4']);
   });
@@ -198,6 +199,62 @@ describe('task view grouping (epic 0026 slice 2: the Group control over ?group=)
       'g4',
     ]);
     expect(radio('status').checked).toBe(true);
+  });
+
+  it('choosing Focus writes ?group=focus and puts what to work first at the top', async () => {
+    await boot('', [
+      task('f1', 'queued', 'low', 'inbox'),
+      task('f2', 'needs_approval', 'high', 'self'),
+      task('f3', 'queued', 'critical', 'dashboard'),
+      task('f4', 'in_progress', 'low', 'inbox', true),
+      task('f5', 'in_progress', 'high', 'self'),
+      task('f6', 'deferred', null, 'backlog'),
+      task('f7', 'done', 'critical', 'inbox'),
+    ]);
+
+    await choose('focus');
+
+    expect(location.search).toBe('?group=focus');
+    // The focus lock, then the operator's decision, then the open queue reds
+    // first — board order inside each — then what waits and what is done.
+    expect(listed()).toEqual([
+      '#' + STRINGS.en.taskFocusFocused + ' 1',
+      'f4',
+      '#' + STRINGS.en.taskStatusNeedsApproval + ' 1',
+      'f2',
+      '#' + STRINGS.en.taskFocusUrgent + ' 2',
+      'f3',
+      'f5',
+      '#' + STRINGS.en.taskFocusNext + ' 1',
+      'f1',
+      '#' + STRINGS.en.taskStatusDeferred + ' 1',
+      'f6',
+      '#' + STRINGS.en.taskStatusDone + ' 1',
+      'f7',
+    ]);
+    expect(radio('focus').checked).toBe(true);
+    const words = Array.from(
+      document.querySelectorAll('ul.tasks > li.task-group h4 [data-i18n]'),
+    ).map((word) => word.getAttribute('data-i18n'));
+    expect(words).toEqual([
+      'taskFocusFocused',
+      'taskStatusNeedsApproval',
+      'taskFocusUrgent',
+      'taskFocusNext',
+      'taskStatusDeferred',
+      'taskStatusDone',
+    ]);
+  });
+
+  it('the Focus radio and its head words follow a locale switch', async () => {
+    await boot('?group=focus');
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    expect(radio('focus').closest('label')?.textContent).toBe(STRINGS.he.boardGroupFocus);
+    expect(document.querySelector('ul.tasks > li.task-group h4 [data-i18n]')?.textContent).toBe(
+      STRINGS.he.taskFocusUrgent,
+    );
   });
 
   it('choosing None gives back the plain URL and the flat list', async () => {
