@@ -363,6 +363,64 @@ describe('task row detail (epic 0026 slice 1: Enter)', () => {
     });
   });
 
+  describe('its claim: the flight instance holding the task', () => {
+    function withClaims() {
+      const state = makeState();
+      const project = state.projects[0]!;
+      project.tasks[0] = {
+        ...project.tasks[0]!,
+        status: 'in_progress',
+        claimedBy: 'fleet-3',
+      } as never;
+      // A done task keeps the assignee it finished under; its lease is over.
+      project.tasks[2] = { ...project.tasks[2]!, claimedBy: 'fleet-2' } as never;
+      project.tasks.push(task('t4', 'Nobody has picked this up', 'queued'));
+      return state;
+    }
+
+    const claimOf = (id: string) => detailOf(id).querySelector('.task-detail-claim');
+
+    it('names the flight holding an open task, and says so when none holds it', async () => {
+      await boot(withClaims());
+
+      titleOf('t1').click();
+      titleOf('t4').click();
+
+      const held = claimOf('t1') as HTMLElement;
+      expect(held.textContent).toBe(STRINGS.en.taskClaimBy.replace('{who}', 'fleet-3'));
+      expect(held.getAttribute('data-i18n-template')).toBe('taskClaimBy');
+      const free = claimOf('t4') as HTMLElement;
+      expect(free.textContent).toBe(STRINGS.en.taskClaimNone);
+      expect(free.getAttribute('data-i18n')).toBe('taskClaimNone');
+      // It sits between the id line and the history.
+      const blocks = [...detailOf('t1').children].map((node) => node.className);
+      expect(blocks.indexOf('task-detail-meta task-detail-claim')).toBe(2);
+      expect(blocks.indexOf('task-detail-history')).toBe(3);
+    });
+
+    it('draws no claim line where no flight can hold one: awaiting approval, or done', async () => {
+      await boot(withClaims());
+
+      titleOf('t2').click();
+      titleOf('t3').click();
+
+      expect(claimOf('t2')).toBeNull();
+      expect(claimOf('t3')).toBeNull();
+      expect(detailOf('t3').textContent).not.toContain('fleet-2');
+    });
+
+    it('translates on a locale switch, the instance kept', async () => {
+      await boot(withClaims());
+      titleOf('t1').click();
+      titleOf('t4').click();
+
+      (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+      expect(claimOf('t1')?.textContent).toBe(STRINGS.he.taskClaimBy.replace('{who}', 'fleet-3'));
+      expect(claimOf('t4')?.textContent).toBe(STRINGS.he.taskClaimNone);
+    });
+  });
+
   it('the legend names Enter as open right after j/k, translated like its neighbours', async () => {
     await boot();
 

@@ -232,30 +232,17 @@ export interface PrReviewCandidate {
    *  excluded), which behaves as false — like every other guard here it can
    *  only narrow a decision toward queue-for-human, never force a merge. */
   readonly reviewChangesRequested?: boolean;
-  /** Bodies of the PR comments the reviewing identity ITSELF has already
-   *  posted (`gh pr list --json comments`, each author compared
-   *  case-insensitively against `gh api user`). A queue-for-human decision
-   *  whose reasoning is already among them plans NO command at all in {@link
-   *  planPrReviewCommands}: the ritual runs pass after pass while a PR waits
-   *  on MASTERMIND, and re-posting the identical verdict comment each pass is
-   *  spam — the sibling issue-triage ritual's re-runs are explicitly
-   *  idempotent for the same reason. Comment-dedup only: it never suppresses
-   *  a request-changes or merge decision, and the reasoning text embeds the
-   *  PR's number/title and the specific verdict, so any changed fact posts a
-   *  fresh comment. Optional: absent means "not assessed" (no own comments,
-   *  or the viewer login was unknown), which behaves as an empty list — the
-   *  dedup can only DROP a redundant comment, never change a decision. */
-  readonly ownComments?: readonly string[];
   /** The body of the STANDING `CHANGES_REQUESTED` review the reviewing
    *  identity ITSELF posted, when that is its latest review on the PR (`gh pr
    *  list --json latestReviews`, author compared case-insensitively against
-   *  `gh api user`). The review-verdict half of the re-run idempotency {@link
-   *  ownComments} carries for queue-for-human comments: a request-changes
+   *  `gh api user`). The ritual's re-run idempotency for review verdicts (a
+   *  queue-for-human posts nothing, so it needs none): a request-changes
    *  decision whose reasoning matches this verbatim plans NO command in
    *  {@link planPrReviewCommands} — the standing review already says exactly
    *  that, and GitHub keeps it active until dismissed or superseded, so
-   *  re-posting it each pass while the author leaves the PR red is the same
-   *  duplicate spam the comment dedup closed. The reasoning embeds the PR's
+   *  re-posting it each pass while the author leaves the PR red would be
+   *  duplicate spam — the sibling issue-triage ritual's re-runs are
+   *  explicitly idempotent for the same reason. The reasoning embeds the PR's
    *  number/title and the specific verdict, so any changed fact posts a fresh
    *  review that supersedes the standing one. Optional: absent means "not
    *  assessed" (no own standing changes-requested review, an empty/garbage
@@ -1846,9 +1833,9 @@ export function planPrReview(
  * judges, and inserting after `@` can never split (or mint) a {@link
  * SECURITY_SENSITIVE_PATH_MARKERS} match since no marker contains `@` — so
  * no verdict can change, only what gets posted. Re-run dedup stays intact
- * because both sides of every comparison are neutralized: fresh reasoning
- * here, and `ownComments`/`ownRequestChangesBody` because the ritual only
- * ever POSTED neutralized text.
+ * because both sides of the comparison are neutralized: fresh reasoning
+ * here, and `ownRequestChangesBody` because the ritual only ever POSTED
+ * neutralized text.
  */
 function neutralizeAtMentions(text: string): string {
   return text.replace(/@(?=[a-z0-9])/gi, '@​');
@@ -2427,13 +2414,12 @@ export function planPrReviewCommands(
   }
 
   if (decision.decision === 'request-changes') {
-    // The review-verdict half of the same re-run idempotency: the ritual's
-    // own standing CHANGES_REQUESTED review stays active on GitHub until
-    // dismissed or superseded, so when it already carries this exact
-    // reasoning there is nothing new to say — re-posting it each pass while
-    // the author leaves the PR red is the same spam the comment dedup above
-    // closes. Any changed fact produces different reasoning and posts a
-    // fresh review that supersedes the standing one. Dedup only against the
+    // Re-run idempotency: the ritual's own standing CHANGES_REQUESTED review
+    // stays active on GitHub until dismissed or superseded, so when it
+    // already carries this exact reasoning there is nothing new to say —
+    // re-posting it each pass while the author leaves the PR red would be
+    // spam. Any changed fact produces different reasoning and posts a fresh
+    // review that supersedes the standing one. Dedup only against the
     // ritual's OWN standing review body, never against comments.
     if (pr.ownRequestChangesBody === decision.reasoning) return [];
     return [
@@ -2634,13 +2620,6 @@ interface RawPrLatestReview {
   readonly body?: unknown;
 }
 
-/** One entry as `gh pr list --json comments` emits it — only its `body` and
- *  its author `login` matter to the queue-for-human comment dedup. */
-interface RawPrComment {
-  readonly author?: unknown;
-  readonly body?: unknown;
-}
-
 /** One entry as `gh pr list --json reviews` emits it — the PR's FULL review
  *  history (first 100, every state), each with its `submittedAt`. Read only
  *  to recover a reviewer's STANDING verdict when `latestReviews` masks it
@@ -2651,7 +2630,7 @@ interface RawPrHistoryReview {
   readonly submittedAt?: unknown;
 }
 
-/** One PR entry as `gh pr list --json number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews,url` emits it. */
+/** One PR entry as `gh pr list --json number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,reviews,url` emits it. */
 interface RawPr {
   readonly number?: unknown;
   readonly title?: unknown;
@@ -2669,7 +2648,6 @@ interface RawPr {
   readonly latestReviews?: unknown;
   readonly isDraft?: unknown;
   readonly autoMergeRequest?: unknown;
-  readonly comments?: unknown;
   readonly reviews?: unknown;
   /** The PR's own GitHub page (`gh pr list --json url`) — display-only. */
   readonly url?: unknown;
@@ -2822,7 +2800,7 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
     '--limit',
     String(MAX_PR_LIST_CANDIDATES),
     '--json',
-    'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,comments,reviews,url',
+    'number,title,author,mergeable,mergeStateStatus,baseRefName,headRefOid,statusCheckRollup,files,labels,changedFiles,additions,deletions,latestReviews,isDraft,autoMergeRequest,reviews,url',
   ]);
   if (code !== 0) return { candidates: [], fetchFailed: true };
 
@@ -2840,18 +2818,14 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
 
   // One `gh api user` spend per fetch, and only when it can matter: some
   // candidate reports an author login to compare against (viewerIsAuthor),
-  // some candidate carries a standing changes-requested review whose author
-  // must be checked against the viewer (reviewChangesRequested), OR some
-  // candidate carries an authored comment the queue-for-human dedup could
-  // match against (ownComments). A failed lookup leaves authorship and the
-  // dedups not-assessed but flags any standing changes-requested review as
+  // OR some candidate carries a standing changes-requested review whose
+  // author must be checked against the viewer (reviewChangesRequested). A
+  // failed lookup leaves authorship and the request-changes dedup
+  // not-assessed but flags any standing changes-requested review as
   // UNVERIFIED instead — every path fails closed toward queue-for-human,
   // never toward a merge (see {@link PrReviewCandidate}).
   const viewerLogin = rows.some(
-    (raw) =>
-      readAuthorLogin(raw.author) !== undefined ||
-      rawHasChangesRequestedReview(raw) ||
-      rawHasAuthoredComment(raw),
+    (raw) => readAuthorLogin(raw.author) !== undefined || rawHasChangesRequestedReview(raw),
   )
     ? await fetchViewerLogin(exec)
     : undefined;
@@ -2883,16 +2857,6 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
       reviewEntries.some((review) => typeof review?.state !== 'string' || review.state === '');
     const authorLogin = readAuthorLogin(raw.author);
     const checkRuns = summarizePrCheckRuns(checks);
-    const ownComments =
-      viewerLogin === undefined
-        ? []
-        : (Array.isArray(raw.comments) ? (raw.comments as RawPrComment[]) : [])
-            .filter(
-              (comment) =>
-                readAuthorLogin(comment.author)?.toLowerCase() === viewerLogin.toLowerCase(),
-            )
-            .map((comment) => comment.body)
-            .filter((body): body is string => typeof body === 'string' && body !== '');
     return {
       number: raw.number as number,
       title: raw.title as string,
@@ -2972,12 +2936,6 @@ export async function fetchOpenPrCandidateReport(exec: CliExec): Promise<PrRevie
       ...(authorLogin !== undefined && viewerLogin !== undefined
         ? { viewerIsAuthor: authorLogin.toLowerCase() === viewerLogin.toLowerCase() }
         : {}),
-      // Present only when the viewer login is known AND the viewer itself
-      // has posted at least one non-empty comment — the queue-for-human
-      // dedup in planPrReviewCommands then skips re-posting an identical
-      // verdict. Absent otherwise (behaves as an empty list; dedup-only,
-      // never a decision input).
-      ...(ownComments.length > 0 ? { ownComments } : {}),
       // Present only when the viewer login is known (so the ritual's OWN
       // request-changes reviews can be excluded — a green PR the KEEPER once
       // flagged must not stall forever on its own stale review) AND some other
@@ -3120,20 +3078,6 @@ function rawHasChangesRequestedReview(raw: RawPr): boolean {
       // Optional chaining: a null entry must read as "not a CR", not throw —
       // the unassessed flag (minted separately) is what fails it closed.
       (review) => review?.state === 'CHANGES_REQUESTED',
-    )
-  );
-}
-
-/** True when `gh pr list --json comments` reports at least one comment with
- *  an author login — the cheap pre-scan that decides whether the one `gh api
- *  user` viewer lookup is worth spending for the queue-for-human comment
- *  dedup on a batch that reports no PR authors and no changes-requested
- *  review. */
-function rawHasAuthoredComment(raw: RawPr): boolean {
-  return (
-    Array.isArray(raw.comments) &&
-    (raw.comments as RawPrComment[]).some(
-      (comment) => readAuthorLogin(comment.author) !== undefined,
     )
   );
 }

@@ -11,6 +11,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import {
+  GitHeadReader,
+  detectContainmentBreaches,
+  guardedPathsFor,
+  snapshotGuardedHeads,
+} from '@autopilot/engine';
 import { openStore, migrate, type Store } from '@autopilot/store';
 import {
   ROUND_EVALUATION_EVENT,
@@ -199,6 +206,35 @@ describe('writing a round', () => {
     expect(out).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
     expect(git(['log', '--oneline'])).not.toContain('docs(evaluation)');
     expect(events()).toEqual([expect.objectContaining({ docPath: null })]);
+  });
+
+  it("moves target's guarded HEAD — the containment guard must re-baseline after it (ap-mujbi75g-0)", () => {
+    // Under worktree isolation target is a guarded path (the lane's own
+    // worktree is not), so the flight's final containment check sees this
+    // first-party commit as a guarded HEAD moving unless fly.ts re-snapshots.
+    setEvaluationDocs(store, 'p1', true, 1);
+    const reader = new GitHeadReader();
+    const guardedPaths = guardedPathsFor(join(dir, 'lane-worktree'), [repo]);
+    const before = snapshotGuardedHeads(reader, guardedPaths);
+    run();
+    expect(detectContainmentBreaches(reader, before)).toEqual([
+      expect.objectContaining({ repoPath: repo }),
+    ]);
+    const rebaselined = snapshotGuardedHeads(reader, guardedPaths);
+    expect(detectContainmentBreaches(reader, rebaselined)).toEqual([]);
+  });
+});
+
+describe('the round evaluation and the containment guard (fly.ts census)', () => {
+  const flySource = readFileSync(
+    fileURLToPath(new URL('../../src/fly.ts', import.meta.url)),
+    'utf8',
+  );
+
+  it('settles the guard before the round ends, then re-baselines once this lane evaluated it', () => {
+    expect(flySource).toMatch(
+      /\n\s*checkContainment\(\);\n\s*const roundEnd = await endRound\(\{[\s\S]*?\}\);\n\s*if \(roundEnd === 'evaluated'\) \{\n(?:\s*\/\/[^\n]*\n)*\s*guarded = snapshotGuardedHeads\(headReader, guardedPathsFor\(flightRoot, guardCandidates\)\);/,
+    );
   });
 });
 

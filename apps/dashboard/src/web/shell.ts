@@ -2749,6 +2749,15 @@ function taskHistorySection(t, log) {
   }
   return box;
 }
+// A row detail's claim (epic 0026 slice 1): on a queued or in-flight task,
+// the flight instance holding its board claim, or that none holds it. No
+// flight can claim a task awaiting approval, done or deferred, so those draw
+// no line; a done task's assignee is who finished it, not a live lease.
+function taskClaimLine(t) {
+  if (t.status !== 'queued' && t.status !== 'in_progress') return null;
+  if (t.claimedBy) return taskHistoryText('p', 'task-detail-meta task-detail-claim', 'taskClaimBy', { who: String(t.claimedBy) });
+  return taskHistoryText('p', 'task-detail-meta task-detail-claim muted', 'taskClaimNone');
+}
 // "Showing n of m" (a status line) and the Clear button.
 function boardFilterNote(shown, total) {
   var p = el('p', 'board-filter-note muted');
@@ -3169,9 +3178,9 @@ function tasksSection(c) {
         li.appendChild(delBtn);
       }
       // The row's read-only detail (epic 0026, Enter): the WHOLE body the
-      // title tip cuts at 240 characters, then the id and age, then the
-      // firings that worked it — its own line under the row, hidden until
-      // the title opens it.
+      // title tip cuts at 240 characters, then the id and age, its claim,
+      // then the firings that worked it — its own line under the row, hidden
+      // until the title opens it.
       var detail = el('div', 'task-detail');
       detail.id = detailId;
       detail.hidden = !boardOpen[t.id];
@@ -3183,6 +3192,8 @@ function tasksSection(c) {
       detailMeta.appendChild(el('code', null, t.id));
       detailMeta.appendChild(document.createTextNode(' · ' + taskTitleTip(t.at, t.priority, fmtAgo).tip));
       detail.appendChild(detailMeta);
+      var claimLine = taskClaimLine(t);
+      if (claimLine) detail.appendChild(claimLine);
       detail.appendChild(taskHistorySection(t, c.flightLog));
       li.appendChild(detail);
       // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): a

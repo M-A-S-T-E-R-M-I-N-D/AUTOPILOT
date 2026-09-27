@@ -152,6 +152,11 @@ export interface TaskEntry {
    *  firings/dollars without ever closing (cost/firing threshold cleared with
    *  no firing ever self-reporting `completion: 'complete'`). */
   readonly isRunaway: boolean;
+  /** The flight instance holding this task's board claim (`tasks.assignee`,
+   *  set by `claimTask` in `@autopilot/store`) — a fleet lane's id, or `'solo'`
+   *  — and null when none holds it. A done task keeps the one it finished
+   *  under. Optional: fixtures written before the row detail showed it. */
+  readonly claimedBy?: string | null;
 }
 
 /** One gate command's outcome as recorded on the firing (GATE TRANSPARENCY). */

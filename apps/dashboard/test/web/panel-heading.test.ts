@@ -112,7 +112,6 @@ describe('panelHeading — the icon-beside-a-tagged-span law', () => {
       'key-round',
       'book-open',
       'git-pull-request',
-      'notebook-pen',
       'clock',
       'compass',
       'siren',
@@ -123,7 +122,6 @@ describe('panelHeading — the icon-beside-a-tagged-span law', () => {
       'skull',
       'bandage',
       'lock-open',
-      'clipboard-check',
     ]) {
       expect(ICON_NAMES, name).toContain(name);
     }

@@ -229,6 +229,21 @@ describe('readFleet', () => {
     expect(card.ownedWorkCount).toBe(1);
   });
 
+  it("names the flight instance holding each task's board claim (epic 0026 slice 1)", () => {
+    project('p1', 'alpha', 'flying');
+    task('t1', 'p1', 'Claimed by a lane', 'queued');
+    task('t2', 'p1', 'Claimed then handed back', 'queued');
+    task('t3', 'p1', 'Never claimed', 'queued');
+    expect(storeModule.claimTask(store, 't1', 'fleet-3', 200)).toBe(true);
+    expect(storeModule.claimTask(store, 't2', 'fleet-4', 200)).toBe(true);
+    expect(storeModule.releaseTaskClaim(store, 't2', 'fleet-4', 300)).toBe(true);
+
+    const claims = Object.fromEntries(
+      readFleet(store, 1).projects[0]!.tasks.map((t) => [t.id, t.claimedBy]),
+    );
+    expect(claims).toEqual({ t1: 'fleet-3', t2: null, t3: null });
+  });
+
   it('degrades to the bare ecosystem id on a real (un-nested) gate_config with no test command', () => {
     project(
       'p1',

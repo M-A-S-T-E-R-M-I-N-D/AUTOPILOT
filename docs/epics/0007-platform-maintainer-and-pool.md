@@ -767,6 +767,12 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    for a human; landed once unmarked and reverted (`fa23ba2e` → `0212ba4b`)
    when this ritual's own all-of-flight/ census caught the omission, then
    relanded with the marker in `2494c7a3`),
+   the codex-cli adapter security marker (`engine/src/adapters/codex-cli.ts` added
+   to `SECURITY_SENSITIVE_PATH_MARKERS` — the Codex CLI driver (epic 0036 slice 1)
+   ships `parseCodexExecOutput` which decides whether a turn passed and holds
+   `costUsd` at null; a PR that read a failed turn as a pass or priced tokens
+   locally would slip past; the spawn slice will carry Codex's sandbox argv, the
+   same tool-permission boundary as `claude-cli.ts` above; added in `110580e0`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
