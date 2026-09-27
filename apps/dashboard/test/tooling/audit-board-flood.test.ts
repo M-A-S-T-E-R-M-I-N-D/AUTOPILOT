@@ -21,6 +21,8 @@ import {
   normalize,
   similarity,
   auditThread,
+  boardThreads,
+  threadTimeline,
   DUPLICATE_RATIO,
   RAPID_FIRE_MS,
   CONSECUTIVE_CEILING,
@@ -276,5 +278,123 @@ describe('auditThread — clean threads', () => {
       msg(3, 'alice', '2026-09-09T10:15:00Z', 'Confirmed, fixed in the linked PR.'),
     ]);
     expect(findings).toEqual([]);
+  });
+});
+
+// The rows below are what `gh api` hands the auditor — untrusted process
+// output, so every shape is pinned, not just the happy one.
+function ghComment(id: number, login: string, at: string, body: string) {
+  return {
+    id,
+    user: { login },
+    created_at: at,
+    body,
+    html_url: `https://github.com/example/repo/issues/1#issuecomment-${id}`,
+  };
+}
+
+function ghReview(id: number, login: string, at: string, state: string, body: string) {
+  return {
+    id,
+    user: { login },
+    submitted_at: at,
+    state,
+    body,
+    html_url: `https://github.com/example/repo/pull/1#pullrequestreview-${id}`,
+  };
+}
+
+describe('boardThreads', () => {
+  it('names one thread per board row, a PR where gh marked the row a pull request', () => {
+    expect(boardThreads([{ number: 3 }, { number: 4, pull_request: { url: 'x' } }])).toEqual([
+      { number: 3, isPr: false },
+      { number: 4, isPr: true },
+    ]);
+  });
+
+  it('skips a board row that is not an object instead of killing the whole audit', () => {
+    expect(boardThreads([null, { number: 5 }, 7, { number: 6, pull_request: {} }])).toEqual([
+      { number: 5, isPr: false },
+      { number: 6, isPr: true },
+    ]);
+  });
+});
+
+describe('threadTimeline', () => {
+  it('flattens comments and reviews into one timeline, oldest first', () => {
+    const timeline = threadTimeline(
+      [
+        ghComment(1, 'alice', '2026-09-09T09:00:00Z', 'first'),
+        ghComment(2, 'bob', '2026-09-09T09:20:00Z', 'third'),
+      ],
+      [ghReview(9, 'carol', '2026-09-09T09:10:00Z', 'APPROVED', 'second')],
+    );
+    expect(timeline).toEqual([
+      {
+        kind: 'comment',
+        id: 1,
+        author: 'alice',
+        at: '2026-09-09T09:00:00Z',
+        body: 'first',
+        url: 'https://github.com/example/repo/issues/1#issuecomment-1',
+      },
+      {
+        kind: 'review:APPROVED',
+        id: 9,
+        author: 'carol',
+        at: '2026-09-09T09:10:00Z',
+        body: 'second',
+        url: 'https://github.com/example/repo/pull/1#pullrequestreview-9',
+      },
+      {
+        kind: 'comment',
+        id: 2,
+        author: 'bob',
+        at: '2026-09-09T09:20:00Z',
+        body: 'third',
+        url: 'https://github.com/example/repo/issues/1#issuecomment-2',
+      },
+    ]);
+  });
+
+  it('drops a review with no written body — an empty approval floods nobody', () => {
+    const timeline = threadTimeline(
+      [],
+      [
+        ghReview(1, 'alice', '2026-09-09T09:00:00Z', 'APPROVED', '   '),
+        { ...ghReview(2, 'alice', '2026-09-09T09:01:00Z', 'APPROVED', ''), body: null },
+        ghReview(3, 'alice', '2026-09-09T09:02:00Z', 'COMMENTED', 'a real remark'),
+      ],
+    );
+    expect(timeline.map((m) => m.id)).toEqual([3]);
+  });
+
+  it('reads a comment with no user as author "?" and no body as ""', () => {
+    const [message] = threadTimeline(
+      [{ id: 1, user: null, created_at: '2026-09-09T09:00:00Z', body: null, html_url: 'u' }],
+      [],
+    );
+    expect(message).toMatchObject({ author: '?', body: '' });
+  });
+
+  it('skips a comment or review row that is not an object instead of killing the whole audit', () => {
+    const timeline = threadTimeline(
+      [null, ghComment(1, 'alice', '2026-09-09T09:00:00Z', 'kept'), 7],
+      [null, ghReview(2, 'bob', '2026-09-09T09:05:00Z', 'COMMENTED', 'also kept'), 'x'],
+    );
+    expect(timeline.map((m) => m.id)).toEqual([1, 2]);
+  });
+
+  it('still audits the rows around a null one — a flood beside it is not hidden', () => {
+    const retry = 'Approved: gate green at >= 90% coverage, all checks pass, no conflicts.';
+    const timeline = threadTimeline(
+      [
+        ghComment(1, 'keeper', '2026-09-09T09:00:00Z', retry),
+        null,
+        ghComment(2, 'keeper', '2026-09-09T09:00:30Z', retry),
+      ],
+      [],
+    );
+    expect(auditThread('PR #1', timeline).map((f) => f.kind)).toContain('NEAR-DUPLICATE');
   });
 });
