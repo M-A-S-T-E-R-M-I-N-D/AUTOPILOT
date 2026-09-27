@@ -75,7 +75,13 @@ propagation, and the filled style does not match the nav.
    2026-09-27:** the landing panel's amber "Landed locally, but NOT pushed"
    line leads with `triangle-alert` like its overlap/half-step rows; ⚠
    survives only in the LAND confirm dialog's native text, where no SVG can
-   render. Docs/screenshots refresh is still open.
+   render. **Living docs refreshed 2026-09-27:** RUNBOOK §11/§12 and
+   MASTER-PROMPT's Fly-bar table named the Flight console, Detected
+   backlog, N blocked, auto-fixed and lucky surfaces by the 🖥️/🔍/🛡️/🔧/🍀
+   they dropped; they now give the STRINGS label and the Lucide icon name,
+   pinned by `apps/dashboard/test/tooling/icon-system-docs.test.ts` (dated
+   epics, ADRs, debriefs and changelogs stay as written). The screenshots
+   refresh (`docs/screens/`) is still open.
 
 ## Related
 
