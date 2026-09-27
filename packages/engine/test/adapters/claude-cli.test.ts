@@ -732,7 +732,7 @@ describe('ClaudeCliModel', () => {
     execFileMock.mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1] as ExecFileCallback;
       queueMicrotask(() => cb(null, '', ''));
-      return { stdin: { end: stdinEnd } };
+      return { stdin: { end: stdinEnd, on: vi.fn() } };
     });
 
     const longPrompt = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
@@ -787,6 +787,29 @@ describe('ClaudeCliModel', () => {
     const model = new ClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
 
     await expect(model.invoke('sonnet', longPrompt)).resolves.toBeDefined();
+  });
+
+  it('guards an over-threshold stdin write against EPIPE — a real stream throws an unhandled "error" event with no listener', async () => {
+    const stdin = new EventEmitter() as EventEmitter & { end: ReturnType<typeof vi.fn> };
+    stdin.end = vi.fn();
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      // The child exited (or closed its pipe) before consuming stdin — a real
+      // Node ChildProcess emits 'error' on the stdin stream in that case.
+      queueMicrotask(() => cb(null, '', ''));
+      return { pid: 1234, stdin };
+    });
+
+    const longPrompt = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
+    const model = new ClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
+    const promise = model.invoke('sonnet', longPrompt);
+
+    // EventEmitter throws synchronously on 'error' with zero listeners — this
+    // is the crash the guard prevents, not a jsdom/vitest artifact.
+    expect(() =>
+      stdin.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })),
+    ).not.toThrow();
+    await expect(promise).resolves.toBeDefined();
   });
 
   it('derives execFile env from the real process.env (a `?? process.env` bug would spread an empty env)', async () => {
@@ -1634,8 +1657,10 @@ describe('StreamingClaudeCliModel', () => {
   });
 
   it('pipes an over-threshold prompt via stdin instead of argv (Windows cmdline ceiling)', async () => {
-    const child = fakeChild() as FakeChild & { stdin: { end: ReturnType<typeof vi.fn> } };
-    child.stdin = { end: vi.fn() };
+    const child = fakeChild() as FakeChild & {
+      stdin: { end: ReturnType<typeof vi.fn>; on: ReturnType<typeof vi.fn> };
+    };
+    child.stdin = { end: vi.fn(), on: vi.fn() };
     spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
 
     const longPrompt = 'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
@@ -1670,6 +1695,28 @@ describe('StreamingClaudeCliModel', () => {
     const longPrompt = 'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
     const model = new StreamingClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
     const promise = model.invoke('sonnet', longPrompt);
+    child.emit('close', 0);
+
+    await expect(promise).resolves.toBeDefined();
+  });
+
+  it('guards an over-threshold stdin write against EPIPE — a real stream throws an unhandled "error" event with no listener', async () => {
+    const child = fakeChild() as FakeChild & {
+      stdin: EventEmitter & { end: ReturnType<typeof vi.fn> };
+    };
+    child.stdin = new EventEmitter() as EventEmitter & { end: ReturnType<typeof vi.fn> };
+    child.stdin.end = vi.fn();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+    const longPrompt = 'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
+    const model = new StreamingClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
+    const promise = model.invoke('sonnet', longPrompt);
+
+    // The child exited before consuming stdin — a real Node ChildProcess
+    // emits 'error' on the stdin stream, which throws with zero listeners.
+    expect(() =>
+      child.stdin.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })),
+    ).not.toThrow();
     child.emit('close', 0);
 
     await expect(promise).resolves.toBeDefined();
