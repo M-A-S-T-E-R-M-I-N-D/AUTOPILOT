@@ -1085,6 +1085,12 @@ const BENIGN_WEB = new Set([
   // (board web-mtpzqrxl-z7jgbu) — no HTML building, no I/O, the same class
   // as the other pure icon/label/badge text-math files above.
   'collaboration-panel.ts',
+  // versions-panel.ts: pure row math for the VERSIONS panel (board
+  // ap-mui2h3s1-1 slice 4) — flattens an already-fetched MYTH/LEGACY/flight
+  // timeline newest first and picks each row's older neighbour to diff
+  // against. No HTML building, no I/O; features/versions.ts splices it in via
+  // .toString().
+  'versions-panel.ts',
 ]);
 
 /** `web/features/` files (epic 0002 "shell decomposition") — each is a
@@ -1225,6 +1231,12 @@ const BENIGN_WEB_FEATURES = new Set([
   'round-panel.ts',
   'switcher.ts',
   'tour.ts',
+  // versions.ts (board ap-mui2h3s1-1 slice 4): GET /api/versions and
+  // /api/versions/diff only — read-only, no execute pair (the one-click
+  // additive restore is a later slice). createElement/textContent only
+  // (zero innerHTML); commit subjects and paths render as el() text, and the
+  // diff query's shas come from the server's own timeline response.
+  'versions.ts',
   // report-menu.ts: the right-click context menu + the ONE report dialog
   // (epic-0015 directive 09-02) — createElement/textContent only (zero
   // innerHTML), and its two fetches target /api/report-from-here and its
