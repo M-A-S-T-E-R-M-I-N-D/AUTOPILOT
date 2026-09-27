@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { openStore, migrate, createTask, type Store } from '@autopilot/store';
+import { openStore, migrate, createTask, setTaskFocus, type Store } from '@autopilot/store';
 import {
   fetchAssignedIssues,
   planOwnedWorkReconcile,
@@ -15,7 +15,12 @@ import {
   runOwnedWorkSweep,
   type OwnedWorkBoardTask,
 } from '../../src/flight/owned-work-reconcile.js';
-import { HUMAN_CLOSES_MARKER } from '../../src/flight/claim-contract.js';
+import { HUMAN_CLOSES_MARKER, claimContractBody } from '../../src/flight/claim-contract.js';
+import {
+  planClaimPoolIssue,
+  planPoolIssueTask,
+  type PoolIssue,
+} from '../../src/flight/pool-client.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function project(s: Store, id: string): void {
@@ -674,4 +679,122 @@ describe('runOwnedWorkSweep', () => {
       cleanupDir(dbDir);
     }
   });
+});
+
+/**
+ * EPIC 0019 additive-only law — the claim flow's write-layer edges the
+ * tests above walked past. The reconcile plans against a board snapshot and
+ * then spends two `gh` reads before it writes, so the board can move under
+ * it; and its one pickup comment is a GitHub write that can be refused. Each
+ * test pins how the existing flow already behaves there; none changes a
+ * contract.
+ */
+describe('owned work — claim-flow write-layer edges (regression, epic 0019 additive-only law)', () => {
+  const issue6 = {
+    number: 6,
+    title: 'Fix the thing',
+    url: 'https://github.com/example/repo/issues/6',
+  };
+
+  function withStore(run: (s: Store) => Promise<void>): Promise<void> {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-work-edges-db-'));
+    const s = openStore(join(dbDir, 'a.db'));
+    migrate(s);
+    project(s, 'p1');
+    return run(s).finally(() => {
+      s.close();
+      cleanupDir(dbDir);
+    });
+  }
+
+  function commentCalls(exec: CliExec): unknown[] {
+    return vi
+      .mocked(exec)
+      .mock.calls.filter(([, args]) => args[0] === 'issue' && args[1] === 'comment');
+  }
+
+  it('reads no assignments when gh returns a JSON object instead of an array', async () => {
+    const exec: CliExec = vi.fn(async () => ({
+      code: 0,
+      stdout: JSON.stringify({ message: 'unexpected shape' }),
+    }));
+
+    expect(await fetchAssignedIssues(exec)).toEqual([]);
+  });
+
+  it('still creates and focuses the task when gh refuses the pickup comment, counting no comment', () =>
+    withStore(async (s) => {
+      const base = execFor([issue6], 'octocat');
+      const exec: CliExec = vi.fn(async (bin, args) =>
+        args[0] === 'issue' && args[1] === 'comment' ? { code: 1, stdout: '' } : base(bin, args),
+      );
+
+      const result = await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
+
+      expect(result).toMatchObject({ created: 1, commented: 0 });
+      expect(commentCalls(exec)).toHaveLength(1);
+      expect(tasks(s, 'p1')).toEqual([
+        expect.objectContaining({ id: 'github-6', focus: 1, status: 'queued' }),
+      ]);
+    }));
+
+  it('leaves a pool-panel claim that lands mid-read untouched and posts no pickup comment on it, on either pass', () =>
+    withStore(async (s) => {
+      // The Contributor-pool panel claims the same issue while this pass is
+      // still reading gh: claimAndQueuePoolIssueTask's two store writes, its
+      // own `github-6` row carrying a pool dimension the ingest never sets.
+      const poolIssue: PoolIssue = { ...issue6, labels: ['pool: accessibility'], assignees: [] };
+      const poolTask = planPoolIssueTask(
+        poolIssue,
+        planClaimPoolIssue(poolIssue, 'octocat'),
+        'p1',
+        50,
+      );
+      if (poolTask === null) throw new Error('fixture: the pool claim must plan a task');
+      const base = execFor([issue6], 'octocat');
+      let poolLanded = false;
+      const exec: CliExec = vi.fn(async (bin, args) => {
+        if (!poolLanded && args[0] === 'issue' && args[1] === 'list') {
+          poolLanded = true;
+          createTask(s, poolTask);
+          setTaskFocus(s, poolTask.id, true, 50);
+        }
+        return base(bin, args);
+      });
+
+      // The snapshot predates the pool claim, so the plan still says "new".
+      const first = await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
+      const second = await reconcileOwnedWork(
+        exec,
+        s,
+        'p1',
+        ownedWorkCandidates(s, 'p1'),
+        () => 200,
+      );
+
+      expect(first.plan.upserts.map((u) => u.id)).toEqual(['github-6']);
+      expect(first).toMatchObject({ created: 0, commented: 0 });
+      expect(second).toMatchObject({ created: 0, focused: 0, released: 0, commented: 0 });
+      expect(commentCalls(exec)).toHaveLength(0);
+      const row = s.db
+        .prepare('SELECT body, dimension, focus FROM tasks WHERE id = ?')
+        .get('github-6') as { body: string; dimension: string | null; focus: number };
+      expect(row).toEqual({ body: poolTask.body, dimension: 'accessibility', focus: 1 });
+    }));
+
+  it('counts no refocus or release for a row that left the board after the snapshot, and never recreates it', () =>
+    withStore(async (s) => {
+      const exec = execFor([issue6], 'octocat');
+      const snapshot: OwnedWorkBoardTask[] = [
+        { id: 'github-6', body: claimContractBody(6), focus: 0, status: 'queued' },
+        { id: 'github-9', body: claimContractBody(9), focus: 1, status: 'queued' },
+      ];
+
+      const result = await reconcileOwnedWork(exec, s, 'p1', snapshot, () => 100);
+
+      expect(result.plan).toEqual({ upserts: [], refocus: ['github-6'], release: ['github-9'] });
+      expect(result).toMatchObject({ created: 0, focused: 0, released: 0, commented: 0 });
+      expect(tasks(s, 'p1')).toEqual([]);
+      expect(commentCalls(exec)).toHaveLength(0);
+    }));
 });
