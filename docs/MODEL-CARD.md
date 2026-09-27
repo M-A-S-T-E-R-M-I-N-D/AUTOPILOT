@@ -109,7 +109,7 @@ hand-maintained._
 | Containment posture | `docs/FLIGHT-CONTAINMENT.md` — detection (done) + CLI prevention (done) + OS sandbox
   (platform-gated, not native Windows) |
 | Verification boundary (🟢 autonomous vs. 🟣 human-required) | `docs/MASTER-PLAN.md` §17 |
-| This card last reviewed against the above | 2026-09-25 |
+| This card last reviewed against the above | 2026-09-27 |
 
 ## 7. AI-Use Disclosure
 
