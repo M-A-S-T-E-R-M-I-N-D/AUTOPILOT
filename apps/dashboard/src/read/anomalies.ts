@@ -16,6 +16,7 @@ export type AnomalyKind =
   | 'cost-spike'
   | 'death-cluster'
   | 'gate-fail-streak'
+  | 'ship-rate-drop'
   | 'orient-drag'
   | 'family-runaway'
   | 'intent-collision'
@@ -85,6 +86,43 @@ function gateFailStreak(log: readonly FlightEntry[]): Anomaly | null {
   return {
     kind: 'gate-fail-streak',
     evidence: `${streak} consecutive firings reverted by the gate.`,
+  };
+}
+
+/** How many of the most recent firings ship-rate-drop judges — the card's
+ *  "recent form" window (`RECENT_FORM_WINDOW` in read/fleet.ts, not imported:
+ *  fleet.ts already imports this module). */
+const SHIP_RATE_RECENT_WINDOW = 5;
+/** How many firings before that window form the baseline it is judged against. */
+const SHIP_RATE_BASELINE_WINDOW = 10;
+/** The baseline must have shipped at least this often — a project that never
+ *  shipped much has no rate to regress from. */
+const SHIP_RATE_BASELINE_FLOOR = 0.5;
+/** The recent rate must have fallen to this fraction of the baseline or below. */
+const SHIP_RATE_DROP_RATIO = 0.5;
+
+/**
+ * Ship-rate regression (board ap-mui2h3rw-0, MASTER-PLAN §7 "detected
+ * regressions"): the last few firings ship far less often than the ones
+ * before them. Unlike {@link gateFailStreak} and {@link deathCluster}, which
+ * each need one failure mode repeated, this catches a MIXED run — a revert, a
+ * death, a no-commit — that no single-cause rule adds up.
+ */
+function shipRateDrop(log: readonly FlightEntry[]): Anomaly | null {
+  if (log.length < SHIP_RATE_RECENT_WINDOW + SHIP_RATE_BASELINE_WINDOW) return null;
+  const recent = log.slice(0, SHIP_RATE_RECENT_WINDOW);
+  const baseline = log.slice(
+    SHIP_RATE_RECENT_WINDOW,
+    SHIP_RATE_RECENT_WINDOW + SHIP_RATE_BASELINE_WINDOW,
+  );
+  const recentShipped = recent.filter((f) => f.shipped).length;
+  const baselineShipped = baseline.filter((f) => f.shipped).length;
+  const baselineRate = baselineShipped / baseline.length;
+  if (baselineRate < SHIP_RATE_BASELINE_FLOOR) return null;
+  if (recentShipped / recent.length > baselineRate * SHIP_RATE_DROP_RATIO) return null;
+  return {
+    kind: 'ship-rate-drop',
+    evidence: `Shipped ${recentShipped} of the last ${recent.length} firings vs ${baselineShipped} of the ${baseline.length} before them.`,
   };
 }
 
@@ -520,6 +558,7 @@ export function detectAnomalies(
     costSpike(flightLog),
     deathCluster(flightLog),
     gateFailStreak(flightLog),
+    shipRateDrop(flightLog),
     orientDrag(orient),
     ...familyRunaways(families),
     ...intentCollisions(collisions),

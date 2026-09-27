@@ -1465,6 +1465,9 @@ const EN_STRINGS = {
   anomalyWhatGateFailStreak: 'Consecutive firings were reverted by the gate.',
   anomalyActionGateFailStreak:
     'Run the gate by hand. A gate that is red on the branch itself reverts every firing until it is fixed.',
+  anomalyWhatShipRateDrop: 'The recent firings ship far less often than the ones before them.',
+  anomalyActionShipRateDrop:
+    'Read why each recent firing did not ship (reverted, died or no commit) and fix the common cause: a red gate check, a task too big for one firing, or a stale board item.',
   anomalyWhatOrientDrag:
     'The latest firing read and searched far longer than usual before its first edit.',
   anomalyActionOrientDrag:
@@ -2878,6 +2881,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     anomalyWhatGateFailStreak: 'הפעלות רצופות הוחזרו לאחור על ידי השער.',
     anomalyActionGateFailStreak:
       'הריצו את השער ידנית. שער אדום על הענף עצמו מחזיר לאחור כל הפעלה עד שיתוקן.',
+    anomalyWhatShipRateDrop: 'ההפעלות האחרונות שולחות הרבה פחות מאלו שלפניהן.',
+    anomalyActionShipRateDrop:
+      'קראו למה כל הפעלה אחרונה לא שלחה (הוחזרה לאחור, מתה או בלי קומיט) ותקנו את הסיבה המשותפת: בדיקת שער אדומה, משימה גדולה מדי להפעלה אחת, או פריט לוח שהתיישן.',
     anomalyWhatOrientDrag: 'ההפעלה האחרונה קראה וחיפשה הרבה יותר מהרגיל לפני העריכה הראשונה שלה.',
     anomalyActionOrientDrag:
       'בדקו את טקסט המשימה: משימה מעורפלת גורמת לסוכן לשוטט. ציינו את הקבצים שממנו כדאי להתחיל.',
