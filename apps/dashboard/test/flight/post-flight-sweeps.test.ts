@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { openStore, migrate, type Store } from '@autopilot/store';
+import { openStore, migrate, recordAutoApproved, type Store } from '@autopilot/store';
 import { GitVcs } from '@autopilot/engine';
 import {
   runFamilyRunawaySweep,
@@ -783,6 +783,103 @@ describe('runClosedTaskAuditSweep', () => {
     }
 
     expect(closedAuditTasks()).toEqual([]);
+  });
+
+  /**
+   * Prune counterpart. A closedaudit proposal whose clause checks out again
+   * (the drift reversed, or the lookup that reported it had failed) used to
+   * sit open forever: the audit "stops finding it", but nothing took the
+   * proposal back. Under auto mode it lands straight on the board as work no
+   * firing can finish, since a docs-only refutation never matches the clause.
+   */
+  function seedOpenAudit(
+    taskId: string,
+    status: 'needs_approval' | 'queued',
+    assignee: string | null = null,
+  ): void {
+    store.db
+      .prepare(
+        `INSERT INTO tasks (id, project_id, title, status, source, assignee, created_at, updated_at)
+         VALUES (?, 'p1', ?, ?, 'self', ?, 1, 1)`,
+      )
+      .run(`closedaudit-${taskId}`, `CLOSED-TASK AUDIT: "${taskId}"`, status, assignee);
+  }
+
+  const TOOLTIP_TASK = 'add a tooltip DELIVERABLE: adds a tooltip to the button';
+  const backedVcs = (): GitVcs => fakeVcs('a tooltip renders on hover') as unknown as GitVcs;
+
+  it('defers its own open proposal once the re-audit finds the clause backed again', async () => {
+    seedDoneTask('t6', TOOLTIP_TASK);
+    seedOpenAudit('t6', 'needs_approval');
+
+    await runClosedTaskAuditSweep(store, 'p1', backedVcs(), () => 12345);
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t6', status: 'deferred' }]);
+  });
+
+  it('defers a proposal auto mode queued, but never one the operator approved', async () => {
+    seedDoneTask('t7', TOOLTIP_TASK);
+    seedDoneTask('t8', TOOLTIP_TASK);
+    seedOpenAudit('t7', 'queued');
+    recordAutoApproved(store, 'p1', 'closedaudit-t7', 'CLOSED-TASK AUDIT: "t7"', 1);
+    seedOpenAudit('t8', 'queued');
+
+    await runClosedTaskAuditSweep(store, 'p1', backedVcs(), () => 12345);
+
+    expect(closedAuditTasks().sort((a, b) => a.id.localeCompare(b.id))).toEqual([
+      { id: 'closedaudit-t7', status: 'deferred' },
+      { id: 'closedaudit-t8', status: 'queued' },
+    ]);
+  });
+
+  it('never re-defers a proposal the operator re-queued after the sweep deferred it', async () => {
+    seedDoneTask('t12', TOOLTIP_TASK);
+    seedOpenAudit('t12', 'queued');
+    recordAutoApproved(store, 'p1', 'closedaudit-t12', 'CLOSED-TASK AUDIT: "t12"', 1);
+    await runClosedTaskAuditSweep(store, 'p1', backedVcs(), () => 12345);
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t12', status: 'deferred' }]);
+
+    store.db.prepare("UPDATE tasks SET status = 'queued' WHERE id = 'closedaudit-t12'").run();
+    await runClosedTaskAuditSweep(store, 'p1', backedVcs(), () => 23456);
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t12', status: 'queued' }]);
+  });
+
+  it('leaves a proposal a lane has claimed', async () => {
+    seedDoneTask('t9', TOOLTIP_TASK);
+    seedOpenAudit('t9', 'needs_approval', 'fleet-2');
+
+    await runClosedTaskAuditSweep(store, 'p1', backedVcs(), () => 12345);
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t9', status: 'needs_approval' }]);
+  });
+
+  it('keeps the proposal open while the clause still drifts', async () => {
+    seedDoneTask('t10', TOOLTIP_TASK);
+    seedOpenAudit('t10', 'needs_approval');
+
+    await runClosedTaskAuditSweep(
+      store,
+      'p1',
+      fakeVcs('nothing relevant here') as unknown as GitVcs,
+      () => 12345,
+    );
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t10', status: 'needs_approval' }]);
+  });
+
+  it('defers nothing when git cannot answer the lookup', async () => {
+    seedDoneTask('t11', TOOLTIP_TASK);
+    seedOpenAudit('t11', 'needs_approval');
+    const scratch = mkdtempSync(join(tmpdir(), 'autopilot-closedaudit-norepo-'));
+    try {
+      const notARepo = new GitVcs(join(scratch, 'does-not-exist'));
+      await runClosedTaskAuditSweep(store, 'p1', notARepo, () => 12345);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+
+    expect(closedAuditTasks()).toEqual([{ id: 'closedaudit-t11', status: 'needs_approval' }]);
   });
 
   it('is best-effort — a query failure never throws', async () => {

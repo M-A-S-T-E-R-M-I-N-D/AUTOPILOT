@@ -5,7 +5,9 @@ import { describe, it, expect } from 'vitest';
 import {
   auditClosedTaskDeliverable,
   auditClosedTaskUxExpression,
+  closedTaskAuditId,
   findClosedTaskAuditFindings,
+  findStaleClosedTaskAuditIds,
   type AuditVcs,
 } from '../../src/flight/closed-task-audit.js';
 
@@ -212,5 +214,39 @@ describe('findClosedTaskAuditFindings', () => {
       vcs,
     );
     expect(findings.map((f) => f.taskId)).toEqual(['t-gadget']);
+  });
+});
+
+describe('findStaleClosedTaskAuditIds', () => {
+  const tooltip = { id: 't-1', title: 'add a tooltip DELIVERABLE: renders a tooltip on hover' };
+
+  it('returns an open audit whose task was re-audited and now checks out', () => {
+    expect(findStaleClosedTaskAuditIds(['closedaudit-t-1'], [tooltip], [])).toEqual([
+      'closedaudit-t-1',
+    ]);
+  });
+
+  it('keeps an open audit whose task still drifts', () => {
+    const finding = {
+      taskId: 't-1',
+      title: tooltip.title,
+      deliverable: 'renders a tooltip on hover',
+      reason: 'deliverable-drift' as const,
+    };
+    expect(findStaleClosedTaskAuditIds(['closedaudit-t-1'], [tooltip], [finding])).toEqual([]);
+  });
+
+  it('keeps an open audit whose task this sweep never re-audited', () => {
+    // Out of the done window, or reopened: no fresh evidence either way.
+    expect(findStaleClosedTaskAuditIds(['closedaudit-t-9'], [tooltip], [])).toEqual([]);
+  });
+
+  it('keeps an open audit whose task no longer carries a DELIVERABLE clause', () => {
+    const plain = { id: 't-1', title: 'add a tooltip' };
+    expect(findStaleClosedTaskAuditIds(['closedaudit-t-1'], [plain], [])).toEqual([]);
+  });
+
+  it('names the same id the sweep files a finding under', () => {
+    expect(closedTaskAuditId('web-abc')).toBe('closedaudit-web-abc');
   });
 });
