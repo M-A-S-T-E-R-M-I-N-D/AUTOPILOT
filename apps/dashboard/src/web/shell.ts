@@ -1317,6 +1317,7 @@ var ANOMALY_ICONS = {
   'cost-spike': 'triangle-alert',
   'death-cluster': 'triangle-alert',
   'gate-fail-streak': 'triangle-alert',
+  'ship-rate-drop': 'chart-line',
   'orient-drag': 'compass',
   'family-runaway': 'triangle-alert',
   'intent-collision': 'siren',

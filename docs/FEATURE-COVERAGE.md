@@ -36,9 +36,9 @@
 | [x] Graphs: cost/shipped, tokens, ship-rate — done (fleet cost total + per-project Metrics + cost-per-firing sparkline, on real flight data); turns/self-report/improvement-over-time trends are a follow-up | MASTER §2.5 | M3 |
 | [~] Approvals queue (🟣): approve/reject/delete UI live (`needs_approval` status, `TaskActionKind` — BACKLOG-999 §C); edit action + explain-impact-before-save not yet built | MASTER §5.3 | M5 |
 | [ ] SOUL/identity editor (locked-by-default, proposable) | MASTER §5.4 | M5 |
-| [ ] Versions screen (MYTH/LEGACY/flight timeline, diff, additive restore) | MASTER §5.5, §7 | M5 |
+| [x] Versions screen (MYTH/LEGACY/flight timeline, diff, additive restore) — timeline + diff reads, and a one-click restore that only ever creates a new branch (MYTH/LEGACY/flight log untouched), wired end-to-end and tested (`web/features/versions.ts`, `flight/version-restore.ts` — board ap-mui2h3s1-1) | MASTER §5.5, §7 | M5 |
 | [~] Settings — **connect screen delivered early** (dashboard: choose subscription / API key / headless token · verify the `claude` CLI · secret stored 0600, CSRF-guarded, never echoed); models/quota/language/a11y/security settings remain | MASTER §5.6 | M5 |
-| [ ] Anomalies/health (regressions, cost spikes, gate-fails, security findings + proposed fixes) | MASTER §5.7 | M8 |
+| [x] Anomalies/health (regressions, cost spikes, gate-fails, security findings + proposed fixes) — every detector (cost-spike, gate-fail-streak, ship-rate-drop, death-cluster, …) plus the project's own open security findings, each listed on the Data tab with its evidence and proposed fix (`web/features/process-health.ts`, `read/anomalies.ts` — board ap-mui2h3rw-0) | MASTER §5.7 | M8 |
 | [~] "Hidden by default, open to edit" everywhere; calm unless the user intervenes — progressive disclosure live (chips + drill-downs on activity/firing-timeline/landing, Load-More — BACKLOG-999 §C); not yet swept across every surface | MASTER §2.5, §18.2.5 | M3→M5 |
 | [x] Evolution view (is the agent improving? approval↑ rejection↓ over time) — weekly operator approval-rate trend chart + summary tiles, live and tested (`web/features/evolution.ts` + `web/evaluation-trend.ts` — BACKLOG-999 §J) | MASTER §17.3 | M5 |
 
