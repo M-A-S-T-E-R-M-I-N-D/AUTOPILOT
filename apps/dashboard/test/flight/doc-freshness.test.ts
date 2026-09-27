@@ -3,9 +3,9 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import {
   computeDocDrift,
   collectDocFreshnessTimestamps,
@@ -32,6 +32,7 @@ function initRepo(dir: string): void {
  *  back-to-back in a fast test run can otherwise land in the same second
  *  (`%ct` has 1-second resolution), making a "newer than" assertion flaky. */
 function commitAt(dir: string, file: string, content: string, epochSeconds: number): void {
+  mkdirSync(dirname(join(dir, file)), { recursive: true });
   writeFileSync(join(dir, file), content);
   gitSync(dir, ['add', '-A']);
   const date = `${epochSeconds} +0000`;
@@ -170,7 +171,12 @@ describe('computeDocDrift', () => {
       },
       {
         doc: 'docs/epics/0002-shell-decomposition.md',
-        subjects: ['apps/dashboard/src/web/', 'apps/dashboard/src/shared/'],
+        subjects: [
+          'apps/dashboard/src/web/features/index.ts',
+          'apps/dashboard/src/web/chunks.ts',
+          'apps/dashboard/src/shared/',
+          'scripts/codemod/generate-splice-manifest.mjs',
+        ],
       },
       {
         doc: 'docs/epics/0003-ring-0-fleet-watchdog.md',
@@ -334,6 +340,36 @@ describe('collectDocFreshnessTimestamps', () => {
     } finally {
       rmSync(nonGitDir, { recursive: true, force: true });
     }
+  });
+
+  // Why: epic 0002 used to watch all of web/, so every UI commit drifted it —
+  // three freshness passes in ~30h (2026-09-26, 2026-09-27 twice) each found
+  // volume, not a decomposition change, against 86 web/ commits and ONE barrel
+  // change that week. The watch now keys on the files a decomposition cut
+  // must touch, so a routine feature edit stays quiet and a cut still fires.
+  it("epic 0002's real entry ignores a routine UI edit and fires on a decomposition cut", () => {
+    const entry = DOC_SUBJECTS.find((e) => e.doc === 'docs/epics/0002-shell-decomposition.md');
+    if (!entry) throw new Error('epic 0002 is missing from DOC_SUBJECTS');
+    const barrel = 'apps/dashboard/src/web/features/index.ts';
+    commitAt(dir, barrel, 'v1', 1_700_000_000);
+    commitAt(dir, 'apps/dashboard/src/web/chunks.ts', 'v1', 1_700_000_010);
+    commitAt(dir, 'apps/dashboard/src/shared/callsign.ts', 'v1', 1_700_000_020);
+    commitAt(dir, 'scripts/codemod/generate-splice-manifest.mjs', 'v1', 1_700_000_030);
+    commitAt(dir, entry.doc, 'v1', 1_700_000_100);
+    commitAt(dir, 'apps/dashboard/src/web/shell.ts', 'grew', 1_700_000_200);
+    commitAt(dir, 'apps/dashboard/src/web/features/search.ts', 'edited', 1_700_000_300);
+
+    expect(computeDocDrift([entry], collectDocFreshnessTimestamps(dir, [entry]))).toEqual([]);
+
+    commitAt(dir, barrel, 'v2 — a new feature module', 1_700_000_400);
+    expect(computeDocDrift([entry], collectDocFreshnessTimestamps(dir, [entry]))).toEqual([
+      {
+        doc: entry.doc,
+        docTouchedAt: 1_700_000_100_000,
+        newestStaleSubject: barrel,
+        newestStaleSubjectTouchedAt: 1_700_000_400_000,
+      },
+    ]);
   });
 });
 
