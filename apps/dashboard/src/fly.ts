@@ -2134,6 +2134,10 @@ async function main(): Promise<void> {
     // when the project wants it. Every lane takes part, whatever its final
     // sync-back came to, so the round always has someone to end it.
     try {
+      // Settle the guard first: any movement before the round ends is judged
+      // (and a hard one kept in `breaches`) here, so the re-baseline below
+      // absorbs nothing but what ending the round itself did.
+      checkContainment();
       const roundEnd = await endRound({
         store,
         projectId,
@@ -2146,7 +2150,17 @@ async function main(): Promise<void> {
         out,
         sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
       });
-      if (roundEnd !== 'evaluated') out(`  ↪ round evaluation left to another lane (${roundEnd})`);
+      if (roundEnd === 'evaluated') {
+        // CONTAINMENT vs ROUND EVALUATION (board ap-mujbi75g-0): the lane that
+        // ends the round may just have committed its evaluation into target —
+        // a guarded path under worktree isolation. Left unaccounted for, the
+        // FINAL containment check below reads that sanctioned, first-party
+        // commit as a guarded HEAD moving outside this flight's worktree.
+        // Re-baseline, the same way the self-study ritual does above.
+        guarded = snapshotGuardedHeads(headReader, guardedPathsFor(flightRoot, guardCandidates));
+      } else {
+        out(`  ↪ round evaluation left to another lane (${roundEnd})`);
+      }
     } catch (err) {
       out(`  ⚠ round evaluation failed: ${String(err).split('\n')[0]}`);
     }
