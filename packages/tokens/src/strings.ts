@@ -1090,6 +1090,10 @@ const EN_STRINGS = {
   taskHistorySlice: 'slice',
   taskHistoryComplete: 'complete',
   taskHistoryOlder: '{n} older in the flight log',
+  // The detail's claim (epic 0026 slice 1), on a queued or in-flight task:
+  // the flight instance holding its board claim, or that none holds it.
+  taskClaimBy: 'Claimed by the {who} flight; other lanes pass over it.',
+  taskClaimNone: 'No flight has claimed it.',
   // The view header's Status filter (epic 0026 slice 2): the fieldset's
   // legend (each box is labelled by its status word, the taskStatus* keys),
   // the note a filtered board shows — reordering posts the order the list
@@ -2625,6 +2629,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskHistorySlice: 'פרוסה',
     taskHistoryComplete: 'הושלמה',
     taskHistoryOlder: 'עוד {n} ישנות יותר ביומן הטיסות',
+    taskClaimBy: 'נתבעה על ידי הטיסה {who}; נתיבים אחרים מדלגים עליה.',
+    taskClaimNone: 'אף טיסה לא תבעה אותה.',
     boardFilterStatus: 'סטטוס',
     boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',
     boardFilterClear: 'ניקוי המסנן',
