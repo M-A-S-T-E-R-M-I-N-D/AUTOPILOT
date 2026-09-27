@@ -18,7 +18,9 @@
 
 import { deliverableKeywords, extractDeliverable, promisesUxExpression } from './deliverable.js';
 
-/** The lookup this audit needs from a VCS — satisfied by `GitVcs` (`@autopilot/engine`). */
+/** The lookup this audit needs from a VCS — satisfied by `GitVcs` (`@autopilot/engine`).
+ *  Both lookups reject when git cannot search at all, never answer "absent":
+ *  an absent keyword is a drift finding here, so the sweep skips instead. */
 export interface AuditVcs {
   containsText(pattern: string): Promise<boolean>;
   /** Committed paths whose content matches `pattern` — {@link GitVcs.filesContainingText}. */
