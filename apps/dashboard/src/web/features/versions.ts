@@ -6,28 +6,47 @@
  * locked repo's MYTH, LEGACY and flight log, newest first, and for each
  * version a "What changed" disclosure listing the files it changed against
  * the version before it. Slices 1–3 built the reads and served them at
- * `GET /api/versions` and `GET /api/versions/diff`; this is their first
- * expression. Read-only: the one-click additive restore is a later slice.
+ * `GET /api/versions` and `GET /api/versions/diff`. Slice 5 shipped the
+ * one-click additive restore's backend only (`flight/version-restore.ts`,
+ * `POST /api/versions/restore`) — this slice wires its button: every row
+ * (including MYTH, the oldest) gets a Restore action that confirms, POSTs
+ * `{project, sha}`, and reports the new branch name (or the refusal) as a
+ * snack — `web/features/snackbar.ts`'s one-sentence transient surface,
+ * epic 0031, the same `snack()` `fly.ts`'s "hand to the pilot" button
+ * already calls. A snack rather than an inline result line because a
+ * restore's outcome does not change anything else already on the panel (no
+ * row to update, no list to reload) — the same "nothing to re-render"
+ * reasoning `fly.ts`'s hand-off uses.
  *
  * `versionsSection(pid)` is called from `fleetJs()`'s `renderProjectPage()`
  * inside the panel cache, so the timeline is fetched once per landed firing,
  * never per state tick, and a diff is fetched only when its disclosure first
- * opens. `el`/`panelHeading`/`fmtAgo`/`tr` are bare hoisted identifiers from
- * the core bundle, the same contract `round-panel.ts` relies on.
+ * opens. `el`/`panelHeading`/`fmtAgo`/`tr`/`snack` are bare hoisted
+ * identifiers from the core bundle/sibling feature modules, the same
+ * contract `round-panel.ts` relies on.
  *
  * i18n: every literal line is born through `tr()` and tagged `data-i18n` (or
  * `data-i18n-template` with its values), so a locale switch's `translateDom`
  * sweep repaints it; the toggle swaps its tag with its label. Commit subjects
- * and paths stay as git printed them.
+ * and paths stay as git printed them. The restore confirm/snack text is also
+ * `tr()`-born (unlike a `window.confirm()` fired from stale attribute text,
+ * both are recomputed at click time, so no sweep is needed for them).
  */
-import { versionRows } from '../versions-panel.js';
+import {
+  versionRows,
+  versionRestoreConfirmMessage,
+  versionRestoreResultMessage,
+} from '../versions-panel.js';
 
 /** The VERSIONS panel client — vanilla, external (keeps CSP script-src 'self'). */
 export function versionsJs(): string {
   return `
-// versionRows is generated FROM web/versions-panel.ts — its real compiled
-// source via .toString(), not a hand-retyped copy.
+// versionRows/versionRestoreConfirmMessage/versionRestoreResultMessage are
+// generated FROM web/versions-panel.ts — their real compiled source via
+// .toString(), not a hand-retyped copy.
 ${versionRows.toString()}
+${versionRestoreConfirmMessage.toString()}
+${versionRestoreResultMessage.toString()}
 var VERSION_KIND_KEY = { myth: 'versionsMyth', legacy: 'versionsLegacy', flight: 'versionsFlight' };
 // A templated line carries its values as data-i18n-args, so the sweep refills
 // the slots instead of painting the bare template.
@@ -81,6 +100,29 @@ function toggleVersionDiff(pid, row, btn, out) {
     if (out.isConnected) renderVersionDiff(out, data && data.diff);
   });
 }
+function versionRestoreClick(pid, row, btn) {
+  if (!window.confirm(versionRestoreConfirmMessage(row, tr))) return;
+  btn.disabled = true;
+  var originalText = btn.textContent;
+  btn.textContent = tr('versionsRestoring');
+  fetch('/api/versions/restore', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: pid, sha: row.sha }),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      var result = versionRestoreResultMessage(data, tr);
+      snack(result.text, result.ok ? 'ok' : 'err');
+    })
+    .catch(function () {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      snack(tr('versionsRestoreFailed'), 'err');
+    });
+}
 function versionItem(pid, row) {
   var li = el('li', 'version-row');
   var kindKey = VERSION_KIND_KEY[row.kind];
@@ -91,6 +133,11 @@ function versionItem(pid, row) {
   li.appendChild(el('span', 'version-subject', row.subject));
   var at = Date.parse(row.committedAt);
   if (!isNaN(at)) li.appendChild(el('span', 'muted', fmtAgo(at)));
+  var restoreBtn = el('button', 'version-restore-btn', tr('versionsRestore'));
+  restoreBtn.type = 'button';
+  restoreBtn.setAttribute('data-i18n', 'versionsRestore');
+  restoreBtn.addEventListener('click', function () { versionRestoreClick(pid, row, restoreBtn); });
+  li.appendChild(restoreBtn);
   if (!row.diffFrom) return li;
   var out = el('div', 'version-diff');
   out.id = 'version-diff-' + row.sha;

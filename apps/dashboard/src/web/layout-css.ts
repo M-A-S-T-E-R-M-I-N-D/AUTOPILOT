@@ -1732,10 +1732,11 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .firing-count { font-variant-numeric: tabular-nums; }
 .firing-ago { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 .firing-detail { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border); }
-.diff-toggle { display: inline-flex; align-items: center; margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); cursor: pointer; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
-.diff-toggle:hover, .diff-toggle:focus-visible { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
-.diff-toggle:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.diff-toggle, .version-restore-btn { display: inline-flex; align-items: center; margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); cursor: pointer; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.diff-toggle:hover, .diff-toggle:focus-visible, .version-restore-btn:hover:not(:disabled), .version-restore-btn:focus-visible:not(:disabled) { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.diff-toggle:active, .version-restore-btn:active:not(:disabled) { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .diff-toggle[aria-expanded="true"] { border-color: var(--color-accent); color: var(--color-text); }
+.version-restore-btn:disabled { opacity: 0.4; cursor: default; }
 .firing-diff { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding: var(--space-2); border-inline-start: 2px solid var(--color-border); background: var(--color-surface-raised); font-family: var(--font-mono); font-size: var(--text-xs); overflow-x: auto; white-space: pre; }
 .firing-diff-empty { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); }
 .firing-review { margin-block: 0 var(--space-2); font-size: var(--text-xs); }
