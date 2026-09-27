@@ -769,6 +769,19 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     } finally {
       history.replaceState(null, '', url);
     }
+
+    // And GROUPED (the same slice's Group radios): a checked radio, and a
+    // counted heading over each group as a list item between the rows.
+    try {
+      (document.querySelector('[data-task-group][value="status"]') as HTMLInputElement).click();
+      await vi.waitFor(() => {
+        expect(document.querySelectorAll('.tasks > .task-group').length).toBeGreaterThan(0);
+      });
+      const foundGrouped = await violations();
+      expect(foundGrouped.map((v) => v.id)).toEqual([]);
+    } finally {
+      history.replaceState(null, '', url);
+    }
   });
 
   it('the ADAPTIVE TASK BUDGET risk chip on the project page task board is axe-clean', async () => {

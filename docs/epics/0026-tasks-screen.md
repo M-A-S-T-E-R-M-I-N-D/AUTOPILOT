@@ -51,8 +51,16 @@ what shows, so a property added later shows on every older link. Its control
 shipped the same day: a "Show" fieldset after the three filters, one box per
 property, ticked while rows show it. Unticking one writes `?hide=` and drops
 that chip from every row; it hides no row, shows no "Showing n of m" note,
-keeps the reorder controls, and Clear leaves it alone. Still open in slice 2:
-the grouping control and counts on its group heads, the Focus grouping. Slice 4's pure half shipped
+keeps the reorder controls, and Clear leaves it alone. The grouping control
+followed the same day: a "Group" fieldset between the filters and Show, one
+native radio group (none, status, severity, source) that writes `?group=`.
+A grouped list draws a heading over each group — its word, the one its filter
+box wears, and how many tasks the view holds in it — and keeps its rows in
+board order inside. The heads are list items but not rows, so `j`/`k`, `x`,
+Ctrl+A and the bulk actions pass over them. The columns are a status grouping
+of their own, so a grouped view is a list and offers no columns toggle; it
+offers no drag or ↑/↓ either, since its order is not the board's. Filters and
+Clear keep the grouping. Still open in slice 2: the Focus grouping. Slice 4's pure half shipped
 2026-09-27, not yet wired: `web/task-bulk.ts` plans approve, reject, done and
 delete over the selection. Each reaches exactly the rows that draw that button
 and plans the request that button already posts — no bulk endpoint, no new

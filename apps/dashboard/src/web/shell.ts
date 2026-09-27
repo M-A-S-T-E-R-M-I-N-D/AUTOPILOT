@@ -114,6 +114,7 @@ import {
   parseTaskView as sharedParseTaskView,
   taskViewSearch as sharedTaskViewSearch,
   taskMatchesView as sharedTaskMatchesView,
+  groupTasksForView as sharedGroupTasksForView,
   taskDisplayProperties as sharedTaskDisplayProperties,
   parseTaskDisplay as sharedParseTaskDisplay,
   taskDisplaySearch as sharedTaskDisplaySearch,
@@ -2439,6 +2440,7 @@ ${sharedTaskViewKey.toString()}
 ${sharedParseTaskView.toString()}
 ${sharedTaskViewSearch.toString()}
 ${sharedTaskMatchesView.toString()}
+${sharedGroupTasksForView.toString()}
 ${sharedTaskDisplayProperties.toString()}
 ${sharedParseTaskDisplay.toString()}
 ${sharedTaskDisplaySearch.toString()}
@@ -2634,9 +2636,31 @@ function boardDisplayFieldset(display) {
   for (var i = 0; i < props.length; i++) if (taskDisplayShows(display, props[i])) shown.push(props[i]);
   return boardChipFieldset('board-display', 'boardDisplayShow', 'data-task-display', 'show', props, shown, BOARD_DISPLAY_KEYS);
 }
-// One fieldset of chip-styled native checkboxes: a box per value, each
-// carrying attr=key, ticked when checked lists its value.
-function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys) {
+// The grouping (?group=) between the filters and Show: one native radio group,
+// so arrow keys move the choice and the fieldset is a single Tab stop.
+var BOARD_GROUP_KEYS = { none: 'boardGroupNone', status: 'boardGroupStatus', severity: 'boardGroupSeverity', source: 'boardGroupSource' };
+function boardGroupFieldset(view) {
+  return boardChipFieldset('board-group', 'boardGroup', 'data-task-group', 'group', ['none', 'status', 'severity', 'source'], [view.group], BOARD_GROUP_KEYS, true);
+}
+// A group's head in the list (epic 0026): a list item that is not a .task
+// row, so j/k, x, Ctrl+A and the bulk actions pass over it; its heading is
+// the group's word and how many tasks the view holds in it.
+var BOARD_GROUP_WORDS = { status: TASK_STATUS_KEYS, severity: TASK_SEVERITY_KEYS, source: TASK_SOURCE_KEYS };
+function boardGroupHead(group, key, count) {
+  var li = el('li', 'task-group');
+  var h = el('h4', 'task-group-head');
+  var wordKey = BOARD_GROUP_WORDS[group][key];
+  var word = el('span', null, wordKey ? tr(wordKey) : key);
+  if (wordKey) word.setAttribute('data-i18n', wordKey);
+  h.appendChild(word);
+  h.appendChild(document.createTextNode(' '));
+  h.appendChild(el('span', 'task-group-count', String(count)));
+  li.appendChild(h);
+  return li;
+}
+// One fieldset of chip-styled native checkboxes (radios when radio is set):
+// a box per value, each carrying attr=key, ticked when checked lists its value.
+function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys, radio) {
   var fs = el('fieldset', cls);
   var legend = el('legend', null, tr(legendKey));
   legend.setAttribute('data-i18n', legendKey);
@@ -2645,7 +2669,8 @@ function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys)
   for (var i = 0; i < values.length; i++) {
     var option = el('label', 'board-filter-option');
     var box = el('input');
-    box.type = 'checkbox';
+    box.type = radio ? 'radio' : 'checkbox';
+    if (radio) box.name = cls;
     box.value = values[i];
     box.setAttribute(attr, key);
     box.checked = checked.indexOf(values[i]) >= 0;
@@ -2692,6 +2717,7 @@ function tasksSection(c) {
   // Rows, column counts and the auto view read what the URL's view shows.
   var view = parseTaskView(location.search);
   var filtered = view.status.length + view.severity.length + view.source.length > 0;
+  var grouped = view.group !== 'none';
   // What each row draws reads the URL's display options (?hide=).
   var display = parseTaskDisplay(location.search);
   var showSource = taskDisplayShows(display, 'source');
@@ -2716,12 +2742,17 @@ function tasksSection(c) {
   wrap.appendChild(head);
   var boardView = boardViewStored();
   if (boardView === 'auto' && boardFlowGroups(shown) < 2) boardView = 'list';
+  // The columns are a status grouping of their own, so a grouped view is a
+  // list with heads and offers no columns toggle.
+  if (grouped) boardView = 'list';
   wrap.setAttribute('data-board-view', boardView);
-  var viewToggle = el('button', 'board-view-toggle');
-  viewToggle.type = 'button';
-  viewToggle.setAttribute('data-board-view-toggle', c.id);
-  boardViewToggleLabel(viewToggle, boardView);
-  wrap.appendChild(viewToggle);
+  if (!grouped) {
+    var viewToggle = el('button', 'board-view-toggle');
+    viewToggle.type = 'button';
+    viewToggle.setAttribute('data-board-view-toggle', c.id);
+    boardViewToggleLabel(viewToggle, boardView);
+    wrap.appendChild(viewToggle);
+  }
   // i18n (board web-msnsndki-dz3vn1): the two notes and the per-task decision
   // buttons below carry their English default AND a data-i18n tag; the card
   // rides the same translateDom() sweep its heading already does (the fleet
@@ -2739,6 +2770,7 @@ function tasksSection(c) {
     wrap.appendChild(boardFilterFieldset(view, 'status', 'boardFilterStatus', TASK_STATUS_KEYS));
     wrap.appendChild(boardFilterFieldset(view, 'severity', 'boardFilterSeverity', TASK_SEVERITY_KEYS));
     wrap.appendChild(boardFilterFieldset(view, 'source', 'boardFilterSource', TASK_SOURCE_KEYS));
+    wrap.appendChild(boardGroupFieldset(view));
     wrap.appendChild(boardDisplayFieldset(display));
     if (filtered) wrap.appendChild(boardFilterNote(shown.length, tasks.length));
     var colCounts = { queued: 0, active: 0, done: 0 };
@@ -2791,14 +2823,32 @@ function tasksSection(c) {
       forecastEl.setAttribute('aria-label', forecast.tip);
       wrap.appendChild(forecastEl);
     }
+    // The rows drawn: the closed history capped in board order, then, in a
+    // grouped view, split into its groups — each head counting what the view
+    // holds in its group, capped history included.
+    var rows = [];
     var closedIdx = 0;
-    for (var i = 0; i < shown.length; i++) {
-      var t = shown[i];
-      var isOpen = t.status !== 'done' && t.status !== 'deferred';
-      if (!isOpen) {
-        closedIdx++;
-        if (closedIdx > closedVisible) continue;
+    for (var ri = 0; ri < shown.length; ri++) {
+      var isClosed = shown[ri].status === 'done' || shown[ri].status === 'deferred';
+      if (isClosed && ++closedIdx > closedVisible) continue;
+      rows.push(shown[ri]);
+    }
+    var headAt = {};
+    if (grouped) {
+      var groupSizes = {};
+      var viewGroups = groupTasksForView(shown, view.group);
+      for (var gi = 0; gi < viewGroups.length; gi++) groupSizes[viewGroups[gi].key] = viewGroups[gi].tasks.length;
+      var rowGroups = groupTasksForView(rows, view.group);
+      rows = [];
+      for (var gj = 0; gj < rowGroups.length; gj++) {
+        headAt[rows.length] = boardGroupHead(view.group, rowGroups[gj].key, groupSizes[rowGroups[gj].key]);
+        rows = rows.concat(rowGroups[gj].tasks);
       }
+    }
+    for (var i = 0; i < rows.length; i++) {
+      var t = rows[i];
+      if (headAt[i]) ul.appendChild(headAt[i]);
+      var isOpen = t.status !== 'done' && t.status !== 'deferred';
       // Reorder/focus apply only to WORKABLE tasks — a proposal awaiting the
       // operator's approve/reject decision can't be prioritized or focused yet.
       var isWorkable = t.status === 'queued' || t.status === 'in_progress';
@@ -2819,8 +2869,8 @@ function tasksSection(c) {
       selectBox.setAttribute('data-i18n-name', t.title);
       li.appendChild(selectBox);
       if (isWorkable) openIdx++;
-      // Reorder posts the order the list shows, so a filtered list offers none.
-      if (isWorkable && !filtered) {
+      // Reorder posts the order the list shows, so a filtered or grouped list offers none.
+      if (isWorkable && !filtered && !grouped) {
         // Pointer drag reorder — the primary interaction for sighted mouse/touch
         // users; feeds the SAME /api/task/reorder as the ↑/↓ buttons below,
         // which stay the accessible primary for keyboard/screen-reader users.
@@ -3318,6 +3368,14 @@ document.addEventListener('change', function (e) {
   boardFilterFocus = 'show:' + box.value;
   history.replaceState(history.state, '', location.pathname + taskDisplaySearch({ hide: hide }, location.search) + location.hash);
   rerenderSoon();
+});
+// A group radio regroups the list (?group=) and keeps every filter.
+document.addEventListener('change', function (e) {
+  var box = e.target && e.target.closest && e.target.closest('[data-task-group]');
+  if (!box) return;
+  var view = parseTaskView(location.search);
+  boardFilterFocus = 'group:' + box.value;
+  setTaskView({ group: box.value, status: view.status, severity: view.severity, source: view.source });
 });
 // Clear drops every filter; focus goes to the first box, as the button goes.
 document.addEventListener('click', function (e) {
