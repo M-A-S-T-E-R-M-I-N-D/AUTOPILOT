@@ -24,6 +24,26 @@ const GATE_FAIL_STREAK = {
   evidence: '3 consecutive firings reverted by the gate.',
 };
 
+function task(overrides: Record<string, unknown>) {
+  return {
+    id: 't1',
+    title: 'untitled',
+    body: null,
+    status: 'queued',
+    severity: null,
+    dimension: null,
+    focus: false,
+    priority: null,
+    pinned: false,
+    source: 'self',
+    at: 1,
+    cumulativeCostUsd: 0,
+    firingCount: 0,
+    isRunaway: false,
+    ...overrides,
+  };
+}
+
 const PROJECT = {
   id: 'p1',
   slug: 'alpha',
@@ -151,6 +171,102 @@ describe('the project Health section', () => {
 
     expect(panel()).not.toBeNull();
     expect(panel()?.querySelector('.health-clear')?.textContent).toBe(STRINGS.en.healthClear);
+  });
+});
+
+describe('the project Health section — open severity findings', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('lists open, severity-tagged tasks reds-first, each with its title, body and severity chip', async () => {
+    boot({
+      ...PROJECT,
+      anomalies: [],
+      tasks: [
+        task({
+          id: 'low',
+          title: 'Loose type',
+          body: 'Use a stricter type.',
+          severity: 'low',
+          at: 1,
+        }),
+        task({
+          id: 'crit',
+          title: 'Hardcoded secret',
+          body: 'Move it to an env var and rotate it.',
+          severity: 'critical',
+          at: 2,
+        }),
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const items = Array.from(panel()?.querySelectorAll('.health-finding') ?? []);
+    expect(items).toHaveLength(2);
+
+    const [first, second] = items;
+    expect(first?.querySelector('.health-item-title')?.textContent).toContain('Hardcoded secret');
+    expect(first?.querySelector('.chip.sev-critical')).not.toBeNull();
+    expect(first?.querySelector('.health-what')?.textContent).toBe(
+      'Move it to an env var and rotate it.',
+    );
+    expect(second?.querySelector('.health-item-title')?.textContent).toContain('Loose type');
+  });
+
+  it('excludes findings with no severity and findings already closed', async () => {
+    boot({
+      ...PROJECT,
+      anomalies: [],
+      tasks: [
+        task({ id: 'unrated', title: 'Plain task', severity: null }),
+        task({ id: 'closed', title: 'Fixed already', severity: 'high', status: 'done' }),
+        task({ id: 'deferred', title: 'Not now', severity: 'high', status: 'deferred' }),
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const section = panel();
+    expect(section?.querySelectorAll('.health-finding')).toHaveLength(0);
+    expect(section?.querySelector('.health-clear')?.textContent).toBe(STRINGS.en.healthClear);
+  });
+
+  it('omits a finding paragraph when the task has no body', async () => {
+    boot({
+      ...PROJECT,
+      anomalies: [],
+      tasks: [task({ id: 'nobody', title: 'No body here', severity: 'medium', body: null })],
+    });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const item = panel()?.querySelector('.health-finding');
+    expect(item?.querySelector('.health-item-title')?.textContent).toContain('No body here');
+    expect(item?.querySelector('.health-what')).toBeNull();
+  });
+});
+
+describe('the project Health section — open severity findings accessibility', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('is axe-clean with findings listed', async () => {
+    boot({
+      ...PROJECT,
+      anomalies: [],
+      tasks: [
+        task({ id: 'crit', title: 'Hardcoded secret', body: 'Rotate it.', severity: 'critical' }),
+      ],
+    });
+    await vi.waitFor(() => {
+      expect(panel()?.querySelectorAll('.health-finding')).toHaveLength(1);
+    });
+
+    const results = await axe.run(panel() as HTMLElement, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+      rules: { 'color-contrast': { enabled: false } },
+    });
+    expect(results.violations.map((v) => v.id)).toEqual([]);
   });
 });
 
