@@ -15,7 +15,10 @@ and `CodexCliModel` spawns it (`exec --json --model <model> --sandbox workspace-
 <id>] <prompt>`, verified against openai/codex's own docs and `codex-rs/exec/src/cli.rs`).
 Not yet flown on a real lane — no routing/config wiring, no CLI-level resume-retry-on-failure, no
 idle-timeout hardening (`ClaudeCliModel`'s equivalents were all added after real incidents this
-adapter has no flight history to have hit yet). Gemini and Copilot CLI adapters remain unstarted.
+adapter has no flight history to have hit yet). The Gemini adapter's pure half landed the same day:
+`packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini -p
+--output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`); its
+spawn (`GeminiCliModel`) is the next slice. The Copilot CLI adapter remains unstarted.
 
 `docs/ROADMAP.md` §3 (M14, "not started") names the gap directly: AUTOPILOT flies one engine — the
 Claude Code CLI on a personal subscription — and that is both its best property and its largest
@@ -86,13 +89,20 @@ cached share to `cacheRead` to match what `tokensIn` means for `claude -p`.
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
 ([geminicli.com/docs/cli/headless](https://geminicli.com/docs/cli/headless/)). Session resume:
 `--resume`/`-r <id>` or `--resume last`; sessions persist under
-`~/.gemini/tmp/<project_hash>/chats/`. **Resume gap:** the session ID is not actually surfaced in
-headless JSON output today — open upstream issue
-[google-gemini/gemini-cli#14435](https://github.com/google-gemini/gemini-cli/issues/14435) asks for
-exactly this. Unlike Claude CLI's envelope `session_id` field, a `GeminiCliModel` wanting warm-session
-continuity would have to read the newest file under the project's chat directory after each
-invocation rather than trust the JSON response — a materially less reliable mechanism than the one
-`docs/epics/0009-warm-sessions.md` already validated for Claude CLI.
+`~/.gemini/tmp/<project_hash>/chats/`. **Resume gap, since closed upstream:** the session ID was not
+surfaced in headless JSON output (upstream issue
+[google-gemini/gemini-cli#14435](https://github.com/google-gemini/gemini-cli/issues/14435)); re-read
+from source on 2026-09-27, `JsonOutput` in `packages/core/src/output/types.ts` now carries
+`session_id`, and `JsonFormatter` writes it whenever the CLI has one — the same envelope-borne id
+Claude CLI gives, so no chat-directory scraping is needed. **Cost gap:** `stats`
+(`SessionMetrics`, `packages/core/src/telemetry/uiTelemetry.ts`) carries per-model token counts
+only, never a priced figure, so a `GeminiCliModel` reports `costUsd: null` exactly like Codex. Two
+wire traps, read from the same source: the JSON is ONE pretty-printed object (not JSONL), and a
+fatal error (turn limit, API failure) writes its error-only object to **stderr** behind an
+`[ERROR] ` prefix instead of stdout (`packages/cli/src/utils/errors.ts`), so the parse reads stdout
+first and falls back to stderr. Tokens follow the CLI's own `convertToStreamStats` mapping —
+`tokens.input` (already `prompt − cached`) to `tokensIn`, `candidates` to `tokensOut`, `cached` to
+`cacheRead` — summed over every model in `stats.models`, since the CLI's router can add its own.
 
 **5. GitHub Copilot CLI** — non-interactive mode (`-p`) exists, but by default mixes model output
 with UI chrome (Braille spinner glyphs) and tool-execution annotations on stdout
@@ -122,7 +132,7 @@ disconnected reference doc that can drift out of sync with it.
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
 | OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it |
-| Google Gemini CLI | Partial — resume works, session ID not in JSON output (upstream gap) | Yes — full loop | Yes — usage stats in JSON | Not started |
+| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed) | Yes — full loop | **None** — token counts only, no price | **Parse shipped** — `parseGeminiJsonOutput` (`packages/engine/src/adapters/gemini-cli.ts`); spawn not yet built, so no lane flies on it |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | Clean stdout XOR usage stats, not both | Not started |
 
 ## Acceptance criteria
