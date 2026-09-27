@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-27 | [Processing VERDICT `ap-mtui8t6l-0`: the payload census still takes any `.field` as a read, split confirmed with two live false negatives](2026-09-27-verdict-ap-mtui8t6l-0-payload-census-split-confirmed.md) |
 | 2026-09-27 | [Processing VERDICT `ap-mtt2bjp8-1`: AUTOFORMAT single-writer redesign still needs its own slice — reconfirmed, unchanged since 2026-09-10](2026-09-27-verdict-ap-mtt2bjp8-1-autoformat-single-writer-redesign-reconfirmed.md) |
 | 2026-09-26 | [VERDICT close `web-mtywp7to-rbebh4`: epic 0023 (the docs reader) — all 5 slices verified landed](2026-09-26-verdict-web-mtywp7to-rbebh4-epic-0023-docs-reader-closed.md) |
 | 2026-09-26 | [Processing `ap-muhrb48e-h25dyx-convred`: "CONVERGENCE RED: pnpm run test fails on autopilot/flight" — root cause identified and already fixed at HEAD, closing](2026-09-26-verdict-ap-muhrb48e-h25dyx-convred-closed.md) |
