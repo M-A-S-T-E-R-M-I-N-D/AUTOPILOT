@@ -39,14 +39,17 @@ button says what is hidden. A filtered list offers no drag or ↑/↓, since
 reordering posts the order the list shows. A Severity filter followed it the
 same day: a second fieldset of the same chips, reds first (critical, high,
 medium, low) and an "unrated" box for the tasks that carry none, writing
-`?severity=`. A hand-typed source filter already applies. The display options'
+`?severity=`. A Source filter closed the filters 2026-09-27: a third fieldset
+of the same chips, one per way a task reaches the board (inbox, repo, backlog,
+chat, dashboard, "proposed" — a self-proposed task, the word its row's chip
+already shows — GitHub) and a "no source" box, writing `?source=`. The display options'
 pure half followed, not yet wired: `?hide=` names the row properties a view
 hides — source, severity, dimension, cost; never the runaway or budget-risk
 warnings — kept apart from the filters, since filters narrow the list and
 display options change what a row shows. The URL lists what is hidden, not
 what shows, so a property added later shows on every older link. Still open in
-slice 2: the source boxes, the grouping control and counts on its group heads,
-the display options' control, the Focus grouping. Slice 4's pure half shipped
+slice 2: the grouping control and counts on its group heads, the display
+options' control, the Focus grouping. Slice 4's pure half shipped
 2026-09-27, not yet wired: `web/task-bulk.ts` plans approve, reject, done and
 delete over the selection. Each reaches exactly the rows that draw that button
 and plans the request that button already posts — no bulk endpoint, no new

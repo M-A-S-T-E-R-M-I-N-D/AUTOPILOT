@@ -22,6 +22,9 @@ const LATIN_SCRIPT_KEYS: ReadonlySet<StringKey> = new Set<StringKey>([
   // The Keeper queue's source chip for a pull request: "PR" is the Latin
   // acronym every locale's developers use, the same way KEEPER stays KEEPER.
   'keeperSourcePr',
+  // The tasks screen's Source filter box for an imported issue names the
+  // product, which every locale's table already writes as "GitHub".
+  'taskSourceGithub',
 ]);
 
 describe('STRINGS', () => {

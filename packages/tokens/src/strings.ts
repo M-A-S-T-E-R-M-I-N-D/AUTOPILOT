@@ -1075,6 +1075,18 @@ const EN_STRINGS = {
   taskSeverityMedium: 'medium',
   taskSeverityLow: 'low',
   taskSeverityNone: 'unrated',
+  // Its Source filter after Severity: the legend and one word per way a task
+  // reaches the board. A self-proposed task is "proposed", the word its row's
+  // chip shows; "no source" files a task that names none.
+  boardFilterSource: 'Source',
+  taskSourceInbox: 'inbox',
+  taskSourceRepo: 'repo',
+  taskSourceBacklog: 'backlog',
+  taskSourceChat: 'chat',
+  taskSourceDashboard: 'dashboard',
+  taskSourceSelf: 'proposed',
+  taskSourceGithub: 'GitHub',
+  taskSourceNone: 'no source',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2551,6 +2563,15 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskSeverityMedium: 'בינונית',
     taskSeverityLow: 'נמוכה',
     taskSeverityNone: 'ללא דירוג',
+    boardFilterSource: 'מקור',
+    taskSourceInbox: 'תיבת הודעות',
+    taskSourceRepo: 'מאגר',
+    taskSourceBacklog: 'צבר משימות',
+    taskSourceChat: 'צ׳אט',
+    taskSourceDashboard: 'לוח הבקרה',
+    taskSourceSelf: 'הוצעה',
+    taskSourceGithub: 'GitHub',
+    taskSourceNone: 'ללא מקור',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

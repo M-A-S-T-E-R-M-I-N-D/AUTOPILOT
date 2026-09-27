@@ -16,12 +16,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
-function task(id: string, title: string, status: string, severity: string | null = null) {
+function task(
+  id: string,
+  title: string,
+  status: string,
+  severity: string | null = null,
+  source: string | null = 'dashboard',
+) {
   return {
     id,
     title,
     status,
-    source: 'dashboard',
+    source,
     severity,
     dimension: null,
     focus: false,
@@ -30,7 +36,14 @@ function task(id: string, title: string, status: string, severity: string | null
   };
 }
 
-function makeState() {
+const BOARD = [
+  task('t1', 'Wire up the retry queue', 'queued', 'high'),
+  task('t2', 'Tidy the webhook names', 'queued'),
+  task('t3', 'Rename the webhook payload', 'needs_approval'),
+  task('t4', 'Old cleanup task', 'done', 'high'),
+];
+
+function makeState(tasks = BOARD) {
   return {
     generatedAt: 1,
     totals: {
@@ -67,12 +80,7 @@ function makeState() {
         lastActivityAt: null,
         flightLog: [],
         activity: [],
-        tasks: [
-          task('t1', 'Wire up the retry queue', 'queued', 'high'),
-          task('t2', 'Tidy the webhook names', 'queued'),
-          task('t3', 'Rename the webhook payload', 'needs_approval'),
-          task('t4', 'Old cleanup task', 'done', 'high'),
-        ],
+        tasks,
       },
     ],
     empty: false,
@@ -272,7 +280,6 @@ describe('task view filter (epic 0026 slice 2: the Severity filter beside Status
 
     const fieldsets = Array.from(document.querySelectorAll('fieldset.board-filter'));
     const severity = severityFieldset() as HTMLFieldSetElement;
-    expect(fieldsets).toHaveLength(2);
     expect(fieldsets.indexOf(severity)).toBe(1);
     const legend = severity.querySelector('legend') as HTMLElement;
     expect(legend.textContent).toBe(STRINGS.en.boardFilterSeverity);
@@ -328,5 +335,130 @@ describe('task view filter (epic 0026 slice 2: the Severity filter beside Status
     expect(box('critical', 'severity').closest('label')?.textContent).toBe(
       STRINGS.he.taskSeverityCritical,
     );
+  });
+});
+
+describe('task view filter (epic 0026 slice 2: the Source filter after Severity)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    history.replaceState(null, '', '/');
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  // One task per way a task reaches the board, so each box narrows to its own.
+  const SOURCED = [
+    task('s1', 'Triage the dropped note', 'queued', null, 'inbox'),
+    task('s2', 'Lift the backlog item', 'needs_approval', null, 'backlog'),
+    task('s3', 'Split the shell module', 'needs_approval', 'medium', 'self'),
+    task('s4', 'Wire up the retry queue', 'queued', 'high', 'dashboard'),
+    task('s5', 'Answer the imported issue', 'queued', null, 'github'),
+  ];
+  const bootSourced = (search = '') => boot(search, makeState(SOURCED));
+
+  const sourceFieldset = () =>
+    document.querySelector('[data-task-filter="source"]')?.closest('fieldset') ?? null;
+
+  it('a labelled Source fieldset follows Severity, one box per way a task arrives', async () => {
+    await bootSourced();
+
+    const fieldsets = Array.from(document.querySelectorAll('fieldset.board-filter'));
+    const source = sourceFieldset() as HTMLFieldSetElement;
+    expect(fieldsets).toHaveLength(3);
+    expect(fieldsets.indexOf(source)).toBe(2);
+    const legend = source.querySelector('legend') as HTMLElement;
+    expect(legend.textContent).toBe(STRINGS.en.boardFilterSource);
+    expect(legend.getAttribute('data-i18n')).toBe('boardFilterSource');
+    const boxes = Array.from(source.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    expect(boxes.map((b) => b.getAttribute('data-task-filter'))).toEqual(Array(8).fill('source'));
+    expect(boxes.map((b) => b.value)).toEqual([
+      'inbox',
+      'repo',
+      'backlog',
+      'chat',
+      'dashboard',
+      'self',
+      'github',
+      'none',
+    ]);
+    expect(boxes.some((b) => b.checked)).toBe(false);
+    // A self-proposed task is filed under the word its row's chip already shows.
+    expect(box('self', 'source').closest('label')?.textContent).toBe(STRINGS.en.taskSourceSelf);
+    expect(STRINGS.en.taskSourceSelf).toBe('proposed');
+    expect(box('github', 'source').closest('label')?.textContent).toBe(STRINGS.en.taskSourceGithub);
+    expect(box('none', 'source').closest('label')?.textContent).toBe(STRINGS.en.taskSourceNone);
+  });
+
+  it('ticking a source writes ?source= and narrows the list, with Severity on top', async () => {
+    await bootSourced();
+
+    await tick('inbox', 'source');
+    expect(location.search).toBe('?source=inbox');
+    expect(shownIds()).toEqual(['s1']);
+
+    await tick('dashboard', 'source');
+    // The vocabulary's order, not the order of the clicks.
+    expect(location.search).toBe('?source=inbox,dashboard');
+    expect(shownIds()).toEqual(['s1', 's4']);
+    expect(note()?.textContent).toContain(showing('en', 2, 5));
+
+    await tick('high', 'severity');
+    expect(location.search).toBe('?source=inbox,dashboard&severity=high');
+    expect(shownIds()).toEqual(['s4']);
+    expect(box('inbox', 'source').checked).toBe(true);
+  });
+
+  it('a link with ?source= opens the board filtered, its boxes checked', async () => {
+    await bootSourced('?source=self,backlog');
+
+    expect(shownIds()).toEqual(['s2', 's3']);
+    expect(box('backlog', 'source').checked).toBe(true);
+    expect(box('self', 'source').checked).toBe(true);
+    expect(box('inbox', 'source').checked).toBe(false);
+  });
+
+  it('the no-source box keeps a task that carries none', async () => {
+    await boot(
+      '?source=none',
+      makeState([...SOURCED, task('s6', 'Legacy row', 'queued', null, null)]),
+    );
+
+    expect(shownIds()).toEqual(['s6']);
+    expect(box('none', 'source').checked).toBe(true);
+  });
+
+  it('keyboard focus stays on the source box it toggled through the rebuild', async () => {
+    await bootSourced();
+
+    box('github', 'source').focus();
+    await tick('github', 'source');
+
+    expect(document.activeElement).toBe(box('github', 'source'));
+    expect(box('github', 'source').checked).toBe(true);
+  });
+
+  it('Clear drops the source filter and keeps the other parameters', async () => {
+    await bootSourced('?source=github&keep=1');
+
+    (note()?.querySelector('button[data-task-filter-clear]') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(location.search).toBe('?keep=1');
+    expect(shownIds()).toEqual(['s1', 's2', 's3', 's4', 's5']);
+  });
+
+  it('the Source legend and its box labels follow a locale switch', async () => {
+    await bootSourced();
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    expect(sourceFieldset()?.querySelector('legend')?.textContent).toBe(
+      STRINGS.he.boardFilterSource,
+    );
+    expect(box('inbox', 'source').closest('label')?.textContent).toBe(STRINGS.he.taskSourceInbox);
+    expect(box('self', 'source').closest('label')?.textContent).toBe(STRINGS.he.taskSourceSelf);
   });
 });
