@@ -65,8 +65,7 @@ describe('classifyTaskModelTier', () => {
 
   it('routes a self-mined CLOSED-TASK AUDIT finding to the mechanical tier', () => {
     const tier = classifyTaskModelTier({
-      title:
-        'CLOSED-TASK AUDIT: "AP-1" claimed done but its DELIVERABLE clause no longer checks out',
+      title: 'CLOSED-TASK AUDIT: "AP-1" DELIVERABLE no longer checks out: "adds a tooltip"',
       sliceStreak: 0,
     });
     expect(tier).toBe('mechanical');

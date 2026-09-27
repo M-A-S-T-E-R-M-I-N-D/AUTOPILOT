@@ -340,6 +340,11 @@ that carry a `DELIVERABLE:` clause against the CURRENT committed tree, and flags
 | deliverable-drift | the clause's keywords vanished from the tree entirely — the shipped thing appears to be gone |
 | ux-expression-drift | the keywords survive, but no longer in any `/web/` or `docs/*.md` file — the promised UI/Docs surface was ripped out, leaving only stray backend mentions |
 
+The proposal's title quotes the drifted clause up front
+(`CLOSED-TASK AUDIT: "<taskId>" DELIVERABLE no longer checks out: "<clause>" — re-verify: <original title>`,
+or `lost its UI/Docs expression` for the second class): a firing sees board titles cut at 200
+characters, and the original title's `DELIVERABLE:` clause usually sits past that cut.
+
 **DOC-FRESHNESS** — a governed epic doc whose subject paths were touched more recently than the
 doc itself; the doc may describe code that has since moved on.
 
