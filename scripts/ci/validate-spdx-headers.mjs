@@ -39,6 +39,21 @@ const VALID_EXPRESSION = new RegExp(
   String.raw`^\(?${LICENCE_ID}(?:\s+(?:AND|OR|WITH)\s+\(?${LICENCE_ID}\)?)*\)?$`,
 );
 
+/** Comment closers a licence tag may sit before: C's, and both forms HTML
+ *  accepts (`--!>` ends a comment too). Compared as strings — a regex for an
+ *  HTML comment end is what CodeQL's js/bad-tag-filter rightly flags. */
+const COMMENT_CLOSERS = ['*/', '-->', '--!>'];
+
+/**
+ * The expression with any trailing comment closer removed.
+ * @param {string} text
+ * @returns {string}
+ */
+function withoutCommentCloser(text) {
+  const closer = COMMENT_CLOSERS.find((c) => text.endsWith(c));
+  return closer === undefined ? text : text.slice(0, -closer.length).trim();
+}
+
 /**
  * THE REUSE RED THAT SAT ON MAIN (2026-09-27): a test asserting on a header
  * wrote the tag as a string literal, `reuse lint` read the quote and bracket
@@ -64,10 +79,7 @@ export function invalidSpdxTags(text) {
     }
     const at = raw.indexOf(TAG);
     if (ignoring || at === -1) return;
-    const expression = raw
-      .slice(at + TAG.length)
-      .replace(/\s*(?:\*\/|-->)\s*$/, '')
-      .trim();
+    const expression = withoutCommentCloser(raw.slice(at + TAG.length).trim());
     if (!VALID_EXPRESSION.test(expression)) found.push({ line: index + 1, expression });
   });
   return found;
