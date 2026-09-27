@@ -129,6 +129,14 @@ export const HOUSE_TAXONOMY_LABELS: readonly TaxonomyLabel[] = [
     description:
       'Active-partner standing application — KEEPER attaches a dossier, the maintainer decides in the open',
   },
+  {
+    // The dossier ritual's idempotency marker (contributor-dossier.ts,
+    // DOSSIER_POSTED_LABEL): added by name before the dossier comment, so an
+    // unseeded name failed the edit and later KEEPER passes re-posted.
+    name: 'dossier-posted',
+    color: 'd4c5f9',
+    description: 'KEEPER posted its evidence dossier here — later passes skip this application',
+  },
 ];
 
 /** A generic starter set — bootstrapping structure for a fresh repo, never
@@ -273,7 +281,7 @@ async function applyOne(exec: CliExec, action: TaxonomySeedAction): Promise<bool
 
 /** Applies a plan's actions in order, one `gh` call each — never throws; a
  *  failed action lands in `failed` rather than aborting the rest (a
- *  transient failure on label #3 must not skip labels #4-19). */
+ *  transient failure on label #3 must not skip labels #4-20). */
 export async function executeTaxonomySeed(
   exec: CliExec,
   plan: TaxonomySeedPlan,
