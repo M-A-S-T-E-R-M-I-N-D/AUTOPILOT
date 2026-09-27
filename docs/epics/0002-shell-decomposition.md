@@ -3337,6 +3337,20 @@ generated barrel `web/features/index.ts`, `web/chunks.ts`, `shared/` and
 feature work (see the 2026-08-27 entry above), so it can't signal drift in
 this doc.
 
+Freshness check (2026-09-27, evening): `web/shell.ts` is at 5,542 lines and
+`web/features/` holds 47 discoverable modules (`web/features/index.ts`
+carries exactly 47 imports, so barrel and folder agree) — up from the
+5,397-line/46-module snapshot the entry above recorded earlier today. Exactly
+one new module landed since then: `versions.ts` (relanded with security
+census, `ap-mui2h3s1-1` slice 4). Every module this doc's own progress log
+names by its whole-region-move cut is still present — no decomposition
+regression. The barrel file (`web/features/index.ts`) and `chunks.ts` have
+not changed since 2026-09-27 13:38 (commit `83ad5992`); neither has
+`scripts/codemod/generate-splice-manifest.mjs`. All commits since the prior
+check touch only already-extracted modules or `shell.ts` itself — ordinary
+feature work, no decomposition cuts. No code changed this pass; gate green
+(typecheck/lint/format:check/build; docs-only change).
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
