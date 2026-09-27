@@ -172,9 +172,9 @@ export function parsePoolComments(raw: unknown): readonly IssueCommentLike[] {
  * shape `fetchOpenIssues` already uses. Read-only: never assigns, labels,
  * or comments, only lists. Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing — an empty pool is a
- * valid outcome, and a flaky `gh` call shouldn't crash the browse. Entries
- * missing a numeric `number`, string `title`, or string `url` are dropped
- * rather than passed through malformed.
+ * valid outcome, and a flaky `gh` call shouldn't crash the browse. A
+ * non-object row (a `null`) and entries missing a numeric `number`, string
+ * `title`, or string `url` are dropped rather than passed through malformed.
  */
 export async function fetchPoolIssues(exec: CliExec): Promise<PoolIssue[]> {
   const { code, stdout } = await exec('gh', [
@@ -195,7 +195,8 @@ export async function fetchPoolIssues(exec: CliExec): Promise<PoolIssue[]> {
   }
   if (!Array.isArray(parsed)) return [];
 
-  return (parsed as RawPoolIssue[])
+  return (parsed as unknown[])
+    .filter((raw): raw is RawPoolIssue => typeof raw === 'object' && raw !== null)
     .filter(
       (raw) =>
         typeof raw.number === 'number' &&

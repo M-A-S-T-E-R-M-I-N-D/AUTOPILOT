@@ -143,6 +143,16 @@ describe('createPoolClientPreviewApi', () => {
     expect(entries[0]?.decision.decision).toBe('skip');
   });
 
+  it('keeps the browse list when one row gh returns is null', async () => {
+    const exec = execFor([pooledIssue(7), null, pooledIssue(8)], 'octocat');
+    const api = createPoolClientPreviewApi(exec);
+
+    const entries = await api();
+
+    expect(entries.map((entry) => entry.issue.number)).toEqual([7, 8]);
+    expect(entries.map((entry) => entry.decision.decision)).toEqual(['claim', 'claim']);
+  });
+
   it('defaults to the real CLI exec when none is injected', () => {
     expect(() => createPoolClientPreviewApi()).not.toThrow();
   });
