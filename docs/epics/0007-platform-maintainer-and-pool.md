@@ -760,6 +760,13 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    a new help-wanted issue, refresh an existing one, or skip; turns decisions
    into exact `gh` argv; the same decide-and-apply class `flight/issue-triage`
    is flagged for, ending in neither `-execute.ts` nor any security keyword),
+   the version-restore security marker (`flight/version-restore` added to
+   `SECURITY_SENSITIVE_PATH_MARKERS` — `restoreVersion` creates a git branch in
+   a project's own repository from an HTTP request (`POST
+   /api/versions/restore`), so it is not benign and a PR touching it now waits
+   for a human; landed once unmarked and reverted (`fa23ba2e` → `0212ba4b`)
+   when this ritual's own all-of-flight/ census caught the omission, then
+   relanded with the marker in `2494c7a3`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
