@@ -334,6 +334,12 @@ export function runDocFreshnessSweep(
  * operator decides. The id is keyed on the task alone (not a timestamp) so an
  * unresolved finding isn't re-proposed every flight; once the original task
  * is fixed (or the drift somehow reverses), the audit simply stops finding it.
+ * The title quotes the drifted clause BEFORE re-quoting the original title:
+ * a firing sees board titles cut at the prompt's BOARD_TITLE_CHARS (200,
+ * packages/engine/src/prompt.ts), and an operator title's DELIVERABLE clause
+ * sits at its end — past that cut, which left closedaudit tasks to be
+ * processed blind. "DELIVERABLE" is never followed by a colon here, so
+ * `extractDeliverable` on the audit title still finds the original clause.
  */
 export async function runClosedTaskAuditSweep(
   store: Store,
@@ -344,14 +350,14 @@ export async function runClosedTaskAuditSweep(
   try {
     const findings = await findClosedTaskAuditFindings(doneTasks(store.db, projectId), vcs);
     for (const finding of findings) {
-      const clauseDescription =
+      const drift =
         finding.reason === 'ux-expression-drift'
-          ? "its DELIVERABLE clause's UI/Docs expression no longer appears in the tree"
-          : 'its DELIVERABLE clause no longer checks out';
+          ? 'lost its UI/Docs expression'
+          : 'no longer checks out';
       const created = createTask(store, {
         id: `closedaudit-${finding.taskId}`,
         projectId,
-        title: `CLOSED-TASK AUDIT: "${finding.taskId}" claimed done but ${clauseDescription} — re-verify: ${finding.title}`,
+        title: `CLOSED-TASK AUDIT: "${finding.taskId}" DELIVERABLE ${drift}: "${finding.deliverable}" — re-verify: ${finding.title}`,
         source: 'self',
         status: 'needs_approval',
         createdAt: now(),

@@ -21,6 +21,7 @@ import {
 } from '../../src/flight/post-flight-sweeps.js';
 import { DOC_SUBJECTS } from '../../src/flight/doc-freshness.js';
 import type { AuditVcs } from '../../src/flight/closed-task-audit.js';
+import { extractDeliverable } from '../../src/flight/deliverable.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { RUNAWAY_SPEND_USD, RUNAWAY_FIRINGS } from '../../src/flight/triage-factors.js';
 import {
@@ -719,6 +720,56 @@ describe('runClosedTaskAuditSweep', () => {
     );
 
     expect(closedAuditTasks()).toEqual([]);
+  });
+
+  /**
+   * The firing that picks up a closedaudit task sees its title through the
+   * prompt's BOARD_TITLE_CHARS window (packages/engine/src/prompt.ts: 200).
+   * An operator title's DELIVERABLE clause sits at its END, so an audit title
+   * that only re-quotes the whole original after a long preamble pushes the
+   * one fact the re-verifier needs — the clause that drifted — past the cut
+   * (closedaudit-web-mss50iak-g176g8 was processed blind for exactly this).
+   */
+  const BOARD_TITLE_CHARS = 200;
+  const LONG_PREAMBLE = `PLATFORM 7/7 - page upkeep + publicity: ${'keeps the pages fresh; '.repeat(8)}`;
+
+  function auditTitle(taskId: string): string {
+    const row = store.db
+      .prepare('SELECT title FROM tasks WHERE id = ?')
+      .get(`closedaudit-${taskId}`) as { title: string };
+    return row.title;
+  }
+
+  it('puts the drifted DELIVERABLE clause inside the board-title window', async () => {
+    const clause = 'adds a zorblax gauge to the cockpit header';
+    seedDoneTask('t3', `${LONG_PREAMBLE}DELIVERABLE: ${clause}`);
+
+    await runClosedTaskAuditSweep(
+      store,
+      'p1',
+      fakeVcs('nothing relevant here') as unknown as GitVcs,
+      () => 12345,
+    );
+
+    const title = auditTitle('t3');
+    expect(title.slice(0, BOARD_TITLE_CHARS)).toContain(`no longer checks out: "${clause}"`);
+    // The completion verifier still reads the ORIGINAL clause off the audit title.
+    expect(extractDeliverable(title)).toBe(clause);
+  });
+
+  it('names a UX-expression drift and its clause inside the board-title window', async () => {
+    const clause = 'adds a zorblax tooltip to the cockpit header';
+    seedDoneTask('t4', `${LONG_PREAMBLE}DELIVERABLE: ${clause}`);
+    const backendOnlyVcs: AuditVcs = {
+      containsText: async () => true,
+      filesContainingText: async () => ['packages/engine/src/zorblax.ts'],
+    };
+
+    await runClosedTaskAuditSweep(store, 'p1', backendOnlyVcs as unknown as GitVcs, () => 12345);
+
+    const title = auditTitle('t4');
+    expect(title.slice(0, BOARD_TITLE_CHARS)).toContain(`lost its UI/Docs expression: "${clause}"`);
+    expect(extractDeliverable(title)).toBe(clause);
   });
 
   it('is best-effort — a query failure never throws', async () => {
