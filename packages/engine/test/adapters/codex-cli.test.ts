@@ -1,8 +1,29 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
-import { parseCodexExecOutput } from '../../src/adapters/codex-cli.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { execFile, spawn } from 'node:child_process';
+import { parseCodexExecOutput, CodexCliModel } from '../../src/adapters/codex-cli.js';
+import { DEFAULT_CLI_TIMEOUT_MS } from '../../src/adapters/claude-cli.js';
+
+vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
+
+// execFile is heavily overloaded (options shape picks the callback signature);
+// fighting that overload set from a test double buys nothing, so the mock is
+// driven through its untyped vi.fn() surface instead — same approach as
+// claude-cli.test.ts.
+const execFileMock = vi.mocked(execFile) as unknown as {
+  mockReset(): void;
+  mockImplementation(impl: (...args: unknown[]) => unknown): void;
+  mock: { calls: unknown[][] };
+};
+const spawnMock = vi.mocked(spawn);
+
+type ExecFileCallback = (
+  error: (Error & { code?: unknown }) | null,
+  stdout: string | null,
+  stderr: string,
+) => void;
 
 /** One `codex exec --json` stdout, a JSON object per line (exec_events.rs). */
 function jsonl(...events: readonly unknown[]): string {
@@ -248,5 +269,137 @@ describe('parseCodexExecOutput', () => {
   it('reports a failed turn with no message as a null result, still an error', () => {
     const response = parseCodexExecOutput(jsonl(THREAD, { type: 'turn.failed' }), 1, 'gpt-5-codex');
     expect(response.envelope).toMatchObject({ isError: true, result: null });
+  });
+});
+
+describe('CodexCliModel', () => {
+  beforeEach(() => {
+    execFileMock.mockReset();
+    // ORPHAN SWEEP (claude-cli.ts's reapCliDescendants, reused here): an
+    // on-able stub keeps the win32 taskkill reap inert under this mock,
+    // same as claude-cli.test.ts's ClaudeCliModel suite.
+    spawnMock.mockReset();
+    spawnMock.mockReturnValue({ on: vi.fn() } as never);
+  });
+
+  function mockExecFileResult(
+    error: (Error & { code?: unknown }) | null,
+    stdout: string | null,
+  ): void {
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      queueMicrotask(() => cb(error, stdout, ''));
+      return { pid: 4321 };
+    });
+  }
+
+  it('resolves the parsed envelope from a clean run', async () => {
+    const stdout = jsonl(
+      THREAD,
+      completed({ input_tokens: 10, cached_input_tokens: 0, output_tokens: 3 }),
+      agentMessage('item_0', 'done'),
+    );
+    mockExecFileResult(null, stdout);
+
+    const model = new CodexCliModel({ repo: '/work/sbx' });
+    const res = await model.invoke('gpt-5-codex', 'do it');
+
+    expect(res).toEqual(parseCodexExecOutput(stdout, 0, 'gpt-5-codex'));
+  });
+
+  it('spawns the default "codex" binary with --json, the model, a workspace-write sandbox, and the prompt last', async () => {
+    mockExecFileResult(null, '');
+
+    const model = new CodexCliModel({ repo: '/work/sbx' });
+    await model.invoke('gpt-5-codex', 'do it');
+
+    expect(execFileMock.mock.calls).toHaveLength(1);
+    const [binary, args, options] = execFileMock.mock.calls[0] as [
+      string,
+      string[],
+      Record<string, unknown>,
+    ];
+    expect(binary).toBe('codex');
+    expect(args[0]).toBe('exec');
+    expect(args).toContain('--json');
+    expect(args[args.indexOf('--model') + 1]).toBe('gpt-5-codex');
+    expect(args[args.indexOf('--sandbox') + 1]).toBe('workspace-write');
+    expect(args).not.toContain('resume');
+    expect(args[args.length - 1]).toBe('do it');
+    expect(options).toMatchObject({
+      cwd: '/work/sbx',
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+      timeout: DEFAULT_CLI_TIMEOUT_MS,
+      encoding: 'utf8',
+    });
+  });
+
+  it('inserts "resume <id>" before the prompt when a session id is given', async () => {
+    mockExecFileResult(null, '');
+
+    const model = new CodexCliModel({ repo: '/work/sbx' });
+    await model.invoke('gpt-5-codex', 'continue', THREAD.thread_id);
+
+    const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+    const resumeAt = args.indexOf('resume');
+    expect(resumeAt).toBeGreaterThan(-1);
+    expect(args[resumeAt + 1]).toBe(THREAD.thread_id);
+    expect(args[args.length - 1]).toBe('continue');
+  });
+
+  it('omits "resume" for an empty session id (an ordinary cold spawn)', async () => {
+    mockExecFileResult(null, '');
+
+    const model = new CodexCliModel({ repo: '/work/sbx' });
+    await model.invoke('gpt-5-codex', 'do it', '');
+
+    const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+    expect(args).not.toContain('resume');
+  });
+
+  it('honors a caller-supplied sandbox level and binary path', async () => {
+    mockExecFileResult(null, '');
+
+    const model = new CodexCliModel({
+      repo: '/work/sbx',
+      binary: '/opt/codex',
+      sandbox: 'danger-full-access',
+    });
+    await model.invoke('gpt-5-codex', 'do it');
+
+    const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
+    expect(binary).toBe('/opt/codex');
+    expect(args[args.indexOf('--sandbox') + 1]).toBe('danger-full-access');
+  });
+
+  it('passes a caller-supplied timeoutMs through to execFile', async () => {
+    mockExecFileResult(null, '');
+
+    const model = new CodexCliModel({ repo: '/work/sbx', timeoutMs: 5000 });
+    await model.invoke('gpt-5-codex', 'do it');
+
+    const [, , options] = execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>];
+    expect(options['timeout']).toBe(5000);
+  });
+
+  it('maps a numeric err.code straight through as the exit code', async () => {
+    mockExecFileResult(Object.assign(new Error('boom'), { code: 17 }), 'partial');
+
+    const model = new CodexCliModel({ repo: '/work/sbx' });
+    const res = await model.invoke('gpt-5-codex', 'do it');
+
+    expect(res.exitCode).toBe(17);
+  });
+
+  it('never rejects on a spawn failure (binary missing) — resolves a no-envelope response instead', async () => {
+    mockExecFileResult(Object.assign(new Error('spawn codex ENOENT')), null);
+
+    const model = new CodexCliModel({ repo: '/work/sbx' });
+    const res = await model.invoke('gpt-5-codex', 'do it');
+
+    expect(res.exitCode).toBe(1);
+    expect(res.envelope).toBeNull();
+    expect(res.stdout).toBe('');
   });
 });

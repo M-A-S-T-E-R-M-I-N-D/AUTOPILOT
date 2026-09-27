@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * The pure half of a ModelPort over the OpenAI Codex CLI (epic 0036,
- * docs/epics/0036-provider-parity.md): parsing `codex exec --json` stdout into
- * the same envelope shape `claude -p` produces, so `firing.ts` never has to
- * know which engine ran. Mirrors `claude-cli.ts`'s pure-parse/impure-transport
- * split — this file is the parse; the spawn (`CodexCliModel`) is a later slice.
+ * A ModelPort over the OpenAI Codex CLI (epic 0036,
+ * docs/epics/0036-provider-parity.md), split like `claude-cli.ts` into a pure
+ * parse ({@link parseCodexExecOutput}, fixture-tested) and the impure spawn
+ * ({@link CodexCliModel}) that feeds it `codex exec --json` stdout.
  *
  * The wire format is the `ThreadEvent` enum in openai/codex
  * `codex-rs/exec/src/exec_events.rs` — one JSON object per line, tagged by
@@ -23,7 +22,9 @@
  *   on the wire attests the one that ran.
  */
 
-import type { ModelEnvelope, ModelResponse } from '../ports.js';
+import { execFile, type ExecFileOptions } from 'node:child_process';
+import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
+import { reapCliDescendants, DEFAULT_CLI_TIMEOUT_MS } from './claude-cli.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -137,4 +138,94 @@ export function parseCodexExecOutput(
     sessionId,
   };
   return { stdout, exitCode, envelope, sessionId };
+}
+
+export interface CodexCliOptions {
+  readonly repo: string;
+  /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
+  readonly binary?: string;
+  /**
+   * Base environment to derive the CLI env from (defaults to `process.env`). Codex's own
+   * auth (`codex login`'s ChatGPT session, or `CODEX_API_KEY`) rides through unchanged —
+   * `auth.ts`'s `AuthConfig`/`AuthMode` work (this epic's Bedrock/Vertex slice) is
+   * Claude-CLI-specific env-var routing and does not apply to a different binary.
+   */
+  readonly env?: NodeJS.ProcessEnv;
+  /** Kill the child if it runs longer than this. Defaults to `claude-cli.ts`'s
+   *  {@link DEFAULT_CLI_TIMEOUT_MS} — the same wall-clock cap every CLI-spawning
+   *  ModelPort in this repo shares, until this adapter earns its own tuned value. */
+  readonly timeoutMs?: number;
+  /**
+   * `--sandbox` level passed to `codex exec`. Defaults to `workspace-write`: the CLI's
+   * own default is `read-only` (per developers.openai.com/codex/noninteractive, verified
+   * 2026-09-27), which would leave an agentic coding loop unable to edit any file — the
+   * one capability the parity matrix above credits this adapter with.
+   */
+  readonly sandbox?: 'read-only' | 'workspace-write' | 'danger-full-access';
+}
+
+/**
+ * ModelPort over the local OpenAI Codex CLI (epic 0036): spawns `codex exec --json
+ * --model <model> [--sandbox <level>] [resume <session>] <prompt>` and parses its JSONL
+ * stdout via {@link parseCodexExecOutput}. Mirrors `ClaudeCliModel`'s buffered-execFile
+ * transport shape, including `detached: true` + {@link reapCliDescendants} so a
+ * wall-clock kill still reaps whatever the child spawned (ORPHAN SWEEP, board
+ * web-msu3sv1w-hfj87n) — but skips its idle-timeout, streaming, and CLI-level
+ * resume-retry-on-failure hardening: those were added to the Claude driver
+ * incrementally after real incidents this adapter has no flight history to have hit
+ * yet. Never rejects — a spawn failure (binary missing) reports the same "no envelope"
+ * shape {@link parseCodexExecOutput} already gives an abnormal exit.
+ */
+export class CodexCliModel implements ModelPort {
+  constructor(private readonly opts: CodexCliOptions) {}
+
+  invoke(model: string, prompt: string, resumeSessionId?: string): Promise<ModelResponse> {
+    const args = [
+      'exec',
+      '--json',
+      '--model',
+      model,
+      '--sandbox',
+      this.opts.sandbox ?? 'workspace-write',
+    ];
+    // Global flags above are placed before the subcommand so they parse
+    // correctly whether or not the CLI treats them as clap `global = true`
+    // options (verified structure: openai/codex codex-rs/exec/src/cli.rs).
+    if (resumeSessionId !== undefined && resumeSessionId.length > 0) {
+      args.push('resume', resumeSessionId);
+    }
+    args.push(prompt);
+
+    const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
+    const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
+      cwd: this.opts.repo,
+      env: this.opts.env ?? process.env,
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+      timeout: timeoutMs,
+      detached: true,
+      encoding: 'utf8',
+    };
+    return new Promise((resolve) => {
+      const child = execFile(
+        this.opts.binary ?? 'codex',
+        args,
+        // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
+        execOpts as ExecFileOptions & { encoding: 'utf8' },
+        (err, stdout) => {
+          reapCliDescendants(child.pid);
+          // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
+          // real exit code (e.g. a non-zero `codex exec` run); any other error
+          // (spawn failure, timeout kill) has none, so it reads as 1.
+          const exitCode =
+            err && typeof (err as { code?: unknown }).code === 'number'
+              ? (err as { code: number }).code
+              : err
+                ? 1
+                : 0;
+          resolve(parseCodexExecOutput(stdout ?? '', exitCode, model));
+        },
+      );
+    });
+  }
 }
