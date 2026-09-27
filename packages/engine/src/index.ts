@@ -15,6 +15,7 @@ export * from './ask.js';
 export * from './ask-escalation.js';
 export * from './containment.js';
 export * from './guard.js';
+export * from './gemini-guard.js';
 export * from './stream.js';
 export * from './resilience.js';
 export * from './routing.js';
