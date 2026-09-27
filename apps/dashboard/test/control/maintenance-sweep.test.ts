@@ -48,6 +48,11 @@ describe('dependabotPrBacklog', () => {
     expect(backlog.detail).toContain('could not parse');
   });
 
+  it('counts a null row as an unnumbered PR instead of throwing away the whole sweep', () => {
+    const backlog = dependabotPrBacklog(() => JSON.stringify([null, { number: 2 }]));
+    expect(backlog).toEqual({ ok: false, detail: '2 open PR(s) waiting for a look: #?, #2' });
+  });
+
   it('runs the exact read-only gh pr list command, never a mutating one', () => {
     const calls: string[][] = [];
     dependabotPrBacklog((args) => {

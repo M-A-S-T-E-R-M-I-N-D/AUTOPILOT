@@ -171,7 +171,10 @@ export function ciWorkflowStatus(
       detail: 'no runs yet',
     };
   }
-  const latest = parsed[0] as RawGhRun;
+  // A null or non-object latest row carries no readable field, so it reads
+  // the same as `{}`: an "unknown" run, never a throw that blanks the report.
+  const first: unknown = parsed[0];
+  const latest: RawGhRun = typeof first === 'object' && first !== null ? first : {};
   const status = typeof latest.status === 'string' ? latest.status : null;
   // A run has a conclusion only once it is completed. `gh` reports an
   // in-progress run's conclusion as "" — a string — and taking that as a

@@ -29,7 +29,8 @@ export interface CodeScanningAlert {
 
 const TITLE_PREFIX = 'CODE-SCANNING #';
 
-/** The open alerts in a `code-scanning/alerts` API page; malformed rows dropped. */
+/** The open alerts in a `code-scanning/alerts` API page; malformed rows
+ *  (a `null`, a non-object, or one missing its number or rule id) dropped. */
 export function parseCodeScanningAlerts(json: string): CodeScanningAlert[] {
   let rows: unknown;
   try {
@@ -39,7 +40,9 @@ export function parseCodeScanningAlerts(json: string): CodeScanningAlert[] {
   }
   if (!Array.isArray(rows)) return [];
   const out: CodeScanningAlert[] = [];
-  for (const row of rows as Record<string, unknown>[]) {
+  for (const raw of rows as unknown[]) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const row = raw as Record<string, unknown>;
     const number = row['number'];
     const rule = row['rule'] as Record<string, unknown> | undefined;
     const instance = row['most_recent_instance'] as Record<string, unknown> | undefined;

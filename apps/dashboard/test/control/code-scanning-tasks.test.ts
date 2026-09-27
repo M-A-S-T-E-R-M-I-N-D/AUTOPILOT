@@ -58,6 +58,11 @@ describe('parseCodeScanningAlerts', () => {
     expect(parseCodeScanningAlerts('{"message":"Not Found"}')).toEqual([]);
   });
 
+  it('skips a null or non-object row instead of throwing away every alert around it', () => {
+    const alerts = parseCodeScanningAlerts(JSON.stringify([null, apiRow(3), 'nope', 7]));
+    expect(alerts.map((a) => a.number)).toEqual([3]);
+  });
+
   it('asks GitHub for open alerts only', () => {
     const gh = vi.fn(() => '[]');
     readOpenCodeScanningAlerts(gh, 'o/r');
