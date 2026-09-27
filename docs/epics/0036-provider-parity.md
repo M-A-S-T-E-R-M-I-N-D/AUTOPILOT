@@ -112,7 +112,13 @@ it. That degradation is a real, accepted cost of adding this adapter, not a bug 
 2026-09-27): `usage` is the thread's running total, not a per-turn delta, so the last
 `turn.completed` wins and a sum would double-count; and `input_tokens` includes
 `cached_input_tokens` (Codex's own `non_cached_input()` subtracts them), so the parse moves the
-cached share to `cacheRead` to match what `tokensIn` means for `claude -p`.
+cached share to `cacheRead` to match what `tokensIn` means for `claude -p`. A stdin trap, read from
+`codex-rs/exec/src/lib.rs` (`resolve_root_prompt`, `read_prompt_from_stdin`, 2026-09-27): given a
+prompt argument, `codex exec` still reads a non-TTY stdin to EOF and appends it as a `<stdin>`
+block, so `CodexCliModel` always closes stdin — before that fix, the pipe `execFile` opens stayed
+open and every cold run would have hung until the wall-clock cap. A `-` argument makes both `exec`
+and `exec resume` read the prompt from stdin, which is how an over-threshold prompt (the Windows
+command-line ceiling) or one starting with `-` reaches the CLI.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream

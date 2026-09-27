@@ -24,7 +24,12 @@
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
-import { reapCliDescendants, isCliTimeoutDeath, DEFAULT_CLI_TIMEOUT_MS } from './claude-cli.js';
+import {
+  reapCliDescendants,
+  isCliTimeoutDeath,
+  CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_TIMEOUT_MS,
+} from './claude-cli.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -179,7 +184,13 @@ export interface CodexCliOptions {
 /**
  * ModelPort over the local OpenAI Codex CLI (epic 0036): spawns `codex exec --json
  * --model <model> [--sandbox <level>] [resume <session>] <prompt>` and parses its JSONL
- * stdout via {@link parseCodexExecOutput}. Mirrors `ClaudeCliModel`'s buffered-execFile
+ * stdout via {@link parseCodexExecOutput}. Stdin is always closed: given a prompt
+ * argument, `codex exec` still reads a non-TTY stdin to EOF to append it as a
+ * `<stdin>` block (codex-rs/exec/src/lib.rs `resolve_root_prompt`), so a pipe left
+ * open would hang every cold run until the wall-clock cap. A prompt over
+ * {@link CLI_STDIN_PROMPT_THRESHOLD}, or one starting with `-`, goes on stdin behind
+ * a `-` argument instead, dodging the Windows command-line ceiling the way
+ * `ClaudeCliModel` does. Mirrors `ClaudeCliModel`'s buffered-execFile
  * transport shape, including `detached: true` + {@link reapCliDescendants} so a
  * wall-clock kill still reaps whatever the child spawned (ORPHAN SWEEP, board
  * web-msu3sv1w-hfj87n) — but skips its idle-timeout, streaming, and CLI-level
@@ -214,7 +225,12 @@ export class CodexCliModel implements ModelPort {
     if (resumeSessionId !== undefined && resumeSessionId.length > 0) {
       args.push('resume', resumeSessionId);
     }
-    args.push(prompt);
+    // `-` makes both `exec` and `exec resume` read the prompt from stdin
+    // (codex-rs/exec/src/lib.rs `resolve_prompt`). A leading `-` on argv would
+    // parse as a flag, and `-` alone as that same stdin read, so those go on
+    // stdin too.
+    const pipePrompt = prompt.length > CLI_STDIN_PROMPT_THRESHOLD || prompt.startsWith('-');
+    args.push(pipePrompt ? '-' : prompt);
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
     const startedAt = Date.now();
@@ -254,6 +270,11 @@ export class CodexCliModel implements ModelPort {
         },
       );
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
+      // Same EPIPE guard as GeminiCliModel: a CLI that exits before reading
+      // its stdin breaks the pipe, and the callback above already reports it.
+      child.stdin?.on('error', () => undefined);
+      if (pipePrompt) child.stdin?.end(prompt);
+      else child.stdin?.end();
     });
   }
 }

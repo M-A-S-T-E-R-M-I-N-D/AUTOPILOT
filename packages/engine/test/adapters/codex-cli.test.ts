@@ -3,8 +3,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { parseCodexExecOutput, CodexCliModel } from '../../src/adapters/codex-cli.js';
-import { DEFAULT_CLI_TIMEOUT_MS } from '../../src/adapters/claude-cli.js';
+import {
+  CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_TIMEOUT_MS,
+} from '../../src/adapters/claude-cli.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
@@ -273,6 +277,8 @@ describe('parseCodexExecOutput', () => {
 });
 
 describe('CodexCliModel', () => {
+  let stdinEnd: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     execFileMock.mockReset();
     // ORPHAN SWEEP (claude-cli.ts's reapCliDescendants, reused here): an
@@ -280,6 +286,7 @@ describe('CodexCliModel', () => {
     // same as claude-cli.test.ts's ClaudeCliModel suite.
     spawnMock.mockReset();
     spawnMock.mockReturnValue({ on: vi.fn() } as never);
+    stdinEnd = vi.fn();
   });
 
   function mockExecFileResult(
@@ -289,9 +296,82 @@ describe('CodexCliModel', () => {
     execFileMock.mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1] as ExecFileCallback;
       queueMicrotask(() => cb(error, stdout, ''));
-      return { pid: 4321 };
+      return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
     });
   }
+
+  function spawnedArgs(): string[] {
+    return (execFileMock.mock.calls[0] as [string, string[]])[1];
+  }
+
+  it('closes stdin empty for an argv prompt: with a prompt given, `codex exec` still reads a piped stdin to EOF to append it, so an open pipe would hang the run to the cap', async () => {
+    mockExecFileResult(null, '');
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+
+    expect(spawnedArgs()[spawnedArgs().length - 1]).toBe('do it');
+    expect(stdinEnd).toHaveBeenCalledTimes(1);
+    expect(stdinEnd).toHaveBeenCalledWith();
+  });
+
+  it('pipes an over-threshold prompt on stdin behind "-" instead of argv (the Windows command-line ceiling)', async () => {
+    mockExecFileResult(null, '');
+    const long = 'x'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', long);
+
+    const args = spawnedArgs();
+    expect(args).not.toContain(long);
+    expect(args[args.length - 1]).toBe('-');
+    expect(stdinEnd).toHaveBeenCalledWith(long);
+  });
+
+  it('keeps a prompt exactly at the threshold on argv', async () => {
+    mockExecFileResult(null, '');
+    const atLimit = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD);
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', atLimit);
+
+    expect(spawnedArgs()[spawnedArgs().length - 1]).toBe(atLimit);
+    expect(stdinEnd).toHaveBeenCalledWith();
+  });
+
+  it('pipes an over-threshold resume prompt too: "resume <id> -", since resume reads stdin only for "-"', async () => {
+    mockExecFileResult(null, '');
+    const long = 'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1);
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', long, THREAD.thread_id);
+
+    expect(spawnedArgs().slice(-3)).toEqual(['resume', THREAD.thread_id, '-']);
+    expect(stdinEnd).toHaveBeenCalledWith(long);
+  });
+
+  it('pipes a prompt that starts with "-", which clap would read as a flag (or "-" itself as a stdin read)', async () => {
+    mockExecFileResult(null, '');
+
+    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', '- fix the build');
+
+    expect(spawnedArgs()).not.toContain('- fix the build');
+    expect(spawnedArgs()[spawnedArgs().length - 1]).toBe('-');
+    expect(stdinEnd).toHaveBeenCalledWith('- fix the build');
+  });
+
+  it('swallows a stdin pipe error (EPIPE: the CLI exited before reading) instead of crashing the host', async () => {
+    const stdin = Object.assign(new EventEmitter(), { end: stdinEnd });
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as ExecFileCallback;
+      queueMicrotask(() => cb(Object.assign(new Error('exit 55'), { code: 55 }), '', ''));
+      return { pid: 4321, stdin };
+    });
+
+    const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+      'gpt-5-codex',
+      'z'.repeat(CLI_STDIN_PROMPT_THRESHOLD + 1),
+    );
+
+    expect(() => stdin.emit('error', new Error('write EPIPE'))).not.toThrow();
+    expect(res.exitCode).toBe(55);
+  });
 
   it('resolves the parsed envelope from a clean run', async () => {
     const stdout = jsonl(
