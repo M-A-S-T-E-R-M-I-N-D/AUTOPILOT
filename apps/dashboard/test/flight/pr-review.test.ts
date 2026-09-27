@@ -992,6 +992,11 @@ const BENIGN_WEB = new Set([
   // entries — DOM-free, no HTML, no I/O; shell.ts splices it in via
   // .toString() for the Tasks card's view header.
   'task-view.ts',
+  // Pure bulk-action planning for the tasks screen's selection (epic 0026
+  // slice 4): which selected rows an action reaches and the request each
+  // row's OWN button already posts — no new write path, no fetch, no DOM,
+  // no HTML. Not yet spliced into the served bundle.
+  'task-bulk.ts',
   // Pure geometry/percent/bucketing math for gauges, sparklines, the
   // heatmap, timeline, office map, and tooltip positioning — no dynamic
   // text, no I/O.
