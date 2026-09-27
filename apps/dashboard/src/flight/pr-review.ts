@@ -1525,6 +1525,14 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // the write-anywhere hole this planner exists to close, with no
   // "guard"/"auth"/"security" keyword in its path.
   'flight/docs-write',
+  // The Versions screen's restore (board ap-mui2h3s1-1): creates a git branch
+  // in a project's own repository from a `POST /api/versions/restore` body.
+  // Its sha check and its branch-only write are what keep a restore additive
+  // (PATTERNS-AND-STANDARDS.md §9) — a PR that let it reset, check out or
+  // move an existing ref, or passed an unvalidated sha to git, would turn one
+  // click into a history rewrite, with no "guard"/"auth"/"security" keyword
+  // in its path.
+  'flight/version-restore',
 ] as const;
 
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {

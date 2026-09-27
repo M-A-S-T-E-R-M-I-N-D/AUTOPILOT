@@ -1044,6 +1044,17 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    Verdict: CONFIRMED — the board title's full ask (read, classify, reply,
    with a UI expression per the UX-expression doctrine) is complete;
    web-mtlsiac0-v8rksh closes on this evidence.
+   Refined 2026-09-26 (board ap-muiiryjd-0): `runDiscussionTriageRitual`
+   no longer posts before labeling. It resolves the discussion's
+   `pool: <dimension>` label via `fetchDiscussionLabelId` first, and holds
+   the reply back unposted (`skippedReason: 'pool-label-unresolved'`, no
+   `addDiscussionComment` spent) when that label doesn't resolve. The prior
+   post-then-label order could land a reply and leave it unlabeled — and
+   since the pool label IS the idempotency marker `planDiscussionTriage`
+   checks, every later execute reposted it. `applyDiscussionPoolLabel` now
+   takes the pre-resolved label id (one mutation, not two). The KEEPER
+   Discussions panel reports held-back replies as their own fail line,
+   distinct from a failed post.
 
 ## The claims ledger (2026-09-13)
 

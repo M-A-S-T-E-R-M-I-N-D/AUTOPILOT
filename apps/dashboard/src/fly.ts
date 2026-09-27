@@ -19,7 +19,7 @@ import {
   closeResolvedConvergenceRedTasks,
 } from './flight/convergence-red-task.js';
 import { QUOTA_REST_MS, recordModelDrained, routeTaskModel } from './flight/model-scoreboard.js';
-import { ROUND_START_SLACK_MS, gitIn, writeRoundEvaluation } from './flight/round-evaluation.js';
+import { ROUND_START_SLACK_MS, endRound, gitIn } from './flight/round-evaluation.js';
 import {
   openStore,
   migrate,
@@ -185,6 +185,7 @@ import {
   engineLockFileName,
   guardSettingsFileName,
   isAnyFlightLockLive,
+  liveFlightLockPids,
 } from './flight/lock.js';
 import { verifyGuardSettings } from './flight/guard-verify.js';
 import { deriveWorktreePlan } from './flight/worktree.js';
@@ -2038,22 +2039,6 @@ async function main(): Promise<void> {
         } else if (gated) {
           await gateMergedHead(finalSync.details, fullConvergedGateInLane);
         }
-        // THE ROUND EVALUATES ITSELF (2026-09-27): the lane that ends the
-        // round writes its evaluation — an event always, a docs section
-        // committed with the round when the project wants it
-        // (flight/round-evaluation.ts). Siblings still flying means the
-        // round is not over, so only the last lane writes it.
-        if (!siblingsStillFlying) {
-          writeRoundEvaluation({
-            store,
-            projectId,
-            target,
-            startedAt: flightStartTs - ROUND_START_SLACK_MS,
-            endedAt: now(),
-            git: gitIn(target),
-            out,
-          });
-        }
       } else {
         out(`  ⚠ flight-end sync-back still refused: ${finalSync.details}`);
         flightSyncBackRefusals++;
@@ -2140,6 +2125,30 @@ async function main(): Promise<void> {
           /* escalation is best-effort — never fail the flight over it */
         }
       }
+    }
+
+    // THE ROUND EVALUATES ITSELF (2026-09-27): whichever lane ends the round
+    // — elected, since a lock cannot tell a sibling still firing from one
+    // finishing up (flight/round-evaluation.ts's endRound) — writes its
+    // evaluation: an event always, a docs section committed with the round
+    // when the project wants it. Every lane takes part, whatever its final
+    // sync-back came to, so the round always has someone to end it.
+    try {
+      const roundEnd = await endRound({
+        store,
+        projectId,
+        target,
+        pid: process.pid,
+        startedAt: flightStartTs - ROUND_START_SLACK_MS,
+        now,
+        siblingPids: () => liveFlightLockPids(dirname(dbPath), target, process.pid),
+        git: gitIn(target),
+        out,
+        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      });
+      if (roundEnd !== 'evaluated') out(`  ↪ round evaluation left to another lane (${roundEnd})`);
+    } catch (err) {
+      out(`  ⚠ round evaluation failed: ${String(err).split('\n')[0]}`);
     }
 
     // SAFETY-II NEAR-MISS RITUAL (board web-mt1qat5h-nxzgjs;

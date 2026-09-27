@@ -15,6 +15,10 @@ import { openStore, migrate, type Store } from '@autopilot/store';
 import {
   ROUND_EVALUATION_EVENT,
   appendRoundSection,
+  claimRoundEvaluation,
+  endRound,
+  endingPids,
+  recordLaneEnding,
   evaluationDocPath,
   gitIn,
   isEvaluationDocsOn,
@@ -55,9 +59,13 @@ describe('the round section', () => {
   it('files each month in its own document, and keeps the commit header under 100', () => {
     expect(evaluationDocPath(SUMMARY.endedAt)).toBe('docs/evaluations/ROUNDS-2026-09.md');
     expect(roundCommitHeader(SUMMARY)).toBe(
-      'docs(evaluation): round ending 2026-09-27 03:45 UTC, 9/10 shipped, $2.18 per ship',
+      'docs(evaluation): a round of 10 firings on 2026-09-27, 9 shipped, $2.18 per ship',
     );
     expect(roundCommitHeader(SUMMARY).length).toBeLessThanOrEqual(100);
+    // No clock time: commitlint's no-operator-private-context flags one.
+    expect(roundCommitHeader(SUMMARY)).not.toMatch(/\b\d{1,2}:\d{2}\b/);
+    // …and the check itself would catch one.
+    expect('round ending 03:45').toMatch(/\b\d{1,2}:\d{2}\b/);
     expect(roundHeadline({ ...SUMMARY, shipped: 0, costPerShipUsd: null })).toContain('- per ship');
   });
 
@@ -171,7 +179,7 @@ describe('writing a round', () => {
     run();
     const log = git(['log', '-1', '--format=%s%n%b']);
     expect(log).toContain(
-      'docs(evaluation): round ending 2026-09-27 03:45 UTC, 1/2 shipped, $4.00 per ship',
+      'docs(evaluation): a round of 2 firings on 2026-09-27, 1 shipped, $4.00 per ship',
     );
     expect(log).toContain('Signed-off-by:');
     const doc = readFileSync(join(repo, 'docs/evaluations/ROUNDS-2026-09.md'), 'utf8');
@@ -189,5 +197,101 @@ describe('writing a round', () => {
     expect(out).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
     expect(git(['log', '--oneline'])).not.toContain('docs(evaluation)');
     expect(events()).toEqual([expect.objectContaining({ docPath: null })]);
+  });
+});
+
+describe('who ends the round (2026-09-27)', () => {
+  let dir: string;
+  let repo: string;
+  let store: Store;
+  const START = Date.UTC(2026, 8, 27, 4, 0);
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-round-end-'));
+    repo = mkdtempSync(join(tmpdir(), 'ap-round-end-repo-'));
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    store = openStore(join(dir, 'db.sqlite'));
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+         VALUES ('p1', 'p1', 'p1', ?, 'flying', NULL, 1, 1)`,
+      )
+      .run(repo);
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  function lane(pid: number, siblings: () => readonly number[], clock = { t: START + 1000 }) {
+    return () =>
+      endRound({
+        store,
+        projectId: 'p1',
+        target: repo,
+        pid,
+        startedAt: START,
+        now: () => clock.t,
+        siblingPids: siblings,
+        git: vi.fn(() => ''),
+        out: vi.fn(),
+        sleep: async () => {
+          clock.t += 5000;
+        },
+        waitMs: 60_000,
+      });
+  }
+
+  function evaluations(): number {
+    return (
+      store.db
+        .prepare('SELECT COUNT(*) c FROM events WHERE type = ?')
+        .get(ROUND_EVALUATION_EVENT) as {
+        c: number;
+      }
+    ).c;
+  }
+
+  it('round 23: two lanes ending seconds apart — exactly one of them evaluates', async () => {
+    // Lane 1 starts ending while lane 2 still holds its lock and has not
+    // said it is finishing; lane 2 then finishes and sees lane 1 finishing.
+    const locks = new Set([1, 2]);
+    const first = await lane(1, () => [...locks].filter((p) => p !== 1))();
+    expect(first).toBe('siblings-still-flying');
+    const second = await lane(2, () => {
+      locks.delete(1); // lane 1 releases its lock while lane 2 waits
+      return [...locks].filter((p) => p !== 2);
+    })();
+    expect(second).toBe('evaluated');
+    expect(evaluations()).toBe(1);
+  });
+
+  it('two lanes that both see everyone finishing: the atomic claim picks one', async () => {
+    recordLaneEnding(store, 'p1', 1, START + 10);
+    recordLaneEnding(store, 'p1', 2, START + 10);
+    const outcomes = await Promise.all([lane(1, () => [])(), lane(2, () => [])()]);
+    expect(outcomes.sort()).toEqual(['claimed-by-another-lane', 'evaluated']);
+    expect(evaluations()).toBe(1);
+  });
+
+  it('a lane that ends while a sibling is still firing leaves the round to it', async () => {
+    expect(await lane(1, () => [2])()).toBe('siblings-still-flying');
+    expect(evaluations()).toBe(0);
+  });
+
+  it('a lone flight ends its own round', async () => {
+    expect(await lane(1, () => [])()).toBe('evaluated');
+    expect(evaluations()).toBe(1);
+  });
+
+  it('claims one round only once, and the next round afresh', () => {
+    expect(claimRoundEvaluation(store, 'p1', START, START + 1, 1)).toBe(true);
+    expect(claimRoundEvaluation(store, 'p1', START, START + 2, 2)).toBe(false);
+    const next = START + 3 * 60 * 60 * 1000;
+    expect(claimRoundEvaluation(store, 'p1', next, next + 1, 3)).toBe(true);
+    expect(endingPids(store, 'p1', START)).toEqual(new Set());
   });
 });

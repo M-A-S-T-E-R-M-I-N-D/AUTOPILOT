@@ -7,8 +7,8 @@
  *
  * Every round used to be evaluated by hand: someone ran `dashboard
  * fleet-report` after the last lane landed and read the numbers into a
- * conversation, where they stayed. Now the lane that ends a round — the one
- * that finds no sibling still flying — writes the evaluation itself:
+ * conversation, where they stayed. Now the lane that ends a round — elected,
+ * see {@link endRound} — writes the evaluation itself:
  *
  *   - always, as a `round-evaluation` event: firings, ships, cost per ship,
  *     convergence reds, the window it covers — the record the dashboard and
@@ -151,8 +151,12 @@ export function roundHeadline(s: RoundSummary): string {
 
 /** The evaluation commit's header — short enough for commitlint's 100. */
 export function roundCommitHeader(s: RoundSummary): string {
+  // A date, never a clock time: the commit log is public, and a wall-clock
+  // time is session detail the commitlint rule no-operator-private-context
+  // flags. The evaluation document itself keeps the times — it is the record.
+  const day = new Date(s.endedAt).toISOString().slice(0, 10);
   const per = s.costPerShipUsd === null ? 'no ship' : `$${s.costPerShipUsd.toFixed(2)} per ship`;
-  return `docs(evaluation): round ending ${isoMinute(s.endedAt)} UTC, ${s.shipped}/${s.firings} shipped, ${per}`;
+  return `docs(evaluation): a round of ${s.firings} firings on ${day}, ${s.shipped} shipped, ${per}`;
 }
 
 /** One round as a markdown section: headline, then the report and the
@@ -305,4 +309,125 @@ export function writeRoundEvaluation(deps: {
     `  📊 round evaluated: ${roundHeadline(summary)}${docPath ? ` — written to ${docPath}` : ''}`,
   );
   return summary;
+}
+
+/**
+ * WHO ENDS THE ROUND (2026-09-27). The first cut let "no sibling still
+ * flying" decide, and round 23 lost its evaluation to it: its last two lanes
+ * ended eleven seconds apart, each saw the other's lock, each left the round
+ * to the other, and neither wrote it. A lock cannot tell a sibling still
+ * firing from one that is only finishing up — so a lane now says it is
+ * finishing (a `lane-ending` event) BEFORE it looks at its siblings, and may
+ * end the round only when every live sibling has said the same. The last
+ * lane to say it therefore always sees everyone else finishing, so some lane
+ * always qualifies; when two qualify at once, an atomic claim picks one.
+ * The winner then waits for the others' locks to go — never committing into
+ * a checkout a sibling is still syncing into — and writes the evaluation.
+ */
+const LANE_ENDING_EVENT = 'lane-ending';
+const ROUND_CLAIM_EVENT = 'round-evaluation-claim';
+
+/** How long the round's winner waits for its finishing siblings. */
+export const ROUND_END_WAIT_MS = 15 * 60 * 1000;
+const ROUND_END_POLL_MS = 5000;
+
+/** Say this lane is finishing, before it looks at anyone else. */
+export function recordLaneEnding(store: Store, projectId: string, pid: number, at: number): void {
+  store.db
+    .prepare(
+      'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
+    )
+    .run(projectId, LANE_ENDING_EVENT, JSON.stringify({ pid }), at);
+}
+
+/** The pids that have said they are finishing since `since`. */
+export function endingPids(store: Store, projectId: string, since: number): Set<number> {
+  const rows = store.db
+    .prepare('SELECT payload FROM events WHERE project_id = ? AND type = ? AND created_at >= ?')
+    .all(projectId, LANE_ENDING_EVENT, since) as { payload: string }[];
+  const pids = new Set<number>();
+  for (const r of rows) {
+    try {
+      const pid = (JSON.parse(r.payload) as { pid?: unknown }).pid;
+      if (typeof pid === 'number') pids.add(pid);
+    } catch {
+      // a malformed row names no one
+    }
+  }
+  return pids;
+}
+
+/** Claim the round's evaluation; true for exactly one caller per round.
+ *  One INSERT … WHERE NOT EXISTS statement: SQLite runs it as a single write
+ *  transaction, and under WAL a second claimer's stale snapshot fails with
+ *  a busy error that the store's retry re-runs against the committed claim
+ *  — so two lanes claiming in the same instant cannot both win. */
+export function claimRoundEvaluation(
+  store: Store,
+  projectId: string,
+  since: number,
+  at: number,
+  pid: number,
+): boolean {
+  const info = store.db
+    .prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       SELECT ?, NULL, ?, ?, ?
+        WHERE NOT EXISTS (
+          SELECT 1 FROM events WHERE project_id = ? AND type = ? AND created_at >= ?
+        )`,
+    )
+    .run(
+      projectId,
+      ROUND_CLAIM_EVENT,
+      JSON.stringify({ pid }),
+      at,
+      projectId,
+      ROUND_CLAIM_EVENT,
+      since,
+    );
+  return info.changes === 1;
+}
+
+/** What the election came to, for the flight log and the tests. */
+export type RoundEndOutcome = 'evaluated' | 'siblings-still-flying' | 'claimed-by-another-lane';
+
+/** The whole ending: say so, see whether this lane ends the round, win the
+ *  claim, wait for the finishing siblings, write the evaluation. */
+export async function endRound(deps: {
+  readonly store: Store;
+  readonly projectId: string;
+  readonly target: string;
+  readonly pid: number;
+  readonly startedAt: number;
+  readonly now: () => number;
+  /** Live sibling lock pids, this lane's own left out. */
+  readonly siblingPids: () => readonly number[];
+  readonly git: RoundGit;
+  readonly out: (line: string) => void;
+  readonly sleep: (ms: number) => Promise<void>;
+  readonly waitMs?: number;
+}): Promise<RoundEndOutcome> {
+  const { store, projectId, pid, startedAt, now, siblingPids, out, sleep } = deps;
+  recordLaneEnding(store, projectId, pid, now());
+  const finishing = endingPids(store, projectId, startedAt);
+  if (siblingPids().some((p) => !finishing.has(p))) return 'siblings-still-flying';
+  if (!claimRoundEvaluation(store, projectId, startedAt, now(), pid)) {
+    return 'claimed-by-another-lane';
+  }
+  const deadline = now() + (deps.waitMs ?? ROUND_END_WAIT_MS);
+  while (siblingPids().length > 0 && now() < deadline) await sleep(ROUND_END_POLL_MS);
+  if (siblingPids().length > 0) {
+    out('  ⚠ round evaluation: a finishing sibling is still holding its lock — evaluating anyway');
+  }
+  writeRoundEvaluation({
+    store,
+    projectId,
+    target: deps.target,
+    startedAt,
+    endedAt: now(),
+    git: deps.git,
+    out,
+  });
+  return 'evaluated';
 }

@@ -419,6 +419,16 @@ describe('client-side orientFixation chip stays in sync with the shared liveFiri
     );
   });
 
+  it('draws the fixation chip with a triangle-alert stroke icon, not a baked-in ⚠ glyph (epic 0025)', async () => {
+    const activity = orientTurns(15);
+    await renderFleetPage({ ...BASE_PROJECT, activity });
+
+    const chip = document.querySelector('.live-orient-fixation');
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toBe('no edit yet');
+    expect(chip?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+  });
+
   it('renders no fixation chip when a DO-phase activity already exists', async () => {
     const activity = [
       ...orientTurns(14),

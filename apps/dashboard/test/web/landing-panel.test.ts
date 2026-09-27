@@ -446,6 +446,57 @@ describe('the post-flight LANDING card', () => {
     expect(resultEl.textContent).toContain('Landing — ');
     expect(resultEl.textContent).not.toContain('🛬');
   });
+
+  it('paints a finished-but-not-pushed land with the vendored triangle-alert icon, not a baked ⚠ glyph (epic 0025)', async () => {
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/landing/job')) {
+        return {
+          ok: true,
+          json: async () => ({
+            job: {
+              phase: 'finished',
+              startedAt: Date.now() - 5_000,
+              steps: [],
+              result: {
+                ok: true,
+                details: 'merged.',
+                push: { ok: false, detail: 'origin rejected' },
+              },
+            },
+          }),
+        } as unknown as Response;
+      }
+      if (url.includes('/api/landing')) {
+        return {
+          ok: true,
+          json: async () => ({
+            landing: {
+              branch: 'autopilot/flight',
+              base: 'main',
+              commits: [{ shortSha: 'a1b2c3d', subject: 'feat: x', files: ['a.ts'] }],
+              diffstat: { filesChanged: 1, insertions: 1, deletions: 0 },
+            },
+          }),
+        } as unknown as Response;
+      }
+      return { ok: true, json: async () => STATE } as unknown as Response;
+    });
+    new Function(clientJs())();
+
+    const resultEl = await waitFor(() => {
+      const found = document.querySelector('[data-land-result]');
+      expect(found).not.toBeNull();
+      expect(found?.querySelector('svg.icon-triangle-alert')).not.toBeNull();
+      return found as HTMLElement;
+    });
+    expect(resultEl.className).toContain('landing-result-warn');
+    expect(resultEl.textContent).toContain('Landed locally, but NOT pushed — origin rejected');
+    expect(resultEl.textContent).not.toContain('⚠');
+  });
 });
 
 describe('landingJobLine — the LAND button telling the truth while it works', () => {
@@ -529,6 +580,21 @@ describe('landingJobLine — the LAND button telling the truth while it works', 
     expect(refused?.busy).toBe(false);
   });
 
+  it('forwards the amber not-pushed verdict icon to the painter, so a finished job keeps its triangle-alert (epic 0025)', () => {
+    const line = landingJobLine(
+      {
+        phase: 'finished',
+        startedAt: 0,
+        steps: [],
+        result: { ok: true, details: 'merged.', push: { ok: false, detail: 'origin rejected' } },
+      },
+      1,
+    );
+    expect(line?.icon).toBe('triangle-alert');
+    expect(line?.className).toContain('landing-result-warn');
+    expect(line?.busy).toBe(false);
+  });
+
   it('renders nothing at all when there is no job — an idle panel must not claim a landing', () => {
     expect(landingJobLine(null, 0)).toBeNull();
     expect(landingJobLine(undefined, 0)).toBeNull();
@@ -572,6 +638,23 @@ describe('landingExecuteResult — the push leg', () => {
     expect(out.text).toContain('behind origin');
     // Never claims the land failed — the merge is done and nothing undoes it.
     expect(out.text).not.toContain('✗');
+  });
+
+  it('carries the vendored triangle-alert icon name instead of baking a ⚠ glyph into the amber line (epic 0025)', () => {
+    const out = landingExecuteResult({
+      ok: true,
+      details: 'merged autopilot/flight',
+      push: { ok: false, detail: 'main is behind origin — someone pushed first.' },
+    });
+
+    expect(out.icon).toBe('triangle-alert');
+    expect(out.text).not.toContain('⚠');
+    expect(out.text.startsWith('Landed locally, but NOT pushed — ')).toBe(true);
+  });
+
+  it('carries no icon on the green and red lines — their ✓/✗ marks are the census exception', () => {
+    expect(landingExecuteResult({ ok: true, details: 'merged.' }).icon).toBeUndefined();
+    expect(landingExecuteResult({ ok: false, details: 'gate red' }).icon).toBeUndefined();
   });
 
   it('reads exactly as before for a land that reported no push leg at all', () => {

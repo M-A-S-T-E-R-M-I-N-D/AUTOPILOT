@@ -13,8 +13,8 @@
  * `task-queue.ts`'s — which is why every vocabulary sits inside
  * {@link taskViewValues} rather than a module const, and why
  * {@link taskMatchesView}/{@link groupTasksForView} need {@link taskViewKey}
- * and {@link taskViewValues} embedded beside them. The Tasks card's Status
- * and Severity filters are the callers; {@link groupTasksForView} waits for the
+ * and {@link taskViewValues} embedded beside them. The Tasks card's Status,
+ * Severity and Source filters are the callers; {@link groupTasksForView} waits for the
  * grouping control and is not embedded yet. Display options (show/hide row
  * properties, `?hide=cost,dimension`) are modelled at the bottom, apart from
  * {@link TaskViewState}: filters narrow the list, display options change what a

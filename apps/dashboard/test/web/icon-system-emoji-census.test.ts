@@ -16,9 +16,10 @@
  *
  * Three plain typographic marks are the design's deliberate exception, not
  * an oversight: ✓/✗ (locale-driven result lines — see `connect-panel.ts`,
- * `pool-client-panel.ts`, `issue-triage-panel.ts`) and ⚠ (a leading glyph on
- * text lines that predates the icon sweep in a few render sites). None of
- * the three renders as a multi-color pictograph the way an emoji does.
+ * `pool-client-panel.ts`, `issue-triage-panel.ts`) and ⚠ (now only inside
+ * `landingExecuteConfirmMessage`'s native `window.confirm()` text, where no
+ * SVG can render — every painted ⚠ line leads with the triangle-alert icon).
+ * None of the three renders as a multi-color pictograph the way an emoji does.
  *
  * The web/ scan cannot see a glyph baked into a locale VALUE: STRINGS lives
  * in `packages/tokens`, and `tr()` paints it into the same chrome (the lucky

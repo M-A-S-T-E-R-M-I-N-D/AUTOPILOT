@@ -2006,6 +2006,12 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/docs-write.ts'])).toBe(true);
   });
 
+  it("flags the Versions screen's restore, which creates a git branch in a project's own repository from an HTTP request, even without a security-keyword path", () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/version-restore.ts'])).toBe(
+      true,
+    );
+  });
+
   it("keeps pace with new flight/*-execute.ts files automatically: every execute-wiring file in the flight directory is either flagged or explicitly allow-listed as benign, so a future ritual's write wiring can never silently slip past this ritual the way control-execute.ts did", () => {
     const executeFiles = readdirSync(FLIGHT_SRC_DIR).filter((name) => name.endsWith('-execute.ts'));
     expect(executeFiles.length).toBeGreaterThan(0);
