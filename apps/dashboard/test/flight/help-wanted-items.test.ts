@@ -30,6 +30,14 @@ describe('isHelpWantedItem', () => {
   it('is false for an empty label list', () => {
     expect(isHelpWantedItem([])).toBe(false);
   });
+
+  it('is true for a spelling padded with whitespace', () => {
+    expect(isHelpWantedItem(['  help wanted '])).toBe(true);
+  });
+
+  it('is false for a label that only contains the phrase — the match is exact, not a substring', () => {
+    expect(isHelpWantedItem(['help wanted: docs', 'no help wanted'])).toBe(false);
+  });
 });
 
 describe('fetchHelpWantedItems', () => {
@@ -185,5 +193,88 @@ describe('fetchHelpWantedItems', () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '{"not":"an array"}' });
 
     expect(await fetchHelpWantedItems(exec)).toEqual([]);
+  });
+
+  it('skips null and non-object rows instead of throwing, keeping the valid neighbor', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        null,
+        7,
+        'row',
+        {
+          number: 5,
+          title: 'Still listed',
+          url: 'https://github.com/example/repo/issues/5',
+          labels: [{ name: 'help wanted' }],
+        },
+      ]),
+    });
+
+    const items = await fetchHelpWantedItems(exec);
+
+    expect(items.map((item) => item.number)).toEqual([5]);
+  });
+
+  it('drops a row whose labels field is not an array — no label, no help-wanted item', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 6,
+          title: 'Labels as a string',
+          url: 'https://github.com/example/repo/issues/6',
+          labels: 'help wanted',
+        },
+      ]),
+    });
+
+    expect(await fetchHelpWantedItems(exec)).toEqual([]);
+  });
+
+  it('reads a non-array assignees field as unclaimed rather than dropping the issue', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 8,
+          title: 'Assignees as an object',
+          url: 'https://github.com/example/repo/issues/8',
+          labels: [{ name: 'Help-Wanted' }],
+          assignees: { login: 'octocat' },
+        },
+      ]),
+    });
+
+    const items = await fetchHelpWantedItems(exec);
+
+    expect(items).toEqual<HelpWantedItem[]>([
+      {
+        number: 8,
+        title: 'Assignees as an object',
+        url: 'https://github.com/example/repo/issues/8',
+        labels: ['Help-Wanted'],
+        assignees: [],
+      },
+    ]);
+  });
+
+  it('carries every assignee of a co-claimed issue, in gh order', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        {
+          number: 9,
+          title: 'Paired work',
+          url: 'https://github.com/example/repo/issues/9',
+          labels: [{ name: 'help wanted' }],
+          assignees: [{ login: 'octocat' }, { login: 'hubot' }],
+        },
+      ]),
+    });
+
+    const items = await fetchHelpWantedItems(exec);
+
+    expect(items[0]?.assignees).toEqual(['octocat', 'hubot']);
   });
 });
