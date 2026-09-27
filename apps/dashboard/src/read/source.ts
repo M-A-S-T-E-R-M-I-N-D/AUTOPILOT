@@ -469,6 +469,7 @@ export function mapTaskEntries(db: Store['db'], projectId: string): TaskEntry[] 
       cumulativeCostUsd: economics?.cumulativeCostUsd ?? 0,
       firingCount: economics?.firingCount ?? 0,
       isRunaway: economics?.isRunaway ?? false,
+      claimedBy: t.assignee,
     };
   });
 }

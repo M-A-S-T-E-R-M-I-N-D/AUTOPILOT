@@ -29,9 +29,14 @@ flight log's when that is larger), then lists the newest five the log holds,
 newest first — how each ended, the slice or complete it reported, its commit's
 subject and short sha, its cost and age — and says how many older ones the
 flight log keeps. A firing that left no commit names none, since HEAD's
-subject is then someone else's. A task no firing has worked says so. Still
-open in slice 1: the detail as a split pane beside the list from `lg`, and the
-rest of its contents (provenance, the claim). Slice 2's pure half
+subject is then someone else's. A task no firing has worked says so. Its
+claim followed the same day: between the id line and the history, a queued or
+in-flight task names the flight instance holding its board claim (the store's
+`assignee`, which `claimTask` sets and sibling lanes pass over) or says no
+flight has claimed it. A task awaiting approval, done or deferred cannot be
+claimed and draws no line; a done task's assignee is who finished it, not a
+lease. Still open in slice 1: the detail as a split pane beside the list from
+`lg`, and its provenance. Slice 2's pure half
 shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
 view — grouping by status, severity or source, and a filter on each — in the
 query string (`?group=severity&status=queued,done`), since the hash already
