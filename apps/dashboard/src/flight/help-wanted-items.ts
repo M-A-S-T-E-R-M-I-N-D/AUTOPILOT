@@ -87,9 +87,10 @@ interface RawHelpWantedItem {
  * `fetchPoolIssues` use. Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing — no open help-wanted
  * issues is a valid outcome, and a flaky `gh` call shouldn't crash the read.
- * Entries missing a numeric `number`, string `title`, or string `url` are
- * dropped rather than passed through malformed, the same defensive shape
- * `roadmap-items.ts`'s `fetchRoadmapItems` uses. Assignees are carried
+ * Rows that are not objects (a `null` included) and entries missing a
+ * numeric `number`, string `title`, or string `url` are dropped rather than
+ * passed through malformed, the same defensive shape `roadmap-items.ts`'s
+ * `fetchRoadmapItems` uses. Assignees are carried
  * through as-is (including empty) rather than filtered — the caller's claim
  * state, unlike `contributor-issue-list.ts`'s pick list, which drops
  * already-assigned issues instead.
@@ -115,7 +116,8 @@ export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedIte
   }
   if (!Array.isArray(parsed)) return [];
 
-  return (parsed as RawHelpWantedItem[])
+  return (parsed as unknown[])
+    .filter((raw): raw is RawHelpWantedItem => typeof raw === 'object' && raw !== null)
     .filter(
       (raw) =>
         typeof raw.number === 'number' &&

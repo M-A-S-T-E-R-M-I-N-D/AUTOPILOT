@@ -26,6 +26,11 @@ const helpWantedIssue = {
   assignees: [],
 };
 
+/** The `--label` value a `gh issue list` argv filters by. */
+function labelOf(args: readonly string[]): string | undefined {
+  return args[args.indexOf('--label') + 1];
+}
+
 describe('fetchCollaborationSnapshot', () => {
   it('combines the roadmap and help-wanted reads behind one call', async () => {
     const exec: CliExec = vi.fn().mockImplementation(async (_cmd, args: readonly string[]) => {
@@ -68,6 +73,46 @@ describe('fetchCollaborationSnapshot', () => {
 
     expect(snapshot).toEqual({ roadmap: [], helpWanted: [] });
   });
+
+  it('keeps the help-wanted claims when only the roadmap read exits non-zero', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockImplementation(async (_cmd, args: readonly string[]) =>
+        labelOf(args) === ROADMAP_LABEL
+          ? { code: 1, stdout: '' }
+          : { code: 0, stdout: JSON.stringify([helpWantedIssue]) },
+      );
+
+    const snapshot = await fetchCollaborationSnapshot(exec);
+
+    expect(snapshot.roadmap).toEqual([]);
+    expect(snapshot.helpWanted.map((item) => item.number)).toEqual([42]);
+  });
+
+  it('lists an issue carrying both labels in both panels, with the same claim state', async () => {
+    const both = {
+      ...roadmapIssue,
+      labels: [{ name: ROADMAP_LABEL }, { name: HELP_WANTED_LABEL }],
+    };
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: JSON.stringify([both]) });
+
+    const snapshot = await fetchCollaborationSnapshot(exec);
+
+    expect(snapshot.roadmap.map((item) => item.assignees)).toEqual([['octocat']]);
+    expect(snapshot.helpWanted.map((item) => item.assignees)).toEqual([['octocat']]);
+  });
+
+  it('runs exactly one gh read per label — read-only issue lists, nothing else', async () => {
+    const exec = vi.fn<CliExec>().mockResolvedValue({ code: 0, stdout: '[]' });
+
+    await fetchCollaborationSnapshot(exec);
+
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(exec.mock.calls.map(([cmd, args]) => [cmd, args.slice(0, 2), labelOf(args)])).toEqual([
+      ['gh', ['issue', 'list'], ROADMAP_LABEL],
+      ['gh', ['issue', 'list'], HELP_WANTED_LABEL],
+    ]);
+  });
 });
 
 describe('createCollaborationApi', () => {
@@ -85,5 +130,21 @@ describe('createCollaborationApi', () => {
     const api = createCollaborationApi(exec);
 
     await expect(api()).resolves.toEqual({ roadmap: [], helpWanted: [] });
+  });
+
+  it('a null row in one read does not blank the other read', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockImplementation(async (_cmd, args: readonly string[]) =>
+        labelOf(args) === ROADMAP_LABEL
+          ? { code: 0, stdout: JSON.stringify([roadmapIssue]) }
+          : { code: 0, stdout: JSON.stringify([null, helpWantedIssue]) },
+      );
+    const api = createCollaborationApi(exec);
+
+    const snapshot = await api();
+
+    expect(snapshot.roadmap.map((item) => item.number)).toEqual([16]);
+    expect(snapshot.helpWanted.map((item) => item.number)).toEqual([42]);
   });
 });
