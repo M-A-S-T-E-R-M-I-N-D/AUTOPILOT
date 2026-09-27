@@ -18,6 +18,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import axe from 'axe-core';
 import {
   prCheckStateGlyph,
   formatCheckDuration,
@@ -298,6 +299,28 @@ describe('the rendered card shows what the PR touches', () => {
       'security',
       'do-not-merge',
     ]);
+  });
+
+  it('is axe-clean with the file list open', async () => {
+    bootWithPlans([TOUCHING]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.pr-review-files')).not.toBeNull();
+    });
+    (document.querySelector('.pr-review-files') as HTMLDetailsElement).open = true;
+    const panel = document.getElementById('pr-review-panel') as HTMLElement;
+    // The a11y suite's options (a11y.test.ts): WCAG A/AA, contrast off since
+    // jsdom paints no pixels to measure.
+    const results = await axe.run(panel, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+      rules: { 'color-contrast': { enabled: false } },
+    });
+    expect(results.violations.map((v) => v.id + ': ' + v.help)).toEqual([]);
+    // Not vacuous: the new list and disclosure were among the nodes axe checked.
+    const passed = results.passes.flatMap((p) => p.nodes.map((n) => n.target.join(' ')));
+    expect(passed.some((t) => t.includes('pr-review-labels'))).toBe(true);
+    expect(passed).toContain('.pr-review-diffstat');
+    expect(passed).toContain('.pr-review-files > ul > li:nth-child(1)');
   });
 
   it('keeps a hostile path or label as inert text, never markup', async () => {
