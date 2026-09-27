@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { parseGeminiJsonOutput, GeminiCliModel } from '../../src/adapters/gemini-cli.js';
@@ -469,38 +469,6 @@ describe('GeminiCliModel', () => {
     expect(options['timeout']).toBe(5000);
   });
 
-  it('hands the containment guard settings to the child as its system settings file, without touching the caller env', async () => {
-    mockExecFileResult(null, '');
-    const env = { PATH: '/opt/bin' };
-
-    await new GeminiCliModel({
-      repo: '/work/sbx',
-      env,
-      guardSettingsPath: '/run/guard-settings.json',
-    }).invoke('gemini-2.5-pro', 'do it');
-
-    const options = (execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>])[2];
-    expect(options['env']).toEqual({
-      PATH: '/opt/bin',
-      GEMINI_CLI_SYSTEM_SETTINGS_PATH: '/run/guard-settings.json',
-    });
-    expect(env).toEqual({ PATH: '/opt/bin' });
-  });
-
-  it('passes the env through unchanged for an empty guard settings path', async () => {
-    mockExecFileResult(null, '');
-    const env = { PATH: '/opt/bin' };
-
-    await new GeminiCliModel({ repo: '/work/sbx', env, guardSettingsPath: '' }).invoke(
-      'gemini-2.5-pro',
-      'do it',
-    );
-
-    expect(
-      (execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>])[2]['env'],
-    ).toBe(env);
-  });
-
   it('reads a fatal error object off stderr and keeps the numeric exit code', async () => {
     const stderr = `[ERROR] ${pretty({
       session_id: SESSION,
@@ -575,94 +543,5 @@ describe('GeminiCliModel', () => {
     expect(res.exitCode).toBe(1);
     expect(pidRegistry.track).not.toHaveBeenCalled();
     expect(pidRegistry.untrack).not.toHaveBeenCalled();
-  });
-
-  it("ORPHAN SWEEP (board web-msu3sv1w-hfj87n): reaps the child's descendant tree once the invocation settles", async () => {
-    mockExecFileResult(null, '');
-    const reapDescendants = vi.fn();
-
-    await new GeminiCliModel({ repo: '/work/sbx', reapDescendants }).invoke(
-      'gemini-2.5-pro',
-      'do it',
-    );
-
-    expect(reapDescendants).toHaveBeenCalledTimes(1);
-    expect(reapDescendants).toHaveBeenCalledWith(4321);
-  });
-
-  it('ORPHAN SWEEP: reaps on a spawn failure too, handing over the pid it never got', async () => {
-    execFileMock.mockImplementation((...args: unknown[]) => {
-      const cb = args[args.length - 1] as ExecFileCallback;
-      queueMicrotask(() =>
-        cb(Object.assign(new Error('spawn gemini ENOENT'), { code: 'ENOENT' }), '', ''),
-      );
-      return {};
-    });
-    const reapDescendants = vi.fn();
-
-    await new GeminiCliModel({ repo: '/work/sbx', reapDescendants }).invoke(
-      'gemini-2.5-pro',
-      'do it',
-    );
-
-    expect(reapDescendants).toHaveBeenCalledWith(undefined);
-  });
-
-  describe('THIRD CAP — timedOut on the response (the wall-clock cap, not any kill)', () => {
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    /** execFile whose callback fires only after the (fake) clock has moved `elapsedMs`. */
-    function mockExecFileAfter(
-      elapsedMs: number,
-      error: (Error & { code?: unknown; killed?: boolean }) | null,
-    ): void {
-      execFileMock.mockImplementation((...args: unknown[]) => {
-        const cb = args[args.length - 1] as ExecFileCallback;
-        queueMicrotask(() => {
-          vi.setSystemTime(Date.now() + elapsedMs);
-          cb(error, '', '');
-        });
-        return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
-      });
-    }
-
-    it('signal-killed AT the cap → timedOut: true', async () => {
-      vi.useFakeTimers();
-      mockExecFileAfter(5000, Object.assign(new Error('killed'), { killed: true }));
-
-      const res = await new GeminiCliModel({ repo: '/work/sbx', timeoutMs: 5000 }).invoke(
-        'gemini-2.5-pro',
-        'do it',
-      );
-
-      expect(res.exitCode).toBe(1);
-      expect(res.envelope).toBeNull();
-      expect(res.timedOut).toBe(true);
-    });
-
-    it('exited on its own past the cap (no signal) → the key stays off', async () => {
-      vi.useFakeTimers();
-      mockExecFileAfter(5000, Object.assign(new Error('exit 1'), { code: 1, killed: false }));
-
-      const res = await new GeminiCliModel({ repo: '/work/sbx', timeoutMs: 5000 }).invoke(
-        'gemini-2.5-pro',
-        'do it',
-      );
-
-      expect(res.exitCode).toBe(1);
-      expect('timedOut' in res).toBe(false);
-    });
-
-    it('signal-killed well UNDER the cap (an unrelated external kill) → the key stays off', async () => {
-      // Real clock: the callback fires microseconds after spawn, nowhere near 90 minutes.
-      mockExecFileResult(Object.assign(new Error('killed'), { killed: true }), '');
-
-      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
-
-      expect(res.exitCode).toBe(1);
-      expect('timedOut' in res).toBe(false);
-    });
   });
 });

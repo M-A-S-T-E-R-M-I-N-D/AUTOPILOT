@@ -75,13 +75,6 @@ for flying untrusted targets, or on a shared machine, or unattended.
    the last moment to catch it. CLI-arg scoped — the user's own settings files are never
    touched. Verified against the compiled hook over a real subprocess, including the
    exact observed escape shape.
-   The Gemini CLI adapter (epic 0036) runs the same `guard-hook.js` as its `BeforeTool`
-   hook: `buildGeminiFlightSettings` (`gemini-guard.ts`) writes the hook into a settings
-   file that `GeminiCliModel`'s `guardSettingsPath` hands the child as
-   `GEMINI_CLI_SYSTEM_SETTINGS_PATH`, the scope that outranks user and workspace
-   settings. The hook reads each Gemini tool call (`run_shell_command`, the file tools,
-   `web_fetch`) as the Claude call it amounts to, runs every check above, and answers in
-   Gemini's own `{"decision":"deny"}` shape. Not yet flown: no lane routes to Gemini.
    _Honest scope:_ a textual guard — it blocks the observed escape class (absolute-path
    `cd` / `git -C` / reads outside) and the named destructive-git shapes, but cannot
    statically resolve every relative-path dance or git invocation; the detection audit
