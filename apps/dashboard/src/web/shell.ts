@@ -113,6 +113,8 @@ import {
 import {
   taskViewValues as sharedTaskViewValues,
   taskViewKey as sharedTaskViewKey,
+  taskFocusValues as sharedTaskFocusValues,
+  taskFocusKey as sharedTaskFocusKey,
   parseTaskView as sharedParseTaskView,
   taskViewSearch as sharedTaskViewSearch,
   taskMatchesView as sharedTaskMatchesView,
@@ -2452,6 +2454,8 @@ ${sharedTaskHistoryMoreMeta.toString()}
 // The view functions are generated FROM web/task-view.ts via .toString().
 ${sharedTaskViewValues.toString()}
 ${sharedTaskViewKey.toString()}
+${sharedTaskFocusValues.toString()}
+${sharedTaskFocusKey.toString()}
 ${sharedParseTaskView.toString()}
 ${sharedTaskViewSearch.toString()}
 ${sharedTaskMatchesView.toString()}
@@ -2655,14 +2659,23 @@ function boardDisplayFieldset(display) {
 }
 // The grouping (?group=) between the filters and Show: one native radio group,
 // so arrow keys move the choice and the fieldset is a single Tab stop.
-var BOARD_GROUP_KEYS = { none: 'boardGroupNone', status: 'boardGroupStatus', severity: 'boardGroupSeverity', source: 'boardGroupSource' };
+var BOARD_GROUP_KEYS = { none: 'boardGroupNone', status: 'boardGroupStatus', severity: 'boardGroupSeverity', source: 'boardGroupSource', focus: 'boardGroupFocus' };
 function boardGroupFieldset(view) {
-  return boardChipFieldset('board-group', 'boardGroup', 'data-task-group', 'group', ['none', 'status', 'severity', 'source'], [view.group], BOARD_GROUP_KEYS, true);
+  return boardChipFieldset('board-group', 'boardGroup', 'data-task-group', 'group', ['none', 'status', 'severity', 'source', 'focus'], [view.group], BOARD_GROUP_KEYS, true);
 }
 // A group's head in the list (epic 0026): a list item that is not a .task
 // row, so j/k, x, Ctrl+A and the bulk actions pass over it; its heading is
-// the group's word and how many tasks the view holds in it.
-var BOARD_GROUP_WORDS = { status: TASK_STATUS_KEYS, severity: TASK_SEVERITY_KEYS, source: TASK_SOURCE_KEYS };
+// the group's word and how many tasks the view holds in it. A Focus group
+// that is one status wears that status's word.
+var TASK_FOCUS_KEYS = {
+  focused: 'taskFocusFocused',
+  needs_approval: 'taskStatusNeedsApproval',
+  urgent: 'taskFocusUrgent',
+  next: 'taskFocusNext',
+  deferred: 'taskStatusDeferred',
+  done: 'taskStatusDone',
+};
+var BOARD_GROUP_WORDS = { status: TASK_STATUS_KEYS, severity: TASK_SEVERITY_KEYS, source: TASK_SOURCE_KEYS, focus: TASK_FOCUS_KEYS };
 function boardGroupHead(group, key, count) {
   var li = el('li', 'task-group');
   var h = el('h4', 'task-group-head');

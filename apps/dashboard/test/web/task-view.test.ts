@@ -16,6 +16,8 @@ import {
   taskDisplayProperties,
   taskDisplaySearch,
   taskDisplayShows,
+  taskFocusKey,
+  taskFocusValues,
   taskMatchesView,
   taskViewKey,
   taskViewSearch,
@@ -82,6 +84,7 @@ describe('parseTaskView', () => {
       source: ['self'],
     });
     expect(parseTaskView('group=source').group).toBe('source');
+    expect(parseTaskView('?group=Focus').group).toBe('focus');
   });
 
   it('accepts repeated keys, stray spaces, any case and duplicates, returning canonical order', () => {
@@ -181,6 +184,68 @@ describe('groupTasksForView', () => {
     groupTasksForView(rows, 'source');
     expect(rows).toEqual(ROWS);
   });
+
+  it('groups by focus: what to work first at the top, board order inside each group', () => {
+    const rows: Row[] = [
+      { id: 'q-low', status: 'queued', severity: 'low' },
+      { id: 'done', status: 'done', severity: 'critical' },
+      { id: 'ask', status: 'needs_approval', severity: 'high' },
+      { id: 'q-crit', status: 'queued', severity: 'critical' },
+      { id: 'later', status: 'deferred' },
+      { id: 'lock', status: 'in_progress', severity: 'low', focus: true },
+      { id: 'fly-high', status: 'in_progress', severity: 'high' },
+      { id: 'q-none', status: 'queued', severity: null },
+    ];
+    expect(ids(groupTasksForView(rows, 'focus'))).toEqual([
+      ['focused', 'lock'],
+      ['needs_approval', 'ask'],
+      ['urgent', 'q-crit', 'fly-high'],
+      ['next', 'q-low', 'q-none'],
+      ['deferred', 'later'],
+      ['done', 'done'],
+    ]);
+  });
+
+  it('never drops a task from the focus grouping either', () => {
+    const rows: Row[] = [...ROWS, { id: 'e', status: 'blocked', focus: true }];
+    expect(ids(groupTasksForView(rows, 'focus')).at(-1)).toEqual(['blocked', 'e']);
+  });
+});
+
+describe('the focus grouping', () => {
+  it('orders its groups by what to work first, the status words where a group is one status', () => {
+    expect(taskFocusValues()).toEqual([
+      'focused',
+      'needs_approval',
+      'urgent',
+      'next',
+      'deferred',
+      'done',
+    ]);
+    const closed = taskViewValues('status').filter((s) => s !== 'queued' && s !== 'in_progress');
+    expect(closed.every((s) => taskFocusValues().includes(s))).toBe(true);
+  });
+
+  it('puts an open task under the focus lock first, whatever its severity', () => {
+    expect(taskFocusKey({ status: 'queued', severity: 'low', focus: true })).toBe('focused');
+    expect(taskFocusKey({ status: 'in_progress', severity: 'critical', focus: true })).toBe(
+      'focused',
+    );
+  });
+
+  it('splits the rest of the open queue into reds (critical, high) and the rest', () => {
+    expect(taskFocusKey({ status: 'queued', severity: 'critical' })).toBe('urgent');
+    expect(taskFocusKey({ status: 'in_progress', severity: 'high' })).toBe('urgent');
+    expect(taskFocusKey({ status: 'queued', severity: 'medium' })).toBe('next');
+    expect(taskFocusKey({ status: 'in_progress', severity: null, focus: false })).toBe('next');
+    expect(taskFocusKey({ status: 'queued' })).toBe('next');
+  });
+
+  it('files a task no flight can work yet by its status, a stale focus flag or not', () => {
+    expect(taskFocusKey({ status: 'needs_approval', severity: 'critical' })).toBe('needs_approval');
+    expect(taskFocusKey({ status: 'done', severity: 'high', focus: true })).toBe('done');
+    expect(taskFocusKey({ status: 'deferred' })).toBe('deferred');
+  });
 });
 
 describe('display options', () => {
@@ -241,6 +306,8 @@ describe('embedding via .toString()', () => {
     const fns = [
       taskViewValues,
       taskViewKey,
+      taskFocusValues,
+      taskFocusKey,
       parseTaskView,
       taskViewSearch,
       taskMatchesView,
@@ -266,6 +333,12 @@ describe('embedding via .toString()', () => {
     const kept = ROWS.filter((row) => embedded.taskMatchesView(row, view));
     expect(embedded.groupTasksForView(kept, view.group).map((g) => g.key)).toEqual([
       'in_progress',
+      'done',
+    ]);
+    const focus = embedded.parseTaskView('?group=focus');
+    expect(embedded.groupTasksForView(ROWS, focus.group).map((g) => g.key)).toEqual([
+      'urgent',
+      'next',
       'done',
     ]);
     const display = embedded.parseTaskDisplay('?hide=cost,source');

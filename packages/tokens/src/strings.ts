@@ -1150,6 +1150,13 @@ const EN_STRINGS = {
   boardGroupStatus: 'status',
   boardGroupSeverity: 'severity',
   boardGroupSource: 'source',
+  boardGroupFocus: 'focus',
+  // The Focus grouping's head words, what to work first at the top: the task
+  // under the focus lock, the open queue's reds (critical or high), and the
+  // rest of the open queue. Its other groups wear their status word.
+  taskFocusFocused: 'focused',
+  taskFocusUrgent: 'urgent',
+  taskFocusNext: 'up next',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2683,6 +2690,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardGroupStatus: 'סטטוס',
     boardGroupSeverity: 'חומרה',
     boardGroupSource: 'מקור',
+    boardGroupFocus: 'מיקוד',
+    taskFocusFocused: 'במיקוד',
+    taskFocusUrgent: 'דחופה',
+    taskFocusNext: 'הבאה בתור',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',
