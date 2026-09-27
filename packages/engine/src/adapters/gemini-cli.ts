@@ -30,6 +30,7 @@ import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
 import {
   reapCliDescendants,
+  isCliTimeoutDeath,
   CLI_STDIN_PROMPT_THRESHOLD,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
@@ -204,6 +205,10 @@ export interface GeminiCliOptions {
    *  typed — any `CliDescendantRegistry` satisfies this without an import
    *  cycle, same as `ClaudeCliOptions.pidRegistry`. */
   readonly pidRegistry?: { track: (pid: number) => void; untrack: (pid: number) => void };
+  /** ORPHAN SWEEP seam (board web-msu3sv1w-hfj87n), same as
+   *  `ClaudeCliOptions.reapDescendants`: defaults to the real cross-platform
+   *  {@link reapCliDescendants}; tests inject a spy to prove the reap runs. */
+  readonly reapDescendants?: (pid: number | undefined, platform?: NodeJS.Platform) => void;
 }
 
 /**
@@ -226,9 +231,12 @@ export interface GeminiCliOptions {
  * resume-retry-on-failure — but DOES carry `ClaudeCliModel`'s crash-path
  * {@link GeminiCliOptions.pidRegistry} tracking (containment parity, board
  * ap-mt2ukjg5-2), added ahead of this adapter's routing wiring so a lane
- * flown on it is never a containment regression from day one. Never
- * rejects: a spawn failure resolves the same "no envelope" shape an
- * abnormal exit gets.
+ * flown on it is never a containment regression from day one. Its settle
+ * path matches `ClaudeCliModel.execOnce`'s too: the reap goes through the
+ * injectable {@link GeminiCliOptions.reapDescendants} seam, and a kill by the
+ * wall-clock cap comes back `timedOut` (THIRD CAP) instead of reading as an
+ * ordinary crash. Never rejects: a spawn failure resolves the same "no
+ * envelope" shape an abnormal exit gets.
  */
 export class GeminiCliModel implements ModelPort {
   constructor(private readonly opts: GeminiCliOptions) {}
@@ -249,12 +257,14 @@ export class GeminiCliModel implements ModelPort {
     }
     if (!pipePrompt) args.push('--prompt', prompt);
 
+    const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
+    const startedAt = Date.now();
     const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
       cwd: this.opts.repo,
       env: this.opts.env ?? process.env,
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
-      timeout: this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS,
+      timeout: timeoutMs,
       detached: true,
       encoding: 'utf8',
     };
@@ -265,7 +275,7 @@ export class GeminiCliModel implements ModelPort {
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
         (err, stdout, stderr) => {
-          reapCliDescendants(child.pid);
+          (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
           if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
           // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
           // real exit code; a spawn failure or timeout kill has none, so it reads as 1.
@@ -275,7 +285,12 @@ export class GeminiCliModel implements ModelPort {
               : err
                 ? 1
                 : 0;
-          resolve(parseGeminiJsonOutput(stdout ?? '', exitCode, model, stderr ?? ''));
+          const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
+          const timedOut = isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
+          resolve({
+            ...parseGeminiJsonOutput(stdout ?? '', exitCode, model, stderr ?? ''),
+            ...(timedOut ? { timedOut: true } : {}),
+          });
         },
       );
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
