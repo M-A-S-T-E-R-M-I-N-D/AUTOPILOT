@@ -534,8 +534,15 @@ const CORE_GZIP_BUDGET = 71 * 1024;
 // /api/versions/restore`) to a Restore button on every row, confirm +
 // snack, plus its five English keys. Measured 126045B raw against the old
 // 124928B budget: 1117 bytes over.
+// Then panels raw 234→236KB (2026-09-27), epic 0026 slice 4's wiring: the
+// command palette (features/subject-nav.ts, deferred) acts on the tasks
+// board's selection — task-bulk.ts's four functions embedded, the sequential
+// send, and seven keys whose English and Hebrew both head /panels.js.
+// Measured 239413B raw against the 239616B line: 203 bytes under, the
+// next-change-of-any-kind-goes-red margin, so the line moves to about two KB
+// above. Gzip (72706B) stays under PANELS_GZIP_BUDGET untouched.
 const PROJECT_RAW_BUDGET = 124 * 1024;
-const PANELS_RAW_BUDGET = 234 * 1024;
+const PANELS_RAW_BUDGET = 236 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
 // prose pass (-466B raw) and a DRY fold of the two identical maintainer-verb
