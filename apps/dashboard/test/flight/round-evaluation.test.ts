@@ -63,7 +63,9 @@ describe('the round section', () => {
     );
     expect(roundCommitHeader(SUMMARY).length).toBeLessThanOrEqual(100);
     // No clock time: commitlint's no-operator-private-context flags one.
-    expect(roundCommitHeader(SUMMARY)).not.toMatch(/d{1,2}:d{2}/);
+    expect(roundCommitHeader(SUMMARY)).not.toMatch(/\b\d{1,2}:\d{2}\b/);
+    // …and the check itself would catch one.
+    expect('round ending 03:45').toMatch(/\b\d{1,2}:\d{2}\b/);
     expect(roundHeadline({ ...SUMMARY, shipped: 0, costPerShipUsd: null })).toContain('- per ship');
   });
 
