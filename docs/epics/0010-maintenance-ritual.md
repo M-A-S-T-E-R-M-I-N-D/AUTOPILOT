@@ -162,6 +162,17 @@ never throws, still flags only a genuinely failing conclusion): both are
 additive fields on the same read-only `gh run list` call. Slices 2-4 remain
 shipped and unchanged in scope.
 
+Freshness check (2026-09-27): `ci-status.ts` gained one more commit — `gh`
+reports a still-running run's `conclusion` as `""`, a string, not `null`, and
+`ciWorkflowStatus` took any string as a completed conclusion, so
+`post-push-watch.ts` declared a verdict moments after a run started and read
+green 22 minutes before its jobs finished (FAILURE-DOCTRINE row 74). A
+conclusion is now read only when `status` is `completed` (or absent) and the
+string is non-empty; a still-running run keeps reading as `null`, exactly
+slice 2's original "still running is fine, never flag it" contract. This is a
+correctness fix to that existing behavior, not a new field or a scope change —
+slices 2-4 remain shipped and unchanged in scope.
+
 ## Related
 
 - `.github/dependabot.yml`, `apps/dashboard/src/flight/doc-freshness.ts`
