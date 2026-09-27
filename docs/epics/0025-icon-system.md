@@ -85,8 +85,13 @@ propagation, and the filled style does not match the nav.
    2 hub for headings that ended up drawing other shapes, rode the core
    bundle's `ICON_SHAPES` JSON with no render site; both are dropped, and
    `apps/dashboard/test/web/icons.test.ts` now fails for any vendored name
-   no `src/` file quotes outside the icon data. The screenshots refresh
-   (`docs/screens/`) is still open.
+   no `src/` file quotes outside the icon data. **Geometric glyph-icons
+   2026-09-27:** the emoji ranges never covered Geometric Shapes, yet the
+   SOUL cards led "SOUL proposal pending", "SOUL unreviewed" and "Fleet
+   wisdom proposal pending" with ◇/◐/◆ exactly as ✦/⚑ had been used; all
+   three lead with the evolution panel's `dna` icon now, and the STRINGS
+   census pins the block's remaining keys to a shrink-only list (the ▶ Step
+   through toggle). The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

@@ -344,6 +344,11 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('.soul-proposal-summary')?.getAttribute('data-i18n')).toBe(
       'soulProposalSummary',
     );
+    // Epic 0025: the baked ◇ became the vendored dna icon.
+    expect(document.querySelector('.soul-proposal-summary')?.textContent).toBe(
+      'SOUL proposal pending — review',
+    );
+    expect(document.querySelector('.soul-proposal-summary svg.icon-dna')).not.toBeNull();
     expect(document.querySelector('[data-soul-ratify]')?.getAttribute('data-i18n')).toBe(
       'soulRatify',
     );
@@ -381,6 +386,7 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('.soul-proposal-summary')?.textContent).toBe(
       STRINGS.he.soulProposalSummary,
     );
+    expect(document.querySelector('.soul-proposal-summary svg.icon-dna')).not.toBeNull();
     expect(document.querySelector('[data-soul-ratify]')?.textContent).toBe(STRINGS.he.soulRatify);
     expect(document.querySelector('[data-soul-dismiss]')?.textContent).toBe(STRINGS.he.soulDismiss);
     expect(document.querySelector('[data-soul-unratify]')?.textContent).toBe(
