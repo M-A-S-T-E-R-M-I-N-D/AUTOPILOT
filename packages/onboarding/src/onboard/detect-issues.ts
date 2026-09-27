@@ -27,10 +27,12 @@ export interface FolderIssue {
 /**
  * Filename-copy markers that name a file a probable duplicate of some
  * canonical sibling — matched against the basename with its extension
- * stripped, so `$1` is always the candidate canonical stem.
+ * stripped, so `$1` is always the candidate canonical stem. First match
+ * wins, so a specific marker must precede any generic one it overlaps.
  */
 const COPY_MARKER_PATTERNS: readonly RegExp[] = [
   /^(.*) \(\d+\)$/, // "report (1)"
+  /^(.*) - copy$/i, // "report - Copy" (Windows Explorer) — before the generic marker, which leaves "report -"
   /^(.*)[-_ ]copy$/i, // "report copy" / "report-copy" / "report_copy"
   /^copy of (.*)$/i, // "Copy of report"
 ];
