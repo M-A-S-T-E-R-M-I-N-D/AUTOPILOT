@@ -469,6 +469,38 @@ describe('GeminiCliModel', () => {
     expect(options['timeout']).toBe(5000);
   });
 
+  it('hands the containment guard settings to the child as its system settings file, without touching the caller env', async () => {
+    mockExecFileResult(null, '');
+    const env = { PATH: '/opt/bin' };
+
+    await new GeminiCliModel({
+      repo: '/work/sbx',
+      env,
+      guardSettingsPath: '/run/guard-settings.json',
+    }).invoke('gemini-2.5-pro', 'do it');
+
+    const options = (execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>])[2];
+    expect(options['env']).toEqual({
+      PATH: '/opt/bin',
+      GEMINI_CLI_SYSTEM_SETTINGS_PATH: '/run/guard-settings.json',
+    });
+    expect(env).toEqual({ PATH: '/opt/bin' });
+  });
+
+  it('passes the env through unchanged for an empty guard settings path', async () => {
+    mockExecFileResult(null, '');
+    const env = { PATH: '/opt/bin' };
+
+    await new GeminiCliModel({ repo: '/work/sbx', env, guardSettingsPath: '' }).invoke(
+      'gemini-2.5-pro',
+      'do it',
+    );
+
+    expect(
+      (execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>])[2]['env'],
+    ).toBe(env);
+  });
+
   it('reads a fatal error object off stderr and keeps the numeric exit code', async () => {
     const stderr = `[ERROR] ${pretty({
       session_id: SESSION,
