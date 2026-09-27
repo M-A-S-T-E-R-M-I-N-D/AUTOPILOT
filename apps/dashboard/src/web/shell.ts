@@ -52,6 +52,7 @@ import {
   taskMap as sharedTaskMap,
   taskBurnOf as sharedTaskBurnOf,
   taskBudgetSignalOf as sharedTaskBudgetSignalOf,
+  taskHistoryOf as sharedTaskHistoryOf,
   taskDimensionBudgetSignalOf as sharedTaskDimensionBudgetSignalOf,
   fleetCacheShareOf as sharedFleetCacheShareOf,
   flightBarMeta as sharedFlightBarMeta,
@@ -464,6 +465,10 @@ function flightGroupRow(c, entry, taskById) {
 ${sharedTaskMap.toString()}
 ${sharedTaskBurnOf.toString()}
 ${sharedTaskBudgetSignalOf.toString()}
+// taskHistoryOf is generated FROM web/flight-metrics.ts below (epic 0026
+// slice 1: the row detail's history) — its real compiled source via
+// .toString(), not a hand-retyped copy.
+${sharedTaskHistoryOf.toString()}
 // taskDimensionBudgetSignalOf is generated FROM web/flight-metrics.ts below
 // (ADAPTIVE TASK BUDGET breadth fallback, board web-msnt26wf-wnv3w7) — its
 // real compiled source via .toString(), not a hand-retyped copy.
@@ -2690,6 +2695,60 @@ function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys,
   }
   return fs;
 }
+// A row detail's history (epic 0026 slice 1): how many firings worked the
+// task and what they cost, then the newest ones the loaded flight log holds,
+// newest first — how each ended, the slice or complete it reported, its
+// commit and its cost — and how many older ones it leaves to the flight log.
+// Every line rides the translateDom() sweep: counts as data-i18n-template
+// with their args, words as data-i18n.
+var TASK_HISTORY_MAX = 5;
+function taskHistoryText(tag, cls, key, args) {
+  var node = el(tag, cls, tr(key, args));
+  if (args) {
+    node.setAttribute('data-i18n-template', key);
+    node.setAttribute('data-i18n-args', JSON.stringify(args));
+  } else {
+    node.setAttribute('data-i18n', key);
+  }
+  return node;
+}
+function taskHistorySection(t, log) {
+  var history = taskHistoryOf(t, log, TASK_HISTORY_MAX);
+  var box = el('div', 'task-detail-history');
+  if (!history.firings) {
+    box.appendChild(taskHistoryText('p', 'task-detail-meta muted', 'taskHistoryNone'));
+    return box;
+  }
+  var totalKey = history.firings === 1 ? 'taskHistoryOne' : 'taskHistoryMany';
+  box.appendChild(taskHistoryText('p', 'task-detail-meta', totalKey, { n: history.firings, cost: fmtCost(history.cost) }));
+  if (history.lines.length) {
+    var list = el('ol', 'task-history');
+    list.setAttribute('aria-label', tr('taskHistoryList'));
+    list.setAttribute('data-i18n-aria', 'taskHistoryList');
+    for (var hi = 0; hi < history.lines.length; hi++) {
+      var line = history.lines[hi];
+      var item = el('li', 'task-history-line');
+      item.appendChild(el('span', 'flight-verdict flight-' + line.verdict.split(' ')[0], line.verdict));
+      if (line.completion) {
+        var completionKey = line.completion === 'complete' ? 'taskHistoryComplete' : 'taskHistorySlice';
+        item.appendChild(taskHistoryText('span', 'task-history-completion', completionKey));
+      }
+      if (line.subject) item.appendChild(el('span', 'task-history-subject', line.subject));
+      var lineMeta = el('span', 'task-history-meta muted', fmtCost(line.cost) + ' · ' + fmtAgo(line.at));
+      if (line.sha) {
+        lineMeta.appendChild(document.createTextNode(' · '));
+        lineMeta.appendChild(el('code', null, line.sha));
+      }
+      item.appendChild(lineMeta);
+      list.appendChild(item);
+    }
+    box.appendChild(list);
+  }
+  if (history.older > 0) {
+    box.appendChild(taskHistoryText('p', 'task-detail-meta muted', 'taskHistoryOlder', { n: history.older }));
+  }
+  return box;
+}
 // "Showing n of m" (a status line) and the Clear button.
 function boardFilterNote(shown, total) {
   var p = el('p', 'board-filter-note muted');
@@ -3110,8 +3169,9 @@ function tasksSection(c) {
         li.appendChild(delBtn);
       }
       // The row's read-only detail (epic 0026, Enter): the WHOLE body the
-      // title tip cuts at 240 characters, then the id and age — its own line
-      // under the row, hidden until the title opens it.
+      // title tip cuts at 240 characters, then the id and age, then the
+      // firings that worked it — its own line under the row, hidden until
+      // the title opens it.
       var detail = el('div', 'task-detail');
       detail.id = detailId;
       detail.hidden = !boardOpen[t.id];
@@ -3123,6 +3183,7 @@ function tasksSection(c) {
       detailMeta.appendChild(el('code', null, t.id));
       detailMeta.appendChild(document.createTextNode(' · ' + taskTitleTip(t.at, t.priority, fmtAgo).tip));
       detail.appendChild(detailMeta);
+      detail.appendChild(taskHistorySection(t, c.flightLog));
       li.appendChild(detail);
       // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): a
       // heavily-tagged task row can carry the status pill, the title, and
