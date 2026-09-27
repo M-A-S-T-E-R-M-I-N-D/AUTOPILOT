@@ -34,6 +34,18 @@ const SCRIPT = fileURLToPath(
   new URL('../../../../scripts/ci/check-merge-integrity.mjs', import.meta.url),
 );
 
+const ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
+
+/** A shallow clone lacks the incident; only a full history can replay it. */
+const HAS_B3518BE0 = (() => {
+  try {
+    execFileSync('git', ['cat-file', '-e', 'b3518be0^{commit}'], { cwd: ROOT, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 let repo: string;
 
 function git(args: readonly string[], cwd = repo): string {
@@ -48,12 +60,12 @@ function commit(file: string, body: string, message: string): void {
 
 /** Runs the guard and returns its exit code + combined output. Omitting
  *  `range` exercises the script's own default (HEAD~50..HEAD). */
-function runGuard(range?: string): { code: number; output: string } {
+function runGuard(range?: string, cwd = repo): { code: number; output: string } {
   const args = range === undefined ? [SCRIPT] : [SCRIPT, range];
   try {
     return {
       code: 0,
-      output: execFileSync(process.execPath, args, { cwd: repo, encoding: 'utf8' }),
+      output: execFileSync(process.execPath, args, { cwd, encoding: 'utf8' }),
     };
   } catch (error) {
     const e = error as { status?: number; stdout?: string; stderr?: string };
@@ -148,6 +160,101 @@ describe('check-merge-integrity', () => {
     expect(fromOther.code).toBe(0);
   });
 
+  it('FAILS a sync-back that carries a lane revert of a merge — the b3518be0 shape', () => {
+    // A lane merged the flight branch in, then reverted that merge. Merging
+    // the lane back re-applies the revert to the flight branch: everything
+    // the reverted merge brought in is deleted there. The tree differs from
+    // both parents, so the `-s ours` signature never fires — b3518be0 dropped
+    // gemini-guard.ts and about 1300 lines of landed work this way, green.
+    git(['checkout', '-q', '-b', 'lane']);
+    commit('lane-only.txt', 'lane work\n', 'feat: lane work');
+    git(['checkout', '-q', 'main']);
+    commit('guard.ts', 'export const flightGuard = true;\n', 'feat: flight guard');
+    git(['checkout', '-q', 'lane']);
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: merge main into lane', 'main']);
+    git(['revert', '--no-edit', '-m', '1', 'HEAD']);
+    git(['checkout', '-q', 'main']);
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+
+    const { code, output } = runGuard('HEAD~1..HEAD');
+
+    expect(code).toBe(1);
+    expect(output).toContain('dropped a parent');
+    expect(output).toContain('revert of merge');
+    expect(output).toContain('export const flightGuard = true;');
+  });
+
+  it('PASSES a lane revert of a merge whose content the first parent never had', () => {
+    // The lane merged a side branch, then thought better of it. The revert
+    // deletes only the side branch's lines, which the flight branch never
+    // carried — the sync-back loses nothing.
+    git(['checkout', '-q', '-b', 'side']);
+    commit('side.txt', 'side experiment\n', 'feat: side experiment');
+    git(['checkout', '-q', 'main']);
+    git(['checkout', '-q', '-b', 'lane']);
+    commit('lane-only.txt', 'lane work\n', 'feat: lane work');
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: merge side into lane', 'side']);
+    git(['revert', '--no-edit', '-m', '1', 'HEAD']);
+    git(['checkout', '-q', 'main']);
+    commit('main.txt', 'main work\n', 'feat: main work');
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+
+    const { code, output } = runGuard('HEAD~1..HEAD');
+
+    expect(code).toBe(0);
+    expect(output).toContain('merge integrity OK');
+  });
+
+  it('PASSES a lane that reverted the merge and then reverted the revert', () => {
+    // Undoing the revert restores the merge's content before the sync-back,
+    // so the merge keeps everything the first parent had.
+    git(['checkout', '-q', '-b', 'lane']);
+    commit('lane-only.txt', 'lane work\n', 'feat: lane work');
+    git(['checkout', '-q', 'main']);
+    commit('guard.ts', 'export const flightGuard = true;\n', 'feat: flight guard');
+    git(['checkout', '-q', 'lane']);
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: merge main into lane', 'main']);
+    git(['revert', '--no-edit', '-m', '1', 'HEAD']);
+    git(['revert', '--no-edit', 'HEAD']);
+    git(['checkout', '-q', 'main']);
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+
+    const { code, output } = runGuard('HEAD~1..HEAD');
+
+    expect(code).toBe(0);
+    expect(output).toContain('merge integrity OK');
+  });
+
+  it('PASSES a lane revert of an ordinary commit — only merge reverts carry the hazard', () => {
+    // Reverting one of the lane's own commits is ordinary work: the lines it
+    // removes were the lane's, never the first parent's.
+    git(['checkout', '-q', '-b', 'lane']);
+    commit('lane-only.txt', 'a lane misstep\n', 'feat: lane misstep');
+    git(['revert', '--no-edit', 'HEAD']);
+    commit('lane-next.txt', 'lane work\n', 'feat: lane work');
+    git(['checkout', '-q', 'main']);
+    commit('main.txt', 'main work\n', 'feat: main work');
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+
+    const { code, output } = runGuard('HEAD~1..HEAD');
+
+    expect(code).toBe(0);
+    expect(output).toContain('merge integrity OK');
+  });
+
+  it.skipIf(!HAS_B3518BE0)(
+    'catches the REAL b3518be0 loss and reports it as repaired, not live',
+    () => {
+      // The incident itself, read from this repo's history: the acknowledged
+      // line prints only when the finding was detected, so this pins both
+      // the detection and the ledger that keeps a repaired merge off the gate.
+      const { code, output } = runGuard('b3518be0^1..b3518be0', ROOT);
+
+      expect(code).toBe(0);
+      expect(output).toContain('b3518be0 dropped work, acknowledged as repaired');
+    },
+  );
+
   it('PASSES a history with no merges at all', () => {
     commit('a.txt', 'a\n', 'chore: a');
 
@@ -190,5 +297,5 @@ describe('check-merge-integrity', () => {
 
     expect(code).toBe(0);
     expect(output).toContain('merge integrity OK');
-  }, 20000);
+  });
 });
