@@ -392,10 +392,11 @@ describe('task row detail (epic 0026 slice 1: Enter)', () => {
       const free = claimOf('t4') as HTMLElement;
       expect(free.textContent).toBe(STRINGS.en.taskClaimNone);
       expect(free.getAttribute('data-i18n')).toBe('taskClaimNone');
-      // It sits between the id line and the history.
+      // It sits between the provenance line and the history.
       const blocks = [...detailOf('t1').children].map((node) => node.className);
-      expect(blocks.indexOf('task-detail-meta task-detail-claim')).toBe(2);
-      expect(blocks.indexOf('task-detail-history')).toBe(3);
+      expect(blocks.indexOf('task-detail-meta task-detail-provenance')).toBe(2);
+      expect(blocks.indexOf('task-detail-meta task-detail-claim')).toBe(3);
+      expect(blocks.indexOf('task-detail-history')).toBe(4);
     });
 
     it('draws no claim line where no flight can hold one: awaiting approval, or done', async () => {
@@ -418,6 +419,97 @@ describe('task row detail (epic 0026 slice 1: Enter)', () => {
 
       expect(claimOf('t1')?.textContent).toBe(STRINGS.he.taskClaimBy.replace('{who}', 'fleet-3'));
       expect(claimOf('t4')?.textContent).toBe(STRINGS.he.taskClaimNone);
+    });
+  });
+
+  describe('its provenance: how the task reached the board', () => {
+    function withSources(githubRepo: string | null = 'acme/widgets') {
+      const state = makeState();
+      const project = state.projects[0]! as ReturnType<typeof makeState>['projects'][0] & {
+        githubRepo?: string | null;
+      };
+      project.githubRepo = githubRepo;
+      project.tasks[1] = { ...project.tasks[1]!, source: 'self' };
+      project.tasks.push({ ...task('t4', 'Triaged note', 'queued'), source: 'inbox' });
+      project.tasks.push({
+        ...task('github-42', 'Crash on empty config', 'queued'),
+        source: 'github',
+      });
+      // Older rows, or a hand-made one, may not carry the github-<n> id.
+      project.tasks.push({ ...task('t6', 'Imported by hand', 'queued'), source: 'github' });
+      return state;
+    }
+
+    const provenanceOf = (id: string) =>
+      detailOf(id).querySelector('.task-detail-provenance') as HTMLElement | null;
+
+    afterEach(() => {
+      history.replaceState(null, '', '/');
+    });
+
+    it('says in words where each task came from, right under its id line', async () => {
+      await boot(withSources());
+
+      for (const id of ['t1', 't2', 't4']) titleOf(id).click();
+
+      expect(provenanceOf('t1')?.textContent).toBe(STRINGS.en.taskFromDashboard);
+      expect(provenanceOf('t2')?.textContent).toBe(STRINGS.en.taskFromSelf);
+      expect(provenanceOf('t4')?.textContent).toBe(STRINGS.en.taskFromInbox);
+      expect(provenanceOf('t4')?.querySelector('[data-i18n="taskFromInbox"]')).not.toBeNull();
+      const blocks = [...detailOf('t2').children].map((node) => node.className);
+      expect(blocks.indexOf('task-detail-meta task-detail-provenance')).toBe(2);
+    });
+
+    it("names a GitHub task's issue and links it on the project's own repository", async () => {
+      await boot(withSources());
+
+      titleOf('github-42').click();
+
+      const line = provenanceOf('github-42') as HTMLElement;
+      expect(line.textContent).toContain(STRINGS.en.taskFromGithubIssue.replace('{n}', '42'));
+      const link = line.querySelector('a') as HTMLAnchorElement;
+      expect(link.getAttribute('href')).toBe('https://github.com/acme/widgets/issues/42');
+      expect(link.textContent).toBe(STRINGS.en.taskFromGithubOpen.replace('{n}', '42'));
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    });
+
+    it('names the issue without a link when the project is not on GitHub, and a bare source when the id names none', async () => {
+      await boot(withSources(null));
+
+      titleOf('github-42').click();
+      titleOf('t6').click();
+
+      expect(provenanceOf('github-42')?.textContent).toBe(
+        STRINGS.en.taskFromGithubIssue.replace('{n}', '42'),
+      );
+      expect(provenanceOf('github-42')?.querySelector('a')).toBeNull();
+      expect(provenanceOf('t6')?.textContent).toBe(STRINGS.en.taskFromGithub);
+    });
+
+    it("stays in the detail when the Show options hide the row's source chip", async () => {
+      history.replaceState(null, '', '/p/p1?hide=source');
+      await boot(withSources());
+
+      titleOf('t2').click();
+
+      expect(document.querySelector('.task[data-task-id="t2"] .chip-proposed')).toBeNull();
+      expect(provenanceOf('t2')?.textContent).toBe(STRINGS.en.taskFromSelf);
+    });
+
+    it('translates on a locale switch, the issue number and the link kept', async () => {
+      await boot(withSources());
+      titleOf('t4').click();
+      titleOf('github-42').click();
+
+      (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+      expect(provenanceOf('t4')?.textContent).toBe(STRINGS.he.taskFromInbox);
+      const line = provenanceOf('github-42') as HTMLElement;
+      expect(line.textContent).toContain(STRINGS.he.taskFromGithubIssue.replace('{n}', '42'));
+      const link = line.querySelector('a') as HTMLAnchorElement;
+      expect(link.textContent).toBe(STRINGS.he.taskFromGithubOpen.replace('{n}', '42'));
+      expect(link.getAttribute('href')).toBe('https://github.com/acme/widgets/issues/42');
     });
   });
 

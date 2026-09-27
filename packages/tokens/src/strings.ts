@@ -1096,6 +1096,18 @@ const EN_STRINGS = {
   // the flight instance holding its board claim, or that none holds it.
   taskClaimBy: 'Claimed by the {who} flight; other lanes pass over it.',
   taskClaimNone: 'No flight has claimed it.',
+  // The detail's provenance (epic 0026 slice 1): how the task reached the
+  // board, one sentence per source; a GitHub task names and links its issue.
+  taskFromInbox: 'Triaged from a note you dropped in INBOX/.',
+  taskFromRepo: 'Mined from the repository itself.',
+  taskFromBacklog: 'Lifted from an open item in docs/BACKLOG-999.md.',
+  taskFromChat: 'Filed from a chat with the agent.',
+  taskFromDashboard: 'Filed by a person from the dashboard.',
+  taskFromSelf: 'Proposed by the autopilot itself.',
+  taskFromGithub: 'Accepted from a GitHub issue.',
+  taskFromGithubIssue: 'Accepted from GitHub issue #{n}.',
+  taskFromGithubOpen: 'Open #{n} on GitHub',
+  taskFromNone: 'Where it came from was not recorded.',
   // The view header's Status filter (epic 0026 slice 2): the fieldset's
   // legend (each box is labelled by its status word, the taskStatus* keys),
   // the note a filtered board shows — reordering posts the order the list
@@ -2633,6 +2645,16 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskHistoryOlder: 'עוד {n} ישנות יותר ביומן הטיסות',
     taskClaimBy: 'נתבעה על ידי הטיסה {who}; נתיבים אחרים מדלגים עליה.',
     taskClaimNone: 'אף טיסה לא תבעה אותה.',
+    taskFromInbox: 'מוינה מפתק שהשארתם ב-INBOX/.',
+    taskFromRepo: 'נמצאה במאגר עצמו.',
+    taskFromBacklog: 'נלקחה מפריט פתוח ב-docs/BACKLOG-999.md.',
+    taskFromChat: 'נפתחה משיחה עם הסוכן.',
+    taskFromDashboard: 'אדם פתח אותה מלוח הבקרה.',
+    taskFromSelf: 'הטייס האוטומטי הציע אותה בעצמו.',
+    taskFromGithub: 'התקבלה מ-issue ב-GitHub.',
+    taskFromGithubIssue: 'התקבלה מ-issue מספר #{n} ב-GitHub.',
+    taskFromGithubOpen: 'פתיחת #{n} ב-GitHub',
+    taskFromNone: 'המקור שלה לא נרשם.',
     boardFilterStatus: 'סטטוס',
     boardFilterShowing: 'מוצגות {n} מתוך {total} — נקו את המסנן כדי לשנות את הסדר',
     boardFilterClear: 'ניקוי המסנן',

@@ -35,8 +35,14 @@ in-flight task names the flight instance holding its board claim (the store's
 `assignee`, which `claimTask` sets and sibling lanes pass over) or says no
 flight has claimed it. A task awaiting approval, done or deferred cannot be
 claimed and draws no line; a done task's assignee is who finished it, not a
-lease. Still open in slice 1: the detail as a split pane beside the list from
-`lg`, and its provenance. Slice 2's pure half
+lease. Its provenance followed the same day: right under the id line, one
+sentence says how the task reached the board — triaged from INBOX/, lifted
+from the backlog, filed from the dashboard, proposed by the autopilot, and so
+on for every source the store knows — and it stays when `?hide=source` drops
+the row's chip. A task accepted from a GitHub issue names it (its id is
+`github-<n>`) and, on a project whose origin is on GitHub, links it there.
+Still open in slice 1: the detail as a split pane beside the list from `lg`.
+Slice 2's pure half
 shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
 view — grouping by status, severity or source, and a filter on each — in the
 query string (`?group=severity&status=queued,done`), since the hash already

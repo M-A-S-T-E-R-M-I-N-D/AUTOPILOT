@@ -692,6 +692,7 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
       projects: [
         {
           ...SAMPLE_STATE.projects[0],
+          githubRepo: 'acme/widgets',
           tasks: [
             {
               id: 't1',
@@ -702,12 +703,13 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
               focus: true,
             },
             {
-              id: 't2',
+              id: 'github-7',
               title: 'Document the webhook payload',
               status: 'in_progress',
               severity: null,
               dimension: null,
               focus: false,
+              source: 'github',
             },
             {
               id: 't3',
@@ -748,6 +750,11 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     // must scan clean too, not only their collapsed rest state.
     (document.querySelector('.task[data-task-id="t1"] .task-title') as HTMLElement).click();
     expect((document.getElementById('task-detail-t1') as HTMLElement).hidden).toBe(false);
+    // A GitHub task's detail links its issue in the provenance line.
+    (document.querySelector('.task[data-task-id="github-7"] .task-title') as HTMLElement).click();
+    expect(
+      document.querySelector('#task-detail-github-7 .task-detail-provenance a'),
+    ).not.toBeNull();
     const foundOpen = await violations();
     expect(foundOpen.map((v) => v.id)).toEqual([]);
 

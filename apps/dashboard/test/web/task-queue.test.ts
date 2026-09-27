@@ -27,6 +27,7 @@ import {
   taskStalenessTip,
   STALE_TASK_DAYS,
   taskTitleTip,
+  taskProvenanceOf,
   taskMoveTip,
   taskFocusTip,
   taskUnpinTip,
@@ -439,6 +440,63 @@ describe('taskTitleTip', () => {
       tip: 'Added 0s ago',
     });
     expect(taskTitleTip(1_700_000_000_000, null, fmtAgo, '   ')).toEqual({ tip: 'Added 0s ago' });
+  });
+});
+
+describe('taskProvenanceOf', () => {
+  it('keys one sentence per source the store knows', () => {
+    const keys = ['inbox', 'repo', 'backlog', 'chat', 'dashboard', 'self', 'github'].map(
+      (source) => taskProvenanceOf(source, 'web-abc').key,
+    );
+    expect(keys).toEqual([
+      'taskFromInbox',
+      'taskFromRepo',
+      'taskFromBacklog',
+      'taskFromChat',
+      'taskFromDashboard',
+      'taskFromSelf',
+      'taskFromGithub',
+    ]);
+  });
+
+  it('says "not recorded" for a missing or unknown source, inherited object keys included', () => {
+    for (const source of [null, undefined, '', 'fax', 'constructor', '__proto__']) {
+      expect(taskProvenanceOf(source, 'web-abc')).toEqual({
+        key: 'taskFromNone',
+        issue: null,
+        url: null,
+      });
+    }
+  });
+
+  it("names a GitHub task's issue from its github-<n> id and links it on the project's repo", () => {
+    expect(taskProvenanceOf('github', 'github-42', 'acme/widgets')).toEqual({
+      key: 'taskFromGithubIssue',
+      issue: 42,
+      url: 'https://github.com/acme/widgets/issues/42',
+    });
+    expect(taskProvenanceOf('github', 'github-42', null)).toEqual({
+      key: 'taskFromGithubIssue',
+      issue: 42,
+      url: null,
+    });
+  });
+
+  it('reads an issue only off a github source, and only off the whole id', () => {
+    expect(taskProvenanceOf('self', 'github-42', 'acme/widgets').issue).toBeNull();
+    expect(taskProvenanceOf('github', 'github-42-x', 'acme/widgets').key).toBe('taskFromGithub');
+    expect(taskProvenanceOf('github', 'xgithub-42', 'acme/widgets').issue).toBeNull();
+  });
+
+  it('builds no href from a repo that is not a plain owner/repo', () => {
+    for (const repo of [
+      'acme',
+      'acme/widgets/extra',
+      'evil.example/x?y=1',
+      'javascript:alert(1)',
+    ]) {
+      expect(taskProvenanceOf('github', 'github-7', repo).url).toBeNull();
+    }
   });
 });
 

@@ -228,7 +228,11 @@ import { gzipSync } from 'node:zlib';
 // taskHistoryOf embedded from web/flight-metrics.ts, the row detail's list of
 // the firings that worked the task and seven English keys -- measured 247641B
 // raw against the old 246784B line, 857 bytes over.
-const CORE_RAW_BUDGET = 243 * 1024;
+// Then core raw 243->245KB (2026-09-27), the same slice's provenance line:
+// taskProvenanceOf embedded from web/task-queue.ts, the line with its issue
+// link and ten English keys -- measured 249269B raw against the old 248832B
+// line, 437 bytes over.
+const CORE_RAW_BUDGET = 245 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -262,7 +266,10 @@ const CORE_RAW_BUDGET = 243 * 1024;
 // Then core gzip 71->72KB (2026-09-27), the same detail-history slice as the
 // raw entry above -- measured 73124B against the old 72704B line, 420 bytes
 // over.
-const CORE_GZIP_BUDGET = 72 * 1024;
+// Then core gzip 72->73KB (2026-09-27), the same provenance line as the raw
+// entry above -- measured 73702B, 26 bytes UNDER the old 73728B line, bumped
+// because a margin that thin goes red on the next sibling's core growth.
+const CORE_GZIP_BUDGET = 73 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
