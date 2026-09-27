@@ -201,6 +201,10 @@ export async function fetchContributorFacts(
       const parsed = JSON.parse(stdout) as unknown;
       if (Array.isArray(parsed)) {
         for (const raw of parsed as readonly RawMergedPr[]) {
+          // A null row must be skipped, not thrown on: the catch below would
+          // swallow the TypeError and post the dossier with every later
+          // row's merged PRs and DCO counts missing.
+          if (typeof raw !== 'object' || raw === null) continue;
           if (typeof raw.title !== 'string') continue;
           mergedPrCount += 1;
           mergedPrTitles.push(raw.title);

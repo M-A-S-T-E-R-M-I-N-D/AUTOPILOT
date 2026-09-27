@@ -173,6 +173,22 @@ slice 2's original "still running is fine, never flag it" contract. This is a
 correctness fix to that existing behavior, not a new field or a scope change —
 slices 2-4 remain shipped and unchanged in scope.
 
+Freshness check (2026-09-27, later the same day): `ci-status.ts` gained one
+more commit after the check above. A `null` or non-object row at `parsed[0]`
+— a malformed `gh run list` answer — was cast straight to `RawGhRun`, and
+reading any field off it threw, taking down the whole report instead of
+degrading like every other malformed-input case slice 2 already handles; it
+now reads as `{}`, an "unknown" run, same as any row simply missing a field.
+The same commit applied the identical null-row guard to slice 3's
+`dependabotPrBacklog` (a `null` PR row still counts toward the backlog,
+printing `#?` in its place) and, outside this epic's own slices, to
+`code-scanning-tasks.ts` and `flight/contributions.ts` — not a scope change
+here. Neither slice's described behavior changes (slice 2 still never throws
+and still flags only a genuinely failing conclusion; slice 3 still counts
+every open dependabot PR toward the backlog): both are hardening fixes to
+existing degrade-safe reads. Slices 2-4 remain shipped and unchanged in
+scope.
+
 ## Related
 
 - `.github/dependabot.yml`, `apps/dashboard/src/flight/doc-freshness.ts`
