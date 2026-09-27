@@ -214,6 +214,11 @@ which calls the self-study ritual the only other write a self-hosted flight make
   In the fallback that flies `target` directly, `target` was never a guarded path, so none of this
   ever applied there.
 
+`7ec08105` (2026-09-27, after the round-evaluation entries above) touches `fly.ts` again, but only
+to thread an INBOX task's note onto its board-digest row (`BoardTaskRef.note` — the text a firing
+reads in its prompt, so a triaged directive outlives triage). It changes neither the worktree, the
+sync-back, nor the containment guard.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

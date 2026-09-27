@@ -64,6 +64,14 @@ ensures the firing record carries the name and full token count of the model
 that actually did the work, directly bearing on the "measurable win" verdict's
 accuracy: per-firing and per-turn cost deltas now compare the correct model.
 
+**2026-09-27 stdin hardening (unrelated to resume itself):** `248b1429` added a no-op `'error'`
+listener before `child.stdin?.end(prompt)` in both `ClaudeCliModel` and `StreamingClaudeCliModel`,
+guarding against an unhandled EPIPE throw when the child process had already exited before an
+over-threshold prompt's stdin write landed. It touches the same file this epic's `--resume`
+threading lives in, and applies identically to a resumed or a cold invocation — stdin-plumbing
+robustness, not a change to resume itself, the cost/turn measurement, or any acceptance criterion
+above.
+
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`
 in `packages/engine/src/adapters/claude-cli.ts`, via `buildClaudeArgs`) with no continuity from the
