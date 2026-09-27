@@ -27,6 +27,7 @@ import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
 import {
   reapCliDescendants,
   isCliTimeoutDeath,
+  isResumeFailure,
   CLI_STDIN_PROMPT_THRESHOLD,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
@@ -145,6 +146,27 @@ export function parseCodexExecOutput(
   return { stdout, exitCode, envelope, sessionId };
 }
 
+/**
+ * True when `codex exec resume <id>` failed at the resume ITSELF — the CLI-level
+ * fallback `ClaudeCliModel` already has (docs/epics/0009-warm-sessions.md).
+ * `codex-rs/exec/src/lib.rs` takes a UUID as given and asks for that thread; an
+ * unknown or moved one fails the run before `thread.started` is ever emitted, so
+ * the tell is `isResumeFailure`'s no-envelope non-zero exit PLUS no thread id on
+ * the wire. A run that named its thread and then died took the resume, so a cold
+ * retry would redo its work. A wall-clock kill is never retried either: that
+ * would double the time the cap already spent.
+ */
+export function isCodexResumeFailure(
+  resumeSessionId: string | undefined,
+  resp: Pick<ModelResponse, 'envelope' | 'exitCode' | 'sessionId' | 'timedOut'>,
+): boolean {
+  return (
+    isResumeFailure(resumeSessionId, resp) &&
+    (resp.sessionId ?? null) === null &&
+    resp.timedOut !== true
+  );
+}
+
 export interface CodexCliOptions {
   readonly repo: string;
   /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
@@ -193,10 +215,15 @@ export interface CodexCliOptions {
  * `ClaudeCliModel` does. Mirrors `ClaudeCliModel`'s buffered-execFile
  * transport shape, including `detached: true` + {@link reapCliDescendants} so a
  * wall-clock kill still reaps whatever the child spawned (ORPHAN SWEEP, board
- * web-msu3sv1w-hfj87n) — but skips its idle-timeout, streaming, and CLI-level
- * resume-retry-on-failure hardening: those were added to the Claude driver
- * incrementally after real incidents this adapter has no flight history to have hit
- * yet. It DOES carry `ClaudeCliModel`/`GeminiCliModel`'s crash-path
+ * web-msu3sv1w-hfj87n) — but skips its idle-timeout and streaming hardening:
+ * those were added to the Claude driver incrementally after real incidents this
+ * adapter has no flight history to have hit yet. It shares the Claude driver's
+ * CLI-level resume fallback: a session id the CLI rejects
+ * ({@link isCodexResumeFailure}) is retried once, cold, as `resumed: false`.
+ * Otherwise a resume is `resumed: true` only when `thread.started` names the
+ * requested thread, since a session name Codex cannot find silently starts a
+ * fresh thread instead of failing. It DOES carry
+ * `ClaudeCliModel`/`GeminiCliModel`'s crash-path
  * {@link CodexCliOptions.pidRegistry} tracking (containment parity, board
  * ap-mt2ukjg5-2), added ahead of this adapter's routing wiring so a lane
  * flown on it is never a containment regression from day one. Its settle
@@ -210,7 +237,24 @@ export interface CodexCliOptions {
 export class CodexCliModel implements ModelPort {
   constructor(private readonly opts: CodexCliOptions) {}
 
-  invoke(model: string, prompt: string, resumeSessionId?: string): Promise<ModelResponse> {
+  async invoke(model: string, prompt: string, resumeSessionId?: string): Promise<ModelResponse> {
+    const first = await this.execOnce(model, prompt, resumeSessionId);
+    if (resumeSessionId === undefined || resumeSessionId.length === 0) return first;
+    if (isCodexResumeFailure(resumeSessionId, first)) {
+      const retry = await this.execOnce(model, prompt, undefined);
+      return { ...retry, resumed: false };
+    }
+    // No thread on the wire (a cap kill before `thread.started`): nothing
+    // attests whether the resume took, so no claim either way.
+    const wireSession = first.sessionId ?? null;
+    return wireSession === null ? first : { ...first, resumed: wireSession === resumeSessionId };
+  }
+
+  private execOnce(
+    model: string,
+    prompt: string,
+    resumeSessionId: string | undefined,
+  ): Promise<ModelResponse> {
     const args = [
       'exec',
       '--json',

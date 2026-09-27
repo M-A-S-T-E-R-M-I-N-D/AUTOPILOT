@@ -13,9 +13,13 @@ landed whole on 2026-09-27: `packages/engine/src/adapters/codex-cli.ts`'s `parse
 reads `codex exec --json` stdout into a `ModelResponse` (fixture-tested, `costUsd` always `null`),
 and `CodexCliModel` spawns it (`exec --json --model <model> --sandbox workspace-write [resume
 <id>] <prompt>`, verified against openai/codex's own docs and `codex-rs/exec/src/cli.rs`).
-Not yet flown on a real lane — no routing/config wiring, no CLI-level resume-retry-on-failure, no
-idle-timeout hardening (`ClaudeCliModel`'s equivalents were all added after real incidents this
-adapter has no flight history to have hit yet). It DOES carry the crash-path `pidRegistry`
+Not yet flown on a real lane — no routing/config wiring, no idle-timeout hardening
+(`ClaudeCliModel`'s equivalent was added after real incidents this adapter has no flight history to
+have hit yet). It DOES share `ClaudeCliModel`'s CLI-level resume fallback, added 2026-09-27:
+`codex-rs/exec/src/lib.rs` (`resolve_resume_thread_id`) takes a UUID as given and asks for that
+thread, so a stale id fails the run before `thread.started`, and `isCodexResumeFailure` retries it
+once, cold, as `resumed: false`. A session NAME it cannot find starts a fresh thread silently
+instead, so `resumed` is `true` only when `thread.started` names the requested thread. It DOES carry the crash-path `pidRegistry`
 containment parity (board ap-mt2ukjg5-2) `ClaudeCliModel`/`GeminiCliModel` already have — added
 2026-09-27 ahead of routing wiring, same as Gemini's, so neither non-Claude adapter is a
 containment regression from day one — and the same settle path as Gemini's below (injectable
@@ -31,8 +35,8 @@ threshold, as `ClaudeCliModel` does); and headless mode turns every "ask the use
 into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (unsandboxed) lets the
 agent edit files and run the gate. Folder trust is on by default and headless mode exits
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
-a folder also loads its `.gemini/settings.json` and MCP servers. It carries the same gaps as Codex
-(no routing, no resume-retry, no idle timeout). Its settle path matches `ClaudeCliModel.execOnce`'s:
+a folder also loads its `.gemini/settings.json` and MCP servers. It carries Codex's gaps (no
+routing, no idle timeout) plus one Codex no longer has: no resume-retry. Its settle path matches `ClaudeCliModel.execOnce`'s:
 the orphan-sweep reap runs through an injectable `reapDescendants` seam its tests assert on, and a
 wall-clock-cap kill comes back `timedOut` (THIRD CAP) rather than reading as an ordinary crash.
 It also has the tool-level guard `ClaudeCliModel` gets from its `--settings` PreToolUse hook,
