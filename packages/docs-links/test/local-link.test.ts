@@ -191,6 +191,16 @@ describe('withoutCode', () => {
     expect(extractLinkTargets('open ` here\n\n[a doc](README.md)')).toEqual(['README.md']);
   });
 
+  it('stops a span at a CRLF blank line too — a Windows checkout never holds `\\n\\n`', () => {
+    const markdown = 'open ` here\r\n\r\n[a doc](README.md)\r\n\r\nclose ` there';
+    expect(extractLinkTargets(markdown)).toEqual(['README.md']);
+  });
+
+  it('stops a span at a line of only spaces and tabs, which CommonMark calls blank', () => {
+    const markdown = 'open ` here\n \t \n[a doc](README.md)\n  \nclose ` there';
+    expect(extractLinkTargets(markdown)).toEqual(['README.md']);
+  });
+
   it('handles a double-backtick span containing a single backtick', () => {
     expect(extractLinkTargets('``a ` b [x](y.md)`` then [z](w.md)')).toEqual(['w.md']);
   });
