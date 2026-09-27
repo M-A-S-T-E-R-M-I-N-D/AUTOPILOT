@@ -18,7 +18,7 @@
  * grouping control and is not embedded yet. Display options (show/hide row
  * properties, `?hide=cost,dimension`) are modelled at the bottom, apart from
  * {@link TaskViewState}: filters narrow the list, display options change what a
- * row shows (Linear's split). No caller embeds them yet.
+ * row shows (Linear's split). The Tasks card's Show fieldset is their caller.
  */
 
 /** The three task properties the view header groups and filters by. */

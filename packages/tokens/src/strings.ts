@@ -1087,6 +1087,14 @@ const EN_STRINGS = {
   taskSourceSelf: 'proposed',
   taskSourceGithub: 'GitHub',
   taskSourceNone: 'no source',
+  // Its display options after the filters (?hide=): the legend and one word
+  // per row property a box shows or hides. Filters narrow the list; these
+  // change what a row shows.
+  boardDisplayShow: 'Show',
+  boardDisplaySource: 'source',
+  boardDisplaySeverity: 'severity',
+  boardDisplayDimension: 'dimension',
+  boardDisplayCost: 'cost',
   // The open task row's decorative drag handle (aria-hidden; the ↑/↓ buttons
   // are its accessible equivalent) — tip only, swept as [data-i18n-tip].
   taskDragTip: 'Drag to reorder',
@@ -2572,6 +2580,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     taskSourceSelf: 'הוצעה',
     taskSourceGithub: 'GitHub',
     taskSourceNone: 'ללא מקור',
+    boardDisplayShow: 'הצגה',
+    boardDisplaySource: 'מקור',
+    boardDisplaySeverity: 'חומרה',
+    boardDisplayDimension: 'ממד',
+    boardDisplayCost: 'עלות',
     taskDragTip: 'גררו כדי לשנות את הסדר',
     taskNewLabel: 'משימה חדשה',
     taskNewPlaceholder: 'מה ה-AUTOPILOT הזה צריך לעשות?',

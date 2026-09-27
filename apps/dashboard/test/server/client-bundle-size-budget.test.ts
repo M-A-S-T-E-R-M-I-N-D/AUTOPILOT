@@ -346,7 +346,12 @@ import {
 // "Showing n of m" note with Clear, and their two listeners — measured
 // 239672B raw against the old 236544B line, 3128 bytes over. About two KB of
 // margin, as the entries above keep.
-const CORE_RAW_BUDGET = 236 * 1024;
+// Then core raw 236→239KB (2026-09-27), the same slice's display options:
+// four more task-view.ts functions embedded (?hide=), the Show fieldset over
+// the filters' shared chip builder, its listener and five English keys —
+// measured 242804B raw against the old 241664B line, 1140 bytes over. About
+// two KB of margin, as the entries above keep.
+const CORE_RAW_BUDGET = 239 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -376,7 +381,10 @@ const CORE_RAW_BUDGET = 236 * 1024;
 // Then core gzip 69→70KB (2026-09-26), the same epic 0026 view-header slice
 // as the raw entry above — measured 70838B against the old 70656B line, 182
 // bytes over.
-const CORE_GZIP_BUDGET = 70 * 1024;
+// Then core gzip 70→71KB (2026-09-27), the same display-options entry as
+// the raw one above — measured 71699B against the old 71680B line, 19 bytes
+// over.
+const CORE_GZIP_BUDGET = 71 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
