@@ -220,7 +220,15 @@ import { gzipSync } from 'node:zlib';
 // the filters' shared chip builder, its listener and five English keys --
 // measured 242804B raw against the old 241664B line, 1140 bytes over. About
 // two KB of margin, as the entries above keep.
-const CORE_RAW_BUDGET = 239 * 1024;
+// Then core raw 239->241KB (2026-09-27), the same slice's grouping: the Group
+// radios over the same chip builder, groupTasksForView embedded, a counted
+// head per group, its listener and five English keys -- measured 245153B raw
+// against the old 244736B line, 417 bytes over. Gzip (70.7KB) stays under.
+// Then core raw 241->243KB (2026-09-27), epic 0026 slice 1's detail history:
+// taskHistoryOf embedded from web/flight-metrics.ts, the row detail's list of
+// the firings that worked the task and seven English keys -- measured 247641B
+// raw against the old 246784B line, 857 bytes over.
+const CORE_RAW_BUDGET = 243 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -251,7 +259,10 @@ const CORE_RAW_BUDGET = 239 * 1024;
 // Then core gzip 70->71KB (2026-09-27), the same display-options entry as
 // the raw one above -- measured 71699B against the old 71680B line, 19 bytes
 // over.
-const CORE_GZIP_BUDGET = 71 * 1024;
+// Then core gzip 71->72KB (2026-09-27), the same detail-history slice as the
+// raw entry above -- measured 73124B against the old 72704B line, 420 bytes
+// over.
+const CORE_GZIP_BUDGET = 72 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the

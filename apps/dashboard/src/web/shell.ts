@@ -52,6 +52,7 @@ import {
   taskMap as sharedTaskMap,
   taskBurnOf as sharedTaskBurnOf,
   taskBudgetSignalOf as sharedTaskBudgetSignalOf,
+  taskHistoryOf as sharedTaskHistoryOf,
   taskDimensionBudgetSignalOf as sharedTaskDimensionBudgetSignalOf,
   fleetCacheShareOf as sharedFleetCacheShareOf,
   flightBarMeta as sharedFlightBarMeta,
@@ -114,6 +115,7 @@ import {
   parseTaskView as sharedParseTaskView,
   taskViewSearch as sharedTaskViewSearch,
   taskMatchesView as sharedTaskMatchesView,
+  groupTasksForView as sharedGroupTasksForView,
   taskDisplayProperties as sharedTaskDisplayProperties,
   parseTaskDisplay as sharedParseTaskDisplay,
   taskDisplaySearch as sharedTaskDisplaySearch,
@@ -463,6 +465,10 @@ function flightGroupRow(c, entry, taskById) {
 ${sharedTaskMap.toString()}
 ${sharedTaskBurnOf.toString()}
 ${sharedTaskBudgetSignalOf.toString()}
+// taskHistoryOf is generated FROM web/flight-metrics.ts below (epic 0026
+// slice 1: the row detail's history) — its real compiled source via
+// .toString(), not a hand-retyped copy.
+${sharedTaskHistoryOf.toString()}
 // taskDimensionBudgetSignalOf is generated FROM web/flight-metrics.ts below
 // (ADAPTIVE TASK BUDGET breadth fallback, board web-msnt26wf-wnv3w7) — its
 // real compiled source via .toString(), not a hand-retyped copy.
@@ -1332,11 +1338,12 @@ var ANOMALY_ICONS = {
 };
 /** A needs-you chip for one detected anomaly (see read/anomalies.ts) — label
  *  names the rule, the hover/focus tip carries the evidence that fired it,
- *  and a PRESS opens what it means and what to do (operator, 2026-09-18:
+ *  and a PRESS opens what it means, what to do and the way to the project's
+ *  Health list (operator, 2026-09-18:
  *  "every run has these odd chips and I don't know what they say or what
  *  I can do with them"). A <details> gives the toggle, the keyboard and
  *  the expanded/collapsed semantics for free; the summary IS the chip. */
-function anomalyChip(a) {
+function anomalyChip(a, pid) {
   var meta = anomalyChipMeta(a, ANOMALY_LABELS);
   var keys = anomalyMeaningKeys(a.kind);
   var pop = document.createElement('details');
@@ -1358,6 +1365,11 @@ function anomalyChip(a) {
   action.appendChild(el('span', 'chip-pop-k', tr('anomalyPopAction')));
   action.appendChild(document.createTextNode(' ' + tr(keys.action)));
   body.appendChild(action);
+  // The project's Health list (board ap-mui2h3rw-0) holds every issue with
+  // its fix; from any chip it is one press away.
+  var more = el('a', 'chip-pop-more', tr('anomalyPopHealth'));
+  more.href = '/p/' + encodeURIComponent(pid) + '#health';
+  body.appendChild(more);
   pop.appendChild(body);
   return pop;
 }
@@ -1462,7 +1474,7 @@ function cardHead(c) {
   var badges = el('div', 'card-head-badges');
   badges.appendChild(statusPill('pill pill-', c.status, PROJECT_STATUS_KEYS));
   if (c.anomalies) {
-    for (var ai = 0; ai < c.anomalies.length; ai++) badges.appendChild(anomalyChip(c.anomalies[ai]));
+    for (var ai = 0; ai < c.anomalies.length; ai++) badges.appendChild(anomalyChip(c.anomalies[ai], c.id));
   }
   if (c.soulReviewed === false) badges.appendChild(soulReviewBtn(c.id));
   head.appendChild(badges);
@@ -2433,6 +2445,7 @@ ${sharedTaskViewKey.toString()}
 ${sharedParseTaskView.toString()}
 ${sharedTaskViewSearch.toString()}
 ${sharedTaskMatchesView.toString()}
+${sharedGroupTasksForView.toString()}
 ${sharedTaskDisplayProperties.toString()}
 ${sharedParseTaskDisplay.toString()}
 ${sharedTaskDisplaySearch.toString()}
@@ -2628,9 +2641,31 @@ function boardDisplayFieldset(display) {
   for (var i = 0; i < props.length; i++) if (taskDisplayShows(display, props[i])) shown.push(props[i]);
   return boardChipFieldset('board-display', 'boardDisplayShow', 'data-task-display', 'show', props, shown, BOARD_DISPLAY_KEYS);
 }
-// One fieldset of chip-styled native checkboxes: a box per value, each
-// carrying attr=key, ticked when checked lists its value.
-function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys) {
+// The grouping (?group=) between the filters and Show: one native radio group,
+// so arrow keys move the choice and the fieldset is a single Tab stop.
+var BOARD_GROUP_KEYS = { none: 'boardGroupNone', status: 'boardGroupStatus', severity: 'boardGroupSeverity', source: 'boardGroupSource' };
+function boardGroupFieldset(view) {
+  return boardChipFieldset('board-group', 'boardGroup', 'data-task-group', 'group', ['none', 'status', 'severity', 'source'], [view.group], BOARD_GROUP_KEYS, true);
+}
+// A group's head in the list (epic 0026): a list item that is not a .task
+// row, so j/k, x, Ctrl+A and the bulk actions pass over it; its heading is
+// the group's word and how many tasks the view holds in it.
+var BOARD_GROUP_WORDS = { status: TASK_STATUS_KEYS, severity: TASK_SEVERITY_KEYS, source: TASK_SOURCE_KEYS };
+function boardGroupHead(group, key, count) {
+  var li = el('li', 'task-group');
+  var h = el('h4', 'task-group-head');
+  var wordKey = BOARD_GROUP_WORDS[group][key];
+  var word = el('span', null, wordKey ? tr(wordKey) : key);
+  if (wordKey) word.setAttribute('data-i18n', wordKey);
+  h.appendChild(word);
+  h.appendChild(document.createTextNode(' '));
+  h.appendChild(el('span', 'task-group-count', String(count)));
+  li.appendChild(h);
+  return li;
+}
+// One fieldset of chip-styled native checkboxes (radios when radio is set):
+// a box per value, each carrying attr=key, ticked when checked lists its value.
+function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys, radio) {
   var fs = el('fieldset', cls);
   var legend = el('legend', null, tr(legendKey));
   legend.setAttribute('data-i18n', legendKey);
@@ -2639,7 +2674,8 @@ function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys)
   for (var i = 0; i < values.length; i++) {
     var option = el('label', 'board-filter-option');
     var box = el('input');
-    box.type = 'checkbox';
+    box.type = radio ? 'radio' : 'checkbox';
+    if (radio) box.name = cls;
     box.value = values[i];
     box.setAttribute(attr, key);
     box.checked = checked.indexOf(values[i]) >= 0;
@@ -2658,6 +2694,60 @@ function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys)
     setTimeout(function () { refocus.focus(); }, 0); // once the card is attached
   }
   return fs;
+}
+// A row detail's history (epic 0026 slice 1): how many firings worked the
+// task and what they cost, then the newest ones the loaded flight log holds,
+// newest first — how each ended, the slice or complete it reported, its
+// commit and its cost — and how many older ones it leaves to the flight log.
+// Every line rides the translateDom() sweep: counts as data-i18n-template
+// with their args, words as data-i18n.
+var TASK_HISTORY_MAX = 5;
+function taskHistoryText(tag, cls, key, args) {
+  var node = el(tag, cls, tr(key, args));
+  if (args) {
+    node.setAttribute('data-i18n-template', key);
+    node.setAttribute('data-i18n-args', JSON.stringify(args));
+  } else {
+    node.setAttribute('data-i18n', key);
+  }
+  return node;
+}
+function taskHistorySection(t, log) {
+  var history = taskHistoryOf(t, log, TASK_HISTORY_MAX);
+  var box = el('div', 'task-detail-history');
+  if (!history.firings) {
+    box.appendChild(taskHistoryText('p', 'task-detail-meta muted', 'taskHistoryNone'));
+    return box;
+  }
+  var totalKey = history.firings === 1 ? 'taskHistoryOne' : 'taskHistoryMany';
+  box.appendChild(taskHistoryText('p', 'task-detail-meta', totalKey, { n: history.firings, cost: fmtCost(history.cost) }));
+  if (history.lines.length) {
+    var list = el('ol', 'task-history');
+    list.setAttribute('aria-label', tr('taskHistoryList'));
+    list.setAttribute('data-i18n-aria', 'taskHistoryList');
+    for (var hi = 0; hi < history.lines.length; hi++) {
+      var line = history.lines[hi];
+      var item = el('li', 'task-history-line');
+      item.appendChild(el('span', 'flight-verdict flight-' + line.verdict.split(' ')[0], line.verdict));
+      if (line.completion) {
+        var completionKey = line.completion === 'complete' ? 'taskHistoryComplete' : 'taskHistorySlice';
+        item.appendChild(taskHistoryText('span', 'task-history-completion', completionKey));
+      }
+      if (line.subject) item.appendChild(el('span', 'task-history-subject', line.subject));
+      var lineMeta = el('span', 'task-history-meta muted', fmtCost(line.cost) + ' · ' + fmtAgo(line.at));
+      if (line.sha) {
+        lineMeta.appendChild(document.createTextNode(' · '));
+        lineMeta.appendChild(el('code', null, line.sha));
+      }
+      item.appendChild(lineMeta);
+      list.appendChild(item);
+    }
+    box.appendChild(list);
+  }
+  if (history.older > 0) {
+    box.appendChild(taskHistoryText('p', 'task-detail-meta muted', 'taskHistoryOlder', { n: history.older }));
+  }
+  return box;
 }
 // "Showing n of m" (a status line) and the Clear button.
 function boardFilterNote(shown, total) {
@@ -2686,6 +2776,7 @@ function tasksSection(c) {
   // Rows, column counts and the auto view read what the URL's view shows.
   var view = parseTaskView(location.search);
   var filtered = view.status.length + view.severity.length + view.source.length > 0;
+  var grouped = view.group !== 'none';
   // What each row draws reads the URL's display options (?hide=).
   var display = parseTaskDisplay(location.search);
   var showSource = taskDisplayShows(display, 'source');
@@ -2710,12 +2801,17 @@ function tasksSection(c) {
   wrap.appendChild(head);
   var boardView = boardViewStored();
   if (boardView === 'auto' && boardFlowGroups(shown) < 2) boardView = 'list';
+  // The columns are a status grouping of their own, so a grouped view is a
+  // list with heads and offers no columns toggle.
+  if (grouped) boardView = 'list';
   wrap.setAttribute('data-board-view', boardView);
-  var viewToggle = el('button', 'board-view-toggle');
-  viewToggle.type = 'button';
-  viewToggle.setAttribute('data-board-view-toggle', c.id);
-  boardViewToggleLabel(viewToggle, boardView);
-  wrap.appendChild(viewToggle);
+  if (!grouped) {
+    var viewToggle = el('button', 'board-view-toggle');
+    viewToggle.type = 'button';
+    viewToggle.setAttribute('data-board-view-toggle', c.id);
+    boardViewToggleLabel(viewToggle, boardView);
+    wrap.appendChild(viewToggle);
+  }
   // i18n (board web-msnsndki-dz3vn1): the two notes and the per-task decision
   // buttons below carry their English default AND a data-i18n tag; the card
   // rides the same translateDom() sweep its heading already does (the fleet
@@ -2733,6 +2829,7 @@ function tasksSection(c) {
     wrap.appendChild(boardFilterFieldset(view, 'status', 'boardFilterStatus', TASK_STATUS_KEYS));
     wrap.appendChild(boardFilterFieldset(view, 'severity', 'boardFilterSeverity', TASK_SEVERITY_KEYS));
     wrap.appendChild(boardFilterFieldset(view, 'source', 'boardFilterSource', TASK_SOURCE_KEYS));
+    wrap.appendChild(boardGroupFieldset(view));
     wrap.appendChild(boardDisplayFieldset(display));
     if (filtered) wrap.appendChild(boardFilterNote(shown.length, tasks.length));
     var colCounts = { queued: 0, active: 0, done: 0 };
@@ -2785,14 +2882,32 @@ function tasksSection(c) {
       forecastEl.setAttribute('aria-label', forecast.tip);
       wrap.appendChild(forecastEl);
     }
+    // The rows drawn: the closed history capped in board order, then, in a
+    // grouped view, split into its groups — each head counting what the view
+    // holds in its group, capped history included.
+    var rows = [];
     var closedIdx = 0;
-    for (var i = 0; i < shown.length; i++) {
-      var t = shown[i];
-      var isOpen = t.status !== 'done' && t.status !== 'deferred';
-      if (!isOpen) {
-        closedIdx++;
-        if (closedIdx > closedVisible) continue;
+    for (var ri = 0; ri < shown.length; ri++) {
+      var isClosed = shown[ri].status === 'done' || shown[ri].status === 'deferred';
+      if (isClosed && ++closedIdx > closedVisible) continue;
+      rows.push(shown[ri]);
+    }
+    var headAt = {};
+    if (grouped) {
+      var groupSizes = {};
+      var viewGroups = groupTasksForView(shown, view.group);
+      for (var gi = 0; gi < viewGroups.length; gi++) groupSizes[viewGroups[gi].key] = viewGroups[gi].tasks.length;
+      var rowGroups = groupTasksForView(rows, view.group);
+      rows = [];
+      for (var gj = 0; gj < rowGroups.length; gj++) {
+        headAt[rows.length] = boardGroupHead(view.group, rowGroups[gj].key, groupSizes[rowGroups[gj].key]);
+        rows = rows.concat(rowGroups[gj].tasks);
       }
+    }
+    for (var i = 0; i < rows.length; i++) {
+      var t = rows[i];
+      if (headAt[i]) ul.appendChild(headAt[i]);
+      var isOpen = t.status !== 'done' && t.status !== 'deferred';
       // Reorder/focus apply only to WORKABLE tasks — a proposal awaiting the
       // operator's approve/reject decision can't be prioritized or focused yet.
       var isWorkable = t.status === 'queued' || t.status === 'in_progress';
@@ -2813,8 +2928,8 @@ function tasksSection(c) {
       selectBox.setAttribute('data-i18n-name', t.title);
       li.appendChild(selectBox);
       if (isWorkable) openIdx++;
-      // Reorder posts the order the list shows, so a filtered list offers none.
-      if (isWorkable && !filtered) {
+      // Reorder posts the order the list shows, so a filtered or grouped list offers none.
+      if (isWorkable && !filtered && !grouped) {
         // Pointer drag reorder — the primary interaction for sighted mouse/touch
         // users; feeds the SAME /api/task/reorder as the ↑/↓ buttons below,
         // which stay the accessible primary for keyboard/screen-reader users.
@@ -3054,8 +3169,9 @@ function tasksSection(c) {
         li.appendChild(delBtn);
       }
       // The row's read-only detail (epic 0026, Enter): the WHOLE body the
-      // title tip cuts at 240 characters, then the id and age — its own line
-      // under the row, hidden until the title opens it.
+      // title tip cuts at 240 characters, then the id and age, then the
+      // firings that worked it — its own line under the row, hidden until
+      // the title opens it.
       var detail = el('div', 'task-detail');
       detail.id = detailId;
       detail.hidden = !boardOpen[t.id];
@@ -3067,6 +3183,7 @@ function tasksSection(c) {
       detailMeta.appendChild(el('code', null, t.id));
       detailMeta.appendChild(document.createTextNode(' · ' + taskTitleTip(t.at, t.priority, fmtAgo).tip));
       detail.appendChild(detailMeta);
+      detail.appendChild(taskHistorySection(t, c.flightLog));
       li.appendChild(detail);
       // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): a
       // heavily-tagged task row can carry the status pill, the title, and
@@ -3312,6 +3429,14 @@ document.addEventListener('change', function (e) {
   boardFilterFocus = 'show:' + box.value;
   history.replaceState(history.state, '', location.pathname + taskDisplaySearch({ hide: hide }, location.search) + location.hash);
   rerenderSoon();
+});
+// A group radio regroups the list (?group=) and keeps every filter.
+document.addEventListener('change', function (e) {
+  var box = e.target && e.target.closest && e.target.closest('[data-task-group]');
+  if (!box) return;
+  var view = parseTaskView(location.search);
+  boardFilterFocus = 'group:' + box.value;
+  setTaskView({ group: box.value, status: view.status, severity: view.severity, source: view.source });
 });
 // Clear drops every filter; focus goes to the first box, as the button goes.
 document.addEventListener('click', function (e) {

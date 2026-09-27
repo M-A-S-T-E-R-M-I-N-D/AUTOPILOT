@@ -3321,6 +3321,22 @@ a11y edits to already-extracted files (`firing-timeline.ts`, `locale.ts`,
 inside `shell.ts` itself, not new whole-region moves. No code changed this
 pass; gate green (typecheck/lint/format:check/build; docs-only change).
 
+Freshness check (2026-09-27, continued): nothing structural moved.
+`web/features/` still holds 46 modules and the barrel still carries 46
+imports. `web/shell.ts` is at 5,397 lines (+43). The four non-merge commits
+since the entry above (`bbe26644`, `dbf3cd85`, `02af8a94`, `83ad5992`) are
+tasks-screen, Versions-panel and Health-list feature work in files that
+were already extracted, plus `shell.ts` itself, and none adds, drops or
+moves a module. This was the third pass in about 30 hours to find volume and
+no cut, so the doc-freshness watch for this epic
+(`flight/doc-freshness.ts`) now keys on the files a cut has to touch: the
+generated barrel `web/features/index.ts`, `web/chunks.ts`, `shared/` and
+`scripts/codemod/generate-splice-manifest.mjs`. It no longer watches all of
+`web/`, which drew 86 commits in the past week against one barrel change.
+`shell.ts` is left out on purpose. Its line count saw-tooths with ordinary
+feature work (see the 2026-08-27 entry above), so it can't signal drift in
+this doc.
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),

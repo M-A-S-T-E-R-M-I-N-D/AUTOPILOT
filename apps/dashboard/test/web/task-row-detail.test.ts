@@ -242,6 +242,127 @@ describe('task row detail (epic 0026 slice 1: Enter)', () => {
     expect(['t1', 't2', 't3'].some(open)).toBe(false);
   });
 
+  describe('its history: the firings that worked the task', () => {
+    const NOW = Date.UTC(2026, 8, 27, 12, 0, 0);
+
+    function flight(id: string, item: string, over: Record<string, unknown>) {
+      return {
+        id,
+        item,
+        kind: 'feat',
+        sha: null,
+        shipped: false,
+        gateResult: null,
+        cost: 0,
+        tokensIn: 0,
+        tokensOut: 0,
+        turns: 10,
+        commitSubject: null,
+        completion: null,
+        failedCheck: null,
+        died: null,
+        at: NOW - 60_000,
+        ...over,
+      };
+    }
+
+    function withHistory() {
+      const state = makeState();
+      const project = state.projects[0]!;
+      project.tasks[0] = { ...project.tasks[0]!, firingCount: 3, cumulativeCostUsd: 7.5 } as never;
+      (project as { flightLog: unknown[] }).flightLog = [
+        flight('f3', 't1', {
+          shipped: true,
+          sha: 'abcdef1234',
+          commitSubject: 'feat: persist the attempt count',
+          completion: 'slice',
+          cost: 2.25,
+          at: NOW - 60_000,
+        }),
+        flight('f2', 'other', {
+          shipped: true,
+          sha: '9999999999',
+          commitSubject: 'feat: other work',
+          cost: 40,
+        }),
+        flight('f1', 't1', {
+          died: 'turn-cap',
+          commitSubject: 'chore: a sibling commit at HEAD',
+          cost: 1.25,
+          at: NOW - 3_600_000,
+        }),
+      ];
+      return state;
+    }
+
+    const lines = (id: string) => [...detailOf(id).querySelectorAll('.task-history-line')];
+
+    beforeEach(() => {
+      vi.setSystemTime(NOW);
+    });
+
+    it("heads it with the store's lifetime count and cost, then lists the log's firings newest first", async () => {
+      await boot(withHistory());
+
+      titleOf('t1').click();
+
+      const head = detailOf('t1').querySelector('.task-detail-history > p') as HTMLElement;
+      expect(head.textContent).toBe(
+        STRINGS.en.taskHistoryMany.replace('{n}', '3').replace('{cost}', '$7.50'),
+      );
+      const list = detailOf('t1').querySelector('ol.task-history') as HTMLElement;
+      expect(list.getAttribute('aria-label')).toBe(STRINGS.en.taskHistoryList);
+      const [newest, oldest] = lines('t1');
+      expect(lines('t1')).toHaveLength(2);
+      expect(newest!.querySelector('.flight-verdict')?.textContent).toBe('shipped');
+      expect(newest!.querySelector('.task-history-completion')?.textContent).toBe(
+        STRINGS.en.taskHistorySlice,
+      );
+      expect(newest!.querySelector('.task-history-subject')?.textContent).toBe(
+        'feat: persist the attempt count',
+      );
+      expect(newest!.querySelector('code')?.textContent).toBe('abcdef1');
+      expect(newest!.textContent).toContain('$2.25');
+      expect(oldest!.querySelector('.flight-verdict')?.textContent).toBe('turn-capped');
+      // It left no commit, so HEAD's subject — a sibling's — is not its own.
+      expect(oldest!.querySelector('.task-history-subject')).toBeNull();
+      expect(oldest!.querySelector('code')).toBeNull();
+      expect(oldest!.textContent).not.toContain('sibling');
+      // The third lifetime firing is older than the loaded log.
+      expect(detailOf('t1').textContent).toContain(STRINGS.en.taskHistoryOlder.replace('{n}', '1'));
+    });
+
+    it('says so when no firing has worked the task, and draws no list', async () => {
+      await boot(withHistory());
+
+      titleOf('t2').click();
+
+      const none = detailOf('t2').querySelector('.task-detail-history p') as HTMLElement;
+      expect(none.textContent).toBe(STRINGS.en.taskHistoryNone);
+      expect(none.getAttribute('data-i18n')).toBe('taskHistoryNone');
+      expect(detailOf('t2').querySelector('ol.task-history')).toBeNull();
+    });
+
+    it('translates every line on a locale switch, counts and cost kept', async () => {
+      await boot(withHistory());
+      titleOf('t1').click();
+
+      (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+      const head = detailOf('t1').querySelector('.task-detail-history > p') as HTMLElement;
+      expect(head.textContent).toBe(
+        STRINGS.he.taskHistoryMany.replace('{n}', '3').replace('{cost}', '$7.50'),
+      );
+      expect(detailOf('t1').querySelector('ol.task-history')?.getAttribute('aria-label')).toBe(
+        STRINGS.he.taskHistoryList,
+      );
+      expect(lines('t1')[0]!.querySelector('.task-history-completion')?.textContent).toBe(
+        STRINGS.he.taskHistorySlice,
+      );
+      expect(detailOf('t1').textContent).toContain(STRINGS.he.taskHistoryOlder.replace('{n}', '1'));
+    });
+  });
+
   it('the legend names Enter as open right after j/k, translated like its neighbours', async () => {
     await boot();
 

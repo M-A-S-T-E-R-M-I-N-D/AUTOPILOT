@@ -22,9 +22,16 @@ disclosure button (`aria-expanded`, `aria-controls`), and Enter from anywhere
 in the row but its own buttons, Space on the title, or a click opens a
 read-only detail on its own line under the row — the task's whole body (the
 hover tip stops at 240 characters), its id and its age. Open rows survive the
-per-tick rebuild. The legend names it as `Enter` open. Still open in slice 1:
-the detail as a split pane beside the list from `lg`, and the rest of its
-contents (provenance, slices, cost history, the claim). Slice 2's pure half
+per-tick rebuild. The legend names it as `Enter` open. The detail's slices and
+cost history followed 2026-09-27: under the id it counts the firings that
+worked the task and what they cost (the store's lifetime tally, or the loaded
+flight log's when that is larger), then lists the newest five the log holds,
+newest first — how each ended, the slice or complete it reported, its commit's
+subject and short sha, its cost and age — and says how many older ones the
+flight log keeps. A firing that left no commit names none, since HEAD's
+subject is then someone else's. A task no firing has worked says so. Still
+open in slice 1: the detail as a split pane beside the list from `lg`, and the
+rest of its contents (provenance, the claim). Slice 2's pure half
 shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
 view — grouping by status, severity or source, and a filter on each — in the
 query string (`?group=severity&status=queued,done`), since the hash already
@@ -51,8 +58,16 @@ what shows, so a property added later shows on every older link. Its control
 shipped the same day: a "Show" fieldset after the three filters, one box per
 property, ticked while rows show it. Unticking one writes `?hide=` and drops
 that chip from every row; it hides no row, shows no "Showing n of m" note,
-keeps the reorder controls, and Clear leaves it alone. Still open in slice 2:
-the grouping control and counts on its group heads, the Focus grouping. Slice 4's pure half shipped
+keeps the reorder controls, and Clear leaves it alone. The grouping control
+followed the same day: a "Group" fieldset between the filters and Show, one
+native radio group (none, status, severity, source) that writes `?group=`.
+A grouped list draws a heading over each group — its word, the one its filter
+box wears, and how many tasks the view holds in it — and keeps its rows in
+board order inside. The heads are list items but not rows, so `j`/`k`, `x`,
+Ctrl+A and the bulk actions pass over them. The columns are a status grouping
+of their own, so a grouped view is a list and offers no columns toggle; it
+offers no drag or ↑/↓ either, since its order is not the board's. Filters and
+Clear keep the grouping. Still open in slice 2: the Focus grouping. Slice 4's pure half shipped
 2026-09-27, not yet wired: `web/task-bulk.ts` plans approve, reject, done and
 delete over the selection. Each reaches exactly the rows that draw that button
 and plans the request that button already posts — no bulk endpoint, no new

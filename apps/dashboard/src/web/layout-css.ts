@@ -579,6 +579,7 @@ main > * { min-width: 0; }
 .chip-pop-what { margin: 0 0 var(--space-2); font-weight: 600; }
 .chip-pop-evidence { margin: 0 0 var(--space-2); color: var(--color-text-muted); }
 .chip-pop-action { margin: 0; }
+.chip-pop-more { display: inline-block; min-block-size: 1.5rem; margin-block-start: var(--space-2); font-weight: 600; }
 .chip-pop-k { font-weight: 600; }
 .chip-runaway { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-inbox { color: var(--color-accent); border-color: var(--color-accent); }
@@ -1430,13 +1431,21 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-detail { flex: 1 1 100%; margin: 0 0 var(--space-1); padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border); }
 .task-detail-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-detail-meta { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
+.task-history { list-style: none; margin: var(--space-1) 0 0; padding: 0; font-size: var(--text-xs); }
+.task-history-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); }
+.task-history-subject { overflow-wrap: anywhere; }
 /* The view header's Status, Severity and Source filters (epic 0026 slice 2): Material 3 filter
    chips over native checkboxes — a wrapping row led by its legend (floated,
    so it lays out as a row item), each chip a 2rem target with the accent wash
    the selected rows wear once checked; the note under it counts what shows.
-   The display options' Show fieldset (?hide=) after them wears the same row. */
-.board-filter, .board-display { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-inline-size: 0; margin: 0 0 var(--space-2); padding: 0; border: 0; }
-.board-filter legend, .board-display legend { float: inline-start; padding: 0; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+   The Group radios (?group=) and the display options' Show fieldset (?hide=)
+   after them wear the same row. A grouped list's heads take the column heads'
+   type, a step of space above each group but the first. */
+.board-filter, .board-group, .board-display { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-inline-size: 0; margin: 0 0 var(--space-2); padding: 0; border: 0; }
+.task-group:not(:first-child) { margin-block-start: var(--space-2); }
+.task-group-head { margin: 0; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.task-group-count { font-variant-numeric: tabular-nums; }
+.board-filter legend, .board-group legend, .board-display legend { float: inline-start; padding: 0; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-filter-option { display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: 2rem; padding-inline: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-small); font-size: var(--text-xs); cursor: pointer; }
 .board-filter-option input { margin: 0; accent-color: var(--color-accent); cursor: pointer; }
 .board-filter-option:has(input:checked) { background: color-mix(in srgb, var(--color-accent) 14%, transparent); border-color: var(--color-accent); }

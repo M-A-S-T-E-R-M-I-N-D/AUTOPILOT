@@ -133,6 +133,84 @@ export function taskBudgetSignalOf(
   return { turnCapped };
 }
 
+/** A flight-log entry's fields {@link taskHistoryOf} lists in a task's detail. */
+export interface TaskHistoryLogEntry extends FlightVerdictEntry {
+  readonly item: string | null;
+  readonly sha: string | null;
+  readonly cost: number | null;
+  readonly commitSubject: string | null;
+  readonly completion: string | null;
+  readonly at: number;
+}
+
+/** The task fields {@link taskHistoryOf} reads — the store's lifetime tally
+ *  (`TaskEntry.firingCount`/`cumulativeCostUsd`), absent on older payloads. */
+export interface TaskHistoryTask extends TaskLike {
+  readonly firingCount?: number | null;
+  readonly cumulativeCostUsd?: number | null;
+}
+
+/** One firing in a task's detail: how it ended, what it said it did to the
+ *  task, the commit it left and what it cost. */
+export interface TaskHistoryLine {
+  /** {@link flightVerdictOf}'s word for how the firing ended. */
+  readonly verdict: string;
+  /** `'slice'` or `'complete'` as the firing reported it, or null when it did not say. */
+  readonly completion: string | null;
+  /** The commit's subject, or null when the firing left no commit. */
+  readonly subject: string | null;
+  /** The commit's short sha, or null when the firing left no commit. */
+  readonly sha: string | null;
+  readonly cost: number;
+  readonly at: number;
+}
+
+/** A task's history as its row detail shows it. */
+export interface TaskHistory {
+  /** Every firing known to have worked the task — the larger of the store's
+   *  lifetime count and the loaded log's. */
+  readonly firings: number;
+  /** What those firings cost, on the same larger-of rule. */
+  readonly cost: number;
+  /** The newest firings on the task the loaded log holds, newest first. */
+  readonly lines: readonly TaskHistoryLine[];
+  /** Firings counted in {@link firings} that {@link lines} does not list —
+   *  older than the loaded log, or past the limit. */
+  readonly older: number;
+}
+
+/**
+ * A task's history for its row detail (epic 0026 slice 1: "the selected
+ * task's body, provenance, slices, cost history"): the firings that claimed
+ * it (`item === task.id`), newest first, at most `limit`. The flight log the
+ * page holds is only its newest page, so the totals take the store's lifetime
+ * tally when it is larger, and `older` says how many the list leaves out. A
+ * firing's subject shows only when it left a commit: `commitSubject` is HEAD's
+ * subject, which for a firing that committed nothing is someone else's work.
+ */
+export function taskHistoryOf(
+  task: TaskHistoryTask,
+  log: readonly TaskHistoryLogEntry[] | null | undefined,
+  limit: number,
+): TaskHistory {
+  const mine = (log || []).filter((entry) => entry.item === task.id);
+  mine.sort((a, b) => b.at - a.at);
+  let logCost = 0;
+  for (const entry of mine) logCost += entry.cost || 0;
+  const lines = mine.slice(0, Math.max(0, limit)).map((entry) => ({
+    verdict: flightVerdictOf(entry),
+    completion:
+      entry.completion === 'slice' || entry.completion === 'complete' ? entry.completion : null,
+    subject: entry.sha && entry.commitSubject ? entry.commitSubject : null,
+    sha: entry.sha ? entry.sha.slice(0, 7) : null,
+    cost: entry.cost || 0,
+    at: entry.at,
+  }));
+  const firings = Math.max(mine.length, task.firingCount || 0);
+  const cost = Math.max(logCost, task.cumulativeCostUsd || 0);
+  return { firings, cost, lines, older: firings - lines.length };
+}
+
 /** A task's fields {@link taskDimensionBudgetSignalOf} needs to find its
  *  "similar work" peers — other tasks tagged with the same dimension. */
 export interface TaskDimensionLike extends TaskLike {

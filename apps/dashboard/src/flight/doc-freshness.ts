@@ -32,8 +32,20 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     ],
   },
   {
+    // The decomposition's structure, not every UI edit. This entry used to
+    // watch all of web/, which drew 86 commits in the week to 2026-09-27
+    // against ONE change to the barrel, so each freshness pass found volume,
+    // never a cut (three passes in ~30h). A cut adds or drops a feature
+    // module, which regenerates the barrel and usually moves a chunk.
+    // `shell.ts` is left off on purpose, because its line count saw-tooths
+    // with ordinary feature work (the epic's own 2026-08-27 entry says so).
     doc: 'docs/epics/0002-shell-decomposition.md',
-    subjects: ['apps/dashboard/src/web/', 'apps/dashboard/src/shared/'],
+    subjects: [
+      'apps/dashboard/src/web/features/index.ts',
+      'apps/dashboard/src/web/chunks.ts',
+      'apps/dashboard/src/shared/',
+      'scripts/codemod/generate-splice-manifest.mjs',
+    ],
   },
   {
     doc: 'docs/epics/0003-ring-0-fleet-watchdog.md',
@@ -62,8 +74,8 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     // Active epic; slices 3 (issue triage), 4 (PR review), 5 (report-from-
     // here), 6 (pool client), 7 (publicity), and 8 (discussions triage) have
     // all landed pure-decision-core + execute files — their well-defined
-    // subject area. UI panels are already covered by epic 0002's broader web/
-    // entry above.
+    // subject area. Its UI panels are left unwatched: a panel edit is routine
+    // feature work, the volume epic 0002's entry above stopped watching.
     doc: 'docs/epics/0007-platform-maintainer-and-pool.md',
     subjects: [
       'apps/dashboard/src/flight/issue-triage.ts',
@@ -108,8 +120,8 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     // Shipped epic (slices 1-3 landed; slice 4 deliberately deferred); the
     // confirm-gated execute endpoint and the ARCHITECT proposal parser are
     // its well-defined subject area — narrower than the shared Ask panel
-    // client (web/features/search.ts) that hosts them, already tracked by
-    // epic 0002's broader web/ entry above.
+    // client (web/features/search.ts) that hosts them, which is left
+    // unwatched for the reason epic 0002's entry above gives.
     doc: 'docs/epics/0011-architect-chat-v2.md',
     subjects: [
       'apps/dashboard/src/flight/control-execute.ts',
@@ -144,11 +156,11 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
   {
     // Active epic, Phase 0 (measure) open; the metrics script is the current
     // phase's own named deliverable ("Board task carries the EPIC-SPEC marker
-    // for this file") — narrower than the broad web/ entry above since later
-    // phases' UI work lands there instead. Epic 0005 (cockpit redesign v1) is
-    // deliberately NOT tracked here: this epic's own doc supersedes it, and
-    // its subject was the whole dashboard surface already covered by the
-    // epic-0002 web/ entry above.
+    // for this file"). Later phases' UI work lands across web/, which no
+    // entry watches wholesale (see epic 0002's entry above). Epic 0005
+    // (cockpit redesign v1) is deliberately NOT tracked here: this epic's own
+    // doc supersedes it, and its subject was the whole dashboard surface, the
+    // whole-system scope this list excludes.
     doc: 'docs/epics/0015-cockpit-supervisory-control.md',
     subjects: ['scripts/cockpit-metrics.mjs'],
   },
@@ -157,8 +169,8 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
     // construction, 1 blocked on a shared strings file per its own
     // Constraints section); the tier-1 grounded-answer flow and its prompt
     // builder are its well-defined subject area — narrower than the shared
-    // Ask panel client (web/features/search.ts) already tracked by epic
-    // 0002's broader web/ entry above.
+    // Ask panel client (web/features/search.ts), which is left unwatched for
+    // the reason epic 0002's entry above gives.
     doc: 'docs/epics/0022-ask-answer-quality-doctrine.md',
     subjects: [
       'apps/dashboard/src/ask/service.ts',

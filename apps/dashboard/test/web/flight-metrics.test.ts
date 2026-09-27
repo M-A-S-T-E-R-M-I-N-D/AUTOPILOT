@@ -16,12 +16,14 @@ import {
   taskMap,
   taskBurnOf,
   taskBudgetSignalOf,
+  taskHistoryOf,
   taskDimensionBudgetSignalOf,
   fleetCacheShareOf,
   flightBarMeta,
   trajectorySignalOf,
   firingTimelineRowMeta,
   type FlightBarEntry,
+  type TaskHistoryLogEntry,
 } from '../../src/web/flight-metrics.js';
 
 describe('flightVerdictOf', () => {
@@ -139,6 +141,134 @@ describe('taskBurnOf', () => {
   it('returns all-zero burn for null/undefined log', () => {
     expect(taskBurnOf('t4', null)).toEqual({ slices: 0, cost: 0, wallMs: 0 });
     expect(taskBurnOf('t4', undefined)).toEqual({ slices: 0, cost: 0, wallMs: 0 });
+  });
+});
+
+describe('taskHistoryOf', () => {
+  const firing = (over: Partial<TaskHistoryLogEntry>): TaskHistoryLogEntry => ({
+    item: 't1',
+    sha: null,
+    cost: 0,
+    commitSubject: null,
+    completion: null,
+    at: 0,
+    shipped: false,
+    gateResult: null,
+    died: null,
+    ...over,
+  });
+
+  it('lists only the firings that claimed the task, newest first, each with how it ended', () => {
+    const log = [
+      firing({
+        at: 10,
+        shipped: true,
+        sha: 'aaaaaaaa11',
+        commitSubject: 'feat: first cut',
+        completion: 'slice',
+        cost: 1.5,
+      }),
+      firing({
+        item: 'other',
+        at: 30,
+        shipped: true,
+        sha: 'bbbbbbbb22',
+        commitSubject: 'feat: unrelated',
+        cost: 9,
+      }),
+      firing({
+        at: 20,
+        gateResult: 'reverted',
+        sha: 'cccccccc33',
+        commitSubject: 'fix: broke lint',
+        cost: 0.25,
+      }),
+    ];
+
+    expect(taskHistoryOf({ id: 't1' }, log, 5)).toEqual({
+      firings: 2,
+      cost: 1.75,
+      lines: [
+        {
+          verdict: 'reverted',
+          completion: null,
+          subject: 'fix: broke lint',
+          sha: 'ccccccc',
+          cost: 0.25,
+          at: 20,
+        },
+        {
+          verdict: 'shipped',
+          completion: 'slice',
+          subject: 'feat: first cut',
+          sha: 'aaaaaaa',
+          cost: 1.5,
+          at: 10,
+        },
+      ],
+      older: 0,
+    });
+  });
+
+  it("names no subject for a firing that left no commit — HEAD's subject is someone else's work", () => {
+    const log = [firing({ died: 'turn-cap', commitSubject: 'feat: a sibling commit', cost: 3 })];
+
+    const [line] = taskHistoryOf({ id: 't1' }, log, 5).lines;
+
+    expect(line).toMatchObject({ verdict: 'turn-capped', subject: null, sha: null, cost: 3 });
+  });
+
+  it('caps the list at the limit and counts what it leaves out as older', () => {
+    const log = [1, 2, 3, 4].map((at) => firing({ at, cost: 1 }));
+
+    const history = taskHistoryOf({ id: 't1' }, log, 3);
+
+    expect(history.lines.map((line) => line.at)).toEqual([4, 3, 2]);
+    expect(history).toMatchObject({ firings: 4, cost: 4, older: 1 });
+  });
+
+  it("takes the store's lifetime tally when the loaded log holds only its newest page", () => {
+    const log = [firing({ at: 5, cost: 2 })];
+
+    const history = taskHistoryOf({ id: 't1', firingCount: 7, cumulativeCostUsd: 12.5 }, log, 5);
+
+    expect(history).toMatchObject({ firings: 7, cost: 12.5, older: 6 });
+    expect(history.lines).toHaveLength(1);
+  });
+
+  it('trusts the log over a lifetime tally that has not caught up with it yet', () => {
+    const log = [firing({ at: 1, cost: 2 }), firing({ at: 2, cost: 3 })];
+
+    const history = taskHistoryOf({ id: 't1', firingCount: 1, cumulativeCostUsd: 2 }, log, 5);
+
+    expect(history).toMatchObject({ firings: 2, cost: 5, older: 0 });
+  });
+
+  it('keeps only the two completion words and treats a missing cost as zero', () => {
+    const log = [
+      firing({ completion: 'partial', cost: null }),
+      firing({ at: 1, completion: 'complete' }),
+    ];
+
+    const lines = taskHistoryOf({ id: 't1' }, log, 5).lines;
+
+    expect(lines.map((line) => line.completion)).toEqual(['complete', null]);
+    expect(lines[1]!.cost).toBe(0);
+  });
+
+  it('leaves the log in its own order and answers an empty history for no log', () => {
+    const log = [firing({ at: 1 }), firing({ at: 2 })];
+
+    taskHistoryOf({ id: 't1' }, log, 5);
+
+    expect(log.map((entry) => entry.at)).toEqual([1, 2]);
+    expect(taskHistoryOf({ id: 't1' }, null, 5)).toEqual({
+      firings: 0,
+      cost: 0,
+      lines: [],
+      older: 0,
+    });
+    expect(taskHistoryOf({ id: 't1' }, log, 0)).toMatchObject({ lines: [], older: 2 });
   });
 });
 

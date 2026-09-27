@@ -251,6 +251,18 @@ function restoreButtons(): HTMLButtonElement[] {
   return [...panel().querySelectorAll('.version-restore-btn')] as HTMLButtonElement[];
 }
 
+/** A button's accessible name as the accname rule this panel relies on
+ *  computes it: its `aria-labelledby` parts' text in order (a part naming the
+ *  button itself contributes its own text), else `aria-label`, else its text. */
+function accessibleName(node: Element): string {
+  const ids = node.getAttribute('aria-labelledby');
+  if (!ids) return node.getAttribute('aria-label') ?? node.textContent ?? '';
+  return ids
+    .split(/\s+/)
+    .map((id) => document.getElementById(id)?.textContent ?? '')
+    .join(' ');
+}
+
 function snackTexts(): string[] {
   const host = document.getElementById('snackbar-host') as HTMLElement;
   return [...host.querySelectorAll('.snack')].map(
@@ -408,6 +420,56 @@ describe('the VERSIONS panel in the served bundle', () => {
     ) as HTMLElement;
     expect(mythRow.querySelector('.diff-toggle')).toBeNull();
     expect(mythRow.querySelector('.version-restore-btn')).not.toBeNull();
+  });
+
+  it("names every row's Restore and What changed buttons after the version they act on", async () => {
+    boot({ versions: TIMELINE });
+    await vi.advanceTimersByTimeAsync(1);
+
+    // Four bare "Restore"s read out of a button list are indistinguishable;
+    // each name leads with the visible label (WCAG 2.5.3) and ends with the sha.
+    expect(restoreButtons().map(accessibleName)).toEqual([
+      'Restore ddddddd',
+      'Restore ccccccc',
+      'Restore bbbbbbb',
+      'Restore aaaaaaa',
+    ]);
+    const toggles = [...panel().querySelectorAll('.diff-toggle')];
+    expect(toggles.map(accessibleName)).toEqual([
+      'What changed ddddddd',
+      'What changed ccccccc',
+      'What changed bbbbbbb',
+    ]);
+  });
+
+  it('keeps each name on its own row when MYTH and LEGACY share one commit', async () => {
+    boot({ versions: { ...TIMELINE, legacy: { ...TIMELINE.legacy!, sha: sha('a') } } });
+    await vi.advanceTimersByTimeAsync(1);
+
+    const ids = [...panel().querySelectorAll('[id]')].map((n) => n.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(restoreButtons().map(accessibleName)).toEqual([
+      'Restore ddddddd',
+      'Restore ccccccc',
+      'Restore aaaaaaa',
+      'Restore aaaaaaa',
+    ]);
+  });
+
+  it('lets each name follow the visible label as it changes', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    boot({ versions: TIMELINE, diffs: [{ ok: true, diff: DIFF }] });
+    await vi.advanceTimersByTimeAsync(1);
+
+    firstToggle().click();
+    expect(accessibleName(firstToggle())).toBe('Hide changes ddddddd');
+    const btn = restoreButtons()[0]!;
+    btn.click();
+    expect(accessibleName(btn)).toBe('Restoring… ddddddd');
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    expect(accessibleName(btn)).toBe(`${STRINGS.he.versionsRestore} ddddddd`);
   });
 
   it('does nothing when the restore confirm is declined', async () => {

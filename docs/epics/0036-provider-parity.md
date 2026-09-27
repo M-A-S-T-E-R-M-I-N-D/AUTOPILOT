@@ -6,10 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 # 0036. Provider parity — more than one engine behind the same invoke port
 
 Status: In progress — research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
-values in `auth.ts`) landed the same day. `ModelPort` still has exactly two live implementations
-(`ClaudeCliModel`/`StreamingClaudeCliModel` and `OllamaModel`) — Bedrock/Vertex need none, since
-both route through the same `claude` CLI (see row below). No new agentic-CLI adapter (Codex, Gemini,
-Copilot) exists yet.
+values in `auth.ts`) landed the same day. `ModelPort` now has three live implementations
+(`ClaudeCliModel`/`StreamingClaudeCliModel`, `OllamaModel`, and `CodexCliModel`) — Bedrock/Vertex
+need none, since both route through the same `claude` CLI (see row below). The Codex adapter
+landed whole on 2026-09-27: `packages/engine/src/adapters/codex-cli.ts`'s `parseCodexExecOutput`
+reads `codex exec --json` stdout into a `ModelResponse` (fixture-tested, `costUsd` always `null`),
+and `CodexCliModel` spawns it (`exec --json --model <model> --sandbox workspace-write [resume
+<id>] <prompt>`, verified against openai/codex's own docs and `codex-rs/exec/src/cli.rs`).
+Not yet flown on a real lane — no routing/config wiring, no CLI-level resume-retry-on-failure, no
+idle-timeout hardening (`ClaudeCliModel`'s equivalents were all added after real incidents this
+adapter has no flight history to have hit yet). Gemini and Copilot CLI adapters remain unstarted.
 
 `docs/ROADMAP.md` §3 (M14, "not started") names the gap directly: AUTOPILOT flies one engine — the
 Claude Code CLI on a personal subscription — and that is both its best property and its largest
@@ -69,7 +75,12 @@ no priced figure, only raw tokenUsage" (`openai/codex`-adjacent tooling issue tr
 search 2026-09-27). Per the never-invent-a-cost rule above, a `CodexCliModel` MUST report
 `costUsd: null`, never a locally-priced estimate — which degrades every cost-based telemetry surface
 (per-firing $, the MACHINE-WIDE 30d-equiv denominator, evaluation scorecards) for any lane flown on
-it. That degradation is a real, accepted cost of adding this adapter, not a bug to fix in it.
+it. That degradation is a real, accepted cost of adding this adapter, not a bug to fix in it. Two usage traps, read from the Rust source
+(`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `codex-rs/protocol/src/protocol.rs`,
+2026-09-27): `usage` is the thread's running total, not a per-turn delta, so the last
+`turn.completed` wins and a sum would double-count; and `input_tokens` includes
+`cached_input_tokens` (Codex's own `non_cached_input()` subtracts them), so the parse moves the
+cached share to `cacheRead` to match what `tokensIn` means for `claude -p`.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
@@ -110,7 +121,7 @@ disconnected reference doc that can drift out of sync with it.
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
-| OpenAI Codex CLI | Yes — `codex exec resume` | Yes — full loop | **None** — token counts only, no price | Not started |
+| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it |
 | Google Gemini CLI | Partial — resume works, session ID not in JSON output (upstream gap) | Yes — full loop | Yes — usage stats in JSON | Not started |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | Clean stdout XOR usage stats, not both | Not started |
 

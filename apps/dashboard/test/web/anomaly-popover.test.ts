@@ -96,7 +96,7 @@ describe('the key math (pure)', () => {
         expect(table[keys.action], `${locale} ${keys.action}`).toBeTruthy();
       }
     }
-    for (const key of ['anomalyPopEvidence', 'anomalyPopAction'] as const) {
+    for (const key of ['anomalyPopEvidence', 'anomalyPopAction', 'anomalyPopHealth'] as const) {
       expect(STRINGS.en[key]).toBeTruthy();
       expect(STRINGS.he[key]).toBeTruthy();
     }
@@ -143,6 +143,15 @@ describe('the chip popover (jsdom)', () => {
     expect(body.querySelector('.chip-pop-action')?.textContent).toContain(
       STRINGS.en.anomalyActionE2eLandBlock,
     );
+  });
+
+  it("ends with a link to the project's Health list, where every issue sits with its fix", async () => {
+    await boot();
+    for (const pop of pops()) {
+      const more = pop.querySelector<HTMLAnchorElement>('.chip-pop-body a.chip-pop-more');
+      expect(more?.getAttribute('href')).toBe('/p/p1#health');
+      expect(more?.textContent).toBe(STRINGS.en.anomalyPopHealth);
+    }
   });
 
   it('Escape closes an open popover, and so does a click anywhere outside it', async () => {
