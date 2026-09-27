@@ -52,14 +52,21 @@ function ensureInboxGitignore(dir: string): void {
   }
 }
 
+/** An ATX heading marker (`#` through `######` plus the space after it) —
+ *  the same shape `web/markdown.ts`'s `isHeading` recognizes. A bare `#42`
+ *  has no space, so it is content, not a marker. */
+const HEADING_MARKER = /^#{1,6}\s+/;
+
 /** The note's first non-blank line, or its filename when the note is blank —
- *  truncated the same way task titles are capped everywhere else on the board. */
+ *  truncated the same way task titles are capped everywhere else on the board.
+ *  A `.md` note usually opens with `# Title`; the board wants the title, not
+ *  the markup, so a leading heading marker is dropped. */
 export function inboxTaskTitle(entry: InboxEntry): string {
   const firstLine = entry.content
     .split('\n')
     .map((line) => line.trim())
     .find((line) => line.length > 0);
-  return (firstLine ?? entry.name).slice(0, INBOX_TASK_TITLE_CHARS);
+  return (firstLine?.replace(HEADING_MARKER, '') ?? entry.name).slice(0, INBOX_TASK_TITLE_CHARS);
 }
 
 /** Bytes of the filename hash appended to the id — enough to make two distinct
