@@ -188,6 +188,31 @@ gate verdict, so the per-project gate → sha → HEAD chain in the constraints
 below is unchanged. None of this changes the four locks above or the acceptance
 criteria below; all six slices remain unchanged and live in production.
 
+Freshness check (2026-09-27): `fly.ts` gained three commits since the 2026-09-26
+afternoon check above. Two belong to a new ritual: the lane that ends a round with
+no sibling still flying now evaluates it (`f1175bd0`) — always recording a
+`round-evaluation` event, and, when the project's evaluation-docs setting is on,
+committing a section to `docs/evaluations/ROUNDS-YYYY-MM.md` on the FLOWN
+project's own branch, under that project's own licence header, never AUTOPILOT's.
+`09d36fc7` closes a race in the same machinery (FAILURE-DOCTRINE row 72): two
+lanes ending eleven seconds apart each saw the other's lock and deferred, so
+round 23's evaluation was lost; a lane now declares itself finishing before
+checking siblings, and one atomic claim elects exactly one winner. Both commit
+into the FLOWN project's own checkout, never into the AUTOPILOT engine checkout,
+so neither touches Lock 4 ("flight-end rituals write to THIS repo"); both are
+same-folder N-way lane-concurrency mechanics already tracked in
+`docs/epics/0004-bash-containment-worktree.md`'s evolution log. The third,
+`c50d7932`, fixes a false positive the first introduced: the round-evaluation
+commit was not re-baselining the containment guard the way the self-study ritual
+and sync-back already do, so the flight's final containment check saw that
+sanctioned commit and logged it as operator activity. `fly.ts` now settles the
+guard immediately before `endRound` (so any genuine prior movement still lands
+in `breaches`) and re-snapshots afterward once the round was actually evaluated.
+This tightens the containment bookkeeping the Constraints section requires stay
+untouched — it removes a false attribution, it does not open a hole. None of
+this changes the four locks above or the acceptance criteria below; all six
+slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
