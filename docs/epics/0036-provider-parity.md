@@ -18,7 +18,9 @@ idle-timeout hardening (`ClaudeCliModel`'s equivalents were all added after real
 adapter has no flight history to have hit yet). It DOES carry the crash-path `pidRegistry`
 containment parity (board ap-mt2ukjg5-2) `ClaudeCliModel`/`GeminiCliModel` already have — added
 2026-09-27 ahead of routing wiring, same as Gemini's, so neither non-Claude adapter is a
-containment regression from day one. The Gemini adapter landed whole the same day:
+containment regression from day one — and the same settle path as Gemini's below (injectable
+`reapDescendants` seam; a wall-clock-cap kill comes back `timedOut`, not as a crash). The Gemini
+adapter landed whole the same day:
 `packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini --prompt …
 --output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`), and
 `GeminiCliModel` spawns it (`--model <model> --output-format json --approval-mode yolo [--skip-trust]
