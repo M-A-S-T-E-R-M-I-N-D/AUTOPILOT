@@ -275,6 +275,8 @@ type RawComment = { id: number; user?: { login?: string }; body?: string };
  * duplicate on any thread past twenty comments, and could fold a new reply
  * into an old comment far up the thread where nobody reads it. So the read
  * pages forward until a short page marks the end, keeping only the window.
+ * A non-object row is skipped, not read: one `null` once threw here, and
+ * the wrapper's fail-open catch posted the message unjudged.
  */
 async function readThreadTail(
   exec: CliExec,
@@ -288,7 +290,10 @@ async function readThreadTail(
       `repos/${repo}/issues/${target}/comments?per_page=${THREAD_PAGE_SIZE}&page=${page}`,
     );
     if (!Array.isArray(raw)) throw new Error(`gh api comments page ${page} was not a list`);
-    tail = [...tail, ...(raw as readonly RawComment[])].slice(-THREAD_TAIL_WINDOW);
+    const rows = (raw as unknown[]).filter(
+      (c): c is RawComment => typeof c === 'object' && c !== null,
+    );
+    tail = [...tail, ...rows].slice(-THREAD_TAIL_WINDOW);
     if (raw.length < THREAD_PAGE_SIZE) {
       return tail.map((c) => ({ id: c.id, author: c.user?.login ?? '', body: c.body ?? '' }));
     }

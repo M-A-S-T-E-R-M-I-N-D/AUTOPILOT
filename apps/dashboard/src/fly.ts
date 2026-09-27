@@ -149,7 +149,7 @@ import { taskEconomicsFromRows } from './flight/triage-factors.js';
 import { runBoardTriage } from './flight/board-triage.js';
 import { isHumanClosedTask, CLAIMED_TASK_PROMPT_NOTE } from './flight/claim-contract.js';
 import { planLaunchSync } from './flight/lane-freshness.js';
-import { triageInboxEntries } from './flight/inbox-triage.js';
+import { inboxTaskNote, triageInboxEntries } from './flight/inbox-triage.js';
 import {
   totalBudgetExhausted,
   FLY_MAX_TURNS,
@@ -1364,6 +1364,8 @@ async function main(): Promise<void> {
             // not FOCUS MODE for work it doesn't own (the run-3 starvation).
             focus: isFocusBoundHere(t, claimedTaskId),
             shippedSlices: shippedSlices.get(t.id) ?? [],
+            // An inbox directive's text lives only in its body once triaged.
+            note: inboxTaskNote(t),
           }));
         // Fresh read feeds BOTH this firing's digest and auto-triage (backlog
         // I) — a dropped note is shown once here, turned into a queued task

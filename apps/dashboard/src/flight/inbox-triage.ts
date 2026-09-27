@@ -69,6 +69,22 @@ export function inboxTaskTitle(entry: InboxEntry): string {
   return (firstLine?.replace(HEADING_MARKER, '') ?? entry.name).slice(0, INBOX_TASK_TITLE_CHARS);
 }
 
+/**
+ * The note a board row shows under an inbox task's title: its body, which is
+ * the whole note. The digest shows a note once, to the firing that triages it;
+ * after that the file sits archived in one checkout's `INBOX/.triaged/` and the
+ * body on the task record is all any later firing can read. Any other source's
+ * body stays off the prompt — a GitHub issue body is text anyone can write,
+ * and a firing can still read it on GitHub; an inbox note only the operator
+ * could have dropped.
+ */
+export function inboxTaskNote(task: {
+  readonly source: string;
+  readonly body: string | null;
+}): string | null {
+  return task.source === 'inbox' ? task.body : null;
+}
+
 /** Bytes of the filename hash appended to the id — enough to make two distinct
  *  filenames practically never collide, short enough to stay readable. */
 const ID_HASH_CHARS = 8;
