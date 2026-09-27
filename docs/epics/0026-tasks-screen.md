@@ -46,7 +46,15 @@ warnings — kept apart from the filters, since filters narrow the list and
 display options change what a row shows. The URL lists what is hidden, not
 what shows, so a property added later shows on every older link. Still open in
 slice 2: the source boxes, the grouping control and counts on its group heads,
-the display options' control, the Focus grouping.
+the display options' control, the Focus grouping. Slice 4's pure half shipped
+2026-09-27, not yet wired: `web/task-bulk.ts` plans approve, reject, done and
+delete over the selection. Each reaches exactly the rows that draw that button
+and plans the request that button already posts — no bulk endpoint, no new
+write path — and a test pins both against the rendered rows for every status.
+It acts only on the rows the list shows (the "N selected" count is the count it
+reaches), names the selected rows it skips, asks first only for delete, and
+lists the actions a selection can take with their counts for the palette. Still
+open in slice 4: the palette entries and sending the requests.
 
 ## The ask
 
