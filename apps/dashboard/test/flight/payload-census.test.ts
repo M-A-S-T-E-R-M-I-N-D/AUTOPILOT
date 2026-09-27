@@ -22,12 +22,13 @@
  * one of those. Every field of a censused interface is adjudicated: read off
  * its receiver, or listed in `DERIVED` (reaches the panel through a wrapper
  * field), `IN_PAINTED_TEXT` (stated in prose the panel paints — a triage
- * `reasoning`, a mirror-pass finding's line — checked against the real
- * planner's and client formatter's output, not the source text) or
- * `EXCUSED` (a tracked gap). The `IssueTriageDecision` variants and every
- * `MirrorPass*Finding` (slice c of the split below) are censused through
- * that adjudication; `PrReviewCandidate` is real
- * follow-up work, not scope creep this census skipped by accident.
+ * `reasoning`, a mirror-pass finding's line, a PR card's verdict — checked
+ * against the real planner's and client formatter's output, not the source
+ * text), `DECISION_ONLY` (consulted only to decide, checked by flipping it
+ * under the real planner) or `EXCUSED` (a tracked gap). The
+ * `IssueTriageDecision` variants, every `MirrorPass*Finding` and
+ * `PrReviewCandidate` itself (slice c of the split below) are censused
+ * through that adjudication.
  *
  * A read counts only when it is taken off a name the renderer binds THIS
  * payload to (`check.url`, not the PR's own `plan.pr.url`), in code rather
@@ -55,6 +56,11 @@ import {
   PRIORITY_LABEL_BAND,
   planMirrorPassPriorityFollow,
 } from '../../src/flight/mirror-pass-priority.js';
+import {
+  planPrReview,
+  planPrReviewCommands,
+  type PrReviewCandidate,
+} from '../../src/flight/pr-review.js';
 import { mirrorPassItems } from '../../src/web/mirror-pass-panel.js';
 
 const FLIGHT_DIR = fileURLToPath(new URL('../../src/flight/', import.meta.url));
@@ -154,12 +160,16 @@ const MIRROR_PASS_DRIFT_FINDINGS = [
 const PAYLOAD_INTERFACES: readonly PayloadInterface[] = [
   { file: 'pool-client.ts', interfaceName: 'PoolIssue', receivers: ['issue', 'entry.issue'] },
   { file: 'publicity.ts', interfaceName: 'PublicityAffordance', receivers: ['affordance'] },
-  // `PrCheckRun` (not its parent `PrReviewCandidate` — see file header: that
-  // interface mixes in ~30 decision-only/reasoning-only fields that would
-  // need per-field adjudication) is the sub-shape `statusCheckRollup` feeds
-  // the pipeline strip through, and every one of its fields is display-only
-  // by its own doc comment.
+  // `PrCheckRun` is the sub-shape `statusCheckRollup` feeds the pipeline
+  // strip through, and every one of its fields is display-only by its own
+  // doc comment.
   { file: 'pr-review.ts', interfaceName: 'PrCheckRun', receivers: ['check', 'c'] },
+  // Its parent mixes a handful of display fields with ~20 guard inputs. The
+  // card reads `plan.pr`, and the spliced `web/pr-review-panel.ts` helpers
+  // it hands `plan.pr` to (`humanMergeReadiness`, the tips) bind it as `pr`;
+  // each guard input is adjudicated one by one below — most reach the card
+  // only as the verdict's `reasoning` (the badge tip), never as a raw read.
+  { file: 'pr-review.ts', interfaceName: 'PrReviewCandidate', receivers: ['plan.pr', 'pr'] },
   // Every `IssueTriageDecision` variant (`IssueTriageDossier` and its four
   // siblings). The panel reads `decision` (badge, icon, counts) and
   // `reasoning` off `plan.decision`; each variant's other fields are
@@ -202,11 +212,29 @@ const PAYLOAD_INTERFACES: readonly PayloadInterface[] = [
   },
 ];
 
+const PR_CARD_SIZE_GAP =
+  'the PR card shows no diff size (GitHub’s own +N −M, N files); only an over-cap line total or a ' +
+  'truncated-list mismatch ever reaches the reasoning — tracked UX gap, not a decision-only field';
+
 /** `${file}#${interfaceName}#${field}` -> why this one field is excused
  *  from the "every field reaches the renderer" rule — a genuine tracked
  *  gap, never a silent carve-out (same discipline as `link-census.test.ts`'s
- *  `NOT_YET_RENDERED`). Remove an entry the day its panel ships the field. */
+ *  `NOT_YET_RENDERED`). Remove an entry the day its panel ships the field,
+ *  or — for a dead input — the day the flight module stops declaring it. */
 const EXCUSED: Readonly<Record<string, string>> = {
+  'pr-review.ts#PrReviewCandidate#touchedPaths':
+    'the PR card never lists the files a PR touches — a security-hard queue does not even name the ' +
+    'guarded path it hit — tracked UX gap, not a decision-only field',
+  'pr-review.ts#PrReviewCandidate#additions': PR_CARD_SIZE_GAP,
+  'pr-review.ts#PrReviewCandidate#deletions': PR_CARD_SIZE_GAP,
+  'pr-review.ts#PrReviewCandidate#changedFiles': PR_CARD_SIZE_GAP,
+  'pr-review.ts#PrReviewCandidate#labels':
+    'the PR card does not show a PR’s labels; a hold label reaches the reasoning only as "carries a ' +
+    'hold label", never by name — tracked UX gap, not a decision-only field',
+  'pr-review.ts#PrReviewCandidate#ownComments':
+    'dead input, not a display gap: fetchOpenPrCandidates still fetches the ritual’s own PR comments, ' +
+    'but nothing consults them since a queue-for-human stopped posting (planPrReviewCommands plans ' +
+    'no command for one, so there is no comment left to dedup) — tracked for removal from the fetch',
   'pool-client.ts#PoolIssue#labels':
     'the panel does not yet show a pool issue’s labels — tracked UX gap, not a decision-only field',
   'pool-client.ts#PoolIssue#assignees':
@@ -246,9 +274,67 @@ interface TextFold {
   /** The text(s) the painted line must contain for the field's `value`. */
   readonly shown: (value: unknown) => readonly string[];
   readonly why: string;
+  /** The field's own real payload, when the interface's one fixture cannot
+   *  paint it: a PR's reasoning states only the FIRST guard that stops it. */
+  readonly fixture?: () => PaintedFixture;
 }
 
 const AS_TEXT = (value: unknown): readonly string[] => [String(value)];
+const EACH_AS_TEXT = (value: unknown): readonly string[] =>
+  (value as readonly unknown[]).map(String);
+
+/** A PR every guard in `planPrReview` clears — so any one override below
+ *  stops it at exactly that override's own guard. */
+const GREEN_PR: PrReviewCandidate = {
+  number: 12,
+  title: 'Fix a typo in the README',
+  url: 'https://github.com/o/r/pull/12',
+  gateStatus: 'pass',
+  mergeable: true,
+  touchedPaths: ['README.md'],
+  additions: 1,
+  deletions: 1,
+  changedFiles: 1,
+  headRefOid: 'abc1234def',
+  baseRefName: 'main',
+  renamedFromPaths: [],
+  unresolvedReviewThreads: 0,
+};
+
+/** `overrides` on {@link GREEN_PR}, and the verdict reasoning the real
+ *  planner reaches for it — the text the card paints as its badge tip. */
+function prReviewFixture(overrides: Partial<PrReviewCandidate>): PaintedFixture {
+  const pr: PrReviewCandidate = { ...GREEN_PR, ...overrides };
+  return { payload: pr, painted: planPrReview(pr).reasoning };
+}
+
+/** A `PrReviewCandidate` field the verdict reasoning states, painted off
+ *  the one override that makes its guard the one that speaks. */
+function prFold(
+  overrides: Partial<PrReviewCandidate>,
+  shown: TextFold['shown'],
+  why: string,
+): TextFold {
+  return { shown, why, fixture: () => prReviewFixture(overrides) };
+}
+
+/** A guard flag (set to `true` in `overrides`) the reasoning states as a
+ *  sentence only when it is set. */
+function prFlagFold(overrides: Partial<PrReviewCandidate>, phrase: string, why: string): TextFold {
+  return prFold(
+    overrides,
+    (value) => [value === true ? phrase : `<flag unset: ${String(value)}>`],
+    why,
+  );
+}
+
+/** What the reasoning says for each gate verdict. */
+const GATE_STATUS_PHRASES: Readonly<Record<string, string>> = {
+  pass: 'gate passed',
+  fail: 'the gate failed',
+  pending: 'the gate is still running',
+  unreported: 'no gating check has reported',
+};
 
 /** What each mirror-pass `action` tag makes the painted line say the pass
  *  will do. The tag itself is never painted, only the sentence it picks. */
@@ -368,6 +454,112 @@ const IN_PAINTED_TEXT: Readonly<Record<string, TextFold>> = {
   'issue-triage.ts#IssueTriageNeedsFormat#missing': {
     shown: (value) => (value as readonly string[]).map((heading) => `"${heading}"`),
     why: 'the reasoning quotes every missing template section',
+  },
+  'pr-review.ts#PrReviewCandidate#gateStatus': prFold(
+    { gateStatus: 'fail' },
+    (value) => [GATE_STATUS_PHRASES[String(value)] ?? `<no phrase for gate ${String(value)}>`],
+    'the verdict says what the gate did; the pipeline strip shows the checks behind it',
+  ),
+  'pr-review.ts#PrReviewCandidate#touchedPathsUnassessed': prFlagFold(
+    { touchedPathsUnassessed: true },
+    'gh did not report a usable files list',
+    'the verdict says the security sweep had no complete files list to check',
+  ),
+  'pr-review.ts#PrReviewCandidate#alreadyApplied': prFlagFold(
+    { alreadyApplied: true },
+    'its changes are already present in the current tree',
+    'the verdict says the diff is already in the tree',
+  ),
+  'pr-review.ts#PrReviewCandidate#hasBinaryDiff': prFlagFold(
+    { hasBinaryDiff: true },
+    'its diff carries binary content',
+    'the verdict says the diff carries bytes byte-review cannot read',
+  ),
+  'pr-review.ts#PrReviewCandidate#viewerIsAuthor': prFlagFold(
+    { viewerIsAuthor: true },
+    'was authored by the same GitHub identity this ritual reviews under',
+    'the verdict says the PR is the reviewing identity’s own',
+  ),
+  'pr-review.ts#PrReviewCandidate#baseRefName': prFold(
+    { baseRefName: 'develop' },
+    (value) => [`merges into the '${String(value)}' branch`],
+    'the verdict names the non-canonical base the PR merges into',
+  ),
+  'pr-review.ts#PrReviewCandidate#labelsUnassessed': prFlagFold(
+    { labelsUnassessed: true },
+    "gh's label report was unreadable",
+    'the verdict says the hold-label sweep never ran',
+  ),
+  'pr-review.ts#PrReviewCandidate#reviewChangesRequested': prFlagFold(
+    { reviewChangesRequested: true },
+    'carries a standing changes-requested review from a reviewer other than this ritual',
+    'the verdict says a human reviewer’s standing “not yet” holds it',
+  ),
+  'pr-review.ts#PrReviewCandidate#reviewChangesRequestedUnverified': prFlagFold(
+    { reviewChangesRequestedUnverified: true },
+    'the gh viewer lookup failed',
+    'the verdict says whose standing review it is could not be verified',
+  ),
+  'pr-review.ts#PrReviewCandidate#latestReviewsUnassessed': prFlagFold(
+    { latestReviewsUnassessed: true },
+    "gh's latest-reviews report was unreadable",
+    'the verdict says the changes-requested sweep never ran',
+  ),
+  'pr-review.ts#PrReviewCandidate#autoMergeArmed': prFlagFold(
+    { autoMergeArmed: true },
+    "has GitHub's own auto-merge armed",
+    'the verdict says GitHub’s own auto-merge is armed',
+  ),
+  'pr-review.ts#PrReviewCandidate#conflictingPaths': prFold(
+    { mergeable: false, conflictingPaths: ['docs/README.md', 'package.json'] },
+    (value) => [`merge conflicts against the base branch in: ${EACH_AS_TEXT(value).join(', ')}`],
+    'the verdict names every file to resolve',
+  ),
+  'pr-review.ts#PrReviewCandidate#renamedFromPaths': prFold(
+    { renamedFromPaths: ['packages/engine/src/guard.ts'] },
+    EACH_AS_TEXT,
+    'the verdict names each guarded path a rename moved out of — the only renames that decide anything',
+  ),
+  'pr-review.ts#PrReviewCandidate#deletedTestPaths': prFold(
+    { deletedTestPaths: ['apps/dashboard/test/flight/old.test.ts'] },
+    EACH_AS_TEXT,
+    'the verdict names every test file the PR deletes',
+  ),
+  'pr-review.ts#PrReviewCandidate#unresolvedReviewThreads': prFold(
+    { unresolvedReviewThreads: 2 },
+    (value) => [`carries ${String(value)} unresolved review thread(s)`],
+    'the verdict counts the unresolved review threads',
+  ),
+};
+
+/** A field the flight module consults only to DECIDE — which commands a
+ *  verdict plans — with nothing a maintainer would read in it. Checked
+ *  against BEHAVIOR like `IN_PAINTED_TEXT`: the honesty case runs the real
+ *  planner with the field present and absent and requires the two outputs
+ *  to differ, so a field nothing consults any more cannot shelter here
+ *  (that is how `PrReviewCandidate.ownComments` landed in `EXCUSED` as
+ *  dead). Remove an entry the day the renderer reads the field. */
+interface DecisionRead {
+  readonly outputs: () => { readonly withField: unknown; readonly withoutField: unknown };
+  readonly why: string;
+}
+
+const DECISION_ONLY: Readonly<Record<string, DecisionRead>> = {
+  'pr-review.ts#PrReviewCandidate#ownRequestChangesBody': {
+    outputs: () => {
+      const red: PrReviewCandidate = { ...GREEN_PR, gateStatus: 'fail' };
+      const decision = planPrReview(red);
+      return {
+        withField: planPrReviewCommands(
+          { ...red, ownRequestChangesBody: decision.reasoning },
+          decision,
+        ),
+        withoutField: planPrReviewCommands(red, decision),
+      };
+    },
+    why:
+      'a request-changes verdict the ritual’s own standing review already says verbatim plans no ' +
+      're-post — a dedup key, not a fact about the PR',
   },
 };
 
@@ -623,7 +815,7 @@ describe('payload census — every field of a censused display payload reaches i
       const { flight, renderer } = censusSources(entry);
       for (const field of interfaceFields(flight, entry.interfaceName)) {
         const key = `${entry.file}#${entry.interfaceName}#${field}`;
-        if (key in EXCUSED || key in IN_PAINTED_TEXT) continue;
+        if (key in EXCUSED || key in IN_PAINTED_TEXT || key in DECISION_ONLY) continue;
         const derived = DERIVED[key];
         const readers = derived === undefined ? entry.receivers : derived.receivers;
         if (!fieldIsRead(renderer, readers, field)) {
@@ -682,6 +874,39 @@ describe('payload census — every field of a censused display payload reaches i
     expect(decisions['IssueTriageSkip']?.decision).toBe('skip');
   });
 
+  it('starts every PR fold from a PR the real planner merges, so each override is its own guard', () => {
+    expect(planPrReview(GREEN_PR).decision).toBe('merge');
+    for (const [key, fold] of Object.entries(IN_PAINTED_TEXT)) {
+      if (!key.startsWith('pr-review.ts#PrReviewCandidate#')) continue;
+      expect(fold.fixture, `${key}: a PR fold needs its own fixture`).toBeDefined();
+      expect(planPrReview(fold.fixture?.().payload as PrReviewCandidate).decision, key).not.toBe(
+        'merge',
+      );
+    }
+  });
+
+  it('keeps the decision-only list honest — each field still moves the real planner', () => {
+    for (const [key, read] of Object.entries(DECISION_ONLY)) {
+      expect(read.why.length, key).toBeGreaterThan(0);
+      expect(
+        key in EXCUSED || key in IN_PAINTED_TEXT || key in DERIVED,
+        `${key}: adjudicated twice`,
+      ).toBe(false);
+      const { entry, field } = censusedKey(key);
+      const { flight, renderer } = censusSources(entry);
+      expect(interfaceFields(flight, entry.interfaceName), key).toContain(field);
+      expect(
+        fieldIsRead(renderer, entry.receivers, field),
+        `${key}: ${rendererPath(entry)} now reads the field — remove the decision-only entry`,
+      ).toBe(false);
+      const { withField, withoutField } = read.outputs();
+      expect(
+        withField,
+        `${key}: flipping ${field} no longer moves the planner — dead, not decision-only`,
+      ).not.toEqual(withoutField);
+    }
+  });
+
   it('builds one real, painted finding per censused MirrorPass*Finding interface', () => {
     const fixtures = mirrorPassFixturesByInterface();
     for (const entry of MIRROR_PASS_PAYLOADS) {
@@ -708,7 +933,7 @@ describe('payload census — every field of a censused display payload reaches i
         fieldIsRead(renderer, entry.receivers, field),
         `${key}: ${rendererPath(entry)} now reads the raw field — remove the painted-text entry`,
       ).toBe(false);
-      const fixture = fixtures[entry.interfaceName];
+      const fixture = fold.fixture?.() ?? fixtures[entry.interfaceName];
       expect(fixture, `${key}: no fixture for ${entry.interfaceName}`).toBeDefined();
       const payload = fixture?.payload as Readonly<Record<string, unknown>> | null | undefined;
       expect(payload, `${key}: the fixture payload does not carry ${field}`).toHaveProperty(field);
