@@ -550,6 +550,28 @@ describe('GitVcs', () => {
     expect(stats.map((s) => s.path)).toEqual(['__snapshots__/café.snap']);
   });
 
+  it('counts a merge of the base branch by its own resolution, not by the base work it brings in (2026-09-27)', async () => {
+    // Round 32: a lane merged autopilot/flight in to rescue a stranded fix.
+    // The whole flight delta (1328 lines) read as the firing's own diff, the
+    // runaway tier fired, and the revert `-m 1` then stripped that flight
+    // work from the lane, and from flight at the next sync-back.
+    const from = await vcs.head();
+    const lane = gitSync(dir, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+    gitSync(dir, ['checkout', '-q', '-b', 'base']);
+    writeFileSync(join(dir, 'base-work.txt'), 'x\n'.repeat(500));
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: base work landed elsewhere']);
+    gitSync(dir, ['checkout', '-q', lane]);
+    writeFileSync(join(dir, 'lane-fix.txt'), 'fix\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'fix: the lane fix']);
+    gitSync(dir, ['merge', '-q', '--no-ff', '-m', 'chore: merge base into the lane', 'base']);
+
+    const stats = await vcs.diffNumstat(from, 'HEAD');
+
+    expect(stats).toEqual([{ path: 'lane-fix.txt', insertions: 1, deletions: 0 }]);
+  });
+
   it('degrades to [] for diffNumstat on an unborn/invalid ref, same as changedFiles', async () => {
     expect(await vcs.diffNumstat('', 'HEAD')).toEqual([]);
     expect(await vcs.diffNumstat('deadbeef', 'HEAD')).toEqual([]);

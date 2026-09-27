@@ -102,6 +102,49 @@ describe('isAllowedLicenseExpression', () => {
     expect(isAllowedLicenseExpression('MIT(')).toBe(false);
     expect(isAllowedLicenseExpression(')MIT')).toBe(false);
   });
+
+  it.each([
+    'GPL-3.0-only AND (MIT OR Apache-2.0)',
+    '(MIT OR Apache-2.0) AND GPL-3.0-only',
+    '((MIT OR GPL-3.0) AND (AGPL-3.0 OR SSPL-1.0))',
+  ])(
+    'rejects %s: a parenthesised OR with an allowed alternative cannot excuse a disallowed AND term',
+    (license) => {
+      expect(isAllowedLicenseExpression(license)).toBe(false);
+    },
+  );
+
+  it.each(['(MIT OR GPL-3.0) AND Apache-2.0', '((MIT OR GPL-3.0) AND (ISC OR AGPL-3.0))'])(
+    'allows %s: every AND term has an allowed alternative',
+    (license) => {
+      expect(isAllowedLicenseExpression(license)).toBe(true);
+    },
+  );
+
+  it('binds AND tighter than OR, as the SPDX grammar does', () => {
+    // (ISC AND MIT) OR GPL-3.0 — the permissive conjunction is a valid pick.
+    expect(isAllowedLicenseExpression('ISC AND MIT OR GPL-3.0')).toBe(true);
+    // MIT AND (GPL-3.0 OR AGPL-3.0)? No: (MIT AND GPL-3.0) OR AGPL-3.0 — both sides copyleft.
+    expect(isAllowedLicenseExpression('MIT AND GPL-3.0 OR AGPL-3.0')).toBe(false);
+  });
+
+  it.each([
+    'MIT OR (GPL-3.0',
+    'MIT OR GPL-3.0)',
+    'MIT OR',
+    'AND MIT',
+    'MIT OR OR ISC',
+    'MIT ISC',
+    '',
+  ])('fails closed on the malformed expression %j, whatever alternative it names', (license) => {
+    expect(isAllowedLicenseExpression(license)).toBe(false);
+  });
+
+  it('looks up a WITH exception whole, so an unreviewed exception fails closed', () => {
+    expect(isAllowedLicenseExpression('Apache-2.0 WITH LLVM-exception')).toBe(false);
+    expect(isAllowedLicenseExpression('MIT OR Apache-2.0 WITH LLVM-exception')).toBe(true);
+    expect(isAllowedLicenseExpression('MIT AND Apache-2.0 WITH LLVM-exception')).toBe(false);
+  });
 });
 
 describe('findLicenseViolations', () => {

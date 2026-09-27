@@ -601,6 +601,15 @@ export class GitVcs implements VcsPort {
     // a test could assert it was never called; that is a bigger change than
     // the mutants justify, and this comment is the honest alternative.
     if (fromRef === '' || toRef === '') return [];
+    const merges = await git(this.repo, [
+      'rev-list',
+      '--first-parent',
+      '--merges',
+      `${fromRef}..${toRef}`,
+    ]);
+    if (merges.exitCode === 0 && merges.stdout.trim().length > 0) {
+      return this.ownNumstat(fromRef, toRef);
+    }
     const { stdout, exitCode } = await git(this.repo, [
       'diff',
       '--numstat',
@@ -614,6 +623,44 @@ export class GitVcs implements VcsPort {
     // parseNumstat reads as [] anyway.
     if (exitCode !== 0) return [];
     return parseNumstat(stdout);
+  }
+
+  /**
+   * A range holding a merge counts each first-parent commit on its own, and a
+   * merge only by its `--remerge-diff`: what the merge changed beyond git's
+   * own automatic merge, i.e. its conflict resolution. Round 32 (2026-09-27):
+   * a lane merged the base branch in, the base's whole delta read as the
+   * firing's own diff, the runaway tier reverted it with `-m 1`, and that
+   * revert stripped landed work from the base at the next sync-back.
+   */
+  private async ownNumstat(fromRef: string, toRef: string): Promise<readonly DiffFileStat[]> {
+    const chain = await git(this.repo, [
+      'rev-list',
+      '--first-parent',
+      '--reverse',
+      `${fromRef}..${toRef}`,
+    ]);
+    const totals = new Map<string, DiffFileStat>();
+    for (const sha of chain.stdout.split('\n').filter((line) => line.length > 0)) {
+      const { stdout } = await git(this.repo, [
+        'show',
+        '--remerge-diff',
+        '--numstat',
+        '--no-renames',
+        '-z',
+        '--format=',
+        sha,
+      ]);
+      for (const stat of parseNumstat(stdout)) {
+        const prior = totals.get(stat.path);
+        totals.set(stat.path, {
+          path: stat.path,
+          insertions: (prior?.insertions ?? 0) + stat.insertions,
+          deletions: (prior?.deletions ?? 0) + stat.deletions,
+        });
+      }
+    }
+    return [...totals.values()];
   }
 
   /**

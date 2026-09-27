@@ -213,6 +213,17 @@ untouched — it removes a false attribution, it does not open a hole. None of
 this changes the four locks above or the acceptance criteria below; all six
 slices remain unchanged and live in production.
 
+Freshness check (2026-09-27, evening): `fly.ts` gained one commit since the
+freshness check above — `7ec08105` (2026-09-27 19:46:35). The change passes
+INBOX task note bodies to the prompt so a firing can read full directives,
+not just the board row title. The underlying machinery touches `inbox-triage.ts`
+(reading the note from the triaged file), `prompt.ts` (rendering it under the
+task row as quoted lines, prefixed and fence-defanged), and test coverage. This
+is same-folder engine machinery, not cross-project isolation work — it unlocks
+rank-1 board tasks whose full text lives in INBOX bodies but were previously
+inaccessible to firings. None of this changes the four locks above or the
+acceptance criteria below; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
