@@ -197,6 +197,16 @@ export interface GeminiCliOptions {
    * `trustedFolders.json`), never a silent default here.
    */
   readonly trustWorkspace?: boolean;
+  /**
+   * The containment guard, Gemini's counterpart of `ClaudeCliOptions.settingsPath`:
+   * a JSON file written from `buildGeminiFlightSettings` (`gemini-guard.ts`),
+   * handed to the child as `GEMINI_CLI_SYSTEM_SETTINGS_PATH`. System settings
+   * merge last, so no user or workspace file can switch the guard hook off; the
+   * cost is that this child never reads the machine's own system settings file.
+   * Gemini registers hooks only in a trusted folder, the same condition headless
+   * mode needs to run at all. Unset or empty passes the env through unchanged.
+   */
+  readonly guardSettingsPath?: string;
   /** ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2), containment
    *  parity with `ClaudeCliModel` before this adapter is wired into routing
    *  (epic 0036): persists the child's pid for the duration of the
@@ -259,9 +269,14 @@ export class GeminiCliModel implements ModelPort {
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
     const startedAt = Date.now();
+    const baseEnv = this.opts.env ?? process.env;
+    const guard = this.opts.guardSettingsPath;
     const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
       cwd: this.opts.repo,
-      env: this.opts.env ?? process.env,
+      env:
+        guard !== undefined && guard.length > 0
+          ? { ...baseEnv, GEMINI_CLI_SYSTEM_SETTINGS_PATH: guard }
+          : baseEnv,
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
       timeout: timeoutMs,

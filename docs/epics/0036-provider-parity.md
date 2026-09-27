@@ -33,8 +33,17 @@ a folder also loads its `.gemini/settings.json` and MCP servers. It carries the 
 (no routing, no resume-retry, no idle timeout). Its settle path matches `ClaudeCliModel.execOnce`'s:
 the orphan-sweep reap runs through an injectable `reapDescendants` seam its tests assert on, and a
 wall-clock-cap kill comes back `timedOut` (THIRD CAP) rather than reading as an ordinary crash.
-Still missing before a lane flies on it: the tool-level path guard `ClaudeCliModel` gets from its
-`--settings` PreToolUse hook — under `yolo` nothing stops the agent writing outside its worktree. The Copilot CLI adapter remains unstarted and, per the
+It also has the tool-level guard `ClaudeCliModel` gets from its `--settings` PreToolUse hook,
+added 2026-09-27: `yolo` runs every shell command unchecked, so `guardSettingsPath` hands the
+child a settings file from `buildGeminiFlightSettings` (`packages/engine/src/gemini-guard.ts`)
+as `GEMINI_CLI_SYSTEM_SETTINGS_PATH`. That file's `BeforeTool` hook runs the same
+`guard-hook.js`, which reads each Gemini tool call as the Claude call it amounts to and denies in
+Gemini's `{"decision":"deny","reason"}` shape. The hook contract was read from gemini-cli's
+`packages/core/src/hooks/` (`types.ts`, `hookRunner.ts`, `hookPlanner.ts`) and
+`packages/cli/src/config/settings.ts`. System settings merge last, so a repo's own
+`.gemini/settings.json` cannot switch the hook off; the price is that the child skips the
+machine's own system settings file. Gemini already confines its file tools and the shell's
+`dir_path` to the workspace, so the shell command text was the real gap. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 
