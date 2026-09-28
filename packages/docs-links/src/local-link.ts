@@ -99,9 +99,17 @@ function blankFencedBlocks(markdown: string): string {
  *  span that the next run of exactly N closes, searched no further than the
  *  next blank line. */
 function blankInlineCode(text: string): string {
+  // A blank line is one holding nothing but spaces and tabs (CommonMark), and
+  // in a CRLF checkout it ends `\r\n` — so a plain `\n\n` search found no
+  // paragraph break in a Windows file at all, and one stray backtick blanked
+  // every link up to the next backtick, paragraphs later.
   const paragraphEnd = (from: number): number => {
-    const at = text.indexOf('\n\n', from);
-    return at === -1 ? text.length : at;
+    for (let at = text.indexOf('\n', from); at !== -1; at = text.indexOf('\n', at + 1)) {
+      let next = at + 1;
+      while (text[next] === ' ' || text[next] === '\t' || text[next] === '\r') next += 1;
+      if (text[next] === '\n') return at;
+    }
+    return text.length;
   };
   const blanked = (slice: string): string => slice.replace(/[^\n]/g, ' ');
 

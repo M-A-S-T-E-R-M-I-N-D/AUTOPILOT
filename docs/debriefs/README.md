@@ -16,6 +16,7 @@ hand-edited.
 | 2026-09-27 | [Processing VERDICT `ap-muj0m9jm-0`: the 134 reverts come down to one missing change, which is already tracked — split refuted](2026-09-27-verdict-ap-muj0m9jm-0-reland-storm-victims-split-refuted.md) |
 | 2026-09-27 | [Processing VERDICT `ap-mtui8t6l-0`: the payload census still takes any `.field` as a read, split confirmed with two live false negatives](2026-09-27-verdict-ap-mtui8t6l-0-payload-census-split-confirmed.md) |
 | 2026-09-27 | [Processing VERDICT `ap-mtt2bjp8-1`: AUTOFORMAT single-writer redesign still needs its own slice — reconfirmed, unchanged since 2026-09-10](2026-09-27-verdict-ap-mtt2bjp8-1-autoformat-single-writer-redesign-reconfirmed.md) |
+| 2026-09-27 | [Processing VERDICT `ap-mtpzz1yd-1`: the MERGE-ESCALATION split was carried out in four slices, all live — close; rung 4 has not resolved a conflict yet](2026-09-27-verdict-ap-mtpzz1yd-1-merge-escalation-split-shipped.md) |
 | 2026-09-27 | [Processing CLOSED-TASK AUDIT `closedaudit-web-mtd1wyte-ssntzi`: D1 TAB-STOP ROVING is still live, and the tab stops it cut stay cut](2026-09-27-closedaudit-web-mtd1wyte-ssntzi-roving-still-live.md) |
 | 2026-09-27 | [Processing CLOSED-TASK AUDIT `closedaudit-web-mss50iak-g176g8` (second attempt): the PLATFORM 7/7 page-upkeep deliverable still checks out](2026-09-27-closedaudit-web-mss50iak-g176g8-second-close-attempt.md) |
 | 2026-09-26 | [VERDICT close `web-mtywp7to-rbebh4`: epic 0023 (the docs reader) — all 5 slices verified landed](2026-09-26-verdict-web-mtywp7to-rbebh4-epic-0023-docs-reader-closed.md) |

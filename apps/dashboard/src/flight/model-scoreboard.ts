@@ -50,7 +50,10 @@ export const TIER_CANDIDATES: Readonly<Record<ModelTier, readonly string[]>> = {
   // Fable was never measured and "is Opus 5.5 as good as Fable?" had no answer.
   // Here all three meet the same ordinary work; the rule picks after 15 each.
   default: ['sonnet', 'opus', 'fable'],
-  mechanical: ['haiku', 'sonnet'],
+  // Opus joins the mechanical tier (2026-09-28): it had never met this work,
+  // so "is Opus worth it even over Haiku?" had no answer. The thinnest arm is
+  // explored first, so Opus takes the mechanical tasks until it has 15 too.
+  mechanical: ['haiku', 'sonnet', 'opus'],
 };
 
 export interface ArmStats {

@@ -235,6 +235,13 @@ describe('verifyUxExpression (UX-EXPRESSION DOCTRINE)', () => {
     expect(verifyUxExpression('a visible chip renders', patch)).toBe(false);
   });
 
+  it('counts a docs/*.md entry whose name contains a space', () => {
+    // Git leaves a space unquoted in the header. Before the fix, the parser
+    // dropped this file and demoted a real docs-backed "complete".
+    const patch = 'diff --git a/docs/User Guide.md b/docs/User Guide.md\n+visible chip added';
+    expect(verifyUxExpression('a visible chip renders', patch)).toBe(true);
+  });
+
   it('does not count a non-markdown file inside docs/ as a docs surface', () => {
     const patch = 'diff --git a/docs/notes.txt b/docs/notes.txt\n+visible chip added';
     expect(verifyUxExpression('a visible chip renders', patch)).toBe(false);

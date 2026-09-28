@@ -317,6 +317,9 @@ describe('the store side: decisions recorded, firings matched', () => {
     expect(text).toContain('escalated: leader opus');
     expect(text).toContain('default: exploring');
     expect(TIER_CANDIDATES.default).toEqual(['sonnet', 'opus', 'fable']);
+    // 2026-09-28: Opus had never met mechanical work, so "is Opus worth it
+    // even over Haiku?" had no answer. Its empty arm is explored first.
+    expect(TIER_CANDIDATES.mechanical).toEqual(['haiku', 'sonnet', 'opus']);
     expect(text).toContain('claude-opus-5-5');
     expect(text).toContain('not served yet');
   });
