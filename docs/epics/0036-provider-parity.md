@@ -36,7 +36,12 @@ into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (uns
 agent edit files and run the gate. Folder trust is on by default and headless mode exits
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
 a folder also loads its `.gemini/settings.json` and MCP servers. It carries Codex's gaps (no
-routing, no idle timeout) plus one Codex no longer has: no resume-retry. Its settle path matches `ClaudeCliModel.execOnce`'s:
+routing, no idle timeout), and since 2026-09-28 Codex's resume fallback too: `resolveSessionId`
+(`packages/cli/src/gemini.tsx`) looks a `--resume` id up before the run starts and exits
+`FATAL_INPUT_ERROR` (42, `packages/core/src/utils/exitCodes.ts`) on an unknown one, writing no
+output object, so `isGeminiResumeFailure` retries exactly that exit once, cold, as `resumed:
+false`. `--resume latest` with no saved session starts a fresh one instead of failing, so `resumed`
+is `true` only when the output's `session_id` is the one requested. Its settle path matches `ClaudeCliModel.execOnce`'s:
 the orphan-sweep reap runs through an injectable `reapDescendants` seam its tests assert on, and a
 wall-clock-cap kill comes back `timedOut` (THIRD CAP) rather than reading as an ordinary crash.
 It also has the tool-level guard `ClaudeCliModel` gets from its `--settings` PreToolUse hook,
@@ -191,7 +196,7 @@ disconnected reference doc that can drift out of sync with it.
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
 | OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it |
-| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed) | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
+| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 
 ## Acceptance criteria

@@ -4,7 +4,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { parseGeminiJsonOutput, GeminiCliModel } from '../../src/adapters/gemini-cli.js';
+import {
+  parseGeminiJsonOutput,
+  isGeminiResumeFailure,
+  GeminiCliModel,
+} from '../../src/adapters/gemini-cli.js';
 import {
   CLI_STDIN_PROMPT_THRESHOLD,
   DEFAULT_CLI_TIMEOUT_MS,
@@ -312,6 +316,38 @@ describe('parseGeminiJsonOutput', () => {
   });
 });
 
+describe('isGeminiResumeFailure', () => {
+  // gemini.tsx `resolveSessionId` exits FATAL_INPUT_ERROR (42) on an unknown
+  // --resume id, before the run starts, so no output object is ever written.
+  const failed = { envelope: null, exitCode: 42 };
+
+  it('fires for a resume the CLI rejected at startup: exit 42 with no output object', () => {
+    expect(isGeminiResumeFailure(SESSION, failed)).toBe(true);
+  });
+
+  it('never fires without a resume or on a clean exit', () => {
+    expect(isGeminiResumeFailure(undefined, failed)).toBe(false);
+    expect(isGeminiResumeFailure('', failed)).toBe(false);
+    expect(isGeminiResumeFailure(SESSION, { ...failed, exitCode: 0 })).toBe(false);
+  });
+
+  it('never fires for another fatal exit: a cold retry would fail the same way', () => {
+    // 55 untrusted workspace, 41 auth, 52 config, 1 a crash or a cap kill.
+    for (const exitCode of [55, 41, 52, 1]) {
+      expect(isGeminiResumeFailure(SESSION, { ...failed, exitCode })).toBe(false);
+    }
+  });
+
+  it('never fires once the CLI wrote an output object: the run got past the resume', () => {
+    const envelope = parseGeminiJsonOutput(
+      pretty({ session_id: SESSION, error: { message: 'bad input', code: 42 } }),
+      42,
+      'gemini-2.5-pro',
+    ).envelope;
+    expect(isGeminiResumeFailure(SESSION, { envelope, exitCode: 42 })).toBe(false);
+  });
+});
+
 describe('GeminiCliModel', () => {
   let stdinEnd: ReturnType<typeof vi.fn>;
 
@@ -606,6 +642,118 @@ describe('GeminiCliModel', () => {
     );
 
     expect(reapDescendants).toHaveBeenCalledWith(undefined);
+  });
+
+  describe('resume fallback and resumed telemetry (epic 0009 parity with ClaudeCliModel)', () => {
+    const COLD_SESSION = '9e8d7c6b-5a49-4382-b1c0-ffffffffffff';
+    const DONE = (sessionId: string): string => pretty({ session_id: sessionId, response: 'done' });
+    // What `SessionError.invalidSessionIdentifier` says (sessionUtils.ts): text,
+    // never an output object, even though it carries braces.
+    const REJECTED =
+      `Error resuming session: Invalid session identifier "${SESSION}".\n` +
+      '  Use --list-sessions to see available sessions, then use --resume {number}, --resume {uuid}, or --resume latest.\n';
+
+    /** One execFile outcome per spawn, in order; the last repeats. */
+    function mockExecFileRuns(
+      ...runs: readonly (readonly [(Error & { code?: unknown }) | null, string, string?])[]
+    ): void {
+      let calls = 0;
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1] as ExecFileCallback;
+        const run = runs[Math.min(calls, runs.length - 1)];
+        calls += 1;
+        queueMicrotask(() => cb(run?.[0] ?? null, run?.[1] ?? '', run?.[2] ?? ''));
+        return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+      });
+    }
+
+    const exitWith = (code: number): Error & { code: number } =>
+      Object.assign(new Error(`exit ${code}`), { code });
+
+    it('retries once, cold, when the CLI rejects the session id at startup', async () => {
+      mockExecFileRuns([exitWith(42), '', REJECTED], [null, DONE(COLD_SESSION)]);
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        SESSION,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(2);
+      const [, retryArgs] = execFileMock.mock.calls[1] as [string, string[]];
+      expect(retryArgs).not.toContain('--resume');
+      expect(retryArgs.slice(-2)).toEqual(['--prompt', 'continue']);
+      expect(res.resumed).toBe(false);
+      expect(res.sessionId).toBe(COLD_SESSION);
+      expect(res.envelope?.result).toBe('done');
+    });
+
+    it('reports resumed: true when the output names the session it was asked to resume', async () => {
+      mockExecFileRuns([null, DONE(SESSION)]);
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        SESSION,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.resumed).toBe(true);
+    });
+
+    it('reports resumed: false when the output names another session: `--resume latest` with none saved starts a fresh one', async () => {
+      mockExecFileRuns([null, DONE(COLD_SESSION)]);
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        'latest',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.resumed).toBe(false);
+    });
+
+    it('never retries a resumed run that failed later: the session its error names proves the resume took', async () => {
+      const stderr = `[ERROR] ${pretty({
+        session_id: SESSION,
+        error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns', code: 53 },
+      })}\n`;
+      mockExecFileRuns([exitWith(53), '', stderr]);
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        SESSION,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.envelope).toMatchObject({ isError: true, result: 'Reached max session turns' });
+      expect(res.resumed).toBe(true);
+    });
+
+    it('never retries an untrusted-workspace exit, and claims no resume either way', async () => {
+      mockExecFileRuns([exitWith(55), '']);
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        SESSION,
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.exitCode).toBe(55);
+      expect('resumed' in res).toBe(false);
+    });
+
+    it('leaves resumed off for a cold spawn, and never retries a cold spawn that failed', async () => {
+      mockExecFileRuns([exitWith(42), '', 'Error: bad input\n']);
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect('resumed' in res).toBe(false);
+    });
   });
 
   describe('THIRD CAP — timedOut on the response (the wall-clock cap, not any kill)', () => {
