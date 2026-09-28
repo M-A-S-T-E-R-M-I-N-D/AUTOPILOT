@@ -2579,6 +2579,63 @@ var boardSelected = {};
 // The rows whose read-only detail is open (epic 0026, Enter), by task id —
 // kept here for the same rebuild reason as boardSelected.
 var boardOpen = {};
+// THE SPLIT PANE (epic 0026 slice 1, Material 3's list-detail from the
+// expanded class): from lg, in the list presentation, the open row's detail
+// leaves its row for the aside right after the list, headed by the task's
+// title. One row is open at a time there — opening another closes the
+// first — and the pane hides while nothing is open, so a board with no row
+// open lays out exactly as before. Below lg, and in the columns
+// presentation (a row is already a card there), the detail stays under its
+// row. syncTaskPane() puts every detail where the layout wants it, reading
+// which rows are open off the details themselves (the DOM is the truth, as
+// syncBoardSelection() reads the set off the boxes) and boardOpen only for
+// which of several was opened last; the render, the title's click, the
+// view toggle and a breakpoint change all call it.
+var TASK_PANE_MQ = '(min-width: 64rem)';
+function taskPaneActive(card) {
+  return card.getAttribute('data-board-view') === 'list'
+    && typeof window.matchMedia === 'function' && window.matchMedia(TASK_PANE_MQ).matches;
+}
+function taskRowOf(card, id) {
+  var rows = card.querySelectorAll('.task');
+  for (var i = 0; i < rows.length; i++) if (rows[i].getAttribute('data-task-id') === id) return rows[i];
+  return null;
+}
+function syncTaskPane(card) {
+  var pane = card && card.querySelector('.task-pane');
+  if (!pane) return;
+  var active = taskPaneActive(card);
+  var details = card.querySelectorAll('.task-detail');
+  var keep = null;
+  if (active) {
+    var order = Object.keys(boardOpen);
+    var rank = -1;
+    for (var k = 0; k < details.length; k++) {
+      if (details[k].hidden) continue;
+      var at = order.indexOf(details[k].getAttribute('data-task-detail'));
+      if (at >= rank) { rank = at; keep = details[k]; }
+    }
+  }
+  for (var i = 0; i < details.length; i++) {
+    var detail = details[i];
+    var id = detail.getAttribute('data-task-detail');
+    var row = taskRowOf(card, id);
+    if (!row) continue;
+    var title = row.querySelector('.task-title');
+    if (detail === keep) {
+      if (detail.parentNode !== pane) pane.appendChild(detail);
+      pane.querySelector('.task-pane-title').textContent = title ? title.textContent : '';
+      continue;
+    }
+    if (active && !detail.hidden) {
+      detail.hidden = true;
+      if (title) title.setAttribute('aria-expanded', 'false');
+      delete boardOpen[id];
+    }
+    if (detail.parentNode !== row) row.appendChild(detail);
+  }
+  pane.hidden = !keep;
+}
 function syncBoardSelection(list) {
   var boxes = list.querySelectorAll('[data-task-select]');
   var n = 0;
@@ -3229,6 +3286,7 @@ function tasksSection(c) {
       // the row, hidden until the title opens it.
       var detail = el('div', 'task-detail');
       detail.id = detailId;
+      detail.setAttribute('data-task-detail', t.id);
       detail.hidden = !boardOpen[t.id];
       var bodyText = t.body && String(t.body).trim();
       var bodyEl = el('p', bodyText ? 'task-detail-body' : 'task-detail-body muted', bodyText || tr('taskDetailEmpty'));
@@ -3259,7 +3317,19 @@ function tasksSection(c) {
       ul.appendChild(li);
     }
     wrap.appendChild(ul);
+    // The split pane (syncTaskPane above): right after the list, so the
+    // card's two-column grid from lg seats it beside the rows; hidden and
+    // empty until a row opens into it. A named section (a region landmark),
+    // not an aside: the detail is the selection's main content, nothing
+    // tangential, and axe wants a complementary landmark at the top level.
+    var taskPane = el('section', 'task-pane');
+    taskPane.hidden = true;
+    taskPane.setAttribute('aria-label', tr('taskPane'));
+    taskPane.setAttribute('data-i18n-aria', 'taskPane');
+    taskPane.appendChild(el('h4', 'task-pane-title'));
+    wrap.appendChild(taskPane);
     syncBoardSelection(ul);
+    syncTaskPane(wrap);
     if (closedTotal > closedVisible) {
       var historyBtn = document.createElement('button');
       historyBtn.type = 'button';
@@ -3520,7 +3590,21 @@ document.addEventListener('click', function (e) {
   var id = title.closest('.task').getAttribute('data-task-id');
   if (detail.hidden) delete boardOpen[id];
   else boardOpen[id] = true;
+  // From lg in the list presentation the detail opens into the pane
+  // beside the list, and the row open before it closes.
+  syncTaskPane(title.closest('[data-board-view]'));
 });
+// A breakpoint change moves an open detail between its row and the pane
+// without waiting for the next changed tick's rebuild.
+if (typeof window.matchMedia === 'function') {
+  var taskPaneMq = window.matchMedia(TASK_PANE_MQ);
+  if (taskPaneMq.addEventListener) {
+    taskPaneMq.addEventListener('change', function () {
+      var cards = document.querySelectorAll('[data-board-view]');
+      for (var i = 0; i < cards.length; i++) syncTaskPane(cards[i]);
+    });
+  }
+}
 // Task-board actions (event-delegated: they survive live re-renders).
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-task-done]');
@@ -5003,6 +5087,9 @@ document.addEventListener('click', function (e) {
     try { localStorage.setItem(BOARD_VIEW_KEY, next); } catch (err) { /* private mode */ }
     if (card) card.setAttribute('data-board-view', next);
     boardViewToggleLabel(viewBtn, next);
+    // The list presentation seats an open detail in the pane beside the
+    // rows; the columns presentation keeps it inside the row's card.
+    if (card) syncTaskPane(card);
     return;
   }
   var hist = e.target && e.target.closest && e.target.closest('[data-task-history-more]');
