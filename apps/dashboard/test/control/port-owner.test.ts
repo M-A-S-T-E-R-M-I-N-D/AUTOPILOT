@@ -29,10 +29,20 @@ describe('findPortOwnerPid', () => {
     expect(findPortOwnerPid(4317, 'win32', run)).toBeNull();
   });
 
-  it('parses a bare pid from posix lsof -ti output', () => {
+  it('parses a bare pid from posix lsof -ti output, filtered to the LISTEN socket', () => {
     const run = vi.fn().mockReturnValue('4242\n');
     expect(findPortOwnerPid(4317, 'linux', run)).toBe(4242);
-    expect(run).toHaveBeenCalledWith('lsof', ['-ti', 'tcp:4317']);
+    expect(run).toHaveBeenCalledWith('lsof', ['-ti', 'tcp:4317', '-sTCP:LISTEN']);
+  });
+
+  it('never returns a connected client (e.g. a browser tab on the SSE stream) whose pid sorts before the listener', () => {
+    // Real lsof semantics: without a state filter, `-i tcp:PORT` also lists
+    // every ESTABLISHED peer on that port, pids in ascending order — so a
+    // client with a lower pid than the server comes first.
+    const run = vi.fn((_bin: string, args: readonly string[]) =>
+      args.includes('-sTCP:LISTEN') ? '4242\n' : '1200\n4242\n',
+    );
+    expect(findPortOwnerPid(4317, 'darwin', run)).toBe(4242);
   });
 
   it('fails open to null when the probe throws (missing OS tool, or no listener found)', () => {
