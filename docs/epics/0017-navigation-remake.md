@@ -94,6 +94,34 @@ themes, or capabilities — and it reads like a settings page, not a cockpit.
   silently drop one.
 - Visual baselines refresh once, deliberately, with the redesign commit.
 
+## Behavior laws (addendum, 2026-09-28)
+
+The census pins FUNCTIONS, the markup a control needs to exist. It never
+pinned how the controls behave together, and that gap shipped a bug: the
+theme and language popovers stacked open on each other until `8cf536c2`
+(operator catch, 2026-09-07). Every masthead popover obeys these laws. A
+UI slice that adds a popover carries them as acceptance, beside its census
+entry:
+
+1. **Exclusivity.** Every masthead `<details>` popover carries
+   `name="masthead-popover"`. The browser's native exclusive accordion then
+   closes the others when one opens, by keyboard or pointer, with no script
+   involved. The markup is pinned by `masthead-icon-cluster.test.ts`,
+   `masthead-census.test.ts` and `features/popovers.test.ts`. jsdom has no
+   exclusive accordion, so only `e2e/masthead-popovers.spec.ts` proves the
+   behavior itself, in a real browser.
+2. **Escape closes.** Escape closes whichever popover is open
+   (`web/features/popovers.ts`, law 1).
+3. **Focus returns to the summary on close.** Escape moves focus to the
+   summary of the popover it closed. A choice that closes its popover (a
+   theme, a language, an overflow item) does the same when focus was inside
+   it; before 2026-09-28 a keyboard choice dropped focus to `<body>`. A
+   pointer outside closes without moving focus, because the pointer has
+   already moved it.
+4. **Panels for pill-row menus size to their content.** The theme and
+   language panels are `width: max-content` (`layout-css.ts`) and hug their
+   pill row, not the 320px Connect box. The e2e measures this.
+
 ## Slices
 
 1. Census test first (the safety net), then the icon cluster + popovers.
