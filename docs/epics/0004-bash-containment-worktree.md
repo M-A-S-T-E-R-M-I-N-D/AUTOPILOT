@@ -219,6 +219,28 @@ to thread an INBOX task's note onto its board-digest row (`BoardTaskRef.note` �
 reads in its prompt, so a triaged directive outlives triage). It changes neither the worktree, the
 sync-back, nor the containment guard.
 
+`dbe57b94` (2026-09-28, the one `fly.ts` commit since `7ec08105`) amends the 2026-09-02 paragraph
+and the "its task really files" bullet above, at the stranded-task end of the sync-back seam:
+
+- **The stranded-work task names its head and closes itself once that head lands.** Nothing ever
+  closed a `STRANDED SYNC-BACK` task before: once approved onto the board it outranked every real
+  task, and four 2026-09-25/26 debriefs (`docs/debriefs/*-strand-already-rescued.md`) record whole
+  firings spent confirming its parked commits had already landed. The flight-end task's title now
+  carries the lane head it strands (`… parked on <lane branch> at <sha12> — …`, `strandTaskTitle` in
+  `flight/strand-tasks.ts`; a head `vcs.head()` could not read is left out rather than guessed). The
+  flight-start self-heal beside `reconcileShippedTasks` then calls `closeLandedStrandTasks`, which
+  marks done every open strand task whose named head is already an ancestor of the branch `target`
+  had checked out at launch (`git merge-base --is-ancestor`, run in `target` — a read of its history,
+  not a write). That one test covers both ways a head strands: a conflicted lane keeps its commits on
+  its branch until a later sync-back takes them, and a withheld head moves to its
+  `refs/autopilot/parked/…` rescue ref at the next launch, so its task stays open until someone
+  merges that ref. A task that names no head (filed before this change) is never closed on a guess.
+  The branch still follows the fixed title prefix, so the one-task-per-branch dedup the 2026-09-02
+  paragraph describes is unchanged. The sync-back's own retry, refusal and escalation ladder, the
+  worktree, and the containment guard are untouched: this is a board status write the flight already
+  makes under its per-project lock, not a new path into `target`'s tree. `docs/RUNBOOK.md`'s
+  parked-lane section tells the operator when the task closes.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
