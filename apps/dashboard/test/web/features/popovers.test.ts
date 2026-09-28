@@ -131,6 +131,33 @@ describe('masthead popovers', () => {
     expect(settings.open).toBe(true);
   });
 
+  it('law 2 — a choice made from inside the popover hands focus back to its summary, never to <body>', () => {
+    boot(false);
+    for (const [id, selector] of [
+      ['theme-menu', '[data-theme-btn="light"]'],
+      ['lang-menu', '[data-lang-btn]'],
+    ] as const) {
+      const popover = details(id);
+      popover.open = true;
+      const choice = popover.querySelector(selector) as HTMLButtonElement;
+      choice.focus();
+      choice.click();
+      expect(popover.open, id).toBe(false);
+      expect(document.activeElement, id).toBe(popover.querySelector('summary'));
+    }
+  });
+
+  it('law 2 — a choice leaves focus alone when focus was never inside the popover', () => {
+    boot(false);
+    const theme = details('theme-menu');
+    theme.open = true;
+    const elsewhere = document.getElementById('palette-btn') as HTMLButtonElement;
+    elsewhere.focus();
+    (theme.querySelector('[data-theme-btn="light"]') as HTMLButtonElement).click();
+    expect(theme.open).toBe(false);
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
   it('law 3 — on a hover device, entering opens temporarily, leaving closes after the grace, a summary click pins', async () => {
     vi.useFakeTimers();
     boot(true);
