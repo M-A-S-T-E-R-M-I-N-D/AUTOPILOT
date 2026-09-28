@@ -224,6 +224,22 @@ rank-1 board tasks whose full text lives in INBOX bodies but were previously
 inaccessible to firings. None of this changes the four locks above or the
 acceptance criteria below; all six slices remain unchanged and live in production.
 
+Freshness check (2026-09-28): `fly.ts` gained one commit since the evening check
+above — `dbe57b94` (2026-09-28 00:33:18). Nothing ever closed a STRANDED
+SYNC-BACK inbox task: once approved onto the board it outranked every real task,
+and four 2026-09-25/26 debriefs record whole firings spent confirming its parked
+commits had already landed. The flight-end task's title now names the lane head
+it strands (`strandTaskTitle` in `flight/strand-tasks.ts`), and the flight-start
+self-heal beside `reconcileShippedTasks` closes each open strand task whose head
+is an ancestor of the branch `target` was on at launch (`closeLandedStrandTasks`,
+answered by `git merge-base --is-ancestor` run in the target checkout). A task
+that names no head — filed before this change, or with an unreadable head — is
+never closed on a guess. This is same-folder lane sync-back bookkeeping: a board
+status write the flight already makes under its per-project lock, not a commit
+into the AUTOPILOT checkout, so Lock 4 is untouched. None of this changes the
+four locks below or the acceptance criteria; all six slices remain unchanged and
+live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
