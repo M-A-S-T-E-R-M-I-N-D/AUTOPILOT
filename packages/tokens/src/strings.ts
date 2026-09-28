@@ -1082,6 +1082,9 @@ const EN_STRINGS = {
   boardBulkFailed: '{failed} of {n} did not go through — the board shows what changed',
   // A row's read-only detail (epic 0026, Enter) when its task has no body.
   taskDetailEmpty: 'No description.',
+  // The split pane beside the list from lg (epic 0026 slice 1): the aside's
+  // accessible name; the task's own title heads it.
+  taskPane: 'Task detail',
   // The detail's history (epic 0026 slice 1): the lifetime firings and cost
   // on the task, the list of the newest ones with the slice or complete each
   // reported, and how many older ones the list leaves to the flight log.
@@ -2643,6 +2646,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     boardBulkSent: 'עודכנו {n} מהמשימות הנבחרות',
     boardBulkFailed: '{failed} מתוך {n} לא עברו — הלוח מראה מה השתנה',
     taskDetailEmpty: 'אין תיאור.',
+    taskPane: 'פרטי המשימה',
     taskHistoryNone: 'אף הפעלה עוד לא עבדה על המשימה הזו.',
     taskHistoryOne: 'הפעלה אחת עבדה עליה · {cost}',
     taskHistoryMany: '{n} הפעלות עבדו עליה · {cost}',

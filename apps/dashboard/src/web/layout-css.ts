@@ -1437,6 +1437,22 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .task-detail { flex: 1 1 100%; margin: 0 0 var(--space-1); padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border); }
 .task-detail-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-detail-meta { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
+/* THE SPLIT PANE (epic 0026 slice 1, Material 3's list-detail from the
+   expanded class): from lg, in the list presentation, the open row's detail
+   sits in the aside right after the list. The card — a flex column at rest —
+   turns into a two-column grid ONLY while the pane shows, every other child
+   spanning both columns, so a board with nothing open lays out exactly as
+   before; the pane sticks while the rows scroll past. Its title is the
+   heading the detail lost by leaving its row. */
+.task-pane { padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-small); background: var(--color-surface); }
+.task-pane-title { margin: 0 0 var(--space-2); font-size: var(--text-sm); font-weight: 600; overflow-wrap: anywhere; }
+.task-pane .task-detail { margin: 0; padding: 0; border: 0; }
+@media (min-width: 64rem) {
+  [data-board-view="list"]:has(> .task-pane:not([hidden])) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem); column-gap: var(--space-4); align-items: start; }
+  [data-board-view="list"]:has(> .task-pane:not([hidden])) > * { grid-column: 1 / -1; min-width: 0; }
+  [data-board-view="list"]:has(> .task-pane:not([hidden])) > .tasks { grid-column: 1; }
+  [data-board-view="list"]:has(> .task-pane:not([hidden])) > .task-pane { grid-column: 2; position: sticky; inset-block-start: var(--space-3); }
+}
 .task-history { list-style: none; margin: var(--space-1) 0 0; padding: 0; font-size: var(--text-xs); }
 .task-history-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); }
 .task-history-subject { overflow-wrap: anywhere; }

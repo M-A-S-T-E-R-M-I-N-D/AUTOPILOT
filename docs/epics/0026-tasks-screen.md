@@ -41,7 +41,16 @@ from the backlog, filed from the dashboard, proposed by the autopilot, and so
 on for every source the store knows — and it stays when `?hide=source` drops
 the row's chip. A task accepted from a GitHub issue names it (its id is
 `github-<n>`) and, on a project whose origin is on GitHub, links it there.
-Still open in slice 1: the detail as a split pane beside the list from `lg`.
+The split pane closed slice 1 on 2026-09-28: from `lg`, in the list
+presentation, the open row's detail leaves its row for an `aside` right after
+the list (named "Task detail", headed by the task's title), and the card
+turns into a two-column grid only while the pane shows, so a board with
+nothing open lays out as before. One row is open at a time there — opening
+another closes the first, closing the row empties the pane — and the title
+stays the row's disclosure button, its `aria-controls` resolving wherever the
+detail sits. Below `lg`, and in the columns presentation (a row is already a
+card there), the detail stays under its row; the view toggle and a crossing
+of `lg` carry an open detail between the two places without a rebuild.
 Slice 2's pure half
 shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
 view — grouping by status, severity or source, and a filter on each — in the
