@@ -31,6 +31,7 @@ import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
 import {
   reapCliDescendants,
   isCliTimeoutDeath,
+  isResumeFailure,
   CLI_STDIN_PROMPT_THRESHOLD,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
@@ -166,6 +167,27 @@ export function parseGeminiJsonOutput(
   return { stdout, exitCode, envelope, sessionId };
 }
 
+/** `ExitCodes.FATAL_INPUT_ERROR` in google-gemini/gemini-cli
+ *  `packages/core/src/utils/exitCodes.ts`. */
+const GEMINI_FATAL_INPUT_ERROR = 42;
+
+/**
+ * True when `gemini --resume <id>` failed at the resume ITSELF — the CLI-level
+ * fallback `ClaudeCliModel` already has (docs/epics/0009-warm-sessions.md).
+ * `resolveSessionId` in gemini-cli `packages/cli/src/gemini.tsx` looks the id up
+ * before the run starts; an unknown one (`SessionError`, `sessionUtils.ts`) is
+ * reported as feedback text and exits FATAL_INPUT_ERROR, so no output object is
+ * ever written. The tell is `isResumeFailure`'s no-envelope non-zero exit AT
+ * that code: an untrusted folder (55), a failed login (41), or a crash would
+ * fail a cold retry the same way, and a wall-clock kill reads as exit 1.
+ */
+export function isGeminiResumeFailure(
+  resumeSessionId: string | undefined,
+  resp: Pick<ModelResponse, 'envelope' | 'exitCode'>,
+): boolean {
+  return isResumeFailure(resumeSessionId, resp) && resp.exitCode === GEMINI_FATAL_INPUT_ERROR;
+}
+
 export interface GeminiCliOptions {
   readonly repo: string;
   /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
@@ -237,8 +259,12 @@ export interface GeminiCliOptions {
  * the CLI's 500 ms wait for input that never comes (`readStdin.ts`).
  *
  * Transport mirrors `CodexCliModel`'s: buffered `execFile`, `detached: true`
- * plus {@link reapCliDescendants} (ORPHAN SWEEP), no idle timeout, no streaming, no
- * resume-retry-on-failure — but DOES carry `ClaudeCliModel`'s crash-path
+ * plus {@link reapCliDescendants} (ORPHAN SWEEP), no idle timeout, no streaming.
+ * It shares the Claude driver's CLI-level resume fallback: a session id the CLI
+ * rejects ({@link isGeminiResumeFailure}) is retried once, cold, as `resumed:
+ * false`. Otherwise a resume is `resumed: true` only when the output's
+ * `session_id` is the one requested, since `--resume latest` with no saved
+ * session starts a fresh one instead of failing. It DOES carry `ClaudeCliModel`'s crash-path
  * {@link GeminiCliOptions.pidRegistry} tracking (containment parity, board
  * ap-mt2ukjg5-2), added ahead of this adapter's routing wiring so a lane
  * flown on it is never a containment regression from day one. Its settle
@@ -251,7 +277,24 @@ export interface GeminiCliOptions {
 export class GeminiCliModel implements ModelPort {
   constructor(private readonly opts: GeminiCliOptions) {}
 
-  invoke(model: string, prompt: string, resumeSessionId?: string): Promise<ModelResponse> {
+  async invoke(model: string, prompt: string, resumeSessionId?: string): Promise<ModelResponse> {
+    const first = await this.execOnce(model, prompt, resumeSessionId);
+    if (resumeSessionId === undefined || resumeSessionId.length === 0) return first;
+    if (isGeminiResumeFailure(resumeSessionId, first)) {
+      const retry = await this.execOnce(model, prompt, undefined);
+      return { ...retry, resumed: false };
+    }
+    // No session in the output (an exit before the CLI wrote one): nothing
+    // attests whether the resume took, so no claim either way.
+    const wireSession = first.sessionId ?? null;
+    return wireSession === null ? first : { ...first, resumed: wireSession === resumeSessionId };
+  }
+
+  private execOnce(
+    model: string,
+    prompt: string,
+    resumeSessionId: string | undefined,
+  ): Promise<ModelResponse> {
     const pipePrompt = prompt.length > CLI_STDIN_PROMPT_THRESHOLD;
     const args = [
       '--model',
