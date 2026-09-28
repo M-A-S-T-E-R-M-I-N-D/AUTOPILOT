@@ -12,8 +12,7 @@
  * Laws:
  * 1. LIGHT DISMISS — a pointer down outside every open popover closes them
  *    all; Escape closes them and returns focus to the summary that was open.
- * 2. A CHOICE CLOSES — picking a theme or a language closes its popover,
- *    and when focus was inside it, focus returns to its summary.
+ * 2. A CHOICE CLOSES — picking a theme or a language closes its popover.
  *    Settings stay open: its rows are several choices in a row, and a
  *    pointer elsewhere or Escape still ends it.
  * 3. HOVER OPENS, CLICK PINS — only on devices that can hover
@@ -46,10 +45,6 @@ function popoverClose(d) {
 function popoverCloseAll(except) {
   popoverAll().forEach(function (d) { if (d !== except) popoverClose(d); });
 }
-function popoverFocusSummary(d) {
-  var s = d.querySelector('summary');
-  if (s) { try { s.focus(); } catch (x) {} }
-}
 function popoverInit() {
   var hoverable = !!(window.matchMedia && window.matchMedia('(hover: hover)').matches);
   // Law 1 — light dismiss.
@@ -63,7 +58,8 @@ function popoverInit() {
     var open = popoverAll().filter(function (d) { return d.open; });
     if (!open.length) return;
     popoverCloseAll(null);
-    popoverFocusSummary(open[0]);
+    var s = open[0].querySelector('summary');
+    if (s) { try { s.focus(); } catch (x) {} }
   });
   // Law 2 — a choice closes.
   document.addEventListener('click', function (e) {
@@ -73,12 +69,7 @@ function popoverInit() {
     var choice = t.closest('[data-theme-btn], [data-lang-btn], .more-item');
     if (!choice) return;
     var d = choice.closest(POPOVER_SELECTOR);
-    if (!d) return;
-    // Closing hides the focused choice; hand focus back to the summary so a
-    // keyboard user keeps their place instead of landing on <body>.
-    var hadFocus = d.contains(document.activeElement);
-    popoverClose(d);
-    if (hadFocus) popoverFocusSummary(d);
+    if (d) popoverClose(d);
   });
   // Law 3 — hover opens, click pins.
   popoverAll().forEach(function (d) {
