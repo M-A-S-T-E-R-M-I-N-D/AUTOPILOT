@@ -39,11 +39,10 @@ export interface FloodBoardThread {
 
 export function normalize(body: string): string;
 export function similarity(a: string, b: string): number;
-/** `issues` is one `gh api repos/…/issues` page — untrusted process output. */
-export function boardThreads(issues: readonly unknown[]): FloodBoardThread[];
-/** `comments` and `reviews` are `gh api` pages — untrusted process output. */
-export function threadTimeline(
-  comments: readonly unknown[],
-  reviews: readonly unknown[],
-): FloodThreadMessage[];
+/** `issues` is one `gh api repos/…/issues` page — untrusted process output,
+ *  so not even the array is assumed (a `null` page reads as no threads). */
+export function boardThreads(issues: unknown): FloodBoardThread[];
+/** `comments` and `reviews` are `gh api` pages — untrusted process output,
+ *  so not even the arrays are assumed (a `null` page reads as no messages). */
+export function threadTimeline(comments: unknown, reviews: unknown): FloodThreadMessage[];
 export function auditThread(thread: string, messages: FloodThreadMessage[]): FloodFinding[];

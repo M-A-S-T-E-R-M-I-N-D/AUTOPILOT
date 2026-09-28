@@ -105,8 +105,12 @@ export function similarity(a, b) {
 
 /** A `gh api` page's rows that can be read at all. A row that is not an
  *  object (a `null`) carries no message and no thread, so it is skipped:
- *  reading it once threw a TypeError that killed the whole board audit. */
+ *  reading it once threw a TypeError that killed the whole board audit. A
+ *  page that is not an array at all (a `null` response) carries no rows
+ *  for the same reason — one level up, the same TypeError killed the audit
+ *  before it printed a single line. */
 function readableRows(page) {
+  if (!Array.isArray(page)) return [];
   return page.filter((row) => typeof row === 'object' && row !== null);
 }
 
