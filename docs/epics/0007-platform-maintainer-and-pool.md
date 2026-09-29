@@ -154,7 +154,15 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    passing "Hebrew (RTL) locale" mention (four i18n keywords at once)
    outvoting the single keyword each title actually named; the maintainer
    had re-labeled both dashboard/community and dashboard/flight-engine.
-   Dimension/priority/milestone classification are unchanged.
+   Dimension/priority/milestone classification are unchanged. Refined
+   2026-09-29 (board ap-mtmpekhi-0, twin of slice 4's f966e48e):
+   `web/features/issue-triage.ts`'s `.issue-triage-result` now carries
+   `role="status"`/`aria-live="polite"` — the execute outcome (the gh command
+   tally, the first failing command, the request-failed message) is written
+   there after the confirm dialog, once focus has long moved on, so a
+   screen-reader user heard nothing when a real batch landed or failed;
+   `test/web/issue-triage-result-live-region.test.ts` asserts both attributes
+   and that the outcome text lands in that same element.
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure

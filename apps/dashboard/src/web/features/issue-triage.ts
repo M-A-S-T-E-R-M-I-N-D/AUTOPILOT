@@ -259,7 +259,15 @@ function renderIssueTriageBody(body, plans, pid, identity) {
   execBtn.setAttribute('aria-label', triageExecTip);
   actions.appendChild(execBtn);
   body.appendChild(actions);
-  body.appendChild(el('div', 'issue-triage-result'));
+  // The execute outcome lands here AFTER the confirm dialog, once focus has
+  // long moved on — a polite live region is what lets a screen reader hear
+  // that a real batch of gh calls landed or failed, the same role=status
+  // shape pr-review-result / discussions-triage-result / landing-result
+  // already carry (board ap-mtmpekhi-0, twin of f966e48e).
+  var resultEl = el('div', 'issue-triage-result');
+  resultEl.setAttribute('role', 'status');
+  resultEl.setAttribute('aria-live', 'polite');
+  body.appendChild(resultEl);
   translateDom(document.documentElement.lang || 'en');
 }
 // Shared roving-tabindex wiring (APG pattern) — wireRoving is a hoisted
