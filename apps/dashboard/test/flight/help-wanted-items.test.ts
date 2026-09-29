@@ -8,6 +8,7 @@ import {
   HELP_WANTED_LABEL,
   type HelpWantedItem,
 } from '../../src/flight/help-wanted-items.js';
+import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 describe('isHelpWantedItem', () => {
@@ -53,6 +54,8 @@ describe('fetchHelpWantedItems', () => {
       'open',
       '--label',
       HELP_WANTED_LABEL,
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,labels,assignees',
     ]);

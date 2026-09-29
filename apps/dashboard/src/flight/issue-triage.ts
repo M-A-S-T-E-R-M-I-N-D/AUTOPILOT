@@ -1171,9 +1171,20 @@ export async function fetchRepoOwner(exec: CliExec): Promise<string | undefined>
 }
 
 /**
- * Lists every open issue via `gh issue list --state open --json
- * number,title,body,url,labels,assignees,author`, run through the injectable
- * `exec` — the same `CliExec` shape `connection/cli-probe.ts` uses, so this
+ * The most issues one `gh issue list` read asks for. With no `--limit`, gh
+ * quietly returns its default 30, newest first, so on a repo with more open
+ * issues than that the OLDEST ones never reached triage, the pool, or the
+ * help-wanted claim state. Same fix `pr-review.ts`'s `MAX_PR_LIST_CANDIDATES`
+ * made for `gh pr list`. 1000 is the most a `--label` list can return at all:
+ * gh serves a labeled list through GitHub's search API, which stops there.
+ * `.github/workflows/stale-claim-reaper.yml` passes the same number.
+ */
+export const MAX_ISSUE_LIST = 1000;
+
+/**
+ * Lists every open issue (up to {@link MAX_ISSUE_LIST}) via `gh issue list
+ * --state open --json number,title,body,url,labels,assignees,author`, run
+ * through the injectable `exec` — the same `CliExec` shape `connection/cli-probe.ts` uses, so this
  * stays deterministically testable without a real `gh` on PATH. Read-only:
  * never labels, comments, or closes anything, only lists. Returns `[]` on a
  * non-zero exit or unparseable/non-array stdout rather than throwing — a
@@ -1188,6 +1199,8 @@ export async function fetchOpenIssues(exec: CliExec): Promise<IncomingIssue[]> {
     'list',
     '--state',
     'open',
+    '--limit',
+    String(MAX_ISSUE_LIST),
     '--json',
     'number,title,body,url,labels,assignees,author,createdAt,milestone',
   ]);
