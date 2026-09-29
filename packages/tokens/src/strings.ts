@@ -1270,7 +1270,8 @@ const EN_STRINGS = {
   // LLM ISSUE COMPOSER 2/3 (board web-mtpzdruu-vf25ry): the gh-issue-form's
   // free-text "note" path — Compose sends it to POST /api/report/compose
   // (slice 1/3's flight/report-compose.ts) for a local, tool-less model call
-  // that writes a polished English title/body, then pre-fills the form's
+  // that writes a polished title/body in the note's own language (composer
+  // language doctrine — technical material stays English), then pre-fills the form's
   // existing title/body fields so the existing "Open GitHub issue" submit
   // (GithubIssueExecuteApi) stays a one-click act. The raw note itself is
   // never sent anywhere but that local compose endpoint.
@@ -1279,7 +1280,7 @@ const EN_STRINGS = {
   reportComposeNotePlaceholder: 'What happened, or what you wish existed…',
   reportComposeButton: 'Compose',
   reportComposeTip:
-    'Turns your note into a polished English title and body with a local model call — your raw words never leave this machine.',
+    'Turns your note into a polished title and body in your language with a local model call — your raw words never leave this machine.',
   reportComposing: 'Composing…',
   reportComposeReady:
     'Composed — suggested labels: {labels}. Review the fields below, then submit.',
@@ -2773,7 +2774,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     reportComposeNotePlaceholder: 'מה קרה, או מה הייתם רוצים שיהיה קיים…',
     reportComposeButton: 'חבר',
     reportComposeTip:
-      'הופך את ההערה שלכם לכותרת וגוף מלוטשים באנגלית באמצעות קריאה למודל מקומי — המילים הגולמיות שלכם אף פעם לא עוזבות את המחשב הזה.',
+      'הופך את ההערה שלכם לכותרת וגוף מלוטשים בשפה שלכם באמצעות קריאה למודל מקומי — המילים הגולמיות שלכם אף פעם לא עוזבות את המחשב הזה.',
     reportComposing: 'מחבר…',
     reportComposeReady: 'חובר — תוויות מוצעות: {labels}. בדקו את השדות למטה ואז הגישו.',
     reportComposeUnavailable: 'החיבור אינו זמין כרגע — נסו שוב בעוד רגע.',

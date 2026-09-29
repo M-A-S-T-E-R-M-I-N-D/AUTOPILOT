@@ -57,6 +57,40 @@ describe('buildReportComposePrompt', () => {
     const occurrences = prompt.split('<<< END CAPTURED_CONTEXT >>>').length - 1;
     expect(occurrences).toBe(1);
   });
+
+  // Composer language doctrine (operator, 2026-09-06), rule 1: the report is
+  // written in the reporter's own language; only technical material stays
+  // English, verbatim and fenced.
+  describe('language doctrine', () => {
+    const prompt = buildReportComposePrompt({
+      description: 'כפתור ההפעלה נשאר מושבת אחרי שהטיסה נגמרת',
+      contextJson: undefined,
+      moduleSources: [],
+    });
+
+    it("composes the title and body in the note's own language, never forcing English", () => {
+      expect(prompt).not.toMatch(/title and body in English/);
+      expect(prompt).not.toContain('must still be English');
+      expect(prompt).toContain("in the SAME language the operator's note is written in");
+    });
+
+    it('keeps technical material untranslated, exactly as written, in backticks or a code fence', () => {
+      expect(prompt).toContain(
+        'error strings, code identifiers, commands, and the environment block',
+      );
+      expect(prompt).toContain('never translated');
+      expect(prompt).toContain('`backticks`');
+    });
+
+    it("keeps the issue template's headings and the labels in English — the protocol gate matches them", () => {
+      expect(prompt).toContain('headings stay in English exactly as written here');
+      expect(prompt).toContain('short lowercase English labels');
+    });
+
+    it('asks for the severity reasoning in the note language too', () => {
+      expect(prompt).toContain('"severityReasoning" (in the note\'s language) explaining why');
+    });
+  });
 });
 
 describe('parseReportComposeOutput', () => {
