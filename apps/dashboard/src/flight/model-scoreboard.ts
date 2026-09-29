@@ -227,6 +227,22 @@ export function laneOfFiring(firingId: string): string {
   return at === -1 ? 'base' : head.slice(at + 2);
 }
 
+/**
+ * Whether a firing died of the account-wide quota before it could work — a
+ * firing event's payload with `globalExhaust` set. Such a firing says nothing
+ * about the model it was routed to (2026-09-29: round 37's ten firings each
+ * died in a second at $0, and every one read as an Opus failure), so the
+ * scoreboard and the benchmark leave it out.
+ */
+export function isQuotaDeath(firingPayload: string | null): boolean {
+  if (firingPayload === null) return false;
+  try {
+    return (JSON.parse(firingPayload) as { globalExhaust?: unknown }).globalExhaust === true;
+  } catch {
+    return false;
+  }
+}
+
 /** A routing decision stays the one a lane's firing flew under for this long. */
 const ROUTE_MATCH_WINDOW_MS = 3 * 60 * 60 * 1000;
 
@@ -266,10 +282,12 @@ export function readRoutedFirings(store: Store, projectId: string, now: number):
   }
   const rows = store.db
     .prepare(
-      `SELECT firing_id AS firingId, item, model, shipped, cost_usd AS costUsd, created_at AS at
-         FROM metrics
-        WHERE project_id = ? AND created_at >= ? AND model IS NOT NULL
-        ORDER BY created_at, id`,
+      `SELECT m.firing_id AS firingId, m.item, m.model, m.shipped, m.cost_usd AS costUsd,
+              m.created_at AS at, e.payload
+         FROM metrics m
+         LEFT JOIN events e ON e.firing_id = m.firing_id AND e.type = 'firing'
+        WHERE m.project_id = ? AND m.created_at >= ? AND m.model IS NOT NULL
+        ORDER BY m.created_at, m.id`,
     )
     .all(projectId, since) as {
     firingId: string;
@@ -278,6 +296,7 @@ export function readRoutedFirings(store: Store, projectId: string, now: number):
     shipped: number;
     costUsd: number;
     at: number;
+    payload: string | null;
   }[];
   const latestBefore = (
     list: readonly { tier: ModelTier; at: number }[] | undefined,
@@ -288,6 +307,7 @@ export function readRoutedFirings(store: Store, projectId: string, now: number):
   };
   const out: RoutedFiring[] = [];
   for (const row of rows) {
+    if (isQuotaDeath(row.payload)) continue;
     const decision =
       latestBefore(byLane.get(laneOfFiring(row.firingId)), row.at) ??
       (row.item === null ? undefined : latestBefore(byTask.get(row.item), row.at));
