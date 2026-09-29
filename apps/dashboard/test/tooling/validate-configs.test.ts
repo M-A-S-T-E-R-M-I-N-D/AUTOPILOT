@@ -190,6 +190,13 @@ describe('stripJsonComments', () => {
     expect(stripJsonComments('{"a": "/* x */')).toBe('{"a": "/* x */');
   });
 
+  it('leaves an unterminated string verbatim, trailing-comma syntax and all', () => {
+    // The comma pass needs the same optional closing quote as the comment
+    // pass: without it, the ", }" inside the open string reads as a trailing
+    // comma and is cut before JSON.parse ever sees the real error.
+    expect(stripJsonComments('{"a": "x, }')).toBe('{"a": "x, }');
+  });
+
   it('drops a trailing comma that a comment separates from its closing bracket', () => {
     expect(stripJsonComments('[1, /* last */\n]')).toBe('[1 \n]');
     expect(stripJsonComments('{"a": 1, // last\n}')).toBe('{"a": 1 \n}');
