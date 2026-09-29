@@ -363,7 +363,13 @@ import {
 // taskProvenanceOf embedded from web/task-queue.ts, the line with its issue
 // link and ten English keys — measured 249269B raw against the old 248832B
 // line, 437 bytes over.
-const CORE_RAW_BUDGET = 245 * 1024;
+// Then core raw 245→247KB (2026-09-28), the same slice's split pane: the
+// detail beside the list from lg in the list presentation (syncTaskPane and
+// its two helpers, the pane element, three call sites, the breakpoint
+// listener, one English key) — measured 251569B raw against the old 250880B
+// line, 689 bytes over. Two KB, for the margin the entries above keep: a
+// 246KB line would leave 335 bytes.
+const CORE_RAW_BUDGET = 247 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -402,7 +408,11 @@ const CORE_RAW_BUDGET = 245 * 1024;
 // Then core gzip 72→73KB (2026-09-27), the same provenance line as the raw
 // entry above — measured 73702B, 26 bytes UNDER the old 73728B line, bumped
 // because a margin that thin goes red on the next sibling's core growth.
-const CORE_GZIP_BUDGET = 73 * 1024;
+// Then core gzip 73→74KB (2026-09-28), the same split-pane slice as the raw
+// entry above — measured 74284B, 468 bytes UNDER the old 74752B line, bumped
+// for the reason the entry above gives, with eight sibling lanes flying
+// beside it.
+const CORE_GZIP_BUDGET = 74 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()

@@ -179,10 +179,17 @@ describe('first-run guided tour — manual open', () => {
     expect(buttons).toContain('Close');
   });
 
-  it('closes on Escape, marks the tour seen, and restores focus to the Tour button', () => {
+  it('closes on Escape, marks the tour seen, and returns focus to the overflow menu that launched it', () => {
+    // The Tour item lives in the masthead overflow menu, and choosing it
+    // closes that menu (popover law 2). A real browser cannot focus a button
+    // inside a closed <details>, so the only place focus can go back to is
+    // the menu's summary, which is where the dialog's opener is recorded.
+    const moreMenu = document.getElementById('more-menu') as HTMLDetailsElement;
+    moreMenu.open = true;
     tourBtn().focus();
     tourBtn().click();
     expect(document.querySelector('.tour-dialog')).not.toBeNull();
+    expect(moreMenu.open).toBe(false);
 
     document
       .querySelector('.tour-overlay')!
@@ -192,7 +199,7 @@ describe('first-run guided tour — manual open', () => {
 
     expect(document.querySelector('.tour-dialog')).toBeNull();
     expect(localStorage.getItem('ap-tour-seen')).toBe('1');
-    expect(document.activeElement).toBe(tourBtn());
+    expect(document.activeElement).toBe(document.getElementById('more-summary'));
   });
 
   it('traps Tab focus within the dialog (wraps from last back to first)', () => {

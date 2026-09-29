@@ -131,7 +131,7 @@ taskkill /PID <pid> /F
 **Recovery (macOS/Linux):**
 
 ```bash
-lsof -i :4317
+lsof -ti tcp:4317 -sTCP:LISTEN   # the listener only, never a connected browser tab
 kill <pid>          # SIGTERM first
 kill -9 <pid>        # only if it ignores SIGTERM
 ```

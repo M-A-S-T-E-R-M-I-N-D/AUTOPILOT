@@ -318,6 +318,15 @@ describe('boardThreads', () => {
       { number: 6, isPr: true },
     ]);
   });
+
+  it('reads a board page that is not an array (a `null`) as a board with no threads', () => {
+    // A `null` page once threw "Cannot read properties of null (reading
+    // 'filter')" before the audit printed a single line — the same crash the
+    // null-ROW guard above fixed, one level up.
+    expect(boardThreads(null)).toEqual([]);
+    expect(boardThreads({ message: 'not an array' })).toEqual([]);
+    expect(boardThreads('nope')).toEqual([]);
+  });
 });
 
 describe('threadTimeline', () => {
@@ -383,6 +392,21 @@ describe('threadTimeline', () => {
       [null, ghReview(2, 'bob', '2026-09-09T09:05:00Z', 'COMMENTED', 'also kept'), 'x'],
     );
     expect(timeline.map((m) => m.id)).toEqual([1, 2]);
+  });
+
+  it('reads a comment or review page that is not an array (a `null`) as an empty page', () => {
+    expect(threadTimeline(null, null)).toEqual([]);
+    expect(threadTimeline({ message: 'not an array' }, undefined)).toEqual([]);
+  });
+
+  it('still audits the reviews when only the comments page is unreadable — a flood there is not hidden', () => {
+    const retry = 'Approved: gate green at >= 90% coverage, all checks pass, no conflicts.';
+    const timeline = threadTimeline(null, [
+      ghReview(1, 'keeper', '2026-09-09T09:00:00Z', 'APPROVED', retry),
+      ghReview(2, 'keeper', '2026-09-09T09:00:30Z', 'APPROVED', retry),
+    ]);
+    expect(timeline.map((m) => m.id)).toEqual([1, 2]);
+    expect(auditThread('PR #1', timeline).map((f) => f.kind)).toContain('NEAR-DUPLICATE');
   });
 
   it('still audits the rows around a null one — a flood beside it is not hidden', () => {

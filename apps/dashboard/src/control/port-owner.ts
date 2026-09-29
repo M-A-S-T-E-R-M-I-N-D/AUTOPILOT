@@ -46,7 +46,10 @@ export function findPortOwnerPid(
     if (platform === 'win32') {
       return parseNetstatListener(run('netstat', ['-ano']), port);
     }
-    const out = run('lsof', ['-ti', `tcp:${port}`]).trim();
+    // -sTCP:LISTEN is load-bearing: without it lsof also lists every
+    // connected peer on the port (e.g. a browser tab on the SSE stream), and a
+    // client whose pid sorts first would be the one restart() kills.
+    const out = run('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN']).trim();
     const pid = Number(out.split('\n')[0]);
     return Number.isInteger(pid) && pid > 0 ? pid : null;
   } catch {

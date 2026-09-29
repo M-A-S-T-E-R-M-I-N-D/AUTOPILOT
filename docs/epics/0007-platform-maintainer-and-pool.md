@@ -11,9 +11,10 @@ endpoints (2026-08-16..17); canonical-lock, review ritual, and report-from-here
 remain open board slices; the contributor pool client (slice 6) shipped end to end —
 browse/claim/fly/deliver all landed; slice 7's publicity affordances have also
 shipped end to end — page upkeep continues as a live KEEPER duty, not a closeable
-deliverable (status refreshed 2026-09-27 — null-gh-row hardening completed across
-all four list readers: issue-triage, owned-work-reconcile, contributor-issue-list,
-and pr-review via commit 05f12a1b).
+deliverable (status refreshed 2026-09-28 — the strand-tasks security marker landed
+via commit dbe57b94, after the 2026-09-27 null-gh-row hardening across all four
+list readers: issue-triage, owned-work-reconcile, contributor-issue-list, and
+pr-review via commit 05f12a1b).
 
 Founder directive (2026-08-14, expanding epic 0006): the moment the infrastructure
 lands, there is exactly ONE canonical main version. **MASTERMIND is the sole manager of
@@ -775,6 +776,12 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `costUsd` at null; a PR that read a failed turn as a pass or priced tokens
    locally would slip past; the spawn slice will carry Codex's sandbox argv, the
    same tool-permission boundary as `claude-cli.ts` above; added in `110580e0`),
+   the strand-tasks security marker (`flight/strand-tasks.ts` added to
+   `SECURITY_SENSITIVE_PATH_MARKERS` — its `closeLandedStrandTasks` closes the
+   operator's STRANDED SYNC-BACK inbox tasks from inside the flight once the
+   head each names is an ancestor of the flight branch; a PR that widened what
+   counts as landed would close a strand whose commits are still parked, and
+   the operator would never hear of them again; added in `dbe57b94`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and

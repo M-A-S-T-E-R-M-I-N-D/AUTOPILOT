@@ -12,6 +12,9 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-28 | [Processing `ap-muk7f98l-strand`: "STRANDED SYNC-BACK … fleet-4 … merge … failed (exit 1): Auto-merging docs/epics/0036-provider-parity.md" — already rescued](2026-09-28-verdict-ap-muk7f98l-strand-already-rescued.md) |
+| 2026-09-28 | [Processing `ap-muk395cb-strand`: "STRANDED SYNC-BACK … fleet-5 … merge … failed (exit 1): Auto-merging apps/dashboard/src/flight/contributor-dossier.ts" — already rescued](2026-09-28-verdict-ap-muk395cb-strand-already-rescued.md) |
+| 2026-09-28 | [Closing `inbox-reland-revert-victims-md`: all four 03:18 revert-burst victims were relanded on 2026-09-07](2026-09-28-inbox-reland-revert-victims-already-relanded.md) |
 | 2026-09-27 | [Processing `ap-mujcc5sc-strand`: "STRANDED SYNC-BACK … fleet-3 … refusing to sync: the primary checkout has uncommitted changes" — already rescued](2026-09-27-verdict-ap-mujcc5sc-strand-already-rescued.md) |
 | 2026-09-27 | [Processing VERDICT `ap-muj0m9jm-0`: the 134 reverts come down to one missing change, which is already tracked — split refuted](2026-09-27-verdict-ap-muj0m9jm-0-reland-storm-victims-split-refuted.md) |
 | 2026-09-27 | [Processing VERDICT `ap-mtui8t6l-0`: the payload census still takes any `.field` as a read, split confirmed with two live false negatives](2026-09-27-verdict-ap-mtui8t6l-0-payload-census-split-confirmed.md) |
