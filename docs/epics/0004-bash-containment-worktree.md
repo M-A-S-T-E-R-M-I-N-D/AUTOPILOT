@@ -241,6 +241,28 @@ and the "its task really files" bullet above, at the stranded-task end of the sy
   makes under its per-project lock, not a new path into `target`'s tree. `docs/RUNBOOK.md`'s
   parked-lane section tells the operator when the task closes.
 
+`00a6e798` (2026-09-29, the one `fly.ts` commit since `dbe57b94`) amends the "one more rung"
+bullet above. That bullet gives the merge-escalation agent one attempt before the flight-end
+sync-back strands, but the attempt's outcome went only to the flight log:
+
+- **Rung 4 records every attempt, and a strand task says why it gave up.** The agent had met at
+  least two live conflicts and resolved neither, and nobody could say why. `fly.ts`'s escalation
+  hook now reduces each outcome with `summarizeMergeEscalationOutcome`
+  (`packages/engine/src/adapters/merge-escalation-agent.ts`) to a kind (`resolved`,
+  `agent-failed`, `left-unresolved`, `gate-red` or `commit-failed`) and one line of details.
+  `left-unresolved` now names its paths instead of only counting them. The hook writes that pair
+  as a `merge-escalation` event for every attempt, resolved or not. Like `sync-back-refusal`, the
+  write is best-effort: a failed insert never fails the flight. `syncWorktreeBranch` used to drop a
+  failed hook's details. It now returns them on the refusal as `escalation`, which stays undefined
+  when no hook ran, so "tried and failed" reads differently from "never tried". `strandTaskBody`
+  (`flight/strand-tasks.ts`) puts "Rung 4 (the merge-escalation agent) ran and did not resolve it
+  — `<kind>: <details>`" above the base, ours and theirs context in the `STRANDED SYNC-BACK` task,
+  whose title still carries the original `git merge` failure. `287f395d` then taught the fleet
+  report to read those events (`read/fleet-report-source.ts`'s `readReportEscalations`), so the
+  rung's success rate is a number. The event is a row in the dashboard's store, not a write into
+  `target`'s tree. The agent's 15-turn and $3 caps, its full-gate validation in the live checkout,
+  the worktree and the containment guard are all unchanged.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
