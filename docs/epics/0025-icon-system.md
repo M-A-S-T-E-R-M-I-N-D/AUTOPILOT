@@ -94,7 +94,14 @@ propagation, and the filled style does not match the nav.
    through toggle). **Geometric census at zero 2026-09-29:** the Firing
    Replay toggle's "▶ Step through" (en and he) was the last; it leads with
    a newly vendored `play` icon beside its text, the list is gone and the
-   test pins zero. The screenshots refresh (`docs/screens/`) is still open.
+   test pins zero. **Miscellaneous Technical census 2026-09-30:** the emoji
+   ranges also skipped U+2300–U+23FF, whose ⌚⌛ ⌨ ⏏ ⏩–⏳ ⏸–⏺ are Emoji=Yes
+   in Unicode's `emoji-data.txt`, so the census read zero while the triage
+   panels' "⏭ skip" badge and the shell's "⏱ try Nt" budget hint still
+   painted two of them. The census now matches those code points (⌘ stays a
+   key name). web/ is pinned to a shrink-only list of the four sites, which
+   wait on a vendored skip and stopwatch icon. STRINGS is pinned at zero.
+   The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 
