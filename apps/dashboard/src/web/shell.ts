@@ -1259,6 +1259,15 @@ var TASK_STATUS_KEYS = {
   needs_approval: 'taskStatusNeedsApproval',
   deferred: 'taskStatusDeferred',
 };
+// The task row's leading status glyph (epic 0026 row anatomy, epic 0025
+// icons): drawn inside the pill, which already names the status.
+var TASK_STATUS_ICONS = {
+  queued: 'circle',
+  in_progress: 'circle-dot',
+  done: 'circle-check',
+  needs_approval: 'circle-question-mark',
+  deferred: 'circle-pause',
+};
 var TASK_SEVERITY_KEYS = {
   critical: 'taskSeverityCritical',
   high: 'taskSeverityHigh',
@@ -3101,7 +3110,12 @@ function tasksSection(c) {
           li.appendChild(unpinBtn);
         }
       }
-      li.appendChild(statusPill('pill task-', t.status, TASK_STATUS_KEYS));
+      var taskPill = statusPill('pill task-', t.status, TASK_STATUS_KEYS);
+      // setSweptText() (features/locale.ts) keeps a leading icon when a
+      // locale switch rewrites the pill's word.
+      var statusIcon = TASK_STATUS_ICONS[t.status];
+      if (statusIcon) taskPill.insertBefore(iconEl(statusIcon), taskPill.firstChild);
+      li.appendChild(taskPill);
       // Title itself was the last silent element on the row — TaskEntry carries
       // at/priority but nothing ever displayed them (app-wide interactivity
       // audit v2 follow-up: every panel drills down).

@@ -11,6 +11,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { STRINGS } from '@autopilot/tokens';
 import { ICON_SHAPES, ICON_NAMES, iconSvg } from '../../src/web/icons.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
@@ -181,4 +182,63 @@ describe('the board row builds its glyphs as icons (no emoji)', () => {
       expect(row.parentElement?.textContent ?? '').not.toContain(glyph);
     }
   });
+
+  // Epic 0026's row anatomy: a leading status glyph (an icon, epic 0025).
+  // The pill keeps its word, tip and accessible name; the glyph is decorative.
+  it('each status pill leads with its status glyph, and a locale switch keeps it', async () => {
+    const GLYPHS: Record<string, string> = {
+      queued: 'circle',
+      in_progress: 'circle-dot',
+      done: 'circle-check',
+      needs_approval: 'circle-question-mark',
+      deferred: 'circle-pause',
+    };
+    const tasks = Object.keys(GLYPHS).map((status) => ({
+      id: 's-' + status,
+      title: 'Status ' + status,
+      status,
+      at: 1,
+    }));
+    const state = { ...STATE, projects: [{ ...PROJECT, tasks }] };
+    document.open();
+    document.write(renderShell('p1'));
+    document.close();
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => state,
+    })) as unknown as typeof fetch;
+    new Function(clientJs())();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-task-id="s-deferred"]')).not.toBeNull();
+    });
+    const pillOf = (status: string) =>
+      document.querySelector(`[data-task-id="s-${status}"] .pill.task-${status}`) as HTMLElement;
+    for (const [status, glyph] of Object.entries(GLYPHS)) {
+      expect(ICON_NAMES, glyph).toContain(glyph);
+      const pill = pillOf(status);
+      const icon = pill.firstElementChild as Element;
+      expect(icon.tagName.toLowerCase(), status).toBe('svg');
+      expect(icon.classList.contains('icon-' + glyph), status).toBe(true);
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+      expect(pill.querySelectorAll('svg')).toHaveLength(1);
+      expect(pill.textContent, status).toBe(STRINGS.en[TASK_STATUS_KEYS[status]!]);
+    }
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    for (const [status, glyph] of Object.entries(GLYPHS)) {
+      const pill = pillOf(status);
+      expect(pill.firstElementChild?.classList.contains('icon-' + glyph), status).toBe(true);
+      expect(pill.textContent, status).toBe(STRINGS.he[TASK_STATUS_KEYS[status]!]);
+    }
+  });
 });
+
+const TASK_STATUS_KEYS: Record<string, keyof typeof STRINGS.en> = {
+  queued: 'taskStatusQueued',
+  in_progress: 'taskStatusInProgress',
+  done: 'taskStatusDone',
+  needs_approval: 'taskStatusNeedsApproval',
+  deferred: 'taskStatusDeferred',
+};
