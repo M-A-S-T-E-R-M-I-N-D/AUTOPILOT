@@ -77,19 +77,33 @@ export interface ModelChoice {
   readonly reason: string;
 }
 
+const ALIASES = ['fable', 'opus', 'sonnet', 'haiku'] as const;
+
 /** The alias family a served model id belongs to: `claude-opus-5-5` → `opus`. */
 export function aliasOf(modelId: string): string | null {
   const id = modelId.toLowerCase();
-  for (const alias of ['fable', 'opus', 'sonnet', 'haiku']) {
+  for (const alias of ALIASES) {
     if (id.includes(alias)) return alias;
   }
   return null;
 }
 
 /**
+ * Whether a recorded model is a bare alias (`opus`) rather than a served id.
+ * The engine records the alias it asked for when the firing died before the
+ * model answered (no envelope usage, nothing streamed), so it names no version.
+ */
+function isBareAlias(modelId: string): boolean {
+  return (ALIASES as readonly string[]).includes(modelId.toLowerCase());
+}
+
+/**
  * Per alias, the stats of the model it serves NOW in `tier`: the most recent
  * served id of that family is its current model, and only firings of that
- * id count — an older version's record does not vouch for a newer one.
+ * id count — an older version's record does not vouch for a newer one. A
+ * bare alias is never a served id (2026-09-29: four such records made "opus"
+ * the current model and dropped the whole claude-opus-5-5 record), so those
+ * firings neither set the current model nor count.
  */
 export function tierStats(
   firings: readonly RoutedFiring[],
@@ -98,7 +112,7 @@ export function tierStats(
 ): Map<string, ArmStats> {
   const stats = new Map<string, ArmStats>();
   for (const alias of candidates) {
-    const ofAlias = firings.filter((f) => aliasOf(f.modelId) === alias);
+    const ofAlias = firings.filter((f) => !isBareAlias(f.modelId) && aliasOf(f.modelId) === alias);
     const current = ofAlias.length === 0 ? null : ofAlias[ofAlias.length - 1]!.modelId;
     const counted = firings.filter((f) => f.tier === tier && f.modelId === current);
     stats.set(alias, {
