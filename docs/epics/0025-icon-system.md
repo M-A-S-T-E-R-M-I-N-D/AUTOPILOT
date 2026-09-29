@@ -91,7 +91,10 @@ propagation, and the filled style does not match the nav.
    wisdom proposal pending" with ◇/◐/◆ exactly as ✦/⚑ had been used; all
    three lead with the evolution panel's `dna` icon now, and the STRINGS
    census pins the block's remaining keys to a shrink-only list (the ▶ Step
-   through toggle). The screenshots refresh (`docs/screens/`) is still open.
+   through toggle). **Geometric census at zero 2026-09-29:** the Firing
+   Replay toggle's "▶ Step through" (en and he) was the last; it leads with
+   a newly vendored `play` icon beside its text, the list is gone and the
+   test pins zero. The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

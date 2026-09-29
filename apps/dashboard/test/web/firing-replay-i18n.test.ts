@@ -3,7 +3,7 @@
 
 /**
  * The Firing Replay playback controls' i18n (board web-msnsndki-dz3vn1): a
- * drilled-open firing's "▶ Step through" toggle and the Prev / Next / Exit
+ * drilled-open firing's "Step through" toggle and the Prev / Next / Exit
  * bar it opens (`web/features/firing-timeline.ts`) still said "‹ Prev" /
  * "Next ›" / "Exit replay" and explained themselves with English-only tips
  * and aria-labels regardless of the active locale, even after the "Per-firing
@@ -149,11 +149,12 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
     }
   });
 
-  it('tags the "Step through" toggle, English text/aria/tip byte-identical to the pre-i18n control', async () => {
+  it('tags the "Step through" toggle, English aria/tip byte-identical to the pre-i18n control', async () => {
     await openFiring();
 
     const toggle = q('[data-replay-start="f1"]');
-    expect(toggle.textContent).toBe('▶ Step through');
+    // Epic 0025: the ▶ the text led with is the vendored play icon now.
+    expect(toggle.textContent).toBe('Step through');
     expect(toggle.getAttribute('data-i18n')).toBe('replayStart');
     expect(toggle.getAttribute('aria-label')).toBe('Step through');
     expect(toggle.getAttribute('data-i18n-aria')).toBe('replayStartAria');
@@ -161,6 +162,24 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
       'Replay this firing one action at a time with Prev and Next controls',
     );
     expect(toggle.getAttribute('data-i18n-tip')).toBe('replayStartTip');
+  });
+
+  it('the toggle leads with the decorative play icon, kept across a locale switch (epic 0025)', async () => {
+    await openFiring();
+
+    const icon = q('[data-replay-start="f1"]').firstElementChild;
+    expect(icon?.tagName).toBe('svg');
+    expect(icon?.classList.contains('icon-play')).toBe(true);
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+
+    clickLocale('he');
+    const toggle = q('[data-replay-start="f1"]');
+    expect(toggle.querySelector('svg.icon-play')).not.toBeNull();
+    expect(toggle.textContent).toBe(he('replayStart'));
+    for (const table of Object.values(STRINGS)) {
+      expect(table.replayStart).not.toContain('▶');
+      expect(table.replayStart).toBe(table.replayStart.trim());
+    }
   });
 
   it('tags Prev, Next and Exit the same way; Exit shares one key for its text and aria-label', async () => {

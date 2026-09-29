@@ -63,7 +63,7 @@
  * identifier reference in `fleetJs()`'s own served text, the same reason
  * every whole-region move's own call site already relies on.
  * i18n (board web-msnsndki-dz3vn1): the Firing Replay playback controls —
- * the "▶ Step through" toggle and the Prev / Next / Exit bar — carry
+ * the "Step through" toggle and the Prev / Next / Exit bar — carry
  * `data-i18n` / `data-i18n-aria` / `data-i18n-tip` keys (`replay*` in
  * `@autopilot/tokens`' `STRINGS`) next to their English literals, so
  * `translateDom()` (called by `renderFleet()` after every rebuild, and by a
@@ -433,7 +433,11 @@ function firingTimelineSection(c) {
             'Replay this firing one action at a time with Prev and Next controls',
           );
           replayToggle.setAttribute('data-i18n-tip', 'replayStartTip');
-          replayToggle.textContent = '▶ Step through';
+          // Epic 0025 (board web-mtywp7zq-55f3o9): the vendored play icon
+          // replaces the ▶ STRINGS used to bake into the text — setSweptText()
+          // (features/locale.ts) keeps it across the [data-i18n] sweep.
+          replayToggle.appendChild(iconEl('play'));
+          replayToggle.appendChild(document.createTextNode('Step through'));
           replayToggle.setAttribute('data-i18n', 'replayStart');
           wrap.appendChild(replayToggle);
         }
