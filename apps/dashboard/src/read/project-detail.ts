@@ -400,7 +400,7 @@ export async function readCoordinationState(
     store = openStore(dbPath, { readonly: true });
     const project = listProjects(store.db).find((p) => p.id === projectId);
     if (!project) return [];
-    const digest = await buildFleetDigest(store, projectId, '', project.root_path);
+    const digest = await buildFleetDigest(store, projectId, '', project.root_path, dirname(dbPath));
     return digest === '' ? [] : digest.split('\n');
   } catch {
     return [];

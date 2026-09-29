@@ -1458,7 +1458,13 @@ async function main(): Promise<void> {
         lastFiringEscalated =
           routedModel !== undefined && budgetMultiplierForModel(routedModel) > 1;
         lastRequestedModel = routedModel ?? config.primaryModel;
-        const fleet = await buildFleetDigest(store, projectId, instanceKey, target);
+        const fleet = await buildFleetDigest(
+          store,
+          projectId,
+          instanceKey,
+          target,
+          dirname(dbPath),
+        );
         return {
           text: buildFiringPrompt({
             soul,

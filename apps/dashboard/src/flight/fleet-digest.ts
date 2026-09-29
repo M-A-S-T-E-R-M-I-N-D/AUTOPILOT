@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { fenceTitle, GitVcs } from '@autopilot/engine';
 import type { Store } from '@autopilot/store';
 import { declaredIntent, INTENT_FILE_NAME, listWorktreePaths } from './intent-claims.js';
+import { isFlightOwnerAlive } from './lock.js';
 
 // The claims lifecycle (declare → retire → verify) lives in intent-claims.ts
 // (ADR-0006); re-exported here so existing consumers keep one import site.
@@ -100,12 +101,20 @@ const REF_SUBJECT_SEP = '\u001f';
  * touching, and what it has already committed but not yet landed —
  * refreshed every firing, '' when flying solo so the prompt section
  * renders only for a real fleet.
+ *
+ * With `lockDir` (the store's directory, where each lane's engine lock
+ * sits), a sibling whose lane holds no live lock reads as PARKED: its line
+ * says it claims nothing and drops the intent and touched files, which are
+ * only true of a lane in flight. Lanes fleet-6..8 died mid-unit on
+ * 2026-09-20 and never flew again; for ten days their checkpoints' intents
+ * read as live claims, and one blocked a VERDICT outright.
  */
 export async function buildFleetDigest(
   store: Store,
   projectId: string,
   instanceKey: string,
   target: string,
+  lockDir?: string,
 ): Promise<string> {
   const claims = store.db
     .prepare(
@@ -133,17 +142,21 @@ export async function buildFleetDigest(
       branches = await Promise.all(
         refLines.map(async (l) => {
           const [ref = '', subject = ''] = l.split(REF_SUBJECT_SEP);
+          const unlanded = formatFileList(
+            'unlanded',
+            await unlandedFiles(vcs, base, ref),
+            MAX_UNLANDED_FILES,
+          );
+          const lane = ref.slice(ref.lastIndexOf('--') + 2);
+          if (lockDir !== undefined && !isFlightOwnerAlive(lockDir, target, lane)) {
+            return `- sibling ${ref}: parked, not flying — claims nothing; last commit "${fenceTitle(subject)}"${unlanded}`;
+          }
           const worktreePath = worktreePaths.get(`refs/heads/${ref}`);
           const intentLine = worktreePath ? declaredIntent(worktreePath) : '';
           const intent = intentLine === '' ? '' : `; intent: ${intentLine}`;
           const touching = worktreePath
             ? formatFileList('touching', touchingFiles(worktreePath), MAX_TOUCHING_FILES)
             : '';
-          const unlanded = formatFileList(
-            'unlanded',
-            await unlandedFiles(vcs, base, ref),
-            MAX_UNLANDED_FILES,
-          );
           return `- sibling ${ref}: last commit "${fenceTitle(subject)}"${intent}${touching}${unlanded}`;
         }),
       );
