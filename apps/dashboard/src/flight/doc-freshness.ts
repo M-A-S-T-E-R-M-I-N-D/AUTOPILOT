@@ -228,15 +228,27 @@ export interface DocFreshnessFinding {
   readonly newestStaleSubjectTouchedAt: number;
 }
 
+/** Whether `subject` is still what `doc`'s last commit saw: `true` or `false`
+ *  from the repository, `undefined` when it cannot say. */
+export type DocSawSubject = (doc: string, subject: string) => boolean | undefined;
+
 /**
  * Compare each doc's last-touch time against its subjects'. A doc or subject
  * missing from `lastTouchedAt` (e.g. untracked, or outside the git history
  * window a caller chose to fetch) is skipped rather than treated as infinitely
  * stale or infinitely fresh — no finding beats a wrong one.
+ *
+ * Clocks only approximate "the doc saw the change". Across fleet lanes a doc
+ * commit made later on a sibling lane can still be blind to a subject commit
+ * that landed beside it (board ap-mularw4d-0: 63da8342 edited epic 0004 at
+ * 01:59 without ever seeing dbe57b94's 00:33 fly.ts change). So when
+ * `docSawSubject` gives an answer, the repository decides, and the clock
+ * comparison is only the fallback for when it cannot.
  */
 export function computeDocDrift(
   entries: readonly DocSubjectEntry[],
   lastTouchedAt: ReadonlyMap<string, number>,
+  docSawSubject: DocSawSubject = () => undefined,
 ): readonly DocFreshnessFinding[] {
   const findings: DocFreshnessFinding[] = [];
   for (const { doc, subjects } of entries) {
@@ -245,7 +257,8 @@ export function computeDocDrift(
     let newest: { subject: string; touchedAt: number } | null = null;
     for (const subject of subjects) {
       const touchedAt = lastTouchedAt.get(subject);
-      if (touchedAt === undefined || touchedAt <= docTouchedAt) continue;
+      if (touchedAt === undefined) continue;
+      if (docSawSubject(doc, subject) ?? touchedAt <= docTouchedAt) continue;
       if (!newest || touchedAt > newest.touchedAt) newest = { subject, touchedAt };
     }
     if (newest) {
@@ -351,4 +364,43 @@ export function collectDocFreshnessTimestamps(
     if (touchedAt !== null) map.set(path, touchedAt);
   }
   return map;
+}
+
+/** One git read: trimmed stdout, or `null` when git fails — kept apart from
+ *  an empty answer, because "no difference" is itself the answer. */
+function gitOutput(repo: string, args: readonly string[]): string | null {
+  try {
+    return execFileSync('git', ['-C', repo, ...args], {
+      encoding: 'utf8',
+      windowsHide: true,
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The real `DocSawSubject`: the doc saw `subject` when the subject at HEAD is
+ * exactly what it was in the doc's own last commit. It compares content, not
+ * history, on purpose. On 2026-09-29 a history walk flagged MODEL-CARD.md
+ * against prompt.ts over a merge, its revert and the reland (a5e156a8,
+ * 5780614b, f8cf80bf), which left prompt.ts byte-identical to what the doc
+ * last saw. The doc's last commit is looked up once per doc, not per subject.
+ * A doc git cannot resolve answers `undefined`, which leaves the decision to
+ * the clock.
+ */
+export function gitDocSawSubject(repo: string): DocSawSubject {
+  const docHeads = new Map<string, string | null>();
+  const docHead = (doc: string): string | null => {
+    if (!docHeads.has(doc)) {
+      docHeads.set(doc, gitOutput(repo, ['log', '-1', '--format=%H', '--', doc]) || null);
+    }
+    return docHeads.get(doc) ?? null;
+  };
+  return (doc, subject) => {
+    const head = docHead(doc);
+    if (!head) return undefined;
+    const changed = gitOutput(repo, ['diff', '--name-only', head, 'HEAD', '--', subject]);
+    return changed === null ? undefined : changed === '';
+  };
 }

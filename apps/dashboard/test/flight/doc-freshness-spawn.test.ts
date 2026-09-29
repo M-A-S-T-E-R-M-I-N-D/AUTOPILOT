@@ -21,7 +21,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { gitLastTouchedAt } from '../../src/flight/doc-freshness.js';
+import { gitDocSawSubject, gitLastTouchedAt } from '../../src/flight/doc-freshness.js';
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
 
@@ -57,5 +57,50 @@ describe('gitLastTouchedAt', () => {
     vi.mocked(execFileSync).mockReturnValue('' as unknown as ReturnType<typeof execFileSync>);
 
     expect(gitLastTouchedAt('/repo', 'docs/NEVER-COMMITTED.md')).toBeNull();
+  });
+});
+
+describe('gitDocSawSubject', () => {
+  const answer = (out: string) => out as unknown as ReturnType<typeof execFileSync>;
+
+  it("finds the doc's last commit once, then diffs each subject against HEAD, console hidden", () => {
+    vi.mocked(execFileSync)
+      .mockReturnValueOnce(answer('abc123\n'))
+      .mockReturnValueOnce(answer(''))
+      .mockReturnValueOnce(answer('src/b.ts\n'));
+
+    const saw = gitDocSawSubject('/repo');
+    expect(saw('docs/x.md', 'src/a.ts')).toBe(true);
+    expect(saw('docs/x.md', 'src/b.ts')).toBe(false);
+
+    const calls = vi.mocked(execFileSync).mock.calls;
+    expect(calls.map(([command, args]) => [command, args])).toEqual([
+      ['git', ['-C', '/repo', 'log', '-1', '--format=%H', '--', 'docs/x.md']],
+      ['git', ['-C', '/repo', 'diff', '--name-only', 'abc123', 'HEAD', '--', 'src/a.ts']],
+      ['git', ['-C', '/repo', 'diff', '--name-only', 'abc123', 'HEAD', '--', 'src/b.ts']],
+    ]);
+    // Same reason as gitLastTouchedAt above: one spawn per subject.
+    for (const [, , options] of calls) {
+      expect(options).toMatchObject({ encoding: 'utf8', windowsHide: true });
+    }
+  });
+
+  it('cannot say when the doc has no commit, and never runs the diff', () => {
+    vi.mocked(execFileSync).mockReturnValue(answer(''));
+
+    const saw = gitDocSawSubject('/repo');
+    expect(saw('docs/new.md', 'src/a.ts')).toBeUndefined();
+    expect(saw('docs/new.md', 'src/b.ts')).toBeUndefined();
+    expect(vi.mocked(execFileSync)).toHaveBeenCalledTimes(1);
+  });
+
+  it('cannot say when the diff itself fails', () => {
+    vi.mocked(execFileSync)
+      .mockReturnValueOnce(answer('abc123\n'))
+      .mockImplementationOnce(() => {
+        throw new Error('fatal: bad revision');
+      });
+
+    expect(gitDocSawSubject('/repo')('docs/x.md', 'src/a.ts')).toBeUndefined();
   });
 });
