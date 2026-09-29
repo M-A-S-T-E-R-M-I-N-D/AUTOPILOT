@@ -61,6 +61,12 @@ describe('isRepoReadingTest', () => {
       expect(isRepoReadingTest(source), source).toBe(false);
     }
   });
+
+  it('never splices the text around a removed config argv into a path', () => {
+    // A slash before the argv and a folder name right after it must not
+    // meet once the argv is gone.
+    expect(isRepoReadingTest("readFileSync(p); const s = `/['config'docs/`;")).toBe(false);
+  });
 });
 
 describe('censusTestFiles', () => {
@@ -107,6 +113,16 @@ describe('censusTestFiles', () => {
   it('copes with a root that has no apps or packages at all', () => {
     const root = mkdtempSync(join(tmpdir(), 'ap-census-empty-'));
     try {
+      expect(censusTestFiles(root)).toEqual([...ALWAYS].sort());
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('copes with a package that has no test folder', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ap-census-notest-'));
+    try {
+      mkdirSync(join(root, 'packages', 'bare'), { recursive: true });
       expect(censusTestFiles(root)).toEqual([...ALWAYS].sort());
     } finally {
       rmSync(root, { recursive: true, force: true });

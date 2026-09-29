@@ -572,6 +572,39 @@ describe('GitVcs', () => {
     expect(stats).toEqual([{ path: 'lane-fix.txt', insertions: 1, deletions: 0 }]);
   });
 
+  it('sums a file changed by several lane commits around a merge', async () => {
+    writeFileSync(join(dir, 'notes.txt'), 'a\nb\nc\nd\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'chore: seed notes']);
+    const from = await vcs.head();
+    const lane = gitSync(dir, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+    gitSync(dir, ['checkout', '-q', '-b', 'base']);
+    writeFileSync(join(dir, 'base-work.txt'), 'x\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: base work']);
+    gitSync(dir, ['checkout', '-q', lane]);
+    writeFileSync(join(dir, 'notes.txt'), 'b\nc\nd\n');
+    gitSync(dir, ['commit', '-q', '-am', 'fix: drop a']);
+    gitSync(dir, ['merge', '-q', '--no-ff', '-m', 'chore: merge base', 'base']);
+    writeFileSync(join(dir, 'notes.txt'), 'c\nd\n');
+    gitSync(dir, ['commit', '-q', '-am', 'fix: drop b']);
+
+    expect(await vcs.diffNumstat(from, 'HEAD')).toEqual([
+      { path: 'notes.txt', insertions: 0, deletions: 2 },
+    ]);
+  });
+
+  it('reads a range with no merge as one diff, so changes that cancel out count as none', async () => {
+    const from = await vcs.head();
+    writeFileSync(join(dir, 'scratch.txt'), 'temporary\n');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'chore: add scratch']);
+    gitSync(dir, ['rm', '-q', 'scratch.txt']);
+    gitSync(dir, ['commit', '-q', '-m', 'chore: drop scratch']);
+
+    expect(await vcs.diffNumstat(from, 'HEAD')).toEqual([]);
+  });
+
   it('degrades to [] for diffNumstat on an unborn/invalid ref, same as changedFiles', async () => {
     expect(await vcs.diffNumstat('', 'HEAD')).toEqual([]);
     expect(await vcs.diffNumstat('deadbeef', 'HEAD')).toEqual([]);
