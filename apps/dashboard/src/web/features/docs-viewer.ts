@@ -485,6 +485,11 @@ function buildDocsEditor(pid, path, content) {
   actions.appendChild(cancelBtn);
   var result = el('p', 'docs-editor-result');
   result.setAttribute('data-doc-edit-result', pid);
+  // A refused save (or a network failure) is written here after the Save
+  // click, once focus has moved on — a polite live region announces it the
+  // way the other execute results do (board ap-mtmpekhi-0 sweep).
+  result.setAttribute('role', 'status');
+  result.setAttribute('aria-live', 'polite');
   actions.appendChild(result);
   wrap.appendChild(actions);
   updateEditorPreview(pid, path, preview, content);

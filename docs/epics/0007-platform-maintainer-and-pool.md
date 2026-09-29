@@ -938,7 +938,13 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    its tests survived, red — re-verified green: `pool-client-panel.test.ts`,
    `pool-client-fly.test.ts`, `pool-client.test.ts`,
    `pool-client-execute.test.ts`, 64/64). Browse/claim/fly/deliver — every
-   leg of slice 6 is now shipped.
+   leg of slice 6 is now shipped. Refined 2026-09-29 (the ap-mtmpekhi-0
+   live-region sweep that followed slice 3's entry above): the panel's
+   `.pool-client-result` now carries `role="status"`/`aria-live="polite"`,
+   so the claim outcome written there after the confirm dialog is announced;
+   `test/web/execute-result-live-regions.test.ts` asserts it alongside the
+   release panel's `.release-result` and the Docs editor's
+   `.docs-editor-result`, the last two plain result elements in the app.
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
