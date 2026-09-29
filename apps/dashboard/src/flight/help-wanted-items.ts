@@ -35,7 +35,7 @@
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
-import { parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
 
 /** GitHub's default "help wanted" label — the only label this module reads
  *  by. Not seeded by this repo's own `taxonomy-seed.ts` (a GitHub default,
@@ -80,9 +80,10 @@ interface RawHelpWantedItem {
 }
 
 /**
- * Lists every open issue carrying the `help wanted` label via `gh issue list
- * --state open --label "help wanted" --json number,title,url,labels,
- * assignees`, run through the injectable `exec` — the same `CliExec` shape
+ * Lists every open issue carrying the `help wanted` label (up to
+ * `MAX_ISSUE_LIST`) via `gh issue list --state open --label "help wanted"
+ * --json number,title,url,labels,assignees`, run through the injectable
+ * `exec` — the same `CliExec` shape
  * `roadmap-items.ts`'s `fetchRoadmapItems` and `pool-client.ts`'s
  * `fetchPoolIssues` use. Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing — no open help-wanted
@@ -103,6 +104,8 @@ export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedIte
     'open',
     '--label',
     HELP_WANTED_LABEL,
+    '--limit',
+    String(MAX_ISSUE_LIST),
     '--json',
     'number,title,url,labels,assignees',
   ]);

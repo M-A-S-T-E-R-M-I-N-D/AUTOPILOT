@@ -22,6 +22,7 @@ import {
   queueClaimedPoolIssueTask,
   type PoolIssue,
 } from '../../src/flight/pool-client.js';
+import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function project(s: Store, id: string): void {
@@ -186,6 +187,8 @@ describe('fetchPoolIssues', () => {
       'list',
       '--state',
       'open',
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,labels,assignees,comments',
     ]);

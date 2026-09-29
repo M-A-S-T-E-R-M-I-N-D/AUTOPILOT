@@ -23,6 +23,7 @@ import {
   fetchRepoMilestones,
   executeIssueTriageCommands,
   runIssueTriageRitual,
+  MAX_ISSUE_LIST,
 } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -762,9 +763,19 @@ describe('fetchOpenIssues', () => {
       'list',
       '--state',
       'open',
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,body,url,labels,assignees,author,createdAt,milestone',
     ]);
+  });
+
+  // Regression, epic 0019 additive-only law (the KEEPER triage ritual): with
+  // no `--limit`, gh returns its default 30 newest open issues, so on a busier
+  // repo the oldest ones were never triaged at all.
+  it('asks gh for more than its silent 30-issue default, and no more than search can return', () => {
+    expect(MAX_ISSUE_LIST).toBeGreaterThan(30);
+    expect(MAX_ISSUE_LIST).toBeLessThanOrEqual(1000);
   });
 
   it('parses the url off each issue, dropping a malformed url', async () => {

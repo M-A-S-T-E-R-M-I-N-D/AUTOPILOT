@@ -18,7 +18,11 @@ import {
   DOSSIER_POSTED_LABEL,
   PARTNER_APPLICATION_LABEL,
 } from '../../src/flight/contributor-dossier.js';
-import { AGENT_OK_LABEL, NEEDS_FORMAT_LABEL } from '../../src/flight/issue-triage.js';
+import {
+  AGENT_OK_LABEL,
+  MAX_ISSUE_LIST,
+  NEEDS_FORMAT_LABEL,
+} from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
 
@@ -425,6 +429,14 @@ describe('HOUSE_TAXONOMY_LABELS × claim protocol (regression, epic 0019 additiv
   it('never has /unclaim call the endpoint that removes every label on the issue', () => {
     // `.../issues/$NUM/labels` with no `/<name>` after it is the remove-all call.
     expect(claimBranch('/unclaim*')).not.toMatch(/\/issues\/\$NUM\/labels(?!\/)/);
+  });
+
+  it('has the reaper list every claim, not the newest 30 gh returns by default', () => {
+    // No `--limit` meant gh's default 30, newest first, so the OLDEST claims,
+    // the likeliest to have gone quiet, were never checked or released.
+    expect(STALE_CLAIM_REAPER).toContain(
+      `gh issue list --repo "$REPO" --label ${CLAIMED_LABEL} --state open --limit ${MAX_ISSUE_LIST} `,
+    );
   });
 
   it('has the reaper keep the quiet window the /claim reply promises', () => {
