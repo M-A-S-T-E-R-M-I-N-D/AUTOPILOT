@@ -38,6 +38,7 @@ import { readRoutedFirings, renderScoreboard } from '../flight/model-scoreboard.
 import {
   readReportFirings,
   readReportConvergence,
+  readReportEscalations,
   readParkedLanes,
 } from '../read/fleet-report-source.js';
 import { runFleetLaunch, parseFleetCliArgs } from '../flight/fleet-launch.js';
@@ -364,6 +365,7 @@ async function main(): Promise<void> {
           readReportConvergence(store.db, projectId, since),
           `${projectId}, last ${days} day(s)`,
           readParkedLanes(target, projectId),
+          readReportEscalations(store.db, projectId, since),
         );
         for (const line of lines) out(line);
         out('');
