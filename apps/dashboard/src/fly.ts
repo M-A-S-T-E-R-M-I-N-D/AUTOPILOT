@@ -211,6 +211,7 @@ import {
 } from './flight/fleet-digest.js';
 import { isFocusBoundHere, orderClaimCandidatesFocusFirst } from './flight/focus.js';
 import { fullGateSpec, perFiringGateSpec } from './flight/gate-schedule.js';
+import { gateFailureFeedback } from './flight/gate-feedback.js';
 import { wasAutoformatRescued } from './read/fleet.js';
 import {
   nearMissDebriefLine,
@@ -1192,11 +1193,7 @@ async function main(): Promise<void> {
     const feedbackGate: GatePort = {
       run: async () => {
         const r = await gate.run();
-        lastFailureFeedback = r.ok
-          ? undefined
-          : 'THE GATE FAILED — the commit was reverted. Run every gate command yourself\n' +
-            '(including lint and format checks) before committing; correct work dies to\n' +
-            `mechanical checks too.\n${r.details ?? ''}`;
+        lastFailureFeedback = gateFailureFeedback(r);
         return r;
       },
     };
