@@ -29,6 +29,13 @@
  * the report menu's Copy element HTML (🧩) and Copy smart context (🧠)
  * labels were the last, swept to the vendored code-xml and braces icons, so
  * it now pins zero — law 5's "the test pins zero", for STRINGS as for web/.
+ *
+ * Miscellaneous Technical (U+2300–U+23FF) sat outside every range here, so
+ * the web/ census read zero while the triage panels' "⏭ skip" badge and the
+ * shell's "⏱ try Nt" budget hint still painted emoji: Unicode's emoji-data.txt
+ * lists ⌚⌛ ⌨ ⏏ ⏩–⏳ ⏸–⏺ as Emoji=Yes (⏭/⏱ text-default, like ⚠). ⌘
+ * (U+2318) is not emoji and stays a key name. The block has its own census:
+ * a shrink-only list of the sites still carrying one, and zero in STRINGS.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -52,6 +59,23 @@ const ALLOWED_GLYPHS = new Set(['✓', '✗', '⚠']);
 const EMOJI_PATTERN =
   /[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu;
 
+/** The Emoji=Yes code points of Miscellaneous Technical, verbatim from
+ *  https://www.unicode.org/Public/UCD/latest/ucd/emoji/emoji-data.txt —
+ *  a list, not the block, so ⌘ and the other key names stay out. */
+const TECHNICAL_EMOJI_PATTERN =
+  /[\u{231A}\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}]/gu;
+
+/** The web/ sites still painting a Miscellaneous Technical emoji — shrink-only:
+ *  a slice that sweeps one deletes its line, and the list ends at zero like
+ *  the census above. The triage badges need a vendored skip icon; the shell's
+ *  budget hint needs one for its stopwatch. */
+const TECHNICAL_EMOJI_SITES = [
+  'discussions-triage-panel.ts: ⏭ (U+23ed)',
+  'issue-triage-panel.ts: ⏭ (U+23ed)',
+  'shell.ts: ⏱ (U+23f1)',
+  'shell.ts: ⏱ (U+23f1)',
+];
+
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map((f) => String(f))
@@ -68,6 +92,21 @@ function stripComments(source: string): string {
     .join('\n');
 }
 
+/** Every glyph `pattern` finds in `files` outside comments, as
+ *  `file: glyph (U+hex)`, sorted so the list reads the same on every disk. */
+function webOffenders(files: readonly string[], pattern: RegExp): string[] {
+  const offenders: string[] = [];
+  for (const file of files) {
+    const code = stripComments(readFileSync(join(WEB_DIR, file), 'utf8'));
+    for (const match of code.matchAll(pattern)) {
+      const glyph = match[0];
+      if (ALLOWED_GLYPHS.has(glyph)) continue;
+      offenders.push(`${file}: ${glyph} (U+${glyph.codePointAt(0)!.toString(16)})`);
+    }
+  }
+  return offenders.sort();
+}
+
 describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web/ chrome', () => {
   const files = tsFilesUnder(WEB_DIR);
 
@@ -76,25 +115,26 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
   });
 
   it('bakes no emoji glyph into any web/ source file outside comments', () => {
-    const offenders: string[] = [];
-    for (const file of files) {
-      const code = stripComments(readFileSync(join(WEB_DIR, file), 'utf8'));
-      for (const match of code.matchAll(EMOJI_PATTERN)) {
-        const glyph = match[0];
-        if (ALLOWED_GLYPHS.has(glyph)) continue;
-        offenders.push(`${file}: ${glyph} (U+${glyph.codePointAt(0)!.toString(16)})`);
-      }
-    }
+    const offenders = webOffenders(files, EMOJI_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('pins the Miscellaneous Technical emoji still in web/ chrome to a shrink-only list', () => {
+    const offenders = webOffenders(files, TECHNICAL_EMOJI_PATTERN);
+    expect(offenders, offenders.join('\n')).toEqual(TECHNICAL_EMOJI_SITES);
+  });
+
+  it('matches ⏭/⏱ but leaves the ⌘ key name alone', () => {
+    expect('⏭ skip · ⏱ try · ⌘ K'.match(TECHNICAL_EMOJI_PATTERN)).toEqual(['⏭', '⏱']);
   });
 });
 
-function emojiBearingStringKeys(): string[] {
+function emojiBearingStringKeys(pattern: RegExp = EMOJI_PATTERN): string[] {
   return Object.entries(STRINGS)
     .flatMap(([locale, table]) =>
       Object.entries(table)
         .filter(([, value]) =>
-          [...value.matchAll(EMOJI_PATTERN)].some((match) => !ALLOWED_GLYPHS.has(match[0])),
+          [...value.matchAll(pattern)].some((match) => !ALLOWED_GLYPHS.has(match[0])),
         )
         .map(([key]) => `${locale}.${key}`),
     )
@@ -103,10 +143,10 @@ function emojiBearingStringKeys(): string[] {
 
 /** Geometric Shapes (U+25A0–U+25FF) sit outside EMOJI_PATTERN, yet the SOUL
  *  cards used ◇/◐/◆ exactly as the epic's ✦/⚑ were used — a glyph standing in
- *  for an icon — until they took the vendored dna icon (2026-09-27). This
- *  list may only shrink; the "▶ Step through" replay toggle is what is left. */
+ *  for an icon — until they took the vendored dna icon (2026-09-27). The
+ *  replay toggle's "▶ Step through" was the last; it leads with the vendored
+ *  play icon now, so this census pins zero like the emoji one above. */
 const GEOMETRIC_GLYPH = /[■-◿]/u;
-const GEOMETRIC_GLYPH_KEYS_LEFT = ['en.replayStart', 'he.replayStart'];
 
 function geometricGlyphStringKeys(): string[] {
   return Object.entries(STRINGS)
@@ -127,8 +167,12 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
     expect(emojiBearingStringKeys()).toEqual([]);
   });
 
-  it('leads with a Geometric Shapes glyph-icon only where the shrink-only list says', () => {
-    expect(geometricGlyphStringKeys()).toEqual(GEOMETRIC_GLYPH_KEYS_LEFT);
+  it('bakes no Miscellaneous Technical emoji into any locale value', () => {
+    expect(emojiBearingStringKeys(TECHNICAL_EMOJI_PATTERN)).toEqual([]);
+  });
+
+  it('leads with no Geometric Shapes glyph-icon in any locale value', () => {
+    expect(geometricGlyphStringKeys()).toEqual([]);
   });
 
   it('the lucky roll speaks without its old baked-in clover in either locale', () => {

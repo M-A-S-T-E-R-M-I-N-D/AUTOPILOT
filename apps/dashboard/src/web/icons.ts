@@ -430,6 +430,17 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1' }],
     ['path', { d: 'M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the Firing Replay
+  // "Step through" toggle drops its baked-in ▶ — the last Geometric Shapes
+  // glyph standing in for an icon in a STRINGS value.
+  play: [
+    [
+      'path',
+      {
+        d: 'M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z',
+      },
+    ],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
