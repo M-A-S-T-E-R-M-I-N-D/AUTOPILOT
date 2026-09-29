@@ -19,6 +19,9 @@ work it judges.
 - **Convergence:** how the merged head fared after each sync-back, split
   into reds on a lane's own commit, reds on a merge, and gates that gave no
   verdict.
+- **Rung 4:** how many conflicting sync-backs the merge-escalation agent
+  tried to resolve, how many it resolved, and which step stopped it on the
+  rest: the agent itself, a path it left unresolved, the gate or the commit.
 - **Parked work:** commits still sitting on a lane branch.
 - **The model scoreboard:** for each tier of work, each model's firings,
   ship rate and cost per ship. A tier's leader is the cheapest model whose
