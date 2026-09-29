@@ -14,7 +14,12 @@ import type { Store } from '@autopilot/store';
 type Db = Store['db'];
 import { parseFiringDeath, parseNoopClass } from './source.js';
 import { execFileSync } from 'node:child_process';
-import type { ParkedLane, ReportConvergence, ReportFiring } from './fleet-report.js';
+import type {
+  ParkedLane,
+  ReportConvergence,
+  ReportEscalation,
+  ReportFiring,
+} from './fleet-report.js';
 
 interface FiringRow {
   readonly firing_id: string;
@@ -91,6 +96,46 @@ export function readReportConvergence(
       ...(typeof p.queuedMs === 'number' ? { queuedMs: p.queuedMs } : {}),
     };
   });
+}
+
+/**
+ * Every rung-4 attempt since the moment, oldest first: the `merge-escalation`
+ * events `fly.ts` writes at a lane's flight-end sync-back. A payload without
+ * a string `kind` still counts as an attempt, as `unrecorded`.
+ */
+export function readReportEscalations(
+  db: Db,
+  baseProjectId: string,
+  sinceMs: number,
+): ReportEscalation[] {
+  const rows = db
+    .prepare(
+      `SELECT payload FROM events
+        WHERE (project_id = ? OR project_id LIKE ? ESCAPE '\\')
+          AND type = 'merge-escalation'
+          AND created_at >= ?
+        ORDER BY created_at, id`,
+    )
+    .all(baseProjectId, `${likeEscape(baseProjectId)}--fleet-%`, sinceMs) as {
+    payload: string | null;
+  }[];
+  return rows.map((r) => {
+    const p = parseEscalationPayload(r.payload);
+    return typeof p?.kind === 'string'
+      ? { kind: p.kind, details: typeof p.details === 'string' ? p.details : '' }
+      : { kind: 'unrecorded', details: '' };
+  });
+}
+
+/** A payload's fields, or `null` for one that is not JSON or is JSON `null`. */
+function parseEscalationPayload(
+  payload: string | null,
+): { kind?: unknown; details?: unknown } | null {
+  try {
+    return JSON.parse(payload ?? 'null') as { kind?: unknown; details?: unknown } | null;
+  } catch {
+    return null;
+  }
 }
 
 /** `%` and `_` in a project id are literal, not LIKE wildcards. */

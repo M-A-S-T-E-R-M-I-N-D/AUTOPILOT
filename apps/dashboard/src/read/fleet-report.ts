@@ -144,6 +144,50 @@ export function summarizeConvergence(rows: readonly ReportConvergence[]): Conver
   };
 }
 
+/** One attempt by the merge-escalation agent (rung 4 of the sync-back
+ *  conflict ladder): the `{kind, details}` of a `merge-escalation` event,
+ *  which `fly.ts` records for every attempt, resolved or not. */
+export interface ReportEscalation {
+  readonly kind: string;
+  readonly details: string;
+}
+
+export interface EscalationSummary {
+  readonly attempts: number;
+  readonly resolved: number;
+  /** Failed attempts by kind, most frequent first. The kind says which step
+   *  stopped the agent: the invocation, an unresolved path, the gate or the
+   *  commit. */
+  readonly failures: readonly (readonly [string, number])[];
+  /** The newest failed attempt, or `null` when none failed. */
+  readonly latestFailure: ReportEscalation | null;
+}
+
+/** Rung 4's record over rows oldest first, as `readReportEscalations` reads them. */
+export function summarizeEscalations(rows: readonly ReportEscalation[]): EscalationSummary {
+  const failed = rows.filter((r) => r.kind !== 'resolved');
+  const counts = new Map<string, number>();
+  for (const r of failed) counts.set(r.kind, (counts.get(r.kind) ?? 0) + 1);
+  return {
+    attempts: rows.length,
+    resolved: rows.length - failed.length,
+    failures: [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
+    latestFailure: failed.at(-1) ?? null,
+  };
+}
+
+/** A failure's details fit one report line: the first non-blank line, capped. */
+const FAILURE_LINE_MAX = 160;
+
+function firstLineCapped(text: string): string {
+  const line =
+    text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l !== '') ?? '';
+  return line.length > FAILURE_LINE_MAX ? `${line.slice(0, FAILURE_LINE_MAX - 1)}…` : line;
+}
+
 function summaryLine(label: string, s: FiringSummary): string {
   const pct = (n: number): string => `${Math.round((n / Math.max(1, s.firings)) * 100)}%`;
   const perShip = s.costPerShipUsd === null ? '-' : `$${s.costPerShipUsd.toFixed(2)}`;
@@ -178,12 +222,15 @@ export interface ParkedLane {
 /** The whole report as printable lines. `parked` lists lanes whose commits
  *  never reached the flight branch — work a firing record calls shipped
  *  that no landing can carry (2026-09-25: a whole flight of one lane's
- *  work sat parked behind an aborted sync-back). */
+ *  work sat parked behind an aborted sync-back). `escalations` is rung 4's
+ *  record: how often the merge-escalation agent resolved a conflicting
+ *  sync-back, and what stopped it when it did not. */
 export function renderFleetReport(
   firings: readonly ReportFiring[],
   convergence: readonly ReportConvergence[],
   window: string,
   parked: readonly ParkedLane[] = [],
+  escalations: readonly ReportEscalation[] = [],
 ): string[] {
   const lines = [`fleet report — ${window}`, summaryLine('all', summarizeFirings(firings))];
   const section = (title: string, key: (f: ReportFiring) => string): void => {
@@ -206,6 +253,15 @@ export function renderFleetReport(
   for (const [check, n] of c.failingChecks) lines.push(`  ${String(n).padStart(3)}× ${check}`);
   if (c.medianQueuedSeconds !== null) {
     lines.push(`  median wait for a gate slot: ${Math.round(c.medianQueuedSeconds)}s`);
+  }
+  const e = summarizeEscalations(escalations);
+  lines.push('', 'rung 4: the merge-escalation agent at a conflicting sync-back');
+  if (e.attempts === 0) lines.push('  none');
+  else lines.push(`  attempts ${e.attempts}  resolved ${e.resolved}`);
+  for (const [kind, n] of e.failures) lines.push(`  ${String(n).padStart(3)}× ${kind}`);
+  if (e.latestFailure !== null) {
+    const { kind, details } = e.latestFailure;
+    lines.push(`  latest failure (${kind}): ${firstLineCapped(details)}`);
   }
   const stuck = parked.filter((p) => p.commits > 0);
   lines.push('', 'commits parked on a lane, not on the flight branch');

@@ -12,16 +12,17 @@
  * gathers that context for one unmerged path; `adapters/worktree.ts`'s
  * `syncWorktreeBranch` now calls it for every path still unresolved right
  * before it aborts a conflicting merge, and {@link
- * formatMergeEscalationContext} renders the result as a task body. Still
- * follow-on work: the agent that reads that task, writes a candidate
- * resolution, and re-gates it — today the ladder still stops at "abort,
- * refuse, file the task" (docs/EVALUATION-2026-08-30-stranded-syncback.md).
+ * formatMergeEscalationContext} renders the result. That rendering is both
+ * the prompt `merge-escalation-agent.ts` hands the resolution agent at the
+ * flight-end sync-back and, when the agent does not land a gated
+ * resolution, the body of the STRANDED SYNC-BACK inbox task
+ * (docs/EVALUATION-2026-08-30-stranded-syncback.md).
  *
  * Deliberately duplicates `adapters/git.ts`'s small execFile wrapper instead
  * of importing it, matching `adapters/worktree.ts`'s own precedent: that
  * file is dense with Stryker-verified mutation-testing comments pinned to
- * its exact current call sites, and this module's whole point is to stay a
- * low-risk, unwired addition.
+ * its exact current call sites, and this module stays a read-only helper
+ * with no dependency on them.
  */
 
 import { execFile } from 'node:child_process';

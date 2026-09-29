@@ -12,6 +12,8 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-09-29 | [Closing `docfresh-docs-model-card-md-1790532386000`: the drift was a 51-minute revert window on autopilot/flight, relanded byte for byte](2026-09-29-docfresh-model-card-lane-revert-phantom-closed.md) |
+| 2026-09-29 | [Closing `docfresh-docs-epics-0007-platform-maintainer-and-pool-md-1790544798000`: the epic caught up to its subject the same day](2026-09-29-docfresh-epic-0007-caught-up-closed.md) |
 | 2026-09-28 | [Processing `ap-muk7f98l-strand`: "STRANDED SYNC-BACK … fleet-4 … merge … failed (exit 1): Auto-merging docs/epics/0036-provider-parity.md" — already rescued](2026-09-28-verdict-ap-muk7f98l-strand-already-rescued.md) |
 | 2026-09-28 | [Processing `ap-muk395cb-strand`: "STRANDED SYNC-BACK … fleet-5 … merge … failed (exit 1): Auto-merging apps/dashboard/src/flight/contributor-dossier.ts" — already rescued](2026-09-28-verdict-ap-muk395cb-strand-already-rescued.md) |
 | 2026-09-28 | [Closing `inbox-reland-revert-victims-md`: all four 03:18 revert-burst victims were relanded on 2026-09-07](2026-09-28-inbox-reland-revert-victims-already-relanded.md) |

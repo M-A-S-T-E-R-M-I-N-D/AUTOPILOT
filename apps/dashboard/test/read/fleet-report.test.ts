@@ -13,6 +13,7 @@ import {
   laneOf,
   summarizeFirings,
   summarizeConvergence,
+  summarizeEscalations,
   renderFleetReport,
   type ReportFiring,
 } from '../../src/read/fleet-report.js';
@@ -173,5 +174,82 @@ describe('renderFleetReport parked lanes (2026-09-25)', () => {
     expect(renderFleetReport([], [], 'w').join('\n')).toContain(
       'commits parked on a lane, not on the flight branch\n  none',
     );
+  });
+});
+
+describe('summarizeEscalations (rung 4)', () => {
+  it('counts attempts and resolutions, and the failures by kind, most frequent first', () => {
+    const s = summarizeEscalations([
+      { kind: 'gate-red', details: 'pnpm run test failed' },
+      { kind: 'resolved', details: 'committed abc1234' },
+      { kind: 'left-unresolved', details: 'left 1 path(s) unresolved: a.ts' },
+      { kind: 'gate-red', details: 'pnpm run lint failed\nsecond line' },
+    ]);
+    expect(s).toEqual({
+      attempts: 4,
+      resolved: 1,
+      failures: [
+        ['gate-red', 2],
+        ['left-unresolved', 1],
+      ],
+      latestFailure: { kind: 'gate-red', details: 'pnpm run lint failed\nsecond line' },
+    });
+  });
+
+  it('has no latest failure when every attempt resolved, or none ran', () => {
+    expect(summarizeEscalations([{ kind: 'resolved', details: 'x' }]).latestFailure).toBeNull();
+    expect(summarizeEscalations([])).toEqual({
+      attempts: 0,
+      resolved: 0,
+      failures: [],
+      latestFailure: null,
+    });
+  });
+});
+
+describe('renderFleetReport rung 4', () => {
+  const heading = 'rung 4: the merge-escalation agent at a conflicting sync-back';
+
+  it('prints the success rate, the failures by kind and the latest failure on one line', () => {
+    const text = renderFleetReport(
+      [],
+      [],
+      'w',
+      [],
+      [
+        { kind: 'resolved', details: 'committed abc1234' },
+        { kind: 'agent-failed', details: 'timed out after 15 turns' },
+        { kind: 'gate-red', details: `pnpm run test failed\n${'x'.repeat(400)}` },
+      ],
+    ).join('\n');
+    expect(text).toContain(`${heading}\n  attempts 3  resolved 1`);
+    expect(text).toContain('    1× agent-failed');
+    expect(text).toContain('    1× gate-red');
+    expect(text).toContain('  latest failure (gate-red): pnpm run test failed\n');
+    expect(text).not.toContain('xxx');
+  });
+
+  it('caps a long single-line failure', () => {
+    const long = [{ kind: 'agent-failed', details: 'y'.repeat(400) }];
+    const text = renderFleetReport([], [], 'w', [], long).join('\n');
+    expect(text).toContain(`  latest failure (agent-failed): ${'y'.repeat(159)}…`);
+    expect(text).not.toContain('y'.repeat(160));
+  });
+
+  it('skips blank leading lines and a carriage return in the latest failure', () => {
+    const gate = [{ kind: 'gate-red', details: '\r\n  \r\n  pnpm run lint failed\r\nmore' }];
+    expect(renderFleetReport([], [], 'w', [], gate).join('\n')).toContain(
+      '  latest failure (gate-red): pnpm run lint failed\n',
+    );
+  });
+
+  it('says none when the agent never ran, and places the section before the parked lanes', () => {
+    const lines = renderFleetReport([], [], 'w');
+    const text = lines.join('\n');
+    expect(text).toContain(`${heading}\n  none`);
+    expect(lines.indexOf(heading)).toBeLessThan(
+      lines.indexOf('commits parked on a lane, not on the flight branch'),
+    );
+    expect(lines.indexOf(heading)).toBeGreaterThan(lines.indexOf('convergence after sync-back'));
   });
 });

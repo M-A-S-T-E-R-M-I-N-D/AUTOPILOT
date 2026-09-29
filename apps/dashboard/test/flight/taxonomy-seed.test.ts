@@ -382,3 +382,55 @@ describe('HOUSE_TAXONOMY_LABELS × KEEPER issue protocol gate (regression, epic 
     expect(governance).toContain(`${HOUSE_TAXONOMY_LABELS.length} labels total`);
   });
 });
+
+// Same law, the CLAIM flow (docs/ROADMAP.md "How work gets shared"): claim.yml
+// puts `claimed` on a /claim'd issue, stale-claim-reaper.yml finds claims by
+// that label and takes it off again, and this constant is the only thing that
+// makes the label exist on a fresh repo. Both workflows swallow a failed label
+// edit (`2>/dev/null || true`), so a name drift between the three fails with
+// no error. /unclaim must take off `claimed` alone: a bare DELETE on the
+// issue's `/labels` endpoint is GitHub's "remove all labels" call, which also
+// stripped `help wanted`, `pool: *` and the priority off the very issue the
+// reply had just handed back to the next claimer.
+const CLAIMED_LABEL = 'claimed';
+const CLAIM_WORKFLOW = readFileSync(join(process.cwd(), '.github/workflows/claim.yml'), 'utf8');
+const STALE_CLAIM_REAPER = readFileSync(
+  join(process.cwd(), '.github/workflows/stale-claim-reaper.yml'),
+  'utf8',
+);
+
+/** One `case` branch of claim.yml's run script, from its pattern to its `;;`. */
+function claimBranch(pattern: '/claim*' | '/unclaim*'): string {
+  const start = CLAIM_WORKFLOW.indexOf(`${pattern})`);
+  const end = CLAIM_WORKFLOW.indexOf(';;', start);
+  if (start < 0 || end < 0) throw new Error(`claim.yml has no \`${pattern})\` branch`);
+  return CLAIM_WORKFLOW.slice(start, end);
+}
+
+describe('HOUSE_TAXONOMY_LABELS × claim protocol (regression, epic 0019 additive-only law)', () => {
+  it('seeds the label /claim puts on a claimed issue', () => {
+    expect(HOUSE_TAXONOMY_LABELS.map((label) => label.name)).toContain(CLAIMED_LABEL);
+    expect(claimBranch('/claim*')).toContain(`--add-label "${CLAIMED_LABEL}"`);
+  });
+
+  it('has the reaper find claims by that label and release them by it', () => {
+    expect(STALE_CLAIM_REAPER).toContain(`--label ${CLAIMED_LABEL} `);
+    expect(STALE_CLAIM_REAPER).toContain(`--remove-label ${CLAIMED_LABEL} `);
+  });
+
+  it('has /unclaim take off the claimed label, the same way the reaper does', () => {
+    expect(claimBranch('/unclaim*')).toContain(`--remove-label ${CLAIMED_LABEL} `);
+  });
+
+  it('never has /unclaim call the endpoint that removes every label on the issue', () => {
+    // `.../issues/$NUM/labels` with no `/<name>` after it is the remove-all call.
+    expect(claimBranch('/unclaim*')).not.toMatch(/\/issues\/\$NUM\/labels(?!\/)/);
+  });
+
+  it('has the reaper keep the quiet window the /claim reply promises', () => {
+    const promised = /(\d+) quiet days auto-release it/.exec(claimBranch('/claim*'))?.[1];
+    const enforced = /QUIET_DAYS=(\d+)/.exec(STALE_CLAIM_REAPER)?.[1];
+    expect(promised).toBeDefined();
+    expect(enforced).toBe(promised);
+  });
+});

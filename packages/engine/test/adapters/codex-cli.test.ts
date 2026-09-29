@@ -11,6 +11,7 @@ import {
 } from '../../src/adapters/codex-cli.js';
 import {
   CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
 
@@ -764,6 +765,113 @@ describe('CodexCliModel', () => {
 
       expect(res.exitCode).toBe(1);
       expect('timedOut' in res).toBe(false);
+    });
+  });
+
+  describe('idle cap — a silent child is killed long before the wall clock (StreamingClaudeCliModel parity)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /** A child that stays alive until killed: `kill()` settles execFile's
+     *  callback the way a real kill does (err.killed, no envelope), and
+     *  `stdout` is the stream the adapter watches for signs of life. */
+    function mockLiveChild(stdoutSoFar: string): {
+      readonly kill: ReturnType<typeof vi.fn>;
+      readonly stdout: EventEmitter;
+      readonly exitCleanly: (out: string) => void;
+    } {
+      const stdout = new EventEmitter();
+      let settle: ExecFileCallback = () => undefined;
+      const kill = vi.fn(() => {
+        queueMicrotask(() =>
+          settle(Object.assign(new Error('killed'), { killed: true, code: 1 }), stdoutSoFar, ''),
+        );
+        return true;
+      });
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        settle = args[args.length - 1] as ExecFileCallback;
+        return {
+          pid: 4321,
+          stdout,
+          kill,
+          stdin: Object.assign(new EventEmitter(), { end: stdinEnd }),
+        };
+      });
+      return { kill, stdout, exitCleanly: (out) => settle(null, out, '') };
+    }
+
+    it('kills a child silent for DEFAULT_CLI_IDLE_TIMEOUT_MS and reports it timedOut, keeping the wire thread resumable', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild(jsonl(THREAD, TURN_STARTED));
+
+      const pending = new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+      await vi.advanceTimersByTimeAsync(DEFAULT_CLI_IDLE_TIMEOUT_MS - 1);
+      expect(child.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      // Asserted before awaiting: without the cap the promise never settles.
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      const res = await pending;
+
+      expect(DEFAULT_CLI_IDLE_TIMEOUT_MS).toBeLessThan(DEFAULT_CLI_TIMEOUT_MS);
+      expect(res.timedOut).toBe(true);
+      expect(res.envelope).toBeNull();
+      expect(res.sessionId).toBe(THREAD.thread_id);
+    });
+
+    it('re-arms on every stdout chunk: a child that keeps printing events is never idle-killed', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild('');
+      const done = jsonl(THREAD, completed({ input_tokens: 4, output_tokens: 2 }));
+
+      const pending = new CodexCliModel({ repo: '/work/sbx', idleTimeoutMs: 1000 }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+      for (let i = 0; i < 5; i += 1) {
+        await vi.advanceTimersByTimeAsync(900);
+        child.stdout.emit('data', '{"type":"item.started"}\n');
+      }
+      child.exitCleanly(done);
+      const res = await pending;
+
+      expect(child.kill).not.toHaveBeenCalled();
+      expect('timedOut' in res).toBe(false);
+      expect(res.envelope?.isError).toBe(false);
+    });
+
+    it('disarms once the child settles: a finished run leaves no timer behind to kill a dead pid', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild('');
+
+      const pending = new CodexCliModel({ repo: '/work/sbx', idleTimeoutMs: 1000 }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+      child.exitCleanly('');
+      await pending;
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(child.kill).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('never retries a resume the idle cap killed before it named a thread: a hung CLI would only hang again', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild('');
+
+      const pending = new CodexCliModel({ repo: '/work/sbx', idleTimeoutMs: 1000 }).invoke(
+        'gpt-5-codex',
+        'continue',
+        THREAD.thread_id,
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      const res = await pending;
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.timedOut).toBe(true);
+      expect('resumed' in res).toBe(false);
     });
   });
 });

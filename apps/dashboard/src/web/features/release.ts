@@ -230,7 +230,13 @@ function renderReleaseBody(body, release, pid, identity) {
   execBtn.setAttribute('aria-label', execTip);
   actions.appendChild(execBtn);
   body.appendChild(actions);
-  body.appendChild(el('div', 'release-result'));
+  // The cut-release outcome lands here after the confirm dialog, once focus
+  // has moved on — a polite live region announces it the way issue-triage /
+  // pr-review results do (board ap-mtmpekhi-0 sweep).
+  var resultEl = el('div', 'release-result');
+  resultEl.setAttribute('role', 'status');
+  resultEl.setAttribute('aria-live', 'polite');
+  body.appendChild(resultEl);
 }
 function releaseSection(pid) {
   var wrap = el('section', 'release-panel');

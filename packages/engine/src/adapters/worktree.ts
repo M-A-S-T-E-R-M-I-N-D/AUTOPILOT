@@ -328,6 +328,10 @@ export interface SyncWorktreeBranchResult {
    *  from the index BEFORE the abort discards it, so a later escalation has
    *  the whole file on each side, not just the conflict-marker hunk. */
   readonly conflicts?: readonly MergeConflictSides[];
+  /** Why rung 4 gave up: the `details` of an `escalate` hook that ran and
+   *  answered `ok: false`. Undefined when no hook was supplied or none ran,
+   *  so a caller can tell "the agent tried and failed" from "never tried". */
+  readonly escalation?: string;
 }
 
 /**
@@ -394,7 +398,8 @@ export type SyncWorktreeEscalationHook = (
  * a success result — the hook's own commit already landed cleanly. Anything
  * else (including the parameter simply being omitted, as at every per-
  * firing/catch-up call site) falls through to the exact abort-and-refuse
- * floor this function has always had. The ladder only ever ADDS a rung.
+ * floor this function has always had, and a failed hook's `details` ride
+ * along on the refusal as `escalation`. The ladder only ever ADDS a rung.
  */
 /**
  * ONE SYNC-BACK AT A TIME PER CHECKOUT (2026-09-19, the three-lane rung).
@@ -637,17 +642,16 @@ async function syncWorktreeBranchUnlocked(
       unresolvedPaths.length > 0
         ? await Promise.all(unresolvedPaths.map((path) => gatherMergeConflictContext(repo, path)))
         : undefined;
-    if (escalate && conflicts) {
-      const attempt = await escalate(conflicts);
-      if (attempt.ok) {
-        return { ok: true, details: attempt.details };
-      }
+    const attempt = escalate && conflicts ? await escalate(conflicts) : undefined;
+    if (attempt?.ok) {
+      return { ok: true, details: attempt.details };
     }
     await git(repo, ['merge', '--abort']);
     return {
       ok: false,
       details: `merge of '${worktreeBranch}' into '${targetBranch}' failed (exit ${merge.exitCode}): ${merge.stdout.trim()}`,
       ...(conflicts ? { conflicts } : {}),
+      ...(attempt ? { escalation: attempt.details } : {}),
     };
   }
 

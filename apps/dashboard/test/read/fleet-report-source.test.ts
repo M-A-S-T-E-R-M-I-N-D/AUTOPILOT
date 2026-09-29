@@ -13,6 +13,7 @@ import { openStore, migrate, createTask, type Store } from '@autopilot/store';
 import {
   readReportFirings,
   readReportConvergence,
+  readReportEscalations,
   readParkedLanes,
 } from '../../src/read/fleet-report-source.js';
 import { execFileSync } from 'node:child_process';
@@ -129,6 +130,29 @@ describe('readReportConvergence', () => {
     event('convergence-red', { check: 'x', merge: 'y' }, 150, 'fly_a--fleet-2'); // `_` is not a wildcard
     expect(readReportConvergence(store.db, 'fly-a', 100)).toEqual([
       { verdict: 'red', check: 'pnpm run test', merge: 'fast-forwarded x' },
+    ]);
+  });
+});
+
+describe('readReportEscalations (rung 4)', () => {
+  it("reads every lane's merge-escalation attempts in order, and survives a payload it cannot parse", () => {
+    event('merge-escalation', { kind: 'gate-red', details: 'pnpm run test failed' }, 100);
+    event('merge-escalation', { kind: 'resolved', details: 'ok' }, 150, 'fly-a--fleet-2');
+    event('merge-escalation', 'not json', 200);
+    event('merge-escalation', { kind: 7 }, 250);
+    event('merge-escalation', 'null', 260);
+    event('merge-escalation', { kind: 'agent-failed' }, 270);
+    event('merge-escalation', { kind: 'resolved', details: 'x' }, 50); // before the window
+    event('merge-escalation', { kind: 'resolved', details: 'x' }, 300, 'fly-ab'); // another project
+    event('merge-escalation', { kind: 'resolved', details: 'x' }, 300, 'fly_a--fleet-2'); // `_` is not a wildcard
+    event('sync-back-refusal', { details: 'merge failed' }, 300); // another event type
+    expect(readReportEscalations(store.db, 'fly-a', 100)).toEqual([
+      { kind: 'gate-red', details: 'pnpm run test failed' },
+      { kind: 'resolved', details: 'ok' },
+      { kind: 'unrecorded', details: '' },
+      { kind: 'unrecorded', details: '' },
+      { kind: 'unrecorded', details: '' },
+      { kind: 'agent-failed', details: '' },
     ]);
   });
 });

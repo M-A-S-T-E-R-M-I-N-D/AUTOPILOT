@@ -32,7 +32,7 @@ jobs:
             /unclaim*)
               if echo ",$ASSIGNEES," | grep -q ",$WHO,"; then
                 gh api -X DELETE "repos/$REPO/issues/$NUM/assignees" -f "assignees[]=$WHO" > /dev/null
-                gh api "repos/$REPO/issues/$NUM/labels" -X DELETE --silent 2>/dev/null || true
+                gh issue edit "$NUM" --repo "$REPO" --remove-label claimed 2>/dev/null || true
                 gh issue comment "$NUM" --repo "$REPO" --body "@$WHO released this task — it's open for the next claimer. Thank you for the honest hand-back. 🤝"
               fi
               ;;

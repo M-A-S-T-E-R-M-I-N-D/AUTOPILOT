@@ -115,7 +115,12 @@ the diff highlight fades on the compositor; nothing else moves.
    and reloads the doc from disk on success, so the reader shows exactly what
    was persisted (including the server's provenance line); a refused save
    (allow-list, binary content) shows the server's reason in place rather
-   than failing silently. Slice complete.
+   than failing silently. Slice complete. Refined 2026-09-29 (the
+   ap-mtmpekhi-0 live-region sweep): that in-place `.docs-editor-result`
+   line now carries `role="status"`/`aria-live="polite"`, so a screen-reader
+   user hears the refused-save reason written there after the Save click;
+   `test/web/execute-result-live-regions.test.ts` asserts it alongside the
+   pool client's and the release panel's result elements.
 4. Live re-render on disk change with diff highlight.
    **Landed 2026-09-26:** `refreshDocsList`'s per-tick pass (`web/features/
    docs-viewer.ts`) used to do nothing at all once the open doc was already

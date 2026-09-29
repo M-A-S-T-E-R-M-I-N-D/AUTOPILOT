@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { openStore, migrate, createTask, type Store } from '@autopilot/store';
 import {
   closeLandedStrandTasks,
+  strandTaskBody,
   strandTaskTitle,
   strandedHeadOf,
 } from '../../src/flight/strand-tasks.js';
@@ -52,6 +53,30 @@ describe('strandTaskTitle / strandedHeadOf', () => {
     expect(
       strandedHeadOf('port-owner.ts findPortOwnerPid runs lsof at 4371d22b1c2e — x'),
     ).toBeNull();
+  });
+});
+
+describe('strandTaskBody', () => {
+  const CONTEXT = 'MERGE-ESCALATION CONTEXT — 1 unresolved path\n\n## a.txt';
+
+  it('says rung 4 ran and why it gave up, above the conflict context', () => {
+    expect(strandTaskBody(CONTEXT, 'gate-red: 3 tests failed')).toBe(
+      `Rung 4 (the merge-escalation agent) ran and did not resolve it — gate-red: 3 tests failed\n\n${CONTEXT}`,
+    );
+  });
+
+  it('is the conflict context alone when no escalation ran', () => {
+    expect(strandTaskBody(CONTEXT, undefined)).toBe(CONTEXT);
+  });
+
+  it('still records a failed escalation when there is no context to attach', () => {
+    expect(strandTaskBody(null, 'agent-failed: max turns')).toBe(
+      'Rung 4 (the merge-escalation agent) ran and did not resolve it — agent-failed: max turns',
+    );
+  });
+
+  it('is empty when there is neither a context nor an escalation', () => {
+    expect(strandTaskBody(null, undefined)).toBeNull();
   });
 });
 
@@ -171,6 +196,23 @@ describe('fly.ts wiring (source census)', () => {
     expect(flySource).toMatch(
       /const strandTitle = strandTaskTitle\(\s*worktreePlan\.branch,\s*await vcs\.head\(\),\s*finalSync\.details,?\s*\);/,
     );
+  });
+
+  it('the inbox task body carries why rung 4 gave up, not only the conflict context', () => {
+    expect(flySource).toMatch(/const body = strandTaskBody\([^;]*finalSync\.escalation,?\s*\);/);
+  });
+
+  it('every rung-4 outcome, resolved or not, is persisted as a merge-escalation event', () => {
+    const hook = flySource.slice(
+      flySource.indexOf('const escalate: SyncWorktreeEscalationHook'),
+      flySource.indexOf('const finalSync: SyncWorktreeBranchResult'),
+    );
+    const recorded = hook.indexOf("'merge-escalation',");
+    expect(recorded).toBeGreaterThan(-1);
+    expect(hook).toContain('JSON.stringify(summary)');
+    // Recorded before the hook branches on the outcome, so a resolved attempt
+    // is counted exactly like a failed one.
+    expect(recorded).toBeLessThan(hook.indexOf("outcome.kind === 'resolved'"));
   });
 
   it('the flight-start self-heal closes landed strand tasks before the board is read', () => {

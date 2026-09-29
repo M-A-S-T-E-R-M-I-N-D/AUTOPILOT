@@ -733,3 +733,114 @@ describe('fetchOpenIssues carries the expiry and steering fields only when gh sh
     expect(planIssueTriage(undated!, [], [], undefined, NOW).decision).toBe('skip');
   });
 });
+
+/**
+ * EPIC 0019 ADDITIVE-ONLY LAW (board web-mtsylqbd-q2rg8k), the TEMPLATES flow.
+ * The gate holds a body to sections it names by hand in issue-triage.ts, while
+ * the forms reporters actually fill live in `.github/ISSUE_TEMPLATE/`. Nothing
+ * tied the two: rename "Steps to reproduce" on the form, or add a required
+ * field, and every report filed through it would be labelled
+ * `status: needs-format` or asked for a section the form never shows — with
+ * every test above still green, because they all hand-write their bodies.
+ * These read the real forms and pin the gate to them in both directions.
+ */
+interface IssueFormField {
+  readonly type: string;
+  readonly label: string | undefined;
+  readonly required: boolean;
+}
+
+interface IssueForm {
+  readonly name: string;
+  readonly labels: readonly string[];
+  readonly fields: readonly IssueFormField[];
+}
+
+const unquote = (value: string): string => value.trim().replace(/^['"]|['"]$/g, '');
+
+// Reads only the issue-form shape GitHub defines (top-level `name` and
+// `labels`, then `body` items carrying `attributes.label` and
+// `validations.required`), so the test needs no YAML dependency. A checkbox
+// option's own `label:`/`required:` sit deeper and are not read as fields.
+function readIssueForm(path: string): IssueForm {
+  const text = readFileSync(join(process.cwd(), path), 'utf8');
+  const name = /^name:\s*(.+?)\s*$/m.exec(text)?.[1];
+  if (name === undefined) throw new Error(`${path} has no top-level name`);
+  const labels = (/^labels:\s*\[(.*)\]\s*$/m.exec(text)?.[1] ?? '')
+    .split(',')
+    .map(unquote)
+    .filter((label) => label !== '');
+  const fields = text
+    .split(/^ {2}- type:\s*/m)
+    .slice(1)
+    .map((block) => {
+      const label = /^ {6}label:\s*(.+?)\s*$/m.exec(block)?.[1];
+      return {
+        type: /^(\S+)/.exec(block)?.[1] ?? '',
+        label: label === undefined ? undefined : unquote(label),
+        required: /^ {6}required:\s*true\s*$/m.test(block),
+      };
+    });
+  return { name: unquote(name), labels, fields };
+}
+
+// GitHub renders a submitted form as one `### <label>` section per field, in
+// form order, with `_No response_` under an optional field left empty; a
+// `markdown` item is guidance on the form and never reaches the body.
+function renderSubmittedForm(form: IssueForm, omit?: string): string {
+  return form.fields
+    .filter((field) => field.type !== 'markdown' && field.label !== undefined)
+    .filter((field) => field.label !== omit)
+    .map(
+      (field) =>
+        `### ${field.label}\n\n${field.required ? 'Filled in by the reporter.' : '_No response_'}`,
+    )
+    .join('\n\n');
+}
+
+describe.each(['bug', 'feature'] as const)('the gate holds a %s report to its own form', (kind) => {
+  const form = readIssueForm(TEMPLATE_FILES[kind]);
+  const requiredSections = form.fields.flatMap((field) =>
+    field.type === 'textarea' && field.required && field.label !== undefined ? [field.label] : [],
+  );
+
+  it('reads the form at all — its labels and required free-text fields', () => {
+    // Guards the reader: an empty read would leave every assertion below vacuous.
+    expect(form.labels.length).toBeGreaterThan(0);
+    expect(requiredSections.length).toBeGreaterThan(0);
+  });
+
+  it("asks an empty report for exactly the free-text fields the form requires, by the form's labels", () => {
+    // A title that names no kind, so the form's own labels must pick the template.
+    const gaps = issueTemplateGaps({ number: 1, title: 'Untitled', body: '', labels: form.labels });
+    expect(gaps).toEqual({ kind, missing: requiredSections });
+  });
+
+  it('boards a report exactly as GitHub renders the submitted form', () => {
+    const submitted = issue({ body: renderSubmittedForm(form), labels: [...form.labels] });
+    expect(issueTemplateGaps(submitted)).toBeNull();
+    expect(planIssueTriage(submitted, [], [], undefined, NOW).decision).toBe('accept');
+  });
+
+  it.each(requiredSections)(
+    'names only "%s" when a submitted report lacks that field',
+    (section) => {
+      const body = renderSubmittedForm(form, section);
+      expect(issueTemplateGaps({ number: 1, title: 'Untitled', body })).toEqual({
+        kind,
+        missing: [section],
+      });
+    },
+  );
+
+  it('is called in the one reply by the name the form gives itself', () => {
+    const reply = needsFormatReply({
+      decision: 'needs-format',
+      kind,
+      missing: requiredSections,
+      reasoning: '',
+    });
+    expect(reply).toContain(form.name);
+    expect(reply).toContain(TEMPLATE_FILES[kind]);
+  });
+});
