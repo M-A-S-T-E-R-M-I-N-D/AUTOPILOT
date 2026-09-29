@@ -705,6 +705,34 @@ describe('subject-nav client — switching subjects', () => {
     expect(link('keeper').querySelector('.subject-badge')!.textContent).toBe('1');
   });
 
+  it('on a project page the queue leads the Keeper subject, and Open unfolds the collapsed rituals at the item (2026-09-30)', () => {
+    // The queue landed AFTER the panels it lists — every item read twice.
+    const main = document.getElementById('fleet') as HTMLElement;
+    const rituals = document.createElement('details');
+    rituals.className = 'keeper-rituals';
+    rituals.dataset['subject'] = 'keeper';
+    rituals.innerHTML =
+      '<summary>Rituals</summary><div class="keeper-rituals-body"><section class="backlog-panel">' +
+      '<ul><li class="backlog-item"><span>Old task</span><button type="button" data-task-done="t1">Mark done</button></li></ul>' +
+      '</section></div>';
+    main.appendChild(rituals);
+    const pr = document.getElementById('pr-review-panel') as HTMLElement;
+    pr.hidden = false;
+    pr.innerHTML = '<div class="pr-review-item"><p class="pr-review-pr-title">Fix nav</p></div>';
+    boot();
+    const queue = document.getElementById('keeper-queue') as HTMLElement;
+    expect(queue.nextElementSibling).toBe(rituals);
+    const rows = queue.querySelectorAll('.keeper-queue-item');
+    const backlogRow = Array.from(rows).find(
+      (r) => r.querySelector('.keeper-queue-source')!.textContent === 'Backlog',
+    )!;
+    expect(rituals.open).toBe(false);
+    (rituals.querySelector('.backlog-item') as HTMLElement).scrollIntoView = () => {};
+    (backlogRow.querySelector('.keeper-queue-open') as HTMLElement).click();
+    expect(rituals.open).toBe(true);
+    expect(document.activeElement).toBe(rituals.querySelector('[data-task-done]'));
+  });
+
   it('the Keeper queue is never built for an empty queue; a settled item becomes the session history', async () => {
     boot();
     expect(document.getElementById('keeper-queue')).toBeNull();

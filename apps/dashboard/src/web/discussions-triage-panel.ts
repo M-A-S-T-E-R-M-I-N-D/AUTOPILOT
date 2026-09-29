@@ -77,6 +77,11 @@ export function discussionsTriageDecisionLabel(decision: string): string {
  *  `comment` already relies on. */
 export interface DiscussionsTriageItem {
   readonly text: string;
+  /** A skip (already labeled, answered or locked): the panel folds these
+   *  into one line, since a re-run skips every discussion a previous pass
+   *  handled and they buried the ones it will act on (2026-09-30: fifteen
+   *  skip lines, no accept). */
+  readonly skip: boolean;
 }
 
 /** Every open discussion's plan as one preview line, `accept` and `skip`
@@ -89,6 +94,7 @@ export function discussionsTriageItems(
 ): readonly DiscussionsTriageItem[] {
   return plans.map((p) => ({
     text: `${discussionsTriageDecisionLabel(p.decision.decision)} — ${p.decision.reasoning}`,
+    skip: p.decision.decision === 'skip',
   }));
 }
 
