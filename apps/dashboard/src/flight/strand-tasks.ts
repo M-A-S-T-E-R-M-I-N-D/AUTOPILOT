@@ -39,6 +39,21 @@ export function strandTaskTitle(branch: string, head: string, details: string): 
   return `${STRAND_TITLE_PREFIX}${branch}${at} — ${details}`;
 }
 
+/**
+ * The inbox task's body: why rung 4 gave up, when the merge-escalation agent
+ * ran, above the base/ours/theirs context of the conflict. The title keeps
+ * the original `git merge` failure, so without this line nobody could tell
+ * that the agent had tried. `null` when there is nothing to say.
+ */
+export function strandTaskBody(
+  context: string | null,
+  escalation: string | undefined,
+): string | null {
+  if (escalation === undefined) return context;
+  const attempt = `Rung 4 (the merge-escalation agent) ran and did not resolve it — ${escalation}`;
+  return context === null ? attempt : `${attempt}\n\n${context}`;
+}
+
 /** The head a strand task's title names, or `null` when it names none. */
 export function strandedHeadOf(title: string): string | null {
   return STRANDED_HEAD.exec(title)?.[1] ?? null;

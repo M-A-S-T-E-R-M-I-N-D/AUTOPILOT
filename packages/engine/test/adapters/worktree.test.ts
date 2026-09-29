@@ -623,6 +623,8 @@ describe('syncWorktreeBranch', () => {
     const result = await syncWorktreeBranch(dir, base, 'flight-work');
 
     expect(result.ok).toBe(false);
+    // No hook was supplied, so no escalation ran and none is reported.
+    expect(result).not.toHaveProperty('escalation');
     expect(result.conflicts).toEqual([
       {
         path: 'a.txt',
@@ -695,6 +697,10 @@ describe('syncWorktreeBranch', () => {
 
     expect(escalateCalled).toBe(true);
     expect(result.ok).toBe(false);
+    // Why rung 4 gave up reaches the caller, so the STRANDED SYNC-BACK task
+    // can say it ran — not only the original `git merge` failure text.
+    expect(result.escalation).toBe('gate went red on the agent-proposed resolution');
+    expect(result.details).toContain("merge of 'flight-work'");
     expect(result.conflicts).toEqual([
       {
         path: 'a.txt',

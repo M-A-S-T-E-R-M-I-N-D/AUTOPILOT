@@ -20,7 +20,7 @@ import {
 } from './flight/convergence-red-task.js';
 import { QUOTA_REST_MS, recordModelDrained, routeTaskModel } from './flight/model-scoreboard.js';
 import { ROUND_START_SLACK_MS, endRound, gitIn } from './flight/round-evaluation.js';
-import { closeLandedStrandTasks, strandTaskTitle } from './flight/strand-tasks.js';
+import { closeLandedStrandTasks, strandTaskBody, strandTaskTitle } from './flight/strand-tasks.js';
 import {
   openStore,
   migrate,
@@ -87,6 +87,7 @@ import {
   formatMergeEscalationContext,
   createGitMergeEscalationDeps,
   runMergeEscalationAgent,
+  summarizeMergeEscalationOutcome,
   ClaudeCliModel,
   ModelCommitReviewer,
   resolveCommitReviewModel,
@@ -2011,16 +2012,28 @@ async function main(): Promise<void> {
           targetBranch,
           deps,
         );
+        // RUNG 4 MADE MEASURABLE (board ap-muken380-0): every attempt, resolved
+        // or not, leaves a `merge-escalation` event with its kind and details,
+        // so the rung's success rate and what stops it (the prompt, the turn
+        // cap, the gate) can be read from the store, not only this log.
+        const summary = summarizeMergeEscalationOutcome(outcome);
+        try {
+          store.db
+            .prepare(
+              'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+            )
+            .run(projectId, null, 'merge-escalation', JSON.stringify(summary), now());
+        } catch {
+          /* merge-escalation telemetry is best-effort — never fail the flight over it */
+        }
         if (outcome.kind === 'resolved') {
           out(`  🤖 merge-escalation agent resolved and committed: ${outcome.details}`);
           return { ok: true, details: outcome.details };
         }
-        const reason =
-          outcome.kind === 'left-unresolved'
-            ? `left ${outcome.unresolvedPaths.length} path(s) unresolved`
-            : outcome.details;
-        out(`  ⚠ merge-escalation agent did not resolve the conflict (${outcome.kind}): ${reason}`);
-        return { ok: false, details: reason };
+        out(
+          `  ⚠ merge-escalation agent did not resolve the conflict (${summary.kind}): ${summary.details}`,
+        );
+        return { ok: false, details: `${summary.kind}: ${summary.details}` };
       };
       // The last sync-back before this lane's commits could strand: it alone
       // waits the long budget for a sibling lane's merge or escalation
@@ -2118,9 +2131,14 @@ async function main(): Promise<void> {
             // before it aborted — attach it as the task body so whoever (or
             // whatever firing) resolves this has full-file context on each
             // side instead of having to reproduce the conflict from scratch.
-            const body = finalSync.conflicts?.length
-              ? formatMergeEscalationContext(finalSync.conflicts)
-              : null;
+            // When the agent itself tried and gave up, why it did heads the
+            // body — the title only carries the original merge failure.
+            const body = strandTaskBody(
+              finalSync.conflicts?.length
+                ? formatMergeEscalationContext(finalSync.conflicts)
+                : null,
+              finalSync.escalation,
+            );
             // No `dimension`: the schema's allow-list has no bucket for a
             // process finding, and its CHECK constraint silently rejected the
             // 'process' this call passed for three weeks — the log said "filed"
