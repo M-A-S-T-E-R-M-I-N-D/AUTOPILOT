@@ -8,6 +8,7 @@ import {
   createContributorIssueListPreviewApi,
   type ContributorFacingIssue,
 } from '../../src/flight/contributor-issue-list.js';
+import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function issue(overrides: Partial<ContributorFacingIssue> = {}): ContributorFacingIssue {
@@ -103,6 +104,8 @@ describe('fetchContributorFacingIssues', () => {
       'list',
       '--state',
       'open',
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,labels,assignees',
     ]);

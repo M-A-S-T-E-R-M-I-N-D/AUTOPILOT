@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { CliExec } from '../connection/cli-probe.js';
-import { parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
 import { ghExec } from './gh-exec.js';
 
 /**
@@ -99,10 +99,11 @@ interface RawContributorFacingIssue {
 }
 
 /**
- * Lists every open issue via `gh issue list --state open --json
- * number,title,url,labels,assignees`, run through the injectable `exec` —
- * the same `CliExec` shape `issue-triage.ts`'s `fetchOpenIssues` and
- * `pool-client.ts`'s `fetchPoolIssues` already use, reusing their
+ * Lists every open issue (up to `MAX_ISSUE_LIST`) via `gh issue list
+ * --state open --json number,title,url,labels,assignees`, run through the
+ * injectable `exec` — the same `CliExec` shape `issue-triage.ts`'s
+ * `fetchOpenIssues` and `pool-client.ts`'s `fetchPoolIssues` already use,
+ * reusing their
  * `parseIssueLabels`/`parseAssignees` reductions rather than duplicating
  * them. `gh issue list --label` ANDs multiple `--label` flags together
  * rather than ORing them (`pool-client.ts`'s own doc comment), so filtering
@@ -123,6 +124,8 @@ export async function fetchContributorFacingIssues(
     'list',
     '--state',
     'open',
+    '--limit',
+    String(MAX_ISSUE_LIST),
     '--json',
     'number,title,url,labels,assignees',
   ]);

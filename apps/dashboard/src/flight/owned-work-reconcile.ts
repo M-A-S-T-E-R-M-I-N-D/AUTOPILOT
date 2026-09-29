@@ -39,7 +39,7 @@
 import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
-import { issueTaskId } from './issue-triage.js';
+import { MAX_ISSUE_LIST, issueTaskId } from './issue-triage.js';
 import { issueNumberFromTaskId } from './mirror-pass.js';
 import { claimContractBody, isHumanClosedTask } from './claim-contract.js';
 import { fetchViewerLogin } from './pr-review.js';
@@ -65,10 +65,10 @@ interface RawAssignedIssue {
 const OWNED_WORK_TITLE_CHARS = 200;
 
 /**
- * Lists every open issue GitHub says is assigned to the calling identity via
- * `gh issue list --assignee @me`, run through the injectable `exec` — the
- * same `CliExec` shape every other fetcher in this directory uses
- * (`contributor-issue-list.ts`'s `fetchContributorFacingIssues`,
+ * Lists every open issue GitHub says is assigned to the calling identity (up
+ * to `MAX_ISSUE_LIST`) via `gh issue list --assignee @me`, run through the
+ * injectable `exec` — the same `CliExec` shape every other fetcher in this
+ * directory uses (`contributor-issue-list.ts`'s `fetchContributorFacingIssues`,
  * `issue-triage.ts`'s `fetchOpenIssues`). Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing. A non-object row (a
  * `null`) and entries missing a numeric `number`, string `title`, or string
@@ -82,6 +82,8 @@ export async function fetchAssignedIssues(exec: CliExec): Promise<AssignedIssue[
     '@me',
     '--state',
     'open',
+    '--limit',
+    String(MAX_ISSUE_LIST),
     '--json',
     'number,title,url',
   ]);
