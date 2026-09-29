@@ -3,10 +3,16 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileInstanceLock, syncBackLockPath, syncWorktreeBranch } from '@autopilot/engine';
+import {
+  FileInstanceLock,
+  claimPrimaryFlight,
+  primaryFlightLockPath,
+  syncBackLockPath,
+  syncWorktreeBranch,
+} from '@autopilot/engine';
 import {
   AUTOFORMAT_LOCK_FILE_NAME,
   RITUAL_LOCK_FILE_NAME,
@@ -308,5 +314,52 @@ describe('withCheckoutRitualLock — the self-study ritual is one more writer of
     expect(await syncBackLockPath(nowhere)).toBeNull();
 
     expect(await withCheckoutRitualLock(tmpLockPath(), nowhere, async () => 'ran')).toBe('ran');
+  });
+
+  /** Marks `repo` as flown directly by the parent process: alive, and not
+   *  this one, so it stands in for a fallback flight. */
+  async function markFlownByAnotherFlight(repo: string): Promise<void> {
+    const marker = await primaryFlightLockPath(repo);
+    if (marker === null) throw new Error('not a repository: ' + repo);
+    writeFileSync(marker, JSON.stringify({ pid: process.ppid, startedAt: Date.now() }));
+  }
+
+  it('never regenerates into a checkout another live flight is flying directly', async () => {
+    const repo = tmpRepo();
+    await markFlownByAnotherFlight(repo);
+    const ritual = vi.fn(async () => 'regenerated and committed');
+
+    const result = await withCheckoutRitualLock(tmpLockPath(), repo, ritual);
+
+    expect(result).toBeNull();
+    expect(ritual).not.toHaveBeenCalled();
+  });
+
+  it("a checkout claimed while the ritual waited on a sibling's merge is still skipped", async () => {
+    const repo = tmpRepo();
+    const siblingSyncBack = new FileInstanceLock(await lockPathOf(repo));
+    expect(siblingSyncBack.acquire().acquired).toBe(true);
+    const sleep = vi.fn(async () => {
+      await markFlownByAnotherFlight(repo);
+      siblingSyncBack.release();
+    });
+    const ritual = vi.fn(async () => 'regenerated and committed');
+
+    const result = await withCheckoutRitualLock(tmpLockPath(), repo, ritual, {
+      syncBack: { waitMs: 10, pollMs: 5, sleep },
+    });
+
+    expect(sleep).toHaveBeenCalled();
+    expect(result).toBeNull();
+    expect(ritual).not.toHaveBeenCalled();
+  });
+
+  it('runs the ritual of the flight that flies the checkout itself — its own firings are over by then', async () => {
+    const repo = tmpRepo();
+    const claim = await claimPrimaryFlight(repo);
+    expect(claim).not.toBeNull();
+
+    expect(await withCheckoutRitualLock(tmpLockPath(), repo, async () => 'ran')).toBe('ran');
+    claim?.release();
   });
 });
