@@ -21,6 +21,7 @@ import {
   planPoolIssueTask,
   type PoolIssue,
 } from '../../src/flight/pool-client.js';
+import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function project(s: Store, id: string): void {
@@ -60,6 +61,25 @@ function execFor(issues: unknown[], viewerLogin: string | undefined): CliExec {
 }
 
 describe('fetchAssignedIssues', () => {
+  it('asks gh for up to MAX_ISSUE_LIST assigned issues, not its default 30', async () => {
+    const exec = execFor([], 'octocat');
+
+    await fetchAssignedIssues(exec);
+
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'issue',
+      'list',
+      '--assignee',
+      '@me',
+      '--state',
+      'open',
+      '--limit',
+      String(MAX_ISSUE_LIST),
+      '--json',
+      'number,title,url',
+    ]);
+  });
+
   it('parses gh issue list --assignee @me output', async () => {
     const exec = execFor(
       [{ number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' }],
