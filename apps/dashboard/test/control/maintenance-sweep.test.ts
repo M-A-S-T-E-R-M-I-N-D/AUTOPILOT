@@ -9,10 +9,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import {
   dependabotPrBacklog,
   docFreshnessSweep,
@@ -70,6 +70,60 @@ describe('docFreshnessSweep', () => {
     const sweep = docFreshnessSweep('does/not/exist/at/all');
     expect(sweep.ok).toBe(true);
     expect(sweep.findings).toEqual([]);
+  });
+
+  // Board ap-mularw4d-0, observed live on epic 0004: dbe57b94 edited fly.ts on
+  // one lane at 00:33, and 63da8342 edited the epic on a sibling lane at 01:59
+  // without ever seeing it. Once both landed, the doc's later clock hid the
+  // subject change, and the sweep called a doc fresh that had never read it.
+  it("reports a subject change the doc's sibling lane never saw, even with a later doc clock", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-maint-sweep-lanes-'));
+    const git = (args: string[], epochSeconds = 1_700_000_000): void => {
+      const date = `${epochSeconds} +0000`;
+      execFileSync('git', ['-C', dir, ...args], {
+        encoding: 'utf8',
+        env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+      });
+    };
+    const write = (file: string, content: string): void => {
+      mkdirSync(dirname(join(dir, file)), { recursive: true });
+      writeFileSync(join(dir, file), content);
+    };
+    const doc = 'docs/epics/0004-bash-containment-worktree.md';
+    const subject = 'apps/dashboard/src/fly.ts';
+    try {
+      git(['init', '-q']);
+      git(['config', 'user.email', 'test@autopilot.dev']);
+      git(['config', 'user.name', 'Test']);
+      git(['config', 'commit.gpgsign', 'false']);
+      write(doc, 'v1');
+      write(subject, 'v1');
+      write('apps/dashboard/src/flight/worktree.ts', 'v1');
+      git(['add', '-A']);
+      git(['commit', '-q', '-m', 'base']);
+      git(['branch', 'lane-b']);
+      git(['checkout', '-q', '-b', 'lane-a']);
+      write(subject, 'v2');
+      git(['commit', '-q', '-am', 'subject on lane a'], 1_700_000_100);
+      git(['checkout', '-q', 'lane-b']);
+      write(doc, 'v2');
+      git(['commit', '-q', '-am', 'doc on lane b, blind to lane a'], 1_700_000_200);
+      git(['merge', '-q', '--no-edit', 'lane-a'], 1_700_000_300);
+
+      const sweep = docFreshnessSweep(dir);
+
+      expect(sweep.ok).toBe(false);
+      expect(sweep.findings).toEqual([
+        {
+          doc,
+          docTouchedAt: 1_700_000_200_000,
+          newestStaleSubject: subject,
+          newestStaleSubjectTouchedAt: 1_700_000_100_000,
+        },
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

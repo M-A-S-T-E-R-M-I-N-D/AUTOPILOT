@@ -43,6 +43,7 @@ import {
   docFreshnessIdPrefix,
   docFreshnessTaskId,
   findStaleDocFreshnessProposalIds,
+  gitDocSawSubject,
 } from './doc-freshness.js';
 import {
   auditedTaskId,
@@ -271,7 +272,7 @@ export function runDocFreshnessSweep(
   if (target !== engineRepo) return;
   try {
     const timestamps = collectDocFreshnessTimestamps(engineRepo, DOC_SUBJECTS);
-    const findings = computeDocDrift(DOC_SUBJECTS, timestamps);
+    const findings = computeDocDrift(DOC_SUBJECTS, timestamps, gitDocSawSubject(engineRepo));
     const openDocProposal = store.db.prepare(
       "SELECT 1 FROM tasks WHERE project_id = ? AND id LIKE ? AND status IN ('needs_approval', 'queued') LIMIT 1",
     );

@@ -12,6 +12,7 @@ import {
   docFreshnessIdPrefix,
   docFreshnessTaskId,
   findStaleDocFreshnessProposalIds,
+  gitDocSawSubject,
   DOC_SUBJECTS,
   type DocFreshnessFinding,
   type DocSubjectEntry,
@@ -141,6 +142,67 @@ describe('computeDocDrift', () => {
         newestStaleSubjectTouchedAt: 300,
       },
     ]);
+  });
+
+  // Board ap-mularw4d-0: a doc commit made later on a sibling lane can still be
+  // blind to a subject commit that landed beside it, so the graph's answer
+  // outranks the clock whenever there is one.
+  it('flags a subject the doc never saw even when the doc clock is later', () => {
+    const entry: DocSubjectEntry = { doc: 'docs/x.md', subjects: ['src/a.ts'] };
+    const times = new Map([
+      ['docs/x.md', 300],
+      ['src/a.ts', 100],
+    ]);
+    expect(computeDocDrift([entry], times, () => false)).toEqual([
+      {
+        doc: 'docs/x.md',
+        docTouchedAt: 300,
+        newestStaleSubject: 'src/a.ts',
+        newestStaleSubjectTouchedAt: 100,
+      },
+    ]);
+  });
+
+  it('calls a doc fresh when it saw the subject, even if the subject clock is later', () => {
+    const times = new Map([
+      ['docs/x.md', 100],
+      ['src/a.ts', 300],
+      ['src/b.ts', 400],
+    ]);
+    expect(computeDocDrift([ENTRY], times, () => true)).toEqual([]);
+  });
+
+  it('falls back to the clock only for the pairs the graph cannot answer', () => {
+    const times = new Map([
+      ['docs/x.md', 200],
+      ['src/a.ts', 300],
+      ['src/b.ts', 100],
+    ]);
+    const asked: string[] = [];
+    const saw = (doc: string, subject: string): boolean | undefined => {
+      asked.push(`${doc}|${subject}`);
+      return subject === 'src/b.ts' ? false : undefined;
+    };
+    expect(computeDocDrift([ENTRY], times, saw)).toEqual([
+      {
+        doc: 'docs/x.md',
+        docTouchedAt: 200,
+        newestStaleSubject: 'src/a.ts',
+        newestStaleSubjectTouchedAt: 300,
+      },
+    ]);
+    expect(asked).toEqual(['docs/x.md|src/a.ts', 'docs/x.md|src/b.ts']);
+  });
+
+  it('never asks the graph about a doc or subject with no timestamp', () => {
+    const asked: string[] = [];
+    const saw = (doc: string, subject: string): boolean => {
+      asked.push(`${doc}|${subject}`);
+      return false;
+    };
+    computeDocDrift([ENTRY], new Map([['src/a.ts', 100]]), saw);
+    computeDocDrift([ENTRY], new Map([['docs/x.md', 100]]), saw);
+    expect(asked).toEqual([]);
   });
 
   it('evaluates multiple entries independently', () => {
@@ -370,6 +432,105 @@ describe('collectDocFreshnessTimestamps', () => {
         newestStaleSubjectTouchedAt: 1_700_000_400_000,
       },
     ]);
+  });
+});
+
+describe('gitDocSawSubject', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-doc-saw-'));
+    initRepo(dir);
+  });
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  function mergeAt(branch: string, epochSeconds: number): void {
+    const date = `${epochSeconds} +0000`;
+    execFileSync('git', ['-C', dir, 'merge', '-q', '--no-edit', branch], {
+      encoding: 'utf8',
+      env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+    });
+  }
+
+  it('answers from linear history: a doc written after a change saw it, one written before did not', () => {
+    commitAt(dir, 'src/a.ts', 'v1', 1_700_000_000);
+    commitAt(dir, 'doc.md', 'v1', 1_700_000_100);
+    commitAt(dir, 'src/b.ts', 'v1', 1_700_000_200);
+
+    const saw = gitDocSawSubject(dir);
+    expect(saw('doc.md', 'src/a.ts')).toBe(true);
+    expect(saw('doc.md', 'src/b.ts')).toBe(false);
+  });
+
+  it('a doc edited on a sibling lane never saw the other lane, whatever the clocks say', () => {
+    commitAt(dir, 'doc.md', 'v1', 1_700_000_000);
+    commitAt(dir, 'src/a.ts', 'v1', 1_700_000_000);
+    gitSync(dir, ['branch', 'lane-b']);
+    gitSync(dir, ['checkout', '-q', '-b', 'lane-a']);
+    commitAt(dir, 'src/a.ts', 'v2', 1_700_000_100);
+    gitSync(dir, ['checkout', '-q', 'lane-b']);
+    commitAt(dir, 'doc.md', 'v2', 1_700_000_200);
+    mergeAt('lane-a', 1_700_000_300);
+
+    const entry: DocSubjectEntry = { doc: 'doc.md', subjects: ['src/a.ts'] };
+    const times = collectDocFreshnessTimestamps(dir, [entry]);
+    expect(computeDocDrift([entry], times)).toEqual([]);
+    expect(computeDocDrift([entry], times, gitDocSawSubject(dir))).toEqual([
+      {
+        doc: 'doc.md',
+        docTouchedAt: 1_700_000_200_000,
+        newestStaleSubject: 'src/a.ts',
+        newestStaleSubjectTouchedAt: 1_700_000_100_000,
+      },
+    ]);
+  });
+
+  it('a doc that saw a change is fresh even when that change carries a later clock', () => {
+    // A rewritten or amended commit keeps whatever committer date it was
+    // given, so the history order and the clock order can disagree.
+    commitAt(dir, 'src/a.ts', 'v1', 1_700_000_500);
+    commitAt(dir, 'doc.md', 'v1', 1_700_000_100);
+
+    const entry: DocSubjectEntry = { doc: 'doc.md', subjects: ['src/a.ts'] };
+    const times = collectDocFreshnessTimestamps(dir, [entry]);
+    expect(computeDocDrift([entry], times)).toHaveLength(1);
+    expect(computeDocDrift([entry], times, gitDocSawSubject(dir))).toEqual([]);
+  });
+
+  // Observed live 2026-09-29: a merge, its revert and the reland all touched
+  // prompt.ts after MODEL-CARD.md's last edit, and left it byte-identical to
+  // what the doc saw. Asking about commits would call the doc stale; asking
+  // about content correctly does not.
+  it('a subject changed and then restored after the doc is still what the doc saw', () => {
+    commitAt(dir, 'src/a.ts', 'v1', 1_700_000_000);
+    commitAt(dir, 'doc.md', 'v1', 1_700_000_100);
+    commitAt(dir, 'src/a.ts', 'v2', 1_700_000_200);
+    commitAt(dir, 'src/a.ts', 'v1', 1_700_000_300);
+
+    const entry: DocSubjectEntry = { doc: 'doc.md', subjects: ['src/a.ts'] };
+    const times = collectDocFreshnessTimestamps(dir, [entry]);
+    expect(computeDocDrift([entry], times)).toHaveLength(1);
+    expect(computeDocDrift([entry], times, gitDocSawSubject(dir))).toEqual([]);
+  });
+
+  it('a subject created after the doc is one the doc never saw', () => {
+    commitAt(dir, 'doc.md', 'v1', 1_700_000_000);
+    commitAt(dir, 'src/new/a.ts', 'v1', 1_700_000_100);
+
+    expect(gitDocSawSubject(dir)('doc.md', 'src/new/')).toBe(false);
+  });
+
+  it('cannot say for a doc with no history, or outside a repository', () => {
+    commitAt(dir, 'src/a.ts', 'v1', 1_700_000_000);
+    expect(gitDocSawSubject(dir)('docs/never-committed.md', 'src/a.ts')).toBeUndefined();
+
+    const nonGitDir = mkdtempSync(join(tmpdir(), 'autopilot-doc-saw-nogit-'));
+    try {
+      expect(gitDocSawSubject(nonGitDir)('doc.md', 'src/a.ts')).toBeUndefined();
+    } finally {
+      rmSync(nonGitDir, { recursive: true, force: true });
+    }
   });
 });
 

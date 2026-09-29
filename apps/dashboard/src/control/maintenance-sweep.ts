@@ -23,6 +23,7 @@ import {
   DOC_SUBJECTS,
   collectDocFreshnessTimestamps,
   computeDocDrift,
+  gitDocSawSubject,
   type DocFreshnessFinding,
 } from '../flight/doc-freshness.js';
 import { ciRunReport, type WorkflowRunStatus, type GhRun } from './ci-status.js';
@@ -93,7 +94,7 @@ export interface DocFreshnessSweep {
 export function docFreshnessSweep(repo = process.cwd()): DocFreshnessSweep {
   try {
     const timestamps = collectDocFreshnessTimestamps(repo, DOC_SUBJECTS);
-    const findings = computeDocDrift(DOC_SUBJECTS, timestamps);
+    const findings = computeDocDrift(DOC_SUBJECTS, timestamps, gitDocSawSubject(repo));
     return {
       ok: findings.length === 0,
       detail:
