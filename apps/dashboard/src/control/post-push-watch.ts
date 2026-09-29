@@ -42,6 +42,7 @@ import { DEFAULT_BUDGET_USD } from '../flight/runner.js';
 import type { FlightRunnerDeps } from '../flight/runner.js';
 import { projectRepoOf } from '../flight/project-repo.js';
 import { readOpenCodeScanningAlerts, syncCodeScanningTasks } from './code-scanning-tasks.js';
+import { readLatestMutationRed, syncMutationRedTasks } from './mutation-red-tasks.js';
 
 export type PostPushWatchOutcome =
   | { readonly kind: 'concluded'; readonly verdict: PostPushVerdictResult }
@@ -276,6 +277,24 @@ function syncCodeScanningAlerts(
   }
 }
 
+/** Mirror the latest nightly mutation run's red configs onto the board.
+ *  Best-effort, same as the scanner's alerts. */
+function syncMutationRed(
+  store: Parameters<typeof syncMutationRedTasks>[0],
+  projectId: string,
+  rootPath: string,
+  gh: GhRun,
+): void {
+  try {
+    const repo = projectRepoOf(rootPath);
+    if (repo === null) return;
+    const red = readLatestMutationRed(gh, repo);
+    if (red !== null) syncMutationRedTasks(store, projectId, red, Date.now());
+  } catch {
+    /* the nightly run is advisory to the watch — never fail it */
+  }
+}
+
 /**
  * Builds the real {@link PostPushWatchTrigger} (slice 3): watches `ci.yml`
  * on `branch` against `rootPath` (`ciWorkflowStatus`, the same read the
@@ -319,6 +338,9 @@ export function createPostPushWatchTrigger(
           // fails a run, so the verdict cannot see one — and the alerts are
           // read whatever the run came to, a timed-out watch included.
           syncCodeScanningAlerts(store, projectId, rootPath, (run ?? createGhRun)(rootPath));
+          // THE NIGHTLY MUTATION RUN REACHES THE BOARD (2026-09-29): a
+          // scheduled run has no landing of its own to watch it.
+          syncMutationRed(store, projectId, rootPath, (run ?? createGhRun)(rootPath));
           if (outcome.kind !== 'concluded') return;
           const taskFiled = filePostPushVerdictTask(store, outcome.verdict);
           if (spawnFlight && outcome.verdict.kind === 'remediate') {

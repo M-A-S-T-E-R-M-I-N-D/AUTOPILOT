@@ -607,7 +607,9 @@ export class GitVcs implements VcsPort {
       '--merges',
       `${fromRef}..${toRef}`,
     ]);
-    if (merges.exitCode === 0 && merges.stdout.trim().length > 0) {
+    // A failed rev-list prints nothing, like a range with no merge: both read
+    // as the plain diff below.
+    if (merges.stdout !== '') {
       return this.ownNumstat(fromRef, toRef);
     }
     const { stdout, exitCode } = await git(this.repo, [
@@ -641,6 +643,9 @@ export class GitVcs implements VcsPort {
       `${fromRef}..${toRef}`,
     ]);
     const totals = new Map<string, DiffFileStat>();
+    // Stryker disable next-line MethodExpression,ArrowFunction,ConditionalExpression,EqualityOperator:
+    // the filter only spares a subprocess — the trailing empty line would run
+    // `git show ''`, which fails with no output, and no output is no stats.
     for (const sha of chain.stdout.split('\n').filter((line) => line.length > 0)) {
       const { stdout } = await git(this.repo, [
         'show',

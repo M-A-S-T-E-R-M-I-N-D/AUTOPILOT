@@ -116,5 +116,22 @@ describe('invalidSpdxTags — the REUSE red that sat on main (2026-09-27)', () =
   it('flags an empty expression', () => {
     expect(invalidSpdxTags('// SPDX-License-Identifier:')).toEqual([{ line: 1, expression: '' }]);
   });
+
+  it('reads a line without the tag as nothing to check', () => {
+    const text = ['// SPDX-License-Identifier: MIT', '', 'export const x = 1;'].join('\n');
+    expect(invalidSpdxTags(text)).toEqual([]);
+  });
+
+  it('reports a bad expression with only its comment closer cut off the end', () => {
+    expect(invalidSpdxTags("/* SPDX-License-Identifier: MIT', */")).toEqual([
+      { line: 1, expression: "MIT'," },
+    ]);
+  });
   // REUSE-IgnoreEnd
+});
+
+describe('hasSpdxHeader reads the scan window line by line', () => {
+  it('does not find a tag made of the end of one line and the start of the next', () => {
+    expect(hasSpdxHeader(['// SPDX-License-', 'Identifier: MIT'].join('\n'))).toBe(false);
+  });
 });

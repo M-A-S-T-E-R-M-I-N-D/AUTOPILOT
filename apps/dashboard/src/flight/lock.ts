@@ -264,9 +264,16 @@ export function liveFlightLockPids(
 /** A lock file's text, or '' when it cannot be read — which parseLockInfo
  *  rejects, so an unreadable entry names no one. */
 function readLockOrEmpty(path: string): string {
+  // Stryker disable BlockStatement,StringLiteral: every mutant here is
+  // equivalent. An empty encoding returns a Buffer, which JSON.parse in
+  // parseLockInfo reads as the same text; an emptied catch returns undefined
+  // and any other text is not a lock's JSON, and parseLockInfo reads each as
+  // null, the same as ''. The unreadable entry in lock.test.ts proves the
+  // catch runs.
   try {
     return readFileSync(path, 'utf8');
   } catch {
     return '';
   }
+  // Stryker restore BlockStatement,StringLiteral
 }

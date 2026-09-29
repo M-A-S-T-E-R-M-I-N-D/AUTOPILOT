@@ -78,6 +78,9 @@ export function censusTestFiles(root = ROOT) {
     try {
       names = readdirSync(join(root, top));
     } catch {
+      // Stryker disable next-line ArrayDeclaration: any name returned here
+      // becomes <root>/<top>/<name>/test under a top that does not exist, and
+      // testFilesUnder reads a missing directory as no tests.
       return [];
     }
     return names.map((name) => join(root, top, name, 'test'));
@@ -90,15 +93,22 @@ export function censusTestFiles(root = ROOT) {
     // utf8, so `RE.test(buf)` and `RE.test(buf.toString('utf8'))` agree on
     // every fixture (proven with a throwaway probe, deleted before commit).
     .filter((path) => isRepoReadingTest(readFileSync(path, 'utf8')))
-    // Stryker disable next-line StringLiteral: this runs on ubuntu-latest
-    // (see .github/workflows/mutation.yml), where node:path never emits
-    // `\` — `.split('\\')` always returns a single-element array, so the
-    // `.join('/')` separator has nothing to join and is unreachable (proven:
-    // 'a/b'.split('\\').join('') === 'a/b'.split('\\').join('/')). The
-    // `split('\\')` argument itself stays live and is killed by every
-    // exact-path assertion in run-repo-census-tests.test.ts.
-    .map((path) => relative(root, path).split('\\').join('/'));
+    .map((path) => repoRelative(root, path));
   return [...new Set([...ALWAYS, ...found])].sort();
+}
+
+/** A path relative to `root`, with forward slashes. */
+function repoRelative(root, path) {
+  // Stryker disable next-line StringLiteral: this runs on ubuntu-latest
+  // (see .github/workflows/mutation.yml), where node:path never emits
+  // `\` — `.split('\\')` always returns a single-element array, so the
+  // `.join('/')` separator has nothing to join and is unreachable (proven:
+  // 'a/b'.split('\\').join('') === 'a/b'.split('\\').join('/')). The
+  // `split('\\')` argument itself stays live and is killed by every
+  // exact-path assertion in run-repo-census-tests.test.ts. It sits in its
+  // own statement because inside a method chain the directive bound to an
+  // inner node, and the nightly run of 2026-09-28 reported the mutant anyway.
+  return relative(root, path).split('\\').join('/');
 }
 
 // Stryker disable all: the process shell — it spawns vitest and exits with
