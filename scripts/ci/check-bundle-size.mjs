@@ -474,8 +474,14 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // descendant selector and forEach loops (-75B). Measured 241711B raw against
 // the 241664B line: 47 bytes over. Gzip (73396B) stays under
 // PANELS_GZIP_BUDGET untouched.
+// Then panels raw 237->239KB (2026-09-29, board ap-mum8fgj3-0), a deliberate
+// raise with no new slice behind it: two days of landed work (the popover
+// focus law's reland, the Focus grouping's keys, the last execute-result
+// live regions) grew /panels.js to 242524B, 164 bytes under the 242688B
+// line -- the margin every entry above refuses, with eight sibling lanes
+// flying beside it. About two KB of margin, as the entries above keep.
 const PROJECT_RAW_BUDGET = 124 * 1024;
-const PANELS_RAW_BUDGET = 237 * 1024;
+const PANELS_RAW_BUDGET = 239 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -506,8 +512,11 @@ const PANELS_RAW_BUDGET = 237 * 1024;
 // raw line above — measured 33142B gzip.
 // Then project gzip 33→34KB (2026-09-27) for the same restore button as the
 // raw line above — measured 33867B gzip against the old 33792B budget.
+// Then panels gzip 72->73KB (2026-09-29), the same deliberate raise as the
+// panels raw entry above -- measured 73595B, 133 bytes UNDER the old 73728B
+// line.
 const PROJECT_GZIP_BUDGET = 34 * 1024;
-const PANELS_GZIP_BUDGET = 72 * 1024;
+const PANELS_GZIP_BUDGET = 73 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
