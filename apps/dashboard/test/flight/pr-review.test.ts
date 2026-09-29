@@ -237,6 +237,9 @@ const BENIGN_FLIGHT = new Set([
   // Claim-ordering / focus-forwarding coordination policy — duplicate-work
   // quality, no write of its own.
   'focus.ts',
+  // Pure text for the next firing's prompt from a gate result the engine
+  // already judged — advisory, like fleet-digest.ts; firing.ts owns the verdict.
+  'gate-feedback.ts',
   // Pure filename filter for the operator's INBOX folder (the task-minting
   // write lives in inbox-triage.ts, flagged).
   'inbox.ts',
