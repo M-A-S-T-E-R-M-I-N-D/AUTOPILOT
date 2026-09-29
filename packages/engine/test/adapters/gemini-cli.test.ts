@@ -439,6 +439,30 @@ describe('GeminiCliModel', () => {
     expect(stdinEnd).toHaveBeenCalledWith(long);
   });
 
+  it('pipes a prompt that starts with "-", which yargs would refuse as the --prompt value', async () => {
+    // `--prompt` is `nargs: 1` (gemini-cli config.ts), and yargs-parser's
+    // eatNargs never consumes an arg matching /^-[^0-9]/: the run would fail
+    // "Not enough arguments following: prompt" and parse the prompt as flags.
+    mockExecFileResult(null, '');
+
+    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', '- fix the build');
+
+    expect(spawnedArgs()).not.toContain('--prompt');
+    expect(spawnedArgs()).not.toContain('- fix the build');
+    expect(stdinEnd).toHaveBeenCalledWith('- fix the build');
+  });
+
+  it('pipes a frontmatter prompt ("---" first) on stdin, next to a resume', async () => {
+    mockExecFileResult(null, '');
+    const frontmatter = '---\ntask: fix\n---\nFix the build.';
+
+    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', frontmatter, SESSION);
+
+    expect(spawnedArgs().slice(-2)).toEqual(['--resume', SESSION]);
+    expect(spawnedArgs()).not.toContain('--prompt');
+    expect(stdinEnd).toHaveBeenCalledWith(frontmatter);
+  });
+
   it('swallows a stdin pipe error (EPIPE: the CLI exited before reading) instead of crashing the host', async () => {
     const stdin = Object.assign(new EventEmitter(), { end: stdinEnd });
     execFileMock.mockImplementation((...args: unknown[]) => {
