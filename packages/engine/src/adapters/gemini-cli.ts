@@ -259,7 +259,9 @@ export interface GeminiCliOptions {
  * the CLI's 500 ms wait for input that never comes (`readStdin.ts`).
  *
  * Transport mirrors `CodexCliModel`'s: buffered `execFile`, `detached: true`
- * plus {@link reapCliDescendants} (ORPHAN SWEEP), no idle timeout, no streaming.
+ * plus {@link reapCliDescendants} (ORPHAN SWEEP), no streaming — but not its
+ * idle cap: `--output-format json` writes its one object only at the end, so
+ * a healthy run is silent on stdout until then.
  * It shares the Claude driver's CLI-level resume fallback: a session id the CLI
  * rejects ({@link isGeminiResumeFailure}) is retried once, cold, as `resumed:
  * false`. Otherwise a resume is `resumed: true` only when the output's

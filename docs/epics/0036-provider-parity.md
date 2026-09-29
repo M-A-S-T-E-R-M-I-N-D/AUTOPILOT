@@ -13,9 +13,12 @@ landed whole on 2026-09-27: `packages/engine/src/adapters/codex-cli.ts`'s `parse
 reads `codex exec --json` stdout into a `ModelResponse` (fixture-tested, `costUsd` always `null`),
 and `CodexCliModel` spawns it (`exec --json --model <model> --sandbox workspace-write [resume
 <id>] <prompt>`, verified against openai/codex's own docs and `codex-rs/exec/src/cli.rs`).
-Not yet flown on a real lane — no routing/config wiring, no idle-timeout hardening
-(`ClaudeCliModel`'s equivalent was added after real incidents this adapter has no flight history to
-have hit yet). It DOES share `ClaudeCliModel`'s CLI-level resume fallback, added 2026-09-27:
+Not yet flown on a real lane — no routing/config wiring. Since 2026-09-29 it carries
+`StreamingClaudeCliModel`'s idle cap: `codex exec --json` prints each event as a line the moment it
+happens (`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `emit`), so every stdout chunk
+re-arms an `idleTimeoutMs` timer (default `DEFAULT_CLI_IDLE_TIMEOUT_MS`, 20 min), and a child silent
+that long is killed and comes back `timedOut` instead of holding its lane for the 90-minute wall
+clock. It DOES share `ClaudeCliModel`'s CLI-level resume fallback, added 2026-09-27:
 `codex-rs/exec/src/lib.rs` (`resolve_resume_thread_id`) takes a UUID as given and asks for that
 thread, so a stale id fails the run before `thread.started`, and `isCodexResumeFailure` retries it
 once, cold, as `resumed: false`. A session NAME it cannot find starts a fresh thread silently
@@ -35,8 +38,10 @@ threshold, as `ClaudeCliModel` does); and headless mode turns every "ask the use
 into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (unsandboxed) lets the
 agent edit files and run the gate. Folder trust is on by default and headless mode exits
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
-a folder also loads its `.gemini/settings.json` and MCP servers. It carries Codex's gaps (no
-routing, no idle timeout), and since 2026-09-28 Codex's resume fallback too: `resolveSessionId`
+a folder also loads its `.gemini/settings.json` and MCP servers. It shares Codex's routing gap and
+still has no idle cap: `--output-format json` writes its one object only when the run ends, so
+there is no stdout to watch until then. An idle cap would need `stream-json` first. Since 2026-09-28
+it has Codex's resume fallback too: `resolveSessionId`
 (`packages/cli/src/gemini.tsx`) looks a `--resume` id up before the run starts and exits
 `FATAL_INPUT_ERROR` (42, `packages/core/src/utils/exitCodes.ts`) on an unknown one, writing no
 output object, so `isGeminiResumeFailure` retries exactly that exit once, cold, as `resumed:

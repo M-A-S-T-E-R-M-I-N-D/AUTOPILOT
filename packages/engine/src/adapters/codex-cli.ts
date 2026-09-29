@@ -29,6 +29,7 @@ import {
   isCliTimeoutDeath,
   isResumeFailure,
   CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
 
@@ -182,6 +183,13 @@ export interface CodexCliOptions {
    *  {@link DEFAULT_CLI_TIMEOUT_MS} — the same wall-clock cap every CLI-spawning
    *  ModelPort in this repo shares, until this adapter earns its own tuned value. */
   readonly timeoutMs?: number;
+  /** Kill the child when NOTHING has arrived on its stdout for this long — a
+   *  hung login prompt, a stalled model stream — long before the wall clock
+   *  would. Defaults to `claude-cli.ts`'s {@link DEFAULT_CLI_IDLE_TIMEOUT_MS},
+   *  the same window `ClaudeCliOptions.idleTimeoutMs` gives: `codex exec
+   *  --json` prints each event as a line the moment it happens, so a working
+   *  run is never silent for longer than its slowest single command. */
+  readonly idleTimeoutMs?: number;
   /**
    * `--sandbox` level passed to `codex exec`. Defaults to `workspace-write`: the CLI's
    * own default is `read-only` (per developers.openai.com/codex/noninteractive, verified
@@ -215,10 +223,13 @@ export interface CodexCliOptions {
  * `ClaudeCliModel` does. Mirrors `ClaudeCliModel`'s buffered-execFile
  * transport shape, including `detached: true` + {@link reapCliDescendants} so a
  * wall-clock kill still reaps whatever the child spawned (ORPHAN SWEEP, board
- * web-msu3sv1w-hfj87n) — but skips its idle-timeout and streaming hardening:
- * those were added to the Claude driver incrementally after real incidents this
- * adapter has no flight history to have hit yet. It shares the Claude driver's
- * CLI-level resume fallback: a session id the CLI rejects
+ * web-msu3sv1w-hfj87n). It carries `StreamingClaudeCliModel`'s idle cap
+ * ({@link CodexCliOptions.idleTimeoutMs}): a child silent on stdout for that
+ * long is killed and comes back `timedOut`, so a hung run no longer holds its
+ * lane for the whole wall clock. It skips the rest of the streaming hardening
+ * (live activity, partial usage on a kill), which the Claude driver gained
+ * after real incidents this adapter has no flight history to have hit yet. It
+ * shares the Claude driver's CLI-level resume fallback: a session id the CLI rejects
  * ({@link isCodexResumeFailure}) is retried once, cold, as `resumed: false`.
  * Otherwise a resume is `resumed: true` only when `thread.started` names the
  * requested thread, since a session name Codex cannot find silently starts a
@@ -277,6 +288,7 @@ export class CodexCliModel implements ModelPort {
     args.push(pipePrompt ? '-' : prompt);
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
+    const idleTimeoutMs = this.opts.idleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS;
     const startedAt = Date.now();
     const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
       cwd: this.opts.repo,
@@ -288,12 +300,20 @@ export class CodexCliModel implements ModelPort {
       encoding: 'utf8',
     };
     return new Promise((resolve) => {
+      // The idle cap is OUR timer; execFile's `timeout` above stays the
+      // wall-clock cap. Every stdout chunk re-arms it, so only a child silent
+      // for the whole window is killed (openai/codex
+      // codex-rs/exec/src/event_processor_with_jsonl_output.rs `emit` prints
+      // each event with `println!` as it happens).
+      let idleTimer: NodeJS.Timeout | undefined;
+      let idleDeath = false;
       const child = execFile(
         this.opts.binary ?? 'codex',
         args,
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
         (err, stdout) => {
+          clearTimeout(idleTimer);
           (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
           if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
           // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
@@ -306,13 +326,28 @@ export class CodexCliModel implements ModelPort {
                 ? 1
                 : 0;
           const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
-          const timedOut = isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
+          // An idle-cap kill is a cap death too, as in StreamingClaudeCliModel.execOnce.
+          const timedOut =
+            idleDeath || isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
           resolve({
             ...parseCodexExecOutput(stdout ?? '', exitCode, model),
             ...(timedOut ? { timedOut: true } : {}),
           });
         },
       );
+      const armIdle = (): void => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          idleDeath = true;
+          try {
+            child.kill();
+          } catch {
+            // already gone — the callback above still settles the call
+          }
+        }, idleTimeoutMs);
+      };
+      armIdle();
+      child.stdout?.on('data', armIdle);
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
       // Same EPIPE guard as GeminiCliModel: a CLI that exits before reading
       // its stdin breaks the pipe, and the callback above already reports it.
