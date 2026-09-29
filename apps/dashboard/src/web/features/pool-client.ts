@@ -253,7 +253,13 @@ function renderPoolClientPanel(entries) {
       actions.appendChild(claimBtn);
     }
     item.appendChild(actions);
-    item.appendChild(el('div', 'pool-client-result'));
+    // The claim outcome lands here after the confirm dialog, once focus has
+    // moved on — a polite live region announces it the way issue-triage /
+    // pr-review results do (board ap-mtmpekhi-0 sweep).
+    var resultEl = el('div', 'pool-client-result');
+    resultEl.setAttribute('role', 'status');
+    resultEl.setAttribute('aria-live', 'polite');
+    item.appendChild(resultEl);
     section.appendChild(item);
   }
   refreshPoolClientProjectOptions();
