@@ -78,7 +78,7 @@ export interface MergeEscalationAttempt {
   readonly details: string;
 }
 
-/** Every side effect the orchestrator needs, injected — see the module doc for why nothing here is wired to a real spawn/gate/commit yet. */
+/** Every side effect the orchestrator needs, injected so its tests drive each step directly — {@link createGitMergeEscalationDeps} wires the real git and gate, and `fly.ts` supplies the real agent spawn (see the module doc). */
 export interface MergeEscalationDeps {
   /** Runs the resolution agent against {@link buildMergeEscalationPrompt}'s prompt. `ok: false` means the agent invocation itself errored or timed out. */
   readonly invokeAgent: (prompt: string) => Promise<MergeEscalationAttempt>;
@@ -98,6 +98,32 @@ export type MergeEscalationOutcome =
   | { readonly kind: 'left-unresolved'; readonly unresolvedPaths: readonly string[] }
   | { readonly kind: 'gate-red'; readonly details: string }
   | { readonly kind: 'commit-failed'; readonly details: string };
+
+/** One attempt reduced to what the store records and the inbox task shows. */
+export interface MergeEscalationSummary {
+  readonly kind: MergeEscalationOutcome['kind'];
+  readonly details: string;
+}
+
+/**
+ * Flattens an outcome into a kind and one line of details. That pair is the
+ * `merge-escalation` event `fly.ts` persists for every attempt and the reason
+ * a failed attempt carries into the STRANDED SYNC-BACK task, so rung 4's
+ * success rate, and whether a failure was the prompt, the turn cap or the
+ * gate, can be read from the store. `left-unresolved` names its paths.
+ */
+export function summarizeMergeEscalationOutcome(
+  outcome: MergeEscalationOutcome,
+): MergeEscalationSummary {
+  if (outcome.kind === 'left-unresolved') {
+    const paths = outcome.unresolvedPaths;
+    return {
+      kind: outcome.kind,
+      details: `left ${paths.length} path(s) unresolved: ${paths.join(', ')}`,
+    };
+  }
+  return { kind: outcome.kind, details: outcome.details };
+}
 
 /**
  * Drives one escalation attempt through the evaluation's exact decision

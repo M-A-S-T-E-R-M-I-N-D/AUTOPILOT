@@ -11,6 +11,7 @@ import {
   createGitMergeEscalationDeps,
   mergeEscalationCommitMessage,
   runMergeEscalationAgent,
+  summarizeMergeEscalationOutcome,
   type MergeEscalationDeps,
 } from '../../src/adapters/merge-escalation-agent.js';
 import type { MergeConflictSides } from '../../src/adapters/merge-conflict-context.js';
@@ -128,6 +129,26 @@ describe('runMergeEscalationAgent', () => {
 
     expect(outcome).toEqual({ kind: 'commit-failed', details: 'commit rejected' });
     expect(deps.abortMerge).toHaveBeenCalledOnce();
+  });
+});
+
+describe('summarizeMergeEscalationOutcome', () => {
+  it('keeps the kind and the details of every outcome that carries them', () => {
+    for (const kind of ['resolved', 'agent-failed', 'gate-red', 'commit-failed'] as const) {
+      expect(summarizeMergeEscalationOutcome({ kind, details: `${kind} happened` })).toEqual({
+        kind,
+        details: `${kind} happened`,
+      });
+    }
+  });
+
+  it('names the paths the agent left unmerged, not only how many', () => {
+    expect(
+      summarizeMergeEscalationOutcome({
+        kind: 'left-unresolved',
+        unresolvedPaths: ['a.txt', 'docs/b.md'],
+      }),
+    ).toEqual({ kind: 'left-unresolved', details: 'left 2 path(s) unresolved: a.txt, docs/b.md' });
   });
 });
 
