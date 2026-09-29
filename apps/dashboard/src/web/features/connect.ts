@@ -312,8 +312,8 @@ function connectInit() {
   });
   // LLM ISSUE COMPOSER 2/3 (board web-mtpzdruu-vf25ry): the note never rides
   // anywhere but this one POST — /api/report/compose runs a local, tool-less
-  // model call (flight/report-compose.ts) and hands back a polished English
-  // title/body, which this fills straight into the form's own #gh-issue-
+  // model call (flight/report-compose.ts) and hands back a polished title/
+  // body in the note's own language, which this fills into the form's #gh-issue-
   // title/#gh-issue-body fields (the rendered PREVIEW — visible and still
   // editable) so the existing submit handler below stays a one-click,
   // unmodified path to the real GithubIssueExecuteApi. The raw note itself

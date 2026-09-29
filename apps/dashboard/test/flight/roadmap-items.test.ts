@@ -8,6 +8,7 @@ import {
   ROADMAP_LABEL,
   type RoadmapItem,
 } from '../../src/flight/roadmap-items.js';
+import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 describe('isRoadmapItem', () => {
@@ -41,6 +42,8 @@ describe('fetchRoadmapItems', () => {
       'open',
       '--label',
       ROADMAP_LABEL,
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,labels,assignees',
     ]);

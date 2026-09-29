@@ -453,8 +453,12 @@ describe('liveFlightLockPids — who still holds a lock, by name (2026-09-27)', 
       write(engineLockFileName(id), process.pid);
       write(engineLockFileName(id, 'fleet-2'), process.ppid);
       write(engineLockFileName(id, 'fleet-3'), 999_999_999); // no such process
-      write(engineLockFileName('fly-other-project'), process.ppid);
+      // Another project's lock, and a file under this project's prefix that
+      // is not a lock: each holds a live pid that must not be named.
+      write(engineLockFileName('fly-other-project'), process.pid);
+      write(`${engineLockFileName(id, 'fleet-5')}.tmp`, process.ppid);
       writeFileSync(join(dir, engineLockFileName(id, 'fleet-4')), 'not json');
+      mkdirSync(join(dir, engineLockFileName(id, 'fleet-6'))); // unreadable as a file
       expect(liveFlightLockPids(dir, target).sort()).toEqual([process.pid, process.ppid].sort());
       expect(liveFlightLockPids(dir, target, process.pid)).toEqual([process.ppid]);
       expect(liveFlightLockPids(join(dir, 'missing'), target)).toEqual([]);

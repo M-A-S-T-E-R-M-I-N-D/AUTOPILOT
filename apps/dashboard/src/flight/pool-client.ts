@@ -66,6 +66,7 @@ import {
 import type { CliExec } from '../connection/cli-probe.js';
 import {
   POOL_LABEL_PREFIX,
+  MAX_ISSUE_LIST,
   parseIssueLabels,
   parseAssignees,
   issueTaskId,
@@ -161,8 +162,9 @@ export function parsePoolComments(raw: unknown): readonly IssueCommentLike[] {
 }
 
 /**
- * Lists every open issue carrying a `pool: <dimension>` label via `gh issue
- * list --state open --json number,title,url,labels,assignees`, run through
+ * Lists every open issue carrying a `pool: <dimension>` label (up to
+ * `MAX_ISSUE_LIST`) via `gh issue list --state open --json
+ * number,title,url,labels,assignees`, run through
  * the injectable `exec` — the same `CliExec` shape `issue-triage.ts`'s
  * `fetchOpenIssues` and `pr-review.ts`'s `fetchOpenPrCandidates` use. `gh
  * issue list --label` ANDs multiple `--label` flags together rather than
@@ -182,6 +184,8 @@ export async function fetchPoolIssues(exec: CliExec): Promise<PoolIssue[]> {
     'list',
     '--state',
     'open',
+    '--limit',
+    String(MAX_ISSUE_LIST),
     '--json',
     'number,title,url,labels,assignees,comments',
   ]);

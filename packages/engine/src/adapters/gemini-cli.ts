@@ -254,7 +254,8 @@ export interface GeminiCliOptions {
  * `--resume` takes the session UUID the JSON output carries. The CLI appends piped
  * stdin to the prompt (`gemini.tsx`), so a prompt over
  * {@link CLI_STDIN_PROMPT_THRESHOLD} goes on stdin alone, dodging the Windows
- * command-line ceiling the way `ClaudeCliModel` does. The CLI reads stdin whenever
+ * command-line ceiling the way `ClaudeCliModel` does. So does one starting with
+ * `-`, which yargs would refuse as the `--prompt` value. The CLI reads stdin whenever
  * it is not a TTY, so it is always closed: an argv prompt gets an empty stdin, not
  * the CLI's 500 ms wait for input that never comes (`readStdin.ts`).
  *
@@ -297,7 +298,10 @@ export class GeminiCliModel implements ModelPort {
     prompt: string,
     resumeSessionId: string | undefined,
   ): Promise<ModelResponse> {
-    const pipePrompt = prompt.length > CLI_STDIN_PROMPT_THRESHOLD;
+    // `--prompt` is `nargs: 1` (config.ts), and yargs-parser's `eatNargs` never
+    // takes an arg matching /^-[^0-9]/ as its value: the run fails "Not enough
+    // arguments following: prompt". A leading `-` goes on stdin with the long ones.
+    const pipePrompt = prompt.length > CLI_STDIN_PROMPT_THRESHOLD || prompt.startsWith('-');
     const args = [
       '--model',
       model,

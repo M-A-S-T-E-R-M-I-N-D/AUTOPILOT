@@ -189,6 +189,19 @@ every open dependabot PR toward the backlog): both are hardening fixes to
 existing degrade-safe reads. Slices 2-4 remain shipped and unchanged in
 scope.
 
+Freshness check (2026-09-29): `maintenance-sweep.ts` gained one commit
+(af852f35). Slice 3's `docFreshnessSweep` now hands `computeDocDrift` the
+`gitDocSawSubject(repo)` answer, the same one `fly.ts`'s flight-end sweep
+passes. Drift is now judged by content, not by comparing last-commit
+clocks: a doc has seen a subject when that subject at HEAD is byte-identical
+to what it was in the doc's own last commit. The clock comparison is only
+the fallback when git cannot answer. The change closes a gap where a doc
+edited later on one fleet lane hid a subject change landed on another
+(epic 0004, board ap-mularw4d-0). Slice 3's sweep is still read-only and
+still creates no task; it now applies the same drift rule as the flight-end
+sweep. `ci-status.ts` is unchanged since the check above. Slices 2-4
+remain shipped and unchanged in scope.
+
 ## Related
 
 - `.github/dependabot.yml`, `apps/dashboard/src/flight/doc-freshness.ts`

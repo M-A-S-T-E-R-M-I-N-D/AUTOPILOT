@@ -34,7 +34,9 @@ adapter landed whole the same day:
 [--resume <id>] [--prompt <prompt>]`, verified against google-gemini/gemini-cli's
 `packages/cli/src/config/config.ts`). Two traps shaped it: the positional prompt runs
 *interactive*, so the prompt rides on `--prompt` (or on stdin alone past the Windows command-line
-threshold, as `ClaudeCliModel` does); and headless mode turns every "ask the user" policy decision
+threshold, as `ClaudeCliModel` does, and since 2026-09-29 whenever it starts with `-`: `--prompt`
+is `nargs: 1`, and yargs-parser's `eatNargs` never takes an arg matching `/^-[^0-9]/` as its value,
+so the run would fail "Not enough arguments following: prompt"); and headless mode turns every "ask the user" policy decision
 into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (unsandboxed) lets the
 agent edit files and run the gate. Folder trust is on by default and headless mode exits
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting

@@ -18,10 +18,15 @@
  */
 
 import { execFile } from 'node:child_process';
-import { existsSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { gatherMergeConflictContext, type MergeConflictSides } from './merge-conflict-context.js';
-import { FileInstanceLock, type AcquireLockResult } from './instance-lock.js';
+import {
+  FileInstanceLock,
+  isProcessAlive,
+  parseLockInfo,
+  type AcquireLockResult,
+} from './instance-lock.js';
 
 /**
  * OS-canonical form (symlinks resolved, Windows 8.3 short names expanded,
@@ -476,12 +481,61 @@ function tryAcquire(lock: SyncBackLock): LockAttempt {
  *  never a tracked file. `null` outside a repository: there is nothing to
  *  lock, and the sync-back itself reports why. */
 export async function syncBackLockPath(repo: string): Promise<string | null> {
-  const common = await git(repo, ['rev-parse', '--git-common-dir']);
-  const dir = common.stdout.trim();
-  return dir === '' ? null : resolve(repo, dir, 'autopilot-sync-back.lock');
+  return commonDirFile(repo, 'autopilot-sync-back.lock');
 }
 
-async function syncBackLock(
+async function commonDirFile(repo: string, name: string): Promise<string | null> {
+  const common = await git(repo, ['rev-parse', '--git-common-dir']);
+  const dir = common.stdout.trim();
+  return dir === '' ? null : resolve(repo, dir, name);
+}
+
+/**
+ * A FLIGHT FLYING THE CHECKOUT ITSELF (board ap-mtnceruy-2). When worktree
+ * isolation fails, a flight's model and gate work in the base checkout's own
+ * tree, the one every lane syncs back into. fly.ts refuses that fallback
+ * while a sibling is live, but a sibling that launches LATER never saw it:
+ * its per-firing sync-back would merge into that tree mid-firing and move
+ * HEAD under the fallback flight's uncommitted edits. So the fallback flight
+ * holds this marker for its whole flight (a `FileInstanceLock` beside the
+ * sync-back lock), and the other writers of the checkout check it first.
+ */
+export async function primaryFlightLockPath(repo: string): Promise<string | null> {
+  return commonDirFile(repo, 'autopilot-primary-flight.lock');
+}
+
+/** Takes `repo`'s primary-flight marker for this process: the held lock, or
+ *  null outside a repository, while another live flight holds it, or when
+ *  the lock cannot be taken at all. Never throws. */
+export async function claimPrimaryFlight(repo: string): Promise<FileInstanceLock | null> {
+  const path = await primaryFlightLockPath(repo);
+  if (path === null) return null;
+  const lock = new FileInstanceLock(path);
+  return tryAcquire(lock).acquired ? lock : null;
+}
+
+/** The pid of a live process other than `self` that holds `repo`'s
+ *  primary-flight marker (a flight whose firing works in that checkout's own
+ *  tree right now), or null. A dead holder's marker names no one. */
+export async function primaryFlightHolder(
+  repo: string,
+  self: number = process.pid,
+): Promise<number | null> {
+  const path = await primaryFlightLockPath(repo);
+  if (path === null) return null;
+  let raw = '';
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch {
+    /* no marker: no one is flying the checkout */
+  }
+  const info = parseLockInfo(raw);
+  return info !== null && info.pid !== self && isProcessAlive(info.pid) ? info.pid : null;
+}
+
+/** The lock a sync-back into `repo` takes (the injected one, for tests) —
+ *  exported so any other writer of that checkout can take the same one. */
+export async function syncBackLock(
   repo: string,
   mutex: SyncBackMutexOptions,
 ): Promise<SyncBackLock | null> {
@@ -526,7 +580,16 @@ export async function syncWorktreeBranch(
   escalate?: SyncWorktreeEscalationHook,
   mutex: SyncBackMutexOptions = {},
 ): Promise<SyncWorktreeBranchResult> {
-  const unlocked = () => syncWorktreeBranchUnlocked(repo, targetBranch, worktreeBranch, escalate);
+  const unlocked = async (): Promise<SyncWorktreeBranchResult> => {
+    const flier = await primaryFlightHolder(repo);
+    if (flier !== null) {
+      return {
+        ok: false,
+        details: `refusing to sync: a flight is flying '${repo}' directly (pid ${flier}); a merge now would move HEAD under its live firing`,
+      };
+    }
+    return syncWorktreeBranchUnlocked(repo, targetBranch, worktreeBranch, escalate);
+  };
   const lock = await syncBackLock(repo, mutex);
   if (lock === null) return unlocked();
   const outcome = await withSyncBackMutex(lock, mutex, unlocked);

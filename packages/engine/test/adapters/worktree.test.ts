@@ -18,10 +18,13 @@ import { basename, join, resolve } from 'node:path';
 import {
   addDetachedWorktree,
   canonicalWorktreePath,
+  claimPrimaryFlight,
   ensureWorktree,
   fastForwardWorktree,
   parkAsideWorktreeHead,
   parseWorktreeList,
+  primaryFlightHolder,
+  primaryFlightLockPath,
   removeWorktree,
   repoPrefixOf,
   syncWorktreeBranch,
@@ -1218,6 +1221,104 @@ describe('the sync-back mutex — one sync-back at a time per checkout (the thre
       expect(existsSync(await lockPathOf(dir))).toBe(false);
       await removeWorktree(dir, wtPath);
     });
+  });
+});
+
+describe('a flight flying the checkout itself — no sibling merges under its live firing (board ap-mtnceruy-2)', () => {
+  let dir: string;
+  let base: string;
+
+  beforeEach(() => {
+    dir = scratchRepoDir('autopilot-worktree-primary-');
+    initRepo(dir);
+    base = gitSync(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  });
+
+  afterEach(() =>
+    rmSync(join(dir, '..'), { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }),
+  );
+
+  async function laneWithCommit(name: string): Promise<string> {
+    const wtPath = join(dir, '..', name);
+    await ensureWorktree(dir, wtPath, 'flight-work');
+    writeFileSync(join(wtPath, 'flown.txt'), 'shipped');
+    gitSync(wtPath, ['add', '-A']);
+    gitSync(wtPath, ['commit', '-q', '-m', 'feat: AP-2 flown']);
+    return wtPath;
+  }
+
+  async function markerPath(): Promise<string> {
+    const path = await primaryFlightLockPath(dir);
+    if (path === null) throw new Error('not a repository: ' + dir);
+    return path;
+  }
+
+  async function markFlownBy(pid: number): Promise<void> {
+    writeFileSync(await markerPath(), JSON.stringify({ pid, startedAt: Date.now() }));
+  }
+
+  it('keeps its marker inside the git common dir, beside the sync-back lock', async () => {
+    expect(await markerPath()).toBe(resolve(dir, '.git', 'autopilot-primary-flight.lock'));
+  });
+
+  it('a sibling sync-back refuses, and merges nothing, while another live flight flies the checkout', async () => {
+    const wtPath = await laneWithCommit('wt-primary-live');
+    // The parent process: alive, and not this one — the fallback flight.
+    await markFlownBy(process.ppid);
+
+    const result = await syncWorktreeBranch(dir, base, 'flight-work');
+
+    expect(result).toEqual({
+      ok: false,
+      details: `refusing to sync: a flight is flying '${dir}' directly (pid ${process.ppid}); a merge now would move HEAD under its live firing`,
+    });
+    expect(gitSync(dir, ['log', '-1', '--format=%s'])).toBe('feat: AP-1 first');
+    await removeWorktree(dir, wtPath);
+  });
+
+  it('a marker left by a dead flight never blocks a sync-back', async () => {
+    const wtPath = await laneWithCommit('wt-primary-dead');
+    await markFlownBy(2_147_483_646);
+
+    const result = await syncWorktreeBranch(dir, base, 'flight-work');
+
+    expect(result.ok).toBe(true);
+    expect(gitSync(dir, ['log', '-1', '--format=%s'])).toBe('feat: AP-2 flown');
+    await removeWorktree(dir, wtPath);
+  });
+
+  it("this process's own marker never blocks this process", async () => {
+    const wtPath = await laneWithCommit('wt-primary-own');
+    await markFlownBy(process.pid);
+
+    expect((await syncWorktreeBranch(dir, base, 'flight-work')).ok).toBe(true);
+    await removeWorktree(dir, wtPath);
+  });
+
+  it('claimPrimaryFlight names this process to every other one until it is released', async () => {
+    const claim = await claimPrimaryFlight(dir);
+
+    expect(claim).not.toBeNull();
+    expect(await primaryFlightHolder(dir, process.ppid)).toBe(process.pid);
+    expect(await primaryFlightHolder(dir)).toBeNull();
+    claim?.release();
+    expect(existsSync(await markerPath())).toBe(false);
+    expect(await primaryFlightHolder(dir, process.ppid)).toBeNull();
+  });
+
+  it('a claim against a checkout another live flight already flies is refused', async () => {
+    await markFlownBy(process.ppid);
+
+    expect(await claimPrimaryFlight(dir)).toBeNull();
+    expect(await primaryFlightHolder(dir)).toBe(process.ppid);
+  });
+
+  it('outside a repository there is nothing to claim and no one flying', async () => {
+    const nowhere = join(dir, 'nowhere');
+
+    expect(await primaryFlightLockPath(nowhere)).toBeNull();
+    expect(await claimPrimaryFlight(nowhere)).toBeNull();
+    expect(await primaryFlightHolder(nowhere)).toBeNull();
   });
 });
 

@@ -34,7 +34,10 @@ jobs:
           QUIET_DAYS=14
           NOW_EPOCH=$(date -u +%s)
 
-          CLAIMED=$(gh issue list --repo "$REPO" --label claimed --state open --json number,assignees \
+          # --limit: gh's default is the 30 newest, which would leave the
+          # oldest claims, the likeliest to be quiet, unchecked forever. 1000
+          # is all a labeled list can return (gh reads it through search).
+          CLAIMED=$(gh issue list --repo "$REPO" --label claimed --state open --limit 1000 --json number,assignees \
             | jq -c '.[] | select(.assignees | length > 0) | {number, assignee: .assignees[0].login}')
 
           if [ -z "$CLAIMED" ]; then

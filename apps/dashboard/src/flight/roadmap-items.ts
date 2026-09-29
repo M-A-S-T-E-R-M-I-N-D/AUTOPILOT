@@ -29,7 +29,7 @@
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
-import { parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
 
 /** The label `taxonomy-seed.ts` seeds for "tracks a docs/ROADMAP.md
  *  direction item" — the only label this module reads by. */
@@ -63,11 +63,11 @@ interface RawRoadmapItem {
 }
 
 /**
- * Lists every open issue carrying the `roadmap` label via `gh issue list
- * --state open --label roadmap --json number,title,url,labels,assignees`,
- * run through the injectable `exec` — the same `CliExec` shape
- * `issue-triage.ts`'s `fetchOpenIssues` and `pool-client.ts`'s
- * `fetchPoolIssues` use. Returns `[]` on a non-zero exit or
+ * Lists every open issue carrying the `roadmap` label (up to
+ * `MAX_ISSUE_LIST`) via `gh issue list --state open --label roadmap --json
+ * number,title,url,labels,assignees`, run through the injectable `exec` —
+ * the same `CliExec` shape `issue-triage.ts`'s `fetchOpenIssues` and
+ * `pool-client.ts`'s `fetchPoolIssues` use. Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing — an empty roadmap is a
  * valid outcome, and a flaky `gh` call shouldn't crash the read. Rows that
  * are not objects (a `null` included) and entries missing a numeric
@@ -84,6 +84,8 @@ export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
     'open',
     '--label',
     ROADMAP_LABEL,
+    '--limit',
+    String(MAX_ISSUE_LIST),
     '--json',
     'number,title,url,labels,assignees',
   ]);

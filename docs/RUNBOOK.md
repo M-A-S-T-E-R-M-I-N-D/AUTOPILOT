@@ -707,6 +707,26 @@ the next flight's start closes the task (`flight/strand-tasks.ts`):
 A task filed before heads were recorded names none and stays open until
 you close it.
 
+### A lane that will not sync back while another flight flies the checkout
+
+A flight that cannot set up its worktree flies the folder's own checkout
+instead (`Flight isolation: worktree setup failed … — flying <folder>
+directly.`). It refuses to start that way while another flight is live, and
+once it is flying it holds `autopilot-primary-flight.lock` in the repository's
+git dir until it ends. Any lane launched after it then leaves that checkout
+alone, because a merge would move HEAD under the firing working there:
+
+```
+  ⚠ worktree sync-back skipped: refusing to sync: a flight is flying '<folder>' directly (pid 12345); a merge now would move HEAD under its live firing
+  📄 self-study update skipped (a sibling flight held the ritual or sync-back lock too long, or is flying this checkout directly).
+```
+
+Nothing is lost. The lane's commits stay on its own branch, and the first
+sync-back after that flight ends takes them. A lane whose flight-end sync-back
+was refused this way files the `STRANDED SYNC-BACK` task described above. A
+lock left by a flight that died names no live process, and every lane
+ignores it.
+
 ## 13. Social flight weave-in (`AUTOPILOT_SOCIAL_FLIGHT`)
 
 Off by default. Epic 0016 (`docs/epics/0016-github-social-flight.md`) weaves a GitHub social

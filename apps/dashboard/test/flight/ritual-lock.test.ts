@@ -2,14 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileInstanceLock } from '@autopilot/engine';
+import {
+  FileInstanceLock,
+  claimPrimaryFlight,
+  primaryFlightLockPath,
+  syncBackLockPath,
+  syncWorktreeBranch,
+} from '@autopilot/engine';
 import {
   AUTOFORMAT_LOCK_FILE_NAME,
   RITUAL_LOCK_FILE_NAME,
   resolveLockPath,
+  withCheckoutRitualLock,
   withRitualLock,
 } from '../../src/flight/ritual-lock.js';
 
@@ -180,5 +188,178 @@ describe('withRitualLock', () => {
 
     await Promise.all([run(), run(), run()]);
     expect(maxActive).toBe(1);
+  });
+});
+
+describe('withCheckoutRitualLock — the self-study ritual is one more writer of the checkout lanes sync back into (board ap-mtnceruy-2)', () => {
+  function tmpDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'autopilot-ritual-checkout-'));
+    dirs.push(dir);
+    return dir;
+  }
+
+  function tmpRepo(): string {
+    const dir = tmpDir();
+    execFileSync('git', ['-C', dir, 'init', '-q'], { windowsHide: true });
+    return dir;
+  }
+
+  async function lockPathOf(repo: string): Promise<string> {
+    const path = await syncBackLockPath(repo);
+    if (path === null) throw new Error('not a repository: ' + repo);
+    return path;
+  }
+
+  it("never starts the ritual while a sibling lane's sync-back holds the same checkout", async () => {
+    const repo = tmpRepo();
+    const siblingSyncBack = new FileInstanceLock(await lockPathOf(repo));
+    expect(siblingSyncBack.acquire().acquired).toBe(true);
+    const ritual = vi.fn(async () => 'regenerated and committed');
+
+    const result = await withCheckoutRitualLock(tmpLockPath(), repo, ritual, {
+      syncBack: { waitMs: 0 },
+    });
+
+    expect(result).toBeNull();
+    expect(ritual).not.toHaveBeenCalled();
+    siblingSyncBack.release();
+  });
+
+  it("holds the checkout's sync-back lock for the ritual's whole span — a sibling's real sync-back refuses meanwhile", async () => {
+    const repo = tmpRepo();
+    let siblingSync = '';
+
+    await withCheckoutRitualLock(tmpLockPath(), repo, async () => {
+      siblingSync = (await syncWorktreeBranch(repo, 'main', 'lane', undefined, { waitMs: 0 }))
+        .details;
+    });
+
+    expect(siblingSync).toMatch(/another sync-back into .+ is still running/);
+  });
+
+  it('waits out a sibling sync-back that finishes inside the budget, then runs', async () => {
+    const repo = tmpRepo();
+    const siblingSyncBack = new FileInstanceLock(await lockPathOf(repo));
+    expect(siblingSyncBack.acquire().acquired).toBe(true);
+    const order: string[] = [];
+    const sleep = vi.fn(async () => {
+      order.push('sibling merge done');
+      siblingSyncBack.release();
+    });
+
+    const result = await withCheckoutRitualLock(
+      tmpLockPath(),
+      repo,
+      async () => {
+        order.push('ritual');
+        return 'ran';
+      },
+      { syncBack: { waitMs: 10, pollMs: 5, sleep } },
+    );
+
+    expect(result).toBe('ran');
+    expect(order).toEqual(['sibling merge done', 'ritual']);
+  });
+
+  it("waits on a sibling's sync-back WITHOUT holding the ritual lock — that wait never starves another ritual's short retry", async () => {
+    const repo = tmpRepo();
+    const ritualLock = tmpLockPath();
+    const siblingSyncBack = new FileInstanceLock(await lockPathOf(repo));
+    expect(siblingSyncBack.acquire().acquired).toBe(true);
+    const ritualLockHeldWhileWaiting: boolean[] = [];
+    const sleep = vi.fn(async () => {
+      ritualLockHeldWhileWaiting.push(existsSync(ritualLock));
+      siblingSyncBack.release();
+    });
+
+    await withCheckoutRitualLock(ritualLock, repo, async () => 'ran', {
+      syncBack: { waitMs: 10, pollMs: 5, sleep },
+    });
+
+    expect(ritualLockHeldWhileWaiting).toEqual([false]);
+  });
+
+  it('releases both locks once the ritual is done, even when it throws', async () => {
+    const repo = tmpRepo();
+    const ritualLock = tmpLockPath();
+
+    await expect(
+      withCheckoutRitualLock(ritualLock, repo, async () => {
+        throw new Error('regen failed');
+      }),
+    ).rejects.toThrow('regen failed');
+
+    expect(existsSync(ritualLock)).toBe(false);
+    expect(existsSync(await lockPathOf(repo))).toBe(false);
+  });
+
+  it('a sync-back lock that cannot be taken at all (not held — broken) still runs the ritual, as the sync-back itself does', async () => {
+    const broken = {
+      acquire: () => {
+        throw new Error('EPERM: read-only .git');
+      },
+      release: vi.fn(),
+    };
+
+    const result = await withCheckoutRitualLock(tmpLockPath(), tmpRepo(), async () => 'ran', {
+      syncBack: { lock: broken },
+    });
+
+    expect(result).toBe('ran');
+    expect(broken.release).not.toHaveBeenCalled();
+  });
+
+  it('outside a repository there is no sync-back to exclude — the ritual lock alone guards it', async () => {
+    const nowhere = tmpDir();
+    expect(await syncBackLockPath(nowhere)).toBeNull();
+
+    expect(await withCheckoutRitualLock(tmpLockPath(), nowhere, async () => 'ran')).toBe('ran');
+  });
+
+  /** Marks `repo` as flown directly by the parent process: alive, and not
+   *  this one, so it stands in for a fallback flight. */
+  async function markFlownByAnotherFlight(repo: string): Promise<void> {
+    const marker = await primaryFlightLockPath(repo);
+    if (marker === null) throw new Error('not a repository: ' + repo);
+    writeFileSync(marker, JSON.stringify({ pid: process.ppid, startedAt: Date.now() }));
+  }
+
+  it('never regenerates into a checkout another live flight is flying directly', async () => {
+    const repo = tmpRepo();
+    await markFlownByAnotherFlight(repo);
+    const ritual = vi.fn(async () => 'regenerated and committed');
+
+    const result = await withCheckoutRitualLock(tmpLockPath(), repo, ritual);
+
+    expect(result).toBeNull();
+    expect(ritual).not.toHaveBeenCalled();
+  });
+
+  it("a checkout claimed while the ritual waited on a sibling's merge is still skipped", async () => {
+    const repo = tmpRepo();
+    const siblingSyncBack = new FileInstanceLock(await lockPathOf(repo));
+    expect(siblingSyncBack.acquire().acquired).toBe(true);
+    const sleep = vi.fn(async () => {
+      await markFlownByAnotherFlight(repo);
+      siblingSyncBack.release();
+    });
+    const ritual = vi.fn(async () => 'regenerated and committed');
+
+    const result = await withCheckoutRitualLock(tmpLockPath(), repo, ritual, {
+      syncBack: { waitMs: 10, pollMs: 5, sleep },
+    });
+
+    expect(sleep).toHaveBeenCalled();
+    expect(result).toBeNull();
+    expect(ritual).not.toHaveBeenCalled();
+  });
+
+  it('runs the ritual of the flight that flies the checkout itself — its own firings are over by then', async () => {
+    const repo = tmpRepo();
+    const claim = await claimPrimaryFlight(repo);
+    expect(claim).not.toBeNull();
+
+    expect(await withCheckoutRitualLock(tmpLockPath(), repo, async () => 'ran')).toBe('ran');
+    claim?.release();
   });
 });
