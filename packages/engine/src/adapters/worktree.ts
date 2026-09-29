@@ -481,7 +481,9 @@ export async function syncBackLockPath(repo: string): Promise<string | null> {
   return dir === '' ? null : resolve(repo, dir, 'autopilot-sync-back.lock');
 }
 
-async function syncBackLock(
+/** The lock a sync-back into `repo` takes (the injected one, for tests) —
+ *  exported so any other writer of that checkout can take the same one. */
+export async function syncBackLock(
   repo: string,
   mutex: SyncBackMutexOptions,
 ): Promise<SyncBackLock | null> {

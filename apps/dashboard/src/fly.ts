@@ -193,6 +193,7 @@ import { verifyGuardSettings } from './flight/guard-verify.js';
 import { deriveWorktreePlan } from './flight/worktree.js';
 import { parseTaskScope, scopeFilterCandidates } from './flight/scope-partition.js';
 import {
+  withCheckoutRitualLock,
   withRitualLock,
   resolveLockPath,
   RITUAL_LOCK_FILE_NAME,
@@ -1903,7 +1904,10 @@ async function main(): Promise<void> {
     // a DIFFERENT project ending at the same moment would race the regen +
     // commit below. withRitualLock serializes it across processes (waits for
     // the sibling rather than racing it) using the same lockfile directory
-    // as the per-project engine lock.
+    // as the per-project engine lock. withCheckoutRitualLock also holds
+    // this checkout's sync-back lock (board ap-mtnceruy-2): a sibling lane
+    // merging into it must never find the regen half-written, nor sweep it
+    // into its own merge commit.
     try {
       const paperPath = join(process.cwd(), 'docs', 'SELF-STUDY', 'PAPER.md');
       const scriptPath = join(process.cwd(), 'scripts', 'self-study', 'generate-data.mjs');
@@ -1916,7 +1920,7 @@ async function main(): Promise<void> {
       );
       if (invocation && existsSync(paperPath) && existsSync(scriptPath)) {
         const ritualLockPath = resolveLockPath(dbPath, RITUAL_LOCK_FILE_NAME);
-        const committed = await withRitualLock(ritualLockPath, async () => {
+        const committed = await withCheckoutRitualLock(ritualLockPath, process.cwd(), async () => {
           execFileSync(invocation.command, invocation.args, {
             cwd: process.cwd(),
             env: invocation.env,
@@ -1935,7 +1939,7 @@ async function main(): Promise<void> {
             ? '  📄 self-study data + evidence log refreshed and committed (docs/SELF-STUDY/PAPER.md).'
             : committed === false
               ? '  📄 self-study data + evidence log refreshed (docs/SELF-STUDY/PAPER.md).'
-              : '  📄 self-study update skipped (a sibling flight held the ritual lock too long).',
+              : '  📄 self-study update skipped (a sibling flight held the ritual or sync-back lock too long).',
         );
         // CONTAINMENT vs OPERATOR (web-msu3x5ub-vqxjhu): the ritual above just
         // committed into process.cwd() — a guarded path whenever it isn't
