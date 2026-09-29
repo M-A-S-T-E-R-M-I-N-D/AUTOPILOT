@@ -61,4 +61,14 @@ describe('fly.ts wiring', () => {
     );
     expect(flySource.match(/SYNC_BACK_FLIGHT_END_WAIT_MS/g)).toHaveLength(2);
   });
+
+  it('a flight falling back to the base checkout claims it BEFORE looking for siblings, and hands it back at flight end', () => {
+    // Claim first: a sibling launching after the sibling check but before a
+    // later claim would find no marker and merge under this flight's firing
+    // (board ap-mtnceruy-2).
+    expect(flySource).toMatch(
+      /if \(flightRoot === target\) primaryFlight = await claimPrimaryFlight\(target\);\n(?:\s*\/\/[^\n]*\n)*\s*if \(flightRoot === target && isAnyFlightLockLive\(dirname\(dbPath\), target, process\.pid\)\) \{/,
+    );
+    expect(flySource).toMatch(/primaryFlight\?\.release\(\);\n\s*lock\.release\(\);\n\s*\}\n\}/);
+  });
 });

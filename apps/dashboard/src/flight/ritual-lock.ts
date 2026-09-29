@@ -18,6 +18,7 @@
 import { dirname, join } from 'node:path';
 import {
   FileInstanceLock,
+  primaryFlightHolder,
   syncBackLock,
   withSyncBackMutex,
   type SyncBackMutexOptions,
@@ -124,6 +125,11 @@ export interface CheckoutRitualLockOptions {
  * budget — the same best-effort skip `withRitualLock` gives. A lock that
  * cannot be taken at all runs the ritual anyway, as the sync-back itself
  * does: the lock machinery failing never costs a ritual it did not before.
+ * A checkout another live flight is flying directly (the engine's
+ * primary-flight marker) is skipped, `null`: that flight's firing is editing
+ * the very tree the ritual would regenerate and commit. Checked once the
+ * sync-back lock is held, as `syncWorktreeBranch` does, so a claim made
+ * while this ritual waited on a sibling's merge still counts.
  */
 export async function withCheckoutRitualLock<T>(
   ritualLockPath: string,
@@ -131,7 +137,10 @@ export async function withCheckoutRitualLock<T>(
   fn: () => Promise<T>,
   options: CheckoutRitualLockOptions = {},
 ): Promise<T | null> {
-  const ritual = () => withRitualLock(ritualLockPath, fn, options.ritual);
+  const ritual = async (): Promise<T | null> =>
+    (await primaryFlightHolder(checkout)) === null
+      ? withRitualLock(ritualLockPath, fn, options.ritual)
+      : null;
   const syncBack = options.syncBack ?? {};
   const lock = await syncBackLock(checkout, syncBack);
   if (lock === null) return ritual();
