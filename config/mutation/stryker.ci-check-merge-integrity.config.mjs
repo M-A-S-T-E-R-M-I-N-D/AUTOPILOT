@@ -10,14 +10,14 @@
  * discarded a parent's real work pass as a clean merge — the exact failure
  * this script exists to catch (its own header names the 2026-09-09 incident).
  *
- * Unlike most of the other ci/ configs, the WHOLE file is mutated, including
- * `main` and the git-shelling helpers: merge-integrity.test.ts never mocks
- * git, it builds real temp repos and runs the script end-to-end via
- * execFileSync, so every function — `addedLines`, `git`, `mergeCommits`,
- * `treeIdenticalTo`, `main` — is genuinely exercised, not just the pure
- * logic. Only the one `parents.length < 2` guard carries its own
- * `// Stryker disable next-line`, documented in place as unreachable given
- * `git log --merges`' own definition of a merge commit.
+ * The git-shelling helpers are mutated too, not just the pure logic:
+ * merge-integrity.test.ts never mocks git, it builds real temp repos and
+ * calls the exported `checkMergeIntegrity` IN-PROCESS against them. It first
+ * ran the script only as a child process, which no mutant reaches — Stryker
+ * switches a mutant on inside the test process — and the nightly run of
+ * 2026-09-29 counted 242 survivors. Only the CLI shell (`main` and its
+ * `isMain` entry) is `Stryker disable`d; each other disable names, in place,
+ * why its mutant cannot change a verdict.
  *
  * @type {import('@stryker-mutator/api/core').PartialStrykerOptions}
  */

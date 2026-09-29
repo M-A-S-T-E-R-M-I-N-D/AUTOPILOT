@@ -21,6 +21,11 @@
  *     such merges — every one a false positive, proven by `git cherry`.
  *     A guard with fourteen false alarms and no true ones trains everyone
  *     to ignore it (FAILURE-DOCTRINE row 6).
+ *
+ * The check runs IN-PROCESS here, with its whole report pinned line by line:
+ * Stryker switches a mutant on inside the test process only, so while these
+ * tests ran the script as a child process no mutant ever reached it (the
+ * 2026-09-29 nightly: 242 survivors). One test still runs the CLI end-to-end.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -29,6 +34,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import {
+  addedLines,
+  checkMergeIntegrity,
+  firstParentLineHasRevert,
+  removedLines,
+} from '../../../../scripts/ci/check-merge-integrity.mjs';
 
 const SCRIPT = fileURLToPath(
   new URL('../../../../scripts/ci/check-merge-integrity.mjs', import.meta.url),
@@ -46,6 +57,22 @@ const HAS_B3518BE0 = (() => {
   }
 })();
 
+/** Four lines, so the report's three-line sample leaves one out; the second
+ *  is longer than the 90 characters a sample line prints. */
+const LANE_WORK = [
+  'work nobody else has',
+  `a line longer than the report prints, so it is cut short ${'.'.repeat(60)}`,
+  'third line of lane work',
+  'a fourth line the sample leaves out',
+];
+
+const GUARD = [
+  'export const flightGuard = true;',
+  'export const flightGuardVersion = 2;',
+  "export const flightGuardOwner = 'flight';",
+  'export default flightGuard;',
+];
+
 let repo: string;
 
 function git(args: readonly string[], cwd = repo): string {
@@ -58,9 +85,31 @@ function commit(file: string, body: string, message: string): void {
   git(['commit', '-q', '--no-verify', '-m', message]);
 }
 
-/** Runs the guard and returns its exit code + combined output. Omitting
- *  `range` exercises the script's own default (HEAD~50..HEAD). */
-function runGuard(range?: string, cwd = repo): { code: number; output: string } {
+/** How the report names a commit: the first 8 characters of its SHA. */
+function short(rev: string): string {
+  return git(['rev-parse', rev]).trim().slice(0, 8);
+}
+
+/** Runs the check in-process. Omitting `range` exercises its own default. */
+function check(range?: string, cwd = repo) {
+  return checkMergeIntegrity({ range, cwd });
+}
+
+/** The whole report of a range whose every merge kept both parents' work. */
+function passed(range: string, merges: number) {
+  return {
+    code: 0,
+    out: [
+      `✓ merge integrity OK — every merge in ${range} contains both parents' work`,
+      `  (${merges} merge commit(s) checked)`,
+    ],
+    err: [],
+  };
+}
+
+/** Runs the CLI as a child process and returns its exit code + combined
+ *  output. Omitting `range` exercises the CLI's own default. */
+function runCli(range?: string, cwd = repo): { code: number; output: string } {
   const args = range === undefined ? [SCRIPT] : [SCRIPT, range];
   try {
     return {
@@ -71,6 +120,15 @@ function runGuard(range?: string, cwd = repo): { code: number; output: string } 
     const e = error as { status?: number; stdout?: string; stderr?: string };
     return { code: e.status ?? 1, output: `${e.stdout ?? ''}${e.stderr ?? ''}` };
   }
+}
+
+/** main takes a lane's unique work by a `-s ours` merge that keeps none of it. */
+function absorbLaneWithOurs(): void {
+  git(['checkout', '-q', '-b', 'lane']);
+  commit('lane-only.txt', `${LANE_WORK.join('\n')}\n`, 'feat: lane work');
+  git(['checkout', '-q', 'main']);
+  commit('main.txt', 'main work\n', 'feat: main work');
+  git(['merge', '-q', '-s', 'ours', '--no-edit', '-m', 'chore: absorb lane', 'lane']);
 }
 
 describe('check-merge-integrity', () => {
@@ -86,17 +144,52 @@ describe('check-merge-integrity', () => {
   afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
   it('FAILS a -s ours merge that discarded work present on no other branch', () => {
-    git(['checkout', '-q', '-b', 'lane']);
-    commit('lane-only.txt', 'work nobody else has\n', 'feat: lane work');
-    git(['checkout', '-q', 'main']);
-    commit('main.txt', 'main work\n', 'feat: main work');
-    git(['merge', '-q', '-s', 'ours', '--no-edit', '-m', 'chore: absorb lane', 'lane']);
+    absorbLaneWithOurs();
 
-    const { code, output } = runGuard('HEAD~2..HEAD');
+    expect(check('HEAD~2..HEAD')).toEqual({
+      code: 1,
+      out: [],
+      err: [
+        "✗ 1 merge commit(s) dropped a parent's work in HEAD~2..HEAD\n",
+        `  ${short('HEAD')}  chore: absorb lane`,
+        `    parent 1 (${short('lane')}) has 4 line(s) it ADDED that this merge does not contain:`,
+        '      work nobody else has',
+        `      ${LANE_WORK[1]!.slice(0, 90)}`,
+        '      third line of lane work',
+        '    A merge commit claims both parents are included. Re-merge without -s ours,',
+        '    or land the missing work as its own commit.\n',
+      ],
+    });
+  });
+
+  it('prints the same verdict from the command line, and exits with its code', () => {
+    absorbLaneWithOurs();
+
+    const { code, output } = runCli('HEAD~2..HEAD');
 
     expect(code).toBe(1);
     expect(output).toContain('dropped a parent');
     expect(output).toContain('work nobody else has');
+  });
+
+  it('acknowledges a discard its repaired ledger names instead of failing on it', () => {
+    absorbLaneWithOurs();
+    const merge = git(['rev-parse', 'HEAD']).trim();
+
+    const result = checkMergeIntegrity({
+      range: 'HEAD~2..HEAD',
+      cwd: repo,
+      repaired: new Map([[merge, 'relanded by hand']]),
+    });
+
+    const ok = passed('HEAD~2..HEAD', 1);
+    expect(result).toEqual({
+      ...ok,
+      out: [
+        ...ok.out,
+        `  ${merge.slice(0, 8)} dropped work, acknowledged as repaired: relanded by hand`,
+      ],
+    });
   });
 
   it('PASSES the ordinary --no-ff merge the fleet sync-back falls back to', () => {
@@ -106,10 +199,7 @@ describe('check-merge-integrity', () => {
     commit('main.txt', 'main work\n', 'feat: main work');
     git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
 
-    const { code, output } = runGuard('HEAD~2..HEAD');
-
-    expect(code).toBe(0);
-    expect(output).toContain('merge integrity OK');
+    expect(check('HEAD~2..HEAD')).toEqual(passed('HEAD~2..HEAD', 1));
   });
 
   it('PASSES an identical-tree merge whose lane work was ALREADY APPLIED — the 14 real ones', () => {
@@ -133,10 +223,22 @@ describe('check-merge-integrity', () => {
       'lane',
     ]);
 
-    const { code, output } = runGuard('HEAD~2..HEAD');
+    expect(check('HEAD~2..HEAD')).toEqual(passed('HEAD~2..HEAD', 1));
+  });
 
-    expect(code).toBe(0);
-    expect(output).toContain('merge integrity OK');
+  it("PASSES a conflicted --no-ff merge resolved to its first parent's side — the e4ca24b0 shape", () => {
+    // Choosing one side of a conflict drops the other side's lines on
+    // purpose. The lane's other work did come in, so the tree is not the
+    // first parent's: a resolution, not a `-s ours` discard.
+    commit('shared.txt', 'shared\n', 'chore: shared');
+    git(['checkout', '-q', '-b', 'lane']);
+    commit('shared.txt', 'lane version\n', 'feat: lane edit');
+    commit('lane-only.txt', 'lane work\n', 'feat: lane work');
+    git(['checkout', '-q', 'main']);
+    commit('shared.txt', 'main version\n', 'feat: main edit');
+    git(['merge', '-q', '--no-ff', '-X', 'ours', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+
+    expect(check('HEAD~1..HEAD')).toEqual(passed('HEAD~1..HEAD', 1));
   });
 
   it('gives the SAME verdict from any branch — the check consults no tip', () => {
@@ -149,18 +251,18 @@ describe('check-merge-integrity', () => {
     git(['checkout', '-q', 'main']);
     commit('main.txt', 'main work\n', 'feat: main work');
     git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
-    const fromMain = runGuard('HEAD~2..HEAD');
+    const fromMain = check('HEAD~2..HEAD');
 
     // A second branch that diverges afterwards — an unrelated PR.
     git(['checkout', '-q', '-b', 'other']);
     commit('lane-only.txt', 'a different edit entirely\n', 'feat: other work');
-    const fromOther = runGuard('HEAD~3..HEAD');
+    const fromOther = check('HEAD~3..HEAD');
 
     expect(fromMain.code).toBe(0);
     expect(fromOther.code).toBe(0);
   });
 
-  it('FAILS a sync-back that carries a lane revert of a merge — the b3518be0 shape', () => {
+  it('FAILS a sync-back that carries a lane revert of a merge — the b3518be0 shape — from any checkout', () => {
     // A lane merged the flight branch in, then reverted that merge. Merging
     // the lane back re-applies the revert to the flight branch: everything
     // the reverted merge brought in is deleted there. The tree differs from
@@ -169,19 +271,37 @@ describe('check-merge-integrity', () => {
     git(['checkout', '-q', '-b', 'lane']);
     commit('lane-only.txt', 'lane work\n', 'feat: lane work');
     git(['checkout', '-q', 'main']);
-    commit('guard.ts', 'export const flightGuard = true;\n', 'feat: flight guard');
+    commit('guard.ts', `${GUARD.join('\n')}\n`, 'feat: flight guard');
     git(['checkout', '-q', 'lane']);
     git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: merge main into lane', 'main']);
     git(['revert', '--no-edit', '-m', '1', 'HEAD']);
+    const revert = short('HEAD');
+    const reverted = short('HEAD^');
+    // Work after the revert, whose message only QUOTES a revert line: the
+    // revert is neither the lane's tip nor the first commit its log lists.
+    commit('notes.txt', 'lane notes\n', 'docs: what "This reverts commit <sha>" means');
     git(['checkout', '-q', 'main']);
     git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+    const report = {
+      code: 1,
+      out: [],
+      err: [
+        "✗ 1 merge commit(s) dropped a parent's work in main~2..main\n",
+        `  ${short('main')}  chore: sync lane`,
+        `    parent 1 (${short('lane')}) carries ${revert}, a revert of merge ${reverted},`,
+        '    which deleted 4 line(s) the first parent still had — this merge re-applied it:',
+        ...GUARD.slice(0, 3).map((line) => `      ${line}`),
+        '    Merging a branch that reverted a merge re-applies the revert. Revert the',
+        '    revert on that branch before merging it back,',
+        '    or land the missing work as its own commit.\n',
+      ],
+    };
 
-    const { code, output } = runGuard('HEAD~1..HEAD');
-
-    expect(code).toBe(1);
-    expect(output).toContain('dropped a parent');
-    expect(output).toContain('revert of merge');
-    expect(output).toContain('export const flightGuard = true;');
+    // The window holds two merges: the lane's own merge of main is judged too.
+    expect(check('main~2..main')).toEqual(report);
+    // Judged by the range alone, from a checkout that holds none of it.
+    git(['checkout', '-q', '-b', 'elsewhere', 'main~2']);
+    expect(check('main~2..main')).toEqual(report);
   });
 
   it('PASSES a lane revert of a merge whose content the first parent never had', () => {
@@ -199,10 +319,8 @@ describe('check-merge-integrity', () => {
     commit('main.txt', 'main work\n', 'feat: main work');
     git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
 
-    const { code, output } = runGuard('HEAD~1..HEAD');
-
-    expect(code).toBe(0);
-    expect(output).toContain('merge integrity OK');
+    // Two merges: the lane's own merge of side sits in the window too.
+    expect(check('HEAD~1..HEAD')).toEqual(passed('HEAD~1..HEAD', 2));
   });
 
   it('PASSES a lane that reverted the merge and then reverted the revert', () => {
@@ -219,10 +337,8 @@ describe('check-merge-integrity', () => {
     git(['checkout', '-q', 'main']);
     git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
 
-    const { code, output } = runGuard('HEAD~1..HEAD');
-
-    expect(code).toBe(0);
-    expect(output).toContain('merge integrity OK');
+    // Two merges: the lane's own merge of main sits in the window too.
+    expect(check('HEAD~1..HEAD')).toEqual(passed('HEAD~1..HEAD', 2));
   });
 
   it('PASSES a lane revert of an ordinary commit — only merge reverts carry the hazard', () => {
@@ -236,10 +352,22 @@ describe('check-merge-integrity', () => {
     commit('main.txt', 'main work\n', 'feat: main work');
     git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
 
-    const { code, output } = runGuard('HEAD~1..HEAD');
+    expect(check('HEAD~1..HEAD')).toEqual(passed('HEAD~1..HEAD', 1));
+  });
 
-    expect(code).toBe(0);
-    expect(output).toContain('merge integrity OK');
+  it('PASSES a lane revert of an ordinary commit the first parent has — an undo merged on purpose', () => {
+    // This revert deletes lines the first parent still has, as a merge
+    // revert does — but undoing one commit is what a revert is for, and
+    // merging it back is how the undo lands. Only a revert OF A MERGE
+    // withdraws work nobody chose to withdraw.
+    commit('feature.txt', 'a feature\n', 'feat: a feature');
+    git(['checkout', '-q', '-b', 'lane']);
+    git(['revert', '--no-edit', 'HEAD']);
+    git(['checkout', '-q', 'main']);
+    commit('main.txt', 'main work\n', 'feat: main work');
+    git(['merge', '-q', '--no-ff', '--no-edit', '-m', 'chore: sync lane', 'lane']);
+
+    expect(check('HEAD~1..HEAD')).toEqual(passed('HEAD~1..HEAD', 1));
   });
 
   it.skipIf(!HAS_B3518BE0)(
@@ -248,33 +376,27 @@ describe('check-merge-integrity', () => {
       // The incident itself, read from this repo's history: the acknowledged
       // line prints only when the finding was detected, so this pins both
       // the detection and the ledger that keeps a repaired merge off the gate.
-      const { code, output } = runGuard('b3518be0^1..b3518be0', ROOT);
+      const { code, out } = check('b3518be0^1..b3518be0', ROOT);
 
       expect(code).toBe(0);
-      expect(output).toContain('b3518be0 dropped work, acknowledged as repaired');
+      expect(out.join('\n')).toContain('b3518be0 dropped work, acknowledged as repaired');
     },
   );
 
   it('PASSES a history with no merges at all', () => {
     commit('a.txt', 'a\n', 'chore: a');
 
-    expect(runGuard('HEAD~1..HEAD').code).toBe(0);
+    expect(check('HEAD~1..HEAD')).toEqual(passed('HEAD~1..HEAD', 0));
   });
 
   it('uses its own HEAD~50..HEAD default when no range argument is given', () => {
     // A -s ours merge that discarded real work, then buried outside the
-    // default 50-commit window by enough padding commits. The default
-    // pins BOTH the "50" and the "HEAD~..HEAD" shape: a narrower or wider
-    // window, or a malformed one, would either still catch this merge or
-    // error on a bad revision — either way this test would fail.
+    // default 50-commit window by enough padding commits: a wider window
+    // would catch it, and the report names the exact window it checked.
     // The 55 padding commits go in through ONE `git fast-import` stream:
     // committing them one by one spawned ~110 git processes and timed out
     // at 20s on a loaded Windows CI runner (main, 2026-09-26).
-    git(['checkout', '-q', '-b', 'lane']);
-    commit('lane-only.txt', 'work nobody else has\n', 'feat: lane work');
-    git(['checkout', '-q', 'main']);
-    commit('main.txt', 'main work\n', 'feat: main work');
-    git(['merge', '-q', '-s', 'ours', '--no-edit', '-m', 'chore: absorb lane', 'lane']);
+    absorbLaneWithOurs();
     const stream = Array.from({ length: 55 }, (_, i) => {
       const message = `chore: pad ${i}\n`;
       const content = `pad ${i}\n`;
@@ -293,9 +415,54 @@ describe('check-merge-integrity', () => {
     execFileSync('git', ['fast-import', '--quiet', '--force'], { cwd: repo, input: stream });
     git(['reset', '-q', '--hard', 'main']);
 
-    const { code, output } = runGuard();
+    expect(check()).toEqual(passed('HEAD~50..HEAD', 0));
+    const cli = runCli();
+    expect(cli.code).toBe(0);
+    expect(cli.output).toContain('every merge in HEAD~50..HEAD');
+  });
+});
 
-    expect(code).toBe(0);
-    expect(output).toContain('merge integrity OK');
+describe('addedLines / removedLines', () => {
+  const DIFF = [
+    'diff --git a/f.txt b/f.txt',
+    'index 1111111..2222222 100644',
+    '--- a/f.txt',
+    '+++ b/f.txt',
+    '@@ -1,4 +1,4 @@',
+    ' kept',
+    '-old line',
+    '-  old line',
+    '+  new line  ',
+    '+',
+    '+new line',
+    '',
+  ].join('\n');
+
+  it('reads the distinct, trimmed content lines a diff adds or removes — never a header or a blank', () => {
+    expect([...addedLines(DIFF)]).toEqual(['new line']);
+    expect([...removedLines(DIFF)]).toEqual(['old line']);
+  });
+});
+
+describe('firstParentLineHasRevert', () => {
+  // c3 → c2 → c1 is one first-parent line, with a revert at its far end;
+  // m → x is another, with none. r is a revert that is its own start.
+  const index = {
+    reverts: new Set(['c1', 'r']),
+    firstParent: new Map<string, string | undefined>([
+      ['c3', 'c2'],
+      ['c2', 'c1'],
+      ['c1', undefined],
+      ['m', 'x'],
+    ]),
+  };
+
+  it('finds a revert anywhere up the first-parent line, its start included', () => {
+    expect(firstParentLineHasRevert('c3', index)).toBe(true);
+    expect(firstParentLineHasRevert('r', index)).toBe(true);
+  });
+
+  it('finds none on a line that holds none', () => {
+    expect(firstParentLineHasRevert('m', index)).toBe(false);
   });
 });
