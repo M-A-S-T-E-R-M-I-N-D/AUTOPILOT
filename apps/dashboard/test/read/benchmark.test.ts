@@ -172,4 +172,22 @@ describe('readBenchmark', () => {
     expect(readBenchmark(store, now).scope).toBeNull();
     expect(readBenchmark(store, now, 'nope').models).toEqual([]);
   });
+
+  it('leaves out a firing the account-wide quota killed (2026-09-29)', () => {
+    const now = 200 * 24 * 60 * 60 * 1000;
+    const insert = store.db.prepare(
+      `INSERT INTO metrics (project_id, firing_id, item, kind, sha, shipped, gate_result, cost_usd, duration_ms, turns, model, created_at)
+       VALUES ('p1', ?, 't', 'feat', NULL, ?, ?, ?, 1000, 1, 'claude-opus-5-5', ?)`,
+    );
+    insert.run('p1:firing-1', 1, 'passed', 3, now - 500);
+    insert.run('p1:firing-2', 0, 'no-commit', 0, now - 400);
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES ('p1', 'p1:firing-2', 'firing', ?, ?)`,
+      )
+      .run(JSON.stringify({ globalExhaust: true, isError: true }), now - 400);
+    const opus = readBenchmark(store, now).models.find((m) => m.modelId === 'claude-opus-5-5')!;
+    expect([opus.firings, opus.shipped]).toEqual([1, 1]);
+  });
 });

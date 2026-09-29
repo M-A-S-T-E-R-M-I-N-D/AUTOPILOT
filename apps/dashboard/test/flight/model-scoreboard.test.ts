@@ -303,6 +303,24 @@ describe('the store side: decisions recorded, firings matched', () => {
     ]);
   });
 
+  it('leaves out a firing the account-wide quota killed before it could work (2026-09-29)', () => {
+    // Round 37: the subscription ran dry, and ten firings died in a second
+    // each at $0 — every one read as an Opus failure on the scoreboard.
+    const now = 10 * 24 * 60 * 60 * 1000;
+    routeTaskModel(store, 'p1', 'default', 't-1', { AUTOPILOT_DEFAULT_MODEL: 'opus' }, now);
+    firing('p1:firing-1', 't-1', 'opus', 0, now + 10);
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES ('p1', 'p1:firing-1', 'firing', ?, ?)`,
+      )
+      .run(JSON.stringify({ globalExhaust: true, isError: true }), now + 10);
+    firing('p1:firing-2', 't-1', 'claude-opus-5-5', 1, now + 20);
+    expect(readRoutedFirings(store, 'p1', now + 30)).toEqual([
+      { tier: 'default', modelId: 'claude-opus-5-5', shipped: true, costUsd: 2 },
+    ]);
+  });
+
   it('reads the lane off a firing id', () => {
     expect(laneOfFiring('fly-autopilot:firing-9')).toBe('base');
     expect(laneOfFiring('fly-autopilot--fleet-3:firing-9')).toBe('fleet-3');

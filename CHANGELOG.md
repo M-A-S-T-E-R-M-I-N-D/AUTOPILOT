@@ -6,6 +6,122 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.56.0] — 2026-09-29
+
+### Added
+
+- feat(report): the issue composer writes in the reporter's own language
+- feat(fleet-report): the report reads rung 4's record, so its success rate is a number
+- feat(dashboard): the task row's detail opens as a split pane beside the list from lg (epic 0026)
+- feat(flight): opus joins the mechanical tier, so the benchmark can say whether it beats haiku there
+- feat(engine): the containment guard runs as the Gemini CLI's BeforeTool hook (epic 0036)
+- feat(dashboard): the tasks screen groups by Focus, what to work first on top (epic 0026 slice 2)
+- feat(engine): add CodexCliModel crash-path pid registry (epic 0036)
+- feat(dashboard): the task row's detail says where the task came from (epic 0026 slice 1)
+- feat(engine): add GeminiCliModel crash-path pid registry (epic 0036)
+- feat(engine): spawn the Gemini CLI adapter behind ModelPort (epic 0036)
+- feat(engine): parse Gemini CLI headless JSON output into the model envelope (epic 0036)
+- feat(keeper): show labels, diff size and touched files on the PR card
+- feat(dashboard): the SOUL cards' ◇/◐/◆ glyph-icons give way to the vendored dna icon
+- feat(dashboard): the task row's detail names the flight holding its claim (epic 0026 slice 1)
+- feat(dashboard): the task row's detail lists the firings that worked it (epic 0026 slice 1)
+- feat(engine): spawn the Codex CLI adapter behind ModelPort (epic 0036)
+- feat(dashboard): the tasks screen's Group radios draw counted heads via ?group= (epic 0026 slice 2)
+- feat(dashboard): every anomaly chip leads to the project's Health list
+- feat(engine): parse Codex CLI exec --json output into the model envelope (epic 0036)
+- feat(dashboard): the command palette acts on the tasks board's selection (epic 0026 slice 4)
+- feat(dashboard): the Health list flags a ship-rate regression with its proposed fix
+- feat(versions): wire the Versions panel's one-click additive restore button
+- feat(dashboard): the tasks screen's display options hide row chips via ?hide= (epic 0026 slice 2)
+- feat(engine): bedrock/vertex AuthMode values for provider parity (epic 0036)
+- feat(versions): reland the Versions screen's additive restore backend, flagged security-sensitive
+- feat(dashboard): the landing panel's not-pushed line drops its baked ⚠ for the vendored icon
+- feat(dashboard): the tasks screen's Source filter chips after Severity (epic 0026 slice 2)
+- feat(dashboard): reland — the orient-fixation chip drops its baked ⚠ for the vendored icon
+- feat(versions): reland the Versions panel with its security census (ap-mui2h3s1-1 slice 4)
+- feat(dashboard): the Health list folds in a project's own open security findings
+- feat(dashboard): the tasks screen's bulk actions plan over the selection (epic 0026 slice 4)
+- feat(dashboard): a project's Data tab opens on its health — every anomaly with the proposed fix
+- feat(dashboard): the benchmark opens on the project it was reached from, and is one screen
+- feat(dashboard): one global rail on every page, a project's own places as tabs
+- feat(flight): each round evaluates itself and commits the evaluation with the round
+- feat(store): auto mode applies where every proposal is filed, not only to firings
+- feat(dashboard): the tasks screen's display options read and write ?hide= (epic 0026 slice 2)
+- feat(dashboard): the tasks screen's Severity filter chips beside Status (epic 0026 slice 2)
+
+### Fixed
+
+- fix(flight): a firing the account quota killed no longer counts against its model
+- fix(control): the nightly mutation run files a board task per red config
+- fix(flight): a flight flying the base checkout keeps later lanes out of it
+- fix(collaboration): roadmap, contributor-pick and owned-work reads go past gh's 30
+- fix(engine): a Gemini prompt starting with "-" rides on stdin, not --prompt (epic 0036)
+- fix(flight): self-study ritual holds the base checkout's sync-back lock
+- fix(claim): triage, the pool and the reaper read past gh's 30 newest issues
+- fix(engine): a silent Codex child is killed by the idle cap, not left to the wall clock (epic 0036)
+- fix(dashboard): the last three plain execute-result elements become polite live regions
+- fix(claim): /unclaim takes off the claimed label, not every label on the issue
+- fix(sync-back): rung 4 records every escalation outcome and a strand task says why it gave up
+- fix(flight): doc-freshness asks whether the doc saw its subject, not whose clock is later
+- fix(dashboard): announce the KEEPER issue-triage execute result through a polite live region
+- fix(dashboard): reland the popover focus law; the Tour hands focus back to the overflow menu
+- fix(engine): a stale Gemini session id retries cold instead of failing the firing (epic 0036)
+- fix(ci): a null gh page no longer kills the board-flood audit
+- fix(dashboard): restart() kills the port's listener, never a connected browser tab
+- fix(flight): a patch path with a space is no longer dropped from its touched files
+- fix(gate): a git config argv no longer drags real-git suites into every per-firing gate
+- fix(github): a null gh response no longer kills the branch-protection check
+- fix(ci): merge-integrity fails a merge that carries a lane's revert of a merge
+- fix(flight): a stranded-work task names its head and closes itself once that head lands
+- fix(ci): a null gh row no longer kills the board-flood audit
+- fix(docs-links): a code span stops at a CRLF or whitespace-only blank line
+- fix(engine): the diff-size gate counts a merge of the base branch by its own resolution only
+- fix(engine): restore the codex adapter timeout seam a lane's revert of a sync merge dropped
+- fix(flight): a null gh pr view no longer throws the update-branch verb at the route
+- fix: reland main's work that a lane revert stripped from autopilot/flight
+- fix(engine): a stale Codex session id retries cold instead of failing the firing (epic 0036)
+- fix(engine): the Codex adapter closes stdin, so a cold run never hangs to the cap (epic 0036)
+- fix(engine): a Codex wall-clock kill reads as timedOut, not a crash (epic 0036)
+- fix(ci): license gate parses SPDX AND/OR with parentheses, so GPL AND (MIT OR X) fails
+- fix(flight): a null gh row no longer lets a duplicate past the flood guard
+- fix(engine): an inbox task's note rides its board row, so a directive outlives triage
+- fix(engine): a Gemini wall-clock kill reads as timedOut, not a crash (epic 0036)
+- fix(keeper): a null gh row no longer truncates the contributor dossier's merged-PR history
+- fix(keeper): a null gh row no longer truncates the contributor dossier's merged history
+- fix(onboarding): the duplicate detector flags Windows Explorer " - Copy" files
+- fix(onboarding): detectLanguage stops treating a hidden file's leading dot as an extension
+- fix(control): a null gh row no longer throws in the CI, dependabot and code-scanning reads
+- fix(engine): guard child.stdin against EPIPE on over-threshold prompts
+- fix(flight): a null gh row no longer blanks the triage, owned-work and open-PR reads
+- fix(inbox-triage): a markdown note's task title drops its leading # marker
+- fix(pool-client): a null gh row no longer blanks the pool browse and claim
+- fix(keeper): the standing registry stops at the end of its own table
+- fix(flight): the close verifiers run on a task past the 30-row board page
+- fix(engine): a gate slot file mid-deletion is a busy slot, not a crashed flight
+- fix(dashboard): the closed-task audit re-checks an old proposal's task outside the done window
+- fix(collaboration): a null gh row no longer blanks the claim-state read
+- fix(dashboard): vendor only the icons a render site draws (epic 0025 law 1)
+- fix(donations): the funding panel shows no address without the published signing key
+- fix(flight): re-baseline the containment guard after the round-evaluation commit
+- fix(versions): name each version row's buttons after the version they act on
+- fix(flight): epic 0002's freshness watch keys on the decomposition, not every UI edit
+- fix(landing): a post-push watch survives the dashboard restart its own landing causes
+- fix(landing): a running CI run has no conclusion, so the post-push watch waits for the real one
+- fix(ci): the licence-tag check reads comment closers as strings, both HTML ends included
+- fix(landing): the post-push watch waits 45 minutes and always records what it saw
+- fix(security): clear the four open CodeQL alerts and bring every future one to the board
+- fix(ci): no licence tag reuse lint would reject can land, and the REUSE job is required
+- fix(keeper): seed the dossier-posted label the dossier ritual marks an application with
+- fix(flight): a PR touching docs/SIGNING-KEY.asc queues for a human
+- fix(dashboard): the closed-task audit defers its own proposal once the clause checks out again
+- fix(engine): the closed-task audit never reads a failed git grep as a drifted clause
+- fix(flight): the round evaluation's commit names the day, never a clock time
+- fix(flight): the round's last lane is elected, so two lanes ending together still evaluate it
+- fix(flight): closed-task audit titles quote the drifted clause inside the board window
+- fix(donations): reland — the funding panel serves an address only while DONATE.asc signs it
+- fix(inbox-triage): stop slug collisions from mislabeling distinct notes as duplicates
+- fix(discussions-triage): resolve the pool label before posting a reply
+
 ## [0.55.0] — 2026-09-26
 
 ### Added

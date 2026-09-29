@@ -24,6 +24,7 @@ import {
   SHIP_RATE_TOLERANCE,
   TIER_CANDIDATES,
   WATCH_ONE_IN,
+  isQuotaDeath,
   leaderOf,
   readRoutedFirings,
   tierStats,
@@ -198,15 +199,18 @@ export function readBenchmarkFirings(
     created_at: number;
     payload: string | null;
   }[];
-  return rows.map((r) => ({
-    modelId: r.model,
-    shipped: r.shipped === 1,
-    died: r.shipped !== 1 && r.gate_result !== 'reverted' && parseFiringDeath(r.payload) !== null,
-    costUsd: r.cost_usd,
-    durationMs: r.duration_ms,
-    turns: r.turns,
-    at: r.created_at,
-  }));
+  // A firing the account-wide quota killed says nothing about its model.
+  return rows
+    .filter((r) => !isQuotaDeath(r.payload))
+    .map((r) => ({
+      modelId: r.model,
+      shipped: r.shipped === 1,
+      died: r.shipped !== 1 && r.gate_result !== 'reverted' && parseFiringDeath(r.payload) !== null,
+      costUsd: r.cost_usd,
+      durationMs: r.duration_ms,
+      turns: r.turns,
+      at: r.created_at,
+    }));
 }
 
 /** The whole page's data — the fleet's, or one project's (THE ARENA, stage
