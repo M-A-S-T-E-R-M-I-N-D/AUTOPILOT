@@ -219,6 +219,27 @@ describe('readFleet', () => {
     expect(card.backedUp).toBe(true);
   });
 
+  it('shows only live alarms: a red a landing cured, or a denial days old, stays off the panel (2026-09-29)', () => {
+    project('p1', 'alpha', 'flying');
+    const HOUR = 60 * 60 * 1000;
+    const now = 1_000 * HOUR;
+    const event = (type: string, payload: string, at: number) =>
+      store.db
+        .prepare(
+          `INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES ('p1', NULL, ?, ?, ?)`,
+        )
+        .run(type, payload, at);
+    event('convergence-red', '{"check":"pnpm run test","merge":"old"}', now - 5 * HOUR);
+    event('guard-denial', '{"kind":"containment","target":"/old"}', now - 72 * HOUR);
+    event('landed', '{"details":"landed autopilot/flight onto main"}', now - 4 * HOUR);
+    const kinds = () => readFleet(store, now).projects[0]!.anomalies.map((a) => a.kind);
+    expect(kinds()).not.toContain('convergence-red');
+    expect(kinds()).not.toContain('guard-denial');
+    event('convergence-red', '{"check":"pnpm run test","merge":"new"}', now - HOUR);
+    event('guard-denial', '{"kind":"containment","target":"/new"}', now - HOUR);
+    expect(kinds()).toEqual(expect.arrayContaining(['convergence-red', 'guard-denial']));
+  });
+
   it('counts owned work — focused tasks carrying the claim contract marker (epic 0033 slice 2)', () => {
     project('p1', 'alpha', 'flying');
     task('t1', 'p1', 'Claimed issue', 'queued', 1, store, `#6\n${HUMAN_CLOSES_MARKER}`); // owned
