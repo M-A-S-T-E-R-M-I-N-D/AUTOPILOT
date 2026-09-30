@@ -16,7 +16,9 @@
  * verdicts and `fly.ts` calls it at all three phases; the dashboard toggle
  * UI in the fly bar is its own follow-up slice. This module has no I/O,
  * matching how `social-pass.ts`'s own laws each shipped as an isolated pure
- * planner before later slices wired them in.
+ * planner before later slices wired them in. {@link parseSocialInterests}
+ * reads the operator's interest keywords the same pure way, ahead of the
+ * STANDING 4/5 suggestion pass that will match against them.
  *
  * The toggle has four values but three phases: `'full'` runs the pass at
  * every phase including `'interval'`, but `'interval'` is not itself a
@@ -74,4 +76,22 @@ export function shouldRunSocialFlight(
  *  plan, since a negative gap is not a gap. */
 export function isBetweenFirings(firingsCompleted: number, plannedFirings: number): boolean {
   return firingsCompleted < plannedFirings;
+}
+
+/** Parses `process.env.AUTOPILOT_SOCIAL_INTERESTS` — the "matches your
+ *  interests" half of STANDING 4/5 (`.github/CONTRIBUTOR-STANDING.md`, "For
+ *  operators": human-reserved upstream work that matches the operator's
+ *  interests is SUGGESTED to them, never claimed; board web-mtq07kj7-xcul0q).
+ *  A comma-separated list of free-text keywords or phrases, matched
+ *  case-insensitively against issue titles, so each one is trimmed and
+ *  lowercased; blanks are dropped and repeats keep their first position.
+ *  Unset or blank parses to `[]`, and no interests means nothing is
+ *  suggested — the same fail-closed stance as {@link
+ *  parseSocialFlightToggle}: an unconfigured feature stays silent rather
+ *  than defaulting to "suggest every human-reserved issue". Pure, like the
+ *  toggle parser: the raw value is passed in, `process.env` is never read. */
+export function parseSocialInterests(raw: string | undefined): readonly string[] {
+  if (raw === undefined) return [];
+  const keywords = raw.split(',').map((keyword) => keyword.trim().toLowerCase());
+  return [...new Set(keywords.filter((keyword) => keyword.length > 0))];
 }
