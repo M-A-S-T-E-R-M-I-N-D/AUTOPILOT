@@ -817,6 +817,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .start-over button { background: none; border: 1px solid var(--color-border); border-radius: var(--shape-small); color: var(--color-text-muted); padding: var(--space-1) var(--space-3); cursor: pointer; font: inherit; font-size: var(--text-sm); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .start-over button:not(:disabled):hover, .start-over button:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-small-hover); box-shadow: var(--elevation-level-1); }
 .start-over button:not(:disabled):active { border-radius: var(--shape-small-pressed); box-shadow: none; }
+.start-over button > .icon { margin-inline-end: 0.35em; }
 .start-over .muted { font-size: var(--text-sm); }
 .github-sync { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px dashed var(--color-border); border-radius: var(--radius-lg); }
 .github-sync button { background: none; border: 1px solid var(--color-border); border-radius: var(--shape-small); color: var(--color-text-muted); padding: var(--space-1) var(--space-3); cursor: pointer; font: inherit; font-size: var(--text-sm); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }

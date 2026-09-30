@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import { layoutCss } from '../../src/web/layout-css.js';
 
 const PROJECT = {
   id: 'p1',
@@ -127,10 +128,75 @@ describe('start-over button explains itself on hover/focus', () => {
 
     expect(so.disabled).toBe(false);
     expect(so.textContent).toBe(STRINGS.he.startOver);
+    expect(so.getAttribute('data-i18n')).toBe('startOver');
+    expect(so.firstElementChild?.getAttribute('class')).toBe('icon icon-rotate-ccw');
   });
 
   it("uses tr('resetting') for the in-flight label, not a hardcoded literal", () => {
-    expect(clientJs()).toContain("b.textContent = tr('resetting');");
+    expect(clientJs()).toContain("setStartOverLabel(b, 'resetting');");
+  });
+
+  it('keeps its icon and tags the busy key while the reset is in flight', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    const so = document.querySelector('[data-start-over="p1"]') as HTMLButtonElement;
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    so.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(so.disabled).toBe(true);
+    expect(so.textContent).toBe(STRINGS.en.resetting);
+    expect(so.getAttribute('data-i18n')).toBe('resetting');
+    expect(so.querySelectorAll('svg.icon-rotate-ccw')).toHaveLength(1);
+  });
+});
+
+describe('start-over button leads with the vendored rotate-ccw icon (epic 0025)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    // applyLocale() persists the switch below (ADR 0012).
+    localStorage.clear();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('draws a decorative rotate-ccw stroke before the label instead of a baked ↺', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    const so = document.querySelector('[data-start-over="p1"]');
+    const icon = so?.firstElementChild;
+    expect(icon?.tagName.toLowerCase()).toBe('svg');
+    expect(icon?.getAttribute('class')).toBe('icon icon-rotate-ccw');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    expect(so?.textContent).not.toContain('↺');
+  });
+
+  it('keeps the icon across a switch to Hebrew', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    const so = document.querySelector('[data-start-over="p1"]');
+    expect(so?.textContent).toBe(STRINGS.he.startOver);
+    expect(so?.querySelectorAll('svg.icon-rotate-ccw')).toHaveLength(1);
+  });
+
+  it('sits the icon a gap before the label, like the un-ratify chip', () => {
+    expect(layoutCss()).toContain('.start-over button > .icon { margin-inline-end: 0.35em; }');
+  });
+
+  it('drops the ↺ from the label in every locale', () => {
+    for (const table of Object.values(STRINGS)) {
+      expect(table.startOver).not.toContain('↺');
+      expect(table.startOver).toBe(table.startOver.trim());
+    }
   });
 
   it('confirms with the translated, project-named message before resetting', async () => {

@@ -519,6 +519,12 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'm3 21 7-7' }],
     ['path', { d: 'M9 21H3v-6' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the project page's
+  // "↺ Start over" button — the last circular arrow baked into a STRINGS value.
+  'rotate-ccw': [
+    ['path', { d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }],
+    ['path', { d: 'M3 3v5h5' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
