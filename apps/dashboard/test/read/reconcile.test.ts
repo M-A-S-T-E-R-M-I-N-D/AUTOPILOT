@@ -211,6 +211,14 @@ describe('filePathMatchesTitle', () => {
     // distinctiveFileTokens — but it is still too short (< 4 chars) to trust
     // as evidence, and the title-side length gate must reject it too.
     expect(filePathMatchesTitle('Compare vs baseline', ['apps/vs/handler.ts'])).toBe(false);
+    // The same short word as the FILE'S own name — the guard the nightly
+    // mutation run found no test reaching (2026-09-30).
+    expect(filePathMatchesTitle('Compare vs baseline', ['apps/x/vs.ts'])).toBe(false);
+  });
+
+  it('finds the file name at the very end of the title too', () => {
+    expect(filePathMatchesTitle('Fix the widget renderer', ['src/renderer.ts'])).toBe(true);
+    expect(filePathMatchesTitle('Fix the widget renderer', ['src/widget-renderer.ts'])).toBe(true);
   });
 });
 
@@ -370,6 +378,19 @@ describe('findReconciliationCandidates', () => {
     });
     expect(findReconciliationCandidates([freshness], [fixCommit, checkpoint])).toMatchObject([
       { taskId: 'docfresh-1', commitSha: 'wip0001', matchedVia: 'path' },
+    ]);
+    // A checkpoint is read off the START of the subject, whitespace aside: a
+    // descriptive subject that merely mentions "wip(" is not one, and a
+    // checkpoint subject padded with spaces still is.
+    const mentions = commit({
+      sha: 'ment001',
+      subject: 'fix(engine): a wip(autopilot) checkpoint no longer resets the scoreboard',
+      files,
+    });
+    expect(findReconciliationCandidates([freshness], [mentions])).toEqual([]);
+    const padded = commit({ ...checkpoint, sha: 'pad0001', subject: `  ${checkpoint.subject}` });
+    expect(findReconciliationCandidates([freshness], [padded])).toMatchObject([
+      { commitSha: 'pad0001', matchedVia: 'path' },
     ]);
   });
 
