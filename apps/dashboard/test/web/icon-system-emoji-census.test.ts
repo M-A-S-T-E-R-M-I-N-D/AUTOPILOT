@@ -78,6 +78,12 @@ const TECHNICAL_EMOJI_PATTERN =
 const CIRCULAR_ARROW_PATTERN = /[\u{21BA}\u{21BB}\u{27F2}\u{27F3}]/gu;
 const CIRCULAR_ARROW_STRING_KEYS = ['en.startOver', 'he.startOver'];
 
+/** Supplemental Arrows-B (U+2900–U+297F) sat outside every range above too —
+ *  its ⤴ ⤵ are Emoji=Yes — and the plan canvas's fit button painted ⤢ as its
+ *  whole face beside +/−, until the three zoom buttons took the vendored
+ *  plus, minus and maximize-2 icons (2026-09-30). It pins zero everywhere. */
+const SUPPLEMENTAL_ARROWS_B_PATTERN = /[\u{2900}-\u{297F}]/gu;
+
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map((f) => String(f))
@@ -128,6 +134,11 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
 
   it('paints no circular-arrow glyph-icon in any web/ source file outside comments', () => {
     const offenders = webOffenders(files, CIRCULAR_ARROW_PATTERN);
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('paints no Supplemental Arrows-B glyph-icon in any web/ source file outside comments', () => {
+    const offenders = webOffenders(files, SUPPLEMENTAL_ARROWS_B_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
@@ -195,6 +206,10 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
 
   it('carries a circular-arrow glyph-icon only in the shrink-only list of keys', () => {
     expect(emojiBearingStringKeys(CIRCULAR_ARROW_PATTERN)).toEqual(CIRCULAR_ARROW_STRING_KEYS);
+  });
+
+  it('carries no Supplemental Arrows-B glyph-icon in any locale value', () => {
+    expect(emojiBearingStringKeys(SUPPLEMENTAL_ARROWS_B_PATTERN)).toEqual([]);
   });
 
   it('leads with no Geometric Shapes glyph-icon in any locale value', () => {
