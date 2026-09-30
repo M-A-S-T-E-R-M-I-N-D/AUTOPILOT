@@ -320,6 +320,14 @@ not block anything. A finding never reverts or holds the commit. It is recorded 
 `AUTOPILOT_REVIEW_MODEL` picks the model (default `haiku`), and `AUTOPILOT_REVIEW_MODEL=off` turns
 the pass off. The flight prints which one it is running when it starts.
 
+**Subagent delegation, per project** (board ap-muo35gzl-2): a firing may hand file-disjoint
+subtasks to subagents through the Agent, Task and Workflow tools (the prompt's PARALLEL section).
+To keep ONE project's firings from delegating, add the line `Subagents: off` to that project's
+SOUL. Its flights then move those three tools from the CLI's `--allowedTools` to its
+`--disallowedTools`, and the PARALLEL section gives way to a line telling the firing to do every
+step itself (`firingToolGrant()` in `packages/engine/src/config.ts`). The SOUL is read when a
+flight starts, so a ratified edit takes effect on the next flight.
+
 ## 7. Self-mined ritual proposals (CLOSED-TASK AUDIT / DOC-FRESHNESS)
 
 Not a failure mode — the intended behavior, written down so a `CLOSED-TASK AUDIT:` or

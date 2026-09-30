@@ -10,6 +10,8 @@
  * account). This file proves all three against the same marker.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { openStore, migrate, createTask, type Store } from '@autopilot/store';
 import type { GitVcs, FiringOutcome } from '@autopilot/engine';
 import type { CliExec } from '../../src/connection/cli-probe.js';
@@ -26,7 +28,12 @@ import {
 } from '../../src/flight/pool-client.js';
 import { claimLedger, CLAIM_WINDOW_DAYS } from '../../src/flight/claim-ledger.js';
 import { markTaskDoneIfShipped } from '../../src/flight/firing-hooks.js';
-import { planMirrorPassReconcile, planMirrorPassCommands } from '../../src/flight/mirror-pass.js';
+import {
+  planMirrorPassReconcile,
+  planMirrorPassCommands,
+  planMirrorPassStaleClaimReaper,
+} from '../../src/flight/mirror-pass.js';
+import { poolClaimConfirmMessage } from '../../src/web/pool-client-panel.js';
 
 function memoryStore(): Store {
   const store = openStore(':memory:');
@@ -352,5 +359,52 @@ describe('the mirror pass', () => {
         { number: 42, state: 'open' },
       ),
     ).toBeNull();
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the claim's quiet
+// window. Five places release a quiet claim or tell a claimer when it will
+// be released: the reaper workflow's QUIET_DAYS, the /claim reply in
+// claim.yml, the ledger's CLAIM_WINDOW_DAYS (the pool client releases a
+// stale holder on the next claim), the mirror pass's flight-end reaper, and
+// the pool panel's claim confirm. The confirm types its number by hand,
+// because the client serializes it with .toString() and it can reach no
+// constant. taxonomy-seed.test.ts ties the two workflows together, but
+// nothing tied them to the flight side. If one side moves, a claim is freed
+// earlier or later than the claimer was told, and nothing reports an error.
+describe('the quiet window', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const T0 = Date.UTC(2026, 8, 1);
+  const workflow = (name: string): string =>
+    readFileSync(join(process.cwd(), '.github/workflows', name), 'utf8');
+
+  it("is the reaper workflow's QUIET_DAYS", () => {
+    const enforced = /QUIET_DAYS=(\d+)/.exec(workflow('stale-claim-reaper.yml'))?.[1];
+    expect(enforced).toBe(String(CLAIM_WINDOW_DAYS));
+  });
+
+  it('is what the /claim reply promises', () => {
+    const promised = /(\d+) quiet days auto-release it/.exec(workflow('claim.yml'))?.[1];
+    expect(promised).toBe(String(CLAIM_WINDOW_DAYS));
+  });
+
+  it("is the day the mirror pass's flight-end reaper starts releasing", () => {
+    const quietFor = (days: number) =>
+      planMirrorPassStaleClaimReaper(
+        { number: 42, state: 'open', assignee: 'gabibi555', lastActivityAt: T0 },
+        T0 + days * DAY,
+      );
+    expect(quietFor(CLAIM_WINDOW_DAYS - 1)).toBeNull();
+    expect(quietFor(CLAIM_WINDOW_DAYS)?.quietDays).toBe(CLAIM_WINDOW_DAYS);
+  });
+
+  it("is the only day count the pool panel's claim confirm states, for a claim and a contest", () => {
+    const issue = { number: 42, title: POOL_ISSUE.title, url: POOL_ISSUE.url, assignees: [] };
+    for (const decision of ['claim', 'contest']) {
+      const message = poolClaimConfirmMessage(issue, { decision, reasoning: 'r' });
+      const stated = [...message.matchAll(/(\d+) (?:quiet )?days/g)].map((m) => Number(m[1]));
+      expect(stated.length, decision).toBeGreaterThan(0);
+      expect(new Set(stated), decision).toEqual(new Set([CLAIM_WINDOW_DAYS]));
+    }
   });
 });

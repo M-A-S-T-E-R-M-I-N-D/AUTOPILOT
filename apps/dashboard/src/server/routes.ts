@@ -10,6 +10,7 @@ import {
   minifiedCoreJs,
   minifiedProjectJs,
   minifiedPanelsJs,
+  minifiedLocalesJs,
   minifiedWhatsNewJs,
   minifiedBenchmarkJs,
 } from './client-bundle.js';
@@ -84,6 +85,12 @@ export function handleRoute(path: string, deps: RouteDeps = {}): RouteResponse {
         status: 200,
         contentType: 'text/javascript; charset=utf-8',
         body: minifiedPanelsJs(),
+      };
+    case '/locales.js':
+      return {
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: minifiedLocalesJs(),
       };
     case '/whats-new.js':
       return {

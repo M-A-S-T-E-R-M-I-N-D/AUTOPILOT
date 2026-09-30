@@ -192,11 +192,17 @@ function firstLineCapped(text: string): string {
   return line.length > FAILURE_LINE_MAX ? `${line.slice(0, FAILURE_LINE_MAX - 1)}…` : line;
 }
 
-function summaryLine(label: string, s: FiringSummary): string {
+/** The label column's width when every label in a section fits it. */
+const LABEL_WIDTH = 18;
+
+/** `width` is the section's label column: its longest label, at least
+ *  {@link LABEL_WIDTH} — a fixed column let "claude-opus-5-5 · meta-check"
+ *  push its numbers out of line with the rows around it. */
+function summaryLine(label: string, s: FiringSummary, width = LABEL_WIDTH): string {
   const pct = (n: number): string => `${Math.round((n / Math.max(1, s.firings)) * 100)}%`;
   const perShip = s.costPerShipUsd === null ? '-' : `$${s.costPerShipUsd.toFixed(2)}`;
   return (
-    `  ${label.padEnd(18)} ${String(s.firings).padStart(4)} firings  ` +
+    `  ${label.padEnd(width)} ${String(s.firings).padStart(4)} firings  ` +
     `shipped ${pct(s.shipped).padStart(4)}  died ${pct(s.died).padStart(4)}  ` +
     `$${s.costUsd.toFixed(2).padStart(7)}  per ship ${perShip.padStart(7)}  ` +
     `median ${s.medianMinutes.toFixed(1)} min`
@@ -239,7 +245,9 @@ export function renderFleetReport(
   const lines = [`fleet report — ${window}`, summaryLine('all', summarizeFirings(firings))];
   const section = (title: string, key: (f: ReportFiring) => string, pool = firings): void => {
     lines.push('', `by ${title}`);
-    for (const [k, g] of grouped(pool, key)) lines.push(summaryLine(k, summarizeFirings(g)));
+    const groups = grouped(pool, key);
+    const width = Math.max(LABEL_WIDTH, ...groups.map(([k]) => k.length));
+    for (const [k, g] of groups) lines.push(summaryLine(k, summarizeFirings(g), width));
     const left = firings.length - pool.length;
     if (left > 0) {
       lines.push(`  left out: ${left} firing${left === 1 ? '' : 's'} the account quota killed`);

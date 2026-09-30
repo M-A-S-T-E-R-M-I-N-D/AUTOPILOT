@@ -36,7 +36,10 @@
  *   own, just the non-English `STRINGS` data (board ap-mtk2tgvh-0's BUNDLE
  *   DIET) plus a call INTO core's `translateDom` to re-sweep once that data
  *   lands — safe because core (non-deferred `/app.js`) always finishes
- *   executing before any deferred chunk starts.
+ *   executing before any deferred chunk starts. It is composed here so
+ *   `clientJs()` stays whole, but the server lifts it out of `/panels.js`
+ *   into `/locales.js` (`server/client-bundle.ts`, board ap-muo35gze-1),
+ *   which core fetches only for a non-English locale.
  * - Everything else is CORE: called during home-card building
  *   (`activitySection`, `officeMapSection` via the card-section dispatch
  *   table), at boot (`translateDom`), or from renderFleet's sync hooks.

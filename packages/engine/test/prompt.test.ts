@@ -12,6 +12,7 @@ import {
   FLEET_ITEMS_OPEN,
   FLEET_ITEMS_CLOSE,
 } from '../src/prompt.js';
+import { SUBAGENT_TOOLS, SUBAGENTS_OPT_OUT_LINE } from '../src/config.js';
 
 const SOUL = '# SOUL — demo\n\nStack: js\n\n## Operating rules\n- Gate every change.';
 
@@ -274,6 +275,24 @@ describe('buildFiringPrompt', () => {
     expect(p).toMatch(/run the gate ONCE across the whole tree/);
     expect(p).toMatch(/make the ONE commit for this firing/);
     expect(p).toMatch(/Skip delegation entirely when the unit is small enough/);
+  });
+
+  it('swaps PARALLEL for a do-it-yourself line when the project opted out of subagents', () => {
+    const base = { soul: SOUL, firing: 1, retro: false };
+    const p = buildFiringPrompt({ ...base, subagentsEnabled: false });
+    expect(p).not.toContain('## PARALLEL');
+    expect(p).not.toMatch(/spawn one Agent\/Task per subtask/);
+    expect(p).toContain(
+      `## SUBAGENTS — off for this project (its SOUL says "${SUBAGENTS_OPT_OUT_LINE}")`,
+    );
+    for (const tool of SUBAGENT_TOOLS) expect(p).toContain(tool);
+    expect(p).toMatch(/Do every step of the unit yourself/);
+    // Same slot PARALLEL held: after TDD-FIRST, ahead of NOOP→VERDICT.
+    expect(p.indexOf('## TDD-FIRST')).toBeLessThan(p.indexOf('## SUBAGENTS'));
+    expect(p.indexOf('## SUBAGENTS')).toBeLessThan(p.indexOf('## NOOP→VERDICT'));
+    // Subagents on, or unsaid, renders the PARALLEL doctrine byte for byte.
+    expect(buildFiringPrompt({ ...base, subagentsEnabled: true })).toBe(buildFiringPrompt(base));
+    expect(buildFiringPrompt(base)).not.toContain('## SUBAGENTS');
   });
 
   it('states the NOOP→VERDICT doctrine (a no-commit firing must name a verdict via PROPOSALS)', () => {

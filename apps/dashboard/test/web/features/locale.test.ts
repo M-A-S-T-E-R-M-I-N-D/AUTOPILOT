@@ -8,7 +8,7 @@
  * `switcher.test.ts` proved for the theme switcher.
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { LOCALE_NAMES, RTL_LOCALES, STRINGS } from '@autopilot/tokens';
 import { localeJs } from '../../../src/web/features/locale.js';
 
@@ -260,6 +260,68 @@ describe('localeJs', () => {
       expect(tr('taskDeleteConfirm', 'Ada')).toBe(
         STRINGS.en.taskDeleteConfirm.split('{name}').join('Ada'),
       );
+    });
+  });
+
+  describe('on-demand locale data (board ap-muo35gze-1): /locales.js loads only for a non-English locale', () => {
+    const load = () => new Function(`${localeJs()}\nreturn { applyLocale, STRINGS };`)();
+    const loaders = () => document.querySelectorAll('script#ap-locale-data');
+    const html = document.documentElement;
+    let prior: { lang: string; dir: string };
+
+    beforeEach(() => {
+      prior = { lang: html.lang, dir: html.dir };
+    });
+
+    afterEach(() => {
+      loaders().forEach((s) => s.remove());
+      localStorage.removeItem('ap-locale');
+      html.lang = prior.lang;
+      html.dir = prior.dir;
+      Reflect.deleteProperty(document, 'currentScript');
+    });
+
+    it('fetches nothing for English — the default visitor never downloads the other tables', () => {
+      load().applyLocale('en');
+      expect(loaders()).toHaveLength(0);
+    });
+
+    it('inserts the /locales.js script once when a non-English locale is applied', () => {
+      const { applyLocale } = load();
+      applyLocale('he');
+      applyLocale('he');
+      expect(loaders()).toHaveLength(1);
+      expect(loaders()[0]?.getAttribute('src')).toBe('/locales.js');
+    });
+
+    it('fetches nothing once that locale’s table is already present', () => {
+      const { applyLocale, STRINGS: live } = load();
+      live.he = { search: 'חיפוש' };
+      applyLocale('he');
+      expect(loaders()).toHaveLength(0);
+    });
+
+    it('carries the core script’s ?v= content hash, so a rebuilt table is never served stale', () => {
+      const core = document.createElement('script');
+      core.setAttribute('src', '/app.js?v=abc123');
+      Object.defineProperty(document, 'currentScript', { value: core, configurable: true });
+      load().applyLocale('he');
+      expect(loaders()[0]?.getAttribute('src')).toBe('/locales.js?v=abc123');
+    });
+
+    it('removes a script that failed to load, so the next switch retries', () => {
+      const { applyLocale } = load();
+      applyLocale('he');
+      loaders()[0]?.dispatchEvent(new Event('error'));
+      expect(loaders()).toHaveLength(0);
+      applyLocale('he');
+      expect(loaders()).toHaveLength(1);
+    });
+
+    it('restores a saved non-English locale on load by fetching its table', () => {
+      localStorage.setItem('ap-locale', 'he');
+      load();
+      expect(loaders()).toHaveLength(1);
     });
   });
 

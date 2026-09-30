@@ -10,6 +10,7 @@
  */
 
 import { AUTOPILOT_REPO_URL } from './github-identity-disclosure.js';
+import { SUBAGENT_TOOLS, SUBAGENTS_OPT_OUT_LINE } from './config.js';
 
 export interface FiringPromptInput {
   /** The project's SOUL (persona + stack + gate + operating rules). */
@@ -90,6 +91,15 @@ export interface FiringPromptInput {
    * `productVersion` is given.
    */
   readonly attributionEnabled?: boolean;
+  /**
+   * False only when this project's SOUL carries the `Subagents: off` line
+   * (`config.ts`'s `soulOptsOutOfSubagents()`): the PARALLEL delegation
+   * section gives way to a do-it-yourself line, matching the tool grant
+   * `firingToolGrant(false)` hands the CLI. Computed by the caller from the
+   * project's own SOUL, like `attributionEnabled`. Undefined or true renders
+   * the PARALLEL section unchanged.
+   */
+  readonly subagentsEnabled?: boolean;
 }
 
 /** One open task handed to a firing (the assign→fly loop). */
@@ -516,6 +526,35 @@ function commitTrailerLines(
   ];
 }
 
+/** The PARALLEL delegation doctrine, or — for a project whose SOUL says
+ *  {@link SUBAGENTS_OPT_OUT_LINE} — the line that takes its place. Either way
+ *  it ends on a blank line, so the next section starts where it always did. */
+function delegationSection(subagentsEnabled: boolean | undefined): readonly string[] {
+  if (subagentsEnabled === false) {
+    return [
+      `## SUBAGENTS — off for this project (its SOUL says "${SUBAGENTS_OPT_OUT_LINE}")`,
+      `- Do every step of the unit yourself. ${SUBAGENT_TOOLS.join(', ')} are not granted to this`,
+      '  firing, so plan no step around delegating it.',
+      '',
+    ];
+  }
+  return [
+    '## PARALLEL — delegate file-disjoint subtasks (optional, only when it truly helps)',
+    '- If your unit of work splits cleanly into 2-4 FILE-DISJOINT subtasks — no subtask edits a file',
+    '  another one touches — spawn one Agent/Task per subtask instead of doing all of them yourself',
+    '  serially.',
+    '- Brief each subagent like a new collaborator: it has no memory of this conversation, so state',
+    '  the goal, the exact files it owns, and any constraints explicitly.',
+    '- Hub files — shared modules, wiring, the commit itself — stay with YOU, the lead; never hand a',
+    '  hub file to a subagent.',
+    '- Once every subagent reports back, YOU consolidate: read their diffs, resolve any cross-cutting',
+    '  concerns, run the gate ONCE across the whole tree, and make the ONE commit for this firing.',
+    '- Skip delegation entirely when the unit is small enough to do directly — it only pays off on',
+    '  genuinely disjoint, parallelizable work.',
+    '',
+  ];
+}
+
 /** Build the firing prompt for a live flight. */
 export function buildFiringPrompt(input: FiringPromptInput): string {
   const body = [
@@ -582,19 +621,7 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     '  `"testFirst":false` when you did not (e.g. the bug was not reproducible as a test, or the fix',
     '  came first). Omit the field entirely for non-fix work — it is meaningless outside a fix.',
     '',
-    '## PARALLEL — delegate file-disjoint subtasks (optional, only when it truly helps)',
-    '- If your unit of work splits cleanly into 2-4 FILE-DISJOINT subtasks — no subtask edits a file',
-    '  another one touches — spawn one Agent/Task per subtask instead of doing all of them yourself',
-    '  serially.',
-    '- Brief each subagent like a new collaborator: it has no memory of this conversation, so state',
-    '  the goal, the exact files it owns, and any constraints explicitly.',
-    '- Hub files — shared modules, wiring, the commit itself — stay with YOU, the lead; never hand a',
-    '  hub file to a subagent.',
-    '- Once every subagent reports back, YOU consolidate: read their diffs, resolve any cross-cutting',
-    '  concerns, run the gate ONCE across the whole tree, and make the ONE commit for this firing.',
-    '- Skip delegation entirely when the unit is small enough to do directly — it only pays off on',
-    '  genuinely disjoint, parallelizable work.',
-    '',
+    ...delegationSection(input.subagentsEnabled),
     '## NOOP→VERDICT (non-negotiable) — a no-commit firing must not go silent',
     '- If you end this firing with outcome "noop", you MUST also emit a PROPOSALS line (the same',
     '  channel the empty-board flow above uses) with one entry that is a VERDICT on the work you',

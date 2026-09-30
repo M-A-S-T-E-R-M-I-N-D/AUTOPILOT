@@ -1760,13 +1760,17 @@ function soulEditorPanel(projectId, soulText) {
   textarea.rows = 8;
   textarea.value = soulText || '';
   textarea.readOnly = true;
-  // The per-project override of the fleet layer (FLEET_WISDOM_OPT_OUT_LINE,
-  // flight/fleet-wisdom-mining.ts) is a SOUL line, so it is named right where
-  // it is written — and read out with the text it describes.
+  // The per-project overrides (FLEET_WISDOM_OPT_OUT_LINE in
+  // flight/fleet-wisdom-mining.ts, ATTRIBUTION_OPT_OUT_LINE in
+  // flight/attribution.ts) are SOUL lines, so they are named right where they
+  // are written — and read out with the text they describe.
   var hint = el('p', 'soul-editor-hint', 'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.');
   hint.id = 'soul-editor-hint-' + projectId;
   hint.setAttribute('data-i18n', 'soulEditorWisdomHint');
-  textarea.setAttribute('aria-describedby', hint.id);
+  var attributionHint = el('p', 'soul-editor-hint', 'Add the line “Attribution: off” to leave the Assisted-by: credit trailer off this project’s commits.');
+  attributionHint.id = 'soul-editor-attribution-hint-' + projectId;
+  attributionHint.setAttribute('data-i18n', 'soulEditorAttributionHint');
+  textarea.setAttribute('aria-describedby', hint.id + ' ' + attributionHint.id);
   var unlock = el('button', 'soul-editor-unlock');
   unlock.appendChild(iconEl('lock'));
   unlock.appendChild(document.createTextNode('Unlock to edit'));
@@ -1788,6 +1792,7 @@ function soulEditorPanel(projectId, soulText) {
   form.appendChild(label);
   form.appendChild(textarea);
   form.appendChild(hint);
+  form.appendChild(attributionHint);
   var row = el('div', 'soul-editor-row');
   row.appendChild(unlock);
   row.appendChild(btn);

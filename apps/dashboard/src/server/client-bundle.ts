@@ -10,6 +10,8 @@ import {
   whatsNewChunkJs,
 } from '../web/shell.js';
 import { benchmarkClientJs } from '../web/benchmark-page.js';
+import { withoutSplice } from '../web/english-heads.js';
+import { localeDataJs } from '../web/features/locale-data.js';
 
 const cache = new Map<string, string>();
 
@@ -55,8 +57,25 @@ export function minifiedProjectJs(): string {
   return minified('project', projectClientJs);
 }
 
+/**
+ * ON-DEMAND LOCALE TABLES (board ap-muo35gze-1): `features/locale-data.ts`,
+ * every non-English `STRINGS` table (80KB minified), is composed into the
+ * panels chunk so `clientJs()` stays the whole client the jsdom suites
+ * evaluate, but served apart as `/locales.js`: core's `ensureLocaleData()`
+ * (`features/locale.ts`) fetches it only once a non-English locale is
+ * applied, and every page loads `/panels.js` without it.
+ */
+function servedPanelsJs(): string {
+  return withoutSplice(panelsClientJs(), localeDataJs());
+}
+
 export function minifiedPanelsJs(): string {
-  return minified('panels', panelsClientJs);
+  return minified('panels', servedPanelsJs);
+}
+
+/** `/locales.js` — the non-English tables, fetched for a non-English locale only. */
+export function minifiedLocalesJs(): string {
+  return minified('locales', localeDataJs);
 }
 
 /** `/whats-new.js` — the once-per-version message, every page, defer. */
