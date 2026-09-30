@@ -26,9 +26,12 @@ import {
   MAX_ISSUE_LIST,
   NEEDS_FORMAT_LABEL,
   POOL_LABEL_PREFIX,
+  classifyIssueMilestone,
+  planIssueTriage,
   planIssueTriageCommands,
   type AreaLabel,
   type IncomingIssue,
+  type MilestoneTitle,
   type PriorityLabel,
 } from '../../src/flight/issue-triage.js';
 import { planBoardIssueExportCommands } from '../../src/flight/board-issue-export.js';
@@ -806,5 +809,67 @@ describe("claim.yml's already-claimed reply × the board export's label (regress
 
   it('offers only issues nobody holds yet, not another claimed one', () => {
     expect(query.split(' ')).toContain('no:assignee');
+  });
+});
+
+// Same law, the triage MILESTONE (S2: "accepted issues get area/priority
+// labels + a milestone"). issue-triage.ts classifies an accepted issue into a
+// starter title of its own, copied by hand from HOUSE_STARTER_MILESTONES
+// rather than imported, and milestoneToSet sets a title only when the repo
+// has it. A rename on either side would leave every accepted issue on a
+// freshly seeded repo with no milestone: no flag, no error, nothing said.
+/** Every title the milestone classifier can pick. The constant is
+ *  module-private, so `satisfies` keeps this whole instead: typecheck fails
+ *  the moment issue-triage.ts adds, drops or renames one. */
+const TRIAGE_MILESTONES = Object.keys({
+  Foundations: true,
+  V1: true,
+  Hardening: true,
+} satisfies Record<MilestoneTitle, true>) as MilestoneTitle[];
+
+/** An issue title the classifier reads as each milestone; V1 is its fallback. */
+const MILESTONE_SIGNAL: Record<MilestoneTitle, string> = {
+  Foundations: 'Scaffold the initial architecture',
+  V1: 'The fleet table loses focus',
+  Hardening: 'Harden the settings form against a security hole',
+};
+
+describe("HOUSE_STARTER_MILESTONES × KEEPER triage's milestone (regression, epic 0019 additive-only law)", () => {
+  // The titles a bare repo carries once the seeder has run, from its own plan.
+  const freshlySeeded = planTaxonomySeed(MAINTAINER, new Set(), new Set()).actions.flatMap(
+    (action) => (action.kind === 'create-milestone' ? [action.milestone.title] : []),
+  );
+
+  it('picks only milestones the seeder creates', () => {
+    expect(freshlySeeded).toEqual(HOUSE_STARTER_MILESTONES.map((milestone) => milestone.title));
+    expect(TRIAGE_MILESTONES.filter((title) => !freshlySeeded.includes(title))).toEqual([]);
+  });
+
+  it('sets each classified milestone on an accepted issue in a freshly seeded repo', () => {
+    for (const title of TRIAGE_MILESTONES) {
+      expect(classifyIssueMilestone(MILESTONE_SIGNAL[title])).toBe(title);
+
+      // Maintainer-authored, so the issue template gate lets a bare body through.
+      const issue: IncomingIssue = {
+        number: 7,
+        title: MILESTONE_SIGNAL[title],
+        body: '',
+        author: MAINTAINER.login,
+      };
+      const decision = planIssueTriage(
+        issue,
+        [],
+        [],
+        undefined,
+        undefined,
+        MAINTAINER.login,
+        freshlySeeded,
+      );
+      const [edit] = planIssueTriageCommands(issue, decision);
+      const args = edit?.args ?? [];
+
+      expect(decision).toMatchObject({ decision: 'accept', milestone: title });
+      expect(args[args.indexOf('--milestone') + 1]).toBe(title);
+    }
   });
 });
