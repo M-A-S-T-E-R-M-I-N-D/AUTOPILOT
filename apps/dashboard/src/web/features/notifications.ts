@@ -124,7 +124,17 @@ function maybeNotifyFleet(projects) {
   }
   var events = newNotifyEvents(list, notifySeenKeys);
   for (var i = 0; i < events.length; i++) {
-    try { new Notification(events[i].title, { body: events[i].body, tag: events[i].key }); } catch (err) {}
+    try {
+      new Notification(events[i].title, { body: events[i].body, tag: events[i].key });
+    } catch (err) {
+      // Permission can read 'granted' while the page-context constructor still
+      // throws (Chrome on Android: "Illegal constructor"), so say so in the hint
+      // and log the cause for report-from-here's console.error buffer. Every
+      // remaining event this tick would throw the same way — stop here.
+      console.error('Notification could not be shown:', err);
+      setNotifyHint(tr('notifyFailedHint'));
+      break;
+    }
   }
   notifySeenKeys = activeNotifyKeys(list);
 }
