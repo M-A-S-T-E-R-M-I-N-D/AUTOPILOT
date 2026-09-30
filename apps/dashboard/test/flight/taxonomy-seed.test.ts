@@ -14,6 +14,7 @@ import {
   MAX_MILESTONE_PAGES,
   executeTaxonomySeed,
   runTaxonomySeed,
+  type TaxonomyLabel,
   type TaxonomySeedAction,
 } from '../../src/flight/taxonomy-seed.js';
 import {
@@ -501,11 +502,10 @@ describe('HOUSE_TAXONOMY_LABELS × KEEPER issue protocol gate (regression, epic 
 // name in any family leaves the issue without the `pool:` marker every later
 // KEEPER pass recognizes a triaged issue by. Area and priority are seeded
 // here; the pool family is `.github/labels.json`'s, which labels.yml syncs.
-const POOL_LABEL_NAMES: readonly string[] = (
-  JSON.parse(readFileSync(join(process.cwd(), '.github/labels.json'), 'utf8')) as {
-    readonly name: string;
-  }[]
-).map((label) => label.name);
+const POOL_LABELS = JSON.parse(
+  readFileSync(join(process.cwd(), '.github/labels.json'), 'utf8'),
+) as readonly TaxonomyLabel[];
+const POOL_LABEL_NAMES: readonly string[] = POOL_LABELS.map((label) => label.name);
 
 /** Every area and priority the classifiers can hand the accept edit. The
  *  constants are module-private, so `satisfies` keeps these whole instead:
@@ -574,6 +574,63 @@ describe('HOUSE_TAXONOMY_LABELS + .github/labels.json × KEEPER accept edit (reg
     // priority, plus agent-ok for the expired reservation.
     expect(added.size).toBe(DIMENSIONS.length + TRIAGE_AREAS.length + TRIAGE_PRIORITIES.length + 1);
     expect([...added].filter((label) => !seeded.has(label))).toEqual([]);
+  });
+});
+
+// Same law, the SEEDING itself: every name pin in this file assumes the label
+// exists on the live repo, and both seed sources get it there through `gh
+// label create --force` — executeTaxonomySeed for the house taxonomy,
+// labels.yml for the pool set. The create-label endpoint refuses a
+// description over 100 characters and wants the color "without the leading
+// #" (docs.github.com, REST "Create a label"). A refused label is never
+// created: the seeder collects the failure and moves on, and labels.yml's
+// `set -euo pipefail` loop stops there, so no pool label after it syncs
+// either. partner-application's description is 99 characters long.
+const GITHUB_LABEL_DESCRIPTION_MAX = 100;
+
+const LABELS_WORKFLOW = readFileSync(join(process.cwd(), '.github/workflows/labels.yml'), 'utf8');
+
+const SEEDED_LABELS: readonly { readonly source: string; readonly label: TaxonomyLabel }[] = [
+  ...HOUSE_TAXONOMY_LABELS.map((label) => ({ source: 'HOUSE_TAXONOMY_LABELS', label })),
+  ...POOL_LABELS.map((label) => ({ source: '.github/labels.json', label })),
+];
+
+describe("HOUSE_TAXONOMY_LABELS + .github/labels.json × GitHub's create-label limits (regression, epic 0019 additive-only law)", () => {
+  it('gives every labels.json entry a string name, color and description', () => {
+    // labels.yml reads each field with `jq -r`, which prints a missing one as
+    // the word "null": a pool label described as "null", or a create refused
+    // for its color.
+    expect(POOL_LABELS.length).toBeGreaterThan(0);
+    for (const label of POOL_LABELS) {
+      expect(label).toEqual({
+        name: expect.any(String),
+        color: expect.any(String),
+        description: expect.any(String),
+      });
+    }
+  });
+
+  it('keeps every seeded description to 100 characters or fewer', () => {
+    // Counted in code points, so an emoji in a description counts once.
+    const tooLong = SEEDED_LABELS.filter(
+      ({ label }) => [...label.description].length > GITHUB_LABEL_DESCRIPTION_MAX,
+    ).map(({ source, label }) => `${source}: ${label.name} (${[...label.description].length})`);
+    expect(tooLong).toEqual([]);
+  });
+
+  it('gives every seeded label a six-digit hex color with no leading #', () => {
+    const malformed = SEEDED_LABELS.filter(({ label }) => !/^[0-9a-f]{6}$/i.test(label.color)).map(
+      ({ source, label }) => `${source}: ${label.name} (${label.color})`,
+    );
+    expect(malformed).toEqual([]);
+  });
+
+  it('has labels.yml upsert every labels.json entry, and run when the file changes', () => {
+    expect(LABELS_WORKFLOW).toContain("jq -c '.[]' .github/labels.json");
+    expect(LABELS_WORKFLOW).toMatch(/paths:\n(?:\s+- .+\n)*\s+- \.github\/labels\.json\n/);
+    expect(LABELS_WORKFLOW).toContain(
+      'gh label create "$name" --color "$color" --description "$description" --force',
+    );
   });
 });
 
