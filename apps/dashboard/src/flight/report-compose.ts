@@ -44,7 +44,11 @@
  * for: the template's `### ` headings (`issue-triage.ts`'s protocol gate
  * matches them), the repo labels, and the technical material — error
  * strings, identifiers, commands, the environment block — quoted untranslated
- * in backticks. The path/credential ban and `hasComposeLeak` still apply.
+ * in backticks. The doctrine counts file paths as technical material too, so
+ * a repository-relative source path (the module sources the capture already
+ * names) is quoted the same way; the path ban narrows to what it was always
+ * for, a path on the reporter's own machine. The credential ban and
+ * `hasComposeLeak` still apply.
  */
 
 import { fenceTitle } from '@autopilot/engine';
@@ -75,7 +79,7 @@ export function executableReportActions(contextJson: string | undefined): readon
 
 /** Bump on any prompt-text change — same convention as engine's
  *  `ASK_PROMPT_VERSION`. */
-export const REPORT_COMPOSE_PROMPT_VERSION = 'report-compose-v2';
+export const REPORT_COMPOSE_PROMPT_VERSION = 'report-compose-v3';
 
 /** The exact fence around the untrusted captured-context blob (the
  *  `reportMenuContextOf` JSON bundle + module source list) — mirrors engine
@@ -147,13 +151,15 @@ export function buildReportComposePrompt(input: ReportComposePromptInput): strin
     '  paraphrase. Quoting a raw fragment risks carrying forward a secret or',
     '  personal detail buried in it.',
     '- The one exception is technical material the report depends on —',
-    '  error strings, code identifiers, commands, and the environment block:',
-    '  keep each exactly as written, in its original (usually English) form,',
-    '  never translated, inside `backticks` (or a ``` code fence when it spans',
-    '  lines), even inside a sentence in another language.',
-    '- Never include file paths, email addresses, API keys, tokens, passwords,',
-    '  or other credentials in the composed title/body. Describe them',
-    '  generically instead (e.g. "a config file", "an email address").',
+    '  error strings, code identifiers, commands, and the environment block,',
+    '  plus repository-relative source file paths (like the module sources',
+    '  below): keep each exactly as written, in its original (usually English)',
+    '  form, never translated, inside `backticks` (or a ``` code fence when it',
+    '  spans lines), even inside a sentence in another language.',
+    '- Never include an absolute or machine-local file path (a home directory,',
+    '  a drive letter), email addresses, API keys, tokens, passwords, or other',
+    '  credentials in the composed title/body. Describe them generically',
+    '  instead (e.g. "a config file", "an email address").',
     '- Write a single-line title (no markdown). Write the body as markdown with',
     '  EXACTLY the repo issue template\'s sections, each a "### " heading, in',
     '  this order — for a bug: "### What happened?", "### Steps to reproduce",',

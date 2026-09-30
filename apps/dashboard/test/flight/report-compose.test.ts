@@ -43,7 +43,8 @@ describe('buildReportComposePrompt', () => {
       moduleSources: [],
     });
     expect(prompt).toContain('Never reproduce');
-    expect(prompt).toContain('Never include file paths, email addresses, API keys, tokens');
+    expect(prompt).toContain('Never include an absolute or machine-local file path');
+    expect(prompt).toContain('email addresses, API keys, tokens');
   });
 
   it('defangs a forged fence marker inside the captured context', () => {
@@ -80,6 +81,14 @@ describe('buildReportComposePrompt', () => {
       );
       expect(prompt).toContain('never translated');
       expect(prompt).toContain('`backticks`');
+    });
+
+    // The doctrine names file paths among the technical material; the path
+    // ban it must not undo is about the reporter's machine, not the repo.
+    it('quotes a repository-relative source path verbatim, and still bans machine-local ones', () => {
+      expect(prompt).toContain('repository-relative source file paths');
+      expect(prompt).not.toContain('Never include file paths');
+      expect(prompt).toContain('Never include an absolute or machine-local file path');
     });
 
     it("keeps the issue template's headings and the labels in English — the protocol gate matches them", () => {
@@ -294,6 +303,21 @@ describe('composeReport', () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reasoning).toContain('personal');
+  });
+
+  it('passes a Hebrew body that quotes a repository-relative source path verbatim', async () => {
+    const body = 'הכפתור נשאר מושבת ב-`apps/dashboard/src/web/features/fly.ts`';
+    const result = await composeReport(
+      deps(
+        async () =>
+          `REPORT_COMPOSE:{"title":"כפתור ההפעלה מושבת","body":"${body}","labels":["bug"],"action":"issue","language":"he","severity":"high","severityReasoning":"חוסם את הזרימה הראשית."}`,
+      ),
+      'כפתור ההפעלה נשאר מושבת',
+      undefined,
+      ['apps/dashboard/src/web/features/fly.ts'],
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.body).toBe(body);
   });
 
   it('returns the composed fields on a well-formed reply', async () => {
