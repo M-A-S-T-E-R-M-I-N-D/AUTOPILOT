@@ -70,6 +70,16 @@ describe.each([
   });
 });
 
+describe('un-ratify icon (epic 0025)', () => {
+  it('sits a gap before the label, like the other SOUL surfaces', () => {
+    expect(ruleFor(css, '.soul-unratify-btn > .icon')).toContain('margin-inline-end: 0.35em');
+  });
+
+  it('points back along the reading direction under dir=rtl, like the back link', () => {
+    expect(css).toContain("[dir='rtl'] .soul-unratify-btn > .icon { transform: scaleX(-1); }");
+  });
+});
+
 describe('ratify hover keeps its needs-you semantic', () => {
   it('washes with translucent needs-you rather than a solid unverified fill', () => {
     const rule = ruleFor(css, '.soul-ratify-btn:not(:disabled):hover');

@@ -735,7 +735,8 @@ const EN_STRINGS = {
   soulProposalSummary: 'SOUL proposal pending — review',
   soulRatify: '✓ ratify',
   soulDismiss: '✗ dismiss',
-  soulUnratify: '↺ un-ratify',
+  // Epic 0025: the chip leads with the vendored undo-2 icon, not a baked ↺.
+  soulUnratify: 'un-ratify',
   // The card head's "SOUL unreviewed" badge-button (shell.ts's
   // soulReviewBtn(), board web-msnsndki-dz3vn1). Its aria-describedby tip
   // stays the English sentence for now — only the visible label rides the
@@ -2454,7 +2455,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
     soulRatify: '✓ אשרר',
     soulDismiss: '✗ בטל',
-    soulUnratify: '↺ בטל אשרור',
+    soulUnratify: 'בטל אשרור',
     soulUnreviewed: 'SOUL לא נסקר',
     startOver: '↺ התחל מחדש',
     prReviewTitle: 'סקירת PR של KEEPER',

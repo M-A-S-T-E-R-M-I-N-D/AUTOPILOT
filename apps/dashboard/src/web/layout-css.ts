@@ -1580,6 +1580,8 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-unratify-btn:not(:disabled):hover, .soul-unratify-btn:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .soul-unratify-btn:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .soul-unratify-btn:disabled { opacity: 0.6; cursor: default; }
+.soul-unratify-btn > .icon { margin-inline-end: 0.35em; }
+[dir='rtl'] .soul-unratify-btn > .icon { transform: scaleX(-1); }
 .soul-editor { width: 100%; margin-bottom: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: var(--space-2); }
 .soul-editor-summary { font-size: var(--text-xs); color: var(--color-text-muted); cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .soul-editor-summary > .icon { margin-inline-end: 0.35em; }
