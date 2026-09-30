@@ -108,17 +108,21 @@ export interface PrCheckRunLike {
   readonly optional?: boolean;
 }
 
-/** The glyph one check's state renders as. A dedicated symbol per state
- *  (not a color alone) is what keeps the strip readable for a colorblind
- *  reader and in a screenshot — the same reasoning the decision badges
- *  already carry glyphs. */
-export function prCheckStateGlyph(state: string): string {
-  if (state === 'pass') return '✓';
-  if (state === 'fail') return '✗';
-  if (state === 'running') return '◐';
-  if (state === 'queued') return '◌';
-  if (state === 'skipped') return '⊘';
-  return '?';
+/** The vendored stroke icon one check's state renders as. A dedicated shape
+ *  per state (not a color alone) is what keeps the strip readable for a
+ *  colorblind reader and in a screenshot — the same reasoning the decision
+ *  badges already carry marks. Epic 0025 (board web-mtywp7zq-55f3o9): the
+ *  ✓/✗/◐/◌/⊘ glyphs gave way to the circle family the task row's status
+ *  pill already draws (queued `circle`, in progress `circle-dot`, done
+ *  `circle-check`), so a running check and an in-progress task read alike;
+ *  an unrecognized state takes that family's question mark, not a crash. */
+export function prCheckStateIcon(state: string): string {
+  if (state === 'pass') return 'circle-check';
+  if (state === 'fail') return 'circle-x';
+  if (state === 'running') return 'circle-dot';
+  if (state === 'queued') return 'circle';
+  if (state === 'skipped') return 'ban';
+  return 'circle-question-mark';
 }
 
 /** Human-sized duration for a check's elapsed time: `14s`, `4m44s`,

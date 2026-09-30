@@ -1033,7 +1033,6 @@ summary.pr-review-diffstat { cursor: pointer; }
 .pr-review-check-strip { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .pr-review-check { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); font-size: var(--text-xs); color: var(--color-text-muted); text-decoration: none; }
 a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: currentColor; }
-.pr-review-check-glyph { font-family: var(--font-mono); }
 .pr-review-check-name { font-family: var(--font-mono); }
 .pr-review-check-time { font-variant-numeric: tabular-nums; opacity: 0.75; }
 .pr-review-check-pass { color: var(--color-success); border-color: color-mix(in oklab, var(--color-success) 40%, var(--color-border)); }
@@ -1045,7 +1044,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    prefers-reduced-motion block: the sheet's global kill switch (last rule,
    census-pinned by reduced-motion-kill-switch.test.ts) already zeroes every
    animation with !important, and a local one would break that census. */
-.pr-review-check-running .pr-review-check-glyph { animation: pr-check-pulse 1.4s ease-in-out infinite; }
+.pr-review-check-running > .icon { animation: pr-check-pulse 1.4s ease-in-out infinite; }
 @keyframes pr-check-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .pr-review-check-queued { color: var(--color-text-muted); border-style: dashed; }
 .pr-review-check-skipped { opacity: 0.6; }

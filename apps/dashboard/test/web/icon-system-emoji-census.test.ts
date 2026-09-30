@@ -118,7 +118,27 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
   it('matches ⏭/⏱ but leaves the ⌘ key name alone', () => {
     expect('⏭ skip · ⏱ try · ⌘ K'.match(TECHNICAL_EMOJI_PATTERN)).toEqual(['⏭', '⏱']);
   });
+
+  it('paints Geometric Shapes glyphs only at the known, shrink-only sites', () => {
+    expect(webOffenders(files, GEOMETRIC_WEB_PATTERN)).toEqual(GEOMETRIC_WEB_SITES);
+  });
 });
+
+/** Geometric Shapes (U+25A0–U+25FF) in web/ source. The STRINGS census below
+ *  pinned the block at zero, but web/ was never scanned for it, so the PR
+ *  review check strip's ◐/◌ state glyphs (running, queued) sat unseen until
+ *  they took the vendored circle-dot/circle icons (2026-09-30). */
+const GEOMETRIC_WEB_PATTERN = /[■-◿]/gu;
+
+/** Shrink-only: the web/ sites still painting one. The activity feed's
+ *  "● live activity" heading leads with a glyph standing in for an icon; the
+ *  connect panel's report toggle draws ▸/▾ in place of the native details
+ *  marker it hides. Converting one removes its line — never add one. */
+const GEOMETRIC_WEB_SITES = [
+  'activity-log.ts: ● (U+25cf)',
+  'layout-css.ts: ▸ (U+25b8)',
+  'layout-css.ts: ▾ (U+25be)',
+];
 
 function emojiBearingStringKeys(pattern: RegExp = EMOJI_PATTERN): string[] {
   return Object.entries(STRINGS)

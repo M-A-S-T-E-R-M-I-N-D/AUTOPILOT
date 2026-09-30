@@ -109,7 +109,15 @@ propagation, and the filled style does not match the nav.
    census at zero 2026-09-30:** the task row's budget-risk chips ("try Nt"
    and the dimension fallback's "try Nt?") lead with a newly vendored
    `timer` instead of ⏱; the list is gone and the test pins zero in web/ as
-   in STRINGS. The screenshots refresh (`docs/screens/`) is still open.
+   in STRINGS. **PR check strip 2026-09-30 (slice 3's status pills):** the
+   Geometric Shapes census only walked STRINGS, so the KEEPER PR review
+   check chips' ◐/◌ (running, queued) went unseen in web/. Each chip now
+   leads with the task row's circle family instead of ✓/✗/◐/◌/⊘
+   (`circle-check`, a newly vendored `circle-x`, `circle-dot`, `circle`,
+   `ban`; `circle-question-mark` for an unknown state), and web/ has its
+   own Geometric census, a shrink-only list of the three sites left: the
+   activity feed's "● live activity" heading and the connect panel's ▸/▾
+   report toggle. The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 
