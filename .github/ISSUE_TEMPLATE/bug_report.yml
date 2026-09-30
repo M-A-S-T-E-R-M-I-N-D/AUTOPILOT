@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Bug report
 description: Report a defect in AUTOPILOT
-labels: ['bug', 'triage']
+labels: ['bug']
 body:
   - type: markdown
     attributes:
