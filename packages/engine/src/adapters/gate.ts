@@ -133,6 +133,15 @@ export function buildInvocation(
   return needsShim ? { bin: 'cmd.exe', args: ['/c', bin, ...args] } : { bin, args: [...args] };
 }
 
+/**
+ * What an argument may hold to pass through {@link buildInvocation}'s `cmd.exe
+ * /c` route. Node quotes a Windows argument only when it holds whitespace or a
+ * quote, so `x&whoami` reaches cmd.exe bare and runs `whoami`. Flags, model
+ * names, and session ids need nothing outside this set; `& | < > ^ % ! ( ) "`
+ * and whitespace are all out.
+ */
+export const CMD_SAFE_ARG = /^[\w.:/@+-]+$/;
+
 /** The lines vitest prints when its test workers never came up — every one
  *  seen on this machine (2026-09-24 convergence reds) was two lanes' full
  *  suites starting at once on one disk. */

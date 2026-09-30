@@ -393,7 +393,10 @@ describe('GeminiCliModel', () => {
   it('spawns the default "gemini" binary headless with JSON output, the model, yolo approval, and the prompt last', async () => {
     mockExecFileResult(null, '');
 
-    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+    await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gemini-2.5-pro',
+      'do it',
+    );
 
     expect(execFileMock.mock.calls).toHaveLength(1);
     const [binary, args, options] = execFileMock.mock.calls[0] as [
@@ -421,7 +424,10 @@ describe('GeminiCliModel', () => {
   it('closes stdin empty for an argv prompt, so the CLI never waits on piped input', async () => {
     mockExecFileResult(null, '');
 
-    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+    await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gemini-2.5-pro',
+      'do it',
+    );
 
     expect(stdinEnd).toHaveBeenCalledTimes(1);
     expect(stdinEnd).toHaveBeenCalledWith();
@@ -484,14 +490,17 @@ describe('GeminiCliModel', () => {
     mockExecFileResult(null, '');
     const atLimit = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD);
 
-    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', atLimit);
+    await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gemini-2.5-pro',
+      atLimit,
+    );
 
     expect(spawnedArgs().slice(-2)).toEqual(['--prompt', atLimit]);
   });
 
   it('passes "--resume <id>" when a session id is given, and omits it for an empty one', async () => {
     mockExecFileResult(null, '');
-    const model = new GeminiCliModel({ repo: '/work/sbx' });
+    const model = new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' });
 
     await model.invoke('gemini-2.5-pro', 'continue', SESSION);
     const resumed = spawnedArgs();
@@ -527,6 +536,126 @@ describe('GeminiCliModel', () => {
     expect(args).toContain('--skip-trust');
     expect(options['env']).toBe(env);
     expect(options['timeout']).toBe(5000);
+  });
+
+  describe('on Windows, where npm installs gemini as a gemini.cmd shim', () => {
+    it('spawns a bare "gemini" through cmd.exe /c: execFile cannot launch a .cmd shim itself (ENOENT), and cmd.exe finds it by PATHEXT', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+
+      const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(binary).toBe('cmd.exe');
+      expect(args.slice(0, 2)).toEqual(['/c', 'gemini']);
+      expect(args[args.indexOf('--model') + 1]).toBe('gemini-2.5-pro');
+      expect(args[args.indexOf('--output-format') + 1]).toBe('json');
+    });
+
+    it("puts even a short prompt on stdin, never --prompt, so no prompt text ever reaches cmd.exe's own parser", async () => {
+      mockExecFileResult(null, '');
+      const hostile = 'fix "the" build & echo %PATH% | more';
+
+      await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        hostile,
+        SESSION,
+      );
+
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args).not.toContain('--prompt');
+      expect(args.some((a) => a.includes('echo'))).toBe(false);
+      expect(args.slice(-2)).toEqual(['--resume', SESSION]);
+      expect(stdinEnd).toHaveBeenCalledWith(hostile);
+    });
+
+    it('does not detach cmd.exe, the shape the gate already runs its cmd.exe shims in: a detached cmd.exe has no console to hand the node shim', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+
+      const [, , options] = execFileMock.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(options).toMatchObject({ detached: false, windowsHide: true });
+    });
+
+    it('refuses, without spawning, a model name cmd.exe would run as syntax: Node quotes no argument free of whitespace, so "&" would start a second command', async () => {
+      mockExecFileResult(null, '');
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini&calc',
+        'do it',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(0);
+      expect(res.envelope).toBeNull();
+      expect(res.exitCode).not.toBe(0);
+      expect(res.stdout).not.toContain('calc');
+    });
+
+    it('never hands cmd.exe a resume id carrying its syntax: that run is refused, and the cold retry goes without it', async () => {
+      mockExecFileResult(null, pretty({ session_id: SESSION, response: 'done' }));
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        'latest|calc',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args.some((a) => a.includes('calc'))).toBe(false);
+      expect(args).not.toContain('--resume');
+      expect(res.resumed).toBe(false);
+      expect(res.envelope?.result).toBe('done');
+    });
+
+    it('keeps the arguments real runs pass on the cmd.exe route: "auto_edit" approval, --skip-trust, and model names with dots, colons, and slashes', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        approvalMode: 'auto_edit',
+        trustWorkspace: true,
+      }).invoke('models/gemini-2.5-flash:latest', 'do it', SESSION);
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args[args.indexOf('--model') + 1]).toBe('models/gemini-2.5-flash:latest');
+      expect(args[args.indexOf('--approval-mode') + 1]).toBe('auto_edit');
+      expect(args).toContain('--skip-trust');
+      expect(args[args.indexOf('--resume') + 1]).toBe(SESSION);
+    });
+
+    it('spawns an explicit .exe or path binary directly, detached, with a short prompt still on --prompt', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        binary: 'gemini.exe',
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const [binary, args, options] = execFileMock.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(binary).toBe('gemini.exe');
+      expect(args[0]).toBe('--model');
+      expect(args.slice(-2)).toEqual(['--prompt', 'do it']);
+      expect(options).toMatchObject({ detached: true });
+      expect(stdinEnd).toHaveBeenCalledWith();
+    });
   });
 
   it('hands the containment guard settings to the child as its system settings file, without touching the caller env', async () => {
@@ -697,7 +826,7 @@ describe('GeminiCliModel', () => {
     it('retries once, cold, when the CLI rejects the session id at startup', async () => {
       mockExecFileRuns([exitWith(42), '', REJECTED], [null, DONE(COLD_SESSION)]);
 
-      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+      const res = await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
         'gemini-2.5-pro',
         'continue',
         SESSION,
