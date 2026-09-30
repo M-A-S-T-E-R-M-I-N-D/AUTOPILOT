@@ -306,6 +306,27 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['circle', { cx: '12', cy: '12', r: '10' }],
     ['path', { d: 'M12 6v6l4 2' }],
   ],
+  // Epic 0026's row anatomy: the task row's leading status glyph, one circle
+  // family — queued, in progress, done, awaiting approval, deferred.
+  circle: [['circle', { cx: '12', cy: '12', r: '10' }]],
+  'circle-dot': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['circle', { cx: '12', cy: '12', r: '1' }],
+  ],
+  'circle-check': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['path', { d: 'm16 9-5.5 5.5L8 12' }],
+  ],
+  'circle-question-mark': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['path', { d: 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3' }],
+    ['path', { d: 'M12 17h.01' }],
+  ],
+  'circle-pause': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['line', { x1: '10', x2: '10', y1: '15', y2: '9' }],
+    ['line', { x1: '14', x2: '14', y1: '15', y2: '9' }],
+  ],
   compass: [
     ['circle', { cx: '12', cy: '12', r: '10' }],
     [

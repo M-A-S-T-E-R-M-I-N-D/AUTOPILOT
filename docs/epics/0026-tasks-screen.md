@@ -51,6 +51,12 @@ stays the row's disclosure button, its `aria-controls` resolving wherever the
 detail sits. Below `lg`, and in the columns presentation (a row is already a
 card there), the detail stays under its row; the view toggle and a crossing
 of `lg` carry an open detail between the two places without a rebuild.
+The row anatomy's leading status glyph followed 2026-09-29: each row's status
+pill leads with a vendored Lucide icon from one circle family — an empty
+circle queued, a dotted one in progress, a check done, a question mark
+awaiting approval, a pause deferred. It is decorative (`aria-hidden`): the
+pill's word, tip and accessible name still say the status, and a locale
+switch rewrites the word without dropping the glyph.
 Slice 2's pure half
 shipped the same day, not yet wired: `web/task-view.ts` reads and writes a
 view — grouping by status, severity or source, and a filter on each — in the
