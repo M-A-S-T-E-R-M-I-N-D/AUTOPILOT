@@ -30,6 +30,8 @@ import {
   type IncomingIssue,
   type PriorityLabel,
 } from '../../src/flight/issue-triage.js';
+import { planBoardIssueExportCommands } from '../../src/flight/board-issue-export.js';
+import { HELP_WANTED_LABEL } from '../../src/flight/help-wanted-items.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
 
@@ -702,5 +704,50 @@ describe('HOUSE_TAXONOMY_LABELS × claim protocol (regression, epic 0019 additiv
     const enforced = /QUIET_DAYS=(\d+)/.exec(STALE_CLAIM_REAPER)?.[1];
     expect(promised).toBeDefined();
     expect(enforced).toBe(promised);
+  });
+});
+
+// Same law, the claim flow's turn-away: /claim on an issue someone already
+// holds replies with a link to "another help-wanted issue". That link is a
+// GitHub search spelling `label:"help wanted"` by hand, while the board export
+// files every shared task under HELP_WANTED_LABEL. A search on a label nobody
+// applies is not an error, just an empty list, so a rename on either side
+// would send every turned-away claimer to an empty page, and nothing failed.
+/** The already-claimed reply's issue search, with `$REPO` expanded to `repo`. */
+function helpWantedLink(repo: string): URL {
+  const link = /\]\((https:\/\/github\.com\/\$REPO\/issues\?q=[^)\s]+)\)/.exec(
+    claimBranch('/claim*'),
+  )?.[1];
+  if (link === undefined) throw new Error("claim.yml's /claim reply has no issue-search link");
+  return new URL(link.replace('$REPO', repo));
+}
+
+describe("claim.yml's already-claimed reply × the board export's label (regression, epic 0019 additive-only law)", () => {
+  const url = helpWantedLink('some-owner/some-repo');
+  const query = url.searchParams.get('q') ?? '';
+
+  it("points at the replying repo's open issues", () => {
+    expect(url.origin + url.pathname).toBe('https://github.com/some-owner/some-repo/issues');
+    expect(query.split(' ')).toEqual(expect.arrayContaining(['is:issue', 'is:open']));
+  });
+
+  it('searches the label the board export files shared tasks under', () => {
+    const qualifier = /(?:^| )label:(?:"([^"]*)"|(\S+))/.exec(query);
+    const [create] = planBoardIssueExportCommands({
+      action: 'create',
+      taskId: 'task-1',
+      title: 'A shared task',
+      body: '',
+      reasoning: '',
+    });
+    const args = create?.args ?? [];
+
+    expect(qualifier?.[1] ?? qualifier?.[2]).toBe(HELP_WANTED_LABEL);
+    expect(args[args.indexOf('--label') + 1]).toBe(HELP_WANTED_LABEL);
+    expect(GITHUB_DEFAULT_LABELS).toContain(HELP_WANTED_LABEL);
+  });
+
+  it('offers only issues nobody holds yet, not another claimed one', () => {
+    expect(query.split(' ')).toContain('no:assignee');
   });
 });
