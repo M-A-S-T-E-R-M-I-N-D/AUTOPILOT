@@ -739,6 +739,10 @@ const EN_STRINGS = {
   // SOUL token, so it stays verbatim in every locale.
   soulEditorWisdomHint:
     'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.',
+  // The second per-project override (ATTRIBUTION_OPT_OUT_LINE in
+  // apps/dashboard/src/flight/attribution.ts) — verbatim in every locale too.
+  soulEditorAttributionHint:
+    'Add the line “Attribution: off” to leave the Assisted-by: credit trailer off this project’s commits.',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -2462,6 +2466,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulEditorUnlock: 'פתיחת נעילה לעריכה',
     soulEditorWisdomHint:
       'עקיפה לפרויקט: הוסיפו את השורה “Fleet wisdom: off” כדי להשאיר את חוכמת הצי המשותפת מחוץ להפעלות של הפרויקט הזה.',
+    soulEditorAttributionHint:
+      'הוסיפו את השורה “Attribution: off” כדי להשמיט את שורת הקרדיט Assisted-by: מה-commits של הפרויקט הזה.',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
