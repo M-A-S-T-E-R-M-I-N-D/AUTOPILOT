@@ -141,8 +141,13 @@ propagation, and the filled style does not match the nav.
    vendored `undo-2` (mirrored under `dir="rtl"` like the back link), the
    ratify tip names it by its words, and `soulUnratify` drops the ↺ in both
    locales; the list is down to the flight log's ⟲ chip in web/ and
-   `startOver` in STRINGS. The screenshots refresh (`docs/screens/`) is still
-   open.
+   `startOver` in STRINGS. **Circular-arrow web/ census at zero
+   2026-09-30:** the per-firing trace row's "⟲ N repeated" chip (the
+   trajectory-redundancy signal `firingTimelineRowMeta` composes) leads with
+   the already-vendored `repeat` icon, so its label and aria-label carry the
+   words alone; web/ pins zero for circular arrows, and only `startOver`
+   remains on the STRINGS list. The screenshots refresh (`docs/screens/`) is
+   still open.
 
 ## Related
 

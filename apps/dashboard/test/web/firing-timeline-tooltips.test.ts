@@ -206,9 +206,14 @@ describe('the "Per-firing trace" row explains itself on hover/focus', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const chip = document.querySelector('.firing-redundancy');
-    expect(chip?.textContent).toBe('⟲ 1 repeated');
+    // Epic 0025: the vendored repeat icon leads the chip instead of a baked-in
+    // ⟲ glyph — decorative beside the words, so aria-hidden.
+    const icon = chip?.firstElementChild;
+    expect(icon?.getAttribute('class')).toBe('icon icon-repeat');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    expect(chip?.textContent).toBe('1 repeated');
     expect(chip?.getAttribute('tabindex')).toBe('-1');
     expect(chip?.getAttribute('data-tip')).toContain('trajectory-quality signal');
-    expect(chip?.getAttribute('aria-label')).toBe('trajectory: ⟲ 1 repeated');
+    expect(chip?.getAttribute('aria-label')).toBe('trajectory: 1 repeated');
   });
 });

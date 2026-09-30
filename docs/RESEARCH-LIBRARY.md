@@ -548,8 +548,8 @@ DEFENSES") — all four now mechanized, closing that task:** trajectory-level
 evaluation (score the PATH, not only the ship — a correct ship can mask a broken
 trajectory — **mechanized**: `trajectorySignalOf` in `web/flight-metrics.ts` counts
 every repeated (tool, target) call within a firing — a proxy for redundant tool calls/
-backtracking outcome-only scoring can't see — surfaced as a `⟲ N repeated` chip on the
-project page's per-firing trace row), ORIENT-length anomaly (turns-before-first-edit as
+backtracking outcome-only scoring can't see — surfaced as an `N repeated` chip, led by
+the vendored `repeat` icon, on the project page's per-firing trace row), ORIENT-length anomaly (turns-before-first-edit as
 a live rot/fixation signal — **mechanized**: `orientFixation` in `shared/live-firing.ts`
 flags a live firing once it has run `ORIENT_FIXATION_TURN_THRESHOLD` turns with zero
 DO-phase activity, surfaced as a `⚠ no edit yet` chip on the live worker card), prompt
