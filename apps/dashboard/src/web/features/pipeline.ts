@@ -218,12 +218,14 @@ function wirePlanCanvas(body, state) {
   bar.setAttribute('role', 'group');
   bar.setAttribute('aria-label', typeof tr === 'function' ? tr('planCanvasAria') : 'Plan canvas');
   bar.setAttribute('data-i18n-aria', 'planCanvasAria');
-  [['+', 'planZoomIn', function () { zoomAt(1.25, centre()); }],
-   ['−', 'planZoomOut', function () { zoomAt(0.8, centre()); }],
-   ['⤢', 'planFit', function () { apply(base.slice()); }]].forEach(function (spec) {
+  // Epic 0025: each button's face is a vendored stroke icon (was a +/−/⤢
+  // glyph); the aria-label below is its only name.
+  [['plus', 'planZoomIn', function () { zoomAt(1.25, centre()); }],
+   ['minus', 'planZoomOut', function () { zoomAt(0.8, centre()); }],
+   ['maximize-2', 'planFit', function () { apply(base.slice()); }]].forEach(function (spec) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.textContent = spec[0];
+    b.appendChild(iconEl(spec[0]));
     var name = typeof tr === 'function' ? tr(spec[1]) : spec[1];
     b.setAttribute('aria-label', name);
     b.setAttribute('data-i18n-aria', spec[1]);

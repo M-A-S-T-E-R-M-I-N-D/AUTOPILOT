@@ -17,6 +17,15 @@ import {
   formatViewBox,
 } from '../../src/web/pipeline-panel.js';
 import { pipelineJs } from '../../src/web/features/pipeline.js';
+import { ICON_NAMES } from '../../src/web/icons.js';
+
+/** Core's `iconEl` (shell.ts), reduced to what the zoom bar asserts on. */
+function iconEl(name: string): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'icon icon-' + name);
+  svg.setAttribute('aria-hidden', 'true');
+  return svg;
+}
 
 describe('camera math', () => {
   it('parses a viewBox and refuses a malformed or degenerate one', () => {
@@ -67,7 +76,7 @@ describe('camera wiring — the real client module against a synthetic canvas', 
 
   beforeEach(() => {
     (globalThis as unknown as { tr: unknown }).tr = (key: string) => key;
-    wire = new Function(`${pipelineJs()}; return wirePlanCanvas;`)() as Wire;
+    wire = new Function('iconEl', `${pipelineJs()}; return wirePlanCanvas;`)(iconEl) as Wire;
     document.body.innerHTML =
       '<div id="host"><div class="pipeline-controls"></div><svg class="pipeline-canvas" viewBox="0 0 100 50"></svg></div>';
     body = document.getElementById('host') as HTMLElement;
@@ -134,6 +143,27 @@ describe('camera wiring — the real client module against a synthetic canvas', 
     const again = wire(body, state)!;
     expect(again.viewBox()[2]).toBe(125);
     expect(svg.getAttribute('viewBox')).toBe(formatViewBox(again.viewBox()));
+  });
+
+  it('the zoom bar draws vendored stroke icons, not +/−/⤢ glyph faces (epic 0025)', () => {
+    wire(body, {});
+    const buttons = [...body.querySelectorAll('.plan-zoom button')];
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'planZoomIn',
+      'planZoomOut',
+      'planFit',
+    ]);
+    const icons = ['plus', 'minus', 'maximize-2'];
+    buttons.forEach((b, i) => {
+      // Law 2: the icon alone is decorative; the STRINGS aria-label names it.
+      expect(b.textContent).toBe('');
+      expect(b.children).toHaveLength(1);
+      expect(b.firstElementChild?.classList.contains('icon-' + icons[i])).toBe(true);
+      expect(b.firstElementChild?.getAttribute('aria-hidden')).toBe('true');
+      expect(b.getAttribute('data-i18n-aria')).toBe(b.getAttribute('aria-label'));
+    });
+    // Each name is vendored, so core's iconEl draws a real shape, not an empty box.
+    for (const name of icons) expect(ICON_NAMES).toContain(name);
   });
 
   it('a new drawing resets the camera; a node click never starts a pan', () => {

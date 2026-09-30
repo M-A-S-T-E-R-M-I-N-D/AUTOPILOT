@@ -505,6 +505,20 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
   // report disclosure drops its ▸/▾ marker — the last Geometric Shapes glyph
   // in web/ chrome. One shape, turned by CSS when the form opens.
   'chevron-right': [['path', { d: 'm9 18 6-6-6-6' }]],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the plan canvas's
+  // zoom bar drops its +/−/⤢ glyph faces — ⤢ (Supplemental Arrows-B) fell
+  // back to whatever font carried it.
+  plus: [
+    ['path', { d: 'M5 12h14' }],
+    ['path', { d: 'M12 5v14' }],
+  ],
+  minus: [['path', { d: 'M5 12h14' }]],
+  'maximize-2': [
+    ['path', { d: 'M15 3h6v6' }],
+    ['path', { d: 'm21 3-7 7' }],
+    ['path', { d: 'm3 21 7-7' }],
+    ['path', { d: 'M9 21H3v-6' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
