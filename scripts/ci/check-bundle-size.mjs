@@ -508,6 +508,10 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // 237.7KB -> 258873B raw. Combined across the five chunks is unchanged. The
 // core lines stay put: the headroom is what the board item asked for, with
 // lanes in flight that grow core. About two KB of margin, as above.
+// Then the same board item's next lever (2026-09-30): locale-data.ts's
+// non-English tables leave /panels.js for the on-demand /locales.js below.
+// Measured /panels.js 253.0KB -> 177108B raw, 76.5KB -> 53030B gzip. Both
+// panels lines stay put, the same headroom call as the core lines above.
 const PROJECT_RAW_BUDGET = 126 * 1024;
 const PANELS_RAW_BUDGET = 255 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
@@ -547,6 +551,13 @@ const PANELS_RAW_BUDGET = 255 * 1024;
 // relocation as the panels raw entry above -- measured 78245B.
 const PROJECT_GZIP_BUDGET = 34 * 1024;
 const PANELS_GZIP_BUDGET = 78 * 1024;
+// THE LOCALES CHUNK (2026-09-30, board ap-muo35gze-1): /locales.js carries
+// every non-English STRINGS table (features/locale-data.ts), and core loads
+// it only once a non-English locale is applied. Every translated key costs
+// this chunk now, not /panels.js. Measured 81979B raw / 24361B gzip at
+// introduction; the lines leave room for a few days of Hebrew strings.
+const LOCALES_RAW_BUDGET = 88 * 1024;
+const LOCALES_GZIP_BUDGET = 27 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
@@ -568,6 +579,8 @@ export {
   PROJECT_GZIP_BUDGET,
   PANELS_RAW_BUDGET,
   PANELS_GZIP_BUDGET,
+  LOCALES_RAW_BUDGET,
+  LOCALES_GZIP_BUDGET,
   WHATS_NEW_RAW_BUDGET,
   WHATS_NEW_GZIP_BUDGET,
   BENCHMARK_RAW_BUDGET,
@@ -598,10 +611,10 @@ export function measure(name, js, rawBudget, gzipBudget, errors) {
   return rawBytes;
 }
 
-/** Measures the five served chunks against their budgets, prints the report
+/** Measures the six served chunks against their budgets, prints the report
  *  and returns the exit code: 1 when any budget is exceeded, else 0.
  *  `bundle` is the compiled client-bundle module (or a stand-in with the same
- *  five `minified*Js()` functions). */
+ *  six `minified*Js()` functions). */
 export function checkBundleSize(bundle) {
   const errors = [];
   const core = measure(
@@ -625,6 +638,13 @@ export function checkBundleSize(bundle) {
     PANELS_GZIP_BUDGET,
     errors,
   );
+  const locales = measure(
+    '/locales.js',
+    bundle.minifiedLocalesJs(),
+    LOCALES_RAW_BUDGET,
+    LOCALES_GZIP_BUDGET,
+    errors,
+  );
   const whatsNew = measure(
     '/whats-new.js',
     bundle.minifiedWhatsNewJs(),
@@ -640,7 +660,7 @@ export function checkBundleSize(bundle) {
     errors,
   );
   console.log(
-    `combined: ${formatKb(core + project + panels + whatsNew + benchmark)} raw across the five chunks`,
+    `combined: ${formatKb(core + project + panels + locales + whatsNew + benchmark)} raw across the six chunks`,
   );
 
   if (errors.length > 0) {

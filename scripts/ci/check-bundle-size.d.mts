@@ -14,16 +14,19 @@ export const PROJECT_RAW_BUDGET: number;
 export const PROJECT_GZIP_BUDGET: number;
 export const PANELS_RAW_BUDGET: number;
 export const PANELS_GZIP_BUDGET: number;
+export const LOCALES_RAW_BUDGET: number;
+export const LOCALES_GZIP_BUDGET: number;
 export const WHATS_NEW_RAW_BUDGET: number;
 export const WHATS_NEW_GZIP_BUDGET: number;
 export const BENCHMARK_RAW_BUDGET: number;
 export const BENCHMARK_GZIP_BUDGET: number;
 
-/** The five chunk builders of the compiled client-bundle module. */
+/** The six chunk builders of the compiled client-bundle module. */
 export interface ClientBundle {
   minifiedCoreJs(): string;
   minifiedProjectJs(): string;
   minifiedPanelsJs(): string;
+  minifiedLocalesJs(): string;
   minifiedWhatsNewJs(): string;
   minifiedBenchmarkJs(): string;
 }
