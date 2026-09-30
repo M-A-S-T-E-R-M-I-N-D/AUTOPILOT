@@ -384,6 +384,10 @@ describe('checkCommandContainment', () => {
     expect(check('git commit -s -m "--amend-notes"').allowed).toBe(true);
     expect(check('git commit -s -m fix--amend').allowed).toBe(true);
     expect(check('git commit-tree HEAD^{tree}').allowed).toBe(true);
+    // only `commit` amends: another subcommand that merely carries the flag
+    // as a search term stays allowed
+    expect(check('git log -S --amend').allowed).toBe(true);
+    expect(check('git grep -n -e --amend').allowed).toBe(true);
   });
 
   it('denies `git rebase` outright', () => {
@@ -1512,6 +1516,15 @@ describe('checkPreCommitSiblingNewFiles (2026-09-25, two lanes adding one file)'
     expect(v.allowed).toBe(false);
     expect(v.reason).toContain('autopilot/flight-worktree-p--fleet-2');
     expect(v.reason).toContain('config/mutation/x.mjs');
+  });
+
+  it('the denial reason reads exactly as written — the sibling, the file, and what to do instead', () => {
+    expect(checkPreCommitSiblingNewFiles(['config/mutation/x.mjs'], [sibling]).reason).toBe(
+      'PRE-COMMIT SIBLING SCAN: sibling autopilot/flight-worktree-p--fleet-2 is creating ' +
+        'config/mutation/x.mjs too — two lanes adding the same file cannot both merge, and the ' +
+        "second sync-back would strand this lane's work. Leave that file to the sibling and pick " +
+        'different work.',
+    );
   });
 
   it('compares paths the way the other checks do: slashes and case', () => {
