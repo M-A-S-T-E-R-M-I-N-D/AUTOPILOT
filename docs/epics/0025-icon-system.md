@@ -101,7 +101,12 @@ propagation, and the filled style does not match the nav.
    painted two of them. The census now matches those code points (⌘ stays a
    key name). web/ is pinned to a shrink-only list of the four sites, which
    wait on a vendored skip and stopwatch icon. STRINGS is pinned at zero.
-   The screenshots refresh (`docs/screens/`) is still open.
+   **Skip icon 2026-09-30:** the issue triage badge and the discussions
+   triage skip rows lead with a newly vendored `skip-forward` instead of ⏭
+   (`issueTriageDecisionIcon`, and the discussions renderer keyed off each
+   line's `skip` flag); the list is down to the shell's two ⏱
+   budget hints, which wait on a stopwatch icon. The screenshots refresh
+   (`docs/screens/`) is still open.
 
 ## Related
 

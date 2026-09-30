@@ -88,7 +88,9 @@ function renderDiscussionsTriageBody(body, plans, canExecute) {
   var list = el('ul', 'discussions-triage-list');
   var skipped = el('ul', 'discussions-triage-list');
   for (var i = 0; i < items.length; i++) {
-    (items[i].skip ? skipped : list).appendChild(el('li', 'discussions-triage-item', items[i].text));
+    var line = el('li', 'discussions-triage-item', items[i].text);
+    if (items[i].skip) line.prepend(iconEl('skip-forward'));
+    (items[i].skip ? skipped : list).appendChild(line);
   }
   if (list.children.length) body.appendChild(list);
   var n = skipped.children.length;

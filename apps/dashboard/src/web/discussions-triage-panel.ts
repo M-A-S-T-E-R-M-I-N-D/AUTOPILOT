@@ -61,10 +61,12 @@ export interface DiscussionsTriagePlanLike {
  *  four-way `issueTriageDecisionLabel` since Discussions has no
  *  duplicate/dossier concept yet. Anything else (should never happen) echoes
  *  back verbatim rather than throwing, the same defensive stance
- *  `issueTriageDecisionLabel` takes. */
+ *  `issueTriageDecisionLabel` takes. `skip` carries no baked-in ⏭ (epic
+ *  0025): the panel's renderer leads each skip line with the vendored
+ *  `skip-forward` stroke icon instead, keyed off the item's `skip` flag. */
 export function discussionsTriageDecisionLabel(decision: string): string {
   if (decision === 'accept') return '✓ accept — reply + label';
-  if (decision === 'skip') return '⏭ skip';
+  if (decision === 'skip') return 'skip';
   return decision;
 }
 

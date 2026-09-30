@@ -45,6 +45,59 @@ describe('discussionsTriageJs', () => {
     );
   });
 
+  it('leads a skip row with its decorative skip-forward icon, the words still its text (epic 0025)', () => {
+    // Runs the generated renderer itself against stand-ins for the core
+    // helpers it calls, so the row the operator sees is asserted, not just
+    // the source text.
+    const el = (tag: string, cls: string, text?: string): HTMLElement => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    };
+    const iconEl = (name: string): SVGSVGElement => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'icon icon-' + name);
+      svg.setAttribute('aria-hidden', 'true');
+      return svg;
+    };
+    const render = new Function(
+      'el',
+      'tr',
+      'iconEl',
+      'translateDom',
+      `${discussionsTriageJs()}\nreturn renderDiscussionsTriageBody;`,
+    )(
+      el,
+      () => '1 skipped',
+      iconEl,
+      () => undefined,
+    ) as (body: HTMLElement, plans: readonly unknown[], canExecute: boolean) => void;
+    const body = document.createElement('div');
+
+    render(
+      body,
+      [
+        {
+          discussion: { number: 5, title: 'How?' },
+          decision: { decision: 'accept', reasoning: '#5 "How?" has no answer yet.' },
+        },
+        {
+          discussion: { number: 6, title: 'Done' },
+          decision: { decision: 'skip', reasoning: '#6 "Done" already has an answer.' },
+        },
+      ],
+      false,
+    );
+
+    const [acceptRow, skipRow] = Array.from(body.querySelectorAll('li.discussions-triage-item'));
+    expect(acceptRow!.querySelector('svg')).toBeNull();
+    expect(skipRow!.closest('details.discussions-triage-skipped')).not.toBeNull();
+    expect(skipRow!.firstElementChild?.getAttribute('class')).toBe('icon icon-skip-forward');
+    expect(skipRow!.firstElementChild?.getAttribute('aria-hidden')).toBe('true');
+    expect(skipRow!.textContent).toBe('skip — #6 "Done" already has an answer.');
+  });
+
   it('is repo-scoped: no ?project= on the preview fetch, no project field on the execute body', () => {
     const out = discussionsTriageJs();
     expect(out).toContain("fetch('/api/discussions-triage')");

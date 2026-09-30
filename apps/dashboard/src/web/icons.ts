@@ -462,6 +462,18 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
       },
     ],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the issue and
+  // discussions triage panels' skip badge drops its baked-in ⏭ — a
+  // Miscellaneous Technical emoji the census missed until 2026-09-30.
+  'skip-forward': [
+    ['path', { d: 'M21 4v16' }],
+    [
+      'path',
+      {
+        d: 'M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z',
+      },
+    ],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

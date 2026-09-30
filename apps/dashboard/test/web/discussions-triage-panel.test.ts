@@ -13,7 +13,9 @@ import {
 describe('discussionsTriageDecisionLabel', () => {
   it('labels accept and skip', () => {
     expect(discussionsTriageDecisionLabel('accept')).toBe('✓ accept — reply + label');
-    expect(discussionsTriageDecisionLabel('skip')).toBe('⏭ skip');
+    // Epic 0025: skip's ⏭ gave way to the vendored skip-forward icon, which
+    // the panel's renderer draws beside the text instead of baking it in.
+    expect(discussionsTriageDecisionLabel('skip')).toBe('skip');
   });
 
   it('echoes back an unrecognized decision verbatim rather than throwing', () => {
@@ -41,7 +43,7 @@ describe('discussionsTriageItems', () => {
         text: '✓ accept — reply + label — #5 "How do I configure X?" has no answer yet.',
         skip: false,
       },
-      { text: '⏭ skip — #6 "Already answered" already has an answer.', skip: true },
+      { text: 'skip — #6 "Already answered" already has an answer.', skip: true },
     ]);
   });
 
