@@ -51,6 +51,16 @@ interface RawDependabotPr {
   readonly number?: unknown;
 }
 
+/**
+ * The most PRs one dependabot backlog read asks for. With no `--limit`, gh
+ * quietly returns its default 30, so a backlog of 45 was reported as 30
+ * (board ap-muni11e7-0). Same fix `issue-triage.ts`'s `MAX_ISSUE_LIST` made
+ * for `gh issue list`. 1000 is the most an `--author` list can return at
+ * all: gh serves it through GitHub's search API, which stops there — so a
+ * list that comes back full is reported as "at least" that many.
+ */
+export const MAX_DEPENDABOT_PR_LIST = 1000;
+
 /** Open dependabot PRs (`gh pr list --author app/dependabot`) — triage, not
  *  detection; dependabot itself already opens these, this only counts what's
  *  waiting for a look, same "is anything open right now" framing the epic
@@ -60,7 +70,18 @@ interface RawDependabotPr {
 export function dependabotPrBacklog(run: GhRun = defaultGhRun): DependabotBacklog {
   let raw: string;
   try {
-    raw = run(['pr', 'list', '--author', 'app/dependabot', '--state', 'open', '--json', 'number']);
+    raw = run([
+      'pr',
+      'list',
+      '--author',
+      'app/dependabot',
+      '--state',
+      'open',
+      '--limit',
+      String(MAX_DEPENDABOT_PR_LIST),
+      '--json',
+      'number',
+    ]);
   } catch {
     return { ok: true, detail: 'gh unavailable or not authenticated — backlog unknown' };
   }
@@ -80,7 +101,8 @@ export function dependabotPrBacklog(run: GhRun = defaultGhRun): DependabotBacklo
     .map((p) => (typeof p?.number === 'number' ? `#${p.number}` : '#?'))
     .join(', ');
   const more = prs.length > 3 ? ` (+${prs.length - 3} more)` : '';
-  return { ok: false, detail: `${prs.length} open PR(s) waiting for a look: ${numbers}${more}` };
+  const count = prs.length >= MAX_DEPENDABOT_PR_LIST ? `at least ${prs.length}` : `${prs.length}`;
+  return { ok: false, detail: `${count} open PR(s) waiting for a look: ${numbers}${more}` };
 }
 
 export interface DocFreshnessSweep {
