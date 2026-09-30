@@ -11,6 +11,7 @@ import {
   CONVERGENCE_FLOOR_RATIO,
   indentedTail,
   firstLine,
+  redDiagnosis,
 } from '../../src/flight/convergence-gate.js';
 
 function fakeGate(result: GateResult): GatePort {
@@ -128,6 +129,22 @@ describe('gateConvergedBranch', () => {
     expect(deps.out.mock.calls[0]?.[0]).toContain("'main' passes 1 check(s)");
     expect(deps.recordUnverifiable).not.toHaveBeenCalled();
     expect(deps.recordGreen).toHaveBeenCalledWith('typecheck', 9500);
+  });
+
+  it('a green that waited for a gate slot says how long it queued, in whole seconds', async () => {
+    const deps = fakeDeps();
+    await gateConvergedBranch('main', 'merge details', {
+      gate: fakeGate({
+        ok: true,
+        queuedMs: 42_600,
+        checks: [{ label: 'typecheck', pass: true, durationMs: 1200 }],
+      }),
+      ...deps,
+    });
+    expect(deps.out.mock.calls[0]?.[0]).toBe(
+      "  ✓ convergence: 'main' passes 1 check(s) after sync-back (1200ms, queued 43s)",
+    );
+    expect(deps.recordGreen).toHaveBeenCalledWith('typecheck', 1200);
   });
 
   it('a gate result with no checks field at all is the same silent no-op', async () => {
@@ -288,6 +305,15 @@ describe('gateConvergedBranch', () => {
     expect(firstLine('only')).toBe('only');
     expect(firstLine(undefined)).toBe('no detail');
     expect(firstLine('')).toBe('');
+  });
+
+  it("redDiagnosis blames the lane's own commit only when the details START with a fast-forward", () => {
+    expect(redDiagnosis("fast-forwarded 'autopilot/flight' onto 'lane-2'")).toBe(
+      "no merge ran: this lane's own commit fails a check its per-firing gate does not run.",
+    );
+    expect(redDiagnosis('merged lane-2, which had fast-forwarded')).toBe(
+      'a merge produced this head: either side, or the two together, broke this check.',
+    );
   });
 
   it('indentedTail indents every line and drops trailing blank lines only', () => {
