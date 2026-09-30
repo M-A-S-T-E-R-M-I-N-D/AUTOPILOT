@@ -134,7 +134,16 @@ prompt argument, `codex exec` still reads a non-TTY stdin to EOF and appends it 
 block, so `CodexCliModel` always closes stdin — before that fix, the pipe `execFile` opens stayed
 open and every cold run would have hung until the wall-clock cap. A `-` argument makes both `exec`
 and `exec resume` read the prompt from stdin, which is how an over-threshold prompt (the Windows
-command-line ceiling) or one starting with `-` reaches the CLI.
+command-line ceiling) or one starting with `-` reaches the CLI. A Windows trap, fixed 2026-10-01:
+npm installs `codex` there as a `codex.cmd` shim, and `execFile` launches no `.cmd` itself (ENOENT,
+the same failure `gate.ts`'s `buildInvocation` already routes around), so the adapter could not
+start at all on Windows. A bare `codex` now runs through `cmd.exe /c`, attached rather than
+detached (the gate's shape), with every prompt on stdin so cmd.exe never parses it. Node quotes
+no argument free of whitespace, so a model name or resume id holding cmd.exe syntax (`&`, `|`,
+`%`) is refused before the spawn; a refused resume id retries cold, like a stale one. The idle-cap
+kill closes our end of the pipes first, as `execFile`'s own timeout kill does, since the node
+shim behind cmd.exe outlives the kill and holds them open. `GeminiCliModel` still spawns a bare
+`gemini` directly, so it cannot start on Windows until it gets the same route.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream

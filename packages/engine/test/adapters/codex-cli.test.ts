@@ -333,7 +333,10 @@ describe('CodexCliModel', () => {
   it('closes stdin empty for an argv prompt: with a prompt given, `codex exec` still reads a piped stdin to EOF to append it, so an open pipe would hang the run to the cap', async () => {
     mockExecFileResult(null, '');
 
-    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+    await new CodexCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gpt-5-codex',
+      'do it',
+    );
 
     expect(spawnedArgs()[spawnedArgs().length - 1]).toBe('do it');
     expect(stdinEnd).toHaveBeenCalledTimes(1);
@@ -356,7 +359,10 @@ describe('CodexCliModel', () => {
     mockExecFileResult(null, '');
     const atLimit = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD);
 
-    await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', atLimit);
+    await new CodexCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gpt-5-codex',
+      atLimit,
+    );
 
     expect(spawnedArgs()[spawnedArgs().length - 1]).toBe(atLimit);
     expect(stdinEnd).toHaveBeenCalledWith();
@@ -416,7 +422,7 @@ describe('CodexCliModel', () => {
   it('spawns the default "codex" binary with --json, the model, a workspace-write sandbox, and the prompt last', async () => {
     mockExecFileResult(null, '');
 
-    const model = new CodexCliModel({ repo: '/work/sbx' });
+    const model = new CodexCliModel({ repo: '/work/sbx', platform: 'linux' });
     await model.invoke('gpt-5-codex', 'do it');
 
     expect(execFileMock.mock.calls).toHaveLength(1);
@@ -438,13 +444,14 @@ describe('CodexCliModel', () => {
       windowsHide: true,
       timeout: DEFAULT_CLI_TIMEOUT_MS,
       encoding: 'utf8',
+      detached: true,
     });
   });
 
   it('inserts "resume <id>" before the prompt when a session id is given', async () => {
     mockExecFileResult(null, '');
 
-    const model = new CodexCliModel({ repo: '/work/sbx' });
+    const model = new CodexCliModel({ repo: '/work/sbx', platform: 'linux' });
     await model.invoke('gpt-5-codex', 'continue', THREAD.thread_id);
 
     const [, args] = execFileMock.mock.calls[0] as [string, string[]];
@@ -477,6 +484,117 @@ describe('CodexCliModel', () => {
     const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
     expect(binary).toBe('/opt/codex');
     expect(args[args.indexOf('--sandbox') + 1]).toBe('danger-full-access');
+  });
+
+  describe('on Windows, where npm installs codex as a codex.cmd shim', () => {
+    it('spawns a bare "codex" through cmd.exe /c: execFile cannot launch a .cmd shim itself (ENOENT), and cmd.exe finds it by PATHEXT', async () => {
+      mockExecFileResult(null, '');
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(binary).toBe('cmd.exe');
+      expect(args.slice(0, 4)).toEqual(['/c', 'codex', 'exec', '--json']);
+      expect(args[args.indexOf('--model') + 1]).toBe('gpt-5-codex');
+    });
+
+    it('puts the prompt on stdin behind "-" even when short, so no prompt text ever reaches cmd.exe\'s own parser', async () => {
+      mockExecFileResult(null, '');
+      const hostile = 'fix "the" build & echo %PATH% | more';
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5-codex',
+        hostile,
+        THREAD.thread_id,
+      );
+
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args.some((a) => a.includes('echo'))).toBe(false);
+      expect(args.slice(-3)).toEqual(['resume', THREAD.thread_id, '-']);
+      expect(stdinEnd).toHaveBeenCalledWith(hostile);
+    });
+
+    it('does not detach cmd.exe, the shape the gate already runs its cmd.exe shims in: a detached cmd.exe has no console to hand the node shim', async () => {
+      mockExecFileResult(null, '');
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      const [, , options] = execFileMock.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(options).toMatchObject({ detached: false, windowsHide: true });
+    });
+
+    it('refuses, without spawning, a model name cmd.exe would run as syntax: Node quotes no argument free of whitespace, so "&" would start a second command', async () => {
+      mockExecFileResult(null, '');
+
+      const res = await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5&calc',
+        'do it',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(0);
+      expect(res.exitCode).toBe(1);
+      expect(res.envelope).toBeNull();
+      expect(res.stdout).not.toContain('calc');
+    });
+
+    it('never hands cmd.exe a resume id carrying its syntax: that run is refused, and the cold retry goes without it', async () => {
+      mockExecFileResult(null, jsonl(THREAD, completed({ input_tokens: 4, output_tokens: 2 })));
+
+      const res = await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5-codex',
+        'continue',
+        'nightly|calc',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args.some((a) => a.includes('calc'))).toBe(false);
+      expect(args).not.toContain('resume');
+      expect(res.resumed).toBe(false);
+    });
+
+    it('keeps model names with the characters real ones use (dots, colons, slashes) on the cmd.exe route', async () => {
+      mockExecFileResult(null, '');
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'openai/gpt-5.1-codex:latest',
+        'do it',
+      );
+
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args[args.indexOf('--model') + 1]).toBe('openai/gpt-5.1-codex:latest');
+    });
+
+    it('spawns an explicit .exe or path binary directly, detached, with a short prompt still on argv', async () => {
+      mockExecFileResult(null, '');
+
+      await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        binary: 'codex.exe',
+      }).invoke('gpt-5-codex', 'do it');
+
+      const [binary, args, options] = execFileMock.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(binary).toBe('codex.exe');
+      expect(args[0]).toBe('exec');
+      expect(args[args.length - 1]).toBe('do it');
+      expect(options).toMatchObject({ detached: true });
+      expect(stdinEnd).toHaveBeenCalledWith();
+    });
   });
 
   it('passes a caller-supplied timeoutMs through to execFile', async () => {
@@ -607,7 +725,7 @@ describe('CodexCliModel', () => {
     it('retries once, cold, when `codex exec resume` rejects the session id before starting a thread', async () => {
       mockExecFileRuns([exit1(), ''], [null, jsonl(COLD_THREAD, ...DONE)]);
 
-      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke(
+      const res = await new CodexCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
         'gpt-5-codex',
         'continue',
         THREAD.thread_id,
@@ -781,7 +899,7 @@ describe('CodexCliModel', () => {
       readonly stdout: EventEmitter;
       readonly exitCleanly: (out: string) => void;
     } {
-      const stdout = new EventEmitter();
+      const stdout = Object.assign(new EventEmitter(), { destroy: vi.fn() });
       let settle: ExecFileCallback = () => undefined;
       const kill = vi.fn(() => {
         queueMicrotask(() =>
@@ -794,12 +912,69 @@ describe('CodexCliModel', () => {
         return {
           pid: 4321,
           stdout,
+          stderr: { destroy: vi.fn() },
           kill,
           stdin: Object.assign(new EventEmitter(), { end: stdinEnd }),
         };
       });
       return { kill, stdout, exitCleanly: (out) => settle(null, out, '') };
     }
+
+    it("closes its end of the pipes before the kill, as execFile's own timeout does: behind cmd.exe the node shim outlives the kill and holds them open, so a bare kill never settles", async () => {
+      vi.useFakeTimers();
+      // execFile settles on 'close': the killed process has exited AND every
+      // pipe is closed. The grandchild keeps the pipes open, so only our side
+      // closing them lets the call settle.
+      let settle: ExecFileCallback = () => undefined;
+      let exited = false;
+      let closed = false;
+      const open = { stdout: true, stderr: true };
+      const closeIfDone = (): void => {
+        if (closed || !exited || open.stdout || open.stderr) return;
+        closed = true;
+        settle(Object.assign(new Error('killed'), { killed: true, code: 1 }), jsonl(THREAD), '');
+      };
+      const pipe = (name: 'stdout' | 'stderr'): EventEmitter =>
+        Object.assign(new EventEmitter(), {
+          destroy: vi.fn(() => {
+            open[name] = false;
+            queueMicrotask(closeIfDone);
+          }),
+        });
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        settle = args[args.length - 1] as ExecFileCallback;
+        return {
+          pid: 4321,
+          stdout: pipe('stdout'),
+          stderr: pipe('stderr'),
+          kill: vi.fn(() => {
+            exited = true;
+            queueMicrotask(closeIfDone);
+            return true;
+          }),
+          stdin: Object.assign(new EventEmitter(), { end: stdinEnd }),
+        };
+      });
+      let settled = false;
+
+      const pending = new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        idleTimeoutMs: 1000,
+      })
+        .invoke('gpt-5-codex', 'do it')
+        .then((res) => {
+          settled = true;
+          return res;
+        });
+      await vi.advanceTimersByTimeAsync(1000);
+
+      // Asserted before awaiting: with the pipes left open the promise never settles.
+      expect(settled).toBe(true);
+      const res = await pending;
+      expect(res.timedOut).toBe(true);
+      expect(res.sessionId).toBe(THREAD.thread_id);
+    });
 
     it('kills a child silent for DEFAULT_CLI_IDLE_TIMEOUT_MS and reports it timedOut, keeping the wire thread resumable', async () => {
       vi.useFakeTimers();
