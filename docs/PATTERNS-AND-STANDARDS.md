@@ -25,7 +25,7 @@
 | **SLSA** (supply-chain levels for software artifacts) | pinned deps, lockfile integrity, provenance on release artifacts, reproducible builds where feasible. |
 | **OpenSSF Scorecard** *(aspirational — no workflow yet)* | branch protection and pinned actions are live; the Scorecard workflow itself is not wired — tracked, not claimed. |
 | **Secret management** | no secrets in code (CI secret-scan gate, MdViewer's `validate-no-personal-paths` pattern); credentials via the user's own keychain (the CLI's auth), never stored by us. |
-| **Web hardening** (dashboard is localhost) | **CSP** (nonce-based), **DNS-rebind guard**, per-route **rate limits**, path-traversal guards (`validate*File` family), `X-Content-Type-Options`/`Referrer-Policy` — all present in the reference, all adopted. |
+| **Web hardening** (dashboard is localhost) | **CSP** (nonce-based), **DNS-rebind guard**, per-route **rate limits**, path-traversal guards (`validate*File` family), `X-Content-Type-Options`/`Referrer-Policy`, `Permissions-Policy` disclaiming camera/geolocation/microphone/USB (`clipboard-write` stays at its default — the copy buttons need it) — all present in the reference, all adopted. |
 | **Confidentiality** | local-first; embeddings/offload local-only; project content leaves the machine ONLY via the user's own Claude account. |
 
 ## 3. Observability
