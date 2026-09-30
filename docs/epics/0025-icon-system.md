@@ -105,8 +105,11 @@ propagation, and the filled style does not match the nav.
    triage skip rows lead with a newly vendored `skip-forward` instead of ⏭
    (`issueTriageDecisionIcon`, and the discussions renderer keyed off each
    line's `skip` flag); the list is down to the shell's two ⏱
-   budget hints, which wait on a stopwatch icon. The screenshots refresh
-   (`docs/screens/`) is still open.
+   budget hints, which wait on a stopwatch icon. **Miscellaneous Technical
+   census at zero 2026-09-30:** the task row's budget-risk chips ("try Nt"
+   and the dimension fallback's "try Nt?") lead with a newly vendored
+   `timer` instead of ⏱; the list is gone and the test pins zero in web/ as
+   in STRINGS. The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

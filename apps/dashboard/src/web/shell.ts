@@ -3208,10 +3208,11 @@ function tasksSection(c) {
         var budgetTip = taskBudgetRiskTip(budgetSignal.turnCapped, suggestedBudget, DEFAULT_FIRING_TURNS);
         li.appendChild(
           tipChip(
-            '⏱ try ' + suggestedBudget + 't',
+            'try ' + suggestedBudget + 't',
             budgetTip,
             'Budget risk: try ' + suggestedBudget + ' turns',
             'chip-budget-risk',
+            'timer',
           ),
         );
       } else if (t.dimension) {
@@ -3231,10 +3232,11 @@ function tasksSection(c) {
           );
           li.appendChild(
             tipChip(
-              '⏱ try ' + dimSuggested + 't?',
+              'try ' + dimSuggested + 't?',
               dimTip,
               'Budget risk from similar work: try ' + dimSuggested + ' turns',
               'chip-budget-risk-dim',
+              'timer',
             ),
           );
         }
