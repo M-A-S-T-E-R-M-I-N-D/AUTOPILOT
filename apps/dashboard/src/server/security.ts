@@ -4,8 +4,9 @@
 /**
  * Security posture for the localhost dashboard (web/security rules; ACTION-PLAN
  * M3/M8). A strict `default-src 'self'` CSP (the shell serves script/style as
- * separate same-origin files, so no `unsafe-inline`), plus a DNS-rebind guard
- * that only answers requests whose Host is a loopback name.
+ * separate same-origin files, so no `unsafe-inline`), a Permissions-Policy
+ * that disclaims the powerful browser features the client never uses, plus a
+ * DNS-rebind guard that only answers requests whose Host is a loopback name.
  */
 
 export function securityHeaders(): Record<string, string> {
@@ -16,6 +17,13 @@ export function securityHeaders(): Record<string, string> {
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'no-referrer',
     'Cross-Origin-Opener-Policy': 'same-origin',
+    // Empty allowlists: no origin — not even our own — may ask the browser
+    // for a location fix, a camera, a microphone or a USB device from a
+    // dashboard page. Nothing in the client uses them, so a future script
+    // (or a CSP slip) gets no permission prompt to abuse. `clipboard-write`
+    // is deliberately NOT listed: report-menu.ts and foundation.ts copy via
+    // navigator.clipboard.writeText, and denying it would silently break both.
+    'Permissions-Policy': 'camera=(), geolocation=(), microphone=(), usb=()',
     // Everything here is live/localhost — never let a browser serve a stale
     // client bundle (a cached /app.js is why a fixed dashboard can still look
     // broken after a restart). Nothing is worth caching.

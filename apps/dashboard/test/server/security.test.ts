@@ -16,6 +16,23 @@ describe('security', () => {
     expect(h['Cache-Control']).toBe('no-store');
   });
 
+  it('disclaims the powerful browser features the dashboard never uses', () => {
+    const h = securityHeaders();
+    // Permissions-Policy empty allowlists: no origin, not even our own, can
+    // ask the browser for a location fix, a camera, a microphone or a USB
+    // device from a dashboard page — nothing in the client needs them, so a
+    // future script (or a CSP slip) gets no prompt to abuse.
+    expect(h['Permissions-Policy']).toBe('camera=(), geolocation=(), microphone=(), usb=()');
+  });
+
+  it('leaves clipboard-write at its default so the copy buttons keep working', () => {
+    const h = securityHeaders();
+    // report-menu.ts and foundation.ts copy via navigator.clipboard.writeText;
+    // an explicit `clipboard-write=()` would silently break both, so the
+    // policy must never name that feature.
+    expect(h['Permissions-Policy']).not.toContain('clipboard');
+  });
+
   it('allows only loopback hosts (DNS-rebind guard)', () => {
     expect(isAllowedHost('localhost:4317')).toBe(true);
     expect(isAllowedHost('127.0.0.1')).toBe(true);
