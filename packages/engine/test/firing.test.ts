@@ -498,6 +498,17 @@ describe('runFiring', () => {
         reason: 'the reviewer failed: cli gone',
       });
     });
+
+    it('a commit the VCS port cannot read is reviewed with no subject, not a crash', async () => {
+      // HEAD advanced, but `git log -1` failed (GitVcs.lastCommit returns
+      // null on any non-zero exit), so the firing holds no commit to name.
+      const reviewer = recordingReviewer();
+      const vcs = new FakeVcs({ heads: ['h0', 'h1'], last: null, existing: new Set(['abc']) });
+      const out = await runFiring(shippingDeps(vcs, true, reviewer), DEFAULT_ENGINE_CONFIG, INPUT);
+
+      expect(out.gateResult).toBe('passed');
+      expect(reviewer.requests).toEqual([{ headBefore: 'h0', headAfter: 'h1', subject: null }]);
+    });
   });
 
   it('additively reverts a commit that fails the gate', async () => {
