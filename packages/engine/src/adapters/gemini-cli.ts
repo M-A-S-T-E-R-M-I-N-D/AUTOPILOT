@@ -35,6 +35,7 @@ import {
   CLI_STDIN_PROMPT_THRESHOLD,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
+import { buildInvocation, CMD_SAFE_ARG } from './gate.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -241,6 +242,9 @@ export interface GeminiCliOptions {
    *  `ClaudeCliOptions.reapDescendants`: defaults to the real cross-platform
    *  {@link reapCliDescendants}; tests inject a spy to prove the reap runs. */
   readonly reapDescendants?: (pid: number | undefined, platform?: NodeJS.Platform) => void;
+  /** The OS to build the spawn for. Defaults to `process.platform`; tests pin
+   *  it so both spawn shapes are provable on any machine. */
+  readonly platform?: NodeJS.Platform;
 }
 
 /**
@@ -257,10 +261,14 @@ export interface GeminiCliOptions {
  * command-line ceiling the way `ClaudeCliModel` does. So does one starting with
  * `-`, which yargs would refuse as the `--prompt` value. The CLI reads stdin whenever
  * it is not a TTY, so it is always closed: an argv prompt gets an empty stdin, not
- * the CLI's 500 ms wait for input that never comes (`readStdin.ts`).
+ * the CLI's 500 ms wait for input that never comes (`readStdin.ts`). On Windows a
+ * bare `gemini` is npm's `gemini.cmd` shim, so it runs through `cmd.exe /c`
+ * (gate.ts's `buildInvocation`), attached, with every prompt on stdin, where
+ * cmd.exe cannot parse it.
  *
  * Transport mirrors `CodexCliModel`'s: buffered `execFile`, `detached: true`
- * plus {@link reapCliDescendants} (ORPHAN SWEEP), no streaming — but not its
+ * (off that cmd.exe route) plus {@link reapCliDescendants} (ORPHAN SWEEP), no
+ * streaming — but not its
  * idle cap: `--output-format json` writes its one object only at the end, so
  * a healthy run is silent on stdout until then.
  * It shares the Claude driver's CLI-level resume fallback: a session id the CLI
@@ -298,10 +306,20 @@ export class GeminiCliModel implements ModelPort {
     prompt: string,
     resumeSessionId: string | undefined,
   ): Promise<ModelResponse> {
+    // npm installs `gemini` on Windows as a `gemini.cmd` shim, which execFile
+    // cannot launch itself (ENOENT). gate.ts's buildInvocation routes a bare
+    // name through `cmd.exe /c`, which finds it by PATHEXT; an explicit path
+    // or `.exe` is still spawned directly.
+    const binary = this.opts.binary ?? 'gemini';
+    const platform = this.opts.platform ?? process.platform;
+    const viaCmd = buildInvocation(binary, [], platform).bin !== binary;
     // `--prompt` is `nargs: 1` (config.ts), and yargs-parser's `eatNargs` never
     // takes an arg matching /^-[^0-9]/ as its value: the run fails "Not enough
-    // arguments following: prompt". A leading `-` goes on stdin with the long ones.
-    const pipePrompt = prompt.length > CLI_STDIN_PROMPT_THRESHOLD || prompt.startsWith('-');
+    // arguments following: prompt". A leading `-` goes on stdin with the long
+    // ones. So does every prompt behind cmd.exe, which would otherwise read its
+    // `&`, `|`, `%VAR%` and quotes as its own syntax.
+    const pipePrompt =
+      viaCmd || prompt.length > CLI_STDIN_PROMPT_THRESHOLD || prompt.startsWith('-');
     const args = [
       '--model',
       model,
@@ -315,6 +333,18 @@ export class GeminiCliModel implements ModelPort {
       args.push('--resume', resumeSessionId);
     }
     if (!pipePrompt) args.push('--prompt', prompt);
+    // The model and a resume id still ride argv. Refused rather than spawned,
+    // with the exit code the CLI itself gives an unknown session id, so a bad
+    // resume id reads as a resume failure and invoke() retries it cold.
+    if (viaCmd && !args.every((arg) => CMD_SAFE_ARG.test(arg))) {
+      return Promise.resolve({
+        stdout: 'gemini-cli: refused to pass the model or resume id through cmd.exe',
+        exitCode: GEMINI_FATAL_INPUT_ERROR,
+        envelope: null,
+        sessionId: null,
+      });
+    }
+    const invocation = buildInvocation(binary, args, platform);
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
     const startedAt = Date.now();
@@ -329,13 +359,16 @@ export class GeminiCliModel implements ModelPort {
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
       timeout: timeoutMs,
-      detached: true,
+      // A detached cmd.exe has no console, so Windows would open a new one for
+      // the node process the shim starts. The gate runs its cmd.exe shims
+      // attached, and the reap below walks the tree with `taskkill /t` either way.
+      detached: !viaCmd,
       encoding: 'utf8',
     };
     return new Promise((resolve) => {
       const child = execFile(
-        this.opts.binary ?? 'gemini',
-        args,
+        invocation.bin,
+        invocation.args,
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
         (err, stdout, stderr) => {
