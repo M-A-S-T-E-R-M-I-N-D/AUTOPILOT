@@ -167,7 +167,13 @@ export async function detectDiskClass(
     // `findmnt` names the source device without needing a mount table parse.
     const source = await exec('findmnt', ['-n', '-o', 'SOURCE', '--target', path]);
     if (source === undefined) return 'unknown';
-    const device = /([a-z0-9]+?)\d*$/i.exec(source.trim().replace('/dev/', ''))?.[1];
+    const rawName = source.trim().replace('/dev/', '');
+    // NVMe (nvme0n1) and eMMC (mmcblk0) embed digits in the base name itself,
+    // unlike sd*/vd*/hd*, so "strip trailing digits" alone reads a partition
+    // suffix as part of the base and queries a sysfs path that never exists.
+    const device =
+      /^(nvme\d+n\d+|mmcblk\d+)p?\d*$/i.exec(rawName)?.[1] ??
+      /([a-z0-9]+?)\d*$/i.exec(rawName)?.[1];
     if (device === undefined) return 'unknown';
     const rotational = await exec('cat', [`/sys/block/${device}/queue/rotational`]);
     return rotational === undefined ? 'unknown' : classifyLinuxDisk(rotational, device);
