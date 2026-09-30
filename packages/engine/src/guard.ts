@@ -786,6 +786,83 @@ function checkProcessControl(command: string): ContainmentVerdict {
   return { allowed: true, reason: null };
 }
 
+// The system temp directory reached WITHOUT spelling it (ap-munlrqtg-0, the
+// follow-up to TEMP_DIR_REF above): Bash's `mktemp` with no directory falls
+// back to $TMPDIR or /tmp, PowerShell's `New-TemporaryFile` always writes to
+// $env:TEMP, and .NET's `[IO.Path]::GetTempPath()`/`GetTempFileName()` hand
+// back (or create a file in) the same place.
+const POWERSHELL_TEMP_CREATOR = /New-TemporaryFile|::GetTemp(?:Path|FileName)/i;
+// `mktemp` in command position — a segment start, `$(`, a backtick or `(` —
+// after any `NAME=value` prefixes (group 1); its arguments (group 2) run to
+// the end of the substitution. A prefix value stops at `(` and backtick, the
+// characters the `$(`, backtick and `(` starts end in, so no start rescans past
+// the next one (the polynomial-backtracking shape CodeQL flagged in BARE_CD).
+const MKTEMP_CALL =
+  /(?:^|\$\(|`|\()\s*((?:[A-Za-z_]\w*=[^\s(`]*\s+)*)mktemp(?=[\s)`<>]|$)([^)`]*)/g;
+// Neither says where the file goes: a redirection and its target
+// (`2>/dev/null`, `> out`, `>&2`), and `--suffix`'s value. A file-descriptor
+// digit run is only tried after whitespace, for the same linear-time reason.
+const MKTEMP_IGNORED_ARGS = /(?:^|\s)\d*[<>]+\s*\S*|[<>]+\s*\S*|--suffix(?:=|\s+)\S*/g;
+const TMPDIR_PREFIX = /(?:^|\s)TMPDIR=\S/;
+const MKTEMP_TMPDIR_FLAG = /^--tmpdir(?:=(.*))?$/;
+const SHORT_FLAG_CLUSTER = /^-[^-]/;
+const MKTEMP_TEMPLATE = /^[^-]/;
+const WHITESPACE_RUN = /\s+/;
+// Quoted text is inert — a commit message or grep pattern that merely names
+// these commands — so it becomes one placeholder word (still an argument, so a
+// quoted template counts as one). The exception is a double-quoted `$(…)`,
+// which Bash and PowerShell both still run: `d="$(mktemp -d)"` is the
+// idiomatic spelling of the very call this check exists for.
+const QUOTED_TEXT = /'[^']*'|"[^"]*"/g;
+const LIVE_DOUBLE_QUOTED = /^"[^"]*\$\(/;
+
+const TEMP_CREATOR_REASON =
+  'the command writes to the system temp directory without naming it (a bare `mktemp`, ' +
+  '`New-TemporaryFile`, `[IO.Path]::GetTempPath()`), outside the target — keep scratch files ' +
+  'in the git-ignored .tmp-autopilot/ instead, e.g. `mktemp -p .tmp-autopilot`';
+
+function keepLiveSubstitutions(segment: string): string {
+  return segment.replace(QUOTED_TEXT, (quoted) => (LIVE_DOUBLE_QUOTED.test(quoted) ? quoted : 'Q'));
+}
+
+/**
+ * Whether one `mktemp` call names where its file goes: a non-empty `TMPDIR=`
+ * prefix, `-p DIR` (alone or in a flag cluster like `-dp`), `--tmpdir=DIR`, or
+ * a template that `-t`/a bare `--tmpdir` does not re-root under the temp dir.
+ */
+function mktempNamesItsDirectory(prefix: string, rawArgs: string): boolean {
+  if (TMPDIR_PREFIX.test(prefix)) return true;
+  let hasTemplate = false;
+  let underTmpdir = false;
+  for (const arg of rawArgs.replace(MKTEMP_IGNORED_ARGS, '').split(WHITESPACE_RUN)) {
+    const tmpdir = MKTEMP_TMPDIR_FLAG.exec(arg);
+    if (tmpdir) {
+      if (tmpdir[1]) return true;
+      underTmpdir = true;
+    } else if (SHORT_FLAG_CLUSTER.test(arg)) {
+      if (arg.includes('p')) return true;
+      if (arg.includes('t')) underTmpdir = true;
+    } else if (MKTEMP_TEMPLATE.test(arg)) {
+      hasTemplate = true;
+    }
+  }
+  return hasTemplate && !underTmpdir;
+}
+
+function createsSystemTempFile(command: string): boolean {
+  for (const segment of command.split(SEGMENT_SPLIT_RE)) {
+    const live = keepLiveSubstitutions(segment);
+    if (POWERSHELL_TEMP_CREATOR.test(live)) return true;
+    // Both groups always participate in a MKTEMP_CALL match (each may be
+    // empty), so the '' fallbacks are unreachable.
+    // Stryker disable next-line StringLiteral
+    for (const [, prefix = '', args = ''] of live.matchAll(MKTEMP_CALL)) {
+      if (!mktempNamesItsDirectory(prefix, args)) return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Decide whether one Bash or PowerShell command stays inside the target repo. Pure text
  * analysis — no filesystem access — so it is deterministic and fast enough to
@@ -811,6 +888,9 @@ export function checkCommandContainment(command: string, targetRoot: string): Co
         'the command references the system temp directory, outside the target — keep scratch ' +
         'files in the git-ignored .tmp-autopilot/ instead',
     };
+  }
+  if (createsSystemTempFile(command)) {
+    return { allowed: false, reason: TEMP_CREATOR_REASON };
   }
   if (BARE_CD.test(command)) {
     return { allowed: false, reason: 'a bare `cd` changes to HOME, outside the target' };
