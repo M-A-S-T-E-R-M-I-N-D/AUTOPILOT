@@ -404,6 +404,9 @@ export function readTagSignature(
         details: `tag '${name}' is signed by a key this machine does not hold (gpg: NO_PUBKEY ${missingKey[1] ?? '?'})`,
       };
     }
+    // Stryker disable next-line StringLiteral: split(' ') always yields a
+    // first element, so `keyword` is never undefined — the fallback only
+    // satisfies noUncheckedIndexedAccess and no input reaches it.
     const refused = records.find(([keyword]) => REFUSED_SIGNATURE_STATUS.includes(keyword ?? ''));
     if (refused) {
       return {
@@ -424,6 +427,9 @@ export function readTagSignature(
       details: `${signed}, but not with OpenPGP, so not by the key published as ${PUBLISHED_SIGNING_KEY_PATH}`,
     };
   }
+  // Stryker disable next-line StringLiteral: a VALIDSIG too short to carry a
+  // hash algorithm looks up the fallback, which is no algorithm id — '' and
+  // the mutant's "Stryker was here!" miss the table alike.
   const weakHash = WEAK_HASH_ALGORITHMS[valid[8] ?? ''];
   if (weakHash) {
     return {
