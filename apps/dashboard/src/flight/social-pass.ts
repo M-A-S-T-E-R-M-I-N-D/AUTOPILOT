@@ -60,6 +60,7 @@ import { ghExec } from './gh-exec.js';
 import { fetchRepoIdentity } from './publicity.js';
 import { loadContributorRegistry, tierForLogin } from './contributor-registry.js';
 import { fetchViewerLogin } from './pr-review.js';
+import { MAX_ISSUE_LIST } from './issue-triage.js';
 import {
   commentSimilarity,
   normalizeCommentText,
@@ -169,7 +170,11 @@ const SUBMISSION_NOUN: Record<SocialSubmissionKind, 'issue' | 'pr'> = { issue: '
  *  {@link fetchSubmissionsOfKind} (own, any state) and {@link
  *  fetchOpenThreadsOfKind} (anyone's, open only) — the two inventories the
  *  epic's slice-1 DoD names, differing only in which `gh` filter flags they
- *  pass. */
+ *  pass. Both ask for up to `MAX_ISSUE_LIST` rows: with no `--limit`, gh
+ *  returns its newest 30 only, and a duplicate of anything older slipped
+ *  past the dedup check in {@link planSocialProtocol}. 1000 is also as far
+ *  as `pr list --author` can reach, since gh serves it through the search
+ *  API. */
 async function fetchSubmissionList(
   exec: CliExec,
   kind: SocialSubmissionKind,
@@ -179,6 +184,8 @@ async function fetchSubmissionList(
     SUBMISSION_NOUN[kind],
     'list',
     ...extraArgs,
+    '--limit',
+    String(MAX_ISSUE_LIST),
     '--json',
     'number,title,url,state',
   ]);

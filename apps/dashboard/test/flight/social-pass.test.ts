@@ -15,6 +15,7 @@ import {
   type SocialCandidateAction,
   type SocialSubmission,
 } from '../../src/flight/social-pass.js';
+import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function execFor(responses: Record<string, { code: number; stdout: string }>): CliExec {
@@ -164,6 +165,8 @@ describe('fetchOwnSubmissions', () => {
       'octocat',
       '--state',
       'all',
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,state',
     ]);
@@ -174,6 +177,8 @@ describe('fetchOwnSubmissions', () => {
       'octocat',
       '--state',
       'all',
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,state',
     ]);
@@ -280,6 +285,8 @@ describe('fetchOpenThreads', () => {
       'list',
       '--state',
       'open',
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,state',
     ]);
@@ -288,6 +295,8 @@ describe('fetchOpenThreads', () => {
       'list',
       '--state',
       'open',
+      '--limit',
+      String(MAX_ISSUE_LIST),
       '--json',
       'number,title,url,state',
     ]);
@@ -431,6 +440,64 @@ describe('fetchSocialPassReport', () => {
     expect(report.openThreads).toEqual([]);
     expect(exec).not.toHaveBeenCalledWith('gh', expect.arrayContaining(['--author']));
     expect(exec).toHaveBeenCalledWith('gh', expect.arrayContaining(['--state', 'open']));
+  });
+
+  it('catches a duplicate of an own issue or open thread older than the newest 30', async () => {
+    // gh list reads return newest first and stop at 30 without --limit
+    // (cli.github.com/manual/gh_issue_list, "default 30"). This fake does
+    // the same, and puts each duplicate target 31st.
+    const GH_DEFAULT_LIMIT = 30;
+    const newestFirst = (prefix: string, oldestTitle: string): readonly object[] =>
+      Array.from({ length: GH_DEFAULT_LIMIT + 1 }, (_, i) => {
+        const number = GH_DEFAULT_LIMIT + 1 - i;
+        return {
+          number,
+          title: i === GH_DEFAULT_LIMIT ? oldestTitle : `${prefix} ${number}`,
+          url: `https://github.com/octocat/hello-world/issues/${number}`,
+          state: 'OPEN',
+        };
+      });
+    const ownOldest = 'Gate step durations are missing from the firing report';
+    const openOldest = 'Dashboard crashes when the board file is empty on start';
+    const lists: Record<string, readonly object[]> = {
+      'issue list --author': newestFirst('Own filler', ownOldest),
+      'issue list --state': newestFirst('Open filler', openOldest),
+    };
+    const exec: CliExec = vi.fn(async (_bin: string, args: readonly string[]) => {
+      const key = args.join(' ');
+      if (key === 'api user') return { code: 0, stdout: JSON.stringify({ login: 'octocat' }) };
+      if (key.startsWith('repo view')) {
+        return {
+          code: 0,
+          stdout: JSON.stringify({
+            nameWithOwner: 'octocat/hello-world',
+            url: 'https://github.com/octocat/hello-world',
+            isPrivate: false,
+          }),
+        };
+      }
+      const limitAt = args.indexOf('--limit');
+      const limit = limitAt === -1 ? GH_DEFAULT_LIMIT : Number(args[limitAt + 1]);
+      const list = Object.entries(lists).find(([prefix]) => key.startsWith(prefix))?.[1] ?? [];
+      return { code: 0, stdout: JSON.stringify(list.slice(0, limit)) };
+    });
+
+    const report = await fetchSocialPassReport(exec);
+    const candidates: SocialCandidateAction[] = [
+      { kind: 'new-issue', reasoning: 'already ours', title: ownOldest },
+      { kind: 'new-issue', reasoning: 'already open', title: openOldest },
+    ];
+    const verdict = planSocialProtocol(
+      candidates,
+      { maxNewIssues: 5, maxComments: 5 },
+      report.ownSubmissions,
+      report.identity?.role,
+      report.openThreads,
+      report.identity?.login,
+    );
+
+    expect(verdict.duplicate).toEqual(candidates);
+    expect(verdict.allowed).toEqual([]);
   });
 });
 
