@@ -62,6 +62,45 @@ describe('isRepoReadingTest', () => {
     }
   });
 
+  // A `fly.ts` edit selected zero tests at the per-firing gate (2026-09-30):
+  // five suites pin its wiring by reading its SOURCE TEXT, and a source read
+  // imports nothing, so `vitest --changed` never sees the dependency.
+  it('spots a test that reads a workspace source file as text', () => {
+    for (const source of [
+      "readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');",
+      'readFileSync(fileURLToPath(new URL("../src/prompt.ts", import.meta.url)), \'utf8\');',
+      'const s = readFileSync(new URL(`../../../../packages/engine/src/guard.ts`, import.meta.url));',
+      // a census that scans a whole source folder
+      "readdirSync(fileURLToPath(new URL('../../src/', import.meta.url)));",
+      [
+        'const flySource = readFileSync(',
+        '  fileURLToPath(',
+        '    new URL(',
+        "      '../../src/fly.ts',",
+        '      import.meta.url,',
+        '    ),',
+        '  ),',
+        "  'utf8',",
+        ');',
+      ].join('\n'),
+    ]) {
+      expect(isRepoReadingTest(source), source).toBe(true);
+    }
+  });
+
+  it('leaves a test alone whose only source mention is an import or a non-src URL', () => {
+    for (const source of [
+      "import { x } from '../../src/fly.js'; readFileSync(join(dir, 'a.txt'));",
+      "readFileSync(new URL('./fixtures/src.json', import.meta.url));",
+      // the test's own folder, not the workspace source above it
+      "readFileSync(new URL('./src/fixture.ts', import.meta.url));",
+      "readFileSync(new URL('../fixtures/src/a.ts', someOtherBase));",
+      "const u = new URL('../../src/fly.ts', import.meta.url); // no filesystem read",
+    ]) {
+      expect(isRepoReadingTest(source), source).toBe(false);
+    }
+  });
+
   it('never splices the text around a removed config argv into a path', () => {
     // A slash before the argv and a folder name right after it must not
     // meet once the argv is gone.
@@ -78,6 +117,16 @@ describe('censusTestFiles', () => {
     for (const always of ALWAYS) expect(files).toContain(always);
     // the real-git suite that timed out in firing 535's gate reads no repo path
     expect(files).not.toContain('packages/onboarding/test/backup/ritual.test.ts');
+    // the five fly.ts source-text suites a fly.ts edit never selected (2026-09-30)
+    for (const flyCensus of [
+      'lane-head',
+      'lane-freshness',
+      'strand-tasks',
+      'merged-head-gating',
+      'social-flight-pass',
+    ]) {
+      expect(files).toContain(`apps/dashboard/test/flight/${flyCensus}.test.ts`);
+    }
     expect([...files].sort()).toEqual(files);
     expect(new Set(files).size).toBe(files.length);
   });
