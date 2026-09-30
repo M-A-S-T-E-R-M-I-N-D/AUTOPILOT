@@ -1592,6 +1592,15 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-editor-form textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--text-xs); padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .soul-editor-form button { font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .soul-editor-form button:disabled { opacity: 0.6; cursor: default; }
+/* Locked by default (board ap-muo35gzl-2): a dashed read-only textarea, and an
+   outlined unlock toggle beside Propose edit in the textarea's own text-on-surface
+   pair, its state layer tinted with the text color instead of accent-text. */
+.soul-editor-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.soul-editor-form textarea[readonly] { border-style: dashed; cursor: default; }
+.soul-editor-form .soul-editor-unlock { background: var(--color-surface); color: var(--color-text); border-color: var(--color-border); font-weight: 500; }
+.soul-editor-form .soul-editor-unlock::after { background: var(--color-text); }
+.soul-editor-form .soul-editor-unlock[aria-pressed="true"] { border-color: var(--color-accent); }
+.soul-editor-unlock > .icon { margin-inline-end: 0.35em; }
 
 .control-proposal { width: 100%; margin-bottom: var(--space-2); border: 1px solid var(--color-needs-you); border-radius: var(--shape-extra-small); padding: var(--space-2); }
 .control-proposal-summary { font-size: var(--text-xs); color: var(--color-needs-you); }
