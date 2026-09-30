@@ -55,9 +55,17 @@ function snippet(body) {
   return flat.length > SNIPPET_LENGTH ? `${flat.slice(0, SNIPPET_LENGTH)}…` : flat;
 }
 
-function argValue(flag) {
-  const i = process.argv.indexOf(flag);
-  return i === -1 ? undefined : process.argv[i + 1];
+/**
+ * The value after `flag` on the command line, or undefined when the flag is
+ * absent. `argv` is injectable so the lookup is tested directly (the
+ * changed-modules mutation run found it uncovered, 2026-09-30).
+ * @param {string} flag
+ * @param {readonly string[]} [argv]
+ * @returns {string | undefined}
+ */
+export function argValue(flag, argv = process.argv) {
+  const i = argv.indexOf(flag);
+  return i === -1 ? undefined : argv[i + 1];
 }
 
 // Stryker disable all: `gh` shells out to the real `gh api` CLI against a

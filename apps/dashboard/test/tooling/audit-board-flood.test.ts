@@ -28,8 +28,23 @@ import {
   CONSECUTIVE_CEILING,
   MIN_COMPARE_LENGTH,
   SNIPPET_LENGTH,
+  argValue,
 } from '../../../../scripts/ci/audit-board-flood.mjs';
 import { normalizeCommentText } from '../../src/flight/anti-flood.js';
+
+describe('argValue', () => {
+  it('reads the value after its flag, and nothing when the flag is absent', () => {
+    const argv = ['node', 'audit-board-flood.mjs', '--repo', 'o/r', '--json'];
+    expect(argValue('--repo', argv)).toBe('o/r');
+    expect(argValue('--since', argv)).toBeUndefined();
+    // A flag with no value after it reads as nothing, not the flag before it.
+    expect(argValue('--json', argv)).toBeUndefined();
+  });
+
+  it('reads the real command line by default', () => {
+    expect(argValue('--no-such-flag-in-vitest')).toBeUndefined();
+  });
+});
 
 function msg(
   id: number,
