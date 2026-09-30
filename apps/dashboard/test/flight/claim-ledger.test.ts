@@ -19,6 +19,7 @@ import {
   CLAIM_COMMENT_RE,
   CLAIM_RELEASE_RE,
   UNCLAIM_COMMAND,
+  AUTO_RELEASE_RE,
 } from '../../src/flight/claim-ledger.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -335,6 +336,73 @@ describe('claimLedger', () => {
     expect(claims).toEqual([
       { login: 'a', claimedAt: null, assigned: true, lastActivityAt: null, contested: false },
     ]);
+  });
+
+  /**
+   * EPIC 0019 additive-only law, the CLAIM flow's other workflow: CONTRIBUTING
+   * promises "14 quiet days auto-release it", and stale-claim-reaper.yml
+   * unassigns the holder and notes "N quiet days with no comment or commit
+   * from @x — auto-released", which is no release sentence here. So a
+   * pool-client claim it freed stayed in the ledger as a stale claim, and
+   * the next claimant's pool client (or the flight-end sweep) released it a
+   * second time in public.
+   */
+  it("the claim protocol's reaper workflow's auto-release ends the claim it freed, and only that one", () => {
+    const claims = claimLedger(
+      [],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('b', 'Also claimed by b via the pool client (contested).', T0 + DAY),
+        comment(
+          'github-actions',
+          "15 quiet days with no comment or commit from @a — auto-released per the claim protocol (docs/ROADMAP.md) so it doesn't sit silently stuck. No hard feelings: `/claim` it again any time you're ready, or leave it for the next claimer. 🤝",
+          T0 + 15 * DAY,
+        ),
+      ],
+    );
+    expect(claims.map((c) => c.login)).toEqual(['b']);
+  });
+
+  it('a /claim after the workflow auto-released reads again: the fresh assignment is a claim', () => {
+    const claims = claimLedger(
+      ['a'],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment(
+          'github-actions',
+          '15 quiet days with no comment or commit from @a — auto-released',
+          T0 + 15 * DAY,
+        ),
+        comment('a', '/claim', T0 + 16 * DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      { login: 'a', claimedAt: null, assigned: true, lastActivityAt: null, contested: false },
+    ]);
+  });
+});
+
+describe('the auto-release note, as stale-claim-reaper.yml posts it', () => {
+  const REAPER_WORKFLOW = readFileSync(
+    join(process.cwd(), '.github/workflows/stale-claim-reaper.yml'),
+    'utf8',
+  );
+  const noteAt = REAPER_WORKFLOW.indexOf('gh issue comment');
+  const bodyStart = REAPER_WORKFLOW.indexOf('--body "', noteAt) + '--body "'.length;
+  const note = REAPER_WORKFLOW.slice(bodyStart, REAPER_WORKFLOW.indexOf('"\n', bodyStart))
+    .replaceAll('$QUIET_FOR', '15')
+    .replaceAll('$ASSIGNEE', 'octo-cat')
+    .replaceAll('\\`', '`');
+
+  it('names the login it releases, the one the ledger ends the claim of', () => {
+    expect(REAPER_WORKFLOW).toContain('-f "assignees[]=$ASSIGNEE"');
+    expect(AUTO_RELEASE_RE.exec(note)?.[1]).toBe('octo-cat');
+  });
+
+  it('lands only after the unassign, so the assignee list already agrees with it', () => {
+    expect(REAPER_WORKFLOW).toContain('set -e');
+    expect(REAPER_WORKFLOW.indexOf('gh api -X DELETE')).toBeGreaterThan(-1);
+    expect(REAPER_WORKFLOW.indexOf('gh api -X DELETE')).toBeLessThan(noteAt);
   });
 });
 
