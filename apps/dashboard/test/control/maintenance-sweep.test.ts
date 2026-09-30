@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
+  MAX_DEPENDABOT_PR_LIST,
   dependabotPrBacklog,
   docFreshnessSweep,
   releaseSweep,
@@ -53,6 +54,8 @@ describe('dependabotPrBacklog', () => {
     expect(backlog).toEqual({ ok: false, detail: '2 open PR(s) waiting for a look: #?, #2' });
   });
 
+  // Board ap-muni11e7-0: with no --limit, gh returns its default 30 rows, so
+  // a backlog of 45 was reported as 30.
   it('runs the exact read-only gh pr list command, never a mutating one', () => {
     const calls: string[][] = [];
     dependabotPrBacklog((args) => {
@@ -60,8 +63,40 @@ describe('dependabotPrBacklog', () => {
       return '[]';
     });
     expect(calls).toEqual([
-      ['pr', 'list', '--author', 'app/dependabot', '--state', 'open', '--json', 'number'],
+      [
+        'pr',
+        'list',
+        '--author',
+        'app/dependabot',
+        '--state',
+        'open',
+        '--limit',
+        String(MAX_DEPENDABOT_PR_LIST),
+        '--json',
+        'number',
+      ],
     ]);
+  });
+
+  it("counts a backlog past gh's default page of 30 in full", () => {
+    const rows = Array.from({ length: 45 }, (_, i) => ({ number: i + 1 }));
+    const backlog = dependabotPrBacklog(() => JSON.stringify(rows));
+    expect(backlog.detail).toBe('45 open PR(s) waiting for a look: #1, #2, #3 (+42 more)');
+  });
+
+  it('says "at least" when the list comes back full, since more may sit past the cap', () => {
+    const rows = Array.from({ length: MAX_DEPENDABOT_PR_LIST }, (_, i) => ({ number: i + 1 }));
+    const backlog = dependabotPrBacklog(() => JSON.stringify(rows));
+    expect(backlog).toEqual({
+      ok: false,
+      detail: `at least ${MAX_DEPENDABOT_PR_LIST} open PR(s) waiting for a look: #1, #2, #3 (+${MAX_DEPENDABOT_PR_LIST - 3} more)`,
+    });
+  });
+
+  it('keeps an exact count one row under the cap', () => {
+    const rows = Array.from({ length: MAX_DEPENDABOT_PR_LIST - 1 }, (_, i) => ({ number: i + 1 }));
+    const backlog = dependabotPrBacklog(() => JSON.stringify(rows));
+    expect(backlog.detail.startsWith(`${MAX_DEPENDABOT_PR_LIST - 1} open PR(s)`)).toBe(true);
   });
 });
 
