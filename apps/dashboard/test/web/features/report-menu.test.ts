@@ -242,6 +242,21 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     expect(document.querySelector('.report-dialog-close')?.textContent).toBe('');
   });
 
+  it("the note field takes the reporter's own script direction, so a Hebrew note reads right to left on an English page", async () => {
+    // Composer language doctrine, rule 1: the note — and the composition
+    // that replaces it — is in the reporter's language. dir="auto" lets the
+    // browser pick the direction from the text itself rather than the page's.
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+
+    expect(document.getElementById('report-dialog-desc')?.getAttribute('dir')).toBe('auto');
+  });
+
   it('Escape closes the dialog and restores focus to the element that had it', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
