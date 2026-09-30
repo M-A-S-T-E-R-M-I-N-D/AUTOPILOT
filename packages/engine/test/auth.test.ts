@@ -272,3 +272,19 @@ describe('resolveClaudeEnv — a baseUrl on a NON-endpoint config is ignored', (
     expect(env['ANTHROPIC_API_KEY']).toBe('sk-test');
   });
 });
+
+describe('resolveClaudeEnv — a gcpProjectId on a NON-vertex config is ignored', () => {
+  it('never enables Vertex for bedrock mode, even when the config happens to carry a project', () => {
+    // The guard is `mode === 'vertex' && gcpProjectId`, and the mode half is
+    // what says a stray project left in a bedrock config is not an
+    // instruction. Without it both enable flags ride out together and the
+    // CLI is handed two backends to choose between.
+    const env = resolveClaudeEnv(
+      { mode: 'bedrock', awsRegion: FAKE_AWS_REGION, gcpProjectId: FAKE_GCP_PROJECT },
+      {},
+    );
+    expect(env['CLAUDE_CODE_USE_BEDROCK']).toBe('1');
+    expect('CLAUDE_CODE_USE_VERTEX' in env).toBe(false);
+    expect('ANTHROPIC_VERTEX_PROJECT_ID' in env).toBe(false);
+  });
+});
