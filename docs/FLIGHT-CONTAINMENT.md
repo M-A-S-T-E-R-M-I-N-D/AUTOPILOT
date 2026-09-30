@@ -42,9 +42,9 @@ for flying untrusted targets, or on a shared machine, or unattended.
    escape is caught and surfaced, machine-checkably, without trusting the agent.
 2. **CLI permission enforcement — DONE (`guard.ts` + `guard-hook.ts`).** Every flight is
    spawned with `--settings` pointing at a generated settings file whose official
-   `PreToolUse` hooks pipe each Bash or PowerShell command, and each Read/Grep/Glob/Write/Edit call,
-   through a path guard (`node guard-hook.js <target>`): any absolute path outside the
-   target, any home-directory reference (`~`, `$HOME`, `%USERPROFILE%`, PowerShell's
+   `PreToolUse` hooks pipe each Bash or PowerShell command, each
+   Read/Grep/Glob/Write/Edit/NotebookEdit call, and each WebFetch URL through a path
+   guard (`node guard-hook.js <target>`): any absolute path outside the target, any home-directory reference (`~`, `$HOME`, `%USERPROFILE%`, PowerShell's
    `$env:USERPROFILE`, and the `$USERPROFILE`/`$APPDATA`/`$LOCALAPPDATA` Git Bash inherits
    from Windows — where credentials live), any system-temp reference (`$TMPDIR`, `$TEMP`,
    `$TMP`, `%TEMP%`, `$env:TEMP` — outside every target; scratch goes in the git-ignored
@@ -53,7 +53,8 @@ for flying untrusted targets, or on a shared machine, or unattended.
    `[IO.Path]::GetTempPath()`/`GetTempFileName()`), or a bare `cd` is denied with the documented
    `permissionDecision: "deny"` JSON, enforced by the harness — Read/Grep/Glob get an
    additional read-hygiene denial (generated/vendored paths waste context, not a
-   security control). The same hook also denies destructive git — force-push,
+   security control), and a WebFetch of a loopback or private-network address, or of a
+   host that resolves to one, is denied as SSRF (THREAT-MODEL.md T6). The same hook also denies destructive git — force-push,
    `reset --hard`, `rebase`, `branch -D`, checking out/switching to `main`, `clean -f`,
    `filter-branch`, and a `git revert` of anything but a bare `HEAD` (shipped
    2026-09-06, after a live flight's nine-deep revert cascade destroyed
@@ -77,7 +78,16 @@ for flying untrusted targets, or on a shared machine, or unattended.
    (`checkPreCommitSiblingNewFiles`). Two lanes adding one file is a certain add/add
    conflict: the second sync-back aborts and strands that lane's later commits. This
    is collision control, not containment; it rides the same hook because the commit is
-   the last moment to catch it. CLI-arg scoped — the user's own settings files are never
+   the last moment to catch it. The hook also denies a process-kill command (`kill`,
+   `taskkill`, `pkill`, `killall`, `Stop-Process`) and a stop or restart of the dashboard,
+   because a flight once killed its own dashboard host this way. It denies `git help` and
+   `git … --help` too, because on Windows git opens its HTML docs in the operator's own
+   browser. The git and kill checks run on each command in a line separately. The line
+   is split at every `&`, `|`, `;` and line break, so `&&`, `||`, a backgrounding `&`
+   and PowerShell's `&` call operator all start a new command. `git.exe` in any letter
+   case counts as git, and `taskkill.exe` counts as a kill command. Before 2026-09-30
+   (`ap-muoadbyk-1`), `true & git push --force` and `& git push --force` got through.
+   CLI-arg scoped — the user's own settings files are never
    touched. Verified against the compiled hook over a real subprocess, including the
    exact observed escape shape.
    The Gemini CLI adapter (epic 0036) runs the same `guard-hook.js` as its `BeforeTool`
@@ -90,7 +100,8 @@ for flying untrusted targets, or on a shared machine, or unattended.
    _Honest scope:_ a textual guard — it blocks the observed escape class (absolute-path
    `cd` / `git -C` / reads outside) and the named destructive-git shapes, but cannot
    statically resolve every relative-path dance or git invocation; the detection audit
-   (1) remains the backstop.
+   (1) remains the backstop. One known gap: a call operator in front of a quoted command
+   word (`& 'git' push --force`) is still not recognized as git (THREAT-MODEL.md T1).
 3. **Process/OS sandbox — platform-gated.** Claude Code's native Bash sandbox runs on
    **macOS, Linux, and WSL2 only — "Native Windows is not supported"** (official
    sandboxing docs). On those platforms it is the end-state; enable it when flights run
