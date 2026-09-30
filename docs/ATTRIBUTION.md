@@ -213,6 +213,17 @@ humans get counted.
   suppressing the identity law, so it is deliberately left unwired there
   until that footer is split back into two independently-gateable lines.
 
+  **Per-project override for channel 1 (2026-09-30):** a project whose
+  SOUL carries the line `Attribution: off` (on its own line or as a `-`
+  bullet, any case) gets no `Assisted-by:` trailer instruction; every
+  other project still does. `fly.ts` passes `commitAttributionEnabled()`
+  the project's own SOUL, so the env lever still wins: a SOUL can opt out,
+  never back in. The line lives in the SOUL text, so adding or removing it
+  goes through the SOUL editor's unlock and propose-then-ratify path
+  (MASTER-PLAN §5.4's per-project overrides). Channel 3 posts are not tied
+  to one project's flight, so `AUTOPILOT_ATTRIBUTION=off` stays their only
+  switch.
+
 ## Wiring map (for the fleet)
 
 Every `gh` argv that posts text runs through one shared

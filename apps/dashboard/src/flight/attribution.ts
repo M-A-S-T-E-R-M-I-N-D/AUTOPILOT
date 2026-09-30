@@ -52,6 +52,30 @@ export function attributionEnabled(): boolean {
   return process.env['AUTOPILOT_ATTRIBUTION'] !== 'off';
 }
 
+/** The SOUL line an operator writes to keep channel 1's `Assisted-by:`
+ *  commit trailer off ONE project's commits — the per-project override of
+ *  the fleet-wide default (MASTER-PLAN §5.4, board ap-muo35gzl-2). It
+ *  travels with the SOUL, so it is locked and ratified like every other SOUL
+ *  edit. Channel 3 posts are not tied to one project's flight, so the env
+ *  lever stays their only switch. */
+export const ATTRIBUTION_OPT_OUT_LINE = 'Attribution: off';
+
+/** The opt-out on a line of its own — a plain line or a `-`/`*` bullet, any
+ *  case, stray spaces allowed. A mention mid-sentence is not an opt-out. */
+const ATTRIBUTION_OPT_OUT = /^[ \t]*(?:[-*][ \t]+)?attribution:[ \t]*off[ \t\r]*$/im;
+
+/** True when this project's SOUL carries {@link ATTRIBUTION_OPT_OUT_LINE}. */
+export function soulOptsOutOfAttribution(soul: string): boolean {
+  return ATTRIBUTION_OPT_OUT.test(soul);
+}
+
+/** Channel 1's lever for one project: on unless the fleet-wide env lever or
+ *  this project's own SOUL turns it off. A SOUL can only opt out — it never
+ *  turns the trailer back on under `AUTOPILOT_ATTRIBUTION=off`. */
+export function commitAttributionEnabled(soul: string): boolean {
+  return attributionEnabled() && !soulOptsOutOfAttribution(soul);
+}
+
 /** How every signature opens, full or compressed (ATTRIBUTION.md §3) — the
  *  one mark that says a body is already signed. */
 export const SIGNATURE_MARK = '— ✈️';

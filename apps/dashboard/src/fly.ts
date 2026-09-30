@@ -184,7 +184,7 @@ import {
 import { otlpConfigFromEnv } from './flight/otlp.js';
 import { selfStudyInvocation, commitSelfStudyIfDirty } from './flight/self-study.js';
 import { PRODUCT_VERSION } from './info.js';
-import { attributionEnabled } from './flight/attribution.js';
+import { commitAttributionEnabled } from './flight/attribution.js';
 import { formatFlightDoneLine } from './flight/flight-summary.js';
 import {
   deriveFlyProjectId,
@@ -1491,9 +1491,10 @@ async function main(): Promise<void> {
             wallClockMin: Math.round((cliTimeoutMs ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000),
             // ATTRIBUTION channel 1 (docs/ATTRIBUTION.md): every commit trailer
             // names the actually-running product version, gated by the same
-            // AUTOPILOT_ATTRIBUTION=off lever every other channel already checks.
+            // AUTOPILOT_ATTRIBUTION=off lever every other channel already checks,
+            // plus this project's own "Attribution: off" SOUL line.
             productVersion: PRODUCT_VERSION,
-            attributionEnabled: attributionEnabled(),
+            attributionEnabled: commitAttributionEnabled(soulOwn),
             ...(lastFailureFeedback !== undefined ? { lastFailure: lastFailureFeedback } : {}),
           }),
           version: FIRING_PROMPT_VERSION,

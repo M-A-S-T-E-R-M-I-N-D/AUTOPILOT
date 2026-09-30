@@ -17,6 +17,9 @@ import {
   conversationSignature,
   stripConversationSignature,
   attributionEnabled,
+  commitAttributionEnabled,
+  soulOptsOutOfAttribution,
+  ATTRIBUTION_OPT_OUT_LINE,
   AUTOPILOT_REPO_URL,
 } from '../../src/flight/attribution.js';
 import { withAntiFlood } from '../../src/flight/anti-flood.js';
@@ -195,6 +198,55 @@ describe('AUTOPILOT_ATTRIBUTION=off — the doc’s one opt-out lever', () => {
     expect(attributionEnabled()).toBe(true);
     delete process.env['AUTOPILOT_ATTRIBUTION'];
     expect(attributionEnabled()).toBe(true);
+  });
+});
+
+describe('"Attribution: off" in a SOUL — one project opts out of the commit trailer', () => {
+  const original = process.env['AUTOPILOT_ATTRIBUTION'];
+  const SOUL = '# SOUL — client-app\n\nStack: js\n\n## Operating rules\n- Gate every change.';
+
+  afterEach(() => {
+    if (original === undefined) delete process.env['AUTOPILOT_ATTRIBUTION'];
+    else process.env['AUTOPILOT_ATTRIBUTION'] = original;
+  });
+
+  it('drops the trailer for a project whose SOUL carries the line', () => {
+    delete process.env['AUTOPILOT_ATTRIBUTION'];
+    expect(commitAttributionEnabled(`${SOUL}\n${ATTRIBUTION_OPT_OUT_LINE}\n`)).toBe(false);
+  });
+
+  it('keeps the trailer for a sibling project whose SOUL does not', () => {
+    delete process.env['AUTOPILOT_ATTRIBUTION'];
+    expect(commitAttributionEnabled(`${SOUL}\n${ATTRIBUTION_OPT_OUT_LINE}\n`)).toBe(false);
+    expect(commitAttributionEnabled(SOUL)).toBe(true);
+    expect(commitAttributionEnabled('')).toBe(true);
+  });
+
+  it('accepts a bullet, any case, and stray spaces', () => {
+    expect(soulOptsOutOfAttribution(`${SOUL}\n- Attribution: off`)).toBe(true);
+    expect(soulOptsOutOfAttribution(`${SOUL}\n  * ATTRIBUTION:OFF  `)).toBe(true);
+    expect(soulOptsOutOfAttribution(`attribution:   Off\r\n${SOUL}`)).toBe(true);
+  });
+
+  it('does not opt out on a mention mid-sentence or on any value other than off', () => {
+    expect(soulOptsOutOfAttribution(`${SOUL}\n- Never write "Attribution: off" here.`)).toBe(false);
+    expect(soulOptsOutOfAttribution(`${SOUL}\nAttribution: on`)).toBe(false);
+    expect(soulOptsOutOfAttribution(`${SOUL}\nAttribution: offline`)).toBe(false);
+  });
+
+  it('never turns the trailer back on when the fleet-wide lever is off', () => {
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'off';
+    expect(commitAttributionEnabled(SOUL)).toBe(false);
+  });
+
+  it('is what fly.ts hands buildFiringPrompt, read from the project’s own SOUL', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const flySource = readFileSync(
+      fileURLToPath(new URL('../../src/fly.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(flySource.includes('attributionEnabled: commitAttributionEnabled(soulOwn)')).toBe(true);
   });
 });
 
