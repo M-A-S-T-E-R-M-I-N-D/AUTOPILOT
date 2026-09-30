@@ -375,7 +375,8 @@ export function githubIssueExecuteResult(
 /** Shape of the `POST /api/report/compose` JSON response
  *  {@link reportComposeStatusMeta} reads — see `flight/report-compose.ts`'s
  *  `ReportComposeResult` (LLM ISSUE COMPOSER 1/3, board web-mtpzdrt1-lirsgh).
- *  `title`/`body` are the composed English fields; `labels` are advisory
+ *  `title`/`body` are the composed fields, in the note's own language
+ *  (composer language doctrine, rule 1); `labels` are advisory
  *  only — `planGithubIssue` has no `--label` flag, so they are surfaced in
  *  the status line for the operator to add by hand, never silently dropped. */
 export interface ReportComposeResponse {

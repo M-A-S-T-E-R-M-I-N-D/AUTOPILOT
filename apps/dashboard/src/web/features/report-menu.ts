@@ -355,6 +355,10 @@ function paintReportDialog(pid, capture) {
   desc.id = descId;
   desc.className = 'report-desc';
   desc.rows = 3;
+  // Composer language doctrine, rule 1: the note (and the composition that
+  // replaces it) is in the reporter's language — a Hebrew one reads right to
+  // left even on an English page.
+  desc.dir = 'auto';
   desc.setAttribute('data-tip', tr('reportDescTip'));
   dialog.appendChild(desc);
   var actionId = 'report-dialog-action';
