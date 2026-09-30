@@ -60,7 +60,8 @@ function renderCiStatusPanel(workflows) {
     // that has never run reports neither — and is not "running" (operator,
     // 2026-09-14: labels.yml read as running with no runs at all).
     var state = w.conclusion ? w.conclusion : (w.ageLabel ? tr('ciRunning') : tr('ciNoRuns'));
-    var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '');
+    // A PR-triggered run says so on the chip; its branch rides the tip.
+    var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '') + (w.prBranch ? ' · PR' : '');
     list.appendChild(tipChip(label, w.detail, w.workflow + ': ' + w.detail, badgeClass));
   }
   section.appendChild(list);
