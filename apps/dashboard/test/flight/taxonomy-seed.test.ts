@@ -35,6 +35,10 @@ import {
   type PriorityLabel,
 } from '../../src/flight/issue-triage.js';
 import { planBoardIssueExportCommands } from '../../src/flight/board-issue-export.js';
+import {
+  planDiscussionTriage,
+  runDiscussionTriageRitual,
+} from '../../src/flight/discussions-triage.js';
 import { HELP_WANTED_LABEL } from '../../src/flight/help-wanted-items.js';
 import { luckyFitLine, type FitOperator } from '../../src/flight/lucky-fit.js';
 import { ROADMAP_LABEL, fetchRoadmapItems, isRoadmapItem } from '../../src/flight/roadmap-items.js';
@@ -967,5 +971,109 @@ describe('HOUSE_TAXONOMY_LABELS × the flows that find work by a seeded label (r
     for (const label of LUCKY_FIT_LABELS) {
       expect(luckyFitOf([label]), label).not.toBe(bare);
     }
+  });
+});
+
+// Same law, KEEPER's DISCUSSIONS ritual: an accepted discussion gets the same
+// `pool: <dimension>` label an accepted issue does, and that label is the only
+// thing a later pass knows a handled discussion by. Discussions labels are
+// GraphQL-only and keyed by node ID, so runDiscussionTriageRitual first looks
+// the label up by its exact NAME and holds the reply back when the repo has no
+// such label. A pool label spelled apart from what labels.json syncs is never
+// an error: every accepted discussion is skipped 'pool-label-unresolved' on
+// every pass, and nobody who asked ever hears back.
+/** A discussion title the classifier reads as each dimension. `Record` keeps
+ *  it whole: typecheck fails the moment DIMENSIONS gains or drops one. */
+const DISCUSSION_SIGNAL: Record<Dimension, string> = {
+  accessibility: 'Screen reader support for the fleet table',
+  cybersecurity: 'A security hole in the settings form',
+  ux: 'The fleet table is confusing',
+  human_interaction: 'The operator notification never arrives',
+  learnings: 'A postmortem on the red landing',
+  information: 'The README has a typo',
+  data: 'The schema migration drops a column',
+  priorities: 'The backlog order ranking is off',
+};
+
+/** A repo carrying exactly the labels labels.json syncs, with one open
+ *  discussion per {@link DISCUSSION_SIGNAL} title. The label lookup answers
+ *  only a name labels.json carries, every post succeeds, and each name the
+ *  ritual looks up is pushed onto `lookedUp`. */
+function poolSyncedRepo(lookedUp: string[] = []): CliExec {
+  const nodes = DIMENSIONS.map((dimension, i) => ({
+    id: `D_${i + 1}`,
+    number: i + 1,
+    title: DISCUSSION_SIGNAL[dimension],
+    body: '',
+    isAnswered: false,
+    locked: false,
+    category: { name: 'Ideas' },
+    labels: { nodes: [] },
+  }));
+  return async (_bin, args) => {
+    const query = args.find((arg) => arg.startsWith('query=')) ?? '';
+    if (query.includes('discussions(states: OPEN')) {
+      return {
+        code: 0,
+        stdout: JSON.stringify({ data: { repository: { discussions: { nodes } } } }),
+      };
+    }
+    if (query.includes('label(name: $label)')) {
+      const name = args.find((arg) => arg.startsWith('label='))?.slice('label='.length) ?? '';
+      lookedUp.push(name);
+      const label = POOL_LABEL_NAMES.includes(name) ? { id: `LA_${name}` } : null;
+      return { code: 0, stdout: JSON.stringify({ data: { repository: { label } } }) };
+    }
+    return { code: 0, stdout: JSON.stringify({ data: {} }) };
+  };
+}
+
+describe('.github/labels.json × KEEPER discussions ritual (regression, epic 0019 additive-only law)', () => {
+  it('accepts one open discussion into each dimension', async () => {
+    const { plans } = await runDiscussionTriageRitual(poolSyncedRepo(), MAINTAINER.login);
+    const dimensions = plans.map(({ decision }) =>
+      decision.decision === 'accept' ? decision.dimension : decision.decision,
+    );
+    expect(dimensions).toEqual([...DIMENSIONS]);
+  });
+
+  it('looks up, for each dimension, the pool label labels.json syncs', async () => {
+    const lookedUp: string[] = [];
+    await runDiscussionTriageRitual(poolSyncedRepo(lookedUp), MAINTAINER.login);
+
+    expect(lookedUp).toEqual(DIMENSIONS.map((dimension) => `${POOL_LABEL_PREFIX}${dimension}`));
+    expect(lookedUp.filter((name) => !POOL_LABEL_NAMES.includes(name))).toEqual([]);
+  });
+
+  it('holds no reply back on a repo labels.json has synced, and labels every reply it posts', async () => {
+    const { outcomes } = await runDiscussionTriageRitual(poolSyncedRepo(), MAINTAINER.login);
+
+    expect(outcomes).toHaveLength(DIMENSIONS.length);
+    for (const outcome of outcomes) {
+      const discussion = `#${outcome.discussionNumber}`;
+      expect(outcome.skippedReason, discussion).toBeUndefined();
+      expect(outcome.replyResult?.code, discussion).toBe(0);
+      expect(outcome.labelResult?.code, discussion).toBe(0);
+    }
+  });
+
+  it('skips each discussion on the next pass once it carries the label it was given', async () => {
+    const lookedUp: string[] = [];
+    await runDiscussionTriageRitual(poolSyncedRepo(lookedUp), MAINTAINER.login);
+
+    expect(lookedUp).toHaveLength(DIMENSIONS.length);
+    DIMENSIONS.forEach((dimension, i) => {
+      const next = planDiscussionTriage({
+        id: `D_${i + 1}`,
+        number: i + 1,
+        title: DISCUSSION_SIGNAL[dimension],
+        body: '',
+        category: 'Ideas',
+        isAnswered: false,
+        locked: false,
+        labels: [lookedUp[i] ?? ''],
+      });
+      expect(next.decision, dimension).toBe('skip');
+    });
   });
 });
