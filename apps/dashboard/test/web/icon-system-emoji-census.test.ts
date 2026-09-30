@@ -67,14 +67,10 @@ const TECHNICAL_EMOJI_PATTERN =
 
 /** The web/ sites still painting a Miscellaneous Technical emoji — shrink-only:
  *  a slice that sweeps one deletes its line, and the list ends at zero like
- *  the census above. The triage badges need a vendored skip icon; the shell's
- *  budget hint needs one for its stopwatch. */
-const TECHNICAL_EMOJI_SITES = [
-  'discussions-triage-panel.ts: ⏭ (U+23ed)',
-  'issue-triage-panel.ts: ⏭ (U+23ed)',
-  'shell.ts: ⏱ (U+23f1)',
-  'shell.ts: ⏱ (U+23f1)',
-];
+ *  the census above. The triage badges' ⏭ lead with the vendored skip-forward
+ *  icon now (2026-09-30); the shell's budget hint still needs one for its
+ *  stopwatch. */
+const TECHNICAL_EMOJI_SITES = ['shell.ts: ⏱ (U+23f1)', 'shell.ts: ⏱ (U+23f1)'];
 
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
