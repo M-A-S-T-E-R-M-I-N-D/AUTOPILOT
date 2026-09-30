@@ -15,6 +15,7 @@ import {
   parseE2eLandBlockEvents,
   parseGuardVerificationFailedEvents,
   parseLandedEvents,
+  alarmCutoffs,
 } from '../../src/read/persisted-events.js';
 
 let store: Store;
@@ -353,5 +354,64 @@ describe('parseLandedEvents', () => {
   it('skips a malformed JSON payload', () => {
     insertEvent('landed', 'not json', 100);
     expect(parseLandedEvents(store, PROJECT_ID)).toEqual([]);
+  });
+});
+
+describe('only live alarms reach the Health panel (2026-09-29)', () => {
+  const HOUR = 60 * 60 * 1000;
+
+  it('cuts at the latest landing, and 48 hours back', () => {
+    const now = 1_000 * HOUR;
+    expect(alarmCutoffs(store, PROJECT_ID, now)).toEqual({
+      sinceLanding: 0,
+      fresh: now - 48 * HOUR,
+    });
+    insertEvent('landed', '{"details":"landed"}', now - 5 * HOUR);
+    insertEvent('landed', '{"details":"landed"}', now - 2 * HOUR);
+    expect(alarmCutoffs(store, PROJECT_ID, now).sinceLanding).toBe(now - 2 * HOUR + 1);
+  });
+
+  it('every alarm parser drops the rows older than its cutoff and keeps the rest', () => {
+    const rows: [string, string, (since: number) => unknown[]][] = [
+      [
+        'near-miss-recurring',
+        '{"nearMissClass":"guardDenials","streak":3}',
+        (s) => parseNearMissRecurring(store, PROJECT_ID, s),
+      ],
+      [
+        'guard-denial',
+        '{"kind":"containment","target":"x"}',
+        (s) => parseGuardDenialEvents(store, PROJECT_ID, s),
+      ],
+      [
+        'sync-back-refusal',
+        '{"details":"d"}',
+        (s) => parseSyncBackRefusalEvents(store, PROJECT_ID, s),
+      ],
+      ['land-gate-alarm', '{"details":"d"}', (s) => parseLandGateAlarmEvents(store, PROJECT_ID, s)],
+      [
+        'convergence-red',
+        '{"check":"c","merge":"m"}',
+        (s) => parseConvergenceRedEvents(store, PROJECT_ID, s),
+      ],
+      [
+        'convergence-unverifiable',
+        '{"signature":"s","ms":1,"floorMs":2}',
+        (s) => parseConvergenceUnverifiableEvents(store, PROJECT_ID, s),
+      ],
+      ['e2e-land-block', '{"detail":"d"}', (s) => parseE2eLandBlockEvents(store, PROJECT_ID, s)],
+      [
+        'guard-verify-failed',
+        '{"reason":"r"}',
+        (s) => parseGuardVerificationFailedEvents(store, PROJECT_ID, s),
+      ],
+    ];
+    for (const [type, payload, parse] of rows) {
+      insertEvent(type, payload, 100);
+      insertEvent(type, payload, 300);
+      expect(parse(0), type).toHaveLength(type === 'near-miss-recurring' ? 1 : 2);
+      expect(parse(200), type).toHaveLength(1);
+      expect(parse(301), type).toHaveLength(0);
+    }
   });
 });

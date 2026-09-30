@@ -1259,6 +1259,15 @@ var TASK_STATUS_KEYS = {
   needs_approval: 'taskStatusNeedsApproval',
   deferred: 'taskStatusDeferred',
 };
+// The task row's leading status glyph (epic 0026 row anatomy, epic 0025
+// icons): drawn inside the pill, which already names the status.
+var TASK_STATUS_ICONS = {
+  queued: 'circle',
+  in_progress: 'circle-dot',
+  done: 'circle-check',
+  needs_approval: 'circle-question-mark',
+  deferred: 'circle-pause',
+};
 var TASK_SEVERITY_KEYS = {
   critical: 'taskSeverityCritical',
   high: 'taskSeverityHigh',
@@ -3101,7 +3110,12 @@ function tasksSection(c) {
           li.appendChild(unpinBtn);
         }
       }
-      li.appendChild(statusPill('pill task-', t.status, TASK_STATUS_KEYS));
+      var taskPill = statusPill('pill task-', t.status, TASK_STATUS_KEYS);
+      // setSweptText() (features/locale.ts) keeps a leading icon when a
+      // locale switch rewrites the pill's word.
+      var statusIcon = TASK_STATUS_ICONS[t.status];
+      if (statusIcon) taskPill.insertBefore(iconEl(statusIcon), taskPill.firstChild);
+      li.appendChild(taskPill);
       // Title itself was the last silent element on the row — TaskEntry carries
       // at/priority but nothing ever displayed them (app-wide interactivity
       // audit v2 follow-up: every panel drills down).
@@ -4258,6 +4272,27 @@ function cachedPanel(pid, name, key, build) {
   panels[name] = { key: key, node: node };
   return node;
 }
+/** A closed Keeper group under the inbox: its title, a hint, a body. */
+function keeperGroup(key, hintKey) {
+  var group = el('details', 'keeper-rituals');
+  var summary = el('summary', 'keeper-rituals-summary');
+  var title = el('span', 'keeper-rituals-title', tr(key));
+  title.setAttribute('data-i18n', key);
+  var hint = el('span', 'keeper-rituals-hint', tr(hintKey));
+  hint.setAttribute('data-i18n', hintKey);
+  summary.append(title, hint);
+  group.append(summary, el('div', 'keeper-rituals-body'));
+  return group;
+}
+// The page-level panels a project page folds into its Keeper groups, held
+// by reference: renderProjectPage empties main every tick, detaching them.
+var keeperAdopted = {};
+function adoptPanels(into, ids) {
+  ids.forEach(function (id) {
+    var p = keeperAdopted[id] || document.getElementById(id);
+    if (p) into.appendChild((keeperAdopted[id] = p));
+  });
+}
 function renderProjectPage(state, pid) {
   var fleet = document.getElementById('fleet');
   if (!fleet) return;
@@ -4339,9 +4374,22 @@ function renderProjectPage(state, pid) {
   // against this project's board/backlog — sits right before Detected
   // backlog, since an accepted issue becomes a new task that panel itself
   // could later flag as shipped.
+  // Inbox first: the queue lists these panels' items, so the panels fold into
+  // cached groups below it (each keeps its open state across ticks), and the
+  // CI strip stays in view between them.
+  adoptPanels(fleet, ['ci-status-panel']);
+  var keeperRituals = cachedPanel(pid, 'keeper-rituals', '', function () { return keeperGroup('keeperRituals', 'keeperRitualsHint'); });
+  var keeperRitualsBody = keeperRituals.lastElementChild;
+  keeperRitualsBody.replaceChildren();
+  fleet.appendChild(subj(keeperRituals, 'keeper'));
+  var keeperCommunity = cachedPanel(pid, 'keeper-community', '', function () { return keeperGroup('keeperCommunity', 'keeperCommunityHint'); });
+  var keeperCommunityBody = keeperCommunity.lastElementChild;
+  keeperCommunityBody.replaceChildren();
+  adoptPanels(keeperCommunityBody, ['contributor-issue-list-panel', 'contributor-standing-panel', 'collaboration-panel', 'publicity-panel']);
+  fleet.appendChild(subj(keeperCommunity, 'keeper'));
   var issueTriageEl = cachedPanel(pid, 'issue-triage', dataKey, function () { return issueTriageSection(pid); });
   issueTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'issue-triage');
-  fleet.appendChild(subj(issueTriageEl, 'keeper'));
+  keeperRitualsBody.appendChild(issueTriageEl);
   // Mirror pass: read-only board↔GitHub reconciliation findings (EPIC 0019
   // S3, VERDICT ap-mtsg3nc0-3 slice (c)) — sits right after KEEPER issue
   // triage, the other project-scoped GitHub-governance preview panel.
@@ -4352,25 +4400,26 @@ function renderProjectPage(state, pid) {
   var mirrorPassKey = dataKey + ':' + (c.githubRepo || '');
   var mirrorPassEl = cachedPanel(pid, 'mirror-pass', mirrorPassKey, function () { return mirrorPassSection(pid, c.githubRepo); });
   mirrorPassEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'mirror-pass');
-  fleet.appendChild(subj(mirrorPassEl, 'keeper'));
+  keeperRitualsBody.appendChild(mirrorPassEl);
   // KEEPER Discussions triage (epic 0007 S8, board web-mtlsiac0-v8rksh): the
   // same accept/skip preview+execute shape as issue triage, extended to
   // GitHub Discussions — sits right after Mirror pass, the other
   // read-only-preview-plus-role-gated-execute GitHub-governance panel.
   var discussionsTriageEl = cachedPanel(pid, 'discussions-triage', dataKey, function () { return discussionsTriageSection(pid); });
   discussionsTriageEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'discussions-triage');
-  fleet.appendChild(subj(discussionsTriageEl, 'keeper'));
+  keeperRitualsBody.appendChild(discussionsTriageEl);
   // Detected backlog: open tasks a recent commit may have already shipped
   // (interactive-session work with no METRICS line) — sits right after the
   // task board it proposes edits to.
   var backlogEl = cachedPanel(pid, 'backlog', dataKey, function () { return backlogSection(pid); });
   backlogEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'backlog');
-  fleet.appendChild(subj(backlogEl, 'keeper'));
+  keeperRitualsBody.appendChild(backlogEl);
   // Fleet coordination: which sibling lanes hold what board claim / what a
   // sibling branch is touching right now — sits right after Detected
   // backlog, since a board claim is the same "who already has this?"
   // question an operator would otherwise have to piece together by hand.
-  fleet.appendChild(subj(cachedPanel(pid, 'coordination', dataKey, function () { return coordinationSection(pid); }), 'keeper'));
+  keeperRitualsBody.appendChild(cachedPanel(pid, 'coordination', dataKey, function () { return coordinationSection(pid); }));
+  adoptPanels(keeperRitualsBody, ['pr-review-panel', 'pool-client-panel', 'fleet-wisdom']);
   // Pipeline view (epic 0015 D4): the OTLP span graph — which firings ran in
   // which lane, and what continued what — server-rendered by /api/pipeline
   // and fetched on demand, right after Fleet coordination since both answer

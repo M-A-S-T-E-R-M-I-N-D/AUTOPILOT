@@ -560,7 +560,7 @@ main > * { min-width: 0; }
 /* THE ICON SYSTEM (epic 0025 slice 1): one stroke family sized by the type
    scale, currentColor everywhere — the three themes need no per-icon work. */
 .icon { display: inline-block; inline-size: 1em; block-size: 1em; vertical-align: -0.125em; flex: none; }
-.chip > .icon { margin-inline-end: 0.35em; }
+.chip > .icon, .pill > .icon { margin-inline-end: 0.35em; }
 .task-focus-btn > .icon, .task-delete-btn > .icon, .task-unpin-btn > .icon { inline-size: 1.1em; block-size: 1.1em; vertical-align: middle; }
 .task-drag-handle > .icon { vertical-align: middle; }
 .chip { font-size: var(--text-xs); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-2); text-decoration: none; display: inline-block; }
@@ -1769,6 +1769,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .diff-toggle:hover, .diff-toggle:focus-visible, .version-restore-btn:hover:not(:disabled), .version-restore-btn:focus-visible:not(:disabled) { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .diff-toggle:active, .version-restore-btn:active:not(:disabled) { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .diff-toggle[aria-expanded="true"] { border-color: var(--color-accent); color: var(--color-text); }
+.diff-toggle > .icon { margin-inline-end: 0.35em; }
 .version-restore-btn:disabled { opacity: 0.4; cursor: default; }
 .firing-diff { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding: var(--space-2); border-inline-start: 2px solid var(--color-border); background: var(--color-surface-raised); font-family: var(--font-mono); font-size: var(--text-xs); overflow-x: auto; white-space: pre; }
 .firing-diff-empty { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); }
@@ -2300,6 +2301,24 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .keeper-queue-open:hover, .keeper-queue-open:focus-visible { color: var(--color-accent); text-decoration: underline; outline: none; }
 .keeper-queue-why { grid-area: why; font-size: var(--text-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .keeper-queue-act { grid-area: act; }
+/* KEEPER RITUALS (2026-09-30): the ritual panels, folded into one group under
+   the queue so no item reads twice. The summary is the group's heading: a
+   title, a one-line hint, and a chevron that turns when it opens. */
+.keeper-rituals { margin: var(--space-3) var(--page-inline); border: 1px solid var(--color-border); border-radius: var(--shape-medium); background: var(--color-surface); }
+.keeper-rituals-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title chevron" "hint chevron"; align-items: center; column-gap: var(--space-2); padding: var(--space-3) var(--space-4); cursor: pointer; list-style: none; }
+.keeper-rituals-summary::-webkit-details-marker { display: none; }
+.keeper-rituals-summary::after { content: ''; grid-area: chevron; inline-size: 0.5rem; block-size: 0.5rem; border-inline-end: 2px solid var(--color-text-muted); border-block-end: 2px solid var(--color-text-muted); transform: rotate(45deg); transition: transform var(--duration-fast, 150ms) ease-out; }
+.keeper-rituals[open] > .keeper-rituals-summary::after { transform: rotate(-135deg); }
+.keeper-rituals-summary:hover .keeper-rituals-title, .keeper-rituals-summary:focus-visible .keeper-rituals-title { color: var(--color-accent); }
+.keeper-rituals-summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: var(--shape-medium); }
+.keeper-rituals-title { grid-area: title; font-size: var(--text-lg); font-weight: 600; }
+.keeper-rituals-hint { grid-area: hint; font-size: var(--text-xs); color: var(--color-text-muted); }
+.keeper-rituals-body { display: grid; gap: var(--space-3); padding: 0 var(--space-4) var(--space-4); }
+.keeper-rituals-body > * { margin-inline: 0; }
+.project-mode > .keeper-queue, .project-mode > .keeper-rituals { margin-inline: 0; }
+.discussions-triage-skipped { margin-block-start: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); }
+.discussions-triage-skipped > summary { cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .keeper-rituals-summary::after { transition: none; } }
 /* FLIGHT PLAN EDITOR (epic 0021 slice 3, second cut): the gate as a chain of
    step nodes, the selected one editable in a properties pane; a draft line
    that says so, Publish and Discard. */

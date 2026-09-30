@@ -369,7 +369,10 @@ import {
 // listener, one English key) — measured 251569B raw against the old 250880B
 // line, 689 bytes over. Two KB, for the margin the entries above keep: a
 // 246KB line would leave 335 bytes.
-const CORE_RAW_BUDGET = 247 * 1024;
+// Then core raw 247→249KB (2026-09-30), epic 0025's vendored status and play
+// icons and the Keeper inbox groups, landing together — measured 253785B raw
+// against the old 252928B line, 857 bytes over; each passed its lane alone.
+const CORE_RAW_BUDGET = 249 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

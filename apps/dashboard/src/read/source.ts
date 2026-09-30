@@ -71,8 +71,10 @@ import {
   parseE2eLandBlockEvents,
   parseGuardVerificationFailedEvents,
   parseLandedEvents,
+  alarmCutoffs,
 } from './persisted-events.js';
 import { proposedWisdomKindLabel } from '../flight/fleet-wisdom-mining.js';
+import { isQuotaDeath } from '../flight/model-scoreboard.js';
 
 const HOT_FILE_LIMIT = 5;
 const TOP_DIR_LIMIT = 5;
@@ -423,6 +425,7 @@ export function mapFlightEntries(
     // without this a firing that hit the turn cap AFTER landing a commit that
     // then failed the gate would wrongly carry a death explanation too.
     died: f.shipped === 1 || f.gate_result === 'reverted' ? null : parseFiringDeath(f.payload),
+    quotaDeath: isQuotaDeath(f.payload),
     noopClass: parseNoopClass(f.gate_result, f.payload),
     review: parseCommitReviewRecord(f.payload),
     at: f.created_at,
@@ -482,6 +485,7 @@ function gather(store: Store, now: number): ProjectAggregate[] {
     // Fetch one extra row past the page size to detect "more history exists"
     // without a separate COUNT query — trimmed back down before it reaches the view.
     const flightPage = mapFlightEntries(db, p.id, FLIGHT_LOG_PAGE_SIZE + 1, 0);
+    const cut = alarmCutoffs(store, p.id, now);
     return {
       id: p.id,
       slug: p.slug,
@@ -528,14 +532,19 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       orientLengths: orientLengths(db, p.id),
       familyRunaways: parseFamilyRunaways(store, p.id),
       intentCollisions: parseIntentCollisions(store, p.id),
-      nearMissRecurring: parseNearMissRecurring(store, p.id),
-      guardDenialEvents: parseGuardDenialEvents(store, p.id),
-      syncBackRefusalEvents: parseSyncBackRefusalEvents(store, p.id),
-      landGateAlarmEvents: parseLandGateAlarmEvents(store, p.id),
-      convergenceRedEvents: parseConvergenceRedEvents(store, p.id),
-      convergenceUnverifiableEvents: parseConvergenceUnverifiableEvents(store, p.id),
-      e2eLandBlockEvents: parseE2eLandBlockEvents(store, p.id),
-      guardVerificationFailedEvents: parseGuardVerificationFailedEvents(store, p.id),
+      // Only live alarms reach the Health panel — see alarmCutoffs.
+      nearMissRecurring: parseNearMissRecurring(store, p.id, cut.fresh),
+      guardDenialEvents: parseGuardDenialEvents(store, p.id, cut.fresh),
+      syncBackRefusalEvents: parseSyncBackRefusalEvents(store, p.id, cut.fresh),
+      landGateAlarmEvents: parseLandGateAlarmEvents(store, p.id, cut.sinceLanding),
+      convergenceRedEvents: parseConvergenceRedEvents(store, p.id, cut.sinceLanding),
+      convergenceUnverifiableEvents: parseConvergenceUnverifiableEvents(
+        store,
+        p.id,
+        cut.sinceLanding,
+      ),
+      e2eLandBlockEvents: parseE2eLandBlockEvents(store, p.id, cut.sinceLanding),
+      guardVerificationFailedEvents: parseGuardVerificationFailedEvents(store, p.id, cut.fresh),
       landedEvents: parseLandedEvents(store, p.id),
     };
   });

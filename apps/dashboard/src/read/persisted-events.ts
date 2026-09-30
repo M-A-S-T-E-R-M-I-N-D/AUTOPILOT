@@ -141,11 +141,12 @@ interface RawNearMissRecurring {
 export function parseNearMissRecurring(
   store: Store,
   projectId: string,
+  since = 0,
 ): { nearMissClass: NearMissClass; streak: number }[] {
   const seen = new Set<NearMissClass>();
   const entries: { nearMissClass: NearMissClass; streak: number }[] = [];
   for (const row of nearMissRecurringEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const r = JSON.parse(row.payload) as RawNearMissRecurring;
       if (
@@ -183,10 +184,11 @@ interface RawGuardDenial {
 export function parseGuardDenialEvents(
   store: Store,
   projectId: string,
+  since = 0,
 ): { kind: 'containment' | 'read-hygiene'; target: string }[] {
   const entries: { kind: 'containment' | 'read-hygiene'; target: string }[] = [];
   for (const row of guardDenialEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const d = JSON.parse(row.payload) as RawGuardDenial;
       if (
@@ -215,10 +217,14 @@ interface RawSyncBackRefusal {
  * same breach). Defensive like the other parsers here: a malformed payload is
  * skipped, never thrown.
  */
-export function parseSyncBackRefusalEvents(store: Store, projectId: string): { details: string }[] {
+export function parseSyncBackRefusalEvents(
+  store: Store,
+  projectId: string,
+  since = 0,
+): { details: string }[] {
   const entries: { details: string }[] = [];
   for (const row of syncBackRefusalEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const d = JSON.parse(row.payload) as RawSyncBackRefusal;
       if (typeof d.details === 'string') {
@@ -243,10 +249,14 @@ interface RawLandGateAlarm {
  * same breach). Defensive like the other parsers here: a malformed payload is
  * skipped, never thrown.
  */
-export function parseLandGateAlarmEvents(store: Store, projectId: string): { details: string }[] {
+export function parseLandGateAlarmEvents(
+  store: Store,
+  projectId: string,
+  since = 0,
+): { details: string }[] {
   const entries: { details: string }[] = [];
   for (const row of landGateAlarmEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const d = JSON.parse(row.payload) as RawLandGateAlarm;
       if (typeof d.details === 'string') {
@@ -282,10 +292,11 @@ interface RawConvergenceRed {
 export function parseConvergenceRedEvents(
   store: Store,
   projectId: string,
+  since = 0,
 ): { check: string; details: string; ms?: number; outputTail?: string }[] {
   const entries: { check: string; details: string; ms?: number; outputTail?: string }[] = [];
   for (const row of convergenceRedEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const d = JSON.parse(row.payload) as RawConvergenceRed;
       if (typeof d.check === 'string' && typeof d.merge === 'string') {
@@ -323,10 +334,11 @@ interface RawConvergenceUnverifiable {
 export function parseConvergenceUnverifiableEvents(
   store: Store,
   projectId: string,
+  since = 0,
 ): { signature: string; ms: number; floorMs: number }[] {
   const entries: { signature: string; ms: number; floorMs: number }[] = [];
   for (const row of convergenceUnverifiableEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const d = JSON.parse(row.payload) as RawConvergenceUnverifiable;
       if (
@@ -355,10 +367,14 @@ interface RawE2eLandBlock {
  * duplicate of the same red run). Defensive like the other parsers here: a
  * malformed payload is skipped, never thrown.
  */
-export function parseE2eLandBlockEvents(store: Store, projectId: string): { detail: string }[] {
+export function parseE2eLandBlockEvents(
+  store: Store,
+  projectId: string,
+  since = 0,
+): { detail: string }[] {
   const entries: { detail: string }[] = [];
   for (const row of e2eLandBlockEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const d = JSON.parse(row.payload) as RawE2eLandBlock;
       if (typeof d.detail === 'string') {
@@ -387,10 +403,11 @@ interface RawGuardVerificationFailed {
 export function parseGuardVerificationFailedEvents(
   store: Store,
   projectId: string,
+  since = 0,
 ): { reason: string }[] {
   const entries: { reason: string }[] = [];
   for (const row of guardVerificationFailedEvents(store.db, projectId)) {
-    if (row.payload === null) continue;
+    if (row.payload === null || row.created_at < since) continue;
     try {
       const d = JSON.parse(row.payload) as RawGuardVerificationFailed;
       if (typeof d.reason === 'string') {
@@ -416,6 +433,32 @@ interface RawLandedEvent {
  * not a duplicate of the same breach. Defensive like the other parsers here:
  * a malformed payload is skipped, never thrown.
  */
+/**
+ * THE HEALTH PANEL FORGOT NOTHING (operator, 2026-09-29): every alarm chip
+ * counted every event on record, so a convergence red cured four days
+ * earlier, an e2e block from three days back and a guard denial from ten
+ * days ago still read as today's incidents. Two cutoffs instead:
+ *
+ * - `sinceLanding`: a red that a landing cured. A landing runs the full gate
+ *   and the e2e guard on the converged branch, so a convergence red, an e2e
+ *   land block or a land-gate alarm from before the latest landing is over.
+ * - `fresh`: a near-miss with no event that resolves it (guard denials,
+ *   sync-back refusals, recurring near-misses, a guard that failed to verify)
+ *   nags for the same 48 hours {@link INTENT_COLLISION_WINDOW_MS} gives an
+ *   intent collision.
+ */
+export function alarmCutoffs(
+  store: Store,
+  projectId: string,
+  now: number,
+): { sinceLanding: number; fresh: number } {
+  const latest = landedEvents(store.db, projectId, 1)[0];
+  return {
+    sinceLanding: latest === undefined ? 0 : latest.created_at + 1,
+    fresh: now - INTENT_COLLISION_WINDOW_MS,
+  };
+}
+
 export function parseLandedEvents(
   store: Store,
   projectId: string,

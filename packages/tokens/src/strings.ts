@@ -483,7 +483,7 @@
  * rail) and the callsign/model/fixation chips' text from `live-progress.ts`
  * helpers stay English — a later slice.
  * This slice tags the Firing Replay playback controls inside a drilled-open
- * trace row (`web/features/firing-timeline.ts`): the "▶ Step through"
+ * trace row (`web/features/firing-timeline.ts`): the "Step through"
  * toggle and the Prev / Next / Exit bar it opens — visible text via
  * `data-i18n`, concise aria-label via `data-i18n-aria`, full tip via
  * `data-i18n-tip` (`replay*`). The "Step N of M" position label is an
@@ -913,7 +913,7 @@ const EN_STRINGS = {
     'Per-firing trace: every firing for this project, grouped and collapsible, unlike the Activity feed above which only shows the last flight',
   // The Firing Replay playback controls inside a drilled-open trace row
   // (web/features/firing-timeline.ts's firingTimelineSection(): the
-  // "▶ Step through" toggle and the Prev / Next / Exit bar it opens). Each
+  // "Step through" toggle and the Prev / Next / Exit bar it opens). Each
   // button's visible text rides [data-i18n], its concise aria-label
   // [data-i18n-aria], its full data-tip [data-i18n-tip] — Exit's text and
   // aria-label share replayExit, the D1 attribute-payload audit having
@@ -924,8 +924,9 @@ const EN_STRINGS = {
   // tr() fills inside the spliced helper, and the element carries the slots
   // as a data-i18n-args map for the sweep — never a fixed-text data-i18n
   // tag. The ‹ › glyphs are bidi-mirrored characters, so Hebrew keeps them:
-  // the browser flips them with the layout.
-  replayStart: '▶ Step through',
+  // the browser flips them with the layout. The toggle's ▶ is the vendored
+  // play icon now (epic 0025), beside the text rather than baked into it.
+  replayStart: 'Step through',
   replayStartAria: 'Step through',
   replayStartTip: 'Replay this firing one action at a time with Prev and Next controls',
   replayPrev: '‹ Prev',
@@ -1387,6 +1388,10 @@ const EN_STRINGS = {
   keeperSourceBacklog: 'Backlog',
   keeperSourceWisdom: 'Wisdom',
   keeperSourceApproval: 'Approval',
+  keeperRituals: 'Rituals and reports',
+  keeperRitualsHint: 'Run a ritual or read its full report',
+  keeperCommunity: 'Community',
+  keeperCommunityHint: 'Good first issues, standing and who holds what',
   pipelineView: 'Pipeline view',
   pipelineViewTitle: 'Pipeline view',
   pipelineLensLabel: 'Pipeline lens',
@@ -2114,6 +2119,7 @@ const EN_STRINGS = {
   discussionsTriageTitle: 'KEEPER Discussions triage',
   discussionsTriageLoading: 'Checking open discussions against the board…',
   discussionsTriageEmpty: 'No open discussions to triage.',
+  discussionsTriageSkipped: '{n} skipped',
   discussionsTriageUnavailable: 'Discussions triage unavailable.',
   discussionsTriageExecute: 'Run KEEPER Discussions triage',
   discussionsTriageExecuteTip:
@@ -2572,7 +2578,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     firingTrace: 'עקבה לפי הפעלה',
     firingTraceAria:
       'עקבה לפי הפעלה: כל הפעלה עבור פרויקט זה, מקובצת וניתנת לכיווץ, בניגוד לפיד הפעילות למעלה שמציג רק את הטיסה האחרונה',
-    replayStart: '▶ צעד אחר צעד',
+    replayStart: 'צעד אחר צעד',
     replayStartAria: 'צעד אחר צעד',
     replayStartTip: 'שחזור ההפעלה הזו פעולה אחת בכל פעם, עם כפתורי הקודם והבא',
     replayPrev: '‹ הקודם',
@@ -2858,6 +2864,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     keeperSourceBacklog: 'צבר',
     keeperSourceWisdom: 'חוכמה',
     keeperSourceApproval: 'אישור',
+    keeperRituals: 'טקסים ודוחות',
+    keeperRitualsHint: 'הרץ טקס או קרא את הדוח המלא שלו',
+    keeperCommunity: 'קהילה',
+    keeperCommunityHint: 'משימות ראשונות, מעמד ומי מחזיק במה',
     pipelineView: 'תצוגת צנרת',
     pipelineViewTitle: 'תצוגת צנרת',
     pipelineLensLabel: 'מסנן הצנרת',
@@ -3410,6 +3420,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     discussionsTriageTitle: 'טריאז׳ Discussions של KEEPER',
     discussionsTriageLoading: 'בודק דיונים פתוחים מול הלוח…',
     discussionsTriageEmpty: 'אין דיונים פתוחים לטריאז׳.',
+    discussionsTriageSkipped: '{n} דולגו',
     discussionsTriageUnavailable: 'טריאז׳ הדיונים אינו זמין.',
     discussionsTriageExecute: 'הרץ טריאז׳ Discussions של KEEPER',
     discussionsTriageExecuteTip:

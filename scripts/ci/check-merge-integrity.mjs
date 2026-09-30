@@ -49,8 +49,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-
-const range = process.argv[2] ?? 'HEAD~50..HEAD';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Merges this check caught after the fact whose loss was restored by hand,
@@ -80,25 +80,29 @@ function changedLines(diff, sign) {
 }
 
 /** What a side actually contributed. */
-const addedLines = (diff) => changedLines(diff, '+');
+export const addedLines = (diff) => changedLines(diff, '+');
 /** What a revert took away. */
-const removedLines = (diff) => changedLines(diff, '-');
+export const removedLines = (diff) => changedLines(diff, '-');
 
-function git(args, input) {
-  return execFileSync('git', args, {
-    windowsHide: true,
-    encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024,
-    input,
-  });
+/** A git runner bound to the repository at `cwd`. */
+function gitIn(cwd) {
+  return (args, input) =>
+    execFileSync('git', args, {
+      cwd,
+      // Stryker disable next-line BooleanLiteral: it only hides the console window Windows opens for the child
+      windowsHide: true,
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+      input,
+    });
 }
 
 /** Merge commits in the range, with their parent lists. */
-function mergeCommits() {
+function mergeCommits(git, range) {
   const out = git(['log', '--merges', '--format=%H %P', range]).trim();
   if (out === '') return [];
   return out.split('\n').map((line) => {
-    const [sha, ...parents] = line.trim().split(/\s+/);
+    const [sha, ...parents] = line.split(' ');
     return { sha, parents };
   });
 }
@@ -117,23 +121,23 @@ function mergeCommits() {
  * both: `2cf0e866` (the real `-s ours`) is identical to its first parent;
  * `e4ca24b0` (a real conflicted sync-back) is not.
  */
-function treeIdenticalTo(merge, parent) {
+function treeIdenticalTo(git, merge, parent) {
   try {
     git(['diff', '--quiet', merge, parent]);
-    return true;
   } catch {
     return false;
   }
+  return true;
 }
 
 /** Whether `rev` names a commit with a second parent. */
-function isMerge(rev) {
+function isMerge(git, rev) {
   try {
     git(['rev-parse', '--verify', '--quiet', `${rev}^2`]);
-    return true;
   } catch {
     return false;
   }
+  return true;
 }
 
 /**
@@ -150,22 +154,25 @@ function isMerge(rev) {
  * flagged for 51 lines that were only regenerated data the branch had since
  * legitimately rewritten (5a2838a4, landing b3518be0's flight into main).
  */
-function mergeRevertsBroughtBy(firstParent, parent) {
-  return mergeRevertsIn(git(['log', '--first-parent', ...REVERT_LOG, `${firstParent}..${parent}`]));
+function mergeRevertsBroughtBy(git, firstParent, parent) {
+  return mergeRevertsIn(
+    git,
+    git(['log', '--first-parent', ...REVERT_LOG, `${firstParent}..${parent}`]),
+  );
 }
 
 const REVERT_LOG = ['--no-merges', '--grep=This reverts commit ', '--format=%H%x1f%B%x1e'];
 
-/** The `{ sha, reverted }` merge reverts in a `REVERT_LOG`-formatted log. */
-function mergeRevertsIn(out) {
+/** The `{ sha, reverted }` merge reverts in a `REVERT_LOG`-formatted log. The
+ *  empty record after the last separator matches nothing and yields none. */
+function mergeRevertsIn(git, out) {
   return out
     .split('\x1e')
     .map((record) => record.trim())
-    .filter(Boolean)
     .flatMap((record) => {
-      const [sha, body = ''] = record.split('\x1f');
-      const reverted = /This reverts commit ([0-9a-f]{7,40})/.exec(body)?.[1];
-      return reverted !== undefined && isMerge(reverted) ? [{ sha, reverted }] : [];
+      const [sha] = record.split('\x1f');
+      const match = /This reverts commit ([0-9a-f]{7,40})/.exec(record);
+      return match !== null && isMerge(git, match[1]) ? [{ sha, reverted: match[1] }] : [];
     });
 }
 
@@ -176,22 +183,26 @@ function mergeRevertsIn(out) {
  * parent; a merge pays for the precise walk only when one of those reverts
  * sits on an incoming parent's first-parent line.
  */
-function carriedRevertIndex(merges) {
+function carriedRevertIndex(git, merges) {
   const index = { reverts: new Set(), firstParent: new Map() };
+  // Stryker disable next-line ConditionalExpression: a speed-up only — with no merge, nothing reads the index
   if (merges.length === 0) return index;
   const tips = merges.map(({ sha }) => sha).join('\n');
-  for (const { sha } of mergeRevertsIn(git(['log', '--stdin', ...REVERT_LOG], tips))) {
+  for (const { sha } of mergeRevertsIn(git, git(['log', '--stdin', ...REVERT_LOG], tips))) {
     index.reverts.add(sha);
   }
+  // Stryker disable next-line ConditionalExpression: a speed-up only — with no revert, no walk can find one
   if (index.reverts.size === 0) return index;
   for (const line of git(['rev-list', '--parents', '--stdin'], tips).split('\n')) {
-    const [sha, parent] = line.trim().split(/\s+/);
-    if (parent !== undefined) index.firstParent.set(sha, parent);
+    // A root commit (and the empty last line) maps to undefined: no parent.
+    const [sha, parent] = line.split(' ');
+    index.firstParent.set(sha, parent);
   }
   return index;
 }
 
-function firstParentLineHasRevert(start, index) {
+/** Whether a merge revert in `index` sits on `start`'s first-parent line. */
+export function firstParentLineHasRevert(start, index) {
   for (let c = start; c !== undefined; c = index.firstParent.get(c)) {
     if (index.reverts.has(c)) return true;
   }
@@ -200,12 +211,14 @@ function firstParentLineHasRevert(start, index) {
 
 /** Findings for a merge whose non-first parent carried a revert of a merge
  *  that deleted lines the first parent still had — and the merge lost. */
-function droppedByCarriedRevert(sha, parents, index) {
+function droppedByCarriedRevert(git, sha, parents, index) {
   const findings = [];
   let absentFromMerge;
+  // Stryker disable next-line EqualityOperator: parents[parents.length] is undefined, and no revert sits on its empty line
   for (let i = 1; i < parents.length; i += 1) {
+    // Stryker disable next-line ConditionalExpression: the index is a speed-up only — the precise walk below reaches the same verdict
     if (!firstParentLineHasRevert(parents[i], index)) continue;
-    for (const revert of mergeRevertsBroughtBy(parents[0], parents[i])) {
+    for (const revert of mergeRevertsBroughtBy(git, parents[0], parents[i])) {
       absentFromMerge ??= addedLines(git(['diff', '--no-color', sha, parents[0]]));
       const deleted = removedLines(git(['diff', '--no-color', `${revert.sha}^`, revert.sha]));
       const lost = [...deleted].filter((line) => absentFromMerge.has(line));
@@ -224,11 +237,11 @@ function droppedByCarriedRevert(sha, parents, index) {
 }
 
 /** Findings for a `-s ours` merge that discarded what a parent added. */
-function droppedByOursStrategy(sha, parents) {
+function droppedByOursStrategy(git, sha, parents) {
   const findings = [];
   // Cheap pre-filter: only a merge whose tree is exactly its first
   // parent's took nothing from the other side.
-  if (!treeIdenticalTo(sha, parents[0])) return findings;
+  if (!treeIdenticalTo(git, sha, parents[0])) return findings;
 
   for (let i = 1; i < parents.length; i += 1) {
     const parent = parents[i];
@@ -252,6 +265,7 @@ function droppedByOursStrategy(sha, parents) {
     // tip is consulted, so the verdict is identical everywhere.
     const base = git(['merge-base', parents[0], parent]).trim();
     const contributed = addedLines(git(['diff', '--no-color', base, parent]));
+    // Stryker disable next-line ConditionalExpression: a speed-up only — nothing contributed, nothing can be lost
     if (contributed.size === 0) continue;
     const absentFromMerge = addedLines(git(['diff', '--no-color', sha, parent]));
     const lost = [...contributed].filter((line) => absentFromMerge.has(line));
@@ -261,62 +275,85 @@ function droppedByOursStrategy(sha, parents) {
   return findings;
 }
 
-function report(allFindings, merges) {
+/** What the check prints — `out` to stdout, `err` to stderr — and its exit code. */
+function report(git, allFindings, merges, range, repaired) {
   const subject = (sha) => git(['log', '-1', '--format=%s', sha]).trim();
-  const findings = allFindings.filter((f) => !REPAIRED.has(f.sha));
-  const repaired = [...new Set(allFindings.map((f) => f.sha))].filter((sha) => REPAIRED.has(sha));
+  const findings = allFindings.filter((f) => !repaired.has(f.sha));
+  const out = [];
+  const err = [];
 
   if (findings.length === 0) {
-    console.log(`✓ merge integrity OK — every merge in ${range} contains both parents' work`);
-    console.log(`  (${merges.length} merge commit(s) checked)`);
-    for (const sha of repaired) {
-      console.log(
-        `  ${sha.slice(0, 8)} dropped work, acknowledged as repaired: ${REPAIRED.get(sha)}`,
-      );
+    out.push(`✓ merge integrity OK — every merge in ${range} contains both parents' work`);
+    out.push(`  (${merges.length} merge commit(s) checked)`);
+    // Every finding left here is one the ledger acknowledges.
+    for (const sha of new Set(allFindings.map((f) => f.sha))) {
+      out.push(`  ${sha.slice(0, 8)} dropped work, acknowledged as repaired: ${repaired.get(sha)}`);
     }
-    return;
+    return { code: 0, out, err };
   }
 
-  console.error(`✗ ${findings.length} merge commit(s) dropped a parent's work in ${range}\n`);
+  err.push(`✗ ${findings.length} merge commit(s) dropped a parent's work in ${range}\n`);
   for (const f of findings) {
-    console.error(`  ${f.sha.slice(0, 8)}  ${subject(f.sha)}`);
+    err.push(`  ${f.sha.slice(0, 8)}  ${subject(f.sha)}`);
     if (f.revert === undefined) {
-      console.error(
+      err.push(
         `    parent ${f.index} (${f.parent.slice(0, 8)}) has ${f.lines} line(s) it ADDED that this merge does not contain:`,
       );
     } else {
-      console.error(
+      err.push(
         `    parent ${f.index} (${f.parent.slice(0, 8)}) carries ${f.revert.sha.slice(0, 8)}, a revert of merge ${f.revert.reverted.slice(0, 8)},`,
-      );
-      console.error(
         `    which deleted ${f.lines} line(s) the first parent still had — this merge re-applied it:`,
       );
     }
 
-    for (const c of f.sample) console.error(`      ${c.slice(0, 90)}`);
+    for (const c of f.sample) err.push(`      ${c.slice(0, 90)}`);
     if (f.revert === undefined) {
-      console.error(
-        '    A merge commit claims both parents are included. Re-merge without -s ours,',
-      );
+      err.push('    A merge commit claims both parents are included. Re-merge without -s ours,');
     } else {
-      console.error('    Merging a branch that reverted a merge re-applies the revert. Revert the');
-      console.error('    revert on that branch before merging it back,');
+      err.push(
+        '    Merging a branch that reverted a merge re-applies the revert. Revert the',
+        '    revert on that branch before merging it back,',
+      );
     }
-    console.error('    or land the missing work as its own commit.\n');
+    err.push('    or land the missing work as its own commit.\n');
   }
-  process.exitCode = 1;
+  return { code: 1, out, err };
 }
 
-function main() {
+/**
+ * The whole check over `range` in the repository at `cwd`: the lines it
+ * prints and the exit code it ends with. Exported so the tests run it
+ * in-process: Stryker switches a mutant on inside the test process only, so
+ * while the tests ran this script as a child process none reached it, and
+ * the nightly run of 2026-09-29 counted 242 survivors here.
+ */
+export function checkMergeIntegrity({
+  range = 'HEAD~50..HEAD',
+  cwd = process.cwd(),
+  repaired = REPAIRED,
+} = {}) {
+  const git = gitIn(cwd);
   // `git log --merges` lists only commits with 2+ parents, and both checks
   // walk parents[1..] — a lone parent would simply yield no findings.
-  const merges = mergeCommits();
-  const index = carriedRevertIndex(merges);
+  const merges = mergeCommits(git, range);
+  const index = carriedRevertIndex(git, merges);
   const findings = merges.flatMap(({ sha, parents }) => [
-    ...droppedByOursStrategy(sha, parents),
-    ...droppedByCarriedRevert(sha, parents, index),
+    ...droppedByOursStrategy(git, sha, parents),
+    ...droppedByCarriedRevert(git, sha, parents, index),
   ]);
-  report(findings, merges);
+  return report(git, findings, merges, range, repaired);
 }
 
-main();
+// Stryker disable all: the process shell — it prints what checkMergeIntegrity
+// returns. merge-integrity.test.ts runs that in-process, and runs this shell
+// end-to-end as a child process too.
+function main() {
+  const { code, out, err } = checkMergeIntegrity({ range: process.argv[2] });
+  for (const line of out) console.log(line);
+  for (const line of err) console.error(line);
+  process.exitCode = code;
+}
+
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
+// Stryker restore all

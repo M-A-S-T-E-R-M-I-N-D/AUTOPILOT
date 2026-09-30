@@ -306,6 +306,27 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['circle', { cx: '12', cy: '12', r: '10' }],
     ['path', { d: 'M12 6v6l4 2' }],
   ],
+  // Epic 0026's row anatomy: the task row's leading status glyph, one circle
+  // family — queued, in progress, done, awaiting approval, deferred.
+  circle: [['circle', { cx: '12', cy: '12', r: '10' }]],
+  'circle-dot': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['circle', { cx: '12', cy: '12', r: '1' }],
+  ],
+  'circle-check': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['path', { d: 'm16 9-5.5 5.5L8 12' }],
+  ],
+  'circle-question-mark': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['path', { d: 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3' }],
+    ['path', { d: 'M12 17h.01' }],
+  ],
+  'circle-pause': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['line', { x1: '10', x2: '10', y1: '15', y2: '9' }],
+    ['line', { x1: '14', x2: '14', y1: '15', y2: '9' }],
+  ],
   compass: [
     ['circle', { cx: '12', cy: '12', r: '10' }],
     [
@@ -429,6 +450,17 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
   braces: [
     ['path', { d: 'M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1' }],
     ['path', { d: 'M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1' }],
+  ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the Firing Replay
+  // "Step through" toggle drops its baked-in ▶ — the last Geometric Shapes
+  // glyph standing in for an icon in a STRINGS value.
+  play: [
+    [
+      'path',
+      {
+        d: 'M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z',
+      },
+    ],
   ],
 };
 

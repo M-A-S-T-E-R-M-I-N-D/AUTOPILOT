@@ -122,10 +122,11 @@ function listTrackedFiles() {
 }
 // Stryker restore all
 
-// Stryker disable all: `main` is the process shell — it reads every tracked
-// config, the store schema and the CI workflows off disk and can only be
-// exercised by running the gate for real. The logic it delegates to,
-// `findUnpinnedActions` and `stripJsonComments`, IS mutation-tested.
+// Stryker disable all: `main` and the entry-point guard that calls it are the
+// process shell — `main` reads every tracked config, the store schema and the
+// CI workflows off disk and can only be exercised by running the gate for real.
+// The logic it delegates to, `findUnpinnedActions` and `stripJsonComments`, IS
+// mutation-tested.
 function main() {
   const files = listTrackedFiles();
   /** @type {string[]} */
@@ -319,7 +320,7 @@ function main() {
 
   console.log(`validate-configs OK: ${jsonFiles.length} JSON config(s) valid`);
 }
-// Stryker restore all
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) main();
+// Stryker restore all

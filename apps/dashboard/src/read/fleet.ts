@@ -203,6 +203,12 @@ export interface FlightEntry {
    *  was unreadable). Null for shipped/reverted rows — an honest flight log
    *  explains EVERY empty row, not just gate reverts. */
   readonly died: 'turn-cap' | 'timeout' | 'error' | null;
+  /** True when the account-wide quota killed the firing before it could work
+   *  (its record carries `globalExhaust`). It still shows in the flight log,
+   *  but the death-cluster and ship-rate rules leave it out: it says nothing
+   *  about the task, the gate or the model. Optional for the same
+   *  pre-existing-fixture reason as the fields below. */
+  readonly quotaDeath?: boolean;
   /** NOOP→VERDICT (lever 6, board web-mt1kv2au-8suw6u): for a TRUE no-commit
    *  ending (`gateResult === 'no-commit'`), whether the firing still named a
    *  verdict on the work it considered via PROPOSALS (`'verdict-carrying'`)

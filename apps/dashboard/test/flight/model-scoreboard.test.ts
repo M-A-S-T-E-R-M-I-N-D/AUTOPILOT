@@ -85,6 +85,23 @@ describe('tierStats', () => {
       arm(null as unknown as string, 0, 0, 0),
     );
   });
+
+  it('never takes a bare alias for the current model (2026-09-29)', () => {
+    // A firing that died before the model answered records the alias it
+    // asked for, which names no version: round 37 read "opus opus 4/15
+    // shipped 0%" and the whole claude-opus-5-5 record dropped out.
+    const firings = [
+      ...runs('default', 'claude-opus-5-5', 20, 19, 1),
+      ...runs('default', 'opus', 4, 0, 0),
+    ];
+    expect(tierStats(firings, 'default', ['opus']).get('opus')).toEqual(
+      arm('claude-opus-5-5', 20, 19, 20),
+    );
+    const onlyAliases = runs('default', 'sonnet', 3, 0, 0);
+    expect(tierStats(onlyAliases, 'default', ['sonnet']).get('sonnet')).toEqual(
+      arm(null as unknown as string, 0, 0, 0),
+    );
+  });
 });
 
 describe('wilsonLower', () => {
