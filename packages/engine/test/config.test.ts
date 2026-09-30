@@ -26,6 +26,15 @@ describe('DEFAULT_ALLOWED_TOOLS / DEFAULT_DISALLOWED_TOOLS', () => {
       expect(DEFAULT_DISALLOWED_TOOLS).toContain(tool);
     }
   });
+
+  it('grants Bash as the only shell — PowerShell stays ungranted', () => {
+    // Decided in docs/debriefs/2026-09-30-decision-ap-muo2yojl-0-powershell-stays-ungranted.md:
+    // the guard's textual checks miss PowerShell-only shapes (registry and
+    // certificate drives, the `&` call operator, kill aliases), so granting
+    // it waits on the preconditions listed there.
+    expect(DEFAULT_ALLOWED_TOOLS).toContain('Bash');
+    expect(DEFAULT_ALLOWED_TOOLS as readonly string[]).not.toContain('PowerShell');
+  });
 });
 
 describe('DEFAULT_ENGINE_CONFIG', () => {
