@@ -439,6 +439,14 @@ function chooseAvailableModel(
     : { ...choice, reason: `${choice.reason}; resting after a quota hit: ${resting.join(', ')}` };
 }
 
+/** An arm's firing count: progress toward {@link MIN_ARM_FIRINGS} while it
+ *  is below it, the bare count once met — "164/15" read as 164 of 15. Padded
+ *  to one width, so every row's numbers line up either way. */
+function armFirings(firings: number): string {
+  const count = firings < MIN_ARM_FIRINGS ? `${firings}/${MIN_ARM_FIRINGS}` : String(firings);
+  return count.padStart(6);
+}
+
 /** The scoreboard as printable lines, one block per tier. */
 export function renderScoreboard(firings: readonly RoutedFiring[]): string[] {
   const lines = ['model scoreboard (by tier, current model of each alias)'];
@@ -451,7 +459,7 @@ export function renderScoreboard(firings: readonly RoutedFiring[]): string[] {
       const per = s.shipped === 0 ? '-' : `$${costPerShip(s).toFixed(2)}`;
       lines.push(
         `    ${alias.padEnd(7)} ${(s.modelId ?? 'not served yet').padEnd(28)} ` +
-          `${String(s.firings).padStart(3)}/${MIN_ARM_FIRINGS} firings  shipped ${rate.padStart(4)}  per ship ${per}`,
+          `${armFirings(s.firings)} firings  shipped ${rate.padStart(4)}  per ship ${per}`,
       );
     }
   }

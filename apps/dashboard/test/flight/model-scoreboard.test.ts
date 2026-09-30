@@ -358,4 +358,23 @@ describe('the store side: decisions recorded, firings matched', () => {
     expect(text).toContain('claude-opus-5-5');
     expect(text).toContain('not served yet');
   });
+
+  // 2026-09-30 round: "opus 164/15 firings" read as 164 of 15. The count is
+  // progress toward the minimum only while an arm is below it.
+  it('drops the minimum from an arm that has met it, and keeps the rows in line', () => {
+    const lines = renderScoreboard([
+      ...runs('mechanical', 'claude-haiku-4-5-20251001', 9, 7, 1),
+      ...runs('mechanical', 'claude-sonnet-5', 164, 150, 2),
+      ...runs('mechanical', 'claude-opus-5-5', MIN_ARM_FIRINGS, 15, 1),
+    ]);
+    const block = lines.slice(lines.findIndex((l) => l.startsWith('  mechanical:')));
+    const row = (alias: string): string => block.find((l) => l.startsWith(`    ${alias} `))!;
+    expect(row('haiku')).toContain(`  9/${MIN_ARM_FIRINGS} firings`);
+    expect(row('sonnet')).toMatch(/ 164 firings /);
+    expect(row('sonnet')).not.toContain(`/${MIN_ARM_FIRINGS}`);
+    expect(row('opus')).toMatch(new RegExp(` ${MIN_ARM_FIRINGS} firings `));
+    expect(row('opus')).not.toContain(`/${MIN_ARM_FIRINGS}`);
+    const columns = new Set(['haiku', 'sonnet', 'opus'].map((a) => row(a).indexOf(' firings')));
+    expect(columns.size).toBe(1);
+  });
 });
