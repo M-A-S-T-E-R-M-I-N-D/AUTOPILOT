@@ -2,10 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { openStore, migrate, type Store } from '@autopilot/store';
+import {
+  DIMENSIONS,
+  SEVERITIES,
+  openStore,
+  migrate,
+  type Dimension,
+  type Store,
+} from '@autopilot/store';
 import {
   REPORT_ACTIONS,
   isReportAction,
@@ -14,10 +21,12 @@ import {
   executeReportCommands,
   applyReportTask,
   runReportFromHereRitual,
+  type ReportPlan,
   type ReportRegionCapture,
   type ReportTaskPlan,
 } from '../../src/flight/report-from-here.js';
 import { classifyIssueDimension } from '../../src/flight/issue-triage.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function capture(overrides: Partial<ReportRegionCapture> = {}): ReportRegionCapture {
@@ -247,6 +256,75 @@ describe('planReportFromHere — pool offer', () => {
       'priority: critical',
     ]);
     expect(plan.summary).toContain('(priority: critical)');
+  });
+});
+
+// EPIC 0019 additive-only law, the report flow: `gh issue create` fails the
+// whole create on one label name the repo does not have, and the report
+// spells both of its label families by hand (`pool: ${dimension}`,
+// `priority: ${severity}`). The tests above rebuild the label the same way,
+// so they pass on a drifted name too. These read the seed sources instead:
+// the pool family is `.github/labels.json`'s (labels.yml syncs it), the
+// priority family is HOUSE_TAXONOMY_LABELS'. The stock `bug` label is
+// GitHub's own default, so neither source carries it.
+const POOL_LABEL_NAMES: readonly string[] = (
+  JSON.parse(readFileSync(join(process.cwd(), '.github/labels.json'), 'utf8')) as {
+    readonly name: string;
+  }[]
+).map((label) => label.name);
+const HOUSE_LABEL_NAMES: readonly string[] = HOUSE_TAXONOMY_LABELS.map((label) => label.name);
+
+/** One description per pool, each carrying only that pool's keyword. The
+ *  `satisfies` keeps it whole: typecheck fails the moment a dimension is
+ *  added without one. */
+const DESCRIPTION_BY_DIMENSION = {
+  accessibility: 'The screen reader skips this region.',
+  cybersecurity: 'An XSS hole lets scripts run here.',
+  ux: 'Finding the launch control is confusing.',
+  human_interaction: 'The notification never arrives.',
+  learnings: 'The postmortem for this region is missing.',
+  information: 'The readme has a typo here.',
+  data: 'The database schema drifted under this region.',
+  priorities: 'The ranking here is off.',
+} satisfies Record<Dimension, string>;
+
+/** The `--label` values of an upstream plan's `gh issue create`. */
+function createLabels(plan: ReportPlan): string[] {
+  if (!plan.ok || (plan.action !== 'issue' && plan.action !== 'pool-offer')) {
+    throw new Error('expected an upstream plan');
+  }
+  const args = plan.commands[0]?.args ?? [];
+  return args.filter((_, i) => args[i - 1] === '--label');
+}
+
+describe('planReportFromHere × the seeded label sources (regression, epic 0019 additive-only law)', () => {
+  it('offers each pool under the label labels.json syncs', () => {
+    const offered = DIMENSIONS.map((dimension) => {
+      const cap = capture({ description: DESCRIPTION_BY_DIMENSION[dimension] });
+      // Guards the fixture: every pool below is really reached.
+      expect(classifyIssueDimension(`${cap.regionLabel} ${cap.description}`)).toBe(dimension);
+      return createLabels(planReportFromHere(cap, 'pool-offer', 'p1', 1));
+    });
+
+    expect(offered.flat().filter((label) => !POOL_LABEL_NAMES.includes(label))).toEqual([]);
+    expect(new Set(offered.flat()).size).toBe(DIMENSIONS.length);
+  });
+
+  it('files each severity under a priority label the taxonomy seeder creates', () => {
+    const filed = SEVERITIES.flatMap((severity) => [
+      ...createLabels(planReportFromHere(capture({ severity }), 'issue', '', 1)),
+      ...createLabels(
+        planReportFromHere(
+          capture({ description: DESCRIPTION_BY_DIMENSION.cybersecurity, severity }),
+          'pool-offer',
+          'p1',
+          1,
+        ),
+      ),
+    ]).filter((label) => label.startsWith('priority: '));
+
+    expect(filed).toHaveLength(SEVERITIES.length * 2);
+    expect(filed.filter((label) => !HOUSE_LABEL_NAMES.includes(label))).toEqual([]);
   });
 });
 
