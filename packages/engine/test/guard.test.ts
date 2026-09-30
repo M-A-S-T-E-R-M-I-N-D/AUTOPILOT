@@ -168,6 +168,38 @@ describe('checkCommandContainment', () => {
     expect(check('echo $env:PATH').allowed).toBe(true);
   });
 
+  const TEMP_DIR_REASON =
+    'the command references the system temp directory, outside the target — keep scratch ' +
+    'files in the git-ignored .tmp-autopilot/ instead';
+
+  it('denies the system temp directory in every shell spelling (ap-muniun5k-3)', () => {
+    // Firing 606 redirected into "$TMPDIR/x" and the guard let it through: the
+    // variable names a directory outside every target, the same as $HOME does.
+    for (const cmd of [
+      'pnpm run typecheck > "$TMPDIR/x"',
+      'echo hi > $TMPDIR/out.txt',
+      'cat ${TMPDIR}/x',
+      'cp report.txt $TEMP/report.txt',
+      'pnpm run lint 2>$TMP',
+      String.raw`type %TEMP%\x.txt`,
+      String.raw`copy report.txt %tmp%\report.txt`,
+      String.raw`Set-Content $env:TEMP\x.txt hi`,
+      'Get-ChildItem ${env:Tmp}',
+      'Out-File -FilePath $Env:TMPDIR/x',
+    ]) {
+      expect(check(cmd), cmd).toEqual({ allowed: false, reason: TEMP_DIR_REASON });
+    }
+  });
+
+  it('a temp-directory form must end at a name boundary, and Bash names stay case-sensitive', () => {
+    expect(check('echo $TEMPLATE $TMP_FILE $TMPDIRS').allowed).toBe(true);
+    expect(check('echo %TEMPLATE% $env:TEMPLATE $env:TMP_BACKUP').allowed).toBe(true);
+    // A script's own lowercase `$tmp` is a local variable in Bash, not the temp dir.
+    expect(check('tmp=$(git rev-parse HEAD) && echo $tmp').allowed).toBe(true);
+    // Assigning TMPDIR to a path inside the target references nothing outside it.
+    expect(check('TMPDIR=.tmp-autopilot pnpm test').allowed).toBe(true);
+  });
+
   it('denies a home-directory reference at the very START of the command (no preceding boundary char)', () => {
     expect(check('~/.ssh/id_rsa').allowed).toBe(false);
   });
@@ -829,6 +861,12 @@ describe('evaluateHookInput', () => {
       );
       expect(ps('Get-ChildItem ${env:APPDATA}')).not.toBeNull();
       expect(ps(String.raw`Get-Content $home\.claude\.credentials.json`)).not.toBeNull();
+    });
+
+    it("denies PowerShell's temp-directory forms under the CONTAINMENT prefix", () => {
+      const out = ps(String.raw`pnpm run test > $env:TEMP\gate.log`);
+      expect(reason(out)).toContain('CONTAINMENT:');
+      expect(reason(out)).toContain('system temp directory');
     });
 
     it('denies destructive git and process control', () => {

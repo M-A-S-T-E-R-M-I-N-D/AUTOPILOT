@@ -79,6 +79,15 @@ const HOME_REF =
 // are the same reference; `\b` keeps a longer name like `$homepage` out.
 const POWERSHELL_HOME_REF = /\$\{?(?:env:(?:USERPROFILE|APPDATA|HOMEPATH)|home)\b/i;
 
+// The system temp directory (ap-muniun5k-3): outside every target, so firing
+// 606's redirect into "$TMPDIR/x" wrote a file no gate, census or audit of the
+// target ever sees. Bash spells it `$TMPDIR`/`$TEMP`/`$TMP`, case-sensitively,
+// so a script's own lowercase `$tmp` stays allowed. cmd's `%TEMP%`/`%TMP%` and
+// PowerShell's `$env:TEMP`/`$env:TMP`/`$env:TMPDIR` are case-insensitive, like
+// those shells. `\b` keeps a longer name like `$TEMPLATE` or `$TMP_FILE` out.
+const TEMP_DIR_REF = /\$\{?(?:TMPDIR|TEMP|TMP)\b/;
+const CASELESS_TEMP_DIR_REF = /%(?:TEMP|TMP)%|\$\{?env:(?:TMPDIR|TEMP|TMP)\b/i;
+
 // A bare `cd` (no argument) changes to HOME — outside any target by definition.
 // A newline is a command separator too (the Bash tool can send a multi-line
 // script as one string), so it must count as a boundary alongside && / || / ;.
@@ -793,6 +802,14 @@ export function checkCommandContainment(command: string, targetRoot: string): Co
     return {
       allowed: false,
       reason: 'the command references the home directory (credentials live there)',
+    };
+  }
+  if (TEMP_DIR_REF.test(command) || CASELESS_TEMP_DIR_REF.test(command)) {
+    return {
+      allowed: false,
+      reason:
+        'the command references the system temp directory, outside the target — keep scratch ' +
+        'files in the git-ignored .tmp-autopilot/ instead',
     };
   }
   if (BARE_CD.test(command)) {

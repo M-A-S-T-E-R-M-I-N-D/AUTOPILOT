@@ -45,7 +45,9 @@ for flying untrusted targets, or on a shared machine, or unattended.
    `PreToolUse` hooks pipe each Bash or PowerShell command, and each Read/Grep/Glob/Write/Edit call,
    through a path guard (`node guard-hook.js <target>`): any absolute path outside the
    target, any home-directory reference (`~`, `$HOME`, `%USERPROFILE%`, PowerShell's
-   `$env:USERPROFILE` — where credentials live), or a bare `cd` is denied with the documented
+   `$env:USERPROFILE` — where credentials live), any system-temp reference (`$TMPDIR`, `$TEMP`,
+   `$TMP`, `%TEMP%`, `$env:TEMP` — outside every target; scratch goes in the git-ignored
+   `.tmp-autopilot/`), or a bare `cd` is denied with the documented
    `permissionDecision: "deny"` JSON, enforced by the harness — Read/Grep/Glob get an
    additional read-hygiene denial (generated/vendored paths waste context, not a
    security control). The same hook also denies destructive git — force-push,
