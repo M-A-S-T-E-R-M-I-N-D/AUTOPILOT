@@ -12,6 +12,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axe from 'axe-core';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import {
+  FLEET_WISDOM_OPT_OUT_LINE,
+  soulOptsOutOfFleetWisdom,
+} from '../../src/flight/fleet-wisdom-mining.js';
 
 // Contrast needs real layout, which jsdom lacks — same carve-out as
 // fleet-wisdom-panel.test.ts.
@@ -428,6 +432,47 @@ describe('SOUL editor is locked by default (board ap-muo35gzl-2)', () => {
     (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
     expect(editorParts().unlock.textContent).toBe(STRINGS.he.soulEditorUnlock);
     expect(editorParts().unlock.querySelector('svg.icon-lock')).not.toBeNull();
+  });
+});
+
+describe('SOUL editor names the fleet-wisdom opt-out (board ap-muo35gzl-2)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    // The i18n case below persists Hebrew; later suites expect English.
+    localStorage.clear();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('describes the SOUL text with a hint that names the opt-out line', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const textarea = document.querySelector(
+      '[data-soul-edit] textarea[name="text"]',
+    ) as HTMLTextAreaElement;
+    const hintId = textarea.getAttribute('aria-describedby');
+    expect(hintId).toBe('soul-editor-hint-p1');
+    const hint = document.getElementById(hintId as string) as HTMLElement;
+    expect(hint.closest('[data-soul-edit]')).not.toBeNull();
+    expect(hint.getAttribute('data-i18n')).toBe('soulEditorWisdomHint');
+    expect(hint.textContent).toBe(STRINGS.en.soulEditorWisdomHint);
+  });
+
+  it('quotes, in every locale, the exact line the flight honors', () => {
+    expect(soulOptsOutOfFleetWisdom(FLEET_WISDOM_OPT_OUT_LINE)).toBe(true);
+    expect(STRINGS.en.soulEditorWisdomHint).toContain(FLEET_WISDOM_OPT_OUT_LINE);
+    expect(STRINGS.he.soulEditorWisdomHint).toContain(FLEET_WISDOM_OPT_OUT_LINE);
+  });
+
+  it('translates the hint with the language switcher', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    const hint = document.getElementById('soul-editor-hint-p1');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toBe(STRINGS.he.soulEditorWisdomHint);
   });
 });
 
