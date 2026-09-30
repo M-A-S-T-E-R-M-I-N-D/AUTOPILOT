@@ -69,9 +69,9 @@ const LICENSE_OPERATORS = new Set(['AND', 'OR', 'WITH']);
  * the span is malformed.
  */
 
-/** @param {LicenseCursor} cursor @returns {string} */
+/** @param {LicenseCursor} cursor @returns {string | undefined} */
 function peekOperator(cursor) {
-  return (cursor.tokens[cursor.pos] ?? '').toUpperCase();
+  return cursor.tokens[cursor.pos]?.toUpperCase();
 }
 
 /** @param {string | undefined} token @returns {token is string} */
@@ -100,6 +100,10 @@ function parseOrExpression(cursor) {
  *  @param {LicenseCursor} cursor @returns {boolean | null} */
 function parseAndExpression(cursor) {
   let allowed = parseLicenseTerm(cursor);
+  // Stryker disable next-line ConditionalExpression: `allowed !== null` ->
+  // `true` is equivalent here — `null && next` stays null, so parsing on past a
+  // malformed term still returns null. The guard only stops early; the one in
+  // parseOrExpression is load-bearing (`null || next` would not stay null).
   while (allowed !== null && peekOperator(cursor) === 'AND') {
     cursor.pos += 1;
     const next = parseLicenseTerm(cursor);
@@ -115,7 +119,7 @@ function parseLicenseTerm(cursor) {
   if (token === '(') {
     cursor.pos += 1;
     const inner = parseOrExpression(cursor);
-    if (inner === null || cursor.tokens[cursor.pos] !== ')') return null;
+    if (cursor.tokens[cursor.pos] !== ')') return null;
     cursor.pos += 1;
     return inner;
   }
@@ -125,6 +129,9 @@ function parseLicenseTerm(cursor) {
   const exception = cursor.tokens[cursor.pos + 1];
   if (!isIdToken(exception)) return null;
   cursor.pos += 2;
+  // Stryker disable next-line StringLiteral: no `<id> WITH <exception>` pair is
+  // on EXACT_ALLOWED yet, so blanking the looked-up key fails closed exactly the
+  // same way; the lookup is the hook for the first reviewed exception.
   return isAllowedLicenseId(`${token} WITH ${exception}`);
 }
 
@@ -143,6 +150,9 @@ function parseLicenseTerm(cursor) {
  * @param {string} license @returns {boolean}
  */
 export function isAllowedLicenseExpression(license) {
+  // Stryker disable next-line ArrayDeclaration: match() is null only for an
+  // empty or all-whitespace field, and any stand-in token list fails closed on
+  // it exactly like the empty one (a lone unlisted id is not allowed either).
   const cursor = { tokens: license.match(LICENSE_TOKEN_RE) ?? [], pos: 0 };
   const allowed = parseOrExpression(cursor);
   return allowed === true && cursor.pos === cursor.tokens.length;
