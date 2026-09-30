@@ -66,11 +66,13 @@ export function findConflictMarkers(text) {
   const ends = [];
   /** @type {{ line: number, marker: string }[]} */
   const mids = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? '';
-    if (START_RE.test(line)) starts.push({ line: i + 1, marker: line });
-    else if (END_RE.test(line)) ends.push({ line: i + 1, marker: line });
-    else if (MID_RE.test(line)) mids.push({ line: i + 1, marker: line });
+  // for...of over entries(), not an index loop: `i <= lines.length` and the
+  // `lines[i] ?? ''` fallback were equivalent mutants no test could kill,
+  // since reading one past the end only ever yields a line matching nothing.
+  for (const [index, line] of lines.entries()) {
+    if (START_RE.test(line)) starts.push({ line: index + 1, marker: line });
+    else if (END_RE.test(line)) ends.push({ line: index + 1, marker: line });
+    else if (MID_RE.test(line)) mids.push({ line: index + 1, marker: line });
   }
   if (starts.length === 0 && ends.length === 0) return [];
   return [...starts, ...mids, ...ends].sort((a, b) => a.line - b.line);
