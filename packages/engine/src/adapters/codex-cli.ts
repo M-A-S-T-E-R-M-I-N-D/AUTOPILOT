@@ -32,6 +32,7 @@ import {
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
+import { buildInvocation } from './gate.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -168,6 +169,14 @@ export function isCodexResumeFailure(
   );
 }
 
+/**
+ * What an argument may hold to pass through `cmd.exe /c`. Node quotes a
+ * Windows argument only when it holds whitespace or a quote, so `x&whoami`
+ * reaches cmd.exe bare and runs `whoami`. Model names and thread ids need
+ * nothing outside this set; `& | < > ^ % ! ( ) "` and whitespace are all out.
+ */
+const CMD_SAFE_ARG = /^[A-Za-z0-9._:/@+-]+$/;
+
 export interface CodexCliOptions {
   readonly repo: string;
   /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
@@ -209,6 +218,9 @@ export interface CodexCliOptions {
    *  `ClaudeCliOptions.reapDescendants`: defaults to the real cross-platform
    *  {@link reapCliDescendants}; tests inject a spy to prove the reap runs. */
   readonly reapDescendants?: (pid: number | undefined, platform?: NodeJS.Platform) => void;
+  /** The OS to build the spawn for. Defaults to `process.platform`; tests pin
+   *  it so both spawn shapes are provable on any machine. */
+  readonly platform?: NodeJS.Platform;
 }
 
 /**
@@ -220,8 +232,11 @@ export interface CodexCliOptions {
  * open would hang every cold run until the wall-clock cap. A prompt over
  * {@link CLI_STDIN_PROMPT_THRESHOLD}, or one starting with `-`, goes on stdin behind
  * a `-` argument instead, dodging the Windows command-line ceiling the way
- * `ClaudeCliModel` does. Mirrors `ClaudeCliModel`'s buffered-execFile
- * transport shape, including `detached: true` + {@link reapCliDescendants} so a
+ * `ClaudeCliModel` does. On Windows a bare `codex` is npm's `codex.cmd` shim,
+ * so it runs through `cmd.exe /c` (gate.ts's `buildInvocation`), attached, with
+ * every prompt on stdin, where cmd.exe cannot parse it. Mirrors
+ * `ClaudeCliModel`'s buffered-execFile transport shape, including `detached:
+ * true` (off that cmd.exe route) + {@link reapCliDescendants} so a
  * wall-clock kill still reaps whatever the child spawned (ORPHAN SWEEP, board
  * web-msu3sv1w-hfj87n). It carries `StreamingClaudeCliModel`'s idle cap
  * ({@link CodexCliOptions.idleTimeoutMs}): a child silent on stdout for that
@@ -280,12 +295,32 @@ export class CodexCliModel implements ModelPort {
     if (resumeSessionId !== undefined && resumeSessionId.length > 0) {
       args.push('resume', resumeSessionId);
     }
+    // npm installs `codex` on Windows as a `codex.cmd` shim, which execFile
+    // cannot launch itself (ENOENT). gate.ts's buildInvocation routes a bare
+    // name through `cmd.exe /c`, which finds it by PATHEXT; an explicit path
+    // or `.exe` is still spawned directly.
+    const binary = this.opts.binary ?? 'codex';
+    const platform = this.opts.platform ?? process.platform;
+    const viaCmd = buildInvocation(binary, [], platform).bin !== binary;
     // `-` makes both `exec` and `exec resume` read the prompt from stdin
     // (codex-rs/exec/src/lib.rs `resolve_prompt`). A leading `-` on argv would
     // parse as a flag, and `-` alone as that same stdin read, so those go on
-    // stdin too.
-    const pipePrompt = prompt.length > CLI_STDIN_PROMPT_THRESHOLD || prompt.startsWith('-');
+    // stdin too. So does every prompt behind cmd.exe, which would otherwise
+    // read its `&`, `|`, `%VAR%` and quotes as its own syntax.
+    const pipePrompt =
+      viaCmd || prompt.length > CLI_STDIN_PROMPT_THRESHOLD || prompt.startsWith('-');
     args.push(pipePrompt ? '-' : prompt);
+    // The model and a resume id still ride argv. Refused rather than spawned,
+    // a bad resume id reads as a resume failure, so invoke() retries it cold.
+    if (viaCmd && !args.every((arg) => CMD_SAFE_ARG.test(arg))) {
+      return Promise.resolve({
+        stdout: 'codex-cli: refused to pass the model or resume id through cmd.exe',
+        exitCode: 1,
+        envelope: null,
+        sessionId: null,
+      });
+    }
+    const invocation = buildInvocation(binary, args, platform);
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
     const idleTimeoutMs = this.opts.idleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS;
@@ -296,7 +331,10 @@ export class CodexCliModel implements ModelPort {
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
       timeout: timeoutMs,
-      detached: true,
+      // A detached cmd.exe has no console, so Windows would open a new one for
+      // the node process the shim starts. The gate runs its cmd.exe shims
+      // attached, and the reap below walks the tree with `taskkill /t` either way.
+      detached: !viaCmd,
       encoding: 'utf8',
     };
     return new Promise((resolve) => {
@@ -308,8 +346,8 @@ export class CodexCliModel implements ModelPort {
       let idleTimer: NodeJS.Timeout | undefined;
       let idleDeath = false;
       const child = execFile(
-        this.opts.binary ?? 'codex',
-        args,
+        invocation.bin,
+        invocation.args,
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
         (err, stdout) => {
@@ -339,6 +377,11 @@ export class CodexCliModel implements ModelPort {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
           idleDeath = true;
+          // execFile settles only once every pipe has closed. Behind cmd.exe
+          // the node shim outlives the kill and holds them open, so close our
+          // end first, as execFile's own timeout kill does.
+          child.stdout?.destroy();
+          child.stderr?.destroy();
           try {
             child.kill();
           } catch {
