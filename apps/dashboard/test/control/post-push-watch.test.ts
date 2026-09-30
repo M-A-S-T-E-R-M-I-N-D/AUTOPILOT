@@ -12,7 +12,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openStore, migrate, recentTasks, type Store } from '@autopilot/store';
+import { openStore, migrate, recentTasks, createTask, type Store } from '@autopilot/store';
 import type { WorkflowRunStatus } from '../../src/control/ci-status.js';
 import type { PostPushVerdictContext } from '../../src/control/post-push-verdict.js';
 import {
@@ -146,6 +146,7 @@ describe('watchPostPushCi', () => {
     expect(outcome).toEqual({
       kind: 'concluded',
       verdict: { kind: 'recorded', workflow: 'ci.yml', detail: 'success (1m ago)' },
+      status: concludedStatus('success'),
     });
     expect(checkStatus).toHaveBeenCalledTimes(1);
   });
@@ -254,6 +255,43 @@ describe('createPostPushWatchTrigger (slice 3 — starting a watch from a real g
       const tasks = recentTasks(s2.db, 'p1', 10);
       s2.close();
       expect(tasks).toHaveLength(0);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('closes the CI RED task an earlier landing filed once this landing runs green (2026-09-30)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-heal-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      createTask(s, {
+        id: 'ap-old-ci-red',
+        projectId: 'p1',
+        title: 'CI RED after landing main → eb525b6: ci.yml — failure (23m ago)',
+        severity: 'high',
+        source: 'self',
+        createdAt: Date.now() - 60 * 60_000,
+      });
+      s.close();
+
+      createPostPushWatchTrigger(dbPath, ghRunReporting('success'))(
+        'p1',
+        '/repo',
+        'main',
+        'abc1234',
+      );
+
+      await vi.waitFor(() => {
+        const s2 = openStore(dbPath);
+        const row = s2.db.prepare("SELECT status FROM tasks WHERE id = 'ap-old-ci-red'").get() as {
+          status: string;
+        };
+        s2.close();
+        expect(row.status).toBe('done');
+      });
     } finally {
       cleanupDir(dir);
     }

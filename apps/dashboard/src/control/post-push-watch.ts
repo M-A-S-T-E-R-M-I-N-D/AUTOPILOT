@@ -31,6 +31,7 @@ import { openStore, listProjects } from '@autopilot/store';
 import { ciWorkflowStatus, createGhRun, type GhRun, type WorkflowRunStatus } from './ci-status.js';
 import {
   ciRemediationMode,
+  closeSupersededCiRedTasks,
   decidePostPushVerdict,
   filePostPushVerdictTask,
   shouldSpawnRemediationFlight,
@@ -45,7 +46,12 @@ import { readOpenCodeScanningAlerts, syncCodeScanningTasks } from './code-scanni
 import { readLatestMutationRed, syncMutationRedTasks } from './mutation-red-tasks.js';
 
 export type PostPushWatchOutcome =
-  | { readonly kind: 'concluded'; readonly verdict: PostPushVerdictResult }
+  /** `status` is the concluded run the verdict was decided on. */
+  | {
+      readonly kind: 'concluded';
+      readonly verdict: PostPushVerdictResult;
+      readonly status: WorkflowRunStatus;
+    }
   /** The workflow never reported a conclusion before the deadline — reported
    *  distinctly rather than folded into 'concluded', since "we gave up
    *  watching" is not the same claim as "CI passed". No verdict is decided
@@ -85,7 +91,7 @@ export async function watchPostPushCi(
   for (;;) {
     const status = await checkStatus();
     if (status.conclusion !== null && isRunFor(status, context.sha)) {
-      return { kind: 'concluded', verdict: decidePostPushVerdict(status, context, now()) };
+      return { kind: 'concluded', verdict: decidePostPushVerdict(status, context, now()), status };
     }
     if (now() >= deadline) {
       return { kind: 'timed-out', workflow: status.workflow };
@@ -342,6 +348,8 @@ export function createPostPushWatchTrigger(
           // scheduled run has no landing of its own to watch it.
           syncMutationRed(store, projectId, rootPath, (run ?? createGhRun)(rootPath));
           if (outcome.kind !== 'concluded') return;
+          // A GREEN LANDING CLOSES THE RED IT OUTLIVED (2026-09-30).
+          closeSupersededCiRedTasks(store, projectId, branch, outcome.status, Date.now());
           const taskFiled = filePostPushVerdictTask(store, outcome.verdict);
           if (spawnFlight && outcome.verdict.kind === 'remediate') {
             const projectStatus =
