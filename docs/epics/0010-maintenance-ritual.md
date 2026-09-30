@@ -204,6 +204,22 @@ still creates no task; it now applies the same drift rule as the flight-end
 sweep. `ci-status.ts` is unchanged since the check above. Slices 2-4
 remain shipped and unchanged in scope.
 
+Freshness check (2026-09-30): `ci-status.ts` gained one commit (4ab5f20f).
+Slice 2's report shows each workflow's latest run from any branch. A closed
+draft PR's red stayed the latest `mutation-pr.yml` run for a day and read as
+a red on main. The same `gh run list` call now also asks for `event` and
+`headBranch`. A run with the `pull_request` event carries a new
+`WorkflowRunStatus.prBranch` field (the PR's source branch), and the line's
+detail names it (`failure (3h ago, PR branch <name>)`). The dashboard's CI
+strip (`web/features/ci-status.ts`) ends that chip in "PR", and its tip
+names the branch. Slice 4's `E2eLandGuard` and `post-push-watch.ts` are not
+affected. Both pass a branch to `ciWorkflowStatus`, and `gh run list
+--branch` matches a run's head branch, so a PR's run never matches the base
+branch. Slice 2 still never throws and still flags only a failing
+conclusion. A PR's failing run is still flagged; it is now labeled as a PR's
+run. This is another field on the same read-only call. Slices 2-4 remain
+shipped and unchanged in scope.
+
 ## Related
 
 - `.github/dependabot.yml`, `apps/dashboard/src/flight/doc-freshness.ts`
