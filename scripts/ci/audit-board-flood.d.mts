@@ -37,7 +37,8 @@ export interface FloodBoardThread {
   isPr: boolean;
 }
 
-export function normalize(body: string): string;
+/** A missing body (`null`/`undefined`) normalizes to `''`, not a crash. */
+export function normalize(body: string | null | undefined): string;
 export function similarity(a: string, b: string): number;
 /** `issues` is one `gh api repos/…/issues` page — untrusted process output,
  *  so not even the array is assumed (a `null` page reads as no threads). */
