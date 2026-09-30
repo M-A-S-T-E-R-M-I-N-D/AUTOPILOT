@@ -209,7 +209,7 @@ describe('ciWorkflowStatus', () => {
         '--limit',
         '1',
         '--json',
-        'status,conclusion,createdAt,databaseId,headSha',
+        'status,conclusion,createdAt,databaseId,headSha,event,headBranch',
       ],
     ]);
   });
@@ -233,10 +233,29 @@ describe('ciWorkflowStatus', () => {
       '--limit',
       '1',
       '--json',
-      'status,conclusion,createdAt,databaseId,headSha',
+      'status,conclusion,createdAt,databaseId,headSha,event,headBranch',
       '--branch',
       'main',
     ]);
+  });
+
+  it("names a pull request's branch, so a closed draft PR's red is not read as main's (2026-09-30)", () => {
+    const run = (event: string) => () =>
+      JSON.stringify([
+        {
+          status: 'completed',
+          conclusion: 'failure',
+          createdAt: '2026-08-20T11:00:00Z',
+          event,
+          headBranch: 'autopilot/visual-baselines',
+        },
+      ]);
+    const fromPr = ciWorkflowStatus('mutation-pr.yml', run('pull_request'), NOW);
+    expect(fromPr.prBranch).toBe('autopilot/visual-baselines');
+    expect(fromPr.detail).toBe('failure (1h ago, PR branch autopilot/visual-baselines)');
+    const fromPush = ciWorkflowStatus('ci.yml', run('push'), NOW);
+    expect(fromPush).not.toHaveProperty('prBranch');
+    expect(fromPush.detail).toBe('failure (1h ago)');
   });
 });
 
@@ -347,7 +366,7 @@ describe("ciWorkflowStatus — the run id (the e2e land guard reads that run's f
     const status = ciWorkflowStatus(
       'ci.yml',
       (args) => {
-        expect(args).toContain('status,conclusion,createdAt,databaseId,headSha');
+        expect(args).toContain('status,conclusion,createdAt,databaseId,headSha,event,headBranch');
         return JSON.stringify([
           {
             status: 'completed',

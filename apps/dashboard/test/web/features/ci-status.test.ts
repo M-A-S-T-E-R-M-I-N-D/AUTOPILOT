@@ -44,7 +44,7 @@ describe('ciStatusJs', () => {
       "var state = w.conclusion ? w.conclusion : (w.ageLabel ? tr('ciRunning') : tr('ciNoRuns'));",
     );
     expect(out).toContain(
-      "var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '');",
+      "var label = w.workflow + ' · ' + state + (w.ageLabel ? ' · ' + w.ageLabel : '') + (w.prBranch ? ' · PR' : '');",
     );
   });
 

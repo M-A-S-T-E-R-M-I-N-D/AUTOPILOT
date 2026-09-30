@@ -35,6 +35,10 @@ export interface WorkflowRunStatus {
    *  reported one. Lets a caller tell the run for ITS commit from the
    *  previous commit's run that is still the latest one listed. */
   readonly headSha?: string;
+  /** The pull request's source branch when a PR triggered the run — so a
+   *  reader can tell it from the base branch's own run. Absent for a push,
+   *  a schedule or a dispatch. */
+  readonly prBranch?: string;
   readonly ok: boolean;
   readonly detail: string;
 }
@@ -107,6 +111,8 @@ interface RawGhRun {
   readonly createdAt?: unknown;
   readonly databaseId?: unknown;
   readonly headSha?: unknown;
+  readonly event?: unknown;
+  readonly headBranch?: unknown;
 }
 
 /** The latest run for ONE workflow file, optionally narrowed to `branch`
@@ -132,7 +138,7 @@ export function ciWorkflowStatus(
       '--limit',
       '1',
       '--json',
-      'status,conclusion,createdAt,databaseId,headSha',
+      'status,conclusion,createdAt,databaseId,headSha,event,headBranch',
       ...(branch ? ['--branch', branch] : []),
     ]);
   } catch {
@@ -193,9 +199,21 @@ export function ciWorkflowStatus(
   const runId = typeof latest.databaseId === 'number' ? latest.databaseId : null;
   const headSha =
     typeof latest.headSha === 'string' && latest.headSha !== '' ? latest.headSha : null;
+  // A run a pull request triggered names the PR's source branch: the strip
+  // shows each workflow's latest run from ANY branch, and a closed draft
+  // PR's red stayed "the latest" mutation-pr.yml run for a day (2026-09-30).
+  const prBranch =
+    latest.event === 'pull_request' &&
+    typeof latest.headBranch === 'string' &&
+    latest.headBranch !== ''
+      ? latest.headBranch
+      : null;
   const ok = conclusion === null || !FAILING_CONCLUSIONS.has(conclusion);
   const statusLabel = conclusion ?? status ?? 'unknown';
-  const detail = ageLabel ? `${statusLabel} (${ageLabel})` : statusLabel;
+  const where = [ageLabel, prBranch === null ? null : `PR branch ${prBranch}`]
+    .filter((part) => part !== null)
+    .join(', ');
+  const detail = where === '' ? statusLabel : `${statusLabel} (${where})`;
   return {
     workflow,
     conclusion,
@@ -205,6 +223,7 @@ export function ciWorkflowStatus(
     ok,
     detail,
     ...(headSha === null ? {} : { headSha }),
+    ...(prBranch === null ? {} : { prBranch }),
   };
 }
 
