@@ -65,7 +65,7 @@ import {
   prReviewExecuteResult,
   prReviewExecuteTip,
   prReviewGuestNote,
-  prCheckStateGlyph,
+  prCheckStateIcon,
   formatCheckDuration,
   prCheckRunTip,
   prCheckSummary,
@@ -115,7 +115,7 @@ ${prReviewGuestNote.toString()}
 // The pipeline strip's four helpers, same .toString() splice — the per-check
 // rows GET /api/pr-review now carries (operator's "give the tests/stages
 // real expression" catch, 2026-09-09).
-${prCheckStateGlyph.toString()}
+${prCheckStateIcon.toString()}
 ${formatCheckDuration.toString()}
 ${prCheckRunTip.toString()}
 ${prCheckSummary.toString()}
@@ -342,11 +342,9 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
         var chipClass =
           'pr-review-check pr-review-check-' + check.state + (check.optional ? ' pr-review-check-optional' : '');
         var chip = check.url ? el('a', chipClass) : el('span', chipClass);
-        var glyph = el('span', 'pr-review-check-glyph', prCheckStateGlyph(check.state));
         // Decorative: the state is already in the tip and the chip text, so
-        // a screen reader must not hear "check mark" twice per chip.
-        glyph.setAttribute('aria-hidden', 'true');
-        chip.appendChild(glyph);
+        // iconEl's own aria-hidden keeps a screen reader from hearing it twice.
+        chip.appendChild(iconEl(prCheckStateIcon(check.state)));
         chip.appendChild(el('span', 'pr-review-check-name', check.name));
         if (check.elapsedMs !== undefined) {
           chip.appendChild(el('span', 'pr-review-check-time', formatCheckDuration(check.elapsedMs)));
