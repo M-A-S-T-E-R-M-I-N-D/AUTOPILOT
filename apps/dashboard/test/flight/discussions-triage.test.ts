@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { conversationSignature, SIGNATURE_MARK } from '../../src/flight/attribution.js';
 import {
   planDiscussionTriage,
   planDiscussionTriageBatch,
@@ -676,5 +677,86 @@ describe('runDiscussionTriageRitual', () => {
     const result = await runDiscussionTriageRitual(exec, 'gabibi555');
 
     expect(result).toEqual({ plans: [], outcomes: [] });
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the KEEPER
+// Discussions ritual against the attribution channel it posts on. ATTRIBUTION.md
+// §3 names discussions among the conversations it signs, and its one opt-out
+// lever, AUTOPILOT_ATTRIBUTION=off, covers every channel. Every other
+// conversational post gets signed by withAttribution, which only reads
+// `gh issue|pr comment` and `gh pr review` argv. A discussion reply goes out as
+// `gh api graphql`, which that wrapper never matches, so the reply signs itself.
+// It used a hand-written copy of the signature and ignored the lever, so an
+// operator who opted out still had every discussion reply signed.
+describe("the discussion reply and attribution.ts's one signature and one lever", () => {
+  const original = process.env['AUTOPILOT_ATTRIBUTION'];
+
+  afterEach(() => {
+    if (original === undefined) delete process.env['AUTOPILOT_ATTRIBUTION'];
+    else process.env['AUTOPILOT_ATTRIBUTION'] = original;
+  });
+
+  function accepted(): DiscussionTriageAccept {
+    const decision = planDiscussionTriage(discussion());
+    if (decision.decision !== 'accept') throw new Error('fixture must classify as accept');
+    return decision;
+  }
+
+  it('signs with the same conversationSignature every other channel-3 post carries', () => {
+    delete process.env['AUTOPILOT_ATTRIBUTION'];
+    const decision = accepted();
+
+    const draft = draftDiscussionReply(discussion(), decision, 'gabibi555');
+
+    expect(draft.body).toBe(`${decision.reasoning}\n\n${conversationSignature('gabibi555')}`);
+  });
+
+  it('keeps signing for any value but off', () => {
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'on';
+
+    const draft = draftDiscussionReply(discussion(), accepted(), 'gabibi555');
+
+    expect(draft.body).toContain(conversationSignature('gabibi555'));
+  });
+
+  it('drafts the reasoning alone, with no signature, under AUTOPILOT_ATTRIBUTION=off', () => {
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'off';
+    const decision = accepted();
+
+    const draft = draftDiscussionReply(discussion(), decision, 'gabibi555');
+
+    expect(draft.body).toBe(decision.reasoning);
+    expect(draft.body).not.toContain(SIGNATURE_MARK);
+  });
+
+  it('posts an unsigned reply through the whole ritual under AUTOPILOT_ATTRIBUTION=off', async () => {
+    process.env['AUTOPILOT_ATTRIBUTION'] = 'off';
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: discussionsGraphql([
+          {
+            id: 'D_kwDOA1b2c84AXyZw',
+            number: 9,
+            title: 'Keyboard nav is broken in the fleet table',
+            body: 'Screen reader users are stuck',
+            category: { name: 'Q&A' },
+            labels: { nodes: [] },
+          },
+        ]),
+      })
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_abc123') })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) });
+
+    await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    const calls = vi.mocked(exec).mock.calls as [string, readonly string[]][];
+    const posted = calls[2]?.[1].find((arg) => arg.startsWith('body='));
+    expect(posted).toMatch(/^body=#9 /);
+    expect(posted).not.toContain(SIGNATURE_MARK);
+    expect(posted).not.toContain('on behalf of');
   });
 });
