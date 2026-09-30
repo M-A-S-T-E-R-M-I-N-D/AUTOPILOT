@@ -26,6 +26,7 @@ import {
   isProcessAlive,
   parseLockInfo,
   type AcquireLockResult,
+  type LockInfo,
 } from './instance-lock.js';
 
 /**
@@ -509,6 +510,9 @@ export async function primaryFlightLockPath(repo: string): Promise<string | null
  *  the lock cannot be taken at all. Never throws. */
 export async function claimPrimaryFlight(repo: string): Promise<FileInstanceLock | null> {
   const path = await primaryFlightLockPath(repo);
+  // Stryker disable next-line ConditionalExpression: without this guard a
+  // lock on the null path throws on create, which tryAcquire reports as not
+  // acquired — null either way; the guard only narrows the type.
   if (path === null) return null;
   const lock = new FileInstanceLock(path);
   return tryAcquire(lock).acquired ? lock : null;
@@ -522,14 +526,19 @@ export async function primaryFlightHolder(
   self: number = process.pid,
 ): Promise<number | null> {
   const path = await primaryFlightLockPath(repo);
+  // Stryker disable next-line ConditionalExpression: without this guard the
+  // read below throws on the null path and is caught — null either way; the
+  // guard only narrows the type.
   if (path === null) return null;
-  let raw = '';
+  let info: LockInfo | null = null;
   try {
-    raw = readFileSync(path, 'utf8');
+    // Stryker disable next-line StringLiteral: an empty encoding hands
+    // parseLockInfo a Buffer, and JSON.parse reads it through Buffer's own
+    // utf8 toString() — the same marker, the same pid.
+    info = parseLockInfo(readFileSync(path, 'utf8'));
   } catch {
     /* no marker: no one is flying the checkout */
   }
-  const info = parseLockInfo(raw);
   return info !== null && info.pid !== self && isProcessAlive(info.pid) ? info.pid : null;
 }
 

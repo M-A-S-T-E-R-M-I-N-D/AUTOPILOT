@@ -175,6 +175,25 @@ describe('repoPrefixOf', () => {
   });
 });
 
+describe('a git binary that cannot be resolved', () => {
+  it('reads as a failed command (exit 1), never as a clean exit 0', async () => {
+    // A spawn failure carries an errno STRING ('ENOENT'), not an exit status:
+    // git() must still answer non-zero, or a removal git never ran would
+    // come back `ok: true` (same PATH idiom as git.test.ts).
+    const nowhere = join(tmpdir(), 'autopilot-no-git-worktree');
+    const originalPath = process.env['PATH'];
+    process.env['PATH'] = '';
+    try {
+      expect(await removeWorktree(tmpdir(), nowhere)).toEqual({
+        ok: false,
+        details: 'git worktree remove failed (exit 1): ',
+      });
+    } finally {
+      process.env['PATH'] = originalPath;
+    }
+  });
+});
+
 describe('worktree lifecycle', () => {
   let dir: string;
 
