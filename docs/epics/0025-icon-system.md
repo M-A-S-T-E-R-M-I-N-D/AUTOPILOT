@@ -146,8 +146,14 @@ propagation, and the filled style does not match the nav.
    trajectory-redundancy signal `firingTimelineRowMeta` composes) leads with
    the already-vendored `repeat` icon, so its label and aria-label carry the
    words alone; web/ pins zero for circular arrows, and only `startOver`
-   remains on the STRINGS list. The screenshots refresh (`docs/screens/`) is
-   still open.
+   remains on the STRINGS list. **Plan canvas zoom bar 2026-09-30:**
+   Supplemental Arrows-B (U+2900–U+297F, whose ⤴ ⤵ are Emoji=Yes) sat
+   outside every census range, and the plan canvas's Fit button painted ⤢
+   as its whole face beside the + and − buttons. The three draw newly
+   vendored `plus`, `minus` and `maximize-2` strokes as their faces now
+   (their STRINGS aria-labels stay the only name), and the census pins the
+   block at zero in web/ and STRINGS. The screenshots refresh (`docs/screens/`) is still
+   open.
 
 ## Related
 

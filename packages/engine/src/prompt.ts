@@ -83,7 +83,8 @@ export interface FiringPromptInput {
   /**
    * False only when the operator opted out via `AUTOPILOT_ATTRIBUTION=off`
    * (docs/ATTRIBUTION.md's single opt-out lever, shared across all four
-   * channels — `flight/attribution.ts`'s `attributionEnabled()`). Computed
+   * channels) or via this project's own `Attribution: off` SOUL line —
+   * `flight/attribution.ts`'s `commitAttributionEnabled()`. Computed
    * by the caller, not read from `process.env` here, so this module stays a
    * pure function of its input. Defaults to true (on by default) whenever
    * `productVersion` is given.

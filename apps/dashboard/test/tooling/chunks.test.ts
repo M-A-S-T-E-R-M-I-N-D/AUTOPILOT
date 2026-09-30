@@ -99,6 +99,15 @@ describe('core self-sufficiency (the home page boots without the deferred chunks
     const outsideRpp = offenders.filter((o) => !isInsideRenderProjectPage(core, o));
     expect(outsideRpp, outsideRpp.join('\n')).toEqual([]);
   });
+
+  it('the per-firing trace renderer rides the deferred /panels.js, leaving core only its state and guarded entry (board ap-muo35gze-1)', () => {
+    const core = coreClientJs();
+    const panels = panelsClientJs();
+    expect(core).not.toContain('function firingTraceSection(');
+    expect(panels).toContain('function firingTraceSection(');
+    expect(core).toContain('function firingTimelineSection(c) {');
+    expect(core).toContain('var openFirings = {};');
+  });
 });
 
 /** True when the offending line lives inside renderProjectPage's body. */

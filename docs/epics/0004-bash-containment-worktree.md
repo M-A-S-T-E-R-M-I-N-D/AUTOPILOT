@@ -263,6 +263,41 @@ sync-back strands, but the attempt's outcome went only to the flight log:
   `target`'s tree. The agent's 15-turn and $3 caps, its full-gate validation in the live checkout,
   the worktree and the containment guard are all unchanged.
 
+Seven `fly.ts` commits have landed since `00a6e798` (2026-09-29 and 2026-09-30). Three of them
+change the seam this epic covers:
+
+- **The self-study ritual holds the sync-back lock** (`ee3c9c73`, amends the "one sync-back at a
+  time per checkout" bullet). The ritual regenerates `docs/SELF-STUDY` in `process.cwd()` and
+  commits it there. It used to take only `ritual.lock`, so a lane's ritual could dirty the tree
+  between a sibling's clean-tree check and its merge, or get staged just before that merge's
+  commit and ride along under a `chore: sync` subject. `withCheckoutRitualLock`
+  (`flight/ritual-lock.ts`) now takes the checkout's `autopilot-sync-back.lock` first
+  (`syncBackLock`, now exported from `packages/engine/src/adapters/worktree.ts`), then
+  `ritual.lock`. Nothing takes them in the other order, so the two cannot deadlock. A lock that
+  cannot be taken at all still runs the ritual, as the sync-back itself does.
+- **A flight flying `target` directly keeps later lanes out** (`6ed801de`, amends the "fallback is
+  no longer unconditional" bullet). That bullet's sibling check sees only siblings already live
+  when the fallback flight launches. A sibling that launched later never ran it, so its sync-backs
+  could merge into the checkout mid-firing and move HEAD under the fallback flight's uncommitted
+  edits. The fallback path now claims `autopilot-primary-flight.lock` in the git common dir
+  (`claimPrimaryFlight`) before its sibling check, so no launch slips between the two, and
+  releases it in the flight's `finally` beside the engine lock. While a live process other than
+  the caller holds it (`primaryFlightHolder`), `syncWorktreeBranch` refuses at every call site
+  (launch catch-up, per-firing and flight-end) and `withCheckoutRitualLock` skips the ritual. Both
+  check once the sync-back lock is held. A dead holder's marker names no one, and the holder's own
+  sync-back and ritual are never blocked by it. `docs/RUNBOOK.md` §12 explains the refusal line.
+- **Rung 4 loses the web tools** (`e9b3d7e8`, amends the "one more rung" bullet). `5d97f82a` made
+  `fly.ts` store every WebSearch a firing's stream carries as a `web-search` event (THREAT-MODEL
+  T6). The merge-escalation agent runs through the non-streaming `ClaudeCliModel`, so a search it
+  issued left no such row. `buildMergeEscalationConfig`
+  (`packages/engine/src/adapters/merge-escalation-agent.ts`) now gives it the flight's grant minus
+  WebSearch and WebFetch, and adds both to its deny-list. That only narrows what it may do. Its
+  15-turn and $3 caps and its full-gate validation are unchanged.
+
+`5bde3775` (the fleet digest reads a lane with no live engine lock as parked), `df8ef282` (a
+crashed gate's feedback says the commit was not reverted) and `65b4a1a3` (hibernation after a dry
+quota really waits) touch neither the worktree, the sync-back, nor the containment guard.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

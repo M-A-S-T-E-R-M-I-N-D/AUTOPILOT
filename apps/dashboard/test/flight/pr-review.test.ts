@@ -1198,6 +1198,9 @@ const BENIGN_WEB_FEATURES = new Set([
   'docs-viewer.ts',
   'evolution.ts',
   'firing-timeline.ts',
+  // firing-timeline-state.ts (board ap-muo35gze-1): seven empty state maps
+  // and a guarded call into firing-timeline.ts's renderer — no fetch, no DOM.
+  'firing-timeline-state.ts',
   'flight-console.ts',
   'flight-summary.ts',
   // foundation.ts: GET /api/donations only — read-only, no execute pair (a

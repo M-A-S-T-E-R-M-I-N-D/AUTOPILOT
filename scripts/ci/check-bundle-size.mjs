@@ -499,8 +499,17 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // 11 bytes over, from 67 under before the slice -- the margin every entry
 // above refuses. About two KB of margin again. Gzip (34106B) stays under
 // PROJECT_GZIP_BUDGET untouched.
+// Then panels raw 239->255KB (2026-09-30, board ap-muo35gze-1), a RELOCATION
+// out of the render-blocking core, not growth: the card Details panel's
+// per-firing trace (features/firing-timeline.ts, 14.4KB minified, and the
+// English keys only it names) moves to /panels.js; its state maps and a
+// typeof-guarded entry stay in core (features/firing-timeline-state.ts).
+// Measured core 249.7KB -> 240274B raw, 73.6KB -> 71259B gzip; /panels.js
+// 237.7KB -> 258873B raw. Combined across the five chunks is unchanged. The
+// core lines stay put: the headroom is what the board item asked for, with
+// lanes in flight that grow core. About two KB of margin, as above.
 const PROJECT_RAW_BUDGET = 126 * 1024;
-const PANELS_RAW_BUDGET = 239 * 1024;
+const PANELS_RAW_BUDGET = 255 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.
 // Then gzip 43→44KB (2026-09-12) for EPIC 0021 slice 3 (second cut): the flight
@@ -534,8 +543,10 @@ const PANELS_RAW_BUDGET = 239 * 1024;
 // Then panels gzip 72->73KB (2026-09-29), the same deliberate raise as the
 // panels raw entry above -- measured 73595B, 133 bytes UNDER the old 73728B
 // line.
+// Then panels gzip 73->78KB (2026-09-30), the same per-firing trace
+// relocation as the panels raw entry above -- measured 78245B.
 const PROJECT_GZIP_BUDGET = 34 * 1024;
-const PANELS_GZIP_BUDGET = 73 * 1024;
+const PANELS_GZIP_BUDGET = 78 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.

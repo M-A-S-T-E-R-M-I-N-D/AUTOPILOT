@@ -734,6 +734,11 @@ const EN_STRINGS = {
   // "locked by default; unlock to edit"): an aria-pressed button, so its
   // label stays the same in both states.
   soulEditorUnlock: 'Unlock to edit',
+  // The per-project override the flight honors (FLEET_WISDOM_OPT_OUT_LINE in
+  // apps/dashboard/src/flight/fleet-wisdom-mining.ts): the quoted line is a
+  // SOUL token, so it stays verbatim in every locale.
+  soulEditorWisdomHint:
+    'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -2455,6 +2460,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulEditorLabel: 'טקסט ה-SOUL החי של הפרויקט — ערכו והציעו שינוי',
     soulEditorSubmit: 'הצע עריכה',
     soulEditorUnlock: 'פתיחת נעילה לעריכה',
+    soulEditorWisdomHint:
+      'עקיפה לפרויקט: הוסיפו את השורה “Fleet wisdom: off” כדי להשאיר את חוכמת הצי המשותפת מחוץ להפעלות של הפרויקט הזה.',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',

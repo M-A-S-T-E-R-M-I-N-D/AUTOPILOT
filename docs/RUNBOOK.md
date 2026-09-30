@@ -485,6 +485,9 @@ lever also gates the `Assisted-by:` commit trailer (ATTRIBUTION channel 1): `fly
 `attributionEnabled()` once per firing and passes the result into `buildFiringPrompt`, which
 drops the trailer instruction from the firing prompt's COMMIT step when it is `off` — one
 env var, checked once, covering both the commits AUTOPILOT authors and the messages it posts.
+To drop the trailer for ONE project only, add the line `Attribution: off` to that project's
+SOUL instead (`commitAttributionEnabled()` in `flight/attribution.ts`); the `— ✈️` post
+signature is unaffected.
 
 **Verify necessity** (live): before judging gate/conflict state, each non-security PR's
 diff is fetched (`gh pr diff`) and reverse-apply-checked against the current tree
