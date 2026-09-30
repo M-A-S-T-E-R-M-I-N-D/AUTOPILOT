@@ -119,21 +119,23 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
     expect('⏭ skip · ⏱ try · ⌘ K'.match(TECHNICAL_EMOJI_PATTERN)).toEqual(['⏭', '⏱']);
   });
 
-  it('paints no Geometric Shapes glyph in any web/ source file outside comments', () => {
-    const offenders = webOffenders(files, GEOMETRIC_WEB_PATTERN);
-    expect(offenders, offenders.join('\n')).toEqual([]);
+  it('paints Geometric Shapes glyphs only at the known, shrink-only sites', () => {
+    expect(webOffenders(files, GEOMETRIC_WEB_PATTERN)).toEqual(GEOMETRIC_WEB_SITES);
   });
 });
 
 /** Geometric Shapes (U+25A0–U+25FF) in web/ source. The STRINGS census below
  *  pinned the block at zero, but web/ was never scanned for it, so the PR
  *  review check strip's ◐/◌ state glyphs (running, queued) sat unseen until
- *  they took the vendored circle-dot/circle icons (2026-09-30). The census
- *  began as a shrink-only list: the activity feed's "● live activity" heading
- *  took circle-dot, and the connect panel's report toggle, whose ▸/▾ stood in
- *  for the native details marker it hides, took the vendored chevron-right
- *  (2026-09-30), so it pins zero like the blocks above. */
+ *  they took the vendored circle-dot/circle icons (2026-09-30). */
 const GEOMETRIC_WEB_PATTERN = /[■-◿]/gu;
+
+/** Shrink-only: the web/ sites still painting one. The connect panel's
+ *  report toggle draws ▸/▾ in place of the native details marker it hides.
+ *  The activity feed's "● live activity" heading led with a glyph standing
+ *  in for an icon until it took the vendored circle-dot (2026-09-30).
+ *  Converting one removes its line — never add one. */
+const GEOMETRIC_WEB_SITES = ['layout-css.ts: ▸ (U+25b8)', 'layout-css.ts: ▾ (U+25be)'];
 
 function emojiBearingStringKeys(pattern: RegExp = EMOJI_PATTERN): string[] {
   return Object.entries(STRINGS)

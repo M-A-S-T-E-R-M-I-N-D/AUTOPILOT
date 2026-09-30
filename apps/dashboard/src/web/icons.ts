@@ -490,10 +490,6 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'm15 9-6 6' }],
     ['path', { d: 'm9 9 6 6' }],
   ],
-  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the connect panel's
-  // report disclosure drops its ▸/▾ marker — the last Geometric Shapes glyph
-  // in web/ chrome. One shape, turned by CSS when the form opens.
-  'chevron-right': [['path', { d: 'm9 18 6-6-6-6' }]],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

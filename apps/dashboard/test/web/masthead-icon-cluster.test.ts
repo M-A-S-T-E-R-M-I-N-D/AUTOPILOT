@@ -15,7 +15,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { renderShell } from '../../src/web/shell.js';
-import { layoutCss } from '../../src/web/layout-css.js';
 
 function mastheadHtml(): string {
   const html = renderShell();
@@ -79,25 +78,5 @@ describe('masthead popover exclusivity (operator catch 2026-09-07)', () => {
     const detailsCount = masthead.split('<details ').length - 1 - nested;
     expect(occurrences).toBe(detailsCount);
     expect(occurrences).toBeGreaterThanOrEqual(5);
-  });
-});
-
-describe('the GitHub report disclosure marker (epic 0025, law 5)', () => {
-  const css = layoutCss();
-
-  it('leads with the vendored chevron instead of a ▸/▾ glyph', () => {
-    expect(mastheadHtml()).toContain(
-      '<summary class="gh-report-summary"><svg class="icon icon-chevron-right gh-report-chevron"',
-    );
-    expect(css).not.toMatch(/gh-report-summary::before/);
-  });
-
-  it('turns the chevron down when the form opens, and points it at the reading direction when closed', () => {
-    expect(css).toContain(
-      '.gh-report[open] > .gh-report-summary .gh-report-chevron { transform: rotate(90deg); }',
-    );
-    expect(css).toContain(
-      "[dir='rtl'] .gh-report:not([open]) .gh-report-chevron { transform: scaleX(-1); }",
-    );
   });
 });

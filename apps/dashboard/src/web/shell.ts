@@ -5508,7 +5508,7 @@ ${versionMenuHtml()}
               <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
             </div>
             <details class="gh-report">
-            <summary class="gh-report-summary">${iconSvg('chevron-right', 'gh-report-chevron')}<span data-i18n="reportBugLabel">Report a bug or request a feature upstream</span></summary>
+            <summary class="gh-report-summary" data-i18n="reportBugLabel">Report a bug or request a feature upstream</summary>
             <form class="gh-issue-form" id="gh-issue-form">
               <label for="gh-issue-note" data-i18n="reportComposeNoteLabel">Or describe it in your own words — Compose writes the title and body for you</label>
               <textarea id="gh-issue-note" name="note" placeholder="What happened, or what you wish existed…" data-i18n-placeholder="reportComposeNotePlaceholder" rows="2"></textarea>
