@@ -158,7 +158,9 @@ Notable entries:
 - **`WebSearch`/`WebFetch`** — the flying agent can reach the open internet. `WebFetch` now goes through the guard's
   SSRF target check (§5, T6) — a loopback/private/link-local URL is denied; `WebSearch` takes a query string, not a
   fetchable URL, so it has no analogous target to check and remains unguarded — but every query a flight issues is
-  audit-logged whole (§5, T6). Neither is subject to a public-domain allowlist/denylist.
+  audit-logged whole (§5, T6). Neither is subject to a public-domain allowlist/denylist. A project whose SOUL carries
+  the line `Internet: off` flies with both moved to `--disallowedTools` (`firingToolGrant()` in `config.ts`,
+  RUNBOOK §6) — the per-project way to keep a private repo's contents off the wire entirely.
 - **`Agent`/`Task`/`Workflow`/`Skill`/`ToolSearch`** — the flying agent can itself spawn subagents/skills, a
   recursive agent surface. Whether a subagent spawned this way inherits the same `--settings`/`PreToolUse` guard as
   its parent is not established by anything in this codebase — it depends on Claude Code's own subagent hook-

@@ -98,6 +98,7 @@ import {
   TOOL_LESS_DISALLOWED_TOOLS,
   firingToolGrant,
   soulOptsOutOfSubagents,
+  soulOptsOutOfInternet,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -429,6 +430,10 @@ async function main(): Promise<void> {
     // narrows the CLI's tool grant and swaps the prompt's PARALLEL section —
     // one verdict for both, so the prompt never offers a tool the grant denies.
     const subagentsEnabled = !soulOptsOutOfSubagents(soulOwn);
+    // Likewise an "Internet: off" line moves WebSearch/WebFetch to the deny
+    // list and swaps the prompt's Research first section for an on-disk one
+    // (THREAT-MODEL T6: a private repo's contents never leave in a query).
+    const internetEnabled = !soulOptsOutOfInternet(soulOwn);
 
     // Bash containment slice 3 (docs/epics/0004-bash-containment-worktree.md):
     // the model, gate, and firing-scoped git operations below run inside a
@@ -943,7 +948,7 @@ async function main(): Promise<void> {
     // free tier is easily exhausted); the resilience chain falls back on quota.
     const config: EngineConfig = {
       ...DEFAULT_ENGINE_CONFIG,
-      ...firingToolGrant(subagentsEnabled),
+      ...firingToolGrant({ subagentsEnabled, internetEnabled }),
       primaryModel: process.env['AUTOPILOT_MODEL'] ?? 'sonnet',
       fallbackModel: 'opus',
       resilience: {
@@ -1503,6 +1508,7 @@ async function main(): Promise<void> {
             productVersion: PRODUCT_VERSION,
             attributionEnabled: commitAttributionEnabled(soulOwn),
             subagentsEnabled,
+            internetEnabled,
             ...(lastFailureFeedback !== undefined ? { lastFailure: lastFailureFeedback } : {}),
           }),
           version: FIRING_PROMPT_VERSION,
