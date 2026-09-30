@@ -743,6 +743,10 @@ const EN_STRINGS = {
   // apps/dashboard/src/flight/attribution.ts) — verbatim in every locale too.
   soulEditorAttributionHint:
     'Add the line “Attribution: off” to leave the Assisted-by: credit trailer off this project’s commits.',
+  // The third per-project override (SUBAGENTS_OPT_OUT_LINE in
+  // packages/engine/src/config.ts) — verbatim in every locale too.
+  soulEditorSubagentsHint:
+    'Add the line “Subagents: off” to keep this project’s firings from delegating work to subagents.',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -2468,6 +2472,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'עקיפה לפרויקט: הוסיפו את השורה “Fleet wisdom: off” כדי להשאיר את חוכמת הצי המשותפת מחוץ להפעלות של הפרויקט הזה.',
     soulEditorAttributionHint:
       'הוסיפו את השורה “Attribution: off” כדי להשמיט את שורת הקרדיט Assisted-by: מה-commits של הפרויקט הזה.',
+    soulEditorSubagentsHint:
+      'הוסיפו את השורה “Subagents: off” כדי למנוע מההפעלות של הפרויקט הזה להאציל עבודה לסוכני-משנה.',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
