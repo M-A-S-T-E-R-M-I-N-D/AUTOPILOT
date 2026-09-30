@@ -48,6 +48,7 @@
 
 import { type Dimension } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
+import { attributionEnabled, conversationSignature } from './attribution.js';
 import { classifyIssueDimension, parseIssueLabels, POOL_LABEL_PREFIX } from './issue-triage.js';
 
 /** The subset of a GitHub Discussion this policy needs — title/body/category
@@ -153,19 +154,20 @@ export function planDiscussionTriage(discussion: IncomingDiscussion): Discussion
   };
 }
 
-/** The `— ✈️ AUTOPILOT agent, on behalf of @<operator> · [what is this?](…)`
- *  line docs/ATTRIBUTION.md §3 makes binding for every conversational
- *  message a pilot posts outside its own working tree — issue comment,
- *  review, or (named explicitly there) discussion. Composed, not resolved:
- *  the caller supplies the operator's own `gh` login (the identity a
- *  follow-on execute slice would actually post under, per that doc's
- *  Signing & DCO section) so this stays pure, the same decide-don't-fetch
- *  split {@link planDiscussionTriage} already keeps. */
-function attributionSignature(operatorLogin: string): string {
-  return (
-    `— ✈️ AUTOPILOT agent, on behalf of @${operatorLogin} · ` +
-    '[what is this?](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT)'
-  );
+/** The reply's own signature, or none. docs/ATTRIBUTION.md §3 makes
+ *  `conversationSignature` binding for every conversational message a pilot
+ *  posts outside its own working tree — issue comment, review, or (named
+ *  explicitly there) discussion — and its one opt-out lever,
+ *  `AUTOPILOT_ATTRIBUTION=off`, covers every channel. `withAttribution`
+ *  signs the other posts, but it only reads `gh issue|pr comment` and
+ *  `gh pr review` argv, never the `gh api graphql` a reply goes out as, so
+ *  the reply signs itself here from the same helper and the same lever.
+ *  Composed, not resolved: the caller supplies the operator's own `gh` login
+ *  (the identity the execute path actually posts under, per that doc's
+ *  Signing & DCO section), the same decide-don't-fetch split {@link
+ *  planDiscussionTriage} already keeps. */
+function replySignature(operatorLogin: string): string | null {
+  return attributionEnabled() ? conversationSignature(operatorLogin) : null;
 }
 
 /** A drafted reply, ready for {@link postDiscussionReply} to send — never
@@ -187,21 +189,23 @@ export interface DiscussionReplyDraft {
  * planDiscussionTriage}'s own `reasoning` as the substance (the same
  * decision-doubles-as-message convention `issue-triage.ts`'s
  * `planIssueTriageCommands` uses for its own comment body), then appends
- * {@link attributionSignature} so the eventual post is clearly identified as
+ * {@link replySignature} so the eventual post is clearly identified as
  * autopilot the moment it lands — never drafted unsigned first and signed
  * later, which would let an unsigned draft ship if a future call site forgot
- * the signing step.
+ * the signing step. Under `AUTOPILOT_ATTRIBUTION=off` the body is the
+ * reasoning alone.
  */
 export function draftDiscussionReply(
   discussion: IncomingDiscussion,
   decision: DiscussionTriageAccept,
   operatorLogin: string,
 ): DiscussionReplyDraft {
+  const signature = replySignature(operatorLogin);
   return {
     discussionId: discussion.id,
     discussionNumber: discussion.number,
     dimension: decision.dimension,
-    body: `${decision.reasoning}\n\n${attributionSignature(operatorLogin)}`,
+    body: signature === null ? decision.reasoning : `${decision.reasoning}\n\n${signature}`,
   };
 }
 

@@ -1116,6 +1116,17 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    takes the pre-resolved label id (one mutation, not two). The KEEPER
    Discussions panel reports held-back replies as their own fail line,
    distinct from a failed post.
+   Refined 2026-10-01 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+   law): the reply now honors `AUTOPILOT_ATTRIBUTION=off`, the one opt-out
+   lever docs/ATTRIBUTION.md says covers every channel. It goes out as
+   `gh api graphql`, which `withAttribution` never reads, so
+   `draftDiscussionReply` signs it itself, and it did so from a hand-written
+   copy of the signature that ignored the lever: an operator who opted out
+   still had every discussion reply signed. It now signs with
+   `attribution.ts`'s `conversationSignature` when `attributionEnabled()`,
+   and drafts the reasoning alone when it is not. Covered by
+   `test/flight/discussions-triage.test.ts` (the draft and the posted
+   mutation body, under the lever set to off, set to on and unset).
 
 ## The claims ledger (2026-09-13)
 
