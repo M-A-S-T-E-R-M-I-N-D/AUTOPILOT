@@ -8,6 +8,8 @@
  * and 14 quiet days make it stale.
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   claimLedger,
@@ -16,6 +18,7 @@ import {
   CLAIM_WINDOW_DAYS,
   CLAIM_COMMENT_RE,
   CLAIM_RELEASE_RE,
+  UNCLAIM_COMMAND,
 } from '../../src/flight/claim-ledger.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -269,6 +272,85 @@ describe('claimLedger', () => {
 
   it('an empty issue — no assignees, no comments — is simply free', () => {
     expect(claimLedger([], [])).toEqual([]);
+  });
+
+  /**
+   * EPIC 0019 additive-only law, the CLAIM flow: CONTRIBUTING.md promises
+   * "`/unclaim` releases it instantly". claim.yml unassigns the commenter and
+   * replies "@x released this task", which is no release sentence here. So a
+   * pool-client claim outlived its own hand-back: the next claimant was told
+   * the issue was contested, and 14 days on the flight-end reaper posted a
+   * "Releasing @x" note on a claim already given back.
+   */
+  it("a claimant's own /unclaim ends their claim, whatever the workflow replies", () => {
+    const claims = claimLedger(
+      [],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('a', '/unclaim', T0 + 2 * DAY),
+        comment(
+          'github-actions',
+          "@a released this task — it's open for the next claimer. Thank you for the honest hand-back. 🤝",
+          T0 + 2 * DAY + 1,
+        ),
+      ],
+    );
+    expect(claims).toEqual([]);
+  });
+
+  it("someone else's /unclaim neither ends a claim nor counts as the holder's activity", () => {
+    const claims = claimLedger(
+      [],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('b', '/unclaim', T0 + 2 * DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      { login: 'a', claimedAt: T0, assigned: false, lastActivityAt: T0, contested: false },
+    ]);
+  });
+
+  it('a /unclaim leaves every other claim on the issue live', () => {
+    const claims = claimLedger(
+      [],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('b', 'Also claimed by b via the pool client (contested).', T0 + DAY),
+        comment('a', '/unclaim — pulled onto something else, sorry', T0 + 2 * DAY),
+      ],
+    );
+    expect(claims.map((c) => c.login)).toEqual(['b']);
+  });
+
+  it('a later /claim still reads: the fresh assignment the workflow makes is a claim again', () => {
+    const claims = claimLedger(
+      ['a'],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('a', '/unclaim', T0 + DAY),
+        comment('a', '/claim', T0 + 3 * DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      { login: 'a', claimedAt: null, assigned: true, lastActivityAt: null, contested: false },
+    ]);
+  });
+});
+
+describe('the hand-back command, as claim.yml runs it', () => {
+  const CLAIM_WORKFLOW = readFileSync(join(process.cwd(), '.github/workflows/claim.yml'), 'utf8');
+  const start = CLAIM_WORKFLOW.indexOf(`${UNCLAIM_COMMAND}*)`);
+  const unclaimBranch = CLAIM_WORKFLOW.slice(start, CLAIM_WORKFLOW.indexOf(';;', start));
+
+  it('is the comment prefix the workflow fires on and branches on', () => {
+    expect(CLAIM_WORKFLOW).toContain(`startsWith(github.event.comment.body, '${UNCLAIM_COMMAND}')`);
+    expect(start).toBeGreaterThan(-1);
+  });
+
+  it('releases the commenter, the login the ledger ends the claim of', () => {
+    expect(CLAIM_WORKFLOW).toContain('WHO: ${{ github.event.comment.user.login }}');
+    expect(unclaimBranch).toContain('-f "assignees[]=$WHO"');
   });
 });
 

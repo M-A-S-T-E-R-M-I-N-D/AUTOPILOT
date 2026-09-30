@@ -22,8 +22,9 @@
  * releases it inline, and the flight-end sweep (`post-flight-sweeps.ts`)
  * releases it on its own — the "system that really frees claims" the
  * operator asked for. A release note (`Releasing @login` / the reaper's
- * `Unassigning @login`) ends the claim in the ledger, so a freed issue
- * reads free again on the very next fetch.
+ * `Unassigning @login`) ends the claim in the ledger, and so does the
+ * claimant's own `/unclaim`, so a freed issue reads free again on the very
+ * next fetch.
  *
  * Pure: parses what `gh` already returns, never calls anything.
  */
@@ -70,12 +71,20 @@ export const CLAIM_COMMENT_RE =
 export const CLAIM_RELEASE_RE =
   /^(?:Releasing|Unassigning) @([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)/m;
 
+/** The claim protocol's hand-back (`.github/workflows/claim.yml`): a comment
+ *  that starts with it ends its AUTHOR's claim, the login the workflow
+ *  unassigns. The workflow's own reply ("@x released this task") is no
+ *  release sentence, so without this a pool-client claim outlived its own
+ *  hand-back. */
+export const UNCLAIM_COMMAND = '/unclaim';
+
 /**
  * Derives every live claim on an issue from its assignees and comments.
  * Comments are walked oldest-first: a claim sentence opens (or renews) that
- * login's claim, a release sentence closes it, and any later comment by a
- * live claimant refreshes their activity. Assignees without a claim comment
- * are claims of unknown date. A login last released stays released even if
+ * login's claim, a release sentence closes it, a {@link UNCLAIM_COMMAND}
+ * closes its author's, and any later comment by a live claimant refreshes
+ * their activity. Assignees without a claim comment are claims of unknown
+ * date. A login last released stays released even if
  * it is still in `assignees` — the reaper's release note lands before its
  * paired `--remove-assignee` call, so a failed unassign must not resurrect
  * the claim it just ended. Ordered oldest claim first, unknown dates first
@@ -96,6 +105,12 @@ export function claimLedger(
   const released = new Set<string>();
   const ordered = [...comments].sort((a, b) => a.createdAt - b.createdAt);
   for (const comment of ordered) {
+    // Not added to `released`: the workflow unassigns in the same run, and a
+    // later `/claim` comes back as an assignment the ledger must still read.
+    if (comment.body.startsWith(UNCLAIM_COMMAND)) {
+      live.delete(comment.author);
+      continue;
+    }
     const claim = CLAIM_COMMENT_RE.exec(comment.body);
     if (claim) {
       const login = claim[2] as string;

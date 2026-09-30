@@ -202,6 +202,26 @@ describe('the claim path', () => {
       expect(body).not.toContain('contested');
       expect(isHumanClosedTask({ body })).toBe(true);
     });
+
+    it('a claim right after the holder handed back with /unclaim is a plain claim, not a contest', () => {
+      const issue = {
+        ...heldBy('gabibi555'),
+        claims: claimLedger(
+          [],
+          [
+            {
+              author: 'gabibi555',
+              createdAt: T0,
+              body: 'Claimed by gabibi555 via the pool client.',
+            },
+            { author: 'gabibi555', createdAt: T0 + DAY, body: '/unclaim' },
+          ],
+        ),
+      };
+      const decision = planClaimPoolIssue(issue, 'octocat', T0 + 2 * DAY);
+      expect(decision).toMatchObject({ decision: 'claim', releases: [] });
+      expect(planPoolIssueTask(issue, decision, 'p1', 100)?.body).not.toContain('contested');
+    });
   });
 
   it('the prompt note tells the agent to slice, not to finish', () => {
