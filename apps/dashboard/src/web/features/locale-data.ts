@@ -6,8 +6,11 @@
  * `@autopilot/tokens`' `STRINGS` table, split out of the render-blocking
  * core chunk (`features/locale.ts`, which keeps only `STRINGS.en` — the
  * table `tr()`/`translateDom()` need synchronously for confirm-dialog text
- * and the default English paint) into its own deferred module, riding
- * `/panels.js` on every page.
+ * and the default English paint) into its own deferred module. Board
+ * ap-muo35gze-1 then took it off every page: composed into `/panels.js` for
+ * `clientJs()`, it is served apart as `/locales.js`
+ * (`server/client-bundle.ts`), which core's `ensureLocaleData()` inserts only
+ * once a non-English locale is applied.
  *
  * Widens core's `let STRINGS` in place (`Object.assign`, not reassignment —
  * `applyLocale()`/`translateDom()` closures already captured the object

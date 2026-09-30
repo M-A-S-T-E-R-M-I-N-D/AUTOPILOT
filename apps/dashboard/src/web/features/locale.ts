@@ -115,13 +115,16 @@
  * board ap-mtk2tgvh-0: every non-English table bulked up the core chunk for
  * every visitor regardless of locale, and English needs no translation table
  * at all (the server already renders English by default). `STRINGS` is a
- * `let`, not `const`, so `features/locale-data.ts` — deferred, riding
- * `/panels.js` — can widen it with the other locales once it loads;
- * `translateDom`/`tr`'s `STRINGS[l] || STRINGS.en` fallback means a saved
- * non-English locale simply reads English until that deferred script
- * executes (by the first fleet tick per the established defer contract), the
- * same graceful-degradation shape `renderFleet`'s `typeof`-guarded deferred
- * calls already use elsewhere in this split.
+ * `let`, not `const`, so `features/locale-data.ts` can widen it with the
+ * other locales once it loads. Board ap-muo35gze-1 serves that module as its
+ * own `/locales.js` (`server/client-bundle.ts`), which `ensureLocaleData()`
+ * inserts only when `applyLocale()` picks a locale `STRINGS` lacks — a saved
+ * one at boot or a switcher click — so an English visitor never downloads
+ * the tables. `translateDom`/`tr`'s `STRINGS[l] || STRINGS.en` fallback
+ * means a non-English locale simply reads English until that script
+ * executes and re-sweeps, the same graceful-degradation shape
+ * `renderFleet`'s `typeof`-guarded deferred calls already use elsewhere in
+ * this split.
  *
  * ADR 0012 narrows that further: this function still splices the whole of
  * `STRINGS.en`, but `shell.ts`'s `coreClientJs()` serves only the entries
@@ -235,6 +238,20 @@ function tr(key, subs) {
   if (typeof subs === 'string') return substituteName(text, subs);
   return substituteMap(text, subs);
 }
+// /locales.js shares this script's ?v= content hash, read while core runs
+// (currentScript is null once it returns), so a rebuilt table is never stale.
+const LOCALE_DATA_SRC = '/locales.js' + (/\\?v=[^&#]*/.exec(
+  (document.currentScript && document.currentScript.getAttribute('src')) || '',
+) || [''])[0];
+function ensureLocaleData(l) {
+  if (STRINGS[l] || document.getElementById('ap-locale-data')) return;
+  const s = document.createElement('script');
+  s.id = 'ap-locale-data';
+  s.src = LOCALE_DATA_SRC;
+  // A failed load leaves nothing behind, so the next switch retries it.
+  s.onerror = () => s.remove();
+  document.head.appendChild(s);
+}
 function applyLocale(l) {
   document.documentElement.lang = l;
   document.documentElement.dir = RTL_LOCALES.includes(l) ? 'rtl' : 'ltr';
@@ -242,6 +259,7 @@ function applyLocale(l) {
   document.querySelectorAll('[data-lang-btn]').forEach((b) => {
     b.setAttribute('aria-pressed', String(b.dataset.langBtn === l));
   });
+  ensureLocaleData(l);
   translateDom(l);
 }
 let savedLocale = null;

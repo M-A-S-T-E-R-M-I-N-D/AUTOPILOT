@@ -5,7 +5,7 @@
  * Coverage for scripts/ci/check-bundle-size.mjs, the landing gate's budget
  * check on the dashboard's served client chunks: formatKb() (the unit every
  * line prints in), measure() (one chunk against its raw and gzip budgets)
- * and checkBundleSize() (all four chunks, the report and the exit code).
+ * and checkBundleSize() (all six chunks, the report and the exit code).
  * `main()` itself stays unimported — it needs the real dist output and exits
  * the process. The budgets' VALUES are pinned by the mirror census in
  * test/server/client-bundle-size-budget.test.ts; this file pins the logic
@@ -20,6 +20,8 @@ import {
   CORE_RAW_BUDGET,
   PANELS_GZIP_BUDGET,
   PANELS_RAW_BUDGET,
+  LOCALES_GZIP_BUDGET,
+  LOCALES_RAW_BUDGET,
   PROJECT_GZIP_BUDGET,
   PROJECT_RAW_BUDGET,
   WHATS_NEW_GZIP_BUDGET,
@@ -55,6 +57,7 @@ function bundle(chunks: {
   core?: string;
   project?: string;
   panels?: string;
+  locales?: string;
   whatsNew?: string;
   benchmark?: string;
 }): ClientBundle {
@@ -62,6 +65,7 @@ function bundle(chunks: {
     minifiedCoreJs: () => chunks.core ?? 'x',
     minifiedProjectJs: () => chunks.project ?? 'x',
     minifiedPanelsJs: () => chunks.panels ?? 'x',
+    minifiedLocalesJs: () => chunks.locales ?? 'x',
     minifiedWhatsNewJs: () => chunks.whatsNew ?? 'x',
     minifiedBenchmarkJs: () => chunks.benchmark ?? 'x',
   };
@@ -147,11 +151,12 @@ describe('measure', () => {
 });
 
 describe('checkBundleSize', () => {
-  it('returns 0 and prints the five size lines, the total and OK when every chunk fits', () => {
+  it('returns 0 and prints the six size lines, the total and OK when every chunk fits', () => {
     const chunks = {
       core: 'a'.repeat(1024),
       project: 'b'.repeat(2048),
       panels: 'c'.repeat(3072),
+      locales: 'f'.repeat(4096),
       whatsNew: 'd'.repeat(512),
       benchmark: 'e'.repeat(256),
     };
@@ -162,10 +167,11 @@ describe('checkBundleSize', () => {
       [line('/app.js (core)', chunks.core, CORE_RAW_BUDGET, CORE_GZIP_BUDGET)],
       [line('/project.js', chunks.project, PROJECT_RAW_BUDGET, PROJECT_GZIP_BUDGET)],
       [line('/panels.js', chunks.panels, PANELS_RAW_BUDGET, PANELS_GZIP_BUDGET)],
+      [line('/locales.js', chunks.locales, LOCALES_RAW_BUDGET, LOCALES_GZIP_BUDGET)],
       [line('/whats-new.js', chunks.whatsNew, WHATS_NEW_RAW_BUDGET, WHATS_NEW_GZIP_BUDGET)],
       [line('/benchmark.js', chunks.benchmark, BENCHMARK_RAW_BUDGET, BENCHMARK_GZIP_BUDGET)],
-      // 1024 + 2048 + 3072 + 512 + 256 = 6912 bytes — every other +/- mix differs.
-      ['combined: 6.8KB raw across the five chunks'],
+      // 1024 + 2048 + 3072 + 4096 + 512 + 256 = 11008 bytes — every other +/- mix differs.
+      ['combined: 10.8KB raw across the six chunks'],
       ['check-bundle-size OK'],
     ]);
     expect(error).not.toHaveBeenCalled();
@@ -177,6 +183,7 @@ describe('checkBundleSize', () => {
         core: 'a'.repeat(CORE_RAW_BUDGET),
         project: 'a'.repeat(PROJECT_RAW_BUDGET),
         panels: 'a'.repeat(PANELS_RAW_BUDGET),
+        locales: 'a'.repeat(LOCALES_RAW_BUDGET),
         whatsNew: 'a'.repeat(WHATS_NEW_RAW_BUDGET),
         benchmark: 'a'.repeat(BENCHMARK_RAW_BUDGET),
       }),
@@ -189,6 +196,7 @@ describe('checkBundleSize', () => {
     ['core', '/app.js (core)', CORE_RAW_BUDGET],
     ['project', '/project.js', PROJECT_RAW_BUDGET],
     ['panels', '/panels.js', PANELS_RAW_BUDGET],
+    ['locales', '/locales.js', LOCALES_RAW_BUDGET],
     ['whatsNew', '/whats-new.js', WHATS_NEW_RAW_BUDGET],
     ['benchmark', '/benchmark.js', BENCHMARK_RAW_BUDGET],
   ] as const)(
@@ -207,6 +215,7 @@ describe('checkBundleSize', () => {
     ['core', '/app.js (core)', CORE_GZIP_BUDGET],
     ['project', '/project.js', PROJECT_GZIP_BUDGET],
     ['panels', '/panels.js', PANELS_GZIP_BUDGET],
+    ['locales', '/locales.js', LOCALES_GZIP_BUDGET],
     ['whatsNew', '/whats-new.js', WHATS_NEW_GZIP_BUDGET],
     ['benchmark', '/benchmark.js', BENCHMARK_GZIP_BUDGET],
   ] as const)(

@@ -76,11 +76,12 @@ function connectInit() {
   // retranslates it, the same two-part contract fly.ts's setTip uses. The
   // tag matters here for a different reason than fly.ts's TDZ: this module
   // rides the deferred /panels.js chunk (chunks.ts), which executes AFTER
-  // core's tr() exists but BEFORE locale-data.ts (last in that same chunk)
-  // widens STRINGS with the non-English tables — so a saved Hebrew locale
-  // reads English here at init and settles into Hebrew on locale-data's own
-  // re-sweep. Every status line below is written later still (a click or a
-  // fetch callback), so its tr() reads the fully-widened table directly.
+  // core's tr() exists but possibly BEFORE /locales.js (fetched on demand by
+  // core's ensureLocaleData(), locale.ts) widens STRINGS with the non-English
+  // tables — so a saved Hebrew locale may read English here at init and
+  // settles into Hebrew on locale-data's own re-sweep. Every status line below
+  // is written later (a click or a fetch callback), so its tr() reads the
+  // widened table once it has landed.
   function setTip(target, key) {
     if (!target) return;
     target.dataset.i18nTip = key;

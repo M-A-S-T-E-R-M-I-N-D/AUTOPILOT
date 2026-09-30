@@ -9,6 +9,7 @@ import {
   minifiedCoreJs,
   minifiedProjectJs,
   minifiedPanelsJs,
+  minifiedLocalesJs,
   minifiedWhatsNewJs,
   minifiedBenchmarkJs,
 } from '../../src/server/client-bundle.js';
@@ -606,6 +607,10 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // 237.7KB → 258873B raw. Combined across the five chunks is unchanged. The
 // core lines stay put: the headroom is what the board item asked for, with
 // lanes in flight that grow core. About two KB of margin, as above.
+// Then the same board item's next lever (2026-09-30): locale-data.ts's
+// non-English tables leave /panels.js for the on-demand /locales.js below.
+// Measured /panels.js 253.0KB → 177108B raw, 76.5KB → 53030B gzip. Both
+// panels lines stay put, the same headroom call as the core lines above.
 const PROJECT_RAW_BUDGET = 126 * 1024;
 const PANELS_RAW_BUDGET = 255 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
@@ -668,6 +673,13 @@ const PANELS_RAW_BUDGET = 255 * 1024;
 // relocation as the panels raw entry above — measured 78245B.
 const PROJECT_GZIP_BUDGET = 34 * 1024;
 const PANELS_GZIP_BUDGET = 78 * 1024;
+// THE LOCALES CHUNK (2026-09-30, board ap-muo35gze-1): /locales.js carries
+// every non-English STRINGS table (features/locale-data.ts), and core loads
+// it only once a non-English locale is applied. Every translated key costs
+// this chunk now, not /panels.js. Measured 81979B raw / 24361B gzip at
+// introduction; the lines leave room for a few days of Hebrew strings.
+const LOCALES_RAW_BUDGET = 88 * 1024;
+const LOCALES_GZIP_BUDGET = 27 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
@@ -684,6 +696,7 @@ describe('client bundle size budget (mirrors scripts/ci/check-bundle-size.mjs)',
     ['/app.js (core)', minifiedCoreJs, CORE_RAW_BUDGET, CORE_GZIP_BUDGET],
     ['/project.js', minifiedProjectJs, PROJECT_RAW_BUDGET, PROJECT_GZIP_BUDGET],
     ['/panels.js', minifiedPanelsJs, PANELS_RAW_BUDGET, PANELS_GZIP_BUDGET],
+    ['/locales.js', minifiedLocalesJs, LOCALES_RAW_BUDGET, LOCALES_GZIP_BUDGET],
     ['/whats-new.js', minifiedWhatsNewJs, WHATS_NEW_RAW_BUDGET, WHATS_NEW_GZIP_BUDGET],
     ['/benchmark.js', minifiedBenchmarkJs, BENCHMARK_RAW_BUDGET, BENCHMARK_GZIP_BUDGET],
   ] as const)('%s stays within its raw and gzip budget', (_label, getJs, rawBudget, gzipBudget) => {
@@ -725,6 +738,8 @@ describe('the budgets mirror scripts/ci/check-bundle-size.mjs exactly', () => {
     expect(scriptBudget('PROJECT_GZIP_BUDGET')).toBe(PROJECT_GZIP_BUDGET);
     expect(scriptBudget('PANELS_RAW_BUDGET')).toBe(PANELS_RAW_BUDGET);
     expect(scriptBudget('PANELS_GZIP_BUDGET')).toBe(PANELS_GZIP_BUDGET);
+    expect(scriptBudget('LOCALES_RAW_BUDGET')).toBe(LOCALES_RAW_BUDGET);
+    expect(scriptBudget('LOCALES_GZIP_BUDGET')).toBe(LOCALES_GZIP_BUDGET);
   });
 
   it('reads a real declaration, not an accidental match — a missing name throws', () => {

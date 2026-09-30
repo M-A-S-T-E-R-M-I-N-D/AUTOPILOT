@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import { handleRoute } from '../../src/server/routes.js';
 import { PRODUCT_VERSION } from '../../src/info.js';
 
@@ -97,6 +98,35 @@ describe('handleRoute', () => {
     expect(r.body).toContain('dataset.theme'); // switcher
     expect(r.body).toContain('/api/state'); // fleet poller
     expect(r.body).toContain('setInterval');
+  });
+
+  describe('the non-English tables (board ap-muo35gze-1): their own /locales.js, not /panels.js', () => {
+    // The longest Hebrew string esbuild cannot requote or escape, so the
+    // minified chunk spells it byte for byte wherever it rides.
+    const hebrew = Object.values(STRINGS.he)
+      .filter((s) => /^[^'"`\\\n$]+$/.test(s))
+      .reduce((a, b) => (b.length > a.length ? b : a), '');
+
+    it('serves /locales.js carrying the non-English tables and the re-sweep', () => {
+      const r = handleRoute('/locales.js');
+      expect(r.status).toBe(200);
+      expect(r.contentType).toBe('text/javascript; charset=utf-8');
+      expect(hebrew.length).toBeGreaterThan(20);
+      expect(r.body).toContain(hebrew);
+      expect(r.body).toContain('translateDom(');
+    });
+
+    // Minifying the panels chunk can exceed the 30s default when sibling
+    // gates share the machine — the cost is contention, not a hang.
+    it('leaves them out of /panels.js, which every page loads', () => {
+      const panels = String(handleRoute('/panels.js').body);
+      expect(panels).not.toContain(hebrew);
+      expect(panels).toContain('Object.assign(STRINGS.en,');
+    }, 120_000);
+
+    it('emits no /locales.js tag — core fetches it only for a non-English locale', () => {
+      expect(String(handleRoute('/').body)).not.toContain('/locales.js');
+    });
   });
 
   it('serves a JSON health probe', () => {

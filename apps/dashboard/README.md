@@ -27,7 +27,8 @@ pnpm dashboard:fleet        # a hub-aware partitioned round across worktree lane
 - `src/web/` — the hand-authored client: `shell.ts` assembles `/app.js`, `/project.js` and
   `/panels.js` from `features/*.ts` (each a self-initialising panel) and `layout-css.ts` (mobile-first,
   logical properties only, tokens only). Chunk membership lives in `chunks.ts`; bundle budgets in
-  `scripts/ci/check-bundle-size.mjs`.
+  `scripts/ci/check-bundle-size.mjs`. The non-English string tables ride `/locales.js`, which core
+  fetches only once a non-English language is chosen.
 - `src/flight/` — the rituals a flight or the Keeper runs: issue triage and the claim contract, the
   mirror pass, PR review, the pool client, the lucky plan and fit, lane freshness, update checks.
 - `src/landing/`, `src/release/` — the landing ritual (gate → merge → push → self-restart) and the
