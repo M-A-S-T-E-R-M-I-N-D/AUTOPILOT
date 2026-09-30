@@ -34,8 +34,10 @@
  * the web/ census read zero while the triage panels' "⏭ skip" badge and the
  * shell's "⏱ try Nt" budget hint still painted emoji: Unicode's emoji-data.txt
  * lists ⌚⌛ ⌨ ⏏ ⏩–⏳ ⏸–⏺ as Emoji=Yes (⏭/⏱ text-default, like ⚠). ⌘
- * (U+2318) is not emoji and stays a key name. The block has its own census:
- * a shrink-only list of the sites still carrying one, and zero in STRINGS.
+ * (U+2318) is not emoji and stays a key name. The block has its own census,
+ * which began as a shrink-only list of the sites still carrying one: the
+ * triage badges' ⏭ took the vendored skip-forward icon and the budget hint's
+ * ⏱ the vendored timer (2026-09-30), so it pins zero in web/ as in STRINGS.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -64,13 +66,6 @@ const EMOJI_PATTERN =
  *  a list, not the block, so ⌘ and the other key names stay out. */
 const TECHNICAL_EMOJI_PATTERN =
   /[\u{231A}\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}]/gu;
-
-/** The web/ sites still painting a Miscellaneous Technical emoji — shrink-only:
- *  a slice that sweeps one deletes its line, and the list ends at zero like
- *  the census above. The triage badges' ⏭ lead with the vendored skip-forward
- *  icon now (2026-09-30); the shell's budget hint still needs one for its
- *  stopwatch. */
-const TECHNICAL_EMOJI_SITES = ['shell.ts: ⏱ (U+23f1)', 'shell.ts: ⏱ (U+23f1)'];
 
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
@@ -115,9 +110,9 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
-  it('pins the Miscellaneous Technical emoji still in web/ chrome to a shrink-only list', () => {
+  it('bakes no Miscellaneous Technical emoji into any web/ source file outside comments', () => {
     const offenders = webOffenders(files, TECHNICAL_EMOJI_PATTERN);
-    expect(offenders, offenders.join('\n')).toEqual(TECHNICAL_EMOJI_SITES);
+    expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
   it('matches ⏭/⏱ but leaves the ⌘ key name alone', () => {

@@ -106,7 +106,10 @@ describe('ADAPTIVE TASK BUDGET risk chip', () => {
 
     const chip = document.querySelector('.chip-budget-risk');
     expect(chip).toBeTruthy();
-    expect(chip!.textContent).toBe('⏱ try 180t');
+    // Epic 0025 (board web-mtywp7zq-55f3o9): the vendored timer stroke icon
+    // replaces the ⏱ Miscellaneous Technical emoji baked into the old text.
+    expect(chip!.querySelector('svg.icon-timer')).not.toBeNull();
+    expect(chip!.textContent).toBe('try 180t');
     // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): this
     // row's burn chip (the same claiming firing also counts as burn) renders
     // first, so it holds the row's one Tab stop — the budget-risk chip is
@@ -131,7 +134,7 @@ describe('ADAPTIVE TASK BUDGET risk chip', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const chip = document.querySelector('.chip-budget-risk');
-    expect(chip!.textContent).toBe('⏱ try 240t');
+    expect(chip!.textContent).toBe('try 240t');
   });
 
   it('renders no budget-risk chip for a task that has never turn-capped', async () => {
@@ -161,7 +164,8 @@ describe('ADAPTIVE TASK BUDGET risk chip', () => {
     const row = document.querySelector('[data-task-id="t1"]') as HTMLElement;
     const chip = row.querySelector('.chip-budget-risk-dim');
     expect(chip).toBeTruthy();
-    expect(chip!.textContent).toBe('⏱ try 180t?');
+    expect(chip!.querySelector('svg.icon-timer')).not.toBeNull();
+    expect(chip!.textContent).toBe('try 180t?');
     // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): this
     // row's plain dimension badge renders before the budget-risk-dim chip, so
     // the badge holds the row's one Tab stop; the fallback chip is still
