@@ -630,6 +630,7 @@ main.project-mode { grid-template-columns: 1fr; }
 }
 .act-label { margin: 0 0 var(--space-1); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
 .act-label-live { color: var(--color-accent); }
+.act-label > .icon { margin-inline-end: 0.35em; }
 .docs-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .docs-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .dora-panel { border: 1px solid var(--color-border); border-radius: var(--shape-medium); box-shadow: var(--elevation-level-1); overflow: hidden; }

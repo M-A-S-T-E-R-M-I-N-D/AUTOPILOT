@@ -130,15 +130,12 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
  *  they took the vendored circle-dot/circle icons (2026-09-30). */
 const GEOMETRIC_WEB_PATTERN = /[■-◿]/gu;
 
-/** Shrink-only: the web/ sites still painting one. The activity feed's
- *  "● live activity" heading leads with a glyph standing in for an icon; the
- *  connect panel's report toggle draws ▸/▾ in place of the native details
- *  marker it hides. Converting one removes its line — never add one. */
-const GEOMETRIC_WEB_SITES = [
-  'activity-log.ts: ● (U+25cf)',
-  'layout-css.ts: ▸ (U+25b8)',
-  'layout-css.ts: ▾ (U+25be)',
-];
+/** Shrink-only: the web/ sites still painting one. The connect panel's
+ *  report toggle draws ▸/▾ in place of the native details marker it hides.
+ *  The activity feed's "● live activity" heading led with a glyph standing
+ *  in for an icon until it took the vendored circle-dot (2026-09-30).
+ *  Converting one removes its line — never add one. */
+const GEOMETRIC_WEB_SITES = ['layout-css.ts: ▸ (U+25b8)', 'layout-css.ts: ▾ (U+25be)'];
 
 function emojiBearingStringKeys(pattern: RegExp = EMOJI_PATTERN): string[] {
   return Object.entries(STRINGS)
