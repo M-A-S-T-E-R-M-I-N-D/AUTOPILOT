@@ -1762,9 +1762,9 @@ function soulEditorPanel(projectId, soulText) {
   textarea.readOnly = true;
   // The per-project overrides (FLEET_WISDOM_OPT_OUT_LINE in
   // flight/fleet-wisdom-mining.ts, ATTRIBUTION_OPT_OUT_LINE in
-  // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE in packages/engine
-  // config.ts) are SOUL lines, so they are named right where they are
-  // written — and read out with the text they describe.
+  // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE and INTERNET_OPT_OUT_LINE
+  // in packages/engine config.ts) are SOUL lines, so they are named right
+  // where they are written — and read out with the text they describe.
   var hint = el('p', 'soul-editor-hint', 'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.');
   hint.id = 'soul-editor-hint-' + projectId;
   hint.setAttribute('data-i18n', 'soulEditorWisdomHint');
@@ -1774,7 +1774,13 @@ function soulEditorPanel(projectId, soulText) {
   var subagentsHint = el('p', 'soul-editor-hint', 'Add the line “Subagents: off” to keep this project’s firings from delegating work to subagents.');
   subagentsHint.id = 'soul-editor-subagents-hint-' + projectId;
   subagentsHint.setAttribute('data-i18n', 'soulEditorSubagentsHint');
-  textarea.setAttribute('aria-describedby', hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id);
+  var internetHint = el('p', 'soul-editor-hint', 'Add the line “Internet: off” to keep this project’s firings off the open internet (no WebSearch or WebFetch).');
+  internetHint.id = 'soul-editor-internet-hint-' + projectId;
+  internetHint.setAttribute('data-i18n', 'soulEditorInternetHint');
+  textarea.setAttribute(
+    'aria-describedby',
+    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id,
+  );
   var unlock = el('button', 'soul-editor-unlock');
   unlock.appendChild(iconEl('lock'));
   unlock.appendChild(document.createTextNode('Unlock to edit'));
@@ -1798,6 +1804,7 @@ function soulEditorPanel(projectId, soulText) {
   form.appendChild(hint);
   form.appendChild(attributionHint);
   form.appendChild(subagentsHint);
+  form.appendChild(internetHint);
   var row = el('div', 'soul-editor-row');
   row.appendChild(unlock);
   row.appendChild(btn);

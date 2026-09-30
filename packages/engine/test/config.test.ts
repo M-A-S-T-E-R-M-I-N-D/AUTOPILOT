@@ -8,8 +8,11 @@ import {
   DEFAULT_ENGINE_CONFIG,
   SUBAGENT_TOOLS,
   SUBAGENTS_OPT_OUT_LINE,
+  WEB_TOOLS,
+  INTERNET_OPT_OUT_LINE,
   firingToolGrant,
   soulOptsOutOfSubagents,
+  soulOptsOutOfInternet,
 } from '../src/config.js';
 
 describe('DEFAULT_ALLOWED_TOOLS / DEFAULT_DISALLOWED_TOOLS', () => {
@@ -66,13 +69,13 @@ describe('the "Subagents: off" SOUL line — a per-project override of the subag
   });
 
   it('keeps the default grant, the same lists, when subagents are on', () => {
-    const grant = firingToolGrant(true);
+    const grant = firingToolGrant({ subagentsEnabled: true });
     expect(grant.allowedTools).toBe(DEFAULT_ALLOWED_TOOLS);
     expect(grant.disallowedTools).toBe(DEFAULT_DISALLOWED_TOOLS);
   });
 
   it('moves every delegation tool from allowed to disallowed when subagents are off', () => {
-    const grant = firingToolGrant(false);
+    const grant = firingToolGrant({ subagentsEnabled: false });
     for (const tool of SUBAGENT_TOOLS) {
       expect(grant.allowedTools).not.toContain(tool);
       expect(grant.disallowedTools).toContain(tool);
@@ -82,6 +85,74 @@ describe('the "Subagents: off" SOUL line — a per-project override of the subag
       DEFAULT_ALLOWED_TOOLS.filter((tool) => !(SUBAGENT_TOOLS as readonly string[]).includes(tool)),
     );
     expect(grant.disallowedTools).toEqual([...DEFAULT_DISALLOWED_TOOLS, ...SUBAGENT_TOOLS]);
+    expect(grant.allowedTools.filter((tool) => grant.disallowedTools.includes(tool))).toEqual([]);
+  });
+});
+
+describe('the "Internet: off" SOUL line — a per-project override of the web grant', () => {
+  const SOUL = '# SOUL — client-app\n\nStack: js\n\n## Operating rules\n- Gate every change.';
+
+  it('opts out on the line, plain or as a bullet, any case, stray spaces or a trailing CR', () => {
+    expect(soulOptsOutOfInternet(`${SOUL}\n${INTERNET_OPT_OUT_LINE}\n`)).toBe(true);
+    expect(soulOptsOutOfInternet(`${SOUL}\n- Internet: off`)).toBe(true);
+    expect(soulOptsOutOfInternet(`${SOUL}\n  * INTERNET:OFF  `)).toBe(true);
+    expect(soulOptsOutOfInternet(`internet:   Off\r\n${SOUL}`)).toBe(true);
+  });
+
+  it('does not opt out without the line, on a mention mid-sentence, or on any value but off', () => {
+    expect(soulOptsOutOfInternet(SOUL)).toBe(false);
+    expect(soulOptsOutOfInternet('')).toBe(false);
+    expect(soulOptsOutOfInternet(`${SOUL}\n- Never write "Internet: off" here.`)).toBe(false);
+    expect(soulOptsOutOfInternet(`${SOUL}\nInternet: on`)).toBe(false);
+    expect(soulOptsOutOfInternet(`${SOUL}\nInternet: offline`)).toBe(false);
+    // One override never trips the other.
+    expect(soulOptsOutOfInternet(`${SOUL}\n${SUBAGENTS_OPT_OUT_LINE}`)).toBe(false);
+    expect(soulOptsOutOfSubagents(`${SOUL}\n${INTERNET_OPT_OUT_LINE}`)).toBe(false);
+  });
+
+  it('names the web tools the default grant allows', () => {
+    for (const tool of WEB_TOOLS) {
+      expect(DEFAULT_ALLOWED_TOOLS as readonly string[]).toContain(tool);
+    }
+  });
+
+  it('keeps the default grant, the same lists, when the internet is on or unsaid', () => {
+    for (const grant of [
+      firingToolGrant({ internetEnabled: true }),
+      firingToolGrant({}),
+      firingToolGrant(),
+    ]) {
+      expect(grant.allowedTools).toBe(DEFAULT_ALLOWED_TOOLS);
+      expect(grant.disallowedTools).toBe(DEFAULT_DISALLOWED_TOOLS);
+    }
+  });
+
+  it('moves every web tool from allowed to disallowed when the internet is off', () => {
+    const grant = firingToolGrant({ internetEnabled: false });
+    for (const tool of WEB_TOOLS) {
+      expect(grant.allowedTools).not.toContain(tool);
+      expect(grant.disallowedTools).toContain(tool);
+    }
+    // Everything else in the grant is untouched — the delegation tools stay granted.
+    expect(grant.allowedTools).toEqual(
+      DEFAULT_ALLOWED_TOOLS.filter((tool) => !(WEB_TOOLS as readonly string[]).includes(tool)),
+    );
+    expect(grant.disallowedTools).toEqual([...DEFAULT_DISALLOWED_TOOLS, ...WEB_TOOLS]);
+    expect(grant.allowedTools.filter((tool) => grant.disallowedTools.includes(tool))).toEqual([]);
+  });
+
+  it('denies both tool groups, without overlap, when a SOUL opts out of both', () => {
+    const grant = firingToolGrant({ subagentsEnabled: false, internetEnabled: false });
+    for (const tool of [...SUBAGENT_TOOLS, ...WEB_TOOLS]) {
+      expect(grant.allowedTools).not.toContain(tool);
+      expect(grant.disallowedTools).toContain(tool);
+    }
+    expect(grant.disallowedTools).toEqual([
+      ...DEFAULT_DISALLOWED_TOOLS,
+      ...SUBAGENT_TOOLS,
+      ...WEB_TOOLS,
+    ]);
+    expect(new Set(grant.disallowedTools).size).toBe(grant.disallowedTools.length);
     expect(grant.allowedTools.filter((tool) => grant.disallowedTools.includes(tool))).toEqual([]);
   });
 });
