@@ -1601,6 +1601,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-editor-form .soul-editor-unlock::after { background: var(--color-text); }
 .soul-editor-form .soul-editor-unlock[aria-pressed="true"] { border-color: var(--color-accent); }
 .soul-editor-unlock > .icon { margin-inline-end: 0.35em; }
+.soul-editor-hint { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 
 .control-proposal { width: 100%; margin-bottom: var(--space-2); border: 1px solid var(--color-needs-you); border-radius: var(--shape-extra-small); padding: var(--space-2); }
 .control-proposal-summary { font-size: var(--text-xs); color: var(--color-needs-you); }

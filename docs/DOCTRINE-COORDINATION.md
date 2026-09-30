@@ -362,7 +362,9 @@ lifecycle, all shipped:
   none of the fleet layer; every other project still does. It is the
   per-project override of this fleet-wide default (MASTER-PLAN §5.4), and it
   lives in the SOUL text, so adding or removing it goes through the SOUL
-  editor's unlock and propose-then-ratify path like any other edit.
+  editor's unlock and propose-then-ratify path like any other edit. The
+  editor names the line in a hint under the SOUL text, which screen readers
+  read as the text box's description.
 
 **Confidentiality boundary:** the mined text is a fixed, pre-authored
 template that never interpolates any project-identifying data — no slug, no

@@ -1760,6 +1760,13 @@ function soulEditorPanel(projectId, soulText) {
   textarea.rows = 8;
   textarea.value = soulText || '';
   textarea.readOnly = true;
+  // The per-project override of the fleet layer (FLEET_WISDOM_OPT_OUT_LINE,
+  // flight/fleet-wisdom-mining.ts) is a SOUL line, so it is named right where
+  // it is written — and read out with the text it describes.
+  var hint = el('p', 'soul-editor-hint', 'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.');
+  hint.id = 'soul-editor-hint-' + projectId;
+  hint.setAttribute('data-i18n', 'soulEditorWisdomHint');
+  textarea.setAttribute('aria-describedby', hint.id);
   var unlock = el('button', 'soul-editor-unlock');
   unlock.appendChild(iconEl('lock'));
   unlock.appendChild(document.createTextNode('Unlock to edit'));
@@ -1780,6 +1787,7 @@ function soulEditorPanel(projectId, soulText) {
   btn.setAttribute('aria-label', tip);
   form.appendChild(label);
   form.appendChild(textarea);
+  form.appendChild(hint);
   var row = el('div', 'soul-editor-row');
   row.appendChild(unlock);
   row.appendChild(btn);
