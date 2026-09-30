@@ -14,6 +14,7 @@ hand-edited.
 | --- | --- |
 | 2026-09-30 | [Processing `ap-mun9xrba-2`: "test:impacted blast radius: fleet-report.ts -> round-evaluation.ts -> fly.ts -> cli.ts/server/main.ts" — refuted, and the real gap runs the other way](2026-09-30-verdict-ap-mun9xrba-2-test-impacted-blast-radius-refuted.md) |
 | 2026-09-30 | [Processing `ap-mun9xrap-1`: "firing tools could not run the gate or commit" — does not reproduce, and 47 firing commits since say the same](2026-09-30-verdict-ap-mun9xrap-1-firing-tools-not-reproduced.md) |
+| 2026-09-30 | [Deciding `ap-muo2yojl-0`: the flight keeps Bash as its only shell, and PowerShell stays ungranted](2026-09-30-decision-ap-muo2yojl-0-powershell-stays-ungranted.md) |
 | 2026-09-29 | [Closing `docfresh-docs-model-card-md-1790532386000`: the drift was a 51-minute revert window on autopilot/flight, relanded byte for byte](2026-09-29-docfresh-model-card-lane-revert-phantom-closed.md) |
 | 2026-09-29 | [Closing `docfresh-docs-epics-0007-platform-maintainer-and-pool-md-1790544798000`: the epic caught up to its subject the same day](2026-09-29-docfresh-epic-0007-caught-up-closed.md) |
 | 2026-09-28 | [Processing `ap-muk7f98l-strand`: "STRANDED SYNC-BACK … fleet-4 … merge … failed (exit 1): Auto-merging docs/epics/0036-provider-parity.md" — already rescued](2026-09-28-verdict-ap-muk7f98l-strand-already-rescued.md) |
