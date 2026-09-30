@@ -1093,6 +1093,37 @@ describe('webSearchesFromEvent — the WebSearch audit record (THREAT-MODEL T6)'
     expect(audit).toMatchObject({ allowedDomains: [], blockedDomains: [] });
   });
 
+  // The four guards below each had a surviving mutant in the nightly
+  // mutation run of 2026-09-30: nothing had asked what a malformed event does.
+  it('reads the content off the event itself when the message is not an object', () => {
+    for (const message of ['nope', null, 7]) {
+      const event = { type: 'assistant', message, content: [search({ query: 'q' })] };
+      expect(
+        webSearchesFromEvent(event).map((a) => a.query),
+        String(message),
+      ).toEqual(['q']);
+    }
+  });
+
+  it('yields nothing, and does not throw, for content that is not an array', () => {
+    expect(webSearchesFromEvent(assistant(search({ query: 'q' })))).toEqual([]);
+    expect(webSearchesFromEvent(assistant('q'))).toEqual([]);
+  });
+
+  it('steps over a hole or a primitive in the content array', () => {
+    const event = assistant([undefined, null, 'text', 4, search({ query: 'q' })]);
+    expect(webSearchesFromEvent(event).map((a) => a.query)).toEqual(['q']);
+  });
+
+  it('records only a tool_use named WebSearch — not another tool, nor a text block that names it', () => {
+    const event = assistant([
+      { type: 'tool_use', name: 'Read', input: { query: 'not a search' } },
+      { type: 'text', name: 'WebSearch', input: { query: 'not a tool use' } },
+      search({ query: 'the one' }),
+    ]);
+    expect(webSearchesFromEvent(event).map((a) => a.query)).toEqual(['the one']);
+  });
+
   it('caps a query past the audit ceiling and says how long it really was', () => {
     const query = 'x'.repeat(WEB_SEARCH_AUDIT_MAX_CHARS + 50);
     const [audit] = webSearchesFromEvent(assistant([search({ query })]));

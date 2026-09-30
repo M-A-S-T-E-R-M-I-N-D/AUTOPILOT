@@ -227,11 +227,12 @@ describe('createSelfRestartTrigger', () => {
       start: vi.fn(() => ({ url: null })),
     };
     const exit = vi.fn();
+    const seen: boolean[] = [];
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const trigger = createSelfRestartTrigger(
       { run: () => Promise.reject(new Error('spawn EINVAL')) },
       target,
-      { exit },
+      { exit, onPending: (p) => seen.push(p) },
     );
     trigger();
     await flush();
@@ -239,6 +240,9 @@ describe('createSelfRestartTrigger', () => {
     expect(target.stopSelf).not.toHaveBeenCalled();
     expect(target.start).not.toHaveBeenCalled();
     expect(exit).not.toHaveBeenCalled();
+    // This server keeps serving, so the restart is no longer pending (the
+    // nightly mutation run found the reset on this path unwatched).
+    expect(seen).toEqual([true, false]);
     expect(stderr).toHaveBeenCalledWith(
       '[self-restart] rebuild failed to launch: spawn EINVAL — keeping the current server.\n',
     );
