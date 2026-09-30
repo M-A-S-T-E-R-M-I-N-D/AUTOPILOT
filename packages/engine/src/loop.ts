@@ -53,6 +53,12 @@ export interface LoopDeps {
   ) => Promise<{ text: string; version: string; primaryModel?: string; maxBudgetUsd?: number }>;
   /** STOP-aware sleep (chunked so a long hibernate still honors STOP quickly). */
   readonly sleep: (minutes: number) => Promise<void>;
+  /**
+   * The wait after a firing the account quota killed; `sleep` when omitted.
+   * Separate because a caller may skip the pacing sleeps between firings yet
+   * must really wait out a dry quota (see {@link MAX_QUOTA_WAITS}).
+   */
+  readonly hibernate?: (minutes: number) => Promise<void>;
   /** The next adaptive-cadence sleep in minutes (observed spend vs soft caps). */
   readonly nextPaceMin: () => Promise<number>;
   /** Structured log sink. */
@@ -106,6 +112,26 @@ const CONSEC_BAD_ALERT = 2;
  * fleet for days.
  */
 export const MAX_QUOTA_WAITS = 3;
+
+/** How often a long wait looks up to see whether STOP was asked for. */
+export const STOP_CHECK_MS = 30_000;
+
+/**
+ * Waits `ms`, in steps of {@link STOP_CHECK_MS}, and returns early once
+ * `shouldStop` says so — an hours-long hibernation must not outlive a STOP.
+ */
+export async function sleepUnlessStopped(
+  ms: number,
+  shouldStop: () => boolean | Promise<boolean>,
+  wait: (ms: number) => Promise<void> = (t) => new Promise((resolve) => setTimeout(resolve, t)),
+): Promise<void> {
+  let left = ms;
+  while (left > 0 && !(await shouldStop())) {
+    const step = Math.min(STOP_CHECK_MS, left);
+    await wait(step);
+    left -= step;
+  }
+}
 
 /** Run the autopilot loop until STOP (or `maxIterations`). */
 export async function runLoop(
@@ -239,7 +265,7 @@ export async function runLoop(
             ? ` (this firing does not count; wait ${quotaWaits} of ${MAX_QUOTA_WAITS})`
             : ''),
       );
-      await deps.sleep(minutes);
+      await (deps.hibernate ?? deps.sleep)(minutes);
     } else {
       await deps.sleep(await deps.nextPaceMin());
     }

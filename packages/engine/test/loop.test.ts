@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
-import { runLoop, MAX_QUOTA_WAITS, type LoopDeps } from '../src/loop.js';
+import {
+  runLoop,
+  sleepUnlessStopped,
+  MAX_QUOTA_WAITS,
+  STOP_CHECK_MS,
+  type LoopDeps,
+} from '../src/loop.js';
 import { DEFAULT_ENGINE_CONFIG, type EngineConfig } from '../src/config.js';
 import { INITIAL_RESILIENCE_STATE, type ResilienceState } from '../src/resilience.js';
 import type { FiringInput, FiringOutcome } from '../src/firing.js';
@@ -314,6 +320,22 @@ describe('runLoop', () => {
     expect(h.log[h.log.length - 1]).toBe('GLOBAL quota exhaustion — hibernating 60 min');
   });
 
+  it('hibernates through `hibernate` when given one, and paces through `sleep` (2026-09-30)', async () => {
+    // fly.ts skips pacing with a no-op sleep; its hibernation must be real.
+    const h = harness([outcome({ globalExhaust: true }), outcome()]);
+    const hibernations: number[] = [];
+    const deps: LoopDeps = {
+      ...h.deps,
+      hibernate: (m) => {
+        hibernations.push(m);
+        return Promise.resolve();
+      },
+    };
+    await runLoop(deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+    expect(hibernations).toEqual([60]);
+    expect(h.sleeps).toEqual([5]);
+  });
+
   it('starts the wait count over after a firing the quota did not kill', async () => {
     const run = [
       ...Array.from({ length: MAX_QUOTA_WAITS }, () => outcome({ globalExhaust: true })),
@@ -544,5 +566,53 @@ describe('runLoop', () => {
       await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 2 });
       expect(h.firingInputs[1]?.resumeSessionId).toBeUndefined();
     });
+  });
+});
+
+describe('sleepUnlessStopped', () => {
+  it('waits the whole time in steps, the last one only what is left', async () => {
+    const steps: number[] = [];
+    await sleepUnlessStopped(
+      2 * STOP_CHECK_MS + 5,
+      () => false,
+      (ms) => {
+        steps.push(ms);
+        return Promise.resolve();
+      },
+    );
+    expect(steps).toEqual([STOP_CHECK_MS, STOP_CHECK_MS, 5]);
+  });
+
+  it('returns as soon as STOP is asked for, without waiting out the rest', async () => {
+    const steps: number[] = [];
+    let checks = 0;
+    await sleepUnlessStopped(
+      10 * STOP_CHECK_MS,
+      () => ++checks > 2,
+      (ms) => {
+        steps.push(ms);
+        return Promise.resolve();
+      },
+    );
+    expect(steps).toEqual([STOP_CHECK_MS, STOP_CHECK_MS]);
+  });
+
+  it('waits not at all for nothing', async () => {
+    let waited = 0;
+    await sleepUnlessStopped(
+      0,
+      () => false,
+      () => {
+        waited += 1;
+        return Promise.resolve();
+      },
+    );
+    expect(waited).toBe(0);
+  });
+
+  it('really waits by default', async () => {
+    const t0 = Date.now();
+    await sleepUnlessStopped(20, () => false);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(15);
   });
 });

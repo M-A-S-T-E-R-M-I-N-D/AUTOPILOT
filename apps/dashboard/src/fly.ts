@@ -43,6 +43,7 @@ import {
 } from '@autopilot/store';
 import {
   runLoop,
+  sleepUnlessStopped,
   DEFAULT_ENGINE_CONFIG,
   INITIAL_RESILIENCE_STATE,
   GitVcs,
@@ -1509,6 +1510,11 @@ async function main(): Promise<void> {
         };
       },
       sleep: () => Promise.resolve(),
+      // A dry account quota is really waited out (2026-09-30): with only the
+      // no-op sleep above, every "hibernating N min" line since genesis was a
+      // retry at once, and a quota-dry lane spent its firings in minutes.
+      // Pacing between firings stays off.
+      hibernate: (minutes) => sleepUnlessStopped(minutes * 60_000, shouldStop),
       nextPaceMin: () => pacer.nextPaceMin(),
       log: (message) => out(`  ${message}`),
       onFiringComplete: async (outcome) => {
