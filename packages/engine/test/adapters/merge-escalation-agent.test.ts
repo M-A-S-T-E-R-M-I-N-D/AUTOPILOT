@@ -7,6 +7,9 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  MERGE_ESCALATION_ALLOWED_TOOLS,
+  MERGE_ESCALATION_DISALLOWED_TOOLS,
+  buildMergeEscalationConfig,
   buildMergeEscalationPrompt,
   createGitMergeEscalationDeps,
   mergeEscalationCommitMessage,
@@ -15,6 +18,11 @@ import {
   type MergeEscalationDeps,
 } from '../../src/adapters/merge-escalation-agent.js';
 import type { MergeConflictSides } from '../../src/adapters/merge-conflict-context.js';
+import {
+  DEFAULT_ALLOWED_TOOLS,
+  DEFAULT_DISALLOWED_TOOLS,
+  DEFAULT_ENGINE_CONFIG,
+} from '../../src/config.js';
 import type { GatePort } from '../../src/ports.js';
 
 const CONFLICTS: readonly MergeConflictSides[] = [
@@ -149,6 +157,51 @@ describe('summarizeMergeEscalationOutcome', () => {
         unresolvedPaths: ['a.txt', 'docs/b.md'],
       }),
     ).toEqual({ kind: 'left-unresolved', details: 'left 2 path(s) unresolved: a.txt, docs/b.md' });
+  });
+});
+
+describe('MERGE_ESCALATION_ALLOWED_TOOLS / MERGE_ESCALATION_DISALLOWED_TOOLS', () => {
+  it('denies WebSearch and WebFetch — its non-streaming invocation could not audit a search (THREAT-MODEL T6)', () => {
+    for (const tool of ['WebSearch', 'WebFetch']) {
+      expect(MERGE_ESCALATION_ALLOWED_TOOLS).not.toContain(tool);
+      expect(MERGE_ESCALATION_DISALLOWED_TOOLS).toContain(tool);
+    }
+  });
+
+  it('keeps every tool reading, editing and `git add`-ing the conflicted files needs', () => {
+    for (const tool of ['Bash', 'Read', 'Edit', 'Write', 'Glob', 'Grep']) {
+      expect(MERGE_ESCALATION_ALLOWED_TOOLS).toContain(tool);
+    }
+  });
+
+  it('only narrows the flight grant: nothing allowed that a firing is not, every firing denial kept', () => {
+    for (const tool of MERGE_ESCALATION_ALLOWED_TOOLS) {
+      expect(DEFAULT_ALLOWED_TOOLS as readonly string[]).toContain(tool);
+    }
+    for (const tool of DEFAULT_DISALLOWED_TOOLS) {
+      expect(MERGE_ESCALATION_DISALLOWED_TOOLS).toContain(tool);
+    }
+  });
+
+  it('never uses a wildcard, and no tool is both allowed and denied', () => {
+    expect(MERGE_ESCALATION_DISALLOWED_TOOLS).not.toContain('*');
+    expect(
+      MERGE_ESCALATION_ALLOWED_TOOLS.filter((tool) =>
+        MERGE_ESCALATION_DISALLOWED_TOOLS.includes(tool),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('buildMergeEscalationConfig', () => {
+  it('overlays the rung-4 grant and passes every other field through', () => {
+    const base = { ...DEFAULT_ENGINE_CONFIG, primaryModel: 'sonnet', maxTurns: 80 };
+    const config = buildMergeEscalationConfig(base);
+    expect(config).toEqual({
+      ...base,
+      allowedTools: MERGE_ESCALATION_ALLOWED_TOOLS,
+      disallowedTools: MERGE_ESCALATION_DISALLOWED_TOOLS,
+    });
   });
 });
 
