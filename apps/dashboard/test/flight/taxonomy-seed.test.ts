@@ -146,6 +146,40 @@ describe('fetchExistingLabelNames', () => {
   });
 });
 
+/** A `gh label list` stand-in that returns rows the way gh does: oldest
+ *  first, at most `--limit` of them, and 30 when the flag is absent. */
+function ghLabelListOf(names: readonly string[]): CliExec {
+  return vi.fn(async (_bin: string, args: readonly string[]) => {
+    const flag = args.indexOf('--limit');
+    const limit = flag < 0 ? 30 : Number(args[flag + 1]);
+    return { code: 0, stdout: JSON.stringify(names.slice(0, limit).map((name) => ({ name }))) };
+  });
+}
+
+// Same law, the seeder's own read of what is already there. With no
+// `--limit`, `gh label list` returns 30 labels, oldest first, so on a repo
+// carrying more than that (this one carries 40) every house label created
+// after the thirtieth read as missing and was planned as a `create-label`.
+describe('fetchExistingLabelNames × a repo with more labels than gh returns by default (regression, epic 0019 additive-only law)', () => {
+  const OLDER = Array.from({ length: 30 }, (_, i) => `older label ${i + 1}`);
+  const HOUSE = HOUSE_TAXONOMY_LABELS.map((label) => label.name);
+
+  it('reads every label, not the oldest 30', async () => {
+    const names = await fetchExistingLabelNames(ghLabelListOf([...OLDER, ...HOUSE]));
+
+    expect(names.size).toBe(OLDER.length + HOUSE.length);
+    expect(HOUSE.filter((name) => !names.has(name))).toEqual([]);
+  });
+
+  it('plans an already-seeded house label as an update, never a create', async () => {
+    const existing = await fetchExistingLabelNames(ghLabelListOf([...OLDER, ...HOUSE]));
+
+    const plan = planTaxonomySeed(MAINTAINER, existing, new Set());
+
+    expect(plan.actions.filter((a) => a.kind === 'create-label')).toEqual([]);
+  });
+});
+
 describe('fetchExistingMilestoneTitles', () => {
   it('parses titles from gh api .../milestones?state=all', async () => {
     const exec = execFor({
