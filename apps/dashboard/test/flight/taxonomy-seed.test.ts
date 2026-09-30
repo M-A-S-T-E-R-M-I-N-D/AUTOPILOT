@@ -36,6 +36,8 @@ import {
 } from '../../src/flight/issue-triage.js';
 import { planBoardIssueExportCommands } from '../../src/flight/board-issue-export.js';
 import { HELP_WANTED_LABEL } from '../../src/flight/help-wanted-items.js';
+import { luckyFitLine, type FitOperator } from '../../src/flight/lucky-fit.js';
+import { ROADMAP_LABEL, fetchRoadmapItems, isRoadmapItem } from '../../src/flight/roadmap-items.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
 
@@ -870,6 +872,100 @@ describe("HOUSE_STARTER_MILESTONES × KEEPER triage's milestone (regression, epi
 
       expect(decision).toMatchObject({ decision: 'accept', milestone: title });
       expect(args[args.indexOf('--milestone') + 1]).toBe(title);
+    }
+  });
+});
+
+// Same law, the READ side: three flows find their work by a seeded label's
+// exact name, and a rename on either side reads as "nothing here", never as
+// an error. The collaboration panel's roadmap column lists `gh issue list
+// --label roadmap`, and a label no issue carries lists nothing. KEEPER's
+// template gate waves an `epic` tracking issue through; a drifted name would
+// label a contributor's epic `status: needs-format` and ask them for a bug
+// report's sections. The lucky fit scorer weighs `area: i18n`, `epic` and the
+// rest by name, and an unknown one is simply no signal.
+const LUCKY_FIT_SOURCE = readFileSync(
+  join(process.cwd(), 'apps/dashboard/src/flight/lucky-fit.ts'),
+  'utf8',
+);
+
+/** Every label lucky-fit.ts weighs, read off its `hasLabel(c.labels, '…')`
+ *  calls on disk, so a label it starts weighing joins the pin by itself. */
+const LUCKY_FIT_LABELS: readonly string[] = [
+  ...LUCKY_FIT_SOURCE.matchAll(/hasLabel\(c\.labels, '([^']+)'\)/g),
+].map((match) => match[1] ?? '');
+
+/** An operator every label signal fires for: a non-English locale, no firing
+ *  flown yet, one evening, one lane. */
+const EVERY_SIGNAL_OPERATOR: FitOperator = {
+  locale: 'he',
+  attention: 'evening',
+  lanes: 1,
+  firingsFlown: 0,
+};
+
+function luckyFitOf(labels: readonly string[]): number | undefined {
+  return luckyFitLine(
+    {
+      number: 7,
+      title: 'A claimable issue',
+      url: 'https://github.com/octocat/hello-world/issues/7',
+      labels,
+      assignees: [],
+      source: 'pool',
+    },
+    EVERY_SIGNAL_OPERATOR,
+  )?.fit;
+}
+
+describe('HOUSE_TAXONOMY_LABELS × the flows that find work by a seeded label (regression, epic 0019 additive-only law)', () => {
+  const names = HOUSE_TAXONOMY_LABELS.map((label) => label.name);
+
+  it("lists the collaboration panel's roadmap column by a seeded label", async () => {
+    let listArgs: readonly string[] = [];
+    const exec: CliExec = async (_bin, args) => {
+      listArgs = args;
+      return { code: 0, stdout: '[]' };
+    };
+    await fetchRoadmapItems(exec);
+    const listed = listArgs[listArgs.indexOf('--label') + 1] ?? '';
+
+    expect(listed).toBe(ROADMAP_LABEL);
+    expect(names).toContain(listed);
+    expect(isRoadmapItem([listed])).toBe(true);
+  });
+
+  it("waves a contributor's tracking issue carrying the seeded epic label past the template gate", () => {
+    const epic = HOUSE_TAXONOMY_LABELS.find((label) => label.name === 'epic');
+    // Filed by someone other than the owner, with a body that follows no template.
+    const issue: IncomingIssue = {
+      number: 7,
+      title: 'Track the icon system',
+      body: 'Slices to follow.',
+      author: GUEST.login,
+    };
+    const triage = (labels: readonly string[]) =>
+      planIssueTriage({ ...issue, labels }, [], [], undefined, undefined, MAINTAINER.login)
+        .decision;
+
+    expect(epic?.description).toContain('docs/epics/');
+    expect(triage([])).toBe('needs-format');
+    expect(triage([epic?.name ?? ''])).toBe('accept');
+  });
+
+  it("reads the lucky fit scorer's weighed labels off its source", () => {
+    expect(LUCKY_FIT_LABELS).toEqual(expect.arrayContaining(['epic', 'priority: high']));
+  });
+
+  it('has the lucky fit scorer weigh only labels a seed source or GitHub itself creates', () => {
+    const seeded = new Set([...names, ...POOL_LABEL_NAMES, ...GITHUB_DEFAULT_LABELS]);
+    expect(LUCKY_FIT_LABELS.filter((label) => !seeded.has(label))).toEqual([]);
+  });
+
+  it('moves the fit for every label the scorer weighs, so each name is a live read', () => {
+    const bare = luckyFitOf([]);
+    for (const label of LUCKY_FIT_LABELS) {
+      expect(luckyFitOf([label]), label).not.toBe(bare);
     }
   });
 });
