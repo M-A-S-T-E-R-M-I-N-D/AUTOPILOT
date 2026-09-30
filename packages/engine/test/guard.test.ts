@@ -200,6 +200,83 @@ describe('checkCommandContainment', () => {
     expect(check('TMPDIR=.tmp-autopilot pnpm test').allowed).toBe(true);
   });
 
+  const TEMP_CREATOR_REASON =
+    'the command writes to the system temp directory without naming it (a bare `mktemp`, ' +
+    '`New-TemporaryFile`, `[IO.Path]::GetTempPath()`), outside the target — keep scratch files ' +
+    'in the git-ignored .tmp-autopilot/ instead, e.g. `mktemp -p .tmp-autopilot`';
+
+  it('denies the commands that land in the system temp directory without naming it (ap-munlrqtg-0)', () => {
+    for (const cmd of [
+      // mktemp with no directory falls back to the temp dir or /tmp.
+      'mktemp',
+      'mktemp -d',
+      'mktemp -u',
+      'mktemp --dry-run',
+      'f=$(mktemp)',
+      'd="$(mktemp -d)" && echo "$d"',
+      'out=`mktemp`',
+      '(mktemp -d)',
+      'pnpm test > "$(mktemp)"',
+      // A redirection target or a --suffix value is not a template.
+      'mktemp 2>/dev/null',
+      'mktemp>out.txt',
+      'mktemp > .tmp-autopilot/name.txt',
+      'mktemp >> .tmp-autopilot/names.txt',
+      'mktemp --suffix .log',
+      'git status; mktemp',
+      // Only a non-empty TMPDIR= assignment of its own names a directory.
+      'CI=1 mktemp -d',
+      'TMPDIR= mktemp',
+      'MY_TMPDIR=.tmp-autopilot mktemp',
+      // -t / --tmpdir put even a named template under the temp dir.
+      'mktemp -t gate.XXXXXX',
+      'mktemp -dt gate.XXXXXX',
+      'mktemp --tmpdir gate.XXXXXX',
+      'mktemp --tmpdir= gate.XXXXXX',
+      // PowerShell and .NET never ask for a directory at all.
+      'New-TemporaryFile',
+      '$f = new-temporaryfile; pnpm test > $f',
+      '[IO.Path]::GetTempPath()',
+      'Join-Path ([System.IO.Path]::GetTempPath()) gate.log',
+      '$f = [io.path]::gettempfilename()',
+      'Set-Content "$([IO.Path]::GetTempPath())x.txt" hi',
+    ]) {
+      expect(check(cmd), cmd).toEqual({ allowed: false, reason: TEMP_CREATOR_REASON });
+    }
+  });
+
+  it('allows a mktemp that names its directory, and inert text that merely names these commands', () => {
+    for (const cmd of [
+      'mktemp -p .tmp-autopilot',
+      'mktemp -d -p .tmp-autopilot',
+      'mktemp -dp .tmp-autopilot',
+      'mktemp -p.tmp-autopilot -t gate.XXXXXX',
+      'mktemp --tmpdir=.tmp-autopilot gate.XXXXXX',
+      // A template without -t lands relative to the working directory.
+      'mktemp .tmp-autopilot/gate.XXXXXX',
+      'mktemp log.XXXXXX',
+      'mktemp -d log.XXXXXX',
+      'mktemp --directory --quiet .tmp-autopilot/run.XXXXXX',
+      "mktemp '.tmp-autopilot/gate.XXXXXX'",
+      'mktemp ".tmp-autopilot/gate.XXXXXX"',
+      'mktemp --suffix=.log .tmp-autopilot/gate.XXXXXX',
+      'd="$(mktemp -d .tmp-autopilot/run.XXXXXX)"',
+      'TMPDIR=.tmp-autopilot mktemp -d',
+      'TMPDIR="$PWD/.tmp-autopilot" mktemp',
+      // Not in command position, or inside quotes: text, not a call.
+      'grep -rn mktemp packages/',
+      'rg -n GetTempPath packages',
+      "echo 'f=$(mktemp)'",
+      'git commit -m "fix(guard): a bare mktemp is refused"',
+      'git commit -m "New-TemporaryFile and [IO.Path]::GetTempPath() are refused"',
+      `git commit -m 'New-TemporaryFile and [IO.Path]::GetTempPath() are refused'`,
+      'echo $mktemp_dir',
+      'mktemper --version',
+    ]) {
+      expect(check(cmd), cmd).toEqual({ allowed: true, reason: null });
+    }
+  });
+
   it('denies a home-directory reference at the very START of the command (no preceding boundary char)', () => {
     expect(check('~/.ssh/id_rsa').allowed).toBe(false);
   });
@@ -869,6 +946,12 @@ describe('evaluateHookInput', () => {
       expect(reason(out)).toContain('system temp directory');
     });
 
+    it('denies New-TemporaryFile under the CONTAINMENT prefix (ap-munlrqtg-0)', () => {
+      const out = ps('$log = New-TemporaryFile; pnpm run test > $log');
+      expect(reason(out)).toContain('CONTAINMENT:');
+      expect(reason(out)).toContain('system temp directory without naming it');
+    });
+
     it('denies destructive git and process control', () => {
       expect(reason(ps('git push --force'))).toContain('CONTAINMENT:');
       expect(reason(ps('Stop-Process -Name node'))).toContain('SUICIDE GUARD');
@@ -1397,6 +1480,13 @@ describe('the containment guard answers in linear time', () => {
     // Measured against the old pattern: 20k newlines cost 193 ms, so this run
     // would have taken roughly 1.7 s.
     expect(timed(`${'\n'.repeat(RUN)}echo hi`)).toBeLessThan(REDOS_BUDGET_MS);
+  });
+
+  it('answers the mktemp check instantly — prefix values and fd digits (ap-munlrqtg-0)', () => {
+    // Measured against a prefix value of plain `\S*` and an fd run of plain
+    // `\d*`: 20k characters cost 131 ms and 231 ms, the square growth again.
+    expect(timed(`${'(a='.repeat(RUN / 3)}!`)).toBeLessThan(REDOS_BUDGET_MS);
+    expect(timed(`mktemp ${'1'.repeat(RUN)}!`)).toBeLessThan(REDOS_BUDGET_MS);
   });
 
   it('still denies every bundled spelling it denied before', () => {

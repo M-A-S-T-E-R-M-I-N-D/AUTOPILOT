@@ -4615,11 +4615,13 @@ describe("reconstructing shell.ts's renderShell() byte-for-byte — the document
       // exported-helper shape as versionMenuHtml — a call slot, never a splice.
       return settingsMenuHtml();
     }
-    const icon = exprText.match(/^iconSvg\('([a-z0-9-]+)'\)$/);
+    const icon = exprText.match(/^iconSvg\('([a-z0-9-]+)'(?:, '([a-z0-9-]+)')?\)$/);
     if (icon) {
       // a stroke icon printed into a masthead summary (epic 0025 / 0029):
-      // an imported helper call, same non-splice shape as themeButtons().
-      return iconSvg(icon[1] as string);
+      // an imported helper call, same non-splice shape as themeButtons() —
+      // optionally with an extra class, as the connect panel's report
+      // disclosure chevron carries (`gh-report-chevron`).
+      return iconSvg(icon[1] as string, icon[2]);
     }
     if (exprText === 'versionMenuHtml()') {
       // the masthead's version menu (2026-09-13): a same-file exported helper

@@ -288,8 +288,8 @@ function syncMutationRed(
   try {
     const repo = projectRepoOf(rootPath);
     if (repo === null) return;
-    const red = readLatestMutationRed(gh, repo);
-    if (red !== null) syncMutationRedTasks(store, projectId, red, Date.now());
+    const run = readLatestMutationRed(gh, repo);
+    if (run !== null) syncMutationRedTasks(store, projectId, run.red, Date.now(), run.startedAt);
   } catch {
     /* the nightly run is advisory to the watch — never fail it */
   }

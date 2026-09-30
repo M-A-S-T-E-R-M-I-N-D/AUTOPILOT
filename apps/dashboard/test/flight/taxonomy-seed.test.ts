@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 import { DIMENSIONS, type Dimension } from '@autopilot/store';
@@ -11,6 +11,7 @@ import {
   planTaxonomySeed,
   fetchExistingLabelNames,
   fetchExistingMilestoneTitles,
+  MAX_MILESTONE_PAGES,
   executeTaxonomySeed,
   runTaxonomySeed,
   type TaxonomySeedAction,
@@ -195,6 +196,71 @@ describe('fetchExistingMilestoneTitles', () => {
 
   it('fails closed to an empty set on unparseable stdout', async () => {
     const exec = execFor({ milestones: { code: 0, stdout: 'not json' } });
+    expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set());
+  });
+});
+
+/** A `gh api .../milestones` stand-in that pages rows the way the REST
+ *  endpoint does: `per_page` of them (30 when absent) from `page` (1 when
+ *  absent). */
+function ghMilestonesOf(titles: readonly string[]): CliExec {
+  return vi.fn(async (_bin: string, args: readonly string[]) => {
+    const path = args.find((arg) => arg.includes('milestones')) ?? '';
+    const query = new URLSearchParams(path.split('?')[1] ?? '');
+    const perPage = Number(query.get('per_page') ?? 30);
+    const page = Number(query.get('page') ?? 1);
+    const rows = titles.slice((page - 1) * perPage, page * perPage).map((title) => ({ title }));
+    return { code: 0, stdout: JSON.stringify(rows) };
+  });
+}
+
+// Same law, the milestone read. One `per_page=100` page is the first hundred
+// milestones and nothing after, so on a repo past a hundred (closed ones
+// count: the read asks for `state=all`) a starter milestone on a later page
+// read as missing and was planned as a `create-milestone` all over again.
+describe('fetchExistingMilestoneTitles × a repo with more milestones than one page holds (regression, epic 0019 additive-only law)', () => {
+  const OLDER = Array.from({ length: 100 }, (_, i) => `older milestone ${i + 1}`);
+  const HOUSE = HOUSE_STARTER_MILESTONES.map((milestone) => milestone.title);
+
+  it('reads every milestone, not the first page of 100', async () => {
+    const titles = await fetchExistingMilestoneTitles(ghMilestonesOf([...OLDER, ...HOUSE]));
+
+    expect(titles.size).toBe(OLDER.length + HOUSE.length);
+    expect(HOUSE.filter((title) => !titles.has(title))).toEqual([]);
+  });
+
+  it('plans no starter milestone the repo already carries on a later page', async () => {
+    const existing = await fetchExistingMilestoneTitles(ghMilestonesOf([...OLDER, ...HOUSE]));
+
+    const plan = planTaxonomySeed(MAINTAINER, new Set(), existing);
+
+    expect(plan.actions.filter((a) => a.kind === 'create-milestone')).toEqual([]);
+  });
+
+  it('stops at the first short page', async () => {
+    const exec = ghMilestonesOf([...OLDER, ...HOUSE]);
+
+    await fetchExistingMilestoneTitles(exec);
+
+    expect(exec).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops after MAX_MILESTONE_PAGES pages when every page comes back full', async () => {
+    const fullPage = JSON.stringify(OLDER.map((title) => ({ title })));
+    const exec: CliExec = vi.fn(async () => ({ code: 0, stdout: fullPage }));
+
+    expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set(OLDER));
+    expect(exec).toHaveBeenCalledTimes(MAX_MILESTONE_PAGES);
+  });
+
+  it('fails closed to an empty set when a later page fails, never a partial read', async () => {
+    const firstPage = JSON.stringify(OLDER.map((title) => ({ title })));
+    const exec: CliExec = vi.fn(async (_bin: string, args: readonly string[]) =>
+      args.some((arg) => arg.endsWith('&page=1'))
+        ? { code: 0, stdout: firstPage }
+        : { code: 1, stdout: '' },
+    );
+
     expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set());
   });
 });
@@ -506,6 +572,76 @@ describe('HOUSE_TAXONOMY_LABELS + .github/labels.json × KEEPER accept edit (reg
     // priority, plus agent-ok for the expired reservation.
     expect(added.size).toBe(DIMENSIONS.length + TRIAGE_AREAS.length + TRIAGE_PRIORITIES.length + 1);
     expect([...added].filter((label) => !seeded.has(label))).toEqual([]);
+  });
+});
+
+// Same law, the TEMPLATES flow: an issue form applies its `labels:` at
+// creation only if the repo already has them. GitHub skips a missing one
+// without a word ("If a label does not already exist in the repository, it
+// will not be automatically added to the issue", docs.github.com, "Syntax for
+// issue forms"). bug_report.yml and feature_request.yml both applied a
+// `triage` that no seed source ever created, so no report ever carried it,
+// and nothing read it either: KEEPER knows a triaged issue by its `pool:`
+// label. Every form label comes from a seed source: this house taxonomy, the
+// pool set labels.json syncs, or the defaults GitHub gives every new repo.
+const ISSUE_TEMPLATE_DIR = join(process.cwd(), '.github/ISSUE_TEMPLATE');
+
+/** GitHub's default labels, the set every new repository starts with
+ *  (docs.github.com, "Managing labels", "About default labels"). */
+const GITHUB_DEFAULT_LABELS: readonly string[] = [
+  'accessibility',
+  'bug',
+  'documentation',
+  'duplicate',
+  'enhancement',
+  'good first issue',
+  'help wanted',
+  'invalid',
+  'question',
+  'wontfix',
+];
+
+/** Every issue form on disk, not a hand-kept list, with the labels its
+ *  `labels: [...]` line applies. `config.yml` is the chooser, not a form. */
+function issueFormLabels(): { readonly file: string; readonly labels: readonly string[] }[] {
+  return readdirSync(ISSUE_TEMPLATE_DIR)
+    .filter((file) => /\.ya?ml$/.test(file) && !/^config\.ya?ml$/.test(file))
+    .sort()
+    .map((file) => {
+      const line = /^labels:(.*)$/m.exec(readFileSync(join(ISSUE_TEMPLATE_DIR, file), 'utf8'));
+      if (line === null) return { file, labels: [] };
+      const inline = /^\s*\[(.*)\]\s*$/.exec(line[1] ?? '');
+      // A comma string or a block list would read as no labels here, and
+      // pass the pin below without checking a thing.
+      if (inline === null) throw new Error(`${file}: expected an inline [..] labels list`);
+      const labels = (inline[1] ?? '')
+        .split(',')
+        .map((label) => label.trim().replace(/^['"]|['"]$/g, ''))
+        .filter((label) => label !== '');
+      return { file, labels };
+    });
+}
+
+describe('issue forms × the seeded label sources (regression, epic 0019 additive-only law)', () => {
+  const forms = issueFormLabels();
+
+  it('reads every form on disk and the labels each applies', () => {
+    expect(forms.map((form) => form.file)).toEqual(
+      expect.arrayContaining(['bug_report.yml', 'feature_request.yml', 'partner-application.yml']),
+    );
+    expect(forms.find((form) => form.file === 'bug_report.yml')?.labels).toContain('bug');
+  });
+
+  it('applies no label that neither a seed source nor GitHub itself creates', () => {
+    const seeded = new Set([
+      ...HOUSE_TAXONOMY_LABELS.map((label) => label.name),
+      ...POOL_LABEL_NAMES,
+      ...GITHUB_DEFAULT_LABELS,
+    ]);
+    const unseeded = forms.flatMap(({ file, labels }) =>
+      labels.filter((label) => !seeded.has(label)).map((label) => `${file}: ${label}`),
+    );
+    expect(unseeded).toEqual([]);
   });
 });
 

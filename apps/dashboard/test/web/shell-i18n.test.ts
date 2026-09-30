@@ -166,9 +166,14 @@ describe('renderShell masthead i18n wiring', () => {
   it('tags the masthead "Report a bug" GitHub-issue form with data-i18n', () => {
     const html = renderShell();
     // The group's words are the disclosure's summary now (epic 0006, the
-    // cramped-section fix); the title input carries its own label.
+    // cramped-section fix); the title input carries its own label. The words
+    // sit in an inner span beside the chevron (epic 0025), so the locale
+    // sweep's textContent write never wipes the icon.
     expect(html).toContain(
-      '<summary class="gh-report-summary" data-i18n="reportBugLabel">Report a bug or request a feature upstream</summary>',
+      '<summary class="gh-report-summary"><svg class="icon icon-chevron-right gh-report-chevron"',
+    );
+    expect(html).toContain(
+      '</svg><span data-i18n="reportBugLabel">Report a bug or request a feature upstream</span></summary>',
     );
     expect(html).toContain(
       '<label for="gh-issue-title" class="visually-hidden" data-i18n="titleLabel">Title</label>',

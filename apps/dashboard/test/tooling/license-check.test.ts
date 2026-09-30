@@ -136,6 +136,14 @@ describe('isAllowedLicenseExpression', () => {
     'MIT OR OR ISC',
     'MIT ISC',
     '',
+    // A parenthesis or an operator where a license id belongs is not an id.
+    'MIT OR )',
+    'MIT OR AND',
+    // A malformed term after a disallowed one stays malformed, so a later OR
+    // alternative cannot rescue it.
+    'GPL-3.0 AND OR MIT',
+    // An unclosed group must not swallow the next token as its `)`.
+    '(MIT ISC',
   ])('fails closed on the malformed expression %j, whatever alternative it names', (license) => {
     expect(isAllowedLicenseExpression(license)).toBe(false);
   });
@@ -145,6 +153,13 @@ describe('isAllowedLicenseExpression', () => {
     expect(isAllowedLicenseExpression('MIT OR Apache-2.0 WITH LLVM-exception')).toBe(true);
     expect(isAllowedLicenseExpression('MIT AND Apache-2.0 WITH LLVM-exception')).toBe(false);
   });
+
+  it.each(['MIT OR Apache-2.0 WITH (', 'MIT OR Apache-2.0 WITH )'])(
+    'fails closed on %j: the token after WITH must be an exception id, not a parenthesis',
+    (license) => {
+      expect(isAllowedLicenseExpression(license)).toBe(false);
+    },
+  );
 });
 
 describe('findLicenseViolations', () => {

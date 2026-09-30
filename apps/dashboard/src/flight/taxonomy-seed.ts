@@ -238,28 +238,50 @@ export async function fetchExistingLabelNames(exec: CliExec): Promise<ReadonlySe
   return new Set(names);
 }
 
-/** `gh api .../milestones?state=all`'s live titles on the current repo —
- *  both states so a closed milestone from a prior seed is never
- *  recreated. Fails closed to an empty set the same way
- *  {@link fetchExistingLabelNames} does. */
-export async function fetchExistingMilestoneTitles(exec: CliExec): Promise<ReadonlySet<string>> {
+/** Milestones per page of the milestone read: the REST endpoint's maximum
+ *  (docs.github.com/en/rest/issues/milestones, `per_page` "Default: 30"). */
+export const MILESTONE_PAGE_SIZE = 100;
+
+/** The most pages the milestone read walks — 1000 milestones, the same
+ *  ceiling {@link MAX_LABEL_LIST} puts on the label read. */
+export const MAX_MILESTONE_PAGES = 10;
+
+/** One page of the milestone list, or `undefined` on a non-zero exit,
+ *  unparseable stdout or a non-array payload. */
+async function fetchMilestonePage(exec: CliExec, page: number): Promise<unknown[] | undefined> {
   const { code, stdout } = await exec('gh', [
     'api',
-    'repos/{owner}/{repo}/milestones?state=all&per_page=100',
+    `repos/{owner}/{repo}/milestones?state=all&per_page=${MILESTONE_PAGE_SIZE}&page=${page}`,
   ]);
-  if (code !== 0) return new Set();
+  if (code !== 0) return undefined;
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
   } catch {
-    return new Set();
+    return undefined;
   }
-  if (!Array.isArray(parsed)) return new Set();
+  return Array.isArray(parsed) ? parsed : undefined;
+}
+
+/** `gh api .../milestones?state=all`'s live titles on the current repo —
+ *  both states so a closed milestone from a prior seed is never
+ *  recreated. Pages forward until a short page (at most
+ *  {@link MAX_MILESTONE_PAGES}): one `per_page=100` read was the first
+ *  hundred milestones only, so on a repo past that a starter milestone on
+ *  a later page read as missing and was planned as a create again. Fails
+ *  closed to an empty set the same way {@link fetchExistingLabelNames}
+ *  does — a failed page fails the whole read, never a partial one. */
+export async function fetchExistingMilestoneTitles(exec: CliExec): Promise<ReadonlySet<string>> {
   const titles: string[] = [];
-  for (const raw of parsed) {
-    if (typeof raw !== 'object' || raw === null) continue;
-    const title = (raw as { title?: unknown }).title;
-    if (typeof title === 'string') titles.push(title);
+  for (let page = 1; page <= MAX_MILESTONE_PAGES; page += 1) {
+    const rows = await fetchMilestonePage(exec, page);
+    if (rows === undefined) return new Set();
+    for (const raw of rows) {
+      if (typeof raw !== 'object' || raw === null) continue;
+      const title = (raw as { title?: unknown }).title;
+      if (typeof title === 'string') titles.push(title);
+    }
+    if (rows.length < MILESTONE_PAGE_SIZE) break;
   }
   return new Set(titles);
 }

@@ -37,7 +37,8 @@ export interface FloodBoardThread {
   isPr: boolean;
 }
 
-export function normalize(body: string): string;
+/** A missing body (`null`/`undefined`) normalizes to `''`, not a crash. */
+export function normalize(body: string | null | undefined): string;
 export function similarity(a: string, b: string): number;
 /** `issues` is one `gh api repos/…/issues` page — untrusted process output,
  *  so not even the array is assumed (a `null` page reads as no threads). */
@@ -46,3 +47,5 @@ export function boardThreads(issues: unknown): FloodBoardThread[];
  *  so not even the arrays are assumed (a `null` page reads as no messages). */
 export function threadTimeline(comments: unknown, reviews: unknown): FloodThreadMessage[];
 export function auditThread(thread: string, messages: FloodThreadMessage[]): FloodFinding[];
+/** The value after `flag` in `argv` (default `process.argv`); undefined when absent. */
+export function argValue(flag: string, argv?: readonly string[]): string | undefined;

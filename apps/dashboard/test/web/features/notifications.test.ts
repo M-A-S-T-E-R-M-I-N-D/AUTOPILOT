@@ -7,7 +7,8 @@
  * the exact `locale.test.ts`/`connect.test.ts` pattern.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { STRINGS, type StringKey } from '@autopilot/tokens';
 import {
   parseNotifySettings,
   isQuietHour,
@@ -92,5 +93,84 @@ describe('notificationsJs', () => {
   it('is trimmed — no leading/trailing whitespace', () => {
     const out = notificationsJs();
     expect(out).toBe(out.trim());
+  });
+});
+
+// Chrome on Android exposes `Notification` and can report permission
+// 'granted', yet its page-context constructor throws "Illegal constructor"
+// (only ServiceWorkerRegistration.showNotification works there). The toggle
+// then looks on while no popup ever appears — so the failure must reach the
+// operator, not vanish into an empty catch.
+describe('maybeNotifyFleet when the browser refuses to construct a Notification', () => {
+  const needsYou = (id: string) => ({ id, name: id, status: 'needs_you', anomalies: [] });
+  let attempts = 0;
+
+  beforeEach(() => {
+    attempts = 0;
+    document.body.innerHTML = '<p id="notify-hint" role="status" aria-live="polite"></p>';
+    localStorage.setItem(
+      'ap-notify-settings',
+      JSON.stringify({ enabled: true, quietStart: '', quietEnd: '' }),
+    );
+    vi.stubGlobal('tr', (key: StringKey) => STRINGS.en[key]);
+    vi.stubGlobal(
+      'Notification',
+      class {
+        static permission = 'granted';
+        constructor() {
+          attempts++;
+          throw new TypeError('Illegal constructor');
+        }
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    localStorage.clear();
+    document.body.innerHTML = '';
+  });
+
+  /** Boots the real generated client text; its function declarations are
+   *  locals of the Function body, so `maybeNotifyFleet` is handed out. */
+  function boot(): (projects: readonly unknown[]) => void {
+    const out: { maybeNotifyFleet?: (projects: readonly unknown[]) => void } = {};
+    new Function('out', `${notificationsJs()}\nout.maybeNotifyFleet = maybeNotifyFleet;`)(out);
+    if (!out.maybeNotifyFleet) throw new Error('maybeNotifyFleet was not defined');
+    return out.maybeNotifyFleet;
+  }
+
+  it('says so in the notify hint and logs the cause instead of failing silently', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const maybeNotifyFleet = boot();
+
+    expect(() => maybeNotifyFleet([needsYou('p1')])).not.toThrow();
+
+    expect(document.getElementById('notify-hint')?.textContent).toBe(STRINGS.en.notifyFailedHint);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('Notification'),
+      expect.any(TypeError),
+    );
+  });
+
+  it('stops at the first refusal instead of retrying every event in the same tick', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const maybeNotifyFleet = boot();
+
+    maybeNotifyFleet([needsYou('p1'), needsYou('p2'), needsYou('p3')]);
+
+    expect(attempts).toBe(1);
+  });
+
+  it('does not re-attempt the failed event on the next tick', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const maybeNotifyFleet = boot();
+
+    maybeNotifyFleet([needsYou('p1')]);
+    maybeNotifyFleet([needsYou('p1')]);
+
+    expect(attempts).toBe(1);
+    expect(consoleError).toHaveBeenCalledTimes(1);
   });
 });

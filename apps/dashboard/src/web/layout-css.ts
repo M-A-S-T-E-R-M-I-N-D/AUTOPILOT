@@ -225,8 +225,11 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .gh-updates { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); }
 .gh-report-summary { cursor: pointer; list-style: none; font-size: var(--text-xs); color: var(--color-text-muted); padding-block: var(--space-1); }
 .gh-report-summary::-webkit-details-marker { display: none; }
-.gh-report-summary::before { content: '▸'; display: inline-block; inline-size: 1em; }
-.gh-report[open] > .gh-report-summary::before { content: '▾'; }
+/* The marker is the vendored chevron (epic 0025): it points along the
+   reading direction while closed and turns down once the form opens. */
+.gh-report-chevron { margin-inline-end: 0.25em; }
+[dir='rtl'] .gh-report:not([open]) .gh-report-chevron { transform: scaleX(-1); }
+.gh-report[open] > .gh-report-summary .gh-report-chevron { transform: rotate(90deg); }
 .gh-report-summary:hover, .gh-report-summary:focus-visible { color: var(--color-text); }
 .gh-issue-form { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .gh-issue-form label { font-size: var(--text-xs); color: var(--color-text-muted); }

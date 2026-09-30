@@ -120,8 +120,15 @@ propagation, and the filled style does not match the nav.
    report toggle. **Live activity heading 2026-09-30:** the heading leads
    with `circle-dot` (`activityLiveLabel`'s new `icon` field) instead of ●,
    so a live firing reads like a running check and an in-progress task; the
-   list is down to the connect panel's ▸/▾. The screenshots refresh
-   (`docs/screens/`) is still open.
+   list is down to the connect panel's ▸/▾. **Geometric web/ census at zero
+   2026-09-30:** the connect panel's "Report a bug or request a feature
+   upstream" disclosure drew ▸/▾ through a CSS `::before` in place of the
+   native details marker it hides; it now leads with a newly vendored
+   `chevron-right` (the label moved into an inner `[data-i18n]` span so the
+   locale sweep keeps the icon), mirrored under `dir="rtl"` while closed and
+   turned down once the form opens. The list is gone and web/ pins zero for
+   Geometric Shapes as for the emoji and Miscellaneous Technical blocks. The
+   screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

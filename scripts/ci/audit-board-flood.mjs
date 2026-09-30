@@ -55,9 +55,17 @@ function snippet(body) {
   return flat.length > SNIPPET_LENGTH ? `${flat.slice(0, SNIPPET_LENGTH)}…` : flat;
 }
 
-function argValue(flag) {
-  const i = process.argv.indexOf(flag);
-  return i === -1 ? undefined : process.argv[i + 1];
+/**
+ * The value after `flag` on the command line, or undefined when the flag is
+ * absent. `argv` is injectable so the lookup is tested directly (the
+ * changed-modules mutation run found it uncovered, 2026-09-30).
+ * @param {string} flag
+ * @param {readonly string[]} [argv]
+ * @returns {string | undefined}
+ */
+export function argValue(flag, argv = process.argv) {
+  const i = argv.indexOf(flag);
+  return i === -1 ? undefined : argv[i + 1];
 }
 
 // Stryker disable all: `gh` shells out to the real `gh api` CLI against a
@@ -75,16 +83,14 @@ function gh(path) {
 }
 // Stryker restore all
 
-/** Collapses the noise two retries of the same text differ by — smart
- *  punctuation swapped for ASCII, whitespace runs, case — so a retry that
- *  only survived the shell differently still reads as the same message. */
+/** Collapses the noise two retries of the same text differ by — punctuation,
+ *  whitespace runs, case — so a retry that only survived the shell
+ *  differently still reads as the same message. Every punctuation mark is
+ *  dropped, smart or ASCII alike, so `don’t` and `don't` (or `≥` and `>=`)
+ *  agree with no swap table: the output is exactly anti-flood.ts's
+ *  normalizeCommentText, whose ASCII swaps its own strip removes again. */
 export function normalize(body) {
   return (body ?? '')
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[–—]/g, '-')
-    .replace(/≥/g, '>=')
-    .replace(/≤/g, '<=')
     .replace(/[^\p{L}\p{N}\s]/gu, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -95,12 +101,15 @@ export function normalize(body) {
  *  (a clause reworded, a symbol downgraded) in a way character diffing is
  *  not, and cheap enough for whole-board sweeps. */
 export function similarity(a, b) {
-  const setA = new Set(a.split(' '));
-  const setB = new Set(b.split(' '));
-  if (setA.size === 0 || setB.size === 0) return 0;
+  const setA = new Set(a.split(' ').filter(Boolean));
+  const setB = new Set(b.split(' ').filter(Boolean));
   let shared = 0;
   for (const word of setA) if (setB.has(word)) shared += 1;
-  return shared / (setA.size + setB.size - shared);
+  const union = setA.size + setB.size - shared;
+  // Two texts with no words between them share nothing: 0, not the NaN of
+  // 0/0 — the answer anti-flood.ts's commentSimilarity gives. When only one
+  // side is empty the ratio is already 0, so only the empty union is guarded.
+  return union === 0 ? 0 : shared / union;
 }
 
 /** A `gh api` page's rows that can be read at all. A row that is not an
@@ -136,7 +145,6 @@ export function threadTimeline(comments, reviews) {
     url: c.html_url,
   }));
   const fromReviews = readableRows(reviews)
-    .filter((r) => (r.body ?? '').trim().length > 0)
     .map((r) => ({
       kind: `review:${r.state}`,
       id: r.id,
@@ -144,7 +152,8 @@ export function threadTimeline(comments, reviews) {
       at: r.submitted_at,
       body: r.body ?? '',
       url: r.html_url,
-    }));
+    }))
+    .filter((m) => m.body.trim().length > 0);
   return [...fromComments, ...fromReviews].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 
@@ -163,6 +172,11 @@ export function auditThread(thread, messages) {
   const findings = [];
   const normalized = messages.map((m) => normalize(m.body));
 
+  // Stryker disable next-line EqualityOperator: the `<=` bound adds one pass
+  // at i === messages.length, where the inner loop starts past the end and
+  // compares nothing — no finding, no observable change. Its sibling `>=`
+  // mutant runs zero passes, exactly like this line's `false`
+  // ConditionalExpression mutant, which the NEAR-DUPLICATE cases DO kill.
   for (let i = 0; i < messages.length; i += 1) {
     for (let j = i + 1; j < messages.length; j += 1) {
       if (messages[i].author !== messages[j].author) continue;

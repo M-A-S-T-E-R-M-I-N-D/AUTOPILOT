@@ -28,7 +28,23 @@ import {
   CONSECUTIVE_CEILING,
   MIN_COMPARE_LENGTH,
   SNIPPET_LENGTH,
+  argValue,
 } from '../../../../scripts/ci/audit-board-flood.mjs';
+import { normalizeCommentText } from '../../src/flight/anti-flood.js';
+
+describe('argValue', () => {
+  it('reads the value after its flag, and nothing when the flag is absent', () => {
+    const argv = ['node', 'audit-board-flood.mjs', '--repo', 'o/r', '--json'];
+    expect(argValue('--repo', argv)).toBe('o/r');
+    expect(argValue('--since', argv)).toBeUndefined();
+    // A flag with no value after it reads as nothing, not the flag before it.
+    expect(argValue('--json', argv)).toBeUndefined();
+  });
+
+  it('reads the real command line by default', () => {
+    expect(argValue('--no-such-flag-in-vitest')).toBeUndefined();
+  });
+});
 
 function msg(
   id: number,
@@ -44,6 +60,32 @@ describe('normalize', () => {
   it('flattens shell-mangled punctuation so a retry matches its original', () => {
     expect(normalize('≥400 — don’t')).toBe(normalize('>=400 - dont'));
   });
+
+  it('lower-cases, collapses whitespace runs and trims — the exact shape similarity splits on', () => {
+    // Comparing two normalized strings to each other cannot see case, an
+    // untrimmed edge or a doubled space (both sides carry it alike), so the
+    // output itself is pinned.
+    expect(normalize('  Hello,\n\n  WORLD   again\t')).toBe('hello world again');
+  });
+
+  it('reads a missing body (null or undefined) as empty text, not a crash', () => {
+    expect(normalize(null)).toBe('');
+    expect(normalize(undefined)).toBe('');
+  });
+
+  it("agrees with the runtime guard's normalizeCommentText on smart and ASCII punctuation alike", () => {
+    // The auditor finds what anti-flood.ts failed to stop, so the two must
+    // read "same message" identically — including the smart-punctuation
+    // swaps the runtime guard spells out and this strip covers on its own.
+    const corpus = [
+      '≥400 — don’t',
+      '>=400 - dont',
+      '“Quoted” ‘single’ – en — em ≤ ≥',
+      '"Quoted" \'single\' - en -- em <= >=',
+      '  **Bold** _markdown_ `code`\n\n  and   ✓ symbols  ',
+    ];
+    for (const text of corpus) expect(normalize(text)).toBe(normalizeCommentText(text));
+  });
 });
 
 describe('similarity', () => {
@@ -53,6 +95,17 @@ describe('similarity', () => {
 
   it('scores identical text at one', () => {
     expect(similarity('same words here', 'same words here')).toBe(1);
+  });
+
+  it('scores two texts with no words at all at zero, not NaN', () => {
+    expect(similarity('', '')).toBe(0);
+  });
+
+  it('does not count the empty "word" a doubled space splits out, on either side', () => {
+    // anti-flood.ts's commentSimilarity splits the same way — the auditor and
+    // the runtime guard must agree on what "same message" means.
+    expect(similarity('same  words', 'same words')).toBe(1);
+    expect(similarity('same words', 'same  words')).toBe(1);
   });
 });
 
@@ -66,6 +119,19 @@ describe('auditThread — NEAR-DUPLICATE', () => {
     ]);
     expect(findings).toContainEqual(
       expect.objectContaining({ kind: 'NEAR-DUPLICATE', author: 'bot' }),
+    );
+  });
+
+  it('says how similar the pair is and which earlier message it repeats', () => {
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00Z', long),
+      msg(2, 'bot', '2026-09-09T10:00:16Z', long),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({
+        kind: 'NEAR-DUPLICATE',
+        detail: '100% identical to an earlier comment (1)',
+      }),
     );
   });
 
@@ -174,6 +240,21 @@ describe('auditThread — CONSECUTIVE-RUN', () => {
     expect(findings.filter((f) => f.kind === 'CONSECUTIVE-RUN')).toHaveLength(1);
   });
 
+  it('says how long the run is and names the message it starts at, not the thread opener', () => {
+    const findings = auditThread('issue #1', [
+      msg(1, 'human', '2026-09-09T10:00:00Z', 'the opener'),
+      msg(2, 'bot', '2026-09-09T10:05:00Z', 'one'),
+      msg(3, 'bot', '2026-09-09T10:10:00Z', 'two'),
+      msg(4, 'bot', '2026-09-09T10:15:00Z', 'three'),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({
+        kind: 'CONSECUTIVE-RUN',
+        detail: '3 messages in a row with nobody else speaking (run starts at 2)',
+      }),
+    );
+  });
+
   it('does not flag a run broken up by another author speaking in between', () => {
     const findings = auditThread('issue #1', [
       msg(1, 'bot', '2026-09-09T10:00:00Z', 'one'),
@@ -192,6 +273,19 @@ describe('auditThread — RAPID-FIRE', () => {
       msg(2, 'bot', '2026-09-09T10:02:00.000Z', 'two'),
     ]);
     expect(findings).toContainEqual(expect.objectContaining({ kind: 'RAPID-FIRE', author: 'bot' }));
+  });
+
+  it('says the gap in seconds and what kind of message came just before', () => {
+    const findings = auditThread('PR #1', [
+      { ...msg(1, 'bot', '2026-09-09T10:00:00.000Z', 'one'), kind: 'review:APPROVED' },
+      msg(2, 'bot', '2026-09-09T10:01:30.000Z', 'two'),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({
+        kind: 'RAPID-FIRE',
+        detail: "90s after the same author's previous review:APPROVED",
+      }),
+    );
   });
 
   it('does not flag same-author messages further apart than the rapid-fire window', () => {
@@ -267,6 +361,27 @@ describe('auditThread — evidence snippet (guard-precision doctrine: a red must
     ]);
     const rapidFire = findings.find((f) => f.kind === 'RAPID-FIRE');
     expect(rapidFire?.snippet).toBe(exact);
+  });
+
+  it('flattens every whitespace run and trims the snippet so it prints on one line', () => {
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00.000Z', 'one'),
+      msg(2, 'bot', '2026-09-09T10:02:00.000Z', '  two,\n\n  right   after  '),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ kind: 'RAPID-FIRE', snippet: 'two, right after' }),
+    );
+  });
+
+  it('carries an empty snippet, not a crash, for a message handed in with no body', () => {
+    // threadTimeline never yields a null body, but auditThread is exported
+    // and a caller may hand it raw rows.
+    const noBody = { ...msg(2, 'bot', '2026-09-09T10:02:00.000Z', ''), body: null };
+    const findings = auditThread('issue #1', [
+      msg(1, 'bot', '2026-09-09T10:00:00.000Z', 'one'),
+      noBody as unknown as ReturnType<typeof msg>,
+    ]);
+    expect(findings).toContainEqual(expect.objectContaining({ kind: 'RAPID-FIRE', snippet: '' }));
   });
 });
 
@@ -384,6 +499,14 @@ describe('threadTimeline', () => {
       [],
     );
     expect(message).toMatchObject({ author: '?', body: '' });
+  });
+
+  it('reads a review with no user as author "?"', () => {
+    const [message] = threadTimeline(
+      [],
+      [{ ...ghReview(1, 'x', '2026-09-09T09:00:00Z', 'COMMENTED', 'a remark'), user: null }],
+    );
+    expect(message).toMatchObject({ kind: 'review:COMMENTED', author: '?', body: 'a remark' });
   });
 
   it('skips a comment or review row that is not an object instead of killing the whole audit', () => {
