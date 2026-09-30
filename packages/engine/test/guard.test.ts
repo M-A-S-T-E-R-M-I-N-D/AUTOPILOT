@@ -145,6 +145,29 @@ describe('checkCommandContainment', () => {
     expect(check(String.raw`type %USERPROFILE%\.claude\.credentials.json`).allowed).toBe(false);
   });
 
+  it("denies PowerShell's home-directory forms, in any case (PowerShell variable names are case-insensitive)", () => {
+    for (const cmd of [
+      String.raw`Get-Content $env:USERPROFILE\.ssh\id_rsa`,
+      String.raw`Get-Content $Env:UserProfile\.claude\.credentials.json`,
+      'Get-ChildItem ${env:APPDATA}',
+      String.raw`Get-ChildItem $env:HOMEPATH\.ssh`,
+      String.raw`Get-Content $home\.claude\.credentials.json`,
+      'Get-ChildItem ${Home}',
+    ]) {
+      expect(check(cmd), cmd).toEqual({
+        allowed: false,
+        reason: 'the command references the home directory (credentials live there)',
+      });
+    }
+  });
+
+  it('a PowerShell home form must end at a name boundary — a longer variable name is not home', () => {
+    expect(check('echo $homepage').allowed).toBe(true);
+    expect(check('echo $env:USERPROFILE_BACKUP').allowed).toBe(true);
+    expect(check('echo $env:APPDATAX $env:HOMEPATHS').allowed).toBe(true);
+    expect(check('echo $env:PATH').allowed).toBe(true);
+  });
+
   it('denies a home-directory reference at the very START of the command (no preceding boundary char)', () => {
     expect(check('~/.ssh/id_rsa').allowed).toBe(false);
   });
@@ -779,6 +802,47 @@ describe('evaluateHookInput', () => {
     expect(reason).not.toContain('CONTAINMENT');
   });
 
+  describe('the PowerShell tool (ap-muniun5g-2) is judged exactly like Bash', () => {
+    const ps = (cmd: string): string | null =>
+      evaluateHookInput(
+        JSON.stringify({ tool_name: 'PowerShell', tool_input: { command: cmd } }),
+        ROOT,
+      );
+    const reason = (out: string | null): string =>
+      (JSON.parse(out ?? '{}') as { hookSpecificOutput?: { permissionDecisionReason?: string } })
+        .hookSpecificOutput?.permissionDecisionReason ?? '';
+
+    it('returns null (no decision) for a contained command', () => {
+      expect(ps('git status --short; pnpm run typecheck')).toBeNull();
+    });
+
+    it('denies a Set-Location outside the target under the CONTAINMENT prefix', () => {
+      const out = ps(`Set-Location "${OUTSIDE.replace(/\//g, '\\')}"; git status`);
+      expect(out).not.toBeNull();
+      expect(reason(out)).toContain('CONTAINMENT:');
+      expect(reason(out)).toContain('absolute path outside the target repo');
+    });
+
+    it("denies PowerShell's own home-directory forms", () => {
+      expect(reason(ps(String.raw`Get-Content $env:USERPROFILE\.ssh\id_rsa`))).toContain(
+        'home directory',
+      );
+      expect(ps('Get-ChildItem ${env:APPDATA}')).not.toBeNull();
+      expect(ps(String.raw`Get-Content $home\.claude\.credentials.json`)).not.toBeNull();
+    });
+
+    it('denies destructive git and process control', () => {
+      expect(reason(ps('git push --force'))).toContain('CONTAINMENT:');
+      expect(reason(ps('Stop-Process -Name node'))).toContain('SUICIDE GUARD');
+    });
+
+    it('denies a hand-typed DCO trailer under its own prefix', () => {
+      expect(reason(ps('git commit -m "fix: x`n`nSigned-off-by: A <a@example.com>"'))).toContain(
+        'DCO TRAILER:',
+      );
+    });
+  });
+
   it('a WebFetch with no `url` field is no-decision (the WebFetch branch itself only inspects `url`)', () => {
     // NOT a test of the tool_name fallthrough below — WebFetch IS in the
     // guarded set. `file_path` is simply not a field that branch inspects.
@@ -792,8 +856,8 @@ describe('evaluateHookInput', () => {
 
   it('ignores tools outside the guarded set entirely (the tool_name fallthrough, no decision)', () => {
     // Task/TodoWrite/mcp__* etc. never hit any tool_name branch above, so
-    // evaluateHookInput falls through the `tool_name !== 'Bash'` check with no
-    // Bash containment applied — even when the payload carries a `command`
+    // evaluateHookInput falls through the Bash/PowerShell check with no
+    // shell containment applied — even when the payload carries a `command`
     // field shaped like an escape.
     expect(
       evaluateHookInput(JSON.stringify({ tool_name: 'Task', tool_input: {} }), ROOT),
@@ -1054,11 +1118,14 @@ describe('extractWebFetchUrl', () => {
 });
 
 describe('buildFlightSettings', () => {
-  it('emits the official hooks shape: Bash + Read|Grep|Glob|Write|Edit|NotebookEdit + WebFetch matchers → node guard command', () => {
+  it('emits the official hooks shape: Bash|PowerShell + Read|Grep|Glob|Write|Edit|NotebookEdit + WebFetch matchers → node guard command', () => {
     const s = buildFlightSettings(ROOT, p('Z', '/engine/dist/guard-hook.js'));
     const groups = s.hooks.PreToolUse;
     expect(groups).toHaveLength(3);
-    expect(groups[0]?.matcher).toBe('Bash');
+    // PowerShell rides the Bash group (ap-muniun5g-2): a user-level allowlist
+    // can admit the PowerShell tool, and without a matcher its commands ran
+    // with no containment at all.
+    expect(groups[0]?.matcher).toBe('Bash|PowerShell');
     expect(groups[1]?.matcher).toBe('Read|Grep|Glob|Write|Edit|NotebookEdit');
     expect(groups[2]?.matcher).toBe('WebFetch');
     for (const g of groups) {
@@ -1212,7 +1279,15 @@ describe('extractBashCommand', () => {
     expect(extractBashCommand(raw)).toBe('git status');
   });
 
-  it('returns null for a non-Bash tool call', () => {
+  it('extracts the command from a PowerShell tool call, so its `git commit` gets the sibling scan too', () => {
+    const raw = JSON.stringify({
+      tool_name: 'PowerShell',
+      tool_input: { command: 'git commit -s -m "fix: x"' },
+    });
+    expect(extractBashCommand(raw)).toBe('git commit -s -m "fix: x"');
+  });
+
+  it('returns null for a non-shell tool call', () => {
     const raw = JSON.stringify({ tool_name: 'Read', tool_input: { file_path: '/x' } });
     expect(extractBashCommand(raw)).toBeNull();
   });
