@@ -3,15 +3,18 @@
 
 /**
  * The project page's "Per-firing trace" panel cluster — one expandable row
- * per firing (`firingTimelineSection`) plus its own Firing Replay viewer
+ * per firing (`firingTraceSection`) plus its own Firing Replay viewer
  * (trace drill-down, diff view, step-through playback), extracted out of
  * `shell.ts`'s `fleetJs()` into its own file under `web/features/` (epic
  * 0002 "shell decomposition", SHELL HUB RELIEF — see
  * docs/epics/0002-shell-decomposition.md).
  * `web/shell.ts`'s `clientJs()` calls this module indirectly through
  * `featureModulesJs()`, so the return value — not this file's compiled
- * source — is what lands in the served `/app.js` text; moving the functions
- * (not splicing them) is therefore zero behavior change.
+ * source — is what lands in the served text; moving the functions (not
+ * splicing them) is therefore zero behavior change. It is served in the
+ * deferred `/panels.js` chunk (board ap-muo35gze-1, web/chunks.ts), not the
+ * render-blocking `/app.js`; its state maps and the guarded
+ * `firingTimelineSection(c)` entry stay in core (`firing-timeline-state.ts`).
  * `discoverFeatureModules('web/features')` finds this file's `firingTimelineJs`
  * export the same way it already finds every other extracted module's own.
  * This file carries real relative-import splices of its own —
@@ -23,26 +26,18 @@
  * `web/diff-view.ts`), and `clampReplayStep`/`replayNav` (from
  * `web/replay-nav.ts`, `replayNav` calling `clampReplayStep` internally) —
  * now resolved relative to this file instead of `shell.ts`.
- * Unlike every prior whole-region move, this cluster keeps its OWN cache of
- * module-level state maps (`openFirings`/`firingActivityExtra`/
+ * This cluster owns its state maps (`openFirings`/`firingActivityExtra`/
  * `firingActivityLoading`/`openDiffs`/`firingDiffExtra`/`firingDiffLoading`/
- * `replaySteps`) AND its own five click handlers plus one keydown handler
- * (event-delegated on `document`, mirroring the phase-toggle handler that
- * stays inline in `fleetJs()` for `openPhases`) — the same self-contained-
- * state shape `landing.ts`'s own `landingRestarting` cluster already proved
- * extractable, just with more state and more handlers since this cluster is
- * a full drill-down/diff/replay feature rather than a single toggle.
- * `openFirings[c.id]` is ALSO read by `fleetJs()`'s own `detailSectionSigsFor`
- * (change-detection for the Details panel's subsection re-render) — that
- * call site stays a bare, unimported identifier reference in `fleetJs()`'s
- * own served text, relying on the same concatenated-script hoisting every
- * whole-region move already depends on for `el`/`tipChip`/`fmtAgo`, just in
- * the opposite direction here: `fleetJs()` (served FIRST in the bundle) reads
- * a `var` this module (served AFTER, via `featureModulesJs()`) declares —
- * safe because `detailSectionSigsFor` is only ever CALLED during a render,
- * well after the whole concatenated script has already run once, the same
- * reasoning `landing.ts`'s own `lastFleetState` read already established for
- * a hoisted-read in the other direction.
+ * `replaySteps`, declared in core by `firing-timeline-state.ts`) AND its own
+ * five click handlers plus one keydown handler (event-delegated on
+ * `document`, mirroring the phase-toggle handler that stays inline in
+ * `fleetJs()` for `openPhases`) — the same self-contained-state shape
+ * `landing.ts`'s own `landingRestarting` cluster already proved extractable,
+ * just with more state and more handlers since this cluster is a full
+ * drill-down/diff/replay feature rather than a single toggle.
+ * `fleetJs()`'s own `detailSectionSigsFor` (change-detection for the Details
+ * panel's subsection re-render) reads those maps bare on every render, which
+ * is why their declarations stay in core while this module is deferred.
  * `firingCallsign`/`CALLSIGN_WORDS` stay inline in `fleetJs()` instead of
  * moving with this cluster — `liveFiring`/`liveFirings` (broadly shared, the
  * live-worker card and others read them) also call `firingCallsign` as an
@@ -58,10 +53,9 @@
  * own click handler) — called/read by name inside this cluster's functions,
  * hoisting the same way every whole-region move in this epic already relies
  * on.
- * `firingTimelineSection(c)` (declared below) is called from `fleetJs()`'s
- * `firingTimelineNode(c)` — a call site that stays a bare, unimported
- * identifier reference in `fleetJs()`'s own served text, the same reason
- * every whole-region move's own call site already relies on.
+ * `firingTraceSection(c)` (declared below) is called from core's guarded
+ * `firingTimelineSection(c)` entry, which `fleetJs()`'s `firingTimelineNode(c)`
+ * calls.
  * i18n (board web-msnsndki-dz3vn1): the Firing Replay playback controls —
  * the "Step through" toggle and the Prev / Next / Exit bar — carry
  * `data-i18n` / `data-i18n-aria` / `data-i18n-tip` keys (`replay*` in
@@ -92,29 +86,10 @@ import { clampReplayStep, replayNav } from '../replay-nav.js';
 /** The "Per-firing trace" panel cluster client — vanilla, external (keeps CSP script-src 'self'). */
 export function firingTimelineJs(): string {
   return `
-// Which firing is drilled open per project (survives SSE re-renders).
-var openFirings = {};
-// Firing Replay viewer, slice 1 (BOARD web-msnt26yk-5fzo6j): a drilled-open
-// firing's COMPLETE trace, fetched on demand from /api/firing-activity since
-// /api/state's own feed caps at the newest N events project-wide — keyed by
-// "<projectId>:<firingId>", populated once per firing and cached (a past
-// firing's trace never changes).
-var firingActivityExtra = {};
-var firingActivityLoading = {};
-// Firing Replay viewer, diff-capture slice (BOARD web-msnt26yk-5fzo6j): a
-// drilled-open firing's commit diff, fetched on demand from /api/firing-diff
-// only once its "View diff" toggle is opened (no cost to firings the operator
-// never inspects) — keyed by "<projectId>:<firingId>", cached like
-// firingActivityExtra above (a past firing's diff never changes).
-var openDiffs = {};
-var firingDiffExtra = {};
-var firingDiffLoading = {};
-// Firing Replay viewer, step-through slice (BOARD web-msnt26yk-5fzo6j): which
-// step a drilled-open firing's playback controls are showing, keyed by
-// "<projectId>:<firingId>" like the caches above. No key present for a
-// firing means "not in step-through mode" — the full trace renders as
-// before; entering replay sets it to 0 and Prev/Next/Exit move or clear it.
-var replaySteps = {};
+// The state maps (openFirings, firingActivityExtra, firingActivityLoading,
+// openDiffs, firingDiffExtra, firingDiffLoading, replaySteps) are declared
+// in core by firing-timeline-state.ts: shell.ts's detailSectionSigsFor reads
+// them on every render, and this module rides /panels.js (defer).
 // groupByFiring/firingLogEntry are generated FROM web/activity-log.ts below
 // (epic 0002 "shell decomposition", slice 2) — their real compiled source
 // via .toString(), not a hand-retyped copy. They can no longer drift apart.
@@ -135,7 +110,7 @@ ${firingTimelineRowMeta.toString()}
 // slices, BOARD web-msnt26yk-5fzo6j; diffToggleTip added for the app-wide
 // interactivity audit v2, web-msm66jlc-gm4oom) — their real compiled source
 // via .toString(), not a hand-retyped copy. They can no longer drift apart;
-// firingTimelineSection (below) calls diffLineClass to color each patch line
+// firingTraceSection (below) calls diffLineClass to color each patch line
 // and diffLinesForStep to narrow the patch to the current replay step's file.
 ${diffLineClass.toString()}
 ${diffLinesForStep.toString()}
@@ -144,7 +119,7 @@ ${diffToggleTip.toString()}
 // (Firing Replay viewer, step-through slice, BOARD web-msnt26yk-5fzo6j) —
 // their real compiled source via .toString(), not a hand-retyped copy. They
 // can no longer drift apart; replayNav calls clampReplayStep internally, and
-// firingTimelineSection (below) calls replayNav to drive the playback
+// firingTraceSection (below) calls replayNav to drive the playback
 // controls.
 ${clampReplayStep.toString()}
 ${replayNav.toString()}
@@ -183,7 +158,7 @@ function firingReviewNode(r, id) {
 }
 // The "who did what, when, in which firing" view — one expandable row per
 // firing, newest first, joined against the flight log for its headline.
-function firingTimelineSection(c) {
+function firingTraceSection(c) {
   var acts = c.activity || [];
   if (!acts.length) return null;
   var groups = groupByFiring(acts);

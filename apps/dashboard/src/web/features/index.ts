@@ -17,6 +17,7 @@ import { coordinationJs } from './coordination.js';
 import { discussionsTriageJs } from './discussions-triage.js';
 import { docsViewerJs } from './docs-viewer.js';
 import { evolutionJs } from './evolution.js';
+import { firingTimelineStateJs } from './firing-timeline-state.js';
 import { firingTimelineJs } from './firing-timeline.js';
 import { flightConsoleJs } from './flight-console.js';
 import { flightSummaryJs } from './flight-summary.js';
@@ -66,6 +67,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   discussionsTriageJs,
   docsViewerJs,
   evolutionJs,
+  firingTimelineStateJs,
   firingTimelineJs,
   flightConsoleJs,
   flightSummaryJs,
@@ -123,6 +125,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'discussions-triage': discussionsTriageJs,
   'docs-viewer': docsViewerJs,
   evolution: evolutionJs,
+  'firing-timeline-state': firingTimelineStateJs,
   'firing-timeline': firingTimelineJs,
   'flight-console': flightConsoleJs,
   'flight-summary': flightSummaryJs,

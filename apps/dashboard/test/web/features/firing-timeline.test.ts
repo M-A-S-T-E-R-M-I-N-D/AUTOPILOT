@@ -21,6 +21,7 @@ import { trajectorySignalOf, firingTimelineRowMeta } from '../../../src/web/flig
 import { diffLineClass, diffLinesForStep, diffToggleTip } from '../../../src/web/diff-view.js';
 import { clampReplayStep, replayNav } from '../../../src/web/replay-nav.js';
 import { firingTimelineJs } from '../../../src/web/features/firing-timeline.js';
+import { firingTimelineStateJs } from '../../../src/web/features/firing-timeline-state.js';
 
 describe('firingTimelineJs', () => {
   it('embeds every activity-log/flight-metrics/diff-view/replay-nav splice real compiled source via .toString()', () => {
@@ -36,20 +37,39 @@ describe('firingTimelineJs', () => {
     expect(out).toContain(replayNav.toString());
   });
 
-  it('declares firingTimelineSection', () => {
+  it('declares the renderer as firingTraceSection, leaving the firingTimelineSection name to the core entry', () => {
     const out = firingTimelineJs();
-    expect(out).toContain('function firingTimelineSection(c) {');
+    expect(out).toContain('function firingTraceSection(c) {');
+    expect(out).not.toContain('function firingTimelineSection(');
+    expect(firingTimelineStateJs()).toContain('function firingTimelineSection(c) {');
   });
 
-  it('keeps its own module-level state — drilled-open firing, trace/diff caches, and replay step — not shared with any other module', () => {
+  it('leaves its state — drilled-open firing, trace/diff caches, and replay step — declared in core, never redeclared here where /panels.js running would reset it', () => {
     const out = firingTimelineJs();
-    expect(out).toContain('var openFirings = {};');
-    expect(out).toContain('var firingActivityExtra = {};');
-    expect(out).toContain('var firingActivityLoading = {};');
-    expect(out).toContain('var openDiffs = {};');
-    expect(out).toContain('var firingDiffExtra = {};');
-    expect(out).toContain('var firingDiffLoading = {};');
-    expect(out).toContain('var replaySteps = {};');
+    const core = firingTimelineStateJs();
+    for (const name of [
+      'openFirings',
+      'firingActivityExtra',
+      'firingActivityLoading',
+      'openDiffs',
+      'firingDiffExtra',
+      'firingDiffLoading',
+      'replaySteps',
+    ]) {
+      expect(core).toContain(`var ${name} = {};`);
+      expect(out).not.toContain(`var ${name}`);
+    }
+  });
+
+  it('the core entry draws nothing until the deferred renderer exists, then delegates to it', () => {
+    const scope = new Function(
+      `${firingTimelineStateJs()}\nreturn function (c) { return firingTimelineSection(c); };`,
+    );
+    expect(scope()({ id: 'p1' })).toBeNull();
+    const withRenderer = new Function(
+      `function firingTraceSection(c) { return 'trace:' + c.id; }\n${firingTimelineStateJs()}\nreturn function (c) { return firingTimelineSection(c); };`,
+    );
+    expect(withRenderer()({ id: 'p1' })).toBe('trace:p1');
   });
 
   it('carries its own five click handlers and one keydown handler, event-delegated on document', () => {

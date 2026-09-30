@@ -67,6 +67,7 @@ import { discussionsTriageJs } from '../../src/web/features/discussions-triage.j
 import { docsViewerJs } from '../../src/web/features/docs-viewer.js';
 import { evolutionJs } from '../../src/web/features/evolution.js';
 import { firingTimelineJs } from '../../src/web/features/firing-timeline.js';
+import { firingTimelineStateJs } from '../../src/web/features/firing-timeline-state.js';
 import { flightConsoleJs } from '../../src/web/features/flight-console.js';
 import { flightSummaryJs } from '../../src/web/features/flight-summary.js';
 import { flyJs } from '../../src/web/features/fly.js';
@@ -1425,6 +1426,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'discussions-triage.ts': ['discussionsTriageJs'],
     'docs-viewer.ts': ['docsViewerJs'],
     'evolution.ts': ['evolutionJs'],
+    'firing-timeline-state.ts': ['firingTimelineStateJs'],
     'firing-timeline.ts': ['firingTimelineJs'],
     'flight-console.ts': ['flightConsoleJs'],
     'flight-summary.ts': ['flightSummaryJs'],
@@ -1672,6 +1674,11 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directDiscussionsTriageManifest,
       directDocsViewerManifest,
       directEvolutionManifest,
+      buildAssemblyManifest(
+        readFileSync(featureTs('firing-timeline-state'), 'utf8'),
+        featureTs('firing-timeline-state'),
+        ['firingTimelineStateJs'],
+      ),
       directFiringTimelineManifest,
       directFlightConsoleManifest,
       directFlightSummaryManifest,
@@ -2123,7 +2130,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source.indexOf("'./update.js'")).toBeLessThan(source.indexOf("'./versions.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, collaborationJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs, versionsJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, collaborationJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineStateJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs, versionsJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -3761,6 +3768,28 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   });
 
   /**
+   * firingTimelineStateJs's own reconstruction (board ap-muo35gze-1): the
+   * per-firing trace's core half — its state maps and guarded entry — with no
+   * splices and no slots, a plain template.
+   */
+  async function reconstructFiringTimelineStateJs(): Promise<string> {
+    const stateTs = featureTs('firing-timeline-state');
+    return (
+      await assembleFunctionFromManifest(
+        readFileSync(stateTs, 'utf8'),
+        'firingTimelineStateJs',
+        new Map(),
+        undefined,
+        stateTs,
+      )
+    ).trim();
+  }
+
+  it('firingTimelineStateJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/firing-timeline-state.ts', async () => {
+    expect(await reconstructFiringTimelineStateJs()).toBe(firingTimelineStateJs());
+  });
+
+  /**
    * metricsJs's own reconstruction, from its real file under web/features/.
    * Like evolutionJs, firingTimelineJs, it carries real relative-import splices of its own
    * (timelineSegments from ../timeline-strip.js, metricsStatItems/
@@ -4374,6 +4403,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('docsViewerJs', await reconstructDocsViewerJs());
     nestedOutputs.set('evolutionJs', await reconstructEvolutionJs());
     nestedOutputs.set('firingTimelineJs', await reconstructFiringTimelineJs());
+    nestedOutputs.set('firingTimelineStateJs', await reconstructFiringTimelineStateJs());
     nestedOutputs.set('flightConsoleJs', await reconstructFlightConsoleJs());
     nestedOutputs.set('flightSummaryJs', await reconstructFlightSummaryJs());
     nestedOutputs.set('flyJs', await reconstructFlyJs());

@@ -38,9 +38,10 @@
  *   lands — safe because core (non-deferred `/app.js`) always finishes
  *   executing before any deferred chunk starts.
  * - Everything else is CORE: called during home-card building
- *   (`activitySection` L1593, `firingTimelineSection` L1596,
- *   `metricsSection` L1616, `officeMapSection` via the L1250 dispatch
+ *   (`activitySection`, `officeMapSection` via the card-section dispatch
  *   table), at boot (`translateDom`), or from renderFleet's sync hooks.
+ *   `metricsSection` and `firingTraceSection` are home-card builders too,
+ *   but deferred: their call sites in core are typeof-guarded.
  *
  * Cross-module call edges verified against the split (2026-08-28 scan):
  * issue-triage→pr-review, docs-viewer→search, pr-review→locale,
@@ -109,6 +110,12 @@ export const DEFERRED_OPERATOR_FEATURES: readonly string[] = [
   'update',
   'locale-data',
   'subject-nav',
+  // Board ap-muo35gze-1: the card Details panel's per-firing trace (14.4KB
+  // minified) was the biggest core module core only calls at render time,
+  // and every render waits for DOMContentLoaded (renderFleet's DEFER-ORDER
+  // LAW). Its state maps and a typeof-guarded entry stay in core
+  // (firing-timeline-state.ts), since shell.ts reads them bare.
+  'firing-timeline',
 ];
 
 function joined(names: readonly string[]): string {
