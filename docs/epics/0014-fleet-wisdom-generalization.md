@@ -35,6 +35,13 @@ invariants every future slice must preserve, and the slice plan.
   banner are operator-only; `composeSoulWithFleetWisdom` layers ratified wisdom into
   every firing prompt, stripping the marker section when the project's own SOUL
   already carries it.
+- **Per-project opt-out** (shipped after the four slices below, MASTER-PLAN §5.4,
+  board `ap-muo35gzl-2`): a SOUL line `Fleet wisdom: off`
+  (`FLEET_WISDOM_OPT_OUT_LINE`/`soulOptsOutOfFleetWisdom`) makes
+  `composeSoulWithFleetWisdom` return that project's SOUL unchanged, regardless of
+  registry state — the per-project override of the fleet-wide default. It lives in
+  SOUL text, so it goes through the same unlock/propose/ratify path as any other SOUL
+  edit; see `docs/DOCTRINE-COORDINATION.md` §"Fleet wisdom" for the full lifecycle.
 
 ## The design decision
 
@@ -75,6 +82,9 @@ so no redaction pass exists to get wrong.
   name, root path, or verbatim SOUL content.
 - A learning kind is a marker + fixed template pair. Adding a kind must not require
   touching storage, routes, or the compose seam — registry-driven by construction.
+- A project whose SOUL opts out (`Fleet wisdom: off`) gets none of the fleet layer,
+  regardless of registry state — the opt-out check in `composeSoulWithFleetWisdom`
+  short-circuits before any per-kind dedup logic.
 
 ## Acceptance criteria
 
