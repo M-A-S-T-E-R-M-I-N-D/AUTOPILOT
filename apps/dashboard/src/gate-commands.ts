@@ -88,10 +88,18 @@ export const SLOW_CI_EXTRAS: readonly string[] = ['ci:npx-smoke-test'];
  * read stdin — reached the flight branch and turned the convergence gate
  * red, or first failed at the landing twenty minutes into its gate. Every
  * `ci:*` check but the slow ones now runs where the commit is made.
+ *
+ * `slowCiExtras` defaults to {@link SLOW_CI_EXTRAS}. A caller can pass its own
+ * list because the default has only one entry, and with one entry "matches
+ * any" and "matches all" give the same answer. Only a longer list can show
+ * which one this function does.
  */
-export function perFiringGateCommands(spec: GateSpec): GateShellCommand[] {
+export function perFiringGateCommands(
+  spec: GateSpec,
+  slowCiExtras: readonly string[] = SLOW_CI_EXTRAS,
+): GateShellCommand[] {
   return gateCommands(spec, {
     includeCiExtras: true,
-    skipCiExtra: (label) => SLOW_CI_EXTRAS.some((script) => label.endsWith(script)),
+    skipCiExtra: (label) => slowCiExtras.some((script) => label.endsWith(script)),
   });
 }

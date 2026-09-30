@@ -694,7 +694,7 @@ describe('subject-nav client — switching subjects', () => {
     triage.hidden = false;
     triage.innerHTML =
       '<div class="issue-triage-item"><div class="issue-triage-head"><span class="issue-triage-number">#40</span>' +
-      '<span class="chip issue-triage-badge issue-triage-badge-skip">⏭ skip</span></div><p class="issue-triage-issue-title">Old</p></div>' +
+      '<span class="chip issue-triage-badge issue-triage-badge-skip"><svg class="icon icon-skip-forward" aria-hidden="true"></svg>skip</span></div><p class="issue-triage-issue-title">Old</p></div>' +
       '<div class="issue-triage-item"><div class="issue-triage-head"><span class="issue-triage-number">#49</span>' +
       '<span class="chip issue-triage-badge issue-triage-badge-accept">✓ accept</span></div><p class="issue-triage-issue-title">New</p></div>';
     boot();

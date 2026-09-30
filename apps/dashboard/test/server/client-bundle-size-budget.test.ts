@@ -585,7 +585,15 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // live regions) grew /panels.js to 242524B, 164 bytes under the 242688B
 // line — the margin every entry above refuses, with eight sibling lanes
 // flying beside it. About two KB of margin, as the entries above keep.
-const PROJECT_RAW_BUDGET = 124 * 1024;
+// Then project raw 124→126KB (2026-09-30, board web-mtywp7zq-55f3o9), epic
+// 0025's skip icon: the issue and discussions triage panels' ⏭ gives way to
+// the vendored skip-forward icon. Paid the tripwire first — the discussions
+// renderer keys the icon off each line's existing skip flag, not a new
+// per-item icon field (-47B). Measured 126987B raw against the 126976B line:
+// 11 bytes over, from 67 under before the slice — the margin every entry
+// above refuses. About two KB of margin again. Gzip (34106B) stays under
+// PROJECT_GZIP_BUDGET untouched.
+const PROJECT_RAW_BUDGET = 126 * 1024;
 const PANELS_RAW_BUDGET = 239 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a

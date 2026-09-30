@@ -234,7 +234,7 @@
     ],
     "overrides": {
       "fast-uri": "^3.1.6",
-      "brace-expansion": "^5.0.9",
+      "brace-expansion": "^5.0.12",
       "js-yaml": "^4.3.2",
       "hono": "^4.13.5",
       "ip-address": "^10.5.1",

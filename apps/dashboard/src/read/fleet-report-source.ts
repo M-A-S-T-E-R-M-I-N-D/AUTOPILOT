@@ -13,12 +13,14 @@ import type { Store } from '@autopilot/store';
 
 type Db = Store['db'];
 import { parseFiringDeath, parseNoopClass } from './source.js';
+import { isQuotaDeath } from '../flight/model-scoreboard.js';
 import { execFileSync } from 'node:child_process';
-import type {
-  ParkedLane,
-  ReportConvergence,
-  ReportEscalation,
-  ReportFiring,
+import {
+  QUOTA_DEATH,
+  type ParkedLane,
+  type ReportConvergence,
+  type ReportEscalation,
+  type ReportFiring,
 } from './fleet-report.js';
 
 interface FiringRow {
@@ -56,13 +58,21 @@ export function readReportFirings(db: Db, baseProjectId: string, sinceMs: number
     title: r.title,
     subject: r.commit_subject,
     shipped: r.shipped === 1,
-    died: r.shipped === 1 || r.gate_result === 'reverted' ? null : parseFiringDeath(r.payload),
+    died: r.shipped === 1 || r.gate_result === 'reverted' ? null : firingDeath(r.payload),
     noopClass: parseNoopClass(r.gate_result, r.payload),
     gateResult: r.gate_result,
     costUsd: r.cost_usd,
     durationMs: r.duration_ms,
     model: r.model,
   }));
+}
+
+/** How a firing died: a quota death when the account-wide quota killed it
+ *  before it could work — its record also reads as an error exit, which
+ *  would blame the model it was routed to — otherwise `parseFiringDeath`'s
+ *  reading. */
+function firingDeath(payload: string | null): string | null {
+  return isQuotaDeath(payload) ? QUOTA_DEATH : parseFiringDeath(payload);
 }
 
 export function readReportConvergence(
