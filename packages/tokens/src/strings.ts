@@ -730,6 +730,10 @@ const EN_STRINGS = {
   soulEditorSummary: 'view/edit SOUL',
   soulEditorLabel: "This project's live SOUL text — edit and propose a change",
   soulEditorSubmit: 'Propose edit',
+  // The SOUL editor's lock toggle (board ap-muo35gzl-2, MASTER-PLAN §5.4
+  // "locked by default; unlock to edit"): an aria-pressed button, so its
+  // label stays the same in both states.
+  soulEditorUnlock: 'Unlock to edit',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -2450,6 +2454,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulEditorSummary: 'צפייה/עריכת SOUL',
     soulEditorLabel: 'טקסט ה-SOUL החי של הפרויקט — ערכו והציעו שינוי',
     soulEditorSubmit: 'הצע עריכה',
+    soulEditorUnlock: 'פתיחת נעילה לעריכה',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',

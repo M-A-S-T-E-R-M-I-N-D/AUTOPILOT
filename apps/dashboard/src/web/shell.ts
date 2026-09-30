@@ -1732,7 +1732,10 @@ function renderFleetWisdom(state) {
 // goes through — this never overwrites the live SOUL directly. <details>
 // keeps the full text out of the way until opened, same as soulProposalPanel
 // above. Always rendered, even with no SOUL text yet (empty textarea) — the
-// entry point itself must always be findable.
+// entry point itself must always be findable. Locked by default (board
+// ap-muo35gzl-2, MASTER-PLAN §5.4 "locked by default; unlock to edit"): the
+// text renders read-only and Propose edit disabled until the aria-pressed
+// unlock toggle is pressed; pressing it again re-locks.
 function soulEditorPanel(projectId, soulText) {
   var details = el('details', 'soul-editor');
   var summary = el('summary', 'soul-editor-summary');
@@ -1756,15 +1759,31 @@ function soulEditorPanel(projectId, soulText) {
   textarea.name = 'text';
   textarea.rows = 8;
   textarea.value = soulText || '';
+  textarea.readOnly = true;
+  var unlock = el('button', 'soul-editor-unlock');
+  unlock.appendChild(iconEl('lock'));
+  unlock.appendChild(document.createTextNode('Unlock to edit'));
+  unlock.setAttribute('data-i18n', 'soulEditorUnlock');
+  unlock.setAttribute('type', 'button');
+  unlock.setAttribute('aria-pressed', 'false');
+  unlock.setAttribute('aria-controls', textareaId);
+  unlock.setAttribute('data-soul-unlock', projectId);
+  // data-tip only, no aria-label: the visible (translated) text stays the
+  // accessible name.
+  unlock.setAttribute('data-tip', 'The live SOUL is locked against accidental edits — unlock it to write a proposed change');
   var btn = el('button', null, 'Propose edit');
   btn.setAttribute('data-i18n', 'soulEditorSubmit');
   btn.setAttribute('type', 'submit');
+  btn.disabled = true;
   var tip = 'Propose this text as the new live SOUL prompt — it only takes effect once you ratify it, same as an automated proposal';
   btn.setAttribute('data-tip', tip);
   btn.setAttribute('aria-label', tip);
   form.appendChild(label);
   form.appendChild(textarea);
-  form.appendChild(btn);
+  var row = el('div', 'soul-editor-row');
+  row.appendChild(unlock);
+  row.appendChild(btn);
+  form.appendChild(row);
   details.appendChild(form);
   var status = el('p', 'sr-only');
   status.setAttribute('aria-live', 'polite');
@@ -3725,16 +3744,18 @@ document.addEventListener('click', function (e) {
 // event-delegated, like task-add/inbox-add elsewhere, so it survives live
 // re-renders. Never overwrites the live SOUL directly: it only queues a
 // pending proposal, ratified or dismissed through the existing flow above.
+// A still-locked (read-only) editor never submits.
 document.addEventListener('submit', function (e) {
   var f = e.target && e.target.closest && e.target.closest('[data-soul-edit]');
   if (!f) return;
   e.preventDefault();
   var pid = f.getAttribute('data-soul-edit');
   var textarea = f.querySelector('textarea[name="text"]');
-  var text = textarea && textarea.value ? textarea.value.trim() : '';
+  if (!textarea || textarea.readOnly) return;
+  var text = textarea.value ? textarea.value.trim() : '';
   var status = document.getElementById('soul-editor-status-' + pid);
   if (!text) return;
-  var btn = f.querySelector('button');
+  var btn = f.querySelector('button[type="submit"]');
   if (btn) btn.disabled = true;
   fetch('/api/project/soul-propose', {
     method: 'POST',
@@ -3758,7 +3779,26 @@ document.addEventListener('submit', function (e) {
     .catch(function () {
       if (status) status.textContent = tr('soulProposeFailed');
     })
-    .then(function () { if (btn) btn.disabled = false; });
+    .then(function () { if (btn) btn.disabled = textarea.readOnly; });
+});
+// The SOUL editor's lock toggle (board ap-muo35gzl-2): unlocking makes the
+// text editable, enables Propose edit and moves focus into the text; pressing
+// again re-locks both. The flip claims its click, like a task row's detail
+// toggle, so a second listener cannot flip it back.
+document.addEventListener('click', function (e) {
+  var b = e.target && e.target.closest && e.target.closest('[data-soul-unlock]');
+  if (!b || e.defaultPrevented) return;
+  e.preventDefault();
+  var f = b.closest('[data-soul-edit]');
+  var textarea = f && f.querySelector('textarea[name="text"]');
+  var submit = f && f.querySelector('button[type="submit"]');
+  if (!textarea || !submit) return;
+  var unlocking = b.getAttribute('aria-pressed') !== 'true';
+  b.setAttribute('aria-pressed', unlocking ? 'true' : 'false');
+  b.replaceChild(iconEl(unlocking ? 'lock-open' : 'lock'), b.firstChild);
+  textarea.readOnly = !unlocking;
+  submit.disabled = !unlocking;
+  if (unlocking) textarea.focus();
 });
 // Approve a PROPOSED task (✓ approve) — needs_approval → queued (workable).
 document.addEventListener('click', function (e) {

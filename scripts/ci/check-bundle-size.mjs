@@ -243,7 +243,13 @@ import { gzipSync } from 'node:zlib';
 // the replay toggle, and the Keeper inbox (the rituals and community groups,
 // the queue placed first) -- measured 253785B raw against the old 252928B
 // line, 857 bytes over; each passed its own lane's check alone.
-const CORE_RAW_BUDGET = 249 * 1024;
+// Then core raw 249->251KB (2026-09-30), the SOUL editor locked by default
+// (board ap-muo35gzl-2): the read-only textarea, the aria-pressed Unlock to
+// edit toggle with its lock icons and click delegate, the locked-submit
+// guard, one English key -- measured 255696B raw against the old 254976B
+// line, 720 bytes over. Two KB, for the margin the entries above keep: a
+// 250KB line would leave 304 bytes. Gzip (75370B) stays under.
+const CORE_RAW_BUDGET = 251 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

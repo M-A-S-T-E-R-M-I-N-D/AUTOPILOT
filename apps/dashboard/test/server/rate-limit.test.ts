@@ -24,6 +24,17 @@ describe('createRateLimiter', () => {
     expect(limiter.allow('a', 1002)).toBe(false);
   });
 
+  it('resets a window that expired between two sweeps, exactly at the boundary (2026-09-30)', () => {
+    // The sweep runs once per window; a key whose window started after the
+    // last sweep expires before the next one, and only allow() itself can
+    // see that. The nightly mutation run found nothing asking for it.
+    const limiter = createRateLimiter(1, 1000);
+    expect(limiter.allow('a', 0)).toBe(true); // sweep at 0
+    expect(limiter.allow('b', 600)).toBe(true); // no sweep: 600 < 1000
+    expect(limiter.allow('b', 1599)).toBe(false); // b's window is 999ms old
+    expect(limiter.allow('b', 1600)).toBe(true); // exactly 1000ms old: a new window
+  });
+
   it('tracks each key independently', () => {
     const limiter = createRateLimiter(1, 1000);
     expect(limiter.allow('a', 0)).toBe(true);
