@@ -14,6 +14,7 @@ import {
   MAX_MILESTONE_PAGES,
   executeTaxonomySeed,
   runTaxonomySeed,
+  type TaxonomyLabel,
   type TaxonomySeedAction,
 } from '../../src/flight/taxonomy-seed.js';
 import {
@@ -30,6 +31,8 @@ import {
   type IncomingIssue,
   type PriorityLabel,
 } from '../../src/flight/issue-triage.js';
+import { planBoardIssueExportCommands } from '../../src/flight/board-issue-export.js';
+import { HELP_WANTED_LABEL } from '../../src/flight/help-wanted-items.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
 
@@ -499,11 +502,10 @@ describe('HOUSE_TAXONOMY_LABELS × KEEPER issue protocol gate (regression, epic 
 // name in any family leaves the issue without the `pool:` marker every later
 // KEEPER pass recognizes a triaged issue by. Area and priority are seeded
 // here; the pool family is `.github/labels.json`'s, which labels.yml syncs.
-const POOL_LABEL_NAMES: readonly string[] = (
-  JSON.parse(readFileSync(join(process.cwd(), '.github/labels.json'), 'utf8')) as {
-    readonly name: string;
-  }[]
-).map((label) => label.name);
+const POOL_LABELS = JSON.parse(
+  readFileSync(join(process.cwd(), '.github/labels.json'), 'utf8'),
+) as readonly TaxonomyLabel[];
+const POOL_LABEL_NAMES: readonly string[] = POOL_LABELS.map((label) => label.name);
 
 /** Every area and priority the classifiers can hand the accept edit. The
  *  constants are module-private, so `satisfies` keeps these whole instead:
@@ -572,6 +574,63 @@ describe('HOUSE_TAXONOMY_LABELS + .github/labels.json × KEEPER accept edit (reg
     // priority, plus agent-ok for the expired reservation.
     expect(added.size).toBe(DIMENSIONS.length + TRIAGE_AREAS.length + TRIAGE_PRIORITIES.length + 1);
     expect([...added].filter((label) => !seeded.has(label))).toEqual([]);
+  });
+});
+
+// Same law, the SEEDING itself: every name pin in this file assumes the label
+// exists on the live repo, and both seed sources get it there through `gh
+// label create --force` — executeTaxonomySeed for the house taxonomy,
+// labels.yml for the pool set. The create-label endpoint refuses a
+// description over 100 characters and wants the color "without the leading
+// #" (docs.github.com, REST "Create a label"). A refused label is never
+// created: the seeder collects the failure and moves on, and labels.yml's
+// `set -euo pipefail` loop stops there, so no pool label after it syncs
+// either. partner-application's description is 99 characters long.
+const GITHUB_LABEL_DESCRIPTION_MAX = 100;
+
+const LABELS_WORKFLOW = readFileSync(join(process.cwd(), '.github/workflows/labels.yml'), 'utf8');
+
+const SEEDED_LABELS: readonly { readonly source: string; readonly label: TaxonomyLabel }[] = [
+  ...HOUSE_TAXONOMY_LABELS.map((label) => ({ source: 'HOUSE_TAXONOMY_LABELS', label })),
+  ...POOL_LABELS.map((label) => ({ source: '.github/labels.json', label })),
+];
+
+describe("HOUSE_TAXONOMY_LABELS + .github/labels.json × GitHub's create-label limits (regression, epic 0019 additive-only law)", () => {
+  it('gives every labels.json entry a string name, color and description', () => {
+    // labels.yml reads each field with `jq -r`, which prints a missing one as
+    // the word "null": a pool label described as "null", or a create refused
+    // for its color.
+    expect(POOL_LABELS.length).toBeGreaterThan(0);
+    for (const label of POOL_LABELS) {
+      expect(label).toEqual({
+        name: expect.any(String),
+        color: expect.any(String),
+        description: expect.any(String),
+      });
+    }
+  });
+
+  it('keeps every seeded description to 100 characters or fewer', () => {
+    // Counted in code points, so an emoji in a description counts once.
+    const tooLong = SEEDED_LABELS.filter(
+      ({ label }) => [...label.description].length > GITHUB_LABEL_DESCRIPTION_MAX,
+    ).map(({ source, label }) => `${source}: ${label.name} (${[...label.description].length})`);
+    expect(tooLong).toEqual([]);
+  });
+
+  it('gives every seeded label a six-digit hex color with no leading #', () => {
+    const malformed = SEEDED_LABELS.filter(({ label }) => !/^[0-9a-f]{6}$/i.test(label.color)).map(
+      ({ source, label }) => `${source}: ${label.name} (${label.color})`,
+    );
+    expect(malformed).toEqual([]);
+  });
+
+  it('has labels.yml upsert every labels.json entry, and run when the file changes', () => {
+    expect(LABELS_WORKFLOW).toContain("jq -c '.[]' .github/labels.json");
+    expect(LABELS_WORKFLOW).toMatch(/paths:\n(?:\s+- .+\n)*\s+- \.github\/labels\.json\n/);
+    expect(LABELS_WORKFLOW).toContain(
+      'gh label create "$name" --color "$color" --description "$description" --force',
+    );
   });
 });
 
@@ -702,5 +761,50 @@ describe('HOUSE_TAXONOMY_LABELS × claim protocol (regression, epic 0019 additiv
     const enforced = /QUIET_DAYS=(\d+)/.exec(STALE_CLAIM_REAPER)?.[1];
     expect(promised).toBeDefined();
     expect(enforced).toBe(promised);
+  });
+});
+
+// Same law, the claim flow's turn-away: /claim on an issue someone already
+// holds replies with a link to "another help-wanted issue". That link is a
+// GitHub search spelling `label:"help wanted"` by hand, while the board export
+// files every shared task under HELP_WANTED_LABEL. A search on a label nobody
+// applies is not an error, just an empty list, so a rename on either side
+// would send every turned-away claimer to an empty page, and nothing failed.
+/** The already-claimed reply's issue search, with `$REPO` expanded to `repo`. */
+function helpWantedLink(repo: string): URL {
+  const link = /\]\((https:\/\/github\.com\/\$REPO\/issues\?q=[^)\s]+)\)/.exec(
+    claimBranch('/claim*'),
+  )?.[1];
+  if (link === undefined) throw new Error("claim.yml's /claim reply has no issue-search link");
+  return new URL(link.replace('$REPO', repo));
+}
+
+describe("claim.yml's already-claimed reply × the board export's label (regression, epic 0019 additive-only law)", () => {
+  const url = helpWantedLink('some-owner/some-repo');
+  const query = url.searchParams.get('q') ?? '';
+
+  it("points at the replying repo's open issues", () => {
+    expect(url.origin + url.pathname).toBe('https://github.com/some-owner/some-repo/issues');
+    expect(query.split(' ')).toEqual(expect.arrayContaining(['is:issue', 'is:open']));
+  });
+
+  it('searches the label the board export files shared tasks under', () => {
+    const qualifier = /(?:^| )label:(?:"([^"]*)"|(\S+))/.exec(query);
+    const [create] = planBoardIssueExportCommands({
+      action: 'create',
+      taskId: 'task-1',
+      title: 'A shared task',
+      body: '',
+      reasoning: '',
+    });
+    const args = create?.args ?? [];
+
+    expect(qualifier?.[1] ?? qualifier?.[2]).toBe(HELP_WANTED_LABEL);
+    expect(args[args.indexOf('--label') + 1]).toBe(HELP_WANTED_LABEL);
+    expect(GITHUB_DEFAULT_LABELS).toContain(HELP_WANTED_LABEL);
+  });
+
+  it('offers only issues nobody holds yet, not another claimed one', () => {
+    expect(query.split(' ')).toContain('no:assignee');
   });
 });

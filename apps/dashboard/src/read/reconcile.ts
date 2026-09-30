@@ -150,7 +150,11 @@ function fileNameTokens(file: string): string[] {
 
 /** Whether `phrase` appears in `words` as consecutive words. */
 function containsPhrase(words: readonly string[], phrase: readonly string[]): boolean {
-  for (let start = 0; start + phrase.length <= words.length; start += 1) {
+  // Stryker disable next-line ArithmeticOperator: a looser bound only walks
+  // past the end, where `every` meets undefined and says no — the answer is
+  // the same, the loop merely runs longer.
+  const last = words.length - phrase.length;
+  for (let start = 0; start <= last; start += 1) {
     if (phrase.every((word, i) => words[start + i] === word)) return true;
   }
   return false;

@@ -240,6 +240,55 @@ into the AUTOPILOT checkout, so Lock 4 is untouched. None of this changes the
 four locks below or the acceptance criteria; all six slices remain unchanged and
 live in production.
 
+Freshness check (2026-09-30): `fly.ts` gained eight commits since the 2026-09-28
+check above, plus `82ed3c7c`, a merge that carried `5bde3775` in without changing
+`fly.ts` itself. Two of them bear on Lock 4 and slice 6, and both tighten it:
+
+- `ee3c9c73`: the self-study ritual now runs under `withCheckoutRitualLock`
+  (`flight/ritual-lock.ts`). It still commits into the engine's own checkout
+  (`process.cwd()`), whatever project the flight flew. Slice 6's `ritual.lock`
+  ordered rituals against each other but not against the lanes' sync-back merges
+  into that same checkout. So a regen could dirty `docs/SELF-STUDY` between a
+  sibling's clean-tree check and its merge, or ride along in its `chore: sync`
+  commit. The ritual now takes that checkout's sync-back lock first and
+  `ritual.lock` second. Nothing takes them in the other order, so the two cannot
+  deadlock. This covers a flight over another project as well, because its ritual
+  writes the same engine checkout that lanes flying AUTOPILOT merge into.
+- `6ed801de`: when worktree setup fails, a flight flies the base checkout
+  directly. It now holds a primary-flight marker (`autopilot-primary-flight.lock`
+  in the git common dir) for the rest of the flight, claimed before its sibling
+  check. While another live process holds that marker, `syncWorktreeBranch`
+  refuses and `withCheckoutRitualLock` skips the ritual. Both check under the
+  sync-back lock. So a flight over project B can skip one self-study regen while
+  an AUTOPILOT flight is editing the engine checkout directly. The skip is logged
+  (`self-study update skipped (... or is flying this checkout directly)`) and is a
+  skip, not a race or a dirty-tree refusal. The next flight end reruns the same
+  generator. Only this lock is shared across projects; no board, SOUL or backlog
+  row is, so "neither observing the other's work plan" still holds.
+
+The other six are per-project or same-folder lane mechanics.
+
+- `5d97f82a` records every WebSearch whole, as a `web-search` event (THREAT-MODEL
+  T6). It goes through the same `INSERT INTO events (project_id, ...)` as the
+  `activity` row, so it is attributed per project as the telemetry criterion
+  below requires.
+- `00a6e798` records each sync-back rung-4 attempt as a `merge-escalation` event,
+  also per project.
+- `e9b3d7e8` narrows the rung-4 merge agent's tool grant (no WebSearch or
+  WebFetch). It only takes tools away, so it opens no cross-project write path.
+- `df8ef282` stops a crashed gate from telling the next firing its commit was
+  reverted. The commit stays at HEAD unverified, so the gate → sha → HEAD chain
+  is unchanged.
+- `5bde3775` makes a lane with no live engine lock read as parked in the fleet
+  digest.
+- `65b4a1a3` makes quota hibernation a real wait that checks for STOP every 30
+  seconds. Before, a quota-dry flight retried at once. That added load on the
+  shared subscription, which the "Subscription quota is shared" constraint
+  forbids.
+
+None of this changes the four locks below or the acceptance criteria; all six
+slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

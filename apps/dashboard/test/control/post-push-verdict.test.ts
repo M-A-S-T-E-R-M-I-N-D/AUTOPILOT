@@ -15,6 +15,7 @@ import { openStore, migrate, recentTasks, type Store } from '@autopilot/store';
 import type { WorkflowRunStatus } from '../../src/control/ci-status.js';
 import {
   ciRemediationMode,
+  closeSupersededCiRedTasks,
   decidePostPushVerdict,
   filePostPushVerdictTask,
   shouldSpawnRemediationFlight,
@@ -158,6 +159,103 @@ describe('filePostPushVerdictTask', () => {
     expect(filePostPushVerdictTask(store, onMain)).toBe(true);
     expect(filePostPushVerdictTask(store, onOther)).toBe(true);
     expect(recentTasks(store.db, 'proj-1', 10)).toHaveLength(2);
+  });
+});
+
+describe('closeSupersededCiRedTasks', () => {
+  let dir: string;
+  let store: Store;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-post-push-close-'));
+    store = openStore(join(dir, 'store.db'));
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'registered', NULL, ?, ?)`,
+      )
+      .run('proj-1', 'proj-1', 'proj-1', dir, NOW, NOW);
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function fileRed(branch = 'main'): string {
+    const verdict = decidePostPushVerdict(redStatus(), { ...CONTEXT, branch }, NOW);
+    if (verdict.kind !== 'remediate') throw new Error('unreachable');
+    expect(filePostPushVerdictTask(store, verdict)).toBe(true);
+    return verdict.task.id;
+  }
+
+  function statusOf(id: string): string | undefined {
+    return (
+      store.db.prepare('SELECT status FROM tasks WHERE id = ?').get(id) as
+        { status: string } | undefined
+    )?.status;
+  }
+
+  function green(createdAtMs: number | null, conclusion = 'success'): WorkflowRunStatus {
+    return { ...greenStatus(), conclusion, createdAtMs };
+  }
+
+  it('closes the open CI RED task once a later landing on the same branch runs green (2026-09-30)', () => {
+    // ap-muno081m-ci-red: eb525b6's red sat on top of the board for ten
+    // hours through four green landings, because nothing ever closed it.
+    const id = fileRed();
+    expect(
+      closeSupersededCiRedTasks(store, 'proj-1', 'main', green(NOW + 60_000), NOW + 90_000),
+    ).toBe(1);
+    expect(statusOf(id)).toBe('done');
+  });
+
+  it('leaves the red open when the green run started before the red was filed', () => {
+    // An earlier landing's run concluding late says nothing about a later
+    // commit's red.
+    const id = fileRed();
+    expect(
+      closeSupersededCiRedTasks(store, 'proj-1', 'main', green(NOW - 60_000), NOW + 90_000),
+    ).toBe(0);
+    expect(statusOf(id)).not.toBe('done');
+  });
+
+  it('closes nothing on a run with no readable creation time', () => {
+    const id = fileRed();
+    expect(closeSupersededCiRedTasks(store, 'proj-1', 'main', green(null), NOW + 90_000)).toBe(0);
+    expect(statusOf(id)).not.toBe('done');
+  });
+
+  it('closes nothing on a skipped or neutral run — only a success proves the red is gone', () => {
+    const id = fileRed();
+    for (const conclusion of ['skipped', 'neutral']) {
+      expect(
+        closeSupersededCiRedTasks(store, 'proj-1', 'main', green(NOW + 60_000, conclusion), NOW),
+      ).toBe(0);
+    }
+    expect(statusOf(id)).not.toBe('done');
+  });
+
+  it("leaves another branch's red alone", () => {
+    const id = fileRed('release/1.0');
+    expect(closeSupersededCiRedTasks(store, 'proj-1', 'main', green(NOW + 60_000), NOW)).toBe(0);
+    expect(statusOf(id)).not.toBe('done');
+  });
+
+  it('matches the branch literally — an underscore in its name is no wildcard', () => {
+    const id = fileRed('releaseX1');
+    expect(closeSupersededCiRedTasks(store, 'proj-1', 'release_1', green(NOW + 60_000), NOW)).toBe(
+      0,
+    );
+    expect(statusOf(id)).not.toBe('done');
+  });
+
+  it("leaves a red alone when the green run is another workflow's", () => {
+    const id = fileRed();
+    const otherGreen = { ...green(NOW + 60_000), workflow: 'codeql.yml' };
+    expect(closeSupersededCiRedTasks(store, 'proj-1', 'main', otherGreen, NOW)).toBe(0);
+    expect(statusOf(id)).not.toBe('done');
   });
 });
 

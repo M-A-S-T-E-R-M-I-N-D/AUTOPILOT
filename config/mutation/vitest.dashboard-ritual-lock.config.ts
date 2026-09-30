@@ -10,14 +10,16 @@ import { defineConfig } from 'vitest/config';
  * wired into `pnpm run test`, which keeps using the root config's
  * full-workspace run.
  *
- * Mirrors vitest.dashboard-lock.config.ts's reasoning: ritual-lock.ts's only
- * import is a bare workspace specifier (`@autopilot/engine`, for
- * `FileInstanceLock`) that `symlinkNodeModules: false` never recreates
- * inside Stryker's sandboxed copy, so `vitest --related` silently finds no
- * related tests. Aliasing straight to the leaf source module that actually
- * DEFINES `FileInstanceLock` (only `node:fs` imports of its own, erased at
- * compile time — same "good target" shape as every other module here)
- * sidesteps the missing symlink entirely.
+ * Mirrors vitest.dashboard-service.config.ts's reasoning: ritual-lock.ts's
+ * only non-node import is a bare workspace specifier (`@autopilot/engine`)
+ * that `symlinkNodeModules: false` never recreates inside Stryker's sandboxed
+ * copy, so `vitest --related` silently finds no related tests. The symbols it
+ * and its test take from there live in two leaf modules (`FileInstanceLock`
+ * in adapters/instance-lock.ts; the sync-back mutex and primary-flight marker
+ * in adapters/worktree.ts, whose own imports are node builtins and relative
+ * files), so a single-file alias can't satisfy them all — aliasing to
+ * shim.dashboard-ritual-lock-engine.ts, which re-exports each from its real
+ * source, sidesteps the missing symlink entirely.
  *
  * `root` is pinned back to the repo root explicitly: Vitest defaults `root`
  * to this config file's own directory (config/mutation/), which would
@@ -30,7 +32,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@autopilot/engine': fileURLToPath(
-        new URL('../../packages/engine/src/adapters/instance-lock.ts', import.meta.url),
+        new URL('./shim.dashboard-ritual-lock-engine.ts', import.meta.url),
       ),
     },
   },

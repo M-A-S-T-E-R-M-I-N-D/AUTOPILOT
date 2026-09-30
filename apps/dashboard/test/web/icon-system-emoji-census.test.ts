@@ -72,9 +72,10 @@ const TECHNICAL_EMOJI_PATTERN =
  *  did: a refresh, a re-run, an undo. The PR review panel's "↻ Re-run failed"
  *  and "⟳ Update branch" buttons took the vendored refresh-cw and git-merge
  *  icons, and the SOUL card's "↺ un-ratify" chip the vendored undo-2
- *  (2026-09-30). Shrink-only: the sites and keys still painting one. */
+ *  (2026-09-30). The per-firing trace's "⟲ N repeated" chip took the
+ *  vendored repeat icon (2026-09-30), so web/ pins zero; STRINGS stays a
+ *  shrink-only list of the keys still carrying one. */
 const CIRCULAR_ARROW_PATTERN = /[\u{21BA}\u{21BB}\u{27F2}\u{27F3}]/gu;
-const CIRCULAR_ARROW_WEB_SITES = ['flight-metrics.ts: ⟲ (U+27f2)'];
 const CIRCULAR_ARROW_STRING_KEYS = ['en.startOver', 'he.startOver'];
 
 function tsFilesUnder(dir: string): string[] {
@@ -125,8 +126,9 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
-  it('paints a circular-arrow glyph-icon only at the shrink-only list of sites', () => {
-    expect(webOffenders(files, CIRCULAR_ARROW_PATTERN)).toEqual(CIRCULAR_ARROW_WEB_SITES);
+  it('paints no circular-arrow glyph-icon in any web/ source file outside comments', () => {
+    const offenders = webOffenders(files, CIRCULAR_ARROW_PATTERN);
+    expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
   it('matches ⏭/⏱ but leaves the ⌘ key name alone', () => {

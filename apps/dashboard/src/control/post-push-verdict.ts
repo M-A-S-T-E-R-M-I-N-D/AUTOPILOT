@@ -27,7 +27,13 @@
  */
 
 import type { WorkflowRunStatus } from './ci-status.js';
-import { createTask, type CreateTaskInput, type ProjectRow, type Store } from '@autopilot/store';
+import {
+  createTask,
+  setTaskStatus,
+  type CreateTaskInput,
+  type ProjectRow,
+  type Store,
+} from '@autopilot/store';
 import { FLYABLE_STATUSES } from './flight-watchdog.js';
 
 export interface PostPushVerdictContext {
@@ -79,7 +85,7 @@ export function decidePostPushVerdict(
       id: `ap-${nowMs.toString(36)}-ci-red`,
       projectId: context.projectId,
       title,
-      body: `Post-push verdict ritual: landing ${shortSha} onto ${context.branch} came back red on ${status.workflow} (${status.detail}). Filed automatically — no auto-remediation attempted yet.`,
+      body: `Post-push verdict ritual: landing ${shortSha} onto ${context.branch} came back red on ${status.workflow} (${status.detail}). Filed automatically — no auto-remediation attempted yet. This task closes by itself once a later landing onto ${context.branch} comes back green.`,
       severity: 'high',
       // No `dimension` value in the schema's allow-list (accessibility /
       // cybersecurity / ux / human_interaction / learnings / information /
@@ -116,6 +122,47 @@ export function filePostPushVerdictTask(store: Store, verdict: PostPushVerdictRe
     return createTask(store, verdict.task);
   } catch {
     return false;
+  }
+}
+
+/**
+ * A GREEN LANDING CLOSES THE RED IT OUTLIVED (2026-09-30): the watch filed
+ * a CI-red task and nothing ever closed it. `ap-muno081m-ci-red` named
+ * eb525b6's red e2e run (stale project-page baselines); dee8eb32 re-captured
+ * them and four landings came back green, yet the task held the top of the
+ * board for ten hours — the seventh stale red a firing had to refute by hand.
+ *
+ * A `success` run on the same branch, created after the red task was filed,
+ * now closes it: the branch only moves forward (no force-push), so a push
+ * made after the red was known contains the red commit, and its green run is
+ * the proof the failure no longer reproduces. A run created before the filing
+ * (an earlier landing's run concluding late) proves nothing about the red,
+ * and neither does a skipped or neutral one, or a green run of another
+ * workflow. The branch matches literally (`instr`, not `LIKE`: an `_` in a
+ * branch name is no wildcard here). Returns how many it closed; best-effort
+ * like the filing, never throws.
+ */
+export function closeSupersededCiRedTasks(
+  store: Store,
+  projectId: string,
+  branch: string,
+  status: WorkflowRunStatus,
+  nowMs: number,
+): number {
+  if (status.conclusion !== 'success' || status.createdAtMs === null) return 0;
+  try {
+    const prefix = `${titlePrefix(branch)} `;
+    const workflow = `: ${status.workflow} — `;
+    const open = store.db
+      .prepare(
+        `SELECT id FROM tasks
+          WHERE project_id = ? AND status IN ('queued','in_progress','needs_approval')
+            AND instr(title, ?) = 1 AND instr(title, ?) > 0 AND created_at < ?`,
+      )
+      .all(projectId, prefix, workflow, status.createdAtMs) as { id: string }[];
+    return open.filter((t) => setTaskStatus(store, t.id, 'done', nowMs)).length;
+  } catch {
+    return 0;
   }
 }
 

@@ -368,7 +368,9 @@ export interface FiringTimelineRowMeta {
   readonly startedAgo: string;
   readonly startedAgoAriaLabel: string;
   /** See {@link trajectorySignalOf} — null when the firing had zero repeated
-   *  (tool, target) calls, so a clean trajectory renders no chip at all. */
+   *  (tool, target) calls, so a clean trajectory renders no chip at all.
+   *  Words only ("N repeated"): the chip leads with the vendored repeat icon
+   *  instead of the ⟲ glyph this label used to carry (epic 0025). */
   readonly redundancyLabel: string | null;
   readonly redundancyTip: string | null;
   readonly redundancyAriaLabel: string | null;
@@ -414,7 +416,7 @@ export function firingTimelineRowMeta<F extends FlightBarEntry>(
   const startedAgoAriaLabel = 'started ' + startedAgo;
   const trajectory = trajectorySignalOf(g.entries);
   const redundancyLabel =
-    trajectory.repeatedActions > 0 ? '⟲ ' + trajectory.repeatedActions + ' repeated' : null;
+    trajectory.repeatedActions > 0 ? trajectory.repeatedActions + ' repeated' : null;
   const redundancyTip = redundancyLabel
     ? trajectory.repeatedActions +
       ' of ' +
