@@ -90,10 +90,21 @@ describe('parseMutationLog', () => {
 });
 
 describe('readLatestMutationRed', () => {
-  it('reads nothing past the run list when the latest run passed', () => {
-    const gh = vi.fn(() => JSON.stringify([{ databaseId: 9, conclusion: 'success' }]));
-    expect(readLatestMutationRed(gh, 'o/r')).toEqual([]);
+  it('reads nothing past the run list when the latest run passed, and says when it started', () => {
+    const gh = vi.fn((_args: readonly string[]) =>
+      JSON.stringify([{ databaseId: 9, conclusion: 'success', createdAt: '2026-09-29T15:33:26Z' }]),
+    );
+    expect(readLatestMutationRed(gh, 'o/r')).toEqual({
+      startedAt: Date.parse('2026-09-29T15:33:26Z'),
+      red: [],
+    });
     expect(gh).toHaveBeenCalledTimes(1);
+    expect(gh.mock.calls[0]![0]).toContain('databaseId,conclusion,createdAt');
+  });
+
+  it('takes a run with no readable start as the oldest possible', () => {
+    const gh = () => JSON.stringify([{ databaseId: 9, conclusion: 'success', createdAt: 'soon' }]);
+    expect(readLatestMutationRed(gh, 'o/r')?.startedAt).toBe(0);
   });
 
   it('is null when there is no completed run', () => {
@@ -114,7 +125,7 @@ describe('readLatestMutationRed', () => {
       if (args[1] === 'repos/o/r/actions/jobs/1/logs') return shardLog();
       throw new Error(`unexpected gh call: ${args.join(' ')}`);
     });
-    expect(readLatestMutationRed(gh, 'o/r')?.map((r) => r.config)).toEqual([
+    expect(readLatestMutationRed(gh, 'o/r')?.red.map((r) => r.config)).toEqual([
       'stryker.ci-audit-board-flood.config.mjs',
       'stryker.dashboard-lock.config.mjs',
     ]);
@@ -166,6 +177,19 @@ describe('syncMutationRedTasks', () => {
     expect(tasks()[0]!.body).toContain(
       'pnpm exec stryker run config/mutation/stryker.ci-a.config.mjs',
     );
+  });
+
+  it('does not refile a config fixed after the run it reads began, but does once a later run is still red (2026-09-30)', () => {
+    // Every landing re-read the same pre-fix nightly run and re-filed nine
+    // configs the lanes had just closed as fixed.
+    const run = [red('stryker.engine-gate.config.mjs')];
+    syncMutationRedTasks(store, 'p1', run, 10, 5);
+    const id = (store.db.prepare('SELECT id FROM tasks').get() as { id: string }).id;
+    store.db.prepare("UPDATE tasks SET status = 'done', updated_at = 50 WHERE id = ?").run(id);
+    // A landing at 100 reads the run that began at 5, before the fix at 50.
+    expect(syncMutationRedTasks(store, 'p1', run, 100, 5)).toEqual({ filed: 0, closed: 0 });
+    // The next nightly run began at 200, after the fix, and is still red.
+    expect(syncMutationRedTasks(store, 'p1', run, 300, 200)).toEqual({ filed: 1, closed: 0 });
   });
 
   it('closes the task of a config the latest run no longer lists as red', () => {
