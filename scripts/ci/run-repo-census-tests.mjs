@@ -15,6 +15,11 @@
  * already rode along here; every such test now does, found by what it reads.
  * The whole set runs in about fifty seconds.
  *
+ * A test that reads a workspace SOURCE file as text is the same blind spot
+ * (2026-09-30): five suites pin fly.ts's wiring by its source text, and a
+ * fly.ts edit selected zero tests at the per-firing gate
+ * (docs/debriefs/2026-09-30-verdict-ap-mun9xrba-2-test-impacted-blast-radius-refuted.md).
+ *
  * Usage: node scripts/ci/run-repo-census-tests.mjs [--list]
  */
 import { execFileSync } from 'node:child_process';
@@ -39,6 +44,12 @@ const FS_READ_RE = /\b(?:readFileSync|readdirSync|existsSync)\(/;
  *  string literal, often in a constant far from the read that uses it. */
 const REPO_PATH_RE = /['"`/](?:README\.md|CHANGELOG\.md|docs|config|\.github)(?:['"`/\\]|$)/m;
 
+/** The test resolves a workspace source file or folder against its own
+ *  location — `new URL('../../src/fly.ts', import.meta.url)` — to read it as
+ *  TEXT. A source read imports nothing, so the import graph cannot see it. */
+const SOURCE_URL_RE =
+  /new URL\(\s*(['"`])\.\.\/(?:[^'"`]*\/)?src\/[^'"`]*\1\s*,\s*import\.meta\.url\b/;
+
 /** Git's `config` subcommand opening an argv array — `gitSync(dir, ['config',
  *  'user.email', …])`, the setup of every real-git suite. It names no path. */
 const GIT_CONFIG_ARGV_RE = /\[\s*(['"`])config\1/g;
@@ -50,6 +61,9 @@ export function isRepoReadingTest(source) {
   // whole repository — the windowsHide census missed a new script this way
   // (2026-09-26): no change to a scanned file ever selects it.
   if (FS_READ_RE.test(source) && source.includes("'ls-files'")) return true;
+  // A test that pins a module's wiring by its source text (2026-09-30): five
+  // suites read fly.ts that way, and a fly.ts edit selected none of them.
+  if (FS_READ_RE.test(source) && SOURCE_URL_RE.test(source)) return true;
   // A `git config` argv is not the config/ directory (2026-09-28). Read as
   // one, it put five real-git suites that read no repository path into every
   // per-firing gate, and under fleet load their timeouts crashed the gate.
