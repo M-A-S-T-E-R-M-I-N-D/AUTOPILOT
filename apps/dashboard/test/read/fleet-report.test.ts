@@ -160,6 +160,31 @@ describe('renderFleetReport', () => {
     expect(lines[1]).toContain('shipped 100%');
     expect(lines[1]).toContain('per ship   $2.00');
   });
+
+  // 2026-09-30 round: "claude-opus-5-5 · meta-check" is 28 characters, so a
+  // fixed 18-wide label column pushed each row's numbers a different distance.
+  it('widens a section to its longest label, so every row of it lines up', () => {
+    const opus = { ...base, model: 'claude-opus-5-5' };
+    const lines = renderFleetReport(
+      [
+        opus,
+        { ...opus, title: 'DOC-FRESHNESS: x', subject: 'docs: x' },
+        { ...opus, subject: 'chore: x' },
+      ],
+      [],
+      'w',
+    );
+    const start = lines.indexOf('by model and work');
+    const block = lines.slice(start + 1, lines.indexOf('', start));
+    expect(block).toHaveLength(3);
+    const columns = new Set(block.map((l) => l.indexOf(' firings')));
+    expect(columns.size).toBe(1);
+    expect(block[0]).toMatch(/^ {2}claude-opus-5-5 · \S+ +1 firings/);
+    // A section whose labels fit keeps the usual 18-wide column.
+    expect(lines[1]).toBe(
+      `  ${'all'.padEnd(18)}    3 firings  shipped 100%  died   0%  $   6.00  per ship   $2.00  median 10.0 min`,
+    );
+  });
 });
 
 describe('renderFleetReport quota deaths (2026-09-29, round 37)', () => {
