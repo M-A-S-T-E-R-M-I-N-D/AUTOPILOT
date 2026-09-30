@@ -13,8 +13,10 @@
  * (e.g. flipping the stale-retry condition, or skipping `lock.release()` in
  * the `finally`) could silently reopen that race or leak a lock forever.
  *
- * Only import is `@autopilot/engine`'s `FileInstanceLock` (pure, already
- * unit-tested there) — nothing to mock.
+ * Its only non-node import is `@autopilot/engine` — `FileInstanceLock` plus
+ * the sync-back mutex and primary-flight marker from adapters/worktree.ts,
+ * all already unit-tested there — nothing to mock. The vitest config aliases
+ * it to shim.dashboard-ritual-lock-engine.ts, which re-exports each of them.
  *
  * @type {import('@stryker-mutator/api/core').PartialStrykerOptions}
  */
