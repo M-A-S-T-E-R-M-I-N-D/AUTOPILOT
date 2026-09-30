@@ -302,6 +302,12 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M13 6h3a2 2 0 0 1 2 2v7' }],
     ['line', { x1: '6', x2: '6', y1: '9', y2: '21' }],
   ],
+  // ⟳ Update branch → git-merge (the button merges the base in)
+  'git-merge': [
+    ['circle', { cx: '18', cy: '18', r: '3' }],
+    ['circle', { cx: '6', cy: '6', r: '3' }],
+    ['path', { d: 'M6 21V9a9 9 0 0 0 9 9' }],
+  ],
   clock: [
     ['circle', { cx: '12', cy: '12', r: '10' }],
     ['path', { d: 'M12 6v6l4 2' }],

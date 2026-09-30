@@ -127,8 +127,17 @@ propagation, and the filled style does not match the nav.
    `chevron-right` (the label moved into an inner `[data-i18n]` span so the
    locale sweep keeps the icon), mirrored under `dir="rtl"` while closed and
    turned down once the form opens. The list is gone and web/ pins zero for
-   Geometric Shapes as for the emoji and Miscellaneous Technical blocks. The
-   screenshots refresh (`docs/screens/`) is still open.
+   Geometric Shapes as for the emoji and Miscellaneous Technical blocks.
+   **Circular arrows 2026-09-30:** ↺ ↻ (Arrows) and ⟲ ⟳ (Supplemental
+   Arrows-A) sat outside every census range, yet the KEEPER PR review
+   panel's "↻ Re-run failed" and "⟳ Update branch" maintainer buttons used
+   them as icons. Both lead with a vendored stroke now — `refresh-cw` (already
+   drawn by the round panel) and a newly vendored `git-merge`, since the
+   button merges the base in — and the census gained a circular-arrow block,
+   a shrink-only list of what still paints one: the SOUL card's ↺ un-ratify
+   button and its tip in web/, the flight log's ⟲ repeated-actions chip, and
+   the `soulUnratify`/`startOver` STRINGS in both locales. The screenshots
+   refresh (`docs/screens/`) is still open.
 
 ## Related
 
