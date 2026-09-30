@@ -93,23 +93,29 @@ export function actMeta(a: ActMetaEntry, fmtTokens: (n: number) => string): stri
 }
 
 /** {@link activityLiveLabel}'s result: the activity feed's own heading —
- *  text, `<h4>` class, and hover/focus tip, all keyed off the same
- *  live/idle split. */
+ *  text, leading icon, `<h4>` class, and hover/focus tip, all keyed off the
+ *  same live/idle split. */
 export interface ActivityLiveLabel {
   readonly text: string;
+  /** The vendored icon (`web/icons.ts`) the heading leads with, or null. */
+  readonly icon: string | null;
   readonly className: string;
   readonly tip: string;
 }
 
-/** The activity feed's heading — "● live activity" while a firing is
+/** The activity feed's heading — "live activity" while a firing is
  *  actually in progress, or "last flight — debrief" once nothing is live
  *  (a recap of the last completed firing, not a stuck live view). Honest
- *  framing an operator flagged directly: "shouldn't this reset?" */
+ *  framing an operator flagged directly: "shouldn't this reset?" Epic 0025
+ *  (board web-mtywp7zq-55f3o9): the live badge's baked-in ● gave way to the
+ *  vendored `circle-dot`, the icon the task row's status pill and the PR
+ *  check strip already draw for work in progress. */
 export function activityLiveLabel(isLive: boolean): ActivityLiveLabel {
-  const text = isLive ? '● live activity' : 'last flight — debrief';
+  const text = isLive ? 'live activity' : 'last flight — debrief';
+  const icon = isLive ? 'circle-dot' : null;
   const className = 'act-label' + (isLive ? ' act-label-live' : '');
   const tip = isLive
     ? 'A firing is running right now — this feed updates live as it acts'
     : 'A recap of the last completed firing, not a live view — nothing is flying right now';
-  return { text, className, tip };
+  return { text, icon, className, tip };
 }

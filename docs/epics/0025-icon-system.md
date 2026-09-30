@@ -117,7 +117,11 @@ propagation, and the filled style does not match the nav.
    `ban`; `circle-question-mark` for an unknown state), and web/ has its
    own Geometric census, a shrink-only list of the three sites left: the
    activity feed's "● live activity" heading and the connect panel's ▸/▾
-   report toggle. The screenshots refresh (`docs/screens/`) is still open.
+   report toggle. **Live activity heading 2026-09-30:** the heading leads
+   with `circle-dot` (`activityLiveLabel`'s new `icon` field) instead of ●,
+   so a live firing reads like a running check and an in-progress task; the
+   list is down to the connect panel's ▸/▾. The screenshots refresh
+   (`docs/screens/`) is still open.
 
 ## Related
 

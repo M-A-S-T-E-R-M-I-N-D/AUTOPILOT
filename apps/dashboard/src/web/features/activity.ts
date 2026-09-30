@@ -193,6 +193,9 @@ function activitySection(c) {
   var isLive = !!liveFiring(c);
   var labelMeta = activityLiveLabel(isLive);
   var actLabel = el('h4', labelMeta.className, labelMeta.text);
+  // Epic 0025: the live badge leads with a vendored icon, not a baked glyph;
+  // iconEl's own aria-hidden keeps the heading's name its text alone.
+  if (labelMeta.icon) actLabel.insertBefore(iconEl(labelMeta.icon), actLabel.firstChild);
   actLabel.setAttribute('tabindex', '0');
   actLabel.setAttribute('data-tip', labelMeta.tip);
   // D1 ATTRIBUTE PAYLOAD (epic 0015): the heading's own text already gives it
