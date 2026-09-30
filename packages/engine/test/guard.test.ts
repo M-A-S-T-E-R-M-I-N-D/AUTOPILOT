@@ -168,6 +168,36 @@ describe('checkCommandContainment', () => {
     expect(check('echo $env:PATH').allowed).toBe(true);
   });
 
+  it('denies the Windows home variables Git Bash inherits, in every shell spelling (ap-muoadbyf-0)', () => {
+    // Git Bash on Windows inherits USERPROFILE, APPDATA and LOCALAPPDATA from
+    // the Windows environment, so the Bash spelling reaches the same key the
+    // cmd and PowerShell spellings above were already refused for.
+    for (const cmd of [
+      'cat "$USERPROFILE/.ssh/id_rsa"',
+      'cat ${USERPROFILE}/.claude/.credentials.json',
+      'ls "$APPDATA"',
+      'ls "$LOCALAPPDATA"',
+      'ls "${LOCALAPPDATA}/Microsoft"',
+      'ls "$HOMEPATH"',
+      String.raw`type %LOCALAPPDATA%\Microsoft\Credentials`,
+      String.raw`Get-ChildItem $env:LOCALAPPDATA`,
+      'Get-ChildItem ${env:LocalAppData}',
+    ]) {
+      expect(check(cmd), cmd).toEqual({
+        allowed: false,
+        reason: 'the command references the home directory (credentials live there)',
+      });
+    }
+  });
+
+  it('a Bash home variable matches only its exact, case-sensitive name', () => {
+    // Bash variable names are case-sensitive: `$userprofile` is a script's own
+    // variable, not the inherited Windows one. `\b` keeps longer names out.
+    expect(check('echo $userprofile $appdata $localappdata').allowed).toBe(true);
+    expect(check('echo $USERPROFILE_BACKUP $APPDATAX $LOCALAPPDATA2').allowed).toBe(true);
+    expect(check('echo $env:LOCALAPPDATAX').allowed).toBe(true);
+  });
+
   const TEMP_DIR_REASON =
     'the command references the system temp directory, outside the target — keep scratch ' +
     'files in the git-ignored .tmp-autopilot/ instead';
@@ -937,6 +967,7 @@ describe('evaluateHookInput', () => {
         'home directory',
       );
       expect(ps('Get-ChildItem ${env:APPDATA}')).not.toBeNull();
+      expect(ps(String.raw`Get-ChildItem $env:LOCALAPPDATA`)).not.toBeNull();
       expect(ps(String.raw`Get-Content $home\.claude\.credentials.json`)).not.toBeNull();
     });
 

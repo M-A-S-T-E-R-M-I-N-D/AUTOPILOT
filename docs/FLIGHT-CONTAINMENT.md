@@ -45,7 +45,8 @@ for flying untrusted targets, or on a shared machine, or unattended.
    `PreToolUse` hooks pipe each Bash or PowerShell command, and each Read/Grep/Glob/Write/Edit call,
    through a path guard (`node guard-hook.js <target>`): any absolute path outside the
    target, any home-directory reference (`~`, `$HOME`, `%USERPROFILE%`, PowerShell's
-   `$env:USERPROFILE` — where credentials live), any system-temp reference (`$TMPDIR`, `$TEMP`,
+   `$env:USERPROFILE`, and the `$USERPROFILE`/`$APPDATA`/`$LOCALAPPDATA` Git Bash inherits
+   from Windows — where credentials live), any system-temp reference (`$TMPDIR`, `$TEMP`,
    `$TMP`, `%TEMP%`, `$env:TEMP` — outside every target; scratch goes in the git-ignored
    `.tmp-autopilot/`), a command that lands there without spelling it (a `mktemp` with no
    `-p DIR`, `--tmpdir=DIR` or plain template, PowerShell's `New-TemporaryFile`, .NET's
