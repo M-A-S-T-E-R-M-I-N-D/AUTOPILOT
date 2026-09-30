@@ -11,11 +11,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { UPSTREAM_REPO } from '../../src/info.js';
+import { PARTNER_APPLICATION_LABEL } from '../../src/flight/contributor-dossier.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import {
   CONTRIBUTOR_STANDING_APPLY_URL,
+  CONTRIBUTOR_STANDING_REVIEW_URL,
   CONTRIBUTOR_STANDING_TIERS,
   contributorStandingTierSummary,
   partnerApplicationUrl,
+  partnerApplicationsReviewUrl,
   standingPanelOffer,
 } from '../../src/web/contributor-standing-panel.js';
 
@@ -79,6 +83,40 @@ describe('partnerApplicationUrl', () => {
 describe('CONTRIBUTOR_STANDING_APPLY_URL', () => {
   it("is the real deep-link for THIS repo's UPSTREAM_REPO", () => {
     expect(CONTRIBUTOR_STANDING_APPLY_URL).toBe(partnerApplicationUrl(UPSTREAM_REPO));
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the KEEPER dossier
+// flow's maintainer end: the panel's "review applications" link is a GitHub
+// search that spells the label by hand, while contributor-dossier.ts routes
+// applications on PARTNER_APPLICATION_LABEL and the steward's taxonomy seeds
+// it. A search on a label nobody applies is not an error, just an empty list,
+// so a renamed label would tell the maintainer nobody had applied.
+describe('partnerApplicationsReviewUrl (regression, epic 0019 additive-only law)', () => {
+  /** The `label:` qualifier of a review URL's search. */
+  function searchedLabel(url: string): string | undefined {
+    const query = new URL(url).searchParams.get('q') ?? '';
+    return /(?:^| )label:(\S+)/.exec(query)?.[1];
+  }
+
+  it("points at the given repo's open issues", () => {
+    const url = new URL(partnerApplicationsReviewUrl('some-owner/some-repo'));
+
+    expect(url.origin + url.pathname).toBe('https://github.com/some-owner/some-repo/issues');
+    expect(url.searchParams.get('q')?.split(' ')).toEqual(
+      expect.arrayContaining(['is:issue', 'is:open']),
+    );
+  });
+
+  it('searches the label KEEPER routes applications on, which the steward seeds', () => {
+    const label = searchedLabel(partnerApplicationsReviewUrl('some-owner/some-repo'));
+
+    expect(label).toBe(PARTNER_APPLICATION_LABEL);
+    expect(HOUSE_TAXONOMY_LABELS.map((seeded) => seeded.name)).toContain(label);
+  });
+
+  it("is the real review link for THIS repo's UPSTREAM_REPO", () => {
+    expect(CONTRIBUTOR_STANDING_REVIEW_URL).toBe(partnerApplicationsReviewUrl(UPSTREAM_REPO));
   });
 });
 
