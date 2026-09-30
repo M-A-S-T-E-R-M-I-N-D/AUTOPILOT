@@ -19,8 +19,10 @@ import {
   textDeltaFromEvent,
   usageFromEvent,
   guardDenialDetailsFromEvent,
+  webSearchesFromEvent,
   type Activity,
   type GuardDenialDetail,
+  type WebSearchAudit,
 } from '../stream.js';
 
 function strOrNull(v: unknown): string | null {
@@ -493,6 +495,9 @@ export interface StreamingClaudeCliOptions extends ClaudeCliOptions {
    * only use `onActivity` are unaffected (the flag is opt-in per invocation).
    */
   readonly onText?: (text: string) => void;
+  /** Called for each WebSearch the agent issues, with the untruncated query
+   *  (THREAT-MODEL T6 — the flight persists it as a `web-search` audit row). */
+  readonly onWebSearch?: (search: WebSearchAudit) => void;
 }
 
 /**
@@ -615,6 +620,9 @@ export class StreamingClaudeCliModel implements ModelPort {
         if (event === null) return;
         if (this.opts.onActivity) {
           for (const activity of activitiesFromEvent(event)) this.opts.onActivity(activity);
+        }
+        if (this.opts.onWebSearch) {
+          for (const search of webSearchesFromEvent(event)) this.opts.onWebSearch(search);
         }
         if (this.opts.onText) {
           const delta = textDeltaFromEvent(event);

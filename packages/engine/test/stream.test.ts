@@ -13,6 +13,8 @@ import {
   guardDenialsFromEvent,
   guardDenialDetailsFromEvent,
   sessionIdFromEvent,
+  webSearchesFromEvent,
+  WEB_SEARCH_AUDIT_MAX_CHARS,
 } from '../src/stream.js';
 
 describe('parseStreamLine', () => {
@@ -1044,5 +1046,87 @@ describe('sessionIdFromEvent — what makes a KILLED attempt resumable', () => {
     expect(sessionIdFromEvent({ session_id: 7 })).toBeNull();
     expect(sessionIdFromEvent({ session_id: null })).toBeNull();
     expect(sessionIdFromEvent({})).toBeNull();
+  });
+});
+
+describe('webSearchesFromEvent — the WebSearch audit record (THREAT-MODEL T6)', () => {
+  function assistant(content: unknown): Record<string, unknown> {
+    return { type: 'assistant', message: { content } };
+  }
+  function search(input: Record<string, unknown>): Record<string, unknown> {
+    return { type: 'tool_use', name: 'WebSearch', input };
+  }
+
+  it('keeps the whole query verbatim, where the activity target is cut at 160 chars', () => {
+    const query = `${'secret '.repeat(40)}  tail\nline`;
+    const event = assistant([search({ query })]);
+
+    expect(webSearchesFromEvent(event)).toEqual([
+      { query, queryLength: query.length, allowedDomains: [], blockedDomains: [] },
+    ]);
+    expect(activitiesFromEvent(event)[0]?.target.endsWith('…')).toBe(true);
+  });
+
+  it('records the domain filters the agent asked for, keeping only string entries', () => {
+    const event = assistant([
+      search({
+        query: 'vitest docs',
+        allowed_domains: ['vitest.dev', 3, null],
+        blocked_domains: ['example.com'],
+      }),
+    ]);
+
+    expect(webSearchesFromEvent(event)).toEqual([
+      {
+        query: 'vitest docs',
+        queryLength: 11,
+        allowedDomains: ['vitest.dev'],
+        blockedDomains: ['example.com'],
+      },
+    ]);
+  });
+
+  it('reads a non-array domain filter as no filter', () => {
+    const [audit] = webSearchesFromEvent(
+      assistant([search({ query: 'q', allowed_domains: 'vitest.dev', blocked_domains: {} })]),
+    );
+    expect(audit).toMatchObject({ allowedDomains: [], blockedDomains: [] });
+  });
+
+  it('caps a query past the audit ceiling and says how long it really was', () => {
+    const query = 'x'.repeat(WEB_SEARCH_AUDIT_MAX_CHARS + 50);
+    const [audit] = webSearchesFromEvent(assistant([search({ query })]));
+
+    expect(audit?.query).toBe(query.slice(0, WEB_SEARCH_AUDIT_MAX_CHARS));
+    expect(audit?.queryLength).toBe(WEB_SEARCH_AUDIT_MAX_CHARS + 50);
+  });
+
+  it('returns every WebSearch in one message, in wire order, and nothing else', () => {
+    const event = assistant([
+      { type: 'text', text: 'looking it up' },
+      search({ query: 'first' }),
+      { type: 'tool_use', name: 'Grep', input: { pattern: 'not a web search' } },
+      { type: 'tool_use', name: 'WebFetch', input: { url: 'https://example.com' } },
+      search({ query: 'second' }),
+    ]);
+
+    expect(webSearchesFromEvent(event).map((a) => a.query)).toEqual(['first', 'second']);
+  });
+
+  it('yields nothing for a non-assistant event, a missing content array, or a queryless call', () => {
+    expect(
+      webSearchesFromEvent({ type: 'user', message: { content: [search({ query: 'q' })] } }),
+    ).toEqual([]);
+    expect(webSearchesFromEvent({ type: 'assistant', message: { content: 'text' } })).toEqual([]);
+    expect(
+      webSearchesFromEvent(
+        assistant([search({ query: 7 }), { type: 'tool_use', name: 'WebSearch' }, null, 'str']),
+      ),
+    ).toEqual([]);
+  });
+
+  it('reads the content array off the event itself when there is no message wrapper', () => {
+    const event = { type: 'assistant', content: [search({ query: 'bare' })] };
+    expect(webSearchesFromEvent(event).map((a) => a.query)).toEqual(['bare']);
   });
 });

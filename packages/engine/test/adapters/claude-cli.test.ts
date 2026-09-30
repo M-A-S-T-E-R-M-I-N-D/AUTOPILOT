@@ -1209,6 +1209,54 @@ describe('StreamingClaudeCliModel', () => {
     expect(res.guardDenials).toBe(0);
   });
 
+  it('hands every WebSearch the agent issues to onWebSearch, untruncated (THREAT-MODEL T6)', async () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+    const searches: string[] = [];
+    const model = new StreamingClaudeCliModel({
+      repo: '/work/sbx',
+      config: DEFAULT_ENGINE_CONFIG,
+      onWebSearch: (s) => searches.push(s.query),
+    });
+    const promise = model.invoke('sonnet', 'do it');
+
+    const query = 'q '.repeat(120);
+    child.stdout.emit(
+      'data',
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'tool_use', name: 'Bash', input: { command: 'ls' } },
+            { type: 'tool_use', name: 'WebSearch', input: { query } },
+          ],
+        },
+      }) + '\n',
+    );
+    child.emit('close', 0);
+    await promise;
+
+    expect(searches).toEqual([query]);
+  });
+
+  it('does not crash on a WebSearch event when no onWebSearch callback is given', async () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+    const model = new StreamingClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
+    const promise = model.invoke('sonnet', 'p');
+
+    const searchEvent =
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'WebSearch', input: { query: 'q' } }] },
+      }) + '\n';
+    expect(() => child.stdout.emit('data', searchEvent)).not.toThrow();
+    child.emit('close', 0);
+    await promise;
+  });
+
   it('sums guard denials seen on the stream into the resolved response', async () => {
     const child = fakeChild();
     spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
