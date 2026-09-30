@@ -1,13 +1,15 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import type * as NodeFs from 'node:fs';
 import {
   chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -36,6 +38,19 @@ import {
   worktreeIsRegistered,
 } from '../../src/adapters/worktree.js';
 import { realpathSync } from 'node:fs';
+
+// Pass-through spies: every test still touches the real filesystem, but the
+// primary-flight marker's tests can pin WHICH calls it makes — a Buffer
+// JSON.parses the same as text, and a null path only throws inside a catch,
+// so the outcome alone cannot tell those mutants apart.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof NodeFs>();
+  return {
+    ...actual,
+    readFileSync: vi.fn(actual.readFileSync),
+    openSync: vi.fn(actual.openSync),
+  };
+});
 
 /**
  * `join(dir, '..', name)`-style worktree paths must live under a scratch
@@ -1313,12 +1328,27 @@ describe('a flight flying the checkout itself — no sibling merges under its li
     expect(await primaryFlightHolder(dir)).toBe(process.ppid);
   });
 
+  it('reads the marker as text, the way FileInstanceLock writes it', async () => {
+    await markFlownBy(process.ppid);
+    vi.mocked(readFileSync).mockClear();
+
+    expect(await primaryFlightHolder(dir)).toBe(process.ppid);
+    expect(readFileSync).toHaveBeenCalledWith(await markerPath(), 'utf8');
+  });
+
   it('outside a repository there is nothing to claim and no one flying', async () => {
     const nowhere = join(dir, 'nowhere');
+    vi.mocked(openSync).mockClear();
+    vi.mocked(readFileSync).mockClear();
 
     expect(await primaryFlightLockPath(nowhere)).toBeNull();
     expect(await claimPrimaryFlight(nowhere)).toBeNull();
     expect(await primaryFlightHolder(nowhere)).toBeNull();
+    // Without a marker path neither call so much as tries a file: a claim
+    // that went on to create a lock at no path, or a read of no path, only
+    // fails inside a catch, and the null above would hide it.
+    expect(openSync).not.toHaveBeenCalled();
+    expect(readFileSync).not.toHaveBeenCalled();
   });
 });
 

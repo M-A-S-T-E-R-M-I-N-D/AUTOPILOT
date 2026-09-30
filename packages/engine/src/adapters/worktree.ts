@@ -26,6 +26,7 @@ import {
   isProcessAlive,
   parseLockInfo,
   type AcquireLockResult,
+  type LockInfo,
 } from './instance-lock.js';
 
 /**
@@ -523,13 +524,12 @@ export async function primaryFlightHolder(
 ): Promise<number | null> {
   const path = await primaryFlightLockPath(repo);
   if (path === null) return null;
-  let raw = '';
+  let info: LockInfo | null = null;
   try {
-    raw = readFileSync(path, 'utf8');
+    info = parseLockInfo(readFileSync(path, 'utf8'));
   } catch {
     /* no marker: no one is flying the checkout */
   }
-  const info = parseLockInfo(raw);
   return info !== null && info.pid !== self && isProcessAlive(info.pid) ? info.pid : null;
 }
 
