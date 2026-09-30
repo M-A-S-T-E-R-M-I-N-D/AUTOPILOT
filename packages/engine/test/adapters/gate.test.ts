@@ -706,6 +706,11 @@ describe('GateRunner reports how long it queued for a slot (2026-09-25)', () => 
     }).run();
     expect(green.ok).toBe(true);
     expect(green.queuedMs).toBeGreaterThanOrEqual(25);
+    // Upper bound matters as much as the lower one: queuedMs is `Date.now() -
+    // queuedAt`, two epoch timestamps in the trillions — an accidental `+`
+    // would still clear `>= 25` but land wildly outside any plausible wait
+    // for a 30ms-slot test double.
+    expect(green.queuedMs).toBeLessThan(1000);
     const red = await new GateRunner({
       cwd: '.',
       commands: [cmd],
@@ -714,6 +719,7 @@ describe('GateRunner reports how long it queued for a slot (2026-09-25)', () => 
     }).run();
     expect(red.ok).toBe(false);
     expect(red.queuedMs).toBeGreaterThanOrEqual(25);
+    expect(red.queuedMs).toBeLessThan(1000);
   });
 
   it('reports no wait at all when it ran unslotted', async () => {
