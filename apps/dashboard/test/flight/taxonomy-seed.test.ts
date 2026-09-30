@@ -11,6 +11,7 @@ import {
   planTaxonomySeed,
   fetchExistingLabelNames,
   fetchExistingMilestoneTitles,
+  MAX_MILESTONE_PAGES,
   executeTaxonomySeed,
   runTaxonomySeed,
   type TaxonomySeedAction,
@@ -195,6 +196,71 @@ describe('fetchExistingMilestoneTitles', () => {
 
   it('fails closed to an empty set on unparseable stdout', async () => {
     const exec = execFor({ milestones: { code: 0, stdout: 'not json' } });
+    expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set());
+  });
+});
+
+/** A `gh api .../milestones` stand-in that pages rows the way the REST
+ *  endpoint does: `per_page` of them (30 when absent) from `page` (1 when
+ *  absent). */
+function ghMilestonesOf(titles: readonly string[]): CliExec {
+  return vi.fn(async (_bin: string, args: readonly string[]) => {
+    const path = args.find((arg) => arg.includes('milestones')) ?? '';
+    const query = new URLSearchParams(path.split('?')[1] ?? '');
+    const perPage = Number(query.get('per_page') ?? 30);
+    const page = Number(query.get('page') ?? 1);
+    const rows = titles.slice((page - 1) * perPage, page * perPage).map((title) => ({ title }));
+    return { code: 0, stdout: JSON.stringify(rows) };
+  });
+}
+
+// Same law, the milestone read. One `per_page=100` page is the first hundred
+// milestones and nothing after, so on a repo past a hundred (closed ones
+// count: the read asks for `state=all`) a starter milestone on a later page
+// read as missing and was planned as a `create-milestone` all over again.
+describe('fetchExistingMilestoneTitles × a repo with more milestones than one page holds (regression, epic 0019 additive-only law)', () => {
+  const OLDER = Array.from({ length: 100 }, (_, i) => `older milestone ${i + 1}`);
+  const HOUSE = HOUSE_STARTER_MILESTONES.map((milestone) => milestone.title);
+
+  it('reads every milestone, not the first page of 100', async () => {
+    const titles = await fetchExistingMilestoneTitles(ghMilestonesOf([...OLDER, ...HOUSE]));
+
+    expect(titles.size).toBe(OLDER.length + HOUSE.length);
+    expect(HOUSE.filter((title) => !titles.has(title))).toEqual([]);
+  });
+
+  it('plans no starter milestone the repo already carries on a later page', async () => {
+    const existing = await fetchExistingMilestoneTitles(ghMilestonesOf([...OLDER, ...HOUSE]));
+
+    const plan = planTaxonomySeed(MAINTAINER, new Set(), existing);
+
+    expect(plan.actions.filter((a) => a.kind === 'create-milestone')).toEqual([]);
+  });
+
+  it('stops at the first short page', async () => {
+    const exec = ghMilestonesOf([...OLDER, ...HOUSE]);
+
+    await fetchExistingMilestoneTitles(exec);
+
+    expect(exec).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops after MAX_MILESTONE_PAGES pages when every page comes back full', async () => {
+    const fullPage = JSON.stringify(OLDER.map((title) => ({ title })));
+    const exec: CliExec = vi.fn(async () => ({ code: 0, stdout: fullPage }));
+
+    expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set(OLDER));
+    expect(exec).toHaveBeenCalledTimes(MAX_MILESTONE_PAGES);
+  });
+
+  it('fails closed to an empty set when a later page fails, never a partial read', async () => {
+    const firstPage = JSON.stringify(OLDER.map((title) => ({ title })));
+    const exec: CliExec = vi.fn(async (_bin: string, args: readonly string[]) =>
+      args.some((arg) => arg.endsWith('&page=1'))
+        ? { code: 0, stdout: firstPage }
+        : { code: 1, stdout: '' },
+    );
+
     expect(await fetchExistingMilestoneTitles(exec)).toEqual(new Set());
   });
 });
