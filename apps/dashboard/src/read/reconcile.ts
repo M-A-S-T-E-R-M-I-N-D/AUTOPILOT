@@ -68,13 +68,18 @@ const STOPWORDS = new Set([
 // per-character split would add, leaving the same non-empty tokens either way.
 const WORD_SPLIT_PATTERN = /[^a-z0-9]+/;
 
-/** Lowercase, split on non-alphanumerics, drop stopwords and numeric-only tokens. */
-function titleTokens(text: string): Set<string> {
-  const tokens = text
+/** Lowercase, split on non-alphanumerics, drop stopwords and numeric-only
+ *  tokens — in order, since a file name is matched as a phrase. */
+function orderedTokens(text: string): string[] {
+  return text
     .toLowerCase()
     .split(WORD_SPLIT_PATTERN)
     .filter((t) => t.length > 0 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
-  return new Set(tokens);
+}
+
+/** {@link orderedTokens} as a set, for overlap scoring. */
+function titleTokens(text: string): Set<string> {
+  return new Set(orderedTokens(text));
 }
 
 /**
@@ -127,59 +132,69 @@ const PATH_NOISE_TOKENS = new Set([
 /** A token shorter than this is too generic (loop, off, env, …) to trust as file-path match evidence on its own. */
 const MIN_DISTINCTIVE_PATH_TOKEN_LENGTH = 4;
 
+/** A file name's last extension, and a `.test`/`.spec`/`.d` before it. */
+const FILE_EXTENSION_RE = /(?:\.(?:test|spec|d))?\.[a-z0-9]+$/i;
+
 /**
- * Distinctive (non-noise) tokens across a commit's changed file paths. Does
- * NOT apply `MIN_DISTINCTIVE_PATH_TOKEN_LENGTH` here — `filePathMatchesTitle`
- * below re-checks every candidate token's length before ever consulting this
- * set, so a length filter here would be a second, unobservable copy of that
- * same gate (any short token this function let through could never pass the
- * consumer's own length check either).
+ * The words that name one changed file: its BASENAME without its extension,
+ * noise words dropped, in order. A directory says where a file LIVES; only
+ * its own name says what it IS — tokenizing the whole path made every board
+ * task match every spec-touching commit through the shared `epics` segment
+ * (13 of 16 DETECTED BACKLOG rows pointed at one unrelated extraction
+ * commit, 2026-08-24).
  */
-function distinctiveFileTokens(files: readonly string[]): Set<string> {
-  const tokens = new Set<string>();
-  for (const file of files) {
-    // BASENAME ONLY. A directory says where a file LIVES; only its own name
-    // says what it IS. Tokenizing the whole path made every board task match
-    // every spec-touching commit through the shared `epics` segment of
-    // "EPIC-SPEC: docs/epics/00xx-….md" — 13 of 16 DETECTED BACKLOG rows
-    // pointed at one unrelated extraction commit (2026-08-24 live incident).
-    const basename = file.slice(file.lastIndexOf('/') + 1);
-    for (const token of titleTokens(basename)) {
-      if (!PATH_NOISE_TOKENS.has(token)) {
-        tokens.add(token);
-      }
-    }
+function fileNameTokens(file: string): string[] {
+  const basename = file.slice(file.lastIndexOf('/') + 1).replace(FILE_EXTENSION_RE, '');
+  return orderedTokens(basename).filter((t) => !PATH_NOISE_TOKENS.has(t));
+}
+
+/** Whether `phrase` appears in `words` as consecutive words. */
+function containsPhrase(words: readonly string[], phrase: readonly string[]): boolean {
+  for (let start = 0; start + phrase.length <= words.length; start += 1) {
+    if (phrase.every((word, i) => words[start + i] === word)) return true;
   }
-  return tokens;
+  return false;
 }
 
 /**
- * Whether a task's title shares a distinctive identifier with a commit's
- * changed file paths (e.g. "otlp" in both a task title and a touched
- * `flight/otlp.ts`) — a fallback signal for a commit whose subject is generic
- * boilerplate that never names the feature it shipped, the way a WIP
- * checkpoint commit's subject does ("wip(autopilot): checkpoint — firing N
- * died mid-unit…"). Deliberately a boolean signal rather than folded into
- * `titleMatchScore`'s Jaccard math: a checkpoint subject's own noise tokens
- * (wip, checkpoint, firing, died, …) would dilute a blended score below any
- * usable threshold even when the file-path evidence is unambiguous.
+ * Whether a task's title NAMES one of a commit's changed files — every word
+ * of the file's name, in order (e.g. "otlp" for a touched `flight/otlp.ts`,
+ * "cockpit redesign" for `0005-cockpit-redesign.md`) — a fallback signal for
+ * a commit whose subject is generic boilerplate that never names the feature
+ * it shipped, the way a WIP checkpoint commit's subject does ("wip(autopilot):
+ * checkpoint — firing N died mid-unit…"). Deliberately a boolean signal
+ * rather than folded into `titleMatchScore`'s Jaccard math: a checkpoint
+ * subject's own noise tokens would dilute a blended score below any usable
+ * threshold even when the file-path evidence is unambiguous.
+ *
+ * One shared word was the rule until 2026-09-30: a commit touching
+ * `mutation-red-tasks.ts` matched every open task whose title held "tasks"
+ * or "mutation", and the DETECTED BACKLOG tied nearly the whole board to it.
+ * A one-word file name must still be at least
+ * `MIN_DISTINCTIVE_PATH_TOKEN_LENGTH` long to count.
  */
 export function filePathMatchesTitle(title: string, files: readonly string[]): boolean {
-  // No `files.length === 0` fast path — an empty `files` array already makes
-  // `distinctiveFileTokens` return an empty set, which the check below
-  // catches identically; a separate guard here would only be an
-  // unobservable duplicate of it.
-  const fileTokens = distinctiveFileTokens(files);
-  // Stryker disable next-line ConditionalExpression: skipping this guard when
-  // `fileTokens` is genuinely empty still returns false — `.has()` on an
-  // empty set can never match any title token, so the loop below falls
-  // through to `return false` regardless. The BooleanLiteral mutant (this
-  // branch returning `true`) remains live and tested.
-  if (fileTokens.size === 0) return false;
-  for (const token of titleTokens(title)) {
-    if (token.length >= MIN_DISTINCTIVE_PATH_TOKEN_LENGTH && fileTokens.has(token)) return true;
-  }
-  return false;
+  const words = orderedTokens(title);
+  return files.some((file) => {
+    const name = fileNameTokens(file);
+    if (name.length === 0) return false;
+    if (name.length === 1 && name[0]!.length < MIN_DISTINCTIVE_PATH_TOKEN_LENGTH) return false;
+    return containsPhrase(words, name);
+  });
+}
+
+/**
+ * Whether a commit subject is the engine's WIP checkpoint boilerplate
+ * ("wip(autopilot): checkpoint — firing N died mid-unit…"), the one kind of
+ * subject that never names the work it holds. Only such a commit may be
+ * matched by its files: a descriptive subject that does not match a task
+ * says the commit did something else, whatever files it touched — a DOC-
+ * FRESHNESS task is not shipped by a fix to `doc-freshness.ts`, nor a Codex
+ * epic by every change to `codex-cli.ts` (2026-09-30: 13 of 40 open tasks
+ * were matched to unrelated fix commits that way).
+ */
+function isCheckpointSubject(subject: string): boolean {
+  return /^wip[(:]/i.test(subject.trim());
 }
 
 /**
@@ -217,7 +232,9 @@ export function findReconciliationCandidates(
       continue;
     }
 
-    const pathMatch = commits.find((c) => c.files && filePathMatchesTitle(task.title, c.files));
+    const pathMatch = commits.find(
+      (c) => isCheckpointSubject(c.subject) && c.files && filePathMatchesTitle(task.title, c.files),
+    );
     if (pathMatch) {
       candidates.push({
         taskId: task.id,

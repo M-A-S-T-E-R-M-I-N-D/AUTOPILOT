@@ -18,6 +18,7 @@ import {
   readSiblingIntentClaims,
   writeDeclaredIntent,
 } from '../../src/flight/fleet-digest.js';
+import { deriveFlyProjectId, engineLockFileName } from '../../src/flight/lock.js';
 
 function gitSync(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
@@ -158,6 +159,29 @@ describe('buildFleetDigest', () => {
 
     const digest = await buildFleetDigest(store, 'p1', 'solo', target);
     expect(digest).toContain('unlanded: f0.txt, f1.txt, f2.txt, f3.txt, f4.txt +2 more');
+  });
+
+  it('marks a sibling that holds no live flight lock as parked, claiming nothing (2026-09-30)', async () => {
+    // Lanes fleet-6..8 died mid-unit ten days earlier and never flew again;
+    // their checkpoints' intents read as live claims and blocked a VERDICT.
+    const lockDir = join(root, 'db');
+    mkdirSync(lockDir);
+    mkdirSync(join(root, '.autopilot-worktrees'), { recursive: true });
+    for (const lane of ['fleet-2', 'fleet-6']) {
+      const worktreePath = join(root, '.autopilot-worktrees', `p1--${lane}`);
+      await ensureWorktree(target, worktreePath, `autopilot/flight-worktree-p1--${lane}`);
+      writeFileSync(join(worktreePath, INTENT_FILE_NAME), `src/${lane}.ts — work`);
+    }
+    writeFileSync(
+      join(lockDir, engineLockFileName(deriveFlyProjectId(target), 'fleet-2')),
+      JSON.stringify({ pid: process.pid, startedAt: 1 }),
+    );
+
+    const lines = (await buildFleetDigest(store, 'p1', 'solo', target, lockDir)).split('\n');
+    expect(lines).toEqual([
+      '- sibling autopilot/flight-worktree-p1--fleet-2: last commit "feat: AP-1 first"; intent: src/fleet-2.ts — work',
+      '- sibling autopilot/flight-worktree-p1--fleet-6: parked, not flying — claims nothing; last commit "feat: AP-1 first"',
+    ]);
   });
 
   it("shows a sibling's DECLARED intent from its .autopilot-intent file (FLEET INTENT CLAIMS)", async () => {

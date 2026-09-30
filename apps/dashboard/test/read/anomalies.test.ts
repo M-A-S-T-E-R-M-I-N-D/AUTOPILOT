@@ -117,6 +117,18 @@ describe('detectAnomalies', () => {
       expect(detectAnomalies(log).some((a) => a.kind === 'death-cluster')).toBe(false);
     });
 
+    it('leaves out firings the account quota killed, and judges the ones that worked (2026-09-29)', () => {
+      const quota = () => flight({ shipped: false, died: 'error', quotaDeath: true });
+      const log = [quota(), quota(), quota(), flight(), flight(), flight()];
+      expect(detectAnomalies(log).some((a) => a.kind === 'death-cluster')).toBe(false);
+      const real = [quota(), flight({ shipped: false, died: 'turn-cap' }), quota()];
+      const withRealDeaths = [...real, flight({ shipped: false, died: 'error' }), flight()];
+      expect(detectAnomalies(withRealDeaths)).toContainEqual({
+        kind: 'death-cluster',
+        evidence: '2 of the last 3 firings died (turn-cap/error) without shipping.',
+      });
+    });
+
     it('only counts deaths within the recent window, not the whole log', () => {
       const log = [
         flight(),
@@ -186,6 +198,13 @@ describe('detectAnomalies', () => {
         kind: 'ship-rate-drop',
         evidence: 'Shipped 1 of the last 5 firings vs 8 of the 10 before them.',
       });
+    });
+
+    it('does not read a run of quota deaths as a drop in the ship rate (2026-09-29)', () => {
+      const quota = Array.from({ length: 5 }, () =>
+        flight({ shipped: false, gateResult: 'no-commit', died: 'error', quotaDeath: true }),
+      );
+      expect(fired([...quota, ...shipLog(5, 4, 10, 8)])).toBe(false);
     });
 
     it('fires when the recent rate falls to exactly half the baseline', () => {

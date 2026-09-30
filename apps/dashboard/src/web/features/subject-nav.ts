@@ -130,16 +130,20 @@ function keeperQueueItems() {
   var items = [];
   subjectSections().forEach(function (k) {
     if (k.dataset.subject !== 'keeper' || k.hidden || k.id === 'keeper-queue') return;
-    if (k.id === 'fleet-wisdom') {
-      var d = k.querySelector('details');
+    // On a project page the wisdom panel sits inside a Keeper group.
+    var w = k.id === 'fleet-wisdom' ? k : k.querySelector('#fleet-wisdom');
+    if (w && !w.hidden) {
+      var d = w.querySelector('details');
       var s = d ? d.querySelector('summary') : null;
-      items.push({ key: 'wisdom', source: 'keeperSourceWisdom', fallback: 'Wisdom', title: (s ? s.textContent : k.textContent).trim().slice(0, 120), why: '', tip: '', el: d || k, action: k.querySelector('[data-fleet-wisdom-ratify]') });
-      return;
+      items.push({ key: 'wisdom', source: 'keeperSourceWisdom', fallback: 'Wisdom', title: (s ? s.textContent : w.textContent).trim().slice(0, 120), why: '', tip: '', el: d || w, action: w.querySelector('[data-fleet-wisdom-ratify]') });
     }
+    if (w === k) return;
     KEEPER_SOURCES.forEach(function (src) {
       var nodes = k.querySelectorAll(src.selector);
       for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i];
+        // A hidden panel inside a group still holds its last items.
+        if (n.closest('[hidden]')) continue;
         // A settled item — a triage plan or a PR review whose decision is
         // "skip" (already answered on a previous pass) — waits on nobody:
         // it stays in its panel for the record and leaves the queue and the
@@ -199,9 +203,11 @@ function keeperQueueHost(create) {
   var sections = subjectSections();
   var rail = document.getElementById('context-rail');
   var anchor = null;
-  for (var i = 0; i < sections.length && !anchor; i++) {
+  // The earliest in DOCUMENT order (subjectSections lists body before main).
+  for (var i = 0; i < sections.length; i++) {
     var k = sections[i];
-    if (k.id !== 'keeper-queue' && k.dataset.subject === 'keeper' && !(rail && k.parentElement === rail)) anchor = k;
+    if (k.id === 'keeper-queue' || k.dataset.subject !== 'keeper' || (rail && k.parentElement === rail)) continue;
+    if (!anchor || (anchor.compareDocumentPosition(k) & 2)) anchor = k;
   }
   for (var j = 0; j < sections.length && !anchor; j++) if (sections[j].dataset.subject === 'community') anchor = sections[j];
   if (!host) {
@@ -222,6 +228,8 @@ function keeperQueueOpenItem(i) {
   var it = keeperQueueLive[i];
   if (!it || !it.el) return;
   if (it.el.tagName === 'DETAILS') it.el.open = true;
+  // Unfold every <details> around it (the collapsed rituals group).
+  for (var d = it.el.parentElement; d; d = d.parentElement) if (d.tagName === 'DETAILS') d.open = true;
   if (typeof it.el.scrollIntoView === 'function') it.el.scrollIntoView({ block: 'center' });
   var target = it.el.querySelector('a[href], button:not([disabled]), [tabindex]');
   if (!target) { it.el.setAttribute('tabindex', '-1'); target = it.el; }

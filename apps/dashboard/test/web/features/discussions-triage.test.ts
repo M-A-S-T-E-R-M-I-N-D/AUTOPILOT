@@ -36,6 +36,15 @@ describe('discussionsTriageJs', () => {
     expect(out).toContain('function loadDiscussionsTriageBody(body) {');
   });
 
+  it('folds the skips into one translated count line, so the accepts lead (2026-09-30)', () => {
+    const out = discussionsTriageJs();
+    expect(out).toContain('(items[i].skip ? skipped : list).appendChild(');
+    expect(out).toContain("var fold = el('details', 'discussions-triage-skipped');");
+    expect(out).toContain(
+      "foldSummary.setAttribute('data-i18n-template', 'discussionsTriageSkipped');",
+    );
+  });
+
   it('is repo-scoped: no ?project= on the preview fetch, no project field on the execute body', () => {
     const out = discussionsTriageJs();
     expect(out).toContain("fetch('/api/discussions-triage')");

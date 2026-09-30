@@ -176,6 +176,36 @@ describe('filePathMatchesTitle', () => {
     ).toBe(false);
   });
 
+  it('needs the title to name the whole file, not share one word with it (2026-09-30)', () => {
+    // One commit touched mutation-red-tasks.ts, and every open task whose
+    // title held "tasks" or "mutation" — an epic about the tasks screen, a
+    // social pass over upstream tasks, fourteen mutation reds — read as
+    // possibly shipped by it.
+    const files = [
+      'apps/dashboard/src/control/mutation-red-tasks.ts',
+      'scripts/ci/run-repo-census-tests.mjs',
+    ];
+    for (const title of [
+      'EPIC 0026 TASKS SCREEN (operator 2026-09-12): redesign the board from the best lists',
+      'STANDING 4/5: social pass detects human-reserved upstream tasks matching operator interest',
+      'MUTATION RED: stryker.engine-git.config.mjs: 39 mutant(s) survived the nightly run',
+      'EPIC 0019 additive-only law: never changes a contract without updating its census pins',
+    ]) {
+      expect(filePathMatchesTitle(title, files), title).toBe(false);
+    }
+    // A title that names the file still matches, whatever its extension.
+    expect(
+      filePathMatchesTitle('MUTATION RED: stryker.ci-validate-configs.config.mjs: 1 mutant(s)', [
+        'config/mutation/stryker.ci-validate-configs.config.mjs',
+      ]),
+    ).toBe(true);
+    expect(
+      filePathMatchesTitle('The run repo census misses a test that lists files', [
+        'scripts/ci/run-repo-census-tests.mjs',
+      ]),
+    ).toBe(true);
+  });
+
   it('does not match on a short, non-noise token even when the same short string is present in the path', () => {
     // 'vs' is not a stopword or a noise token, so it does land in
     // distinctiveFileTokens — but it is still too short (< 4 chars) to trust
@@ -317,6 +347,30 @@ describe('findReconciliationCandidates', () => {
       commitSha: 'ce1aacf',
       matchedVia: 'path',
     });
+  });
+
+  it('matches by files only a checkpoint commit, whose subject names nothing (2026-09-30)', () => {
+    const freshness = task({
+      id: 'docfresh-1',
+      title: 'DOC-FRESHNESS: docs/epics/0001-parallel-flights.md may be stale',
+    });
+    const files = ['apps/dashboard/src/flight/doc-freshness.ts'];
+    const fixCommit = commit({
+      sha: 'af852f3',
+      subject: 'fix(flight): doc-freshness asks whether the doc saw its subject change',
+      files,
+    });
+    // A descriptive subject that does not match the task says the commit did
+    // something else, whatever files it shares a name with.
+    expect(findReconciliationCandidates([freshness], [fixCommit])).toEqual([]);
+    const checkpoint = commit({
+      sha: 'wip0001',
+      subject: 'wip(autopilot): checkpoint — firing 12 died mid-unit; next firing resumes it',
+      files,
+    });
+    expect(findReconciliationCandidates([freshness], [fixCommit, checkpoint])).toMatchObject([
+      { taskId: 'docfresh-1', commitSha: 'wip0001', matchedVia: 'path' },
+    ]);
   });
 
   it('includes a commit whose score lands exactly on the threshold boundary (not just strictly above it)', () => {

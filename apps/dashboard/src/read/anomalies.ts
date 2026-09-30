@@ -60,9 +60,19 @@ const DEATH_CLUSTER_WINDOW = 3;
 /** How many deaths within that window counts as a cluster. */
 const DEATH_CLUSTER_THRESHOLD = 2;
 
+/**
+ * The firings the death-cluster and ship-rate rules judge: every one but
+ * those the account-wide quota killed before they could work. Round 37
+ * (2026-09-29) ran the subscription dry; ten firings died in a second each,
+ * and the panel told the operator to split the task or fix the gate.
+ */
+function workedFirings(log: readonly FlightEntry[]): readonly FlightEntry[] {
+  return log.filter((f) => f.quotaDeath !== true);
+}
+
 /** Several of the last few firings died (turn-cap/error) without shipping. */
 function deathCluster(log: readonly FlightEntry[]): Anomaly | null {
-  const recent = log.slice(0, DEATH_CLUSTER_WINDOW);
+  const recent = workedFirings(log).slice(0, DEATH_CLUSTER_WINDOW);
   if (recent.length < DEATH_CLUSTER_WINDOW) return null;
   const deaths = recent.filter((f) => f.died !== null).length;
   if (deaths < DEATH_CLUSTER_THRESHOLD) return null;
@@ -108,7 +118,8 @@ const SHIP_RATE_DROP_RATIO = 0.5;
  * each need one failure mode repeated, this catches a MIXED run — a revert, a
  * death, a no-commit — that no single-cause rule adds up.
  */
-function shipRateDrop(log: readonly FlightEntry[]): Anomaly | null {
+function shipRateDrop(allFirings: readonly FlightEntry[]): Anomaly | null {
+  const log = workedFirings(allFirings);
   if (log.length < SHIP_RATE_RECENT_WINDOW + SHIP_RATE_BASELINE_WINDOW) return null;
   const recent = log.slice(0, SHIP_RATE_RECENT_WINDOW);
   const baseline = log.slice(

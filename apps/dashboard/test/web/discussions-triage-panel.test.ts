@@ -37,8 +37,11 @@ describe('discussionsTriageItems', () => {
       },
     ]);
     expect(items).toEqual([
-      { text: '✓ accept — reply + label — #5 "How do I configure X?" has no answer yet.' },
-      { text: '⏭ skip — #6 "Already answered" already has an answer.' },
+      {
+        text: '✓ accept — reply + label — #5 "How do I configure X?" has no answer yet.',
+        skip: false,
+      },
+      { text: '⏭ skip — #6 "Already answered" already has an answer.', skip: true },
     ]);
   });
 

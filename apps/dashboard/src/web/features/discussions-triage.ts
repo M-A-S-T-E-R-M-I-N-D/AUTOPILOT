@@ -84,11 +84,22 @@ function renderDiscussionsTriageBody(body, plans, canExecute) {
     translateDom(document.documentElement.lang || 'en');
     return;
   }
+  // The accepts lead; the skips fold into one line.
   var list = el('ul', 'discussions-triage-list');
+  var skipped = el('ul', 'discussions-triage-list');
   for (var i = 0; i < items.length; i++) {
-    list.appendChild(el('li', 'discussions-triage-item', items[i].text));
+    (items[i].skip ? skipped : list).appendChild(el('li', 'discussions-triage-item', items[i].text));
   }
-  body.appendChild(list);
+  if (list.children.length) body.appendChild(list);
+  var n = skipped.children.length;
+  if (n) {
+    var fold = el('details', 'discussions-triage-skipped');
+    var foldSummary = el('summary', '', tr('discussionsTriageSkipped', { n: n }));
+    foldSummary.setAttribute('data-i18n-template', 'discussionsTriageSkipped');
+    foldSummary.setAttribute('data-i18n-args', '{"n":' + n + '}');
+    fold.append(foldSummary, skipped);
+    body.appendChild(fold);
+  }
   if (canExecute) {
     var actions = el('div', 'discussions-triage-actions');
     var execBtn = el('button', 'discussions-triage-execute', 'Run KEEPER Discussions triage');
