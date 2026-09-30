@@ -14,7 +14,9 @@ import {
   classifyLinuxDisk,
   classifyDarwinDisk,
   classifyByFsync,
+  detectDiskClass,
   HDD_FSYNC_MS,
+  type ProbeExec,
 } from '../../src/flight/disk-class.js';
 
 describe('classifyWindowsDisk', () => {
@@ -96,6 +98,56 @@ describe('classifyDarwinDisk', () => {
 
   it('says unknown when the key is absent', () => {
     expect(classifyDarwinDisk('<dict></dict>')).toBe('unknown');
+  });
+});
+
+describe('detectDiskClass', () => {
+  const execFrom = (responses: Record<string, string>): ProbeExec => {
+    return (command, args) => Promise.resolve(responses[[command, ...args].join(' ')]);
+  };
+
+  it('resolves an NVMe root device on Linux, whose name embeds digits sd*/vd* never would', () => {
+    // /dev/nvme0n1p1 -> base device nvme0n1. A naive "strip trailing digits"
+    // reader would query /sys/block/nvme0n for rotational and get nothing.
+    const exec = execFrom({
+      'findmnt -n -o SOURCE --target /': '/dev/nvme0n1p1',
+      'cat /sys/block/nvme0n1/queue/rotational': '0',
+    });
+    return detectDiskClass('/', 'linux', exec).then((result) => {
+      expect(result).toBe('nvme');
+    });
+  });
+
+  it('resolves an eMMC device on Linux the same way, base name mmcblk0 not mmcblk', () => {
+    const exec = execFrom({
+      'findmnt -n -o SOURCE --target /': '/dev/mmcblk0p1',
+      'cat /sys/block/mmcblk0/queue/rotational': '0',
+    });
+    return detectDiskClass('/', 'linux', exec).then((result) => {
+      expect(result).toBe('ssd');
+    });
+  });
+
+  it('still resolves an ordinary sd* partition on Linux — the regression guard', () => {
+    const exec = execFrom({
+      'findmnt -n -o SOURCE --target /': '/dev/sda1',
+      'cat /sys/block/sda/queue/rotational': '1',
+    });
+    return detectDiskClass('/', 'linux', exec).then((result) => {
+      expect(result).toBe('hdd');
+    });
+  });
+
+  it('says unknown on Linux when findmnt fails, without ever calling cat', () => {
+    return detectDiskClass('/', 'linux', () => Promise.resolve(undefined)).then((result) => {
+      expect(result).toBe('unknown');
+    });
+  });
+
+  it('says unknown for a platform none of the probes cover', () => {
+    return detectDiskClass('/', 'sunos', () => Promise.resolve('anything')).then((result) => {
+      expect(result).toBe('unknown');
+    });
   });
 });
 
