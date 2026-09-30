@@ -46,4 +46,46 @@ describe('createRateLimiter', () => {
     expect(limiter.allow('a', 500)).toBe(false);
     expect(limiter.allow('a', 1000)).toBe(false); // still denied in the next window
   });
+
+  describe('expired-window eviction (ap-munfoqmp-1)', () => {
+    it('forgets every client whose window has expired, so the map stays bounded', () => {
+      const limiter = createRateLimiter(1, 1000);
+      for (let i = 0; i < 100; i += 1) limiter.allow(`client-${i}`, 0);
+      expect(limiter.trackedKeys()).toBe(100);
+      // Exactly one window later every client-* window has expired (the same
+      // `>= windowMs` boundary allow() uses to start a fresh window).
+      limiter.allow('late', 1000);
+      expect(limiter.trackedKeys()).toBe(1);
+    });
+
+    it('keeps a client whose window is still open, with its spent budget intact', () => {
+      const limiter = createRateLimiter(1, 1000);
+      expect(limiter.allow('old', 0)).toBe(true);
+      expect(limiter.allow('active', 600)).toBe(true);
+      limiter.allow('late', 1000); // sweeps 'old', must spare 'active'
+      expect(limiter.trackedKeys()).toBe(2);
+      expect(limiter.allow('active', 1001)).toBe(false); // still inside its 600..1600 window
+    });
+
+    it('sweeps at most once per window, not on every call', () => {
+      const limiter = createRateLimiter(1, 1000);
+      limiter.allow('a', 0); // first sweep at 0
+      limiter.allow('b', 600);
+      limiter.allow('c', 1000); // second sweep at 1000: evicts 'a', spares 'b'
+      expect(limiter.trackedKeys()).toBe(2);
+      // At 1700 'b' has expired, but the next sweep is not due until 2000.
+      limiter.allow('d', 1700);
+      expect(limiter.trackedKeys()).toBe(3);
+      limiter.allow('e', 2000); // due: evicts 'b' (1400 old) and 'c' (1000 old), spares 'd'
+      expect(limiter.trackedKeys()).toBe(2);
+    });
+
+    it('an evicted client starts a fresh window with its full budget', () => {
+      const limiter = createRateLimiter(1, 1000);
+      expect(limiter.allow('a', 0)).toBe(true);
+      limiter.allow('late', 1000); // evicts 'a'
+      expect(limiter.allow('a', 1000)).toBe(true);
+      expect(limiter.allow('a', 1001)).toBe(false);
+    });
+  });
 });
