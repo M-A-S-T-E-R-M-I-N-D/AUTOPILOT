@@ -6,11 +6,11 @@
 > document; analysis reads better with the raw values one click away.
 
 <!-- DATA:SERIES:START -->
-_Generated 2026-09-30T10:26:19.712Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
+_Generated 2026-09-30T11:07:20.704Z by `pnpm self-study:update` — the chart data plane behind §4 (backlog web-msnsgcvf-zgmo7i). Per-firing rows (oldest first), per-day aggregates, and per-era (`Firing-Prompt-Version`) comparison, derived from the same telemetry the tables above summarize. Machine-readable, not meant for hand-reading; never hand-edit._
 
 ```json
 {
-  "generatedAt": "2026-09-30T10:26:19.712Z",
+  "generatedAt": "2026-09-30T11:07:20.704Z",
   "project": "autopilot",
   "perFiring": [
     {
@@ -7668,6 +7668,222 @@ _Generated 2026-09-30T10:26:19.712Z by `pnpm self-study:update` — the chart da
       "promptVersion": "firing-v17",
       "costUsd": 0,
       "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot:firing-639",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-2:firing-640",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot:firing-641",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-3:firing-642",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-2:firing-644",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-4:firing-643",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot:firing-645",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-5:firing-646",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-3:firing-647",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-2:firing-648",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-5:firing-649",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot:firing-650",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-3:firing-651",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-4:firing-652",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-5:firing-653",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot:firing-654",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-2:firing-655",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
+    },
+    {
+      "firingId": "fly-autopilot--fleet-5:firing-656",
+      "day": "2026-09-30",
+      "sha": null,
+      "kind": null,
+      "shipped": false,
+      "completion": null,
+      "outcome": null,
+      "promptVersion": "firing-v17",
+      "costUsd": 0,
+      "turns": 1
     }
   ],
   "perDay": [
@@ -7793,21 +8009,21 @@ _Generated 2026-09-30T10:26:19.712Z by `pnpm self-study:update` — the chart da
     },
     {
       "day": "2026-09-30",
-      "firings": 52,
+      "firings": 70,
       "shipped": 39,
       "costUsd": 95.872,
-      "turns": 1967,
-      "rollingShipRate": 0.69
+      "turns": 1985,
+      "rollingShipRate": 0.5847
     }
   ],
   "perEra": [
     {
       "promptVersion": "firing-v17",
-      "firings": 493,
+      "firings": 511,
       "shipped": 395,
-      "passRate": 0.8012,
-      "medianTurns": 45,
-      "costVariance": 3.714669862664969,
+      "passRate": 0.773,
+      "medianTurns": 44,
+      "costVariance": 3.811753242096221,
       "costPerSolved": 3.224534948607595
     },
     {
@@ -7850,7 +8066,7 @@ _Generated 2026-09-30T10:26:19.712Z by `pnpm self-study:update` — the chart da
   "turnsHistogram": [
     {
       "bucketStart": 0,
-      "firings": 34,
+      "firings": 52,
       "shipped": 8,
       "bucketLabel": "0-9"
     },
