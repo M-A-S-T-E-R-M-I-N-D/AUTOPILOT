@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
-import { runLoop, type LoopDeps } from '../src/loop.js';
+import { runLoop, MAX_QUOTA_WAITS, type LoopDeps } from '../src/loop.js';
 import { DEFAULT_ENGINE_CONFIG, type EngineConfig } from '../src/config.js';
 import { INITIAL_RESILIENCE_STATE, type ResilienceState } from '../src/resilience.js';
 import type { FiringInput, FiringOutcome } from '../src/firing.js';
@@ -279,11 +279,52 @@ describe('runLoop', () => {
       reprobeAfterEpoch: 0,
       consecGlobalExhaust: 2,
     };
-    const h = harness([outcome({ globalExhaust: true, state: exhausted })]);
+    const h = harness([outcome({ globalExhaust: true, state: exhausted }), outcome()]);
     await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
     // hibernateMinutes(streak 2) = base 60 * 2^1 = 120
-    expect(h.sleeps).toEqual([120]);
+    expect(h.sleeps).toEqual([120, 5]);
     expect(h.log.some((m) => m.includes('hibernating 120 min'))).toBe(true);
+  });
+
+  it('does not spend a firing on one the account quota killed — it waits, then flies the real one (2026-09-30)', async () => {
+    // Rounds 37 and 43: the subscription ran dry, every lane's firings died in
+    // a second each, and the whole round ended having done nothing.
+    const h = harness([
+      outcome({ globalExhaust: true }),
+      outcome({ globalExhaust: true }),
+      outcome(),
+      outcome(),
+    ]);
+    const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 2 });
+    expect(summary).toEqual({ firings: 2, stoppedBy: 'max-iterations' });
+    expect(h.firingInputs).toHaveLength(4);
+    expect(h.log.filter((m) => m.includes('does not count'))).toHaveLength(2);
+  });
+
+  it(`gives up waiting after ${MAX_QUOTA_WAITS} quota deaths in a row, counting the rest as firings`, async () => {
+    const dead = Array.from({ length: MAX_QUOTA_WAITS + 2 }, () =>
+      outcome({ globalExhaust: true }),
+    );
+    const h = harness(dead);
+    const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 2 });
+    expect(summary).toEqual({ firings: 2, stoppedBy: 'max-iterations' });
+    expect(h.firingInputs).toHaveLength(MAX_QUOTA_WAITS + 2);
+    expect(h.log.filter((m) => m.includes('does not count'))).toHaveLength(MAX_QUOTA_WAITS);
+    // A counted quota death says only that it hibernates.
+    expect(h.log[h.log.length - 1]).toBe('GLOBAL quota exhaustion — hibernating 60 min');
+  });
+
+  it('starts the wait count over after a firing the quota did not kill', async () => {
+    const run = [
+      ...Array.from({ length: MAX_QUOTA_WAITS }, () => outcome({ globalExhaust: true })),
+      outcome(),
+      ...Array.from({ length: MAX_QUOTA_WAITS }, () => outcome({ globalExhaust: true })),
+      outcome(),
+    ];
+    const h = harness(run);
+    const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 2 });
+    expect(summary).toEqual({ firings: 2, stoppedBy: 'max-iterations' });
+    expect(h.firingInputs).toHaveLength(2 * MAX_QUOTA_WAITS + 2);
   });
 
   it('threads and persists the resilience state returned by each firing', async () => {

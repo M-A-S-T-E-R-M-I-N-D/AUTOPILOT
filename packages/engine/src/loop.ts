@@ -95,6 +95,18 @@ export interface LoopSummary {
 
 const CONSEC_BAD_ALERT = 2;
 
+/**
+ * A firing the account-wide quota killed does no work, so it does not use up
+ * one of the flight's firings: the flight hibernates and tries again (rounds
+ * 37 and 43, 2026-09-29/30: every lane's firings died in a second each and
+ * two whole rounds ended having done nothing). This many such deaths in a
+ * row are waited out; the hibernations escalate 60, 120, 240 minutes, about
+ * seven hours, which covers a five-hour quota window. After that they count
+ * again, so a quota that stays dry ends the flight rather than holding the
+ * fleet for days.
+ */
+export const MAX_QUOTA_WAITS = 3;
+
 /** Run the autopilot loop until STOP (or `maxIterations`). */
 export async function runLoop(
   deps: LoopDeps,
@@ -107,6 +119,7 @@ export async function runLoop(
   let state = await deps.loadState();
   let consecBad = 0;
   let iterations = 0;
+  let quotaWaits = 0;
   // Flight-scoped, in-memory only (docs/epics/0009-warm-sessions.md): this
   // loop's own process IS one flight, so the prior firing's session id needs
   // no filesystem persistence to reach the next iteration here — and never
@@ -212,13 +225,20 @@ export async function runLoop(
         `firing ${outcome.record.firing} ended without a result envelope (exit ${outcome.record.exitCode}) — ${outcome.record.deathTail ?? 'nothing on stderr'}`,
       );
     }
-    iterations++;
+    const waitedOut = outcome.globalExhaust && quotaWaits < MAX_QUOTA_WAITS;
+    quotaWaits = outcome.globalExhaust ? quotaWaits + 1 : 0;
+    if (!waitedOut) iterations++;
 
     if (await deps.stopRequested()) return { firings: iterations, stoppedBy: 'stop' };
 
     if (outcome.globalExhaust) {
       const minutes = hibernateMinutes(state, config.resilience);
-      deps.log(`GLOBAL quota exhaustion — hibernating ${minutes} min`);
+      deps.log(
+        `GLOBAL quota exhaustion — hibernating ${minutes} min` +
+          (waitedOut
+            ? ` (this firing does not count; wait ${quotaWaits} of ${MAX_QUOTA_WAITS})`
+            : ''),
+      );
       await deps.sleep(minutes);
     } else {
       await deps.sleep(await deps.nextPaceMin());
