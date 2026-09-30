@@ -984,6 +984,7 @@ describe('fetchRepoMilestones', () => {
     expect(exec).toHaveBeenCalledWith('gh', [
       'api',
       'repos/{owner}/{repo}/milestones',
+      '--paginate',
       '--jq',
       '.[].title',
     ]);
@@ -1202,6 +1203,52 @@ describe('runIssueTriageRitual', () => {
       expect(ghWrites(exec)).toEqual([]);
       s.close();
     } finally {
+      cleanupDir(dbDir);
+    }
+  });
+
+  // Epic 0019 S2: an accepted issue gets a milestone only when the repo has
+  // one by that title. GitHub's list-milestones endpoint answers 30 per page
+  // by default, and only `gh api --paginate` follows its Link header to the
+  // rest. On a repo with more than 30 open milestones, the triage never saw
+  // the later ones and left the issue without a milestone the repo does have.
+  it('sets a milestone the repo lists past the first page of 30', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-ritual-milestones-db-'));
+    // Closed in `finally`, so a failed assertion is not hidden by an EBUSY unlink.
+    const s = openStore(join(dbDir, 'a.db'));
+    try {
+      migrate(s);
+      project(s, 'p1');
+
+      // Thirty sprints fall due before V1, so V1 is 31st in the API's due_on order.
+      const milestones = [...Array.from({ length: 30 }, (_, i) => `Sprint ${i + 1}`), 'V1'];
+      const exec: CliExec = vi.fn(async (_bin, args) => {
+        if (args[0] === 'issue' && args[1] === 'list') {
+          return {
+            code: 0,
+            stdout: JSON.stringify([
+              {
+                number: 9,
+                title: 'Keyboard nav is broken in the fleet table',
+                body: TEMPLATED_BODY,
+              },
+            ]),
+          };
+        }
+        if (args[0] === 'api' && String(args[1]).endsWith('/milestones')) {
+          const listed = args.includes('--paginate') ? milestones : milestones.slice(0, 30);
+          return { code: 0, stdout: `${listed.join('\n')}\n` };
+        }
+        return { code: 0, stdout: '' };
+      });
+
+      const result = await runIssueTriageRitual(exec, s, 'p1', [], [], undefined, () => 100);
+
+      expect(result.plans[0]?.decision.decision).toBe('accept');
+      const edit = ghWrites(exec).find((args) => args[1] === 'edit');
+      expect(edit?.slice(-2)).toEqual(['--milestone', 'V1']);
+    } finally {
+      s.close();
       cleanupDir(dbDir);
     }
   });

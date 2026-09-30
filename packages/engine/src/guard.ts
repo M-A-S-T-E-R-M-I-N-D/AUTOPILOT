@@ -73,6 +73,20 @@ const SAFE_DEVICE_PATH = /^\/dev\/(?:null|stdin|stdout|stderr|tty)$/i;
 // Home-directory references — where credentials live; never legitimate in-flight.
 const HOME_REF =
   /(?:^|[\s"'`;|&<>(=])~(?:[\\/]|$|[\s"'`;|&<>)])|\$\{?HOME\}?|%USERPROFILE%|%APPDATA%|%HOMEPATH%/;
+// The same places as PowerShell spells them (ap-muniun5g-2): `$env:X` or
+// `${env:X}` for the variables above, and the automatic `$HOME`. PowerShell
+// variable names are case-insensitive, so `$home` and `$Env:UserProfile`
+// are the same reference; `\b` keeps a longer name like `$homepage` out.
+const POWERSHELL_HOME_REF = /\$\{?(?:env:(?:USERPROFILE|APPDATA|HOMEPATH)|home)\b/i;
+
+// The system temp directory (ap-muniun5k-3): outside every target, so firing
+// 606's redirect into "$TMPDIR/x" wrote a file no gate, census or audit of the
+// target ever sees. Bash spells it `$TMPDIR`/`$TEMP`/`$TMP`, case-sensitively,
+// so a script's own lowercase `$tmp` stays allowed. cmd's `%TEMP%`/`%TMP%` and
+// PowerShell's `$env:TEMP`/`$env:TMP`/`$env:TMPDIR` are case-insensitive, like
+// those shells. `\b` keeps a longer name like `$TEMPLATE` or `$TMP_FILE` out.
+const TEMP_DIR_REF = /\$\{?(?:TMPDIR|TEMP|TMP)\b/;
+const CASELESS_TEMP_DIR_REF = /%(?:TEMP|TMP)%|\$\{?env:(?:TMPDIR|TEMP|TMP)\b/i;
 
 // A bare `cd` (no argument) changes to HOME — outside any target by definition.
 // A newline is a command separator too (the Bash tool can send a multi-line
@@ -773,7 +787,7 @@ function checkProcessControl(command: string): ContainmentVerdict {
 }
 
 /**
- * Decide whether one Bash command stays inside the target repo. Pure text
+ * Decide whether one Bash or PowerShell command stays inside the target repo. Pure text
  * analysis — no filesystem access — so it is deterministic and fast enough to
  * run on every command.
  */
@@ -784,10 +798,18 @@ export function checkCommandContainment(command: string, targetRoot: string): Co
   if (!gitHelpVerdict.allowed) return gitHelpVerdict;
   const processVerdict = checkProcessControl(command);
   if (!processVerdict.allowed) return processVerdict;
-  if (HOME_REF.test(command)) {
+  if (HOME_REF.test(command) || POWERSHELL_HOME_REF.test(command)) {
     return {
       allowed: false,
       reason: 'the command references the home directory (credentials live there)',
+    };
+  }
+  if (TEMP_DIR_REF.test(command) || CASELESS_TEMP_DIR_REF.test(command)) {
+    return {
+      allowed: false,
+      reason:
+        'the command references the system temp directory, outside the target — keep scratch ' +
+        'files in the git-ignored .tmp-autopilot/ instead',
     };
   }
   if (BARE_CD.test(command)) {
@@ -992,10 +1014,19 @@ export function buildDenyDecision(reason: string): string {
 }
 
 /**
- * Pull the Bash command string out of a raw PreToolUse payload, or null for
- * any non-Bash tool call or malformed JSON. Exposed so the pre-commit
- * sibling scan (guard-hook.ts) — which only needs to recognize a `git
- * commit` invocation — doesn't duplicate evaluateHookInput's own parsing.
+ * The tools whose `command` is shell text the guard judges. PowerShell joined
+ * Bash on 2026-09-30 (ap-muniun5g-2): the flight never grants it, but a
+ * user-level allowlist can, and its commands then ran with no guard at all.
+ */
+function isShellTool(toolName: unknown): boolean {
+  return toolName === 'Bash' || toolName === 'PowerShell';
+}
+
+/**
+ * Pull the shell command string out of a raw Bash or PowerShell PreToolUse
+ * payload, or null for any other tool call or malformed JSON. Exposed so the
+ * pre-commit sibling scan (guard-hook.ts) — which only needs to recognize a
+ * `git commit` invocation — doesn't duplicate evaluateHookInput's own parsing.
  */
 export function extractBashCommand(raw: string): string | null {
   let input: HookInput;
@@ -1004,7 +1035,7 @@ export function extractBashCommand(raw: string): string | null {
   } catch {
     return null;
   }
-  if (input.tool_name !== 'Bash') return null;
+  if (!isShellTool(input.tool_name)) return null;
   const command = input.tool_input?.command;
   return typeof command === 'string' ? command : null;
 }
@@ -1107,7 +1138,7 @@ export function evaluateHookInput(raw: string, targetRoot: string): string | nul
     );
   }
 
-  if (input.tool_name !== 'Bash') return null;
+  if (!isShellTool(input.tool_name)) return null;
   const command = input.tool_input?.command;
   if (typeof command !== 'string') return null;
 
@@ -1160,7 +1191,7 @@ export function guardHookCommand(targetRoot: string, guardScriptPath: string): s
 
 /**
  * Build the settings object a flight passes via `--settings`: PreToolUse hooks
- * that run the guard script with the target root — Bash goes through the
+ * that run the guard script with the target root — Bash and PowerShell go through the
  * containment + destructive-git checks, Read/Grep/Glob/Write/Edit/NotebookEdit
  * through path containment (Read/Grep/Glob additionally through the B7
  * read-hygiene check), WebFetch through the SSRF target guard. Command-line-
@@ -1175,7 +1206,7 @@ export function buildFlightSettings(targetRoot: string, guardScriptPath: string)
   return {
     hooks: {
       PreToolUse: [
-        { matcher: 'Bash', hooks: [guardCommand] },
+        { matcher: 'Bash|PowerShell', hooks: [guardCommand] },
         { matcher: 'Read|Grep|Glob|Write|Edit|NotebookEdit', hooks: [guardCommand] },
         { matcher: 'WebFetch', hooks: [guardCommand] },
       ],

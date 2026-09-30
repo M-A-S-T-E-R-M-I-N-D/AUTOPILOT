@@ -111,7 +111,9 @@ mean" from six words on a board card.
    becomes one read instead of six.
    SHIPPED — `apps/dashboard/src/control/maintenance-sweep.ts`'s
    `maintenanceSweepReport`: composes `dependabotPrBacklog` (`gh pr list
-   --author app/dependabot --state open`, never a mutating call),
+   --author app/dependabot --state open --limit 1000`, never a mutating call;
+   without the `--limit`, gh's default page of 30 reported a bigger backlog
+   as 30 — board ap-muni11e7-0),
    `docFreshnessSweep` (the existing `doc-freshness.ts` detector run
    read-only — no task created, unlike `fly.ts`'s flight-end sweep),
    `releaseSweep` (`planRelease` against THIS repo's own `package.json`/

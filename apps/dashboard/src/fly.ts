@@ -86,6 +86,7 @@ import {
   syncWorktreeBranch,
   SYNC_BACK_FLIGHT_END_WAIT_MS,
   formatMergeEscalationContext,
+  buildMergeEscalationConfig,
   createGitMergeEscalationDeps,
   runMergeEscalationAgent,
   summarizeMergeEscalationOutcome,
@@ -100,6 +101,7 @@ import {
   type GatePort,
   type EngineConfig,
   type Activity,
+  type WebSearchAudit,
   type ContainmentBreach,
   type SyncWorktreeEscalationHook,
   type SyncWorktreeBranchResult,
@@ -976,7 +978,7 @@ async function main(): Promise<void> {
     let escalationTripped = false;
     let lastFiringEscalated = false;
     let lastRequestedModel = '';
-    const recordActivity = (activity: Activity): void => {
+    const recordStreamEvent = (type: string, payload: unknown): void => {
       store.db
         .prepare(
           'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
@@ -984,11 +986,20 @@ async function main(): Promise<void> {
         .run(
           projectId,
           firingIdOf(projectId, currentFiring, instanceId),
-          'activity',
-          JSON.stringify(activity),
+          type,
+          JSON.stringify(payload),
           now(),
         );
+    };
+    const recordActivity = (activity: Activity): void => {
+      recordStreamEvent('activity', activity);
       out(`    · ${activity.tool} ${activity.target}`);
+    };
+    // THREAT-MODEL T6: WebSearch has no URL for the guard to judge, so every
+    // query is kept whole in its own row — the activity row above is cut for
+    // display and cannot serve as the audit record.
+    const recordWebSearch = (search: WebSearchAudit): void => {
+      recordStreamEvent('web-search', search);
     };
 
     // Containment audit: snapshot every repo that must NOT change (the dashboard's
@@ -1271,6 +1282,7 @@ async function main(): Promise<void> {
           config,
           auth,
           onActivity: recordActivity,
+          onWebSearch: recordWebSearch,
           settingsPath: guardSettingsPath,
           // ORPHAN SWEEP crash-path follow-up (ap-mt2ukjg5-2): persists this
           // invocation's child pid so a future startup's sweepStale can
@@ -1998,7 +2010,9 @@ async function main(): Promise<void> {
         const invokeAgent = async (prompt: string) => {
           const model = new ClaudeCliModel({
             repo: target,
-            config,
+            // No WebSearch/WebFetch (THREAT-MODEL T6): this non-streaming
+            // spawn could not audit a search the way a firing's stream does.
+            config: buildMergeEscalationConfig(config),
             auth,
             settingsPath: guardSettingsPath,
             pidRegistry,

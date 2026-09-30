@@ -64,6 +64,35 @@ describe('findConflictMarkers', () => {
     ]);
   });
 
+  it('still flags a half-resolved block that lost its end marker', () => {
+    // Either arrow line alone is enough to vouch for the `=======` beside it:
+    // a hand-resolution that deleted only the `>>>>>>>` line is still broken.
+    const text = [START, 'ours', MID, 'theirs'].join('\n');
+
+    expect(findConflictMarkers(text)).toEqual([
+      { line: 1, marker: START },
+      { line: 3, marker: MID },
+    ]);
+  });
+
+  it('still flags a half-resolved block that lost its start marker', () => {
+    const text = ['ours', MID, 'theirs', END].join('\n');
+
+    expect(findConflictMarkers(text)).toEqual([
+      { line: 2, marker: MID },
+      { line: 4, marker: END },
+    ]);
+  });
+
+  it('reports the markers of two blocks in line order, not grouped by kind', () => {
+    // Collected per kind (starts, mids, ends), the two blocks come out as
+    // lines 1, 6, 3, 8, 5, 10 until the sort puts them back in file order.
+    const block = [START, 'ours', MID, 'theirs', END];
+    const text = [...block, ...block].join('\n');
+
+    expect(findConflictMarkers(text).map((finding) => finding.line)).toEqual([1, 3, 5, 6, 8, 10]);
+  });
+
   it('ignores a marker-shaped line missing the trailing space (not a real marker)', () => {
     // Real markers always carry a ref name after the arrows; a bare
     // 7-character run with no space is not the shape git actually emits.

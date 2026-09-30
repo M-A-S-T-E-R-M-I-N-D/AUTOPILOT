@@ -81,6 +81,7 @@ describe('activity feed heading explains itself on hover/focus', () => {
 
     const label = document.querySelector('.act-label');
     expect(label?.textContent).toBe('last flight — debrief');
+    expect(label?.querySelector('svg')).toBeNull();
     expect(label?.getAttribute('tabindex')).toBe('0');
     expect(label?.getAttribute('data-tip')).toBe(
       'A recap of the last completed firing, not a live view — nothing is flying right now',
@@ -104,7 +105,13 @@ describe('activity feed heading explains itself on hover/focus', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const label = document.querySelector('.act-label');
-    expect(label?.textContent).toBe('● live activity');
+    // Epic 0025: the baked-in ● gave way to the vendored circle-dot, the task
+    // row's in-progress icon — decorative, so the heading's name stays its text.
+    expect(label?.textContent).toBe('live activity');
+    const icon = label?.firstElementChild;
+    expect(icon?.tagName.toLowerCase()).toBe('svg');
+    expect(icon?.getAttribute('class')).toBe('icon icon-circle-dot');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
     expect(label?.getAttribute('tabindex')).toBe('0');
     expect(label?.getAttribute('data-tip')).toBe(
       'A firing is running right now — this feed updates live as it acts',

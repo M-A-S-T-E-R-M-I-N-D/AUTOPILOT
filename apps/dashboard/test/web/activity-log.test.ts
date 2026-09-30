@@ -17,6 +17,7 @@ import {
   actMeta,
   activityLiveLabel,
 } from '../../src/web/activity-log.js';
+import { ICON_NAMES } from '../../src/web/icons.js';
 
 describe('groupByFiring', () => {
   it('buckets activity entries by firingId, preserving first-seen order', () => {
@@ -92,7 +93,8 @@ describe('actMeta', () => {
 describe('activityLiveLabel', () => {
   it('badges a firing actually in progress as live', () => {
     expect(activityLiveLabel(true)).toEqual({
-      text: '● live activity',
+      text: 'live activity',
+      icon: 'circle-dot',
       className: 'act-label act-label-live',
       tip: 'A firing is running right now — this feed updates live as it acts',
     });
@@ -101,8 +103,13 @@ describe('activityLiveLabel', () => {
   it('frames the feed as a debrief once nothing is live', () => {
     expect(activityLiveLabel(false)).toEqual({
       text: 'last flight — debrief',
+      icon: null,
       className: 'act-label',
       tip: 'A recap of the last completed firing, not a live view — nothing is flying right now',
     });
+  });
+
+  it('names a vendored icon for the live badge, not a baked-in glyph (epic 0025)', () => {
+    expect(ICON_NAMES).toContain(activityLiveLabel(true).icon);
   });
 });
