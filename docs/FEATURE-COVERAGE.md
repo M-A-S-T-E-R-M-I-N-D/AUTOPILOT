@@ -116,7 +116,7 @@
 ## K. Versioning / backup
 | Feature | Spec | Milestone |
 |---|---|---|
-| [~] MYTH (pristine original) / LEGACY (lock-on baseline) / FLIGHT LOG (additive restore) — MYTH/LEGACY/flight created at lock (M2); versions screen + restore M5 | MASTER §7; PATTERNS §9 | M2, M5 |
+| [x] MYTH (pristine original) / LEGACY (lock-on baseline) / FLIGHT LOG (additive restore) — MYTH/LEGACY/flight created at lock (M2); the Versions screen draws them and restores any of them as a new branch (M5, §C above) | MASTER §7; PATTERNS §9 | M2, M5 |
 | [x] Never force-push/reset-hard/touch main without approval; git-native — additive `git revert` on gate-fail | MASTER §7 | M1 |
 | [x] SemVer + Conventional Commits + Keep-a-Changelog | PATTERNS §8 | M0 |
 
