@@ -164,6 +164,59 @@ describe('createSelfRestartTrigger', () => {
     expect(target.start).not.toHaveBeenCalled();
   });
 
+  it('says a restart is pending from the moment it starts, and not pending once a failed build keeps this server (2026-09-30)', async () => {
+    const seen: boolean[] = [];
+    const target = {
+      stopSelf: vi.fn(() => Promise.resolve()),
+      start: vi.fn(() => ({ url: null })),
+    };
+    createSelfRestartTrigger({ run: () => Promise.resolve(false) }, target, {
+      onPending: (p) => seen.push(p),
+    })();
+    expect(seen).toEqual([true]);
+    await flush();
+    expect(seen).toEqual([true, false]);
+  });
+
+  it('lets a fleet launch under way finish before releasing the port (2026-09-30)', async () => {
+    // A launch staggers its lanes 20s apart inside this process; a restart
+    // that closed the port mid-launch left four of five lanes unstarted.
+    let finishLaunch: () => void = () => {};
+    const launched = new Promise<void>((resolve) => {
+      finishLaunch = resolve;
+    });
+    const target = {
+      stopSelf: vi.fn(() => Promise.resolve()),
+      start: vi.fn(() => ({ url: null })),
+    };
+    createSelfRestartTrigger({ run: () => Promise.resolve(true) }, target, {
+      exit: vi.fn(),
+      beforeStop: () => launched,
+    })();
+    await flush();
+    expect(target.stopSelf).not.toHaveBeenCalled();
+    finishLaunch();
+    await flush();
+    expect(target.stopSelf).toHaveBeenCalled();
+  });
+
+  it('a restart that fails with the port still held is no longer pending', async () => {
+    const seen: boolean[] = [];
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const target = {
+      stopSelf: vi.fn(() => Promise.reject(new Error('close failed'))),
+      start: vi.fn(() => ({ url: null })),
+    };
+    createSelfRestartTrigger({ run: () => Promise.resolve(true) }, target, {
+      exit: vi.fn(),
+      onPending: (p) => seen.push(p),
+    })();
+    await flush();
+    await flush();
+    expect(seen).toEqual([true, false]);
+    stderr.mockRestore();
+  });
+
   it('a REJECTING build is a failed build — no restart, no crash (the landing that killed the server)', async () => {
     // Regression: on Windows, `spawn('pnpm.cmd', …)` without a shell throws a
     // synchronous EINVAL (Node's CVE-2024-27980 hardening). That rejection had

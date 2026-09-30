@@ -474,6 +474,22 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
       },
     ],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the task row's
+  // budget-risk chips drop their baked-in ⏱ — the last Miscellaneous
+  // Technical emoji in web/ chrome.
+  timer: [
+    ['line', { x1: '10', x2: '14', y1: '2', y2: '2' }],
+    ['line', { x1: '12', x2: '15', y1: '14', y2: '11' }],
+    ['circle', { cx: '12', cy: '14', r: '8' }],
+  ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the KEEPER PR review
+  // check strip drops its ✓/✗/◐/◌/⊘ state glyphs for the task row's circle
+  // family; a failed check is the one state that family lacked.
+  'circle-x': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['path', { d: 'm15 9-6 6' }],
+    ['path', { d: 'm9 9 6 6' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

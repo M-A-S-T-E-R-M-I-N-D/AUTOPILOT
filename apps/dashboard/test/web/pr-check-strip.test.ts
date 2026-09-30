@@ -12,7 +12,7 @@
  * collapsed all of it into one word. The panel showed "#33" as dead text
  * next to "pending" — no link, no stages, no sense of movement.
  *
- * These lock the strip: a state glyph per check, GitHub-shaped durations,
+ * These lock the strip: a state icon per check, GitHub-shaped durations,
  * a summary line that answers "where is this PR", and a deep link on the
  * PR number and on every check that reported one.
  */
@@ -20,7 +20,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import axe from 'axe-core';
 import {
-  prCheckStateGlyph,
+  prCheckStateIcon,
   formatCheckDuration,
   prCheckRunTip,
   prCheckSummary,
@@ -29,6 +29,7 @@ import {
   humanMergeReadiness,
 } from '../../src/web/pr-review-panel.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import { ICON_NAMES } from '../../src/web/icons.js';
 
 const CHECKS = [
   { name: 'commitlint (PR)', state: 'pass', elapsedMs: 17_000, url: 'https://github.com/o/r/1' },
@@ -38,16 +39,28 @@ const CHECKS = [
   { name: 'reuse lint (optional)', state: 'fail', optional: true },
 ];
 
-describe('prCheckStateGlyph — a symbol per state, not colour alone', () => {
-  it('gives every state its own glyph', () => {
-    const glyphs = ['pass', 'fail', 'running', 'queued', 'skipped', 'unknown'].map(
-      prCheckStateGlyph,
-    );
-    expect(new Set(glyphs).size).toBe(glyphs.length);
+describe('prCheckStateIcon — a shape per state, not colour alone', () => {
+  const STATES = ['pass', 'fail', 'running', 'queued', 'skipped', 'unknown'];
+
+  it('gives every state its own vendored icon', () => {
+    const icons = STATES.map(prCheckStateIcon);
+    expect(new Set(icons).size).toBe(icons.length);
+    for (const name of icons) expect(ICON_NAMES).toContain(name);
+  });
+
+  it('draws the task row’s circle family, so a running check reads like an in-progress task', () => {
+    expect(STATES.map(prCheckStateIcon)).toEqual([
+      'circle-check',
+      'circle-x',
+      'circle-dot',
+      'circle',
+      'ban',
+      'circle-question-mark',
+    ]);
   });
 
   it('degrades an unrecognized future state to a question mark, not a crash', () => {
-    expect(prCheckStateGlyph('some-new-github-state')).toBe('?');
+    expect(prCheckStateIcon('some-new-github-state')).toBe('circle-question-mark');
   });
 });
 
@@ -183,15 +196,34 @@ describe('the rendered card links out and shows its stages', () => {
     expect(times).toContain('10m49s');
   });
 
-  it('hides the glyph from screen readers so a chip is not read twice', async () => {
+  it('leads every chip with its state icon, hidden from screen readers so a chip is not read twice', async () => {
     bootWithPlans(PLANS);
 
     await vi.waitFor(() => {
-      expect(document.querySelector('.pr-review-check-glyph')).not.toBeNull();
+      expect(document.querySelectorAll('.pr-review-check')).toHaveLength(5);
     });
-    for (const glyph of document.querySelectorAll('.pr-review-check-glyph')) {
-      expect(glyph.getAttribute('aria-hidden')).toBe('true');
+    const chips = [...document.querySelectorAll('.pr-review-check')];
+    const leading = chips.map((chip) => chip.firstElementChild);
+    expect(leading.map((icon) => icon?.getAttribute('class'))).toEqual([
+      'icon icon-circle-check',
+      'icon icon-circle-check',
+      'icon icon-circle-dot',
+      'icon icon-circle',
+      'icon icon-circle-x',
+    ]);
+    for (const icon of leading) {
+      expect(icon?.tagName.toLowerCase()).toBe('svg');
+      expect(icon?.getAttribute('aria-hidden')).toBe('true');
     }
+    // Epic 0025: the old ✓/✗/◐/◌ glyphs are gone from the chip text, so the
+    // name and the elapsed time are all a chip's text says.
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      'commitlint (PR)17s',
+      'verify (ubuntu-latest)10m49s',
+      'verify (windows-latest)4m20s',
+      'e2e (dashboard, real browser)',
+      'reuse lint (optional)',
+    ]);
   });
 
   it('falls back to plain text — never a dead link — when gh reported no url', async () => {

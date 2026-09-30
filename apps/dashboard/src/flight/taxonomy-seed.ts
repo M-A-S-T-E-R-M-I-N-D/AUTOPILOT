@@ -200,12 +200,27 @@ export function planTaxonomySeed(
   return { identity, actions: [...labelActions, ...milestoneActions] };
 }
 
-/** `gh label list`'s live names on the current repo — fails closed to an
+/** The most labels one `gh label list` read asks for. With no `--limit`, gh
+ *  quietly returns its default 30, oldest first, so on a repo carrying more
+ *  than that every house label created after the thirtieth read as missing
+ *  and was planned as a `create-label`. Same fix `issue-triage.ts`'s
+ *  `MAX_ISSUE_LIST` made for `gh issue list`. */
+export const MAX_LABEL_LIST = 1000;
+
+/** `gh label list`'s live names on the current repo (up to
+ *  {@link MAX_LABEL_LIST}) — fails closed to an
  *  empty set on a non-zero exit, unparseable stdout, a non-array payload,
  *  or an entry missing `name` (never blocks planning: a `gh` failure here
  *  just makes every label look "new", which `--force` makes harmless). */
 export async function fetchExistingLabelNames(exec: CliExec): Promise<ReadonlySet<string>> {
-  const { code, stdout } = await exec('gh', ['label', 'list', '--json', 'name']);
+  const { code, stdout } = await exec('gh', [
+    'label',
+    'list',
+    '--limit',
+    String(MAX_LABEL_LIST),
+    '--json',
+    'name',
+  ]);
   if (code !== 0) return new Set();
   let parsed: unknown;
   try {

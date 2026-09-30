@@ -55,6 +55,13 @@ export interface RestartTarget {
 export interface SelfRestartDeps {
   readonly verifyHealth?: (url: string) => Promise<boolean>;
   readonly exit?: (code: number) => void;
+  /** Told `true` when a rebuild starts, `false` when this server stays the
+   *  one serving (a failed build, or a restart that failed with the port
+   *  still held) — see `restart-guard.ts`. */
+  readonly onPending?: (pending: boolean) => void;
+  /** Awaited after a clean build, before the port is released: a fleet
+   *  launch still starting its lanes finishes first (`waitForLaunches`). */
+  readonly beforeStop?: () => Promise<void>;
 }
 
 export type SelfRestartTrigger = () => void;
@@ -105,12 +112,18 @@ export function createSelfRestartTrigger(
 ): SelfRestartTrigger {
   const verifyHealth = deps.verifyHealth ?? ((url: string) => waitForHealth(`${url}/api/health`));
   const exit = deps.exit ?? ((code: number) => process.exit(code));
+  const pending = deps.onPending ?? (() => {});
   return () => {
+    pending(true);
     void build.run().then(
       async (ok) => {
-        if (!ok) return;
+        if (!ok) {
+          pending(false);
+          return;
+        }
         let portReleased = false;
         try {
+          await deps.beforeStop?.();
           await target.stopSelf();
           portReleased = true;
           const status = target.start();
@@ -128,9 +141,11 @@ export function createSelfRestartTrigger(
           // released ⇒ nobody serves either way — exit nonzero so a
           // supervisor (or the operator) knows to start a fresh one.
           if (portReleased) exit(1);
+          else pending(false);
         }
       },
       (error: unknown) => {
+        pending(false);
         // A rejecting BuildRunner must degrade exactly like a failed build.
         // Before this handler existed, one synchronous spawn throw (Windows
         // EINVAL on `pnpm.cmd`) became an unhandled rejection that killed the
