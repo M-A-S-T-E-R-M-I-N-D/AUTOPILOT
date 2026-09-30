@@ -4507,11 +4507,14 @@ function renderProjectPage(state, pid) {
   // what it changed. A landed firing is a new version, so it rides dataKey.
   fleet.appendChild(subj(cachedPanel(pid, 'versions', dataKey, function () { return versionsSection(pid); }), 'data'));
   // Start over: a DECLARED telemetry reset (fresh 0/0 round) — the project,
-  // its tasks, its index, and its git backups are untouched.
+  // its tasks, its index, and its git backups are untouched. Epic 0025: a
+  // leading rotate-ccw icon replaces the baked-in ↺ glyph; setSweptText()
+  // keeps it across a locale switch and the click handler's busy label.
   var so = el('section', 'start-over');
   var soBtn = document.createElement('button');
   soBtn.type = 'button';
-  soBtn.textContent = tr('startOver');
+  soBtn.appendChild(iconEl('rotate-ccw'));
+  soBtn.appendChild(document.createTextNode(tr('startOver')));
   soBtn.setAttribute('data-i18n', 'startOver');
   soBtn.setAttribute('data-start-over', c.id);
   soBtn.setAttribute('data-name', c.name);
@@ -5221,7 +5224,14 @@ document.addEventListener('click', function (e) {
   }
 });
 // "Start over" (event-delegated): clears telemetry ONLY after an explicit,
-// honest confirm. Counters restart at 0/0; nothing else is touched.
+// honest confirm. Counters restart at 0/0; nothing else is touched. The busy
+// label swaps the data-i18n tag with the text (the GitHub sync button's
+// route), so a mid-request sweep repaints "Resetting…", not the idle label;
+// setSweptText() (features/locale.ts) keeps the leading rotate-ccw icon.
+function setStartOverLabel(b, key) {
+  b.setAttribute('data-i18n', key);
+  setSweptText(b, tr(key));
+}
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-start-over]');
   if (!b) return;
@@ -5229,7 +5239,11 @@ document.addEventListener('click', function (e) {
   var name = b.getAttribute('data-name') || 'this project';
   if (!window.confirm(tr('startOverConfirm', name))) return;
   b.disabled = true;
-  b.textContent = tr('resetting');
+  setStartOverLabel(b, 'resetting');
+  function restoreIdle() {
+    b.disabled = false;
+    setStartOverLabel(b, 'startOver');
+  }
   fetch('/api/project/reset', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -5238,10 +5252,9 @@ document.addEventListener('click', function (e) {
     .then(function (res) {
       if (!res.ok) throw new Error('reset failed');
       refresh();
-      b.disabled = false;
-      b.textContent = tr('startOver');
+      restoreIdle();
     })
-    .catch(function () { b.disabled = false; b.textContent = tr('startOver'); });
+    .catch(restoreIdle);
 });
 startFleetStream();
 `.trim();

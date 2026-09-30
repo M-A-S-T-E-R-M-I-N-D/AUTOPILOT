@@ -758,7 +758,8 @@ const EN_STRINGS = {
   // 0025: this label and soulProposalSummary lead with the dna icon, not a
   // baked ◐/◇ glyph.
   soulUnreviewed: 'SOUL unreviewed',
-  startOver: '↺ Start over',
+  // Epic 0025: the button leads with the vendored rotate-ccw icon, not a baked ↺.
+  startOver: 'Start over',
   prReviewTitle: 'KEEPER PR review',
   prReviewApply: 'Apply',
   prReviewFetchFailed:
@@ -2475,7 +2476,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulDismiss: '✗ בטל',
     soulUnratify: 'בטל אשרור',
     soulUnreviewed: 'SOUL לא נסקר',
-    startOver: '↺ התחל מחדש',
+    startOver: 'התחל מחדש',
     prReviewTitle: 'סקירת PR של KEEPER',
     prReviewApply: 'החל',
     prReviewFetchFailed:

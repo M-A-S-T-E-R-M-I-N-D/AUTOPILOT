@@ -152,8 +152,13 @@ propagation, and the filled style does not match the nav.
    as its whole face beside the + and − buttons. The three draw newly
    vendored `plus`, `minus` and `maximize-2` strokes as their faces now
    (their STRINGS aria-labels stay the only name), and the census pins the
-   block at zero in web/ and STRINGS. The screenshots refresh (`docs/screens/`) is still
-   open.
+   block at zero in web/ and STRINGS. **Circular-arrow STRINGS census at
+   zero 2026-10-01:** the project page's "↺ Start over" button (en and he)
+   was the last; it leads with a newly vendored `rotate-ccw` beside its
+   text, and its "Resetting…" busy label swaps the `data-i18n` tag the way
+   the GitHub sync button does, so `setSweptText()` keeps the icon through
+   the request and any sweep during it. The list is gone and the test pins
+   zero. The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

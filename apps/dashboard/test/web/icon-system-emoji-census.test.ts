@@ -73,10 +73,11 @@ const TECHNICAL_EMOJI_PATTERN =
  *  and "⟳ Update branch" buttons took the vendored refresh-cw and git-merge
  *  icons, and the SOUL card's "↺ un-ratify" chip the vendored undo-2
  *  (2026-09-30). The per-firing trace's "⟲ N repeated" chip took the
- *  vendored repeat icon (2026-09-30), so web/ pins zero; STRINGS stays a
- *  shrink-only list of the keys still carrying one. */
+ *  vendored repeat icon (2026-09-30), so web/ pins zero. STRINGS began as a
+ *  shrink-only list of the keys still carrying one; the project page's
+ *  "↺ Start over" was the last, and it leads with the vendored rotate-ccw
+ *  now (2026-10-01), so STRINGS pins zero too. */
 const CIRCULAR_ARROW_PATTERN = /[\u{21BA}\u{21BB}\u{27F2}\u{27F3}]/gu;
-const CIRCULAR_ARROW_STRING_KEYS = ['en.startOver', 'he.startOver'];
 
 /** Supplemental Arrows-B (U+2900–U+297F) sat outside every range above too —
  *  its ⤴ ⤵ are Emoji=Yes — and the plan canvas's fit button painted ⤢ as its
@@ -204,8 +205,8 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
     expect(emojiBearingStringKeys(TECHNICAL_EMOJI_PATTERN)).toEqual([]);
   });
 
-  it('carries a circular-arrow glyph-icon only in the shrink-only list of keys', () => {
-    expect(emojiBearingStringKeys(CIRCULAR_ARROW_PATTERN)).toEqual(CIRCULAR_ARROW_STRING_KEYS);
+  it('carries no circular-arrow glyph-icon in any locale value', () => {
+    expect(emojiBearingStringKeys(CIRCULAR_ARROW_PATTERN)).toEqual([]);
   });
 
   it('carries no Supplemental Arrows-B glyph-icon in any locale value', () => {
