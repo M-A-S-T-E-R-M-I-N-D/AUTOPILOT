@@ -279,8 +279,9 @@ function firingTimelineSection(c) {
     countEl.setAttribute('aria-label', meta.countLabel);
     row.appendChild(countEl);
     if (meta.redundancyLabel) {
+      // Epic 0025: the repeat icon leads the chip (was a baked-in ⟲).
       row.appendChild(
-        tipChip(meta.redundancyLabel, meta.redundancyTip, meta.redundancyAriaLabel, 'chip-anomaly firing-redundancy'),
+        tipChip(meta.redundancyLabel, meta.redundancyTip, meta.redundancyAriaLabel, 'chip-anomaly firing-redundancy', 'repeat'),
       );
     }
     var agoEl = el('span', 'muted firing-ago', meta.startedAgo);

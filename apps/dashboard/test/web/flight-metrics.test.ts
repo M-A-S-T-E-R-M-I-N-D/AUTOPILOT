@@ -726,10 +726,10 @@ describe('firingTimelineRowMeta', () => {
       headlineOf,
       fmtAgo,
     );
-    expect(meta.redundancyLabel).toBe('⟲ 2 repeated');
+    expect(meta.redundancyLabel).toBe('2 repeated');
     expect(meta.redundancyTip).toBe(
       '2 of 3 actions repeated an identical tool+target call already made this firing — a trajectory-quality signal outcome-only scoring misses',
     );
-    expect(meta.redundancyAriaLabel).toBe('trajectory: ⟲ 2 repeated');
+    expect(meta.redundancyAriaLabel).toBe('trajectory: 2 repeated');
   });
 });
