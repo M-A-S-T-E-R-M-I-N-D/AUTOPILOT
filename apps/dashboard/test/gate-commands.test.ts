@@ -178,4 +178,15 @@ describe('perFiringGateCommands (2026-09-25)', () => {
     const result = gateCommands(spec({ ciExtras: extras }), { includeCiExtras: true });
     expect(result.map((c) => c.label)).toContain('pnpm run ci:npx-smoke-test');
   });
+
+  it('holds back a check that matches ANY one slow script, not only one matching them all', () => {
+    // With the one-entry default list, "matches any" and "matches all" agree,
+    // so only a list of two tells them apart — the day a second slow check is
+    // added, an all-match test would hold back nothing.
+    const result = perFiringGateCommands(spec({ ciExtras: extras }), [
+      'ci:npx-smoke-test',
+      'ci:no-personal-paths',
+    ]);
+    expect(result.map((c) => c.label)).toEqual(['pnpm run ci:doc-commit-refs']);
+  });
 });
