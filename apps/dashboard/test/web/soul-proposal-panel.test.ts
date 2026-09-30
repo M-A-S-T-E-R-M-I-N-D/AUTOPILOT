@@ -9,8 +9,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import axe from 'axe-core';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+
+// Contrast needs real layout, which jsdom lacks — same carve-out as
+// fleet-wisdom-panel.test.ts.
+const AXE_OPTIONS: axe.RunOptions = {
+  runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+  rules: { 'color-contrast': { enabled: false } },
+};
 
 const PROJECT = {
   id: 'p1',
@@ -279,9 +287,10 @@ describe('SOUL editor entry on the fleet card (board web-mswqemor-ab3jsu)', () =
     }) as unknown as typeof fetch;
 
     const form = document.querySelector('[data-soul-edit]') as HTMLFormElement;
+    (form.querySelector('[data-soul-unlock]') as HTMLButtonElement).click();
     const textarea = form.querySelector('textarea[name="text"]') as HTMLTextAreaElement;
     textarea.value = '  a hand-written amendment  ';
-    const btn = form.querySelector('button') as HTMLButtonElement;
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
     expect(btn.disabled).toBe(true);
@@ -306,12 +315,119 @@ describe('SOUL editor entry on the fleet card (board web-mswqemor-ab3jsu)', () =
     }) as unknown as typeof fetch;
 
     const form = document.querySelector('[data-soul-edit]') as HTMLFormElement;
+    (form.querySelector('[data-soul-unlock]') as HTMLButtonElement).click();
     const textarea = form.querySelector('textarea[name="text"]') as HTMLTextAreaElement;
     textarea.value = '   ';
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await Promise.resolve();
 
     expect(calls).not.toContain('/api/project/soul-propose');
+  });
+});
+
+describe('SOUL editor is locked by default (board ap-muo35gzl-2)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    // The i18n case below persists Hebrew; later suites expect English.
+    localStorage.clear();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function editorParts() {
+    const form = document.querySelector('[data-soul-edit]') as HTMLFormElement;
+    return {
+      form,
+      textarea: form.querySelector('textarea[name="text"]') as HTMLTextAreaElement,
+      unlock: form.querySelector('[data-soul-unlock]') as HTMLButtonElement,
+      submit: form.querySelector('button[type="submit"]') as HTMLButtonElement,
+    };
+  }
+
+  it('renders the live text read-only, the propose button disabled, and a keyboard-reachable unlock toggle', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const { textarea, unlock, submit } = editorParts();
+    expect(textarea.readOnly).toBe(true);
+    expect(textarea.value).toBe('the current live soul text');
+    expect(submit.disabled).toBe(true);
+    expect(unlock.tagName).toBe('BUTTON');
+    expect(unlock.getAttribute('type')).toBe('button');
+    expect(unlock.getAttribute('aria-pressed')).toBe('false');
+    expect(unlock.getAttribute('aria-controls')).toBe(textarea.id);
+    expect(unlock.disabled).toBe(false);
+  });
+
+  it('unlocking makes the text editable, enables propose, and moves focus into the textarea', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const { textarea, unlock, submit } = editorParts();
+    unlock.click();
+
+    expect(unlock.getAttribute('aria-pressed')).toBe('true');
+    expect(textarea.readOnly).toBe(false);
+    expect(submit.disabled).toBe(false);
+    expect(document.activeElement).toBe(textarea);
+  });
+
+  it('pressing the toggle again re-locks the editor', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const { textarea, unlock, submit } = editorParts();
+    unlock.click();
+    unlock.click();
+
+    expect(unlock.getAttribute('aria-pressed')).toBe('false');
+    expect(textarea.readOnly).toBe(true);
+    expect(submit.disabled).toBe(true);
+  });
+
+  it('a submit while locked never POSTs a proposal', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const calls: string[] = [];
+    globalThis.fetch = vi.fn(async (url: string) => {
+      calls.push(url);
+      return { ok: true, json: async () => stateWith({}) } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    const { form, textarea } = editorParts();
+    textarea.value = 'a locked-but-scripted amendment';
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+
+    expect(calls).not.toContain('/api/project/soul-propose');
+  });
+
+  it('is axe-clean both locked and unlocked', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+    (document.querySelector('.soul-editor') as HTMLDetailsElement).open = true;
+
+    vi.useRealTimers();
+    const locked = await axe.run(document, AXE_OPTIONS);
+    expect(locked.violations.map((v) => v.id)).toEqual([]);
+    editorParts().unlock.click();
+    const unlocked = await axe.run(document, AXE_OPTIONS);
+    expect(unlocked.violations.map((v) => v.id)).toEqual([]);
+  });
+
+  it('tags the unlock toggle with its STRINGS key and a lock icon, and translates it', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const { unlock } = editorParts();
+    expect(unlock.getAttribute('data-i18n')).toBe('soulEditorUnlock');
+    expect(unlock.querySelector('svg.icon-lock')).not.toBeNull();
+    expect(unlock.textContent).toBe(STRINGS.en.soulEditorUnlock);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    expect(editorParts().unlock.textContent).toBe(STRINGS.he.soulEditorUnlock);
+    expect(editorParts().unlock.querySelector('svg.icon-lock')).not.toBeNull();
   });
 });
 

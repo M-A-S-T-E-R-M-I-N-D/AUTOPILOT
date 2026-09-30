@@ -64,14 +64,18 @@ letting an operator opt a project's firings into filing proposals `queued` inste
 `flightWatchdogTick`/`landWatchdogTick`, spawn logic, or the watchdog contract; same
 "grown past scope, contract unchanged" shape the evolution notes above use.
 
-Model-routing and round-evaluation infrastructure added 2026-09-27 (model-scoreboard and
-round-evaluation commands): `control/cli.ts` expanded with reporting and evaluation
-capabilities that bench-mark fleet model routing across concurrent firings and expose
-per-round evaluation data. Both features use the existing `flightWatchdogTick` cadence
-to expose aggregate fleet visibility but do not alter spawn, revival, or landing logic.
-Same "grown past scope, contract unchanged" shape — `flightWatchdogTick`/
-`landWatchdogTick`/`FLYABLE_STATUSES` remain untouched, and the watchdog contract
-recorded in the acceptance criteria above is unchanged.
+Model-routing and round-evaluation infrastructure added 2026-09-26/27 (corrected
+2026-09-30): `control/cli.ts`'s `fleet-report` case now also prints the model
+scoreboard (`flight/model-scoreboard.ts` `readRoutedFirings`/`renderScoreboard`) after
+the report, and a new per-project `evaluation-docs on|off|status [folder]` command
+toggles whether each round's evaluation is also committed to `docs/evaluations/`. Neither
+runs on the watchdog's tick: the scoreboard is read on demand by `fleet-report`, and the
+evaluation itself is written by the lane that ends a round (`fly.ts` →
+`flight/round-evaluation.ts` `endRound`), not by `flightWatchdogTick`. An earlier wording
+of this note said both used the `flightWatchdogTick` cadence; they do not. Same "grown
+past scope, contract unchanged" shape — `flightWatchdogTick`/`landWatchdogTick`/
+`FLYABLE_STATUSES` remain untouched, and the watchdog contract recorded in the
+acceptance criteria above is unchanged.
 
 The board's M7 PARALLEL PILOTS item (critical priority) names two halves: "FlightRunner
 becomes a per-project registry of concurrent detached flights" and "the ring-0 watchdog
@@ -160,6 +164,15 @@ watchdog: `flightWatchdogTick`/`landWatchdogTick`/`FLYABLE_STATUSES` and every
 acceptance criterion above are untouched, and the takeoff sweep runs BEFORE the
 watchdog's first tick, not inside it. Same "grown past this spec's scope, watchdog
 contract unchanged" shape as every post-completion note above; no drift here.
+
+DOC-FRESHNESS re-check (2026-09-30): `control/cli.ts` moved again on 2026-09-29
+(`287f395d`, "the report reads rung 4's record") — its read-only `fleet-report` case now
+passes `readReportEscalations` (`read/fleet-report-source.ts`) to `renderFleetReport`, so
+the report prints a "rung 4" section counting sync-back merge-escalation attempts,
+resolutions and failures by kind. That is a two-line reporting change inside
+`fleet-report`: it opens the store read-only and touches neither the `watch` case nor
+`flightWatchdogTick`/`landWatchdogTick`/`FLYABLE_STATUSES`. Every acceptance criterion
+above still holds; no drift here.
 
 ## Related
 

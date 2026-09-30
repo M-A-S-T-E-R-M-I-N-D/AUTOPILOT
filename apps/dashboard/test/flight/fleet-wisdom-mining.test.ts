@@ -6,9 +6,11 @@ import {
   mineFleetWisdom,
   composeSoulWithFleetWisdom,
   FLEET_WISDOM_GENERALIZATION_THRESHOLD,
+  FLEET_WISDOM_OPT_OUT_LINE,
   FLEET_WISDOM_PROMPT_HEADER,
   LEARNING_KINDS,
   proposedWisdomKindLabel,
+  soulOptsOutOfFleetWisdom,
   type FleetWisdomMiningInput,
   type ProjectSoulLike,
 } from '../../src/flight/fleet-wisdom-mining.js';
@@ -263,6 +265,48 @@ describe('composeSoulWithFleetWisdom', () => {
     expect(composed).toContain('- kept.');
     expect(composed).not.toContain('Confirmed independently');
     expect(composed.split(CHECKPOINT_SOUL_AMENDMENT_MARKER).length - 1).toBe(1);
+  });
+});
+
+describe('composeSoulWithFleetWisdom — per-project opt-out (board ap-muo35gzl-2)', () => {
+  const optedOut = (line: string): string => `${SOUL_WITHOUT_NOTE}\n${line}\n`;
+
+  it('returns the soul unchanged when it carries a "Fleet wisdom: off" line', () => {
+    const soul = optedOut(FLEET_WISDOM_OPT_OUT_LINE);
+    expect(composeSoulWithFleetWisdom(soul, FLEET_NOTE)).toBe(soul);
+  });
+
+  it('honors the line as a list bullet, in any case, with stray spacing', () => {
+    for (const line of ['- Fleet wisdom: off', '* fleet wisdom:OFF', '  Fleet Wisdom:  off  ']) {
+      const soul = optedOut(line);
+      expect(composeSoulWithFleetWisdom(soul, FLEET_NOTE), line).toBe(soul);
+    }
+  });
+
+  it('keeps layering when the words appear only mid-sentence, not as their own line', () => {
+    const soul = optedOut('- Never set Fleet wisdom: off without asking.');
+    expect(composeSoulWithFleetWisdom(soul, FLEET_NOTE)).toContain(FLEET_WISDOM_PROMPT_HEADER);
+  });
+
+  it('keeps layering for any value other than off', () => {
+    const soul = optedOut('Fleet wisdom: on');
+    expect(composeSoulWithFleetWisdom(soul, FLEET_NOTE)).toContain(FLEET_WISDOM_PROMPT_HEADER);
+  });
+
+  it('opts out only the project whose SOUL says so — a sibling SOUL still gets the layer', () => {
+    const offSoul = optedOut(FLEET_WISDOM_OPT_OUT_LINE);
+    expect(composeSoulWithFleetWisdom(offSoul, FLEET_NOTE)).not.toContain(
+      'Confirmed independently',
+    );
+    expect(composeSoulWithFleetWisdom(SOUL_WITHOUT_NOTE, FLEET_NOTE)).toContain(
+      'Confirmed independently',
+    );
+  });
+
+  it('reports the opt-out through soulOptsOutOfFleetWisdom', () => {
+    expect(soulOptsOutOfFleetWisdom(optedOut(FLEET_WISDOM_OPT_OUT_LINE))).toBe(true);
+    expect(soulOptsOutOfFleetWisdom(SOUL_WITHOUT_NOTE)).toBe(false);
+    expect(soulOptsOutOfFleetWisdom('')).toBe(false);
   });
 });
 

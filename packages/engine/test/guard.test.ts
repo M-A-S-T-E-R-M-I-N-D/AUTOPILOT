@@ -168,6 +168,36 @@ describe('checkCommandContainment', () => {
     expect(check('echo $env:PATH').allowed).toBe(true);
   });
 
+  it('denies the Windows home variables Git Bash inherits, in every shell spelling (ap-muoadbyf-0)', () => {
+    // Git Bash on Windows inherits USERPROFILE, APPDATA and LOCALAPPDATA from
+    // the Windows environment, so the Bash spelling reaches the same key the
+    // cmd and PowerShell spellings above were already refused for.
+    for (const cmd of [
+      'cat "$USERPROFILE/.ssh/id_rsa"',
+      'cat ${USERPROFILE}/.claude/.credentials.json',
+      'ls "$APPDATA"',
+      'ls "$LOCALAPPDATA"',
+      'ls "${LOCALAPPDATA}/Microsoft"',
+      'ls "$HOMEPATH"',
+      String.raw`type %LOCALAPPDATA%\Microsoft\Credentials`,
+      String.raw`Get-ChildItem $env:LOCALAPPDATA`,
+      'Get-ChildItem ${env:LocalAppData}',
+    ]) {
+      expect(check(cmd), cmd).toEqual({
+        allowed: false,
+        reason: 'the command references the home directory (credentials live there)',
+      });
+    }
+  });
+
+  it('a Bash home variable matches only its exact, case-sensitive name', () => {
+    // Bash variable names are case-sensitive: `$userprofile` is a script's own
+    // variable, not the inherited Windows one. `\b` keeps longer names out.
+    expect(check('echo $userprofile $appdata $localappdata').allowed).toBe(true);
+    expect(check('echo $USERPROFILE_BACKUP $APPDATAX $LOCALAPPDATA2').allowed).toBe(true);
+    expect(check('echo $env:LOCALAPPDATAX').allowed).toBe(true);
+  });
+
   const TEMP_DIR_REASON =
     'the command references the system temp directory, outside the target — keep scratch ' +
     'files in the git-ignored .tmp-autopilot/ instead';
@@ -326,6 +356,12 @@ describe('checkCommandContainment', () => {
 
   it('allows extra whitespace between a separator and a bare `cd` (still denied, not merely tolerated)', () => {
     expect(check('echo hi &&   cd').allowed).toBe(false);
+  });
+
+  it('denies a bare `cd` after a single `&` — only the left side goes to the background (ap-muoadbyk-1)', () => {
+    expect(check('true & cd').allowed).toBe(false);
+    expect(check('true &cd && ls').allowed).toBe(false);
+    expect(check('true & cd src').allowed).toBe(true);
   });
 
   it('does not false-positive on URLs, git format strings, or flags', () => {
@@ -492,6 +528,40 @@ describe('checkCommandContainment', () => {
     // legitimate pipelines whose git side is non-destructive stay allowed
     expect(check('git log | grep fix').allowed).toBe(true);
     expect(check('git diff | cat').allowed).toBe(true);
+  });
+
+  it('denies a destructive git / process-kill hidden after a single `&` (ap-muoadbyk-1)', () => {
+    // `a & b` runs `a` in the background and then `b` as a command of its own.
+    // The split knew `&&`, `|`, `;` and newlines, but not a single `&`.
+    expect(check('true & git push --force origin x').allowed).toBe(false);
+    expect(check('true &git reset --hard').allowed).toBe(false);
+    expect(check('true & kill 1234').allowed).toBe(false);
+    expect(check('true & kill 1234').reason).toContain('SUICIDE GUARD');
+    // PowerShell's call operator is the same character in front of the command word
+    expect(check('& git push --force origin x').allowed).toBe(false);
+    expect(check('& Stop-Process -Name node').allowed).toBe(false);
+    // a redirect's `&` splits too, and the flag in front of it still counts
+    expect(check('git push --force&>push.log').allowed).toBe(false);
+    // ordinary background jobs and redirects stay allowed
+    expect(check('pnpm dev & git status').allowed).toBe(true);
+    expect(check('pnpm test 2>&1 | tail -5').allowed).toBe(true);
+  });
+
+  it('denies the `git.exe` spelling of a destructive git command, in any letter case (ap-muoadbyk-1)', () => {
+    expect(check('git.exe push --force origin x').allowed).toBe(false);
+    expect(check('git.exe push --force origin x').reason).toContain('git push --force');
+    expect(check('GIT.EXE reset --hard').allowed).toBe(false);
+    expect(check('Git push -f').allowed).toBe(false);
+    expect(check('git.exe help push').allowed).toBe(false);
+    expect(check('git.exe status').allowed).toBe(true);
+    // a longer word that merely starts with git is not git
+    expect(check('gitx push --force').allowed).toBe(true);
+  });
+
+  it('denies the `.exe` spelling of a process-kill command (ap-muoadbyk-1)', () => {
+    expect(check('taskkill.exe -F -IM node.exe').allowed).toBe(false);
+    expect(check('taskkill.exe -F -IM node.exe').reason).toContain('SUICIDE GUARD');
+    expect(check('TASKKILL.EXE -PID 1234').allowed).toBe(false);
   });
 
   it('denies `git reset --hard`', () => {
@@ -937,6 +1007,7 @@ describe('evaluateHookInput', () => {
         'home directory',
       );
       expect(ps('Get-ChildItem ${env:APPDATA}')).not.toBeNull();
+      expect(ps(String.raw`Get-ChildItem $env:LOCALAPPDATA`)).not.toBeNull();
       expect(ps(String.raw`Get-Content $home\.claude\.credentials.json`)).not.toBeNull();
     });
 

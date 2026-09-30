@@ -150,6 +150,21 @@ export function mineFleetWisdom(input: FleetWisdomMiningInput): string | null {
  *  wisdom's `## `-level notes nest as its children. */
 export const FLEET_WISDOM_PROMPT_HEADER = '# FLEET WISDOM (shared across all projects)';
 
+/** The SOUL line an operator writes to opt ONE project out of the fleet
+ *  layer — the per-project override of a fleet-wide default (MASTER-PLAN
+ *  §5.4, board ap-muo35gzl-2). It travels with the SOUL, so it is locked and
+ *  ratified like every other SOUL edit. */
+export const FLEET_WISDOM_OPT_OUT_LINE = 'Fleet wisdom: off';
+
+/** The opt-out on a line of its own — a plain line or a `-`/`*` bullet, any
+ *  case, stray spaces allowed. A mention mid-sentence is not an opt-out. */
+const FLEET_WISDOM_OPT_OUT = /^[ \t]*(?:[-*][ \t]+)?fleet wisdom:[ \t]*off[ \t]*$/im;
+
+/** True when this project's SOUL carries {@link FLEET_WISDOM_OPT_OUT_LINE}. */
+export function soulOptsOutOfFleetWisdom(soul: string): boolean {
+  return FLEET_WISDOM_OPT_OUT.test(soul);
+}
+
 /**
  * The CONSUMPTION side of fleet wisdom: mining/propose/ratify above fill the
  * `fleet.wisdom` slot, and this layers that ratified shared text into a
@@ -163,9 +178,11 @@ export const FLEET_WISDOM_PROMPT_HEADER = '# FLEET WISDOM (shared across all pro
  * note is stripped before rendering — the project-local copy is more
  * specific ("the LAST N firings HERE") and duplicating the same lesson twice
  * in one prompt is noise. When nothing of the fleet layer survives (or it
- * was empty), the SOUL is returned unchanged.
+ * was empty), the SOUL is returned unchanged — as it is when the SOUL opts
+ * out of the layer altogether ({@link soulOptsOutOfFleetWisdom}).
  */
 export function composeSoulWithFleetWisdom(soul: string, fleetWisdom: string): string {
+  if (soulOptsOutOfFleetWisdom(soul)) return soul;
   const deduped = LEARNING_KINDS.reduce(
     (wisdom, kind) =>
       soul.includes(kind.marker) ? stripMarkedSection(wisdom, kind.marker) : wisdom,

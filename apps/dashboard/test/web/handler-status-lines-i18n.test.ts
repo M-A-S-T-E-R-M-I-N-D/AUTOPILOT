@@ -99,6 +99,8 @@ function stubEndpoint(url: string, respond: () => Promise<Response>): void {
 
 function submitSoulEdit(): void {
   const form = document.querySelector('[data-soul-edit]') as HTMLFormElement;
+  // Locked by default (board ap-muo35gzl-2): unlock before writing.
+  (form.querySelector('[data-soul-unlock]') as HTMLButtonElement).click();
   const textarea = form.querySelector('textarea[name="text"]') as HTMLTextAreaElement;
   textarea.value = 'a hand-written amendment';
   form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));

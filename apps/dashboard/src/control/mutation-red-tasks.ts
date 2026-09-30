@@ -42,6 +42,8 @@ const FAILED_RE = /^run-all-mutation: FAILED(?: —)? (stryker\.[a-z0-9-]+\.conf
 const SURVIVED_RE = /^\[Survived\] (\S+)/;
 const LOCATION_RE = /^(\S+?):(\d+):\d+$/;
 const TASK_TITLE_RE = /^MUTATION RED: (stryker\.[a-z0-9-]+\.config\.mjs):/;
+/** A run's head as `gh run list` reports it; anything else is never put in a URL. */
+const SHA_RE = /^[0-9a-f]{7,40}$/;
 const OPEN_STATUSES = new Set(['queued', 'in_progress', 'needs_approval']);
 /** How many survivors a task body lists before it says "and N more". */
 const SHOWN_SURVIVORS = 40;
@@ -123,18 +125,19 @@ function bodyOf(red: MutationRedConfig): string {
  * File a task for each red config that has none open; close the open task
  * of each config the latest run no longer lists as red.
  *
- * `runStartedAt` is when that run began. A config whose task was closed at
- * or after it is not filed again: the fix is newer than the evidence, so
- * the next nightly run decides (2026-09-30: every landing re-read the same
- * pre-fix run and re-filed nine configs the lanes had just fixed, which the
- * next round could have spent its firings redoing).
+ * `evidenceAt` is when the evidence that run judged was cut (see
+ * {@link MutationRun}). A config whose task was closed at or after it is not
+ * filed again: the fix is newer than the evidence, so the next nightly run
+ * decides (2026-09-30: every landing re-read the same pre-fix run and
+ * re-filed nine configs the lanes had just fixed, which the next round could
+ * have spent its firings redoing).
  */
 export function syncMutationRedTasks(
   store: Store,
   projectId: string,
   red: readonly MutationRedConfig[],
   now: number,
-  runStartedAt = 0,
+  evidenceAt = 0,
 ): { filed: number; closed: number } {
   const rows = store.db
     .prepare(
@@ -152,7 +155,7 @@ export function syncMutationRedTasks(
     const config = TASK_TITLE_RE.exec(t.title)?.[1];
     if (config === undefined) continue;
     if (OPEN_STATUSES.has(t.status)) tracked.set(config, t.id);
-    else if (t.status === 'done' && t.updated_at >= runStartedAt) fixedSinceRun.add(config);
+    else if (t.status === 'done' && t.updated_at >= evidenceAt) fixedSinceRun.add(config);
   }
   let filed = 0;
   for (const r of red) {
@@ -178,11 +181,42 @@ export function syncMutationRedTasks(
   return { filed, closed };
 }
 
-/** One completed mutation.yml run: when it started, and its red configs
- *  (none when it passed). */
+/** One completed mutation.yml run: when the evidence it judged was cut, and
+ *  its red configs (none when it passed). */
 export interface MutationRun {
-  readonly startedAt: number;
+  /**
+   * When the commit the run judged was committed — the bound a fix must be
+   * newer than for the run to say nothing about it. The run's start is the
+   * wrong bound (2026-09-30, a second re-file the day the guard was added):
+   * a 14:59 dispatch judged a main head landed at 11:46, and a fix that had
+   * closed its task at 12:02 read as older than the run when it was newer
+   * than everything the run saw — the config was filed again and the next
+   * nightly closed it. The start stands in when the head cannot be read (it
+   * is never earlier than the head, so that only ever files more, never
+   * less) and for a green run, which files nothing.
+   */
+  readonly evidenceAt: number;
   readonly red: readonly MutationRedConfig[];
+}
+
+/** An ISO timestamp as epoch milliseconds; null when it is not one. */
+function epochMs(value: unknown): number | null {
+  const parsed = typeof value === 'string' ? Date.parse(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** When `sha` was committed, per the commits API; null when the run names no
+ *  head or the read fails — the caller falls back to the run's start. */
+function readCommittedAt(gh: GhRun, repo: string, sha: unknown): number | null {
+  if (typeof sha !== 'string' || !SHA_RE.test(sha)) return null;
+  try {
+    const commit = JSON.parse(gh(['api', `repos/${repo}/commits/${sha}`])) as {
+      commit?: { committer?: { date?: unknown } };
+    };
+    return epochMs(commit.commit?.committer?.date);
+  } catch {
+    return null;
+  }
 }
 
 /** The latest completed mutation.yml run; null when there is none to read. */
@@ -200,16 +234,16 @@ export function readLatestMutationRed(gh: GhRun, repo: string): MutationRun | nu
       '--limit',
       '1',
       '--json',
-      'databaseId,conclusion,createdAt',
+      'databaseId,conclusion,createdAt,headSha',
     ]),
-  ) as { databaseId?: unknown; conclusion?: unknown; createdAt?: unknown }[];
+  ) as { databaseId?: unknown; conclusion?: unknown; createdAt?: unknown; headSha?: unknown }[];
   const latest = runs[0];
   if (!latest || typeof latest.databaseId !== 'number') return null;
-  const parsed = typeof latest.createdAt === 'string' ? Date.parse(latest.createdAt) : NaN;
   // A run with no readable start is taken as the oldest possible: nothing
   // closed is ever held back on its account.
-  const startedAt = Number.isFinite(parsed) ? parsed : 0;
-  if (latest.conclusion === 'success') return { startedAt, red: [] };
+  const startedAt = epochMs(latest.createdAt) ?? 0;
+  if (latest.conclusion === 'success') return { evidenceAt: startedAt, red: [] };
+  const evidenceAt = readCommittedAt(gh, repo, latest.headSha) ?? startedAt;
   const jobs = JSON.parse(
     gh(['api', `repos/${repo}/actions/runs/${latest.databaseId}/jobs?per_page=50`]),
   ) as { jobs?: { id?: unknown; conclusion?: unknown }[] };
@@ -220,5 +254,5 @@ export function readLatestMutationRed(gh: GhRun, repo: string): MutationRun | nu
       byConfig.set(red.config, red);
     }
   }
-  return { startedAt, red: [...byConfig.values()] };
+  return { evidenceAt, red: [...byConfig.values()] };
 }

@@ -71,13 +71,17 @@ function isUnderRoot(pathToken: string, root: string): boolean {
 const SAFE_DEVICE_PATH = /^\/dev\/(?:null|stdin|stdout|stderr|tty)$/i;
 
 // Home-directory references — where credentials live; never legitimate in-flight.
+// Git Bash on Windows inherits USERPROFILE, APPDATA, LOCALAPPDATA and HOMEPATH
+// from the Windows environment (ap-muoadbyf-0), so Bash's `$USERPROFILE` is
+// the same place as cmd's `%USERPROFILE%`. Bash names are case-sensitive, like
+// TEMP_DIR_REF below; `\b` keeps a longer name like `$APPDATA_DIR` out.
 const HOME_REF =
-  /(?:^|[\s"'`;|&<>(=])~(?:[\\/]|$|[\s"'`;|&<>)])|\$\{?HOME\}?|%USERPROFILE%|%APPDATA%|%HOMEPATH%/;
+  /(?:^|[\s"'`;|&<>(=])~(?:[\\/]|$|[\s"'`;|&<>)])|\$\{?HOME\}?|\$\{?(?:USERPROFILE|APPDATA|LOCALAPPDATA|HOMEPATH)\b|%USERPROFILE%|%APPDATA%|%LOCALAPPDATA%|%HOMEPATH%/;
 // The same places as PowerShell spells them (ap-muniun5g-2): `$env:X` or
 // `${env:X}` for the variables above, and the automatic `$HOME`. PowerShell
 // variable names are case-insensitive, so `$home` and `$Env:UserProfile`
 // are the same reference; `\b` keeps a longer name like `$homepage` out.
-const POWERSHELL_HOME_REF = /\$\{?(?:env:(?:USERPROFILE|APPDATA|HOMEPATH)|home)\b/i;
+const POWERSHELL_HOME_REF = /\$\{?(?:env:(?:USERPROFILE|APPDATA|LOCALAPPDATA|HOMEPATH)|home)\b/i;
 
 // The system temp directory (ap-muniun5k-3): outside every target, so firing
 // 606's redirect into "$TMPDIR/x" wrote a file no gate, census or audit of the
@@ -91,6 +95,8 @@ const CASELESS_TEMP_DIR_REF = /%(?:TEMP|TMP)%|\$\{?env:(?:TMPDIR|TEMP|TMP)\b/i;
 // A bare `cd` (no argument) changes to HOME — outside any target by definition.
 // A newline is a command separator too (the Bash tool can send a multi-line
 // script as one string), so it must count as a boundary alongside && / || / ;.
+// So must a single `&` (ap-muoadbyk-1): `true & cd` backgrounds only `true`
+// and runs the `cd` in this shell. One `&` alternative covers `&&` as well.
 //
 // The padding is HORIZONTAL whitespace only (CodeQL js/polynomial-redos,
 // 2026-09-16). With a plain `\s*` the padding and the `[\r\n]` separator both
@@ -99,7 +105,7 @@ const CASELESS_TEMP_DIR_REF = /%(?:TEMP|TMP)%|\$\{?env:(?:TMPDIR|TEMP|TMP)\b/i;
 // in the guard that decides whether a command may run at all. `[^\S\r\n]*`
 // takes spaces and tabs and leaves newlines to the separator alternatives,
 // which is what they already meant. Same matches, no overlap.
-const BARE_CD = /(?:^|&&|\|\||;|[\r\n])[^\S\r\n]*cd[^\S\r\n]*(?:$|&&|\|\||;|[\r\n])/;
+const BARE_CD = /(?:^|&|\|\||;|[\r\n])[^\S\r\n]*cd[^\S\r\n]*(?:$|&|\|\||;|[\r\n])/;
 
 // A `Signed-off-by:` trailer typed into a commit message. `git commit -s`
 // writes this line itself from the configured identity, so its presence in
@@ -441,20 +447,34 @@ function stripGitGlobalOptions(afterGit: string): string {
 
 /**
  * Splits a shell command into the segments that run as separate commands:
- * `&&`, `|`, `;`, and a line break (CRLF or bare LF). A `||` splits into an
- * empty middle segment that every consumer skips, so a single `|` is all the
- * pattern needs. Shared by every per-segment check below.
+ * `&`, `|`, `;`, and a line break (CRLF or bare LF). A `&&` or `||` splits
+ * into an empty middle segment that every consumer skips, so the single
+ * characters are all the pattern needs. Shared by every per-segment check
+ * below.
+ *
+ * A single `&` counts (ap-muoadbyk-1): `true & git push --force` runs the push
+ * as a command of its own, and PowerShell's call operator `& git …` puts the
+ * same character in front of a command word. The `&` of a redirect (`2>&1`,
+ * `&>log`) splits too; the piece after it starts with a descriptor or a file
+ * name, never a command word, and the flags before it stay in their segment.
  */
-const SEGMENT_SPLIT_RE = /&&|\||;|\r?\n/;
+const SEGMENT_SPLIT_RE = /[&|;]|\r?\n/;
+
+/**
+ * A segment whose command word is git, capturing everything after it. The
+ * Windows spelling `git.exe` runs the same program, and neither Windows nor
+ * PowerShell cares about the letter case of a program name (ap-muoadbyk-1).
+ */
+const GIT_COMMAND_RE = /^\s*git(?:\.exe)?\s([\s\S]*)/i;
 
 /**
  * Decide whether a git invocation is one of the destructive operations the
- * SOUL forbids. Matched per pipeline segment (split on && / || / | / ; / newline)
+ * SOUL forbids. Matched per pipeline segment (split on & / && / | / || / ; / newline)
  * so a flag on one command can't leak onto an unrelated earlier one.
  */
 function checkDestructiveGit(command: string): ContainmentVerdict {
   for (const segment of command.split(SEGMENT_SPLIT_RE)) {
-    // No trailing `$` here on purpose: `([\s\S]*)` already greedily consumes
+    // No trailing `$` on GIT_COMMAND_RE on purpose: `([\s\S]*)` already greedily consumes
     // to the true end of `segment` with nothing after it in the pattern to
     // backtrack for, so a `$` anchor can never change what gets captured —
     // it would be a permanently-unkillable mutant, so it is simply not
@@ -467,7 +487,7 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
     // extraction below) strips leading whitespace again before use — so a
     // `+` here could never change `sub`/`rest`, another permanently-
     // unkillable mutant simply not written.
-    const gitMatch = /^\s*git\s([\s\S]*)/.exec(segment);
+    const gitMatch = GIT_COMMAND_RE.exec(segment);
     if (!gitMatch) continue;
     // Stryker disable next-line Regex,StringLiteral: unlike gitMatch above,
     // BOTH anchors on this regex are redundant. Leading `^`: `\s*` already
@@ -547,7 +567,7 @@ function checkDestructiveGit(command: string): ContainmentVerdict {
  */
 export function isGitCommitCommand(command: string): boolean {
   for (const segment of command.split(SEGMENT_SPLIT_RE)) {
-    const gitMatch = /^\s*git\s([\s\S]*)/.exec(segment);
+    const gitMatch = GIT_COMMAND_RE.exec(segment);
     if (!gitMatch) continue;
     // Stryker disable next-line Regex,StringLiteral: the same line as in
     // checkDestructiveGit, with the same reasoning — both anchors are
@@ -711,9 +731,11 @@ const DASHBOARD_STOP_RESTART_RE =
 // words. `(?:-\S+\s+)*` absorbs any number of sudo's own flags (each
 // followed by whitespace) between `sudo` and the real command, mirroring the
 // same "handle the general shape, not just the one bypass sample" approach
-// stripGitGlobalOptions takes for git's global options above.
+// stripGitGlobalOptions takes for git's global options above. The optional
+// `.exe` is the Windows spelling of the same program (`taskkill.exe`,
+// ap-muoadbyk-1), which the word-boundary lookahead alone refused to see.
 const PROCESS_KILL_RE =
-  /^\s*(?:sudo\s+(?:-\S+\s+)*)?(?:taskkill|killall|pkill|kill|stop-process)(?=[\s"'`;|&<>)]|$)/i;
+  /^\s*(?:sudo\s+(?:-\S+\s+)*)?(?:taskkill|killall|pkill|kill|stop-process)(?:\.exe)?(?=[\s"'`;|&<>)]|$)/i;
 
 const SUICIDE_GUARD =
   'SUICIDE GUARD: a prior flight killed its own dashboard host this way — this action is never legitimate from a flight';
@@ -746,7 +768,7 @@ const GIT_HELP_OPENS_BROWSER =
 function checkGitHelpEscape(command: string): ContainmentVerdict {
   for (const segment of command.split(SEGMENT_SPLIT_RE)) {
     const unquoted = stripQuoted(segment);
-    const gitMatch = /^\s*git\s([\s\S]*)/.exec(unquoted);
+    const gitMatch = GIT_COMMAND_RE.exec(unquoted);
     if (!gitMatch) continue;
     // Stryker disable next-line StringLiteral: `gitMatch[1]` is a mandatory
     // capture, so the fallback is unreachable.
