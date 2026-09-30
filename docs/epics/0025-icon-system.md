@@ -136,8 +136,13 @@ propagation, and the filled style does not match the nav.
    button merges the base in — and the census gained a circular-arrow block,
    a shrink-only list of what still paints one: the SOUL card's ↺ un-ratify
    button and its tip in web/, the flight log's ⟲ repeated-actions chip, and
-   the `soulUnratify`/`startOver` STRINGS in both locales. The screenshots
-   refresh (`docs/screens/`) is still open.
+   the `soulUnratify`/`startOver` STRINGS in both locales. **Un-ratify
+   2026-09-30:** the SOUL card's "↺ un-ratify" chip leads with a newly
+   vendored `undo-2` (mirrored under `dir="rtl"` like the back link), the
+   ratify tip names it by its words, and `soulUnratify` drops the ↺ in both
+   locales; the list is down to the flight log's ⟲ chip in web/ and
+   `startOver` in STRINGS. The screenshots refresh (`docs/screens/`) is still
+   open.
 
 ## Related
 

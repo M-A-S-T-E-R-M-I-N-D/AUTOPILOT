@@ -71,19 +71,11 @@ const TECHNICAL_EMOJI_PATTERN =
  *  outside every range above, yet each stands in for an icon exactly as 🔄
  *  did: a refresh, a re-run, an undo. The PR review panel's "↻ Re-run failed"
  *  and "⟳ Update branch" buttons took the vendored refresh-cw and git-merge
- *  icons (2026-09-30). Shrink-only: the sites and keys still painting one. */
+ *  icons, and the SOUL card's "↺ un-ratify" chip the vendored undo-2
+ *  (2026-09-30). Shrink-only: the sites and keys still painting one. */
 const CIRCULAR_ARROW_PATTERN = /[\u{21BA}\u{21BB}\u{27F2}\u{27F3}]/gu;
-const CIRCULAR_ARROW_WEB_SITES = [
-  'flight-metrics.ts: ⟲ (U+27f2)',
-  'shell.ts: ↺ (U+21ba)',
-  'shell.ts: ↺ (U+21ba)',
-];
-const CIRCULAR_ARROW_STRING_KEYS = [
-  'en.soulUnratify',
-  'en.startOver',
-  'he.soulUnratify',
-  'he.startOver',
-];
+const CIRCULAR_ARROW_WEB_SITES = ['flight-metrics.ts: ⟲ (U+27f2)'];
+const CIRCULAR_ARROW_STRING_KEYS = ['en.startOver', 'he.startOver'];
 
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })

@@ -229,6 +229,11 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' }],
     ['path', { d: 'M8 16H3v5' }],
   ],
+  // ↺ un-ratify → undo-2 (the SOUL card's undo of the last ratification)
+  'undo-2': [
+    ['path', { d: 'M9 14 4 9l5-5' }],
+    ['path', { d: 'M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11' }],
+  ],
   repeat: [
     ['path', { d: 'm17 2 4 4-4 4' }],
     ['path', { d: 'M3 11v-1a4 4 0 0 1 4-4h14' }],

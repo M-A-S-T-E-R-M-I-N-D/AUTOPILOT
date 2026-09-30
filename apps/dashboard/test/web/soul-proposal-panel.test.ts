@@ -358,6 +358,14 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('[data-soul-unratify]')?.getAttribute('data-i18n')).toBe(
       'soulUnratify',
     );
+    // Epic 0025: the vendored undo-2 icon leads the un-ratify chip instead of
+    // a baked-in ↺ glyph, and the ratify tip names the chip by its words.
+    const unratify = document.querySelector('[data-soul-unratify]');
+    expect(unratify?.firstElementChild?.getAttribute('class')).toBe('icon icon-undo-2');
+    expect(unratify?.textContent).toBe('un-ratify');
+    expect(document.querySelector('[data-soul-ratify]')?.getAttribute('data-tip')).toBe(
+      "Replace this project's live SOUL prompt with the proposed text above — undoable afterward with un-ratify",
+    );
   });
 
   it('switching to Hebrew via the language switcher translates the card immediately', async () => {
@@ -392,6 +400,8 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('[data-soul-unratify]')?.textContent).toBe(
       STRINGS.he.soulUnratify,
     );
+    // setSweptText() keeps the leading undo-2 icon across the sweep.
+    expect(document.querySelector('[data-soul-unratify] > svg.icon-undo-2')).not.toBeNull();
   });
 
   it('a card actions section rebuilt by a live refresh after a locale switch still renders in the active locale', async () => {
