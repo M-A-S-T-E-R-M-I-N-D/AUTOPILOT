@@ -14,7 +14,7 @@ import {
   RESTART_PENDING_LINE,
 } from '../../src/landing/restart-guard.js';
 
-const args = { folder: 'Z:/repo', laneCount: 5, firings: 2, budgetUsd: 30 };
+const args = { folder: '/srv/repo', laneCount: 5, firings: 2, budgetUsd: 30 };
 
 describe('guardFleetLaunch', () => {
   it('refuses a launch while a restart is pending, without calling the launcher', async () => {
