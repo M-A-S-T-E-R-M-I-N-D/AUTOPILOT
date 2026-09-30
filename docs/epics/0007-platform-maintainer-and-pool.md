@@ -11,10 +11,13 @@ endpoints (2026-08-16..17); canonical-lock, review ritual, and report-from-here
 remain open board slices; the contributor pool client (slice 6) shipped end to end —
 browse/claim/fly/deliver all landed; slice 7's publicity affordances have also
 shipped end to end — page upkeep continues as a live KEEPER duty, not a closeable
-deliverable (status refreshed 2026-09-28 — the strand-tasks security marker landed
-via commit dbe57b94, after the 2026-09-27 null-gh-row hardening across all four
-list readers: issue-triage, owned-work-reconcile, contributor-issue-list, and
-pr-review via commit 05f12a1b).
+deliverable (status refreshed 2026-09-30 — triage's issue read and the pool's
+now ask gh for up to 1000 rows instead of its silent default of 30, and the
+milestone read pages past the API's first 30, commits 8040cfe7 and 8b5e73af;
+before that the strand-tasks security marker landed via commit dbe57b94, after
+the 2026-09-27 null-gh-row hardening across all four list readers:
+issue-triage, owned-work-reconcile, contributor-issue-list, and pr-review via
+commit 05f12a1b).
 
 Founder directive (2026-08-14, expanding epic 0006): the moment the infrastructure
 lands, there is exactly ONE canonical main version. **MASTERMIND is the sole manager of
@@ -162,7 +165,25 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    there after the confirm dialog, once focus has long moved on, so a
    screen-reader user heard nothing when a real batch landed or failed;
    `test/web/issue-triage-result-live-region.test.ts` asserts both attributes
-   and that the outcome text lands in that same element.
+   and that the outcome text lands in that same element. Refined 2026-09-29
+   and 2026-09-30 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+   law): two of triage's reads stopped at gh's default of 30. `fetchOpenIssues`
+   passed no `--limit`, and gh answers the 30 newest, so on a repo with more
+   open issues than that the oldest never reached triage. It now asks for
+   `MAX_ISSUE_LIST` (1000, the most a `--label` list can return, since gh
+   serves one through the search API), exported from `issue-triage.ts` and
+   shared by every other `gh issue list` reader (pool, help-wanted,
+   contributor issues, roadmap, owned work, social pass);
+   `stale-claim-reaper.yml`'s list line passes the same number (8040cfe7).
+   `fetchRepoMilestones`, which decides whether an accepted issue's
+   `--milestone` names a milestone the repo really has (a flag that cannot
+   work is never sent, since 2026-09-22), now passes `--paginate`: the
+   endpoint answers 30 per page, so a milestone past the first page read as
+   absent and the issue went out with none (8b5e73af). Covered by
+   `test/flight/issue-triage.test.ts` (the exact-argv pins, the
+   `MAX_ISSUE_LIST` bounds, and a ritual test whose fake gh answers 30 per
+   page unless `--paginate` is passed) and `test/flight/taxonomy-seed.test.ts`
+   (the reaper's list line carries the same number).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
@@ -945,6 +966,10 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `test/web/execute-result-live-regions.test.ts` asserts it alongside the
    release panel's `.release-result` and the Docs editor's
    `.docs-editor-result`, the last two plain result elements in the app.
+   Refined 2026-09-29 (8040cfe7, the same sweep as slice 3's `--limit`
+   note): `fetchPoolIssues` now asks `gh issue list` for up to
+   `MAX_ISSUE_LIST` rows; with gh's default 30 newest, the oldest pool issues
+   were never shown, claimable, or checked by the stale-claim preview.
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
