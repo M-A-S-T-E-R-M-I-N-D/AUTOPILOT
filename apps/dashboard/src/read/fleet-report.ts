@@ -64,6 +64,10 @@ export function taskClass(title: string | null, subject: string | null): TaskCla
   return 'chore';
 }
 
+/** A firing's `died` when the account-wide quota killed it before it could
+ *  work (2026-09-29: round 37's ten firings each died in a second at $0). */
+export const QUOTA_DEATH = 'quota';
+
 /** How a firing ended. */
 export function firingOutcome(f: ReportFiring): string {
   if (f.died !== null) return `died (${f.died})`;
@@ -233,17 +237,29 @@ export function renderFleetReport(
   escalations: readonly ReportEscalation[] = [],
 ): string[] {
   const lines = [`fleet report — ${window}`, summaryLine('all', summarizeFirings(firings))];
-  const section = (title: string, key: (f: ReportFiring) => string): void => {
+  const section = (title: string, key: (f: ReportFiring) => string, pool = firings): void => {
     lines.push('', `by ${title}`);
-    for (const [k, g] of grouped(firings, key)) lines.push(summaryLine(k, summarizeFirings(g)));
+    for (const [k, g] of grouped(pool, key)) lines.push(summaryLine(k, summarizeFirings(g)));
+    const left = firings.length - pool.length;
+    if (left > 0) {
+      lines.push(`  left out: ${left} firing${left === 1 ? '' : 's'} the account quota killed`);
+    }
   };
   section('what it worked on', (f) => taskClass(f.title, f.subject));
   section('outcome', firingOutcome);
   section('lane', (f) => laneOf(f.firingId));
-  section('model', (f) => f.model ?? 'unrecorded');
+  // A firing the account-wide quota killed says nothing about the model it
+  // was routed to, so the model sections leave it out — as the model
+  // scoreboard and the benchmark do.
+  const judged = firings.filter((f) => f.died !== QUOTA_DEATH);
+  section('model', (f) => f.model ?? 'unrecorded', judged);
   // THE MODEL BENCHMARK (2026-09-25): arms compared on the same kind of work,
   // so a model is not credited for the easier tasks it happened to draw.
-  section('model and work', (f) => `${f.model ?? 'unrecorded'} · ${taskClass(f.title, f.subject)}`);
+  section(
+    'model and work',
+    (f) => `${f.model ?? 'unrecorded'} · ${taskClass(f.title, f.subject)}`,
+    judged,
+  );
   const c = summarizeConvergence(convergence);
   lines.push(
     '',

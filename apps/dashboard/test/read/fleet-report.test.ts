@@ -162,6 +162,33 @@ describe('renderFleetReport', () => {
   });
 });
 
+describe('renderFleetReport quota deaths (2026-09-29, round 37)', () => {
+  const quota: ReportFiring = { ...base, shipped: false, died: 'quota', costUsd: 0, model: 'opus' };
+
+  it('counts them in the round, but leaves them out of the model sections and says how many', () => {
+    const text = renderFleetReport(
+      [base, quota, { ...quota, firingId: 'fly-autopilot--fleet-2:firing-3' }],
+      [],
+      'w',
+    ).join('\n');
+    expect(text).toMatch(/^ {2}all +3 firings/m);
+    expect(text).toMatch(/^ {2}died \(quota\) +2 firings/m);
+    expect(text).toMatch(/^by model\n {2}claude-sonnet-5 +1 firings {2}shipped 100%/m);
+    expect(text).not.toMatch(/^ {2}opus/m);
+    expect(text).toContain('  left out: 2 firings the account quota killed\n\nby model and work');
+    expect(text).toContain(
+      '  left out: 2 firings the account quota killed\n\nconvergence after sync-back',
+    );
+  });
+
+  it('prints no note when the quota killed none, and says it of one firing in the singular', () => {
+    expect(renderFleetReport([base], [], 'w').join('\n')).not.toContain('left out');
+    expect(renderFleetReport([quota], [], 'w').join('\n')).toContain(
+      'by model\n  left out: 1 firing the account quota killed\n',
+    );
+  });
+});
+
 describe('renderFleetReport parked lanes (2026-09-25)', () => {
   it('lists lanes whose commits never reached the flight branch, and says none otherwise', () => {
     const parked = renderFleetReport([], [], 'w', [

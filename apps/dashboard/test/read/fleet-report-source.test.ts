@@ -100,6 +100,25 @@ describe('readReportFirings', () => {
     });
     expect(rows[1]).toMatchObject({ title: null, subject: 'feat: x', shipped: true, died: null });
   });
+
+  it('names a firing the account quota killed a quota death, not an error (2026-09-29, round 37)', () => {
+    const record = (firingId: string, payload: unknown): void => {
+      store.db
+        .prepare(
+          `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+           VALUES ('fly-a', ?, 'firing', ?, 100)`,
+        )
+        .run(firingId, JSON.stringify(payload));
+    };
+    firing('fly-a', 'fly-a:firing-1', null, 0, 100);
+    record('fly-a:firing-1', { isError: true, globalExhaust: true });
+    firing('fly-a', 'fly-a:firing-2', null, 0, 100);
+    record('fly-a:firing-2', { isError: true, globalExhaust: false });
+    expect(readReportFirings(store.db, 'fly-a', 100).map((r) => r.died)).toEqual([
+      'quota',
+      'error',
+    ]);
+  });
 });
 
 describe('readReportConvergence', () => {
