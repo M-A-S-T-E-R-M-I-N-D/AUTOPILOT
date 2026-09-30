@@ -143,6 +143,14 @@ export async function withCheckoutRitualLock<T>(
       : null;
   const syncBack = options.syncBack ?? {};
   const lock = await syncBackLock(checkout, syncBack);
+  // Stryker disable next-line ConditionalExpression: forcing this guard to
+  // `false` is unobservable — a null lock (outside a repository) then reaches
+  // `withSyncBackMutex`, whose `tryAcquire` catches `null.acquire()`'s
+  // TypeError as `unavailable`, and the `unavailable` branch below runs the
+  // ritual anyway: the same outcome by another path. Provably equivalent, not
+  // killable. Skipping the sync-back lock inside a repository (the `true`
+  // side) stays covered: EqualityOperator's `!==` mutant does exactly that,
+  // and the sync-back tests kill it.
   if (lock === null) return ritual();
   const outcome = await withSyncBackMutex(lock, syncBack, ritual);
   if (outcome.acquired) return outcome.result;
