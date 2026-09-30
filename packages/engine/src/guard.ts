@@ -71,13 +71,17 @@ function isUnderRoot(pathToken: string, root: string): boolean {
 const SAFE_DEVICE_PATH = /^\/dev\/(?:null|stdin|stdout|stderr|tty)$/i;
 
 // Home-directory references — where credentials live; never legitimate in-flight.
+// Git Bash on Windows inherits USERPROFILE, APPDATA, LOCALAPPDATA and HOMEPATH
+// from the Windows environment (ap-muoadbyf-0), so Bash's `$USERPROFILE` is
+// the same place as cmd's `%USERPROFILE%`. Bash names are case-sensitive, like
+// TEMP_DIR_REF below; `\b` keeps a longer name like `$APPDATA_DIR` out.
 const HOME_REF =
-  /(?:^|[\s"'`;|&<>(=])~(?:[\\/]|$|[\s"'`;|&<>)])|\$\{?HOME\}?|%USERPROFILE%|%APPDATA%|%HOMEPATH%/;
+  /(?:^|[\s"'`;|&<>(=])~(?:[\\/]|$|[\s"'`;|&<>)])|\$\{?HOME\}?|\$\{?(?:USERPROFILE|APPDATA|LOCALAPPDATA|HOMEPATH)\b|%USERPROFILE%|%APPDATA%|%LOCALAPPDATA%|%HOMEPATH%/;
 // The same places as PowerShell spells them (ap-muniun5g-2): `$env:X` or
 // `${env:X}` for the variables above, and the automatic `$HOME`. PowerShell
 // variable names are case-insensitive, so `$home` and `$Env:UserProfile`
 // are the same reference; `\b` keeps a longer name like `$homepage` out.
-const POWERSHELL_HOME_REF = /\$\{?(?:env:(?:USERPROFILE|APPDATA|HOMEPATH)|home)\b/i;
+const POWERSHELL_HOME_REF = /\$\{?(?:env:(?:USERPROFILE|APPDATA|LOCALAPPDATA|HOMEPATH)|home)\b/i;
 
 // The system temp directory (ap-muniun5k-3): outside every target, so firing
 // 606's redirect into "$TMPDIR/x" wrote a file no gate, census or audit of the
