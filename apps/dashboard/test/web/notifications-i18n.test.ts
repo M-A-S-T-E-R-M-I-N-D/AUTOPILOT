@@ -51,12 +51,17 @@ describe('the Notifications channel reads its control tips and hints from STRING
     expect(out).not.toMatch(/setNotifyHint\(['"]Notifications are not supported/);
   });
 
+  it('reads the "could not show" hint from STRINGS at call time, not a hardcoded literal', () => {
+    expect(out).toContain("setNotifyHint(tr('notifyFailedHint'));");
+  });
+
   const keys: StringKey[] = [
     'notifyEnableTip',
     'notifyQuietStartTip',
     'notifyQuietEndTip',
     'notifyBlockedHint',
     'notifyUnsupportedHint',
+    'notifyFailedHint',
   ];
 
   it('every new key exists in every locale', () => {
