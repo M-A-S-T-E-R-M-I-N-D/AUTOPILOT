@@ -92,6 +92,20 @@ describe('GitVcs', () => {
     expect(await vcs.stashLeftovers('empty')).toBe(true);
   });
 
+  it('reports a stash git refused as not set aside, even when the tree it leaves is clean', async () => {
+    // A repo with no commit yet: `git stash push` exits 1 ("You do not have
+    // the initial commit yet") over a tree `git status` reads as clean.
+    const unborn = mkdtempSync(join(tmpdir(), 'autopilot-git-unborn-'));
+    initRepo(unborn);
+    try {
+      const fresh = new GitVcs(unborn);
+      expect(await fresh.isDirty()).toBe(false);
+      expect(await fresh.stashLeftovers('nothing to stash onto')).toBe(false);
+    } finally {
+      rmSync(unborn, { recursive: true, force: true });
+    }
+  });
+
   it('reads HEAD and the last commit', async () => {
     expect(await vcs.head()).toMatch(/^[0-9a-f]{40}$/);
     const last = await vcs.lastCommit();
@@ -402,8 +416,11 @@ describe('GitVcs', () => {
     // so a git error (exit 128 here) read as a no-match turns every closed
     // clause into a false drift proposal on the board.
     const missing = new GitVcs(join(dir, 'does-not-exist'));
-    await expect(missing.containsText('one')).rejects.toThrow(/git grep failed/);
-    await expect(missing.filesContainingText('one')).rejects.toThrow(/git grep failed/);
+    const gitGrepError = {
+      message: expect.stringMatching(/^git grep failed \(exit 128\): \S/),
+    };
+    await expect(missing.containsText('one')).rejects.toMatchObject(gitGrepError);
+    await expect(missing.filesContainingText('one')).rejects.toMatchObject(gitGrepError);
   });
 
   it('commitPaths commits ONLY the given paths, leaving unrelated WIP untouched (the ritual-sweep fix)', async () => {
@@ -2000,6 +2017,35 @@ describe('readTagSignature', () => {
     expect(readTagSignature('v1.0.0', 0, '').details).toBe("tag 'v1.0.0' is signed");
   });
 
+  it("quotes the verifier's first line with text in it, trimmed — blank and whitespace-only lines ahead of it are skipped", () => {
+    const raw = '\n  \t\n  Good "git" signature for op@example.invalid  \n';
+
+    expect(readTagSignature('v1.0.0', 0, raw).details).toBe(
+      'tag \'v1.0.0\' is signed (Good "git" signature for op@example.invalid)',
+    );
+  });
+
+  it('reads only [GNUPG:] status lines — a verifier line that happens to name a keyword is not one', () => {
+    // "warning: " is exactly as long as the "[GNUPG:] " prefix.
+    const raw = "warning: NO_PUBKEY 1234567890ABCDEF\nerror: could not verify the tag 'v1.0.0'\n";
+
+    expect(readTagSignature('v1.0.0', 1, raw).details).toBe(
+      "git verify-tag failed (exit 1): warning: NO_PUBKEY 1234567890ABCDEF\nerror: could not verify the tag 'v1.0.0'",
+    );
+  });
+
+  it('marks a missing public key gpg did not name with a "?", never an empty id', () => {
+    expect(readTagSignature('v1.0.0', 1, '[GNUPG:] NO_PUBKEY\n').details).toBe(
+      "tag 'v1.0.0' is signed by a key this machine does not hold (gpg: NO_PUBKEY ?)",
+    );
+  });
+
+  it('names "an unnamed key" when VALIDSIG carries no fingerprint at all', () => {
+    expect(readTagSignature('v1.0.0', 0, '[GNUPG:] VALIDSIG\n').details).toBe(
+      "tag 'v1.0.0' is signed by an unnamed key",
+    );
+  });
+
   it('never passes a non-zero exit, even when every status line looks good, and keeps the reason', () => {
     const result = readTagSignature('v1.0.0', 1, "error: tag 'v1.0.0' not found.\n");
 
@@ -2093,6 +2139,30 @@ describe('readSigningKeyListing', () => {
     });
   });
 
+  it("takes the key's own fingerprint, not a designated revoker's — gpg lists an rvk record between pub and fpr", () => {
+    const [pub, ...rest] = ONE_KEY.split('\n');
+    const withRevoker = [
+      pub,
+      'rvk:::22::::::0000111122223333444455556666777788889999:80:',
+      ...rest,
+    ].join('\n');
+
+    expect(readSigningKeyListing(0, withRevoker, '')).toEqual({
+      fingerprint: FIXTURE_FINGERPRINT,
+    });
+  });
+
+  it('reads the fpr that follows the pub record, never one listed ahead of it', () => {
+    const secretFirst =
+      'sec:-:255:22:1111222233334444:1790408598:::-:::scSC:::::ed25519:::0:\n' +
+      'fpr:::::::::0000111122223333444455556666777788889999:\n' +
+      ONE_KEY;
+
+    expect(readSigningKeyListing(0, secretFirst, '')).toEqual({
+      fingerprint: FIXTURE_FINGERPRINT,
+    });
+  });
+
   it('refuses a file that lists two keys — one key signs, one fingerprint is published', () => {
     const twoKeys = ONE_KEY + ONE_KEY.replace(FIXTURE_FINGERPRINT, 'FFFF'.repeat(10));
 
@@ -2115,6 +2185,21 @@ describe('readSigningKeyListing', () => {
 
   it("quotes gpg's last stderr line on a non-zero exit — the keybox-created noise comes first, the reason last", () => {
     const stderr = "gpg: keybox '/tmp/x/pubring.kbx' created\ngpg: no valid OpenPGP data found.\n";
+
+    expect(readSigningKeyListing(2, '', stderr)).toEqual({
+      problem:
+        'gpg could not list docs/SIGNING-KEY.asc (exit 2: gpg: no valid OpenPGP data found.)',
+    });
+  });
+
+  it('takes the last line with text in it, trimmed — past any number of notices and a whitespace-only tail', () => {
+    const stderr = [
+      "gpg: keybox '/tmp/x/pubring.kbx' created",
+      'gpg: WARNING: unsafe permissions on homedir',
+      '  gpg: no valid OpenPGP data found.  ',
+      ' \t ',
+      '',
+    ].join('\n');
 
     expect(readSigningKeyListing(2, '', stderr)).toEqual({
       problem:

@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isBetweenFirings,
   parseSocialFlightToggle,
+  parseSocialInterests,
   shouldRunSocialFlight,
 } from '../../src/flight/social-flight-trigger.js';
 
@@ -85,5 +86,43 @@ describe('isBetweenFirings — the interval phase is BETWEEN firings, never afte
 
   it('is false, never a negative gap, when completed somehow exceeds planned', () => {
     expect(isBetweenFirings(4, 3)).toBe(false);
+  });
+});
+
+describe('parseSocialInterests — the operator interests STANDING 4/5 matches against', () => {
+  it('splits a comma-separated list into trimmed keywords, in the order given', () => {
+    expect(parseSocialInterests('accessibility, windows ,docs')).toEqual([
+      'accessibility',
+      'windows',
+      'docs',
+    ]);
+  });
+
+  it('keeps a multi-word keyword as one phrase', () => {
+    expect(parseSocialInterests('dark mode, screen reader')).toEqual([
+      'dark mode',
+      'screen reader',
+    ]);
+  });
+
+  it('folds case, since the match against issue titles is case-insensitive', () => {
+    expect(parseSocialInterests('Windows,CLI')).toEqual(['windows', 'cli']);
+  });
+
+  it('drops blank entries left by stray, doubled or trailing commas', () => {
+    expect(parseSocialInterests(',docs,, ,windows,')).toEqual(['docs', 'windows']);
+  });
+
+  it('keeps the first of any keyword repeated in another case or spacing', () => {
+    expect(parseSocialInterests('docs, Docs ,DOCS,windows')).toEqual(['docs', 'windows']);
+  });
+
+  it('is empty when the variable is unset — no interests means nothing to suggest', () => {
+    expect(parseSocialInterests(undefined)).toEqual([]);
+  });
+
+  it('is empty for an empty or all-blank value', () => {
+    expect(parseSocialInterests('')).toEqual([]);
+    expect(parseSocialInterests('  , ,, ')).toEqual([]);
   });
 });

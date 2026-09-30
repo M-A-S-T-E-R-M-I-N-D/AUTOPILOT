@@ -67,6 +67,16 @@ const EMOJI_PATTERN =
 const TECHNICAL_EMOJI_PATTERN =
   /[\u{231A}\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}]/gu;
 
+/** Circular arrows — ↺ ↻ (Arrows) and ⟲ ⟳ (Supplemental Arrows-A) — sit
+ *  outside every range above, yet each stands in for an icon exactly as 🔄
+ *  did: a refresh, a re-run, an undo. The PR review panel's "↻ Re-run failed"
+ *  and "⟳ Update branch" buttons took the vendored refresh-cw and git-merge
+ *  icons, and the SOUL card's "↺ un-ratify" chip the vendored undo-2
+ *  (2026-09-30). Shrink-only: the sites and keys still painting one. */
+const CIRCULAR_ARROW_PATTERN = /[\u{21BA}\u{21BB}\u{27F2}\u{27F3}]/gu;
+const CIRCULAR_ARROW_WEB_SITES = ['flight-metrics.ts: ⟲ (U+27f2)'];
+const CIRCULAR_ARROW_STRING_KEYS = ['en.startOver', 'he.startOver'];
+
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map((f) => String(f))
@@ -113,6 +123,10 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
   it('bakes no Miscellaneous Technical emoji into any web/ source file outside comments', () => {
     const offenders = webOffenders(files, TECHNICAL_EMOJI_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('paints a circular-arrow glyph-icon only at the shrink-only list of sites', () => {
+    expect(webOffenders(files, CIRCULAR_ARROW_PATTERN)).toEqual(CIRCULAR_ARROW_WEB_SITES);
   });
 
   it('matches ⏭/⏱ but leaves the ⌘ key name alone', () => {
@@ -175,6 +189,10 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
 
   it('bakes no Miscellaneous Technical emoji into any locale value', () => {
     expect(emojiBearingStringKeys(TECHNICAL_EMOJI_PATTERN)).toEqual([]);
+  });
+
+  it('carries a circular-arrow glyph-icon only in the shrink-only list of keys', () => {
+    expect(emojiBearingStringKeys(CIRCULAR_ARROW_PATTERN)).toEqual(CIRCULAR_ARROW_STRING_KEYS);
   });
 
   it('leads with no Geometric Shapes glyph-icon in any locale value', () => {

@@ -464,6 +464,11 @@ describe('the update-branch button appears exactly when it can help', () => {
     const merge = document.querySelector('[data-pr-human-merge]') as HTMLButtonElement;
     expect(merge.disabled).toBe(true);
     expect(merge.getAttribute('data-tip')).toContain('behind base');
+    // Epic 0025: the vendored git-merge icon (the button merges the base in)
+    // leads the label instead of a baked-in ⟳ glyph.
+    const update = document.querySelector('[data-pr-update-branch]') as HTMLButtonElement;
+    expect(update.querySelector('svg.icon-git-merge')).not.toBeNull();
+    expect(update.textContent).toBe('Update branch');
   });
 
   it('stays away when the PR is simply ready to merge', async () => {
@@ -577,7 +582,9 @@ describe('a refused action leaves its reason on screen and its button usable', (
     // The reason must survive: a refusal changes nothing, so nothing
     // re-renders it away, and the same click can be tried again.
     expect(button.disabled).toBe(false);
-    expect(button.textContent).toBe('↻ Re-run failed');
+    // Epic 0025: the vendored refresh-cw icon instead of a baked-in ↻ glyph.
+    expect(button.querySelector('svg.icon-refresh-cw')).not.toBeNull();
+    expect(button.textContent).toBe('Re-run failed');
     expect(document.querySelector('.pr-review-result')?.className).toContain('fail');
   });
 });

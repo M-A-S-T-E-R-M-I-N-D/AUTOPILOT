@@ -229,6 +229,11 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' }],
     ['path', { d: 'M8 16H3v5' }],
   ],
+  // ↺ un-ratify → undo-2 (the SOUL card's undo of the last ratification)
+  'undo-2': [
+    ['path', { d: 'M9 14 4 9l5-5' }],
+    ['path', { d: 'M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11' }],
+  ],
   repeat: [
     ['path', { d: 'm17 2 4 4-4 4' }],
     ['path', { d: 'M3 11v-1a4 4 0 0 1 4-4h14' }],
@@ -301,6 +306,12 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['circle', { cx: '6', cy: '6', r: '3' }],
     ['path', { d: 'M13 6h3a2 2 0 0 1 2 2v7' }],
     ['line', { x1: '6', x2: '6', y1: '9', y2: '21' }],
+  ],
+  // ⟳ Update branch → git-merge (the button merges the base in)
+  'git-merge': [
+    ['circle', { cx: '18', cy: '18', r: '3' }],
+    ['circle', { cx: '6', cy: '6', r: '3' }],
+    ['path', { d: 'M6 21V9a9 9 0 0 0 9 9' }],
   ],
   clock: [
     ['circle', { cx: '12', cy: '12', r: '10' }],

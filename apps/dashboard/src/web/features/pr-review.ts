@@ -405,10 +405,12 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
       actions.appendChild(prPanelButton('pr-review-human-merge', 'Merge as maintainer',
         'data-pr-human-merge', plan.pr.number, readiness.reason, !readiness.ready, 'handshake'));
       if (readiness.hasFailedChecks) {
-        actions.appendChild(prPanelButton('pr-review-update-branch', '↻ Re-run failed',
+        // Epic 0025 icon system: refresh-cw and (below) git-merge replace the
+        // ↻/⟳ glyphs these two labels used to bake in.
+        actions.appendChild(prPanelButton('pr-review-update-branch', 'Re-run failed',
           'data-pr-rerun-checks', plan.pr.number,
           'Restart only the jobs that failed, not the whole matrix. For a flake — a real failure fails again.',
-          false));
+          false, 'refresh-cw'));
         // The Diagnose button (epic 0020 slice 8) — re-run is the right
         // answer to a flake and useless against a real defect. Read-only: it
         // never mutates anything, so it renders enabled beside a failed
@@ -422,10 +424,10 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
           false, 'wrench');
       }
       if (readiness.behindBase) {
-        actions.appendChild(prPanelButton('pr-review-update-branch', '⟳ Update branch',
+        actions.appendChild(prPanelButton('pr-review-update-branch', 'Update branch',
           'data-pr-update-branch', plan.pr.number,
           'Merge the current base into this branch so protection lets it merge. Restarts every check on the new head.',
-          false));
+          false, 'git-merge'));
       }
     }
     // Role gate (epic 0019 law 1 extended to the UI, board web-mtt3f7j6-3bj899):

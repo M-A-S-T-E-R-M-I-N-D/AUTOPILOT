@@ -1631,7 +1631,7 @@ function soulProposalPanel(projectId, proposedText) {
   details.appendChild(summaryEl);
   details.appendChild(el('pre', 'soul-proposal-text', proposedText));
   var row = el('div', 'soul-proposal-row');
-  var ratifyTip = "Replace this project's live SOUL prompt with the proposed text above — undoable afterward with ↺ un-ratify";
+  var ratifyTip = "Replace this project's live SOUL prompt with the proposed text above — undoable afterward with un-ratify";
   var ratifyBtn = el('button', 'soul-ratify-btn', '✓ ratify');
   ratifyBtn.setAttribute('type', 'button');
   ratifyBtn.setAttribute('data-i18n', 'soulRatify');
@@ -1655,11 +1655,15 @@ function soulProposalPanel(projectId, proposedText) {
 // SQL edit (the incident that opened this item: an operator ratified by
 // mistake and had the flag "restored by hand"). Shown exactly as long as the
 // store has a soul_previous snapshot to restore (cleared by the next ratify
-// or by using this chip); POST handler below.
+// or by using this chip); POST handler below. Epic 0025: a leading undo-2
+// icon replaces the baked-in ↺ glyph; setSweptText() keeps it across a
+// locale switch, and the click handler never rewrites the label.
 function soulUnratifyChip(projectId) {
   var wrap = el('div', 'soul-unratify-row');
   var tip = "Undo the last SOUL ratification — restores this project's SOUL text to what it was before";
-  var btn = el('button', 'soul-unratify-btn', '↺ un-ratify');
+  var btn = el('button', 'soul-unratify-btn');
+  btn.appendChild(iconEl('undo-2'));
+  btn.appendChild(document.createTextNode('un-ratify'));
   btn.setAttribute('type', 'button');
   btn.setAttribute('data-i18n', 'soulUnratify');
   btn.setAttribute('data-soul-unratify', projectId);
@@ -3649,7 +3653,7 @@ document.addEventListener('click', function (e) {
 });
 // Apply a pending SOUL proposal (✓ ratify) — SOUL evolution loop, B5 closure.
 // Confirmed: this overwrites the project's live SOUL prompt (undoable
-// afterward with ↺ un-ratify, below — board web-mswqemor-ab3jsu).
+// afterward with un-ratify, below — board web-mswqemor-ab3jsu).
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-soul-ratify]');
   if (!b) return;
@@ -3663,7 +3667,7 @@ document.addEventListener('click', function (e) {
     .then(function () { refresh(); })
     .catch(function () { b.disabled = false; });
 });
-// Undo a ratified SOUL proposal (↺ un-ratify) — SOUL evolution loop, board
+// Undo a ratified SOUL proposal (un-ratify) — SOUL evolution loop, board
 // web-mswqemor-ab3jsu: the fix for "founder ratified by MISTAKE; flag
 // restored by hand" — a click instead of a manual SQL edit. Confirmed: this
 // overwrites the live SOUL prompt with the pre-ratify snapshot.
