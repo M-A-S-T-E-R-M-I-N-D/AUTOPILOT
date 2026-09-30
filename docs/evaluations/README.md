@@ -14,7 +14,10 @@ work it judges.
 ## What a round records
 
 - **Outcomes:** how many firings shipped, died or were reverted, broken down
-  by the kind of work, the lane and the model that served each firing.
+  by the kind of work, the lane and the model that served each firing. A
+  firing the account's quota killed before it could work reads as
+  `died (quota)`: it counts in the round, but not against its model, and the
+  model sections say how many they left out.
 - **Cost:** total spend, cost per shipped commit, and median minutes.
 - **Convergence:** how the merged head fared after each sync-back, split
   into reds on a lane's own commit, reds on a merge, and gates that gave no
