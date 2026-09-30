@@ -95,16 +95,65 @@ describe('readLatestMutationRed', () => {
       JSON.stringify([{ databaseId: 9, conclusion: 'success', createdAt: '2026-09-29T15:33:26Z' }]),
     );
     expect(readLatestMutationRed(gh, 'o/r')).toEqual({
-      startedAt: Date.parse('2026-09-29T15:33:26Z'),
+      evidenceAt: Date.parse('2026-09-29T15:33:26Z'),
       red: [],
     });
     expect(gh).toHaveBeenCalledTimes(1);
-    expect(gh.mock.calls[0]![0]).toContain('databaseId,conclusion,createdAt');
+    expect(gh.mock.calls[0]![0]).toContain('databaseId,conclusion,createdAt,headSha');
   });
 
   it('takes a run with no readable start as the oldest possible', () => {
     const gh = () => JSON.stringify([{ databaseId: 9, conclusion: 'success', createdAt: 'soon' }]);
-    expect(readLatestMutationRed(gh, 'o/r')?.startedAt).toBe(0);
+    expect(readLatestMutationRed(gh, 'o/r')?.evidenceAt).toBe(0);
+  });
+
+  /** The 2026-09-30 timeline: a 14:59 dispatch judged a head landed at 11:46;
+   *  the fix had closed its task at 12:02. */
+  const RUN = { databaseId: 9, conclusion: 'failure', createdAt: '2026-09-30T14:59:03Z' };
+  const HEAD = '82f45dd788135592f72e5d0dd0c1a4880b05e7b1';
+  const HEAD_COMMITTED = '2026-09-30T11:46:53Z';
+  function redRunGh(commit: (sha: string) => string) {
+    return vi.fn((args: readonly string[]): string => {
+      if (args[0] === 'run') return JSON.stringify([{ ...RUN, headSha: HEAD }]);
+      if (args[1] === `repos/o/r/commits/${HEAD}`) return commit(HEAD);
+      if (args[1] === 'repos/o/r/actions/runs/9/jobs?per_page=50') {
+        return JSON.stringify({ jobs: [{ id: 1, conclusion: 'failure' }] });
+      }
+      if (args[1] === 'repos/o/r/actions/jobs/1/logs') return shardLog();
+      throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    });
+  }
+
+  it("dates a red run's evidence by the commit it judged, not by when it started (2026-09-30)", () => {
+    // The run's start is the wrong bound: the fix at 12:02 was older than the
+    // 14:59 start and newer than everything the run saw, so the watch filed
+    // the config again and the next nightly closed it.
+    const gh = redRunGh(() =>
+      JSON.stringify({ sha: HEAD, commit: { committer: { date: HEAD_COMMITTED } } }),
+    );
+    const run = readLatestMutationRed(gh, 'o/r');
+    expect(run?.evidenceAt).toBe(Date.parse(HEAD_COMMITTED));
+    expect(run?.red.map((r) => r.config)).toEqual([
+      'stryker.ci-audit-board-flood.config.mjs',
+      'stryker.dashboard-lock.config.mjs',
+    ]);
+    expect(gh).toHaveBeenCalledTimes(4);
+  });
+
+  it("falls back to the run's start when the judged commit cannot be read", () => {
+    const unreadable = readLatestMutationRed(
+      redRunGh(() => {
+        throw new Error('HTTP 404');
+      }),
+      'o/r',
+    );
+    expect(unreadable?.evidenceAt).toBe(Date.parse(RUN.createdAt));
+    expect(unreadable?.red).toHaveLength(2);
+    const undated = readLatestMutationRed(
+      redRunGh(() => JSON.stringify({ sha: HEAD, commit: {} })),
+      'o/r',
+    );
+    expect(undated?.evidenceAt).toBe(Date.parse(RUN.createdAt));
   });
 
   it('is null when there is no completed run', () => {
@@ -179,16 +228,16 @@ describe('syncMutationRedTasks', () => {
     );
   });
 
-  it('does not refile a config fixed after the run it reads began, but does once a later run is still red (2026-09-30)', () => {
+  it("does not refile a config fixed after the run's evidence was cut, but does once a later run is still red (2026-09-30)", () => {
     // Every landing re-read the same pre-fix nightly run and re-filed nine
     // configs the lanes had just closed as fixed.
     const run = [red('stryker.engine-gate.config.mjs')];
     syncMutationRedTasks(store, 'p1', run, 10, 5);
     const id = (store.db.prepare('SELECT id FROM tasks').get() as { id: string }).id;
     store.db.prepare("UPDATE tasks SET status = 'done', updated_at = 50 WHERE id = ?").run(id);
-    // A landing at 100 reads the run that began at 5, before the fix at 50.
+    // A landing at 100 reads the run whose evidence was cut at 5, before the fix at 50.
     expect(syncMutationRedTasks(store, 'p1', run, 100, 5)).toEqual({ filed: 0, closed: 0 });
-    // The next nightly run began at 200, after the fix, and is still red.
+    // The next nightly run judged a head cut at 200, after the fix, and is still red.
     expect(syncMutationRedTasks(store, 'p1', run, 300, 200)).toEqual({ filed: 1, closed: 0 });
   });
 
