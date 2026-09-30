@@ -1134,11 +1134,19 @@ export function parseAssignees(raw: unknown): readonly string[] {
  * milestones instead — this one has four, none of them house titles — got a
  * `--milestone V1` on every accepted issue that silently did nothing, for as
  * long as the ritual has existed (found by running it, 2026-09-22).
+ *
+ * `--paginate` because the endpoint answers 30 per page by default
+ * (docs.github.com/en/rest/issues/milestones: `per_page` "Default: 30"), and
+ * a milestone past the first page read as absent: the accepted issue then got
+ * no milestone the repo does have. gh applies `--jq` to each page, so the
+ * titles still arrive one per line (the reaper workflow's timeline read uses
+ * `--paginate -q` the same way).
  */
 export async function fetchRepoMilestones(exec: CliExec): Promise<readonly string[]> {
   const { code, stdout } = await exec('gh', [
     'api',
     'repos/{owner}/{repo}/milestones',
+    '--paginate',
     '--jq',
     '.[].title',
   ]);
