@@ -42,6 +42,7 @@ const FAILED_RE = /^run-all-mutation: FAILED(?: —)? (stryker\.[a-z0-9-]+\.conf
 const SURVIVED_RE = /^\[Survived\] (\S+)/;
 const LOCATION_RE = /^(\S+?):(\d+):\d+$/;
 const TASK_TITLE_RE = /^MUTATION RED: (stryker\.[a-z0-9-]+\.config\.mjs):/;
+const OPEN_STATUSES = new Set(['queued', 'in_progress', 'needs_approval']);
 /** How many survivors a task body lists before it says "and N more". */
 const SHOWN_SURVIVORS = 40;
 const SHOWN_LINE_CHARS = 140;
@@ -118,28 +119,44 @@ function bodyOf(red: MutationRedConfig): string {
   ].join('\n');
 }
 
-/** File a task for each red config that has none open; close the open task
- *  of each config the latest run no longer lists as red. */
+/**
+ * File a task for each red config that has none open; close the open task
+ * of each config the latest run no longer lists as red.
+ *
+ * `runStartedAt` is when that run began. A config whose task was closed at
+ * or after it is not filed again: the fix is newer than the evidence, so
+ * the next nightly run decides (2026-09-30: every landing re-read the same
+ * pre-fix run and re-filed nine configs the lanes had just fixed, which the
+ * next round could have spent its firings redoing).
+ */
 export function syncMutationRedTasks(
   store: Store,
   projectId: string,
   red: readonly MutationRedConfig[],
   now: number,
+  runStartedAt = 0,
 ): { filed: number; closed: number } {
-  const open = store.db
+  const rows = store.db
     .prepare(
-      `SELECT id, title FROM tasks WHERE project_id = ? AND title LIKE ?
-         AND status IN ('queued', 'in_progress', 'needs_approval')`,
+      `SELECT id, title, status, updated_at FROM tasks WHERE project_id = ? AND title LIKE ?`,
     )
-    .all(projectId, `${TITLE_PREFIX}%`) as { id: string; title: string }[];
+    .all(projectId, `${TITLE_PREFIX}%`) as {
+    id: string;
+    title: string;
+    status: string;
+    updated_at: number;
+  }[];
   const tracked = new Map<string, string>();
-  for (const t of open) {
-    const m = TASK_TITLE_RE.exec(t.title);
-    if (m) tracked.set(m[1]!, t.id);
+  const fixedSinceRun = new Set<string>();
+  for (const t of rows) {
+    const config = TASK_TITLE_RE.exec(t.title)?.[1];
+    if (config === undefined) continue;
+    if (OPEN_STATUSES.has(t.status)) tracked.set(config, t.id);
+    else if (t.status === 'done' && t.updated_at >= runStartedAt) fixedSinceRun.add(config);
   }
   let filed = 0;
   for (const r of red) {
-    if (tracked.has(r.config)) continue;
+    if (tracked.has(r.config) || fixedSinceRun.has(r.config)) continue;
     const slug = r.config.replace(/^stryker\.|\.config\.mjs$/g, '');
     const created = createTask(store, {
       id: `mutred-${slug}-${now.toString(36)}`,
@@ -161,9 +178,15 @@ export function syncMutationRedTasks(
   return { filed, closed };
 }
 
-/** The latest completed mutation.yml run's red configs: [] when it passed,
- *  null when there is no completed run to read. */
-export function readLatestMutationRed(gh: GhRun, repo: string): MutationRedConfig[] | null {
+/** One completed mutation.yml run: when it started, and its red configs
+ *  (none when it passed). */
+export interface MutationRun {
+  readonly startedAt: number;
+  readonly red: readonly MutationRedConfig[];
+}
+
+/** The latest completed mutation.yml run; null when there is none to read. */
+export function readLatestMutationRed(gh: GhRun, repo: string): MutationRun | null {
   const runs = JSON.parse(
     gh([
       'run',
@@ -177,12 +200,16 @@ export function readLatestMutationRed(gh: GhRun, repo: string): MutationRedConfi
       '--limit',
       '1',
       '--json',
-      'databaseId,conclusion',
+      'databaseId,conclusion,createdAt',
     ]),
-  ) as { databaseId?: unknown; conclusion?: unknown }[];
+  ) as { databaseId?: unknown; conclusion?: unknown; createdAt?: unknown }[];
   const latest = runs[0];
   if (!latest || typeof latest.databaseId !== 'number') return null;
-  if (latest.conclusion === 'success') return [];
+  const parsed = typeof latest.createdAt === 'string' ? Date.parse(latest.createdAt) : NaN;
+  // A run with no readable start is taken as the oldest possible: nothing
+  // closed is ever held back on its account.
+  const startedAt = Number.isFinite(parsed) ? parsed : 0;
+  if (latest.conclusion === 'success') return { startedAt, red: [] };
   const jobs = JSON.parse(
     gh(['api', `repos/${repo}/actions/runs/${latest.databaseId}/jobs?per_page=50`]),
   ) as { jobs?: { id?: unknown; conclusion?: unknown }[] };
@@ -193,5 +220,5 @@ export function readLatestMutationRed(gh: GhRun, repo: string): MutationRedConfi
       byConfig.set(red.config, red);
     }
   }
-  return [...byConfig.values()];
+  return { startedAt, red: [...byConfig.values()] };
 }
