@@ -133,6 +133,7 @@ describe('readLatestMutationRed', () => {
     );
     const run = readLatestMutationRed(gh, 'o/r');
     expect(run?.evidenceAt).toBe(Date.parse(HEAD_COMMITTED));
+    expect(run?.judged).toBe('82f45dd788');
     expect(run?.red.map((r) => r.config)).toEqual([
       'stryker.ci-audit-board-flood.config.mjs',
       'stryker.dashboard-lock.config.mjs',
@@ -154,6 +155,23 @@ describe('readLatestMutationRed', () => {
       'o/r',
     );
     expect(undated?.evidenceAt).toBe(Date.parse(RUN.createdAt));
+    // The head itself was readable, so the tasks can still name it.
+    expect(undated?.judged).toBe('82f45dd788');
+  });
+
+  it('names no judged commit when the run reports a head that is not a commit id', () => {
+    const gh = vi.fn((args: readonly string[]): string => {
+      if (args[0] === 'run') return JSON.stringify([{ ...RUN, headSha: 'main; rm -rf /' }]);
+      if (args[1] === 'repos/o/r/actions/runs/9/jobs?per_page=50') {
+        return JSON.stringify({ jobs: [{ id: 1, conclusion: 'failure' }] });
+      }
+      if (args[1] === 'repos/o/r/actions/jobs/1/logs') return shardLog();
+      throw new Error(`unexpected gh call: ${args.join(' ')}`);
+    });
+    const run = readLatestMutationRed(gh, 'o/r');
+    expect(run?.red).toHaveLength(2);
+    expect(run).not.toHaveProperty('judged');
+    expect(gh).toHaveBeenCalledTimes(3);
   });
 
   it('is null when there is no completed run', () => {
@@ -174,11 +192,25 @@ describe('readLatestMutationRed', () => {
       if (args[1] === 'repos/o/r/actions/jobs/1/logs') return shardLog();
       throw new Error(`unexpected gh call: ${args.join(' ')}`);
     });
-    expect(readLatestMutationRed(gh, 'o/r')?.red.map((r) => r.config)).toEqual([
+    const run = readLatestMutationRed(gh, 'o/r');
+    expect(run?.red.map((r) => r.config)).toEqual([
       'stryker.ci-audit-board-flood.config.mjs',
       'stryker.dashboard-lock.config.mjs',
     ]);
+    expect(run).not.toHaveProperty('judged');
     expect(gh).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('mutationRedTaskTitle', () => {
+  it('names the commit the run judged when there is one, and keeps the config where the dedup reads it', () => {
+    const none: MutationRedConfig = { config: 'stryker.engine-stream.config.mjs', survivors: [] };
+    expect(mutationRedTaskTitle(none)).toBe(
+      'MUTATION RED: stryker.engine-stream.config.mjs: mutants survived the nightly run — make the tests kill them',
+    );
+    expect(mutationRedTaskTitle(none, '0a2aed739c')).toBe(
+      'MUTATION RED: stryker.engine-stream.config.mjs: mutants survived the nightly run on 0a2aed739c — make the tests kill them',
+    );
   });
 });
 
@@ -226,6 +258,57 @@ describe('syncMutationRedTasks', () => {
     expect(tasks()[0]!.body).toContain(
       'pnpm exec stryker run config/mutation/stryker.ci-a.config.mjs',
     );
+    expect(tasks()[0]!.body).not.toContain('git log');
+  });
+
+  it('names the commit its run judged and the git log that shows a fix landed since (2026-09-30)', () => {
+    // Four tasks topped the board after their fixes had landed: the run had
+    // judged a head from before them. Nothing on a task said which head, so
+    // the firing that drew them spent its turns finding that out.
+    const rateLimit: MutationRedConfig = {
+      config: 'stryker.dashboard-rate-limit.config.mjs',
+      survivors: [
+        {
+          mutator: 'ConditionalExpression',
+          location: 'apps/dashboard/src/server/rate-limit.ts:49',
+          replacement: 'x',
+        },
+        {
+          mutator: 'EqualityOperator',
+          location: 'apps/dashboard/src/server/rate-limit.ts:49',
+          replacement: 'y',
+        },
+        { mutator: 'Regex', location: 'apps/dashboard/src/server/window.ts:7', replacement: 'z' },
+      ],
+    };
+    syncMutationRedTasks(store, 'p1', [rateLimit], 10, 5, '2cf6e9195c');
+    const [task] = tasks();
+    expect(task!.title).toBe(mutationRedTaskTitle(rateLimit, '2cf6e9195c'));
+    // Each file once, and by name wherever it sits: the fix is usually a test.
+    expect(task!.body).toContain(
+      "The run judged 2cf6e9195c. Check `git log --oneline 2cf6e9195c..HEAD -- '*/rate-limit.*' '*/window.*'` first:",
+    );
+    // A later run judging another head is the same config's task, not a second one.
+    expect(syncMutationRedTasks(store, 'p1', [rateLimit], 20, 15, 'aaaaaaaaaa')).toEqual({
+      filed: 0,
+      closed: 0,
+    });
+    expect(syncMutationRedTasks(store, 'p1', [], 30, 25, 'bbbbbbbbbb')).toEqual({
+      filed: 0,
+      closed: 1,
+    });
+  });
+
+  it('checks the whole history since the judged commit when the log listed no survivors', () => {
+    syncMutationRedTasks(
+      store,
+      'p1',
+      [{ config: 'stryker.engine-gate.config.mjs', survivors: [] }],
+      10,
+      5,
+      '0a2aed739c',
+    );
+    expect(tasks()[0]!.body).toContain('`git log --oneline 0a2aed739c..HEAD` first:');
   });
 
   it("does not refile a config fixed after the run's evidence was cut, but does once a later run is still red (2026-09-30)", () => {

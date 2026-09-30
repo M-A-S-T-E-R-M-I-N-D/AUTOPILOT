@@ -12,9 +12,9 @@
  * After every landing the watch now also reads the latest completed
  * mutation.yml run. A red one files one board task per failing Stryker
  * config, carrying its surviving mutants (location, mutator, the mutated
- * line), deduplicated by config and auto-queued like any proposal. A config
- * the latest run no longer lists as red closes its task. Read-only against
- * GitHub.
+ * line) and the commit the run judged, deduplicated by config and auto-queued
+ * like any proposal. A config the latest run no longer lists as red closes
+ * its task. Read-only against GitHub.
  */
 
 import { createTask, setTaskStatus, type Store } from '@autopilot/store';
@@ -48,6 +48,9 @@ const OPEN_STATUSES = new Set(['queued', 'in_progress', 'needs_approval']);
 /** How many survivors a task body lists before it says "and N more". */
 const SHOWN_SURVIVORS = 40;
 const SHOWN_LINE_CHARS = 140;
+/** How much of the judged commit a task names: git's own short form here is
+ *  8 digits, and two more keep it unambiguous as the history grows. */
+const JUDGED_SHA_CHARS = 10;
 
 /** An ANSI colour code: ESC, then `[`, digits and `;`, then `m`. Built from a
  *  string because a control character in a regex literal is a lint error. */
@@ -96,17 +99,40 @@ export function parseMutationLog(log: string): MutationRedConfig[] {
     .map(([config, survivors]) => ({ config, survivors }));
 }
 
-export function mutationRedTaskTitle(red: MutationRedConfig): string {
+/**
+ * The task's title; `judged` is the commit the run judged, when it named one.
+ * THE TITLE SAYS WHICH HEAD WAS RED (2026-09-30): four tasks topped the board
+ * after their fixes had landed, and a firing sees only the title — naming the
+ * head makes "is this still red?" one git log instead of a firing's worth of
+ * turns.
+ */
+export function mutationRedTaskTitle(red: MutationRedConfig, judged?: string): string {
   const n = red.survivors.length;
   const what = n === 0 ? 'mutants' : `${n} mutant(s)`;
-  return `${TITLE_PREFIX}${red.config}: ${what} survived the nightly run — make the tests kill them`;
+  const run = judged === undefined ? 'the nightly run' : `the nightly run on ${judged}`;
+  return `${TITLE_PREFIX}${red.config}: ${what} survived ${run} — make the tests kill them`;
 }
 
-function bodyOf(red: MutationRedConfig): string {
+/** The git log that lists what landed on the survivors' files since the
+ *  judged head. Each file is matched by name wherever it sits, so the test
+ *  that usually carries the fix is listed with its source. */
+function staleCheckOf(red: MutationRedConfig, judged: string): string {
+  const names = new Set(
+    red.survivors.map((m) => {
+      const path = m.location.replace(/:\d+$/, '');
+      return path.slice(path.lastIndexOf('/') + 1).replace(/\..*$/, '');
+    }),
+  );
+  const paths = [...names].map((name) => ` '*/${name}.*'`).join('');
+  return `The run judged ${judged}. Check \`git log --oneline ${judged}..HEAD${paths === '' ? '' : ` --${paths}`}\` first: a fix listed there is newer than the run's evidence, and the task only waits for the next nightly run to close it.`;
+}
+
+function bodyOf(red: MutationRedConfig, judged: string | undefined): string {
   const shown = red.survivors.slice(0, SHOWN_SURVIVORS);
   const rest = red.survivors.length - shown.length;
   return [
     `The nightly mutation run (mutation.yml) is red on ${red.config}: a mutant the tests do not kill is a change to that line nobody would notice.`,
+    ...(judged === undefined ? [] : ['', staleCheckOf(red, judged)]),
     '',
     ...(shown.length === 0
       ? ['The survivors are listed in the run log.']
@@ -131,6 +157,9 @@ function bodyOf(red: MutationRedConfig): string {
  * decides (2026-09-30: every landing re-read the same pre-fix run and
  * re-filed nine configs the lanes had just fixed, which the next round could
  * have spent its firings redoing).
+ *
+ * `judged` is the commit that run judged ({@link MutationRun.judged}); a task
+ * filed with it names it in its title and body.
  */
 export function syncMutationRedTasks(
   store: Store,
@@ -138,6 +167,7 @@ export function syncMutationRedTasks(
   red: readonly MutationRedConfig[],
   now: number,
   evidenceAt = 0,
+  judged?: string,
 ): { filed: number; closed: number } {
   const rows = store.db
     .prepare(
@@ -164,8 +194,8 @@ export function syncMutationRedTasks(
     const created = createTask(store, {
       id: `mutred-${slug}-${now.toString(36)}`,
       projectId,
-      title: mutationRedTaskTitle(r),
-      body: bodyOf(r),
+      title: mutationRedTaskTitle(r, judged),
+      body: bodyOf(r, judged),
       severity: 'medium',
       source: 'self',
       status: 'needs_approval',
@@ -196,6 +226,9 @@ export interface MutationRun {
    * less) and for a green run, which files nothing.
    */
   readonly evidenceAt: number;
+  /** The commit a red run judged, abbreviated; absent when the run names no
+   *  commit id, and for a green run, which files nothing. */
+  readonly judged?: string;
   readonly red: readonly MutationRedConfig[];
 }
 
@@ -205,10 +238,16 @@ function epochMs(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** The run's head when it is a commit id; null otherwise, so nothing else is
+ *  ever put in a URL or a task title. */
+function commitIdOf(sha: unknown): string | null {
+  return typeof sha === 'string' && SHA_RE.test(sha) ? sha : null;
+}
+
 /** When `sha` was committed, per the commits API; null when the run names no
  *  head or the read fails — the caller falls back to the run's start. */
-function readCommittedAt(gh: GhRun, repo: string, sha: unknown): number | null {
-  if (typeof sha !== 'string' || !SHA_RE.test(sha)) return null;
+function readCommittedAt(gh: GhRun, repo: string, sha: string | null): number | null {
+  if (sha === null) return null;
   try {
     const commit = JSON.parse(gh(['api', `repos/${repo}/commits/${sha}`])) as {
       commit?: { committer?: { date?: unknown } };
@@ -243,7 +282,8 @@ export function readLatestMutationRed(gh: GhRun, repo: string): MutationRun | nu
   // closed is ever held back on its account.
   const startedAt = epochMs(latest.createdAt) ?? 0;
   if (latest.conclusion === 'success') return { evidenceAt: startedAt, red: [] };
-  const evidenceAt = readCommittedAt(gh, repo, latest.headSha) ?? startedAt;
+  const head = commitIdOf(latest.headSha);
+  const evidenceAt = readCommittedAt(gh, repo, head) ?? startedAt;
   const jobs = JSON.parse(
     gh(['api', `repos/${repo}/actions/runs/${latest.databaseId}/jobs?per_page=50`]),
   ) as { jobs?: { id?: unknown; conclusion?: unknown }[] };
@@ -254,5 +294,9 @@ export function readLatestMutationRed(gh: GhRun, repo: string): MutationRun | nu
       byConfig.set(red.config, red);
     }
   }
-  return { evidenceAt, red: [...byConfig.values()] };
+  return {
+    evidenceAt,
+    ...(head === null ? {} : { judged: head.slice(0, JUDGED_SHA_CHARS) }),
+    red: [...byConfig.values()],
+  };
 }
