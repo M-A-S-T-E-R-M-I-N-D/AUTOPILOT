@@ -42,10 +42,10 @@ for flying untrusted targets, or on a shared machine, or unattended.
    escape is caught and surfaced, machine-checkably, without trusting the agent.
 2. **CLI permission enforcement — DONE (`guard.ts` + `guard-hook.ts`).** Every flight is
    spawned with `--settings` pointing at a generated settings file whose official
-   `PreToolUse` hooks pipe each Bash command, and each Read/Grep/Glob/Write/Edit call,
+   `PreToolUse` hooks pipe each Bash or PowerShell command, and each Read/Grep/Glob/Write/Edit call,
    through a path guard (`node guard-hook.js <target>`): any absolute path outside the
-   target, any home-directory reference (`~`, `$HOME`, `%USERPROFILE%` — where
-   credentials live), or a bare `cd` is denied with the documented
+   target, any home-directory reference (`~`, `$HOME`, `%USERPROFILE%`, PowerShell's
+   `$env:USERPROFILE` — where credentials live), or a bare `cd` is denied with the documented
    `permissionDecision: "deny"` JSON, enforced by the harness — Read/Grep/Glob get an
    additional read-hygiene denial (generated/vendored paths waste context, not a
    security control). The same hook also denies destructive git — force-push,
