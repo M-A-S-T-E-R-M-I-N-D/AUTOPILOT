@@ -96,6 +96,8 @@ import {
   resolveCommitReviewModel,
   TOOL_LESS_ALLOWED_TOOLS,
   TOOL_LESS_DISALLOWED_TOOLS,
+  firingToolGrant,
+  soulOptsOutOfSubagents,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -423,6 +425,10 @@ async function main(): Promise<void> {
     // proposals never reach a prompt. Read once per flight, same lifetime as
     // the SOUL itself; a mid-flight ratification lands on the next flight.
     const soul = composeSoulWithFleetWisdom(soulOwn, getFleetWisdom(store.db)?.wisdom ?? '');
+    // A "Subagents: off" line in this project's own SOUL (board ap-muo35gzl-2)
+    // narrows the CLI's tool grant and swaps the prompt's PARALLEL section —
+    // one verdict for both, so the prompt never offers a tool the grant denies.
+    const subagentsEnabled = !soulOptsOutOfSubagents(soulOwn);
 
     // Bash containment slice 3 (docs/epics/0004-bash-containment-worktree.md):
     // the model, gate, and firing-scoped git operations below run inside a
@@ -937,6 +943,7 @@ async function main(): Promise<void> {
     // free tier is easily exhausted); the resilience chain falls back on quota.
     const config: EngineConfig = {
       ...DEFAULT_ENGINE_CONFIG,
+      ...firingToolGrant(subagentsEnabled),
       primaryModel: process.env['AUTOPILOT_MODEL'] ?? 'sonnet',
       fallbackModel: 'opus',
       resilience: {
@@ -1495,6 +1502,7 @@ async function main(): Promise<void> {
             // plus this project's own "Attribution: off" SOUL line.
             productVersion: PRODUCT_VERSION,
             attributionEnabled: commitAttributionEnabled(soulOwn),
+            subagentsEnabled,
             ...(lastFailureFeedback !== undefined ? { lastFailure: lastFailureFeedback } : {}),
           }),
           version: FIRING_PROMPT_VERSION,

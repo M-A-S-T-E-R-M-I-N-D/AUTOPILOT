@@ -6,6 +6,10 @@ import {
   DEFAULT_ALLOWED_TOOLS,
   DEFAULT_DISALLOWED_TOOLS,
   DEFAULT_ENGINE_CONFIG,
+  SUBAGENT_TOOLS,
+  SUBAGENTS_OPT_OUT_LINE,
+  firingToolGrant,
+  soulOptsOutOfSubagents,
 } from '../src/config.js';
 
 describe('DEFAULT_ALLOWED_TOOLS / DEFAULT_DISALLOWED_TOOLS', () => {
@@ -34,6 +38,51 @@ describe('DEFAULT_ALLOWED_TOOLS / DEFAULT_DISALLOWED_TOOLS', () => {
     // it waits on the preconditions listed there.
     expect(DEFAULT_ALLOWED_TOOLS).toContain('Bash');
     expect(DEFAULT_ALLOWED_TOOLS as readonly string[]).not.toContain('PowerShell');
+  });
+});
+
+describe('the "Subagents: off" SOUL line — a per-project override of the subagent grant', () => {
+  const SOUL = '# SOUL — client-app\n\nStack: js\n\n## Operating rules\n- Gate every change.';
+
+  it('opts out on the line, plain or as a bullet, any case, stray spaces or a trailing CR', () => {
+    expect(soulOptsOutOfSubagents(`${SOUL}\n${SUBAGENTS_OPT_OUT_LINE}\n`)).toBe(true);
+    expect(soulOptsOutOfSubagents(`${SOUL}\n- Subagents: off`)).toBe(true);
+    expect(soulOptsOutOfSubagents(`${SOUL}\n  * SUBAGENTS:OFF  `)).toBe(true);
+    expect(soulOptsOutOfSubagents(`subagents:   Off\r\n${SOUL}`)).toBe(true);
+  });
+
+  it('does not opt out without the line, on a mention mid-sentence, or on any value but off', () => {
+    expect(soulOptsOutOfSubagents(SOUL)).toBe(false);
+    expect(soulOptsOutOfSubagents('')).toBe(false);
+    expect(soulOptsOutOfSubagents(`${SOUL}\n- Never write "Subagents: off" here.`)).toBe(false);
+    expect(soulOptsOutOfSubagents(`${SOUL}\nSubagents: on`)).toBe(false);
+    expect(soulOptsOutOfSubagents(`${SOUL}\nSubagents: offline`)).toBe(false);
+  });
+
+  it('names the delegation tools the default grant allows', () => {
+    for (const tool of SUBAGENT_TOOLS) {
+      expect(DEFAULT_ALLOWED_TOOLS as readonly string[]).toContain(tool);
+    }
+  });
+
+  it('keeps the default grant, the same lists, when subagents are on', () => {
+    const grant = firingToolGrant(true);
+    expect(grant.allowedTools).toBe(DEFAULT_ALLOWED_TOOLS);
+    expect(grant.disallowedTools).toBe(DEFAULT_DISALLOWED_TOOLS);
+  });
+
+  it('moves every delegation tool from allowed to disallowed when subagents are off', () => {
+    const grant = firingToolGrant(false);
+    for (const tool of SUBAGENT_TOOLS) {
+      expect(grant.allowedTools).not.toContain(tool);
+      expect(grant.disallowedTools).toContain(tool);
+    }
+    // Everything else in the grant is untouched.
+    expect(grant.allowedTools).toEqual(
+      DEFAULT_ALLOWED_TOOLS.filter((tool) => !(SUBAGENT_TOOLS as readonly string[]).includes(tool)),
+    );
+    expect(grant.disallowedTools).toEqual([...DEFAULT_DISALLOWED_TOOLS, ...SUBAGENT_TOOLS]);
+    expect(grant.allowedTools.filter((tool) => grant.disallowedTools.includes(tool))).toEqual([]);
   });
 });
 

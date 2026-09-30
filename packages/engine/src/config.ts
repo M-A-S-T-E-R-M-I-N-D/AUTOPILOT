@@ -95,6 +95,45 @@ export const DEFAULT_DISALLOWED_TOOLS = [
   'ExitWorktree',
 ] as const;
 
+/** The granted tools a firing delegates work through: Agent (and its older
+ *  name, Task) spawns one subagent, Workflow fans out many. */
+export const SUBAGENT_TOOLS = ['Agent', 'Task', 'Workflow'] as const;
+
+/** The SOUL line an operator writes to keep ONE project's firings from
+ *  delegating to subagents — the per-project override of the fleet-wide
+ *  grant (MASTER-PLAN §5.4, board ap-muo35gzl-2). It travels with the SOUL,
+ *  so it is locked and ratified like every other SOUL edit. */
+export const SUBAGENTS_OPT_OUT_LINE = 'Subagents: off';
+
+/** The opt-out on a line of its own — a plain line or a `-`/`*` bullet, any
+ *  case, stray spaces allowed. A mention mid-sentence is not an opt-out. */
+const SUBAGENTS_OPT_OUT = /^[ \t]*(?:[-*][ \t]+)?subagents:[ \t]*off[ \t\r]*$/im;
+
+/** True when this project's SOUL carries {@link SUBAGENTS_OPT_OUT_LINE}. */
+export function soulOptsOutOfSubagents(soul: string): boolean {
+  return SUBAGENTS_OPT_OUT.test(soul);
+}
+
+/** The `--allowedTools`/`--disallowedTools` pair one firing runs with. */
+export interface FiringToolGrant {
+  readonly allowedTools: readonly string[];
+  readonly disallowedTools: readonly string[];
+}
+
+/** The default grant, or — for a project whose SOUL opts out of subagents —
+ *  the default with {@link SUBAGENT_TOOLS} moved from allowed to disallowed,
+ *  so the CLI refuses a delegation the prompt no longer asks for. */
+export function firingToolGrant(subagentsEnabled: boolean): FiringToolGrant {
+  if (subagentsEnabled) {
+    return { allowedTools: DEFAULT_ALLOWED_TOOLS, disallowedTools: DEFAULT_DISALLOWED_TOOLS };
+  }
+  const delegation: readonly string[] = SUBAGENT_TOOLS;
+  return {
+    allowedTools: DEFAULT_ALLOWED_TOOLS.filter((tool) => !delegation.includes(tool)),
+    disallowedTools: [...DEFAULT_DISALLOWED_TOOLS, ...SUBAGENT_TOOLS],
+  };
+}
+
 /**
  * Tool grant shared by every tool-less single-turn substep — the model
  * answers from its prompt/context alone, never calling a tool. Named and
