@@ -68,6 +68,7 @@ import { createLandingJobRegistry } from '../landing/job.js';
 import { createPostPushWatchTrigger, resumeUnfinishedWatches } from '../control/post-push-watch.js';
 import { readRecentLandingOutcome } from '../landing/history.js';
 import { createBuildRunner, createSelfRestartTrigger } from '../landing/self-restart.js';
+import { createRestartGuard, guardFleetLaunch, waitForLaunches } from '../landing/restart-guard.js';
 import { waitForHealth } from '../ready.js';
 import { createReleaseExecuteApi } from '../release/execute.js';
 import { createGithubSyncExecuteApi } from '../github/execute.js';
@@ -437,6 +438,8 @@ const dashboardControl = new DashboardControl({
 // reference is always populated by the time it runs. A holder object (not a
 // reassigned `let`) so the binding itself stays a `const`.
 const liveServer: { current: Server | undefined } = { current: undefined };
+// A fleet launch and a self-restart never overlap (landing/restart-guard.ts).
+const restartGuard = createRestartGuard();
 const selfRestart: SelfRestart = {
   root: process.cwd(),
   trigger: createSelfRestartTrigger(
@@ -475,6 +478,10 @@ const selfRestart: SelfRestart = {
       // the 5s default window was the last remaining way this swap could
       // report failure on a healthy replacement.
       verifyHealth: (url) => waitForHealth(`${url}/api/health`, { timeoutMs: 30_000 }),
+      onPending: (pending) => {
+        restartGuard.pending = pending;
+      },
+      beforeStop: () => waitForLaunches(restartGuard),
     },
   ),
 };
@@ -700,10 +707,13 @@ const server = createServer({
   // (control/cli.ts's `case 'fleet'`), wired for `POST /api/fleet` instead —
   // `postFly` calls `flightApi.start` directly since this IS the live
   // server process, unlike the CLI's loopback HTTP call to a separate one.
-  fleetLaunch: createFleetLaunchApi(
-    dbPath,
-    (body) => flightApi.start(body),
-    Number(process.env['AUTOPILOT_FLEET_STAGGER_MS'] ?? 20_000),
+  fleetLaunch: guardFleetLaunch(
+    createFleetLaunchApi(
+      dbPath,
+      (body) => flightApi.start(body),
+      Number(process.env['AUTOPILOT_FLEET_STAGGER_MS'] ?? 20_000),
+    ),
+    restartGuard,
   ),
   search: (projectId, query, limit) => readSearchFromStore(dbPath, projectId, query, limit),
   deleteProject: (projectId) => deleteProjectFromStore(dbPath, projectId),
