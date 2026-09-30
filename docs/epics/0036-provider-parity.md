@@ -42,7 +42,14 @@ agent edit files and run the gate. Folder trust is on by default and headless mo
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
 a folder also loads its `.gemini/settings.json` and MCP servers. It shares Codex's routing gap and
 still has no idle cap: `--output-format json` writes its one object only when the run ends, so
-there is no stdout to watch until then. An idle cap would need `stream-json` first. Since 2026-09-28
+there is no stdout to watch until then. An idle cap needs `stream-json`, and its parse landed
+2026-10-01: `parseGeminiStreamJsonOutput` reads the `JsonStreamEvent` lines
+(`packages/core/src/output/types.ts`, all on stdout via `StreamJsonFormatter.emitEvent`, a fatal
+error included as a `result` with `status: 'error'`, `packages/cli/src/utils/errors.ts`), fixture-tested.
+Its `result` is the text streamed after the last tool event, since JSON mode's `response` restarts
+every turn too (`nonInteractiveCli.ts`). Tokens come from the CLI's own `convertToStreamStats`
+totals, and a run killed before its `result` keeps the `init` session id. The next slice switches
+`GeminiCliModel` to `stream-json` with Codex's idle timer and retires the JSON-object parse. Since 2026-09-28
 it has Codex's resume fallback too: `resolveSessionId`
 (`packages/cli/src/gemini.tsx`) looks a `--resume` id up before the run starts and exits
 `FATAL_INPUT_ERROR` (42, `packages/core/src/utils/exitCodes.ts`) on an unknown one, writing no

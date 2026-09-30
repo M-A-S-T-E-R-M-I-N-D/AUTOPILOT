@@ -18,6 +18,10 @@
  * (`packages/cli/src/utils/errors.ts`, `nonInteractiveCli.ts`) — so the parse
  * reads stdout first and falls back to stderr.
  *
+ * {@link parseGeminiStreamJsonOutput} reads the `--output-format stream-json`
+ * form of the same run, one event per line as it happens: the output an idle
+ * cap can watch, which the one-object JSON form never gives until the end.
+ *
  * What the CLI does NOT report, and so this parse never invents:
  * - Cost. `stats` carries token counts only, never a priced figure, so
  *   `costUsd` is always `null` (`ports.ts`, `firing.ts` §3.6).
@@ -117,6 +121,16 @@ function tokensFromStats(models: readonly Record<string, unknown>[]): GeminiToke
   };
 }
 
+/**
+ * The one model `stats.models` names; when it names several (the CLI's router
+ * adds its own) or none, the model the engine requested, `null` for none.
+ */
+function modelUsedFrom(modelStats: Record<string, unknown>, requestedModel: string): string | null {
+  const requested = requestedModel === '' ? null : requestedModel;
+  const names = Object.keys(modelStats);
+  return names.length === 1 ? (names[0] ?? requested) : requested;
+}
+
 /** The CLI's error `code` (a string, or a number such as an HTTP status). */
 function errorCode(error: Record<string, unknown> | null): string | null {
   const code = error?.['code'];
@@ -148,9 +162,7 @@ export function parseGeminiJsonOutput(
   const sessionId = rawSessionId === null || rawSessionId === '' ? null : rawSessionId;
   const error = recordOrNull(output['error']);
   const modelStats = recordOrNull(recordOrNull(output['stats'])?.['models']) ?? {};
-  const modelNames = Object.keys(modelStats);
   const models = Object.values(modelStats).map((m) => recordOrNull(m) ?? {});
-  const requested = requestedModel === '' ? null : requestedModel;
 
   const envelope: ModelEnvelope = {
     result: error !== null ? strOrNull(error['message']) : strOrNull(output['response']),
@@ -160,8 +172,105 @@ export function parseGeminiJsonOutput(
     numTurns: null,
     durationMs: null,
     stopReason: null,
-    modelUsed: modelNames.length === 1 ? (modelNames[0] ?? requested) : requested,
+    modelUsed: modelUsedFrom(modelStats, requestedModel),
     ...tokensFromStats(models),
+    cacheCreate: null,
+    sessionId,
+  };
+  return { stdout, exitCode, envelope, sessionId };
+}
+
+function numOrNull(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/** Every line of `stdout` that parses as an object with a string `type`;
+ *  anything else (a stray log line, a line torn by a kill) is skipped. */
+function streamEvents(stdout: string): readonly Record<string, unknown>[] {
+  return stdout.split('\n').flatMap((line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{')) return [];
+    try {
+      const event = recordOrNull(JSON.parse(trimmed));
+      return event !== null && typeof event['type'] === 'string' ? [event] : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
+/**
+ * Parse one `gemini --output-format stream-json` run: the `JsonStreamEvent`s in
+ * gemini-cli `packages/core/src/output/types.ts`, one compact object per line,
+ * all on stdout (`StreamJsonFormatter.emitEvent`). A fatal error comes there too,
+ * as a `result` with `status: 'error'` (`packages/cli/src/utils/errors.ts`),
+ * where JSON mode writes its error object to stderr. `init` carries
+ * `session_id`, `message` streams the assistant's text in deltas,
+ * `tool_use`/`tool_result` sit between turns, an `error` event is a warning or
+ * the reason the run is about to fail, and one `result` ends the run.
+ *
+ * The last `result` decides the envelope. Its `result` text is what streamed
+ * after the last tool event, the final turn's: JSON mode's `response` restarts
+ * every turn too (`responseText` in `nonInteractiveCli.ts`). A failure's text is
+ * its `error.message`, or, when it carries none (an invalid stream), the last
+ * `severity: 'error'` event's. A `status` other than `success` is a failure.
+ * With no `result` (killed mid-run, or dead before it began), the envelope is
+ * `null` and the `init` session id still rides out, so the attempt stays
+ * resumable, as `codex-cli.ts`'s thread id does.
+ *
+ * Tokens are the CLI's own `convertToStreamStats` totals: `input` (prompt −
+ * cached) to `tokensIn`, `output_tokens` to `tokensOut`, `cached` to
+ * `cacheRead`, and `duration_ms` is the CLI's own run time. An error carries
+ * only `type` and `message`, so `apiErrorStatus` is `null`; cost, turns and
+ * stop reason are never on the wire, so they are `null` too. `modelUsed`
+ * follows {@link parseGeminiJsonOutput}'s rule.
+ */
+export function parseGeminiStreamJsonOutput(
+  stdout: string,
+  exitCode: number,
+  requestedModel: string,
+): ModelResponse {
+  let sessionId: string | null = null;
+  let finalTurnText = '';
+  let lastErrorMessage: string | null = null;
+  let result: Record<string, unknown> | null = null;
+
+  for (const event of streamEvents(stdout)) {
+    const type = event['type'];
+    if (type === 'init') {
+      const id = strOrNull(event['session_id']);
+      sessionId ??= id === '' ? null : id;
+    } else if (type === 'message' && event['role'] === 'assistant') {
+      // `nonInteractiveCli.ts` writes every assistant message with `delta:
+      // true`, one fragment per content event, so they concatenate.
+      finalTurnText += strOrNull(event['content']) ?? '';
+    } else if (type === 'tool_use' || type === 'tool_result') {
+      finalTurnText = '';
+    } else if (type === 'error' && event['severity'] === 'error') {
+      lastErrorMessage = strOrNull(event['message']) ?? lastErrorMessage;
+    } else if (type === 'result') {
+      result = event;
+    }
+  }
+
+  if (result === null) return { stdout, exitCode, envelope: null, sessionId };
+
+  const failed = result['status'] !== 'success';
+  const stats = recordOrNull(result['stats']);
+  const envelope: ModelEnvelope = {
+    result: failed
+      ? (strOrNull(recordOrNull(result['error'])?.['message']) ?? lastErrorMessage)
+      : finalTurnText,
+    isError: failed,
+    apiErrorStatus: null,
+    costUsd: null,
+    numTurns: null,
+    durationMs: numOrNull(stats?.['duration_ms']),
+    stopReason: null,
+    modelUsed: modelUsedFrom(recordOrNull(stats?.['models']) ?? {}, requestedModel),
+    tokensIn: numOrNull(stats?.['input']),
+    tokensOut: numOrNull(stats?.['output_tokens']),
+    cacheRead: numOrNull(stats?.['cached']),
     cacheCreate: null,
     sessionId,
   };
