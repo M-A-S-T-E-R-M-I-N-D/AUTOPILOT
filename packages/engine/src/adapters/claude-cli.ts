@@ -719,6 +719,9 @@ export class StreamingClaudeCliModel implements ModelPort {
           guardDenialDetails,
           sessionId: envelope?.sessionId ?? streamSessionId,
           ...(timedOut ? { timedOut: true } : {}),
+          // The wire's own count and this process's own clock ride along
+          // even with an envelope — see ModelResponse.observed.
+          observed: { turns: assistantTurns, elapsedMs },
         });
       });
     });

@@ -112,6 +112,17 @@ export interface ModelResponse {
    * distinguishable from a generic error. Absent/false for every ordinary exit.
    */
   readonly timedOut?: boolean;
+  /**
+   * What the driver itself saw, envelope or no envelope: the assistant
+   * turns on the wire and its own wall clock for the attempt. The envelope's
+   * `num_turns` and `duration_ms` are taken as a floor, never as the whole
+   * truth: on 2026-09-30 a firing that ran fourteen minutes and 117 tool
+   * calls, shipped, and cost $5.94 arrived with `num_turns: 1` and
+   * `duration_ms: 2952` (the shape context compaction leaves near the end
+   * of a long session); five earlier records had the same shape. Absent for
+   * a driver that cannot observe the wire.
+   */
+  readonly observed?: { readonly turns: number; readonly elapsedMs: number };
 }
 
 /**

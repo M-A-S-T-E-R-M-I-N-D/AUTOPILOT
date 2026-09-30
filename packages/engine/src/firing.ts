@@ -160,14 +160,24 @@ function envelopeFacts(resp: ModelResponse, modelTry: string): EnvelopeFacts {
     // Without an envelope, `resp.stdout` IS the CLI's stderr tail (the
     // adapter keeps it exactly for this) — the reason the firing died.
     deathTail: env === null && resp.stdout !== '' ? resp.stdout : null,
-    numTurns: env?.numTurns ?? partial?.turnsObserved ?? null,
-    durationMs: env?.durationMs ?? null,
+    // The envelope's turns and duration are a floor: the driver's own count
+    // and clock win when they say more (ModelResponse.observed — a shipped
+    // fourteen-minute firing once arrived as one turn of three seconds).
+    numTurns: atLeast(env?.numTurns ?? partial?.turnsObserved ?? null, resp.observed?.turns),
+    durationMs: atLeast(env?.durationMs ?? null, resp.observed?.elapsedMs),
     costUsd: env?.costUsd ?? null,
     tokensIn: env?.tokensIn ?? partial?.tokensIn ?? null,
     tokensOut: env?.tokensOut ?? partial?.tokensOut ?? null,
     cacheRead: env?.cacheRead ?? null,
     cacheCreate: env?.cacheCreate ?? null,
   };
+}
+
+/** `reported`, raised to `observed` when the driver saw more; null stays
+ *  null only when nothing was observed either. */
+function atLeast(reported: number | null, observed: number | undefined): number | null {
+  if (observed === undefined) return reported;
+  return reported === null ? observed : Math.max(reported, observed);
 }
 
 /** The text to scan for the METRICS self-report — the envelope result, else raw stdout. */

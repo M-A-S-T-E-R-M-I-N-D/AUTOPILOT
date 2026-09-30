@@ -914,6 +914,38 @@ describe('runFiring', () => {
     expect(out.bad).toBe(true); // envelope-error trips the churn guard
   });
 
+  it("takes the driver's own turn count and clock over an envelope that understates them (2026-09-30)", async () => {
+    // A shipped fourteen-minute firing of 117 tool calls arrived with
+    // num_turns 1 and duration_ms 2952; the envelope is a floor, not the truth.
+    const understated = new FakeModel([
+      response({
+        envelope: envelope({ numTurns: 1, durationMs: 2952 }),
+        observed: { turns: 117, elapsedMs: 841_000 },
+      }),
+    ]);
+    const out = await runFiring(
+      deps(understated, new FakeVcs({ heads: ['h0'] }), new FakeGate(true), new FakeStore()),
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+    expect(out.record.numTurns).toBe(117);
+    expect(out.record.durationMs).toBe(841_000);
+    // An envelope that says more than the driver saw keeps its own figures.
+    const overstated = new FakeModel([
+      response({
+        envelope: envelope({ numTurns: 10, durationMs: 1000 }),
+        observed: { turns: 3, elapsedMs: 500 },
+      }),
+    ]);
+    const kept = await runFiring(
+      deps(overstated, new FakeVcs({ heads: ['h0'] }), new FakeGate(true), new FakeStore()),
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+    expect(kept.record.numTurns).toBe(10);
+    expect(kept.record.durationMs).toBe(1000);
+  });
+
   it('DEATH-COST: a checkpoint death still records the real observed turns/tokens, not $0/0 (docs/EVALUATION-2026-08.md §3.6)', async () => {
     const model = new FakeModel([
       response({
