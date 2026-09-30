@@ -1192,6 +1192,35 @@ describe('fetchClaimedIssueClaims — the claims ledger, one clock per claim', (
     ]);
   });
 
+  it('leaves a claim the reaper workflow already auto-released alone — no second release note', async () => {
+    const exec = makeExec(() => ({
+      code: 0,
+      stdout: JSON.stringify({
+        number: 27,
+        state: 'OPEN',
+        assignees: [],
+        comments: [
+          {
+            author: { login: 'gabibi555' },
+            createdAt: '2026-09-11T14:23:10Z',
+            body: 'Claimed by gabibi555 via the pool client.',
+          },
+          {
+            author: { login: 'github-actions' },
+            createdAt: '2026-09-26T07:15:42Z',
+            body: '14 quiet days with no comment or commit from @gabibi555 — auto-released per the claim protocol (docs/ROADMAP.md).',
+          },
+        ],
+        updatedAt: '2026-09-26T07:15:42Z',
+      }),
+    }));
+
+    const claims = await fetchClaimedIssueClaims(exec, 27);
+
+    expect(claims).toEqual([]);
+    expect(planMirrorPassStaleClaimBatch(claims, Date.parse('2026-09-30T00:00:00Z'))).toEqual([]);
+  });
+
   it('falls back to updatedAt for an assignee with no claim comment, and returns [] on a bad read', async () => {
     const exec = makeExec(() => ({
       code: 0,
