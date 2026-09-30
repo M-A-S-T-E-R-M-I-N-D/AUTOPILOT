@@ -171,6 +171,64 @@ export function activitiesFromEvent(event: Record<string, unknown>): Activity[] 
   return activities;
 }
 
+/**
+ * One WebSearch the agent issued, as the audit record keeps it (THREAT-MODEL
+ * T6). WebSearch takes a query, not a URL, so the guard has no target to deny
+ * — the only control left is a faithful record of what was asked. The
+ * activity row is no such record: its target is whitespace-collapsed and cut
+ * at {@link TARGET_MAX} chars for display, so anything past that was invisible.
+ */
+export interface WebSearchAudit {
+  /** The query exactly as sent — whitespace intact, capped only at
+   *  {@link WEB_SEARCH_AUDIT_MAX_CHARS}. */
+  readonly query: string;
+  /** The query's length before the cap, so a capped query says so. */
+  readonly queryLength: number;
+  /** The tool's `allowed_domains` filter, string entries only; [] when absent. */
+  readonly allowedDomains: readonly string[];
+  /** The tool's `blocked_domains` filter, string entries only; [] when absent. */
+  readonly blockedDomains: readonly string[];
+}
+
+/** Ceiling on an audited query — far past any real search, low enough that
+ *  one runaway call cannot bloat the events table. */
+export const WEB_SEARCH_AUDIT_MAX_CHARS = 4000;
+
+function stringEntries(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+/**
+ * Every WebSearch `tool_use` in one `assistant` event, in wire order, as
+ * {@link WebSearchAudit} records. Any other event, or a WebSearch with no
+ * string query, yields nothing.
+ */
+export function webSearchesFromEvent(event: Record<string, unknown>): readonly WebSearchAudit[] {
+  if (event['type'] !== 'assistant') return [];
+  const message = event['message'];
+  const container =
+    message && typeof message === 'object' ? (message as Record<string, unknown>) : event;
+  const content = container['content'];
+  if (!Array.isArray(content)) return [];
+
+  const audits: WebSearchAudit[] = [];
+  for (const block of content) {
+    if (block === null || typeof block !== 'object') continue;
+    const b = block as Record<string, unknown>;
+    if (b['type'] !== 'tool_use' || b['name'] !== 'WebSearch') continue;
+    const input = (b['input'] ?? {}) as Record<string, unknown>;
+    const query = str(input['query']);
+    if (query === null) continue;
+    audits.push({
+      query: query.slice(0, WEB_SEARCH_AUDIT_MAX_CHARS),
+      queryLength: query.length,
+      allowedDomains: stringEntries(input['allowed_domains']),
+      blockedDomains: stringEntries(input['blocked_domains']),
+    });
+  }
+  return audits;
+}
+
 /** Whether a stream event is the terminal `result` (carries the final envelope). */
 export function isResultEvent(event: Record<string, unknown>): boolean {
   return event['type'] === 'result';
