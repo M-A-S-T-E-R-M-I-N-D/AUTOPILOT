@@ -57,6 +57,20 @@ describe('validateQuarantineList', () => {
     expect(result.entries).toEqual([]);
   });
 
+  // `null` is valid JSON, so a hand-edited list can carry one. Both field
+  // checks read it through `entry?.[field]`; without the `?.` either one
+  // throws a TypeError and the gate crashes instead of naming the entry.
+  it('reports every missing field for a null entry instead of throwing', () => {
+    const result = validateQuarantineList([null]);
+    expect(result.errors).toEqual([
+      'config/quarantine/flaky-tests.json[0]: missing or empty "testPath"',
+      'config/quarantine/flaky-tests.json[0]: missing or empty "owner"',
+      'config/quarantine/flaky-tests.json[0]: missing or empty "reason"',
+      'config/quarantine/flaky-tests.json[0]: missing or empty "addedDate"',
+    ]);
+    expect(result.entries).toEqual([]);
+  });
+
   it('indexes errors against their position among multiple entries', () => {
     const good = {
       testPath: 'a.test.ts',
