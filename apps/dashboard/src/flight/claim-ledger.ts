@@ -78,6 +78,13 @@ export const CLAIM_RELEASE_RE =
  *  hand-back. */
 export const UNCLAIM_COMMAND = '/unclaim';
 
+/** The claim protocol's way in (`.github/workflows/claim.yml`): a comment
+ *  that starts with it asks the workflow to assign its AUTHOR. It is no
+ *  claim sentence — the assignment it makes is what the ledger reads — but
+ *  it does lift that author's earlier release, or the fresh assignment
+ *  would be skipped as released and the claimed issue read free. */
+export const CLAIM_COMMAND = '/claim';
+
 /** The claim protocol's own reaper (`.github/workflows/stale-claim-reaper.yml`)
  *  ends the claim of the login it names. Its note ("N quiet days with no
  *  comment or commit from @x — auto-released") is no release sentence, so
@@ -96,8 +103,10 @@ export const AUTO_RELEASE_RE =
  * date. A login last released stays released even if
  * it is still in `assignees` — the reaper's release note lands before its
  * paired `--remove-assignee` call, so a failed unassign must not resurrect
- * the claim it just ended. Ordered oldest claim first, unknown dates first
- * (an assignee with no comment was almost certainly there earliest).
+ * the claim it just ended — until a claim sentence or its own later
+ * {@link CLAIM_COMMAND} asks for it back. Ordered oldest claim first,
+ * unknown dates first (an assignee with no comment was almost certainly
+ * there earliest).
  */
 export function claimLedger(
   assignees: readonly string[],
@@ -121,6 +130,9 @@ export function claimLedger(
       live.delete(comment.author);
       continue;
     }
+    // Only the author's own release: claim.yml assigns the commenter alone,
+    // so someone else's /claim leaves a released login released.
+    if (comment.body.startsWith(CLAIM_COMMAND)) released.delete(comment.author);
     const autoRelease = AUTO_RELEASE_RE.exec(comment.body);
     if (autoRelease) {
       live.delete(autoRelease[1] as string);

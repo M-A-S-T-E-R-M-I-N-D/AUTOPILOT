@@ -18,6 +18,7 @@ import {
   CLAIM_WINDOW_DAYS,
   CLAIM_COMMENT_RE,
   CLAIM_RELEASE_RE,
+  CLAIM_COMMAND,
   UNCLAIM_COMMAND,
   AUTO_RELEASE_RE,
 } from '../../src/flight/claim-ledger.js';
@@ -380,6 +381,43 @@ describe('claimLedger', () => {
       { login: 'a', claimedAt: null, assigned: true, lastActivityAt: null, contested: false },
     ]);
   });
+
+  /**
+   * EPIC 0019 additive-only law, the claim flow meeting the pool client's
+   * release: after "Releasing @a" (or the mirror reaper's "Unassigning @a")
+   * the login is held released so a failed unassign cannot bring the claim
+   * back. But `/claim` is the protocol's own way back in: claim.yml assigns
+   * the commenter, and the ledger still skipped that assignment as released,
+   * so the issue read free and the next claimant walked over the first.
+   */
+  it.each([
+    ['Releasing', "Releasing @a's claim — quiet for 15 days, past the 14-day window."],
+    ['Unassigning', 'Unassigning @a — quiet for 14 days on this claim.'],
+  ])('a /claim after the %s note reads again: the fresh assignment is a claim', (_verb, note) => {
+    const claims = claimLedger(
+      ['a'],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('bot', note, T0 + 15 * DAY),
+        comment('a', '/claim', T0 + 16 * DAY),
+      ],
+    );
+    expect(claims).toEqual([
+      { login: 'a', claimedAt: null, assigned: true, lastActivityAt: null, contested: false },
+    ]);
+  });
+
+  it("someone else's /claim does not bring back a released login the failed unassign left assigned", () => {
+    const claims = claimLedger(
+      ['a'],
+      [
+        comment('a', 'Claimed by a via the pool client.', T0),
+        comment('bot', 'Unassigning @a — quiet for 14 days on this claim.', T0 + 15 * DAY),
+        comment('c', '/claim', T0 + 16 * DAY),
+      ],
+    );
+    expect(claims).toEqual([]);
+  });
 });
 
 describe('the auto-release note, as stale-claim-reaper.yml posts it', () => {
@@ -419,6 +457,26 @@ describe('the hand-back command, as claim.yml runs it', () => {
   it('releases the commenter, the login the ledger ends the claim of', () => {
     expect(CLAIM_WORKFLOW).toContain('WHO: ${{ github.event.comment.user.login }}');
     expect(unclaimBranch).toContain('-f "assignees[]=$WHO"');
+  });
+});
+
+describe('the claim command, as claim.yml runs it', () => {
+  const CLAIM_WORKFLOW = readFileSync(join(process.cwd(), '.github/workflows/claim.yml'), 'utf8');
+  const start = CLAIM_WORKFLOW.indexOf(`${CLAIM_COMMAND}*)`);
+  const claimBranch = CLAIM_WORKFLOW.slice(start, CLAIM_WORKFLOW.indexOf(';;', start));
+
+  it('is the comment prefix the workflow fires on and branches on', () => {
+    expect(CLAIM_WORKFLOW).toContain(`startsWith(github.event.comment.body, '${CLAIM_COMMAND}')`);
+    expect(start).toBeGreaterThan(-1);
+  });
+
+  it('assigns the commenter, the login the ledger lets claim again', () => {
+    expect(claimBranch).toContain('gh api -X POST');
+    expect(claimBranch).toContain('-f "assignees[]=$WHO"');
+  });
+
+  it('never matches the hand-back, which the ledger reads first', () => {
+    expect(UNCLAIM_COMMAND.startsWith(CLAIM_COMMAND)).toBe(false);
   });
 });
 
