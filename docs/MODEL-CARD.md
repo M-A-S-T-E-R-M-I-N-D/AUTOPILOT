@@ -109,7 +109,18 @@ hand-maintained._
 | Containment posture | `docs/FLIGHT-CONTAINMENT.md` — detection (done) + CLI prevention (done) + OS sandbox
   (platform-gated, not native Windows) |
 | Verification boundary (🟢 autonomous vs. 🟣 human-required) | `docs/MASTER-PLAN.md` §17 |
-| This card last reviewed against the above | 2026-09-27 |
+| This card last reviewed against the above | 2026-10-01 |
+
+**2026-10-01 review (DOC-FRESHNESS flag against `prompt.ts`):** the flagged commits
+(`355c7895`, `a224c3d0`) added a per-project `Subagents: off` SOUL override — a
+`delegationSection()` swap mirroring the 2026-09-30 `Attribution: off` override — to
+`buildFiringPrompt`. Neither this card's §1/§2 Firing-Prompt-Version claims nor any §4/§5
+capability or limitation names the PARALLEL/subagents section by feature, so no narrative
+changed. Re-checked against current code: `package.json` version is still `0.56.0`,
+`FIRING_PROMPT_VERSION` is still `'firing-v17'`, `pnpm self-study:gate` is still wired to
+`check-prompt-gate.mjs`, and `packages/store/src/eval-gate.ts` (backing §5's PICK
+DISCIPLINE / BOARD DIVERSITY audit claims) has no commits since this card's prior review.
+All still true.
 
 ## 7. AI-Use Disclosure
 
