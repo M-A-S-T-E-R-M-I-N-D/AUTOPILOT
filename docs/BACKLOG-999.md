@@ -23,7 +23,7 @@ Status legend: `[ ]` open · `[~]` in a phase · `[x]` done. A `[x]` item's full
 - [ ] SOUL/identity editor: locked-by-default, proposable prompt improvements, per-project overrides
 - [ ] Versions screen: MYTH/LEGACY/flight timeline, diff, one-click additive restore
 - [~] (connect screen live; rest M5) Settings: models, quota/token view, membership connection, language, accessibility, security policy
-- [ ] Anomalies/health: regressions, cost spikes, gate fails, security findings + proposed fixes
+- [x] (board ap-mui2h3rw-0; FEATURE-COVERAGE §C) Anomalies/health: regressions, cost spikes, gate fails, security findings + proposed fixes — the project page's Data tab opens on a Health list (`#health`, `apps/dashboard/src/web/features/process-health.ts`): every detector in `apps/dashboard/src/read/anomalies.ts` (ship-rate regression, cost spike, gate-fail streak, convergence red, …) plus the project's own open severity-tagged findings, reds first, each with its evidence and proposed fix; every anomaly chip's popover links there; axe-clean (`apps/dashboard/test/web/health-panel.test.ts`)
 - [~] (progressive disclosure: chips/drilldowns/Load-More) "Hidden by default, open to edit" everywhere — calm unless the user wants to intervene
 - [~] (AA baseline + axe gate green; AA+ sweep = M8) Strict accessibility (WCAG 2.2 AA+), keyboard-complete, reduced-motion, RTL-correct i18n
 
