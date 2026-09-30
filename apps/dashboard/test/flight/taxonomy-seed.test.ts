@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
+import { DIMENSIONS, type Dimension } from '@autopilot/store';
 import {
   HOUSE_TAXONOMY_LABELS,
   HOUSE_STARTER_MILESTONES,
@@ -22,6 +23,11 @@ import {
   AGENT_OK_LABEL,
   MAX_ISSUE_LIST,
   NEEDS_FORMAT_LABEL,
+  POOL_LABEL_PREFIX,
+  planIssueTriageCommands,
+  type AreaLabel,
+  type IncomingIssue,
+  type PriorityLabel,
 } from '../../src/flight/issue-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
@@ -384,6 +390,88 @@ describe('HOUSE_TAXONOMY_LABELS × KEEPER issue protocol gate (regression, epic 
     const governance = readFileSync(join(process.cwd(), 'docs/GOVERNANCE.md'), 'utf8');
     expect(governance).toContain(`\`${NEEDS_FORMAT_LABEL}\``);
     expect(governance).toContain(`${HOUSE_TAXONOMY_LABELS.length} labels total`);
+  });
+});
+
+// Same law, the accept edit itself: planIssueTriageCommands puts an accepted
+// issue's pool, area and priority labels on it in ONE `gh issue edit`, which
+// fails whole on a single unseeded name (the block above) — so one drifted
+// name in any family leaves the issue without the `pool:` marker every later
+// KEEPER pass recognizes a triaged issue by. Area and priority are seeded
+// here; the pool family is `.github/labels.json`'s, which labels.yml syncs.
+const POOL_LABEL_NAMES: readonly string[] = (
+  JSON.parse(readFileSync(join(process.cwd(), '.github/labels.json'), 'utf8')) as {
+    readonly name: string;
+  }[]
+).map((label) => label.name);
+
+/** Every area and priority the classifiers can hand the accept edit. The
+ *  constants are module-private, so `satisfies` keeps these whole instead:
+ *  typecheck fails the moment issue-triage.ts adds, drops or renames one. */
+const TRIAGE_AREAS = Object.keys({
+  'area: dashboard': true,
+  'area: flight-engine': true,
+  'area: foundation': true,
+  'area: ci': true,
+  'area: i18n': true,
+  'area: community': true,
+} satisfies Record<AreaLabel, true>) as AreaLabel[];
+const TRIAGE_PRIORITIES = Object.keys({
+  'priority: critical': true,
+  'priority: high': true,
+  'priority: medium': true,
+  'priority: low': true,
+} satisfies Record<PriorityLabel, true>) as PriorityLabel[];
+
+/** The `--add-label` values of the accept edit for one classification — an
+ *  expired human reservation included, so `agent-ok` rides along too. */
+function acceptEditLabels(
+  dimension: Dimension,
+  area: AreaLabel,
+  priority: PriorityLabel,
+): string[] {
+  const issue: IncomingIssue = { number: 7, title: 'An accepted issue', body: '' };
+  const [edit] = planIssueTriageCommands(issue, {
+    decision: 'accept',
+    releasedFromHumansAfterDays: 15,
+    dimension,
+    area,
+    priority,
+    reasoning: '',
+  });
+  const args = edit?.args ?? [];
+  return args.filter((_, i) => args[i - 1] === '--add-label');
+}
+
+describe('HOUSE_TAXONOMY_LABELS + .github/labels.json × KEEPER accept edit (regression, epic 0019 additive-only law)', () => {
+  it('labels each dimension with the pool label labels.json syncs, spelled with POOL_LABEL_PREFIX', () => {
+    // The accept edit spells its pool label by hand; the skip that keeps
+    // re-runs idempotent, and the discussions ritual, both go through the
+    // prefix constant. A drift between them re-triages every accepted issue.
+    for (const dimension of DIMENSIONS) {
+      const [pool] = acceptEditLabels(dimension, 'area: dashboard', 'priority: medium');
+      expect(pool).toBe(`${POOL_LABEL_PREFIX}${dimension}`);
+      expect(POOL_LABEL_NAMES).toContain(pool);
+    }
+  });
+
+  it('adds no label that neither the house taxonomy nor labels.json seeds, across every classification', () => {
+    const seeded = new Set([
+      ...HOUSE_TAXONOMY_LABELS.map((label) => label.name),
+      ...POOL_LABEL_NAMES,
+    ]);
+    const added = new Set(
+      DIMENSIONS.flatMap((dimension) =>
+        TRIAGE_AREAS.flatMap((area) =>
+          TRIAGE_PRIORITIES.flatMap((priority) => acceptEditLabels(dimension, area, priority)),
+        ),
+      ),
+    );
+
+    // Every classification reaches the edit: one label per dimension, area and
+    // priority, plus agent-ok for the expired reservation.
+    expect(added.size).toBe(DIMENSIONS.length + TRIAGE_AREAS.length + TRIAGE_PRIORITIES.length + 1);
+    expect([...added].filter((label) => !seeded.has(label))).toEqual([]);
   });
 });
 
