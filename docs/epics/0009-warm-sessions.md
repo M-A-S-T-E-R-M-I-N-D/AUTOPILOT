@@ -72,6 +72,14 @@ threading lives in, and applies identically to a resumed or a cold invocation �
 robustness, not a change to resume itself, the cost/turn measurement, or any acceptance criterion
 above.
 
+**2026-09-30 WebSearch audit (unrelated to resume itself):** `5d97f82a` added an optional
+`onWebSearch` callback to `StreamingClaudeCliOptions`: `StreamingClaudeCliModel` hands each
+WebSearch `tool_use` lifted off the stream by `webSearchesFromEvent` (`stream.ts`) to it, and
+`fly.ts` persists it as a `web-search` audit row (THREAT-MODEL T6). It is stream-event plumbing
+beside `onActivity`/`onText`: `buildClaudeArgs`, the `--resume` placement after every containment
+flag, `isResumeFailure`'s cold retry, and the cost/turn measurement are untouched, and it fires
+identically on a resumed or a cold invocation.
+
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`
 in `packages/engine/src/adapters/claude-cli.ts`, via `buildClaudeArgs`) with no continuity from the
@@ -131,7 +139,8 @@ within a flight cold-spawn the CLI and re-pay ORIENT every time." This epic scop
   PAPER table's `$/turn` column + delta line). Still open: the VERDICT — the 2026-08-17 snapshot
   predates the per-turn metric, so the epic's "measurable win" acceptance criterion stays
   unanswered until the analysis is re-read off a live store with the per-turn delta populated —
-  `Status: Draft` stands until then.
+  `Status: Draft` stood until then (since answered: the 2026-08-20 MEASURED VERDICT at the top of
+  this doc re-read it at n=197, and the status is now Active).
 - The Claude Agent SDK exposes the same idea more directly for a Node orchestrator: TypeScript's
   `query()` accepts `continue: true` / `resume: "<session-id>"`, and Python's `ClaudeSDKClient`
   tracks the session across calls automatically within one live process — a persistent-process path,
