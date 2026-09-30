@@ -39,6 +39,8 @@ import {
   TOOL_LESS_DISALLOWED_TOOLS,
   ASK_ESCALATION_ALLOWED_TOOLS,
   ASK_ESCALATION_DISALLOWED_TOOLS,
+  MERGE_ESCALATION_ALLOWED_TOOLS,
+  MERGE_ESCALATION_DISALLOWED_TOOLS,
 } from '../../packages/engine/dist/index.js';
 import { renderTable, replaceBlock, withoutTimestamp } from './render-table.mjs';
 
@@ -74,6 +76,13 @@ const AGENTS = [
     allowed: ASK_ESCALATION_ALLOWED_TOOLS,
     disallowed: ASK_ESCALATION_DISALLOWED_TOOLS,
     source: '`ask-escalation.ts` `ASK_ESCALATION_ALLOWED_TOOLS`/`ASK_ESCALATION_DISALLOWED_TOOLS`',
+  },
+  {
+    name: 'Merge-escalation agent (sync-back rung 4)',
+    allowed: MERGE_ESCALATION_ALLOWED_TOOLS,
+    disallowed: MERGE_ESCALATION_DISALLOWED_TOOLS,
+    source:
+      '`merge-escalation-agent.ts` `MERGE_ESCALATION_ALLOWED_TOOLS`/`MERGE_ESCALATION_DISALLOWED_TOOLS`',
   },
 ];
 

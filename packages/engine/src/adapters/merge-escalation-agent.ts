@@ -34,8 +34,38 @@
  */
 
 import { execFile } from 'node:child_process';
+import { DEFAULT_ALLOWED_TOOLS, DEFAULT_DISALLOWED_TOOLS, type EngineConfig } from '../config.js';
 import type { GatePort } from '../ports.js';
 import { formatMergeEscalationContext, type MergeConflictSides } from './merge-conflict-context.js';
+
+/** The web tools rung 4 is denied on top of a firing's own denials (THREAT-
+ *  MODEL T6). A merge resolution never needs the open internet, and this
+ *  agent runs through the non-streaming `ClaudeCliModel`, so a WebSearch it
+ *  issued would leave no `web-search` audit row behind. */
+const MERGE_ESCALATION_DENIED_WEB_TOOLS: readonly string[] = ['WebSearch', 'WebFetch'];
+
+/** Rung 4's allow-list: the flight's own grant minus the web tools — still
+ *  everything reading, editing and `git add`-ing the conflicted files needs. */
+export const MERGE_ESCALATION_ALLOWED_TOOLS: readonly string[] = DEFAULT_ALLOWED_TOOLS.filter(
+  (tool) => !MERGE_ESCALATION_DENIED_WEB_TOOLS.includes(tool),
+);
+
+/** Every tool a firing is denied, plus the web tools. */
+export const MERGE_ESCALATION_DISALLOWED_TOOLS: readonly string[] = [
+  ...DEFAULT_DISALLOWED_TOOLS,
+  ...MERGE_ESCALATION_DENIED_WEB_TOOLS,
+];
+
+/** Overlay rung 4's tool grant onto the flight's config; model, effort and
+ *  every other field pass through. Its narrower turn/budget caps ride on the
+ *  invocation itself (`fly.ts`). */
+export function buildMergeEscalationConfig(base: EngineConfig): EngineConfig {
+  return {
+    ...base,
+    allowedTools: MERGE_ESCALATION_ALLOWED_TOOLS,
+    disallowedTools: MERGE_ESCALATION_DISALLOWED_TOOLS,
+  };
+}
 
 /**
  * The agent's actual work order: `formatMergeEscalationContext`'s human-

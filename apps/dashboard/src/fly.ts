@@ -86,6 +86,7 @@ import {
   syncWorktreeBranch,
   SYNC_BACK_FLIGHT_END_WAIT_MS,
   formatMergeEscalationContext,
+  buildMergeEscalationConfig,
   createGitMergeEscalationDeps,
   runMergeEscalationAgent,
   summarizeMergeEscalationOutcome,
@@ -2009,7 +2010,9 @@ async function main(): Promise<void> {
         const invokeAgent = async (prompt: string) => {
           const model = new ClaudeCliModel({
             repo: target,
-            config,
+            // No WebSearch/WebFetch (THREAT-MODEL T6): this non-streaming
+            // spawn could not audit a search the way a firing's stream does.
+            config: buildMergeEscalationConfig(config),
             auth,
             settingsPath: guardSettingsPath,
             pidRegistry,
