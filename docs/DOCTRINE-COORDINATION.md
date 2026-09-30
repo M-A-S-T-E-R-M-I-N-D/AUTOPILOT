@@ -357,6 +357,12 @@ lifecycle, all shipped:
   marked note the project's own SOUL already carries, the fleet copy is
   stripped first — the project-local copy is more specific, and the same
   lesson twice in one prompt is noise.
+- **Per-project opt-out** — a project whose SOUL carries the line
+  `Fleet wisdom: off` (on its own line or as a `-` bullet, any case) gets
+  none of the fleet layer; every other project still does. It is the
+  per-project override of this fleet-wide default (MASTER-PLAN §5.4), and it
+  lives in the SOUL text, so adding or removing it goes through the SOUL
+  editor's unlock and propose-then-ratify path like any other edit.
 
 **Confidentiality boundary:** the mined text is a fixed, pre-authored
 template that never interpolates any project-identifying data — no slug, no
