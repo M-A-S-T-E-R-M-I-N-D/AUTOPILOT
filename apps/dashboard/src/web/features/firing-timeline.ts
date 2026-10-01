@@ -169,23 +169,32 @@ function firingTraceSection(c) {
     var g = groups[i];
     var f = firingLogEntry(c, g.firingId);
     var isOpen = openFirings[c.id] === g.firingId;
-    var row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'firing-toggle' + (isOpen ? ' firing-open' : '');
-    row.setAttribute('data-firing-toggle', g.firingId);
-    row.setAttribute('data-firing-pid', c.id);
-    row.setAttribute('aria-expanded', String(isOpen));
+    // The row is a plain flex container, NOT a <button> (board ap-mupzhat7-0):
+    // HTML's content model for <button> forbids any descendant with a
+    // tabindex attribute, and every roving field below carries one. The
+    // disclosure control is the headline <button> itself (aria-expanded, the
+    // click delegation's [data-firing-toggle]); the fields sit beside it.
+    // The open state rides .firing-open for the row's accent chrome.
+    var row = el('div', 'firing-toggle' + (isOpen ? ' firing-open' : ''));
     var meta = firingTimelineRowMeta(g, f, traceTaskById, flightHeadlineOf, fmtAgo);
-    var headlineEl = el('span', 'firing-headline', meta.headlineDisplay);
+    var headlineEl = document.createElement('button');
+    headlineEl.type = 'button';
+    headlineEl.className = 'firing-headline';
+    headlineEl.textContent = meta.headlineDisplay;
+    headlineEl.setAttribute('data-firing-toggle', g.firingId);
+    headlineEl.setAttribute('data-firing-pid', c.id);
+    headlineEl.setAttribute('aria-expanded', String(isOpen));
+    // An explicit tabindex="0" enrolls the button in the row's roving set as
+    // its leading stop — the seeding loop below walks [tabindex] fields.
     headlineEl.setAttribute('tabindex', '0');
     headlineEl.setAttribute('data-tip', meta.headline);
-    // D1 ATTRIBUTE PAYLOAD (epic 0015): the span's own text (the 64-char
+    // D1 ATTRIBUTE PAYLOAD (epic 0015): the button's own text (the 64-char
     // truncated headline) already names it, so the full headline rides
     // aria-describedby into a visually-hidden span instead of an aria-label
     // duplicating data-tip verbatim (same fix as the flight-map fnodes). The
-    // desc lands AFTER the row button in the wrap — inside the button its
-    // text would join the button's accessible name (a button names itself
-    // from its contents, sr-only text included).
+    // desc lands AFTER the row in the wrap — inside the button its text
+    // would join the button's accessible name (a button names itself from
+    // its contents, sr-only text included).
     var headlineDescId = 'firing-headline-desc-' + c.id + '-' + i;
     headlineEl.setAttribute('aria-describedby', headlineDescId);
     row.appendChild(headlineEl);
@@ -266,12 +275,12 @@ function firingTraceSection(c) {
     agoEl.setAttribute('aria-label', meta.startedAgoAriaLabel);
     row.appendChild(agoEl);
     // D1 TAB-STOP ROVING (board web-mtd1wyte-ssntzi): the fields above each
-    // set tabindex="0" — up to ~8 Tab stops PER ROW on top of the row button
-    // itself, the same per-row multiplier the flight-log rows already fixed.
-    // Only the FIRST field (the headline) stays a real Tab stop; Left/Right/
-    // Home/End walk the rest (delegated handlers below). Seeded here, once
-    // the row is fully assembled, because every chip after the headline is
-    // conditional — "which fields exist" is only knowable now.
+    // set tabindex="0" — up to ~8 Tab stops PER ROW, the same per-row
+    // multiplier the flight-log rows already fixed. Only the FIRST field
+    // (the headline button) stays a real Tab stop; Left/Right/Home/End walk
+    // the rest (delegated handlers below). Seeded here, once the row is
+    // fully assembled, because every chip after the headline is conditional
+    // — "which fields exist" is only knowable now.
     var rovingFields = row.querySelectorAll('[tabindex]');
     for (var rf = 0; rf < rovingFields.length; rf++) {
       rovingFields[rf].setAttribute('tabindex', rf === 0 ? '0' : '-1');
