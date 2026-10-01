@@ -122,6 +122,18 @@ changed. Re-checked against current code: `package.json` version is still `0.56.
 DISCIPLINE / BOARD DIVERSITY audit claims) has no commits since this card's prior review.
 All still true.
 
+**2026-10-01 review, continued (DOC-FRESHNESS flag against `prompt.ts`):** two more
+flagged commits (`be38bca3` "Internet: off", `58c0435b` "Turns: N") add a fourth and
+fifth per-project SOUL override alongside `Subagents: off` — the open internet
+(WebSearch/WebFetch moved to `--disallowedTools`, "Research first" swapped for an
+on-disk INTERNET section) and a per-project turn ceiling that can only tighten, never
+loosen, the fleet-wide cap. Same conclusion as the entry above: neither is a
+PARALLEL-delegation-shaped change, and no §3/§4/§5 claim here names internet access,
+the "Research first" section, or a per-firing turn cap by feature, so no narrative
+changed. Re-checked: `package.json` version is still `0.56.0`, `FIRING_PROMPT_VERSION`
+is still `'firing-v17'`, and `packages/store/src/eval-gate.ts` still has no commits
+since genesis. All still true.
+
 ## 7. AI-Use Disclosure
 
 - This document's narrative sections (§1–§5, this section) were drafted autonomously by AUTOPILOT (model
