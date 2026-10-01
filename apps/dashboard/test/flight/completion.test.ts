@@ -128,6 +128,41 @@ describe('verdictDeferTargets (generalized — investigation of 2026-08-21)', ()
     ).toEqual(['ap-mt6qc9k3-0', 'inbox-extract-first-feature-now-md', 'github-42']);
   });
 
+  it('takes the whole hyphen chain as the id — ritual-minted suffixes and every other shape (2026-10-01)', () => {
+    // Round 52, fleet-4: "VERDICT close ap-muostm93-ci-red" deferred
+    // `ap-muostm93-ci`, a task that does not exist, so the next firing
+    // claimed the same stale CI-red task and minted the same verdict again.
+    // The suffixes the rituals mint (`-ci-red`, `-strand`, `-convred`) and the
+    // mutred-/docfresh-/codescan- shapes all run past two segments.
+    expect(
+      verdictDeferTargets([
+        { title: 'VERDICT close ap-muostm93-ci-red: the red at 022a827 is stale' },
+        {
+          title: 'VERDICT blocked ap-muhcwgc6-strand, ap-muhfpue7-ne4oua-convred: lane 6 is parked',
+        },
+        { title: 'VERDICT close mutred-engine-prompt-muno0gt5: 100/100 since 4bbca4b' },
+        {
+          title:
+            'VERDICT close docfresh-docs-epics-0001-parallel-flights-md-1787219806000: current',
+        },
+        { title: 'VERDICT close codescan-18-mujfc6q6: dismissed upstream' },
+      ]),
+    ).toEqual([
+      'ap-muostm93-ci-red',
+      'ap-muhcwgc6-strand',
+      'ap-muhfpue7-ne4oua-convred',
+      'mutred-engine-prompt-muno0gt5',
+      'docfresh-docs-epics-0001-parallel-flights-md-1787219806000',
+      'codescan-18-mujfc6q6',
+    ]);
+    // A hyphenated word in the prose over-matches, as before — the callers
+    // only flip ids that are open — but the id ahead of the colon comes out
+    // whole, not cut at its second segment.
+    expect(
+      verdictDeferTargets([{ title: 'VERDICT close web-aaa111-bbb222: web-wise fine' }]),
+    ).toEqual(['web-aaa111-bbb222', 'web-wise']);
+  });
+
   it('dedupes repeated ids and handles undefined/empty input', () => {
     expect(
       verdictDeferTargets([

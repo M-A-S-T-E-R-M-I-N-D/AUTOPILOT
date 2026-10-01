@@ -497,6 +497,38 @@ describe('APPROVED-VERDICT CASCADE (board web-mt5g8l1w-p2dddo)', () => {
     ]);
   });
 
+  it('cascades onto the whole hyphen chain of an id — ritual-minted suffixes included (2026-10-01)', () => {
+    // "VERDICT close ap-muostm93-ci-red" used to name `ap-muostm93-ci`: the
+    // post-push ritual's `-ci-red`, the strand `-strand`, the convergence
+    // `-convred`, and every mutred-/docfresh-/codescan- id fell outside the
+    // two-segment shape, so approving the verdict closed nothing.
+    seedProject('p1');
+    const named = [
+      'ap-muostm93-ci-red',
+      'ap-muhcwgc6-strand',
+      'ap-muhfpue7-ne4oua-convred',
+      'mutred-engine-prompt-muno0gt5',
+      'docfresh-docs-epics-0001-parallel-flights-md-1787219806000',
+      'codescan-18-mujfc6q6',
+    ];
+    for (const id of named) createTask(store, { id, projectId: 'p1', title: id, createdAt: 1 });
+    createTask(store, {
+      id: 'ap-verdict-2',
+      projectId: 'p1',
+      title: `VERDICT close ${named.join(', ')}: every one is stale`,
+      source: 'self',
+      status: 'needs_approval',
+      createdAt: 1,
+    });
+
+    expect(setTaskStatus(store, 'ap-verdict-2', 'queued', 2)).toBe(true);
+
+    const open = store.db
+      .prepare(`SELECT id FROM tasks WHERE project_id = 'p1' AND status != 'done' ORDER BY id`)
+      .all() as { id: string }[];
+    expect(open).toEqual([]);
+  });
+
   it('still records an approved evaluation label for a cascaded VERDICT close', () => {
     seedProject('p1');
     createTask(store, { id: 'web-aaa-1', projectId: 'p1', title: 'stale idea', createdAt: 1 });

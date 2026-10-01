@@ -40,13 +40,24 @@ export function verdictDeferTarget(
 
 /** Every task-id shape the board mints — `web-<ts36>-<rand>` (web board),
  *  `ap-<ts36>-<n>` (firing-hooks self-proposals), `inbox-<slug>`
- *  (inbox-triage) and `github-<issue#>` (issue-triage) — used to pull the
- *  tasks a verdict proposal NAMES out of its title. Widened from web-only
- *  (board web-mtettjx9-57a9i5): a verdict naming a self-proposed or triaged
- *  task deferred nothing. Over-matching prose (e.g. "inbox-triage") is fine
- *  — the caller only flips tasks whose exact id is currently open. */
+ *  (inbox-triage), `github-<issue#>` (issue-triage), `mutred-<config>-<run>`
+ *  (the nightly mutation run), `docfresh-<path>-<ts>` (doc freshness) and
+ *  `codescan-<alert#>-<ts>` (code scanning) — used to pull the tasks a
+ *  verdict proposal NAMES out of its title. Widened from web-only (board
+ *  web-mtettjx9-57a9i5): a verdict naming a self-proposed or triaged task
+ *  deferred nothing. Over-matching prose (e.g. "inbox-triage") is fine —
+ *  the caller only flips tasks whose exact id is currently open.
+ *
+ *  AN ID IS THE WHOLE HYPHEN CHAIN (2026-10-01): the `ap-` shape used to
+ *  stop after two segments, so "VERDICT close ap-muostm93-ci-red" deferred
+ *  the non-existent `ap-muostm93-ci` — the ritual-minted suffixes (`-ci-red`,
+ *  `-strand`, `-convred`) were cut off — and the lane's next firing claimed
+ *  the same stale task again and minted the same verdict again ($2.16 for
+ *  nothing, round 52). The chain runs to the first character that cannot be
+ *  part of an id (a space, colon or comma), which is where a title's prose
+ *  resumes. Keep `packages/store/src/mutate.ts`'s copy identical. */
 const VERDICT_TASK_ID_RE =
-  /(?:web|ap)-[a-z0-9]+-[a-z0-9]+|inbox-[a-z0-9]+(?:-[a-z0-9]+)*|github-[0-9]+/g;
+  /\b(?:web|ap|inbox|github|mutred|docfresh|codescan)-[a-z0-9]+(?:-[a-z0-9]+)*/g;
 const VERDICT_DEFER_KIND_RE = /^VERDICT (close|(?:confirm )?blocked)\b/i;
 
 /**
