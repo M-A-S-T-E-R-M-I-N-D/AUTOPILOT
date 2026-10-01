@@ -104,12 +104,13 @@ function genTaskId(): string {
 
 /** The dashboard form's own title cap (`server.ts` MAX_TASK_TITLE_CHARS) —
  *  mirrored here so the MCP surface can't silently mint what the HTTP layer
- *  refuses: "indistinguishable from an operator-typed task" includes limits. */
+ *  refuses: "indistinguishable from an operator-typed task" includes limits.
+ *  Measured AFTER trimming, as the form measures it — padding never counts. */
 const MAX_TASK_TITLE_CHARS = 300;
 
 const TASKS_CREATE_INPUT = {
   projectId: z.string().min(1),
-  title: z.string().min(1).max(MAX_TASK_TITLE_CHARS),
+  title: z.string().trim().min(1).max(MAX_TASK_TITLE_CHARS),
   severity: z.enum(SEVERITIES).optional(),
   dimension: z.enum(DIMENSIONS).optional(),
 };
@@ -141,7 +142,7 @@ export function tasksCreate(
   },
 ): TaskCreateResult {
   const taskId = genTaskId();
-  if (args.title.length > MAX_TASK_TITLE_CHARS) return { ok: false, taskId };
+  if (args.title.trim().length > MAX_TASK_TITLE_CHARS) return { ok: false, taskId };
   const ok = createTask(store, {
     id: taskId,
     projectId: args.projectId,
