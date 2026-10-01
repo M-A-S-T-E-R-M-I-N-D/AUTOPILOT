@@ -1,9 +1,13 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { openStore, migrate, type Store } from '@autopilot/store';
 import { toOtlpResourceSpans, type FiringRecord } from '@autopilot/engine';
-import { firingPayloadSpan } from '../../src/read/pipeline-spans.js';
+import { firingPayloadSpan, readPipelineSpans } from '../../src/read/pipeline-spans.js';
 
 /** Same real, engine-shaped record the pipeline-graph golden test uses. */
 const BASE_RECORD: FiringRecord = {
@@ -89,5 +93,93 @@ describe('firingPayloadSpan', () => {
     expect(firingPayloadSpan(JSON.stringify(noTs))).toBeNull();
     const badTs = { ...BASE_RECORD, ts: 'not-a-date' };
     expect(firingPayloadSpan(JSON.stringify(badTs))).toBeNull();
+  });
+});
+
+let dir: string | undefined;
+
+function project(store: Store, id: string): void {
+  store.db
+    .prepare(
+      `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+       VALUES (?, ?, ?, '/tmp/x', 'flying', NULL, 1, 1)`,
+    )
+    .run(id, id, id);
+}
+
+function firing(
+  store: Store,
+  projectId: string,
+  firingId: string,
+  createdAt: number,
+  payload: string | null,
+): void {
+  store.db
+    .prepare(
+      `INSERT INTO metrics (project_id, firing_id, item, kind, sha, shipped, gate_result, cost_usd,
+                            duration_ms, commit_subject, model, created_at)
+       VALUES (?, ?, 'AP-1', 'feat', NULL, 1, 'passed', 1, 1000, 'feat: x', 'claude-sonnet-5', ?)`,
+    )
+    .run(projectId, firingId, createdAt);
+  if (payload !== null) {
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES (?, ?, 'firing', ?, ?)`,
+      )
+      .run(projectId, firingId, payload, createdAt);
+  }
+}
+
+afterEach(() => {
+  if (dir !== undefined) rmSync(dir, { recursive: true, force: true });
+  dir = undefined;
+});
+
+describe('readPipelineSpans', () => {
+  it('returns null when the db file does not exist', () => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-dash-pipeline-spans-'));
+    const dbPath = join(dir, 'missing.sqlite');
+    expect(readPipelineSpans(dbPath, 'fly-a')).toBeNull();
+  });
+
+  it('returns null for an unknown project', () => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-dash-pipeline-spans-'));
+    const dbPath = join(dir, 'db.sqlite');
+    const store = openStore(dbPath);
+    migrate(store);
+    project(store, 'fly-a');
+    store.close();
+
+    expect(readPipelineSpans(dbPath, 'fly-ghost')).toBeNull();
+  });
+
+  it("maps a project's firings to spans oldest-first, skipping malformed payloads", () => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-dash-pipeline-spans-'));
+    const dbPath = join(dir, 'db.sqlite');
+    const store = openStore(dbPath);
+    migrate(store);
+    project(store, 'fly-a');
+    const older = { ...BASE_RECORD, ts: '2026-07-07T00:00:00.000Z', firing: 1 };
+    const newer = { ...BASE_RECORD, ts: '2026-07-08T00:00:00.000Z', firing: 2 };
+    firing(store, 'fly-a', 'fly-a:1', 1, JSON.stringify(older));
+    firing(store, 'fly-a', 'fly-a:2', 2, 'not malformed json but no ts match');
+    firing(store, 'fly-a', 'fly-a:3', 3, JSON.stringify(newer));
+    store.close();
+
+    const spans = readPipelineSpans(dbPath, 'fly-a');
+
+    expect(spans).not.toBeNull();
+    expect(spans).toHaveLength(2);
+    expect(spans![0]).toEqual(firingPayloadSpan(JSON.stringify(older)));
+    expect(spans![1]).toEqual(firingPayloadSpan(JSON.stringify(newer)));
+  });
+
+  it('returns null when the store cannot be read (e.g. an unmigrated db)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-dash-pipeline-spans-'));
+    const dbPath = join(dir, 'db.sqlite');
+    openStore(dbPath).close();
+
+    expect(readPipelineSpans(dbPath, 'fly-a')).toBeNull();
   });
 });
