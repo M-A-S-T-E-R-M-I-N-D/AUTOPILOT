@@ -37,6 +37,8 @@ export interface FiringPromptInput {
    * The harness's per-firing TURN ceiling, when the caller knows it. Telling the
    * agent the cap exists is what makes "deliver or pack" possible — firing 47
    * died at an unseen cap with 61 turns of exploration lost and nothing committed.
+   * For a project whose SOUL says `Turns: N` this is that lower cap
+   * (`config.ts`'s `firingMaxTurns()`), the same number the engine stops at.
    */
   readonly maxTurns?: number;
   /**

@@ -25,6 +25,10 @@ import {
   soulOptsOutOfSubagents,
   INTERNET_OPT_OUT_LINE,
   soulOptsOutOfInternet,
+  TURN_CAP_LINE_PREFIX,
+  soulTurnCap,
+  BUDGET_CAP_LINE_PREFIX,
+  soulBudgetCapUsd,
 } from '@autopilot/engine';
 
 // Contrast needs real layout, which jsdom lacks — same carve-out as
@@ -503,7 +507,7 @@ describe('SOUL editor names the attribution opt-out (board ap-muo35gzl-2)', () =
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
     );
     const hint = document.getElementById('soul-editor-attribution-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -545,7 +549,7 @@ describe('SOUL editor names the subagents opt-out (board ap-muo35gzl-2)', () => 
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
     );
     const hint = document.getElementById('soul-editor-subagents-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -593,7 +597,7 @@ describe('SOUL editor names the internet opt-out (board ap-muo35gzl-2)', () => {
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
     );
     const hint = document.getElementById('soul-editor-internet-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -621,6 +625,96 @@ describe('SOUL editor names the internet opt-out (board ap-muo35gzl-2)', () => {
     const hint = document.getElementById('soul-editor-internet-hint-p1');
     expect(hint).not.toBeNull();
     expect(hint?.textContent).toBe(STRINGS.he.soulEditorInternetHint);
+  });
+});
+
+describe('SOUL editor names the turn cap (board ap-muo35gzl-2)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    // The i18n case below persists Hebrew; later suites expect English.
+    localStorage.clear();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('describes the SOUL text with a fifth hint that names the turn-cap line', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const textarea = document.querySelector(
+      '[data-soul-edit] textarea[name="text"]',
+    ) as HTMLTextAreaElement;
+    expect(textarea.getAttribute('aria-describedby')).toBe(
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
+    );
+    const hint = document.getElementById('soul-editor-turns-hint-p1') as HTMLElement;
+    expect(hint.closest('[data-soul-edit]')).not.toBeNull();
+    expect(hint.getAttribute('data-i18n')).toBe('soulEditorTurnsHint');
+    expect(hint.textContent).toBe(STRINGS.en.soulEditorTurnsHint);
+    // Every override hint sits under the SOUL text, in the order the
+    // textarea's aria-describedby reads them out.
+    const hintIds = Array.from(document.querySelectorAll('[data-soul-edit] .soul-editor-hint')).map(
+      (node) => node.id,
+    );
+    expect(hintIds).toEqual(textarea.getAttribute('aria-describedby')?.split(' '));
+  });
+
+  it('quotes, in every locale, the exact line shape the engine parses', () => {
+    // The hint's own example is a line the parser reads as a cap.
+    const example = `${TURN_CAP_LINE_PREFIX} 60`;
+    expect(soulTurnCap(example)).toBe(60);
+    expect(STRINGS.en.soulEditorTurnsHint).toContain(`“${example}”`);
+    expect(STRINGS.he.soulEditorTurnsHint).toContain(`“${example}”`);
+  });
+
+  it('translates the turn-cap hint with the language switcher', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    const hint = document.getElementById('soul-editor-turns-hint-p1');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toBe(STRINGS.he.soulEditorTurnsHint);
+  });
+
+  it('describes the SOUL text with a sixth hint that names the budget-cap line', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const textarea = document.querySelector(
+      '[data-soul-edit] textarea[name="text"]',
+    ) as HTMLTextAreaElement;
+    expect(textarea.getAttribute('aria-describedby')).toBe(
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
+    );
+    const hint = document.getElementById('soul-editor-budget-hint-p1') as HTMLElement;
+    expect(hint.closest('[data-soul-edit]')).not.toBeNull();
+    expect(hint.getAttribute('data-i18n')).toBe('soulEditorBudgetHint');
+    expect(hint.textContent).toBe(STRINGS.en.soulEditorBudgetHint);
+    // Every override hint sits under the SOUL text, in the order the
+    // textarea's aria-describedby reads them out.
+    const hintIds = Array.from(document.querySelectorAll('[data-soul-edit] .soul-editor-hint')).map(
+      (node) => node.id,
+    );
+    expect(hintIds).toEqual(textarea.getAttribute('aria-describedby')?.split(' '));
+  });
+
+  it('quotes, in every locale, the exact budget line shape the engine parses', () => {
+    // The hint's own example is a line the parser reads as a cap.
+    const example = `${BUDGET_CAP_LINE_PREFIX} $5`;
+    expect(soulBudgetCapUsd(example)).toBe(5);
+    expect(STRINGS.en.soulEditorBudgetHint).toContain(`“${example}”`);
+    expect(STRINGS.he.soulEditorBudgetHint).toContain(`“${example}”`);
+  });
+
+  it('translates the budget-cap hint with the language switcher', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    const hint = document.getElementById('soul-editor-budget-hint-p1');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toBe(STRINGS.he.soulEditorBudgetHint);
   });
 });
 

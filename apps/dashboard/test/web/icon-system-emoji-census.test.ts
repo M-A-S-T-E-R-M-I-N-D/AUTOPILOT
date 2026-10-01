@@ -85,6 +85,12 @@ const CIRCULAR_ARROW_PATTERN = /[\u{21BA}\u{21BB}\u{27F2}\u{27F3}]/gu;
  *  plus, minus and maximize-2 icons (2026-09-30). It pins zero everywhere. */
 const SUPPLEMENTAL_ARROWS_B_PATTERN = /[\u{2900}-\u{297F}]/gu;
 
+/** ⇪ (U+21EA, the Caps Lock arrow from a bar) sat outside every range above
+ *  as well, yet the project page's "⇪ Sync to GitHub" button led with it as
+ *  an upload icon, until it took the vendored cloud-upload (2026-10-01). Only
+ *  ⇪ itself: ⇧ and the other white arrows stay free as key names, like ⌘. */
+const ARROW_FROM_BAR_PATTERN = /\u{21EA}/gu;
+
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map((f) => String(f))
@@ -140,6 +146,11 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
 
   it('paints no Supplemental Arrows-B glyph-icon in any web/ source file outside comments', () => {
     const offenders = webOffenders(files, SUPPLEMENTAL_ARROWS_B_PATTERN);
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('paints no ⇪ glyph-icon in any web/ source file outside comments', () => {
+    const offenders = webOffenders(files, ARROW_FROM_BAR_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
@@ -211,6 +222,10 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
 
   it('carries no Supplemental Arrows-B glyph-icon in any locale value', () => {
     expect(emojiBearingStringKeys(SUPPLEMENTAL_ARROWS_B_PATTERN)).toEqual([]);
+  });
+
+  it('carries no ⇪ glyph-icon in any locale value', () => {
+    expect(emojiBearingStringKeys(ARROW_FROM_BAR_PATTERN)).toEqual([]);
   });
 
   it('leads with no Geometric Shapes glyph-icon in any locale value', () => {

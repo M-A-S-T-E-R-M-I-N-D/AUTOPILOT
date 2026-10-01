@@ -132,6 +132,73 @@ export function soulOptsOutOfInternet(soul: string): boolean {
   return INTERNET_OPT_OUT.test(soul);
 }
 
+/** The SOUL line an operator writes to cap ONE project's firings at fewer
+ *  turns than the fleet-wide ceiling (`maxTurns`) — a small or docs-only repo
+ *  whose units never need the full budget. Written as `Turns: 60`; this is
+ *  the prefix the editor's hint quotes. The fifth per-project override
+ *  (MASTER-PLAN §5.4, board ap-muo35gzl-2); it travels with the SOUL, so it
+ *  is locked and ratified like every other SOUL edit. */
+export const TURN_CAP_LINE_PREFIX = 'Turns:';
+
+/** The cap on a line of its own — same shape as {@link SUBAGENTS_OPT_OUT},
+ *  with a positive integer where the others say off. `Turns: 0`, a word, a
+ *  sign, a fraction, or a trailing unit (`Turns: 60 turns`) is not a cap. */
+const TURN_CAP = /^[ \t]*(?:[-*][ \t]+)?turns:[ \t]*([1-9]\d{0,4})[ \t\r]*$/im;
+
+/** The turn cap this project's SOUL asks for, or null when it carries no
+ *  {@link TURN_CAP_LINE_PREFIX} line. Parsed only — {@link firingMaxTurns}
+ *  applies it against the ceiling. */
+export function soulTurnCap(soul: string): number | null {
+  const match = TURN_CAP.exec(soul);
+  return match ? Number(match[1]) : null;
+}
+
+/** The turn ceiling one firing runs under: the fleet-wide ceiling, or the
+ *  project's own lower cap. A SOUL can tighten its project's ceiling, never
+ *  loosen it — a cap at or above the ceiling leaves the ceiling in force, so
+ *  one project's SOUL cannot spend past what the operator set for the fleet. */
+export function firingMaxTurns(soul: string, fleetCeiling: number): number {
+  const cap = soulTurnCap(soul);
+  return cap === null ? fleetCeiling : Math.min(cap, fleetCeiling);
+}
+
+/** The SOUL line an operator writes to cap ONE project's firings at a smaller
+ *  spend than the fleet-wide per-firing budget (`maxBudgetUsd`, the fly bar's
+ *  "$ per firing") — a repo whose units are cheap, or one flown on a short
+ *  leash. Written as `Budget: $5` (the `$` is optional, cents allowed); this
+ *  is the prefix the editor's hint quotes. The sixth per-project override
+ *  (MASTER-PLAN §5.4, board ap-muo35gzl-2); it travels with the SOUL, so it
+ *  is locked and ratified like every other SOUL edit. */
+export const BUDGET_CAP_LINE_PREFIX = 'Budget:';
+
+/** The cap on a line of its own — same shape as {@link TURN_CAP}, with a
+ *  dollar amount where it has a turn count: an optional `$`, whole dollars
+ *  without a leading zero (a bare `0` only before cents), up to two decimals.
+ *  A word, a sign, a stray leading zero or a trailing unit (`Budget: 5 USD`)
+ *  is not a cap; `Budget: 0` parses and {@link soulBudgetCapUsd} rejects it. */
+const BUDGET_CAP =
+  /^[ \t]*(?:[-*][ \t]+)?budget:[ \t]*\$?((?:0|[1-9]\d{0,4})(?:\.\d{1,2})?)[ \t\r]*$/im;
+
+/** The per-firing budget cap this project's SOUL asks for, or null when it
+ *  carries no {@link BUDGET_CAP_LINE_PREFIX} line — or names zero dollars,
+ *  which no firing can fly on. Parsed only — {@link firingMaxBudgetUsd}
+ *  applies it against the fleet-wide budget. */
+export function soulBudgetCapUsd(soul: string): number | null {
+  const match = BUDGET_CAP.exec(soul);
+  if (!match) return null;
+  const usd = Number(match[1]);
+  return usd > 0 ? usd : null;
+}
+
+/** The per-firing budget one firing runs under: the fleet-wide figure, or the
+ *  project's own lower cap. Tighten only, like {@link firingMaxTurns}: a cap
+ *  at or above the fleet-wide budget leaves it in force, so one project's
+ *  SOUL cannot spend past what the operator set for the fleet. */
+export function firingMaxBudgetUsd(soul: string, fleetBudgetUsd: number): number {
+  const cap = soulBudgetCapUsd(soul);
+  return cap === null ? fleetBudgetUsd : Math.min(cap, fleetBudgetUsd);
+}
+
 /** The `--allowedTools`/`--disallowedTools` pair one firing runs with. */
 export interface FiringToolGrant {
   readonly allowedTools: readonly string[];

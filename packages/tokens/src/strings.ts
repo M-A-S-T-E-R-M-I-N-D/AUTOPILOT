@@ -751,6 +751,16 @@ const EN_STRINGS = {
   // packages/engine/src/config.ts) — verbatim in every locale too.
   soulEditorInternetHint:
     'Add the line “Internet: off” to keep this project’s firings off the open internet (no WebSearch or WebFetch).',
+  // The fifth per-project override (TURN_CAP_LINE_PREFIX in
+  // packages/engine/src/config.ts) — the "Turns:" prefix verbatim in every
+  // locale too; 60 is an example, any positive number is a cap.
+  soulEditorTurnsHint:
+    'Add a line “Turns: 60” to cap this project’s firings at that many turns, under the fleet-wide ceiling — a number above the ceiling leaves it in force.',
+  // The sixth per-project override (BUDGET_CAP_LINE_PREFIX in
+  // packages/engine/src/config.ts) — the "Budget:" prefix verbatim in every
+  // locale too; $5 is an example, any positive amount is a cap.
+  soulEditorBudgetHint:
+    'Add a line “Budget: $5” to cap what each of this project’s firings may spend, under the fleet-wide per-firing budget — an amount above it leaves the fleet figure in force.',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -1324,14 +1334,15 @@ const EN_STRINGS = {
   // details/error of its own.
   githubSyncResultOk: 'synced.',
   githubSyncResultFail: 'sync failed.',
-  // The project page's settings-row hints beside "↺ Start over" and
-  // "⇪ Sync to GitHub" (shell.ts renderProjectPage, board web-msnsndki-dz3vn1).
+  // The project page's settings-row hints beside "Start over" and
+  // "Sync to GitHub" (shell.ts renderProjectPage, board web-msnsndki-dz3vn1).
   startOverHint: 'Resets firings + ship-rate counters to 0/0. Tasks, index, and backups are kept.',
   githubSyncHint: 'Private by default. Creates a repo on first sync, pushes on every one after.',
-  // The "⇪ Sync to GitHub" button's idle label (its click handler swaps the
+  // The "Sync to GitHub" button's idle label (its click handler swaps the
   // button's data-i18n key to githubSyncing for the request's duration) and
-  // the opt-in public checkbox's text beside it.
-  githubSync: '⇪ Sync to GitHub',
+  // the opt-in public checkbox's text beside it. Epic 0025: the button leads
+  // with the vendored cloud-upload icon, not a baked ⇪.
+  githubSync: 'Sync to GitHub',
   githubSyncPublicLabel: 'Make public instead (visible to everyone)',
   githubPrResultOk: 'pull request opened.',
   githubPrResultFail: 'failed to open pull request.',
@@ -2481,6 +2492,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'הוסיפו את השורה “Subagents: off” כדי למנוע מההפעלות של הפרויקט הזה להאציל עבודה לסוכני-משנה.',
     soulEditorInternetHint:
       'הוסיפו את השורה “Internet: off” כדי להשאיר את ההפעלות של הפרויקט הזה מחוץ לאינטרנט הפתוח (בלי WebSearch או WebFetch).',
+    soulEditorTurnsHint:
+      'הוסיפו שורה “Turns: 60” כדי להגביל את ההפעלות של הפרויקט הזה למספר התורות הזה, מתחת לתקרה של כל הצי — מספר מעל התקרה משאיר אותה בתוקף.',
+    soulEditorBudgetHint:
+      'הוסיפו שורה “Budget: $5” כדי להגביל כמה כל הפעלה של הפרויקט הזה רשאית להוציא, מתחת לתקציב-להפעלה של כל הצי — סכום מעל התקציב משאיר אותו בתוקף.',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
@@ -2832,7 +2847,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     startOverHint:
       'מאפס את ספירת ההפעלות ואת שיעור השילוח ל-0/0. המשימות, האינדקס והגיבויים נשמרים.',
     githubSyncHint: 'פרטי כברירת מחדל. הסנכרון הראשון יוצר מאגר, וכל סנכרון לאחריו דוחף אליו.',
-    githubSync: '⇪ סנכרן ל-GitHub',
+    githubSync: 'סנכרן ל-GitHub',
     githubSyncPublicLabel: 'הפוך לציבורי במקום זאת (גלוי לכולם)',
     githubPrResultOk: 'ה-pull request נפתח.',
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',

@@ -99,6 +99,8 @@ import {
   firingToolGrant,
   soulOptsOutOfSubagents,
   soulOptsOutOfInternet,
+  firingMaxTurns,
+  firingMaxBudgetUsd,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -244,6 +246,9 @@ import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
 const DEFAULT_FIRINGS = 1;
 const FLY_BUDGET_USD = 2;
+/** The per-firing floor: under it a firing cannot reach a commit, so neither
+ *  the fly bar's figure nor a project's own `Budget:` SOUL line goes below. */
+const FLY_BUDGET_FLOOR_USD = 0.5;
 /** How many recent commits the REPO-MAP digest's "recent focus" tally scans. */
 const REPO_MAP_COMMIT_WINDOW = 30;
 /** How many hot files the REPO-MAP digest surfaces (largest first). */
@@ -261,7 +266,10 @@ async function main(): Promise<void> {
   const firings = Math.max(1, Number(process.argv[3] ?? DEFAULT_FIRINGS) || DEFAULT_FIRINGS);
   // PER-FIRING budget, uncapped above the floor — the founder's explicit call
   // (spend decisions are the operator's): each firing gets the full amount.
-  const budgetUsd = Math.max(0.5, Number(process.argv[4] ?? FLY_BUDGET_USD) || FLY_BUDGET_USD);
+  const budgetUsd = Math.max(
+    FLY_BUDGET_FLOOR_USD,
+    Number(process.argv[4] ?? FLY_BUDGET_USD) || FLY_BUDGET_USD,
+  );
   // TOTAL-SPEND mode (dashboard's fly-bar budget toggle): argv[5] present means
   // "keep firing until the remaining budget can't fund another firing" instead
   // of stopping at the fixed `firings` count (see FlightRunner.start()).
@@ -434,6 +442,17 @@ async function main(): Promise<void> {
     // list and swaps the prompt's Research first section for an on-disk one
     // (THREAT-MODEL T6: a private repo's contents never leave in a query).
     const internetEnabled = !soulOptsOutOfInternet(soulOwn);
+    // And a "Turns: N" line caps this project's firings under the fleet-wide
+    // FLY_MAX_TURNS ceiling — tighten only, never loosen. One number for the
+    // engine's cap, the prompt's TURN BUDGET, and the turn-cap death feedback
+    // below, so the agent is told the ceiling it actually dies at.
+    const maxTurns = firingMaxTurns(soulOwn, FLY_MAX_TURNS);
+    // And a "Budget: $N" line caps this project's firings under the fleet-wide
+    // per-firing budget the operator launched with — tighten only, never
+    // loosen, never under the floor the fly bar itself keeps. One number for
+    // the engine's spend cap, the routed-budget lockstep and TOTAL-SPEND
+    // mode's stop decision below.
+    const firingBudgetUsd = Math.max(FLY_BUDGET_FLOOR_USD, firingMaxBudgetUsd(soulOwn, budgetUsd));
 
     // Bash containment slice 3 (docs/epics/0004-bash-containment-worktree.md):
     // the model, gate, and firing-scoped git operations below run inside a
@@ -956,8 +975,8 @@ async function main(): Promise<void> {
         primaryModel: 'sonnet',
         fallbackModel: 'opus',
       },
-      maxBudgetUsd: budgetUsd,
-      maxTurns: FLY_MAX_TURNS,
+      maxBudgetUsd: firingBudgetUsd,
+      maxTurns,
       subscriptionPriceUsd: subscriptionPriceUsdFromEnv(process.env),
       usagePoolDirs: usagePoolDirsFromEnv(process.env),
       instanceId: instanceId ?? null,
@@ -1074,9 +1093,9 @@ async function main(): Promise<void> {
     };
     const shouldStop = (): boolean => {
       if (checkContainment()) return true;
-      if (totalBudgetExhausted(spentSoFar, totalBudgetUsd, budgetUsd)) {
+      if (totalBudgetExhausted(spentSoFar, totalBudgetUsd, firingBudgetUsd)) {
         out(
-          `  ⏹ total budget reached: $${spentSoFar.toFixed(2)} spent of $${totalBudgetUsd} — remaining can't fund another $${budgetUsd} firing.`,
+          `  ⏹ total budget reached: $${spentSoFar.toFixed(2)} spent of $${totalBudgetUsd} — remaining can't fund another $${firingBudgetUsd} firing.`,
         );
         return true;
       }
@@ -1498,7 +1517,7 @@ async function main(): Promise<void> {
             repoMap: repoMapDigest,
             inbox: buildInboxDigest(inboxEntries),
             fleet,
-            maxTurns: FLY_MAX_TURNS, // deliver-or-pack: the agent must SEE its ceiling
+            maxTurns, // deliver-or-pack: the agent must SEE its ceiling
             // …and the OTHER ceiling it actually dies on under a fleet.
             wallClockMin: Math.round((cliTimeoutMs ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000),
             // ATTRIBUTION channel 1 (docs/ATTRIBUTION.md): every commit trailer
@@ -1519,7 +1538,7 @@ async function main(): Promise<void> {
           ...(routedModel !== undefined && budgetMultiplierForModel(routedModel) !== 1
             ? {
                 maxBudgetUsd:
-                  Math.round(budgetUsd * budgetMultiplierForModel(routedModel) * 100) / 100,
+                  Math.round(firingBudgetUsd * budgetMultiplierForModel(routedModel) * 100) / 100,
               }
             : {}),
         };
@@ -1835,7 +1854,7 @@ async function main(): Promise<void> {
         if (outcome.record.maxTurnsHit && !outcome.record.shipped) {
           const trail = activityTrail(store, projectId, outcome.record.firing, instanceId);
           lastFailureFeedback =
-            `THE PREVIOUS FIRING DIED AT THE TURN CAP (${FLY_MAX_TURNS} turns) before committing. ` +
+            `THE PREVIOUS FIRING DIED AT THE TURN CAP (${maxTurns} turns) before committing. ` +
             'Pick a SMALLER unit this firing: commit a verifiable slice EARLY; if it grows, ' +
             'pack a checkpoint commit instead of pushing on.' +
             (trail.length > 0
@@ -1860,10 +1879,14 @@ async function main(): Promise<void> {
     };
 
     out('');
+    const perFiring =
+      firingBudgetUsd === budgetUsd
+        ? `$${budgetUsd} PER firing`
+        : `$${firingBudgetUsd} PER firing (this project's SOUL caps the fleet's $${budgetUsd})`;
     out(
       totalBudgetUsd !== undefined
-        ? `Flying with REAL Claude — auth: ${auth.mode}, $${budgetUsd} PER firing, up to $${totalBudgetUsd} TOTAL.`
-        : `Flying with REAL Claude — auth: ${auth.mode}, $${budgetUsd} PER firing, up to ${firings} firing(s).`,
+        ? `Flying with REAL Claude — auth: ${auth.mode}, ${perFiring}, up to $${totalBudgetUsd} TOTAL.`
+        : `Flying with REAL Claude — auth: ${auth.mode}, ${perFiring}, up to ${firings} firing(s).`,
     );
     out('This spends subscription quota and does real autonomous work (gated + revertible).');
     const flightStartTs = now(); // scopes this flight's telemetry (post-flight triage stats)

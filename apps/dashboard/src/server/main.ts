@@ -109,6 +109,7 @@ import {
   createMirrorPassStaleClaimExecuteApi,
   createMirrorPassPriorityFollowPreviewApi,
   createMirrorPassPriorityFollowExecuteApi,
+  refuseRepoMismatchedPreview,
 } from '../flight/mirror-pass-execute.js';
 import {
   createPoolClientPreviewApi,
@@ -820,8 +821,11 @@ const server = createServer({
   discussionsTriage: createDiscussionsTriagePreviewApi(),
   discussionsTriageExecute: createDiscussionsTriageExecuteApi(),
   // MIRROR PASS reconcile preview (EPIC 0019 S3, VERDICT ap-mtsg3nc0-3 slice
-  // (a)): read-only, derivation 1/4.
-  mirrorPass: createMirrorPassPreviewApi(dbPath),
+  // (a)): read-only, derivation 1/4. Every preview below runs behind
+  // refuseRepoMismatchedPreview (board ap-muhqoogl-0): a project whose origin
+  // is another GitHub repo is refused before gh's own repo is read, the same
+  // check the execute gate makes.
+  mirrorPass: refuseRepoMismatchedPreview(dbPath, createMirrorPassPreviewApi(dbPath)),
   // MIRROR PASS reconcile execute (VERDICT ap-mtsg3nc0-3 slice (b),
   // derivation 1/4 only): the mutating counterpart to the preview above —
   // the other three derivations' execute paths are their own follow-up
@@ -830,7 +834,10 @@ const server = createServer({
   // MIRROR PASS landing-note preview: read-only, derivation 2/4 — "landed
   // commits get landed-in comments" for a task whose issue closed some
   // other way.
-  mirrorPassLandingNote: createMirrorPassLandingNotePreviewApi(dbPath),
+  mirrorPassLandingNote: refuseRepoMismatchedPreview(
+    dbPath,
+    createMirrorPassLandingNotePreviewApi(dbPath),
+  ),
   // MIRROR PASS landing-note execute (VERDICT ap-mtsg3nc0-3 slice (b),
   // derivation 2/4 only): the mutating counterpart to the preview above —
   // the other two derivations' execute paths are their own follow-up
@@ -838,8 +845,8 @@ const server = createServer({
   mirrorPassLandingNoteExecute: createMirrorPassLandingNoteExecuteApi(dbPath),
   // MIRROR PASS drift preview: read-only, derivation 3/4 — the project's own
   // README/docs claims (version, package count, internal links) checked
-  // against its tree; no `gh` call involved.
-  mirrorPassDrift: createMirrorPassDriftPreviewApi(dbPath),
+  // against its tree; the preview itself makes no `gh` call, only the gate.
+  mirrorPassDrift: refuseRepoMismatchedPreview(dbPath, createMirrorPassDriftPreviewApi(dbPath)),
   // MIRROR PASS drift execute (VERDICT ap-mtsg3nc0-3 slice (b), derivation
   // 3/4's own execute path): unlike the other three derivations, this one
   // files a NEW issue rather than mutating an existing one — de-duplication
@@ -848,7 +855,10 @@ const server = createServer({
   // MIRROR PASS stale-claim preview: read-only, derivation 4/4 — a claimed
   // pool issue whose assignee has gone quiet past the shared stale
   // threshold, so the claim can be freed up for someone else.
-  mirrorPassStaleClaim: createMirrorPassStaleClaimPreviewApi(dbPath),
+  mirrorPassStaleClaim: refuseRepoMismatchedPreview(
+    dbPath,
+    createMirrorPassStaleClaimPreviewApi(dbPath),
+  ),
   // MIRROR PASS stale-claim execute (VERDICT ap-mtsg3nc0-3 slice (b),
   // derivation 4/4 only): the mutating counterpart to the preview above. All
   // four derivations' execute paths are now wired.
@@ -856,7 +866,10 @@ const server = createServer({
   // MIRROR PASS priority-follow preview: read-only — law 2's GitHub-to-board
   // direction, a maintainer's priority: <level> label the board hasn't
   // followed yet.
-  mirrorPassPriorityFollow: createMirrorPassPriorityFollowPreviewApi(dbPath),
+  mirrorPassPriorityFollow: refuseRepoMismatchedPreview(
+    dbPath,
+    createMirrorPassPriorityFollowPreviewApi(dbPath),
+  ),
   // MIRROR PASS priority-follow execute: the mutating counterpart to the
   // preview above — unlike every other mirror-pass derivation, this one
   // never calls gh; the write is a local setTaskPriority through the store.

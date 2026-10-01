@@ -1762,9 +1762,10 @@ function soulEditorPanel(projectId, soulText) {
   textarea.readOnly = true;
   // The per-project overrides (FLEET_WISDOM_OPT_OUT_LINE in
   // flight/fleet-wisdom-mining.ts, ATTRIBUTION_OPT_OUT_LINE in
-  // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE and INTERNET_OPT_OUT_LINE
-  // in packages/engine config.ts) are SOUL lines, so they are named right
-  // where they are written — and read out with the text they describe.
+  // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE, INTERNET_OPT_OUT_LINE,
+  // TURN_CAP_LINE_PREFIX and BUDGET_CAP_LINE_PREFIX in packages/engine
+  // config.ts) are SOUL lines, so they are named right where they are
+  // written — and read out with the text they describe.
   var hint = el('p', 'soul-editor-hint', 'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.');
   hint.id = 'soul-editor-hint-' + projectId;
   hint.setAttribute('data-i18n', 'soulEditorWisdomHint');
@@ -1777,9 +1778,15 @@ function soulEditorPanel(projectId, soulText) {
   var internetHint = el('p', 'soul-editor-hint', 'Add the line “Internet: off” to keep this project’s firings off the open internet (no WebSearch or WebFetch).');
   internetHint.id = 'soul-editor-internet-hint-' + projectId;
   internetHint.setAttribute('data-i18n', 'soulEditorInternetHint');
+  var turnsHint = el('p', 'soul-editor-hint', 'Add a line “Turns: 60” to cap this project’s firings at that many turns, under the fleet-wide ceiling — a number above the ceiling leaves it in force.');
+  turnsHint.id = 'soul-editor-turns-hint-' + projectId;
+  turnsHint.setAttribute('data-i18n', 'soulEditorTurnsHint');
+  var budgetHint = el('p', 'soul-editor-hint', 'Add a line “Budget: $5” to cap what each of this project’s firings may spend, under the fleet-wide per-firing budget — an amount above it leaves the fleet figure in force.');
+  budgetHint.id = 'soul-editor-budget-hint-' + projectId;
+  budgetHint.setAttribute('data-i18n', 'soulEditorBudgetHint');
   textarea.setAttribute(
     'aria-describedby',
-    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id,
+    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id + ' ' + turnsHint.id + ' ' + budgetHint.id,
   );
   var unlock = el('button', 'soul-editor-unlock');
   unlock.appendChild(iconEl('lock'));
@@ -1805,6 +1812,8 @@ function soulEditorPanel(projectId, soulText) {
   form.appendChild(attributionHint);
   form.appendChild(subagentsHint);
   form.appendChild(internetHint);
+  form.appendChild(turnsHint);
+  form.appendChild(budgetHint);
   var row = el('div', 'soul-editor-row');
   row.appendChild(unlock);
   row.appendChild(btn);
@@ -4045,13 +4054,12 @@ document.addEventListener('click', function (e) {
   // along with the text: a sweep or a language flip landing mid-request
   // repaints "Syncing…" in the current locale instead of the idle label.
   // Completion restores the idle key and paints it in whatever locale is
-  // active THEN, rather than the text captured at click time.
-  b.setAttribute('data-i18n', 'githubSyncing');
-  b.textContent = tr('githubSyncing');
+  // active THEN, rather than the text captured at click time. Epic 0025:
+  // setTaggedLabel() keeps the leading cloud-upload icon through both.
+  setTaggedLabel(b, 'githubSyncing');
   function restoreIdle() {
     b.disabled = false;
-    b.setAttribute('data-i18n', 'githubSync');
-    b.textContent = tr('githubSync');
+    setTaggedLabel(b, 'githubSync');
   }
   fetch('/api/github-sync/execute', {
     method: 'POST',
@@ -4550,8 +4558,10 @@ function renderProjectPage(state, pid) {
   // i18n (board web-msnsndki-dz3vn1): tr() at birth + tag, the Start-over
   // button's route — the click handler below swaps the tag to the busy key
   // for the request's duration, so a mid-request sweep cannot repaint this
-  // idle label over "Syncing…".
-  ghBtn.textContent = tr('githubSync');
+  // idle label over "Syncing…". Epic 0025: a leading cloud-upload icon
+  // replaces the baked-in ⇪ glyph, built like Start over's rotate-ccw.
+  ghBtn.appendChild(iconEl('cloud-upload'));
+  ghBtn.appendChild(document.createTextNode(tr('githubSync')));
   ghBtn.setAttribute('data-i18n', 'githubSync');
   ghBtn.setAttribute('data-github-sync', c.id);
   ghBtn.setAttribute('data-name', c.name);
@@ -5235,15 +5245,18 @@ document.addEventListener('click', function (e) {
     renderFleet(lastFleetState);
   }
 });
-// "Start over" (event-delegated): clears telemetry ONLY after an explicit,
-// honest confirm. Counters restart at 0/0; nothing else is touched. The busy
-// label swaps the data-i18n tag with the text (the GitHub sync button's
-// route), so a mid-request sweep repaints "Resetting…", not the idle label;
-// setSweptText() (features/locale.ts) keeps the leading rotate-ccw icon.
-function setStartOverLabel(b, key) {
+// A busy/idle label swap for a button that leads with a vendored icon (Start
+// over's rotate-ccw, Sync to GitHub's cloud-upload — epic 0025): the
+// data-i18n tag moves with the text, so a mid-request sweep repaints the
+// current label, and setSweptText() (features/locale.ts) keeps the icon.
+function setTaggedLabel(b, key) {
   b.setAttribute('data-i18n', key);
   setSweptText(b, tr(key));
 }
+// "Start over" (event-delegated): clears telemetry ONLY after an explicit,
+// honest confirm. Counters restart at 0/0; nothing else is touched. The busy
+// label goes through setTaggedLabel() above, so a mid-request sweep repaints
+// "Resetting…", not the idle label.
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-start-over]');
   if (!b) return;
@@ -5251,10 +5264,10 @@ document.addEventListener('click', function (e) {
   var name = b.getAttribute('data-name') || 'this project';
   if (!window.confirm(tr('startOverConfirm', name))) return;
   b.disabled = true;
-  setStartOverLabel(b, 'resetting');
+  setTaggedLabel(b, 'resetting');
   function restoreIdle() {
     b.disabled = false;
-    setStartOverLabel(b, 'startOver');
+    setTaggedLabel(b, 'startOver');
   }
   fetch('/api/project/reset', {
     method: 'POST',
