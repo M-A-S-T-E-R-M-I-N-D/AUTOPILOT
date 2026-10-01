@@ -31,6 +31,7 @@
  * byte-for-byte as before.
  */
 
+import { isClaimableTitle } from '@autopilot/store';
 import { likelyPrimaryPathFromTitle } from './intent-claims.js';
 
 /** Parse the env-var form of a scope. Null (not empty-set) when absent or
@@ -57,6 +58,28 @@ export function scopeFilterCandidates<T extends { readonly id: string }>(
   if (scope === null || scope.size === 0) return candidates;
   const inScope = candidates.filter((t) => scope.has(t.id));
   return inScope.length > 0 ? inScope : candidates;
+}
+
+/**
+ * The open tasks THIS instance could claim right now: unassigned or already
+ * its own, not benched this flight, and a title `claimTask` accepts. The
+ * scope decision has to be made over these, not over every open row —
+ * "exhausted" means nothing left that this lane may take. Round 53, fleet-4
+ * (2026-10-01): its slice held one task it shipped, one its verdict deferred
+ * and one `VERDICT blocked` row no lane may ever claim; the blocked row kept
+ * the slice "open", so the lane's second firing claimed nothing while the
+ * base lane sat on eleven. A slice task a sibling had claimed, or this
+ * flight had benched, idled a lane the same way.
+ */
+export function claimableCandidates<
+  T extends { readonly id: string; readonly title: string; readonly assignee: string | null },
+>(open: readonly T[], instanceKey: string, benched: ReadonlySet<string>): readonly T[] {
+  return open.filter(
+    (t) =>
+      (t.assignee === null || t.assignee === instanceKey) &&
+      !benched.has(t.id) &&
+      isClaimableTitle(t.title),
+  );
 }
 
 /** Leading uppercase tag per the board naming convention ("SHELL DECOMP …",

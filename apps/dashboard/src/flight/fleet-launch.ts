@@ -22,6 +22,7 @@
  * else. Spawning lives in the CLI so the decision stays unit-testable.
  */
 
+import { isClaimableTitle } from '@autopilot/store';
 import { partitionBoardScopes } from './scope-partition.js';
 import { WIDE_FLEET_LANES } from './preflight.js';
 
@@ -111,7 +112,14 @@ export function buildFleetLaunchPlan(
 ): FleetLanePlan[] {
   const lanes = fleetLaneNames(laneCount);
   const keys = lanes.map((lane) => lane ?? BASE_LANE_KEY);
-  const scopes = partitionBoardScopes(tasks, keys);
+  // Only what a lane may claim is worth reserving: an OPERATOR or
+  // `VERDICT blocked` row sits on the board for a person, and a slice that
+  // holds one looks "still open" to its lane after everything else in it is
+  // done (round 53, fleet-4, 2026-10-01 — see `claimableCandidates`).
+  const scopes = partitionBoardScopes(
+    tasks.filter((t) => isClaimableTitle(t.title)),
+    keys,
+  );
   return lanes.map((instanceId, i) => ({
     instanceId,
     taskScope: scopes.get(keys[i] as string) ?? [],
