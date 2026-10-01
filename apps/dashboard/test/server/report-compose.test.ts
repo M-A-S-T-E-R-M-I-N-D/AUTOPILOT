@@ -187,7 +187,7 @@ describe('handleReportCompose', () => {
       contextJson: '{"selector":"#x"}',
       moduleSources: ['a.ts'],
     });
-    expect(api).toHaveBeenCalledWith('note', '{"selector":"#x"}', ['a.ts']);
+    expect(api).toHaveBeenCalledWith('note', '{"selector":"#x"}', ['a.ts'], undefined);
     expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
     expect(readBody(res)).toMatchObject({ ok: true, title: 't' });
   });
@@ -199,8 +199,36 @@ describe('handleReportCompose', () => {
     await postJson((r, s) => call(r as never, s as never, api, fakeLimiter(true)), req, res, {
       description: 'note',
     });
-    expect(api).toHaveBeenCalledWith('note', undefined, []);
+    expect(api).toHaveBeenCalledWith('note', undefined, [], undefined);
   });
+
+  // Composer language doctrine, rule 2: the report language is choosable.
+  it('passes a chosen report language through to the api', async () => {
+    const api: ReportComposeApi = vi.fn().mockResolvedValue({ ok: false, reasoning: 'x' });
+    const req = fakeRequest({ method: 'POST', contentType: 'application/json' });
+    const res = fakeResponse();
+    await postJson((r, s) => call(r as never, s as never, api, fakeLimiter(true)), req, res, {
+      description: 'note',
+      language: 'he',
+    });
+    expect(api).toHaveBeenCalledWith('note', undefined, [], 'he');
+  });
+
+  it.each([['fr'], ['HE'], [7], [null]])(
+    'returns 400 for a language outside the choosable set (%j), without calling the api',
+    async (language) => {
+      const api: ReportComposeApi = vi.fn();
+      const req = fakeRequest({ method: 'POST', contentType: 'application/json' });
+      const res = fakeResponse();
+      await postJson((r, s) => call(r as never, s as never, api, fakeLimiter(true)), req, res, {
+        description: 'note',
+        language,
+      });
+      expect(res.writeHead).toHaveBeenCalledWith(400, expect.any(Object));
+      expect(readBody(res)).toEqual({ error: 'language must be one of: en, he' });
+      expect(api).not.toHaveBeenCalled();
+    },
+  );
 
   it('returns 500 when the api throws', async () => {
     const api: ReportComposeApi = vi.fn().mockRejectedValue(new Error('boom'));
