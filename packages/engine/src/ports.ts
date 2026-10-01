@@ -120,9 +120,12 @@ export interface ModelResponse {
    * calls, shipped, and cost $5.94 arrived with `num_turns: 1` and
    * `duration_ms: 2952` (the shape context compaction leaves near the end
    * of a long session); five earlier records had the same shape. Absent for
-   * a driver that cannot observe the wire.
+   * a driver that cannot observe the wire. `turns` is absent for a driver
+   * whose wire marks no model turn (`codex-cli.ts`, `gemini-cli.ts`): it
+   * reports its clock alone, and a turn count it never saw stays unknown
+   * rather than becoming `0`.
    */
-  readonly observed?: { readonly turns: number; readonly elapsedMs: number };
+  readonly observed?: { readonly turns?: number; readonly elapsedMs: number };
 }
 
 /**

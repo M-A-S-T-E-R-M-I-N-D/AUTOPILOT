@@ -77,7 +77,12 @@ Gemini's `{"decision":"deny","reason"}` shape. The hook contract was read from g
 `packages/cli/src/config/settings.ts`. System settings merge last, so a repo's own
 `.gemini/settings.json` cannot switch the hook off; the price is that the child skips the
 machine's own system settings file. Gemini already confines its file tools and the shell's
-`dir_path` to the workspace, so the shell command text was the real gap. The Copilot CLI adapter remains unstarted and, per the
+`dir_path` to the workspace, so the shell command text was the real gap. Since 2026-10-01 both
+adapters time each run themselves and report it as `ModelResponse.observed.elapsedMs`, so a firing
+flown on either no longer records `durationMs: null`: `codex exec --json` carries no duration at
+all, and Gemini's `duration_ms` rides only on the `result` event a killed run never writes.
+`observed.turns` is optional for them, since neither wire marks a model turn, and a count never
+seen stays unknown in the firing record instead of becoming `0`. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 

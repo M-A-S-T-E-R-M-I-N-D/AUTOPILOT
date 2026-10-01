@@ -15,6 +15,9 @@
  *   figure, so `costUsd` is always `null` (`ports.ts`, `firing.ts` §3.6).
  * - Turn count and stop reason. Neither is on the wire (`stats.tool_calls`
  *   counts tool calls, not agent turns), so both are `null`.
+ *   {@link GeminiCliModel} times the run itself and reports that as
+ *   `observed.elapsedMs`, with no turn count, so a run killed before its
+ *   `result` (and its `duration_ms`) still has a duration.
  */
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
@@ -376,12 +379,15 @@ export class GeminiCliModel implements ModelPort {
                 ? 1
                 : 0;
           const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
+          const elapsedMs = Date.now() - startedAt;
           // An idle-cap kill is a cap death too, as in CodexCliModel.execOnce.
-          const timedOut =
-            idleDeath || isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
+          const timedOut = idleDeath || isCliTimeoutDeath(killedBySignal, elapsedMs, timeoutMs);
           resolve({
             ...parseGeminiStreamJsonOutput(stdout ?? '', exitCode, model),
             ...(timedOut ? { timedOut: true } : {}),
+            // The `result` event's `duration_ms` dies with a killed run; this
+            // clock does not. No turn count rides with it (ModelResponse.observed).
+            observed: { elapsedMs },
           });
         },
       );

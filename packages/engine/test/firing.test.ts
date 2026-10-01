@@ -964,6 +964,22 @@ describe('runFiring', () => {
     expect(out.record.durationMs).toBe(4200);
   });
 
+  it('takes the clock of a driver that cannot count turns (Codex, Gemini) and leaves its turns null, never 0', async () => {
+    const model = new FakeModel([
+      response({
+        envelope: envelope({ numTurns: null, durationMs: null }),
+        observed: { elapsedMs: 7000 },
+      }),
+    ]);
+    const out = await runFiring(
+      deps(model, new FakeVcs({ heads: ['h0'] }), new FakeGate(true), new FakeStore()),
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+    expect(out.record.numTurns).toBeNull();
+    expect(out.record.durationMs).toBe(7000);
+  });
+
   it('keeps turns and duration null, never undefined, when neither envelope nor driver reported them', async () => {
     const model = new FakeModel([response({ envelope: null, exitCode: 1, stdout: 'boom' })]);
     const out = await runFiring(

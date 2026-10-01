@@ -415,7 +415,10 @@ describe('GeminiCliModel', () => {
 
     const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
 
-    expect(res).toEqual(parseGeminiStreamJsonOutput(stdout, 0, 'gemini-2.5-pro'));
+    expect(res).toEqual({
+      ...parseGeminiStreamJsonOutput(stdout, 0, 'gemini-2.5-pro'),
+      observed: { elapsedMs: expect.any(Number) },
+    });
     expect(res.sessionId).toBe(SESSION);
     expect(res.envelope).toMatchObject({ isError: false, result: 'done', tokensIn: 1_200 });
   });
@@ -631,6 +634,8 @@ describe('GeminiCliModel', () => {
       expect(res.envelope).toBeNull();
       expect(res.exitCode).not.toBe(0);
       expect(res.stdout).not.toContain('calc');
+      // Nothing ran, so there is no clock to report.
+      expect('observed' in res).toBe(false);
     });
 
     it('never hands cmd.exe a resume id carrying its syntax: that run is refused, and the cold retry goes without it', async () => {
@@ -745,7 +750,10 @@ describe('GeminiCliModel', () => {
 
     const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
 
-    expect(res).toEqual(parseGeminiStreamJsonOutput(stdout, 53, 'gemini-2.5-pro'));
+    expect(res).toEqual({
+      ...parseGeminiStreamJsonOutput(stdout, 53, 'gemini-2.5-pro'),
+      observed: { elapsedMs: expect.any(Number) },
+    });
     expect(res.exitCode).toBe(53);
     expect(res.envelope).toMatchObject({ isError: true, result: 'Reached max session turns' });
   });
@@ -970,12 +978,13 @@ describe('GeminiCliModel', () => {
     function mockExecFileAfter(
       elapsedMs: number,
       error: (Error & { code?: unknown; killed?: boolean }) | null,
+      stdout = '',
     ): void {
       execFileMock.mockImplementation((...args: unknown[]) => {
         const cb = args[args.length - 1] as ExecFileCallback;
         queueMicrotask(() => {
           vi.setSystemTime(Date.now() + elapsedMs);
-          cb(error, '', '');
+          cb(error, stdout, '');
         });
         return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
       });
@@ -993,6 +1002,31 @@ describe('GeminiCliModel', () => {
       expect(res.exitCode).toBe(1);
       expect(res.envelope).toBeNull();
       expect(res.timedOut).toBe(true);
+      // Killed before its `result`, the run lost the CLI's own `duration_ms`;
+      // the driver's clock still says how long it held the lane.
+      expect(res.observed).toEqual({ elapsedMs: 5000 });
+    });
+
+    it("reports its own clock as observed.elapsedMs next to the CLI's duration_ms, and no turn count the wire never carries", async () => {
+      vi.useFakeTimers();
+      mockExecFileAfter(
+        50_000,
+        null,
+        jsonl(
+          INIT,
+          { type: 'message', role: 'assistant', content: 'done', delta: true },
+          {
+            type: 'result',
+            status: 'success',
+            stats: streamStats({ 'gemini-2.5-pro': PRO_TOKENS }),
+          },
+        ),
+      );
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+      expect(res.envelope?.durationMs).toBe(48_210);
+      expect(res.observed).toEqual({ elapsedMs: 50_000 });
     });
 
     it('exited on its own past the cap (no signal) → the key stays off', async () => {
