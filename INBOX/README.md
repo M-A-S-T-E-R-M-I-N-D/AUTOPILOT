@@ -17,6 +17,10 @@ firing.
 - That same firing also auto-triages it: a queued task appears on the board
   (`source: inbox`), and the file moves to `INBOX/.triaged/` so it is never
   triaged twice. Nothing is deleted — the note stays there, archived.
+- From then on, the task's board row quotes the note to every firing until the
+  task closes. The board's notes share ~8000 characters, top of the board
+  first, and every note keeps at least its first ~1000, so a long directive
+  reaches the firing that works it whole.
 - This file (`README.md`) is the one exception — it is instructions for you,
   the operator, not a note for the agent to read back.
 

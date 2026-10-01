@@ -27,8 +27,12 @@
  * `pr-review-execute.ts` follows: the client can only ever STOP a merge,
  * never cause one it would not otherwise allow.
  *
- * Squash + delete-branch, matching the ritual's own merge shape, so a
- * human merge and a policy-green merge leave identical history.
+ * Squash, the ritual's own merge shape, so a human merge and a policy-green
+ * merge leave identical history, and pinned like it with
+ * `--match-head-commit` to the head those checks were read on, so a push
+ * that lands after the read makes gh refuse rather than merge commits nobody
+ * verified. Unlike the ritual's merge it also passes `--delete-branch`
+ * (epic 0007's KEEPER 4/7 note says what that flag does to a local checkout).
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
@@ -291,12 +295,19 @@ export function createHumanMergeApi(exec: CliExec = ghExec): HumanMergeApi {
     if (!verdict.allow) {
       return { merged: false, reason: verdict.reason, ...(pr ? { pr } : {}) };
     }
+    // The checks above were read off one head. `--match-head-commit` makes gh
+    // refuse the merge if the branch moved since, as the KEEPER ritual's own
+    // merge does, so a commit pushed after the read never merges unseen. The
+    // live head comes first; the operator's stands in when gh reported none
+    // (judgeHumanMerge has already refused the two when they differ).
+    const verifiedHead = pr?.headRefOid ?? expectedHeadRefOid;
     const { code } = await exec('gh', [
       'pr',
       'merge',
       String(number),
       '--squash',
       '--delete-branch',
+      ...(verifiedHead === undefined ? [] : ['--match-head-commit', verifiedHead]),
     ]);
     if (code !== 0) {
       return {

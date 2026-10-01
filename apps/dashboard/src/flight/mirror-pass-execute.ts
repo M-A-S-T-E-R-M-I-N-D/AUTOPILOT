@@ -329,8 +329,9 @@ export type MirrorPassExecuteSkipReason = 'identity-unresolved' | 'guest' | 'rep
 
 /** The `owner/repo` the checkout at `rootPath` names as its `origin`, asked
  *  through the injectable `exec` the same way {@link assessLandedShas} asks
- *  git. Null when git cannot answer or the origin is not a GitHub URL. */
-async function fetchProjectRepo(exec: CliExec, rootPath: string): Promise<string | null> {
+ *  git. Null when git cannot answer or the origin is not a GitHub URL.
+ *  Exported for `issue-triage-execute.ts`'s stricter triage guard. */
+export async function fetchProjectRepo(exec: CliExec, rootPath: string): Promise<string | null> {
   const { code, stdout } = await exec('git', ['-C', rootPath, 'remote', 'get-url', 'origin']);
   return code === 0 ? repoFromRemoteUrl(stdout) : null;
 }

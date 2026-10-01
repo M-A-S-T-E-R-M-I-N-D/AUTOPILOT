@@ -569,9 +569,11 @@ export function setTaskPriority(
  *  the moment a `VERDICT close`/`blocked` proposal is minted) so
  *  approval-time cascade and proposal-time defer agree on what a verdict
  *  NAMES. Duplicated rather than imported: packages/store sits below
- *  apps/dashboard in the dependency graph. */
+ *  apps/dashboard in the dependency graph. An id is the WHOLE hyphen chain
+ *  (2026-10-01): two segments cut `ap-muostm93-ci-red` down to a task that
+ *  does not exist, so the approval closed nothing. */
 const VERDICT_TASK_ID_RE =
-  /(?:web|ap)-[a-z0-9]+-[a-z0-9]+|inbox-[a-z0-9]+(?:-[a-z0-9]+)*|github-[0-9]+/g;
+  /\b(?:web|ap|inbox|github|mutred|docfresh|codescan)-[a-z0-9]+(?:-[a-z0-9]+)*/g;
 
 /** A `VERDICT close ...` proposal specifically (not `blocked`/`split`/
  *  `deprioritize`) — the only verdict kind {@link setTaskStatus} cascades on

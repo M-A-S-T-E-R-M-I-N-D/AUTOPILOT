@@ -51,16 +51,17 @@ export interface IssueTriagePlanLike {
  *  board web-mtq07kgf-2h6trk); anything else (should never happen) echoes
  *  back verbatim rather than throwing, so an unrecognized future decision
  *  kind degrades to a plain label instead of breaking the panel.
- *  `accept`/`duplicate` keep their ✓/⧉ mark — plain glyphs, not emoji, the
- *  same "not the icon system's target" call `report-menu.ts`'s ✓/✗ result
- *  line and `pr-review-panel.ts`'s ✓/✗ decision marks already made.
- *  `skip`/`dossier`/`needs-format` drop their baked-in ⏭/📋/📝 glyph (epic
- *  0025 — ⏭ is Emoji=Yes in Unicode's emoji-data.txt, not a plain mark):
+ *  `accept` keeps its ✓ mark — a plain glyph, not emoji, the same "not the
+ *  icon system's target" call `report-menu.ts`'s ✓/✗ result line and
+ *  `pr-review-panel.ts`'s ✓/✗ decision marks already made.
+ *  `skip`/`dossier`/`needs-format`/`duplicate` drop their baked-in ⏭/📋/📝/⧉
+ *  glyph (epic 0025 — ⏭ is Emoji=Yes in Unicode's emoji-data.txt, and ⧉
+ *  stood in for a copy icon in a font few UIs carry):
  *  {@link issueTriageDecisionIcon} names the stroke icon that replaces it,
  *  appended by the DOM-building call site rather than this pure string. */
 export function issueTriageDecisionLabel(decision: string): string {
   if (decision === 'accept') return '✓ accept';
-  if (decision === 'duplicate') return '⧉ duplicate';
+  if (decision === 'duplicate') return 'duplicate';
   if (decision === 'skip') return 'skip';
   if (decision === 'dossier') return 'dossier → maintainer';
   if (decision === 'needs-format') return 'needs the template';
@@ -69,10 +70,11 @@ export function issueTriageDecisionLabel(decision: string): string {
 
 /** The leading stroke icon for a KEEPER triage decision badge (epic 0025,
  *  continuing the `tipChip(..., iconName)` wiring `firing-timeline.ts`'s
- *  auto-fixed/guard-denial chips already use) — `''` for `accept`/`duplicate`/
- *  any unrecognized decision, whose badge stays text-only exactly as
+ *  auto-fixed/guard-denial chips already use) — `''` for `accept`/any
+ *  unrecognized decision, whose badge stays text-only exactly as
  *  {@link issueTriageDecisionLabel} already renders it. */
 export function issueTriageDecisionIcon(decision: string): string {
+  if (decision === 'duplicate') return 'copy';
   if (decision === 'skip') return 'skip-forward';
   if (decision === 'dossier') return 'clipboard-list';
   if (decision === 'needs-format') return 'pen-line';
@@ -203,6 +205,61 @@ export function issueTriageGuestNote(identity: IssueTriageViewerIdentity): strin
     identity.login +
     '.'
   );
+}
+
+/** `GET /api/issue-triage`'s body as {@link issueTriageRefusalNote} reads it:
+ *  the refusal fields the route adds to `{ triage: null }` when `main.ts`'s
+ *  `refuseUnboundIssueTriage` (board ap-mupqfryv-0) turned the project away
+ *  — see `server.ts`'s `handleIssueTriage`. */
+export interface IssueTriagePreviewRefusal {
+  readonly triage?: unknown;
+  readonly skippedReason?: string;
+  readonly ghRepo?: string;
+  readonly projectRepo?: string;
+}
+
+/** {@link issueTriageRefusalNote}'s answer: the English text, plus the
+ *  `STRINGS` template key and slot values `translateDom()` repaints it from. */
+export interface IssueTriageRefusalNote {
+  readonly template: string;
+  readonly args: Readonly<Record<string, string>>;
+  readonly text: string;
+}
+
+/** The KEEPER ISSUE TRIAGE panel's refusal note (board ap-mupqfryv-0):
+ *  replaces "No open issues to triage." — true of nothing — when the preview
+ *  was refused because this project is not a checkout of the repository `gh`
+ *  acts on. `'repo-unbound'` is a project with no GitHub origin at all;
+ *  `'repo-mismatch'` is a checkout of another GitHub repository. Null for
+ *  anything else, including a refusal missing the repository names it needs,
+ *  so the panel falls back to its usual rendering. The English text is the
+ *  byte-identical default of `issueTriageRepoUnboundNote`/
+ *  `issueTriageRepoMismatchNote` in `packages/tokens/src/strings.ts`. */
+export function issueTriageRefusalNote(
+  data: IssueTriagePreviewRefusal | null | undefined,
+): IssueTriageRefusalNote | null {
+  if (!data || typeof data.ghRepo !== 'string' || data.ghRepo === '') return null;
+  const lead = 'KEEPER triage acts on ' + data.ghRepo + ', the repository this dashboard runs in. ';
+  const tail = ', so none of those issues are triaged onto its board.';
+  if (data.skippedReason === 'repo-unbound') {
+    return {
+      template: 'issueTriageRepoUnboundNote',
+      args: { ghRepo: data.ghRepo },
+      text: lead + 'This project has no GitHub origin' + tail,
+    };
+  }
+  if (
+    data.skippedReason === 'repo-mismatch' &&
+    typeof data.projectRepo === 'string' &&
+    data.projectRepo !== ''
+  ) {
+    return {
+      template: 'issueTriageRepoMismatchNote',
+      args: { ghRepo: data.ghRepo, projectRepo: data.projectRepo },
+      text: lead + 'This project is a checkout of ' + data.projectRepo + tail,
+    };
+  }
+  return null;
 }
 
 /** One planned `gh` command's result, the same shape `POST

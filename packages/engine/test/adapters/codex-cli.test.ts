@@ -416,7 +416,10 @@ describe('CodexCliModel', () => {
     const model = new CodexCliModel({ repo: '/work/sbx' });
     const res = await model.invoke('gpt-5-codex', 'do it');
 
-    expect(res).toEqual(parseCodexExecOutput(stdout, 0, 'gpt-5-codex'));
+    expect(res).toEqual({
+      ...parseCodexExecOutput(stdout, 0, 'gpt-5-codex'),
+      observed: { elapsedMs: expect.any(Number) },
+    });
   });
 
   it('spawns the default "codex" binary with --json, the model, a workspace-write sandbox, and the prompt last', async () => {
@@ -545,6 +548,8 @@ describe('CodexCliModel', () => {
       expect(res.exitCode).toBe(1);
       expect(res.envelope).toBeNull();
       expect(res.stdout).not.toContain('calc');
+      // Nothing ran, so there is no clock to report.
+      expect('observed' in res).toBe(false);
     });
 
     it('never hands cmd.exe a resume id carrying its syntax: that run is refused, and the cold retry goes without it', async () => {
@@ -845,6 +850,8 @@ describe('CodexCliModel', () => {
       expect(res.envelope).toBeNull();
       expect(res.sessionId).toBe(THREAD.thread_id);
       expect(res.timedOut).toBe(true);
+      // The run left no envelope, but the driver's own clock still says how long it held the lane.
+      expect(res.observed).toEqual({ elapsedMs: 5000 });
     });
 
     it('exited on its own past the cap (no signal) → the key stays off', async () => {
@@ -858,6 +865,29 @@ describe('CodexCliModel', () => {
 
       expect(res.exitCode).toBe(1);
       expect('timedOut' in res).toBe(false);
+    });
+
+    it('reports its own clock as observed.elapsedMs and no turn count, since no event carries a duration or marks a model turn', async () => {
+      // Without the driver's clock, every firing flown on Codex recorded
+      // `durationMs: null`, a complete run included. Turns stay absent: the
+      // wire has items and one turn per exec, never a count of model requests.
+      vi.useFakeTimers();
+      mockExecFileAfter(
+        7000,
+        null,
+        jsonl(
+          THREAD,
+          TURN_STARTED,
+          agentMessage('m1', 'done'),
+          completed({ input_tokens: 10, output_tokens: 2 }),
+        ),
+      );
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+
+      expect(res.envelope?.result).toBe('done');
+      expect(res.envelope?.durationMs).toBeNull();
+      expect(res.observed).toEqual({ elapsedMs: 7000 });
     });
 
     it('a resume killed AT the cap before naming a thread is not retried cold, and claims no resume either way', async () => {

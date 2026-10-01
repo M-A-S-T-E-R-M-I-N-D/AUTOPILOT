@@ -191,7 +191,16 @@ describe('createHumanMergeApi — only a click can cause a merge', () => {
 
     expect(result.merged).toBe(true);
     const mergeCall = calls.find((c) => c[1] === 'pr' && c[2] === 'merge');
-    expect(mergeCall).toEqual(['gh', 'pr', 'merge', '33', '--squash', '--delete-branch']);
+    expect(mergeCall).toEqual([
+      'gh',
+      'pr',
+      'merge',
+      '33',
+      '--squash',
+      '--delete-branch',
+      '--match-head-commit',
+      'abc123',
+    ]);
   });
 
   it('runs NO merge command when the head moved', async () => {
@@ -799,5 +808,66 @@ describe('human merge verbs — refusal order, reported checks and exact argv (r
     expect((await createRerunChecksApi(refusing)(33)).reason).toBe(
       'gh refused to re-run every run — it may still be in progress.',
     );
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): the maintainer's
+// merge checked the head against the card on a `gh pr list` read, then ran an
+// unpinned `gh pr merge`. A commit pushed between that read and the merge
+// went in unseen, its checks never run, the race the KEEPER ritual's own
+// merge closes with `--match-head-commit`. These pin the human merge to the
+// head it verified, so gh refuses instead of merging a head nobody looked at.
+describe('the human merge pins the head it verified (regression, epic 0019 additive-only law)', () => {
+  const mergeArgs = (calls: readonly string[][]): readonly string[] | undefined =>
+    calls.find((c) => c[1] === 'pr' && c[2] === 'merge');
+
+  // The exact argv for the usual case is pinned in "squash-merges and deletes
+  // the branch" above; these cover where the pinned head comes from.
+  it('pins the live head even when the operator sent no head of their own', async () => {
+    const calls: string[][] = [];
+
+    const result = await createHumanMergeApi(execReturning([GREEN], calls))(33, undefined);
+
+    expect(result.merged).toBe(true);
+    expect(mergeArgs(calls)).toContain('--match-head-commit');
+    expect(mergeArgs(calls)?.at(-1)).toBe('abc123');
+  });
+
+  it("pins the operator's head when gh reported none, so the merge is still the one they saw", async () => {
+    const { headRefOid: _head, ...noHead } = GREEN;
+    const calls: string[][] = [];
+
+    const result = await createHumanMergeApi(execReturning([noHead], calls))(33, 'abc123');
+
+    expect(result.merged).toBe(true);
+    expect(mergeArgs(calls)?.slice(-2)).toEqual(['--match-head-commit', 'abc123']);
+  });
+
+  it('merges unpinned only when no head is known at all — nothing to pin it to', async () => {
+    const { headRefOid: _head, ...noHead } = GREEN;
+    const calls: string[][] = [];
+
+    await createHumanMergeApi(execReturning([noHead], calls))(33, undefined);
+
+    expect(mergeArgs(calls)).toEqual(['gh', 'pr', 'merge', '33', '--squash', '--delete-branch']);
+  });
+
+  it('reports a merge gh refused because the head moved after the read, and merges nothing', async () => {
+    // A gh that honours --match-head-commit: the branch moved to a new head
+    // between the `gh pr list` read and the merge, so the pinned merge fails.
+    const calls: string[][] = [];
+    const base = execReturning([GREEN], calls);
+    const movedSinceRead: CliExec = async (bin, args) => {
+      if (args[1] !== 'merge') return base(bin, args);
+      calls.push([bin, ...args]);
+      const pinned = args[args.indexOf('--match-head-commit') + 1];
+      return args.includes('--match-head-commit') && pinned !== 'def456'
+        ? { code: 1, stdout: '' }
+        : { code: 0, stdout: '' };
+    };
+
+    const result = await createHumanMergeApi(movedSinceRead)(33, 'abc123');
+
+    expect(result).toMatchObject({ merged: false, code: 1 });
   });
 });

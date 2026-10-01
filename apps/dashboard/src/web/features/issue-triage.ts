@@ -66,6 +66,7 @@ import {
   issueTriageNothingToRunTip,
   issueTriageGuestNote,
   issueTriageCommentLinks,
+  issueTriageRefusalNote,
 } from '../issue-triage-panel.js';
 
 /** The KEEPER issue-triage panel client — vanilla, external (keeps CSP script-src 'self'). */
@@ -111,6 +112,10 @@ ${issueTriageNothingToRunTip.toString()}
 // compiled source via .toString(), not a hand-retyped copy. It can no
 // longer drift apart.
 ${issueTriageGuestNote.toString()}
+// issueTriageRefusalNote is generated FROM web/issue-triage-panel.ts below
+// (board ap-mupqfryv-0) — its real compiled source via .toString(), not a
+// hand-retyped copy. It can no longer drift apart.
+${issueTriageRefusalNote.toString()}
 var issueTriagePlansByProject = {};
 // pid-keyed: the real comment URLs the LAST successful execute posted (epic
 // 0020 "the legible surface" slice 3, board web-mtt8loci-8hnte4) — kept in
@@ -291,6 +296,19 @@ function loadIssueTriageBody(body, pid) {
       if (!body.isConnected) return;
       var data = results[0];
       var identityData = results[1];
+      // Board ap-mupqfryv-0: a project that is not a checkout of the
+      // repository gh acts on gets a null preview plus why. Say that, with
+      // no execute button, rather than read the null as "No open issues".
+      var refusal = issueTriageRefusalNote(data);
+      if (refusal) {
+        issueTriagePlansByProject[pid] = [];
+        var refusalNote = el('p', 'muted issue-triage-refusal-note', refusal.text);
+        refusalNote.setAttribute('data-i18n-template', refusal.template);
+        refusalNote.setAttribute('data-i18n-args', JSON.stringify(refusal.args));
+        body.replaceChildren(refusalNote);
+        translateDom(document.documentElement.lang || 'en');
+        return;
+      }
       var plans = (data && data.triage) || [];
       issueTriagePlansByProject[pid] = plans;
       renderIssueTriageBody(body, plans, pid, identityData && identityData.identity);

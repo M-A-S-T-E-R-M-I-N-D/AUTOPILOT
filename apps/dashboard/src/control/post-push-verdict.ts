@@ -139,8 +139,9 @@ export function filePostPushVerdictTask(store: Store, verdict: PostPushVerdictRe
  * (an earlier landing's run concluding late) proves nothing about the red,
  * and neither does a skipped or neutral one, or a green run of another
  * workflow. The branch matches literally (`instr`, not `LIKE`: an `_` in a
- * branch name is no wildcard here). Returns how many it closed; best-effort
- * like the filing, never throws.
+ * branch name is no wildcard here). A red {@link holdSupersededCiRedTasks}
+ * holds (`deferred`) closes the same way. Returns how many it closed;
+ * best-effort like the filing, never throws.
  */
 export function closeSupersededCiRedTasks(
   store: Store,
@@ -156,11 +157,98 @@ export function closeSupersededCiRedTasks(
     const open = store.db
       .prepare(
         `SELECT id FROM tasks
-          WHERE project_id = ? AND status IN ('queued','in_progress','needs_approval')
+          WHERE project_id = ? AND status IN ('queued','in_progress','needs_approval','deferred')
             AND instr(title, ?) = 1 AND instr(title, ?) > 0 AND created_at < ?`,
       )
       .all(projectId, prefix, workflow, status.createdAtMs) as { id: string }[];
     return open.filter((t) => setTaskStatus(store, t.id, 'done', nowMs)).length;
+  } catch {
+    return 0;
+  }
+}
+
+/** The title start that names one landing's red: `CI RED after landing
+ *  <branch> → <short sha>:`. */
+function ownTitlePrefix(branch: string, sha: string): string {
+  return `${titlePrefix(branch)} ${sha.slice(0, 7)}:`;
+}
+
+/**
+ * A NEWER LANDING HOLDS THE RED IT IS ABOUT TO RE-JUDGE (2026-10-01): the
+ * green close above arrives only when the next landing's run concludes,
+ * ten to twenty minutes after its push — and the fleet launches the moment
+ * the landing returns. Round 52's fleet-4 claimed `ap-muostm93-ci-red`
+ * (022a827's stale baseline red) two minutes after 220199f8 was pushed,
+ * refuted it, and its second firing claimed it again: $2.16 and a whole lane
+ * on a red the run in flight closed at minute 26.
+ *
+ * So the moment a landing onto `branch` is pushed, every workable CI-red task
+ * for that branch that names an OLDER commit is deferred — out of every pick
+ * queue, the reason appended to its body — until that landing's run rules:
+ * green closes it ({@link closeSupersededCiRedTasks} reads deferred rows
+ * too), red files the fresh evidence task and retires the held one
+ * ({@link retireHeldCiRedTasks}), and a timed-out watch leaves it held for
+ * the next landing. A task naming this very commit is left alone: it IS
+ * this landing's verdict. Returns how many it held; never throws.
+ */
+export function holdSupersededCiRedTasks(
+  store: Store,
+  projectId: string,
+  branch: string,
+  sha: string,
+  nowMs: number,
+): number {
+  try {
+    const open = store.db
+      .prepare(
+        `SELECT id FROM tasks
+          WHERE project_id = ? AND status IN ('queued','in_progress')
+            AND instr(title, ?) = 1 AND instr(title, ?) = 0`,
+      )
+      .all(projectId, `${titlePrefix(branch)} `, ownTitlePrefix(branch, sha)) as {
+      id: string;
+    }[];
+    const note = store.db.prepare(`UPDATE tasks SET body = COALESCE(body, '') || ? WHERE id = ?`);
+    let held = 0;
+    for (const t of open) {
+      if (!setTaskStatus(store, t.id, 'deferred', nowMs)) continue;
+      note.run(
+        `\n\nHeld: landing ${sha.slice(0, 7)} onto ${branch} was pushed after this red; its run rules on it — green closes this task, red files a fresh one.`,
+        t.id,
+      );
+      held += 1;
+    }
+    return held;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * A red conclusion retires the reds this landing held: the task just filed
+ * for THIS commit (or the one still open that deduped it) is the live
+ * evidence now, and an older held red would only send a lane to a commit
+ * the branch has already moved past. Returns how many it retired; never
+ * throws.
+ */
+export function retireHeldCiRedTasks(
+  store: Store,
+  projectId: string,
+  branch: string,
+  sha: string,
+  nowMs: number,
+): number {
+  try {
+    const held = store.db
+      .prepare(
+        `SELECT id FROM tasks
+          WHERE project_id = ? AND status = 'deferred'
+            AND instr(title, ?) = 1 AND instr(title, ?) = 0`,
+      )
+      .all(projectId, `${titlePrefix(branch)} `, ownTitlePrefix(branch, sha)) as {
+      id: string;
+    }[];
+    return held.filter((t) => setTaskStatus(store, t.id, 'done', nowMs)).length;
   } catch {
     return 0;
   }

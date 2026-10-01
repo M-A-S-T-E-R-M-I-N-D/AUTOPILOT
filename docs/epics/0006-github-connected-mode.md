@@ -163,8 +163,10 @@ the sanctioned device-flow client, with zero credential surface for us.
    Issue-report half SHIPPED (BOARD web-mss4lpwy-67qzl7): the pure command
    policy (`planGithubIssue`, `packages/engine/src/github-contribute.ts`)
    decides `gh issue create --repo <upstream> --title <title> --body <body>`
-   against the canonical `UPSTREAM_REPO` (`info.ts`); `github/issue-execute.ts`'s
-   `createGithubIssueExecuteApi` runs it via the same injectable
+   against the canonical `UPSTREAM_REPO` (`info.ts`); composed `title` and
+   `body` respect the reporter's language and script direction (`web/connect-panel.ts`'s
+   `reportComposeStatusMeta`, per composer language doctrine). `github/issue-execute.ts`'s
+   `createGithubIssueExecuteApi` runs the issue creation via the same injectable
    `CommandRunner` `github/execute.ts` already uses (never a real `gh`
    process in tests); `POST /api/github-issue/execute` (`server/server.ts`)
    wires it to a CSRF-guarded, rate-limited HTTP handler; the CONNECT

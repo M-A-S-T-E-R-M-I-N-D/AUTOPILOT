@@ -83,6 +83,24 @@ describe('buildFleetLaunchPlan', () => {
     expect(plan.filter((p) => p.taskScope.length === 0)).toHaveLength(2);
   });
 
+  it('reserves only what a lane may claim — OPERATOR and VERDICT blocked rows are left off every scope (2026-10-01)', () => {
+    // Round 53, fleet-4: a `VERDICT blocked` row in its slice kept the slice
+    // "open" after the lane had shipped and verdict-closed the rest, so its
+    // second firing claimed nothing while the base lane held eleven tasks.
+    const plan = buildFleetLaunchPlan(
+      [
+        task('t1', 'ALPHA one'),
+        task('op', 'OPERATOR: upgrade node on this machine'),
+        task('vb', 'VERDICT blocked web-aaa-1: waits on an ADR'),
+        task('vc', 'VERDICT confirm blocked web-aaa-1: still waits'),
+        task('t2', 'BETA two'),
+      ],
+      2,
+    );
+    const reserved = plan.flatMap((p) => p.taskScope).sort();
+    expect(reserved).toEqual(['t1', 't2']);
+  });
+
   it('returns one empty-scope lane for an empty board rather than throwing', () => {
     expect(buildFleetLaunchPlan([], 1)).toEqual([{ instanceId: undefined, taskScope: [] }]);
   });

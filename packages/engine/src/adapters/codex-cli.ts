@@ -19,7 +19,8 @@
  *   (`ports.ts`, `firing.ts` §3.6: cost is never computed from tokens).
  * - Model, duration, turn count, stop reason. No event carries them, so they
  *   are `null`; `modelUsed` is the model the engine REQUESTED, since nothing
- *   on the wire attests the one that ran.
+ *   on the wire attests the one that ran. {@link CodexCliModel} times the run
+ *   itself and reports that as `observed.elapsedMs`, with no turn count.
  */
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
@@ -356,12 +357,15 @@ export class CodexCliModel implements ModelPort {
                 ? 1
                 : 0;
           const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
+          const elapsedMs = Date.now() - startedAt;
           // An idle-cap kill is a cap death too, as in StreamingClaudeCliModel.execOnce.
-          const timedOut =
-            idleDeath || isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
+          const timedOut = idleDeath || isCliTimeoutDeath(killedBySignal, elapsedMs, timeoutMs);
           resolve({
             ...parseCodexExecOutput(stdout ?? '', exitCode, model),
             ...(timedOut ? { timedOut: true } : {}),
+            // No event carries a duration, so this clock is the run's only
+            // one; no turn count rides with it (ModelResponse.observed).
+            observed: { elapsedMs },
           });
         },
       );

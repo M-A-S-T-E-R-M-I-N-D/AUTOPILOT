@@ -19,6 +19,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { createServer, type ServerDeps } from '../../src/server/server.js';
 import { MirrorPassRepoMismatchError } from '../../src/flight/mirror-pass-execute.js';
+import { IssueTriageRepoUnboundError } from '../../src/flight/issue-triage-execute.js';
 
 let server: Server | null = null;
 
@@ -101,5 +102,48 @@ describe('KEEPER TRIAGE routes refuse a checkout of another repository (EPIC 001
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'gh exploded' });
+  });
+});
+
+// Board ap-mupqfryv-0: refuseUnboundIssueTriage also refuses a project with
+// no GitHub origin at all. Both routes report it the same way as the
+// mismatch above, minus the project repository it does not have.
+const refuseUnbound = async (): Promise<never> => {
+  throw new IssueTriageRepoUnboundError('octocat/hello-world');
+};
+
+describe('KEEPER TRIAGE routes refuse a project with no GitHub origin (board ap-mupqfryv-0)', () => {
+  it('GET /api/issue-triage keeps its null body and names the repository gh acts on', async () => {
+    const base = await start({ issueTriage: refuseUnbound } as ServerDeps);
+
+    const res = await fetch(`${base}/api/issue-triage?project=p1`);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      triage: null,
+      skippedReason: 'repo-unbound',
+      ghRepo: 'octocat/hello-world',
+    });
+  });
+
+  it('POST /api/issue-triage/execute reports the refusal instead of a 500, with no gh mutation', async () => {
+    const base = await start({ issueTriageExecute: refuseUnbound } as ServerDeps);
+
+    const res = await fetch(`${base}/api/issue-triage/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project: 'p1' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      skippedReason: 'repo-unbound',
+      ghRepo: 'octocat/hello-world',
+      plans: [],
+      commandResults: [],
+      tasksCreated: 0,
+      error:
+        'issue triage: this project has no GitHub origin, so it is not octocat/hello-world, the repository gh acts on',
+    });
   });
 });

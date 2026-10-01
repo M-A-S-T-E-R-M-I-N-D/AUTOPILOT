@@ -18,6 +18,8 @@ import {
   closeSupersededCiRedTasks,
   decidePostPushVerdict,
   filePostPushVerdictTask,
+  holdSupersededCiRedTasks,
+  retireHeldCiRedTasks,
   shouldSpawnRemediationFlight,
   type PostPushVerdictContext,
 } from '../../src/control/post-push-verdict.js';
@@ -256,6 +258,117 @@ describe('closeSupersededCiRedTasks', () => {
     const otherGreen = { ...green(NOW + 60_000), workflow: 'codeql.yml' };
     expect(closeSupersededCiRedTasks(store, 'proj-1', 'main', otherGreen, NOW)).toBe(0);
     expect(statusOf(id)).not.toBe('done');
+  });
+
+  it('closes a red the next landing HELD, the same as a workable one (2026-10-01)', () => {
+    const id = fileRed();
+    expect(
+      holdSupersededCiRedTasks(store, 'proj-1', 'main', 'fedcba9876543210', NOW + 10_000),
+    ).toBe(1);
+    expect(statusOf(id)).toBe('deferred');
+    expect(
+      closeSupersededCiRedTasks(store, 'proj-1', 'main', green(NOW + 60_000), NOW + 90_000),
+    ).toBe(1);
+    expect(statusOf(id)).toBe('done');
+  });
+});
+
+describe('holdSupersededCiRedTasks / retireHeldCiRedTasks (2026-10-01)', () => {
+  let dir: string;
+  let store: Store;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-post-push-hold-'));
+    store = openStore(join(dir, 'store.db'));
+    migrate(store);
+    store.db
+      .prepare(
+        `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'registered', NULL, ?, ?)`,
+      )
+      .run('proj-1', 'proj-1', 'proj-1', dir, NOW, NOW);
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** Files the red for `sha`; `at` keeps two filings in one test from
+   *  minting the same `ap-<time>-ci-red` id. */
+  function fileRed(sha: string, branch = 'main', at = NOW): string {
+    const verdict = decidePostPushVerdict(redStatus(), { ...CONTEXT, branch, sha }, at);
+    if (verdict.kind !== 'remediate') throw new Error('unreachable');
+    expect(filePostPushVerdictTask(store, verdict)).toBe(true);
+    return verdict.task.id;
+  }
+
+  function rowOf(id: string): { status: string; body: string | null } {
+    return store.db.prepare('SELECT status, body FROM tasks WHERE id = ?').get(id) as {
+      status: string;
+      body: string | null;
+    };
+  }
+
+  it('defers the workable red an earlier landing filed, with the reason on its body', () => {
+    // Round 52, fleet-4: 022a827's red was claimed two minutes after
+    // 220199f8 was pushed and refuted twice, while 220199f8's own run was
+    // on its way to closing it.
+    const id = fileRed('022a827f0000000');
+    expect(holdSupersededCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 5)).toBe(1);
+    const row = rowOf(id);
+    expect(row.status).toBe('deferred');
+    expect(row.body).toContain('Held: landing 220199f onto main was pushed after this red');
+    expect(row.body).toContain('green closes this task, red files a fresh one');
+  });
+
+  it('holds an in-progress red too — a lane mid-refutation does not get to pick it again', () => {
+    const id = fileRed('022a827f0000000');
+    store.db.prepare("UPDATE tasks SET status = 'in_progress' WHERE id = ?").run(id);
+    expect(holdSupersededCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 5)).toBe(1);
+    expect(rowOf(id).status).toBe('deferred');
+  });
+
+  it("leaves the red that names this very landing alone — it IS this landing's verdict", () => {
+    const id = fileRed('220199f8aaaaaaa');
+    expect(holdSupersededCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 5)).toBe(0);
+    expect(rowOf(id).status).toBe('queued');
+  });
+
+  it("leaves another branch's red alone and holds nothing twice", () => {
+    const other = fileRed('022a827f0000000', 'release/1.0');
+    const id = fileRed('022a827f0000000', 'main', NOW + 1);
+    expect(holdSupersededCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 5)).toBe(1);
+    expect(rowOf(other).status).toBe('queued');
+    // A resumed watch (the dashboard restarts right after a landing) holds
+    // again: nothing is workable any more, and the note is not appended twice.
+    expect(holdSupersededCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 9)).toBe(0);
+    expect(rowOf(id).body?.match(/Held: landing/g)).toHaveLength(1);
+  });
+
+  it('a red conclusion retires the held reds — the fresh task is the live evidence', () => {
+    const old = fileRed('022a827f0000000');
+    expect(holdSupersededCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 5)).toBe(1);
+    const fresh = fileRed('220199f8aaaaaaa', 'main', NOW + 6);
+    expect(retireHeldCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 10)).toBe(1);
+    expect(rowOf(old).status).toBe('done');
+    expect(rowOf(fresh).status).toBe('queued');
+  });
+
+  it('retires only held (deferred) reds of this branch, never a workable one', () => {
+    const workable = fileRed('022a827f0000000');
+    const other = fileRed('022a827f0000000', 'release/1.0', NOW + 1);
+    store.db.prepare("UPDATE tasks SET status = 'deferred' WHERE id = ?").run(other);
+    expect(retireHeldCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW + 10)).toBe(0);
+    expect(rowOf(workable).status).toBe('queued');
+    expect(rowOf(other).status).toBe('deferred');
+  });
+
+  it('never throws when the store cannot be read', () => {
+    store.close();
+    expect(holdSupersededCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW)).toBe(0);
+    expect(retireHeldCiRedTasks(store, 'proj-1', 'main', '220199f8aaaaaaa', NOW)).toBe(0);
+    store = openStore(join(dir, 'store.db'));
   });
 });
 

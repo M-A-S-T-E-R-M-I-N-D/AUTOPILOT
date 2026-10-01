@@ -297,6 +297,89 @@ describe('createPostPushWatchTrigger (slice 3 — starting a watch from a real g
     }
   });
 
+  it('holds the CI RED task an earlier landing filed the moment this landing is pushed (2026-10-01)', async () => {
+    // Round 52, fleet-4: the hold must be in place before the trigger
+    // returns — the fleet launches as soon as the landing does.
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-hold-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      createTask(s, {
+        id: 'ap-old-ci-red',
+        projectId: 'p1',
+        title: 'CI RED after landing main → 022a827: ci.yml — failure (23m ago)',
+        body: 'Post-push verdict ritual: landing 022a827 onto main came back red.',
+        severity: 'high',
+        source: 'self',
+        createdAt: Date.now() - 60 * 60_000,
+      });
+      s.close();
+
+      // A run that never concludes: the hold cannot be the green close in
+      // disguise.
+      const neverConcludes = () => () =>
+        JSON.stringify([
+          { status: 'in_progress', conclusion: null, createdAt: new Date().toISOString() },
+        ]);
+      createPostPushWatchTrigger(dbPath, neverConcludes)('p1', '/repo', 'main', '220199f8');
+
+      const s2 = openStore(dbPath);
+      const row = s2.db
+        .prepare("SELECT status, body FROM tasks WHERE id = 'ap-old-ci-red'")
+        .get() as { status: string; body: string };
+      s2.close();
+      expect(row.status).toBe('deferred');
+      expect(row.body).toContain('Held: landing 220199f onto main');
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('retires the held red when this landing concludes red — the fresh task carries the evidence', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-retire-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1');
+      createTask(s, {
+        id: 'ap-old-ci-red',
+        projectId: 'p1',
+        title: 'CI RED after landing main → 022a827: ci.yml — failure (23m ago)',
+        severity: 'high',
+        source: 'self',
+        createdAt: Date.now() - 60 * 60_000,
+      });
+      s.close();
+
+      createPostPushWatchTrigger(dbPath, ghRunReporting('failure'))(
+        'p1',
+        '/repo',
+        'main',
+        '220199f8',
+      );
+
+      await vi.waitFor(() => {
+        const s2 = openStore(dbPath);
+        const rows = s2.db
+          .prepare('SELECT id, status, title FROM tasks ORDER BY created_at')
+          .all() as { id: string; status: string; title: string }[];
+        s2.close();
+        expect(rows.find((r) => r.id === 'ap-old-ci-red')?.status).toBe('done');
+        expect(
+          rows.some(
+            (r) =>
+              r.status === 'queued' && r.title.startsWith('CI RED after landing main → 220199f'),
+          ),
+        ).toBe(true);
+      });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
   it('leaves a post-push-watch record of what it saw, green or red (2026-09-27)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-record-'));
     try {
@@ -455,7 +538,12 @@ describe('createPostPushWatchTrigger — fly escalation mode (board web-mtpbmazh
     }
   });
 
-  it('does not spawn on a dedup no-op (an evidence task for this branch is already open)', async () => {
+  it('does not spawn on a dedup no-op (this landing already has its evidence task open)', async () => {
+    // The watch for ONE landing can run twice — the dashboard restarts
+    // seconds after a landing and resumes it — and the second conclusion
+    // must not stack a duplicate task or a second flight. (A red on a NEWER
+    // landing is a fresh incident since 2026-10-01: the older red is held at
+    // its push and retired by its red, so that one does file and spawn.)
     process.env['AUTOPILOT_CI_REMEDIATION'] = 'fly';
     const dir = mkdtempSync(join(tmpdir(), 'ap-postpush-trigger-dedup-'));
     try {
@@ -473,12 +561,16 @@ describe('createPostPushWatchTrigger — fly escalation mode (board web-mtpbmazh
       });
 
       spawnFlight.mockClear();
-      const trigger2 = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'), spawnFlight);
-      trigger2('p1', '/repo', 'main', 'def5678');
+      const resumed = createPostPushWatchTrigger(dbPath, ghRunReporting('failure'), spawnFlight);
+      resumed('p1', '/repo', 'main', 'abc1234');
       // Give the fire-and-forget watch's microtasks a beat — there is no
       // positive signal to wait on for an intentional non-spawn.
       await new Promise((resolve) => setTimeout(resolve, 100));
       expect(spawnFlight).not.toHaveBeenCalled();
+      const s2 = openStore(dbPath);
+      const open = recentTasks(s2.db, 'p1', 10).filter((t) => t.status === 'queued');
+      s2.close();
+      expect(open).toHaveLength(1);
     } finally {
       cleanupDir(dir);
     }

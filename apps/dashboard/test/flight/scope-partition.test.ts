@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  claimableCandidates,
   parseTaskScope,
   scopeFilterCandidates,
   areaKeyOf,
@@ -42,6 +43,48 @@ describe('scopeFilterCandidates (partition-then-pull hybrid)', () => {
     // its partition proceeds to the next ready task instead of idling.
     const scope = new Set(['gone-1', 'gone-2']);
     expect(scopeFilterCandidates(tasks, scope)).toEqual(tasks);
+  });
+});
+
+describe('claimableCandidates (what "exhausted" is judged over, 2026-10-01)', () => {
+  const row = (id: string, title: string, assignee: string | null = null) => ({
+    id,
+    title,
+    assignee,
+  });
+
+  it('keeps the rows this lane may claim: unassigned or its own, unbenched, with a claimable title', () => {
+    const open = [
+      row('mine', 'ALPHA mine', 'fleet-4'),
+      row('free', 'ALPHA free'),
+      row('theirs', 'ALPHA theirs', 'fleet-2'),
+      row('benched', 'ALPHA benched'),
+      row('op', 'OPERATOR: a person does this'),
+      row('vb', 'VERDICT blocked web-aaa-1: waits on an ADR'),
+    ];
+    expect(claimableCandidates(open, 'fleet-4', new Set(['benched'])).map((t) => t.id)).toEqual([
+      'mine',
+      'free',
+    ]);
+  });
+
+  it('with a slice reduced to a blocked verdict, the scope reads as exhausted and the lane pulls from the board', () => {
+    // Round 53, fleet-4: the slice's last row was a `VERDICT blocked` task no
+    // lane may claim; judged over every open row the slice looked live and
+    // the lane's second firing claimed nothing.
+    const open = [row('vb', 'VERDICT blocked web-aaa-1: waits on an ADR'), row('b1', 'BETA one')];
+    const scope = new Set(['vb']);
+    expect(scopeFilterCandidates(claimableCandidates(open, 'fleet-4', new Set()), scope)).toEqual([
+      row('b1', 'BETA one'),
+    ]);
+    // A slice row a sibling holds idles the lane the same way without the narrowing.
+    const held = [row('s1', 'ALPHA one', 'fleet-2'), row('b1', 'BETA one')];
+    expect(
+      scopeFilterCandidates(claimableCandidates(held, 'fleet-4', new Set()), new Set(['s1'])),
+    ).toEqual([row('b1', 'BETA one')]);
+    expect(scopeFilterCandidates(held, new Set(['s1']))).toEqual([
+      row('s1', 'ALPHA one', 'fleet-2'),
+    ]);
   });
 });
 

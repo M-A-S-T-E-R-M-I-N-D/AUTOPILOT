@@ -34,11 +34,18 @@ export const NOOP_STREAK_THRESHOLD = 3;
 /** Marks the noop-streak note (epic 0014 slice 2) the same way. */
 export const NOOP_SOUL_AMENDMENT_MARKER = '## Learned: recurring noop pattern';
 
+export const REVERT_STREAK_THRESHOLD = 3;
+
+/** Marks the revert-streak note (the third registry kind, board
+ *  ap-muo35gzl-2's "propose prompt improvements" loop) the same way. */
+export const REVERT_SOUL_AMENDMENT_MARKER = '## Learned: recurring revert pattern';
+
 /** How many newest `gate_result` rows the sweep must fetch so EVERY kind's
  *  full streak window is visible to its miner. */
 export const SOUL_MINING_GATE_LOOKBACK = Math.max(
   CHECKPOINT_STREAK_THRESHOLD,
   NOOP_STREAK_THRESHOLD,
+  REVERT_STREAK_THRESHOLD,
 );
 
 export interface SoulMiningInput {
@@ -85,6 +92,26 @@ const NOOP_KIND: StreakLearningKind = {
     `(split/close/deprioritize/blocked) so the operator can unblock or retire the work.`,
 };
 
+/** Third learning kind (board ap-muo35gzl-2): `gate_result: reverted` is the
+ *  post-commit gate going red on work the firing had just verified — a real
+ *  check failed, or the diff hit the runaway tier — and the engine undoing
+ *  the commit. Three in a row says the firing's own verification and the
+ *  harness gate disagree, which is a project-level fact worth a SOUL note.
+ *  'unverifiable' (a crashed gate) is deliberately NOT counted: a gate that
+ *  never judged the work is no evidence the work was bad. */
+const REVERT_KIND: StreakLearningKind = {
+  marker: REVERT_SOUL_AMENDMENT_MARKER,
+  gateResult: 'reverted',
+  streakThreshold: REVERT_STREAK_THRESHOLD,
+  note:
+    `- The last ${REVERT_STREAK_THRESHOLD} firings each committed work the gate then reverted ` +
+    `(gate_result: reverted). What the firing verified is not what the gate checks: run every ` +
+    `command this SOUL's Gate section names before committing — lint and format checks ` +
+    `included — and keep the diff small enough to verify whole in one firing. If the gate is ` +
+    `already red on the untouched tree, the unit is not the cause: report that through ` +
+    `PROPOSALS instead of committing on top of it.`,
+};
+
 /** True when the newest `streakThreshold` firings all ended as the kind's
  *  `gateResult` — a consecutive streak, not merely N-of-M, since a genuine
  *  turnaround (one different outcome) should reset it. */
@@ -124,6 +151,12 @@ export function mineSoulAmendment(input: SoulMiningInput): string | null {
  *  contract, second registry kind (epic 0014 slice 2). */
 export function mineNoopSoulAmendment(input: SoulMiningInput): string | null {
   return mineStreakAmendment(input, NOOP_KIND);
+}
+
+/** {@link mineSoulAmendment}'s twin for the revert-streak learning — same
+ *  contract, third registry kind (board ap-muo35gzl-2). */
+export function mineRevertSoulAmendment(input: SoulMiningInput): string | null {
+  return mineStreakAmendment(input, REVERT_KIND);
 }
 
 /** Cuts a marker heading (and everything through the next `## ` heading, or
@@ -172,6 +205,13 @@ export function pruneSoulAmendment(input: SoulPruneInput): string | null {
  *  propose retracting it — same operator-ratified slot, never automatic. */
 export function pruneNoopSoulAmendment(input: SoulPruneInput): string | null {
   return pruneStreakAmendment(input, NOOP_KIND);
+}
+
+/** {@link pruneSoulAmendment}'s twin for the revert-streak note: once a
+ *  firing whose commit the gate kept breaks the streak the note asserted,
+ *  propose retracting it — same operator-ratified slot, never automatic. */
+export function pruneRevertSoulAmendment(input: SoulPruneInput): string | null {
+  return pruneStreakAmendment(input, REVERT_KIND);
 }
 
 function pruneStreakAmendment(input: SoulPruneInput, kind: StreakLearningKind): string | null {

@@ -36,7 +36,6 @@ import {
   setTaskStatus,
   reconcileShippedTasks,
   claimTask,
-  isClaimableTitle,
   isBlockedVerdictTitle,
   releaseTaskClaim,
   releaseInstanceClaims,
@@ -206,7 +205,11 @@ import {
 } from './flight/lock.js';
 import { verifyGuardSettings } from './flight/guard-verify.js';
 import { deriveWorktreePlan } from './flight/worktree.js';
-import { parseTaskScope, scopeFilterCandidates } from './flight/scope-partition.js';
+import {
+  claimableCandidates,
+  parseTaskScope,
+  scopeFilterCandidates,
+} from './flight/scope-partition.js';
 import {
   withCheckoutRitualLock,
   withRitualLock,
@@ -1379,22 +1382,22 @@ async function main(): Promise<void> {
         // converging on the same area. Scope exhausted → ordinary pull
         // (partition-then-pull; a fast instance never idles). No scope env →
         // scopedCandidates IS openBefore, byte-for-byte the old behavior.
-        const scopedCandidates = scopeFilterCandidates(openBefore, fleetTaskScope);
         // Run-3 death-loop guard: a task that burned 2 consecutive no-ship
         // firings THIS flight goes to the bench — stop re-claiming and
         // re-dying on it; the next flight (or a sibling) can try fresh.
+        // Only a task claimTask would accept: an OPERATOR or blocked-verdict
+        // row at the top used to be tried, refused, and leave the firing with
+        // no claim at all (2026-09-24). Narrowed BEFORE the scope decision
+        // (2026-10-01): a slice whose last row was a sibling's claim, a bench
+        // or a blocked verdict read as "still open" and idled its lane.
+        const scopedCandidates = scopeFilterCandidates(
+          claimableCandidates(openBefore, instanceKey, benchedTasks),
+          fleetTaskScope,
+        );
         // FLEET-AWARE FOCUS (web-mswpsozf-oxf17b): focused-first ordering so
         // the first free instance CLAIMS the operator's focus target instead
         // of claiming the topmost task while locked onto another.
-        // Only a task claimTask would accept: an OPERATOR or blocked-verdict
-        // row at the top used to be tried, refused, and leave the firing with
-        // no claim at all (2026-09-24).
-        const topAvailable = orderClaimCandidatesFocusFirst(scopedCandidates).find(
-          (t) =>
-            (t.assignee === null || t.assignee === instanceKey) &&
-            !benchedTasks.has(t.id) &&
-            isClaimableTitle(t.title),
-        );
+        const topAvailable = orderClaimCandidatesFocusFirst(scopedCandidates)[0];
         claimedTaskId =
           topAvailable && claimTask(store, topAvailable.id, instanceKey, now())
             ? topAvailable.id

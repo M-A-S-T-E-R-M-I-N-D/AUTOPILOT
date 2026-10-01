@@ -7,10 +7,14 @@ import {
   pruneSoulAmendment,
   mineNoopSoulAmendment,
   pruneNoopSoulAmendment,
+  mineRevertSoulAmendment,
+  pruneRevertSoulAmendment,
   CHECKPOINT_STREAK_THRESHOLD,
   CHECKPOINT_SOUL_AMENDMENT_MARKER,
   NOOP_STREAK_THRESHOLD,
   NOOP_SOUL_AMENDMENT_MARKER,
+  REVERT_STREAK_THRESHOLD,
+  REVERT_SOUL_AMENDMENT_MARKER,
   SOUL_MINING_GATE_LOOKBACK,
   type SoulMiningInput,
   type SoulPruneInput,
@@ -213,10 +217,132 @@ describe('pruneNoopSoulAmendment', () => {
   });
 });
 
+// Third learning kind (board ap-muo35gzl-2, epic 0014's registry): a
+// reverted-commit streak — the post-commit gate went red on what the firing
+// had verified, three firings running — mine/prune pair, same mechanics.
+const REVERT_STREAK = Array.from({ length: REVERT_STREAK_THRESHOLD }, () => 'reverted');
+
+describe('mineRevertSoulAmendment', () => {
+  it('proposes an amendment when the newest firings are a full reverted streak', () => {
+    const proposal = mineRevertSoulAmendment(inputWith({ recentGateResults: REVERT_STREAK }));
+    expect(proposal).not.toBeNull();
+    expect(proposal).toContain(BASE_SOUL.trimEnd());
+    expect(proposal).toContain(REVERT_SOUL_AMENDMENT_MARKER);
+    expect(proposal).toContain(`last ${REVERT_STREAK_THRESHOLD} firings`);
+    expect(proposal).toContain('gate_result: reverted');
+  });
+
+  it('tells the next firing to run the whole gate before committing (the note is actionable)', () => {
+    const proposal = mineRevertSoulAmendment(inputWith({ recentGateResults: REVERT_STREAK }));
+    expect(proposal).toMatch(/before committing/i);
+    expect(proposal).toMatch(/already red/i);
+  });
+
+  it('returns null when a shipped firing breaks the streak (not consecutive)', () => {
+    const broken = ['reverted', 'passed', ...REVERT_STREAK.slice(2)];
+    expect(mineRevertSoulAmendment(inputWith({ recentGateResults: broken }))).toBeNull();
+  });
+
+  it('returns null when there are fewer firings than the streak threshold', () => {
+    const short = REVERT_STREAK.slice(0, REVERT_STREAK_THRESHOLD - 1);
+    expect(mineRevertSoulAmendment(inputWith({ recentGateResults: short }))).toBeNull();
+  });
+
+  it('returns null on a checkpoint or noop streak (each kind only matches its own gate_result)', () => {
+    expect(mineRevertSoulAmendment(inputWith({ recentGateResults: STREAK }))).toBeNull();
+    expect(mineRevertSoulAmendment(inputWith({ recentGateResults: NOOP_STREAK }))).toBeNull();
+  });
+
+  it('does not count an unverifiable gate as a revert (a crashed gate is not a red one)', () => {
+    const crashed = ['reverted', 'unverifiable', ...REVERT_STREAK.slice(2)];
+    expect(mineRevertSoulAmendment(inputWith({ recentGateResults: crashed }))).toBeNull();
+  });
+
+  it('returns null when a proposal is already pending (never overwrite an unreviewed one)', () => {
+    const proposal = mineRevertSoulAmendment(
+      inputWith({ recentGateResults: REVERT_STREAK, soulProposed: 'some other pending diff' }),
+    );
+    expect(proposal).toBeNull();
+  });
+
+  it('returns null when the SOUL already carries this learning', () => {
+    const soulWithMarker = `${BASE_SOUL}\n\n${REVERT_SOUL_AMENDMENT_MARKER}\n- already noted.\n`;
+    expect(
+      mineRevertSoulAmendment(
+        inputWith({ recentGateResults: REVERT_STREAK, soul: soulWithMarker }),
+      ),
+    ).toBeNull();
+  });
+
+  it('appends alongside the existing checkpoint and noop notes without disturbing them', () => {
+    const soulWithBoth = `${SOUL_WITH_NOTE}\n${NOOP_SOUL_AMENDMENT_MARKER}\n- noop noted.\n`;
+    const proposal = mineRevertSoulAmendment(
+      inputWith({ soul: soulWithBoth, recentGateResults: REVERT_STREAK }),
+    );
+    expect(proposal).toContain(CHECKPOINT_SOUL_AMENDMENT_MARKER);
+    expect(proposal).toContain('- noop noted.');
+    expect(proposal).toContain(REVERT_SOUL_AMENDMENT_MARKER);
+  });
+});
+
+const SOUL_WITH_REVERT_NOTE =
+  `${BASE_SOUL}\n\n${REVERT_SOUL_AMENDMENT_MARKER}\n` +
+  `- The last ${REVERT_STREAK_THRESHOLD} firings each committed work the gate then reverted.\n`;
+
+describe('pruneRevertSoulAmendment', () => {
+  it('proposes retracting the note once the reverted streak it described breaks', () => {
+    const broken = ['passed', 'reverted', 'reverted'];
+    const retraction = pruneRevertSoulAmendment(
+      pruneInputWith({ soul: SOUL_WITH_REVERT_NOTE, recentGateResults: broken }),
+    );
+    expect(retraction).not.toBeNull();
+    expect(retraction).not.toContain(REVERT_SOUL_AMENDMENT_MARKER);
+    expect(retraction).toContain(BASE_SOUL.trimEnd());
+  });
+
+  it('returns null while the reverted streak the note describes still holds', () => {
+    expect(
+      pruneRevertSoulAmendment(
+        pruneInputWith({ soul: SOUL_WITH_REVERT_NOTE, recentGateResults: REVERT_STREAK }),
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when the SOUL never carried the note (nothing to prune)', () => {
+    expect(
+      pruneRevertSoulAmendment(pruneInputWith({ soul: BASE_SOUL, recentGateResults: [] })),
+    ).toBeNull();
+  });
+
+  it('returns null when a proposal is already pending (never overwrite an unreviewed one)', () => {
+    const retraction = pruneRevertSoulAmendment(
+      pruneInputWith({
+        soul: SOUL_WITH_REVERT_NOTE,
+        recentGateResults: [],
+        soulProposed: 'some other pending diff',
+      }),
+    );
+    expect(retraction).toBeNull();
+  });
+
+  it('leaves the checkpoint and noop notes intact when pruning only the revert note', () => {
+    const soulWithAll =
+      `${SOUL_WITH_NOTE}\n${NOOP_SOUL_AMENDMENT_MARKER}\n- noop noted.\n\n` +
+      `${REVERT_SOUL_AMENDMENT_MARKER}\n- revert note to retract.\n`;
+    const retraction = pruneRevertSoulAmendment(
+      pruneInputWith({ soul: soulWithAll, recentGateResults: STREAK }),
+    );
+    expect(retraction).not.toContain(REVERT_SOUL_AMENDMENT_MARKER);
+    expect(retraction).toContain(CHECKPOINT_SOUL_AMENDMENT_MARKER);
+    expect(retraction).toContain(NOOP_SOUL_AMENDMENT_MARKER);
+    expect(retraction).toContain('- noop noted.');
+  });
+});
+
 describe('SOUL_MINING_GATE_LOOKBACK', () => {
   it("covers every kind's full streak window", () => {
     expect(SOUL_MINING_GATE_LOOKBACK).toBe(
-      Math.max(CHECKPOINT_STREAK_THRESHOLD, NOOP_STREAK_THRESHOLD),
+      Math.max(CHECKPOINT_STREAK_THRESHOLD, NOOP_STREAK_THRESHOLD, REVERT_STREAK_THRESHOLD),
     );
   });
 });

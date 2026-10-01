@@ -50,7 +50,7 @@ same failure:
 | # | Slice | State |
 | - | ----- | ----- |
 | 1 | PR cards: deep links + per-check pipeline strip (glyph, duration, log link, pulsing run) | **shipped** — `pr-review-panel.ts`, `pr-check-strip.test.ts` |
-| 2 | The maintainer's merge button on queue-for-human cards, disabled-with-reason until green | **shipped** — `flight/human-merge.ts` |
+| 2 | The maintainer's merge button on queue-for-human cards, disabled-with-reason until green | **shipped** — `flight/human-merge.ts`; since 2026-10-01 its `gh pr merge` passes `--match-head-commit` with the head whose checks it just read, as the KEEPER ritual's merge does, so a push landing between that read and the merge makes gh refuse instead of merging unverified commits |
 | 3 | Same treatment for the KEEPER issue-triage panel: issue numbers link out, labels render as real chips, decisions link to the comment they will post | **shipped** — `web/features/issue-triage.ts`, `web/issue-triage-panel.ts`, `test/web/issue-triage-link.test.ts`, `test/web/issue-triage-labels.test.ts`, `test/web/issue-triage-comment-link.test.ts` |
 | 4 | Flight console: per-step progress with elapsed time — which gate step is running, how long it has been there — instead of a static status word | queued |
 | 5 | Link census: a test that fails when a rendered GitHub noun (number, SHA, handle) has no link and the API reported a URL for it — the structural stop for failure #2 | **shipped** — `test/flight/link-census.test.ts` (found and fixed the pool-client panel's own dead issue-number link), `web/features/pool-client.ts`, `test/web/pool-client-link.test.ts` |

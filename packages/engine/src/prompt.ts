@@ -369,35 +369,55 @@ export function fenceTitle(title: string): string {
  *  long-running multi-slice task. */
 const SHIPPED_SLICES_SHOWN = 5;
 
-/** Bound a task's note the way the INBOX digest bounds a fresh one
- *  (inbox.ts's INBOX_ENTRY_CHARS): the row keeps showing what the digest
- *  showed once. */
-const BOARD_NOTE_CHARS = 1000;
+/** Bound the notes one board section quotes, spent in board order. The first
+ *  note may use the whole budget, so a binding operator addendum reaches the
+ *  firing whole: the composer language doctrine reached three firings cut at
+ *  1000 characters, with every rule after its first unread. A later note gets
+ *  what is left, but never less than the floor, which is what the INBOX digest
+ *  (inbox.ts's INBOX_ENTRY_CHARS) showed of it once. Ten long notes stay
+ *  bounded: the budget once, then the floor each. */
+const BOARD_NOTE_BUDGET = 8000;
+const BOARD_NOTE_FLOOR = 1000;
+
+function noteText(note: string | null | undefined): string {
+  return (note ?? '').trim();
+}
 
 /**
- * A task's note as quoted lines under its row. Every line is prefixed, so no
- * line of the note can start a line of the prompt (a forged "## Hard rules"
- * stays inside the quote), and defanged, so none can spell the fence's own
- * close marker. Blank lines are dropped; indentation is kept.
+ * A task's note as quoted lines under its row, at most `cap` characters of it.
+ * Every line is prefixed, so no line of the note can start a line of the
+ * prompt (a forged "## Hard rules" stays inside the quote), and defanged, so
+ * none can spell the fence's own close marker. Blank lines are dropped;
+ * indentation is kept.
  */
-function noteLines(note: string | null | undefined): readonly string[] {
-  const text = (note ?? '').trim();
+function noteLines(note: string | null | undefined, cap: number): readonly string[] {
+  const text = noteText(note);
   if (text === '') return [];
   const quoted = text
-    .slice(0, BOARD_NOTE_CHARS)
+    .slice(0, cap)
     .split(TITLE_LINE_BREAKS_RE)
     .filter((line) => line.trim() !== '')
     .map((line) => `    │ ${defangFenceMarkers(line.trimEnd())}`);
-  const cut =
-    text.length > BOARD_NOTE_CHARS ? [`    │ … (note cut at ${BOARD_NOTE_CHARS} characters)`] : [];
+  const cut = text.length > cap ? [`    │ … (note cut at ${cap} characters)`] : [];
   return ['  ✎ note:', ...quoted, ...cut];
 }
 
-function taskLine(t: BoardTaskRef): string {
+/** A board section's rows, its first BOARD_MAX_TASKS tasks sharing one note
+ *  budget in board order. */
+function boardRows(tasks: readonly BoardTaskRef[]): readonly string[] {
+  let spent = 0;
+  return tasks.slice(0, BOARD_MAX_TASKS).map((t) => {
+    const cap = Math.max(BOARD_NOTE_FLOOR, BOARD_NOTE_BUDGET - spent);
+    spent += Math.min(noteText(t.note).length, cap);
+    return taskLine(t, cap);
+  });
+}
+
+function taskLine(t: BoardTaskRef, noteCap: number): string {
   const tags = [t.severity, t.dimension].filter((x): x is string => typeof x === 'string');
   const tag = tags.length > 0 ? ` (${tags.join('/')})` : '';
   const header = `- [${t.id}]${tag} ${fenceTitle(t.title).slice(0, BOARD_TITLE_CHARS)}`;
-  const note = noteLines(t.note);
+  const note = noteLines(t.note, noteCap);
   const slices = (t.shippedSlices ?? []).filter((s) => s.trim() !== '');
   if (slices.length === 0) return [header, ...note].join('\n');
   // Commit subjects are prior-firing-authored text embedded verbatim into the
@@ -481,7 +501,7 @@ function boardSection(
       '## FOCUS MODE — the operator locked your target (non-negotiable)',
       TITLES_ARE_DATA_NOTE,
       BOARD_ITEMS_OPEN,
-      ...focused.slice(0, BOARD_MAX_TASKS).map(taskLine),
+      ...boardRows(focused),
       BOARD_ITEMS_CLOSE,
       'Work ONLY on the task(s) above until they are DONE. Do NOT free-pick, do NOT',
       'work anything else on the board. Pick the FIRST one that fits this firing and',
@@ -499,7 +519,7 @@ function boardSection(
     '## BOARD — assigned work in the operator’s priority order (prefer this, top first)',
     TITLES_ARE_DATA_NOTE,
     BOARD_ITEMS_OPEN,
-    ...board.slice(0, BOARD_MAX_TASKS).map(taskLine),
+    ...boardRows(board),
     BOARD_ITEMS_CLOSE,
     'If one of these fits in ONE small, verifiable firing, do the TOPMOST that fits and',
     'use its bracketed id as the "item" in your METRICS line. Tag "completion":"complete" if',

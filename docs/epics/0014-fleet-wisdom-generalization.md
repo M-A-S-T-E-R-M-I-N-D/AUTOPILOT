@@ -7,6 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 
 Status: Done — all four slices landed: slices 1 (registry refactor), 2 (noop-streak project miner, `gate_result: no-commit`), 3 (noop-streak fleet registry entry + graduation e2e), 4a (registry-driven `wisdomKind` label derivation + FleetView state plumbing — client JS is a serialized string that cannot import the registry, so the kind is derived server-side), and 4b (the shell's `fleetWisdomPanel` renders `state.wisdomKind` in its summary title when the proposal carries a registered marker, falling back to the generic title otherwise; `fleet-wisdom-panel.test.ts` covers both branches plus an axe scan) all shipped end-to-end.
 
+Post-epic, same mechanics: a third registry kind — the revert-streak note
+(`gate_result: reverted` three firings running, `REVERT_SOUL_AMENDMENT_MARKER`; mine +
+prune pair in `soul-mining.ts`, registry entry in `fleet-wisdom-mining.ts`) — landed
+under board `ap-muo35gzl-2`'s "propose prompt improvements" loop. The acceptance
+criteria below were already met at two kinds; a new kind is still only a registry
+entry plus its project-level miner, exactly as the design promised.
+
 Board task: `web-msnt26xe-pc4pzp` ("FLEET WISDOM (M7 companion): learnings that
 generalize (gate patterns, gotchas, conventions) graduate from per-project SOUL to a
 shared fleet layer with confidentiality boundaries…").
