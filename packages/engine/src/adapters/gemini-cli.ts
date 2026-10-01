@@ -4,11 +4,14 @@
 /**
  * A ModelPort over the Google Gemini CLI (epic 0036,
  * docs/epics/0036-provider-parity.md), split like `claude-cli.ts` and
- * `codex-cli.ts` into a pure parse ({@link parseGeminiJsonOutput},
+ * `codex-cli.ts` into a pure parse ({@link parseGeminiStreamJsonOutput},
  * fixture-tested) and the impure spawn ({@link GeminiCliModel}) that feeds it
- * `gemini --prompt … --output-format json` output.
+ * `gemini --output-format stream-json` output, one event per line as it
+ * happens: the output an idle cap can watch.
  *
- * The wire format is `JsonOutput` in google-gemini/gemini-cli
+ * {@link parseGeminiJsonOutput} reads the one-object `--output-format json`
+ * form, which writes nothing until the run ends, so nothing spawns it any more.
+ * Its wire format is `JsonOutput` in google-gemini/gemini-cli
  * `packages/core/src/output/types.ts`, written by `JsonFormatter` as ONE
  * pretty-printed object: `session_id`, `response`, `stats` (`SessionMetrics`,
  * `packages/core/src/telemetry/uiTelemetry.ts`), `error` (`type`, `message`,
@@ -17,10 +20,6 @@
  * STDERR instead, behind an `[ERROR] ` feedback prefix
  * (`packages/cli/src/utils/errors.ts`, `nonInteractiveCli.ts`) — so the parse
  * reads stdout first and falls back to stderr.
- *
- * {@link parseGeminiStreamJsonOutput} reads the `--output-format stream-json`
- * form of the same run, one event per line as it happens: the output an idle
- * cap can watch, which the one-object JSON form never gives until the end.
  *
  * What the CLI does NOT report, and so this parse never invents:
  * - Cost. `stats` carries token counts only, never a priced figure, so
@@ -37,6 +36,7 @@ import {
   isCliTimeoutDeath,
   isResumeFailure,
   CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
 import { buildInvocation, CMD_SAFE_ARG } from './gate.js';
@@ -312,6 +312,13 @@ export interface GeminiCliOptions {
    *  {@link DEFAULT_CLI_TIMEOUT_MS}, the wall-clock cap every CLI-spawning
    *  ModelPort in this repo shares. */
   readonly timeoutMs?: number;
+  /** Kill the child when NOTHING has arrived on its stdout for this long, long
+   *  before the wall clock would. Defaults to `claude-cli.ts`'s
+   *  {@link DEFAULT_CLI_IDLE_TIMEOUT_MS}, the window `CodexCliOptions.idleTimeoutMs`
+   *  gives: `--output-format stream-json` prints `init` before the first model
+   *  request and each event as it happens (`nonInteractiveCli.ts`), so a working
+   *  run is never silent for longer than its slowest single tool call. */
+  readonly idleTimeoutMs?: number;
   /**
    * `--approval-mode` for the run. Defaults to `yolo`: headless mode cannot ask,
    * so under `default` every tool that needs a confirmation (file edits, shell)
@@ -358,9 +365,9 @@ export interface GeminiCliOptions {
 
 /**
  * ModelPort over the local Google Gemini CLI (epic 0036): spawns `gemini --model
- * <model> --output-format json --approval-mode <mode> [--skip-trust] [--resume
- * <session>] [--prompt <prompt>]` and parses its output via
- * {@link parseGeminiJsonOutput}, stderr included, since a fatal error goes there.
+ * <model> --output-format stream-json --approval-mode <mode> [--skip-trust]
+ * [--resume <session>] [--prompt <prompt>]` and parses its stdout via
+ * {@link parseGeminiStreamJsonOutput}; stream-json writes a fatal error there too.
  *
  * Flags follow google-gemini/gemini-cli `packages/cli/src/config/config.ts`: the
  * positional prompt runs INTERACTIVE, so the prompt rides on `--prompt`, and
@@ -376,13 +383,14 @@ export interface GeminiCliOptions {
  * cmd.exe cannot parse it.
  *
  * Transport mirrors `CodexCliModel`'s: buffered `execFile`, `detached: true`
- * (off that cmd.exe route) plus {@link reapCliDescendants} (ORPHAN SWEEP), no
- * streaming — but not its
- * idle cap: `--output-format json` writes its one object only at the end, so
- * a healthy run is silent on stdout until then.
+ * (off that cmd.exe route) plus {@link reapCliDescendants} (ORPHAN SWEEP), and
+ * its idle cap ({@link GeminiCliOptions.idleTimeoutMs}): a child silent on
+ * stdout that long is killed and comes back `timedOut`, so a hung run no longer
+ * holds its lane for the whole wall clock. A run killed before its `result`
+ * keeps the `init` session id, so it stays resumable.
  * It shares the Claude driver's CLI-level resume fallback: a session id the CLI
  * rejects ({@link isGeminiResumeFailure}) is retried once, cold, as `resumed:
- * false`. Otherwise a resume is `resumed: true` only when the output's
+ * false`. Otherwise a resume is `resumed: true` only when the `init` event's
  * `session_id` is the one requested, since `--resume latest` with no saved
  * session starts a fresh one instead of failing. It DOES carry `ClaudeCliModel`'s crash-path
  * {@link GeminiCliOptions.pidRegistry} tracking (containment parity, board
@@ -433,7 +441,7 @@ export class GeminiCliModel implements ModelPort {
       '--model',
       model,
       '--output-format',
-      'json',
+      'stream-json',
       '--approval-mode',
       this.opts.approvalMode ?? 'yolo',
     ];
@@ -456,6 +464,7 @@ export class GeminiCliModel implements ModelPort {
     const invocation = buildInvocation(binary, args, platform);
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
+    const idleTimeoutMs = this.opts.idleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS;
     const startedAt = Date.now();
     const baseEnv = this.opts.env ?? process.env;
     const guard = this.opts.guardSettingsPath;
@@ -475,12 +484,18 @@ export class GeminiCliModel implements ModelPort {
       encoding: 'utf8',
     };
     return new Promise((resolve) => {
+      // The idle cap is OUR timer; execFile's `timeout` above stays the
+      // wall-clock cap. Every stdout chunk re-arms it, so only a child silent
+      // for the whole window is killed.
+      let idleTimer: NodeJS.Timeout | undefined;
+      let idleDeath = false;
       const child = execFile(
         invocation.bin,
         invocation.args,
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
-        (err, stdout, stderr) => {
+        (err, stdout) => {
+          clearTimeout(idleTimer);
           (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
           if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
           // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
@@ -492,13 +507,33 @@ export class GeminiCliModel implements ModelPort {
                 ? 1
                 : 0;
           const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
-          const timedOut = isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
+          // An idle-cap kill is a cap death too, as in CodexCliModel.execOnce.
+          const timedOut =
+            idleDeath || isCliTimeoutDeath(killedBySignal, Date.now() - startedAt, timeoutMs);
           resolve({
-            ...parseGeminiJsonOutput(stdout ?? '', exitCode, model, stderr ?? ''),
+            ...parseGeminiStreamJsonOutput(stdout ?? '', exitCode, model),
             ...(timedOut ? { timedOut: true } : {}),
           });
         },
       );
+      const armIdle = (): void => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          idleDeath = true;
+          // execFile settles only once every pipe has closed. Behind cmd.exe
+          // the node shim outlives the kill and holds them open, so close our
+          // end first, as execFile's own timeout kill does.
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          try {
+            child.kill();
+          } catch {
+            // already gone — the callback above still settles the call
+          }
+        }, idleTimeoutMs);
+      };
+      armIdle();
+      child.stdout?.on('data', armIdle);
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
       // A CLI that exits before reading its stdin (bad flag, untrusted folder)
       // breaks the pipe; unheard, that EPIPE would crash the host rather than

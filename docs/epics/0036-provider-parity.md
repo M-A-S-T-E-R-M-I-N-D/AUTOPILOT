@@ -30,8 +30,9 @@ containment regression from day one — and the same settle path as Gemini's bel
 adapter landed whole the same day:
 `packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini --prompt …
 --output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`), and
-`GeminiCliModel` spawns it (`--model <model> --output-format json --approval-mode yolo [--skip-trust]
-[--resume <id>] [--prompt <prompt>]`, verified against google-gemini/gemini-cli's
+`GeminiCliModel` spawned it (`--model <model> --output-format json` — `stream-json` since
+2026-10-01, below — `--approval-mode yolo [--skip-trust] [--resume <id>] [--prompt <prompt>]`,
+verified against google-gemini/gemini-cli's
 `packages/cli/src/config/config.ts`). Two traps shaped it: the positional prompt runs
 *interactive*, so the prompt rides on `--prompt` (or on stdin alone past the Windows command-line
 threshold, as `ClaudeCliModel` does, and since 2026-09-29 whenever it starts with `-`: `--prompt`
@@ -40,16 +41,22 @@ so the run would fail "Not enough arguments following: prompt"); and headless mo
 into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (unsandboxed) lets the
 agent edit files and run the gate. Folder trust is on by default and headless mode exits
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
-a folder also loads its `.gemini/settings.json` and MCP servers. It shares Codex's routing gap and
-still has no idle cap: `--output-format json` writes its one object only when the run ends, so
-there is no stdout to watch until then. An idle cap needs `stream-json`, and its parse landed
-2026-10-01: `parseGeminiStreamJsonOutput` reads the `JsonStreamEvent` lines
+a folder also loads its `.gemini/settings.json` and MCP servers. It shares Codex's routing gap.
+Since 2026-10-01 it carries Codex's idle cap too. `--output-format json` writes its one object only
+when the run ends, so there was no stdout to watch until then; `GeminiCliModel` now runs
+`--output-format stream-json`, which prints `init` before the first model request and each event as
+it happens (`nonInteractiveCli.ts`), so every stdout chunk re-arms the same `idleTimeoutMs` timer
+(default `DEFAULT_CLI_IDLE_TIMEOUT_MS`, 20 min). A silent child is killed, its pipes closed first as
+Codex's are, and comes back `timedOut` with the `init` session id still resumable. A stale
+`--resume` id is still caught: `resolveSessionId` runs before any event is written and reports to
+stderr (`gemini.tsx`), so that exit stays the no-envelope exit 42 `isGeminiResumeFailure` reads.
+`parseGeminiStreamJsonOutput` reads the `JsonStreamEvent` lines
 (`packages/core/src/output/types.ts`, all on stdout via `StreamJsonFormatter.emitEvent`, a fatal
 error included as a `result` with `status: 'error'`, `packages/cli/src/utils/errors.ts`), fixture-tested.
 Its `result` is the text streamed after the last tool event, since JSON mode's `response` restarts
 every turn too (`nonInteractiveCli.ts`). Tokens come from the CLI's own `convertToStreamStats`
-totals, and a run killed before its `result` keeps the `init` session id. The next slice switches
-`GeminiCliModel` to `stream-json` with Codex's idle timer and retires the JSON-object parse. Since 2026-09-28
+totals, and a run killed before its `result` keeps the `init` session id. Nothing spawns the
+JSON-object form any more, so retiring `parseGeminiJsonOutput` is the next slice. Since 2026-09-28
 it has Codex's resume fallback too: `resolveSessionId`
 (`packages/cli/src/gemini.tsx`) looks a `--resume` id up before the run starts and exits
 `FATAL_INPUT_ERROR` (42, `packages/core/src/utils/exitCodes.ts`) on an unknown one, writing no
@@ -176,8 +183,8 @@ shim that `execFile` cannot launch (ENOENT), so the adapter could not start on W
 (headless mode already triggers on a non-TTY stdin). The model, approval mode and resume id still
 ride argv, so any holding cmd.exe syntax is refused before the spawn with the CLI's own
 unknown-session exit (42); a refused resume id retries cold. Both adapters share that check as
-`gate.ts`'s `CMD_SAFE_ARG`, which admits `_` so `auto_edit` passes. Gemini needs no pipe-closing
-step on this route: it has no idle cap, and `execFile`'s own timeout kill already closes the pipes.
+`gate.ts`'s `CMD_SAFE_ARG`, which admits `_` so `auto_edit` passes. Its idle-cap kill closes our
+end of the pipes first, as Codex's does, since the node shim behind cmd.exe outlives the kill.
 
 **5. GitHub Copilot CLI** — non-interactive mode (`-p`) exists, but by default mixes model output
 with UI chrome (Braille spinner glyphs) and tool-execution annotations on stdout
