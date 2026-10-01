@@ -335,7 +335,17 @@ in a search query or a fetched URL — add the line `Internet: off` to that proj
 flights then move both tools from the CLI's `--allowedTools` to its `--disallowedTools`, and
 "Research first" gives way to a line telling the firing to research from what is on disk (the same
 `firingToolGrant()`). Like every SOUL override it is read when a flight starts, so a ratified edit
-takes effect on the next flight. The SOUL editor names all four override lines under its text.
+takes effect on the next flight.
+
+**Turn cap, per project** (board ap-muo35gzl-2): every firing runs under the fleet-wide turn
+ceiling (`FLY_MAX_TURNS` in `apps/dashboard/src/flight/budget.ts`, shown in the fly bar). To cap
+ONE project's firings lower — a small or docs-only repo whose units never need the full budget —
+add a line `Turns: 60` (any positive whole number) to that project's SOUL. Its flights then run
+the engine, the prompt's TURN BUDGET section and the turn-cap death feedback at that number
+(`firingMaxTurns()` in `packages/engine/src/config.ts`). A SOUL can only tighten the ceiling: a
+number at or above it leaves the fleet-wide ceiling in force, so no project spends past what you
+set for the fleet. Like every SOUL override it is read when a flight starts. The SOUL editor names
+all five override lines under its text.
 
 ## 7. Self-mined ritual proposals (CLOSED-TASK AUDIT / DOC-FRESHNESS)
 

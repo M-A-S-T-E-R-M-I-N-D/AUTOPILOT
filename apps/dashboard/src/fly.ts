@@ -99,6 +99,7 @@ import {
   firingToolGrant,
   soulOptsOutOfSubagents,
   soulOptsOutOfInternet,
+  firingMaxTurns,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -434,6 +435,11 @@ async function main(): Promise<void> {
     // list and swaps the prompt's Research first section for an on-disk one
     // (THREAT-MODEL T6: a private repo's contents never leave in a query).
     const internetEnabled = !soulOptsOutOfInternet(soulOwn);
+    // And a "Turns: N" line caps this project's firings under the fleet-wide
+    // FLY_MAX_TURNS ceiling — tighten only, never loosen. One number for the
+    // engine's cap, the prompt's TURN BUDGET, and the turn-cap death feedback
+    // below, so the agent is told the ceiling it actually dies at.
+    const maxTurns = firingMaxTurns(soulOwn, FLY_MAX_TURNS);
 
     // Bash containment slice 3 (docs/epics/0004-bash-containment-worktree.md):
     // the model, gate, and firing-scoped git operations below run inside a
@@ -957,7 +963,7 @@ async function main(): Promise<void> {
         fallbackModel: 'opus',
       },
       maxBudgetUsd: budgetUsd,
-      maxTurns: FLY_MAX_TURNS,
+      maxTurns,
       subscriptionPriceUsd: subscriptionPriceUsdFromEnv(process.env),
       usagePoolDirs: usagePoolDirsFromEnv(process.env),
       instanceId: instanceId ?? null,
@@ -1498,7 +1504,7 @@ async function main(): Promise<void> {
             repoMap: repoMapDigest,
             inbox: buildInboxDigest(inboxEntries),
             fleet,
-            maxTurns: FLY_MAX_TURNS, // deliver-or-pack: the agent must SEE its ceiling
+            maxTurns, // deliver-or-pack: the agent must SEE its ceiling
             // …and the OTHER ceiling it actually dies on under a fleet.
             wallClockMin: Math.round((cliTimeoutMs ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000),
             // ATTRIBUTION channel 1 (docs/ATTRIBUTION.md): every commit trailer
@@ -1835,7 +1841,7 @@ async function main(): Promise<void> {
         if (outcome.record.maxTurnsHit && !outcome.record.shipped) {
           const trail = activityTrail(store, projectId, outcome.record.firing, instanceId);
           lastFailureFeedback =
-            `THE PREVIOUS FIRING DIED AT THE TURN CAP (${FLY_MAX_TURNS} turns) before committing. ` +
+            `THE PREVIOUS FIRING DIED AT THE TURN CAP (${maxTurns} turns) before committing. ` +
             'Pick a SMALLER unit this firing: commit a verifiable slice EARLY; if it grows, ' +
             'pack a checkpoint commit instead of pushing on.' +
             (trail.length > 0
