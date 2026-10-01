@@ -1000,13 +1000,40 @@ const PRIVATE_IPV4_RE =
 const PRIVATE_IPV6_RE = /^\[(?:f[cd][0-9a-f]{2}:|fe80:)/i;
 
 /**
+ * An IPv4-mapped IPv6 literal (`::ffff:a.b.c.d`), bracketed or not, in either
+ * the dotted-quad form or the compressed hex form `new URL(...).hostname`
+ * actually normalizes it to (e.g. `[::ffff:127.0.0.1]` becomes
+ * `[::ffff:7f00:1]`) — neither shape matches `PRIVATE_IPV4_RE`/`PRIVATE_IPV6_RE`
+ * on its own, which otherwise lets this well-known SSRF-filter-bypass shape
+ * sail through as "public" (THREAT-MODEL.md T6).
+ */
+const IPV4_MAPPED_IPV6_RE =
+  /^\[?::ffff:(?:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|([0-9a-f]{1,4}):([0-9a-f]{1,4}))\]?$/i;
+
+/** Decodes an IPv4-mapped IPv6 literal to its plain dotted-quad form, or null when `host` isn't one. */
+function ipv4MappedToDotted(host: string): string | null {
+  const match = IPV4_MAPPED_IPV6_RE.exec(host);
+  if (match === null) return null;
+  if (match[1] !== undefined) return match[1];
+  const hi = match[2]!.padStart(4, '0');
+  const lo = match[3]!.padStart(4, '0');
+  return [hi.slice(0, 2), hi.slice(2, 4), lo.slice(0, 2), lo.slice(2, 4)]
+    .map((byte) => parseInt(byte, 16))
+    .join('.');
+}
+
+/**
  * Whether a hostname (or a DNS-resolved address, bracketed if IPv6) is
  * loopback, an RFC 1918 private range, or link-local — shared by the
  * URL-literal check below and `checkWebFetchDnsRebinding`'s resolved-address
  * check, so both judge the exact same address space.
  */
 function isLoopbackOrPrivateHost(host: string): boolean {
-  return LOOPBACK_HOST_RE.test(host) || PRIVATE_IPV4_RE.test(host) || PRIVATE_IPV6_RE.test(host);
+  if (LOOPBACK_HOST_RE.test(host) || PRIVATE_IPV4_RE.test(host) || PRIVATE_IPV6_RE.test(host)) {
+    return true;
+  }
+  const mapped = ipv4MappedToDotted(host);
+  return mapped !== null && (LOOPBACK_HOST_RE.test(mapped) || PRIVATE_IPV4_RE.test(mapped));
 }
 
 /** `new URL(url)`, or null when the text is not a URL at all. */

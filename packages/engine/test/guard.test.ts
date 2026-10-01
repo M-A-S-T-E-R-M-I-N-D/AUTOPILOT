@@ -1216,6 +1216,16 @@ describe('checkWebFetchTarget', () => {
   it('fails open on an unparsable URL', () => {
     expect(checkWebFetchTarget('%%%not a url%%%').allowed).toBe(true);
   });
+
+  it('denies an IPv4-mapped IPv6 literal targeting loopback or link-local (THREAT-MODEL T6 bypass)', () => {
+    // `new URL(...).hostname` normalizes these to the compressed hex form
+    // (`[::ffff:7f00:1]`), which none of the plain IPv4/IPv6 regexes match —
+    // a literal regex-only guard sails this straight through as "public".
+    expect(checkWebFetchTarget('http://[::ffff:127.0.0.1]/').allowed).toBe(false);
+    expect(checkWebFetchTarget('http://[::ffff:169.254.169.254]/').allowed).toBe(false);
+    expect(checkWebFetchTarget('http://[::ffff:10.0.0.5]/').allowed).toBe(false);
+    expect(checkWebFetchTarget('http://[::ffff:93.184.216.34]/').allowed).toBe(true);
+  });
 });
 
 function resolvesTo(addresses: readonly { address: string; family: number }[]) {
