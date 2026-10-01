@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-10-01 | [Processing `ap-munfszto-0`: "verify whether KEEPER issue triage runs on repos other than AUTOPILOT" — it never does, so the deprioritize stands; the live gap is on the board side](2026-10-01-verdict-ap-munfszto-0-keeper-triage-is-cwd-bound.md) |
 | 2026-09-30 | [Processing `ap-mun9xrba-2`: "test:impacted blast radius: fleet-report.ts -> round-evaluation.ts -> fly.ts -> cli.ts/server/main.ts" — refuted, and the real gap runs the other way](2026-09-30-verdict-ap-mun9xrba-2-test-impacted-blast-radius-refuted.md) |
 | 2026-09-30 | [Processing `ap-mun9xrap-1`: "firing tools could not run the gate or commit" — does not reproduce, and 47 firing commits since say the same](2026-09-30-verdict-ap-mun9xrap-1-firing-tools-not-reproduced.md) |
 | 2026-09-30 | [Deciding `ap-muo2yojl-0`: the flight keeps Bash as its only shell, and PowerShell stays ungranted](2026-09-30-decision-ap-muo2yojl-0-powershell-stays-ungranted.md) |
