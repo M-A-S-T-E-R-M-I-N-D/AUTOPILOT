@@ -1507,6 +1507,28 @@ describe('touchesSecuritySensitivePath', () => {
     ).toBe(false);
   });
 
+  it("flags the project's license grant — LICENSE, NOTICE, the LICENSES/ texts and REUSE.toml: neither ci:license-check (dependencies) nor ci:spdx (headers present) reads them, so a green PR could relicense the project or strip its attribution notice, a decision only the copyright holder makes, and it queues for a human", () => {
+    expect(touchesSecuritySensitivePath(['LICENSE'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['NOTICE'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['LICENSES/Apache-2.0.txt'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['LICENSES/ISC.txt'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['REUSE.toml'])).toBe(true);
+    // A second grant added beside the first, or one nested in a package,
+    // is the same act as editing the root file.
+    expect(touchesSecuritySensitivePath(['LICENSE.md'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['packages/tokens/LICENSE'])).toBe(true);
+  });
+
+  it('anchors the license markers to the file name: the license-check gate, its test and the third-party credits doc stay judged by their own markers', () => {
+    expect(
+      touchesSecuritySensitivePath(['apps/dashboard/test/tooling/license-check.test.ts']),
+    ).toBe(false);
+    expect(touchesSecuritySensitivePath(['docs/THIRD-PARTY-LICENSES.md'])).toBe(false);
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/web/notice-banner.ts'])).toBe(false);
+    // scripts/ci/ already queues on its own marker, unchanged.
+    expect(touchesSecuritySensitivePath(['scripts/ci/license-check.mjs'])).toBe(true);
+  });
+
   it('flags the connection module that persists API-key/OAuth-token credentials, even without a security-keyword path', () => {
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/connection/config.ts'])).toBe(true);
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/connection/login.ts'])).toBe(true);
@@ -2477,6 +2499,17 @@ describe('planPrReview', () => {
     expect(decision).toMatchObject({ decision: 'merge' });
     expect(decision.reasoning).toContain('#12');
     expect(decision.reasoning).toContain('policy-green');
+  });
+
+  it('never merges a policy-green PR that edits the license grant, or renames it away — it queues for a human', () => {
+    expect(planPrReview(candidate({ touchedPaths: ['LICENSE'] }))).toMatchObject({
+      decision: 'queue-for-human',
+    });
+    expect(
+      planPrReview(
+        candidate({ touchedPaths: ['docs/old-license.txt'], renamedFromPaths: ['LICENSE'] }),
+      ),
+    ).toMatchObject({ decision: 'queue-for-human' });
   });
 
   it('requests changes when the gate failed', () => {
