@@ -182,6 +182,28 @@ describe('the docs reader renders every construct of the parity slice', () => {
     expect(location.hash).toBe('');
   });
 
+  // A native in-page link moves the sequential focus starting point to its
+  // target; this one cancels the default to stay off the page's hash, so it
+  // must hand focus over itself, or the next Tab resumes from the link.
+  it('a ToC entry or in-body anchor hands keyboard focus to the heading it scrolls to', async () => {
+    const body = await bootAndOpen();
+    Element.prototype.scrollIntoView = vi.fn();
+    const heading = body.querySelector('h2#doc-the-plan') as HTMLElement;
+
+    const tocEntry = body.querySelector(
+      '.docs-toc-link[data-doc-anchor="the-plan"]',
+    ) as HTMLElement;
+    tocEntry.focus();
+    tocEntry.click();
+    expect(document.activeElement).toBe(heading);
+    expect(heading.getAttribute('tabindex')).toBe('-1');
+
+    const anchor = body.querySelector('a.docs-anchor') as HTMLElement;
+    anchor.focus();
+    anchor.click();
+    expect(document.activeElement).toBe(heading);
+  });
+
   it('links: external opens a new tab, an anchor scrolls inside this body, a relative path opens THAT document here, and the dangerous ones stay words', async () => {
     const body = await bootAndOpen();
     const external = body.querySelector('a[href="https://x.test/y"]') as HTMLAnchorElement;

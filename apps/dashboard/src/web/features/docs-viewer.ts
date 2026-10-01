@@ -596,6 +596,9 @@ document.addEventListener('click', function (e) {
 // sit in: heading ids are prefixed doc- (renderMarkdown), so they can
 // never collide with the page's own anchors, and the lookup stays inside
 // THIS viewer — two projects' readers may show the same document.
+// Cancelling the default also cancels the native jump's focus move, so the
+// heading takes focus itself (tabindex -1: reachable by script, never a Tab
+// stop) — otherwise the next Tab resumes from the link, not the section.
 document.addEventListener('click', function (e) {
   var a = e.target && e.target.closest && e.target.closest('[data-doc-anchor]');
   if (!a) return;
@@ -603,7 +606,10 @@ document.addEventListener('click', function (e) {
   var body = a.closest('.docs-viewer-body');
   if (!body) return;
   var target = body.querySelector('[id="doc-' + a.getAttribute('data-doc-anchor') + '"]');
-  if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' });
+  if (!target) return;
+  if (typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' });
+  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+  if (typeof target.focus === 'function') target.focus({ preventScroll: true });
 });
 `.trim();
 }
