@@ -91,6 +91,13 @@ const SUPPLEMENTAL_ARROWS_B_PATTERN = /[\u{2900}-\u{297F}]/gu;
  *  ⇪ itself: ⇧ and the other white arrows stay free as key names, like ⌘. */
 const ARROW_FROM_BAR_PATTERN = /\u{21EA}/gu;
 
+/** Miscellaneous Mathematical Symbols-B (U+2980–U+29FF) sat outside every
+ *  range above too, yet the issue triage panel's duplicate badge led with ⧉
+ *  (U+29C9, two joined squares) as a copy icon — a glyph few UI fonts carry,
+ *  so it fell back to whatever font did, the way ⤢ had. It took the vendored
+ *  copy icon (2026-10-01), so the block pins zero in web/ and in STRINGS. */
+const MATH_SYMBOLS_B_PATTERN = /[\u{2980}-\u{29FF}]/gu;
+
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map((f) => String(f))
@@ -151,6 +158,11 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
 
   it('paints no ⇪ glyph-icon in any web/ source file outside comments', () => {
     const offenders = webOffenders(files, ARROW_FROM_BAR_PATTERN);
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('paints no Miscellaneous Mathematical Symbols-B glyph-icon in any web/ source file outside comments', () => {
+    const offenders = webOffenders(files, MATH_SYMBOLS_B_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
@@ -226,6 +238,10 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
 
   it('carries no ⇪ glyph-icon in any locale value', () => {
     expect(emojiBearingStringKeys(ARROW_FROM_BAR_PATTERN)).toEqual([]);
+  });
+
+  it('carries no Miscellaneous Mathematical Symbols-B glyph-icon in any locale value', () => {
+    expect(emojiBearingStringKeys(MATH_SYMBOLS_B_PATTERN)).toEqual([]);
   });
 
   it('leads with no Geometric Shapes glyph-icon in any locale value', () => {

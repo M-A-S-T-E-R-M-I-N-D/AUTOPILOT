@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * THE KEEPER ISSUE-TRIAGE PANEL'S DOSSIER/NEEDS-FORMAT BADGES GET A STROKE
- * ICON INSTEAD OF A BAKED-IN EMOJI (epic 0025, icon system). Executes the
+ * THE KEEPER ISSUE-TRIAGE PANEL'S DOSSIER/NEEDS-FORMAT/DUPLICATE BADGES GET A
+ * STROKE ICON INSTEAD OF A BAKED-IN GLYPH (epic 0025, icon system). Executes the
  * ACTUAL client bundle (`clientJs()`), the same real-bundle convention
  * `issue-triage-labels.test.ts` uses for this same panel.
  */
@@ -77,7 +77,7 @@ function plan(decision: string, number: number) {
   };
 }
 
-describe('the KEEPER issue-triage panel dossier/needs-format badges', () => {
+describe('the KEEPER issue-triage panel dossier/needs-format/duplicate badges', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -102,6 +102,19 @@ describe('the KEEPER issue-triage panel dossier/needs-format badges', () => {
     const badge = document.querySelector('.issue-triage-badge-needs-format');
     expect(badge?.querySelector('svg.icon-pen-line')).not.toBeNull();
     expect(badge?.textContent).toBe('needs the template');
+  });
+
+  it('carries a copy stroke icon on a duplicate decision, no baked-in ⧉', async () => {
+    bootWithTriage([plan('duplicate', 4)]);
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.issue-triage-badge-duplicate')).not.toBeNull();
+    });
+    const badge = document.querySelector('.issue-triage-badge-duplicate');
+    const icon = badge?.querySelector('svg.icon-copy');
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    expect(badge?.textContent).toBe('duplicate');
   });
 
   it('stays text-only (no icon) on an accept decision', async () => {
