@@ -18,7 +18,10 @@ import {
   CHECKPOINT_SOUL_AMENDMENT_MARKER,
   NOOP_SOUL_AMENDMENT_MARKER,
   NOOP_STREAK_THRESHOLD,
+  REVERT_SOUL_AMENDMENT_MARKER,
+  REVERT_STREAK_THRESHOLD,
   mineNoopSoulAmendment,
+  mineRevertSoulAmendment,
 } from '../../src/flight/soul-mining.js';
 
 const SOUL_WITH_NOTE = `# SOUL\n\n${CHECKPOINT_SOUL_AMENDMENT_MARKER}\n- noted.\n`;
@@ -46,6 +49,14 @@ describe('LEARNING_KINDS registry shape', () => {
     const markers = LEARNING_KINDS.map((kind) => kind.marker);
     expect(markers).toContain(CHECKPOINT_SOUL_AMENDMENT_MARKER);
     expect(markers).toContain(NOOP_SOUL_AMENDMENT_MARKER);
+  });
+
+  it('registers the revert-streak kind after the two epic 0014 kinds (registry order = priority)', () => {
+    const markers = LEARNING_KINDS.map((kind) => kind.marker);
+    expect(markers).toContain(REVERT_SOUL_AMENDMENT_MARKER);
+    expect(markers.indexOf(REVERT_SOUL_AMENDMENT_MARKER)).toBeGreaterThan(
+      markers.indexOf(NOOP_SOUL_AMENDMENT_MARKER),
+    );
   });
 
   it('gives every kind a stable "## Learned:"-prefixed marker, unique across the registry', () => {
@@ -216,6 +227,74 @@ describe('noop-streak learning kind graduation (epic 0014 slice 3)', () => {
     expect(composed).toContain('- noop noted.');
     expect(composed).toContain(CHECKPOINT_SOUL_AMENDMENT_MARKER);
     expect(composed).toContain(FLEET_WISDOM_PROMPT_HEADER);
+  });
+});
+
+describe('revert-streak learning kind graduation (board ap-muo35gzl-2, third registry kind)', () => {
+  /** Same shape as the noop graduation above: the REAL project-level miner
+   *  on a reverted streak, so the fleet input is what production souls carry. */
+  function projectMinedRevertSoul(slug: string): ProjectSoulLike {
+    const mined = mineRevertSoulAmendment({
+      soul: SOUL_WITHOUT_NOTE,
+      soulProposed: null,
+      recentGateResults: Array.from({ length: REVERT_STREAK_THRESHOLD }, () => 'reverted'),
+    });
+    expect(mined).not.toBeNull();
+    return { slug, soul: mined as string };
+  }
+
+  it('graduates end-to-end: project miner output across three fake projects triggers the fleet proposal', () => {
+    const projects = ['alpha', 'beta', 'gamma'].map(projectMinedRevertSoul);
+    const proposal = mineFleetWisdom(inputWith({ projects }));
+    expect(proposal).not.toBeNull();
+    expect(proposal).toContain(REVERT_SOUL_AMENDMENT_MARKER);
+    expect(proposal).toContain(`across ${FLEET_WISDOM_GENERALIZATION_THRESHOLD} projects`);
+    expect(proposal).toContain('gate_result: reverted');
+  });
+
+  it('returns null when fewer than the threshold of projects carry the revert note', () => {
+    const projects = ['alpha', 'beta'].map(projectMinedRevertSoul);
+    expect(mineFleetWisdom(inputWith({ projects }))).toBeNull();
+  });
+
+  it('never leaks a confirming project slug into the revert proposal (confidentiality boundary)', () => {
+    const projects = ['acme-internal-a', 'acme-internal-b', 'acme-internal-c'].map(
+      projectMinedRevertSoul,
+    );
+    const proposal = mineFleetWisdom(inputWith({ projects }));
+    expect(proposal).not.toBeNull();
+    expect(proposal).not.toContain('acme-internal');
+  });
+
+  it('proposes the noop kind before the revert kind when both qualify (registry order = priority)', () => {
+    const soulWithBoth =
+      `# SOUL\n\n${NOOP_SOUL_AMENDMENT_MARKER}\n- noop noted.\n\n` +
+      `${REVERT_SOUL_AMENDMENT_MARKER}\n- revert noted.\n`;
+    const projects = ['alpha', 'beta', 'gamma'].map((slug) => ({ slug, soul: soulWithBoth }));
+    const proposal = mineFleetWisdom(inputWith({ projects }));
+    expect(proposal).toContain(NOOP_SOUL_AMENDMENT_MARKER);
+    expect(proposal).not.toContain(REVERT_SOUL_AMENDMENT_MARKER);
+  });
+
+  it('dedups per kind on compose: strips only the revert fleet copy when the SOUL carries the revert note', () => {
+    const noopFleetNote = `${NOOP_SOUL_AMENDMENT_MARKER}\n- Confirmed independently across 3 projects.\n`;
+    const revertFleetNote = `${REVERT_SOUL_AMENDMENT_MARKER}\n- Confirmed independently across 3 projects.\n`;
+    const soulWithRevertNote = `# SOUL\n\n${REVERT_SOUL_AMENDMENT_MARKER}\n- revert noted.\n`;
+    const composed = composeSoulWithFleetWisdom(
+      soulWithRevertNote,
+      `${noopFleetNote}\n${revertFleetNote}`,
+    );
+    expect(composed.split(REVERT_SOUL_AMENDMENT_MARKER).length - 1).toBe(1);
+    expect(composed).toContain('- revert noted.');
+    expect(composed).toContain(NOOP_SOUL_AMENDMENT_MARKER);
+    expect(composed).toContain(FLEET_WISDOM_PROMPT_HEADER);
+  });
+
+  it('names the revert kind in the pending-wisdom banner label', () => {
+    const projects = ['alpha', 'beta', 'gamma'].map(projectMinedRevertSoul);
+    const proposed = mineFleetWisdom(inputWith({ projects }));
+    expect(proposed).not.toBeNull();
+    expect(proposedWisdomKindLabel('', proposed!)).toBe('recurring revert pattern');
   });
 });
 
