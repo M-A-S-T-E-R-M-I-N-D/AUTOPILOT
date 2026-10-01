@@ -1329,14 +1329,15 @@ const EN_STRINGS = {
   // details/error of its own.
   githubSyncResultOk: 'synced.',
   githubSyncResultFail: 'sync failed.',
-  // The project page's settings-row hints beside "↺ Start over" and
-  // "⇪ Sync to GitHub" (shell.ts renderProjectPage, board web-msnsndki-dz3vn1).
+  // The project page's settings-row hints beside "Start over" and
+  // "Sync to GitHub" (shell.ts renderProjectPage, board web-msnsndki-dz3vn1).
   startOverHint: 'Resets firings + ship-rate counters to 0/0. Tasks, index, and backups are kept.',
   githubSyncHint: 'Private by default. Creates a repo on first sync, pushes on every one after.',
-  // The "⇪ Sync to GitHub" button's idle label (its click handler swaps the
+  // The "Sync to GitHub" button's idle label (its click handler swaps the
   // button's data-i18n key to githubSyncing for the request's duration) and
-  // the opt-in public checkbox's text beside it.
-  githubSync: '⇪ Sync to GitHub',
+  // the opt-in public checkbox's text beside it. Epic 0025: the button leads
+  // with the vendored cloud-upload icon, not a baked ⇪.
+  githubSync: 'Sync to GitHub',
   githubSyncPublicLabel: 'Make public instead (visible to everyone)',
   githubPrResultOk: 'pull request opened.',
   githubPrResultFail: 'failed to open pull request.',
@@ -2839,7 +2840,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     startOverHint:
       'מאפס את ספירת ההפעלות ואת שיעור השילוח ל-0/0. המשימות, האינדקס והגיבויים נשמרים.',
     githubSyncHint: 'פרטי כברירת מחדל. הסנכרון הראשון יוצר מאגר, וכל סנכרון לאחריו דוחף אליו.',
-    githubSync: '⇪ סנכרן ל-GitHub',
+    githubSync: 'סנכרן ל-GitHub',
     githubSyncPublicLabel: 'הפוך לציבורי במקום זאת (גלוי לכולם)',
     githubPrResultOk: 'ה-pull request נפתח.',
     githubPrResultFail: 'פתיחת ה-pull request נכשלה.',

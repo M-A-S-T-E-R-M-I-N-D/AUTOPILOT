@@ -4050,13 +4050,12 @@ document.addEventListener('click', function (e) {
   // along with the text: a sweep or a language flip landing mid-request
   // repaints "Syncing…" in the current locale instead of the idle label.
   // Completion restores the idle key and paints it in whatever locale is
-  // active THEN, rather than the text captured at click time.
-  b.setAttribute('data-i18n', 'githubSyncing');
-  b.textContent = tr('githubSyncing');
+  // active THEN, rather than the text captured at click time. Epic 0025:
+  // setTaggedLabel() keeps the leading cloud-upload icon through both.
+  setTaggedLabel(b, 'githubSyncing');
   function restoreIdle() {
     b.disabled = false;
-    b.setAttribute('data-i18n', 'githubSync');
-    b.textContent = tr('githubSync');
+    setTaggedLabel(b, 'githubSync');
   }
   fetch('/api/github-sync/execute', {
     method: 'POST',
@@ -4555,8 +4554,10 @@ function renderProjectPage(state, pid) {
   // i18n (board web-msnsndki-dz3vn1): tr() at birth + tag, the Start-over
   // button's route — the click handler below swaps the tag to the busy key
   // for the request's duration, so a mid-request sweep cannot repaint this
-  // idle label over "Syncing…".
-  ghBtn.textContent = tr('githubSync');
+  // idle label over "Syncing…". Epic 0025: a leading cloud-upload icon
+  // replaces the baked-in ⇪ glyph, built like Start over's rotate-ccw.
+  ghBtn.appendChild(iconEl('cloud-upload'));
+  ghBtn.appendChild(document.createTextNode(tr('githubSync')));
   ghBtn.setAttribute('data-i18n', 'githubSync');
   ghBtn.setAttribute('data-github-sync', c.id);
   ghBtn.setAttribute('data-name', c.name);
@@ -5240,15 +5241,18 @@ document.addEventListener('click', function (e) {
     renderFleet(lastFleetState);
   }
 });
-// "Start over" (event-delegated): clears telemetry ONLY after an explicit,
-// honest confirm. Counters restart at 0/0; nothing else is touched. The busy
-// label swaps the data-i18n tag with the text (the GitHub sync button's
-// route), so a mid-request sweep repaints "Resetting…", not the idle label;
-// setSweptText() (features/locale.ts) keeps the leading rotate-ccw icon.
-function setStartOverLabel(b, key) {
+// A busy/idle label swap for a button that leads with a vendored icon (Start
+// over's rotate-ccw, Sync to GitHub's cloud-upload — epic 0025): the
+// data-i18n tag moves with the text, so a mid-request sweep repaints the
+// current label, and setSweptText() (features/locale.ts) keeps the icon.
+function setTaggedLabel(b, key) {
   b.setAttribute('data-i18n', key);
   setSweptText(b, tr(key));
 }
+// "Start over" (event-delegated): clears telemetry ONLY after an explicit,
+// honest confirm. Counters restart at 0/0; nothing else is touched. The busy
+// label goes through setTaggedLabel() above, so a mid-request sweep repaints
+// "Resetting…", not the idle label.
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-start-over]');
   if (!b) return;
@@ -5256,10 +5260,10 @@ document.addEventListener('click', function (e) {
   var name = b.getAttribute('data-name') || 'this project';
   if (!window.confirm(tr('startOverConfirm', name))) return;
   b.disabled = true;
-  setStartOverLabel(b, 'resetting');
+  setTaggedLabel(b, 'resetting');
   function restoreIdle() {
     b.disabled = false;
-    setStartOverLabel(b, 'startOver');
+    setTaggedLabel(b, 'startOver');
   }
   fetch('/api/project/reset', {
     method: 'POST',

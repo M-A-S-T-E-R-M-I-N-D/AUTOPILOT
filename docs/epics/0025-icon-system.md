@@ -158,7 +158,16 @@ propagation, and the filled style does not match the nav.
    text, and its "Resetting…" busy label swaps the `data-i18n` tag the way
    the GitHub sync button does, so `setSweptText()` keeps the icon through
    the request and any sweep during it. The list is gone and the test pins
-   zero. The screenshots refresh (`docs/screens/`) is still open.
+   zero. **Sync to GitHub 2026-10-01:** ⇪ (U+21EA) sat outside every census
+   range, yet the "⇪ Sync to GitHub" button beside Start over led with it
+   as an upload icon (en and he). It leads with a newly vendored
+   `cloud-upload` now, since it pushes to a hosted repo, and both buttons'
+   busy labels go through one `setTaggedLabel()`, so the icon survives
+   "Syncing…", a failed sync and any sweep. The census pins ⇪ at zero in
+   web/ and STRINGS; ⇧ and the other white arrows stay free as key names.
+   Not yet weighed: the task row's ↑/↓ reorder buttons paint plain arrows
+   as their whole faces, the way the zoom bar's +/− did. The screenshots
+   refresh (`docs/screens/`) is still open.
 
 ## Related
 

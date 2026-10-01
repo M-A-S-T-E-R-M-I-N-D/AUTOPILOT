@@ -525,6 +525,13 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }],
     ['path', { d: 'M3 3v5h5' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the project page's
+  // "⇪ Sync to GitHub" button, beside Start over — it pushes to a hosted repo.
+  'cloud-upload': [
+    ['path', { d: 'M12 13v8' }],
+    ['path', { d: 'M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242' }],
+    ['path', { d: 'm8 17 4-4 4 4' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
