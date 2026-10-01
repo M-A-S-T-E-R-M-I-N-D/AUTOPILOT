@@ -19,6 +19,8 @@ import {
   firingMaxTurns,
   soulBudgetCapUsd,
   firingMaxBudgetUsd,
+  MODEL_PIN_LINE_PREFIX,
+  soulModelPin,
 } from '../src/config.js';
 
 describe('DEFAULT_ALLOWED_TOOLS / DEFAULT_DISALLOWED_TOOLS', () => {
@@ -251,6 +253,46 @@ describe('the "Budget: $N" SOUL line — a per-project cap under the fleet-wide 
     expect(firingMaxBudgetUsd(`${SOUL}\nBudget: 10`, 10)).toBe(10);
     expect(firingMaxBudgetUsd(`${SOUL}\nBudget: $500`, 10)).toBe(10);
     expect(firingMaxBudgetUsd(`${SOUL}\nBudget: 99999.99`, 10)).toBe(10);
+  });
+});
+
+describe('the "Model: <name>" SOUL line — a per-project pin in place of the fleet’s routing', () => {
+  const SOUL = '# SOUL — docs-site\n\nStack: js\n\n## Operating rules\n- Gate every change.';
+
+  it('reads the name on the line, plain or as a bullet, any case on the prefix, as written', () => {
+    expect(soulModelPin(`${SOUL}\n${MODEL_PIN_LINE_PREFIX} sonnet\n`)).toBe('sonnet');
+    expect(soulModelPin(`${SOUL}\n- Model: haiku`)).toBe('haiku');
+    expect(soulModelPin(`${SOUL}\n  * MODEL:fable  `)).toBe('fable');
+    expect(soulModelPin(`model:   opus\r\n${SOUL}`)).toBe('opus');
+  });
+
+  it('passes a full id or a vendor-prefixed tag through unchanged — it describes, never restricts', () => {
+    expect(soulModelPin(`${SOUL}\nModel: claude-sonnet-5`)).toBe('claude-sonnet-5');
+    expect(soulModelPin(`${SOUL}\nModel: claude-haiku-4-5-20251001`)).toBe(
+      'claude-haiku-4-5-20251001',
+    );
+    expect(soulModelPin(`${SOUL}\nModel: ollama/llama3.1:8b`)).toBe('ollama/llama3.1:8b');
+    expect(soulModelPin(`${SOUL}\nModel: Some_Future_Family-7`)).toBe('Some_Future_Family-7');
+  });
+
+  it('reads no pin without the line, on a mention mid-sentence, on "off", or on anything but one name', () => {
+    expect(soulModelPin(SOUL)).toBeNull();
+    expect(soulModelPin('')).toBeNull();
+    expect(soulModelPin(`${SOUL}\n- Keep "Model: sonnet" out of here.`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModel: off`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModel: OFF`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModel:`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModel: sonnet please`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModel: "sonnet"`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModel: -sonnet`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModel: sonnet;`)).toBeNull();
+    expect(soulModelPin(`${SOUL}\nModels: sonnet`)).toBeNull();
+    // One override never trips the other.
+    expect(soulModelPin(`${SOUL}\nTurns: 60\nBudget: $5\n${INTERNET_OPT_OUT_LINE}`)).toBeNull();
+    expect(soulTurnCap(`${SOUL}\nModel: sonnet`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nModel: sonnet`)).toBeNull();
+    expect(soulOptsOutOfSubagents(`${SOUL}\nModel: sonnet`)).toBe(false);
+    expect(soulOptsOutOfInternet(`${SOUL}\nModel: sonnet`)).toBe(false);
   });
 });
 

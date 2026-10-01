@@ -199,6 +199,44 @@ export function firingMaxBudgetUsd(soul: string, fleetBudgetUsd: number): number
   return cap === null ? fleetBudgetUsd : Math.min(cap, fleetBudgetUsd);
 }
 
+/** The SOUL line an operator writes to pin ONE project's firings to a model
+ *  — a repo whose units are all mechanical and fly fine on the cheap tier,
+ *  or one whose every unit wants the big model — in place of the fleet's own
+ *  routing. Written as `Model: sonnet`: a family alias the CLI resolves to
+ *  its newest member, or a full model id, as the CLI spells it; this is the
+ *  prefix the editor's hint quotes. The seventh per-project override
+ *  (MASTER-PLAN §5.4, board ap-muo35gzl-2); it travels with the SOUL, so it
+ *  is locked and ratified like every other SOUL edit. Like the catalogue
+ *  (models.ts) it describes and never restricts: a name this build has never
+ *  heard of is passed to the CLI unchanged. It sits UNDER the operator's
+ *  flight-wide env pins (`AUTOPILOT_MODEL` and the per-tier variables) —
+ *  the launch-time levers always win — which the flight applies, not this
+ *  parser. */
+export const MODEL_PIN_LINE_PREFIX = 'Model:';
+
+/** The pin on a line of its own — same shape as {@link TURN_CAP}, with one
+ *  model name where it has a number: letters and digits plus the `-`, `.`,
+ *  `_`, `:` and `/` a model id or a vendor-prefixed tag carries
+ *  (`claude-sonnet-5`, `ollama/llama3.1:8b`). A second word, a quoted name
+ *  or a sentence is not a pin. */
+const MODEL_PIN = /^[ \t]*(?:[-*][ \t]+)?model:[ \t]*([a-z0-9][a-z0-9._:/-]*)[ \t\r]*$/im;
+
+/** `Model: off` is the one name that is not a model: the other overrides all
+ *  read `off` as "none", and an operator who writes it here means the same —
+ *  the fleet's routing, not a model called off. */
+const MODEL_PIN_NONE = 'off';
+
+/** The model this project's SOUL pins its firings to, as written, or null
+ *  when it carries no {@link MODEL_PIN_LINE_PREFIX} line (or names `off`).
+ *  Parsed only — the flight decides where the pin sits against the
+ *  operator's env levers. */
+export function soulModelPin(soul: string): string | null {
+  const match = MODEL_PIN.exec(soul);
+  if (!match) return null;
+  const model = match[1]!;
+  return model.toLowerCase() === MODEL_PIN_NONE ? null : model;
+}
+
 /** The `--allowedTools`/`--disallowedTools` pair one firing runs with. */
 export interface FiringToolGrant {
   readonly allowedTools: readonly string[];
