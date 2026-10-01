@@ -177,7 +177,9 @@ function envelopeFacts(resp: ModelResponse, modelTry: string): EnvelopeFacts {
  *  null only when nothing was observed either. */
 function atLeast(reported: number | null, observed: number | undefined): number | null {
   if (observed === undefined) return reported;
-  return reported === null ? observed : Math.max(reported, observed);
+  // Stryker disable next-line EqualityOperator: `>=` in place of `>` picks
+  // the same number when the two are equal.
+  return reported === null || observed > reported ? observed : reported;
 }
 
 /** The text to scan for the METRICS self-report — the envelope result, else raw stdout. */
