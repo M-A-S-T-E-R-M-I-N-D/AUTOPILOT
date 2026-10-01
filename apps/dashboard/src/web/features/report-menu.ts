@@ -83,7 +83,6 @@
  * `reportExecuteResult`/`reportExecuteTip` below still compose English and
  * are the remaining follow-up, same split the CONNECT popover took.
  */
-import { LOCALE_LABELS } from '@autopilot/tokens';
 import {
   reportActionLabel as sharedReportActionLabel,
   reportConfirmMessage as sharedReportConfirmMessage,
@@ -103,9 +102,6 @@ const REPORT_MENU_EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable
 export function reportMenuJs(): string {
   return `
 var REPORT_MENU_EDITABLE_SELECTOR = ${JSON.stringify(REPORT_MENU_EDITABLE_SELECTOR)};
-// Composer language doctrine, rule 2: the choosable report languages are the
-// dashboard's own locales, each named in its own script.
-var REPORT_LANGUAGE_LABELS = ${JSON.stringify(LOCALE_LABELS)};
 // reportActionLabel/reportConfirmMessage/reportExecuteResult/reportExecuteTip
 // are generated FROM web/report-panel.ts (real compiled source via
 // .toString(), not a hand-retyped copy) — the same preview/confirm/execute
@@ -390,32 +386,6 @@ function paintReportDialog(pid, capture) {
     actionSel.appendChild(opt);
   }
   dialog.appendChild(actionSel);
-  // Composer language doctrine, rule 2: the report language is choosable —
-  // the page's own locale by default, or "same as my note" for any other
-  // language (a Chinese note keeps a Chinese report).
-  var langId = 'report-dialog-lang';
-  var langLabel = document.createElement('label');
-  langLabel.setAttribute('for', langId);
-  langLabel.textContent = tr('reportLanguageLabel');
-  dialog.appendChild(langLabel);
-  var langSel = document.createElement('select');
-  langSel.id = langId;
-  langSel.className = 'report-language';
-  langSel.setAttribute('data-tip', tr('reportLanguageTip'));
-  var noteLangOpt = document.createElement('option');
-  noteLangOpt.value = '';
-  noteLangOpt.textContent = tr('reportLanguageNote');
-  langSel.appendChild(noteLangOpt);
-  Object.keys(REPORT_LANGUAGE_LABELS).forEach(function (code) {
-    var langOpt = document.createElement('option');
-    langOpt.value = code;
-    langOpt.lang = code;
-    langOpt.textContent = REPORT_LANGUAGE_LABELS[code];
-    langSel.appendChild(langOpt);
-  });
-  var pageLang = document.documentElement.lang;
-  langSel.value = Object.prototype.hasOwnProperty.call(REPORT_LANGUAGE_LABELS, pageLang) ? pageLang : 'en';
-  dialog.appendChild(langSel);
   // LLM ISSUE COMPOSER 1/3 follow-up (board web-mtpzdrt1-lirsgh): the
   // backend (flight/report-compose.ts's composeReport, POST /api/report/
   // compose) already accepts the reportMenuContextOf capture bundle +
@@ -462,7 +432,6 @@ function paintReportDialog(pid, capture) {
         description: note,
         contextJson: reportMenuContextOf(reportMenuTargetEl, capture),
         moduleSources: owning ? owning.moduleSources : [],
-        language: langSel.value || undefined,
       }),
     })
       .then(function (r) { return r.json(); })
@@ -479,9 +448,6 @@ function paintReportDialog(pid, capture) {
           // Composer language doctrine, rule 3: an English stand-in for a
           // composition in the note's own language says so, out loud.
           if (j.languageFallback === true) composeStatusEl.textContent += ' ' + tr('composeLanguageFallback');
-          // Rule 2: a note that reads as another language than the chosen
-          // one is surfaced, with the way back named.
-          if (j.noteLanguageDiffers === true) composeStatusEl.textContent += ' ' + tr('composeNoteLanguageDiffers');
         } else {
           composeStatusEl.className = 'report-compose-status report-compose-fail';
           // #42: a keyed refusal renders in the operator's language; the

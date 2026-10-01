@@ -15,12 +15,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RateLimiter } from './rate-limit.js';
 import { clientKey, sendJson, readBody, MAX_BODY_BYTES } from './http-util.js';
-import {
-  isReportLanguage,
-  REPORT_LANGUAGES,
-  type ReportComposeResult,
-  type ReportLanguage,
-} from '../flight/report-compose.js';
+import type { ReportComposeResult } from '../flight/report-compose.js';
 
 // A composed report's source note can run longer than an Ask question (it's
 // describing a bug, not asking one thing) but is still bounded — the same
@@ -37,21 +32,17 @@ const MAX_MODULE_SOURCE_CHARS = 200;
 export const REPORT_COMPOSE_RATE_LIMIT = 10;
 export const REPORT_COMPOSE_RATE_WINDOW_MS = 60_000;
 
-/** Compose one report from a free-text note (spends quota; injected).
- *  `language` is the report language the operator chose — composer
- *  language doctrine rule 2; undefined means the note's own. */
+/** Compose one report from a free-text note (spends quota; injected). */
 export type ReportComposeApi = (
   description: string,
   contextJson: string | undefined,
   moduleSources: readonly string[],
-  language: ReportLanguage | undefined,
 ) => Promise<ReportComposeResult>;
 
 interface ReportComposeInput {
   readonly description: string;
   readonly contextJson: string | undefined;
   readonly moduleSources: readonly string[];
-  readonly language: ReportLanguage | undefined;
 }
 type ReportComposeParseResult =
   | { readonly ok: true; readonly input: ReportComposeInput }
@@ -76,10 +67,8 @@ function parseModuleSources(value: unknown): readonly string[] | null {
  * CSRF guard + body validation for `/api/report/compose`: POST +
  * `application/json`, a non-blank `description` capped at
  * MAX_DESCRIPTION_CHARS, an optional `contextJson` (the captured page
- * context bundle) capped at MAX_CONTEXT_JSON_CHARS, an optional
- * `moduleSources` array, and an optional `language` that must name one of
- * the choosable report languages — same shape as `server/ask.ts`'s
- * `parseAskRequest`.
+ * context bundle) capped at MAX_CONTEXT_JSON_CHARS, and an optional
+ * `moduleSources` array — same shape as `server/ask.ts`'s `parseAskRequest`.
  */
 async function parseReportComposeRequest(req: IncomingMessage): Promise<ReportComposeParseResult> {
   if ((req.method ?? 'GET') !== 'POST') {
@@ -97,18 +86,15 @@ async function parseReportComposeRequest(req: IncomingMessage): Promise<ReportCo
   let description: string;
   let contextJson: string | undefined;
   let moduleSources: readonly string[] | null;
-  let language: unknown;
   try {
     const body = JSON.parse(raw) as {
       description?: unknown;
       contextJson?: unknown;
       moduleSources?: unknown;
-      language?: unknown;
     };
     description = typeof body.description === 'string' ? body.description : '';
     contextJson = typeof body.contextJson === 'string' ? body.contextJson : undefined;
     moduleSources = parseModuleSources(body.moduleSources);
-    language = body.language;
   } catch {
     return { ok: false, status: 400, body: { error: 'invalid JSON' } };
   }
@@ -140,22 +126,12 @@ async function parseReportComposeRequest(req: IncomingMessage): Promise<ReportCo
       },
     };
   }
-  if (language === undefined) {
-    return { ok: true, input: { description, contextJson, moduleSources, language } };
-  }
-  if (!isReportLanguage(language)) {
-    return {
-      ok: false,
-      status: 400,
-      body: { error: `language must be one of: ${REPORT_LANGUAGES.join(', ')}` },
-    };
-  }
-  return { ok: true, input: { description, contextJson, moduleSources, language } };
+  return { ok: true, input: { description, contextJson, moduleSources } };
 }
 
 /**
  * The compose endpoint (`POST /api/report/compose`, body `{description,
- * contextJson?, moduleSources?, language?}`). Spends quota (one tool-less model call),
+ * contextJson?, moduleSources?}`). Spends quota (one tool-less model call),
  * so it is CSRF-guarded and rate-limited like `/api/ask`, even though — like
  * `/api/report-from-here`'s preview — it never touches the store or `gh`: a
  * malformed note still returns 200 with a rejected {@link ReportComposeResult}
@@ -183,8 +159,10 @@ export async function handleReportCompose(
     return;
   }
   try {
-    const { description, contextJson, moduleSources, language } = parsed.input;
-    send(200, await api(description, contextJson, moduleSources, language));
+    send(
+      200,
+      await api(parsed.input.description, parsed.input.contextJson, parsed.input.moduleSources),
+    );
   } catch (error) {
     send(500, { error: error instanceof Error ? error.message : 'report compose failed' });
   }

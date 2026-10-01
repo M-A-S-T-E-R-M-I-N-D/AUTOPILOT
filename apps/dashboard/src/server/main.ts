@@ -1052,7 +1052,7 @@ const server = createServer({
   // second model-calling convention — this is project-agnostic (the note plus
   // captured page context is everything it reasons over), so unlike `ask` it
   // takes no projectId.
-  reportCompose: (description, contextJson, moduleSources, language) =>
+  reportCompose: (description, contextJson, moduleSources) =>
     composeReport(
       {
         invoke: async (prompt) => {
@@ -1068,7 +1068,6 @@ const server = createServer({
       description,
       contextJson,
       moduleSources,
-      language,
     ),
   // COMPOSER TARGET=TASKS (board web-mtq2m6la-ckpxm7): same tool-less
   // ask/service model-calling convention as `reportCompose` above, project-
