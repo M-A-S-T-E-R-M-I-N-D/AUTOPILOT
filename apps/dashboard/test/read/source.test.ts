@@ -240,6 +240,33 @@ describe('readFleet', () => {
     expect(kinds()).toEqual(expect.arrayContaining(['convergence-red', 'guard-denial']));
   });
 
+  it('a landing reconciles a sync-back refusal and an intent collision — both leave the panel (2026-10-01)', () => {
+    project('p1', 'alpha', 'flying');
+    const HOUR = 60 * 60 * 1000;
+    const now = 1_000 * HOUR;
+    const event = (type: string, payload: string, at: number) =>
+      store.db
+        .prepare(
+          `INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES ('p1', NULL, ?, ?, ?)`,
+        )
+        .run(type, payload, at);
+    event('sync-back-refusal', '{"details":"merge of fleet-4 failed: CONFLICT"}', now - 20 * HOUR);
+    event(
+      'intent-collision',
+      '{"file":"apps/dashboard/src/web/shell.ts","sibling":"fleet-4","intent":"editor"}',
+      now - 16 * HOUR,
+    );
+    const kinds = () => readFleet(store, now).projects[0]!.anomalies.map((a) => a.kind);
+    // Inside the 48 hours and no landing yet: both are live.
+    expect(kinds()).toEqual(expect.arrayContaining(['sync-back-refusal', 'intent-collision']));
+    event('landed', '{"details":"landed autopilot/flight onto main"}', now - 4 * HOUR);
+    expect(kinds()).not.toContain('sync-back-refusal');
+    expect(kinds()).not.toContain('intent-collision');
+    // A refusal after that landing is this round's, and shows.
+    event('sync-back-refusal', '{"details":"merge of fleet-2 failed: CONFLICT"}', now - HOUR);
+    expect(kinds()).toContain('sync-back-refusal');
+  });
+
   it('counts owned work — focused tasks carrying the claim contract marker (epic 0033 slice 2)', () => {
     project('p1', 'alpha', 'flying');
     task('t1', 'p1', 'Claimed issue', 'queued', 1, store, `#6\n${HUMAN_CLOSES_MARKER}`); // owned

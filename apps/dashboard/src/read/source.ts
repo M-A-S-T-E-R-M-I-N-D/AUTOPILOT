@@ -531,11 +531,11 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       warmSessions: warmSessionSavings(db, p.id),
       orientLengths: orientLengths(db, p.id),
       familyRunaways: parseFamilyRunaways(store, p.id),
-      intentCollisions: parseIntentCollisions(store, p.id),
       // Only live alarms reach the Health panel — see alarmCutoffs.
+      intentCollisions: parseIntentCollisions(store, p.id, cut.reconciled),
       nearMissRecurring: parseNearMissRecurring(store, p.id, cut.fresh),
       guardDenialEvents: parseGuardDenialEvents(store, p.id, cut.fresh),
-      syncBackRefusalEvents: parseSyncBackRefusalEvents(store, p.id, cut.fresh),
+      syncBackRefusalEvents: parseSyncBackRefusalEvents(store, p.id, cut.reconciled),
       landGateAlarmEvents: parseLandGateAlarmEvents(store, p.id, cut.sinceLanding),
       convergenceRedEvents: parseConvergenceRedEvents(store, p.id, cut.sinceLanding),
       convergenceUnverifiableEvents: parseConvergenceUnverifiableEvents(

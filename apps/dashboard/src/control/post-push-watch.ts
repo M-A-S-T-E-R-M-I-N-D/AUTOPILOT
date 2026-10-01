@@ -34,6 +34,8 @@ import {
   closeSupersededCiRedTasks,
   decidePostPushVerdict,
   filePostPushVerdictTask,
+  holdSupersededCiRedTasks,
+  retireHeldCiRedTasks,
   shouldSpawnRemediationFlight,
   type PostPushVerdictContext,
   type PostPushVerdictResult,
@@ -154,6 +156,25 @@ function recordWatchStarted(
           'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, NULL, ?, ?, ?)',
         )
         .run(projectId, WATCH_STARTED_EVENT, JSON.stringify({ rootPath, branch, sha }), Date.now());
+    } finally {
+      store.close();
+    }
+  } catch {
+    /* best-effort — the watch itself still runs */
+  }
+}
+
+/** A NEWER LANDING HOLDS THE RED IT IS ABOUT TO RE-JUDGE (2026-10-01):
+ *  before the first poll, every workable CI-red task an earlier landing on
+ *  this branch filed is deferred until this landing's run rules on it — the
+ *  fleet that launches the moment the landing returns otherwise spends a
+ *  lane refuting a red the run in flight is about to close (round 52,
+ *  fleet-4, $2.16). Synchronous and best-effort, like the start record. */
+function holdOlderCiRedTasks(dbPath: string, projectId: string, branch: string, sha: string): void {
+  try {
+    const store = openStore(dbPath);
+    try {
+      holdSupersededCiRedTasks(store, projectId, branch, sha, Date.now());
     } finally {
       store.close();
     }
@@ -331,6 +352,7 @@ export function createPostPushWatchTrigger(
 ): PostPushWatchTrigger {
   return (projectId, rootPath, branch, sha) => {
     recordWatchStarted(dbPath, projectId, rootPath, branch, sha);
+    holdOlderCiRedTasks(dbPath, projectId, branch, sha);
     void (async () => {
       try {
         const outcome = await watchPostPushCi({ projectId, branch, sha }, () =>
@@ -353,6 +375,11 @@ export function createPostPushWatchTrigger(
           // A GREEN LANDING CLOSES THE RED IT OUTLIVED (2026-09-30).
           closeSupersededCiRedTasks(store, projectId, branch, outcome.status, Date.now());
           const taskFiled = filePostPushVerdictTask(store, outcome.verdict);
+          // A red retires the reds this landing held: the fresh task is the
+          // live evidence now (2026-10-01).
+          if (outcome.verdict.kind === 'remediate') {
+            retireHeldCiRedTasks(store, projectId, branch, sha, Date.now());
+          }
           if (spawnFlight && outcome.verdict.kind === 'remediate') {
             const projectStatus =
               listProjects(store.db).find((p) => p.id === projectId)?.status ?? null;
