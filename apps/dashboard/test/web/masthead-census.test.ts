@@ -91,6 +91,17 @@ describe('masthead census (EPIC 0017 slice 1/5) — pins every existing control 
     expect(masthead).toContain('id="gh-issue-result"');
   });
 
+  it("gives the issue-report note, title and body fields the reporter's own script direction", () => {
+    // Composer language doctrine, rule 1: the note is typed in the reporter's
+    // language and Compose fills the title/body in that same language, so a
+    // Hebrew report reads right to left even on an English page.
+    for (const id of ['gh-issue-note', 'gh-issue-title', 'gh-issue-body']) {
+      const tag = masthead.match(new RegExp(`<(?:input|textarea)\\b[^>]*\\bid="${id}"[^>]*>`))?.[0];
+      expect(tag, id).toBeDefined();
+      expect(tag, id).toContain('dir="auto"');
+    }
+  });
+
   it('renders the theme switcher as its own labeled nav landmark', () => {
     expect(masthead).toContain('aria-label="Theme"');
     expect(masthead).toContain('data-i18n-aria="themeNav"');

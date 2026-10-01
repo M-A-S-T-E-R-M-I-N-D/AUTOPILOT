@@ -5614,12 +5614,12 @@ ${versionMenuHtml()}
             <summary class="gh-report-summary">${iconSvg('chevron-right', 'gh-report-chevron')}<span data-i18n="reportBugLabel">Report a bug or request a feature upstream</span></summary>
             <form class="gh-issue-form" id="gh-issue-form">
               <label for="gh-issue-note" data-i18n="reportComposeNoteLabel">Or describe it in your own words — Compose writes the title and body for you</label>
-              <textarea id="gh-issue-note" name="note" placeholder="What happened, or what you wish existed…" data-i18n-placeholder="reportComposeNotePlaceholder" rows="2"></textarea>
+              <textarea id="gh-issue-note" name="note" placeholder="What happened, or what you wish existed…" data-i18n-placeholder="reportComposeNotePlaceholder" rows="2" dir="auto"></textarea>
               <button type="button" id="gh-issue-compose" data-i18n="reportComposeButton">Compose</button>
               <p class="gh-issue-compose-status" id="gh-issue-compose-status" role="status" aria-live="polite"></p>
               <label for="gh-issue-title" class="visually-hidden" data-i18n="titleLabel">Title</label>
-              <input type="text" id="gh-issue-title" name="title" placeholder="Title" data-i18n-placeholder="titlePlaceholder" autocomplete="off" required />
-              <textarea id="gh-issue-body" name="body" placeholder="Details (optional)" data-i18n-placeholder="detailsOptionalPlaceholder" rows="3"></textarea>
+              <input type="text" id="gh-issue-title" name="title" placeholder="Title" data-i18n-placeholder="titlePlaceholder" autocomplete="off" required dir="auto" />
+              <textarea id="gh-issue-body" name="body" placeholder="Details (optional)" data-i18n-placeholder="detailsOptionalPlaceholder" rows="3" dir="auto"></textarea>
               <label for="gh-issue-action" data-i18n="reportActionPrompt">One click files a…</label>
               <select id="gh-issue-action" name="action"></select>
               <button type="submit" data-i18n="openGithubIssue">Open GitHub issue</button>
