@@ -12,6 +12,7 @@ import {
 } from '../../src/adapters/gemini-cli.js';
 import {
   CLI_STDIN_PROMPT_THRESHOLD,
+  DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
 
@@ -650,9 +651,9 @@ describe('isGeminiResumeFailure', () => {
     }
   });
 
-  it('never fires once the CLI wrote an output object: the run got past the resume', () => {
-    const envelope = parseGeminiJsonOutput(
-      pretty({ session_id: SESSION, error: { message: 'bad input', code: 42 } }),
+  it('never fires once the CLI wrote a result: the run got past the resume', () => {
+    const envelope = parseGeminiStreamJsonOutput(
+      jsonl(INIT, { type: 'result', status: 'error', error: { message: 'bad input' } }),
       42,
       'gemini-2.5-pro',
     ).envelope;
@@ -688,21 +689,22 @@ describe('GeminiCliModel', () => {
     return (execFileMock.mock.calls[0] as [string, string[]])[1];
   }
 
-  it('resolves the parsed envelope from a clean run', async () => {
-    const stdout = pretty({
-      session_id: SESSION,
-      response: 'done',
-      stats: stats({ 'gemini-2.5-pro': modelMetrics({ input: 10, candidates: 3 }) }),
-    });
+  it('resolves the parsed envelope from a clean stream-json run', async () => {
+    const stdout = jsonl(
+      INIT,
+      { type: 'message', role: 'assistant', content: 'done', delta: true },
+      { type: 'result', status: 'success', stats: streamStats({ 'gemini-2.5-pro': PRO_TOKENS }) },
+    );
     mockExecFileResult(null, stdout);
 
     const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
 
-    expect(res).toEqual(parseGeminiJsonOutput(stdout, 0, 'gemini-2.5-pro'));
+    expect(res).toEqual(parseGeminiStreamJsonOutput(stdout, 0, 'gemini-2.5-pro'));
     expect(res.sessionId).toBe(SESSION);
+    expect(res.envelope).toMatchObject({ isError: false, result: 'done', tokensIn: 1_200 });
   });
 
-  it('spawns the default "gemini" binary headless with JSON output, the model, yolo approval, and the prompt last', async () => {
+  it('spawns the default "gemini" binary headless with stream-json output, the model, yolo approval, and the prompt last', async () => {
     mockExecFileResult(null, '');
 
     await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
@@ -718,7 +720,9 @@ describe('GeminiCliModel', () => {
     ];
     expect(binary).toBe('gemini');
     expect(args[args.indexOf('--model') + 1]).toBe('gemini-2.5-pro');
-    expect(args[args.indexOf('--output-format') + 1]).toBe('json');
+    // stream-json prints each event as it happens, so the idle cap has stdout
+    // to watch; json writes its one object only when the run ends.
+    expect(args[args.indexOf('--output-format') + 1]).toBe('stream-json');
     expect(args[args.indexOf('--approval-mode') + 1]).toBe('yolo');
     expect(args).not.toContain('--resume');
     expect(args).not.toContain('--skip-trust');
@@ -863,7 +867,7 @@ describe('GeminiCliModel', () => {
       expect(binary).toBe('cmd.exe');
       expect(args.slice(0, 2)).toEqual(['/c', 'gemini']);
       expect(args[args.indexOf('--model') + 1]).toBe('gemini-2.5-pro');
-      expect(args[args.indexOf('--output-format') + 1]).toBe('json');
+      expect(args[args.indexOf('--output-format') + 1]).toBe('stream-json');
     });
 
     it("puts even a short prompt on stdin, never --prompt, so no prompt text ever reaches cmd.exe's own parser", async () => {
@@ -914,7 +918,14 @@ describe('GeminiCliModel', () => {
     });
 
     it('never hands cmd.exe a resume id carrying its syntax: that run is refused, and the cold retry goes without it', async () => {
-      mockExecFileResult(null, pretty({ session_id: SESSION, response: 'done' }));
+      mockExecFileResult(
+        null,
+        jsonl(
+          INIT,
+          { type: 'message', role: 'assistant', content: 'done', delta: true },
+          { type: 'result', status: 'success' },
+        ),
+      );
 
       const res = await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
         'gemini-2.5-pro',
@@ -1002,16 +1013,23 @@ describe('GeminiCliModel', () => {
     ).toBe(env);
   });
 
-  it('reads a fatal error object off stderr and keeps the numeric exit code', async () => {
-    const stderr = `[ERROR] ${pretty({
-      session_id: SESSION,
-      error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns', code: 53 },
-    })}\n`;
-    mockExecFileResult(Object.assign(new Error('exit 53'), { code: 53 }), '', stderr);
+  it('reads a fatal error off its stdout result event, never the feedback text on stderr, and keeps the numeric exit code', async () => {
+    // stream-json writes a fatal error as a `result` on stdout (errors.ts);
+    // only JSON mode moved its error object to stderr.
+    const stdout = jsonl(INIT, {
+      type: 'result',
+      status: 'error',
+      error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns' },
+    });
+    mockExecFileResult(
+      Object.assign(new Error('exit 53'), { code: 53 }),
+      stdout,
+      'Reached max session turns\n',
+    );
 
     const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
 
-    expect(res).toEqual(parseGeminiJsonOutput('', 53, 'gemini-2.5-pro', stderr));
+    expect(res).toEqual(parseGeminiStreamJsonOutput(stdout, 53, 'gemini-2.5-pro'));
     expect(res.exitCode).toBe(53);
     expect(res.envelope).toMatchObject({ isError: true, result: 'Reached max session turns' });
   });
@@ -1111,7 +1129,12 @@ describe('GeminiCliModel', () => {
 
   describe('resume fallback and resumed telemetry (epic 0009 parity with ClaudeCliModel)', () => {
     const COLD_SESSION = '9e8d7c6b-5a49-4382-b1c0-ffffffffffff';
-    const DONE = (sessionId: string): string => pretty({ session_id: sessionId, response: 'done' });
+    const DONE = (sessionId: string): string =>
+      jsonl(
+        { ...INIT, session_id: sessionId },
+        { type: 'message', role: 'assistant', content: 'done', delta: true },
+        { type: 'result', status: 'success' },
+      );
     // What `SessionError.invalidSessionIdentifier` says (sessionUtils.ts): text,
     // never an output object, even though it carries braces.
     const REJECTED =
@@ -1179,12 +1202,13 @@ describe('GeminiCliModel', () => {
       expect(res.resumed).toBe(false);
     });
 
-    it('never retries a resumed run that failed later: the session its error names proves the resume took', async () => {
-      const stderr = `[ERROR] ${pretty({
-        session_id: SESSION,
-        error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns', code: 53 },
-      })}\n`;
-      mockExecFileRuns([exitWith(53), '', stderr]);
+    it('never retries a resumed run that failed later: the session its init names proves the resume took', async () => {
+      const stdout = jsonl(INIT, {
+        type: 'result',
+        status: 'error',
+        error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns' },
+      });
+      mockExecFileRuns([exitWith(53), stdout]);
 
       const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
         'gemini-2.5-pro',
@@ -1276,6 +1300,144 @@ describe('GeminiCliModel', () => {
 
       expect(res.exitCode).toBe(1);
       expect('timedOut' in res).toBe(false);
+    });
+  });
+
+  describe('idle cap — a silent child is killed long before the wall clock (CodexCliModel parity)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /** A child that stays alive until killed: `kill()` settles execFile's
+     *  callback the way a real kill does (err.killed, no result), and
+     *  `stdout` is the stream the adapter watches for signs of life. */
+    function mockLiveChild(stdoutSoFar: string): {
+      readonly kill: ReturnType<typeof vi.fn>;
+      readonly stdout: EventEmitter & { destroy: ReturnType<typeof vi.fn> };
+      readonly stderrDestroy: ReturnType<typeof vi.fn>;
+      readonly exitCleanly: (out: string) => void;
+    } {
+      const stdout = Object.assign(new EventEmitter(), { destroy: vi.fn() });
+      const stderrDestroy = vi.fn();
+      let settle: ExecFileCallback = () => undefined;
+      const kill = vi.fn(() => {
+        queueMicrotask(() =>
+          settle(Object.assign(new Error('killed'), { killed: true, code: 1 }), stdoutSoFar, ''),
+        );
+        return true;
+      });
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        settle = args[args.length - 1] as ExecFileCallback;
+        return {
+          pid: 4321,
+          stdout,
+          stderr: { destroy: stderrDestroy },
+          kill,
+          stdin: Object.assign(new EventEmitter(), { end: stdinEnd }),
+        };
+      });
+      return { kill, stdout, stderrDestroy, exitCleanly: (out) => settle(null, out, '') };
+    }
+
+    const TOOL_USE = {
+      type: 'tool_use',
+      tool_name: 'run_shell_command',
+      tool_id: 't1',
+      parameters: {},
+    };
+
+    it('kills a child silent for DEFAULT_CLI_IDLE_TIMEOUT_MS and reports it timedOut, keeping the init session resumable', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild(jsonl(INIT, TOOL_USE));
+
+      const pending = new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+      await vi.advanceTimersByTimeAsync(DEFAULT_CLI_IDLE_TIMEOUT_MS - 1);
+      expect(child.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      // Asserted before awaiting: without the cap the promise never settles.
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      const res = await pending;
+
+      expect(DEFAULT_CLI_IDLE_TIMEOUT_MS).toBeLessThan(DEFAULT_CLI_TIMEOUT_MS);
+      expect(res.timedOut).toBe(true);
+      expect(res.envelope).toBeNull();
+      expect(res.sessionId).toBe(SESSION);
+    });
+
+    it("closes its end of the pipes before the kill, as execFile's own timeout does: behind cmd.exe the node shim outlives the kill and holds them open", async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild('');
+
+      const pending = new GeminiCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        idleTimeoutMs: 1000,
+      }).invoke('gemini-2.5-pro', 'do it');
+      await vi.advanceTimersByTimeAsync(1000);
+      await pending;
+
+      const killedAt = child.kill.mock.invocationCallOrder[0] ?? 0;
+      expect(child.stdout.destroy.mock.invocationCallOrder[0]).toBeLessThan(killedAt);
+      expect(child.stderrDestroy.mock.invocationCallOrder[0]).toBeLessThan(killedAt);
+    });
+
+    it('re-arms on every stdout chunk: a child that keeps streaming events is never idle-killed', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild('');
+      const done = jsonl(
+        INIT,
+        { type: 'message', role: 'assistant', content: 'done', delta: true },
+        { type: 'result', status: 'success' },
+      );
+
+      const pending = new GeminiCliModel({ repo: '/work/sbx', idleTimeoutMs: 1000 }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+      for (let i = 0; i < 5; i += 1) {
+        await vi.advanceTimersByTimeAsync(900);
+        child.stdout.emit('data', '{"type":"message","role":"assistant","delta":true}\n');
+      }
+      child.exitCleanly(done);
+      const res = await pending;
+
+      expect(child.kill).not.toHaveBeenCalled();
+      expect('timedOut' in res).toBe(false);
+      expect(res.envelope).toMatchObject({ isError: false, result: 'done' });
+    });
+
+    it('disarms once the child settles: a finished run leaves no timer behind to kill a dead pid', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild('');
+
+      const pending = new GeminiCliModel({ repo: '/work/sbx', idleTimeoutMs: 1000 }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+      child.exitCleanly('');
+      await pending;
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(child.kill).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("never retries a resume the idle cap killed: its exit is not the CLI's unknown-session 42, and a hung CLI would only hang again", async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild('');
+
+      const pending = new GeminiCliModel({ repo: '/work/sbx', idleTimeoutMs: 1000 }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        SESSION,
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      const res = await pending;
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      expect(res.timedOut).toBe(true);
+      expect('resumed' in res).toBe(false);
     });
   });
 });
