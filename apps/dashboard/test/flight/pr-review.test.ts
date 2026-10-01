@@ -1497,6 +1497,16 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['.github/branch-protection.json'])).toBe(true);
   });
 
+  it(".github/TRUSTED-CONTRIBUTORS.md is where standing is granted: CONTRIBUTOR-STANDING.md says nothing is auto-approved and a row lands only after the maintainer decides, so a green PR adding its author's row would be an auto-verdict, and it queues for a human", () => {
+    expect(touchesSecuritySensitivePath(['.github/TRUSTED-CONTRIBUTORS.md'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['.github/trusted-contributors.md'])).toBe(true);
+    // Path-anchored: the registry's read-only parser stays the benign
+    // module the unflagged list above records it as.
+    expect(
+      touchesSecuritySensitivePath(['apps/dashboard/src/flight/contributor-registry.ts']),
+    ).toBe(false);
+  });
+
   it('flags the connection module that persists API-key/OAuth-token credentials, even without a security-keyword path', () => {
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/connection/config.ts'])).toBe(true);
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/connection/login.ts'])).toBe(true);

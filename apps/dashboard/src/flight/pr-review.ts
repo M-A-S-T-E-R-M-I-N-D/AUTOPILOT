@@ -784,6 +784,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   '.github/workflows',
   'codeowners',
   'branch-protection',
+  // The standing registry (`.github/TRUSTED-CONTRIBUTORS.md`): a row here is
+  // a granted tier, and CONTRIBUTOR-STANDING.md promises nothing is
+  // auto-approved, the maintainer decides first. A green PR adding its
+  // author's own row would otherwise be planned for auto-merge, so it
+  // queues for a human. Path-anchored: the read-only parser
+  // (`flight/contributor-registry.ts`) stays unflagged.
+  '.github/trusted-contributors.md',
   'connection',
   'server',
   'landing/',
