@@ -80,6 +80,22 @@ beside `onActivity`/`onText`: `buildClaudeArgs`, the `--resume` placement after 
 flag, `isResumeFailure`'s cold retry, and the cost/turn measurement are untouched, and it fires
 identically on a resumed or a cold invocation.
 
+**2026-10-01 observed turns and clock (bears on the measurement):** `453ead5a` made
+`StreamingClaudeCliModel` report what it saw beside the envelope — `ModelResponse.observed`
+(`ports.ts`): the assistant turns it counted on the wire and its own wall clock — and `firing.ts`'s
+`envelopeFacts` now records the larger of the envelope's `num_turns`/`duration_ms` and the observed
+figure (`atLeast`, doctrine row 83). Unlike the two entries above, this one reaches the cost/turn
+measurement: `metrics.turns` is the denominator of the per-firing `cost_usd / turns` ratio that both
+`warmSessionSavings` and `extendedFiringSavings` average into `avgCostPerTurn`, and an envelope
+reading `num_turns: 1` (the shape context compaction leaves near the end of a long session; six known
+records, one a fourteen-minute, 117-tool-call, $5.94 firing) made that firing's whole cost count as
+the cost of a single turn. Rows recorded before the fix are not rewritten, and the non-streaming
+`ClaudeCliModel` reports no `observed` figures, so its records still take the envelope as given. An
+extended firing is a near-cap session resumed, the long-session shape that envelope came from, so
+item (1)'s re-read should draw on records made after `453ead5a`, or treat a one-turn row whose cost
+says otherwise as suspect. `buildClaudeArgs`, the `--resume` placement and `isResumeFailure`'s cold
+retry are untouched.
+
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`
 in `packages/engine/src/adapters/claude-cli.ts`, via `buildClaudeArgs`) with no continuity from the
