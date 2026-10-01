@@ -3126,13 +3126,17 @@ function tasksSection(c) {
         handle.setAttribute('data-i18n-tip', 'taskDragTip');
         li.appendChild(handle);
         // Reorder controls — the accessible primary (keyboard-first; no-DnD-quirks).
-        var up = el('button', 'task-move', '↑');
+        // Epic 0025: each face is a vendored arrow stroke (was a ↑/↓ glyph);
+        // the aria-label below is its only name.
+        var up = el('button', 'task-move');
+        up.appendChild(iconEl('arrow-up'));
         up.setAttribute('type', 'button');
         up.setAttribute('data-task-move', 'up');
         var upTip = taskMoveTip('up', t.title, openIdx, openCount);
         up.setAttribute('data-tip', upTip);
         up.setAttribute('aria-label', upTip);
-        var down = el('button', 'task-move', '↓');
+        var down = el('button', 'task-move');
+        down.appendChild(iconEl('arrow-down'));
         down.setAttribute('type', 'button');
         down.setAttribute('data-task-move', 'down');
         var downTip = taskMoveTip('down', t.title, openIdx, openCount);
