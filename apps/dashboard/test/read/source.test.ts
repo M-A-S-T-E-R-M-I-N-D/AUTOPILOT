@@ -1069,7 +1069,10 @@ describe('readSearchFromStore', () => {
   it('degrades to no hits when the store throws (unmigrated DB)', () => {
     const { dir, dbPath } = unmigratedDbPath('ap-dash-search-bad-');
     try {
-      expect(readSearchFromStore(dbPath, 'p1', 'q', 5)).toEqual([]);
+      // 'q' is below MIN_TOKEN_LEN (3): buildMatchExpression would return null
+      // and short-circuit before ever touching the DB, so this needs a real
+      // token to actually reach — and throw against — the unmigrated table.
+      expect(readSearchFromStore(dbPath, 'p1', 'query', 5)).toEqual([]);
     } finally {
       cleanupDir(dir);
     }
@@ -1371,7 +1374,11 @@ describe('gatherAskSources', () => {
   it('degrades to [] when the store throws (unmigrated DB)', () => {
     const { dir, dbPath } = unmigratedDbPath('ap-dash-ask-bad-');
     try {
-      expect(gatherAskSources(dbPath, 'p1', 'q')).toEqual([]);
+      // 'q' is below MIN_TOKEN_LEN (3) and would short-circuit in
+      // buildMatchExpression before ever touching the DB (see the identical
+      // note on readSearchFromStore's version of this test) — use a real
+      // token so this actually reaches, and throws against, the unmigrated table.
+      expect(gatherAskSources(dbPath, 'p1', 'query')).toEqual([]);
     } finally {
       cleanupDir(dir);
     }
