@@ -27,6 +27,7 @@ import {
   prDiffStat,
   prUnlistedFilesNote,
   humanMergeReadiness,
+  humanMergeConfirmMessage,
 } from '../../src/web/pr-review-panel.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 import { ICON_NAMES } from '../../src/web/icons.js';
@@ -435,6 +436,20 @@ describe('humanMergeReadiness — the button says what the server would', () => 
     };
     expect(humanMergeReadiness(red).reason).toContain('1 check failed');
     expect(humanMergeReadiness(red).behindBase).toBeUndefined();
+  });
+
+  // Board ap-mupwnzg5-0: the server's merge no longer passes `--delete-branch`
+  // (KEEPER 4/7 parity), so neither the button's tip nor its confirm may
+  // promise a deletion the click will not make.
+  it('promises a squash-merge and nothing it will not do to the branch', () => {
+    const tip = humanMergeReadiness(ALL_GREEN).reason;
+    const confirm = humanMergeConfirmMessage(ALL_GREEN);
+
+    expect(tip).toContain('Squash-merge #33');
+    expect(tip).not.toMatch(/delet/i);
+    expect(confirm).toContain('Squash-merges into the default branch');
+    expect(confirm).toContain('stays on GitHub');
+    expect(confirm).not.toMatch(/deletes/i);
   });
 });
 
