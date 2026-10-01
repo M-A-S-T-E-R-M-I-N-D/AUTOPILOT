@@ -31,8 +31,10 @@
  * merge leave identical history, and pinned like it with
  * `--match-head-commit` to the head those checks were read on, so a push
  * that lands after the read makes gh refuse rather than merge commits nobody
- * verified. Unlike the ritual's merge it also passes `--delete-branch`
- * (epic 0007's KEEPER 4/7 note says what that flag does to a local checkout).
+ * verified. Like the ritual's merge it never passes `--delete-branch` (epic
+ * 0007's KEEPER 4/7 note): gh runs in the dashboard's own checkout, and that
+ * flag also checks out the base there and force-deletes a local branch of the
+ * same name. The PR's branch stays on GitHub for the maintainer to remove.
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
@@ -306,7 +308,6 @@ export function createHumanMergeApi(exec: CliExec = ghExec): HumanMergeApi {
       'merge',
       String(number),
       '--squash',
-      '--delete-branch',
       ...(verifiedHead === undefined ? [] : ['--match-head-commit', verifiedHead]),
     ]);
     if (code !== 0) {
@@ -319,7 +320,7 @@ export function createHumanMergeApi(exec: CliExec = ghExec): HumanMergeApi {
     }
     return {
       merged: true,
-      reason: `#${number} squash-merged and its branch deleted.`,
+      reason: `#${number} squash-merged. Its branch stays on GitHub — delete it there when you are done.`,
       code,
       ...(pr ? { pr } : {}),
     };

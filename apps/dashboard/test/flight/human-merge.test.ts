@@ -25,7 +25,7 @@ import {
   runIdFromCheckUrl,
   judgeHumanMerge,
 } from '../../src/flight/human-merge.js';
-import type { PrReviewCandidate } from '../../src/flight/pr-review.js';
+import { planPrReviewCommands, type PrReviewCandidate } from '../../src/flight/pr-review.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 const GREEN: PrReviewCandidate = {
@@ -183,7 +183,7 @@ function execReturningRaw(pr: PrReviewCandidate, calls: string[][]): CliExec {
 }
 
 describe('createHumanMergeApi — only a click can cause a merge', () => {
-  it('squash-merges and deletes the branch when everything re-verifies', async () => {
+  it('squash-merges, pinned to the verified head, when everything re-verifies', async () => {
     const calls: string[][] = [];
     const merge = createHumanMergeApi(execReturning([GREEN], calls));
 
@@ -197,7 +197,6 @@ describe('createHumanMergeApi — only a click can cause a merge', () => {
       'merge',
       '33',
       '--squash',
-      '--delete-branch',
       '--match-head-commit',
       'abc123',
     ]);
@@ -282,7 +281,7 @@ describe('createHumanMergeApi — only a click can cause a merge', () => {
     expect(result).toMatchObject({
       merged: true,
       code: 0,
-      reason: '#33 squash-merged and its branch deleted.',
+      reason: '#33 squash-merged. Its branch stays on GitHub — delete it there when you are done.',
     });
     expect(result.pr?.number).toBe(33);
   });
@@ -821,8 +820,8 @@ describe('the human merge pins the head it verified (regression, epic 0019 addit
   const mergeArgs = (calls: readonly string[][]): readonly string[] | undefined =>
     calls.find((c) => c[1] === 'pr' && c[2] === 'merge');
 
-  // The exact argv for the usual case is pinned in "squash-merges and deletes
-  // the branch" above; these cover where the pinned head comes from.
+  // The exact argv for the usual case is pinned in "squash-merges, pinned to
+  // the verified head" above; these cover where the pinned head comes from.
   it('pins the live head even when the operator sent no head of their own', async () => {
     const calls: string[][] = [];
 
@@ -849,7 +848,7 @@ describe('the human merge pins the head it verified (regression, epic 0019 addit
 
     await createHumanMergeApi(execReturning([noHead], calls))(33, undefined);
 
-    expect(mergeArgs(calls)).toEqual(['gh', 'pr', 'merge', '33', '--squash', '--delete-branch']);
+    expect(mergeArgs(calls)).toEqual(['gh', 'pr', 'merge', '33', '--squash']);
   });
 
   it('reports a merge gh refused because the head moved after the read, and merges nothing', async () => {
@@ -869,5 +868,59 @@ describe('the human merge pins the head it verified (regression, epic 0019 addit
     const result = await createHumanMergeApi(movedSinceRead)(33, 'abc123');
 
     expect(result).toMatchObject({ merged: false, code: 1 });
+  });
+});
+
+// EPIC 0019 additive-only law (board ap-mupwnzg5-0): the KEEPER ritual's merge
+// stopped passing `--delete-branch` (KEEPER 4/7), because gh then also checks
+// out the base in the checkout it runs from and force-deletes a local branch
+// of the same name. The maintainer's merge runs `gh` in that same checkout and
+// kept the flag, so merging a PR whose branch existed locally could switch the
+// dashboard's own checkout to the base and delete the branch. These pin the
+// two merges to one argv and keep the button's words to what it does.
+describe('the human merge leaves every branch where it is (regression, epic 0019 additive-only law)', () => {
+  const mergeArgs = (calls: readonly string[][]): readonly string[] | undefined =>
+    calls.find((c) => c[1] === 'pr' && c[2] === 'merge');
+  const { headRefOid: _head, ...noHead } = GREEN;
+
+  it("merges with exactly the argv the KEEPER ritual's own merge uses", async () => {
+    const calls: string[][] = [];
+    const ritualMerge = planPrReviewCommands(GREEN, { decision: 'merge', reasoning: 'green' }).find(
+      (command) => command.args[1] === 'merge',
+    );
+
+    await createHumanMergeApi(execReturning([GREEN], calls))(33, 'abc123');
+
+    expect(ritualMerge?.args).toEqual([
+      'pr',
+      'merge',
+      '33',
+      '--squash',
+      '--match-head-commit',
+      'abc123',
+    ]);
+    expect(mergeArgs(calls)?.slice(1)).toEqual(ritualMerge?.args);
+  });
+
+  it.each([
+    ['the live head', GREEN, 'abc123'],
+    ["the operator's head", noHead, 'abc123'],
+    ['no head at all', noHead, undefined],
+  ] as const)('never asks gh to delete a branch when pinned to %s', async (_case, pr, head) => {
+    const calls: string[][] = [];
+
+    const result = await createHumanMergeApi(execReturning([pr], calls))(33, head);
+
+    expect(result.merged).toBe(true);
+    expect(mergeArgs(calls)).not.toContain('--delete-branch');
+    expect(mergeArgs(calls)).not.toContain('-d');
+  });
+
+  it('reports the merge without claiming a branch was deleted', async () => {
+    const result = await createHumanMergeApi(execReturning([GREEN], []))(33, 'abc123');
+
+    expect(result.merged).toBe(true);
+    expect(result.reason).not.toMatch(/deleted/i);
+    expect(result.reason).toContain('stays on GitHub');
   });
 });
