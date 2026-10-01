@@ -34,6 +34,7 @@ import {
   unpinTasksInStore,
   lastGateRun,
   readLastGateRunInStore,
+  readProjectGateConfigInStore,
 } from '../../src/read/mutate.js';
 import { readFleetFromStore } from '../../src/read/source.js';
 
@@ -1202,6 +1203,41 @@ describe('lastGateRun — the flight plan outcomes', () => {
         checks: [{ label: 'tests', pass: true, durationMs: 7 }],
       });
       expect(readLastGateRunInStore(dbPath, 'p3')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('readProjectGateConfigInStore', () => {
+  it('returns undefined for a missing DB', () => {
+    expect(readProjectGateConfigInStore(join(tmpdir(), 'nope', 'missing.db'), 'p1')).toBe(
+      undefined,
+    );
+  });
+
+  it('tells an unknown project (undefined) apart from one with no plan stored (null)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-gate-cfg-'));
+    const dbPath = join(dir, 'a.db');
+    const plan = JSON.stringify({ commands: ['pnpm run typecheck', 'pnpm run test'] });
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'alpha', 'flying', plan, s);
+      project('p2', 'beta', 'flying', null, s);
+      s.close();
+      expect(readProjectGateConfigInStore(dbPath, 'p1')).toBe(plan);
+      expect(readProjectGateConfigInStore(dbPath, 'p2')).toBeNull();
+      expect(readProjectGateConfigInStore(dbPath, 'p3')).toBe(undefined);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('degrades to undefined when the store throws (unmigrated DB)', () => {
+    const { dir, dbPath } = unmigratedDbPath('ap-dash-gate-cfg-bad-');
+    try {
+      expect(readProjectGateConfigInStore(dbPath, 'p1')).toBe(undefined);
     } finally {
       cleanupDir(dir);
     }
