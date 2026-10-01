@@ -138,7 +138,7 @@ describe('parseArchitectProposal', () => {
     const answer =
       fenced('{"tool":"tasks_list","args":{"projectId":"p1"}}') +
       '\n\n' +
-      fenced('{"tool":"tasks_delete","args":{"taskId":"t1"}}');
+      fenced('{"tool":"tasks_delete","args":{"taskId":"t1","projectId":"p1"}}');
     const result = parseArchitectProposal(answer);
     expect(result.proposal?.tool).toBe('tasks_list');
     expect(result.prose).toContain('tasks_delete');
