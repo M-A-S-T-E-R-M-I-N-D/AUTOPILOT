@@ -946,6 +946,35 @@ describe('runFiring', () => {
     expect(kept.record.durationMs).toBe(1000);
   });
 
+  it('records zero observed turns and the real elapsed time for a firing that died before its first turn', async () => {
+    const model = new FakeModel([
+      response({
+        envelope: null,
+        exitCode: 1,
+        stdout: 'boom',
+        observed: { turns: 0, elapsedMs: 4200 },
+      }),
+    ]);
+    const out = await runFiring(
+      deps(model, new FakeVcs({ heads: ['h0'] }), new FakeGate(true), new FakeStore()),
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+    expect(out.record.numTurns).toBe(0);
+    expect(out.record.durationMs).toBe(4200);
+  });
+
+  it('keeps turns and duration null, never undefined, when neither envelope nor driver reported them', async () => {
+    const model = new FakeModel([response({ envelope: null, exitCode: 1, stdout: 'boom' })]);
+    const out = await runFiring(
+      deps(model, new FakeVcs({ heads: ['h0'] }), new FakeGate(true), new FakeStore()),
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+    expect(out.record.numTurns).toBeNull();
+    expect(out.record.durationMs).toBeNull();
+  });
+
   it('DEATH-COST: a checkpoint death still records the real observed turns/tokens, not $0/0 (docs/EVALUATION-2026-08.md §3.6)', async () => {
     const model = new FakeModel([
       response({
